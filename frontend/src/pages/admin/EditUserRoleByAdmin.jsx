@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   ShieldCheck, RefreshCcw, UserCog,
-  Warehouse, AlertCircle, Save, X, Trash2,
+  Warehouse, AlertCircle, Save, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import AssignWarehousePermissionModal from "@/components/admin/AssignWarehousePermissionModal";
@@ -220,7 +220,6 @@ export default function UserPermissionEditByAdmin() {
             <div className="space-y-4">
               {userWarehouses.map((item) => {
                 const kho = item.kho || {};
-                const isManager = Number(item.laQuanLyKho) === 1;
                 const active = Number(kho.trangThai) === 1;
                 const permissions = item.chiTietQuyenKhos || [];
 
@@ -256,11 +255,6 @@ export default function UserPermissionEditByAdmin() {
                         >
                           {active ? "Hoạt động" : "Tạm khóa"}
                         </Badge>
-                        {isManager && (
-                          <Badge className="bg-bo-primary hover:bg-bo-primary-hover">
-                            Quản lý chính
-                          </Badge>
-                        )}
                       </div>
                     </div>
 
@@ -298,7 +292,6 @@ export default function UserPermissionEditByAdmin() {
             onClick={() => navigate("/users")}
             className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
           >
-            <X className="mr-2 h-4 w-4" />
             Hủy
           </Button>
           <Button
@@ -316,9 +309,7 @@ export default function UserPermissionEditByAdmin() {
         </div>
       </form>
 
-      <p className="pt-4 text-center text-xs italic text-bo-muted">
-        Dữ liệu được lưu vào bảng: nguoi_dung, phan_quyen_nguoi_dung_kho
-      </p>
+     
 
       <AssignWarehousePermissionModal
         open={showAssignModal}
