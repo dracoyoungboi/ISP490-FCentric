@@ -312,11 +312,7 @@ export default function ViewUserDetailByAdmin() {
                                                     variant="secondary"
                                                     className="border-bo-border bg-bo-surface-subtle text-bo-foreground hover:bg-slate-100"
                                                 >
-                                                    {item.vaiTroTaiKho
-                                                        ? item.vaiTroTaiKho.replaceAll("_", " ")
-                                                        : item.laQuanLyKho === 1
-                                                            ? "Quản lý"
-                                                            : "Nhân viên"}
+                                                    {roleLabel}
                                                 </Badge>
                                             </TableCell>
 

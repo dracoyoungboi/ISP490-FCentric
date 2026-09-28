@@ -73,7 +73,6 @@ export default function AssignWarehousePermissionModal({
         diaChi: warehouse.diaChi,
         trangThai: warehouse.trangThai,
         isSelected: false,
-        isManager: false,
     });
 
     const loadWarehouses = useCallback(
@@ -178,26 +177,11 @@ export default function AssignWarehousePermissionModal({
                     return {
                         ...warehouse,
                         isSelected: !warehouse.isSelected,
-                        isManager: warehouse.isSelected ? false : warehouse.isManager,
                     };
                 }
                 // Đơn chọn: mỗi người dùng chỉ được phân quyền tối đa 1 kho.
                 return warehouse.isSelected ? { ...warehouse, isSelected: false } : warehouse;
             })
-        );
-    };
-
-    const toggleWarehouseManager = (warehouseId) => {
-        if (lockedAssignment) return;
-        setWarehouses((prev) =>
-            prev.map((warehouse) =>
-                warehouse.id === warehouseId
-                    ? {
-                        ...warehouse,
-                        isManager: !warehouse.isManager,
-                    }
-                    : warehouse
-            )
         );
     };
 
@@ -211,7 +195,6 @@ export default function AssignWarehousePermissionModal({
         const target = lockedAssignment
             ? {
                 id: lockedAssignment.kho?.id,
-                isManager: Number(lockedAssignment.laQuanLyKho) === 1,
             }
             : warehouses.find((warehouse) => warehouse.isSelected);
 
@@ -227,7 +210,8 @@ export default function AssignWarehousePermissionModal({
             const payload = {
                 nguoiDungId: Number(userId),
                 khoId: target.id,
-                laQuanLyKho: target.isManager ? 1 : 0,
+                // Giữ trường để tương thích API cũ; vai trò hiện được xác định bằng vaiTro tài khoản.
+                laQuanLyKho: 0,
                 ngayBatDau: nowIso,
                 ngayKetThuc: ngayKetThuc ? parseDateTimeToIsoString(ngayKetThuc) : null,
                 ghiChu: ghiChu,
@@ -303,13 +287,10 @@ export default function AssignWarehousePermissionModal({
 
                     {/* Step 1: Chọn kho */}
                     <section>
-                        <div className="mb-3 flex items-center justify-between">
+                        <div className="mb-3">
                             <p className="text-xs font-bold uppercase tracking-wide text-bo-foreground">
                                 1. Chọn kho phụ trách
                             </p>
-                            <span className="text-[10px] text-bo-muted">
-                            
-                            </span>
                         </div>
 
                         {loading && warehouses.length === 0 ? (
@@ -331,9 +312,6 @@ export default function AssignWarehousePermissionModal({
                                     // Đơn chọn: khi đã chọn 1 kho, khoá checkbox các kho còn lại;
                                     // kho đang chọn vẫn click được để bỏ chọn và đổi kho khác.
                                     const rowDisabled = isLocked || (!isSelected && selectedWarehouseCount === 1);
-                                    const isManager = isLocked
-                                        ? Number(lockedAssignment.laQuanLyKho) === 1
-                                        : warehouse.isManager;
 
                                     return (
                                     <div
@@ -366,21 +344,6 @@ export default function AssignWarehousePermissionModal({
                                                 </p>
                                             </div>
                                         </div>
-
-                                        {isSelected && (
-                                            <button
-                                                type="button"
-                                                onClick={() => toggleWarehouseManager(warehouse.id)}
-                                                disabled={isLocked}
-                                                className={`rounded border px-3 py-1.5 text-[10px] font-bold shadow-sm disabled:cursor-not-allowed disabled:opacity-60
-                            ${isManager
-                                                        ? "border-bo-primary bg-bo-primary text-white"
-                                                        : "border-bo-border bg-white text-bo-muted"
-                                                    }`}
-                                            >
-                                                QUẢN LÝ CHÍNH
-                                            </button>
-                                        )}
                                     </div>
                                     );
                                 })}

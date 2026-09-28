@@ -220,7 +220,6 @@ export default function UserPermissionEditByAdmin() {
             <div className="space-y-4">
               {userWarehouses.map((item) => {
                 const kho = item.kho || {};
-                const isManager = Number(item.laQuanLyKho) === 1;
                 const active = Number(kho.trangThai) === 1;
                 const permissions = item.chiTietQuyenKhos || [];
 
@@ -256,11 +255,6 @@ export default function UserPermissionEditByAdmin() {
                         >
                           {active ? "Hoạt động" : "Tạm khóa"}
                         </Badge>
-                        {isManager && (
-                          <Badge className="bg-bo-primary hover:bg-bo-primary-hover">
-                            Quản lý chính
-                          </Badge>
-                        )}
                       </div>
                     </div>
 
