@@ -15,6 +15,10 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { adminService } from "@/services/adminService";
+import {
+    getPhoneError,
+    sanitizePhoneInput,
+} from "@/utils/phoneValidation";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -41,6 +45,9 @@ export default function AddUserByAdmin() {
         return "";
     };
 
+    // Validate SĐT real-time: chỉ báo lỗi khi đã đủ 10 số mà sai định dạng (đang gõ dang dở thì không báo)
+    const phoneError = getPhoneError(form.soDienThoai);
+
     // id cố định để blur và submit không tạo ra nhiều toast trùng nhau
     const showEmailError = (message) => {
         setEmailError(message);
@@ -62,6 +69,12 @@ export default function AddUserByAdmin() {
             return;
         }
         setEmailError("");
+
+        const phoneMessage = getPhoneError(form.soDienThoai);
+        if (phoneMessage) {
+            toast.error(phoneMessage, { id: "add-user-phone-error" });
+            return;
+        }
 
         try {
             setLoading(true);
@@ -209,13 +222,22 @@ export default function AddUserByAdmin() {
                             <div>
                                 <Label className="text-bo-foreground">Số điện thoại</Label>
                                 <Input
-                                    placeholder="090..."
                                     value={form.soDienThoai}
                                     onChange={(e) =>
-                                        setForm({ ...form, soDienThoai: e.target.value })
+                                        setForm({ ...form, soDienThoai: sanitizePhoneInput(e.target.value) })
                                     }
-                                    className="mt-2 h-10 border-bo-border bg-white focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+                                    maxLength={10}
+                                    inputMode="numeric"
+                                    aria-invalid={Boolean(phoneError)}
+                                    className={`mt-2 h-10 border-bo-border bg-white focus-visible:border-bo-primary focus-visible:ring-bo-primary/20 ${
+                                        phoneError
+                                            ? "border-red-500 focus-visible:border-red-500 focus-visible:ring-red-500/20"
+                                            : ""
+                                    }`}
                                 />
+                                {phoneError && (
+                                    <p className="mt-1 text-sm text-bo-danger">{phoneError}</p>
+                                )}
                             </div>
 
                             <div>
