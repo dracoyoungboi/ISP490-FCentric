@@ -28,6 +28,17 @@ import {
     AlertCircle,
 } from "lucide-react";
 
+const PROFILE_DATE_TIME_FORMATTER = new Intl.DateTimeFormat("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+});
+
 // Hồ sơ cá nhân của người đang đăng nhập (route /profile).
 // BE lấy user từ token — không có id trên URL, không hiển thị id nội bộ.
 export default function UserDetail() {
@@ -70,13 +81,28 @@ export default function UserDetail() {
     );
 
     const getVaiTroLabel = (value) => vaiTroOptions.find((opt) => opt.value === value)?.label || value || "—";
-    const isActive = useMemo(() => Number(userData.trangThai) === 1, [userData.trangThai]);
+    const formatDateTime = (value) => {
+        if (!value) return "—";
 
-    const formatDateTime = (iso) => {
-        if (!iso) return "—";
-        const d = new Date(iso);
-        if (Number.isNaN(d.getTime())) return iso;
-        return d.toLocaleString();
+        const rawValue = typeof value === "string" ? value.trim() : value;
+        if (!rawValue) return "—";
+
+        // ISO timestamps without a timezone are treated as Vietnam local time (UTC+7).
+        const localDateTime =
+            typeof rawValue === "string"
+                ? rawValue.match(/^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?))?$/)
+                : null;
+        const parseValue = localDateTime
+            ? `${localDateTime[1]}T${localDateTime[2] || "00:00:00"}+07:00`
+            : rawValue;
+
+        const date = new Date(parseValue);
+        if (Number.isNaN(date.getTime())) return value;
+
+        const parts = PROFILE_DATE_TIME_FORMATTER.formatToParts(date);
+        const getPart = (type) => parts.find((part) => part.type === type)?.value || "";
+
+        return `${getPart("day")}/${getPart("month")}/${getPart("year")} ${getPart("hour")}:${getPart("minute")}:${getPart("second")}`;
     };
 
     const showSuccess = (msg) => {
@@ -201,16 +227,22 @@ export default function UserDetail() {
                                     <Shield className="mr-1 h-3 w-3" />
                                     {getVaiTroLabel(userData.vaiTro)}
                                 </Badge>
-                                <span
-                                    className={
-                                        isActive
-                                            ? "inline-flex items-center gap-2 text-sm font-medium text-bo-success"
-                                            : "inline-flex items-center gap-2 text-sm font-medium text-bo-muted"
-                                    }
-                                >
-                                    <span className={isActive ? "h-2 w-2 rounded-full bg-bo-success" : "h-2 w-2 rounded-full bg-slate-400"} />
-                                    {isActive ? "Đang hoạt động" : "Không hoạt động"}
-                                </span>
+                                {Array.isArray(userData.khoPhuTrachActive) &&
+                                    userData.khoPhuTrachActive.map((kho, index) => (
+                                        <span
+                                            key={kho.maKho || index}
+                                            className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-bo-border bg-bo-surface-subtle px-3 py-1 text-xs font-medium text-bo-muted"
+                                        >
+                                            <Warehouse className="h-3.5 w-3.5 shrink-0 text-bo-primary" />
+                                            <span className="truncate">{kho.tenKho || "Kho phụ trách"}</span>
+                                            {kho.maKho && (
+                                                <>
+                                                    <span aria-hidden="true">·</span>
+                                                    <span className="shrink-0 uppercase tracking-wide">{kho.maKho}</span>
+                                                </>
+                                            )}
+                                        </span>
+                                    ))}
                             </div>
                         </div>
                     </div>
@@ -233,7 +265,7 @@ export default function UserDetail() {
                                     disabled={saving}
                                     className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                   
+                                    <X className="mr-2 h-4 w-4" />
                                     Hủy
                                 </Button>
                                 <Button
@@ -250,13 +282,12 @@ export default function UserDetail() {
                 </div>
 
                 {/* Thông tin cá nhân */}
-                <div className="border-t border-bo-border px-5 py-6 sm:px-7">
-                    <div className="mb-5">
+                <div className="border-t border-bo-border px-5 py-5 sm:px-7">
+                    <div className="mb-4">
                         <h2 className="text-lg font-semibold text-bo-foreground">Thông tin cá nhân</h2>
-                       
                     </div>
 
-                    <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
                         <div className="flex min-w-0 items-start gap-3">
                             <User className="mt-0.5 h-4 w-4 shrink-0 text-bo-muted" />
                             <div className="min-w-0">
@@ -323,25 +354,6 @@ export default function UserDetail() {
                         </div>
                     </div>
 
-                    {Array.isArray(userData.khoPhuTrachActive) && userData.khoPhuTrachActive.length > 0 && (
-                        <div className="mt-6 border-t border-bo-border pt-5">
-                            <div className="flex items-center gap-2 text-sm font-semibold text-bo-foreground">
-                                <Warehouse className="h-4 w-4 text-bo-primary" />
-                                Kho phụ trách
-                            </div>
-                            <ul className="mt-3 flex flex-wrap gap-2">
-                                {userData.khoPhuTrachActive.map((kho, index) => (
-                                    <li
-                                        key={kho.maKho || index}
-                                        className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-bo-border bg-bo-surface-subtle px-3 py-2"
-                                    >
-                                        <span className="text-sm font-medium text-bo-foreground">{kho.tenKho}</span>
-                                        <span className="text-xs uppercase tracking-wide text-bo-muted">{kho.maKho}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
                 </div>
 
                 {/* Bảo mật tài khoản */}
