@@ -7,7 +7,6 @@ import PageContainer from "@/components/backoffice/PageContainer";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,7 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  ShieldCheck, RefreshCcw, UserCog, Lock, Unlock,
+  ShieldCheck, RefreshCcw, UserCog,
   Warehouse, AlertCircle, Save, X, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -38,7 +37,6 @@ export default function UserPermissionEditByAdmin() {
 
   const [form, setForm] = useState({
     role: "quan_ly_kho",
-    status: 1,
   });
 
   const reloadUserWarehouses = useCallback(async () => {
@@ -52,7 +50,6 @@ export default function UserPermissionEditByAdmin() {
       setUser(dto);
       setForm({
         role: dto.vaiTro || "quan_ly_kho",
-        status: dto.trangThai ?? 1,
       });
       setUserWarehouses(dto.khoPhuTrach || []);
     } catch (err) {
@@ -293,42 +290,6 @@ export default function UserPermissionEditByAdmin() {
           )}
         </SurfaceCard>
 
-        {/* 3. Trạng thái tài khoản */}
-        <SurfaceCard title="3. Trạng thái tài khoản">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-bo-warning/25 bg-bo-warning-soft p-5">
-            <div>
-              <p className="font-medium text-bo-foreground">Trạng thái hoạt động</p>
-              <p className="mt-1 text-sm text-bo-muted">
-                Khóa tài khoản nếu phát hiện vi phạm hoặc không còn sử dụng
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Label htmlFor="status" className="text-sm font-medium">
-                {form.status === 1 ? (
-                  <span className="flex items-center gap-1.5 text-bo-success">
-                    <Unlock className="h-4 w-4" /> Hoạt động
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1.5 text-bo-danger">
-                    <Lock className="h-4 w-4" /> Tạm khóa
-                  </span>
-                )}
-              </Label>
-
-              <select
-                id="status"
-                value={form.status}
-                onChange={(e) => setForm((prev) => ({ ...prev, status: Number(e.target.value) }))}
-                className="h-10 rounded-md border border-bo-border bg-white px-3 py-2 text-sm font-medium text-bo-foreground focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/20"
-              >
-                <option value={1}>Hoạt động (Active)</option>
-                <option value={0}>Tạm khóa (Banned)</option>
-              </select>
-            </div>
-          </div>
-        </SurfaceCard>
-
         {/* Action Buttons */}
         <div className="flex justify-end gap-4 border-t border-bo-border pt-4">
           <Button
@@ -400,3 +361,4 @@ export default function UserPermissionEditByAdmin() {
     </PageContainer>
   );
 }
+
