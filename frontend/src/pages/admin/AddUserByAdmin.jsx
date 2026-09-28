@@ -222,7 +222,6 @@ export default function AddUserByAdmin() {
                             <div>
                                 <Label className="text-bo-foreground">Số điện thoại</Label>
                                 <Input
-                                    placeholder=""
                                     value={form.soDienThoai}
                                     onChange={(e) =>
                                         setForm({ ...form, soDienThoai: sanitizePhoneInput(e.target.value) })
@@ -236,6 +235,9 @@ export default function AddUserByAdmin() {
                                             : ""
                                     }`}
                                 />
+                                {phoneError && (
+                                    <p className="mt-1 text-sm text-bo-danger">{phoneError}</p>
+                                )}
                             </div>
 
                             <div>
