@@ -1,7 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800;900&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
-
+/* Giao diện luôn sáng, không theo chế độ tối của trình duyệt */
+@custom-variant dark (&:where(.dark, .dark *));
 /*
  * Backoffice foundation tokens.
  * The bo-* namespace prevents the new shell from restyling auth/store/print
