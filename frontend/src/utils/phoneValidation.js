@@ -15,3 +15,12 @@ export const isPhoneValid = (value) => {
     if (!phone) return true;
     return PHONE_REGEX.test(phone);
 };
+
+// Lỗi validate real-time: không báo lỗi khi đang gõ dang dở (dưới 10 số vẫn có thể hợp lệ),
+// đủ 10 số mà sai định dạng thì báo ngay; hợp lệ thì trả về "" (xóa lỗi).
+export const getPhoneError = (value) => {
+    const phone = (value ?? "").trim();
+    if (!phone || phone.length < 10) return "";
+    if (!PHONE_REGEX.test(phone)) return PHONE_ERROR_MESSAGE;
+    return "";
+};

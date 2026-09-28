@@ -16,8 +16,7 @@ import {
 import { toast } from "sonner";
 import { adminService } from "@/services/adminService";
 import {
-    PHONE_ERROR_MESSAGE,
-    isPhoneValid,
+    getPhoneError,
     sanitizePhoneInput,
 } from "@/utils/phoneValidation";
 
@@ -38,7 +37,6 @@ export default function AddUserByAdmin() {
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [emailError, setEmailError] = useState("");
-    const [phoneError, setPhoneError] = useState("");
 
     const getEmailError = (value) => {
         const email = (value ?? "").trim();
@@ -47,11 +45,8 @@ export default function AddUserByAdmin() {
         return "";
     };
 
-    // SĐT tùy chọn: chỉ báo lỗi khi có giá trị mà sai định dạng
-    const getPhoneError = (value) => {
-        if (!isPhoneValid(value)) return PHONE_ERROR_MESSAGE;
-        return "";
-    };
+    // Validate SĐT real-time: chỉ báo lỗi khi đã đủ 10 số mà sai định dạng (đang gõ dang dở thì không báo)
+    const phoneError = getPhoneError(form.soDienThoai);
 
     // id cố định để blur và submit không tạo ra nhiều toast trùng nhau
     const showEmailError = (message) => {
@@ -59,19 +54,9 @@ export default function AddUserByAdmin() {
         toast.error(message, { id: "add-user-email-error" });
     };
 
-    const showPhoneError = (message) => {
-        setPhoneError(message);
-        toast.error(message, { id: "add-user-phone-error" });
-    };
-
     const handleEmailBlur = () => {
         const message = getEmailError(form.email);
         if (message) showEmailError(message);
-    };
-
-    const handlePhoneBlur = () => {
-        const message = getPhoneError(form.soDienThoai);
-        if (message) showPhoneError(message);
     };
 
     const handleSubmit = async (e) => {
@@ -87,10 +72,9 @@ export default function AddUserByAdmin() {
 
         const phoneMessage = getPhoneError(form.soDienThoai);
         if (phoneMessage) {
-            showPhoneError(phoneMessage);
+            toast.error(phoneMessage, { id: "add-user-phone-error" });
             return;
         }
-        setPhoneError("");
 
         try {
             setLoading(true);
@@ -238,13 +222,11 @@ export default function AddUserByAdmin() {
                             <div>
                                 <Label className="text-bo-foreground">Số điện thoại</Label>
                                 <Input
-                                    placeholder="090..."
+                                    placeholder=""
                                     value={form.soDienThoai}
-                                    onChange={(e) => {
-                                        setForm({ ...form, soDienThoai: sanitizePhoneInput(e.target.value) });
-                                        if (phoneError) setPhoneError("");
-                                    }}
-                                    onBlur={handlePhoneBlur}
+                                    onChange={(e) =>
+                                        setForm({ ...form, soDienThoai: sanitizePhoneInput(e.target.value) })
+                                    }
                                     maxLength={10}
                                     inputMode="numeric"
                                     aria-invalid={Boolean(phoneError)}

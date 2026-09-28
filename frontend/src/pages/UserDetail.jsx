@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { nguoiDungService } from "@/services/nguoiDungService";
 import {
     PHONE_ERROR_MESSAGE,
+    getPhoneError,
     isPhoneValid,
     sanitizePhoneInput,
 } from "@/utils/phoneValidation";
@@ -71,8 +72,6 @@ export default function UserDetail() {
 
     // Chỉ các trường cá nhân được phép sửa
     const [editedData, setEditedData] = useState({ hoTen: "", soDienThoai: "" });
-    // Chỉ hiện lỗi SĐT sau khi blur/submit — không hiện trong lúc đang gõ số chưa đủ
-    const [phoneTouched, setPhoneTouched] = useState(false);
 
     const vaiTroOptions = useMemo(
         () => [
@@ -144,14 +143,12 @@ export default function UserDetail() {
     const handleEdit = () => {
         setIsEditing(true);
         setEditedData({ hoTen: userData.hoTen || "", soDienThoai: userData.soDienThoai || "" });
-        setPhoneTouched(false);
         setErrorMsg("");
     };
 
     const handleCancel = () => {
         setIsEditing(false);
         setEditedData({ hoTen: userData.hoTen || "", soDienThoai: userData.soDienThoai || "" });
-        setPhoneTouched(false);
         setErrorMsg("");
     };
 
@@ -168,8 +165,8 @@ export default function UserDetail() {
 
     const isHoTenValid = Boolean(editedData.hoTen?.trim());
     const phoneIsValid = isPhoneValid(editedData.soDienThoai);
-    // Lỗi SĐT chỉ hiển thị sau khi blur — tránh báo lỗi khi người dùng đang gõ dang dở
-    const phoneError = phoneTouched && !phoneIsValid ? PHONE_ERROR_MESSAGE : "";
+    // Validate real-time: chỉ báo lỗi khi đã đủ 10 số mà sai định dạng (đang gõ dang dở thì không báo)
+    const phoneError = getPhoneError(editedData.soDienThoai);
 
     // Chỉ cập nhật thông tin cá nhân — mật khẩu đổi riêng qua modal Bảo mật
     const handleSave = async () => {
@@ -361,11 +358,9 @@ export default function UserDetail() {
                                     <Input
                                         id="soDienThoai"
                                         value={editedData.soDienThoai}
-                                        onChange={(e) => {
-                                            handleInputChange("soDienThoai", sanitizePhoneInput(e.target.value));
-                                            if (phoneTouched) setPhoneTouched(false);
-                                        }}
-                                        onBlur={() => setPhoneTouched(true)}
+                                        onChange={(e) =>
+                                            handleInputChange("soDienThoai", sanitizePhoneInput(e.target.value))
+                                        }
                                         disabled={!isEditing || loadingUser}
                                         maxLength={10}
                                         inputMode="numeric"
