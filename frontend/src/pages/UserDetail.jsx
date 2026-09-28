@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { nguoiDungService } from "@/services/nguoiDungService";
+import {
+    PHONE_ERROR_MESSAGE,
+    isPhoneValid,
+    sanitizePhoneInput,
+} from "@/utils/phoneValidation";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +29,6 @@ import {
     Shield,
     User,
     Warehouse,
-    X,
     AlertCircle,
 } from "lucide-react";
 
@@ -67,6 +71,8 @@ export default function UserDetail() {
 
     // Chỉ các trường cá nhân được phép sửa
     const [editedData, setEditedData] = useState({ hoTen: "", soDienThoai: "" });
+    // Chỉ hiện lỗi SĐT sau khi blur/submit — không hiện trong lúc đang gõ số chưa đủ
+    const [phoneTouched, setPhoneTouched] = useState(false);
 
     const vaiTroOptions = useMemo(
         () => [
@@ -138,18 +144,32 @@ export default function UserDetail() {
     const handleEdit = () => {
         setIsEditing(true);
         setEditedData({ hoTen: userData.hoTen || "", soDienThoai: userData.soDienThoai || "" });
+        setPhoneTouched(false);
         setErrorMsg("");
     };
 
     const handleCancel = () => {
         setIsEditing(false);
         setEditedData({ hoTen: userData.hoTen || "", soDienThoai: userData.soDienThoai || "" });
+        setPhoneTouched(false);
         setErrorMsg("");
     };
 
     const handleInputChange = (field, value) => {
         setEditedData((prev) => ({ ...prev, [field]: value }));
     };
+
+    // null/undefined/""/"   " đều quy về "" — so sánh công bằng giữa giá trị gốc và giá trị đã sửa
+    const normalizeField = (value) => (value ?? "").trim();
+
+    const isDirty =
+        normalizeField(editedData.hoTen) !== normalizeField(userData.hoTen) ||
+        normalizeField(editedData.soDienThoai) !== normalizeField(userData.soDienThoai);
+
+    const isHoTenValid = Boolean(editedData.hoTen?.trim());
+    const phoneIsValid = isPhoneValid(editedData.soDienThoai);
+    // Lỗi SĐT chỉ hiển thị sau khi blur — tránh báo lỗi khi người dùng đang gõ dang dở
+    const phoneError = phoneTouched && !phoneIsValid ? PHONE_ERROR_MESSAGE : "";
 
     // Chỉ cập nhật thông tin cá nhân — mật khẩu đổi riêng qua modal Bảo mật
     const handleSave = async () => {
@@ -159,6 +179,10 @@ export default function UserDetail() {
         try {
             if (!editedData.hoTen?.trim()) {
                 throw new Error("Họ tên không được để trống");
+            }
+
+            if (!isPhoneValid(editedData.soDienThoai)) {
+                throw new Error(PHONE_ERROR_MESSAGE);
             }
 
             const res = await nguoiDungService.updateMe({
@@ -270,8 +294,8 @@ export default function UserDetail() {
                                 </Button>
                                 <Button
                                     onClick={handleSave}
-                                    disabled={saving}
-                                    className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                                    disabled={saving || !isDirty || !isHoTenValid || !phoneIsValid}
+                                    className="bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
                                 >
                                     <Save className="mr-2 h-4 w-4" />
                                     {saving ? "Đang lưu..." : "Lưu thông tin"}
@@ -337,10 +361,24 @@ export default function UserDetail() {
                                     <Input
                                         id="soDienThoai"
                                         value={editedData.soDienThoai}
-                                        onChange={(e) => handleInputChange("soDienThoai", e.target.value)}
+                                        onChange={(e) => {
+                                            handleInputChange("soDienThoai", sanitizePhoneInput(e.target.value));
+                                            if (phoneTouched) setPhoneTouched(false);
+                                        }}
+                                        onBlur={() => setPhoneTouched(true)}
                                         disabled={!isEditing || loadingUser}
-                                        className="border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+                                        maxLength={10}
+                                        inputMode="numeric"
+                                        aria-invalid={Boolean(phoneError)}
+                                        className={`border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20 ${
+                                            phoneError
+                                                ? "border-red-500 focus-visible:border-red-500 focus-visible:ring-red-500/20"
+                                                : ""
+                                        }`}
                                     />
+                                    {phoneError && (
+                                        <p className="text-sm text-bo-danger">{phoneError}</p>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="flex min-w-0 items-start gap-3">

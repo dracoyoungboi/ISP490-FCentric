@@ -35,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.*;
+import java.util.regex.Pattern;
 
 @Service
 public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
@@ -73,6 +74,23 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     }
 
     private final NguoiDungRepository nguoiDungRepository = (NguoiDungRepository) super.getRepository();
+
+    // SĐT di động Việt Nam (định dạng trong nước): 10 chữ số, bắt đầu bằng 03/05/07/08/09
+    private static final Pattern VIETNAM_PHONE_PATTERN = Pattern.compile("^0[35789][0-9]{8}$");
+
+    // SĐT là tùy chọn: null/blank hợp lệ; có giá trị thì phải đúng định dạng
+    private static void validatePhone(String phone) {
+        if (phone != null
+                && !phone.isBlank()
+                && !VIETNAM_PHONE_PATTERN.matcher(phone.trim()).matches()) {
+            throw new CommonException("Số điện thoại không hợp lệ (10 số, bắt đầu bằng 03/05/07/08/09)");
+        }
+    }
+
+    // blank -> null (giữ số 0 đầu vì lưu dạng chuỗi), ngược lại trim
+    private static String normalizePhone(String phone) {
+        return (phone == null || phone.isBlank()) ? null : phone.trim();
+    }
 
 
     @Transactional
@@ -145,8 +163,11 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         if (request.getEmail() != null && !request.getEmail().isBlank()) {
             nguoiDung.setEmail(request.getEmail());
         }
-        if (request.getSoDienThoai() != null && !request.getSoDienThoai().isBlank()) {
-            nguoiDung.setSoDienThoai(request.getSoDienThoai());
+        // SĐT để trống = không thay đổi (không phải xóa); có giá trị thì phải đúng định dạng
+        String soDienThoai = normalizePhone(request.getSoDienThoai());
+        if (soDienThoai != null) {
+            validatePhone(soDienThoai);
+            nguoiDung.setSoDienThoai(soDienThoai);
         }
         nguoiDung = nguoiDungRepository.save(nguoiDung);
         return ResponseEntity.ok(
@@ -213,10 +234,9 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         NguoiDung nguoiDung = getCurrentUserFromContext();
         nguoiDung.setHoTen(request.getHoTen().trim());
         // cho phép xóa số điện thoại: rỗng -> null (giống createInternalUserByAdmin)
-        String soDienThoai = request.getSoDienThoai();
-        nguoiDung.setSoDienThoai(
-                soDienThoai != null && !soDienThoai.isBlank() ? soDienThoai.trim() : null
-        );
+        String soDienThoai = normalizePhone(request.getSoDienThoai());
+        validatePhone(soDienThoai);
+        nguoiDung.setSoDienThoai(soDienThoai);
 
         nguoiDung = nguoiDungRepository.save(nguoiDung); // ngayCapNhat tự cập nhật (@Generated UPDATE)
 
@@ -406,10 +426,11 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             }
         }
 
-        if (request.getSoDienThoai() != null && !request.getSoDienThoai().isBlank()) {
-            if (nguoiDungRepository.existsBySoDienThoai(request.getSoDienThoai())) {
-                throw new CommonException("Số điện thoại đã tồn tại");
-            }
+        // SĐT tùy chọn: blank -> null; có giá trị thì phải đúng định dạng rồi mới kiểm tra trùng
+        String soDienThoai = normalizePhone(request.getSoDienThoai());
+        validatePhone(soDienThoai);
+        if (soDienThoai != null && nguoiDungRepository.existsBySoDienThoai(soDienThoai)) {
+            throw new CommonException("Số điện thoại đã tồn tại");
         }
 
         NguoiDung nguoiDung = new NguoiDung();
@@ -420,11 +441,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                         : null
         );
         nguoiDung.setHoTen(request.getHoTen());
-        nguoiDung.setSoDienThoai(
-                request.getSoDienThoai() != null && !request.getSoDienThoai().isBlank()
-                        ? request.getSoDienThoai()
-                        : null
-        );
+        nguoiDung.setSoDienThoai(soDienThoai);
         nguoiDung.setVaiTro(request.getVaiTro().toString());
         nguoiDung.setTrangThai(1);
         nguoiDung.setMatKhauHash(passwordEncoder.encode(request.getMatKhau()));

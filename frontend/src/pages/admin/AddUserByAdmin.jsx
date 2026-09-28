@@ -15,6 +15,11 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { adminService } from "@/services/adminService";
+import {
+    PHONE_ERROR_MESSAGE,
+    isPhoneValid,
+    sanitizePhoneInput,
+} from "@/utils/phoneValidation";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -33,11 +38,18 @@ export default function AddUserByAdmin() {
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [emailError, setEmailError] = useState("");
+    const [phoneError, setPhoneError] = useState("");
 
     const getEmailError = (value) => {
         const email = (value ?? "").trim();
         if (!email) return "Email không được để trống";
         if (!EMAIL_REGEX.test(email)) return "Vui lòng nhập đúng định dạng email";
+        return "";
+    };
+
+    // SĐT tùy chọn: chỉ báo lỗi khi có giá trị mà sai định dạng
+    const getPhoneError = (value) => {
+        if (!isPhoneValid(value)) return PHONE_ERROR_MESSAGE;
         return "";
     };
 
@@ -47,9 +59,19 @@ export default function AddUserByAdmin() {
         toast.error(message, { id: "add-user-email-error" });
     };
 
+    const showPhoneError = (message) => {
+        setPhoneError(message);
+        toast.error(message, { id: "add-user-phone-error" });
+    };
+
     const handleEmailBlur = () => {
         const message = getEmailError(form.email);
         if (message) showEmailError(message);
+    };
+
+    const handlePhoneBlur = () => {
+        const message = getPhoneError(form.soDienThoai);
+        if (message) showPhoneError(message);
     };
 
     const handleSubmit = async (e) => {
@@ -62,6 +84,13 @@ export default function AddUserByAdmin() {
             return;
         }
         setEmailError("");
+
+        const phoneMessage = getPhoneError(form.soDienThoai);
+        if (phoneMessage) {
+            showPhoneError(phoneMessage);
+            return;
+        }
+        setPhoneError("");
 
         try {
             setLoading(true);
@@ -211,10 +240,19 @@ export default function AddUserByAdmin() {
                                 <Input
                                     placeholder="090..."
                                     value={form.soDienThoai}
-                                    onChange={(e) =>
-                                        setForm({ ...form, soDienThoai: e.target.value })
-                                    }
-                                    className="mt-2 h-10 border-bo-border bg-white focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+                                    onChange={(e) => {
+                                        setForm({ ...form, soDienThoai: sanitizePhoneInput(e.target.value) });
+                                        if (phoneError) setPhoneError("");
+                                    }}
+                                    onBlur={handlePhoneBlur}
+                                    maxLength={10}
+                                    inputMode="numeric"
+                                    aria-invalid={Boolean(phoneError)}
+                                    className={`mt-2 h-10 border-bo-border bg-white focus-visible:border-bo-primary focus-visible:ring-bo-primary/20 ${
+                                        phoneError
+                                            ? "border-red-500 focus-visible:border-red-500 focus-visible:ring-red-500/20"
+                                            : ""
+                                    }`}
                                 />
                             </div>
 
