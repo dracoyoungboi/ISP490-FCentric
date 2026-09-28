@@ -265,7 +265,7 @@ export default function UserDetail() {
                                     disabled={saving}
                                     className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    <X className="mr-2 h-4 w-4" />
+                                    
                                     Hủy
                                 </Button>
                                 <Button
