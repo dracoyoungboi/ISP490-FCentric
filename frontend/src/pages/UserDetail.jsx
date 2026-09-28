@@ -370,9 +370,7 @@ export default function UserDetail() {
                                     <p className="text-sm tracking-widest text-bo-foreground">••••••••••••</p>
                                 </div>
                             </div>
-                            <p className="mt-4 text-xs text-bo-muted">
-                                Mật khẩu được mã hóa và không hiển thị. Sử dụng nút “Đổi mật khẩu” để cập nhật.
-                            </p>
+                           
                         </SurfaceCard>
                     </div>
                 </div>

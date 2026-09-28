@@ -175,6 +175,21 @@ export default function UserPermissionEditByAdmin() {
           title="2. Kho phụ trách & quyền chi tiết"
           description="Người dùng sẽ có quyền truy cập và thực hiện chức năng tại các kho được phân"
         >
+          {userWarehouses.length > 1 && (
+            <div className="mb-4 flex items-start gap-2 rounded-lg border border-bo-warning/30 bg-bo-warning-soft p-4">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-bo-warning" />
+              <div className="text-sm text-bo-warning">
+                <p className="font-semibold">
+                  Người dùng đang có {userWarehouses.length} phân quyền kho đang hoạt động.
+                </p>
+                <p className="mt-1 text-xs">
+                  Theo quy định, mỗi người dùng chỉ được có tối đa 1 kho đang hoạt động.
+                  Hãy xóa bớt các phân quyền bên dưới (còn tối đa 1 kho) trước khi thêm kho mới.
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-bo-muted">
               Thêm kho mới và thiết lập quyền chức năng cụ thể
@@ -182,7 +197,11 @@ export default function UserPermissionEditByAdmin() {
             <Button
               type="button"
               onClick={() => setShowAssignModal(true)}
-              className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+              disabled={userWarehouses.length > 1}
+              title={userWarehouses.length > 1
+                ? "Xóa bớt phân quyền kho còn tối đa 1 kho trước khi thêm mới"
+                : undefined}
+              className="bg-bo-primary text-white hover:bg-bo-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
               + Thêm kho & phân quyền
             </Button>
@@ -197,7 +216,7 @@ export default function UserPermissionEditByAdmin() {
               <AlertCircle className="mx-auto h-10 w-10 text-slate-400" />
               <h3 className="mt-4 text-lg font-medium text-bo-foreground">Chưa có kho phụ trách</h3>
               <p className="mt-2 text-sm text-bo-muted">
-                Nhấn nút "Thêm kho & phân quyền" để bắt đầu gán kho cho người dùng này.
+                Nhấn nút "Thêm kho & phân quyền" để bắt đầu gán kho (tối đa 1 kho đang hoạt động) cho người dùng này.
               </p>
             </div>
           ) : (
@@ -345,6 +364,7 @@ export default function UserPermissionEditByAdmin() {
         onClose={() => setShowAssignModal(false)}
         userId={id}
         onAssigned={reloadUserWarehouses}
+        existingAssignments={userWarehouses}
       />
 
       {/* Delete Warehouse Permission Confirmation Dialog */}
