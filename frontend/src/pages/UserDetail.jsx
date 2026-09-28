@@ -10,7 +10,6 @@ import AvatarEditorModal from "@/components/AvatarEditorModal";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import PageContainer from "@/components/backoffice/PageContainer";
-import SurfaceCard from "@/components/shared/SurfaceCard";
 
 import {
     Calendar,
@@ -158,176 +157,147 @@ export default function UserDetail() {
 
     return (
         <PageContainer className="mx-auto max-w-5xl space-y-5">
-                {/* Alerts */}
-                {successMsg && (
-                    <Alert className="border-bo-success/30 bg-bo-success-soft">
-                        <CheckCircle2 className="h-4 w-4 text-bo-success" />
-                        <AlertDescription className="text-bo-success">{successMsg}</AlertDescription>
-                    </Alert>
-                )}
+            {successMsg && (
+                <Alert className="border-bo-success/30 bg-bo-success-soft">
+                    <CheckCircle2 className="h-4 w-4 text-bo-success" />
+                    <AlertDescription className="text-bo-success">{successMsg}</AlertDescription>
+                </Alert>
+            )}
 
-                {errorMsg && (
-                    <Alert className="border-bo-danger/30 bg-bo-danger-soft">
-                        <AlertCircle className="h-4 w-4 text-bo-danger" />
-                        <AlertDescription className="text-bo-danger">{errorMsg}</AlertDescription>
-                    </Alert>
-                )}
+            {errorMsg && (
+                <Alert className="border-bo-danger/30 bg-bo-danger-soft">
+                    <AlertCircle className="h-4 w-4 text-bo-danger" />
+                    <AlertDescription className="text-bo-danger">{errorMsg}</AlertDescription>
+                </Alert>
+            )}
 
-                <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
-                    {/* Left - Summary */}
-                    <div className="lg:col-span-1">
-                        <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
-                            <div className="flex flex-col items-center p-6 text-center">
-                                <button
-                                    type="button"
-                                    onClick={() => setEditorOpen(true)}
-                                    aria-label="Thay đổi ảnh đại diện"
-                                    className="group relative mb-4 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary focus-visible:ring-offset-2"
+            <section className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
+                {/* Header hồ sơ */}
+                <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7">
+                    <div className="flex min-w-0 flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+                        <button
+                            type="button"
+                            onClick={() => setEditorOpen(true)}
+                            aria-label="Thay đổi ảnh đại diện"
+                            className="group relative shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary focus-visible:ring-offset-2"
+                        >
+                            <UserAvatar userId={userData.id} name={userData.hoTen} size="lg" />
+                            <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-full bg-bo-foreground/50 opacity-0 transition-opacity group-hover:opacity-100">
+                                <Camera className="size-6 text-white" />
+                            </span>
+                        </button>
+
+                        <div className="min-w-0">
+                            <h1 className="break-all text-xl font-bold text-bo-foreground sm:text-2xl">
+                                {loadingUser ? "Loading..." : userData.hoTen || "—"}
+                            </h1>
+                            <p className="mt-1 text-sm text-bo-muted">@{userData.tenDangNhap || "—"}</p>
+
+                            <div className="mt-3 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                                <Badge
+                                    variant="outline"
+                                    className="border-bo-border bg-bo-surface-subtle text-bo-foreground"
                                 >
-                                    <UserAvatar userId={userData.id} name={userData.hoTen} size="lg" />
-                                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-full bg-bo-foreground/50 opacity-0 transition-opacity group-hover:opacity-100">
-                                        <Camera className="size-6 text-white" />
-                                    </span>
-                                </button>
-
-                                <h3 className="break-all text-xl font-bold text-bo-foreground">
-                                    {loadingUser ? "Loading..." : userData.hoTen || "—"}
-                                </h3>
-
-                                <p className="mb-2 text-bo-muted">@{userData.tenDangNhap || "—"}</p>
-
-                                <Badge variant="outline" className="mb-4 border-bo-border bg-bo-surface-subtle text-bo-foreground">
                                     <Shield className="mr-1 h-3 w-3" />
                                     {getVaiTroLabel(userData.vaiTro)}
                                 </Badge>
-
-                                <div className="mb-6 flex items-center gap-2">
-                                    <div className={`h-2 w-2 rounded-full ${isActive ? "bg-bo-success" : "bg-slate-400"}`} />
-                                    <span className={`text-sm font-medium ${isActive ? "text-bo-success" : "text-bo-muted"}`}>
-                                        {isActive ? "Đang hoạt động" : "Không hoạt động"}
-                                    </span>
-                                </div>
-
-                                {/* Kho phụ trách — chỉ hiển thị khi có kho đang hoạt động, còn hiệu lực (BE đã lọc) */}
-                                {Array.isArray(userData.khoPhuTrachActive) && userData.khoPhuTrachActive.length > 0 && (
-                                    <div className="mb-6 w-full space-y-3 border-t border-bo-border pt-4 text-left">
-                                        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bo-muted">
-                                            <Warehouse className="h-4 w-4 text-bo-primary" />
-                                            Kho phụ trách
-                                        </div>
-                                        <ul className="space-y-2">
-                                            {userData.khoPhuTrachActive.map((kho, index) => (
-                                                <li
-                                                    key={kho.maKho || index}
-                                                    className="rounded-md border border-bo-border bg-bo-surface-subtle px-3 py-2"
-                                                >
-                                                    <p className="text-sm font-medium text-bo-foreground">{kho.tenKho}</p>
-                                                    <p className="mt-0.5 text-xs uppercase tracking-wide text-bo-muted">{kho.maKho}</p>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                )}
-
-                                <div className="w-full space-y-3 border-t border-bo-border pt-4 text-left">
-                                    <div className="flex items-center gap-2 text-sm text-bo-muted">
-                                        <Calendar className="h-4 w-4" />
-                                        <span>Ngày tạo: {formatDateTime(userData.ngayTao)}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-sm text-bo-muted">
-                                        <Clock className="h-4 w-4" />
-                                        <span>Cập nhật: {formatDateTime(userData.ngayCapNhat)}</span>
-                                    </div>
-                                </div>
+                                <span
+                                    className={
+                                        isActive
+                                            ? "inline-flex items-center gap-2 text-sm font-medium text-bo-success"
+                                            : "inline-flex items-center gap-2 text-sm font-medium text-bo-muted"
+                                    }
+                                >
+                                    <span className={isActive ? "h-2 w-2 rounded-full bg-bo-success" : "h-2 w-2 rounded-full bg-slate-400"} />
+                                    {isActive ? "Đang hoạt động" : "Không hoạt động"}
+                                </span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Right - Thông tin cá nhân + Bảo mật */}
-                    <div className="space-y-5 lg:col-span-2">
-                        <SurfaceCard
-                            title="Thông tin cá nhân"
-                            description="Thông tin cơ bản của tài khoản"
-                            action={
-                                !isEditing ? (
-                                    <Button
-                                        onClick={handleEdit}
-                                        disabled={loadingUser}
-                                        className="bg-bo-primary text-white hover:bg-bo-primary-hover"
-                                    >
-                                        <Edit className="mr-2 h-4 w-4" />
-                                        Chỉnh sửa thông tin
-                                    </Button>
-                                ) : (
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <Button
-                                            variant="outline"
-                                            onClick={handleCancel}
-                                            disabled={saving}
-                                            className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                                        >
-                                            <X className="mr-2 h-4 w-4" />
-                                            Hủy
-                                        </Button>
-                                        <Button
-                                            onClick={handleSave}
-                                            disabled={saving}
-                                            className="bg-bo-primary text-white hover:bg-bo-primary-hover"
-                                        >
-                                            <Save className="mr-2 h-4 w-4" />
-                                            {saving ? "Đang lưu..." : "Lưu thông tin"}
-                                        </Button>
-                                    </div>
-                                )
-                            }
-                        >
-                            <div className="space-y-6">
-                                {/* tenDangNhap - read-only */}
-                                <div className="space-y-2">
-                                    <Label htmlFor="tenDangNhap" className="flex items-center gap-2">
-                                        <User className="h-4 w-4 text-bo-muted" />
-                                        Tên đăng nhập
-                                    </Label>
-                                    <Input
-                                        id="tenDangNhap"
-                                        value={userData.tenDangNhap}
-                                        readOnly
-                                        disabled
-                                        className="border-bo-border bg-bo-surface-subtle text-bo-foreground"
-                                    />
-                                </div>
+                    <div className="flex shrink-0 flex-wrap justify-center gap-2 sm:justify-end">
+                        {!isEditing ? (
+                            <Button
+                                onClick={handleEdit}
+                                disabled={loadingUser}
+                                className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                            >
+                                <Edit className="mr-2 h-4 w-4" />
+                                Chỉnh sửa thông tin
+                            </Button>
+                        ) : (
+                            <>
+                                <Button
+                                    variant="outline"
+                                    onClick={handleCancel}
+                                    disabled={saving}
+                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                >
+                                   
+                                    Hủy
+                                </Button>
+                                <Button
+                                    onClick={handleSave}
+                                    disabled={saving}
+                                    className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                                >
+                                    <Save className="mr-2 h-4 w-4" />
+                                    {saving ? "Đang lưu..." : "Lưu thông tin"}
+                                </Button>
+                            </>
+                        )}
+                    </div>
+                </div>
 
-                                {/* email - read-only */}
-                                <div className="space-y-2">
-                                    <Label htmlFor="email" className="flex items-center gap-2">
-                                        <Mail className="h-4 w-4 text-bo-muted" />
-                                        Email
-                                    </Label>
-                                    <Input
-                                        id="email"
-                                        type="email"
-                                        value={userData.email}
-                                        readOnly
-                                        disabled
-                                        className="border-bo-border bg-bo-surface-subtle text-bo-foreground"
-                                    />
-                                </div>
+                {/* Thông tin cá nhân */}
+                <div className="border-t border-bo-border px-5 py-6 sm:px-7">
+                    <div className="mb-5">
+                        <h2 className="text-lg font-semibold text-bo-foreground">Thông tin cá nhân</h2>
+                       
+                    </div>
 
-                                {/* hoTen */}
+                    <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2">
+                        <div className="flex min-w-0 items-start gap-3">
+                            <User className="mt-0.5 h-4 w-4 shrink-0 text-bo-muted" />
+                            <div className="min-w-0">
+                                <p className="text-sm font-medium text-bo-foreground">Tên đăng nhập</p>
+                                <p className="mt-1 break-all text-sm text-bo-muted">{userData.tenDangNhap || "—"}</p>
+                            </div>
+                        </div>
+
+                        <div className="flex min-w-0 items-start gap-3">
+                            <Mail className="mt-0.5 h-4 w-4 shrink-0 text-bo-muted" />
+                            <div className="min-w-0">
+                                <p className="text-sm font-medium text-bo-foreground">Email</p>
+                                <p className="mt-1 break-all text-sm text-bo-muted">{userData.email || "—"}</p>
+                            </div>
+                        </div>
+
+                        <div className="min-w-0">
+                            {isEditing ? (
                                 <div className="space-y-2">
                                     <Label htmlFor="hoTen">Họ và tên</Label>
                                     <Input
                                         id="hoTen"
-                                        value={isEditing ? editedData.hoTen : userData.hoTen}
+                                        value={editedData.hoTen}
                                         onChange={(e) => handleInputChange("hoTen", e.target.value)}
                                         disabled={!isEditing || loadingUser}
-                                        className={!isEditing
-                                            ? "border-bo-border bg-bo-surface-subtle text-bo-foreground"
-                                            : "border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"}
+                                        className="border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
                                     />
                                 </div>
+                            ) : (
+                                <div className="flex min-w-0 items-start gap-3">
+                                    <User className="mt-0.5 h-4 w-4 shrink-0 text-bo-muted" />
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-medium text-bo-foreground">Họ và tên</p>
+                                        <p className="mt-1 break-all text-sm text-bo-muted">{userData.hoTen || "—"}</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
 
-                                {/* soDienThoai */}
+                        <div className="min-w-0">
+                            {isEditing ? (
                                 <div className="space-y-2">
                                     <Label htmlFor="soDienThoai" className="flex items-center gap-2">
                                         <Phone className="h-4 w-4 text-bo-muted" />
@@ -335,57 +305,99 @@ export default function UserDetail() {
                                     </Label>
                                     <Input
                                         id="soDienThoai"
-                                        value={isEditing ? editedData.soDienThoai : userData.soDienThoai || ""}
+                                        value={editedData.soDienThoai}
                                         onChange={(e) => handleInputChange("soDienThoai", e.target.value)}
                                         disabled={!isEditing || loadingUser}
-                                        className={!isEditing
-                                            ? "border-bo-border bg-bo-surface-subtle text-bo-foreground"
-                                            : "border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"}
+                                        className="border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
                                     />
                                 </div>
-                            </div>
-                        </SurfaceCard>
+                            ) : (
+                                <div className="flex min-w-0 items-start gap-3">
+                                    <Phone className="mt-0.5 h-4 w-4 shrink-0 text-bo-muted" />
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-medium text-bo-foreground">Số điện thoại</p>
+                                        <p className="mt-1 break-all text-sm text-bo-muted">{userData.soDienThoai || "—"}</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
 
-                        <SurfaceCard
-                            title="Bảo mật tài khoản"
-                            description="Quản lý mật khẩu đăng nhập"
-                            action={
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setChangePasswordOpen(true)}
-                                    disabled={loadingUser}
-                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                                >
-                                    <Lock className="mr-2 h-4 w-4" />
-                                    Đổi mật khẩu
-                                </Button>
-                            }
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft">
-                                    <Shield className="h-5 w-5 text-bo-primary" />
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-sm font-medium text-bo-foreground">Mật khẩu</p>
-                                    <p className="text-sm tracking-widest text-bo-foreground">••••••••••••</p>
-                                </div>
+                    {Array.isArray(userData.khoPhuTrachActive) && userData.khoPhuTrachActive.length > 0 && (
+                        <div className="mt-6 border-t border-bo-border pt-5">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-bo-foreground">
+                                <Warehouse className="h-4 w-4 text-bo-primary" />
+                                Kho phụ trách
                             </div>
-                           
-                        </SurfaceCard>
+                            <ul className="mt-3 flex flex-wrap gap-2">
+                                {userData.khoPhuTrachActive.map((kho, index) => (
+                                    <li
+                                        key={kho.maKho || index}
+                                        className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-bo-border bg-bo-surface-subtle px-3 py-2"
+                                    >
+                                        <span className="text-sm font-medium text-bo-foreground">{kho.tenKho}</span>
+                                        <span className="text-xs uppercase tracking-wide text-bo-muted">{kho.maKho}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                </div>
+
+                {/* Bảo mật tài khoản */}
+                <div className="border-t border-bo-border px-5 py-5 sm:px-7">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft">
+                                <Shield className="h-5 w-5 text-bo-primary" />
+                            </div>
+                            <div>
+                                <h2 className="text-base font-semibold text-bo-foreground">Bảo mật tài khoản</h2>
+                                <p className="text-sm text-bo-muted">Quản lý mật khẩu đăng nhập</p>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+                            <div>
+                                
+                            </div>
+                            <Button
+                                variant="outline"
+                                onClick={() => setChangePasswordOpen(true)}
+                                disabled={loadingUser}
+                                className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                            >
+                                <Lock className="mr-2 h-4 w-4" />
+                                Đổi mật khẩu
+                            </Button>
+                        </div>
                     </div>
                 </div>
 
-                <AvatarEditorModal
-                    open={editorOpen}
-                    onOpenChange={setEditorOpen}
-                    userId={userData.id}
-                />
+                {/* Ngày tạo và cập nhật */}
+                <div className="flex flex-col gap-3 border-t border-bo-border px-5 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-8 sm:px-7">
+                    <div className="flex items-center gap-2 text-sm text-bo-muted">
+                        <Calendar className="h-4 w-4 shrink-0" />
+                        <span>Ngày tạo: {formatDateTime(userData.ngayTao)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-bo-muted">
+                        <Clock className="h-4 w-4 shrink-0" />
+                        <span>Cập nhật: {formatDateTime(userData.ngayCapNhat)}</span>
+                    </div>
+                </div>
+            </section>
 
-                <ChangePasswordModal
-                    open={changePasswordOpen}
-                    onOpenChange={setChangePasswordOpen}
-                    onSuccess={() => showSuccess("Đổi mật khẩu thành công!")}
-                />
+            <AvatarEditorModal
+                open={editorOpen}
+                onOpenChange={setEditorOpen}
+                userId={userData.id}
+            />
+
+            <ChangePasswordModal
+                open={changePasswordOpen}
+                onOpenChange={setChangePasswordOpen}
+                onSuccess={() => showSuccess("Đổi mật khẩu thành công!")}
+            />
         </PageContainer>
     );
 }
