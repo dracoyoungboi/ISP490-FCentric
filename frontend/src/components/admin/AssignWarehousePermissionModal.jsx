@@ -270,9 +270,10 @@ export default function AssignWarehousePermissionModal({
                         Thêm phân quyền kho
                     </DialogTitle>
                     <DialogDescription className="text-bo-muted">
-                        Bước 1: Chọn kho phụ trách (tối đa 1 kho đang hoạt động) • Bước 2: Chọn
-                        quyền chức năng áp dụng cho kho đã chọn.
-                    </DialogDescription>
+    Bước 1: Chọn kho phụ trách (tối đa 1 kho đang hoạt động)
+    <br />
+    Bước 2: Chọn quyền chức năng áp dụng cho kho đã chọn.
+</DialogDescription>
                 </DialogHeader>
 
                 <div className="max-h-[60vh] space-y-6 overflow-y-auto pr-1">
@@ -307,7 +308,7 @@ export default function AssignWarehousePermissionModal({
                                 1. Chọn kho phụ trách
                             </p>
                             <span className="text-[10px] text-bo-muted">
-                              
+                            
                             </span>
                         </div>
 
