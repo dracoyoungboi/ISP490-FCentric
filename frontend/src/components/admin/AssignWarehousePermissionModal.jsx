@@ -8,7 +8,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Warehouse } from "lucide-react";
+import { Warehouse, AlertCircle } from "lucide-react";
 import { khoService } from "@/services/khoService";
 import { quyenHanService } from "@/services/quyenHan";
 import PermissionMatrix from "./PermissionMatrix";
@@ -20,6 +20,7 @@ export default function AssignWarehousePermissionModal({
     onClose,
     userId,
     onAssigned,
+    existingAssignments = [],
 }) {
     const [warehouses, setWarehouses] = useState([]);
     const [page, setPage] = useState(0);
@@ -32,9 +33,15 @@ export default function AssignWarehousePermissionModal({
     const [ngayKetThuc, setNgayKetThuc] = useState(null);
     const pageSize = 20;
 
+    // Người dùng đang có 1 phân quyền kho hoạt động: khoá modal vào đúng kho đó.
+    // Nhiều hơn 1 phân quyền hoạt động: không cho phép thao tác (phải dọn dẹp trước).
+    const lockedAssignment =
+        existingAssignments?.length === 1 ? existingAssignments[0] : null;
+    const hasMultipleActive = (existingAssignments?.length ?? 0) > 1;
+
     const selectedWarehouseCount = useMemo(
-        () => warehouses.filter((w) => w.isSelected).length,
-        [warehouses]
+        () => (lockedAssignment ? 1 : warehouses.filter((w) => w.isSelected).length),
+        [warehouses, lockedAssignment]
     );
 
     const selectedPermissionCount = useMemo(
@@ -42,7 +49,10 @@ export default function AssignWarehousePermissionModal({
         [selectedPermissions]
     );
 
-    const canSubmitAssign = selectedWarehouseCount > 0 && selectedPermissionCount > 0;
+    const canSubmitAssign =
+        !hasMultipleActive &&
+        selectedWarehouseCount === 1 &&
+        selectedPermissionCount > 0;
 
     const resetState = useCallback(() => {
         setWarehouses([]);
@@ -126,11 +136,27 @@ export default function AssignWarehousePermissionModal({
     useEffect(() => {
         if (open) {
             resetState();
+            // Khoá vào kho đang phụ trách: điền sẵn các quyền đang hoạt động của kho đó.
+            // Hoãn qua microtask để tránh setState đồng bộ trong effect
+            // (react-hooks/set-state-in-effect).
+            const active = existingAssignments?.length === 1 ? existingAssignments[0] : null;
+            queueMicrotask(() => {
+                if (active) {
+                    const prefilled = {};
+                    (active.chiTietQuyenKhos || []).forEach((ct) => {
+                        const pid = ct?.quyenHan?.id;
+                        if (pid != null && Number(ct.trangThai) === 1) {
+                            prefilled[pid] = true;
+                        }
+                    });
+                    setSelectedPermissions(prefilled);
+                }
+            });
             loadWarehouses(0);
         } else {
             resetState();
         }
-    }, [open, loadWarehouses, resetState]);
+    }, [open, existingAssignments, loadWarehouses, resetState]);
 
     const handleScrollWarehouses = (e) => {
         const el = e.currentTarget;
@@ -144,20 +170,25 @@ export default function AssignWarehousePermissionModal({
     };
 
     const toggleWarehouseSelected = (warehouseId) => {
+        // Đang khoá vào kho phụ trách hiện tại: không đổi kho trong modal.
+        if (lockedAssignment) return;
         setWarehouses((prev) =>
-            prev.map((warehouse) =>
-                warehouse.id === warehouseId
-                    ? {
+            prev.map((warehouse) => {
+                if (warehouse.id === warehouseId) {
+                    return {
                         ...warehouse,
                         isSelected: !warehouse.isSelected,
                         isManager: warehouse.isSelected ? false : warehouse.isManager,
-                    }
-                    : warehouse
-            )
+                    };
+                }
+                // Đơn chọn: mỗi người dùng chỉ được phân quyền tối đa 1 kho.
+                return warehouse.isSelected ? { ...warehouse, isSelected: false } : warehouse;
+            })
         );
     };
 
     const toggleWarehouseManager = (warehouseId) => {
+        if (lockedAssignment) return;
         setWarehouses((prev) =>
             prev.map((warehouse) =>
                 warehouse.id === warehouseId
@@ -175,9 +206,16 @@ export default function AssignWarehousePermissionModal({
             .filter((k) => selectedPermissions[k])
             .map((k) => Number(k));
 
-        const selectedWarehouses = warehouses.filter((warehouse) => warehouse.isSelected);
+        // Khoá: lấy thẳng từ bản ghi phân quyền — không phụ thuộc item danh sách đã tải hay chưa
+        // (hỗ trợ phân trang danh sách kho).
+        const target = lockedAssignment
+            ? {
+                id: lockedAssignment.kho?.id,
+                isManager: Number(lockedAssignment.laQuanLyKho) === 1,
+            }
+            : warehouses.find((warehouse) => warehouse.isSelected);
 
-        if (!permissionIds.length || !selectedWarehouses.length || !userId) {
+        if (!permissionIds.length || !target?.id || !userId || hasMultipleActive) {
             return;
         }
 
@@ -185,33 +223,34 @@ export default function AssignWarehousePermissionModal({
             setAssigning(true);
             // Lấy mốc tgian hiện tại cho field ngayBatDau
             const nowIso = new Date().toISOString();
-            // Gọi API cho từng kho một (mỗi kho 1 request)
-            for (const warehouse of selectedWarehouses) {
-                // payload submit api
-                const payload = {
-                    nguoiDungId: Number(userId),
-                    khoId: warehouse.id,
-                    laQuanLyKho: warehouse.isManager ? 1 : 0,
-                    ngayBatDau: nowIso,
-                    ngayKetThuc: ngayKetThuc ? parseDateTimeToIsoString(ngayKetThuc) : null,
-                    ghiChu: ghiChu,
-                    chiTietQuyenKhos: permissionIds.map((pid) => ({
-                        quyenHanId: pid,
-                        trangThai: 1,
-                    })),
-                };
+            // Chỉ gửi đúng 1 request cho 1 kho duy nhất
+            const payload = {
+                nguoiDungId: Number(userId),
+                khoId: target.id,
+                laQuanLyKho: target.isManager ? 1 : 0,
+                ngayBatDau: nowIso,
+                ngayKetThuc: ngayKetThuc ? parseDateTimeToIsoString(ngayKetThuc) : null,
+                ghiChu: ghiChu,
+                chiTietQuyenKhos: permissionIds.map((pid) => ({
+                    quyenHanId: pid,
+                    trangThai: 1,
+                })),
+            };
 
-                await quyenHanService.ganQuyenQuyenHan({
-                    khoId: warehouse.id,
-                    payload,
-                });
-            }
+            await quyenHanService.ganQuyenQuyenHan({
+                khoId: target.id,
+                payload,
+            });
 
+            // Đóng modal trước khi reload để tránh chớp reset khi mở
+            onClose();
             await onAssigned?.();
             toast.success("Phân quyền kho thành công");
-            onClose();
         } catch (e) {
             console.error("Lỗi phân quyền kho cho người dùng", e);
+            toast.error(
+                e?.response?.data?.message || "Lỗi phân quyền kho cho người dùng"
+            );
         } finally {
             setAssigning(false);
         }
@@ -231,12 +270,36 @@ export default function AssignWarehousePermissionModal({
                         Thêm phân quyền kho
                     </DialogTitle>
                     <DialogDescription className="text-bo-muted">
-                        Bước 1: Chọn kho phụ trách • Bước 2: Chọn quyền chức năng áp dụng
-                        cho các kho đã chọn.
+                        Bước 1: Chọn kho phụ trách (tối đa 1 kho đang hoạt động) • Bước 2: Chọn
+                        quyền chức năng áp dụng cho kho đã chọn.
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="max-h-[60vh] space-y-6 overflow-y-auto pr-1">
+                    {lockedAssignment && (
+                        <div className="flex items-start gap-2 rounded-lg border border-bo-warning/30 bg-bo-warning-soft p-3">
+                            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-bo-warning" />
+                            <p className="text-xs text-bo-warning">
+                                Người dùng đang phụ trách kho{" "}
+                                <span className="font-bold">
+                                    {lockedAssignment.kho?.tenKho ?? `ID ${lockedAssignment.kho?.id}`}
+                                </span>
+                                . Bạn chỉ có thể cập nhật quyền cho kho này. Để chuyển sang kho
+                                khác, hãy xóa phân quyền hiện tại rồi thêm mới.
+                            </p>
+                        </div>
+                    )}
+
+                    {hasMultipleActive && (
+                        <div className="flex items-start gap-2 rounded-lg border border-bo-danger/30 bg-bo-danger-soft p-3">
+                            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-bo-danger" />
+                            <p className="text-xs text-bo-danger">
+                                Người dùng đang có nhiều hơn 1 phân quyền kho đang hoạt động.
+                                Hãy xóa bớt còn tối đa 1 kho trên trang quản lý trước khi tiếp tục.
+                            </p>
+                        </div>
+                    )}
+
                     {/* Step 1: Chọn kho */}
                     <section>
                         <div className="mb-3 flex items-center justify-between">
@@ -244,7 +307,7 @@ export default function AssignWarehousePermissionModal({
                                 1. Chọn kho phụ trách
                             </p>
                             <span className="text-[10px] text-bo-muted">
-                                * Bắt buộc chọn ít nhất 1 kho
+                              
                             </span>
                         </div>
 
@@ -259,21 +322,35 @@ export default function AssignWarehousePermissionModal({
                                 className="max-h-64 space-y-3 overflow-y-auto pr-1"
                                 onScroll={handleScrollWarehouses}
                             >
-                                {warehouses.map((warehouse) => (
+                                {warehouses.map((warehouse) => {
+                                    const isLocked = !!lockedAssignment;
+                                    const isSelected = isLocked
+                                        ? warehouse.id === lockedAssignment.kho?.id
+                                        : warehouse.isSelected;
+                                    // Đơn chọn: khi đã chọn 1 kho, khoá checkbox các kho còn lại;
+                                    // kho đang chọn vẫn click được để bỏ chọn và đổi kho khác.
+                                    const rowDisabled = isLocked || (!isSelected && selectedWarehouseCount === 1);
+                                    const isManager = isLocked
+                                        ? Number(lockedAssignment.laQuanLyKho) === 1
+                                        : warehouse.isManager;
+
+                                    return (
                                     <div
                                         key={warehouse.id}
+                                        title={isLocked && !isSelected ? "Xóa phân quyền kho hiện tại trước khi đổi kho" : undefined}
                                         className={`flex items-center justify-between rounded-lg border p-4
-                        ${warehouse.isSelected
+                        ${isSelected
                                                 ? "border-bo-primary/30 bg-bo-primary-soft/40"
                                                 : "border-bo-border bg-white"
-                                            }`}
+                                            } ${rowDisabled && !isSelected ? "opacity-60" : ""}`}
                                     >
                                         <div className="flex items-center gap-3">
                                             <input
                                                 type="checkbox"
-                                                checked={warehouse.isSelected}
+                                                checked={isSelected}
                                                 onChange={() => toggleWarehouseSelected(warehouse.id)}
-                                                className="size-5 rounded border-bo-border accent-bo-primary"
+                                                disabled={rowDisabled}
+                                                className="size-5 rounded border-bo-border accent-bo-primary disabled:cursor-not-allowed"
                                             />
 
                                             <div>
@@ -289,12 +366,13 @@ export default function AssignWarehousePermissionModal({
                                             </div>
                                         </div>
 
-                                        {warehouse.isSelected && (
+                                        {isSelected && (
                                             <button
                                                 type="button"
                                                 onClick={() => toggleWarehouseManager(warehouse.id)}
-                                                className={`rounded border px-3 py-1.5 text-[10px] font-bold shadow-sm
-                            ${warehouse.isManager
+                                                disabled={isLocked}
+                                                className={`rounded border px-3 py-1.5 text-[10px] font-bold shadow-sm disabled:cursor-not-allowed disabled:opacity-60
+                            ${isManager
                                                         ? "border-bo-primary bg-bo-primary text-white"
                                                         : "border-bo-border bg-white text-bo-muted"
                                                     }`}
@@ -303,7 +381,8 @@ export default function AssignWarehousePermissionModal({
                                             </button>
                                         )}
                                     </div>
-                                ))}
+                                    );
+                                })}
 
                                 {loadingMore && (
                                     <p className="py-1 text-center text-[11px] text-bo-muted">

@@ -23,6 +23,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -90,6 +92,21 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
         Optional<Kho> findingKho = khoService.getOne(pqndkCreating.getKhoId());
         if (findingKho.isEmpty()) {
             throw new CommonException("Không tìm thấy kho id: " + pqndkCreating.getKhoId());
+        }
+
+        // Quy định nghiệp vụ: mỗi người dùng chỉ được có TỐI ĐA 1 phân quyền kho đang hoạt động.
+        // Chỉ cho phép khi toàn bộ phân quyền đang hoạt động hiện có đều thuộc đúng kho đang gán.
+        List<PhanQuyenNguoiDungKho> activeAssignments = phanQuyenNguoiDungKhoService
+                .findByNguoiDungIdAndActive(pqndkCreating.getNguoiDungId());
+        if (activeAssignments != null && !activeAssignments.isEmpty()) {
+            boolean allSameKho = activeAssignments.stream()
+                    .allMatch(pq -> pq.getKho() != null
+                            && Objects.equals(pq.getKho().getId(), pqndkCreating.getKhoId()));
+            if (!allSameKho) {
+                throw new CommonException(
+                        "Người dùng đang có phân quyền kho đang hoạt động tại kho khác. "
+                                + "Hãy xóa phân quyền kho hiện tại trước khi phân kho mới.");
+            }
         }
 
         //kiểm tra xem user đã được gán với kho này hay chưa
