@@ -310,9 +310,7 @@ export default function UserPermissionEditByAdmin() {
         </div>
       </form>
 
-      <p className="pt-4 text-center text-xs italic text-bo-muted">
-        Dữ liệu được lưu vào bảng: nguoi_dung, phan_quyen_nguoi_dung_kho
-      </p>
+     
 
       <AssignWarehousePermissionModal
         open={showAssignModal}
