@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   ShieldCheck, RefreshCcw, UserCog,
-  Warehouse, AlertCircle, Save, X, Trash2,
+  Warehouse, AlertCircle, Save, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import AssignWarehousePermissionModal from "@/components/admin/AssignWarehousePermissionModal";
@@ -292,7 +292,6 @@ export default function UserPermissionEditByAdmin() {
             onClick={() => navigate("/users")}
             className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
           >
-            <X className="mr-2 h-4 w-4" />
             Hủy
           </Button>
           <Button
