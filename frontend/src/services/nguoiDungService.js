@@ -7,11 +7,15 @@ export const nguoiDungService = {
         return res.data; // ResponseData<NguoiDungDto>
     },
 
-    async getMe() {
-        // hồ sơ của người đang đăng nhập — BE lấy user từ token, không nhận id
-        const res = await apiClient.get("/api/v1/nguoi-dung/me");
-        return res.data; // ResponseData<NguoiDungDto>
-    },
+  async getMe(config = {}) {
+    // Chỉ giới hạn thời gian chờ cho request kiểm tra phiên đăng nhập.
+    const res = await apiClient.get("/api/v1/nguoi-dung/me", {
+        ...config,
+        timeout: config.timeout ?? 15000,
+    });
+
+    return res.data;
+},
 
     async updateMe(payload) {
         // payload: { hoTen, soDienThoai } — không kèm id (BE lấy user từ token)
