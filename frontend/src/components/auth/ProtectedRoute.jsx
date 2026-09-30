@@ -90,7 +90,7 @@ export default function ProtectedRoute() {
                         aria-hidden="true"
                         className="size-5 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600"
                     />
-                    <span>Đang kiểm tra phiên đăng nhập...</span>
+                    <span>Đang kiểm tra phiên đăng nhập</span>
                 </div>
             </main>
         );
