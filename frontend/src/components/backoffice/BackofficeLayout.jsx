@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import BackofficeSidebar from "./BackofficeSidebar";
 import BackofficeHeader from "./BackofficeHeader";
@@ -5,6 +6,9 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
 import useCheckPasswordStatus from "@/hooks/useCheckPasswordStatus";
 import "@/styles/print.css";
+
+const DEFAULT_DOCUMENT_TITLE =
+    "FCentric |  Quản lý kho & bán lẻ thời trang đa kênh";
 
 export default function BackofficeLayout() {
     const { pathname } = useLocation();
@@ -389,6 +393,23 @@ export default function BackofficeLayout() {
     const pageMeta = PAGE_META_CONFIG.find((item) =>
         item.match(pathname)
     );
+
+    useEffect(() => {
+        const pageTitle =
+            pageMeta?.key === "WAREHOUSE"
+                ? "Quản lý kho hàng"
+                : pageMeta?.title;
+
+        document.title = pageTitle
+            ? `FCentric | ${pageTitle}`
+            : DEFAULT_DOCUMENT_TITLE;
+    }, [pageMeta?.key, pageMeta?.title]);
+
+    useEffect(() => {
+        return () => {
+            document.title = DEFAULT_DOCUMENT_TITLE;
+        };
+    }, []);
 
     return (
         <>
