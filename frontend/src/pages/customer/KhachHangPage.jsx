@@ -542,7 +542,7 @@ export default function KhachHangPage() {
                                         align="start"
                                         className="backoffice-user-menu z-50 w-[110px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
                                     >
-                                        {[20, 50, 100].map(size => (
+                                        {[5,10,20, 50, 100].map(size => (
                                             <DropdownMenuItem
                                                 key={size}
                                                 onClick={() => handlePageSizeChange(size)}
