@@ -6,6 +6,7 @@ import { nguoiDungService } from "../../services/nguoiDungService";
 export default function ProtectedRoute() {
     const token = localStorage.getItem("access_token");
     const [status, setStatus] = useState("checking");
+    const [mustChangePassword, setMustChangePassword] = useState(false);
     const [retryCount, setRetryCount] = useState(0);
 
     useEffect(() => {
@@ -23,8 +24,9 @@ export default function ProtectedRoute() {
 
         nguoiDungService
             .getMe({ signal: controller.signal })
-            .then(() => {
+            .then((response) => {
                 if (!cancelled) {
+                    setMustChangePassword(response?.data?.mustChangePassword === true);
                     setStatus("authenticated");
                 }
             })
@@ -127,5 +129,5 @@ export default function ProtectedRoute() {
         );
     }
 
-    return <Outlet />;
+    return <Outlet context={{ mustChangePassword, setMustChangePassword }} />;
 }

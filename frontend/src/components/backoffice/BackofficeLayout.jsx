@@ -1,10 +1,9 @@
 import { useEffect } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, useOutletContext } from "react-router-dom";
 import BackofficeSidebar from "./BackofficeSidebar";
 import BackofficeHeader from "./BackofficeHeader";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
-import useCheckPasswordStatus from "@/hooks/useCheckPasswordStatus";
 import "@/styles/print.css";
 
 const DEFAULT_DOCUMENT_TITLE =
@@ -12,7 +11,8 @@ const DEFAULT_DOCUMENT_TITLE =
 
 export default function BackofficeLayout() {
     const { pathname } = useLocation();
-    const { mustChangePassword, handlePasswordChangeSuccess } = useCheckPasswordStatus();
+    const { mustChangePassword, setMustChangePassword } = useOutletContext();
+    const handlePasswordChangeSuccess = () => setMustChangePassword(false);
 
     const PAGE_META_CONFIG = [
         {
@@ -146,7 +146,7 @@ export default function BackofficeLayout() {
             key: "PURCHASE_ORDERS",
             match: (path) => path === "/purchase-orders",
             title: "Đơn mua hàng",
-            subtitle: "Quản lý các đơn hàng nhập đã được xác nhận",
+            subtitle: "Danh sách các đơn hàng nhập đã được xác nhận",
         },
         {
             key: "TRANSFER_TICKETS",
@@ -212,7 +212,7 @@ export default function BackofficeLayout() {
             key: "SALES_ORDER_DETAIL",
             match: (path) => /^\/sales-orders\/\d+$/.test(path),
             title: "Chi tiết đơn bán hàng",
-            subtitle: "Xem chi tiết đơn bán hàng",
+            subtitle: "Xem chi tiết đơn hàng",
         },
         {
             key: "CREATE_SALES_ORDER",
