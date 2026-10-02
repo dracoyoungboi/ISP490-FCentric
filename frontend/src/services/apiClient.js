@@ -28,7 +28,7 @@ apiClient.interceptors.request.use(
 
         const token = localStorage.getItem("access_token");
         const khoId = localStorage.getItem("selected_kho_id");
-        
+
         if (token && needToken) {
             config.headers = config.headers || {};
             config.headers.Authorization = `Bearer ${token}`;
@@ -76,11 +76,13 @@ apiClient.interceptors.response.use(
         }
 
         // Token hết hạn/không còn hợp lệ: xóa phiên cũ và tải lại trang đăng nhập.
-        // Không xử lý request công khai như login/forgot-password (skipAuth = true).
+        // Không xử lý request công khai như login/forgot-password (skipAuth = true)
+        // hoặc request không gửi token (needToken = false).
         const hasStoredToken = Boolean(localStorage.getItem("access_token"));
         if (
             status === 401 &&
             error.config?.skipAuth !== true &&
+            error.config?.needToken !== false &&
             hasStoredToken &&
             !expiredSessionHandled
         ) {
