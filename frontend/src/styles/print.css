@@ -53,8 +53,30 @@
     page-break-inside: auto;
   }
 
+  /* Phiếu dài nhiều trang: lặp tiêu đề bảng ở đầu mỗi trang */
+  thead {
+    display: table-header-group !important;
+  }
+
+  /* Tổng tiền/số lượng nằm trong <tfoot> KHÔNG lặp lại ở từng trang —
+     hiển thị như hàng cuối bảng, chỉ một lần ở cuối danh sách. */
+  tfoot {
+    display: table-row-group !important;
+  }
+
   tr {
     page-break-inside: avoid;
     page-break-after: auto;
+  }
+
+  /* Trang in thật: nền ngoài tờ giấy luôn trắng (kể cả khi bật "In nền") */
+  .print-root {
+    background: white !important;
+  }
+
+  /* Khối chữ ký không bị ngắt giữa chừng khi sang trang */
+  .print-signatures {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }
