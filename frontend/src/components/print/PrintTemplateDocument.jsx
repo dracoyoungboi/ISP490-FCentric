@@ -15,9 +15,23 @@ function getByPath(model, path) {
     );
 }
 
+/**
+ * Trường có modelPath bắt đầu bằng "company." đọc từ HỒ SƠ CÔNG TY dùng
+ * chung (prop `company`), không phải từ dữ liệu phiếu — dùng cho các khối
+ * như "Đơn vị bán". Giá trị rỗng -> null để khối hiển thị ẩn gọn.
+ */
+function resolveFieldValue(field, model, company) {
+    const path = field.modelPath ?? "";
+    if (path.startsWith("company.")) {
+        const value = getByPath(company ?? {}, path.slice("company.".length));
+        return value === "" || value === null || value === undefined ? null : value;
+    }
+    return getByPath(model, path);
+}
+
 /** Render giá trị một field theo `kind` khai báo trong schema. */
-function renderFieldValue(field, model) {
-    const value = getByPath(model, field.modelPath);
+function renderFieldValue(field, model, company) {
+    const value = resolveFieldValue(field, model, company);
     if (field.kind === "badge" && value && typeof value === "object") {
         return <StatusBadge label={value.label} tone={value.tone} />;
     }
@@ -54,9 +68,15 @@ export default function PrintTemplateDocument({ documentType, config, model, com
                 const sectionConfig = config.sections[section.key] ?? {};
 
                 if (section.type === "info") {
-                    const fields = section.fields.filter(
-                        (field) => sectionConfig[field.key] !== false
-                    );
+                    const fields = section.fields
+                        .filter((field) => sectionConfig[field.key] !== false)
+                        // Trường của hồ sơ công ty rỗng (email/ĐT/địa chỉ chưa
+                        // điền) -> ẩn sạch, không để lại nhãn trống hay khoảng trống.
+                        .filter(
+                            (field) =>
+                                !(field.modelPath ?? "").startsWith("company.") ||
+                                resolveFieldValue(field, model, company) !== null
+                        );
                     if (fields.length === 0) return null;
                     return (
                         <PrintSection
@@ -70,7 +90,7 @@ export default function PrintTemplateDocument({ documentType, config, model, com
                                 columns={compact ? 1 : section.columns}
                                 items={fields.map((field) => ({
                                     label: field.label,
-                                    value: renderFieldValue(field, model),
+                                    value: renderFieldValue(field, model, company),
                                     className: field.span
                                         ? compact
                                             ? undefined
