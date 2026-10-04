@@ -15,9 +15,11 @@ const PREVIEW_ZOOM_OPTIONS = [
     { value: "fit", label: "Vừa trang" },
 ];
 
-export default function PreviewZoomControl({ value, onChange, className }) {
+export default function PreviewZoomControl({ value, onChange, className, ariaLabel = "Thu phóng" }) {
     return (
         <div
+            role="group"
+            aria-label={ariaLabel}
             className={cn(
                 "inline-flex items-center gap-0.5 rounded-lg border border-bo-border bg-bo-surface-subtle p-[3px]",
                 className
@@ -28,6 +30,9 @@ export default function PreviewZoomControl({ value, onChange, className }) {
                     key={option.value}
                     type="button"
                     onClick={() => onChange(option.value)}
+                    // Trạng thái truy cập cho lựa chọn hiện tại (aria-pressed) —
+                    // KHÔNG dùng title/tooltip vì nút đã có chữ rõ ràng.
+                    aria-pressed={value === option.value}
                     className={cn(
                         "inline-flex h-7 items-center rounded-md px-2.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary",
                         value === option.value
