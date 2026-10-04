@@ -32,17 +32,17 @@ import { printTemplateConfigService } from "@/services/printTemplateConfigServic
 import { companyProfileService } from "@/services/companyProfileService";
 import CompanyProfileDialog from "./CompanyProfileDialog";
 
-// Padding màn hình của khung preview (p-4 sm:p-6) — trừ khỏi kích thước
-// viewport khi tính zoom "Vừa trang" để tờ giấy không tràn/không thiếu.
-const PREVIEW_VIEWPORT_PADDING = 48;
+// Padding màn hình của khung preview (p-3 sm:p-4 = 12-16px) — trừ khỏi kích
+// thước viewport khi tính zoom "Vừa trang" để tờ giấy không tràn/không thiếu.
+const PREVIEW_VIEWPORT_PADDING = 32;
 
 /**
  * Trang cấu hình mẫu in — MÔ HÌNH MỘT MẪU mỗi loại chứng từ:
  * - trái: danh sách 7 loại chứng từ (dưới lg: select gọn phía trên preview)
- * - phải: toolbar (tên mẫu + nhãn KHỔ GIẤY CHỈ ĐỌC lấy từ cấu hình ĐÃ LƯU,
- *   In thử / Chỉnh sửa) + vùng preview nhúng
- * - zoom nằm TRONG vùng preview (chỉ ảnh hưởng bản xem, không bao giờ ghi
- *   xuống cấu hình); mặc định "Vừa trang" (fit, tối đa 100%)
+ * - phải: toolbar (tên mẫu + nhãn KHỔ GIẤY CHỈ ĐỌC lấy từ cấu hình ĐÃ LƯU +
+ *   cụm zoom 50/75/100/"Vừa trang" + In thử / Chỉnh sửa) + vùng preview nhúng
+ * - zoom chỉ ảnh hưởng bản xem màn hình, không bao giờ ghi xuống cấu hình;
+ *   mặc định "Vừa trang" (fit, tối đa 100%); bấm mức khác chuyển thủ công
  * - "In thử" in qua PRINT MIRROR (PrintOnlyDocument) — bản in chỉ gồm tờ
  *   giấy với cấu hình đã lưu + dữ liệu mẫu, khớp 1:1 bản xem trước
  */
@@ -65,7 +65,9 @@ export default function PrintTemplatesPage() {
 
     // Zoom bản xem trước — mặc định "Vừa trang" (fit-page, tối đa 100%).
     // State RIÊNG của bản xem, không liên quan cấu hình đã lưu.
-    const [zoom, setZoom] = useState("fit");
+    // Zoom bản xem trước: "fit" = chế độ Vừa trang (tự tính, tối đa 100%),
+    // hoặc một mức thủ công (0.5 / 0.75 / 1) sau khi bấm nút tương ứng.
+    const [zoomMode, setZoomMode] = useState("fit");
     const previewViewport = usePreviewViewportSize();
 
     // Hộp thoại "Thông tin công ty" (hồ sơ dùng chung) — mở từ nút trên tiêu đề
@@ -281,13 +283,13 @@ export default function PrintTemplatesPage() {
     // zoom thủ công 50/75/100 giữ nguyên. computeFitScale tự bảo vệ khi
     // viewport chưa đo được (trả 1 — không NaN, không flash 0-size).
     const effectiveZoom =
-        zoom === "fit"
+        zoomMode === "fit"
             ? computeFitScale(
                   paperObj,
                   Math.max(0, previewViewport.width - PREVIEW_VIEWPORT_PADDING),
                   Math.max(0, previewViewport.height - PREVIEW_VIEWPORT_PADDING)
               )
-            : Number(zoom);
+            : Number(zoomMode);
 
     return (
         <PageContainer className="print-template-preview-page flex flex-col space-y-4 pb-4 lg:h-full">
@@ -364,7 +366,7 @@ export default function PrintTemplatesPage() {
                 <div className="flex min-h-0 flex-col gap-3">
                     <SurfaceCard
                         className="no-print shrink-0"
-                        contentClassName="flex flex-wrap items-end gap-x-4 gap-y-3 px-4 py-3"
+                        contentClassName="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3"
                     >
                         <div className="min-w-0">
                             <h2 className="truncate text-sm font-semibold text-bo-foreground">
@@ -380,7 +382,19 @@ export default function PrintTemplatesPage() {
                             </div>
                         </div>
 
+                        {/* Cụm thu phóng + hành động — thu phóng chỉ tác động
+                            lên bản xem màn hình, không ghi cấu hình, không
+                            xuất hiện khi in (toolbar no-print + print mirror).
+                            KHÔNG tooltip thừa: các nút đã có chữ rõ ràng,
+                            nhãn truy cập do aria-label của cụm đảm nhiệm. */}
                         <div className="ml-auto flex flex-wrap items-center gap-2">
+                            <PreviewZoomControl
+                                value={zoomMode === "fit" ? "fit" : String(zoomMode)}
+                                onChange={(value) =>
+                                    setZoomMode(value === "fit" ? "fit" : Number(value))
+                                }
+                                ariaLabel="Thu phóng bản xem trước"
+                            />
                             <Button
                                 variant="outline"
                                 className="h-9 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
@@ -403,23 +417,18 @@ export default function PrintTemplatesPage() {
 
                     <SurfaceCard
                         className="print-template-preview flex min-h-0 flex-1 flex-col"
-                        contentClassName="flex min-h-0 flex-1 flex-col p-0"
+                        // p-0! phải dùng important — SurfaceCard mặc định có
+                        // sm:p-5 (responsive variant thắng p-0 thường) khiến
+                        // vùng xem thụt 20px khỏi mép card trên desktop.
+                        contentClassName="flex min-h-0 flex-1 flex-col p-0!"
                     >
-                        {/* Thanh zoom NẰM TRONG vùng preview — chỉ điều chỉnh
-                            bản xem trên màn hình, không ghi cấu hình. */}
-                        <div className="no-print flex shrink-0 items-center justify-end gap-2 border-b border-bo-border bg-white px-3 py-2">
-                            <span className="text-xs font-medium text-bo-muted">
-                                Thu phóng
-                            </span>
-                            <PreviewZoomControl value={zoom} onChange={setZoom} />
-                        </div>
                         {/* Viewport cuộn: cha là flex-col có chiều cao xác định
                             (SurfaceCard flex-1 trong cột min-h-0) nên flex-1 ở
                             đây ép viewport bằng đúng chiều cao còn lại — nội
                             dung dài hơn sẽ cuộn tới tận hàng cuối cùng. */}
                         <div
                             ref={previewViewport.ref}
-                            className="print-preview-scroll min-h-0 flex-1 overflow-auto bg-bo-canvas p-4 sm:p-6"
+                            className="print-preview-scroll min-h-0 flex-1 overflow-auto bg-bo-canvas p-3 sm:p-4"
                         >
                             {!displayConfig ? (
                                 <LoadingState label="Đang tải bản xem trước" className="min-h-64" />
