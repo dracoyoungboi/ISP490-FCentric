@@ -63,13 +63,16 @@ function toDonBanHangPrintModel(raw, { statusMap }) {
         documentNumber: dash(don.soDonHang || `#${don.id}`),
         issuedDate: dashDate(don.ngayDatHang),
         status: { label: status.label, tone: status.tone },
-        seller: {
+        // "Người lập" = nhân viên tạo chứng từ (nguoiTao) — phân biệt với
+        // "Đơn vị bán" là hồ sơ công ty dùng chung (schema đọc company.*).
+        creator: {
             name: dash(seller.hoTen),
             email: dash(seller.email),
             phone: dash(seller.soDienThoai),
         },
         buyer: {
             name: dash(kh.tenKhachHang),
+            code: dash(kh.maKhachHang),
             contact: dash(kh.nguoiLienHe),
             phone: dash(kh.soDienThoai),
             address: dash(kh.diaChi),
