@@ -1,57 +1,138 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Pencil, Printer } from "lucide-react";
+import { ArrowLeft, FileX, Pencil, Printer } from "lucide-react";
 import PageContainer from "@/components/backoffice/PageContainer";
 import PageHeader from "@/components/backoffice/PageHeader";
 import SurfaceCard from "@/components/shared/SurfaceCard";
-import StatusBadge from "@/components/shared/StatusBadge";
 import PrintTemplateDocument from "@/components/print/PrintTemplateDocument";
-import { getPaperPageCss, getPaperSheetClasses } from "@/components/print/paperStyles";
+import PreviewZoomControl from "@/components/print/PreviewZoomControl";
+import { PreviewPrintStyleTag } from "@/components/print/previewPrintStyles";
+import { usePreviewViewportSize } from "@/components/print/usePreviewViewportSize";
+import { computeFitScale, getPaperSheetClasses } from "@/components/print/paperStyles";
+import LoadingState from "@/components/shared/LoadingState";
+import ErrorState from "@/components/shared/ErrorState";
+import EmptyState from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { getPrintSchema } from "@/components/print/schemas/printSchemas";
 import { getSamplePrintModel } from "./samplePrintData";
 import { printTemplateConfigService } from "@/services/printTemplateConfigService";
 import { companyProfileService } from "@/services/companyProfileService";
+import PrintOnlyDocument from "@/components/print/PrintOnlyDocument";
 
-// Chỉ ảnh hưởng trang xem trước này khi in từ bên trong BackofficeLayout:
-// shell `h-dvh overflow-hidden` sẽ cắt bản in, và sidebar là <div>
-// (không phải <nav>) nên print.css không tự ẩn được — cần quy tắc
-// :has() phạm vi hẹp. Băng "Mẫu minh họa" cố tình GIỮ LẠI khi in để
-// bản in mẫu không bao giờ bị nhầm là chứng từ thật.
-const PREVIEW_PRINT_STYLES = `
-@media print {
-  [data-backoffice-shell]:has(.print-template-preview) { height: auto !important; overflow: visible !important; }
-  [data-backoffice-shell]:has(.print-template-preview) [data-slot="sidebar"] { display: none !important; }
-  [data-backoffice-shell]:has(.print-template-preview) #backoffice-main-content { height: auto !important; overflow: visible !important; }
-  [data-backoffice-shell]:has(.print-template-preview) .print-template-preview-page { max-width: none !important; padding: 0 !important; }
-  [data-backoffice-shell]:has(.print-template-preview) .print-preview-scroll { overflow: visible !important; padding: 0 !important; }
-  [data-backoffice-shell]:has(.print-template-preview) .print-preview-sheet { width: 100% !important; min-height: 0 !important; padding: 0 !important; box-shadow: none !important; }
-}
-`;
-
+/**
+ * Trang xem trước riêng của một mẫu (route cũ, giữ lại cho deep-link).
+ * Trang cấu hình chính giờ đã nhúng preview — trang này chỉ còn dùng cho
+ * URL cũ dạng /settings/print-templates/:documentType/:templateId.
+ * Định danh mẫu không hợp lệ -> trạng thái "Không tìm thấy" (không còn
+ * âm thầm mở mẫu đầu tiên).
+ */
 export default function PrintTemplateDetailPage() {
     const navigate = useNavigate();
     const { documentType, templateId } = useParams();
 
     const schema = getPrintSchema(documentType);
-    const [config] = useState(() => {
-        if (!schema) return null;
-        return printTemplateConfigService.getTemplate(
-            schema.key,
-            templateId ?? printTemplateConfigService.getActiveTemplate(schema.key)?.id
-        );
-    });
-    const [company] = useState(() => companyProfileService.get());
+
+    const [config, setConfig] = useState(null);
+    const [company, setCompany] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
+    const [reloadKey, setReloadKey] = useState(0);
+
+    // Zoom bản xem trước — mặc định "Vừa trang" (fit-page, tối đa 100%)
+    const [zoom, setZoom] = useState("fit");
+    const previewViewport = usePreviewViewportSize();
+
+    const reload = useCallback(() => setReloadKey((key) => key + 1), []);
+
+    useEffect(() => {
+        if (!schema) return undefined;
+        let cancelled = false;
+        (async () => {
+            setLoading(true);
+            setLoadError(false);
+            try {
+                const [cfg, profile] = await Promise.all([
+                    templateId
+                        ? printTemplateConfigService.getTemplate(schema.key, templateId)
+                        : printTemplateConfigService.getActiveTemplate(schema.key),
+                    companyProfileService.get(),
+                ]);
+                if (cancelled) return;
+                setConfig(cfg);
+                setCompany(profile);
+            } catch (error) {
+                console.error("Error loading print template detail:", error);
+                if (!cancelled) setLoadError(true);
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [schema, templateId, reloadKey]);
 
     const sampleModel = useMemo(
         () => (schema ? getSamplePrintModel(schema.key) : null),
         [schema]
     );
 
-    if (!schema || !config) {
+    if (!schema) {
         return (
             <PageContainer>
-                <p className="text-sm text-bo-muted">Không tìm thấy loại chứng từ hoặc mẫu in.</p>
+                <EmptyState
+                    icon={FileX}
+                    title="Không tìm thấy loại chứng từ"
+                    description="Loại chứng từ trong đường dẫn không tồn tại."
+                    action={
+                        <Button
+                            className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                            onClick={() => navigate("/settings/print-templates")}
+                        >
+                            Về trang cấu hình mẫu in
+                        </Button>
+                    }
+                />
+            </PageContainer>
+        );
+    }
+
+    if (loading) {
+        return (
+            <PageContainer>
+                <LoadingState rows={4} label="Đang tải mẫu in" />
+            </PageContainer>
+        );
+    }
+
+    if (loadError) {
+        return (
+            <PageContainer>
+                <ErrorState
+                    title="Không thể tải mẫu in"
+                    description="Không thể tải cấu hình mẫu in từ máy chủ. Vui lòng thử lại."
+                    onRetry={reload}
+                />
+            </PageContainer>
+        );
+    }
+
+    if (!config) {
+        return (
+            <PageContainer>
+                <EmptyState
+                    icon={FileX}
+                    title="Không tìm thấy mẫu in"
+                    description="Mẫu in trong đường dẫn không tồn tại hoặc đã bị xoá."
+                    action={
+                        <Button
+                            className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                            onClick={() => navigate("/settings/print-templates")}
+                        >
+                            Về trang cấu hình mẫu in
+                        </Button>
+                    }
+                />
             </PageContainer>
         );
     }
@@ -69,12 +150,20 @@ export default function PrintTemplateDetailPage() {
                 ? "Ngang"
                 : "Dọc";
 
+    // Trang này cuộn theo trang (page-level scroll) nên "Vừa trang" chỉ cần
+    // khớp chiều rộng khung preview, cap 100% — không phóng to quá khổ in thật.
+    const effectiveZoom =
+        zoom === "fit"
+            ? computeFitScale(
+                  paper,
+                  Math.max(0, previewViewport.width - 48),
+                  Math.max(0, previewViewport.height - 48)
+              )
+            : Number(zoom);
+
     return (
         <PageContainer className="print-template-preview-page space-y-5 pb-24">
-            <style>
-                {PREVIEW_PRINT_STYLES}
-                {getPaperPageCss(paper)}
-            </style>
+            <PreviewPrintStyleTag paper={paper} />
 
             <PageHeader
                 className="no-print"
@@ -86,7 +175,11 @@ export default function PrintTemplateDetailPage() {
                         <Button
                             variant="outline"
                             className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                            onClick={() => navigate("/settings/print-templates")}
+                            onClick={() =>
+                                navigate(
+                                    `/settings/print-templates/${schema.slug}?paper=${config.paperSize}`
+                                )
+                            }
                         >
                             <ArrowLeft className="size-4" />
                             Quay lại
@@ -142,13 +235,14 @@ export default function PrintTemplateDetailPage() {
                     </div>
                     <div>
                         <dt className="text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                            Trạng thái
+                            Lề
                         </dt>
-                        <dd className="mt-0.5">
-                            <StatusBadge
-                                label={config.isDefault ? "Đang sử dụng" : "Không áp dụng"}
-                                tone={config.isDefault ? "success" : "neutral"}
-                            />
+                        <dd className="mt-0.5 text-sm font-semibold text-bo-foreground">
+                            {config.margin === "narrow"
+                                ? "Hẹp"
+                                : config.margin === "wide"
+                                    ? "Rộng"
+                                    : "Mặc định"}
                         </dd>
                     </div>
                 </dl>
@@ -163,10 +257,15 @@ export default function PrintTemplateDetailPage() {
                         : "Dữ liệu mẫu minh họa — loại chứng từ này chưa có bản in thật."
                 }
                 contentClassName="p-0"
+                action={<PreviewZoomControl value={zoom} onChange={setZoom} />}
             >
-                <div className="print-preview-scroll overflow-x-auto bg-bo-canvas p-4 sm:p-6">
+                <div
+                    ref={previewViewport.ref}
+                    className="print-preview-scroll overflow-auto bg-bo-canvas p-4 sm:p-6"
+                >
                     <div
-                        className={`print-preview-sheet mx-auto bg-white shadow-sm ${getPaperSheetClasses(paper)}`}
+                        className={`print-preview-sheet print-ruled mx-auto border border-bo-border bg-white shadow-sm ${getPaperSheetClasses(paper)}`}
+                        style={{ zoom: effectiveZoom }}
                     >
                         <PrintTemplateDocument
                             documentType={schema.key}
@@ -177,6 +276,16 @@ export default function PrintTemplateDetailPage() {
                     </div>
                 </div>
             </SurfaceCard>
+
+            {/* Bản in mẫu qua PRINT MIRROR — chỉ tờ giấy, đúng cấu hình đã lưu */}
+            <PrintOnlyDocument paper={paper}>
+                <PrintTemplateDocument
+                    documentType={schema.key}
+                    config={config}
+                    model={sampleModel}
+                    company={company}
+                />
+            </PrintOnlyDocument>
         </PageContainer>
     );
 }
