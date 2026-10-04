@@ -55,7 +55,7 @@ export default function PrintLayout({
 
             <div className="print-container overflow-x-auto px-4 py-6 sm:px-6">
                 <div
-                    className={`mx-auto bg-white shadow-sm print:min-h-0! print:w-auto! print:max-w-none! print:p-0! print:shadow-none! ${getPaperSheetClasses(paperConfig)}`}
+                    className={`mx-auto bg-white shadow-sm print:min-h-0! print:shadow-none! ${getPaperSheetClasses(paperConfig)}`}
                 >
                     {children}
                 </div>
