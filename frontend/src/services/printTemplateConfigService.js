@@ -1,21 +1,28 @@
 /**
  * Cấu hình mẫu in — MỖI LOẠI CHỨNG TỪ MỘT BỘ CẤU HÌNH RIÊNG.
  *
- * Cấu trúc lưu trữ:
- *   printTemplateConfigs[documentType][templateId] = { ...config }
+ * Lưu trữ SERVER-SIDE (bảng cau_hinh_mau_in + mau_in_dang_ap_dung):
+ * - Mỗi biến thể khổ giấy (A4/A5/K80) có định danh riêng; khổ giấy luôn
+ *   khớp hậu tố của định danh nên A5 không thể lưu dưới id A4 (backend
+ *   cũng chặn bằng validate).
+ * - "Mẫu đang áp dụng" = active map từ server (đúng 1 mẫu/loại chứng từ) —
+ *   nguồn sự thật duy nhất cho badge "Đang áp dụng" và luồng in thật.
+ *   Không còn isDefault đa trị ở client.
  *
- * Khổ giấy nằm trong định danh mẫu (vd: purchase_request_default_A4,
- * sales_invoice_default_K80) và được seed từ registry schema — mỗi loại
- * chứng từ có section/field/cột riêng nên KHÔNG có cấu hình global.
- *
- * MVP frontend-only: lưu localStorage có version. Service là lớp trừu tượng
- * duy nhất mà editor / trang xem trước / trang in thật sử dụng, nên sau này
- * có thể thay phần lưu trữ bằng API backend mà không phải sửa editor/renderer.
+ * Service là lớp trừu tượng duy nhất mà editor / trang cấu hình / trang in
+ * thật sử dụng. Dữ liệu localStorage cũ (fcentric.printTemplateConfigs.v2)
+ * được migrate một lần lên server khi mở trang cấu hình — server chỉ nhận
+ * dữ liệu của loại chứng từ CHƯA có cấu hình, không bao giờ ghi đè.
  */
-import { getPrintSchema } from "@/components/print/schemas/printSchemas";
+import apiClient from "./apiClient";
+import {
+    getPrintSchema,
+    PRINT_SCHEMAS,
+} from "@/components/print/schemas/printSchemas";
 
 export const CONFIG_VERSION = 2;
-const STORAGE_KEY = "fcentric.printTemplateConfigs.v2";
+const LEGACY_STORAGE_KEY = "fcentric.printTemplateConfigs.v2";
+const MIGRATED_FLAG_KEY = "fcentric.printTemplateConfigs.migrated";
 
 const DEFAULT_ACCENT_COLOR = "#0F2A43";
 
@@ -54,7 +61,6 @@ export function buildDefaultTemplateConfig(schema, templateDef) {
         documentType: schema.key,
         id: templateDef.id,
         name: templateDef.name,
-        isDefault: templateDef.isDefault,
         paperSize: templateDef.paperSize,
         orientation: templateDef.orientation,
         margin: templateDef.margin,
@@ -88,76 +94,269 @@ const deepMerge = (base, over) => {
     return result;
 };
 
-const readStorage = () => {
-    try {
-        const raw = window.localStorage.getItem(STORAGE_KEY);
-        return raw ? JSON.parse(raw) : {};
-    } catch {
-        return {};
-    }
-};
+// ── Cache bundle server ────────────────────────────────────────────────────
 
-const writeStorage = (map) => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
-};
+let bundlePromise = null;
+let bundleCache = null;
 
-/** Cấu hình mặc định của một mẫu từ registry (chưa merge bản đã lưu). */
+async function loadBundle({ force = false } = {}) {
+    if (bundlePromise && !force) return bundlePromise;
+    bundlePromise = (async () => {
+        const response = await apiClient.get("/api/v1/cau-hinh-mau-in");
+        bundleCache = response.data?.data ?? { configs: [], active: {} };
+        return bundleCache;
+    })().catch((error) => {
+        bundlePromise = null; // cho phép thử lại ở lần sau
+        throw error;
+    });
+    return bundlePromise;
+}
+
+/** Chỉ giữ các trường server chấp nhận khi lưu (bỏ documentType/id/version...). */
+const toServerConfig = (config) => ({
+    name: config.name,
+    paperSize: config.paperSize,
+    orientation: config.orientation,
+    margin: config.margin,
+    accentColor: config.accentColor,
+    branding: config.branding ?? {},
+    sections: config.sections ?? {},
+    columns: config.columns ?? {},
+});
+
+const fromServerConfig = (saved) => ({
+    name: saved.name,
+    paperSize: saved.paperSize,
+    orientation: saved.orientation,
+    margin: saved.margin,
+    accentColor: saved.accentColor,
+    branding: saved.branding ?? {},
+    sections: saved.sections ?? {},
+    columns: saved.columns ?? {},
+});
+
+/** Cấu hình mặc định của một mẫu từ registry — null nếu id không tồn tại. */
 const registryDefault = (documentType, templateId) => {
     const schema = getPrintSchema(documentType);
     if (!schema) return null;
-    const def =
-        schema.templates.find((template) => template.id === templateId) ??
-        schema.templates[0];
+    const def = schema.templates.find((template) => template.id === templateId);
     return def ? buildDefaultTemplateConfig(schema, def) : null;
 };
 
+/**
+ * Ép các trường THIẾT YẾU (số phiếu, bảng hàng hóa) luôn hiển thị — ngăn
+ * cấu hình khiến chứng từ in ra không thể nhận diện hoặc đối chiếu.
+ */
+const applyEssentials = (schema, config) => {
+    for (const section of schema.sections) {
+        if (section.essentialShow) {
+            config.sections[section.key] = { ...config.sections[section.key], show: true };
+        }
+        for (const field of section.fields ?? []) {
+            if (field.essential) {
+                config.sections[section.key] = {
+                    ...config.sections[section.key],
+                    [field.key]: true,
+                };
+            }
+        }
+    }
+    return config;
+};
+
 export const printTemplateConfigService = {
+    /** Nạp bundle từ server (cache; force = refetch). */
+    load({ force = false } = {}) {
+        return loadBundle({ force });
+    },
+
     /**
      * Cấu hình một mẫu cụ thể: bản đã lưu (merge đè lên default của registry)
      * hoặc default nếu chưa từng lưu / sai version.
+     * Trả null khi định danh mẫu không có trong registry (không còn âm thầm
+     * mở mẫu đầu tiên).
      */
-    getTemplate(documentType, templateId) {
+    async getTemplate(documentType, templateId) {
+        const schema = getPrintSchema(documentType);
+        if (!schema) return null;
         const fallback = registryDefault(documentType, templateId);
-        const saved = readStorage()[documentType]?.[templateId];
-        if (!saved || saved.version !== CONFIG_VERSION || saved.id !== templateId) {
-            return fallback;
-        }
-        return deepMerge(fallback, saved);
+        if (!fallback) return null;
+        const bundle = await loadBundle();
+        const saved = bundle.configs.find(
+            (config) =>
+                config.documentType === documentType && config.templateId === templateId
+        );
+        if (!saved || saved.version !== CONFIG_VERSION) return fallback;
+        return applyEssentials(schema, deepMerge(fallback, fromServerConfig(saved)));
     },
 
     /** Toàn bộ mẫu của một loại chứng từ (thứ tự theo registry). */
-    getTemplates(documentType) {
+    async getTemplates(documentType) {
         const schema = getPrintSchema(documentType);
         if (!schema) return [];
-        return schema.templates.map((def) =>
-            this.getTemplate(documentType, def.id)
+        return Promise.all(
+            schema.templates.map((def) => this.getTemplate(documentType, def.id))
         );
     },
 
-    /** Mẫu đang được đặt làm mặc định (hoặc mẫu đầu tiên). */
-    getActiveTemplate(documentType) {
-        const templates = this.getTemplates(documentType);
-        if (templates.length === 0) return null;
-        return (
-            templates.find((template) => template.isDefault) ?? templates[0]
+    /**
+     * Cấu hình dùng cho IN THẬT của loại chứng từ — mô hình MỘT MẪU:
+     * - có cấu hình đã lưu -> dùng cấu hình đã lưu (của biến thể đang dùng
+     *   theo bảng server, hoặc biến thể đã lưu đầu tiên nếu dữ liệu active cũ
+     *   không còn khớp — cờ kích hoạt legacy KHÔNG được chặn cấu hình duy nhất);
+     * - chưa lưu gì -> dùng mẫu mặc định của registry.
+     */
+    async getActiveTemplate(documentType) {
+        const schema = getPrintSchema(documentType);
+        if (!schema) return null;
+        const bundle = await loadBundle();
+        const saved = bundle.configs.filter(
+            (config) => config.documentType === documentType
         );
+        const activeId = bundle.active?.[documentType];
+        const targetId =
+            saved.length > 0
+                ? saved.some((config) => config.templateId === activeId)
+                    ? activeId
+                    : saved[0].templateId
+                : (schema.templates.find((template) => template.isDefault) ??
+                      schema.templates[0])?.id;
+        if (!targetId) return null;
+        return this.getTemplate(documentType, targetId);
     },
 
-    saveTemplate(config) {
-        const map = readStorage();
-        if (!map[config.documentType]) map[config.documentType] = {};
-        map[config.documentType][config.id] = config;
-        writeStorage(map);
+    /**
+     * Khổ giấy hiển thị ban đầu cho một loại chứng từ trên trang xem:
+     * khổ của biến thể đang dùng (nếu nó có cấu hình đã lưu), ngược lại
+     * khổ của cấu hình đã lưu đầu tiên, ngược lại khổ đầu tiên của loại.
+     */
+    async getDefaultPaper(documentType) {
+        const schema = getPrintSchema(documentType);
+        if (!schema) return null;
+        const bundle = await loadBundle();
+        const saved = bundle.configs.filter(
+            (config) => config.documentType === documentType
+        );
+        if (saved.length === 0) return schema.paperProfiles[0] ?? null;
+        const activeId = bundle.active?.[documentType];
+        const targetId = saved.some((config) => config.templateId === activeId)
+            ? activeId
+            : saved[0].templateId;
+        return schema.templates.find((template) => template.id === targetId)?.paperSize ?? null;
     },
 
-    resetTemplate(documentType, templateId) {
-        const map = readStorage();
-        if (map[documentType]) {
-            delete map[documentType][templateId];
-            if (Object.keys(map[documentType]).length === 0) {
-                delete map[documentType];
-            }
-            writeStorage(map);
+    /** Lưu cấu hình một biến thể — KHÔNG đổi mẫu đang áp dụng. */
+    async saveTemplate(config) {
+        const { documentType, id } = config;
+        const response = await apiClient.put(
+            `/api/v1/cau-hinh-mau-in/${documentType}/${id}`,
+            toServerConfig(config)
+        );
+        await loadBundle({ force: true });
+        return response.data?.data ?? null;
+    },
+
+    /**
+     * Xóa cấu hình đã lưu của biến thể -> quay về mặc định registry.
+     * (Không còn dùng trong UI — reset trong editor chỉ đổi bản nháp,
+     * lưu mới ghi server. Giữ cho tương thích API.)
+     */
+    async resetTemplate(documentType, templateId) {
+        await apiClient.delete(`/api/v1/cau-hinh-mau-in/${documentType}/${templateId}`);
+        await loadBundle({ force: true });
+    },
+
+    /**
+     * Migrate cấu hình localStorage cũ lên server (một lần).
+     * - Mục có id khớp khổ giấy được ưu tiên; mục lệch id↔khổ giấy (bug cũ
+     *   đổi khổ giữ id) được chuyển sang đúng biến thể nếu chưa có.
+     * - Chỉ xóa localStorage legacy sau khi server trả 200.
+     */
+    async migrateLegacyLocalIfNeeded() {
+        if (window.localStorage.getItem(MIGRATED_FLAG_KEY)) {
+            return { migrated: [], skipped: [] };
         }
+        const raw = readLegacyStorage();
+        if (!raw || Object.keys(raw).length === 0) {
+            window.localStorage.setItem(MIGRATED_FLAG_KEY, "true");
+            return { migrated: [], skipped: [] };
+        }
+
+        const payload = buildMigratePayload(raw);
+        if (Object.keys(payload.configs).length === 0) {
+            window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+            window.localStorage.setItem(MIGRATED_FLAG_KEY, "true");
+            return { migrated: [], skipped: [] };
+        }
+
+        const response = await apiClient.post("/api/v1/cau-hinh-mau-in/migrate", payload);
+        // Server đã nhận (200) — legacy hết giá trị, xóa để không gửi lại
+        window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+        window.localStorage.setItem(MIGRATED_FLAG_KEY, "true");
+        await loadBundle({ force: true });
+        return response.data?.data ?? { migrated: [], skipped: [] };
     },
+};
+
+// ── Legacy migration helpers ───────────────────────────────────────────────
+
+const readLegacyStorage = () => {
+    try {
+        const raw = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
+    }
+};
+
+const buildMigratePayload = (raw) => {
+    const payload = { configs: {}, active: {} };
+    for (const schema of Object.values(PRINT_SCHEMAS)) {
+        const entries = raw[schema.key];
+        if (!entries || typeof entries !== "object") continue;
+
+        const wellKeyed = [];
+        const stray = [];
+        for (const [templateId, saved] of Object.entries(entries)) {
+            const def = schema.templates.find((template) => template.id === templateId);
+            if (!def || !saved || typeof saved !== "object") continue;
+            if (def.paperSize === saved.paperSize) {
+                wellKeyed.push([templateId, def, saved]);
+            } else {
+                stray.push([def, saved]);
+            }
+        }
+
+        const merged = {};
+        for (const [templateId, def, saved] of wellKeyed) {
+            merged[templateId] = toServerConfig(
+                deepMerge(buildDefaultTemplateConfig(schema, def), saved)
+            );
+            if (saved.isDefault && !payload.active[schema.key]) {
+                payload.active[schema.key] = templateId;
+            }
+        }
+        for (const [, saved] of stray) {
+            const targetDef = schema.templates.find(
+                (template) => template.paperSize === saved.paperSize
+            );
+            if (!targetDef || merged[targetDef.id]) continue;
+            merged[targetDef.id] = toServerConfig(
+                deepMerge(buildDefaultTemplateConfig(schema, targetDef), saved)
+            );
+            if (saved.isDefault && !payload.active[schema.key]) {
+                payload.active[schema.key] = targetDef.id;
+            }
+        }
+
+        if (Object.keys(merged).length > 0) {
+            payload.configs[schema.key] = merged;
+        }
+        if (!payload.active[schema.key]) {
+            payload.active[schema.key] =
+                (schema.templates.find((template) => template.isDefault) ??
+                    schema.templates[0])?.id;
+        }
+    }
+    return payload;
 };
