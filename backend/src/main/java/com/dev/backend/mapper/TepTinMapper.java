@@ -2,6 +2,7 @@ package com.dev.backend.mapper;
 
 import com.dev.backend.dto.response.entities.TepTinDto;
 import com.dev.backend.entities.TepTin;
+import com.dev.backend.utils.PublicAssetUrl;
 import org.mapstruct.Mapper;
 import org.mapstruct.MappingConstants;
 import org.springframework.data.domain.Page;
@@ -24,11 +25,8 @@ public interface TepTinMapper {
     //    }
     // }
 
-         String duongDan = tepTin.getDuongDan();
-        // nếu đường dẫn bắt đầu bằng http://171.244.142.43 thay bằng https://v2.slmglobal.vn
-        if (duongDan != null && duongDan.startsWith("http://171.244.142.43:9000")) {
-            duongDan = "https://minio.slmglobal.vn" + duongDan.substring(26);
-        }
+        // nếu đường dẫn bắt đầu bằng http://171.244.142.43:9000 thay bằng https://minio.slmglobal.vn
+        String duongDan = PublicAssetUrl.toHttps(tepTin.getDuongDan());
         
         return TepTinDto.builder()
                 .id(tepTin.getId())

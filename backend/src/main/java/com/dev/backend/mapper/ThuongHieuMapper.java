@@ -4,6 +4,7 @@ import com.dev.backend.dto.request.ThuongHieuCreating;
 import com.dev.backend.dto.request.ThuongHieuUpdating;
 import com.dev.backend.dto.response.entities.ThuongHieuDto;
 import com.dev.backend.entities.ThuongHieu;
+import com.dev.backend.utils.PublicAssetUrl;
 import org.mapstruct.*;
 import org.springframework.data.domain.Page;
 
@@ -18,10 +19,20 @@ public interface ThuongHieuMapper {
 
     /**
      * Chuyển entity → DTO response
-     * logoUrl lấy từ tepTin.duongDan (logo quản lý qua tep_tin, cột logo_url cũ dormant)
+     * logoUrl lấy từ tepTin.duongDan (logo quản lý qua tep_tin, cột logo_url cũ dormant),
+     * chuẩn hoá origin legacy MinIO -> HTTPS để trình duyệt không chặn Mixed Content.
      */
-    @Mapping(target = "logoUrl", source = "tepTin.duongDan")
+    @Mapping(target = "logoUrl", source = "tepTin.duongDan", qualifiedByName = "publicAssetUrl")
     ThuongHieuDto toDto(ThuongHieu entity);
+
+    /**
+     * Helper dùng riêng cho field logoUrl (qualifiedByName) — không ảnh hưởng
+     * các field String khác của mapper.
+     */
+    @Named("publicAssetUrl")
+    default String mapPublicAssetUrl(String duongDan) {
+        return PublicAssetUrl.toHttps(duongDan);
+    }
 
     /**
      * Chuyển list entity → list DTO
