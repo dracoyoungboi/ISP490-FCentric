@@ -42,8 +42,10 @@ public class MinioServiceImpl implements MinioService {
     @Override
     public String upload(MultipartFile file, String objectName) throws Exception {
         try (InputStream is = file.getInputStream()) {
-            // Lấy đuôi tệp gốc
-            String originalFilename = file.getOriginalFilename();
+            // Lấy đuôi tệp gốc (null-safe: Map.of không chấp nhận giá trị null)
+            String originalFilename = file.getOriginalFilename() != null
+                    ? file.getOriginalFilename()
+                    : objectName;
             String fileExtension = originalFilename != null && originalFilename.contains(".")
                     ? originalFilename.substring(originalFilename.lastIndexOf("."))
                     : "";
