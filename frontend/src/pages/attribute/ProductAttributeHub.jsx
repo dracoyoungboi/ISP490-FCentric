@@ -845,7 +845,7 @@ const ProductAttributeHub = () => {
                                 className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
                             >
                                 <Save className="size-4" />
-                                {modalConfig.mode === 'add' ? 'Khởi tạo' : 'Chỉnh sửa'}
+                                {modalConfig.mode === 'add' ? 'Khởi tạo' : 'Lưu'}
                             </Button>
                         </DialogFooter>
                     </form>
