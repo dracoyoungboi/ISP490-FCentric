@@ -49,7 +49,7 @@ export const PRINT_SCHEMAS = {
                 title: "Thông tin yêu cầu",
                 columns: 3,
                 fields: [
-                    { key: "documentNumber", label: "Mã phiếu", modelPath: "documentNumber" },
+                    { key: "documentNumber", label: "Mã phiếu", modelPath: "documentNumber", essential: true },
                     { key: "createdAt", label: "Ngày tạo", modelPath: "createdAt" },
                     { key: "expectedDate", label: "Ngày giao dự kiến", modelPath: "expectedDate" },
                     { key: "status", label: "Trạng thái", modelPath: "status", kind: "badge" },
@@ -80,6 +80,7 @@ export const PRINT_SCHEMAS = {
             {
                 key: "items",
                 type: "items",
+                essentialShow: true,
                 title: "Danh sách sản phẩm",
                 path: "items",
                 total: { label: "Tổng số lượng", modelPath: "totalQuantity" },
@@ -110,7 +111,7 @@ export const PRINT_SCHEMAS = {
         slug: "quotation-request",
         label: "Yêu cầu báo giá",
         docTitle: "PHIẾU YÊU CẦU BÁO GIÁ",
-        hasRealPrintRoute: false,
+        hasRealPrintRoute: true,
         paperProfiles: ["A4", "A5"],
         templates: [
             {
@@ -137,7 +138,7 @@ export const PRINT_SCHEMAS = {
                 title: "Thông tin yêu cầu",
                 columns: 3,
                 fields: [
-                    { key: "documentNumber", label: "Mã phiếu", modelPath: "documentNumber" },
+                    { key: "documentNumber", label: "Mã phiếu", modelPath: "documentNumber", essential: true },
                     { key: "createdAt", label: "Ngày tạo", modelPath: "createdAt" },
                     { key: "deadline", label: "Hạn báo giá", modelPath: "deadline" },
                     { key: "status", label: "Trạng thái", modelPath: "status", kind: "badge" },
@@ -169,6 +170,7 @@ export const PRINT_SCHEMAS = {
             {
                 key: "products",
                 type: "items",
+                essentialShow: true,
                 title: "Danh sách sản phẩm",
                 path: "products",
                 total: { label: "Tổng số lượng", modelPath: "totalQuantity" },
@@ -199,7 +201,7 @@ export const PRINT_SCHEMAS = {
         slug: "purchase-order",
         label: "Đơn mua hàng",
         docTitle: "ĐƠN MUA HÀNG",
-        hasRealPrintRoute: false,
+        hasRealPrintRoute: true,
         paperProfiles: ["A4", "A5"],
         templates: [
             {
@@ -240,7 +242,7 @@ export const PRINT_SCHEMAS = {
                 title: "Thông tin đơn hàng",
                 columns: 3,
                 fields: [
-                    { key: "documentNumber", label: "Mã đơn", modelPath: "documentNumber" },
+                    { key: "documentNumber", label: "Mã đơn", modelPath: "documentNumber", essential: true },
                     { key: "orderDate", label: "Ngày đặt", modelPath: "orderDate" },
                     { key: "expectedDate", label: "Ngày giao dự kiến", modelPath: "expectedDate" },
                     { key: "status", label: "Trạng thái", modelPath: "status", kind: "badge" },
@@ -249,6 +251,7 @@ export const PRINT_SCHEMAS = {
             {
                 key: "items",
                 type: "items",
+                essentialShow: true,
                 title: "Danh sách sản phẩm",
                 path: "items",
                 total: { label: "Tổng tiền", modelPath: "totalAmount" },
@@ -287,7 +290,7 @@ export const PRINT_SCHEMAS = {
         slug: "goods-receipt",
         label: "Phiếu nhập kho",
         docTitle: "PHIẾU NHẬP KHO",
-        hasRealPrintRoute: false,
+        hasRealPrintRoute: true,
         paperProfiles: ["A4", "A5"],
         templates: [
             {
@@ -314,7 +317,7 @@ export const PRINT_SCHEMAS = {
                 title: "Thông tin phiếu",
                 columns: 3,
                 fields: [
-                    { key: "documentNumber", label: "Mã phiếu", modelPath: "documentNumber" },
+                    { key: "documentNumber", label: "Mã phiếu", modelPath: "documentNumber", essential: true },
                     { key: "receivedDate", label: "Ngày nhập", modelPath: "receivedDate" },
                     { key: "partner", label: "Nguồn / Đối tác", modelPath: "partner" },
                     { key: "status", label: "Trạng thái", modelPath: "status", kind: "badge" },
@@ -332,6 +335,7 @@ export const PRINT_SCHEMAS = {
             {
                 key: "items",
                 type: "items",
+                essentialShow: true,
                 title: "Danh sách hàng nhập",
                 path: "items",
                 total: { label: "Tổng số lượng", modelPath: "totalQuantity" },
@@ -340,6 +344,7 @@ export const PRINT_SCHEMAS = {
                     { key: "sku", label: "Mã SKU", path: "sku" },
                     { key: "lot", label: "Lô", path: "lot" },
                     { key: "productionDate", label: "Ngày sản xuất", path: "productionDate" },
+                    { key: "requestedQuantity", label: "SL yêu cầu", path: "requestedQuantity" },
                     { key: "quantityReceived", label: "SL nhận", path: "quantity" },
                 ],
             },
@@ -360,7 +365,7 @@ export const PRINT_SCHEMAS = {
         slug: "goods-issue",
         label: "Phiếu xuất kho",
         docTitle: "PHIẾU XUẤT KHO",
-        hasRealPrintRoute: false,
+        hasRealPrintRoute: true,
         paperProfiles: ["A4", "A5"],
         templates: [
             {
@@ -387,7 +392,7 @@ export const PRINT_SCHEMAS = {
                 title: "Thông tin phiếu",
                 columns: 3,
                 fields: [
-                    { key: "documentNumber", label: "Mã phiếu", modelPath: "documentNumber" },
+                    { key: "documentNumber", label: "Mã phiếu", modelPath: "documentNumber", essential: true },
                     { key: "issuedDate", label: "Ngày xuất", modelPath: "issuedDate" },
                     { key: "salesOrder", label: "Đơn bán hàng", modelPath: "salesOrder" },
                     { key: "status", label: "Trạng thái", modelPath: "status", kind: "badge" },
@@ -406,6 +411,7 @@ export const PRINT_SCHEMAS = {
             {
                 key: "items",
                 type: "items",
+                essentialShow: true,
                 title: "Danh sách hàng xuất",
                 path: "items",
                 total: { label: "Tổng số lượng", modelPath: "totalQuantity" },
@@ -413,6 +419,7 @@ export const PRINT_SCHEMAS = {
                     { key: "productName", label: "Tên sản phẩm", path: "name" },
                     { key: "sku", label: "Mã SKU", path: "sku" },
                     { key: "lot", label: "Lô", path: "lot" },
+                    { key: "requestedQuantity", label: "SL yêu cầu", path: "requestedQuantity" },
                     { key: "quantityIssued", label: "SL xuất", path: "quantity" },
                 ],
             },
@@ -433,7 +440,7 @@ export const PRINT_SCHEMAS = {
         slug: "sales-quotation",
         label: "Báo giá bán",
         docTitle: "BẢNG BÁO GIÁ",
-        hasRealPrintRoute: false,
+        hasRealPrintRoute: true,
         paperProfiles: ["A4", "A5"],
         templates: [
             {
@@ -455,14 +462,25 @@ export const PRINT_SCHEMAS = {
         ],
         sections: [
             {
-                key: "seller",
+                key: "sellerCompany",
                 type: "info",
-                title: "Người bán",
+                title: "Đơn vị bán",
                 columns: 3,
                 fields: [
-                    { key: "name", label: "Tên người bán", modelPath: "seller.name" },
-                    { key: "email", label: "Email", modelPath: "seller.email" },
-                    { key: "phone", label: "Số điện thoại", modelPath: "seller.phone" },
+                    { key: "name", label: "Tên đơn vị bán", modelPath: "company.name", essential: true },
+                    { key: "phone", label: "Điện thoại", modelPath: "company.phone" },
+                    { key: "address", label: "Địa chỉ", modelPath: "company.address", span: 2 },
+                ],
+            },
+            {
+                key: "creator",
+                type: "info",
+                title: "Người lập",
+                columns: 3,
+                fields: [
+                    { key: "name", label: "Họ tên", modelPath: "creator.name" },
+                    { key: "email", label: "Email", modelPath: "creator.email" },
+                    { key: "phone", label: "Số điện thoại", modelPath: "creator.phone" },
                 ],
             },
             {
@@ -471,11 +489,11 @@ export const PRINT_SCHEMAS = {
                 title: "Khách hàng",
                 columns: 3,
                 fields: [
-                    { key: "name", label: "Tên khách hàng", modelPath: "customer.name" },
-                    { key: "code", label: "Mã khách hàng", modelPath: "customer.code" },
-                    { key: "contact", label: "Người liên hệ", modelPath: "customer.contact" },
-                    { key: "phone", label: "Số điện thoại", modelPath: "customer.phone" },
-                    { key: "address", label: "Địa chỉ", modelPath: "customer.address", span: 2 },
+                    { key: "name", label: "Tên khách hàng", modelPath: "buyer.name" },
+                    { key: "code", label: "Mã khách hàng", modelPath: "buyer.code" },
+                    { key: "contact", label: "Người liên hệ", modelPath: "buyer.contact" },
+                    { key: "phone", label: "Số điện thoại", modelPath: "buyer.phone" },
+                    { key: "address", label: "Địa chỉ", modelPath: "buyer.address", span: 2 },
                 ],
             },
             {
@@ -484,7 +502,7 @@ export const PRINT_SCHEMAS = {
                 title: "Thông tin báo giá",
                 columns: 3,
                 fields: [
-                    { key: "documentNumber", label: "Mã báo giá", modelPath: "documentNumber" },
+                    { key: "documentNumber", label: "Mã báo giá", modelPath: "documentNumber", essential: true },
                     { key: "createdAt", label: "Ngày lập", modelPath: "createdAt" },
                     { key: "status", label: "Trạng thái", modelPath: "status", kind: "badge" },
                 ],
@@ -492,6 +510,7 @@ export const PRINT_SCHEMAS = {
             {
                 key: "items",
                 type: "items",
+                essentialShow: true,
                 title: "Danh sách sản phẩm",
                 path: "items",
                 total: { label: "Tổng tiền hàng", modelPath: "totals.items" },
@@ -520,7 +539,7 @@ export const PRINT_SCHEMAS = {
                 type: "signatures",
                 title: "Chữ ký",
                 blocks: [
-                    { key: "creator", label: "Người bán", path: "signatures.creator" },
+                    { key: "creator", label: "Nhân viên bán hàng", path: "signatures.creator" },
                     { key: "buyer", label: "Khách hàng", path: "signatures.buyer" },
                 ],
             },
@@ -532,7 +551,7 @@ export const PRINT_SCHEMAS = {
         slug: "sales-invoice",
         label: "Hóa đơn bán hàng",
         docTitle: "HÓA ĐƠN BÁN HÀNG",
-        hasRealPrintRoute: false,
+        hasRealPrintRoute: true,
         paperProfiles: ["A4", "A5", "K80"],
         templates: [
             {
@@ -562,14 +581,25 @@ export const PRINT_SCHEMAS = {
         ],
         sections: [
             {
-                key: "seller",
+                key: "sellerCompany",
                 type: "info",
-                title: "Người bán",
+                title: "Đơn vị bán",
                 columns: 3,
                 fields: [
-                    { key: "name", label: "Tên người bán", modelPath: "seller.name" },
-                    { key: "email", label: "Email", modelPath: "seller.email" },
-                    { key: "phone", label: "Số điện thoại", modelPath: "seller.phone" },
+                    { key: "name", label: "Tên đơn vị bán", modelPath: "company.name", essential: true },
+                    { key: "phone", label: "Điện thoại", modelPath: "company.phone" },
+                    { key: "address", label: "Địa chỉ", modelPath: "company.address", span: 2 },
+                ],
+            },
+            {
+                key: "creator",
+                type: "info",
+                title: "Người lập",
+                columns: 3,
+                fields: [
+                    { key: "name", label: "Họ tên", modelPath: "creator.name" },
+                    { key: "email", label: "Email", modelPath: "creator.email" },
+                    { key: "phone", label: "Số điện thoại", modelPath: "creator.phone" },
                 ],
             },
             {
@@ -590,7 +620,7 @@ export const PRINT_SCHEMAS = {
                 title: "Thông tin hóa đơn",
                 columns: 3,
                 fields: [
-                    { key: "documentNumber", label: "Mã hóa đơn", modelPath: "documentNumber" },
+                    { key: "documentNumber", label: "Mã hóa đơn", modelPath: "documentNumber", essential: true },
                     { key: "issuedDate", label: "Ngày lập", modelPath: "issuedDate" },
                     { key: "status", label: "Trạng thái", modelPath: "status", kind: "badge" },
                     { key: "paymentStatus", label: "Thanh toán", modelPath: "paymentStatus", kind: "badge" },
@@ -599,6 +629,7 @@ export const PRINT_SCHEMAS = {
             {
                 key: "items",
                 type: "items",
+                essentialShow: true,
                 title: "Danh sách sản phẩm",
                 path: "items",
                 total: { label: "Tổng tiền hàng", modelPath: "totals.items" },
@@ -634,7 +665,7 @@ export const PRINT_SCHEMAS = {
                 type: "signatures",
                 title: "Chữ ký",
                 blocks: [
-                    { key: "creator", label: "Người bán", path: "signatures.creator" },
+                    { key: "creator", label: "Nhân viên bán hàng", path: "signatures.creator" },
                     { key: "buyer", label: "Người mua", path: "signatures.buyer" },
                 ],
             },

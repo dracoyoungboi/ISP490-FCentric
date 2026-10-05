@@ -192,6 +192,8 @@ export const SIDEBAR_MENU = [
   },
 
   // ================= CẤU HÌNH MẪU IN =================
+  // Hồ sơ công ty không còn là mục riêng trên sidebar — mở qua hộp thoại
+  // "Thông tin công ty" ngay trên trang Cấu hình mẫu in.
   {
     label: "Cấu hình mẫu in",
     icon: Printer,

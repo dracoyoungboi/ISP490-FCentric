@@ -370,7 +370,9 @@ export default function BackofficeLayout() {
         },
         {
             key: "PRINT_TEMPLATES",
-            match: (path) => path === "/settings/print-templates",
+            match: (path) =>
+                path === "/settings/print-templates" ||
+                /^\/settings\/print-templates\/[^/]+$/.test(path),
             title: "Cấu hình mẫu in",
             subtitle: "Xem các mẫu in có sẵn theo loại chứng từ",
         },
@@ -382,9 +384,7 @@ export default function BackofficeLayout() {
         },
         {
             key: "PRINT_TEMPLATE_DETAIL",
-            match: (path) =>
-                /^\/settings\/print-templates\/[^/]+$/.test(path) ||
-                /^\/settings\/print-templates\/[^/]+\/[^/]+$/.test(path),
+            match: (path) => /^\/settings\/print-templates\/[^/]+\/[^/]+$/.test(path),
             title: "Mẫu in",
             subtitle: "Xem trước mẫu in",
         },

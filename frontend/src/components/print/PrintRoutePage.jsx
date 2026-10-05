@@ -15,10 +15,13 @@ import { companyProfileService } from "@/services/companyProfileService";
  * Khung chung cho các trang in thật của mọi loại chứng từ:
  * - chỉ dùng dữ liệu API thật (qua `fetcher` + `adapter` của từng loại)
  * - áp dụng mẫu đang hoạt động của loại chứng từ đó
- *   (printTemplateConfigService.getActiveTemplate) + hồ sơ công ty dùng chung
+ *   (printTemplateConfigService.getActiveTemplate — active map SERVER)
+ *   + hồ sơ công ty dùng chung (companyProfileService — SERVER)
  * - renderer chung với editor nên field/cột bị tắt cũng biến mất ở bản in
  * - nằm ngoài BackofficeLayout: không sidebar/header, không bị shell cắt
  * - KHÔNG bao giờ chứa dữ liệu mẫu hay cảnh báo mẫu
+ * - KHÔNG BAO GIỜ in khi cấu hình/hồ sơ chưa tải thành công hoặc dữ liệu
+ *   phiếu bị thiếu do request thất bại (`getDataError`)
  *
  * Trạng thái riêng biệt:
  * - loading             : đang tải
@@ -26,6 +29,9 @@ import { companyProfileService } from "@/services/companyProfileService";
  * - notfound            : HTTP 404, `fetcher` ném lỗi có `isNotFound`,
  *                         hoặc `fetcher` trả về null
  * - error               : lỗi mạng/API khác -> nút "Thử lại"
+ * - configError         : không tải được cấu hình mẫu in -> "Thử lại"
+ * - companyError        : không tải được hồ sơ công ty -> "Thử lại"
+ * - dataError           : `getDataError(data)` trả về lỗi (vd: lỗi tải dữ liệu lô)
  */
 export default function PrintRoutePage({
     documentType,
@@ -39,6 +45,7 @@ export default function PrintRoutePage({
     forbiddenTitle = "Bạn không có quyền xem phiếu này.",
     forbiddenDescription = "Tài khoản của bạn không có quyền truy cập phiếu này.",
     errorDescription = "Không thể tải dữ liệu phiếu. Vui lòng thử lại.",
+    getDataError,
 }) {
     const navigate = useNavigate();
     const { id } = useParams();
@@ -47,16 +54,49 @@ export default function PrintRoutePage({
     const [loading, setLoading] = useState(true);
     // "forbidden" | "notfound" | "error" | null
     const [errorType, setErrorType] = useState(null);
-    const [config] = useState(() =>
-        printTemplateConfigService.getActiveTemplate(documentType)
-    );
-    const [company] = useState(() => companyProfileService.get());
+    // Lỗi dữ liệu bổ sung do getDataError phát hiện (vd: lỗi tải lô hàng)
+    const [dataError, setDataError] = useState(null);
+
+    const [config, setConfig] = useState(null);
+    const [configError, setConfigError] = useState(false);
+    const [company, setCompany] = useState(null);
+    const [companyError, setCompanyError] = useState(false);
+
+    const loadConfig = useCallback(async () => {
+        setConfigError(false);
+        setConfig(null);
+        try {
+            setConfig(await printTemplateConfigService.getActiveTemplate(documentType));
+        } catch (err) {
+            console.error("Error fetching print template config:", err);
+            setConfigError(true);
+        }
+    }, [documentType]);
+
+    const loadCompany = useCallback(async () => {
+        setCompanyError(false);
+        setCompany(null);
+        try {
+            setCompany(await companyProfileService.get());
+        } catch (err) {
+            console.error("Error fetching company profile:", err);
+            setCompanyError(true);
+        }
+    }, []);
+
+    useEffect(() => {
+        loadConfig();
+        loadCompany();
+    }, [loadConfig, loadCompany]);
 
     const load = useCallback(async () => {
         setLoading(true);
         setErrorType(null);
+        setDataError(null);
         try {
             const result = await fetcher(id);
+            const extraError = getDataError?.(result) ?? null;
+            setDataError(extraError);
             setData(result ?? null);
             if (result === null || result === undefined) {
                 setErrorType("notfound");
@@ -83,7 +123,7 @@ export default function PrintRoutePage({
         } finally {
             setLoading(false);
         }
-    }, [fetcher, id]);
+    }, [fetcher, id, getDataError]);
 
     useEffect(() => {
         if (id) queueMicrotask(() => load());
@@ -98,15 +138,29 @@ export default function PrintRoutePage({
         ? { size: config.paperSize, orientation: config.orientation, margin: config.margin }
         : undefined;
 
+    const configLoading = !config && !configError;
+    const companyLoading = !company && !companyError;
+    const disablePrint =
+        loading ||
+        configLoading ||
+        companyLoading ||
+        errorType !== null ||
+        configError ||
+        companyError ||
+        dataError !== null ||
+        !data ||
+        !config ||
+        !company;
+
     return (
         <PrintLayout
             title={title}
             onBack={goBack}
             onPrint={() => window.print()}
-            disablePrint={loading || errorType !== null || !data || !config}
+            disablePrint={disablePrint}
             paper={paper}
         >
-            {loading ? (
+            {loading || configLoading || companyLoading ? (
                 <LoadingState rows={5} label={loadingLabel} className="mx-auto max-w-xl" />
             ) : errorType === "forbidden" ? (
                 <EmptyState
@@ -140,6 +194,27 @@ export default function PrintRoutePage({
                 <ErrorState
                     title="Không thể tải phiếu in"
                     description={errorDescription}
+                    onRetry={load}
+                    className="mx-auto max-w-xl"
+                />
+            ) : configError ? (
+                <ErrorState
+                    title="Không thể tải cấu hình mẫu in"
+                    description="Không thể tải cấu hình mẫu in từ máy chủ. Không in khi chưa tải xong cấu hình."
+                    onRetry={loadConfig}
+                    className="mx-auto max-w-xl"
+                />
+            ) : companyError ? (
+                <ErrorState
+                    title="Không thể tải hồ sơ công ty"
+                    description="Không thể tải hồ sơ công ty từ máy chủ. Không in khi chưa tải xong hồ sơ."
+                    onRetry={loadCompany}
+                    className="mx-auto max-w-xl"
+                />
+            ) : dataError ? (
+                <ErrorState
+                    title={dataError.title}
+                    description={dataError.description}
                     onRetry={load}
                     className="mx-auto max-w-xl"
                 />

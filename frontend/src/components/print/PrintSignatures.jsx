@@ -13,6 +13,7 @@ export default function PrintSignatures({ left, right, compact = false }) {
     return (
         <div
             className={cn(
+                "print-signatures",
                 compact
                     ? "mt-4 grid grid-cols-1 gap-4"
                     : "mt-10 grid gap-16",

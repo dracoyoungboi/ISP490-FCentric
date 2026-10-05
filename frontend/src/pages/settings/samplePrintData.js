@@ -1,15 +1,21 @@
 import { toPurchaseRequestPrintModel } from "@/components/print/adapters/purchaseRequestPrintAdapter";
+import { toQuotationRequestPrintModel } from "@/components/print/adapters/quotationRequestPrintAdapter";
+import { toPurchaseOrderPrintModel } from "@/components/print/adapters/purchaseOrderPrintAdapter";
+import { toGoodsReceiptPrintModel } from "@/components/print/adapters/goodsReceiptPrintAdapter";
+import { toGoodsIssuePrintModel } from "@/components/print/adapters/goodsIssuePrintAdapter";
+import {
+    toSalesQuotationPrintModel,
+    toSalesInvoicePrintModel,
+} from "@/components/print/adapters/donBanHangPrintAdapter";
 
 /**
- * Dữ liệu mẫu CHỈ dùng trong editor / bản xem trước — luôn được gắn nhãn
- * "Mẫu minh họa" trên màn hình. Trang in thật chỉ dùng dữ liệu API.
+ * Dữ liệu mẫu CHỈ dùng trong editor / bản xem trước. Trang in thật chỉ dùng
+ * dữ liệu API. MỌI loại chứng từ đều giữ nguyên dạng RAW của API và chảy
+ * qua ĐÚNG adapter của bản in thật — lỗi mapping sẽ lộ ngay trên preview.
  *
- * purchase_request: giữ nguyên dạng raw của API và chảy qua adapter thật,
- *   để bản xem trước và bản in không bao giờ lệch nhau.
- * Các loại còn lại: sample là view model theo đúng schema của từng loại
- *   (chưa có adapter/API nên chưa có trang in thật).
- *
- * Mọi giá trị đều mang "(Mẫu)" / "MẪU" / example.com — không phải dữ liệu thật.
+ * Giá trị mẫu thực tế (tên kho, khách hàng, sản phẩm bình thường); số phiếu
+ * mang tiền tố "MẪU-" và email dùng example.com để dễ nhận ra dữ liệu ví dụ.
+ * Trên màn hình có badge "Dữ liệu mẫu"; bản in thử có dòng "Bản in thử".
  */
 
 export const SAMPLE_PURCHASE_REQUEST_RAW = {
@@ -18,27 +24,21 @@ export const SAMPLE_PURCHASE_REQUEST_RAW = {
     ngayTao: "2026-09-12T08:30:00Z",
     ngayGiaoDuKien: "2026-09-20T00:00:00Z",
     trangThai: 1,
-    ghiChu: "Đây là ghi chú mẫu minh họa — không phải dữ liệu thật.",
+    ghiChu: "Ưu tiên nhập trước ngày 20/09 để kịp trưng bày.",
     khoNhap: {
-        tenKho: "Kho trung tâm (Mẫu minh họa)",
-        maKho: "MẪU-KHO-01",
-        diaChi: "123 Đường Mẫu, Quận 1, TP. Hồ Chí Minh (địa chỉ ví dụ)",
-        quanLy: { hoTen: "Nguyễn Văn A (Mẫu)" },
+        tenKho: "Kho trung tâm",
+        maKho: "KHO-TT",
+        diaChi: "123 Nguyễn Văn Linh, Quận 7, TP. Hồ Chí Minh",
+        quanLy: { hoTen: "Nguyễn Văn An" },
     },
-    nguoiTao: {
-        hoTen: "Trần Thị B (Mẫu)",
-        email: "nguoi.tao@example.com",
-    },
-    nguoiDuyet: {
-        hoTen: "Lê Văn C (Mẫu)",
-        email: "nguoi.duyet@example.com",
-    },
+    nguoiTao: { hoTen: "Trần Thị Bích", email: "bich.tt@example.com" },
+    nguoiDuyet: { hoTen: "Lê Văn Cường", email: "cuong.lv@example.com" },
     chiTietYeuCauMuaHangs: [
         {
             id: 1,
             bienTheSanPham: {
-                tenSanPham: "Áo thun nam cổ tròn (Sản phẩm mẫu)",
-                maSku: "MẪU-SKU-001",
+                tenSanPham: "Áo thun nam cổ tròn",
+                maSku: "ATN-001-WHT-L",
                 mauSac: { tenMau: "Trắng" },
                 size: { maSize: "L" },
                 chatLieu: { tenChatLieu: "Cotton 100%" },
@@ -48,8 +48,8 @@ export const SAMPLE_PURCHASE_REQUEST_RAW = {
         {
             id: 2,
             bienTheSanPham: {
-                tenSanPham: "Áo thun nam cổ tròn (Sản phẩm mẫu)",
-                maSku: "MẪU-SKU-002",
+                tenSanPham: "Áo thun nam cổ tròn",
+                maSku: "ATN-001-BLK-M",
                 mauSac: { tenMau: "Đen" },
                 size: { maSize: "M" },
                 chatLieu: { tenChatLieu: "Cotton 100%" },
@@ -59,8 +59,8 @@ export const SAMPLE_PURCHASE_REQUEST_RAW = {
         {
             id: 3,
             bienTheSanPham: {
-                tenSanPham: "Quần kaki nam ống đứng (Sản phẩm mẫu)",
-                maSku: "MẪU-SKU-003",
+                tenSanPham: "Quần kaki nam ống đứng",
+                maSku: "QK-002-GRY-XL",
                 mauSac: { tenMau: "Xám" },
                 size: { maSize: "XL" },
                 chatLieu: { tenChatLieu: "Kaki 4 chiều" },
@@ -70,174 +70,306 @@ export const SAMPLE_PURCHASE_REQUEST_RAW = {
     ],
 };
 
-const SAMPLE_QUOTATION_REQUEST_MODEL = {
-    documentNumber: "MẪU-QR-0001",
-    createdAt: "12/09/2026",
-    deadline: "19/09/2026",
-    status: { label: "Chờ báo giá", tone: "warning" },
-    warehouse: {
-        name: "Kho trung tâm (Mẫu minh họa)",
-        manager: "Nguyễn Văn A (Mẫu)",
-        address: "123 Đường Mẫu, Quận 1, TP. Hồ Chí Minh (địa chỉ ví dụ)",
+/** Yêu cầu báo giá — cùng shape API yeu-cau-mua-hang + danh sách nhà cung cấp được mời. */
+export const SAMPLE_QUOTATION_REQUEST_RAW = {
+    id: 0,
+    soYeuCauMuaHang: "MẪU-QR-0001",
+    ngayTao: "2026-09-12T09:00:00Z",
+    ngayGiaoDuKien: "2026-09-19T00:00:00Z",
+    trangThai: 3,
+    ghiChu: "So sánh giá từ ít nhất 3 nhà cung cấp.",
+    khoNhap: {
+        tenKho: "Kho trung tâm",
+        maKho: "KHO-TT",
+        diaChi: "123 Nguyễn Văn Linh, Quận 7, TP. Hồ Chí Minh",
+        quanLy: { hoTen: "Nguyễn Văn An" },
     },
-    suppliers: [
-        { name: "Nhà cung cấp Alpha (Mẫu)", email: "alpha@example.com", phone: "0900 000 001", sentStatus: "Đã gửi" },
-        { name: "Nhà cung cấp Beta (Mẫu)", email: "beta@example.com", phone: "0900 000 002", sentStatus: "Đã gửi" },
-        { name: "Nhà cung cấp Gamma (Mẫu)", email: "gamma@example.com", phone: "0900 000 003", sentStatus: "Chờ gửi" },
+    nguoiTao: { hoTen: "Trần Thị Bích", email: "bich.tt@example.com" },
+    nguoiDuyet: { hoTen: "Lê Văn Cường", email: "cuong.lv@example.com" },
+    donMuaHangs: [
+        {
+            id: 1,
+            trangThai: 1,
+            nhaCungCap: {
+                tenNhaCungCap: "Công ty TNHH Dệt May Alpha",
+                email: "sales@alpha-textile.example.com",
+                soDienThoai: "028 7300 1111",
+            },
+        },
+        {
+            id: 2,
+            trangThai: 1,
+            nhaCungCap: {
+                tenNhaCungCap: "Công ty CP Vải Sợi Beta",
+                email: "contact@beta-fabric.example.com",
+                soDienThoai: "028 7300 2222",
+            },
+        },
+        {
+            id: 3,
+            trangThai: 0,
+            nhaCungCap: {
+                tenNhaCungCap: "Xưởng may Gamma",
+                email: "gamma.garment@example.com",
+                soDienThoai: "0903 000 333",
+            },
+        },
     ],
-    products: [
-        { name: "Áo thun nam cổ tròn (Sản phẩm mẫu)", sku: "MẪU-SKU-001", color: "Trắng", size: "L", material: "Cotton 100%", quantity: "50" },
-        { name: "Quần kaki nam ống đứng (Sản phẩm mẫu)", sku: "MẪU-SKU-003", color: "Xám", size: "XL", material: "Kaki 4 chiều", quantity: "20" },
+    chiTietYeuCauMuaHangs: [
+        {
+            id: 1,
+            bienTheSanPham: {
+                tenSanPham: "Áo thun nam cổ tròn",
+                maSku: "ATN-001-WHT-L",
+                mauSac: { tenMau: "Trắng" },
+                size: { maSize: "L" },
+                chatLieu: { tenChatLieu: "Cotton 100%" },
+            },
+            soLuongDat: 50,
+        },
+        {
+            id: 2,
+            bienTheSanPham: {
+                tenSanPham: "Quần kaki nam ống đứng",
+                maSku: "QK-002-GRY-XL",
+                mauSac: { tenMau: "Xám" },
+                size: { maSize: "XL" },
+                chatLieu: { tenChatLieu: "Kaki 4 chiều" },
+            },
+            soLuongDat: 20,
+        },
     ],
-    totalQuantity: "70",
-    notes: "Ghi chú mẫu minh họa — không phải dữ liệu thật.",
-    signatures: {
-        creator: { name: "Trần Thị B (Mẫu)", email: "nguoi.tao@example.com" },
-        approver: { name: "Lê Văn C (Mẫu)", email: "nguoi.duyet@example.com" },
+};
+
+/** Đơn mua hàng — shape DonMuaHangDto. */
+export const SAMPLE_PURCHASE_ORDER_RAW = {
+    id: 0,
+    soDonMua: "MẪU-PO-0001",
+    ngayDatHang: "2026-09-12T10:00:00Z",
+    ngayGiaoDuKien: "2026-09-22T00:00:00Z",
+    trangThai: 5,
+    tongTien: 13900000,
+    ghiChu: "Giao về kho trung tâm, kiểm đếm theo lô.",
+    nhaCungCap: {
+        tenNhaCungCap: "Công ty TNHH Dệt May Alpha",
+        maNhaCungCap: "NCC-ALPHA",
+        nguoiLienHe: "Ông Hoàng Minh",
+        soDienThoai: "0901 234 567",
+        email: "sales@alpha-textile.example.com",
+        diaChi: "456 Quốc lộ 1A, Quận 12, TP. Hồ Chí Minh",
+    },
+    nguoiTao: { hoTen: "Trần Thị Bích", email: "bich.tt@example.com" },
+    nguoiDuyet: { hoTen: "Lê Văn Cường", email: "cuong.lv@example.com" },
+    chiTietDonMuaHangs: [
+        {
+            id: 1,
+            bienTheSanPham: { tenSanPham: "Áo thun nam cổ tròn", maSku: "ATN-001-WHT-L" },
+            donGia: 150000,
+            soLuongDat: 50,
+            thanhTien: 7500000,
+        },
+        {
+            id: 2,
+            bienTheSanPham: { tenSanPham: "Quần kaki nam ống đứng", maSku: "QK-002-GRY-XL" },
+            donGia: 320000,
+            soLuongDat: 20,
+            thanhTien: 6400000,
+        },
+    ],
+};
+
+/** Phiếu nhập kho — {detail, lotsByVariantId} như payload của PhieuNhapKhoPrint. */
+export const SAMPLE_GOODS_RECEIPT_PAYLOAD = {
+    detail: {
+        id: 0,
+        soPhieuNhap: "MẪU-PNK-0001",
+        ngayNhap: "2026-09-15T00:00:00Z",
+        trangThai: 3,
+        tenKho: "Kho trung tâm",
+        tenNhaCungCap: "Công ty TNHH Dệt May Alpha",
+        phieuXuatGocId: null,
+        tenNguoiNhap: "Nguyễn Văn An",
+        items: [
+            {
+                bienTheSanPhamId: 11,
+                tenBienThe: "Áo thun nam cổ tròn / Trắng / L",
+                sku: "ATN-001-WHT-L",
+                soLuongCanNhap: 50,
+                soLuongDaKhaiBao: 50,
+            },
+            {
+                bienTheSanPhamId: 12,
+                tenBienThe: "Áo thun nam cổ tròn / Đen / M",
+                sku: "ATN-001-BLK-M",
+                soLuongCanNhap: 30,
+                soLuongDaKhaiBao: 30,
+            },
+            {
+                bienTheSanPhamId: 13,
+                tenBienThe: "Quần kaki nam ống đứng / Xám / XL",
+                sku: "QK-002-GRY-XL",
+                soLuongCanNhap: 20,
+                soLuongDaKhaiBao: 20,
+            },
+        ],
+    },
+    lotsByVariantId: {
+        11: [{ maLo: "LOT-260801", ngaySanXuat: "2026-08-01T00:00:00Z", soLuongNhap: 50 }],
+        12: [{ maLo: "LOT-260810", ngaySanXuat: "2026-08-10T00:00:00Z", soLuongNhap: 30 }],
+        13: [{ maLo: "LOT-260815", ngaySanXuat: "2026-08-15T00:00:00Z", soLuongNhap: 20 }],
     },
 };
 
-const SAMPLE_PURCHASE_ORDER_MODEL = {
-    supplier: {
-        name: "Nhà cung cấp Alpha (Mẫu)",
-        code: "MẪU-NCC-01",
-        contact: "Nguyễn Văn A (Mẫu)",
-        phone: "0900 000 001",
-        email: "ncc.alpha@example.com",
-        address: "456 Đường Mẫu, Quận 2, TP. Hồ Chí Minh (địa chỉ ví dụ)",
+/** Phiếu xuất kho — {phieu, chiTiet, pickedLotsByDetailId, lotNameByLotId} như payload của PhieuXuatKhoPrint. */
+export const SAMPLE_GOODS_ISSUE_PAYLOAD = {
+    phieu: {
+        id: 0,
+        soPhieuXuat: "MẪU-PXK-0001",
+        ngayXuat: "2026-09-16T00:00:00Z",
+        trangThai: 3,
+        ghiChu: "Xuất theo đơn bán, pick đủ lô.",
+        kho: { tenKho: "Kho trung tâm", maKho: "KHO-TT" },
+        donBanHang: { soDonHang: "MẪU-SO-0001" },
+        nguoiXuat: { hoTen: "Nguyễn Văn An", email: "an.nv@example.com" },
     },
-    documentNumber: "MẪU-PO-0001",
-    orderDate: "12/09/2026",
-    expectedDate: "22/09/2026",
-    status: { label: "Đã thanh toán", tone: "success" },
-    items: [
-        { name: "Áo thun nam cổ tròn (Sản phẩm mẫu)", sku: "MẪU-SKU-001", unitPrice: "150.000 đ", quantity: "50", amount: "7.500.000 đ" },
-        { name: "Quần kaki nam ống đứng (Sản phẩm mẫu)", sku: "MẪU-SKU-003", unitPrice: "320.000 đ", quantity: "20", amount: "6.400.000 đ" },
+    chiTiet: [
+        {
+            id: 101,
+            bienTheSanPhamId: 11,
+            tenBienThe: "Áo thun nam cổ tròn / Trắng / L",
+            sku: "ATN-001-WHT-L",
+            soLuongCanXuat: 10,
+            soLuongDaPick: 10,
+        },
+        {
+            id: 102,
+            bienTheSanPhamId: 13,
+            tenBienThe: "Quần kaki nam ống đứng / Xám / XL",
+            sku: "QK-002-GRY-XL",
+            soLuongCanXuat: 5,
+            soLuongDaPick: 5,
+        },
     ],
-    totalAmount: "13.900.000 đ",
-    totals: { total: "13.900.000 đ" },
-    notes: "Ghi chú mẫu minh họa — không phải dữ liệu thật.",
-    signatures: {
-        creator: { name: "Trần Thị B (Mẫu)", email: "nguoi.tao@example.com" },
-        approver: { name: "Lê Văn C (Mẫu)", email: "nguoi.duyet@example.com" },
+    pickedLotsByDetailId: {
+        101: [{ loHangId: 21, soLuongDaPick: 10 }],
+        102: [{ loHangId: 23, soLuongDaPick: 5 }],
+    },
+    lotNameByLotId: {
+        21: "LOT-260801",
+        23: "LOT-260815",
     },
 };
 
-const SAMPLE_GOODS_RECEIPT_MODEL = {
-    documentNumber: "MẪU-PNK-0001",
-    receivedDate: "15/09/2026",
-    partner: "Nhà cung cấp Alpha (Mẫu)",
-    status: { label: "Đã nhập kho", tone: "success" },
-    warehouse: { name: "Kho trung tâm (Mẫu minh họa)" },
-    items: [
-        { name: "Áo thun nam cổ tròn (Sản phẩm mẫu)", sku: "MẪU-SKU-001", lot: "MẪU-LÔ-01", productionDate: "01/08/2026", quantity: "50" },
-        { name: "Áo thun nam cổ tròn (Sản phẩm mẫu)", sku: "MẪU-SKU-002", lot: "MẪU-LÔ-02", productionDate: "10/08/2026", quantity: "30" },
-        { name: "Quần kaki nam ống đứng (Sản phẩm mẫu)", sku: "MẪU-SKU-003", lot: "MẪU-LÔ-03", productionDate: "15/08/2026", quantity: "20" },
-    ],
-    totalQuantity: "100",
-    signatures: {
-        receiver: { name: "Nguyễn Văn A (Mẫu)", email: "kho@example.com" },
-        deliverer: { name: "Nhà cung cấp Alpha (Mẫu)", email: "" },
+/** Báo giá bán — shape DonBanHangDetailResponse (loaiChungTu báo giá). */
+export const SAMPLE_SALES_QUOTATION_RAW = {
+    donBanHang: {
+        id: 0,
+        soDonHang: "MẪU-BG-0001",
+        loaiChungTu: "bao_gia",
+        khachHang: {
+            tenKhachHang: "Shop thời trang Hoa Việt",
+            maKhachHang: "KH-0001",
+            nguoiLienHe: "Chị Thu Hà",
+            soDienThoai: "0908 555 010",
+            email: "thuha@hoaviet.example.com",
+            diaChi: "789 Lê Văn Sỹ, Quận 3, TP. Hồ Chí Minh",
+        },
+        ngayDatHang: "2026-09-12T11:00:00Z",
+        trangThai: 0,
+        tienHang: 4250000,
+        phiVanChuyen: 50000,
+        tongCong: 4300000,
+        ghiChu: "Báo giá có hiệu lực 30 ngày kể từ ngày lập.",
+        nguoiTao: {
+            hoTen: "Phạm Quốc Huy",
+            email: "huy.pq@example.com",
+            soDienThoai: "0909 000 009",
+        },
     },
+    chiTiet: [
+        {
+            tenSanPham: "Áo thun nam cổ tròn / Trắng",
+            sku: "ATN-001-WHT-L",
+            donGia: 200000,
+            soLuongDat: 10,
+            thanhTien: 2000000,
+        },
+        {
+            tenSanPham: "Quần kaki nam ống đứng / Xám",
+            sku: "QK-002-GRY-XL",
+            donGia: 450000,
+            soLuongDat: 5,
+            thanhTien: 2250000,
+        },
+    ],
 };
 
-const SAMPLE_GOODS_ISSUE_MODEL = {
-    documentNumber: "MẪU-PXK-0001",
-    issuedDate: "16/09/2026",
-    salesOrder: "MẪU-SO-0001",
-    status: { label: "Đã xuất", tone: "success" },
-    warehouse: {
-        name: "Kho trung tâm (Mẫu minh họa)",
-        code: "MẪU-KHO-01",
+/** Hóa đơn bán hàng — shape DonBanHangDetailResponse (loaiChungTu hóa đơn). */
+export const SAMPLE_SALES_INVOICE_RAW = {
+    donBanHang: {
+        id: 0,
+        soDonHang: "MẪU-HD-0001",
+        loaiChungTu: "hoa_don",
+        khachHang: {
+            tenKhachHang: "Shop thời trang Hoa Việt",
+            maKhachHang: "KH-0001",
+            nguoiLienHe: "Chị Thu Hà",
+            soDienThoai: "0908 555 010",
+            email: "thuha@hoaviet.example.com",
+            diaChi: "789 Lê Văn Sỹ, Quận 3, TP. Hồ Chí Minh",
+        },
+        ngayDatHang: "2026-09-16T14:00:00Z",
+        trangThai: 5,
+        trangThaiThanhToan: "chua_thanh_toan",
+        tienHang: 4250000,
+        phiVanChuyen: 50000,
+        tongCong: 4300000,
+        ghiChu: "Bán công nợ 30 ngày.",
+        nguoiTao: {
+            hoTen: "Phạm Quốc Huy",
+            email: "huy.pq@example.com",
+            soDienThoai: "0909 000 009",
+        },
     },
-    items: [
-        { name: "Áo thun nam cổ tròn (Sản phẩm mẫu)", sku: "MẪU-SKU-001", lot: "MẪU-LÔ-01", quantity: "10" },
-        { name: "Quần kaki nam ống đứng (Sản phẩm mẫu)", sku: "MẪU-SKU-003", lot: "MẪU-LÔ-03", quantity: "5" },
+    chiTiet: [
+        {
+            tenSanPham: "Áo thun nam cổ tròn / Trắng",
+            sku: "ATN-001-WHT-L",
+            donGia: 200000,
+            soLuongDat: 10,
+            thanhTien: 2000000,
+        },
+        {
+            tenSanPham: "Quần kaki nam ống đứng / Xám",
+            sku: "QK-002-GRY-XL",
+            donGia: 450000,
+            soLuongDat: 5,
+            thanhTien: 2250000,
+        },
     ],
-    totalQuantity: "15",
-    notes: "Ghi chú mẫu minh họa — không phải dữ liệu thật.",
-    signatures: {
-        issuer: { name: "Nguyễn Văn A (Mẫu)", email: "kho@example.com" },
-    },
-};
-
-const SAMPLE_SALES_QUOTATION_MODEL = {
-    seller: { name: "Trần Thị B (Mẫu)", email: "nguoi.tao@example.com", phone: "0900 000 009" },
-    customer: {
-        name: "Khách hàng Delta (Mẫu)",
-        code: "MẪU-KH-01",
-        contact: "Chị Hoa (Mẫu)",
-        phone: "0900 000 010",
-        address: "789 Đường Mẫu, Quận 3, TP. Hồ Chí Minh (địa chỉ ví dụ)",
-    },
-    documentNumber: "MẪU-BG-0001",
-    createdAt: "12/09/2026",
-    status: { label: "Đang chờ phản hồi", tone: "warning" },
-    items: [
-        { name: "Áo thun nam cổ tròn / Trắng (Sản phẩm mẫu)", sku: "MẪU-SKU-001", unitPrice: "200.000 đ", quantity: "10", amount: "2.000.000 đ" },
-        { name: "Quần kaki nam ống đứng / Xám (Sản phẩm mẫu)", sku: "MẪU-SKU-003", unitPrice: "450.000 đ", quantity: "5", amount: "2.250.000 đ" },
-    ],
-    totals: {
-        items: "4.250.000 đ",
-        shipping: "50.000 đ",
-        grandTotal: "4.300.000 đ",
-    },
-    notes: "Điều khoản mẫu minh họa — không phải dữ liệu thật.",
-    signatures: {
-        creator: { name: "Trần Thị B (Mẫu)", email: "nguoi.tao@example.com" },
-        buyer: { name: "Khách hàng Delta (Mẫu)", email: "" },
-    },
-};
-
-const SAMPLE_SALES_INVOICE_MODEL = {
-    seller: { name: "Trần Thị B (Mẫu)", email: "nguoi.tao@example.com", phone: "0900 000 009" },
-    buyer: {
-        name: "Khách hàng Delta (Mẫu)",
-        contact: "Chị Hoa (Mẫu)",
-        phone: "0900 000 010",
-        address: "789 Đường Mẫu, Quận 3, TP. Hồ Chí Minh (địa chỉ ví dụ)",
-    },
-    documentNumber: "MẪU-HD-0001",
-    issuedDate: "16/09/2026",
-    status: { label: "Hoàn thành", tone: "success" },
-    paymentStatus: { label: "Chưa thanh toán", tone: "warning" },
-    items: [
-        { name: "Áo thun nam cổ tròn / Trắng (Sản phẩm mẫu)", sku: "MẪU-SKU-001", unitPrice: "200.000 đ", quantity: "10", amount: "2.000.000 đ" },
-        { name: "Quần kaki nam ống đứng / Xám (Sản phẩm mẫu)", sku: "MẪU-SKU-003", unitPrice: "450.000 đ", quantity: "5", amount: "2.250.000 đ" },
-    ],
-    totals: {
-        items: "4.250.000 đ",
-        shipping: "50.000 đ",
-        grandTotal: "4.300.000 đ",
-    },
-    notes: "Hóa đơn mẫu minh họa — không phải dữ liệu thật.",
-    signatures: {
-        creator: { name: "Trần Thị B (Mẫu)", email: "ban.hang@example.com" },
-        buyer: { name: "Chị Hoa (Mẫu)", email: "" },
-    },
 };
 
 /**
  * Lấy model mẫu cho bản xem trước của một loại chứng từ.
- * purchase_request đi qua adapter thật; các loại còn lại dùng
- * view model mẫu theo schema.
+ * MỌI loại đều đi qua đúng adapter của bản in thật — preview không thể
+ * che giấu lỗi mapping giữa schema và adapter.
  */
 export function getSamplePrintModel(documentType) {
     switch (documentType) {
         case "purchase_request":
             return toPurchaseRequestPrintModel(SAMPLE_PURCHASE_REQUEST_RAW);
         case "quotation_request":
-            return SAMPLE_QUOTATION_REQUEST_MODEL;
+            return toQuotationRequestPrintModel(SAMPLE_QUOTATION_REQUEST_RAW);
         case "purchase_order":
-            return SAMPLE_PURCHASE_ORDER_MODEL;
+            return toPurchaseOrderPrintModel(SAMPLE_PURCHASE_ORDER_RAW);
         case "goods_receipt":
-            return SAMPLE_GOODS_RECEIPT_MODEL;
+            return toGoodsReceiptPrintModel(SAMPLE_GOODS_RECEIPT_PAYLOAD);
         case "goods_issue":
-            return SAMPLE_GOODS_ISSUE_MODEL;
+            return toGoodsIssuePrintModel(SAMPLE_GOODS_ISSUE_PAYLOAD);
         case "sales_quotation":
-            return SAMPLE_SALES_QUOTATION_MODEL;
+            return toSalesQuotationPrintModel(SAMPLE_SALES_QUOTATION_RAW);
         case "sales_invoice":
-            return SAMPLE_SALES_INVOICE_MODEL;
+            return toSalesInvoicePrintModel(SAMPLE_SALES_INVOICE_RAW);
         default:
             return null;
     }
