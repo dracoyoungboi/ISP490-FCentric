@@ -3,8 +3,7 @@
 -- Host: 160.25.81.94    Database: fashion_system
 -- ------------------------------------------------------
 -- Server version	8.0.46
-CREATE DATABASE IF NOT EXISTS fashion_system;
-USE fashion_system;
+
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
@@ -288,7 +287,7 @@ CREATE TABLE `chat_lieu` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `ma_chat_lieu` (`ma_chat_lieu`),
   KEY `idx_ma_chat_lieu` (`ma_chat_lieu`)
-) ENGINE=InnoDB AUTO_INCREMENT=33 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=54 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -297,7 +296,7 @@ CREATE TABLE `chat_lieu` (
 
 LOCK TABLES `chat_lieu` WRITE;
 /*!40000 ALTER TABLE `chat_lieu` DISABLE KEYS */;
-INSERT INTO `chat_lieu` VALUES (1,'CL001','Cotton 100%','Vải cotton tự nhiên 100%, thấm hút tốt','2026-01-21 13:53:09'),(2,'CL002','Cotton pha (65/35)','Cotton 65% pha Polyester 35%, bền đẹp','2026-01-21 13:53:09'),(3,'CL003','Vải jean','Vải denim dày dặn, bền màu','2026-01-21 13:53:09'),(4,'CL004','Kaki','Vải kaki cao cấp, không nhăn','2026-01-21 13:53:09'),(5,'CL005','Polyester','Vải polyester, không nhăn, dễ giặt','2026-01-21 13:53:09'),(6,'CL006','Lụa','Lụa tơ tằm cao cấp','2026-01-21 13:53:09'),(7,'CL007','Vải thun','Vải thun co giãn 4 chiều','2026-01-21 13:53:09'),(8,'CL008','Kate','Vải kate mịn, phù hợp công sở','2026-01-21 13:53:09'),(9,'CL009','Len','Vải len ấm áp mùa đông','2026-01-21 13:53:09'),(10,'CL010','Nỉ','Vải nỉ dày, giữ nhiệt tốt','2026-01-21 13:53:09'),(30,'CL0012','Cotton 98% thường','123caafasf123','2026-01-25 20:29:29');
+INSERT INTO `chat_lieu` VALUES (1,'CL001','Cotton 100%','Vải cotton tự nhiên 100%, thấm hút tốt','2026-01-21 13:53:09'),(2,'CL002','Cotton pha (65/35)','Cotton 65% pha Polyester 35%, bền đẹp','2026-01-21 13:53:09'),(3,'CL003','Vải jean','Vải denim dày dặn, bền màu','2026-01-21 13:53:09'),(4,'CL004','Kaki','Vải kaki cao cấp, không nhăn','2026-01-21 13:53:09'),(5,'CL005','Polyester','Vải polyester, không nhăn, dễ giặt','2026-01-21 13:53:09'),(6,'CL006','Lụa','Lụa tơ tằm cao cấp','2026-01-21 13:53:09'),(7,'CL007','Vải thun','Vải thun co giãn 4 chiều','2026-01-21 13:53:09'),(8,'CL008','Kate','Vải kate mịn, phù hợp công sở','2026-01-21 13:53:09'),(9,'CL009','Len','Vải len ấm áp mùa đông','2026-01-21 13:53:09'),(10,'CL010','Nỉ','Vải nỉ dày, giữ nhiệt tốt','2026-01-21 13:53:09'),(30,'CL0012','Cotton 98% thường','123caafasf123','2026-01-25 20:29:29'),(33,'CL-7187','Linen','Vải lanh, thường dùng cho sơ mi và quần mùa hè','2026-10-05 21:19:12'),(34,'CL-2650','Viscose','Vải từ sợi cellulose tái sinh','2026-10-05 21:19:12'),(35,'CL-6512','Modal','Vải từ sợi modal, thường dùng cho đồ mặc hằng ngày','2026-10-05 21:19:12'),(36,'CL-4036','Nylon','Vải nylon, thường dùng cho áo khoác và đồ thể thao','2026-10-05 21:19:12'),(37,'CL-3844','Spandex','Sợi đàn hồi thường được pha với các loại sợi khác','2026-10-05 21:19:12'),(38,'CL-3437','Nhung','Vải có bề mặt lông ngắn, thường dùng cho váy và áo khoác','2026-10-05 21:19:12'),(39,'CL-7316','Da nhân tạo PU','Chất liệu giả da phủ polyurethane','2026-10-05 21:19:12'),(40,'CL-1414','Cotton pha Spandex','Cotton pha sợi đàn hồi; tỷ lệ theo nhãn sản phẩm','2026-10-05 21:19:12'),(41,'CL-5146','Cotton pha Linen','Cotton pha lanh; tỷ lệ theo nhãn sản phẩm','2026-10-05 21:19:12'),(42,'CL-5245','Polyester pha Spandex','Polyester pha sợi đàn hồi; tỷ lệ theo nhãn sản phẩm','2026-10-05 21:19:12'),(43,'CL-6196','Thun cá sấu (Pique)','Vải dệt kim pique, thường dùng cho áo polo; thành phần sợi tùy sản phẩm','2026-10-05 21:19:12'),(44,'CL-9982','Thun Jersey','Vải dệt kim jersey, thường dùng cho áo thun; thành phần sợi tùy sản phẩm','2026-10-05 21:19:12'),(45,'CL-5426','Thun gân (Rib)','Vải dệt kim có gân, dùng cho áo ôm và bo cổ, bo tay','2026-10-05 21:19:12'),(46,'CL-8068','Da cá (French terry)','Vải dệt kim mặt trong có vòng sợi, dùng cho sweatshirt và quần jogger','2026-10-05 21:19:12'),(47,'CL-3846','Nỉ bông (Fleece)','Vải có bề mặt được chải tạo lông, dùng cho hoodie và đồ giữ ấm','2026-10-05 21:19:12'),(48,'CL-3573','Nhung tăm (Corduroy)','Vải có các đường gân nổi, dùng cho quần và áo khoác','2026-10-05 21:19:12'),(49,'CL-6658','Oxford','Vải dệt Oxford, thường dùng cho sơ mi; thành phần sợi tùy sản phẩm','2026-10-05 21:19:12'),(50,'CL-3992','Voan (Chiffon)','Vải mỏng nhẹ, thường dùng cho váy và áo nữ; thành phần sợi tùy sản phẩm','2026-10-05 21:19:12'),(51,'CL-1597','Satin','Vải dệt satin có mặt bóng; không mặc định là lụa tơ tằm','2026-10-05 21:19:12'),(52,'CL-9341','Ren','Vải có họa tiết dạng ren, thường dùng cho áo và váy','2026-10-05 21:19:12');
 /*!40000 ALTER TABLE `chat_lieu` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1152,7 +1151,7 @@ CREATE TABLE `mau_sac` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `ma_mau` (`ma_mau`),
   KEY `idx_ma_mau` (`ma_mau`)
-) ENGINE=InnoDB AUTO_INCREMENT=29 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=46 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1161,7 +1160,7 @@ CREATE TABLE `mau_sac` (
 
 LOCK TABLES `mau_sac` WRITE;
 /*!40000 ALTER TABLE `mau_sac` DISABLE KEYS */;
-INSERT INTO `mau_sac` VALUES (25,'MS-2691','Đen','#000000','2026-10-04 04:44:33'),(26,'MS-9200','Kem','#fffdd0','2026-10-05 11:54:43'),(27,'MS-7445','Đỏ đô','#A50000','2026-10-05 11:55:17'),(28,'MS-0905','Xanh Than','#1a2954','2026-10-05 11:55:53');
+INSERT INTO `mau_sac` VALUES (25,'MS-2691','Đen','#000000','2026-10-04 04:44:33'),(26,'MS-9200','Kem','#fffdd0','2026-10-05 11:54:43'),(27,'MS-7445','Đỏ đô','#A50000','2026-10-05 11:55:17'),(28,'MS-0905','Xanh Than','#1a2954','2026-10-05 11:55:53'),(29,'MS-7330','Trắng','#FFFFFF','2026-10-05 21:19:12'),(30,'MS-5229','Xám','#808080','2026-10-05 21:19:12'),(31,'MS-4742','Xám nhạt','#D3D3D3','2026-10-05 21:19:12'),(32,'MS-6389','Xám đậm','#4B4B4B','2026-10-05 21:19:12'),(33,'MS-7796','Be','#D8C3A5','2026-10-05 21:19:12'),(34,'MS-3484','Nâu','#8B4513','2026-10-05 21:19:12'),(35,'MS-5403','Nâu nhạt','#C4A484','2026-10-05 21:19:12'),(36,'MS-8530','Đỏ','#FF0000','2026-10-05 21:19:12'),(37,'MS-0392','Hồng','#FFC0CB','2026-10-05 21:19:12'),(38,'MS-3613','Hồng pastel','#F4C2C2','2026-10-05 21:19:12'),(39,'MS-9909','Cam','#FFA500','2026-10-05 21:19:12'),(40,'MS-2401','Vàng','#FFD700','2026-10-05 21:19:12'),(41,'MS-9363','Xanh dương','#0066CC','2026-10-05 21:19:12'),(42,'MS-0691','Xanh da trời','#87CEEB','2026-10-05 21:19:12'),(43,'MS-9353','Xanh lá','#228B22','2026-10-05 21:19:12'),(44,'MS-8835','Tím','#800080','2026-10-05 21:19:12');
 /*!40000 ALTER TABLE `mau_sac` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1184,10 +1183,13 @@ CREATE TABLE `nguoi_dung` (
   `ngay_tao` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `ngay_cap_nhat` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `must_change_password` tinyint(1) NOT NULL DEFAULT '0',
+  `avatar_tep_tin_id` int DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `ten_dang_nhap` (`ten_dang_nhap`),
   UNIQUE KEY `email` (`email`),
-  KEY `idx_vai_tro` (`vai_tro`)
+  KEY `idx_vai_tro` (`vai_tro`),
+  KEY `idx_nguoi_dung_avatar_tep_tin` (`avatar_tep_tin_id`),
+  CONSTRAINT `fk_nguoi_dung_avatar_tep_tin` FOREIGN KEY (`avatar_tep_tin_id`) REFERENCES `tep_tin` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=49 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -1197,7 +1199,7 @@ CREATE TABLE `nguoi_dung` (
 
 LOCK TABLES `nguoi_dung` WRITE;
 /*!40000 ALTER TABLE `nguoi_dung` DISABLE KEYS */;
-INSERT INTO `nguoi_dung` VALUES (1,'admin','$2a$10$sI2L3w9FJVDws0Hk.Ak1u./TSs4O0P1odowjDRr4WGz3G56PFqPhy','admin','ducdoanminh2005@gmail.com','0901234567','quan_tri_vien',1,'2026-01-21 13:53:09','2026-09-30 09:58:45',0),(37,'nhanvienbanhang1','$2a$10$nlnmEIG29EyzzHLUAvlm1ucVKJE.6YYP09yvEfIvLrqDhmPk0gHfS','nhanvienbanhang1','nvbh1@fcentric.net','0901234545','nhan_vien_ban_hang',1,'2026-03-16 18:05:52','2026-09-30 09:31:29',0),(38,'nhanvienbanhang2','$2a$10$CTFys37AlYQc8uOwN8WzteUkVozSP.yuca1fBRysArhaNJr.7ADvm','nhanvienbanhang2','nvbh2@fcentric.net','0971234567','nhan_vien_mua_hang',1,'2026-03-16 18:06:54','2026-09-30 09:31:29',0),(39,'nhanvienkho1','$2a$10$tn/peSYoczDx0zSi4JItY.lrRE9DNZ2idWGOLDTLVKQSEqTAN4M2i','nhanvienkho1','nvk1@fcentric.net','0932123456','nhan_vien_kho',1,'2026-03-16 18:07:17','2026-09-30 09:31:29',0),(40,'nhanvienkho2','$2a$10$GNr9/ueoaURwROEDdONp/.NjbdN1xhSXgkLNbpJfeNeDal2U.GWJm','nhanvienkho2','nvk2@fcentric.net','0946312345','nhan_vien_kho',1,'2026-03-16 18:08:12','2026-09-30 09:31:29',0),(41,'quanlykho1','$2a$10$ZGJmC/MdiM2g1YBgc6QEUuuapuFYGlrOrEGNihZ255.sotAqSpuUi','quanlykho1','qlk1@fcentric.net','0954234569','quan_ly_kho',1,'2026-03-16 18:08:35','2026-09-30 09:31:29',0),(42,'quanlykho2','$2a$10$v9yKV7BJ9uCAGu0WMwedNOs0/AM7Mpw3CRGqEUa5kPbuNvaI769MG','quanlykho2','qlk2@fcentric.net','0911234543','quan_ly_kho',1,'2026-03-16 18:08:48','2026-09-30 09:31:29',0),(43,'nhanvienmuahang1','$2a$10$I74ZCf.1BWapvp.HPPKbYe30BoaETYIfRBmDunogvw/0iTqgPuRPG','nhanvienmuahang1','nvmh1@fcentric.net','0912099999','nhan_vien_mua_hang',1,'2026-03-16 18:52:34','2026-09-30 09:31:29',0),(44,'nhanvienmuahang2','$2a$10$bt8pCod6F/MXhhRokR5Bqexqu2KUoHafrUNyV/C65PbA4I2VA5PiK','nhanvienmuahang2','nvmh2@fcentric.net','0967745999','nhan_vien_mua_hang',1,'2026-03-16 18:53:15','2026-09-30 09:31:29',0),(46,'nhanvienmuahang4','$2a$10$KAVD8qhXLrZ8ly1i4uoXQOgv05zpVZoS/cbWWSYIiO0u/bnFsok7W','nhanvienmuahang4','nvmh3@fcentric.net',NULL,'nhan_vien_mua_hang',1,'2026-03-19 04:45:47','2026-09-30 09:31:29',0),(47,'nhanvienmuahang3','$2a$10$lz.k8j13IrXBxElVGGAuceFTTL5aAnh3a9nAVu0C1LgoQpqtxp.sW','nhanvienmuahang3','nvmh4@fcentric.net',NULL,'quan_ly_kho',1,'2026-03-19 04:47:28','2026-10-01 04:37:50',0),(48,'hoangthuan','$2a$10$Enlg.SL2XRWdBLBHcKAaJOvMHbYg3Bg/2hqmp0sYQFuFb5nEDLKma','Hoàng Thuận - Frontend Test','hoangthuan@fcentric.net','0999999999','quan_tri_vien',1,'2026-09-30 16:24:13','2026-10-03 20:54:28',0);
+INSERT INTO `nguoi_dung` VALUES (1,'admin','$2a$10$sI2L3w9FJVDws0Hk.Ak1u./TSs4O0P1odowjDRr4WGz3G56PFqPhy','admin','ducdoanminh2005@gmail.com','0901234567','quan_tri_vien',1,'2026-01-21 13:53:09','2026-10-05 22:35:07',0,102),(37,'nhanvienbanhang1','$2a$10$nlnmEIG29EyzzHLUAvlm1ucVKJE.6YYP09yvEfIvLrqDhmPk0gHfS','nhanvienbanhang1','nvbh1@fcentric.net','0901234545','nhan_vien_ban_hang',1,'2026-03-16 18:05:52','2026-09-30 09:31:29',0,NULL),(38,'nhanvienbanhang2','$2a$10$CTFys37AlYQc8uOwN8WzteUkVozSP.yuca1fBRysArhaNJr.7ADvm','nhanvienbanhang2','nvbh2@fcentric.net','0971234567','nhan_vien_mua_hang',1,'2026-03-16 18:06:54','2026-09-30 09:31:29',0,NULL),(39,'nhanvienkho1','$2a$10$tn/peSYoczDx0zSi4JItY.lrRE9DNZ2idWGOLDTLVKQSEqTAN4M2i','nhanvienkho1','nvk1@fcentric.net','0932123456','nhan_vien_kho',1,'2026-03-16 18:07:17','2026-09-30 09:31:29',0,NULL),(40,'nhanvienkho2','$2a$10$GNr9/ueoaURwROEDdONp/.NjbdN1xhSXgkLNbpJfeNeDal2U.GWJm','nhanvienkho2','nvk2@fcentric.net','0946312345','nhan_vien_kho',1,'2026-03-16 18:08:12','2026-09-30 09:31:29',0,NULL),(41,'quanlykho1','$2a$10$ZGJmC/MdiM2g1YBgc6QEUuuapuFYGlrOrEGNihZ255.sotAqSpuUi','quanlykho1','qlk1@fcentric.net','0954234569','quan_ly_kho',1,'2026-03-16 18:08:35','2026-09-30 09:31:29',0,NULL),(42,'quanlykho2','$2a$10$v9yKV7BJ9uCAGu0WMwedNOs0/AM7Mpw3CRGqEUa5kPbuNvaI769MG','quanlykho2','qlk2@fcentric.net','0911234543','quan_ly_kho',1,'2026-03-16 18:08:48','2026-09-30 09:31:29',0,NULL),(43,'nhanvienmuahang1','$2a$10$I74ZCf.1BWapvp.HPPKbYe30BoaETYIfRBmDunogvw/0iTqgPuRPG','nhanvienmuahang1','nvmh1@fcentric.net','0912099999','nhan_vien_mua_hang',1,'2026-03-16 18:52:34','2026-09-30 09:31:29',0,NULL),(44,'nhanvienmuahang2','$2a$10$bt8pCod6F/MXhhRokR5Bqexqu2KUoHafrUNyV/C65PbA4I2VA5PiK','nhanvienmuahang2','nvmh2@fcentric.net','0967745999','nhan_vien_mua_hang',1,'2026-03-16 18:53:15','2026-09-30 09:31:29',0,NULL),(46,'nhanvienmuahang4','$2a$10$KAVD8qhXLrZ8ly1i4uoXQOgv05zpVZoS/cbWWSYIiO0u/bnFsok7W','nhanvienmuahang4','nvmh3@fcentric.net',NULL,'nhan_vien_mua_hang',1,'2026-03-19 04:45:47','2026-09-30 09:31:29',0,NULL),(47,'nhanvienmuahang3','$2a$10$lz.k8j13IrXBxElVGGAuceFTTL5aAnh3a9nAVu0C1LgoQpqtxp.sW','nhanvienmuahang3','nvmh4@fcentric.net',NULL,'quan_ly_kho',1,'2026-03-19 04:47:28','2026-10-01 04:37:50',0,NULL),(48,'hoangthuan','$2a$10$Enlg.SL2XRWdBLBHcKAaJOvMHbYg3Bg/2hqmp0sYQFuFb5nEDLKma','Hoàng Thuận - Frontend Test','hoangthuan@fcentric.net','0999999999','quan_tri_vien',1,'2026-09-30 16:24:13','2026-10-05 22:21:53',0,NULL);
 /*!40000 ALTER TABLE `nguoi_dung` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1526,7 +1528,7 @@ CREATE TABLE `size` (
   UNIQUE KEY `ma_size` (`ma_size`),
   KEY `idx_ma_size` (`ma_size`),
   KEY `idx_loai_size` (`loai_size`)
-) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=27 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1535,7 +1537,7 @@ CREATE TABLE `size` (
 
 LOCK TABLES `size` WRITE;
 /*!40000 ALTER TABLE `size` DISABLE KEYS */;
-INSERT INTO `size` VALUES (18,'43','S','chu',0,'','2026-10-04 04:45:32'),(19,'1','M','chu',0,'','2026-10-05 11:56:32'),(20,'2','XL','chu',0,'','2026-10-05 11:56:51'),(21,'3','L','chu',0,'','2026-10-05 11:56:59');
+INSERT INTO `size` VALUES (18,'S','S','chu',0,'','2026-10-04 04:45:32'),(19,'M','M','chu',0,'','2026-10-05 11:56:32'),(20,'XL','XL','chu',0,'','2026-10-05 11:56:51'),(21,'L','L','chu',0,'','2026-10-05 11:56:59'),(22,'XS','XS','chu',10,'Size chữ XS','2026-10-05 21:19:12'),(23,'XXL','XXL','chu',60,'Size chữ XXL','2026-10-05 21:19:12'),(24,'3XL','3XL','chu',70,'Size chữ 3XL','2026-10-05 21:19:12'),(25,'4XL','4XL','chu',80,'Size chữ 4XL','2026-10-05 21:19:12');
 /*!40000 ALTER TABLE `size` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1561,7 +1563,7 @@ CREATE TABLE `tep_tin` (
   `trang_thai` int DEFAULT '0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `ten_luu_tru` (`ten_luu_tru`)
-) ENGINE=InnoDB AUTO_INCREMENT=91 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=103 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1570,7 +1572,7 @@ CREATE TABLE `tep_tin` (
 
 LOCK TABLES `tep_tin` WRITE;
 /*!40000 ALTER TABLE `tep_tin` DISABLE KEYS */;
-INSERT INTO `tep_tin` VALUES (84,'san_pham_quan_ao_A2610041_1791199779724_0','san_pham_quan_ao_A2610041_1791199779724_0','san_pham_quan_ao_A2610041_1791199779724_0','http://171.244.142.43:9000/fashion/san_pham_quan_ao_A2610041_1791199779724_0','IMAGE','.jpg',NULL,NULL,'2026-10-05 18:29:40',NULL,1),(85,'bien_the_san_pham_A2610041_1791199780067_0','bien_the_san_pham_A2610041_1791199780067_0','bien_the_san_pham_A2610041_1791199780067_0','http://171.244.142.43:9000/fashion/bien_the_san_pham_A2610041_1791199780067_0','IMAGE','.jpg',NULL,NULL,'2026-10-05 18:29:40',NULL,1),(86,'san_pham_quan_ao_AK2610051_1791202002414_0','san_pham_quan_ao_AK2610051_1791202002414_0','san_pham_quan_ao_AK2610051_1791202002414_0','http://171.244.142.43:9000/fashion/san_pham_quan_ao_AK2610051_1791202002414_0','IMAGE','.png',NULL,NULL,'2026-10-05 19:06:42',NULL,1),(87,'bien_the_san_pham_AK2610051-CL005-43-MS-2691_1791202002414','bien_the_san_pham_AK2610051-CL005-43-MS-2691_1791202002414','bien_the_san_pham_AK2610051-CL005-43-MS-2691_1791202002414','http://171.244.142.43:9000/fashion/bien_the_san_pham_AK2610051-CL005-43-MS-2691_1791202002414','IMAGE','.png',NULL,NULL,'2026-10-05 19:06:42',NULL,1),(88,'bien_the_san_pham_AK2610051-CL005-1-MS-2691_1791202002414','bien_the_san_pham_AK2610051-CL005-1-MS-2691_1791202002414','bien_the_san_pham_AK2610051-CL005-1-MS-2691_1791202002414','http://171.244.142.43:9000/fashion/bien_the_san_pham_AK2610051-CL005-1-MS-2691_1791202002414','IMAGE','.png',NULL,NULL,'2026-10-05 19:06:42',NULL,1),(89,'bien_the_san_pham_AK2610051-CL005-3-MS-2691_1791202002414','bien_the_san_pham_AK2610051-CL005-3-MS-2691_1791202002414','bien_the_san_pham_AK2610051-CL005-3-MS-2691_1791202002414','http://171.244.142.43:9000/fashion/bien_the_san_pham_AK2610051-CL005-3-MS-2691_1791202002414','IMAGE','.png',NULL,NULL,'2026-10-05 19:06:42',NULL,1),(90,'bien_the_san_pham_AK2610051-CL005-2-MS-2691_1791202002414','bien_the_san_pham_AK2610051-CL005-2-MS-2691_1791202002414','bien_the_san_pham_AK2610051-CL005-2-MS-2691_1791202002414','http://171.244.142.43:9000/fashion/bien_the_san_pham_AK2610051-CL005-2-MS-2691_1791202002414','IMAGE','.png',NULL,NULL,'2026-10-05 19:06:42',NULL,1);
+INSERT INTO `tep_tin` VALUES (84,'san_pham_quan_ao_A2610041_1791199779724_0','san_pham_quan_ao_A2610041_1791199779724_0','san_pham_quan_ao_A2610041_1791199779724_0','http://171.244.142.43:9000/fashion/san_pham_quan_ao_A2610041_1791199779724_0','IMAGE','.jpg',NULL,NULL,'2026-10-05 18:29:40',NULL,1),(85,'bien_the_san_pham_A2610041_1791199780067_0','bien_the_san_pham_A2610041_1791199780067_0','bien_the_san_pham_A2610041_1791199780067_0','http://171.244.142.43:9000/fashion/bien_the_san_pham_A2610041_1791199780067_0','IMAGE','.jpg',NULL,NULL,'2026-10-05 18:29:40',NULL,1),(86,'san_pham_quan_ao_AK2610051_1791202002414_0','san_pham_quan_ao_AK2610051_1791202002414_0','san_pham_quan_ao_AK2610051_1791202002414_0','http://171.244.142.43:9000/fashion/san_pham_quan_ao_AK2610051_1791202002414_0','IMAGE','.png',NULL,NULL,'2026-10-05 19:06:42',NULL,1),(87,'bien_the_san_pham_AK2610051-CL005-43-MS-2691_1791202002414','bien_the_san_pham_AK2610051-CL005-43-MS-2691_1791202002414','bien_the_san_pham_AK2610051-CL005-43-MS-2691_1791202002414','http://171.244.142.43:9000/fashion/bien_the_san_pham_AK2610051-CL005-43-MS-2691_1791202002414','IMAGE','.png',NULL,NULL,'2026-10-05 19:06:42',NULL,1),(88,'bien_the_san_pham_AK2610051-CL005-1-MS-2691_1791202002414','bien_the_san_pham_AK2610051-CL005-1-MS-2691_1791202002414','bien_the_san_pham_AK2610051-CL005-1-MS-2691_1791202002414','http://171.244.142.43:9000/fashion/bien_the_san_pham_AK2610051-CL005-1-MS-2691_1791202002414','IMAGE','.png',NULL,NULL,'2026-10-05 19:06:42',NULL,1),(89,'bien_the_san_pham_AK2610051-CL005-3-MS-2691_1791202002414','bien_the_san_pham_AK2610051-CL005-3-MS-2691_1791202002414','bien_the_san_pham_AK2610051-CL005-3-MS-2691_1791202002414','http://171.244.142.43:9000/fashion/bien_the_san_pham_AK2610051-CL005-3-MS-2691_1791202002414','IMAGE','.png',NULL,NULL,'2026-10-05 19:06:42',NULL,1),(90,'bien_the_san_pham_AK2610051-CL005-2-MS-2691_1791202002414','bien_the_san_pham_AK2610051-CL005-2-MS-2691_1791202002414','bien_the_san_pham_AK2610051-CL005-2-MS-2691_1791202002414','http://171.244.142.43:9000/fashion/bien_the_san_pham_AK2610051-CL005-2-MS-2691_1791202002414','IMAGE','.png',NULL,NULL,'2026-10-05 19:06:42',NULL,1),(91,'http://171.244.142.43:9000/fashion/F Centric Logo with Electric Blue Gradient.png1791182038698','http://171.244.142.43:9000/fashion/F Centric Logo with Electric Blue Gradient.png1791182038698','F Centric Logo with Electric Blue Gradient.png1791182038698','http://171.244.142.43:9000/fashion/F Centric Logo with Electric Blue Gradient.png1791182038698','IMAGE',NULL,NULL,NULL,'2026-10-05 20:16:27','2026-10-05 20:16:27',1),(92,'images.png1791231677361','images.png1791231677361','images.png1791231677361','http://171.244.142.43:9000/fashion/images.png1791231677361','IMAGE','.png',NULL,NULL,'2026-10-06 03:21:18',NULL,1),(93,'5911328_Logo-Nike-Swoosh-1985.png1791231741835','5911328_Logo-Nike-Swoosh-1985.png1791231741835','5911328_Logo-Nike-Swoosh-1985.png1791231741835','http://171.244.142.43:9000/fashion/5911328_Logo-Nike-Swoosh-1985.png1791231741835','IMAGE','.png',NULL,NULL,'2026-10-06 03:22:22',NULL,1),(94,'images (1).png1791231812996','images (1).png1791231812996','images (1).png1791231812996','http://171.244.142.43:9000/fashion/images (1).png1791231812996','IMAGE','.png',NULL,NULL,'2026-10-06 03:23:33',NULL,1),(95,'Zara_(retailer)-Logo.wine.png1791231862123','Zara_(retailer)-Logo.wine.png1791231862123','Zara_(retailer)-Logo.wine.png1791231862123','http://171.244.142.43:9000/fashion/Zara_(retailer)-Logo.wine.png1791231862123','IMAGE','.png',NULL,NULL,'2026-10-06 03:24:22',NULL,1),(97,'images (2).png1791233091286','images (2).png1791233091286','images (2).png1791233091286','http://171.244.142.43:9000/fashion/images (2).png1791233091286','IMAGE','.png',NULL,NULL,'2026-10-06 03:44:51',NULL,1),(98,'slide-1.jpg','avatars/765f7e19-4c87-4832-b937-8ef4672b26ee.jpeg','avatars/765f7e19-4c87-4832-b937-8ef4672b26ee.jpeg','http://171.244.142.43:9000/fashion/avatars/765f7e19-4c87-4832-b937-8ef4672b26ee.jpeg','IMAGE','.jpeg',617297,NULL,'2026-10-06 05:07:39',NULL,1),(99,'?nh d?i di?n c?a t�i.jpg','avatars/05a4301d-f568-4f91-86a7-4d24333bad71.jpeg','avatars/05a4301d-f568-4f91-86a7-4d24333bad71.jpeg','http://171.244.142.43:9000/fashion/avatars/05a4301d-f568-4f91-86a7-4d24333bad71.jpeg','IMAGE','.jpeg',617297,NULL,'2026-10-06 05:20:00',NULL,1),(100,'images (1).png','avatars/02b90904-d732-49d5-a056-c6a50fcb8cc0.png','avatars/02b90904-d732-49d5-a056-c6a50fcb8cc0.png','http://171.244.142.43:9000/fashion/avatars/02b90904-d732-49d5-a056-c6a50fcb8cc0.png','IMAGE','.png',5192,NULL,'2026-10-06 05:26:30',NULL,1),(101,'images (2).png','avatars/546e96e8-cd1a-4dd0-bbdc-d264a34a8cda.png','avatars/546e96e8-cd1a-4dd0-bbdc-d264a34a8cda.png','http://171.244.142.43:9000/fashion/avatars/546e96e8-cd1a-4dd0-bbdc-d264a34a8cda.png','IMAGE','.png',7414,NULL,'2026-10-06 05:28:36',NULL,1),(102,'admin-icon-vector-male-person-profile-avatar-gear-cogwheel-settings-configuration-flat-color-glyph-pictogram-150124023.webp','avatars/af30230d-ef84-4226-8439-ad1c92f543d4.webp','avatars/af30230d-ef84-4226-8439-ad1c92f543d4.webp','http://171.244.142.43:9000/fashion/avatars/af30230d-ef84-4226-8439-ad1c92f543d4.webp','IMAGE','.webp',7790,NULL,'2026-10-06 05:35:08',NULL,1);
 /*!40000 ALTER TABLE `tep_tin` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1654,12 +1656,15 @@ CREATE TABLE `thong_tin_cong_ty` (
   `id` tinyint NOT NULL COMMENT 'Luôn bằng 1 — bảng một dòng duy nhất',
   `ten_cong_ty` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'FCentric',
   `logo_duong_dan` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `tep_tin_id` int DEFAULT NULL,
   `email` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `so_dien_thoai` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `dia_chi` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `version` int NOT NULL DEFAULT '1',
   `ngay_cap_nhat` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `idx_cty_tep_tin` (`tep_tin_id`),
+  CONSTRAINT `fk_cty_tep_tin` FOREIGN KEY (`tep_tin_id`) REFERENCES `tep_tin` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -1669,7 +1674,7 @@ CREATE TABLE `thong_tin_cong_ty` (
 
 LOCK TABLES `thong_tin_cong_ty` WRITE;
 /*!40000 ALTER TABLE `thong_tin_cong_ty` DISABLE KEYS */;
-INSERT INTO `thong_tin_cong_ty` VALUES (1,'FCentric','http://171.244.142.43:9000/fashion/F Centric Logo with Electric Blue Gradient.png1791182038698',NULL,NULL,NULL,1,'2026-10-05 13:33:59');
+INSERT INTO `thong_tin_cong_ty` VALUES (1,'FCentric','http://171.244.142.43:9000/fashion/F Centric Logo with Electric Blue Gradient.png1791231557679',91,NULL,NULL,NULL,1,'2026-10-06 03:19:18');
 /*!40000 ALTER TABLE `thong_tin_cong_ty` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1686,13 +1691,16 @@ CREATE TABLE `thuong_hieu` (
   `ten_thuong_hieu` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `mo_ta` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `logo_url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Đường dẫn tới logo',
+  `tep_tin_id` int DEFAULT NULL,
   `trang_thai` tinyint(1) DEFAULT '1' COMMENT '0: Ngừng hoạt động, 1: Hoạt động',
   `ngay_tao` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `ngay_cap_nhat` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_ma_thuong_hieu` (`ma_thuong_hieu`),
-  KEY `idx_ten_thuong_hieu` (`ten_thuong_hieu`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  KEY `idx_ten_thuong_hieu` (`ten_thuong_hieu`),
+  KEY `idx_thuong_hieu_tep_tin` (`tep_tin_id`),
+  CONSTRAINT `fk_thuong_hieu_tep_tin` FOREIGN KEY (`tep_tin_id`) REFERENCES `tep_tin` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1701,7 +1709,7 @@ CREATE TABLE `thuong_hieu` (
 
 LOCK TABLES `thuong_hieu` WRITE;
 /*!40000 ALTER TABLE `thuong_hieu` DISABLE KEYS */;
-INSERT INTO `thuong_hieu` VALUES (1,'FCENTRIC','FCentric Original','Thương hiệu nội bộ của hệ thống',NULL,1,'2026-10-05 10:42:00','2026-10-05 10:42:00'),(2,'ZARA','Zara','Thương hiệu thời trang nhanh Zara',NULL,1,'2026-10-05 10:42:00','2026-10-05 10:42:00'),(3,'UNI','Uniqlo','Thời trang cơ bản Uniqlo',NULL,1,'2026-10-05 10:42:00','2026-10-05 10:42:00');
+INSERT INTO `thuong_hieu` VALUES (2,'ZARA','Zara','Thương hiệu thời trang nhanh Zara',NULL,95,1,'2026-10-05 10:42:00','2026-10-05 20:24:29'),(3,'UNI','Uniqlo','Thời trang cơ bản, thiết kế tối giản, dễ phối đồ.',NULL,92,1,'2026-10-05 10:42:00','2026-10-05 21:39:25'),(4,'NIKE','Nike','Thời trang thể thao, phong cách năng động và hiện đại.',NULL,93,1,'2026-10-05 20:22:27','2026-10-05 21:39:11'),(5,'ADIDAS','Adidas','Thời trang thể thao và trang phục thường ngày.',NULL,94,1,'2026-10-05 20:23:38','2026-10-05 21:39:03'),(6,'PUMA','Puma','Thời trang thể thao, phong cách năng động.',NULL,97,1,'2026-10-05 20:24:55','2026-10-05 21:38:56');
 /*!40000 ALTER TABLE `thuong_hieu` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1822,4 +1830,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-10-05  6:00:03
+-- Dump completed on 2026-10-05 15:44:49
