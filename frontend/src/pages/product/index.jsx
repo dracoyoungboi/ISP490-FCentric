@@ -2,9 +2,10 @@ import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { productService } from "@/services/productService.js";
+import { thuongHieuService } from "@/services/thuongHieuService.js";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
-import { Loader2, Eye, Edit, Trash2, RefreshCcw, Package, Plus, CheckCircle2, XCircle, ShoppingBag, ChevronDown, ChevronLeft, ChevronRight, Check, Filter } from "lucide-react";
+import { Loader2, Eye, Edit, Trash2, RefreshCcw, Package, Plus, CheckCircle2, XCircle, ShoppingBag, ChevronDown, ChevronLeft, ChevronRight, Check, Filter, Tag } from "lucide-react";
 import { useToggle } from "@/hooks/useToggle";
 import AddProductModal from "@/pages/product/components/product/AddProductModal";
 import EditProductModal from "@/pages/product/components/product/EditProductModal";
@@ -48,6 +49,15 @@ function buildProductFilterPayload(filters) {
             fieldName: "danhMuc.id",
             operation: "EQUALS",
             value: Number(filters.danhMuc),
+            logicType: "AND",
+        });
+    }
+
+    if (filters.thuongHieu && filters.thuongHieu !== "ALL") {
+        filterList.push({
+            fieldName: "thuongHieu.id",
+            operation: "EQUALS",
+            value: Number(filters.thuongHieu),
             logicType: "AND",
         });
     }
@@ -96,12 +106,16 @@ export default function ProductList() {
     const [filters, setFilters] = useState({
         keyword: "",
         danhMuc: "ALL",
+        thuongHieu: "ALL",
         trangThai: "ALL",
         giaTu: "",
         giaDen: "",
         page: 0,
         size: 10,
     });
+
+    // Danh sách thương hiệu cho bộ lọc (nạp 1 lần)
+    const [brands, setBrands] = useState([]);
 
     const location = useLocation();
     const toastShownRef = useRef(false);
@@ -160,6 +174,15 @@ export default function ProductList() {
     // (react-hooks/set-state-in-effect).
     useEffect(() => { queueMicrotask(() => fetchGlobalStats()); }, [fetchGlobalStats]);
 
+    // Nạp danh sách thương hiệu cho bộ lọc (lỗi thì bỏ qua, không chặn màn danh sách)
+    useEffect(() => {
+        let cancelled = false;
+        thuongHieuService.getAll()
+            .then((res) => { if (!cancelled) setBrands(res?.data ?? []); })
+            .catch(() => { /* ignore */ });
+        return () => { cancelled = true; };
+    }, []);
+
     const fetchProducts = useCallback(async () => {
         try {
             setIsLoading(true);
@@ -206,7 +229,7 @@ export default function ProductList() {
     }, [location.state, navigate, location.pathname]);
 
     const handleReset = useCallback(() => {
-        setFilters({ keyword: "", danhMuc: "ALL", trangThai: "ALL", giaTu: "", giaDen: "", page: 0, size: 10 });
+        setFilters({ keyword: "", danhMuc: "ALL", thuongHieu: "ALL", trangThai: "ALL", giaTu: "", giaDen: "", page: 0, size: 10 });
     }, []);
 
     const handleDeleteClick = useCallback((product) => {
@@ -251,6 +274,7 @@ export default function ProductList() {
         giaTu:    (e) => updateFilter("giaTu", e),
         giaDen:   (e) => updateFilter("giaDen", e),
         danhMuc:  (v) => updateFilter("danhMuc", v),
+        thuongHieu: (v) => updateFilter("thuongHieu", v),
         trangThai:(v) => updateFilter("trangThai", v),
         size:     (v) => updateFilter("size", Number(v)),
         page:     (v) => updateFilter("page", v, false),
@@ -365,6 +389,50 @@ export default function ProductList() {
                                         >
                                             {s.label}
                                             {filters.trangThai === s.value && <Check className="h-4 w-4" />}
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+
+                            {/* Thương hiệu */}
+                            <DropdownMenu modal={false}>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className="h-9 max-w-[200px] justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle"
+                                    >
+                                        <span className="truncate">
+                                            {filters.thuongHieu === "ALL"
+                                                ? "Tất cả thương hiệu"
+                                                : brands.find((b) => b.id === Number(filters.thuongHieu))?.tenThuongHieu ?? "Thương hiệu"}
+                                        </span>
+                                        <ChevronDown className="size-4 shrink-0 opacity-70" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                    align="end"
+                                    className="backoffice-user-menu z-50 w-[200px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                                >
+                                    <DropdownMenuItem
+                                        onClick={() => handleFilterChange.thuongHieu("ALL")}
+                                        className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
+                                    >
+                                        Tất cả thương hiệu
+                                        {filters.thuongHieu === "ALL" && <Check className="h-4 w-4" />}
+                                    </DropdownMenuItem>
+                                    {brands.map((brand) => (
+                                        <DropdownMenuItem
+                                            key={brand.id}
+                                            onClick={() => handleFilterChange.thuongHieu(String(brand.id))}
+                                            className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
+                                        >
+                                            <span className="min-w-0 truncate">
+                                                {brand.tenThuongHieu}
+                                                {Number(brand.trangThai) !== 1 && (
+                                                    <span className="ml-2 text-xs text-bo-muted">(Ngừng)</span>
+                                                )}
+                                            </span>
+                                            {filters.thuongHieu === String(brand.id) && <Check className="h-4 w-4 shrink-0" />}
                                         </DropdownMenuItem>
                                     ))}
                                 </DropdownMenuContent>
@@ -540,7 +608,7 @@ export default function ProductList() {
                 >
                     {/* Bảng có chiều cao cố định, cuộn bên trong */}
                     <div className="max-h-[520px] overflow-y-auto">
-                        <table className="w-full min-w-[960px] text-sm">
+                        <table className="w-full min-w-[1100px] text-sm">
                             <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                 <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
@@ -551,6 +619,9 @@ export default function ProductList() {
                                 </th>
                                 <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Tên sản phẩm
+                                </th>
+                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                    Thương hiệu
                                 </th>
                                 <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Giá bán
@@ -605,6 +676,18 @@ export default function ProductList() {
                                             <p className="mt-0.5 line-clamp-1 text-xs text-bo-muted">
                                                 {product.moTa}
                                             </p>
+                                        )}
+                                    </td>
+
+                                    {/* Thương hiệu */}
+                                    <td className="max-w-[180px] px-3 py-3">
+                                        {product.thuongHieu?.tenThuongHieu ? (
+                                            <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-bo-border bg-bo-surface-subtle px-2 py-0.5 text-xs font-medium text-bo-foreground">
+                                                <Tag className="size-3 shrink-0 text-bo-muted" />
+                                                <span className="truncate">{product.thuongHieu.tenThuongHieu}</span>
+                                            </span>
+                                        ) : (
+                                            <span className="text-xs italic text-bo-muted">Chưa xác định</span>
                                         )}
                                     </td>
 

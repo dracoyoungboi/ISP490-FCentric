@@ -18,6 +18,7 @@ public class SanPhamQuanAoUpdating {
     String maSanPham;
     String tenSanPham;
     Integer danhMucId;
+    Integer thuongHieuId;
     String moTa;
     String maVach;
     BigDecimal giaVonMacDinh;
@@ -25,5 +26,7 @@ public class SanPhamQuanAoUpdating {
     Integer mucTonToiThieu;
     Integer trangThai;
     boolean isImageUpdated;
+    // true = áp dụng thay đổi thương hiệu (null thuongHieuId = gỡ liên kết); false = giữ nguyên
+    boolean capNhatThuongHieu;
     List<BienTheSanPhamUpdating> bienTheSanPhams;
 }

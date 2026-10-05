@@ -17,6 +17,7 @@ public interface SanPhamQuanAoRepository extends JpaRepository<SanPhamQuanAo, In
     @Query("SELECT s FROM SanPhamQuanAo s " +
             "LEFT JOIN FETCH s.danhMuc d " +
             "LEFT JOIN FETCH d.danhMucCha " +
+            "LEFT JOIN FETCH s.thuongHieu " +
             "WHERE s.id = :id")
     Optional<SanPhamQuanAo> findDetailById(@Param("id") Integer id);
     long countByMaSanPhamStartingWith(String prefix);

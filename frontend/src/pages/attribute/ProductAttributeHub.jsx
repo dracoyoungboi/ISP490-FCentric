@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import {
     AlignLeft, ChevronDown, ChevronLeft, ChevronRight, Edit, Eye, Filter,
     Hash, Layers, Palette, Pipette, Plus, RefreshCcw, RotateCcw, Ruler,
-    Save, SortAsc, Tag, Trash2,
+    Save, SortAsc, Tag, Trash2, Upload, X,
 } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import PageContainer from "@/components/backoffice/PageContainer";
 import SurfaceCard from "@/components/shared/SurfaceCard";
@@ -27,6 +28,8 @@ import {
 import { toast } from "sonner";
 import { mauSacService, sizeService } from "@/services/attributeService";
 import { getAllChatLieu, deleteChatLieu, createChatLieu, updateChatLieu } from "@/services/chatLieuService";
+import { thuongHieuService } from "@/services/thuongHieuService";
+import { formatDate } from "@/utils/formatters";
 
 const formSchema = z.object({
     ten: z.string().min(1, "Tên không được để trống"),
@@ -35,11 +38,13 @@ const formSchema = z.object({
     loaiSize: z.string().optional(),
     thuTuSapXep: z.coerce.number().optional(),
     moTa: z.string().optional(),
+    trangThai: z.coerce.number().optional(),
 });
 
-const TAB_ICONS = { color: Palette, size: Ruler, material: Layers };
-const TAB_LABELS = { color: 'màu sắc', size: 'kích cỡ', material: 'chất liệu' };
-const TAB_NAMES = { color: 'Màu sắc', size: 'Kích cỡ', material: 'Chất liệu' };
+const TAB_ICONS = { color: Palette, size: Ruler, material: Layers, brand: Tag };
+const TAB_LABELS = { color: 'màu sắc', size: 'kích cỡ', material: 'chất liệu', brand: 'thương hiệu' };
+const TAB_NAMES = { color: 'Màu sắc', size: 'Kích cỡ', material: 'Chất liệu', brand: 'Thương hiệu' };
+const BRAND_STATUS_LABELS = { "ALL": "Tất cả trạng thái", "1": "Hoạt động", "0": "Ngừng hoạt động" };
 
 /* ══════════════════════════════════════════════════════
    VIEW MODAL — Chi tiết thuộc tính
@@ -50,8 +55,8 @@ const ViewModal = ({ viewItem, activeTab, onClose, onEdit }) => {
     const TabIcon = TAB_ICONS[activeTab];
     const tabLabel = TAB_NAMES[activeTab];
 
-    const getCode = (item) => item.maMau || item.maSize || item.maChatLieu || '—';
-    const getName = (item) => item.tenMau || item.tenSize || item.tenChatLieu || '—';
+    const getCode = (item) => item.maMau || item.maSize || item.maChatLieu || item.maThuongHieu || '—';
+    const getName = (item) => item.tenMau || item.tenSize || item.tenChatLieu || item.tenThuongHieu || '—';
 
     return (
         <Dialog open={!!viewItem} onOpenChange={o => !o && onClose()}>
@@ -116,8 +121,31 @@ const ViewModal = ({ viewItem, activeTab, onClose, onEdit }) => {
                         </div>
                     )}
 
+                    {/* ── BRAND specific ── */}
+                    {activeTab === 'brand' && (
+                        <>
+                            <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-3">
+                                <TileLabel icon={<Tag className="size-3.5" />} label="Logo" />
+                                {viewItem.logoUrl ? (
+                                    <img
+                                        src={viewItem.logoUrl}
+                                        alt={`Logo ${viewItem.tenThuongHieu}`}
+                                        className="mt-1.5 h-14 w-14 rounded-md border border-bo-border bg-white object-contain p-1"
+                                    />
+                                ) : (
+                                    <p className="mt-1.5 text-sm italic text-bo-muted">Chưa có logo</p>
+                                )}
+                            </div>
+                            <InfoTile
+                                icon={<AlignLeft className="size-3.5" />}
+                                label="Trạng thái"
+                                value={Number(viewItem.trangThai) === 1 ? 'Hoạt động' : 'Ngừng hoạt động'}
+                            />
+                        </>
+                    )}
+
                     {/* ── Description (material & size) ── */}
-                    {(activeTab === 'material' || activeTab === 'size') && (
+                    {(activeTab === 'material' || activeTab === 'size' || activeTab === 'brand') && (
                         <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-3">
                             <TileLabel icon={<AlignLeft className="size-3.5" />} label="Mô tả chi tiết" />
                             {viewItem.moTa ? (
@@ -158,27 +186,31 @@ const ProductAttributeHub = () => {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [total, setTotal] = useState(0);
-    const [filters, setFilters] = useState({ keyword: "", page: 0, size: 10 });
+    const [filters, setFilters] = useState({ keyword: "", page: 0, size: 10, trangThai: "ALL" });
     const [modalConfig, setModalConfig] = useState({ open: false, mode: 'add', item: null });
     const [deleteConfig, setDeleteConfig] = useState({ open: false, item: null });
     const [isDeleting, setIsDeleting] = useState(false);
     const [viewItem, setViewItem] = useState(null);
+    const [logoFile, setLogoFile] = useState(null);
+    const [logoPreview, setLogoPreview] = useState(null);
 
     const form = useForm({
         resolver: zodResolver(formSchema),
-        defaultValues: { ten: "", ma: "", maMauHex: "#000000", loaiSize: "", thuTuSapXep: 0, moTa: "" },
+        defaultValues: { ten: "", ma: "", maMauHex: "#000000", loaiSize: "", thuTuSapXep: 0, moTa: "", trangThai: 1 },
     });
 
     const mapToForm = (item) => {
         if (activeTab === 'color') return { ma: item.maMau, ten: item.tenMau, maMauHex: item.maMauHex || "#000000" };
         if (activeTab === 'size') return { ma: item.maSize, ten: item.tenSize, loaiSize: item.loaiSize, thuTuSapXep: item.thuTuSapXep, moTa: item.moTa };
         if (activeTab === 'material') return { ma: item.maChatLieu, ten: item.tenChatLieu, moTa: item.moTa };
+        if (activeTab === 'brand') return { ma: item.maThuongHieu, ten: item.tenThuongHieu, moTa: item.moTa, trangThai: item.trangThai ?? 1 };
     };
 
     const mapToPayload = (values) => {
         if (activeTab === 'color') return { maMau: values.ma, tenMau: values.ten, maMauHex: values.maMauHex };
         if (activeTab === 'size') return { maSize: values.ma, tenSize: values.ten, loaiSize: values.loaiSize, thuTuSapXep: values.thuTuSapXep, moTa: values.moTa };
         if (activeTab === 'material') return { maChatLieu: values.ma, tenChatLieu: values.ten, moTa: values.moTa };
+        if (activeTab === 'brand') return { maThuongHieu: values.ma, tenThuongHieu: values.ten, moTa: values.moTa, trangThai: values.trangThai };
     };
 
     const fetchData = useCallback(async () => {
@@ -187,8 +219,16 @@ const ProductAttributeHub = () => {
             const filterList = [];
             if (filters.keyword?.trim()) {
                 const kw = filters.keyword.trim();
-                const fields = activeTab === 'color' ? ['tenMau', 'maMau'] : activeTab === 'size' ? ['tenSize', 'maSize'] : ['tenChatLieu', 'maChatLieu'];
+                const fields =
+                    activeTab === 'color' ? ['tenMau', 'maMau'] :
+                    activeTab === 'size' ? ['tenSize', 'maSize'] :
+                    activeTab === 'brand' ? ['tenThuongHieu', 'maThuongHieu'] :
+                    ['tenChatLieu', 'maChatLieu'];
                 fields.forEach(f => filterList.push({ fieldName: f, operation: "LIKE", value: kw, logicType: "OR" }));
+            }
+            // Lọc trạng thái chỉ áp dụng cho tab thương hiệu
+            if (activeTab === 'brand' && filters.trangThai !== "ALL") {
+                filterList.push({ fieldName: "trangThai", operation: "EQUALS", value: Number(filters.trangThai), logicType: "AND" });
             }
             const payload = { page: filters.page, size: filters.size, filters: filterList, sorts: [{ fieldName: "id", direction: "DESC" }] };
             if (activeTab === 'color') {
@@ -196,6 +236,9 @@ const ProductAttributeHub = () => {
                 setData(res.data.content || []); setTotal(res.data.totalElements || 0);
             } else if (activeTab === 'size') {
                 const res = await sizeService.filter(payload);
+                setData(res.data.content || []); setTotal(res.data.totalElements || 0);
+            } else if (activeTab === 'brand') {
+                const res = await thuongHieuService.filter(payload);
                 setData(res.data.content || []); setTotal(res.data.totalElements || 0);
             } else {
                 const res = await getAllChatLieu(filters.keyword);
@@ -209,24 +252,62 @@ const ProductAttributeHub = () => {
     // (react-hooks/set-state-in-effect); vẫn tải lại ngay mỗi khi tab/bộ lọc đổi.
     useEffect(() => { queueMicrotask(() => fetchData()); }, [fetchData]);
 
-    const handleReset = () => setFilters({ keyword: "", page: 0, size: 10 });
+    const handleReset = () => setFilters({ keyword: "", page: 0, size: 10, trangThai: "ALL" });
     const generateAutoCode = () => {
         const r = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-        return activeTab === 'color' ? `MS-${r}` : activeTab === 'material' ? `CL-${r}` : '';
+        if (activeTab === 'color') return `MS-${r}`;
+        if (activeTab === 'material') return `CL-${r}`;
+        if (activeTab === 'brand') return `TH-${r}`;
+        return '';
     };
 
     const handleOpenModal = (mode, item = null) => {
         if (mode === 'view') { setViewItem(item); return; }
         setModalConfig({ open: true, mode, item });
+        // Reset logo: edit hiển thị logo hiện tại, add thì trống
+        if (mode === 'edit' && item?.logoUrl) {
+            setLogoFile(null);
+            setLogoPreview(item.logoUrl);
+        } else {
+            setLogoFile(null);
+            setLogoPreview(null);
+        }
         if (item) form.reset(mapToForm(item));
         else {
-            const autoCode = mode === 'add' && (activeTab === 'color' || activeTab === 'material') ? generateAutoCode() : '';
-            form.reset({ ten: "", ma: autoCode, maMauHex: "#000000", loaiSize: "", thuTuSapXep: 0, moTa: "" });
+            const autoCode = mode === 'add' && (activeTab === 'color' || activeTab === 'material' || activeTab === 'brand') ? generateAutoCode() : '';
+            form.reset({ ten: "", ma: autoCode, maMauHex: "#000000", loaiSize: "", thuTuSapXep: 0, moTa: "", trangThai: 1 });
         }
     };
 
     const onSubmit = async (values) => {
         try {
+            if (activeTab === 'brand') {
+                // Luồng thương hiệu: lưu JSON trước, upload logo (nếu chọn file mới) sau.
+                // Lỗi upload logo không làm mất thương hiệu vừa lưu.
+                let saved = null;
+                if (modalConfig.mode === 'add') {
+                    const res = await thuongHieuService.create(mapToPayload(values));
+                    saved = res?.data;
+                    toast.success("Thêm mới thành công");
+                } else {
+                    const res = await thuongHieuService.update(modalConfig.item.id, mapToPayload(values));
+                    saved = res?.data;
+                    toast.success("Cập nhật thành công");
+                }
+                if (logoFile && saved?.id) {
+                    try {
+                        await thuongHieuService.uploadLogo(saved.id, logoFile);
+                    } catch {
+                        toast.warning("Đã lưu thương hiệu nhưng logo chưa được tải lên");
+                    }
+                }
+                setModalConfig({ open: false, mode: 'add', item: null });
+                setLogoFile(null);
+                setLogoPreview(null);
+                fetchData();
+                return;
+            }
+
             const payload = mapToPayload(values);
             if (modalConfig.mode === 'add') {
                 activeTab === 'color' ? await mauSacService.create(payload) : activeTab === 'size' ? await sizeService.create(payload) : await createChatLieu(payload);
@@ -245,6 +326,12 @@ const ProductAttributeHub = () => {
         if (!deleteConfig.item) return;
         setIsDeleting(true);
         try {
+            if (activeTab === 'brand') {
+                // Thương hiệu KHÔNG có luồng xóa — quản lý vòng đời qua trạng thái.
+                toast.error("Thương hiệu không hỗ trợ xóa, hãy chuyển trạng thái Ngừng hoạt động");
+                setDeleteConfig({ open: false, item: null });
+                return;
+            }
             activeTab === 'color' ? await mauSacService.delete(deleteConfig.item.id) : activeTab === 'size' ? await sizeService.delete(deleteConfig.item.id) : await deleteChatLieu(deleteConfig.item.id);
             toast.success("Xóa thành công");
             setDeleteConfig({ open: false, item: null });
@@ -262,7 +349,7 @@ const ProductAttributeHub = () => {
         <PageContainer className="space-y-5">
             <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); handleReset(); }}>
                 <TabsList className="h-auto w-fit flex-wrap items-center justify-start gap-1 rounded-lg border border-bo-border bg-bo-surface-subtle p-1">
-                    {['color', 'size', 'material'].map(tab => {
+                    {['color', 'size', 'material', 'brand'].map(tab => {
                         const Icon = TAB_ICONS[tab];
                         return (
                             <TabsTrigger
@@ -292,14 +379,43 @@ const ProductAttributeHub = () => {
                         onChange={e => setFilters(p => ({ ...p, keyword: e.target.value, page: 0 }))}
                         placeholder="Tìm kiếm theo mã hoặc tên..."
                     />
-                    <Button
-                        variant="outline"
-                        onClick={handleReset}
-                        className="h-9 shrink-0 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                    >
-                        <RefreshCcw className="size-4" />
-                        Đặt lại
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        {activeTab === 'brand' && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className="h-9 shrink-0 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                    >
+                                        {BRAND_STATUS_LABELS[filters.trangThai] ?? "Tất cả trạng thái"}
+                                        <ChevronDown className="size-3.5 opacity-60" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                    align="start"
+                                    className="backoffice-user-menu z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                                >
+                                    {[["ALL", "Tất cả trạng thái"], ["1", "Hoạt động"], ["0", "Ngừng hoạt động"]].map(([value, label]) => (
+                                        <DropdownMenuItem
+                                            key={value}
+                                            onClick={() => setFilters(p => ({ ...p, trangThai: value, page: 0 }))}
+                                            className="cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
+                                        >
+                                            {label}
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
+                        <Button
+                            variant="outline"
+                            onClick={handleReset}
+                            className="h-9 shrink-0 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                        >
+                            <RefreshCcw className="size-4" />
+                            Đặt lại
+                        </Button>
+                    </div>
                 </div>
             </SurfaceCard>
 
@@ -415,7 +531,7 @@ const ProductAttributeHub = () => {
                     }
                 >
                     <div className="max-h-[520px] overflow-y-auto">
-                        <table className="w-full min-w-[720px] text-sm">
+                        <table className="w-full min-w-[880px] text-sm">
                             <thead className="sticky top-0 z-10">
                                 <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                     <th className="h-11 w-14 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
@@ -424,6 +540,10 @@ const ProductAttributeHub = () => {
                                     {activeTab === 'color' && <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Màu sắc</th>}
                                     {activeTab === 'size' && <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Phân loại</th>}
                                     {activeTab === 'material' && <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mô tả</th>}
+                                    {activeTab === 'brand' && <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Logo</th>}
+                                    {activeTab === 'brand' && <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mô tả</th>}
+                                    {activeTab === 'brand' && <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>}
+                                    {activeTab === 'brand' && <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày tạo</th>}
                                     <th className="h-11 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
                                 </tr>
                             </thead>
@@ -439,11 +559,11 @@ const ProductAttributeHub = () => {
                                         </td>
                                         <td className="px-3 py-3">
                                             <span className="font-mono font-semibold tracking-wide text-bo-primary">
-                                                {item.maMau || item.maSize || item.maChatLieu}
+                                                {item.maMau || item.maSize || item.maChatLieu || item.maThuongHieu}
                                             </span>
                                         </td>
                                         <td className="px-3 py-3 font-semibold text-bo-foreground">
-                                            {item.tenMau || item.tenSize || item.tenChatLieu}
+                                            {item.tenMau || item.tenSize || item.tenChatLieu || item.tenThuongHieu}
                                         </td>
                                         {activeTab === 'color' && (
                                             <td className="px-3 py-3">
@@ -467,6 +587,39 @@ const ProductAttributeHub = () => {
                                                 {item.moTa || '—'}
                                             </td>
                                         )}
+                                        {activeTab === 'brand' && (
+                                            <td className="px-3 py-3">
+                                                {item.logoUrl ? (
+                                                    <img
+                                                        src={item.logoUrl}
+                                                        alt=""
+                                                        className="size-9 rounded-md border border-bo-border bg-white object-contain p-0.5"
+                                                    />
+                                                ) : (
+                                                    <span className="inline-flex size-9 items-center justify-center rounded-md border border-bo-border bg-bo-surface-subtle text-bo-muted">
+                                                        <Tag className="size-4" />
+                                                    </span>
+                                                )}
+                                            </td>
+                                        )}
+                                        {activeTab === 'brand' && (
+                                            <td className="min-w-[220px] max-w-[420px] whitespace-normal break-words px-3 py-3 italic text-bo-muted">
+                                                {item.moTa || '—'}
+                                            </td>
+                                        )}
+                                        {activeTab === 'brand' && (
+                                            <td className="px-3 py-3">
+                                                <StatusBadge
+                                                    label={Number(item.trangThai) === 1 ? 'Hoạt động' : 'Ngừng hoạt động'}
+                                                    tone={Number(item.trangThai) === 1 ? 'success' : 'neutral'}
+                                                />
+                                            </td>
+                                        )}
+                                        {activeTab === 'brand' && (
+                                            <td className="whitespace-nowrap px-3 py-3 text-bo-muted">
+                                                {formatDate(item.ngayTao)}
+                                            </td>
+                                        )}
                                         <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex items-center justify-center gap-1">
                                                 <button
@@ -485,14 +638,16 @@ const ProductAttributeHub = () => {
                                                 >
                                                     <Edit className="size-4" />
                                                 </button>
-                                                <button
-                                                    type="button"
-                                                    title="Xóa"
-                                                    className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-danger hover:text-bo-danger"
-                                                    onClick={() => setDeleteConfig({ open: true, item })}
-                                                >
-                                                    <Trash2 className="size-4" />
-                                                </button>
+                                                {activeTab !== 'brand' && (
+                                                    <button
+                                                        type="button"
+                                                        title="Xóa"
+                                                        className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-danger hover:text-bo-danger"
+                                                        onClick={() => setDeleteConfig({ open: true, item })}
+                                                    >
+                                                        <Trash2 className="size-4" />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -595,7 +750,76 @@ const ProductAttributeHub = () => {
                             </div>
                         )}
 
-                        {(activeTab === 'material' || activeTab === 'size') && (
+                        {activeTab === 'brand' && (
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</Label>
+                                <Controller
+                                    name="trangThai"
+                                    control={form.control}
+                                    render={({ field }) => (
+                                        <Select
+                                            value={field.value?.toString()}
+                                            onValueChange={(value) => field.onChange(Number(value))}
+                                        >
+                                            <SelectTrigger className="h-9 w-full border-bo-border bg-white text-bo-foreground">
+                                                <SelectValue placeholder="Chọn trạng thái" />
+                                            </SelectTrigger>
+                                            <SelectContent position="popper" side="bottom" className="z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg">
+                                                <SelectItem value="1" className="rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">Hoạt động</SelectItem>
+                                                <SelectItem value="0" className="rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">Ngừng hoạt động</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
+                            </div>
+                        )}
+
+                        {activeTab === 'brand' && (
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Logo (tùy chọn)</Label>
+                                <div className="rounded-lg border-2 border-dashed border-bo-border bg-bo-surface-subtle p-3">
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                setLogoFile(file);
+                                                setLogoPreview(URL.createObjectURL(file));
+                                            }
+                                        }}
+                                        className="hidden"
+                                        id="brand-logo-input"
+                                    />
+                                    <label
+                                        htmlFor="brand-logo-input"
+                                        className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-bo-border bg-white p-2 text-sm font-medium text-bo-foreground transition-colors hover:bg-bo-primary-soft hover:text-bo-primary"
+                                    >
+                                        <Upload className="size-4" />
+                                        <span>{logoPreview ? "Đổi logo khác" : "Chọn ảnh logo"}</span>
+                                    </label>
+                                    {logoPreview && (
+                                        <div className="relative mt-3 inline-block">
+                                            <img
+                                                src={logoPreview}
+                                                alt="Xem trước logo"
+                                                className="h-16 w-16 rounded-md border border-bo-border bg-white object-contain"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => { setLogoFile(null); setLogoPreview(null); }}
+                                                aria-label="Xóa logo đã chọn"
+                                                className="absolute -right-2 -top-2 rounded-full bg-bo-danger p-1 text-white transition-opacity hover:opacity-90"
+                                            >
+                                                <X className="size-3" />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {(activeTab === 'material' || activeTab === 'size' || activeTab === 'brand') && (
                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Mô tả chi tiết</Label>
                                 <Textarea
@@ -646,7 +870,7 @@ const ProductAttributeHub = () => {
                     <>
                         Bạn có chắc chắn muốn xóa vĩnh viễn {TAB_LABELS[activeTab]}{" "}
                         <strong className="font-semibold text-bo-foreground">
-                            "{deleteConfig.item?.tenMau || deleteConfig.item?.tenSize || deleteConfig.item?.tenChatLieu}"
+                            "{deleteConfig.item?.tenMau || deleteConfig.item?.tenSize || deleteConfig.item?.tenChatLieu || deleteConfig.item?.tenThuongHieu}"
                         </strong>?
                         <span className="mt-1 block text-xs font-medium text-bo-muted">
                             Cẩn trọng: Thao tác này không thể hoàn tác
