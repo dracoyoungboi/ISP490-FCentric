@@ -1,8 +1,10 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.constant.enums.FileType;
 import com.dev.backend.dto.request.ThuongHieuCreating;
 import com.dev.backend.dto.request.ThuongHieuUpdating;
 import com.dev.backend.dto.response.entities.ThuongHieuDto;
+import com.dev.backend.entities.TepTin;
 import com.dev.backend.entities.ThuongHieu;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.ThuongHieuMapper;
@@ -17,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Instant;
 import java.util.List;
 
 @Service
@@ -29,6 +32,8 @@ public class ThuongHieuService extends BaseServiceImpl<ThuongHieu, Integer> {
 
     @Autowired
     private MinioService minioService;
+    @Autowired
+    private TepTinService tepTinService;
 
     @Autowired
     public ThuongHieuService(ThuongHieuRepository repository,
@@ -97,7 +102,8 @@ public class ThuongHieuService extends BaseServiceImpl<ThuongHieu, Integer> {
         return mapper.toDto(repository.save(entity));
     }
 
-    // Upload logo lên MinIO và lưu đường dẫn công khai vào logo_url
+    // Upload logo qua MinIO rồi lưu metadata vào tep_tin (chuẩn như ảnh sản phẩm).
+    // Thay logo: upload tệp mới TRƯỚC, xóa tệp cũ (dòng tep_tin + object MinIO) SAU.
     @Transactional
     public ThuongHieuDto updateLogo(Integer id, MultipartFile file) {
         if (file == null || file.isEmpty()) {
@@ -111,24 +117,31 @@ public class ThuongHieuService extends BaseServiceImpl<ThuongHieu, Integer> {
             ThuongHieu entity = repository.findById(id)
                     .orElseThrow(() -> new CommonException("Không tìm thấy thương hiệu với ID: " + id));
 
-            String objectName = minioService.upload(file);
-            String publicUrl = minioService.getPublicUrl(objectName);
+            TepTin tepTinCu = entity.getTepTin();
 
-            // Xóa object cũ best-effort (không để rác MinIO khi thay logo)
-            String oldUrl = entity.getLogoUrl();
-            if (oldUrl != null && !oldUrl.isBlank()) {
-                try {
-                    String oldObjectName = oldUrl.substring(oldUrl.lastIndexOf('/') + 1);
-                    if (!oldObjectName.isBlank()) {
-                        minioService.delete(oldObjectName);
-                    }
-                } catch (Exception e) {
-                    log.warn("Không xóa được logo cũ của thương hiệu id {}: {}", id, e.getMessage());
-                }
+            // Upload object mới lên MinIO và tạo dòng tep_tin tương ứng
+            String objectName = minioService.upload(file);
+            String duoiTep = minioService.getObjectInfo(objectName).getUserMetadata().get("file-extension");
+            TepTin tepTinMoi = tepTinService.create(TepTin.builder()
+                    .tenTepGoc(objectName)
+                    .tenTaiLen(objectName)
+                    .tenLuuTru(objectName)
+                    .duongDan(minioService.getPublicUrl(objectName))
+                    .loaiTepTin(FileType.IMAGE.toString())
+                    .duoiTep(duoiTep)
+                    .trangThai(1)
+                    .ngayTao(Instant.now())
+                    .build());
+
+            entity.setTepTin(tepTinMoi);
+            entity = repository.save(entity);
+
+            // Xóa tệp cũ (dòng tep_tin + object MinIO) sau khi đã gắn tệp mới thành công
+            if (tepTinCu != null) {
+                tepTinService.hardDeleteNoMessage(tepTinCu.getId());
             }
 
-            entity.setLogoUrl(publicUrl);
-            return mapper.toDto(repository.save(entity));
+            return mapper.toDto(entity);
         } catch (CommonException e) {
             throw e;
         } catch (Exception e) {

@@ -43,6 +43,11 @@ public class ThuongHieu {
     @Column(name = "logo_url", length = 500)
     String logoUrl;
 
+    // Logo quản lý qua tep_tin (chuẩn như ảnh sản phẩm); cột logo_url cũ giữ dormant
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tep_tin_id")
+    TepTin tepTin;
+
     @ColumnDefault("1")
     @Column(name = "trang_thai")
     Integer trangThai;

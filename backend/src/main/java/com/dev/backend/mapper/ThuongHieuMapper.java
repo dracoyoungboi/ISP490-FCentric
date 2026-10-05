@@ -18,7 +18,9 @@ public interface ThuongHieuMapper {
 
     /**
      * Chuyển entity → DTO response
+     * logoUrl lấy từ tepTin.duongDan (logo quản lý qua tep_tin, cột logo_url cũ dormant)
      */
+    @Mapping(target = "logoUrl", source = "tepTin.duongDan")
     ThuongHieuDto toDto(ThuongHieu entity);
 
     /**
