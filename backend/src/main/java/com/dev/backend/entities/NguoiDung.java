@@ -74,7 +74,9 @@ public class NguoiDung {
     @Column(name = "must_change_password", nullable = false)
     Boolean mustChangePassword = false;
 
-
-
+    // Ảnh đại diện quản lý qua tep_tin (chuẩn như ảnh sản phẩm/logo); null = chưa có ảnh, FE hiển thị initials
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "avatar_tep_tin_id")
+    TepTin avatarTepTin;
 
 }
