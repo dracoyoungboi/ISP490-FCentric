@@ -3,6 +3,7 @@ package com.dev.backend.controller;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.BaseFilterRequest;
+import com.dev.backend.dto.request.SanPhamQuanAoBasicInfoUpdating;
 import com.dev.backend.dto.request.SanPhamQuanAoCreating;
 import com.dev.backend.dto.request.SanPhamQuanAoUpdating;
 import com.dev.backend.dto.response.ResponseData;
@@ -70,6 +71,21 @@ public class SanPhamQuanAoController {
                                 .status(HttpStatus.OK.value())
                                 .data(sanPhamQuanAoService.getDetail(id))
                                 .message("Success")
+                                .build());
+        }
+
+        @PatchMapping("/basic-info/{id}")
+        @RequireAuth(roles = { IRoleType.quan_tri_vien, IRoleType.quan_ly_kho })
+        public ResponseEntity<ResponseData<SanPhamQuanAoDto>> updateBasicInfo(
+                @PathVariable Integer id,
+                @RequestBody SanPhamQuanAoBasicInfoUpdating dto) {
+                // Cập nhật riêng thông tin cơ bản (tên/mô tả/mã vạch/danh mục/mức tồn tối thiểu/thương hiệu).
+                // KHÔNG tính lại giá/trạng thái theo tồn kho, không đụng ảnh và biến thể.
+                return ResponseEntity.ok(
+                        ResponseData.<SanPhamQuanAoDto>builder()
+                                .status(HttpStatus.OK.value())
+                                .data(sanPhamQuanAoService.updateBasicInfo(id, dto))
+                                .message("Cập nhật thông tin cơ bản thành công")
                                 .build());
         }
 

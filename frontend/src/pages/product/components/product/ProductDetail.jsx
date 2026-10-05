@@ -224,6 +224,25 @@ export default function ProductDetail() {
                                 <span className="inline-flex h-6 items-center rounded-full border border-bo-border bg-bo-surface-subtle px-2.5 text-xs font-medium text-bo-muted">
                                     {product.danhMuc?.tenDanhMuc}
                                 </span>
+                                {product.thuongHieu?.tenThuongHieu ? (
+                                    <span className="inline-flex h-6 items-center gap-1.5 rounded-full border border-bo-primary bg-bo-primary-soft px-2.5 text-xs font-medium text-bo-primary">
+                                        {product.thuongHieu.logoUrl ? (
+                                            <img
+                                                src={product.thuongHieu.logoUrl}
+                                                alt=""
+                                                className="size-4 rounded object-contain"
+                                            />
+                                        ) : (
+                                            <Tag className="size-3.5" />
+                                        )}
+                                        {product.thuongHieu.tenThuongHieu}
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex h-6 items-center gap-1.5 rounded-full border border-bo-border bg-bo-surface-subtle px-2.5 text-xs font-medium italic text-bo-muted">
+                                        <Tag className="size-3.5" />
+                                        Chưa xác định
+                                    </span>
+                                )}
                                 <StatusBadge label={statusMeta.label} tone={statusMeta.tone} />
                             </div>
 
@@ -338,6 +357,14 @@ export default function ProductDetail() {
                                 </p>
                                 <p className="mt-2 text-base font-semibold text-bo-foreground">
                                     {product.bienTheSanPhams?.[0]?.chatLieu?.tenChatLieu || "Thông tin đang cập nhật"}
+                                </p>
+                            </div>
+                            <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-4">
+                                <p className="flex items-center gap-2 text-xs font-medium text-bo-muted">
+                                    <Tag className="size-3.5" /> Thương hiệu
+                                </p>
+                                <p className="mt-2 text-base font-semibold text-bo-foreground">
+                                    {product.thuongHieu?.tenThuongHieu || "Chưa xác định"}
                                 </p>
                             </div>
                             <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-4">

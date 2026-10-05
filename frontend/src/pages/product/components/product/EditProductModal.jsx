@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import {
@@ -17,9 +17,12 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Loader2, Upload, X, Package, Info } from "lucide-react";
 import { toast } from "sonner";
 import { productService } from "@/services/productService.js";
+import { danhMucQuanAoService } from "@/services/danhMucQuanAoService.js";
 import * as yup from "yup";
 
 import FormSection from "@/components/shared/FormSection";
+import BrandSelector from "@/components/brand/BrandSelector";
+import { flattenCategoryTree } from "@/utils/danhMucTree";
 
 const PRODUCT_STATUS_LABELS = {
     1: "Còn hàng",
@@ -31,7 +34,8 @@ const editProductSchema = yup.object({
     tenSanPham: yup.string().required("Tên sản phẩm là bắt buộc"),
     maSanPham: yup.string(),
     maVach: yup.string(),
-    danhMucId: yup.number().required("Danh mục là bắt buộc"),
+    danhMucId: yup.number().required("Danh mục là bắt buộc").typeError("Vui lòng chọn danh mục"),
+    thuongHieuId: yup.number().nullable(),
     moTa: yup.string(),
     giaVonMacDinh: yup.number().min(0, "Giá vốn phải >= 0").required("Giá vốn là bắt buộc"),
     giaBanMacDinh: yup.number().min(0, "Giá bán phải >= 0").required("Giá bán là bắt buộc"),
@@ -60,12 +64,15 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
     const [, setColors] = useState([]);
     const [, setSizes] = useState([]);
     const [, setMaterials] = useState([]);
+    const [categories, setCategories] = useState([]);
     const [productImages, setProductImages] = useState([]);
     const [existingProductImages, setExistingProductImages] = useState([]);
     const [variantImages, setVariantImages] = useState({});
     const [existingVariantImages, setExistingVariantImages] = useState({});
     const [isLoadingProduct, setIsLoadingProduct] = useState(false);
     const [productImageUpdated, setProductImageUpdated] = useState(false);
+    // Snapshot dữ liệu gốc khi mở modal — dùng để quyết định đường lưu (PATCH basic-info vs PUT đầy đủ)
+    const initialRef = useRef(null);
 
     const {
         control,
@@ -79,7 +86,8 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
             tenSanPham: "",
             maSanPham: "",
             maVach: "",
-            danhMucId: 1,
+            danhMucId: "",
+            thuongHieuId: null,
             moTa: "",
             giaVonMacDinh: 0,
             giaBanMacDinh: 0,
@@ -108,7 +116,8 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                     tenSanPham: product.tenSanPham || "",
                     maSanPham: product.maSanPham || "",
                     maVach: product.maVach || "",
-                    danhMucId: product.danhMuc?.id || 1,
+                    danhMucId: product.danhMuc?.id ?? "",
+                    thuongHieuId: product.thuongHieu?.id ?? null,
                     moTa: product.moTa || "",
                     giaVonMacDinh: product.giaVonMacDinh || 0,
                     giaBanMacDinh: product.giaBanMacDinh || 0,
@@ -123,6 +132,27 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                         }))
                         : []
                 });
+
+                // Snapshot dữ liệu gốc để quyết định đường lưu khi bấm Cập nhật:
+                // chỉ đổi thông tin cơ bản -> PATCH /basic-info; đổi giá/ảnh/biến thể -> PUT /update.
+                initialRef.current = {
+                    tenSanPham: product.tenSanPham || "",
+                    maSanPham: product.maSanPham || "",
+                    maVach: product.maVach || "",
+                    danhMucId: product.danhMuc?.id ?? null,
+                    thuongHieuId: product.thuongHieu?.id ?? null,
+                    moTa: product.moTa || "",
+                    giaVonMacDinh: product.giaVonMacDinh || 0,
+                    giaBanMacDinh: product.giaBanMacDinh || 0,
+                    mucTonToiThieu: product.mucTonToiThieu || 0,
+                    trangThai: product.trangThai ?? 1,
+                    bienTheSanPhams: (product.bienTheSanPhams || []).map(variant => ({
+                        id: variant.id,
+                        giaVon: variant.giaVon || 0,
+                        giaBan: variant.giaBan || 0,
+                        trangThai: variant.trangThai ?? 1,
+                    })),
+                };
 
                 setExistingProductImages(product.anhQuanAos || []);
 
@@ -151,7 +181,8 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
             tenSanPham: "",
             maSanPham: "",
             maVach: "",
-            danhMucId: 1,
+            danhMucId: "",
+            thuongHieuId: null,
             moTa: "",
             giaVonMacDinh: 0,
             giaBanMacDinh: 0,
@@ -164,6 +195,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
         setVariantImages({});
         setExistingVariantImages({});
         setProductImageUpdated(false);
+        initialRef.current = null;
     }, [reset]);
 
     useEffect(() => {
@@ -177,10 +209,11 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
     const loadReferenceData = useCallback(async () => {
         try {
             const extractData = (response) => response?.data?.data ?? response?.data ?? [];
-            const [colorsResult, sizesResult, materialsResult] = await Promise.allSettled([
+            const [colorsResult, sizesResult, materialsResult, categoriesResult] = await Promise.allSettled([
                 productService.getColors(),
                 productService.getSizes(),
                 productService.getMaterials(),
+                danhMucQuanAoService.getCayDanhMuc(),
             ]);
 
             if (colorsResult.status === "fulfilled") {
@@ -200,6 +233,12 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                 setMaterials(extractData(materialsResult.value));
             } else {
                 console.error("Lỗi tải chất liệu:", materialsResult.reason);
+            }
+
+            if (categoriesResult.status === "fulfilled") {
+                setCategories(flattenCategoryTree(extractData(categoriesResult.value)));
+            } else {
+                console.error("Lỗi tải danh mục:", categoriesResult.reason);
             }
 
             if (
@@ -228,7 +267,63 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
     };
 
     const onSubmit = async (data) => {
+        const initial = initialRef.current;
+
+        // Quyết định đường lưu: CHỈ đổi thông tin cơ bản -> PATCH /basic-info (1 request,
+        // không tính lại giá/trạng thái, không đụng ảnh/biến thể). Đổi giá/ảnh/biến thể
+        // (hoặc mã sản phẩm) -> giữ nguyên luồng PUT /update multipart (1 request).
+        const brandChanged = (data.thuongHieuId ?? null) !== (initial?.thuongHieuId ?? null);
+        const maSanPhamChanged = (data.maSanPham || "") !== (initial?.maSanPham || "");
+        const productPriceChanged =
+            Number(data.giaVonMacDinh) !== Number(initial?.giaVonMacDinh) ||
+            Number(data.giaBanMacDinh) !== Number(initial?.giaBanMacDinh);
+        const statusChanged = Number(data.trangThai) !== Number(initial?.trangThai);
+        const variantChanged = !initial
+            ? true
+            : data.bienTheSanPhams.some((variant, index) => {
+                const init = initial.bienTheSanPhams[index];
+                if (!init) return true;
+                return (
+                    Number(variant.giaVon) !== Number(init.giaVon) ||
+                    Number(variant.giaBan) !== Number(init.giaBan) ||
+                    Number(variant.trangThai) !== Number(init.trangThai)
+                );
+            });
+        const imagesChanged = productImageUpdated || Object.keys(variantImages).length > 0;
+
+        const basicOnly =
+            !maSanPhamChanged &&
+            !productPriceChanged &&
+            !statusChanged &&
+            !variantChanged &&
+            !imagesChanged;
+
         try {
+            if (basicOnly) {
+                // Đường 1: chỉ thay đổi thông tin cơ bản -> PATCH JSON, không gửi ảnh/biến thể.
+                const res = await productService.updateProductBasicInfo(productId, {
+                    tenSanPham: data.tenSanPham,
+                    moTa: data.moTa || "",
+                    maVach: data.maVach || "",
+                    danhMucId: Number(data.danhMucId),
+                    mucTonToiThieu: Number(data.mucTonToiThieu) || 0,
+                    thuongHieuId: data.thuongHieuId ?? null,
+                    capNhatThuongHieu: brandChanged,
+                });
+
+                if (res?.data?.status >= 400) {
+                    toast.error(res.data.message || 'Có lỗi xảy ra');
+                    return;
+                }
+
+                toast.success("Cập nhật sản phẩm thành công!");
+                handleResetForm();
+                onSuccess();
+                onClose();
+                return;
+            }
+
+            // Đường 2: có thay đổi giá/ảnh/biến thể -> giữ nguyên luồng PUT multipart.
             const formData = new FormData();
 
             const productData = {
@@ -239,6 +334,8 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                 mucTonToiThieu: data.mucTonToiThieu,
                 moTa: data.moTa || "",
                 danhMucId: Number(data.danhMucId),
+                thuongHieuId: data.thuongHieuId ?? null,
+                capNhatThuongHieu: brandChanged,
                 giaVonMacDinh: Number(data.giaVonMacDinh),
                 giaBanMacDinh: Number(data.giaBanMacDinh),
                 trangThai: Number(data.trangThai),
@@ -452,13 +549,65 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                                             />
                                         </div>
 
-                                        <Controller
-                                            name="danhMucId"
-                                            control={control}
-                                            render={({ field }) => (
-                                                <input type="hidden" {...field} value={1} />
+                                        <div className="space-y-2">
+                                            <Label htmlFor="danhMucId">Danh mục <span className="text-bo-danger">*</span></Label>
+                                            <Controller
+                                                name="danhMucId"
+                                                control={control}
+                                                render={({ field }) => (
+                                                    <Select
+                                                        value={field.value?.toString()}
+                                                        onValueChange={(value) => field.onChange(Number(value))}
+                                                        disabled={isSubmitting}
+                                                    >
+                                                        <SelectTrigger className="h-10 w-full border-bo-border text-bo-foreground">
+                                                            <SelectValue placeholder="Chọn danh mục" />
+                                                        </SelectTrigger>
+                                                        <SelectContent
+                                                            position="popper"
+                                                            side="bottom"
+                                                            align="start"
+                                                            className={`${SELECT_CONTENT_CLASS} max-h-[300px]`}
+                                                        >
+                                                            {categories.length === 0 ? (
+                                                                <div className="p-2 text-center text-sm text-bo-muted">Không có danh mục nào đang hoạt động</div>
+                                                            ) : (
+                                                                categories.map((cat) => (
+                                                                    <SelectItem
+                                                                        key={cat.id}
+                                                                        value={cat.id.toString()}
+                                                                        className={`${SELECT_ITEM_CLASS} ${cat.level === 0 ? 'font-semibold text-bo-foreground' : ''}`}
+                                                                    >
+                                                                        {cat.displayTitle}
+                                                                    </SelectItem>
+                                                                ))
+                                                            )}
+                                                        </SelectContent>
+                                                    </Select>
+                                                )}
+                                            />
+                                            {errors.danhMucId && (
+                                                <p className="text-xs text-bo-danger">{errors.danhMucId.message}</p>
                                             )}
-                                        />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="thuongHieuId">Thương hiệu</Label>
+                                            <Controller
+                                                name="thuongHieuId"
+                                                control={control}
+                                                render={({ field }) => (
+                                                    <BrandSelector
+                                                        value={field.value ?? null}
+                                                        onChange={(id) => field.onChange(id)}
+                                                        disabled={isSubmitting}
+                                                    />
+                                                )}
+                                            />
+                                            {errors.thuongHieuId && (
+                                                <p className="text-xs text-bo-danger">{errors.thuongHieuId.message}</p>
+                                            )}
+                                        </div>
 
                                         <div className="space-y-2">
                                             <Label htmlFor="trangThai">Trạng thái</Label>

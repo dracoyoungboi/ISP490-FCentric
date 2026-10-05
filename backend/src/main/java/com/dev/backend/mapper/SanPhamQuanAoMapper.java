@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 @Component
-@Mapper(componentModel = MappingConstants.ComponentModel.SPRING, uses = {AnhQuanAoMapper.class})
+@Mapper(componentModel = MappingConstants.ComponentModel.SPRING, uses = {AnhQuanAoMapper.class, ThuongHieuMapper.class})
 public interface SanPhamQuanAoMapper {
     // Map entity -> DTO để trả response an toàn cho FE (không lộ toàn bộ graph entity).
     @Mapping(source = "danhMuc", target = "danhMuc")

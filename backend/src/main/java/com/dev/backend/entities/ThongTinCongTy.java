@@ -35,6 +35,11 @@ public class ThongTinCongTy {
     @Column(name = "logo_duong_dan", length = 500)
     String logoDuongDan;
 
+    // Logo quản lý qua tep_tin (chuẩn như ảnh sản phẩm); cột logo_duong_dan cũ giữ dormant
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tep_tin_id")
+    TepTin tepTin;
+
     @Size(max = 100)
     @Column(name = "email", length = 100)
     String email;

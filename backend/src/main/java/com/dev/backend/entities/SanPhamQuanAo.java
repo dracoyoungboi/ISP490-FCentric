@@ -43,6 +43,10 @@ public class SanPhamQuanAo {
     @JoinColumn(name = "danh_muc_id", nullable = false)
     DanhMucQuanAo danhMuc;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "thuong_hieu_id")
+    ThuongHieu thuongHieu;
+
 
     @Column(name = "mo_ta")
     String moTa;

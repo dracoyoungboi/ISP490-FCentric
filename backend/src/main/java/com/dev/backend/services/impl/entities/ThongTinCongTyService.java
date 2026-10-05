@@ -1,8 +1,10 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.constant.enums.FileType;
 import com.dev.backend.constant.variables.IPrintTemplateConfig;
 import com.dev.backend.dto.request.ThongTinCongTyRequest;
 import com.dev.backend.dto.response.ThongTinCongTyDto;
+import com.dev.backend.entities.TepTin;
 import com.dev.backend.entities.ThongTinCongTy;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.ThongTinCongTyRepository;
@@ -29,6 +31,8 @@ public class ThongTinCongTyService {
     private ThongTinCongTyRepository thongTinCongTyRepository;
     @Autowired
     private MinioService minioService;
+    @Autowired
+    private TepTinService tepTinService;
 
     private static final int PROFILE_ID = 1;
     private static final int PROFILE_VERSION = 1;
@@ -72,15 +76,15 @@ public class ThongTinCongTyService {
         entity.setEmail(blankToNull(req.getEmail()));
         entity.setSoDienThoai(blankToNull(req.getPhone()));
         entity.setDiaChi(blankToNull(req.getAddress()));
-        if (entity.getLogoDuongDan() == null || entity.getLogoDuongDan().isBlank()) {
-            entity.setLogoDuongDan(IPrintTemplateConfig.DEFAULT_LOGO_PATH);
-        }
         entity.setVersion(PROFILE_VERSION);
         entity.setNgayCapNhat(Instant.now());
         return toDto(thongTinCongTyRepository.save(entity));
     }
 
-    /** Upload logo qua MinIO rồi lưu đường dẫn công khai. */
+    /**
+     * Upload logo qua MinIO rồi lưu metadata vào tep_tin (chuẩn như ảnh sản phẩm).
+     * Thay logo: upload tệp mới TRƯỚC, xóa tệp cũ (dòng tep_tin + object MinIO) SAU.
+     */
     @Transactional
     public ThongTinCongTyDto updateLogo(MultipartFile file) {
         if (file == null || file.isEmpty()) {
@@ -91,17 +95,39 @@ public class ThongTinCongTyService {
             throw new CommonException("Tệp logo phải là ảnh");
         }
         try {
-            String objectName = minioService.upload(file);
-            String publicUrl = minioService.getPublicUrl(objectName);
             ThongTinCongTy entity = thongTinCongTyRepository.findById(PROFILE_ID)
                     .orElseGet(() -> ThongTinCongTy.builder().id(PROFILE_ID).build());
             if (entity.getTenCongTy() == null || entity.getTenCongTy().isBlank()) {
                 entity.setTenCongTy("FCentric");
             }
-            entity.setLogoDuongDan(publicUrl);
+
+            TepTin tepTinCu = entity.getTepTin();
+
+            // Upload object mới lên MinIO và tạo dòng tep_tin tương ứng
+            String objectName = minioService.upload(file);
+            String duoiTep = minioService.getObjectInfo(objectName).getUserMetadata().get("file-extension");
+            TepTin tepTinMoi = tepTinService.create(TepTin.builder()
+                    .tenTepGoc(objectName)
+                    .tenTaiLen(objectName)
+                    .tenLuuTru(objectName)
+                    .duongDan(minioService.getPublicUrl(objectName))
+                    .loaiTepTin(FileType.IMAGE.toString())
+                    .duoiTep(duoiTep)
+                    .trangThai(1)
+                    .ngayTao(Instant.now())
+                    .build());
+
+            entity.setTepTin(tepTinMoi);
             entity.setVersion(PROFILE_VERSION);
             entity.setNgayCapNhat(Instant.now());
-            return toDto(thongTinCongTyRepository.save(entity));
+            ThongTinCongTy saved = thongTinCongTyRepository.save(entity);
+
+            // Xóa tệp cũ (dòng tep_tin + object MinIO) sau khi đã gắn tệp mới thành công
+            if (tepTinCu != null) {
+                tepTinService.hardDeleteNoMessage(tepTinCu.getId());
+            }
+
+            return toDto(saved);
         } catch (CommonException e) {
             throw e;
         } catch (Exception e) {
@@ -115,10 +141,14 @@ public class ThongTinCongTyService {
     }
 
     private ThongTinCongTyDto toDto(ThongTinCongTy entity) {
+        // Logo ưu tiên từ tep_tin (chuẩn quản lý tệp); fallback cột cũ logo_duong_dan, rồi asset mặc định
+        String logoAsset = entity.getTepTin() != null && entity.getTepTin().getDuongDan() != null
+                ? entity.getTepTin().getDuongDan()
+                : (entity.getLogoDuongDan() != null ? entity.getLogoDuongDan() : IPrintTemplateConfig.DEFAULT_LOGO_PATH);
         return ThongTinCongTyDto.builder()
                 .id(entity.getId())
                 .name(entity.getTenCongTy())
-                .logoAsset(entity.getLogoDuongDan() != null ? entity.getLogoDuongDan() : IPrintTemplateConfig.DEFAULT_LOGO_PATH)
+                .logoAsset(logoAsset)
                 .email(entity.getEmail())
                 .phone(entity.getSoDienThoai())
                 .address(entity.getDiaChi())
