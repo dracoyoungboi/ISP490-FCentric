@@ -67,6 +67,7 @@ export default function UserDetail() {
         trangThai: 0,
         ngayTao: "",
         ngayCapNhat: "",
+        avatarUrl: null,
         khoPhuTrachActive: [],
     });
 
@@ -228,7 +229,12 @@ export default function UserDetail() {
                             aria-label="Thay đổi ảnh đại diện"
                             className="group relative shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary focus-visible:ring-offset-2"
                         >
-                            <UserAvatar userId={userData.id} name={userData.hoTen} size="lg" />
+                            <UserAvatar
+                                userId={userData.id}
+                                name={userData.hoTen}
+                                avatarUrl={userData.avatarUrl}
+                                size="lg"
+                            />
                             <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-full bg-bo-foreground/50 opacity-0 transition-opacity group-hover:opacity-100">
                                 <Camera className="size-6 text-white" />
                             </span>
@@ -436,6 +442,9 @@ export default function UserDetail() {
                 open={editorOpen}
                 onOpenChange={setEditorOpen}
                 userId={userData.id}
+                userName={userData.hoTen}
+                avatarUrl={userData.avatarUrl}
+                onSaved={(dto) => setUserData(dto)}
             />
 
             <ChangePasswordModal
