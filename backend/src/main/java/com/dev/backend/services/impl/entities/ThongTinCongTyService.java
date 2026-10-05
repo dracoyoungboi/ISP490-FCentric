@@ -9,6 +9,7 @@ import com.dev.backend.entities.ThongTinCongTy;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.ThongTinCongTyRepository;
 import com.dev.backend.services.MinioService;
+import com.dev.backend.utils.PublicAssetUrl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -142,9 +143,11 @@ public class ThongTinCongTyService {
 
     private ThongTinCongTyDto toDto(ThongTinCongTy entity) {
         // Logo ưu tiên từ tep_tin (chuẩn quản lý tệp); fallback cột cũ logo_duong_dan, rồi asset mặc định
-        String logoAsset = entity.getTepTin() != null && entity.getTepTin().getDuongDan() != null
+        String logoSelected = entity.getTepTin() != null && entity.getTepTin().getDuongDan() != null
                 ? entity.getTepTin().getDuongDan()
                 : (entity.getLogoDuongDan() != null ? entity.getLogoDuongDan() : IPrintTemplateConfig.DEFAULT_LOGO_PATH);
+        // Chuẩn hoá origin legacy MinIO -> HTTPS để trình duyệt không chặn Mixed Content
+        String logoAsset = PublicAssetUrl.toHttps(logoSelected);
         return ThongTinCongTyDto.builder()
                 .id(entity.getId())
                 .name(entity.getTenCongTy())
