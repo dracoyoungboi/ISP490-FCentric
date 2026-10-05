@@ -1,10 +1,10 @@
-// Avatar helpers: deterministic default pick (stable across refresh),
-// saved per-user choice in localStorage, initials fallback, and a
-// CustomEvent so every mounted avatar stays in sync without a global store.
+import { useEffect, useState } from "react";
 
-const STORAGE_PREFIX = "fcentrics_avatar_";
+// Avatar helpers: initials fallback, màu nền ổn định theo userId, cache hồ sơ
+// người dùng đang đăng nhập (ảnh đại diện + họ tên) và CustomEvent để mọi
+// avatar đang mount đồng bộ ngay khi ảnh thay đổi — không có global store.
+
 export const AVATAR_EVENT = "fcentrics:avatar-updated";
-export const AVATAR_CHOICES = ["default-1", "default-2"];
 
 // djb2 — deterministic, no Math.random
 export function hashUserId(userId) {
@@ -14,11 +14,6 @@ export function hashUserId(userId) {
     hash = ((hash * 33) ^ str.charCodeAt(i)) >>> 0;
   }
   return hash;
-}
-
-export function getDefaultAvatarPath(userId) {
-  const index = (hashUserId(userId) % 2) + 1;
-  return `/images/avatars/default-${index}.jpg`;
 }
 
 // 1 word → first 2 chars; ≥2 words → first + last initial; empty → "U"
@@ -32,44 +27,69 @@ export function getInitials(name) {
   return `${first}${last}`.toUpperCase() || "U";
 }
 
-const storageKey = (userId) => `${STORAGE_PREFIX}${userId}`;
+// ===== Cache hồ sơ người dùng ĐANG ĐĂNG NHẬP (không phải lựa chọn ảnh cũ) =====
+// Nguồn hiển thị cho header trước khi có DTO đầy đủ; dữ liệu thật luôn nằm ở
+// DB (login response + GET /me), nên sống sót refresh, đăng nhập lại và cả
+// trình duyệt khác. Kèm userId trong cache để không bao giờ hiển thị ảnh của
+// tài khoản này cho tài khoản khác.
 
-export function getSavedAvatarChoice(userId) {
-  if (userId == null) return null;
+const CURRENT_USER_KEY = "fcentrics_current_user_profile";
+
+function readStoredProfile() {
   try {
-    const value = localStorage.getItem(storageKey(userId));
-    return AVATAR_CHOICES.includes(value) ? value : null;
+    const raw = localStorage.getItem(CURRENT_USER_KEY);
+    return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 }
 
-function notifyAvatarChange(userId) {
-  window.dispatchEvent(new CustomEvent(AVATAR_EVENT, { detail: { userId } }));
+// Trả hồ sơ cached chỉ khi khớp đúng userId (chống hiện nhầm ảnh khi đổi tài khoản)
+export function getCurrentUserProfile(userId) {
+  if (userId == null) return null;
+  const profile = readStoredProfile();
+  if (profile && String(profile.id) === String(userId)) return profile;
+  return null;
 }
 
-export function saveAvatarChoice(userId, choice) {
-  if (userId == null || !AVATAR_CHOICES.includes(choice)) return;
+// Ghi cache + broadcast để mọi UserAvatar đang mount cập nhật ngay lập tức
+export function setCurrentUserProfile(dto) {
+  if (!dto || dto.id == null) return;
   try {
-    localStorage.setItem(storageKey(userId), choice);
+    localStorage.setItem(
+      CURRENT_USER_KEY,
+      JSON.stringify({ id: dto.id, avatarUrl: dto.avatarUrl || null, hoTen: dto.hoTen || null })
+    );
   } catch {
     /* localStorage unavailable (private mode) */
   }
-  notifyAvatarChange(userId);
+  window.dispatchEvent(new CustomEvent(AVATAR_EVENT, { detail: { userId: dto.id } }));
 }
 
-export function clearSavedAvatar(userId) {
-  if (userId == null) return;
+export function clearCurrentUserProfile() {
   try {
-    localStorage.removeItem(storageKey(userId));
+    localStorage.removeItem(CURRENT_USER_KEY);
   } catch {
     /* localStorage unavailable (private mode) */
   }
-  notifyAvatarChange(userId);
 }
 
-// Resolution order: saved explicit choice → deterministic default.
-export function resolveAvatarSrc(userId) {
-  const saved = getSavedAvatarChoice(userId);
-  return saved ? `/images/avatars/${saved}.jpg` : getDefaultAvatarPath(userId);
+// Ảnh đại diện của người đang đăng nhập, tự re-render khi AVATAR_EVENT bắn ra
+export function useCurrentUserAvatarUrl(userId) {
+  const [avatarUrl, setAvatarUrl] = useState(
+    () => getCurrentUserProfile(userId)?.avatarUrl ?? null
+  );
+
+  useEffect(() => {
+    const handleAvatarEvent = (event) => {
+      const eventUserId = event?.detail?.userId;
+      if (userId != null && eventUserId != null && String(eventUserId) === String(userId)) {
+        setAvatarUrl(getCurrentUserProfile(userId)?.avatarUrl ?? null);
+      }
+    };
+    window.addEventListener(AVATAR_EVENT, handleAvatarEvent);
+    return () => window.removeEventListener(AVATAR_EVENT, handleAvatarEvent);
+  }, [userId]);
+
+  return avatarUrl;
 }

@@ -1,4 +1,8 @@
 import apiClient from "./apiClient";
+import {
+    clearCurrentUserProfile,
+    setCurrentUserProfile,
+} from "../utils/avatar";
 
 export const nguoiDungService = {
 
@@ -14,13 +18,45 @@ export const nguoiDungService = {
         timeout: config.timeout ?? 15000,
     });
 
+    // Đồng bộ cache hiển thị header (avatarUrl + họ tên) từ nguồn DB thật
+    setCurrentUserProfile(res?.data?.data);
+
     return res.data;
 },
 
     async updateMe(payload) {
         // payload: { hoTen, soDienThoai } — không kèm id (BE lấy user từ token)
         const res = await apiClient.put("/api/v1/nguoi-dung/me", payload);
+
+        // DTO trả về là hồ sơ mới nhất -> đồng bộ cache hiển thị header
+        setCurrentUserProfile(res?.data?.data);
+
         return res.data; // ResponseData<NguoiDungDto>
+    },
+
+    // Upload/đổi ảnh đại diện của người đang đăng nhập.
+    // PHẢI dùng postForm (axios >= 1.4): apiClient có default Content-Type
+    // application/json, nếu gọi post() thường thì transformRequest của axios
+    // sẽ âm thầm chuyển FormData -> JSON (mất file) và backend báo
+    // "Current request is not a multipart request". postForm ép Content-Type
+    // multipart/form-data; trình duyệt tự thêm boundary.
+    async uploadAvatar(file) {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await apiClient.postForm("/api/v1/nguoi-dung/me/avatar", formData);
+
+        setCurrentUserProfile(res?.data?.data);
+
+        return res.data; // ResponseData<NguoiDungDto> (avatarUrl đã chuẩn hóa HTTPS)
+    },
+
+    // Xóa ảnh đại diện của người đang đăng nhập (về hiển thị initials)
+    async removeAvatar() {
+        const res = await apiClient.delete("/api/v1/nguoi-dung/me/avatar");
+
+        setCurrentUserProfile(res?.data?.data);
+
+        return res.data; // ResponseData<NguoiDungDto> (avatarUrl = null)
     },
 
     async login(payload) {
@@ -36,6 +72,9 @@ export const nguoiDungService = {
         if (nguoiDung?.vaiTro) {
             localStorage.setItem("role", nguoiDung.vaiTro);
         }
+        // Cache hồ sơ (avatarUrl + họ tên) từ login response — đúng tài khoản vừa đăng nhập,
+        // ghi đè cache của tài khoản trước để không hiện nhầm ảnh
+        if (nguoiDung) setCurrentUserProfile(nguoiDung);
         return res.data;
     },
 
@@ -63,6 +102,7 @@ export const nguoiDungService = {
         localStorage.removeItem("access_token");
         localStorage.removeItem("role");
         localStorage.removeItem("selected_kho_id");
+        clearCurrentUserProfile();
     },
 
     getToken() {

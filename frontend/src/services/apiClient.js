@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { toast } from 'sonner';
+import { clearCurrentUserProfile } from '../utils/avatar';
 
 // Chặn xử lý trùng lặp khi nhiều request đồng thời cùng trả về ACCOUNT_DISABLED
 let accountDisabledHandled = false;
@@ -67,9 +68,7 @@ apiClient.interceptors.response.use(
             localStorage.removeItem("access_token");
             localStorage.removeItem("role");
             localStorage.removeItem("selected_kho_id");
-            Object.keys(localStorage)
-                .filter((key) => key.startsWith("fcentrics_avatar_"))
-                .forEach((key) => localStorage.removeItem(key));
+            clearCurrentUserProfile();
             sessionStorage.setItem("account_locked_message", message);
             toast.error(message, { id: "account-disabled" });
             window.location.href = "/login"; // token đã xóa trước khi redirect → Login không tự bounce về /dashboard

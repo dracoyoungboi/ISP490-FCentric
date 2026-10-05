@@ -37,6 +37,8 @@ public class NguoiDungDto implements Serializable {
     Instant ngayTao;
     Instant ngayCapNhat;
     Boolean mustChangePassword;
+    // URL công khai (đã chuẩn hóa HTTPS) của ảnh đại diện; null = chưa có ảnh
+    String avatarUrl;
     private List<PhanQuyenNguoiDungKhoDto> khoPhuTrach;
     // Kho đang phụ trách (đang hoạt động, còn hiệu lực) cho hồ sơ cá nhân — chỉ gồm mã kho + tên kho
     private List<KhoPhuTrachInfoDto> khoPhuTrachActive;
