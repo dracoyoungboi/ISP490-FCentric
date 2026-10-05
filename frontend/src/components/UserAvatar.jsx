@@ -1,8 +1,6 @@
-import { useEffect, useState } from "react";
-
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { AVATAR_EVENT, getInitials, resolveAvatarSrc } from "@/utils/avatar";
+import { getInitials, hashUserId } from "@/utils/avatar";
 
 const SIZE_MAP = {
   xs: { root: "size-8", fallback: "text-xs" },
@@ -11,33 +9,35 @@ const SIZE_MAP = {
   lg: { root: "h-24 w-24", fallback: "text-2xl" },
 };
 
-// Shared user avatar: saved localStorage choice → deterministic default
-// (hash of userId) → initials fallback (Radix shows it on image error).
-export default function UserAvatar({ userId, name, size = "sm", className = "" }) {
-  const [, setVersion] = useState(0);
+// Màu nền initials ỔN ĐỊNH theo userId (hash -> palette, không random):
+// cùng một người luôn cùng một màu trên mọi trang, mọi lần refresh.
+// Class viết tường minh để Tailwind sinh đủ các màu.
+const FALLBACK_STYLES = [
+  "bg-bo-primary-soft text-bo-primary",
+  "bg-emerald-100 text-emerald-700",
+  "bg-amber-100 text-amber-700",
+  "bg-rose-100 text-rose-700",
+  "bg-sky-100 text-sky-700",
+  "bg-violet-100 text-violet-700",
+];
 
-  // Re-read the saved choice whenever any avatar change is broadcast.
-  useEffect(() => {
-    const handleAvatarEvent = (event) => {
-      const eventUserId = event?.detail?.userId;
-      if (eventUserId == null || userId == null || String(eventUserId) === String(userId)) {
-        setVersion((v) => v + 1);
-      }
-    };
-    window.addEventListener(AVATAR_EVENT, handleAvatarEvent);
-    return () => window.removeEventListener(AVATAR_EVENT, handleAvatarEvent);
-  }, [userId]);
-
+// Shared user avatar: ảnh từ avatarUrl (DTO/DB) → fallback initials với màu
+// nền ổn định. Ảnh lỗi tải tự rơi về initials (Radix AvatarFallback).
+export default function UserAvatar({ userId, name, avatarUrl, size = "sm", className = "" }) {
   const sizeClasses = SIZE_MAP[size] || SIZE_MAP.sm;
+  const fallbackStyle =
+    FALLBACK_STYLES[hashUserId(userId) % FALLBACK_STYLES.length] || FALLBACK_STYLES[0];
 
   return (
     <Avatar className={cn(sizeClasses.root, className)}>
-      <AvatarImage
-        src={resolveAvatarSrc(userId)}
-        alt={name ? `Ảnh đại diện của ${name}` : "Ảnh đại diện"}
-      />
+      {avatarUrl ? (
+        <AvatarImage
+          src={avatarUrl}
+          alt={name ? `Ảnh đại diện của ${name}` : "Ảnh đại diện"}
+        />
+      ) : null}
       <AvatarFallback
-        className={cn("bg-bo-primary-soft font-bold text-bo-primary", sizeClasses.fallback)}
+        className={cn("font-bold", sizeClasses.fallback, fallbackStyle)}
       >
         {getInitials(name)}
       </AvatarFallback>

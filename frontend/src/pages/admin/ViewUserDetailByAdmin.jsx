@@ -183,7 +183,7 @@ export default function ViewUserDetailByAdmin() {
                 <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                     <div className="flex flex-col items-center gap-4 p-6 text-center">
 
-                        <UserAvatar userId={user.id} name={user.hoTen} size="lg" />
+                        <UserAvatar userId={user.id} name={user.hoTen} avatarUrl={user.avatarUrl} size="lg" />
 
                         <div className="min-w-0">
                             <h2
