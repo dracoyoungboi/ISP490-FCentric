@@ -83,6 +83,7 @@ import PrintTemplatesPage from "./pages/settings/PrintTemplatesPage";
 import PrintTemplateDetailPage from "./pages/settings/PrintTemplateDetailPage";
 import PrintTemplateEditorPage from "./pages/settings/PrintTemplateEditorPage";
 import RequireRole from "./components/auth/RequireRole";
+import PosPage from "./pages/pos";
 
 export default function App() {
   return (
@@ -180,6 +181,10 @@ export default function App() {
 
           {/* Sales-orders */}
           <Route path="/sales-orders" element={<DonBanHangList />} />
+
+          {/* POS — Bán hàng tại quầy (Phase 02: chỉ đọc catalog; checkout khóa tới Phase 03/04) */}
+          <Route path="/pos" element={<PosPage />} />
+
           <Route path="/sales-orders/:id" element={<DonBanHangDetail />} />
           <Route path="/sales-orders/create" element={<DonBanHangCreate />} />
           <Route path="/sales-quotations" element={<BaoGiaList />} />

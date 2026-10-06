@@ -68,8 +68,11 @@ public class DonBanHang {
     @Column(name = "tong_cong", precision = 15, scale = 2)
     BigDecimal tongCong;
 
+    // KHÔNG dùng @Generated(INSERT): app ghi giá trị tường minh ở mọi nơi
+    // (create -> chua_thanh_toan, checkout POS -> da_thanh_toan); DB default chỉ
+    // dự phòng cho các lệnh SQL thô. Trước đây @Generated khiến Hibernate bỏ qua
+    // giá trị app ghi và cột luôn nhận default — đơn không bao giờ thành "đã thanh toán".
     @ColumnDefault("'chua_thanh_toan'")
-    @Generated(event = EventType.INSERT)
     @Lob
     @Column(name = "trang_thai_thanh_toan")
     String trangThaiThanhToan;

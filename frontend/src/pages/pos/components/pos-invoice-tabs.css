@@ -1,0 +1,87 @@
+.pos-invoice-strip {
+  display: flex;
+  align-items: flex-end;
+  flex: 0 0 auto;
+  min-width: 0;
+  gap: 6px;
+  padding: 8px 16px 0;
+  background: #f1f5f9;
+  box-shadow: inset 0 -1px #e2e8f0;
+}
+.pos-invoice-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  min-width: 0;
+  max-width: calc(100% - 40px);
+  align-items: flex-end;
+  gap: 2px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+.pos-invoice-tab {
+  position: relative;
+  display: flex;
+  flex: 0 0 176px;
+  align-items: center;
+  height: 40px;
+  border-radius: 10px 10px 0 0;
+  color: #64748b;
+  transition: background-color 140ms, color 140ms;
+}
+.pos-invoice-tab:not(.is-active):hover { background: #e8edf3; color: #334155; }
+.pos-invoice-tab:not(.is-active)::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  top: 12px;
+  height: 16px;
+  width: 1px;
+  background: #cbd5e1;
+}
+.pos-invoice-tab.is-active { background: #fff; color: #0f172a; box-shadow: inset 0 1px 0 #e2e8f0; }
+.pos-invoice-tab.is-active::after {
+  content: '';
+  position: absolute;
+  height: 2px;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
+}
+.pos-invoice-tab-select {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  align-items: center;
+  gap: 9px;
+  padding: 0 8px 0 14px;
+  border-radius: 10px 0 0 0;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+}
+.pos-invoice-tab-select span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pos-invoice-tab-select svg { flex-shrink: 0; }
+.pos-invoice-tab.is-active .pos-invoice-tab-select { font-weight: 600; }
+.pos-invoice-tab.is-active .pos-invoice-tab-select svg { color: var(--color-bo-primary, #1677ff); }
+.pos-invoice-tab-close, .pos-invoice-add {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 6px;
+  transition: background-color 140ms, color 140ms;
+}
+.pos-invoice-tab-close { width: 26px; height: 26px; margin-right: 8px; color: #64748b; }
+.pos-invoice-tab-close:hover { background: #e2e8f0; color: #0f172a; }
+.pos-invoice-add { width: 32px; height: 32px; margin-bottom: 4px; color: #475569; }
+.pos-invoice-add:hover { background: #e2e8f0; color: var(--color-bo-primary, #1677ff); }
+.pos-invoice-strip button { cursor: pointer; }
+.pos-invoice-strip button:focus-visible { outline: 2px solid var(--color-bo-primary, #1677ff); outline-offset: -3px; }
+.pos-invoice-strip button:disabled { cursor: default; opacity: .45; }
+@media (max-width: 640px) {
+  .pos-invoice-strip { padding-left: 12px; padding-right: 12px; }
+  .pos-invoice-tab { flex-basis: 148px; }
+}

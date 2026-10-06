@@ -4,8 +4,10 @@ import com.dev.backend.dto.response.customize.LoHangTonKhoDTO;
 import com.dev.backend.dto.response.customize.TonKhoChiTietDTO;
 import com.dev.backend.dto.response.customize.TonKhoTongHopDTO;
 import com.dev.backend.entities.TonKhoTheoLo;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -160,10 +162,10 @@ public interface TonKhoTheoLoRepository extends JpaRepository<TonKhoTheoLo, Inte
         where t.kho.id = :khoId
           and t.loHang.bienTheSanPham.id = :bienTheSanPhamId
           and (
-            t.soLuongKhaDung > 0 
+            t.soLuongKhaDung > 0
             or exists (
-                select 1 from ChiTietPhieuXuatKho ct 
-                where ct.phieuXuatKho.id = :phieuId 
+                select 1 from ChiTietPhieuXuatKho ct
+                where ct.phieuXuatKho.id = :phieuId
                 and ct.loHang.id = t.loHang.id
             )
           )
@@ -173,6 +175,38 @@ public interface TonKhoTheoLoRepository extends JpaRepository<TonKhoTheoLo, Inte
             @Param("khoId") Integer khoId,
             @Param("bienTheSanPhamId") Integer bienTheSanPhamId,
             @Param("phieuId") Integer phieuId
+    );
+
+    /**
+     * Khóa các dòng tồn của kho + các biến thể cần bán (PESSIMISTIC_WRITE),
+     * sắp theo PK (t.id) — thứ tự khóa ổn định chung cho MỌI luồng ghi tồn
+     * (POS checkout + xuất kho + nhập kho + kiểm kê) để tránh deadlock và
+     * lost update. Chỉ dùng trong transaction ghi.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        select t from TonKhoTheoLo t
+        where t.kho.id = :khoId
+          and t.loHang.bienTheSanPham.id in :variantIds
+        order by t.id
+    """)
+    List<TonKhoTheoLo> lockLotsForUpdateByKhoAndVariants(
+            @Param("khoId") Integer khoId,
+            @Param("variantIds") java.util.Collection<Integer> variantIds
+    );
+
+    /**
+     * Khóa các dòng tồn theo lô (dùng cho luồng nhập/kiểm kê ghi cùng các dòng này),
+     * sắp theo PK (t.id) — cùng thứ tự khóa toàn cục.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        select t from TonKhoTheoLo t
+        where t.loHang.id in :lotIds
+        order by t.id
+    """)
+    List<TonKhoTheoLo> lockLotsForUpdateByLotIds(
+            @Param("lotIds") java.util.Collection<Integer> lotIds
     );
 
     @Query("""
