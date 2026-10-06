@@ -7,7 +7,6 @@ import PageContainer from "@/components/backoffice/PageContainer";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,8 +18,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  ShieldCheck, RefreshCcw, UserCog, Lock, Unlock,
-  Warehouse, AlertCircle, Save, X, Trash2,
+  ShieldCheck, RefreshCcw, UserCog,
+  Warehouse, AlertCircle, Save, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import AssignWarehousePermissionModal from "@/components/admin/AssignWarehousePermissionModal";
@@ -38,7 +37,6 @@ export default function UserPermissionEditByAdmin() {
 
   const [form, setForm] = useState({
     role: "quan_ly_kho",
-    status: 1,
   });
 
   const reloadUserWarehouses = useCallback(async () => {
@@ -52,7 +50,6 @@ export default function UserPermissionEditByAdmin() {
       setUser(dto);
       setForm({
         role: dto.vaiTro || "quan_ly_kho",
-        status: dto.trangThai ?? 1,
       });
       setUserWarehouses(dto.khoPhuTrach || []);
     } catch (err) {
@@ -175,6 +172,21 @@ export default function UserPermissionEditByAdmin() {
           title="2. Kho phụ trách & quyền chi tiết"
           description="Người dùng sẽ có quyền truy cập và thực hiện chức năng tại các kho được phân"
         >
+          {userWarehouses.length > 1 && (
+            <div className="mb-4 flex items-start gap-2 rounded-lg border border-bo-warning/30 bg-bo-warning-soft p-4">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-bo-warning" />
+              <div className="text-sm text-bo-warning">
+                <p className="font-semibold">
+                  Người dùng đang có {userWarehouses.length} phân quyền kho đang hoạt động.
+                </p>
+                <p className="mt-1 text-xs">
+                  Theo quy định, mỗi người dùng chỉ được có tối đa 1 kho đang hoạt động.
+                  Hãy xóa bớt các phân quyền bên dưới (còn tối đa 1 kho) trước khi thêm kho mới.
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-bo-muted">
               Thêm kho mới và thiết lập quyền chức năng cụ thể
@@ -182,7 +194,11 @@ export default function UserPermissionEditByAdmin() {
             <Button
               type="button"
               onClick={() => setShowAssignModal(true)}
-              className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+              disabled={userWarehouses.length > 1}
+              title={userWarehouses.length > 1
+                ? "Xóa bớt phân quyền kho còn tối đa 1 kho trước khi thêm mới"
+                : undefined}
+              className="bg-bo-primary text-white hover:bg-bo-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
               + Thêm kho & phân quyền
             </Button>
@@ -197,14 +213,13 @@ export default function UserPermissionEditByAdmin() {
               <AlertCircle className="mx-auto h-10 w-10 text-slate-400" />
               <h3 className="mt-4 text-lg font-medium text-bo-foreground">Chưa có kho phụ trách</h3>
               <p className="mt-2 text-sm text-bo-muted">
-                Nhấn nút "Thêm kho & phân quyền" để bắt đầu gán kho cho người dùng này.
+                Nhấn nút "Thêm kho & phân quyền" để bắt đầu gán kho (tối đa 1 kho đang hoạt động) cho người dùng này.
               </p>
             </div>
           ) : (
             <div className="space-y-4">
               {userWarehouses.map((item) => {
                 const kho = item.kho || {};
-                const isManager = Number(item.laQuanLyKho) === 1;
                 const active = Number(kho.trangThai) === 1;
                 const permissions = item.chiTietQuyenKhos || [];
 
@@ -240,11 +255,6 @@ export default function UserPermissionEditByAdmin() {
                         >
                           {active ? "Hoạt động" : "Tạm khóa"}
                         </Badge>
-                        {isManager && (
-                          <Badge className="bg-bo-primary hover:bg-bo-primary-hover">
-                            Quản lý chính
-                          </Badge>
-                        )}
                       </div>
                     </div>
 
@@ -274,42 +284,6 @@ export default function UserPermissionEditByAdmin() {
           )}
         </SurfaceCard>
 
-        {/* 3. Trạng thái tài khoản */}
-        <SurfaceCard title="3. Trạng thái tài khoản">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-bo-warning/25 bg-bo-warning-soft p-5">
-            <div>
-              <p className="font-medium text-bo-foreground">Trạng thái hoạt động</p>
-              <p className="mt-1 text-sm text-bo-muted">
-                Khóa tài khoản nếu phát hiện vi phạm hoặc không còn sử dụng
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Label htmlFor="status" className="text-sm font-medium">
-                {form.status === 1 ? (
-                  <span className="flex items-center gap-1.5 text-bo-success">
-                    <Unlock className="h-4 w-4" /> Hoạt động
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1.5 text-bo-danger">
-                    <Lock className="h-4 w-4" /> Tạm khóa
-                  </span>
-                )}
-              </Label>
-
-              <select
-                id="status"
-                value={form.status}
-                onChange={(e) => setForm((prev) => ({ ...prev, status: Number(e.target.value) }))}
-                className="h-10 rounded-md border border-bo-border bg-white px-3 py-2 text-sm font-medium text-bo-foreground focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/20"
-              >
-                <option value={1}>Hoạt động (Active)</option>
-                <option value={0}>Tạm khóa (Banned)</option>
-              </select>
-            </div>
-          </div>
-        </SurfaceCard>
-
         {/* Action Buttons */}
         <div className="flex justify-end gap-4 border-t border-bo-border pt-4">
           <Button
@@ -318,7 +292,6 @@ export default function UserPermissionEditByAdmin() {
             onClick={() => navigate("/users")}
             className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
           >
-            <X className="mr-2 h-4 w-4" />
             Hủy
           </Button>
           <Button
@@ -336,15 +309,14 @@ export default function UserPermissionEditByAdmin() {
         </div>
       </form>
 
-      <p className="pt-4 text-center text-xs italic text-bo-muted">
-        Dữ liệu được lưu vào bảng: nguoi_dung, phan_quyen_nguoi_dung_kho
-      </p>
+     
 
       <AssignWarehousePermissionModal
         open={showAssignModal}
         onClose={() => setShowAssignModal(false)}
         userId={id}
         onAssigned={reloadUserWarehouses}
+        existingAssignments={userWarehouses}
       />
 
       {/* Delete Warehouse Permission Confirmation Dialog */}
@@ -380,3 +352,4 @@ export default function UserPermissionEditByAdmin() {
     </PageContainer>
   );
 }
+

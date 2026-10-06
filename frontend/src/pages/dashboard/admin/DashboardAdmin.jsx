@@ -397,7 +397,7 @@ export default function DashboardAdmin() {
                                         </td>
                                         <td className="px-3 py-3">
                                             <div className="flex items-center gap-2.5">
-                                                <UserAvatar userId={user.id} name={user.hoTen} size="xs" />
+                                                <UserAvatar userId={user.id} name={user.hoTen} avatarUrl={user.avatarUrl} size="xs" />
                                                 <span>{user.hoTen}</span>
                                             </div>
                                         </td>

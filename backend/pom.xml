@@ -194,6 +194,14 @@
             <version>1.6.3</version>
         </dependency>
 
+        <!-- TwelveMonkeys ImageIO WebP - ImageIO mặc định không đọc/ghi WebP;
+             cần để validate ảnh đại diện WebP bằng nội dung thật (decode server-side) -->
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-webp</artifactId>
+            <version>3.12.0</version>
+        </dependency>
+
         <!-- Gson -->
         <dependency>
             <groupId>com.google.code.gson</groupId>

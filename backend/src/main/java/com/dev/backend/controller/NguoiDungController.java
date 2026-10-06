@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.beans.Transient;
 import java.util.Optional;
@@ -71,6 +72,25 @@ public class NguoiDungController {
     @RequireAuth(roles = {IRoleType.all})
     public ResponseEntity<ResponseData<NguoiDungDto>> updateMe(@RequestBody UpdateMeRequest request) {
         return nguoiDungService.updateMe(request);
+    }
+
+    // upload/đổi ảnh đại diện của người đang đăng nhập (user lấy từ token, không nhận id từ client).
+    // Multipart: phần tên "file", chấp nhận JPEG/PNG/WebP tối đa 2 MB (validate nội dung thật phía service).
+    // KHÔNG dùng consumes=multipart/form-data: Content-Type lệch chuẩn sẽ fail ngay
+    // ở giai đoạn route mapping -> response 500 KHÔNG có header CORS -> trình duyệt
+    // chặn và axios chỉ báo "Network Error". Bỏ consumes để lỗi đi qua handler chain
+    // có CORS và trả về message tiếng Việt rõ ràng; @RequestPart vẫn ép buộc multipart.
+    @PostMapping("/me/avatar")
+    @RequireAuth(roles = {IRoleType.all})
+    public ResponseEntity<ResponseData<NguoiDungDto>> updateMyAvatar(@RequestPart("file") MultipartFile file) {
+        return nguoiDungService.updateMyAvatar(file);
+    }
+
+    // xóa ảnh đại diện của người đang đăng nhập (về hiển thị initials ở FE)
+    @DeleteMapping("/me/avatar")
+    @RequireAuth(roles = {IRoleType.all})
+    public ResponseEntity<ResponseData<NguoiDungDto>> removeMyAvatar() {
+        return nguoiDungService.removeMyAvatar();
     }
 
     // gửi yêu cầu đổi mật khẩu

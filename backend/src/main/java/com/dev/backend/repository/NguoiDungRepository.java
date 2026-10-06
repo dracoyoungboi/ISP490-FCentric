@@ -19,6 +19,10 @@ public interface NguoiDungRepository extends JpaRepository<NguoiDung, Integer>, 
     boolean existsByEmail(String email);
     boolean existsBySoDienThoai(String soDienThoai);
 
+    // Ảnh đại diện: kiểm tra tep_tin còn được người dùng nào tham chiếu không
+    // (tránh xóa tệp đang được chia sẻ khi thay/xóa avatar)
+    boolean existsByAvatarTepTinId(Integer tepTinId);
+
     @Query("""
         select count(u)
         from NguoiDung u

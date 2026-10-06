@@ -1,16 +1,35 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { ChevronDown, RotateCcw } from "lucide-react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { ChevronDown, Printer, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import PageContainer from "@/components/backoffice/PageContainer";
 import PageHeader from "@/components/backoffice/PageHeader";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import PrintTemplateDocument from "@/components/print/PrintTemplateDocument";
-import { getPaperSheetClasses, getPaperSheetWidthPx } from "@/components/print/paperStyles";
+import {
+    computeFitScale,
+    getPaperSheetClasses,
+} from "@/components/print/paperStyles";
+import PreviewZoomControl from "@/components/print/PreviewZoomControl";
+import { PreviewPrintStyleTag } from "@/components/print/previewPrintStyles";
+import { usePreviewViewportSize } from "@/components/print/usePreviewViewportSize";
+import LoadingState from "@/components/shared/LoadingState";
+import ErrorState from "@/components/shared/ErrorState";
+import EmptyState from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { FileX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getPrintSchema } from "@/components/print/schemas/printSchemas";
 import { getSamplePrintModel } from "./samplePrintData";
@@ -19,6 +38,8 @@ import {
     printTemplateConfigService,
 } from "@/services/printTemplateConfigService";
 import { companyProfileService } from "@/services/companyProfileService";
+import CompanyProfileDialog from "./CompanyProfileDialog";
+import PrintOnlyDocument from "@/components/print/PrintOnlyDocument";
 
 // ── Các bộ điều khiển nhỏ của editor ────────────────────────────────────────
 
@@ -51,11 +72,27 @@ function EditorSection({ title, defaultOpen = true, children }) {
     );
 }
 
-function ToggleRow({ label, checked, onChange }) {
+function ToggleRow({ label, checked, onChange, locked = false }) {
     return (
-        <label className="flex cursor-pointer items-center justify-between gap-3 py-1.5">
-            <span className="text-sm text-bo-foreground">{label}</span>
-            <Checkbox checked={checked} onCheckedChange={(value) => onChange(Boolean(value))} />
+        <label
+            className={cn(
+                "flex items-center justify-between gap-3 py-1.5",
+                locked ? "cursor-not-allowed opacity-70" : "cursor-pointer"
+            )}
+        >
+            <span className="flex min-w-0 items-center gap-1.5 text-sm text-bo-foreground">
+                <span className="truncate">{label}</span>
+                {locked ? (
+                    <span className="shrink-0 rounded-full border border-bo-border bg-bo-surface-subtle px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-bo-muted">
+                        Bắt buộc
+                    </span>
+                ) : null}
+            </span>
+            <Checkbox
+                checked={checked}
+                disabled={locked}
+                onCheckedChange={(value) => onChange(Boolean(value))}
+            />
         </label>
     );
 }
@@ -109,72 +146,185 @@ function FieldGroup({ label, children }) {
     );
 }
 
-const ZOOM_OPTIONS = [
-    { value: "0.5", label: "50%" },
-    { value: "0.75", label: "75%" },
-    { value: "1", label: "100%" },
-    { value: "fit", label: "Vừa chiều rộng" },
-];
+/** Hộp thoại thay đổi chưa lưu — 3 lựa chọn: lưu & đi tiếp / bỏ thay đổi / ở lại. */
+function UnsavedDialog({ open, switching, saving, onClose, onSaveAndGo, onDiscardAndGo }) {
+    return (
+        <Dialog open={open} onOpenChange={(value) => {
+            if (!value) onClose();
+        }}>
+            <DialogContent className="rounded-xl bg-white shadow-lg sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle className="text-lg font-semibold text-gray-900">
+                        Lưu thay đổi?
+                    </DialogTitle>
+                    <DialogDescription className="pt-2 text-sm text-gray-600">
+                        {switching
+                            ? "Bạn có thay đổi chưa lưu. Bạn có muốn lưu trước khi chuyển khổ giấy không?"
+                            : "Bạn có thay đổi chưa lưu. Bạn có muốn lưu trước khi rời trang không?"}
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="gap-2 sm:gap-3">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                        onClick={onClose}
+                        disabled={saving}
+                    >
+                        {switching ? "Hủy" : "Ở lại"}
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                        onClick={onDiscardAndGo}
+                        disabled={saving}
+                    >
+                        {switching ? "Bỏ thay đổi" : "Rời không lưu"}
+                    </Button>
+                    <Button
+                        type="button"
+                        className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                        onClick={onSaveAndGo}
+                        disabled={saving}
+                    >
+                        {saving ? (
+                            <>
+                                <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                Đang lưu...
+                            </>
+                        ) : switching ? (
+                            "Lưu & chuyển"
+                        ) : (
+                            "Lưu & rời"
+                        )}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+// Padding màn hình của khung preview (p-4 sm:p-6) — trừ khỏi kích thước
+// viewport khi tính zoom "Vừa trang".
+const PREVIEW_VIEWPORT_PADDING = 48;
 
 // ── Trang editor ─────────────────────────────────────────────────────────────
 
 export default function PrintTemplateEditorPage() {
     const navigate = useNavigate();
+    const location = useLocation();
     const { documentType, templateId } = useParams();
 
     const schema = getPrintSchema(documentType);
 
-    // Draft: bản cấu hình đang chỉnh — chỉ ghi vào service khi nhấn Lưu
-    const [draft, setDraft] = useState(() => {
-        if (!schema) return null;
-        const targetId =
-            templateId ?? printTemplateConfigService.getActiveTemplate(schema.key)?.id;
-        return printTemplateConfigService.getTemplate(schema.key, targetId);
-    });
-    const [company, setCompany] = useState(() => companyProfileService.get());
+    // Draft: bản cấu hình đang chỉnh — chỉ ghi vào server khi nhấn Lưu.
+    // Luôn nạp ĐÚNG biến thể theo templateId trên URL (hoặc mẫu đang áp dụng).
+    const [draft, setDraft] = useState(null);
+    const [company, setCompany] = useState(null);
+    const [draftLoading, setDraftLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
+    const [notFound, setNotFound] = useState(false);
+    const [reloadKey, setReloadKey] = useState(0);
+    const [saving, setSaving] = useState(false);
 
-    // Zoom bản xem trước
+    // Snapshot trạng thái đã lưu của DRAFT — hồ sơ công ty không sửa ở đây
+    // (sửa qua hộp thoại "Thông tin công ty", không phải trang riêng).
+    const savedDraftRef = useRef(null);
+
+    // Hộp thoại thay đổi chưa lưu: chuyển khổ giấy / rời trang
+    const [switchTarget, setSwitchTarget] = useState(null);
+    const [leaveTarget, setLeaveTarget] = useState(null);
+
+    // Hộp thoại "Thông tin công ty" — mở tại chỗ, không chuyển trang
+    // (tránh kích hoạt cảnh báo thay đổi chưa lưu của draft).
+    const [companyDialogOpen, setCompanyDialogOpen] = useState(false);
+
+    // Zoom bản xem trước — mặc định "Vừa trang" (fit-page, tối đa 100%).
+    // Callback ref tự gắn lại observer khi vùng preview mount sau khi draft tải xong.
     const [zoom, setZoom] = useState("fit");
-    const previewAreaRef = useRef(null);
-    const [previewWidth, setPreviewWidth] = useState(0);
+    const previewViewport = usePreviewViewportSize();
 
+    const reload = () => setReloadKey((key) => key + 1);
+
+    // Nạp draft + hồ sơ công ty (async, từ server)
     useEffect(() => {
-        const el = previewAreaRef.current;
-        if (!el) return undefined;
-        const observer = new ResizeObserver(() => setPreviewWidth(el.clientWidth));
-        observer.observe(el);
-        setPreviewWidth(el.clientWidth);
-        return () => observer.disconnect();
-    }, []);
+        if (!schema) return undefined;
+        let cancelled = false;
+        (async () => {
+            setDraftLoading(true);
+            setLoadError(false);
+            setNotFound(false);
+            try {
+                const [targetCfg, profile] = await Promise.all([
+                    templateId
+                        ? printTemplateConfigService.getTemplate(schema.key, templateId)
+                        : printTemplateConfigService.getActiveTemplate(schema.key),
+                    companyProfileService.get(),
+                ]);
+                if (cancelled) return;
+                if (!targetCfg) {
+                    setNotFound(true);
+                    return;
+                }
+                setDraft(targetCfg);
+                setCompany(profile);
+                savedDraftRef.current = JSON.stringify(targetCfg);
+            } catch (error) {
+                console.error("Error loading print template editor:", error);
+                if (!cancelled) setLoadError(true);
+            } finally {
+                if (!cancelled) setDraftLoading(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [schema, templateId, reloadKey]);
 
     const sampleModel = useMemo(
         () => (schema ? getSamplePrintModel(schema.key) : null),
         [schema]
     );
 
-    if (!schema || !draft) {
-        return (
-            <PageContainer>
-                <p className="text-sm text-bo-muted">Không tìm thấy loại chứng từ hoặc mẫu in.</p>
-            </PageContainer>
-        );
-    }
+    const isDirty =
+        Boolean(draft) &&
+        savedDraftRef.current !== JSON.stringify(draft);
 
-    const isK80 = draft.paperSize === "K80";
-    const paper = {
-        size: draft.paperSize,
-        orientation: draft.orientation,
-        margin: draft.margin,
-    };
-    const sheetWidthPx = getPaperSheetWidthPx(paper);
-    // Trừ padding của khung preview (p-4 sm:p-6) để chế độ "Vừa chiều rộng"
-    // không tạo thanh cuộn ngang thừa
-    const effectiveZoom =
-        zoom === "fit" && previewWidth > 0
-            ? Math.max(0.3, Math.min(1.5, (previewWidth - 48) / sheetWidthPx))
-            : Number(zoom);
+    const editorHref = location.pathname + location.search;
 
-    // Cập nhật trường theo đường dẫn "paperSize", "sections.items.show", ...
+    // Cảnh báo đóng tab / tải lại trang khi đang có thay đổi chưa lưu
+    useEffect(() => {
+        if (!isDirty) return undefined;
+        const handleBeforeUnload = (event) => {
+            event.preventDefault();
+            event.returnValue = "";
+        };
+        window.addEventListener("beforeunload", handleBeforeUnload);
+        return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    }, [isDirty]);
+
+    // Chặn điều hướng bằng link nội bộ (<a href="/..."> — sidebar, breadcrumb…)
+    // khi đang dirty: mở hộp thoại thay vì mất thay đổi. (Nút Back của trình
+    // duyệt không chặn được do app dùng BrowserRouter, không phải data router.)
+    useEffect(() => {
+        if (!isDirty) return undefined;
+        const handleClick = (event) => {
+            const anchor =
+                event.target instanceof Element ? event.target.closest("a[href]") : null;
+            if (!anchor) return;
+            const href = anchor.getAttribute("href");
+            if (!href || !href.startsWith("/") || href === editorHref) return;
+            event.preventDefault();
+            event.stopPropagation();
+            setLeaveTarget(href);
+        };
+        document.addEventListener("click", handleClick, true);
+        return () => document.removeEventListener("click", handleClick, true);
+    }, [isDirty, editorHref]);
+
+    // ── Các hành động ──
+
     const setField = (path, value) => {
         setDraft((prev) => {
             const next = structuredClone(prev);
@@ -188,81 +338,285 @@ export default function PrintTemplateEditorPage() {
         });
     };
 
-    const handleSave = (apply) => {
-        printTemplateConfigService.saveTemplate(draft);
-        companyProfileService.save(company);
-        toast.success(
-            apply
-                ? "Đã lưu và áp dụng cấu hình mẫu in"
-                : "Đã lưu cấu hình mẫu in"
-        );
-        if (apply) {
-            navigate(`/settings/print-templates/${schema.slug}/${draft.id}`);
+    /** Lỗi validate (im lặng — dùng để disable nút Lưu theo thời gian thật). */
+    const collectValidationIssues = () => {
+        const errors = [];
+        if (!draft?.name?.trim()) errors.push("Tên mẫu in không được để trống");
+        if ((draft?.name ?? "").length > 200) errors.push("Tên mẫu in không được quá 200 ký tự");
+        if (!/^#[0-9a-fA-F]{6}$/.test(draft?.accentColor ?? "")) {
+            errors.push("Màu nhấn không hợp lệ (cần mã hex #RRGGBB)");
+        }
+        if (
+            !draft?.sections ||
+            typeof draft.sections !== "object" ||
+            Object.keys(draft.sections).length === 0
+        ) {
+            errors.push("Nội dung chứng từ (sections) không được để trống");
+        }
+        return errors;
+    };
+
+    const validationIssues = draft ? collectValidationIssues() : [];
+
+    const saveDraft = async () => {
+        // Mô hình một-mẫu: lưu cấu hình = in thật dùng ngay (backend ghi cả
+        // biến thể đang dùng trong cùng transaction — không có bước kích hoạt).
+        await printTemplateConfigService.saveTemplate(draft);
+    };
+
+    /** Lưu cấu hình — ở lại trang. */
+    const handleSave = async () => {
+        const errors = collectValidationIssues();
+        for (const error of errors) toast.error(error);
+        if (errors.length > 0) return;
+        setSaving(true);
+        try {
+            await saveDraft();
+            savedDraftRef.current = JSON.stringify(draft);
+            toast.success("Đã lưu cấu hình mẫu in");
+            // Lưu thành công -> quay về trang xem mẫu (khổ giấy do cấu hình
+            // đã lưu quyết định, không cần tham số ?paper)
+            navigate(`/settings/print-templates/${schema.slug}`);
+        } catch (error) {
+            console.error("Error saving print template:", error);
+            // Giữ nguyên bản nháp để người dùng sửa/thử lại — không mất input
+            toast.error("Không thể lưu cấu hình mẫu in");
+        } finally {
+            setSaving(false);
         }
     };
 
-    const handleReset = () => {
-        const def = schema.templates.find((template) => template.id === draft.id);
-        if (def) {
-            setDraft(buildDefaultTemplateConfig(schema, def));
-            toast.info("Đã khôi phục cấu hình mặc định (chưa lưu)");
+    // ── Chuyển khổ giấy = chuyển BIẾN THỂ (nạp cấu hình của biến thể đó,
+    //    KHÔNG sửa paperSize dưới id của biến thể khác) ──
+    const switchToPaper = async (paper) => {
+        const targetDef = schema.templates.find((template) => template.paperSize === paper);
+        if (!targetDef) return;
+        try {
+            const cfg = await printTemplateConfigService.getTemplate(schema.key, targetDef.id);
+            if (!cfg) {
+                toast.error("Không thể tải mẫu của khổ giấy này");
+                return;
+            }
+            setDraft(cfg);
+            savedDraftRef.current = JSON.stringify(cfg);
+            navigate(
+                `/settings/print-templates/${schema.slug}/${targetDef.id}/edit?paper=${paper}`,
+                { replace: true }
+            );
+        } catch (error) {
+            console.error("Error switching paper variant:", error);
+            toast.error("Không thể tải mẫu của khổ giấy này");
         }
     };
+
+    const handlePaperChange = (paper) => {
+        if (!draft || paper === draft.paperSize) return;
+        if (isDirty) {
+            setSwitchTarget(paper);
+            return;
+        }
+        switchToPaper(paper);
+    };
+
+    const handleSwitchSaveAndGo = async () => {
+        const paper = switchTarget;
+        if (!paper) return;
+        const errors = collectValidationIssues();
+        for (const error of errors) toast.error(error);
+        if (errors.length > 0) return;
+        setSaving(true);
+        try {
+            await saveDraft();
+            savedDraftRef.current = JSON.stringify(draft);
+            setSwitchTarget(null);
+            await switchToPaper(paper);
+        } catch (error) {
+            console.error("Error saving before paper switch:", error);
+            toast.error("Không thể lưu cấu hình mẫu in");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleSwitchDiscardAndGo = () => {
+        const paper = switchTarget;
+        setSwitchTarget(null);
+        if (paper) switchToPaper(paper);
+    };
+
+    // ── Rời trang (nút Hủy / link nội bộ bị chặn) ──
+    const backHref = schema && draft
+        ? `/settings/print-templates/${schema.slug}?paper=${draft.paperSize}`
+        : "/settings/print-templates";
 
     const handleCancel = () => {
-        navigate(`/settings/print-templates/${schema.slug}/${draft.id}`);
+        if (isDirty) {
+            setLeaveTarget(backHref);
+            return;
+        }
+        navigate(backHref);
     };
 
-    // lg:h-full cho PageContainer chiều cao XÁC ĐỊNH (= vùng nội dung còn lại
-    // của shell) để flex-1 của grid giới hạn được chiều cao hai cột; dưới lg
-    // để auto để trang cuộn bình thường trong main.
+    const handleLeaveSaveAndGo = async () => {
+        const target = leaveTarget ?? backHref;
+        setSaving(true);
+        try {
+            const errors = collectValidationIssues();
+            for (const error of errors) toast.error(error);
+            if (errors.length > 0) {
+                setSaving(false);
+                return;
+            }
+            await saveDraft();
+            savedDraftRef.current = JSON.stringify(draft);
+            setLeaveTarget(null);
+            navigate(target);
+        } catch (error) {
+            console.error("Error saving before leave:", error);
+            toast.error("Không thể lưu cấu hình mẫu in");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleLeaveDiscardAndGo = () => {
+        const target = leaveTarget ?? backHref;
+        setLeaveTarget(null);
+        navigate(target);
+    };
+
+    // ── Khôi phục cấu hình mẫu: chỉ đưa BẢN NHÁP về mặc định, đánh dirty ──
+    // Không gọi server ở đây — thay đổi chỉ được persist sau khi bấm
+    // "Lưu cấu hình". Hồ sơ công ty và cấu hình loại chứng từ khác giữ nguyên.
+    const [resetOpen, setResetOpen] = useState(false);
+    const handleReset = () => {
+        setResetOpen(false);
+        const def = schema.templates.find((template) => template.id === draft.id);
+        if (!def) return;
+        setDraft(buildDefaultTemplateConfig(schema, def));
+        toast.info("Đã đưa mẫu về cấu hình mặc định — bấm “Lưu cấu hình” để áp dụng");
+    };
+
+    // ── Trạng thái trang ──
+    if (!schema) {
+        return (
+            <PageContainer>
+                <EmptyState
+                    icon={FileX}
+                    title="Không tìm thấy loại chứng từ"
+                    description="Loại chứng từ trong đường dẫn không tồn tại."
+                    action={
+                        <Button
+                            className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                            onClick={() => navigate("/settings/print-templates")}
+                        >
+                            Về trang cấu hình mẫu in
+                        </Button>
+                    }
+                />
+            </PageContainer>
+        );
+    }
+
+    if (draftLoading) {
+        return (
+            <PageContainer>
+                <LoadingState label="Đang tải cấu hình mẫu in" />
+            </PageContainer>
+        );
+    }
+
+    if (loadError) {
+        return (
+            <PageContainer>
+                <ErrorState
+                    title="Không thể tải cấu hình mẫu in"
+                    description="Không thể tải cấu hình mẫu in từ máy chủ. Vui lòng thử lại."
+                    onRetry={reload}
+                />
+            </PageContainer>
+        );
+    }
+
+    if (notFound || !draft || !company) {
+        return (
+            <PageContainer>
+                <EmptyState
+                    icon={FileX}
+                    title="Không tìm thấy mẫu in"
+                    description="Mẫu in trong đường dẫn không tồn tại hoặc đã bị xoá."
+                    action={
+                        <Button
+                            className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                            onClick={() => navigate("/settings/print-templates")}
+                        >
+                            Về trang cấu hình mẫu in
+                        </Button>
+                    }
+                />
+            </PageContainer>
+        );
+    }
+
+    const isK80 = draft.paperSize === "K80";
+    const paper = {
+        size: draft.paperSize,
+        orientation: draft.orientation,
+        margin: draft.margin,
+    };
+    // "Vừa trang" = min(1, rộng còn lại/rộng giấy, cao còn lại/cao giấy);
+    // zoom thủ công 50/75/100 giữ nguyên. computeFitScale tự bảo vệ khi
+    // viewport chưa đo được (trả 1 — không NaN, không flash 0-size).
+    const effectiveZoom =
+        zoom === "fit"
+            ? computeFitScale(
+                  paper,
+                  Math.max(0, previewViewport.width - PREVIEW_VIEWPORT_PADDING),
+                  Math.max(0, previewViewport.height - PREVIEW_VIEWPORT_PADDING)
+              )
+            : Number(zoom);
+
     return (
-        <PageContainer className="flex flex-col space-y-4 pb-4 lg:h-full">
+        <PageContainer className="print-template-preview-page flex flex-col space-y-4 pb-4 lg:h-full">
+            <PreviewPrintStyleTag paper={paper} />
+
             <PageHeader
+                className="no-print"
                 title="Chỉnh sửa mẫu in"
                 eyebrow="Cấu hình mẫu in"
-                description={`${draft.name} · ${schema.label}`}
+                description={`${draft.name} · ${schema.label} — thay đổi chỉ áp dụng sau khi lưu cấu hình.`}
             />
 
             <div className="grid items-stretch gap-5 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_400px]">
                 {/* ── Cột trái: bản xem trước trực tiếp (không cuộn trang) ── */}
                 <div className="flex min-h-0 flex-col">
                     <SurfaceCard
-                        className="flex min-h-0 flex-1 flex-col"
+                        className="print-template-preview flex min-h-0 flex-1 flex-col"
                         title="Bản xem trước trực tiếp"
-                        description="Dữ liệu mẫu minh họa — không phải dữ liệu thật. Thay đổi bên phải hiển thị ngay tại đây."
+                        description="Xem trước bằng dữ liệu mẫu — thay đổi bên phải hiển thị ngay."
                         contentClassName="flex min-h-0 flex-1 flex-col p-0"
                         action={
-                            <div className="flex items-center gap-1">
-                                {ZOOM_OPTIONS.map((option) => (
-                                    <button
-                                        key={option.value}
-                                        type="button"
-                                        onClick={() => setZoom(option.value)}
-                                        className={cn(
-                                            "rounded-md border px-2 py-1 text-xs font-medium transition-colors",
-                                            zoom === option.value
-                                                ? "border-bo-primary bg-bo-primary text-white"
-                                                : "border-bo-border bg-white text-bo-muted hover:bg-bo-surface-subtle"
-                                        )}
-                                    >
-                                        {option.label}
-                                    </button>
-                                ))}
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    className="h-9 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                    onClick={() => window.print()}
+                                >
+                                    <Printer className="size-4" />
+                                    In thử
+                                </Button>
+                                <PreviewZoomControl value={zoom} onChange={setZoom} />
                             </div>
                         }
                     >
                         <div
-                            ref={previewAreaRef}
+                            ref={previewViewport.ref}
                             className="min-h-0 flex-1 overflow-auto bg-bo-canvas p-4 sm:p-6"
                         >
                             <div
-                                className={`mx-auto bg-white shadow-sm ${getPaperSheetClasses(paper)}`}
+                                className={`print-preview-sheet print-ruled mx-auto border border-bo-border bg-white shadow-sm ${getPaperSheetClasses(paper)}`}
                                 style={{ zoom: effectiveZoom }}
                             >
-                                <div className="mb-4 rounded-md border border-dashed border-bo-warning/60 bg-bo-warning-soft px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-bo-warning">
-                                    Mẫu minh họa — dữ liệu ví dụ, không phải dữ liệu thật
-                                </div>
                                 <PrintTemplateDocument
                                     documentType={schema.key}
                                     config={draft}
@@ -300,7 +654,7 @@ export default function PrintTemplateEditorPage() {
                                                 label: size,
                                             }))}
                                             value={draft.paperSize}
-                                            onChange={(value) => setField("paperSize", value)}
+                                            onChange={handlePaperChange}
                                         />
                                     </FieldGroup>
                                     {!isK80 ? (
@@ -348,51 +702,40 @@ export default function PrintTemplateEditorPage() {
                                         />
                                     </div>
                                 </FieldGroup>
-                                <ToggleRow
-                                    label="Đặt làm mẫu mặc định"
-                                    checked={draft.isDefault}
-                                    onChange={(value) => setField("isDefault", value)}
-                                />
                             </div>
                         </EditorSection>
 
-                        <EditorSection title="Thông tin công ty (dùng chung)">
+                        <EditorSection title="Hồ sơ công ty (dùng chung)">
                             <p className="mb-3 rounded-md border border-bo-border bg-bo-surface-subtle px-3 py-2 text-xs leading-5 text-bo-muted">
-                                Tên công ty, email, điện thoại, địa chỉ là hồ sơ DÙNG CHUNG
-                                cho mọi mẫu in — thay đổi ở đây áp dụng cho tất cả loại chứng từ.
+                                Hồ sơ công ty dùng chung cho mọi loại chứng từ — sửa
+                                bằng nút bên dưới, không sửa trực tiếp trong trình
+                                chỉnh sửa mẫu.
                             </p>
-                            <div className="space-y-4">
-                                <TextField
-                                    label="Tên công ty"
-                                    value={company.name}
-                                    onChange={(value) =>
-                                        setCompany((prev) => ({ ...prev, name: value }))
-                                    }
-                                />
-                                <TextField
-                                    label="Email"
-                                    value={company.email}
-                                    onChange={(value) =>
-                                        setCompany((prev) => ({ ...prev, email: value }))
-                                    }
-                                    placeholder="Ví dụ: lienhe@congty.vn"
-                                />
-                                <TextField
-                                    label="Điện thoại"
-                                    value={company.phone}
-                                    onChange={(value) =>
-                                        setCompany((prev) => ({ ...prev, phone: value }))
-                                    }
-                                    placeholder="Ví dụ: 0123 456 789"
-                                />
-                                <TextField
-                                    label="Địa chỉ"
-                                    value={company.address}
-                                    onChange={(value) =>
-                                        setCompany((prev) => ({ ...prev, address: value }))
-                                    }
-                                    placeholder="Ví dụ: 123 Đường ABC, Quận 1, TP. Hồ Chí Minh"
-                                />
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-3">
+                                    {company.logoAsset ? (
+                                        <img
+                                            src={company.logoAsset}
+                                            alt="Logo công ty"
+                                            className="h-10 w-10 rounded-md border border-bo-border bg-white object-contain p-1"
+                                        />
+                                    ) : null}
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-semibold text-bo-foreground">
+                                            {company.name}
+                                        </p>
+                                        <p className="truncate text-xs text-bo-muted">
+                                            {[company.email, company.phone].filter(Boolean).join(" · ") || "Chưa có email / điện thoại"}
+                                        </p>
+                                    </div>
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    className="w-full border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                    onClick={() => setCompanyDialogOpen(true)}
+                                >
+                                    Chỉnh sửa hồ sơ công ty
+                                </Button>
                             </div>
                         </EditorSection>
 
@@ -434,6 +777,7 @@ export default function PrintTemplateEditorPage() {
                                             <ToggleRow
                                                 key={field.key}
                                                 label={field.label}
+                                                locked={field.essential}
                                                 checked={draft.sections[section.key]?.[field.key] !== false}
                                                 onChange={(value) =>
                                                     setField(
@@ -450,12 +794,21 @@ export default function PrintTemplateEditorPage() {
                                     <div>
                                         <ToggleRow
                                             label="Hiển thị bảng"
+                                            locked={section.essentialShow}
                                             checked={draft.sections[section.key]?.show !== false}
                                             onChange={(value) =>
                                                 setField(`sections.${section.key}.show`, value)
                                             }
                                         />
-                                        {section.columns.map((column) => (
+                                        {isK80 && section.compactColumns ? (
+                                            <p className="mb-1 mt-2 text-xs leading-5 text-bo-muted">
+                                                Khổ nhiệt K80 chỉ hỗ trợ các cột sau:
+                                            </p>
+                                        ) : null}
+                                        {(isK80 && section.compactColumns
+                                            ? section.compactColumns
+                                            : section.columns
+                                        ).map((column) => (
                                             <ToggleRow
                                                 key={column.key}
                                                 label={`Cột: ${column.label}`}
@@ -515,35 +868,125 @@ export default function PrintTemplateEditorPage() {
                         ))}
                     </div>
 
-                    {/* ── Thanh thao tác DUY NHẤT — nằm trong cột cấu hình,
-                         không bao giờ đè lên bản xem trước ── */}
-                    <div className="mt-3 flex shrink-0 items-center justify-between gap-2 rounded-lg border border-bo-border bg-white px-3 py-2.5 shadow-sm">
-                        <Button
-                            variant="outline"
-                            className="border-bo-border bg-white text-bo-muted hover:bg-bo-surface-subtle hover:text-bo-foreground"
-                            onClick={handleReset}
-                        >
-                            <RotateCcw className="size-4" />
-                            Khôi phục mặc định
-                        </Button>
+                    {/* ── Thanh thao tác DUY NHẤT — nằm ngoài vùng cuộn của cột
+                         cấu hình, gọn 1 hàng ở chiều rộng panel (~400px):
+                         trái "Khôi phục" (nhãn đầy đủ qua aria-label + tooltip),
+                         phải "Hủy" + "Lưu cấu hình" cách nhau 8px. flex-wrap để
+                         màn thật hẹp chuyển hàng gọn, không tràn/cắt. ── */}
+                    <div className="mt-3 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-bo-border bg-white px-3 py-3 shadow-sm">
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    aria-label="Khôi phục cấu hình mẫu"
+                                    className="h-9 border-bo-border bg-white text-bo-muted hover:bg-bo-surface-subtle hover:text-bo-foreground"
+                                    onClick={() => setResetOpen(true)}
+                                >
+                                    <RotateCcw className="size-4" />
+                                    Khôi phục
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Khôi phục cấu hình mẫu</TooltipContent>
+                        </Tooltip>
                         <div className="flex items-center gap-2">
                             <Button
                                 variant="outline"
-                                className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                className="h-9 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                                 onClick={handleCancel}
+                                disabled={saving}
                             >
                                 Hủy
                             </Button>
                             <Button
-                                className="bg-bo-primary text-white hover:bg-bo-primary-hover"
-                                onClick={() => handleSave(true)}
+                                className="h-9 bg-bo-primary text-white hover:bg-bo-primary-hover"
+                                onClick={handleSave}
+                                disabled={saving || !isDirty || validationIssues.length > 0}
+                                title={
+                                    validationIssues.length > 0
+                                        ? validationIssues[0]
+                                        : undefined
+                                }
                             >
-                                Lưu & áp dụng
+                                {saving ? "Đang lưu…" : "Lưu cấu hình"}
                             </Button>
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Hộp thoại thay đổi chưa lưu — chuyển khổ giấy */}
+            <UnsavedDialog
+                open={Boolean(switchTarget)}
+                switching
+                saving={saving}
+                onClose={() => setSwitchTarget(null)}
+                onSaveAndGo={handleSwitchSaveAndGo}
+                onDiscardAndGo={handleSwitchDiscardAndGo}
+            />
+
+            {/* Hộp thoại thay đổi chưa lưu — rời trang */}
+            <UnsavedDialog
+                open={Boolean(leaveTarget)}
+                switching={false}
+                saving={saving}
+                onClose={() => setLeaveTarget(null)}
+                onSaveAndGo={handleLeaveSaveAndGo}
+                onDiscardAndGo={handleLeaveDiscardAndGo}
+            />
+
+            {/* Hồ sơ công ty dùng chung — mở tại chỗ, cập nhật phần tóm tắt ở trên */}
+            <CompanyProfileDialog
+                open={companyDialogOpen}
+                onOpenChange={setCompanyDialogOpen}
+                onSaved={setCompany}
+            />
+
+            {/* In thử trong editor = in BẢN NHÁP hiện tại (chưa lưu) với dữ
+                liệu mẫu — qua print mirror, không ghi gì xuống server. */}
+            <PrintOnlyDocument paper={paper}>
+                <PrintTemplateDocument
+                    documentType={schema.key}
+                    config={draft}
+                    model={sampleModel}
+                    company={company}
+                />
+            </PrintOnlyDocument>
+
+            {/* Xác nhận khôi phục cấu hình mẫu */}
+            <Dialog open={resetOpen} onOpenChange={(value) => {
+                if (!value) setResetOpen(false);
+            }}>
+                <DialogContent className="rounded-xl bg-white shadow-lg sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg font-semibold text-gray-900">
+                            Khôi phục cấu hình mẫu?
+                        </DialogTitle>
+                        <DialogDescription className="pt-2 text-sm text-gray-600">
+                            Các thay đổi CHƯA LƯU của mẫu này sẽ bị bỏ và mẫu quay về
+                            cấu hình mặc định. Thay đổi chỉ được áp dụng sau khi bạn
+                            bấm “Lưu cấu hình”. Hồ sơ công ty và cấu hình của loại
+                            chứng từ khác không bị ảnh hưởng.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-3">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                            onClick={() => setResetOpen(false)}
+                        >
+                            Hủy
+                        </Button>
+                        <Button
+                            type="button"
+                            className="bg-red-600 text-white hover:bg-red-700"
+                            onClick={handleReset}
+                        >
+                            Khôi phục cấu hình mẫu
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </PageContainer>
     );
 }

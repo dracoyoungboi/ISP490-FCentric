@@ -2,6 +2,7 @@ package com.dev.backend.services.impl.entities;
 
 import org.springframework.security.core.context.SecurityContextHolder;
 import com.dev.backend.constant.GlobalCache;
+import com.dev.backend.constant.enums.FileType;
 import com.dev.backend.constant.enums.OtpType;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.dto.OtpScheduleObj;
@@ -12,6 +13,7 @@ import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.dto.response.entities.NguoiDungDto;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.entities.PhanQuyenNguoiDungKho;
+import com.dev.backend.entities.TepTin;
 import com.dev.backend.exception.customize.AccountDisabledException;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.NguoiDungMapper;
@@ -20,8 +22,12 @@ import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.services.CalcService;
 import com.dev.backend.services.EmailService;
 import com.dev.backend.services.JwtService;
+import com.dev.backend.services.MinioService;
 import com.dev.backend.services.impl.BaseServiceImpl;
+import com.dev.backend.utils.AvatarImageValidator;
 import jakarta.persistence.EntityManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -32,9 +38,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
 import java.util.*;
+import java.util.regex.Pattern;
 
 @Service
 public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
@@ -62,6 +72,14 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     @Autowired
     private PhanQuyenNguoiDungKhoMapper pqndkMapper;
 
+    @Autowired
+    private MinioService minioService;
+
+    @Autowired
+    private TepTinService tepTinService;
+
+    private static final Logger logger = LoggerFactory.getLogger(NguoiDungService.class);
+
 
     @Override
     protected EntityManager getEntityManager() {
@@ -73,6 +91,23 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     }
 
     private final NguoiDungRepository nguoiDungRepository = (NguoiDungRepository) super.getRepository();
+
+    // SĐT di động Việt Nam (định dạng trong nước): 10 chữ số, bắt đầu bằng 03/05/07/08/09
+    private static final Pattern VIETNAM_PHONE_PATTERN = Pattern.compile("^0[35789][0-9]{8}$");
+
+    // SĐT là tùy chọn: null/blank hợp lệ; có giá trị thì phải đúng định dạng
+    private static void validatePhone(String phone) {
+        if (phone != null
+                && !phone.isBlank()
+                && !VIETNAM_PHONE_PATTERN.matcher(phone.trim()).matches()) {
+            throw new CommonException("Số điện thoại không hợp lệ (10 số, bắt đầu bằng 03/05/07/08/09)");
+        }
+    }
+
+    // blank -> null (giữ số 0 đầu vì lưu dạng chuỗi), ngược lại trim
+    private static String normalizePhone(String phone) {
+        return (phone == null || phone.isBlank()) ? null : phone.trim();
+    }
 
 
     @Transactional
@@ -145,8 +180,11 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         if (request.getEmail() != null && !request.getEmail().isBlank()) {
             nguoiDung.setEmail(request.getEmail());
         }
-        if (request.getSoDienThoai() != null && !request.getSoDienThoai().isBlank()) {
-            nguoiDung.setSoDienThoai(request.getSoDienThoai());
+        // SĐT để trống = không thay đổi (không phải xóa); có giá trị thì phải đúng định dạng
+        String soDienThoai = normalizePhone(request.getSoDienThoai());
+        if (soDienThoai != null) {
+            validatePhone(soDienThoai);
+            nguoiDung.setSoDienThoai(soDienThoai);
         }
         nguoiDung = nguoiDungRepository.save(nguoiDung);
         return ResponseEntity.ok(
@@ -213,10 +251,9 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         NguoiDung nguoiDung = getCurrentUserFromContext();
         nguoiDung.setHoTen(request.getHoTen().trim());
         // cho phép xóa số điện thoại: rỗng -> null (giống createInternalUserByAdmin)
-        String soDienThoai = request.getSoDienThoai();
-        nguoiDung.setSoDienThoai(
-                soDienThoai != null && !soDienThoai.isBlank() ? soDienThoai.trim() : null
-        );
+        String soDienThoai = normalizePhone(request.getSoDienThoai());
+        validatePhone(soDienThoai);
+        nguoiDung.setSoDienThoai(soDienThoai);
 
         nguoiDung = nguoiDungRepository.save(nguoiDung); // ngayCapNhat tự cập nhật (@Generated UPDATE)
 
@@ -236,6 +273,135 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     public Optional<NguoiDung> findByEmail(String email) {
         return nguoiDungRepository.findByEmail(email);
     }
+
+    // ===== Ảnh đại diện (tự phục vụ — user luôn lấy từ context đăng nhập, không nhận id từ client) =====
+
+    /**
+     * Upload/đổi ảnh đại diện của người đang đăng nhập.
+     * Thứ tự an toàn: validate nội dung -> upload object MinIO TRƯỚC -> lưu DB.
+     * DB lỗi thì transaction rollback (gồm dòng tep_tin mới) + xóa object mồ côi.
+     * Ảnh cũ chỉ bị xóa SAU khi DB đã commit (MinIO không rollback theo transaction).
+     */
+    @Transactional
+    public ResponseEntity<ResponseData<NguoiDungDto>> updateMyAvatar(MultipartFile file) {
+        String format = AvatarImageValidator.validate(file); // lỗi -> CommonException 400, chưa đụng DB/MinIO
+
+        NguoiDung nguoiDung = getCurrentUserFromContext();
+        TepTin tepTinCu = nguoiDung.getAvatarTepTin();
+
+        // Tên lưu trữ sinh tự động, phần mở rộng lấy từ format thật của nội dung (không tin tên tệp)
+        String objectName;
+        try {
+            objectName = minioService.upload(file, "avatars/" + UUID.randomUUID() + "." + format);
+        } catch (Exception e) {
+            logger.error("Upload ảnh đại diện (user {}) lên MinIO thất bại: {}", nguoiDung.getId(), e.getMessage());
+            throw new CommonException("Không thể tải ảnh lên máy chủ. Vui lòng thử lại sau");
+        }
+
+        try {
+            TepTin tepTinMoi = tepTinService.create(TepTin.builder()
+                    .tenTepGoc(file.getOriginalFilename() != null && !file.getOriginalFilename().isBlank()
+                            ? file.getOriginalFilename()
+                            : objectName)
+                    .tenTaiLen(objectName)
+                    .tenLuuTru(objectName)
+                    .duongDan(minioService.getPublicUrl(objectName))
+                    .loaiTepTin(FileType.IMAGE.toString())
+                    .duoiTep("." + format)
+                    .kichCo((int) file.getSize())
+                    .trangThai(1)
+                    .ngayTao(Instant.now())
+                    .build());
+
+            nguoiDung.setAvatarTepTin(tepTinMoi);
+            nguoiDungRepository.save(nguoiDung); // ngayCapNhat tự cập nhật (@Generated UPDATE)
+        } catch (Exception e) {
+            // Dòng tep_tin mới rollback theo transaction; object MinIO không rollback -> xóa thủ công
+            minioService.delete(objectName);
+            logger.error("Lưu ảnh đại diện (user {}) vào DB thất bại: {}", nguoiDung.getId(), e.getMessage());
+            throw new CommonException("Lưu ảnh đại diện thất bại. Vui lòng thử lại");
+        }
+
+        // Xóa ảnh cũ sau commit, có kiểm tra còn ai tham chiếu không (concurrent-safe)
+        cleanupOldAvatarAfterCommit(tepTinCu);
+
+        NguoiDungDto dto = nguoiDungMapper.toDto(nguoiDung);
+        fillKhoPhuTrachActive(dto, nguoiDung);
+
+        return ResponseEntity.ok(
+                ResponseData.<NguoiDungDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(dto)
+                        .message("Cập nhật ảnh đại diện thành công")
+                        .error(null)
+                        .build()
+        );
+    }
+
+    /**
+     * Xóa ảnh đại diện của người đang đăng nhập. Tệp cũ chỉ bị xóa sau khi DB
+     * đã commit; không có ảnh thì vẫn trả về thành công (idempotent).
+     */
+    @Transactional
+    public ResponseEntity<ResponseData<NguoiDungDto>> removeMyAvatar() {
+        NguoiDung nguoiDung = getCurrentUserFromContext();
+        TepTin tepTinCu = nguoiDung.getAvatarTepTin();
+
+        nguoiDung.setAvatarTepTin(null);
+        nguoiDung = nguoiDungRepository.save(nguoiDung);
+
+        cleanupOldAvatarAfterCommit(tepTinCu);
+
+        NguoiDungDto dto = nguoiDungMapper.toDto(nguoiDung);
+        fillKhoPhuTrachActive(dto, nguoiDung);
+
+        return ResponseEntity.ok(
+                ResponseData.<NguoiDungDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(dto)
+                        .message("Xóa ảnh đại diện thành công")
+                        .error(null)
+                        .build()
+        );
+    }
+
+    /**
+     * Xóa ảnh cũ sau khi DB đã commit (MinIO không rollback theo transaction).
+     * - Kiểm tra không còn người dùng nào tham chiếu tệp cũ mới xóa (tránh xóa
+     *   tệp đang được chia sẻ hoặc đang được request song song giữ làm ảnh hiện tại).
+     * - Lỗi dọn dẹp chỉ log cảnh báo, KHÔNG làm response của lần lưu đã thành công
+     *   bị báo lỗi.
+     */
+    private void cleanupOldAvatarAfterCommit(TepTin tepTinCu) {
+        Runnable cleanup = () -> {
+            if (tepTinCu == null) {
+                return;
+            }
+            try {
+                if (nguoiDungRepository.existsByAvatarTepTinId(tepTinCu.getId())) {
+                    // Vẫn còn người dùng tham chiếu tệp cũ -> giữ nguyên
+                    return;
+                }
+                tepTinService.hardDeleteNoMessage(tepTinCu.getId());
+            } catch (Exception e) {
+                logger.warn("Không xóa được ảnh đại diện cũ (tep_tin id {}): {}",
+                        tepTinCu.getId(), e.getMessage());
+            }
+        };
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    cleanup.run();
+                }
+            });
+        } else {
+            // Không có transaction đang hoạt động (vd. unit test) -> chạy trực tiếp
+            cleanup.run();
+        }
+    }
+
 
     public ResponseEntity<ResponseData<String>> forgotPassword(ForgotPasswordRequest fpRequest) {
         NguoiDung nguoiDung = nguoiDungRepository.findByTenDangNhapOrEmailOrSoDienThoai(
@@ -406,10 +572,11 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             }
         }
 
-        if (request.getSoDienThoai() != null && !request.getSoDienThoai().isBlank()) {
-            if (nguoiDungRepository.existsBySoDienThoai(request.getSoDienThoai())) {
-                throw new CommonException("Số điện thoại đã tồn tại");
-            }
+        // SĐT tùy chọn: blank -> null; có giá trị thì phải đúng định dạng rồi mới kiểm tra trùng
+        String soDienThoai = normalizePhone(request.getSoDienThoai());
+        validatePhone(soDienThoai);
+        if (soDienThoai != null && nguoiDungRepository.existsBySoDienThoai(soDienThoai)) {
+            throw new CommonException("Số điện thoại đã tồn tại");
         }
 
         NguoiDung nguoiDung = new NguoiDung();
@@ -420,11 +587,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                         : null
         );
         nguoiDung.setHoTen(request.getHoTen());
-        nguoiDung.setSoDienThoai(
-                request.getSoDienThoai() != null && !request.getSoDienThoai().isBlank()
-                        ? request.getSoDienThoai()
-                        : null
-        );
+        nguoiDung.setSoDienThoai(soDienThoai);
         nguoiDung.setVaiTro(request.getVaiTro().toString());
         nguoiDung.setTrangThai(1);
         nguoiDung.setMatKhauHash(passwordEncoder.encode(request.getMatKhau()));

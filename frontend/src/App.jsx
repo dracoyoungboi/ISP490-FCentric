@@ -82,6 +82,7 @@ import PurchaseOrderPrint from "./pages/order/PurchaseOrderPrint";
 import PrintTemplatesPage from "./pages/settings/PrintTemplatesPage";
 import PrintTemplateDetailPage from "./pages/settings/PrintTemplateDetailPage";
 import PrintTemplateEditorPage from "./pages/settings/PrintTemplateEditorPage";
+import RequireRole from "./components/auth/RequireRole";
 
 export default function App() {
   return (
@@ -205,12 +206,27 @@ export default function App() {
           {/*Lịch sử giao dịch kho */}
           <Route path="/lich-su-giao-dich-kho" element={<LichSuGiaoDichKhoList />} />
 
-          {/* Cấu hình mẫu in — mỗi loại chứng từ có schema + mẫu riêng */}
-          <Route path="/settings/print-templates" element={<PrintTemplatesPage />} />
-          <Route path="/settings/print-templates/:documentType" element={<PrintTemplateDetailPage />} />
-          <Route path="/settings/print-templates/:documentType/:templateId" element={<PrintTemplateDetailPage />} />
-          <Route path="/settings/print-templates/:documentType/edit" element={<PrintTemplateEditorPage />} />
-          <Route path="/settings/print-templates/:documentType/:templateId/edit" element={<PrintTemplateEditorPage />} />
+          {/* Cấu hình mẫu in — mỗi loại chứng từ có schema + mẫu riêng.
+              Chỉ quan_tri_vien / quan_ly_kho được cấu hình (frontend guard là UX,
+              backend @RequireAuth là chốt chặn thật). Trang chính nhúng preview;
+              route /:documentType/:templateId giữ trang xem trước cũ cho deep-link. */}
+          <Route
+            element={
+              <RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />
+            }
+          >
+            <Route path="/settings/print-templates" element={<PrintTemplatesPage />} />
+            {/* Deep-link cũ của trang hồ sơ công ty — chuyển hướng về trang
+                cấu hình mẫu in và mở hộp thoại "Thông tin công ty" */}
+            <Route
+              path="/settings/company-profile"
+              element={<Navigate to="/settings/print-templates?action=company" replace />}
+            />
+            <Route path="/settings/print-templates/:documentType" element={<PrintTemplatesPage />} />
+            <Route path="/settings/print-templates/:documentType/:templateId" element={<PrintTemplateDetailPage />} />
+            <Route path="/settings/print-templates/:documentType/edit" element={<PrintTemplateEditorPage />} />
+            <Route path="/settings/print-templates/:documentType/:templateId/edit" element={<PrintTemplateEditorPage />} />
+          </Route>
 
           </Route>
 

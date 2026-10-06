@@ -9,6 +9,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 
 import UserAvatar from "@/components/UserAvatar";
+import { useCurrentUserAvatarUrl } from "@/utils/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -50,6 +51,10 @@ export default function BackofficeHeader({ title, subtitle, routeKey }) {
       console.error("Invalid token", error);
     }
   }
+
+  // Ảnh đại diện lấy từ cache hồ sơ (login response / GET /me) — tự cập nhật
+  // ngay khi đổi ảnh mà không cần đăng nhập lại
+  const avatarUrl = useCurrentUserAvatarUrl(userId);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -109,7 +114,7 @@ export default function BackofficeHeader({ title, subtitle, routeKey }) {
               className="h-10 max-w-[220px] shrink-0 gap-2 px-2 text-bo-foreground hover:bg-slate-100"
               aria-label="Mở menu tài khoản"
             >
-              <UserAvatar userId={userId} name={username} size="xs" />
+              <UserAvatar userId={userId} name={username} avatarUrl={avatarUrl} size="xs" />
 
               <span className="hidden min-w-0 text-left sm:block">
                 <span className="block truncate text-sm font-semibold leading-4">

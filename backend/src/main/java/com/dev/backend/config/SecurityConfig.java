@@ -85,7 +85,7 @@ public class SecurityConfig implements WebMvcConfigurer {
         registry.addMapping("/**")
                 // allow all origins, methods, and headers
                 .allowedOrigins("*")
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                 .allowedHeaders("*");
     }
 }

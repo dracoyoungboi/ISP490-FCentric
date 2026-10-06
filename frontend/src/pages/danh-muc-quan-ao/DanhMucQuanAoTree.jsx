@@ -314,61 +314,61 @@ const DanhMucQuanAoTree = () => {
 
   // ── Render create form ────────────────────────────────────────────────────
   const renderCreateForm = (parentId) => (
-      <div className={`my-2 ${parentId !== 'root' ? 'pl-5' : ''}`}>
-        <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-4 shadow-sm">
-          <p className="mb-3 text-sm font-semibold text-bo-foreground">
-            {parentId === 'root' ? 'Thêm danh mục gốc mới' : 'Thêm danh mục con'}
-          </p>
-          <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-bo-muted">Mã danh mục *</label>
-              <Input
-                  value={createForm.maDanhMuc}
-                  onChange={(e) => setCreateForm({ ...createForm, maDanhMuc: e.target.value })}
-                  placeholder="VD: DM001"
-                  className="h-8 border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-                  autoFocus
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-bo-muted">Tên danh mục *</label>
-              <Input
-                  value={createForm.tenDanhMuc}
-                  onChange={(e) => setCreateForm({ ...createForm, tenDanhMuc: e.target.value })}
-                  placeholder="VD: Áo thun"
-                  className="h-8 border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-              />
-            </div>
-          </div>
-          <div className="mb-3 space-y-1">
-            <label className="text-xs font-medium text-bo-muted">Mô tả</label>
-            <textarea
-                value={createForm.moTa}
-                onChange={(e) => setCreateForm({ ...createForm, moTa: e.target.value })}
-                placeholder="Nhập mô tả..."
-                rows={2}
-                className="w-full resize-none rounded-md border border-bo-border bg-white px-3 py-2 text-sm text-bo-foreground outline-none placeholder:text-bo-muted focus:border-bo-primary"
+    <div className={`my-2 ${parentId !== 'root' ? 'pl-5' : ''}`}>
+      <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-4 shadow-sm">
+        <p className="mb-3 text-sm font-semibold text-bo-foreground">
+          {parentId === 'root' ? 'Thêm danh mục gốc mới' : 'Thêm danh mục con'}
+        </p>
+        <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-bo-muted">Mã danh mục *</label>
+            <Input
+              value={createForm.maDanhMuc}
+              onChange={(e) => setCreateForm({ ...createForm, maDanhMuc: e.target.value })}
+              placeholder="VD: DM001"
+              className="h-8 border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+              autoFocus
             />
           </div>
-          <div className="flex justify-end gap-2">
-            <Button
-                size="sm"
-                variant="outline"
-                onClick={handleCancelCreate}
-                className="h-8 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-            >
-              <X className="size-3.5" /> Hủy
-            </Button>
-            <Button
-                size="sm"
-                onClick={handleSaveCreate}
-                className="h-8 gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
-            >
-              <Save className="size-3.5" /> Lưu
-            </Button>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-bo-muted">Tên danh mục *</label>
+            <Input
+              value={createForm.tenDanhMuc}
+              onChange={(e) => setCreateForm({ ...createForm, tenDanhMuc: e.target.value })}
+              placeholder="VD: Áo thun"
+              className="h-8 border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+            />
           </div>
         </div>
+        <div className="mb-3 space-y-1">
+          <label className="text-xs font-medium text-bo-muted">Mô tả</label>
+          <textarea
+            value={createForm.moTa}
+            onChange={(e) => setCreateForm({ ...createForm, moTa: e.target.value })}
+            placeholder="Nhập mô tả..."
+            rows={2}
+            className="w-full resize-none rounded-md border border-bo-border bg-white px-3 py-2 text-sm text-bo-foreground outline-none placeholder:text-bo-muted focus:border-bo-primary"
+          />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleCancelCreate}
+            className="h-8 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+          >
+            <X className="size-3.5" /> Hủy
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleSaveCreate}
+            className="h-8 gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
+          >
+            <Save className="size-3.5" /> Lưu
+          </Button>
+        </div>
       </div>
+    </div>
   );
 
   // ── Render node ───────────────────────────────────────────────────────────
@@ -391,254 +391,251 @@ const DanhMucQuanAoTree = () => {
     const isInactive = Number(node.trangThai) === 0;
 
     return (
-        <div key={node.id} className={LEVEL_INDENT_CLASSES[Math.min(level, LEVEL_INDENT_CLASSES.length - 1)]}>
-          {/* Moi cap trong cay se thut vao 20px de the hien quan he cap bac. */}
+      <div key={node.id} className={LEVEL_INDENT_CLASSES[Math.min(level, LEVEL_INDENT_CLASSES.length - 1)]}>
+        {/* Moi cap trong cay se thut vao 20px de the hien quan he cap bac. */}
+        <div
+          draggable={!isEditing}
+          onDragStart={(e) => handleDragStart(e, node, parentId)}
+          onDragOver={(e) => handleDragOver(e, node)}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => handleDrop(e, node)}
+          className={`my-1 rounded-lg border transition-colors ${isDragOver ? 'border-bo-primary bg-bo-primary-soft' : 'border-transparent'
+            }`}
+        >
+          {/* Node row */}
           <div
-              draggable={!isEditing}
-              onDragStart={(e) => handleDragStart(e, node, parentId)}
-              onDragOver={(e) => handleDragOver(e, node)}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, node)}
-              className={`my-1 rounded-lg border transition-colors ${
-                isDragOver ? 'border-bo-primary bg-bo-primary-soft' : 'border-transparent'
-              }`}
+            className={`group flex items-center justify-between gap-2 rounded-lg border bg-white px-3 py-2 shadow-sm transition-colors ${isEditing
+                ? 'cursor-default border-bo-primary'
+                : 'cursor-move border-bo-border hover:border-bo-primary/40'
+              } ${isInactive ? 'border-bo-border bg-bo-surface-subtle opacity-55' : ''}`}
           >
-            {/* Node row */}
-            <div
-                className={`group flex items-center justify-between gap-2 rounded-lg border bg-white px-3 py-2 shadow-sm transition-colors ${
-                  isEditing
-                    ? 'cursor-default border-bo-primary'
-                    : 'cursor-move border-bo-border hover:border-bo-primary/40'
-                } ${isInactive ? 'border-bo-border bg-bo-surface-subtle opacity-55' : ''}`}
-            >
-              {/* Left */}
-              <div className="flex min-w-0 flex-1 items-center gap-2">
-                <GripVertical className="size-4 shrink-0 text-slate-300 group-hover:text-slate-400" />
+            {/* Left */}
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <GripVertical className="size-4 shrink-0 text-slate-300 group-hover:text-slate-400" />
 
-                {(hasChildren || isCreating) ? (
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          toggleExpand(node.id);
-                        }}
-                        className="flex size-5 shrink-0 items-center justify-center rounded text-bo-muted transition-colors hover:bg-bo-primary-soft hover:text-bo-primary"
-                    >
-                      {isExpanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-                    </button>
-                ) : (
-                    <div className="w-5 shrink-0" />
-                )}
+              {(hasChildren || isCreating) ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleExpand(node.id);
+                  }}
+                  className="flex size-5 shrink-0 items-center justify-center rounded text-bo-muted transition-colors hover:bg-bo-primary-soft hover:text-bo-primary"
+                >
+                  {isExpanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+                </button>
+              ) : (
+                <div className="w-5 shrink-0" />
+              )}
 
-                {isExpanded && (hasChildren || isCreating)
-                    ? <FolderOpen className="size-4 shrink-0 text-bo-primary" />
-                    : <Folder className="size-4 shrink-0 text-bo-primary" />
-                }
+              {isExpanded && (hasChildren || isCreating)
+                ? <FolderOpen className="size-4 shrink-0 text-bo-primary" />
+                : <Folder className="size-4 shrink-0 text-bo-primary" />
+              }
 
-                {isEditing ? (
-                    <Input
-                        value={editForm.tenDanhMuc}
-                        onChange={(e) => setEditForm({ ...editForm, tenDanhMuc: e.target.value })}
-                        className="h-8 min-w-0 flex-1 border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-                        autoFocus
-                    />
-                ) : (
-                    <span className="truncate text-sm font-semibold text-bo-foreground">{node.tenDanhMuc}</span>
-                )}
+              {isEditing ? (
+                <Input
+                  value={editForm.tenDanhMuc}
+                  onChange={(e) => setEditForm({ ...editForm, tenDanhMuc: e.target.value })}
+                  className="h-8 min-w-0 flex-1 border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+                  autoFocus
+                />
+              ) : (
+                <span className="truncate text-sm font-semibold text-bo-foreground">{node.tenDanhMuc}</span>
+              )}
 
-                <span className="shrink-0 font-mono text-xs text-bo-muted">({node.maDanhMuc})</span>
+              <span className="shrink-0 font-mono text-xs text-bo-muted">({node.maDanhMuc})</span>
 
-                {level === 0 && (
-                    <span className="ml-1 inline-flex shrink-0 items-center rounded-full border border-bo-border bg-bo-surface-subtle px-2 py-0.5 text-[10px] font-semibold text-bo-muted">
+              {level === 0 && (
+                <span className="ml-1 inline-flex shrink-0 items-center rounded-full border border-bo-border bg-bo-surface-subtle px-2 py-0.5 text-[10px] font-semibold text-bo-muted">
                   Gốc
                 </span>
-                )}
-              </div>
-
-              {/* Actions */}
-              <div className="ml-2 flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                {isEditing ? (
-                    <>
-                      <button
-                          onClick={handleSaveEdit}
-                          className="inline-flex size-7 items-center justify-center rounded-md text-bo-success transition-colors hover:bg-bo-success-soft"
-                          title="Lưu"
-                      >
-                        <Save className="size-3.5" />
-                      </button>
-                      <button
-                          onClick={() => setEditingNode(null)}
-                          className="inline-flex size-7 items-center justify-center rounded-md text-bo-muted transition-colors hover:bg-slate-100"
-                          title="Hủy"
-                      >
-                        <X className="size-3.5" />
-                      </button>
-                    </>
-                ) : (
-                    <>
-                      <button
-                          onClick={() => handleAddChild(node)}
-                          className="inline-flex size-7 items-center justify-center rounded-md text-bo-primary transition-colors hover:bg-bo-primary-soft"
-                          title="Thêm danh mục con"
-                      >
-                        <Plus className="size-3.5" />
-                      </button>
-                      <button
-                          onClick={() => handleEdit(node, parentId)}
-                          className="inline-flex size-7 items-center justify-center rounded-md text-slate-600 transition-colors hover:bg-slate-100"
-                          title="Sửa"
-                      >
-                        <Edit className="size-3.5" />
-                      </button>
-                      <button
-                          onClick={() => confirmDelete(node)}
-                          className="inline-flex size-7 items-center justify-center rounded-md text-bo-danger transition-colors hover:bg-bo-danger-soft"
-                          title="Xóa mềm"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
-                    </>
-                )}
-              </div>
+              )}
             </div>
 
-            {/* Mô tả & inline edit */}
-            {node.moTa && !isEditing && (
-                <p className="mt-1 pl-[72px] text-xs italic text-bo-muted">{node.moTa}</p>
-            )}
-            {isEditing && (
-                <div className="mt-1 pl-[72px] pr-3">
-                  <textarea
-                      value={editForm.moTa || ''}
-                      onChange={(e) => setEditForm({ ...editForm, moTa: e.target.value })}
-                      placeholder="Mô tả..."
-                      rows={2}
-                      className="w-full resize-none rounded-md border border-bo-border bg-white px-3 py-1.5 text-xs text-bo-foreground outline-none placeholder:text-bo-muted focus:border-bo-primary"
-                  />
-                </div>
-            )}
+            {/* Actions */}
+            <div className="ml-2 flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+              {isEditing ? (
+                <>
+                  <button
+                    onClick={handleSaveEdit}
+                    className="inline-flex size-7 items-center justify-center rounded-md text-bo-success transition-colors hover:bg-bo-success-soft"
+                    title="Lưu"
+                  >
+                    <Save className="size-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setEditingNode(null)}
+                    className="inline-flex size-7 items-center justify-center rounded-md text-bo-muted transition-colors hover:bg-slate-100"
+                    title="Hủy"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => handleAddChild(node)}
+                    className="inline-flex size-7 items-center justify-center rounded-md text-bo-primary transition-colors hover:bg-bo-primary-soft"
+                    title="Thêm danh mục con"
+                  >
+                    <Plus className="size-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleEdit(node, parentId)}
+                    className="inline-flex size-7 items-center justify-center rounded-md text-slate-600 transition-colors hover:bg-slate-100"
+                    title="Sửa"
+                  >
+                    <Edit className="size-3.5" />
+                  </button>
+                  <button
+                    onClick={() => confirmDelete(node)}
+                    className="inline-flex size-7 items-center justify-center rounded-md text-bo-danger transition-colors hover:bg-bo-danger-soft"
+                    title="Xóa mềm"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </>
+              )}
+            </div>
           </div>
 
-          {/* ── Danh sách con & form tạo con ── */}
-          {isExpanded && (
-              <div className="mt-1">
-                {/* Chỉ render danh sách con khi node đang mở (isExpanded=true)
-                → tránh render toàn bộ cây cùng lúc, tối ưu hiệu năng DOM. */}
-                {allChildren.map((child) => renderNode(child, level + 1, node.id))}
-                {/* Form tạo con xuất hiện ngay dưới cùng của danh sách con khi đang tạo mới. */}
-                {isCreating && renderCreateForm(node.id)}
-              </div>
+          {/* Mô tả & inline edit */}
+          {node.moTa && !isEditing && (
+            <p className="mt-1 pl-[72px] text-xs italic text-bo-muted">{node.moTa}</p>
+          )}
+          {isEditing && (
+            <div className="mt-1 pl-[72px] pr-3">
+              <textarea
+                value={editForm.moTa || ''}
+                onChange={(e) => setEditForm({ ...editForm, moTa: e.target.value })}
+                placeholder="Mô tả..."
+                rows={2}
+                className="w-full resize-none rounded-md border border-bo-border bg-white px-3 py-1.5 text-xs text-bo-foreground outline-none placeholder:text-bo-muted focus:border-bo-primary"
+              />
+            </div>
           )}
         </div>
+
+        {/* ── Danh sách con & form tạo con ── */}
+        {isExpanded && (
+          <div className="mt-1">
+            {/* Chỉ render danh sách con khi node đang mở (isExpanded=true)
+                → tránh render toàn bộ cây cùng lúc, tối ưu hiệu năng DOM. */}
+            {allChildren.map((child) => renderNode(child, level + 1, node.id))}
+            {/* Form tạo con xuất hiện ngay dưới cùng của danh sách con khi đang tạo mới. */}
+            {isCreating && renderCreateForm(node.id)}
+          </div>
+        )}
+      </div>
     );
   };
 
   return (
-      <PageContainer className="space-y-5">
-        <PageHeader
-            title="Danh mục sản phẩm"
-            description="Kéo và thả để thay đổi mối quan hệ cha – con"
-            actions={
-              <>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={fetchTreeData}
-                    disabled={isLoading}
-                    className="h-9 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                >
-                  <RefreshCcw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
-                  Làm mới
-                </Button>
-                <Button
-                    size="sm"
-                    onClick={handleAddRoot}
-                    className="h-9 gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
-                >
-                  <Plus className="size-4" />
-                  Thêm danh mục gốc
-                </Button>
-              </>
-            }
+    <PageContainer className="space-y-5">
+      <PageHeader
+        title="Danh mục sản phẩm"
+        description="Kéo và thả để thay đổi mối quan hệ cha – con"
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchTreeData}
+              disabled={isLoading}
+              className="h-9 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
+            >
+              <RefreshCcw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
+              Làm mới
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleAddRoot}
+              className="h-9 gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
+            >
+              <Plus className="size-4" />
+              Thêm danh mục gốc
+            </Button>
+          </>
+        }
+      />
+
+      {/* ── Stats ── */}
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatTile
+          icon={<Tag className="size-4" />}
+          iconClass="bg-bo-primary-soft text-bo-primary"
+          label="Tổng danh mục"
+          value={stats.total}
         />
-
-        {/* ── Stats ── */}
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <StatTile
-              icon={<Tag className="size-4" />}
-              iconClass="bg-bo-primary-soft text-bo-primary"
-              label="Tổng danh mục"
-              value={stats.total}
-          />
-          <StatTile
-              icon={<Folder className="size-4" />}
-              iconClass="bg-bo-success-soft text-bo-success"
-              label="Danh mục gốc"
-              value={stats.root}
-          />
-          <StatTile
-              icon={<Layers className="size-4" />}
-              iconClass="bg-bo-warning-soft text-bo-warning"
-              label="Danh mục con"
-              value={stats.sub}
-          />
-        </section>
-
-        {/* ── Main tree ── */}
-        <SurfaceCard>
-          {/* Drop-to-root zone */}
-          <div
-              onDragOver={(e) => { e.preventDefault(); setDragOverNode('root'); }}
-              onDragLeave={() => setDragOverNode(null)}
-              onDrop={handleDropToRoot}
-              className={`min-h-[400px] rounded-lg border border-dashed p-3 transition-colors ${
-                dragOverNode === 'root' ? 'border-bo-primary bg-bo-primary-soft' : 'border-bo-border bg-bo-surface-subtle'
-              }`}
-          >
-            {isLoading && treeData.length === 0 && creatingNode === null ? (
-                <LoadingState rows={4} />
-            ) : (
-                <>
-                  {creatingNode === 'root' && renderCreateForm('root')}
-
-                  {treeData.filter(node => node.trangThai !== 0).length === 0 && creatingNode !== 'root' ? (
-                      <EmptyState
-                          icon={Tag}
-                          title="Chưa có danh mục nào"
-                          description='Nhấn "Thêm danh mục gốc" để bắt đầu'
-                      />
-                  ) : (
-                      // Render toàn bộ node gốc (level=0, parentId=null).
-                      // Mỗi node tự đệ quy render node con thông qua renderNode(child, level+1, node.id).
-                      // Chỉ hiển thị danh mục gốc đang hoạt động (trangThai !== 0)
-                      treeData.filter(node => node.trangThai !== 0).map((node) => renderNode(node, 0, null))
-                  )}
-                </>
-            )}
-          </div>
-        </SurfaceCard>
-
-        {/* ── Delete Confirm Modal ── */}
-        <ConfirmModal
-            isOpen={deleteModal.show}
-            onClose={() => setDeleteModal({ show: false })}
-            onConfirm={handleDelete}
-            title="Xác nhận xóa danh mục"
-            description={
-              <>
-                Bạn có chắc chắn muốn xóa{" "}
-                <strong className="font-semibold text-bo-foreground">"{deleteModal.nodeName}"</strong>?
-                <span className="mt-1 block text-xs font-medium text-bo-danger">
-                  Danh mục sẽ được chuyển sang trạng thái ngừng hoạt động và vẫn hiển thị mờ trong danh sách.
-                </span>
-              </>
-            }
-            confirmText="Xác nhận xóa"
-            cancelText="Hủy"
-            variant="danger"
+        <StatTile
+          icon={<Folder className="size-4" />}
+          iconClass="bg-bo-success-soft text-bo-success"
+          label="Danh mục gốc"
+          value={stats.root}
         />
-      </PageContainer>
+        <StatTile
+          icon={<Layers className="size-4" />}
+          iconClass="bg-bo-warning-soft text-bo-warning"
+          label="Danh mục con"
+          value={stats.sub}
+        />
+      </section>
+
+      {/* ── Main tree ── */}
+      <SurfaceCard>
+        {/* Drop-to-root zone */}
+        <div
+          onDragOver={(e) => { e.preventDefault(); setDragOverNode('root'); }}
+          onDragLeave={() => setDragOverNode(null)}
+          onDrop={handleDropToRoot}
+          className={`min-h-[400px] rounded-lg border border-dashed p-3 transition-colors ${dragOverNode === 'root' ? 'border-bo-primary bg-bo-primary-soft' : 'border-bo-border bg-bo-surface-subtle'
+            }`}
+        >
+          {isLoading && treeData.length === 0 && creatingNode === null ? (
+            <LoadingState />
+          ) : (
+            <>
+              {creatingNode === 'root' && renderCreateForm('root')}
+
+              {treeData.filter(node => node.trangThai !== 0).length === 0 && creatingNode !== 'root' ? (
+                <EmptyState
+                  icon={Tag}
+                  title="Chưa có danh mục nào"
+                  description='Nhấn "Thêm danh mục gốc" để bắt đầu'
+                />
+              ) : (
+                // Render toàn bộ node gốc (level=0, parentId=null).
+                // Mỗi node tự đệ quy render node con thông qua renderNode(child, level+1, node.id).
+                // Chỉ hiển thị danh mục gốc đang hoạt động (trangThai !== 0)
+                treeData.filter(node => node.trangThai !== 0).map((node) => renderNode(node, 0, null))
+              )}
+            </>
+          )}
+        </div>
+      </SurfaceCard>
+
+      {/* ── Delete Confirm Modal ── */}
+      <ConfirmModal
+        isOpen={deleteModal.show}
+        onClose={() => setDeleteModal({ show: false })}
+        onConfirm={handleDelete}
+        title="Xác nhận xóa danh mục"
+        description={
+          <>
+            Bạn có chắc chắn muốn xóa{" "}
+            <strong className="font-semibold text-bo-foreground">"{deleteModal.nodeName}"</strong>?
+            <span className="mt-1 block text-xs font-medium text-bo-danger">
+              Danh mục sẽ được chuyển sang trạng thái ngừng hoạt động và vẫn hiển thị mờ trong danh sách.
+            </span>
+          </>
+        }
+        confirmText="Xác nhận xóa"
+        cancelText="Hủy"
+        variant="danger"
+      />
+    </PageContainer>
   );
 };
 
@@ -647,15 +644,15 @@ const DanhMucQuanAoTree = () => {
 ══════════════════════════════════════════════════ */
 function StatTile({ icon, iconClass, label, value }) {
   return (
-      <div className="rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-xs font-medium text-bo-muted">{label}</span>
-          <span className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${iconClass}`}>
-            {icon}
-          </span>
-        </div>
-        <p className="mt-3 text-2xl font-bold tracking-tight text-bo-foreground">{value}</p>
+    <div className="rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs font-medium text-bo-muted">{label}</span>
+        <span className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${iconClass}`}>
+          {icon}
+        </span>
       </div>
+      <p className="mt-3 text-2xl font-bold tracking-tight text-bo-foreground">{value}</p>
+    </div>
   );
 }
 

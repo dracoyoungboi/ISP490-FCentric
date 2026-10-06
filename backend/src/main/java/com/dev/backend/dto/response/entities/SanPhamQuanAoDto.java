@@ -32,6 +32,7 @@ public class SanPhamQuanAoDto implements Serializable {
     Instant ngayTao;
     Instant ngayCapNhat;
     DanhMucQuanAoDto danhMuc;
+    ThuongHieuDto thuongHieu;
     List<AnhQuanAoDto> anhQuanAos;
     List<BienTheSanPhamDto> bienTheSanPhams;
 }

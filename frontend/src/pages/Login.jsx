@@ -23,17 +23,44 @@ const LINK_MUTED = 'text-sm font-medium text-gray-500 hover:text-black hover:und
 export default function AuthPage() {
     const navigate = useNavigate();
 
-    // Đã có token thì vào thẳng dashboard (đồng bộ với redirect của App.jsx)
+    // Chỉ chuyển vào dashboard nếu token còn hạn; xóa token lỗi/hết hạn để không bị bounce.
     useEffect(() => {
-        if (localStorage.getItem('access_token')) navigate('/dashboard');
+        const token = localStorage.getItem('access_token');
+        if (!token) return;
+
+        try {
+            const decoded = jwtDecode(token);
+            const expiresAt = Number(decoded?.exp) * 1000;
+
+            if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+                nguoiDungService.logout();
+                sessionStorage.setItem(
+                    'session_expired_message',
+                    'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
+                );
+                return;
+            }
+
+            navigate('/dashboard', { replace: true });
+        } catch {
+            nguoiDungService.logout();
+            sessionStorage.setItem(
+                'session_expired_message',
+                'Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.'
+            );
+        }
     }, [navigate]);
 
     // Thông báo "tài khoản bị khóa" từ lần logout cưỡng bức (apiClient) — đọc 1 lần rồi xóa
     useEffect(() => {
         const lockedMessage = sessionStorage.getItem('account_locked_message');
+        const expiredMessage = sessionStorage.getItem('session_expired_message');
         if (lockedMessage) {
             sessionStorage.removeItem('account_locked_message');
             setErrors({ general: lockedMessage });
+        } else if (expiredMessage) {
+            sessionStorage.removeItem('session_expired_message');
+            setErrors({ general: expiredMessage });
         }
     }, []);
 

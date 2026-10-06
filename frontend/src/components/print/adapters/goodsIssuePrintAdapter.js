@@ -25,6 +25,13 @@ const dashDate = (value) => (value ? formatDate(value) : "—");
 const dashQuantity = (value) =>
     value === null || value === undefined ? "—" : formatNumber(value);
 
+/** Số gốc (chưa định dạng) để tính tổng — null khi thiếu, KHÔNG nhầm với 0. */
+const toNumeric = (value) => {
+    if (value === null || value === undefined || value === "") return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+};
+
 /**
  * @param {{phieu: object, chiTiet: Array, lotNameByLotId?: Record<number, string>,
  *          pickedLotsByDetailId?: Record<number, Array>}} payload
@@ -39,28 +46,30 @@ export function toGoodsIssuePrintModel(payload) {
         const base = {
             name: dash(item.tenBienThe),
             sku: dash(item.sku),
+            // SL yêu cầu = số lượng cần xuất theo phiếu; SL xuất = thực tế đã
+            // pick (theo lô hoặc soLuongDaPick) — hai giá trị riêng.
+            requestedQuantity: dashQuantity(item.soLuongCanXuat),
         };
+        const makeRow = (rawQuantity, lot) => ({
+            ...base,
+            lot,
+            quantity: dashQuantity(rawQuantity),
+            // Giữ SỐ GỐC để tính tổng chính xác — KHÔNG được tính tổng từ
+            // chuỗi đã định dạng ("1,5" parse thành 1, lỗi 1.5 + 2.5 = 3).
+            _rawQuantity: toNumeric(rawQuantity),
+        });
         const picks = pickedLotsByDetailId[item.id] || [];
         if (picks.length > 0) {
-            return picks.map((pick) => ({
-                ...base,
-                lot: dash(lotNameByLotId[pick.loHangId] ?? `#${pick.loHangId}`),
-                quantity: dashQuantity(pick.soLuongDaPick),
-            }));
+            return picks.map((pick) =>
+                makeRow(pick.soLuongDaPick, dash(lotNameByLotId[pick.loHangId] ?? `#${pick.loHangId}`))
+            );
         }
-        return [
-            {
-                ...base,
-                lot: "—",
-                quantity: dashQuantity(item.soLuongDaPick ?? item.soLuongCanXuat),
-            },
-        ];
+        return [makeRow(item.soLuongDaPick ?? item.soLuongCanXuat, "—")];
     });
 
-    const totalQuantity = items.reduce(
-        (sum, row) => sum + (parseFloat(String(row.quantity).replace(/\./g, "")) || 0),
-        0
-    );
+    // Tổng từ GIÁ TRỊ SỐ GỐC; thiếu dữ liệu (null) không cộng nhưng hiển thị
+    // "—" ở từng dòng — phân biệt được với số 0 hợp lệ.
+    const totalQuantity = items.reduce((sum, row) => sum + (row._rawQuantity ?? 0), 0);
 
     const status = GOODS_ISSUE_STATUS[phieu.trangThai] || GOODS_ISSUE_STATUS[0];
 

@@ -6,6 +6,7 @@ import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.dto.request.BienTheSanPhamCreating;
 import com.dev.backend.dto.request.BienTheSanPhamUpdating;
+import com.dev.backend.dto.request.SanPhamQuanAoBasicInfoUpdating;
 import com.dev.backend.dto.request.SanPhamQuanAoCreating;
 import com.dev.backend.dto.request.SanPhamQuanAoUpdating;
 import com.dev.backend.dto.response.ResponseData;
@@ -62,6 +63,8 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         private SizeService sizeService;
         @Autowired
         private ChatLieuService chatLieuService;
+        @Autowired
+        private ThuongHieuService thuongHieuService;
         @Autowired
         private NguoiDungService nguoiDungService;
         @Autowired
@@ -218,6 +221,18 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 sanPhamQuanAo.setDanhMuc(danhMucQuanAo);
                 sanPhamQuanAo.setNguoiTao(nguoiTao);
                 sanPhamQuanAo.setNgayTao(instantNow);
+
+                // Gán thương hiệu (nếu có). Sản phẩm mới = gán mới nên chỉ chấp nhận thương hiệu đang hoạt động.
+                if (creating.getThuongHieuId() != null) {
+                        ThuongHieu thuongHieu = thuongHieuService.getOne(creating.getThuongHieuId()).orElseThrow(
+                                () -> new CommonException("Thương hiệu không tồn tại id: " + creating.getThuongHieuId())
+                        );
+                        if (!Integer.valueOf(1).equals(thuongHieu.getTrangThai())) {
+                                throw new CommonException("Thương hiệu \"" + thuongHieu.getTenThuongHieu()
+                                        + "\" đang ngừng hoạt động, không thể gán cho sản phẩm mới");
+                        }
+                        sanPhamQuanAo.setThuongHieu(thuongHieu);
+                }
 
                 // Bước 2: Lưu sản phẩm cha trước để lấy id tham chiếu.
                 sanPhamQuanAo = create(sanPhamQuanAo);
@@ -403,7 +418,12 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 sanPhamQuanAo.setMoTa(updating.getMoTa());
                 sanPhamQuanAo.setMaVach(updating.getMaVach());
                 sanPhamQuanAo.setGiaVonMacDinh(updating.getGiaVonMacDinh());
+                sanPhamQuanAo.setMucTonToiThieu(updating.getMucTonToiThieu());
                 sanPhamQuanAo.setTrangThai(updating.getTrangThai());
+                // Thay đổi thương hiệu chỉ áp dụng khi FE gửi cờ capNhatThuongHieu = true
+                if (updating.isCapNhatThuongHieu()) {
+                        applyThuongHieu(sanPhamQuanAo, updating.getThuongHieuId());
+                }
                 sanPhamQuanAo = update(updating.getId(), sanPhamQuanAo);
                 if (updating.isImageUpdated()) {
                         //Lấy danh sách ID tệp tin để xóa file vật lý sau
@@ -521,6 +541,129 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 .data(sanPhamQuanAoMapper.toDto(sanPhamQuanAo))
                                 .message("Success")
                                 .build());
+        }
+
+        /**
+         * Cập nhật riêng thông tin cơ bản (không đụng giá/ảnh/biến thể/trạng thái).
+         * KHÔNG gọi recalculatePriceAndStatus để tránh giá/trạng thái bị tính lại theo tồn kho.
+         */
+        @Transactional
+        public SanPhamQuanAoDto updateBasicInfo(Integer id, SanPhamQuanAoBasicInfoUpdating dto) {
+                SanPhamQuanAo sp = getOne(id).orElseThrow(
+                        () -> new CommonException("Không tìm thấy sản phẩm id: " + id));
+
+                Map<String, Object> giaTriCu = new LinkedHashMap<>();
+                Map<String, Object> giaTriMoi = new LinkedHashMap<>();
+
+                if (dto.getTenSanPham() != null && !dto.getTenSanPham().isBlank()) {
+                        String ten = dto.getTenSanPham().trim();
+                        if (!ten.equals(sp.getTenSanPham())) {
+                                giaTriCu.put("tenSanPham", sp.getTenSanPham());
+                                giaTriMoi.put("tenSanPham", ten);
+                                sp.setTenSanPham(ten);
+                        }
+                }
+                if (dto.getMoTa() != null) {
+                        String moTa = blankToNull(dto.getMoTa());
+                        if (!Objects.equals(moTa, sp.getMoTa())) {
+                                giaTriCu.put("moTa", sp.getMoTa());
+                                giaTriMoi.put("moTa", moTa);
+                                sp.setMoTa(moTa);
+                        }
+                }
+                if (dto.getMaVach() != null) {
+                        String maVach = blankToNull(dto.getMaVach());
+                        if (!Objects.equals(maVach, sp.getMaVach())) {
+                                giaTriCu.put("maVach", sp.getMaVach());
+                                giaTriMoi.put("maVach", maVach);
+                                sp.setMaVach(maVach);
+                        }
+                }
+                if (dto.getDanhMucId() != null) {
+                        DanhMucQuanAo danhMuc = danhMucQuanAoService.getOne(dto.getDanhMucId()).orElseThrow(
+                                () -> new CommonException("Không tìm thấy danh mục quần áo id: " + dto.getDanhMucId())
+                        );
+                        if (!danhMuc.getId().equals(sp.getDanhMuc().getId())) {
+                                giaTriCu.put("danhMucId", sp.getDanhMuc().getId());
+                                giaTriMoi.put("danhMucId", danhMuc.getId());
+                                sp.setDanhMuc(danhMuc);
+                        }
+                }
+                if (dto.getMucTonToiThieu() != null && !dto.getMucTonToiThieu().equals(sp.getMucTonToiThieu())) {
+                        giaTriCu.put("mucTonToiThieu", sp.getMucTonToiThieu());
+                        giaTriMoi.put("mucTonToiThieu", dto.getMucTonToiThieu());
+                        sp.setMucTonToiThieu(dto.getMucTonToiThieu());
+                }
+                if (dto.isCapNhatThuongHieu()) {
+                        Integer oldId = sp.getThuongHieu() != null ? sp.getThuongHieu().getId() : null;
+                        Integer newId = dto.getThuongHieuId();
+                        if (!Objects.equals(oldId, newId)) {
+                                applyThuongHieu(sp, newId);
+                                giaTriCu.put("thuongHieuId", oldId);
+                                giaTriMoi.put("thuongHieuId", newId);
+                        }
+                }
+
+                sp = repository.save(sp);
+
+                // Ghi lịch sử thay đổi nếu thực sự có field được cập nhật
+                if (!giaTriMoi.isEmpty()) {
+                        saveLichSuBasicInfo(sp, giaTriCu, giaTriMoi);
+                }
+
+                return getDetail(id);
+        }
+
+        /**
+         * Áp dụng thay đổi thương hiệu cho sản phẩm:
+         * - null  -> gỡ liên kết (ON DELETE SET NULL tương ứng khi FE gửi null).
+         * - có id -> phải tồn tại và đang hoạt động, TRỪ KHI chính là thương hiệu hiện tại
+         *   (cho phép giữ nguyên liên kết cũ dù thương hiệu đã ngừng hoạt động).
+         */
+        private void applyThuongHieu(SanPhamQuanAo sp, Integer thuongHieuId) {
+                if (thuongHieuId == null) {
+                        sp.setThuongHieu(null);
+                        return;
+                }
+                ThuongHieu thuongHieu = thuongHieuService.getOne(thuongHieuId).orElseThrow(
+                        () -> new CommonException("Thương hiệu không tồn tại id: " + thuongHieuId)
+                );
+                boolean laThuongHieuHienTai = sp.getThuongHieu() != null
+                        && sp.getThuongHieu().getId().equals(thuongHieuId);
+                if (!Integer.valueOf(1).equals(thuongHieu.getTrangThai()) && !laThuongHieuHienTai) {
+                        throw new CommonException("Thương hiệu \"" + thuongHieu.getTenThuongHieu()
+                                + "\" đang ngừng hoạt động, không thể gán cho sản phẩm");
+                }
+                sp.setThuongHieu(thuongHieu);
+        }
+
+        private void saveLichSuBasicInfo(SanPhamQuanAo sp, Map<String, Object> giaTriCu, Map<String, Object> giaTriMoi) {
+                try {
+                        objectMapper.registerModule(new JavaTimeModule());
+                        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+                        NguoiDung nguoiTao = nguoiDungService.getOne(SecurityContextHolder.getUser().getId()).orElse(null);
+                        if (nguoiTao == null) {
+                                return;
+                        }
+                        lichSuThayDoiService.create(
+                                LichSuThayDoi.builder()
+                                        .loaiThamChieu(ITable.san_pham_quan_ao)
+                                        .idThamChieu(sp.getId())
+                                        .hanhDong(IHanhDong.cap_nhat_san_pham)
+                                        .giaTriCu(objectMapper.writeValueAsString(giaTriCu))
+                                        .giaTriMoi(objectMapper.writeValueAsString(giaTriMoi))
+                                        .nguoiThucHien(nguoiTao)
+                                        .ngayThucHien(Instant.now())
+                                        .ghiChu("Cập nhật thông tin cơ bản sản phẩm: " + sp.getMaSanPham())
+                                        .build()
+                        );
+                } catch (Exception e) {
+                        log.error("Lỗi lưu lịch sử cập nhật thông tin cơ bản", e);
+                }
+        }
+
+        private String blankToNull(String value) {
+                return value == null || value.isBlank() ? null : value.trim();
         }
 
         @Transactional(readOnly = true)

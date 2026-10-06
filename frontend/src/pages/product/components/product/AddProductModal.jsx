@@ -21,12 +21,15 @@ import { danhMucQuanAoService } from "@/services/danhMucQuanAoService.js";
 import * as yup from "yup";
 
 import FormSection from "@/components/shared/FormSection";
+import BrandSelector from "@/components/brand/BrandSelector";
+import { flattenCategoryTree } from "@/utils/danhMucTree";
 
 const addProductSchema = yup.object({
     tenSanPham: yup.string().required("Tên sản phẩm là bắt buộc"),
     maSanPham: yup.string().nullable(),
     maVach: yup.string(),
     danhMucId: yup.number().required("Danh mục là bắt buộc").typeError("Vui lòng chọn danh mục"),
+    thuongHieuId: yup.number().nullable(),
     moTa: yup.string(),
     giaVonMacDinh: yup.number().transform(value => (isNaN(value) ? 0 : value)).nullable(),
     giaBanMacDinh: yup.number().transform(value => (isNaN(value) ? 0 : value)).nullable(),
@@ -45,37 +48,6 @@ const addProductSchema = yup.object({
         })
     ).min(1, "Phải có ít nhất 1 biến thể")
 });
-
-/* ==========================================
-   LOGIC LÀM PHẲNG CÂY DANH MỤC
-   ========================================== */
-const flattenCategoryTree = (tree, level = 0) => {
-    let flatList = [];
-    if (!Array.isArray(tree)) return flatList;
-
-    tree.forEach(node => {
-        // CHỈ LẤY DANH MỤC CÓ TRẠNG THÁI BẰNG 1
-        if (node.trangThai === 1) {
-            // Tạo chuỗi thụt lề bằng Non-breaking space (\u00A0) để React/HTML không cắt mất
-            const indent = "\u00A0\u00A0\u00A0\u00A0".repeat(level);
-            const prefix = level > 0 ? `${indent}└─ ` : "";
-
-            flatList.push({
-                id: node.id,
-                tenDanhMuc: node.tenDanhMuc, // Tên gốc (dùng khi cần)
-                displayTitle: `${prefix}${node.tenDanhMuc}`, // Tên hiển thị trong Dropdown có nhánh cây
-                level: level
-            });
-
-            // Xử lý mảng danh mục con dựa theo DTO là "danhMucCons"
-            if (node.danhMucCons && Array.isArray(node.danhMucCons) && node.danhMucCons.length > 0) {
-                flatList = flatList.concat(flattenCategoryTree(node.danhMucCons, level + 1));
-            }
-        }
-    });
-    return flatList;
-};
-
 const CONTROL_CLASS =
     "border-bo-border bg-white text-bo-foreground placeholder:text-bo-muted focus-visible:border-bo-primary focus-visible:ring-bo-primary/15";
 const CONTROL_DISABLED_CLASS =
@@ -106,6 +78,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
             maSanPham: "",
             maVach: "",
             danhMucId: "",
+            thuongHieuId: null,
             moTa: "",
             giaVonMacDinh: 0,
             giaBanMacDinh: 0,
@@ -136,6 +109,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
             maSanPham: "",
             maVach: "",
             danhMucId: "",
+            thuongHieuId: null,
             moTa: "",
             giaVonMacDinh: 0,
             giaBanMacDinh: 0,
@@ -228,6 +202,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                 mucTonToiThieu: data.mucTonToiThieu,
                 moTa: data.moTa || "",
                 danhMucId: Number(data.danhMucId),
+                thuongHieuId: data.thuongHieuId ? Number(data.thuongHieuId) : null,
                 giaVonMacDinh: Number(data.giaVonMacDinh) || 0,
                 giaBanMacDinh: Number(data.giaBanMacDinh) || 0,
                 trangThai: Number(data.trangThai),
@@ -443,6 +418,25 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                             />
                                             {errors.danhMucId && (
                                                 <p className="text-xs text-bo-danger">{errors.danhMucId.message}</p>
+                                            )}
+                                        </div>
+
+                                        {/* Thương hiệu (không bắt buộc) */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="thuongHieuId">Thương hiệu</Label>
+                                            <Controller
+                                                name="thuongHieuId"
+                                                control={control}
+                                                render={({ field }) => (
+                                                    <BrandSelector
+                                                        value={field.value ?? null}
+                                                        onChange={(id) => field.onChange(id)}
+                                                        disabled={isSubmitting}
+                                                    />
+                                                )}
+                                            />
+                                            {errors.thuongHieuId && (
+                                                <p className="text-xs text-bo-danger">{errors.thuongHieuId.message}</p>
                                             )}
                                         </div>
 

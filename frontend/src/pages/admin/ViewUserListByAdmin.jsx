@@ -506,7 +506,7 @@ export default function ViewUserListByAdmin() {
 
                                     <td className="px-3 py-3 font-semibold text-bo-foreground">
                                         <div className="flex items-center gap-2.5">
-                                            <UserAvatar userId={u.id} name={u.hoTen || u.tenDangNhap} size="xs" />
+                                            <UserAvatar userId={u.id} name={u.hoTen || u.tenDangNhap} avatarUrl={u.avatarUrl} size="xs" />
                                             <span>{u.tenDangNhap}</span>
                                         </div>
                                     </td>

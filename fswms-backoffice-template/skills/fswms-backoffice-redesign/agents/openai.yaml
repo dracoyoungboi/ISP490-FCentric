@@ -1,5 +1,0 @@
-interface:
-  display_name: "FS WMS Backoffice Redesign"
-  short_description: "Safely redesign the FS WMS React backoffice"
-  brand_color: "#1677FF"
-  default_prompt: "Use $fswms-backoffice-redesign to redesign the next FS WMS backoffice module without changing its behavior."

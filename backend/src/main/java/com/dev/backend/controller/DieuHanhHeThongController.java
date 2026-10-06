@@ -3,9 +3,12 @@ package com.dev.backend.controller;
 import com.dev.backend.constant.variables.IPermissionType;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
+import com.dev.backend.dto.request.CauHinhHeThongBulkUpdateRequest;
+import com.dev.backend.dto.request.CauHinhHeThongUpdateRequest;
 import com.dev.backend.dto.request.GanVaiTro;
 import com.dev.backend.dto.request.PhanQuyenNguoiDungKhoCreating;
 import com.dev.backend.dto.response.ResponseData;
+import com.dev.backend.dto.response.entities.CauHinhHeThongDto;
 import com.dev.backend.dto.response.entities.QuyenHanDto;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.entities.PhanQuyenNguoiDungKho;
@@ -15,6 +18,8 @@ import com.dev.backend.services.impl.entities.NguoiDungService;
 import com.dev.backend.services.impl.entities.PhanQuyenNguoiDungKhoService;
 import com.dev.backend.services.impl.entities.QuyenHanService;
 import com.dev.backend.services.multitable.DieuHanhHeThongService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -64,7 +69,7 @@ class DieuHanhHeThongController {
     public ResponseEntity<ResponseData<String>> ganQuyenNhanVienKho(
             @RequestBody PhanQuyenNguoiDungKhoCreating pqndkCreating) {
 
-        return dieuHanhHeThongService. ganQuyenNhanVienKho(pqndkCreating);
+        return dieuHanhHeThongService.ganQuyenNhanVienKho(pqndkCreating);
     }
 
     //xoá quyền hạn của 1 user nào đó
@@ -98,7 +103,7 @@ class DieuHanhHeThongController {
     )
     public ResponseEntity<ResponseData<String>> ganVaiTro(
             @RequestBody GanVaiTro ganVaiTro) {
-        NguoiDung nguoiDung  = nguoiDungService.getOne(ganVaiTro.getId()).orElseThrow(
+        NguoiDung nguoiDung = nguoiDungService.getOne(ganVaiTro.getId()).orElseThrow(
                 () -> new CommonException("Không tìm thấy người dùng id: " + ganVaiTro.getId())
         );
         nguoiDung.setVaiTro(ganVaiTro.getVaiTro());
@@ -111,5 +116,56 @@ class DieuHanhHeThongController {
         );
     }
 
+    // Lấy danh sách toàn bộ cấu hình hệ thống
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    @GetMapping("/cau-hinh")
+    public ResponseEntity<ResponseData<List<CauHinhHeThongDto>>> getAllCauHinh() {
+        List<CauHinhHeThongDto> result = dieuHanhHeThongService.getAllCauHinh();
+        return ResponseEntity.ok(
+                ResponseData.<List<CauHinhHeThongDto>>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(result)
+                        .message("Lấy danh sách cấu hình thành công")
+                        .build()
+        );
+    }
 
+    // Cập nhật 1 thông số cấu hình cụ thể
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    @PutMapping("/cau-hinh/{maCauHinh}")
+    public ResponseEntity<ResponseData<CauHinhHeThongDto>> updateCauHinh(
+            @PathVariable String maCauHinh,
+            @Valid @RequestBody CauHinhHeThongUpdateRequest request,
+            HttpServletRequest httpRequest) {
+
+        Integer userId = (Integer) httpRequest.getAttribute("userId");
+        CauHinhHeThongDto result = dieuHanhHeThongService.updateCauHinh(maCauHinh, request, userId);
+
+        return ResponseEntity.ok(
+                ResponseData.<CauHinhHeThongDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(result)
+                        .message("Cập nhật cấu hình thành công")
+                        .build()
+        );
+    }
+
+    // Cập nhật hàng loạt cấu hình (Dùng cho giao diện Submit 1 lần nhiều params)
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    @PutMapping("/cau-hinh/bulk")
+    public ResponseEntity<ResponseData<List<CauHinhHeThongDto>>> bulkUpdateCauHinh(
+            @Valid @RequestBody List<CauHinhHeThongBulkUpdateRequest> requests,
+            HttpServletRequest httpRequest) {
+
+        Integer userId = (Integer) httpRequest.getAttribute("userId");
+        List<CauHinhHeThongDto> result = dieuHanhHeThongService.bulkUpdateCauHinh(requests, userId);
+
+        return ResponseEntity.ok(
+                ResponseData.<List<CauHinhHeThongDto>>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(result)
+                        .message("Cập nhật hàng loạt cấu hình thành công")
+                        .build()
+        );
+    }
 }

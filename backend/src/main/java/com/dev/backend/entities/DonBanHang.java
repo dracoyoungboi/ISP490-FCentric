@@ -104,6 +104,18 @@ public class DonBanHang {
     @Column(name = "ngay_cap_nhat")
     Instant ngayCapNhat;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "kenh_ban_id")
+    KenhBanHang kenhBanHang;
+
+    @Size(max = 100)
+    @Column(name = "ma_don_hang_kenh", length = 100)
+    String maDonHangKenh;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "danh_sach_nhat_hang_id")
+    DanhSachNhatHang danhSachNhatHang;
+
     @OneToMany(mappedBy = "donBanHang", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<ChiTietDonBanHang> chiTietDonBanHangs;
 }

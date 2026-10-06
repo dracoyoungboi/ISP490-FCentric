@@ -30,6 +30,11 @@ export const productService = {
     },
 
 
+    updateProductBasicInfo: (id, payload) => {
+        return apiClient.patch(`/api/v1/san-pham-quan-ao/${id}/basic-info`, payload);
+    },
+
+
     deleteProduct: (id) => {
         return apiClient.delete(`/api/v1/san-pham-quan-ao/soft-delete/${id}`);
     },

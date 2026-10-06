@@ -1,14 +1,18 @@
-import { Outlet, useLocation } from "react-router-dom";
+import { useEffect } from "react";
+import { Outlet, useLocation, useOutletContext } from "react-router-dom";
 import BackofficeSidebar from "./BackofficeSidebar";
 import BackofficeHeader from "./BackofficeHeader";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
-import useCheckPasswordStatus from "@/hooks/useCheckPasswordStatus";
 import "@/styles/print.css";
+
+const DEFAULT_DOCUMENT_TITLE =
+    "FCentric |  Quản lý kho & bán lẻ thời trang đa kênh";
 
 export default function BackofficeLayout() {
     const { pathname } = useLocation();
-    const { mustChangePassword, handlePasswordChangeSuccess } = useCheckPasswordStatus();
+    const { mustChangePassword, setMustChangePassword } = useOutletContext();
+    const handlePasswordChangeSuccess = () => setMustChangePassword(false);
 
     const PAGE_META_CONFIG = [
         {
@@ -142,7 +146,7 @@ export default function BackofficeLayout() {
             key: "PURCHASE_ORDERS",
             match: (path) => path === "/purchase-orders",
             title: "Đơn mua hàng",
-            subtitle: "Quản lý các đơn hàng nhập đã được xác nhận",
+            subtitle: "Danh sách các đơn hàng nhập đã được xác nhận",
         },
         {
             key: "TRANSFER_TICKETS",
@@ -208,7 +212,7 @@ export default function BackofficeLayout() {
             key: "SALES_ORDER_DETAIL",
             match: (path) => /^\/sales-orders\/\d+$/.test(path),
             title: "Chi tiết đơn bán hàng",
-            subtitle: "Xem chi tiết đơn bán hàng",
+            subtitle: "Xem chi tiết đơn hàng",
         },
         {
             key: "CREATE_SALES_ORDER",
@@ -366,7 +370,9 @@ export default function BackofficeLayout() {
         },
         {
             key: "PRINT_TEMPLATES",
-            match: (path) => path === "/settings/print-templates",
+            match: (path) =>
+                path === "/settings/print-templates" ||
+                /^\/settings\/print-templates\/[^/]+$/.test(path),
             title: "Cấu hình mẫu in",
             subtitle: "Xem các mẫu in có sẵn theo loại chứng từ",
         },
@@ -378,9 +384,7 @@ export default function BackofficeLayout() {
         },
         {
             key: "PRINT_TEMPLATE_DETAIL",
-            match: (path) =>
-                /^\/settings\/print-templates\/[^/]+$/.test(path) ||
-                /^\/settings\/print-templates\/[^/]+\/[^/]+$/.test(path),
+            match: (path) => /^\/settings\/print-templates\/[^/]+\/[^/]+$/.test(path),
             title: "Mẫu in",
             subtitle: "Xem trước mẫu in",
         },
@@ -389,6 +393,23 @@ export default function BackofficeLayout() {
     const pageMeta = PAGE_META_CONFIG.find((item) =>
         item.match(pathname)
     );
+
+    useEffect(() => {
+        const pageTitle =
+            pageMeta?.key === "WAREHOUSE"
+                ? "Quản lý kho hàng"
+                : pageMeta?.title;
+
+        document.title = pageTitle
+            ? `FCentric | ${pageTitle}`
+            : DEFAULT_DOCUMENT_TITLE;
+    }, [pageMeta?.key, pageMeta?.title]);
+
+    useEffect(() => {
+        return () => {
+            document.title = DEFAULT_DOCUMENT_TITLE;
+        };
+    }, []);
 
     return (
         <>

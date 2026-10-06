@@ -23,6 +23,7 @@ public class SanPhamQuanAoCreating {
     String maSanPham;
     String tenSanPham;
     Integer danhMucId;
+    Integer thuongHieuId;
     String moTa;
     String maVach;
     BigDecimal giaVonMacDinh;
