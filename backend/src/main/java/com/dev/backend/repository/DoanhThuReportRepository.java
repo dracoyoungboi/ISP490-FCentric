@@ -36,11 +36,12 @@ public interface DoanhThuReportRepository extends JpaRepository<DonBanHang, Inte
                 SUM(ctpx.so_luong_xuat * ctpx.gia_von) AS tong_gia_von
             FROM phieu_xuat_kho      pxk
             JOIN chi_tiet_phieu_xuat_kho ctpx ON ctpx.phieu_xuat_kho_id = pxk.id
-            WHERE pxk.trang_thai = 1
+            WHERE pxk.trang_thai = 3
             GROUP BY pxk.don_ban_hang_id
         ) gv ON gv.don_ban_hang_id = dbh.id
-        WHERE dbh.trang_thai    = 3
-          AND dbh.ngay_giao_hang BETWEEN :tuNgay AND :denNgay
+        WHERE dbh.trang_thai IN (3, 5)
+          AND dbh.ngay_giao_hang >= :tuNgay
+          AND dbh.ngay_giao_hang < DATE_ADD(:denNgay, INTERVAL 1 DAY)
           AND (:khoId IS NULL OR dbh.kho_xuat_id = :khoId)
         GROUP BY YEAR(dbh.ngay_giao_hang), MONTH(dbh.ngay_giao_hang), DAY(dbh.ngay_giao_hang)
         ORDER BY sortKey
@@ -77,10 +78,10 @@ public interface DoanhThuReportRepository extends JpaRepository<DonBanHang, Inte
                 SUM(ctpx.so_luong_xuat * ctpx.gia_von) AS tong_gia_von
             FROM phieu_xuat_kho      pxk
             JOIN chi_tiet_phieu_xuat_kho ctpx ON ctpx.phieu_xuat_kho_id = pxk.id
-            WHERE pxk.trang_thai = 1
+            WHERE pxk.trang_thai = 3
             GROUP BY pxk.don_ban_hang_id
         ) gv ON gv.don_ban_hang_id = dbh.id
-        WHERE dbh.trang_thai    = 3
+        WHERE dbh.trang_thai IN (3, 5)
           AND YEAR(dbh.ngay_giao_hang) = :nam
           AND (:khoId IS NULL OR dbh.kho_xuat_id = :khoId)
         GROUP BY YEAR(dbh.ngay_giao_hang), WEEK(dbh.ngay_giao_hang, 3)
@@ -117,10 +118,10 @@ public interface DoanhThuReportRepository extends JpaRepository<DonBanHang, Inte
                 SUM(ctpx.so_luong_xuat * ctpx.gia_von) AS tong_gia_von
             FROM phieu_xuat_kho      pxk
             JOIN chi_tiet_phieu_xuat_kho ctpx ON ctpx.phieu_xuat_kho_id = pxk.id
-            WHERE pxk.trang_thai = 1
+            WHERE pxk.trang_thai = 3
             GROUP BY pxk.don_ban_hang_id
         ) gv ON gv.don_ban_hang_id = dbh.id
-        WHERE dbh.trang_thai    = 3
+        WHERE dbh.trang_thai IN (3, 5)
           AND YEAR(dbh.ngay_giao_hang) = :nam
           AND (:khoId IS NULL OR dbh.kho_xuat_id = :khoId)
         GROUP BY YEAR(dbh.ngay_giao_hang), MONTH(dbh.ngay_giao_hang)
@@ -157,10 +158,10 @@ public interface DoanhThuReportRepository extends JpaRepository<DonBanHang, Inte
                 SUM(ctpx.so_luong_xuat * ctpx.gia_von) AS tong_gia_von
             FROM phieu_xuat_kho      pxk
             JOIN chi_tiet_phieu_xuat_kho ctpx ON ctpx.phieu_xuat_kho_id = pxk.id
-            WHERE pxk.trang_thai = 1
+            WHERE pxk.trang_thai = 3
             GROUP BY pxk.don_ban_hang_id
         ) gv ON gv.don_ban_hang_id = dbh.id
-        WHERE dbh.trang_thai    = 3
+        WHERE dbh.trang_thai IN (3, 5)
           AND YEAR(dbh.ngay_giao_hang) BETWEEN :tuNam AND :denNam
           AND (:khoId IS NULL OR dbh.kho_xuat_id = :khoId)
         GROUP BY YEAR(dbh.ngay_giao_hang)
@@ -201,7 +202,7 @@ public interface DoanhThuReportRepository extends JpaRepository<DonBanHang, Inte
                    SUM(ctpx.so_luong_xuat * ctpx.gia_von) AS tong_gia_von
             FROM phieu_xuat_kho pxk
             JOIN chi_tiet_phieu_xuat_kho ctpx ON ctpx.phieu_xuat_kho_id = pxk.id
-            WHERE pxk.trang_thai = 1
+            WHERE pxk.trang_thai = 3
             GROUP BY pxk.don_ban_hang_id
         ) gv ON gv.don_ban_hang_id = dbh.id
         WHERE dbh.trang_thai = 3

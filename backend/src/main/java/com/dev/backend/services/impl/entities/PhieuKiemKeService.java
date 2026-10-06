@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -152,6 +153,15 @@ public class PhieuKiemKeService {
         }
 
         NguoiDung nguoiKiemDem = getCurrentUser();
+
+        // Khóa các dòng tồn theo lô sẽ ghi, thứ tự PK ổn định (chống lost update với POS checkout).
+        List<Integer> lotIdsToLock = new ArrayList<>();
+        for (ChiTietKiemKeUpdate update : updates) {
+            ChiTietKiemKe chiTietTmp = chiTietRepository.findById(update.getChiTietId())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy chi tiết ID: " + update.getChiTietId()));
+            lotIdsToLock.add(chiTietTmp.getLoHang().getId());
+        }
+        tonKhoRepository.lockLotsForUpdateByLotIds(lotIdsToLock.stream().distinct().toList());
 
         for (ChiTietKiemKeUpdate update : updates) {
             ChiTietKiemKe chiTiet = chiTietRepository.findById(update.getChiTietId())
