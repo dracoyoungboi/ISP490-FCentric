@@ -16,4 +16,7 @@ public interface DieuHanhHeThongService {
     CauHinhHeThongDto updateCauHinh(String maCauHinh, CauHinhHeThongUpdateRequest request, Integer userId);
 
     List<CauHinhHeThongDto> bulkUpdateCauHinh(List<CauHinhHeThongBulkUpdateRequest> requests, Integer userId);
+    String getCauHinhString(String maCauHinh, String defaultValue);
+    int getCauHinhInt(String maCauHinh, int defaultValue);
+    boolean getCauHinhBoolean(String maCauHinh, boolean defaultValue);
 }

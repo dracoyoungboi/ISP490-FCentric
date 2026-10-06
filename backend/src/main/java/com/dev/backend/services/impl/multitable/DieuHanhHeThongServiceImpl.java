@@ -348,4 +348,30 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
             throw new CommonException("Giá trị '" + giaTri + "' không hợp lệ cho cấu hình " + maCauHinh + " (Yêu cầu định dạng: " + type.name() + ")");
         }
     }
+    @Override
+    public String getCauHinhString(String maCauHinh, String defaultValue) {
+        return cauHinhRepository.findById(maCauHinh)
+                .map(CauHinhHeThong::getGiaTri)
+                .orElse(defaultValue);
+    }
+
+    @Override
+    public int getCauHinhInt(String maCauHinh, int defaultValue) {
+        return cauHinhRepository.findById(maCauHinh)
+                .map(c -> {
+                    try {
+                        return Integer.parseInt(c.getGiaTri());
+                    } catch (NumberFormatException e) {
+                        return defaultValue;
+                    }
+                })
+                .orElse(defaultValue);
+    }
+
+    @Override
+    public boolean getCauHinhBoolean(String maCauHinh, boolean defaultValue) {
+        return cauHinhRepository.findById(maCauHinh)
+                .map(c -> Boolean.parseBoolean(c.getGiaTri()) || c.getGiaTri().equals("1"))
+                .orElse(defaultValue);
+    }
 }
