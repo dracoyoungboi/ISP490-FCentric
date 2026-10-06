@@ -27,6 +27,14 @@ public interface TonKhoTheoLoRepository extends JpaRepository<TonKhoTheoLo, Inte
     // (giữ nguyên các method cũ bên dưới)
 
     @Query("""
+        SELECT tk.loHang.bienTheSanPham.id, COALESCE(SUM(tk.soLuongKhaDung), 0)
+        FROM TonKhoTheoLo tk
+        WHERE tk.kho.id = :khoId AND tk.loHang.bienTheSanPham.id IN :bienTheIds
+        GROUP BY tk.loHang.bienTheSanPham.id
+    """)
+    List<Object[]> sumSoLuongKhaDungByKhoAndBienTheIds(@Param("khoId") Integer khoId, @Param("bienTheIds") List<Integer> bienTheIds);
+
+    @Query("""
         select count(t)
         from TonKhoTheoLo t
         join t.loHang l

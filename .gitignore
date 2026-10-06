@@ -1,0 +1,17 @@
+# AI Agent Skills & Customizations
+.agents/
+AGENTS.md
+agent.md
+
+# Internal tracking & Architecture markdown files
+audit.md
+plan.md
+hệ thống.md
+h*th*ng.md
+
+# Scratch scripts & temporary data
+scratch/
+
+# UI Prototypes
+prototype/
+

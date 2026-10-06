@@ -14,5 +14,6 @@ public interface IHanhDong {
     String
             cap_nhat_san_pham = "cap_nhat_san_pham",
             them_moi_san_pham = "them_moi_san_pham",
-            xoa_san_pham = "xoa_san_pham";
+            xoa_san_pham = "xoa_san_pham",
+            tao_pick_list = "tao_pick_list";
 }
