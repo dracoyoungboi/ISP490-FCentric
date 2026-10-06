@@ -1,17 +1,23 @@
 package com.dev.backend.services.impl.multitable;
 
 import com.dev.backend.config.SecurityContextHolder;
+import com.dev.backend.constant.enums.KieuDuLieuCauHinh;
 import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.ITable;
+import com.dev.backend.dto.request.CauHinhHeThongBulkUpdateRequest;
+import com.dev.backend.dto.request.CauHinhHeThongUpdateRequest;
 import com.dev.backend.dto.request.ChiTietQuyenKhoCreating;
 import com.dev.backend.dto.request.PhanQuyenNguoiDungKhoCreating;
 import com.dev.backend.dto.response.ResponseData;
+import com.dev.backend.dto.response.entities.CauHinhHeThongDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.entities.*;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.mapper.CauHinhHeThongMapper;
 import com.dev.backend.mapper.ChiTietQuyenKhoMapper;
 import com.dev.backend.mapper.NguoiDungMapper;
-import com.dev.backend.mapper.PhanQuyenNguoiDungKhoMapper;
+import com.dev.backend.repository.CauHinhHeThongRepository;
+import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.services.impl.entities.*;
 import com.dev.backend.services.multitable.DieuHanhHeThongService;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -23,6 +29,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -52,6 +60,15 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private CauHinhHeThongRepository cauHinhRepository;
+
+    @Autowired
+    private NguoiDungRepository nguoiDungRepository;
+
+    @Autowired
+    private CauHinhHeThongMapper cauHinhMapper;
 
     @Override
     @Transactional
@@ -251,5 +268,84 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
         );
     }
 
+    @Override
+    public List<CauHinhHeThongDto> getAllCauHinh() {
+        List<CauHinhHeThong> list = cauHinhRepository.findAll();
+        return cauHinhMapper.toDtoList(list);
+    }
 
+    @Override
+    @Transactional
+    public CauHinhHeThongDto updateCauHinh(String maCauHinh, CauHinhHeThongUpdateRequest request, Integer userId) {
+        CauHinhHeThong entity = cauHinhRepository.findById(maCauHinh)
+                .orElseThrow(() -> new CommonException("Không tìm thấy cấu hình với mã: " + maCauHinh));
+
+        // Validate kiểu dữ liệu trước khi lưu
+        validateDataType(request.getGiaTri(), entity.getKieuDuLieu(), maCauHinh);
+
+        entity.setGiaTri(request.getGiaTri());
+        if (request.getMoTa() != null) {
+            entity.setMoTa(request.getMoTa());
+        }
+        entity.setNgayCapNhat(LocalDateTime.now());
+
+        if (userId != null) {
+            NguoiDung user = nguoiDungRepository.findById(userId).orElse(null);
+            entity.setNguoiCapNhat(user);
+        }
+
+        CauHinhHeThong saved = cauHinhRepository.save(entity);
+        return cauHinhMapper.toDto(saved);
+    }
+
+    @Override
+    @Transactional
+    public List<CauHinhHeThongDto> bulkUpdateCauHinh(List<CauHinhHeThongBulkUpdateRequest> requests, Integer userId) {
+        NguoiDung user = null;
+        if (userId != null) {
+            user = nguoiDungRepository.findById(userId).orElse(null);
+        }
+
+        List<CauHinhHeThong> updatedList = new ArrayList<>();
+
+        for (CauHinhHeThongBulkUpdateRequest req : requests) {
+            CauHinhHeThong entity = cauHinhRepository.findById(req.getMaCauHinh())
+                    .orElseThrow(() -> new CommonException("Không tìm thấy cấu hình: " + req.getMaCauHinh()));
+
+            validateDataType(req.getGiaTri(), entity.getKieuDuLieu(), req.getMaCauHinh());
+
+            entity.setGiaTri(req.getGiaTri());
+            entity.setNgayCapNhat(LocalDateTime.now());
+            entity.setNguoiCapNhat(user);
+
+            updatedList.add(entity);
+        }
+
+        cauHinhRepository.saveAll(updatedList);
+        return cauHinhMapper.toDtoList(updatedList);
+    }
+
+    // Hàm tiện ích validate dữ liệu
+    private void validateDataType(String giaTri, KieuDuLieuCauHinh type, String maCauHinh) {
+        try {
+            switch (type) {
+                case INT:
+                    Integer.parseInt(giaTri);
+                    break;
+                case DECIMAL:
+                    Double.parseDouble(giaTri);
+                    break;
+                case BOOLEAN:
+                    if (!giaTri.equalsIgnoreCase("true") && !giaTri.equalsIgnoreCase("false") &&
+                            !giaTri.equals("1") && !giaTri.equals("0")) {
+                        throw new IllegalArgumentException();
+                    }
+                    break;
+                case STRING:
+                    break; // Chuỗi thì luôn hợp lệ
+            }
+        } catch (Exception e) {
+            throw new CommonException("Giá trị '" + giaTri + "' không hợp lệ cho cấu hình " + maCauHinh + " (Yêu cầu định dạng: " + type.name() + ")");
+        }
+    }
 }
