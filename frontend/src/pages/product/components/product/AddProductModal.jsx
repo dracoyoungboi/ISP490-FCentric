@@ -27,9 +27,16 @@ import { flattenCategoryTree } from "@/utils/danhMucTree";
 const addProductSchema = yup.object({
     tenSanPham: yup.string().required("Tên sản phẩm là bắt buộc"),
     maSanPham: yup.string().nullable(),
-    maVach: yup.string(),
     danhMucId: yup.number().required("Danh mục là bắt buộc").typeError("Vui lòng chọn danh mục"),
     thuongHieuId: yup.number().nullable(),
+    // Chất liệu chọn 1 lần ở Thông tin cơ bản, áp dụng cho tất cả biến thể.
+    // Lưu ý: nullable() phải đứng TRƯỚC required() để null vẫn bị required bắt
+    // (đã kiểm chứng trên yup 1.7.1 — thứ tự ngược lại sẽ cho null lọt qua).
+    chatLieuId: yup.number()
+        .nullable()
+        .required("Chất liệu là bắt buộc")
+        .typeError("Vui lòng chọn chất liệu")
+        .positive("Vui lòng chọn chất liệu hợp lệ"),
     moTa: yup.string(),
     giaVonMacDinh: yup.number().transform(value => (isNaN(value) ? 0 : value)).nullable(),
     giaBanMacDinh: yup.number().transform(value => (isNaN(value) ? 0 : value)).nullable(),
@@ -39,14 +46,33 @@ const addProductSchema = yup.object({
         yup.object({
             mauSacId: yup.number().required("Màu sắc là bắt buộc").nullable(),
             sizeId: yup.number().required("Size là bắt buộc").nullable(),
-            chatLieuId: yup.number().required("Chất liệu là bắt buộc").nullable(),
             maSku: yup.string().nullable(),
-            maVachSku: yup.string(),
             giaVon: yup.number().transform(value => (isNaN(value) ? 0 : value)).nullable(),
             giaBan: yup.number().transform(value => (isNaN(value) ? 0 : value)).nullable(),
             trangThai: yup.number().required(),
         })
     ).min(1, "Phải có ít nhất 1 biến thể")
+        .test("khong-trung-mau-size", function (variants) {
+            // Chặn trùng tổ hợp Màu sắc + Size ngay trên client và báo rõ dòng trùng.
+            // Chất liệu giờ là chung nên không tham gia kiểm tra trùng;
+            // backend vẫn giữ kiểm tra theo cấu trúc cũ (Màu-Size-Chất liệu).
+            const seen = new Map();
+            for (let i = 0; i < variants.length; i++) {
+                const variant = variants[i];
+                // Biến thể chưa chọn đủ Màu/Size đã có lỗi required riêng, bỏ qua ở đây.
+                if (variant.mauSacId == null || variant.sizeId == null) continue;
+                const key = `${variant.mauSacId}-${variant.sizeId}`;
+                if (seen.has(key)) {
+                    // Path đầy đủ để yupResolver gắn lỗi vào đúng dòng biến thể trùng.
+                    return this.createError({
+                        path: `bienTheSanPhams[${i}].sizeId`,
+                        message: `Trùng Màu sắc + Size với biến thể #${seen.get(key) + 1}`,
+                    });
+                }
+                seen.set(key, i);
+            }
+            return true;
+        })
 });
 const CONTROL_CLASS =
     "border-bo-border bg-white text-bo-foreground placeholder:text-bo-muted focus-visible:border-bo-primary focus-visible:ring-bo-primary/15";
@@ -76,9 +102,9 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
         defaultValues: {
             tenSanPham: "",
             maSanPham: "",
-            maVach: "",
             danhMucId: "",
             thuongHieuId: null,
+            chatLieuId: null,
             moTa: "",
             giaVonMacDinh: 0,
             giaBanMacDinh: 0,
@@ -87,9 +113,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
             bienTheSanPhams: [{
                 mauSacId: null,
                 sizeId: null,
-                chatLieuId: null,
                 maSku: "",
-                maVachSku: "",
                 giaVon: 0,
                 giaBan: 0,
                 trangThai: 1,
@@ -107,9 +131,9 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
         reset({
             tenSanPham: "",
             maSanPham: "",
-            maVach: "",
             danhMucId: "",
             thuongHieuId: null,
+            chatLieuId: null,
             moTa: "",
             giaVonMacDinh: 0,
             giaBanMacDinh: 0,
@@ -118,9 +142,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
             bienTheSanPhams: [{
                 mauSacId: null,
                 sizeId: null,
-                chatLieuId: null,
                 maSku: "",
-                maVachSku: "",
                 giaVon: 0,
                 giaBan: 0,
                 trangThai: 1,
@@ -196,7 +218,8 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
             const formData = new FormData();
 
             const productData = {
-                maVach: data.maVach || "",
+                // Form không còn ô nhập mã vạch; vẫn gửi chuỗi rỗng theo đúng contract cũ.
+                maVach: "",
                 tenSanPham: data.tenSanPham,
                 maSanPham: data.maSanPham || "",
                 mucTonToiThieu: data.mucTonToiThieu,
@@ -209,9 +232,11 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                 bienTheSanPhams: data.bienTheSanPhams.map(variant => ({
                     mauSacId: Number(variant.mauSacId),
                     sizeId: Number(variant.sizeId),
-                    chatLieuId: Number(variant.chatLieuId),
+                    // Chất liệu chung: gán chatLieuId đã chọn vào TẤT CẢ biến thể.
+                    chatLieuId: Number(data.chatLieuId),
                     maSku: variant.maSku || "",
-                    maVachSku: variant.maVachSku || "",
+                    // Không còn ô nhập mã vạch SKU; backend tự sinh SKU, mã vạch SKU để trống.
+                    maVachSku: "",
                     giaVon: Number(variant.giaVon) || 0,
                     giaBan: Number(variant.giaBan) || 0,
                     trangThai: Number(variant.trangThai),
@@ -440,6 +465,43 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                             )}
                                         </div>
 
+                                        {/* Chất liệu chung - chọn 1 lần, áp dụng cho tất cả biến thể */}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="chatLieuId">
+                                                Chất liệu <span className="text-bo-danger">*</span>
+                                            </Label>
+                                            <Controller
+                                                name="chatLieuId"
+                                                control={control}
+                                                render={({ field }) => (
+                                                    <Select
+                                                        value={field.value === "" || field.value === null || field.value === undefined ? undefined : field.value.toString()}
+                                                        onValueChange={(value) => field.onChange(Number(value))}
+                                                        disabled={isSubmitting}
+                                                    >
+                                                        <SelectTrigger className="h-10 w-full border-bo-border text-bo-foreground">
+                                                            <SelectValue placeholder="Chọn chất liệu" />
+                                                        </SelectTrigger>
+                                                        <SelectContent position="popper" side="bottom" align="start" className={`${SELECT_CONTENT_CLASS} max-h-[300px]`}>
+                                                            {materials.length === 0 ? (
+                                                                <div className="p-2 text-center text-sm text-bo-muted">Không có chất liệu nào đang hoạt động</div>
+                                                            ) : (
+                                                                materials.map((material) => (
+                                                                    <SelectItem key={`material-${material.id}`} value={material.id.toString()} className={SELECT_ITEM_CLASS}>
+                                                                        {material.tenChatLieu}
+                                                                    </SelectItem>
+                                                                ))
+                                                            )}
+                                                        </SelectContent>
+                                                    </Select>
+                                                )}
+                                            />
+                                            <p className="text-xs text-bo-muted">Áp dụng cho tất cả biến thể</p>
+                                            {errors.chatLieuId && (
+                                                <p className="text-xs text-bo-danger">{errors.chatLieuId.message}</p>
+                                            )}
+                                        </div>
+
                                         {/* Mã sản phẩm (Tự động) */}
                                         <div className="space-y-2">
                                             <Label htmlFor="maSanPham" className="text-bo-muted">Mã sản phẩm (Tự động)</Label>
@@ -453,17 +515,6 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                                         disabled
                                                         className={CONTROL_DISABLED_CLASS}
                                                     />
-                                                )}
-                                            />
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label htmlFor="maVach">Mã vạch</Label>
-                                            <Controller
-                                                name="maVach"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <Input {...field} placeholder="Mã vạch (Nếu có)" disabled={isSubmitting} className={CONTROL_CLASS} />
                                                 )}
                                             />
                                         </div>
@@ -492,17 +543,6 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label htmlFor="mucTonToiThieu">Mức tồn tối thiểu</Label>
-                                            <Controller
-                                                name="mucTonToiThieu"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <Input {...field} type="number" min="0" placeholder="0" disabled={isSubmitting} className={CONTROL_CLASS} />
-                                                )}
-                                            />
-                                        </div>
-
-                                        <div className="space-y-2">
                                             <Label htmlFor="giaVonMacDinh">Giá vốn mặc định</Label>
                                             <Controller
                                                 name="giaVonMacDinh"
@@ -520,6 +560,17 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                                 control={control}
                                                 render={({ field }) => (
                                                     <Input {...field} type="number" min="0" placeholder="0 (Tự động cập nhật)" disabled={isSubmitting} className={CONTROL_CLASS} />
+                                                )}
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2 sm:col-span-2">
+                                            <Label htmlFor="mucTonToiThieu">Mức tồn tối thiểu</Label>
+                                            <Controller
+                                                name="mucTonToiThieu"
+                                                control={control}
+                                                render={({ field }) => (
+                                                    <Input {...field} type="number" min="0" placeholder="0" disabled={isSubmitting} className={CONTROL_CLASS} />
                                                 )}
                                             />
                                         </div>
@@ -683,57 +734,14 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                                         )}
                                                     </div>
 
-                                                    {/* Chất liệu */}
-                                                    <div className="space-y-2">
-                                                        <Label>Chất liệu <span className="text-bo-danger">*</span></Label>
-                                                        <Controller
-                                                            name={`bienTheSanPhams.${index}.chatLieuId`}
-                                                            control={control}
-                                                            render={({ field }) => (
-                                                                <Select
-                                                                    value={field.value === "" || field.value === null || field.value === undefined ? undefined : field.value.toString()}
-                                                                    onValueChange={(value) => field.onChange(Number(value))}
-                                                                    disabled={isSubmitting}
-                                                                >
-                                                                    <SelectTrigger className="h-10 w-full border-bo-border text-bo-foreground">
-                                                                        <SelectValue placeholder="Chọn chất liệu" />
-                                                                    </SelectTrigger>
-                                                                    <SelectContent position="popper" side="bottom" align="start" className={`${SELECT_CONTENT_CLASS} max-h-[200px]`}>
-                                                                        {materials.length === 0 ? (
-                                                                            <div className="p-2 text-sm text-bo-muted">Không có chất liệu</div>
-                                                                        ) : (
-                                                                            materials.map((material) => (
-                                                                                <SelectItem key={`material-${index}-${material.id}`} value={material.id.toString()} className={SELECT_ITEM_CLASS}>{material.tenChatLieu}</SelectItem>
-                                                                            ))
-                                                                        )}
-                                                                    </SelectContent>
-                                                                </Select>
-                                                            )}
-                                                        />
-                                                        {errors.bienTheSanPhams?.[index]?.chatLieuId && (
-                                                            <p className="text-xs text-bo-danger">{errors.bienTheSanPhams[index].chatLieuId.message}</p>
-                                                        )}
-                                                    </div>
-
                                                     {/* Mã SKU */}
-                                                    <div className="space-y-2 sm:col-span-2">
+                                                    <div className="space-y-2">
                                                         <Label className="text-bo-muted">Mã SKU (Tự động)</Label>
                                                         <Controller
                                                             name={`bienTheSanPhams.${index}.maSku`}
                                                             control={control}
                                                             render={({ field }) => (
                                                                 <Input {...field} placeholder="Hệ thống tự động ghép mã..." disabled className={CONTROL_DISABLED_CLASS} />
-                                                            )}
-                                                        />
-                                                    </div>
-
-                                                    <div className="space-y-2">
-                                                        <Label>Mã vạch SKU</Label>
-                                                        <Controller
-                                                            name={`bienTheSanPhams.${index}.maVachSku`}
-                                                            control={control}
-                                                            render={({ field }) => (
-                                                                <Input {...field} placeholder="Mã vạch SKU" disabled={isSubmitting} className={CONTROL_CLASS} />
                                                             )}
                                                         />
                                                     </div>
@@ -847,9 +855,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                             onClick={() => append({
                                 mauSacId: null,
                                 sizeId: null,
-                                chatLieuId: null,
                                 maSku: "",
-                                maVachSku: "",
                                 giaVon: 0,
                                 giaBan: 0,
                                 trangThai: 1,

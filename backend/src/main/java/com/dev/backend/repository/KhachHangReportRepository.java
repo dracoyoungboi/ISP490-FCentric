@@ -43,11 +43,12 @@ public interface KhachHangReportRepository extends JpaRepository<KhachHang, Inte
             LEFT JOIN (
                 SELECT DISTINCT khach_hang_id
                 FROM don_ban_hang
-                WHERE trang_thai = 3
+                WHERE trang_thai IN (3, 5)
                   AND ngay_giao_hang < :tuNgay
             ) prev ON prev.khach_hang_id = dbh.khach_hang_id
-            WHERE dbh.trang_thai = 3
-              AND dbh.ngay_giao_hang BETWEEN :tuNgay AND :denNgay
+            WHERE dbh.trang_thai IN (3, 5)
+              AND dbh.ngay_giao_hang >= :tuNgay
+              AND dbh.ngay_giao_hang < DATE_ADD(:denNgay, INTERVAL 1 DAY)
               AND (:khoId IS NULL OR dbh.kho_xuat_id = :khoId)
         ) k
         GROUP BY YEAR(k.ngay), MONTH(k.ngay), DAY(k.ngay)
@@ -89,10 +90,10 @@ public interface KhachHangReportRepository extends JpaRepository<KhachHang, Inte
             LEFT JOIN (
                 SELECT DISTINCT khach_hang_id
                 FROM don_ban_hang
-                WHERE trang_thai = 3
+                WHERE trang_thai IN (3, 5)
                   AND YEAR(ngay_giao_hang) < :nam
             ) prev ON prev.khach_hang_id = dbh.khach_hang_id
-            WHERE dbh.trang_thai = 3
+            WHERE dbh.trang_thai IN (3, 5)
               AND YEAR(dbh.ngay_giao_hang) = :nam
               AND (:khoId IS NULL OR dbh.kho_xuat_id = :khoId)
         ) k
@@ -134,10 +135,10 @@ public interface KhachHangReportRepository extends JpaRepository<KhachHang, Inte
             LEFT JOIN (
                 SELECT DISTINCT khach_hang_id
                 FROM don_ban_hang
-                WHERE trang_thai = 3
+                WHERE trang_thai IN (3, 5)
                   AND YEAR(ngay_giao_hang) < :nam
             ) prev ON prev.khach_hang_id = dbh.khach_hang_id
-            WHERE dbh.trang_thai = 3
+            WHERE dbh.trang_thai IN (3, 5)
               AND YEAR(dbh.ngay_giao_hang) = :nam
               AND (:khoId IS NULL OR dbh.kho_xuat_id = :khoId)
         ) k
@@ -179,10 +180,10 @@ public interface KhachHangReportRepository extends JpaRepository<KhachHang, Inte
             LEFT JOIN (
                 SELECT DISTINCT khach_hang_id
                 FROM don_ban_hang
-                WHERE trang_thai = 3
+                WHERE trang_thai IN (3, 5)
                   AND YEAR(ngay_giao_hang) < :tuNam
             ) prev ON prev.khach_hang_id = dbh.khach_hang_id
-            WHERE dbh.trang_thai = 3
+            WHERE dbh.trang_thai IN (3, 5)
               AND YEAR(dbh.ngay_giao_hang) BETWEEN :tuNam AND :denNam
               AND (:khoId IS NULL OR dbh.kho_xuat_id = :khoId)
         ) k
@@ -223,12 +224,12 @@ public interface KhachHangReportRepository extends JpaRepository<KhachHang, Inte
         LEFT JOIN (
             SELECT DISTINCT khach_hang_id
             FROM don_ban_hang
-            WHERE trang_thai = 3
+            WHERE trang_thai IN (3, 5)
               AND ngay_giao_hang < STR_TO_DATE(
                       CONCAT(:namTruoc, '-', :thangTruoc, '-01'), '%Y-%m-%d'
                   )
         ) prev ON prev.khach_hang_id = dbh.khach_hang_id
-        WHERE dbh.trang_thai = 3
+        WHERE dbh.trang_thai IN (3, 5)
           AND (
               (YEAR(dbh.ngay_giao_hang) = :nam      AND MONTH(dbh.ngay_giao_hang) = :thang)
            OR (YEAR(dbh.ngay_giao_hang) = :namTruoc AND MONTH(dbh.ngay_giao_hang) = :thangTruoc)

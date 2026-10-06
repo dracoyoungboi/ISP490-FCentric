@@ -209,6 +209,12 @@ export default function BackofficeLayout() {
             subtitle: "Danh sách đơn bán hàng",
         },
         {
+            key: "POS",
+            match: (path) => path === "/pos",
+            title: "Bán hàng tại quầy",
+            subtitle: "Bán lẻ trực tiếp tại cửa hàng",
+        },
+        {
             key: "SALES_ORDER_DETAIL",
             match: (path) => /^\/sales-orders\/\d+$/.test(path),
             title: "Chi tiết đơn bán hàng",
