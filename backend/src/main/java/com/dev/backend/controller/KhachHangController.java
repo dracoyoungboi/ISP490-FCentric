@@ -33,7 +33,7 @@ public class KhachHangController {
     @PostMapping("/filter")
     @RequireAuth(
             roles = {
-                    IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang
+                    IRoleType.nhan_vien_ban_hang
             }
     )
     public ResponseEntity<ResponseData<Page<KhachHangDto>>> filter(@RequestBody BaseFilterRequest filter) {
