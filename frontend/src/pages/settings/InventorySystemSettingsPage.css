@@ -1,0 +1,71 @@
+.inventory-settings-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.inventory-settings-rail {
+  padding: 14px 16px;
+}
+
+.inventory-settings-group--sync {
+  border-top: 1px solid var(--color-bo-border);
+}
+
+@media (min-width: 768px) {
+  .inventory-settings-layout {
+    grid-template-columns: 88px minmax(0, 1fr);
+  }
+
+  .inventory-settings-rail {
+    grid-row: span 2;
+    display: flex;
+    align-items: center;
+    padding: 24px;
+  }
+
+  .inventory-settings-rail p {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    white-space: nowrap;
+  }
+
+  .inventory-settings-group {
+    position: relative;
+    grid-column: 2;
+  }
+
+  /* Decorative milestones follow the actual group heights, including errors. */
+  .inventory-settings-group::before {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    left: -28px;
+    top: 34px;
+    width: 12px;
+    height: 12px;
+    border: 3px solid var(--color-bo-sidebar);
+    border-radius: 50%;
+    background: var(--color-bo-primary);
+    box-shadow: 0 0 0 1px var(--color-bo-sidebar-muted);
+    pointer-events: none;
+  }
+
+  .inventory-settings-group::after {
+    content: "";
+    position: absolute;
+    left: -23px;
+    width: 2px;
+    background: var(--color-bo-sidebar-border);
+    pointer-events: none;
+  }
+
+  .inventory-settings-group--stock::after {
+    top: 40px;
+    bottom: -1px;
+  }
+
+  .inventory-settings-group--sync::after {
+    top: -1px;
+    height: 41px;
+  }
+}
