@@ -4,9 +4,11 @@ import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.DonChoXuatFilterRequest;
 import com.dev.backend.dto.request.PhanCongNguoiNhatRequest;
+import com.dev.backend.dto.request.QuetBarcodeRequest;
 import com.dev.backend.dto.request.TaoPickListRequest;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.DonChoXuatDto;
+import com.dev.backend.dto.response.customize.KetQuaQuetBarcodeDto;
 import com.dev.backend.dto.response.entities.DanhSachNhatHangDto;
 import com.dev.backend.services.multitable.NhatHangService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -137,5 +139,49 @@ public class NhatHangController {
                 "Phân công nhân viên nhặt hàng thành công"
         ));
     }
+
+    @PostMapping("/pick-list/{id}/quet-barcode")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
+            inWarehouse = true,
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    @Operation(
+            summary = "Quét Barcode / SKU đối soát và cập nhật số lượng nhặt (SRS 6.3.1 Execute Picking)",
+            description = "Nhận barcode (từ app Barcode to PC hoặc máy quét) hoặc SKU, đối soát với danh sách cần nhặt của Pick List. Tự động tăng số lượng đã quét, cập nhật tiến độ % và kiểm tra điều kiện hoàn tất."
+    )
+    public ResponseEntity<ResponseData<KetQuaQuetBarcodeDto>> quetBarcode(
+            @PathVariable Integer id,
+            @Valid @RequestBody QuetBarcodeRequest request) {
+        KetQuaQuetBarcodeDto result = nhatHangService.quetBarcode(id, request);
+        return ResponseEntity.ok(new ResponseData<>(
+                HttpStatus.OK.value(),
+                result,
+                null,
+                "Quét mã vạch thành công"
+        ));
+    }
+
+    @PostMapping("/pick-list/{id}/hoan-tat")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
+            inWarehouse = true,
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    @Operation(
+            summary = "Hoàn tất đợt nhặt hàng và sinh Phiếu xuất kho (SRS 6.3.1 -> 6.3.2)",
+            description = "Kích hoạt hành động Complete Picking khi 100% các dòng đã nhặt đủ. Chuyển trạng thái Pick List sang 'da_nhat', cập nhật đơn bán hàng sang 'Chờ xuất', và tự động khởi tạo Phiếu xuất kho ở trạng thái Chờ xuất."
+    )
+    public ResponseEntity<ResponseData<DanhSachNhatHangDto>> hoanTatNhatHang(
+            @PathVariable Integer id) {
+        DanhSachNhatHangDto result = nhatHangService.hoanTatNhatHang(id);
+        return ResponseEntity.ok(new ResponseData<>(
+                HttpStatus.OK.value(),
+                result,
+                null,
+                "Hoàn tất đợt nhặt hàng thành công"
+        ));
+    }
 }
+
 

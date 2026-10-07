@@ -34,5 +34,15 @@ public interface NhatHangService {
      * API 3: Phân công nhân viên kho nhặt hàng cho Pick List (SRS 6.2.1 Action 'Phân công' / 'Assign')
      */
     DanhSachNhatHangDto phanCongNguoiNhat(Integer id, PhanCongNguoiNhatRequest request);
+
+    /**
+     * API 4: Quét barcode đối soát mặt hàng và cập nhật số lượng đã nhặt (SRS 6.3.1 Execute Picking)
+     */
+    com.dev.backend.dto.response.customize.KetQuaQuetBarcodeDto quetBarcode(Integer pickListId, com.dev.backend.dto.request.QuetBarcodeRequest request);
+
+    /**
+     * API 5: Hoàn tất đợt nhặt hàng và tự động khởi tạo Phiếu xuất kho ở trạng thái chờ xuất (SRS 6.3.1 -> 6.3.2)
+     */
+    DanhSachNhatHangDto hoanTatNhatHang(Integer pickListId);
 }
 

@@ -7,7 +7,9 @@ import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.dto.request.DonChoXuatFilterRequest;
 import com.dev.backend.dto.request.PhanCongNguoiNhatRequest;
 import com.dev.backend.dto.request.TaoPickListRequest;
+import com.dev.backend.dto.request.QuetBarcodeRequest;
 import com.dev.backend.dto.response.customize.DonChoXuatDto;
+import com.dev.backend.dto.response.customize.KetQuaQuetBarcodeDto;
 import com.dev.backend.dto.response.entities.ChiTietNhatHangDto;
 import com.dev.backend.dto.response.entities.DanhSachNhatHangDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
@@ -69,6 +71,12 @@ public class NhatHangServiceImpl implements NhatHangService {
 
     @Autowired
     private LichSuThayDoiService lichSuThayDoiService;
+
+    @Autowired
+    private PhieuXuatKhoRepository phieuXuatKhoRepository;
+
+    @Autowired
+    private ChiTietPhieuXuatKhoRepository chiTietPhieuXuatKhoRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -510,15 +518,40 @@ public class NhatHangServiceImpl implements NhatHangService {
             }
         }
 
+        double percent = 0.0;
+        if (totalCanNhat.compareTo(BigDecimal.ZERO) > 0) {
+            percent = totalDaQuet.multiply(BigDecimal.valueOf(100))
+                    .divide(totalCanNhat, 2, java.math.RoundingMode.HALF_UP).doubleValue();
+            if (percent > 100.0) percent = 100.0;
+        }
+
+        boolean allDone = totalCanNhat.compareTo(BigDecimal.ZERO) > 0;
+        if (pickList.getChiTietNhatHangs() != null) {
+            for (ChiTietNhatHang ctn : pickList.getChiTietNhatHangs()) {
+                BigDecimal can = ctn.getSoLuongCanNhat() != null ? ctn.getSoLuongCanNhat() : BigDecimal.ZERO;
+                BigDecimal da = ctn.getSoLuongDaQuet() != null ? ctn.getSoLuongDaQuet() : BigDecimal.ZERO;
+                if (da.compareTo(can) < 0) {
+                    allDone = false;
+                    break;
+                }
+            }
+        }
+
         dto.setTongDonHang(orderCount);
         dto.setTongSku(skuCount);
         dto.setTongSoLuongCanNhat(totalCanNhat);
         dto.setTongSoLuongDaQuet(totalDaQuet);
+        dto.setPhanTramHoanThanh(percent);
+        dto.setCoTheHoanTat(allDone && !"da_nhat".equals(pickList.getTrangThai()) && !"da_xuat".equals(pickList.getTrangThai()));
         dto.setDanhSachMaDonHang(orderCodes);
 
         if (pickList.getChiTietNhatHangs() != null) {
             dto.setChiTietNhatHangs(pickList.getChiTietNhatHangs().stream()
-                    .map(chiTietNhatHangMapper::toDto)
+                    .map(ctn -> {
+                        ChiTietNhatHangDto itemDto = chiTietNhatHangMapper.toDto(ctn);
+                        itemDto.setViTriKho("A-01-02");
+                        return itemDto;
+                    })
                     .collect(Collectors.toList()));
         }
 
@@ -601,4 +634,296 @@ public class NhatHangServiceImpl implements NhatHangService {
 
         return getChiTietPickList(pickList.getId());
     }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public KetQuaQuetBarcodeDto quetBarcode(Integer pickListId, QuetBarcodeRequest request) {
+        if (pickListId == null) {
+            throw new CommonException("Mã đợt nhặt hàng (Pick List ID) không được để trống");
+        }
+        if (request == null || !StringUtils.hasText(request.getBarcode())) {
+            throw new CommonException("Mã barcode hoặc SKU không được để trống");
+        }
+
+        DanhSachNhatHang pickList = danhSachNhatHangRepository.findById(pickListId)
+                .orElseThrow(() -> new CommonException("Không tìm thấy đợt nhặt hàng Pick List ID: " + pickListId));
+
+        Integer contextKhoId = SecurityContextHolder.getKhoId();
+        NguoiDungAuthInfo authUser = SecurityContextHolder.getUser();
+        if (authUser == null) {
+            throw new CommonException("Người dùng chưa được xác thực trong hệ thống");
+        }
+
+        boolean isAdmin = authUser.getVaiTro() != null && authUser.getVaiTro().contains(IRoleType.quan_tri_vien);
+        if (!isAdmin && contextKhoId != null && !contextKhoId.equals(pickList.getKhoXuat().getId())) {
+            throw new CommonException("Bạn không có quyền quét nhặt hàng cho Pick List thuộc kho khác");
+        }
+
+        // Kiểm tra quyền đối với nhân viên kho
+        boolean isKhoStaff = authUser.getVaiTro() != null && authUser.getVaiTro().contains(IRoleType.nhan_vien_kho);
+        if (isKhoStaff && !isAdmin && authUser.getVaiTro().size() == 1) {
+            if (pickList.getNguoiNhat() != null && !authUser.getId().equals(pickList.getNguoiNhat().getId())) {
+                throw new CommonException("Đợt nhặt hàng này đã được phân công cho nhân viên: " + pickList.getNguoiNhat().getHoTen());
+            }
+            if (pickList.getNguoiNhat() == null) {
+                NguoiDung currentUser = nguoiDungRepository.findById(authUser.getId()).orElse(null);
+                pickList.setNguoiNhat(currentUser);
+            }
+        }
+
+        // Kiểm tra State Machine
+        String trangThai = pickList.getTrangThai();
+        if ("da_nhat".equals(trangThai)) {
+            throw new CommonException("Đợt nhặt hàng này đã hoàn tất quá trình nhặt hàng");
+        }
+        if ("da_xuat".equals(trangThai)) {
+            throw new CommonException("Đợt nhặt hàng này đã được xuất kho");
+        }
+        if ("da_huy".equals(trangThai)) {
+            throw new CommonException("Đợt nhặt hàng này đã bị hủy");
+        }
+
+        // Nếu đang ở trạng thái cho_nhat, tự động chuyển sang dang_nhat
+        if ("cho_nhat".equals(trangThai)) {
+            pickList.setTrangThai("dang_nhat");
+            danhSachNhatHangRepository.save(pickList);
+        }
+
+        String rawBarcode = request.getBarcode().trim();
+        BigDecimal qtyToAdd = request.getSoLuong() != null && request.getSoLuong().compareTo(BigDecimal.ZERO) > 0
+                ? request.getSoLuong().setScale(3, java.math.RoundingMode.HALF_UP)
+                : BigDecimal.ONE.setScale(3, java.math.RoundingMode.HALF_UP);
+
+        List<ChiTietNhatHang> chiTiets = pickList.getChiTietNhatHangs();
+        if (chiTiets == null || chiTiets.isEmpty()) {
+            throw new CommonException("Đợt nhặt hàng không có mặt hàng nào cần nhặt");
+        }
+
+        // Tìm dòng chi tiết khớp với mã vạch hoặc SKU
+        ChiTietNhatHang matchedItem = null;
+        for (ChiTietNhatHang ctn : chiTiets) {
+            BienTheSanPham bt = ctn.getBienTheSanPham();
+            if (bt != null) {
+                boolean matchSku = bt.getMaSku() != null && bt.getMaSku().equalsIgnoreCase(rawBarcode);
+                boolean matchBarcode = bt.getMaVachSku() != null && bt.getMaVachSku().equalsIgnoreCase(rawBarcode);
+                if (matchSku || matchBarcode) {
+                    matchedItem = ctn;
+                    break;
+                }
+            }
+        }
+
+        if (matchedItem == null) {
+            throw new CommonException("Mã vạch / SKU [" + rawBarcode + "] không thuộc danh sách mặt hàng cần nhặt của đợt này!");
+        }
+
+        BigDecimal currentScanned = matchedItem.getSoLuongDaQuet() != null ? matchedItem.getSoLuongDaQuet() : BigDecimal.ZERO;
+        BigDecimal required = matchedItem.getSoLuongCanNhat() != null ? matchedItem.getSoLuongCanNhat() : BigDecimal.ZERO;
+
+        if (currentScanned.compareTo(required) >= 0) {
+            throw new CommonException("Mặt hàng [" + matchedItem.getBienTheSanPham().getMaSku() + "] đã nhặt đủ số lượng yêu cầu (" + currentScanned + "/" + required + ")!");
+        }
+
+        BigDecimal newScanned = currentScanned.add(qtyToAdd);
+        if (newScanned.compareTo(required) > 0) {
+            throw new CommonException("Số lượng quét vượt quá yêu cầu (Đã quét: " + currentScanned + ", Quét thêm: " + qtyToAdd + ", Cần nhặt: " + required + ")");
+        }
+
+        matchedItem.setSoLuongDaQuet(newScanned);
+        chiTietNhatHangRepository.save(matchedItem);
+
+        // Tính toán tổng tiến độ
+        BigDecimal totalRequired = BigDecimal.ZERO;
+        BigDecimal totalScanned = BigDecimal.ZERO;
+        boolean allFinished = true;
+
+        for (ChiTietNhatHang ctn : chiTiets) {
+            BigDecimal can = ctn.getSoLuongCanNhat() != null ? ctn.getSoLuongCanNhat() : BigDecimal.ZERO;
+            BigDecimal da = ctn.getId().equals(matchedItem.getId()) ? newScanned : (ctn.getSoLuongDaQuet() != null ? ctn.getSoLuongDaQuet() : BigDecimal.ZERO);
+            totalRequired = totalRequired.add(can);
+            totalScanned = totalScanned.add(da);
+            if (da.compareTo(can) < 0) {
+                allFinished = false;
+            }
+        }
+
+        double percent = 0.0;
+        if (totalRequired.compareTo(BigDecimal.ZERO) > 0) {
+            percent = totalScanned.multiply(BigDecimal.valueOf(100))
+                    .divide(totalRequired, 2, java.math.RoundingMode.HALF_UP).doubleValue();
+            if (percent > 100.0) percent = 100.0;
+        }
+
+        BigDecimal remainingItem = required.subtract(newScanned);
+        String itemStatus = remainingItem.compareTo(BigDecimal.ZERO) == 0 ? "da_xong" : "dang_nhat";
+        String shelfLocation = "A-01-02"; // Vị trí kệ định vị theo SRS 6.3.1
+
+        // Ghi vết kiểm toán
+        NguoiDung currentUser = nguoiDungRepository.findById(authUser.getId()).orElse(null);
+        try {
+            lichSuThayDoiService.create(
+                    LichSuThayDoi.builder()
+                            .loaiThamChieu(ITable.danh_sach_nhat_hang)
+                            .idThamChieu(pickList.getId())
+                            .kho(pickList.getKhoXuat())
+                            .hanhDong(IHanhDong.quet_barcode)
+                            .giaTriCu(currentScanned.toString())
+                            .giaTriMoi(newScanned.toString())
+                            .nguoiThucHien(currentUser)
+                            .ngayThucHien(Instant.now())
+                            .ghiChu("Quét mã " + rawBarcode + " (" + newScanned + "/" + required + ") cho đợt " + pickList.getMaPickList())
+                            .build()
+            );
+        } catch (Exception e) {
+            log.warn("Không thể ghi log quét barcode cho Pick List {}: {}", pickList.getMaPickList(), e.getMessage());
+        }
+
+        BienTheSanPham bt = matchedItem.getBienTheSanPham();
+        String tenSp = bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : bt.getMaSku();
+        String tenMau = bt.getMauSac() != null ? bt.getMauSac().getTenMau() : "";
+        String tenSize = bt.getSize() != null ? bt.getSize().getTenSize() : "";
+
+        return KetQuaQuetBarcodeDto.builder()
+                .chiTietId(matchedItem.getId())
+                .bienTheId(bt.getId())
+                .maSku(bt.getMaSku())
+                .maVachSku(bt.getMaVachSku())
+                .tenSanPham(tenSp)
+                .tenMau(tenMau)
+                .tenSize(tenSize)
+                .viTriKho(shelfLocation)
+                .soLuongCanNhat(required)
+                .soLuongDaQuet(newScanned)
+                .soLuongConLai(remainingItem)
+                .trangThaiDong(itemStatus)
+                .tongSoLuongCanNhat(totalRequired)
+                .tongSoLuongDaQuet(totalScanned)
+                .tongSoLuongConLai(totalRequired.subtract(totalScanned))
+                .phanTramHoanThanh(percent)
+                .coTheHoanTat(allFinished)
+                .thongBao("Đã quét 1x " + tenSp + " [" + bt.getMaSku() + "] (" + newScanned + "/" + required + ")")
+                .build();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public DanhSachNhatHangDto hoanTatNhatHang(Integer pickListId) {
+        if (pickListId == null) {
+            throw new CommonException("Mã đợt nhặt hàng (Pick List ID) không được để trống");
+        }
+
+        DanhSachNhatHang pickList = danhSachNhatHangRepository.findById(pickListId)
+                .orElseThrow(() -> new CommonException("Không tìm thấy đợt nhặt hàng Pick List ID: " + pickListId));
+
+        Integer contextKhoId = SecurityContextHolder.getKhoId();
+        NguoiDungAuthInfo authUser = SecurityContextHolder.getUser();
+        if (authUser == null) {
+            throw new CommonException("Người dùng chưa được xác thực trong hệ thống");
+        }
+
+        boolean isAdmin = authUser.getVaiTro() != null && authUser.getVaiTro().contains(IRoleType.quan_tri_vien);
+        if (!isAdmin && contextKhoId != null && !contextKhoId.equals(pickList.getKhoXuat().getId())) {
+            throw new CommonException("Bạn không có quyền thao tác trên Pick List thuộc kho khác");
+        }
+
+        if ("da_nhat".equals(pickList.getTrangThai())) {
+            throw new CommonException("Đợt nhặt hàng này đã hoàn tất trước đó");
+        }
+        if ("da_xuat".equals(pickList.getTrangThai())) {
+            throw new CommonException("Đợt nhặt hàng này đã được xuất kho");
+        }
+        if ("da_huy".equals(pickList.getTrangThai())) {
+            throw new CommonException("Đợt nhặt hàng này đã bị hủy");
+        }
+
+        List<ChiTietNhatHang> chiTiets = pickList.getChiTietNhatHangs();
+        if (chiTiets == null || chiTiets.isEmpty()) {
+            throw new CommonException("Đợt nhặt hàng không có mặt hàng nào để hoàn tất");
+        }
+
+        // Bắt buộc 100% dòng mặt hàng phải nhặt đủ số lượng yêu cầu
+        for (ChiTietNhatHang ctn : chiTiets) {
+            BigDecimal can = ctn.getSoLuongCanNhat() != null ? ctn.getSoLuongCanNhat() : BigDecimal.ZERO;
+            BigDecimal da = ctn.getSoLuongDaQuet() != null ? ctn.getSoLuongDaQuet() : BigDecimal.ZERO;
+            if (da.compareTo(can) < 0) {
+                String sku = ctn.getBienTheSanPham() != null ? ctn.getBienTheSanPham().getMaSku() : "SKU";
+                throw new CommonException("Chưa nhặt đủ hàng! Mặt hàng [" + sku + "] mới nhặt " + da + "/" + can);
+            }
+        }
+
+        // 1. Chuyển trạng thái Pick List sang 'da_nhat' và ghi nhận ngày hoàn tất
+        pickList.setTrangThai("da_nhat");
+        pickList.setNgayHoanTat(Instant.now());
+        pickList = danhSachNhatHangRepository.save(pickList);
+
+        // 2. Chuyển trạng thái các Đơn bán hàng liên kết sang '3' (Sẵn sàng đóng gói & chờ xuất kho)
+        List<DonBanHang> donHangs = pickList.getDonBanHangs();
+        NguoiDung currentUser = nguoiDungRepository.findById(authUser.getId()).orElse(null);
+
+        if (donHangs != null && !donHangs.isEmpty()) {
+            for (DonBanHang dbh : donHangs) {
+                dbh.setTrangThai(3); // 3: Đã nhặt xong / Chờ đóng gói & xuất kho
+                donBanHangRepository.save(dbh);
+
+                // 3. Tự động sinh Phiếu Xuất Kho ở trạng thái 0 ("Chờ xuất") nếu chưa có
+                boolean daCoPhieu = phieuXuatKhoRepository.existsByDonBanHangIdAndTrangThai(dbh.getId(), 0);
+                if (!daCoPhieu) {
+                    long seq = phieuXuatKhoRepository.countBySoPhieuXuatStartingWith("PXK-") + 1;
+                    String soPxk = String.format("PXK-%s-%03d",
+                            LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")), seq);
+
+                    PhieuXuatKho pxk = PhieuXuatKho.builder()
+                            .soPhieuXuat(soPxk)
+                            .donBanHang(dbh)
+                            .kho(pickList.getKhoXuat())
+                            .loaiXuat("ban_hang")
+                            .trangThai(0) // 0: Chờ xuất (Pending Export - badge cam SRS 6.3.2)
+                            .nguoiXuat(currentUser)
+                            .ghiChu("Phiếu xuất tự động từ đợt nhặt hàng " + pickList.getMaPickList())
+                            .build();
+                    phieuXuatKhoRepository.save(pxk);
+
+                    // Tạo chi tiết phiếu xuất kho cho từng sản phẩm trong đơn
+                    if (dbh.getChiTietDonBanHangs() != null) {
+                        for (ChiTietDonBanHang ctdb : dbh.getChiTietDonBanHangs()) {
+                            BigDecimal giaVon = ctdb.getBienTheSanPham() != null && ctdb.getBienTheSanPham().getGiaVon() != null
+                                    ? ctdb.getBienTheSanPham().getGiaVon()
+                                    : (ctdb.getDonGia() != null ? ctdb.getDonGia() : BigDecimal.ZERO);
+
+                            ChiTietPhieuXuatKho ctPxk = ChiTietPhieuXuatKho.builder()
+                                    .phieuXuatKho(pxk)
+                                    .bienTheSanPham(ctdb.getBienTheSanPham())
+                                    .soLuongXuat(ctdb.getSoLuongDat() != null ? ctdb.getSoLuongDat() : BigDecimal.ONE)
+                                    .giaVon(giaVon)
+                                    .ghiChu("Xuất theo đơn " + dbh.getSoDonHang())
+                                    .build();
+                            chiTietPhieuXuatKhoRepository.save(ctPxk);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. Ghi vết kiểm toán
+        try {
+            lichSuThayDoiService.create(
+                    LichSuThayDoi.builder()
+                            .loaiThamChieu(ITable.danh_sach_nhat_hang)
+                            .idThamChieu(pickList.getId())
+                            .kho(pickList.getKhoXuat())
+                            .hanhDong(IHanhDong.hoan_tat_nhat_hang)
+                            .giaTriCu("dang_nhat")
+                            .giaTriMoi("da_nhat")
+                            .nguoiThucHien(currentUser)
+                            .ngayThucHien(Instant.now())
+                            .ghiChu("Hoàn tất đợt nhặt hàng " + pickList.getMaPickList() + ", tự động sinh phiếu xuất kho chờ xuất")
+                            .build()
+            );
+        } catch (Exception e) {
+            log.warn("Không thể ghi log hoàn tất nhặt hàng cho Pick List {}: {}", pickList.getMaPickList(), e.getMessage());
+        }
+
+        return getChiTietPickList(pickList.getId());
+    }
 }
+

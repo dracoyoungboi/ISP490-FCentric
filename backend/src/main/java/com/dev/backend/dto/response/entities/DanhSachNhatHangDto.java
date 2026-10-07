@@ -31,6 +31,8 @@ public class DanhSachNhatHangDto implements Serializable {
     Integer tongSku;
     BigDecimal tongSoLuongCanNhat;
     BigDecimal tongSoLuongDaQuet;
+    Double phanTramHoanThanh;
+    Boolean coTheHoanTat;
 
     List<String> danhSachMaDonHang;
     List<ChiTietNhatHangDto> chiTietNhatHangs;

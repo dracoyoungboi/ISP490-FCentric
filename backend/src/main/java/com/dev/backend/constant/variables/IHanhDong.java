@@ -16,5 +16,7 @@ public interface IHanhDong {
             them_moi_san_pham = "them_moi_san_pham",
             xoa_san_pham = "xoa_san_pham",
             tao_pick_list = "tao_pick_list",
-            phan_cong_nhat_hang = "phan_cong_nhat_hang";
+            phan_cong_nhat_hang = "phan_cong_nhat_hang",
+            quet_barcode = "quet_barcode",
+            hoan_tat_nhat_hang = "hoan_tat_nhat_hang";
 }

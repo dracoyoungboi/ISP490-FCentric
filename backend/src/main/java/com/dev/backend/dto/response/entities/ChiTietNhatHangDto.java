@@ -17,6 +17,8 @@ public class ChiTietNhatHangDto implements Serializable {
     Integer id;
     Integer bienTheSanPhamId;
     String maSku;
+    String maVachSku;
+    String viTriKho;
     String tenSanPham;
     String tenMau;
     String maMauHex;

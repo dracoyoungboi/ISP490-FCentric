@@ -498,3 +498,37 @@ Không sử dụng trang trung gian `index.html`. Các màn hình được liên
 | **Tất cả Trường nhập liệu hoạt động** | Các ô Text input, Number input, Date picker, Select dropdown, Checkbox, Radio button đều nhập liệu, chọn lựa và lưu trữ được giá trị. | Nhập form thử nghiệm trên các màn hình tạo/sửa. |
 | **Tính Liên tục của Luồng nghiệp vụ** | Dữ liệu được truyền tải và cập nhật liền mạch giữa các màn hình (ví dụ: Tạo PO -> Duyệt PO -> Tạo phiếu nhập -> Khai báo lô -> Xác nhận nhập -> Tồn kho tăng -> Sổ kho có dòng ghi mới). | Thực hiện xuyên suốt kịch bản End-to-End từ bước đầu đến bước cuối. |
 | **Hoạt động Độc lập (Zero Dependency)** | Chạy độc lập hoàn toàn, không cần Node.js, không cần npm start hay Vite server, mở trực tiếp qua `file:///` trên Google Chrome, Microsoft Edge, Firefox. | Mở trực tiếp các file HTML bằng trình duyệt mặc định trên máy tính. |
+
+
+---
+
+## 7. KẾ HOẠCH TRIỂN KHAI PHÂN HỆ THỰC THI NHẶT HÀNG & XUẤT KHO (SRS 6.3.1 & 6.3.2)
+
+### 7.1. Mục tiêu
+Triển khai toàn diện bộ API và cơ chế tích hợp phần cứng máy quét mã vạch (App Barcode to PC) phục vụ quy trình nhặt hàng tại kệ kho (SRS 6.3.1) và chuyển tiếp sang lập/xác nhận phiếu xuất kho (SRS 6.3.2) theo đúng chuẩn kiến trúc `AGENTS.md`.
+
+### 7.2. Danh sách API Mục tiêu
+1. **API Chi tiết tiến độ Pick List (SRS 6.3.1)**:
+   - Endpoint: `GET /api/v1/nhat-hang/pick-list/{id}`
+   - Trả về: Header info (Mã PL, Kho, Picker, Trạng thái), Progress metrics (Tổng SL, Đã nhặt, Còn lại, % Hoàn thành), Danh sách mặt hàng kèm Vị trí kệ (`A-01-02`), Barcode, SKU, Tên SP, SL Cần nhặt, SL Đã nhặt, Trạng thái dòng (`dang_nhat` / `chua_nhat` / `da_xong`), cờ `coTheHoanTat` (true nếu 100%).
+2. **API Quét & Validate Barcode (SRS 6.3.1)**:
+   - Endpoint: `POST /api/v1/nhat-hang/pick-list/{id}/quet-barcode`
+   - Request: `{ "barcode": "string" }` (nhận mã vạch SKU `maVachSku` hoặc mã `maSku`).
+   - Validate: Kiểm tra thuộc Pick List, kiểm tra chưa vượt quá `soLuongCanNhat`, tăng `soLuongDaQuet` thêm 1, cập nhật trạng thái Pick List sang `dang_nhat`.
+3. **API Hoàn tất Nhặt hàng & Khởi tạo Phiếu xuất kho (SRS 6.3.1 $\rightarrow$ 6.3.2)**:
+   - Endpoint: `POST /api/v1/nhat-hang/pick-list/{id}/hoan-tat`
+   - Validate: 100% SKU có `soLuongDaQuet == soLuongCanNhat`.
+   - Hành động: Cập nhật Pick List sang `da_nhat`, ghi nhận `ngayHoanTat`, chuyển trạng thái các đơn bán hàng liên kết sang sẵn sàng xuất kho (`trangThai = 3`), tự động khởi tạo bản ghi `PhieuXuatKho` ở trạng thái "Chờ xuất" (`trangThai = 0`), ghi log `LichSuThayDoi`.
+4. **API Xác nhận Xuất kho & Trừ tồn vật lý (SRS 6.3.2)**:
+   - Endpoint: `POST /api/v1/phieu-xuat-kho/{id}/xac-nhan-xuat`
+   - Hành động: Cập nhật thông tin vận chuyển (ĐVVC, Mã vận đơn, Người nhận, SĐT), chuyển phiếu xuất sang `da_xuat` (`trangThai = 1`), trừ trực tiếp tồn kho vật lý `TonKhoTheoLo.soLuongTon`, giải phóng `Outgoing`, cập nhật đơn hàng sang "Đang giao hàng" (`trangThai = 4`).
+
+### 7.3. Kế hoạch Tích hợp App "Barcode to PC"
+1. **Nguyên lý Hoạt động**: 
+   - Ứng dụng "Barcode to PC" chạy Server trên máy tính đóng vai trò là Bàn phím ảo (Virtual Keyboard Emulation).
+   - Khi điện thoại quét mã vạch qua camera, chuỗi ký tự được gõ trực tiếp vào ô input có focus trên trình duyệt và tự động kích hoạt phím `ENTER` (Template: `{BARCODE}{ENTER}`).
+2. **Phía Giao diện Web (React)**:
+   - Thiết kế ô input mã vạch với thuộc tính `autoFocus`.
+   - Bắt sự kiện bàn phím `onKeyDown`: khi phím bấm là `Enter` $\rightarrow$ gọi hàm `handleScanBarcode()`.
+   - Sau mỗi lần quét (thành công hoặc thất bại), ô input tự động xóa trắng và tự động focus trở lại (`inputRef.current.focus()`).
+   - Tích hợp âm thanh phản hồi: Tiếng beep ngắn (thành công) và tiếng buzz cảnh báo (quét sai/vượt số lượng).
