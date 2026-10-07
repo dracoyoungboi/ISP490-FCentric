@@ -96,13 +96,16 @@ class DieuHanhHeThongController {
         );
     }
 
-    //gán vai trò của người dùng
+    //gán vai trò của người dùng (chỉ quan_tri_vien được phép thực hiện)
     @PutMapping("/vai-tro/gan-vai-tro")
     @RequireAuth(
-            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho}
+            roles = {IRoleType.quan_tri_vien}
     )
     public ResponseEntity<ResponseData<String>> ganVaiTro(
             @RequestBody GanVaiTro ganVaiTro) {
+        if (ganVaiTro == null || ganVaiTro.getId() == null || ganVaiTro.getVaiTro() == null || ganVaiTro.getVaiTro().isBlank()) {
+            throw new CommonException("Thông tin gán vai trò không hợp lệ");
+        }
         NguoiDung nguoiDung = nguoiDungService.getOne(ganVaiTro.getId()).orElseThrow(
                 () -> new CommonException("Không tìm thấy người dùng id: " + ganVaiTro.getId())
         );

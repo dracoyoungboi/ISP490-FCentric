@@ -26,17 +26,9 @@ public class SchedulingJob {
     @Scheduled(fixedDelay = 60000)
     public void cleanOutOfDateOtp() {
         Instant now = Instant.now();
-        for (OtpScheduleObj otpScheduleObj : GlobalCache.OTP_SCHEDULE_OBJS) {
-            if (now.isAfter(otpScheduleObj.getCreatedAt().plusSeconds(300))) {
-                Optional<NguoiDung> findingNguoiDung = nguoiDungService.findByEmail(otpScheduleObj.getEmail());
-                if (findingNguoiDung.isPresent()) {
-                    if (findingNguoiDung.get().getTrangThai().equals(0)) {
-                        nguoiDungService.delete(findingNguoiDung.get().getId());
-                    }
-                }
-                GlobalCache.OTP_SCHEDULE_OBJS.remove(otpScheduleObj);
-            }
-        }
+        GlobalCache.OTP_SCHEDULE_OBJS.removeIf(otpScheduleObj ->
+                now.isAfter(otpScheduleObj.getCreatedAt().plusSeconds(300))
+        );
     }
 
     // 30 phút một lần

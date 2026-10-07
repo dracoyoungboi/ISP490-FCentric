@@ -34,8 +34,12 @@ public class KhachHangController {
     @PostMapping("/filter")
     @RequireAuth(
             roles = {
-                    IRoleType.nhan_vien_ban_hang
-            }
+                    IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
+                    IRoleType.nhan_vien_ban_hang,
+                    IRoleType.nhan_vien_kho
+            },
+            rolesLogic = RequireAuth.LogicType.OR
     )
     public ResponseEntity<ResponseData<Page<KhachHangDto>>> filter(@RequestBody BaseFilterRequest filter) {
         return ResponseEntity.ok(
@@ -50,6 +54,15 @@ public class KhachHangController {
     }
 
     @GetMapping("/get-by-id/{id}")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
+                    IRoleType.nhan_vien_ban_hang,
+                    IRoleType.nhan_vien_kho
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
     public ResponseEntity<ResponseData<KhachHangDto>>getById(@PathVariable Integer id){
         KhachHang khachHang = khachHangService.getOne(id).orElseThrow(
                 () -> new CommonException("Không tìm thấy khách hàng id: " + id)
@@ -67,11 +80,27 @@ public class KhachHangController {
     }
 
     @PostMapping("/create")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
+                    IRoleType.nhan_vien_ban_hang
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
     public ResponseEntity<ResponseData<String>> create(@RequestBody KhachHangCreating creating) {
         return khachHangService.create(creating);
     }
 
     @DeleteMapping("/soft-delete/{id}")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
+                    IRoleType.nhan_vien_ban_hang
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
     public ResponseEntity<ResponseData<String>> softDelete(@PathVariable Integer id) {
         KhachHang khachHang = khachHangService.getOne(id).orElseThrow(
                 () -> new CommonException("Không tìm thấy khách hàng id: " + id)
@@ -89,6 +118,15 @@ public class KhachHangController {
     }
     // Function Customer Details
     @GetMapping("/{id}")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
+                    IRoleType.nhan_vien_ban_hang,
+                    IRoleType.nhan_vien_kho
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
     public ResponseEntity<ResponseData<KhachHangDetailDto>> getDetail(@PathVariable Integer id) {
         KhachHangDetailDto result = khachHangService.getKhachHangDetail(id);
 
@@ -103,6 +141,14 @@ public class KhachHangController {
 
     // Function Edit Customer
     @PutMapping("/{id}")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
+                    IRoleType.nhan_vien_ban_hang
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
     public ResponseEntity<ResponseData> update(@PathVariable Integer id, @RequestBody KhachHangUpdating updating) {
         KhachHangDto dto = khachHangService.update(id, updating);
         return ResponseEntity.ok(ResponseData.builder()
@@ -115,6 +161,7 @@ public class KhachHangController {
     @RequireAuth(
             roles = {
                     IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
                     IRoleType.nhan_vien_ban_hang
             },
             rolesLogic = RequireAuth.LogicType.OR
