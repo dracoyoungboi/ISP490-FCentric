@@ -5,6 +5,7 @@ import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.dto.request.DonChoXuatFilterRequest;
+import com.dev.backend.dto.request.PhanCongNguoiNhatRequest;
 import com.dev.backend.dto.request.TaoPickListRequest;
 import com.dev.backend.dto.response.customize.DonChoXuatDto;
 import com.dev.backend.dto.response.entities.ChiTietNhatHangDto;
@@ -522,5 +523,82 @@ public class NhatHangServiceImpl implements NhatHangService {
         }
 
         return dto;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public DanhSachNhatHangDto phanCongNguoiNhat(Integer id, PhanCongNguoiNhatRequest request) {
+        if (id == null) {
+            throw new CommonException("ID đợt nhặt hàng không được để trống");
+        }
+        if (request == null || request.getNguoiNhatId() == null) {
+            throw new CommonException("ID nhân viên nhặt hàng không được để trống");
+        }
+
+        Integer contextKhoId = SecurityContextHolder.getKhoId();
+        NguoiDungAuthInfo authUser = SecurityContextHolder.getUser();
+        if (authUser == null) {
+            throw new CommonException("Người dùng chưa được xác thực trong hệ thống");
+        }
+        if (contextKhoId == null) {
+            throw new CommonException("Vui lòng chọn ngữ cảnh kho làm việc");
+        }
+
+        DanhSachNhatHang pickList = danhSachNhatHangRepository.findById(id)
+                .orElseThrow(() -> new CommonException("Không tìm thấy đợt nhặt hàng Pick List ID: " + id));
+
+        boolean isAdmin = authUser.getVaiTro() != null && authUser.getVaiTro().contains(IRoleType.quan_tri_vien);
+        if (!isAdmin && (pickList.getKhoXuat() == null || !contextKhoId.equals(pickList.getKhoXuat().getId()))) {
+            throw new CommonException("Bạn không có quyền thao tác trên đợt nhặt hàng của kho khác");
+        }
+
+        // Kiểm tra trạng thái hợp lệ của Pick List
+        String trangThaiHienTai = pickList.getTrangThai();
+        if ("da_nhat".equalsIgnoreCase(trangThaiHienTai) || "da_xuat".equalsIgnoreCase(trangThaiHienTai) || "da_huy".equalsIgnoreCase(trangThaiHienTai)) {
+            throw new CommonException("Không thể phân công lại cho đợt nhặt hàng đã ở trạng thái: " + trangThaiHienTai);
+        }
+
+        // Kiểm tra nhân viên được gán
+        NguoiDung assignee = nguoiDungRepository.findById(request.getNguoiNhatId())
+                .orElseThrow(() -> new CommonException("Không tìm thấy nhân viên nhặt hàng ID: " + request.getNguoiNhatId()));
+
+        if (assignee.getTrangThai() == null || assignee.getTrangThai() != 1) {
+            throw new CommonException("Tài khoản nhân viên nhặt hàng đang bị khóa hoặc ngưng hoạt động");
+        }
+
+        // Kiểm tra quyền: nếu là nhân viên kho thì chỉ được tự nhận việc (self-assign)
+        boolean isQuanLy = isAdmin || (authUser.getVaiTro() != null && authUser.getVaiTro().contains(IRoleType.quan_ly_kho));
+        if (!isQuanLy && !authUser.getId().equals(request.getNguoiNhatId())) {
+            throw new CommonException("Nhân viên kho chỉ có quyền tự nhận việc (Self-assignment)");
+        }
+
+        String oldPickerName = pickList.getNguoiNhat() != null ? pickList.getNguoiNhat().getHoTen() : "Chưa phân công";
+        pickList.setNguoiNhat(assignee);
+        if (StringUtils.hasText(request.getGhiChu())) {
+            pickList.setGhiChu(request.getGhiChu().trim());
+        }
+        pickList = danhSachNhatHangRepository.save(pickList);
+
+        // Ghi nhận nhật ký kiểm toán
+        NguoiDung currentUser = nguoiDungRepository.findById(authUser.getId()).orElse(assignee);
+        try {
+            lichSuThayDoiService.create(
+                    LichSuThayDoi.builder()
+                            .loaiThamChieu(ITable.danh_sach_nhat_hang)
+                            .idThamChieu(pickList.getId())
+                            .kho(pickList.getKhoXuat())
+                            .hanhDong(IHanhDong.phan_cong_nhat_hang)
+                            .giaTriCu(oldPickerName)
+                            .giaTriMoi(assignee.getHoTen() + " (ID: " + assignee.getId() + ")")
+                            .nguoiThucHien(currentUser)
+                            .ngayThucHien(Instant.now())
+                            .ghiChu(StringUtils.hasText(request.getGhiChu()) ? request.getGhiChu() : "Phân công nhân viên nhặt hàng")
+                            .build()
+            );
+        } catch (Exception e) {
+            log.warn("Không thể ghi log lịch sử phân công cho Pick List {}: {}", pickList.getMaPickList(), e.getMessage());
+        }
+
+        return getChiTietPickList(pickList.getId());
     }
 }

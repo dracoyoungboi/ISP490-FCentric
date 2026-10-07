@@ -3,6 +3,7 @@ package com.dev.backend.controller;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.DonChoXuatFilterRequest;
+import com.dev.backend.dto.request.PhanCongNguoiNhatRequest;
 import com.dev.backend.dto.request.TaoPickListRequest;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.DonChoXuatDto;
@@ -112,6 +113,28 @@ public class NhatHangController {
                 dto,
                 null,
                 "Lấy chi tiết Pick List thành công"
+        ));
+    }
+
+    @PutMapping("/pick-list/{id}/phan-cong")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
+            inWarehouse = true,
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    @Operation(
+            summary = "Phân công nhân viên nhặt hàng cho Pick List (SRS 6.2.1 Action 'Phân công')",
+            description = "Gán nhân viên kho phụ trách đợt nhặt hàng. Quản lý kho có thể phân công bất kỳ nhân viên nào trong kho; Nhân viên kho có thể tự nhận việc (Self-assignment)."
+    )
+    public ResponseEntity<ResponseData<DanhSachNhatHangDto>> phanCongNguoiNhat(
+            @PathVariable Integer id,
+            @Valid @RequestBody PhanCongNguoiNhatRequest request) {
+        DanhSachNhatHangDto dto = nhatHangService.phanCongNguoiNhat(id, request);
+        return ResponseEntity.ok(new ResponseData<>(
+                HttpStatus.OK.value(),
+                dto,
+                null,
+                "Phân công nhân viên nhặt hàng thành công"
         ));
     }
 }

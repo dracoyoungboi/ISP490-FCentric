@@ -1,6 +1,7 @@
 package com.dev.backend.services.multitable;
 
 import com.dev.backend.dto.request.DonChoXuatFilterRequest;
+import com.dev.backend.dto.request.PhanCongNguoiNhatRequest;
 import com.dev.backend.dto.request.TaoPickListRequest;
 import com.dev.backend.dto.response.customize.DonChoXuatDto;
 import com.dev.backend.dto.response.entities.DanhSachNhatHangDto;
@@ -28,5 +29,10 @@ public interface NhatHangService {
      * Xem chi tiết đợt nhặt hàng Pick List kèm thông tin các SKU gom nhặt và mã đơn tham chiếu
      */
     DanhSachNhatHangDto getChiTietPickList(Integer id);
+
+    /**
+     * API 3: Phân công nhân viên kho nhặt hàng cho Pick List (SRS 6.2.1 Action 'Phân công' / 'Assign')
+     */
+    DanhSachNhatHangDto phanCongNguoiNhat(Integer id, PhanCongNguoiNhatRequest request);
 }
 

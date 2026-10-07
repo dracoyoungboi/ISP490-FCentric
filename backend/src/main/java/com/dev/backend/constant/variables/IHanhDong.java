@@ -15,5 +15,6 @@ public interface IHanhDong {
             cap_nhat_san_pham = "cap_nhat_san_pham",
             them_moi_san_pham = "them_moi_san_pham",
             xoa_san_pham = "xoa_san_pham",
-            tao_pick_list = "tao_pick_list";
+            tao_pick_list = "tao_pick_list",
+            phan_cong_nhat_hang = "phan_cong_nhat_hang";
 }
