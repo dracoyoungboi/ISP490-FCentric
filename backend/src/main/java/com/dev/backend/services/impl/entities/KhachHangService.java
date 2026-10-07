@@ -95,10 +95,9 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
                 .maKhachHang(creating.getMaKhachHang())
                 .tenKhachHang(creating.getTenKhachHang())
                 .nguoiLienHe(creating.getNguoiLienHe())
-                .soDienThoai(creating.getSoDienThoai()) // Đã xóa 1 dòng gán SĐT thừa
+                .soDienThoai(creating.getSoDienThoai())
                 .email(creating.getEmail())
                 .diaChi(creating.getDiaChi())
-                // Đã xóa loại khách hàng vì mặc định là Khách lẻ
                 .trangThai(1)
                 .build();
 
