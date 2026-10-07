@@ -154,7 +154,13 @@ export const SIDEBAR_MENU = [
       {
         label: "Đơn bán hàng",
         to: "/sales-orders",
-        roles: ["quan_tri_vien", "nhan_vien_ban_hang", "nhan_vien_kho", "quan_ly_kho"], 
+        roles: ["quan_tri_vien", "nhan_vien_ban_hang", "nhan_vien_kho", "quan_ly_kho"],
+      },
+      {
+        // POS V1: chỉ admin + nhân viên bán hàng (quyết định mở rộng role ở Phase 03+)
+        label: "Bán hàng tại quầy",
+        to: "/pos",
+        roles: ["quan_tri_vien", "nhan_vien_ban_hang"],
       },
     ],
   },

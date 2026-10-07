@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +49,8 @@ export default function SkuBuilder() {
 
     const [isBarcodeModalOpen, openBarcodeModal, closeBarcodeModal] = useToggle(false);
     const [selectedSkusToPrint, setSelectedSkusToPrint] = useState([]);
+    const savingSkuIdsRef = useRef(new Set());
+    const [savingSkuIds, setSavingSkuIds] = useState(new Set());
 
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(10);
@@ -119,16 +121,11 @@ export default function SkuBuilder() {
         return result;
     }, [skus, keyword, statusFilter]);
 
-    // Reset to page 0 when filters change (detected via processedSkus length/content change)
-    useEffect(() => {
-        setPage(0);
-    }, [keyword, statusFilter]);
-
     const stats = useMemo(() => ({
         total: skus.length,
         active: skus.filter((s) => s.trangThai === 1).length,
         inactive: skus.filter((s) => s.trangThai === 0).length,
-        changed: skus.filter((s) => Number(s.giaBan) !== Number(s.originalPrice) || Number(s.giaVon) !== Number(s.originalCost)).length,
+        changed: skus.filter((s) => s.giaBan === "" || s.giaVon === "" || Number(s.giaBan) !== Number(s.originalPrice) || Number(s.giaVon) !== Number(s.originalCost)).length,
     }), [skus]);
 
     const handlePriceChange = (id, field, value) => {
@@ -136,19 +133,52 @@ export default function SkuBuilder() {
     };
 
     const savePrice = async (sku) => {
+        if (savingSkuIdsRef.current.has(sku.id)) return;
+        const price = Number(sku.giaBan);
+        const cost = Number(sku.giaVon);
+        if (
+            sku.giaBan == null || String(sku.giaBan).trim() === "" ||
+            sku.giaVon == null || String(sku.giaVon).trim() === "" ||
+            !Number.isFinite(price) || !Number.isFinite(cost) || price < 0 || cost < 0
+        ) {
+            toast.error("Giá bán và giá vốn phải là số hợp lệ, không âm.");
+            return;
+        }
+        savingSkuIdsRef.current.add(sku.id);
+        setSavingSkuIds(new Set(savingSkuIdsRef.current));
         try {
-            await productService.updateSkuPrice(sku.id, sku.giaBan, sku.giaVon);
+            const response = await productService.updateSkuPrice(sku.id, price, cost);
+            if (response.data?.status !== 200) {
+                throw new Error("Cập nhật giá không thành công");
+            }
             toast.success("Cập nhật giá thành công");
+            // Lưu đúng giá gửi lên API. Nếu người dùng sửa tiếp trong lúc
+            // chờ API, phần sửa mới vẫn được đánh dấu chưa lưu.
             setSkus((prev) =>
-                prev.map((s) => s.id === sku.id ? { ...s, originalPrice: s.giaBan, originalCost: s.giaVon } : s)
+                prev.map((s) => s.id === sku.id ? { ...s, originalPrice: price, originalCost: cost } : s)
             );
         } catch {
             toast.error("Không thể cập nhật giá");
+        } finally {
+            savingSkuIdsRef.current.delete(sku.id);
+            setSavingSkuIds(new Set(savingSkuIdsRef.current));
         }
     };
 
     const handlePrintBarcode = (sku) => {
-        setSelectedSkusToPrint([{ id: sku.productId, tenSanPham: sku.productName, bienTheSanPhams: [sku] }]);
+        if (savingSkuIdsRef.current.has(sku.id)) {
+            toast.info("Đang lưu giá. Vui lòng đợi trước khi in mã vạch.");
+            return;
+        }
+        if (sku.giaBan === "" || Number(sku.giaBan) !== Number(sku.originalPrice)) {
+            toast.info("Giá bán đã thay đổi. Hãy lưu giá trước khi in mã vạch.");
+            return;
+        }
+        setSelectedSkusToPrint([{
+            id: sku.productId,
+            tenSanPham: sku.productName,
+            bienTheSanPhams: [{ ...sku, giaBan: sku.originalPrice }],
+        }]);
         openBarcodeModal();
     };
 
@@ -214,7 +244,7 @@ export default function SkuBuilder() {
                     primary={
                         <SearchInput
                             value={keyword}
-                            onChange={(e) => setKeyword(e.target.value)}
+                            onChange={(e) => { setKeyword(e.target.value); setPage(0); }}
                             placeholder="Tìm theo tên SP, SKU, Barcode..."
                             label="Tìm kiếm SKU"
                             disabled={isLoading}
@@ -242,7 +272,7 @@ export default function SkuBuilder() {
                                     {STATUS_OPTIONS.map((opt) => (
                                         <DropdownMenuItem
                                             key={opt.value}
-                                            onClick={() => setStatusFilter(opt.value)}
+                                            onClick={() => { setStatusFilter(opt.value); setPage(0); }}
                                             className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
                                         >
                                             {opt.label}
@@ -256,7 +286,7 @@ export default function SkuBuilder() {
                             <Button
                                 variant="outline"
                                 onClick={fetchSkus}
-                                disabled={isLoading}
+                                disabled={isLoading || savingSkuIds.size > 0}
                                 className="flex h-9 items-center gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                             >
                                 <RefreshCcw className={`size-4 ${isLoading ? "animate-spin" : ""}`} />
@@ -403,7 +433,7 @@ export default function SkuBuilder() {
                             </thead>
                             <tbody className="divide-y divide-bo-border">
                                 {currentPageSkus.map((sku, index) => {
-                                    const isPriceChanged = Number(sku.giaBan) !== Number(sku.originalPrice) || Number(sku.giaVon) !== Number(sku.originalCost);
+                                    const isPriceChanged = sku.giaBan === "" || sku.giaVon === "" || Number(sku.giaBan) !== Number(sku.originalPrice) || Number(sku.giaVon) !== Number(sku.originalCost);
                                     return (
                                         <tr key={`${sku.id}-${index}`} className="transition-colors hover:bg-bo-surface-subtle">
                                             <td className="w-14 px-3 py-3 text-center align-middle text-xs text-bo-muted">
@@ -480,18 +510,22 @@ export default function SkuBuilder() {
                                                     {isPriceChanged && (
                                                         <button
                                                             type="button"
-                                                            title="Lưu giá"
+                                                            title={savingSkuIds.has(sku.id) ? "Đang lưu giá..." : "Lưu giá"}
+                                                            aria-label="Lưu giá"
+                                                            disabled={savingSkuIds.has(sku.id)}
                                                             onClick={() => savePrice(sku)}
-                                                            className="inline-flex size-8 items-center justify-center rounded-md text-bo-success transition-colors hover:bg-bo-success-soft"
+                                                            className="inline-flex size-8 items-center justify-center rounded-md text-bo-success transition-colors hover:bg-bo-success-soft disabled:cursor-not-allowed disabled:opacity-50"
                                                         >
                                                             <Save className="size-4" />
                                                         </button>
                                                     )}
                                                     <button
                                                         type="button"
-                                                        title="In Barcode"
+                                                        title="In mã vạch"
+                                                        aria-label="In mã vạch"
+                                                        disabled={savingSkuIds.has(sku.id)}
                                                         onClick={() => handlePrintBarcode(sku)}
-                                                        className="inline-flex size-8 items-center justify-center rounded-md text-bo-primary transition-colors hover:bg-bo-primary-soft"
+                                                        className="inline-flex size-8 items-center justify-center rounded-md text-bo-primary transition-colors hover:bg-bo-primary-soft disabled:cursor-not-allowed disabled:opacity-50"
                                                     >
                                                         <Printer className="size-4" />
                                                     </button>

@@ -189,6 +189,14 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 .toList();
         Set<Integer> sanPhamIdsCanCapNhat = new HashSet<>();
 
+        // Khóa các dòng tồn sẽ ghi theo thứ tự PK ổn định (chung với POS checkout)
+        // để chống lost update khi xuất kho và bán tại quầy chạy đồng thời.
+        List<Integer> variantIdsToLock = detailedPicks.stream()
+                .map(pick -> pick.getBienTheSanPham().getId())
+                .distinct()
+                .toList();
+        tonKhoTheoLoRepository.lockLotsForUpdateByKhoAndVariants(phieu.getKho().getId(), variantIdsToLock);
+
         Kho khoTransit = null;
         if (isXuatChuyenKho) {
             khoTransit = entityManager.createQuery("SELECT k FROM Kho k WHERE k.maKho = 'KHO_TRANSIT'", Kho.class).getSingleResult();
