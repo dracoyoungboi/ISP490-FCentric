@@ -7,6 +7,7 @@ import {
   ShoppingCart,
   BarChart3,
   Printer,
+  CreditCard,
 } from "lucide-react";
 
 // Nhóm hiển thị trên sidebar — thứ tự khai báo cũng là thứ tự render.
@@ -206,5 +207,14 @@ export const SIDEBAR_MENU = [
     section: "settings",
     to: "/settings/print-templates",
     roles: ["quan_tri_vien", "quan_ly_kho"],
+  },
+
+  // ================= CÀI ĐẶT THANH TOÁN (payOS) =================
+  {
+    label: "Cài đặt thanh toán",
+    icon: CreditCard,
+    section: "settings",
+    to: "/settings/payment",
+    roles: ["quan_tri_vien"],
   },
 ];

@@ -383,6 +383,12 @@ export default function BackofficeLayout() {
             subtitle: "Xem các mẫu in có sẵn theo loại chứng từ",
         },
         {
+            key: "PAYMENT_SETTINGS",
+            match: (path) => path === "/settings/payment",
+            title: "Cài đặt thanh toán",
+            subtitle: "Kết nối payOS cho thanh toán chuyển khoản QR",
+        },
+        {
             key: "PRINT_TEMPLATE_EDIT",
             match: (path) => /^\/settings\/print-templates\/[^/]+\/([^/]+\/)?edit$/.test(path),
             title: "Chỉnh sửa mẫu in",

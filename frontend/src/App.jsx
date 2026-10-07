@@ -82,6 +82,7 @@ import PurchaseOrderPrint from "./pages/order/PurchaseOrderPrint";
 import PrintTemplatesPage from "./pages/settings/PrintTemplatesPage";
 import PrintTemplateDetailPage from "./pages/settings/PrintTemplateDetailPage";
 import PrintTemplateEditorPage from "./pages/settings/PrintTemplateEditorPage";
+import PaymentSettingsPage from "./pages/settings/PaymentSettingsPage";
 import RequireRole from "./components/auth/RequireRole";
 import PosPage from "./pages/pos";
 
@@ -215,6 +216,10 @@ export default function App() {
               Chỉ quan_tri_vien / quan_ly_kho được cấu hình (frontend guard là UX,
               backend @RequireAuth là chốt chặn thật). Trang chính nhúng preview;
               route /:documentType/:templateId giữ trang xem trước cũ cho deep-link. */}
+          {/* Cài đặt thanh toán payOS — chỉ quản trị viên (backend cũng chặn bằng @RequireAuth) */}
+          <Route element={<RequireRole roles={["quan_tri_vien"]} />}>
+            <Route path="/settings/payment" element={<PaymentSettingsPage />} />
+          </Route>
           <Route
             element={
               <RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />
