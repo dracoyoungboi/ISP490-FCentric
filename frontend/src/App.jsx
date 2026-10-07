@@ -82,6 +82,7 @@ import PurchaseOrderPrint from "./pages/order/PurchaseOrderPrint";
 import PrintTemplatesPage from "./pages/settings/PrintTemplatesPage";
 import PrintTemplateDetailPage from "./pages/settings/PrintTemplateDetailPage";
 import PrintTemplateEditorPage from "./pages/settings/PrintTemplateEditorPage";
+import InventorySystemSettingsPage from "./pages/settings/InventorySystemSettingsPage";
 import RequireRole from "./components/auth/RequireRole";
 
 export default function App() {
@@ -228,6 +229,9 @@ export default function App() {
             <Route path="/settings/print-templates/:documentType/:templateId/edit" element={<PrintTemplateEditorPage />} />
           </Route>
 
+          <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"]} />}>
+            <Route path="/settings/inventory" element={<InventorySystemSettingsPage />} />
+          </Route>
           </Route>
 
           {/* In phiếu — ngoài BackofficeLayout (không sidebar/header, không bị shell clipping) */}

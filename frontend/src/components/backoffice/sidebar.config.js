@@ -7,6 +7,7 @@ import {
   ShoppingCart,
   BarChart3,
   Printer,
+  Settings2,
 } from "lucide-react";
 
 // Nhóm hiển thị trên sidebar — thứ tự khai báo cũng là thứ tự render.
@@ -191,6 +192,13 @@ export const SIDEBAR_MENU = [
     ],
   },
 
+  {
+    label: "Cấu hình hệ thống kho",
+    icon: Settings2,
+    section: "settings",
+    to: "/settings/inventory",
+    roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"],
+  },
   // ================= CẤU HÌNH MẪU IN =================
   // Hồ sơ công ty không còn là mục riêng trên sidebar — mở qua hộp thoại
   // "Thông tin công ty" ngay trên trang Cấu hình mẫu in.

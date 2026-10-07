@@ -369,6 +369,12 @@ export default function BackofficeLayout() {
             title: "Chi tiết báo giá bán hàng",
         },
         {
+            key: "INVENTORY_SYSTEM_SETTINGS",
+            match: (path) => path === "/settings/inventory",
+            title: "Cấu hình hệ thống kho",
+            subtitle: "Thông số cảnh báo và đồng bộ đơn hàng",
+        },
+        {
             key: "PRINT_TEMPLATES",
             match: (path) =>
                 path === "/settings/print-templates" ||
