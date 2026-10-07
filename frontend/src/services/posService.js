@@ -94,6 +94,15 @@ export const posService = {
    * SUCCESS -> {requestId, trangThai, result}; FAILED -> {..., errorMessage};
    * 404 (không tìm thấy) = kết quả chưa rõ -> client được phép thử lại cùng payload.
    */
+  /**
+   * Thêm nhanh khách hàng tại quầy (tên + SĐT). Trả về KhachHangDto vừa tạo.
+   * SĐT trùng -> lỗi 409, response.data.data = khách hàng đã có.
+   */
+  async quickCreateCustomer({ tenKhachHang, soDienThoai }) {
+    const res = await apiClient.post("/api/v1/pos/customers", { tenKhachHang, soDienThoai });
+    return res.data?.data ?? null;
+  },
+
   async getCheckoutRequest(requestId, { signal } = {}) {
     const res = await apiClient.get(
       `/api/v1/pos/checkout-requests/${encodeURIComponent(requestId)}`,

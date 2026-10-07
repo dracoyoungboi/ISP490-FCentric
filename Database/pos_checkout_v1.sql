@@ -72,3 +72,13 @@ ALTER TABLE don_ban_hang
 ALTER TABLE phieu_xuat_kho
     MODIFY COLUMN trang_thai tinyint(1) DEFAULT '0'
     COMMENT '0: Nháp, 1: Chờ duyệt, 2: Đã duyệt, 3: Đã xuất, 4: Đã hủy, 5: Hoàn tất';
+
+-- ---------------------------------------------------------------------------
+-- 4. Seed khách lẻ (walk-in) KHLE — POS tự chọn khách này làm mặc định.
+--    Idempotent: chạy lại không tạo trùng (UNIQUE ma_khach_hang), không sửa
+--    khách hàng có sẵn.
+-- ---------------------------------------------------------------------------
+SET NAMES utf8mb4;
+INSERT INTO khach_hang (ma_khach_hang, ten_khach_hang, loai_khach_hang, trang_thai)
+SELECT 'KHLE', 'Khách lẻ', 'le', 1
+WHERE NOT EXISTS (SELECT 1 FROM khach_hang WHERE ma_khach_hang = 'KHLE');

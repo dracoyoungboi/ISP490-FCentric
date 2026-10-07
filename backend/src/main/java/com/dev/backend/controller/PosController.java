@@ -3,13 +3,16 @@ package com.dev.backend.controller;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.PosCheckoutCreating;
+import com.dev.backend.dto.request.PosQuickCustomerCreating;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.PosCatalogItemDto;
 import com.dev.backend.dto.response.customize.PosCheckoutRecoveryResponse;
 import com.dev.backend.dto.response.customize.PosCheckoutResponse;
+import com.dev.backend.dto.response.entities.KhachHangDto;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.services.impl.entities.PosCatalogService;
 import com.dev.backend.services.impl.entities.PosCheckoutService;
+import com.dev.backend.services.impl.entities.KhachHangService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -33,6 +36,9 @@ public class PosController {
 
     @Autowired
     private PosCheckoutService posCheckoutService;
+
+    @Autowired
+    private KhachHangService khachHangService;
 
     /** Gate server-side: mặc định TẮT; chỉ bật khi triển khai có chủ đích. */
     @Value("${pos.checkout-enabled:false}")
@@ -125,6 +131,31 @@ public class PosController {
                         .status(200)
                         .data(posCheckoutService.checkout(request))
                         .message("Thanh toán thành công")
+                        .error(null)
+                        .build()
+        );
+    }
+
+    /**
+     * Thêm nhanh khách hàng tại quầy (tên + SĐT). Trả về khách vừa tạo để chọn ngay
+     * vào hóa đơn. SĐT trùng -> 409 kèm khách hàng hiện có.
+     */
+    @PostMapping("/customers")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.nhan_vien_ban_hang
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<ResponseData<KhachHangDto>> quickCreateCustomer(
+            @RequestBody PosQuickCustomerCreating request
+    ) {
+        return ResponseEntity.ok(
+                ResponseData.<KhachHangDto>builder()
+                        .status(200)
+                        .data(khachHangService.quickCreateForPos(request))
+                        .message("Đã thêm khách hàng")
                         .error(null)
                         .build()
         );

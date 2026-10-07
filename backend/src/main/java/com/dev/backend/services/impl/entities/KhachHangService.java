@@ -3,6 +3,7 @@ package com.dev.backend.services.impl.entities;
 
 import com.dev.backend.dto.request.KhachHangCreating;
 import com.dev.backend.dto.request.KhachHangUpdating;
+import com.dev.backend.dto.request.PosQuickCustomerCreating;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.KhachHangDetailDto;
 import com.dev.backend.dto.response.customize.LichSuMuaHangDto;
@@ -16,6 +17,7 @@ import com.dev.backend.repository.KhachHangRepository;
 import com.dev.backend.services.impl.BaseServiceImpl;
 import jakarta.persistence.EntityManager;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -105,6 +107,51 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         return ResponseEntity.ok(ResponseData.<String>builder().status(200).data("Success").message("Success").build());
     }
 
+    /**
+     * Thêm nhanh khách hàng tại quầy POS (tên + SĐT).
+     * - SĐT được chuẩn hóa (bỏ khoảng trắng, dấu chấm, gạch) và phải là 10 số bắt đầu bằng 0.
+     * - SĐT đã tồn tại -> 409, data = khách hàng hiện có để thu ngân chọn lại (không tạo trùng).
+     * - Mã khách hàng sinh tự động: KH + SĐT (thêm hậu tố nếu mã đã bị dùng).
+     */
+    @Transactional
+    public KhachHangDto quickCreateForPos(PosQuickCustomerCreating request) {
+        String ten = request == null || request.getTenKhachHang() == null ? "" : request.getTenKhachHang().trim();
+        String sdt = request == null || request.getSoDienThoai() == null ? "" : request.getSoDienThoai().replaceAll("[\\s.\\-]", "");
+
+        if (ten.isEmpty()) {
+            throw new CommonException("Vui lòng nhập tên khách hàng");
+        }
+        if (ten.length() > 200) {
+            throw new CommonException("Tên khách hàng tối đa 200 ký tự");
+        }
+        if (!sdt.matches("^0\\d{9}$")) {
+            throw new CommonException("Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 0");
+        }
+
+        KhachHang existing = repository.findFirstBySoDienThoai(sdt).orElse(null);
+        if (existing != null) {
+            throw new CommonException(
+                    "Số điện thoại đã thuộc khách hàng " + existing.getTenKhachHang(),
+                    HttpStatus.CONFLICT,
+                    mapper.toDto(existing));
+        }
+
+        String ma = "KH" + sdt;
+        int suffix = 1;
+        while (repository.existsByMaKhachHang(ma)) {
+            ma = "KH" + sdt + "-" + suffix++;
+        }
+
+        KhachHang saved = repository.save(KhachHang.builder()
+                .maKhachHang(ma)
+                .tenKhachHang(ten)
+                .soDienThoai(sdt)
+                .loaiKhachHang("le")
+                .trangThai(1)
+                .build());
+        return mapper.toDto(saved);
+    }
+
     // Function Edit Customer
     @Transactional
     public KhachHangDto update(Integer id, KhachHangUpdating updating) {
@@ -123,4 +170,4 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
                 .map(mapper::toDto)
                 .toList();
     }
-}
+}

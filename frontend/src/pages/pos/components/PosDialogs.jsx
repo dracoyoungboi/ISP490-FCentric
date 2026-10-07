@@ -9,8 +9,10 @@ import {
   Receipt,
   RefreshCcw,
   Search,
+  UserPlus,
 } from 'lucide-react';
 import PosModal from './PosModal';
+import { toPosCustomer } from '@/services/posService';
 import { formatMoney } from '../pos-format';
 
 const primaryButton = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-bo-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-bo-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary disabled:cursor-not-allowed disabled:bg-slate-300';
@@ -55,6 +57,106 @@ function MethodButton({ active, icon, label }) {
   );
 }
 
+/** Dialog chọn khách hàng + thêm nhanh khách hàng mới (tên + SĐT). */
+function CustomerDialog({ state, actions, onClose }) {
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickName, setQuickName] = useState('');
+  const [quickPhone, setQuickPhone] = useState('');
+  const [quickBusy, setQuickBusy] = useState(false);
+  const [quickError, setQuickError] = useState('');
+  const [quickExisting, setQuickExisting] = useState(null);
+
+  const matchingCustomers = state.customers.filter((customer) => `${customer.name} ${customer.phone ?? ''}`.toLowerCase().includes(customerSearch.toLowerCase()));
+
+  const resetQuickAdd = () => {
+    setQuickAddOpen(false);
+    setQuickName('');
+    setQuickPhone('');
+    setQuickBusy(false);
+    setQuickError('');
+    setQuickExisting(null);
+  };
+  const closeCustomerDialog = () => {
+    resetQuickAdd();
+    setCustomerSearch('');
+    onClose();
+  };
+  const openQuickAdd = () => {
+    // Điền sẵn từ ô tìm kiếm: toàn chữ số -> SĐT, còn lại -> tên.
+    const keyword = customerSearch.trim();
+    if (/^[\d\s.-]+$/.test(keyword)) setQuickPhone(keyword);
+    else if (keyword) setQuickName(keyword);
+    setQuickError('');
+    setQuickExisting(null);
+    setQuickAddOpen(true);
+  };
+  const phoneDigits = quickPhone.replace(/[\s.-]/g, '');
+  const quickInvalid = !quickName.trim() || !/^0\d{9}$/.test(phoneDigits);
+  const submitQuickAdd = async (event) => {
+    event.preventDefault();
+    if (quickInvalid || quickBusy) return;
+    setQuickBusy(true);
+    setQuickError('');
+    setQuickExisting(null);
+    try {
+      await actions.onQuickCreateCustomer({ name: quickName.trim(), phone: phoneDigits });
+      closeCustomerDialog();
+    } catch (error) {
+      const envelope = error?.response?.data;
+      setQuickError(envelope?.message || 'Không thể thêm khách hàng. Vui lòng thử lại.');
+      if (error?.response?.status === 409 && envelope?.data?.id) setQuickExisting(envelope.data);
+      setQuickBusy(false);
+    }
+  };
+  const selectExisting = () => {
+    actions.onSelectCustomer(toPosCustomer(quickExisting));
+    closeCustomerDialog();
+  };
+  return (
+    <PosModal description="Chọn khách hàng cho hóa đơn hiện tại." onClose={closeCustomerDialog} title="Chọn khách hàng" size="md">
+      <label className="relative block">
+        <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-bo-muted" size={17} />
+        <input autoFocus className={`${fieldClass} mt-0 pl-9`} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Tìm theo tên hoặc số điện thoại" value={customerSearch} />
+      </label>
+      <ul className="mt-3 max-h-64 divide-y divide-bo-border overflow-y-auto rounded-lg border border-bo-border">
+        {matchingCustomers.length ? matchingCustomers.map((customer) => (
+          <li key={customer.id}>
+            <button className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left transition hover:bg-slate-50" onClick={() => { actions.onSelectCustomer(customer); closeCustomerDialog(); }} type="button">
+              <span className="min-w-0"><span className="block truncate text-sm font-medium text-bo-foreground">{customer.name}</span><span className="mt-0.5 block text-xs text-bo-muted">{customer.phone || customer.tier}</span></span>
+              {state.customer?.id === customer.id ? <Check aria-hidden="true" className="shrink-0 text-bo-primary" size={17} /> : <ChevronRight aria-hidden="true" className="shrink-0 text-bo-muted" size={16} />}
+            </button>
+          </li>
+        )) : <li className="px-4 py-8 text-center text-sm text-bo-muted">Không tìm thấy khách hàng phù hợp.</li>}
+      </ul>
+      {quickAddOpen ? (
+        <form className="mt-4 rounded-lg border border-bo-border p-3" onSubmit={submitQuickAdd}>
+          <p className="text-sm font-semibold text-bo-foreground">Thêm khách hàng mới</p>
+          <div className="mt-2 grid gap-3 sm:grid-cols-2">
+            <Field autoFocus={!quickName} id="quick-customer-name" label="Tên khách hàng *" onChange={(event) => setQuickName(event.target.value)} placeholder="VD: Nguyễn Văn A" value={quickName} />
+            <Field autoFocus={Boolean(quickName)} id="quick-customer-phone" label="Số điện thoại *" onChange={(event) => setQuickPhone(event.target.value)} placeholder="VD: 0912345678" value={quickPhone} />
+          </div>
+          {quickPhone && !/^0\d{9}$/.test(phoneDigits) ? <p className="mt-2 text-xs text-red-600">Số điện thoại gồm 10 chữ số, bắt đầu bằng 0.</p> : null}
+          {quickError ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
+              <span>{quickError}</span>
+              {quickExisting && quickExisting.trangThai === 1 ? <button className="font-semibold text-bo-primary underline" onClick={selectExisting} type="button">Chọn khách này</button> : null}
+            </div>
+          ) : null}
+          <div className="mt-3 flex justify-end gap-2">
+            <button className={secondaryButton} disabled={quickBusy} onClick={resetQuickAdd} type="button">Hủy</button>
+            <button className={primaryButton} disabled={quickInvalid || quickBusy} type="submit">{quickBusy ? 'Đang lưu…' : 'Lưu và chọn'}</button>
+          </div>
+        </form>
+      ) : (
+        <button className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-bo-primary/40 px-3 py-2.5 text-sm font-medium text-bo-primary transition hover:bg-bo-primary-soft" onClick={openQuickAdd} type="button">
+          <UserPlus aria-hidden="true" size={16} /> Thêm khách hàng mới
+        </button>
+      )}
+    </PosModal>
+  );
+}
+
 /**
  * Dialog POS bản live: khách hàng thật; thanh toán chỉ Tiền mặt. Khi checkoutEnabled
  * đang tắt -> nút xác nhận khóa kèm thông báo. Attempt-aware:
@@ -64,33 +166,11 @@ function MethodButton({ active, icon, label }) {
  * Receipt dùng dữ liệu SERVER (soDonHang chính thức), không dùng receipt mẫu.
  */
 export default function PosDialogs({ dialog, state, actions, onClose, checkoutEnabled }) {
-  const [customerSearch, setCustomerSearch] = useState('');
-
   if (!dialog) return null;
 
   if (dialog === 'customer') {
-    const matchingCustomers = state.customers.filter((customer) => `${customer.name} ${customer.phone}`.toLowerCase().includes(customerSearch.toLowerCase()));
-    return (
-      <PosModal description="Chọn khách hàng cho hóa đơn hiện tại." onClose={onClose} title="Chọn khách hàng" size="md">
-        <label className="relative block">
-          <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-bo-muted" size={17} />
-          <input autoFocus className={`${fieldClass} mt-0 pl-9`} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Tìm theo tên hoặc số điện thoại" value={customerSearch} />
-        </label>
-        <ul className="mt-3 max-h-64 divide-y divide-bo-border overflow-y-auto rounded-lg border border-bo-border">
-          {matchingCustomers.length ? matchingCustomers.map((customer) => (
-            <li key={customer.id}>
-              <button className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left transition hover:bg-slate-50" onClick={() => { actions.onSelectCustomer(customer); onClose(); }} type="button">
-                <span className="min-w-0"><span className="block truncate text-sm font-medium text-bo-foreground">{customer.name}</span><span className="mt-0.5 block text-xs text-bo-muted">{customer.phone || customer.tier}</span></span>
-                {state.customer?.id === customer.id ? <Check aria-hidden="true" className="shrink-0 text-bo-primary" size={17} /> : <ChevronRight aria-hidden="true" className="shrink-0 text-bo-muted" size={16} />}
-              </button>
-            </li>
-          )) : <li className="px-4 py-8 text-center text-sm text-bo-muted">Không tìm thấy khách hàng phù hợp.</li>}
-        </ul>
-        <div className="mt-4 rounded-lg border border-dashed border-bo-border p-3">
-          <p className="text-xs leading-5 text-bo-muted">Tạo khách hàng mới tại quầy chưa được hỗ trợ. Vui lòng tạo ở trang <strong className="text-bo-foreground">Khách hàng</strong> rồi quay lại chọn tại đây — không dùng khách hàng tạm tại chỗ.</p>
-        </div>
-      </PosModal>
-    );
+    // Component riêng: đóng dialog là unmount -> ô tìm kiếm và form thêm nhanh tự reset.
+    return <CustomerDialog actions={actions} onClose={onClose} state={state} />;
   }
 
   if (dialog === 'clear') {

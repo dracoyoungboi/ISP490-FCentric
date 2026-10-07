@@ -11,4 +11,8 @@ import java.util.Optional;
 public interface KhachHangRepository extends JpaRepository<KhachHang, Integer>, JpaSpecificationExecutor<KhachHang> {
 
     Optional<KhachHang> findByMaKhachHangOrEmailOrSoDienThoai(String maKhachHang, String email, String soDienThoai);
-}
+
+    Optional<KhachHang> findFirstBySoDienThoai(String soDienThoai);
+
+    boolean existsByMaKhachHang(String maKhachHang);
+}

@@ -14,6 +14,7 @@ import { formatMoney } from './pos-format';
 import {
   posService,
   toPosProduct,
+  toPosCustomer,
   WALKIN_CUSTOMER_CODE,
   newCheckoutRequestId,
   getPendingCheckoutIds,
@@ -47,6 +48,18 @@ function createInvoice(number, { warehouseId = null, customer = null } = {}) {
   };
 }
 
+/**
+ * Số tab hóa đơn là nhãn tạm trên màn hình (mã đơn thật SO… do server cấp khi thanh toán),
+ * nên luôn lấy số nhỏ nhất còn trống: đóng "Hóa đơn 1" trống thì tab mới vẫn là "Hóa đơn 1",
+ * không nhảy lên 2, 3, 4…
+ */
+const nextFreeInvoiceNumber = (invoices) => {
+  const used = new Set(invoices.map((invoice) => invoice.number));
+  let number = 1;
+  while (used.has(number)) number += 1;
+  return number;
+};
+
 const isFrozenInvoice = (invoice) =>
   Boolean(invoice?.attempt && (invoice.attempt.status === 'pending' || invoice.attempt.status === 'unknown'));
 
@@ -66,6 +79,15 @@ export default function PosSalesPage({
   customers = [],
   checkoutEnabled = false,
 }) {
+  // Khách thêm nhanh tại quầy trong phiên này (chưa có trong danh sách tải lúc mở trang).
+  const [addedCustomers, setAddedCustomers] = useState([]);
+  // Danh sách hiển thị: Khách lẻ luôn ở đầu, khách vừa thêm kế tiếp, rồi các khách còn lại.
+  const customerOptions = useMemo(() => {
+    const addedIds = new Set(addedCustomers.map((item) => item.id));
+    const all = [...addedCustomers, ...customers.filter((item) => !addedIds.has(item.id))];
+    const walkIn = all.filter((item) => item.code === WALKIN_CUSTOMER_CODE);
+    return [...walkIn, ...all.filter((item) => item.code !== WALKIN_CUSTOMER_CODE)];
+  }, [customers, addedCustomers]);
   const walkInCustomer = useMemo(
     () => customers.find((customer) => customer.code === WALKIN_CUSTOMER_CODE) || null,
     [customers]
@@ -79,7 +101,6 @@ export default function PosSalesPage({
     createInvoice(1, { warehouseId: defaultWarehouseId, customer: walkInCustomer }),
   ]);
   const [activeInvoice, setActiveInvoice] = useState(1);
-  const nextInvoiceNumber = useRef(2);
 
   const currentInvoice = invoices.find((invoice) => invoice.number === activeInvoice) || invoices[0];
   const { cart, customer, note, paymentMethod, paymentAmount, warehouseId, attempt, number: ticketNumber } = currentInvoice;
@@ -264,6 +285,16 @@ export default function PosSalesPage({
     clearFailedAttemptAfterEdit();
   };
 
+  // Thêm nhanh khách hàng (tên + SĐT) rồi chọn luôn cho hóa đơn hiện tại.
+  // Lỗi (SĐT sai, trùng...) được ném lại để dialog hiển thị.
+  const quickCreateCustomer = async ({ name, phone }) => {
+    const created = toPosCustomer(await posService.quickCreateCustomer({ tenKhachHang: name, soDienThoai: phone }));
+    setAddedCustomers((current) => [created, ...current.filter((item) => item.id !== created.id)]);
+    selectCustomerForInvoice(created);
+    showToast(`Đã thêm và chọn khách hàng ${created.name}.`);
+    return created;
+  };
+
   const setNoteForInvoice = (value) => {
     if (frozen) return;
     updateInvoice('note', value);
@@ -279,7 +310,7 @@ export default function PosSalesPage({
   // ===== Tab hóa đơn =====
   const requestNewInvoice = () => {
     if (isSubmitting || dialog || frozen) return;
-    const number = nextInvoiceNumber.current++;
+    const number = nextFreeInvoiceNumber(invoices);
     setInvoices((current) => [...current, createInvoice(number, { warehouseId, customer: walkInCustomer })]);
     setActiveInvoice(number);
     setPaymentError('');
@@ -301,7 +332,7 @@ export default function PosSalesPage({
   const removeInvoice = (number) => {
     const remaining = invoices.filter((invoice) => invoice.number !== number);
     if (!remaining.length) {
-      const replacement = createInvoice(nextInvoiceNumber.current++, { warehouseId, customer: walkInCustomer });
+      const replacement = createInvoice(1, { warehouseId, customer: walkInCustomer });
       setInvoices([replacement]);
       setActiveInvoice(replacement.number);
     } else {
@@ -597,6 +628,7 @@ export default function PosSalesPage({
 
   const actions = {
     onSelectCustomer: selectCustomerForInvoice,
+    onQuickCreateCustomer: quickCreateCustomer,
     onClearCart: clearCart,
     onNote: setNoteForInvoice,
     onCloseInvoice: () => {
@@ -617,7 +649,7 @@ export default function PosSalesPage({
   };
 
   const dialogState = {
-    customers,
+    customers: customerOptions,
     customer,
     cart,
     subtotal,
