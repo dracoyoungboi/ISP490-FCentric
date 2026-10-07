@@ -14,11 +14,12 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
 import LoadingState from "@/components/shared/LoadingState";
 import { Button } from "@/components/ui/button";
+import { API_BASE_URL } from "@/config/apiBase";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // ─── API ───
-const API_BASE = "http://localhost:8080/api/v1";
+const API_BASE = `${API_BASE_URL}/api/v1`;
 const getAuthHeader = () => ({ Authorization: `Bearer ${localStorage.getItem("access_token") ?? ""}` });
 
 async function fetchKhoList() {

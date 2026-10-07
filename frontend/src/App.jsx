@@ -83,7 +83,9 @@ import PrintTemplatesPage from "./pages/settings/PrintTemplatesPage";
 import PrintTemplateDetailPage from "./pages/settings/PrintTemplateDetailPage";
 import PrintTemplateEditorPage from "./pages/settings/PrintTemplateEditorPage";
 import InventorySystemSettingsPage from "./pages/settings/InventorySystemSettingsPage";
+import PaymentSettingsPage from "./pages/settings/PaymentSettingsPage";
 import RequireRole from "./components/auth/RequireRole";
+import PosPage from "./pages/pos";
 
 export default function App() {
   return (
@@ -181,6 +183,10 @@ export default function App() {
 
           {/* Sales-orders */}
           <Route path="/sales-orders" element={<DonBanHangList />} />
+
+          {/* POS — Bán hàng tại quầy (Phase 02: chỉ đọc catalog; checkout khóa tới Phase 03/04) */}
+          <Route path="/pos" element={<PosPage />} />
+
           <Route path="/sales-orders/:id" element={<DonBanHangDetail />} />
           <Route path="/sales-orders/create" element={<DonBanHangCreate />} />
           <Route path="/sales-quotations" element={<BaoGiaList />} />
@@ -211,6 +217,10 @@ export default function App() {
               Chỉ quan_tri_vien / quan_ly_kho được cấu hình (frontend guard là UX,
               backend @RequireAuth là chốt chặn thật). Trang chính nhúng preview;
               route /:documentType/:templateId giữ trang xem trước cũ cho deep-link. */}
+          {/* Cài đặt thanh toán payOS — chỉ quản trị viên (backend cũng chặn bằng @RequireAuth) */}
+          <Route element={<RequireRole roles={["quan_tri_vien"]} />}>
+            <Route path="/settings/payment" element={<PaymentSettingsPage />} />
+          </Route>
           <Route
             element={
               <RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />

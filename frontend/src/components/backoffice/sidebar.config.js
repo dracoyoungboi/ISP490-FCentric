@@ -8,6 +8,7 @@ import {
   BarChart3,
   Printer,
   Settings2,
+  CreditCard,
 } from "lucide-react";
 
 // Nhóm hiển thị trên sidebar — thứ tự khai báo cũng là thứ tự render.
@@ -155,7 +156,13 @@ export const SIDEBAR_MENU = [
       {
         label: "Đơn bán hàng",
         to: "/sales-orders",
-        roles: ["quan_tri_vien", "nhan_vien_ban_hang", "nhan_vien_kho", "quan_ly_kho"], 
+        roles: ["quan_tri_vien", "nhan_vien_ban_hang", "nhan_vien_kho", "quan_ly_kho"],
+      },
+      {
+        // POS V1: chỉ admin + nhân viên bán hàng (quyết định mở rộng role ở Phase 03+)
+        label: "Bán hàng tại quầy",
+        to: "/pos",
+        roles: ["quan_tri_vien", "nhan_vien_ban_hang"],
       },
     ],
   },
@@ -208,5 +215,14 @@ export const SIDEBAR_MENU = [
     section: "settings",
     to: "/settings/print-templates",
     roles: ["quan_tri_vien", "quan_ly_kho"],
+  },
+
+  // ================= CÀI ĐẶT THANH TOÁN (payOS) =================
+  {
+    label: "Cài đặt thanh toán",
+    icon: CreditCard,
+    section: "settings",
+    to: "/settings/payment",
+    roles: ["quan_tri_vien"],
   },
 ];

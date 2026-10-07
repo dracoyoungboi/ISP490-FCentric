@@ -197,6 +197,13 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         Kho kho = phieu.getKho();
         BigDecimal tongTien = BigDecimal.ZERO;
 
+        // Khóa các dòng tồn theo lô sẽ ghi, thứ tự PK ổn định (chống lost update với POS checkout).
+        List<Integer> lotIdsToLock = danhSachNhapTheoLo.stream()
+                .map(ct -> ct.getLoHang().getId())
+                .distinct()
+                .toList();
+        tonKhoTheoLoRepository.lockLotsForUpdateByLotIds(lotIdsToLock);
+
         // donMuaHang sẽ là null nếu đây là phiếu Nhập Hoàn Trả (Return)
         DonMuaHang donMuaHang = phieu.getDonMuaHang();
 
@@ -500,6 +507,14 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
 
         List<ChiTietPhieuNhapKho> details = chiTietPhieuNhapKhoRepository.findAllByPhieuNhapKhoIdAndCoLo(phieuNhapId);
         Set<Integer> sanPhamIdsCanCapNhat = new HashSet<>();
+
+        // Khóa các dòng tồn theo lô sẽ ghi, thứ tự PK ổn định (chống lost update với POS checkout).
+        List<Integer> lotIdsToLock = details.stream()
+                .map(ct -> ct.getLoHang().getId())
+                .distinct()
+                .toList();
+        tonKhoTheoLoRepository.lockLotsForUpdateByLotIds(lotIdsToLock);
+
         for (ChiTietPhieuNhapKho ct : details) {
             BigDecimal qty = ct.getSoLuongNhap();
             LoHang lo = ct.getLoHang();

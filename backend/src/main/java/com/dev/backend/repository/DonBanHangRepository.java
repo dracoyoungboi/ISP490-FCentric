@@ -53,4 +53,9 @@ public interface DonBanHangRepository
 
     // Dùng để tìm kiếm khôi phục chứng từ khi Hủy đơn
     java.util.Optional<DonBanHang> findBySoDonHang(String soDonHang);
+
+    List<DonBanHang> findByKhoXuat_IdAndTrangThaiAndDanhSachNhatHangIsNull(Integer khoId, Integer trangThai);
+
+    List<DonBanHang> findByIdInAndKhoXuat_Id(List<Integer> ids, Integer khoId);
+    List<DonBanHang> findByKhachHangIdOrderByNgayDatHangDesc(Integer khachHangId);
 }

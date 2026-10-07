@@ -209,6 +209,12 @@ export default function BackofficeLayout() {
             subtitle: "Danh sách đơn bán hàng",
         },
         {
+            key: "POS",
+            match: (path) => path === "/pos",
+            title: "Bán hàng tại quầy",
+            subtitle: "Bán lẻ trực tiếp tại cửa hàng",
+        },
+        {
             key: "SALES_ORDER_DETAIL",
             match: (path) => /^\/sales-orders\/\d+$/.test(path),
             title: "Chi tiết đơn bán hàng",
@@ -381,6 +387,12 @@ export default function BackofficeLayout() {
                 /^\/settings\/print-templates\/[^/]+$/.test(path),
             title: "Cấu hình mẫu in",
             subtitle: "Xem các mẫu in có sẵn theo loại chứng từ",
+        },
+        {
+            key: "PAYMENT_SETTINGS",
+            match: (path) => path === "/settings/payment",
+            title: "Cài đặt thanh toán",
+            subtitle: "Kết nối payOS cho thanh toán chuyển khoản QR",
         },
         {
             key: "PRINT_TEMPLATE_EDIT",

@@ -41,11 +41,11 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
+import { API_BASE_URL } from "@/config/apiBase";
 
 
 // API
-const BASE_URL =
-  "http://localhost:8080/api/v1/admin/dashboard/bao-cao/khach-hang";
+const BASE_URL = `${API_BASE_URL}/api/v1/admin/dashboard/bao-cao/khach-hang`;
 
 const getToken = () =>
   localStorage.getItem("access_token") ?? "";
