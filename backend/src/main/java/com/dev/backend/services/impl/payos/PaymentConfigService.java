@@ -31,8 +31,8 @@ public class PaymentConfigService {
     private final String backendPublicUrl;
 
     public PaymentConfigService(CauHinhThanhToanRepository repository, PaymentSecretCipher cipher,
-                                PayosClient payosClient,
-                                @Value("${app.backend-public-url:}") String backendPublicUrl) {
+            PayosClient payosClient,
+            @Value("${app.backend-public-url:}") String backendPublicUrl) {
         this.repository = repository;
         this.cipher = cipher;
         this.payosClient = payosClient;
@@ -49,22 +49,26 @@ public class PaymentConfigService {
         CauHinhThanhToan cfg = load();
         if (notBlank(req.getClientId())) {
             String v = req.getClientId().trim();
-            if (!UUID.matcher(v).matches()) throw new CommonException("Client ID không đúng định dạng (dạng xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)");
+            if (!UUID.matcher(v).matches())
+                throw new CommonException("Client ID không đúng định dạng (dạng xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)");
             cfg.setClientIdMaHoa(cipher.encrypt(v));
         }
         if (notBlank(req.getApiKey())) {
             String v = req.getApiKey().trim();
-            if (!UUID.matcher(v).matches()) throw new CommonException("API Key không đúng định dạng (dạng xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)");
+            if (!UUID.matcher(v).matches())
+                throw new CommonException("API Key không đúng định dạng (dạng xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)");
             cfg.setApiKeyMaHoa(cipher.encrypt(v));
         }
         if (notBlank(req.getChecksumKey())) {
             String v = req.getChecksumKey().trim();
-            if (!HEX64.matcher(v).matches()) throw new CommonException("Checksum Key phải gồm 64 ký tự 0-9, a-f");
+            if (!HEX64.matcher(v).matches())
+                throw new CommonException("Checksum Key phải gồm 64 ký tự 0-9, a-f");
             cfg.setChecksumKeyMaHoa(cipher.encrypt(v));
         }
         if (req.getThoiGianHetHanPhut() != null) {
             int m = req.getThoiGianHetHanPhut();
-            if (m < 3 || m > 60) throw new CommonException("Thời gian hết hạn mã QR phải từ 3 đến 60 phút");
+            if (m < 3 || m > 60)
+                throw new CommonException("Thời gian hết hạn mã QR phải từ 3 đến 60 phút");
             cfg.setThoiGianHetHanPhut(m);
         }
         if (req.getWebhookUrl() != null) {
@@ -88,7 +92,10 @@ public class PaymentConfigService {
         return toDto(repository.save(cfg));
     }
 
-    /** Gọi thử payOS bằng khóa đang lưu: tra một mã đơn ngẫu nhiên (không tạo giao dịch nào). */
+    /**
+     * Gọi thử payOS bằng khóa đang lưu: tra một mã đơn ngẫu nhiên (không tạo giao
+     * dịch nào).
+     */
     @Transactional(readOnly = true)
     public PayosTestResult testConnection() {
         PayosCredentials cred = credentials(load());
@@ -97,24 +104,28 @@ public class PaymentConfigService {
         boolean authFailed = r.httpStatus() == 401 || r.httpStatus() == 403;
         boolean ok = !authFailed && r.httpStatus() < 500 && r.code() != null;
         String msg = ok
-                ? "Kết nối payOS thành công (payOS phản hồi: " + r.code() + (r.desc() == null ? "" : " - " + r.desc()) + ")"
+                ? "Kết nối payOS thành công "
                 : "payOS từ chối khóa hoặc không phản hồi hợp lệ (HTTP " + r.httpStatus()
-                  + (r.desc() == null ? "" : ", " + r.desc()) + "). Kiểm tra lại Client ID và API Key.";
+                        + (r.desc() == null ? "" : ", " + r.desc()) + "). Kiểm tra lại Client ID và API Key.";
         return PayosTestResult.builder().ok(ok).code(r.code()).message(msg).build();
     }
 
-    /** Đăng ký webhook URL với payOS. payOS sẽ gửi thử một webhook mẫu tới URL này. */
+    /**
+     * Đăng ký webhook URL với payOS. payOS sẽ gửi thử một webhook mẫu tới URL này.
+     */
     @Transactional
     public PayosConfigDto confirmWebhook(String webhookUrl) {
         CauHinhThanhToan cfg = load();
         String url = webhookUrl == null || webhookUrl.isBlank() ? cfg.getWebhookUrl() : webhookUrl.trim();
         if (url == null || !url.startsWith("https://")) {
-            throw new CommonException("Webhook URL phải là địa chỉ công khai bắt đầu bằng https:// (máy dev dùng ngrok/cloudflared)");
+            throw new CommonException(
+                    "Webhook URL phải là địa chỉ công khai bắt đầu bằng https:// (máy dev dùng ngrok/cloudflared)");
         }
         PayosClient.PayosResult r = payosClient.confirmWebhook(credentials(cfg), url);
         if (!r.ok()) {
-            throw new CommonException("payOS chưa xác nhận webhook: " + (r.desc() == null ? "HTTP " + r.httpStatus() : r.desc())
-                    + ". Hãy chắc chắn backend đang chạy và URL truy cập được từ Internet.",
+            throw new CommonException(
+                    "payOS chưa xác nhận webhook: " + (r.desc() == null ? "HTTP " + r.httpStatus() : r.desc())
+                            + ". Hãy chắc chắn backend đang chạy và URL truy cập được từ Internet.",
                     HttpStatus.BAD_GATEWAY, null);
         }
         cfg.setWebhookUrl(url);
@@ -123,7 +134,9 @@ public class PaymentConfigService {
         return toDto(repository.save(cfg));
     }
 
-    /** Khóa payOS đang bật để POS dùng. Ném lỗi rõ ràng nếu chưa bật/chưa đủ khóa. */
+    /**
+     * Khóa payOS đang bật để POS dùng. Ném lỗi rõ ràng nếu chưa bật/chưa đủ khóa.
+     */
     @Transactional(readOnly = true)
     public ActivePayos activePayos() {
         CauHinhThanhToan cfg = load();
@@ -131,21 +144,27 @@ public class PaymentConfigService {
             throw new CommonException("Thanh toán chuyển khoản payOS đang tắt. Bật ở Cài đặt → Thanh toán.",
                     HttpStatus.SERVICE_UNAVAILABLE, null);
         }
-        return new ActivePayos(credentials(cfg), cfg.getThoiGianHetHanPhut() == null ? 15 : cfg.getThoiGianHetHanPhut());
+        return new ActivePayos(credentials(cfg),
+                cfg.getThoiGianHetHanPhut() == null ? 15 : cfg.getThoiGianHetHanPhut());
     }
 
-    /** Khóa checksum để kiểm webhook — dùng được cả khi payOS đang tắt (giao dịch cũ vẫn phải xác nhận được). */
+    /**
+     * Khóa checksum để kiểm webhook — dùng được cả khi payOS đang tắt (giao dịch cũ
+     * vẫn phải xác nhận được).
+     */
     @Transactional(readOnly = true)
     public String checksumKeyOrNull() {
         CauHinhThanhToan cfg = repository.findByNhaCungCap(CauHinhThanhToan.NCC_PAYOS).orElse(null);
-        if (cfg == null || cfg.getChecksumKeyMaHoa() == null || !cipher.isConfigured()) return null;
+        if (cfg == null || cfg.getChecksumKeyMaHoa() == null || !cipher.isConfigured())
+            return null;
         return cipher.decrypt(cfg.getChecksumKeyMaHoa());
     }
 
     @Transactional(readOnly = true)
     public PayosCredentials credentialsForBackgroundJob() {
         CauHinhThanhToan cfg = repository.findByNhaCungCap(CauHinhThanhToan.NCC_PAYOS).orElse(null);
-        if (cfg == null || !isComplete(cfg) || !cipher.isConfigured()) return null;
+        if (cfg == null || !isComplete(cfg) || !cipher.isConfigured())
+            return null;
         return credentials(cfg);
     }
 
@@ -196,7 +215,8 @@ public class PaymentConfigService {
                 .thoiGianHetHanPhut(cfg.getThoiGianHetHanPhut())
                 .webhookUrl(cfg.getWebhookUrl())
                 .webhookUrlGoiY(backendPublicUrl.isEmpty() ? null
-                        : (backendPublicUrl.endsWith("/") ? backendPublicUrl.substring(0, backendPublicUrl.length() - 1) : backendPublicUrl) + WEBHOOK_PATH)
+                        : (backendPublicUrl.endsWith("/") ? backendPublicUrl.substring(0, backendPublicUrl.length() - 1)
+                                : backendPublicUrl) + WEBHOOK_PATH)
                 .webhookXacNhanLuc(cfg.getWebhookXacNhanLuc())
                 .ngayCapNhat(cfg.getNgayCapNhat())
                 .build();
@@ -204,10 +224,12 @@ public class PaymentConfigService {
 
     /** "ed71••••••••0ec63" — đủ để nhận ra khóa nào đang lưu, không đủ để dùng. */
     private String masked(String encrypted) {
-        if (encrypted == null) return null;
+        if (encrypted == null)
+            return null;
         try {
             String plain = cipher.decrypt(encrypted);
-            if (plain == null || plain.length() < 10) return "••••••••";
+            if (plain == null || plain.length() < 10)
+                return "••••••••";
             return plain.substring(0, 4) + "••••••••" + plain.substring(plain.length() - 4);
         } catch (CommonException e) {
             return "(không giải mã được — nhập lại)";
