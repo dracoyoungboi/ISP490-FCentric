@@ -15,4 +15,4 @@ public interface KhachHangRepository extends JpaRepository<KhachHang, Integer>, 
     Optional<KhachHang> findFirstBySoDienThoai(String soDienThoai);
 
     boolean existsByMaKhachHang(String maKhachHang);
-}
+}
