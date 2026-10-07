@@ -75,48 +75,48 @@ public class PosCheckoutTransaction {
     @Transactional
     public PosCheckoutResponse execute(PosCheckoutCreating request) {
         NguoiDungAuthInfo auth = SecurityContextHolder.getUser();
-        Integer userId = auth.getId();
+        return executeWith(request, CheckoutContext.cash(auth.getId()));
+    }
+
+    /**
+     * Checkout dùng chung cho tiền mặt và chuyển khoản payOS.
+     * - CASH: như cũ (giá hiện hành, kiểm quyền kho của người đang đăng nhập, tiền khách đưa phải đủ).
+     * - PAYOS: gọi từ webhook/job (không có người đăng nhập) với giá ĐÃ CHỐT lúc tạo QR,
+     *   số tiền đã nhận phải bằng đúng tổng, và trả lại phần hàng đã giữ chỗ trước khi trừ kho.
+     */
+    @Transactional
+    public PosCheckoutResponse executeWith(PosCheckoutCreating request, CheckoutContext ctx) {
+        Integer userId = ctx.userId();
 
         // 1. Xác thực nghiệp vụ (trước khi ghi bất cứ gì): requestId/items trước vì là
         //    validate hình thức rẻ nhất, rồi kho/khách, rồi biến thể.
         String requestId = validateRequestId(request.getRequestId());
         request.setRequestId(requestId); // dùng giá trị đã trim cho hash + lưu DB
         List<PosCheckoutCreating.PosCheckoutItemCreating> items = validateItems(request.getItems());
-        posCatalogService.authorizeWarehouse(request.getKhoId());
+        if (!ctx.skipWarehouseAuth()) {
+            posCatalogService.authorizeWarehouse(request.getKhoId());
+        }
         KhachHang khachHang = validateCustomer(request.getKhachHangId());
         Map<Integer, BienTheSanPham> variants = validateVariants(items);
 
         // 2. Giá server là nguồn quyết định — lệch giá hiển thị -> 409 có cấu trúc
-        BigDecimal tongTienHang = BigDecimal.ZERO;
-        List<PosPriceChangeInfo.PosPriceChangeItem> priceChanges = new ArrayList<>();
-        for (PosCheckoutCreating.PosCheckoutItemCreating item : items) {
-            BienTheSanPham variant = variants.get(item.getBienTheSanPhamId());
-            BigDecimal giaBan = variant.getGiaBan();
-            if (giaBan == null || giaBan.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new CommonException("Biến thể " + variant.getMaSku() + " chưa có giá bán, không thể bán tại quầy");
-            }
-            if (item.getUnitPriceClient() == null || item.getUnitPriceClient().compareTo(giaBan) != 0) {
-                priceChanges.add(PosPriceChangeInfo.PosPriceChangeItem.builder()
-                        .bienTheSanPhamId(variant.getId())
-                        .maSku(variant.getMaSku())
-                        .giaHienThi(item.getUnitPriceClient())
-                        .giaMoi(giaBan)
-                        .build());
-                continue;
-            }
-            tongTienHang = tongTienHang.add(giaBan.multiply(item.getQuantity()));
-        }
-        if (!priceChanges.isEmpty()) {
-            throw new CommonException(
-                    "Giá sản phẩm đã thay đổi. Vui lòng xác nhận lại giá mới trước khi thanh toán.",
-                    HttpStatus.CONFLICT,
-                    PosPriceChangeInfo.builder().priceChanged(true).items(priceChanges).build());
-        }
+        Map<Integer, BigDecimal> unitPrices = resolveUnitPrices(items, variants, ctx.lockedPrices());
+        BigDecimal tongTienHang = totalOf(items, unitPrices);
 
-        // 3. Tiền mặt: validate + phải đủ. Tiền thừa không phải doanh thu.
-        BigDecimal tendered = validatePayment(request.getPayment());
-        if (tendered.compareTo(tongTienHang) < 0) {
-            throw new CommonException("Số tiền khách đưa không đủ để thanh toán hóa đơn");
+        // 3. Thanh toán: tiền mặt phải đủ (tiền thừa không phải doanh thu);
+        //    chuyển khoản phải bằng đúng tổng đã chốt.
+        BigDecimal tendered;
+        if (CheckoutContext.METHOD_PAYOS.equals(ctx.method())) {
+            tendered = ctx.paidAmount();
+            if (tendered == null || tendered.compareTo(tongTienHang) != 0) {
+                throw new CommonException("Số tiền chuyển khoản (" + (tendered == null ? "?" : tendered.toPlainString())
+                        + ") không khớp tổng hóa đơn (" + tongTienHang.toPlainString() + ")");
+            }
+        } else {
+            tendered = validatePayment(request.getPayment());
+            if (tendered.compareTo(tongTienHang) < 0) {
+                throw new CommonException("Số tiền khách đưa không đủ để thanh toán hóa đơn");
+            }
         }
         BigDecimal tienThua = tendered.subtract(tongTienHang);
 
@@ -144,44 +144,21 @@ public class PosCheckoutTransaction {
         Map<Integer, List<TonKhoTheoLo>> lotsByVariant = lockedLots.stream()
                 .collect(Collectors.groupingBy(t -> t.getLoHang().getBienTheSanPham().getId()));
 
+        // 5b. Chuyển khoản: trả lại phần hàng đã giữ chỗ lúc tạo QR (trên chính các dòng vừa khóa)
+        //     rồi mới phân bổ — để hàng giữ chỗ được bán cho chính đơn này.
+        if (ctx.reservationToRelease() != null) {
+            releaseOnLockedRows(lockedLots, ctx.reservationToRelease());
+        }
+
         // 6. Phân bổ lô theo chính sách FIFO: ngayNhapGanNhat tăng dần, tie-break loHang.id;
         //    chỉ lấy lô đúng kho + đúng SKU (đã bảo đảm bởi query), khả dụng = ton - dat.
-        Map<Integer, List<LotAllocation>> allocationByVariant = new LinkedHashMap<>();
-        for (PosCheckoutCreating.PosCheckoutItemCreating item : items) {
-            List<TonKhoTheoLo> rows = lotsByVariant.getOrDefault(item.getBienTheSanPhamId(), List.of());
-            List<TonKhoTheoLo> fifo = rows.stream()
-                    .filter(t -> soLuongKhaDung(t).compareTo(BigDecimal.ZERO) > 0)
-                    .sorted(Comparator.comparing(
-                            (TonKhoTheoLo t) -> t.getNgayNhapGanNhat() == null ? Instant.MAX : t.getNgayNhapGanNhat())
-                            .thenComparing(t -> t.getLoHang().getId()))
-                    .toList();
-
-            BigDecimal can = fifo.stream().map(PosCheckoutTransaction::soLuongKhaDung)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            BigDecimal need = item.getQuantity();
-            if (can.compareTo(need) < 0) {
-                throw new CommonException("Sản phẩm [" + variants.get(item.getBienTheSanPhamId()).getMaSku()
-                        + "] không đủ tồn kho khả dụng tại kho này (cần " + need.toPlainString()
-                        + ", còn " + can.toPlainString() + ")");
-            }
-
-            List<LotAllocation> allocations = new ArrayList<>();
-            BigDecimal remaining = need;
-            for (TonKhoTheoLo t : fifo) {
-                if (remaining.compareTo(BigDecimal.ZERO) <= 0) break;
-                BigDecimal available = soLuongKhaDung(t);
-                BigDecimal take = available.min(remaining);
-                allocations.add(new LotAllocation(t, take));
-                remaining = remaining.subtract(take);
-            }
-            allocationByVariant.put(item.getBienTheSanPhamId(), allocations);
-        }
+        Map<Integer, List<LotAllocation>> allocationByVariant = allocateFifo(items, lotsByVariant, variants);
 
         // 7. Sinh số chứng từ an toàn (count+1 + retry trên unique — convention repo,
         //    IDENTITY khiến INSERT nổ ngay tại save nên vòng lặp hoạt động).
         Kho kho = entityManager.find(Kho.class, request.getKhoId());
         NguoiDung nguoiDung = entityManager.find(NguoiDung.class, userId);
-        DonBanHang don = createOrderWithDetails(request, khachHang, kho, nguoiDung, items, variants, tongTienHang);
+        DonBanHang don = createOrderWithDetails(request, khachHang, kho, nguoiDung, items, variants, unitPrices, tongTienHang);
         PhieuXuatKho phieuXuat = createIssueWithPicks(don, kho, nguoiDung, allocationByVariant);
 
         // 8. Trừ tồn + nhật ký kho (một lần duy nhất cho mỗi dòng tồn).
@@ -229,7 +206,7 @@ public class PosCheckoutTransaction {
         posPaymentRepository.save(PosPayment.builder()
                 .requestId(request.getRequestId())
                 .donBanHangId(don.getId())
-                .phuongThuc("CASH")
+                .phuongThuc(ctx.method())
                 .soTienHang(tongTienHang)
                 .soTienThu(tendered)
                 .soTienThua(tienThua)
@@ -238,7 +215,8 @@ public class PosCheckoutTransaction {
                 .build());
 
         // 10. Hoàn tất neo idempotency với kết quả đã lưu (cùng transaction).
-        PosCheckoutResponse response = buildResponse(don, phieuXuat, items, variants, tongTienHang, tendered, tienThua, khaDungSauByVariant);
+        PosCheckoutResponse response = buildResponse(don, phieuXuat, items, variants, unitPrices, tongTienHang, tendered, tienThua, khaDungSauByVariant);
+        response.setPhuongThuc(ctx.method());
         try {
             requestRow.setTrangThai(PosCheckoutRequest.TRANG_THAI_SUCCESS);
             requestRow.setDonBanHangId(don.getId());
@@ -280,7 +258,172 @@ public class PosCheckoutTransaction {
         }
     }
 
+    /**
+     * Giữ chỗ hàng cho giao dịch chuyển khoản: kiểm tra như checkout (quyền kho, khách, giá, tồn)
+     * rồi CỘNG so_luong_da_dat trên các lô theo FIFO — hàng không bị kênh khác bán mất trong lúc
+     * khách quét QR. Không tạo đơn, không trừ tồn.
+     */
+    @Transactional
+    public ReservationResult reserveForTransfer(PosCheckoutCreating request) {
+        validateRequestId(request.getRequestId());
+        List<PosCheckoutCreating.PosCheckoutItemCreating> items = validateItems(request.getItems());
+        posCatalogService.authorizeWarehouse(request.getKhoId());
+        validateCustomer(request.getKhachHangId());
+        Map<Integer, BienTheSanPham> variants = validateVariants(items);
+        Map<Integer, BigDecimal> unitPrices = resolveUnitPrices(items, variants, null);
+        BigDecimal total = totalOf(items, unitPrices);
+
+        List<Integer> variantIds = items.stream()
+                .map(PosCheckoutCreating.PosCheckoutItemCreating::getBienTheSanPhamId)
+                .sorted()
+                .toList();
+        List<TonKhoTheoLo> lockedLots = tonKhoTheoLoRepository.lockLotsForUpdateByKhoAndVariants(request.getKhoId(), variantIds);
+        Map<Integer, List<TonKhoTheoLo>> lotsByVariant = lockedLots.stream()
+                .collect(Collectors.groupingBy(t -> t.getLoHang().getBienTheSanPham().getId()));
+        Map<Integer, List<LotAllocation>> allocations = allocateFifo(items, lotsByVariant, variants);
+
+        List<ReservedLot> reserved = new ArrayList<>();
+        for (List<LotAllocation> list : allocations.values()) {
+            for (LotAllocation alloc : list) {
+                TonKhoTheoLo t = alloc.row;
+                BigDecimal dat = t.getSoLuongDaDat() == null ? BigDecimal.ZERO : t.getSoLuongDaDat();
+                t.setSoLuongDaDat(dat.add(alloc.quantity));
+                tonKhoTheoLoRepository.save(t);
+                reserved.add(new ReservedLot(t.getId(), t.getLoHang().getBienTheSanPham().getId(), alloc.quantity));
+            }
+        }
+        Map<Integer, String> names = new HashMap<>();
+        for (BienTheSanPham v : variants.values()) {
+            String ten = v.getSanPham() != null && v.getSanPham().getTenSanPham() != null ? v.getSanPham().getTenSanPham() : v.getMaSku();
+            names.put(v.getId(), ten);
+        }
+        return new ReservationResult(total, unitPrices, reserved, names);
+    }
+
+    /** Trả lại hàng đã giữ chỗ (hủy/hết hạn/lỗi tạo QR). Không bao giờ để so_luong_da_dat âm. */
+    @Transactional
+    public void releaseReservation(Integer khoId, List<ReservedLot> reserved) {
+        if (reserved == null || reserved.isEmpty()) return;
+        List<Integer> variantIds = reserved.stream().map(ReservedLot::bienTheSanPhamId).distinct().sorted().toList();
+        List<TonKhoTheoLo> lockedLots = tonKhoTheoLoRepository.lockLotsForUpdateByKhoAndVariants(khoId, variantIds);
+        releaseOnLockedRows(lockedLots, reserved);
+    }
+
+    private void releaseOnLockedRows(List<TonKhoTheoLo> lockedLots, List<ReservedLot> reserved) {
+        Map<Integer, TonKhoTheoLo> byId = lockedLots.stream().collect(Collectors.toMap(TonKhoTheoLo::getId, t -> t));
+        for (ReservedLot r : reserved) {
+            TonKhoTheoLo t = byId.get(r.tonKhoTheoLoId());
+            if (t == null) continue;
+            BigDecimal dat = t.getSoLuongDaDat() == null ? BigDecimal.ZERO : t.getSoLuongDaDat();
+            BigDecimal after = dat.subtract(r.quantity());
+            t.setSoLuongDaDat(after.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : after);
+            tonKhoTheoLoRepository.save(t);
+        }
+    }
+
+    /** Ngữ cảnh checkout: ai thu tiền, phương thức, giá chốt và phần giữ chỗ cần trả. */
+    public record CheckoutContext(Integer userId, String method, BigDecimal paidAmount,
+                                  Map<Integer, BigDecimal> lockedPrices, List<ReservedLot> reservationToRelease,
+                                  boolean skipWarehouseAuth) {
+        public static final String METHOD_CASH = "CASH";
+        public static final String METHOD_PAYOS = "PAYOS";
+
+        public static CheckoutContext cash(Integer userId) {
+            return new CheckoutContext(userId, METHOD_CASH, null, null, null, false);
+        }
+
+        public static CheckoutContext payos(Integer cashierId, BigDecimal paidAmount,
+                                            Map<Integer, BigDecimal> lockedPrices, List<ReservedLot> reservationToRelease) {
+            return new CheckoutContext(cashierId, METHOD_PAYOS, paidAmount, lockedPrices, reservationToRelease, true);
+        }
+    }
+
+    /** Một phần hàng đang giữ chỗ trên một dòng tồn (ton_kho_theo_lo.id). */
+    public record ReservedLot(Integer tonKhoTheoLoId, Integer bienTheSanPhamId, BigDecimal quantity) {
+    }
+
+    public record ReservationResult(BigDecimal total, Map<Integer, BigDecimal> unitPrices,
+                                    List<ReservedLot> reserved, Map<Integer, String> productNames) {
+    }
+
     // ================= helpers =================
+
+    /** Giá bán từng biến thể: giá chốt (nếu có) hoặc giá hiện hành; lệch giá client hiển thị -> 409. */
+    private Map<Integer, BigDecimal> resolveUnitPrices(List<PosCheckoutCreating.PosCheckoutItemCreating> items,
+                                                       Map<Integer, BienTheSanPham> variants,
+                                                       Map<Integer, BigDecimal> lockedPrices) {
+        Map<Integer, BigDecimal> prices = new HashMap<>();
+        List<PosPriceChangeInfo.PosPriceChangeItem> priceChanges = new ArrayList<>();
+        for (PosCheckoutCreating.PosCheckoutItemCreating item : items) {
+            BienTheSanPham variant = variants.get(item.getBienTheSanPhamId());
+            BigDecimal giaBan = lockedPrices != null ? lockedPrices.get(variant.getId()) : variant.getGiaBan();
+            if (giaBan == null || giaBan.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new CommonException("Biến thể " + variant.getMaSku() + " chưa có giá bán, không thể bán tại quầy");
+            }
+            if (item.getUnitPriceClient() == null || item.getUnitPriceClient().compareTo(giaBan) != 0) {
+                priceChanges.add(PosPriceChangeInfo.PosPriceChangeItem.builder()
+                        .bienTheSanPhamId(variant.getId())
+                        .maSku(variant.getMaSku())
+                        .giaHienThi(item.getUnitPriceClient())
+                        .giaMoi(giaBan)
+                        .build());
+                continue;
+            }
+            prices.put(variant.getId(), giaBan);
+        }
+        if (!priceChanges.isEmpty()) {
+            throw new CommonException(
+                    "Giá sản phẩm đã thay đổi. Vui lòng xác nhận lại giá mới trước khi thanh toán.",
+                    HttpStatus.CONFLICT,
+                    PosPriceChangeInfo.builder().priceChanged(true).items(priceChanges).build());
+        }
+        return prices;
+    }
+
+    private static BigDecimal totalOf(List<PosCheckoutCreating.PosCheckoutItemCreating> items, Map<Integer, BigDecimal> unitPrices) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (PosCheckoutCreating.PosCheckoutItemCreating item : items) {
+            total = total.add(unitPrices.get(item.getBienTheSanPhamId()).multiply(item.getQuantity()));
+        }
+        return total;
+    }
+
+    /** FIFO: ngayNhapGanNhat tăng dần, tie-break loHang.id; chỉ lô còn khả dụng (ton - dat > 0). */
+    private Map<Integer, List<LotAllocation>> allocateFifo(List<PosCheckoutCreating.PosCheckoutItemCreating> items,
+                                                           Map<Integer, List<TonKhoTheoLo>> lotsByVariant,
+                                                           Map<Integer, BienTheSanPham> variants) {
+        Map<Integer, List<LotAllocation>> allocationByVariant = new LinkedHashMap<>();
+        for (PosCheckoutCreating.PosCheckoutItemCreating item : items) {
+            List<TonKhoTheoLo> rows = lotsByVariant.getOrDefault(item.getBienTheSanPhamId(), List.of());
+            List<TonKhoTheoLo> fifo = rows.stream()
+                    .filter(t -> soLuongKhaDung(t).compareTo(BigDecimal.ZERO) > 0)
+                    .sorted(Comparator.comparing(
+                            (TonKhoTheoLo t) -> t.getNgayNhapGanNhat() == null ? Instant.MAX : t.getNgayNhapGanNhat())
+                            .thenComparing(t -> t.getLoHang().getId()))
+                    .toList();
+
+            BigDecimal can = fifo.stream().map(PosCheckoutTransaction::soLuongKhaDung)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal need = item.getQuantity();
+            if (can.compareTo(need) < 0) {
+                throw new CommonException("Sản phẩm [" + variants.get(item.getBienTheSanPhamId()).getMaSku()
+                        + "] không đủ tồn kho khả dụng tại kho này (cần " + need.toPlainString()
+                        + ", còn " + can.toPlainString() + ")");
+            }
+
+            List<LotAllocation> allocations = new ArrayList<>();
+            BigDecimal remaining = need;
+            for (TonKhoTheoLo t : fifo) {
+                if (remaining.compareTo(BigDecimal.ZERO) <= 0) break;
+                BigDecimal available = soLuongKhaDung(t);
+                BigDecimal take = available.min(remaining);
+                allocations.add(new LotAllocation(t, take));
+                remaining = remaining.subtract(take);
+            }
+            allocationByVariant.put(item.getBienTheSanPhamId(), allocations);
+        }
+        return allocationByVariant;
+    }
 
     private String validateRequestId(String requestId) {
         if (requestId == null || requestId.isBlank()) {
@@ -385,7 +528,7 @@ public class PosCheckoutTransaction {
     private DonBanHang createOrderWithDetails(
             PosCheckoutCreating request, KhachHang khachHang, Kho kho, NguoiDung nguoiDung,
             List<PosCheckoutCreating.PosCheckoutItemCreating> items,
-            Map<Integer, BienTheSanPham> variants, BigDecimal tongTienHang) {
+            Map<Integer, BienTheSanPham> variants, Map<Integer, BigDecimal> unitPrices, BigDecimal tongTienHang) {
         int retry = 0;
         while (true) {
             try {
@@ -408,7 +551,7 @@ public class PosCheckoutTransaction {
 
                 for (PosCheckoutCreating.PosCheckoutItemCreating item : items) {
                     BienTheSanPham variant = variants.get(item.getBienTheSanPhamId());
-                    BigDecimal giaBan = variant.getGiaBan();
+                    BigDecimal giaBan = unitPrices.get(variant.getId());
                     chiTietDonBanHangRepository.save(ChiTietDonBanHang.builder()
                             .donBanHang(don)
                             .bienTheSanPham(variant)
@@ -474,13 +617,13 @@ public class PosCheckoutTransaction {
     private PosCheckoutResponse buildResponse(
             DonBanHang don, PhieuXuatKho phieuXuat,
             List<PosCheckoutCreating.PosCheckoutItemCreating> items,
-            Map<Integer, BienTheSanPham> variants,
+            Map<Integer, BienTheSanPham> variants, Map<Integer, BigDecimal> unitPrices,
             BigDecimal tongTienHang, BigDecimal tendered, BigDecimal tienThua,
             Map<Integer, BigDecimal> khaDungSauByVariant) {
         List<PosCheckoutResponse.PosCheckoutItemResponse> itemResponses = items.stream()
                 .map(item -> {
                     BienTheSanPham variant = variants.get(item.getBienTheSanPhamId());
-                    BigDecimal giaBan = variant.getGiaBan();
+                    BigDecimal giaBan = unitPrices.get(variant.getId());
                     return PosCheckoutResponse.PosCheckoutItemResponse.builder()
                             .bienTheSanPhamId(variant.getId())
                             .maSku(variant.getMaSku())
