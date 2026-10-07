@@ -102,7 +102,7 @@ export default function CustomerPurchaseHistory({ customerId }) {
     };
   }, [loadHistory]);
 
-  // Chỉ lọc khi response thực sự chứa danh sách lịch sử.
+  // Lọc trực tiếp trên danh sách lịch sử API đã trả về.
   const channels = [...new Set(history.map((item) => item.kenh).filter(Boolean))].sort();
   const term = query.trim().toLocaleLowerCase("vi-VN");
   const results = history.filter((item) => {
@@ -114,7 +114,7 @@ export default function CustomerPurchaseHistory({ customerId }) {
   });
   const filtered = Boolean(query || channel || fromDate || toDate);
   const clearFilters = () => { setQuery(""); setChannel(""); setFromDate(""); setToDate(""); };
-  const noOrders = status === "loaded" && history.length === 0 && totalOrders === 0;
+  const noOrders = status === "loaded" && history.length === 0;
 
   return (
     <TableShell
@@ -123,21 +123,21 @@ export default function CustomerPurchaseHistory({ customerId }) {
       description={noOrders ? null : status === "loaded"
         ? `Tổng số đơn: ${totalOrders.toLocaleString("vi-VN")} đơn hàng`
         : "Tra cứu lịch sử mua hàng của khách hàng."}
-      toolbar={status === "loaded" && history.length > 0 ? (
-        <div className="grid grid-cols-1 gap-3 border-b border-bo-border bg-bo-surface-subtle px-4 py-4 sm:grid-cols-2 sm:px-5 xl:grid-cols-4">
+      toolbar={
+        <div className="grid grid-cols-1 gap-3 border-b border-bo-border bg-white px-4 py-4 sm:grid-cols-2 sm:px-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] xl:items-end">
           <div className="flex min-w-0 flex-col gap-2">
             <Label htmlFor="customer-history-search" className="static text-xs font-semibold leading-5 text-bo-foreground">Mã đơn hàng</Label>
             <div className="relative">
               <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-bo-muted" />
               <Input id="customer-history-search" type="search" placeholder="Tìm theo mã đơn hàng…" value={query}
-                disabled={status !== "loaded" || history.length === 0} onChange={(event) => setQuery(event.target.value)}
+                disabled={status !== "loaded"} onChange={(event) => setQuery(event.target.value)}
                 className={`h-10 pl-9 ${controlClass}`} />
             </div>
           </div>
           <div className="flex min-w-0 flex-col gap-2">
             <Label htmlFor="customer-history-channel" className="static text-xs font-semibold leading-5 text-bo-foreground">Kênh bán</Label>
             <select id="customer-history-channel" value={channel} onChange={(event) => setChannel(event.target.value)}
-              disabled={status !== "loaded" || history.length === 0}
+              disabled={status !== "loaded"}
               className={`h-10 w-full min-w-0 rounded-md border px-3 text-sm outline-none focus-visible:ring-[3px] disabled:opacity-50 ${controlClass}`}>
               <option value="">Tất cả kênh</option>
               {channels.map((value) => <option key={value} value={value}>{value}</option>)}
@@ -146,16 +146,23 @@ export default function CustomerPurchaseHistory({ customerId }) {
           <div className="flex min-w-0 flex-col gap-2">
             <Label htmlFor="customer-history-from" className="static text-xs font-semibold leading-5 text-bo-foreground">Từ ngày mua</Label>
             <Input id="customer-history-from" type="date" value={fromDate} max={toDate || undefined}
+              disabled={status !== "loaded"}
               onChange={(event) => setFromDate(event.target.value)} className={`h-10 min-w-0 ${controlClass}`} />
           </div>
           <div className="flex min-w-0 flex-col gap-2">
             <Label htmlFor="customer-history-to" className="static text-xs font-semibold leading-5 text-bo-foreground">Đến ngày mua</Label>
             <Input id="customer-history-to" type="date" value={toDate} min={fromDate || undefined}
+              disabled={status !== "loaded"}
               onChange={(event) => setToDate(event.target.value)} className={`h-10 min-w-0 ${controlClass}`} />
           </div>
-          {filtered && <div className="sm:col-span-2 xl:col-span-4"><Button type="button" variant="outline" onClick={clearFilters} className={`h-9 hover:bg-bo-surface-subtle ${controlClass}`}><X className="size-4" />Xóa bộ lọc</Button></div>}
+          <div className="sm:col-span-2 xl:col-span-1">
+            <Button type="button" variant="outline" onClick={clearFilters} disabled={!filtered}
+              className={`h-10 w-full hover:bg-bo-surface-subtle sm:w-auto ${controlClass}`}>
+              <X className="size-4" />Xóa bộ lọc
+            </Button>
+          </div>
         </div>
-      ) : null}
+      }
       footer={status === "loaded" && history.length > 0 ? (
         <p role="status" aria-live="polite" className="text-xs text-bo-muted">Hiển thị <span className="font-semibold text-bo-foreground">{results.length.toLocaleString("vi-VN")}</span> / {totalOrders.toLocaleString("vi-VN")} đơn hàng</p>
       ) : null}
@@ -182,8 +189,7 @@ export default function CustomerPurchaseHistory({ customerId }) {
       ) : noOrders ? (
         <EmptyState icon={ShoppingBag} className="min-h-48" title="Chưa có lịch sử mua hàng" description={null} />
       ) : results.length === 0 ? (
-        <EmptyState icon={Search} className="min-h-48" title="Không tìm thấy đơn hàng phù hợp" description={null}
-          action={<Button type="button" variant="outline" onClick={clearFilters} className={controlClass}>Xóa bộ lọc</Button>} />
+        <EmptyState icon={Search} className="min-h-48" title="Không tìm thấy đơn hàng phù hợp" description={null} />
       ) : (
         <table className="w-full min-w-[620px] text-sm">
           <caption className="sr-only">Lịch sử mua hàng của khách hàng, mới nhất trước</caption>
