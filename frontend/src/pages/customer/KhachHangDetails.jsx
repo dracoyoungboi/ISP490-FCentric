@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Edit, User, Phone, Calendar, Clock, Hash, Users,
+  ArrowLeft, Edit, User, Phone, Hash, Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getKhachHangById } from "@/services/khachHangService";
@@ -12,6 +12,7 @@ import LoadingState from "@/components/shared/LoadingState";
 import StatusBadge from "@/components/shared/StatusBadge";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import { Button } from "@/components/ui/button";
+import CustomerPurchaseHistory from "./components/CustomerPurchaseHistory";
 
 const LOAI_MAP = {
   le:           { label: "Khách lẻ (Retail)",       tone: "info" },
@@ -206,31 +207,9 @@ export default function KhachHangDetails() {
             </div>
           </SurfaceCard>
 
-          {/* Nhật ký tài khoản */}
-          <SurfaceCard title="Nhật ký tài khoản" description="Thời gian tạo và cập nhật">
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <div className="flex items-center gap-4 rounded-md border border-bo-border bg-bo-surface-subtle p-4">
-                <Calendar className="size-7 shrink-0 text-slate-300" />
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-bo-muted">Ngày khởi tạo</p>
-                  <p className="mt-1 font-semibold text-bo-foreground">
-                    {khachHang.ngayTao ? new Date(khachHang.ngayTao).toLocaleString('vi-VN') : "—"}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 rounded-md border border-bo-border bg-bo-surface-subtle p-4">
-                <Clock className="size-7 shrink-0 text-slate-300" />
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-bo-muted">Cập nhật cuối</p>
-                  <p className="mt-1 font-semibold text-bo-foreground">
-                    {khachHang.ngayCapNhat ? new Date(khachHang.ngayCapNhat).toLocaleString('vi-VN') : "—"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </SurfaceCard>
         </div>
       </div>
+      <CustomerPurchaseHistory key={id} customerId={id} />
     </PageContainer>
   );
 }
