@@ -94,6 +94,33 @@ export const posService = {
    * SUCCESS -> {requestId, trangThai, result}; FAILED -> {..., errorMessage};
    * 404 (không tìm thấy) = kết quả chưa rõ -> client được phép thử lại cùng payload.
    */
+  /** Phương thức thanh toán đang bật: { cash: true, payos: true|false }. */
+  async getPaymentMethods() {
+    const res = await apiClient.get("/api/v1/pos/payment-methods");
+    return res.data?.data ?? { cash: true, payos: false };
+  },
+
+  /**
+   * Chuyển khoản payOS: giữ chỗ hàng + tạo mã QR. Body giống checkout (requestId, khoId,
+   * khachHangId, items, note). Gọi lại cùng requestId khi QR còn hạn -> trả lại đúng QR cũ.
+   */
+  async createPayosLink(payload) {
+    const res = await apiClient.post("/api/v1/pos/payos/payment-links", payload, { timeout: 30000 });
+    return res.data?.data ?? null;
+  },
+
+  /** Trạng thái giao dịch chuyển khoản: PENDING | PAID (kèm result) | CANCELLED | EXPIRED | FAILED | PAID_ERROR. */
+  async getPayosStatus(orderCode, { signal } = {}) {
+    const res = await apiClient.get(`/api/v1/pos/payos/payment-links/${orderCode}`, { signal });
+    return res.data?.data ?? null;
+  },
+
+  /** Hủy mã QR, trả lại hàng giữ chỗ (nếu khách đã kịp trả thì server trả về PAID). */
+  async cancelPayos(orderCode) {
+    const res = await apiClient.post(`/api/v1/pos/payos/payment-links/${orderCode}/cancel`);
+    return res.data?.data ?? null;
+  },
+
   /**
    * Thêm nhanh khách hàng tại quầy (tên + SĐT). Trả về KhachHangDto vừa tạo.
    * SĐT trùng -> lỗi 409, response.data.data = khách hàng đã có.

@@ -45,6 +45,7 @@ function createInvoice(number, { warehouseId = null, customer = null } = {}) {
     paymentMethod: 'cash',
     paymentAmount: 0,
     attempt: null, // {requestId, status: pending|unknown|failed|succeeded, payload, result, error}
+    payos: null, // giao dịch chuyển khoản payOS đang mở: {orderCode, requestId, trangThai, qrCode, ...}
   };
 }
 
@@ -61,7 +62,9 @@ const nextFreeInvoiceNumber = (invoices) => {
 };
 
 const isFrozenInvoice = (invoice) =>
-  Boolean(invoice?.attempt && (invoice.attempt.status === 'pending' || invoice.attempt.status === 'unknown'));
+  Boolean(invoice?.attempt && (invoice.attempt.status === 'pending' || invoice.attempt.status === 'unknown'))
+  // Đang chờ khách quét QR: hàng đã giữ chỗ theo đúng giỏ này -> khóa sửa giỏ.
+  || invoice?.payos?.trangThai === 'PENDING';
 
 /**
  * Màn Bán hàng tại quầy (Phase 04 — nối checkout CASH + recovery):
@@ -327,6 +330,7 @@ export default function PosSalesPage({
   const isInvoiceUntouched = (invoice) => !invoice.cart.length
     && !invoice.note.trim()
     && !invoice.attempt
+    && !invoice.payos
     && (!invoice.customer || (walkInCustomer && invoice.customer.id === walkInCustomer.id));
 
   const removeInvoice = (number) => {
@@ -591,6 +595,10 @@ export default function PosSalesPage({
       showToast('Thêm ít nhất một sản phẩm trước khi thanh toán.');
       return;
     }
+    if (currentInvoice.payos?.trangThai === 'PENDING') {
+      setDialog('payos-qr'); // đang chờ khách quét QR -> mở lại đúng mã QR
+      return;
+    }
     if (!checkoutEnabled) {
       setPaymentAmount(total);
       setPaymentError('');
@@ -605,6 +613,108 @@ export default function PosSalesPage({
     setPaymentError('');
     setDialog('payment');
   };
+
+  // ===== Chuyển khoản payOS =====
+  const [payosEnabled, setPayosEnabled] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    posService.getPaymentMethods()
+      .then((methods) => { if (!cancelled) setPayosEnabled(Boolean(methods?.payos)); })
+      .catch(() => { if (!cancelled) setPayosEnabled(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const setPaymentMethodForInvoice = (method) => {
+    if (frozen) return;
+    updateInvoice('paymentMethod', method);
+    setPaymentError('');
+  };
+
+  const applyPayosUpdate = (invoiceNumber, link) => {
+    if (!link) return;
+    patchInvoice(invoiceNumber, { payos: link });
+    if (link.trangThai === 'PAID' && link.result) {
+      // Tiền đã về, server đã tạo đơn + trừ kho -> hiện hóa đơn như thanh toán tiền mặt.
+      finishAttempt(invoiceNumber, { status: 'succeeded', result: link.result, error: null });
+      setRefreshKey((key) => key + 1);
+      setReceiptResult(link.result);
+      setDialog('receipt');
+    }
+  };
+
+  const createPayosQr = async () => {
+    if (!checkoutEnabled || isSubmitting) return;
+    const invoice = currentInvoice;
+    if (!invoice.customer) {
+      setPaymentError('Vui lòng chọn khách hàng trước khi thanh toán.');
+      return;
+    }
+    if (!invoice.cart.length) return;
+    const requestId = invoice.payos?.trangThai === 'PENDING' ? invoice.payos.requestId : newCheckoutRequestId();
+    const payload = buildPayload({ ...invoice, attempt: { requestId } });
+    setIsSubmitting(true);
+    setPaymentError('');
+    try {
+      const link = await posService.createPayosLink(payload);
+      patchInvoice(invoice.number, { payos: link });
+      setDialog('payos-qr');
+    } catch (error) {
+      const envelope = error?.response?.data;
+      if (error?.response?.status === 409 && envelope?.data?.priceChanged) {
+        handleCheckoutError(invoice.number, error, { requestId });
+      } else {
+        setPaymentError(envelope?.message || 'Không tạo được mã QR. Kiểm tra kết nối rồi thử lại.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const cancelPayosQr = async () => {
+    const invoice = currentInvoice;
+    if (!invoice.payos?.orderCode || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const link = await posService.cancelPayos(invoice.payos.orderCode);
+      if (link?.trangThai === 'PAID') {
+        applyPayosUpdate(invoice.number, link);
+      } else {
+        patchInvoice(invoice.number, { payos: null });
+        setDialog('payment');
+        showToast('Đã hủy mã QR, hàng giữ chỗ đã được trả lại kho.');
+      }
+    } catch (error) {
+      showToast(error?.response?.data?.message || 'Không hủy được mã QR. Vui lòng thử lại.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const recreatePayosQr = () => {
+    patchInvoice(currentInvoice.number, { payos: null });
+    setDialog('payment');
+  };
+
+  // Đang mở QR -> hỏi trạng thái mỗi 3 giây (server tự hỏi payOS nếu webhook chưa về).
+  const payosOrderCode = currentInvoice.payos?.trangThai === 'PENDING' ? currentInvoice.payos.orderCode : null;
+  const payosInvoiceNumber = currentInvoice.number;
+  useEffect(() => {
+    if (dialog !== 'payos-qr' || !payosOrderCode) return undefined;
+    let stopped = false;
+    const controller = new AbortController();
+    const tick = async () => {
+      try {
+        const link = await posService.getPayosStatus(payosOrderCode, { signal: controller.signal });
+        if (!stopped) applyPayosUpdate(payosInvoiceNumber, link);
+      } catch {
+        /* mất mạng tạm thời: lần hỏi sau sẽ thử lại */
+      }
+    };
+    const id = window.setInterval(tick, 3000);
+    return () => { stopped = true; controller.abort(); window.clearInterval(id); };
+    // applyPayosUpdate chỉ dùng setter ổn định
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dialog, payosOrderCode, payosInvoiceNumber]);
 
   const printReceipt = (result) => {
     if (!result?.donBanHangId) {
@@ -628,6 +738,10 @@ export default function PosSalesPage({
 
   const actions = {
     onSelectCustomer: selectCustomerForInvoice,
+    onPaymentMethod: setPaymentMethodForInvoice,
+    onCreatePayosQr: createPayosQr,
+    onCancelPayos: cancelPayosQr,
+    onRecreatePayos: recreatePayosQr,
     onQuickCreateCustomer: quickCreateCustomer,
     onClearCart: clearCart,
     onNote: setNoteForInvoice,
@@ -649,6 +763,8 @@ export default function PosSalesPage({
   };
 
   const dialogState = {
+    payosEnabled,
+    payos: currentInvoice.payos,
     customers: customerOptions,
     customer,
     cart,
