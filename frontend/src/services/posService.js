@@ -47,6 +47,49 @@ export const removePendingCheckoutId = (requestId) => {
   }
 };
 
+/**
+ * Lưu tạm các hóa đơn đang làm dở (giỏ hàng, khách, ghi chú, mã QR đang chờ) để bấm F5
+ * hay lỡ tắt tab vẫn khôi phục được. Lưu theo từng tài khoản trên trình duyệt này,
+ * tự bỏ bản nháp cũ hơn 12 giờ. KHÔNG lưu token hay thông tin thanh toán nhạy cảm.
+ */
+const DRAFT_KEY_PREFIX = "fcentric.pos.drafts.v1:";
+const DRAFT_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+const currentUserKey = () => {
+  try {
+    const token = localStorage.getItem("access_token");
+    if (!token) return "anon";
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return String(payload.id ?? payload.userId ?? payload.sub ?? payload.tenDangNhap ?? "anon");
+  } catch {
+    return "anon";
+  }
+};
+
+export const loadPosDrafts = () => {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY_PREFIX + currentUserKey());
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.invoices) || !parsed.invoices.length) return null;
+    if (Date.now() - Number(parsed.savedAt || 0) > DRAFT_MAX_AGE_MS) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+export const savePosDrafts = (invoices, activeInvoice) => {
+  try {
+    localStorage.setItem(
+      DRAFT_KEY_PREFIX + currentUserKey(),
+      JSON.stringify({ v: 1, savedAt: Date.now(), activeInvoice, invoices })
+    );
+  } catch {
+    /* storage đầy hoặc bị chặn: bỏ qua — POS vẫn chạy bình thường */
+  }
+};
+
 export const posService = {
   /**
    * Catalog SKU bán được của một kho được ủy quyền, phân trang server-side.

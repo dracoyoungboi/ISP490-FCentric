@@ -19,6 +19,8 @@ import {
   newCheckoutRequestId,
   getPendingCheckoutIds,
   addPendingCheckoutId,
+  loadPosDrafts,
+  savePosDrafts,
   removePendingCheckoutId,
 } from '@/services/posService';
 
@@ -61,6 +63,42 @@ const nextFreeInvoiceNumber = (invoices) => {
   return number;
 };
 
+/** Phần của hóa đơn được lưu nháp. Hóa đơn đã thanh toán thành công thì không lưu (tránh bán lại). */
+const toDraft = (invoice) => {
+  if (invoice.attempt?.status === 'succeeded' || invoice.payos?.trangThai === 'PAID') return null;
+  const keepAttempt = invoice.attempt && ['pending', 'unknown'].includes(invoice.attempt.status);
+  return {
+    number: invoice.number,
+    warehouseId: invoice.warehouseId,
+    cart: invoice.cart,
+    customer: invoice.customer,
+    note: invoice.note,
+    paymentMethod: invoice.paymentMethod,
+    paymentAmount: invoice.paymentAmount,
+    // Giao dịch tiền mặt đã gửi mà chưa rõ kết quả: giữ để bắt buộc kiểm tra lại, không cho gửi trùng.
+    attempt: keepAttempt ? { ...invoice.attempt, status: 'unknown', result: null } : null,
+    payos: invoice.payos?.trangThai === 'PENDING' ? invoice.payos : null,
+  };
+};
+
+/** Dựng lại danh sách hóa đơn từ bản nháp; kho không còn quyền thì chuyển về kho mặc định. */
+const restoreDrafts = (drafts, warehouses, defaultWarehouseId) => {
+  if (!drafts) return null;
+  const used = new Set();
+  const invoices = drafts.invoices
+    .filter((d) => d && Number.isInteger(d.number) && d.number > 0 && !used.has(d.number) && used.add(d.number))
+    .map((d) => ({
+      ...createInvoice(d.number),
+      ...d,
+      warehouseId: warehouses.some((w) => w.id === d.warehouseId) ? d.warehouseId : defaultWarehouseId,
+      cart: Array.isArray(d.cart) ? d.cart : [],
+      note: d.note || '',
+    }));
+  if (!invoices.length) return null;
+  const activeInvoice = invoices.some((i) => i.number === drafts.activeInvoice) ? drafts.activeInvoice : invoices[0].number;
+  return { invoices, activeInvoice };
+};
+
 const isFrozenInvoice = (invoice) =>
   Boolean(invoice?.attempt && (invoice.attempt.status === 'pending' || invoice.attempt.status === 'unknown'))
   // Đang chờ khách quét QR: hàng đã giữ chỗ theo đúng giỏ này -> khóa sửa giỏ.
@@ -100,10 +138,17 @@ export default function PosSalesPage({
       ? initialWarehouseId
       : warehouses[0]?.id ?? null;
 
-  const [invoices, setInvoices] = useState(() => [
+  // Khôi phục hóa đơn đang làm dở sau F5 (một lần, lúc mở trang).
+  const [restoredDrafts] = useState(() => restoreDrafts(loadPosDrafts(), warehouses, defaultWarehouseId));
+  const [invoices, setInvoices] = useState(() => restoredDrafts?.invoices ?? [
     createInvoice(1, { warehouseId: defaultWarehouseId, customer: walkInCustomer }),
   ]);
-  const [activeInvoice, setActiveInvoice] = useState(1);
+  const [activeInvoice, setActiveInvoice] = useState(() => restoredDrafts?.activeInvoice ?? 1);
+
+  // Mỗi thay đổi hóa đơn -> lưu nháp (chỉ phần cần để khôi phục, bỏ hóa đơn đã thanh toán xong).
+  useEffect(() => {
+    savePosDrafts(invoices.map(toDraft).filter(Boolean), activeInvoice);
+  }, [invoices, activeInvoice]);
 
   const currentInvoice = invoices.find((invoice) => invoice.number === activeInvoice) || invoices[0];
   const { cart, customer, note, paymentMethod, paymentAmount, warehouseId, attempt, number: ticketNumber } = currentInvoice;
@@ -187,6 +232,34 @@ export default function PosSalesPage({
       });
     return () => controller.abort();
   }, [warehouseId, search, catalogPage, refreshKey]);
+
+  // ===== Sau F5: hỏi lại trạng thái các mã QR payOS đang chờ (tiền có thể đã về trong lúc tải lại) =====
+  useEffect(() => {
+    const pending = (restoredDrafts?.invoices || []).filter((invoice) => invoice.payos?.trangThai === 'PENDING');
+    if (!pending.length) return undefined;
+    let cancelled = false;
+    (async () => {
+      for (const invoice of pending) {
+        try {
+          const link = await posService.getPayosStatus(invoice.payos.orderCode);
+          if (cancelled || !link) continue;
+          if (link.trangThai === 'PENDING' || link.trangThai === 'PAID') {
+            applyPayosUpdate(invoice.number, link);
+            if (link.trangThai === 'PENDING' && invoice.number === restoredDrafts.activeInvoice) setDialog('payos-qr');
+          } else {
+            // Mã đã hết hạn/bị hủy: mở khóa giỏ để thanh toán lại (hàng giữ chỗ đã được server trả về kho).
+            patchInvoice(invoice.number, { payos: null });
+            showToast('Mã QR trước đó đã hết hạn hoặc bị hủy — hóa đơn đã được mở lại.');
+          }
+        } catch {
+          /* mất mạng: giữ nguyên, người bán bấm Thanh toán để xem lại mã QR */
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+    // chỉ chạy một lần với bản nháp khôi phục lúc mở trang
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ===== Phục hồi sau refresh: chỉ HỎI recovery bằng requestId đã lưu, KHÔNG tự gửi lại =====
   useEffect(() => {
