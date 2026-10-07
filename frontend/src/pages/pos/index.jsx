@@ -8,14 +8,11 @@ import ErrorState from '@/components/shared/ErrorState';
 import EmptyState from '@/components/shared/EmptyState';
 
 /**
- * Gate checkout phía frontend (chốt chặn thật vẫn là server `pos.checkout-enabled`):
- * - `npm run dev` (DEV): BẬT mặc định; tắt bằng VITE_POS_CHECKOUT=false.
- * - `npm run build` (production): TẮT mặc định; chỉ bật khi build với VITE_POS_CHECKOUT=true.
- * Khi tắt, mọi đường submit bị khóa với thông báo rõ ràng — không có nhánh giả thành công.
+ * Gate checkout phía frontend: BẬT ở cả `npm run dev` lẫn bản build deploy.
+ * Muốn tạm khóa nút thanh toán: chạy/build với VITE_POS_CHECKOUT=false.
+ * Chốt chặn thật vẫn là server (`pos.checkout-enabled`, tắt bằng POS_CHECKOUT_ENABLED=false).
  */
-const POS_CHECKOUT_FLAG = import.meta.env.VITE_POS_CHECKOUT;
-const CHECKOUT_ENABLED = POS_CHECKOUT_FLAG === 'true'
-  || (import.meta.env.DEV && POS_CHECKOUT_FLAG !== 'false');
+const CHECKOUT_ENABLED = import.meta.env.VITE_POS_CHECKOUT !== 'false';
 
 /**
  * Trang /pos — nằm trong shell backoffice (ProtectedRoute + BackofficeLayout).

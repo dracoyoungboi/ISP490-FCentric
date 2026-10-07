@@ -53,19 +53,13 @@ Vào menu **Bán hàng tại quầy** (`/pos`) và kiểm tra theo các bước 
 
 ## 4. Tắt khi cần
 
-- **Backend:** đặt biến môi trường `POS_CHECKOUT_ENABLED=false`. API sẽ trả 503.
-- **Frontend:** chạy dev với biến `VITE_POS_CHECKOUT=false`.
+- **Backend:** đặt biến môi trường `POS_CHECKOUT_ENABLED=false` rồi chạy lại. API thanh toán sẽ trả 503.
+- **Frontend:** chạy hoặc build với biến `VITE_POS_CHECKOUT=false`.
 
-## 5. Production (chưa bật)
+## 5. Production
 
-Production được khóa ở 3 lớp:
+POS **bật sẵn** ở cả localhost và bản deploy, không cần đặt thêm biến nào. Khi deploy lần đầu:
 
-- **Frontend:** bản `npm run build` tắt nút thanh toán, trừ khi build với `VITE_POS_CHECKOUT=true`.
-- **Backend chạy bằng docker-compose:** compose đặt `SPRING_PROFILES_ACTIVE=prod`, nên `application-prod.properties` ghi đè cờ thành `false`.
-- **Config production bên ngoài:** `production/Fashion-Management/application.properties` cũng đặt `pos.checkout-enabled=false`.
-
-Khi muốn bật production:
-
-1. Chạy migration lên DB production.
-2. Đặt biến môi trường `POS_CHECKOUT_ENABLED=true` cho backend, và đổi dòng `pos.checkout-enabled` trong config production.
-3. Build frontend với `VITE_POS_CHECKOUT=true`.
+1. Chạy `pos_checkout_v1.sql` và `payos_v1.sql` lên **DB production**.
+2. Nên đặt biến môi trường `PAYMENT_CONFIG_SECRET` (chuỗi dài, bí mật, không đổi về sau) để mã hóa khóa payOS. Chưa đặt thì hệ thống tạm dùng JWT signer key.
+3. Frontend tự gọi API cùng tên miền với trang web (`https://fcentric.net/api/...`), không cần sửa `.env`.
