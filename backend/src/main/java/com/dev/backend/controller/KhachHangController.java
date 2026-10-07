@@ -5,6 +5,7 @@ import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.BaseFilterRequest;
 import com.dev.backend.dto.request.KhachHangCreating;
 import com.dev.backend.dto.response.ResponseData;
+import com.dev.backend.dto.response.customize.KhachHangDetailDto;
 import com.dev.backend.dto.response.entities.KhachHangDto;
 import com.dev.backend.entities.KhachHang;
 import com.dev.backend.exception.customize.CommonException;
@@ -88,13 +89,16 @@ public class KhachHangController {
     }
     // Function Customer Details
     @GetMapping("/{id}")
-    public ResponseEntity<ResponseData> getId(@PathVariable Integer id) {
-        KhachHangDto dto = khachHangService.findByIdDto(id);
-        return ResponseEntity.ok(ResponseData.builder()
-                .status(200)
-                .data(dto)
-                .message("Lấy chi tiết khách hàng thành công")
-                .build());
+    public ResponseEntity<ResponseData<KhachHangDetailDto>> getDetail(@PathVariable Integer id) {
+        KhachHangDetailDto result = khachHangService.getKhachHangDetail(id);
+
+        return ResponseEntity.ok(
+                ResponseData.<KhachHangDetailDto>builder()
+                        .status(200)
+                        .data(result)
+                        .message("Success")
+                        .build()
+        );
     }
 
     // Function Edit Customer
