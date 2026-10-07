@@ -13,11 +13,12 @@ import TableShell from "@/components/shared/TableShell";
 import EmptyState from "@/components/shared/EmptyState";
 import LoadingState from "@/components/shared/LoadingState";
 import { Button } from "@/components/ui/button";
+import { API_BASE_URL } from "@/config/apiBase";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // ─── API ───
-const BASE_URL = "http://localhost:8080/api/v1/admin/dashboard/bao-cao/nhat-ky-nhap-xuat";
+const BASE_URL = `${API_BASE_URL}/api/v1/admin/dashboard/bao-cao/nhat-ky-nhap-xuat`;
 const getToken = () => localStorage.getItem("access_token") ?? "";
 
 const today = new Date();

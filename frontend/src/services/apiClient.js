@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { toast } from 'sonner';
 import { clearCurrentUserProfile } from '../utils/avatar';
+import { API_BASE_URL } from '../config/apiBase';
 
 // Chặn xử lý trùng lặp khi nhiều request đồng thời cùng trả về ACCOUNT_DISABLED
 let accountDisabledHandled = false;
@@ -13,7 +14,7 @@ function clearStoredSession() {
 }
 
 const apiClient = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || "http://localhost:8080",
+    baseURL: API_BASE_URL,
     headers: { "Content-Type": "application/json" },
 });
 
