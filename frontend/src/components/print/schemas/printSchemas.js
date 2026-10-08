@@ -276,17 +276,10 @@ export const PRINT_SCHEMAS = {
                     { key: "orderDate", label: "Ngày đặt", modelPath: "orderDate" },
                     { key: "expectedDate", label: "Ngày giao dự kiến", modelPath: "expectedDate" },
                     { key: "status", label: "Trạng thái", modelPath: "status", kind: "badge" },
-                ],
-            },
-            {
-                key: "deliverTo",
-                type: "info",
-                title: "Giao hàng đến",
-                columns: 2,
-                fields: [
-                    { key: "name", label: "Kho nhận", modelPath: "deliverTo.name" },
-                    { key: "code", label: "Mã kho", modelPath: "deliverTo.code" },
-                    { key: "address", label: "Địa chỉ giao hàng", modelPath: "deliverTo.address", span: 2 },
+                    // Nơi nhà cung cấp giao hàng — chung hàng với trạng thái
+                    // (không tách mục riêng để đơn ít dòng vẫn vừa một trang A4)
+                    { key: "deliveryWarehouse", label: "Kho nhận hàng", modelPath: "deliverTo.warehouse" },
+                    { key: "deliveryAddress", label: "Địa chỉ giao hàng", modelPath: "deliverTo.address" },
                 ],
             },
             {

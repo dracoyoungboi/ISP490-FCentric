@@ -64,8 +64,9 @@ export function toPurchaseOrderPrintModel(raw) {
         },
         // Kho nhận hàng — nhà cung cấp cần biết giao đến đâu
         deliverTo: {
-            name: dash(data.khoNhap?.tenKho),
-            code: dash(data.khoNhap?.maKho),
+            warehouse: data.khoNhap?.maKho
+                ? `${dash(data.khoNhap?.tenKho)} (${data.khoNhap.maKho})`
+                : dash(data.khoNhap?.tenKho),
             address: dash(data.khoNhap?.diaChi),
         },
         items,
