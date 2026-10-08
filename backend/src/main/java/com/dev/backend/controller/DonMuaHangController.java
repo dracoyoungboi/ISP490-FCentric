@@ -1,6 +1,8 @@
 package com.dev.backend.controller;
 
 
+import com.dev.backend.constant.variables.IRoleType;
+import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.BaseFilterRequest;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.entities.DonMuaHangDto;
@@ -24,6 +26,15 @@ public class DonMuaHangController {
     private DonMuaHangMapper donMuaHangMapper;
 
     @GetMapping("/get-by-id/{id}")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
+                    IRoleType.nhan_vien_mua_hang,
+                    IRoleType.nhan_vien_kho
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
     public ResponseEntity<ResponseData<DonMuaHangDto>> getById(@PathVariable Integer id) {
         return ResponseEntity.ok(
                 ResponseData.<DonMuaHangDto>builder()
@@ -38,6 +49,15 @@ public class DonMuaHangController {
     }
 
     @PostMapping("/filter")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
+                    IRoleType.nhan_vien_mua_hang,
+                    IRoleType.nhan_vien_kho
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
     public ResponseEntity<ResponseData<Page<DonMuaHangDto>>> filter(@RequestBody BaseFilterRequest filter) {
         return ResponseEntity.ok(
                 ResponseData.<Page<DonMuaHangDto>>builder()

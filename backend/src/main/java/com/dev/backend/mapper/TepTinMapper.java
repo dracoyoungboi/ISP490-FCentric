@@ -16,17 +16,17 @@ public interface TepTinMapper {
         // ==============================================================
         // OPTION: CHẠY LOCAL (Chuyển tất cả link về localhost:9000)
         // ==============================================================
-    //     String duongDan = tepTin.getDuongDan();
-    //         if (duongDan != null) {
-    //     if (duongDan.startsWith("http://171.244.142.43:9000")) {
-    //         duongDan = "http://localhost:9000" + duongDan.substring(26);
-    //     } else if (duongDan.startsWith("https://minio.slmglobal.vn")) {
-    //        duongDan = "http://localhost:9000" + duongDan.substring(26);
-    //    }
-    // }
+        String duongDan = tepTin.getDuongDan();
+            if (duongDan != null) {
+        if (duongDan.startsWith("http://171.244.142.43:9000")) {
+            duongDan = "http://localhost:9000" + duongDan.substring(26);
+        } else if (duongDan.startsWith("https://minio.slmglobal.vn")) {
+           duongDan = "http://localhost:9000" + duongDan.substring(26);
+       }
+    }
 
-        // nếu đường dẫn bắt đầu bằng http://171.244.142.43:9000 thay bằng https://minio.slmglobal.vn
-        String duongDan = PublicAssetUrl.toHttps(tepTin.getDuongDan());
+    //     // nếu đường dẫn bắt đầu bằng http://171.244.142.43:9000 thay bằng https://minio.slmglobal.vn
+    //     String duongDan = PublicAssetUrl.toHttps(tepTin.getDuongDan());
         
         return TepTinDto.builder()
                 .id(tepTin.getId())

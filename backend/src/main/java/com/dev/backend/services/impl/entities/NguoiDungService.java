@@ -514,6 +514,18 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     }
 
     public NguoiDung getDetailByAdmin(Integer id) {
+        if (id == null) {
+            throw new CommonException("Mã người dùng không được để trống");
+        }
+
+        NguoiDungAuthInfo currentUser = com.dev.backend.config.SecurityContextHolder.getUser();
+        if (currentUser != null && currentUser.getId() != null) {
+            boolean isAdmin = currentUser.getVaiTro() != null && currentUser.getVaiTro().contains(IRoleType.quan_tri_vien);
+            if (!isAdmin && !currentUser.getId().equals(id)) {
+                throw new CommonException("Bạn không có quyền xem thông tin chi tiết của người dùng khác!");
+            }
+        }
+
         NguoiDung nguoiDung = nguoiDungRepository.findById(id)
                 .orElseThrow(() -> new CommonException("Không tìm thấy người dùng"));
 

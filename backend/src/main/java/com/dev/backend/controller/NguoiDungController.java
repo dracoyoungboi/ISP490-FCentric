@@ -34,6 +34,7 @@ public class NguoiDungController {
 
     // call api này để lấy danh sách người dùng quản lý kho(lấy dc thông tin danh sách kho mà user đó quản lý)
     @GetMapping("/get-by-id/{id}")
+    @RequireAuth(roles = {IRoleType.all})
     public ResponseEntity<ResponseData<NguoiDungDto>> getById(@PathVariable Integer id) {
         return ResponseEntity.ok(
                 ResponseData.<NguoiDungDto>builder()
@@ -108,6 +109,10 @@ public class NguoiDungController {
     }
 
     @PostMapping("/filter")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
+            rolesLogic = RequireAuth.LogicType.OR
+    )
     public ResponseEntity<ResponseData<Page<NguoiDungDto>>> filter(@RequestBody BaseFilterRequest filter) {
         return ResponseEntity.ok(
                 ResponseData.<Page<NguoiDungDto>>builder()

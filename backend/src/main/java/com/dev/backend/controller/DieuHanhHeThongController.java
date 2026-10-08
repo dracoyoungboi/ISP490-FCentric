@@ -48,6 +48,10 @@ class DieuHanhHeThongController {
 
     //Lấy danh sách quyền hạn trong hệ thống
     @GetMapping("/quyen-han/all")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
+            rolesLogic = RequireAuth.LogicType.OR
+    )
     public ResponseEntity<ResponseData<List<QuyenHanDto>>> getAll() {
         return ResponseEntity.ok(
                 ResponseData.<List<QuyenHanDto>>builder()
