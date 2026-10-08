@@ -32,8 +32,9 @@ import static org.junit.jupiter.api.Assertions.*;
  * (webEnvironment=RANDOM_PORT), HTTP thật với TestRestTemplate (kết nối độc lập),
  * transaction/lock THẬT trên MySQL — KHÔNG dùng mock, KHÔNG dùng H2 thay thế.
  *
- * Yêu cầu schema MySQL DÙNG MỘT LẦN (xem docs/pos/05-test-report.md):
- *   jdbc:mysql://127.0.0.1:3307/fcentric_pos_test (root, mật khẩu rỗng)
+ * Yêu cầu schema MySQL DÙNG MỘT LẦN, import Database/MyDB_v1.3.sql + pos_checkout_v1.sql + payos_v1.sql:
+ *   mặc định jdbc:mysql://127.0.0.1:3307/fcentric_pos_test (root, mật khẩu rỗng);
+ *   đổi bằng -Dpos.it.db.url / -Dpos.it.db.user / -Dpos.it.db.pass
  * — do chính quy trình test khởi tạo bằng mysqld --initialize-insecure trong thư mục
  * tạm; KHÔNG đụng MySQL đang chạy của máy, KHÔNG đụng dev/production.
  */
