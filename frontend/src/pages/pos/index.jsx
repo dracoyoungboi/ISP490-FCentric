@@ -6,6 +6,7 @@ import { toPosCustomer } from '@/services/posService';
 import LoadingState from '@/components/shared/LoadingState';
 import ErrorState from '@/components/shared/ErrorState';
 import EmptyState from '@/components/shared/EmptyState';
+import PosTopBar from './components/PosTopBar';
 
 /**
  * Gate checkout phía frontend: BẬT ở cả `npm run dev` lẫn bản build deploy.
@@ -15,7 +16,7 @@ import EmptyState from '@/components/shared/EmptyState';
 const CHECKOUT_ENABLED = import.meta.env.VITE_POS_CHECKOUT !== 'false';
 
 /**
- * Trang /pos — nằm trong shell backoffice (ProtectedRoute + BackofficeLayout).
+ * Trang /pos — màn hình toàn màn hình riêng (ProtectedRoute + PosLayout, không sidebar).
  * Tải kho được phân quyền (POST /api/v1/kho/mine) + khách hàng hợp lệ
  * (GET /api/v1/khach-hang/for-sales-order) qua API client hiện có.
  * Lỗi API KHÔNG fallback về dữ liệu mẫu — hiển thị lỗi kèm nút thử lại.
@@ -57,11 +58,19 @@ export default function PosPage() {
     return warehouses.some((w) => w.id === stored) ? stored : warehouses[0].id;
   }, [warehouses]);
 
+  // Trạng thái tải/lỗi/trống vẫn có thanh trên cùng để thu ngân quay lại trang quản trị.
+  const renderState = (content) => (
+    <>
+      <PosTopBar />
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto p-4">{content}</div>
+    </>
+  );
+
   if (loading) {
-    return <LoadingState label="Đang tải dữ liệu bán hàng" />;
+    return renderState(<LoadingState label="Đang tải dữ liệu bán hàng" />);
   }
   if (error) {
-    return (
+    return renderState(
       <ErrorState
         description="Không thể tải kho hoặc danh sách khách hàng. Không hiển thị dữ liệu mẫu."
         onRetry={retry}
@@ -70,7 +79,7 @@ export default function PosPage() {
     );
   }
   if (!warehouses.length) {
-    return (
+    return renderState(
       <EmptyState
         description="Tài khoản của bạn chưa được giao phụ trách kho nào. Hãy liên hệ quản trị viên để được phân quyền kho bán hàng."
         title="Chưa có kho bán hàng"
