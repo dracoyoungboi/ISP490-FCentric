@@ -3,7 +3,6 @@ import PrintDocumentInfo from "@/components/print/PrintDocumentInfo";
 import PrintSection from "@/components/print/PrintSection";
 import PrintItemsTable from "@/components/print/PrintItemsTable";
 import PrintSignatures from "@/components/print/PrintSignatures";
-import StatusBadge from "@/components/shared/StatusBadge";
 import { getPrintSchema } from "@/components/print/schemas/printSchemas";
 
 /** Đọc giá trị theo đường dẫn "warehouse.name", "totals.items", ... */
@@ -29,11 +28,17 @@ function resolveFieldValue(field, model, company) {
     return getByPath(model, path);
 }
 
-/** Render giá trị một field theo `kind` khai báo trong schema. */
+/**
+ * Render giá trị một field theo `kind` khai báo trong schema.
+ * `kind: "badge"` (trạng thái, thanh toán): adapter trả { label, tone } —
+ * trên GIẤY in thành CHỮ THƯỜNG như mọi trường khác (không khung/chấm/màu):
+ * badge là thành phần giao diện web, in ra trông như ảnh chụp màn hình và
+ * màu nhạt bị mờ trên máy in trắng đen. `tone` được bỏ qua ở bản in.
+ */
 function renderFieldValue(field, model, company) {
     const value = resolveFieldValue(field, model, company);
     if (field.kind === "badge" && value && typeof value === "object") {
-        return <StatusBadge label={value.label} tone={value.tone} />;
+        return value.label || "—";
     }
     if (value === null || value === undefined || value === "") return "—";
     return value;
@@ -65,6 +70,8 @@ export default function PrintTemplateDocument({ documentType, config, model, com
             />
 
             {schema.sections.map((section) => {
+                // Section không dùng trên khổ nhiệt (vd. "Đơn vị bán" trùng đầu phiếu)
+                if (compact && section.compactHidden) return null;
                 const sectionConfig = config.sections[section.key] ?? {};
 
                 if (section.type === "info") {
