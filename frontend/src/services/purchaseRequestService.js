@@ -20,12 +20,15 @@ const purchaseRequestService = {
     filter: (payload) => apiClient.post("/api/v1/yeu-cau-mua-hang/filter", payload),
 
     /**
-     * Duyệt hoặc từ chối yêu cầu mua hàng
+     * Duyệt hoặc từ chối yêu cầu mua hàng đang Chờ duyệt
      * PUT /api/v1/nghiep-vu/yeu-cau-mua-hang/duyet-tu-choi/:id/:trangThai
-     * trangThai: 2 = duyệt, 3 = từ chối
+     * trangThai: 2 = duyệt, 4 = từ chối (bắt buộc lyDoTuChoi, ≤ 500 ký tự)
      */
-    approve: (id, trangThai) =>
-        apiClient.put(`/api/v1/nghiep-vu/yeu-cau-mua-hang/duyet-tu-choi/${id}/${trangThai}`),
+    approve: (id, trangThai, lyDoTuChoi) =>
+        apiClient.put(
+            `/api/v1/nghiep-vu/yeu-cau-mua-hang/duyet-tu-choi/${id}/${trangThai}`,
+            trangThai === 4 ? { lyDoTuChoi } : {}
+        ),
 
     /**
      * Gửi yêu cầu báo giá đến nhà cung cấp (sau khi duyệt)
@@ -35,4 +38,4 @@ const purchaseRequestService = {
         apiClient.post("/api/v1/nghiep-vu/don-mua-hang/gui-yeu-cau-bao-gia", data),
 };
 
-export default purchaseRequestService;
+export default purchaseRequestService;
