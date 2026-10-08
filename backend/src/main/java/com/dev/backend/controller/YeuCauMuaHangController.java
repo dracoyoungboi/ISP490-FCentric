@@ -1,5 +1,7 @@
 package com.dev.backend.controller;
 
+import com.dev.backend.constant.variables.IRoleType;
+import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.BaseFilterRequest;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.entities.YeuCauMuaHangDto;
@@ -22,24 +24,40 @@ public class YeuCauMuaHangController {
     @Autowired
     private YeuCauMuaHangMapper yeuCauMuaHangMapper;
 
-    // Xem chi tiết yêu cầu nhập hàng
+    // Xem chi tiết yêu cầu nhập hàng (kèm lý do từ chối / ngày duyệt từ lịch sử).
+    // Bắt buộc đăng nhập: dữ liệu có email, SĐT người tạo và quản lý kho.
     @GetMapping("/get-by-id/{id}")
+    @RequireAuth(roles = {
+            IRoleType.quan_tri_vien,
+            IRoleType.quan_ly_kho,
+            IRoleType.nhan_vien_kho,
+            IRoleType.nhan_vien_mua_hang,
+            IRoleType.nhan_vien_ban_hang
+    })
     public ResponseEntity<ResponseData<YeuCauMuaHangDto>> getById(@PathVariable Integer id) {
         return ResponseEntity.ok(
                 ResponseData.<YeuCauMuaHangDto>builder()
                         .status(HttpStatus.OK.value())
                         .message("Success")
                         .data(
-                                yeuCauMuaHangMapper.toDto(yeuCauMuaHangService.getOne(id).orElseThrow(
-                                        () -> new CommonException("Không tìm thấy yêu cầu mua hàng id: " + id)
-                                ))
+                                yeuCauMuaHangService.boSungThongTinDuyet(
+                                        yeuCauMuaHangMapper.toDto(yeuCauMuaHangService.getOne(id).orElseThrow(
+                                                () -> new CommonException("Không tìm thấy yêu cầu mua hàng id: " + id)
+                                        )))
                         )
                         .build()
         );
     }
 
-    // Filter yêu cầu nhập hàng theo các trường của entity
+    // Filter yêu cầu nhập hàng theo các trường của entity (bắt buộc đăng nhập)
     @PostMapping("/filter")
+    @RequireAuth(roles = {
+            IRoleType.quan_tri_vien,
+            IRoleType.quan_ly_kho,
+            IRoleType.nhan_vien_kho,
+            IRoleType.nhan_vien_mua_hang,
+            IRoleType.nhan_vien_ban_hang
+    })
     public ResponseEntity<ResponseData<Page<YeuCauMuaHangDto>>> filter(@RequestBody BaseFilterRequest filter) {
         return ResponseEntity.ok(
                 ResponseData.<Page<YeuCauMuaHangDto>>builder()

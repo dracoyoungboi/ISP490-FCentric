@@ -10,6 +10,8 @@ import java.util.List;
 @Mapper(componentModel = MappingConstants.ComponentModel.SPRING,
         uses = {BienTheSanPhamMapper.class})
 public interface YeuCauMuaHangMapper {
+    @Mapping(target = "lyDoTuChoi", ignore = true)
+    @Mapping(target = "ngayDuyet", ignore = true)
     YeuCauMuaHangDto toDto(YeuCauMuaHang yeuCauMuaHang);
     List<YeuCauMuaHangDto> toDtoList(List<YeuCauMuaHang> list);
     default Page<YeuCauMuaHangDto> toDtoPage(Page<YeuCauMuaHang> page){

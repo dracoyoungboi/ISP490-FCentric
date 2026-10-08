@@ -360,6 +360,9 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         if(yeuCauMuaHang.getTrangThai() != 2){
             throw new CommonException("Đơn mua hàng chưa được duyệt");
         }
+        if (yeuCau.getNhaCungCapIds() == null || yeuCau.getNhaCungCapIds().isEmpty()) {
+            throw new CommonException("Vui lòng chọn ít nhất một nhà cung cấp");
+        }
 
         Instant now = Instant.now();
         //duyệt qua danh sách ID nhà cung cấp
@@ -399,12 +402,14 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
             donMuaHang.setChiTietDonMuaHangs(chiTietDonMuaHangs);
             //gửi Email thông báo cho nhà cung cấp để họ vào báo giá
             guiMailYeuCauBaoGiaChoNhaCungCap(donMuaHang);
-            //tạo mã yêu cầu mua hàng
-            yeuCauMuaHang.setSoYeuCauMuaHang(calcService.getRandomProductCode("RFQ"));
-            //trạng thái đã gửi báo giá
-            yeuCauMuaHang.setTrangThai(3);
-            yeuCauMuaHangService.update(yeuCauMuaHang.getId(), yeuCauMuaHang);
         }
+        // Giữ NGUYÊN mã yêu cầu (PR...) — không ghi đè bằng mã RFQ ngẫu nhiên
+        // nữa; yêu cầu cũ chưa có mã thì bổ sung mã PR. Cập nhật trạng thái
+        // một lần sau khi đã gửi cho mọi nhà cung cấp.
+        yeuCauMuaHangService.damBaoCoMa(yeuCauMuaHang);
+        //trạng thái đã gửi báo giá
+        yeuCauMuaHang.setTrangThai(YeuCauMuaHangService.TRANG_THAI_DA_GUI_BAO_GIA);
+        yeuCauMuaHangService.update(yeuCauMuaHang.getId(), yeuCauMuaHang);
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())

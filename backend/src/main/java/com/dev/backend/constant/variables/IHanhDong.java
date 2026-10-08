@@ -19,4 +19,8 @@ public interface IHanhDong {
             phan_cong_nhat_hang = "phan_cong_nhat_hang",
             quet_barcode = "quet_barcode",
             hoan_tat_nhat_hang = "hoan_tat_nhat_hang";
+    //Yêu cầu nhập hàng (ghi vào lich_su_thay_doi, ghi_chu = lý do từ chối)
+    String
+            duyet_yeu_cau_mua_hang = "duyet_yeu_cau_mua_hang",
+            tu_choi_yeu_cau_mua_hang = "tu_choi_yeu_cau_mua_hang";
 }
