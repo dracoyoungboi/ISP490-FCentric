@@ -18,6 +18,11 @@ import { useThermalPageHeight } from "./useThermalPageHeight";
  * cao này làm chiều cao trang in (useThermalPageHeight); thẻ <style> @page
  * của K80 nằm cuối body nên ghi đè @page tạm của PreviewPrintStyleTag.
  *
+ * Watermark "BẢN IN THỬ": dữ liệu mẫu được in kèm đầu giấy THẬT của công ty
+ * nên phải đánh dấu để không bị nhầm là chứng từ thật. Phần tử position:fixed
+ * trong bản in được trình duyệt lặp lại trên MỌI trang. Chỉ có ở mirror —
+ * trang in thật không dùng component này nên không bao giờ có watermark.
+ *
  * CHỈ dùng cho BẢN IN MẪU (dữ liệu minh họa). Trang in thật (PrintLayout /
  * PrintRoutePage) KHÔNG dùng component này.
  */
@@ -37,6 +42,13 @@ export default function PrintOnlyDocument({ paper, children }) {
                 className={`print-mirror-sheet bg-white ${getPaperSheetClasses(paper)}`}
             >
                 {children}
+            </div>
+            <div className="print-sample-watermark pointer-events-none fixed inset-0 z-10 flex items-center justify-center overflow-hidden">
+                <span
+                    className={`-rotate-[30deg] whitespace-nowrap font-bold uppercase tracking-[0.2em] text-black/10 ${isThermal ? "text-2xl" : "text-7xl"}`}
+                >
+                    Bản in thử
+                </span>
             </div>
         </div>,
         document.body
