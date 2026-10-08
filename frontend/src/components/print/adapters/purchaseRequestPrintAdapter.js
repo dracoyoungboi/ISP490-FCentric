@@ -1,4 +1,5 @@
-import { formatDate, formatDateTime, formatNumber } from "@/utils/formatters";
+import { formatNumber } from "@/utils/formatters";
+import { formatPrintDate, formatPrintDateTime } from "./printFormat";
 
 /**
  * Trạng thái yêu cầu nhập hàng — khớp với bản đồ trạng thái
@@ -20,8 +21,8 @@ const dash = (value) => {
     return text === "" ? "—" : text;
 };
 
-const dashDate = (value) => (value ? formatDate(value) : "—");
-const dashDateTime = (value) => (value ? formatDateTime(value) : "—");
+const dashDate = (value) => (value ? formatPrintDate(value) : "—");
+const dashDateTime = (value) => (value ? formatPrintDateTime(value) : "—");
 
 /** "Họ tên — email" hoặc chỉ họ tên, "—" khi thiếu. */
 const personLine = (person) => {

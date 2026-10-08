@@ -1,4 +1,5 @@
-import { formatDate, formatNumber } from "@/utils/formatters";
+import { formatNumber } from "@/utils/formatters";
+import { formatPrintDate } from "./printFormat";
 
 /**
  * Adapter cho BÁO GIÁ BÁN và HÓA ĐƠN BÁN HÀNG — cùng một thực thể backend
@@ -35,7 +36,7 @@ const dash = (value) => {
     return text === "" ? "—" : text;
 };
 
-const dashDate = (value) => (value ? formatDate(value) : "—");
+const dashDate = (value) => (value ? formatPrintDate(value) : "—");
 const dashQuantity = (value) =>
     value === null || value === undefined ? "—" : formatNumber(value);
 const dashMoney = (value) =>

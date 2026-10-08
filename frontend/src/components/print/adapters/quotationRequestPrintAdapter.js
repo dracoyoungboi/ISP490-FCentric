@@ -1,4 +1,5 @@
-import { formatDate, formatDateTime, formatNumber } from "@/utils/formatters";
+import { formatNumber } from "@/utils/formatters";
+import { formatPrintDate, formatPrintDateTime } from "./printFormat";
 
 /**
  * Adapter cho YÊU CẦU BÁO GIÁ — dữ liệu từ API
@@ -33,8 +34,8 @@ const dash = (value) => {
     return text === "" ? "—" : text;
 };
 
-const dashDate = (value) => (value ? formatDate(value) : "—");
-const dashDateTime = (value) => (value ? formatDateTime(value) : "—");
+const dashDate = (value) => (value ? formatPrintDate(value) : "—");
+const dashDateTime = (value) => (value ? formatPrintDateTime(value) : "—");
 const dashQuantity = (value) =>
     value === null || value === undefined ? "—" : formatNumber(value);
 
