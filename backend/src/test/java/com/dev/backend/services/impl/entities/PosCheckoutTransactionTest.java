@@ -294,6 +294,22 @@ class PosCheckoutTransactionTest {
         verify(donBanHangRepository, never()).save(any(DonBanHang.class));
     }
 
+    // Tồn trong DB là DECIMAL(15,3): thông báo phải in "còn 2", không phải "còn 2.000".
+    @Test
+    void checkout_khongDuTonKho_thongBaoKhongCoSoKhongThua() {
+        Kho kho = kho1();
+        BienTheSanPham variant = variant(93, 1, "120000");
+        stubSuccessBasics(kho, variant);
+        when(tonKhoTheoLoRepository.lockLotsForUpdateByKhoAndVariants(1, List.of(93)))
+                .thenReturn(List.of(lotRow(72, 69, "1.000", "0.000", Instant.parse("2026-10-05T12:00:00Z"), variant, kho),
+                        lotRow(73, 70, "1.000", "0.000", Instant.parse("2026-10-05T13:00:00Z"), variant, kho)));
+
+        CommonException ex = assertThrows(CommonException.class,
+                () -> executor.execute(request("rq-scale", 120000, "360000", "3", 93)));
+        assertTrue(ex.getMessage().contains("(cần 3, còn 2)"), ex.getMessage());
+        assertFalse(ex.getMessage().contains(".000"), ex.getMessage());
+    }
+
     // F8: server là chốt chặn cuối cho ô "tiền khách đưa" — không nhận số âm hay số lẻ đồng.
     @Test
     void checkout_tienKhachDuaAm_tuChoiTruocKhiGhi() {

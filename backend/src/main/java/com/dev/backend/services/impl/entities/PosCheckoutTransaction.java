@@ -110,8 +110,8 @@ public class PosCheckoutTransaction {
         if (CheckoutContext.METHOD_PAYOS.equals(ctx.method())) {
             tendered = ctx.paidAmount();
             if (tendered == null || tendered.compareTo(tongTienHang) != 0) {
-                throw new CommonException("Số tiền chuyển khoản (" + (tendered == null ? "?" : tendered.toPlainString())
-                        + ") không khớp tổng hóa đơn (" + tongTienHang.toPlainString() + ")");
+                throw new CommonException("Số tiền chuyển khoản (" + (tendered == null ? "?" : plain(tendered))
+                        + ") không khớp tổng hóa đơn (" + plain(tongTienHang) + ")");
             }
         } else {
             tendered = validatePayment(request.getPayment());
@@ -433,7 +433,7 @@ public class PosCheckoutTransaction {
                         .conLai(can)
                         .build());
                 messages.add("Sản phẩm [" + maSku + "] không đủ tồn kho khả dụng tại kho này (cần "
-                        + need.toPlainString() + ", còn " + can.toPlainString() + ")");
+                        + plain(need) + ", còn " + plain(can) + ")");
                 continue;
             }
 
@@ -665,6 +665,11 @@ public class PosCheckoutTransaction {
         String prefix = "PX" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
         long countToday = phieuXuatKhoRepository.countBySoPhieuXuatStartingWith(prefix);
         return prefix + (countToday + 1);
+    }
+
+    /** Số cho thông báo: cột DECIMAL(15,3)/(15,2) mang số 0 thừa ("81.000") -> "81". */
+    private static String plain(BigDecimal value) {
+        return value.stripTrailingZeros().toPlainString();
     }
 
     private static BigDecimal soLuongKhaDung(TonKhoTheoLo t) {

@@ -145,8 +145,8 @@ public class PosPayosTransaction {
             throw new CommonException(row.getErrorMessage(), HttpStatus.CONFLICT, null);
         }
         if (paidAmount == null || paidAmount.compareTo(row.getSoTien()) != 0) {
-            throw new CommonException("Số tiền nhận được (" + (paidAmount == null ? "?" : paidAmount.toPlainString())
-                    + "đ) khác số tiền hóa đơn (" + row.getSoTien().toPlainString() + "đ)");
+            throw new CommonException("Số tiền nhận được (" + (paidAmount == null ? "?" : plain(paidAmount))
+                    + "đ) khác số tiền hóa đơn (" + plain(row.getSoTien()) + "đ)");
         }
         boolean stillReserved = PosPayosPayment.PENDING.equals(row.getTrangThai());
         PosCheckoutCreating payload = payload(row);
@@ -260,6 +260,11 @@ public class PosPayosTransaction {
     private static String text(JsonNode data, String field) {
         if (data == null || data.get(field) == null || data.get(field).isNull()) return null;
         return data.get(field).asText();
+    }
+
+    /** Số tiền cho thông báo: cột DECIMAL(15,2) mang số 0 thừa ("120000.00") -> "120000". */
+    private static String plain(BigDecimal value) {
+        return value.stripTrailingZeros().toPlainString();
     }
 
     private static String truncate(String s) {
