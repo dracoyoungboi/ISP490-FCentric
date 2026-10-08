@@ -15,7 +15,9 @@ import {
  *
  * Giá trị mẫu thực tế (tên kho, khách hàng, sản phẩm bình thường); số phiếu
  * mang tiền tố "MẪU-" và email dùng example.com để dễ nhận ra dữ liệu ví dụ.
- * Trên màn hình có badge "Dữ liệu mẫu"; bản in thử có dòng "Bản in thử".
+ * Trên màn hình có badge "Dữ liệu mẫu"; bản in thử có watermark "BẢN IN THỬ".
+ * Dữ liệu mẫu phải NHẤT QUÁN về nghiệp vụ (vd. đã có người duyệt thì trạng
+ * thái là "Đã duyệt") để người cấu hình thấy đúng bố cục phiếu thật.
  */
 
 export const SAMPLE_PURCHASE_REQUEST_RAW = {
@@ -23,7 +25,8 @@ export const SAMPLE_PURCHASE_REQUEST_RAW = {
     soYeuCauMuaHang: "MẪU-PR-0001",
     ngayTao: "2026-09-12T08:30:00Z",
     ngayGiaoDuKien: "2026-09-20T00:00:00Z",
-    trangThai: 1,
+    // Đã duyệt — khớp với việc có người duyệt (hiện đủ 2 ô ký)
+    trangThai: 2,
     ghiChu: "Ưu tiên nhập trước ngày 20/09 để kịp trưng bày.",
     khoNhap: {
         tenKho: "Kho trung tâm",
@@ -107,7 +110,8 @@ export const SAMPLE_QUOTATION_REQUEST_RAW = {
         },
         {
             id: 3,
-            trangThai: 0,
+            // Đã nhận báo giá (không dùng trạng thái "Đã xoá" cho dữ liệu mẫu)
+            trangThai: 2,
             nhaCungCap: {
                 tenNhaCungCap: "Xưởng may Gamma",
                 email: "gamma.garment@example.com",
@@ -319,12 +323,13 @@ export const SAMPLE_SALES_INVOICE_RAW = {
             diaChi: "789 Lê Văn Sỹ, Quận 3, TP. Hồ Chí Minh",
         },
         ngayDatHang: "2026-09-16T14:00:00Z",
+        // Hoàn thành + đã thanh toán — hợp cho cả hoá đơn A4 lẫn phiếu POS K80
         trangThai: 5,
-        trangThaiThanhToan: "chua_thanh_toan",
+        trangThaiThanhToan: "da_thanh_toan",
         tienHang: 4250000,
         phiVanChuyen: 50000,
         tongCong: 4300000,
-        ghiChu: "Bán công nợ 30 ngày.",
+        ghiChu: "Cảm ơn quý khách đã mua hàng.",
         nguoiTao: {
             hoTen: "Phạm Quốc Huy",
             email: "huy.pq@example.com",
