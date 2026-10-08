@@ -1,4 +1,5 @@
 import { formatNumber } from "@/utils/formatters";
+import { getGoodsReceiptStatus, getGoodsReceiptTypeLabel } from "@/constants/goodsReceipt";
 import { formatPrintDate } from "./printFormat";
 
 /**
@@ -8,14 +9,10 @@ import { formatPrintDate } from "./printFormat";
  *
  * Mỗi lô khai báo mở rộng thành một dòng in riêng; chưa khai báo lô thì in
  * lô/ngày sản xuất là "—" và số lượng dự kiến.
+ *
+ * Trạng thái + loại nhập dùng CHUNG với danh sách/chi tiết phiếu nhập
+ * (constants/goodsReceipt) để giấy in và màn hình luôn khớp nhau.
  */
-export const GOODS_RECEIPT_STATUS = {
-    0: { label: "Đang xử lý", tone: "warning" },
-    1: { label: "Đang xử lý", tone: "warning" },
-    2: { label: "Chờ nhận hàng", tone: "info" },
-    3: { label: "Đã nhập kho", tone: "success" },
-    4: { label: "Đã huỷ", tone: "danger" },
-};
 
 const dash = (value) => {
     if (value === null || value === undefined) return "—";
@@ -78,11 +75,14 @@ export function toGoodsReceiptPrintModel(payload) {
     // "—" ở từng dòng — phân biệt được với số 0 hợp lệ.
     const totalQuantity = items.reduce((sum, row) => sum + (row._rawQuantity ?? 0), 0);
 
-    const status = GOODS_RECEIPT_STATUS[data.trangThai] || GOODS_RECEIPT_STATUS[0];
+    const status = getGoodsReceiptStatus(data.trangThai);
 
     return {
         documentNumber: dash(data.soPhieuNhap || `#${data.id}`),
         receivedDate: dashDate(data.ngayNhap),
+        receiptType: getGoodsReceiptTypeLabel(data),
+        // Chỉ phiếu nhập từ đơn mua mới có mã đơn — phiếu khác ẩn trường này
+        purchaseOrder: data.soDonMua ? dash(data.soDonMua) : null,
         partner,
         status: { label: status.label, tone: status.tone },
         warehouse: { name: dash(data.tenKho) },
@@ -90,7 +90,9 @@ export function toGoodsReceiptPrintModel(payload) {
         totalQuantity: formatNumber(totalQuantity),
         signatures: {
             receiver: { name: dash(data.tenNguoiNhap), email: "" },
-            deliverer: { name: partner, email: "" },
+            // Người giao là NGƯỜI (tài xế / nhân viên NCC / thủ kho chuyển),
+            // không phải tên công ty — để ô trống ký và ghi rõ họ tên khi giao.
+            deliverer: { name: "", email: "" },
         },
     };
 }
