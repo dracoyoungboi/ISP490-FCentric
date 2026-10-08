@@ -294,6 +294,33 @@ class PosCheckoutTransactionTest {
         verify(donBanHangRepository, never()).save(any(DonBanHang.class));
     }
 
+    // F8: server là chốt chặn cuối cho ô "tiền khách đưa" — không nhận số âm hay số lẻ đồng.
+    @Test
+    void checkout_tienKhachDuaAm_tuChoiTruocKhiGhi() {
+        Kho kho = kho1();
+        BienTheSanPham variant = variant(93, 1, "120000");
+        stubSuccessBasics(kho, variant);
+
+        CommonException ex = assertThrows(CommonException.class,
+                () -> executor.execute(request("rq-am", 120000, "-1", "1", 93)));
+        assertTrue(ex.getMessage().contains("không được âm"));
+        verify(posCheckoutRequestRepository, never()).save(any(PosCheckoutRequest.class));
+        verify(donBanHangRepository, never()).save(any(DonBanHang.class));
+    }
+
+    @Test
+    void checkout_tienKhachDuaLeDong_tuChoiTruocKhiGhi() {
+        Kho kho = kho1();
+        BienTheSanPham variant = variant(93, 1, "120000");
+        stubSuccessBasics(kho, variant);
+
+        CommonException ex = assertThrows(CommonException.class,
+                () -> executor.execute(request("rq-le", 120000, "500000.5", "1", 93)));
+        assertTrue(ex.getMessage().contains("số nguyên đồng"));
+        verify(posCheckoutRequestRepository, never()).save(any(PosCheckoutRequest.class));
+        verify(donBanHangRepository, never()).save(any(DonBanHang.class));
+    }
+
     @Test
     void checkout_thieuTienMat_tuChoi() {
         Kho kho = kho1();

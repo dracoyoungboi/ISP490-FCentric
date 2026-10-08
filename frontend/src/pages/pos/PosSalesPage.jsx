@@ -527,8 +527,11 @@ export default function PosSalesPage({
   };
 
   const setPaymentAmountForInvoice = (value) => {
-    updateInvoice('paymentAmount', value);
-    setPaymentError(Number(value || 0) < total ? 'Số tiền khách thanh toán chưa đủ.' : '');
+    // Tiền mặt tính theo đồng: làm tròn về số nguyên, không âm (server cũng từ chối số âm / số lẻ).
+    const amount = Number(value);
+    const cash = Number.isFinite(amount) && amount > 0 ? Math.round(amount) : 0;
+    updateInvoice('paymentAmount', cash);
+    setPaymentError(cash < total ? 'Số tiền khách thanh toán chưa đủ.' : '');
     clearFailedAttemptAfterEdit();
   };
 

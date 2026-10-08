@@ -216,6 +216,19 @@ export const posService = {
     return res.data?.data ?? null;
   },
 
+  /**
+   * Tìm khách hàng đang hoạt động trên server (tên / SĐT / mã), Khách lẻ đứng đầu.
+   * Trả về { items: khách đã ánh xạ cho POS, total }.
+   */
+  async searchCustomers(q, { page = 0, size = 20, signal } = {}) {
+    const res = await apiClient.get("/api/v1/pos/customers", {
+      params: { q: q || undefined, page, size },
+      signal,
+    });
+    const data = res.data?.data;
+    return { items: (data?.content ?? []).map(toPosCustomer), total: data?.totalElements ?? 0 };
+  },
+
   async getCheckoutRequest(requestId, { signal } = {}) {
     const res = await apiClient.get(
       `/api/v1/pos/checkout-requests/${encodeURIComponent(requestId)}`,

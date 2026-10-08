@@ -207,6 +207,33 @@ public class PosController {
     }
 
     /**
+     * Tìm khách hàng đang hoạt động cho hộp chọn khách của màn POS (theo tên / SĐT / mã),
+     * phân trang server-side; Khách lẻ đứng đầu, khách mới thêm kế tiếp.
+     */
+    @GetMapping("/customers")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.nhan_vien_ban_hang
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<ResponseData<Page<KhachHangDto>>> searchCustomers(
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return ResponseEntity.ok(
+                ResponseData.<Page<KhachHangDto>>builder()
+                        .status(200)
+                        .data(khachHangService.searchActiveForPos(q, page, size))
+                        .message("Success")
+                        .error(null)
+                        .build()
+        );
+    }
+
+    /**
      * Thêm nhanh khách hàng tại quầy (tên + SĐT). Trả về khách vừa tạo để chọn ngay
      * vào hóa đơn. SĐT trùng -> 409 kèm khách hàng hiện có.
      */

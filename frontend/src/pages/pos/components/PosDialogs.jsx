@@ -16,7 +16,7 @@ import {
   Landmark,
 } from 'lucide-react';
 import PosModal from './PosModal';
-import { toPosCustomer } from '@/services/posService';
+import { posService, toPosCustomer } from '@/services/posService';
 import { formatMoney } from '../pos-format';
 
 const primaryButton = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-bo-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-bo-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary disabled:cursor-not-allowed disabled:bg-slate-300';
@@ -143,9 +143,17 @@ function PayosQrDialog({ state, actions, onClose }) {
   );
 }
 
-/** Dialog chọn khách hàng + thêm nhanh khách hàng mới (tên + SĐT). */
+const CUSTOMER_SEARCH_DELAY_MS = 300;
+const CUSTOMER_PAGE_SIZE = 20;
+
+/**
+ * Dialog chọn khách hàng + thêm nhanh khách hàng mới (tên + SĐT).
+ * Tìm trên SERVER (trễ 300 ms sau lần gõ cuối) để thấy cả khách quầy khác vừa thêm; trong lúc
+ * chờ hoặc khi mất mạng thì lọc tạm trên danh sách đã tải lúc mở trang.
+ */
 function CustomerDialog({ state, actions, onClose }) {
   const [customerSearch, setCustomerSearch] = useState('');
+  const [remote, setRemote] = useState({ keyword: null, items: [], total: 0, error: false });
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickName, setQuickName] = useState('');
   const [quickPhone, setQuickPhone] = useState('');
@@ -153,7 +161,27 @@ function CustomerDialog({ state, actions, onClose }) {
   const [quickError, setQuickError] = useState('');
   const [quickExisting, setQuickExisting] = useState(null);
 
-  const matchingCustomers = state.customers.filter((customer) => `${customer.name} ${customer.phone ?? ''}`.toLowerCase().includes(customerSearch.toLowerCase()));
+  useEffect(() => {
+    const keyword = customerSearch.trim();
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      posService.searchCustomers(keyword, { size: CUSTOMER_PAGE_SIZE, signal: controller.signal })
+        .then(({ items, total }) => setRemote({ keyword, items, total, error: false }))
+        .catch((error) => {
+          if (error?.code === 'ERR_CANCELED' || error?.name === 'CanceledError') return;
+          setRemote({ keyword, items: [], total: 0, error: true });
+        });
+    }, CUSTOMER_SEARCH_DELAY_MS);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [customerSearch]);
+
+  const keyword = customerSearch.trim();
+  const remoteReady = remote.keyword === keyword && !remote.error;
+  const localMatches = state.customers.filter((customer) => `${customer.name} ${customer.phone ?? ''}`.toLowerCase().includes(keyword.toLowerCase()));
+  const matchingCustomers = remoteReady ? remote.items : localMatches;
 
   const resetQuickAdd = () => {
     setQuickAddOpen(false);
@@ -213,8 +241,13 @@ function CustomerDialog({ state, actions, onClose }) {
               {state.customer?.id === customer.id ? <Check aria-hidden="true" className="shrink-0 text-bo-primary" size={17} /> : <ChevronRight aria-hidden="true" className="shrink-0 text-bo-muted" size={16} />}
             </button>
           </li>
-        )) : <li className="px-4 py-8 text-center text-sm text-bo-muted">Không tìm thấy khách hàng phù hợp.</li>}
+        )) : <li className="px-4 py-8 text-center text-sm text-bo-muted">{remote.keyword === keyword || remote.error ? 'Không tìm thấy khách hàng phù hợp.' : 'Đang tìm…'}</li>}
       </ul>
+      {remote.error && remote.keyword === keyword ? (
+        <p className="mt-2 text-xs text-amber-700">Không tải được danh sách mới nhất — đang hiện danh sách lúc mở trang.</p>
+      ) : remoteReady && remote.total > remote.items.length ? (
+        <p className="mt-2 text-xs text-bo-muted">Hiển thị {remote.items.length}/{remote.total} khách — gõ thêm tên hoặc SĐT để lọc.</p>
+      ) : null}
       {quickAddOpen ? (
         <form className="mt-4 rounded-lg border border-bo-border p-3" onSubmit={submitQuickAdd}>
           <p className="text-sm font-semibold text-bo-foreground">Thêm khách hàng mới</p>

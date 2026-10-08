@@ -617,6 +617,57 @@ class PosCheckoutIntegrationTest {
                 "SELECT COUNT(*) FROM don_ban_hang WHERE loai_chung_tu = 'don_ban_hang' AND so_don_hang LIKE 'SO%'", Integer.class));
     }
 
+    @Test
+    void t19_timKhachPos_serverSide_khachLeDauTien_boKhachNgungHoatDong() {
+        String cashier = createCashier("nhan_vien_ban_hang", 1);
+        String suffix = String.format("%08d", System.nanoTime() % 100_000_000L);
+        String active = "09" + suffix;
+        String inactive = "08" + suffix;
+        jdbc.update("DELETE FROM khach_hang WHERE ma_khach_hang LIKE 'KHIT%'");
+        jdbc.update("INSERT INTO khach_hang (ma_khach_hang, ten_khach_hang, so_dien_thoai, loai_khach_hang, trang_thai) VALUES (?, ?, ?, 'le', 1)",
+                "KHIT" + active, "Khách IT " + active, active);
+        jdbc.update("INSERT INTO khach_hang (ma_khach_hang, ten_khach_hang, so_dien_thoai, loai_khach_hang, trang_thai) VALUES (?, ?, ?, 'le', 0)",
+                "KHIT" + inactive, "Khách IT ngừng " + inactive, inactive);
+        try {
+            HttpHeaders h = new HttpHeaders();
+            h.setBearerAuth(cashier.replace("Bearer ", ""));
+            HttpEntity<Void> auth = new HttpEntity<>(h);
+
+            // Khách vừa thêm (sau khi màn POS đã mở) tìm được theo SĐT
+            List<Map<String, Object>> byPhone = customerContent(rest.exchange("/api/v1/pos/customers?q={q}",
+                    HttpMethod.GET, auth, Map.class, active));
+            assertEquals(1, byPhone.size());
+            assertEquals(active, byPhone.get(0).get("soDienThoai"));
+
+            // Ô tìm trống: Khách lẻ đứng đầu
+            List<Map<String, Object>> all = customerContent(rest.exchange("/api/v1/pos/customers",
+                    HttpMethod.GET, auth, Map.class));
+            assertEquals("KHLE", all.get(0).get("maKhachHang"));
+
+            // Khách ngừng hoạt động không xuất hiện
+            assertEquals(0, customerContent(rest.exchange("/api/v1/pos/customers?q={q}",
+                    HttpMethod.GET, auth, Map.class, inactive)).size());
+
+            // "%" là ký tự thường, không phải ký tự đại diện (không trả về mọi khách)
+            assertEquals(0, customerContent(rest.exchange("/api/v1/pos/customers?q={q}",
+                    HttpMethod.GET, auth, Map.class, "%")).size());
+
+            // Vai trò không bán hàng bị chặn
+            HttpHeaders hk = new HttpHeaders();
+            hk.setBearerAuth(createCashier("nhan_vien_kho", 1).replace("Bearer ", ""));
+            assertNotEquals(HttpStatus.OK, rest.exchange("/api/v1/pos/customers", HttpMethod.GET,
+                    new HttpEntity<>(hk), Map.class).getStatusCode());
+        } finally {
+            jdbc.update("DELETE FROM khach_hang WHERE ma_khach_hang LIKE 'KHIT%'");
+        }
+    }
+
+    private List<Map<String, Object>> customerContent(ResponseEntity<Map> res) {
+        assertEquals(HttpStatus.OK, res.getStatusCode(), String.valueOf(res.getBody()));
+        Map<String, Object> data = (Map<String, Object>) res.getBody().get("data");
+        return (List<Map<String, Object>>) data.get("content");
+    }
+
     @AfterAll
     static void note() {
         // Schema dùng-một-lần do quy trình bên ngoài dọn (kill instance mysqld tạm).
