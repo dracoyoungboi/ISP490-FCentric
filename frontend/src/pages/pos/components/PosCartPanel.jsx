@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Lock,
   ImageOff,
+  WifiOff,
 } from 'lucide-react';
 import { formatMoney } from '../pos-format';
 
@@ -17,6 +18,8 @@ const iconButton = 'grid size-7 place-items-center rounded-md text-bo-muted tran
  * Giỏ hàng hóa đơn hiện tại. `frozen=true` khi giao dịch thanh toán đang treo
  * (pending/unknown): khóa mọi sửa đổi draft nhưng vẫn mở được dialog thanh toán
  * để kiểm tra kết quả — phím tắt cũng không được vượt guard này.
+ * `offline=true` (máy mất mạng): khóa nút Thanh toán cho hóa đơn mới; hóa đơn đang treo vẫn
+ * mở được để xem lại mã QR / tình trạng giao dịch.
  */
 export default function PosCartPanel({
   cart,
@@ -27,6 +30,7 @@ export default function PosCartPanel({
   frozen = false,
   isSubmitting = false,
   overStockMessage = '',
+  offline = false,
   onCustomer,
   onQuantity,
   onRemove,
@@ -35,6 +39,7 @@ export default function PosCartPanel({
   onNote,
 }) {
   const totalQuantity = cart.reduce((sum, row) => sum + row.quantity, 0);
+  const blockedByNetwork = offline && !frozen;
   return (
     <section aria-label="Hóa đơn hiện tại" className="flex min-h-0 w-full flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface">
       <header className="flex shrink-0 items-center justify-between border-b border-bo-border px-4 py-3">
@@ -128,8 +133,12 @@ export default function PosCartPanel({
             <AlertTriangle aria-hidden="true" className="mt-0.5 shrink-0" size={14} />{overStockMessage}
           </p>
         ) : null}
-        <button className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-bo-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-bo-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary disabled:cursor-not-allowed disabled:bg-slate-300" disabled={!cart.length || isSubmitting || Boolean(overStockMessage)} onClick={onPayment} type="button">
-          <span>{isSubmitting ? 'Đang xử lý…' : 'Thanh toán'}</span><span className="rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-medium">F9</span>
+        <button className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-bo-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-bo-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary disabled:cursor-not-allowed disabled:bg-slate-300" disabled={!cart.length || isSubmitting || Boolean(overStockMessage) || blockedByNetwork} onClick={onPayment} title={blockedByNetwork ? 'Mất kết nối mạng — chưa thể thanh toán' : undefined} type="button">
+          {blockedByNetwork ? (
+            <><WifiOff aria-hidden="true" size={16} /><span>Mất kết nối mạng</span></>
+          ) : (
+            <><span>{isSubmitting ? 'Đang xử lý…' : 'Thanh toán'}</span><span className="rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-medium">F9</span></>
+          )}
         </button>
       </div>
     </section>

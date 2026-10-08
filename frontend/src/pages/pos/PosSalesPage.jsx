@@ -11,6 +11,7 @@ import PosInvoiceTabs from './components/PosInvoiceTabs';
 import PosDialogs from './components/PosDialogs';
 import PosProductCatalog from './components/PosProductCatalog';
 import { formatMoney } from './pos-format';
+import useOnlineStatus, { useOnReconnect, isNetworkError } from '@/hooks/useOnlineStatus';
 import {
   posService,
   toPosProduct,
@@ -111,6 +112,9 @@ const isFrozenInvoice = (invoice) =>
 /** Dòng giỏ có số lượng vượt tồn khả dụng đã biết (tồn chưa biết = không chặn, server vẫn kiểm). */
 const isOverStock = (line) => Number.isFinite(line.product.stock) && line.quantity > line.product.stock;
 const OVER_STOCK_MESSAGE = 'Có sản phẩm vượt tồn khả dụng — giảm số lượng hoặc xóa dòng đó trước khi thanh toán.';
+const OFFLINE_PAYMENT_MESSAGE = 'Mất kết nối mạng — chưa thể thanh toán. Kiểm tra mạng rồi thử lại; hóa đơn vẫn được giữ.';
+const OFFLINE_CHECK_MESSAGE = 'Đang mất mạng — chưa kiểm tra được giao dịch. Có mạng lại hãy bấm kiểm tra kết quả.';
+const NETWORK_ERROR_MESSAGE = 'Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.';
 
 /**
  * Cập nhật tồn khả dụng mới (từ catalog vừa tải) vào các dòng giỏ của mọi hóa đơn CÙNG kho.
@@ -228,6 +232,8 @@ export default function PosSalesPage({
   const catalogSeq = useRef(0);
   const searchRef = useRef(null);
   const keyboardContext = useRef(null);
+  // Mất mạng (navigator.onLine=false) -> chặn gửi thanh toán MỚI; hóa đơn đang treo vẫn xem được.
+  const online = useOnlineStatus();
   const uiRef = useRef({ dialog: null, isSubmitting: false, activeInvoice: null });
 
   // Kết quả thanh toán chính thức (dữ liệu server) cho dialog receipt + kết quả phục hồi sau refresh.
@@ -617,7 +623,7 @@ export default function PosSalesPage({
         setSearch(''); // sẵn sàng cho lần quét/gõ mã tiếp theo
       }
     } catch (error) {
-      showToast(error?.response?.data?.message || 'Không thể tra cứu mã hàng. Vui lòng thử lại.', 'error');
+      showToast(isNetworkError(error) ? NETWORK_ERROR_MESSAGE : error?.response?.data?.message || 'Không thể tra cứu mã hàng. Vui lòng thử lại.', 'error');
     } finally {
       setLookupBusy(false);
     }
@@ -649,7 +655,7 @@ export default function PosSalesPage({
       setDialog(null);
       showToast(`Đã thêm ${product.name}.`, 'success');
     } catch (error) {
-      setBarcodeError(error?.response?.data?.message || 'Không thể tra cứu mã vạch. Vui lòng thử lại.');
+      setBarcodeError(isNetworkError(error) ? NETWORK_ERROR_MESSAGE : error?.response?.data?.message || 'Không thể tra cứu mã vạch. Vui lòng thử lại.');
     } finally {
       setBarcodeBusy(false);
     }
@@ -744,6 +750,10 @@ export default function PosSalesPage({
     if (!checkoutEnabled || isSubmitting) return;
     const invoice = currentInvoice;
     if (invoice.attempt?.status === 'pending') return; // chặn click đúp
+    if (!online) {
+      setPaymentError(OFFLINE_PAYMENT_MESSAGE);
+      return;
+    }
     if (!invoice.customer) {
       setPaymentError('Vui lòng chọn khách hàng trước khi thanh toán.');
       return;
@@ -784,6 +794,10 @@ export default function PosSalesPage({
     const invoice = currentInvoice;
     const attemptState = invoice.attempt;
     if (!attemptState || isSubmitting) return;
+    if (!online) {
+      showToast(OFFLINE_CHECK_MESSAGE, 'warning');
+      return;
+    }
     setIsSubmitting(true);
     try {
       const res = await posService.getCheckoutRequest(attemptState.requestId);
@@ -813,6 +827,10 @@ export default function PosSalesPage({
     const invoice = currentInvoice;
     const attemptState = invoice.attempt;
     if (!attemptState || attemptState.status !== 'unknown' || isSubmitting) return;
+    if (!online) {
+      showToast(OFFLINE_CHECK_MESSAGE, 'warning');
+      return;
+    }
     // Gửi lại CHÍNH XÁC payload đã đóng băng (cùng key, cùng nội dung).
     setIsSubmitting(true);
     setPaymentError('');
@@ -840,7 +858,16 @@ export default function PosSalesPage({
       return;
     }
     if (currentInvoice.payos?.trangThai === 'PENDING') {
-      setDialog('payos-qr'); // đang chờ khách quét QR -> mở lại đúng mã QR
+      setDialog('payos-qr'); // đang chờ khách quét QR -> mở lại đúng mã QR (xem được cả khi mất mạng)
+      return;
+    }
+    if (checkoutEnabled && attempt?.status === 'unknown') {
+      setDialog('checkout-unknown');
+      return;
+    }
+    // Hóa đơn mới khi mất mạng: báo ngay, không mở màn thanh toán rồi chờ 30 giây mới lỗi.
+    if (!online) {
+      showToast(OFFLINE_PAYMENT_MESSAGE, 'error');
       return;
     }
     if (overStock) {
@@ -853,10 +880,6 @@ export default function PosSalesPage({
       setDialog('payment');
       return;
     }
-    if (attempt?.status === 'unknown') {
-      setDialog('checkout-unknown');
-      return;
-    }
     setPaymentAmount(total);
     setPaymentError('');
     setDialog('payment');
@@ -864,13 +887,31 @@ export default function PosSalesPage({
 
   // ===== Chuyển khoản payOS =====
   const [payosEnabled, setPayosEnabled] = useState(false);
+  // Tải lỗi (vd. mở trang lúc mất mạng) -> tải lại khi có mạng, không ẩn hẳn Chuyển khoản tới lúc F5.
+  const [paymentMethodsFailed, setPaymentMethodsFailed] = useState(false);
+  const [paymentMethodsKey, setPaymentMethodsKey] = useState(0);
   useEffect(() => {
     let cancelled = false;
     posService.getPaymentMethods()
-      .then((methods) => { if (!cancelled) setPayosEnabled(Boolean(methods?.payos)); })
-      .catch(() => { if (!cancelled) setPayosEnabled(false); });
+      .then((methods) => {
+        if (cancelled) return;
+        setPayosEnabled(Boolean(methods?.payos));
+        setPaymentMethodsFailed(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setPayosEnabled(false);
+        setPaymentMethodsFailed(true);
+      });
     return () => { cancelled = true; };
-  }, []);
+  }, [paymentMethodsKey]);
+
+  // Có mạng lại: tải lại những gì đã lỗi trong lúc mất mạng (danh sách hàng, phương thức thanh toán).
+  // Mã QR đang chờ và giao dịch chưa rõ tự được hỏi lại bởi vòng polling / nút kiểm tra kết quả.
+  useOnReconnect(() => {
+    if (catalog.error) setRefreshKey((key) => key + 1);
+    if (paymentMethodsFailed) setPaymentMethodsKey((key) => key + 1);
+  });
 
   const setPaymentMethodForInvoice = (method) => {
     if (frozen) return;
@@ -902,6 +943,10 @@ export default function PosSalesPage({
   const createPayosQr = async () => {
     if (!checkoutEnabled || isSubmitting) return;
     const invoice = currentInvoice;
+    if (!online) {
+      setPaymentError(OFFLINE_PAYMENT_MESSAGE);
+      return;
+    }
     if (!invoice.customer) {
       setPaymentError('Vui lòng chọn khách hàng trước khi thanh toán.');
       return;
@@ -928,7 +973,7 @@ export default function PosSalesPage({
           setInvoices((current) => withInsufficientStock(current, invoice.number, envelope.data.insufficient));
           setRefreshKey((key) => key + 1);
         }
-        setPaymentError(envelope?.message || 'Không tạo được mã QR. Kiểm tra kết nối rồi thử lại.');
+        setPaymentError(isNetworkError(error) ? NETWORK_ERROR_MESSAGE : envelope?.message || 'Không tạo được mã QR. Kiểm tra kết nối rồi thử lại.');
       }
     } finally {
       setIsSubmitting(false);
@@ -938,6 +983,10 @@ export default function PosSalesPage({
   const cancelPayosQr = async () => {
     const invoice = currentInvoice;
     if (!invoice.payos?.orderCode || isSubmitting) return;
+    if (!online) {
+      showToast('Đang mất mạng — chưa hủy được mã QR. Có mạng lại hãy thử lại.', 'warning');
+      return;
+    }
     setIsSubmitting(true);
     try {
       const link = await posService.cancelPayos(invoice.payos.orderCode);
@@ -949,7 +998,7 @@ export default function PosSalesPage({
         showToast('Đã hủy mã QR, hàng giữ chỗ đã được trả lại kho.', 'success');
       }
     } catch (error) {
-      showToast(error?.response?.data?.message || 'Không hủy được mã QR. Vui lòng thử lại.', 'error');
+      showToast(isNetworkError(error) ? NETWORK_ERROR_MESSAGE : error?.response?.data?.message || 'Không hủy được mã QR. Vui lòng thử lại.', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -1081,6 +1130,7 @@ export default function PosSalesPage({
 
   const dialogState = {
     payosEnabled,
+    online,
     payos: currentInvoice.payos,
     customers: customerOptions,
     customer,
@@ -1175,6 +1225,7 @@ export default function PosSalesPage({
       onPayment={openPayment}
       onQuantity={setQuantity}
       onRemove={(variantId) => setQuantity(variantId, 0)}
+      offline={!online}
       overStockMessage={overStock ? OVER_STOCK_MESSAGE : ''}
       subtotal={subtotal}
       total={total}
@@ -1237,7 +1288,7 @@ export default function PosSalesPage({
             <span className="relative grid size-9 shrink-0 place-items-center rounded-lg bg-bo-primary-soft text-bo-primary"><ShoppingBag aria-hidden="true" size={17} /><span className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-bo-primary px-1 text-[9px] font-bold text-white">{countCart(cart)}</span></span>
             <span className="min-w-0"><span className="block text-[11px] text-bo-muted">Mở hóa đơn</span><span className="block truncate text-sm font-bold text-bo-foreground">{formatMoney(total)}</span></span>
           </button>
-          <button className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg bg-bo-primary px-4 text-sm font-semibold text-white transition hover:bg-bo-primary-hover disabled:cursor-not-allowed disabled:bg-slate-300" disabled={!cart.length || isSubmitting || overStock} onClick={openPayment} title={overStock ? OVER_STOCK_MESSAGE : undefined} type="button">Thanh toán</button>
+          <button className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg bg-bo-primary px-4 text-sm font-semibold text-white transition hover:bg-bo-primary-hover disabled:cursor-not-allowed disabled:bg-slate-300" disabled={!cart.length || isSubmitting || overStock || (!online && !frozen)} onClick={openPayment} title={!online && !frozen ? OFFLINE_PAYMENT_MESSAGE : overStock ? OVER_STOCK_MESSAGE : undefined} type="button">{!online && !frozen ? 'Mất mạng' : 'Thanh toán'}</button>
         </div>
       </div>
 

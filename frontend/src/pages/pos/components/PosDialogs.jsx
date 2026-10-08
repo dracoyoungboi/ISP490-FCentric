@@ -14,6 +14,7 @@ import {
   QrCode,
   Clock,
   Landmark,
+  WifiOff,
 } from 'lucide-react';
 import PosModal from './PosModal';
 import { posService, toPosCustomer } from '@/services/posService';
@@ -60,6 +61,16 @@ function MethodButton({ active, icon, label, onClick, disabled = false }) {
     <button aria-pressed={active} className={`flex min-h-[72px] w-full flex-col items-center justify-center gap-2 rounded-lg border px-2 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${active ? 'border-bo-primary bg-bo-primary-soft text-bo-primary' : 'border-bo-border bg-bo-surface text-bo-muted hover:border-bo-primary/50'}`} disabled={disabled} onClick={onClick} type="button">
       {icon}{label}
     </button>
+  );
+}
+
+/** Ô cảnh báo mất mạng dùng chung trong các hộp thoại thanh toán. */
+function OfflineNotice({ children }) {
+  return (
+    <div aria-live="polite" className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-bo-danger-soft p-3 text-xs leading-5 text-bo-danger" role="alert">
+      <WifiOff aria-hidden="true" className="mt-0.5 shrink-0" size={16} />
+      <span>{children}</span>
+    </div>
   );
 }
 
@@ -110,6 +121,11 @@ function PayosQrDialog({ state, actions, onClose }) {
             <div className="flex justify-between gap-3"><dt className="text-bo-muted">Nội dung CK</dt><dd className="font-mono font-medium text-bo-foreground">{link.noiDungCk || '—'}</dd></div>
             <div className="flex justify-between gap-3"><dt className="text-bo-muted">Mã giao dịch</dt><dd className="font-mono text-bo-muted">{link.orderCode}</dd></div>
           </dl>
+          {pending && state.online === false ? (
+            <OfflineNotice>
+              <strong>Máy đang mất mạng.</strong> Khách vẫn chuyển khoản được bình thường; màn hình sẽ tự cập nhật khi có mạng lại.
+            </OfflineNotice>
+          ) : null}
           {pending ? (
             <div aria-live="polite" className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
               <RefreshCcw aria-hidden="true" className="shrink-0 animate-spin" size={14} />
@@ -130,7 +146,7 @@ function PayosQrDialog({ state, actions, onClose }) {
         {pending ? (
           <>
             <button className={secondaryButton} onClick={onClose} type="button">Ẩn (vẫn chờ tiền)</button>
-            <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-300" disabled={state.isSubmitting} onClick={actions.onCancelPayos} type="button">{state.isSubmitting ? 'Đang hủy…' : 'Hủy mã QR'}</button>
+            <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-300" disabled={state.isSubmitting || state.online === false} onClick={actions.onCancelPayos} title={state.online === false ? 'Đang mất mạng — chưa hủy được mã QR' : undefined} type="button">{state.isSubmitting ? 'Đang hủy…' : 'Hủy mã QR'}</button>
           </>
         ) : (
           <>
@@ -334,6 +350,7 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
     const paid = Number(state.paymentAmount || 0);
     const amountInvalid = !isTransfer && (!Number.isFinite(paid) || paid < state.total);
     const pending = state.attemptStatus === 'pending';
+    const offline = state.online === false;
     const roundedAmount = Math.ceil(state.total / 100000) * 100000;
     const quickAmounts = [...new Set([state.total, roundedAmount, roundedAmount + 200000, roundedAmount + 500000].filter((amount) => amount > 0))];
     return (
@@ -360,7 +377,7 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
                 <span className="text-xs text-bo-muted">Cần thu: <strong className="text-bo-foreground">{formatMoney(state.total)}</strong></span>
               </div>
               {/* Form để Enter trong ô số tiền = xác nhận thanh toán (thao tác quầy nhanh hơn) */}
-              <form className="relative mt-1.5" onSubmit={(event) => { event.preventDefault(); if (checkoutEnabled && !pending && !amountInvalid && !state.isSubmitting) actions.onConfirmPayment(); }}>
+              <form className="relative mt-1.5" onSubmit={(event) => { event.preventDefault(); if (checkoutEnabled && !offline && !pending && !amountInvalid && !state.isSubmitting) actions.onConfirmPayment(); }}>
                 <input autoFocus className={`${fieldClass} pr-12 text-right text-lg font-semibold disabled:bg-slate-50 disabled:opacity-60`} disabled={state.frozen} id="payment-amount" inputMode="numeric" min="0" onChange={(event) => actions.onPaymentAmount(event.target.value)} onFocus={(event) => event.target.select()} placeholder="0" step="1000" type="number" value={state.paymentAmount} />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-bo-muted">₫</span>
               </form>
@@ -380,6 +397,13 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
             <div className="mt-3 flex items-end justify-between gap-2"><span className="text-sm font-semibold text-bo-foreground">Khách cần trả</span><span className="text-lg font-bold text-bo-primary">{formatMoney(state.total)}</span></div>
           </aside>
         </div>
+        {checkoutEnabled && offline ? (
+          <div className="mt-4">
+            <OfflineNotice>
+              <strong>Mất kết nối mạng — chưa thể thanh toán.</strong> Chưa có tiền hay đơn hàng nào được ghi nhận. Khi có mạng lại, nút xác nhận sẽ tự mở.
+            </OfflineNotice>
+          </div>
+        ) : null}
         {!checkoutEnabled ? (
           <div aria-live="polite" className="mt-4 flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
             <AlertCircle aria-hidden="true" className="mt-0.5 shrink-0" size={16} />
@@ -388,9 +412,9 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
         ) : null}
         <div className="mt-5 border-t border-bo-border pt-4">
           {isTransfer ? (
-            <FooterButtons busy={state.isSubmitting} confirmText={!checkoutEnabled ? 'Thanh toán chưa kích hoạt' : 'Tạo mã QR'} disabled={!checkoutEnabled || state.frozen} onClose={onClose} onConfirm={actions.onCreatePayosQr} />
+            <FooterButtons busy={state.isSubmitting} confirmText={!checkoutEnabled ? 'Thanh toán chưa kích hoạt' : offline ? 'Mất kết nối mạng' : 'Tạo mã QR'} disabled={!checkoutEnabled || offline || state.frozen} onClose={onClose} onConfirm={actions.onCreatePayosQr} />
           ) : (
-            <FooterButtons busy={state.isSubmitting} confirmText={!checkoutEnabled ? 'Thanh toán chưa kích hoạt' : pending ? 'Đang xử lý…' : 'Xác nhận thanh toán'} disabled={!checkoutEnabled || pending || amountInvalid} onClose={onClose} onConfirm={actions.onConfirmPayment} />
+            <FooterButtons busy={state.isSubmitting} confirmText={!checkoutEnabled ? 'Thanh toán chưa kích hoạt' : pending ? 'Đang xử lý…' : offline ? 'Mất kết nối mạng' : 'Xác nhận thanh toán'} disabled={!checkoutEnabled || offline || pending || amountInvalid} onClose={onClose} onConfirm={actions.onConfirmPayment} />
           )}
         </div>
       </PosModal>
@@ -404,11 +428,18 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
           <AlertCircle aria-hidden="true" className="mt-0.5 shrink-0" size={18} />
           <p>Giao dịch đã được gửi nhưng chưa rõ server đã lưu hay chưa. Hóa đơn vẫn được khóa để giữ nguyên nội dung đã gửi. Hãy kiểm tra kết quả bằng đúng mã giao dịch trước khi quyết định.</p>
         </div>
+        {state.online === false ? (
+          <div className="mt-3">
+            <OfflineNotice>
+              <strong>Máy đang mất mạng.</strong> Chờ có mạng lại rồi bấm "Kiểm tra kết quả giao dịch" — không thu tiền lại của khách khi chưa kiểm tra.
+            </OfflineNotice>
+          </div>
+        ) : null}
         <div className="mt-5 flex flex-col gap-2">
-          <button className={primaryButton} disabled={state.isSubmitting} onClick={actions.onCheckRecovery} type="button">
+          <button className={primaryButton} disabled={state.isSubmitting || state.online === false} onClick={actions.onCheckRecovery} type="button">
             <RefreshCcw aria-hidden="true" size={16} />{state.isSubmitting ? 'Đang kiểm tra…' : 'Kiểm tra kết quả giao dịch'}
           </button>
-          <button className={secondaryButton} disabled={state.isSubmitting} onClick={actions.onRetrySameAttempt} type="button">
+          <button className={secondaryButton} disabled={state.isSubmitting || state.online === false} onClick={actions.onRetrySameAttempt} type="button">
             Thử lại với cùng mã giao dịch
           </button>
           <p className="text-center text-[11px] leading-4 text-bo-muted">Nếu server báo chưa có kết quả, "Thử lại" sẽ gửi lại CHÍNH XÁC nội dung đã đóng băng (cùng mã) — không tạo đơn trùng.</p>
