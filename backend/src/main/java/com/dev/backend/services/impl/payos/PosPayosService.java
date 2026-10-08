@@ -10,6 +10,7 @@ import com.dev.backend.entities.PosPayosPayment;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.PosPayosPaymentRepository;
 import com.dev.backend.services.impl.entities.PosCatalogService;
+import com.dev.backend.services.impl.entities.PosConcurrencyRetry;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -74,7 +75,7 @@ public class PosPayosService {
             return toDto(existing);
         }
 
-        PosPayosPayment row = tx.createPending(request, user.getId(), active.expiryMinutes());
+        PosPayosPayment row = PosConcurrencyRetry.call(() -> tx.createPending(request, user.getId(), active.expiryMinutes()));
         try {
             List<PayosClient.Item> items = new ArrayList<>();
             Map<Integer, String> names = tx.productNames(row);
@@ -234,18 +235,23 @@ public class PosPayosService {
 
     private void finalizeSafely(Long orderCode, BigDecimal amount, String reference) {
         try {
-            PosCheckoutResponse result = tx.finalizePaid(orderCode, amount, reference);
+            // Deadlock / trùng số chứng từ với quầy khác -> thử lại transaction mới, không đánh PAID_ERROR oan.
+            PosCheckoutResponse result = PosConcurrencyRetry.call(() -> tx.finalizePaid(orderCode, amount, reference));
             log.info("payOS: đơn {} đã thanh toán -> {}", orderCode, result == null ? "?" : result.getSoDonHang());
         } catch (RuntimeException e) {
-            PosPayosPayment row = repository.findByOrderCode(orderCode).orElse(null);
+            PosPayosPayment row = tx.reload(orderCode).orElse(null);
             if (row != null && PosPayosPayment.PAID.equals(row.getTrangThai())) return;
             log.error("payOS: đã nhận tiền đơn {} nhưng không tạo được đơn hàng", orderCode, e);
-            tx.markPaidError(orderCode, e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage(), reference);
+            String reason = PosConcurrencyRetry.isRetryable(e)
+                    ? "nhiều giao dịch chạy cùng lúc, đã thử lại nhưng chưa được"
+                    : (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
+            tx.markPaidError(orderCode, reason, reference);
         }
     }
 
+    /** Luôn đọc trạng thái mới nhất (xem PosPayosTransaction.reload). */
     private PosPayosPayment find(Long orderCode) {
-        return repository.findByOrderCode(orderCode)
+        return tx.reload(orderCode)
                 .orElseThrow(() -> new CommonException("Không tìm thấy giao dịch chuyển khoản " + orderCode, HttpStatus.NOT_FOUND, null));
     }
 

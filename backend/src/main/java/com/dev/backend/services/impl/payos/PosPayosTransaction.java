@@ -11,6 +11,8 @@ import com.dev.backend.services.impl.entities.PosCheckoutTransaction.ReservedLot
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -21,6 +23,7 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -34,12 +37,26 @@ public class PosPayosTransaction {
     private final PosPayosPaymentRepository repository;
     private final PosCheckoutTransaction checkoutTransaction;
     private final ObjectMapper objectMapper;
+    private final EntityManager entityManager;
 
     public PosPayosTransaction(PosPayosPaymentRepository repository, PosCheckoutTransaction checkoutTransaction,
-                               ObjectMapper objectMapper) {
+                               ObjectMapper objectMapper, EntityManager entityManager) {
         this.repository = repository;
         this.checkoutTransaction = checkoutTransaction;
         this.objectMapper = objectMapper;
+        this.entityManager = entityManager;
+    }
+
+    /**
+     * Đọc trạng thái MỚI NHẤT của giao dịch (dùng để ra quyết định ngoài transaction ghi).
+     * Không dùng repository.findByOrderCode trực tiếp: với open-in-view, entity đã nạp
+     * trước đó trong request được trả lại nguyên trạng thái cũ.
+     */
+    @Transactional(readOnly = true)
+    public Optional<PosPayosPayment> reload(Long orderCode) {
+        Optional<PosPayosPayment> row = repository.findByOrderCode(orderCode);
+        row.ifPresent(entityManager::refresh);
+        return row;
     }
 
     /** Giữ chỗ hàng + tạo giao dịch PENDING (chưa gọi payOS). */
@@ -165,9 +182,17 @@ public class PosPayosTransaction {
 
     // ================= helpers =================
 
+    /**
+     * Khóa dòng giao dịch rồi nạp lại trạng thái bằng locking read. Refresh là bắt buộc:
+     * với open-in-view, webhook/nút Hủy đã đọc dòng này (PENDING) trước khi vào đây; query
+     * khóa vẫn chờ đúng khóa nhưng Hibernate trả lại entity cũ -> bên đến sau tưởng còn
+     * PENDING, trả chỗ lần hai hoặc ghi đè PAID thành CANCELLED.
+     */
     private PosPayosPayment lock(Long orderCode) {
-        return repository.lockByOrderCode(orderCode)
+        PosPayosPayment row = repository.lockByOrderCode(orderCode)
                 .orElseThrow(() -> new CommonException("Không tìm thấy giao dịch chuyển khoản " + orderCode, HttpStatus.NOT_FOUND, null));
+        entityManager.refresh(row, LockModeType.PESSIMISTIC_WRITE);
+        return row;
     }
 
     /** Mã đơn payOS: thời gian (giây) × 1000 + số ngẫu nhiên — duy nhất, < 2^53 để JS đọc an toàn. */

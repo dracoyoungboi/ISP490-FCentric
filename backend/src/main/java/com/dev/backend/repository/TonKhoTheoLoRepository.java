@@ -182,17 +182,38 @@ public interface TonKhoTheoLoRepository extends JpaRepository<TonKhoTheoLo, Inte
      * sắp theo PK (t.id) — thứ tự khóa ổn định chung cho MỌI luồng ghi tồn
      * (POS checkout + xuất kho + nhập kho + kiểm kê) để tránh deadlock và
      * lost update. Chỉ dùng trong transaction ghi.
+     *
+     * Hai bước: lấy id (không khóa) rồi khóa theo id. Không khóa bằng câu JOIN lo_hang:
+     * FOR UPDATE trên JOIN khóa cả dòng lo_hang, và thứ tự khóa đi theo kế hoạch truy vấn
+     * (khác nhau theo tập biến thể) chứ không theo ORDER BY -> hai quầy bán hai SKU khác
+     * nhau vẫn deadlock.
      */
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    default List<TonKhoTheoLo> lockLotsForUpdateByKhoAndVariants(Integer khoId,
+                                                                 java.util.Collection<Integer> variantIds) {
+        List<Integer> ids = findIdsByKhoAndVariants(khoId, variantIds);
+        return ids.isEmpty() ? List.of() : lockLotsForUpdateByIds(ids);
+    }
+
     @Query("""
-        select t from TonKhoTheoLo t
+        select t.id from TonKhoTheoLo t
         where t.kho.id = :khoId
           and t.loHang.bienTheSanPham.id in :variantIds
         order by t.id
     """)
-    List<TonKhoTheoLo> lockLotsForUpdateByKhoAndVariants(
+    List<Integer> findIdsByKhoAndVariants(
             @Param("khoId") Integer khoId,
             @Param("variantIds") java.util.Collection<Integer> variantIds
+    );
+
+    /** Khóa đúng các dòng tồn theo PK, chỉ một bảng, PK tăng dần. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        select t from TonKhoTheoLo t
+        where t.id in :ids
+        order by t.id
+    """)
+    List<TonKhoTheoLo> lockLotsForUpdateByIds(
+            @Param("ids") java.util.Collection<Integer> ids
     );
 
     /**

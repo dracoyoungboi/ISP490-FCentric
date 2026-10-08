@@ -3,6 +3,7 @@ package com.dev.backend.services.impl.entities;
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.dto.request.PosCheckoutCreating;
 import com.dev.backend.dto.response.customize.PosCheckoutResponse;
+import com.dev.backend.dto.response.customize.PosInsufficientStockInfo;
 import com.dev.backend.dto.response.customize.PosPriceChangeInfo;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.entities.*;
@@ -10,6 +11,7 @@ import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -281,6 +283,14 @@ class PosCheckoutTransactionTest {
         CommonException ex = assertThrows(CommonException.class,
                 () -> executor.execute(request("rq-het", 120000, "360000", "3", 93)));
         assertTrue(ex.getMessage().contains("không đủ"));
+        // 409 có cấu trúc: {insufficient: [{bienTheSanPhamId, conLai}]}
+        assertEquals(HttpStatus.CONFLICT, ex.getHttpStatus());
+        assertInstanceOf(PosInsufficientStockInfo.class, ex.getData());
+        PosInsufficientStockInfo info = (PosInsufficientStockInfo) ex.getData();
+        assertEquals(1, info.getInsufficient().size());
+        assertEquals(93, info.getInsufficient().get(0).getBienTheSanPhamId());
+        assertEquals(0, new BigDecimal("2").compareTo(info.getInsufficient().get(0).getConLai()));
+        assertEquals(0, new BigDecimal("3").compareTo(info.getInsufficient().get(0).getCanBan()));
         verify(donBanHangRepository, never()).save(any(DonBanHang.class));
     }
 
@@ -443,45 +453,58 @@ class PosCheckoutTransactionTest {
         assertEquals(PosCheckoutRequest.TRANG_THAI_PENDING, requestSnapshots.get(0).getTrangThai());
     }
 
+    // Trùng số chứng từ: KHÔNG thử lại trong cùng transaction (snapshot cũ đếm ra đúng số đó);
+    // lỗi nổi lên để transaction rollback, orchestrator thử lại bằng transaction mới.
     @Test
-    void checkout_trungSoDonHang_thuLaiRoiThanhCong() {
+    void checkout_trungSoDonHang_noiLoiDeRollback_khongThuLaiTrongTransaction() {
         Kho kho = kho1();
         BienTheSanPham variant = variant(93, 1, "120000");
         stubSuccessBasics(kho, variant);
         when(tonKhoTheoLoRepository.lockLotsForUpdateByKhoAndVariants(1, List.of(93)))
                 .thenReturn(List.of(lotRow(72, 69, "3", "0", Instant.parse("2026-10-05T12:00:00Z"), variant, kho)));
         when(donBanHangRepository.save(any(DonBanHang.class)))
-                .thenThrow(new DataIntegrityViolationException("uk_don_ban_hang_so_don_hang"))
-                .thenAnswer(inv -> {
-                    DonBanHang d = inv.getArgument(0);
-                    d.setId(501);
-                    return d;
-                });
+                .thenThrow(new DataIntegrityViolationException(
+                        "Duplicate entry 'SO202610083' for key 'don_ban_hang.so_don_hang'"));
 
-        PosCheckoutResponse result = executor.execute(request("rq-sodon", 120000, "120000", "1", 93));
+        DataIntegrityViolationException ex = assertThrows(DataIntegrityViolationException.class,
+                () -> executor.execute(request("rq-sodon", 120000, "120000", "1", 93)));
 
-        assertEquals(501, result.getDonBanHangId());
-        verify(donBanHangRepository, times(2)).save(any(DonBanHang.class));
+        assertTrue(PosConcurrencyRetry.isDuplicateDocumentNumber(ex));
+        verify(donBanHangRepository, times(1)).save(any(DonBanHang.class));
+        verify(posPaymentRepository, never()).save(any(PosPayment.class));
     }
 
     @Test
-    void checkout_trungSoPhieuXuat_thuLaiRoiThanhCong() {
+    void checkout_trungSoPhieuXuat_noiLoiDeRollback_khongThuLaiTrongTransaction() {
         Kho kho = kho1();
         BienTheSanPham variant = variant(93, 1, "120000");
         stubSuccessBasics(kho, variant);
         when(tonKhoTheoLoRepository.lockLotsForUpdateByKhoAndVariants(1, List.of(93)))
                 .thenReturn(List.of(lotRow(72, 69, "3", "0", Instant.parse("2026-10-05T12:00:00Z"), variant, kho)));
         when(phieuXuatKhoRepository.save(any(PhieuXuatKho.class)))
-                .thenThrow(new DataIntegrityViolationException("uk_phieu_xuat_kho_so_phieu"))
-                .thenAnswer(inv -> {
-                    PhieuXuatKho p = inv.getArgument(0);
-                    p.setId(601);
-                    return p;
-                });
+                .thenThrow(new DataIntegrityViolationException(
+                        "Duplicate entry 'PX202610083' for key 'phieu_xuat_kho.so_phieu_xuat'"));
 
-        PosCheckoutResponse result = executor.execute(request("rq-sopx", 120000, "120000", "1", 93));
+        DataIntegrityViolationException ex = assertThrows(DataIntegrityViolationException.class,
+                () -> executor.execute(request("rq-sopx", 120000, "120000", "1", 93)));
 
-        assertNotNull(result.getSoPhieuXuat());
-        verify(phieuXuatKhoRepository, times(2)).save(any(PhieuXuatKho.class));
+        assertTrue(PosConcurrencyRetry.isDuplicateDocumentNumber(ex));
+        verify(phieuXuatKhoRepository, times(1)).save(any(PhieuXuatKho.class));
+    }
+
+    // Open-in-view: dòng tồn có thể đã nằm sẵn trong EntityManager -> phải nạp lại bằng locking read.
+    @Test
+    void checkout_moiDongTonDaKhoaDeuDuocNapLaiTrangThaiMoi() {
+        Kho kho = kho1();
+        BienTheSanPham variant = variant(93, 1, "120000");
+        stubSuccessBasics(kho, variant);
+        TonKhoTheoLo a = lotRow(72, 69, "3", "0", Instant.parse("2026-10-05T12:00:00Z"), variant, kho);
+        TonKhoTheoLo b = lotRow(73, 70, "1", "0", Instant.parse("2026-10-05T13:00:00Z"), variant, kho);
+        when(tonKhoTheoLoRepository.lockLotsForUpdateByKhoAndVariants(1, List.of(93))).thenReturn(List.of(a, b));
+
+        executor.execute(request("rq-refresh", 120000, "120000", "1", 93));
+
+        verify(entityManager).refresh(a, LockModeType.PESSIMISTIC_WRITE);
+        verify(entityManager).refresh(b, LockModeType.PESSIMISTIC_WRITE);
     }
 }

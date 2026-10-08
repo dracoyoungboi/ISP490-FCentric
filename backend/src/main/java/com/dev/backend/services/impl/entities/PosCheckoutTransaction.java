@@ -4,6 +4,7 @@ import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
 import com.dev.backend.dto.request.PosCheckoutCreating;
 import com.dev.backend.dto.response.customize.PosCheckoutResponse;
+import com.dev.backend.dto.response.customize.PosInsufficientStockInfo;
 import com.dev.backend.dto.response.customize.PosPriceChangeInfo;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.entities.*;
@@ -12,6 +13,7 @@ import com.dev.backend.repository.*;
 import com.dev.backend.utils.PosCheckoutPayloadHash;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -42,7 +44,6 @@ public class PosCheckoutTransaction {
     private static final int MAX_DONG = 100;
     private static final int MAX_SO_LUONG_MOI_DONG = 1000;
     private static final BigDecimal MAX_TIEN_MAT = new BigDecimal("500000000");
-    private static final int MAX_RETRY_SO_CHUNG_TU = 5;
 
     @Autowired
     private EntityManager entityManager;
@@ -140,7 +141,7 @@ public class PosCheckoutTransaction {
                 .map(PosCheckoutCreating.PosCheckoutItemCreating::getBienTheSanPhamId)
                 .sorted()
                 .toList();
-        List<TonKhoTheoLo> lockedLots = tonKhoTheoLoRepository.lockLotsForUpdateByKhoAndVariants(request.getKhoId(), variantIds);
+        List<TonKhoTheoLo> lockedLots = lockLots(request.getKhoId(), variantIds);
         Map<Integer, List<TonKhoTheoLo>> lotsByVariant = lockedLots.stream()
                 .collect(Collectors.groupingBy(t -> t.getLoHang().getBienTheSanPham().getId()));
 
@@ -154,8 +155,10 @@ public class PosCheckoutTransaction {
         //    chỉ lấy lô đúng kho + đúng SKU (đã bảo đảm bởi query), khả dụng = ton - dat.
         Map<Integer, List<LotAllocation>> allocationByVariant = allocateFifo(items, lotsByVariant, variants);
 
-        // 7. Sinh số chứng từ an toàn (count+1 + retry trên unique — convention repo,
-        //    IDENTITY khiến INSERT nổ ngay tại save nên vòng lặp hoạt động).
+        // 7. Sinh số chứng từ (count+1 — convention repo). Trùng số khi hai giao dịch đếm cùng
+        //    lúc -> lỗi unique nổi lên, transaction rollback, caller thử lại bằng transaction
+        //    MỚI (PosConcurrencyRetry): thử lại trong cùng transaction vô ích vì snapshot cũ
+        //    vẫn đếm ra đúng số đó.
         Kho kho = entityManager.find(Kho.class, request.getKhoId());
         NguoiDung nguoiDung = entityManager.find(NguoiDung.class, userId);
         DonBanHang don = createOrderWithDetails(request, khachHang, kho, nguoiDung, items, variants, unitPrices, tongTienHang);
@@ -277,7 +280,7 @@ public class PosCheckoutTransaction {
                 .map(PosCheckoutCreating.PosCheckoutItemCreating::getBienTheSanPhamId)
                 .sorted()
                 .toList();
-        List<TonKhoTheoLo> lockedLots = tonKhoTheoLoRepository.lockLotsForUpdateByKhoAndVariants(request.getKhoId(), variantIds);
+        List<TonKhoTheoLo> lockedLots = lockLots(request.getKhoId(), variantIds);
         Map<Integer, List<TonKhoTheoLo>> lotsByVariant = lockedLots.stream()
                 .collect(Collectors.groupingBy(t -> t.getLoHang().getBienTheSanPham().getId()));
         Map<Integer, List<LotAllocation>> allocations = allocateFifo(items, lotsByVariant, variants);
@@ -305,8 +308,22 @@ public class PosCheckoutTransaction {
     public void releaseReservation(Integer khoId, List<ReservedLot> reserved) {
         if (reserved == null || reserved.isEmpty()) return;
         List<Integer> variantIds = reserved.stream().map(ReservedLot::bienTheSanPhamId).distinct().sorted().toList();
-        List<TonKhoTheoLo> lockedLots = tonKhoTheoLoRepository.lockLotsForUpdateByKhoAndVariants(khoId, variantIds);
+        List<TonKhoTheoLo> lockedLots = lockLots(khoId, variantIds);
         releaseOnLockedRows(lockedLots, reserved);
+    }
+
+    /**
+     * Khóa các dòng tồn (PK tăng dần) rồi nạp lại trạng thái MỚI NHẤT bằng locking read.
+     * Bắt buộc refresh: với open-in-view, EntityManager sống suốt request — dòng tồn đã nạp
+     * ở bước trước (vd. giữ chỗ rồi trả chỗ khi tạo QR lỗi) vẫn nằm trong đó, và query khóa
+     * trả lại chính entity cũ thay vì số trong DB -> ghi đè mất cập nhật của quầy khác.
+     */
+    private List<TonKhoTheoLo> lockLots(Integer khoId, List<Integer> variantIds) {
+        List<TonKhoTheoLo> rows = tonKhoTheoLoRepository.lockLotsForUpdateByKhoAndVariants(khoId, variantIds);
+        for (TonKhoTheoLo t : rows) {
+            entityManager.refresh(t, LockModeType.PESSIMISTIC_WRITE);
+        }
+        return rows;
     }
 
     private void releaseOnLockedRows(List<TonKhoTheoLo> lockedLots, List<ReservedLot> reserved) {
@@ -393,6 +410,8 @@ public class PosCheckoutTransaction {
                                                            Map<Integer, List<TonKhoTheoLo>> lotsByVariant,
                                                            Map<Integer, BienTheSanPham> variants) {
         Map<Integer, List<LotAllocation>> allocationByVariant = new LinkedHashMap<>();
+        List<PosInsufficientStockInfo.PosInsufficientItem> insufficient = new ArrayList<>();
+        List<String> messages = new ArrayList<>();
         for (PosCheckoutCreating.PosCheckoutItemCreating item : items) {
             List<TonKhoTheoLo> rows = lotsByVariant.getOrDefault(item.getBienTheSanPhamId(), List.of());
             List<TonKhoTheoLo> fifo = rows.stream()
@@ -406,9 +425,16 @@ public class PosCheckoutTransaction {
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal need = item.getQuantity();
             if (can.compareTo(need) < 0) {
-                throw new CommonException("Sản phẩm [" + variants.get(item.getBienTheSanPhamId()).getMaSku()
-                        + "] không đủ tồn kho khả dụng tại kho này (cần " + need.toPlainString()
-                        + ", còn " + can.toPlainString() + ")");
+                String maSku = variants.get(item.getBienTheSanPhamId()).getMaSku();
+                insufficient.add(PosInsufficientStockInfo.PosInsufficientItem.builder()
+                        .bienTheSanPhamId(item.getBienTheSanPhamId())
+                        .maSku(maSku)
+                        .canBan(need)
+                        .conLai(can)
+                        .build());
+                messages.add("Sản phẩm [" + maSku + "] không đủ tồn kho khả dụng tại kho này (cần "
+                        + need.toPlainString() + ", còn " + can.toPlainString() + ")");
+                continue;
             }
 
             List<LotAllocation> allocations = new ArrayList<>();
@@ -421,6 +447,10 @@ public class PosCheckoutTransaction {
                 remaining = remaining.subtract(take);
             }
             allocationByVariant.put(item.getBienTheSanPhamId(), allocations);
+        }
+        if (!insufficient.isEmpty()) {
+            throw new CommonException(String.join("; ", messages), HttpStatus.CONFLICT,
+                    PosInsufficientStockInfo.builder().insufficient(insufficient).build());
         }
         return allocationByVariant;
     }
@@ -529,89 +559,67 @@ public class PosCheckoutTransaction {
             PosCheckoutCreating request, KhachHang khachHang, Kho kho, NguoiDung nguoiDung,
             List<PosCheckoutCreating.PosCheckoutItemCreating> items,
             Map<Integer, BienTheSanPham> variants, Map<Integer, BigDecimal> unitPrices, BigDecimal tongTienHang) {
-        int retry = 0;
-        while (true) {
-            try {
-                DonBanHang don = DonBanHang.builder()
-                        .soDonHang(generateSoDonHang())
-                        .loaiChungTu("don_ban_hang") // giữ enum hiện hữu, KHÔNG thêm giá trị mới
-                        .khachHang(khachHang)
-                        .khoXuat(kho)
-                        .ngayDatHang(Instant.now())
-                        .ngayGiaoHang(Instant.now()) // POS: giao ngay tại quầy
-                        .trangThai(ITrangThaiDonBanHang.HOAN_THANH)
-                        .tienHang(tongTienHang)
-                        .phiVanChuyen(BigDecimal.ZERO)
-                        .tongCong(tongTienHang)
-                        .trangThaiThanhToan("da_thanh_toan")
-                        .ghiChu(request.getNote() == null || request.getNote().isBlank() ? null : request.getNote().trim())
-                        .nguoiTao(nguoiDung)
-                        .build();
-                donBanHangRepository.save(don);
+        DonBanHang don = DonBanHang.builder()
+                .soDonHang(generateSoDonHang())
+                .loaiChungTu("don_ban_hang") // giữ enum hiện hữu, KHÔNG thêm giá trị mới
+                .khachHang(khachHang)
+                .khoXuat(kho)
+                .ngayDatHang(Instant.now())
+                .ngayGiaoHang(Instant.now()) // POS: giao ngay tại quầy
+                .trangThai(ITrangThaiDonBanHang.HOAN_THANH)
+                .tienHang(tongTienHang)
+                .phiVanChuyen(BigDecimal.ZERO)
+                .tongCong(tongTienHang)
+                .trangThaiThanhToan("da_thanh_toan")
+                .ghiChu(request.getNote() == null || request.getNote().isBlank() ? null : request.getNote().trim())
+                .nguoiTao(nguoiDung)
+                .build();
+        donBanHangRepository.save(don);
 
-                for (PosCheckoutCreating.PosCheckoutItemCreating item : items) {
-                    BienTheSanPham variant = variants.get(item.getBienTheSanPhamId());
-                    BigDecimal giaBan = unitPrices.get(variant.getId());
-                    chiTietDonBanHangRepository.save(ChiTietDonBanHang.builder()
-                            .donBanHang(don)
-                            .bienTheSanPham(variant)
-                            .soLuongDat(item.getQuantity())
-                            .soLuongDaGiao(item.getQuantity())
-                            .donGia(giaBan)
-                            .thanhTien(giaBan.multiply(item.getQuantity()))
-                            .build());
-                }
-                return don;
-            } catch (DataIntegrityViolationException ex) {
-                if (isDuplicateSoDonHang(ex) && retry < MAX_RETRY_SO_CHUNG_TU) {
-                    retry++;
-                    continue;
-                }
-                throw ex;
-            }
+        for (PosCheckoutCreating.PosCheckoutItemCreating item : items) {
+            BienTheSanPham variant = variants.get(item.getBienTheSanPhamId());
+            BigDecimal giaBan = unitPrices.get(variant.getId());
+            chiTietDonBanHangRepository.save(ChiTietDonBanHang.builder()
+                    .donBanHang(don)
+                    .bienTheSanPham(variant)
+                    .soLuongDat(item.getQuantity())
+                    .soLuongDaGiao(item.getQuantity())
+                    .donGia(giaBan)
+                    .thanhTien(giaBan.multiply(item.getQuantity()))
+                    .build());
         }
+        return don;
     }
 
     private PhieuXuatKho createIssueWithPicks(
             DonBanHang don, Kho kho, NguoiDung nguoiDung,
             Map<Integer, List<LotAllocation>> allocationByVariant) {
-        int retry = 0;
-        while (true) {
-            try {
-                PhieuXuatKho phieuXuat = PhieuXuatKho.builder()
-                        .soPhieuXuat(generateSoPhieuXuat())
-                        .donBanHang(don)
-                        .ngayXuat(Instant.now())
-                        .kho(kho)
-                        .loaiXuat("ban_hang") // enum hiện hữu
-                        .trangThai(3) // Đã xuất
-                        .nguoiXuat(nguoiDung)
-                        .ngayTao(Instant.now())
-                        .ghiChu("Xuất kho POS cho đơn " + don.getSoDonHang())
-                        .build();
-                phieuXuatKhoRepository.save(phieuXuat);
+        PhieuXuatKho phieuXuat = PhieuXuatKho.builder()
+                .soPhieuXuat(generateSoPhieuXuat())
+                .donBanHang(don)
+                .ngayXuat(Instant.now())
+                .kho(kho)
+                .loaiXuat("ban_hang") // enum hiện hữu
+                .trangThai(3) // Đã xuất
+                .nguoiXuat(nguoiDung)
+                .ngayTao(Instant.now())
+                .ghiChu("Xuất kho POS cho đơn " + don.getSoDonHang())
+                .build();
+        phieuXuatKhoRepository.save(phieuXuat);
 
-                for (Map.Entry<Integer, List<LotAllocation>> entry : allocationByVariant.entrySet()) {
-                    BienTheSanPham variant = entry.getValue().get(0).row.getLoHang().getBienTheSanPham();
-                    for (LotAllocation alloc : entry.getValue()) {
-                        chiTietPhieuXuatKhoRepository.save(ChiTietPhieuXuatKho.builder()
-                                .phieuXuatKho(phieuXuat)
-                                .bienTheSanPham(variant)
-                                .loHang(alloc.row.getLoHang())
-                                .soLuongXuat(alloc.quantity)
-                                .giaVon(alloc.row.getLoHang().getGiaVon())
-                                .build());
-                    }
-                }
-                return phieuXuat;
-            } catch (DataIntegrityViolationException ex) {
-                if (isDuplicateSoPhieuXuat(ex) && retry < MAX_RETRY_SO_CHUNG_TU) {
-                    retry++;
-                    continue;
-                }
-                throw ex;
+        for (Map.Entry<Integer, List<LotAllocation>> entry : allocationByVariant.entrySet()) {
+            BienTheSanPham variant = entry.getValue().get(0).row.getLoHang().getBienTheSanPham();
+            for (LotAllocation alloc : entry.getValue()) {
+                chiTietPhieuXuatKhoRepository.save(ChiTietPhieuXuatKho.builder()
+                        .phieuXuatKho(phieuXuat)
+                        .bienTheSanPham(variant)
+                        .loHang(alloc.row.getLoHang())
+                        .soLuongXuat(alloc.quantity)
+                        .giaVon(alloc.row.getLoHang().getGiaVon())
+                        .build());
             }
         }
+        return phieuXuat;
     }
 
     private PosCheckoutResponse buildResponse(
@@ -657,22 +665,6 @@ public class PosCheckoutTransaction {
         String prefix = "PX" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
         long countToday = phieuXuatKhoRepository.countBySoPhieuXuatStartingWith(prefix);
         return prefix + (countToday + 1);
-    }
-
-    private boolean isDuplicateSoDonHang(Exception ex) {
-        return containsConstraint(ex, "uk_don_ban_hang_so_don_hang");
-    }
-
-    private boolean isDuplicateSoPhieuXuat(Exception ex) {
-        return containsConstraint(ex, "uk_phieu_xuat_kho_so_phieu");
-    }
-
-    private boolean containsConstraint(Throwable cause, String constraint) {
-        while (cause != null) {
-            if (cause.getMessage() != null && cause.getMessage().contains(constraint)) return true;
-            cause = cause.getCause();
-        }
-        return false;
     }
 
     private static BigDecimal soLuongKhaDung(TonKhoTheoLo t) {

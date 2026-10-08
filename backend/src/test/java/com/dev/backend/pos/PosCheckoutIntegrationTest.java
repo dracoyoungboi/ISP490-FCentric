@@ -247,8 +247,12 @@ class PosCheckoutIntegrationTest {
         Integer khach = khachHangId();
         ResponseEntity<Map> res = postCheckout(cashier, checkoutBody("it-" + UUID.randomUUID(), 93, 6, 120000, 720000, khach));
 
-        assertEquals(HttpStatus.BAD_REQUEST, res.getStatusCode());
+        // Thiếu hàng: 409 có cấu trúc {insufficient: [{bienTheSanPhamId, conLai}]}
+        assertEquals(HttpStatus.CONFLICT, res.getStatusCode());
         assertTrue(String.valueOf(res.getBody().get("message")).contains("không đủ"));
+        List<Map<String, Object>> insufficient = (List<Map<String, Object>>) ((Map<String, Object>) res.getBody().get("data")).get("insufficient");
+        assertEquals(93, ((Number) insufficient.get(0).get("bienTheSanPhamId")).intValue());
+        assertEquals(0, new BigDecimal("5").compareTo(new BigDecimal(String.valueOf(insufficient.get(0).get("conLai")))));
         assertEquals(0, new BigDecimal("5").compareTo(available93()));
         assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM don_ban_hang", Integer.class));
         assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM pos_payment", Integer.class));
@@ -381,6 +385,34 @@ class PosCheckoutIntegrationTest {
         // không bao giờ âm kho
         assertTrue(jdbc.queryForObject("SELECT MIN(so_luong_ton - so_luong_da_dat) FROM ton_kho_theo_lo", BigDecimal.class)
                 .compareTo(BigDecimal.ZERO) >= 0);
+    }
+
+    @Test
+    void t09b_haiCashier_dongThoi_duHangCaHai_caHaiThanhCong_soChungTuKhongTrung() throws Exception {
+        // Tồn 5: hai quầy cùng mua 1 -> cả hai phải thành công (trước đây quầy sau nhận 409 trùng số SO).
+        String cashierA = createCashier("nhan_vien_ban_hang", 1);
+        String cashierB = createCashier("nhan_vien_ban_hang", 1);
+        Integer khach = khachHangId();
+        for (int round = 0; round < 5; round++) {
+            CountDownLatch start = new CountDownLatch(1);
+            ExecutorService pool = Executors.newFixedThreadPool(2);
+            Future<ResponseEntity<Map>> f1 = pool.submit(() -> {
+                start.await();
+                return postCheckout(cashierA, checkoutBody("it-" + UUID.randomUUID(), 93, 1, 120000, 120000, khach));
+            });
+            Future<ResponseEntity<Map>> f2 = pool.submit(() -> {
+                start.await();
+                return postCheckout(cashierB, checkoutBody("it-" + UUID.randomUUID(), 93, 1, 120000, 120000, khach));
+            });
+            start.countDown();
+            assertEquals(HttpStatus.OK, f1.get().getStatusCode(), "vòng " + round + ": " + f1.get().getBody());
+            assertEquals(HttpStatus.OK, f2.get().getStatusCode(), "vòng " + round + ": " + f2.get().getBody());
+            pool.shutdown();
+            jdbc.execute("UPDATE ton_kho_theo_lo SET so_luong_ton = CASE lo_hang_id "
+                    + "WHEN 69 THEN 3.000 WHEN 70 THEN 1.000 WHEN 71 THEN 1.000 END, so_luong_da_dat = 0.000");
+        }
+        assertEquals(10, jdbc.queryForObject("SELECT COUNT(DISTINCT so_don_hang) FROM don_ban_hang", Integer.class));
+        assertEquals(10, jdbc.queryForObject("SELECT COUNT(DISTINCT so_phieu_xuat) FROM phieu_xuat_kho", Integer.class));
     }
 
     @Test
