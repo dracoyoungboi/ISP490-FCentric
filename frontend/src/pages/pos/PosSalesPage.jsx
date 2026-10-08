@@ -27,6 +27,8 @@ import {
 const PAGE_SIZE = 120;
 const SEARCH_DEBOUNCE_MS = 250;
 const PAYOS_POLL_MS = 3000;
+// Tồn đổi do quầy khác bán: tải ngầm lại trang catalog đang xem theo chu kỳ (khi tab đang hiển thị).
+const CATALOG_REFRESH_MS = 30000;
 
 function countCart(cart) {
   return cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -106,6 +108,46 @@ const isFrozenInvoice = (invoice) =>
   // Đang chờ khách quét QR: hàng đã giữ chỗ theo đúng giỏ này -> khóa sửa giỏ.
   || invoice?.payos?.trangThai === 'PENDING';
 
+/** Dòng giỏ có số lượng vượt tồn khả dụng đã biết (tồn chưa biết = không chặn, server vẫn kiểm). */
+const isOverStock = (line) => Number.isFinite(line.product.stock) && line.quantity > line.product.stock;
+const OVER_STOCK_MESSAGE = 'Có sản phẩm vượt tồn khả dụng — giảm số lượng hoặc xóa dòng đó trước khi thanh toán.';
+
+/**
+ * Cập nhật tồn khả dụng mới (từ catalog vừa tải) vào các dòng giỏ của mọi hóa đơn CÙNG kho.
+ * Bỏ qua hóa đơn đang treo thanh toán: tồn khả dụng đã trừ phần QR của chính nó giữ chỗ.
+ * Không có gì đổi -> trả lại đúng mảng cũ (không render/lưu nháp thừa).
+ */
+const withCartStock = (invoices, warehouseId, products) => {
+  const stockById = new Map(products.filter((p) => Number.isFinite(p.stock)).map((p) => [p.id, p.stock]));
+  if (!stockById.size) return invoices;
+  let changed = false;
+  const next = invoices.map((invoice) => {
+    if (invoice.warehouseId !== warehouseId || isFrozenInvoice(invoice)) return invoice;
+    let cartChanged = false;
+    const cart = invoice.cart.map((line) => {
+      const stock = stockById.get(line.product.id);
+      if (stock === undefined || stock === line.product.stock) return line;
+      cartChanged = true;
+      return { ...line, product: { ...line.product, stock } };
+    });
+    if (!cartChanged) return invoice;
+    changed = true;
+    return { ...invoice, cart };
+  });
+  return changed ? next : invoices;
+};
+
+/** Server báo thiếu hàng (409 insufficient): ghi số còn lại vào đúng dòng của hóa đơn đó. */
+const withInsufficientStock = (invoices, invoiceNumber, insufficient) => {
+  const remaining = new Map(insufficient.map((item) => [item.bienTheSanPhamId, Math.max(0, Number(item.conLai) || 0)]));
+  return invoices.map((invoice) => invoice.number !== invoiceNumber ? invoice : {
+    ...invoice,
+    cart: invoice.cart.map((line) => remaining.has(line.product.variantId)
+      ? { ...line, product: { ...line.product, stock: remaining.get(line.product.variantId) } }
+      : line),
+  });
+};
+
 /**
  * Màn Bán hàng tại quầy (Phase 04 — nối checkout CASH + recovery):
  * - Checkout chỉ khả dụng khi checkoutEnabled=true (env gate, mặc định tắt) và
@@ -157,6 +199,8 @@ export default function PosSalesPage({
   const currentInvoice = invoices.find((invoice) => invoice.number === activeInvoice) || invoices[0];
   const { cart, customer, note, paymentMethod, paymentAmount, warehouseId, attempt, number: ticketNumber } = currentInvoice;
   const frozen = isFrozenInvoice(currentInvoice);
+  // Có dòng vượt tồn khả dụng (quầy khác vừa bán / server báo thiếu) -> khóa thanh toán tới khi sửa giỏ.
+  const overStock = !frozen && cart.some(isOverStock);
   const activeWarehouse = warehouses.find((w) => w.id === warehouseId) || null;
 
   const updateInvoice = (key, value) => setInvoices((current) => current.map((invoice) => invoice.number === activeInvoice
@@ -231,14 +275,16 @@ export default function PosSalesPage({
     posService.getCatalog(warehouseId, { q: debouncedSearch, page: catalogPage, size: PAGE_SIZE, signal: controller.signal })
       .then((pageData) => {
         if (seq !== catalogSeq.current) return;
+        const items = (pageData?.content ?? []).map(toPosProduct);
         setCatalog({
-          items: (pageData?.content ?? []).map(toPosProduct),
+          items,
           totalElements: pageData?.totalElements ?? 0,
           page: pageData?.number ?? 0,
           pageCount: pageData?.totalPages ?? 1,
           loading: false,
           error: null,
         });
+        setInvoices((current) => withCartStock(current, warehouseId, items));
       })
       .catch((error) => {
         if (seq !== catalogSeq.current) return;
@@ -247,6 +293,45 @@ export default function PosSalesPage({
       });
     return () => controller.abort();
   }, [warehouseId, debouncedSearch, catalogPage, refreshKey]);
+
+  // ===== Tải ngầm tồn: quay lại tab (focus/visibilitychange) và mỗi 30 giây khi tab đang hiển thị =====
+  // Không bật trạng thái tải, giữ danh sách + vị trí cuộn; bỏ kết quả nếu người bán đã đổi
+  // kho/từ khóa/trang hoặc đang tải lại có hiển thị (catalogSeq đã tăng).
+  useEffect(() => {
+    if (!warehouseId) return undefined;
+    let controller = null;
+    const refresh = () => {
+      if (controller || document.visibilityState !== 'visible') return;
+      const seq = catalogSeq.current;
+      const current = new AbortController();
+      controller = current;
+      posService.getCatalog(warehouseId, { q: debouncedSearch, page: catalogPage, size: PAGE_SIZE, signal: current.signal })
+        .then((pageData) => {
+          if (seq !== catalogSeq.current) return;
+          const items = (pageData?.content ?? []).map(toPosProduct);
+          setCatalog((prev) => (prev.loading ? prev : {
+            ...prev,
+            items,
+            totalElements: pageData?.totalElements ?? prev.totalElements,
+            pageCount: pageData?.totalPages ?? prev.pageCount,
+            error: null,
+          }));
+          setInvoices((invoicesNow) => withCartStock(invoicesNow, warehouseId, items));
+        })
+        .catch(() => { /* tải ngầm lỗi (mất mạng...): giữ danh sách đang hiện, lượt sau thử lại */ })
+        .finally(() => { if (controller === current) controller = null; });
+    };
+    const onVisibility = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', refresh);
+    const timer = window.setInterval(refresh, CATALOG_REFRESH_MS);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', refresh);
+      window.clearInterval(timer);
+      controller?.abort();
+    };
+  }, [warehouseId, debouncedSearch, catalogPage]);
 
   // ===== Sau F5: hỏi lại trạng thái các mã QR payOS đang chờ (tiền có thể đã về trong lúc tải lại) =====
   useEffect(() => {
@@ -585,6 +670,12 @@ export default function PosSalesPage({
   const handleCheckoutError = (invoiceNumber, error, attemptState) => {
     const status = error?.response?.status;
     const envelope = error?.response?.data;
+    // Thiếu hàng (409 có cấu trúc): ghi số còn lại vào đúng dòng để đánh dấu "Chỉ còn N",
+    // tải lại tồn trên catalog; sau đó xử lý như lỗi xác định ở nhánh 4xx bên dưới.
+    if (status === 409 && Array.isArray(envelope?.data?.insufficient)) {
+      setInvoices((current) => withInsufficientStock(current, invoiceNumber, envelope.data.insufficient));
+      setRefreshKey((key) => key + 1);
+    }
     // 1. Giá đã đổi -> phản hồi có cấu trúc, yêu cầu xác nhận lại giá mới.
     if (status === 409 && envelope?.data?.priceChanged) {
       finishAttempt(invoiceNumber, { status: 'failed', error: 'price-change' });
@@ -630,6 +721,10 @@ export default function PosSalesPage({
     const paid = Number(invoice.paymentAmount || 0);
     if (!invoice.cart.length || !Number.isFinite(paid) || paid < total || paid < 0) {
       setPaymentError('Số tiền khách thanh toán chưa đủ.');
+      return;
+    }
+    if (!isFrozenInvoice(invoice) && invoice.cart.some(isOverStock)) {
+      setPaymentError(OVER_STOCK_MESSAGE);
       return;
     }
     let attemptState = invoice.attempt;
@@ -718,6 +813,10 @@ export default function PosSalesPage({
       setDialog('payos-qr'); // đang chờ khách quét QR -> mở lại đúng mã QR
       return;
     }
+    if (overStock) {
+      showToast(OVER_STOCK_MESSAGE, 'warning');
+      return;
+    }
     if (!checkoutEnabled) {
       setPaymentAmount(total);
       setPaymentError('');
@@ -778,6 +877,10 @@ export default function PosSalesPage({
       return;
     }
     if (!invoice.cart.length) return;
+    if (!isFrozenInvoice(invoice) && invoice.cart.some(isOverStock)) {
+      setPaymentError(OVER_STOCK_MESSAGE);
+      return;
+    }
     const requestId = invoice.payos?.trangThai === 'PENDING' ? invoice.payos.requestId : newCheckoutRequestId();
     const payload = buildPayload({ ...invoice, attempt: { requestId } });
     setIsSubmitting(true);
@@ -791,6 +894,10 @@ export default function PosSalesPage({
       if (error?.response?.status === 409 && envelope?.data?.priceChanged) {
         handleCheckoutError(invoice.number, error, { requestId });
       } else {
+        if (error?.response?.status === 409 && Array.isArray(envelope?.data?.insufficient)) {
+          setInvoices((current) => withInsufficientStock(current, invoice.number, envelope.data.insufficient));
+          setRefreshKey((key) => key + 1);
+        }
         setPaymentError(envelope?.message || 'Không tạo được mã QR. Kiểm tra kết nối rồi thử lại.');
       }
     } finally {
@@ -1038,6 +1145,7 @@ export default function PosSalesPage({
       onPayment={openPayment}
       onQuantity={setQuantity}
       onRemove={(variantId) => setQuantity(variantId, 0)}
+      overStockMessage={overStock ? OVER_STOCK_MESSAGE : ''}
       subtotal={subtotal}
       total={total}
     />
@@ -1099,7 +1207,7 @@ export default function PosSalesPage({
             <span className="relative grid size-9 shrink-0 place-items-center rounded-lg bg-bo-primary-soft text-bo-primary"><ShoppingBag aria-hidden="true" size={17} /><span className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-bo-primary px-1 text-[9px] font-bold text-white">{countCart(cart)}</span></span>
             <span className="min-w-0"><span className="block text-[11px] text-bo-muted">Mở hóa đơn</span><span className="block truncate text-sm font-bold text-bo-foreground">{formatMoney(total)}</span></span>
           </button>
-          <button className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg bg-bo-primary px-4 text-sm font-semibold text-white transition hover:bg-bo-primary-hover disabled:cursor-not-allowed disabled:bg-slate-300" disabled={!cart.length || isSubmitting} onClick={openPayment} type="button">Thanh toán</button>
+          <button className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg bg-bo-primary px-4 text-sm font-semibold text-white transition hover:bg-bo-primary-hover disabled:cursor-not-allowed disabled:bg-slate-300" disabled={!cart.length || isSubmitting || overStock} onClick={openPayment} title={overStock ? OVER_STOCK_MESSAGE : undefined} type="button">Thanh toán</button>
         </div>
       </div>
 

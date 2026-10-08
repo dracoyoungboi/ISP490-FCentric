@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   Minus,
   Plus,
   ShoppingBag,
@@ -25,6 +26,7 @@ export default function PosCartPanel({
   note,
   frozen = false,
   isSubmitting = false,
+  overStockMessage = '',
   onCustomer,
   onQuantity,
   onRemove,
@@ -80,6 +82,11 @@ export default function PosCartPanel({
                     <div className="min-w-0">
                       <p className="line-clamp-2 text-[13px] font-medium leading-5 text-bo-foreground">{product.name}</p>
                       <p className="mt-0.5 text-[11px] text-bo-muted">{product.sku} · {formatMoney(product.price)}</p>
+                      {!frozen && Number.isFinite(product.stock) && quantity > product.stock ? (
+                        <p className="mt-1 inline-flex items-center gap-1 rounded bg-bo-danger-soft px-1.5 py-0.5 text-[11px] font-medium text-bo-danger" role="status">
+                          <AlertTriangle aria-hidden="true" size={12} />Chỉ còn {Math.max(0, product.stock)}
+                        </p>
+                      ) : null}
                     </div>
                     <button aria-label={`Xóa ${product.name}`} className="grid size-6 shrink-0 place-items-center rounded text-bo-muted transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40" disabled={frozen} onClick={() => onRemove(product.id)} type="button"><Trash2 aria-hidden="true" size={14} /></button>
                   </div>
@@ -116,7 +123,12 @@ export default function PosCartPanel({
             <span className="text-xl font-bold tracking-tight text-bo-primary">{formatMoney(total)}</span>
           </div>
         </div>
-        <button className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-bo-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-bo-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary disabled:cursor-not-allowed disabled:bg-slate-300" disabled={!cart.length || isSubmitting} onClick={onPayment} type="button">
+        {overStockMessage ? (
+          <p className="mt-3 flex items-start gap-1.5 rounded-md bg-bo-danger-soft px-3 py-2 text-xs text-bo-danger" role="alert">
+            <AlertTriangle aria-hidden="true" className="mt-0.5 shrink-0" size={14} />{overStockMessage}
+          </p>
+        ) : null}
+        <button className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-bo-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-bo-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary disabled:cursor-not-allowed disabled:bg-slate-300" disabled={!cart.length || isSubmitting || Boolean(overStockMessage)} onClick={onPayment} type="button">
           <span>{isSubmitting ? 'Đang xử lý…' : 'Thanh toán'}</span><span className="rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-medium">F9</span>
         </button>
       </div>
