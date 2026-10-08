@@ -121,6 +121,7 @@ export default function PosSalesPage({
   initialWarehouseId = null,
   customers = [],
   checkoutEnabled = false,
+  tabId = null,
 }) {
   // Khách thêm nhanh tại quầy trong phiên này (chưa có trong danh sách tải lúc mở trang).
   const [addedCustomers, setAddedCustomers] = useState([]);
@@ -148,9 +149,10 @@ export default function PosSalesPage({
   const [activeInvoice, setActiveInvoice] = useState(() => restoredDrafts?.activeInvoice ?? 1);
 
   // Mỗi thay đổi hóa đơn -> lưu nháp (chỉ phần cần để khôi phục, bỏ hóa đơn đã thanh toán xong).
+  // Chỉ tab đang giữ quyền POS (tabId) được ghi — tab đã bị tab khác giành quyền bị từ chối.
   useEffect(() => {
-    savePosDrafts(invoices.map(toDraft).filter(Boolean), activeInvoice);
-  }, [invoices, activeInvoice]);
+    savePosDrafts(invoices.map(toDraft).filter(Boolean), activeInvoice, tabId);
+  }, [invoices, activeInvoice, tabId]);
 
   const currentInvoice = invoices.find((invoice) => invoice.number === activeInvoice) || invoices[0];
   const { cart, customer, note, paymentMethod, paymentAmount, warehouseId, attempt, number: ticketNumber } = currentInvoice;

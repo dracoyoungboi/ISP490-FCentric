@@ -55,7 +55,7 @@ export const removePendingCheckoutId = (requestId) => {
 const DRAFT_KEY_PREFIX = "fcentric.pos.drafts.v1:";
 const DRAFT_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
-const currentUserKey = () => {
+export const currentUserKey = () => {
   try {
     const token = localStorage.getItem("access_token");
     if (!token) return "anon";
@@ -79,8 +79,51 @@ export const loadPosDrafts = () => {
   }
 };
 
-export const savePosDrafts = (invoices, activeInvoice) => {
+/**
+ * Mỗi tài khoản chỉ một tab POS được GHI nháp: tab đang giữ quyền ghi id của nó vào đây
+ * (đồng bộ, dùng chung mọi tab cùng trình duyệt). Tab đã bị tab khác giành quyền sẽ bị
+ * savePosDrafts từ chối ngay, kể cả trước khi nó kịp nhận thông báo mất quyền.
+ */
+const OWNER_KEY_PREFIX = "fcentric.pos.owner.v1:";
+
+export const posOwnerStorageKey = (userKey) => OWNER_KEY_PREFIX + userKey;
+
+export const getPosOwner = (userKey) => {
   try {
+    return localStorage.getItem(posOwnerStorageKey(userKey));
+  } catch {
+    return null;
+  }
+};
+
+export const setPosOwner = (userKey, tabId) => {
+  try {
+    localStorage.setItem(posOwnerStorageKey(userKey), tabId);
+  } catch {
+    /* storage bị chặn: không phối hợp được giữa các tab */
+  }
+};
+
+export const releasePosOwner = (userKey, tabId) => {
+  try {
+    if (localStorage.getItem(posOwnerStorageKey(userKey)) === tabId) {
+      localStorage.removeItem(posOwnerStorageKey(userKey));
+    }
+  } catch {
+    /* bỏ qua */
+  }
+};
+
+/** ownerTabId: tab đang mở POS — chỉ ghi khi tab này còn giữ quyền ghi nháp. */
+export const savePosDrafts = (invoices, activeInvoice, ownerTabId) => {
+  try {
+    if (ownerTabId) {
+      const userKey = currentUserKey();
+      const owner = getPosOwner(userKey);
+      if (owner && owner !== ownerTabId) return; // tab khác đã giành quyền
+      // Khóa bị xóa từ bên ngoài (xóa dữ liệu trang...): tab đang mở POS ghi lại quyền của mình.
+      if (!owner) setPosOwner(userKey, ownerTabId);
+    }
     localStorage.setItem(
       DRAFT_KEY_PREFIX + currentUserKey(),
       JSON.stringify({ v: 1, savedAt: Date.now(), activeInvoice, invoices })

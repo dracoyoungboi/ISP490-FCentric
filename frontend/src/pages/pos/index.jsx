@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
+import { MonitorSmartphone } from 'lucide-react';
 import PosSalesPage from './PosSalesPage';
+import usePosTabLock from './usePosTabLock';
 import { getMineKhoList } from '@/services/khoService';
 import { donBanHangService } from '@/services/donBanHangService';
-import { toPosCustomer } from '@/services/posService';
+import { currentUserKey, toPosCustomer } from '@/services/posService';
+import { Button } from '@/components/ui/button';
 import LoadingState from '@/components/shared/LoadingState';
 import ErrorState from '@/components/shared/ErrorState';
 import EmptyState from '@/components/shared/EmptyState';
@@ -27,6 +30,9 @@ export default function PosPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
+  // Một tab POS cho mỗi tài khoản: tab không giữ quyền thì không render màn bán (không ghi nháp).
+  const [userKey] = useState(currentUserKey);
+  const tabLock = usePosTabLock(userKey);
 
   useEffect(() => {
     Promise.all([
@@ -66,7 +72,19 @@ export default function PosPage() {
     </>
   );
 
-  if (loading) {
+  if (tabLock.status === 'blocked' || tabLock.status === 'lost') {
+    return renderState(
+      <EmptyState
+        action={<Button className="bg-bo-primary text-white hover:bg-bo-primary-hover" onClick={tabLock.takeOver}>Dùng ở tab này</Button>}
+        description={tabLock.status === 'lost'
+          ? 'Bạn vừa mở màn bán hàng ở một tab khác nên tab này đã ngừng để tránh hai tab ghi đè hóa đơn của nhau. Bấm "Dùng ở tab này" để chuyển toàn bộ hóa đơn đang làm về đây.'
+          : 'Tài khoản này đang mở màn bán hàng ở một tab khác. Bấm "Dùng ở tab này" để chuyển toàn bộ hóa đơn đang làm sang tab này; tab kia sẽ tự ngừng.'}
+        icon={MonitorSmartphone}
+        title="POS đang mở ở tab khác"
+      />
+    );
+  }
+  if (loading || tabLock.status === 'checking') {
     return renderState(<LoadingState label="Đang tải dữ liệu bán hàng" />);
   }
   if (error) {
@@ -92,6 +110,7 @@ export default function PosPage() {
       checkoutEnabled={CHECKOUT_ENABLED}
       customers={customers}
       initialWarehouseId={initialWarehouseId}
+      tabId={tabLock.tabId}
       warehouses={warehouses}
     />
   );
