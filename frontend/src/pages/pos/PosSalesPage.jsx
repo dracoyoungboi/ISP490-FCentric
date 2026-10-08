@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { toast as sonnerToast } from 'sonner';
 import {
-  CircleHelp,
-  Plus,
   ShoppingBag,
   Warehouse,
   X,
 } from 'lucide-react';
+import PosTopBar from './components/PosTopBar';
 import PosCartPanel from './components/PosCartPanel';
 import PosInvoiceTabs from './components/PosInvoiceTabs';
 import PosDialogs from './components/PosDialogs';
@@ -25,6 +25,8 @@ import {
 } from '@/services/posService';
 
 const PAGE_SIZE = 120;
+const SEARCH_DEBOUNCE_MS = 250;
+const PAYOS_POLL_MS = 3000;
 
 function countCart(cart) {
   return cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -166,22 +168,26 @@ export default function PosSalesPage({
   const [dialog, setDialog] = useState(null);
   const [closingInvoiceNumber, setClosingInvoiceNumber] = useState(null);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
-  const [toast, setToast] = useState('');
   const [paymentError, setPaymentError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [barcodeInput, setBarcodeInput] = useState('');
   const [barcodeError, setBarcodeError] = useState('');
   const [barcodeBusy, setBarcodeBusy] = useState(false);
   const [search, setSearch] = useState('');
+  // Từ khóa gửi lên server: trễ 250ms sau lần gõ cuối để không gọi API ở MỖI phím.
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [catalogPage, setCatalogPage] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
   const [catalog, setCatalog] = useState({ items: [], totalElements: 0, page: 0, pageCount: 1, loading: false, error: null });
   const catalogSeq = useRef(0);
   const searchRef = useRef(null);
   const keyboardContext = useRef(null);
+  const uiRef = useRef({ dialog: null, isSubmitting: false, activeInvoice: null });
 
   // Kết quả thanh toán chính thức (dữ liệu server) cho dialog receipt + kết quả phục hồi sau refresh.
   const [receiptResult, setReceiptResult] = useState(null);
+  // Hóa đơn (tab) ứng với receipt đang hiện — đóng receipt sẽ đóng ĐÚNG tab này.
+  const [receiptInvoiceNumber, setReceiptInvoiceNumber] = useState(null);
   const [priceChangeInfo, setPriceChangeInfo] = useState(null);
   const [recoveredResult, setRecoveredResult] = useState(null);
 
@@ -192,9 +198,11 @@ export default function PosSalesPage({
 
   const subtotal = useMemo(() => cart.reduce((sum, line) => sum + line.product.price * line.quantity, 0), [cart]);
   const total = subtotal;
-  const currentInvoiceLabel = `HD${String(ticketNumber).padStart(6, '0')}`;
-
-  const showToast = (message) => setToast(message);
+  // Thông báo dùng Toaster (sonner) toàn cục: có phân loại, xếp chồng, không đè nhau.
+  const showToast = (message, type = 'info') => {
+    const notify = sonnerToast[type] || sonnerToast;
+    notify(message, { duration: type === 'error' ? 5000 : 3000 });
+  };
 
   // Sau thất bại XÁC ĐỊNH, mọi sửa đổi draft phải mở khóa attempt để lần sau dùng key MỚI.
   const clearFailedAttemptAfterEdit = () => {
@@ -202,6 +210,11 @@ export default function PosSalesPage({
       updateInvoice('attempt', null);
     }
   };
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebouncedSearch(search.trim()), SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(id);
+  }, [search]);
 
   // ===== Catalog: fetch theo (kho của hóa đơn đang mở, từ khóa, trang) =====
   useEffect(() => {
@@ -213,7 +226,7 @@ export default function PosSalesPage({
     const controller = new AbortController();
     const seq = ++catalogSeq.current;
     setCatalog((prev) => ({ ...prev, loading: true, error: null }));
-    posService.getCatalog(warehouseId, { q: search, page: catalogPage, size: PAGE_SIZE, signal: controller.signal })
+    posService.getCatalog(warehouseId, { q: debouncedSearch, page: catalogPage, size: PAGE_SIZE, signal: controller.signal })
       .then((pageData) => {
         if (seq !== catalogSeq.current) return;
         setCatalog({
@@ -231,7 +244,7 @@ export default function PosSalesPage({
         setCatalog((prev) => ({ ...prev, loading: false, error }));
       });
     return () => controller.abort();
-  }, [warehouseId, search, catalogPage, refreshKey]);
+  }, [warehouseId, debouncedSearch, catalogPage, refreshKey]);
 
   // ===== Sau F5: hỏi lại trạng thái các mã QR payOS đang chờ (tiền có thể đã về trong lúc tải lại) =====
   useEffect(() => {
@@ -249,7 +262,7 @@ export default function PosSalesPage({
           } else {
             // Mã đã hết hạn/bị hủy: mở khóa giỏ để thanh toán lại (hàng giữ chỗ đã được server trả về kho).
             patchInvoice(invoice.number, { payos: null });
-            showToast('Mã QR trước đó đã hết hạn hoặc bị hủy — hóa đơn đã được mở lại.');
+            showToast('Mã QR trước đó đã hết hạn hoặc bị hủy — hóa đơn đã được mở lại.', 'warning');
           }
         } catch {
           /* mất mạng: giữ nguyên, người bán bấm Thanh toán để xem lại mã QR */
@@ -298,41 +311,63 @@ export default function PosSalesPage({
     setCatalogPage(0);
   };
 
+  const [pendingWarehouseId, setPendingWarehouseId] = useState(null);
+
+  const applyWarehouseChange = (target) => {
+    // Chính sách Phase 01 mục 5: đổi kho -> xóa giỏ hóa đơn hiện tại (không giữ nhầm dòng hàng).
+    const hadItems = cart.length > 0;
+    setInvoices((current) => current.map((invoice) => invoice.number === activeInvoice
+      ? { ...invoice, warehouseId: target, cart: [], attempt: invoice.attempt?.status === 'failed' ? null : invoice.attempt }
+      : invoice));
+    setSearch('');
+    setCatalogPage(0);
+    setPendingWarehouseId(null);
+    const name = warehouses.find((w) => w.id === target)?.tenKho;
+    showToast(hadItems
+      ? `Đã chuyển sang ${name || 'kho mới'}. Giỏ của hóa đơn hiện tại đã được xóa để tránh nhầm tồn kho.`
+      : `Đã chuyển sang ${name || 'kho mới'}.`, 'success');
+  };
+
   const changeWarehouse = (nextWarehouseId) => {
     if (frozen) {
-      showToast('Hóa đơn đang trong giao dịch thanh toán — không thể đổi kho lúc này.');
+      showToast('Hóa đơn đang trong giao dịch thanh toán — không thể đổi kho lúc này.', 'warning');
       return;
     }
     const target = Number(nextWarehouseId);
     if (!target || target === warehouseId) return;
-    // Chính sách Phase 01 mục 5: đổi kho -> xóa giỏ hóa đơn hiện tại (không giữ nhầm dòng hàng).
-    updateInvoice('warehouseId', target);
-    updateInvoice('cart', []);
-    setSearch('');
-    setCatalogPage(0);
-    clearFailedAttemptAfterEdit();
-    showToast('Đã đổi kho bán hàng. Giỏ của hóa đơn hiện tại được xóa để tránh nhầm tồn kho giữa các kho.');
+    // Giỏ đang có hàng -> hỏi lại trước khi xóa, tránh lỡ tay mất cả hóa đơn.
+    if (cart.length) {
+      setPendingWarehouseId(target);
+      setDialog('change-warehouse');
+      return;
+    }
+    applyWarehouseChange(target);
   };
 
   // ===== Giỏ (key = bienTheSanPhamId — không gộp hai size/màu khác nhau) =====
   const addProduct = (product) => {
     if (frozen) {
-      showToast('Hóa đơn đang trong giao dịch thanh toán — giỏ đã được khóa.');
-      return;
+      showToast('Hóa đơn đang trong giao dịch thanh toán — giỏ đã được khóa.', 'warning');
+      return false;
     }
     const variantId = product.id;
     const stock = Number(product.stock);
+    // Kiểm tra tồn NGOÀI state updater (updater phải thuần — StrictMode gọi 2 lần sẽ bắn toast 2 lần).
+    const line = cart.find((item) => item.product.id === variantId);
+    if (Number.isFinite(stock) && (line?.quantity ?? 0) + 1 > stock) {
+      showToast(stock > 0 ? `Chỉ còn ${stock} sản phẩm khả dụng tại kho này.` : `${product.name} đã hết hàng tại kho này.`, 'warning');
+      return false;
+    }
     setCart((current) => {
-      const line = current.find((item) => item.product.id === variantId);
-      if (line) {
-        if (Number.isFinite(stock) && line.quantity + 1 > stock) {
-          showToast(`Chỉ còn ${stock} sản phẩm khả dụng tại kho này.`);
-          return current;
-        }
-        return current.map((item) => item.product.id === variantId ? { ...item, quantity: item.quantity + 1 } : item);
+      const existing = current.find((item) => item.product.id === variantId);
+      if (existing) {
+        // Cập nhật luôn tồn mới nhất từ catalog vào dòng giỏ.
+        return current.map((item) => item.product.id === variantId ? { product, quantity: item.quantity + 1 } : item);
       }
       return [...current, { product, quantity: 1 }];
     });
+    clearFailedAttemptAfterEdit();
+    return true;
   };
 
   const setQuantity = (variantId, quantity) => {
@@ -352,7 +387,7 @@ export default function PosSalesPage({
     setNote('');
     setPaymentAmount(0);
     clearFailedAttemptAfterEdit();
-    showToast('Đã xóa nội dung hóa đơn.');
+    showToast('Đã xóa nội dung hóa đơn.', 'success');
   };
 
   const selectCustomerForInvoice = (selectedCustomer) => {
@@ -367,7 +402,7 @@ export default function PosSalesPage({
     const created = toPosCustomer(await posService.quickCreateCustomer({ tenKhachHang: name, soDienThoai: phone }));
     setAddedCustomers((current) => [created, ...current.filter((item) => item.id !== created.id)]);
     selectCustomerForInvoice(created);
-    showToast(`Đã thêm và chọn khách hàng ${created.name}.`);
+    showToast(`Đã thêm và chọn khách hàng ${created.name}.`, 'success');
     return created;
   };
 
@@ -384,8 +419,10 @@ export default function PosSalesPage({
   };
 
   // ===== Tab hóa đơn =====
+  // Hóa đơn đang chờ thanh toán (frozen) chỉ khóa SỬA hóa đơn đó — vẫn được mở/chuyển sang
+  // hóa đơn khác để phục vụ khách tiếp theo trong lúc chờ khách trước quét QR.
   const requestNewInvoice = () => {
-    if (isSubmitting || dialog || frozen) return;
+    if (isSubmitting || dialog) return;
     const number = nextFreeInvoiceNumber(invoices);
     setInvoices((current) => [...current, createInvoice(number, { warehouseId, customer: walkInCustomer })]);
     setActiveInvoice(number);
@@ -394,7 +431,7 @@ export default function PosSalesPage({
   };
 
   const selectInvoice = (number) => {
-    if (isSubmitting || dialog || frozen) return;
+    if (isSubmitting || dialog) return;
     setActiveInvoice(number);
     setPaymentError('');
     setMobileCartOpen(false);
@@ -429,7 +466,7 @@ export default function PosSalesPage({
     const target = invoices.find((invoice) => invoice.number === number);
     if (!target) return;
     if (isFrozenInvoice(target)) {
-      showToast('Hóa đơn đang trong giao dịch thanh toán — không thể đóng.');
+      showToast('Hóa đơn đang trong giao dịch thanh toán — không thể đóng.', 'warning');
       return;
     }
     if (!isInvoiceUntouched(target)) {
@@ -450,18 +487,20 @@ export default function PosSalesPage({
       const matches = await posService.lookup(warehouseId, { skuPrefix: query });
       const first = matches?.[0];
       if (!first) {
-        showToast(`Không tìm thấy mã hàng bắt đầu bằng "${query}".`);
+        showToast(`Không tìm thấy mã hàng bắt đầu bằng "${query}".`, 'warning');
         return;
       }
       const product = toPosProduct(first);
       if (Number(product.stock) <= 0) {
-        showToast(`${product.name} đã hết hàng tại kho này.`);
+        showToast(`${product.name} đã hết hàng tại kho này.`, 'warning');
         return;
       }
-      addProduct(product);
-      showToast(`Đã thêm ${product.name}.`);
+      if (addProduct(product)) {
+        showToast(`Đã thêm ${product.name}.`, 'success');
+        setSearch(''); // sẵn sàng cho lần quét/gõ mã tiếp theo
+      }
     } catch (error) {
-      showToast(error?.response?.data?.message || 'Không thể tra cứu mã hàng. Vui lòng thử lại.');
+      showToast(error?.response?.data?.message || 'Không thể tra cứu mã hàng. Vui lòng thử lại.', 'error');
     } finally {
       setLookupBusy(false);
     }
@@ -487,11 +526,11 @@ export default function PosSalesPage({
         setBarcodeError(`${product.name} đã hết hàng tại kho này.`);
         return;
       }
-      addProduct(product);
+      if (!addProduct(product)) return;
       setBarcodeError('');
       setBarcodeInput('');
       setDialog(null);
-      showToast(`Đã thêm ${product.name}.`);
+      showToast(`Đã thêm ${product.name}.`, 'success');
     } catch (error) {
       setBarcodeError(error?.response?.data?.message || 'Không thể tra cứu mã vạch. Vui lòng thử lại.');
     } finally {
@@ -527,13 +566,18 @@ export default function PosSalesPage({
       ? { ...invoice, attempt: { ...(invoice.attempt ?? {}), ...patch } }
       : invoice));
 
+  const openReceipt = (invoiceNumber, result) => {
+    setReceiptInvoiceNumber(invoiceNumber);
+    setReceiptResult(result);
+    setDialog('receipt');
+  };
+
   const handleCheckoutSuccess = (invoiceNumber, result, attemptState) => {
     finishAttempt(invoiceNumber, { status: 'succeeded', result, error: null });
     removePendingCheckoutId(attemptState.requestId);
     // Cập nhật tồn hiển thị: refetch catalog của kho đang bán.
     setRefreshKey((key) => key + 1);
-    setReceiptResult(result);
-    setDialog('receipt');
+    openReceipt(invoiceNumber, result);
   };
 
   const handleCheckoutError = (invoiceNumber, error, attemptState) => {
@@ -624,14 +668,14 @@ export default function PosSalesPage({
         setPaymentError(res.errorMessage || 'Giao dịch đã thất bại trước đó');
         setDialog(null);
       } else {
-        showToast('Server chưa có kết quả cho giao dịch này. Có thể thử lại cùng mã giao dịch.');
+        showToast('Server chưa có kết quả cho giao dịch này. Có thể thử lại cùng mã giao dịch.', 'warning');
       }
     } catch (error) {
       if (error?.response?.status === 404) {
         // Kết quả chưa rõ (server đã rollback): được phép thử lại CÙNG key + CÙNG payload.
-        showToast('Giao dịch chưa có kết quả trên server — có thể thử lại cùng mã giao dịch.');
+        showToast('Giao dịch chưa có kết quả trên server — có thể thử lại cùng mã giao dịch.', 'warning');
       } else {
-        showToast(error?.response?.data?.message || 'Không thể kiểm tra kết quả. Vui lòng thử lại.');
+        showToast(error?.response?.data?.message || 'Không thể kiểm tra kết quả. Vui lòng thử lại.', 'error');
       }
     } finally {
       setIsSubmitting(false);
@@ -660,12 +704,12 @@ export default function PosSalesPage({
     // với key MỚI (payload đã đổi giá nên không tái dùng key cũ).
     setPriceChangeInfo(null);
     setDialog(null);
-    showToast('Giá đã được cập nhật về giá server. Vui lòng kiểm tra tổng mới và bấm Thanh toán lại.');
+    showToast('Giá đã được cập nhật về giá server. Vui lòng kiểm tra tổng mới và bấm Thanh toán lại.', 'warning');
   };
 
   const openPayment = () => {
     if (!cart.length) {
-      showToast('Thêm ít nhất một sản phẩm trước khi thanh toán.');
+      showToast('Thêm ít nhất một sản phẩm trước khi thanh toán.', 'warning');
       return;
     }
     if (currentInvoice.payos?.trangThai === 'PENDING') {
@@ -706,12 +750,21 @@ export default function PosSalesPage({
   const applyPayosUpdate = (invoiceNumber, link) => {
     if (!link) return;
     patchInvoice(invoiceNumber, { payos: link });
+    const ui = uiRef.current;
+    const isActive = invoiceNumber === ui.activeInvoice;
     if (link.trangThai === 'PAID' && link.result) {
       // Tiền đã về, server đã tạo đơn + trừ kho -> hiện hóa đơn như thanh toán tiền mặt.
       finishAttempt(invoiceNumber, { status: 'succeeded', result: link.result, error: null });
       setRefreshKey((key) => key + 1);
-      setReceiptResult(link.result);
-      setDialog('receipt');
+      if (isActive || (!ui.dialog && !ui.isSubmitting)) {
+        setActiveInvoice(invoiceNumber);
+        openReceipt(invoiceNumber, link.result);
+      } else {
+        // Thu ngân đang thao tác hóa đơn khác: không cướp màn hình, chỉ báo; mở tab đó sẽ hiện receipt.
+        showToast(`Hóa đơn ${invoiceNumber} đã nhận đủ tiền chuyển khoản. Mở tab hóa đơn đó để in và hoàn tất.`, 'success');
+      }
+    } else if (!isActive && ['EXPIRED', 'CANCELLED', 'FAILED'].includes(link.trangThai)) {
+      showToast(`Mã QR của hóa đơn ${invoiceNumber} đã hết hạn hoặc bị hủy — hóa đơn đã được mở khóa.`, 'warning');
     }
   };
 
@@ -754,10 +807,10 @@ export default function PosSalesPage({
       } else {
         patchInvoice(invoice.number, { payos: null });
         setDialog('payment');
-        showToast('Đã hủy mã QR, hàng giữ chỗ đã được trả lại kho.');
+        showToast('Đã hủy mã QR, hàng giữ chỗ đã được trả lại kho.', 'success');
       }
     } catch (error) {
-      showToast(error?.response?.data?.message || 'Không hủy được mã QR. Vui lòng thử lại.');
+      showToast(error?.response?.data?.message || 'Không hủy được mã QR. Vui lòng thử lại.', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -768,30 +821,63 @@ export default function PosSalesPage({
     setDialog('payment');
   };
 
-  // Đang mở QR -> hỏi trạng thái mỗi 3 giây (server tự hỏi payOS nếu webhook chưa về).
-  const payosOrderCode = currentInvoice.payos?.trangThai === 'PENDING' ? currentInvoice.payos.orderCode : null;
-  const payosInvoiceNumber = currentInvoice.number;
+  // Mọi hóa đơn đang chờ quét QR -> hỏi trạng thái mỗi 3 giây (server tự hỏi payOS nếu webhook
+  // chưa về). Chạy cả khi đã ẩn mã QR hoặc đang ở tab khác, để tiền về là biết ngay.
+  const pendingPayosKey = invoices
+    .filter((invoice) => invoice.payos?.trangThai === 'PENDING' && invoice.payos.orderCode)
+    .map((invoice) => `${invoice.number}:${invoice.payos.orderCode}`)
+    .join(',');
   useEffect(() => {
-    if (dialog !== 'payos-qr' || !payosOrderCode) return undefined;
+    if (!pendingPayosKey) return undefined;
+    const targets = pendingPayosKey.split(',').map((entry) => {
+      const [number, orderCode] = entry.split(':');
+      return { number: Number(number), orderCode };
+    });
     let stopped = false;
+    let inFlight = false;
     const controller = new AbortController();
     const tick = async () => {
+      if (inFlight) return; // lần hỏi trước chưa xong (mạng chậm) -> bỏ lượt, không dồn request
+      inFlight = true;
       try {
-        const link = await posService.getPayosStatus(payosOrderCode, { signal: controller.signal });
-        if (!stopped) applyPayosUpdate(payosInvoiceNumber, link);
-      } catch {
-        /* mất mạng tạm thời: lần hỏi sau sẽ thử lại */
+        for (const target of targets) {
+          try {
+            const link = await posService.getPayosStatus(target.orderCode, { signal: controller.signal });
+            if (stopped) return;
+            if (link && link.trangThai !== 'PENDING') applyPayosUpdate(target.number, link);
+          } catch {
+            /* mất mạng tạm thời: lần hỏi sau sẽ thử lại */
+          }
+        }
+      } finally {
+        inFlight = false;
       }
     };
-    const id = window.setInterval(tick, 3000);
+    const id = window.setInterval(tick, PAYOS_POLL_MS);
     return () => { stopped = true; controller.abort(); window.clearInterval(id); };
-    // applyPayosUpdate chỉ dùng setter ổn định
+    // applyPayosUpdate chỉ dùng setter ổn định + uiRef
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dialog, payosOrderCode, payosInvoiceNumber]);
+  }, [pendingPayosKey]);
+
+  // Mở lại một hóa đơn đã thanh toán xong (vd. tiền CK về khi đang ở tab khác) -> hiện receipt để hoàn tất.
+  useEffect(() => {
+    if (dialog || !currentInvoice.attempt || currentInvoice.attempt.status !== 'succeeded' || !currentInvoice.attempt.result) return;
+    openReceipt(currentInvoice.number, currentInvoice.attempt.result);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeInvoice, dialog]);
+
+  // Đang gửi thanh toán / có giao dịch chưa rõ kết quả -> cảnh báo trước khi đóng/tải lại tab.
+  const hasInFlightPayment = isSubmitting || invoices.some((invoice) => invoice.attempt?.status === 'pending');
+  useEffect(() => {
+    if (!hasInFlightPayment) return undefined;
+    const warn = (event) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [hasInFlightPayment]);
 
   const printReceipt = (result) => {
     if (!result?.donBanHangId) {
-      showToast('Không có thông tin hóa đơn để in.');
+      showToast('Không có thông tin hóa đơn để in.', 'error');
       return;
     }
     // In từ đơn ĐÃ LƯU trên server (route dự án hiện hữu); lỗi in chỉ thử lại in,
@@ -800,13 +886,30 @@ export default function PosSalesPage({
   };
 
   const closeReceipt = () => {
-    // Chỉ đóng ĐÚNG tab đã gửi; các tab khác giữ nguyên.
-    const submittedNumber = invoices.find((inv) => inv.attempt?.status === 'succeeded')?.number;
+    // Chỉ đóng ĐÚNG tab đã thanh toán; các tab khác giữ nguyên.
+    const submittedNumber = receiptInvoiceNumber;
     setReceiptResult(null);
+    setReceiptInvoiceNumber(null);
     setDialog(null);
-    if (submittedNumber != null) {
+    if (submittedNumber != null && invoices.some((inv) => inv.number === submittedNumber)) {
       removeInvoice(submittedNumber);
     }
+    window.setTimeout(() => searchRef.current?.focus(), 0); // sẵn sàng cho khách tiếp theo
+  };
+
+  const confirmWarehouseChange = () => {
+    if (pendingWarehouseId != null) applyWarehouseChange(pendingWarehouseId);
+    setDialog(null);
+  };
+  const cancelWarehouseChange = () => {
+    setPendingWarehouseId(null);
+    setDialog(null);
+  };
+
+  // Phím F9 trong hộp thoại thanh toán = xác nhận (tiền mặt) / tạo mã QR (chuyển khoản).
+  const confirmPaymentShortcut = () => {
+    if (paymentMethod === 'transfer' && payosEnabled) createPayosQr();
+    else submitCheckout();
   };
 
   const actions = {
@@ -830,7 +933,9 @@ export default function PosSalesPage({
     onPrintReceipt: () => printReceipt(receiptResult),
     onCloseReceipt: closeReceipt,
     onPrintRecovered: () => printReceipt(recoveredResult),
-    onCloseRecovered: () => setRecoveredResult(null),
+    onCloseRecovered: () => { setRecoveredResult(null); setDialog(null); },
+    onConfirmWarehouseChange: confirmWarehouseChange,
+    onCancelWarehouseChange: cancelWarehouseChange,
     onBarcodeInput: (value) => { setBarcodeInput(value); setBarcodeError(''); },
     onFindBarcode: findBarcode,
   };
@@ -853,70 +958,77 @@ export default function PosSalesPage({
     closingInvoice: closingInvoiceNumber != null
       ? invoices.find((invoice) => invoice.number === closingInvoiceNumber) || null
       : null,
-    invoiceCode: currentInvoiceLabel,
+    invoiceNumber: ticketNumber,
     attemptStatus: attempt?.status ?? null,
     receipt: receiptResult,
     priceChange: priceChangeInfo,
     frozen,
     recoveredResult,
+    pendingWarehouse: pendingWarehouseId != null ? warehouses.find((w) => w.id === pendingWarehouseId) || null : null,
+    activeWarehouse,
   };
 
+  // Trạng thái/handler mới nhất cho callback chạy nền (polling payOS, phím tắt) — tránh closure cũ.
+  uiRef.current = { dialog, isSubmitting, activeInvoice };
   keyboardContext.current = {
     isSubmitting,
     frozen,
     dialog,
-    cartLength: cart.length,
     searchRef,
     requestNewInvoice,
     openPayment,
+    confirmPaymentShortcut,
+    closeReceipt,
+    closeRecovered: actions.onCloseRecovered,
+    confirmNewPrice,
+    cancelWarehouseChange,
     setDialog,
     setMobileCartOpen,
-    showToast,
   };
 
   useEffect(() => {
+    const HANDLED_KEYS = new Set(['Escape', 'F1', 'F2', 'F3', 'F4', 'F9']);
     const handleKeyDown = (event) => {
       const context = keyboardContext.current;
-      if (!context) return;
+      if (!context || !HANDLED_KEYS.has(event.key)) return;
       if (context.isSubmitting) { event.preventDefault(); return; }
       if (event.key === 'Escape') {
-        if (context.dialog) context.setDialog(null);
+        // Mỗi hộp thoại đóng theo đúng hành động của nó (receipt -> hoàn tất & đóng tab đã bán).
+        if (context.dialog === 'receipt') context.closeReceipt();
+        else if (context.dialog === 'recovered-result') context.closeRecovered();
+        else if (context.dialog === 'price-change') context.confirmNewPrice();
+        else if (context.dialog === 'change-warehouse') context.cancelWarehouseChange();
+        else if (context.dialog) context.setDialog(null);
         else context.setMobileCartOpen(false);
         return;
       }
-      // Phím tắt KHÔNG được vượt guard giao dịch đang treo (frozen).
-      if (event.key === 'F1') {
-        event.preventDefault();
-        context.setDialog('shortcuts');
-      } else if (event.key === 'F2') {
-        event.preventDefault();
-        if (!context.frozen) context.requestNewInvoice();
-      } else if (event.key === 'F3') {
-        event.preventDefault();
-        context.searchRef.current?.focus();
-      } else if (event.key === 'F4') {
-        event.preventDefault();
-        if (!context.frozen) context.setDialog('customer');
-      } else if (event.key === 'F9') {
-        event.preventDefault();
-        if (!context.frozen) context.openPayment();
+      event.preventDefault();
+      if (context.dialog) {
+        // Đang mở hộp thoại: chỉ F9 trong màn thanh toán (= xác nhận); các phím khác bỏ qua,
+        // tránh F9 lần hai đặt lại số tiền đã nhập hoặc F4 đè mất hộp thoại đang dở.
+        if (event.key === 'F9' && context.dialog === 'payment') context.confirmPaymentShortcut();
+        return;
       }
+      if (event.key === 'F1') context.setDialog('shortcuts');
+      else if (event.key === 'F2') context.requestNewInvoice();
+      else if (event.key === 'F3') {
+        context.searchRef.current?.focus();
+        context.searchRef.current?.select();
+      } else if (event.key === 'F4') {
+        // Phím tắt KHÔNG được vượt guard giao dịch đang treo (frozen).
+        if (!context.frozen) context.setDialog('customer');
+      } else if (event.key === 'F9') context.openPayment();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
-
-  useEffect(() => {
-    if (!toast) return undefined;
-    const timeoutId = window.setTimeout(() => setToast(''), 3000);
-    return () => window.clearTimeout(timeoutId);
-  }, [toast]);
 
   const renderCartPanel = () => (
     <PosCartPanel
       cart={cart}
       customer={customer}
       frozen={frozen}
+      isSubmitting={isSubmitting}
       note={note}
       onClear={() => setDialog('clear')}
       onCustomer={() => setDialog('customer')}
@@ -930,38 +1042,27 @@ export default function PosSalesPage({
   );
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col bg-bo-canvas text-bo-foreground">
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-bo-border bg-bo-surface px-4 py-3 sm:px-5">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="truncate text-base font-semibold text-bo-foreground">Bán hàng tại quầy</h1>
-            </div>
-            <p className="mt-0.5 truncate text-xs text-bo-muted">{activeWarehouse ? `${activeWarehouse.tenKho} (${activeWarehouse.maKho})` : 'Chưa chọn kho'} · {currentInvoiceLabel}</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex min-h-9 items-center gap-1.5 rounded-lg border border-bo-border bg-bo-surface px-2.5 text-xs font-medium text-bo-foreground transition hover:border-bo-primary/40" htmlFor="pos-warehouse">
-            <Warehouse aria-hidden="true" size={14} className="text-bo-muted" />
-            <span className="hidden text-bo-muted sm:inline">Kho bán hàng:</span>
-            <select
-              className="max-w-52 truncate bg-transparent py-1.5 pl-1 pr-6 text-xs font-semibold outline-none"
-              disabled={!warehouses.length || isSubmitting || frozen}
-              id="pos-warehouse"
-              onChange={(event) => changeWarehouse(event.target.value)}
-              value={warehouseId ?? ''}
-            >
-              {!warehouses.length ? <option value="">Chưa có kho</option> : null}
-              {warehouses.map((w) => <option key={w.id} value={w.id}>{w.tenKho} ({w.maKho})</option>)}
-            </select>
-          </label>
-          <button aria-label="Hướng dẫn phím tắt" className="grid size-9 place-items-center rounded-lg border border-bo-border text-bo-muted transition hover:bg-slate-50 hover:text-bo-foreground" onClick={() => setDialog('shortcuts')} title="Phím tắt (F1)" type="button"><CircleHelp aria-hidden="true" size={16} /></button>
-        </div>
-      </header>
+    <div className="relative flex min-h-0 flex-1 flex-col bg-bo-canvas text-bo-foreground">
+      <PosTopBar onHelp={() => { if (!dialog && !isSubmitting) setDialog('shortcuts'); }}>
+        <label className="flex min-h-9 min-w-0 items-center gap-1.5 rounded-lg border border-bo-border bg-bo-surface px-2.5 text-xs font-medium text-bo-foreground transition hover:border-bo-primary/40" htmlFor="pos-warehouse" title={frozen ? 'Hóa đơn đang chờ thanh toán — không đổi kho được' : 'Kho xuất hàng cho hóa đơn đang mở'}>
+          <Warehouse aria-hidden="true" size={14} className="shrink-0 text-bo-muted" />
+          <span className="hidden shrink-0 text-bo-muted md:inline">Kho bán:</span>
+          <select
+            className="min-w-0 max-w-56 truncate bg-transparent py-1.5 pl-1 pr-6 text-xs font-semibold outline-none disabled:cursor-not-allowed"
+            disabled={!warehouses.length || isSubmitting || frozen}
+            id="pos-warehouse"
+            onChange={(event) => changeWarehouse(event.target.value)}
+            value={warehouseId ?? ''}
+          >
+            {!warehouses.length ? <option value="">Chưa có kho</option> : null}
+            {warehouses.map((w) => <option key={w.id} value={w.id}>{w.tenKho} ({w.maKho})</option>)}
+          </select>
+        </label>
+      </PosTopBar>
 
       <PosInvoiceTabs
         activeInvoice={activeInvoice}
-        disabled={isSubmitting || Boolean(dialog) || frozen}
+        disabled={isSubmitting || Boolean(dialog)}
         invoices={invoices}
         onAdd={requestNewInvoice}
         onClose={requestCloseInvoice}
@@ -1008,7 +1109,6 @@ export default function PosSalesPage({
       </div> : null}
 
       <PosDialogs actions={actions} checkoutEnabled={checkoutEnabled} dialog={dialog} onClose={() => { if (!isSubmitting) setDialog(null); }} state={dialogState} />
-      {toast ? <div aria-live="polite" className="fixed bottom-20 left-1/2 z-[100] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-lg bg-slate-900 px-4 py-3 text-sm font-medium text-white shadow-sm xl:bottom-5"><span className="grid size-5 shrink-0 place-items-center rounded-full bg-white/15"><Plus aria-hidden="true" size={13} /></span><span>{toast}</span></div> : null}
     </div>
   );
 }

@@ -64,9 +64,23 @@
   text-align: left;
 }
 .pos-invoice-tab-select span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pos-invoice-tab-select .pos-invoice-tab-count {
+  flex-shrink: 0;
+  min-width: 18px;
+  margin-left: auto;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+.pos-invoice-tab.is-active .pos-invoice-tab-count { background: var(--color-bo-primary-soft, #eaf3ff); color: var(--color-bo-primary, #1677ff); }
 .pos-invoice-tab-select svg { flex-shrink: 0; }
 .pos-invoice-tab.is-active .pos-invoice-tab-select { font-weight: 600; }
-.pos-invoice-tab.is-active .pos-invoice-tab-select svg { color: var(--color-bo-primary, #1677ff); }
+.pos-invoice-tab.is-active .pos-invoice-tab-select .pos-invoice-tab-icon { color: var(--color-bo-primary, #1677ff); }
 .pos-invoice-tab-close, .pos-invoice-add {
   display: grid;
   flex-shrink: 0;

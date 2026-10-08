@@ -1,6 +1,14 @@
 import { useEffect, useRef } from 'react';
-import { FileText, Plus, X } from 'lucide-react';
+import { CheckCircle2, FileText, Lock, Plus, QrCode, X } from 'lucide-react';
 import './pos-invoice-tabs.css';
+
+/** Trạng thái hiển thị trên tab để thu ngân nhìn là biết hóa đơn nào đang chờ/đã xong. */
+function getTabStatus(invoice) {
+  if (invoice.attempt?.status === 'succeeded') return { icon: CheckCircle2, label: 'Đã thanh toán', className: 'text-emerald-600' };
+  if (invoice.payos?.trangThai === 'PENDING') return { icon: QrCode, label: 'Đang chờ chuyển khoản', className: 'text-amber-600' };
+  if (invoice.attempt?.status === 'pending' || invoice.attempt?.status === 'unknown') return { icon: Lock, label: 'Đang xử lý thanh toán', className: 'text-amber-600' };
+  return null;
+}
 
 export default function PosInvoiceTabs({ invoices, activeInvoice, disabled, onSelect, onClose, onAdd }) {
   const tabRefs = useRef(new Map());
@@ -35,6 +43,10 @@ export default function PosInvoiceTabs({ invoices, activeInvoice, disabled, onSe
       <div aria-label="Các hóa đơn đang mở" className="pos-invoice-tabs" role="tablist">
         {invoices.map((invoice, index) => {
           const active = invoice.number === activeInvoice;
+          const status = getTabStatus(invoice);
+          const StatusIcon = status?.icon ?? FileText;
+          const itemCount = invoice.cart.reduce((sum, line) => sum + line.quantity, 0);
+          const title = `Hóa đơn ${invoice.number}${itemCount ? ` · ${itemCount} sản phẩm` : ''}${status ? ` · ${status.label}` : ''}`;
           return (
             <div className={`pos-invoice-tab${active ? ' is-active' : ''}`} key={invoice.number}>
               <button
@@ -48,11 +60,13 @@ export default function PosInvoiceTabs({ invoices, activeInvoice, disabled, onSe
                 ref={(node) => { if (node) tabRefs.current.set(invoice.number, node); else tabRefs.current.delete(invoice.number); }}
                 role="tab"
                 tabIndex={active ? 0 : -1}
-                title={`Hóa đơn ${invoice.number}`}
+                title={title}
                 type="button"
               >
-                <FileText aria-hidden="true" size={15} strokeWidth={1.8} />
+                <StatusIcon aria-hidden="true" className={status?.className ?? 'pos-invoice-tab-icon'} size={15} strokeWidth={1.8} />
                 <span>Hóa đơn {invoice.number}</span>
+                {status ? <span className="sr-only">({status.label})</span> : null}
+                {itemCount ? <span className="pos-invoice-tab-count" aria-label={`${itemCount} sản phẩm`}>{itemCount}</span> : null}
               </button>
               <button aria-label={`Đóng hóa đơn ${invoice.number}`} className="pos-invoice-tab-close" disabled={disabled} onClick={() => onClose(invoice.number)} title={`Đóng hóa đơn ${invoice.number}`} type="button"><X aria-hidden="true" size={14} strokeWidth={1.8} /></button>
             </div>

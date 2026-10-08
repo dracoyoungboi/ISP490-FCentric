@@ -6,6 +6,7 @@ import {
   UserRound,
   ChevronDown,
   Lock,
+  ImageOff,
 } from 'lucide-react';
 import { formatMoney } from '../pos-format';
 
@@ -23,6 +24,7 @@ export default function PosCartPanel({
   total,
   note,
   frozen = false,
+  isSubmitting = false,
   onCustomer,
   onQuantity,
   onRemove,
@@ -30,6 +32,7 @@ export default function PosCartPanel({
   onPayment,
   onNote,
 }) {
+  const totalQuantity = cart.reduce((sum, row) => sum + row.quantity, 0);
   return (
     <section aria-label="Hóa đơn hiện tại" className="flex min-h-0 w-full flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface">
       <header className="flex shrink-0 items-center justify-between border-b border-bo-border px-4 py-3">
@@ -37,7 +40,8 @@ export default function PosCartPanel({
           <span className="grid size-8 place-items-center rounded-lg bg-bo-primary-soft text-bo-primary"><ShoppingBag aria-hidden="true" size={17} /></span>
           <div>
             <h2 className="text-sm font-semibold text-bo-foreground">Hóa đơn hiện tại</h2>
-            <p className="text-xs text-bo-muted">{cart.reduce((sum, row) => sum + row.quantity, 0)} sản phẩm</p>
+            {/* Tách "mặt hàng" (số dòng) và "số lượng" để không hiểu nhầm 1 dòng SL 2 là 2 sản phẩm khác nhau */}
+            <p className="text-xs text-bo-muted">{cart.length ? `${cart.length} mặt hàng · SL ${totalQuantity}` : 'Chưa có sản phẩm'}</p>
           </div>
         </div>
         <button aria-label="Xóa nội dung hóa đơn" className={iconButton} disabled={!cart.length || frozen} onClick={onClear} title="Xóa nội dung hóa đơn" type="button"><Trash2 aria-hidden="true" size={16} /></button>
@@ -66,7 +70,11 @@ export default function PosCartPanel({
           <ul className="divide-y divide-bo-border">
             {cart.map(({ product, quantity }) => (
               <li className="flex gap-2.5 py-3" key={product.id}>
-                <img alt="" className="size-12 shrink-0 rounded-md border border-bo-border bg-slate-50 object-contain p-0.5" loading="lazy" src={product.image} />
+                {product.image ? (
+                  <img alt="" className="size-12 shrink-0 rounded-md border border-bo-border bg-slate-50 object-cover" loading="lazy" src={product.image} />
+                ) : (
+                  <span aria-hidden="true" className="grid size-12 shrink-0 place-items-center rounded-md border border-bo-border bg-slate-50 text-slate-400"><ImageOff size={16} /></span>
+                )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -79,7 +87,7 @@ export default function PosCartPanel({
                     <div className="flex items-center rounded-md border border-bo-border">
                       <button aria-label={`Giảm số lượng ${product.name}`} className={iconButton} disabled={frozen} onClick={() => onQuantity(product.id, quantity - 1)} type="button"><Minus aria-hidden="true" size={13} /></button>
                       <span aria-live="polite" className="min-w-7 text-center text-xs font-semibold text-bo-foreground">{quantity}</span>
-                      <button aria-label={`Tăng số lượng ${product.name}`} className={iconButton} disabled={frozen} onClick={() => onQuantity(product.id, quantity + 1)} type="button"><Plus aria-hidden="true" size={13} /></button>
+                      <button aria-label={`Tăng số lượng ${product.name}`} className={iconButton} disabled={frozen || (Number.isFinite(product.stock) && quantity >= product.stock)} onClick={() => onQuantity(product.id, quantity + 1)} title={Number.isFinite(product.stock) && quantity >= product.stock ? `Tối đa ${product.stock} (tồn khả dụng)` : undefined} type="button"><Plus aria-hidden="true" size={13} /></button>
                     </div>
                     <span className="text-sm font-semibold text-bo-foreground">{formatMoney(product.price * quantity)}</span>
                   </div>
@@ -108,8 +116,8 @@ export default function PosCartPanel({
             <span className="text-xl font-bold tracking-tight text-bo-primary">{formatMoney(total)}</span>
           </div>
         </div>
-        <button className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-bo-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-bo-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary disabled:cursor-not-allowed disabled:bg-slate-300" disabled={!cart.length} onClick={onPayment} type="button">
-          <span>Thanh toán</span><span className="rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-medium">F9</span>
+        <button className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-bo-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-bo-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary disabled:cursor-not-allowed disabled:bg-slate-300" disabled={!cart.length || isSubmitting} onClick={onPayment} type="button">
+          <span>{isSubmitting ? 'Đang xử lý…' : 'Thanh toán'}</span><span className="rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-medium">F9</span>
         </button>
       </div>
     </section>

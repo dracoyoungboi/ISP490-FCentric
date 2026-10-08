@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { ImageOff } from 'lucide-react';
 import { formatMoney } from '../pos-format';
 
 // Optional UI fields. Unknown stock is not treated as zero.
@@ -18,7 +19,9 @@ export default memo(function PosProductCard({ product, onAdd, view = 'grid' }) {
   if (view === 'list') {
     return (
       <button aria-label={`Thêm ${product.name} (${product.sku})`} className={`group flex h-14 w-full min-w-0 items-center gap-3 rounded-lg border border-transparent px-2 text-left hover:bg-bo-primary-soft ${interaction}`} disabled={outOfStock} onClick={() => onAdd(product)} title={outOfStock ? 'Hết hàng' : product.name} type="button">
-        <img alt="" className="size-10 shrink-0 rounded-md bg-slate-100 object-cover" decoding="async" height="40" loading="lazy" src={product.image} width="40" />
+        {product.image
+          ? <img alt="" className="size-10 shrink-0 rounded-md bg-slate-100 object-cover" decoding="async" height="40" loading="lazy" src={product.image} width="40" />
+          : <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-md bg-slate-100 text-slate-400"><ImageOff size={15} /></span>}
         <span className="min-w-0 flex-1">
           <span className="line-clamp-1 text-[13px] font-medium text-bo-foreground">{product.name}</span>
           <span className="flex items-center gap-2 text-[11px] text-bo-muted"><span>{product.sku}</span>{variantCount > 0 ? <span>{variantCount} biến thể</span> : null}</span>
@@ -32,7 +35,10 @@ export default memo(function PosProductCard({ product, onAdd, view = 'grid' }) {
   return (
     <button aria-label={`Thêm ${product.name} (${product.sku})`} className={`group flex min-w-0 flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface p-1.5 text-left ${interaction}`} disabled={outOfStock} onClick={() => onAdd(product)} title={outOfStock ? 'Hết hàng' : product.name} type="button">
       <span className="relative block aspect-[4/5] w-full overflow-hidden rounded-md bg-slate-100">
-        <img alt={product.name} className="h-full w-full object-cover" decoding="async" height="250" loading="lazy" src={product.image} width="200" />
+        {/* Không có ảnh -> placeholder (tránh <img> rỗng hiện alt text/biểu tượng ảnh vỡ) */}
+        {product.image
+          ? <img alt="" className="h-full w-full object-cover" decoding="async" height="250" loading="lazy" src={product.image} width="200" />
+          : <span aria-hidden="true" className="grid h-full w-full place-items-center text-slate-400"><ImageOff size={28} /></span>}
         <span className={`absolute left-1.5 top-1.5 rounded px-1.5 py-0.5 text-[11px] font-medium shadow-sm ${stockClass}`} title={stock === null ? 'Chưa có dữ liệu tồn kho' : stockLabel}>{stockLabel}</span>
         {variantCount > 0 ? <span className="absolute bottom-1.5 left-1.5 rounded bg-white/95 px-1.5 py-0.5 text-[11px] text-slate-600 shadow-sm">{variantCount} biến thể</span> : null}
       </span>

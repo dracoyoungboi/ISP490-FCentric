@@ -28,8 +28,10 @@ const POS_SHORTCUTS = [
   { key: 'F1', label: 'Mở bảng phím tắt' },
   { key: 'F2', label: 'Thêm hóa đơn mới' },
   { key: 'F3', label: 'Tìm kiếm hàng hóa' },
+  { key: 'Enter', label: 'Trong ô tìm kiếm: thêm nhanh theo mã SKU / mã vạch' },
   { key: 'F4', label: 'Chọn khách hàng' },
-  { key: 'F9', label: 'Mở thanh toán' },
+  { key: 'F9', label: 'Mở thanh toán · trong màn thanh toán: xác nhận' },
+  { key: '← →', label: 'Chuyển giữa các hóa đơn (khi đang chọn tab)' },
   { key: 'Esc', label: 'Đóng cửa sổ đang mở' },
 ];
 
@@ -266,6 +268,21 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
     );
   }
 
+  if (dialog === 'change-warehouse') {
+    const count = state.cart.reduce((sum, line) => sum + line.quantity, 0);
+    return (
+      <PosModal description="Tồn kho và giá được tính theo từng kho." onClose={actions.onCancelWarehouseChange} title="Đổi kho bán hàng?" size="sm">
+        <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <AlertCircle aria-hidden="true" className="mt-0.5 shrink-0" size={18} />
+          <p>
+            Chuyển từ <strong>{state.activeWarehouse?.tenKho || 'kho hiện tại'}</strong> sang <strong>{state.pendingWarehouse?.tenKho || 'kho mới'}</strong> sẽ xóa {count} sản phẩm trong hóa đơn {state.invoiceNumber}, để không bán nhầm tồn của kho khác. Các hóa đơn khác giữ nguyên.
+          </p>
+        </div>
+        <div className="mt-5"><FooterButtons cancelText="Giữ kho hiện tại" confirmText="Đổi kho và xóa giỏ" destructive onClose={actions.onCancelWarehouseChange} onConfirm={actions.onConfirmWarehouseChange} /></div>
+      </PosModal>
+    );
+  }
+
   if (dialog === 'close-invoice') {
     return (
       <PosModal description="Hóa đơn đang có nội dung chưa thanh toán." onClose={onClose} title={`Đóng hóa đơn ${state.closingInvoice?.number}?`} size="sm">
@@ -309,10 +326,11 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
                 <label className="flex-1 text-sm font-medium text-bo-foreground" htmlFor="payment-amount">Khách thanh toán</label>
                 <span className="text-xs text-bo-muted">Cần thu: <strong className="text-bo-foreground">{formatMoney(state.total)}</strong></span>
               </div>
-              <div className="relative mt-1.5">
-                <input className={`${fieldClass} pr-12 text-right text-lg font-semibold disabled:bg-slate-50 disabled:opacity-60`} disabled={state.frozen} id="payment-amount" min="0" onChange={(event) => actions.onPaymentAmount(event.target.value)} placeholder="0" step="1000" type="number" value={state.paymentAmount} />
+              {/* Form để Enter trong ô số tiền = xác nhận thanh toán (thao tác quầy nhanh hơn) */}
+              <form className="relative mt-1.5" onSubmit={(event) => { event.preventDefault(); if (checkoutEnabled && !pending && !amountInvalid && !state.isSubmitting) actions.onConfirmPayment(); }}>
+                <input autoFocus className={`${fieldClass} pr-12 text-right text-lg font-semibold disabled:bg-slate-50 disabled:opacity-60`} disabled={state.frozen} id="payment-amount" inputMode="numeric" min="0" onChange={(event) => actions.onPaymentAmount(event.target.value)} onFocus={(event) => event.target.select()} placeholder="0" step="1000" type="number" value={state.paymentAmount} />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-bo-muted">₫</span>
-              </div>
+              </form>
               <div className="mt-2 flex flex-wrap gap-2">
                 {quickAmounts.map((amount) => <button className="rounded-md border border-bo-border px-2.5 py-1.5 text-xs font-medium text-bo-foreground transition hover:border-bo-primary hover:bg-bo-primary-soft hover:text-bo-primary disabled:cursor-not-allowed disabled:opacity-50" disabled={state.frozen} key={amount} onClick={() => actions.onPaymentAmount(amount)} type="button">{amount === state.total ? 'Đủ tiền' : formatMoney(amount)}</button>)}
                 <button className="rounded-md px-2.5 py-1.5 text-xs font-medium text-bo-primary transition hover:bg-bo-primary-soft disabled:cursor-not-allowed disabled:opacity-50" disabled={state.frozen} onClick={() => actions.onPaymentAmount(0)} type="button">Xóa số tiền</button>
