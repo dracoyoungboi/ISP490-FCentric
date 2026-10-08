@@ -31,22 +31,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
+import {
+  GOODS_RECEIPT_FILTER_STATUSES,
+  GOODS_RECEIPT_STATUS,
+  getGoodsReceiptStatus,
+} from "@/constants/goodsReceipt";
 
-const STATUS_MAP = {
-  0: { label: "Nháp", tone: "warning" },
-  1: { label: "Chờ duyệt", tone: "info" },
-  2: { label: "Đã duyệt", tone: "info" },
-  3: { label: "Đã nhập kho", tone: "success" },
-  4: { label: "Đã hủy", tone: "danger" },
-};
-
+// Bộ lọc chỉ gồm các trạng thái backend thực sự dùng (0 / 3 / 4)
 const STATUS_OPTIONS = [
   { value: "", label: "Tất cả trạng thái" },
-  { value: "0", label: "Nháp" },
-  { value: "1", label: "Chờ duyệt" },
-  { value: "2", label: "Đã duyệt" },
-  { value: "3", label: "Đã nhập kho" },
-  { value: "4", label: "Đã hủy" },
+  ...GOODS_RECEIPT_FILTER_STATUSES.map((value) => ({
+    value: String(value),
+    label: GOODS_RECEIPT_STATUS[value].label,
+  })),
 ];
 
 function buildFilterPayload(filters) {
@@ -157,19 +154,19 @@ export default function PhieuNhapKhoList() {
         <StatTile
           icon={<FileText className="size-4" />}
           iconClass="bg-bo-warning-soft text-bo-warning"
-          label="Nháp"
+          label={GOODS_RECEIPT_STATUS[0].label}
           value={stats.nhap}
         />
         <StatTile
           icon={<CheckCircle2 className="size-4" />}
           iconClass="bg-bo-success-soft text-bo-success"
-          label="Đã nhập kho"
+          label={GOODS_RECEIPT_STATUS[3].label}
           value={stats.daNhap}
         />
         <StatTile
           icon={<XCircle className="size-4" />}
           iconClass="bg-bo-danger-soft text-bo-danger"
-          label="Đã hủy"
+          label={GOODS_RECEIPT_STATUS[4].label}
           value={stats.daHuy}
         />
       </section>
@@ -310,8 +307,8 @@ export default function PhieuNhapKhoList() {
                       </td>
                       <td className="px-4 py-3 text-center align-middle">
                         <StatusBadge
-                          label={STATUS_MAP[item.trangThai]?.label || "N/A"}
-                          tone={STATUS_MAP[item.trangThai]?.tone || "neutral"}
+                          label={getGoodsReceiptStatus(item.trangThai).label}
+                          tone={getGoodsReceiptStatus(item.trangThai).tone}
                         />
                       </td>
                     </tr>

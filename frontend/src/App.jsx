@@ -26,7 +26,6 @@ import KhaiBaoLo from "./pages/receipt/KhaiBaoLo.jsx";
 import PhieuXuatKhoList from "./pages/issue/PhieuXuatKhoList.jsx";
 import PurchaseOrderDetail from "./pages/order/PurchaseOrderDetail.jsx";
 import PurchaseOrder from "./pages/order/PurchaseOrder.jsx";
-import PurchaseRequest from "./pages/order/PurchaseRequest.jsx";
 import PurchaseOrderCreate from "./pages/order/PurchaseOrderCreate.jsx";
 import PurchaseOrderPayment from "./pages/order/PurchaseOrderPayment.jsx";
 import SendQuotationRequest from "./pages/order/SendQuotationRequest.jsx";
@@ -82,8 +81,11 @@ import PurchaseOrderPrint from "./pages/order/PurchaseOrderPrint";
 import PrintTemplatesPage from "./pages/settings/PrintTemplatesPage";
 import PrintTemplateDetailPage from "./pages/settings/PrintTemplateDetailPage";
 import PrintTemplateEditorPage from "./pages/settings/PrintTemplateEditorPage";
+import InventorySystemSettingsPage from "./pages/settings/InventorySystemSettingsPage";
+import PaymentSettingsPage from "./pages/settings/PaymentSettingsPage";
 import RequireRole from "./components/auth/RequireRole";
 import PosPage from "./pages/pos";
+import PosLayout from "./pages/pos/PosLayout";
 
 export default function App() {
   return (
@@ -182,9 +184,6 @@ export default function App() {
           {/* Sales-orders */}
           <Route path="/sales-orders" element={<DonBanHangList />} />
 
-          {/* POS — Bán hàng tại quầy (Phase 02: chỉ đọc catalog; checkout khóa tới Phase 03/04) */}
-          <Route path="/pos" element={<PosPage />} />
-
           <Route path="/sales-orders/:id" element={<DonBanHangDetail />} />
           <Route path="/sales-orders/create" element={<DonBanHangCreate />} />
           <Route path="/sales-quotations" element={<BaoGiaList />} />
@@ -215,6 +214,10 @@ export default function App() {
               Chỉ quan_tri_vien / quan_ly_kho được cấu hình (frontend guard là UX,
               backend @RequireAuth là chốt chặn thật). Trang chính nhúng preview;
               route /:documentType/:templateId giữ trang xem trước cũ cho deep-link. */}
+          {/* Cài đặt thanh toán payOS — chỉ quản trị viên (backend cũng chặn bằng @RequireAuth) */}
+          <Route element={<RequireRole roles={["quan_tri_vien"]} />}>
+            <Route path="/settings/payment" element={<PaymentSettingsPage />} />
+          </Route>
           <Route
             element={
               <RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />
@@ -233,6 +236,18 @@ export default function App() {
             <Route path="/settings/print-templates/:documentType/:templateId/edit" element={<PrintTemplateEditorPage />} />
           </Route>
 
+          <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"]} />}>
+            <Route path="/settings/inventory" element={<InventorySystemSettingsPage />} />
+          </Route>
+          </Route>
+
+          {/* POS — Bán hàng tại quầy: màn hình toàn màn hình riêng, NGOÀI BackofficeLayout
+              (không sidebar/header quản trị). Vẫn dưới ProtectedRoute; chỉ quản trị viên
+              + nhân viên bán hàng (khớp sidebar; backend vẫn là chốt chặn thật). */}
+          <Route element={<PosLayout />}>
+            <Route element={<RequireRole roles={["quan_tri_vien", "nhan_vien_ban_hang"]} />}>
+              <Route path="/pos" element={<PosPage />} />
+            </Route>
           </Route>
 
           {/* In phiếu — ngoài BackofficeLayout (không sidebar/header, không bị shell clipping) */}

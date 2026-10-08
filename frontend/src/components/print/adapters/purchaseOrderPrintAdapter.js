@@ -1,4 +1,5 @@
-import { formatDate, formatDateTime, formatNumber } from "@/utils/formatters";
+import { formatNumber } from "@/utils/formatters";
+import { formatPrintDate, formatPrintDateTime } from "./printFormat";
 
 /**
  * Adapter cho ĐƠN MUA HÀNG — dữ liệu từ API
@@ -22,8 +23,8 @@ const dash = (value) => {
     return text === "" ? "—" : text;
 };
 
-const dashDate = (value) => (value ? formatDate(value) : "—");
-const dashDateTime = (value) => (value ? formatDateTime(value) : "—");
+const dashDate = (value) => (value ? formatPrintDate(value) : "—");
+const dashDateTime = (value) => (value ? formatPrintDateTime(value) : "—");
 const dashQuantity = (value) =>
     value === null || value === undefined ? "—" : formatNumber(value);
 const dashMoney = (value) =>
@@ -60,6 +61,13 @@ export function toPurchaseOrderPrintModel(raw) {
             phone: dash(data.nhaCungCap?.soDienThoai),
             email: dash(data.nhaCungCap?.email),
             address: dash(data.nhaCungCap?.diaChi),
+        },
+        // Kho nhận hàng — nhà cung cấp cần biết giao đến đâu
+        deliverTo: {
+            warehouse: data.khoNhap?.maKho
+                ? `${dash(data.khoNhap?.tenKho)} (${data.khoNhap.maKho})`
+                : dash(data.khoNhap?.tenKho),
+            address: dash(data.khoNhap?.diaChi),
         },
         items,
         totalAmount: total,

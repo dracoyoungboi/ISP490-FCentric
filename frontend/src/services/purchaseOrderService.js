@@ -37,27 +37,9 @@ export const purchaseRequestService = {
         return response.data;
     },
 
-    /**
-     * Quản lý kho duyệt hoặc từ chối yêu cầu mua hàng
-     * PUT /api/v1/nghiep-vu/yeu-cau-mua-hang/duyet-tu-choi/{id}/{trangThai}
-     *
-     * trangThai:
-     *   0 = Từ chối / hủy
-     *   1 = Chờ duyệt (mặc định khi tạo)
-     *   2 = Đã duyệt
-     */
-    duyetYeuCau: async (id, trangThai) => {
-        const response = await apiClient.put(
-            `/api/v1/nghiep-vu/yeu-cau-mua-hang/duyet-tu-choi/${id}/${trangThai}`
-        );
-        return response.data;
-    },
-
-    /** Duyệt yêu cầu → trangThai = 2 */
-    duyet: async (id) => purchaseRequestService.duyetYeuCau(id, 2),
-
-    /** Từ chối yêu cầu → trangThai = 0 */
-    tuChoi: async (id) => purchaseRequestService.duyetYeuCau(id, 0),
+    // Duyệt / từ chối yêu cầu: dùng purchaseRequestService.approve trong
+    // services/purchaseRequestService.js (từ chối = trạng thái 4 + lý do).
+    // Helper cũ ở đây gửi trạng thái 0 khi từ chối — sai nghiệp vụ, đã bỏ.
 };
 
 // ─── Đơn Mua Hàng (DonMuaHang) ───────────────────────────────────────────────

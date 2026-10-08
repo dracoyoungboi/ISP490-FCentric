@@ -1,4 +1,5 @@
-import { formatDate, formatNumber } from "@/utils/formatters";
+import { formatNumber } from "@/utils/formatters";
+import { formatPrintDate } from "./printFormat";
 
 /**
  * Adapter cho BÁO GIÁ BÁN và HÓA ĐƠN BÁN HÀNG — cùng một thực thể backend
@@ -35,7 +36,7 @@ const dash = (value) => {
     return text === "" ? "—" : text;
 };
 
-const dashDate = (value) => (value ? formatDate(value) : "—");
+const dashDate = (value) => (value ? formatPrintDate(value) : "—");
 const dashQuantity = (value) =>
     value === null || value === undefined ? "—" : formatNumber(value);
 const dashMoney = (value) =>
@@ -76,6 +77,9 @@ function toDonBanHangPrintModel(raw, { statusMap }) {
             contact: dash(kh.nguoiLienHe),
             phone: dash(kh.soDienThoai),
             address: dash(kh.diaChi),
+            // Địa chỉ giao của RIÊNG đơn này (có thể khác địa chỉ khách hàng);
+            // null = không giao hàng (vd. bán tại quầy) -> ẩn trên bản in
+            deliveryAddress: don.diaChiGiaoHang?.trim() ? dash(don.diaChiGiaoHang) : null,
         },
         items,
         totals: {

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle,
 } from "@/components/ui/dialog";
@@ -57,7 +58,9 @@ function InfoField({ label, value, mono = false, icon, children }) {
                 {icon}
                 {label}
             </div>
-            <div className="flex flex-1 items-start">
+            {/* flex-col: các dòng con (tên / email / thời điểm, tên kho / mã kho)
+                xếp dọc — trước đây xếp ngang nên bị dính liền nhau */}
+            <div className="flex flex-1 flex-col items-start">
                 {children ?? (
                     <p className={`text-sm font-semibold text-bo-foreground ${mono ? "font-mono tracking-tight" : ""}`}>
                         {value || "—"}
@@ -78,6 +81,9 @@ export default function PurchaseRequestDetail() {
 
     const [approveDialog, setApproveDialog] = useState(false);
     const [rejectDialog, setRejectDialog] = useState(false);
+    // Lý do từ chối — bắt buộc (SRS 4.3.4), tối đa 500 ký tự (backend cũng chặn)
+    const [lyDoTuChoi, setLyDoTuChoi] = useState('');
+    const LY_DO_MAX = 500;
 
     const [userRoles, setUserRoles] = useState([]);
     const [loadingAuth, setLoadingAuth] = useState(true);
@@ -166,12 +172,19 @@ export default function PurchaseRequestDetail() {
     useEffect(() => { queueMicrotask(() => fetchUserInfo()); }, [fetchUserInfo]);
 
     const handleAction = async (trangThai) => {
+        const lyDo = lyDoTuChoi.trim();
+        if (trangThai === 4 && !lyDo) {
+            toast.error('Vui lòng nhập lý do từ chối');
+            return;
+        }
         setActionLoading(true);
         try {
-            await purchaseRequestService.approve(id, trangThai);
-            toast.success(trangThai === 2 ? `Đã phê duyệt yêu cầu #${id}!` : `Đã từ chối yêu cầu #${id}!`);
+            await purchaseRequestService.approve(id, trangThai, lyDo);
+            const ma = requestData?.soYeuCauMuaHang || `#${id}`;
+            toast.success(trangThai === 2 ? `Đã phê duyệt yêu cầu ${ma}!` : `Đã từ chối yêu cầu ${ma}!`);
             setApproveDialog(false);
             setRejectDialog(false);
+            setLyDoTuChoi('');
             await fetchRequestDetail();
         } catch (error) {
             console.error('Error action:', error);
@@ -310,6 +323,11 @@ export default function PurchaseRequestDetail() {
                     <div>
                         <h2 className={`text-lg font-semibold tracking-tight sm:text-xl ${currentStatus.textColor}`}>{currentStatus.label}</h2>
                         <p className={`mt-1 text-sm font-medium opacity-80 ${currentStatus.textColor}`}>{currentStatus.description}</p>
+                        {requestData.trangThai === 4 && requestData.lyDoTuChoi ? (
+                            <p className="mt-2 whitespace-pre-wrap text-sm text-bo-foreground">
+                                <span className="font-semibold">Lý do từ chối:</span> {requestData.lyDoTuChoi}
+                            </p>
+                        ) : null}
                     </div>
                 </div>
             </div>
@@ -319,6 +337,7 @@ export default function PurchaseRequestDetail() {
                 <SurfaceCard
                     title={<span className="flex items-center gap-2"><FileText className="size-4 text-bo-primary" />Thông tin yêu cầu</span>}
                 >
+                    <InfoField label="Mã yêu cầu" mono value={requestData.soYeuCauMuaHang || `#${requestData.id}`} />
                     <InfoField label="Ngày tạo yêu cầu" icon={<Calendar className="size-3.5 opacity-70" />}>
                         <span className="text-sm font-semibold text-bo-foreground">{formatDateTime(requestData.ngayTao)}</span>
                     </InfoField>
@@ -363,9 +382,17 @@ export default function PurchaseRequestDetail() {
                     {requestData.nguoiDuyet && (
                         <>
                             <Separator className="my-4 bg-bo-border" />
-                            <InfoField label="Người duyệt" icon={<CheckCircle className="size-3.5 opacity-70" />}>
+                            <InfoField
+                                label={requestData.trangThai === 4 ? "Người từ chối" : "Người duyệt"}
+                                icon={requestData.trangThai === 4
+                                    ? <XCircle className="size-3.5 opacity-70" />
+                                    : <CheckCircle className="size-3.5 opacity-70" />}
+                            >
                                 <div className="text-sm font-semibold text-bo-foreground">{requestData.nguoiDuyet?.hoTen}</div>
                                 <div className="mt-0.5 text-[13px] text-bo-muted">{requestData.nguoiDuyet?.email}</div>
+                                {requestData.ngayDuyet ? (
+                                    <div className="mt-0.5 text-[13px] text-bo-muted">{formatDateTime(requestData.ngayDuyet)}</div>
+                                ) : null}
                             </InfoField>
                         </>
                     )}
@@ -470,7 +497,7 @@ export default function PurchaseRequestDetail() {
                     </div>
                     <div className="p-5">
                         <DialogDescription className="mb-5 text-sm leading-relaxed text-bo-muted">
-                            Bạn có chắc chắn muốn phê duyệt yêu cầu nhập hàng <span className="font-semibold text-bo-foreground">#{requestData.id}</span>?
+                            Bạn có chắc chắn muốn phê duyệt yêu cầu nhập hàng <span className="font-semibold text-bo-foreground">{requestData.soYeuCauMuaHang || `#${requestData.id}`}</span>?
                             Sau khi duyệt, nhân viên mua hàng có thể tạo đơn báo giá.
                         </DialogDescription>
                         <DialogFooter className="gap-2">
@@ -486,7 +513,13 @@ export default function PurchaseRequestDetail() {
             </Dialog>
 
             {/* ── Reject Dialog ── */}
-            <Dialog open={rejectDialog} onOpenChange={setRejectDialog}>
+            <Dialog
+                open={rejectDialog}
+                onOpenChange={(open) => {
+                    setRejectDialog(open);
+                    if (!open) setLyDoTuChoi('');
+                }}
+            >
                 <DialogContent className="overflow-hidden rounded-lg border border-bo-border bg-white p-0 text-bo-foreground shadow-lg sm:max-w-md">
                     <div className="flex items-center gap-3 border-b border-bo-border bg-bo-danger-soft px-5 py-4">
                         <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-bo-danger">
@@ -495,13 +528,28 @@ export default function PurchaseRequestDetail() {
                         <DialogTitle className="m-0 text-base font-semibold text-bo-foreground">Từ chối yêu cầu</DialogTitle>
                     </div>
                     <div className="p-5">
-                        <DialogDescription className="mb-5 text-sm leading-relaxed text-bo-muted">
-                            Bạn có chắc chắn muốn từ chối yêu cầu nhập hàng <span className="font-semibold text-bo-foreground">#{requestData.id}</span>? Hành động này không thể hoàn tác.
+                        <DialogDescription className="mb-4 text-sm leading-relaxed text-bo-muted">
+                            Bạn có chắc chắn muốn từ chối yêu cầu nhập hàng <span className="font-semibold text-bo-foreground">{requestData.soYeuCauMuaHang || `#${requestData.id}`}</span>? Hành động này không thể hoàn tác.
                         </DialogDescription>
+                        <label htmlFor="ly-do-tu-choi" className="mb-1.5 block text-sm font-medium text-bo-foreground">
+                            Lý do từ chối <span className="text-bo-danger">*</span>
+                        </label>
+                        <Textarea
+                            id="ly-do-tu-choi"
+                            value={lyDoTuChoi}
+                            onChange={(event) => setLyDoTuChoi(event.target.value.slice(0, LY_DO_MAX))}
+                            placeholder="Ví dụ: Tồn kho hiện tại còn đủ cho 2 tuần tới"
+                            rows={3}
+                            className="border-bo-border bg-white text-bo-foreground"
+                            disabled={actionLoading}
+                        />
+                        <p className="mb-5 mt-1 text-right text-xs text-bo-muted">
+                            {lyDoTuChoi.length}/{LY_DO_MAX}
+                        </p>
                         <DialogFooter className="gap-2">
                             <Button variant="outline" onClick={() => setRejectDialog(false)} disabled={actionLoading}
                                 className="h-11 rounded-md border-bo-border bg-white font-medium text-bo-foreground hover:bg-bo-surface-subtle">Hủy bỏ</Button>
-                            <Button onClick={() => handleAction(4)} disabled={actionLoading}
+                            <Button onClick={() => handleAction(4)} disabled={actionLoading || !lyDoTuChoi.trim()}
                                 className="h-11 rounded-md bg-bo-danger font-semibold text-white hover:bg-bo-danger/90">
                                 {actionLoading ? 'Đang xử lý...' : 'Xác nhận từ chối'}
                             </Button>

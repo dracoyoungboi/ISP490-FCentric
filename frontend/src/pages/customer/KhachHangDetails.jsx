@@ -1,17 +1,17 @@
-import { useCallback, useEffect, useState } from 'react';
+import { createElement, useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Edit, User, Phone, Calendar, Clock, Hash, Users,
+  ArrowLeft, Edit, User, Phone, Mail, MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getKhachHangById } from "@/services/khachHangService";
 
 import PageContainer from "@/components/backoffice/PageContainer";
-import PageHeader from "@/components/backoffice/PageHeader";
 import LoadingState from "@/components/shared/LoadingState";
 import StatusBadge from "@/components/shared/StatusBadge";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import { Button } from "@/components/ui/button";
+import CustomerPurchaseHistory from "./components/CustomerPurchaseHistory";
 
 const LOAI_MAP = {
   le:           { label: "Khách lẻ (Retail)",       tone: "info" },
@@ -19,13 +19,22 @@ const LOAI_MAP = {
   doanh_nghiep: { label: "Doanh nghiệp (Business)", tone: "warning" },
 };
 
-function InfoField({ label, value }) {
+function InfoField({ label, value, icon, className = "" }) {
   return (
-    <div>
-      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-bo-muted">{label}</p>
-      <p className="font-semibold leading-snug text-bo-foreground">{value || "—"}</p>
+    <div className={`flex min-w-0 items-start gap-3 ${className}`}>
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary">
+        {createElement(icon, { className: "size-4", "aria-hidden": true })}
+      </span>
+      <div className="min-w-0">
+        <dt className="mb-1 text-xs font-medium text-bo-muted">{label}</dt>
+        <dd className="break-words text-sm font-semibold leading-6 text-bo-foreground">{value?.trim() || "—"}</dd>
+      </div>
     </div>
   );
+}
+
+function normalizeName(value) {
+  return (value || "").normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase("vi-VN");
 }
 
 export default function KhachHangDetails() {
@@ -66,6 +75,8 @@ export default function KhachHangDetails() {
   if (!khachHang) return null;
 
   const loai = LOAI_MAP[khachHang.loaiKhachHang];
+  const contactName = khachHang.nguoiLienHe?.trim();
+  const contactIsCustomer = contactName && normalizeName(contactName) === normalizeName(khachHang.tenKhachHang);
 
   return (
     <PageContainer className="space-y-5">
@@ -79,158 +90,53 @@ export default function KhachHangDetails() {
           <ArrowLeft className="size-4" />
           Quay lại danh sách
         </button>
-        <PageHeader
-          className="mb-0"
-          title={khachHang.tenKhachHang}
-          description="Hồ sơ khách hàng và thông tin liên hệ"
-          actions={
-            <Button
-              onClick={() => navigate(`/customers/${id}/edit`)}
-              className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
-            >
-              <Edit className="size-4" />
-              Chỉnh sửa hồ sơ
-            </Button>
-          }
-        />
       </div>
 
-      {/* ── Stats cards ── */}
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-bo-muted">Mã khách hàng</p>
-            <p className="mt-1 truncate font-mono text-sm font-bold text-bo-foreground">
-              {khachHang.maKhachHang}
-            </p>
-          </div>
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary">
-            <Hash className="size-5" />
-          </span>
+      <section aria-label="Nhận diện khách hàng" className="relative min-w-0 overflow-hidden rounded-xl border border-[#315578] bg-linear-to-br from-[#122c4e] via-[#173e69] to-[#1c5488] p-5 text-white shadow-sm sm:min-h-56 sm:p-8">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-40 size-[420px] rounded-full border border-white/10">
+          <div className="absolute inset-10 rounded-full border border-white/10" />
+          <div className="absolute inset-20 rounded-full border border-white/10" />
+          <div className="absolute inset-30 rounded-full border border-white/10" />
         </div>
-
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-bo-muted">Loại khách hàng</p>
-            <p className="mt-1 truncate text-sm font-bold text-bo-foreground">{loai?.label || "—"}</p>
+        <div className="relative">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-100/80">HỒ SƠ KHÁCH HÀNG</p>
+            <Button
+              type="button"
+              onClick={() => navigate(`/customers/${id}/edit`)}
+              className="ml-auto h-10 shrink-0 gap-2 bg-white px-4 text-[#17365a] shadow-sm hover:bg-slate-100"
+            >
+              <Edit aria-hidden="true" className="size-4" />
+              Chỉnh sửa hồ sơ
+            </Button>
           </div>
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
-            <Users className="size-5" />
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-bo-muted">Số điện thoại</p>
-            <p className="mt-1 truncate text-sm font-bold text-bo-foreground">
-              {khachHang.soDienThoai || "—"}
-            </p>
+          <h1 className="max-w-5xl break-words text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl">{khachHang.tenKhachHang || "—"}</h1>
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <StatusBadge
+              label={`Mã khách hàng: ${khachHang.maKhachHang || "—"}`}
+              dot={false}
+              className="h-auto min-h-8 break-words border-blue-200/40 bg-[#0d2747] px-3 py-1.5 text-sm font-semibold leading-5 text-blue-50"
+            />
+            <StatusBadge label={loai?.label || "—"} tone={loai?.tone} dot={false} className="h-auto min-h-8 px-3 py-1.5 text-sm font-semibold leading-5" />
+            <StatusBadge
+              label={khachHang.trangThai === 1 ? "Đang hoạt động" : "Ngừng hoạt động"}
+              tone={khachHang.trangThai === 1 ? "success" : "neutral"}
+              className="h-auto min-h-8 px-3 py-1.5 text-sm font-semibold leading-5"
+            />
           </div>
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-success-soft text-bo-success">
-            <Phone className="size-5" />
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-bo-muted">Trạng thái</p>
-            <p className="mt-1.5">
-              <StatusBadge
-                label={khachHang.trangThai === 1 ? "Đang hoạt động" : "Ngừng hoạt động"}
-                tone={khachHang.trangThai === 1 ? "success" : "neutral"}
-              />
-            </p>
-          </div>
-          <span
-            className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${khachHang.trangThai === 1 ? "bg-bo-success-soft text-bo-success" : "bg-slate-100 text-slate-400"}`}
-          >
-            <User className="size-5" />
-          </span>
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {/* ── Left: Profile card ── */}
-        <div className="lg:col-span-1">
-          <section className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
-            {/* Banner phẳng theo tông backoffice */}
-            <div className="h-20 bg-bo-foreground" />
-
-            <div className="px-5 pb-5 text-center">
-              <div className="-mt-10 mb-3 flex justify-center">
-                <span className="flex size-20 items-center justify-center rounded-full border-4 border-bo-surface bg-bo-surface-subtle">
-                  <User className="size-9 text-bo-muted" />
-                </span>
-              </div>
-
-              <h2 className="text-base font-bold text-bo-foreground">{khachHang.tenKhachHang}</h2>
-              <p className="mt-1 font-mono text-xs text-bo-muted">{khachHang.maKhachHang}</p>
-
-              {loai && (
-                <div className="mt-3 flex justify-center">
-                  <StatusBadge label={loai.label} tone={loai.tone} />
-                </div>
-              )}
-
-              <div className="mt-5 space-y-2 text-left">
-                <div className="flex items-center justify-between gap-3 rounded-md border border-bo-border bg-bo-surface-subtle p-3 text-sm">
-                  <span className="text-bo-muted">Mã KH</span>
-                  <span className="font-mono font-bold text-bo-foreground">{khachHang.maKhachHang}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3 rounded-md border border-bo-border bg-bo-surface-subtle p-3 text-sm">
-                  <span className="text-bo-muted">Trạng thái</span>
-                  <StatusBadge
-                    label={khachHang.trangThai === 1 ? "Hoạt động" : "Ngừng"}
-                    tone={khachHang.trangThai === 1 ? "success" : "neutral"}
-                  />
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        {/* ── Right: Info panels ── */}
-        <div className="space-y-5 lg:col-span-2">
-          {/* Thông tin cá nhân */}
-          <SurfaceCard title="Thông tin cá nhân & Liên hệ" description="Hồ sơ khách hàng">
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <InfoField label="Họ và tên"       value={khachHang.tenKhachHang} />
-              <InfoField label="Người liên hệ"   value={khachHang.nguoiLienHe} />
-              <InfoField label="Số điện thoại"   value={khachHang.soDienThoai} />
-              <InfoField label="Địa chỉ Email"   value={khachHang.email} />
-              <InfoField label="Loại khách hàng" value={loai?.label} />
-              <InfoField label="Mã định danh"    value={khachHang.maKhachHang} />
-            </div>
-            <div className="mt-5 border-t border-bo-border pt-5">
-              <InfoField label="Địa chỉ cư trú / Trụ sở" value={khachHang.diaChi} />
-            </div>
-          </SurfaceCard>
-
-          {/* Nhật ký tài khoản */}
-          <SurfaceCard title="Nhật ký tài khoản" description="Thời gian tạo và cập nhật">
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <div className="flex items-center gap-4 rounded-md border border-bo-border bg-bo-surface-subtle p-4">
-                <Calendar className="size-7 shrink-0 text-slate-300" />
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-bo-muted">Ngày khởi tạo</p>
-                  <p className="mt-1 font-semibold text-bo-foreground">
-                    {khachHang.ngayTao ? new Date(khachHang.ngayTao).toLocaleString('vi-VN') : "—"}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 rounded-md border border-bo-border bg-bo-surface-subtle p-4">
-                <Clock className="size-7 shrink-0 text-slate-300" />
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-bo-muted">Cập nhật cuối</p>
-                  <p className="mt-1 font-semibold text-bo-foreground">
-                    {khachHang.ngayCapNhat ? new Date(khachHang.ngayCapNhat).toLocaleString('vi-VN') : "—"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </SurfaceCard>
-        </div>
-      </div>
+      <section aria-labelledby="customer-contact-title" className="min-w-0 rounded-xl border border-bo-border bg-white px-5 py-5 shadow-sm sm:px-8 sm:py-6">
+        <h2 id="customer-contact-title" className="text-base font-semibold text-bo-foreground sm:text-lg">Thông tin liên hệ</h2>
+        <dl className="mt-2 grid grid-cols-1 gap-x-10 sm:grid-cols-2 lg:gap-x-16">
+          <InfoField label="Người liên hệ" value={contactIsCustomer ? "Như tên khách hàng" : contactName} icon={User} className="border-b border-bo-border py-5" />
+          <InfoField label="Số điện thoại" value={khachHang.soDienThoai} icon={Phone} className="border-b border-bo-border py-5" />
+          <InfoField label="Email" value={khachHang.email} icon={Mail} className="border-b border-bo-border py-5 sm:border-b-0 sm:pb-0" />
+          <InfoField label={khachHang.loaiKhachHang === "doanh_nghiep" ? "Địa chỉ trụ sở" : "Địa chỉ"} value={khachHang.diaChi} icon={MapPin} className="pt-5" />
+        </dl>
+      </section>
+      <CustomerPurchaseHistory key={id} customerId={id} />
     </PageContainer>
   );
 }

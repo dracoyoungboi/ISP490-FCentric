@@ -3,6 +3,7 @@ package com.dev.backend.services.impl.entities;
 
 import com.dev.backend.dto.request.KhachHangCreating;
 import com.dev.backend.dto.request.KhachHangUpdating;
+import com.dev.backend.dto.request.PosQuickCustomerCreating;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.KhachHangDetailDto;
 import com.dev.backend.dto.response.customize.LichSuMuaHangDto;
@@ -16,15 +17,21 @@ import com.dev.backend.repository.KhachHangRepository;
 import com.dev.backend.services.impl.BaseServiceImpl;
 import jakarta.persistence.EntityManager;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Service
 public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
+
+    private static final int MAX_POS_CUSTOMER_PAGE_SIZE = 50;
 
     private final KhachHangRepository repository;
     private final KhachHangMapper mapper;
@@ -105,6 +112,51 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         return ResponseEntity.ok(ResponseData.<String>builder().status(200).data("Success").message("Success").build());
     }
 
+    /**
+     * Thêm nhanh khách hàng tại quầy POS (tên + SĐT).
+     * - SĐT được chuẩn hóa (bỏ khoảng trắng, dấu chấm, gạch) và phải là 10 số bắt đầu bằng 0.
+     * - SĐT đã tồn tại -> 409, data = khách hàng hiện có để thu ngân chọn lại (không tạo trùng).
+     * - Mã khách hàng sinh tự động: KH + SĐT (thêm hậu tố nếu mã đã bị dùng).
+     */
+    @Transactional
+    public KhachHangDto quickCreateForPos(PosQuickCustomerCreating request) {
+        String ten = request == null || request.getTenKhachHang() == null ? "" : request.getTenKhachHang().trim();
+        String sdt = request == null || request.getSoDienThoai() == null ? "" : request.getSoDienThoai().replaceAll("[\\s.\\-]", "");
+
+        if (ten.isEmpty()) {
+            throw new CommonException("Vui lòng nhập tên khách hàng");
+        }
+        if (ten.length() > 200) {
+            throw new CommonException("Tên khách hàng tối đa 200 ký tự");
+        }
+        if (!sdt.matches("^0\\d{9}$")) {
+            throw new CommonException("Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 0");
+        }
+
+        KhachHang existing = repository.findFirstBySoDienThoai(sdt).orElse(null);
+        if (existing != null) {
+            throw new CommonException(
+                    "Số điện thoại đã thuộc khách hàng " + existing.getTenKhachHang(),
+                    HttpStatus.CONFLICT,
+                    mapper.toDto(existing));
+        }
+
+        String ma = "KH" + sdt;
+        int suffix = 1;
+        while (repository.existsByMaKhachHang(ma)) {
+            ma = "KH" + sdt + "-" + suffix++;
+        }
+
+        KhachHang saved = repository.save(KhachHang.builder()
+                .maKhachHang(ma)
+                .tenKhachHang(ten)
+                .soDienThoai(sdt)
+                .loaiKhachHang("le")
+                .trangThai(1)
+                .build());
+        return mapper.toDto(saved);
+    }
+
     // Function Edit Customer
     @Transactional
     public KhachHangDto update(Integer id, KhachHangUpdating updating) {
@@ -114,6 +166,25 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         mapper.partialUpdate(updating, entity);
         entity = repository.save(entity);
         return mapper.toDto(entity);
+    }
+
+    /**
+     * Tìm khách cho màn POS phía server (mỗi lần gõ), để quầy mở từ trước vẫn thấy khách quầy khác
+     * vừa thêm. Từ khóa tối đa 100 ký tự; ký tự đại diện LIKE do người dùng gõ được escape.
+     */
+    @Transactional(readOnly = true)
+    public Page<KhachHangDto> searchActiveForPos(String q, int page, int size) {
+        String keyword = q == null ? "" : q.trim();
+        if (keyword.length() > 100) {
+            keyword = keyword.substring(0, 100);
+        }
+        String pattern = keyword.isEmpty() ? null : "%" + escapeLike(keyword.toLowerCase(Locale.ROOT)) + "%";
+        int safeSize = Math.max(1, Math.min(size, MAX_POS_CUSTOMER_PAGE_SIZE));
+        return repository.searchActiveForPos(pattern, PageRequest.of(Math.max(0, page), safeSize)).map(mapper::toDto);
+    }
+
+    private static String escapeLike(String value) {
+        return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
     @Transactional(readOnly = true)

@@ -3,13 +3,18 @@ package com.dev.backend.controller;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.PosCheckoutCreating;
+import com.dev.backend.dto.request.PosQuickCustomerCreating;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.PosCatalogItemDto;
 import com.dev.backend.dto.response.customize.PosCheckoutRecoveryResponse;
 import com.dev.backend.dto.response.customize.PosCheckoutResponse;
+import com.dev.backend.dto.response.entities.KhachHangDto;
+import com.dev.backend.dto.response.customize.PayosPaymentLinkDto;
+import com.dev.backend.services.impl.payos.PosPayosService;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.services.impl.entities.PosCatalogService;
 import com.dev.backend.services.impl.entities.PosCheckoutService;
+import com.dev.backend.services.impl.entities.KhachHangService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -18,6 +23,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * API POS: catalog/tra cứu (Phase 02) + checkout tiền mặt & phục hồi (Phase 03).
@@ -33,6 +39,12 @@ public class PosController {
 
     @Autowired
     private PosCheckoutService posCheckoutService;
+
+    @Autowired
+    private KhachHangService khachHangService;
+
+    @Autowired
+    private PosPayosService posPayosService;
 
     /** Gate server-side: mặc định TẮT; chỉ bật khi triển khai có chủ đích. */
     @Value("${pos.checkout-enabled:false}")
@@ -125,6 +137,122 @@ public class PosController {
                         .status(200)
                         .data(posCheckoutService.checkout(request))
                         .message("Thanh toán thành công")
+                        .error(null)
+                        .build()
+        );
+    }
+
+    /** Phương thức thanh toán đang bật ở quầy: {cash: true, payos: true/false}. */
+    @GetMapping("/payment-methods")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.nhan_vien_ban_hang
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<ResponseData<Map<String, Boolean>>> paymentMethods() {
+        return ResponseEntity.ok(ResponseData.<Map<String, Boolean>>builder()
+                .status(200).data(posPayosService.paymentMethods()).message("Success").error(null).build());
+    }
+
+    /**
+     * Chuyển khoản payOS: giữ chỗ hàng + tạo mã QR. Body giống checkout tiền mặt
+     * (requestId, khoId, khachHangId, items, note); phần payment bị bỏ qua.
+     */
+    @PostMapping("/payos/payment-links")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.nhan_vien_ban_hang
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<ResponseData<PayosPaymentLinkDto>> createPayosLink(@RequestBody PosCheckoutCreating request) {
+        if (!checkoutEnabled) {
+            throw new CommonException("Chức năng thanh toán POS chưa được kích hoạt trên hệ thống",
+                    HttpStatus.SERVICE_UNAVAILABLE, null);
+        }
+        return ResponseEntity.ok(ResponseData.<PayosPaymentLinkDto>builder()
+                .status(200).data(posPayosService.createLink(request)).message("Đã tạo mã QR").error(null).build());
+    }
+
+    /** Trạng thái giao dịch chuyển khoản (màn POS hỏi mỗi vài giây). PAID -> kèm kết quả đơn. */
+    @GetMapping("/payos/payment-links/{orderCode}")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.nhan_vien_ban_hang,
+                    IRoleType.quan_ly_kho
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<ResponseData<PayosPaymentLinkDto>> getPayosLink(@PathVariable Long orderCode) {
+        return ResponseEntity.ok(ResponseData.<PayosPaymentLinkDto>builder()
+                .status(200).data(posPayosService.getStatus(orderCode)).message("Success").error(null).build());
+    }
+
+    /** Hủy mã QR, trả lại hàng giữ chỗ (nếu khách đã kịp trả thì hoàn tất đơn thay vì hủy). */
+    @PostMapping("/payos/payment-links/{orderCode}/cancel")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.nhan_vien_ban_hang
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<ResponseData<PayosPaymentLinkDto>> cancelPayosLink(@PathVariable Long orderCode) {
+        return ResponseEntity.ok(ResponseData.<PayosPaymentLinkDto>builder()
+                .status(200).data(posPayosService.cancel(orderCode)).message("Đã hủy mã QR").error(null).build());
+    }
+
+    /**
+     * Tìm khách hàng đang hoạt động cho hộp chọn khách của màn POS (theo tên / SĐT / mã),
+     * phân trang server-side; Khách lẻ đứng đầu, khách mới thêm kế tiếp.
+     */
+    @GetMapping("/customers")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.nhan_vien_ban_hang
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<ResponseData<Page<KhachHangDto>>> searchCustomers(
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return ResponseEntity.ok(
+                ResponseData.<Page<KhachHangDto>>builder()
+                        .status(200)
+                        .data(khachHangService.searchActiveForPos(q, page, size))
+                        .message("Success")
+                        .error(null)
+                        .build()
+        );
+    }
+
+    /**
+     * Thêm nhanh khách hàng tại quầy (tên + SĐT). Trả về khách vừa tạo để chọn ngay
+     * vào hóa đơn. SĐT trùng -> 409 kèm khách hàng hiện có.
+     */
+    @PostMapping("/customers")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.nhan_vien_ban_hang
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<ResponseData<KhachHangDto>> quickCreateCustomer(
+            @RequestBody PosQuickCustomerCreating request
+    ) {
+        return ResponseEntity.ok(
+                ResponseData.<KhachHangDto>builder()
+                        .status(200)
+                        .data(khachHangService.quickCreateForPos(request))
+                        .message("Đã thêm khách hàng")
                         .error(null)
                         .build()
         );

@@ -21,11 +21,28 @@ export const SHEET_SIZE_CLASSES = {
 };
 
 /**
- * Lề giấy — ĐỊNH NGHĨA DUY NHẤT bằng đơn vị vật lý (mm), dùng chung cho cả
- * bản xem trước trên màn hình (trình duyệt render mm theo 96dpi) lẫn bản in
- * (@page margin = 0 — lề KHÔNG tính hai lần; tờ giấy giữ nguyên padding này
- * khi in nên bố cục in = bố cục xem trước).
+ * Lề giấy (mm) — NGUỒN SỐ LIỆU DUY NHẤT cho cả hai nơi:
+ * - màn hình: padding của tờ giấy (SHEET_PADDING_CLASSES bên dưới — Tailwind
+ *   cần class viết sẵn nên giá trị được lặp lại ở đó, PHẢI khớp bảng này);
+ * - bản in: `@page { margin }` (getPaperPageCss). Lề do trình duyệt áp cho
+ *   TỪNG trang nên phiếu dài nhiều trang vẫn có lề trên/dưới ở mọi trang;
+ *   khi in tờ giấy bỏ padding (print:p-0!) để lề không bị tính hai lần.
  */
+export const PAPER_MARGIN_MM = {
+    narrow: 8,
+    default: 12,
+    wide: 20,
+    // K80: lề nhiệt mỏng để tận dụng khổ cuộn 80mm
+    thermal: 3,
+};
+
+/** Lề (mm) của một cấu hình giấy. */
+export function getPaperMarginMm(paper) {
+    if (paper.size === "K80") return PAPER_MARGIN_MM.thermal;
+    return PAPER_MARGIN_MM[paper.margin] ?? PAPER_MARGIN_MM.default;
+}
+
+/** Padding màn hình — giá trị PHẢI khớp PAPER_MARGIN_MM. */
 export const SHEET_PADDING_CLASSES = {
     narrow: "p-[8mm]",
     default: "p-[12mm]",
@@ -49,7 +66,12 @@ const PAPER_HEIGHT_MM = {
     K80: { portrait: null, landscape: null },
 };
 
-/** Class cho tờ giấy trên màn hình (kích thước + padding) theo cấu hình. */
+/**
+ * Class cho tờ giấy theo cấu hình: màn hình = kích thước + padding (lề);
+ * khi in = bỏ chiều rộng cố định và padding (print:w-auto! print:p-0!) vì
+ * khổ giấy + lề đã do @page đảm nhiệm — vùng nội dung in rộng đúng bằng
+ * vùng nội dung trên bản xem trước.
+ */
 export function getPaperSheetClasses(paper) {
     const sizeKey = `${paper.size}-${paper.size === "K80" ? "portrait" : paper.orientation}`;
     const sizeClass = SHEET_SIZE_CLASSES[sizeKey] ?? SHEET_SIZE_CLASSES["A4-portrait"];
@@ -57,7 +79,7 @@ export function getPaperSheetClasses(paper) {
         paper.size === "K80"
             ? SHEET_PADDING_CLASSES.thermal
             : SHEET_PADDING_CLASSES[paper.margin] ?? SHEET_PADDING_CLASSES.default;
-    return `${sizeClass} ${paddingClass}`;
+    return `${sizeClass} ${paddingClass} print:w-auto! print:p-0!`;
 }
 
 /** Chiều rộng tờ giấy tính bằng px (96 dpi) — dùng cho zoom. */
@@ -99,44 +121,50 @@ export function computeFitScale(paper, availWidth, availHeight) {
  * CSS @page động cho bản in theo cấu hình. Được chèn qua thẻ <style> nằm
  * sau print.css trong document order nên ghi đè @page mặc định.
  *
- * margin: 0 — lề vật lý do chính tờ giấy đảm nhiệm (SHEET_PADDING_CLASSES,
- * mm) để bản in và bản xem trước dùng ĐÚNG MỘT định nghĩa lề, không cộng dồn
- * hai lần, không làm nội dung co hẹp lại so với khổ giấy thiết kế.
+ * margin = lề cấu hình (PAPER_MARGIN_MM) — trình duyệt áp lề cho TỪNG trang
+ * nên chỗ ngắt trang không còn sát mép giấy. Tờ giấy bỏ padding khi in nên
+ * lề không cộng dồn hai lần. Lưu ý: hộp thoại in phải để Lề = "Mặc định"
+ * (chọn "Không có" thì trình duyệt bỏ qua @page margin).
  *
- * K80: khổ nhiệt 80mm — chiều cao khai báo 297mm (≈ A4) vì `size: 80mm auto`
- * KHÔNG phải cú pháp hợp lệ của CSS Paged Media (trình duyệt yêu cầu một
- * chiều dài xác định); đây chỉ là đơn vị phân trang cho trình duyệt, máy in
- * nhiệt cắt theo nội dung thật. Cần cấu hình khổ giấy 80mm ở driver máy in.
+ * K80: giấy nhiệt CUỘN — `size: 80mm auto` không phải cú pháp hợp lệ nên
+ * chiều cao trang = chiều cao THẬT của nội dung (`thermalHeightMm`, đo bởi
+ * useThermalPageHeight) -> cả phiếu nằm trên MỘT trang, không bị cắt giữa
+ * chừng và không đẩy ra giấy trắng thừa. Chưa đo được -> tạm 297mm.
+ * Cần chọn khổ giấy cuộn 80mm ở driver máy in nhiệt.
  */
-export function getPaperPageCss(paper) {
+export function getPaperPageCss(paper, { thermalHeightMm } = {}) {
+    const margin = getPaperMarginMm(paper);
     if (paper.size === "K80") {
-        return "@media print { @page { size: 80mm 297mm; margin: 0; } }";
+        const height = thermalHeightMm > 0 ? thermalHeightMm : 297;
+        return `@media print { @page { size: 80mm ${height}mm; margin: ${margin}mm; } }`;
     }
-    return `@media print { @page { size: ${paper.size} ${paper.orientation}; margin: 0; } }`;
+    return `@media print { @page { size: ${paper.size} ${paper.orientation}; margin: ${margin}mm; } }`;
 }
 
 /**
- * Vạch ranh giới trang cho BẢN XEM TRƯỚC (chỉ screen): kẻ một đường mờ đúng
- * mỗi chiều cao trang (297/210/148mm) kể từ đầu tờ giấy — chỉ lộ ra khi nội
- * dung dài hơn một trang, giúp nhìn trước vị trí ngắt trang. KHÔNG áp cho
- * bản in (tờ mirror dùng class riêng) và không áp cho K80 (giấy nhiệt liên
- * tục, không có ranh giới trang cố định).
+ * Vạch ngắt trang cho BẢN XEM TRƯỚC (chỉ screen): mỗi trang in chứa
+ * (chiều cao trang − 2 × lề) nội dung, nên vạch thứ k nằm ở
+ * lề + k × (chiều cao trang − 2 × lề) tính từ mép trên tờ giấy — tức bội số
+ * của chiều cao vùng nội dung, đo từ mép trên vùng nội dung (content-box).
+ * Lớp vạch chỉ vẽ trong content-box (không lộ vạch ở lề); lớp nền trắng thứ
+ * hai phủ cả tờ giấy. Chỉ lộ ra khi nội dung dài hơn một trang. KHÔNG áp cho
+ * bản in và K80 (giấy nhiệt liên tục, không có ranh giới trang cố định).
  */
 export function getPaperRulerCss(paper) {
     if (paper.size === "K80") return "";
-    const heightMm =
-        paper.size === "A4"
-            ? paper.orientation === "landscape" ? 210 : 297
-            : paper.orientation === "landscape" ? 148 : 210;
+    const dims = PAPER_HEIGHT_MM[paper.size] ?? PAPER_HEIGHT_MM.A4;
+    const heightMm = dims[paper.orientation] ?? dims.portrait;
+    if (!heightMm) return "";
+    const contentHeightMm = heightMm - 2 * getPaperMarginMm(paper);
     return `@media screen {
   .print-preview-sheet.print-ruled {
-    background-image: repeating-linear-gradient(
-      to bottom,
-      transparent 0,
-      transparent calc(${heightMm}mm - 1px),
-      rgba(22, 119, 255, 0.16) calc(${heightMm}mm - 1px),
-      rgba(22, 119, 255, 0.16) ${heightMm}mm
-    );
+    background-image:
+      linear-gradient(to bottom, transparent calc(100% - 1px), rgba(22, 119, 255, 0.16) calc(100% - 1px)),
+      linear-gradient(#fff, #fff);
+    background-size: 100% ${contentHeightMm}mm, auto;
+    background-repeat: repeat-y, no-repeat;
+    background-origin: content-box, border-box;
+    background-clip: content-box, border-box;
   }
 }`;
 }

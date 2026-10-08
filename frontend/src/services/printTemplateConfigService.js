@@ -56,7 +56,7 @@ export function buildDefaultTemplateConfig(schema, templateDef) {
         }
     }
 
-    return {
+    const config = {
         version: CONFIG_VERSION,
         documentType: schema.key,
         id: templateDef.id,
@@ -75,6 +75,8 @@ export function buildDefaultTemplateConfig(schema, templateDef) {
         sections,
         columns,
     };
+    // Mặc định riêng của mẫu (vd. K80 gọn cho POS) ghi đè "bật tất cả"
+    return templateDef.defaults ? deepMerge(config, templateDef.defaults) : config;
 }
 
 // Merge đệ quy: giá trị đã lưu đè lên default, bù các trường mới được thêm
@@ -144,11 +146,23 @@ const registryDefault = (documentType, templateId) => {
 };
 
 /**
- * Ép các trường THIẾT YẾU (số phiếu, bảng hàng hóa) luôn hiển thị — ngăn
- * cấu hình khiến chứng từ in ra không thể nhận diện hoặc đối chiếu.
+ * Ép các trường THIẾT YẾU (số phiếu, bảng hàng hóa, cột tên hàng/SKU/số
+ * lượng/tiền) luôn hiển thị — ngăn cấu hình khiến chứng từ in ra không thể
+ * nhận diện hoặc đối chiếu (kể cả cấu hình cũ đã lưu trước khi có ràng buộc).
  */
 const applyEssentials = (schema, config) => {
     for (const section of schema.sections) {
+        // Chỉ section BẢNG mới có danh sách cột — section "info" dùng
+        // `columns` là SỐ cột của lưới (vd. 3), không phải mảng.
+        const tableColumns =
+            section.type === "items"
+                ? [...(section.columns ?? []), ...(section.compactColumns ?? [])]
+                : [];
+        for (const column of tableColumns) {
+            if (column.essential) {
+                config.columns = { ...config.columns, [column.key]: true };
+            }
+        }
         if (section.essentialShow) {
             config.sections[section.key] = { ...config.sections[section.key], show: true };
         }
@@ -164,10 +178,77 @@ const applyEssentials = (schema, config) => {
     return config;
 };
 
+/**
+ * Biến thể khổ giấy ĐANG DÙNG cho in thật của một loại chứng từ (mô hình
+ * MỘT MẪU) — nguồn logic DUY NHẤT cho trang cấu hình, editor và trang in thật:
+ * - có cấu hình đã lưu -> biến thể đang áp dụng theo bảng server nếu nó có
+ *   cấu hình lưu, ngược lại biến thể đã lưu đầu tiên;
+ * - chưa lưu gì -> mẫu mặc định của registry.
+ * Chỉ xét các định danh có trong registry (bỏ qua dữ liệu lạ trên server).
+ */
+export function resolveInUseTemplateId(bundle, schema) {
+    if (!schema) return null;
+    const registryIds = new Set(schema.templates.map((template) => template.id));
+    const savedIds = (bundle?.configs ?? [])
+        .filter(
+            (config) =>
+                config.documentType === schema.key && registryIds.has(config.templateId)
+        )
+        .map((config) => config.templateId);
+    const activeId = bundle?.active?.[schema.key];
+    if (savedIds.length > 0) {
+        return savedIds.includes(activeId) ? activeId : savedIds[0];
+    }
+    return (schema.templates.find((template) => template.isDefault) ?? schema.templates[0])?.id ?? null;
+}
+
+/**
+ * Đổi khổ giấy trong editor = đổi BIẾN THỂ nhưng GIỮ tuỳ chỉnh của bản nháp
+ * — mô hình một mẫu: người dùng chỉ đổi khổ giấy, không mất cấu hình đã chỉnh.
+ * - Cùng nhóm khổ tờ (A4 <-> A5): giữ màu nhấn, thương hiệu, section/field,
+ *   cột, lề, hướng giấy.
+ * - Qua lại khổ nhiệt K80: bố cục khác hẳn (phiếu bán lẻ gọn vs. chứng từ
+ *   đầy đủ) nên section/cột lấy theo MẶC ĐỊNH của khổ đích; chỉ giữ màu nhấn,
+ *   thương hiệu và tên.
+ * - Tên mẫu: nếu vẫn là tên mặc định của khổ cũ -> dùng tên mặc định của khổ
+ *   mới; người dùng đã đặt tên riêng -> giữ nguyên.
+ * - K80 luôn khổ dọc.
+ * Trả null nếu loại chứng từ không hỗ trợ khổ giấy đích.
+ */
+export function buildVariantFromDraft(schema, draft, targetPaper) {
+    const targetDef = schema.templates.find((template) => template.paperSize === targetPaper);
+    if (!targetDef || !draft) return null;
+    const sourceDef = schema.templates.find((template) => template.id === draft.id);
+    const customName = draft.name?.trim() && draft.name !== sourceDef?.name;
+    const crossesThermal = (draft.paperSize === "K80") !== (targetPaper === "K80");
+    const carried = {
+        name: customName ? draft.name : targetDef.name,
+        accentColor: draft.accentColor,
+        branding: draft.branding,
+    };
+    if (!crossesThermal) {
+        Object.assign(carried, {
+            orientation: targetPaper === "K80" ? "portrait" : draft.orientation,
+            margin: draft.margin,
+            sections: draft.sections,
+            columns: draft.columns,
+        });
+    }
+    const next = deepMerge(buildDefaultTemplateConfig(schema, targetDef), carried);
+    return applyEssentials(schema, structuredClone(next));
+}
+
 export const printTemplateConfigService = {
     /** Nạp bundle từ server (cache; force = refetch). */
     load({ force = false } = {}) {
         return loadBundle({ force });
+    },
+
+    /** Định danh biến thể đang dùng cho in thật (xem resolveInUseTemplateId). */
+    async getInUseTemplateId(documentType) {
+        const schema = getPrintSchema(documentType);
+        if (!schema) return null;
+        return resolveInUseTemplateId(await loadBundle(), schema);
     },
 
     /**
@@ -209,18 +290,7 @@ export const printTemplateConfigService = {
     async getActiveTemplate(documentType) {
         const schema = getPrintSchema(documentType);
         if (!schema) return null;
-        const bundle = await loadBundle();
-        const saved = bundle.configs.filter(
-            (config) => config.documentType === documentType
-        );
-        const activeId = bundle.active?.[documentType];
-        const targetId =
-            saved.length > 0
-                ? saved.some((config) => config.templateId === activeId)
-                    ? activeId
-                    : saved[0].templateId
-                : (schema.templates.find((template) => template.isDefault) ??
-                      schema.templates[0])?.id;
+        const targetId = resolveInUseTemplateId(await loadBundle(), schema);
         if (!targetId) return null;
         return this.getTemplate(documentType, targetId);
     },

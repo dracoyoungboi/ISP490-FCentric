@@ -74,8 +74,26 @@
     background: white !important;
   }
 
-  /* Khối chữ ký không bị ngắt giữa chừng khi sang trang */
+  /* Khối chữ ký không bị ngắt giữa chừng khi sang trang, và KHÔNG đứng
+     một mình ở trang cuối: nếu phải sang trang thì kéo theo phần nội dung
+     ngay trước nó (dòng hàng cuối / ghi chú) — trang chỉ có chữ ký dễ bị
+     tách rời, đánh tráo khỏi chứng từ */
   .print-signatures {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    break-before: avoid;
+    page-break-before: avoid;
+  }
+
+  /* Tiêu đề mục luôn đi cùng nội dung ngay sau nó — không để tiêu đề
+     "DANH SÁCH SẢN PHẨM" nằm cuối trang còn bảng sang trang sau */
+  .print-section-title {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* Khối thông tin ngắn (lưới nhãn/giá trị) không bị cắt đôi giữa hai trang */
+  .print-keep-together {
     break-inside: avoid;
     page-break-inside: avoid;
   }

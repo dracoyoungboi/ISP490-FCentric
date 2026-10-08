@@ -61,23 +61,21 @@ public class NghiepVuSanPhamController {
         return yeuCauMuaHangService.create(creating);
     }
 
-    // Quản lý kho duyệt yêu cầu mua hàng
+    // Duyệt (trangThai = 2) / từ chối (trangThai = 4) yêu cầu nhập hàng đang Chờ duyệt.
+    // Chỉ quản trị viên hoặc quản lý kho của ĐÚNG kho nhập (kiểm tra trong service).
+    // Từ chối bắt buộc gửi body { "lyDoTuChoi": "..." }.
     @PutMapping("/yeu-cau-mua-hang/duyet-tu-choi/{id}/{trangThai}")
     @RequireAuth(
             roles = {
                     IRoleType.quan_tri_vien,
-                    IRoleType.quan_ly_kho,
-                    IRoleType.nhan_vien_mua_hang
+                    IRoleType.quan_ly_kho
             }
     )
-    public ResponseEntity<ResponseData<String>> duyetYeuCauMuaHang(@PathVariable Integer id,@PathVariable Integer trangThai) {
-        YeuCauMuaHang yeuCauMuaHang = yeuCauMuaHangService.getOne(id).orElseThrow(
-                () -> new CommonException("Không tìm thấy yêu cầu mua hàng id: " + id)
-        );
-        // duyệt hoặc không duyệt
-        yeuCauMuaHang.setTrangThai(trangThai);
-        //dung update san truyen ID ( base, jpa hỗ trợ)
-        yeuCauMuaHangService.update(yeuCauMuaHang.getId(), yeuCauMuaHang);
+    public ResponseEntity<ResponseData<String>> duyetYeuCauMuaHang(
+            @PathVariable Integer id,
+            @PathVariable Integer trangThai,
+            @RequestBody(required = false) DuyetYeuCauMuaHangRequest body) {
+        yeuCauMuaHangService.duyetTuChoi(id, trangThai, body != null ? body.getLyDoTuChoi() : null);
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())

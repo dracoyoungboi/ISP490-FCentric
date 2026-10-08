@@ -9,9 +9,10 @@ import { getPaperPageCss, getPaperRulerCss } from "./paperStyles";
  * - TOÀN BỘ shell backoffice bị ẩn (sidebar, header, rail loại chứng từ,
  *   toolbar, card, nền xám, lớp phủ, toast) -> trang in CHỈ còn nội dung
  *   chứng từ; mọi quy tắc cũ "bóc UI" bằng :has() không còn cần thiết.
- * - Tờ giấy giữ nguyên kích thước mm + padding mm của cấu hình và KHÔNG có
- *   zoom màn hình -> tỷ lệ in = 100% khổ giấy thật, bố cục in = bố cục xem
- *   trước (@page margin = 0, lề do chính tờ giấy đảm nhiệm — không tính 2 lần).
+ * - Khổ giấy + lề do @page đảm nhiệm (lề áp cho TỪNG trang); tờ giấy bỏ
+ *   chiều rộng cố định + padding khi in (print:w-auto! print:p-0! trong
+ *   getPaperSheetClasses) và KHÔNG có zoom màn hình -> vùng nội dung in
+ *   rộng đúng bằng vùng nội dung xem trước, lề không tính 2 lần.
  *
  * Dùng chung cho trang cấu hình mẫu in (preview nhúng), editor và trang
  * xem trước riêng (PrintTemplateDetailPage).
@@ -25,7 +26,7 @@ const PREVIEW_PRINT_STYLES = `
   body:has(.print-template-mirror) [data-sonner-toaster],
   body:has(.print-template-mirror) [data-radix-popper-content-wrapper],
   body:has(.print-template-mirror) [data-slot="dialog-overlay"] { display: none !important; }
-  .print-template-mirror { display: block !important; }
+  .print-template-mirror { display: block !important; position: static !important; visibility: visible !important; }
   .print-mirror-sheet { min-height: 0 !important; border: none !important; box-shadow: none !important; }
 }
 `;

@@ -1,7 +1,8 @@
 import axios from "axios";
+import { API_BASE_URL } from "./src/config/apiBase";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL, // cấu hình theo môi trường
+  baseURL: API_BASE_URL, // localhost khi dev, cùng tên miền khi deploy
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",

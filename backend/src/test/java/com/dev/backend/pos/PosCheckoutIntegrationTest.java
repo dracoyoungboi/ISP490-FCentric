@@ -32,8 +32,9 @@ import static org.junit.jupiter.api.Assertions.*;
  * (webEnvironment=RANDOM_PORT), HTTP thật với TestRestTemplate (kết nối độc lập),
  * transaction/lock THẬT trên MySQL — KHÔNG dùng mock, KHÔNG dùng H2 thay thế.
  *
- * Yêu cầu schema MySQL DÙNG MỘT LẦN (xem docs/pos/05-test-report.md):
- *   jdbc:mysql://127.0.0.1:3307/fcentric_pos_test (root, mật khẩu rỗng)
+ * Yêu cầu schema MySQL DÙNG MỘT LẦN, import Database/MyDB_v1.3.sql + pos_checkout_v1.sql + payos_v1.sql:
+ *   mặc định jdbc:mysql://127.0.0.1:3307/fcentric_pos_test (root, mật khẩu rỗng);
+ *   đổi bằng -Dpos.it.db.url / -Dpos.it.db.user / -Dpos.it.db.pass
  * — do chính quy trình test khởi tạo bằng mysqld --initialize-insecure trong thư mục
  * tạm; KHÔNG đụng MySQL đang chạy của máy, KHÔNG đụng dev/production.
  */
@@ -247,8 +248,12 @@ class PosCheckoutIntegrationTest {
         Integer khach = khachHangId();
         ResponseEntity<Map> res = postCheckout(cashier, checkoutBody("it-" + UUID.randomUUID(), 93, 6, 120000, 720000, khach));
 
-        assertEquals(HttpStatus.BAD_REQUEST, res.getStatusCode());
+        // Thiếu hàng: 409 có cấu trúc {insufficient: [{bienTheSanPhamId, conLai}]}
+        assertEquals(HttpStatus.CONFLICT, res.getStatusCode());
         assertTrue(String.valueOf(res.getBody().get("message")).contains("không đủ"));
+        List<Map<String, Object>> insufficient = (List<Map<String, Object>>) ((Map<String, Object>) res.getBody().get("data")).get("insufficient");
+        assertEquals(93, ((Number) insufficient.get(0).get("bienTheSanPhamId")).intValue());
+        assertEquals(0, new BigDecimal("5").compareTo(new BigDecimal(String.valueOf(insufficient.get(0).get("conLai")))));
         assertEquals(0, new BigDecimal("5").compareTo(available93()));
         assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM don_ban_hang", Integer.class));
         assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM pos_payment", Integer.class));
@@ -381,6 +386,34 @@ class PosCheckoutIntegrationTest {
         // không bao giờ âm kho
         assertTrue(jdbc.queryForObject("SELECT MIN(so_luong_ton - so_luong_da_dat) FROM ton_kho_theo_lo", BigDecimal.class)
                 .compareTo(BigDecimal.ZERO) >= 0);
+    }
+
+    @Test
+    void t09b_haiCashier_dongThoi_duHangCaHai_caHaiThanhCong_soChungTuKhongTrung() throws Exception {
+        // Tồn 5: hai quầy cùng mua 1 -> cả hai phải thành công (trước đây quầy sau nhận 409 trùng số SO).
+        String cashierA = createCashier("nhan_vien_ban_hang", 1);
+        String cashierB = createCashier("nhan_vien_ban_hang", 1);
+        Integer khach = khachHangId();
+        for (int round = 0; round < 5; round++) {
+            CountDownLatch start = new CountDownLatch(1);
+            ExecutorService pool = Executors.newFixedThreadPool(2);
+            Future<ResponseEntity<Map>> f1 = pool.submit(() -> {
+                start.await();
+                return postCheckout(cashierA, checkoutBody("it-" + UUID.randomUUID(), 93, 1, 120000, 120000, khach));
+            });
+            Future<ResponseEntity<Map>> f2 = pool.submit(() -> {
+                start.await();
+                return postCheckout(cashierB, checkoutBody("it-" + UUID.randomUUID(), 93, 1, 120000, 120000, khach));
+            });
+            start.countDown();
+            assertEquals(HttpStatus.OK, f1.get().getStatusCode(), "vòng " + round + ": " + f1.get().getBody());
+            assertEquals(HttpStatus.OK, f2.get().getStatusCode(), "vòng " + round + ": " + f2.get().getBody());
+            pool.shutdown();
+            jdbc.execute("UPDATE ton_kho_theo_lo SET so_luong_ton = CASE lo_hang_id "
+                    + "WHEN 69 THEN 3.000 WHEN 70 THEN 1.000 WHEN 71 THEN 1.000 END, so_luong_da_dat = 0.000");
+        }
+        assertEquals(10, jdbc.queryForObject("SELECT COUNT(DISTINCT so_don_hang) FROM don_ban_hang", Integer.class));
+        assertEquals(10, jdbc.queryForObject("SELECT COUNT(DISTINCT so_phieu_xuat) FROM phieu_xuat_kho", Integer.class));
     }
 
     @Test
@@ -583,6 +616,57 @@ class PosCheckoutIntegrationTest {
         assertEquals(HttpStatus.OK, converted.getStatusCode());
         assertEquals(1, jdbc.queryForObject(
                 "SELECT COUNT(*) FROM don_ban_hang WHERE loai_chung_tu = 'don_ban_hang' AND so_don_hang LIKE 'SO%'", Integer.class));
+    }
+
+    @Test
+    void t19_timKhachPos_serverSide_khachLeDauTien_boKhachNgungHoatDong() {
+        String cashier = createCashier("nhan_vien_ban_hang", 1);
+        String suffix = String.format("%08d", System.nanoTime() % 100_000_000L);
+        String active = "09" + suffix;
+        String inactive = "08" + suffix;
+        jdbc.update("DELETE FROM khach_hang WHERE ma_khach_hang LIKE 'KHIT%'");
+        jdbc.update("INSERT INTO khach_hang (ma_khach_hang, ten_khach_hang, so_dien_thoai, loai_khach_hang, trang_thai) VALUES (?, ?, ?, 'le', 1)",
+                "KHIT" + active, "Khách IT " + active, active);
+        jdbc.update("INSERT INTO khach_hang (ma_khach_hang, ten_khach_hang, so_dien_thoai, loai_khach_hang, trang_thai) VALUES (?, ?, ?, 'le', 0)",
+                "KHIT" + inactive, "Khách IT ngừng " + inactive, inactive);
+        try {
+            HttpHeaders h = new HttpHeaders();
+            h.setBearerAuth(cashier.replace("Bearer ", ""));
+            HttpEntity<Void> auth = new HttpEntity<>(h);
+
+            // Khách vừa thêm (sau khi màn POS đã mở) tìm được theo SĐT
+            List<Map<String, Object>> byPhone = customerContent(rest.exchange("/api/v1/pos/customers?q={q}",
+                    HttpMethod.GET, auth, Map.class, active));
+            assertEquals(1, byPhone.size());
+            assertEquals(active, byPhone.get(0).get("soDienThoai"));
+
+            // Ô tìm trống: Khách lẻ đứng đầu
+            List<Map<String, Object>> all = customerContent(rest.exchange("/api/v1/pos/customers",
+                    HttpMethod.GET, auth, Map.class));
+            assertEquals("KHLE", all.get(0).get("maKhachHang"));
+
+            // Khách ngừng hoạt động không xuất hiện
+            assertEquals(0, customerContent(rest.exchange("/api/v1/pos/customers?q={q}",
+                    HttpMethod.GET, auth, Map.class, inactive)).size());
+
+            // "%" là ký tự thường, không phải ký tự đại diện (không trả về mọi khách)
+            assertEquals(0, customerContent(rest.exchange("/api/v1/pos/customers?q={q}",
+                    HttpMethod.GET, auth, Map.class, "%")).size());
+
+            // Vai trò không bán hàng bị chặn
+            HttpHeaders hk = new HttpHeaders();
+            hk.setBearerAuth(createCashier("nhan_vien_kho", 1).replace("Bearer ", ""));
+            assertNotEquals(HttpStatus.OK, rest.exchange("/api/v1/pos/customers", HttpMethod.GET,
+                    new HttpEntity<>(hk), Map.class).getStatusCode());
+        } finally {
+            jdbc.update("DELETE FROM khach_hang WHERE ma_khach_hang LIKE 'KHIT%'");
+        }
+    }
+
+    private List<Map<String, Object>> customerContent(ResponseEntity<Map> res) {
+        assertEquals(HttpStatus.OK, res.getStatusCode(), String.valueOf(res.getBody()));
+        Map<String, Object> data = (Map<String, Object>) res.getBody().get("data");
+        return (List<Map<String, Object>>) data.get("content");
     }
 
     @AfterAll

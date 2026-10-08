@@ -24,15 +24,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import TableShell from "@/components/shared/TableShell";
 import { Button } from "@/components/ui/button";
-
-// Map trạng thái sang tông màu backoffice
-const STATUS_UI = {
-    0: { label: "Đang xử lý", tone: "warning" },
-    1: { label: "Đang xử lý", tone: "warning" },
-    2: { label: "Chờ nhận hàng", tone: "info" },
-    3: { label: "Đã nhập kho", tone: "success" },
-    4: { label: "Đã huỷ", tone: "danger" },
-};
+import { getGoodsReceiptStatus, getGoodsReceiptTypeLabel } from "@/constants/goodsReceipt";
 
 export default function PhieuNhapKhoDetail() {
     const { id } = useParams();
@@ -87,7 +79,7 @@ export default function PhieuNhapKhoDetail() {
     // Phiếu luân chuyển hoặc phiếu trả hàng (kế thừa) thì pass qua check lô
     const canComplete = isInternalTransfer || isSalesReturn || isAllDuLo;
 
-    const displayLoaiNhap = isSalesReturn ? "Nhập hoàn trả (Từ Đơn bán)" : (data.loaiNhap || "Phiếu nhập kho");
+    const displayLoaiNhap = getGoodsReceiptTypeLabel(data);
 
     const handleConfirmImport = async () => {
         setIsProcessing(true);
@@ -129,7 +121,7 @@ export default function PhieuNhapKhoDetail() {
         return data.items.reduce((acc, item) => acc + (item.soLuongDaKhaiBao || item.soLuongCanNhap || 0), 0);
     };
 
-    const statusInfo = STATUS_UI[data.trangThai] || { label: "Không xác định", tone: "info" };
+    const statusInfo = getGoodsReceiptStatus(data.trangThai);
 
     return (
         <PageContainer className="space-y-5">

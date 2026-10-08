@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
  * PrintLayout phụ trách). <thead> gốc được trình duyệt tự lặp lại
  * ở đầu mỗi trang in.
  * `compact`: layout khổ nhiệt K80 — chữ nhỏ, padding mỏng.
+ * `dense`: khổ A5 — chữ/padding nhỏ hơn A4 (vẫn dễ đọc khi in).
  */
 export default function PrintItemsTable({
     columns,
@@ -13,9 +14,15 @@ export default function PrintItemsTable({
     footer,
     emptyMessage = "Không có dữ liệu",
     compact = false,
+    dense = false,
 }) {
     return (
-        <table className={cn("w-full border-collapse", compact ? "text-[10px]" : "text-[13px]")}>
+        <table
+            className={cn(
+                "w-full border-collapse",
+                compact ? "text-[10px]" : dense ? "text-xs" : "text-[13px]"
+            )}
+        >
             <thead>
                 <tr>
                     {columns.map((column) => (
@@ -25,7 +32,9 @@ export default function PrintItemsTable({
                                 "border border-bo-border bg-bo-surface-subtle font-semibold uppercase tracking-wide text-bo-muted",
                                 compact
                                     ? "px-1 py-1 text-[8px]"
-                                    : "px-2.5 py-2 text-[11px]",
+                                    : dense
+                                      ? "px-1.5 py-1 text-[9px]"
+                                      : "px-2.5 py-2 text-[11px]",
                                 column.className
                             )}
                         >
@@ -43,7 +52,7 @@ export default function PrintItemsTable({
                                     key={column.key}
                                     className={cn(
                                         "border border-bo-border align-top text-bo-foreground",
-                                        compact ? "px-1 py-1" : "px-2.5 py-2",
+                                        compact ? "px-1 py-1" : dense ? "px-1.5 py-1" : "px-2.5 py-2",
                                         column.cellClassName
                                     )}
                                 >

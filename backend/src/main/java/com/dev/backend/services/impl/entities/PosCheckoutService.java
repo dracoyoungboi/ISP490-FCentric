@@ -38,6 +38,8 @@ import java.util.Optional;
 @Service
 public class PosCheckoutService {
 
+    static final String BUSY_MESSAGE = "Nhiều quầy đang thanh toán cùng lúc nên chưa tạo được đơn. Vui lòng bấm thanh toán lại.";
+
     @Autowired
     private PosCheckoutTransaction transaction;
 
@@ -52,8 +54,12 @@ public class PosCheckoutService {
 
     public PosCheckoutResponse checkout(PosCheckoutCreating request) {
         try {
-            return transaction.execute(request);
+            // Deadlock / trùng số chứng từ do quầy khác chạy cùng lúc -> thử lại transaction mới, cùng requestId.
+            return PosConcurrencyRetry.call(() -> transaction.execute(request));
         } catch (DataIntegrityViolationException ex) {
+            if (PosConcurrencyRetry.isDuplicateDocumentNumber(ex)) {
+                throw new CommonException(BUSY_MESSAGE, HttpStatus.CONFLICT, null);
+            }
             if (!isDuplicateRequestId(ex)) {
                 throw ex;
             }
@@ -62,7 +68,7 @@ public class PosCheckoutService {
                 return resolveExisting(request, existing);
             }
             // Bên thắng đã rollback -> key trống; thử lại đúng 1 lần (transaction mới, sạch).
-            return transaction.execute(request);
+            return PosConcurrencyRetry.call(() -> transaction.execute(request));
         } catch (CommonException ex) {
             try {
                 recordFailure(request, ex.getMessage());

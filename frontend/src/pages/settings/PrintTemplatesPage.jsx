@@ -28,7 +28,10 @@ import {
 } from "@/components/print/paperStyles";
 import { PRINT_DOCUMENT_TYPES, getPrintSchema } from "@/components/print/schemas/printSchemas";
 import { getSamplePrintModel } from "./samplePrintData";
-import { printTemplateConfigService } from "@/services/printTemplateConfigService";
+import {
+    printTemplateConfigService,
+    resolveInUseTemplateId,
+} from "@/services/printTemplateConfigService";
 import { companyProfileService } from "@/services/companyProfileService";
 import CompanyProfileDialog from "./CompanyProfileDialog";
 
@@ -122,19 +125,7 @@ export default function PrintTemplatesPage() {
     // có cấu hình lưu, ngược lại biến thể đã lưu đầu tiên; chưa lưu gì ->
     // mẫu mặc định của registry. KHÔNG có lựa chọn khổ giấy tương tác trên
     // trang xem — khổ giấy do cấu hình đã lưu quyết định.
-    const activeId = bundle?.active?.[schema?.key] ?? null;
-    const savedTemplateIds =
-        bundle?.configs
-            ?.filter((config) => config.documentType === schema?.key)
-            .map((config) => config.templateId) ?? [];
-    const targetTemplateId = schema
-        ? savedTemplateIds.length > 0
-            ? savedTemplateIds.includes(activeId)
-                ? activeId
-                : savedTemplateIds[0]
-            : (schema.templates.find((template) => template.isDefault) ??
-                  schema.templates[0])?.id
-        : null;
+    const targetTemplateId = bundle ? resolveInUseTemplateId(bundle, schema) : null;
     const variantDef = schema
         ? schema.templates.find((template) => template.id === targetTemplateId) ?? null
         : null;

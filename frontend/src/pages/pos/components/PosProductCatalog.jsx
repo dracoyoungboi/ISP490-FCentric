@@ -66,8 +66,8 @@ export default function PosProductCatalog({
           </div>
         </div>
         <div className="mt-3 flex items-center justify-between gap-3">
-          <div aria-label="Lọc theo nhóm hàng" className="flex min-w-0 gap-1.5 overflow-x-auto pb-0.5" role="tablist">
-            <button aria-selected className="shrink-0 rounded-full bg-bo-primary px-3 py-1.5 text-xs font-medium text-white" role="tab" type="button">Tất cả</button>
+          <div aria-label="Lọc theo nhóm hàng" className="flex min-w-0 gap-1.5 overflow-x-auto pb-0.5" role="group">
+            <button aria-pressed className="shrink-0 rounded-full bg-bo-primary px-3 py-1.5 text-xs font-medium text-white" type="button">Tất cả</button>
           </div>
           <span className="hidden shrink-0 text-xs text-bo-muted sm:inline">{totalElements} hàng hóa</span>
         </div>

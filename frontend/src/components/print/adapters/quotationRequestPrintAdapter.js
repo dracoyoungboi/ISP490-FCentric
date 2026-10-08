@@ -1,4 +1,5 @@
-import { formatDate, formatDateTime, formatNumber } from "@/utils/formatters";
+import { formatNumber } from "@/utils/formatters";
+import { formatPrintDate, formatPrintDateTime } from "./printFormat";
 
 /**
  * Adapter cho YÊU CẦU BÁO GIÁ — dữ liệu từ API
@@ -33,23 +34,27 @@ const dash = (value) => {
     return text === "" ? "—" : text;
 };
 
-const dashDate = (value) => (value ? formatDate(value) : "—");
-const dashDateTime = (value) => (value ? formatDateTime(value) : "—");
+const dashDate = (value) => (value ? formatPrintDate(value) : "—");
+const dashDateTime = (value) => (value ? formatPrintDateTime(value) : "—");
 const dashQuantity = (value) =>
     value === null || value === undefined ? "—" : formatNumber(value);
 
 export function toQuotationRequestPrintModel(raw) {
     const data = raw || {};
 
-    const suppliers = (data.donMuaHangs || []).map((po) => {
-        const status = SUPPLIER_QUOTE_STATUS[po.trangThai] || SUPPLIER_QUOTE_STATUS[1];
-        return {
-            name: dash(po.nhaCungCap?.tenNhaCungCap),
-            email: dash(po.nhaCungCap?.email),
-            phone: dash(po.nhaCungCap?.soDienThoai),
-            sentStatus: status.label,
-        };
-    });
+    // Bỏ nhà cung cấp đã bị xoá khỏi yêu cầu (trạng thái 0) — bản in chỉ
+    // liệt kê các nhà cung cấp còn được mời báo giá
+    const suppliers = (data.donMuaHangs || [])
+        .filter((po) => po?.trangThai !== 0)
+        .map((po) => {
+            const status = SUPPLIER_QUOTE_STATUS[po.trangThai] || SUPPLIER_QUOTE_STATUS[1];
+            return {
+                name: dash(po.nhaCungCap?.tenNhaCungCap),
+                email: dash(po.nhaCungCap?.email),
+                phone: dash(po.nhaCungCap?.soDienThoai),
+                sentStatus: status.label,
+            };
+        });
 
     const products = (data.chiTietYeuCauMuaHangs || []).map((item) => {
         const variant = item?.bienTheSanPham || {};
@@ -73,7 +78,9 @@ export function toQuotationRequestPrintModel(raw) {
     return {
         documentNumber: dash(data.soYeuCauMuaHang || `#${data.id}`),
         createdAt: dashDateTime(data.ngayTao),
-        deadline: dashDate(data.ngayGiaoDuKien),
+        // Ngày giao dự kiến của yêu cầu (ngayGiaoDuKien) — KHÔNG phải hạn
+        // nhà cung cấp phải gửi báo giá
+        expectedDate: dashDate(data.ngayGiaoDuKien),
         status: { label: status.label, tone: status.tone },
         warehouse: {
             name: dash(data.khoNhap?.tenKho),

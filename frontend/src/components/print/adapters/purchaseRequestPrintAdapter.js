@@ -1,4 +1,5 @@
-import { formatDate, formatDateTime, formatNumber } from "@/utils/formatters";
+import { formatNumber } from "@/utils/formatters";
+import { formatPrintDate, formatPrintDateTime } from "./printFormat";
 
 /**
  * Trạng thái yêu cầu nhập hàng — khớp với bản đồ trạng thái
@@ -6,6 +7,7 @@ import { formatDate, formatDateTime, formatNumber } from "@/utils/formatters";
  * `tone` khớp với tone của StatusBadge.
  */
 export const PURCHASE_REQUEST_STATUS = {
+    0: { label: "Nháp", tone: "neutral" },
     1: { label: "Chờ duyệt", tone: "warning" },
     2: { label: "Đã duyệt", tone: "success" },
     3: { label: "Đã chuyển thành báo giá", tone: "info" },
@@ -20,8 +22,8 @@ const dash = (value) => {
     return text === "" ? "—" : text;
 };
 
-const dashDate = (value) => (value ? formatDate(value) : "—");
-const dashDateTime = (value) => (value ? formatDateTime(value) : "—");
+const dashDate = (value) => (value ? formatPrintDate(value) : "—");
+const dashDateTime = (value) => (value ? formatPrintDateTime(value) : "—");
 
 /** "Họ tên — email" hoặc chỉ họ tên, "—" khi thiếu. */
 const personLine = (person) => {
@@ -62,11 +64,18 @@ export function toPurchaseRequestPrintModel(raw) {
 
     const status = PURCHASE_REQUEST_STATUS[data.trangThai] || PURCHASE_REQUEST_STATUS[1];
 
+    // Phiếu bị từ chối: người xử lý (nguoiDuyet) là NGƯỜI TỪ CHỐI — đổi nhãn
+    // để giấy in không ghi "Người duyệt" cho một phiếu không được duyệt, và
+    // in kèm lý do. Phiếu khác: rejectionReason = null -> trường bị ẩn.
+    const isRejected = data.trangThai === 4;
+    const approverLabel = isRejected ? "Người từ chối" : null;
+
     return {
         documentNumber: dash(data.soYeuCauMuaHang || `#${data.id}`),
         createdAt: dashDateTime(data.ngayTao),
         expectedDate: dashDate(data.ngayGiaoDuKien),
         status: { label: status.label, tone: status.tone },
+        rejectionReason: isRejected ? dash(data.lyDoTuChoi) : null,
         warehouse: {
             name: dash(data.khoNhap?.tenKho),
             code: dash(data.khoNhap?.maKho),
@@ -76,6 +85,7 @@ export function toPurchaseRequestPrintModel(raw) {
         users: {
             creator: personLine(data.nguoiTao),
             approver: data.nguoiDuyet ? personLine(data.nguoiDuyet) : "—",
+            approverLabel,
         },
         notes: dash(data.ghiChu),
         items,
@@ -85,7 +95,11 @@ export function toPurchaseRequestPrintModel(raw) {
                 ? { name: dash(data.nguoiTao.hoTen), email: dash(data.nguoiTao.email) }
                 : null,
             approver: data.nguoiDuyet
-                ? { name: dash(data.nguoiDuyet.hoTen), email: dash(data.nguoiDuyet.email) }
+                ? {
+                      label: approverLabel,
+                      name: dash(data.nguoiDuyet.hoTen),
+                      email: dash(data.nguoiDuyet.email),
+                  }
                 : null,
         },
     };

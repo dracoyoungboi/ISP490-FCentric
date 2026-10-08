@@ -22,6 +22,8 @@ public class PosCheckoutResponse {
     Integer donBanHangId;
     String soDonHang;
     String soPhieuXuat;
+    /** CASH | PAYOS — để hóa đơn hiển thị đúng hình thức thanh toán. */
+    String phuongThuc;
     BigDecimal tongTienHang;
     BigDecimal tongCong;
     BigDecimal soTienThu;

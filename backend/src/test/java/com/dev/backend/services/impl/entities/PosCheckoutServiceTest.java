@@ -266,4 +266,56 @@ class PosCheckoutServiceTest {
         CommonException ex = assertThrows(CommonException.class, () -> service.getCheckoutRequest("rq-1"));
         assertTrue(ex.getMessage().contains("kho"));
     }
+
+    // ===== Lỗi do chạy đồng thời: thử lại bằng transaction mới, cùng requestId =====
+
+    private static DataIntegrityViolationException duplicateSoDonHang() {
+        // Đúng định dạng MySQL báo: tên index cũ "so_don_hang", không phải uk_*.
+        return new DataIntegrityViolationException("could not execute statement",
+                new java.sql.SQLIntegrityConstraintViolationException(
+                        "Duplicate entry 'SO202610083' for key 'don_ban_hang.so_don_hang'", "23000", 1062));
+    }
+
+    @Test
+    void checkout_trungSoChungTu_thuLaiTransactionMoi_thanhCong() {
+        PosCheckoutResponse ok = PosCheckoutResponse.builder().donBanHangId(9).soDonHang("SO202610084").build();
+        when(transaction.execute(any())).thenThrow(duplicateSoDonHang()).thenReturn(ok);
+
+        PosCheckoutResponse result = service.checkout(request("rq-dup", 120000));
+
+        assertEquals(9, result.getDonBanHangId());
+        verify(transaction, times(2)).execute(any());
+        verify(transaction, never()).recordFailure(any(), any());
+    }
+
+    @Test
+    void checkout_deadlock_thuLaiTransactionMoi_thanhCong() {
+        PosCheckoutResponse ok = PosCheckoutResponse.builder().donBanHangId(10).build();
+        when(transaction.execute(any()))
+                .thenThrow(new org.springframework.dao.CannotAcquireLockException("Deadlock found when trying to get lock"))
+                .thenReturn(ok);
+
+        assertEquals(10, service.checkout(request("rq-dl", 120000)).getDonBanHangId());
+        verify(transaction, times(2)).execute(any());
+    }
+
+    @Test
+    void checkout_trungSoChungTu_hetLuotThuLai_409ThongBaoThanThien_khongLoSql() {
+        when(transaction.execute(any())).thenThrow(duplicateSoDonHang());
+
+        CommonException ex = assertThrows(CommonException.class, () -> service.checkout(request("rq-dup3", 120000)));
+
+        assertEquals(HttpStatus.CONFLICT, ex.getHttpStatus());
+        assertEquals(PosCheckoutService.BUSY_MESSAGE, ex.getMessage());
+        verify(transaction, times(PosConcurrencyRetry.MAX_ATTEMPTS)).execute(any());
+    }
+
+    @Test
+    void checkout_loiNghiepVu_khongThuLai() {
+        when(transaction.execute(any())).thenThrow(new CommonException("Không đủ tồn kho", HttpStatus.CONFLICT, null));
+        when(transaction.recordFailure(any(), any())).thenReturn(Optional.empty());
+
+        assertThrows(CommonException.class, () -> service.checkout(request("rq-biz", 120000)));
+        verify(transaction, times(1)).execute(any());
+    }
 }
