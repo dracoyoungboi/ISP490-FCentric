@@ -787,7 +787,8 @@ export default function PrintTemplateEditorPage() {
                                             <ToggleRow
                                                 key={column.key}
                                                 label={`Cột: ${column.label}`}
-                                                checked={draft.columns[column.key] !== false}
+                                                locked={column.essential}
+                                                checked={column.essential || draft.columns[column.key] !== false}
                                                 onChange={(value) =>
                                                     setField(`columns.${column.key}`, value)
                                                 }

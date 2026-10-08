@@ -146,11 +146,23 @@ const registryDefault = (documentType, templateId) => {
 };
 
 /**
- * Ép các trường THIẾT YẾU (số phiếu, bảng hàng hóa) luôn hiển thị — ngăn
- * cấu hình khiến chứng từ in ra không thể nhận diện hoặc đối chiếu.
+ * Ép các trường THIẾT YẾU (số phiếu, bảng hàng hóa, cột tên hàng/SKU/số
+ * lượng/tiền) luôn hiển thị — ngăn cấu hình khiến chứng từ in ra không thể
+ * nhận diện hoặc đối chiếu (kể cả cấu hình cũ đã lưu trước khi có ràng buộc).
  */
 const applyEssentials = (schema, config) => {
     for (const section of schema.sections) {
+        // Chỉ section BẢNG mới có danh sách cột — section "info" dùng
+        // `columns` là SỐ cột của lưới (vd. 3), không phải mảng.
+        const tableColumns =
+            section.type === "items"
+                ? [...(section.columns ?? []), ...(section.compactColumns ?? [])]
+                : [];
+        for (const column of tableColumns) {
+            if (column.essential) {
+                config.columns = { ...config.columns, [column.key]: true };
+            }
+        }
         if (section.essentialShow) {
             config.sections[section.key] = { ...config.sections[section.key], show: true };
         }

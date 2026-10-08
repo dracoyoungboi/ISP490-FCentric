@@ -5,6 +5,18 @@ import PrintItemsTable from "@/components/print/PrintItemsTable";
 import PrintSignatures from "@/components/print/PrintSignatures";
 import { getPrintSchema } from "@/components/print/schemas/printSchemas";
 
+/** Cột số (số lượng / tiền) — căn phải để thẳng hàng với dòng tổng. */
+const NUMERIC_COLUMN_KEYS = new Set([
+    "quantity",
+    "requestedQuantity",
+    "quantityReceived",
+    "quantityIssued",
+    "unitPrice",
+    "amount",
+    "discount",
+    "tax",
+]);
+
 /** Đọc giá trị theo đường dẫn "warehouse.name", "totals.items", ... */
 function getByPath(model, path) {
     if (!path) return model;
@@ -117,7 +129,7 @@ export default function PrintTemplateDocument({ documentType, config, model, com
                             ? section.compactColumns
                             : section.columns;
                     const visibleColumns = availableColumns.filter(
-                        (column) => config.columns[column.key] !== false
+                        (column) => column.essential || config.columns[column.key] !== false
                     );
                     const rows = getByPath(model, section.path) ?? [];
                     const totalValue =
@@ -136,9 +148,7 @@ export default function PrintTemplateDocument({ documentType, config, model, com
                         ...visibleColumns.map((column) => ({
                             key: column.key,
                             label: column.label,
-                            className: ["quantity", "unitPrice", "amount", "discount", "tax"].includes(column.key)
-                                ? "text-center"
-                                : "",
+                            className: NUMERIC_COLUMN_KEYS.has(column.key) ? "text-center" : "",
                             cellClassName: cnColumnCell(column.key),
                             render: (row) => row[column.path] ?? "—",
                         })),
@@ -148,6 +158,16 @@ export default function PrintTemplateDocument({ documentType, config, model, com
                         ...row,
                         _stt: index + 1,
                     }));
+
+                    // Dòng tổng nằm ĐÚNG dưới cột khai báo (total.column) — nhãn
+                    // gộp các cột bên trái, các cột bên phải (nếu có) để trống.
+                    // Không tìm thấy cột (cấu hình lạ) -> dưới cột cuối như cũ.
+                    const totalIndexRaw = itemColumns.findIndex(
+                        (column) => column.key === section.total?.column
+                    );
+                    const totalIndex = totalIndexRaw > 0 ? totalIndexRaw : itemColumns.length - 1;
+                    const trailingColumns = itemColumns.length - 1 - totalIndex;
+                    const footerCellClass = `border border-bo-border bg-bo-surface-subtle ${compact ? "px-1 py-1" : "px-2.5 py-2"}`;
 
                     return (
                         <PrintSection
@@ -166,16 +186,19 @@ export default function PrintTemplateDocument({ documentType, config, model, com
                                         itemColumns.length > 1 ? (
                                             <tr>
                                                 <td
-                                                    colSpan={itemColumns.length - 1}
+                                                    colSpan={totalIndex}
                                                     className={`border border-bo-border bg-bo-surface-subtle text-right font-semibold uppercase tracking-wide text-bo-muted ${compact ? "px-1 py-1 text-[8px]" : "px-2.5 py-2 text-[11px]"}`}
                                                 >
                                                     {section.total.label}
                                                 </td>
                                                 <td
-                                                    className={`border border-bo-border bg-bo-surface-subtle text-center font-bold text-bo-foreground ${compact ? "px-1 py-1 text-[10px]" : "px-2.5 py-2 text-[13px]"}`}
+                                                    className={`border border-bo-border bg-bo-surface-subtle text-right font-bold text-bo-foreground ${compact ? "px-1 py-1 text-[10px]" : "px-2.5 py-2 text-[13px]"}`}
                                                 >
                                                     {totalValue}
                                                 </td>
+                                                {trailingColumns > 0 ? (
+                                                    <td colSpan={trailingColumns} className={footerCellClass} />
+                                                ) : null}
                                             </tr>
                                         ) : (
                                             <tr>
@@ -248,8 +271,6 @@ export default function PrintTemplateDocument({ documentType, config, model, com
 function cnColumnCell(key) {
     if (key === "productName") return "break-words font-medium";
     if (key === "sku" || key === "lot") return "font-mono";
-    if (["quantity", "unitPrice", "amount", "discount", "tax"].includes(key)) {
-        return "text-right";
-    }
+    if (NUMERIC_COLUMN_KEYS.has(key)) return "text-right";
     return "text-center";
 }

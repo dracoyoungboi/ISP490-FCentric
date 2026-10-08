@@ -12,7 +12,10 @@
  *                  (vd: purchase_request_default_A4)
  * - sections     : thứ tự + cấu trúc hiển thị của phiếu
  *   - type "info"       : lưới nhãn/giá trị, fields = các trường bật/tắt được
- *   - type "items"      : bảng dữ liệu, columns = cột bật/tắt được
+ *   - type "items"      : bảng dữ liệu, columns = cột bật/tắt được;
+ *                         column.essential = cột BẮT BUỘC (không tắt được —
+ *                         phiếu thiếu tên hàng/SKU/số lượng/tiền là vô nghĩa);
+ *                         total.column = cột mà dòng tổng nằm dưới
  *   - type "notes"      : khu vực ghi chú tự do
  *   - type "signatures" : khối chữ ký, blocks = từng khối bật/tắt được
  *   - compactHidden     : section KHÔNG dùng trên khổ nhiệt K80 (không render,
@@ -88,14 +91,14 @@ export const PRINT_SCHEMAS = {
                 essentialShow: true,
                 title: "Danh sách sản phẩm",
                 path: "items",
-                total: { label: "Tổng số lượng", modelPath: "totalQuantity" },
+                total: { label: "Tổng số lượng", modelPath: "totalQuantity", column: "quantity" },
                 columns: [
-                    { key: "productName", label: "Tên sản phẩm", path: "name" },
-                    { key: "sku", label: "Mã SKU", path: "sku" },
+                    { key: "productName", label: "Tên sản phẩm", path: "name", essential: true },
+                    { key: "sku", label: "Mã SKU", path: "sku", essential: true },
                     { key: "color", label: "Màu sắc", path: "color" },
                     { key: "size", label: "Kích cỡ", path: "size" },
                     { key: "material", label: "Chất liệu", path: "material" },
-                    { key: "quantity", label: "SL yêu cầu", path: "quantity" },
+                    { key: "quantity", label: "SL yêu cầu", path: "quantity", essential: true },
                 ],
             },
             { key: "notes", type: "notes", title: "Ghi chú", path: "notes" },
@@ -166,7 +169,7 @@ export const PRINT_SCHEMAS = {
                 title: "Nhà cung cấp được mời",
                 path: "suppliers",
                 columns: [
-                    { key: "supplierName", label: "Nhà cung cấp", path: "name" },
+                    { key: "supplierName", label: "Nhà cung cấp", path: "name", essential: true },
                     { key: "supplierEmail", label: "Email", path: "email" },
                     { key: "supplierPhone", label: "Số điện thoại", path: "phone" },
                     { key: "supplierSent", label: "Trạng thái gửi", path: "sentStatus" },
@@ -178,14 +181,14 @@ export const PRINT_SCHEMAS = {
                 essentialShow: true,
                 title: "Danh sách sản phẩm",
                 path: "products",
-                total: { label: "Tổng số lượng", modelPath: "totalQuantity" },
+                total: { label: "Tổng số lượng", modelPath: "totalQuantity", column: "quantity" },
                 columns: [
-                    { key: "productName", label: "Tên sản phẩm", path: "name" },
-                    { key: "sku", label: "Mã SKU", path: "sku" },
+                    { key: "productName", label: "Tên sản phẩm", path: "name", essential: true },
+                    { key: "sku", label: "Mã SKU", path: "sku", essential: true },
                     { key: "color", label: "Màu sắc", path: "color" },
                     { key: "size", label: "Kích cỡ", path: "size" },
                     { key: "material", label: "Chất liệu", path: "material" },
-                    { key: "quantity", label: "SL yêu cầu", path: "quantity" },
+                    { key: "quantity", label: "SL yêu cầu", path: "quantity", essential: true },
                 ],
             },
             { key: "notes", type: "notes", title: "Ghi chú", path: "notes" },
@@ -259,13 +262,13 @@ export const PRINT_SCHEMAS = {
                 essentialShow: true,
                 title: "Danh sách sản phẩm",
                 path: "items",
-                total: { label: "Tổng tiền", modelPath: "totalAmount" },
+                total: { label: "Tổng tiền", modelPath: "totalAmount", column: "amount" },
                 columns: [
-                    { key: "productName", label: "Tên sản phẩm", path: "name" },
-                    { key: "sku", label: "Mã SKU", path: "sku" },
-                    { key: "unitPrice", label: "Đơn giá", path: "unitPrice" },
-                    { key: "quantity", label: "Số lượng", path: "quantity" },
-                    { key: "amount", label: "Thành tiền", path: "amount" },
+                    { key: "productName", label: "Tên sản phẩm", path: "name", essential: true },
+                    { key: "sku", label: "Mã SKU", path: "sku", essential: true },
+                    { key: "unitPrice", label: "Đơn giá", path: "unitPrice", essential: true },
+                    { key: "quantity", label: "Số lượng", path: "quantity", essential: true },
+                    { key: "amount", label: "Thành tiền", path: "amount", essential: true },
                 ],
             },
             {
@@ -343,14 +346,14 @@ export const PRINT_SCHEMAS = {
                 essentialShow: true,
                 title: "Danh sách hàng nhập",
                 path: "items",
-                total: { label: "Tổng số lượng", modelPath: "totalQuantity" },
+                total: { label: "Tổng số lượng", modelPath: "totalQuantity", column: "quantityReceived" },
                 columns: [
-                    { key: "productName", label: "Tên sản phẩm", path: "name" },
-                    { key: "sku", label: "Mã SKU", path: "sku" },
+                    { key: "productName", label: "Tên sản phẩm", path: "name", essential: true },
+                    { key: "sku", label: "Mã SKU", path: "sku", essential: true },
                     { key: "lot", label: "Lô", path: "lot" },
                     { key: "productionDate", label: "Ngày sản xuất", path: "productionDate" },
                     { key: "requestedQuantity", label: "SL yêu cầu", path: "requestedQuantity" },
-                    { key: "quantityReceived", label: "SL nhận", path: "quantity" },
+                    { key: "quantityReceived", label: "SL nhận", path: "quantity", essential: true },
                 ],
             },
             {
@@ -419,13 +422,13 @@ export const PRINT_SCHEMAS = {
                 essentialShow: true,
                 title: "Danh sách hàng xuất",
                 path: "items",
-                total: { label: "Tổng số lượng", modelPath: "totalQuantity" },
+                total: { label: "Tổng số lượng", modelPath: "totalQuantity", column: "quantityIssued" },
                 columns: [
-                    { key: "productName", label: "Tên sản phẩm", path: "name" },
-                    { key: "sku", label: "Mã SKU", path: "sku" },
+                    { key: "productName", label: "Tên sản phẩm", path: "name", essential: true },
+                    { key: "sku", label: "Mã SKU", path: "sku", essential: true },
                     { key: "lot", label: "Lô", path: "lot" },
                     { key: "requestedQuantity", label: "SL yêu cầu", path: "requestedQuantity" },
-                    { key: "quantityIssued", label: "SL xuất", path: "quantity" },
+                    { key: "quantityIssued", label: "SL xuất", path: "quantity", essential: true },
                 ],
             },
             { key: "notes", type: "notes", title: "Ghi chú", path: "notes" },
@@ -518,13 +521,13 @@ export const PRINT_SCHEMAS = {
                 essentialShow: true,
                 title: "Danh sách sản phẩm",
                 path: "items",
-                total: { label: "Tổng tiền hàng", modelPath: "totals.items" },
+                total: { label: "Tổng tiền hàng", modelPath: "totals.items", column: "amount" },
                 columns: [
-                    { key: "productName", label: "Tên sản phẩm", path: "name" },
+                    { key: "productName", label: "Tên sản phẩm", path: "name", essential: true },
                     { key: "sku", label: "Mã SKU", path: "sku" },
-                    { key: "unitPrice", label: "Đơn giá", path: "unitPrice" },
-                    { key: "quantity", label: "Số lượng", path: "quantity" },
-                    { key: "amount", label: "Thành tiền", path: "amount" },
+                    { key: "unitPrice", label: "Đơn giá", path: "unitPrice", essential: true },
+                    { key: "quantity", label: "Số lượng", path: "quantity", essential: true },
+                    { key: "amount", label: "Thành tiền", path: "amount", essential: true },
                 ],
             },
             {
@@ -650,20 +653,20 @@ export const PRINT_SCHEMAS = {
                 essentialShow: true,
                 title: "Danh sách sản phẩm",
                 path: "items",
-                total: { label: "Tổng tiền hàng", modelPath: "totals.items" },
+                total: { label: "Tổng tiền hàng", modelPath: "totals.items", column: "amount" },
                 columns: [
-                    { key: "productName", label: "Tên sản phẩm", path: "name" },
+                    { key: "productName", label: "Tên sản phẩm", path: "name", essential: true },
                     { key: "sku", label: "Mã SKU", path: "sku" },
-                    { key: "unitPrice", label: "Đơn giá", path: "unitPrice" },
-                    { key: "quantity", label: "Số lượng", path: "quantity" },
-                    { key: "amount", label: "Thành tiền", path: "amount" },
+                    { key: "unitPrice", label: "Đơn giá", path: "unitPrice", essential: true },
+                    { key: "quantity", label: "Số lượng", path: "quantity", essential: true },
+                    { key: "amount", label: "Thành tiền", path: "amount", essential: true },
                 ],
                 // K80 là khổ nhiệt 80mm — KHÔNG co bảng A4 lại mà dùng bộ cột compact riêng
                 compactColumns: [
-                    { key: "productName", label: "Sản phẩm", path: "name" },
-                    { key: "quantity", label: "SL", path: "quantity" },
-                    { key: "unitPrice", label: "Đơn giá", path: "unitPrice" },
-                    { key: "amount", label: "Thành tiền", path: "amount" },
+                    { key: "productName", label: "Sản phẩm", path: "name", essential: true },
+                    { key: "quantity", label: "SL", path: "quantity", essential: true },
+                    { key: "unitPrice", label: "Đơn giá", path: "unitPrice", essential: true },
+                    { key: "amount", label: "Thành tiền", path: "amount", essential: true },
                 ],
             },
             {
