@@ -83,11 +83,15 @@ export default function PrintTemplateDocument({ documentType, config, model, com
     if (!schema) return null;
 
     const compact = config.paperSize === "K80";
+    // A5 = nửa tờ A4: dùng bố cục gọn hơn (chữ/khoảng cách nhỏ hơn) để phiếu
+    // ít dòng vừa một trang thay vì đẩy riêng khối ký sang trang 2
+    const dense = config.paperSize === "A5";
 
     return (
         <div>
             <PrintHeader
                 compact={compact}
+                dense={dense}
                 title={schema.docTitle}
                 branding={config.branding}
                 company={company}
@@ -122,11 +126,14 @@ export default function PrintTemplateDocument({ documentType, config, model, com
                         <PrintSection
                             key={section.key}
                             compact={compact}
+                            dense={dense}
+                            keepTogether
                             title={section.title}
                             accentColor={config.accentColor}
                         >
                             <PrintDocumentInfo
                                 compact={compact}
+                                dense={dense}
                                 columns={compact ? 1 : section.columns}
                                 items={fields.map((field) => ({
                                     // Nhãn động theo dữ liệu (vd. "Người duyệt" ->
@@ -192,17 +199,22 @@ export default function PrintTemplateDocument({ documentType, config, model, com
                     );
                     const totalIndex = totalIndexRaw > 0 ? totalIndexRaw : itemColumns.length - 1;
                     const trailingColumns = itemColumns.length - 1 - totalIndex;
-                    const footerCellClass = `border border-bo-border bg-bo-surface-subtle ${compact ? "px-1 py-1" : "px-2.5 py-2"}`;
+                    const cellPad = compact ? "px-1 py-1" : dense ? "px-1.5 py-1" : "px-2.5 py-2";
+                    const footerCellClass = `border border-bo-border bg-bo-surface-subtle ${cellPad}`;
+                    const totalLabelClass = `border border-bo-border bg-bo-surface-subtle text-right font-semibold uppercase tracking-wide text-bo-muted ${cellPad} ${compact ? "text-[8px]" : dense ? "text-[9px]" : "text-[11px]"}`;
+                    const totalValueClass = `border border-bo-border bg-bo-surface-subtle text-right font-bold text-bo-foreground ${cellPad} ${compact ? "text-[10px]" : dense ? "text-xs" : "text-[13px]"}`;
 
                     return (
                         <PrintSection
                             key={section.key}
                             compact={compact}
+                            dense={dense}
                             title={section.title}
                             accentColor={config.accentColor}
                         >
                             <PrintItemsTable
                                 compact={compact}
+                                dense={dense}
                                 columns={itemColumns}
                                 rows={rowsWithIndex}
                                 emptyMessage={compact ? "Không có dữ liệu" : "Không có dữ liệu"}
@@ -212,12 +224,12 @@ export default function PrintTemplateDocument({ documentType, config, model, com
                                             <tr>
                                                 <td
                                                     colSpan={totalIndex}
-                                                    className={`border border-bo-border bg-bo-surface-subtle text-right font-semibold uppercase tracking-wide text-bo-muted ${compact ? "px-1 py-1 text-[8px]" : "px-2.5 py-2 text-[11px]"}`}
+                                                    className={totalLabelClass}
                                                 >
                                                     {section.total.label}
                                                 </td>
                                                 <td
-                                                    className={`border border-bo-border bg-bo-surface-subtle text-right font-bold text-bo-foreground ${compact ? "px-1 py-1 text-[10px]" : "px-2.5 py-2 text-[13px]"}`}
+                                                    className={totalValueClass}
                                                 >
                                                     {totalValue}
                                                 </td>
@@ -228,7 +240,7 @@ export default function PrintTemplateDocument({ documentType, config, model, com
                                         ) : (
                                             <tr>
                                                 <td
-                                                    className={`border border-bo-border bg-bo-surface-subtle text-right font-semibold uppercase tracking-wide text-bo-muted ${compact ? "px-1 py-1 text-[8px]" : "px-2.5 py-2 text-[11px]"}`}
+                                                    className={totalLabelClass}
                                                 >
                                                     {section.total.label}:{" "}
                                                     <span className="font-bold text-bo-foreground">
@@ -251,11 +263,12 @@ export default function PrintTemplateDocument({ documentType, config, model, com
                         <PrintSection
                             key={section.key}
                             compact={compact}
+                            dense={dense}
                             title={section.title}
                             accentColor={config.accentColor}
                         >
                             <p
-                                className={`whitespace-pre-wrap leading-relaxed text-bo-foreground ${compact ? "text-[10px]" : "text-[13px]"}`}
+                                className={`whitespace-pre-wrap leading-relaxed text-bo-foreground ${compact ? "text-[10px]" : dense ? "text-xs" : "text-[13px]"}`}
                             >
                                 {notes || "—"}
                             </p>
@@ -283,6 +296,7 @@ export default function PrintTemplateDocument({ documentType, config, model, com
                         <PrintSignatures
                             key={section.key}
                             compact={compact}
+                            dense={dense}
                             left={blocks[0] ?? null}
                             right={blocks[1] ?? null}
                         />

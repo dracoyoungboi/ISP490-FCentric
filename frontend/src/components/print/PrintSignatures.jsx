@@ -7,8 +7,10 @@ import { cn } from "@/lib/utils";
  * ngoài hệ thống ký và ghi rõ họ tên khi nhận/giao hàng): giữ nguyên dòng
  * tên bằng khoảng trắng để chân ký thẳng hàng với khối bên cạnh.
  * `compact`: layout khổ nhiệt K80 — xếp dọc, thu gọn.
+ * `dense`: khổ A5 — khối ký thấp hơn (vẫn chừa ~16mm để ký tay) để phiếu
+ * ít dòng không bị đẩy riêng khối ký sang trang 2.
  */
-export default function PrintSignatures({ left, right, compact = false }) {
+export default function PrintSignatures({ left, right, compact = false, dense = false }) {
     const blocks = [left, right].filter(Boolean);
 
     if (blocks.length === 0) return null;
@@ -19,7 +21,9 @@ export default function PrintSignatures({ left, right, compact = false }) {
                 "print-signatures",
                 compact
                     ? "mt-4 grid grid-cols-1 gap-4"
-                    : "mt-10 grid gap-16",
+                    : dense
+                      ? "mt-5 grid gap-8"
+                      : "mt-10 grid gap-16",
                 !compact && blocks.length === 1 ? "grid-cols-1" : !compact ? "grid-cols-2" : ""
             )}
         >
@@ -31,14 +35,27 @@ export default function PrintSignatures({ left, right, compact = false }) {
                     <p
                         className={cn(
                             "font-semibold uppercase tracking-wide text-bo-muted",
-                            compact ? "text-[9px]" : "text-[11px]"
+                            compact ? "text-[9px]" : dense ? "text-[10px]" : "text-[11px]"
                         )}
                     >
                         {block.label}
                     </p>
                     {/* Khoảng trống để ký tay */}
-                    <div className={compact ? "mx-auto mt-4 h-10 w-32" : "mx-auto mt-10 h-14 w-48"} />
-                    <p className={cn("font-bold text-bo-foreground", compact ? "text-[11px]" : "text-sm")}>
+                    <div
+                        className={
+                            compact
+                                ? "mx-auto mt-4 h-10 w-32"
+                                : dense
+                                  ? "mx-auto mt-3 h-12 w-40"
+                                  : "mx-auto mt-10 h-14 w-48"
+                        }
+                    />
+                    <p
+                        className={cn(
+                            "font-bold text-bo-foreground",
+                            compact ? "text-[11px]" : dense ? "text-[13px]" : "text-sm"
+                        )}
+                    >
                         {block.name || "\u00A0"}
                     </p>
                     {block.email && block.email !== "—" ? (
