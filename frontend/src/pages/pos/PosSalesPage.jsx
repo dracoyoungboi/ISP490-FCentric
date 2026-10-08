@@ -361,37 +361,64 @@ export default function PosSalesPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ===== Phục hồi sau refresh: chỉ HỎI recovery bằng requestId đã lưu, KHÔNG tự gửi lại =====
+  // ===== Phục hồi sau refresh/đăng nhập lại: chỉ HỎI kết quả bằng requestId đã gửi, KHÔNG tự gửi lại =====
+  // Nguồn requestId: giao dịch chưa rõ trong bản nháp (còn sau khi đăng xuất/đăng nhập lại hay
+  // chuyển tab) + metadata trong phiên (sessionStorage). Kiểm tra HẾT danh sách:
+  // SUCCESS -> đánh dấu đúng hóa đơn đã thanh toán và mở hóa đơn chính thức của nó;
+  // FAILED -> mở khóa hóa đơn để sửa; 404/mất mạng -> giữ "chưa rõ" để người bán kiểm tra lại.
   useEffect(() => {
-    const pendingIds = getPendingCheckoutIds();
-    if (!pendingIds.length) return undefined;
+    const fromDrafts = (restoredDrafts?.invoices || [])
+      .filter((invoice) => invoice.attempt?.status === 'unknown' && invoice.attempt.requestId)
+      .map((invoice) => ({ requestId: invoice.attempt.requestId, invoiceNumber: invoice.number }));
+    const known = new Set(fromDrafts.map((target) => target.requestId));
+    const targets = [
+      ...fromDrafts,
+      ...getPendingCheckoutIds().filter((id) => !known.has(id)).map((requestId) => ({ requestId, invoiceNumber: null })),
+    ];
+    if (!targets.length) return undefined;
+    const setAttempt = (invoiceNumber, patch) => setInvoices((current) => current.map((invoice) =>
+      invoice.number === invoiceNumber ? { ...invoice, attempt: { ...(invoice.attempt ?? {}), ...patch } } : invoice));
     let cancelled = false;
-    const check = async () => {
-      for (const requestId of pendingIds) {
-        if (cancelled) break;
+    (async () => {
+      let resultShown = false;
+      for (const target of targets) {
+        if (cancelled) return;
         try {
-          const res = await posService.getCheckoutRequest(requestId);
+          const res = await posService.getCheckoutRequest(target.requestId);
+          if (cancelled) return;
           if (res?.trangThai === 'SUCCESS' && res.result) {
-            removePendingCheckoutId(requestId);
-            if (!cancelled) setRecoveredResult(res.result);
-            break;
+            removePendingCheckoutId(target.requestId);
+            setRefreshKey((key) => key + 1);
+            if (target.invoiceNumber != null) {
+              setAttempt(target.invoiceNumber, { status: 'succeeded', result: res.result, error: null });
+              if (!resultShown) {
+                // Mở hóa đơn chính thức của ĐÚNG tab đó; "Hoàn tất" sẽ đóng tab này.
+                resultShown = true;
+                setActiveInvoice(target.invoiceNumber);
+                setReceiptInvoiceNumber(target.invoiceNumber);
+                setReceiptResult(res.result);
+                setDialog('receipt');
+              }
+              // Các tab còn lại đã thanh toán: mở tab nào sẽ hiện hóa đơn của tab đó.
+            } else if (!resultShown) {
+              resultShown = true;
+              setRecoveredResult(res.result); // giao dịch không còn hóa đơn nháp tương ứng
+            }
+          } else if (res?.trangThai === 'FAILED') {
+            removePendingCheckoutId(target.requestId); // lỗi xác định — không cần giữ metadata
+            if (target.invoiceNumber != null) {
+              setAttempt(target.invoiceNumber, { status: 'failed', error: res.errorMessage || 'Giao dịch đã thất bại trước đó' });
+              sonnerToast.warning(`Giao dịch của hóa đơn ${target.invoiceNumber} không thành công${res.errorMessage ? `: ${res.errorMessage}` : ''}. Hóa đơn đã được mở lại.`, { duration: 5000 });
+            }
           }
-          if (res?.trangThai === 'FAILED') {
-            removePendingCheckoutId(requestId); // lỗi xác định — không cần giữ metadata
-          }
-          // 404 -> giữ metadata để người bán kiểm tra lại sau (kết quả chưa rõ)
         } catch (error) {
-          if (error?.response?.status === 404) {
-            // chưa có kết quả trên server: giữ metadata, không tự quyết
-          }
-          // 401/403 đã được apiClient xử lý (redirect login) — dừng vòng lặp
-          if (error?.response?.status === 401 || error?.response?.status === 403) break;
+          // 401/403 đã được apiClient xử lý (về trang đăng nhập) — dừng; 404/mất mạng: giữ "chưa rõ".
+          if (error?.response?.status === 401 || error?.response?.status === 403) return;
         }
       }
-    };
-    check();
+    })();
     return () => { cancelled = true; };
-  }, []);
+  }, [restoredDrafts]);
 
   const onSearch = (value) => {
     setSearch(value);
@@ -1153,7 +1180,7 @@ export default function PosSalesPage({
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col bg-bo-canvas text-bo-foreground">
-      <PosTopBar onHelp={() => { if (!dialog && !isSubmitting) setDialog('shortcuts'); }}>
+      <PosTopBar onHelp={() => { if (!dialog && !isSubmitting) setDialog('shortcuts'); }} pendingPaymentCount={invoices.filter(isFrozenInvoice).length}>
         <label className="flex min-h-9 min-w-0 items-center gap-1.5 rounded-lg border border-bo-border bg-bo-surface px-2.5 text-xs font-medium text-bo-foreground transition hover:border-bo-primary/40" htmlFor="pos-warehouse" title={frozen ? 'Hóa đơn đang chờ thanh toán — không đổi kho được' : 'Kho xuất hàng cho hóa đơn đang mở'}>
           <Warehouse aria-hidden="true" size={14} className="shrink-0 text-bo-muted" />
           <span className="hidden shrink-0 text-bo-muted md:inline">Kho bán:</span>

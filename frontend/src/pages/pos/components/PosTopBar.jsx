@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import UserAvatar from '@/components/UserAvatar';
 import { useCurrentUserAvatarUrl } from '@/utils/avatar';
+import { nguoiDungService } from '@/services/nguoiDungService';
+import PosModal from './PosModal';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -93,20 +95,40 @@ function useFullscreen() {
  * Thanh trên cùng của màn POS toàn màn hình (thay cho sidebar + header backoffice):
  * logo · tiêu đề · [children: chọn kho…] · trạng thái mạng · giờ · toàn màn hình · trợ giúp · tài khoản.
  */
-export default function PosTopBar({ children, onHelp }) {
+export default function PosTopBar({ children, onHelp, pendingPaymentCount = 0 }) {
   const navigate = useNavigate();
   const online = useOnlineStatus();
   const now = useClock();
   const { isFullscreen, supported: fullscreenSupported, toggle: toggleFullscreen } = useFullscreen();
   const [{ userId, username, roleLabel }] = useState(readCurrentUser);
   const avatarUrl = useCurrentUserAvatarUrl(userId);
+  const [confirmLogout, setConfirmLogout] = useState(false);
 
-  const handleLogout = () => {
-    // Giống BackofficeHeader: xóa sạch phiên (kể cả bản nháp POS) — an toàn cho máy quầy dùng chung.
-    localStorage.clear();
+  const logout = () => {
+    // Chỉ xóa phiên đăng nhập. Bản nháp hóa đơn (gắn theo tài khoản, tự hết hạn sau 12 giờ) được
+    // giữ: đăng nhập lại vẫn còn hóa đơn và mã QR đang chờ; tài khoản khác không đọc được.
+    nguoiDungService.logout();
     sessionStorage.clear();
     navigate('/login');
   };
+  const handleLogout = () => {
+    if (pendingPaymentCount > 0) setConfirmLogout(true);
+    else logout();
+  };
+
+  // Đang hỏi lại đăng xuất: phím tắt POS (F1–F9) không được mở hộp thoại khác đè lên; Esc = Ở lại.
+  useEffect(() => {
+    if (!confirmLogout) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setConfirmLogout(false);
+      if (event.key === 'Escape' || /^F\d$/.test(event.key)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [confirmLogout]);
 
   const timeLabel = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   const dateLabel = now.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' });
@@ -200,6 +222,21 @@ export default function PosTopBar({ children, onHelp }) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {confirmLogout ? (
+        <PosModal description="Hóa đơn đang chờ thanh toán vẫn được giữ trên máy này cho tài khoản của bạn." onClose={() => setConfirmLogout(false)} size="sm" title="Đăng xuất?">
+          <p className="text-sm leading-6 text-bo-foreground">
+            Còn <strong>{pendingPaymentCount}</strong> hóa đơn đang chờ thanh toán (mã QR chưa nhận tiền hoặc giao dịch chưa rõ kết quả).
+          </p>
+          <p className="mt-2 text-sm leading-6 text-bo-muted">
+            Đăng nhập lại bằng tài khoản này trong vòng 12 giờ để tiếp tục và kiểm tra kết quả. Tiền khách chuyển trong lúc bạn đăng xuất vẫn được hệ thống ghi nhận.
+          </p>
+          <div className="mt-5 flex flex-col-reverse justify-end gap-2 sm:flex-row">
+            <button className="inline-flex min-h-10 items-center justify-center rounded-lg border border-bo-border bg-bo-surface px-4 py-2 text-sm font-medium text-bo-foreground transition hover:bg-slate-50" onClick={() => setConfirmLogout(false)} type="button">Ở lại</button>
+            <button className="inline-flex min-h-10 items-center justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700" onClick={logout} type="button">Vẫn đăng xuất</button>
+          </div>
+        </PosModal>
+      ) : null}
     </header>
   );
 }

@@ -10,6 +10,7 @@ import { jwtDecode } from "jwt-decode";
 
 import UserAvatar from "@/components/UserAvatar";
 import { useCurrentUserAvatarUrl } from "@/utils/avatar";
+import { nguoiDungService } from "@/services/nguoiDungService";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -57,7 +58,9 @@ export default function BackofficeHeader({ title, subtitle, routeKey }) {
   const avatarUrl = useCurrentUserAvatarUrl(userId);
 
   const handleLogout = () => {
-    localStorage.clear();
+    // Chỉ xóa phiên đăng nhập; bản nháp hóa đơn POS (gắn theo tài khoản, hết hạn sau 12 giờ)
+    // được giữ để đăng nhập lại vẫn còn hóa đơn và mã QR đang chờ.
+    nguoiDungService.logout();
     sessionStorage.clear();
     navigate("/login");
   };
