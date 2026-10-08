@@ -3,6 +3,9 @@ import { cn } from "@/lib/utils";
 /**
  * Khối ký tên cho bản in — chỉ hiển thị họ tên/email từ dữ liệu thật,
  * chừa khoảng trống để ký tay (không có chữ ký giả).
+ * Khối có `name` rỗng là ô ký TRỐNG (vd. "Người nhận", "Người giao" — người
+ * ngoài hệ thống ký và ghi rõ họ tên khi nhận/giao hàng): giữ nguyên dòng
+ * tên bằng khoảng trắng để chân ký thẳng hàng với khối bên cạnh.
  * `compact`: layout khổ nhiệt K80 — xếp dọc, thu gọn.
  */
 export default function PrintSignatures({ left, right, compact = false }) {
@@ -36,7 +39,7 @@ export default function PrintSignatures({ left, right, compact = false }) {
                     {/* Khoảng trống để ký tay */}
                     <div className={compact ? "mx-auto mt-4 h-10 w-32" : "mx-auto mt-10 h-14 w-48"} />
                     <p className={cn("font-bold text-bo-foreground", compact ? "text-[11px]" : "text-sm")}>
-                        {block.name}
+                        {block.name || "\u00A0"}
                     </p>
                     {block.email && block.email !== "—" ? (
                         <p className={cn("mt-0.5 text-bo-muted", compact ? "text-[9px]" : "text-xs")}>

@@ -17,6 +17,19 @@ const NUMERIC_COLUMN_KEYS = new Set([
     "tax",
 ]);
 
+/**
+ * Class col-span viết ĐẦY ĐỦ (không ghép chuỗi `col-span-${n}`) để Tailwind
+ * quét thấy và sinh CSS — chuỗi ghép động sẽ không có class tương ứng.
+ */
+const SPAN_CLASSES = {
+    2: "col-span-2",
+    3: "col-span-3",
+    4: "col-span-4",
+};
+
+/** Giá trị "không áp dụng" do adapter trả về (null/undefined/chuỗi rỗng). */
+const isEmptyValue = (value) => value === null || value === undefined || value === "";
+
 /** Đọc giá trị theo đường dẫn "warehouse.name", "totals.items", ... */
 function getByPath(model, path) {
     if (!path) return model;
@@ -89,12 +102,20 @@ export default function PrintTemplateDocument({ documentType, config, model, com
                 if (section.type === "info") {
                     const fields = section.fields
                         .filter((field) => sectionConfig[field.key] !== false)
-                        // Trường của hồ sơ công ty rỗng (email/ĐT/địa chỉ chưa
-                        // điền) -> ẩn sạch, không để lại nhãn trống hay khoảng trống.
+                        // Ẩn sạch (không để lại nhãn trống) khi trường KHÔNG áp
+                        // dụng cho phiếu này:
+                        // - trường hồ sơ công ty chưa điền (email/ĐT/địa chỉ);
+                        // - trường `hideWhenEmpty` mà adapter trả null — vd. "Kho
+                        //   chuyển đến" chỉ có ở phiếu chuyển kho, "Lý do từ chối"
+                        //   chỉ có ở phiếu bị từ chối. Adapter trả "—" khi trường
+                        //   áp dụng nhưng thiếu dữ liệu, null khi không áp dụng.
                         .filter(
                             (field) =>
-                                !(field.modelPath ?? "").startsWith("company.") ||
-                                resolveFieldValue(field, model, company) !== null
+                                !(
+                                    (field.hideWhenEmpty ||
+                                        (field.modelPath ?? "").startsWith("company.")) &&
+                                    isEmptyValue(resolveFieldValue(field, model, company))
+                                )
                         );
                     if (fields.length === 0) return null;
                     return (
@@ -108,13 +129,17 @@ export default function PrintTemplateDocument({ documentType, config, model, com
                                 compact={compact}
                                 columns={compact ? 1 : section.columns}
                                 items={fields.map((field) => ({
-                                    label: field.label,
+                                    // Nhãn động theo dữ liệu (vd. "Người duyệt" ->
+                                    // "Người từ chối" khi phiếu bị từ chối)
+                                    label:
+                                        (field.labelModelPath &&
+                                            getByPath(model, field.labelModelPath)) ||
+                                        field.label,
                                     value: renderFieldValue(field, model, company),
-                                    className: field.span
-                                        ? compact
-                                            ? undefined
-                                            : `col-span-${field.span}`
-                                        : undefined,
+                                    className:
+                                        field.span && !compact
+                                            ? SPAN_CLASSES[field.span]
+                                            : undefined,
                                 }))}
                             />
                         </PrintSection>
@@ -245,7 +270,9 @@ export default function PrintTemplateDocument({ documentType, config, model, com
                             const value = getByPath(model, block.path);
                             if (!value) return null;
                             return {
-                                label: block.label,
+                                // value.label: nhãn theo dữ liệu (vd. "Người từ chối");
+                                // value.name rỗng = ô ký TRỐNG để ký tay, ghi tên khi nhận
+                                label: value.label || block.label,
                                 name: value.name,
                                 email: value.email,
                             };

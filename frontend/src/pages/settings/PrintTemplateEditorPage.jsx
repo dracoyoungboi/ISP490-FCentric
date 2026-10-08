@@ -72,7 +72,7 @@ function EditorSection({ title, defaultOpen = true, children }) {
     );
 }
 
-function ToggleRow({ label, checked, onChange, locked = false }) {
+function ToggleRow({ label, checked, onChange, locked = false, hint }) {
     return (
         <label
             className={cn(
@@ -80,12 +80,19 @@ function ToggleRow({ label, checked, onChange, locked = false }) {
                 locked ? "cursor-not-allowed opacity-70" : "cursor-pointer"
             )}
         >
-            <span className="flex min-w-0 items-center gap-1.5 text-sm text-bo-foreground">
-                <span className="truncate">{label}</span>
-                {locked ? (
-                    <span className="shrink-0 rounded-full border border-bo-border bg-bo-surface-subtle px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-bo-muted">
-                        Bắt buộc
-                    </span>
+            <span className="flex min-w-0 flex-col">
+                <span className="flex min-w-0 items-center gap-1.5 text-sm text-bo-foreground">
+                    <span className="truncate">{label}</span>
+                    {locked ? (
+                        <span className="shrink-0 rounded-full border border-bo-border bg-bo-surface-subtle px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-bo-muted">
+                            Bắt buộc
+                        </span>
+                    ) : null}
+                </span>
+                {/* Trường chỉ in với một số phiếu (vd. phiếu chuyển kho) — dữ
+                     liệu mẫu có thể không có nên bản xem trước không đổi */}
+                {hint ? (
+                    <span className="text-xs leading-5 text-bo-muted">{hint}</span>
                 ) : null}
             </span>
             <Checkbox
@@ -752,6 +759,7 @@ export default function PrintTemplateEditorPage() {
                                             <ToggleRow
                                                 key={field.key}
                                                 label={field.label}
+                                                hint={field.hint}
                                                 locked={field.essential}
                                                 checked={draft.sections[section.key]?.[field.key] !== false}
                                                 onChange={(value) =>
@@ -827,6 +835,7 @@ export default function PrintTemplateEditorPage() {
                                             <ToggleRow
                                                 key={block.key}
                                                 label={block.label}
+                                                hint={block.hint}
                                                 checked={
                                                     draft.sections[section.key]?.[block.key] !== false
                                                 }
