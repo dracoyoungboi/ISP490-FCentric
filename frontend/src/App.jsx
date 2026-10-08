@@ -26,7 +26,6 @@ import KhaiBaoLo from "./pages/receipt/KhaiBaoLo.jsx";
 import PhieuXuatKhoList from "./pages/issue/PhieuXuatKhoList.jsx";
 import PurchaseOrderDetail from "./pages/order/PurchaseOrderDetail.jsx";
 import PurchaseOrder from "./pages/order/PurchaseOrder.jsx";
-import PurchaseRequest from "./pages/order/PurchaseRequest.jsx";
 import PurchaseOrderCreate from "./pages/order/PurchaseOrderCreate.jsx";
 import PurchaseOrderPayment from "./pages/order/PurchaseOrderPayment.jsx";
 import SendQuotationRequest from "./pages/order/SendQuotationRequest.jsx";
