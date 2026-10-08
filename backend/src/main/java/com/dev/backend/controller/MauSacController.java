@@ -1,5 +1,7 @@
 package com.dev.backend.controller;
 
+import com.dev.backend.constant.variables.IRoleType;
+import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.BaseFilterRequest;
 import com.dev.backend.dto.request.MauSacCreating;
 import com.dev.backend.dto.request.MauSacUpdating;
@@ -29,6 +31,7 @@ public class MauSacController {
     private MauSacMapper mauSacMapper;
 
     @GetMapping("/get-by-id/{id}")
+    @RequireAuth(roles = {IRoleType.all})
     public ResponseEntity<ResponseData<MauSacDto>> getById(@PathVariable Integer id) {
         Optional<MauSac> finding = mauSacService.getOne(id);
         if (finding.isEmpty()) {
@@ -43,6 +46,7 @@ public class MauSacController {
     }
 
     @GetMapping("/all")
+    @RequireAuth(roles = {IRoleType.all})
     public ResponseEntity<ResponseData<List<MauSacDto>>> getAll() {
         return ResponseEntity.ok(
                 ResponseData.<List<MauSacDto>>builder()
@@ -55,6 +59,7 @@ public class MauSacController {
     }
 
     @PostMapping("/filter")
+    @RequireAuth(roles = {IRoleType.all})
     public ResponseEntity<ResponseData<Page<MauSacDto>>> filter(@RequestBody BaseFilterRequest filter) {
         return ResponseEntity.ok(
                 ResponseData.<Page<MauSacDto>>builder()
@@ -65,6 +70,10 @@ public class MauSacController {
     }
 
     @PostMapping("/create")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
+            rolesLogic = RequireAuth.LogicType.OR
+    )
     public ResponseEntity<ResponseData<MauSacDto>> create(@RequestBody MauSacCreating creating) {
         // Chuyển DTO sang Entity trước khi gọi service
         MauSac entity = mauSacMapper.toEntity(creating);
@@ -78,6 +87,10 @@ public class MauSacController {
     }
 
     @PostMapping("/update")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
+            rolesLogic = RequireAuth.LogicType.OR
+    )
     public ResponseEntity<ResponseData<MauSacDto>> update(@RequestBody MauSacUpdating updating) {
         // Chuyển DTO sang Entity và gọi service với (ID, Entity)
         MauSac entity = mauSacMapper.toEntity(updating);
@@ -91,6 +104,10 @@ public class MauSacController {
     }
 
     @DeleteMapping("/delete/{id}")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
+            rolesLogic = RequireAuth.LogicType.OR
+    )
     public ResponseEntity<ResponseData<String>> delete(@PathVariable Integer id) {
         Optional<MauSac> finding = mauSacService.getOne(id);
         if (finding.isEmpty()) {

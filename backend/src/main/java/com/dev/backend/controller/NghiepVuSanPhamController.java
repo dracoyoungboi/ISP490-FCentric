@@ -88,6 +88,15 @@ public class NghiepVuSanPhamController {
 
     // Nhân viên kho gửi yêu cầu báo giá đến nhiều nhà cung cấp khác nhau
     @PostMapping("/don-mua-hang/gui-yeu-cau-bao-gia")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
+                    IRoleType.nhan_vien_mua_hang,
+                    IRoleType.nhan_vien_kho
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
     public ResponseEntity<ResponseData<String>> guiYeuCauDenNhaCungCap(@RequestBody YeuCauDenNhaCungCapCreating yeuCau){
         return donMuaHangService.guiYeuCauBaoGiaDenNhaCungCap(yeuCau);
     }
@@ -167,12 +176,28 @@ public class NghiepVuSanPhamController {
 
     // Nhân viên mua hàng lấy mã giao dịch cho thanh toán
     @GetMapping("/don-mua-hang/thanh-toan/{id}")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
+                    IRoleType.nhan_vien_mua_hang
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
     public ResponseEntity<ResponseData<GiaoDichDto>> layGiaoDich(@PathVariable Integer id) {
         return donMuaHangService.layGiaoDich(id);
     }
 
     // Api kiểm tra trạng thái giao dịch
     @GetMapping("/don-mua-hang/kiem-tra-thanh-toan/{id}")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
+                    IRoleType.nhan_vien_mua_hang
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
     public ResponseEntity<ResponseData<String>> kiemTraThanhToan(@PathVariable Integer id) {
         return donMuaHangService.kiemTraThanhToan(id);
     }

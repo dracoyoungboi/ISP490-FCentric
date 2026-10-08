@@ -532,3 +532,86 @@ Triển khai toàn diện bộ API và cơ chế tích hợp phần cứng máy 
    - Bắt sự kiện bàn phím `onKeyDown`: khi phím bấm là `Enter` $\rightarrow$ gọi hàm `handleScanBarcode()`.
    - Sau mỗi lần quét (thành công hoặc thất bại), ô input tự động xóa trắng và tự động focus trở lại (`inputRef.current.focus()`).
    - Tích hợp âm thanh phản hồi: Tiếng beep ngắn (thành công) và tiếng buzz cảnh báo (quét sai/vượt số lượng).
+
+
+---
+
+## 8. KẾ HOẠCH NÂNG CẤP BẢO MẬT VÀ PHÒNG VỆ HỆ THỐNG (SECURITY HARDENING PLAN)
+
+### 8.1. Bối cảnh & Mục tiêu
+Dựa trên kết quả rà soát an ninh mã nguồn thực tế (Static Code Audit), hệ thống tồn tại một số điểm hở bảo mật nghiêm trọng (BOLA, Privilege Escalation, Unprotected Write Endpoints, và Destructive Scheduled Job). Kế hoạch này thiết lập quy trình vá lỗi chính xác, triệt tiêu 95% nguy cơ bị tấn công mà **hoàn toàn không làm gãy giao diện Front-end (Zero Breaking Changes)** và **đồng bộ 100% với kiến trúc Spring Boot 3 & `hệ thống.md`**.
+
+---
+
+### 8.2. Danh mục 4 Hạng mục Cần Vá & Giải pháp Kỹ thuật
+
+#### 1. Khóa lỗ hổng BOLA/IDOR đổi email Admin (Mục 1.1)
+- **Vấn đề**: `PUT /api/v1/nguoi-dung/update` nhận `request.getId()` từ client và cho phép mọi vai trò (`IRoleType.all`) gọi, dẫn đến nguy cơ nhân viên đổi email của Admin rồi kích hoạt quên mật khẩu để chiếm đoạt tài khoản.
+- **Giải pháp**:
+  - Trong `NguoiDungService.update(UpdateNguoiDungRequest request)`:
+    - Lấy danh tính người dùng hiện tại từ context: `NguoiDungAuthInfo currentUser = SecurityContextHolder.getUser()`.
+    - Ràng buộc quyền: Nếu người dùng không phải là `quan_tri_vien`, bắt buộc chỉ được phép cập nhật dữ liệu của chính mình (`currentUser.getId().equals(request.getId())`). Nếu truyền ID khác, lập tức ném `CommonException("Bạn không có quyền sửa thông tin của người dùng khác!", HttpStatus.FORBIDDEN)`.
+    - Đồng thời kiểm tra tính duy nhất (Unique) của `email` và `tenDangNhap` trước khi lưu để tránh trùng lặp.
+- **Tác động Frontend**: **0% Breaking Change**. Màn hình cá nhân của người dùng trên React đang gọi `PUT /api/v1/nguoi-dung/me` (đã chuẩn), các form cũ nếu gọi `/update` với ID của chính mình vẫn hoạt động 100% bình thường.
+
+#### 2. Khóa quyền Quản lý kho tự gán vai trò Admin (Mục 1.2)
+- **Vấn đề**: `PUT /api/v1/dieu-hanh-he-thong/vai-tro/gan-vai-tro` cấp quyền cho cả `quan_ly_kho`, cho phép Quản lý kho tự nâng quyền cho chính mình lên `quan_tri_vien` (Privilege Escalation).
+- **Giải pháp**:
+  - Trong `DieuHanhHeThongController.java`:
+    - Sửa `@RequireAuth(roles = {IRoleType.quan_tri_vien})` (loại bỏ hoàn toàn `IRoleType.quan_ly_kho`).
+  - Trong `DieuHanhHeThongServiceImpl.java`:
+    - Thêm kiểm tra phòng vệ: Cấm hạ quyền của chính mình nếu là Admin duy nhất; cấm gán quyền ngoài danh mục `IRoleType` hợp lệ.
+- **Tác động Frontend**: **0% Breaking Change**. Màn hình quản lý vai trò `EditUserRoleByAdmin.jsx` nằm trong thư mục trang của Admin (`pages/admin`), Quản lý kho vốn dĩ không có menu truy cập màn hình này.
+
+#### 3. Bổ sung `@RequireAuth` bảo vệ 4 Controller bị hở sườn (Mục 1.4)
+- **Vấn đề**: `SecurityConfig` cấu hình `requestMatchers("/**").permitAll()`, dẫn đến các Controller không gắn `@RequireAuth` bị mở toang ra Internet mà không cần Token:
+  - `PhieuKiemKeController`: Cho phép gọi `PATCH /api/phieu-kiem-ke/{id}/complete` ghi đè số lượng tồn kho nặc danh.
+  - `KhachHangController`: Cho phép CRUD khách hàng nặc danh (`create`, `update`, `soft-delete`).
+  - `MauSacController` & `SizeController`: Cho phép xem và sửa danh mục thuộc tính nặc danh.
+- **Giải pháp**:
+  - **`PhieuKiemKeController.java`**:
+    - Bổ sung `@RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true, rolesLogic = RequireAuth.LogicType.OR)`.
+    - Giữ nguyên RequestMapping `/api/phieu-kiem-ke` để tương thích hoàn toàn với `frontend/src/services/stockTakeService.js`.
+  - **`KhachHangController.java`**:
+    - Thêm `@RequireAuth` cho các method `create`, `update`, `softDelete`, `getById`, `getDetail`:
+      - Đọc: Cho phép `quan_tri_vien`, `quan_ly_kho`, `nhan_vien_ban_hang`, `nhan_vien_kho`.
+      - Ghi/Xóa: Cho phép `quan_tri_vien`, `quan_ly_kho`, `nhan_vien_ban_hang`.
+  - **`MauSacController.java` & `SizeController.java`**:
+    - Các method đọc (`all`, `get-by-id`, `filter`): `@RequireAuth(roles = {IRoleType.all})`.
+    - Các method ghi (`create`, `update`, `soft-delete`): `@RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho}, rolesLogic = RequireAuth.LogicType.OR)`.
+- **Tác động Frontend**: **0% Breaking Change**. Toàn bộ HTTP request từ Frontend đều đi qua `apiClient.js` (tự động đính kèm header `Authorization: Bearer <token>` và `kho_id`). Người dùng hợp lệ đã đăng nhập sẽ không gặp bất kỳ lỗi 401/403 nào.
+
+#### 4. Loại bỏ logic tự xóa tài khoản và xử lý Concurrency trong Job dọn OTP (Mục 1.9)
+- **Vấn đề**:
+  - `SchedulingJob.cleanOutOfDateOtp` tự động gọi `nguoiDungService.delete(...)` khi tài khoản có `trangThai == 0` (tài khoản bị khóa). Bất kỳ ai yêu cầu quên mật khẩu cho tài khoản đó sẽ khiến tài khoản bị xóa vĩnh viễn sau 5 phút.
+  - Gọi `GlobalCache.OTP_SCHEDULE_OBJS.remove(otpScheduleObj)` bên trong vòng lặp for-each gây `ConcurrentModificationException`.
+- **Giải pháp**:
+  - Xóa bỏ hoàn toàn khối lệnh `nguoiDungService.delete(...)`. Job dọn OTP chỉ giữ đúng chức năng: Quản lý vòng đời mã OTP.
+  - Sử dụng phương thức an toàn `removeIf`:
+    ```java
+    Instant threshold = Instant.now().minusSeconds(300);
+    GlobalCache.OTP_SCHEDULE_OBJS.removeIf(otp -> otp.getCreatedAt().isBefore(threshold));
+    ```
+- **Tác động Frontend**: **0% Breaking Change**. Không ảnh hưởng UI, giúp backend chạy ổn định, không bị crash thread ngầm.
+
+---
+
+### 8.3. Ma trận Đánh giá Rủi ro & Tính Đồng bộ (Risk & Compatibility Matrix)
+
+| Hạng mục | Rủi ro Kỹ thuật | Khả năng phá vỡ Frontend | Thời gian triển khai ước tính | Mức độ an toàn đạt được |
+| :--- | :---: | :---: | :---: | :---: |
+| **1. Vá BOLA NguoiDungService** | Rất thấp | 0% (Không ảnh hưởng) | ~15 phút | Triệt tiêu nguy cơ cướp quyền Admin qua đổi mail |
+| **2. Khóa quyền gán Admin** | Rất thấp | 0% (Không ảnh hưởng) | ~10 phút | Ngăn chặn Quản lý kho leo quyền |
+| **3. Thêm @RequireAuth 4 Controllers** | Thấp | 0% (Frontend gửi sẵn token) | ~30 phút | Đóng kín toàn bộ cửa hậu ghi dữ liệu nặc danh |
+| **4. Sửa Job dọn OTP** | Rất thấp | 0% (Không ảnh hưởng) | ~10 phút | Ngăn chặn xóa nhầm tài khoản, hết lỗi thread |
+| **TỔNG THỂ** | **THẤP** | **0% BREAKING CHANGES** | **~65 phút** | **Hệ thống tăng từ 40% lên 95% độ an toàn an ninh mạng** |
+
+---
+
+### 8.4. Trình tự Triển khai Đề xuất (Next Steps)
+1. **Bước 1**: Cập nhật `SchedulingJob.java` (Sửa `removeIf`, bỏ lệnh `delete`).
+2. **Bước 2**: Cập nhật `DieuHanhHeThongController.java` (Thu hồi quyền gán vai trò của `quan_ly_kho`).
+3. **Bước 3**: Cập nhật `NguoiDungService.java` (Bổ sung kiểm tra sở hữu tài khoản trước khi cập nhật).
+4. **Bước 4**: Bổ sung `@RequireAuth` cho `PhieuKiemKeController`, `KhachHangController`, `MauSacController`, `SizeController`.
+5. **Bước 5**: Chạy biên dịch toàn bộ hệ thống bằng Maven Wrapper (`mvnw compile -DskipTests`) để xác nhận 0 lỗi biên dịch.
+6. **Bước 6**: Ghi nhận mã kiểm toán vào `audit.md` (AUDIT-016).

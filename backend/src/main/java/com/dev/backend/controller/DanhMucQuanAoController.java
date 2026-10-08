@@ -72,6 +72,7 @@ class DanhMucQuanAoController {
     }
 
     @GetMapping("/all")
+    @RequireAuth(roles = {IRoleType.all})
     public ResponseEntity<ResponseData<List<DanhMucQuanAoDto>>> getAll() {
         return ResponseEntity.ok(
                 ResponseData.<List<DanhMucQuanAoDto>>builder()

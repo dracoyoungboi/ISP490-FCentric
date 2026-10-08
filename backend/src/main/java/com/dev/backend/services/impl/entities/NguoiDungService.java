@@ -169,16 +169,42 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
     @Transactional
     public ResponseEntity<ResponseData<NguoiDungDto>> update(UpdateNguoiDungRequest request) {
+        if (request == null || request.getId() == null) {
+            throw new CommonException("Mã người dùng không được để trống");
+        }
+
+        NguoiDungAuthInfo contextUser = com.dev.backend.config.SecurityContextHolder.getUser();
+        if (contextUser == null || contextUser.getId() == null) {
+            throw new CommonException("Người dùng chưa được xác thực");
+        }
+
+        boolean isAdmin = contextUser.getVaiTro() != null && contextUser.getVaiTro().contains(IRoleType.quan_tri_vien);
+        if (!isAdmin && !contextUser.getId().equals(request.getId())) {
+            throw new CommonException("Bạn không có quyền chỉnh sửa thông tin của người dùng khác!");
+        }
+
         NguoiDung nguoiDung = nguoiDungRepository.findById(request.getId())
                 .orElseThrow(() -> new CommonException("Không tìm thấy người dùng id: " + request.getId()));
         if (request.getTenDangNhap() != null && !request.getTenDangNhap().isBlank()) {
-            nguoiDung.setTenDangNhap(request.getTenDangNhap());
+            String newUsername = request.getTenDangNhap().trim();
+            if (!newUsername.equalsIgnoreCase(nguoiDung.getTenDangNhap())) {
+                if (nguoiDungRepository.existsByTenDangNhap(newUsername)) {
+                    throw new CommonException("Tên đăng nhập đã tồn tại trong hệ thống");
+                }
+                nguoiDung.setTenDangNhap(newUsername);
+            }
         }
         if (request.getHoTen() != null && !request.getHoTen().isBlank()) {
-            nguoiDung.setHoTen(request.getHoTen());
+            nguoiDung.setHoTen(request.getHoTen().trim());
         }
         if (request.getEmail() != null && !request.getEmail().isBlank()) {
-            nguoiDung.setEmail(request.getEmail());
+            String newEmail = request.getEmail().trim();
+            if (!newEmail.equalsIgnoreCase(nguoiDung.getEmail())) {
+                if (nguoiDungRepository.existsByEmail(newEmail)) {
+                    throw new CommonException("Email đã tồn tại trong hệ thống");
+                }
+                nguoiDung.setEmail(newEmail);
+            }
         }
         // SĐT để trống = không thay đổi (không phải xóa); có giá trị thì phải đúng định dạng
         String soDienThoai = normalizePhone(request.getSoDienThoai());
@@ -488,6 +514,18 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     }
 
     public NguoiDung getDetailByAdmin(Integer id) {
+        if (id == null) {
+            throw new CommonException("Mã người dùng không được để trống");
+        }
+
+        NguoiDungAuthInfo currentUser = com.dev.backend.config.SecurityContextHolder.getUser();
+        if (currentUser != null && currentUser.getId() != null) {
+            boolean isAdmin = currentUser.getVaiTro() != null && currentUser.getVaiTro().contains(IRoleType.quan_tri_vien);
+            if (!isAdmin && !currentUser.getId().equals(id)) {
+                throw new CommonException("Bạn không có quyền xem thông tin chi tiết của người dùng khác!");
+            }
+        }
+
         NguoiDung nguoiDung = nguoiDungRepository.findById(id)
                 .orElseThrow(() -> new CommonException("Không tìm thấy người dùng"));
 

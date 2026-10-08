@@ -49,6 +49,7 @@ public class ChatLieuController {
     }
 
     @GetMapping("/all")
+    @RequireAuth(roles = {IRoleType.all})
     public ResponseEntity<ResponseData<List<ChatLieuDto>>> getAll() {
         return ResponseEntity.ok(
                 ResponseData.<List<ChatLieuDto>>builder()
