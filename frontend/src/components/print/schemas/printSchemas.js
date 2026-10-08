@@ -15,6 +15,11 @@
  *   - type "items"      : bảng dữ liệu, columns = cột bật/tắt được
  *   - type "notes"      : khu vực ghi chú tự do
  *   - type "signatures" : khối chữ ký, blocks = từng khối bật/tắt được
+ *   - compactHidden     : section KHÔNG dùng trên khổ nhiệt K80 (không render,
+ *                         không hiện trong editor) — vd. "Đơn vị bán" trùng
+ *                         đầu phiếu
+ * - template.defaults   : cấu hình mặc định riêng của một mẫu, ghi đè lên
+ *                         mặc định "bật tất cả" (vd. mẫu K80 gọn cho POS)
  */
 export const PRINT_SCHEMAS = {
     purchase_request: {
@@ -577,11 +582,24 @@ export const PRINT_SCHEMAS = {
                 orientation: "portrait",
                 margin: "default",
                 isDefault: false,
+                // Phiếu bán lẻ POS: chỉ giữ thông tin cần thiết — người dùng
+                // vẫn bật lại được trong editor.
+                defaults: {
+                    sections: {
+                        creator: { email: false, phone: false },
+                        buyer: { contact: false, address: false },
+                        // Tổng nằm ở mục "Tổng cộng" — bỏ dòng tổng trùng cuối bảng
+                        items: { showTotal: false },
+                        signatures: { creator: false, buyer: false },
+                    },
+                },
             },
         ],
         sections: [
             {
                 key: "sellerCompany",
+                // Đầu phiếu đã có tên/ĐT/địa chỉ công ty — K80 không lặp lại
+                compactHidden: true,
                 type: "info",
                 title: "Đơn vị bán",
                 columns: 3,
