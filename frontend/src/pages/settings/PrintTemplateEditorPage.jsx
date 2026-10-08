@@ -20,7 +20,6 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
     Dialog,
     DialogContent,
@@ -35,6 +34,7 @@ import { getPrintSchema } from "@/components/print/schemas/printSchemas";
 import { getSamplePrintModel } from "./samplePrintData";
 import {
     buildDefaultTemplateConfig,
+    buildVariantFromDraft,
     printTemplateConfigService,
 } from "@/services/printTemplateConfigService";
 import { companyProfileService } from "@/services/companyProfileService";
@@ -146,8 +146,8 @@ function FieldGroup({ label, children }) {
     );
 }
 
-/** Hộp thoại thay đổi chưa lưu — 3 lựa chọn: lưu & đi tiếp / bỏ thay đổi / ở lại. */
-function UnsavedDialog({ open, switching, saving, onClose, onSaveAndGo, onDiscardAndGo }) {
+/** Hộp thoại thay đổi chưa lưu khi rời trang — 3 lựa chọn: lưu & rời / rời không lưu / ở lại. */
+function UnsavedDialog({ open, saving, onClose, onSaveAndGo, onDiscardAndGo }) {
     return (
         <Dialog open={open} onOpenChange={(value) => {
             if (!value) onClose();
@@ -158,9 +158,7 @@ function UnsavedDialog({ open, switching, saving, onClose, onSaveAndGo, onDiscar
                         Lưu thay đổi?
                     </DialogTitle>
                     <DialogDescription className="pt-2 text-sm text-gray-600">
-                        {switching
-                            ? "Bạn có thay đổi chưa lưu. Bạn có muốn lưu trước khi chuyển khổ giấy không?"
-                            : "Bạn có thay đổi chưa lưu. Bạn có muốn lưu trước khi rời trang không?"}
+                        Bạn có thay đổi chưa lưu. Bạn có muốn lưu trước khi rời trang không?
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter className="gap-2 sm:gap-3">
@@ -171,7 +169,7 @@ function UnsavedDialog({ open, switching, saving, onClose, onSaveAndGo, onDiscar
                         onClick={onClose}
                         disabled={saving}
                     >
-                        {switching ? "Hủy" : "Ở lại"}
+                        Ở lại
                     </Button>
                     <Button
                         type="button"
@@ -180,7 +178,7 @@ function UnsavedDialog({ open, switching, saving, onClose, onSaveAndGo, onDiscar
                         onClick={onDiscardAndGo}
                         disabled={saving}
                     >
-                        {switching ? "Bỏ thay đổi" : "Rời không lưu"}
+                        Rời không lưu
                     </Button>
                     <Button
                         type="button"
@@ -193,8 +191,6 @@ function UnsavedDialog({ open, switching, saving, onClose, onSaveAndGo, onDiscar
                                 <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                                 Đang lưu...
                             </>
-                        ) : switching ? (
-                            "Lưu & chuyển"
                         ) : (
                             "Lưu & rời"
                         )}
@@ -232,8 +228,11 @@ export default function PrintTemplateEditorPage() {
     // (sửa qua hộp thoại "Thông tin công ty", không phải trang riêng).
     const savedDraftRef = useRef(null);
 
-    // Hộp thoại thay đổi chưa lưu: chuyển khổ giấy / rời trang
-    const [switchTarget, setSwitchTarget] = useState(null);
+    // Biến thể khổ giấy ĐANG DÙNG cho in thật (theo server). Bản nháp ở khổ
+    // khác -> lưu được ngay dù chưa sửa gì (lưu = chuyển phiếu in sang khổ đó).
+    const [inUseTemplateId, setInUseTemplateId] = useState(null);
+
+    // Hộp thoại thay đổi chưa lưu khi rời trang
     const [leaveTarget, setLeaveTarget] = useState(null);
 
     // Hộp thoại "Thông tin công ty" — mở tại chỗ, không chuyển trang
@@ -256,11 +255,12 @@ export default function PrintTemplateEditorPage() {
             setLoadError(false);
             setNotFound(false);
             try {
-                const [targetCfg, profile] = await Promise.all([
+                const [targetCfg, profile, inUseId] = await Promise.all([
                     templateId
                         ? printTemplateConfigService.getTemplate(schema.key, templateId)
                         : printTemplateConfigService.getActiveTemplate(schema.key),
                     companyProfileService.get(),
+                    printTemplateConfigService.getInUseTemplateId(schema.key),
                 ]);
                 if (cancelled) return;
                 if (!targetCfg) {
@@ -269,6 +269,7 @@ export default function PrintTemplateEditorPage() {
                 }
                 setDraft(targetCfg);
                 setCompany(profile);
+                setInUseTemplateId(inUseId);
                 savedDraftRef.current = JSON.stringify(targetCfg);
             } catch (error) {
                 console.error("Error loading print template editor:", error);
@@ -287,9 +288,17 @@ export default function PrintTemplateEditorPage() {
         [schema]
     );
 
+    // isDirty: bản nháp khác bản đã nạp/đã lưu (kể cả đổi khổ giấy) — dùng cho
+    // cảnh báo rời trang. variantDiffers: khổ giấy của bản nháp khác khổ đang
+    // dùng cho in thật (vd. mở thẳng URL mẫu A5 khi đang dùng A4) — chưa sửa
+    // gì vẫn lưu được để chuyển phiếu in sang khổ này.
     const isDirty =
         Boolean(draft) &&
         savedDraftRef.current !== JSON.stringify(draft);
+    const variantDiffers =
+        Boolean(draft) && Boolean(inUseTemplateId) && draft.id !== inUseTemplateId;
+    const canSave = isDirty || variantDiffers;
+    const inUseDef = schema?.templates.find((template) => template.id === inUseTemplateId) ?? null;
 
     const editorHref = location.pathname + location.search;
 
@@ -373,6 +382,7 @@ export default function PrintTemplateEditorPage() {
         try {
             await saveDraft();
             savedDraftRef.current = JSON.stringify(draft);
+            setInUseTemplateId(draft.id);
             toast.success("Đã lưu cấu hình mẫu in");
             // Lưu thành công -> quay về trang xem mẫu (khổ giấy do cấu hình
             // đã lưu quyết định, không cần tham số ?paper)
@@ -386,67 +396,24 @@ export default function PrintTemplateEditorPage() {
         }
     };
 
-    // ── Chuyển khổ giấy = chuyển BIẾN THỂ (nạp cấu hình của biến thể đó,
-    //    KHÔNG sửa paperSize dưới id của biến thể khác) ──
-    const switchToPaper = async (paper) => {
-        const targetDef = schema.templates.find((template) => template.paperSize === paper);
-        if (!targetDef) return;
-        try {
-            const cfg = await printTemplateConfigService.getTemplate(schema.key, targetDef.id);
-            if (!cfg) {
-                toast.error("Không thể tải mẫu của khổ giấy này");
-                return;
-            }
-            setDraft(cfg);
-            savedDraftRef.current = JSON.stringify(cfg);
-            navigate(
-                `/settings/print-templates/${schema.slug}/${targetDef.id}/edit?paper=${paper}`,
-                { replace: true }
-            );
-        } catch (error) {
-            console.error("Error switching paper variant:", error);
-            toast.error("Không thể tải mẫu của khổ giấy này");
-        }
-    };
-
+    // ── Đổi khổ giấy = đổi BIẾN THỂ nhưng GIỮ tuỳ chỉnh của bản nháp ──
+    // Chỉ thay bản nháp tại chỗ: KHÔNG tải cấu hình cũ của khổ đích, KHÔNG đổi
+    // URL (đổi URL sẽ nạp lại từ server và ghi đè bản nháp). Mốc "đã lưu"
+    // giữ nguyên nên bản nháp thành có thay đổi -> nút Lưu bật; đổi ngược về
+    // khổ ban đầu mà không sửa gì thì hết thay đổi.
     const handlePaperChange = (paper) => {
         if (!draft || paper === draft.paperSize) return;
-        if (isDirty) {
-            setSwitchTarget(paper);
+        const next = buildVariantFromDraft(schema, draft, paper);
+        if (!next) {
+            toast.error("Loại chứng từ này không hỗ trợ khổ giấy đã chọn");
             return;
         }
-        switchToPaper(paper);
-    };
-
-    const handleSwitchSaveAndGo = async () => {
-        const paper = switchTarget;
-        if (!paper) return;
-        const errors = collectValidationIssues();
-        for (const error of errors) toast.error(error);
-        if (errors.length > 0) return;
-        setSaving(true);
-        try {
-            await saveDraft();
-            savedDraftRef.current = JSON.stringify(draft);
-            setSwitchTarget(null);
-            await switchToPaper(paper);
-        } catch (error) {
-            console.error("Error saving before paper switch:", error);
-            toast.error("Không thể lưu cấu hình mẫu in");
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const handleSwitchDiscardAndGo = () => {
-        const paper = switchTarget;
-        setSwitchTarget(null);
-        if (paper) switchToPaper(paper);
+        setDraft(next);
     };
 
     // ── Rời trang (nút Hủy / link nội bộ bị chặn) ──
-    const backHref = schema && draft
-        ? `/settings/print-templates/${schema.slug}?paper=${draft.paperSize}`
+    const backHref = schema
+        ? `/settings/print-templates/${schema.slug}`
         : "/settings/print-templates";
 
     const handleCancel = () => {
@@ -670,6 +637,12 @@ export default function PrintTemplateEditorPage() {
                                         </FieldGroup>
                                     ) : null}
                                 </div>
+                                {variantDiffers && inUseDef ? (
+                                    <p className="rounded-md border border-bo-warning/30 bg-bo-warning-soft px-3 py-2 text-xs leading-5 text-bo-foreground">
+                                        Phiếu in thật đang dùng khổ <strong>{inUseDef.paperSize}</strong> —
+                                        bấm “Lưu cấu hình” để chuyển sang khổ <strong>{draft.paperSize}</strong>.
+                                    </p>
+                                ) : null}
                                 {!isK80 ? (
                                     <FieldGroup label="Lề">
                                         <SegmentedControl
@@ -769,7 +742,9 @@ export default function PrintTemplateEditorPage() {
                             </div>
                         </EditorSection>
 
-                        {schema.sections.map((section) => (
+                        {schema.sections
+                            .filter((section) => !(isK80 && section.compactHidden))
+                            .map((section) => (
                             <EditorSection key={section.key} title={section.title} defaultOpen={false}>
                                 {section.type === "info" ? (
                                     <div>
@@ -870,24 +845,20 @@ export default function PrintTemplateEditorPage() {
 
                     {/* ── Thanh thao tác DUY NHẤT — nằm ngoài vùng cuộn của cột
                          cấu hình, gọn 1 hàng ở chiều rộng panel (~400px):
-                         trái "Khôi phục" (nhãn đầy đủ qua aria-label + tooltip),
+                         trái "Khôi phục" (không tooltip — chữ trên nút đã rõ, hộp
+                         thoại xác nhận giải thích chi tiết; tooltip cũ tự bật
+                         lại khi focus trả về nút sau khi đóng hộp thoại),
                          phải "Hủy" + "Lưu cấu hình" cách nhau 8px. flex-wrap để
                          màn thật hẹp chuyển hàng gọn, không tràn/cắt. ── */}
                     <div className="mt-3 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-bo-border bg-white px-3 py-3 shadow-sm">
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    aria-label="Khôi phục cấu hình mẫu"
-                                    className="h-9 border-bo-border bg-white text-bo-muted hover:bg-bo-surface-subtle hover:text-bo-foreground"
-                                    onClick={() => setResetOpen(true)}
-                                >
-                                    <RotateCcw className="size-4" />
-                                    Khôi phục
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Khôi phục cấu hình mẫu</TooltipContent>
-                        </Tooltip>
+                        <Button
+                            variant="outline"
+                            className="h-9 border-bo-border bg-white text-bo-muted hover:bg-bo-surface-subtle hover:text-bo-foreground"
+                            onClick={() => setResetOpen(true)}
+                        >
+                            <RotateCcw className="size-4" />
+                            Khôi phục
+                        </Button>
                         <div className="flex items-center gap-2">
                             <Button
                                 variant="outline"
@@ -900,7 +871,7 @@ export default function PrintTemplateEditorPage() {
                             <Button
                                 className="h-9 bg-bo-primary text-white hover:bg-bo-primary-hover"
                                 onClick={handleSave}
-                                disabled={saving || !isDirty || validationIssues.length > 0}
+                                disabled={saving || !canSave || validationIssues.length > 0}
                                 title={
                                     validationIssues.length > 0
                                         ? validationIssues[0]
@@ -914,20 +885,9 @@ export default function PrintTemplateEditorPage() {
                 </div>
             </div>
 
-            {/* Hộp thoại thay đổi chưa lưu — chuyển khổ giấy */}
-            <UnsavedDialog
-                open={Boolean(switchTarget)}
-                switching
-                saving={saving}
-                onClose={() => setSwitchTarget(null)}
-                onSaveAndGo={handleSwitchSaveAndGo}
-                onDiscardAndGo={handleSwitchDiscardAndGo}
-            />
-
             {/* Hộp thoại thay đổi chưa lưu — rời trang */}
             <UnsavedDialog
                 open={Boolean(leaveTarget)}
-                switching={false}
                 saving={saving}
                 onClose={() => setLeaveTarget(null)}
                 onSaveAndGo={handleLeaveSaveAndGo}
