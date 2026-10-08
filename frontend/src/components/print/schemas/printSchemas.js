@@ -11,13 +11,19 @@
  * - templates    : các mẫu mặc định; khổ giấy nằm trong định danh mẫu
  *                  (vd: purchase_request_default_A4)
  * - sections     : thứ tự + cấu trúc hiển thị của phiếu
- *   - type "info"       : lưới nhãn/giá trị, fields = các trường bật/tắt được
+ *   - type "info"       : lưới nhãn/giá trị, fields = các trường bật/tắt được;
+ *                         field.hideWhenEmpty = ẩn hẳn khi adapter trả null
+ *                         (trường không áp dụng cho phiếu đó, vd. "Kho chuyển
+ *                         đến" ở phiếu xuất bán); field.labelModelPath = nhãn
+ *                         động lấy từ model; field.hint = ghi chú trong editor
  *   - type "items"      : bảng dữ liệu, columns = cột bật/tắt được;
  *                         column.essential = cột BẮT BUỘC (không tắt được —
  *                         phiếu thiếu tên hàng/SKU/số lượng/tiền là vô nghĩa);
  *                         total.column = cột mà dòng tổng nằm dưới
  *   - type "notes"      : khu vực ghi chú tự do
- *   - type "signatures" : khối chữ ký, blocks = từng khối bật/tắt được
+ *   - type "signatures" : khối chữ ký, blocks = từng khối bật/tắt được;
+ *                         model trả { label?, name, email } — name rỗng = ô
+ *                         ký trống để ký tay, label ghi đè nhãn mặc định
  *   - compactHidden     : section KHÔNG dùng trên khổ nhiệt K80 (không render,
  *                         không hiện trong editor) — vd. "Đơn vị bán" trùng
  *                         đầu phiếu
@@ -61,6 +67,14 @@ export const PRINT_SCHEMAS = {
                     { key: "createdAt", label: "Ngày tạo", modelPath: "createdAt" },
                     { key: "expectedDate", label: "Ngày giao dự kiến", modelPath: "expectedDate" },
                     { key: "status", label: "Trạng thái", modelPath: "status", kind: "badge" },
+                    {
+                        key: "rejectionReason",
+                        label: "Lý do từ chối",
+                        modelPath: "rejectionReason",
+                        hideWhenEmpty: true,
+                        hint: "Chỉ in khi yêu cầu bị từ chối",
+                        span: 3,
+                    },
                 ],
             },
             {
@@ -82,7 +96,13 @@ export const PRINT_SCHEMAS = {
                 columns: 2,
                 fields: [
                     { key: "creator", label: "Người tạo", modelPath: "users.creator" },
-                    { key: "approver", label: "Người duyệt", modelPath: "users.approver" },
+                    {
+                        key: "approver",
+                        label: "Người duyệt",
+                        modelPath: "users.approver",
+                        // Phiếu bị từ chối in "Người từ chối"
+                        labelModelPath: "users.approverLabel",
+                    },
                 ],
             },
             {
@@ -148,7 +168,9 @@ export const PRINT_SCHEMAS = {
                 fields: [
                     { key: "documentNumber", label: "Mã phiếu", modelPath: "documentNumber", essential: true },
                     { key: "createdAt", label: "Ngày tạo", modelPath: "createdAt" },
-                    { key: "deadline", label: "Hạn báo giá", modelPath: "deadline" },
+                    // key "deadline" giữ nguyên để cấu hình đã lưu không bị mất;
+                    // dữ liệu là ngày giao dự kiến, không phải hạn gửi báo giá
+                    { key: "deadline", label: "Ngày giao dự kiến", modelPath: "expectedDate" },
                     { key: "status", label: "Trạng thái", modelPath: "status", kind: "badge" },
                 ],
             },
@@ -257,6 +279,17 @@ export const PRINT_SCHEMAS = {
                 ],
             },
             {
+                key: "deliverTo",
+                type: "info",
+                title: "Giao hàng đến",
+                columns: 2,
+                fields: [
+                    { key: "name", label: "Kho nhận", modelPath: "deliverTo.name" },
+                    { key: "code", label: "Mã kho", modelPath: "deliverTo.code" },
+                    { key: "address", label: "Địa chỉ giao hàng", modelPath: "deliverTo.address", span: 2 },
+                ],
+            },
+            {
                 key: "items",
                 type: "items",
                 essentialShow: true,
@@ -327,6 +360,14 @@ export const PRINT_SCHEMAS = {
                 fields: [
                     { key: "documentNumber", label: "Mã phiếu", modelPath: "documentNumber", essential: true },
                     { key: "receivedDate", label: "Ngày nhập", modelPath: "receivedDate" },
+                    { key: "receiptType", label: "Loại nhập", modelPath: "receiptType" },
+                    {
+                        key: "purchaseOrder",
+                        label: "Mã đơn mua",
+                        modelPath: "purchaseOrder",
+                        hideWhenEmpty: true,
+                        hint: "Chỉ in với phiếu nhập từ đơn mua hàng",
+                    },
                     { key: "partner", label: "Nguồn / Đối tác", modelPath: "partner" },
                     { key: "status", label: "Trạng thái", modelPath: "status", kind: "badge" },
                 ],
@@ -362,7 +403,12 @@ export const PRINT_SCHEMAS = {
                 title: "Chữ ký",
                 blocks: [
                     { key: "receiver", label: "Người nhận", path: "signatures.receiver" },
-                    { key: "deliverer", label: "Người giao", path: "signatures.deliverer" },
+                    {
+                        key: "deliverer",
+                        label: "Người giao",
+                        path: "signatures.deliverer",
+                        hint: "Ô trống — người giao hàng ký và ghi rõ họ tên",
+                    },
                 ],
             },
         ],
@@ -402,7 +448,14 @@ export const PRINT_SCHEMAS = {
                 fields: [
                     { key: "documentNumber", label: "Mã phiếu", modelPath: "documentNumber", essential: true },
                     { key: "issuedDate", label: "Ngày xuất", modelPath: "issuedDate" },
-                    { key: "salesOrder", label: "Đơn bán hàng", modelPath: "salesOrder" },
+                    { key: "issueType", label: "Loại xuất", modelPath: "issueType" },
+                    {
+                        key: "salesOrder",
+                        label: "Đơn bán hàng",
+                        modelPath: "salesOrder",
+                        hideWhenEmpty: true,
+                        hint: "Chỉ in với phiếu xuất bán hàng",
+                    },
                     { key: "status", label: "Trạng thái", modelPath: "status", kind: "badge" },
                 ],
             },
@@ -414,6 +467,13 @@ export const PRINT_SCHEMAS = {
                 fields: [
                     { key: "name", label: "Tên kho", modelPath: "warehouse.name" },
                     { key: "code", label: "Mã kho", modelPath: "warehouse.code" },
+                    {
+                        key: "destination",
+                        label: "Kho chuyển đến",
+                        modelPath: "warehouse.destination",
+                        hideWhenEmpty: true,
+                        hint: "Chỉ in với phiếu chuyển kho",
+                    },
                 ],
             },
             {
@@ -438,6 +498,12 @@ export const PRINT_SCHEMAS = {
                 title: "Chữ ký",
                 blocks: [
                     { key: "issuer", label: "Người xuất", path: "signatures.issuer" },
+                    {
+                        key: "receiver",
+                        label: "Người nhận",
+                        path: "signatures.receiver",
+                        hint: "Ô trống — người nhận hàng ký và ghi rõ họ tên",
+                    },
                 ],
             },
         ],
@@ -502,6 +568,14 @@ export const PRINT_SCHEMAS = {
                     { key: "contact", label: "Người liên hệ", modelPath: "buyer.contact" },
                     { key: "phone", label: "Số điện thoại", modelPath: "buyer.phone" },
                     { key: "address", label: "Địa chỉ", modelPath: "buyer.address", span: 2 },
+                    {
+                        key: "deliveryAddress",
+                        label: "Địa chỉ giao hàng",
+                        modelPath: "buyer.deliveryAddress",
+                        hideWhenEmpty: true,
+                        hint: "Chỉ in khi báo giá có địa chỉ giao hàng",
+                        span: 3,
+                    },
                 ],
             },
             {
@@ -590,7 +664,7 @@ export const PRINT_SCHEMAS = {
                 defaults: {
                     sections: {
                         creator: { email: false, phone: false },
-                        buyer: { contact: false, address: false },
+                        buyer: { contact: false, address: false, deliveryAddress: false },
                         // Tổng nằm ở mục "Tổng cộng" — bỏ dòng tổng trùng cuối bảng
                         items: { showTotal: false },
                         signatures: { creator: false, buyer: false },
@@ -633,6 +707,14 @@ export const PRINT_SCHEMAS = {
                     { key: "contact", label: "Người liên hệ", modelPath: "buyer.contact" },
                     { key: "phone", label: "Số điện thoại", modelPath: "buyer.phone" },
                     { key: "address", label: "Địa chỉ", modelPath: "buyer.address", span: 2 },
+                    {
+                        key: "deliveryAddress",
+                        label: "Địa chỉ giao hàng",
+                        modelPath: "buyer.deliveryAddress",
+                        hideWhenEmpty: true,
+                        hint: "Chỉ in khi đơn có địa chỉ giao hàng",
+                        span: 3,
+                    },
                 ],
             },
             {

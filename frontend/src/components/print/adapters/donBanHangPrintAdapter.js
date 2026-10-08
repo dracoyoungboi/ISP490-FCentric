@@ -77,6 +77,9 @@ function toDonBanHangPrintModel(raw, { statusMap }) {
             contact: dash(kh.nguoiLienHe),
             phone: dash(kh.soDienThoai),
             address: dash(kh.diaChi),
+            // Địa chỉ giao của RIÊNG đơn này (có thể khác địa chỉ khách hàng);
+            // null = không giao hàng (vd. bán tại quầy) -> ẩn trên bản in
+            deliveryAddress: don.diaChiGiaoHang?.trim() ? dash(don.diaChiGiaoHang) : null,
         },
         items,
         totals: {

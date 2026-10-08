@@ -62,6 +62,12 @@ export function toPurchaseOrderPrintModel(raw) {
             email: dash(data.nhaCungCap?.email),
             address: dash(data.nhaCungCap?.diaChi),
         },
+        // Kho nhận hàng — nhà cung cấp cần biết giao đến đâu
+        deliverTo: {
+            name: dash(data.khoNhap?.tenKho),
+            code: dash(data.khoNhap?.maKho),
+            address: dash(data.khoNhap?.diaChi),
+        },
         items,
         totalAmount: total,
         totals: { total },

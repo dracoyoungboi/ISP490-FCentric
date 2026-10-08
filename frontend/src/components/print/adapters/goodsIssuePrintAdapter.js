@@ -16,6 +16,14 @@ export const GOODS_ISSUE_STATUS = {
     5: { label: "Đã xuất", tone: "success" },
 };
 
+// Loại xuất theo giá trị backend: "ban_hang" = xuất bán, "chuyen_kho" = xuất
+// chuyển kho nội bộ, "khac" = phiếu yêu cầu chuyển kho (chưa có phiếu xuất)
+export const GOODS_ISSUE_TYPE = {
+    ban_hang: "Xuất bán hàng",
+    chuyen_kho: "Chuyển kho nội bộ",
+    khac: "Yêu cầu chuyển kho",
+};
+
 const dash = (value) => {
     if (value === null || value === undefined) return "—";
     const text = String(value).trim();
@@ -74,20 +82,33 @@ export function toGoodsIssuePrintModel(payload) {
 
     const status = GOODS_ISSUE_STATUS[phieu.trangThai] || GOODS_ISSUE_STATUS[0];
 
+    const isSale = phieu.loaiXuat === "ban_hang";
+    const isTransfer = phieu.loaiXuat === "chuyen_kho" || phieu.loaiXuat === "khac";
+
     return {
         documentNumber: dash(phieu.soPhieuXuat || `#${phieu.id}`),
         issuedDate: dashDate(phieu.ngayXuat),
-        salesOrder: dash(phieu.donBanHang?.soDonHang),
+        issueType: dash(GOODS_ISSUE_TYPE[phieu.loaiXuat] ?? phieu.loaiXuat),
+        // null = không áp dụng (ẩn trên bản in): đơn bán chỉ có ở phiếu xuất
+        // bán; kho chuyển đến chỉ có ở phiếu chuyển kho. Dữ liệu cũ thiếu
+        // loaiXuat nhưng có đơn bán vẫn in mã đơn.
+        salesOrder:
+            isSale || (!isTransfer && phieu.donBanHang)
+                ? dash(phieu.donBanHang?.soDonHang)
+                : null,
         status: { label: status.label, tone: status.tone },
         warehouse: {
             name: dash(phieu.kho?.tenKho),
             code: dash(phieu.kho?.maKho),
+            destination: isTransfer ? dash(phieu.khoChuyenDen?.tenKho) : null,
         },
         items,
         totalQuantity: formatNumber(totalQuantity),
         notes: dash(phieu.ghiChu),
         signatures: {
             issuer: { name: dash(phieu.nguoiXuat?.hoTen), email: dash(phieu.nguoiXuat?.email) },
+            // Người nhận (khách / shipper / thủ kho nhận) ký tay và ghi rõ họ tên
+            receiver: { name: "", email: "" },
         },
     };
 }
