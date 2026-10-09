@@ -103,7 +103,7 @@ public class PayosCredentialVerifier {
                         "Checksum Key không khớp: chữ ký payOS trả về không đúng với Checksum Key đã nhập.");
             }
             return new Result(true, false, r.code(),
-                    "Kết nối payOS thành công. Đã xác minh Client ID, API Key và Checksum Key.");
+                    "Đã xác minh Client ID, API Key và Checksum Key.");
         } finally {
             cancelQuietly(cred, orderCode);
         }

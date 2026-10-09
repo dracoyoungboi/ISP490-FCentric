@@ -143,6 +143,19 @@ function Card({ icon, title, description, aside, children, footer }) {
   );
 }
 
+/** Chỉ đường lấy khóa trên payOS — chỉ hiện ở nơi đang nhập khóa (lần đầu, hộp thoại cập nhật). */
+function KeySourceHint() {
+  return (
+    <>
+      Lấy tại{" "}
+      <a className={linkClass} href={PAYOS_DASHBOARD_URL} rel="noreferrer" target="_blank">
+        my.payos.vn
+      </a>{" "}
+      → Kênh thanh toán → Thông tin cấu hình.
+    </>
+  );
+}
+
 function StatusPill({ tone, children }) {
   const tones = {
     success: "bg-bo-success-soft text-bo-success",
@@ -528,7 +541,7 @@ export default function PaymentSettingsPage() {
       toast.success("Đã lưu khóa kết nối");
       setTestResult({
         ok: true,
-        message: "payOS đã xác minh Client ID, API Key và Checksum Key.",
+        message: "Đã xác minh Client ID, API Key và Checksum Key.",
         at: new Date(),
       });
     } catch (error) {
@@ -767,15 +780,7 @@ export default function PaymentSettingsPage() {
                 </button>
               ) : null
             }
-            description={
-              <>
-                Lấy tại{" "}
-                <a className={linkClass} href={PAYOS_DASHBOARD_URL} rel="noreferrer" target="_blank">
-                  my.payos.vn
-                </a>{" "}
-                → Kênh thanh toán → Thông tin cấu hình.
-              </>
-            }
+            description={hasKeys ? undefined : <KeySourceHint />}
             footer={
               hasKeys ? (
                 <>
@@ -822,7 +827,11 @@ export default function PaymentSettingsPage() {
           {/* ===== Webhook ===== */}
           <Card
             aside={webhookConfirmed ? <StatusPill tone="success">Đã đăng ký</StatusPill> : <StatusPill tone="danger">Chưa đăng ký</StatusPill>}
-            description="payOS báo về ngay khi khách chuyển tiền."
+            description={
+              webhookConfirmed
+                ? undefined
+                : "Chưa đăng ký: hệ thống phải tự hỏi payOS định kỳ nên xác nhận tiền về có thể chậm hơn."
+            }
             footer={
               <>
                 {savedWebhookUrl ? (
@@ -916,7 +925,7 @@ export default function PaymentSettingsPage() {
           <DialogHeader>
             <DialogTitle className="text-bo-foreground">Cập nhật khóa kết nối</DialogTitle>
             <DialogDescription className="text-slate-600">
-              Nhập đủ 3 khóa mới từ my.payos.vn. Hệ thống xác minh với payOS trước khi lưu, khóa sai sẽ không được lưu.
+              <KeySourceHint /> Hệ thống xác minh với payOS trước khi lưu, khóa sai sẽ không được lưu.
             </DialogDescription>
           </DialogHeader>
           {enabled ? (
