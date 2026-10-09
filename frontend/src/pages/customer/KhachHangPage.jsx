@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +49,37 @@ import LoadingState from "@/components/shared/LoadingState";
 import SearchInput from "@/components/shared/SearchInput";
 import StatusBadge from "@/components/shared/StatusBadge";
 import TableShell from "@/components/shared/TableShell";
+import {
+    PHONE_ERROR_MESSAGE,
+    getPhoneError,
+    isPhoneValid,
+    sanitizePhoneInput
+} from "@/utils/phoneValidation";
+
+// Gõ ô tìm kiếm: chờ người dùng ngừng gõ một chút rồi mới gọi API
+const SEARCH_DEBOUNCE_MS = 300;
+
+// Dãy nút trang: luôn có trang đầu, trang cuối và các trang quanh trang hiện tại;
+// khoảng bị bỏ qua hiển thị "…" (khoảng chỉ thiếu đúng 1 trang thì hiện luôn trang đó).
+// Trang tính từ 0, phần tử dạng chuỗi là dấu "…".
+function getPageItems(current, totalPages) {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i);
+
+    const pages = new Set([0, totalPages - 1, current - 1, current, current + 1]);
+    // Gần đầu / cuối dãy: hiện đủ các trang liền kề để số nút không bị co lại
+    if (current <= 2) [1, 2, 3].forEach(p => pages.add(p));
+    if (current >= totalPages - 3) [totalPages - 4, totalPages - 3, totalPages - 2].forEach(p => pages.add(p));
+
+    const sorted = [...pages].filter(p => p >= 0 && p < totalPages).sort((a, b) => a - b);
+    const items = [];
+    sorted.forEach((page, i) => {
+        const prev = sorted[i - 1];
+        if (i > 0 && page - prev === 2) items.push(prev + 1);
+        else if (i > 0 && page - prev > 2) items.push(`gap-${prev}`);
+        items.push(page);
+    });
+    return items;
+}
 
 // Bản đồ nhãn + tông màu loại khách hàng (giữ nguyên 3 giá trị nghiệp vụ)
 const LOAI_KHACH_HANG_MAP = {
@@ -109,8 +140,15 @@ export default function KhachHangPage() {
     const navigate = useNavigate();
     // Filter states
     const [searchQuery, setSearchQuery] = useState("");
+    // Từ khóa thực sự gửi lên server (trễ SEARCH_DEBOUNCE_MS sau lần gõ cuối, hoặc ngay khi Enter)
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [loaiKhachHang, setLoaiKhachHang] = useState("all");
     const [trangThai, setTrangThai] = useState("all");
+    // Đánh số mỗi lần tải danh sách: phản hồi về muộn của lần tải cũ bị bỏ qua
+    const requestSeq = useRef(0);
+
+    // Thống kê toàn bộ khách hàng (không phụ thuộc bộ lọc / trang đang xem); null = chưa tải được
+    const [stats, setStats] = useState({ total: null, le: null, si: null, doanh_nghiep: null });
 
     // Dialog states
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -130,6 +168,8 @@ export default function KhachHangPage() {
 
     const [formErrors, setFormErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    // Lỗi từ server khi bấm "Thêm khách hàng" (trùng mã/SĐT/email...) — hiện ngay trong dialog
+    const [submitError, setSubmitError] = useState("");
 
     // Alert state
     const [alert, setAlert] = useState({ show: false, message: "", type: "success" });
@@ -142,34 +182,35 @@ export default function KhachHangPage() {
 
     // Load data
     const loadKhachHangs = useCallback(async () => {
+        const seq = ++requestSeq.current;
         setLoading(true);
         try {
             const filters = [];
 
             // Search filter - tìm theo tên, mã, số điện thoại, email
-            if (searchQuery.trim()) {
+            if (debouncedSearch) {
                 filters.push({
                     fieldName: "tenKhachHang",
                     operation: "ILIKE",
-                    value: `%${searchQuery}%`,
+                    value: `%${debouncedSearch}%`,
                     logicType: "OR"
                 });
                 filters.push({
                     fieldName: "maKhachHang",
                     operation: "ILIKE",
-                    value: `%${searchQuery}%`,
+                    value: `%${debouncedSearch}%`,
                     logicType: "OR"
                 });
                 filters.push({
                     fieldName: "soDienThoai",
                     operation: "ILIKE",
-                    value: `%${searchQuery}%`,
+                    value: `%${debouncedSearch}%`,
                     logicType: "OR"
                 });
                 filters.push({
                     fieldName: "email",
                     operation: "ILIKE",
-                    value: `%${searchQuery}%`,
+                    value: `%${debouncedSearch}%`,
                     logicType: "OR"
                 });
             }
@@ -207,14 +248,51 @@ export default function KhachHangPage() {
             };
 
             const data = await khachHangService.filter(filterRequest);
-            setKhachHangs(data.content || []);
+            if (seq !== requestSeq.current) return;
+
+            const content = data.content || [];
+            // Trang hiện tại không còn dòng nào (vừa xóa dòng cuối của trang cuối...) -> lùi một trang.
+            // Server trả trang rỗng kèm totalElements = 0 nên không dựa vào tổng để tính trang cuối.
+            if (!content.length && currentPage > 0) {
+                setCurrentPage(page => Math.max(0, page - 1));
+                return;
+            }
+            setKhachHangs(content);
             setTotalItems(data.totalElements || 0);
         } catch (error) {
+            if (seq !== requestSeq.current) return;
             showAlert("Lỗi khi tải danh sách khách hàng: " + error.message, "error");
         } finally {
-            setLoading(false);
+            if (seq === requestSeq.current) setLoading(false);
         }
-    }, [currentPage, pageSize, searchQuery, loaiKhachHang, trangThai, showAlert]);
+    }, [currentPage, pageSize, debouncedSearch, loaiKhachHang, trangThai, showAlert]);
+
+    // Đếm số khách theo từng loại trên toàn hệ thống: mỗi thẻ gọi filter size=1 và lấy totalElements,
+    // dùng đúng điều kiện của bộ lọc "Loại KH" nên số trên thẻ khớp với kết quả khi lọc theo loại đó.
+    const loadStats = useCallback(async () => {
+        const countBy = async (loai) => {
+            const data = await khachHangService.filter({
+                filters: loai
+                    ? [{ fieldName: "loaiKhachHang", operation: "EQUALS", value: loai, logicType: "AND" }]
+                    : [],
+                sorts: [],
+                page: 0,
+                size: 1
+            });
+            return data.totalElements || 0;
+        };
+        try {
+            const [total, le, si, doanh_nghiep] = await Promise.all([
+                countBy(null),
+                countBy("le"),
+                countBy("si"),
+                countBy("doanh_nghiep")
+            ]);
+            setStats({ total, le, si, doanh_nghiep });
+        } catch {
+            // Thẻ thống kê giữ "—"; lỗi tải danh sách đã có thông báo riêng
+        }
+    }, []);
 
     // Hoãn qua microtask để tránh setState đồng bộ trong effect
     // (react-hooks/set-state-in-effect); dữ liệu vẫn được tải ngay khi mount.
@@ -222,17 +300,57 @@ export default function KhachHangPage() {
         queueMicrotask(() => loadKhachHangs());
     }, [loadKhachHangs]);
 
-    // Handlers
-    const handleSearch = () => {
+    useEffect(() => {
+        queueMicrotask(() => loadStats());
+    }, [loadStats]);
+
+    // Áp dụng từ khóa tìm kiếm và quay về trang đầu (chỉ khi từ khóa thực sự đổi)
+    const applySearch = useCallback((term) => {
+        if (term === debouncedSearch) return;
+        setDebouncedSearch(term);
         setCurrentPage(0);
-        loadKhachHangs();
+    }, [debouncedSearch]);
+
+    useEffect(() => {
+        const term = searchQuery.trim();
+        if (term === debouncedSearch) return undefined;
+        const timer = setTimeout(() => applySearch(term), SEARCH_DEBOUNCE_MS);
+        return () => clearTimeout(timer);
+    }, [searchQuery, debouncedSearch, applySearch]);
+
+    // Handlers
+    // Enter: tìm ngay, không chờ hết thời gian trễ (bộ hẹn giờ đang chờ tự hủy khi từ khóa đổi)
+    const handleSearch = () => {
+        applySearch(searchQuery.trim());
+    };
+
+    const handleClearSearch = () => {
+        setSearchQuery("");
+        applySearch("");
+    };
+
+    const handleLoaiKhachHangChange = (value) => {
+        setLoaiKhachHang(value);
+        setCurrentPage(0);
+    };
+
+    const handleTrangThaiChange = (value) => {
+        setTrangThai(value);
+        setCurrentPage(0);
     };
 
     const handleResetFilters = () => {
         setSearchQuery("");
+        setDebouncedSearch("");
         setLoaiKhachHang("all");
         setTrangThai("all");
         setCurrentPage(0);
+    };
+
+    // Nhấn vào dòng -> xem chi tiết; bỏ qua khi người dùng đang bôi đen chữ (vd. copy SĐT, email)
+    const handleRowClick = (khachHang) => {
+        if (window.getSelection()?.toString()) return;
+        navigate(`/customers/${khachHang.id}`);
     };
 
     const handleDeleteClick = (khachHang) => {
@@ -263,11 +381,13 @@ export default function KhachHangPage() {
             loaiKhachHang: "le"
         });
         setFormErrors({});
+        setSubmitError("");
         setShowCreateDialog(true);
     };
 
     const handleFormChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }));
+        setSubmitError("");
         // Clear error for this field when user starts typing
         if (formErrors[field]) {
             setFormErrors(prev => ({ ...prev, [field]: "" }));
@@ -285,11 +405,11 @@ export default function KhachHangPage() {
             errors.tenKhachHang = "Tên khách hàng là bắt buộc";
         }
 
-        if (formData.soDienThoai && !/^[0-9]{10,11}$/.test(formData.soDienThoai)) {
-            errors.soDienThoai = "Số điện thoại không hợp lệ (10-11 chữ số)";
+        if (!isPhoneValid(formData.soDienThoai)) {
+            errors.soDienThoai = PHONE_ERROR_MESSAGE;
         }
 
-        if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
             errors.email = "Email không hợp lệ";
         }
 
@@ -309,8 +429,11 @@ export default function KhachHangPage() {
             showAlert("Thêm khách hàng thành công");
             setShowCreateDialog(false);
             loadKhachHangs();
+            loadStats();
         } catch (error) {
-            showAlert("Lỗi khi thêm khách hàng: " + error.message, "error");
+            // Hiện trong dialog (thông báo ngoài trang bị lớp phủ dialog che); ưu tiên message của backend,
+            // vd. "Số điện thoại đã thuộc khách hàng ..." thay vì "Request failed with status code 409"
+            setSubmitError(error.response?.data?.message || "Không thể thêm khách hàng. Vui lòng thử lại.");
         } finally {
             setIsSubmitting(false);
         }
@@ -318,23 +441,24 @@ export default function KhachHangPage() {
 
     // Render helpers
     const getLoaiKhachHangBadge = (loai) => {
-        const item = LOAI_KHACH_HANG_MAP[loai] || { label: loai, tone: "neutral" };
+        // Khách tạo trước khi backend lưu loại có loaiKhachHang = null -> "Chưa phân loại"
+        const item = LOAI_KHACH_HANG_MAP[loai] || { label: loai || "Chưa phân loại", tone: "neutral" };
 
         return <StatusBadge label={item.label} tone={item.tone} dot={false} />;
     };
 
-    const stats = {
-        total: totalItems,
-        le: khachHangs.filter(k => k.loaiKhachHang === "le").length,
-        si: khachHangs.filter(k => k.loaiKhachHang === "si").length,
-        doanh_nghiep: khachHangs.filter(k => k.loaiKhachHang === "doanh_nghiep").length
-    };
+    const formatStat = (value) => (value == null ? "—" : value);
+
+    const totalPages = Math.ceil(totalItems / pageSize);
 
     const handlePageChange = (newPage) => {
-        if (newPage >= 0 && newPage < Math.ceil(totalItems / pageSize)) {
+        if (newPage >= 0 && newPage < totalPages) {
             setCurrentPage(newPage);
         }
     };
+
+    // Hiện lỗi SĐT ngay khi đã gõ đủ 10 số mà sai định dạng, hoặc lỗi từ lần bấm "Thêm"
+    const phoneError = formErrors.soDienThoai || getPhoneError(formData.soDienThoai);
 
     const handlePageSizeChange = (newSize) => {
         setPageSize(newSize);
@@ -392,7 +516,7 @@ export default function KhachHangPage() {
                 <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
                     <div>
                         <p className="text-xs font-medium text-bo-muted">Tổng khách hàng</p>
-                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.total}</p>
+                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{formatStat(stats.total)}</p>
                     </div>
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary">
                         <Users className="size-5" />
@@ -402,7 +526,7 @@ export default function KhachHangPage() {
                 <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
                     <div>
                         <p className="text-xs font-medium text-bo-muted">Khách lẻ</p>
-                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.le}</p>
+                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{formatStat(stats.le)}</p>
                     </div>
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
                         <User className="size-5" />
@@ -412,7 +536,7 @@ export default function KhachHangPage() {
                 <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
                     <div>
                         <p className="text-xs font-medium text-bo-muted">Khách sỉ</p>
-                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.si}</p>
+                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{formatStat(stats.si)}</p>
                     </div>
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-success-soft text-bo-success">
                         <Store className="size-5" />
@@ -422,7 +546,7 @@ export default function KhachHangPage() {
                 <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
                     <div>
                         <p className="text-xs font-medium text-bo-muted">Doanh nghiệp</p>
-                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.doanh_nghiep}</p>
+                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{formatStat(stats.doanh_nghiep)}</p>
                     </div>
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-warning-soft text-bo-warning">
                         <Building2 className="size-5" />
@@ -444,7 +568,7 @@ export default function KhachHangPage() {
                             placeholder="Tìm theo tên, mã, SĐT, email..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            onClear={() => setSearchQuery("")}
+                            onClear={handleClearSearch}
                             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                         />
                     }
@@ -467,7 +591,7 @@ export default function KhachHangPage() {
                                     {LOAI_FILTER_OPTIONS.map((opt) => (
                                         <DropdownMenuItem
                                             key={opt.value}
-                                            onClick={() => setLoaiKhachHang(opt.value)}
+                                            onClick={() => handleLoaiKhachHangChange(opt.value)}
                                             className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
                                         >
                                             {opt.label}
@@ -494,7 +618,7 @@ export default function KhachHangPage() {
                                     {TRANG_THAI_FILTER_OPTIONS.map((opt) => (
                                         <DropdownMenuItem
                                             key={opt.value}
-                                            onClick={() => setTrangThai(opt.value)}
+                                            onClick={() => handleTrangThaiChange(opt.value)}
                                             className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
                                         >
                                             {opt.label}
@@ -521,7 +645,7 @@ export default function KhachHangPage() {
             {/* ── Table ── */}
             <TableShell
                 title="Danh sách khách hàng"
-                description="Nhấn vào thao tác để xem chi tiết hoặc xóa khách hàng"
+                description="Nhấn vào một dòng để xem chi tiết khách hàng"
                 footer={
                     totalItems > 0 ? (
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -583,28 +707,40 @@ export default function KhachHangPage() {
                                 </Button>
 
                                 <div className="hidden items-center gap-1 sm:flex">
-                                    {[...Array(Math.min(5, Math.ceil(totalItems / pageSize)))].map((_, idx) => (
-                                        <Button
-                                            key={idx}
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handlePageChange(idx)}
-                                            className={
-                                                currentPage === idx
-                                                    ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
-                                                    : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
-                                            }
-                                        >
-                                            {idx + 1}
-                                        </Button>
+                                    {getPageItems(currentPage, totalPages).map((item) => (
+                                        typeof item === "number" ? (
+                                            <Button
+                                                key={item}
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handlePageChange(item)}
+                                                aria-current={currentPage === item ? "page" : undefined}
+                                                className={
+                                                    currentPage === item
+                                                        ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
+                                                        : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
+                                                }
+                                            >
+                                                {item + 1}
+                                            </Button>
+                                        ) : (
+                                            <span key={item} className="px-1 text-xs text-bo-muted" aria-hidden="true">
+                                                …
+                                            </span>
+                                        )
                                     ))}
                                 </div>
+
+                                {/* Màn hình nhỏ ẩn dãy số trang -> hiện vị trí trang hiện tại */}
+                                <span className="text-xs text-bo-muted sm:hidden">
+                                    {currentPage + 1} / {totalPages}
+                                </span>
 
                                 <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => handlePageChange(currentPage + 1)}
-                                    disabled={currentPage >= Math.ceil(totalItems / pageSize) - 1}
+                                    disabled={currentPage >= totalPages - 1}
                                     className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
                                 >
                                     Sau
@@ -655,7 +791,8 @@ export default function KhachHangPage() {
                                 {khachHangs.map((khachHang, index) => (
                                     <tr
                                         key={khachHang.id}
-                                        className="transition-colors hover:bg-bo-surface-subtle"
+                                        onClick={() => handleRowClick(khachHang)}
+                                        className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
                                     >
                                         <td className="px-3 py-3 text-center text-xs text-bo-muted">
                                             {currentPage * pageSize + index + 1}
@@ -698,7 +835,10 @@ export default function KhachHangPage() {
                                             <div className="flex items-center justify-center gap-1">
                                                 <button
                                                     type="button"
-                                                    onClick={() => navigate(`/customers/${khachHang.id}`)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        navigate(`/customers/${khachHang.id}`);
+                                                    }}
                                                     className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
                                                     title="Xem chi tiết"
                                                 >
@@ -706,7 +846,10 @@ export default function KhachHangPage() {
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    onClick={() => handleDeleteClick(khachHang)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDeleteClick(khachHang);
+                                                    }}
                                                     className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-danger hover:text-bo-danger"
                                                     title="Xóa"
                                                 >
@@ -884,17 +1027,18 @@ export default function KhachHangPage() {
                                         </Label>
                                         <Input
                                             id="soDienThoai"
-                                            placeholder="VD: 0123456789"
                                             value={formData.soDienThoai}
-                                            onChange={(e) => handleFormChange("soDienThoai", e.target.value)}
-                                            aria-invalid={Boolean(formErrors.soDienThoai)}
-                                            className={`h-10 bg-white text-bo-foreground placeholder:text-bo-muted focus-visible:ring-bo-primary/15 ${formErrors.soDienThoai
+                                            onChange={(e) => handleFormChange("soDienThoai", sanitizePhoneInput(e.target.value))}
+                                            maxLength={10}
+                                            inputMode="numeric"
+                                            aria-invalid={Boolean(phoneError)}
+                                            className={`h-10 bg-white text-bo-foreground placeholder:text-bo-muted focus-visible:ring-bo-primary/15 ${phoneError
                                                 ? "border-bo-danger focus-visible:border-bo-danger"
                                                 : "border-bo-border focus-visible:border-bo-primary"}`}
                                         />
-                                        {formErrors.soDienThoai && (
+                                        {phoneError && (
                                             <p className="flex items-center gap-1 text-xs text-bo-danger">
-                                                <AlertCircle className="size-3" />{formErrors.soDienThoai}
+                                                <AlertCircle className="size-3" />{phoneError}
                                             </p>
                                         )}
                                     </div>
@@ -945,6 +1089,16 @@ export default function KhachHangPage() {
                             </div>
                         </div>
                     </div>
+
+                    {submitError && (
+                        <div
+                            role="alert"
+                            className="mx-5 mb-3 flex items-start gap-2 rounded-md border border-bo-danger/20 bg-bo-danger-soft px-3 py-2 text-sm text-bo-danger"
+                        >
+                            <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                            <span>{submitError}</span>
+                        </div>
+                    )}
 
                     <DialogFooter className="flex flex-row justify-end gap-2 border-t border-bo-border bg-bo-surface-subtle px-5 py-3">
                         <Button
