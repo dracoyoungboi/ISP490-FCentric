@@ -186,7 +186,7 @@ function StatusPill({ tone, children }) {
 }
 
 /** Ô nhập khóa: kiểu password, nút mắt chỉ hiện/ẩn chữ đang gõ (không bao giờ có khóa thật đã lưu). */
-function SecretInput({ id, label, value, onChange, error, disabled, autoFocus }) {
+function SecretInput({ id, label, value, onChange, error, disabled, autoFocus, placeholder }) {
   const [visible, setVisible] = useState(false);
   return (
     <div>
@@ -199,10 +199,15 @@ function SecretInput({ id, label, value, onChange, error, disabled, autoFocus })
           aria-invalid={Boolean(error)}
           autoComplete="off"
           autoFocus={autoFocus}
-          className={cn(inputClass, "pr-10 font-mono", error && "border-bo-danger focus:border-bo-danger focus:ring-bo-danger/15")}
+          className={cn(
+            inputClass,
+            "pr-10 font-mono placeholder:font-sans",
+            error && "border-bo-danger focus:border-bo-danger focus:ring-bo-danger/15",
+          )}
           disabled={disabled}
           id={id}
           onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
           spellCheck={false}
           type={visible ? "text" : "password"}
           value={value}
@@ -225,8 +230,11 @@ function SecretInput({ id, label, value, onChange, error, disabled, autoFocus })
   );
 }
 
-/** Bộ 3 ô khóa — dùng cho lần thiết lập đầu và hộp thoại cập nhật khóa. */
-function KeyFormFields({ idPrefix, values, errors, onChange, disabled }) {
+/**
+ * Bộ 3 ô khóa — dùng cho lần thiết lập đầu và hộp thoại cập nhật khóa.
+ * Ô luôn bắt đầu trống: không bao giờ điền khóa thật hay chuỗi đã che vào input.
+ */
+function KeyFormFields({ idPrefix, values, errors, onChange, disabled, placeholder }) {
   return (
     <div className="space-y-4">
       {KEY_FIELDS.map((field, index) => (
@@ -238,6 +246,7 @@ function KeyFormFields({ idPrefix, values, errors, onChange, disabled }) {
           key={field.name}
           label={field.label}
           onChange={(v) => onChange(field.name, v)}
+          placeholder={placeholder}
           value={values[field.name]}
         />
       ))}
@@ -251,12 +260,32 @@ function KeyFormFields({ idPrefix, values, errors, onChange, disabled }) {
   );
 }
 
-const validateKeys = (values) => {
+const KEEP_KEY_PLACEHOLDER = "Giữ nguyên khóa đang lưu";
+const CHANNEL_KEYS_REQUIRED = "Khi nhập Client ID, hãy cung cấp đầy đủ bộ khóa của kênh.";
+
+/** Các khóa có nhập (đã trim). Ô trống không có mặt = giữ khóa đang lưu. */
+const enteredKeys = (values) =>
+  Object.fromEntries(KEY_FIELDS.map((field) => [field.name, values[field.name].trim()]).filter(([, value]) => value));
+
+/**
+ * mode "setup": lần đầu, bắt buộc đủ 3 khóa.
+ * mode "update": chỉ kiểm định dạng ô có nhập, cần ít nhất một ô; nhập Client ID
+ * (có thể là kênh khác) thì phải đủ cả bộ — không so với chuỗi đã che, backend tự so với khóa đang lưu.
+ */
+const validateKeys = (values, mode) => {
   const errors = {};
+  const entered = enteredKeys(values);
+  if (mode === "update" && !Object.keys(entered).length) {
+    return { form: "Nhập ít nhất một khóa cần thay đổi." };
+  }
+  const requireAll = mode === "setup" || Boolean(entered.clientId);
   KEY_FIELDS.forEach((field) => {
-    const value = values[field.name].trim();
-    if (!value) errors[field.name] = `Nhập ${field.label}.`;
-    else if (!field.pattern.test(value)) errors[field.name] = `${field.label} không đúng định dạng (${field.formatHint}).`;
+    const value = entered[field.name];
+    if (!value) {
+      if (requireAll) errors[field.name] = mode === "setup" ? `Nhập ${field.label}.` : CHANNEL_KEYS_REQUIRED;
+    } else if (!field.pattern.test(value)) {
+      errors[field.name] = `${field.label} không đúng định dạng (${field.formatHint}).`;
+    }
   });
   return errors;
 };
@@ -578,9 +607,10 @@ export default function PaymentSettingsPage() {
     }
   };
 
-  const saveKeys = async () => {
+  /** mode "setup" (lần đầu, đủ 3 khóa) hoặc "update" (hộp thoại, chỉ khóa cần đổi). */
+  const saveKeys = async (mode) => {
     if (savingKeys) return;
-    const errors = validateKeys(keyValues);
+    const errors = validateKeys(keyValues, mode);
     if (Object.keys(errors).length) {
       setKeyErrors(errors);
       return;
@@ -588,21 +618,18 @@ export default function PaymentSettingsPage() {
     setSavingKeys(true);
     setTestResult(null);
     try {
-      // Backend xác minh bộ khóa với payOS trước khi lưu; khóa sai -> lỗi, không lưu.
-      const data = await paymentConfigService.updatePayos({
-        clientId: keyValues.clientId.trim(),
-        apiKey: keyValues.apiKey.trim(),
-        checksumKey: keyValues.checksumKey.trim(),
-      });
+      // Chỉ gửi khóa có nhập; trường vắng mặt = backend giữ khóa đang lưu, ghép lại rồi
+      // xác minh cả bộ với payOS trước khi lưu; khóa sai -> lỗi, không lưu.
+      const data = await paymentConfigService.updatePayos(enteredKeys(keyValues));
       applyConfig(data);
       resetKeyForm();
       setKeyDialogOpen(false);
       // Một thông báo là đủ: backend chỉ lưu khi payOS đã xác minh cả 3 khóa
       toast.success("Đã lưu và xác minh khóa kết nối");
     } catch (error) {
+      // Chỉ báo trong khung đỏ của form (cạnh ô khóa), không thêm toast trùng nội dung
       const message = errorMessage(error, "Không lưu được khóa");
       setKeyErrors((current) => ({ ...current, form: `${message} Khóa đang dùng không thay đổi.` }));
-      toast.error(message);
     } finally {
       setSavingKeys(false);
     }
@@ -715,6 +742,7 @@ export default function PaymentSettingsPage() {
   const webhookEditable = !savedWebhookUrl || editingWebhook;
   const webhookChanged = webhookUrl.trim() !== savedWebhookUrl;
   const isReregister = webhookConfirmed && !editingWebhook;
+  const hasKeyInput = Object.keys(enteredKeys(keyValues)).length > 0;
 
   const expiryNumber = Number(expiry);
   const expiryValid = expiry !== "" && Number.isInteger(expiryNumber) && expiryNumber >= EXPIRY_MIN && expiryNumber <= EXPIRY_MAX;
@@ -876,7 +904,7 @@ export default function PaymentSettingsPage() {
                   aria-busy={savingKeys}
                   className={cn(primaryButtonClass, "min-w-[168px]")}
                   disabled={!canStoreKeys || savingKeys}
-                  onClick={saveKeys}
+                  onClick={() => saveKeys("setup")}
                   type="button"
                 >
                   <SaveKeysLabel saving={savingKeys} />
@@ -1030,10 +1058,18 @@ export default function PaymentSettingsPage() {
             id="payos-key-form"
             onSubmit={(event) => {
               event.preventDefault();
-              saveKeys();
+              // Enter khi mọi ô trống: validateKeys báo lỗi, không gửi request
+              saveKeys("update");
             }}
           >
-            <KeyFormFields disabled={savingKeys} errors={keyErrors} idPrefix="payos-update" onChange={changeKey} values={keyValues} />
+            <KeyFormFields
+              disabled={savingKeys}
+              errors={keyErrors}
+              idPrefix="payos-update"
+              onChange={changeKey}
+              placeholder={KEEP_KEY_PLACEHOLDER}
+              values={keyValues}
+            />
           </form>
           <DialogFooter>
             <Button className={secondaryButtonClass} disabled={savingKeys} onClick={() => setKeyDialogOpen(false)} type="button" variant="outline">
@@ -1042,7 +1078,7 @@ export default function PaymentSettingsPage() {
             <Button
               aria-busy={savingKeys}
               className={cn(primaryButtonClass, "min-w-[168px]")}
-              disabled={savingKeys}
+              disabled={savingKeys || !hasKeyInput}
               form="payos-key-form"
               type="submit"
             >
