@@ -53,10 +53,21 @@ const EXPIRY_MAX = 60;
 const DEFAULT_EXPIRY = 15;
 const EXPIRY_HELP = `Hết thời hạn mà chưa nhận tiền, mã QR bị hủy và hàng giữ chỗ được trả lại kho. Từ ${EXPIRY_MIN} đến ${EXPIRY_MAX} phút.`;
 
+// Định dạng khớp với kiểm tra ở backend (PaymentConfigService)
+const UUID_PATTERN = /^[0-9a-fA-F-]{36}$/;
+const HEX64_PATTERN = /^[0-9a-fA-F]{64}$/;
+const UUID_HINT = "dạng xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx";
+
 const KEY_FIELDS = [
-  { name: "clientId", label: "Client ID", maskedKey: "clientIdMasked" },
-  { name: "apiKey", label: "API Key", maskedKey: "apiKeyMasked" },
-  { name: "checksumKey", label: "Checksum Key", maskedKey: "checksumKeyMasked" },
+  { name: "clientId", label: "Client ID", maskedKey: "clientIdMasked", pattern: UUID_PATTERN, formatHint: UUID_HINT },
+  { name: "apiKey", label: "API Key", maskedKey: "apiKeyMasked", pattern: UUID_PATTERN, formatHint: UUID_HINT },
+  {
+    name: "checksumKey",
+    label: "Checksum Key",
+    maskedKey: "checksumKeyMasked",
+    pattern: HEX64_PATTERN,
+    formatHint: "gồm 64 ký tự 0-9, a-f",
+  },
 ];
 const EMPTY_KEYS = { clientId: "", apiKey: "", checksumKey: "" };
 
@@ -202,6 +213,12 @@ function KeyFormFields({ idPrefix, values, errors, onChange, disabled }) {
           value={values[field.name]}
         />
       ))}
+      {errors.form ? (
+        <div className="flex gap-2 rounded-lg border border-red-200 bg-bo-danger-soft px-3 py-2.5 text-sm text-red-800" role="alert">
+          <XCircle className="mt-0.5 shrink-0" size={16} />
+          <p className="min-w-0 break-words">{errors.form}</p>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -209,7 +226,9 @@ function KeyFormFields({ idPrefix, values, errors, onChange, disabled }) {
 const validateKeys = (values) => {
   const errors = {};
   KEY_FIELDS.forEach((field) => {
-    if (!values[field.name].trim()) errors[field.name] = `Nhập ${field.label}.`;
+    const value = values[field.name].trim();
+    if (!value) errors[field.name] = `Nhập ${field.label}.`;
+    else if (!field.pattern.test(value)) errors[field.name] = `${field.label} không đúng định dạng (${field.formatHint}).`;
   });
   return errors;
 };
@@ -229,7 +248,7 @@ function TestResult({ result }) {
       <p className="min-w-0 break-words">
         <strong className="font-semibold">{result.ok ? "Kết nối thành công" : "Kết nối thất bại"}</strong>
         <span className="text-slate-700"> · {formatTime(result.at)}</span>
-        {!result.ok && result.message ? <span className="block text-slate-700">{result.message}</span> : null}
+        {result.message ? <span className="block text-slate-700">{result.message}</span> : null}
       </p>
     </div>
   );
@@ -375,7 +394,7 @@ function GuideDialog({ open, onOpenChange }) {
               </a>{" "}
               → <b>Kênh thanh toán</b> → <b>Thông tin cấu hình</b>, sao chép Client ID, API Key và Checksum Key.
             </li>
-            <li>Dán 3 khóa vào mục <b>Khóa kết nối</b> và lưu. Hệ thống tự kiểm tra kết nối sau khi lưu.</li>
+            <li>Dán 3 khóa vào mục <b>Khóa kết nối</b> và lưu. Hệ thống xác minh với payOS trước khi lưu (tạo rồi hủy ngay một link 2.000đ, không thu tiền); khóa sai sẽ không được lưu.</li>
             <li>Bấm <b>Đăng ký webhook</b> để payOS báo về ngay khi khách chuyển tiền.</li>
             <li>Bật <b>Bật tại POS</b>. Màn POS sẽ có thêm lựa chọn “Chuyển khoản (QR)”.</li>
           </ol>
@@ -466,7 +485,7 @@ export default function PaymentSettingsPage() {
 
   const changeKey = (name, value) => {
     setKeyValues((current) => ({ ...current, [name]: value }));
-    setKeyErrors((current) => ({ ...current, [name]: undefined }));
+    setKeyErrors((current) => ({ ...current, [name]: undefined, form: undefined }));
   };
 
   const resetKeyForm = () => {
@@ -476,6 +495,7 @@ export default function PaymentSettingsPage() {
 
   const runTest = async () => {
     setTesting(true);
+    setTestResult(null); // không để kết quả cũ đứng cạnh lần kiểm tra mới
     try {
       const result = await paymentConfigService.testConnection();
       setTestResult(result ? { ...result, at: new Date() } : { ok: false, message: "Máy chủ không trả về kết quả kiểm tra.", at: new Date() });
@@ -494,7 +514,9 @@ export default function PaymentSettingsPage() {
       return;
     }
     setSavingKeys(true);
+    setTestResult(null);
     try {
+      // Backend xác minh bộ khóa với payOS trước khi lưu; khóa sai -> lỗi, không lưu.
       const data = await paymentConfigService.updatePayos({
         clientId: keyValues.clientId.trim(),
         apiKey: keyValues.apiKey.trim(),
@@ -504,9 +526,15 @@ export default function PaymentSettingsPage() {
       resetKeyForm();
       setKeyDialogOpen(false);
       toast.success("Đã lưu khóa kết nối");
-      await runTest(); // Kiểm tra ngay để phát hiện khóa sai
+      setTestResult({
+        ok: true,
+        message: "payOS đã xác minh Client ID, API Key và Checksum Key.",
+        at: new Date(),
+      });
     } catch (error) {
-      toast.error(errorMessage(error, "Không lưu được khóa"));
+      const message = errorMessage(error, "Không lưu được khóa");
+      setKeyErrors((current) => ({ ...current, form: `${message} Khóa đang dùng không thay đổi.` }));
+      toast.error(message);
     } finally {
       setSavingKeys(false);
     }
@@ -769,7 +797,7 @@ export default function PaymentSettingsPage() {
                 </>
               ) : (
                 <Button className={primaryButtonClass} disabled={!canStoreKeys || savingKeys} onClick={saveKeys} type="button">
-                  {savingKeys ? "Đang lưu…" : "Lưu và kiểm tra"}
+                  {savingKeys ? "Đang xác minh với payOS…" : "Lưu và kiểm tra"}
                 </Button>
               )
             }
@@ -888,13 +916,13 @@ export default function PaymentSettingsPage() {
           <DialogHeader>
             <DialogTitle className="text-bo-foreground">Cập nhật khóa kết nối</DialogTitle>
             <DialogDescription className="text-slate-600">
-              Nhập đủ 3 khóa mới từ my.payos.vn. Hệ thống sẽ kiểm tra kết nối ngay sau khi lưu.
+              Nhập đủ 3 khóa mới từ my.payos.vn. Hệ thống xác minh với payOS trước khi lưu, khóa sai sẽ không được lưu.
             </DialogDescription>
           </DialogHeader>
           {enabled ? (
-            <div className="flex gap-2 rounded-lg border border-red-200 bg-bo-danger-soft px-3 py-2.5 text-sm text-red-800">
+            <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
               <AlertTriangle className="mt-0.5 shrink-0" size={16} />
-              <p>POS đang dùng khóa hiện tại. Khóa sai sẽ làm gián đoạn thanh toán QR.</p>
+              <p>POS đang dùng khóa hiện tại. Nếu đổi sang kênh payOS khác, cần đăng ký lại webhook sau khi lưu.</p>
             </div>
           ) : null}
           <form
@@ -911,7 +939,7 @@ export default function PaymentSettingsPage() {
               Hủy
             </Button>
             <Button className={primaryButtonClass} disabled={savingKeys} form="payos-key-form" type="submit">
-              {savingKeys ? "Đang lưu…" : "Lưu và kiểm tra"}
+              {savingKeys ? "Đang xác minh với payOS…" : "Lưu và kiểm tra"}
             </Button>
           </DialogFooter>
         </DialogContent>
