@@ -11,8 +11,8 @@ import {
   Info,
   KeyRound,
   Link2,
+  LoaderCircle,
   Pencil,
-  PlugZap,
   RefreshCw,
   XCircle,
 } from "lucide-react";
@@ -691,6 +691,7 @@ export default function PaymentSettingsPage() {
   const savedWebhookUrl = config?.webhookUrl || "";
   const webhookEditable = !savedWebhookUrl || editingWebhook;
   const webhookChanged = webhookUrl.trim() !== savedWebhookUrl;
+  const isReregister = webhookConfirmed && !editingWebhook;
 
   const expiryNumber = Number(expiry);
   const expiryValid = expiry !== "" && Number.isInteger(expiryNumber) && expiryNumber >= EXPIRY_MIN && expiryNumber <= EXPIRY_MAX;
@@ -818,8 +819,21 @@ export default function PaymentSettingsPage() {
               hasKeys ? (
                 <>
                   <InlineSuccess show={Boolean(testResult?.ok)}>Kết nối thành công</InlineSuccess>
-                  <Button className={secondaryButtonClass} disabled={testing} onClick={runTest} type="button" variant="outline">
-                    <PlugZap size={16} /> {testing ? "Đang kiểm tra…" : "Kiểm tra kết nối"}
+                  {/* min-w cố định để nút không đổi cỡ khi đổi nhãn sang "Đang kiểm tra…" */}
+                  <Button
+                    aria-busy={testing}
+                    className={cn(secondaryButtonClass, "min-w-[168px] rounded-lg shadow-none")}
+                    disabled={testing}
+                    onClick={runTest}
+                    type="button"
+                    variant="outline"
+                  >
+                    {testing ? (
+                      <LoaderCircle aria-hidden="true" className="animate-spin text-slate-500" size={16} strokeWidth={1.75} />
+                    ) : (
+                      <RefreshCw aria-hidden="true" className="text-slate-500" size={16} strokeWidth={1.75} />
+                    )}
+                    {testing ? "Đang kiểm tra…" : "Kiểm tra kết nối"}
                   </Button>
                   <Button
                     className={secondaryButtonClass}
@@ -889,15 +903,21 @@ export default function PaymentSettingsPage() {
                     </Button>
                   )
                 ) : null}
+                {/* "Đăng ký lại" (dạng outline) cùng kiểu với nút "Kiểm tra kết nối" ở card bên cạnh */}
                 <Button
-                  className={webhookConfirmed && !editingWebhook ? secondaryButtonClass : primaryButtonClass}
+                  className={isReregister ? cn(secondaryButtonClass, "rounded-lg shadow-none") : primaryButtonClass}
                   disabled={registering || !hasKeys || !webhookUrl.trim() || (editingWebhook && !webhookChanged)}
                   onClick={onRegisterClick}
                   type="button"
-                  variant={webhookConfirmed && !editingWebhook ? "outline" : "default"}
+                  variant={isReregister ? "outline" : "default"}
                 >
-                  <RefreshCw className={registering ? "animate-spin" : undefined} size={15} />
-                  {registering ? "Đang đăng ký…" : webhookConfirmed && !editingWebhook ? "Đăng ký lại" : "Đăng ký webhook"}
+                  <RefreshCw
+                    aria-hidden="true"
+                    className={cn(registering && "animate-spin", isReregister && "text-slate-500")}
+                    size={isReregister ? 16 : 15}
+                    strokeWidth={isReregister ? 1.75 : 2}
+                  />
+                  {registering ? "Đang đăng ký…" : isReregister ? "Đăng ký lại" : "Đăng ký webhook"}
                 </Button>
               </>
             }
