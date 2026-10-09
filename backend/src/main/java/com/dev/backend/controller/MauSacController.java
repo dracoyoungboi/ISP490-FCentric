@@ -11,6 +11,7 @@ import com.dev.backend.entities.MauSac;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.MauSacMapper;
 import com.dev.backend.services.impl.entities.MauSacService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -74,7 +75,7 @@ public class MauSacController {
             roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
             rolesLogic = RequireAuth.LogicType.OR
     )
-    public ResponseEntity<ResponseData<MauSacDto>> create(@RequestBody MauSacCreating creating) {
+    public ResponseEntity<ResponseData<MauSacDto>> create(@Valid @RequestBody MauSacCreating creating) {
         // Chuyển DTO sang Entity trước khi gọi service
         MauSac entity = mauSacMapper.toEntity(creating);
         MauSac saved = mauSacService.create(entity);
@@ -91,7 +92,7 @@ public class MauSacController {
             roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
             rolesLogic = RequireAuth.LogicType.OR
     )
-    public ResponseEntity<ResponseData<MauSacDto>> update(@RequestBody MauSacUpdating updating) {
+    public ResponseEntity<ResponseData<MauSacDto>> update(@Valid @RequestBody MauSacUpdating updating) {
         // Chuyển DTO sang Entity và gọi service với (ID, Entity)
         MauSac entity = mauSacMapper.toEntity(updating);
         MauSac updated = mauSacService.update(updating.getId(), entity);
