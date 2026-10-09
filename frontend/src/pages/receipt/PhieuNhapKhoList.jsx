@@ -131,7 +131,7 @@ export default function PhieuNhapKhoList() {
   return (
     <PageContainer className="space-y-5">
       <PageHeader
-        eyebrow="Kho vận"
+        
         title="Phiếu nhập kho"
         description="Theo dõi toàn bộ phiếu nhập kho từ đối tác, luân chuyển nội bộ và hoàn trả."
         actions={
