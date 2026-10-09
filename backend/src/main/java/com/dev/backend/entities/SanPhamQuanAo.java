@@ -88,6 +88,7 @@ public class SanPhamQuanAo {
             fetch = FetchType.LAZY,
             cascade = CascadeType.ALL,
             orphanRemoval = true)
+    @Builder.Default
     List<AnhQuanAo> anhQuanAos = new ArrayList<>();
 
     @OneToMany(mappedBy = "sanPham", fetch = FetchType.LAZY)

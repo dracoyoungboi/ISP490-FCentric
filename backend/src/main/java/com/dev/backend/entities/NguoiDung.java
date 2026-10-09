@@ -72,6 +72,7 @@ public class NguoiDung {
     Instant ngayCapNhat;
 
     @Column(name = "must_change_password", nullable = false)
+    @Builder.Default
     Boolean mustChangePassword = false;
 
     // Ảnh đại diện quản lý qua tep_tin (chuẩn như ảnh sản phẩm/logo); null = chưa có ảnh, FE hiển thị initials
