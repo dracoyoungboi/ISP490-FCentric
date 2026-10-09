@@ -76,10 +76,14 @@ const inputClass =
   "h-10 w-full rounded-lg border border-bo-border bg-bo-surface px-3 text-sm text-bo-foreground outline-none placeholder:text-slate-500 focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle";
 const readonlyBoxClass =
   "flex h-10 min-w-0 flex-1 items-center rounded-lg border border-bo-border bg-bo-surface-subtle px-3 font-mono text-sm text-bo-foreground";
+// Button dùng chung chưa có màu ring nên focus bàn phím không hiện: tự thêm ring bo-* ở đây.
 const primaryButtonClass =
-  "h-10 bg-bo-primary px-4 text-white hover:bg-bo-primary-hover disabled:bg-slate-200 disabled:text-slate-600 disabled:opacity-100";
+  "h-10 rounded-lg bg-bo-primary px-4 text-white hover:bg-bo-primary-hover focus-visible:ring-2 focus-visible:ring-bo-primary/40 focus-visible:ring-offset-2 disabled:bg-slate-200 disabled:text-slate-600 disabled:opacity-100";
 const secondaryButtonClass =
-  "h-10 border-bo-border bg-bo-surface px-4 text-bo-foreground hover:bg-bo-surface-subtle disabled:text-slate-500 disabled:opacity-100";
+  "h-10 rounded-lg border-bo-border bg-bo-surface px-4 text-bo-foreground shadow-none hover:bg-bo-surface-subtle focus-visible:border-bo-primary focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:bg-bo-surface-subtle disabled:text-slate-500 disabled:opacity-100";
+// Icon trong nút: cùng cỡ, cùng nét; nút viền thêm màu xám slate-500
+const buttonIconProps = { "aria-hidden": true, size: 16, strokeWidth: 1.75 };
+const outlineIconClass = "text-slate-500";
 const subText = "text-sm leading-6 text-slate-600";
 const linkClass = "font-medium text-bo-primary hover:underline";
 
@@ -143,6 +147,17 @@ function Card({ icon, title, description, aside, children, footer }) {
   );
 }
 
+/** Nhãn nút lưu khóa; nhãn đang tải ngắn gọn để vừa min-w của nút, không làm nút giãn ra. */
+function SaveKeysLabel({ saving }) {
+  if (!saving) return "Lưu và kiểm tra";
+  return (
+    <>
+      <LoaderCircle {...buttonIconProps} className="animate-spin" />
+      Đang xác minh…
+    </>
+  );
+}
+
 /** Chỉ đường lấy khóa trên payOS — chỉ hiện ở nơi đang nhập khóa (lần đầu, hộp thoại cập nhật). */
 function KeySourceHint() {
   return (
@@ -194,7 +209,7 @@ function SecretInput({ id, label, value, onChange, error, disabled, autoFocus })
         />
         <button
           aria-label={visible ? `Ẩn ${label}` : `Hiện ${label}`}
-          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1.5 text-slate-500 hover:text-bo-foreground"
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1.5 text-slate-500 outline-none hover:text-bo-foreground focus-visible:ring-2 focus-visible:ring-bo-primary/30"
           onClick={() => setVisible((v) => !v)}
           type="button"
         >
@@ -391,8 +406,16 @@ function QrExpiryControl({ savedValue, editing, value, valid, saving, errorId, o
             />
             <span className="pr-3 text-sm text-slate-600">phút</span>
           </div>
-          <Button className={cn(primaryButtonClass, "px-3")} disabled={!valid || saving} type="submit">
-            {saving ? "Đang lưu…" : "Lưu"}
+          {/* Đang lưu: chỉ hiện vòng xoay (chữ cho trình đọc màn hình) để nút gọn không đổi cỡ */}
+          <Button aria-busy={saving} className={cn(primaryButtonClass, "min-w-14 px-3")} disabled={!valid || saving} type="submit">
+            {saving ? (
+              <>
+                <LoaderCircle {...buttonIconProps} className="animate-spin" />
+                <span className="sr-only">Đang lưu…</span>
+              </>
+            ) : (
+              "Lưu"
+            )}
           </Button>
           <Button className={cn(secondaryButtonClass, "px-3")} disabled={saving} onClick={onCancel} type="button" variant="outline">
             Hủy
@@ -410,7 +433,7 @@ function QrExpiryControl({ savedValue, editing, value, valid, saving, errorId, o
             ref={editButtonRef}
             type="button"
           >
-            <Pencil size={15} />
+            <Pencil {...buttonIconProps} />
           </button>
         </div>
       )}
@@ -796,7 +819,7 @@ export default function PaymentSettingsPage() {
               </SetupStep>
             </ol>
             <button className={cn(linkClass, "inline-flex items-center gap-1.5 self-start text-sm @4xl:self-auto")} onClick={() => setGuideOpen(true)} type="button">
-              <BookOpen size={15} /> Xem hướng dẫn
+              <BookOpen {...buttonIconProps} /> Xem hướng dẫn
             </button>
           </div>
         ) : null}
@@ -810,7 +833,7 @@ export default function PaymentSettingsPage() {
             aside={
               setupComplete ? (
                 <button className={cn(linkClass, "inline-flex items-center gap-1.5 text-sm")} onClick={() => setGuideOpen(true)} type="button">
-                  <BookOpen size={15} /> Hướng dẫn
+                  <BookOpen {...buttonIconProps} /> Hướng dẫn
                 </button>
               ) : null
             }
@@ -819,19 +842,19 @@ export default function PaymentSettingsPage() {
               hasKeys ? (
                 <>
                   <InlineSuccess show={Boolean(testResult?.ok)}>Kết nối thành công</InlineSuccess>
-                  {/* min-w cố định để nút không đổi cỡ khi đổi nhãn sang "Đang kiểm tra…" */}
+                  {/* "Kiểm tra kết nối" và "Đang kiểm tra…" rộng gần bằng nhau nên không cần min-w */}
                   <Button
                     aria-busy={testing}
-                    className={cn(secondaryButtonClass, "min-w-[168px] rounded-lg shadow-none")}
+                    className={secondaryButtonClass}
                     disabled={testing}
                     onClick={runTest}
                     type="button"
                     variant="outline"
                   >
                     {testing ? (
-                      <LoaderCircle aria-hidden="true" className="animate-spin text-slate-500" size={16} strokeWidth={1.75} />
+                      <LoaderCircle {...buttonIconProps} className={cn("animate-spin", outlineIconClass)} />
                     ) : (
-                      <RefreshCw aria-hidden="true" className="text-slate-500" size={16} strokeWidth={1.75} />
+                      <RefreshCw {...buttonIconProps} className={outlineIconClass} />
                     )}
                     {testing ? "Đang kiểm tra…" : "Kiểm tra kết nối"}
                   </Button>
@@ -845,12 +868,18 @@ export default function PaymentSettingsPage() {
                     type="button"
                     variant="outline"
                   >
-                    <Pencil size={15} /> Cập nhật khóa
+                    <Pencil {...buttonIconProps} className={outlineIconClass} /> Cập nhật khóa
                   </Button>
                 </>
               ) : (
-                <Button className={primaryButtonClass} disabled={!canStoreKeys || savingKeys} onClick={saveKeys} type="button">
-                  {savingKeys ? "Đang xác minh với payOS…" : "Lưu và kiểm tra"}
+                <Button
+                  aria-busy={savingKeys}
+                  className={cn(primaryButtonClass, "min-w-[168px]")}
+                  disabled={!canStoreKeys || savingKeys}
+                  onClick={saveKeys}
+                  type="button"
+                >
+                  <SaveKeysLabel saving={savingKeys} />
                 </Button>
               )
             }
@@ -883,42 +912,42 @@ export default function PaymentSettingsPage() {
             footer={
               <>
                 <InlineSuccess show={Boolean(webhookResult?.ok)}>Đã đăng ký webhook</InlineSuccess>
-                {savedWebhookUrl ? (
-                  editingWebhook ? (
-                    <Button
-                      className={secondaryButtonClass}
-                      disabled={registering}
-                      onClick={() => {
-                        setWebhookUrl(savedWebhookUrl);
-                        setEditingWebhook(false);
-                      }}
-                      type="button"
-                      variant="outline"
-                    >
-                      Hủy
-                    </Button>
-                  ) : (
-                    <Button className={secondaryButtonClass} disabled={!hasKeys} onClick={() => setEditingWebhook(true)} type="button" variant="outline">
-                      <Pencil size={15} /> Đổi URL
-                    </Button>
-                  )
+                {savedWebhookUrl && editingWebhook ? (
+                  <Button
+                    className={secondaryButtonClass}
+                    disabled={registering}
+                    onClick={() => {
+                      setWebhookUrl(savedWebhookUrl);
+                      setEditingWebhook(false);
+                    }}
+                    type="button"
+                    variant="outline"
+                  >
+                    Hủy
+                  </Button>
                 ) : null}
-                {/* "Đăng ký lại" (dạng outline) cùng kiểu với nút "Kiểm tra kết nối" ở card bên cạnh */}
+                {/* Đang đăng ký: giữ nhãn, chỉ đổi icon sang vòng xoay để nút không đổi cỡ */}
                 <Button
-                  className={isReregister ? cn(secondaryButtonClass, "rounded-lg shadow-none") : primaryButtonClass}
+                  aria-busy={registering}
+                  className={isReregister ? secondaryButtonClass : primaryButtonClass}
                   disabled={registering || !hasKeys || !webhookUrl.trim() || (editingWebhook && !webhookChanged)}
                   onClick={onRegisterClick}
                   type="button"
                   variant={isReregister ? "outline" : "default"}
                 >
-                  <RefreshCw
-                    aria-hidden="true"
-                    className={cn(registering && "animate-spin", isReregister && "text-slate-500")}
-                    size={isReregister ? 16 : 15}
-                    strokeWidth={isReregister ? 1.75 : 2}
-                  />
-                  {registering ? "Đang đăng ký…" : isReregister ? "Đăng ký lại" : "Đăng ký webhook"}
+                  {registering ? (
+                    <LoaderCircle {...buttonIconProps} className={cn("animate-spin", isReregister && outlineIconClass)} />
+                  ) : (
+                    <RefreshCw {...buttonIconProps} className={isReregister ? outlineIconClass : undefined} />
+                  )}
+                  {isReregister ? "Đăng ký lại" : "Đăng ký webhook"}
                 </Button>
+                {/* Đổi URL ở ngoài cùng, giống "Cập nhật khóa" ở card Khóa kết nối */}
+                {savedWebhookUrl && !editingWebhook ? (
+                  <Button className={secondaryButtonClass} disabled={!hasKeys} onClick={() => setEditingWebhook(true)} type="button" variant="outline">
+                    <Pencil {...buttonIconProps} className={outlineIconClass} /> Đổi URL
+                  </Button>
+                ) : null}
               </>
             }
             icon={<Link2 size={18} />}
@@ -956,7 +985,11 @@ export default function PaymentSettingsPage() {
                 type="button"
                 variant="outline"
               >
-                {copied ? <Check className="text-bo-success" size={16} /> : <Copy size={16} />}
+                {copied ? (
+                  <Check {...buttonIconProps} className="text-bo-success" />
+                ) : (
+                  <Copy {...buttonIconProps} className={outlineIconClass} />
+                )}
               </Button>
             </div>
             <p className="mt-2 text-xs leading-5 text-slate-600">
@@ -1006,8 +1039,14 @@ export default function PaymentSettingsPage() {
             <Button className={secondaryButtonClass} disabled={savingKeys} onClick={() => setKeyDialogOpen(false)} type="button" variant="outline">
               Hủy
             </Button>
-            <Button className={primaryButtonClass} disabled={savingKeys} form="payos-key-form" type="submit">
-              {savingKeys ? "Đang xác minh với payOS…" : "Lưu và kiểm tra"}
+            <Button
+              aria-busy={savingKeys}
+              className={cn(primaryButtonClass, "min-w-[168px]")}
+              disabled={savingKeys}
+              form="payos-key-form"
+              type="submit"
+            >
+              <SaveKeysLabel saving={savingKeys} />
             </Button>
           </DialogFooter>
         </DialogContent>
