@@ -2,6 +2,7 @@ package com.dev.backend.mapper;
 
 import com.dev.backend.dto.response.entities.SanPhamQuanAoDto;
 import com.dev.backend.dto.response.entities.ThuongHieuDto;
+import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.entities.SanPhamQuanAo;
 import com.dev.backend.entities.TepTin;
 import com.dev.backend.entities.ThuongHieu;
@@ -95,14 +96,56 @@ class ThuongHieuMapperTest {
                 dtoPage.getContent().get(0).getLogoUrl());
     }
 
-    @Test
-    void sanPhamLongThuongHieu_logoDuocChuanHoa() {
-        // SanPhamQuanAoMapper -> ThuongHieuMapper (nested brand DTO trong sản phẩm)
+    /**
+     * Dựng SanPhamQuanAoMapperImpl và gắn tay đủ các mapper trong "uses"
+     * (không có Spring context nên phải tự inject).
+     */
+    private SanPhamQuanAoMapper productMapperDayDu() {
+        TepTinMapper tepTinMapper = new TepTinMapperImpl();
+
         AnhQuanAoMapper anhQuanAoMapper = new AnhQuanAoMapperImpl();
-        ReflectionTestUtils.setField(anhQuanAoMapper, "tepTinMapper", new TepTinMapperImpl());
+        ReflectionTestUtils.setField(anhQuanAoMapper, "tepTinMapper", tepTinMapper);
+
+        NguoiDungMapper nguoiDungMapper = new NguoiDungMapperImpl();
+        ReflectionTestUtils.setField(nguoiDungMapper, "phanQuyenNguoiDungKhoMapper", new PhanQuyenNguoiDungKhoMapperImpl());
+
+        AnhBienTheMapper anhBienTheMapper = new AnhBienTheMapperImpl();
+        ReflectionTestUtils.setField(anhBienTheMapper, "tepTinMapper", tepTinMapper);
+        BienTheSanPhamMapper bienTheSanPhamMapper = new BienTheSanPhamMapperImpl();
+        ReflectionTestUtils.setField(bienTheSanPhamMapper, "anhBienTheMapper", anhBienTheMapper);
+
         SanPhamQuanAoMapper productMapper = new SanPhamQuanAoMapperImpl();
         ReflectionTestUtils.setField(productMapper, "anhQuanAoMapper", anhQuanAoMapper);
         ReflectionTestUtils.setField(productMapper, "thuongHieuMapper", new ThuongHieuMapperImpl());
+        ReflectionTestUtils.setField(productMapper, "nguoiDungMapper", nguoiDungMapper);
+        ReflectionTestUtils.setField(productMapper, "bienTheSanPhamMapper", bienTheSanPhamMapper);
+        return productMapper;
+    }
+
+    @Test
+    void sanPhamLongNguoiTao_avatarDuocChuanHoa() {
+        // SanPhamQuanAoMapper -> NguoiDungMapper: avatar người tạo lồng trong sản phẩm cũng phải chuẩn hoá HTTPS
+        SanPhamQuanAo product = SanPhamQuanAo.builder()
+                .maSanPham("SP02")
+                .tenSanPham("Quần jean")
+                .nguoiTao(NguoiDung.builder()
+                        .id(1).hoTen("Khang")
+                        .avatarTepTin(TepTin.builder()
+                                .duongDan("http://171.244.142.43:9000/fashion/avatars/abc.png")
+                                .build())
+                        .build())
+                .build();
+
+        SanPhamQuanAoDto dto = productMapperDayDu().toDto(product);
+
+        assertNotNull(dto.getNguoiTao());
+        assertEquals("https://minio.slmglobal.vn/fashion/avatars/abc.png", dto.getNguoiTao().getAvatarUrl());
+    }
+
+    @Test
+    void sanPhamLongThuongHieu_logoDuocChuanHoa() {
+        // SanPhamQuanAoMapper -> ThuongHieuMapper (nested brand DTO trong sản phẩm)
+        SanPhamQuanAoMapper productMapper = productMapperDayDu();
 
         SanPhamQuanAo product = SanPhamQuanAo.builder()
                 .maSanPham("SP01")

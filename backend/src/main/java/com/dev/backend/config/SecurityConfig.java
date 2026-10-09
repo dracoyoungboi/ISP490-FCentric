@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
@@ -43,7 +44,8 @@ public class SecurityConfig implements WebMvcConfigurer {
                         .requestMatchers("/**").permitAll()
 //                        .requestMatchers("/private/**").hasAnyAuthority("SCOPE_ROLE_ADMIN", "SCOPE_ROLE_CUSTOMER")
                         .anyRequest().authenticated())
-                .csrf().disable();
+                // Cú pháp lambda thay cho csrf().disable() (deprecated, sẽ bị xoá ở Spring Security 7). Hành vi giữ nguyên.
+                .csrf(AbstractHttpConfigurer::disable);
         http.oauth2ResourceServer(oauth2 -> {
             oauth2.jwt(jwtConfigurer -> {
                 jwtConfigurer.decoder(jwtDecoder());

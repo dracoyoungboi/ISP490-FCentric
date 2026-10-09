@@ -44,7 +44,10 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
         if (!(repository instanceof JpaSpecificationExecutor)) {
             throw new IllegalArgumentException("Repository phải implement JpaSpecificationExecutor để sử dụng filter");
         }
-        this.specificationExecutor = (JpaSpecificationExecutor<T>) repository;
+        // An toàn: đã kiểm tra instanceof ở trên, và repository quản lý đúng entity T
+        @SuppressWarnings("unchecked")
+        JpaSpecificationExecutor<T> executor = (JpaSpecificationExecutor<T>) repository;
+        this.specificationExecutor = executor;
 
         this.entityClass = getEntityClassFromGeneric();
     }

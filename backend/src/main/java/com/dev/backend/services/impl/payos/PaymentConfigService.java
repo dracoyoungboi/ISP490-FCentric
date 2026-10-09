@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 
 /** Đọc / ghi cấu hình payOS. Chỉ service này được giải mã khóa. */
@@ -28,14 +27,16 @@ public class PaymentConfigService {
     private final CauHinhThanhToanRepository repository;
     private final PaymentSecretCipher cipher;
     private final PayosClient payosClient;
+    private final PayosCredentialVerifier verifier;
     private final String backendPublicUrl;
 
     public PaymentConfigService(CauHinhThanhToanRepository repository, PaymentSecretCipher cipher,
-            PayosClient payosClient,
+            PayosClient payosClient, PayosCredentialVerifier verifier,
             @Value("${app.backend-public-url:}") String backendPublicUrl) {
         this.repository = repository;
         this.cipher = cipher;
         this.payosClient = payosClient;
+        this.verifier = verifier;
         this.backendPublicUrl = backendPublicUrl == null ? "" : backendPublicUrl.trim();
     }
 
@@ -44,42 +45,68 @@ public class PaymentConfigService {
         return toDto(load());
     }
 
+    /**
+     * Lưu cấu hình. Nếu có khóa mới: kiểm định dạng → ghép với khóa đang lưu → xác minh
+     * thật với payOS → đạt mới lưu. Khóa sai không bao giờ được ghi vào DB.
+     * Thứ tự cố ý: mọi kiểm tra không cần mạng chạy trước, để không tạo link payOS vô ích.
+     */
     @Transactional
     public PayosConfigDto updatePayos(PayosConfigUpdating req) {
         CauHinhThanhToan cfg = load();
-        if (notBlank(req.getClientId())) {
-            String v = req.getClientId().trim();
-            if (!UUID.matcher(v).matches())
-                throw new CommonException("Client ID không đúng định dạng (dạng xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)");
-            cfg.setClientIdMaHoa(cipher.encrypt(v));
-        }
-        if (notBlank(req.getApiKey())) {
-            String v = req.getApiKey().trim();
-            if (!UUID.matcher(v).matches())
-                throw new CommonException("API Key không đúng định dạng (dạng xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)");
-            cfg.setApiKeyMaHoa(cipher.encrypt(v));
-        }
-        if (notBlank(req.getChecksumKey())) {
-            String v = req.getChecksumKey().trim();
-            if (!HEX64.matcher(v).matches())
-                throw new CommonException("Checksum Key phải gồm 64 ký tự 0-9, a-f");
-            cfg.setChecksumKeyMaHoa(cipher.encrypt(v));
-        }
+
+        // 1. Kiểm tra đầu vào (không gọi mạng, chưa sửa entity)
+        String newClientId = uuidOrNull(req.getClientId(), "Client ID");
+        String newApiKey = uuidOrNull(req.getApiKey(), "API Key");
+        String newChecksum = checksumOrNull(req.getChecksumKey());
         if (req.getThoiGianHetHanPhut() != null) {
             int m = req.getThoiGianHetHanPhut();
             if (m < 3 || m > 60)
                 throw new CommonException("Thời gian hết hạn mã QR phải từ 3 đến 60 phút");
-            cfg.setThoiGianHetHanPhut(m);
         }
-        if (req.getWebhookUrl() != null) {
-            String url = req.getWebhookUrl().trim();
-            if (!url.isEmpty() && !url.startsWith("https://")) {
-                throw new CommonException("Webhook URL phải bắt đầu bằng https://");
+        String newWebhookUrl = req.getWebhookUrl() == null ? null : req.getWebhookUrl().trim();
+        if (newWebhookUrl != null && !newWebhookUrl.isEmpty() && !newWebhookUrl.startsWith("https://")) {
+            throw new CommonException("Webhook URL phải bắt đầu bằng https://");
+        }
+        boolean keysChanged = newClientId != null || newApiKey != null || newChecksum != null;
+
+        // 2. Xác minh bộ khóa sau khi ghép với khóa đang lưu
+        if (keysChanged) {
+            if (!cipher.isConfigured()) {
+                throw new CommonException(
+                        "Máy chủ chưa đặt biến môi trường PAYMENT_CONFIG_SECRET nên không thể lưu khóa thanh toán",
+                        HttpStatus.SERVICE_UNAVAILABLE, null);
             }
-            if (!url.equals(cfg.getWebhookUrl() == null ? "" : cfg.getWebhookUrl())) {
+            String oldClientId = decryptOrNull(cfg.getClientIdMaHoa());
+            PayosCredentials candidate = new PayosCredentials(
+                    newClientId != null ? newClientId : oldClientId,
+                    newApiKey != null ? newApiKey : decryptOrNull(cfg.getApiKeyMaHoa()),
+                    newChecksum != null ? newChecksum : decryptOrNull(cfg.getChecksumKeyMaHoa()));
+            if (candidate.clientId() == null || candidate.apiKey() == null || candidate.checksumKey() == null) {
+                throw new CommonException("Cần nhập đủ Client ID, API Key và Checksum Key");
+            }
+            PayosCredentialVerifier.Result check = verifier.verify(candidate);
+            if (!check.ok()) {
+                throw new CommonException(check.message(),
+                        check.unreachable() ? HttpStatus.BAD_GATEWAY : HttpStatus.BAD_REQUEST, null);
+            }
+            // Webhook được xác nhận cho kênh cũ -> đổi kênh thì phải đăng ký lại
+            if (newClientId != null && !newClientId.equals(oldClientId)) {
                 cfg.setWebhookXacNhanLuc(null);
             }
-            cfg.setWebhookUrl(url.isEmpty() ? null : url);
+            if (newClientId != null) cfg.setClientIdMaHoa(cipher.encrypt(newClientId));
+            if (newApiKey != null) cfg.setApiKeyMaHoa(cipher.encrypt(newApiKey));
+            if (newChecksum != null) cfg.setChecksumKeyMaHoa(cipher.encrypt(newChecksum));
+        }
+
+        // 3. Các thiết lập còn lại
+        if (req.getThoiGianHetHanPhut() != null) {
+            cfg.setThoiGianHetHanPhut(req.getThoiGianHetHanPhut());
+        }
+        if (newWebhookUrl != null) {
+            if (!newWebhookUrl.equals(cfg.getWebhookUrl() == null ? "" : cfg.getWebhookUrl())) {
+                cfg.setWebhookXacNhanLuc(null);
+            }
+            cfg.setWebhookUrl(newWebhookUrl.isEmpty() ? null : newWebhookUrl);
         }
         if (req.getKichHoat() != null) {
             if (req.getKichHoat() && !isComplete(cfg)) {
@@ -93,21 +120,14 @@ public class PaymentConfigService {
     }
 
     /**
-     * Gọi thử payOS bằng khóa đang lưu: tra một mã đơn ngẫu nhiên (không tạo giao
-     * dịch nào).
+     * Kiểm tra lại bộ khóa đang lưu với payOS (tạo link 2.000đ rồi huỷ ngay — xem
+     * {@link PayosCredentialVerifier}). Dùng khi muốn chắc khóa vẫn còn hiệu lực.
      */
     @Transactional(readOnly = true)
     public PayosTestResult testConnection() {
         PayosCredentials cred = credentials(load());
-        long probe = 9_000_000_000L + ThreadLocalRandom.current().nextLong(1_000_000_000L);
-        PayosClient.PayosResult r = payosClient.getPaymentLink(cred, probe);
-        boolean authFailed = r.httpStatus() == 401 || r.httpStatus() == 403;
-        boolean ok = !authFailed && r.httpStatus() < 500 && r.code() != null;
-        String msg = ok
-                ? "Kết nối payOS thành công "
-                : "payOS từ chối khóa hoặc không phản hồi hợp lệ (HTTP " + r.httpStatus()
-                        + (r.desc() == null ? "" : ", " + r.desc()) + "). Kiểm tra lại Client ID và API Key.";
-        return PayosTestResult.builder().ok(ok).code(r.code()).message(msg).build();
+        PayosCredentialVerifier.Result r = verifier.verify(cred);
+        return PayosTestResult.builder().ok(r.ok()).code(r.code()).message(r.message()).build();
     }
 
     /**
@@ -238,5 +258,32 @@ public class PaymentConfigService {
 
     private static boolean notBlank(String s) {
         return s != null && !s.isBlank();
+    }
+
+    /** null/"" = giữ khóa đang lưu; có giá trị thì phải đúng dạng UUID. */
+    private static String uuidOrNull(String raw, String label) {
+        if (!notBlank(raw)) return null;
+        String v = raw.trim();
+        if (!UUID.matcher(v).matches())
+            throw new CommonException(label + " không đúng định dạng (dạng xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)");
+        return v;
+    }
+
+    private static String checksumOrNull(String raw) {
+        if (!notBlank(raw)) return null;
+        String v = raw.trim();
+        if (!HEX64.matcher(v).matches())
+            throw new CommonException("Checksum Key phải gồm 64 ký tự 0-9, a-f");
+        return v;
+    }
+
+    /** Khóa đang lưu, hoặc null nếu chưa có / không giải mã được (khi đó buộc nhập lại đủ). */
+    private String decryptOrNull(String encrypted) {
+        if (encrypted == null) return null;
+        try {
+            return cipher.decrypt(encrypted);
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 }

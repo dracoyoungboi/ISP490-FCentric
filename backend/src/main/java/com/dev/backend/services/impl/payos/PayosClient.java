@@ -43,8 +43,15 @@ public class PayosClient {
     public record Item(String name, int quantity, long price) {
     }
 
-    /** Kết quả trả về của payOS: code "00" = thành công. */
-    public record PayosResult(int httpStatus, String code, String desc, JsonNode data) {
+    /**
+     * Kết quả trả về của payOS: code "00" = thành công. {@code signature} là chữ ký
+     * payOS ký trên {@code data} bằng Checksum Key (null nếu response không có).
+     */
+    public record PayosResult(int httpStatus, String code, String desc, JsonNode data, String signature) {
+        public PayosResult(int httpStatus, String code, String desc, JsonNode data) {
+            this(httpStatus, code, desc, data, null);
+        }
+
         public boolean ok() {
             return httpStatus >= 200 && httpStatus < 300 && "00".equals(code);
         }
@@ -116,10 +123,11 @@ public class PayosClient {
             String code = json.path("code").asText(null);
             String desc = json.path("desc").asText(null);
             JsonNode data = json.get("data");
+            String signature = json.path("signature").asText(null);
             if (!"00".equals(code)) {
                 log.warn("payOS {} {} -> HTTP {} code={} desc={}", method, path, response.statusCode(), code, desc);
             }
-            return new PayosResult(response.statusCode(), code, desc, data);
+            return new PayosResult(response.statusCode(), code, desc, data, signature);
         } catch (Exception e) {
             log.warn("payOS {} {} trả dữ liệu không đọc được (HTTP {})", method, path, response.statusCode());
             return new PayosResult(response.statusCode(), null, "Phản hồi payOS không hợp lệ (HTTP " + response.statusCode() + ")", null);

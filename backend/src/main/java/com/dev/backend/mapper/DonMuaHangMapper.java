@@ -8,13 +8,13 @@ import org.springframework.data.domain.Page;
 
 import java.util.List;
 
+// NguoiDungMapper: người dùng lồng nhau (nguoiTao, nguoiDuyet, khoNhap.quanLy) được map đúng avatarUrl.
+// Đã bỏ toEntity(DonMuaHangDto): không nơi nào gọi và map ngược DTO -> entity làm rơi dữ liệu (matKhauHash, quan hệ ngược...).
 @Mapper(
         componentModel = MappingConstants.ComponentModel.SPRING,
-        uses = {BienTheSanPhamMapper.class}
+        uses = {BienTheSanPhamMapper.class, NguoiDungMapper.class}
 )
 public interface DonMuaHangMapper {
-    DonMuaHang toEntity(DonMuaHangDto donMuaHangDto);
-
     DonMuaHangDto toDto(DonMuaHang donMuaHang);
 
     List<DonMuaHangDto> toDtoList(List<DonMuaHang> list);

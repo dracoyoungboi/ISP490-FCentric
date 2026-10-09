@@ -53,10 +53,21 @@ const EXPIRY_MAX = 60;
 const DEFAULT_EXPIRY = 15;
 const EXPIRY_HELP = `Hết thời hạn mà chưa nhận tiền, mã QR bị hủy và hàng giữ chỗ được trả lại kho. Từ ${EXPIRY_MIN} đến ${EXPIRY_MAX} phút.`;
 
+// Định dạng khớp với kiểm tra ở backend (PaymentConfigService)
+const UUID_PATTERN = /^[0-9a-fA-F-]{36}$/;
+const HEX64_PATTERN = /^[0-9a-fA-F]{64}$/;
+const UUID_HINT = "dạng xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx";
+
 const KEY_FIELDS = [
-  { name: "clientId", label: "Client ID", maskedKey: "clientIdMasked" },
-  { name: "apiKey", label: "API Key", maskedKey: "apiKeyMasked" },
-  { name: "checksumKey", label: "Checksum Key", maskedKey: "checksumKeyMasked" },
+  { name: "clientId", label: "Client ID", maskedKey: "clientIdMasked", pattern: UUID_PATTERN, formatHint: UUID_HINT },
+  { name: "apiKey", label: "API Key", maskedKey: "apiKeyMasked", pattern: UUID_PATTERN, formatHint: UUID_HINT },
+  {
+    name: "checksumKey",
+    label: "Checksum Key",
+    maskedKey: "checksumKeyMasked",
+    pattern: HEX64_PATTERN,
+    formatHint: "gồm 64 ký tự 0-9, a-f",
+  },
 ];
 const EMPTY_KEYS = { clientId: "", apiKey: "", checksumKey: "" };
 
@@ -132,6 +143,19 @@ function Card({ icon, title, description, aside, children, footer }) {
   );
 }
 
+/** Chỉ đường lấy khóa trên payOS — chỉ hiện ở nơi đang nhập khóa (lần đầu, hộp thoại cập nhật). */
+function KeySourceHint() {
+  return (
+    <>
+      Lấy tại{" "}
+      <a className={linkClass} href={PAYOS_DASHBOARD_URL} rel="noreferrer" target="_blank">
+        my.payos.vn
+      </a>{" "}
+      → Kênh thanh toán → Thông tin cấu hình.
+    </>
+  );
+}
+
 function StatusPill({ tone, children }) {
   const tones = {
     success: "bg-bo-success-soft text-bo-success",
@@ -202,6 +226,12 @@ function KeyFormFields({ idPrefix, values, errors, onChange, disabled }) {
           value={values[field.name]}
         />
       ))}
+      {errors.form ? (
+        <div className="flex gap-2 rounded-lg border border-red-200 bg-bo-danger-soft px-3 py-2.5 text-sm text-red-800" role="alert">
+          <XCircle className="mt-0.5 shrink-0" size={16} />
+          <p className="min-w-0 break-words">{errors.form}</p>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -209,27 +239,55 @@ function KeyFormFields({ idPrefix, values, errors, onChange, disabled }) {
 const validateKeys = (values) => {
   const errors = {};
   KEY_FIELDS.forEach((field) => {
-    if (!values[field.name].trim()) errors[field.name] = `Nhập ${field.label}.`;
+    const value = values[field.name].trim();
+    if (!value) errors[field.name] = `Nhập ${field.label}.`;
+    else if (!field.pattern.test(value)) errors[field.name] = `${field.label} không đúng định dạng (${field.formatHint}).`;
   });
   return errors;
 };
 
-/** Kết quả lần kiểm tra kết nối gần nhất trong phiên. */
-function TestResult({ result }) {
-  if (!result) return null;
+/*
+ * Phản hồi cho nút trong card (Kiểm tra kết nối, Đăng ký webhook) — cùng một kiểu:
+ * - Thành công: một dòng ngắn ngay cạnh nút vừa bấm, tự ẩn sau vài giây.
+ * - Thất bại: khung đỏ trong card, giữ lại tới lần thử sau vì người dùng cần đọc lý do để sửa.
+ * Thao tác ở thanh trên cùng (thời hạn QR, bật/tắt POS) vẫn dùng toast vì không có card riêng.
+ */
+const SUCCESS_VISIBLE_MS = 4000;
+const COPIED_VISIBLE_MS = 1500;
+
+/** Kết quả thao tác {ok, message, at}; tự xóa khi thành công sau SUCCESS_VISIBLE_MS. */
+function useActionResult() {
+  const [result, setResult] = useState(null);
+  useEffect(() => {
+    if (!result?.ok) return undefined;
+    const id = window.setTimeout(() => setResult(null), SUCCESS_VISIBLE_MS);
+    return () => window.clearTimeout(id);
+  }, [result]);
+  return [result, setResult];
+}
+
+/** Vùng role="status" luôn có mặt để trình đọc màn hình đọc được khi nội dung xuất hiện. */
+function InlineSuccess({ show, children }) {
   return (
-    <div
-      aria-live="polite"
-      className={cn(
-        "mt-4 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm",
-        result.ok ? "border-emerald-200 bg-bo-success-soft text-bo-success" : "border-red-200 bg-bo-danger-soft text-bo-danger",
-      )}
-    >
-      {result.ok ? <CheckCircle2 className="mt-0.5 shrink-0" size={16} /> : <XCircle className="mt-0.5 shrink-0" size={16} />}
+    <p className="mr-auto text-sm" role="status">
+      {show ? (
+        <span className="inline-flex items-center gap-1.5 font-medium text-bo-success animate-in fade-in-0 duration-300 motion-reduce:animate-none">
+          <CheckCircle2 size={16} /> {children}
+        </span>
+      ) : null}
+    </p>
+  );
+}
+
+function InlineError({ result, title }) {
+  if (!result || result.ok) return null;
+  return (
+    <div className="mt-4 flex items-start gap-2 rounded-lg border border-red-200 bg-bo-danger-soft px-3 py-2.5 text-sm text-bo-danger" role="alert">
+      <XCircle className="mt-0.5 shrink-0" size={16} />
       <p className="min-w-0 break-words">
-        <strong className="font-semibold">{result.ok ? "Kết nối thành công" : "Kết nối thất bại"}</strong>
+        <strong className="font-semibold">{title}</strong>
         <span className="text-slate-700"> · {formatTime(result.at)}</span>
-        {!result.ok && result.message ? <span className="block text-slate-700">{result.message}</span> : null}
+        {result.message ? <span className="block text-slate-700">{result.message}</span> : null}
       </p>
     </div>
   );
@@ -247,8 +305,10 @@ function SetupStep({ index, done, children }) {
           {index}
         </span>
       )}
-      <span className={cn("text-sm", done ? "text-slate-600 line-through decoration-slate-400" : "font-medium text-bo-foreground")}>
+      {/* Bước xong: dấu tích xanh + chữ nhạt  */}
+      <span className={cn("text-sm", done ? "text-slate-600" : "font-medium text-bo-foreground")}>
         {children}
+        {done ? <span className="sr-only"> (đã xong)</span> : null}
       </span>
     </li>
   );
@@ -375,7 +435,7 @@ function GuideDialog({ open, onOpenChange }) {
               </a>{" "}
               → <b>Kênh thanh toán</b> → <b>Thông tin cấu hình</b>, sao chép Client ID, API Key và Checksum Key.
             </li>
-            <li>Dán 3 khóa vào mục <b>Khóa kết nối</b> và lưu. Hệ thống tự kiểm tra kết nối sau khi lưu.</li>
+            <li>Dán 3 khóa vào mục <b>Khóa kết nối</b> và lưu. Hệ thống xác minh với payOS trước khi lưu (tạo rồi hủy ngay một link 2.000đ, không thu tiền); khóa sai sẽ không được lưu.</li>
             <li>Bấm <b>Đăng ký webhook</b> để payOS báo về ngay khi khách chuyển tiền.</li>
             <li>Bật <b>Bật tại POS</b>. Màn POS sẽ có thêm lựa chọn “Chuyển khoản (QR)”.</li>
           </ol>
@@ -421,12 +481,14 @@ export default function PaymentSettingsPage() {
   const [keyErrors, setKeyErrors] = useState({});
   const [savingKeys, setSavingKeys] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState(null); // {ok, message, at}
+  const [testResult, setTestResult] = useActionResult();
 
   // Webhook
   const [webhookUrl, setWebhookUrl] = useState("");
   const [editingWebhook, setEditingWebhook] = useState(false);
   const [registering, setRegistering] = useState(false);
+  const [webhookResult, setWebhookResult] = useActionResult();
+  const [copied, setCopied] = useState(false);
   const [confirmReplaceWebhook, setConfirmReplaceWebhook] = useState(false);
 
   // Thời hạn mã QR: `expiry` là giá trị đang nhập, chỉ dùng khi đang sửa
@@ -462,11 +524,17 @@ export default function PaymentSettingsPage() {
     };
   }, [reloadKey]);
 
+  useEffect(() => {
+    if (!copied) return undefined;
+    const id = window.setTimeout(() => setCopied(false), COPIED_VISIBLE_MS);
+    return () => window.clearTimeout(id);
+  }, [copied]);
+
   /* ---------- Khóa kết nối ---------- */
 
   const changeKey = (name, value) => {
     setKeyValues((current) => ({ ...current, [name]: value }));
-    setKeyErrors((current) => ({ ...current, [name]: undefined }));
+    setKeyErrors((current) => ({ ...current, [name]: undefined, form: undefined }));
   };
 
   const resetKeyForm = () => {
@@ -476,6 +544,7 @@ export default function PaymentSettingsPage() {
 
   const runTest = async () => {
     setTesting(true);
+    setTestResult(null); // không để kết quả cũ đứng cạnh lần kiểm tra mới
     try {
       const result = await paymentConfigService.testConnection();
       setTestResult(result ? { ...result, at: new Date() } : { ok: false, message: "Máy chủ không trả về kết quả kiểm tra.", at: new Date() });
@@ -494,7 +563,9 @@ export default function PaymentSettingsPage() {
       return;
     }
     setSavingKeys(true);
+    setTestResult(null);
     try {
+      // Backend xác minh bộ khóa với payOS trước khi lưu; khóa sai -> lỗi, không lưu.
       const data = await paymentConfigService.updatePayos({
         clientId: keyValues.clientId.trim(),
         apiKey: keyValues.apiKey.trim(),
@@ -503,10 +574,12 @@ export default function PaymentSettingsPage() {
       applyConfig(data);
       resetKeyForm();
       setKeyDialogOpen(false);
-      toast.success("Đã lưu khóa kết nối");
-      await runTest(); // Kiểm tra ngay để phát hiện khóa sai
+      // Một thông báo là đủ: backend chỉ lưu khi payOS đã xác minh cả 3 khóa
+      toast.success("Đã lưu và xác minh khóa kết nối");
     } catch (error) {
-      toast.error(errorMessage(error, "Không lưu được khóa"));
+      const message = errorMessage(error, "Không lưu được khóa");
+      setKeyErrors((current) => ({ ...current, form: `${message} Khóa đang dùng không thay đổi.` }));
+      toast.error(message);
     } finally {
       setSavingKeys(false);
     }
@@ -518,11 +591,12 @@ export default function PaymentSettingsPage() {
     if (registering) return;
     setConfirmReplaceWebhook(false);
     setRegistering(true);
+    setWebhookResult(null);
     try {
       applyConfig(await paymentConfigService.confirmWebhook(webhookUrl.trim()));
-      toast.success("payOS đã xác nhận webhook");
+      setWebhookResult({ ok: true, at: new Date() });
     } catch (error) {
-      toast.error(errorMessage(error, "payOS chưa xác nhận webhook"));
+      setWebhookResult({ ok: false, message: errorMessage(error, "payOS chưa xác nhận webhook."), at: new Date() });
     } finally {
       setRegistering(false);
     }
@@ -531,7 +605,7 @@ export default function PaymentSettingsPage() {
   const copyWebhook = async () => {
     try {
       await navigator.clipboard.writeText(webhookUrl);
-      toast.success("Đã sao chép Webhook URL");
+      setCopied(true);
     } catch {
       toast.error("Không sao chép được, hãy bôi đen và sao chép thủ công");
     }
@@ -739,18 +813,11 @@ export default function PaymentSettingsPage() {
                 </button>
               ) : null
             }
-            description={
-              <>
-                Lấy tại{" "}
-                <a className={linkClass} href={PAYOS_DASHBOARD_URL} rel="noreferrer" target="_blank">
-                  my.payos.vn
-                </a>{" "}
-                → Kênh thanh toán → Thông tin cấu hình.
-              </>
-            }
+            description={hasKeys ? undefined : <KeySourceHint />}
             footer={
               hasKeys ? (
                 <>
+                  <InlineSuccess show={Boolean(testResult?.ok)}>Kết nối thành công</InlineSuccess>
                   <Button className={secondaryButtonClass} disabled={testing} onClick={runTest} type="button" variant="outline">
                     <PlugZap size={16} /> {testing ? "Đang kiểm tra…" : "Kiểm tra kết nối"}
                   </Button>
@@ -769,7 +836,7 @@ export default function PaymentSettingsPage() {
                 </>
               ) : (
                 <Button className={primaryButtonClass} disabled={!canStoreKeys || savingKeys} onClick={saveKeys} type="button">
-                  {savingKeys ? "Đang lưu…" : "Lưu và kiểm tra"}
+                  {savingKeys ? "Đang xác minh với payOS…" : "Lưu và kiểm tra"}
                 </Button>
               )
             }
@@ -788,15 +855,20 @@ export default function PaymentSettingsPage() {
             ) : (
               <KeyFormFields disabled={!canStoreKeys} errors={keyErrors} idPrefix="payos-setup" onChange={changeKey} values={keyValues} />
             )}
-            <TestResult result={testResult} />
+            <InlineError result={testResult} title="Kết nối thất bại" />
           </Card>
 
           {/* ===== Webhook ===== */}
           <Card
             aside={webhookConfirmed ? <StatusPill tone="success">Đã đăng ký</StatusPill> : <StatusPill tone="danger">Chưa đăng ký</StatusPill>}
-            description="payOS báo về ngay khi khách chuyển tiền."
+            description={
+              webhookConfirmed
+                ? undefined
+                : "Chưa đăng ký: hệ thống phải tự hỏi payOS định kỳ nên xác nhận tiền về có thể chậm hơn."
+            }
             footer={
               <>
+                <InlineSuccess show={Boolean(webhookResult?.ok)}>Đã đăng ký webhook</InlineSuccess>
                 {savedWebhookUrl ? (
                   editingWebhook ? (
                     <Button
@@ -841,7 +913,10 @@ export default function PaymentSettingsPage() {
                   className={cn(inputClass, "min-w-0 flex-1 font-mono placeholder:font-sans")}
                   disabled={!hasKeys}
                   id="payos-webhook"
-                  onChange={(event) => setWebhookUrl(event.target.value)}
+                  onChange={(event) => {
+                    setWebhookUrl(event.target.value);
+                    setWebhookResult(null); // lỗi cũ không còn đúng với URL mới
+                  }}
                   placeholder={`https://<địa-chỉ-backend>${WEBHOOK_PATH}`}
                   spellCheck={false}
                   type="url"
@@ -853,15 +928,15 @@ export default function PaymentSettingsPage() {
                 </div>
               )}
               <Button
-                aria-label="Sao chép Webhook URL"
+                aria-label={copied ? "Đã sao chép Webhook URL" : "Sao chép Webhook URL"}
                 className={cn(secondaryButtonClass, "w-10 shrink-0 px-0")}
                 disabled={!webhookUrl}
                 onClick={copyWebhook}
-                title="Sao chép"
+                title={copied ? "Đã sao chép" : "Sao chép"}
                 type="button"
                 variant="outline"
               >
-                <Copy size={16} />
+                {copied ? <Check className="text-bo-success" size={16} /> : <Copy size={16} />}
               </Button>
             </div>
             <p className="mt-2 text-xs leading-5 text-slate-600">
@@ -871,6 +946,7 @@ export default function PaymentSettingsPage() {
                   ? `payOS xác nhận lúc ${formatDateTime(config.webhookXacNhanLuc)}.`
                   : "Bấm Đăng ký webhook để payOS xác nhận địa chỉ này."}
             </p>
+            <InlineError result={webhookResult} title="Đăng ký webhook thất bại" />
           </Card>
         </div>
       </div>
@@ -888,13 +964,13 @@ export default function PaymentSettingsPage() {
           <DialogHeader>
             <DialogTitle className="text-bo-foreground">Cập nhật khóa kết nối</DialogTitle>
             <DialogDescription className="text-slate-600">
-              Nhập đủ 3 khóa mới từ my.payos.vn. Hệ thống sẽ kiểm tra kết nối ngay sau khi lưu.
+              <KeySourceHint /> Hệ thống xác minh với payOS trước khi lưu, khóa sai sẽ không được lưu.
             </DialogDescription>
           </DialogHeader>
           {enabled ? (
-            <div className="flex gap-2 rounded-lg border border-red-200 bg-bo-danger-soft px-3 py-2.5 text-sm text-red-800">
+            <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
               <AlertTriangle className="mt-0.5 shrink-0" size={16} />
-              <p>POS đang dùng khóa hiện tại. Khóa sai sẽ làm gián đoạn thanh toán QR.</p>
+              <p>POS đang dùng khóa hiện tại. Nếu đổi sang kênh payOS khác, cần đăng ký lại webhook sau khi lưu.</p>
             </div>
           ) : null}
           <form
@@ -911,7 +987,7 @@ export default function PaymentSettingsPage() {
               Hủy
             </Button>
             <Button className={primaryButtonClass} disabled={savingKeys} form="payos-key-form" type="submit">
-              {savingKeys ? "Đang lưu…" : "Lưu và kiểm tra"}
+              {savingKeys ? "Đang xác minh với payOS…" : "Lưu và kiểm tra"}
             </Button>
           </DialogFooter>
         </DialogContent>

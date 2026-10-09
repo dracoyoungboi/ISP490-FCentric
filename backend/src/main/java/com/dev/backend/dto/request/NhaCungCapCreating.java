@@ -32,5 +32,6 @@ public class NhaCungCapCreating {
     @Size(max = 500, message = "Địa chỉ tối đa 500 ký tự")
     private String diaChi;
 
+    @Builder.Default
     private Integer trangThai = 1; // Mặc định hoạt động
 }

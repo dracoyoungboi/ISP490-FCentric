@@ -17,5 +17,6 @@ public interface ChiTietNhatHangMapper {
     @Mapping(target = "tenSize", source = "bienTheSanPham.size.tenSize")
     @Mapping(target = "tenChatLieu", source = "bienTheSanPham.chatLieu.tenChatLieu")
     @Mapping(target = "anhBienTheUrl", source = "bienTheSanPham.anhBienThe.tepTin.duongDan")
+    @Mapping(target = "viTriKho", ignore = true) // NhatHangServiceImpl tự điền vị trí kệ
     ChiTietNhatHangDto toDto(ChiTietNhatHang entity);
 }
