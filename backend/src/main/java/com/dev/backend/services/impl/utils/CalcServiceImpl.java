@@ -1,16 +1,16 @@
 package com.dev.backend.services.impl.utils;
 
 import com.dev.backend.services.CalcService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.Date;
-import java.util.Random;
+import java.security.SecureRandom;
+import java.time.LocalDate;
 
 @Service
 public class CalcServiceImpl implements CalcService {
 
-    private final Random random = new Random();
+    // SecureRandom thay cho Random: mã kích hoạt / OTP không được đoán trước được
+    private final SecureRandom random = new SecureRandom();
 
     @Override
     public String getRandomActiveCode(Long lenghtOfString) {
@@ -27,10 +27,11 @@ public class CalcServiceImpl implements CalcService {
 
     @Override
     public String getRandomProductCode(String prefix) {
-        Date now = new Date();
-        int y = now.getYear() + 1900;
-        int m = now.getMonth() + 1;
-        int d = now.getDate();
+        // LocalDate thay cho Date.getYear()/getMonth()/getDate() (deprecated). Định dạng kết quả giữ nguyên.
+        LocalDate now = LocalDate.now();
+        int y = now.getYear();
+        int m = now.getMonthValue();
+        int d = now.getDayOfMonth();
         // random
         String r = String.format("%04d", random.nextInt(10000));
         return prefix + y + m + d + r;
