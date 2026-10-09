@@ -14,6 +14,7 @@ import java.util.List;
 @Repository
 public interface ChiTietPhieuXuatKhoRepository extends JpaRepository<ChiTietPhieuXuatKho, Integer>, JpaSpecificationExecutor<ChiTietPhieuXuatKho> {
     List<ChiTietPhieuXuatKho> findByPhieuXuatKhoIdAndLoHangIsNull(Integer phieuXuatKhoId);
+    List<ChiTietPhieuXuatKho> findByPhieuXuatKhoIdAndLoHangIsNotNull(Integer phieuXuatKhoId);
     List<ChiTietPhieuXuatKho> findByPhieuXuatKhoIdAndBienTheSanPhamIdAndLoHangIsNotNull(
             Integer phieuXuatKhoId,
             Integer bienTheSanPhamId
