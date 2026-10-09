@@ -1,5 +1,5 @@
 // src/pages/customer/KhachHangEdit.jsx
-import { createElement, useState, useEffect, useCallback } from 'react';
+import { createElement, useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { getKhachHangById, updateKhachHang } from "@/services/khachHangService";
+import { PHONE_ERROR_MESSAGE, isPhoneValid, sanitizePhoneInput } from "@/utils/phoneValidation";
 
 import PageContainer from "@/components/backoffice/PageContainer";
 import PageHeader from "@/components/backoffice/PageHeader";
@@ -24,16 +25,22 @@ import FormActions from "@/components/shared/FormActions";
 import FormSection from "@/components/shared/FormSection";
 import LoadingState from "@/components/shared/LoadingState";
 
-const formSchema = z.object({
-  tenKhachHang: z.string().min(1, "Tên khách hàng không được để trống").max(200),
-  nguoiLienHe: z.string().max(100).optional(),
-  soDienThoai: z.string().max(20)
-    .regex(/^(0|\+84)[3|5|7|8|9][0-9]{8}$/, "Số điện thoại không đúng định dạng Việt Nam")
-    .optional(),
-  email: z.string().email("Email không hợp lệ").max(100).optional(),
-  diaChi: z.string().optional(),
+// Cùng quy tắc email với form "Thêm khách hàng" và backend
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// SĐT/email để trống là hợp lệ (backend lưu NULL). SĐT dùng chung quy tắc di động 10 số;
+// riêng SĐT cũ không bị sửa thì cho qua (getOriginalPhone) để dữ liệu định dạng cũ
+// không chặn việc sửa các trường khác — backend cũng chỉ kiểm tra khi SĐT thực sự đổi.
+const buildFormSchema = (getOriginalPhone) => z.object({
+  tenKhachHang: z.string().trim().min(1, "Tên khách hàng không được để trống").max(200),
+  nguoiLienHe: z.string().trim().max(100).optional(),
+  soDienThoai: z.string().trim()
+    .refine((value) => value === getOriginalPhone() || isPhoneValid(value), PHONE_ERROR_MESSAGE),
+  email: z.string().trim().max(100, "Email tối đa 100 ký tự")
+    .refine((value) => !value || EMAIL_REGEX.test(value), "Email không hợp lệ"),
+  diaChi: z.string().trim().optional(),
   loaiKhachHang: z.enum(["le", "si", "doanh_nghiep"], {
-    errorMap: () => ({ message: "Vui lòng chọn loại khách hàng hợp lệ" }),
+    error: "Vui lòng chọn loại khách hàng hợp lệ",
   }),
   trangThai: z.number().optional(),
 });
@@ -48,6 +55,9 @@ export default function KhachHangEdit() {
   const { id }   = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  // SĐT đang lưu trên server (sau trim) — để schema cho qua khi người dùng không sửa SĐT
+  const originalPhoneRef = useRef("");
+  const [formSchema] = useState(() => buildFormSchema(() => originalPhoneRef.current));
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -61,6 +71,7 @@ export default function KhachHangEdit() {
     setLoading(true);
     try {
       const data = await getKhachHangById(id);
+      originalPhoneRef.current = (data.soDienThoai || "").trim();
       form.reset({
         tenKhachHang: data.tenKhachHang || "",
         nguoiLienHe:  data.nguoiLienHe  || "",
@@ -163,6 +174,9 @@ export default function KhachHangEdit() {
                       <Input
                         className="h-10 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
                         {...field}
+                        // Chỉ nhận chữ số, tối đa 10 (SĐT cũ dài hơn vẫn hiển thị nguyên cho tới khi sửa)
+                        onChange={(e) => field.onChange(sanitizePhoneInput(e.target.value))}
+                        inputMode="numeric"
                       />
                     </FormControl>
                     <FormMessage className="text-xs text-bo-danger" />
