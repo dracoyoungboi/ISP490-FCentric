@@ -21,6 +21,7 @@ public interface NguoiDungMapper {
      * HTTPS để trình duyệt không chặn Mixed Content. Không có tep_tin -> null.
      */
     @Mapping(target = "avatarUrl", source = "avatarTepTin.duongDan", qualifiedByName = "publicAssetUrl")
+    @Mapping(target = "khoPhuTrachActive", ignore = true) // NguoiDungService.fillKhoPhuTrachActive tự điền cho /me
     NguoiDungDto toDto(NguoiDung entity);
     List<NguoiDungDto> toDtoList(List<NguoiDung> list);
 

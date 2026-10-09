@@ -1,7 +1,9 @@
 package com.dev.backend.mapper;
 
 
+import com.dev.backend.dto.response.entities.ChiTietQuyenKhoDto;
 import com.dev.backend.dto.response.entities.PhanQuyenNguoiDungKhoDto;
+import com.dev.backend.entities.ChiTietQuyenKho;
 import com.dev.backend.entities.PhanQuyenNguoiDungKho;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -12,6 +14,8 @@ import org.springframework.data.domain.Page;
 import java.util.List;
 
 
+// Đã bỏ toEntity(PhanQuyenNguoiDungKhoDto): không nơi nào gọi.
+// Không dùng NguoiDungMapper ở đây vì NguoiDungMapper đã uses mapper này -> tránh vòng phụ thuộc Spring.
 @Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
 public interface PhanQuyenNguoiDungKhoMapper {
     @Mapping(target = "nguoiDung", ignore = true)
@@ -19,8 +23,10 @@ public interface PhanQuyenNguoiDungKhoMapper {
     @Mapping(target = "kho.quanLy", ignore = true)
     PhanQuyenNguoiDungKhoDto toDto(PhanQuyenNguoiDungKho phanQuyenNguoiDungKho);
 
-
-    PhanQuyenNguoiDungKho toEntity(PhanQuyenNguoiDungKhoDto phanQuyenNguoiDungKhoDto);
+    // Người cấp quyền chỉ cần thông tin cơ bản: avatar và kho đang phụ trách không áp dụng ở ngữ cảnh này.
+    @Mapping(target = "nguoiCap.avatarUrl", ignore = true)
+    @Mapping(target = "nguoiCap.khoPhuTrachActive", ignore = true)
+    ChiTietQuyenKhoDto toChiTietQuyenKhoDto(ChiTietQuyenKho chiTietQuyenKho);
 
 
     List<PhanQuyenNguoiDungKhoDto> toDtoList(List<PhanQuyenNguoiDungKho> list);

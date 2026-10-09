@@ -17,6 +17,8 @@ public interface DanhSachNhatHangMapper {
     @Mapping(target = "tongSoLuongCanNhat", ignore = true)
     @Mapping(target = "tongSoLuongDaQuet", ignore = true)
     @Mapping(target = "danhSachMaDonHang", ignore = true)
+    @Mapping(target = "phanTramHoanThanh", ignore = true) // NhatHangServiceImpl tự tính
+    @Mapping(target = "coTheHoanTat", ignore = true)      // NhatHangServiceImpl tự tính
     DanhSachNhatHangDto toDto(DanhSachNhatHang entity);
 }
 
