@@ -265,23 +265,23 @@
                     <source>17</source>
                     <target>17</target>
                     <annotationProcessorPaths>
-                        <!-- MapStruct Processor - QUAN TRỌNG! -->
-                        <path>
-                            <groupId>org.mapstruct</groupId>
-                            <artifactId>mapstruct-processor</artifactId>
-                            <version>1.6.3</version>
-                        </path>
-                        <!-- Lombok -->
+                        <!-- Lombok (Bắt buộc đứng đầu để sinh getter/setter trước khi MapStruct xử lý) -->
                         <path>
                             <groupId>org.projectlombok</groupId>
                             <artifactId>lombok</artifactId>
-                            <version>1.18.30</version>
+                            <version>1.18.36</version>
                         </path>
                         <!-- Lombok MapStruct Binding - để Lombok và MapStruct hoạt động cùng nhau -->
                         <path>
                             <groupId>org.projectlombok</groupId>
                             <artifactId>lombok-mapstruct-binding</artifactId>
                             <version>0.2.0</version>
+                        </path>
+                        <!-- MapStruct Processor -->
+                        <path>
+                            <groupId>org.mapstruct</groupId>
+                            <artifactId>mapstruct-processor</artifactId>
+                            <version>1.6.3</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>

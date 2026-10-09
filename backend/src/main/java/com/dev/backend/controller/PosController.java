@@ -119,6 +119,7 @@ public class PosController {
     @RequireAuth(
             roles = {
                     IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
                     IRoleType.nhan_vien_ban_hang
             },
             rolesLogic = RequireAuth.LogicType.OR
@@ -131,6 +132,12 @@ public class PosController {
                     "Chức năng thanh toán POS chưa được kích hoạt trên hệ thống",
                     HttpStatus.SERVICE_UNAVAILABLE,
                     null);
+        }
+        if (request != null && request.getKhoId() == null) {
+            Integer currentKhoId = com.dev.backend.config.SecurityContextHolder.getKhoId();
+            if (currentKhoId != null) {
+                request.setKhoId(currentKhoId);
+            }
         }
         return ResponseEntity.ok(
                 ResponseData.<PosCheckoutResponse>builder()
@@ -147,6 +154,7 @@ public class PosController {
     @RequireAuth(
             roles = {
                     IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
                     IRoleType.nhan_vien_ban_hang
             },
             rolesLogic = RequireAuth.LogicType.OR
@@ -164,6 +172,7 @@ public class PosController {
     @RequireAuth(
             roles = {
                     IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
                     IRoleType.nhan_vien_ban_hang
             },
             rolesLogic = RequireAuth.LogicType.OR
@@ -172,6 +181,12 @@ public class PosController {
         if (!checkoutEnabled) {
             throw new CommonException("Chức năng thanh toán POS chưa được kích hoạt trên hệ thống",
                     HttpStatus.SERVICE_UNAVAILABLE, null);
+        }
+        if (request != null && request.getKhoId() == null) {
+            Integer currentKhoId = com.dev.backend.config.SecurityContextHolder.getKhoId();
+            if (currentKhoId != null) {
+                request.setKhoId(currentKhoId);
+            }
         }
         return ResponseEntity.ok(ResponseData.<PayosPaymentLinkDto>builder()
                 .status(200).data(posPayosService.createLink(request)).message("Đã tạo mã QR").error(null).build());

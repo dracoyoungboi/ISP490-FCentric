@@ -37,13 +37,6 @@ public class YeuCauMuaHangController {
             },
             rolesLogic = RequireAuth.LogicType.OR
     )
-    @RequireAuth(roles = {
-            IRoleType.quan_tri_vien,
-            IRoleType.quan_ly_kho,
-            IRoleType.nhan_vien_kho,
-            IRoleType.nhan_vien_mua_hang,
-            IRoleType.nhan_vien_ban_hang
-    })
     public ResponseEntity<ResponseData<YeuCauMuaHangDto>> getById(@PathVariable Integer id) {
         return ResponseEntity.ok(
                 ResponseData.<YeuCauMuaHangDto>builder()
@@ -71,13 +64,6 @@ public class YeuCauMuaHangController {
             },
             rolesLogic = RequireAuth.LogicType.OR
     )
-    @RequireAuth(roles = {
-            IRoleType.quan_tri_vien,
-            IRoleType.quan_ly_kho,
-            IRoleType.nhan_vien_kho,
-            IRoleType.nhan_vien_mua_hang,
-            IRoleType.nhan_vien_ban_hang
-    })
     public ResponseEntity<ResponseData<Page<YeuCauMuaHangDto>>> filter(@RequestBody BaseFilterRequest filter) {
         return ResponseEntity.ok(
                 ResponseData.<Page<YeuCauMuaHangDto>>builder()
