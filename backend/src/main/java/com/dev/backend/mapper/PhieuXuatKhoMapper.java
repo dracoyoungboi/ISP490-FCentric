@@ -7,7 +7,8 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.springframework.data.domain.Page;
 
-@Mapper(componentModel = "spring")
+// NguoiDungMapper: người dùng lồng nhau (nguoiXuat, nguoiDuyet, kho.quanLy...) được map đúng avatarUrl.
+@Mapper(componentModel = "spring", uses = {NguoiDungMapper.class})
 public interface PhieuXuatKhoMapper {
     @Mapping(source = "phieuChuyenKhoGoc.id", target = "phieuChuyenKhoGocId")
     @Mapping(source = "phieuChuyenKhoGoc.soPhieuXuat", target = "soPhieuChuyenKhoGoc")

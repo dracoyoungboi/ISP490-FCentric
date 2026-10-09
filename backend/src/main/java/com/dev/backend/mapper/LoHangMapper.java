@@ -8,10 +8,10 @@ import org.springframework.data.domain.Page;
 
 import java.util.List;
 
-@Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
+// BienTheSanPhamMapper: biến thể trong lô có đủ tenSanPham / tenBienThe như các API khác.
+// Đã bỏ toEntity(LoHangDto): không nơi nào gọi.
+@Mapper(componentModel = MappingConstants.ComponentModel.SPRING, uses = {BienTheSanPhamMapper.class})
 public interface LoHangMapper {
-    LoHang toEntity(LoHangDto loHangDto);
-
     LoHangDto toDto(LoHang loHang);
 
     List<LoHangDto> toDtoList(List<LoHang> list);

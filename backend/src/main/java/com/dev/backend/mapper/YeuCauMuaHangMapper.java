@@ -8,7 +8,7 @@ import org.springframework.data.domain.Page;
 import java.util.List;
 
 @Mapper(componentModel = MappingConstants.ComponentModel.SPRING,
-        uses = {BienTheSanPhamMapper.class})
+        uses = {BienTheSanPhamMapper.class, NguoiDungMapper.class})
 public interface YeuCauMuaHangMapper {
     @Mapping(target = "lyDoTuChoi", ignore = true)
     @Mapping(target = "ngayDuyet", ignore = true)
