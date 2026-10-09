@@ -1024,6 +1024,34 @@ export default function PosSalesPage({
     let stopped = false;
     let inFlight = false;
     const controller = new AbortController();
+
+    // 1. Kết nối WebSocket native real-time (< 50ms) cho từng đơn hàng đang chờ thanh toán
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsHost = window.location.port === '5173' ? `${window.location.hostname}:8080` : window.location.host;
+    const sockets = [];
+
+    targets.forEach((target) => {
+      try {
+        const wsUrl = `${wsProtocol}//${wsHost}/ws-pos?orderCode=${target.orderCode}`;
+        const ws = new WebSocket(wsUrl);
+        ws.onmessage = (event) => {
+          if (stopped) return;
+          try {
+            const link = JSON.parse(event.data);
+            if (link && link.trangThai !== 'PENDING') {
+              applyPayosUpdate(target.number, link);
+            }
+          } catch (err) {
+            console.debug('Lỗi parse dữ liệu WebSocket payOS:', err);
+          }
+        };
+        sockets.push(ws);
+      } catch (err) {
+        console.debug('Không thể khởi tạo kết nối WebSocket, tiếp tục dùng polling dự phòng:', err);
+      }
+    });
+
+    // 2. Polling dự phòng (Fail-safe Fallback): đảm bảo không bao giờ kẹt đơn nếu WebSocket bị chập chờn
     const tick = async () => {
       if (inFlight) return; // lần hỏi trước chưa xong (mạng chậm) -> bỏ lượt, không dồn request
       inFlight = true;
@@ -1042,7 +1070,14 @@ export default function PosSalesPage({
       }
     };
     const id = window.setInterval(tick, PAYOS_POLL_MS);
-    return () => { stopped = true; controller.abort(); window.clearInterval(id); };
+    return () => {
+      stopped = true;
+      controller.abort();
+      window.clearInterval(id);
+      sockets.forEach((s) => {
+        try { s.close(); } catch (_) {}
+      });
+    };
     // applyPayosUpdate chỉ dùng setter ổn định + uiRef
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingPayosKey]);

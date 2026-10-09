@@ -17,6 +17,11 @@ export const phieuXuatKhoService = {
     async complete(id) {
         return apiClient.put(`/api/v1/phieu-xuat-kho/${id}/complete`);
     },
+    // Xác nhận xuất kho & điều phối giao vận (SRS 6.3.2)
+    async xacNhanXuatKho(id, payload) {
+        const res = await apiClient.post(`/api/v1/phieu-xuat-kho/${id}/xac-nhan-xuat-kho`, payload);
+        return res.data;
+    },
     // Hủy phiếu (-> 4)
     async cancel(id) {
         return apiClient.put(`/api/v1/phieu-xuat-kho/${id}/cancel`);

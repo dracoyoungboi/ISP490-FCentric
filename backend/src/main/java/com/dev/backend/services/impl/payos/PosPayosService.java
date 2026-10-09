@@ -11,6 +11,7 @@ import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.PosPayosPaymentRepository;
 import com.dev.backend.services.impl.entities.PosCatalogService;
 import com.dev.backend.services.impl.entities.PosConcurrencyRetry;
+import com.dev.backend.websocket.PosWebSocketHandler;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -43,16 +44,19 @@ public class PosPayosService {
     private final PosPayosTransaction tx;
     private final PosPayosPaymentRepository repository;
     private final PosCatalogService posCatalogService;
+    private final PosWebSocketHandler posWebSocketHandler;
     private final String frontendUrl;
 
     public PosPayosService(PaymentConfigService configService, PayosClient payosClient, PosPayosTransaction tx,
                            PosPayosPaymentRepository repository, PosCatalogService posCatalogService,
+                           PosWebSocketHandler posWebSocketHandler,
                            @Value("${app.frontend-url:http://localhost:5173}") String frontendUrl) {
         this.configService = configService;
         this.payosClient = payosClient;
         this.tx = tx;
         this.repository = repository;
         this.posCatalogService = posCatalogService;
+        this.posWebSocketHandler = posWebSocketHandler;
         this.frontendUrl = frontendUrl.endsWith("/") ? frontendUrl.substring(0, frontendUrl.length() - 1) : frontendUrl;
     }
 
@@ -238,14 +242,30 @@ public class PosPayosService {
             // Deadlock / trùng số chứng từ với quầy khác -> thử lại transaction mới, không đánh PAID_ERROR oan.
             PosCheckoutResponse result = PosConcurrencyRetry.call(() -> tx.finalizePaid(orderCode, amount, reference));
             log.info("payOS: đơn {} đã thanh toán -> {}", orderCode, result == null ? "?" : result.getSoDonHang());
+            pushPaymentNotification(orderCode);
         } catch (RuntimeException e) {
             PosPayosPayment row = tx.reload(orderCode).orElse(null);
-            if (row != null && PosPayosPayment.PAID.equals(row.getTrangThai())) return;
+            if (row != null && PosPayosPayment.PAID.equals(row.getTrangThai())) {
+                pushPaymentNotification(orderCode);
+                return;
+            }
             log.error("payOS: đã nhận tiền đơn {} nhưng không tạo được đơn hàng", orderCode, e);
             String reason = PosConcurrencyRetry.isRetryable(e)
                     ? "nhiều giao dịch chạy cùng lúc, đã thử lại nhưng chưa được"
                     : (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
             tx.markPaidError(orderCode, reason, reference);
+            pushPaymentNotification(orderCode);
+        }
+    }
+
+    private void pushPaymentNotification(Long orderCode) {
+        try {
+            PosPayosPayment row = tx.reload(orderCode).orElse(null);
+            if (row != null && posWebSocketHandler != null) {
+                posWebSocketHandler.broadcastPayment(row.getOrderCode(), row.getKhoId(), toDto(row));
+            }
+        } catch (Exception e) {
+            log.warn("WebSocket POS: Lỗi khi push notification cho đơn {}: {}", orderCode, e.getMessage());
         }
     }
 

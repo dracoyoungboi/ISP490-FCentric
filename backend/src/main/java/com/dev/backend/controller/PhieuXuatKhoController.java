@@ -10,10 +10,13 @@ import com.dev.backend.dto.request.BaseFilterRequest;
 import com.dev.backend.dto.request.FilterCriteria;
 import com.dev.backend.dto.request.PhieuXuatKhoCreating;
 import com.dev.backend.dto.request.PickLoHangRequest;
+import com.dev.backend.dto.request.XacNhanXuatKhoRequest;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.PhieuXuatKhoViewDto;
 import com.dev.backend.dto.response.customize.PickedLotDto;
+import com.dev.backend.dto.response.customize.XacNhanXuatKhoResponse;
 import com.dev.backend.dto.response.entities.ChiTietPhieuNhapKhoResponse;
+import io.swagger.v3.oas.annotations.Operation;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.dto.response.entities.PhieuXuatKhoDto;
 import com.dev.backend.dto.response.entities.TonKhoTheoLoDto;
@@ -72,6 +75,28 @@ public class PhieuXuatKhoController {
     )
     public ChiTietPhieuNhapKhoResponse getDetail(@PathVariable Integer id) {
         return phieuXuatKhoService.getDetail(id);
+    }
+
+    @PostMapping("/{id}/xac-nhan-xuat-kho")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
+            inWarehouse = true,
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    @Operation(summary = "Xác nhận xuất kho & điều phối giao vận chi tiết (SRS 6.3.2)")
+    public ResponseEntity<ResponseData<XacNhanXuatKhoResponse>> xacNhanXuatKho(
+            @PathVariable Integer id,
+            @RequestBody(required = false) XacNhanXuatKhoRequest request
+    ) {
+        Integer staffId = SecurityContextHolder.getUser().getId();
+        XacNhanXuatKhoResponse response = phieuXuatKhoService.xacNhanXuatKho(id, request, staffId);
+        return ResponseEntity.ok(
+                ResponseData.<XacNhanXuatKhoResponse>builder()
+                        .status(HttpStatus.OK.value())
+                        .message("Xác nhận xuất kho và cập nhật vận đơn thành công")
+                        .data(response)
+                        .build()
+        );
     }
 
     @PutMapping("/{id}/complete")
