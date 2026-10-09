@@ -27,5 +27,8 @@ public class KhachHangUpdating {
     @Size(max = 500, message = "Địa chỉ tối đa 500 ký tự")  // Giả định Lob max 500
     private String diaChi;
 
+    // "le" | "si" | "doanh_nghiep" — service chuẩn hóa/kiểm tra trước khi ghi
+    private String loaiKhachHang;
+
     private Integer trangThai;
 }
