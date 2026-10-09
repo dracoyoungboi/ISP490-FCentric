@@ -14,9 +14,15 @@ import java.util.Optional;
 @Repository
 public interface KhachHangRepository extends JpaRepository<KhachHang, Integer>, JpaSpecificationExecutor<KhachHang> {
 
-    Optional<KhachHang> findByMaKhachHangOrEmailOrSoDienThoai(String maKhachHang, String email, String soDienThoai);
-
+    // Kiểm tra trùng từng trường riêng; chỉ gọi với giá trị KHÁC rỗng (null sẽ thành "IS NULL"
+    // và khớp mọi khách không có SĐT/email).
     Optional<KhachHang> findFirstBySoDienThoai(String soDienThoai);
+
+    Optional<KhachHang> findFirstByEmail(String email);
+
+    Optional<KhachHang> findFirstBySoDienThoaiAndIdNot(String soDienThoai, Integer id);
+
+    Optional<KhachHang> findFirstByEmailAndIdNot(String email, Integer id);
 
     boolean existsByMaKhachHang(String maKhachHang);
 

@@ -26,12 +26,18 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
 public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
 
     private static final int MAX_POS_CUSTOMER_PAGE_SIZE = 50;
+    private static final Set<String> LOAI_KHACH_HANG_HOP_LE = Set.of("le", "si", "doanh_nghiep");
+    // Cùng quy tắc với form khách hàng ở frontend
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
     private final KhachHangRepository repository;
     private final KhachHangMapper mapper;
@@ -49,8 +55,6 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         this.entityManager = entityManager;
         this.donBanHangRepository = donBanHangRepository;
     }
-
-    private final KhachHangRepository khachHangRepository = (KhachHangRepository) getRepository();
 
     @Override
     protected EntityManager getEntityManager() {
@@ -90,21 +94,34 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
 
     @Transactional
     public ResponseEntity<ResponseData<String>> create(KhachHangCreating creating) {
-        KhachHang khachHang = khachHangRepository.findByMaKhachHangOrEmailOrSoDienThoai(
-                        creating.getMaKhachHang(), creating.getEmail(), creating.getSoDienThoai())
-                .orElse(null);
+        String ma = boTrong(creating.getMaKhachHang());
+        String ten = boTrong(creating.getTenKhachHang());
+        String nguoiLienHe = boTrong(creating.getNguoiLienHe());
+        String sdt = boTrong(creating.getSoDienThoai());
+        String email = boTrong(creating.getEmail());
 
-        if(khachHang != null){
-            throw new CommonException("Thông tin khách hàng (Mã, Email hoặc SĐT) đã tồn tại");
+        if (ma == null) {
+            throw new CommonException("Mã khách hàng là bắt buộc");
         }
+        if (ma.length() > 50) {
+            throw new CommonException("Mã khách hàng tối đa 50 ký tự");
+        }
+        kiemTraThongTinChung(ten, nguoiLienHe);
+        kiemTraLienHe(sdt, email);
+
+        if (repository.existsByMaKhachHang(ma)) {
+            throw new CommonException("Mã khách hàng " + ma + " đã tồn tại", HttpStatus.CONFLICT, null);
+        }
+        kiemTraTrungLienHe(sdt, email, null);
 
         KhachHang newKhachHang = KhachHang.builder()
-                .maKhachHang(creating.getMaKhachHang())
-                .tenKhachHang(creating.getTenKhachHang())
-                .nguoiLienHe(creating.getNguoiLienHe())
-                .soDienThoai(creating.getSoDienThoai())
-                .email(creating.getEmail())
-                .diaChi(creating.getDiaChi())
+                .maKhachHang(ma)
+                .tenKhachHang(ten)
+                .nguoiLienHe(nguoiLienHe)
+                .soDienThoai(sdt)
+                .email(email)
+                .diaChi(boTrong(creating.getDiaChi()))
+                .loaiKhachHang(chuanHoaLoaiKhachHang(creating.getLoaiKhachHang()))
                 .trangThai(1)
                 .build();
 
@@ -163,7 +180,30 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         KhachHang entity = repository.findById(id)
                 .orElseThrow(() -> new CommonException("Không tìm thấy khách hàng với ID: " + id));
 
+        // Trường chuỗi: null = giữ nguyên; chuỗi trắng = xóa trường (lưu NULL thay vì "")
+        String ten = updating.getTenKhachHang() != null ? boTrong(updating.getTenKhachHang()) : entity.getTenKhachHang();
+        String nguoiLienHe = updating.getNguoiLienHe() != null ? boTrong(updating.getNguoiLienHe()) : entity.getNguoiLienHe();
+        String sdt = updating.getSoDienThoai() != null ? boTrong(updating.getSoDienThoai()) : entity.getSoDienThoai();
+        String email = updating.getEmail() != null ? boTrong(updating.getEmail()) : entity.getEmail();
+        String diaChi = updating.getDiaChi() != null ? boTrong(updating.getDiaChi()) : entity.getDiaChi();
+
+        kiemTraThongTinChung(ten, nguoiLienHe);
+        // SĐT / email chỉ kiểm tra khi thực sự đổi: dữ liệu cũ (định dạng cũ, trùng sẵn) không chặn
+        // việc sửa các trường khác của khách hàng.
+        String sdtMoi = Objects.equals(sdt, entity.getSoDienThoai()) ? null : sdt;
+        String emailMoi = Objects.equals(email, entity.getEmail()) ? null : email;
+        kiemTraLienHe(sdtMoi, emailMoi);
+        kiemTraTrungLienHe(sdtMoi, emailMoi, id);
+
+        if (updating.getLoaiKhachHang() != null) {
+            updating.setLoaiKhachHang(chuanHoaLoaiKhachHang(updating.getLoaiKhachHang()));
+        }
         mapper.partialUpdate(updating, entity);
+        entity.setTenKhachHang(ten);
+        entity.setNguoiLienHe(nguoiLienHe);
+        entity.setSoDienThoai(sdt);
+        entity.setEmail(email);
+        entity.setDiaChi(diaChi);
         entity = repository.save(entity);
         return mapper.toDto(entity);
     }
@@ -181,6 +221,81 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         String pattern = keyword.isEmpty() ? null : "%" + escapeLike(keyword.toLowerCase(Locale.ROOT)) + "%";
         int safeSize = Math.max(1, Math.min(size, MAX_POS_CUSTOMER_PAGE_SIZE));
         return repository.searchActiveForPos(pattern, PageRequest.of(Math.max(0, page), safeSize)).map(mapper::toDto);
+    }
+
+    /** Trim; chuỗi rỗng / toàn khoảng trắng -> null (không lưu "" để các khách trống không bị coi là trùng nhau). */
+    private static String boTrong(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private static void kiemTraThongTinChung(String ten, String nguoiLienHe) {
+        if (ten == null) {
+            throw new CommonException("Tên khách hàng là bắt buộc");
+        }
+        if (ten.length() > 200) {
+            throw new CommonException("Tên khách hàng tối đa 200 ký tự");
+        }
+        if (nguoiLienHe != null && nguoiLienHe.length() > 100) {
+            throw new CommonException("Người liên hệ tối đa 100 ký tự");
+        }
+    }
+
+    // Định dạng SĐT do frontend kiểm tra (quy tắc di động 10 số); backend chỉ chặn vượt độ dài cột.
+    private static void kiemTraLienHe(String sdt, String email) {
+        if (sdt != null && sdt.length() > 20) {
+            throw new CommonException("Số điện thoại tối đa 20 ký tự");
+        }
+        if (email != null && (email.length() > 100 || !EMAIL_PATTERN.matcher(email).matches())) {
+            throw new CommonException("Email không hợp lệ");
+        }
+    }
+
+    /**
+     * SĐT / email không được trùng với khách hàng khác (kể cả khách đã ngưng hoạt động).
+     * Kiểm tra từng trường riêng và chỉ với giá trị khác null — truyền null vào truy vấn
+     * derived sẽ thành "IS NULL" và khớp mọi khách không có SĐT/email.
+     * excludeId: id khách đang sửa (null khi tạo mới).
+     */
+    private void kiemTraTrungLienHe(String sdt, String email, Integer excludeId) {
+        if (sdt != null) {
+            (excludeId == null
+                    ? repository.findFirstBySoDienThoai(sdt)
+                    : repository.findFirstBySoDienThoaiAndIdNot(sdt, excludeId))
+                    .ifPresent(kh -> {
+                        throw new CommonException(
+                                "Số điện thoại đã thuộc khách hàng " + kh.getTenKhachHang() + " (" + kh.getMaKhachHang() + ")",
+                                HttpStatus.CONFLICT, null);
+                    });
+        }
+        if (email != null) {
+            (excludeId == null
+                    ? repository.findFirstByEmail(email)
+                    : repository.findFirstByEmailAndIdNot(email, excludeId))
+                    .ifPresent(kh -> {
+                        throw new CommonException(
+                                "Email đã thuộc khách hàng " + kh.getTenKhachHang() + " (" + kh.getMaKhachHang() + ")",
+                                HttpStatus.CONFLICT, null);
+                    });
+        }
+    }
+
+    /**
+     * Loại khách hàng: để trống -> "le" (khớp DEFAULT của cột); giá trị ngoài enum -> báo lỗi
+     * rõ ràng thay vì để MySQL từ chối khi ghi.
+     */
+    private static String chuanHoaLoaiKhachHang(String loai) {
+        if (loai == null || loai.isBlank()) {
+            return "le";
+        }
+        String value = loai.trim();
+        if (!LOAI_KHACH_HANG_HOP_LE.contains(value)) {
+            throw new CommonException("Loại khách hàng không hợp lệ");
+        }
+        return value;
     }
 
     private static String escapeLike(String value) {
