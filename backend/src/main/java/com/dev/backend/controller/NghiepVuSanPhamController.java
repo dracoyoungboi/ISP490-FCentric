@@ -23,6 +23,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.HashMap;
 
@@ -124,10 +125,12 @@ public class NghiepVuSanPhamController {
         }
         if (trangThai == 4) {
             Date now = new Date();
+            // LocalDate thay cho Date.getDate()/getMonth()/getYear() (deprecated). Giá trị gửi vào template giữ nguyên.
+            LocalDate today = LocalDate.now();
             HashMap<String, Object> params = new HashMap<>();
-            params.put("ngay", now.getDate());
-            params.put("thang", now.getMonth() + 1);
-            params.put("year", now.getYear() + 1900);
+            params.put("ngay", today.getDayOfMonth());
+            params.put("thang", today.getMonthValue());
+            params.put("year", today.getYear());
             params.put("soDonHang", donMuaHang.getSoDonMua());
             params.put("tenNhaCungCap", donMuaHang.getNhaCungCap().getTenNhaCungCap());
             params.put("ngayGui", now);
