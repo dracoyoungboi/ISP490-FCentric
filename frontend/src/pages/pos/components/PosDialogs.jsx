@@ -16,6 +16,7 @@ import {
   Landmark,
   WifiOff,
 } from 'lucide-react';
+import PayosLogo from '@/components/shared/PayosLogo';
 import PosModal from './PosModal';
 import { posService, toPosCustomer } from '@/services/posService';
 import { formatMoney } from '../pos-format';
@@ -109,6 +110,9 @@ function PayosQrDialog({ state, actions, onClose }) {
           {pending ? (
             <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-bo-muted"><Clock aria-hidden="true" size={13} />Hết hạn sau <strong className="text-bo-foreground tabular-nums">{formatCountdown(remaining)}</strong></p>
           ) : null}
+          {/* Nhận diện cổng thanh toán cho khách đang quét; mờ theo mã QR khi mã hết hiệu lực.
+              "Cổng thanh toán" thay vì "Thanh toán qua": khách quét bằng app ngân hàng bất kỳ, không cần app payOS */}
+          <p className={`mt-3 inline-flex items-center gap-2 text-xs text-bo-muted ${pending ? '' : 'opacity-30'}`}>Cổng thanh toán <PayosLogo height={24} /></p>
         </div>
         <div className="min-w-0 space-y-3 text-sm">
           <div className="rounded-lg border border-bo-border bg-slate-50 p-3">

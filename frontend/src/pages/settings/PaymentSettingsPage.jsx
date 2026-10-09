@@ -34,17 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { paymentConfigService } from "@/services/paymentConfigService";
-
-/**
- * Logo payOS chính thức: đặt file SVG tại src/assets/brands/payos-logo.svg.
- * Dùng import.meta.glob để thiếu file vẫn build được (khi đó hiện chữ "payOS").
- */
-const brandLogos = import.meta.glob("/src/assets/brands/payos-logo.svg", {
-  eager: true,
-  query: "?url",
-  import: "default",
-});
-const PAYOS_LOGO_URL = Object.values(brandLogos)[0] || null;
+import PayosLogo from "@/components/shared/PayosLogo";
 
 const PAYOS_DASHBOARD_URL = "https://my.payos.vn";
 const WEBHOOK_PATH = "/api/v1/payos/webhook";
@@ -501,12 +491,6 @@ function GuideDialog({ open, onOpenChange }) {
               <li>Khóa được mã hóa AES-256 trước khi lưu và không bao giờ hiển thị lại đầy đủ.</li>
             </ul>
           </div>
-          {import.meta.env.DEV ? (
-            <p className="rounded-lg bg-bo-surface-subtle px-3 py-2 text-xs leading-5 text-slate-700">
-              Máy dev: chạy <code className="font-mono">ngrok http 8080</code>, dùng link https của ngrok +{" "}
-              <code className="break-all font-mono">{WEBHOOK_PATH}</code> làm Webhook URL.
-            </p>
-          ) : null}
         </div>
       </DialogContent>
     </Dialog>
@@ -774,12 +758,8 @@ export default function PaymentSettingsPage() {
       <section className="@container overflow-hidden rounded-xl border border-bo-border bg-bo-surface shadow-sm">
         <div className="flex flex-wrap items-center gap-x-6 gap-y-4 px-4 py-4 sm:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-4">
-            <div className="flex h-8 shrink-0 items-center border-r border-bo-border pr-4">
-              {PAYOS_LOGO_URL ? (
-                <img alt="payOS" className="h-7 w-auto max-w-none object-contain" src={PAYOS_LOGO_URL} />
-              ) : (
-                <span className="text-xl font-bold tracking-tight text-bo-foreground">payOS</span>
-              )}
+            <div className="flex h-10 shrink-0 items-center border-r border-bo-border pr-4">
+              <PayosLogo height={40} />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-bo-foreground">Chuyển khoản QR tại quầy</p>
