@@ -279,8 +279,10 @@ function SetupStep({ index, done, children }) {
           {index}
         </span>
       )}
-      <span className={cn("text-sm", done ? "text-slate-600 line-through decoration-slate-400" : "font-medium text-bo-foreground")}>
+      {/* Bước xong: dấu tích xanh + chữ nhạt  */}
+      <span className={cn("text-sm", done ? "text-slate-600" : "font-medium text-bo-foreground")}>
         {children}
+        {done ? <span className="sr-only"> (đã xong)</span> : null}
       </span>
     </li>
   );
