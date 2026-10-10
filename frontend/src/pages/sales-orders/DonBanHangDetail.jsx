@@ -2,12 +2,13 @@ import { createElement, useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import { donBanHangService } from "@/services/donBanHangService";
+import { donBanHangKenhService, isChannelOrderMock } from "@/services/donBanHangKenhService";
 import apiClient from "@/services/apiClient";
 import { toast } from "sonner";
 import {
   ArrowLeft, User, Home, Truck, Calculator,
   CheckCircle2, Calendar, Send, XCircle,
-  Receipt, Hash, MapPin, ArrowRightLeft, Undo2, AlertTriangle
+  Receipt, Hash, MapPin, ArrowRightLeft, Undo2, AlertTriangle, Store
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -17,6 +18,9 @@ import PageHeader from "@/components/backoffice/PageHeader";
 import LoadingState from "@/components/shared/LoadingState";
 import StatusBadge from "@/components/shared/StatusBadge";
 import SurfaceCard from "@/components/shared/SurfaceCard";
+import MockModeNotice from "@/components/shared/MockModeNotice";
+import ChannelOrderPanel from "@/components/channel/ChannelOrderPanel";
+import { parseFlags } from "@/constants/channel";
 
 // ── Constants & Helpers ──────────────────────────────────────────────────
 const ROLE = {
@@ -86,7 +90,7 @@ export default function DonBanHangDetail() {
 
   const fetchDetail = useCallback(async () => {
     setLoading(true);
-    try { const res = await donBanHangService.getDetail(id); setData(res.data); }
+    try { const res = await donBanHangKenhService.getDetail(id); setData(res.data); }
     catch { toast.error("Không tải được chi tiết đơn bán"); }
     finally { setLoading(false); }
   }, [id]);
@@ -100,7 +104,7 @@ export default function DonBanHangDetail() {
   async function handleMarkAsDelivered() {
     try {
       setLoading(true);
-      await donBanHangService.markAsDelivered(id);
+      await donBanHangKenhService.markAsDelivered(id);
       toast.success("Đã xác nhận giao hàng thành công!");
       fetchDetail();
     }
@@ -158,15 +162,34 @@ export default function DonBanHangDetail() {
   // Kiểm tra xem đơn hàng đã xuất đủ số lượng chưa
   const isFullyExported = chiTiet.every(item => item.soLuongDaGiao >= item.soLuongDat);
 
+  // Đơn từ sàn (BR-OC-22): không dùng nút gửi kho / hủy của đơn thường; "Đã giao" chỉ cho Shopify
+  // (Shopify không báo trạng thái giao); hoàn trả chỉ khi có cờ HOAN_HANG.
+  const isChannelOrder = donBanHang.ketNoiKenhId != null;
+  const maKenh = donBanHang.kenhBanHang?.maKenh;
+  const orderFlags = parseFlags(donBanHang.canXuLy);
+  const canSendToWarehouse = donBanHang.trangThai === 0 && !isChannelOrder;
+  const canCancel = donBanHang.trangThai < 3 && !isChannelOrder;
+  const canReturn = (donBanHang.trangThai === 2 || donBanHang.trangThai === 3) && (!isChannelOrder || orderFlags.includes("HOAN_HANG"));
+  const canMarkDelivered = donBanHang.trangThai === 3 && (!isChannelOrder || maKenh === "SHOPIFY");
+
   const infoRows = [
     { icon: User,     label: "Khách hàng",        value: donBanHang.khachHang?.tenKhachHang },
     { icon: Home,     label: "Kho xuất",          value: donBanHang.khoXuat?.tenKho || "Chưa xác định" },
     { icon: Calendar, label: "Ngày đặt",          value: new Date(donBanHang.ngayDatHang).toLocaleDateString("vi-VN", { day: "2-digit", month: "long", year: "numeric" }) },
     { icon: MapPin,   label: "Địa chỉ nhận hàng", value: donBanHang.diaChiGiaoHang || "—" },
+    ...(donBanHang.kenhBanHang
+      ? [{
+          icon: Store,
+          label: "Kênh bán",
+          value: `${donBanHang.kenhBanHang.tenKenh}${donBanHang.maDonHangKenh ? ` · #${donBanHang.maDonHangKenh}` : ""}`,
+        }]
+      : []),
   ];
 
   return (
     <PageContainer className="space-y-5">
+      <MockModeNotice show={isChannelOrderMock} />
+
       {/* ── Header ── */}
       <div className="space-y-3">
         <button
@@ -192,7 +215,7 @@ export default function DonBanHangDetail() {
           {/* Các role thường mới thấy các nút này */}
           {!isKhoRole && (
             <>
-              {donBanHang.trangThai === 0 && (
+              {canSendToWarehouse && (
                 <Button
                   onClick={handleSendToWarehouse}
                   disabled={loading}
@@ -202,7 +225,7 @@ export default function DonBanHangDetail() {
                 </Button>
               )}
 
-              {donBanHang.trangThai < 3 && (
+              {canCancel && (
                 <Button
                   variant="outline"
                   onClick={handleCancel}
@@ -213,7 +236,7 @@ export default function DonBanHangDetail() {
                 </Button>
               )}
 
-              {isAdminOrSaleRole && (donBanHang.trangThai === 2 || donBanHang.trangThai === 3) && (
+              {isAdminOrSaleRole && canReturn && (
                 <Button
                   variant="outline"
                   onClick={handleOpenReturnModal}
@@ -224,7 +247,7 @@ export default function DonBanHangDetail() {
                 </Button>
               )}
 
-              {donBanHang.trangThai === 3 && (
+              {canMarkDelivered && (
                 <Button
                   onClick={handleMarkAsDelivered}
                   disabled={loading}
@@ -326,6 +349,11 @@ export default function DonBanHangDetail() {
 
         {/* ── RIGHT: Tables ── */}
         <div className="space-y-5 lg:col-span-2">
+          {/* Thông tin kênh bán (đơn từ sàn) */}
+          {isChannelOrder && (
+            <ChannelOrderPanel donBanHang={donBanHang} onChanged={fetchDetail} />
+          )}
+
           {/* Danh mục sản phẩm */}
           <SurfaceCard
             title="Danh mục sản phẩm"
@@ -353,6 +381,7 @@ export default function DonBanHangDetail() {
                         <span className="mt-0.5 flex items-center gap-1 font-mono text-xs text-bo-muted">
                           <Hash className="size-3" />{item.sku}
                         </span>
+                        {isChannelOrder && <SkuSanLine sku={item.sku} skuSan={item.skuSan} />}
                       </td>
                       <td className="px-3 py-3 text-right">
                         <span className="inline-flex h-7 min-w-[32px] items-center justify-center rounded-md bg-bo-surface-subtle px-2 text-xs font-bold text-bo-foreground">
@@ -471,5 +500,21 @@ export default function DonBanHangDetail() {
         document.body
       )}
     </PageContainer>
+  );
+}
+
+// Đối chiếu SKU sàn với SKU FCentric của dòng đơn (FO-075). SKU sàn chưa có trong DTO thì hiện "—".
+function SkuSanLine({ sku, skuSan }) {
+  const normalize = (value) => String(value ?? "").trim().toUpperCase();
+  const hasSkuSan = skuSan !== undefined && skuSan !== null && String(skuSan).trim() !== "";
+  const matched = hasSkuSan && normalize(skuSan) === normalize(sku);
+  return (
+    <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-bo-muted">
+      <span>Sàn:</span>
+      <span className="font-mono text-bo-foreground">{hasSkuSan ? String(skuSan).trim() : "—"}</span>
+      {hasSkuSan ? (
+        <StatusBadge label={matched ? "Khớp SKU" : "Ghép tay"} tone={matched ? "success" : "info"} dot={false} className="h-5 px-2 text-[11px]" />
+      ) : null}
+    </span>
   );
 }
