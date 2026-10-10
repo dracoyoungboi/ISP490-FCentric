@@ -137,7 +137,9 @@ export default function App() {
           {/* Product */}
           <Route path="/products" element={<ProductList />} />
           <Route path="/sku-builder" element={<SkuBuilder />} />
-          <Route path="/danh-muc-quan-ao" element={<DanhMucQuanAoTree />} />
+          <Route path="/categories" element={<DanhMucQuanAoTree />} />
+          {/* Legacy: URL tiếng Việt cũ chuyển hướng sang URL mới, giữ bookmark không bị hỏng */}
+          <Route path="/danh-muc-quan-ao" element={<Navigate to="/categories" replace />} />
           <Route path="/products/:id" element={<ProductDetail />} />
           {/* Warehouse */}
           <Route path="/warehouse" element={<Warehouse />} />
@@ -207,15 +209,23 @@ export default function App() {
           <Route path="/stock-take/new" element={<StockTakeCreate />} />
           <Route path="/stock-take/:id" element={<StockTakeCreate />} /> {/* Để hoàn thành kiểm kê */}
 
-          <Route path="/bao-cao/doanh-thu" element={<BaoCaoDoanhThu />} />
-          <Route path="/bao-cao/khach-hang" element={<KhachHangReport />} />
-          <Route path="/bao-cao/xuat-nhap" element={<NhatKyNhapXuat />} />
-          <Route path="/bao-cao/ton-kho" element={<TonKhoTongQuan />} />
+          {/* Báo cáo */}
+          <Route path="/reports/revenue" element={<BaoCaoDoanhThu />} />
+          <Route path="/reports/customers" element={<KhachHangReport />} />
+          <Route path="/reports/stock-movements" element={<NhatKyNhapXuat />} />
+          <Route path="/reports/inventory" element={<TonKhoTongQuan />} />
+          {/* Legacy: URL tiếng Việt cũ chuyển hướng sang URL mới */}
+          <Route path="/bao-cao/doanh-thu" element={<Navigate to="/reports/revenue" replace />} />
+          <Route path="/bao-cao/khach-hang" element={<Navigate to="/reports/customers" replace />} />
+          <Route path="/bao-cao/xuat-nhap" element={<Navigate to="/reports/stock-movements" replace />} />
+          <Route path="/bao-cao/ton-kho" element={<Navigate to="/reports/inventory" replace />} />
 
           <Route path="/duyet-don-hang" element={<ApplicationRequestManagement />} />
 
           {/*Lịch sử giao dịch kho */}
-          <Route path="/lich-su-giao-dich-kho" element={<LichSuGiaoDichKhoList />} />
+          <Route path="/inventory-transactions" element={<LichSuGiaoDichKhoList />} />
+          {/* Legacy: URL tiếng Việt cũ chuyển hướng sang URL mới */}
+          <Route path="/lich-su-giao-dich-kho" element={<Navigate to="/inventory-transactions" replace />} />
 
           {/* Cấu hình mẫu in — mỗi loại chứng từ có schema + mẫu riêng.
               Chỉ quan_tri_vien / quan_ly_kho được cấu hình (frontend guard là UX,

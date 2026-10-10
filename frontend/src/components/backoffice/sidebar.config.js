@@ -63,7 +63,7 @@ export const SIDEBAR_MENU = [
       "nhan_vien_ban_hang",
     ],
     children: [
-      { label: "Danh mục", to: "/danh-muc-quan-ao" },
+      { label: "Danh mục", to: "/categories" },
       { label: "Thuộc tính", to: "/attributes" },
       { label: "Sản phẩm", to: "/products" },
       {
@@ -212,7 +212,7 @@ export const SIDEBAR_MENU = [
     children: [
       {
         label: "Báo cáo tồn kho",
-        to: "/bao-cao/ton-kho",
+        to: "/reports/inventory",
         roles: [
           "quan_tri_vien",
           "quan_ly_kho",
@@ -223,7 +223,7 @@ export const SIDEBAR_MENU = [
       },
       {
         label: "Lịch sử giao dịch kho",
-        to: "/lich-su-giao-dich-kho",
+        to: "/inventory-transactions",
         roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"],
       },
     ],

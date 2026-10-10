@@ -90,7 +90,7 @@ export default function BackofficeLayout() {
         },
         {
             key: "LICH_SU_GIAO_DICH_KHO",
-            match: (path) => path === "/lich-su-giao-dich-kho",
+            match: (path) => path === "/inventory-transactions",
             title: "Lịch sử giao dịch kho",
             subtitle: "Xem lịch sử các giao dịch nhập xuất trong kho",
         },
@@ -180,7 +180,7 @@ export default function BackofficeLayout() {
         },
         {
             key: "DANH_MUC_QUAN_AO",
-            match: (path) => path === "/danh-muc-quan-ao",
+            match: (path) => path === "/categories",
             title: "Quản lý danh mục",
             subtitle: "Xem và quản lý cấu trúc danh mục quần áo",
         },
@@ -222,19 +222,19 @@ export default function BackofficeLayout() {
         },
         {
             key: "BAO_CAO_DOANH_THU",
-            match: (path) => path === "/bao-cao/doanh-thu",
+            match: (path) => path === "/reports/revenue",
             title: "Báo cáo doanh thu",
             subtitle: "Xem báo cáo doanh thu theo thời gian",
         },
         {
             key: "BAO_CAO_KHACH_HANG",
-            match: (path) => path === "/bao-cao/khach-hang",
+            match: (path) => path === "/reports/customers",
             title: "Báo cáo khách hàng",
             subtitle: "Xem báo cáo về khách hàng theo thời gian",
         },
         {
             key: "BAO_CAO_NHAP_XUAT",
-            match: (path) => path === "/bao-cao/xuat-nhap",
+            match: (path) => path === "/reports/stock-movements",
             title: "Báo cáo nhập xuất",
             subtitle: "Xem báo cáo về nhập xuất hàng hóa theo thời gian",
         },
@@ -294,7 +294,7 @@ export default function BackofficeLayout() {
         },
         {
             key: "INVENTORY_REPORT",
-            match: (path) => path === "/bao-cao/ton-kho",
+            match: (path) => path === "/reports/inventory",
             title: "Báo cáo tồn kho",
         },
         {
