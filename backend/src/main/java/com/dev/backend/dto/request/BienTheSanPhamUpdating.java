@@ -13,7 +13,13 @@ import java.math.BigDecimal;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Builder
 public class BienTheSanPhamUpdating {
+    // null = biến thể mới thêm trong form Sửa
     Integer id;
+    // Màu/size: null = giữ nguyên. Chỉ đổi được khi biến thể chưa phát sinh giao dịch.
+    Integer mauSacId;
+    Integer sizeId;
+    // Chỉ dùng cho biến thể mới; null = lấy chất liệu chung của sản phẩm.
+    Integer chatLieuId;
     BigDecimal giaVon;
     BigDecimal giaBan;
     Integer trangThai;

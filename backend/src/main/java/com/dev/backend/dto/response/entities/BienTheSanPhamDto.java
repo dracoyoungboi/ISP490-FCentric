@@ -36,4 +36,7 @@ public class BienTheSanPhamDto implements Serializable {
     Instant ngayCapNhat;
     AnhBienTheDto anhBienThe;
     String tenSanPham;
+    // true = đã có lô/tồn kho, chứng từ hoặc đồng bộ sàn -> không được đổi màu/size.
+    // Chỉ được set ở API chi tiết sản phẩm (getDetail); các API khác để null.
+    Boolean daPhatSinhGiaoDich;
 }

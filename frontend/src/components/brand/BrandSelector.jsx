@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import StatusBadge from "@/components/shared/StatusBadge";
 import BrandFormDialog from "@/components/brand/BrandFormDialog";
 import { thuongHieuService } from "@/services/thuongHieuService.js";
-import { Check, ChevronsUpDown, Plus, Tag } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2, Plus, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -33,15 +33,19 @@ const parseRoles = (value) => {
  *   không làm mất draft ảnh/biến thể của form sản phẩm cha).
  * - Gỡ liên kết bằng mục "Không có thương hiệu" trong dropdown.
  * - Không có nút X bên ngoài; chiều cao h-9 đồng bộ với Input/Select.
+ * - fallbackBrand (tuỳ chọn): thương hiệu đang gán của bản ghi (vd. sản phẩm đang sửa) để hiện
+ *   đúng tên ngay khi danh sách còn đang tải, thay vì hiện như "chưa chọn".
  */
 export default function BrandSelector({
     value,
     onChange,
     disabled = false,
     placeholder = "Chọn thương hiệu (không bắt buộc)",
+    fallbackBrand = null,
 }) {
     const [open, setOpen] = useState(false);
     const [brands, setBrands] = useState([]);
+    const [isLoaded, setIsLoaded] = useState(false);
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
     const isAdmin = parseRoles(window.localStorage.getItem("role") ?? "").includes("quan_tri_vien");
@@ -55,13 +59,20 @@ export default function BrandSelector({
             })
             .catch(() => {
                 if (!cancelled) toast.error("Không thể tải danh sách thương hiệu");
+            })
+            .finally(() => {
+                if (!cancelled) setIsLoaded(true);
             });
         return () => {
             cancelled = true;
         };
     }, []);
 
-    const selected = brands.find((brand) => brand.id === value) ?? null;
+    const selected =
+        brands.find((brand) => brand.id === value) ??
+        (value != null && fallbackBrand?.id === value ? fallbackBrand : null);
+    // Đã có giá trị nhưng danh sách chưa tải xong -> báo đang tải, không hiện như "chưa chọn"
+    const isResolving = !selected && value != null && !isLoaded;
 
     return (
         <>
@@ -88,11 +99,17 @@ export default function BrandSelector({
                                         alt=""
                                         className="size-5 shrink-0 rounded object-contain"
                                     />
+                                ) : isResolving ? (
+                                    <Loader2 className="size-4 shrink-0 animate-spin text-bo-muted" />
                                 ) : (
                                     <Tag className="size-4 shrink-0 text-bo-muted" />
                                 )}
                                 <span className="min-w-0 truncate">
-                                    {selected ? selected.tenThuongHieu : placeholder}
+                                    {selected
+                                        ? selected.tenThuongHieu
+                                        : isResolving
+                                            ? "Đang tải thương hiệu..."
+                                            : placeholder}
                                 </span>
                             </span>
                             <ChevronsUpDown className="size-4 shrink-0 opacity-50" />

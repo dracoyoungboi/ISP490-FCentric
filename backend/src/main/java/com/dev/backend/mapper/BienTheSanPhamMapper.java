@@ -12,6 +12,7 @@ import java.util.List;
 public interface BienTheSanPhamMapper {
     @Mapping(source = "sanPham.tenSanPham", target = "tenSanPham")
     @Mapping(target = "tenBienThe", expression = "java(buildTenBienThe(entity))")
+    @Mapping(target = "daPhatSinhGiaoDich", ignore = true)
     BienTheSanPhamDto toDto(BienTheSanPham entity);
     List<BienTheSanPhamDto> toDtoList(List<BienTheSanPham> entities);
 

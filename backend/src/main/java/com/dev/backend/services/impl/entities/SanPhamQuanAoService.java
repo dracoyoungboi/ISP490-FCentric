@@ -14,6 +14,7 @@ import com.dev.backend.dto.response.entities.SanPhamQuanAoDto;
 import com.dev.backend.entities.*;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.SanPhamQuanAoMapper;
+import com.dev.backend.repository.BienTheSanPhamRepository;
 import com.dev.backend.repository.SanPhamQuanAoRepository;
 import com.dev.backend.services.MinioService;
 import com.dev.backend.services.impl.BaseServiceImpl;
@@ -24,6 +25,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.Hibernate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -57,6 +59,8 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         private DanhMucQuanAoService danhMucQuanAoService;
         @Autowired
         private BienTheSanPhamService bienTheSanPhamService;
+        @Autowired
+        private BienTheSanPhamRepository bienTheSanPhamRepository;
         @Autowired
         private MauSacService mauSacService;
         @Autowired
@@ -393,25 +397,31 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 List<MultipartFile> anhSanPhams,
                 List<MultipartFile> anhBienThes) {
 
-                // Luồng cập nhật gồm: validate biến thể -> update thông tin chính -> cập nhật ảnh
-                // -> cập nhật biến thể -> tính lại giá/trạng thái.
-
-                List<BienTheSanPhamUpdating> list = new ArrayList<>(updating.getBienTheSanPhams());
-                Set<BienTheSanPhamUpdating> set = new HashSet<>(updating.getBienTheSanPhams());
-
-                if (list.size() != set.size()) {
-                        throw new CommonException("Có biến thể sản phẩm trùng lặp!");
-                }
+                // Luồng cập nhật: kiểm tra toàn bộ (sản phẩm + biến thể) -> cập nhật thông tin chính -> ảnh sản phẩm
+                // -> cập nhật/thêm biến thể (+ ảnh) -> ghi lịch sử -> tính lại giá/trạng thái.
+                // Mọi kiểm tra nghiệp vụ chạy TRƯỚC khi ghi, nên lỗi không để lại dữ liệu lưu dở.
 
                 SanPhamQuanAo sanPhamQuanAo = getOne(updating.getId()).orElseThrow(
                         () -> new CommonException("Không tìm thấy sản phẩm id: " + updating.getId())
                 );
 
+                // Mã sản phẩm do hệ thống sinh khi tạo và đã dùng để ghép mã SKU -> không cho đổi.
+                // FE gửi lại đúng mã cũ (hoặc để trống) thì bỏ qua; gửi mã khác thì từ chối.
+                String maSanPhamGuiLen = updating.getMaSanPham() == null ? "" : updating.getMaSanPham().trim();
+                if (!maSanPhamGuiLen.isEmpty() && !maSanPhamGuiLen.equals(sanPhamQuanAo.getMaSanPham())) {
+                        throw new CommonException("Mã sản phẩm được hệ thống sinh tự động, không thể thay đổi");
+                }
+
                 DanhMucQuanAo danhMucQuanAo = danhMucQuanAoService.getOne(updating.getDanhMucId()).orElseThrow(
                         () -> new CommonException("Không tìm thấy danh mục quần áo id: " + updating.getDanhMucId())
                 );
 
-                sanPhamQuanAo.setMaSanPham(updating.getMaSanPham());
+                // Kiểm tra và lập kế hoạch ghi cho từng biến thể (sửa giá/trạng thái, đổi màu/size, thêm mới).
+                List<BienTheSanPhamUpdating> dsBienTheGuiLen = updating.getBienTheSanPhams() == null
+                        ? List.of() : updating.getBienTheSanPhams();
+                List<KeHoachBienThe> keHoachBienThes = lapKeHoachBienThe(sanPhamQuanAo, dsBienTheGuiLen, anhBienThes);
+
+                // ===================== GHI DỮ LIỆU =====================
                 sanPhamQuanAo.setTenSanPham(updating.getTenSanPham());
                 sanPhamQuanAo.setDanhMuc(danhMucQuanAo);
                 sanPhamQuanAo.setMoTa(updating.getMoTa());
@@ -476,60 +486,74 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
 
 
                 }
-                int imageCount = 0;
-                Date now = new Date();
-                for (BienTheSanPhamUpdating btspUdating : updating.getBienTheSanPhams()) {
-                        try {
 
-                                BienTheSanPham bienThe = bienTheSanPhamService.getOne(btspUdating.getId())
-                                        .orElseThrow(
-                                                () -> new CommonException("Không tìm thấy biến thể sản phâ id: " + btspUdating.getId())
-                                        );
-
-                                bienThe.setGiaVon(btspUdating.getGiaVon());
-                                bienThe.setGiaBan(btspUdating.getGiaBan());
-                                bienThe.setTrangThai(btspUdating.getTrangThai());
-                                bienTheSanPhamService.update(btspUdating.getId(), bienThe);
-                                if (btspUdating.isImageUpdated()) {
-
-                                        String objectName = minioService.upload(anhBienThes.get(imageCount), ITable.bien_the_san_pham + "_" + sanPhamQuanAo.getMaSanPham() + "_" + now.getTime() + "_" + imageCount++);
-                                        TepTin tepTin = TepTin.builder()
-                                                .tenTepGoc(objectName)
-                                                .tenTaiLen(objectName)
-                                                .tenLuuTru(objectName)
-                                                .duongDan(minioService.getPublicUrl(objectName))
-                                                .loaiTepTin(FileType.IMAGE.toString())
-                                                .duoiTep(minioService.getObjectInfo(objectName).getUserMetadata().get("file-extension"))
-                                                .ngayTao(Instant.now())
-                                                .trangThai(1)
-                                                .build();
-                                        tepTin = tepTinService.create(tepTin);
-
-                                        if (bienThe.getAnhBienThe() != null) {
-                                                Integer idTepCu = bienThe.getAnhBienThe().getTepTin().getId();
-                                                bienThe.getAnhBienThe().setTepTin(tepTin);
-                                                anhBienTheService.update(bienThe.getAnhBienThe().getId(), bienThe.getAnhBienThe());
-                                                tepTinService.hardDeleteNoMessage(idTepCu);
-                                        } else {
-                                                AnhBienThe anhBienThe = anhBienTheService.create(
-                                                        AnhBienThe.builder()
-                                                                .bienThe(bienThe)
-                                                                .tepTin(tepTin)
-                                                                .trangThai(1)
-                                                                .ngayTao(Instant.now())
-                                                                .build()
-                                                );
-                                                bienThe.setAnhBienThe(anhBienThe);
-                                        }
-                                } else {
-                                        imageCount++;
+                // Biến thể: file ảnh thứ i trong anhBienThes ứng với biến thể thứ i gửi lên
+                // (FE gửi file rỗng giữ chỗ cho biến thể không đổi ảnh).
+                Instant bayGio = Instant.now();
+                long dauThoiGian = bayGio.toEpochMilli();
+                List<Map<String, Object>> thuocTinhCu = new ArrayList<>();
+                List<Map<String, Object>> thuocTinhMoi = new ArrayList<>();
+                List<Map<String, Object>> bienTheThemMoi = new ArrayList<>();
+                for (KeHoachBienThe keHoach : keHoachBienThes) {
+                        BienTheSanPhamUpdating duLieu = keHoach.duLieu;
+                        BienTheSanPham bienThe;
+                        if (keHoach.bienThe != null) {
+                                bienThe = keHoach.bienThe;
+                                if (keHoach.doiThuocTinh) {
+                                        thuocTinhCu.add(moTaBienThe(bienThe));
+                                        bienThe.setMauSac(keHoach.mauSac);
+                                        bienThe.setSize(keHoach.size);
+                                        bienThe.setMaSku(keHoach.maSkuMoi);
+                                        thuocTinhMoi.add(moTaBienThe(bienThe));
                                 }
-
-                        } catch (Exception e) {
-                                log.error("Lỗi tạo tệp tin cho biến thể quần áo: {}", btspUdating.getId(), e);
-                                throw new RuntimeException("Lỗi tạo tệp tin cho quần áo: " + btspUdating.getId(), e);
+                                bienThe.setGiaVon(duLieu.getGiaVon());
+                                bienThe.setGiaBan(duLieu.getGiaBan());
+                                bienThe.setTrangThai(duLieu.getTrangThai());
+                                bienThe = bienTheSanPhamService.update(bienThe.getId(), bienThe);
+                        } else {
+                                bienThe = bienTheSanPhamService.create(
+                                        BienTheSanPham.builder()
+                                                .sanPham(sanPhamQuanAo)
+                                                .mauSac(keHoach.mauSac)
+                                                .size(keHoach.size)
+                                                .chatLieu(keHoach.chatLieu)
+                                                .maSku(keHoach.maSkuMoi)
+                                                .giaVon(duLieu.getGiaVon() != null ? duLieu.getGiaVon() : BigDecimal.ZERO)
+                                                .giaBan(duLieu.getGiaBan() != null ? duLieu.getGiaBan() : BigDecimal.ZERO)
+                                                .trangThai(duLieu.getTrangThai() != null ? duLieu.getTrangThai() : 1)
+                                                .ngayTao(bayGio)
+                                                .build()
+                                );
+                                // Giữ danh sách biến thể trong bộ nhớ khớp DB để bước tính giá phía sau thấy biến thể mới.
+                                if (sanPhamQuanAo.getBienTheSanPhams() != null
+                                        && Hibernate.isInitialized(sanPhamQuanAo.getBienTheSanPhams())) {
+                                        sanPhamQuanAo.getBienTheSanPhams().add(bienThe);
+                                }
+                                bienTheThemMoi.add(moTaBienThe(bienThe));
+                        }
+                        if (duLieu.isImageUpdated()) {
+                                capNhatAnhBienThe(bienThe, anhBienThes.get(keHoach.viTri),
+                                        sanPhamQuanAo.getMaSanPham(), dauThoiGian, keHoach.viTri, bayGio);
                         }
                 }
+
+                if (!thuocTinhMoi.isEmpty() || !bienTheThemMoi.isEmpty()) {
+                        Map<String, Object> giaTriCu = new LinkedHashMap<>();
+                        Map<String, Object> giaTriMoi = new LinkedHashMap<>();
+                        if (!thuocTinhMoi.isEmpty()) {
+                                giaTriCu.put("bienTheDoiThuocTinh", thuocTinhCu);
+                                giaTriMoi.put("bienTheDoiThuocTinh", thuocTinhMoi);
+                        }
+                        if (!bienTheThemMoi.isEmpty()) {
+                                giaTriMoi.put("bienTheThemMoi", bienTheThemMoi);
+                        }
+                        List<String> noiDung = new ArrayList<>();
+                        if (!thuocTinhMoi.isEmpty()) noiDung.add("đổi màu/size " + thuocTinhMoi.size() + " biến thể");
+                        if (!bienTheThemMoi.isEmpty()) noiDung.add("thêm " + bienTheThemMoi.size() + " biến thể mới");
+                        ghiLichSuCapNhat(sanPhamQuanAo, giaTriCu, giaTriMoi,
+                                "Cập nhật biến thể sản phẩm " + sanPhamQuanAo.getMaSanPham() + ": " + String.join(", ", noiDung));
+                }
+
                 recalculatePriceAndStatus(sanPhamQuanAo.getId());
                 sanPhamQuanAo = getOne(sanPhamQuanAo.getId()).orElseThrow(
                         () -> new CommonException("Không tìm thấy sản phẩm quần áo id: " + updating.getId())
@@ -540,6 +564,245 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 .data(sanPhamQuanAoMapper.toDto(sanPhamQuanAo))
                                 .message("Success")
                                 .build());
+        }
+
+        /**
+         * Kế hoạch ghi cho một dòng biến thể gửi lên, đã được kiểm tra hợp lệ.
+         * bienThe = null nghĩa là biến thể mới; mauSac/size/chatLieu là thuộc tính SAU khi lưu.
+         */
+        private static final class KeHoachBienThe {
+                final int viTri;
+                final BienTheSanPhamUpdating duLieu;
+                final BienTheSanPham bienThe;
+                MauSac mauSac;
+                Size size;
+                ChatLieu chatLieu;
+                boolean doiThuocTinh;
+                String maSkuMoi;
+
+                KeHoachBienThe(int viTri, BienTheSanPhamUpdating duLieu, BienTheSanPham bienThe) {
+                        this.viTri = viTri;
+                        this.duLieu = duLieu;
+                        this.bienThe = bienThe;
+                }
+        }
+
+        /**
+         * Kiểm tra toàn bộ danh sách biến thể gửi lên (chưa ghi gì xuống DB):
+         * - Biến thể có id: phải thuộc đúng sản phẩm, không gửi trùng; chỉ đổi được màu/size khi CHƯA phát sinh
+         *   giao dịch; không đổi chất liệu.
+         * - Biến thể mới (id = null): bắt buộc màu + size; chất liệu lấy theo lựa chọn hoặc chất liệu chung của sản phẩm.
+         * - Sau khi lưu, mọi biến thể của sản phẩm phải khác nhau (màu + size + chất liệu) và mã SKU là duy nhất.
+         * - Không cho đổi chéo trong một lần lưu (tổ hợp/SKU đích đang thuộc biến thể khác) vì ràng buộc UNIQUE
+         *   của DB sẽ vỡ giữa chừng khi ghi.
+         */
+        private List<KeHoachBienThe> lapKeHoachBienThe(SanPhamQuanAo sanPham,
+                                                       List<BienTheSanPhamUpdating> dsGuiLen,
+                                                       List<MultipartFile> anhBienThes) {
+                List<BienTheSanPham> bienTheHienCo = bienTheSanPhamRepository.findBySanPham_Id(sanPham.getId());
+                Map<Integer, BienTheSanPham> bienTheTheoId = new HashMap<>();
+                for (BienTheSanPham bt : bienTheHienCo) {
+                        bienTheTheoId.put(bt.getId(), bt);
+                }
+                Set<Integer> idDaPhatSinhGiaoDich = new HashSet<>(
+                        bienTheSanPhamRepository.findIdDaPhatSinhGiaoDich(sanPham.getId()));
+                Set<Integer> idChatLieuHienCo = new LinkedHashSet<>();
+                for (BienTheSanPham bt : bienTheHienCo) {
+                        idChatLieuHienCo.add(bt.getChatLieu().getId());
+                }
+
+                List<KeHoachBienThe> dsKeHoach = new ArrayList<>();
+                Set<Integer> idDaGap = new HashSet<>();
+                for (int i = 0; i < dsGuiLen.size(); i++) {
+                        BienTheSanPhamUpdating duLieu = dsGuiLen.get(i);
+                        int stt = i + 1;
+                        if (duLieu == null) {
+                                throw new CommonException("Dữ liệu biến thể #" + stt + " không hợp lệ");
+                        }
+                        if (duLieu.getGiaVon() != null && duLieu.getGiaVon().signum() < 0) {
+                                throw new CommonException("Giá vốn của biến thể #" + stt + " không được âm");
+                        }
+                        if (duLieu.getGiaBan() != null && duLieu.getGiaBan().signum() < 0) {
+                                throw new CommonException("Giá bán của biến thể #" + stt + " không được âm");
+                        }
+
+                        KeHoachBienThe keHoach;
+                        if (duLieu.getId() != null) {
+                                // ----- Biến thể đã có -----
+                                if (!idDaGap.add(duLieu.getId())) {
+                                        throw new CommonException("Biến thể id " + duLieu.getId() + " bị gửi trùng trong cùng một lần lưu");
+                                }
+                                BienTheSanPham bienThe = bienTheTheoId.get(duLieu.getId());
+                                if (bienThe == null) {
+                                        // Chặn sửa chéo biến thể của sản phẩm khác.
+                                        if (bienTheSanPhamRepository.existsById(duLieu.getId())) {
+                                                throw new CommonException("Biến thể id " + duLieu.getId() + " không thuộc sản phẩm đang cập nhật");
+                                        }
+                                        throw new CommonException("Không tìm thấy biến thể sản phẩm id: " + duLieu.getId());
+                                }
+                                if (duLieu.getChatLieuId() != null
+                                        && !duLieu.getChatLieuId().equals(bienThe.getChatLieu().getId())) {
+                                        throw new CommonException("Không thể đổi chất liệu của biến thể đã tạo (" + bienThe.getMaSku() + ")");
+                                }
+                                boolean doiMau = duLieu.getMauSacId() != null
+                                        && !duLieu.getMauSacId().equals(bienThe.getMauSac().getId());
+                                boolean doiSize = duLieu.getSizeId() != null
+                                        && !duLieu.getSizeId().equals(bienThe.getSize().getId());
+
+                                keHoach = new KeHoachBienThe(i, duLieu, bienThe);
+                                keHoach.doiThuocTinh = doiMau || doiSize;
+                                if (keHoach.doiThuocTinh && idDaPhatSinhGiaoDich.contains(bienThe.getId())) {
+                                        throw new CommonException("Biến thể " + bienThe.getMaSku()
+                                                + " đã phát sinh giao dịch (tồn kho, chứng từ hoặc đồng bộ sàn) nên không thể đổi màu sắc/size."
+                                                + " Hãy chuyển biến thể này sang Tạm ngừng và thêm biến thể mới.");
+                                }
+                                keHoach.mauSac = doiMau ? timMauSac(duLieu.getMauSacId()) : bienThe.getMauSac();
+                                keHoach.size = doiSize ? timSize(duLieu.getSizeId()) : bienThe.getSize();
+                                keHoach.chatLieu = bienThe.getChatLieu();
+                        } else {
+                                // ----- Biến thể mới -----
+                                if (duLieu.getMauSacId() == null || duLieu.getSizeId() == null) {
+                                        throw new CommonException("Biến thể mới #" + stt + ": vui lòng chọn màu sắc và size");
+                                }
+                                keHoach = new KeHoachBienThe(i, duLieu, null);
+                                keHoach.doiThuocTinh = true;
+                                keHoach.mauSac = timMauSac(duLieu.getMauSacId());
+                                keHoach.size = timSize(duLieu.getSizeId());
+                                if (duLieu.getChatLieuId() != null) {
+                                        keHoach.chatLieu = chatLieuService.getOne(duLieu.getChatLieuId()).orElseThrow(
+                                                () -> new CommonException("Không tìm thấy chất liệu id: " + duLieu.getChatLieuId()));
+                                } else if (idChatLieuHienCo.size() == 1) {
+                                        keHoach.chatLieu = bienTheHienCo.get(0).getChatLieu();
+                                } else {
+                                        throw new CommonException("Biến thể mới #" + stt + ": vui lòng chọn chất liệu");
+                                }
+                        }
+
+                        if (duLieu.isImageUpdated()) {
+                                MultipartFile file = anhBienThes != null && i < anhBienThes.size() ? anhBienThes.get(i) : null;
+                                if (file == null || file.isEmpty()) {
+                                        throw new CommonException("Thiếu tệp ảnh cho biến thể #" + stt);
+                                }
+                        }
+                        if (keHoach.doiThuocTinh) {
+                                // Công thức SKU giống lúc tạo: [Mã SP]-[Mã chất liệu]-[Mã size]-[Mã màu]
+                                keHoach.maSkuMoi = sanPham.getMaSanPham() + "-" + keHoach.chatLieu.getMaChatLieu()
+                                        + "-" + keHoach.size.getMaSize() + "-" + keHoach.mauSac.getMaMau();
+                        }
+                        dsKeHoach.add(keHoach);
+                }
+
+                // Tổ hợp (màu + size + chất liệu) của TẤT CẢ biến thể sau khi lưu phải khác nhau.
+                Set<Integer> idCoTrongYeuCau = new HashSet<>();
+                for (KeHoachBienThe keHoach : dsKeHoach) {
+                        if (keHoach.bienThe != null) idCoTrongYeuCau.add(keHoach.bienThe.getId());
+                }
+                Set<String> toHopSauLuu = new HashSet<>();
+                for (BienTheSanPham bt : bienTheHienCo) {
+                        if (!idCoTrongYeuCau.contains(bt.getId())) {
+                                toHopSauLuu.add(khoaToHop(bt.getMauSac(), bt.getSize(), bt.getChatLieu()));
+                        }
+                }
+                for (KeHoachBienThe keHoach : dsKeHoach) {
+                        if (!toHopSauLuu.add(khoaToHop(keHoach.mauSac, keHoach.size, keHoach.chatLieu))) {
+                                throw new CommonException("Đã có biến thể cùng màu sắc, size và chất liệu ("
+                                        + moTaToHop(keHoach) + "). Mỗi biến thể phải khác nhau.");
+                        }
+                }
+
+                // Không cho đổi chéo trong cùng một lần lưu + mã SKU mới phải duy nhất toàn hệ thống.
+                Map<String, BienTheSanPham> bienTheTheoToHopHienTai = new HashMap<>();
+                for (BienTheSanPham bt : bienTheHienCo) {
+                        bienTheTheoToHopHienTai.put(khoaToHop(bt.getMauSac(), bt.getSize(), bt.getChatLieu()), bt);
+                }
+                Set<String> skuMoi = new HashSet<>();
+                for (KeHoachBienThe keHoach : dsKeHoach) {
+                        if (!keHoach.doiThuocTinh) continue;
+                        BienTheSanPham dangGiu = bienTheTheoToHopHienTai.get(
+                                khoaToHop(keHoach.mauSac, keHoach.size, keHoach.chatLieu));
+                        if (dangGiu != null && (keHoach.bienThe == null || !dangGiu.getId().equals(keHoach.bienThe.getId()))) {
+                                throw new CommonException("Tổ hợp " + moTaToHop(keHoach) + " hiện đang thuộc biến thể "
+                                        + dangGiu.getMaSku() + ". Không thể đổi chéo màu/size giữa các biến thể trong cùng một lần lưu,"
+                                        + " hãy lưu thay đổi của biến thể " + dangGiu.getMaSku() + " trước.");
+                        }
+                        if (!skuMoi.add(keHoach.maSkuMoi)) {
+                                throw new CommonException("Mã SKU " + keHoach.maSkuMoi + " bị trùng giữa các biến thể");
+                        }
+                        boolean skuDaTonTai = keHoach.bienThe == null
+                                ? bienTheSanPhamRepository.existsByMaSku(keHoach.maSkuMoi)
+                                : bienTheSanPhamRepository.existsByMaSkuAndIdNot(keHoach.maSkuMoi, keHoach.bienThe.getId());
+                        if (skuDaTonTai) {
+                                throw new CommonException("Mã SKU " + keHoach.maSkuMoi + " đã tồn tại trong hệ thống. Vui lòng chọn màu sắc/size khác.");
+                        }
+                }
+                return dsKeHoach;
+        }
+
+        private MauSac timMauSac(Integer id) {
+                return mauSacService.getOne(id).orElseThrow(() -> new CommonException("Không tìm thấy màu id: " + id));
+        }
+
+        private Size timSize(Integer id) {
+                return sizeService.getOne(id).orElseThrow(() -> new CommonException("Không tìm thấy size id: " + id));
+        }
+
+        private String khoaToHop(MauSac mauSac, Size size, ChatLieu chatLieu) {
+                return mauSac.getId() + "-" + size.getId() + "-" + chatLieu.getId();
+        }
+
+        private String moTaToHop(KeHoachBienThe keHoach) {
+                return keHoach.mauSac.getTenMau() + " / " + keHoach.size.getTenSize() + " / " + keHoach.chatLieu.getTenChatLieu();
+        }
+
+        private Map<String, Object> moTaBienThe(BienTheSanPham bt) {
+                Map<String, Object> moTa = new LinkedHashMap<>();
+                moTa.put("id", bt.getId());
+                moTa.put("maSku", bt.getMaSku());
+                moTa.put("mauSacId", bt.getMauSac().getId());
+                moTa.put("tenMau", bt.getMauSac().getTenMau());
+                moTa.put("sizeId", bt.getSize().getId());
+                moTa.put("tenSize", bt.getSize().getTenSize());
+                moTa.put("chatLieuId", bt.getChatLieu().getId());
+                moTa.put("tenChatLieu", bt.getChatLieu().getTenChatLieu());
+                return moTa;
+        }
+
+        /** Tải ảnh mới cho biến thể: thay tệp của ảnh cũ (xóa tệp cũ) hoặc tạo ảnh biến thể nếu chưa có. */
+        private void capNhatAnhBienThe(BienTheSanPham bienThe, MultipartFile file, String maSanPham,
+                                       long dauThoiGian, int viTri, Instant bayGio) {
+                try {
+                        String objectName = minioService.upload(file, ITable.bien_the_san_pham + "_" + maSanPham + "_" + dauThoiGian + "_" + viTri);
+                        TepTin tepTin = tepTinService.create(TepTin.builder()
+                                .tenTepGoc(objectName)
+                                .tenTaiLen(objectName)
+                                .tenLuuTru(objectName)
+                                .duongDan(minioService.getPublicUrl(objectName))
+                                .loaiTepTin(FileType.IMAGE.toString())
+                                .duoiTep(minioService.getObjectInfo(objectName).getUserMetadata().get("file-extension"))
+                                .ngayTao(bayGio)
+                                .trangThai(1)
+                                .build());
+
+                        if (bienThe.getAnhBienThe() != null) {
+                                Integer idTepCu = bienThe.getAnhBienThe().getTepTin().getId();
+                                bienThe.getAnhBienThe().setTepTin(tepTin);
+                                anhBienTheService.update(bienThe.getAnhBienThe().getId(), bienThe.getAnhBienThe());
+                                tepTinService.hardDeleteNoMessage(idTepCu);
+                        } else {
+                                AnhBienThe anhBienThe = anhBienTheService.create(
+                                        AnhBienThe.builder()
+                                                .bienThe(bienThe)
+                                                .tepTin(tepTin)
+                                                .trangThai(1)
+                                                .ngayTao(bayGio)
+                                                .build()
+                                );
+                                bienThe.setAnhBienThe(anhBienThe);
+                        }
+                } catch (Exception e) {
+                        log.error("Lỗi tạo tệp tin cho biến thể: {}", bienThe.getMaSku(), e);
+                        throw new RuntimeException("Lỗi tạo tệp tin cho biến thể " + bienThe.getMaSku(), e);
+                }
         }
 
         /**
@@ -637,6 +900,10 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         }
 
         private void saveLichSuBasicInfo(SanPhamQuanAo sp, Map<String, Object> giaTriCu, Map<String, Object> giaTriMoi) {
+                ghiLichSuCapNhat(sp, giaTriCu, giaTriMoi, "Cập nhật thông tin cơ bản sản phẩm: " + sp.getMaSanPham());
+        }
+
+        private void ghiLichSuCapNhat(SanPhamQuanAo sp, Map<String, Object> giaTriCu, Map<String, Object> giaTriMoi, String ghiChu) {
                 try {
                         objectMapper.registerModule(new JavaTimeModule());
                         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -653,11 +920,11 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                         .giaTriMoi(objectMapper.writeValueAsString(giaTriMoi))
                                         .nguoiThucHien(nguoiTao)
                                         .ngayThucHien(Instant.now())
-                                        .ghiChu("Cập nhật thông tin cơ bản sản phẩm: " + sp.getMaSanPham())
+                                        .ghiChu(ghiChu)
                                         .build()
                         );
                 } catch (Exception e) {
-                        log.error("Lỗi lưu lịch sử cập nhật thông tin cơ bản", e);
+                        log.error("Lỗi lưu lịch sử cập nhật sản phẩm", e);
                 }
         }
 
@@ -671,7 +938,13 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 SanPhamQuanAo sp = repository.findDetailById(id)
                         .orElseThrow(() -> new CommonException("Không tìm thấy sản phẩm id: " + id));
 
-                return sanPhamQuanAoMapper.toDto(sp);
+                SanPhamQuanAoDto dto = sanPhamQuanAoMapper.toDto(sp);
+                // Đánh dấu biến thể đã phát sinh giao dịch để form Sửa khóa màu/size đúng như backend kiểm tra.
+                if (dto.getBienTheSanPhams() != null && !dto.getBienTheSanPhams().isEmpty()) {
+                        Set<Integer> idDaPhatSinhGiaoDich = new HashSet<>(bienTheSanPhamRepository.findIdDaPhatSinhGiaoDich(id));
+                        dto.getBienTheSanPhams().forEach(bt -> bt.setDaPhatSinhGiaoDich(idDaPhatSinhGiaoDich.contains(bt.getId())));
+                }
+                return dto;
         }
 
         @Transactional
@@ -705,4 +978,4 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 .build()
                 );
         }
-}
+}

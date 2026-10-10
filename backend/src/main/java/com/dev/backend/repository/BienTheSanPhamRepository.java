@@ -16,6 +16,36 @@ import java.util.Optional;
 @Repository
 public interface BienTheSanPhamRepository extends JpaRepository<BienTheSanPham, Integer>, JpaSpecificationExecutor<BienTheSanPham> {
 
+    List<BienTheSanPham> findBySanPham_Id(Integer sanPhamId);
+
+    boolean existsByMaSku(String maSku);
+
+    boolean existsByMaSkuAndIdNot(String maSku, Integer id);
+
+    /**
+     * Id các biến thể của sản phẩm đã "phát sinh giao dịch": đã có lô/tồn kho, nằm trên chứng từ
+     * (phiếu nhập/xuất, đơn bán, đơn mua, yêu cầu mua, kiểm kê, điều chỉnh, nhặt hàng),
+     * lịch sử giao dịch kho, hoặc đã đồng bộ lên sàn. Biến thể như vậy không được đổi màu/size
+     * vì hàng thật và chứng từ đã gắn với đúng thuộc tính đó.
+     */
+    @Query(value = """
+            SELECT bt.id FROM bien_the_san_pham bt
+            WHERE bt.san_pham_id = :sanPhamId AND (
+                 EXISTS (SELECT 1 FROM lo_hang x WHERE x.bien_the_san_pham_id = bt.id)
+              OR EXISTS (SELECT 1 FROM chi_tiet_phieu_nhap_kho x WHERE x.bien_the_san_pham_id = bt.id)
+              OR EXISTS (SELECT 1 FROM chi_tiet_phieu_xuat_kho x WHERE x.bien_the_san_pham_id = bt.id)
+              OR EXISTS (SELECT 1 FROM chi_tiet_don_ban_hang x WHERE x.bien_the_san_pham_id = bt.id)
+              OR EXISTS (SELECT 1 FROM chi_tiet_don_mua_hang x WHERE x.bien_the_san_pham_id = bt.id)
+              OR EXISTS (SELECT 1 FROM chi_tiet_yeu_cau_mua_hang x WHERE x.bien_the_san_pham_id = bt.id)
+              OR EXISTS (SELECT 1 FROM chi_tiet_kiem_ke x WHERE x.bien_the_san_pham_id = bt.id)
+              OR EXISTS (SELECT 1 FROM chi_tiet_phieu_dieu_chinh x WHERE x.bien_the_san_pham_id = bt.id)
+              OR EXISTS (SELECT 1 FROM chi_tiet_nhat_hang x WHERE x.bien_the_san_pham_id = bt.id)
+              OR EXISTS (SELECT 1 FROM lich_su_giao_dich_kho x WHERE x.bien_the_san_pham_id = bt.id)
+              OR EXISTS (SELECT 1 FROM trang_thai_dong_bo_san_pham x WHERE x.bien_the_san_pham_id = bt.id)
+            )
+            """, nativeQuery = true)
+    List<Integer> findIdDaPhatSinhGiaoDich(@Param("sanPhamId") Integer sanPhamId);
+
 
     @Query(
             """
