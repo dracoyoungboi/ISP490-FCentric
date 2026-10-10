@@ -23,5 +23,6 @@ public interface IHanhDong {
     String
             duyet_yeu_cau_mua_hang = "duyet_yeu_cau_mua_hang",
             tu_choi_yeu_cau_mua_hang = "tu_choi_yeu_cau_mua_hang",
-            xuat_kho = "xuat_kho";
+            xuat_kho = "xuat_kho",
+            cap_nhat_kenh_ban = "cap_nhat_kenh_ban";
 }

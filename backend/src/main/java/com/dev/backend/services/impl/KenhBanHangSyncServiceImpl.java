@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 public class KenhBanHangSyncServiceImpl implements KenhBanHangSyncService {
 
     DonBanHangRepository donBanHangRepository;
+    com.dev.backend.services.KenhBanHangService kenhBanHangService;
 
     @Override
     public void pushOrderStatus(Integer donBanHangId, String channelStatus, String maVanDon, String donViVanChuyen) {
@@ -31,9 +32,20 @@ public class KenhBanHangSyncServiceImpl implements KenhBanHangSyncService {
                 return;
             }
 
+            String maKenh = don.getKenhBanHang().getMaKenh();
             String tenKenh = don.getKenhBanHang().getTenKenh();
             log.info("KenhBanHangSync: Đang đẩy trạng thái {} cho đơn {} sang kênh {} (Mã đơn kênh: {}, Vận đơn: {}, ĐVVC: {})",
                     channelStatus, don.getSoDonHang(), tenKenh, don.getMaDonHangKenh(), maVanDon, donViVanChuyen);
+
+            if ("SHOPIFY".equalsIgnoreCase(maKenh)) {
+                String token = kenhBanHangService.getDecryptedShopifyAccessToken();
+                String apiUrl = kenhBanHangService.getShopifyApiUrl();
+                if (token == null || token.isBlank()) {
+                    log.warn("KenhBanHangSync: Kênh bán Shopify chưa cấu hình Admin Access Token trong DB, bỏ qua gọi API ngoài.");
+                } else {
+                    log.info("KenhBanHangSync: Đã nạp thành công Credential Shopify (API: {}), sẵn sàng đồng bộ đơn {}", apiUrl, don.getSoDonHang());
+                }
+            }
 
             // Ghi nhận trạng thái push thành công vào log
             log.info("KenhBanHangSync: Đã hoàn tất push trạng thái đơn hàng {} sang kênh {}", don.getSoDonHang(), tenKenh);
