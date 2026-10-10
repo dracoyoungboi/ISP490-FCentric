@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { donBanHangService } from "@/services/donBanHangService";
-import { Link, useNavigate } from "react-router-dom";
+import { donBanHangKenhService, isChannelOrderMock } from "@/services/donBanHangKenhService";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import apiClient from "@/services/apiClient";
 import {
   ChevronDown,
@@ -34,6 +34,17 @@ import LoadingState from "@/components/shared/LoadingState";
 import SearchInput from "@/components/shared/SearchInput";
 import StatusBadge from "@/components/shared/StatusBadge";
 import TableShell from "@/components/shared/TableShell";
+import FilterSelect from "@/components/shared/FilterSelect";
+import MockModeNotice from "@/components/shared/MockModeNotice";
+import ChannelBadge from "@/components/channel/ChannelBadge";
+import OrderFlagBadges from "@/components/channel/OrderFlagBadges";
+import { CHANNELS, MARKETPLACE_FILTER_OPTIONS } from "@/constants/channel";
+
+// Lọc theo kênh (S-OC-05): filters kenhBanHang.id EQUALS <id> trên POST /don-ban-hang/filter
+const ORDER_CHANNEL_OPTIONS = [
+  ...MARKETPLACE_FILTER_OPTIONS,
+  { value: "pos", label: "POS", id: CHANNELS.POS.id },
+];
 
 const STATUS_MAP = {
   0: { label: "Nháp", tone: "warning" },
@@ -67,18 +78,32 @@ function parseRoles(vaiTro) {
 
 export default function DonBanHangList() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [userRoles, setUserRoles] = useState([]);
 
-  const [filters, setFilters] = useState({
-    keyword: "",
-    trangThai: "",
-    ngayDatHang: "",
-    page: 0,
-    size: 10,
+  const [filters, setFilters] = useState(() => {
+    const kenhParam = (searchParams.get("kenh") || "").toLowerCase();
+    return {
+      keyword: "",
+      trangThai: "",
+      ngayDatHang: "",
+      kenh: ORDER_CHANNEL_OPTIONS.some((option) => option.value === kenhParam) ? kenhParam : "",
+      page: 0,
+      size: 10,
+    };
   });
+
+  // Giữ ?kenh= trên URL để thẻ kênh / Dashboard mở thẳng danh sách đơn của kênh đó
+  const changeKenh = (kenh) => {
+    setFilters((p) => ({ ...p, kenh, page: 0 }));
+    const next = new URLSearchParams(searchParams);
+    if (kenh) next.set("kenh", kenh);
+    else next.delete("kenh");
+    setSearchParams(next, { replace: true });
+  };
 
   // Kiểm tra quyền kho
   const isKhoRole = userRoles.includes(ROLE.QUAN_LY_KHO) || userRoles.includes(ROLE.NHAN_VIEN_KHO);
@@ -127,19 +152,28 @@ export default function DonBanHangList() {
       });
     }
 
+    const kenhOption = ORDER_CHANNEL_OPTIONS.find((option) => option.value === filters.kenh);
+    if (kenhOption?.id) {
+      filterList.push({
+        fieldName: "kenhBanHang.id",
+        operation: "EQUALS",
+        value: kenhOption.id,
+      });
+    }
+
     return {
       page: filters.page,
       size: filters.size,
       filters: filterList,
       sorts: [{ fieldName: "id", direction: "DESC" }],
     };
-  }, [filters.keyword, filters.trangThai, filters.page, filters.size]);
+  }, [filters.keyword, filters.trangThai, filters.kenh, filters.page, filters.size]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const payload = buildFilterPayload();
-      const res = await donBanHangService.filter(payload);
+      const res = await donBanHangKenhService.filterDonBan(payload);
       let list = res.content || [];
 
       if (filters.ngayDatHang) {
@@ -174,9 +208,15 @@ export default function DonBanHangList() {
       keyword: "",
       trangThai: "",
       ngayDatHang: "",
+      kenh: "",
       page: 0,
       size: 10,
     });
+    if (searchParams.has("kenh")) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("kenh");
+      setSearchParams(next, { replace: true });
+    }
   };
 
   const handlePageChange = (newPage) => {
@@ -204,6 +244,8 @@ export default function DonBanHangList() {
 
   return (
     <PageContainer className="space-y-5">
+      <MockModeNotice show={isChannelOrderMock} />
+
       {/* ── Page header ── */}
       <PageHeader
         title="Đơn bán hàng"
@@ -325,6 +367,14 @@ export default function DonBanHangList() {
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              <FilterSelect
+                label="Kênh bán"
+                value={filters.kenh}
+                options={ORDER_CHANNEL_OPTIONS}
+                onChange={changeKenh}
+                align="end"
+              />
 
               <input
                 type="date"
@@ -486,6 +536,18 @@ export default function DonBanHangList() {
                 >
                   <td className="px-3 py-3">
                     <span className="font-semibold uppercase tracking-wide text-bo-primary">{item.soDonHang}</span>
+                    {item.kenhBanHang ? (
+                      <div className="mt-1 flex items-center gap-1.5">
+                        <ChannelBadge
+                          className="h-5 px-1.5 text-[11px]"
+                          maKenh={item.kenhBanHang.maKenh}
+                          label={item.kenhBanHang.tenKenh}
+                        />
+                        {item.maDonHangKenh ? (
+                          <span className="font-mono text-[11px] text-bo-muted">#{item.maDonHangKenh}</span>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </td>
                   <td className="px-3 py-3">
                     <div className="font-semibold text-bo-foreground">
@@ -511,6 +573,11 @@ export default function DonBanHangList() {
                       label={STATUS_MAP[item.trangThai]?.label}
                       tone={STATUS_MAP[item.trangThai]?.tone}
                     />
+                    {item.canXuLy ? (
+                      <div className="mt-1 flex justify-center">
+                        <OrderFlagBadges value={item.canXuLy} />
+                      </div>
+                    ) : null}
                   </td>
                   <td className="px-3 py-3 text-center">
                     <div className="flex items-center justify-center gap-1">
