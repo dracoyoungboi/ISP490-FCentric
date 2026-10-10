@@ -119,6 +119,8 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 BigDecimal tongGiaBanBienThe = BigDecimal.ZERO;
                 int soBienTheCoHang = 0;
 
+                // Trạng thái biến thể (1 Hoạt động / 0 Tạm ngừng) do người dùng quản lý,
+                // KHÔNG suy ra từ tồn kho — chỉ tính lại giá ở đây.
                 if (danhSachBienThe != null) {
                         for (BienTheSanPham bienThe : danhSachBienThe) {
                                 // Query tính: SUM(so_luong_ton * gia_von) và SUM(so_luong_ton)
@@ -145,15 +147,11 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                                 .setScale(0, RoundingMode.CEILING);
                                         bienThe.setGiaBan(giaBanVariant);
 
-                                        bienThe.setTrangThai(1);
-
                                         // Tích lũy để tính trung bình cộng cho sản phẩm cha
                                         tongGiaVonBienThe = tongGiaVonBienThe.add(giaVonTongVariant);
                                         tongGiaBanBienThe = tongGiaBanBienThe.add(giaBanVariant);
                                         soBienTheCoHang++;
                                 } else {
-                                        // Hết hàng thì trạng thái = 0
-                                        bienThe.setTrangThai(0);
                                         // Giữ nguyên hoặc set về 0 tùy bạn, ở đây tôi gán 0 cho minh bạch
                                         if (bienThe.getGiaVon() == null) bienThe.setGiaVon(BigDecimal.ZERO);
                                         if (bienThe.getGiaBan() == null) bienThe.setGiaBan(BigDecimal.ZERO);
@@ -163,16 +161,17 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 }
 
                 // 3. Cập nhật giá cho Sản phẩm cha (SanPhamQuanAo)
+                // Trạng thái 2 (Ngừng hoạt động) do người dùng đặt — giữ nguyên, chỉ tự đổi giữa 1/0.
+                boolean ngungHoatDong = Integer.valueOf(2).equals(sp.getTrangThai());
                 if (soBienTheCoHang > 0) {
                         // Giá vốn sản phẩm = Trung bình cộng giá vốn các biến thể còn hàng
                         sp.setGiaVonMacDinh(tongGiaVonBienThe.divide(new BigDecimal(soBienTheCoHang), 2, RoundingMode.HALF_UP));
                         // Giá bán sản phẩm = Trung bình cộng giá bán các biến thể còn hàng
                         sp.setGiaBanMacDinh(tongGiaBanBienThe.divide(new BigDecimal(soBienTheCoHang), 0, RoundingMode.CEILING));
-                        sp.setTrangThai(1);
+                        if (!ngungHoatDong) sp.setTrangThai(1);
                 } else {
                         // Nếu tất cả biến thể hết hàng
-                        sp.setTrangThai(0);
-                        // Giữ giá cũ
+                        if (!ngungHoatDong) sp.setTrangThai(0);
                         sp.setGiaVonMacDinh(BigDecimal.ZERO);
                         sp.setGiaBanMacDinh(BigDecimal.ZERO);
                 }
