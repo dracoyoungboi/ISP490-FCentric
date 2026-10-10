@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, PackageCheck } from "lucide-react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, matchPath, useLocation } from "react-router-dom";
 
 import {
   Sidebar,
@@ -25,6 +25,18 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+
+// Mục menu có thể khai báo `match(pathname)` khi đường dẫn con thuộc mục khác
+// (vd. /goods-issues/pick-lists không tính là "Phiếu xuất kho"); mặc định theo NavLink.
+const isNavItemActive = (item, isActive, pathname) =>
+  typeof item.match === "function" ? item.match(pathname) : isActive;
+
+// SidebarMenuButton asChild (Radix Slot) nối className thành chuỗi, nên NavLink
+// không nhận được className dạng hàm -> tự tính trạng thái active theo pathname.
+const isDirectLinkActive = (item, pathname, end = false) =>
+  typeof item.match === "function"
+    ? item.match(pathname)
+    : Boolean(matchPath({ path: item.to, end }, pathname));
 
 // Khoảng cách flyout tới mép sidebar và tới mép viewport (px).
 const FLYOUT_GAP = 8;
@@ -411,8 +423,8 @@ export default function BackofficeSidebar() {
               end={item.to === "/dashboard"}
               onClick={handleNavigate}
               aria-label={item.label}
-              className={({ isActive }) =>
-                isActive
+              className={
+                isDirectLinkActive(item, location.pathname, item.to === "/dashboard")
                   ? "bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover hover:text-white"
                   : "text-bo-sidebar-muted hover:bg-bo-sidebar-hover hover:text-white"
               }
@@ -486,7 +498,7 @@ export default function BackofficeSidebar() {
                   onClick={handleNavigate}
                   className={({ isActive }) =>
                     `block rounded-md px-3 py-2 text-[13px] leading-5 transition-colors ${
-                      isActive
+                      isNavItemActive(child, isActive, location.pathname)
                         ? "bg-bo-primary/15 font-semibold text-blue-300"
                         : "text-bo-sidebar-muted hover:bg-bo-sidebar-hover hover:text-white"
                     }`
@@ -524,8 +536,8 @@ export default function BackofficeSidebar() {
               to={onlyChild.to}
               onClick={handleNavigate}
               aria-label={item.label}
-              className={({ isActive }) =>
-                isActive
+              className={
+                isDirectLinkActive(onlyChild, location.pathname)
                   ? "bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover hover:text-white"
                   : "text-bo-sidebar-muted hover:bg-bo-sidebar-hover hover:text-white"
               }
@@ -707,7 +719,7 @@ export default function BackofficeSidebar() {
                     onClick={closeFlyout}
                     className={({ isActive }) =>
                       `flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] leading-5 transition-colors ${
-                        isActive
+                        isNavItemActive(child, isActive, location.pathname)
                           ? "bg-bo-primary/15 font-semibold text-blue-300"
                           : "text-bo-sidebar-muted hover:bg-bo-sidebar-hover hover:text-white"
                       }`
