@@ -185,4 +185,16 @@ public interface BienTheSanPhamRepository extends JpaRepository<BienTheSanPham, 
             @Param("barcode") String barcode,
             Pageable pageable
     );
+
+    @Query("""
+            SELECT bt FROM BienTheSanPham bt
+            JOIN FETCH bt.sanPham sp
+            LEFT JOIN FETCH sp.danhMuc
+            LEFT JOIN FETCH bt.mauSac
+            LEFT JOIN FETCH bt.size
+            LEFT JOIN FETCH bt.chatLieu
+            WHERE bt.trangThai = 1 AND sp.trangThai = 1
+            ORDER BY sp.id, bt.id
+            """)
+    List<BienTheSanPham> findActiveVariantsWithDetails();
 }

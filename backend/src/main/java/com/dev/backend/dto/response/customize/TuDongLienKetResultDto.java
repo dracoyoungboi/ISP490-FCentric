@@ -13,5 +13,9 @@ public class TuDongLienKetResultDto {
     int soDaGhep;
     int soKhongKhop;
     int soNhieuKhop;
+    int soTaoMoiTrenShopify;
+    int soTonKhoDaDay;
+    int soAnhDaDay;
+    int soThatBai;
 }
 

@@ -12,6 +12,7 @@ import com.dev.backend.entities.SanPhamQuanAo;
 import com.dev.backend.entities.TrangThaiDongBoSanPham;
 import com.dev.backend.repository.*;
 import com.dev.backend.services.KenhBanHangService;
+import com.dev.backend.services.MinioService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,6 +52,12 @@ class KenhBanHangDongBoServiceTest {
     private LichSuThayDoiService lichSuThayDoiService;
     @Mock
     private NguoiDungRepository nguoiDungRepository;
+    @Mock
+    private AnhQuanAoRepository anhQuanAoRepository;
+    @Mock
+    private AnhBienTheRepository anhBienTheRepository;
+    @Mock
+    private MinioService minioService;
 
     private KenhBanHangDongBoServiceImpl service;
 
@@ -67,7 +74,10 @@ class KenhBanHangDongBoServiceTest {
                 tonKhoTheoLoRepository,
                 kenhBanHangService,
                 lichSuThayDoiService,
-                nguoiDungRepository
+                nguoiDungRepository,
+                anhQuanAoRepository,
+                anhBienTheRepository,
+                minioService
         );
 
         shopifyKenh = KenhBanHang.builder()
