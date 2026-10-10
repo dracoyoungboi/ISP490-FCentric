@@ -17,7 +17,6 @@ import {
 import {
   Collapsible,
   CollapsibleContent,
-  CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { SIDEBAR_MENU, SIDEBAR_SECTIONS } from "./sidebar.config";
 import {
@@ -25,6 +24,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 // Mục menu có thể khai báo `match(pathname)` khi đường dẫn con thuộc mục khác
 // (vd. /goods-issues/pick-lists không tính là "Phiếu xuất kho"); mặc định theo NavLink.
@@ -45,6 +45,36 @@ const FLYOUT_VIEWPORT_MARGIN = 8;
 // và giữ flyout mở trong lúc con trỏ di chuyển từ icon vào trong flyout.
 const HOVER_OPEN_DELAY = 120;
 const HOVER_CLOSE_DELAY = 150;
+
+// ---- Hiệu ứng thu gọn / mở rộng ----
+// Mọi phần tử được render giống nhau ở cả hai trạng thái (không gắn/gỡ theo
+// `isExpanded`), chỉ CSS theo data-collapsible của sidebar đổi hiển thị — nhờ đó
+// chữ, nhóm menu và logo chuyển tiếp cùng nhịp với độ rộng thay vì bật/tắt ở
+// khung hình đầu.
+
+// Icon giữ nguyên toạ độ ngang và nằm giữa rail 4rem (63px trong viền phải):
+// SidebarContent px-3 (12px) + padding trái 11px + icon 16px (SidebarMenuButton
+// ép [&>svg]:size-4) => tâm icon ~31px. gap-3 đẩy chữ ra ngoài vùng nút 39px khi
+// thu gọn nên chữ không bao giờ ló ra mép rail.
+const MENU_BUTTON_LAYOUT = "h-10 gap-3 px-[11px]";
+
+// Chữ: thu gọn thì mờ nhanh trước khi bị mép rail cắt, mở rộng thì hiện trễ
+// một nhịp khi đã đủ chỗ. `invisible` đưa chữ ra khỏi Tab và trình đọc màn hình.
+const SIDEBAR_FADE =
+  "transition-[opacity,visibility] duration-200 delay-100 ease-out motion-reduce:transition-none group-data-[collapsible=icon]:invisible group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:delay-0 group-data-[collapsible=icon]:duration-100";
+
+// Khối co chiều cao về 0 (tiêu đề nhóm, footer) cùng nhịp với độ rộng để các
+// icon trượt lên/xuống thay vì nhảy. Phần tử con phải có min-h-0 overflow-hidden.
+const SIDEBAR_COLLAPSE_ROW =
+  "grid grid-rows-[1fr] transition-[grid-template-rows,opacity,visibility] duration-250 ease-sidebar motion-reduce:transition-none group-data-[collapsible=icon]:invisible group-data-[collapsible=icon]:grid-rows-[0fr] group-data-[collapsible=icon]:opacity-0";
+
+// Flyout/tooltip neo theo mép phải của rail (nút giờ rộng gần hết rail).
+const getRailRight = (el) =>
+  (el.closest('[data-slot="sidebar-container"]') ?? el).getBoundingClientRect()
+    .right;
+
+const isSidebarWidthTransition = (event) =>
+  event.target === event.currentTarget && event.propertyName === "width";
 
 export default function BackofficeSidebar() {
   const location = useLocation();
@@ -144,10 +174,12 @@ export default function BackofficeSidebar() {
     const rect = event.currentTarget.getBoundingClientRect();
     if (!rect) return;
     tooltipTriggerRef.current = event.currentTarget;
+    // Tính ngay trong handler: updater chạy sau, khi currentTarget đã là null.
+    const left = getRailRight(event.currentTarget) + FLYOUT_GAP;
     setRailTooltip((current) => ({
       label,
       description,
-      left: rect.right + 10,
+      left,
       anchorCenterY: rect.top + rect.height / 2,
       top: current?.top ?? 0,
     }));
@@ -176,7 +208,8 @@ export default function BackofficeSidebar() {
     );
   }, [railTooltip]);
 
-  // Resize: neo lại tooltip theo rect mới của item đang hover.
+  // Resize hoặc rail vừa co xong (tooltip mở khi đang chuyển động): neo lại
+  // tooltip theo rect mới của item đang hover; cuộn rail thì đóng tooltip.
   useEffect(() => {
     if (!railTooltip) return undefined;
     const handleResize = () => {
@@ -187,14 +220,33 @@ export default function BackofficeSidebar() {
         current
           ? {
               ...current,
-              left: rect.right + 10,
+              left: getRailRight(trigger) + FLYOUT_GAP,
               anchorCenterY: rect.top + rect.height / 2,
             }
           : null,
       );
     };
+    const handleTransitionEnd = (event) => {
+      if (isSidebarWidthTransition(event)) handleResize();
+    };
+    // Chỉ khi vùng chứa item (rail) cuộn — cuộn trang nội dung không liên quan.
+    const handleScroll = (event) => {
+      const trigger = tooltipTriggerRef.current;
+      if (!(event.target instanceof Node) || !event.target.contains(trigger)) return;
+      clearTooltipTimer();
+      setRailTooltip(null);
+    };
+    const container = tooltipTriggerRef.current?.closest(
+      '[data-slot="sidebar-container"]',
+    );
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    container?.addEventListener("transitionend", handleTransitionEnd);
+    document.addEventListener("scroll", handleScroll, true);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      container?.removeEventListener("transitionend", handleTransitionEnd);
+      document.removeEventListener("scroll", handleScroll, true);
+    };
   }, [railTooltip]);
 
   // Đóng tooltip khi route đổi hoặc sidebar mở rộng — điều chỉnh trong render
@@ -236,8 +288,8 @@ export default function BackofficeSidebar() {
     flyoutAnchorRef.current = { pathname: location.pathname, expanded: isExpanded };
   });
 
-  // Click ngoài / phím Escape đóng flyout; resize cập nhật lại vị trí
-  // (sidebar là fixed nên chỉ resize mới làm lệch anchor).
+  // Click ngoài / phím Escape / cuộn rail đóng flyout; resize hoặc rail vừa co
+  // xong cập nhật lại vị trí (sidebar là fixed nên chỉ những lúc đó anchor lệch).
   useEffect(() => {
     if (!flyout) return undefined;
 
@@ -263,20 +315,38 @@ export default function BackofficeSidebar() {
         current
           ? {
               ...current,
-              left: rect.right + FLYOUT_GAP,
+              left: getRailRight(trigger) + FLYOUT_GAP,
               anchorCenterY: rect.top + rect.height / 2,
             }
           : null,
       );
     };
 
+    const handleTransitionEnd = (event) => {
+      if (isSidebarWidthTransition(event)) handleResize();
+    };
+
+    // Chỉ khi vùng chứa icon (rail) cuộn; danh sách con trong flyout cuộn thì giữ.
+    const handleScroll = (event) => {
+      const trigger = flyoutTriggerRef.current;
+      if (!(event.target instanceof Node) || !event.target.contains(trigger)) return;
+      closeFlyout();
+    };
+
+    const container = flyoutTriggerRef.current?.closest(
+      '[data-slot="sidebar-container"]',
+    );
     document.addEventListener("mousedown", handleMouseDown);
     document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("scroll", handleScroll, true);
     window.addEventListener("resize", handleResize);
+    container?.addEventListener("transitionend", handleTransitionEnd);
     return () => {
       document.removeEventListener("mousedown", handleMouseDown);
       document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("scroll", handleScroll, true);
       window.removeEventListener("resize", handleResize);
+      container?.removeEventListener("transitionend", handleTransitionEnd);
     };
   }, [flyout, closeFlyout]);
 
@@ -322,7 +392,7 @@ export default function BackofficeSidebar() {
             label: item.label,
             Icon: item.icon,
             children: visibleChildren,
-            left: rect.right + FLYOUT_GAP,
+            left: getRailRight(triggerEl) + FLYOUT_GAP,
             anchorCenterY: rect.top + rect.height / 2,
             top: rect.top,
           },
@@ -385,6 +455,20 @@ export default function BackofficeSidebar() {
     if (isMobile) setOpenMobile(false);
   };
 
+  // Mục cha chỉ còn một đích đến: khi thu gọn, link phủ thay chỗ nút (và ngược
+  // lại khi mở rộng) — chuyển focus theo để Ctrl+B không làm mất focus bàn phím.
+  // Gắn vào span bọc ngoài (không phải NavLink: NavLink gộp ref thành hàm mới mỗi
+  // lần render và bỏ cleanup); callback ổn định nên React 19 chỉ gọi cleanup khi
+  // link thật sự bị gỡ, lúc phần tử vẫn còn trong DOM.
+  const railLinkRef = useCallback((wrapper) => {
+    const button = wrapper.previousElementSibling;
+    const link = wrapper.firstElementChild;
+    if (document.activeElement === button) link?.focus();
+    return () => {
+      if (document.activeElement === link) button?.focus();
+    };
+  }, []);
+
   const renderItem = (item) => {
     const Icon = item.icon;
     const visibleChildren = item.children
@@ -417,7 +501,11 @@ export default function BackofficeSidebar() {
 
       return (
         <SidebarMenuItem key={item.to}>
-          <SidebarMenuButton asChild className="h-10" {...directLinkTooltipProps}>
+          <SidebarMenuButton
+            asChild
+            className={MENU_BUTTON_LAYOUT}
+            {...directLinkTooltipProps}
+          >
             <NavLink
               to={item.to}
               end={item.to === "/dashboard"}
@@ -430,26 +518,25 @@ export default function BackofficeSidebar() {
               }
             >
               <Icon className="size-[18px]" />
-              {isExpanded ? (
-                <>
-                  <span className="truncate">{item.label}</span>
-                  {item.badge ? (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span
-                          tabIndex={0}
-                          aria-label={`${item.badge.label} — ${item.badge.description}`}
-                          className="ml-auto shrink-0 rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-amber-300"
-                        >
-                          {item.badge.label}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="right">
-                        {item.badge.description}
-                      </TooltipContent>
-                    </Tooltip>
-                  ) : null}
-                </>
+              <span className={cn("truncate", SIDEBAR_FADE)}>{item.label}</span>
+              {item.badge ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      tabIndex={0}
+                      aria-label={`${item.badge.label} — ${item.badge.description}`}
+                      className={cn(
+                        "ml-auto shrink-0 rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-amber-300",
+                        SIDEBAR_FADE,
+                      )}
+                    >
+                      {item.badge.label}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    {item.badge.description}
+                  </TooltipContent>
+                </Tooltip>
               ) : null}
             </NavLink>
           </SidebarMenuButton>
@@ -457,47 +544,109 @@ export default function BackofficeSidebar() {
       );
     }
 
-    // Expanded: giữ nguyên hành vi accordion hiện tại.
-    if (isExpanded) {
-      const isOpen = openMenu === item.label;
+    // Không còn đích đến nào cho role hiện tại -> ẩn luôn mục cha ở cả hai trạng
+    // thái (mục không được xuất hiện/biến mất khi thu gọn, làm menu nhảy).
+    if (visibleChildren.length === 0) return null;
 
-      return (
-        <Collapsible
-          key={item.label}
-          open={Boolean(isOpen)}
-          onOpenChange={(value) =>
-            setMenuState({
-              pathname: location.pathname,
-              openMenu: value ? item.label : null,
-            })
-          }
-          className="group/collapsible"
-        >
-          <SidebarMenuItem>
-            <CollapsibleTrigger asChild>
-              <SidebarMenuButton
-                className={
-                  isParentActive
-                    ? "h-10 bg-bo-sidebar-hover font-semibold text-white hover:bg-bo-sidebar-hover hover:text-white"
-                    : "h-10 text-bo-sidebar-muted hover:bg-bo-sidebar-hover hover:text-white"
-                }
-              >
-                <Icon className="size-[18px]" />
-                <span className="truncate">{item.label}</span>
-                <ChevronDown className="ml-auto size-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
-              </SidebarMenuButton>
-            </CollapsibleTrigger>
-          </SidebarMenuItem>
+    // Mục có menu con giữ cùng một cây DOM ở cả hai trạng thái, chỉ đổi hành vi:
+    // - Expanded: accordion một nhóm mở; thu gọn sidebar thì nhóm đang mở co lại
+    //   cùng nhịp, mở rộng lại thì bung ra đúng nhóm trước đó.
+    // - Collapsed, chỉ còn đúng một đích đến -> điều hướng thẳng qua link phủ lên
+    //   nút; tooltip dùng chung hiển thị tên mục cha.
+    // - Collapsed, nhiều đích đến -> hover mở flyout cạnh icon (click/Enter/Space toggle).
+    const isOpen = isExpanded && openMenu === item.label;
+    const isFlyoutOpen = flyout?.label === item.label;
+    const contentId = `backoffice-nav-group-${filteredMenu.indexOf(item)}`;
+    const onlyChild =
+      !isExpanded && visibleChildren.length === 1 ? visibleChildren[0] : null;
+    const isOnlyChildActive =
+      onlyChild !== null && isDirectLinkActive(onlyChild, location.pathname);
+    const opensFlyout = !isExpanded && onlyChild === null;
 
-          <CollapsibleContent>
-            <div className="ml-5 mt-1 space-y-1 border-l border-bo-sidebar-border pl-3">
+    // Link phủ nhận hover thay nút, nên nút đổi màu theo hover của cả mục.
+    const buttonTone = isOnlyChildActive
+      ? "bg-bo-primary font-semibold text-white group-hover/menu-item:bg-bo-primary-hover"
+      : isParentActive
+        ? "bg-bo-sidebar-hover font-semibold text-white hover:bg-bo-sidebar-hover hover:text-white"
+        : cn(
+            "text-bo-sidebar-muted hover:bg-bo-sidebar-hover hover:text-white",
+            onlyChild &&
+              "group-hover/menu-item:bg-bo-sidebar-hover group-hover/menu-item:text-white",
+          );
+
+    const handleGroupClick = (event) => {
+      if (isExpanded) {
+        setMenuState({
+          pathname: location.pathname,
+          openMenu: isOpen ? null : item.label,
+        });
+        return;
+      }
+      toggleFlyout(item, visibleChildren, event);
+    };
+
+    return (
+      <Collapsible key={item.label} asChild open={isOpen}>
+        <SidebarMenuItem className="group/collapsible">
+          <SidebarMenuButton
+            type="button"
+            aria-label={isExpanded ? undefined : item.label}
+            aria-controls={isExpanded ? contentId : undefined}
+            aria-expanded={
+              isExpanded ? isOpen : opensFlyout ? isFlyoutOpen : undefined
+            }
+            aria-haspopup={opensFlyout ? "menu" : undefined}
+            aria-hidden={onlyChild ? true : undefined}
+            tabIndex={onlyChild ? -1 : undefined}
+            onPointerOver={
+              opensFlyout && canHover
+                ? (event) =>
+                    scheduleFlyoutOpen(item, visibleChildren, event.currentTarget)
+                : undefined
+            }
+            onPointerOut={opensFlyout && canHover ? scheduleFlyoutClose : undefined}
+            onClick={handleGroupClick}
+            className={cn(MENU_BUTTON_LAYOUT, buttonTone)}
+          >
+            <Icon className="size-[18px]" />
+            <span className={cn("truncate", SIDEBAR_FADE)}>{item.label}</span>
+            <span aria-hidden="true" className={cn("ml-auto flex shrink-0", SIDEBAR_FADE)}>
+              <ChevronDown className="size-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+            </span>
+          </SidebarMenuButton>
+
+          {onlyChild ? (
+            <span ref={railLinkRef} className="contents">
+              <NavLink
+                to={onlyChild.to}
+                onClick={handleNavigate}
+                aria-label={item.label}
+                className="absolute inset-x-0 top-0 h-10 rounded-md outline-hidden ring-sidebar-ring focus-visible:ring-2"
+                onPointerOver={(event) => showRailTooltip(event, item.label)}
+                onPointerOut={hideRailTooltip}
+                onFocus={(event) => showRailTooltip(event, item.label)}
+                onBlur={hideRailTooltip}
+              />
+            </span>
+          ) : null}
+
+          <CollapsibleContent
+            id={contentId}
+            className="bo-submenu overflow-hidden"
+          >
+            <div
+              className={cn(
+                "ml-5 mt-1 space-y-1 border-l border-bo-sidebar-border pl-3",
+                SIDEBAR_FADE,
+              )}
+            >
               {visibleChildren.map((child) => (
                 <NavLink
                   key={child.to}
                   to={child.to}
                   onClick={handleNavigate}
                   className={({ isActive }) =>
-                    `block rounded-md px-3 py-2 text-[13px] leading-5 transition-colors ${
+                    `block truncate rounded-md px-3 py-2 text-[13px] leading-5 transition-colors ${
                       isNavItemActive(child, isActive, location.pathname)
                         ? "bg-bo-primary/15 font-semibold text-blue-300"
                         : "text-bo-sidebar-muted hover:bg-bo-sidebar-hover hover:text-white"
@@ -509,73 +658,8 @@ export default function BackofficeSidebar() {
               ))}
             </div>
           </CollapsibleContent>
-        </Collapsible>
-      );
-    }
-
-    // Collapsed rail:
-    // - Không còn đích đến nào cho role hiện tại -> ẩn luôn mục cha.
-    if (visibleChildren.length === 0) return null;
-
-    // - Chỉ còn đúng một đích đến -> điều hướng thẳng, không mở flyout;
-    //   tooltip dùng chung hiển thị tên mục cha.
-    if (visibleChildren.length === 1) {
-      const onlyChild = visibleChildren[0];
-
-      return (
-        <SidebarMenuItem key={item.label}>
-          <SidebarMenuButton
-            asChild
-            className={isParentActive ? "font-semibold text-white" : undefined}
-            onPointerOver={(event) => showRailTooltip(event, item.label)}
-            onPointerOut={hideRailTooltip}
-            onFocus={(event) => showRailTooltip(event, item.label)}
-            onBlur={hideRailTooltip}
-          >
-            <NavLink
-              to={onlyChild.to}
-              onClick={handleNavigate}
-              aria-label={item.label}
-              className={
-                isDirectLinkActive(onlyChild, location.pathname)
-                  ? "bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover hover:text-white"
-                  : "text-bo-sidebar-muted hover:bg-bo-sidebar-hover hover:text-white"
-              }
-            >
-              <Icon className="size-[18px]" />
-            </NavLink>
-          </SidebarMenuButton>
         </SidebarMenuItem>
-      );
-    }
-
-    // - Nhiều đích đến -> hover mở flyout cạnh icon (click/Enter/Space toggle).
-    const isFlyoutOpen = flyout?.label === item.label;
-
-    return (
-      <SidebarMenuItem key={item.label}>
-        <SidebarMenuButton
-          type="button"
-          aria-haspopup="menu"
-          aria-expanded={isFlyoutOpen}
-          aria-label={item.label}
-          onPointerOver={
-            canHover
-              ? (event) =>
-                  scheduleFlyoutOpen(item, visibleChildren, event.currentTarget)
-              : undefined
-          }
-          onPointerOut={canHover ? scheduleFlyoutClose : undefined}
-          onClick={(event) => toggleFlyout(item, visibleChildren, event)}
-          className={
-            isParentActive
-              ? "bg-bo-sidebar-hover font-semibold text-white hover:bg-bo-sidebar-hover hover:text-white"
-              : "text-bo-sidebar-muted hover:bg-bo-sidebar-hover hover:text-white"
-          }
-        >
-          <Icon className="size-[18px]" />
-        </SidebarMenuButton>
-      </SidebarMenuItem>
+      </Collapsible>
     );
   };
 
@@ -590,47 +674,40 @@ export default function BackofficeSidebar() {
         collapsible="icon"
         className="z-50 border-r border-bo-sidebar-border bg-bo-sidebar text-white"
       >
-        <SidebarHeader
-          className={`h-[72px] justify-center border-b border-bo-sidebar-border bg-bo-sidebar ${
-            isExpanded ? "px-4" : "px-0"
-          }`}
-        >
-          {isExpanded ? (
-            <NavLink
-              to="/dashboard"
-              onClick={handleNavigate}
-              aria-label="FCentric — Trang tổng quan"
-              className="flex min-w-0 items-center rounded-md px-1"
-            >
-              <img
-                src="/branding/f-centric-logo.svg"
-                alt="FCentric – Fashion Warehouse Management"
-                className="h-10 w-auto max-w-full shrink-0 object-contain object-left"
-                draggable={false}
-              />
-            </NavLink>
-          ) : (
-            <NavLink
-              to="/dashboard"
-              onClick={handleNavigate}
-              aria-label="FCentric — Trang tổng quan"
-              className="flex items-center justify-center rounded-md px-1"
-              onPointerOver={(event) => showRailTooltip(event, "FCentric")}
-              onPointerOut={hideRailTooltip}
-              onFocus={(event) => showRailTooltip(event, "FCentric")}
-              onBlur={hideRailTooltip}
-            >
-              <img
-                src="/branding/f-centric-icon.svg"
-                alt="FCentric – Fashion Warehouse Management"
-                className="size-8 max-w-full shrink-0 object-contain"
-                draggable={false}
-              />
-            </NavLink>
-          )}
+        <SidebarHeader className="h-[72px] justify-center overflow-hidden border-b border-bo-sidebar-border bg-bo-sidebar px-3">
+          {/* Logo đầy đủ + icon F chồng lên nhau, biến hình qua lại bằng CSS
+              (.bo-sidebar-logo / .bo-sidebar-mark trong index.css). Tâm chữ F
+              nằm ở 32px — trùng tâm rail và cột icon menu. */}
+          <NavLink
+            to="/dashboard"
+            onClick={handleNavigate}
+            aria-label="FCentric — Trang tổng quan"
+            className="relative block h-10 w-full shrink-0 rounded-md outline-hidden ring-sidebar-ring focus-visible:ring-2"
+            {...(isExpanded
+              ? {}
+              : {
+                  onPointerOver: (event) => showRailTooltip(event, "FCentric"),
+                  onPointerOut: hideRailTooltip,
+                  onFocus: (event) => showRailTooltip(event, "FCentric"),
+                  onBlur: hideRailTooltip,
+                })}
+          >
+            <img
+              src="/branding/f-centric-logo.svg"
+              alt=""
+              className="bo-sidebar-logo absolute left-[11px] top-0 h-10 w-auto max-w-none"
+              draggable={false}
+            />
+            <img
+              src="/branding/f-centric-icon.svg"
+              alt=""
+              className="bo-sidebar-mark absolute left-0.5 top-1 h-8 w-auto max-w-none"
+              draggable={false}
+            />
+          </NavLink>
         </SidebarHeader>
 
-        <SidebarContent className="bo-sidebar-scroll bg-bo-sidebar px-2 py-3">
+        <SidebarContent className="bo-sidebar-scroll bg-bo-sidebar px-3 py-3">
           {sections.map((section, index) => (
             <div key={section.key}>
               {index > 0 ? (
@@ -640,9 +717,13 @@ export default function BackofficeSidebar() {
                 />
               ) : null}
 
-              {isExpanded && section.label ? (
-                <div className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-bo-sidebar-muted/80">
-                  {section.label}
+              {section.label ? (
+                <div className={SIDEBAR_COLLAPSE_ROW}>
+                  <div className="min-h-0 overflow-hidden">
+                    <div className="truncate px-[11px] pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-bo-sidebar-muted/80">
+                      {section.label}
+                    </div>
+                  </div>
                 </div>
               ) : null}
 
@@ -655,9 +736,14 @@ export default function BackofficeSidebar() {
           ))}
         </SidebarContent>
 
-        {isExpanded ? (
-          <SidebarFooter className="border-t border-bo-sidebar-border bg-bo-sidebar p-2">
-            <div className="flex items-center gap-3 rounded-md px-2 py-2 text-bo-sidebar-muted">
+        <SidebarFooter
+          className={cn(
+            "border-t border-bo-sidebar-border bg-bo-sidebar p-0",
+            SIDEBAR_COLLAPSE_ROW,
+          )}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="flex items-center gap-3 px-[23px] py-4 text-bo-sidebar-muted">
               <PackageCheck className="size-[18px] shrink-0" />
               <div className="min-w-0">
                 <p className="truncate text-xs font-semibold text-white">
@@ -666,8 +752,8 @@ export default function BackofficeSidebar() {
                 <p className="truncate text-[10px]">Internal management system</p>
               </div>
             </div>
-          </SidebarFooter>
-        ) : null}
+          </div>
+        </SidebarFooter>
       </Sidebar>
 
       {flyout

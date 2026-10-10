@@ -33,6 +33,9 @@
 	--color-bo-warning-soft: #fff7ed;
 	--color-bo-danger: #dc2626;
 	--color-bo-danger-soft: #fef2f2;
+
+	/* Nhịp thu gọn / mở rộng sidebar: dùng chung cho độ rộng, chữ, logo và nhóm menu. */
+	--ease-sidebar: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 [data-backoffice-shell] {
@@ -52,6 +55,104 @@
 
 .bo-sidebar-scroll::-webkit-scrollbar {
 	display: none; /* Chrome, Edge, Safari */
+}
+
+/*
+ * Logo sidebar: logo đầy đủ và icon F luôn cùng được render, chồng lên nhau và
+ * biến hình qua lại quanh tâm chữ F (F trong logo lớn gấp ~1/0.75 lần F của icon),
+ * nên chữ F như đứng yên còn phần chữ "Centric" mờ dần.
+ * Ảnh nằm trên (icon) chỉ mờ đi sau khi logo đã gần hiện hẳn, nên chữ F luôn
+ * đặc, không bị nhạt ở giữa quá trình mờ chéo. Khi mở rộng, logo hiện trễ một
+ * nhịp để chữ "Centric" không bị mép rail còn hẹp cắt ngang.
+ */
+.bo-sidebar-logo {
+	transform-origin: 22px 20px;
+	transition:
+		opacity 120ms ease-out 80ms,
+		translate 250ms var(--ease-sidebar),
+		scale 250ms var(--ease-sidebar);
+}
+
+.bo-sidebar-mark {
+	opacity: 0;
+	transform-origin: 18px 16px;
+	translate: 13px 0;
+	scale: 1.3333;
+	transition:
+		opacity 150ms ease-out 120ms,
+		translate 250ms var(--ease-sidebar),
+		scale 250ms var(--ease-sidebar);
+}
+
+[data-collapsible="icon"] .bo-sidebar-logo {
+	opacity: 0;
+	translate: -13px 0;
+	scale: 0.75;
+	transition:
+		opacity 150ms ease-out 50ms,
+		translate 250ms var(--ease-sidebar),
+		scale 250ms var(--ease-sidebar);
+}
+
+[data-collapsible="icon"] .bo-sidebar-mark {
+	opacity: 1;
+	translate: 0 0;
+	scale: 1;
+	transition:
+		opacity 100ms ease-out,
+		translate 250ms var(--ease-sidebar),
+		scale 250ms var(--ease-sidebar);
+}
+
+/*
+ * Nhóm menu con (Radix Collapsible): bung/co chiều cao cùng nhịp sidebar. Khi bung,
+ * chữ hiện trễ một nhịp như các nhãn khác — đặt ở keyframe vì nội dung được gắn
+ * mới mỗi lần mở (transition không chạy trên phần tử vừa gắn). Radix tự chặn
+ * animation ở lần render đầu nên tải trang không bị nháy.
+ */
+.bo-submenu[data-state="open"] {
+	animation:
+		bo-submenu-down 250ms var(--ease-sidebar),
+		bo-submenu-fade-in 200ms ease-out 100ms backwards;
+}
+
+.bo-submenu[data-state="closed"] {
+	animation: bo-submenu-up 250ms var(--ease-sidebar);
+}
+
+@keyframes bo-submenu-down {
+	from {
+		height: 0;
+	}
+	to {
+		height: var(--radix-collapsible-content-height);
+	}
+}
+
+@keyframes bo-submenu-up {
+	from {
+		height: var(--radix-collapsible-content-height);
+	}
+	to {
+		height: 0;
+	}
+}
+
+@keyframes bo-submenu-fade-in {
+	from {
+		opacity: 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.bo-sidebar-logo,
+	.bo-sidebar-mark {
+		transition: none;
+	}
+
+	.bo-submenu[data-state] {
+		animation: none;
+	}
 }
 
 :root {
