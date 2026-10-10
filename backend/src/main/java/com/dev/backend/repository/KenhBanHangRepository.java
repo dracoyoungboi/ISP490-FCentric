@@ -12,5 +12,7 @@ public interface KenhBanHangRepository
         extends JpaRepository<KenhBanHang, Integer>, JpaSpecificationExecutor<KenhBanHang> {
 
     Optional<KenhBanHang> findByMaKenh(String maKenh);
+
+    java.util.List<KenhBanHang> findByTrangThai(Integer trangThai);
 }
 

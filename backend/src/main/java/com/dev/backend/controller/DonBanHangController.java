@@ -7,6 +7,7 @@ import com.dev.backend.dto.request.DonBanHangCreating;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.BienTheSanPhamSelectDto;
 import com.dev.backend.dto.response.customize.DonBanHangDetailResponse;
+import com.dev.backend.dto.response.customize.DonBanHangKpiHomNayDto;
 import com.dev.backend.dto.response.entities.DonBanHangDto;
 import com.dev.backend.entities.DonBanHang;
 import com.dev.backend.mapper.DonBanHangMapper;
@@ -55,6 +56,27 @@ public class DonBanHangController {
                         .build()
         );
     }
+
+    @GetMapping("/kpi-hom-nay")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
+                    IRoleType.nhan_vien_kho,
+                    IRoleType.nhan_vien_ban_hang
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<ResponseData<DonBanHangKpiHomNayDto>> getKpiHomNay() {
+        return ResponseEntity.ok(
+                ResponseData.<DonBanHangKpiHomNayDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(donBanHangService.getKpiHomNay())
+                        .message("Lấy chỉ số KPI bán hàng hôm nay thành công")
+                        .build()
+        );
+    }
+
     @GetMapping("/{id}/detail")
     @RequireAuth(
             roles = {

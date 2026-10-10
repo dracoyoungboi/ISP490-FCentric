@@ -272,6 +272,10 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
 
             tonKho.setNgayXuatGanNhat(Instant.now());
             tonKhoTheoLoRepository.save(tonKho);
+            if (applicationEventPublisher != null && tonKho.getSoLuongTon().compareTo(BigDecimal.valueOf(3)) < 0) {
+                applicationEventPublisher.publishEvent(new com.dev.backend.event.InventoryDeductedEvent(
+                        this, pick.getBienTheSanPham().getId(), tonKho.getSoLuongTon(), phieu.getKho().getId()));
+            }
 
             // SỔ 1: Thẻ kho vật lý (LichSuGiaoDichKho) cho kho xuất thực tế
             String historyNote = isXuatChuyenKho

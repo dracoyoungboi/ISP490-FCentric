@@ -49,10 +49,19 @@ public interface DonBanHangRepository
           and d.loaiChungTu = 'don_ban_hang'
     """)
     Long countPendingSaleOrders();
+
+    @Query("""
+        select count(d)
+        from DonBanHang d
+        where d.trangThai = 0
+          and d.loaiChungTu = 'don_ban_hang'
+    """)
+    Long countOrdersChoXuLy();
     long countBySoDonHangStartingWith(String prefix);
 
     // Dùng để tìm kiếm khôi phục chứng từ khi Hủy đơn
     java.util.Optional<DonBanHang> findBySoDonHang(String soDonHang);
+    java.util.Optional<DonBanHang> findByMaDonHangKenh(String maDonHangKenh);
 
     List<DonBanHang> findByKhoXuat_IdAndTrangThaiAndDanhSachNhatHangIsNull(Integer khoId, Integer trangThai);
 

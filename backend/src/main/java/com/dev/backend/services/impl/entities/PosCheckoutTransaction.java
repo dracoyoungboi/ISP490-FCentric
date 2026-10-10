@@ -73,6 +73,9 @@ public class PosCheckoutTransaction {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired(required = false)
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
     @Transactional
     public PosCheckoutResponse execute(PosCheckoutCreating request) {
         NguoiDungAuthInfo auth = SecurityContextHolder.getUser();
@@ -177,6 +180,9 @@ public class PosCheckoutTransaction {
                 t.setSoLuongTon(truoc.subtract(alloc.quantity));
                 t.setNgayXuatGanNhat(Instant.now());
                 tonKhoTheoLoRepository.save(t);
+                if (eventPublisher != null && t.getSoLuongTon().compareTo(BigDecimal.valueOf(3)) < 0) {
+                    eventPublisher.publishEvent(new com.dev.backend.event.InventoryDeductedEvent(this, variant.getId(), t.getSoLuongTon(), t.getKho().getId()));
+                }
 
                 lichSuGiaoDichKhoRepository.save(LichSuGiaoDichKho.builder()
                         .ngayGiaoDich(Instant.now())

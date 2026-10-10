@@ -24,5 +24,7 @@ public interface IHanhDong {
             duyet_yeu_cau_mua_hang = "duyet_yeu_cau_mua_hang",
             tu_choi_yeu_cau_mua_hang = "tu_choi_yeu_cau_mua_hang",
             xuat_kho = "xuat_kho",
-            cap_nhat_kenh_ban = "cap_nhat_kenh_ban";
+            cap_nhat_kenh_ban = "cap_nhat_kenh_ban",
+            dong_bo_san_pham = "dong_bo_san_pham",
+            dong_bo_ton_kho = "dong_bo_ton_kho";
 }

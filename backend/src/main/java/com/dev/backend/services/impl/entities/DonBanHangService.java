@@ -10,6 +10,7 @@ import com.dev.backend.dto.request.DonBanHangCreating;
 import com.dev.backend.dto.request.FilterCriteria;
 import com.dev.backend.dto.response.customize.BienTheSanPhamSelectDto;
 import com.dev.backend.dto.response.customize.DonBanHangDetailResponse;
+import com.dev.backend.dto.response.customize.DonBanHangKpiHomNayDto;
 import com.dev.backend.dto.response.customize.PhieuXuatKhoSummaryDto;
 import com.dev.backend.dto.response.entities.ChiTietDonBanHangDto;
 import com.dev.backend.dto.response.entities.DonBanHangDto;
@@ -486,5 +487,20 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         // Chuyển trạng thái thành Bị hoàn trả (6)
         don.setTrangThai(6);
         repository.save(don);
+    }
+
+    @Transactional(readOnly = true)
+    public DonBanHangKpiHomNayDto getKpiHomNay() {
+        Long tong = donBanHangRepository.countOrdersToday();
+        Long choXuLy = donBanHangRepository.countOrdersChoXuLy();
+        Long dangXuLy = donBanHangRepository.countPendingSaleOrders();
+        Long doanhThu = donBanHangRepository.sumRevenueToday();
+
+        return DonBanHangKpiHomNayDto.builder()
+                .tongDonHomNay(tong != null ? tong : 0L)
+                .choXuLy(choXuLy != null ? choXuLy : 0L)
+                .dangXuLy(dangXuLy != null ? dangXuLy : 0L)
+                .giaTriDonHomNay(doanhThu != null ? BigDecimal.valueOf(doanhThu) : BigDecimal.ZERO)
+                .build();
     }
 }

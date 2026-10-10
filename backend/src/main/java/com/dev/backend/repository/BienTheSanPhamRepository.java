@@ -63,6 +63,7 @@ public interface BienTheSanPhamRepository extends JpaRepository<BienTheSanPham, 
             @Param("maVachSku") String maVachSku
     );
     List<BienTheSanPham> findByTrangThai(Integer trangThai);
+    Optional<BienTheSanPham> findByMaSkuIgnoreCase(String maSku);
 
     /**
      * Catalog POS phân trang: chỉ SKU hoạt động (trangThai=1) thuộc sản phẩm đang bán (trangThai=1),
