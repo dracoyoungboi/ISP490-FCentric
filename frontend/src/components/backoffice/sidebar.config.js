@@ -9,6 +9,8 @@ import {
   Printer,
   Settings2,
   CreditCard,
+  Store,
+  RefreshCw,
 } from "lucide-react";
 
 // Nhóm hiển thị trên sidebar — thứ tự khai báo cũng là thứ tự render.
@@ -18,6 +20,7 @@ export const SIDEBAR_SECTIONS = [
   { key: "overview", label: null },
   { key: "management", label: "QUẢN TRỊ" },
   { key: "operations", label: "VẬN HÀNH" },
+  { key: "channels", label: "KÊNH BÁN HÀNG" },
   { key: "reports", label: "GIÁM SÁT" },
   { key: "settings", label: "HỆ THỐNG" },
 ];
@@ -123,7 +126,17 @@ export const SIDEBAR_MENU = [
         to: "/warehouse",
         roles: ["quan_tri_vien", "quan_ly_kho"],
       },
-      { label: "Phiếu xuất kho", to: "/goods-issues" },
+      // Xuất kho theo Pick List (FO-045–047): Đơn chờ xuất → Pick List → Phiếu xuất kho
+      { label: "Đơn chờ xuất", to: "/goods-issues/pending-orders" },
+      { label: "Pick List", to: "/goods-issues/pick-lists" },
+      {
+        label: "Phiếu xuất kho",
+        to: "/goods-issues",
+        match: (path) =>
+          path.startsWith("/goods-issues") &&
+          !path.startsWith("/goods-issues/pending-orders") &&
+          !path.startsWith("/goods-issues/pick-lists"),
+      },
       {
         label: "Chuyển kho nội bộ",
         to: "/transfer-tickets",
@@ -165,6 +178,23 @@ export const SIDEBAR_MENU = [
         roles: ["quan_tri_vien", "nhan_vien_ban_hang"],
       },
     ],
+  },
+
+  // ================= KÊNH BÁN HÀNG (omnichannel, FO-073–077) =================
+  {
+    label: "Kết nối gian hàng",
+    icon: Store,
+    section: "channels",
+    to: "/channels",
+    roles: ["quan_tri_vien"],
+    match: (path) => path === "/channels" || /^\/channels\/\d+\//.test(path),
+  },
+  {
+    label: "Dashboard đồng bộ",
+    icon: RefreshCw,
+    section: "channels",
+    to: "/channels/sync",
+    roles: ["quan_tri_vien"],
   },
 
   // ================= BÁO CÁO & CẢNH BÁO =================

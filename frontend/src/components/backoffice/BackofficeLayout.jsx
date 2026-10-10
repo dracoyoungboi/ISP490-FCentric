@@ -400,6 +400,48 @@ export default function BackofficeLayout() {
             title: "Mẫu in",
             subtitle: "Xem trước mẫu in",
         },
+        {
+            key: "PENDING_ORDERS",
+            match: (path) => path === "/goods-issues/pending-orders",
+            title: "Đơn chờ xuất",
+            subtitle: "Gom đơn đã gửi kho thành Pick List để nhặt hàng",
+        },
+        {
+            key: "PICK_LISTS",
+            match: (path) => path === "/goods-issues/pick-lists",
+            title: "Pick List",
+            subtitle: "Phân công và theo dõi tiến độ nhặt hàng",
+        },
+        {
+            key: "PICK_LIST_DETAIL",
+            match: (path) => /^\/goods-issues\/pick-lists\/\d+$/.test(path),
+            title: "Thực hiện nhặt hàng",
+            subtitle: "Quét mã vạch, theo dõi tiến độ và hoàn tất nhặt hàng",
+        },
+        {
+            key: "CHANNELS",
+            match: (path) => path === "/channels",
+            title: "Kết nối gian hàng",
+            subtitle: "Kết nối Shopify, Lazada, TikTok Shop với kho FCentric",
+        },
+        {
+            key: "CHANNEL_SYNC",
+            match: (path) => path === "/channels/sync",
+            title: "Dashboard đồng bộ",
+            subtitle: "Theo dõi đẩy tồn, nhận đơn và lỗi đồng bộ theo từng gian hàng",
+        },
+        {
+            key: "CHANNEL_SETUP",
+            match: (path) => /^\/channels\/\d+\/setup$/.test(path),
+            title: "Thiết lập kết nối",
+            subtitle: "Kho đồng bộ, quy tắc tồn, nhận đơn và liên kết sản phẩm",
+        },
+        {
+            key: "CHANNEL_MAPPINGS",
+            match: (path) => /^\/channels\/\d+\/mappings$/.test(path),
+            title: "Liên kết sản phẩm",
+            subtitle: "Ghép SKU trên sàn với biến thể FCentric",
+        },
     ];
 
     const pageMeta = PAGE_META_CONFIG.find((item) =>

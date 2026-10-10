@@ -86,6 +86,13 @@ import PaymentSettingsPage from "./pages/settings/PaymentSettingsPage";
 import RequireRole from "./components/auth/RequireRole";
 import PosPage from "./pages/pos";
 import PosLayout from "./pages/pos/PosLayout";
+import DonChoXuatPage from "./pages/issue/DonChoXuatPage";
+import PickListList from "./pages/issue/PickListList";
+import PickListDetail from "./pages/issue/PickListDetail";
+import ChannelsPage from "./pages/channels/ChannelsPage";
+import ChannelSetupWizard from "./pages/channels/ChannelSetupWizard";
+import ChannelMappingsPage from "./pages/channels/ChannelMappingsPage";
+import ChannelSyncDashboard from "./pages/channels/ChannelSyncDashboard";
 
 export default function App() {
   return (
@@ -238,6 +245,22 @@ export default function App() {
 
           <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"]} />}>
             <Route path="/settings/inventory" element={<InventorySystemSettingsPage />} />
+          </Route>
+
+          {/* Xuất kho theo Pick List (FO-045–047) — vai trò kho, khớp @RequireAuth của NhatHangController.
+              Đường dẫn tĩnh được ưu tiên hơn /goods-issues/:id nên không đè chi tiết phiếu xuất. */}
+          <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"]} />}>
+            <Route path="/goods-issues/pending-orders" element={<DonChoXuatPage />} />
+            <Route path="/goods-issues/pick-lists" element={<PickListList />} />
+            <Route path="/goods-issues/pick-lists/:id" element={<PickListDetail />} />
+          </Route>
+
+          {/* Kênh bán hàng (FO-073–077) — chỉ quản trị viên (backend cũng chặn bằng @RequireAuth) */}
+          <Route element={<RequireRole roles={["quan_tri_vien"]} />}>
+            <Route path="/channels" element={<ChannelsPage />} />
+            <Route path="/channels/sync" element={<ChannelSyncDashboard />} />
+            <Route path="/channels/:id/setup" element={<ChannelSetupWizard />} />
+            <Route path="/channels/:id/mappings" element={<ChannelMappingsPage />} />
           </Route>
           </Route>
 
