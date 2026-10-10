@@ -143,7 +143,7 @@ export default function InventorySystemSettingsPage() {
 
   return (
     <PageContainer className="max-w-none space-y-5">
-      <PageHeader eyebrow="Quản lý kho" title="Cấu hình hệ thống kho" description="Thiết lập cảnh báo tồn kho và các thông số đồng bộ đơn hàng."
+      <PageHeader  title="Cấu hình hệ thống kho" description="Thiết lập cảnh báo tồn kho và các thông số đồng bộ đơn hàng."
         actions={<>
           <Button type="button" variant="outline" disabled={!hasPermission || !loaded || !dirty || saving} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle hover:text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/15" onClick={() => { setValues(valuesFromSettings(loaded)); setSaveError(""); }}><RotateCcw className="size-4" />Hủy thay đổi</Button>
           <Button type="submit" form="inventory-settings-form" disabled={!canSave} className="bg-bo-primary text-white hover:bg-bo-primary-hover focus-visible:border-bo-primary focus-visible:ring-bo-primary/15">{saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}{saving ? "Đang lưu…" : "Lưu thay đổi"}</Button>

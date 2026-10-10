@@ -8,6 +8,7 @@ import SurfaceCard from "@/components/shared/SurfaceCard";
 import TableShell from "@/components/shared/TableShell";
 import StatusBadge from "@/components/shared/StatusBadge";
 import LoadingState from "@/components/shared/LoadingState";
+import EmptyState from "@/components/shared/EmptyState";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import { Button } from "@/components/ui/button";
 import {
@@ -238,6 +239,13 @@ export default function PhieuXuatKhoDetail() {
                 title="Danh sách sản phẩm"
                 description={`${chiTiet.length} mặt hàng cần xuất kho`}
             >
+                {chiTiet.length === 0 ? (
+                    <EmptyState
+                        icon={Package}
+                        title="Phiếu chưa có sản phẩm"
+                        description="Phiếu xuất kho này chưa có dòng sản phẩm nào."
+                    />
+                ) : (
                 <table className="w-full min-w-[900px] text-sm">
                     <thead>
                         <tr className="border-b border-bo-border bg-bo-surface-subtle">
@@ -314,6 +322,7 @@ export default function PhieuXuatKhoDetail() {
                         })}
                     </tbody>
                 </table>
+                )}
             </TableShell>
 
             {/* ── Modals ── */}

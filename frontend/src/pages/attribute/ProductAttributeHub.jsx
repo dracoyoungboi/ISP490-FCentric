@@ -31,10 +31,25 @@ import { getAllChatLieu, deleteChatLieu, createChatLieu, updateChatLieu } from "
 import { thuongHieuService } from "@/services/thuongHieuService";
 import { formatDate } from "@/utils/formatters";
 
+// Chuẩn hoá mã màu về dạng #RRGGBB (chấp nhận thiếu '#', viết thường, dạng rút gọn #RGB).
+// Trả về null nếu không hợp lệ — <input type="color"> chỉ nhận đúng #rrggbb.
+const normalizeHex = (value) => {
+    if (typeof value !== 'string') return null;
+    let hex = value.trim().replace(/^#/, '');
+    if (/^[0-9a-f]{3}$/i.test(hex)) hex = hex.split('').map(c => c + c).join('');
+    return /^[0-9a-f]{6}$/i.test(hex) ? `#${hex.toUpperCase()}` : null;
+};
+
+const DEFAULT_HEX = "#000000";
+
+const EMPTY_FORM = { ten: "", ma: "", maMauHex: DEFAULT_HEX, loaiSize: "", thuTuSapXep: 0, moTa: "", trangThai: 1 };
+
 const formSchema = z.object({
     ten: z.string().min(1, "Tên không được để trống"),
     ma: z.string().min(1, "Mã không được để trống"),
-    maMauHex: z.string().optional(),
+    maMauHex: z.string()
+        .refine(v => normalizeHex(v) !== null, "Mã màu phải có dạng #RRGGBB")
+        .transform(normalizeHex),
     loaiSize: z.string().optional(),
     thuTuSapXep: z.coerce.number().optional(),
     moTa: z.string().optional(),
@@ -88,12 +103,15 @@ const ViewModal = ({ viewItem, activeTab, onClose, onEdit }) => {
 
                     {/* ── COLOR specific ── */}
                     {activeTab === 'color' && (
-                        <InfoTile
-                            icon={<Pipette className="size-3.5" />}
-                            label="Mã màu Hex"
-                            value={viewItem.maMauHex || '—'}
-                            mono
-                        />
+                        <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-3">
+                            <TileLabel icon={<Pipette className="size-3.5" />} label="Mã màu Hex" />
+                            <div className="mt-1.5 flex items-center gap-2.5">
+                                <ColorSwatch hex={viewItem.maMauHex} className="size-8" />
+                                <p className="font-mono text-sm font-semibold text-bo-foreground">
+                                    {viewItem.maMauHex || '—'}
+                                </p>
+                            </div>
+                        </div>
                     )}
 
                     {/* ── SIZE specific ── */}
@@ -196,14 +214,16 @@ const ProductAttributeHub = () => {
 
     const form = useForm({
         resolver: zodResolver(formSchema),
-        defaultValues: { ten: "", ma: "", maMauHex: "#000000", loaiSize: "", thuTuSapXep: 0, moTa: "", trangThai: 1 },
+        defaultValues: EMPTY_FORM,
     });
+    const { errors } = form.formState;
 
+    // Luôn trộn với EMPTY_FORM để reset() không để lại field undefined (VD: maMauHex ở tab khác)
     const mapToForm = (item) => {
-        if (activeTab === 'color') return { ma: item.maMau, ten: item.tenMau, maMauHex: item.maMauHex || "#000000" };
-        if (activeTab === 'size') return { ma: item.maSize, ten: item.tenSize, loaiSize: item.loaiSize, thuTuSapXep: item.thuTuSapXep, moTa: item.moTa };
-        if (activeTab === 'material') return { ma: item.maChatLieu, ten: item.tenChatLieu, moTa: item.moTa };
-        if (activeTab === 'brand') return { ma: item.maThuongHieu, ten: item.tenThuongHieu, moTa: item.moTa, trangThai: item.trangThai ?? 1 };
+        if (activeTab === 'color') return { ...EMPTY_FORM, ma: item.maMau, ten: item.tenMau, maMauHex: normalizeHex(item.maMauHex) || DEFAULT_HEX };
+        if (activeTab === 'size') return { ...EMPTY_FORM, ma: item.maSize, ten: item.tenSize, loaiSize: item.loaiSize ?? "", thuTuSapXep: item.thuTuSapXep ?? 0, moTa: item.moTa ?? "" };
+        if (activeTab === 'material') return { ...EMPTY_FORM, ma: item.maChatLieu, ten: item.tenChatLieu, moTa: item.moTa ?? "" };
+        if (activeTab === 'brand') return { ...EMPTY_FORM, ma: item.maThuongHieu, ten: item.tenThuongHieu, moTa: item.moTa ?? "", trangThai: item.trangThai ?? 1 };
     };
 
     const mapToPayload = (values) => {
@@ -275,7 +295,7 @@ const ProductAttributeHub = () => {
         if (item) form.reset(mapToForm(item));
         else {
             const autoCode = mode === 'add' && (activeTab === 'color' || activeTab === 'material' || activeTab === 'brand') ? generateAutoCode() : '';
-            form.reset({ ten: "", ma: autoCode, maMauHex: "#000000", loaiSize: "", thuTuSapXep: 0, moTa: "", trangThai: 1 });
+            form.reset({ ...EMPTY_FORM, ma: autoCode });
         }
     };
 
@@ -319,7 +339,9 @@ const ProductAttributeHub = () => {
             }
             setModalConfig({ open: false, mode: 'add', item: null });
             fetchData();
-        } catch { toast.error("Thao tác thất bại"); }
+        } catch (err) {
+            toast.error(err?.response?.data?.message || "Thao tác thất bại");
+        }
     };
 
     const confirmDelete = async () => {
@@ -567,9 +589,12 @@ const ProductAttributeHub = () => {
                                         </td>
                                         {activeTab === 'color' && (
                                             <td className="px-3 py-3">
-                                                <span className="inline-flex items-center rounded-md border border-bo-border bg-bo-surface-subtle px-2 py-0.5 font-mono text-xs text-bo-foreground">
-                                                    {item.maMauHex || '—'}
-                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                    <ColorSwatch hex={item.maMauHex} className="size-6" />
+                                                    <span className="inline-flex items-center rounded-md border border-bo-border bg-bo-surface-subtle px-2 py-0.5 font-mono text-xs text-bo-foreground">
+                                                        {item.maMauHex || '—'}
+                                                    </span>
+                                                </div>
                                             </td>
                                         )}
                                         {activeTab === 'size' && (
@@ -699,6 +724,7 @@ const ProductAttributeHub = () => {
                                         </button>
                                     )}
                                 </div>
+                                <FieldError message={errors.ma?.message} />
                             </div>
 
                             <div className="space-y-1.5">
@@ -708,24 +734,49 @@ const ProductAttributeHub = () => {
                                     className="h-9 border-bo-border bg-white font-semibold text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
                                     placeholder="Nhập tên hiển thị"
                                 />
+                                <FieldError message={errors.ten?.message} />
                             </div>
                         </div>
 
                         {activeTab === 'color' && (
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Mã màu Hex</Label>
-                                <div className="flex items-center gap-3">
-                                    <input
-                                        type="color"
-                                        className="h-9 w-16 cursor-pointer rounded-md border border-bo-border bg-white p-1"
-                                        {...form.register("maMauHex")}
-                                    />
-                                    <Input
-                                        {...form.register("maMauHex")}
-                                        className="h-9 flex-1 border-bo-border bg-white font-mono uppercase text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-                                        placeholder="#000000"
-                                    />
-                                </div>
+                                <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Mã màu Hex *</Label>
+                                {/* Một field duy nhất cho cả ô chọn màu và ô nhập — hai ô luôn đồng bộ */}
+                                <Controller
+                                    name="maMauHex"
+                                    control={form.control}
+                                    render={({ field }) => {
+                                        const validHex = normalizeHex(field.value);
+                                        return (
+                                            <div className="flex items-center gap-3">
+                                                <input
+                                                    type="color"
+                                                    aria-label="Chọn màu"
+                                                    value={(validHex || DEFAULT_HEX).toLowerCase()}
+                                                    onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                                                    onBlur={field.onBlur}
+                                                    className="h-9 w-16 cursor-pointer rounded-md border border-bo-border bg-white p-1"
+                                                />
+                                                <Input
+                                                    ref={field.ref}
+                                                    name={field.name}
+                                                    value={field.value ?? ""}
+                                                    onChange={(e) => field.onChange(e.target.value)}
+                                                    onBlur={() => {
+                                                        // Tự chuẩn hoá khi rời ô (VD: "fff" → "#FFFFFF")
+                                                        if (validHex && validHex !== field.value) field.onChange(validHex);
+                                                        field.onBlur();
+                                                    }}
+                                                    maxLength={7}
+                                                    aria-invalid={!!errors.maMauHex}
+                                                    className="h-9 flex-1 border-bo-border bg-white font-mono uppercase text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20 aria-invalid:border-bo-danger"
+                                                    placeholder="#000000"
+                                                />
+                                            </div>
+                                        );
+                                    }}
+                                />
+                                <FieldError message={errors.maMauHex?.message} />
                             </div>
                         )}
 
@@ -895,6 +946,31 @@ function TileLabel({ icon, label }) {
             <span className="text-bo-muted">{icon}</span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">{label}</span>
         </div>
+    );
+}
+
+function FieldError({ message }) {
+    if (!message) return null;
+    return <p className="text-xs font-medium text-bo-danger">{message}</p>;
+}
+
+function ColorSwatch({ hex, className = "" }) {
+    const validHex = normalizeHex(hex);
+    if (!validHex) {
+        return (
+            <span
+                title="Chưa có mã màu hợp lệ"
+                className={`inline-block shrink-0 rounded-md border border-dashed border-bo-border bg-bo-surface-subtle ${className}`}
+            />
+        );
+    }
+    return (
+        // data-viz: màu động theo maMauHex
+        <span
+            title={validHex}
+            className={`inline-block shrink-0 rounded-md border border-bo-border ${className}`}
+            style={{ backgroundColor: validHex }}
+        />
     );
 }
 

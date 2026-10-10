@@ -359,7 +359,7 @@ export default function QuotationRequestList() {
     return (
         <PageContainer className="space-y-5">
             <PageHeader
-                eyebrow="Mua hàng"
+                
                 title="Yêu cầu báo giá"
                 description="Theo dõi các yêu cầu mua hàng đã gửi nhà cung cấp và các báo giá nhận về."
                 actions={

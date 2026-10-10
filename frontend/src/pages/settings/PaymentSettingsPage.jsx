@@ -11,8 +11,8 @@ import {
   Info,
   KeyRound,
   Link2,
+  LoaderCircle,
   Pencil,
-  PlugZap,
   RefreshCw,
   XCircle,
 } from "lucide-react";
@@ -34,17 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { paymentConfigService } from "@/services/paymentConfigService";
-
-/**
- * Logo payOS chính thức: đặt file SVG tại src/assets/brands/payos-logo.svg.
- * Dùng import.meta.glob để thiếu file vẫn build được (khi đó hiện chữ "payOS").
- */
-const brandLogos = import.meta.glob("/src/assets/brands/payos-logo.svg", {
-  eager: true,
-  query: "?url",
-  import: "default",
-});
-const PAYOS_LOGO_URL = Object.values(brandLogos)[0] || null;
+import PayosLogo from "@/components/shared/PayosLogo";
 
 const PAYOS_DASHBOARD_URL = "https://my.payos.vn";
 const WEBHOOK_PATH = "/api/v1/payos/webhook";
@@ -76,10 +66,14 @@ const inputClass =
   "h-10 w-full rounded-lg border border-bo-border bg-bo-surface px-3 text-sm text-bo-foreground outline-none placeholder:text-slate-500 focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle";
 const readonlyBoxClass =
   "flex h-10 min-w-0 flex-1 items-center rounded-lg border border-bo-border bg-bo-surface-subtle px-3 font-mono text-sm text-bo-foreground";
+// Button dùng chung chưa có màu ring nên focus bàn phím không hiện: tự thêm ring bo-* ở đây.
 const primaryButtonClass =
-  "h-10 bg-bo-primary px-4 text-white hover:bg-bo-primary-hover disabled:bg-slate-200 disabled:text-slate-600 disabled:opacity-100";
+  "h-10 rounded-lg bg-bo-primary px-4 text-white hover:bg-bo-primary-hover focus-visible:ring-2 focus-visible:ring-bo-primary/40 focus-visible:ring-offset-2 disabled:bg-slate-200 disabled:text-slate-600 disabled:opacity-100";
 const secondaryButtonClass =
-  "h-10 border-bo-border bg-bo-surface px-4 text-bo-foreground hover:bg-bo-surface-subtle disabled:text-slate-500 disabled:opacity-100";
+  "h-10 rounded-lg border-bo-border bg-bo-surface px-4 text-bo-foreground shadow-none hover:bg-bo-surface-subtle focus-visible:border-bo-primary focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:bg-bo-surface-subtle disabled:text-slate-500 disabled:opacity-100";
+// Icon trong nút: cùng cỡ, cùng nét; nút viền thêm màu xám slate-500
+const buttonIconProps = { "aria-hidden": true, size: 16, strokeWidth: 1.75 };
+const outlineIconClass = "text-slate-500";
 const subText = "text-sm leading-6 text-slate-600";
 const linkClass = "font-medium text-bo-primary hover:underline";
 
@@ -143,6 +137,17 @@ function Card({ icon, title, description, aside, children, footer }) {
   );
 }
 
+/** Nhãn nút lưu khóa; nhãn đang tải ngắn gọn để vừa min-w của nút, không làm nút giãn ra. */
+function SaveKeysLabel({ saving }) {
+  if (!saving) return "Lưu và kiểm tra";
+  return (
+    <>
+      <LoaderCircle {...buttonIconProps} className="animate-spin" />
+      Đang xác minh…
+    </>
+  );
+}
+
 /** Chỉ đường lấy khóa trên payOS — chỉ hiện ở nơi đang nhập khóa (lần đầu, hộp thoại cập nhật). */
 function KeySourceHint() {
   return (
@@ -171,7 +176,7 @@ function StatusPill({ tone, children }) {
 }
 
 /** Ô nhập khóa: kiểu password, nút mắt chỉ hiện/ẩn chữ đang gõ (không bao giờ có khóa thật đã lưu). */
-function SecretInput({ id, label, value, onChange, error, disabled, autoFocus }) {
+function SecretInput({ id, label, value, onChange, error, disabled, autoFocus, placeholder }) {
   const [visible, setVisible] = useState(false);
   return (
     <div>
@@ -184,17 +189,22 @@ function SecretInput({ id, label, value, onChange, error, disabled, autoFocus })
           aria-invalid={Boolean(error)}
           autoComplete="off"
           autoFocus={autoFocus}
-          className={cn(inputClass, "pr-10 font-mono", error && "border-bo-danger focus:border-bo-danger focus:ring-bo-danger/15")}
+          className={cn(
+            inputClass,
+            "pr-10 font-mono placeholder:font-sans",
+            error && "border-bo-danger focus:border-bo-danger focus:ring-bo-danger/15",
+          )}
           disabled={disabled}
           id={id}
           onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
           spellCheck={false}
           type={visible ? "text" : "password"}
           value={value}
         />
         <button
           aria-label={visible ? `Ẩn ${label}` : `Hiện ${label}`}
-          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1.5 text-slate-500 hover:text-bo-foreground"
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1.5 text-slate-500 outline-none hover:text-bo-foreground focus-visible:ring-2 focus-visible:ring-bo-primary/30"
           onClick={() => setVisible((v) => !v)}
           type="button"
         >
@@ -210,8 +220,11 @@ function SecretInput({ id, label, value, onChange, error, disabled, autoFocus })
   );
 }
 
-/** Bộ 3 ô khóa — dùng cho lần thiết lập đầu và hộp thoại cập nhật khóa. */
-function KeyFormFields({ idPrefix, values, errors, onChange, disabled }) {
+/**
+ * Bộ 3 ô khóa — dùng cho lần thiết lập đầu và hộp thoại cập nhật khóa.
+ * Ô luôn bắt đầu trống: không bao giờ điền khóa thật hay chuỗi đã che vào input.
+ */
+function KeyFormFields({ idPrefix, values, errors, onChange, disabled, placeholder }) {
   return (
     <div className="space-y-4">
       {KEY_FIELDS.map((field, index) => (
@@ -223,6 +236,7 @@ function KeyFormFields({ idPrefix, values, errors, onChange, disabled }) {
           key={field.name}
           label={field.label}
           onChange={(v) => onChange(field.name, v)}
+          placeholder={placeholder}
           value={values[field.name]}
         />
       ))}
@@ -236,12 +250,32 @@ function KeyFormFields({ idPrefix, values, errors, onChange, disabled }) {
   );
 }
 
-const validateKeys = (values) => {
+const KEEP_KEY_PLACEHOLDER = "Giữ nguyên khóa đang lưu";
+const CHANNEL_KEYS_REQUIRED = "Khi nhập Client ID, hãy cung cấp đầy đủ bộ khóa của kênh.";
+
+/** Các khóa có nhập (đã trim). Ô trống không có mặt = giữ khóa đang lưu. */
+const enteredKeys = (values) =>
+  Object.fromEntries(KEY_FIELDS.map((field) => [field.name, values[field.name].trim()]).filter(([, value]) => value));
+
+/**
+ * mode "setup": lần đầu, bắt buộc đủ 3 khóa.
+ * mode "update": chỉ kiểm định dạng ô có nhập, cần ít nhất một ô; nhập Client ID
+ * (có thể là kênh khác) thì phải đủ cả bộ — không so với chuỗi đã che, backend tự so với khóa đang lưu.
+ */
+const validateKeys = (values, mode) => {
   const errors = {};
+  const entered = enteredKeys(values);
+  if (mode === "update" && !Object.keys(entered).length) {
+    return { form: "Nhập ít nhất một khóa cần thay đổi." };
+  }
+  const requireAll = mode === "setup" || Boolean(entered.clientId);
   KEY_FIELDS.forEach((field) => {
-    const value = values[field.name].trim();
-    if (!value) errors[field.name] = `Nhập ${field.label}.`;
-    else if (!field.pattern.test(value)) errors[field.name] = `${field.label} không đúng định dạng (${field.formatHint}).`;
+    const value = entered[field.name];
+    if (!value) {
+      if (requireAll) errors[field.name] = mode === "setup" ? `Nhập ${field.label}.` : CHANNEL_KEYS_REQUIRED;
+    } else if (!field.pattern.test(value)) {
+      errors[field.name] = `${field.label} không đúng định dạng (${field.formatHint}).`;
+    }
   });
   return errors;
 };
@@ -391,8 +425,16 @@ function QrExpiryControl({ savedValue, editing, value, valid, saving, errorId, o
             />
             <span className="pr-3 text-sm text-slate-600">phút</span>
           </div>
-          <Button className={cn(primaryButtonClass, "px-3")} disabled={!valid || saving} type="submit">
-            {saving ? "Đang lưu…" : "Lưu"}
+          {/* Đang lưu: chỉ hiện vòng xoay (chữ cho trình đọc màn hình) để nút gọn không đổi cỡ */}
+          <Button aria-busy={saving} className={cn(primaryButtonClass, "min-w-14 px-3")} disabled={!valid || saving} type="submit">
+            {saving ? (
+              <>
+                <LoaderCircle {...buttonIconProps} className="animate-spin" />
+                <span className="sr-only">Đang lưu…</span>
+              </>
+            ) : (
+              "Lưu"
+            )}
           </Button>
           <Button className={cn(secondaryButtonClass, "px-3")} disabled={saving} onClick={onCancel} type="button" variant="outline">
             Hủy
@@ -410,7 +452,7 @@ function QrExpiryControl({ savedValue, editing, value, valid, saving, errorId, o
             ref={editButtonRef}
             type="button"
           >
-            <Pencil size={15} />
+            <Pencil {...buttonIconProps} />
           </button>
         </div>
       )}
@@ -449,12 +491,6 @@ function GuideDialog({ open, onOpenChange }) {
               <li>Khóa được mã hóa AES-256 trước khi lưu và không bao giờ hiển thị lại đầy đủ.</li>
             </ul>
           </div>
-          {import.meta.env.DEV ? (
-            <p className="rounded-lg bg-bo-surface-subtle px-3 py-2 text-xs leading-5 text-slate-700">
-              Máy dev: chạy <code className="font-mono">ngrok http 8080</code>, dùng link https của ngrok +{" "}
-              <code className="break-all font-mono">{WEBHOOK_PATH}</code> làm Webhook URL.
-            </p>
-          ) : null}
         </div>
       </DialogContent>
     </Dialog>
@@ -555,9 +591,10 @@ export default function PaymentSettingsPage() {
     }
   };
 
-  const saveKeys = async () => {
+  /** mode "setup" (lần đầu, đủ 3 khóa) hoặc "update" (hộp thoại, chỉ khóa cần đổi). */
+  const saveKeys = async (mode) => {
     if (savingKeys) return;
-    const errors = validateKeys(keyValues);
+    const errors = validateKeys(keyValues, mode);
     if (Object.keys(errors).length) {
       setKeyErrors(errors);
       return;
@@ -565,21 +602,18 @@ export default function PaymentSettingsPage() {
     setSavingKeys(true);
     setTestResult(null);
     try {
-      // Backend xác minh bộ khóa với payOS trước khi lưu; khóa sai -> lỗi, không lưu.
-      const data = await paymentConfigService.updatePayos({
-        clientId: keyValues.clientId.trim(),
-        apiKey: keyValues.apiKey.trim(),
-        checksumKey: keyValues.checksumKey.trim(),
-      });
+      // Chỉ gửi khóa có nhập; trường vắng mặt = backend giữ khóa đang lưu, ghép lại rồi
+      // xác minh cả bộ với payOS trước khi lưu; khóa sai -> lỗi, không lưu.
+      const data = await paymentConfigService.updatePayos(enteredKeys(keyValues));
       applyConfig(data);
       resetKeyForm();
       setKeyDialogOpen(false);
       // Một thông báo là đủ: backend chỉ lưu khi payOS đã xác minh cả 3 khóa
       toast.success("Đã lưu và xác minh khóa kết nối");
     } catch (error) {
+      // Chỉ báo trong khung đỏ của form (cạnh ô khóa), không thêm toast trùng nội dung
       const message = errorMessage(error, "Không lưu được khóa");
       setKeyErrors((current) => ({ ...current, form: `${message} Khóa đang dùng không thay đổi.` }));
-      toast.error(message);
     } finally {
       setSavingKeys(false);
     }
@@ -691,6 +725,8 @@ export default function PaymentSettingsPage() {
   const savedWebhookUrl = config?.webhookUrl || "";
   const webhookEditable = !savedWebhookUrl || editingWebhook;
   const webhookChanged = webhookUrl.trim() !== savedWebhookUrl;
+  const isReregister = webhookConfirmed && !editingWebhook;
+  const hasKeyInput = Object.keys(enteredKeys(keyValues)).length > 0;
 
   const expiryNumber = Number(expiry);
   const expiryValid = expiry !== "" && Number.isInteger(expiryNumber) && expiryNumber >= EXPIRY_MIN && expiryNumber <= EXPIRY_MAX;
@@ -722,12 +758,8 @@ export default function PaymentSettingsPage() {
       <section className="@container overflow-hidden rounded-xl border border-bo-border bg-bo-surface shadow-sm">
         <div className="flex flex-wrap items-center gap-x-6 gap-y-4 px-4 py-4 sm:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-4">
-            <div className="flex h-8 shrink-0 items-center border-r border-bo-border pr-4">
-              {PAYOS_LOGO_URL ? (
-                <img alt="payOS" className="h-7 w-auto max-w-none object-contain" src={PAYOS_LOGO_URL} />
-              ) : (
-                <span className="text-xl font-bold tracking-tight text-bo-foreground">payOS</span>
-              )}
+            <div className="flex h-10 shrink-0 items-center border-r border-bo-border pr-4">
+              <PayosLogo height={40} />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-bo-foreground">Chuyển khoản QR tại quầy</p>
@@ -795,7 +827,7 @@ export default function PaymentSettingsPage() {
               </SetupStep>
             </ol>
             <button className={cn(linkClass, "inline-flex items-center gap-1.5 self-start text-sm @4xl:self-auto")} onClick={() => setGuideOpen(true)} type="button">
-              <BookOpen size={15} /> Xem hướng dẫn
+              <BookOpen {...buttonIconProps} /> Xem hướng dẫn
             </button>
           </div>
         ) : null}
@@ -809,7 +841,7 @@ export default function PaymentSettingsPage() {
             aside={
               setupComplete ? (
                 <button className={cn(linkClass, "inline-flex items-center gap-1.5 text-sm")} onClick={() => setGuideOpen(true)} type="button">
-                  <BookOpen size={15} /> Hướng dẫn
+                  <BookOpen {...buttonIconProps} /> Hướng dẫn
                 </button>
               ) : null
             }
@@ -818,8 +850,21 @@ export default function PaymentSettingsPage() {
               hasKeys ? (
                 <>
                   <InlineSuccess show={Boolean(testResult?.ok)}>Kết nối thành công</InlineSuccess>
-                  <Button className={secondaryButtonClass} disabled={testing} onClick={runTest} type="button" variant="outline">
-                    <PlugZap size={16} /> {testing ? "Đang kiểm tra…" : "Kiểm tra kết nối"}
+                  {/* "Kiểm tra kết nối" và "Đang kiểm tra…" rộng gần bằng nhau nên không cần min-w */}
+                  <Button
+                    aria-busy={testing}
+                    className={secondaryButtonClass}
+                    disabled={testing}
+                    onClick={runTest}
+                    type="button"
+                    variant="outline"
+                  >
+                    {testing ? (
+                      <LoaderCircle {...buttonIconProps} className={cn("animate-spin", outlineIconClass)} />
+                    ) : (
+                      <RefreshCw {...buttonIconProps} className={outlineIconClass} />
+                    )}
+                    {testing ? "Đang kiểm tra…" : "Kiểm tra kết nối"}
                   </Button>
                   <Button
                     className={secondaryButtonClass}
@@ -831,12 +876,18 @@ export default function PaymentSettingsPage() {
                     type="button"
                     variant="outline"
                   >
-                    <Pencil size={15} /> Cập nhật khóa
+                    <Pencil {...buttonIconProps} className={outlineIconClass} /> Cập nhật khóa
                   </Button>
                 </>
               ) : (
-                <Button className={primaryButtonClass} disabled={!canStoreKeys || savingKeys} onClick={saveKeys} type="button">
-                  {savingKeys ? "Đang xác minh với payOS…" : "Lưu và kiểm tra"}
+                <Button
+                  aria-busy={savingKeys}
+                  className={cn(primaryButtonClass, "min-w-[168px]")}
+                  disabled={!canStoreKeys || savingKeys}
+                  onClick={() => saveKeys("setup")}
+                  type="button"
+                >
+                  <SaveKeysLabel saving={savingKeys} />
                 </Button>
               )
             }
@@ -869,36 +920,42 @@ export default function PaymentSettingsPage() {
             footer={
               <>
                 <InlineSuccess show={Boolean(webhookResult?.ok)}>Đã đăng ký webhook</InlineSuccess>
-                {savedWebhookUrl ? (
-                  editingWebhook ? (
-                    <Button
-                      className={secondaryButtonClass}
-                      disabled={registering}
-                      onClick={() => {
-                        setWebhookUrl(savedWebhookUrl);
-                        setEditingWebhook(false);
-                      }}
-                      type="button"
-                      variant="outline"
-                    >
-                      Hủy
-                    </Button>
-                  ) : (
-                    <Button className={secondaryButtonClass} disabled={!hasKeys} onClick={() => setEditingWebhook(true)} type="button" variant="outline">
-                      <Pencil size={15} /> Đổi URL
-                    </Button>
-                  )
+                {savedWebhookUrl && editingWebhook ? (
+                  <Button
+                    className={secondaryButtonClass}
+                    disabled={registering}
+                    onClick={() => {
+                      setWebhookUrl(savedWebhookUrl);
+                      setEditingWebhook(false);
+                    }}
+                    type="button"
+                    variant="outline"
+                  >
+                    Hủy
+                  </Button>
                 ) : null}
+                {/* Đang đăng ký: giữ nhãn, chỉ đổi icon sang vòng xoay để nút không đổi cỡ */}
                 <Button
-                  className={webhookConfirmed && !editingWebhook ? secondaryButtonClass : primaryButtonClass}
+                  aria-busy={registering}
+                  className={isReregister ? secondaryButtonClass : primaryButtonClass}
                   disabled={registering || !hasKeys || !webhookUrl.trim() || (editingWebhook && !webhookChanged)}
                   onClick={onRegisterClick}
                   type="button"
-                  variant={webhookConfirmed && !editingWebhook ? "outline" : "default"}
+                  variant={isReregister ? "outline" : "default"}
                 >
-                  <RefreshCw className={registering ? "animate-spin" : undefined} size={15} />
-                  {registering ? "Đang đăng ký…" : webhookConfirmed && !editingWebhook ? "Đăng ký lại" : "Đăng ký webhook"}
+                  {registering ? (
+                    <LoaderCircle {...buttonIconProps} className={cn("animate-spin", isReregister && outlineIconClass)} />
+                  ) : (
+                    <RefreshCw {...buttonIconProps} className={isReregister ? outlineIconClass : undefined} />
+                  )}
+                  {isReregister ? "Đăng ký lại" : "Đăng ký webhook"}
                 </Button>
+                {/* Đổi URL ở ngoài cùng, giống "Cập nhật khóa" ở card Khóa kết nối */}
+                {savedWebhookUrl && !editingWebhook ? (
+                  <Button className={secondaryButtonClass} disabled={!hasKeys} onClick={() => setEditingWebhook(true)} type="button" variant="outline">
+                    <Pencil {...buttonIconProps} className={outlineIconClass} /> Đổi URL
+                  </Button>
+                ) : null}
               </>
             }
             icon={<Link2 size={18} />}
@@ -936,7 +993,11 @@ export default function PaymentSettingsPage() {
                 type="button"
                 variant="outline"
               >
-                {copied ? <Check className="text-bo-success" size={16} /> : <Copy size={16} />}
+                {copied ? (
+                  <Check {...buttonIconProps} className="text-bo-success" />
+                ) : (
+                  <Copy {...buttonIconProps} className={outlineIconClass} />
+                )}
               </Button>
             </div>
             <p className="mt-2 text-xs leading-5 text-slate-600">
@@ -977,17 +1038,31 @@ export default function PaymentSettingsPage() {
             id="payos-key-form"
             onSubmit={(event) => {
               event.preventDefault();
-              saveKeys();
+              // Enter khi mọi ô trống: validateKeys báo lỗi, không gửi request
+              saveKeys("update");
             }}
           >
-            <KeyFormFields disabled={savingKeys} errors={keyErrors} idPrefix="payos-update" onChange={changeKey} values={keyValues} />
+            <KeyFormFields
+              disabled={savingKeys}
+              errors={keyErrors}
+              idPrefix="payos-update"
+              onChange={changeKey}
+              placeholder={KEEP_KEY_PLACEHOLDER}
+              values={keyValues}
+            />
           </form>
           <DialogFooter>
             <Button className={secondaryButtonClass} disabled={savingKeys} onClick={() => setKeyDialogOpen(false)} type="button" variant="outline">
               Hủy
             </Button>
-            <Button className={primaryButtonClass} disabled={savingKeys} form="payos-key-form" type="submit">
-              {savingKeys ? "Đang xác minh với payOS…" : "Lưu và kiểm tra"}
+            <Button
+              aria-busy={savingKeys}
+              className={cn(primaryButtonClass, "min-w-[168px]")}
+              disabled={savingKeys || !hasKeyInput}
+              form="payos-key-form"
+              type="submit"
+            >
+              <SaveKeysLabel saving={savingKeys} />
             </Button>
           </DialogFooter>
         </DialogContent>

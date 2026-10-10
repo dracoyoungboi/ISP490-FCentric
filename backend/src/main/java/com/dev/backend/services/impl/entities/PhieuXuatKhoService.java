@@ -32,8 +32,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -598,21 +602,46 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 .build();
 
         List<ChiTietPhieuXuatKho> chiTietList = chiTietPhieuXuatKhoRepository.findByPhieuXuatKhoIdAndLoHangIsNull(phieu.getId());
-        List<ChiTietPhieuXuatKhoDto> chiTietDtos = chiTietList.stream().map(ct -> {
-            BigDecimal soLuongCanXuat = ct.getSoLuongXuat();
+        List<ChiTietPhieuXuatKhoDto> chiTietDtos = new ArrayList<>(chiTietList.stream().map(ct -> {
             BigDecimal soLuongDaPick = chiTietPhieuXuatKhoRepository.sumSoLuongDaPick(phieu.getId(), ct.getBienTheSanPham().getId());
-            return ChiTietPhieuXuatKhoDto.builder()
-                    .id(ct.getId())
-                    .bienTheSanPhamId(ct.getBienTheSanPham().getId())
-                    .sku(ct.getBienTheSanPham().getMaSku())
-                    .tenBienThe(ct.getBienTheSanPham().getSanPham().getTenSanPham() + " / " + ct.getBienTheSanPham().getMauSac().getTenMau())
-                    .soLuongCanXuat(soLuongCanXuat)
-                    .soLuongDaPick(soLuongDaPick)
-                    .duSoLuong(soLuongDaPick.compareTo(soLuongCanXuat) >= 0)
-                    .build();
-        }).toList();
+            return toChiTietDto(ct, ct.getSoLuongXuat(), soLuongDaPick);
+        }).toList());
+
+        // 5. Biến thể chỉ có dòng đã pick mà không có dòng gốc (vd. phiếu xuất POS ghi thẳng
+        // dòng theo lô): gộp các dòng pick theo biến thể thành 1 dòng hiển thị, SL cần xuất =
+        // SL đã xuất thực tế. id = dòng pick đầu tiên để "Xem lô"/in phiếu tra được lô theo
+        // biến thể; pickLoHang vẫn chặn dòng này vì loHang != null.
+        Set<Integer> bienTheCoDongGoc = new HashSet<>();
+        chiTietList.forEach(ct -> bienTheCoDongGoc.add(ct.getBienTheSanPham().getId()));
+
+        Map<Integer, List<ChiTietPhieuXuatKho>> pickKhongCoGoc = new LinkedHashMap<>();
+        chiTietPhieuXuatKhoRepository.findByPhieuXuatKhoIdAndLoHangIsNotNull(phieu.getId()).stream()
+                .filter(ct -> !bienTheCoDongGoc.contains(ct.getBienTheSanPham().getId()))
+                .sorted(Comparator.comparing(ChiTietPhieuXuatKho::getId))
+                .forEach(ct -> pickKhongCoGoc
+                        .computeIfAbsent(ct.getBienTheSanPham().getId(), k -> new ArrayList<>())
+                        .add(ct));
+
+        pickKhongCoGoc.values().forEach(picks -> {
+            BigDecimal tongDaXuat = picks.stream()
+                    .map(ChiTietPhieuXuatKho::getSoLuongXuat)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            chiTietDtos.add(toChiTietDto(picks.get(0), tongDaXuat, tongDaXuat));
+        });
 
         return ChiTietPhieuNhapKhoResponse.builder().phieu(phieuDto).chiTiet(chiTietDtos).build();
+    }
+
+    private ChiTietPhieuXuatKhoDto toChiTietDto(ChiTietPhieuXuatKho ct, BigDecimal soLuongCanXuat, BigDecimal soLuongDaPick) {
+        return ChiTietPhieuXuatKhoDto.builder()
+                .id(ct.getId())
+                .bienTheSanPhamId(ct.getBienTheSanPham().getId())
+                .sku(ct.getBienTheSanPham().getMaSku())
+                .tenBienThe(ct.getBienTheSanPham().getSanPham().getTenSanPham() + " / " + ct.getBienTheSanPham().getMauSac().getTenMau())
+                .soLuongCanXuat(soLuongCanXuat)
+                .soLuongDaPick(soLuongDaPick)
+                .duSoLuong(soLuongDaPick.compareTo(soLuongCanXuat) >= 0)
+                .build();
     }
 
     @Transactional(readOnly = true)

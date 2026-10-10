@@ -227,6 +227,75 @@ class PaymentConfigServicePayosTest {
         assertEquals(WEBHOOK_LUC, cfg.getWebhookXacNhanLuc());
     }
 
+    // ---------- Cập nhật riêng từng khóa ----------
+
+    @Test
+    void S11_chiDoiApiKey_ghepVoiKhoaDangLuu_giuWebhook() {
+        daCoKhoa();
+        when(verifier.verify(any())).thenReturn(DAT);
+
+        service.updatePayos(khoa(null, API_MOI, null));
+
+        assertEquals(new PayosCredentials(CLIENT_CU, API_MOI, CHECKSUM_CU), credDaXacMinh());
+        assertEquals(CLIENT_CU, cipher.decrypt(cfg.getClientIdMaHoa()));
+        assertEquals(API_MOI, cipher.decrypt(cfg.getApiKeyMaHoa()));
+        assertEquals(CHECKSUM_CU, cipher.decrypt(cfg.getChecksumKeyMaHoa()));
+        assertEquals(WEBHOOK_LUC, cfg.getWebhookXacNhanLuc());
+    }
+
+    @Test
+    void S12_cungClientId_doiHaiKhoa_luuDuoc_giuWebhook() {
+        daCoKhoa();
+        when(verifier.verify(any())).thenReturn(DAT);
+
+        service.updatePayos(khoa(CLIENT_CU, API_MOI, CHECKSUM_MOI));
+
+        assertEquals(new PayosCredentials(CLIENT_CU, API_MOI, CHECKSUM_MOI), credDaXacMinh());
+        assertEquals(API_MOI, cipher.decrypt(cfg.getApiKeyMaHoa()));
+        assertEquals(CHECKSUM_MOI, cipher.decrypt(cfg.getChecksumKeyMaHoa()));
+        assertEquals(WEBHOOK_LUC, cfg.getWebhookXacNhanLuc());
+    }
+
+    @Test
+    void S13_doiClientId_thieuBoKhoa_baoLoi_khongGoiPayos() {
+        daCoKhoa();
+
+        CommonException thieuApi = assertThrows(CommonException.class,
+                () -> service.updatePayos(khoa(CLIENT_MOI, null, CHECKSUM_MOI)));
+        CommonException thieuChecksum = assertThrows(CommonException.class,
+                () -> service.updatePayos(khoa(CLIENT_MOI, API_MOI, " ")));
+        assertThrows(CommonException.class, () -> service.updatePayos(khoa(CLIENT_MOI, null, null)));
+
+        assertTrue(thieuApi.getMessage().contains("Đổi Client ID"), thieuApi.getMessage());
+        assertTrue(thieuChecksum.getMessage().contains("Đổi Client ID"), thieuChecksum.getMessage());
+        verifyNoInteractions(verifier);
+        verify(repository, never()).save(any());
+        khoaDangLuuKhongDoi();
+        assertEquals(WEBHOOK_LUC, cfg.getWebhookXacNhanLuc());
+    }
+
+    @Test
+    void S14_chiKhoangTrang_khongGoiPayos_khoaGiuNguyen() {
+        daCoKhoa();
+
+        service.updatePayos(khoa("  ", "", "\t"));
+
+        verifyNoInteractions(verifier);
+        khoaDangLuuKhongDoi();
+        assertEquals(WEBHOOK_LUC, cfg.getWebhookXacNhanLuc());
+    }
+
+    @Test
+    void S15_chiDoiApiKey_xacMinhKhongDat_khongLuu() {
+        daCoKhoa();
+        when(verifier.verify(any())).thenReturn(KHONG_DAT);
+
+        assertThrows(CommonException.class, () -> service.updatePayos(khoa(null, API_MOI, null)));
+
+        verify(repository, never()).save(any());
+        khoaDangLuuKhongDoi();
+    }
+
     @Test
     void S9_testConnection_dungKhoaDangLuu_traKetQuaVerifier() {
         daCoKhoa();

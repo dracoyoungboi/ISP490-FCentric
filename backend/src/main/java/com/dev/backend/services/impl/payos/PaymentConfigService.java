@@ -77,6 +77,11 @@ public class PaymentConfigService {
                         HttpStatus.SERVICE_UNAVAILABLE, null);
             }
             String oldClientId = decryptOrNull(cfg.getClientIdMaHoa());
+            boolean channelChanged = newClientId != null && !newClientId.equals(oldClientId);
+            // Đổi sang kênh khác: khóa đang lưu thuộc kênh cũ, không được ghép với Client ID mới
+            if (channelChanged && oldClientId != null && (newApiKey == null || newChecksum == null)) {
+                throw new CommonException("Đổi Client ID cần nhập đủ API Key và Checksum Key của kênh mới");
+            }
             PayosCredentials candidate = new PayosCredentials(
                     newClientId != null ? newClientId : oldClientId,
                     newApiKey != null ? newApiKey : decryptOrNull(cfg.getApiKeyMaHoa()),
@@ -90,7 +95,7 @@ public class PaymentConfigService {
                         check.unreachable() ? HttpStatus.BAD_GATEWAY : HttpStatus.BAD_REQUEST, null);
             }
             // Webhook được xác nhận cho kênh cũ -> đổi kênh thì phải đăng ký lại
-            if (newClientId != null && !newClientId.equals(oldClientId)) {
+            if (channelChanged) {
                 cfg.setWebhookXacNhanLuc(null);
             }
             if (newClientId != null) cfg.setClientIdMaHoa(cipher.encrypt(newClientId));

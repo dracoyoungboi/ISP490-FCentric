@@ -235,7 +235,7 @@ export default function PurchaseOrderList() {
     return (
         <PageContainer className="space-y-5">
             <PageHeader
-                eyebrow="Mua hàng"
+              
                 title="Đơn mua hàng"
                 description="Theo dõi đơn mua hàng đang vận chuyển và đã thanh toán."
                 actions={
