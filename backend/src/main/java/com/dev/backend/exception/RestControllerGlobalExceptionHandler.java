@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.HashMap;
 import java.util.List;
@@ -161,6 +162,19 @@ public class RestControllerGlobalExceptionHandler {
                 .path(getPath(request))
                 .build();
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    // URL không khớp API nào (thường do FE gọi sai đường dẫn): Spring ném NoResourceFoundException
+    // ("No static resource ..."). Trả 404 kèm thông báo rõ ràng thay vì rơi xuống handler chung (500).
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ResponseData<?>> handleNoResourceFound(NoResourceFoundException ex, WebRequest request) {
+        ResponseData<Void> body = ResponseData.<Void>builder()
+                .status(HttpStatus.NOT_FOUND.value())
+                .message("Không tìm thấy API: " + ex.getHttpMethod() + " " + getPath(request))
+                .error("Not Found")
+                .path(getPath(request))
+                .build();
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
     }
 
     @ExceptionHandler(Exception.class)

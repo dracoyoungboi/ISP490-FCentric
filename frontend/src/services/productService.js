@@ -31,7 +31,8 @@ export const productService = {
 
 
     updateProductBasicInfo: (id, payload) => {
-        return apiClient.patch(`/api/v1/san-pham-quan-ao/${id}/basic-info`, payload);
+        // Khớp với BE: @PatchMapping("/basic-info/{id}") trong SanPhamQuanAoController
+        return apiClient.patch(`/api/v1/san-pham-quan-ao/basic-info/${id}`, payload);
     },
 
 
