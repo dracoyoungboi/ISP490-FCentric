@@ -1,5 +1,5 @@
 import { createElement, useCallback, useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
 import { phieuChuyenKhoService } from "@/services/phieuChuyenKhoService";
 import { toast } from "sonner";
@@ -10,12 +10,13 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import LoadingState from "@/components/shared/LoadingState";
 import EmptyState from "@/components/shared/EmptyState";
 import ConfirmModal from "@/components/ui/confirm-modal";
+import DispatchDialog from "@/components/outbound/DispatchDialog";
 import { Button } from "@/components/ui/button";
 import {
     Loader2, Printer, Check, X,
     ClipboardList, Package, Warehouse,
     Calendar, User, AlertCircle, Info as InfoIcon,
-    ArrowRight, ArrowLeft
+    ArrowRight, ArrowLeft, MapPin
 } from "lucide-react";
 
 // Trạng thái phiếu xuất
@@ -42,6 +43,7 @@ export default function PhieuXuatKhoDetail() {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
+    const [showDispatch, setShowDispatch] = useState(false);
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
 
@@ -81,6 +83,22 @@ export default function PhieuXuatKhoDetail() {
         } finally {
             setIsProcessing(false);
             setShowConfirm(false);
+        }
+    };
+
+    // Xuất bán hàng: xác nhận xuất kho kèm thông tin giao vận (POST /{id}/xac-nhan-xuat-kho, SRS 6.3.2).
+    // Lỗi thì giữ hộp thoại để người dùng sửa và thử lại.
+    const handleDispatch = async (payload) => {
+        setIsProcessing(true);
+        try {
+            const res = await phieuXuatKhoService.xacNhanXuatKho(data.phieu.id, payload);
+            toast.success(res?.message || "Xác nhận xuất kho thành công");
+            setShowDispatch(false);
+            navigate("/goods-issues");
+        } catch (e) {
+            toast.error(e?.response?.data?.message || "Không thể xác nhận xuất kho");
+        } finally {
+            setIsProcessing(false);
         }
     };
 
@@ -170,7 +188,7 @@ export default function PhieuXuatKhoDetail() {
                     {phieu.trangThai === 0 && (
                         <Button
                             disabled={isProcessing || !isAllPicked}
-                            onClick={() => setShowConfirm(true)}
+                            onClick={() => (isChuyenKho ? setShowConfirm(true) : setShowDispatch(true))}
                             className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
                         >
                             {isProcessing ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
@@ -194,7 +212,15 @@ export default function PhieuXuatKhoDetail() {
                     {isChuyenKho ? (
                         <InfoItem icon={Warehouse} label="Kho chuyển đến" value={phieu.khoChuyenDen?.tenKho} />
                     ) : (
-                        <InfoItem icon={ClipboardList} label="Đơn bán hàng" value={phieu.donBanHang?.soDonHang} />
+                        <InfoItem
+                            icon={ClipboardList}
+                            label="Đơn bán hàng"
+                            value={phieu.donBanHang?.id ? (
+                                <Link to={`/sales-orders/${phieu.donBanHang.id}`} className="text-bo-primary hover:underline">
+                                    {phieu.donBanHang.soDonHang}
+                                </Link>
+                            ) : phieu.donBanHang?.soDonHang}
+                        />
                     )}
 
                     <InfoItem icon={Warehouse} label="Kho xuất hàng" value={phieu.kho?.tenKho} />
@@ -217,6 +243,12 @@ export default function PhieuXuatKhoDetail() {
                         value={phieu.nguoiXuat?.hoTen || "---"}
                     />
                 </div>
+
+                {!isChuyenKho && phieu.donBanHang?.diaChiGiaoHang && (
+                    <div className="mt-5 border-t border-bo-border pt-4">
+                        <InfoItem icon={MapPin} label="Địa chỉ giao hàng" value={phieu.donBanHang.diaChiGiaoHang} />
+                    </div>
+                )}
 
                 {phieu.ghiChu && (
                     <div className="mt-5 border-t border-bo-border pt-4">
@@ -339,6 +371,15 @@ export default function PhieuXuatKhoDetail() {
                 confirmText="Xác nhận thực hiện"
                 isLoading={isProcessing}
             />
+
+            {showDispatch ? (
+                <DispatchDialog
+                    open
+                    onOpenChange={setShowDispatch}
+                    soPhieuXuat={phieu.soPhieuXuat}
+                    onConfirm={handleDispatch}
+                />
+            ) : null}
 
             <ConfirmModal
                 isOpen={showCancelConfirm}
