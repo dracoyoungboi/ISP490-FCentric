@@ -52,6 +52,17 @@ public class KenhBanHang {
     @Column(name = "api_secret")
     String apiSecret;
 
+    @Size(max = 100)
+    @Column(name = "client_id", length = 100)
+    String clientId;
+
+    @Size(max = 500)
+    @Column(name = "refresh_token", length = 500)
+    String refreshToken;
+
+    @Column(name = "token_expires_at")
+    Instant tokenExpiresAt;
+
     @ColumnDefault("1")
     @Column(name = "trang_thai")
     @Builder.Default
