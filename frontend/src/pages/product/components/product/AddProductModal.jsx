@@ -80,6 +80,18 @@ const CONTROL_DISABLED_CLASS =
     "cursor-not-allowed border-bo-border bg-bo-surface-subtle italic text-bo-muted";
 const SELECT_CONTENT_CLASS = "z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg";
 const SELECT_ITEM_CLASS = "rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
+
+// Chấm màu theo mã hex — đồng bộ với form Chỉnh sửa sản phẩm
+function ColorDot({ hex }) {
+    if (!hex) return null;
+    return (
+        <span
+            className="size-3.5 shrink-0 rounded-full border border-bo-border"
+            style={{ backgroundColor: hex }}
+            aria-hidden="true"
+        />
+    );
+}
 const STEP_CLASS =
     "flex items-center justify-center gap-2 rounded-md border border-bo-border bg-white px-2 py-1.5 text-center text-[11px] font-semibold text-bo-muted";
 
@@ -676,26 +688,43 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                                         <Controller
                                                             name={`bienTheSanPhams.${index}.mauSacId`}
                                                             control={control}
-                                                            render={({ field }) => (
+                                                            render={({ field }) => {
+                                                                const mauDaChon = colors.find((color) => color.id === Number(field.value));
+                                                                return (
                                                                 <Select
                                                                     value={field.value === "" || field.value === null || field.value === undefined ? undefined : field.value.toString()}
-                                                                    onValueChange={(value) => field.onChange(Number(value))}
+                                                                    onValueChange={(value) => {
+                                                                        if (value !== "") field.onChange(Number(value));
+                                                                    }}
                                                                     disabled={isSubmitting}
                                                                 >
                                                                     <SelectTrigger className="h-10 w-full border-bo-border text-bo-foreground">
-                                                                        <SelectValue placeholder="Chọn màu" />
+                                                                        <SelectValue placeholder="Chọn màu">
+                                                                            {mauDaChon ? (
+                                                                                <span className="flex items-center gap-2">
+                                                                                    <ColorDot hex={mauDaChon.maMauHex} />
+                                                                                    <span className="truncate">{mauDaChon.tenMau}</span>
+                                                                                </span>
+                                                                            ) : undefined}
+                                                                        </SelectValue>
                                                                     </SelectTrigger>
-                                                                    <SelectContent position="popper" side="bottom" align="start" className={`${SELECT_CONTENT_CLASS} max-h-[200px]`}>
+                                                                    <SelectContent position="popper" side="bottom" align="start" sideOffset={4} className={`${SELECT_CONTENT_CLASS} max-h-[220px]`}>
                                                                         {colors.length === 0 ? (
                                                                             <div className="p-2 text-sm text-bo-muted">Không có màu sắc</div>
                                                                         ) : (
                                                                             colors.map((color) => (
-                                                                                <SelectItem key={`color-${index}-${color.id}`} value={color.id.toString()} className={SELECT_ITEM_CLASS}>{color.tenMau}</SelectItem>
+                                                                                <SelectItem key={`color-${index}-${color.id}`} value={color.id.toString()} className={SELECT_ITEM_CLASS}>
+                                                                                    <span className="flex items-center gap-2">
+                                                                                        <ColorDot hex={color.maMauHex} />
+                                                                                        {color.tenMau}
+                                                                                    </span>
+                                                                                </SelectItem>
                                                                             ))
                                                                         )}
                                                                     </SelectContent>
                                                                 </Select>
-                                                            )}
+                                                                );
+                                                            }}
                                                         />
                                                         {errors.bienTheSanPhams?.[index]?.mauSacId && (
                                                             <p className="text-xs text-bo-danger">{errors.bienTheSanPhams[index].mauSacId.message}</p>
@@ -717,7 +746,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                                                     <SelectTrigger className="h-10 w-full border-bo-border text-bo-foreground">
                                                                         <SelectValue placeholder="Chọn size" />
                                                                     </SelectTrigger>
-                                                                    <SelectContent position="popper" side="bottom" align="start" className={`${SELECT_CONTENT_CLASS} max-h-[200px]`}>
+                                                                    <SelectContent position="popper" side="bottom" align="start" sideOffset={4} className={`${SELECT_CONTENT_CLASS} max-h-[220px]`}>
                                                                         {sizes.length === 0 ? (
                                                                             <div className="p-2 text-sm text-bo-muted">Không có size</div>
                                                                         ) : (
