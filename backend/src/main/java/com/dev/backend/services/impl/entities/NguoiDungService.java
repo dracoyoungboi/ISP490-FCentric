@@ -42,6 +42,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -429,6 +430,20 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     }
 
 
+    // OTP đặt lại mật khẩu: hiệu lực 5 phút, tối đa 5 lần nhập sai
+    static final long RESET_OTP_TTL_SECONDS = 300;
+    static final int RESET_OTP_MAX_FAILED_ATTEMPTS = 5;
+    private static final String RESET_OTP_INVALID_MESSAGE = "Mã xác nhận không tồn tại hoặc đã hết hạn";
+    private static final int BCRYPT_MAX_PASSWORD_BYTES = 72;
+    // mã lỗi trong data.code để FE phân biệt: sai mã (nhập lại) / hết hạn-huỷ (phải gửi lại mã)
+    static final String RESET_OTP_WRONG_CODE = "RESET_OTP_WRONG";
+    static final String RESET_OTP_EXPIRED_CODE = "RESET_OTP_EXPIRED";
+
+    private static boolean isResetOtpOf(OtpScheduleObj otpScheduleObj, String email) {
+        return otpScheduleObj.getType() == OtpType.RESET_PASSWORD
+                && Objects.equals(otpScheduleObj.getEmail(), email);
+    }
+
     public ResponseEntity<ResponseData<String>> forgotPassword(ForgotPasswordRequest fpRequest) {
         NguoiDung nguoiDung = nguoiDungRepository.findByTenDangNhapOrEmailOrSoDienThoai(
                 fpRequest.getUsername(),
@@ -439,14 +454,18 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
         //Tạo OTP
         String otp = calcService.getRandomActiveCode(6L);
-        GlobalCache.OTP_SCHEDULE_OBJS.add(
-                OtpScheduleObj.builder()
-                        .email(nguoiDung.getEmail())
-                        .otp(otp)
-                        .createdAt(Instant.now())
-                        .type(OtpType.RESET_PASSWORD)
-                        .build()
-        );
+        OtpScheduleObj resetOtp = OtpScheduleObj.builder()
+                .email(nguoiDung.getEmail())
+                .otp(otp)
+                .createdAt(Instant.now())
+                .type(OtpType.RESET_PASSWORD)
+                .build();
+        // gửi lại OTP: xoá mã RESET_PASSWORD cũ của email này rồi mới thêm mã mới, để mã còn hiệu lực
+        // luôn là mã trong email mới nhất. Khoá để 2 yêu cầu đồng thời không để lại 2 mã cùng lúc.
+        synchronized (GlobalCache.OTP_SCHEDULE_OBJS) {
+            GlobalCache.OTP_SCHEDULE_OBJS.removeIf(o -> isResetOtpOf(o, nguoiDung.getEmail()));
+            GlobalCache.OTP_SCHEDULE_OBJS.add(resetOtp);
+        }
 
         //truyền dữ liệu qua email
         Map<String, Object> params = new HashMap<>();
@@ -464,12 +483,21 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                         .data("Success")
                         .message("Success")
                         .build()
-
         );
     }
 
+    // BCrypt từ chối mật khẩu > 72 byte (IllegalArgumentException -> 500). Tính theo byte UTF-8 vì ký tự có dấu chiếm 2-3 byte.
+    private static void assertPasswordFitsBcrypt(String password) {
+        if (password != null && password.getBytes(StandardCharsets.UTF_8).length > BCRYPT_MAX_PASSWORD_BYTES) {
+            throw new CommonException("Mật khẩu quá dài (tối đa 72 ký tự không dấu, ít hơn nếu có dấu tiếng Việt)");
+        }
+    }
+
     public ResponseEntity<ResponseData<String>> resetPassword(ResetPasswordRequest rpRequest) {
-       // tìm xem thông tin người dùng có trong hệ thống hay chưa
+        // kiểm tra trước khi đụng tới OTP để không làm mất mã / tính là nhập sai
+        assertPasswordFitsBcrypt(rpRequest.getPassword());
+
+        // tìm xem thông tin người dùng có trong hệ thống hay chưa
         NguoiDung nguoiDung = nguoiDungRepository.findByTenDangNhapOrEmailOrSoDienThoai(
                 rpRequest.getUsername(),
                 rpRequest.getUsername(),
@@ -477,27 +505,16 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                 () -> new CommonException("Không tìm thấy tài khoản")
         );
 
-        //tìm otp của người dùng có tồn tại trong danh sách OTP đã gửi hay ko
-        OtpScheduleObj findingResetOtp = GlobalCache.OTP_SCHEDULE_OBJS.stream().filter(otpScheduleObj ->
-                otpScheduleObj.getEmail().equals(nguoiDung.getEmail()) && otpScheduleObj.getType().equals(OtpType.RESET_PASSWORD)).findFirst().orElseThrow(
-                () -> new CommonException("Mã xác nhận không tồn tại hoặc đã hết hạn")
-        );
+        OtpScheduleObj findingResetOtp = checkResetOtp(nguoiDung, rpRequest.getOtp());
 
-        if (!findingResetOtp.getOtp().equals(rpRequest.getOtp())) {
-            throw new CommonException("Mã xác nhận không tồn tại hoặc đã hết hạn");
-        }
-
-        Instant now = Instant.now();
-        //kiểm tra otp còn hạn hay không(trong vòng 5p)
-        if (now.isAfter(findingResetOtp.getCreatedAt().plusSeconds(300))) {
-            throw new CommonException("Mã xác nhận không tồn tại hoặc đã hết hạn");
+        //Xoá OTP khỏi bộ nhớ đệm trước khi đổi MK: remove() là nguyên tử nên mỗi mã chỉ dùng được 1 lần,
+        //request đồng thời dùng cùng mã (hoặc mã vừa bị huỷ do nhập sai quá số lần) sẽ bị từ chối
+        if (!GlobalCache.OTP_SCHEDULE_OBJS.remove(findingResetOtp)) {
+            throw resetOtpExpired(RESET_OTP_INVALID_MESSAGE);
         }
 
         //sau khi thoả mãn các dk trên thì cho phép đặt lại MK
         nguoiDung.setMatKhauHash(passwordEncoder.encode(rpRequest.getPassword()));
-
-        //Xoá OTP của người dùng khỏi danh sách OTP trong bộ nhớ đệm
-        GlobalCache.OTP_SCHEDULE_OBJS.remove(findingResetOtp);
 
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
@@ -507,6 +524,43 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                         .build()
 
         );
+    }
+
+    /**
+     * Kiểm tra OTP đặt lại mật khẩu của người dùng (không xoá mã khi đúng). Lỗi trả kèm data.code để FE xử lý:
+     * RESET_OTP_WRONG (sai, còn lượt thử) / RESET_OTP_EXPIRED (không có, hết hạn hoặc đã huỷ -> phải gửi lại mã).
+     */
+    private OtpScheduleObj checkResetOtp(NguoiDung nguoiDung, String otp) {
+        //tìm otp của người dùng có tồn tại trong danh sách OTP đã gửi hay ko
+        OtpScheduleObj findingResetOtp = GlobalCache.OTP_SCHEDULE_OBJS.stream()
+                .filter(otpScheduleObj -> isResetOtpOf(otpScheduleObj, nguoiDung.getEmail()))
+                .findFirst()
+                .orElseThrow(() -> resetOtpExpired(RESET_OTP_INVALID_MESSAGE));
+
+        //kiểm tra otp còn hạn hay không(trong vòng 5p)
+        if (Instant.now().isAfter(findingResetOtp.getCreatedAt().plusSeconds(RESET_OTP_TTL_SECONDS))) {
+            GlobalCache.OTP_SCHEDULE_OBJS.remove(findingResetOtp);
+            throw resetOtpExpired(RESET_OTP_INVALID_MESSAGE);
+        }
+
+        if (!findingResetOtp.getOtp().equals(otp)) {
+            // nhập sai quá số lần cho phép thì huỷ mã, buộc yêu cầu mã mới (chống dò mã 6 số)
+            int failed = findingResetOtp.getFailedAttempts().incrementAndGet();
+            if (failed >= RESET_OTP_MAX_FAILED_ATTEMPTS) {
+                GlobalCache.OTP_SCHEDULE_OBJS.remove(findingResetOtp);
+                throw resetOtpExpired("Bạn đã nhập sai mã xác nhận quá " + RESET_OTP_MAX_FAILED_ATTEMPTS
+                        + " lần, vui lòng yêu cầu mã mới");
+            }
+            int remaining = RESET_OTP_MAX_FAILED_ATTEMPTS - failed;
+            throw new CommonException("Mã xác nhận không đúng, bạn còn " + remaining + " lần thử",
+                    HttpStatus.BAD_REQUEST,
+                    Map.of("code", RESET_OTP_WRONG_CODE, "remainingAttempts", remaining));
+        }
+        return findingResetOtp;
+    }
+
+    private static CommonException resetOtpExpired(String message) {
+        return new CommonException(message, HttpStatus.BAD_REQUEST, Map.of("code", RESET_OTP_EXPIRED_CODE));
     }
 
     public Page<NguoiDung> getUserListByAdmin(Pageable pageable) {
@@ -652,6 +706,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         if (!passwordEncoder.matches(changePass.getCurrentPassword(), nguoiDung.getMatKhauHash())) {
             throw new CommonException("Mật khẩu hiện tại không đúng");
         }
+
+        assertPasswordFitsBcrypt(changePass.getNewPassword().trim());
 
         // chỉ encode mật khẩu mới sau khi đã validate
         nguoiDung.setMatKhauHash(passwordEncoder.encode(changePass.getNewPassword().trim()));
