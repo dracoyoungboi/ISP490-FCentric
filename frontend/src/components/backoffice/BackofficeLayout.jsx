@@ -19,7 +19,6 @@ export default function BackofficeLayout() {
             key: "DASHBOARD",
             match: (path) => path === "/dashboard",
             title: "Tổng quan quản trị",
-            subtitle: "Tổng quan hoạt động quản trị",
         },
         {
             key: "EDIT_USER_ROLE",
