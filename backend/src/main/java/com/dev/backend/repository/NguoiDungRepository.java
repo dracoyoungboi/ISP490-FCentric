@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 @Repository
 public interface NguoiDungRepository extends JpaRepository<NguoiDung, Integer>, JpaSpecificationExecutor<NguoiDung> {
@@ -14,6 +15,12 @@ public interface NguoiDungRepository extends JpaRepository<NguoiDung, Integer>, 
     Optional<NguoiDung> findByTenDangNhapOrEmailOrSoDienThoai(String tenDangNhap, String email, String soDienThoai);
 
     Optional<NguoiDung> findByEmail(String email);
+
+    // tìm tài khoản theo chuỗi đăng nhập theo thứ tự ưu tiên (xem NguoiDungService.resolveAccount)
+    Optional<NguoiDung> findByTenDangNhap(String tenDangNhap);
+
+    // SĐT không UNIQUE trong DB -> có thể nhiều tài khoản
+    List<NguoiDung> findAllBySoDienThoai(String soDienThoai);
 
     boolean existsByTenDangNhap(String tenDangNhap);
     boolean existsByEmail(String email);

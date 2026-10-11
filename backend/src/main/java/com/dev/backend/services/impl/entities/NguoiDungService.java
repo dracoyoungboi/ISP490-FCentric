@@ -114,10 +114,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     @Transactional
     public ResponseEntity<ResponseData<LoginResponse>> login(LoginRequest loginRequest) {
         //check thông tin user đã có trong hệ thống hay chưa
-        Optional<NguoiDung> findingNguoiDung = nguoiDungRepository.findByTenDangNhapOrEmailOrSoDienThoai(
-                loginRequest.getUsername(),
-                loginRequest.getUsername(),
-                loginRequest.getUsername());
+        Optional<NguoiDung> findingNguoiDung = resolveAccount(loginRequest.getUsername());
         if (findingNguoiDung.isEmpty()) {
             throw new CommonException("Tên đăng nhập không hợp lệ");
         }
@@ -445,10 +442,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     }
 
     public ResponseEntity<ResponseData<String>> forgotPassword(ForgotPasswordRequest fpRequest) {
-        NguoiDung nguoiDung = nguoiDungRepository.findByTenDangNhapOrEmailOrSoDienThoai(
-                fpRequest.getUsername(),
-                fpRequest.getUsername(),
-                fpRequest.getUsername()).orElseThrow(
+        NguoiDung nguoiDung = resolveAccount(fpRequest.getUsername()).orElseThrow(
                 () -> new CommonException("Không tìm thấy tài khoản")
         );
 
@@ -484,6 +478,25 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                         .message("Success")
                         .build()
         );
+    }
+
+    /**
+     * Tìm tài khoản theo chuỗi đăng nhập (tên đăng nhập / email / SĐT) theo thứ tự ưu tiên.
+     * SĐT không UNIQUE: trùng nhiều tài khoản thì coi như không tìm thấy (trước đây truy vấn OR ném lỗi 500).
+     */
+    Optional<NguoiDung> resolveAccount(String rawIdentifier) {
+        if (rawIdentifier == null || rawIdentifier.isBlank()) return Optional.empty();
+        String identifier = rawIdentifier.trim();
+        Optional<NguoiDung> byUsername = nguoiDungRepository.findByTenDangNhap(identifier);
+        if (byUsername.isPresent()) return byUsername;
+        Optional<NguoiDung> byEmail = nguoiDungRepository.findByEmail(identifier);
+        if (byEmail.isPresent()) return byEmail;
+        List<NguoiDung> byPhone = nguoiDungRepository.findAllBySoDienThoai(identifier);
+        if (byPhone.size() > 1) {
+            logger.warn("[resolveAccount] Số điện thoại gắn với {} tài khoản, yêu cầu dùng tên đăng nhập/email", byPhone.size());
+            return Optional.empty();
+        }
+        return byPhone.stream().findFirst();
     }
 
     // BCrypt từ chối mật khẩu > 72 byte (IllegalArgumentException -> 500). Tính theo byte UTF-8 vì ký tự có dấu chiếm 2-3 byte.
@@ -538,7 +551,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
     // Không tìm thấy / bị khoá -> cùng lỗi "mã không tồn tại hoặc đã hết hạn" (không lộ tài khoản có tồn tại)
     private NguoiDung findUserForPasswordReset(String username) {
-        return nguoiDungRepository.findByTenDangNhapOrEmailOrSoDienThoai(username, username, username)
+        return resolveAccount(username)
                 .filter(nd -> nd.getTrangThai() != null && nd.getTrangThai() == 1)
                 .orElseThrow(() -> resetOtpExpired(RESET_OTP_INVALID_MESSAGE));
     }
