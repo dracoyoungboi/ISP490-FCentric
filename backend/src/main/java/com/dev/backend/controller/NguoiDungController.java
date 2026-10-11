@@ -101,6 +101,12 @@ public class NguoiDungController {
 
     }
 
+    // bước xác thực OTP: chỉ kiểm tra mã (không tiêu thụ), đúng thì FE mới cho sang bước nhập mật khẩu mới
+    @PostMapping("/verify-reset-otp")
+    public ResponseEntity<ResponseData<String>> verifyResetOtp(@Valid @RequestBody VerifyResetOtpRequest request) {
+        return nguoiDungService.verifyResetOtp(request);
+    }
+
     // sau khi gửi yêu cầu đổi mk thì api này để đổi mk với otp
     @PostMapping("reset-password")
     public ResponseEntity<ResponseData<String >> resetPassword(@Valid @RequestBody ResetPasswordRequest rpRequest){

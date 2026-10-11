@@ -493,17 +493,27 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         }
     }
 
+    // Bước "Xác thực OTP" (FE bước 2): chỉ kiểm tra mã, KHÔNG tiêu thụ mã — mã vẫn dùng được ở bước đổi mật khẩu.
+    // Dùng chung bộ đếm nhập sai với resetPassword nên không mở thêm đường dò mã.
+    public ResponseEntity<ResponseData<String>> verifyResetOtp(VerifyResetOtpRequest request) {
+        NguoiDung nguoiDung = findUserForPasswordReset(request.getUsername());
+        checkResetOtp(nguoiDung, request.getOtp());
+
+        return ResponseEntity.ok(
+                ResponseData.<String>builder()
+                        .status(HttpStatus.OK.value())
+                        .data("Success")
+                        .message("Success")
+                        .build()
+        );
+    }
+
     public ResponseEntity<ResponseData<String>> resetPassword(ResetPasswordRequest rpRequest) {
         // kiểm tra trước khi đụng tới OTP để không làm mất mã / tính là nhập sai
         assertPasswordFitsBcrypt(rpRequest.getPassword());
 
         // tìm xem thông tin người dùng có trong hệ thống hay chưa
-        NguoiDung nguoiDung = nguoiDungRepository.findByTenDangNhapOrEmailOrSoDienThoai(
-                rpRequest.getUsername(),
-                rpRequest.getUsername(),
-                rpRequest.getUsername()).orElseThrow(
-                () -> new CommonException("Không tìm thấy tài khoản")
-        );
+        NguoiDung nguoiDung = findUserForPasswordReset(rpRequest.getUsername());
 
         OtpScheduleObj findingResetOtp = checkResetOtp(nguoiDung, rpRequest.getOtp());
 
@@ -524,6 +534,13 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                         .build()
 
         );
+    }
+
+    // Không tìm thấy / bị khoá -> cùng lỗi "mã không tồn tại hoặc đã hết hạn" (không lộ tài khoản có tồn tại)
+    private NguoiDung findUserForPasswordReset(String username) {
+        return nguoiDungRepository.findByTenDangNhapOrEmailOrSoDienThoai(username, username, username)
+                .filter(nd -> nd.getTrangThai() != null && nd.getTrangThai() == 1)
+                .orElseThrow(() -> resetOtpExpired(RESET_OTP_INVALID_MESSAGE));
     }
 
     /**
