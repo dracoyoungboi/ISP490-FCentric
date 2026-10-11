@@ -19,8 +19,14 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.text.ParseException;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
@@ -77,6 +83,24 @@ public class JwtServiceImpl implements JwtService {
             Instant ngayCapNhat,
             List<PhanQuyenNguoiDungKhoDto> phanQuyenNguoiDungKhos,
             String userAgent) {
+        return generateTokenWithPermissions(id, tenDangNhap, hoTen, email, soDienThoai, vaiTros, trangThai,
+                ngayTao, ngayCapNhat, phanQuyenNguoiDungKhos, userAgent, null);
+    }
+
+    @Override
+    public String generateTokenWithPermissions(
+            Integer id,
+            String tenDangNhap,
+            String hoTen,
+            String email,
+            String soDienThoai,
+            Set<String> vaiTros,
+            Integer trangThai,
+            Instant ngayTao,
+            Instant ngayCapNhat,
+            List<PhanQuyenNguoiDungKhoDto> phanQuyenNguoiDungKhos,
+            String userAgent,
+            String credentialVersion) {
         try {
             JWSHeader jwtHeader = new JWSHeader(JWSAlgorithm.HS256);
 
@@ -97,6 +121,7 @@ public class JwtServiceImpl implements JwtService {
                     .claim("scope", buildScope(vaiTros))
                     .claim("warehousePermissions", phanQuyenNguoiDungKhosJson)
                     .claim("userAgent", userAgent)
+                    .claim("cv", credentialVersion) // null -> không ghi claim
                     .build();
 
             Payload jwtPayload = new Payload(jwtClaimsSet.toJSONObject());
@@ -105,6 +130,20 @@ public class JwtServiceImpl implements JwtService {
             return jwsObject.serialize();
         } catch (JOSEException | JsonProcessingException e) {
             throw new RuntimeException("Error generating token: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public String credentialVersion(String matKhauHash) {
+        if (matKhauHash == null) return null;
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(ConstantVariables.SIGNER_KEY.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            byte[] digest = mac.doFinal(matKhauHash.getBytes(StandardCharsets.UTF_8));
+            // 128 bit đầu là đủ để phân biệt các lần đổi mật khẩu
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(Arrays.copyOf(digest, 16));
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException("Không tính được credentialVersion", e);
         }
     }
 
@@ -183,6 +222,7 @@ public class JwtServiceImpl implements JwtService {
                     .soDienThoai(claims.getStringClaim("soDienThoai"))
                     .trangThai(claims.getIntegerClaim("trangThai"))
                     .phanQuyenNguoiDungKhos(phanQuyenNguoiDungKhoDtos)
+                    .credentialVersion(claims.getStringClaim("cv"))
                     .build();
         } catch (JOSEException | ParseException | JsonProcessingException e) {
             throw new RuntimeException("Error parsing token " + e.getMessage(), e);
