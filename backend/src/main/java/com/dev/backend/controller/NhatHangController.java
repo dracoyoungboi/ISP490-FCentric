@@ -70,7 +70,7 @@ public class NhatHangController {
                 HttpStatus.CREATED.value(),
                 pickListDto,
                 null,
-                "Tạo Pick List gom đơn thành công"
+                "Tạo phiếu nhặt hàng thành công"
         ));
     }
 
@@ -94,7 +94,7 @@ public class NhatHangController {
                 HttpStatus.OK.value(),
                 pageResult,
                 null,
-                "Lấy danh sách Pick List thành công"
+                "Lấy danh sách phiếu nhặt hàng thành công"
         ));
     }
 
@@ -114,7 +114,7 @@ public class NhatHangController {
                 HttpStatus.OK.value(),
                 dto,
                 null,
-                "Lấy chi tiết Pick List thành công"
+                "Lấy chi tiết phiếu nhặt hàng thành công"
         ));
     }
 

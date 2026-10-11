@@ -129,7 +129,7 @@ public class AdminController {
         return ResponseEntity.ok(
                 ResponseData.<Void>builder()
                         .status(HttpStatus.OK.value())
-                        .message("Admin reset mật khẩu cho người dùng thành công")
+                        .message("Đặt lại mật khẩu cho người dùng thành công")
                         .error(null)
                         .build()
         );
@@ -148,7 +148,7 @@ public class AdminController {
         return ResponseEntity.ok(
                 ResponseData.<Void>builder()
                         .status(HttpStatus.OK.value())
-                        .message("Admin cấp mật khẩu ngẫu nhiên cho người dùng thành công")
+                        .message("Đã cấp mật khẩu ngẫu nhiên cho người dùng")
                         .error(null)
                         .build()
         );

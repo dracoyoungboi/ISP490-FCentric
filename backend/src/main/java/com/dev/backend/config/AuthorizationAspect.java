@@ -58,7 +58,7 @@ public class AuthorizationAspect {
                     : jwtService.hasAllRoles(nguoiDungAuthInfo, requiredRoles); // Có tất cả roles
 
             if (!hasAccess) {
-                throw new AccessDeniedException("Vai trò không đủ");
+                throw new AccessDeniedException("Vai trò của bạn không được phép thực hiện thao tác này");
             }
         }
         //check theo Kho
@@ -66,7 +66,7 @@ public class AuthorizationAspect {
             Integer warehouseId = getWarehouseId(joinPoint);
 
             if (!jwtService.inWorkspace(warehouseId, nguoiDungAuthInfo)) {
-                throw new AccessDeniedException("Người dùng id: " + nguoiDungAuthInfo.getId() + " không nằm trong kho id: " + warehouseId);
+                throw new AccessDeniedException("Bạn không thuộc kho đang chọn, vui lòng chọn lại kho");
             }
 
             if (requireAuth.permissions().length > 0) {
@@ -80,7 +80,7 @@ public class AuthorizationAspect {
                           System.out.println(ctqk.getQuyenHan().getMaQuyen());
                       }
                     }
-                    throw new AccessDeniedException("Quyền hạn không đủ");
+                    throw new AccessDeniedException("Bạn không có quyền thực hiện thao tác này");
                 }
             }
         }
@@ -112,7 +112,7 @@ public class AuthorizationAspect {
             return authHeader;
         }
 
-        throw new AccessDeniedException("Không tìm thấy header Authorization");
+        throw new AccessDeniedException("Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn");
     }
 
     public Integer getWarehouseId(ProceedingJoinPoint joinPoint) {
@@ -137,10 +137,10 @@ public class AuthorizationAspect {
             try {
                 return Integer.parseInt(khoIdStr);
             } catch (NumberFormatException e) {
-                throw new AccessDeniedException("Header kho_id không hợp lệ");
+                throw new AccessDeniedException("Kho đang chọn không hợp lệ, vui lòng chọn lại kho");
             }
         }
 
-        throw new AccessDeniedException("Không tìm thấy header kho_id");
+        throw new AccessDeniedException("Bạn chưa chọn kho làm việc, vui lòng chọn kho");
     }
 }

@@ -55,7 +55,7 @@ public class NhatKyNhapXuatController {
 
             case "ngay" -> {
                 if (tuNgay == null || denNgay == null)
-                    throw new IllegalArgumentException("loai=ngay yêu cầu tuNgay và denNgay (yyyy-MM-dd)");
+                    throw new IllegalArgumentException("Vui lòng chọn từ ngày và đến ngày");
                 yield nhatKyNhapXuatRepository.baoCaoTheoNgay(
                         LocalDate.parse(tuNgay), LocalDate.parse(denNgay),
                         khoId, loaiGiaoDich);
@@ -63,25 +63,25 @@ public class NhatKyNhapXuatController {
 
             case "tuan" -> {
                 if (nam == null)
-                    throw new IllegalArgumentException("loai=tuan yêu cầu nam");
+                    throw new IllegalArgumentException("Vui lòng chọn năm");
                 yield nhatKyNhapXuatRepository.baoCaoTheoTuan(nam, khoId, loaiGiaoDich);
             }
 
             case "thang" -> {
                 if (nam == null)
-                    throw new IllegalArgumentException("loai=thang yêu cầu nam");
+                    throw new IllegalArgumentException("Vui lòng chọn năm");
                 yield nhatKyNhapXuatRepository.baoCaoTheoThang(nam, khoId, loaiGiaoDich);
             }
 
             case "nam" -> {
                 if (tuNam == null || denNam == null)
-                    throw new IllegalArgumentException("loai=nam yêu cầu tuNam và denNam");
+                    throw new IllegalArgumentException("Vui lòng chọn từ năm và đến năm");
                 yield nhatKyNhapXuatRepository.baoCaoTheoNam(tuNam, denNam, khoId, loaiGiaoDich);
             }
 
             case "so_sanh" -> {
                 if (nam == null || thang == null)
-                    throw new IllegalArgumentException("loai=so_sanh yêu cầu nam và thang");
+                    throw new IllegalArgumentException("Vui lòng chọn năm và tháng cần so sánh");
                 int thangTruoc = (thang == 1) ? 12 : thang - 1;
                 int namTruoc   = (thang == 1) ? nam - 1 : nam;
                 yield nhatKyNhapXuatRepository.soSanhCungKy(
@@ -90,7 +90,7 @@ public class NhatKyNhapXuatController {
 
             case "chi_tiet" -> {
                 if (tuNgay == null || denNgay == null)
-                    throw new IllegalArgumentException("loai=chi_tiet yêu cầu tuNgay và denNgay");
+                    throw new IllegalArgumentException("Vui lòng chọn từ ngày và đến ngày");
                 yield nhatKyNhapXuatRepository.chiTietGiaoDich(
                         LocalDate.parse(tuNgay), LocalDate.parse(denNgay),
                         khoId, loaiGiaoDich, bienTheSanPhamId);
@@ -98,13 +98,13 @@ public class NhatKyNhapXuatController {
 
             case "theo_kho" -> {
                 if (tuNgay == null || denNgay == null)
-                    throw new IllegalArgumentException("loai=theo_kho yêu cầu tuNgay và denNgay");
+                    throw new IllegalArgumentException("Vui lòng chọn từ ngày và đến ngày");
                 yield nhatKyNhapXuatRepository.tongHopTheoKho(
                         LocalDate.parse(tuNgay), LocalDate.parse(denNgay), loaiGiaoDich);
             }
 
             default -> throw new IllegalArgumentException(
-                    "loai không hợp lệ. Chọn: ngay | tuan | thang | nam | so_sanh | chi_tiet | theo_kho");
+                    "Kiểu báo cáo không hợp lệ");
         };
 
         ResponseEntity<ResponseData<List<NhatKyNhapXuatDTO>>> ok = ResponseEntity.ok(

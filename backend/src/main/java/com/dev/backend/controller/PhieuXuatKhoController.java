@@ -149,7 +149,7 @@ public class PhieuXuatKhoController {
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
-                        .message("Pick lô thành công")
+                        .message("Chọn lô thành công")
                         .data("SUCCESS")
                         .build()
         );
