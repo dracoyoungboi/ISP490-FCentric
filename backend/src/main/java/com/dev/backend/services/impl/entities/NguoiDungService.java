@@ -103,6 +103,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     // SĐT di động Việt Nam (định dạng trong nước): 10 chữ số, bắt đầu bằng
     // 03/05/07/08/09
     private static final Pattern VIETNAM_PHONE_PATTERN = Pattern.compile("^0[35789][0-9]{8}$");
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
 
     // SĐT là tùy chọn: null/blank hợp lệ; có giá trị thì phải đúng định dạng
     private static void validatePhone(String phone) {
@@ -110,6 +111,12 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                 && !phone.isBlank()
                 && !VIETNAM_PHONE_PATTERN.matcher(phone.trim()).matches()) {
             throw new CommonException("Số điện thoại không hợp lệ (10 số, bắt đầu bằng 03/05/07/08/09)");
+        }
+    }
+
+    private static void validateEmail(String email) {
+        if (email == null || email.isBlank() || !EMAIL_PATTERN.matcher(email.trim()).matches()) {
+            throw new CommonException("Vui lòng nhập đúng định dạng email");
         }
     }
 
@@ -785,38 +792,64 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
     @Transactional
     public NguoiDung createInternalUserByAdmin(NguoiDungCreating request) {
-
-        if (nguoiDungRepository.existsByTenDangNhap(request.getTenDangNhap())) {
+        if (request.getTenDangNhap() == null || request.getTenDangNhap().isBlank()) {
+            throw new CommonException("Tên đăng nhập không được để trống");
+        }
+        String tenDangNhap = request.getTenDangNhap().trim();
+        if (nguoiDungRepository.existsByTenDangNhap(tenDangNhap)) {
             throw new CommonException("Tên đăng nhập đã tồn tại");
         }
 
-        if (request.getEmail() != null && !request.getEmail().isBlank()) {
-            if (nguoiDungRepository.existsByEmail(request.getEmail())) {
-                throw new CommonException("Email đã tồn tại");
-            }
+        if (request.getEmail() == null || request.getEmail().isBlank()) {
+            throw new CommonException("Email không được để trống khi tạo tài khoản");
+        }
+        String email = request.getEmail().trim();
+        validateEmail(email);
+        if (nguoiDungRepository.existsByEmail(email)) {
+            throw new CommonException("Email đã tồn tại");
         }
 
-        // SĐT tùy chọn: blank -> null; có giá trị thì phải đúng định dạng rồi mới kiểm
-        // tra trùng
+        // SĐT tùy chọn: blank -> null; có giá trị thì phải đúng định dạng rồi mới kiểm tra trùng
         String soDienThoai = normalizePhone(request.getSoDienThoai());
         validatePhone(soDienThoai);
         if (soDienThoai != null && nguoiDungRepository.existsBySoDienThoai(soDienThoai)) {
             throw new CommonException("Số điện thoại đã tồn tại");
         }
 
-        NguoiDung nguoiDung = new NguoiDung();
-        nguoiDung.setTenDangNhap(request.getTenDangNhap());
-        nguoiDung.setEmail(
-                request.getEmail() != null && !request.getEmail().isBlank()
-                        ? request.getEmail()
-                        : null);
-        nguoiDung.setHoTen(request.getHoTen());
-        nguoiDung.setSoDienThoai(soDienThoai);
-        nguoiDung.setVaiTro(request.getVaiTro().toString());
-        nguoiDung.setTrangThai(1);
-        nguoiDung.setMatKhauHash(passwordEncoder.encode(request.getMatKhau()));
+        // Tự động sinh mật khẩu tạm ngẫu nhiên
+        String tempPassword = (request.getMatKhau() != null && !request.getMatKhau().isBlank())
+                ? request.getMatKhau().trim()
+                : generateTemporaryPassword();
 
-        return create(nguoiDung);
+        NguoiDung nguoiDung = new NguoiDung();
+        nguoiDung.setTenDangNhap(tenDangNhap);
+        nguoiDung.setEmail(email);
+        nguoiDung.setHoTen(request.getHoTen() != null ? request.getHoTen().trim() : tenDangNhap);
+        nguoiDung.setSoDienThoai(soDienThoai);
+        nguoiDung.setVaiTro(request.getVaiTro() != null ? request.getVaiTro().toString() : IRoleType.nhan_vien_kho);
+        nguoiDung.setTrangThai(1);
+        nguoiDung.setMatKhauHash(passwordEncoder.encode(tempPassword));
+        nguoiDung.setMustChangePassword(true);
+
+        NguoiDung saved = create(nguoiDung);
+
+        // Gửi email chào mừng kèm Tên đăng nhập và Mật khẩu tạm qua luồng bất đồng bộ OtpMailDispatcher (hạ tầng của Khang)
+        Map<String, Object> emailParams = new HashMap<>();
+        emailParams.put("userName", saved.getHoTen() != null && !saved.getHoTen().isBlank()
+                ? saved.getHoTen()
+                : saved.getTenDangNhap());
+        emailParams.put("loginName", saved.getTenDangNhap());
+        emailParams.put("temporaryPassword", tempPassword);
+
+        otpMailDispatcher.dispatch(
+                saved.getId(),
+                saved.getEmail(),
+                "Thông báo cấp tài khoản mới - FCentric",
+                "new_user_welcome.html",
+                emailParams
+        );
+
+        return saved;
     }
 
     @Transactional
@@ -889,9 +922,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         emailParams.put("userName", nguoiDung.getHoTen() != null && !nguoiDung.getHoTen().isBlank()
                 ? nguoiDung.getHoTen()
                 : nguoiDung.getTenDangNhap());
-        emailParams.put("temporaryPassword", tempPassword);
-
-        emailService.sendHtmlEmailFromTemplate(
+        otpMailDispatcher.dispatch(
+                nguoiDung.getId(),
                 nguoiDung.getEmail(),
                 "Cấp lại mật khẩu tài khoản - FCentric",
                 "admin_reset_password.html",

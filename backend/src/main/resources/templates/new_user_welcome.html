@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thông báo cấp tài khoản mới</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f4f6f8; font-family:Arial, Helvetica, sans-serif;">
+<!-- Nền xám nhạt toàn trang -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f4f6f8" style="background-color:#f4f6f8;">
+    <tr>
+        <td align="center" style="padding:32px 16px;">
+            <!-- Khối chính: nền trắng, rộng 600px -->
+            <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:600px; max-width:600px; background-color:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                <tr>
+                    <td>
+                        <!-- Header: logo FCentric + tiêu đề -->
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#182537" style="background-color:#182537;">
+                            <tr>
+                                <td align="center" style="padding:32px 24px;">
+                                    <!-- Logo FCentric -->
+                                    <p style="margin:0; font-family:Arial, Helvetica, sans-serif; font-size:22px; font-weight:bold; color:#ffffff; letter-spacing:1px;">FCENTRIC</p>
+                                    <p style="margin:8px 0 0 0; font-family:Arial, Helvetica, sans-serif; font-size:16px; color:#cbd5e1; line-height:1.4;">Hệ Thống Quản Lý Chuỗi Thời Trang</p>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <!-- Tiêu đề chính -->
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                                <td align="center" style="padding:28px 24px 8px 24px;">
+                                    <p style="margin:0; font-family:Arial, Helvetica, sans-serif; font-size:20px; font-weight:bold; color:#182537; line-height:1.4;">Thông Báo Cấp Tài Khoản Mới</p>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <!-- Đường kẻ mảnh -->
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                                <td height="1" bgcolor="#e1e6ec" style="height:1px; background-color:#e1e6ec; font-size:0; line-height:0;">&nbsp;</td>
+                            </tr>
+                        </table>
+
+                        <!-- Nội dung -->
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                                <td style="padding:24px 32px 0 32px;">
+                                    <p style="margin:0 0 12px 0; font-family:Arial, Helvetica, sans-serif; font-size:16px; font-weight:bold; color:#182537; line-height:1.6;">Xin chào {{userName}}!</p>
+                                    <p style="margin:0; font-family:Arial, Helvetica, sans-serif; font-size:14px; color:#334155; line-height:1.6;">Chào mừng bạn gia nhập hệ thống FCentric. Quản trị viên đã khởi tạo tài khoản nhân sự dành cho bạn. Dưới đây là thông tin đăng nhập được cấp tự động:</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td height="20" style="height:20px; font-size:0; line-height:0;">&nbsp;</td>
+                            </tr>
+
+                            <!-- Hộp thông tin tài khoản -->
+                            <tr>
+                                <td style="padding:0 32px;">
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f8fafc" style="background-color:#f8fafc; border:1px solid #e1e6ec; border-radius:6px;">
+                                        <tr>
+                                            <td style="padding:20px 24px;">
+                                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                                    <tr>
+                                                        <td style="padding-bottom:12px; font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#64748b; width:140px;">Tên đăng nhập:</td>
+                                                        <td style="padding-bottom:12px; font-family:Arial, Helvetica, sans-serif; font-size:15px; font-weight:bold; color:#0f172a;">{{loginName}}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td style="font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#64748b; width:140px;">Mật khẩu tạm thời:</td>
+                                                        <td style="font-family:Courier New, Courier, monospace; font-size:20px; font-weight:bold; color:#2563eb; letter-spacing:1.5px; user-select:all;">{{temporaryPassword}}</td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td height="20" style="height:20px; font-size:0; line-height:0;">&nbsp;</td>
+                            </tr>
+
+                            <!-- Lưu ý an toàn tài khoản -->
+                            <tr>
+                                <td style="padding:0 32px;">
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#fef2f2" style="background-color:#fef2f2; border:1px solid #fecaca; border-radius:6px;">
+                                        <tr>
+                                            <td style="padding:16px 20px;">
+                                                <p style="margin:0 0 8px 0; font-family:Arial, Helvetica, sans-serif; font-size:13px; font-weight:bold; color:#991b1b; line-height:1.6;">Lưu ý quan trọng về an toàn tài khoản:</p>
+                                                <ul style="margin:0; padding-left:20px;">
+                                                    <li style="font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#7f1d1d; line-height:1.7;">Vì lý do bảo mật, hệ thống sẽ <strong style="color:#991b1b;">bắt buộc bạn phải đổi sang mật khẩu mới</strong> ngay trong lần đầu tiên đăng nhập.</li>
+                                                    <li style="font-family:Arial, Helvetica, sans-serif; font-size:13px; color:#7f1d1d; line-height:1.7;">Tuyệt đối không cung cấp mật khẩu tạm thời này cho người khác.</li>
+                                                </ul>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td height="28" style="height:28px; font-size:0; line-height:0;">&nbsp;</td>
+                            </tr>
+                        </table>
+
+                        <!-- Footer -->
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f8fafc" style="background-color:#f8fafc; border-top:1px solid #e1e6ec;">
+                            <tr>
+                                <td align="center" style="padding:20px 24px;">
+                                    <p style="margin:0; font-family:Arial, Helvetica, sans-serif; font-size:12px; color:#64748b; line-height:1.6;">© 2026 FCentric. All rights reserved.</p>
+                                    <p style="margin:4px 0 0 0; font-family:Arial, Helvetica, sans-serif; font-size:11px; color:#94a3b8; line-height:1.4;">Email này được gửi tự động từ hệ thống quản trị, vui lòng không phản hồi.</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>
+

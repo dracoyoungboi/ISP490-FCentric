@@ -1,10 +1,12 @@
 package com.dev.backend.services.impl.entities;
 
 import com.dev.backend.constant.GlobalCache;
+import com.dev.backend.constant.enums.RoleType;
 import com.dev.backend.constant.variables.ConstantVariables;
 import com.dev.backend.dto.request.ChangePasswordRequest;
 import com.dev.backend.dto.request.ForgotPasswordRequest;
 import com.dev.backend.dto.request.LoginRequest;
+import com.dev.backend.dto.request.NguoiDungCreating;
 import com.dev.backend.dto.request.ResetPasswordRequest;
 import com.dev.backend.dto.request.VerifyResetOtpRequest;
 import com.dev.backend.dto.response.LoginResponse;
@@ -358,5 +360,57 @@ class NguoiDungServiceAuthHardeningTest {
         assertEquals(HttpStatus.BAD_REQUEST, ex.getHttpStatus());
         assertTrue(ex.getMessage().startsWith("Mật khẩu quá dài"));
         assertEquals(oldHash, user.getMatKhauHash());
+    }
+
+    // ===== #6: tạo người dùng mới tự sinh mật khẩu tạm & gửi mail chào mừng =====
+
+    @Test
+    void createInternalUserByAdmin_tuSinhMatKhauTam_batMustChangePassword_guiEmailChaoMung() {
+        when(repository.existsByTenDangNhap("nhanvienmoi")).thenReturn(false);
+        when(repository.existsByEmail("nhanvien@example.com")).thenReturn(false);
+        when(repository.save(any(NguoiDung.class))).thenAnswer(inv -> {
+            NguoiDung nd = inv.getArgument(0);
+            nd.setId(99);
+            return nd;
+        });
+
+        NguoiDungCreating req = NguoiDungCreating.builder()
+                .tenDangNhap("nhanvienmoi")
+                .email("nhanvien@example.com")
+                .hoTen("Nhân Viên Mới")
+                .vaiTro(RoleType.nhan_vien_kho)
+                .build();
+
+        NguoiDung created = service.createInternalUserByAdmin(req);
+
+        assertNotNull(created);
+        assertEquals("nhanvienmoi", created.getTenDangNhap());
+        assertEquals("nhanvien@example.com", created.getEmail());
+        assertTrue(created.getMustChangePassword(), "Tài khoản mới bắt buộc có mustChangePassword = true");
+        assertNotNull(created.getMatKhauHash(), "Phải có mật khẩu tạm được mã hóa BCrypt");
+
+        // Xác thực email chào mừng gửi qua OtpMailDispatcher với template new_user_welcome.html
+        verify(emailService).sendHtmlEmailFromTemplate(
+                eq("nhanvien@example.com"),
+                eq("Thông báo cấp tài khoản mới - FCentric"),
+                eq("new_user_welcome.html"),
+                argThat(params -> params.containsKey("loginName")
+                        && "nhanvienmoi".equals(params.get("loginName"))
+                        && params.containsKey("temporaryPassword")
+                        && params.get("temporaryPassword") != null)
+        );
+    }
+
+    @Test
+    void createInternalUserByAdmin_emailKhongHopLe_baoLoi() {
+        NguoiDungCreating req = NguoiDungCreating.builder()
+                .tenDangNhap("userloi")
+                .email("email-khong-hop-le")
+                .build();
+
+        CommonException ex = assertThrows(CommonException.class,
+                () -> service.createInternalUserByAdmin(req));
+        assertTrue(ex.getMessage().contains("Vui lòng nhập đúng định dạng email"));
+        verifyNoInteractions(emailService);
     }
 }

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff } from "lucide-react";
+import { Mail } from "lucide-react";
 import PageContainer from "@/components/backoffice/PageContainer";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import { Button } from "@/components/ui/button";
@@ -31,11 +31,9 @@ export default function AddUserByAdmin() {
         email: "",
         soDienThoai: "",
         vaiTro: "nhan_vien_kho",
-        matKhau: "",
     });
 
     const [loading, setLoading] = useState(false);
-    const [showPassword, setShowPassword] = useState(false);
     const [emailError, setEmailError] = useState("");
 
     const getEmailError = (value) => {
@@ -83,7 +81,7 @@ export default function AddUserByAdmin() {
             navigate("/users", {
                 state: {
                     success: true,
-                    message: "Tạo người dùng thành công",
+                    message: "Tạo người dùng thành công! Mật khẩu tạm thời đã được gửi tới email.",
                 },
             });
         } catch (err) {
@@ -101,7 +99,7 @@ export default function AddUserByAdmin() {
             {/* FORM CARD */}
             <SurfaceCard
                 title="Thêm người dùng mới"
-                description="Tạo tài khoản với vai trò hệ thống và mật khẩu tạm thời"
+                description="Tạo tài khoản với vai trò hệ thống. Mật khẩu tạm thời sẽ được tự động tạo và gửi đến email."
                 className="mx-auto max-w-3xl"
             >
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -240,28 +238,17 @@ export default function AddUserByAdmin() {
                                 )}
                             </div>
 
-                            <div>
-                                <Label className="font-semibold text-bo-foreground">
-                                    Mật khẩu tạm thời
-                                </Label>
-                                <div className="relative mt-2">
-                                    <Input
-                                        type={showPassword ? "text" : "password"}
-                                        value={form.matKhau}
-                                        onChange={(e) =>
-                                            setForm({ ...form, matKhau: e.target.value })
-                                        }
-                                        className="h-10 pr-10 border-bo-border bg-white focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-                                        required
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword((prev) => !prev)}
-                                        className="absolute inset-y-0 right-0 px-3 text-bo-muted hover:text-bo-foreground"
-                                        aria-label={showPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"}
-                                    >
-                                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                    </button>
+                            <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-4 text-sm text-slate-700">
+                                <div className="flex items-start gap-3">
+                                    <div className="mt-0.5 rounded-full bg-blue-100 p-1.5 text-blue-600">
+                                        <Mail className="h-4 w-4" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="font-medium text-blue-900">Mật khẩu tạm thời tự động</p>
+                                        <p className="text-xs leading-relaxed text-slate-600">
+                                            Hệ thống sẽ tự động tạo mật khẩu tạm thời bảo mật và gửi trực tiếp đến hộp thư của nhân viên. Nhân viên sẽ được yêu cầu đổi mật khẩu mới trong lần đăng nhập đầu tiên.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
