@@ -1,6 +1,6 @@
 import { createElement, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeftRight, PackageCheck, PackagePlus, Shirt } from "lucide-react";
+import { ArrowLeftRight, ChevronRight, PackageCheck, PackagePlus, Shirt } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, MoreLink, Segmented, StatusChip } from "./ui";
 import { MAU2 } from "./mau";
@@ -10,13 +10,14 @@ const nf1 = new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 1, maximumFr
 
 /**
  * Sản phẩm: 2 tab trong một thẻ – "Cần bổ sung" (việc phải làm) và "Bán chạy".
- * Mở sẵn tab "Cần bổ sung" khi có mã cần bổ sung, nếu không thì mở "Bán chạy" để thẻ không trống.
+ * Luôn mở sẵn tab "Cần bổ sung" để vị trí tab cố định mỗi lần tải trang; không có mã nào thì hiện trạng thái trống
+ * kèm nút chuyển sang "Bán chạy".
  */
 export default function ProductsCard({ data, loading, loiBanChay, loiBoSung, onRetry }) {
   const bs = data?.hangCanBoSung;
   const soBoSung = bs?.tongSo ?? 0;
   const [tabChon, setTab] = useState(null);
-  const tab = tabChon ?? (soBoSung > 0 ? "boSung" : "banChay");
+  const tab = tabChon ?? "boSung";
 
   return (
     <Card
@@ -38,7 +39,7 @@ export default function ProductsCard({ data, loading, loiBanChay, loiBoSung, onR
       {tab === "banChay" ? (
         <BanChay rows={data?.sanPhamBanChay} error={loiBanChay} onRetry={onRetry} />
       ) : (
-        <BoSung bs={bs} error={loiBoSung} onRetry={onRetry} />
+        <BoSung bs={bs} error={loiBoSung} onRetry={onRetry} onXemBanChay={data?.sanPhamBanChay?.length ? () => setTab("banChay") : null} />
       )}
     </Card>
   );
@@ -54,7 +55,7 @@ function Loi({ onRetry }) {
 
 function Rong({ icon, children }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 px-5 py-10 text-center text-[13px] text-bo-muted">
+    <div className="flex flex-1 flex-col items-center justify-center gap-2 px-5 py-10 text-center text-[13px] text-bo-muted">
       {createElement(icon, { className: "size-5 text-slate-400", "aria-hidden": true })}
       {children}
     </div>
@@ -123,10 +124,25 @@ function BanChay({ rows = [], error, onRetry }) {
   );
 }
 
-function BoSung({ bs, error, onRetry }) {
+function BoSung({ bs, error, onRetry, onXemBanChay }) {
   if (error) return <Loi onRetry={onRetry} />;
   const rows = bs?.dong ?? [];
-  if (!rows.length) return <Rong icon={PackageCheck}>Mọi mã đang kinh doanh đều còn trên mức tối thiểu.</Rong>;
+  if (!rows.length)
+    return (
+      <Rong icon={PackageCheck}>
+        Mọi mã đang kinh doanh đều còn trên mức tối thiểu.
+        {onXemBanChay ? (
+          <button
+            type="button"
+            onClick={onXemBanChay}
+            className="inline-flex items-center gap-1 rounded font-medium text-bo-primary hover:text-bo-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
+          >
+            Xem sản phẩm bán chạy
+            <ChevronRight className="size-3.5" aria-hidden="true" />
+          </button>
+        ) : null}
+      </Rong>
+    );
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[640px] text-sm tabular-nums">

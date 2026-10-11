@@ -58,7 +58,8 @@ const LOAI = {
 
 /**
  * Cột phải, 2 tab: "Cần xử lý" (chỉ việc đang có, gấp trước) và "Hoạt động gần đây".
- * Mở sẵn "Cần xử lý" khi có việc; không có việc thì mở "Hoạt động gần đây" để thẻ không trống.
+ * Luôn mở sẵn "Cần xử lý" để vị trí tab cố định mỗi lần tải trang; không có việc thì hiện trạng thái trống
+ * kèm nút chuyển sang "Hoạt động gần đây".
  */
 export default function ActionPanel({ data, khoId, loading, loiViec, loiHoatDong, onRetry }) {
   const [moRong, setMoRong] = useState(false);
@@ -66,7 +67,7 @@ export default function ActionPanel({ data, khoId, loading, loiViec, loiHoatDong
   const v = data?.viecCanXuLy;
   const viec = v ? danhSachViec(v, khoId == null) : [];
   const tong = viec.reduce((s, d) => s + d.so, 0);
-  const tab = tabChon ?? (v && tong === 0 ? "hoatDong" : "viec");
+  const tab = tabChon ?? "viec";
   const hienViec = moRong ? viec : viec.slice(0, SO_DONG_GON);
   const hd = data?.hoatDongGanDay ?? [];
 
@@ -99,6 +100,16 @@ export default function ActionPanel({ data, khoId, loading, loiViec, loiHoatDong
               <CheckCircle2 className="size-6 text-[#22a06b]" aria-hidden="true" />
               <p className="text-sm font-medium text-bo-foreground">Không có việc nào đang chờ</p>
               <p className="max-w-60 text-[13px] text-bo-muted">Đơn chờ xuất, phiếu chờ duyệt và hàng thiếu sẽ hiện ở đây.</p>
+              {hd.length ? (
+                <button
+                  type="button"
+                  onClick={() => setTab("hoatDong")}
+                  className="mt-1 inline-flex items-center gap-1 rounded text-[13px] font-medium text-bo-primary hover:text-bo-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
+                >
+                  Xem hoạt động gần đây
+                  <ChevronRight className="size-3.5" aria-hidden="true" />
+                </button>
+              ) : null}
             </div>
           ) : (
             <>
