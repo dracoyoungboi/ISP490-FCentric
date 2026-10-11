@@ -466,6 +466,10 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         }
 
         don.setTrangThai(5); // 5 = Hoàn thành / Đã giao thành công
+        // Đơn cũ xuất kho trước khi có mốc ngày giao: lấy thời điểm xác nhận giao thành công
+        if (don.getNgayGiaoHang() == null) {
+            don.setNgayGiaoHang(Instant.now());
+        }
         repository.save(don);
     }
     @Transactional

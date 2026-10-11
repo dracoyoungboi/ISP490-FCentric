@@ -429,6 +429,10 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
         }
         if (allFull) {
             don.setTrangThai(ITrangThaiDonBanHang.DA_XUAT_TOAN_BO); // 3: Toàn bộ hàng đã xuất kho -> Chuyển sang Đang giao hàng
+            // Ghi nhận ngày giao (mốc ghi nhận doanh thu của Báo cáo doanh thu và màn Tổng quan) khi xuất đủ hàng
+            if (don.getNgayGiaoHang() == null) {
+                don.setNgayGiaoHang(Instant.now());
+            }
         } else if (!allZero) {
             don.setTrangThai(ITrangThaiDonBanHang.DANG_XUAT_KHO); // 2: Có hàng đã xuất nhưng chưa đủ -> Đang xuất kho
         } else {
