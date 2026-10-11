@@ -563,8 +563,36 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .build();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<BienTheOptionDto> timBienThe(String q, int limit) {
+        int max = limit > 0 ? Math.min(limit, 50) : 20;
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, max);
+        String keyword = q != null ? q.trim() : "";
+        List<BienTheSanPham> list = bienTheSanPhamRepository.searchVariantsForMapping(keyword, pageable);
+        return list.stream().map(bt -> BienTheOptionDto.builder()
+                .id(bt.getId())
+                .maSku(bt.getMaSku())
+                .tenBienThe(buildVariantName(bt))
+                .tenSanPham(bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : null)
+                .giaBan(bt.getGiaBan())
+                .build()
+        ).toList();
+    }
+
     private KenhBanHang getKenhActive(String maKenh) {
-        return kenhBanHangRepository.findByMaKenh(maKenh)
+        if (maKenh == null || maKenh.isBlank()) {
+            throw new CommonException("Mã kênh không được để trống", HttpStatus.BAD_REQUEST, null);
+        }
+        String trimmed = maKenh.trim();
+        try {
+            Integer id = Integer.parseInt(trimmed);
+            Optional<KenhBanHang> byId = kenhBanHangRepository.findById(id);
+            if (byId.isPresent()) return byId.get();
+        } catch (NumberFormatException ignored) {
+        }
+        return kenhBanHangRepository.findByMaKenh(trimmed)
+                .or(() -> kenhBanHangRepository.findByMaKenh(trimmed.toUpperCase()))
                 .orElseThrow(() -> new CommonException("Không tìm thấy kênh bán hàng: " + maKenh, HttpStatus.NOT_FOUND, null));
     }
 

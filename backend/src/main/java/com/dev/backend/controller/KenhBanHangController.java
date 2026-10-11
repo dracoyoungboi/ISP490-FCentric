@@ -191,4 +191,19 @@ public class KenhBanHangController {
                         .build()
         );
     }
+
+    @GetMapping("/bien-the/tim-kiem")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Tìm kiếm biến thể FCentric phục vụ ghép nối SKU")
+    public ResponseEntity<ResponseData<java.util.List<BienTheOptionDto>>> timBienThe(
+            @RequestParam(required = false, defaultValue = "") String q,
+            @RequestParam(required = false, defaultValue = "20") int limit) {
+        return ResponseEntity.ok(
+                ResponseData.<java.util.List<BienTheOptionDto>>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhBanHangDongBoService.timBienThe(q, limit))
+                        .message("Tìm kiếm biến thể thành công")
+                        .build()
+        );
+    }
 }

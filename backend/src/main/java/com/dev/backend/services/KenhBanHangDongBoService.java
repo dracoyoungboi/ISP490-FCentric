@@ -22,5 +22,7 @@ public interface KenhBanHangDongBoService {
     void dayTonKhoKhanCap(Integer bienTheSanPhamId);
 
     DongBoTongQuanDto getTongQuan(String maKenh);
+
+    java.util.List<BienTheOptionDto> timBienThe(String q, int limit);
 }
 

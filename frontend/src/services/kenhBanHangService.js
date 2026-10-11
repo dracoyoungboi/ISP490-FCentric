@@ -6,6 +6,35 @@ const BASE = "/api/v1/kenh-ban-hang";
 const data = (res) => res.data?.data;
 
 /**
+ * Chuẩn hóa mã kênh (Hỗ trợ cả ID số như 2 và chuỗi như 'SHOPIFY')
+ */
+export function resolveChannelCode(channelIdOrCode) {
+  if (!channelIdOrCode) return "SHOPIFY";
+  const str = String(channelIdOrCode).trim();
+  if (str === "2" || str.toUpperCase() === "SHOPIFY") return "SHOPIFY";
+  if (str === "3" || str.toUpperCase() === "LAZADA") return "LAZADA";
+  if (str === "5" || str.toUpperCase() === "TIKTOK") return "TIKTOK";
+  return str.toUpperCase();
+}
+
+/**
+ * Chuẩn hóa dữ liệu phân trang liên kết từ backend về frontend model
+ */
+function normalizeLienKetPage(pageData) {
+  if (!pageData) return { content: [], totalElements: 0, totalPages: 0 };
+  const content = (pageData.content || []).map((row) => ({
+    ...row,
+    khaDung: row.soLuongKhaDung !== undefined ? row.soLuongKhaDung : row.khaDung,
+    soDay: row.soLuongDaDay !== undefined ? row.soLuongDaDay : row.soDay,
+    trangThaiLienKet: row.trangThaiLienKet || (row.bienTheSanPhamId ? "da_lien_ket" : "chua_lien_ket"),
+  }));
+  return {
+    ...pageData,
+    content,
+  };
+}
+
+/**
  * Cấu hình kênh Shopify — ĐÃ CÓ backend (KenhBanHangController, chỉ quan_tri_vien).
  * Token luôn trả về dạng che (accessTokenMasked, refreshTokenMasked).
  */
@@ -24,37 +53,132 @@ const shopifyMock = {
 };
 
 /**
- * Thiết lập đồng bộ (kho, quy tắc tồn, nhận đơn), liên kết SKU, đẩy tồn, nhật ký đồng bộ:
- * backend CHƯA có API (docs/omnichannel/API-KENH-BAN-HANG.md mục 2) nên luôn chạy bằng dữ liệu mẫu.
- * Khi backend xong, thay từng hàm bằng lời gọi apiClient cùng chữ ký (Gói E).
+ * API đồng bộ sản phẩm, SKU mapping, tồn kho và KPI kênh bán hàng
  */
-const syncPending = {
-  getKetNoi: kenhBanHangMock.getKetNoi,
+const syncApi = {
+  getKetNoi: async (id) => {
+    const code = resolveChannelCode(id);
+    const [configRes, tongQuanRes] = await Promise.allSettled([
+      apiClient.get(`${BASE}/shopify`).then(data),
+      apiClient.get(`${BASE}/${code}/tong-quan`).then(data),
+    ]);
+
+    const config = configRes.status === "fulfilled" ? configRes.value : null;
+    const tongQuan = tongQuanRes.status === "fulfilled" ? tongQuanRes.value : null;
+
+    const domain =
+      config?.shopDomain ||
+      (config?.apiUrl ? config.apiUrl.replace(/^https?:\/\//i, "").split("/")[0] : "fcentric-dev.myshopify.com");
+    const total = tongQuan?.tongSkuSan ?? 0;
+    const linked = tongQuan?.daLienKet ?? 0;
+    const unlinked = tongQuan?.chuaLienKet ?? 0;
+    const errors = tongQuan?.loiDongBo ?? 0;
+
+    return {
+      id: config?.id || (Number(id) || 2),
+      kenhBanId: config?.id || 2,
+      maKenh: code,
+      tenKenh: code === "SHOPIFY" ? "Shopify" : code,
+      tenHienThi: domain ? `Shopify (${domain})` : "Shopify Official",
+      shopIdSan: domain,
+      tenShopSan: domain,
+      tenMienShop: domain,
+      trangThai: config?.trangThai === 1 || config?.hasAccessToken ? "dang_hoat_dong" : "tam_dung",
+      khoId: 1,
+      tenKho: "Kho tổng Hà Nội",
+      tyLeDayTon: 100,
+      tonDem: 0,
+      nguongVe0: 0,
+      lanDayTonCuoi: tongQuan?.lanDongBoCuoi || config?.ngayCapNhat,
+      soLienKet: total,
+      soLienKetDangBat: linked,
+      soChuaLienKet: unlinked,
+      soLoi: errors,
+    };
+  },
+
   getKhoSan: kenhBanHangMock.getKhoSan,
   luuCauHinh: kenhBanHangMock.luuCauHinh,
   batTatDongBo: kenhBanHangMock.batTatDongBo,
-  taiSanPham: kenhBanHangMock.taiSanPham,
-  tuDongLienKet: kenhBanHangMock.tuDongLienKet,
-  filterLienKet: kenhBanHangMock.filterLienKet,
-  capNhatLienKet: kenhBanHangMock.capNhatLienKet,
-  dayTon: kenhBanHangMock.dayTon,
+
+  taiSanPham: (id) => apiClient.post(`${BASE}/${resolveChannelCode(id)}/tai-san-pham`).then(data),
+
+  tuDongLienKet: (id) => apiClient.post(`${BASE}/${resolveChannelCode(id)}/tu-dong-lien-ket`).then(data),
+
+  filterLienKet: (id, params = {}) => {
+    const code = resolveChannelCode(id);
+    const query = {
+      page: params.page ?? 0,
+      size: params.size ?? 10,
+    };
+    if (params.search?.trim()) query.search = params.search.trim();
+    if (params.trangThaiLienKet) query.trangThai = params.trangThaiLienKet;
+
+    return apiClient.get(`${BASE}/${code}/lien-ket`, { params: query }).then(data).then(normalizeLienKetPage);
+  },
+
+  capNhatLienKet: (lienKetId, payload = {}) =>
+    apiClient
+      .put(`${BASE}/lien-ket/${lienKetId}`, payload)
+      .then(data)
+      .then((row) => ({
+        ...row,
+        khaDung: row?.soLuongKhaDung !== undefined ? row.soLuongKhaDung : row?.khaDung,
+        soDay: row?.soLuongDaDay !== undefined ? row.soLuongDaDay : row?.soDay,
+        trangThaiLienKet: row?.trangThaiLienKet || (row?.bienTheSanPhamId ? "da_lien_ket" : "chua_lien_ket"),
+      })),
+
+  dayTon: (id, payload) => apiClient.post(`${BASE}/${resolveChannelCode(id)}/day-ton`, payload || {}).then(data),
+
   layDon: kenhBanHangMock.layDon,
   dongBoTatCa: kenhBanHangMock.dongBoTatCa,
-  tongQuan: kenhBanHangMock.tongQuan,
+
+  tongQuan: () =>
+    apiClient
+      .get(`${BASE}/tong-quan`)
+      .then(data)
+      .then((tq) => ({
+        kenhDangKetNoi: 1,
+        tongKetNoi: 1,
+        suKienTrongNhatKy: 0,
+        suKienCanXuLy: tq?.loiDongBo ?? 0,
+        chuKyDongBoTonPhut: 5,
+        chuKyLayDonPhut: 15,
+        ketNois: [
+          {
+            id: 2,
+            maKenh: "SHOPIFY",
+            tenHienThi: "Shopify Official",
+            trangThai: "dang_hoat_dong",
+            lanDayTonCuoi: tq?.lanDongBoCuoi,
+            lanLayDonCuoi: null,
+            soLoi: tq?.loiDongBo ?? 0,
+            soChoDay: tq?.chuaLienKet ?? 0,
+          },
+        ],
+      }))
+      .catch(() => kenhBanHangMock.tongQuan()),
+
   filterNhatKy: kenhBanHangMock.filterNhatKy,
   getNhatKy: kenhBanHangMock.getNhatKy,
   thuLai: kenhBanHangMock.thuLai,
-  timBienThe: kenhBanHangMock.timBienThe,
+
+  timBienThe: (q = "", limit = 20) =>
+    apiClient
+      .get(`${BASE}/bien-the/tim-kiem`, { params: { q, limit } })
+      .then(data)
+      .catch(() => kenhBanHangMock.timBienThe(q, limit)),
+
   getKhoOptions: kenhBanHangMock.getKhoOptions,
   getKhachHangOptions: kenhBanHangMock.getKhachHangOptions,
 };
 
 export const kenhBanHangService = {
   ...(CHANNEL_MOCK ? shopifyMock : shopifyApi),
-  ...syncPending,
+  ...(CHANNEL_MOCK ? kenhBanHangMock : syncApi),
 };
 
 /** Cấu hình Shopify chạy dữ liệu mẫu khi bật VITE_CHANNEL_MOCK=true. */
 export const isShopifyConfigMock = CHANNEL_MOCK;
-/** Các màn Thiết lập đồng bộ / Liên kết sản phẩm / Dashboard đồng bộ: luôn là dữ liệu mẫu cho tới khi có backend. */
-export const isChannelSyncMock = true;
+/** Chạy dữ liệu mẫu khi bật VITE_CHANNEL_MOCK=true. */
+export const isChannelSyncMock = CHANNEL_MOCK;

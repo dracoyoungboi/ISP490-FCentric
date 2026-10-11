@@ -198,4 +198,19 @@ public interface BienTheSanPhamRepository extends JpaRepository<BienTheSanPham, 
             ORDER BY sp.id, bt.id
             """)
     List<BienTheSanPham> findActiveVariantsWithDetails();
+
+    @Query("""
+            SELECT bt FROM BienTheSanPham bt
+            JOIN FETCH bt.sanPham sp
+            LEFT JOIN FETCH bt.mauSac
+            LEFT JOIN FETCH bt.size
+            LEFT JOIN FETCH bt.chatLieu
+            WHERE bt.trangThai = 1 AND sp.trangThai = 1
+              AND (:keyword IS NULL OR :keyword = ''
+                   OR LOWER(bt.maSku) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                   OR LOWER(sp.tenSanPham) LIKE LOWER(CONCAT('%', :keyword, '%')))
+            ORDER BY bt.id ASC
+            """)
+    List<BienTheSanPham> searchVariantsForMapping(@Param("keyword") String keyword, Pageable pageable);
 }
+
