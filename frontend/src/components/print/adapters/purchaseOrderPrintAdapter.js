@@ -9,7 +9,7 @@ import { formatPrintDate, formatPrintDateTime } from "./printFormat";
  * phương thức/điều khoản thanh toán hay thuế — chỉ in những gì API có.
  */
 export const PURCHASE_ORDER_STATUS = {
-    0: { label: "Đã xoá", tone: "danger" },
+    0: { label: "Đã xóa", tone: "danger" },
     1: { label: "Đã gửi", tone: "info" },
     2: { label: "Đã báo giá", tone: "info" },
     3: { label: "Đang vận chuyển", tone: "warning" },
@@ -30,7 +30,7 @@ const dashQuantity = (value) =>
 const dashMoney = (value) =>
     value === null || value === undefined
         ? "—"
-        : `${formatNumber(value)} đ`;
+        : `${formatNumber(value)} ₫`;
 
 export function toPurchaseOrderPrintModel(raw) {
     const data = raw || {};

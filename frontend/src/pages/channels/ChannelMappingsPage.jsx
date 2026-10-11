@@ -146,7 +146,7 @@ export default function ChannelMappingsPage() {
 
     return (
         <PageContainer className="space-y-5">
-            <MockModeNotice show={isChannelSyncMock} reason="backend chưa có API liên kết sản phẩm" />
+            <MockModeNotice show={isChannelSyncMock} reason="hệ thống chưa hỗ trợ liên kết sản phẩm" />
 
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <button

@@ -33,11 +33,11 @@ function KhoTonKhoPanel({ khoData }) {
                 <div className="flex items-center gap-4">
                     <div className="text-xs text-[#7a6e5f] hidden sm:flex gap-3">
                         <span>
-                            Tồn: <b className="text-[#2f2a23]">{Number(khoData.tongSoLuongTon ?? 0).toLocaleString()}</b>
+                            Tồn: <b className="text-[#2f2a23]">{Number(khoData.tongSoLuongTon ?? 0).toLocaleString("vi-VN")}</b>
                         </span>
                         <span>
                             Khả dụng:{" "}
-                            <b className="text-emerald-700">{Number(khoData.tongSoLuongKhaDung ?? 0).toLocaleString()}</b>
+                            <b className="text-emerald-700">{Number(khoData.tongSoLuongKhaDung ?? 0).toLocaleString("vi-VN")}</b>
                         </span>
                         <span>
                             Giá trị: <b className="text-[#b8860b]">{formatCurrency(khoData.giaTriTonKho ?? 0)}</b>
@@ -78,10 +78,10 @@ function KhoTonKhoPanel({ khoData }) {
                                             <StockBadge value={lo.soLuongTon} />
                                         </td>
                                         <td className="px-4 py-2.5 text-right text-amber-700">
-                                            {Number(lo.soLuongDaDat ?? 0).toLocaleString()}
+                                            {Number(lo.soLuongDaDat ?? 0).toLocaleString("vi-VN")}
                                         </td>
                                         <td className="px-4 py-2.5 text-right text-emerald-700 font-medium">
-                                            {Number(lo.soLuongKhaDung ?? 0).toLocaleString()}
+                                            {Number(lo.soLuongKhaDung ?? 0).toLocaleString("vi-VN")}
                                         </td>
                                         <td className="px-4 py-2.5 text-right text-[#6f6354]">
                                             {formatCurrency(lo.giaVon ?? 0)}
@@ -209,7 +209,7 @@ function BienThePanel({ bienThe, initialTongTon = null }) {
                         <span className="text-xs text-[#7a6e5f]">
                             Tổng tồn:{" "}
                             <b className={tongTon > 0 ? "text-emerald-700" : "text-red-600"}>
-                                {tongTon.toLocaleString()}
+                                {tongTon.toLocaleString("vi-VN")}
                             </b>
                         </span>
                     )}
@@ -367,7 +367,7 @@ export default function InventoryDrawer({ isOpen, onClose, product }) {
                         <div className="rounded-lg border border-[#eadfce] bg-white px-3 py-2">
                             <span className="text-[#7a6e5f]">
                                 Tồn kho hiện tại:{" "}
-                                <b className="text-emerald-700">{Number(tonKhoHienTaiDisplay ?? 0).toLocaleString()}</b>
+                                <b className="text-emerald-700">{Number(tonKhoHienTaiDisplay ?? 0).toLocaleString("vi-VN")}</b>
                             </span>
                         </div>
                         <div className="rounded-lg border border-[#eadfce] bg-white px-3 py-2">

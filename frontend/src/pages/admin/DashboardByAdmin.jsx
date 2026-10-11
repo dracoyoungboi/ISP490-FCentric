@@ -110,7 +110,7 @@ export default function DashboardByAdmin() {
                 <Stat
                     icon={<DollarSign className="w-5 h-5 text-emerald-600" />}
                     label="Doanh thu ngày"
-                    value={`${data.revenueToday.toLocaleString()}₫`}
+                    value={`${data.revenueToday.toLocaleString("vi-VN")} ₫`}
                 />
 
                 <Stat
@@ -172,7 +172,7 @@ export default function DashboardByAdmin() {
                                             key={item.date}
                                             className="w-8 rounded-t-md bg-purple-600 hover:bg-purple-700 transition shadow-sm"
                                             style={{ height }}
-                                            title={`${item.date}: ${item.value.toLocaleString()}₫`}
+                                            title={`${item.date}: ${item.value.toLocaleString("vi-VN")} ₫`}
                                         />
 
                                         <span className="text-[10px] text-gray-500">

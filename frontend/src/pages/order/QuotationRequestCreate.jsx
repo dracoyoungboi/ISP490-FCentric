@@ -63,11 +63,11 @@ export default function QuotationRequestCreate() {
             setForm(prev => ({
                 ...prev,
                 prId: data.id,
-                ghiChu: `Tạo yêu cầu báo giá từ PR #${data.id}`
+                ghiChu: `Tạo yêu cầu báo giá từ yêu cầu mua hàng #${data.id}`
             }));
             generateOrderNumber();
         } catch {
-            toast.error("Không thể tải chi tiết Yêu cầu mua hàng");
+            toast.error("Không thể tải chi tiết yêu cầu mua hàng");
             setSelectedPR(null);
             setForm(prev => ({ ...prev, prId: "" }));
         } finally {
@@ -124,8 +124,8 @@ export default function QuotationRequestCreate() {
     };
 
     const handleCreate = () => {
-        if (!form.prId) return toast.error("Vui lòng chọn Yêu cầu mua hàng (PR)");
-        if (selectedSupplierIds.length === 0) return toast.error("Vui lòng chọn ít nhất một Nhà cung cấp");
+        if (!form.prId) return toast.error("Vui lòng chọn yêu cầu mua hàng");
+        if (selectedSupplierIds.length === 0) return toast.error("Vui lòng chọn ít nhất một nhà cung cấp");
         setShowConfirmDialog(true);
     };
 
@@ -138,12 +138,12 @@ export default function QuotationRequestCreate() {
                 ghiChu: form.ghiChu,
             });
 
-            toast.success(`Đã gửi yêu cầu báo giá đến ${selectedSupplierIds.length} NCC thành công!`);
+            toast.success(`Đã gửi yêu cầu báo giá đến ${selectedSupplierIds.length} NCC thành công.`);
             setShowConfirmDialog(false);
             setTimeout(() => navigate('/quotation-requests'), 1500);
         } catch (err) {
             console.error('Error sending quotation request:', err);
-            toast.error(err.response?.data?.message || 'Không thể gửi yêu cầu báo giá. Vui lòng thử lại!');
+            toast.error(err.response?.data?.message || 'Không thể gửi yêu cầu báo giá. Vui lòng thử lại.');
         } finally {
             setSending(false);
         }
@@ -195,7 +195,7 @@ export default function QuotationRequestCreate() {
                                     onChange={(e) => handleSelectPR(e.target.value)}
                                     disabled={actionLoading}
                                 >
-                                    <option value="">-- Chọn PR đã duyệt --</option>
+                                    <option value="">-- Chọn yêu cầu mua hàng đã duyệt --</option>
                                     {prList.map(pr => (
                                         <option key={pr.id} value={pr.id}>
                                             {pr.soYeuCauMuaHang || `PR-${pr.id}`}
@@ -287,8 +287,8 @@ export default function QuotationRequestCreate() {
                         {!selectedPR ? (
                             <EmptyState
                                 icon={Truck}
-                                title="Vui lòng chọn Yêu cầu mua hàng"
-                                description="Danh sách sản phẩm của yêu cầu mua hàng sẽ hiển thị tại đây sau khi bạn chọn PR."
+                                title="Vui lòng chọn yêu cầu mua hàng"
+                                description="Danh sách sản phẩm của yêu cầu mua hàng sẽ hiển thị tại đây sau khi bạn chọn yêu cầu mua hàng."
                             />
                         ) : (
                             <table className="w-full min-w-[640px] text-sm">

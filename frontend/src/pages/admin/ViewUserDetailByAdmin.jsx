@@ -178,7 +178,7 @@ export default function ViewUserDetailByAdmin() {
                 <OverviewTile
                     icon={<IdCard className="h-4 w-4 text-bo-primary" />}
                     label="Mã người dùng"
-                    value={user.id || "N/A"}
+                    value={user.id || "—"}
                 />
             </div>
 
@@ -220,12 +220,12 @@ export default function ViewUserDetailByAdmin() {
                             <InfoMini
                                 icon={<Calendar className="h-4 w-4" />}
                                 label="Ngày tạo"
-                                value={formatDate(user.ngayTao) || "N/A"}
+                                value={formatDate(user.ngayTao) || "—"}
                             />
                             <InfoMini
                                 icon={<Clock3 className="h-4 w-4" />}
                                 label="Cập nhật gần nhất"
-                                value={formatDate(user.ngayCapNhat) || "N/A"}
+                                value={formatDate(user.ngayCapNhat) || "—"}
                             />
                         </div>
 
@@ -246,25 +246,25 @@ export default function ViewUserDetailByAdmin() {
                         <InfoRow
                             icon={<IdCard className="h-4 w-4" />}
                             label="ID"
-                            value={user.id || "N/A"}
+                            value={user.id || "—"}
                         />
 
                         <InfoRow
                             icon={<UserCog className="h-4 w-4" />}
                             label="Tên đăng nhập"
-                            value={user.tenDangNhap ? `@${user.tenDangNhap}` : "N/A"}
+                            value={user.tenDangNhap ? `@${user.tenDangNhap}` : "—"}
                         />
 
                         <InfoRow
                             icon={<Mail className="h-4 w-4" />}
                             label="Email"
-                            value={user.email || "N/A"}
+                            value={user.email || "—"}
                         />
 
                         <InfoRow
                             icon={<Phone className="h-4 w-4" />}
                             label="Số điện thoại"
-                            value={user.soDienThoai || "N/A"}
+                            value={user.soDienThoai || "—"}
                         />
 
                     </div>
@@ -300,11 +300,11 @@ export default function ViewUserDetailByAdmin() {
                                             className="hover:bg-bo-surface-subtle"
                                         >
                                             <TableCell className="font-semibold">
-                                                {item.kho?.maKho || "N/A"}
+                                                {item.kho?.maKho || "—"}
                                             </TableCell>
 
                                             <TableCell>
-                                                {item.kho?.tenKho || "N/A"}
+                                                {item.kho?.tenKho || "—"}
                                             </TableCell>
 
                                             <TableCell>

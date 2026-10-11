@@ -65,7 +65,7 @@ export default function PickListList() {
             setTotal(res?.totalElements ?? 0);
         } catch (error) {
             setLoadError(true);
-            toast.error(getApiErrorMessage(error, "Không tải được danh sách Pick List"));
+            toast.error(getApiErrorMessage(error, "Không tải được danh sách phiếu nhặt hàng"));
         } finally {
             setLoading(false);
         }
@@ -102,7 +102,7 @@ export default function PickListList() {
                 <KpiCard
                     icon={<ListChecks className="size-5" />}
                     iconClass="bg-bo-primary-soft text-bo-primary"
-                    label="Tổng Pick List"
+                    label="Tổng phiếu nhặt hàng"
                     value={total}
                 />
                 <KpiCard
@@ -130,8 +130,8 @@ export default function PickListList() {
                 <FilterBar
                     primary={
                         <SearchInput
-                            placeholder="Nhập mã Pick List..."
-                            label="Tìm Pick List"
+                            placeholder="Nhập mã phiếu nhặt hàng..."
+                            label="Tìm phiếu nhặt hàng"
                             value={searchText}
                             onChange={(event) => setSearchText(event.target.value)}
                             onClear={() => setSearchText("")}
@@ -140,7 +140,7 @@ export default function PickListList() {
                     filters={
                         <>
                             <FilterSelect
-                                label="Trạng thái Pick List"
+                                label="Trạng thái phiếu nhặt hàng"
                                 value={filters.trangThai}
                                 options={PICK_LIST_STATUS_OPTIONS}
                                 onChange={(trangThai) => setFilters((prev) => ({ ...prev, trangThai, page: 0 }))}
@@ -160,7 +160,7 @@ export default function PickListList() {
                         <Link to="/goods-issues/pending-orders">
                             <Button className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
                                 <Plus className="size-4" />
-                                Tạo Pick List
+                                Tạo phiếu nhặt hàng
                             </Button>
                         </Link>
                     }
@@ -169,7 +169,7 @@ export default function PickListList() {
 
             {/* ══ BẢNG ══ */}
             <TableShell
-                title="Danh sách Pick List"
+                title="Danh sách phiếu nhặt hàng"
                 description="Nhấn vào dòng để mở màn quét mã và hoàn tất nhặt hàng"
                 footer={
                     !loading && !loadError && data.length > 0 ? (
@@ -184,17 +184,17 @@ export default function PickListList() {
                 }
             >
                 {loading ? (
-                    <LoadingState className="min-h-64" label="Đang tải danh sách Pick List" />
+                    <LoadingState className="min-h-64" label="Đang tải danh sách phiếu nhặt hàng" />
                 ) : loadError ? (
                     <ErrorState onRetry={fetchData} />
                 ) : data.length === 0 ? (
                     <EmptyState
                         icon={PackageSearch}
-                        title={hasFilter ? "Không có Pick List phù hợp" : "Chưa có Pick List"}
+                        title={hasFilter ? "Không có phiếu nhặt hàng phù hợp" : "Chưa có phiếu nhặt hàng"}
                         description={
                             hasFilter
                                 ? "Thử đổi trạng thái hoặc từ khóa tìm kiếm."
-                                : "Chọn đơn ở màn Đơn chờ xuất để gom thành Pick List đầu tiên."
+                                : "Chọn đơn ở màn Đơn chờ xuất để gom thành phiếu nhặt hàng đầu tiên."
                         }
                         action={
                             hasFilter ? (
@@ -212,7 +212,7 @@ export default function PickListList() {
                     <table className="w-full min-w-[1040px] text-sm">
                         <thead>
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                <th className={`${TH_CLASS} text-left`}>Mã Pick List</th>
+                                <th className={`${TH_CLASS} text-left`}>Mã phiếu nhặt hàng</th>
                                 <th className={`${TH_CLASS} text-left`}>Đơn hàng</th>
                                 <th className={`${TH_CLASS} text-center`}>SKU</th>
                                 <th className={`${TH_CLASS} w-[220px] text-left`}>Tiến độ</th>

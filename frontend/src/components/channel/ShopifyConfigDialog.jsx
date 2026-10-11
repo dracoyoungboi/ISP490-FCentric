@@ -153,9 +153,9 @@ export default function ShopifyConfigDialog({ open, onOpenChange, config, onSave
           </CollapsibleTrigger>
           <CollapsibleContent>
             <ol className="list-decimal space-y-1 px-3 pb-3 pl-8 text-sm leading-6 text-slate-700">
-              <li>Một app Shopify đã cài vào cửa hàng, có quyền đọc sản phẩm, tồn kho và đơn hàng, ghi tồn kho.</li>
-              <li>Admin API access token của app (thường bắt đầu bằng <code className="font-mono text-xs">shpat_</code>).</li>
-              <li>API secret, Client ID và Refresh token chỉ cần khi app dùng OAuth có token hết hạn.</li>
+              <li>Một ứng dụng Shopify đã cài vào cửa hàng, có quyền đọc sản phẩm, tồn kho và đơn hàng, ghi tồn kho.</li>
+              <li>Admin API access token của ứng dụng (thường bắt đầu bằng <code className="font-mono text-xs">shpat_</code>).</li>
+              <li>API secret, Client ID và Refresh token chỉ cần khi ứng dụng dùng OAuth có token hết hạn.</li>
             </ol>
           </CollapsibleContent>
         </Collapsible>

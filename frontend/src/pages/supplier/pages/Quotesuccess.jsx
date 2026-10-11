@@ -249,7 +249,7 @@ export default function QuoteSuccess() {
                         {/* Heading */}
                         <div className="qs-heading">
                             <h2 className="qs-title">
-                                Gửi báo giá <span>thành công!</span>
+                                Gửi báo giá <span>thành công</span>
                             </h2>
                             <p className="qs-sub">
                                 Cảm ơn quý đối tác đã gửi báo giá.<br />

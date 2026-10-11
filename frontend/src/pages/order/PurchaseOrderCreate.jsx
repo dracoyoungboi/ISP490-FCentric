@@ -199,7 +199,7 @@ export default function PurchaseOrderCreate() {
 
     const handleAddProduct = (product) => {
         if (orderItems.some(item => item.bienTheSanPhamId === product.id)) {
-            toast.error('Sản phẩm đã có trong đơn hàng!');
+            toast.error('Sản phẩm đã có trong đơn hàng.');
             return;
         }
         setOrderItems(prev => [...prev, {
@@ -282,11 +282,11 @@ export default function PurchaseOrderCreate() {
                 },
             });
 
-            toast.success('Đã gửi yêu cầu duyệt nhập hàng thành công!');
+            toast.success('Đã gửi yêu cầu duyệt nhập hàng thành công.');
             setShowSendDialog(false);
             setTimeout(() => navigate('/purchase-requests'), 2000);
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Không thể gửi yêu cầu. Vui lòng thử lại!');
+            toast.error(error.response?.data?.message || 'Không thể gửi yêu cầu. Vui lòng thử lại.');
         } finally {
             setSendingEmail(false);
         }

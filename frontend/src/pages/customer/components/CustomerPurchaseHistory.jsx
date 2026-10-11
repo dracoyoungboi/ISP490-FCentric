@@ -43,14 +43,14 @@ function formatMoney(value) {
 function getPurchaseHistoryError(failure) {
   const status = failure.response?.status ?? failure.status;
   switch (status) {
-    case 404: return "Không tìm thấy tài nguyên lịch sử mua hàng (HTTP 404).";
-    case 401: return "Bạn cần đăng nhập lại để xem lịch sử mua hàng (HTTP 401).";
-    case 403: return "Bạn không có quyền xem lịch sử mua hàng (HTTP 403).";
-    case 500: return "Máy chủ gặp lỗi khi tải lịch sử mua hàng (HTTP 500). Vui lòng thử lại sau.";
+    case 404: return "Không tìm thấy lịch sử mua hàng của khách hàng này.";
+    case 401: return "Bạn cần đăng nhập lại để xem lịch sử mua hàng.";
+    case 403: return "Bạn không có quyền xem lịch sử mua hàng.";
+    case 500: return "Máy chủ gặp lỗi khi tải lịch sử mua hàng. Vui lòng thử lại sau.";
     default:
-      if (status) return `Không thể tải lịch sử mua hàng (HTTP ${status}). Vui lòng thử lại sau.`;
+      if (status) return "Không tải được lịch sử mua hàng. Vui lòng thử lại sau.";
       if (failure.request) return "Không kết nối được máy chủ. Vui lòng kiểm tra kết nối và thử lại.";
-      return failure.message || "Vui lòng thử lại sau.";
+      return "Không tải được lịch sử mua hàng. Vui lòng thử lại sau.";
   }
 }
 

@@ -104,7 +104,7 @@ const ViewModal = ({ viewItem, activeTab, onClose, onEdit }) => {
                     {/* ── COLOR specific ── */}
                     {activeTab === 'color' && (
                         <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-3">
-                            <TileLabel icon={<Pipette className="size-3.5" />} label="Mã màu Hex" />
+                            <TileLabel icon={<Pipette className="size-3.5" />} label="Mã màu HEX" />
                             <div className="mt-1.5 flex items-center gap-2.5">
                                 <ColorSwatch hex={viewItem.maMauHex} className="size-8" />
                                 <p className="font-mono text-sm font-semibold text-bo-foreground">
@@ -740,7 +740,7 @@ const ProductAttributeHub = () => {
 
                         {activeTab === 'color' && (
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Mã màu Hex *</Label>
+                                <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Mã màu HEX *</Label>
                                 {/* Một field duy nhất cho cả ô chọn màu và ô nhập — hai ô luôn đồng bộ */}
                                 <Controller
                                     name="maMauHex"

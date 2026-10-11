@@ -1,3 +1,4 @@
+import { formatCurrency } from "@/utils/formatters";
 import { useEffect, useState } from "react";
 import { dashboardService } from "@/services/dashboardService";
 import Stat from "@/components/dashboard/Stat";
@@ -37,7 +38,7 @@ export default function DashboardSalesStaff() {
                 <Stat
                     icon={<DollarSign className="h-5 w-5 text-bo-success" />}
                     label="Doanh thu hôm nay"
-                    value={`${data.revenueToday.toLocaleString()}₫`}
+                    value={formatCurrency(data.revenueToday)}
                 />
 
                 <Stat

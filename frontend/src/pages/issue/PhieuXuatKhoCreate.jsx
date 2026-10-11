@@ -261,7 +261,7 @@ export default function PhieuXuatKhoCreate() {
                             }`}
                     >
                         <FileText className="size-4" />
-                        Xuất theo Đơn Bán Hàng
+                        Xuất theo đơn bán hàng
                     </button>
                     <button
                         type="button"
@@ -272,7 +272,7 @@ export default function PhieuXuatKhoCreate() {
                             }`}
                     >
                         <ArrowRightLeft className="size-4" />
-                        Xuất Chuyển Kho Nội Bộ
+                        Xuất chuyển kho nội bộ
                     </button>
                 </div>
             </div>
@@ -289,7 +289,7 @@ export default function PhieuXuatKhoCreate() {
                     {/* Nguồn */}
                     <div className="space-y-1.5">
                         <label className={FIELD_LABEL_CLASS}>
-                            {exportSource === "SO" ? "Đơn bán hàng (SO)" : "Yêu cầu chuyển kho"}
+                            {exportSource === "SO" ? "Đơn bán hàng" : "Yêu cầu chuyển kho"}
                         </label>
                         <DropdownMenu modal={false}>
                             <DropdownMenuTrigger asChild>

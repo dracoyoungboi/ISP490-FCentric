@@ -265,7 +265,7 @@ export default function ChannelSetupWizard() {
 
     return (
         <PageContainer className="space-y-5">
-            <MockModeNotice show={isChannelSyncMock} reason="backend chưa có API thiết lập đồng bộ" />
+            <MockModeNotice show={isChannelSyncMock} reason="hệ thống chưa hỗ trợ thiết lập đồng bộ" />
 
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <BackLink onClick={() => navigate("/channels")} />
@@ -329,7 +329,7 @@ export default function ChannelSetupWizard() {
                             <label className={labelClass}>Vị trí kho trên Shopify</label>
                             <Select value={form.maKhoSan} onValueChange={(value) => change("maKhoSan", value)}>
                                 <SelectTrigger className={cn(selectTriggerClass, errors.maKhoSan && "border-bo-danger")}>
-                                    <SelectValue placeholder={khoSanOptions.length ? "Chọn location" : "Chưa lấy được location"} />
+                                    <SelectValue placeholder={khoSanOptions.length ? "Chọn vị trí kho" : "Chưa lấy được vị trí kho"} />
                                 </SelectTrigger>
                                 <SelectContent position="popper" sideOffset={4} className={selectContentClass}>
                                     {khoSanOptions.map((kho) => (
@@ -339,7 +339,7 @@ export default function ChannelSetupWizard() {
                                     ))}
                                 </SelectContent>
                             </Select>
-                            <FieldMessage error={errors.maKhoSan} hint="Chỉ đẩy tồn vào location này; tồn ở location khác trên Shopify giữ nguyên." />
+                            <FieldMessage error={errors.maKhoSan} hint="Chỉ đẩy tồn vào vị trí kho này; tồn ở vị trí kho khác trên Shopify giữ nguyên." />
                         </div>
                     </div>
                 </FormSection>

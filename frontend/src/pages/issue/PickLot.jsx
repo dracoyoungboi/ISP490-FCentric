@@ -96,12 +96,12 @@ export default function PickLot() {
     async function handleSave() {
         if (isReadOnly) return;
         const entries = Object.entries(pickMap).filter(([, v]) => Number(v) > 0);
-        if (entries.length === 0) { toast.error("Vui lòng nhập số lượng pick"); return; }
+        if (entries.length === 0) { toast.error("Vui lòng nhập số lượng cần lấy"); return; }
         for (const [id, val] of entries) {
             const lot = lots.find(l => l.loHangId === Number(id));
             if (Number(val) > (lot?.soLuongKhaDung || 0)) { toast.error(`Lô ${lot?.maLo} không đủ tồn kho`); return; }
         }
-        if (tongPickMoi > soLuongCanXuat) { toast.error("Tổng số lượng pick vượt quá số lượng cần xuất"); return; }
+        if (tongPickMoi > soLuongCanXuat) { toast.error("Tổng số lượng lấy vượt quá số lượng cần xuất"); return; }
 
         setLoading(true);
         try {
@@ -109,9 +109,9 @@ export default function PickLot() {
                 chiTietPhieuXuatKhoId: Number(chiTietPhieuXuatKhoId),
                 loHangPicks: entries.map(([loHangId, soLuongXuat]) => ({ loHangId: Number(loHangId), soLuongXuat: Number(soLuongXuat) })),
             });
-            toast.success("Pick lô thành công");
+            toast.success("Chọn lô thành công");
             navigate(-1);
-        } catch (e) { toast.error(e?.response?.data?.message || "Pick lô thất bại"); }
+        } catch (e) { toast.error(e?.response?.data?.message || "Chọn lô thất bại"); }
         finally { setLoading(false); }
     }
 
@@ -159,7 +159,7 @@ export default function PickLot() {
                 <PickStatTile
                     icon={<CheckCircle2 className="size-5" />}
                     iconClass={daDu ? "bg-bo-success-soft text-bo-success" : "bg-slate-100 text-slate-400"}
-                    label="Đã pick"
+                    label="Đã lấy"
                     value={tongPickMoi}
                     valueClass={daDu ? "text-bo-success" : "text-bo-foreground"}
                     sub={<span className="text-sm font-normal text-bo-muted">/{soLuongCanXuat}</span>}
@@ -169,7 +169,7 @@ export default function PickLot() {
             {/* ── Bảng lô hàng ── */}
             <TableShell
                 title="Danh sách lô khả dụng"
-                description={isReadOnly ? "Xem số lượng đã pick cho từng lô" : "Nhập số lượng cần xuất cho từng lô"}
+                description={isReadOnly ? "Xem số lượng đã lấy ở từng lô" : "Nhập số lượng cần xuất cho từng lô"}
                 footer={lots.length > 0 ? (
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <p className="text-sm text-bo-muted">

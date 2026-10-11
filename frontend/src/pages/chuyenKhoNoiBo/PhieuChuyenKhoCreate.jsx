@@ -360,7 +360,7 @@ export default function PhieuChuyenKhoCreate() {
                                                     {item.sku}
                                                 </span>
                                                 <span className="mt-0.5 block text-xs italic text-bo-muted">
-                                                    {item.color || "N/A"} / {item.size || "N/A"} / {item.material || "N/A"}
+                                                    {item.color || "—"} / {item.size || "—"} / {item.material || "—"}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3.5 text-center align-middle">
@@ -466,7 +466,7 @@ export default function PhieuChuyenKhoCreate() {
                                                     {product.maBienThe}
                                                 </span>
                                                 <span className="mt-0.5 block text-xs italic text-bo-muted">
-                                                    {product.tenMau || "N/A"} / {product.tenSize || "N/A"} / {product.tenChatLieu || "N/A"}
+                                                    {product.tenMau || "—"} / {product.tenSize || "—"} / {product.tenChatLieu || "—"}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3.5 text-right align-middle">

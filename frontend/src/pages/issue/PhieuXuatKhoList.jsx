@@ -235,7 +235,7 @@ export default function PhieuXuatKhoList() {
                         <Link to="/goods-issues/create">
                             <Button className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
                                 <Plus className="size-4" />
-                                Tạo Phiếu Xuất Kho
+                                Tạo phiếu xuất kho
                             </Button>
                         </Link>
                     }
@@ -252,7 +252,7 @@ export default function PhieuXuatKhoList() {
                     <EmptyState
                         icon={ClipboardList}
                         title="Không tìm thấy phiếu xuất kho"
-                        description="Hiện tại chưa có dữ liệu phù hợp. Hãy thử thay đổi bộ lọc hoặc từ khoá tìm kiếm."
+                        description="Hiện tại chưa có dữ liệu phù hợp. Hãy thử thay đổi bộ lọc hoặc từ khóa tìm kiếm."
                     />
                 </div>
             ) : (

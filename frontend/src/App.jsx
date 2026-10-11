@@ -18,7 +18,6 @@ import ViewUserListByAdmin from "./pages/admin/ViewUserListByAdmin";
 import ViewUserDetailByAdmin from "@/pages/admin/ViewUserDetailByAdmin.jsx";
 import EditUserRoleByAdmin from "@/pages/admin/EditUserRoleByAdmin.jsx";
 import DashboardByAdmin from "@/pages/admin/DashboardByAdmin.jsx";
-import ColorSizeManagement from "@/pages/attribute/ColorSizeManagement.jsx";
 import PhieuNhapKhoList from "./pages/receipt/PhieuNhapKhoList";
 import PhieuNhapKhoCreate from "./pages/receipt/PhieuNhapKhoCreate";
 import PhieuNhapKhoDetail from "./pages/receipt/PhieuNhapKhoDetail.jsx";
@@ -99,7 +98,7 @@ export default function App() {
     <BrowserRouter>
       {/* Toaster global: dùng chung cho mọi trang (kể cả auth — toast từ ProtectedRoute
           cần sống sót khi chuyển sang /login, nơi BackofficeLayout không còn mount) */}
-      <Toaster position="top-center" richColors />
+      <Toaster position="top-center" richColors containerAriaLabel="Thông báo" />
       <Routes>
         {/* ========== PUBLIC ROUTES ========== */}
         <Route path="/" element={<Navigate to={localStorage.getItem("access_token") ? "/dashboard" : "/login"} replace />} />
@@ -131,7 +130,7 @@ export default function App() {
           />
 
           {/* Attributes */}
-          <Route path="/attribute" element={<ColorSizeManagement />} />
+          <Route path="/attribute" element={<Navigate to="/attributes" replace />} />
           <Route path="/attributes" element={<ProductAttributeHub />} />
 
           {/* Product */}

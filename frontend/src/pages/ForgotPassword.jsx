@@ -26,7 +26,7 @@ const STEP_TITLES = {
     1: 'Khôi phục mật khẩu',
     2: 'Xác thực OTP',
     3: 'Đặt mật khẩu mới',
-    4: 'Thành công!',
+    4: 'Thành công',
 };
 const STEP_SUBS = {
     1: 'Nhập email hoặc tên đăng nhập của bạn để nhận mã OTP.',
@@ -142,7 +142,7 @@ export default function ForgotPasswordPage() {
         e.preventDefault();
         clearErrors();
         const trimmed = username.trim();
-        if (!trimmed) return setFieldError('general', 'Thiếu username/email');
+        if (!trimmed) return setFieldError('general', 'Thiếu tên đăng nhập/email');
         if (otpValue.length !== 6) return backToOtpStep('Vui lòng nhập mã OTP');
         if (!newPassword.trim()) return setFieldError('newPassword', 'Vui lòng nhập mật khẩu mới');
         if (newPassword.length < 6) return setFieldError('newPassword', 'Mật khẩu tối thiểu 6 ký tự');
@@ -169,7 +169,7 @@ export default function ForgotPasswordPage() {
         if (resendIn > 0) return;
         clearErrors();
         const trimmed = username.trim();
-        if (!trimmed) return setFieldError('general', 'Vui lòng nhập email/username trước');
+        if (!trimmed) return setFieldError('general', 'Vui lòng nhập email/tên đăng nhập trước');
         setIsLoading(true);
         try {
             const res = await nguoiDungService.sendForgotPasswordOTP(trimmed);
@@ -234,7 +234,7 @@ export default function ForgotPasswordPage() {
                         <input
                             id="forgot-username"
                             type="text"
-                            placeholder="example@gmail.com hoặc username"
+                            placeholder="example@gmail.com hoặc tên đăng nhập"
                             className={`${INPUT_BASE} ${errors.username ? INPUT_ERROR : INPUT_NORMAL}`}
                             value={username}
                             onChange={(e) => { setUsername(e.target.value); clearErrors(); }}
@@ -297,7 +297,7 @@ export default function ForgotPasswordPage() {
                                 onClick={handleResendOTP}
                                 disabled={isLoading || resendIn > 0}
                             >
-                                {resendIn > 0 ? `Gửi lại OTP sau ${resendIn}s` : 'Gửi lại OTP'}
+                                {resendIn > 0 ? `Gửi lại OTP sau ${resendIn} giây` : 'Gửi lại OTP'}
                             </button>
                         </p>
                     </div>

@@ -58,7 +58,7 @@ const SHOPIFY_SKUS = [
   ["AO-THUN-TRANG-M", "Áo thun cotton basic", "Trắng / M", 81, "da_lien_ket", null, null],
   ["ao-thun-trang-l ", "Áo thun cotton basic", "Trắng / L", 82, "da_lien_ket", null, 0],
   ["QUAN-JEAN-XANH-30", "Quần jean slim", "Xanh đậm / 30", 93, "da_lien_ket", null, 4],
-  ["QUAN-JEAN-XANH-32", "Quần jean slim", "Xanh đậm / 32", 94, "loi", "Shopify trả lỗi 422: inventoryItem không thuộc location đã chọn.", 10],
+  ["QUAN-JEAN-XANH-32", "Quần jean slim", "Xanh đậm / 32", 94, "loi", "Shopify từ chối: mặt hàng chưa được gán vào vị trí kho đã chọn.", 10],
   ["QJ-XANH-34", "Quần jean slim", "Xanh đậm / 34", null, "chua_lien_ket", null, null],
   ["SO-MI-OXFORD-XANH-M", "Sơ mi oxford", "Xanh nhạt / M", 105, "da_lien_ket", null, 7],
   ["SO-MI-OXFORD-XANH-L", "Sơ mi oxford", "Xanh nhạt / L", 106, "da_lien_ket", null, 5],
@@ -133,11 +133,11 @@ const state = {
 // ── Nhật ký mẫu ─────────────────────────────────────────────────────────────
 const LOG_SEED = [
   ["TON_KHO", "BATCH", "THANH_CONG", "AO-THUN-DEN-M", null, "Đã đẩy 14 lên Kho Hà Nội", 3, 77, { soDay: 14, soDaDay: 15 }],
-  ["TON_KHO", "BATCH", "LOI", "QUAN-JEAN-XANH-32", "422", "inventoryItem không thuộc location đã chọn", 4, 94, { soDay: 10, soDaDay: 10 }],
+  ["TON_KHO", "BATCH", "LOI", "QUAN-JEAN-XANH-32", "422", "Mặt hàng chưa được gán vào vị trí kho đã chọn", 4, 94, { soDay: 10, soDaDay: 10 }],
   ["DON_HANG", "WEBHOOK", "THANH_CONG", "SHP-5550013", null, "Nhận đơn mới, đã giữ chỗ đủ", 7, null, { soDong: 1, nguoiNhan: "Ng*** V** A", soDienThoai: "09***382" }],
   ["TON_KHO", "REALTIME", "CHO_THU_LAI", "VAY-MIDI-BE-M", "429", "Vượt giới hạn gọi API", 9, 113, { soDay: 6, thuLaiLuc: "1 phút" }],
   ["DON_HANG", "POLLING", "LOI", "SHP-5550010", "THIEU_LIEN_KET", "Dòng hàng có SKU sàn QJ-XANH-34 chưa liên kết", 12, null, { skuSan: "QJ-XANH-34" }],
-  ["HUY_DON", "WEBHOOK", "THANH_CONG", "SHP-5550008", null, "Đơn chưa vào Pick List, đã hủy và nhả giữ chỗ", 18, null, null],
+  ["HUY_DON", "WEBHOOK", "THANH_CONG", "SHP-5550008", null, "Đơn chưa vào phiếu nhặt hàng, đã hủy và nhả giữ chỗ", 18, null, null],
   ["TON_KHO", "BATCH", "THANH_CONG", "SO-MI-OXFORD-XANH-M", null, "Đã đẩy 7 lên Kho Hà Nội", 21, 105, { soDay: 7, soDaDay: 8 }],
   ["TON_KHO", "BATCH", "LOI", "VAY-MIDI-BE-M", "429", "Vượt giới hạn gọi API", 25, 113, { soDay: 6 }],
   ["DON_HANG", "WEBHOOK", "BO_QUA", "SHP-5550006", null, "Sự kiện cũ hơn lần cập nhật gần nhất", 31, null, null],

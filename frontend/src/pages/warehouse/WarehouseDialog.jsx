@@ -140,7 +140,7 @@ export default function WarehouseDialog({
                                     <User className="size-3.5" /> Người quản lý
                                 </Label>
                                 <p className="text-sm font-semibold text-bo-foreground">
-                                    {selectedWarehouse?.quanLy?.hoTen || 'N/A'}
+                                    {selectedWarehouse?.quanLy?.hoTen || '—'}
                                 </p>
                             </div>
 

@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
  * BrandLogo — logo dùng chung cho toàn hệ thống FCentric.
  *
  * variants:
- *  - sidebar            : icon + "FCentric" + "Fashion Warehouse Management" (nền sidebar tối)
+ *  - sidebar            : icon + "FCentric" + "Quản lý kho thời trang" (nền sidebar tối)
  *  - sidebar-collapsed  : icon đơn, căn giữa (frame 40×40)
  *  - header             : lockup đầy đủ, cỡ nhỏ cho header (nền sáng)
  *  - auth               : lockup đầy đủ cho trang xác thực (nền sáng; `chip` bọc nền trắng khi đặt trên ảnh)
@@ -15,7 +15,7 @@ const ASSETS = {
   icon: '/branding/f-centric-icon.svg',
 };
 
-const ALT = 'FCentric – Fashion Warehouse Management';
+const ALT = 'FCentric – Quản lý kho thời trang';
 
 export default function BrandLogo({ variant = 'auth', chip = false, className = '' }) {
   if (variant === 'sidebar') {
@@ -32,7 +32,7 @@ export default function BrandLogo({ variant = 'auth', chip = false, className = 
             FCentric
           </span>
           <span className="block truncate text-[10px] font-medium text-bo-sidebar-muted">
-            Fashion Warehouse Management
+            Quản lý kho thời trang
           </span>
         </span>
       </span>

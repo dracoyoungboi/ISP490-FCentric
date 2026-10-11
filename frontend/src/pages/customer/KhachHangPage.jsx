@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "@/utils/apiError";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -261,7 +262,7 @@ export default function KhachHangPage() {
             setTotalItems(data.totalElements || 0);
         } catch (error) {
             if (seq !== requestSeq.current) return;
-            showAlert("Lỗi khi tải danh sách khách hàng: " + error.message, "error");
+            showAlert(getApiErrorMessage(error, "Không tải được danh sách khách hàng"), "error");
         } finally {
             if (seq === requestSeq.current) setLoading(false);
         }
@@ -365,7 +366,7 @@ export default function KhachHangPage() {
             setShowDeleteDialog(false);
             loadKhachHangs();
         } catch (error) {
-            showAlert("Lỗi khi xóa khách hàng: " + error.message, "error");
+            showAlert(getApiErrorMessage(error, "Không xóa được khách hàng"), "error");
         }
     };
 

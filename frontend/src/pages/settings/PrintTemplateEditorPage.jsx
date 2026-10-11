@@ -518,7 +518,7 @@ export default function PrintTemplateEditorPage() {
                 <EmptyState
                     icon={FileX}
                     title="Không tìm thấy mẫu in"
-                    description="Mẫu in trong đường dẫn không tồn tại hoặc đã bị xoá."
+                    description="Mẫu in trong đường dẫn không tồn tại hoặc đã bị xóa."
                     action={
                         <Button
                             className="bg-bo-primary text-white hover:bg-bo-primary-hover"

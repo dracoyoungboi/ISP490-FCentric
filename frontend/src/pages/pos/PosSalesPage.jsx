@@ -641,7 +641,7 @@ export default function PosSalesPage({
         return;
       }
       if (matches.length > 1) {
-        setBarcodeError('Mã vạch khớp nhiều biến thể — vui lòng chọn thủ công từ danh mục để tránh bán nhầm size/màu.');
+        setBarcodeError('Mã vạch khớp nhiều biến thể — vui lòng chọn thủ công từ danh mục để tránh bán nhầm kích cỡ/màu.');
         return;
       }
       const product = toPosProduct(matches[0]);
@@ -809,12 +809,12 @@ export default function PosSalesPage({
         setPaymentError(res.errorMessage || 'Giao dịch đã thất bại trước đó');
         setDialog(null);
       } else {
-        showToast('Server chưa có kết quả cho giao dịch này. Có thể thử lại cùng mã giao dịch.', 'warning');
+        showToast('Máy chủ chưa có kết quả cho giao dịch này. Có thể thử lại cùng mã giao dịch.', 'warning');
       }
     } catch (error) {
       if (error?.response?.status === 404) {
         // Kết quả chưa rõ (server đã rollback): được phép thử lại CÙNG key + CÙNG payload.
-        showToast('Giao dịch chưa có kết quả trên server — có thể thử lại cùng mã giao dịch.', 'warning');
+        showToast('Giao dịch chưa có kết quả trên máy chủ — có thể thử lại cùng mã giao dịch.', 'warning');
       } else {
         showToast(error?.response?.data?.message || 'Không thể kiểm tra kết quả. Vui lòng thử lại.', 'error');
       }
@@ -849,7 +849,7 @@ export default function PosSalesPage({
     // với key MỚI (payload đã đổi giá nên không tái dùng key cũ).
     setPriceChangeInfo(null);
     setDialog(null);
-    showToast('Giá đã được cập nhật về giá server. Vui lòng kiểm tra tổng mới và bấm Thanh toán lại.', 'warning');
+    showToast('Giá đã được cập nhật theo giá mới nhất trên hệ thống. Vui lòng kiểm tra tổng mới và bấm Thanh toán lại.', 'warning');
   };
 
   const openPayment = () => {

@@ -153,8 +153,8 @@ export default function PurchaseOrderDetail() {
             <PageContainer>
                 <SurfaceCard contentClassName="p-0 sm:p-0">
                     <ErrorState
-                        title="Không tìm thấy Đơn mua hàng"
-                        description="Đơn mua hàng không tồn tại hoặc đã bị xoá khỏi hệ thống."
+                        title="Không tìm thấy đơn mua hàng"
+                        description="Đơn mua hàng không tồn tại hoặc đã bị xóa khỏi hệ thống."
                     />
                     <div className="flex justify-center pb-10">
                         <Button
@@ -320,7 +320,7 @@ export default function PurchaseOrderDetail() {
                     )}
                 </SurfaceCard>
 
-                <SurfaceCard title="Kho tiếp nhận & Phụ trách">
+                <SurfaceCard title="Kho tiếp nhận & phụ trách">
                     <InfoField label="Tên kho nhận hàng">
                         <div className="font-semibold text-bo-foreground">{orderData.khoNhap?.tenKho || '—'}</div>
                         {orderData.khoNhap?.maKho && (
@@ -346,13 +346,13 @@ export default function PurchaseOrderDetail() {
 
             {/* ── Product Table ── */}
             <TableShell
-                title="Danh sách Sản phẩm Đặt mua"
+                title="Danh sách sản phẩm đặt mua"
                 description="Số lượng đặt, số lượng đã nhận và đơn giá từng biến thể."
                 footer={
                     <div className="flex justify-end">
                         <div className="w-full space-y-4 sm:w-96">
                             <div className="flex items-center justify-between px-1">
-                                <span className="text-xs font-semibold uppercase tracking-wide text-bo-muted">Tổng số lượng Đặt:</span>
+                                <span className="text-xs font-semibold uppercase tracking-wide text-bo-muted">Tổng số lượng đặt:</span>
                                 <span className="text-base font-bold text-bo-foreground">
                                     {orderData.chiTietDonMuaHangs?.reduce((sum, item) => sum + item.soLuongDat, 0) || 0}
                                 </span>
@@ -375,9 +375,9 @@ export default function PurchaseOrderDetail() {
                         <tr className="border-b border-bo-border bg-bo-surface-subtle">
                             <th className="h-10 w-[350px] px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Sản phẩm</th>
                             <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Màu sắc</th>
-                            <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Size</th>
-                            <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SL Đặt</th>
-                            <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SL Đã Nhận</th>
+                            <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kích cỡ</th>
+                            <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SL đặt</th>
+                            <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SL đã nhận</th>
                             <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Đơn giá</th>
                             <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thành tiền</th>
                         </tr>
@@ -394,7 +394,7 @@ export default function PurchaseOrderDetail() {
                                                     <div className="size-11 shrink-0 overflow-hidden rounded-lg border border-bo-border bg-slate-100">
                                                         <img
                                                             src={item.bienTheSanPham.anhBienThe.tepTin.duongDan}
-                                                            alt="Product"
+                                                            alt="Ảnh sản phẩm"
                                                             className="size-full object-cover"
                                                         />
                                                     </div>

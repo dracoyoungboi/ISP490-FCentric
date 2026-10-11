@@ -14,9 +14,9 @@ import { Button } from "@/components/ui/button";
 import CustomerPurchaseHistory from "./components/CustomerPurchaseHistory";
 
 const LOAI_MAP = {
-  le:           { label: "Khách lẻ (Retail)",       tone: "info" },
-  si:           { label: "Khách sỉ (Wholesale)",     tone: "success" },
-  doanh_nghiep: { label: "Doanh nghiệp (Business)", tone: "warning" },
+  le:           { label: "Khách lẻ",       tone: "info" },
+  si:           { label: "Khách sỉ",     tone: "success" },
+  doanh_nghiep: { label: "Doanh nghiệp", tone: "warning" },
 };
 
 function InfoField({ label, value, icon, className = "" }) {

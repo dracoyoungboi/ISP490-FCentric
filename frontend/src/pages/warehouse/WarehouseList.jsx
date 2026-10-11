@@ -62,7 +62,7 @@ export function WarehouseEmptyState() {
                 <h3 className="text-lg font-semibold text-slate-800">Không tìm thấy kho</h3>
                 <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">
                     Hiện tại chưa có dữ liệu kho phù hợp. Hãy thử thay đổi bộ lọc hoặc từ
-                    khoá tìm kiếm để xem kết quả khác.
+                    khóa tìm kiếm để xem kết quả khác.
                 </p>
             </div>
         </div>

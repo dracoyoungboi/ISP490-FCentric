@@ -7,7 +7,7 @@ import ChangePasswordModal from "@/components/ChangePasswordModal";
 import "@/styles/print.css";
 
 const DEFAULT_DOCUMENT_TITLE =
-    "FCentric |  Quản lý kho & bán lẻ thời trang đa kênh";
+    "FCentric | Quản lý kho & bán lẻ thời trang đa kênh";
 
 export default function BackofficeLayout() {
     const { pathname } = useLocation();
@@ -18,13 +18,13 @@ export default function BackofficeLayout() {
         {
             key: "DASHBOARD",
             match: (path) => path === "/dashboard",
-            title: "Tổng quan Admin",
+            title: "Tổng quan quản trị",
             subtitle: "Tổng quan hoạt động quản trị",
         },
         {
             key: "EDIT_USER_ROLE",
             match: (path) => path.endsWith("/edit-role"),
-            title: "Chỉnh Sửa Quyền Người Dùng",
+            title: "Chỉnh sửa quyền người dùng",
             subtitle: "Cập nhật quyền hạn cho người dùng dựa trên chức vụ",
         },
         {
@@ -56,7 +56,7 @@ export default function BackofficeLayout() {
             key: "ATTRIBUTES",
             match: (path) => path === "/attributes",
             title: "Quản lý thuộc tính",
-            subtitle: "Màu sắc/ Kích cỡ/ Chất liệu",
+            subtitle: "Màu sắc, kích cỡ, chất liệu",
         },
         {
             key: "MATERIALS",
@@ -73,7 +73,7 @@ export default function BackofficeLayout() {
         {
             key: "SKU_BUILDER",
             match: (path) => path === "/sku-builder",
-            title: "Danh sách Biến thể và Giá",
+            title: "Danh sách biến thể và giá",
             subtitle: "Quản lý biến thể SKU và giá sản phẩm",
         },
         {
@@ -85,7 +85,7 @@ export default function BackofficeLayout() {
         {
             key: "WAREHOUSE",
             match: (path) => path === "/warehouse",
-            title: "FCentric · INVENTORY",
+            title: "Danh sách kho",
             subtitle: "Quản lý kho hàng",
         },
         {
@@ -404,12 +404,12 @@ export default function BackofficeLayout() {
             key: "PENDING_ORDERS",
             match: (path) => path === "/goods-issues/pending-orders",
             title: "Đơn chờ xuất",
-            subtitle: "Gom đơn đã gửi kho thành Pick List để nhặt hàng",
+            subtitle: "Gom đơn đã gửi kho thành phiếu nhặt hàng",
         },
         {
             key: "PICK_LISTS",
             match: (path) => path === "/goods-issues/pick-lists",
-            title: "Pick List",
+            title: "Phiếu nhặt hàng",
             subtitle: "Phân công và theo dõi tiến độ nhặt hàng",
         },
         {
@@ -427,7 +427,7 @@ export default function BackofficeLayout() {
         {
             key: "CHANNEL_SYNC",
             match: (path) => path === "/channels/sync",
-            title: "Dashboard đồng bộ",
+            title: "Theo dõi đồng bộ",
             subtitle: "Theo dõi đẩy tồn, nhận đơn và lỗi đồng bộ theo từng gian hàng",
         },
         {

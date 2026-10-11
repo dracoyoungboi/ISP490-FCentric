@@ -55,7 +55,7 @@ export default function PurchaseOrderCreateManual() {
                 quotationId: data.id,
             }));
         } catch {
-            toast.error("Không thể tải chi tiết Báo giá");
+            toast.error("Không thể tải chi tiết báo giá");
             setSelectedQuotation(null);
             setForm(prev => ({ ...prev, quotationId: "" }));
         } finally {
@@ -111,12 +111,12 @@ export default function PurchaseOrderCreateManual() {
         try {
             await apiClient.put(`/api/v1/nghiep-vu/don-mua-hang/duyet-don/${form.quotationId}/3`);
 
-            toast.success('Chấp nhận báo giá & Khởi tạo Đơn mua hàng thành công!');
+            toast.success('Đã chấp nhận báo giá và tạo đơn mua hàng.');
             setShowConfirmDialog(false);
             setTimeout(() => navigate(`/purchase-orders/${form.quotationId}`), 1000);
         } catch (err) {
             console.error('Error creating PO:', err);
-            toast.error(err.response?.data?.message || 'Không thể tạo đơn mua hàng. Vui lòng thử lại!');
+            toast.error(err.response?.data?.message || 'Không thể tạo đơn mua hàng. Vui lòng thử lại.');
         } finally {
             setSubmitting(false);
         }
@@ -183,7 +183,7 @@ export default function PurchaseOrderCreateManual() {
                             {/* Mã đơn */}
                             <div className="space-y-1.5">
                                 <label htmlFor="soDonMua" className="text-xs font-semibold uppercase tracking-wide text-bo-muted">
-                                    Mã Đơn mua hàng
+                                    Mã đơn mua hàng
                                 </label>
                                 <Input
                                     id="soDonMua"
@@ -224,7 +224,7 @@ export default function PurchaseOrderCreateManual() {
                         toolbar={
                             selectedQuotation ? (
                                 <div className="flex items-center gap-2 border-b border-bo-border px-4 py-2.5 sm:px-5">
-                                    <span className="text-xs font-medium text-bo-muted">Từ Yêu Cầu Gốc:</span>
+                                    <span className="text-xs font-medium text-bo-muted">Từ yêu cầu gốc:</span>
                                     <span className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-bo-primary-soft px-2 py-0.5 font-mono text-xs font-semibold text-blue-700">
                                         <FileText className="size-3.5" />
                                         #{selectedQuotation.yeuCauMuaHang?.soYeuCauMuaHang || selectedQuotation.yeuCauMuaHang?.id}
@@ -244,7 +244,7 @@ export default function PurchaseOrderCreateManual() {
                                 <thead>
                                     <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                         <th className="h-10 w-[350px] px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Sản phẩm</th>
-                                        <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SL Duyệt</th>
+                                        <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SL duyệt</th>
                                         <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Đơn giá</th>
                                         <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thành tiền</th>
                                     </tr>
@@ -256,7 +256,7 @@ export default function PurchaseOrderCreateManual() {
                                                 <div className="flex items-center gap-3">
                                                     {ct.bienTheSanPham?.anhBienThe?.tepTin?.duongDan ? (
                                                         <div className="size-11 shrink-0 overflow-hidden rounded-lg border border-bo-border bg-slate-100">
-                                                            <img src={ct.bienTheSanPham.anhBienThe.tepTin.duongDan} alt="Product" className="size-full object-cover" />
+                                                            <img src={ct.bienTheSanPham.anhBienThe.tepTin.duongDan} alt="Ảnh sản phẩm" className="size-full object-cover" />
                                                         </div>
                                                     ) : (
                                                         <div className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-bo-border bg-slate-100">
@@ -341,7 +341,7 @@ export default function PurchaseOrderCreateManual() {
                     <div className="space-y-5 bg-white p-5">
                         <div className="space-y-3 rounded-lg border border-bo-border bg-bo-surface-subtle p-4 text-sm">
                             <div className="flex items-center justify-between">
-                                <span className="font-medium text-bo-muted">Mã đơn mua (PO):</span>
+                                <span className="font-medium text-bo-muted">Mã đơn mua:</span>
                                 <span className="font-mono text-[15px] font-semibold text-bo-primary">{selectedQuotation?.soDonMua}</span>
                             </div>
                             <div className="flex items-center justify-between">

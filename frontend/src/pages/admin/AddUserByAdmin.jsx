@@ -112,7 +112,7 @@ export default function AddUserByAdmin() {
                                     Tên đăng nhập
                                 </Label>
                                 <Input
-                                    placeholder="username"
+                                    placeholder="VD: nguyenvana"
                                     value={form.tenDangNhap}
                                     onChange={(e) =>
                                         setForm({ ...form, tenDangNhap: e.target.value })

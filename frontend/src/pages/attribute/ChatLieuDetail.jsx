@@ -93,7 +93,7 @@ export default function ChatLieuDetail() {
             }
             navigate("/material");
         } catch {
-            toast.error("Có lỗi xảy ra khi lưu. Vui lòng thử lại!");
+            toast.error("Có lỗi xảy ra khi lưu. Vui lòng thử lại.");
         } finally {
             setLoading(false);
         }

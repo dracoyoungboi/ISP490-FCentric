@@ -1,3 +1,4 @@
+import { formatCurrency } from "@/utils/formatters";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -174,11 +175,11 @@ export default function DonBanHangCreate() {
           className="inline-flex items-center gap-1.5 text-sm font-medium text-bo-primary transition-colors hover:text-bo-primary-hover"
         >
           <ArrowLeft className="size-4" />
-          Quay lại danh sách Đơn bán hàng
+          Quay lại danh sách đơn bán hàng
         </button>
         <PageHeader
           className="mb-0"
-          title="Khởi tạo Đơn bán hàng"
+          title="Tạo đơn bán hàng"
           description="Chọn báo giá đang chờ phản hồi và kho xuất hàng để chuyển thành đơn bán"
         />
       </div>
@@ -217,7 +218,7 @@ export default function DonBanHangCreate() {
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-bold text-bo-primary">{q.soDonHang}</span>
-                          <span className="text-xs font-semibold text-bo-muted">{q.tongCong?.toLocaleString()}đ</span>
+                          <span className="text-xs font-semibold text-bo-muted">{formatCurrency(q.tongCong)}</span>
                         </div>
                         <div className="mt-1 text-xs text-bo-muted">{q.khachHang?.tenKhachHang || 'Khách lẻ'}</div>
                       </div>
@@ -362,10 +363,10 @@ export default function DonBanHangCreate() {
                             </span>
                           </td>
                           <td className="px-3 py-3 text-right">
-                            <span className="font-semibold text-bo-muted">{item.donGia?.toLocaleString()}đ</span>
+                            <span className="font-semibold text-bo-muted">{formatCurrency(item.donGia)}</span>
                           </td>
                           <td className="px-3 py-3 text-right">
-                            <span className="font-bold text-bo-primary">{item.thanhTien?.toLocaleString()}đ</span>
+                            <span className="font-bold text-bo-primary">{formatCurrency(item.thanhTien)}</span>
                           </td>
                         </tr>
                       ))}
@@ -377,15 +378,15 @@ export default function DonBanHangCreate() {
                 <div className="mt-auto space-y-2 border-t border-bo-border bg-bo-surface-subtle px-4 py-4 sm:px-5">
                   <div className="flex justify-between text-sm">
                     <span className="text-bo-muted">Tổng tiền hàng:</span>
-                    <span className="font-semibold text-bo-foreground">{totalProductMoney.toLocaleString()} đ</span>
+                    <span className="font-semibold text-bo-foreground">{formatCurrency(totalProductMoney)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-bo-muted">Phí vận chuyển:</span>
-                    <span className="font-semibold text-bo-foreground">{(Number(formData.phiVanChuyen) || 0).toLocaleString()} đ</span>
+                    <span className="font-semibold text-bo-foreground">{formatCurrency(Number(formData.phiVanChuyen) || 0)}</span>
                   </div>
                   <div className="flex justify-between border-t border-bo-border pt-3 text-base">
                     <span className="font-bold text-bo-foreground">Tổng thanh toán</span>
-                    <span className="text-xl font-bold text-bo-primary">{totalOrderMoney.toLocaleString()} đ</span>
+                    <span className="text-xl font-bold text-bo-primary">{formatCurrency(totalOrderMoney)}</span>
                   </div>
                 </div>
               </>

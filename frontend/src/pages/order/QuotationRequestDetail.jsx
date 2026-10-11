@@ -65,7 +65,7 @@ const PR_STATUS = {
 };
 
 const PO_STATUS = {
-    0: { label: 'Đã xoá', tone: 'danger', icon: XCircle },
+    0: { label: 'Đã xóa', tone: 'danger', icon: XCircle },
     1: { label: 'Đã gửi YC báo giá', tone: 'neutral', icon: Send },
     2: { label: 'Đã nhận báo giá', tone: 'info', icon: FileText },
     3: { label: 'Đã chuyển thành đơn mua hàng', tone: 'warning', icon: CheckCircle },
@@ -84,7 +84,7 @@ const BANNER_TONES = {
 
 function getPaymentTooltip(trangThai) {
     switch (trangThai) {
-        case 0: return 'Đơn đã bị xoá, không thể thanh toán';
+        case 0: return 'Đơn đã bị xóa, không thể thanh toán';
         case 1: return 'Chưa nhận báo giá từ NCC, không thể thanh toán';
         case 2: return 'Chưa duyệt báo giá, không thể thanh toán';
         case 3: return 'Thanh toán đơn mua hàng';
@@ -170,7 +170,7 @@ export default function QuotationRequestDetail() {
         setActionLoading(true);
         try {
             await apiClient.put(`/api/v1/nghiep-vu/don-mua-hang/duyet-don/${poId}/${trangThai}`);
-            toast.success(trangThai === 3 ? 'Đã chấp nhận báo giá thành công!' : 'Đã từ chối báo giá!');
+            toast.success(trangThai === 3 ? 'Đã chấp nhận báo giá thành công.' : 'Đã từ chối báo giá.');
             setAcceptDialog(false);
             setRejectDialog(false);
             setApprovingPo(null);
@@ -178,7 +178,7 @@ export default function QuotationRequestDetail() {
             await fetchOrderDetail(); // Tải lại data để cập nhật bảng
         } catch (error) {
             console.error('Error action:', error);
-            toast.error('Không thể thực hiện thao tác. Vui lòng thử lại!');
+            toast.error('Không thể thực hiện thao tác. Vui lòng thử lại.');
         } finally {
             setActionLoading(false);
         }
@@ -202,7 +202,7 @@ export default function QuotationRequestDetail() {
                 <SurfaceCard>
                     <ErrorState
                         title="Không tìm thấy dữ liệu yêu cầu"
-                        description="Yêu cầu mua hàng không tồn tại hoặc đã bị xoá."
+                        description="Yêu cầu mua hàng không tồn tại hoặc đã bị xóa."
                         onRetry={() => navigate('/quotation-requests')}
                     />
                 </SurfaceCard>
@@ -294,7 +294,7 @@ export default function QuotationRequestDetail() {
                     </div>
                 </SurfaceCard>
 
-                <SurfaceCard title="Địa điểm nhận hàng" description="Kho tiếp nhận hàng hoá của yêu cầu">
+                <SurfaceCard title="Địa điểm nhận hàng" description="Kho tiếp nhận hàng hóa của yêu cầu">
                     <InfoField label="Tên kho">
                         <div className="font-semibold text-bo-foreground">{orderData.khoNhap?.tenKho || '—'}</div>
                         {orderData.khoNhap?.maKho && (
@@ -322,7 +322,7 @@ export default function QuotationRequestDetail() {
 
             {/* ── Table 1: Sản phẩm cần mua (Từ Yêu Cầu Gốc) ── */}
             <TableShell
-                title="Sản phẩm yêu cầu (Gốc)"
+                title="Sản phẩm yêu cầu (gốc)"
                 description="Danh sách biến thể cần mua theo yêu cầu ban đầu."
             >
                 <table className="w-full min-w-[720px] text-sm">
@@ -330,7 +330,7 @@ export default function QuotationRequestDetail() {
                         <tr className="border-b border-bo-border bg-bo-surface-subtle">
                             <th className="h-10 w-[350px] px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Sản phẩm</th>
                             <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Màu sắc</th>
-                            <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Size</th>
+                            <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kích cỡ</th>
                             <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Số lượng cần mua</th>
                         </tr>
                     </thead>
@@ -341,7 +341,7 @@ export default function QuotationRequestDetail() {
                                     <div className="flex items-center gap-3">
                                         {item.bienTheSanPham?.anhBienThe?.tepTin?.duongDan ? (
                                             <div className="size-11 shrink-0 overflow-hidden rounded-lg border border-bo-border bg-slate-100">
-                                                <img src={item.bienTheSanPham.anhBienThe.tepTin.duongDan} alt="Product" className="size-full object-cover" />
+                                                <img src={item.bienTheSanPham.anhBienThe.tepTin.duongDan} alt="Ảnh sản phẩm" className="size-full object-cover" />
                                             </div>
                                         ) : (
                                             <div className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-bo-border bg-slate-100">
@@ -395,7 +395,7 @@ export default function QuotationRequestDetail() {
 
             {/* ── Table 2: Các Báo giá từ Nhà Cung Cấp ── */}
             <TableShell
-                title="Danh sách Báo giá từ Nhà cung cấp"
+                title="Danh sách báo giá từ nhà cung cấp"
                 description="Bấm vào dòng để mở chi tiết báo giá tương ứng."
                 toolbar={
                     <div className="flex items-center gap-2 border-b border-bo-border px-4 py-2.5 sm:px-5">
@@ -409,7 +409,7 @@ export default function QuotationRequestDetail() {
                 <table className="w-full min-w-[980px] text-sm">
                     <thead>
                         <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                            <th className="h-10 w-[160px] px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã Báo Giá</th>
+                            <th className="h-10 w-[160px] px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã báo giá</th>
                             <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Nhà cung cấp</th>
                             <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày gửi</th>
                             <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Hạn chót</th>

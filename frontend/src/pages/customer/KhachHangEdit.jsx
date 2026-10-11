@@ -99,7 +99,7 @@ export default function KhachHangEdit() {
     setLoading(true);
     try {
       await updateKhachHang(id, values);
-      toast.success("Cập nhật khách hàng thành công!");
+      toast.success("Cập nhật khách hàng thành công.");
       navigate(`/customers/${id}`);
     } catch (error) {
       toast.error(error.response?.data?.message || "Có lỗi xảy ra khi cập nhật");

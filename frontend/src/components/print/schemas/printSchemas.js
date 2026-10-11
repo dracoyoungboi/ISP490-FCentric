@@ -361,7 +361,7 @@ export const PRINT_SCHEMAS = {
                         hideWhenEmpty: true,
                         hint: "Chỉ in với phiếu nhập từ đơn mua hàng",
                     },
-                    { key: "partner", label: "Nguồn / Đối tác", modelPath: "partner" },
+                    { key: "partner", label: "Nguồn / đối tác", modelPath: "partner" },
                     { key: "status", label: "Trạng thái", modelPath: "status", kind: "badge" },
                 ],
             },
@@ -608,7 +608,7 @@ export const PRINT_SCHEMAS = {
                     { key: "grandTotal", label: "Tổng cộng", modelPath: "totals.grandTotal" },
                 ],
             },
-            { key: "notes", type: "notes", title: "Điều khoản & Ghi chú", path: "notes" },
+            { key: "notes", type: "notes", title: "Điều khoản & ghi chú", path: "notes" },
             {
                 key: "signatures",
                 type: "signatures",

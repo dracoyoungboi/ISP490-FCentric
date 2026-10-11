@@ -259,7 +259,7 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
           <DialogHeader>
             <DialogTitle className="text-bo-foreground">Xác nhận hủy theo sàn</DialogTitle>
             <DialogDescription className="text-slate-600">
-              Sàn đã hủy đơn {donBanHang?.soDonHang}. Hệ thống sẽ gỡ đơn khỏi Pick List (nếu có), hủy phiếu xuất nháp,
+              Sàn đã hủy đơn {donBanHang?.soDonHang}. Hệ thống sẽ gỡ đơn khỏi phiếu nhặt hàng (nếu có), hủy phiếu xuất nháp,
               nhả giữ chỗ và chuyển đơn sang Đã hủy.
             </DialogDescription>
           </DialogHeader>
@@ -308,7 +308,7 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
         onConfirm={confirmApply}
         variant="info"
         title="Áp dụng thay đổi từ sàn"
-        description="Hệ thống lấy lại đơn trên sàn, cập nhật số lượng từng dòng, nhả hoặc giữ thêm hàng cho khớp. Đơn đang trong Pick List cần gỡ khỏi Pick List trước."
+        description="Hệ thống lấy lại đơn trên sàn, cập nhật số lượng từng dòng, nhả hoặc giữ thêm hàng cho khớp. Đơn đang trong phiếu nhặt hàng cần gỡ khỏi phiếu đó trước."
         confirmText="Áp dụng"
         cancelText="Quay lại"
         isLoading={busy === "ap-dung"}

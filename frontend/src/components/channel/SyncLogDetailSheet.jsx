@@ -132,7 +132,7 @@ export default function SyncLogDetailSheet({ logId, open, onOpenChange, onRetrie
 
               {shown.payload ? (
                 <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-bo-muted">Payload (đã che)</p>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-bo-muted">Dữ liệu gửi/nhận (đã che)</p>
                   <pre className="max-h-72 overflow-auto rounded-md border border-bo-border bg-bo-surface-subtle p-3 font-mono text-xs leading-5 text-slate-700">
                     {JSON.stringify(shown.payload, null, 2)}
                   </pre>

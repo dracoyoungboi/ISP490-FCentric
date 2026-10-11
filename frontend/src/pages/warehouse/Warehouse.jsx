@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "@/utils/apiError";
 import { useCallback, useEffect, useState } from 'react';
 import {
     BarChart3, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight,
@@ -187,13 +188,13 @@ export default function WarehouseManagement() {
             if (dialogMode === 'create') res = await khoService.create(data);
             else if (dialogMode === 'edit') res = await khoService.update({ id: selectedWarehouse.id, ...data });
             if (res?.data?.status >= 400) { toast.error(res.data.message || 'Có lỗi xảy ra'); return; }
-            toast.success(dialogMode === 'create' ? 'Thêm kho mới thành công!' : 'Cập nhật thông tin kho thành công!');
+            toast.success(dialogMode === 'create' ? 'Thêm kho mới thành công.' : 'Cập nhật thông tin kho thành công.');
             setShowDialog(false); setErrors({}); fetchWarehouses();
         } catch (err) {
             console.error('Chi tiết lỗi:', err);
             console.error('Error response:', err.response);
             console.error('Error response data:', err.response?.data);
-            toast.error(err.response?.data?.message || err.message || 'Có lỗi xảy ra khi xử lý kho');
+            toast.error(getApiErrorMessage(err, 'Có lỗi xảy ra khi xử lý kho'));
         }
     };
 
@@ -204,7 +205,7 @@ export default function WarehouseManagement() {
         try {
             setIsDeleting(true);
             await khoService.delete(warehouseToDelete.id);
-            toast.success('Xóa kho thành công!');
+            toast.success('Xóa kho thành công.');
             closeConfirm(); setWarehouseToDelete(null); fetchWarehouses();
         } catch (err) {
             console.error('Lỗi khi xóa kho:', err);
@@ -258,7 +259,7 @@ export default function WarehouseManagement() {
                     icon={<BarChart3 className="size-5" />}
                     iconClass="bg-bo-danger-soft text-bo-danger"
                     label="Tổng tồn kho"
-                    value={stats.totalStock.toLocaleString()}
+                    value={stats.totalStock.toLocaleString("vi-VN")}
                 />
             </section>
 
@@ -502,7 +503,7 @@ export default function WarehouseManagement() {
                                         />
                                     </td>
                                     <td className="px-3 py-3 text-center font-semibold text-bo-foreground">
-                                        {(wh.soLuongTon || 0).toLocaleString()}
+                                        {(wh.soLuongTon || 0).toLocaleString("vi-VN")}
                                     </td>
                                     <td className="px-3 py-3">
                                         <div className="flex items-center justify-center gap-1.5">

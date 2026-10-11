@@ -187,7 +187,7 @@ export default function ChannelsPage() {
                         className="h-9 gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                     >
                         <Activity className="size-4" />
-                        Dashboard đồng bộ
+                        Theo dõi đồng bộ
                     </Button>
                     <Button
                         variant="outline"
@@ -220,7 +220,7 @@ export default function ChannelsPage() {
                                 {config ? <ConnectionStatusBadge trangThai={status} /> : null}
                             </h2>
                             <p className="mt-0.5 text-xs leading-5 text-bo-muted sm:text-sm">
-                                Kết nối bằng Admin API access token của app Shopify đã cài vào cửa hàng.
+                                Kết nối bằng Admin API access token của ứng dụng Shopify đã cài vào cửa hàng.
                             </p>
                         </div>
                     </div>

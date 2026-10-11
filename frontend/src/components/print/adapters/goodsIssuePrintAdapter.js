@@ -12,7 +12,7 @@ export const GOODS_ISSUE_STATUS = {
     1: { label: "Chờ duyệt", tone: "info" },
     2: { label: "Đã duyệt", tone: "info" },
     3: { label: "Đã xuất", tone: "success" },
-    4: { label: "Đã huỷ", tone: "danger" },
+    4: { label: "Đã hủy", tone: "danger" },
     5: { label: "Đã xuất", tone: "success" },
 };
 

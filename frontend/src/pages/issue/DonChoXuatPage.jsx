@@ -1,3 +1,4 @@
+import { formatCurrency } from "@/utils/formatters";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -132,14 +133,14 @@ export default function DonChoXuatPage() {
                 donBanHangIds: selectedRows.map((row) => row.id),
                 ghiChu: ghiChu.trim() || undefined,
             });
-            toast.success(`Đã tạo ${dto?.maPickList || "Pick List"} cho ${selectedRows.length} đơn`);
+            toast.success(`Đã tạo ${dto?.maPickList || "phiếu nhặt hàng"} cho ${selectedRows.length} đơn`);
             setSelected(new Map());
             setDialogOpen(false);
             setGhiChu("");
             if (dto?.id) navigate(`/goods-issues/pick-lists/${dto.id}`);
             else fetchData();
         } catch (error) {
-            toast.error(getApiErrorMessage(error, "Không thể tạo Pick List"));
+            toast.error(getApiErrorMessage(error, "Không thể tạo phiếu nhặt hàng"));
             if (getApiErrorStatus(error) === 409) {
                 setDialogOpen(false);
                 setSelected(new Map());
@@ -225,7 +226,7 @@ export default function DonChoXuatPage() {
                                     className="h-9 gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
                                     <Truck className="size-4" />
-                                    Danh sách Pick List
+                                    Danh sách phiếu nhặt hàng
                                 </Button>
                             </Link>
                             <Button
@@ -234,7 +235,7 @@ export default function DonChoXuatPage() {
                                 className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
                             >
                                 <PackageCheck className="size-4" />
-                                Tạo Pick List{selectedSummary.donHang ? ` (${selectedSummary.donHang})` : ""}
+                                Tạo phiếu nhặt hàng{selectedSummary.donHang ? ` (${selectedSummary.donHang})` : ""}
                             </Button>
                         </>
                     }
@@ -244,7 +245,7 @@ export default function DonChoXuatPage() {
             {/* ══ BẢNG ══ */}
             <TableShell
                 title="Đơn chờ gom nhặt"
-                description="Đơn đã gửi kho, chưa vào Pick List và không có cờ cần xử lý. Chọn đơn rồi bấm Tạo Pick List."
+                description="Đơn đã gửi kho, chưa vào phiếu nhặt hàng và không có cờ cần xử lý. Chọn đơn rồi bấm Tạo phiếu nhặt hàng."
                 toolbar={
                     selectedSummary.donHang > 0 ? (
                         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-bo-border bg-bo-primary-soft px-4 py-2.5 sm:px-5">
@@ -288,7 +289,7 @@ export default function DonChoXuatPage() {
                         description={
                             hasFilter
                                 ? "Thử đổi từ khóa hoặc kênh bán."
-                                : "Đơn bán đã gửi sang kho sẽ hiện ở đây để gom thành Pick List."
+                                : "Đơn bán đã gửi sang kho sẽ hiện ở đây để gom thành phiếu nhặt hàng."
                         }
                         action={
                             hasFilter ? (
@@ -366,7 +367,7 @@ export default function DonChoXuatPage() {
                                             </span>
                                         </td>
                                         <td className="whitespace-nowrap px-3 py-3 text-right font-semibold text-bo-foreground">
-                                            {toNumber(row.tongCong).toLocaleString("vi-VN")} đ
+                                            {formatCurrency(toNumber(row.tongCong))}
                                         </td>
                                         <td className="px-3 py-3 text-center">
                                             <StatusBadge
@@ -386,7 +387,7 @@ export default function DonChoXuatPage() {
             <Dialog open={dialogOpen} onOpenChange={(open) => !creating && setDialogOpen(open)}>
                 <DialogContent className="rounded-xl border-bo-border sm:max-w-lg">
                     <DialogHeader>
-                        <DialogTitle className="text-bo-foreground">Tạo Pick List</DialogTitle>
+                        <DialogTitle className="text-bo-foreground">Tạo phiếu nhặt hàng</DialogTitle>
                         <DialogDescription className="text-slate-600">
                             Gom {selectedSummary.donHang} đơn thành một đợt nhặt hàng. Các đơn sẽ chuyển sang{" "}
                             <strong className="font-semibold text-bo-foreground">Đang xử lý xuất kho</strong>.
@@ -414,7 +415,7 @@ export default function DonChoXuatPage() {
                             <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
                                 <AlertTriangle className="mt-0.5 size-4 shrink-0" />
                                 <p>
-                                    Có {selectedSummary.thieuHang} đơn đang báo thiếu hàng. Hệ thống sẽ kiểm tra lại khi tạo Pick List.
+                                    Có {selectedSummary.thieuHang} đơn đang báo thiếu hàng. Hệ thống sẽ kiểm tra lại khi tạo phiếu nhặt hàng.
                                 </p>
                             </div>
                         ) : null}
@@ -452,7 +453,7 @@ export default function DonChoXuatPage() {
                             className="min-w-[150px] gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
                         >
                             {creating ? <Loader2 className="size-4 animate-spin" /> : <PackageCheck className="size-4" />}
-                            {creating ? "Đang tạo..." : "Tạo Pick List"}
+                            {creating ? "Đang tạo..." : "Tạo phiếu nhặt hàng"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

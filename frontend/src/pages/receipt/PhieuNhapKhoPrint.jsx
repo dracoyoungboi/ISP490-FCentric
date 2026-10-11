@@ -56,7 +56,7 @@ export default function PhieuNhapKhoPrint() {
             loadingLabel="Đang tải dữ liệu phiếu nhập kho"
             titleFallback="In phiếu nhập kho"
             notFoundTitle="Không tìm thấy phiếu nhập kho"
-            notFoundDescription="Phiếu có thể đã bị xoá hoặc bạn không có quyền truy cập."
+            notFoundDescription="Phiếu có thể đã bị xóa hoặc bạn không có quyền truy cập."
         />
     );
 }

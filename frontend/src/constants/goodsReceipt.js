@@ -15,7 +15,7 @@ export const GOODS_RECEIPT_STATUS = {
     1: { label: "Chờ duyệt", tone: "info" },
     2: { label: "Đã duyệt", tone: "info" },
     3: { label: "Đã nhập kho", tone: "success" },
-    4: { label: "Đã huỷ", tone: "danger" },
+    4: { label: "Đã hủy", tone: "danger" },
 };
 
 /** Trạng thái dùng cho bộ lọc danh sách — chỉ các trạng thái có thật. */
@@ -35,6 +35,6 @@ export function getGoodsReceiptStatus(trangThai) {
 export function getGoodsReceiptTypeLabel(detail) {
     const data = detail || {};
     const isSalesReturn = !data.soDonMua && !data.phieuXuatGocId;
-    if (isSalesReturn) return "Nhập hoàn trả (Từ Đơn bán)";
+    if (isSalesReturn) return "Nhập hoàn trả (từ đơn bán)";
     return data.loaiNhap || "Phiếu nhập kho";
 }

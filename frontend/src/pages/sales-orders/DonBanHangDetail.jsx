@@ -1,3 +1,4 @@
+import { formatCurrency } from "@/utils/formatters";
 import { createElement, useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
@@ -105,7 +106,7 @@ export default function DonBanHangDetail() {
     try {
       setLoading(true);
       await donBanHangKenhService.markAsDelivered(id);
-      toast.success("Đã xác nhận giao hàng thành công!");
+      toast.success("Đã xác nhận giao hàng thành công.");
       fetchDetail();
     }
     catch { toast.error("Không thể xác nhận giao hàng"); }
@@ -135,7 +136,7 @@ export default function DonBanHangDetail() {
       setLoading(true);
       setShowReturnModal(false); // Đóng modal ngay khi bấm xác nhận
       await donBanHangService.returnOrder(id);
-      toast.success("Đã cập nhật trạng thái đơn hàng thành Bị hoàn trả!");
+      toast.success("Đã cập nhật trạng thái đơn hàng thành “Bị hoàn trả”.");
       fetchDetail();
     } catch (error) {
       toast.error(error?.response?.data?.message || error?.response?.data?.errors?.[0] || "Không thể hoàn trả đơn hàng");
@@ -323,7 +324,7 @@ export default function DonBanHangDetail() {
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs font-semibold uppercase text-bo-muted">Tạm tính</span>
                   <span className="text-sm font-semibold text-bo-foreground">
-                    {(donBanHang.tienHang ?? 0).toLocaleString()}đ
+                    {formatCurrency(donBanHang.tienHang)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
@@ -331,7 +332,7 @@ export default function DonBanHangDetail() {
                     <Truck className="size-3" />Phí vận chuyển
                   </span>
                   <span className="text-sm font-semibold text-bo-foreground">
-                    {(donBanHang.phiVanChuyen ?? 0).toLocaleString()}đ
+                    {formatCurrency(donBanHang.phiVanChuyen)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-3 border-t border-bo-border pt-2">
@@ -339,7 +340,7 @@ export default function DonBanHangDetail() {
                     <Calculator className="size-3.5" />Tổng cộng
                   </span>
                   <span className="text-xl font-bold text-bo-foreground">
-                    {(donBanHang.tongCong ?? 0).toLocaleString()}đ
+                    {formatCurrency(donBanHang.tongCong)}
                   </span>
                 </div>
               </div>
@@ -399,10 +400,10 @@ export default function DonBanHangDetail() {
                         </span>
                       </td>
                       <td className="px-3 py-3 text-right text-sm italic text-bo-muted">
-                        {item.donGia.toLocaleString()}đ
+                        {formatCurrency(item.donGia)}
                       </td>
                       <td className="px-3 py-3 text-right">
-                        <span className="font-bold text-bo-foreground">{item.thanhTien.toLocaleString()}đ</span>
+                        <span className="font-bold text-bo-foreground">{formatCurrency(item.thanhTien)}</span>
                       </td>
                     </tr>
                   ))}

@@ -31,7 +31,7 @@ const STATUS_MAP = {
         className: "border-purple-200 bg-purple-50 text-purple-700",
     },
     5: { label: "Hoàn tất", tone: "success" },
-    4: { label: "Đã huỷ", tone: "danger" },
+    4: { label: "Đã hủy", tone: "danger" },
 };
 
 const TH_CLASS =
@@ -152,11 +152,11 @@ export default function PhieuChuyenKhoDetail() {
         setIsProcessing(true);
         try {
             await phieuChuyenKhoService.cancel(id);
-            toast.success("Đã huỷ toàn bộ quy trình chuyển kho thành công");
+            toast.success("Đã hủy toàn bộ quy trình chuyển kho thành công");
             setShowCancelConfirm(false);
             fetchDetail();
         } catch (e) {
-            toast.error(e?.response?.data?.message || "Không thể huỷ phiếu");
+            toast.error(e?.response?.data?.message || "Không thể hủy phiếu");
         } finally {
             setIsProcessing(false);
         }
@@ -275,7 +275,7 @@ export default function PhieuChuyenKhoDetail() {
                             onClick={() => setShowCancelConfirm(true)}
                             className="border-bo-danger/30 bg-bo-danger-soft font-medium text-bo-danger hover:bg-bo-danger-soft/70 hover:text-bo-danger"
                         >
-                            Huỷ phiếu
+                            Hủy phiếu
                         </Button>
                     )}
 
@@ -344,8 +344,8 @@ export default function PhieuChuyenKhoDetail() {
             >
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
                     <InfoField label="Số phiếu xuất gốc" value={data.soPhieuXuat} mono />
-                    <InfoField label="Kho nguồn (Xuất)"  value={data.khoXuatTen} />
-                    <InfoField label="Kho đích (Nhập)"   value={data.khoNhapTen} />
+                    <InfoField label="Kho nguồn (xuất)"  value={data.khoXuatTen} />
+                    <InfoField label="Kho đích (nhập)"   value={data.khoNhapTen} />
                     <InfoField label="Người phê duyệt"   value={data.nguoiDuyetTen || "Chưa duyệt"} />
                     <InfoField
                         label="Ngày tạo"
@@ -419,7 +419,7 @@ export default function PhieuChuyenKhoDetail() {
                                 <AlertTriangle className="size-4 text-bo-danger" />
                             </div>
                             <div>
-                                <p className="font-semibold leading-snug text-bo-foreground">Xác nhận huỷ toàn bộ quy trình</p>
+                                <p className="font-semibold leading-snug text-bo-foreground">Xác nhận hủy toàn bộ quy trình</p>
                                 <p className="mt-0.5 text-xs text-bo-muted">Hành động này không thể hoàn tác</p>
                             </div>
                         </div>
@@ -427,11 +427,11 @@ export default function PhieuChuyenKhoDetail() {
                         {/* Modal body */}
                         <div className="px-5 py-5">
                             <p className="text-sm leading-relaxed text-bo-foreground">
-                                Bạn chắc chắn muốn huỷ phiếu{" "}
+                                Bạn chắc chắn muốn hủy phiếu{" "}
                                 <span className="font-bold text-bo-foreground">{data.soPhieuXuat}</span>?
                             </p>
                             <p className="mt-3 text-sm font-semibold text-bo-danger">
-                                Hệ thống sẽ tự động hủy các phiếu Xuất/Nhập liên quan ngay lập tức.
+                                Hệ thống sẽ tự động hủy các phiếu xuất/nhập liên quan ngay lập tức.
                             </p>
                         </div>
 
@@ -451,7 +451,7 @@ export default function PhieuChuyenKhoDetail() {
                             >
                                 {isProcessing
                                     ? <><Loader2 className="size-4 animate-spin" />Đang xử lý...</>
-                                    : "Xác nhận huỷ"
+                                    : "Xác nhận hủy"
                                 }
                             </Button>
                         </div>

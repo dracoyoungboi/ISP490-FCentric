@@ -10,8 +10,8 @@ export const productVariantSchema = yup.object().shape({
         .positive("Màu sắc không hợp lệ"),
     sizeId: yup
         .number()
-        .required("Vui lòng chọn size")
-        .positive("Size không hợp lệ"),
+        .required("Vui lòng chọn kích cỡ")
+        .positive("Kích cỡ không hợp lệ"),
     chatLieuId: yup
         .number()
         .required("Vui lòng chọn chất liệu")

@@ -70,7 +70,7 @@ export default function AuthPage() {
 
             const token = localStorage.getItem('access_token');
             if (!token) {
-                setErrors({ general: 'Không nhận được token đăng nhập, vui lòng thử lại' });
+                setErrors({ general: 'Không nhận được phiên đăng nhập, vui lòng thử lại' });
                 return;
             }
 

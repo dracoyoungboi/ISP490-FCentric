@@ -182,7 +182,7 @@ export default function PhieuNhapKhoList() {
         <FilterBar
           primary={
             <SearchInput
-              placeholder="Nhập số phiếu / PO..."
+              placeholder="Nhập số phiếu / mã đơn mua..."
               value={filters.keyword}
               onChange={e => setFilters(p => ({ ...p, keyword: e.target.value, page: 0 }))}
               onClear={() => setFilters(p => ({ ...p, keyword: "", page: 0 }))}
@@ -256,7 +256,7 @@ export default function PhieuNhapKhoList() {
           <EmptyState
             icon={ClipboardList}
             title="Không tìm thấy phiếu nhập kho"
-            description="Hiện tại chưa có dữ liệu phù hợp. Hãy thử thay đổi bộ lọc hoặc từ khoá tìm kiếm."
+            description="Hiện tại chưa có dữ liệu phù hợp. Hãy thử thay đổi bộ lọc hoặc từ khóa tìm kiếm."
           />
         </TableShell>
       ) : (
@@ -268,7 +268,7 @@ export default function PhieuNhapKhoList() {
                   <tr className="border-b border-bo-border bg-bo-surface-subtle">
                     <th className="h-10 w-14 bg-bo-surface-subtle px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
                     <th className="h-10 bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Số phiếu nhập</th>
-                    <th className="h-10 bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">PO / Nhà cung cấp</th>
+                    <th className="h-10 bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Đơn mua / nhà cung cấp</th>
                     <th className="h-10 bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kho nhập</th>
                     <th className="h-10 bg-bo-surface-subtle px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày tạo</th>
                     <th className="h-10 bg-bo-surface-subtle px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày nhập</th>

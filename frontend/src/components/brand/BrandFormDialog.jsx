@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "@/utils/apiError";
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -114,7 +115,7 @@ export default function BrandFormDialog({ open, onOpenChange, onCreated }) {
             toast.success(`Đã tạo thương hiệu "${savedBrand.tenThuongHieu}"`);
             onCreated?.(savedBrand);
         } catch (error) {
-            const errorMessage = error.response?.data?.message || error.message || "Có lỗi xảy ra khi tạo thương hiệu";
+            const errorMessage = getApiErrorMessage(error, "Có lỗi xảy ra khi tạo thương hiệu");
             toast.error(errorMessage);
         }
     };

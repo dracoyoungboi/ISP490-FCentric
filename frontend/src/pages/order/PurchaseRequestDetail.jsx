@@ -181,14 +181,14 @@ export default function PurchaseRequestDetail() {
         try {
             await purchaseRequestService.approve(id, trangThai, lyDo);
             const ma = requestData?.soYeuCauMuaHang || `#${id}`;
-            toast.success(trangThai === 2 ? `Đã phê duyệt yêu cầu ${ma}!` : `Đã từ chối yêu cầu ${ma}!`);
+            toast.success(trangThai === 2 ? `Đã phê duyệt yêu cầu ${ma}.` : `Đã từ chối yêu cầu ${ma}.`);
             setApproveDialog(false);
             setRejectDialog(false);
             setLyDoTuChoi('');
             await fetchRequestDetail();
         } catch (error) {
             console.error('Error action:', error);
-            toast.error(error.response?.data?.message || 'Không thể thực hiện thao tác. Vui lòng thử lại!');
+            toast.error(error.response?.data?.message || 'Không thể thực hiện thao tác. Vui lòng thử lại.');
         } finally {
             setActionLoading(false);
         }
@@ -217,7 +217,7 @@ export default function PurchaseRequestDetail() {
                     <EmptyState
                         icon={AlertCircle}
                         title="Không tìm thấy yêu cầu nhập hàng"
-                        description="Yêu cầu có thể đã bị xoá hoặc bạn không có quyền truy cập."
+                        description="Yêu cầu có thể đã bị xóa hoặc bạn không có quyền truy cập."
                         action={
                             <Button
                                 onClick={() => navigate('/purchase-requests')}
@@ -418,9 +418,9 @@ export default function PurchaseRequestDetail() {
                         <tr className="border-b border-bo-border bg-bo-surface-subtle">
                             <th className="h-11 w-[350px] px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Sản phẩm</th>
                             <th className="h-11 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Màu sắc</th>
-                            <th className="h-11 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Size</th>
+                            <th className="h-11 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kích cỡ</th>
                             <th className="h-11 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Chất liệu</th>
-                            <th className="h-11 px-3 pr-6 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SL Yêu cầu</th>
+                            <th className="h-11 px-3 pr-6 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SL yêu cầu</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-bo-border">
@@ -431,7 +431,7 @@ export default function PurchaseRequestDetail() {
                                         <div className="flex items-center gap-4">
                                             {item.bienTheSanPham?.anhBienThe?.tepTin?.duongDan ? (
                                                 <div className="size-14 shrink-0 overflow-hidden rounded-lg border border-bo-border bg-bo-surface-subtle">
-                                                    <img src={item.bienTheSanPham.anhBienThe.tepTin.duongDan} alt="Product"
+                                                    <img src={item.bienTheSanPham.anhBienThe.tepTin.duongDan} alt="Ảnh sản phẩm"
                                                         className="h-full w-full object-cover transition-transform duration-300 hover:scale-105" />
                                                 </div>
                                             ) : (

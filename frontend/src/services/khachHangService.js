@@ -23,7 +23,7 @@ export const getKhachHangPurchaseHistory = async (id, { signal } = {}) => {
   }
   // Thiếu trường không đồng nghĩa với khách hàng chưa mua hàng.
   if (!Object.hasOwn(body.data, "lichSuMuaHang")) {
-    const failure = new Error("Phản hồi API thiếu trường lichSuMuaHang.");
+    const failure = new Error("Không đọc được lịch sử mua hàng. Vui lòng thử lại sau.");
     failure.code = "PURCHASE_HISTORY_UNAVAILABLE";
     throw failure;
   }
