@@ -60,6 +60,10 @@ class KenhBanHangDongBoServiceTest {
     private AnhBienTheRepository anhBienTheRepository;
     @Mock
     private MinioService minioService;
+    @Mock
+    private KhoRepository khoRepository;
+    @Mock
+    private com.dev.backend.workers.OmnichannelOrderSyncJob omnichannelOrderSyncJob;
 
     private KenhBanHangDongBoServiceImpl service;
 
@@ -79,7 +83,9 @@ class KenhBanHangDongBoServiceTest {
                 nguoiDungRepository,
                 anhQuanAoRepository,
                 anhBienTheRepository,
-                minioService
+                minioService,
+                khoRepository,
+                omnichannelOrderSyncJob
         );
 
         shopifyKenh = KenhBanHang.builder()
@@ -215,6 +221,96 @@ class KenhBanHangDongBoServiceTest {
         assertEquals(90L, kpi.getDaLienKet());
         assertEquals(8L, kpi.getChuaLienKet());
         assertEquals(2L, kpi.getLoiDongBo());
+    }
+
+    @Test
+    void getLocations_traVeFallbackKhiChuaCoToken() {
+        when(kenhBanHangService.getDecryptedShopifyAccessToken()).thenReturn(null);
+
+        var locations = service.getLocations("SHOPIFY");
+
+        assertNotNull(locations);
+        assertFalse(locations.isEmpty());
+        assertEquals("gid://shopify/Location/default", locations.get(0).getMaKhoSan());
+    }
+
+    @Test
+    void luuCaiDat_thanhCong() {
+        when(khoRepository.existsById(1)).thenReturn(true);
+
+        com.dev.backend.dto.request.KenhBanHangCaiDatRequest req = com.dev.backend.dto.request.KenhBanHangCaiDatRequest.builder()
+                .khoId(1)
+                .maKhoSan("loc_123")
+                .tyLeDayTon(100)
+                .tonDem(0)
+                .nguongVe0(0)
+                .build();
+
+        DongBoTongQuanDto res = service.luuCaiDat("SHOPIFY", req);
+
+        assertNotNull(res);
+        verify(kenhBanHangRepository).save(shopifyKenh);
+    }
+
+    @Test
+    void filterNhatKy_thanhCong() {
+        Page<TrangThaiDongBoSanPham> mockPage = new PageImpl<>(List.of(mapping1), PageRequest.of(0, 10), 1);
+        when(trangThaiDongBoSanPhamRepository.filterByKenh(eq(1), any(), any(), any())).thenReturn(mockPage);
+
+        var pageRes = service.filterNhatKy("SHOPIFY", null, "THANH_CONG", null, PageRequest.of(0, 10));
+
+        assertNotNull(pageRes);
+        assertEquals(1, pageRes.getTotalElements());
+        assertEquals("TON_KHO", pageRes.getContent().get(0).getLoai());
+    }
+
+    @Test
+    void getNhatKyDetail_thanhCong() {
+        when(trangThaiDongBoSanPhamRepository.findById(1)).thenReturn(Optional.of(mapping1));
+
+        var detail = service.getNhatKyDetail(1);
+
+        assertNotNull(detail);
+        assertEquals("TON_KHO", detail.getLoai());
+        assertEquals("POLO-BLK-M", detail.getMaThamChieu());
+    }
+
+    @Test
+    void layDonHang_thanhCong() {
+        when(omnichannelOrderSyncJob.syncShopifyOrders(eq(shopifyKenh), any(), any())).thenReturn(5);
+
+        com.dev.backend.dto.request.LayDonHangKenhRequest req = com.dev.backend.dto.request.LayDonHangKenhRequest.builder()
+                .tu("2026-10-10T00:00:00Z")
+                .den("2026-10-11T00:00:00Z")
+                .build();
+
+        var res = service.layDonHang("SHOPIFY", req);
+
+        assertNotNull(res);
+        assertEquals(5, res.getSoDonMoi());
+    }
+
+    @Test
+    void dongBoTatCa_thanhCong() {
+        when(kenhBanHangRepository.findByTrangThai(1)).thenReturn(List.of(shopifyKenh));
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(1)).thenReturn(List.of(mapping1));
+
+        var res = service.dongBoTatCa();
+
+        assertNotNull(res);
+        verify(omnichannelOrderSyncJob).syncShopifyOrders(shopifyKenh);
+    }
+
+    @Test
+    void thuLai_thanhCong() {
+        mapping1.setTrangThaiDongBo("that_bai");
+        mapping1.setChiTietLoi("Lỗi kết nối");
+        when(trangThaiDongBoSanPhamRepository.findById(1)).thenReturn(Optional.of(mapping1));
+
+        var res = service.thuLai(1);
+
+        assertNotNull(res);
+        verify(trangThaiDongBoSanPhamRepository).save(mapping1);
     }
 }
 

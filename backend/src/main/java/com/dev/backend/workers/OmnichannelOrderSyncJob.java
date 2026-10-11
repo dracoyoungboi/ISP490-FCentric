@@ -60,22 +60,37 @@ public class OmnichannelOrderSyncJob {
         }
     }
 
-    private void syncShopifyOrders(KenhBanHang kenh) {
+    public int syncShopifyOrders(KenhBanHang kenh) {
+        return syncShopifyOrders(kenh, Instant.now().minusSeconds(600), null);
+    }
+
+    public int syncShopifyOrders(KenhBanHang kenh, Instant tuNgay, Instant denNgay) {
         String token = kenhBanHangService.getDecryptedShopifyAccessToken();
         if (token == null || token.isBlank()) {
             log.warn("[JOB-01] Kênh {} chưa có Access Token hợp lệ, bỏ qua đợt sync", kenh.getMaKenh());
-            return;
+            return 0;
         }
 
         String domain = extractDomainFromApiUrl(kenh.getApiUrl());
         if (domain.isBlank()) {
-            return;
+            return 0;
         }
 
-        // Lấy đơn hàng tạo/cập nhật gần đây (10 phút trước)
-        Instant tenMinutesAgo = Instant.now().minusSeconds(600);
-        String url = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/orders.json?status=any&limit=50&updated_at_min=" + tenMinutesAgo.toString();
+        StringBuilder urlBuilder = new StringBuilder("https://")
+                .append(domain)
+                .append("/admin/api/")
+                .append(DEFAULT_API_VERSION)
+                .append("/orders.json?status=any&limit=50");
 
+        if (tuNgay != null) {
+            urlBuilder.append("&updated_at_min=").append(tuNgay.toString());
+        }
+        if (denNgay != null) {
+            urlBuilder.append("&updated_at_max=").append(denNgay.toString());
+        }
+        String url = urlBuilder.toString();
+
+        int syncedCount = 0;
         try {
             SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
             factory.setConnectTimeout(8000);
@@ -94,7 +109,6 @@ public class OmnichannelOrderSyncJob {
                 JsonNode root = objectMapper.readTree(response.getBody());
                 JsonNode orders = root.path("orders");
                 if (orders.isArray()) {
-                    int syncedCount = 0;
                     for (JsonNode orderNode : orders) {
                         try {
                             if (processSingleOrder(orderNode, kenh)) {
@@ -116,6 +130,7 @@ public class OmnichannelOrderSyncJob {
         } catch (Exception e) {
             log.warn("[JOB-01 Error] Lỗi kết nối API đơn hàng Shopify: {}", e.getMessage());
         }
+        return syncedCount;
     }
 
     @Transactional(rollbackFor = Exception.class)

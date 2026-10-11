@@ -97,9 +97,23 @@ const syncApi = {
     };
   },
 
-  getKhoSan: kenhBanHangMock.getKhoSan,
-  luuCauHinh: kenhBanHangMock.luuCauHinh,
-  batTatDongBo: kenhBanHangMock.batTatDongBo,
+  getKhoSan: (id) =>
+    apiClient
+      .get(`${BASE}/${resolveChannelCode(id)}/locations`)
+      .then(data)
+      .catch(() => kenhBanHangMock.getKhoSan(id)),
+
+  luuCauHinh: (id, payload) =>
+    apiClient
+      .put(`${BASE}/${resolveChannelCode(id)}/cai-dat`, payload)
+      .then(data)
+      .catch(() => kenhBanHangMock.luuCauHinh(id, payload)),
+
+  batTatDongBo: (id, payload) =>
+    apiClient
+      .put(`${BASE}/${resolveChannelCode(id)}/cai-dat`, payload)
+      .then(data)
+      .catch(() => kenhBanHangMock.batTatDongBo(id, payload)),
 
   taiSanPham: (id) => apiClient.post(`${BASE}/${resolveChannelCode(id)}/tai-san-pham`).then(data),
 
@@ -130,8 +144,25 @@ const syncApi = {
 
   dayTon: (id, payload) => apiClient.post(`${BASE}/${resolveChannelCode(id)}/day-ton`, payload || {}).then(data),
 
-  layDon: kenhBanHangMock.layDon,
-  dongBoTatCa: kenhBanHangMock.dongBoTatCa,
+  layDon: (id, range) =>
+    apiClient
+      .post(`${BASE}/${resolveChannelCode(id)}/lay-don`, range)
+      .then(data)
+      .then((res) => ({
+        soSuKien: res?.soDonMoi ?? 0,
+        ...res,
+      }))
+      .catch(() => kenhBanHangMock.layDon(id, range)),
+
+  dongBoTatCa: () =>
+    apiClient
+      .post(`${BASE}/dong-bo-tat-ca`)
+      .then(data)
+      .then((res) => ({
+        soKetNoi: 1,
+        ...res,
+      }))
+      .catch(() => kenhBanHangMock.dongBoTatCa()),
 
   tongQuan: () =>
     apiClient
@@ -140,10 +171,10 @@ const syncApi = {
       .then((tq) => ({
         kenhDangKetNoi: 1,
         tongKetNoi: 1,
-        suKienTrongNhatKy: 0,
+        suKienTrongNhatKy: (tq?.tongSkuSan ?? 0),
         suKienCanXuLy: tq?.loiDongBo ?? 0,
         chuKyDongBoTonPhut: 5,
-        chuKyLayDonPhut: 15,
+        chuKyLayDonPhut: 5,
         ketNois: [
           {
             id: 2,
@@ -151,7 +182,7 @@ const syncApi = {
             tenHienThi: "Shopify Official",
             trangThai: "dang_hoat_dong",
             lanDayTonCuoi: tq?.lanDongBoCuoi,
-            lanLayDonCuoi: null,
+            lanLayDonCuoi: tq?.lanDongBoCuoi,
             soLoi: tq?.loiDongBo ?? 0,
             soChoDay: tq?.chuaLienKet ?? 0,
           },
@@ -159,9 +190,33 @@ const syncApi = {
       }))
       .catch(() => kenhBanHangMock.tongQuan()),
 
-  filterNhatKy: kenhBanHangMock.filterNhatKy,
-  getNhatKy: kenhBanHangMock.getNhatKy,
-  thuLai: kenhBanHangMock.thuLai,
+  filterNhatKy: (params = {}) => {
+    const code = resolveChannelCode(params.ketNoiKenhId);
+    const query = {
+      page: params.page ?? 0,
+      size: params.size ?? 10,
+    };
+    if (params.loai) query.loai = params.loai;
+    if (params.trangThai) query.trangThai = params.trangThai;
+    if (params.search?.trim()) query.search = params.search.trim();
+
+    return apiClient
+      .get(`${BASE}/${code}/nhat-ky`, { params: query })
+      .then(data)
+      .catch(() => kenhBanHangMock.filterNhatKy(params));
+  },
+
+  getNhatKy: (id) =>
+    apiClient
+      .get(`${BASE}/nhat-ky/${id}`)
+      .then(data)
+      .catch(() => kenhBanHangMock.getNhatKy(id)),
+
+  thuLai: (id) =>
+    apiClient
+      .post(`${BASE}/lien-ket/${id}/thu-lai`)
+      .then(data)
+      .catch(() => kenhBanHangMock.thuLai(id)),
 
   timBienThe: (q = "", limit = 20) =>
     apiClient
@@ -169,8 +224,30 @@ const syncApi = {
       .then(data)
       .catch(() => kenhBanHangMock.timBienThe(q, limit)),
 
-  getKhoOptions: kenhBanHangMock.getKhoOptions,
-  getKhachHangOptions: kenhBanHangMock.getKhachHangOptions,
+  getKhoOptions: () =>
+    apiClient
+      .get("/api/v1/kho/all")
+      .then(data)
+      .then((list) =>
+        (list || []).map((k) => ({
+          value: String(k.id),
+          label: k.tenKho,
+          diaChi: k.diaChi,
+        }))
+      )
+      .catch(() => kenhBanHangMock.getKhoOptions()),
+
+  getKhachHangOptions: () =>
+    apiClient
+      .post("/api/v1/khach-hang/filter", { page: 0, size: 50, filters: [] })
+      .then(data)
+      .then((res) =>
+        (res?.content || []).map((kh) => ({
+          value: String(kh.id),
+          label: `${kh.tenKhachHang} ${kh.soDienThoai ? `- ${kh.soDienThoai}` : ""}`,
+        }))
+      )
+      .catch(() => kenhBanHangMock.getKhachHangOptions()),
 };
 
 export const kenhBanHangService = {

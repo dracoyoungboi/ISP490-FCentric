@@ -5,6 +5,8 @@ import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.dto.request.CapNhatLienKetRequest;
 import com.dev.backend.dto.request.DayTonKenhRequest;
+import com.dev.backend.dto.request.KenhBanHangCaiDatRequest;
+import com.dev.backend.dto.request.LayDonHangKenhRequest;
 import com.dev.backend.dto.response.customize.*;
 import com.dev.backend.dto.response.entities.LienKetSanPhamDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
@@ -22,12 +24,14 @@ import com.dev.backend.repository.AnhBienTheRepository;
 import com.dev.backend.repository.AnhQuanAoRepository;
 import com.dev.backend.repository.BienTheSanPhamRepository;
 import com.dev.backend.repository.KenhBanHangRepository;
+import com.dev.backend.repository.KhoRepository;
 import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.repository.TonKhoTheoLoRepository;
 import com.dev.backend.repository.TrangThaiDongBoSanPhamRepository;
 import com.dev.backend.services.KenhBanHangDongBoService;
 import com.dev.backend.services.KenhBanHangService;
 import com.dev.backend.services.MinioService;
+import com.dev.backend.workers.OmnichannelOrderSyncJob;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.*;
@@ -66,6 +70,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     AnhQuanAoRepository anhQuanAoRepository;
     AnhBienTheRepository anhBienTheRepository;
     MinioService minioService;
+    KhoRepository khoRepository;
+    OmnichannelOrderSyncJob omnichannelOrderSyncJob;
     ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
@@ -578,6 +584,278 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .giaBan(bt.getGiaBan())
                 .build()
         ).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ShopifyLocationDto> getLocations(String maKenh) {
+        KenhBanHang kenh = getKenhActive(maKenh);
+        String token = kenhBanHangService.getDecryptedShopifyAccessToken();
+        String domain = extractDomainFromApiUrl(kenh.getApiUrl());
+        if (token == null || token.isBlank() || domain.isBlank()) {
+            return List.of(
+                    ShopifyLocationDto.builder()
+                            .maKhoSan("gid://shopify/Location/default")
+                            .tenKhoSan("Kho mặc định Shopify")
+                            .loai("fulfillment")
+                            .macDinh(true)
+                            .build()
+            );
+        }
+
+        String url = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/locations.json";
+        try {
+            RestTemplate restTemplate = createRestTemplate();
+            HttpHeaders headers = createHeaders(token);
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                JsonNode root = objectMapper.readTree(response.getBody());
+                JsonNode locations = root.path("locations");
+                if (locations.isArray() && !locations.isEmpty()) {
+                    List<ShopifyLocationDto> list = new ArrayList<>();
+                    boolean isFirst = true;
+                    for (JsonNode loc : locations) {
+                        String id = String.valueOf(loc.path("id").asLong());
+                        String name = loc.path("name").asText("Kho Shopify " + id);
+                        boolean legacy = loc.path("legacy").asBoolean(false);
+                        list.add(ShopifyLocationDto.builder()
+                                .maKhoSan(id)
+                                .tenKhoSan(name)
+                                .loai(legacy ? "legacy" : "fulfillment")
+                                .macDinh(isFirst)
+                                .build());
+                        isFirst = false;
+                    }
+                    return list;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Không lấy được danh sách location từ Shopify: {}", e.getMessage());
+        }
+
+        return List.of(
+                ShopifyLocationDto.builder()
+                        .maKhoSan("gid://shopify/Location/default")
+                        .tenKhoSan("Kho mặc định Shopify")
+                        .loai("fulfillment")
+                        .macDinh(true)
+                        .build()
+        );
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public DongBoTongQuanDto luuCaiDat(String maKenh, KenhBanHangCaiDatRequest request) {
+        KenhBanHang kenh = getKenhActive(maKenh);
+        if (request.getKhoId() != null && !khoRepository.existsById(request.getKhoId())) {
+            throw new CommonException("Kho FCentric không tồn tại: " + request.getKhoId(), HttpStatus.BAD_REQUEST, null);
+        }
+
+        kenh.setNgayCapNhat(Instant.now());
+        kenhBanHangRepository.save(kenh);
+
+        ghiNhatKy(kenh.getId(), IHanhDong.cap_nhat_kenh_ban,
+                String.format("Lưu cấu hình đồng bộ: Kho %s, Kho sàn %s, Tỷ lệ %s%%, Tồn đệm %s, Ngưỡng về 0: %s",
+                        request.getKhoId(), request.getMaKhoSan(), request.getTyLeDayTon(), request.getTonDem(), request.getNguongVe0()));
+
+        return getTongQuan(maKenh);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<NhatKyDongBoDto> filterNhatKy(String maKenh, String loai, String trangThai, String search, Pageable pageable) {
+        KenhBanHang kenh = getKenhActive(maKenh);
+        String dbTrangThai = null;
+        if ("THANH_CONG".equalsIgnoreCase(trangThai)) {
+            dbTrangThai = "thanh_cong";
+        } else if ("LOI".equalsIgnoreCase(trangThai)) {
+            dbTrangThai = "that_bai";
+        } else if ("CHO".equalsIgnoreCase(trangThai)) {
+            dbTrangThai = "chua_dong_bo";
+        }
+
+        Page<TrangThaiDongBoSanPham> page = trangThaiDongBoSanPhamRepository.filterByKenh(
+                kenh.getId(),
+                dbTrangThai,
+                (search == null || search.isBlank()) ? null : search.trim(),
+                pageable
+        );
+
+        return page.map(this::mapToNhatKyDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public NhatKyDongBoDto getNhatKyDetail(Integer id) {
+        TrangThaiDongBoSanPham tt = trangThaiDongBoSanPhamRepository.findById(id)
+                .orElseThrow(() -> new CommonException("Không tìm thấy sự kiện nhật ký với ID " + id, HttpStatus.NOT_FOUND, null));
+        return mapToNhatKyDto(tt);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public LayDonResultDto layDonHang(String maKenh, LayDonHangKenhRequest request) {
+        KenhBanHang kenh = getKenhActive(maKenh);
+        Instant tu = Instant.now().minusSeconds(86400);
+        Instant den = Instant.now();
+        if (request != null) {
+            if (request.getTu() != null && !request.getTu().isBlank()) {
+                try {
+                    tu = Instant.parse(request.getTu());
+                } catch (Exception ignored) {}
+            }
+            if (request.getDen() != null && !request.getDen().isBlank()) {
+                try {
+                    den = Instant.parse(request.getDen());
+                } catch (Exception ignored) {}
+            }
+        }
+
+        int synced = omnichannelOrderSyncJob.syncShopifyOrders(kenh, tu, den);
+        ghiNhatKy(kenh.getId(), IHanhDong.cap_nhat_kenh_ban, "Lấy đơn hàng từ sàn " + maKenh + ": thành công " + synced + " đơn");
+
+        return LayDonResultDto.builder()
+                .soDonMoi(synced)
+                .soDonCapNhat(0)
+                .thongDiep("Nhận " + synced + " đơn hàng mới từ sàn " + maKenh)
+                .build();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public DayTonResultDto dongBoTatCa() {
+        List<KenhBanHang> activeKenh = kenhBanHangRepository.findByTrangThai(1);
+        int totalSku = 0;
+        for (KenhBanHang kenh : activeKenh) {
+            if (MA_KENH_SHOPIFY.equalsIgnoreCase(kenh.getMaKenh())) {
+                DayTonResultDto dayTonRes = dayTonKhoLenKenh(kenh.getMaKenh(), new DayTonKenhRequest());
+                if (dayTonRes != null) {
+                    totalSku += dayTonRes.getSoDong();
+                }
+                omnichannelOrderSyncJob.syncShopifyOrders(kenh);
+            }
+        }
+        return DayTonResultDto.builder()
+                .soDong(totalSku)
+                .build();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public LienKetSanPhamDto thuLai(Integer lienKetId) {
+        TrangThaiDongBoSanPham tt = trangThaiDongBoSanPhamRepository.findById(lienKetId)
+                .orElseThrow(() -> new CommonException("Không tìm thấy liên kết với ID " + lienKetId, HttpStatus.NOT_FOUND, null));
+
+        BienTheSanPham bt = tt.getBienTheSanPham();
+        BigDecimal soLuongKhaDung = BigDecimal.ZERO;
+        if (bt != null) {
+            List<Object[]> stocks = tonKhoTheoLoRepository.sumSoLuongKhaDungByKhoAndBienTheIds(1, List.of(bt.getId()));
+            if (!stocks.isEmpty() && stocks.get(0)[1] != null) {
+                soLuongKhaDung = (BigDecimal) stocks.get(0)[1];
+            }
+
+            try {
+                String token = kenhBanHangService.getDecryptedShopifyAccessToken();
+                String domain = extractDomainFromApiUrl(tt.getKenhBanHang().getApiUrl());
+                if (token != null && !token.isBlank() && !domain.isBlank()) {
+                    Long locationId = layPrimaryLocationId(domain, token);
+                    Map<String, ShopifyVariantInfo> shopifySkuMap = layDanhSachSkuHienCoTrenShopify(domain, token);
+                    if (locationId != null && !shopifySkuMap.isEmpty()) {
+                        ShopifyVariantInfo vInfo = shopifySkuMap.get(bt.getMaSku().trim().toLowerCase());
+                        if (vInfo != null && vInfo.getInventoryItemId() != null) {
+                            dayTonKhoChoInventoryItem(domain, token, locationId, vInfo.getInventoryItemId(), Math.max(0, soLuongKhaDung.intValue()));
+                        }
+                    }
+                }
+                tt.setTrangThaiDongBo("thanh_cong");
+                tt.setChiTietLoi(null);
+            } catch (Exception ex) {
+                log.warn("Thử lại đồng bộ SKU {} thất bại: {}", bt.getMaSku(), ex.getMessage());
+                tt.setTrangThaiDongBo("that_bai");
+                tt.setChiTietLoi(ex.getMessage());
+            }
+            tt.setNgayDongBoCuoi(Instant.now());
+            trangThaiDongBoSanPhamRepository.save(tt);
+        }
+
+        return LienKetSanPhamDto.builder()
+                .id(tt.getId())
+                .skuSan(tt.getMaSanPhamKenh())
+                .tenSanPhamSan(bt != null && bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : null)
+                .tenBienTheSan(bt != null ? buildVariantName(bt) : null)
+                .giaBanSan(bt != null ? bt.getGiaBan() : null)
+                .bienTheSanPhamId(bt != null ? bt.getId() : null)
+                .maSku(bt != null ? bt.getMaSku() : null)
+                .tenSanPham(bt != null && bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : null)
+                .tenBienThe(bt != null ? buildVariantName(bt) : null)
+                .giaBan(bt != null ? bt.getGiaBan() : null)
+                .soLuongKhaDung(soLuongKhaDung)
+                .soLuongDaDay(soLuongKhaDung)
+                .choPhepDongBo(true)
+                .trangThaiLienKet(mapStatusToFrontend(tt.getTrangThaiDongBo()))
+                .ngayDongBoCuoi(tt.getNgayDongBoCuoi())
+                .chiTietLoi(tt.getChiTietLoi())
+                .build();
+    }
+
+    private NhatKyDongBoDto mapToNhatKyDto(TrangThaiDongBoSanPham tt) {
+        KenhBanHang kenh = tt.getKenhBanHang();
+        BienTheSanPham bt = tt.getBienTheSanPham();
+
+        String statusStr = "CHO";
+        boolean canRetry = false;
+        String errorMsg = null;
+        String errCode = null;
+
+        if ("thanh_cong".equalsIgnoreCase(tt.getTrangThaiDongBo())) {
+            statusStr = "THANH_CONG";
+        } else if ("that_bai".equalsIgnoreCase(tt.getTrangThaiDongBo())) {
+            statusStr = "LOI";
+            canRetry = true;
+            errCode = "SYNC_FAILED";
+            errorMsg = tt.getChiTietLoi() != null ? tt.getChiTietLoi() : "Lỗi đồng bộ tồn kho sang sàn";
+        }
+
+        String skuRef = bt != null ? bt.getMaSku() : tt.getMaSanPhamKenh();
+        String message = statusStr.equals("THANH_CONG")
+                ? ("Đồng bộ tồn kho SKU " + skuRef + " thành công")
+                : (errorMsg != null ? errorMsg : "Chờ đồng bộ tồn kho cho SKU " + skuRef);
+
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("skuSan", tt.getMaSanPhamKenh());
+        if (bt != null) {
+            summary.put("maSku", bt.getMaSku());
+            if (bt.getSanPham() != null) {
+                summary.put("tenSanPham", bt.getSanPham().getTenSanPham());
+            }
+        }
+        summary.put("trangThai", tt.getTrangThaiDongBo());
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("lienKetId", tt.getId());
+        payload.put("kenhBanId", kenh != null ? kenh.getId() : null);
+        payload.put("maSanPhamKenh", tt.getMaSanPhamKenh());
+        payload.put("ngayDongBoCuoi", tt.getNgayDongBoCuoi() != null ? tt.getNgayDongBoCuoi().toString() : null);
+        payload.put("chiTietLoi", tt.getChiTietLoi());
+
+        return NhatKyDongBoDto.builder()
+                .id(tt.getId())
+                .ketNoiKenhId(kenh != null ? kenh.getId() : null)
+                .maKenh(kenh != null ? kenh.getMaKenh() : "SHOPIFY")
+                .tenHienThi(kenh != null ? kenh.getTenKenh() : "Shopify Official")
+                .loai("TON_KHO")
+                .nguon("FCENTRIC")
+                .trangThai(statusStr)
+                .maThamChieu(skuRef)
+                .thongDiep(message)
+                .maLoi(errCode)
+                .chiTietLoi(tt.getChiTietLoi())
+                .ngayTao(tt.getNgayDongBoCuoi() != null ? tt.getNgayDongBoCuoi() : Instant.now())
+                .coTheThuLai(canRetry)
+                .duLieuTomTat(summary)
+                .payload(payload)
+                .build();
     }
 
     private KenhBanHang getKenhActive(String maKenh) {

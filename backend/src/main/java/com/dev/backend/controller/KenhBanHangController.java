@@ -4,6 +4,8 @@ import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.CapNhatLienKetRequest;
 import com.dev.backend.dto.request.DayTonKenhRequest;
+import com.dev.backend.dto.request.KenhBanHangCaiDatRequest;
+import com.dev.backend.dto.request.LayDonHangKenhRequest;
 import com.dev.backend.dto.request.ShopifyConfigUpdating;
 import com.dev.backend.dto.request.ShopifyTestConnectionRequest;
 import com.dev.backend.dto.response.ResponseData;
@@ -14,6 +16,8 @@ import com.dev.backend.services.KenhBanHangDongBoService;
 import com.dev.backend.services.KenhBanHangService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
+
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -203,6 +207,106 @@ public class KenhBanHangController {
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangDongBoService.timBienThe(q, limit))
                         .message("Tìm kiếm biến thể thành công")
+                        .build()
+        );
+    }
+
+    @GetMapping("/{maKenh}/locations")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Lấy danh sách vị trí kho từ kênh bán hàng")
+    public ResponseEntity<ResponseData<List<ShopifyLocationDto>>> getLocations(@PathVariable String maKenh) {
+        return ResponseEntity.ok(
+                ResponseData.<List<ShopifyLocationDto>>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhBanHangDongBoService.getLocations(maKenh))
+                        .message("Lấy danh sách vị trí kho thành công")
+                        .build()
+        );
+    }
+
+    @PutMapping("/{maKenh}/cai-dat")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Lưu cấu hình kết nối đồng bộ kho và quy tắc tồn")
+    public ResponseEntity<ResponseData<DongBoTongQuanDto>> luuCaiDat(
+            @PathVariable String maKenh,
+            @Valid @RequestBody KenhBanHangCaiDatRequest request) {
+        return ResponseEntity.ok(
+                ResponseData.<DongBoTongQuanDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhBanHangDongBoService.luuCaiDat(maKenh, request))
+                        .message("Lưu cấu hình kênh bán hàng thành công")
+                        .build()
+        );
+    }
+
+    @GetMapping("/{maKenh}/nhat-ky")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Lấy danh sách sự kiện nhật ký đồng bộ phân trang")
+    public ResponseEntity<ResponseData<Page<NhatKyDongBoDto>>> filterNhatKy(
+            @PathVariable String maKenh,
+            @RequestParam(required = false) String loai,
+            @RequestParam(required = false) String trangThai,
+            @RequestParam(required = false) String search,
+            @PageableDefault(size = 10, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(
+                ResponseData.<Page<NhatKyDongBoDto>>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhBanHangDongBoService.filterNhatKy(maKenh, loai, trangThai, search, pageable))
+                        .message("Lấy nhật ký đồng bộ thành công")
+                        .build()
+        );
+    }
+
+    @GetMapping("/nhat-ky/{id}")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Lấy chi tiết sự kiện nhật ký đồng bộ")
+    public ResponseEntity<ResponseData<NhatKyDongBoDto>> getNhatKyDetail(@PathVariable Integer id) {
+        return ResponseEntity.ok(
+                ResponseData.<NhatKyDongBoDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhBanHangDongBoService.getNhatKyDetail(id))
+                        .message("Lấy chi tiết sự kiện nhật ký thành công")
+                        .build()
+        );
+    }
+
+    @PostMapping("/{maKenh}/lay-don")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Chủ động lấy đơn hàng mới từ sàn theo khoảng thời gian")
+    public ResponseEntity<ResponseData<LayDonResultDto>> layDonHang(
+            @PathVariable String maKenh,
+            @RequestBody(required = false) LayDonHangKenhRequest request) {
+        return ResponseEntity.ok(
+                ResponseData.<LayDonResultDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhBanHangDongBoService.layDonHang(maKenh, request))
+                        .message("Lấy đơn hàng từ sàn thành công")
+                        .build()
+        );
+    }
+
+    @PostMapping("/dong-bo-tat-ca")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Chạy đợt đồng bộ tồn kho và đơn hàng cho toàn bộ các gian hàng active")
+    public ResponseEntity<ResponseData<DayTonResultDto>> dongBoTatCa() {
+        return ResponseEntity.ok(
+                ResponseData.<DayTonResultDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhBanHangDongBoService.dongBoTatCa())
+                        .message("Chạy đợt đồng bộ toàn bộ gian hàng thành công")
+                        .build()
+        );
+    }
+
+    @PostMapping("/lien-ket/{id}/thu-lai")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Thử lại đẩy tồn cho một liên kết bị lỗi")
+    public ResponseEntity<ResponseData<LienKetSanPhamDto>> thuLai(@PathVariable Integer id) {
+        return ResponseEntity.ok(
+                ResponseData.<LienKetSanPhamDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhBanHangDongBoService.thuLai(id))
+                        .message("Thử lại đồng bộ SKU thành công")
                         .build()
         );
     }
