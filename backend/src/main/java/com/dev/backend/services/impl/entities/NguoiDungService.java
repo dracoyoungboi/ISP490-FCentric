@@ -121,14 +121,17 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
     @Transactional
     public ResponseEntity<ResponseData<LoginResponse>> login(LoginRequest loginRequest) {
+        String rawPassword = loginRequest.getPassword() == null ? "" : loginRequest.getPassword();
         //check thông tin user đã có trong hệ thống hay chưa
         Optional<NguoiDung> findingNguoiDung = resolveAccount(loginRequest.getUsername());
         if (findingNguoiDung.isEmpty()) {
-            throw new CommonException("Tên đăng nhập không hợp lệ");
+            // vẫn chạy BCrypt để thời gian phản hồi giống trường hợp sai mật khẩu (không lộ tài khoản có tồn tại)
+            passwordEncoder.matches(rawPassword, dummyPasswordHash());
+            throw new CommonException(LOGIN_FAILED_MESSAGE);
         }
         NguoiDung nguoiDung = findingNguoiDung.get();
-        if (!passwordEncoder.matches(loginRequest.getPassword(), nguoiDung.getMatKhauHash())) {
-            throw new CommonException("Mật khẩu không chính xác");
+        if (!passwordEncoder.matches(rawPassword, nguoiDung.getMatKhauHash())) {
+            throw new CommonException(LOGIN_FAILED_MESSAGE);
         }
 
         // Tài khoản bị khóa (trangThai != 1) không được đăng nhập — đọc trực tiếp từ DB
@@ -136,6 +139,35 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             throw new AccountDisabledException();
         }
 
+        return ResponseEntity.ok(
+                ResponseData.<LoginResponse>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(
+                                LoginResponse.builder()
+                                        .nguoiDung(nguoiDungMapper.toDto(nguoiDung))
+                                        .token(issueToken(nguoiDung))
+                                        .build()
+                        )
+                        .message("Success")
+                        .error(null)
+                        .build()
+        );
+    }
+
+    // Sai tên đăng nhập hay sai mật khẩu đều trả cùng thông báo (không lộ tài khoản có tồn tại)
+    static final String LOGIN_FAILED_MESSAGE = "Tên đăng nhập hoặc mật khẩu không chính xác";
+
+    private volatile String dummyPasswordHash;
+
+    private String dummyPasswordHash() {
+        if (dummyPasswordHash == null) {
+            dummyPasswordHash = passwordEncoder.encode(UUID.randomUUID().toString());
+        }
+        return dummyPasswordHash;
+    }
+
+    // Tạo token đăng nhập kèm danh sách phân quyền theo kho
+    private String issueToken(NguoiDung nguoiDung) {
         // lấy danh sách phân quyền người dùng để truyền ra token
         List<PhanQuyenNguoiDungKho> phanQuyenNguoiDungKhos = phanQuyenNguoiDungKhoService.findByNguoiDungIdAndActive(nguoiDung.getId());
 
@@ -144,7 +176,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         vaiTros.add(nguoiDung.getVaiTro());
 
         //tạo token người dùng
-        String token = jwtService.generateTokenWithPermissions(
+        return jwtService.generateTokenWithPermissions(
                 nguoiDung.getId(),
                 nguoiDung.getTenDangNhap(),
                 nguoiDung.getHoTen(),
@@ -156,19 +188,6 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                 nguoiDung.getNgayCapNhat(),
                 pqndkMapper.toDtoList(phanQuyenNguoiDungKhos),
                 "Google"
-        );
-        return ResponseEntity.ok(
-                ResponseData.<LoginResponse>builder()
-                        .status(HttpStatus.OK.value())
-                        .data(
-                                LoginResponse.builder()
-                                        .nguoiDung(nguoiDungMapper.toDto(nguoiDung))
-                                        .token(token)
-                                        .build()
-                        )
-                        .message("Success")
-                        .error(null)
-                        .build()
         );
     }
 
