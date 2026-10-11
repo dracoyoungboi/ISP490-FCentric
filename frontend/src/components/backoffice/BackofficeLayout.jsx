@@ -28,12 +28,6 @@ export default function BackofficeLayout() {
             subtitle: "Cập nhật quyền hạn cho người dùng dựa trên chức vụ",
         },
         {
-            key: "ADD_USER",
-            match: (path) => path === "/users/add",
-            title: "Thêm người dùng",
-            subtitle: "Thêm người dùng mới",
-        },
-        {
             key: "USER_PROFILE",
             // giữ legacy regex để tránh flash meta khi /user/:id redirect sang /profile
             match: (path) => path === "/profile" || /^\/user\/\d+$/.test(path),
