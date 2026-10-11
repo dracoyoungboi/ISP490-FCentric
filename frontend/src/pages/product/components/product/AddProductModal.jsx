@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "@/utils/apiError";
 import { useState, useEffect, useCallback } from "react";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -45,7 +46,7 @@ const addProductSchema = yup.object({
     bienTheSanPhams: yup.array().of(
         yup.object({
             mauSacId: yup.number().required("Màu sắc là bắt buộc").nullable(),
-            sizeId: yup.number().required("Size là bắt buộc").nullable(),
+            sizeId: yup.number().required("Kích cỡ là bắt buộc").nullable(),
             maSku: yup.string().nullable(),
             giaVon: yup.number().transform(value => (isNaN(value) ? 0 : value)).nullable(),
             giaBan: yup.number().transform(value => (isNaN(value) ? 0 : value)).nullable(),
@@ -66,7 +67,7 @@ const addProductSchema = yup.object({
                     // Path đầy đủ để yupResolver gắn lỗi vào đúng dòng biến thể trùng.
                     return this.createError({
                         path: `bienTheSanPhams[${i}].sizeId`,
-                        message: `Trùng Màu sắc + Size với biến thể #${seen.get(key) + 1}`,
+                        message: `Trùng màu sắc + kích cỡ với biến thể #${seen.get(key) + 1}`,
                     });
                 }
                 seen.set(key, i);
@@ -80,6 +81,18 @@ const CONTROL_DISABLED_CLASS =
     "cursor-not-allowed border-bo-border bg-bo-surface-subtle italic text-bo-muted";
 const SELECT_CONTENT_CLASS = "z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg";
 const SELECT_ITEM_CLASS = "rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
+
+// Chấm màu theo mã hex — đồng bộ với form Chỉnh sửa sản phẩm
+function ColorDot({ hex }) {
+    if (!hex) return null;
+    return (
+        <span
+            className="size-3.5 shrink-0 rounded-full border border-bo-border"
+            style={{ backgroundColor: hex }}
+            aria-hidden="true"
+        />
+    );
+}
 const STEP_CLASS =
     "flex items-center justify-center gap-2 rounded-md border border-bo-border bg-white px-2 py-1.5 text-center text-[11px] font-semibold text-bo-muted";
 
@@ -268,14 +281,14 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                 return;
             }
 
-            toast.success("Tạo sản phẩm thành công!");
+            toast.success("Tạo sản phẩm thành công.");
             // Buoc 4: Reload man Quan ly san pham thong qua callback onSuccess.
             handleResetForm();
             onSuccess();
             onClose();
         } catch (error) {
             console.error('Lỗi khi tạo sản phẩm:', error);
-            const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi tạo sản phẩm';
+            const errorMessage = getApiErrorMessage(error, 'Có lỗi xảy ra khi tạo sản phẩm');
             toast.error(errorMessage);
         }
     };
@@ -502,9 +515,9 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                             )}
                                         </div>
 
-                                        {/* Mã sản phẩm (Tự động) */}
+                                        {/* Mã sản phẩm (tự động) */}
                                         <div className="space-y-2">
-                                            <Label htmlFor="maSanPham" className="text-bo-muted">Mã sản phẩm (Tự động)</Label>
+                                            <Label htmlFor="maSanPham" className="text-bo-muted">Mã sản phẩm (tự động)</Label>
                                             <Controller
                                                 name="maSanPham"
                                                 control={control}
@@ -622,7 +635,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                                 <div key={index} className="relative">
                                                     <img
                                                         src={URL.createObjectURL(file)}
-                                                        alt="Preview"
+                                                        alt="Xem trước ảnh"
                                                         className="h-24 w-full rounded-md border border-bo-border object-cover shadow-sm"
                                                     />
                                                     <button
@@ -676,26 +689,43 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                                         <Controller
                                                             name={`bienTheSanPhams.${index}.mauSacId`}
                                                             control={control}
-                                                            render={({ field }) => (
+                                                            render={({ field }) => {
+                                                                const mauDaChon = colors.find((color) => color.id === Number(field.value));
+                                                                return (
                                                                 <Select
                                                                     value={field.value === "" || field.value === null || field.value === undefined ? undefined : field.value.toString()}
-                                                                    onValueChange={(value) => field.onChange(Number(value))}
+                                                                    onValueChange={(value) => {
+                                                                        if (value !== "") field.onChange(Number(value));
+                                                                    }}
                                                                     disabled={isSubmitting}
                                                                 >
                                                                     <SelectTrigger className="h-10 w-full border-bo-border text-bo-foreground">
-                                                                        <SelectValue placeholder="Chọn màu" />
+                                                                        <SelectValue placeholder="Chọn màu">
+                                                                            {mauDaChon ? (
+                                                                                <span className="flex items-center gap-2">
+                                                                                    <ColorDot hex={mauDaChon.maMauHex} />
+                                                                                    <span className="truncate">{mauDaChon.tenMau}</span>
+                                                                                </span>
+                                                                            ) : undefined}
+                                                                        </SelectValue>
                                                                     </SelectTrigger>
-                                                                    <SelectContent position="popper" side="bottom" align="start" className={`${SELECT_CONTENT_CLASS} max-h-[200px]`}>
+                                                                    <SelectContent position="popper" side="bottom" align="start" sideOffset={4} className={`${SELECT_CONTENT_CLASS} max-h-[220px]`}>
                                                                         {colors.length === 0 ? (
                                                                             <div className="p-2 text-sm text-bo-muted">Không có màu sắc</div>
                                                                         ) : (
                                                                             colors.map((color) => (
-                                                                                <SelectItem key={`color-${index}-${color.id}`} value={color.id.toString()} className={SELECT_ITEM_CLASS}>{color.tenMau}</SelectItem>
+                                                                                <SelectItem key={`color-${index}-${color.id}`} value={color.id.toString()} className={SELECT_ITEM_CLASS}>
+                                                                                    <span className="flex items-center gap-2">
+                                                                                        <ColorDot hex={color.maMauHex} />
+                                                                                        {color.tenMau}
+                                                                                    </span>
+                                                                                </SelectItem>
                                                                             ))
                                                                         )}
                                                                     </SelectContent>
                                                                 </Select>
-                                                            )}
+                                                                );
+                                                            }}
                                                         />
                                                         {errors.bienTheSanPhams?.[index]?.mauSacId && (
                                                             <p className="text-xs text-bo-danger">{errors.bienTheSanPhams[index].mauSacId.message}</p>
@@ -704,7 +734,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
 
                                                     {/* Size */}
                                                     <div className="space-y-2">
-                                                        <Label>Size <span className="text-bo-danger">*</span></Label>
+                                                        <Label>Kích cỡ <span className="text-bo-danger">*</span></Label>
                                                         <Controller
                                                             name={`bienTheSanPhams.${index}.sizeId`}
                                                             control={control}
@@ -715,11 +745,11 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                                                     disabled={isSubmitting}
                                                                 >
                                                                     <SelectTrigger className="h-10 w-full border-bo-border text-bo-foreground">
-                                                                        <SelectValue placeholder="Chọn size" />
+                                                                        <SelectValue placeholder="Chọn kích cỡ" />
                                                                     </SelectTrigger>
-                                                                    <SelectContent position="popper" side="bottom" align="start" className={`${SELECT_CONTENT_CLASS} max-h-[200px]`}>
+                                                                    <SelectContent position="popper" side="bottom" align="start" sideOffset={4} className={`${SELECT_CONTENT_CLASS} max-h-[220px]`}>
                                                                         {sizes.length === 0 ? (
-                                                                            <div className="p-2 text-sm text-bo-muted">Không có size</div>
+                                                                            <div className="p-2 text-sm text-bo-muted">Không có kích cỡ</div>
                                                                         ) : (
                                                                             sizes.map((size) => (
                                                                                 <SelectItem key={`size-${index}-${size.id}`} value={size.id.toString()} className={SELECT_ITEM_CLASS}>{size.tenSize}</SelectItem>
@@ -736,7 +766,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
 
                                                     {/* Mã SKU */}
                                                     <div className="space-y-2">
-                                                        <Label className="text-bo-muted">Mã SKU (Tự động)</Label>
+                                                        <Label className="text-bo-muted">Mã SKU (tự động)</Label>
                                                         <Controller
                                                             name={`bienTheSanPhams.${index}.maSku`}
                                                             control={control}
@@ -752,7 +782,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                                             name={`bienTheSanPhams.${index}.giaVon`}
                                                             control={control}
                                                             render={({ field }) => (
-                                                                <Input {...field} type="number" min="0" placeholder="0 (Tự động)" disabled={isSubmitting} className={CONTROL_CLASS} />
+                                                                <Input {...field} type="number" min="0" placeholder="0 (tự động)" disabled={isSubmitting} className={CONTROL_CLASS} />
                                                             )}
                                                         />
                                                     </div>
@@ -763,7 +793,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                                             name={`bienTheSanPhams.${index}.giaBan`}
                                                             control={control}
                                                             render={({ field }) => (
-                                                                <Input {...field} type="number" min="0" placeholder="0 (Tự động)" disabled={isSubmitting} className={CONTROL_CLASS} />
+                                                                <Input {...field} type="number" min="0" placeholder="0 (tự động)" disabled={isSubmitting} className={CONTROL_CLASS} />
                                                             )}
                                                         />
                                                     </div>
@@ -821,7 +851,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                                                 <>
                                                                     <img
                                                                         src={URL.createObjectURL(variantImages[index])}
-                                                                        alt="Variant Preview"
+                                                                        alt="Xem trước ảnh biến thể"
                                                                         className="h-full w-full object-cover"
                                                                     />
                                                                     <button

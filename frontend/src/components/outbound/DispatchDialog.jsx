@@ -116,7 +116,7 @@ export default function DispatchDialog({ open, onOpenChange, soPhieuXuat, onConf
               />
             </div>
             <div>
-              <label htmlFor="dispatch-fee" className={labelClass}>Cước thực tế (đ)</label>
+              <label htmlFor="dispatch-fee" className={labelClass}>Cước thực tế (₫)</label>
               <input
                 id="dispatch-fee"
                 inputMode="numeric"
@@ -137,7 +137,7 @@ export default function DispatchDialog({ open, onOpenChange, soPhieuXuat, onConf
               disabled={submitting}
               value={values.ghiChu}
               onChange={(event) => change("ghiChu", event.target.value)}
-              placeholder="Ví dụ: Đã bàn giao cho shipper lúc 15:00"
+              placeholder="Ví dụ: Đã bàn giao cho đơn vị vận chuyển lúc 15:00"
               maxLength={500}
               className="w-full resize-none rounded-lg border border-bo-border bg-bo-surface px-3 py-2 text-sm text-bo-foreground outline-none placeholder:text-slate-500 focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle"
             />

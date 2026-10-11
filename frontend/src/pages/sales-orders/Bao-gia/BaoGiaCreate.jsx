@@ -1,3 +1,4 @@
+import { formatCurrency } from "@/utils/formatters";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -125,10 +126,10 @@ export default function BaoGiaCreate() {
       const maxPrice = item.giaGoc * 1.1;
 
       if (item.donGia < minPrice) {
-        return toast.error(`Sản phẩm "${item.tenSanPham}" có giá bán quá thấp. Tối thiểu là ${minPrice.toLocaleString()}đ`);
+        return toast.error(`Sản phẩm "${item.tenSanPham}" có giá bán quá thấp. Tối thiểu là ${formatCurrency(minPrice)}`);
       }
       if (item.donGia > maxPrice) {
-        return toast.error(`Sản phẩm "${item.tenSanPham}" có giá bán quá cao. Tối đa là ${maxPrice.toLocaleString()}đ`);
+        return toast.error(`Sản phẩm "${item.tenSanPham}" có giá bán quá cao. Tối đa là ${formatCurrency(maxPrice)}`);
       }
     }
     try {
@@ -178,7 +179,7 @@ export default function BaoGiaCreate() {
         {/* ── LEFT: Thông tin ── */}
         <div className="lg:col-span-1">
           <SurfaceCard
-            title="Khách hàng & Giao nhận"
+            title="Khách hàng & giao nhận"
             description="Chọn khách hàng cần báo giá"
           >
             <div className="space-y-5">
@@ -325,7 +326,7 @@ export default function BaoGiaCreate() {
                             />
                           </td>
                           <td className="px-3 py-3 text-right">
-                            <span className="font-bold text-bo-foreground">{item.thanhTien?.toLocaleString()}đ</span>
+                            <span className="font-bold text-bo-foreground">{formatCurrency(item.thanhTien)}</span>
                           </td>
                           <td className="px-3 py-3 text-center">
                             <button
@@ -345,15 +346,15 @@ export default function BaoGiaCreate() {
                 <div className="mt-auto space-y-2 border-t border-bo-border bg-bo-surface-subtle px-4 py-4 sm:px-5">
                   <div className="flex justify-between text-sm">
                     <span className="text-bo-muted">Tổng tiền hàng:</span>
-                    <span className="font-semibold text-bo-foreground">{totalProductMoney.toLocaleString()} đ</span>
+                    <span className="font-semibold text-bo-foreground">{formatCurrency(totalProductMoney)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-bo-muted">Phí vận chuyển:</span>
-                    <span className="font-semibold text-bo-foreground">{(Number(formData.phiVanChuyen) || 0).toLocaleString()} đ</span>
+                    <span className="font-semibold text-bo-foreground">{formatCurrency(Number(formData.phiVanChuyen) || 0)}</span>
                   </div>
                   <div className="flex justify-between border-t border-bo-border pt-3 text-base">
                     <span className="font-bold text-bo-foreground">Tổng báo giá</span>
-                    <span className="text-xl font-bold text-bo-primary">{totalOrderMoney.toLocaleString()} đ</span>
+                    <span className="text-xl font-bold text-bo-primary">{formatCurrency(totalOrderMoney)}</span>
                   </div>
                 </div>
               </>
@@ -427,7 +428,7 @@ export default function BaoGiaCreate() {
                         <span className="mt-0.5 block font-mono text-xs text-bo-primary">{product.maBienThe}</span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <span className="font-semibold text-bo-muted">{product.giaBan?.toLocaleString()}đ</span>
+                        <span className="font-semibold text-bo-muted">{formatCurrency(product.giaBan)}</span>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button

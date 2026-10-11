@@ -58,7 +58,7 @@ const formatDateTime = (dateString) => {
 
 // ─── Status configs ────────────────────────────────────────────────────────────
 const PO_STATUS = {
-    0: { label: 'Đã xoá', tone: 'danger', icon: XCircle, desc: 'Báo giá này đã bị xoá khỏi hệ thống.' },
+    0: { label: 'Đã xóa', tone: 'danger', icon: XCircle, desc: 'Báo giá này đã bị xóa khỏi hệ thống.' },
     1: { label: 'Đã gửi YC báo giá', tone: 'neutral', icon: Send, desc: 'Đã gửi email yêu cầu báo giá đến nhà cung cấp. Đang chờ phản hồi.' },
     2: { label: 'Đã nhận báo giá', tone: 'info', icon: FileText, desc: 'Nhà cung cấp đã cập nhật đơn giá. Vui lòng kiểm tra và duyệt.' },
     3: { label: 'Đã chuyển thành đơn mua hàng', tone: 'warning', icon: CheckCircle, desc: 'Báo giá đã được chấp nhận. Đơn hàng đang được vận chuyển từ nhà cung cấp.' },
@@ -147,13 +147,13 @@ export default function QuotationDetail() {
         setActionLoading(true);
         try {
             await apiClient.put(`/api/v1/nghiep-vu/don-mua-hang/duyet-don/${id}/${trangThai}`);
-            toast.success(trangThai === 3 ? 'Đã chấp nhận báo giá thành công' : 'Đã gửi mail thông báo từ chối báo giá cho nhà cung cấp');
+            toast.success(trangThai === 3 ? 'Đã chấp nhận báo giá thành công' : 'Đã gửi email thông báo từ chối báo giá cho nhà cung cấp');
             setAcceptDialog(false);
             setRejectDialog(false);
             await fetchOrderDetail(); // Reload dữ liệu sau khi thao tác
         } catch (error) {
             console.error('Error action:', error);
-            toast.error(error.response?.data?.message || 'Không thể thực hiện thao tác. Vui lòng thử lại!');
+            toast.error(error.response?.data?.message || 'Không thể thực hiện thao tác. Vui lòng thử lại.');
         } finally {
             setActionLoading(false);
         }
@@ -175,7 +175,7 @@ export default function QuotationDetail() {
                 <SurfaceCard contentClassName="p-0 sm:p-0">
                     <ErrorState
                         title="Không tìm thấy dữ liệu báo giá"
-                        description="Báo giá không tồn tại hoặc đã bị xoá khỏi hệ thống."
+                        description="Báo giá không tồn tại hoặc đã bị xóa khỏi hệ thống."
                     />
                     <div className="flex justify-center pb-10">
                         <Button
@@ -281,7 +281,7 @@ export default function QuotationDetail() {
                         <span className="font-semibold">{formatDateTime(orderData.ngayDatHang)}</span>
                     </InfoField>
                     <div className="mt-4 border-t border-bo-border pt-4">
-                        <InfoField label="Hạn chót phản hồi / Giao DK" icon={<Clock className="size-3.5" />}>
+                        <InfoField label="Hạn phản hồi / giao dự kiến" icon={<Clock className="size-3.5" />}>
                             <span className="font-semibold">{formatDate(orderData.ngayGiaoDuKien)}</span>
                         </InfoField>
                     </div>
@@ -338,7 +338,7 @@ export default function QuotationDetail() {
 
             {/* ── Product Table ── */}
             <TableShell
-                title="Chi tiết Sản phẩm báo giá"
+                title="Chi tiết sản phẩm báo giá"
                 description="Đơn giá nhà cung cấp báo cho từng biến thể."
                 footer={
                     <div className="flex justify-end">
@@ -367,7 +367,7 @@ export default function QuotationDetail() {
                         <tr className="border-b border-bo-border bg-bo-surface-subtle">
                             <th className="h-10 w-[350px] px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Sản phẩm</th>
                             <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Màu sắc</th>
-                            <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Size</th>
+                            <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kích cỡ</th>
                             <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SL Đặt</th>
                             <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Đơn giá báo</th>
                             <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thành tiền</th>
@@ -381,7 +381,7 @@ export default function QuotationDetail() {
                                         <div className="flex items-center gap-3">
                                             {item.bienTheSanPham?.anhBienThe?.tepTin?.duongDan ? (
                                                 <div className="size-11 shrink-0 overflow-hidden rounded-lg border border-bo-border bg-slate-100">
-                                                    <img src={item.bienTheSanPham.anhBienThe.tepTin.duongDan} alt="Product"
+                                                    <img src={item.bienTheSanPham.anhBienThe.tepTin.duongDan} alt="Ảnh sản phẩm"
                                                         className="size-full object-cover" />
                                                 </div>
                                             ) : (

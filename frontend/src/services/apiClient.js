@@ -88,9 +88,13 @@ apiClient.interceptors.response.use(
         ) {
             expiredSessionHandled = true;
             clearStoredSession();
+            // SESSION_REVOKED: mật khẩu vừa được đổi/đặt lại ở nơi khác -> mọi phiên cũ bị thu hồi
+            const revoked = data?.data?.code === "SESSION_REVOKED" && typeof data?.message === "string";
             sessionStorage.setItem(
                 "session_expired_message",
-                "Phiên đăng nhập đã hết hạn hoặc không còn hợp lệ. Vui lòng đăng nhập lại."
+                revoked
+                    ? data.message
+                    : "Phiên đăng nhập đã hết hạn hoặc không còn hợp lệ. Vui lòng đăng nhập lại."
             );
             window.location.replace("/login");
         }

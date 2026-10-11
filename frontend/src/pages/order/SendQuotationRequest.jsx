@@ -149,7 +149,7 @@ export default function SendQuotationRequest() {
             setTimeout(() => navigate('/quotation-requests'), 1500);
         } catch (err) {
             console.error('Error sending quotation request:', err);
-            toast.error(err.response?.data?.message || 'Không thể gửi yêu cầu báo giá. Vui lòng thử lại!');
+            toast.error(err.response?.data?.message || 'Không thể gửi yêu cầu báo giá. Vui lòng thử lại.');
         } finally {
             setSending(false);
         }
@@ -173,7 +173,7 @@ export default function SendQuotationRequest() {
                     <EmptyState
                         icon={AlertCircle}
                         title="Không tìm thấy đơn hàng"
-                        description="Đơn mua hàng có thể đã bị xoá hoặc không còn khả dụng."
+                        description="Đơn mua hàng có thể đã bị xóa hoặc không còn khả dụng."
                         action={
                             <Button
                                 onClick={() => navigate('/purchase-requests')}
@@ -321,7 +321,7 @@ export default function SendQuotationRequest() {
                     <div className="mt-5 rounded-lg border border-bo-warning/30 bg-bo-warning-soft p-4">
                         <p className="text-[13px] text-slate-700">
                             <strong>Lưu ý:</strong> Sau khi gửi, hệ thống sẽ tự động gửi email đến nhà cung cấp
-                            và chuyển trạng thái đơn hàng sang <strong>"Đã gửi mail yêu cầu báo giá"</strong>.
+                            và chuyển trạng thái đơn hàng sang <strong>"Đã gửi yêu cầu báo giá"</strong>.
                         </p>
                     </div>
                 </SurfaceCard>

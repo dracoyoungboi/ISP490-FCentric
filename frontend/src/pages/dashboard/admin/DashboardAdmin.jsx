@@ -1,3 +1,4 @@
+import { formatCurrency } from "@/utils/formatters";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -133,7 +134,7 @@ export default function DashboardAdmin() {
                 <KpiCard
                     icon={<Users className="size-4" />}
                     iconClass="bg-bo-primary-soft text-bo-primary"
-                    label="User mới hôm nay"
+                    label="Người dùng mới hôm nay"
                     value={data.newUsersToday}
                     trend="+Hôm nay"
                     trendClass="text-bo-success"
@@ -150,7 +151,7 @@ export default function DashboardAdmin() {
                     icon={<DollarSign className="size-4" />}
                     iconClass="bg-bo-success-soft text-bo-success"
                     label="Doanh thu hôm nay"
-                    value={`${data.revenueToday.toLocaleString()}₫`}
+                    value={formatCurrency(data.revenueToday)}
                     trend="Ngày hiện tại"
                     trendClass="text-bo-success"
                 />
@@ -186,7 +187,7 @@ export default function DashboardAdmin() {
                                         <div
                                             className="w-full rounded-md bg-bo-primary transition-colors hover:bg-bo-primary-hover"
                                             style={{ height: `${pct}%` }}
-                                            title={`${item.date}: ${item.value.toLocaleString()}₫`}
+                                            title={`${item.date}: ${formatCurrency(item.value)}`}
                                         />
                                     </div>
                                     <span className="text-[11px] text-bo-muted">
@@ -227,7 +228,7 @@ export default function DashboardAdmin() {
 
             {/* ── LATEST USERS ── */}
             <TableShell
-                title="User mới tạo gần đây"
+                title="Người dùng mới tạo gần đây"
                 description="Danh sách người dùng vừa đăng ký tham gia hệ thống"
                 toolbar={
                     <div className="flex items-center justify-end px-4 py-2.5 sm:px-5">
@@ -352,7 +353,7 @@ export default function DashboardAdmin() {
                     <thead>
                         <tr className="border-b border-bo-border bg-bo-surface-subtle">
                             <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                Username
+                                Tên đăng nhập
                             </th>
                             <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                 Họ tên

@@ -42,7 +42,7 @@ const dashQuantity = (value) =>
 const dashMoney = (value) =>
     value === null || value === undefined
         ? "—"
-        : `${formatNumber(value)} đ`;
+        : `${formatNumber(value)} ₫`;
 
 /** Phần chung của cả hai loại chứng từ bán hàng. */
 function toDonBanHangPrintModel(raw, { statusMap }) {

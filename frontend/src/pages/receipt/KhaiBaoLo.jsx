@@ -98,9 +98,9 @@ export default function KhaiBaoLo() {
         if (!selectedLot) return;
         try {
             await phieuNhapKhoService.deleteLo(phieuNhapKhoId, selectedLot.chiTietPhieuNhapKhoId);
-            toast.success("Xoá lô thành công");
+            toast.success("Xóa lô thành công");
             await fetchDetail(); setShowDeleteConfirm(false); setSelectedLot(null);
-        } catch { toast.error("Không thể xoá lô"); }
+        } catch { toast.error("Không thể xóa lô"); }
     }
 
     if (!detail) {
@@ -157,7 +157,7 @@ export default function KhaiBaoLo() {
                             !isEditable ? (
                                 <div className="flex items-center justify-end border-b border-bo-border px-4 py-2.5 sm:px-5">
                                     <StatusBadge
-                                        label={isAutoLotMode ? "Automatic Lots" : "Read Only"}
+                                        label={isAutoLotMode ? "Lô tự động" : "Chỉ xem"}
                                         tone="neutral"
                                         dot={false}
                                     />
@@ -205,7 +205,7 @@ export default function KhaiBaoLo() {
                                                 {isEditable ? (
                                                     <button
                                                         type="button"
-                                                        aria-label={`Xoá lô ${lo.maLo}`}
+                                                        aria-label={`Xóa lô ${lo.maLo}`}
                                                         className="inline-flex size-8 items-center justify-center rounded-md text-bo-danger transition-colors hover:bg-bo-danger-soft"
                                                         onClick={(e) => {
                                                             e.stopPropagation(); setSelectedLot(lo); setShowDeleteConfirm(true);
@@ -314,9 +314,9 @@ export default function KhaiBaoLo() {
                 >
                     <div className="w-full max-w-sm overflow-hidden rounded-lg border border-bo-border bg-white shadow-lg">
                         <div className="px-5 pt-5">
-                            <h2 className="text-base font-semibold text-bo-foreground">Xoá lô hàng</h2>
+                            <h2 className="text-base font-semibold text-bo-foreground">Xóa lô hàng</h2>
                             <p className="mt-2 text-sm leading-6 text-bo-muted">
-                                Chắc chắn muốn xoá lô <span className="font-semibold text-bo-danger">{selectedLot?.maLo}</span>?
+                                Chắc chắn muốn xóa lô <span className="font-semibold text-bo-danger">{selectedLot?.maLo}</span>?
                             </p>
                         </div>
                         <div className="flex justify-end gap-2 border-t border-bo-border bg-bo-surface-subtle px-5 py-3.5">

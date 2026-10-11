@@ -86,7 +86,7 @@ state.pickLists[3].lines = [];
 
 function findPickList(id) {
   const pl = state.pickLists.find((item) => item.id === Number(id));
-  if (!pl) throw mockError(404, "Không tìm thấy Pick List.");
+  if (!pl) throw mockError(404, "Không tìm thấy phiếu nhặt hàng.");
   return pl;
 }
 
@@ -206,7 +206,7 @@ export const nhatHangMock = {
     await mockDelay();
     const pl = findPickList(id);
     if (!["cho_nhat", "dang_nhat"].includes(pl.trangThai)) {
-      throw mockError(409, "Pick List đã hoàn tất hoặc đã hủy, không phân công được nữa.");
+      throw mockError(409, "Phiếu nhặt hàng đã hoàn tất hoặc đã hủy, không phân công được nữa.");
     }
     if (!nguoiNhatId) throw mockError(400, "ID nhân viên nhặt hàng không được để trống");
     pl.nguoiNhatId = nguoiNhatId;
@@ -217,11 +217,11 @@ export const nhatHangMock = {
     await mockDelay(80, 160);
     const pl = findPickList(id);
     if (!["cho_nhat", "dang_nhat"].includes(pl.trangThai)) {
-      throw mockError(409, "Pick List không còn ở trạng thái nhặt hàng.");
+      throw mockError(409, "Phiếu nhặt hàng không còn ở trạng thái nhặt hàng.");
     }
     const code = normalizeText(barcode);
     const line = pl.lines.find((l) => normalizeText(l.maVachSku) === code || normalizeText(l.maSku) === code);
-    if (!line) throw mockError(400, `Mã "${barcode}" không có trong Pick List này.`);
+    if (!line) throw mockError(400, `Mã "${barcode}" không có trong phiếu nhặt hàng này.`);
     const qty = Number(soLuong) > 0 ? Number(soLuong) : 1;
     if (line.soLuongDaQuet + qty > line.soLuongCanNhat) {
       throw mockError(400, `${line.maSku} đã nhặt đủ (${line.soLuongDaQuet}/${line.soLuongCanNhat}).`);
@@ -255,7 +255,7 @@ export const nhatHangMock = {
     await mockDelay(300, 500);
     const pl = findPickList(id);
     const dto = toDto(pl);
-    if (!dto.coTheHoanTat) throw mockError(409, "Chưa nhặt đủ hàng, chưa thể hoàn tất Pick List.");
+    if (!dto.coTheHoanTat) throw mockError(409, "Chưa nhặt đủ hàng, chưa thể hoàn tất phiếu nhặt hàng.");
     pl.trangThai = "da_nhat";
     pl.ngayHoanTat = new Date().toISOString();
     return toDto(pl);

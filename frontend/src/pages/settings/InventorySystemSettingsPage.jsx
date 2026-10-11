@@ -19,7 +19,7 @@ function valuesFromSettings(settings) {
 
 const SETTING_GROUPS = [
   { key: "stock", title: "Cảnh báo tồn kho", description: "Thiết lập ngưỡng cảnh báo mặc định cho hàng trong kho.", Icon: Boxes },
-  { key: "sync", title: "Đồng bộ đơn hàng", description: "Điều chỉnh chu kỳ và ngưỡng chuyển sang đồng bộ real-time.", Icon: RefreshCcw },
+  { key: "sync", title: "Đồng bộ đơn hàng", description: "Điều chỉnh chu kỳ và ngưỡng chuyển sang đồng bộ tức thời.", Icon: RefreshCcw },
 ];
 
 export default function InventorySystemSettingsPage() {

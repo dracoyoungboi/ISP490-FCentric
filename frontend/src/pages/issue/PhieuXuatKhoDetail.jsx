@@ -29,7 +29,7 @@ const STATUS_UI = {
         className: "border-indigo-200 bg-indigo-50 text-indigo-700",
     },
     3: { label: "Đã xuất", tone: "success" },
-    4: { label: "Đã huỷ", tone: "danger" },
+    4: { label: "Đã hủy", tone: "danger" },
     5: { label: "Đã xuất", tone: "success" },
 };
 
@@ -110,10 +110,10 @@ export default function PhieuXuatKhoDetail() {
             } else {
                 await phieuXuatKhoService.cancel(data.phieu.id);
             }
-            toast.success("Đã huỷ phiếu xuất thành công");
+            toast.success("Đã hủy phiếu xuất thành công");
             navigate("/goods-issues");
         } catch (e) {
-            toast.error(e?.response?.data?.message || "Không thể huỷ phiếu");
+            toast.error(e?.response?.data?.message || "Không thể hủy phiếu");
         } finally {
             setIsProcessing(false);
             setShowCancelConfirm(false);
@@ -169,7 +169,7 @@ export default function PhieuXuatKhoDetail() {
                             onClick={() => setShowCancelConfirm(true)}
                             className="gap-2 border-bo-danger/30 bg-bo-danger-soft text-bo-danger hover:bg-bo-danger-soft/70 hover:text-bo-danger"
                         >
-                            <X className="size-4" /> Huỷ phiếu
+                            <X className="size-4" /> Hủy phiếu
                         </Button>
                     )}
 
@@ -282,10 +282,10 @@ export default function PhieuXuatKhoDetail() {
                     <thead>
                         <tr className="border-b border-bo-border bg-bo-surface-subtle">
                             <th className={`${TH_CLASS} text-left`}>SKU / Biến thể</th>
-                            <th className={`${TH_CLASS} text-center`}>SL Yêu cầu</th>
-                            <th className={`${TH_CLASS} text-center`}>SL Đã Pick</th>
+                            <th className={`${TH_CLASS} text-center`}>SL yêu cầu</th>
+                            <th className={`${TH_CLASS} text-center`}>SL đã lấy</th>
                             <th className={`${TH_CLASS} text-center`}>Trạng thái</th>
-                            <th className={`${TH_CLASS} text-right`}>Hành động</th>
+                            <th className={`${TH_CLASS} text-right`}>Thao tác</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-bo-border">
@@ -346,7 +346,7 @@ export default function PhieuXuatKhoDetail() {
                                                 ? "border-bo-primary/30 bg-bo-primary-soft text-bo-primary hover:bg-bo-primary-soft/70 hover:text-bo-primary"
                                                 : "border-bo-border bg-white text-slate-600 hover:bg-bo-surface-subtle hover:text-slate-700"}`}
                                         >
-                                            {canEditLot ? "Pick lot" : "Xem lô"} <ArrowRight className="size-3" />
+                                            {canEditLot ? "Chọn lô" : "Xem lô"} <ArrowRight className="size-3" />
                                         </Button>
                                     </td>
                                 </tr>
@@ -387,7 +387,7 @@ export default function PhieuXuatKhoDetail() {
                 onConfirm={handleCancelExport}
                 variant="danger"
                 title="Hủy phiếu xuất kho"
-                description={`Bạn chắc chắn muốn huỷ phiếu ${phieu.soPhieuXuat}? Mọi số lượng đã bốc (giữ hàng) sẽ được hoàn tồn. Thao tác này không thể hoàn tác.`}
+                description={`Bạn chắc chắn muốn hủy phiếu ${phieu.soPhieuXuat}? Mọi số lượng đã bốc (giữ hàng) sẽ được hoàn tồn. Thao tác này không thể hoàn tác.`}
                 cancelText="Quay lại"
                 confirmText="Xác nhận hủy"
                 isLoading={isProcessing}

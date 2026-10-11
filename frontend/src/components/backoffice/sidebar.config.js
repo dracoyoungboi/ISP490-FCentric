@@ -52,7 +52,7 @@ export const SIDEBAR_MENU = [
 
   // ================= DANH MỤC & SẢN PHẨM =================
   {
-    label: "Danh mục & Sản phẩm",
+    label: "Danh mục & sản phẩm",
     icon: Package,
     section: "management",
     roles: [
@@ -67,7 +67,7 @@ export const SIDEBAR_MENU = [
       { label: "Thuộc tính", to: "/attributes" },
       { label: "Sản phẩm", to: "/products" },
       {
-        label: "Biến thể SKU & Giá",
+        label: "Biến thể SKU & giá",
         to: "/sku-builder",
         roles: ["quan_tri_vien", "quan_ly_kho"],
       },
@@ -76,7 +76,7 @@ export const SIDEBAR_MENU = [
 
   // ================= MUA HÀNG & NHẬP KHO =================
   {
-    label: "Mua hàng & Nhập kho",
+    label: "Mua hàng & nhập kho",
     icon: ArrowDownToLine,
     section: "operations",
     roles: [
@@ -116,7 +116,7 @@ export const SIDEBAR_MENU = [
 
   // ================= KHO & XUẤT KHO =================
   {
-    label: "Kho & Xuất kho",
+    label: "Kho & xuất kho",
     icon: Warehouse,
     section: "operations",
     roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"],
@@ -128,7 +128,7 @@ export const SIDEBAR_MENU = [
       },
       // Xuất kho theo Pick List (FO-045–047): Đơn chờ xuất → Pick List → Phiếu xuất kho
       { label: "Đơn chờ xuất", to: "/goods-issues/pending-orders" },
-      { label: "Pick List", to: "/goods-issues/pick-lists" },
+      { label: "Phiếu nhặt hàng", to: "/goods-issues/pick-lists" },
       {
         label: "Phiếu xuất kho",
         to: "/goods-issues",
@@ -190,7 +190,7 @@ export const SIDEBAR_MENU = [
     match: (path) => path === "/channels" || /^\/channels\/\d+\//.test(path),
   },
   {
-    label: "Dashboard đồng bộ",
+    label: "Theo dõi đồng bộ",
     icon: RefreshCw,
     section: "channels",
     to: "/channels/sync",
@@ -199,7 +199,7 @@ export const SIDEBAR_MENU = [
 
   // ================= BÁO CÁO & CẢNH BÁO =================
   {
-    label: "Báo cáo & Cảnh báo",
+    label: "Báo cáo & cảnh báo",
     icon: BarChart3,
     section: "reports",
     roles: [

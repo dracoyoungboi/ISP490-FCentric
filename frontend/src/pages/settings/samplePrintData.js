@@ -239,7 +239,7 @@ export const SAMPLE_GOODS_ISSUE_PAYLOAD = {
         ngayXuat: "2026-09-16T00:00:00Z",
         trangThai: 3,
         loaiXuat: "ban_hang",
-        ghiChu: "Xuất theo đơn bán, pick đủ lô.",
+        ghiChu: "Xuất theo đơn bán, lấy đủ lô.",
         kho: { tenKho: "Kho trung tâm", maKho: "KHO-TT" },
         donBanHang: { soDonHang: "MẪU-SO-0001" },
         nguoiXuat: { hoTen: "Nguyễn Văn An", email: "an.nv@example.com" },

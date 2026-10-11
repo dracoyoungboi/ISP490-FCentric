@@ -1,4 +1,4 @@
-export const formatMoney = (value) => `${Number(value || 0).toLocaleString('en-US')} ₫`;
+export const formatMoney = (value) => `${Number(value || 0).toLocaleString('vi-VN')} ₫`;
 
 export const clampMoney = (value, ceiling) => {
   const parsed = Number(value);

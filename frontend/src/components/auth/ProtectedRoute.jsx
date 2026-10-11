@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { nguoiDungService } from "../../services/nguoiDungService";
+import { ensureTokenUsable } from "../../utils/authToken";
 
 export default function ProtectedRoute() {
+    const navigate = useNavigate();
     const token = localStorage.getItem("access_token");
     const [status, setStatus] = useState("checking");
     const [mustChangePassword, setMustChangePassword] = useState(false);
@@ -17,10 +19,14 @@ export default function ProtectedRoute() {
             return;
         }
 
+        // Token hết hạn/hỏng: đăng xuất ngay, không gọi /me (backend sẽ trả 401 ở tầng filter)
+        if (!ensureTokenUsable(token)) {
+            navigate("/login", { replace: true });
+            return;
+        }
+
         let cancelled = false;
         const controller = new AbortController();
-
-
 
         nguoiDungService
             .getMe({ signal: controller.signal })
@@ -75,7 +81,7 @@ export default function ProtectedRoute() {
             cancelled = true;
             controller.abort();
         };
-    }, [token, retryCount]);
+    }, [token, retryCount, navigate]);
 
     if (!token || status === "unauthenticated") {
         return <Navigate to="/login" replace />;

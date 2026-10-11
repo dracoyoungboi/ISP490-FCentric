@@ -75,7 +75,7 @@ export default function UserPermissionEditByAdmin() {
     try {
       setLoading(true);
       await nguoiDungService.updatePermission(payload);
-      toast.success("Cập nhật vai trò người dùng thành công!");
+      toast.success("Cập nhật vai trò người dùng thành công.");
 
       setTimeout(() => navigate("/users"), 1000);
     } catch (err) {
@@ -103,7 +103,7 @@ export default function UserPermissionEditByAdmin() {
       // Call API to delete warehouse permission
       await quyenHanService.xoaQuyenKho(selectedWarehouseToDelete.id);
 
-      toast.success("Xóa quyền kho thành công!");
+      toast.success("Xóa quyền kho thành công.");
       setShowDeleteDialog(false);
       setSelectedWarehouseToDelete(null);
 
@@ -131,7 +131,7 @@ export default function UserPermissionEditByAdmin() {
           </p>
         </div>
         <Badge variant="outline" className="shrink-0 border-bo-primary/30 bg-bo-primary-soft text-bo-primary">
-          User ID: {id}
+          Mã người dùng: {id}
         </Badge>
       </div>
 

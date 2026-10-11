@@ -245,7 +245,7 @@ export default function SkuBuilder() {
                         <SearchInput
                             value={keyword}
                             onChange={(e) => { setKeyword(e.target.value); setPage(0); }}
-                            placeholder="Tìm theo tên SP, SKU, Barcode..."
+                            placeholder="Tìm theo tên SP, SKU, mã vạch..."
                             label="Tìm kiếm SKU"
                             disabled={isLoading}
                         />
@@ -307,7 +307,7 @@ export default function SkuBuilder() {
                     <EmptyState
                         icon={Layers}
                         title="Không tìm thấy biến thể nào"
-                        description="Hãy thử thay đổi bộ lọc hoặc từ khoá tìm kiếm để xem kết quả khác."
+                        description="Hãy thử thay đổi bộ lọc hoặc từ khóa tìm kiếm để xem kết quả khác."
                     />
                 </div>
             ) : (
@@ -424,7 +424,7 @@ export default function SkuBuilder() {
                                     <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SKU</th>
                                     <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Sản phẩm</th>
                                     <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Màu</th>
-                                    <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Size</th>
+                                    <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kích cỡ</th>
                                     <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
                                     <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Giá vốn</th>
                                     <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Giá bán</th>
@@ -442,7 +442,7 @@ export default function SkuBuilder() {
 
                                             <td className="px-3 py-3 align-middle">
                                                 <span className="font-mono text-xs font-bold tracking-wide text-bo-primary">
-                                                    {sku.maSku || sku.maBienThe || sku.skuCode || "N/A"}
+                                                    {sku.maSku || sku.maBienThe || sku.skuCode || "—"}
                                                 </span>
                                             </td>
 

@@ -23,7 +23,7 @@ const MOCK = {
     soDonMua: "PO-2024-00142",
     ngayDatHang: "2024-06-01T08:00:00",
     ngayGiaoDuKien: "2024-06-20T08:00:00",
-    ghiChu: "Vui lòng đảm bảo hàng đúng màu sắc, size như đã thống nhất. Bao bì cẩn thận.",
+    ghiChu: "Vui lòng đảm bảo hàng đúng màu sắc, kích cỡ như đã thống nhất. Bao bì cẩn thận.",
     khoNhap: { tenKho: "Kho Miền Nam", diaChi: "123 Nguyễn Văn Linh, Q7, TP.HCM" },
     nguoiTao: { hoTen: "Nguyễn Minh Tuấn", soDienThoai: "0901 234 567", email: "tuan.nguyen@company.vn" },
     chiTietDonMuaHangs: [
@@ -925,7 +925,7 @@ export default function SupplierQuotation() {
                             <div className="sq-card-head">
                                 <div className="sq-card-title">
                                     <FileText size={15} className="sq-card-title-icon" />
-                                    Ghi chú & Điều khoản
+                                    Ghi chú & điều khoản
                                 </div>
                             </div>
                             <div className="sq-card-body" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>

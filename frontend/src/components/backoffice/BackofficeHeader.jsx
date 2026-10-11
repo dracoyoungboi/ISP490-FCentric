@@ -41,13 +41,13 @@ export default function BackofficeHeader({ title, subtitle, routeKey }) {
   const role = localStorage.getItem("role");
 
   let userId = null;
-  let username = "Admin";
+  let username = "Quản trị viên";
 
   if (token) {
     try {
       const payload = jwtDecode(token);
       userId = payload.userId || payload.id || payload.sub;
-      username = payload.tenDangNhap || payload.username || "Admin";
+      username = payload.tenDangNhap || payload.username || "Quản trị viên";
     } catch (error) {
       console.error("Invalid token", error);
     }

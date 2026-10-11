@@ -101,7 +101,7 @@ function PayosQrDialog({ state, actions, onClose }) {
   const terminalText = PAYOS_STATUS_TEXT[link.trangThai];
 
   return (
-    <PosModal description="Khách mở app ngân hàng, quét mã để chuyển khoản. Tiền về là đơn tự hoàn tất." onClose={onClose} title="Chuyển khoản qua mã QR" size="md">
+    <PosModal description="Khách mở ứng dụng ngân hàng, quét mã để chuyển khoản. Tiền về là đơn tự hoàn tất." onClose={onClose} title="Chuyển khoản qua mã QR" size="md">
       <div className="grid gap-5 sm:grid-cols-[240px_minmax(0,1fr)]">
         <div className="flex flex-col items-center">
           <div className={`rounded-xl border border-bo-border bg-white p-3 ${pending ? '' : 'opacity-30'}`}>
@@ -370,7 +370,7 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
               <div className="mt-5 space-y-3">
                 <div className="rounded-lg border border-bo-border bg-slate-50 p-3 text-xs leading-5 text-bo-muted">
                   <p className="font-semibold text-bo-foreground">Cần thu: {formatMoney(state.total)}</p>
-                  <p className="mt-1">Bấm <strong className="text-bo-foreground">Tạo mã QR</strong>, khách quét bằng app ngân hàng. Hàng trong giỏ được giữ chỗ cho tới khi khách trả tiền, hủy hoặc hết hạn.</p>
+                  <p className="mt-1">Bấm <strong className="text-bo-foreground">Tạo mã QR</strong>, khách quét bằng ứng dụng ngân hàng. Hàng trong giỏ được giữ chỗ cho tới khi khách trả tiền, hủy hoặc hết hạn.</p>
                 </div>
                 {state.paymentError ? <p className="flex items-start gap-1.5 text-xs text-red-600"><AlertCircle aria-hidden="true" className="mt-0.5 shrink-0" size={14} />{state.paymentError}</p> : null}
               </div>
@@ -430,7 +430,7 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
       <PosModal description="Không thể xác nhận kết quả giao dịch (mất kết nối hoặc hết thời gian chờ)." onClose={onClose} title="Giao dịch chưa rõ kết quả" size="md">
         <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           <AlertCircle aria-hidden="true" className="mt-0.5 shrink-0" size={18} />
-          <p>Giao dịch đã được gửi nhưng chưa rõ server đã lưu hay chưa. Hóa đơn vẫn được khóa để giữ nguyên nội dung đã gửi. Hãy kiểm tra kết quả bằng đúng mã giao dịch trước khi quyết định.</p>
+          <p>Giao dịch đã được gửi nhưng chưa rõ máy chủ đã lưu hay chưa. Hóa đơn vẫn được khóa để giữ nguyên nội dung đã gửi. Hãy kiểm tra kết quả bằng đúng mã giao dịch trước khi quyết định.</p>
         </div>
         {state.online === false ? (
           <div className="mt-3">
@@ -446,7 +446,7 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
           <button className={secondaryButton} disabled={state.isSubmitting || state.online === false} onClick={actions.onRetrySameAttempt} type="button">
             Thử lại với cùng mã giao dịch
           </button>
-          <p className="text-center text-[11px] leading-4 text-bo-muted">Nếu server báo chưa có kết quả, "Thử lại" sẽ gửi lại CHÍNH XÁC nội dung đã đóng băng (cùng mã) — không tạo đơn trùng.</p>
+          <p className="text-center text-[11px] leading-4 text-bo-muted">Nếu máy chủ báo chưa có kết quả, "Thử lại" sẽ gửi lại CHÍNH XÁC nội dung đã đóng băng (cùng mã) — không tạo đơn trùng.</p>
         </div>
       </PosModal>
     );
@@ -455,7 +455,7 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
   if (dialog === 'price-change') {
     const items = state.priceChange?.items ?? [];
     return (
-      <PosModal description="Giá trên server đã đổi so với giá đang hiển thị." onClose={onClose} title="Giá đã thay đổi" size="md">
+      <PosModal description="Giá trên hệ thống đã đổi so với giá đang hiển thị." onClose={onClose} title="Giá đã thay đổi" size="md">
         <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           <AlertCircle aria-hidden="true" className="mt-0.5 shrink-0" size={18} />
           <p>Hệ thống KHÔNG tự thu số tiền theo giá mới. Vui lòng xem lại giá và tổng tiền mới, báo lại khách trước khi thanh toán.</p>
@@ -485,7 +485,7 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
   if (dialog === 'receipt') {
     const receipt = state.receipt;
     return (
-      <PosModal description="Giao dịch đã được server xác nhận và lưu." onClose={actions.onCloseReceipt} title="Thanh toán thành công" size="sm">
+      <PosModal description="Giao dịch đã được hệ thống xác nhận và lưu." onClose={actions.onCloseReceipt} title="Thanh toán thành công" size="sm">
         <div className="flex flex-col items-center rounded-lg border border-bo-border bg-slate-50 px-4 py-5 text-center">
           <span className="grid size-12 place-items-center rounded-full bg-emerald-100 text-emerald-700"><CheckCircle2 aria-hidden="true" size={24} /></span>
           <p className="mt-3 text-xs text-bo-muted">Số hóa đơn chính thức</p>

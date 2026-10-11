@@ -62,7 +62,7 @@ export default function PickListDetail() {
             setDto(res);
         } catch (error) {
             setLoadError(getApiErrorStatus(error) === 404 ? "notfound" : "error");
-            if (silent) toast.error(getApiErrorMessage(error, "Không tải lại được Pick List"));
+            if (silent) toast.error(getApiErrorMessage(error, "Không tải lại được phiếu nhặt hàng"));
         } finally {
             if (!silent) setLoading(false);
         }
@@ -141,7 +141,7 @@ export default function PickListDetail() {
         return (
             <PageContainer>
                 <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                    <LoadingState label="Đang tải Pick List" />
+                    <LoadingState label="Đang tải phiếu nhặt hàng" />
                 </div>
             </PageContainer>
         );
@@ -155,8 +155,8 @@ export default function PickListDetail() {
                     {loadError === "notfound" ? (
                         <EmptyState
                             icon={PackageX}
-                            title="Không tìm thấy Pick List"
-                            description="Pick List không tồn tại hoặc thuộc kho khác với kho đang chọn."
+                            title="Không tìm thấy phiếu nhặt hàng"
+                            description="Phiếu nhặt hàng không tồn tại hoặc thuộc kho khác với kho đang chọn."
                         />
                     ) : (
                         <ErrorState onRetry={() => fetchDetail()} />
@@ -206,9 +206,9 @@ export default function PickListDetail() {
             </div>
 
             {/* ── Thông tin chung ── */}
-            <SurfaceCard title="Thông tin Pick List">
+            <SurfaceCard title="Thông tin phiếu nhặt hàng">
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                    <InfoItem icon={Hash} label="Mã Pick List" value={dto.maPickList} highlight />
+                    <InfoItem icon={Hash} label="Mã phiếu nhặt hàng" value={dto.maPickList} highlight />
                     <InfoItem icon={Warehouse} label="Kho xuất" value={dto.tenKhoXuat} />
                     <InfoItem icon={User} label="Người nhặt" value={dto.tenNguoiNhat || "Chưa phân công"} />
                     <InfoItem icon={ClipboardList} label="Đơn / SKU" value={`${dto.tongDonHang ?? maDonHangs.length} đơn · ${dto.tongSku ?? lines.length} SKU`} />
@@ -240,10 +240,10 @@ export default function PickListDetail() {
                     <InfoIcon className="size-4 shrink-0 text-bo-muted" />
                     <p className="min-w-0 flex-1">
                         {dto.trangThai === "da_huy" || dto.trangThai === "huy"
-                            ? "Pick List đã hủy."
+                            ? "Phiếu nhặt hàng đã hủy."
                             : dto.trangThai === "da_nhat"
                                 ? "Đã nhặt xong. Mở phiếu xuất kho nháp của từng đơn để chọn lô và hoàn thành xuất kho."
-                                : "Pick List đã xuất kho."}
+                                : "Phiếu nhặt hàng đã xuất kho."}
                     </p>
                     {dto.trangThai === "da_nhat" ? <GoodsIssueLink /> : null}
                 </div>
@@ -277,7 +277,7 @@ export default function PickListDetail() {
                     description={`${lines.length} SKU · sắp theo vị trí kệ, dòng chưa đủ lên trước`}
                 >
                     {lines.length === 0 ? (
-                        <EmptyState icon={Package} title="Pick List không có sản phẩm" description="Đợt nhặt này chưa có dòng sản phẩm nào." />
+                        <EmptyState icon={Package} title="Phiếu nhặt hàng không có sản phẩm" description="Đợt nhặt này chưa có dòng sản phẩm nào." />
                     ) : (
                         <table className="w-full min-w-[760px] text-sm">
                             <thead>
@@ -344,7 +344,7 @@ export default function PickListDetail() {
                 </TableShell>
 
                 {/* ── Đơn trong Pick List ── */}
-                <SurfaceCard title="Đơn trong Pick List" description={`${maDonHangs.length} đơn`}>
+                <SurfaceCard title="Đơn trong phiếu nhặt hàng" description={`${maDonHangs.length} đơn`}>
                     {maDonHangs.length === 0 ? (
                         <p className="py-4 text-center text-sm text-bo-muted">Không có đơn nào.</p>
                     ) : (
@@ -366,7 +366,7 @@ export default function PickListDetail() {
                 onConfirm={handleComplete}
                 variant="info"
                 title="Hoàn tất nhặt hàng"
-                description={`Pick List ${dto.maPickList} sẽ chuyển sang Đã nhặt và hệ thống tạo phiếu xuất kho nháp cho từng đơn trong đợt.`}
+                description={`Phiếu nhặt hàng ${dto.maPickList} sẽ chuyển sang Đã nhặt và hệ thống tạo phiếu xuất kho nháp cho từng đơn trong đợt.`}
                 confirmText="Hoàn tất nhặt"
                 cancelText="Quay lại"
                 isLoading={completing}
@@ -384,7 +384,7 @@ function BackLink({ onClick }) {
             className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-bo-muted transition-colors hover:text-bo-primary"
         >
             <ArrowLeft className="size-4" />
-            Quay lại danh sách Pick List
+            Quay lại danh sách phiếu nhặt hàng
         </button>
     );
 }

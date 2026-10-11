@@ -20,7 +20,7 @@ export default function PurchaseRequestPrint() {
             loadingLabel="Đang tải dữ liệu phiếu in"
             titleFallback="In phiếu yêu cầu nhập hàng"
             notFoundTitle="Không tìm thấy yêu cầu nhập hàng"
-            notFoundDescription="Yêu cầu có thể đã bị xoá hoặc bạn không có quyền truy cập."
+            notFoundDescription="Yêu cầu có thể đã bị xóa hoặc bạn không có quyền truy cập."
         />
     );
 }

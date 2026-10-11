@@ -218,12 +218,12 @@ export default function CreatePurchaseRequestPage() {
                     return next;
                 });
             } else {
-                toast.error('Không tìm thấy biến thể này trong kho đã chọn!');
+                toast.error('Không tìm thấy biến thể này trong kho đã chọn.');
             }
 
         } catch (error) {
             console.error('Lỗi khi lục tìm biến thể theo kho:', error);
-            toast.error('Không thể tải tự động sản phẩm từ link');
+            toast.error('Không thể tự tải sản phẩm từ đường dẫn');
         }
     }, []);
 
@@ -342,7 +342,7 @@ export default function CreatePurchaseRequestPage() {
             setShowConfirmDialog(false);
             setTimeout(() => navigate('/purchase-requests'), 1200);
         } catch (err) {
-            toast.error(err.response?.data?.message || 'Không thể tạo yêu cầu. Vui lòng thử lại!');
+            toast.error(err.response?.data?.message || 'Không thể tạo yêu cầu. Vui lòng thử lại.');
         } finally {
             setSubmitting(false);
         }

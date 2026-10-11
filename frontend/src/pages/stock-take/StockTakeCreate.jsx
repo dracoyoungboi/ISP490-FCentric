@@ -177,7 +177,7 @@ export default function StockTakeCreate() {
           : parseFloat(ct.soLuongThucTe ?? 0),
       }));
       await completeStockTake(dotKiemKeId, selectedKhoId, updateList);
-      toast.success("Hoàn thành kiểm kê thành công!");
+      toast.success("Hoàn thành kiểm kê thành công.");
       navigate("/stock-take");
     } catch (err) {
       toast.error(err.response?.data?.message || "Hoàn thành kiểm kê thất bại");

@@ -87,11 +87,11 @@ export default function PhieuNhapKhoDetail() {
             if (isInternalTransfer) {
                 // Riêng phiếu Transfer mới gọi API completeTransferReceipt
                 await phieuNhapKhoService.completeTransferReceipt(id);
-                toast.success("Nhận hàng luân chuyển thành công!");
+                toast.success("Nhận hàng luân chuyển thành công.");
             } else {
                 // PO và Return gọi API complete chung
                 await phieuNhapKhoService.complete(id);
-                toast.success(isSalesReturn ? "Nhập kho hoàn trả thành công!" : "Nhập kho từ đối tác thành công!");
+                toast.success(isSalesReturn ? "Nhập kho hoàn trả thành công." : "Nhập kho từ đối tác thành công.");
             }
             setShowCompleteConfirm(false);
             fetchDetail();
@@ -157,7 +157,7 @@ export default function PhieuNhapKhoDetail() {
                             onClick={() => setShowCancelConfirm(true)}
                             className="gap-2 border-red-200 bg-white text-bo-danger hover:bg-bo-danger-soft disabled:opacity-50"
                         >
-                            <X className="size-4" /> Huỷ phiếu
+                            <X className="size-4" /> Hủy phiếu
                         </Button>
                     )}
 
@@ -168,7 +168,7 @@ export default function PhieuNhapKhoDetail() {
                             className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
                         >
                             {isProcessing ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-                            {isInternalTransfer ? "Nhận hàng" : (isSalesReturn ? "Xác nhận Nhập trả" : "Xác nhận Nhập kho")}
+                            {isInternalTransfer ? "Nhận hàng" : (isSalesReturn ? "Xác nhận nhập trả" : "Xác nhận nhập kho")}
                         </Button>
                     )}
                 </div>
@@ -178,7 +178,7 @@ export default function PhieuNhapKhoDetail() {
             <SurfaceCard className="relative">
                 {isReturn && (
                     <div className="absolute right-0 top-0 rounded-bl-lg bg-bo-danger px-3 py-1.5 text-[9px] font-bold tracking-widest text-white">
-                        RETURN·PHIẾU HOÀN TRẢ
+                        PHIẾU HOÀN TRẢ
                     </div>
                 )}
 
@@ -202,7 +202,7 @@ export default function PhieuNhapKhoDetail() {
                     <InfoItem icon={<InfoIcon className="size-3.5" />} label="Loại nghiệp vụ" value={displayLoaiNhap} />
 
                     {/* Nguồn gốc chứng từ dựa trên loại luồng */}
-                    {isPO && <InfoItem icon={<ClipboardList className="size-3.5" />} label="Đơn mua (PO)" value={data.soDonMua} />}
+                    {isPO && <InfoItem icon={<ClipboardList className="size-3.5" />} label="Đơn mua hàng" value={data.soDonMua} />}
                     {isInternalTransfer && <InfoItem icon={<ClipboardList className="size-3.5" />} label="Phiếu xuất gốc" value={data.soPhieuXuatGoc || (data.phieuXuatGocId ? `#${data.phieuXuatGocId}` : "Tự động")} />}
                     {isSalesReturn && <InfoItem icon={<ClipboardList className="size-3.5" />} label="Ghi chú" value="Tự động kế thừa lô" />}
 
@@ -237,10 +237,10 @@ export default function PhieuNhapKhoDetail() {
                     <thead>
                         <tr className="border-b border-bo-border bg-bo-surface-subtle">
                             <th className="h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Sản phẩm / Biến thể</th>
-                            <th className="h-10 px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SL Cần nhập</th>
-                            <th className="h-10 px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SL Thực tế</th>
+                            <th className="h-10 px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SL cần nhập</th>
+                            <th className="h-10 px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SL thực tế</th>
                             <th className="h-10 px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
-                            <th className="h-10 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Hành động</th>
+                            <th className="h-10 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-bo-border">

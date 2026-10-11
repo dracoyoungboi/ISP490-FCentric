@@ -230,7 +230,7 @@ export default function PosTopBar({ children, onHelp, pendingPaymentCount = 0 })
           <WifiOff aria-hidden="true" className="shrink-0" size={16} />
           <p className="min-w-0">
             <strong className="font-semibold">Mất kết nối mạng — chưa thể thanh toán.</strong>{' '}
-            <span className="text-red-700">Hóa đơn đang làm vẫn được giữ trên máy. Kiểm tra wifi/dây mạng; hệ thống tự kết nối lại khi có mạng.</span>
+            <span className="text-red-700">Hóa đơn đang làm vẫn được giữ trên máy. Kiểm tra Wi-Fi/dây mạng; hệ thống tự kết nối lại khi có mạng.</span>
           </p>
         </div>
       ) : null}

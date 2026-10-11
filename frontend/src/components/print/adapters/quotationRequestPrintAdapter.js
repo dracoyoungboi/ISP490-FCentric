@@ -20,7 +20,7 @@ export const QUOTATION_REQUEST_STATUS = {
 
 // Trạng thái đơn báo giá gửi từng nhà cung cấp (donMuaHangs)
 export const SUPPLIER_QUOTE_STATUS = {
-    0: { label: "Đã xoá", tone: "danger" },
+    0: { label: "Đã xóa", tone: "danger" },
     1: { label: "Đã gửi YC báo giá", tone: "neutral" },
     2: { label: "Đã nhận báo giá", tone: "info" },
     3: { label: "Đã chuyển thành đơn mua hàng", tone: "warning" },

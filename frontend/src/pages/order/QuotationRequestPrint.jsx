@@ -20,7 +20,7 @@ export default function QuotationRequestPrint() {
             loadingLabel="Đang tải dữ liệu phiếu in"
             titleFallback="In phiếu yêu cầu báo giá"
             notFoundTitle="Không tìm thấy yêu cầu báo giá"
-            notFoundDescription="Yêu cầu có thể đã bị xoá hoặc bạn không có quyền truy cập."
+            notFoundDescription="Yêu cầu có thể đã bị xóa hoặc bạn không có quyền truy cập."
         />
     );
 }

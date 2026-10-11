@@ -86,15 +86,11 @@ const errorMessage = (error, fallback) => {
   const serverMessage = response?.data?.message;
   if (serverMessage) return serverMessage;
   if (response) {
-    const body =
-      typeof response.data === "string"
-        ? response.data.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 120)
-        : "";
-    return `${fallback}: máy chủ trả HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ""}${body ? ` — ${body}` : ""}.`;
+    return `${fallback}: máy chủ trả về mã lỗi ${response.status}.`;
   }
   if (error?.code === "ECONNABORTED") return `${fallback}: hết thời gian chờ phản hồi từ máy chủ.`;
-  if (error?.request) return `${fallback}: không nhận được phản hồi từ máy chủ (backend chưa chạy, sai địa chỉ API hoặc mạng bị chặn).`;
-  return `${fallback}${error?.message ? `: ${error.message}` : "."}`;
+  if (error?.request) return `${fallback}: không nhận được phản hồi từ máy chủ (máy chủ chưa chạy, sai địa chỉ API hoặc mạng bị chặn).`;
+  return `${fallback}.`;
 };
 
 const pad = (n) => String(n).padStart(2, "0");
@@ -477,7 +473,7 @@ function GuideDialog({ open, onOpenChange }) {
               </a>{" "}
               → <b>Kênh thanh toán</b> → <b>Thông tin cấu hình</b>, sao chép Client ID, API Key và Checksum Key.
             </li>
-            <li>Dán 3 khóa vào mục <b>Khóa kết nối</b> và lưu. Hệ thống xác minh với payOS trước khi lưu (tạo rồi hủy ngay một link 2.000đ, không thu tiền); khóa sai sẽ không được lưu.</li>
+            <li>Dán 3 khóa vào mục <b>Khóa kết nối</b> và lưu. Hệ thống xác minh với payOS trước khi lưu (tạo rồi hủy ngay một mã thanh toán thử 2.000 ₫, không thu tiền); khóa sai sẽ không được lưu.</li>
             <li>Bấm <b>Đăng ký webhook</b> để payOS báo về ngay khi khách chuyển tiền.</li>
             <li>Bật <b>Bật tại POS</b>. Màn POS sẽ có thêm lựa chọn “Chuyển khoản (QR)”.</li>
           </ol>
@@ -708,7 +704,7 @@ export default function PaymentSettingsPage() {
   if (loadError) {
     return (
       <ErrorState
-        description="Không tải được cấu hình thanh toán. Kiểm tra backend và đã chạy Database/payos_v1.sql chưa."
+        description="Không tải được cấu hình thanh toán. Vui lòng thử lại hoặc liên hệ bộ phận kỹ thuật."
         onRetry={() => {
           setLoading(true);
           setReloadKey((k) => k + 1);
@@ -974,7 +970,7 @@ export default function PaymentSettingsPage() {
                     setWebhookUrl(event.target.value);
                     setWebhookResult(null); // lỗi cũ không còn đúng với URL mới
                   }}
-                  placeholder={`https://<địa-chỉ-backend>${WEBHOOK_PATH}`}
+                  placeholder={`https://<địa-chỉ-máy-chủ>${WEBHOOK_PATH}`}
                   spellCheck={false}
                   type="url"
                   value={webhookUrl}

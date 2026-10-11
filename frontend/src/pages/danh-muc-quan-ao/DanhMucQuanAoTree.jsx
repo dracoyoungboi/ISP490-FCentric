@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "@/utils/apiError";
 import { useCallback, useEffect, useState } from 'react';
 import {
   ChevronRight,
@@ -35,7 +36,7 @@ const computeStats = (nodes) => {
   let total = 0, root = 0, sub = 0;
   const walk = (list, level) => {
     list.forEach((n) => {
-      if (n.trangThai === 0) return; // bỏ qua node đã khoá
+      if (n.trangThai === 0) return; // bỏ qua node đã khóa
       total++;
       if (level === 0) root++; else sub++;
       if (n.danhMucCons?.length) walk(n.danhMucCons, level + 1);
@@ -216,7 +217,7 @@ const DanhMucQuanAoTree = () => {
         danhMucChaId: null, // null = chuyển về danh mục gốc
         moTa: draggedNode.moTa, trangThai: draggedNode.trangThai,
       });
-      if (response.data.status === 200) { toast.success('Đã chuyển thành danh mục gốc!'); fetchTreeData(); }
+      if (response.data.status === 200) { toast.success('Đã chuyển thành danh mục gốc.'); fetchTreeData(); }
       else toast.error('Cập nhật thất bại: ' + response.data.message);
     } catch { toast.error('Có lỗi xảy ra khi cập nhật'); }
     setDraggedNode(null);
@@ -244,7 +245,7 @@ const DanhMucQuanAoTree = () => {
   const handleSaveEdit = async () => {
     try {
       const response = await danhMucQuanAoService.update(editForm);
-      if (response.data.status === 200) { toast.success('Cập nhật thành công!'); setEditingNode(null); fetchTreeData(); }
+      if (response.data.status === 200) { toast.success('Cập nhật thành công.'); setEditingNode(null); fetchTreeData(); }
       else toast.error('Cập nhật thất bại: ' + response.data.message);
     } catch { toast.error('Có lỗi xảy ra khi cập nhật'); }
   };
@@ -277,8 +278,8 @@ const DanhMucQuanAoTree = () => {
   // LUỒNG TẠO MỚI: validate client → chuẩn hóa payload → Axios POST /create → Controller → Service.create → Repository.findByMaDanhMuc + save → INSERT DB → reload cây
   const handleSaveCreate = async () => {
     // Validate client-side: tránh gửi request thiếu trường bắt buộc lên server
-    if (!createForm.tenDanhMuc.trim()) { toast.warning('Vui lòng nhập tên danh mục!'); return; }
-    if (!createForm.maDanhMuc.trim()) { toast.warning('Vui lòng nhập mã danh mục!'); return; }
+    if (!createForm.tenDanhMuc.trim()) { toast.warning('Vui lòng nhập tên danh mục.'); return; }
+    if (!createForm.maDanhMuc.trim()) { toast.warning('Vui lòng nhập mã danh mục.'); return; }
     try {
       // Chuẩn hóa payload: trim chuỗi, ép trangThai về Number, đảm bảo danhMucChaId gửi null cho danh mục gốc
       const payload = {
@@ -292,7 +293,7 @@ const DanhMucQuanAoTree = () => {
       // Gọi API: Frontend → Controller.create → Service.create (@Transactional) → Repository → DB
       const response = await danhMucQuanAoService.create(payload);
       if (response.data.status === 200) {
-        toast.success('Tạo danh mục thành công!');
+        toast.success('Tạo danh mục thành công.');
         setCreatingNode(null);
         setCreateForm({ maDanhMuc: '', tenDanhMuc: '', moTa: '', trangThai: 1 }); // reset form sau khi tạo thành công
         fetchTreeData(); // reload cây để đồng bộ dữ liệu mới từ DB
@@ -301,7 +302,7 @@ const DanhMucQuanAoTree = () => {
       }
     } catch (error) {
       // Lấy message lỗi từ response body backend thay vì thông báo chung chung
-      const message = error?.response?.data?.message || error?.message || 'Có lỗi xảy ra khi tạo danh mục';
+      const message = getApiErrorMessage(error, 'Có lỗi xảy ra khi tạo danh mục');
       toast.error(message);
     }
   };

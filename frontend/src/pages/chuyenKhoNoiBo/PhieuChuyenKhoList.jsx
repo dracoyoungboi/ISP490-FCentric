@@ -208,7 +208,7 @@ export default function PhieuChuyenKhoList() {
                             <input
                                 type="text"
                                 placeholder="Tên kho nhận hàng"
-                                aria-label="Kho nhập (Đích)"
+                                aria-label="Kho nhập (đích)"
                                 value={filters.tenKhoNhap}
                                 onChange={(e) => setFilters(p => ({ ...p, tenKhoNhap: e.target.value, page: 0 }))}
                                 className="h-9 w-full rounded-md border border-bo-border bg-white px-3 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 sm:w-[200px]"
@@ -253,7 +253,7 @@ export default function PhieuChuyenKhoList() {
                             <Link to="/transfer-tickets/create">
                                 <Button className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
                                     <Plus className="size-4" />
-                                    Tạo Phiếu Chuyển Kho
+                                    Tạo phiếu chuyển kho
                                 </Button>
                             </Link>
                         ) : null
@@ -271,7 +271,7 @@ export default function PhieuChuyenKhoList() {
                     <EmptyState
                         icon={ClipboardList}
                         title="Không có dữ liệu phiếu chuyển"
-                        description="Hiện tại chưa có dữ liệu phù hợp. Hãy thử thay đổi bộ lọc hoặc từ khoá tìm kiếm."
+                        description="Hiện tại chưa có dữ liệu phù hợp. Hãy thử thay đổi bộ lọc hoặc từ khóa tìm kiếm."
                     />
                 </div>
             ) : (

@@ -21,7 +21,7 @@ export default function DonBanHangInvoice() {
             loadingLabel="Đang tải dữ liệu hóa đơn"
             titleFallback="In hóa đơn bán hàng"
             notFoundTitle="Không tìm thấy hóa đơn"
-            notFoundDescription="Hóa đơn có thể đã bị xoá hoặc bạn không có quyền truy cập."
+            notFoundDescription="Hóa đơn có thể đã bị xóa hoặc bạn không có quyền truy cập."
         />
     );
 }

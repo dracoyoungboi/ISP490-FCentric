@@ -1,21 +1,30 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+    AlertTriangle,
     CheckCircle2,
-    ChevronDown,
-    ChevronLeft,
-    ChevronRight,
     Filter,
-    Search,
+    KeyRound,
+    Plus,
+    SearchX,
     Users,
+    X,
     XCircle,
 } from "lucide-react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 
 import PageContainer from "@/components/backoffice/PageContainer";
 import UserAvatar from "@/components/UserAvatar";
+import EmptyState from "@/components/shared/EmptyState";
+import ErrorState from "@/components/shared/ErrorState";
 import FilterBar from "@/components/shared/FilterBar";
+import FilterSelect from "@/components/shared/FilterSelect";
+import KpiCard from "@/components/shared/KpiCard";
+import LoadingState from "@/components/shared/LoadingState";
 import SearchInput from "@/components/shared/SearchInput";
-import TableShell from "@/components/shared/TableShell";
 import StatusBadge from "@/components/shared/StatusBadge";
+import TablePagination from "@/components/shared/TablePagination";
+import TableShell from "@/components/shared/TableShell";
 import { Button } from "@/components/ui/button";
 import {
     AlertDialog,
@@ -27,42 +36,67 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-
+import { ROLES } from "@/constants/backend/role";
+import { cn } from "@/lib/utils";
 import { adminService } from "@/services/adminService";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { toast } from "sonner";
+import { getCurrentUserId } from "@/utils/roles";
 
+// Chỉ lọc theo các vai trò nhân sự tạo được ở màn "Thêm người dùng".
+// Khách hàng quản lý ở module Khách hàng (bảng khach_hang), không nằm trong nguoi_dung,
+// nên lựa chọn "Khách hàng" ở đây luôn ra danh sách rỗng.
 const ROLE_OPTIONS = [
-    { value: "ALL", label: "Tất cả" },
-    { value: "quan_tri_vien", label: "Quản trị viên" },
-    { value: "quan_ly_kho", label: "Quản lý kho" },
-    { value: "nhan_vien_kho", label: "Nhân viên kho" },
-    { value: "nhan_vien_ban_hang", label: "Nhân viên bán hàng" },
-    { value: "nhan_vien_mua_hang", label: "Nhân viên mua hàng" },
-    { value: "khach_hang", label: "Khách hàng" },
+    { value: "ALL", label: "Tất cả vai trò" },
+    ...ROLES.filter((role) => role.value !== "khach_hang"),
 ];
 
 const STATUS_OPTIONS = [
-    { value: "ALL", label: "Tất cả" },
+    { value: "ALL", label: "Tất cả trạng thái" },
     { value: "1", label: "Hoạt động" },
     { value: "0", label: "Bị khóa" },
 ];
 
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+const DEFAULT_PAGE_SIZE = 10;
+const SEARCH_DEBOUNCE_MS = 350;
+const SEARCH_FIELDS = ["hoTen", "tenDangNhap", "email", "soDienThoai"];
+// Cột Thao tác: `w-px` + nowrap để co vừa đúng nút; ghim mép phải khi bảng phải cuộn ngang.
+const COLUMNS = [
+    { label: "STT", center: true },
+    { label: "Tên đăng nhập" },
+    { label: "Họ tên" },
+    { label: "Email" },
+    { label: "SĐT" },
+    { label: "Vai trò", center: true },
+    { label: "Trạng thái", center: true },
+    { label: "Thao tác", center: true, sticky: true, className: "w-px" },
+];
+
+// Viền + bóng bên trái cột ghim — chỉ bật khi còn cột bị che phía dưới.
+const STICKY_EDGE = "border-l border-bo-border shadow-[-6px_0_8px_-6px_rgb(15_23_42/0.15)]";
+const LOAD_ERROR_MESSAGE = "Không thể tải danh sách người dùng. Vui lòng thử lại.";
+
+const DEFAULT_FILTERS = {
+    keyword: "",
+    vaiTro: "ALL",
+    trangThai: "ALL",
+    page: 0,
+    size: DEFAULT_PAGE_SIZE,
+};
+
+const formatRole = (role) => ROLES.find((r) => r.value === role)?.label || role || "—";
+
 function buildUserFilterPayload(filters) {
     const filterList = [];
+    const keyword = filters.keyword.trim();
 
-    if (filters.keyword?.trim()) {
-        ["hoTen", "tenDangNhap", "email"].forEach((field) => {
+    // Backend gom các điều kiện OR thành một nhóm rồi AND với các điều kiện còn lại:
+    // (hoTen OR tenDangNhap OR email OR SĐT) AND vaiTro AND trangThai
+    if (keyword) {
+        SEARCH_FIELDS.forEach((field) => {
             filterList.push({
                 fieldName: field,
                 operation: "ILIKE",
-                value: filters.keyword.trim(),
+                value: keyword,
                 logicType: "OR",
             });
         });
@@ -90,61 +124,104 @@ function buildUserFilterPayload(filters) {
         page: filters.page,
         size: filters.size,
         filters: filterList,
+        // Mới tạo lên đầu (không hiện cột Ngày tạo; xem ở trang chi tiết).
         sorts: [{ fieldName: "ngayTao", direction: "DESC" }],
     };
 }
 
-const formatRole = (role) =>
-    ROLE_OPTIONS.find((r) => r.value === role)?.label || role;
+/** Đọc bộ lọc từ URL (?q=&vaiTro=&trangThai=&page=&size=). `page` trên URL đếm từ 1. */
+function readFiltersFromUrl(searchParams) {
+    const vaiTro = searchParams.get("vaiTro");
+    const trangThai = searchParams.get("trangThai");
+    const page = Number.parseInt(searchParams.get("page") ?? "", 10);
+    const size = Number.parseInt(searchParams.get("size") ?? "", 10);
+
+    return {
+        keyword: (searchParams.get("q") ?? "").trim(),
+        vaiTro: ROLE_OPTIONS.some((o) => o.value === vaiTro) ? vaiTro : "ALL",
+        trangThai: STATUS_OPTIONS.some((o) => o.value === trangThai) ? trangThai : "ALL",
+        page: page > 1 ? page - 1 : 0,
+        size: PAGE_SIZE_OPTIONS.includes(size) ? size : DEFAULT_PAGE_SIZE,
+    };
+}
+
+function filtersToSearchParams(filters) {
+    const params = new URLSearchParams();
+    if (filters.keyword) params.set("q", filters.keyword);
+    if (filters.vaiTro !== "ALL") params.set("vaiTro", filters.vaiTro);
+    if (filters.trangThai !== "ALL") params.set("trangThai", filters.trangThai);
+    if (filters.page > 0) params.set("page", String(filters.page + 1));
+    if (filters.size !== DEFAULT_PAGE_SIZE) params.set("size", String(filters.size));
+    return params;
+}
 
 export default function ViewUserListByAdmin() {
+    const location = useLocation();
+    const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    const [filters, setFilters] = useState(() => readFiltersFromUrl(searchParams));
+    // Ô tìm kiếm đổi ngay khi gõ; filters.keyword chỉ đổi khi ngừng gõ (debounce) hoặc bấm Enter.
+    const [searchText, setSearchText] = useState(filters.keyword);
+
     const [users, setUsers] = useState([]);
     const [total, setTotal] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(null);
+    const requestIdRef = useRef(0);
 
-    const [filters, setFilters] = useState({
-        keyword: "",
-        vaiTro: "ALL",
-        trangThai: "ALL",
-        page: 0,
-        size: 10,
-    });
-
-    const location = useLocation();
-    const toastShownRef = useRef(false);
-    const navigate = useNavigate();
+    const [stats, setStats] = useState(null);
+    const [currentUserId] = useState(() => getCurrentUserId());
 
     const [selectedUserForReset, setSelectedUserForReset] = useState(null);
     const [resettingUser, setResettingUser] = useState(false);
 
-    const handleConfirmResetRandom = async () => {
-        if (!selectedUserForReset) return;
-        try {
-            setResettingUser(true);
-            await adminService.resetUserPasswordRandomByAdmin(selectedUserForReset.id);
-            toast.success(`Đã cấp mật khẩu tạm thời ngẫu nhiên và gửi về email cho ${selectedUserForReset.hoTen || selectedUserForReset.tenDangNhap}`);
-            setSelectedUserForReset(null);
-        } catch (err) {
-            toast.error(err?.response?.data?.message || "Không thể cấp lại mật khẩu cho người dùng");
-        } finally {
-            setResettingUser(false);
-        }
-    };
+    const toastShownRef = useRef(false);
+    const syncedSearchRef = useRef(searchParams.toString());
 
+    // Callback ref: bảng chỉ được gắn khi tải xong (lúc tải hiện LoadingState).
+    const [tableEl, setTableEl] = useState(null);
+    const [columnsHidden, setColumnsHidden] = useState(false);
+
+    const hasActiveFilters =
+        Boolean(searchText.trim()) || filters.vaiTro !== "ALL" || filters.trangThai !== "ALL";
+
+    // ── Danh sách ────────────────────────────────────────────────
     const fetchUsers = useCallback(async () => {
+        const requestId = ++requestIdRef.current;
+        setLoading(true);
+        setLoadError(null);
+
         try {
-            const payload = buildUserFilterPayload(filters);
+            const res = await adminService.filterUsersByAdmin(buildUserFilterPayload(filters));
+            // Bỏ qua response cũ về muộn (đã đổi từ khóa / bộ lọc / trang trong lúc chờ).
+            if (requestId !== requestIdRef.current) return;
 
-            const res = await adminService.filterUsersByAdmin(payload);
-
-            if (res.data?.status === 200) {
-                const pageData = res.data.data;
-
-                setUsers(pageData.content || []);
-                setTotal(pageData.totalElements || 0);
+            if (res.data?.status !== 200) {
+                throw new Error(res.data?.message || LOAD_ERROR_MESSAGE);
             }
+
+            const pageData = res.data.data ?? {};
+            const content = pageData.content ?? [];
+            const totalElements = pageData.totalElements ?? 0;
+
+            // Trang trên URL vượt quá số trang thực tế → lùi về trang cuối có dữ liệu.
+            if (content.length === 0 && totalElements > 0 && filters.page > 0) {
+                const lastPage = Math.max(Math.ceil(totalElements / filters.size) - 1, 0);
+                setFilters((prev) => ({ ...prev, page: lastPage }));
+                return; // vẫn đang tải: lần gọi cho trang cuối sẽ tắt loading
+            }
+
+            setUsers(content);
+            setTotal(totalElements);
+            setLoading(false);
         } catch (error) {
+            if (requestId !== requestIdRef.current) return;
             console.error(error);
-            toast.error("Không thể tải danh sách người dùng");
+            setUsers([]);
+            setTotal(0);
+            setLoadError(error?.response?.data?.message || LOAD_ERROR_MESSAGE);
+            setLoading(false);
         }
     }, [filters]);
 
@@ -154,86 +231,141 @@ export default function ViewUserListByAdmin() {
         queueMicrotask(() => fetchUsers());
     }, [fetchUsers]);
 
+    // ── Thống kê toàn hệ thống (không phụ thuộc bộ lọc / trang đang xem) ──
+    const fetchStats = useCallback(async () => {
+        const countUsers = async (trangThai) => {
+            const res = await adminService.filterUsersByAdmin(
+                buildUserFilterPayload({ ...DEFAULT_FILTERS, trangThai, size: 1 })
+            );
+            return res.data?.data?.totalElements ?? 0;
+        };
+
+        try {
+            const [totalUsers, activeUsers] = await Promise.all([
+                countUsers("ALL"),
+                countUsers("1"),
+            ]);
+            // "Bị khóa" = mọi tài khoản trangThai ≠ 1: khớp badge trong bảng
+            // và điều kiện chặn đăng nhập ở backend.
+            setStats({
+                totalUsers,
+                activeUsers,
+                lockedUsers: Math.max(totalUsers - activeUsers, 0),
+            });
+        } catch (error) {
+            console.error(error);
+        }
+    }, []);
+
     useEffect(() => {
-        if (!location.state?.success) return;
-        if (toastShownRef.current) return;
+        queueMicrotask(() => fetchStats());
+    }, [fetchStats]);
 
+    // ── Debounce ô tìm kiếm: không gọi API ở mỗi lần gõ phím ──
+    useEffect(() => {
+        const keyword = searchText.trim();
+        const timer = setTimeout(() => {
+            setFilters((prev) => (prev.keyword === keyword ? prev : { ...prev, keyword, page: 0 }));
+        }, SEARCH_DEBOUNCE_MS);
+        return () => clearTimeout(timer);
+    }, [searchText]);
+
+    // ── Giữ bộ lọc + trang trên URL: mở chi tiết rồi "Quay lại" không mất vị trí ──
+    useEffect(() => {
+        const next = filtersToSearchParams(filters);
+        const nextSearch = next.toString();
+        if (nextSearch === syncedSearchRef.current) return;
+        syncedSearchRef.current = nextSearch;
+        setSearchParams(next, { replace: true });
+    }, [filters, setSearchParams]);
+
+    // ── Bảng rộng hơn khung (laptop + sidebar mở): cột Thao tác luôn ghim bên phải;
+    //    bật viền/bóng khi còn cột nằm khuất dưới nó (chưa cuộn hết sang phải). ──
+    useEffect(() => {
+        const scroller = tableEl?.parentElement;
+        if (!tableEl || !scroller || typeof ResizeObserver === "undefined") return undefined;
+
+        const update = () => {
+            setColumnsHidden(scroller.scrollLeft + scroller.clientWidth < scroller.scrollWidth - 1);
+        };
+        const observer = new ResizeObserver(update);
+        observer.observe(scroller);
+        observer.observe(tableEl);
+        scroller.addEventListener("scroll", update, { passive: true });
+        return () => {
+            observer.disconnect();
+            scroller.removeEventListener("scroll", update);
+        };
+    }, [tableEl]);
+
+    // ── Toast sau khi tạo người dùng (state từ trang Thêm người dùng) ──
+    useEffect(() => {
+        if (!location.state?.success || toastShownRef.current) return;
         toastShownRef.current = true;
-
         toast.success(location.state.message || "Tạo người dùng thành công");
-
-        navigate(location.pathname, { replace: true });
+        // Xóa state để F5 không hiện lại toast; giữ nguyên query bộ lọc.
+        navigate({ pathname: location.pathname, search: location.search }, { replace: true });
     }, [location, navigate]);
 
-    const pagination = {
-        pageNumber: filters.page,
-        pageSize: filters.size,
-        totalElements: total,
-        totalPages: Math.max(Math.ceil(total / filters.size), 1),
+    const applyKeyword = (keyword) => {
+        setFilters((prev) => (prev.keyword === keyword ? prev : { ...prev, keyword, page: 0 }));
     };
 
-    function handlePageChange(newPage) {
-        if (newPage >= 0 && newPage < pagination.totalPages) {
-            setFilters((prev) => ({
-                ...prev,
-                page: newPage,
-            }));
+    const changeFilter = (key, value) => {
+        setFilters((prev) => (prev[key] === value ? prev : { ...prev, [key]: value, page: 0 }));
+    };
+
+    const clearFilters = () => {
+        setSearchText("");
+        setFilters((prev) => ({ ...DEFAULT_FILTERS, size: prev.size }));
+    };
+
+    const isCurrentUser = (user) =>
+        currentUserId != null && String(user.id) === String(currentUserId);
+
+    const handleConfirmResetRandom = async () => {
+        if (!selectedUserForReset) return;
+        try {
+            setResettingUser(true);
+            await adminService.resetUserPasswordRandomByAdmin(selectedUserForReset.id);
+            toast.success(
+                `Đã cấp mật khẩu tạm thời và gửi về email cho ${selectedUserForReset.hoTen || selectedUserForReset.tenDangNhap}`
+            );
+            setSelectedUserForReset(null);
+        } catch (err) {
+            toast.error(err?.response?.data?.message || "Không thể cấp lại mật khẩu cho người dùng");
+        } finally {
+            setResettingUser(false);
         }
-    }
+    };
 
-    function handlePageSizeChange(newSize) {
-        setFilters((prev) => ({
-            ...prev,
-            size: newSize,
-            page: 0,
-        }));
-    }
+    // Trang chi tiết dùng `from` cho nút "Quay lại danh sách" (giữ nguyên bộ lọc + trang).
+    const detailLinkState = { from: `${location.pathname}${location.search}` };
 
-    const stats = useMemo(() => ({
-        totalUsers: total,
-        activeUsers: users.filter((u) => u.trangThai === 1).length,
-        lockedUsers: users.filter((u) => u.trangThai === 0).length,
-    }), [users, total]);
+    const statValue = (key) => (stats ? stats[key] : "—");
 
     return (
         <PageContainer className="space-y-5">
             {/* ── STATS ── */}
             <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-                    <div>
-                        <p className="text-xs font-medium text-bo-muted">Tổng người dùng</p>
-                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">
-                            {stats.totalUsers}
-                        </p>
-                    </div>
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary">
-                        <Users className="size-5" />
-                    </span>
-                </div>
-
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-                    <div>
-                        <p className="text-xs font-medium text-bo-muted">Hoạt động</p>
-                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">
-                            {stats.activeUsers}
-                        </p>
-                    </div>
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-success-soft text-bo-success">
-                        <CheckCircle2 className="size-5" />
-                    </span>
-                </div>
-
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-                    <div>
-                        <p className="text-xs font-medium text-bo-muted">Bị khóa</p>
-                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">
-                            {stats.lockedUsers}
-                        </p>
-                    </div>
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-danger-soft text-bo-danger">
-                        <XCircle className="size-5" />
-                    </span>
-                </div>
+                <KpiCard
+                    label="Tổng người dùng"
+                    value={statValue("totalUsers")}
+                    icon={<Users className="size-5" />}
+                    iconClass="bg-bo-primary-soft text-bo-primary"
+                />
+                <KpiCard
+                    label="Hoạt động"
+                    value={statValue("activeUsers")}
+                    icon={<CheckCircle2 className="size-5" />}
+                    iconClass="bg-bo-success-soft text-bo-success"
+                />
+                <KpiCard
+                    label="Bị khóa"
+                    value={statValue("lockedUsers")}
+                    icon={<XCircle className="size-5" />}
+                    iconClass="bg-bo-danger-soft text-bo-danger"
+                />
             </section>
 
             {/* ── FILTER ── */}
@@ -247,90 +379,55 @@ export default function ViewUserListByAdmin() {
                 <FilterBar
                     primary={
                         <SearchInput
-                            placeholder="Tên / username / email"
-                            value={filters.keyword}
-                            onChange={(e) =>
-                                setFilters((p) => ({
-                                    ...p,
-                                    keyword: e.target.value,
-                                    page: 0,
-                                }))
-                            }
-                            onClear={() =>
-                                setFilters((p) => ({ ...p, keyword: "", page: 0 }))
-                            }
+                            label="Tìm người dùng"
+                            placeholder="Tên, tên đăng nhập, email hoặc SĐT"
+                            value={searchText}
+                            onChange={(e) => setSearchText(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") applyKeyword(searchText.trim());
+                            }}
+                            onClear={() => {
+                                setSearchText("");
+                                applyKeyword("");
+                            }}
                         />
                     }
                     filters={
                         <>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className="h-9 justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                                    >
-                                        {ROLE_OPTIONS.find((r) => r.value === filters.vaiTro)?.label}
-                                        <ChevronDown className="size-4 opacity-60" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    align="start"
-                                    className="backoffice-user-menu z-50 w-48 rounded-lg border border-bo-border bg-white p-1 shadow-lg"
-                                >
-                                    {ROLE_OPTIONS.map((r) => (
-                                        <DropdownMenuItem
-                                            key={r.value}
-                                            onClick={() =>
-                                                setFilters((p) => ({ ...p, vaiTro: r.value, page: 0 }))
-                                            }
-                                            className="cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                        >
-                                            {r.label}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                            <FilterSelect
+                                label="Lọc theo vai trò"
+                                value={filters.vaiTro}
+                                options={ROLE_OPTIONS}
+                                onChange={(value) => changeFilter("vaiTro", value)}
+                            />
 
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className="h-9 justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                                    >
-                                        {STATUS_OPTIONS.find((s) => s.value === filters.trangThai)
-                                            ?.label}
-                                        <ChevronDown className="size-4 opacity-60" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    align="start"
-                                    className="backoffice-user-menu z-50 w-40 rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                            <FilterSelect
+                                label="Lọc theo trạng thái"
+                                value={filters.trangThai}
+                                options={STATUS_OPTIONS}
+                                onChange={(value) => changeFilter("trangThai", value)}
+                                className="sm:w-[170px]"
+                            />
+
+                            {hasActiveFilters ? (
+                                <Button
+                                    variant="ghost"
+                                    onClick={clearFilters}
+                                    className="h-9 gap-1.5 px-2.5 text-sm font-normal text-bo-muted hover:bg-bo-surface-subtle hover:text-bo-foreground"
                                 >
-                                    {STATUS_OPTIONS.map((s) => (
-                                        <DropdownMenuItem
-                                            key={s.value}
-                                            onClick={() =>
-                                                setFilters((p) => ({
-                                                    ...p,
-                                                    trangThai: s.value,
-                                                    page: 0,
-                                                }))
-                                            }
-                                            className="cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                        >
-                                            {s.label}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                                    <X className="size-4" />
+                                    Xóa lọc
+                                </Button>
+                            ) : null}
                         </>
                     }
                     actions={
-                        <Link to="/users/add">
-                            <Button className="bg-bo-primary text-white hover:bg-bo-primary-hover">
-                                + Thêm người dùng
-                            </Button>
-                        </Link>
+                        <Button asChild className="bg-bo-primary text-white hover:bg-bo-primary-hover">
+                            <Link to="/users/add">
+                                <Plus className="size-4" />
+                                Thêm người dùng
+                            </Link>
+                        </Button>
                     }
                 />
             </div>
@@ -338,227 +435,185 @@ export default function ViewUserListByAdmin() {
             {/* ── TABLE ── */}
             <TableShell
                 footer={
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        {/* Page size */}
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-bo-muted">Hiển thị:</span>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className="h-8 w-[120px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                                    >
-                                        {pagination.pageSize} dòng
-                                        <ChevronDown className="size-3.5 opacity-60" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    align="start"
-                                    className="backoffice-user-menu z-50 w-[120px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
-                                >
-                                    {[5, 10, 20, 50, 100].map((size) => (
-                                        <DropdownMenuItem
-                                            key={size}
-                                            onClick={() => handlePageSizeChange(size)}
-                                            className="cursor-pointer rounded-md px-2.5 py-1.5 text-xs text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                        >
-                                            {size} dòng
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-
-                        {/* Page info */}
-                        <p className="text-xs text-bo-muted">
-                            Hiển thị{" "}
-                            <span className="font-semibold text-bo-foreground">
-                                {pagination.pageNumber * pagination.pageSize + 1}
-                            </span>{" "}
-                            -{" "}
-                            <span className="font-semibold text-bo-foreground">
-                                {Math.min(
-                                    (pagination.pageNumber + 1) * pagination.pageSize,
-                                    pagination.totalElements
-                                )}
-                            </span>{" "}
-                            trong tổng số{" "}
-                            <span className="font-semibold text-bo-primary">
-                                {pagination.totalElements}
-                            </span>{" "}
-                            kết quả
-                        </p>
-
-                        {/* Navigation */}
-                        <div className="flex items-center gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handlePageChange(pagination.pageNumber - 1)}
-                                disabled={pagination.pageNumber === 0}
-                                className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                            >
-                                <ChevronLeft className="size-3.5" />
-                                Trước
-                            </Button>
-
-                            <div className="hidden items-center gap-1 sm:flex">
-                                {[...Array(Math.min(5, pagination.totalPages))].map((_, idx) => {
-                                    let pageNum;
-
-                                    if (pagination.totalPages <= 5) {
-                                        pageNum = idx;
-                                    } else if (pagination.pageNumber < 3) {
-                                        pageNum = idx;
-                                    } else if (pagination.pageNumber > pagination.totalPages - 4) {
-                                        pageNum = pagination.totalPages - 5 + idx;
-                                    } else {
-                                        pageNum = pagination.pageNumber - 2 + idx;
-                                    }
-
-                                    return (
-                                        <Button
-                                            key={idx}
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handlePageChange(pageNum)}
-                                            className={
-                                                pagination.pageNumber === pageNum
-                                                    ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
-                                                    : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
-                                            }
-                                        >
-                                            {pageNum + 1}
-                                        </Button>
-                                    );
-                                })}
-                            </div>
-
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handlePageChange(pagination.pageNumber + 1)}
-                                disabled={pagination.pageNumber >= pagination.totalPages - 1}
-                                className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                            >
-                                Sau
-                                <ChevronRight className="size-3.5" />
-                            </Button>
-                        </div>
-                    </div>
+                    <TablePagination
+                        page={filters.page}
+                        size={filters.size}
+                        total={total}
+                        sizeOptions={PAGE_SIZE_OPTIONS}
+                        onPageChange={(page) => {
+                            if (page < 0) return;
+                            setFilters((prev) => ({ ...prev, page }));
+                        }}
+                        onSizeChange={(size) =>
+                            setFilters((prev) =>
+                                prev.size === size ? prev : { ...prev, size, page: 0 }
+                            )
+                        }
+                    />
                 }
             >
-                <div className="max-h-[520px] overflow-y-auto">
-                    <table className="w-full min-w-[880px] text-sm">
-                        <thead className="sticky top-0 z-10">
+                {loading ? (
+                    <LoadingState label="Đang tải danh sách người dùng" />
+                ) : loadError ? (
+                    <ErrorState
+                        description={loadError}
+                        onRetry={() => {
+                            fetchUsers();
+                            if (!stats) fetchStats();
+                        }}
+                    />
+                ) : users.length === 0 ? (
+                    hasActiveFilters ? (
+                        <EmptyState
+                            icon={SearchX}
+                            title="Không tìm thấy người dùng phù hợp"
+                            description="Thử đổi từ khóa hoặc bỏ bớt bộ lọc."
+                            action={
+                                <Button
+                                    variant="outline"
+                                    onClick={clearFilters}
+                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                >
+                                    Xóa bộ lọc
+                                </Button>
+                            }
+                        />
+                    ) : (
+                        <EmptyState
+                            icon={Users}
+                            title="Chưa có người dùng"
+                            description="Thêm tài khoản cho nhân viên để họ đăng nhập vào hệ thống."
+                        />
+                    )
+                ) : (
+                    <table ref={setTableEl} className="w-full text-sm">
+                        <thead>
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    STT
-                                </th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Username
-                                </th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Họ tên
-                                </th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Email
-                                </th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    SĐT
-                                </th>
-                                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Vai trò
-                                </th>
-                                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Trạng thái
-                                </th>
-                                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Ngày tạo
-                                </th>
-                                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Thao tác
-                                </th>
+                                {COLUMNS.map((column) => (
+                                    <th
+                                        key={column.label}
+                                        scope="col"
+                                        className={cn(
+                                            "h-10 whitespace-nowrap px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted",
+                                            column.center ? "text-center" : "text-left",
+                                            column.sticky && "sticky right-0 z-[1] bg-bo-surface-subtle",
+                                            column.sticky && columnsHidden && STICKY_EDGE,
+                                            column.className
+                                        )}
+                                    >
+                                        {column.label}
+                                    </th>
+                                ))}
                             </tr>
                         </thead>
 
                         <tbody className="divide-y divide-bo-border">
-                            {users.length === 0 && (
-                                <tr>
-                                    <td colSpan={9} className="px-4 py-14 text-center text-sm text-bo-muted">
-                                        <div className="flex flex-col items-center gap-2">
-                                            <Users className="size-8 text-slate-300" />
-                                            Không có dữ liệu
-                                        </div>
-                                    </td>
-                                </tr>
-                            )}
+                            {users.map((u, index) => {
+                                const isSelf = isCurrentUser(u);
+                                const isActive = u.trangThai === 1;
 
-                            {users.map((u, index) => (
-                                <tr
-                                    key={u.id}
-                                    onClick={() => navigate(`/users/${u.id}`)}
-                                    className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
-                                >
-                                    <td className="px-3 py-3 text-center text-xs text-bo-muted">
-                                        {pagination.pageNumber * pagination.pageSize + index + 1}
-                                    </td>
+                                return (
+                                    <tr
+                                        key={u.id}
+                                        onClick={() => navigate(`/users/${u.id}`, { state: detailLinkState })}
+                                        className="group cursor-pointer transition-colors hover:bg-bo-surface-subtle"
+                                    >
+                                        <td className="px-3 py-3 text-center text-xs text-bo-muted">
+                                            {filters.page * filters.size + index + 1}
+                                        </td>
 
-                                    <td className="px-3 py-3 font-semibold text-bo-foreground">
-                                        <div className="flex items-center gap-2.5">
-                                            <UserAvatar userId={u.id} name={u.hoTen || u.tenDangNhap} avatarUrl={u.avatarUrl} size="xs" />
-                                            <span>{u.tenDangNhap}</span>
-                                        </div>
-                                    </td>
+                                        <td className="whitespace-nowrap px-3 py-3">
+                                            <div className="flex items-center gap-2.5">
+                                                <UserAvatar
+                                                    userId={u.id}
+                                                    name={u.hoTen || u.tenDangNhap}
+                                                    avatarUrl={u.avatarUrl}
+                                                    size="xs"
+                                                />
+                                                {/* Link để dùng được bằng bàn phím / mở tab mới; chặn bubble lên onClick của dòng */}
+                                                <Link
+                                                    to={`/users/${u.id}`}
+                                                    state={detailLinkState}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    title={u.tenDangNhap}
+                                                    className="block max-w-[180px] truncate rounded-sm font-semibold text-bo-foreground hover:text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
+                                                >
+                                                    {u.tenDangNhap}
+                                                </Link>
+                                                {isSelf ? (
+                                                    <span className="shrink-0 rounded-full bg-bo-primary-soft px-1.5 py-0.5 text-[10px] font-semibold text-bo-primary">
+                                                        Bạn
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                        </td>
 
-                                    <td className="px-3 py-3 text-bo-foreground">{u.hoTen}</td>
+                                        <td className="px-3 py-3 text-bo-foreground">
+                                            <div className="max-w-[200px] truncate" title={u.hoTen || undefined}>
+                                                {u.hoTen || "—"}
+                                            </div>
+                                        </td>
 
-                                    <td className="px-3 py-3 text-slate-600">{u.email}</td>
+                                        <td className="px-3 py-3 text-slate-600">
+                                            <div className="max-w-[220px] truncate" title={u.email || undefined}>
+                                                {u.email || "—"}
+                                            </div>
+                                        </td>
 
-                                    <td className="px-3 py-3 text-slate-600">{u.soDienThoai}</td>
+                                        <td className="whitespace-nowrap px-3 py-3 tabular-nums text-slate-600">
+                                            {u.soDienThoai || "—"}
+                                        </td>
 
-                                    <td className="px-3 py-3 text-center">
-                                        <StatusBadge
-                                            label={formatRole(u.vaiTro)}
-                                            tone="neutral"
-                                            dot={false}
-                                        />
-                                    </td>
+                                        <td className="px-3 py-3 text-center">
+                                            <StatusBadge
+                                                label={formatRole(u.vaiTro)}
+                                                tone="neutral"
+                                                dot={false}
+                                                className="whitespace-nowrap"
+                                            />
+                                        </td>
 
-                                    <td className="px-3 py-3 text-center">
-                                        <StatusBadge
-                                            label={u.trangThai === 1 ? "Hoạt động" : "Bị khóa"}
-                                            tone={u.trangThai === 1 ? "success" : "danger"}
-                                        />
-                                    </td>
+                                        <td className="px-3 py-3 text-center">
+                                            <StatusBadge
+                                                label={isActive ? "Hoạt động" : "Bị khóa"}
+                                                tone={isActive ? "success" : "danger"}
+                                                className="whitespace-nowrap"
+                                            />
+                                        </td>
 
-                                    <td className="px-3 py-3 text-center">
-                                        {u.ngayTao
-                                            ? new Date(u.ngayTao).toLocaleDateString("vi-VN")
-                                            : "-"}
-                                    </td>
-
-                                    <td className="px-3 py-3 text-center">
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="h-8 border-bo-danger/30 bg-white px-2.5 text-xs text-bo-danger hover:bg-bo-danger hover:text-white"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSelectedUserForReset(u);
-                                            }}
+                                        {/* Ô thao tác không điều hướng: bấm trượt nút (hoặc nút đang khóa) không mở chi tiết */}
+                                        <td
+                                            className={cn(
+                                                "sticky right-0 z-[1] cursor-default whitespace-nowrap bg-white px-3 py-3 text-center transition-colors group-hover:bg-bo-surface-subtle",
+                                                columnsHidden && STICKY_EDGE
+                                            )}
+                                            onClick={(e) => e.stopPropagation()}
+                                            title={
+                                                isSelf
+                                                    ? "Đây là tài khoản của bạn — hãy dùng chức năng Đổi mật khẩu"
+                                                    : undefined
+                                            }
                                         >
-                                            Reset
-                                        </Button>
-                                    </td>
-                                </tr>
-                            ))}
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                disabled={isSelf}
+                                                onClick={() => setSelectedUserForReset(u)}
+                                                className="border-bo-border bg-white text-xs text-bo-foreground hover:border-bo-primary/40 hover:bg-bo-primary-soft hover:text-bo-primary"
+                                            >
+                                                <KeyRound className="size-3.5" />
+                                                Cấp lại mật khẩu
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
-                </div>
+                )}
             </TableShell>
 
-            {/* ALERT DIALOG CẤP LẠI MẬT KHẨU */}
+            {/* ── DIALOG CẤP LẠI MẬT KHẨU ── */}
             <AlertDialog
                 open={Boolean(selectedUserForReset)}
                 onOpenChange={(open) => {
@@ -568,28 +623,41 @@ export default function ViewUserListByAdmin() {
                 <AlertDialogContent className="bg-white">
                     <AlertDialogHeader>
                         <AlertDialogTitle>Cấp lại mật khẩu người dùng</AlertDialogTitle>
-                        <AlertDialogDescription className="space-y-2 text-sm text-slate-600">
-                            <div>
-                                Bạn có muốn cấp lại mật khẩu cho tài khoản{" "}
-                                <span className="font-semibold text-slate-900">
-                                    {selectedUserForReset?.tenDangNhap}
-                                </span>{" "}
-                                {selectedUserForReset?.hoTen && `(${selectedUserForReset.hoTen})`}?
-                            </div>
-                            <div className="rounded-md bg-slate-50 p-3 text-xs text-slate-500 border border-slate-200">
-                                Email nhận mật khẩu:{" "}
-                                <span className="font-medium text-slate-800">
-                                    {selectedUserForReset?.email || "Chưa thiết lập email"}
-                                </span>
-                                {!selectedUserForReset?.email && (
-                                    <p className="text-amber-600 mt-1 font-medium">
-                                        ⚠️ Tài khoản này chưa có email, không thể gửi mật khẩu ngẫu nhiên tự động. Vui lòng cập nhật email cho người dùng trước.
+                        {/* asChild: Description mặc định render <p>; bên trong có <div>/<p> sẽ sai cấu trúc HTML */}
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-2 text-sm text-slate-600">
+                                <p>
+                                    Bạn có muốn cấp lại mật khẩu cho tài khoản{" "}
+                                    <span className="font-semibold text-slate-900">
+                                        {selectedUserForReset?.tenDangNhap}
+                                    </span>
+                                    {selectedUserForReset?.hoTen ? ` (${selectedUserForReset.hoTen})` : ""}?
+                                </p>
+                                <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                                    Email nhận mật khẩu:{" "}
+                                    <span className="font-medium text-slate-800">
+                                        {selectedUserForReset?.email || "Chưa thiết lập email"}
+                                    </span>
+                                    {!selectedUserForReset?.email ? (
+                                        <p className="mt-1 flex items-start gap-1.5 font-medium text-amber-600">
+                                            <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                                            Tài khoản này chưa có email nên không thể gửi mật khẩu tự động.
+                                            Vui lòng cập nhật email cho người dùng trước.
+                                        </p>
+                                    ) : null}
+                                </div>
+                                {selectedUserForReset && selectedUserForReset.trangThai !== 1 ? (
+                                    <p className="flex items-start gap-1.5 text-xs font-medium text-amber-600">
+                                        <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                                        Tài khoản đang bị khóa — người dùng chỉ đăng nhập được bằng mật khẩu
+                                        mới sau khi được mở khóa.
                                     </p>
-                                )}
+                                ) : null}
+                                <p className="text-xs text-slate-500">
+                                    Hệ thống sẽ tạo mật khẩu tạm thời ngẫu nhiên và gửi về email người dùng.
+                                    Sau khi đăng nhập, người dùng bắt buộc phải đổi mật khẩu mới.
+                                </p>
                             </div>
-                            <p className="text-xs text-slate-500">
-                                Hệ thống sẽ tự động tạo mật khẩu tạm thời ngẫu nhiên và gửi thư định dạng HTML về email người dùng. Sau khi đăng nhập, người dùng sẽ bắt buộc phải đổi mật khẩu mới.
-                            </p>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="gap-2 sm:justify-end">
@@ -602,7 +670,7 @@ export default function ViewUserListByAdmin() {
                             }}
                             className="bg-bo-primary text-white hover:bg-bo-primary-hover"
                         >
-                            {resettingUser ? "Đang gửi mail..." : "Gửi mật khẩu ngẫu nhiên"}
+                            {resettingUser ? "Đang gửi email..." : "Gửi mật khẩu ngẫu nhiên"}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

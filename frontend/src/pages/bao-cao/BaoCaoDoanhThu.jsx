@@ -224,7 +224,7 @@ export default function BaoCaoDoanhThu() {
         <KpiCard icon={<Percent className="size-5" />} label="Tỷ lệ lãi gộp TB" value={avgTyLe + "%"}
           sub="Trung bình các kỳ"
           valueClass="text-bo-foreground" iconClass="bg-slate-100 text-slate-600" />
-        <KpiCard icon={<Package className="size-5" />} label="Tổng đơn hàng" value={totalDon.toLocaleString()}
+        <KpiCard icon={<Package className="size-5" />} label="Tổng đơn hàng" value={totalDon.toLocaleString("vi-VN")}
           sub="Đơn hàng hoàn thành"
           valueClass="text-bo-warning" iconClass="bg-bo-warning-soft text-bo-warning" />
       </section>
@@ -446,7 +446,7 @@ export default function BaoCaoDoanhThu() {
                   <td className="px-4 py-3.5 text-right">
                     <StatusBadge label={`${row.tyLeLaiGop.toFixed(2)}%`} tone={laiTone(row.tyLeLaiGop)} dot={false} />
                   </td>
-                  <td className="px-4 py-3.5 text-right text-slate-600">{row.soLuongDon.toLocaleString()}</td>
+                  <td className="px-4 py-3.5 text-right text-slate-600">{row.soLuongDon.toLocaleString("vi-VN")}</td>
                 </tr>
               ))}
             </tbody>
@@ -460,7 +460,7 @@ export default function BaoCaoDoanhThu() {
                 <td className="px-4 py-3.5 text-right">
                   <StatusBadge label={`${avgTyLe}%`} tone="info" dot={false} />
                 </td>
-                <td className="px-4 py-3.5 text-right text-sm font-bold text-slate-600">{totalDon.toLocaleString()}</td>
+                <td className="px-4 py-3.5 text-right text-sm font-bold text-slate-600">{totalDon.toLocaleString("vi-VN")}</td>
               </tr>
             </tfoot>
           </table>

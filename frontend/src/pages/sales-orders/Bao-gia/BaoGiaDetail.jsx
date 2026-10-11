@@ -1,3 +1,4 @@
+import { formatCurrency } from "@/utils/formatters";
 import { createElement, useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { donBanHangService } from "@/services/donBanHangService";
@@ -152,7 +153,7 @@ export default function BaoGiaDetail() {
           className="inline-flex items-center gap-1.5 text-sm font-medium text-bo-primary transition-colors hover:text-bo-primary-hover"
         >
           <ArrowLeft className="size-4" />
-          Quay lại danh sách Báo giá
+          Quay lại danh sách báo giá
         </button>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -196,7 +197,7 @@ export default function BaoGiaDetail() {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         {/* ── LEFT: Thông tin chung ── */}
         <div className="lg:col-span-1">
-          <SurfaceCard title="Chi tiết Báo giá" description={donBanHang.soDonHang}>
+          <SurfaceCard title="Chi tiết báo giá" description={donBanHang.soDonHang}>
             <div className="space-y-4">
               {/* Info rows */}
               {infoRows.map(({ icon, label, value }) => (
@@ -223,17 +224,17 @@ export default function BaoGiaDetail() {
               <div className="space-y-2 border-t border-bo-border pt-4">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs font-semibold uppercase text-bo-muted">Tiền hàng</span>
-                  <span className="text-sm font-semibold text-bo-foreground">{(donBanHang.tienHang ?? 0).toLocaleString()}đ</span>
+                  <span className="text-sm font-semibold text-bo-foreground">{formatCurrency(donBanHang.tienHang)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs font-semibold uppercase text-bo-muted">Dự kiến phí VC</span>
-                  <span className="text-sm font-semibold text-bo-foreground">{(donBanHang.phiVanChuyen ?? 0).toLocaleString()}đ</span>
+                  <span className="text-sm font-semibold text-bo-foreground">{formatCurrency(donBanHang.phiVanChuyen)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3 border-t border-bo-border pt-2">
                   <span className="flex items-center gap-1 text-xs font-bold uppercase text-bo-foreground">
                     <Calculator className="size-3.5" />Tổng báo giá
                   </span>
-                  <span className="text-xl font-bold text-bo-foreground">{(donBanHang.tongCong ?? 0).toLocaleString()}đ</span>
+                  <span className="text-xl font-bold text-bo-foreground">{formatCurrency(donBanHang.tongCong)}</span>
                 </div>
               </div>
             </div>
@@ -273,10 +274,10 @@ export default function BaoGiaDetail() {
                         </span>
                       </td>
                       <td className="px-3 py-3 text-right text-sm italic text-bo-muted">
-                        {item.donGia.toLocaleString()}đ
+                        {formatCurrency(item.donGia)}
                       </td>
                       <td className="px-3 py-3 text-right">
-                        <span className="font-bold text-bo-foreground">{item.thanhTien.toLocaleString()}đ</span>
+                        <span className="font-bold text-bo-foreground">{formatCurrency(item.thanhTien)}</span>
                       </td>
                     </tr>
                   ))}

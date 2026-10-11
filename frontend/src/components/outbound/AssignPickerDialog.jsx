@@ -88,7 +88,7 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
         <DialogHeader>
           <DialogTitle className="text-bo-foreground">Phân công người nhặt</DialogTitle>
           <DialogDescription className="text-slate-600">
-            {pickList ? `Pick List ${pickList.maPickList}` : ""}
+            {pickList ? `Phiếu nhặt hàng ${pickList.maPickList}` : ""}
             {pickList?.tenNguoiNhat ? ` · đang giao cho ${pickList.tenNguoiNhat}` : " · chưa có người nhặt"}
           </DialogDescription>
         </DialogHeader>
@@ -143,7 +143,7 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
         ) : (
           <div className="flex items-start gap-3 rounded-lg border border-bo-border bg-bo-surface-subtle p-3 text-sm text-slate-700">
             <Users className="mt-0.5 size-4 shrink-0 text-bo-muted" />
-            <p>Bạn có thể nhận Pick List này để bắt đầu nhặt hàng. Quản lý kho có thể phân công lại sau.</p>
+            <p>Bạn có thể nhận phiếu nhặt hàng này để bắt đầu nhặt hàng. Quản lý kho có thể phân công lại sau.</p>
           </div>
         )}
 

@@ -10,6 +10,8 @@ import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.NguoiDungMapper;
 import com.dev.backend.services.impl.entities.NguoiDungService;
+import com.dev.backend.utils.ClientIpResolver;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -96,14 +98,22 @@ public class NguoiDungController {
 
     // gửi yêu cầu đổi mật khẩu
     @PostMapping("/forgot-password")
-    public ResponseEntity<ResponseData<String >> forgotPassword(@RequestBody ForgotPasswordRequest fpRequest) {
-        return nguoiDungService.forgotPassword(fpRequest);
+    public ResponseEntity<ResponseData<String >> forgotPassword(@RequestBody ForgotPasswordRequest fpRequest,
+                                                                HttpServletRequest request) {
+        // IP thật của client (sau reverse proxy) để giới hạn số lần gửi mã theo IP
+        return nguoiDungService.forgotPassword(fpRequest, ClientIpResolver.resolve(request));
 
+    }
+
+    // bước xác thực OTP: chỉ kiểm tra mã (không tiêu thụ), đúng thì FE mới cho sang bước nhập mật khẩu mới
+    @PostMapping("/verify-reset-otp")
+    public ResponseEntity<ResponseData<String>> verifyResetOtp(@Valid @RequestBody VerifyResetOtpRequest request) {
+        return nguoiDungService.verifyResetOtp(request);
     }
 
     // sau khi gửi yêu cầu đổi mk thì api này để đổi mk với otp
     @PostMapping("reset-password")
-    public ResponseEntity<ResponseData<String >> resetPassword(@RequestBody ResetPasswordRequest rpRequest){
+    public ResponseEntity<ResponseData<String >> resetPassword(@Valid @RequestBody ResetPasswordRequest rpRequest){
         return nguoiDungService.resetPassword(rpRequest);
 
     }

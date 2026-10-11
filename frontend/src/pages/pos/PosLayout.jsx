@@ -4,7 +4,7 @@ import ChangePasswordModal from '@/components/ChangePasswordModal';
 import '@/styles/print.css';
 
 const POS_DOCUMENT_TITLE = 'FCentric | Bán hàng tại quầy';
-const DEFAULT_DOCUMENT_TITLE = 'FCentric |  Quản lý kho & bán lẻ thời trang đa kênh';
+const DEFAULT_DOCUMENT_TITLE = 'FCentric | Quản lý kho & bán lẻ thời trang đa kênh';
 
 /**
  * Shell toàn màn hình cho Bán hàng tại quầy — KHÔNG có sidebar/header backoffice.

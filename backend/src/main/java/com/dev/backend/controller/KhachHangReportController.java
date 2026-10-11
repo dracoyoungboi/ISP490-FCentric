@@ -51,32 +51,32 @@ public class KhachHangReportController {
 
             case "ngay" -> {
                 if (tuNgay == null || denNgay == null)
-                    throw new IllegalArgumentException("loai=ngay yêu cầu tuNgay và denNgay (yyyy-MM-dd)");
+                    throw new IllegalArgumentException("Vui lòng chọn từ ngày và đến ngày");
                 yield khachHangReportRepository.baoCaoTheoNgay(
                         LocalDate.parse(tuNgay), LocalDate.parse(denNgay), khoId);
             }
 
             case "tuan" -> {
                 if (nam == null)
-                    throw new IllegalArgumentException("loai=tuan yêu cầu nam");
+                    throw new IllegalArgumentException("Vui lòng chọn năm");
                 yield khachHangReportRepository.baoCaoTheoTuan(nam, khoId);
             }
 
             case "thang" -> {
                 if (nam == null)
-                    throw new IllegalArgumentException("loai=thang yêu cầu nam");
+                    throw new IllegalArgumentException("Vui lòng chọn năm");
                 yield khachHangReportRepository.baoCaoTheoThang(nam, khoId);
             }
 
             case "nam" -> {
                 if (tuNam == null || denNam == null)
-                    throw new IllegalArgumentException("loai=nam yêu cầu tuNam và denNam");
+                    throw new IllegalArgumentException("Vui lòng chọn từ năm và đến năm");
                 yield khachHangReportRepository.baoCaoTheoNam(tuNam, denNam, khoId);
             }
 
             case "so_sanh" -> {
                 if (nam == null || thang == null)
-                    throw new IllegalArgumentException("loai=so_sanh yêu cầu nam và thang");
+                    throw new IllegalArgumentException("Vui lòng chọn năm và tháng cần so sánh");
                 // Tính tháng trước
                 int thangTruoc = (thang == 1) ? 12 : thang - 1;
                 int namTruoc   = (thang == 1) ? nam - 1 : nam;
@@ -84,7 +84,7 @@ public class KhachHangReportController {
             }
 
             default -> throw new IllegalArgumentException(
-                    "loai không hợp lệ. Chọn: ngay | tuan | thang | nam | so_sanh");
+                    "Kiểu báo cáo không hợp lệ");
         };
 
         return ResponseEntity.ok(

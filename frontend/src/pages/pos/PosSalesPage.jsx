@@ -30,6 +30,10 @@ const SEARCH_DEBOUNCE_MS = 250;
 const PAYOS_POLL_MS = 3000;
 // Tồn đổi do quầy khác bán: tải ngầm lại trang catalog đang xem theo chu kỳ (khi tab đang hiển thị).
 const CATALOG_REFRESH_MS = 30000;
+// Bộ lọc tồn kho khi mở POS: chỉ hiện hàng còn bán được (con_hang | het_hang | tat_ca).
+const DEFAULT_STOCK_FILTER = 'con_hang';
+// Giới hạn số SKU mỗi lần hỏi tồn cho giỏ (khớp giới hạn server).
+const MAX_STOCK_IDS = 200;
 
 function countCart(cart) {
   return cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -141,6 +145,44 @@ const withCartStock = (invoices, warehouseId, products) => {
   return changed ? next : invoices;
 };
 
+/**
+ * Dòng giỏ (cùng kho, hóa đơn không bị khóa) KHÔNG nằm trong trang catalog vừa tải thì không được
+ * withCartStock cập nhật — ví dụ đang lọc "Còn hàng" mà SKU trong giỏ vừa bị quầy khác bán hết nên
+ * biến khỏi danh sách. Hỏi riêng tồn của các dòng đó để vẫn đánh dấu được "Chỉ còn N"/hết hàng.
+ * Lỗi mạng: bỏ qua (lượt sau thử lại; server vẫn kiểm tồn khi thanh toán).
+ * isCurrent(): false nếu đã có lượt tải catalog mới hơn -> bỏ kết quả cũ, không ghi đè tồn mới hơn.
+ */
+const refreshMissingCartStock = (warehouseId, loadedItems, invoicesNow, setInvoices, signal, isCurrent) => {
+  const loaded = new Set(loadedItems.map((product) => product.id));
+  const missing = new Set();
+  invoicesNow.forEach((invoice) => {
+    if (invoice.warehouseId !== warehouseId || isFrozenInvoice(invoice)) return;
+    invoice.cart.forEach((line) => {
+      if (!loaded.has(line.product.id)) missing.add(line.product.id);
+    });
+  });
+  const ids = [...missing].slice(0, MAX_STOCK_IDS);
+  if (!ids.length) return;
+  posService.getStock(warehouseId, ids, { signal })
+    .then((stockById) => {
+      if (isCurrent && !isCurrent()) return;
+      const products = ids
+        .filter((id) => stockById?.[id] != null)
+        .map((id) => ({ id, stock: Number(stockById[id]) }));
+      setInvoices((current) => withCartStock(current, warehouseId, products));
+    })
+    .catch(() => { /* tải ngầm lỗi: giữ tồn đang có */ });
+};
+
+/**
+ * Danh sách co lại (đã bán bớt, hàng hết khi đang lọc "Còn hàng"...) trong khi đang xem trang cuối cũ
+ * -> server trả trang rỗng. Trả về trang cuối còn hợp lệ để tải lại; trang vẫn hợp lệ -> null.
+ */
+const pageToClamp = (requestedPage, pageData) => {
+  const lastPage = Math.max((pageData?.totalPages ?? 1) - 1, 0);
+  return requestedPage > lastPage ? lastPage : null;
+};
+
 /** Server báo thiếu hàng (409 insufficient): ghi số còn lại vào đúng dòng của hóa đơn đó. */
 const withInsufficientStock = (invoices, invoiceNumber, insufficient) => {
   const remaining = new Map(insufficient.map((item) => [item.bienTheSanPhamId, Math.max(0, Number(item.conLai) || 0)]));
@@ -227,9 +269,14 @@ export default function PosSalesPage({
   // Từ khóa gửi lên server: trễ 250ms sau lần gõ cuối để không gọi API ở MỖI phím.
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [catalogPage, setCatalogPage] = useState(0);
+  // Bộ lọc tồn kho của danh mục hàng (lọc ở server). Không lưu lại — mỗi lần mở POS về mặc định.
+  const [stockFilter, setStockFilter] = useState(DEFAULT_STOCK_FILTER);
   const [refreshKey, setRefreshKey] = useState(0);
   const [catalog, setCatalog] = useState({ items: [], totalElements: 0, page: 0, pageCount: 1, loading: false, error: null });
   const catalogSeq = useRef(0);
+  // Bản mới nhất của danh sách hóa đơn cho các lượt tải catalog (không đưa invoices vào deps
+  // để sửa giỏ không kéo theo tải lại catalog).
+  const invoicesRef = useRef(invoices);
   const searchRef = useRef(null);
   const keyboardContext = useRef(null);
   // Mất mạng (navigator.onLine=false) -> chặn gửi thanh toán MỚI; hóa đơn đang treo vẫn xem được.
@@ -268,7 +315,11 @@ export default function PosSalesPage({
     return () => window.clearTimeout(id);
   }, [search]);
 
-  // ===== Catalog: fetch theo (kho của hóa đơn đang mở, từ khóa, trang) =====
+  useEffect(() => {
+    invoicesRef.current = invoices;
+  }, [invoices]);
+
+  // ===== Catalog: fetch theo (kho của hóa đơn đang mở, từ khóa, bộ lọc tồn, trang) =====
   useEffect(() => {
     if (!warehouseId) {
       catalogSeq.current += 1;
@@ -278,9 +329,20 @@ export default function PosSalesPage({
     const controller = new AbortController();
     const seq = ++catalogSeq.current;
     setCatalog((prev) => ({ ...prev, loading: true, error: null }));
-    posService.getCatalog(warehouseId, { q: debouncedSearch, page: catalogPage, size: PAGE_SIZE, signal: controller.signal })
+    posService.getCatalog(warehouseId, {
+      q: debouncedSearch,
+      trangThaiTon: stockFilter,
+      page: catalogPage,
+      size: PAGE_SIZE,
+      signal: controller.signal,
+    })
       .then((pageData) => {
         if (seq !== catalogSeq.current) return;
+        const clampedPage = pageToClamp(catalogPage, pageData);
+        if (clampedPage !== null) {
+          setCatalogPage(clampedPage); // tải lại đúng trang cuối còn dữ liệu
+          return;
+        }
         const items = (pageData?.content ?? []).map(toPosProduct);
         setCatalog({
           items,
@@ -291,6 +353,8 @@ export default function PosSalesPage({
           error: null,
         });
         setInvoices((current) => withCartStock(current, warehouseId, items));
+        refreshMissingCartStock(warehouseId, items, invoicesRef.current, setInvoices, controller.signal,
+          () => seq === catalogSeq.current);
       })
       .catch((error) => {
         if (seq !== catalogSeq.current) return;
@@ -298,11 +362,11 @@ export default function PosSalesPage({
         setCatalog((prev) => ({ ...prev, loading: false, error }));
       });
     return () => controller.abort();
-  }, [warehouseId, debouncedSearch, catalogPage, refreshKey]);
+  }, [warehouseId, debouncedSearch, stockFilter, catalogPage, refreshKey]);
 
   // ===== Tải ngầm tồn: quay lại tab (focus/visibilitychange) và mỗi 30 giây khi tab đang hiển thị =====
   // Không bật trạng thái tải, giữ danh sách + vị trí cuộn; bỏ kết quả nếu người bán đã đổi
-  // kho/từ khóa/trang hoặc đang tải lại có hiển thị (catalogSeq đã tăng).
+  // kho/từ khóa/bộ lọc/trang hoặc đang tải lại có hiển thị (catalogSeq đã tăng).
   useEffect(() => {
     if (!warehouseId) return undefined;
     let controller = null;
@@ -311,9 +375,20 @@ export default function PosSalesPage({
       const seq = catalogSeq.current;
       const current = new AbortController();
       controller = current;
-      posService.getCatalog(warehouseId, { q: debouncedSearch, page: catalogPage, size: PAGE_SIZE, signal: current.signal })
+      posService.getCatalog(warehouseId, {
+        q: debouncedSearch,
+        trangThaiTon: stockFilter,
+        page: catalogPage,
+        size: PAGE_SIZE,
+        signal: current.signal,
+      })
         .then((pageData) => {
           if (seq !== catalogSeq.current) return;
+          const clampedPage = pageToClamp(catalogPage, pageData);
+          if (clampedPage !== null) {
+            setCatalogPage(clampedPage);
+            return;
+          }
           const items = (pageData?.content ?? []).map(toPosProduct);
           setCatalog((prev) => (prev.loading ? prev : {
             ...prev,
@@ -323,6 +398,9 @@ export default function PosSalesPage({
             error: null,
           }));
           setInvoices((invoicesNow) => withCartStock(invoicesNow, warehouseId, items));
+          // Lượt tải ngầm không giữ controller tới khi hỏi tồn xong -> dùng catalogSeq để bỏ kết quả cũ.
+          refreshMissingCartStock(warehouseId, items, invoicesRef.current, setInvoices, current.signal,
+            () => seq === catalogSeq.current);
         })
         .catch(() => { /* tải ngầm lỗi (mất mạng...): giữ danh sách đang hiện, lượt sau thử lại */ })
         .finally(() => { if (controller === current) controller = null; });
@@ -337,7 +415,7 @@ export default function PosSalesPage({
       window.clearInterval(timer);
       controller?.abort();
     };
-  }, [warehouseId, debouncedSearch, catalogPage]);
+  }, [warehouseId, debouncedSearch, stockFilter, catalogPage]);
 
   // ===== Sau F5: hỏi lại trạng thái các mã QR payOS đang chờ (tiền có thể đã về trong lúc tải lại) =====
   useEffect(() => {
@@ -428,6 +506,13 @@ export default function PosSalesPage({
 
   const onSearch = (value) => {
     setSearch(value);
+    setCatalogPage(0);
+  };
+
+  // Đổi bộ lọc -> quay về trang 1 (trang cũ có thể không còn tồn tại sau khi lọc).
+  const onStockFilterChange = (value) => {
+    if (value === stockFilter) return;
+    setStockFilter(value);
     setCatalogPage(0);
   };
 
@@ -641,7 +726,7 @@ export default function PosSalesPage({
         return;
       }
       if (matches.length > 1) {
-        setBarcodeError('Mã vạch khớp nhiều biến thể — vui lòng chọn thủ công từ danh mục để tránh bán nhầm size/màu.');
+        setBarcodeError('Mã vạch khớp nhiều biến thể — vui lòng chọn thủ công từ danh mục để tránh bán nhầm kích cỡ/màu.');
         return;
       }
       const product = toPosProduct(matches[0]);
@@ -809,12 +894,12 @@ export default function PosSalesPage({
         setPaymentError(res.errorMessage || 'Giao dịch đã thất bại trước đó');
         setDialog(null);
       } else {
-        showToast('Server chưa có kết quả cho giao dịch này. Có thể thử lại cùng mã giao dịch.', 'warning');
+        showToast('Máy chủ chưa có kết quả cho giao dịch này. Có thể thử lại cùng mã giao dịch.', 'warning');
       }
     } catch (error) {
       if (error?.response?.status === 404) {
         // Kết quả chưa rõ (server đã rollback): được phép thử lại CÙNG key + CÙNG payload.
-        showToast('Giao dịch chưa có kết quả trên server — có thể thử lại cùng mã giao dịch.', 'warning');
+        showToast('Giao dịch chưa có kết quả trên máy chủ — có thể thử lại cùng mã giao dịch.', 'warning');
       } else {
         showToast(error?.response?.data?.message || 'Không thể kiểm tra kết quả. Vui lòng thử lại.', 'error');
       }
@@ -849,7 +934,7 @@ export default function PosSalesPage({
     // với key MỚI (payload đã đổi giá nên không tái dùng key cũ).
     setPriceChangeInfo(null);
     setDialog(null);
-    showToast('Giá đã được cập nhật về giá server. Vui lòng kiểm tra tổng mới và bấm Thanh toán lại.', 'warning');
+    showToast('Giá đã được cập nhật theo giá mới nhất trên hệ thống. Vui lòng kiểm tra tổng mới và bấm Thanh toán lại.', 'warning');
   };
 
   const openPayment = () => {
@@ -1305,12 +1390,15 @@ export default function PosSalesPage({
           onPageChange={(nextPage) => setCatalogPage(Math.max(0, nextPage))}
           onRetry={() => setRefreshKey((key) => key + 1)}
           onSearch={onSearch}
+          onStockFilterChange={onStockFilterChange}
           page={catalog.page}
           pageCount={catalog.pageCount}
           pageSize={PAGE_SIZE}
           products={catalog.items}
+          resultQuery={debouncedSearch}
           search={search}
           searchRef={searchRef}
+          stockFilter={stockFilter}
           totalElements={catalog.totalElements}
         />
 

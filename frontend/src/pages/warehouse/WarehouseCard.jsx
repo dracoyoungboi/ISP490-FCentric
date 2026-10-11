@@ -41,7 +41,7 @@ export default function WarehouseCard({ warehouse, onView, onEdit, onDelete }) {
                         <User className="w-4 h-4 text-gray-400" />
                         <span className="text-sm text-gray-600">Quản lý:</span>
                     </div>
-                    <span className="text-sm font-medium">{warehouse.quanLy?.hoTen || 'N/A'}</span>
+                    <span className="text-sm font-medium">{warehouse.quanLy?.hoTen || '—'}</span>
                 </div>
 
                 <div className="flex items-center justify-between">

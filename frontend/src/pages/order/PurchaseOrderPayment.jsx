@@ -157,7 +157,7 @@ export default function PurchaseOrderPayment() {
           <SurfaceCard contentClassName="p-0 sm:p-0">
             <ErrorState
               title="Không tìm thấy thông tin giao dịch"
-              description="Giao dịch không tồn tại hoặc đã bị xoá khỏi hệ thống."
+              description="Giao dịch không tồn tại hoặc đã bị xóa khỏi hệ thống."
             />
             <div className="flex justify-center pb-10">
               <Button
@@ -211,7 +211,7 @@ export default function PurchaseOrderPayment() {
                     key={f.key}
                     className={`flex cursor-pointer items-center justify-between gap-3 rounded-md px-3.5 py-2.5 transition-colors hover:bg-bo-surface-subtle ${f.highlight ? "border border-blue-200 bg-bo-primary-soft" : ""}`}
                     onClick={() => f.value && copy(f.value, f.key)}
-                    title="Click để sao chép"
+                    title="Bấm để sao chép"
                   >
                     <span className="shrink-0 text-xs font-medium text-bo-muted">{f.label}</span>
                     <div className="flex min-w-0 items-center gap-2">

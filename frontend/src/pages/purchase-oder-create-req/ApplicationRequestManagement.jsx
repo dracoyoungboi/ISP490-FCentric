@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "@/utils/apiError";
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -60,7 +61,7 @@ export default function ApplicationRequestManagement() {
             const data = await applicationRequestService.getAllRequests();
             setRequests(data);
         } catch (e) {
-            notify('error', 'Không thể tải danh sách yêu cầu: ' + (e?.response?.data?.message || e.message));
+            notify('error', getApiErrorMessage(e, 'Không thể tải danh sách yêu cầu'));
         } finally {
             setLoading(false);
         }
@@ -375,7 +376,7 @@ export default function ApplicationRequestManagement() {
                             }
                         </div>
                         <DialogTitle className="m-0 text-base font-semibold text-bo-foreground">
-                            {reviewDialog?.action === 'approve' ? 'Xác nhận Duyệt Yêu cầu' : 'Xác nhận Từ chối Yêu cầu'}
+                            {reviewDialog?.action === 'approve' ? 'Xác nhận duyệt yêu cầu' : 'Xác nhận từ chối yêu cầu'}
                         </DialogTitle>
                     </div>
                     <div className="p-5">

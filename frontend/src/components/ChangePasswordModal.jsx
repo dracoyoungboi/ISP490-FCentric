@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "@/utils/apiError";
 import { useState } from "react";
 import { AlertCircle, Eye, EyeOff, Lock } from "lucide-react";
 
@@ -97,7 +98,7 @@ export default function ChangePasswordModal({ open, onOpenChange, onSuccess, for
       onSuccess?.();
     } catch (err) {
       setErrorMsg(
-        err?.response?.data?.message || err?.message || "Đổi mật khẩu thất bại"
+        getApiErrorMessage(err, "Đổi mật khẩu thất bại")
       );
     } finally {
       setSubmitting(false);

@@ -24,6 +24,8 @@ import com.dev.backend.services.EmailService;
 import com.dev.backend.services.JwtService;
 import com.dev.backend.services.MinioService;
 import com.dev.backend.services.impl.BaseServiceImpl;
+import com.dev.backend.services.impl.utils.OtpMailDispatcher;
+import com.dev.backend.services.impl.utils.PasswordResetRateLimiter;
 import com.dev.backend.utils.AvatarImageValidator;
 import jakarta.persistence.EntityManager;
 import org.slf4j.Logger;
@@ -42,6 +44,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -78,8 +81,13 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     @Autowired
     private TepTinService tepTinService;
 
-    private static final Logger logger = LoggerFactory.getLogger(NguoiDungService.class);
+    @Autowired
+    private PasswordResetRateLimiter passwordResetRateLimiter;
 
+    @Autowired
+    private OtpMailDispatcher otpMailDispatcher;
+
+    private static final Logger logger = LoggerFactory.getLogger(NguoiDungService.class);
 
     @Override
     protected EntityManager getEntityManager() {
@@ -92,7 +100,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
     private final NguoiDungRepository nguoiDungRepository = (NguoiDungRepository) super.getRepository();
 
-    // SĐT di động Việt Nam (định dạng trong nước): 10 chữ số, bắt đầu bằng 03/05/07/08/09
+    // SĐT di động Việt Nam (định dạng trong nước): 10 chữ số, bắt đầu bằng
+    // 03/05/07/08/09
     private static final Pattern VIETNAM_PHONE_PATTERN = Pattern.compile("^0[35789][0-9]{8}$");
 
     // SĐT là tùy chọn: null/blank hợp lệ; có giá trị thì phải đúng định dạng
@@ -109,20 +118,20 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         return (phone == null || phone.isBlank()) ? null : phone.trim();
     }
 
-
     @Transactional
     public ResponseEntity<ResponseData<LoginResponse>> login(LoginRequest loginRequest) {
-        //check thông tin user đã có trong hệ thống hay chưa
-        Optional<NguoiDung> findingNguoiDung = nguoiDungRepository.findByTenDangNhapOrEmailOrSoDienThoai(
-                loginRequest.getUsername(),
-                loginRequest.getUsername(),
-                loginRequest.getUsername());
+        String rawPassword = loginRequest.getPassword() == null ? "" : loginRequest.getPassword();
+        // check thông tin user đã có trong hệ thống hay chưa
+        Optional<NguoiDung> findingNguoiDung = resolveAccount(loginRequest.getUsername());
         if (findingNguoiDung.isEmpty()) {
-            throw new CommonException("Tên đăng nhập không hợp lệ");
+            // vẫn chạy BCrypt để thời gian phản hồi giống trường hợp sai mật khẩu (không lộ
+            // tài khoản có tồn tại)
+            passwordEncoder.matches(rawPassword, dummyPasswordHash());
+            throw new CommonException(LOGIN_FAILED_MESSAGE);
         }
         NguoiDung nguoiDung = findingNguoiDung.get();
-        if (!passwordEncoder.matches(loginRequest.getPassword(), nguoiDung.getMatKhauHash())) {
-            throw new CommonException("Mật khẩu không chính xác");
+        if (!passwordEncoder.matches(rawPassword, nguoiDung.getMatKhauHash())) {
+            throw new CommonException(LOGIN_FAILED_MESSAGE);
         }
 
         // Tài khoản bị khóa (trangThai != 1) không được đăng nhập — đọc trực tiếp từ DB
@@ -130,15 +139,45 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             throw new AccountDisabledException();
         }
 
+        return ResponseEntity.ok(
+                ResponseData.<LoginResponse>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(
+                                LoginResponse.builder()
+                                        .nguoiDung(nguoiDungMapper.toDto(nguoiDung))
+                                        .token(issueToken(nguoiDung))
+                                        .build())
+                        .message("Success")
+                        .error(null)
+                        .build());
+    }
+
+    // Sai tên đăng nhập hay sai mật khẩu đều trả cùng thông báo (không lộ tài khoản
+    // có tồn tại)
+    static final String LOGIN_FAILED_MESSAGE = "Tên đăng nhập hoặc mật khẩu không chính xác";
+
+    private volatile String dummyPasswordHash;
+
+    private String dummyPasswordHash() {
+        if (dummyPasswordHash == null) {
+            dummyPasswordHash = passwordEncoder.encode(UUID.randomUUID().toString());
+        }
+        return dummyPasswordHash;
+    }
+
+    // Token đăng nhập kèm claim "cv" (dấu vân tay mật khẩu hiện tại): đổi/đặt lại
+    // mật khẩu -> token cũ bị thu hồi
+    private String issueToken(NguoiDung nguoiDung) {
         // lấy danh sách phân quyền người dùng để truyền ra token
-        List<PhanQuyenNguoiDungKho> phanQuyenNguoiDungKhos = phanQuyenNguoiDungKhoService.findByNguoiDungIdAndActive(nguoiDung.getId());
+        List<PhanQuyenNguoiDungKho> phanQuyenNguoiDungKhos = phanQuyenNguoiDungKhoService
+                .findByNguoiDungIdAndActive(nguoiDung.getId());
 
         // lấy ra danh sách vai trò cho người dùng
         Set<String> vaiTros = new HashSet<>();
         vaiTros.add(nguoiDung.getVaiTro());
 
-        //tạo token người dùng
-        String token = jwtService.generateTokenWithPermissions(
+        // tạo token người dùng
+        return jwtService.generateTokenWithPermissions(
                 nguoiDung.getId(),
                 nguoiDung.getTenDangNhap(),
                 nguoiDung.getHoTen(),
@@ -149,23 +188,9 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                 nguoiDung.getNgayTao(),
                 nguoiDung.getNgayCapNhat(),
                 pqndkMapper.toDtoList(phanQuyenNguoiDungKhos),
-                "Google"
-        );
-        return ResponseEntity.ok(
-                ResponseData.<LoginResponse>builder()
-                        .status(HttpStatus.OK.value())
-                        .data(
-                                LoginResponse.builder()
-                                        .nguoiDung(nguoiDungMapper.toDto(nguoiDung))
-                                        .token(token)
-                                        .build()
-                        )
-                        .message("Success")
-                        .error(null)
-                        .build()
-        );
+                "Google",
+                jwtService.credentialVersion(nguoiDung.getMatKhauHash()));
     }
-
 
     @Transactional
     public ResponseEntity<ResponseData<NguoiDungDto>> update(UpdateNguoiDungRequest request) {
@@ -206,7 +231,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                 nguoiDung.setEmail(newEmail);
             }
         }
-        // SĐT để trống = không thay đổi (không phải xóa); có giá trị thì phải đúng định dạng
+        // SĐT để trống = không thay đổi (không phải xóa); có giá trị thì phải đúng định
+        // dạng
         String soDienThoai = normalizePhone(request.getSoDienThoai());
         if (soDienThoai != null) {
             validatePhone(soDienThoai);
@@ -219,11 +245,11 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                         .data(nguoiDungMapper.toDto(nguoiDung))
                         .message("Cập nhật thông tin người dùng thành công")
                         .error(null)
-                        .build()
-        );
+                        .build());
     }
 
-    // lấy người dùng đang đăng nhập từ context (token) — không tin tưởng id từ frontend
+    // lấy người dùng đang đăng nhập từ context (token) — không tin tưởng id từ
+    // frontend
     private NguoiDung getCurrentUserFromContext() {
         NguoiDungAuthInfo info = com.dev.backend.config.SecurityContextHolder.getUser();
         if (info == null || info.getId() == null) {
@@ -234,15 +260,16 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     }
 
     // Vai trò được hiển thị mục "Kho phụ trách" trên hồ sơ cá nhân.
-    // quan_tri_vien và khach_hang luôn ẩn — phân quyền kho thực tế (hoạt động + còn hiệu lực) mới là nguồn đúng.
+    // quan_tri_vien và khach_hang luôn ẩn — phân quyền kho thực tế (hoạt động + còn
+    // hiệu lực) mới là nguồn đúng.
     private static final Set<String> EMPLOYEE_ROLES = Set.of(
             IRoleType.quan_ly_kho,
             IRoleType.nhan_vien_kho,
             IRoleType.nhan_vien_ban_hang,
-            IRoleType.nhan_vien_mua_hang
-    );
+            IRoleType.nhan_vien_mua_hang);
 
-    // Điền danh sách kho phụ trách (chỉ mã + tên, đã lọc hoạt động/hiệu lực/ngày bắt đầu) vào DTO hồ sơ
+    // Điền danh sách kho phụ trách (chỉ mã + tên, đã lọc hoạt động/hiệu lực/ngày
+    // bắt đầu) vào DTO hồ sơ
     private void fillKhoPhuTrachActive(NguoiDungDto dto, NguoiDung nguoiDung) {
         String vaiTro = nguoiDung.getVaiTro();
         if (vaiTro == null || !EMPLOYEE_ROLES.contains(vaiTro)) {
@@ -250,8 +277,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             return;
         }
         dto.setKhoPhuTrachActive(
-                phanQuyenNguoiDungKhoService.findActiveKhoInfoByNguoiDungId(nguoiDung.getId())
-        );
+                phanQuyenNguoiDungKhoService.findActiveKhoInfoByNguoiDungId(nguoiDung.getId()));
     }
 
     public ResponseEntity<ResponseData<NguoiDungDto>> getMe() {
@@ -264,8 +290,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                         .data(dto)
                         .message("Success")
                         .error(null)
-                        .build()
-        );
+                        .build());
     }
 
     @Transactional
@@ -292,21 +317,22 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                         .data(dto)
                         .message("Cập nhật hồ sơ thành công")
                         .error(null)
-                        .build()
-        );
+                        .build());
     }
 
     public Optional<NguoiDung> findByEmail(String email) {
         return nguoiDungRepository.findByEmail(email);
     }
 
-    // ===== Ảnh đại diện (tự phục vụ — user luôn lấy từ context đăng nhập, không nhận id từ client) =====
+    // ===== Ảnh đại diện (tự phục vụ — user luôn lấy từ context đăng nhập, không
+    // nhận id từ client) =====
 
     /**
      * Upload/đổi ảnh đại diện của người đang đăng nhập.
      * Thứ tự an toàn: validate nội dung -> upload object MinIO TRƯỚC -> lưu DB.
      * DB lỗi thì transaction rollback (gồm dòng tep_tin mới) + xóa object mồ côi.
-     * Ảnh cũ chỉ bị xóa SAU khi DB đã commit (MinIO không rollback theo transaction).
+     * Ảnh cũ chỉ bị xóa SAU khi DB đã commit (MinIO không rollback theo
+     * transaction).
      */
     @Transactional
     public ResponseEntity<ResponseData<NguoiDungDto>> updateMyAvatar(MultipartFile file) {
@@ -315,7 +341,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         NguoiDung nguoiDung = getCurrentUserFromContext();
         TepTin tepTinCu = nguoiDung.getAvatarTepTin();
 
-        // Tên lưu trữ sinh tự động, phần mở rộng lấy từ format thật của nội dung (không tin tên tệp)
+        // Tên lưu trữ sinh tự động, phần mở rộng lấy từ format thật của nội dung (không
+        // tin tên tệp)
         String objectName;
         try {
             objectName = minioService.upload(file, "avatars/" + UUID.randomUUID() + "." + format);
@@ -342,7 +369,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             nguoiDung.setAvatarTepTin(tepTinMoi);
             nguoiDungRepository.save(nguoiDung); // ngayCapNhat tự cập nhật (@Generated UPDATE)
         } catch (Exception e) {
-            // Dòng tep_tin mới rollback theo transaction; object MinIO không rollback -> xóa thủ công
+            // Dòng tep_tin mới rollback theo transaction; object MinIO không rollback ->
+            // xóa thủ công
             minioService.delete(objectName);
             logger.error("Lưu ảnh đại diện (user {}) vào DB thất bại: {}", nguoiDung.getId(), e.getMessage());
             throw new CommonException("Lưu ảnh đại diện thất bại. Vui lòng thử lại");
@@ -360,8 +388,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                         .data(dto)
                         .message("Cập nhật ảnh đại diện thành công")
                         .error(null)
-                        .build()
-        );
+                        .build());
     }
 
     /**
@@ -387,16 +414,15 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                         .data(dto)
                         .message("Xóa ảnh đại diện thành công")
                         .error(null)
-                        .build()
-        );
+                        .build());
     }
 
     /**
      * Xóa ảnh cũ sau khi DB đã commit (MinIO không rollback theo transaction).
      * - Kiểm tra không còn người dùng nào tham chiếu tệp cũ mới xóa (tránh xóa
-     *   tệp đang được chia sẻ hoặc đang được request song song giữ làm ảnh hiện tại).
+     * tệp đang được chia sẻ hoặc đang được request song song giữ làm ảnh hiện tại).
      * - Lỗi dọn dẹp chỉ log cảnh báo, KHÔNG làm response của lần lưu đã thành công
-     *   bị báo lỗi.
+     * bị báo lỗi.
      */
     private void cleanupOldAvatarAfterCommit(TepTin tepTinCu) {
         Runnable cleanup = () -> {
@@ -428,35 +454,190 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         }
     }
 
+    // OTP đặt lại mật khẩu: hiệu lực 5 phút, tối đa 5 lần nhập sai
+    static final long RESET_OTP_TTL_SECONDS = 300;
+    static final int RESET_OTP_MAX_FAILED_ATTEMPTS = 5;
+    private static final String RESET_OTP_INVALID_MESSAGE = "Mã xác nhận không tồn tại hoặc đã hết hạn";
+    private static final int BCRYPT_MAX_PASSWORD_BYTES = 72;
+    // mã lỗi trong data.code để FE phân biệt: sai mã (nhập lại) / hết hạn-huỷ (phải
+    // gửi lại mã)
+    static final String RESET_OTP_WRONG_CODE = "RESET_OTP_WRONG";
+    static final String RESET_OTP_EXPIRED_CODE = "RESET_OTP_EXPIRED";
 
-    public ResponseEntity<ResponseData<String>> forgotPassword(ForgotPasswordRequest fpRequest) {
-        NguoiDung nguoiDung = nguoiDungRepository.findByTenDangNhapOrEmailOrSoDienThoai(
-                fpRequest.getUsername(),
-                fpRequest.getUsername(),
-                fpRequest.getUsername()).orElseThrow(
-                () -> new CommonException("Không tìm thấy tài khoản")
-        );
+    private static boolean isResetOtpOf(OtpScheduleObj otpScheduleObj, String email) {
+        return otpScheduleObj.getType() == OtpType.RESET_PASSWORD
+                && Objects.equals(otpScheduleObj.getEmail(), email);
+    }
 
-        //Tạo OTP
+    // Phản hồi chung cho mọi yêu cầu hợp lệ: không cho biết tài khoản có tồn tại /
+    // bị khoá / có email hay không
+    static final String FORGOT_PASSWORD_GENERIC_MESSAGE = "Nếu thông tin tài khoản hợp lệ, mã OTP đã được gửi tới email đã đăng ký. Mã có hiệu lực 5 phút.";
+
+    public ResponseEntity<ResponseData<String>> forgotPassword(ForgotPasswordRequest fpRequest, String clientIp) {
+        String identifier = fpRequest.getUsername() == null ? "" : fpRequest.getUsername().trim();
+        if (identifier.isEmpty()) {
+            throw new CommonException("Vui lòng nhập email / tên đăng nhập");
+        }
+
+        // tài khoản sẽ nhận email (null: không tồn tại / bị khoá / chưa có email ->
+        // không gửi, chỉ ghi log)
+        NguoiDung recipient = resolveAccount(identifier).filter(this::canReceiveResetOtp).orElse(null);
+
+        // giới hạn theo chuỗi nhập + IP áp dụng cho MỌI yêu cầu (kể cả tài khoản không
+        // tồn tại) -> phản hồi giống nhau;
+        // theo tài khoản + quota hệ thống chỉ khi thực sự gửi. Kiểm tra + ghi nhận
+        // trong 1 lần (bị chặn thì không ghi gì).
+        PasswordResetRateLimiter.Decision decision = passwordResetRateLimiter.tryAcquire(
+                identifier.toLowerCase(Locale.ROOT), clientIp, recipient == null ? null : recipient.getId());
+        if (!decision.allowed()) {
+            logger.warn("[forgotPassword] Vượt giới hạn gửi OTP ({}), chờ {} giây", decision.reason(),
+                    decision.retryAfterSeconds());
+        }
+        throwIfRateLimited(decision);
+
+        if (recipient != null) {
+            sendResetOtp(recipient);
+        }
+
+        return ResponseEntity.ok(
+                ResponseData.<String>builder()
+                        .status(HttpStatus.OK.value())
+                        .data("Success")
+                        .message(FORGOT_PASSWORD_GENERIC_MESSAGE)
+                        .build());
+    }
+
+    // Tài khoản không nhận được OTP thì chỉ ghi log, KHÔNG báo về client (không lộ
+    // trạng thái tài khoản)
+    private boolean canReceiveResetOtp(NguoiDung nguoiDung) {
+        if (nguoiDung.getTrangThai() == null || nguoiDung.getTrangThai() != 1) {
+            logger.warn("[forgotPassword] Tài khoản id={} đang bị khoá, không gửi OTP", nguoiDung.getId());
+            return false;
+        }
+        // không có email thì không gửi được OTP (và OTP email null làm hỏng các vòng so
+        // khớp email)
+        if (nguoiDung.getEmail() == null || nguoiDung.getEmail().isBlank()) {
+            logger.warn("[forgotPassword] Tài khoản id={} chưa có email, không gửi OTP", nguoiDung.getId());
+            return false;
+        }
+        return true;
+    }
+
+    // Tạo OTP + gửi email (bất đồng bộ, lỗi SMTP chỉ ghi log server)
+    private void sendResetOtp(NguoiDung nguoiDung) {
+        // Tạo OTP
         String otp = calcService.getRandomActiveCode(6L);
-        GlobalCache.OTP_SCHEDULE_OBJS.add(
-                OtpScheduleObj.builder()
-                        .email(nguoiDung.getEmail())
-                        .otp(otp)
-                        .createdAt(Instant.now())
-                        .type(OtpType.RESET_PASSWORD)
-                        .build()
-        );
+        OtpScheduleObj resetOtp = OtpScheduleObj.builder()
+                .email(nguoiDung.getEmail())
+                .otp(otp)
+                .createdAt(Instant.now())
+                .type(OtpType.RESET_PASSWORD)
+                .build();
+        // gửi lại OTP: xoá mã RESET_PASSWORD cũ của email này rồi mới thêm mã mới, để
+        // mã còn hiệu lực
+        // luôn là mã trong email mới nhất. Khoá để 2 yêu cầu đồng thời không để lại 2
+        // mã cùng lúc.
+        synchronized (GlobalCache.OTP_SCHEDULE_OBJS) {
+            GlobalCache.OTP_SCHEDULE_OBJS.removeIf(o -> isResetOtpOf(o, nguoiDung.getEmail()));
+            GlobalCache.OTP_SCHEDULE_OBJS.add(resetOtp);
+        }
 
-        //truyền dữ liệu qua email
+        // truyền dữ liệu qua email
         Map<String, Object> params = new HashMap<>();
 
         params.put("userName", nguoiDung.getHoTen());
         params.put("otp", otp);
         params.put("expiryTime", "5 phút");
 
-        //gửi email
-        emailService.sendHtmlEmailFromTemplate(nguoiDung.getEmail(), "Lấy lại mật khẩu", "activation.html", params);
+        // gửi email ở luồng riêng: lỗi SMTP chỉ ghi log server, không trả về client
+        otpMailDispatcher.dispatch(nguoiDung.getId(), nguoiDung.getEmail(), "Lấy lại mật khẩu", "activation.html",
+                params);
+    }
+
+    private static void throwIfRateLimited(PasswordResetRateLimiter.Decision decision) {
+        if (decision.allowed())
+            return;
+        long seconds = decision.retryAfterSeconds();
+        if (decision.reason() == PasswordResetRateLimiter.Reason.GLOBAL_LIMIT) {
+            throw new CommonException(
+                    "Hệ thống tạm ngưng gửi mã xác nhận do có quá nhiều yêu cầu. Vui lòng thử lại sau hoặc liên hệ quản trị viên.",
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    Map.of("code", "OTP_SERVICE_BUSY", "retryAfterSeconds", seconds));
+        }
+        String message = decision.reason() == PasswordResetRateLimiter.Reason.COOLDOWN
+                ? "Vui lòng đợi " + seconds + " giây trước khi yêu cầu mã mới"
+                : "Bạn đã yêu cầu mã quá nhiều lần, vui lòng thử lại sau " + ((seconds + 59) / 60) + " phút";
+        throw new CommonException(message, HttpStatus.TOO_MANY_REQUESTS,
+                Map.of("code", "OTP_RATE_LIMITED", "retryAfterSeconds", seconds));
+    }
+
+    /**
+     * Tìm tài khoản theo chuỗi đăng nhập (tên đăng nhập / email / SĐT) theo thứ tự
+     * ưu tiên.
+     * SĐT không UNIQUE: trùng nhiều tài khoản thì coi như không tìm thấy (trước đây
+     * truy vấn OR ném lỗi 500).
+     */
+    Optional<NguoiDung> resolveAccount(String rawIdentifier) {
+        if (rawIdentifier == null || rawIdentifier.isBlank())
+            return Optional.empty();
+        String identifier = rawIdentifier.trim();
+        Optional<NguoiDung> byUsername = nguoiDungRepository.findByTenDangNhap(identifier);
+        if (byUsername.isPresent())
+            return byUsername;
+        Optional<NguoiDung> byEmail = nguoiDungRepository.findByEmail(identifier);
+        if (byEmail.isPresent())
+            return byEmail;
+        List<NguoiDung> byPhone = nguoiDungRepository.findAllBySoDienThoai(identifier);
+        if (byPhone.size() > 1) {
+            logger.warn("[resolveAccount] Số điện thoại gắn với {} tài khoản, yêu cầu dùng tên đăng nhập/email",
+                    byPhone.size());
+            return Optional.empty();
+        }
+        return byPhone.stream().findFirst();
+    }
+
+    // BCrypt từ chối mật khẩu > 72 byte (IllegalArgumentException -> 500). Tính
+    // theo byte UTF-8 vì ký tự có dấu chiếm 2-3 byte.
+    private static void assertPasswordFitsBcrypt(String password) {
+        if (password != null && password.getBytes(StandardCharsets.UTF_8).length > BCRYPT_MAX_PASSWORD_BYTES) {
+            throw new CommonException("Mật khẩu quá dài (tối đa 72 ký tự không dấu, ít hơn nếu có dấu tiếng Việt)");
+        }
+    }
+
+    // Bước "Xác thực OTP" (FE bước 2): chỉ kiểm tra mã, KHÔNG tiêu thụ mã — mã vẫn
+    // dùng được ở bước đổi mật khẩu.
+    // Dùng chung bộ đếm nhập sai với resetPassword nên không mở thêm đường dò mã.
+    public ResponseEntity<ResponseData<String>> verifyResetOtp(VerifyResetOtpRequest request) {
+        NguoiDung nguoiDung = findUserForPasswordReset(request.getUsername());
+        checkResetOtp(nguoiDung, request.getOtp());
+
+        return ResponseEntity.ok(
+                ResponseData.<String>builder()
+                        .status(HttpStatus.OK.value())
+                        .data("Success")
+                        .message("Success")
+                        .build());
+    }
+
+    public ResponseEntity<ResponseData<String>> resetPassword(ResetPasswordRequest rpRequest) {
+        // kiểm tra trước khi đụng tới OTP để không làm mất mã / tính là nhập sai
+        assertPasswordFitsBcrypt(rpRequest.getPassword());
+
+        // tìm xem thông tin người dùng có trong hệ thống hay chưa
+        NguoiDung nguoiDung = findUserForPasswordReset(rpRequest.getUsername());
+
+        OtpScheduleObj findingResetOtp = checkResetOtp(nguoiDung, rpRequest.getOtp());
+
+        // Xoá OTP khỏi bộ nhớ đệm trước khi đổi MK: remove() là nguyên tử nên mỗi mã
+        // chỉ dùng được 1 lần,
+        // request đồng thời dùng cùng mã (hoặc mã vừa bị huỷ do nhập sai quá số lần) sẽ
+        // bị từ chối
+        if (!GlobalCache.OTP_SCHEDULE_OBJS.remove(findingResetOtp)) {
+            throw resetOtpExpired(RESET_OTP_INVALID_MESSAGE);
+        }
+
+        // sau khi thoả mãn các dk trên thì cho phép đặt lại MK
+        nguoiDung.setMatKhauHash(passwordEncoder.encode(rpRequest.getPassword()));
 
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
@@ -468,45 +649,52 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         );
     }
 
-    public ResponseEntity<ResponseData<String>> resetPassword(ResetPasswordRequest rpRequest) {
-       // tìm xem thông tin người dùng có trong hệ thống hay chưa
-        NguoiDung nguoiDung = nguoiDungRepository.findByTenDangNhapOrEmailOrSoDienThoai(
-                rpRequest.getUsername(),
-                rpRequest.getUsername(),
-                rpRequest.getUsername()).orElseThrow(
-                () -> new CommonException("Không tìm thấy tài khoản")
-        );
+    // Không tìm thấy / bị khoá -> cùng lỗi "mã không tồn tại hoặc đã hết hạn"
+    // (không lộ tài khoản có tồn tại)
+    private NguoiDung findUserForPasswordReset(String username) {
+        return resolveAccount(username)
+                .filter(nd -> nd.getTrangThai() != null && nd.getTrangThai() == 1)
+                .orElseThrow(() -> resetOtpExpired(RESET_OTP_INVALID_MESSAGE));
+    }
 
-        //tìm otp của người dùng có tồn tại trong danh sách OTP đã gửi hay ko
-        OtpScheduleObj findingResetOtp = GlobalCache.OTP_SCHEDULE_OBJS.stream().filter(otpScheduleObj ->
-                otpScheduleObj.getEmail().equals(nguoiDung.getEmail()) && otpScheduleObj.getType().equals(OtpType.RESET_PASSWORD)).findFirst().orElseThrow(
-                () -> new CommonException("Mã xác nhận không tồn tại hoặc đã hết hạn")
-        );
+    /**
+     * Kiểm tra OTP đặt lại mật khẩu của người dùng (không xoá mã khi đúng). Lỗi trả
+     * kèm data.code để FE xử lý:
+     * RESET_OTP_WRONG (sai, còn lượt thử) / RESET_OTP_EXPIRED (không có, hết hạn
+     * hoặc đã huỷ -> phải gửi lại mã).
+     */
+    private OtpScheduleObj checkResetOtp(NguoiDung nguoiDung, String otp) {
+        // tìm otp của người dùng có tồn tại trong danh sách OTP đã gửi hay ko
+        OtpScheduleObj findingResetOtp = GlobalCache.OTP_SCHEDULE_OBJS.stream()
+                .filter(otpScheduleObj -> isResetOtpOf(otpScheduleObj, nguoiDung.getEmail()))
+                .findFirst()
+                .orElseThrow(() -> resetOtpExpired(RESET_OTP_INVALID_MESSAGE));
 
-        if (!findingResetOtp.getOtp().equals(rpRequest.getOtp())) {
-            throw new CommonException("Mã xác nhận không tồn tại hoặc đã hết hạn");
+        // kiểm tra otp còn hạn hay không(trong vòng 5p)
+        if (Instant.now().isAfter(findingResetOtp.getCreatedAt().plusSeconds(RESET_OTP_TTL_SECONDS))) {
+            GlobalCache.OTP_SCHEDULE_OBJS.remove(findingResetOtp);
+            throw resetOtpExpired(RESET_OTP_INVALID_MESSAGE);
         }
 
-        Instant now = Instant.now();
-        //kiểm tra otp còn hạn hay không(trong vòng 5p)
-        if (now.isAfter(findingResetOtp.getCreatedAt().plusSeconds(300))) {
-            throw new CommonException("Mã xác nhận không tồn tại hoặc đã hết hạn");
+        if (!findingResetOtp.getOtp().equals(otp)) {
+            // nhập sai quá số lần cho phép thì huỷ mã, buộc yêu cầu mã mới (chống dò mã 6
+            // số)
+            int failed = findingResetOtp.getFailedAttempts().incrementAndGet();
+            if (failed >= RESET_OTP_MAX_FAILED_ATTEMPTS) {
+                GlobalCache.OTP_SCHEDULE_OBJS.remove(findingResetOtp);
+                throw resetOtpExpired("Bạn đã nhập sai mã xác nhận quá " + RESET_OTP_MAX_FAILED_ATTEMPTS
+                        + " lần, vui lòng yêu cầu mã mới");
+            }
+            int remaining = RESET_OTP_MAX_FAILED_ATTEMPTS - failed;
+            throw new CommonException("Mã xác nhận không đúng, bạn còn " + remaining + " lần thử",
+                    HttpStatus.BAD_REQUEST,
+                    Map.of("code", RESET_OTP_WRONG_CODE, "remainingAttempts", remaining));
         }
+        return findingResetOtp;
+    }
 
-        //sau khi thoả mãn các dk trên thì cho phép đặt lại MK
-        nguoiDung.setMatKhauHash(passwordEncoder.encode(rpRequest.getPassword()));
-
-        //Xoá OTP của người dùng khỏi danh sách OTP trong bộ nhớ đệm
-        GlobalCache.OTP_SCHEDULE_OBJS.remove(findingResetOtp);
-
-        return ResponseEntity.ok(
-                ResponseData.<String>builder()
-                        .status(HttpStatus.OK.value())
-                        .data("Success")
-                        .message("Success")
-                        .build()
-
-        );
+    private static CommonException resetOtpExpired(String message) {
+        return new CommonException(message, HttpStatus.BAD_REQUEST, Map.of("code", RESET_OTP_EXPIRED_CODE));
     }
 
     public Page<NguoiDung> getUserListByAdmin(Pageable pageable) {
@@ -520,7 +708,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
         NguoiDungAuthInfo currentUser = com.dev.backend.config.SecurityContextHolder.getUser();
         if (currentUser != null && currentUser.getId() != null) {
-            boolean isAdmin = currentUser.getVaiTro() != null && currentUser.getVaiTro().contains(IRoleType.quan_tri_vien);
+            boolean isAdmin = currentUser.getVaiTro() != null
+                    && currentUser.getVaiTro().contains(IRoleType.quan_tri_vien);
             if (!isAdmin && !currentUser.getId().equals(id)) {
                 throw new CommonException("Bạn không có quyền xem thông tin chi tiết của người dùng khác!");
             }
@@ -529,10 +718,10 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         NguoiDung nguoiDung = nguoiDungRepository.findById(id)
                 .orElseThrow(() -> new CommonException("Không tìm thấy người dùng"));
 
-        //Lấy danh sách phân quyền kho
+        // Lấy danh sách phân quyền kho
         List<PhanQuyenNguoiDungKho> dsPhanQuyen = phanQuyenNguoiDungKhoService.findByNguoiDungIdAndActive(id);
 
-        //Gán danh sách này vào trường @Transient vừa tạo
+        // Gán danh sách này vào trường @Transient vừa tạo
         if (dsPhanQuyen != null) {
             nguoiDung.setKhoPhuTrach(dsPhanQuyen);
         }
@@ -543,7 +732,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     @Transactional
     public NguoiDung toggleStatusByAdmin(Integer userId) {
 
-        //lay current id
+        // lay current id
         Integer currentUserId = null;
 
         Authentication authentication = SecurityContextHolder
@@ -557,16 +746,16 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             }
         }
 
-        //lay id bi thao tac
+        // lay id bi thao tac
         NguoiDung nguoiDung = nguoiDungRepository.findById(userId)
                 .orElseThrow(() -> new CommonException("Không tìm thấy người dùng"));
 
-        //chan tu khoa
+        // chan tu khoa
         if (nguoiDung.getId().equals(currentUserId)) {
             throw new CommonException("Không thể tự khóa tài khoản của chính mình");
         }
 
-        //toggle trang thai
+        // toggle trang thai
         if (nguoiDung.getTrangThai() != null && nguoiDung.getTrangThai() == 1) {
             nguoiDung.setTrangThai(0);
         } else {
@@ -578,7 +767,6 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         return nguoiDungRepository.save(nguoiDung);
     }
 
-
     @Transactional
     public void updateUserByAdmin(Integer userId, AdminUpdateRequest request) {
 
@@ -588,14 +776,12 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         // reset password
         if (request.getNewPassword() != null && !request.getNewPassword().isBlank()) {
             nguoiDung.setMatKhauHash(
-                    passwordEncoder.encode(request.getNewPassword())
-            );
+                    passwordEncoder.encode(request.getNewPassword()));
         }
 
         nguoiDung.setNgayCapNhat(Instant.now());
         nguoiDungRepository.save(nguoiDung);
     }
-
 
     @Transactional
     public NguoiDung createInternalUserByAdmin(NguoiDungCreating request) {
@@ -610,7 +796,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             }
         }
 
-        // SĐT tùy chọn: blank -> null; có giá trị thì phải đúng định dạng rồi mới kiểm tra trùng
+        // SĐT tùy chọn: blank -> null; có giá trị thì phải đúng định dạng rồi mới kiểm
+        // tra trùng
         String soDienThoai = normalizePhone(request.getSoDienThoai());
         validatePhone(soDienThoai);
         if (soDienThoai != null && nguoiDungRepository.existsBySoDienThoai(soDienThoai)) {
@@ -622,8 +809,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         nguoiDung.setEmail(
                 request.getEmail() != null && !request.getEmail().isBlank()
                         ? request.getEmail()
-                        : null
-        );
+                        : null);
         nguoiDung.setHoTen(request.getHoTen());
         nguoiDung.setSoDienThoai(soDienThoai);
         nguoiDung.setVaiTro(request.getVaiTro().toString());
@@ -635,7 +821,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
     @Transactional
     public ResponseEntity<ResponseData<String>> changePassword(ChangePasswordRequest changePass) {
-        // validate trước khi chạm tới passwordEncoder (tránh encode/matches null -> 500)
+        // validate trước khi chạm tới passwordEncoder (tránh encode/matches null ->
+        // 500)
         if (changePass.getCurrentPassword() == null || changePass.getCurrentPassword().isBlank()) {
             throw new CommonException("Mật khẩu hiện tại không được để trống");
         }
@@ -653,18 +840,23 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             throw new CommonException("Mật khẩu hiện tại không đúng");
         }
 
+        assertPasswordFitsBcrypt(changePass.getNewPassword().trim());
+
         // chỉ encode mật khẩu mới sau khi đã validate
         nguoiDung.setMatKhauHash(passwordEncoder.encode(changePass.getNewPassword().trim()));
         nguoiDung.setMustChangePassword(false);
 
         update(nguoiDung.getId(), nguoiDung);
 
+        // đổi mật khẩu thu hồi mọi token cũ (kể cả token đang dùng) -> cấp token mới
+        // cho phiên hiện tại,
+        // FE lưu lại để không bị đăng xuất; các thiết bị/phiên khác phải đăng nhập lại
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
+                        .data(issueToken(nguoiDung))
                         .message("Thay đổi mật khẩu thành công!")
-                        .build()
-        );
+                        .build());
     }
 
     public String generateTemporaryPassword() {
@@ -701,11 +893,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
         emailService.sendHtmlEmailFromTemplate(
                 nguoiDung.getEmail(),
-                "Cấp lại mật khẩu tài khoản - Fashion Management",
+                "Cấp lại mật khẩu tài khoản - FCentric",
                 "admin_reset_password.html",
-                emailParams
-        );
+                emailParams);
     }
 }
-
-

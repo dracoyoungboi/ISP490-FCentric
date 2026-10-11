@@ -22,6 +22,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -53,6 +54,7 @@ public class PosController {
     /**
      * Catalog SKU bán được của một kho được ủy quyền, phân trang server-side.
      * khoId bắt buộc; service kiểm tra quyền kho server-side (admin bỏ qua).
+     * Bộ lọc tùy chọn: trangThaiTon = con_hang | het_hang | tat_ca (mặc định tat_ca).
      */
     @GetMapping("/catalog")
     @RequireAuth(
@@ -67,13 +69,43 @@ public class PosController {
     public ResponseEntity<ResponseData<Page<PosCatalogItemDto>>> getCatalog(
             @RequestParam Integer khoId,
             @RequestParam(required = false) String q,
+            @RequestParam(required = false) String trangThaiTon,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "120") int size
     ) {
         return ResponseEntity.ok(
                 ResponseData.<Page<PosCatalogItemDto>>builder()
                         .status(200)
-                        .data(posCatalogService.getCatalog(khoId, q, page, size))
+                        .data(posCatalogService.getCatalog(khoId, q, trangThaiTon, page, size))
+                        .message("Success")
+                        .error(null)
+                        .build()
+        );
+    }
+
+    /**
+     * Tồn khả dụng hiện tại của các SKU trong giỏ tại kho đang bán (ids=1,2,3).
+     * Giúp màn POS cập nhật "Chỉ còn N"/hết hàng cho dòng giỏ không nằm trong trang catalog
+     * đang xem (ví dụ đang lọc "Còn hàng"). Cùng kiểm tra quyền kho như catalog.
+     */
+    @GetMapping("/stock")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
+                    IRoleType.nhan_vien_kho,
+                    IRoleType.nhan_vien_ban_hang
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<ResponseData<Map<Integer, BigDecimal>>> getStock(
+            @RequestParam Integer khoId,
+            @RequestParam List<Integer> ids
+    ) {
+        return ResponseEntity.ok(
+                ResponseData.<Map<Integer, BigDecimal>>builder()
+                        .status(200)
+                        .data(posCatalogService.getAvailableStock(khoId, ids))
                         .message("Success")
                         .error(null)
                         .build()

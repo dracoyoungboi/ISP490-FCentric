@@ -480,7 +480,7 @@ export default function NhatKyNhapXuat() {
           <table className="w-full min-w-[960px] text-sm">
             <thead>
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                {["#", "Thời kỳ", "SL Nhập", "SL Xuất", "Chênh lệch", "Giá trị nhập", "Giá trị xuất", "Loại GD"].map((h, i) => (
+                {["#", "Thời kỳ", "SL nhập", "SL xuất", "Chênh lệch", "Giá trị nhập", "Giá trị xuất", "Loại GD"].map((h, i) => (
                   <th key={i} className={`${TH_CLASS} ${i > 1 ? "text-right" : "text-left"} ${i === 7 ? "text-center" : ""}`}>
                     {h}
                   </th>

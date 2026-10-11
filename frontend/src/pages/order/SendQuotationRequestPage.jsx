@@ -119,7 +119,7 @@ function RequestInfoPanel({ request, loading, id }) {
                 <EmptyState
                     icon={AlertCircle}
                     title="Không tìm thấy yêu cầu"
-                    description="Yêu cầu nhập hàng có thể đã bị xoá hoặc không còn khả dụng."
+                    description="Yêu cầu nhập hàng có thể đã bị xóa hoặc không còn khả dụng."
                 />
             </div>
         );
@@ -237,7 +237,7 @@ export default function SendQuotationRequestPage() {
             setSuppliers(resSup.data?.data || []);
             setRequest(resReq.data?.data || null);
         } catch {
-            toast.error('Lỗi khi tải dữ liệu. Vui lòng thử lại!');
+            toast.error('Lỗi khi tải dữ liệu. Vui lòng thử lại.');
         } finally {
             setLoadingSuppliers(false);
             setLoadingRequest(false);
@@ -289,11 +289,11 @@ export default function SendQuotationRequestPage() {
                 nhaCungCapIds: Array.from(selectedIds),
                 ghiChu: '',
             });
-            toast.success(`Đã gửi yêu cầu báo giá đến ${selectedCount} nhà cung cấp!`);
+            toast.success(`Đã gửi yêu cầu báo giá đến ${selectedCount} nhà cung cấp.`);
             setShowConfirm(false);
             setTimeout(() => navigate('/purchase-requests'), 1200);
         } catch (err) {
-            toast.error(err.response?.data?.message || 'Gửi yêu cầu thất bại. Vui lòng thử lại!');
+            toast.error(err.response?.data?.message || 'Gửi yêu cầu thất bại. Vui lòng thử lại.');
         } finally {
             setSubmitting(false);
         }
@@ -357,7 +357,7 @@ export default function SendQuotationRequestPage() {
                             <EmptyState
                                 icon={Building2}
                                 title="Không tìm thấy nhà cung cấp phù hợp"
-                                description="Thử từ khóa khác hoặc xoá bộ lọc tìm kiếm."
+                                description="Thử từ khóa khác hoặc xóa bộ lọc tìm kiếm."
                             />
                         ) : (
                             <div className="max-h-[500px] divide-y divide-bo-border overflow-y-auto overflow-hidden rounded-lg border border-bo-border">

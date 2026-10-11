@@ -33,7 +33,7 @@ export default function PurchaseOrderPrint() {
             loadingLabel="Đang tải dữ liệu đơn mua hàng"
             titleFallback="In đơn mua hàng"
             notFoundTitle="Không tìm thấy đơn mua hàng."
-            notFoundDescription="Đơn mua hàng có thể đã bị xoá hoặc bạn không có quyền truy cập."
+            notFoundDescription="Đơn mua hàng có thể đã bị xóa hoặc bạn không có quyền truy cập."
             forbiddenTitle="Bạn không có quyền xem đơn mua hàng này."
             forbiddenDescription="Tài khoản của bạn không có quyền truy cập đơn mua hàng này."
             errorDescription="Không thể tải dữ liệu đơn mua hàng. Vui lòng thử lại."

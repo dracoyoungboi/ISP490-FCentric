@@ -81,7 +81,7 @@ function LoginForm() {
         try {
             const res = await supplierQuotationService?.verifyOtp?.({ email, otp, donMuaHangId: activeId });
             if (res?.data) {
-                toast.success('Đăng nhập thành công!');
+                toast.success('Đăng nhập thành công.');
                 setTimeout(() => navigate('/supplier/quotation', { state: { orderData: res.data, supplierEmail: email, orderId: activeId } }), 500);
             }
         } catch (err) {
@@ -107,7 +107,7 @@ function LoginForm() {
 
                     {/* Headline */}
                     <div className="lf-headline">
-                        <h1 className="lf-title">Supplier<br />Portal</h1>
+                        <h1 className="lf-title">Cổng<br />nhà cung cấp</h1>
                         <p className="lf-desc">
                             Nền tảng quản lý đơn hàng và báo giá dành riêng cho nhà cung cấp của FCentric.
                         </p>
@@ -116,9 +116,9 @@ function LoginForm() {
                     {/* Features */}
                     <div className="lf-features">
                         {[
-                            { Icon: CheckCircle, color: '#22c55e', bg: 'rgba(34,197,94,0.12)', title: 'Báo giá nhanh chóng', desc: 'Nhận và phản hồi RFQ trong vài phút' },
+                            { Icon: CheckCircle, color: '#22c55e', bg: 'rgba(34,197,94,0.12)', title: 'Báo giá nhanh chóng', desc: 'Nhận và phản hồi yêu cầu báo giá trong vài phút' },
                             { Icon: Package, color: '#60a5fa', bg: 'rgba(96,165,250,0.12)', title: 'Theo dõi đơn hàng', desc: 'Lịch sử và trạng thái đơn theo thời gian thực' },
-                            { Icon: TrendingUp, color: '#e8b923', bg: 'rgba(232,185,35,0.12)', title: 'Phân tích hiệu suất', desc: 'Dashboard thống kê doanh thu & giao dịch' },
+                            { Icon: TrendingUp, color: '#e8b923', bg: 'rgba(232,185,35,0.12)', title: 'Phân tích hiệu suất', desc: 'Bảng thống kê doanh thu & giao dịch' },
                         ].map(({ Icon, color, bg, title, desc }) => (
                             <div key={title} className="lf-feat">
                                 <div className="lf-feat-icon" style={{ background: bg, border: `1px solid ${color}33` }}>
@@ -135,7 +135,7 @@ function LoginForm() {
                     {/* Bottom badge */}
                     <div className="lf-bottom-badge">
                         <ShieldCheck size={12} style={{ color: '#b8860b' }} />
-                        <span>Secured by 256-bit TLS Encryption</span>
+                        <span>Kết nối được mã hóa TLS 256-bit</span>
                     </div>
                 </div>
             </div>
@@ -267,7 +267,7 @@ function LoginForm() {
                                 ) : step === 1 ? (
                                     <>Nhận mã OTP <ChevronRight size={15} style={{ opacity: 0.7 }} /></>
                                 ) : (
-                                    <>Xác thực & Đăng nhập <ChevronRight size={15} style={{ opacity: 0.7 }} /></>
+                                    <>Xác thực & đăng nhập <ChevronRight size={15} style={{ opacity: 0.7 }} /></>
                                 )}
                             </button>
                         </form>
@@ -279,7 +279,7 @@ function LoginForm() {
                             Liên hệ bộ phận kỹ thuật
                         </a>
                     </p>
-                    <p className="lf-copy">© 2026 FCentric · All rights reserved</p>
+                    <p className="lf-copy">© 2026 FCentric · Bảo lưu mọi quyền</p>
                 </div>
             </div>
         </div>

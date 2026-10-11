@@ -26,14 +26,19 @@ const STEP_TITLES = {
     1: 'Khôi phục mật khẩu',
     2: 'Xác thực OTP',
     3: 'Đặt mật khẩu mới',
-    4: 'Thành công!',
+    4: 'Thành công',
 };
 const STEP_SUBS = {
     1: 'Nhập email hoặc tên đăng nhập của bạn để nhận mã OTP.',
-    2: 'Nhập mã 6 số đã được gửi về email của bạn',
+    2: 'Nhập mã 6 số đã được gửi về email đăng ký của tài khoản',
     3: 'Nhập mật khẩu mới và xác nhận để hoàn tất',
     4: 'Mật khẩu đã được đặt lại thành công',
 };
+// data.code BE trả về khi OTP đặt lại mật khẩu không hợp lệ
+const OTP_ERROR_CODES = ['RESET_OTP_WRONG', 'RESET_OTP_EXPIRED'];
+// khớp PasswordResetRateLimiter.COOLDOWN phía BE (60 giây giữa 2 lần gửi mã)
+const RESEND_COOLDOWN_SECONDS = 60;
+const SENT_FALLBACK_MESSAGE = 'Nếu thông tin tài khoản hợp lệ, mã OTP đã được gửi tới email đã đăng ký.';
 
 export default function ForgotPasswordPage() {
     const navigate = useNavigate();
@@ -47,6 +52,22 @@ export default function ForgotPasswordPage() {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [errors, setErrors] = useState({});
     const [isLoading, setIsLoading] = useState(false);
+    // số giây còn phải chờ trước khi được gửi lại mã
+    const [resendIn, setResendIn] = useState(0);
+    // thông báo chung sau khi gửi mã (BE không cho biết tài khoản có tồn tại hay không)
+    const [sentNotice, setSentNotice] = useState('');
+
+    useEffect(() => {
+        if (resendIn <= 0) return undefined;
+        const timer = setTimeout(() => setResendIn((s) => s - 1), 1000);
+        return () => clearTimeout(timer);
+    }, [resendIn]);
+
+    // 429 (gửi quá nhanh / quá nhiều) hoặc 503 (hệ thống tạm ngưng gửi): chờ đúng số giây BE trả về
+    const applyRetryAfter = (err) => {
+        const retry = Number(err?.response?.data?.data?.retryAfterSeconds);
+        if (Number.isFinite(retry) && retry > 0) setResendIn(Math.ceil(retry));
+    };
 
     const otpValue = otp.join('');
     const clearMsgTimeoutRef = useRef(null);
@@ -55,6 +76,11 @@ export default function ForgotPasswordPage() {
     useEffect(() => () => {
         if (clearMsgTimeoutRef.current) clearTimeout(clearMsgTimeoutRef.current);
     }, []);
+
+    // OTP sai -> các ô đã bị xoá, đưa con trỏ về ô đầu để nhập lại ngay (đợi hết loading vì ô bị disabled)
+    useEffect(() => {
+        if (step === 2 && errors.otp && !isLoading) document.getElementById('forgot-otp-0')?.focus();
+    }, [step, errors.otp, isLoading]);
 
     const clearErrors = () => setErrors({});
     const setFieldError = (key, msg) => setErrors((prev) => ({ ...prev, [key]: msg }));
@@ -73,30 +99,57 @@ export default function ForgotPasswordPage() {
             if (res?.status === 200) {
                 setUsername(trimmed);
                 setOtp(['', '', '', '', '', '']);
+                setSentNotice(res?.message || SENT_FALLBACK_MESSAGE);
+                setResendIn(RESEND_COOLDOWN_SECONDS);
                 setStep(2);
             } else setFieldError('username', res?.message || 'Gửi OTP thất bại');
         } catch (err) {
+            applyRetryAfter(err);
             setFieldError('username', err?.response?.data?.message || 'Có lỗi xảy ra khi gửi OTP');
         } finally {
             setIsLoading(false);
         }
     };
 
-    const handleGoStep3 = (e) => {
+    // Lỗi OTP từ BE (data.code): mã sai / hết hạn / đã huỷ -> nhập lại mã ở bước 2
+    const isOtpError = (err) => OTP_ERROR_CODES.includes(err?.response?.data?.data?.code);
+
+    const backToOtpStep = (msg) => {
+        setOtp(['', '', '', '', '', '']);
+        setStep(2);
+        setFieldError('otp', msg);
+    };
+
+    // Kiểm tra OTP với server trước khi cho sang bước đặt mật khẩu mới (mã chưa bị tiêu thụ)
+    const handleGoStep3 = async (e) => {
         e.preventDefault();
         clearErrors();
         if (otpValue.length !== 6) return setFieldError('otp', 'Vui lòng nhập đủ 6 số OTP');
-        setStep(3);
+        setIsLoading(true);
+        try {
+            const res = await nguoiDungService.verifyResetOtp({ username: username.trim(), otp: otpValue });
+            if (res?.status === 200) setStep(3);
+            else setFieldError('otp', res?.message || 'Xác thực OTP thất bại');
+        } catch (err) {
+            setOtp(['', '', '', '', '', '']);
+            setFieldError('otp', err?.response?.data?.message || 'Có lỗi xảy ra khi xác thực OTP');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleResetPassword = async (e) => {
         e.preventDefault();
         clearErrors();
         const trimmed = username.trim();
-        if (!trimmed) return setFieldError('general', 'Thiếu username/email');
-        if (otpValue.length !== 6) return setFieldError('general', 'Thiếu OTP');
-        if (!newPassword) return setFieldError('newPassword', 'Vui lòng nhập mật khẩu mới');
+        if (!trimmed) return setFieldError('general', 'Thiếu tên đăng nhập/email');
+        if (otpValue.length !== 6) return backToOtpStep('Vui lòng nhập mã OTP');
+        if (!newPassword.trim()) return setFieldError('newPassword', 'Vui lòng nhập mật khẩu mới');
         if (newPassword.length < 6) return setFieldError('newPassword', 'Mật khẩu tối thiểu 6 ký tự');
+        // BCrypt giới hạn 72 byte; ký tự có dấu chiếm 2-3 byte
+        if (new TextEncoder().encode(newPassword).length > 72) {
+            return setFieldError('newPassword', 'Mật khẩu quá dài (tối đa 72 ký tự không dấu, ít hơn nếu có dấu)');
+        }
         if (newPassword !== confirmPassword) return setFieldError('confirmPassword', 'Mật khẩu xác nhận không khớp');
         setIsLoading(true);
         try {
@@ -104,25 +157,37 @@ export default function ForgotPasswordPage() {
             if (res?.status === 200) setStep(4);
             else setFieldError('general', res?.message || 'Đặt lại mật khẩu thất bại');
         } catch (err) {
-            setFieldError('general', err?.response?.data?.message || 'Có lỗi xảy ra khi đặt lại mật khẩu');
+            // mã hết hạn / bị huỷ trong lúc nhập mật khẩu -> quay lại bước OTP để gửi lại mã
+            if (isOtpError(err)) backToOtpStep(err.response.data.message);
+            else setFieldError('general', err?.response?.data?.message || 'Có lỗi xảy ra khi đặt lại mật khẩu');
         } finally {
             setIsLoading(false);
         }
     };
 
     const handleResendOTP = async () => {
+        if (resendIn > 0) return;
         clearErrors();
         const trimmed = username.trim();
-        if (!trimmed) return setFieldError('general', 'Vui lòng nhập email/username trước');
+        if (!trimmed) return setFieldError('general', 'Vui lòng nhập email/tên đăng nhập trước');
         setIsLoading(true);
         try {
             const res = await nguoiDungService.sendForgotPasswordOTP(trimmed);
             if (res?.status === 200) {
                 setOtp(['', '', '', '', '', '']);
-                setFieldError('success', 'OTP đã được gửi lại');
-                clearMsgTimeoutRef.current = setTimeout(() => setErrors({}), 2500);
+                setResendIn(RESEND_COOLDOWN_SECONDS);
+                setFieldError('success', 'Đã gửi lại mã OTP. Vui lòng kiểm tra email.');
+                if (clearMsgTimeoutRef.current) clearTimeout(clearMsgTimeoutRef.current);
+                // chỉ ẩn thông báo "đã gửi lại" — không xoá lỗi mới phát sinh trong 2,5s (vd. nhập sai mã ngay sau đó)
+                clearMsgTimeoutRef.current = setTimeout(() => setErrors((prev) => {
+                    if (!prev.success) return prev;
+                    const rest = { ...prev };
+                    delete rest.success;
+                    return rest;
+                }), 2500);
             } else setFieldError('general', res?.message || 'Gửi lại OTP thất bại');
         } catch (err) {
+            applyRetryAfter(err);
             setFieldError('general', err?.response?.data?.message || 'Có lỗi xảy ra khi gửi lại OTP');
         } finally {
             setIsLoading(false);
@@ -169,7 +234,7 @@ export default function ForgotPasswordPage() {
                         <input
                             id="forgot-username"
                             type="text"
-                            placeholder="example@gmail.com hoặc username"
+                            placeholder="example@gmail.com hoặc tên đăng nhập"
                             className={`${INPUT_BASE} ${errors.username ? INPUT_ERROR : INPUT_NORMAL}`}
                             value={username}
                             onChange={(e) => { setUsername(e.target.value); clearErrors(); }}
@@ -190,6 +255,12 @@ export default function ForgotPasswordPage() {
             {/* ── STEP 2: OTP ── */}
             {step === 2 && (
                 <form className="space-y-5 fade-in-up delay-4" onSubmit={handleGoStep3} noValidate>
+                    {sentNotice && !errors.general && !errors.otp && !errors.success && (
+                        <div className={SUCCESS_BANNER} role="status">
+                            <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
+                            <span>{sentNotice}</span>
+                        </div>
+                    )}
                     {errors.general && (
                         <div className={ERROR_BANNER} role="alert">
                             <AlertCircle size={16} className="shrink-0 mt-0.5" />
@@ -222,11 +293,11 @@ export default function ForgotPasswordPage() {
                             Không nhận được mã?{' '}
                             <button
                                 type="button"
-                                className="font-medium text-black hover:underline"
+                                className="font-medium text-black hover:underline disabled:text-gray-400 disabled:no-underline disabled:cursor-not-allowed"
                                 onClick={handleResendOTP}
-                                disabled={isLoading}
+                                disabled={isLoading || resendIn > 0}
                             >
-                                Gửi lại OTP
+                                {resendIn > 0 ? `Gửi lại OTP sau ${resendIn} giây` : 'Gửi lại OTP'}
                             </button>
                         </p>
                     </div>

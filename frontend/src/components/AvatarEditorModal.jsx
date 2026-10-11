@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "@/utils/apiError";
 import { useEffect, useRef, useState } from "react";
 import { ImagePlus, Trash2 } from "lucide-react";
 
@@ -118,18 +119,14 @@ export default function AvatarEditorModal({
         res = await nguoiDungService.uploadAvatar(draftFile);
       }
       const dto = res?.data; // ResponseData.data
-      if (!dto) throw new Error("Lưu thành công nhưng response thiếu data");
+      if (!dto) throw new Error("Không đọc được dữ liệu trả về");
 
       onSaved?.(dto);
       onOpenChange(false);
     } catch (err) {
       // Giữ hộp thoại + draft để người dùng thử lại
       const msg =
-        err?.response?.data?.message ||
-        err?.message ||
-        (draftRemove
-          ? "Không thể xóa ảnh đại diện. Vui lòng thử lại"
-          : "Không thể lưu ảnh đại diện. Vui lòng thử lại");
+        getApiErrorMessage(err, draftRemove ? "Không thể xóa ảnh đại diện" : "Không thể lưu ảnh đại diện");
       setErrorMsg(msg);
     } finally {
       setSaving(false);

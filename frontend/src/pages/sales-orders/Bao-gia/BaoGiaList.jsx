@@ -1,3 +1,4 @@
+import { formatCurrency } from "@/utils/formatters";
 import { useCallback, useEffect, useState } from "react";
 import { donBanHangService } from "@/services/donBanHangService";
 import { Link, useNavigate } from "react-router-dom";
@@ -242,7 +243,7 @@ export default function BaoGiaList() {
         <div className="flex items-center gap-2 border-b border-bo-border px-4 py-3 sm:px-5">
           <Filter className="size-4 text-bo-primary" />
           <h2 className="text-sm font-semibold text-bo-foreground sm:text-base">
-            Lọc Báo Giá
+            Lọc báo giá
           </h2>
         </div>
         <FilterBar
@@ -457,7 +458,7 @@ export default function BaoGiaList() {
                   </td>
                   <td className="px-3 py-3 text-right">
                     <span className="font-semibold text-bo-foreground">
-                      {item.tongCong?.toLocaleString("vi-VN")} đ
+                      {formatCurrency(item.tongCong)}
                     </span>
                   </td>
                   <td className="px-3 py-3 text-center">

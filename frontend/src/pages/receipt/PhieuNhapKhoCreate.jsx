@@ -32,7 +32,7 @@ const SELECT_CLASS =
 const FIELD_LABEL_CLASS = "text-xs font-medium text-bo-foreground";
 
 const SOURCE_TABS = [
-    { value: "PO", label: "Nhập từ Đối Tác", icon: FileText },
+    { value: "PO", label: "Nhập từ đối tác", icon: FileText },
     { value: "TRANSFER", label: "Nhận hàng nội bộ", icon: ArrowRightLeft },
     { value: "RETURN", label: "Nhập hàng trả lại", icon: Undo2 },
 ];
@@ -85,7 +85,7 @@ export default function PhieuNhapKhoCreate() {
                 ...prev,
                 donMuaHangId: data.id,
                 khoId: data.khoNhap?.id || prev.khoId,
-                ghiChu: `Tạo phiếu nhập kho từ PO ${data.soDonMua}`
+                ghiChu: `Tạo phiếu nhập kho từ đơn mua ${data.soDonMua}`
             }));
         } catch {
             toast.error("Không thể tải chi tiết đơn mua hàng");
@@ -265,7 +265,7 @@ export default function PhieuNhapKhoCreate() {
                     // Gọi hàm handleSelectPO để load chi tiết và set selectedPO
                     await handleSelectPO(urlPoId);
                 } else {
-                    toast.warning("PO này không đủ điều kiện để nhập kho hoặc bạn không có quyền");
+                    toast.warning("Đơn mua này không đủ điều kiện để nhập kho hoặc bạn không có quyền");
                 }
             } else if (urlTransferId) {
                 setImportSource("TRANSFER");
@@ -340,7 +340,7 @@ export default function PhieuNhapKhoCreate() {
 
     async function createPhieu() {
         if (importSource === "PO") {
-            if (!selectedPO) return toast.error("Vui lòng chọn đơn mua hàng (PO)"), null;
+            if (!selectedPO) return toast.error("Vui lòng chọn đơn mua hàng"), null;
             const chiTiet = selectedPO.chiTietDonMuaHangs.map(ct => ({
                 bienTheSanPhamId: ct.bienTheSanPham.id,
                 soLuongDuKienNhap: Number(ct.soLuongNhapTay) || 0
@@ -581,7 +581,7 @@ export default function PhieuNhapKhoCreate() {
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-3 text-right">
-                                                    <StatusBadge label="Waiting" tone="warning" />
+                                                    <StatusBadge label="Chờ nhập" tone="warning" />
                                                 </td>
                                             </tr>
                                         )) : importSource === "TRANSFER" ? selectedTransfer.items?.map(item => (
@@ -594,7 +594,7 @@ export default function PhieuNhapKhoCreate() {
                                                     <span className="text-sm font-semibold text-bo-primary">{item.soLuongYeuCau}</span>
                                                 </td>
                                                 <td className="px-4 py-3 text-right">
-                                                    <StatusBadge label="In Transit" tone="info" />
+                                                    <StatusBadge label="Đang vận chuyển" tone="info" />
                                                 </td>
                                             </tr>
                                         )) : returnItemsToRender.map(item => (
@@ -607,7 +607,7 @@ export default function PhieuNhapKhoCreate() {
                                                     <span className="text-sm font-semibold text-bo-danger">{item.soLuongCanXuat || item.soLuong}</span>
                                                 </td>
                                                 <td className="px-4 py-3 text-right">
-                                                    <StatusBadge label="Return" tone="danger" />
+                                                    <StatusBadge label="Hàng trả lại" tone="danger" />
                                                 </td>
                                             </tr>
                                         ))}

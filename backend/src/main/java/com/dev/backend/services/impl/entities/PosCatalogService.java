@@ -22,10 +22,15 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -37,9 +42,20 @@ import java.util.stream.Collectors;
  * - Ảnh: anh_bien_the -> fallback anh_quan_ao (anhChinh=1 ưu tiên) -> null; URL qua
  *   PublicAssetUrl.toHttps (convention chống Mixed Content của dự án).
  * - Không N+1: 1 query trang (LEFT JOIN + GROUP BY) + 2 query batch ảnh.
+ * - Bộ lọc tồn kho (tùy chọn): trangThaiTon = con_hang | het_hang | tat_ca.
+ *   Không truyền = tat_ca -> giữ nguyên hành vi cũ.
  */
 @Service
 public class PosCatalogService {
+
+    /** Giá trị hợp lệ của tham số trangThaiTon. */
+    public static final String TON_CON_HANG = "con_hang";
+    public static final String TON_HET_HANG = "het_hang";
+    public static final String TON_TAT_CA = "tat_ca";
+    private static final Set<String> BO_LOC_TON_HOP_LE = Set.of(TON_CON_HANG, TON_HET_HANG, TON_TAT_CA);
+
+    /** Số SKU tối đa mỗi lần tra tồn cho giỏ hàng (giỏ POS thực tế nhỏ hơn nhiều). */
+    private static final int MAX_STOCK_IDS = 200;
 
     @Autowired
     private EntityManager entityManager;
@@ -56,16 +72,70 @@ public class PosCatalogService {
     @Autowired
     private PhanQuyenNguoiDungKhoRepository phanQuyenNguoiDungKhoRepository;
 
+    /** Catalog không lọc (giữ chữ ký cũ cho các nơi gọi/test hiện có). */
     @Transactional(readOnly = true)
     public Page<PosCatalogItemDto> getCatalog(Integer khoId, String q, int page, int size) {
+        return getCatalog(khoId, q, null, page, size);
+    }
+
+    /**
+     * Catalog có bộ lọc tồn kho. tat_ca -> dùng đúng truy vấn gốc (findPosCatalog);
+     * con_hang/het_hang -> findPosCatalogFiltered (lọc cả trong countQuery nên tổng số
+     * và phân trang luôn khớp với bộ lọc).
+     */
+    @Transactional(readOnly = true)
+    public Page<PosCatalogItemDto> getCatalog(Integer khoId, String q, String trangThaiTon, int page, int size) {
         Integer authorizedKhoId = authorizeWarehouse(khoId);
         int safeSize = Math.min(Math.max(size, 1), 120);
         String query = (q == null || q.isBlank()) ? null : q.trim();
+        String boLocTon = chuanHoaBoLocTon(trangThaiTon);
+        Pageable pageable = PageRequest.of(Math.max(page, 0), safeSize);
 
-        Page<PosCatalogItemDto> result = bienTheSanPhamRepository.findPosCatalog(
-                authorizedKhoId, query, PageRequest.of(Math.max(page, 0), safeSize));
+        Page<PosCatalogItemDto> result = TON_TAT_CA.equals(boLocTon)
+                ? bienTheSanPhamRepository.findPosCatalog(authorizedKhoId, query, pageable)
+                : bienTheSanPhamRepository.findPosCatalogFiltered(authorizedKhoId, query, boLocTon, pageable);
         attachImages(result.getContent());
         return result;
+    }
+
+    /**
+     * Tồn khả dụng hiện tại tại kho được ủy quyền cho một nhóm SKU (thường là các dòng trong giỏ).
+     * Trả về map bienTheSanPhamId -> tồn khả dụng; id không tồn tại thì không có trong map.
+     */
+    @Transactional(readOnly = true)
+    public Map<Integer, BigDecimal> getAvailableStock(Integer khoId, List<Integer> ids) {
+        Integer authorizedKhoId = authorizeWarehouse(khoId);
+        if (ids == null || ids.isEmpty()) {
+            return Map.of();
+        }
+        List<Integer> distinctIds = ids.stream().filter(Objects::nonNull).distinct().toList();
+        if (distinctIds.isEmpty()) {
+            return Map.of();
+        }
+        if (distinctIds.size() > MAX_STOCK_IDS) {
+            throw new CommonException("Chỉ tra cứu tồn kho tối đa " + MAX_STOCK_IDS + " mặt hàng mỗi lần");
+        }
+        Map<Integer, BigDecimal> result = new LinkedHashMap<>();
+        for (Object[] row : bienTheSanPhamRepository.findPosAvailableStock(authorizedKhoId, distinctIds)) {
+            Object value = row[1];
+            BigDecimal ton = value instanceof BigDecimal decimal ? decimal
+                    : value == null ? BigDecimal.ZERO : new BigDecimal(String.valueOf(value));
+            result.put(((Number) row[0]).intValue(), ton);
+        }
+        return result;
+    }
+
+    /** null/rỗng -> tat_ca (tương thích client cũ); giá trị lạ -> lỗi 400 rõ ràng. */
+    private String chuanHoaBoLocTon(String trangThaiTon) {
+        if (trangThaiTon == null || trangThaiTon.isBlank()) {
+            return TON_TAT_CA;
+        }
+        String value = trangThaiTon.trim().toLowerCase(Locale.ROOT);
+        if (!BO_LOC_TON_HOP_LE.contains(value)) {
+            // Giá trị hợp lệ: con_hang | het_hang | tat_ca (client POS luôn gửi đúng các giá trị này).
+            throw new CommonException("Bộ lọc tồn kho không hợp lệ");
+        }
+        return value;
     }
 
     @Transactional(readOnly = true)

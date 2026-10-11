@@ -497,7 +497,7 @@ export default function ProductList() {
                     <EmptyState
                         icon={Package}
                         title="Không tìm thấy sản phẩm"
-                        description="Hiện tại chưa có dữ liệu sản phẩm phù hợp. Hãy thử thay đổi bộ lọc hoặc từ khoá tìm kiếm để xem kết quả khác."
+                        description="Hiện tại chưa có dữ liệu sản phẩm phù hợp. Hãy thử thay đổi bộ lọc hoặc từ khóa tìm kiếm để xem kết quả khác."
                     />
                 </div>
             ) : (
@@ -694,7 +694,7 @@ export default function ProductList() {
                                     {/* Giá bán */}
                                     <td className="px-3 py-3 text-center">
                                         <span className="inline-flex items-center gap-1.5 rounded-md bg-bo-success-soft px-2.5 py-1 text-xs font-semibold text-bo-success">
-                                            {product.giaBanMacDinh ? formatCurrency(product.giaBanMacDinh) : "N/A"}
+                                            {product.giaBanMacDinh ? formatCurrency(product.giaBanMacDinh) : "—"}
                                         </span>
                                     </td>
 
@@ -711,7 +711,7 @@ export default function ProductList() {
 
                                     {/* Ngày tạo */}
                                     <td className="px-3 py-3 text-center text-sm text-bo-muted">
-                                        {formatDate(product.ngayTao) !== "N/A" ? formatDate(product.ngayTao) : "-"}
+                                        {formatDate(product.ngayTao) !== "—" ? formatDate(product.ngayTao) : "-"}
                                     </td>
 
                                     {/* Thao tác */}

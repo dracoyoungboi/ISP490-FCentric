@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "@/utils/apiError";
 import { useState, useEffect, useCallback } from "react";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -195,11 +196,11 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                     sizesResult.status === "rejected" ||
                     materialsResult.status === "rejected"
                 ) {
-                    toast.error("Không thể tải dữ liệu màu sắc, size, chất liệu");
+                    toast.error("Không thể tải dữ liệu màu sắc, kích cỡ, chất liệu");
                 }
             } catch (error) {
-                console.error("Lỗi khi tải dữ liệu màu sắc, size, chất liệu:", error);
-                toast.error("Không thể tải dữ liệu màu sắc, size, chất liệu");
+                console.error("Lỗi khi tải dữ liệu màu sắc, kích cỡ, chất liệu:", error);
+                toast.error("Không thể tải dữ liệu màu sắc, kích cỡ, chất liệu");
             }
         };
 
@@ -259,7 +260,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
             }
 
             // Success
-            toast.success(isEditMode ? "Cập nhật sản phẩm thành công!" : "Tạo sản phẩm thành công!");
+            toast.success(isEditMode ? "Cập nhật sản phẩm thành công." : "Tạo sản phẩm thành công.");
             handleResetForm();
             onSuccess();
             onClose();
@@ -268,7 +269,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
             console.error('Error response:', error.response);
             console.error('Error response data:', error.response?.data);
 
-            const errorMessage = error.response?.data?.message || error.message || `Có lỗi xảy ra khi ${isEditMode ? 'cập nhật' : 'tạo'} sản phẩm`;
+            const errorMessage = getApiErrorMessage(error, `Có lỗi xảy ra khi ${isEditMode ? 'cập nhật' : 'tạo'} sản phẩm`);
             toast.error(errorMessage);
         }
     };
@@ -587,7 +588,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
 
                                         {/* Size */}
                                         <div className="space-y-2">
-                                            <Label>Size <span className="text-red-500">*</span></Label>
+                                            <Label>Kích cỡ <span className="text-red-500">*</span></Label>
                                             <Controller
                                                 name={`bienTheSanPhams.${index}.sizeId`}
                                                 control={control}
@@ -601,7 +602,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                                                             disabled={isSubmitting}
                                                         >
                                                             <SelectTrigger className="w-full">
-                                                                <SelectValue placeholder="Chọn size" />
+                                                                <SelectValue placeholder="Chọn kích cỡ" />
                                                             </SelectTrigger>
                                                             <SelectContent
                                                                 position="popper"
@@ -611,7 +612,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                                                                 className="z-110 bg-white"
                                                             >
                                                                 {sizes.length === 0 ? (
-                                                                    <div className="p-2 text-sm text-gray-500">Không có size</div>
+                                                                    <div className="p-2 text-sm text-gray-500">Không có kích cỡ</div>
                                                                 ) : (
                                                                     sizes.map((size) => (
                                                                         <SelectItem
@@ -782,7 +783,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                                                     <div key={`existing-${index}`} className="relative">
                                                         <img
                                                             src={img?.tepTin?.duongDan}
-                                                            alt="Product"
+                                                            alt="Ảnh sản phẩm"
                                                             className="w-full h-20 object-cover rounded"
                                                         />
                                                         <button
@@ -819,7 +820,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                                             <div key={index} className="relative">
                                                 <img
                                                     src={URL.createObjectURL(file)}
-                                                    alt="Preview"
+                                                    alt="Xem trước ảnh"
                                                     className="w-full h-20 object-cover rounded"
                                                 />
                                                 <button
@@ -848,7 +849,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                                                     <div key={`existing-${index}`} className="relative">
                                                         <img
                                                             src={img?.tepTin?.duongDan}
-                                                            alt="Variant"
+                                                            alt="Ảnh biến thể"
                                                             className="w-full h-20 object-cover rounded"
                                                         />
                                                         <button
@@ -885,7 +886,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, productId = n
                                             <div key={index} className="relative">
                                                 <img
                                                     src={URL.createObjectURL(file)}
-                                                    alt="Preview"
+                                                    alt="Xem trước ảnh"
                                                     className="w-full h-20 object-cover rounded"
                                                 />
                                                 <button

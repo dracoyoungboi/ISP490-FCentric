@@ -182,7 +182,7 @@ export default function PurchaseRequestList() {
         setSubmitting(true);
         try {
             await purchaseRequestService.approve(id, trangThai);
-            toast.success(trangThai === 2 ? 'Đã duyệt yêu cầu!' : 'Đã từ chối yêu cầu!');
+            toast.success(trangThai === 2 ? 'Đã duyệt yêu cầu.' : 'Đã từ chối yêu cầu.');
             setApprovingId(null);
             fetchRequests(pagination.pageNumber, pagination.pageSize);
         } catch (err) {

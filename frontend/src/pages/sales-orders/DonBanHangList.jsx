@@ -1,3 +1,4 @@
+import { formatCurrency } from "@/utils/formatters";
 import { useCallback, useEffect, useState } from "react";
 import { donBanHangKenhService, isChannelOrderMock } from "@/services/donBanHangKenhService";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -565,7 +566,7 @@ export default function DonBanHangList() {
                   </td>
                   <td className="px-3 py-3 text-right">
                     <span className="font-semibold text-bo-foreground">
-                      {item.tongCong?.toLocaleString("vi-VN")} đ
+                      {formatCurrency(item.tongCong)}
                     </span>
                   </td>
                   <td className="px-3 py-3 text-center">

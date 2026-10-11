@@ -8,18 +8,18 @@ export const formatCurrency = (amount) => {
 
 
 export const formatDate = (date) => {
-    if (!date) return 'N/A';
+    if (!date) return '—';
     return new Date(date).toLocaleDateString('vi-VN');
 };
 
 
 export const formatDateTime = (date) => {
-    if (!date) return 'N/A';
+    if (!date) return '—';
     return new Date(date).toLocaleString('vi-VN');
 };
 
 export const formatDateTimeCustom = (date) => {
-    if (!date) return 'N/A';
+    if (!date) return '—';
     return new Date(date).toLocaleString('vi-VN', {
         day: '2-digit',
         month: '2-digit',

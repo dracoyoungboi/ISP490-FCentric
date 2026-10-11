@@ -21,7 +21,7 @@ export default function BaoGiaPrint() {
             loadingLabel="Đang tải dữ liệu báo giá"
             titleFallback="In báo giá bán"
             notFoundTitle="Không tìm thấy báo giá"
-            notFoundDescription="Báo giá có thể đã bị xoá hoặc bạn không có quyền truy cập."
+            notFoundDescription="Báo giá có thể đã bị xóa hoặc bạn không có quyền truy cập."
         />
     );
 }

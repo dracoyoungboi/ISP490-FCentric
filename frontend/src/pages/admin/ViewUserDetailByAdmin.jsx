@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useLocation, useNavigate } from "react-router-dom";
 import { adminService } from "@/services/adminService.js";
 
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -47,6 +47,12 @@ export default function ViewUserDetailByAdmin() {
 
     const { id } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
+    // Danh sách gửi kèm URL của nó (bộ lọc + trang); mở thẳng link thì về /users.
+    const backTo =
+        typeof location.state?.from === "string" && location.state.from.startsWith("/users")
+            ? location.state.from
+            : "/users";
 
     const [user, setUser] = useState(null);
     const [loadingToggle, setLoadingToggle] = useState(false);
@@ -109,7 +115,7 @@ export default function ViewUserDetailByAdmin() {
             <div className="flex flex-col gap-4 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm sm:p-5 lg:flex-row lg:items-center lg:justify-between">
                 <div className="min-w-0 space-y-2">
                     <Link
-                        to="/users"
+                        to={backTo}
                         className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bo-primary hover:text-bo-primary-hover"
                     >
                         <ArrowLeft className="h-4 w-4" />
@@ -172,7 +178,7 @@ export default function ViewUserDetailByAdmin() {
                 <OverviewTile
                     icon={<IdCard className="h-4 w-4 text-bo-primary" />}
                     label="Mã người dùng"
-                    value={user.id || "N/A"}
+                    value={user.id || "—"}
                 />
             </div>
 
@@ -214,12 +220,12 @@ export default function ViewUserDetailByAdmin() {
                             <InfoMini
                                 icon={<Calendar className="h-4 w-4" />}
                                 label="Ngày tạo"
-                                value={formatDate(user.ngayTao) || "N/A"}
+                                value={formatDate(user.ngayTao) || "—"}
                             />
                             <InfoMini
                                 icon={<Clock3 className="h-4 w-4" />}
                                 label="Cập nhật gần nhất"
-                                value={formatDate(user.ngayCapNhat) || "N/A"}
+                                value={formatDate(user.ngayCapNhat) || "—"}
                             />
                         </div>
 
@@ -240,31 +246,25 @@ export default function ViewUserDetailByAdmin() {
                         <InfoRow
                             icon={<IdCard className="h-4 w-4" />}
                             label="ID"
-                            value={user.id || "N/A"}
+                            value={user.id || "—"}
                         />
 
                         <InfoRow
                             icon={<UserCog className="h-4 w-4" />}
                             label="Tên đăng nhập"
-                            value={user.tenDangNhap ? `@${user.tenDangNhap}` : "N/A"}
+                            value={user.tenDangNhap ? `@${user.tenDangNhap}` : "—"}
                         />
 
                         <InfoRow
                             icon={<Mail className="h-4 w-4" />}
                             label="Email"
-                            value={user.email || "N/A"}
+                            value={user.email || "—"}
                         />
 
                         <InfoRow
                             icon={<Phone className="h-4 w-4" />}
                             label="Số điện thoại"
-                            value={user.soDienThoai || "N/A"}
-                        />
-
-                        <InfoRow
-                            icon={<Calendar className="h-4 w-4" />}
-                            label="Ngày tạo"
-                            value={formatDate(user.ngayTao) || "N/A"}
+                            value={user.soDienThoai || "—"}
                         />
 
                     </div>
@@ -300,11 +300,11 @@ export default function ViewUserDetailByAdmin() {
                                             className="hover:bg-bo-surface-subtle"
                                         >
                                             <TableCell className="font-semibold">
-                                                {item.kho?.maKho || "N/A"}
+                                                {item.kho?.maKho || "—"}
                                             </TableCell>
 
                                             <TableCell>
-                                                {item.kho?.tenKho || "N/A"}
+                                                {item.kho?.tenKho || "—"}
                                             </TableCell>
 
                                             <TableCell>
@@ -350,9 +350,13 @@ function InfoRow({ icon, label, value }) {
     );
 }
 
+/** "16/03/2026" — DD/MM/YYYY có số 0 đứng đầu; "" nếu thiếu hoặc sai định dạng. */
 function formatDate(iso) {
     if (!iso) return "";
-    return new Date(iso).toLocaleDateString("vi-VN");
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return "";
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
 }
 
 function InfoMini({ icon, label, value }) {

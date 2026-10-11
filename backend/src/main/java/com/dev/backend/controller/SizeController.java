@@ -35,7 +35,7 @@ public class SizeController {
     public ResponseEntity<ResponseData<SizeDto>> getById(@PathVariable Integer id) {
         Optional<Size> finding = sizeService.getOne(id);
         if (finding.isEmpty()) {
-            throw new CommonException("Không tìm thấy size id: " + id);
+            throw new CommonException("Không tìm thấy kích cỡ có id: " + id);
         }
         return ResponseEntity.ok(
                 ResponseData.<SizeDto>builder()
@@ -111,7 +111,7 @@ public class SizeController {
     public ResponseEntity<ResponseData<String>> delete(@PathVariable Integer id) {
         Optional<Size> finding = sizeService.getOne(id);
         if (finding.isEmpty()) {
-            throw new CommonException("Không tìm thấy size id: " + id);
+            throw new CommonException("Không tìm thấy kích cỡ có id: " + id);
         }
         sizeService.delete(id);
         return ResponseEntity.ok(

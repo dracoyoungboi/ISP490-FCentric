@@ -141,7 +141,7 @@ export default function TonKhoTongQuan() {
         if (!token) { setAuthError("Chưa đăng nhập."); setLoadingAuth(false); return; }
         const claims = parseJwt(token);
         if (claims?.id) setUserId(claims.id);
-        else { setAuthError("Token không hợp lệ."); setLoadingAuth(false); }
+        else { setAuthError("Phiên đăng nhập không hợp lệ, vui lòng đăng nhập lại."); setLoadingAuth(false); }
     }, []);
 
     // STEP 1 — lấy thông tin user + danh sách kho
@@ -412,18 +412,18 @@ export default function TonKhoTongQuan() {
                 footer={hasLoaded && filteredData.length > 0 ? (
                     <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
                         <SummaryItem
-                            label="Tổng On Hand"
+                            label="Tổng tồn kho"
                             value={fmt(filteredData.reduce((s, i) => s + Number(i.onHand ?? i.tongSoLuongKhaDung ?? 0), 0))}
                         />
                         <Divider />
                         <SummaryItem
-                            label="Incoming"
+                            label="Đang về"
                             value={fmt(filteredData.reduce((s, i) => s + Number(i.incoming ?? i.tongSoLuongChoNhan ?? 0), 0))}
                             valueClass="text-bo-primary"
                         />
                         <Divider />
                         <SummaryItem
-                            label="Outgoing"
+                            label="Đang xuất"
                             value={fmt(filteredData.reduce((s, i) => s + Number(i.outgoing ?? i.tongSoLuongChoDuaHang ?? 0), 0))}
                             valueClass="text-bo-warning"
                         />
@@ -435,7 +435,7 @@ export default function TonKhoTongQuan() {
                         />
                         <Divider />
                         <SummaryItem
-                            label="Cảnh báo (Hết/Thiếu)"
+                            label="Cảnh báo (hết/thiếu)"
                             value={`${filteredData.filter(i => ["het_hang", "thieu_hang"].includes(trangThaiTon(i))).length} SKU`}
                             valueClass="text-bo-danger"
                         />
@@ -472,7 +472,7 @@ export default function TonKhoTongQuan() {
                                 <tr className="border-b border-bo-border">
                                     <th className={`${TH_CLASS} text-center`}>STT</th>
                                     <th className={`${TH_CLASS} text-left`}>Mã SP / SKU</th>
-                                    <th className={`${TH_CLASS} min-w-[200px] text-left`}>Sản phẩm &amp; Biến thể</th>
+                                    <th className={`${TH_CLASS} min-w-[200px] text-left`}>Sản phẩm &amp; biến thể</th>
                                     <th className={`${TH_CLASS} text-left`}>Kho</th>
                                     <th className={`${TH_CLASS} text-center`}>On Hand</th>
                                     <th className={`${TH_CLASS} text-center`}>↓ Incoming</th>

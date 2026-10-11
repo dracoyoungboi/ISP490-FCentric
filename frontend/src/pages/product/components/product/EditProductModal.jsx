@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "@/utils/apiError";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -47,7 +48,7 @@ const editProductSchema = yup.object({
             // null = biến thể mới thêm trong form Sửa
             id: yup.number().nullable(),
             mauSacId: yup.number().typeError("Màu sắc là bắt buộc").required("Màu sắc là bắt buộc"),
-            sizeId: yup.number().typeError("Size là bắt buộc").required("Size là bắt buộc"),
+            sizeId: yup.number().typeError("Kích cỡ là bắt buộc").required("Kích cỡ là bắt buộc"),
             // Chỉ bắt buộc với biến thể mới của sản phẩm có nhiều chất liệu (không có chất liệu chung để tự gán)
             chatLieuId: yup.number().nullable().when("yeuCauChatLieu", {
                 is: true,
@@ -65,7 +66,7 @@ const editProductSchema = yup.object({
             // Dòng "đổi thuộc tính" = biến thể mới hoặc biến thể cũ đã đổi màu/size so với lúc mở form
             const daDoi = (v) => v.id == null || v.mauSacId !== v.mauSacIdGoc || v.sizeId !== v.sizeIdGoc;
             const nhieuChatLieu = new Set(variants.map(v => v.chatLieuId ?? null)).size > 1;
-            const tenToHop = nhieuChatLieu ? "Màu sắc + Size + Chất liệu" : "Màu sắc + Size";
+            const tenToHop = nhieuChatLieu ? "Màu sắc + Kích cỡ + Chất liệu" : "Màu sắc + Kích cỡ";
 
             // 1. Sau khi lưu, mọi biến thể phải khác nhau (giống form Thêm, UC 2.3).
             const daGap = new Map();
@@ -397,11 +398,11 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                 sizesResult.status === "rejected" ||
                 materialsResult.status === "rejected"
             ) {
-                toast.error("Không thể tải dữ liệu màu sắc, size, chất liệu");
+                toast.error("Không thể tải dữ liệu màu sắc, kích cỡ, chất liệu");
             }
         } catch (error) {
-            console.error("Lỗi khi tải dữ liệu màu sắc, size, chất liệu:", error);
-            toast.error("Không thể tải dữ liệu màu sắc, size, chất liệu");
+            console.error("Lỗi khi tải dữ liệu màu sắc, kích cỡ, chất liệu:", error);
+            toast.error("Không thể tải dữ liệu màu sắc, kích cỡ, chất liệu");
         }
     }, []);
 
@@ -481,7 +482,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                     return;
                 }
 
-                toast.success("Cập nhật sản phẩm thành công!");
+                toast.success("Cập nhật sản phẩm thành công.");
                 handleResetForm();
                 onSuccess();
                 onClose();
@@ -569,7 +570,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                 return;
             }
 
-            toast.success("Cập nhật sản phẩm thành công!");
+            toast.success("Cập nhật sản phẩm thành công.");
             handleResetForm();
             onSuccess();
             onClose();
@@ -578,7 +579,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
             console.error('Error response:', error.response);
             console.error('Error response data:', error.response?.data);
 
-            const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi cập nhật sản phẩm';
+            const errorMessage = getApiErrorMessage(error, 'Có lỗi xảy ra khi cập nhật sản phẩm');
             toast.error(errorMessage);
         }
     };
@@ -867,7 +868,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
 
                                         {/* Giá mặc định: hệ thống luôn tính lại khi lưu (trung bình các biến thể còn hàng) -> chỉ xem */}
                                         <div className="space-y-2">
-                                            <Label className="text-bo-muted">Giá vốn mặc định (Tự động)</Label>
+                                            <Label className="text-bo-muted">Giá vốn mặc định (tự động)</Label>
                                             <Controller
                                                 name="giaVonMacDinh"
                                                 control={control}
@@ -878,7 +879,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label className="text-bo-muted">Giá bán mặc định (Tự động)</Label>
+                                            <Label className="text-bo-muted">Giá bán mặc định (tự động)</Label>
                                             <Controller
                                                 name="giaBanMacDinh"
                                                 control={control}
@@ -955,7 +956,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                                                         <div key={`existing-${index}`} className="relative">
                                                             <img
                                                                 src={img.tepTin?.duongDan || img.urlAnh}
-                                                                alt="Product"
+                                                                alt="Ảnh sản phẩm"
                                                                 className="h-20 w-full rounded-md border border-bo-border object-cover"
                                                             />
                                                             <button
@@ -993,7 +994,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                                                 <div key={index} className="relative">
                                                     <img
                                                         src={URL.createObjectURL(file)}
-                                                        alt="Preview"
+                                                        alt="Xem trước ảnh"
                                                         className="h-20 w-full rounded-md border border-bo-border object-cover"
                                                     />
                                                     <button
@@ -1014,7 +1015,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                             <div className="xl:sticky xl:top-0">
                                 <FormSection
                                     title="Biến thể sản phẩm"
-                                    description="Biến thể chưa phát sinh giao dịch đổi được màu sắc, size (mã SKU tự sinh lại). Biến thể đã lưu không xóa được, chỉ chuyển sang Tạm ngừng."
+                                    description="Biến thể chưa phát sinh giao dịch đổi được màu sắc, kích cỡ (mã SKU tự sinh lại). Biến thể đã lưu không xóa được, chỉ chuyển sang Tạm ngừng."
                                 >
                                     <div className="space-y-3">
                                         {fields.map((field, index) => {
@@ -1143,8 +1144,8 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                                                                         options={sizes}
                                                                         renderOption={(item) => item.tenSize}
                                                                         selectedContent={size ? size.tenSize : undefined}
-                                                                        placeholder="Chọn size"
-                                                                        emptyText="Không có size"
+                                                                        placeholder="Chọn kích cỡ"
+                                                                        emptyText="Không có kích cỡ"
                                                                         disabled={isSubmitting}
                                                                         invalid={!!loiDong?.sizeId}
                                                                     />
@@ -1157,13 +1158,13 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                                                     </div>
                                                     <div className="space-y-2">
                                                         <Label className="text-bo-muted">
-                                                            {laBienTheMoi || daDoiThuocTinh ? "Mã SKU (Tự động)" : "Mã SKU"}
+                                                            {laBienTheMoi || daDoiThuocTinh ? "Mã SKU (tự động)" : "Mã SKU"}
                                                         </Label>
                                                         <ReadOnlyField>
                                                             {maSkuHienThi ? (
                                                                 <span className="break-all font-mono text-xs">{maSkuHienThi}</span>
                                                             ) : laBienTheMoi ? (
-                                                                <span className="text-xs italic text-bo-muted">Chọn màu sắc và size để ghép mã</span>
+                                                                <span className="text-xs italic text-bo-muted">Chọn màu sắc và kích cỡ để ghép mã</span>
                                                             ) : null}
                                                         </ReadOnlyField>
                                                         {daDoiThuocTinh && goc?.maSku && (
@@ -1211,7 +1212,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                                                         <Lock className="mt-0.5 size-3.5 shrink-0" />
                                                         <span>
                                                             Đã phát sinh giao dịch (tồn kho, chứng từ) nên không đổi được màu sắc, size.
-                                                            Cần màu/size khác: chuyển biến thể này sang Tạm ngừng và thêm biến thể mới.
+                                                            Cần màu/kích cỡ khác: chuyển biến thể này sang Tạm ngừng và thêm biến thể mới.
                                                         </span>
                                                     </p>
                                                 )}
@@ -1297,7 +1298,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                                                                 <div className="relative inline-block">
                                                                     <img
                                                                         src={existingVariantImages[index].tepTin?.duongDan || existingVariantImages[index].urlAnh}
-                                                                        alt="Variant"
+                                                                        alt="Ảnh biến thể"
                                                                         className="size-24 rounded-md border border-bo-border object-cover"
                                                                     />
                                                                     <button
@@ -1336,7 +1337,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                                                                 <div className="relative inline-block">
                                                                     <img
                                                                         src={URL.createObjectURL(variantImages[index])}
-                                                                        alt="New Variant"
+                                                                        alt="Ảnh biến thể mới"
                                                                         className="size-24 rounded-md border border-bo-border object-cover"
                                                                     />
                                                                     <button

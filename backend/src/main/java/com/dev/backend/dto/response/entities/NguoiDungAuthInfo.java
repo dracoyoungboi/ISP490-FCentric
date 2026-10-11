@@ -22,6 +22,7 @@ public class NguoiDungAuthInfo {
     Set<String> vaiTro;  // Role chính: quan_tri_vien, quan_ly_kho, nhan_vien_kho...
     Integer trangThai;
     List<PhanQuyenNguoiDungKhoDto> phanQuyenNguoiDungKhos; // Quyền theo từng kho
+    String credentialVersion; // claim "cv": dấu vân tay mật khẩu lúc phát hành token (null với token cũ)
 
 }
 

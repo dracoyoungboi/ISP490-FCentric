@@ -41,7 +41,7 @@ export default function PrintRoutePage({
     loadingLabel = "Đang tải dữ liệu phiếu in",
     titleFallback = "In phiếu",
     notFoundTitle = "Không tìm thấy phiếu",
-    notFoundDescription = "Phiếu có thể đã bị xoá hoặc bạn không có quyền truy cập.",
+    notFoundDescription = "Phiếu có thể đã bị xóa hoặc bạn không có quyền truy cập.",
     forbiddenTitle = "Bạn không có quyền xem phiếu này.",
     forbiddenDescription = "Tài khoản của bạn không có quyền truy cập phiếu này.",
     errorDescription = "Không thể tải dữ liệu phiếu. Vui lòng thử lại.",

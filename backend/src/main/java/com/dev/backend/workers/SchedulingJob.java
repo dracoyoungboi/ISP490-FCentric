@@ -4,6 +4,7 @@ import com.dev.backend.constant.GlobalCache;
 import com.dev.backend.dto.OtpScheduleObj;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.services.impl.entities.NguoiDungService;
+import com.dev.backend.services.impl.utils.PasswordResetRateLimiter;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +30,15 @@ public class SchedulingJob {
         GlobalCache.OTP_SCHEDULE_OBJS.removeIf(otpScheduleObj ->
                 now.isAfter(otpScheduleObj.getCreatedAt().plusSeconds(300))
         );
+    }
+
+    @Autowired
+    private PasswordResetRateLimiter passwordResetRateLimiter;
+
+    // dọn mốc thời gian đã quá hạn của bộ giới hạn gửi OTP quên mật khẩu (tránh phình bộ nhớ)
+    @Scheduled(fixedDelay = 60000 * 10)
+    public void cleanPasswordResetRateLimiter() {
+        passwordResetRateLimiter.purgeExpired();
     }
 
     // 30 phút một lần

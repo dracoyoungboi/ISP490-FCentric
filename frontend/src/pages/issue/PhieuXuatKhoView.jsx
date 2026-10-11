@@ -25,7 +25,7 @@ const STATUS_UI = {
         className: "border-indigo-200 bg-indigo-50 text-indigo-700",
     },
     3: { label: "Đã xuất", tone: "success" },
-    4: { label: "Đã huỷ", tone: "danger" },
+    4: { label: "Đã hủy", tone: "danger" },
 };
 
 export default function PhieuXuatKhoView() {
@@ -94,7 +94,7 @@ export default function PhieuXuatKhoView() {
 
                     <InfoItem
                         icon={ClipboardList}
-                        label="Sales Order"
+                        label="Đơn bán hàng"
                         value={data.soDonHang}
                     />
 

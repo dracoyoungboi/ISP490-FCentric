@@ -185,7 +185,7 @@ export default function ChannelSyncDashboard() {
 
     return (
         <PageContainer className="space-y-5">
-            <MockModeNotice show={isChannelSyncMock} reason="backend chưa có API nhật ký đồng bộ" />
+            <MockModeNotice show={isChannelSyncMock} reason="hệ thống chưa hỗ trợ nhật ký đồng bộ" />
 
             {/* ══ KPI ══ */}
             <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

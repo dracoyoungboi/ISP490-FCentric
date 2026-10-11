@@ -55,7 +55,7 @@ const PR_STATUS = {
 };
 
 const PO_STATUS = {
-    0: { label: 'Đã xoá', tone: 'danger', icon: XCircle },
+    0: { label: 'Đã xóa', tone: 'danger', icon: XCircle },
     1: { label: 'Đã gửi YC báo giá', tone: 'neutral', icon: Send },
     2: { label: 'Đã nhận báo giá', tone: 'info', icon: FileText },
     3: { label: 'Đã chuyển thành đơn mua hàng', tone: 'warning', icon: CheckCircle },
@@ -65,7 +65,7 @@ const PO_STATUS = {
 
 function getPaymentTooltip(trangThai) {
     switch (trangThai) {
-        case 0: return 'Đơn đã bị xoá, không thể thanh toán';
+        case 0: return 'Đơn đã bị xóa, không thể thanh toán';
         case 1: return 'Chưa nhận báo giá từ NCC, không thể thanh toán';
         case 2: return 'Chưa duyệt báo giá, không thể thanh toán';
         case 3: return 'Thanh toán đơn mua hàng';
@@ -266,7 +266,7 @@ export default function QuotationRequestList() {
             }
         } catch (e) {
             console.error('Error fetching purchase requests:', e);
-            showNotification('error', 'Không thể tải danh sách. Vui lòng thử lại!');
+            showNotification('error', 'Không thể tải danh sách. Vui lòng thử lại.');
         } finally {
             setLoading(false);
         }
@@ -748,7 +748,7 @@ export default function QuotationRequestList() {
                                                 <div className="bg-bo-surface-subtle pb-5 pt-3">
                                                     <div className="pl-4 pr-4 sm:pl-10 sm:pr-6">
                                                         <TableShell
-                                                            title="Danh sách Báo giá từ NCC thuộc yêu cầu này"
+                                                            title="Danh sách báo giá từ NCC thuộc yêu cầu này"
                                                             className="shadow-none"
                                                         >
                                                             <table className="w-full min-w-[900px] text-sm">

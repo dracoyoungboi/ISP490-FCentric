@@ -121,7 +121,7 @@ export const FLAG_META = {
   XUNG_DOT_HUY: {
     label: "Xung đột hủy",
     tone: "danger",
-    description: "Sàn hủy hoặc sửa đơn khi đơn đã vào Pick List / có phiếu xuất.",
+    description: "Sàn hủy hoặc sửa đơn khi đơn đã vào phiếu nhặt hàng / có phiếu xuất.",
     resolve: "Xác nhận hủy theo sàn hoặc Áp dụng thay đổi từ sàn.",
   },
   HOAN_HANG: {

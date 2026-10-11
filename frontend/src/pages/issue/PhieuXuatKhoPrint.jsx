@@ -75,7 +75,7 @@ export default function PhieuXuatKhoPrint() {
                     return {
                         title: "Không thể tải dữ liệu lô đã xuất",
                         description:
-                            "Không thể tải lô đã pick của một số dòng hàng. Bản in có thể thiếu dữ liệu — vui lòng thử lại.",
+                            "Không thể tải lô đã chọn của một số dòng hàng. Bản in có thể thiếu dữ liệu — vui lòng thử lại.",
                     };
                 }
                 if (payload.availableLotFailures?.length && payload.hasPicks) {
@@ -92,7 +92,7 @@ export default function PhieuXuatKhoPrint() {
             loadingLabel="Đang tải dữ liệu phiếu xuất kho"
             titleFallback="In phiếu xuất kho"
             notFoundTitle="Không tìm thấy phiếu xuất kho"
-            notFoundDescription="Phiếu có thể đã bị xoá hoặc bạn không có quyền truy cập."
+            notFoundDescription="Phiếu có thể đã bị xóa hoặc bạn không có quyền truy cập."
         />
     );
 }

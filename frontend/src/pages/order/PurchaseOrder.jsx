@@ -221,7 +221,7 @@ export default function PurchaseOrderList() {
     const countStatus5 = orders.filter(o => o.trangThai === 5).length;
 
     const stats = [
-        { label: 'Tổng Đơn mua hàng', value: pagination.totalElements, icon: <ShoppingCart className="size-4" />, iconClass: 'bg-bo-primary-soft text-bo-primary' },
+        { label: 'Tổng đơn mua hàng', value: pagination.totalElements, icon: <ShoppingCart className="size-4" />, iconClass: 'bg-bo-primary-soft text-bo-primary' },
         { label: 'Tổng giá trị (trang này)', value: formatCurrency(totalValue), icon: <DollarSign className="size-4" />, iconClass: 'bg-bo-success-soft text-bo-success' },
         { label: 'Chờ vận chuyển', value: countStatus3, icon: <Clock className="size-4" />, iconClass: 'bg-bo-warning-soft text-bo-warning' },
         { label: 'Đã thanh toán', value: countStatus5, icon: <CreditCard className="size-4" />, iconClass: 'bg-slate-100 text-slate-600' },
@@ -517,7 +517,7 @@ export default function PurchaseOrderList() {
                     <thead>
                         <tr className="border-b border-bo-border bg-bo-surface-subtle">
                             <th className="h-10 w-14 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
-                            <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã Đơn Mua</th>
+                            <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã đơn mua</th>
                             <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Nhà cung cấp</th>
                             <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày tạo</th>
                             <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>

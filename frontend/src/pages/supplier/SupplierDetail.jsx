@@ -138,7 +138,7 @@ export default function SupplierDetail() {
             }
             navigate("/supplier");
         } catch (error) {
-            toast.error(error.response?.data?.message || "Có lỗi xảy ra khi lưu. Vui lòng thử lại!");
+            toast.error(error.response?.data?.message || "Có lỗi xảy ra khi lưu. Vui lòng thử lại.");
         } finally {
             setLoading(false);
         }

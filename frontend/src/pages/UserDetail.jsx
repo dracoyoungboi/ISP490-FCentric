@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "@/utils/apiError";
 import { useEffect, useMemo, useState } from "react";
 import { nguoiDungService } from "@/services/nguoiDungService";
 import {
@@ -125,12 +126,12 @@ export default function UserDetail() {
             try {
                 const res = await nguoiDungService.getMe();
                 const dto = res?.data; // ResponseData.data
-                if (!dto) throw new Error("Không nhận được data người dùng từ server");
+                if (!dto) throw new Error("Không đọc được dữ liệu người dùng");
 
                 setUserData(dto);
                 setEditedData({ hoTen: dto.hoTen || "", soDienThoai: dto.soDienThoai || "" });
             } catch (err) {
-                const msg = err?.response?.data?.message || err?.message || "Lỗi tải dữ liệu người dùng";
+                const msg = getApiErrorMessage(err, "Không tải được dữ liệu người dùng");
                 setErrorMsg(msg);
             } finally {
                 setLoadingUser(false);
@@ -188,15 +189,15 @@ export default function UserDetail() {
                 soDienThoai: editedData.soDienThoai?.trim() || null,
             });
             const updatedDto = res?.data; // ResponseData.data
-            if (!updatedDto) throw new Error("Cập nhật thành công nhưng response thiếu data");
+            if (!updatedDto) throw new Error("Không đọc được dữ liệu trả về");
 
             setUserData(updatedDto);
             setEditedData({ hoTen: updatedDto.hoTen || "", soDienThoai: updatedDto.soDienThoai || "" });
             setIsEditing(false);
 
-            showSuccess("Cập nhật hồ sơ thành công!");
+            showSuccess("Cập nhật hồ sơ thành công.");
         } catch (err) {
-            const msg = err?.response?.data?.message || err?.message || "Cập nhật thất bại";
+            const msg = getApiErrorMessage(err, "Cập nhật thất bại");
             setErrorMsg(msg);
         } finally {
             setSaving(false);
@@ -242,7 +243,7 @@ export default function UserDetail() {
 
                         <div className="min-w-0">
                             <h1 className="break-all text-xl font-bold text-bo-foreground sm:text-2xl">
-                                {loadingUser ? "Loading..." : userData.hoTen || "—"}
+                                {loadingUser ? "Đang tải..." : userData.hoTen || "—"}
                             </h1>
                             <p className="mt-1 text-sm text-bo-muted">@{userData.tenDangNhap || "—"}</p>
 
@@ -450,7 +451,7 @@ export default function UserDetail() {
             <ChangePasswordModal
                 open={changePasswordOpen}
                 onOpenChange={setChangePasswordOpen}
-                onSuccess={() => showSuccess("Đổi mật khẩu thành công!")}
+                onSuccess={() => showSuccess("Đổi mật khẩu thành công.")}
             />
         </PageContainer>
     );
