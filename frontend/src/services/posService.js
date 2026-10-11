@@ -136,14 +136,36 @@ export const savePosDrafts = (invoices, activeInvoice, ownerTabId) => {
 export const posService = {
   /**
    * Catalog SKU bán được của một kho được ủy quyền, phân trang server-side.
+   * trangThaiTon: 'con_hang' | 'het_hang' | 'tat_ca' (bỏ trống = tat_ca) — lọc ở server,
+   * nên tổng số + phân trang luôn đúng theo bộ lọc.
    * Trả về envelope data (Page) hoặc null khi response không hợp lệ.
    */
-  async getCatalog(khoId, { q, page = 0, size = 120, signal } = {}) {
+  async getCatalog(khoId, { q, trangThaiTon, page = 0, size = 120, signal } = {}) {
     const res = await apiClient.get("/api/v1/pos/catalog", {
-      params: { khoId, q: q || undefined, page, size },
+      params: {
+        khoId,
+        q: q || undefined,
+        trangThaiTon: trangThaiTon || undefined,
+        page,
+        size,
+      },
       signal,
     });
     return res.data?.data ?? null;
+  },
+
+  /**
+   * Tồn khả dụng hiện tại của các SKU (thường là dòng trong giỏ) tại kho đang bán.
+   * Trả về object { [bienTheSanPhamId]: tồn }. ids gửi dạng "1,2,3" để Spring đọc được
+   * (axios mặc định gửi mảng thành ids[]=1&ids[]=2, server không nhận).
+   */
+  async getStock(khoId, ids, { signal } = {}) {
+    if (!ids?.length) return {};
+    const res = await apiClient.get("/api/v1/pos/stock", {
+      params: { khoId, ids: ids.join(",") },
+      signal,
+    });
+    return res.data?.data ?? {};
   },
 
   /**

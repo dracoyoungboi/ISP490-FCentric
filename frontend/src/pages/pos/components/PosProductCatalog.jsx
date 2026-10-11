@@ -5,11 +5,33 @@ import PosProductCard from './PosProductCard';
 const VIEW_KEY = 'fcentric.pos.productView';
 const iconButton = 'grid size-10 shrink-0 place-items-center rounded-lg border border-bo-border text-bo-muted transition hover:border-bo-primary/40 hover:bg-slate-50 hover:text-bo-primary focus-visible:outline-2 focus-visible:outline-bo-primary';
 
+/** Bộ lọc tồn kho (giá trị = tham số trangThaiTon gửi lên server). */
+const STOCK_FILTERS = [
+  { value: 'con_hang', label: 'Còn hàng' },
+  { value: 'het_hang', label: 'Hết hàng' },
+  { value: 'tat_ca', label: 'Tất cả' },
+];
+
+/** Nội dung khi không có hàng nào khớp: nói rõ vì sao (từ khóa / bộ lọc tồn kho). */
+function emptyMessage({ search, stockFilter }) {
+  if (search.trim()) {
+    return { title: 'Không tìm thấy hàng hóa', hint: stockFilter !== 'tat_ca' ? 'Thử đổi từ khóa hoặc xem tất cả hàng hóa.' : 'Thử đổi từ khóa khác.' };
+  }
+  if (stockFilter === 'con_hang') {
+    return { title: 'Không còn hàng khả dụng', hint: 'Kho này không còn mặt hàng nào có tồn.' };
+  }
+  if (stockFilter === 'het_hang') {
+    return { title: 'Không có mặt hàng nào hết hàng', hint: 'Mọi mặt hàng tại kho này đều còn hàng.' };
+  }
+  return { title: 'Chưa có hàng hóa', hint: 'Kho này chưa có mặt hàng nào để bán.' };
+}
+
 /**
- * Catalog POS bản live: dữ liệu đã được server phân trang (không lọc/phân trang client).
- * Giữ nguyên lưới full-width gap 12px (3/4/5/6 cột tại 1280/1600/1920), chế độ Danh sách,
- * localStorage view preference, cuộn độc lập, F3 (searchRef) và Enter SKU-only (onEnterAdd).
- * Chỉ có nhóm "Tất cả" — không có bộ lọc Nam/Nữ.
+ * Catalog POS bản live: dữ liệu đã được server phân trang VÀ lọc (không lọc/phân trang client,
+ * vì client chỉ có trang đang xem). Giữ nguyên lưới full-width gap 12px (3/4/5/6 cột tại
+ * 1280/1600/1920), chế độ Danh sách, localStorage view preference, cuộn độc lập, F3 (searchRef)
+ * và Enter SKU-only (onEnterAdd — tra cứu toàn bộ, KHÔNG phụ thuộc bộ lọc đang chọn).
+ * Bộ lọc: tồn kho (Còn hàng / Hết hàng / Tất cả), lọc ở server.
  */
 export default function PosProductCatalog({
   products,
@@ -27,6 +49,11 @@ export default function PosProductCatalog({
   searchRef,
   onBarcode,
   onAdd,
+  stockFilter = 'tat_ca',
+  onStockFilterChange,
+  // Từ khóa server đã dùng cho kết quả đang hiện (sau debounce) — để thông báo rỗng
+  // không nhảy theo từng phím gõ trước khi kịp tải lại.
+  resultQuery,
 }) {
   const [view, setView] = useState(() => {
     try { return window.localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'grid'; }
@@ -37,7 +64,9 @@ export default function PosProductCatalog({
   useEffect(() => {
     try { window.localStorage.setItem(VIEW_KEY, view); } catch { /* Storage có thể bị chặn; giữ chế độ trong phiên. */ }
   }, [view]);
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [search, page, view]);
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [search, page, view, stockFilter]);
+
+  const empty = emptyMessage({ search: resultQuery ?? search, stockFilter });
 
   const onSearchKeyDown = (event) => {
     if (event.key !== 'Enter' || event.nativeEvent.isComposing || event.repeat) return;
@@ -65,11 +94,21 @@ export default function PosProductCatalog({
             <button aria-label="Danh sách" aria-pressed={view === 'list'} className={`grid size-[34px] place-items-center rounded-md transition focus-visible:outline-2 focus-visible:outline-bo-primary ${view === 'list' ? 'bg-bo-primary-soft text-bo-primary' : 'text-bo-muted hover:bg-slate-100'}`} onClick={() => setView('list')} title="Danh sách" type="button"><List aria-hidden="true" size={17} /></button>
           </div>
         </div>
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <div aria-label="Lọc theo nhóm hàng" className="flex min-w-0 gap-1.5 overflow-x-auto pb-0.5" role="group">
-            <button aria-pressed className="shrink-0 rounded-full bg-bo-primary px-3 py-1.5 text-xs font-medium text-white" type="button">Tất cả</button>
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <div aria-label="Lọc theo tồn kho" className="flex shrink-0 gap-0.5 rounded-lg border border-bo-border p-0.5" role="group">
+            {STOCK_FILTERS.map((option) => (
+              <button
+                aria-pressed={stockFilter === option.value}
+                className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition focus-visible:outline-2 focus-visible:outline-bo-primary ${stockFilter === option.value ? 'bg-bo-primary-soft text-bo-primary' : 'text-bo-muted hover:bg-slate-100'}`}
+                key={option.value}
+                onClick={() => onStockFilterChange?.(option.value)}
+                type="button"
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
-          <span className="hidden shrink-0 text-xs text-bo-muted sm:inline">{totalElements} hàng hóa</span>
+          <span className="ml-auto hidden shrink-0 text-xs text-bo-muted sm:inline">{totalElements} hàng hóa</span>
         </div>
       </div>
 
@@ -93,15 +132,19 @@ export default function PosProductCatalog({
                 <button className="shrink-0 font-semibold hover:underline" onClick={onRetry} type="button">Thử lại</button>
               </div>
             ) : null}
-            <div aria-label={view === 'grid' ? 'Lưới sản phẩm' : 'Danh sách sản phẩm'} className={view === 'grid' ? 'grid w-full grid-cols-3 gap-3 min-[1280px]:grid-cols-4 min-[1600px]:grid-cols-5 min-[1920px]:grid-cols-6' : 'flex flex-col divide-y divide-bo-border'}>
+            {/* Đang tải kết quả mới (đổi bộ lọc/từ khóa/trang): làm mờ danh sách cũ để không bị hiểu nhầm là kết quả mới. */}
+            <div aria-busy={loading} aria-label={view === 'grid' ? 'Lưới sản phẩm' : 'Danh sách sản phẩm'} className={`${view === 'grid' ? 'grid w-full grid-cols-3 gap-3 min-[1280px]:grid-cols-4 min-[1600px]:grid-cols-5 min-[1920px]:grid-cols-6' : 'flex flex-col divide-y divide-bo-border'} transition-opacity ${loading ? 'opacity-60' : ''}`}>
               {products.map((product) => <PosProductCard key={product.id} onAdd={onAdd} product={product} view={view} />)}
             </div>
           </>
         ) : (
           <div className="flex min-h-64 flex-col items-center justify-center px-5 text-center">
             <Search aria-hidden="true" className="text-bo-muted" size={24} />
-            <p className="mt-3 text-sm font-semibold text-bo-foreground">Không tìm thấy hàng hóa</p>
-            <p className="mt-1 text-xs leading-5 text-bo-muted">Thử đổi từ khóa khác.</p>
+            <p className="mt-3 text-sm font-semibold text-bo-foreground">{empty.title}</p>
+            <p className="mt-1 text-xs leading-5 text-bo-muted">{empty.hint}</p>
+            {stockFilter !== 'tat_ca' && onStockFilterChange ? (
+              <button className="mt-3 text-xs font-semibold text-bo-primary hover:underline" onClick={() => onStockFilterChange('tat_ca')} type="button">Xem tất cả hàng hóa</button>
+            ) : null}
           </div>
         )}
       </div>
