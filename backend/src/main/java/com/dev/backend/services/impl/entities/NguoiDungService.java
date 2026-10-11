@@ -166,7 +166,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         return dummyPasswordHash;
     }
 
-    // Tạo token đăng nhập kèm danh sách phân quyền theo kho
+    // Token đăng nhập kèm claim "cv" (dấu vân tay mật khẩu hiện tại): đổi/đặt lại mật khẩu -> token cũ bị thu hồi
     private String issueToken(NguoiDung nguoiDung) {
         // lấy danh sách phân quyền người dùng để truyền ra token
         List<PhanQuyenNguoiDungKho> phanQuyenNguoiDungKhos = phanQuyenNguoiDungKhoService.findByNguoiDungIdAndActive(nguoiDung.getId());
@@ -187,7 +187,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                 nguoiDung.getNgayTao(),
                 nguoiDung.getNgayCapNhat(),
                 pqndkMapper.toDtoList(phanQuyenNguoiDungKhos),
-                "Google"
+                "Google",
+                jwtService.credentialVersion(nguoiDung.getMatKhauHash())
         );
     }
 
@@ -826,9 +827,12 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
         update(nguoiDung.getId(), nguoiDung);
 
+        // đổi mật khẩu thu hồi mọi token cũ (kể cả token đang dùng) -> cấp token mới cho phiên hiện tại,
+        // FE lưu lại để không bị đăng xuất; các thiết bị/phiên khác phải đăng nhập lại
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
+                        .data(issueToken(nguoiDung))
                         .message("Thay đổi mật khẩu thành công!")
                         .build()
         );

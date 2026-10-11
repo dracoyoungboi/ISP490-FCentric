@@ -123,6 +123,11 @@ export const nguoiDungService = {
     async changePassword(payload) {
         // payload: { currentPassword, newPassword } — không kèm id (BE lấy user từ token)
         const res = await apiClient.post("/api/v1/nguoi-dung/change-password", payload);
+        // Đổi mật khẩu thu hồi mọi token cũ -> BE trả token mới cho phiên hiện tại (data), lưu lại để không bị đăng xuất
+        const newToken = res?.data?.data;
+        if (typeof newToken === "string" && newToken.split(".").length === 3) {
+            localStorage.setItem("access_token", newToken);
+        }
         return res.data;
     },
 
