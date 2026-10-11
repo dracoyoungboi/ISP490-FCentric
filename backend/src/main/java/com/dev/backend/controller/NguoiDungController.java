@@ -103,7 +103,7 @@ public class NguoiDungController {
 
     // sau khi gửi yêu cầu đổi mk thì api này để đổi mk với otp
     @PostMapping("reset-password")
-    public ResponseEntity<ResponseData<String >> resetPassword(@RequestBody ResetPasswordRequest rpRequest){
+    public ResponseEntity<ResponseData<String >> resetPassword(@Valid @RequestBody ResetPasswordRequest rpRequest){
         return nguoiDungService.resetPassword(rpRequest);
 
     }
