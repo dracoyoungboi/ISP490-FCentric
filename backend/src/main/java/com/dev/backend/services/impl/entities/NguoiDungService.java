@@ -24,6 +24,8 @@ import com.dev.backend.services.EmailService;
 import com.dev.backend.services.JwtService;
 import com.dev.backend.services.MinioService;
 import com.dev.backend.services.impl.BaseServiceImpl;
+import com.dev.backend.services.impl.utils.OtpMailDispatcher;
+import com.dev.backend.services.impl.utils.PasswordResetRateLimiter;
 import com.dev.backend.utils.AvatarImageValidator;
 import jakarta.persistence.EntityManager;
 import org.slf4j.Logger;
@@ -78,6 +80,12 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
     @Autowired
     private TepTinService tepTinService;
+
+    @Autowired
+    private PasswordResetRateLimiter passwordResetRateLimiter;
+
+    @Autowired
+    private OtpMailDispatcher otpMailDispatcher;
 
     private static final Logger logger = LoggerFactory.getLogger(NguoiDungService.class);
 
@@ -441,11 +449,57 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                 && Objects.equals(otpScheduleObj.getEmail(), email);
     }
 
-    public ResponseEntity<ResponseData<String>> forgotPassword(ForgotPasswordRequest fpRequest) {
-        NguoiDung nguoiDung = resolveAccount(fpRequest.getUsername()).orElseThrow(
-                () -> new CommonException("Không tìm thấy tài khoản")
-        );
+    // Phản hồi chung cho mọi yêu cầu hợp lệ: không cho biết tài khoản có tồn tại / bị khoá / có email hay không
+    static final String FORGOT_PASSWORD_GENERIC_MESSAGE =
+            "Nếu thông tin tài khoản hợp lệ, mã OTP đã được gửi tới email đã đăng ký. Mã có hiệu lực 5 phút.";
 
+    public ResponseEntity<ResponseData<String>> forgotPassword(ForgotPasswordRequest fpRequest, String clientIp) {
+        String identifier = fpRequest.getUsername() == null ? "" : fpRequest.getUsername().trim();
+        if (identifier.isEmpty()) {
+            throw new CommonException("Vui lòng nhập email / tên đăng nhập");
+        }
+
+        // tài khoản sẽ nhận email (null: không tồn tại / bị khoá / chưa có email -> không gửi, chỉ ghi log)
+        NguoiDung recipient = resolveAccount(identifier).filter(this::canReceiveResetOtp).orElse(null);
+
+        // giới hạn theo chuỗi nhập + IP áp dụng cho MỌI yêu cầu (kể cả tài khoản không tồn tại) -> phản hồi giống nhau;
+        // theo tài khoản + quota hệ thống chỉ khi thực sự gửi. Kiểm tra + ghi nhận trong 1 lần (bị chặn thì không ghi gì).
+        PasswordResetRateLimiter.Decision decision = passwordResetRateLimiter.tryAcquire(
+                identifier.toLowerCase(Locale.ROOT), clientIp, recipient == null ? null : recipient.getId());
+        if (!decision.allowed()) {
+            logger.warn("[forgotPassword] Vượt giới hạn gửi OTP ({}), chờ {} giây", decision.reason(), decision.retryAfterSeconds());
+        }
+        throwIfRateLimited(decision);
+
+        if (recipient != null) {
+            sendResetOtp(recipient);
+        }
+
+        return ResponseEntity.ok(
+                ResponseData.<String>builder()
+                        .status(HttpStatus.OK.value())
+                        .data("Success")
+                        .message(FORGOT_PASSWORD_GENERIC_MESSAGE)
+                        .build()
+        );
+    }
+
+    // Tài khoản không nhận được OTP thì chỉ ghi log, KHÔNG báo về client (không lộ trạng thái tài khoản)
+    private boolean canReceiveResetOtp(NguoiDung nguoiDung) {
+        if (nguoiDung.getTrangThai() == null || nguoiDung.getTrangThai() != 1) {
+            logger.warn("[forgotPassword] Tài khoản id={} đang bị khoá, không gửi OTP", nguoiDung.getId());
+            return false;
+        }
+        // không có email thì không gửi được OTP (và OTP email null làm hỏng các vòng so khớp email)
+        if (nguoiDung.getEmail() == null || nguoiDung.getEmail().isBlank()) {
+            logger.warn("[forgotPassword] Tài khoản id={} chưa có email, không gửi OTP", nguoiDung.getId());
+            return false;
+        }
+        return true;
+    }
+
+    // Tạo OTP + gửi email (bất đồng bộ, lỗi SMTP chỉ ghi log server)
+    private void sendResetOtp(NguoiDung nguoiDung) {
         //Tạo OTP
         String otp = calcService.getRandomActiveCode(6L);
         OtpScheduleObj resetOtp = OtpScheduleObj.builder()
@@ -468,16 +522,24 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         params.put("otp", otp);
         params.put("expiryTime", "5 phút");
 
-        //gửi email
-        emailService.sendHtmlEmailFromTemplate(nguoiDung.getEmail(), "Lấy lại mật khẩu", "activation.html", params);
+        //gửi email ở luồng riêng: lỗi SMTP chỉ ghi log server, không trả về client
+        otpMailDispatcher.dispatch(nguoiDung.getId(), nguoiDung.getEmail(), "Lấy lại mật khẩu", "activation.html", params);
+    }
 
-        return ResponseEntity.ok(
-                ResponseData.<String>builder()
-                        .status(HttpStatus.OK.value())
-                        .data("Success")
-                        .message("Success")
-                        .build()
-        );
+    private static void throwIfRateLimited(PasswordResetRateLimiter.Decision decision) {
+        if (decision.allowed()) return;
+        long seconds = decision.retryAfterSeconds();
+        if (decision.reason() == PasswordResetRateLimiter.Reason.GLOBAL_LIMIT) {
+            throw new CommonException(
+                    "Hệ thống tạm ngưng gửi mã xác nhận do có quá nhiều yêu cầu. Vui lòng thử lại sau hoặc liên hệ quản trị viên.",
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    Map.of("code", "OTP_SERVICE_BUSY", "retryAfterSeconds", seconds));
+        }
+        String message = decision.reason() == PasswordResetRateLimiter.Reason.COOLDOWN
+                ? "Vui lòng đợi " + seconds + " giây trước khi yêu cầu mã mới"
+                : "Bạn đã yêu cầu mã quá nhiều lần, vui lòng thử lại sau " + ((seconds + 59) / 60) + " phút";
+        throw new CommonException(message, HttpStatus.TOO_MANY_REQUESTS,
+                Map.of("code", "OTP_RATE_LIMITED", "retryAfterSeconds", seconds));
     }
 
     /**
