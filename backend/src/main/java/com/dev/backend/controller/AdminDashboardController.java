@@ -5,8 +5,10 @@ import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.response.AdminDashboardResponse;
 import com.dev.backend.dto.response.DoanhThuChartDTO;
 import com.dev.backend.dto.response.ResponseData;
+import com.dev.backend.dto.response.TongQuanAdminResponse;
 import com.dev.backend.services.impl.multitable.DoanhThuReportService;
 import com.dev.backend.services.multitable.AdminDashboardService;
+import com.dev.backend.services.multitable.TongQuanAdminService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +25,9 @@ public class AdminDashboardController {
 
     @Autowired
     private DoanhThuReportService doanhThuReportService;
+
+    @Autowired
+    private TongQuanAdminService tongQuanAdminService;
 
     public AdminDashboardController(AdminDashboardService adminDashboardService) {
         this.adminDashboardService = adminDashboardService;
@@ -45,6 +50,32 @@ public class AdminDashboardController {
                         .status(HttpStatus.OK.value())
                         .data(adminDashboardService.getDashboard())
                         .message("Lấy dashboard admin thành công")
+                        .error(null)
+                        .build()
+        );
+    }
+
+    /**
+     * Màn Tổng quan của quản trị viên (UC 11.1): doanh thu, việc cần xử lý, tồn kho, nhập – xuất,
+     * bán chạy, hàng cần bổ sung, hoạt động gần đây. Chỉ quản trị viên (ma trận phân quyền SRS).
+     *
+     * @param ky     7_ngay | 30_ngay (mặc định) | 12_thang
+     * @param khoId  bỏ trống = tất cả kho
+     * @param lamMoi true khi bấm "Cập nhật": tính lại ngay, không dùng bản đã tính trong 60 giây
+     */
+    @GetMapping("/tong-quan")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    public ResponseEntity<ResponseData<TongQuanAdminResponse>> getTongQuan(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam(defaultValue = "30_ngay") String ky,
+            @RequestParam(required = false) Integer khoId,
+            @RequestParam(defaultValue = "false") boolean lamMoi
+    ) {
+        return ResponseEntity.ok(
+                ResponseData.<TongQuanAdminResponse>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(tongQuanAdminService.layTongQuan(ky, khoId, lamMoi))
+                        .message("Lấy tổng quan thành công")
                         .error(null)
                         .build()
         );
