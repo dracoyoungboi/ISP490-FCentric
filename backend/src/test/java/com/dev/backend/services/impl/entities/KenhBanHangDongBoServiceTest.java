@@ -7,8 +7,10 @@ import com.dev.backend.dto.response.customize.DongBoTongQuanDto;
 import com.dev.backend.dto.response.customize.TuDongLienKetResultDto;
 import com.dev.backend.dto.response.entities.LienKetSanPhamDto;
 import com.dev.backend.entities.BienTheSanPham;
+import com.dev.backend.entities.DanhMucQuanAo;
 import com.dev.backend.entities.KenhBanHang;
 import com.dev.backend.entities.SanPhamQuanAo;
+import com.dev.backend.entities.ThuongHieu;
 import com.dev.backend.entities.TrangThaiDongBoSanPham;
 import com.dev.backend.repository.*;
 import com.dev.backend.services.KenhBanHangService;
@@ -89,9 +91,14 @@ class KenhBanHangDongBoServiceTest {
                 .trangThai(1)
                 .build();
 
+        DanhMucQuanAo dm = DanhMucQuanAo.builder().id(1).tenDanhMuc("Áo Polo").build();
+        ThuongHieu th = ThuongHieu.builder().id(1).tenThuongHieu("Routine").build();
+
         SanPhamQuanAo sp = SanPhamQuanAo.builder()
                 .id(10)
                 .tenSanPham("Áo Polo FCentric")
+                .danhMuc(dm)
+                .thuongHieu(th)
                 .build();
 
         bienThe1 = BienTheSanPham.builder()

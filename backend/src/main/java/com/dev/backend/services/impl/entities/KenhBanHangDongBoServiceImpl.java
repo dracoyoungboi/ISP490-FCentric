@@ -190,6 +190,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         int soDaGhep = 0;
         int soTaoMoiTrenShopify = 0;
+        int soCapNhatTrenShopify = 0;
         int soTonKhoDaDay = 0;
         int soAnhDaDay = 0;
         int soThatBai = 0;
@@ -213,10 +214,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
                     // Kiểm tra xem các biến thể của sản phẩm này đã có trên Shopify chưa
                     List<BienTheSanPham> variantsCanTaoMoi = new ArrayList<>();
+                    Long existingShopifyProdId = null;
                     for (BienTheSanPham bt : spVariants) {
                         String skuKey = bt.getMaSku().trim().toLowerCase();
                         if (!shopifySkuMap.containsKey(skuKey)) {
                             variantsCanTaoMoi.add(bt);
+                        } else if (existingShopifyProdId == null && shopifySkuMap.get(skuKey).getProductId() != null) {
+                            existingShopifyProdId = shopifySkuMap.get(skuKey).getProductId();
                         }
                     }
 
@@ -230,10 +234,20 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             log.error("Lỗi khi tạo sản phẩm [{}] lên Shopify: {}", sp.getTenSanPham(), e.getMessage());
                             soThatBai += variantsCanTaoMoi.size();
                         }
+                    } else if (existingShopifyProdId != null) {
+                        // [Cơ chế Update Tự Động]: Sản phẩm đã có trên Shopify -> Tự động CẬP NHẬT đè Thương hiệu, Loại và Tags
+                        try {
+                            boolean updated = capNhatSanPhamLenShopify(domain, token, existingShopifyProdId, sp);
+                            if (updated) {
+                                soCapNhatTrenShopify++;
+                            }
+                        } catch (Exception e) {
+                            log.warn("Lỗi khi cập nhật sản phẩm [{}] (ID: {}) lên Shopify: {}", sp.getTenSanPham(), existingShopifyProdId, e.getMessage());
+                        }
                     }
 
                     // [Ưu tiên 2 - Hybrid Smart Sync]: Đẩy ảnh riêng của các biến thể lên Shopify
-                    Long shopifyProdId = null;
+                    Long shopifyProdId = existingShopifyProdId;
                     for (BienTheSanPham bt : spVariants) {
                         ShopifyVariantInfo vi = shopifySkuMap.get(bt.getMaSku().trim().toLowerCase());
                         if (vi != null && vi.getProductId() != null) {
@@ -333,14 +347,15 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_san_pham,
                 "Tự động liên kết và đẩy sản phẩm kênh " + maKenh + ": " + soDaGhep + " ghép nối, "
-                        + soTaoMoiTrenShopify + " tạo mới Shopify, " + soTonKhoDaDay + " cập nhật tồn kho, "
-                        + soAnhDaDay + " ảnh đã đồng bộ");
+                        + soTaoMoiTrenShopify + " tạo mới Shopify, " + soCapNhatTrenShopify + " cập nhật Shopify, "
+                        + soTonKhoDaDay + " cập nhật tồn kho, " + soAnhDaDay + " ảnh đã đồng bộ");
 
         return TuDongLienKetResultDto.builder()
                 .soDaGhep(soDaGhep)
                 .soKhongKhop(0)
                 .soNhieuKhop(0)
                 .soTaoMoiTrenShopify(soTaoMoiTrenShopify)
+                .soCapNhatTrenShopify(soCapNhatTrenShopify)
                 .soTonKhoDaDay(soTonKhoDaDay)
                 .soAnhDaDay(soAnhDaDay)
                 .soThatBai(soThatBai)
@@ -664,11 +679,22 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         RestTemplate restTemplate = createRestTemplate();
         HttpHeaders headers = createHeaders(token);
 
+        String vendorName = "FCentric";
+        if (sp != null && sp.getThuongHieu() != null && sp.getThuongHieu().getTenThuongHieu() != null && !sp.getThuongHieu().getTenThuongHieu().isBlank()) {
+            vendorName = sp.getThuongHieu().getTenThuongHieu().trim();
+        }
+
+        String categoryName = "Thời trang";
+        if (sp != null && sp.getDanhMuc() != null && sp.getDanhMuc().getTenDanhMuc() != null && !sp.getDanhMuc().getTenDanhMuc().isBlank()) {
+            categoryName = sp.getDanhMuc().getTenDanhMuc().trim();
+        }
+
         Map<String, Object> productObj = new LinkedHashMap<>();
-        productObj.put("title", sp.getTenSanPham());
-        productObj.put("body_html", "<p>" + (sp.getMoTa() != null && !sp.getMoTa().isBlank() ? sp.getMoTa() : sp.getTenSanPham()) + "</p>");
-        productObj.put("vendor", "FCentric");
-        productObj.put("product_type", sp.getDanhMuc() != null ? sp.getDanhMuc().getTenDanhMuc() : "Thời trang");
+        productObj.put("title", sp != null && sp.getTenSanPham() != null ? sp.getTenSanPham() : "Sản phẩm FCentric");
+        productObj.put("body_html", "<p>" + (sp != null && sp.getMoTa() != null && !sp.getMoTa().isBlank() ? sp.getMoTa() : (sp != null ? sp.getTenSanPham() : "")) + "</p>");
+        productObj.put("vendor", vendorName);
+        productObj.put("product_type", categoryName);
+        productObj.put("tags", categoryName.equalsIgnoreCase(vendorName) ? categoryName : categoryName + ", " + vendorName);
         productObj.put("status", "active");
 
         // [Ưu tiên 1 - Hybrid Smart Sync]: Đính kèm ảnh chính sản phẩm cha vào payload khởi tạo (tiết kiệm request, 0 latency)
@@ -771,6 +797,48 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
         }
         return result;
+    }
+
+    private boolean capNhatSanPhamLenShopify(String domain, String token, Long shopifyProductId, SanPhamQuanAo sp) {
+        if (shopifyProductId == null || sp == null) return false;
+        String url = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/products/" + shopifyProductId + ".json";
+
+        RestTemplate restTemplate = createRestTemplate();
+        HttpHeaders headers = createHeaders(token);
+
+        String vendorName = "FCentric";
+        if (sp.getThuongHieu() != null && sp.getThuongHieu().getTenThuongHieu() != null && !sp.getThuongHieu().getTenThuongHieu().isBlank()) {
+            vendorName = sp.getThuongHieu().getTenThuongHieu().trim();
+        }
+
+        String categoryName = "Thời trang";
+        if (sp.getDanhMuc() != null && sp.getDanhMuc().getTenDanhMuc() != null && !sp.getDanhMuc().getTenDanhMuc().isBlank()) {
+            categoryName = sp.getDanhMuc().getTenDanhMuc().trim();
+        }
+
+        Map<String, Object> productObj = new LinkedHashMap<>();
+        productObj.put("id", shopifyProductId);
+        if (sp.getTenSanPham() != null && !sp.getTenSanPham().isBlank()) {
+            productObj.put("title", sp.getTenSanPham().trim());
+        }
+        productObj.put("vendor", vendorName);
+        productObj.put("product_type", categoryName);
+        productObj.put("tags", categoryName.equalsIgnoreCase(vendorName) ? categoryName : categoryName + ", " + vendorName);
+
+        Map<String, Object> body = Map.of("product", productObj);
+        try {
+            String jsonBody = objectMapper.writeValueAsString(body);
+            HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.PUT, entity, String.class);
+            if (response.getStatusCode().is2xxSuccessful()) {
+                log.info("Cập nhật thành công sản phẩm [{}] (Shopify ID: {}) - Vendor: {}, Type: {}, Tags: {}",
+                        sp.getTenSanPham(), shopifyProductId, vendorName, categoryName, productObj.get("tags"));
+                return true;
+            }
+        } catch (Exception e) {
+            log.warn("Lỗi khi gọi PUT cập nhật sản phẩm Shopify ID {}: {}", shopifyProductId, e.getMessage());
+        }
+        return false;
     }
 
     private int dongBoAnhBienThe(String domain, String token, Long shopifyProductId, List<BienTheSanPham> variants, Map<String, ShopifyVariantInfo> shopifySkuMap) {

@@ -190,6 +190,7 @@ public interface BienTheSanPhamRepository extends JpaRepository<BienTheSanPham, 
             SELECT bt FROM BienTheSanPham bt
             JOIN FETCH bt.sanPham sp
             LEFT JOIN FETCH sp.danhMuc
+            LEFT JOIN FETCH sp.thuongHieu
             LEFT JOIN FETCH bt.mauSac
             LEFT JOIN FETCH bt.size
             LEFT JOIN FETCH bt.chatLieu
