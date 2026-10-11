@@ -5,6 +5,7 @@ import { nguoiDungService } from '../services/nguoiDungService';
 import { AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { getMineKhoList } from '../services/khoService';
 import AuthShell from '../components/auth/AuthShell';
+import { ensureTokenUsable } from '../utils/authToken';
 
 /* ── Class patterns dùng chung (theo thiết kế modern white/gray) ── */
 const INPUT_BASE =
@@ -27,28 +28,9 @@ export default function AuthPage() {
     useEffect(() => {
         const token = localStorage.getItem('access_token');
         if (!token) return;
+        if (!ensureTokenUsable(token)) return;
 
-        try {
-            const decoded = jwtDecode(token);
-            const expiresAt = Number(decoded?.exp) * 1000;
-
-            if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
-                nguoiDungService.logout();
-                sessionStorage.setItem(
-                    'session_expired_message',
-                    'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
-                );
-                return;
-            }
-
-            navigate('/dashboard', { replace: true });
-        } catch {
-            nguoiDungService.logout();
-            sessionStorage.setItem(
-                'session_expired_message',
-                'Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.'
-            );
-        }
+        navigate('/dashboard', { replace: true });
     }, [navigate]);
 
     // Thông báo "tài khoản bị khóa" từ lần logout cưỡng bức (apiClient) — đọc 1 lần rồi xóa
