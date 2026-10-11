@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowLeftRight,
-  CheckCircle2,
   ChevronDown,
   ChevronRight,
   ClipboardCheck,
@@ -22,6 +21,7 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import DauTichDong from "./DauTichDong";
 import { MoreLink, Segmented } from "./ui";
 import { formatSo, formatTien, thoiGianNgan } from "../tong-quan/tongQuanFormat";
 
@@ -97,7 +97,7 @@ export default function ActionPanel({ data, khoId, loading, loiViec, loiHoatDong
             </p>
           ) : viec.length === 0 ? (
             <div className="flex h-full min-h-40 flex-col items-center justify-center gap-2 text-center">
-              <CheckCircle2 className="size-6 text-[#22a06b]" aria-hidden="true" />
+              <DauTichDong key={data?.thoiDiem} />
               <p className="text-sm font-medium text-bo-foreground">Không có việc nào đang chờ</p>
               <p className="max-w-60 text-[13px] text-bo-muted">Đơn chờ xuất, phiếu chờ duyệt và hàng thiếu sẽ hiện ở đây.</p>
               {hd.length ? (
