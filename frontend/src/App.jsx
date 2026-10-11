@@ -13,7 +13,6 @@ import SupplierList from "./pages/supplier/SupplierList";
 import SupplierDetail from "./pages/supplier/SupplierDetail";
 import SupplierDetailView from "./pages/supplier/SupplierDetailView";
 import ProductList from "./pages/product";
-import AddUserByAdmin from "@/pages/admin/AddUserByAdmin.jsx";
 import ViewUserListByAdmin from "./pages/admin/ViewUserListByAdmin";
 import ViewUserDetailByAdmin from "@/pages/admin/ViewUserDetailByAdmin.jsx";
 import EditUserRoleByAdmin from "@/pages/admin/EditUserRoleByAdmin.jsx";
@@ -122,7 +121,8 @@ export default function App() {
 
           {/* User management */}
           <Route path="/users" element={<ViewUserListByAdmin />} />
-          <Route path="/users/add" element={<AddUserByAdmin />} />
+          {/* Thêm người dùng là popup trên trang danh sách; giữ đường dẫn cũ để mở sẵn popup */}
+          <Route path="/users/add" element={<Navigate to="/users" replace state={{ openCreateUser: true }} />} />
           <Route path="/users/:id" element={<ViewUserDetailByAdmin />} />
           <Route
             path="/users/:id/edit-role"

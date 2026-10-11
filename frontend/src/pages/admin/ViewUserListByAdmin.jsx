@@ -13,6 +13,7 @@ import {
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
+import AddUserDialog from "@/components/admin/AddUserDialog";
 import PageContainer from "@/components/backoffice/PageContainer";
 import UserAvatar from "@/components/UserAvatar";
 import EmptyState from "@/components/shared/EmptyState";
@@ -41,7 +42,7 @@ import { cn } from "@/lib/utils";
 import { adminService } from "@/services/adminService";
 import { getCurrentUserId } from "@/utils/roles";
 
-// Chỉ lọc theo các vai trò nhân sự tạo được ở màn "Thêm người dùng".
+// Chỉ lọc theo các vai trò nhân sự tạo được ở popup "Thêm người dùng".
 // Khách hàng quản lý ở module Khách hàng (bảng khach_hang), không nằm trong nguoi_dung,
 // nên lựa chọn "Khách hàng" ở đây luôn ra danh sách rỗng.
 const ROLE_OPTIONS = [
@@ -74,6 +75,8 @@ const COLUMNS = [
 // Viền + bóng bên trái cột ghim — chỉ bật khi còn cột bị che phía dưới.
 const STICKY_EDGE = "border-l border-bo-border shadow-[-6px_0_8px_-6px_rgb(15_23_42/0.15)]";
 const LOAD_ERROR_MESSAGE = "Không thể tải danh sách người dùng. Vui lòng thử lại.";
+// Dòng người dùng vừa tạo được tô nền trong chừng này thời gian để dễ nhận ra.
+const NEW_ROW_HIGHLIGHT_MS = 4000;
 
 const DEFAULT_FILTERS = {
     keyword: "",
@@ -176,7 +179,10 @@ export default function ViewUserListByAdmin() {
     const [selectedUserForReset, setSelectedUserForReset] = useState(null);
     const [resettingUser, setResettingUser] = useState(false);
 
-    const toastShownRef = useRef(false);
+    // Popup Thêm người dùng; /users/add (đường dẫn cũ) chuyển về đây kèm state để mở sẵn popup.
+    const [createOpen, setCreateOpen] = useState(() => Boolean(location.state?.openCreateUser));
+    const [highlightUserId, setHighlightUserId] = useState(null);
+
     const syncedSearchRef = useRef(searchParams.toString());
 
     // Callback ref: bảng chỉ được gắn khi tải xong (lúc tải hiện LoadingState).
@@ -187,9 +193,10 @@ export default function ViewUserListByAdmin() {
         Boolean(searchText.trim()) || filters.vaiTro !== "ALL" || filters.trangThai !== "ALL";
 
     // ── Danh sách ────────────────────────────────────────────────
-    const fetchUsers = useCallback(async () => {
+    // silent: tải lại sau khi thêm người dùng — giữ nguyên bảng đang xem, không hiện vòng xoay.
+    const fetchUsers = useCallback(async ({ silent = false } = {}) => {
         const requestId = ++requestIdRef.current;
-        setLoading(true);
+        if (!silent) setLoading(true);
         setLoadError(null);
 
         try {
@@ -298,14 +305,37 @@ export default function ViewUserListByAdmin() {
         };
     }, [tableEl]);
 
-    // ── Toast sau khi tạo người dùng (state từ trang Thêm người dùng) ──
+    // ── /users/add đã mở sẵn popup: xóa state để F5 / quay lại không tự mở lại ──
     useEffect(() => {
-        if (!location.state?.success || toastShownRef.current) return;
-        toastShownRef.current = true;
-        toast.success(location.state.message || "Tạo người dùng thành công");
-        // Xóa state để F5 không hiện lại toast; giữ nguyên query bộ lọc.
-        navigate({ pathname: location.pathname, search: location.search }, { replace: true });
+        if (!location.state?.openCreateUser) return;
+        navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: null });
     }, [location, navigate]);
+
+    // ── Bỏ tô nền dòng vừa tạo sau vài giây ──
+    useEffect(() => {
+        if (highlightUserId == null) return undefined;
+        const timer = setTimeout(() => setHighlightUserId(null), NEW_ROW_HIGHLIGHT_MS);
+        return () => clearTimeout(timer);
+    }, [highlightUserId]);
+
+    const handleUserCreated = (user) => {
+        // Vai trò khác Quản trị viên thường cần gán kho phụ trách ngay sau khi tạo.
+        const canAssignWarehouse = user.id != null && user.vaiTro !== "quan_tri_vien";
+        toast.success("Đã tạo tài khoản.", {
+            description: `Mật khẩu tạm thời của ${user.tenDangNhap} sẽ được gửi tới ${user.email}.`,
+            duration: 8000,
+            action: canAssignWarehouse
+                ? {
+                      label: "Phân quyền kho",
+                      onClick: () => navigate(`/users/${user.id}/edit-role`),
+                  }
+                : undefined,
+        });
+        setHighlightUserId(user.id ?? null);
+        // Giữ nguyên bộ lọc + trang đang xem; danh sách xếp mới tạo lên đầu.
+        fetchUsers({ silent: true });
+        fetchStats();
+    };
 
     const applyKeyword = (keyword) => {
         setFilters((prev) => (prev.keyword === keyword ? prev : { ...prev, keyword, page: 0 }));
@@ -422,11 +452,12 @@ export default function ViewUserListByAdmin() {
                         </>
                     }
                     actions={
-                        <Button asChild className="bg-bo-primary text-white hover:bg-bo-primary-hover">
-                            <Link to="/users/add">
-                                <Plus className="size-4" />
-                                Thêm người dùng
-                            </Link>
+                        <Button
+                            onClick={() => setCreateOpen(true)}
+                            className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                        >
+                            <Plus className="size-4" />
+                            Thêm người dùng
                         </Button>
                     }
                 />
@@ -511,12 +542,17 @@ export default function ViewUserListByAdmin() {
                             {users.map((u, index) => {
                                 const isSelf = isCurrentUser(u);
                                 const isActive = u.trangThai === 1;
+                                const isNew = highlightUserId != null && u.id === highlightUserId;
 
                                 return (
                                     <tr
                                         key={u.id}
                                         onClick={() => navigate(`/users/${u.id}`, { state: detailLinkState })}
-                                        className="group cursor-pointer transition-colors hover:bg-bo-surface-subtle"
+                                        aria-current={isNew ? "true" : undefined}
+                                        className={cn(
+                                            "group cursor-pointer transition-colors duration-500 hover:bg-bo-surface-subtle",
+                                            isNew && "bg-bo-primary-soft"
+                                        )}
                                     >
                                         <td className="px-3 py-3 text-center text-xs text-bo-muted">
                                             {filters.page * filters.size + index + 1}
@@ -584,7 +620,8 @@ export default function ViewUserListByAdmin() {
                                         {/* Ô thao tác không điều hướng: bấm trượt nút (hoặc nút đang khóa) không mở chi tiết */}
                                         <td
                                             className={cn(
-                                                "sticky right-0 z-[1] cursor-default whitespace-nowrap bg-white px-3 py-3 text-center transition-colors group-hover:bg-bo-surface-subtle",
+                                                "sticky right-0 z-[1] cursor-default whitespace-nowrap px-3 py-3 text-center transition-colors duration-500 group-hover:bg-bo-surface-subtle",
+                                                isNew ? "bg-bo-primary-soft" : "bg-white",
                                                 columnsHidden && STICKY_EDGE
                                             )}
                                             onClick={(e) => e.stopPropagation()}
@@ -612,6 +649,9 @@ export default function ViewUserListByAdmin() {
                     </table>
                 )}
             </TableShell>
+
+            {/* ── POPUP THÊM NGƯỜI DÙNG ── */}
+            <AddUserDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={handleUserCreated} />
 
             {/* ── DIALOG CẤP LẠI MẬT KHẨU ── */}
             <AlertDialog
