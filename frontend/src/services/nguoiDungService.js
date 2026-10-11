@@ -88,6 +88,17 @@ export const nguoiDungService = {
         return res.data;
     },
 
+    // Bước xác thực OTP: BE chỉ kiểm tra mã (không tiêu thụ). Lỗi kèm data.code:
+    // RESET_OTP_WRONG (sai, còn lượt) / RESET_OTP_EXPIRED (hết hạn / đã huỷ -> phải gửi lại mã)
+    async verifyResetOtp({ username, otp }) {
+        const res = await apiClient.post(
+            "/api/v1/nguoi-dung/verify-reset-otp",
+            { username, otp },
+            { skipAuth: true }
+        );
+        return res.data;
+    },
+
     async resetPassword({ username, otp, password }) {
         // BE expects: { username, otp, password }
         const res = await apiClient.post(
