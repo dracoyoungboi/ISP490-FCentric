@@ -152,19 +152,41 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         );
     }
 
+    /** Báo chung cho "không có mã đơn" và "email không khớp" để API công khai không lộ đơn nào tồn tại. */
+    private static final String LOI_MA_DON_HOAC_EMAIL = "Email hoặc mã đơn hàng không đúng. Vui lòng kiểm tra lại email nhận yêu cầu báo giá.";
+
+    /**
+     * Đơn mua cho cổng nhà cung cấp (API công khai, chưa đăng nhập): theo id (liên kết có sẵn id)
+     * hoặc theo mã đơn nhà cung cấp tự nhập. Tìm theo mã thì email phải khớp nhà cung cấp của đơn.
+     */
+    private DonMuaHang timDonChoNhaCungCap(Integer donMuaHangId, String soDonMua, String email) {
+        if (donMuaHangId != null) {
+            return getOne(donMuaHangId).orElseThrow(
+                    () -> new CommonException("Không tìm thấy đơn mua hàng id: " + donMuaHangId)
+            );
+        }
+        if (soDonMua == null || soDonMua.isBlank()) {
+            throw new CommonException("Vui lòng nhập mã đơn hàng");
+        }
+        DonMuaHang donMuaHang = donMuaHangRepository.findBySoDonMua(soDonMua.trim())
+                .orElseThrow(() -> new CommonException(LOI_MA_DON_HOAC_EMAIL));
+        if (email == null || !email.equals(donMuaHang.getNhaCungCap().getEmail())) {
+            throw new CommonException(LOI_MA_DON_HOAC_EMAIL);
+        }
+        return donMuaHang;
+    }
+
     @Transactional
     public ResponseEntity<ResponseData<String>> getOtpForSupplier(OtpDonMuaHangGetting getting) {
-        //kiểm tra đơn mua hàng có tồn tại hay k
-        DonMuaHang donMuaHang = getOne(getting.getDonMuaHangId()).orElseThrow(
-                () -> new CommonException("Không tìm thấy đơn mua hàng id: " + getting.getDonMuaHangId())
-        );
+        //kiểm tra đơn mua hàng có tồn tại hay k (theo id từ liên kết hoặc mã đơn nhà cung cấp tự nhập)
+        DonMuaHang donMuaHang = timDonChoNhaCungCap(getting.getDonMuaHangId(), getting.getSoDonMua(), getting.getEmail());
         //kiểm tra mail NCC có giống email trong hệ thống hay k
         if (!getting.getEmail().equals(donMuaHang.getNhaCungCap().getEmail())) {
             throw new CommonException("Email nhà cung cấp không hợp lệ email: " + getting.getEmail());
         }
         // kiểm tra trạng thái đơn hàng(đã duyệt và gửi mail)
         if (donMuaHang.getTrangThai() != 2) {
-            throw new CommonException("Đơn mua hàng không tồn tại id: " + getting.getDonMuaHangId());
+            throw new CommonException("Đơn mua hàng không tồn tại id: " + donMuaHang.getId());
         }
 
         for (OtpScheduleObj otpScheduleObj : GlobalCache.OTP_SCHEDULE_OBJS) {
@@ -204,10 +226,8 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         //tìm otp bên trong danh sách otp lưu ở bộ nhớ đệm
         for (OtpScheduleObj otpScheduleObj : GlobalCache.OTP_SCHEDULE_OBJS) {
             if (otpScheduleObj.getEmail().equals(confirming.getEmail()) && otpScheduleObj.getOtp().equals(confirming.getOtp())) {
-                //tìm đơn hàng có tồn tại trong DB ko
-                DonMuaHang donMuaHang = getOne(confirming.getDonMuaHangId()).orElseThrow(
-                        () -> new CommonException("Không tìm thấy đơn mua hàng id: " + confirming.getDonMuaHangId())
-                );
+                //tìm đơn hàng có tồn tại trong DB ko (theo id hoặc mã đơn)
+                DonMuaHang donMuaHang = timDonChoNhaCungCap(confirming.getDonMuaHangId(), confirming.getSoDonMua(), confirming.getEmail());
                 if (!donMuaHang.getNhaCungCap().getEmail().equals(confirming.getEmail())) {
                     throw new CommonException("Đơn mua hàng không hợp lệ");
                 }
