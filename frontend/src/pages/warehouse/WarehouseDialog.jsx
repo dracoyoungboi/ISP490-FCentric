@@ -29,6 +29,8 @@ import {
 } from 'lucide-react';
 import { formatCurrency, formatDate, formatNumber } from '@/utils/formatters';
 import StatusBadge from '@/components/shared/StatusBadge';
+import { cn } from '@/lib/utils';
+import { LOAI_KHO_OPTIONS, laKhoAo, nhanLoaiKho } from './loaiKho';
 
 const FIELD_LABEL_CLASS =
     "text-xs font-semibold uppercase tracking-wide text-bo-muted";
@@ -113,6 +115,15 @@ export default function WarehouseDialog({
                                             tone={selectedWarehouse?.trangThai === 1 ? 'success' : 'neutral'}
                                         />
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* Loại kho */}
+                            <div className="space-y-1.5">
+                                <Label className={FIELD_LABEL_CLASS}>Loại kho</Label>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <StatusBadge label={nhanLoaiKho(selectedWarehouse).label} tone={nhanLoaiKho(selectedWarehouse).tone} dot={false} />
+                                    <span className="text-xs text-bo-muted">{nhanLoaiKho(selectedWarehouse).moTa}</span>
                                 </div>
                             </div>
 
@@ -253,6 +264,52 @@ export default function WarehouseDialog({
                                     className={INPUT_CLASS}
                                 />
                                 <FieldError message={errors.tenKho} />
+                            </div>
+
+                            {/* Loại kho */}
+                            <div className="space-y-1.5">
+                                <Label id="loaiKho-label" className={FIELD_LABEL_CLASS}>Loại kho *</Label>
+                                {laKhoAo(formData) ? (
+                                    <p className="rounded-md border border-bo-border bg-bo-surface-subtle px-3 py-2.5 text-sm text-bo-muted">
+                                        Kho ảo chứa hàng đang chuyển giữa các kho, không đổi loại được.
+                                    </p>
+                                ) : (
+                                    <div role="radiogroup" aria-labelledby="loaiKho-label" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                        {LOAI_KHO_OPTIONS.map((o) => {
+                                            const chon = formData.loaiKho === o.value;
+                                            return (
+                                                <button
+                                                    key={o.value}
+                                                    type="button"
+                                                    role="radio"
+                                                    aria-checked={chon}
+                                                    aria-labelledby={`loaiKho-${o.value}-ten`}
+                                                    aria-describedby={`loaiKho-${o.value}-mota`}
+                                                    onClick={() => setFormData({ ...formData, loaiKho: o.value })}
+                                                    className={cn(
+                                                        "flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30",
+                                                        chon ? "border-bo-primary bg-bo-primary-soft" : "border-bo-border bg-white hover:bg-bo-surface-subtle",
+                                                    )}
+                                                >
+                                                    <span
+                                                        className={cn(
+                                                            "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border",
+                                                            chon ? "border-bo-primary bg-bo-primary text-white" : "border-slate-300 bg-white",
+                                                        )}
+                                                        aria-hidden="true"
+                                                    >
+                                                        {chon ? <Check className="size-3" strokeWidth={3} /> : null}
+                                                    </span>
+                                                    <span className="min-w-0">
+                                                        <span id={`loaiKho-${o.value}-ten`} className="block text-sm font-semibold text-bo-foreground">{o.label}</span>
+                                                        <span id={`loaiKho-${o.value}-mota`} className="mt-0.5 block text-xs leading-5 text-bo-muted">{o.moTa}</span>
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                                <FieldError message={errors.loaiKho} />
                             </div>
 
                             {/* Địa chỉ */}

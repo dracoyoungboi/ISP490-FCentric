@@ -26,6 +26,7 @@ import ConfirmModal from '@/components/ui/confirm-modal';
 import {
     WarehouseDialog
 } from '.';
+import { laKhoAo, nhanLoaiKho } from './loaiKho';
 
 /* ── Filter payload builder ── */
 function buildPayload(filters) {
@@ -80,7 +81,7 @@ export default function WarehouseManagement() {
     const [isDeleting, setIsDeleting] = useState(false);
 
     const [formData, setFormData] = useState({
-        maKho: '', tenKho: '', diaChi: '', quanLyId: '', trangThai: 1,
+        maKho: '', tenKho: '', diaChi: '', quanLyId: '', trangThai: 1, loaiKho: 'cua_hang',
     });
     const [errors, setErrors] = useState({});
 
@@ -162,6 +163,10 @@ export default function WarehouseManagement() {
         else if (formData.tenKho.length < 5) e.tenKho = 'Tên kho phải có ít nhất 5 ký tự';
         if (!formData.diaChi) e.diaChi = 'Vui lòng nhập địa chỉ';
         if (!formData.quanLyId) e.quanLyId = 'Vui lòng chọn người quản lý';
+        if (formData.loaiKho === 'kho_tong' && Number(formData.trangThai) === 1) {
+            const khoTongKhac = warehouses.find(w => w.loaiKho === 'kho_tong' && w.trangThai === 1 && !laKhoAo(w) && w.id !== selectedWarehouse?.id);
+            if (khoTongKhac) e.loaiKho = `Đã có Kho tổng đang hoạt động: ${khoTongKhac.tenKho}. Hãy đổi kho đó thành Kho bán hàng trước.`;
+        }
         setErrors(e);
         return Object.keys(e).length === 0;
     };
@@ -171,9 +176,9 @@ export default function WarehouseManagement() {
         setDialogMode(mode);
         setSelectedWarehouse(wh);
         if (mode === 'create')
-            setFormData({ maKho: '', tenKho: '', diaChi: '', quanLyId: '', trangThai: 1 });
+            setFormData({ maKho: '', tenKho: '', diaChi: '', quanLyId: '', trangThai: 1, loaiKho: 'cua_hang' });
         else if (mode === 'edit' && wh)
-            setFormData({ maKho: wh.maKho, tenKho: wh.tenKho, diaChi: wh.diaChi, quanLyId: wh.quanLy?.id?.toString() || '', trangThai: wh.trangThai ?? 1 });
+            setFormData({ maKho: wh.maKho, tenKho: wh.tenKho, diaChi: wh.diaChi, quanLyId: wh.quanLy?.id?.toString() || '', trangThai: wh.trangThai ?? 1, loaiKho: wh.loaiKho || 'cua_hang' });
         setErrors({});
         setShowDialog(true);
     };
@@ -183,7 +188,7 @@ export default function WarehouseManagement() {
     const handleSubmit = async () => {
         if (!validateForm()) return;
         try {
-            const data = { maKho: formData.maKho, tenKho: formData.tenKho, diaChi: formData.diaChi, quanLyId: Number(formData.quanLyId), trangThai: Number(formData.trangThai) };
+            const data = { maKho: formData.maKho, tenKho: formData.tenKho, diaChi: formData.diaChi, quanLyId: Number(formData.quanLyId), trangThai: Number(formData.trangThai), loaiKho: formData.loaiKho };
             let res;
             if (dialogMode === 'create') res = await khoService.create(data);
             else if (dialogMode === 'edit') res = await khoService.update({ id: selectedWarehouse.id, ...data });
@@ -450,7 +455,7 @@ export default function WarehouseManagement() {
                         </div>
                     }
                 >
-                    <table className="w-full min-w-[920px] text-sm">
+                    <table className="w-full min-w-[1020px] text-sm">
                         <thead>
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                 <th className="h-10 w-14 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
@@ -461,6 +466,9 @@ export default function WarehouseManagement() {
                                 </th>
                                 <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Tên kho
+                                </th>
+                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                    Loại kho
                                 </th>
                                 <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Người quản lý
@@ -492,6 +500,11 @@ export default function WarehouseManagement() {
                                                 {wh.diaChi}
                                             </p>
                                         )}
+                                    </td>
+                                    <td className="px-3 py-3">
+                                        <span title={nhanLoaiKho(wh).moTa}>
+                                            <StatusBadge label={nhanLoaiKho(wh).label} tone={nhanLoaiKho(wh).tone} dot={false} />
+                                        </span>
                                     </td>
                                     <td className="px-3 py-3 text-sm text-bo-foreground">
                                         {wh.quanLy?.hoTen || '—'}
