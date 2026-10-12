@@ -5,7 +5,7 @@ import PosScanInput from './PosScanInput';
 
 const VIEW_KEY = 'fcentric.pos.productView';
 const iconButton = 'grid size-10 shrink-0 place-items-center rounded-lg border border-bo-border text-bo-muted transition hover:border-bo-primary/40 hover:bg-slate-50 hover:text-bo-primary focus-visible:outline-2 focus-visible:outline-bo-primary';
-const scanOnButton = 'inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-bo-primary bg-bo-primary-soft px-2.5 text-bo-primary transition hover:bg-bo-primary-soft/70 focus-visible:outline-2 focus-visible:outline-bo-primary';
+const scanOnButton = 'grid size-10 shrink-0 place-items-center rounded-lg border border-bo-primary bg-bo-primary-soft text-bo-primary transition hover:bg-bo-primary-soft/70 focus-visible:outline-2 focus-visible:outline-bo-primary';
 
 /** Bộ lọc tồn kho (giá trị = tham số trangThaiTon gửi lên server). */
 const STOCK_FILTERS = [
@@ -106,7 +106,6 @@ export default function PosProductCatalog({
           )}
           <button aria-label="Chế độ quét mã vạch" aria-pressed={scanMode} className={scanMode ? scanOnButton : iconButton} onClick={onToggleScanMode} title={scanMode ? 'Tắt chế độ quét mã (F8)' : 'Bật chế độ quét mã (F8)'} type="button">
             <Barcode aria-hidden="true" size={19} />
-            {scanMode ? <span className="hidden text-xs font-semibold sm:inline">Đang quét</span> : null}
           </button>
           {scanMode ? (
             <button aria-label="Âm báo khi quét" aria-pressed={scanSound} className={iconButton} onClick={onToggleScanSound} title={scanSound ? 'Tắt âm báo quét' : 'Bật âm báo quét'} type="button">
@@ -122,7 +121,7 @@ export default function PosProductCatalog({
           <div aria-live="polite" className={`mt-2 flex min-h-8 flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md px-2.5 py-1.5 text-xs ${lastScan ? (lastScan.ok ? 'bg-bo-success-soft text-bo-success' : 'bg-bo-danger-soft text-bo-danger') : 'bg-slate-50 text-bo-muted'}`} role="status">
             <span className="flex min-w-0 items-start gap-1.5">
               {lastScan ? (lastScan.ok ? <CheckCircle2 aria-hidden="true" className="mt-px shrink-0" size={14} /> : <AlertCircle aria-hidden="true" className="mt-px shrink-0" size={14} />) : null}
-              <span className="min-w-0 break-words font-medium">{lastScan ? lastScan.message : 'Sẵn sàng quét. Tiếng “bíp”: đã thêm vào hóa đơn · tiếng “rè”: chưa thêm, xem thông báo tại đây.'}</span>
+              <span className="min-w-0 break-words font-medium">{lastScan ? lastScan.message : 'Tiếng “bíp”: đã thêm vào hóa đơn · tiếng “rè”: chưa thêm, xem thông báo tại đây.'}</span>
             </span>
             <span className="flex shrink-0 items-center gap-3">
               {lastScan?.ambiguous && onShowScanMatches ? (
