@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, Barcode, CheckCircle2, ChevronLeft, ChevronRight, LayoutGrid, List, Loader2, RotateCcw, Search, Volume2, VolumeX } from 'lucide-react';
+import { AlertCircle, Barcode, CheckCircle2, ChevronLeft, ChevronRight, LayoutGrid, List, Loader2, PenLine, RotateCcw, ScanBarcode, Search, Volume2, VolumeX } from 'lucide-react';
 import PosProductCard from './PosProductCard';
 import { isTextEntry } from '../pos-scan';
+import './pos-scan-indicator.css';
 
 const VIEW_KEY = 'fcentric.pos.productView';
 const iconButton = 'grid size-10 shrink-0 place-items-center rounded-lg border border-bo-border text-bo-muted transition hover:border-bo-primary/40 hover:bg-slate-50 hover:text-bo-primary focus-visible:outline-2 focus-visible:outline-bo-primary';
@@ -15,13 +16,14 @@ const STOCK_FILTERS = [
 ];
 
 /**
- * Đèn báo chế độ quét (trong ô tìm kiếm). Xanh: phím quét sẽ được nhận — con trỏ ở ô tìm kiếm hoặc
- * đang chọn nút/thẻ sản phẩm (POS tự chuyển phím về ô tìm kiếm). Cam: con trỏ đang ở một ô nhập chữ
- * khác (ghi chú...) — bấm để về ô tìm kiếm.
+ * Con trỏ có đang ở chỗ phím gõ về ô tìm kiếm không: ô tìm kiếm, hoặc nút/thẻ sản phẩm (POS tự chuyển
+ * phím về ô tìm kiếm). false = đang gõ ở một ô nhập chữ khác (ghi chú, số lượng...). Máy quét vẫn nhận
+ * mã ở mọi chỗ; trạng thái này để thu ngân biết chữ gõ tay đang vào ô khác.
  */
-function ScanReadyPill({ inputRef }) {
+function useSearchFocusReady(inputRef, enabled) {
   const [ready, setReady] = useState(true);
   useEffect(() => {
+    if (!enabled) return undefined;
     const update = () => {
       const active = document.activeElement;
       setReady(active === inputRef.current || !isTextEntry(active));
@@ -33,20 +35,8 @@ function ScanReadyPill({ inputRef }) {
       document.removeEventListener('focusin', update);
       document.removeEventListener('focusout', update);
     };
-  }, [inputRef]);
-  return (
-    <button
-      className={`absolute right-1.5 top-1/2 inline-flex -translate-y-1/2 items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${ready ? 'bg-bo-success-soft text-bo-success' : 'bg-bo-warning-soft text-bo-warning'}`}
-      data-pos-scan-pill=""
-      onClick={() => inputRef.current?.focus()}
-      tabIndex={-1}
-      title={ready ? 'Sẵn sàng nhận mã quét' : 'Con trỏ đang ở ô nhập khác — bấm để quét tiếp'}
-      type="button"
-    >
-      <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
-      <span className="hidden sm:inline">{ready ? 'Sẵn sàng quét' : 'Bấm để quét tiếp'}</span>
-    </button>
-  );
+  }, [inputRef, enabled]);
+  return ready;
 }
 
 /** Nội dung khi không có hàng nào khớp: nói rõ vì sao (từ khóa / bộ lọc tồn kho). */
@@ -133,16 +123,49 @@ export default function PosProductCatalog({
   const start = totalElements > 0 ? page * pageSize + 1 : 0;
   const end = Math.min((page + 1) * pageSize, totalElements);
 
+  // Đèn báo chế độ quét: tia quét ở đầu ô. Đang gõ ở ô khác -> tia dừng, biểu tượng cam + lời nhắc.
+  const scanReady = useSearchFocusReady(searchRef, scanMode);
+  const scanAway = scanMode && !scanReady;
+  // Mỗi kết quả quét (seq mới) dựng lại biểu tượng + lớp viền để chớp màu kết quả đúng một lần.
+  const scanTone = lastScan ? (lastScan.ok ? 'ok' : 'err') : undefined;
+  const scanSeq = lastScan?.seq ?? 0;
+  const focusSearch = () => searchRef.current?.focus();
+  const searchTone = !scanMode ? 'border-bo-border pr-3' : scanAway ? 'border-bo-warning/45 pr-24 sm:pr-40' : 'border-bo-primary/50 pr-3';
+
   return (
     <section aria-label="Danh mục hàng hóa" className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface">
       <div className="shrink-0 border-b border-bo-border px-3 py-3">
         <div className="flex items-center gap-2">
           <div className="relative min-w-0 flex-1">
             <label className="block">
-              <Search aria-hidden="true" className={`absolute left-3 top-1/2 -translate-y-1/2 ${scanMode ? 'text-bo-primary' : 'text-bo-muted'}`} size={17} />
-              <input aria-label="Tìm hàng hóa" autoComplete="off" className={`min-h-10 w-full rounded-lg border bg-bo-surface py-2 pl-9 text-sm text-bo-foreground outline-none placeholder:text-bo-muted focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/10 ${scanMode ? 'border-bo-primary/50 pr-11 sm:pr-36' : 'border-bo-border pr-3'}`} onChange={(event) => onSearch(event.target.value)} onKeyDown={onSearchKeyDown} placeholder={scanMode ? 'Quét mã hoặc gõ tên / mã hàng (F3)' : 'Tên hoặc mã hàng (F3)'} ref={searchRef} spellCheck={false} value={search} />
+              {scanMode ? (
+                <span aria-hidden="true" className={`pos-scan-icon pointer-events-none absolute left-3 top-1/2 size-[17px] -translate-y-1/2 ${scanAway ? 'text-bo-warning' : 'text-bo-primary'}`} data-pos-scan-indicator={scanAway ? 'away' : 'ready'} data-tone={scanTone} key={`scan-icon-${scanSeq}`}>
+                  <ScanBarcode className="block" size={17} />
+                  {scanAway ? null : <span className="pos-scan-laser" />}
+                </span>
+              ) : (
+                <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-bo-muted" size={17} />
+              )}
+              <input aria-label="Tìm hàng hóa" autoComplete="off" className={`block min-h-10 w-full text-ellipsis rounded-lg border bg-bo-surface py-2 pl-9 text-sm text-bo-foreground outline-none placeholder:text-bo-muted focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/10 ${searchTone}`} onChange={(event) => onSearch(event.target.value)} onKeyDown={onSearchKeyDown} placeholder={scanMode ? 'Quét mã hoặc gõ tên / mã hàng (F3)' : 'Tên hoặc mã hàng (F3)'} ref={searchRef} spellCheck={false} value={search} />
             </label>
-            {scanMode ? <ScanReadyPill inputRef={searchRef} /> : null}
+            {scanMode && scanTone ? <span aria-hidden="true" className="pos-scan-ring pointer-events-none absolute inset-0 rounded-lg" data-pos-scan-ring={scanTone} data-tone={scanTone} key={`scan-ring-${scanSeq}`} /> : null}
+            {scanAway ? (
+              // Bấm (chuột/chạm) đưa con trỏ về ô tìm kiếm; chặn mousedown để nút không giành focus rồi biến mất trước khi click.
+              <button
+                aria-label="Đang gõ ở ô khác — bấm để về ô tìm kiếm"
+                className="absolute right-1.5 top-1/2 inline-flex -translate-y-1/2 items-center gap-1.5 rounded-md px-1.5 py-1 text-xs font-semibold text-bo-warning transition hover:bg-bo-warning-soft"
+                data-pos-scan-nudge=""
+                onClick={focusSearch}
+                onMouseDown={(event) => { event.preventDefault(); focusSearch(); }}
+                tabIndex={-1}
+                title="Con trỏ đang ở ô khác. Máy quét vẫn nhận mã — bấm để gõ tìm kiếm."
+                type="button"
+              >
+                <PenLine aria-hidden="true" size={14} />
+                <span className="hidden sm:inline">Đang gõ ở ô khác</span>
+                <span className="sm:hidden">Ô khác</span>
+              </button>
+            ) : null}
           </div>
           <button aria-label="Chế độ quét mã vạch" aria-pressed={scanMode} className={scanMode ? scanOnButton : iconButton} onClick={onToggleScanMode} title={scanMode ? 'Tắt chế độ quét mã (F8)' : 'Bật chế độ quét mã (F8)'} type="button">
             <Barcode aria-hidden="true" size={19} />

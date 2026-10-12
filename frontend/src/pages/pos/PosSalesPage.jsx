@@ -289,7 +289,9 @@ export default function PosSalesPage({
   // Chế độ quét mã: ô quét thay ô tìm kiếm, mỗi mã quét được tra CHÍNH XÁC rồi thêm 1 vào hóa đơn.
   const [scanMode, setScanMode] = useState(() => readFlag(SCAN_MODE_KEY, false));
   const [scanSound, setScanSound] = useState(() => readFlag(SCAN_SOUND_KEY, true));
-  const [lastScan, setLastScan] = useState(null); // {ok, message, code, ambiguous?}
+  const [lastScan, setLastScan] = useState(null); // {ok, message, code, seq, ambiguous?}
+  // Số thứ tự kết quả quét: đèn báo chớp đúng một lần cho mỗi kết quả, kể cả khi trùng nội dung lần trước.
+  const scanSeq = useRef(0);
   // Trạng thái/handler mới nhất cho hàng đợi quét (chạy nền qua await) — tránh closure cũ.
   const scanContext = useRef(null);
   const [search, setSearch] = useState('');
@@ -794,7 +796,8 @@ export default function PosSalesPage({
   const processScan = async ({ code, invoiceNumber, warehouseId: scanWarehouseId, typed = false }) => {
     const report = (ok, message, extra = {}) => {
       if (!ok && typed) setSearch((current) => (current === '' ? code : current));
-      setLastScan({ ok, message, code, ...extra });
+      scanSeq.current += 1;
+      setLastScan({ ok, message, code, seq: scanSeq.current, ...extra });
       if (scanContext.current?.scanSound) playScanBeep(ok);
       // Đã tắt chế độ quét khi mã còn đang tra: dòng kết quả không hiện -> báo bằng toast.
       if (!scanContext.current?.scanMode) showToast(message, ok ? 'success' : 'warning');
