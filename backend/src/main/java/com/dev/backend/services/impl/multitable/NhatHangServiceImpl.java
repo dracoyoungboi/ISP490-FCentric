@@ -4,6 +4,7 @@ import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.constant.variables.ITable;
+import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
 import com.dev.backend.dto.request.DonChoXuatFilterRequest;
 import com.dev.backend.dto.request.PhanCongNguoiNhatRequest;
 import com.dev.backend.dto.request.TaoPickListRequest;
@@ -542,7 +543,8 @@ public class NhatHangServiceImpl implements NhatHangService {
         dto.setTongSoLuongCanNhat(totalCanNhat);
         dto.setTongSoLuongDaQuet(totalDaQuet);
         dto.setPhanTramHoanThanh(percent);
-        dto.setCoTheHoanTat(allDone && !"da_nhat".equals(pickList.getTrangThai()) && !"da_xuat".equals(pickList.getTrangThai()));
+        // Chỉ phiếu đang mở (chờ nhặt / đang nhặt) mới hoàn tất được
+        dto.setCoTheHoanTat(allDone && ("cho_nhat".equals(pickList.getTrangThai()) || "dang_nhat".equals(pickList.getTrangThai())));
         dto.setDanhSachMaDonHang(orderCodes);
 
         if (pickList.getChiTietNhatHangs() != null) {
@@ -851,21 +853,50 @@ public class NhatHangServiceImpl implements NhatHangService {
             }
         }
 
-        // 1. Chuyển trạng thái Pick List sang 'da_nhat' và ghi nhận ngày hoàn tất
-        pickList.setTrangThai("da_nhat");
+        String trangThaiCu = pickList.getTrangThai();
+        List<DonBanHang> donHangs = pickList.getDonBanHangs() != null ? pickList.getDonBanHangs() : List.of();
+        NguoiDung currentUser = nguoiDungRepository.findById(authUser.getId()).orElse(null);
+
+        // 1. Chỉ đơn chưa xuất và chưa hủy (1 Chờ xuất kho / 2 Đang xử lý xuất kho) mới được tạo phiếu xuất.
+        //    Đơn bị hủy trong lúc nhặt (ví dụ sàn hủy qua đồng bộ đơn) hoặc đã xuất bằng phiếu khác thì bỏ qua,
+        //    trả về danh sách để màn hình nhắc nhân viên trả hàng đã nhặt của các đơn này về kệ.
+        List<DonBanHang> donHopLe = new ArrayList<>();
+        List<String> donChuaTaoPhieuXuat = new ArrayList<>();   // mã đơn, trả về cho màn hình
+        List<String> lyDoBoQua = new ArrayList<>();             // mã đơn kèm lý do, ghi nhật ký
+        boolean conDonDaXuat = false;
+        for (DonBanHang dbh : donHangs) {
+            Integer tt = dbh.getTrangThai();
+            if (tt != null && (tt == ITrangThaiDonBanHang.CHO_XUAT_KHO || tt == ITrangThaiDonBanHang.DANG_XUAT_KHO)) {
+                donHopLe.add(dbh);
+                continue;
+            }
+            String lyDo;
+            if (tt != null && tt == ITrangThaiDonBanHang.DA_HUY) {
+                lyDo = "đã hủy";
+            } else if (tt != null && (tt == ITrangThaiDonBanHang.DA_XUAT_TOAN_BO
+                    || tt == ITrangThaiDonBanHang.HOAN_THANH || tt == ITrangThaiDonBanHang.BI_HOAN_TRA)) {
+                conDonDaXuat = true;
+                lyDo = "đã xuất trước đó";
+            } else {
+                lyDo = "không ở trạng thái chờ xuất";
+            }
+            donChuaTaoPhieuXuat.add(dbh.getSoDonHang());
+            lyDoBoQua.add(dbh.getSoDonHang() + " (" + lyDo + ")");
+        }
+
+        // 2. Trạng thái phiếu nhặt: còn đơn cần xuất → 'da_nhat'; không còn đơn nào cần xuất thì
+        //    'da_xuat' nếu có đơn đã xuất, 'da_huy' nếu mọi đơn đều đã hủy.
+        String trangThaiMoi = !donHopLe.isEmpty() ? "da_nhat" : (conDonDaXuat ? "da_xuat" : "da_huy");
+        pickList.setTrangThai(trangThaiMoi);
         pickList.setNgayHoanTat(Instant.now());
         pickList = danhSachNhatHangRepository.save(pickList);
 
-        // 2. Chuyển trạng thái các Đơn bán hàng liên kết sang '3' (Sẵn sàng đóng gói & chờ xuất kho)
-        List<DonBanHang> donHangs = pickList.getDonBanHangs();
-        NguoiDung currentUser = nguoiDungRepository.findById(authUser.getId()).orElse(null);
-
-        if (donHangs != null && !donHangs.isEmpty()) {
-            for (DonBanHang dbh : donHangs) {
-                dbh.setTrangThai(3); // 3: Đã nhặt xong / Chờ đóng gói & xuất kho
-                donBanHangRepository.save(dbh);
-
-                // 3. Tự động sinh Phiếu Xuất Kho ở trạng thái 0 ("Chờ xuất") nếu chưa có
+        // 3. Đơn bán GIỮ NGUYÊN trạng thái (2 = Đang xử lý xuất kho). Trạng thái 3 (Đã xuất toàn bộ)
+        //    chỉ do PhieuXuatKhoService.updateTrangThaiDonBanHang đặt khi phiếu xuất đã hoàn thành,
+        //    để đơn không hiện "đã xuất" và không "Giao thành công" được khi kho chưa trừ tồn.
+        if (!donHopLe.isEmpty()) {
+            for (DonBanHang dbh : donHopLe) {
+                // Tự động sinh Phiếu Xuất Kho ở trạng thái 0 ("Chờ xuất") nếu chưa có
                 boolean daCoPhieu = phieuXuatKhoRepository.existsByDonBanHangIdAndTrangThai(dbh.getId(), 0);
                 if (!daCoPhieu) {
                     long seq = phieuXuatKhoRepository.countBySoPhieuXuatStartingWith("PXK-") + 1;
@@ -905,6 +936,14 @@ public class NhatHangServiceImpl implements NhatHangService {
         }
 
         // 4. Ghi vết kiểm toán
+        String ghiChuNhatKy = "Hoàn tất đợt nhặt hàng " + pickList.getMaPickList()
+                + (donHopLe.isEmpty()
+                    ? ", không còn đơn nào cần xuất nên không tạo phiếu xuất"
+                    : ", tự động sinh phiếu xuất kho chờ xuất cho " + donHopLe.size() + " đơn")
+                + (donChuaTaoPhieuXuat.isEmpty()
+                    ? ""
+                    : ". Không tạo phiếu xuất cho đơn: " + String.join(", ", lyDoBoQua)
+                        + ". Hàng đã nhặt cho các đơn này cần trả về kệ");
         try {
             lichSuThayDoiService.create(
                     LichSuThayDoi.builder()
@@ -912,18 +951,20 @@ public class NhatHangServiceImpl implements NhatHangService {
                             .idThamChieu(pickList.getId())
                             .kho(pickList.getKhoXuat())
                             .hanhDong(IHanhDong.hoan_tat_nhat_hang)
-                            .giaTriCu("dang_nhat")
-                            .giaTriMoi("da_nhat")
+                            .giaTriCu(trangThaiCu)
+                            .giaTriMoi(trangThaiMoi)
                             .nguoiThucHien(currentUser)
                             .ngayThucHien(Instant.now())
-                            .ghiChu("Hoàn tất đợt nhặt hàng " + pickList.getMaPickList() + ", tự động sinh phiếu xuất kho chờ xuất")
+                            .ghiChu(ghiChuNhatKy)
                             .build()
             );
         } catch (Exception e) {
             log.warn("Không thể ghi log hoàn tất nhặt hàng cho Pick List {}: {}", pickList.getMaPickList(), e.getMessage());
         }
 
-        return getChiTietPickList(pickList.getId());
+        DanhSachNhatHangDto ketQua = getChiTietPickList(pickList.getId());
+        ketQua.setDonChuaTaoPhieuXuat(donChuaTaoPhieuXuat);
+        return ketQua;
     }
 }
 

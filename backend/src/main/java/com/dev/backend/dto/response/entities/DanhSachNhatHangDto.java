@@ -35,6 +35,11 @@ public class DanhSachNhatHangDto implements Serializable {
     Boolean coTheHoanTat;
 
     List<String> danhSachMaDonHang;
+    /**
+     * Chỉ có trong kết quả "Hoàn tất nhặt": mã các đơn KHÔNG được tạo phiếu xuất vì đã hủy
+     * hoặc đã xuất trước đó (lý do chi tiết ghi trong nhật ký). Hàng đã nhặt cho các đơn này cần trả về kệ.
+     */
+    List<String> donChuaTaoPhieuXuat;
     List<ChiTietNhatHangDto> chiTietNhatHangs;
 }
 
