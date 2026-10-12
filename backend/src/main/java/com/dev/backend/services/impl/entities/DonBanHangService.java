@@ -10,8 +10,10 @@ import com.dev.backend.dto.request.ChiTietDonBanHangCreating;
 import com.dev.backend.dto.request.DonBanHangCreating;
 import com.dev.backend.dto.request.FilterCriteria;
 import com.dev.backend.dto.response.customize.BienTheSanPhamSelectDto;
+import com.dev.backend.dto.response.customize.ChiTietTonKhoKhaDungDto;
 import com.dev.backend.dto.response.customize.DonBanHangDetailResponse;
 import com.dev.backend.dto.response.customize.DonBanHangKpiHomNayDto;
+import com.dev.backend.dto.response.customize.KhoKhaDungDto;
 import com.dev.backend.dto.response.customize.PhieuXuatKhoSummaryDto;
 import com.dev.backend.dto.response.entities.ChiTietDonBanHangDto;
 import com.dev.backend.dto.response.entities.DonBanHangDto;
@@ -41,8 +43,13 @@ import org.springframework.context.annotation.Lazy;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 @Slf4j
@@ -260,6 +267,135 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         } catch (Exception e) {
             log.warn("Không thể ghi log thay đổi khi gửi đơn sang kho: {}", e.getMessage());
         }
+    }
+
+    /**
+     * Truy vấn tồn khả dụng (Free to Use = On Hand - Outgoing) của các mặt hàng trong đơn hàng
+     * tại tất cả các kho đang hoạt động, phục vụ việc lựa chọn kho tiếp nhận tối ưu.
+     */
+    @Transactional(readOnly = true)
+    public List<KhoKhaDungDto> getKhoKhaDungChoDonHang(Integer donHangId) {
+        DonBanHang don = repository.findById(donHangId)
+                .orElseThrow(() -> new CommonException("Không tìm thấy đơn hàng với ID: " + donHangId, HttpStatus.NOT_FOUND, null));
+
+        List<ChiTietDonBanHang> chiTiets = chiTietDonBanHangRepository.findByDonBanHangId(donHangId);
+        List<Kho> activeKhos = khoRepository.findByTrangThai(1);
+
+        if (activeKhos == null || activeKhos.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        if (chiTiets == null || chiTiets.isEmpty()) {
+            return activeKhos.stream().map(k -> KhoKhaDungDto.builder()
+                    .khoId(k.getId())
+                    .maKho(k.getMaKho())
+                    .tenKho(k.getTenKho())
+                    .diaChi(k.getDiaChi())
+                    .duHang(true)
+                    .soLuongMatHangDu(0)
+                    .tongSoMatHang(0)
+                    .chiTietTonKho(Collections.emptyList())
+                    .build()
+            ).toList();
+        }
+
+        List<Integer> bienTheIds = chiTiets.stream()
+                .map(ct -> ct.getBienTheSanPham() != null ? ct.getBienTheSanPham().getId() : null)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        // 1. Batch query On-Hand theo (khoId, bienTheId)
+        Map<Integer, Map<Integer, BigDecimal>> onHandMap = new HashMap<>();
+        if (!bienTheIds.isEmpty()) {
+            List<Object[]> onHandRows = tonKhoTheoLoRepository.sumOnHandByKhoAndBienTheIds(bienTheIds);
+            for (Object[] row : onHandRows) {
+                Integer btId = (Integer) row[0];
+                Integer kId = (Integer) row[1];
+                BigDecimal qty = row[2] instanceof BigDecimal ? (BigDecimal) row[2] : BigDecimal.valueOf(((Number) row[2]).doubleValue());
+                onHandMap.computeIfAbsent(kId, k -> new HashMap<>()).put(btId, qty);
+            }
+        }
+
+        // 2. Batch query Outgoing theo (khoId, bienTheId) loại trừ chính đơn hàng này
+        Map<Integer, Map<Integer, BigDecimal>> outgoingMap = new HashMap<>();
+        if (!bienTheIds.isEmpty()) {
+            List<Object[]> outgoingRows = chiTietDonBanHangRepository.sumOutgoingByKhoAndBienTheIdsExcludingOrder(bienTheIds, donHangId);
+            for (Object[] row : outgoingRows) {
+                Integer btId = (Integer) row[0];
+                Integer kId = (Integer) row[1];
+                BigDecimal qty = row[2] instanceof BigDecimal ? (BigDecimal) row[2] : BigDecimal.valueOf(((Number) row[2]).doubleValue());
+                outgoingMap.computeIfAbsent(kId, k -> new HashMap<>()).put(btId, qty);
+            }
+        }
+
+        List<KhoKhaDungDto> results = new ArrayList<>();
+        for (Kho kho : activeKhos) {
+            Integer kId = kho.getId();
+            Map<Integer, BigDecimal> khoOnHand = onHandMap.getOrDefault(kId, Collections.emptyMap());
+            Map<Integer, BigDecimal> khoOutgoing = outgoingMap.getOrDefault(kId, Collections.emptyMap());
+
+            int matHangDuCount = 0;
+            List<ChiTietTonKhoKhaDungDto> itemDtos = new ArrayList<>();
+
+            for (ChiTietDonBanHang ct : chiTiets) {
+                BienTheSanPham bt = ct.getBienTheSanPham();
+                Integer btId = bt != null ? bt.getId() : null;
+                BigDecimal soLuongDat = ct.getSoLuongDat() != null ? ct.getSoLuongDat() : BigDecimal.ZERO;
+
+                BigDecimal onHand = (btId != null) ? khoOnHand.getOrDefault(btId, BigDecimal.ZERO) : BigDecimal.ZERO;
+                BigDecimal outgoing = (btId != null) ? khoOutgoing.getOrDefault(btId, BigDecimal.ZERO) : BigDecimal.ZERO;
+                BigDecimal tonKhaDung = onHand.subtract(outgoing).max(BigDecimal.ZERO);
+
+                boolean duHang = tonKhaDung.compareTo(soLuongDat) >= 0;
+                if (duHang) {
+                    matHangDuCount++;
+                }
+
+                String tenBienThe = "";
+                if (bt != null) {
+                    String mau = bt.getMauSac() != null ? bt.getMauSac().getTenMau() : "";
+                    String size = bt.getSize() != null ? bt.getSize().getTenSize() : "";
+                    if (mau != null && !mau.isBlank() && size != null && !size.isBlank()) {
+                        tenBienThe = mau + " / " + size;
+                    } else if (mau != null && !mau.isBlank()) {
+                        tenBienThe = mau;
+                    } else if (size != null && !size.isBlank()) {
+                        tenBienThe = size;
+                    }
+                }
+
+                itemDtos.add(ChiTietTonKhoKhaDungDto.builder()
+                        .bienTheId(btId)
+                        .maSku(bt != null ? bt.getMaSku() : "")
+                        .tenSanPham(bt != null && bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : "")
+                        .tenBienThe(tenBienThe)
+                        .soLuongDat(soLuongDat)
+                        .tonKhaDung(tonKhaDung)
+                        .duHang(duHang)
+                        .build());
+            }
+
+            boolean allDuHang = matHangDuCount == chiTiets.size();
+            results.add(KhoKhaDungDto.builder()
+                    .khoId(kId)
+                    .maKho(kho.getMaKho())
+                    .tenKho(kho.getTenKho())
+                    .diaChi(kho.getDiaChi())
+                    .duHang(allDuHang)
+                    .soLuongMatHangDu(matHangDuCount)
+                    .tongSoMatHang(chiTiets.size())
+                    .chiTietTonKho(itemDtos)
+                    .build());
+        }
+
+        // Sắp xếp: Kho đủ hàng (duHang = true) lên đầu, tiếp theo là số lượng mặt hàng đủ nhiều hơn, sau đó theo tên kho
+        results.sort(Comparator
+                .comparing(KhoKhaDungDto::getDuHang, Comparator.reverseOrder())
+                .thenComparing(KhoKhaDungDto::getSoLuongMatHangDu, Comparator.reverseOrder())
+                .thenComparing(KhoKhaDungDto::getTenKho));
+
+        return results;
     }
 
     @Transactional(rollbackFor = Exception.class)

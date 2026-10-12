@@ -13,6 +13,10 @@ export const donBanHangService = {
     const res = await apiClient.put(`/api/v1/don-ban-hang/${id}/send-to-warehouse`, payload);
     return res.data;
   },
+  async getKhoKhaDung(id) {
+    const res = await apiClient.get(`/api/v1/don-ban-hang/${id}/kho-kha-dung`);
+    return res.data?.data || res.data;
+  },
   async cancel(id) {
     const res = await apiClient.put(`/api/v1/don-ban-hang/${id}/cancel`);
     return res.data;

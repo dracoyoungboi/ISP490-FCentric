@@ -126,18 +126,21 @@ export default function DonBanHangDetail() {
     setShowSendWarehouseModal(true);
     setLoadingWarehouses(true);
     try {
-      const list = await getKhoList();
-      const activeList = Array.isArray(list) ? list.filter(w => w.trangThai === 1) : [];
+      // Truy vấn tồn khả dụng thực tế của từng kho cho đơn hàng này
+      const list = await donBanHangService.getKhoKhaDung(id);
+      const activeList = Array.isArray(list) ? list : [];
       setWarehouses(activeList);
+
       const currentKhoId = data?.donBanHang?.khoXuat?.id;
-      const matched = activeList.find(w => w.id === currentKhoId);
-      if (matched) {
-        setSelectedKhoId(matched.id);
+      // Ưu tiên kho hiện tại nếu kho hiện tại ĐỦ HÀNG, nếu không thì ưu tiên kho đầu tiên (kho đủ hàng được backend xếp đầu)
+      const currentKho = activeList.find(w => (w.khoId || w.id) === currentKhoId);
+      if (currentKho && currentKho.duHang) {
+        setSelectedKhoId(currentKho.khoId || currentKho.id);
       } else if (activeList.length > 0) {
-        setSelectedKhoId(activeList[0].id);
+        setSelectedKhoId(activeList[0].khoId || activeList[0].id);
       }
     } catch {
-      toast.error("Không tải được danh sách kho khả dụng");
+      toast.error("Không tải được thông tin tồn khả dụng của các kho");
     } finally {
       setLoadingWarehouses(false);
     }
@@ -151,7 +154,7 @@ export default function DonBanHangDetail() {
     try {
       setSendingWarehouse(true);
       await donBanHangService.sendToWarehouse(id, { khoId: Number(selectedKhoId) });
-      const chosenKho = warehouses.find(w => w.id === Number(selectedKhoId));
+      const chosenKho = warehouses.find(w => (w.khoId || w.id) === Number(selectedKhoId));
       toast.success(`Đã gửi đơn hàng sang kho ${chosenKho?.tenKho || ""} thành công.`);
       setShowSendWarehouseModal(false);
       fetchDetail();
@@ -547,7 +550,7 @@ export default function DonBanHangDetail() {
       {/* ── Modal chọn kho gửi sang kho ── */}
       {showSendWarehouseModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[1px]">
-          <div className="w-full max-w-md overflow-hidden rounded-lg border border-bo-border bg-white shadow-lg animate-in fade-in-50 zoom-in-95 duration-150">
+          <div className="w-full max-w-lg overflow-hidden rounded-lg border border-bo-border bg-white shadow-xl animate-in fade-in-50 zoom-in-95 duration-150">
             <div className="p-5">
               <div className="mb-4 flex items-start gap-3.5">
                 <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-bo-primary/10 text-bo-primary">
@@ -556,13 +559,13 @@ export default function DonBanHangDetail() {
                 <div>
                   <h3 className="mb-1 text-base font-bold text-bo-foreground">Gửi đơn sang kho xử lý</h3>
                   <p className="text-xs leading-relaxed text-bo-muted">
-                    Chọn kho xuất hàng phụ trách xử lý và xuất kho cho đơn <strong className="font-semibold text-bo-primary">{donBanHang?.soDonHang}</strong>.
+                    Chọn kho xuất hàng phụ trách xử lý và xuất kho cho đơn <strong className="font-semibold text-bo-primary">{donBanHang?.soDonHang}</strong>. Hệ thống tự động đối soát tồn khả dụng của từng kho.
                   </p>
                 </div>
               </div>
 
               {/* Tóm tắt thông tin đơn hàng */}
-              <div className="mb-4 space-y-2 rounded-md border border-bo-border/70 bg-bo-surface-subtle p-3 text-xs">
+              <div className="mb-3 space-y-1.5 rounded-md border border-bo-border/70 bg-bo-surface-subtle p-3 text-xs">
                 <div className="flex justify-between">
                   <span className="text-bo-muted">Khách hàng:</span>
                   <span className="font-medium text-bo-foreground">{donBanHang.khachHang?.tenKhachHang || "Khách lẻ"}</span>
@@ -585,39 +588,127 @@ export default function DonBanHangDetail() {
                 )}
               </div>
 
-              {/* Lựa chọn kho xuất */}
-              <div className="space-y-1.5">
+              {/* Lựa chọn kho xuất kèm trạng thái tồn khả dụng */}
+              <div className="space-y-2 mb-3">
                 <label className="flex items-center justify-between text-xs font-semibold text-bo-foreground">
                   <span>Kho xuất tiếp nhận <span className="text-bo-danger">*</span></span>
-                  {loadingWarehouses && <span className="text-[11px] font-normal text-bo-muted">Đang tải danh sách kho...</span>}
+                  {loadingWarehouses && <span className="text-[11px] font-normal text-bo-muted">Đang kiểm tra tồn khả dụng...</span>}
                 </label>
 
                 {loadingWarehouses ? (
-                  <div className="flex h-9 items-center justify-center rounded-md border border-bo-border bg-bo-surface-subtle text-xs text-bo-muted">
-                    Đang nạp danh sách kho khả dụng...
+                  <div className="flex h-16 items-center justify-center rounded-md border border-bo-border bg-bo-surface-subtle text-xs text-bo-muted">
+                    Đang truy vấn tồn khả dụng thực tế của từng kho...
                   </div>
                 ) : warehouses.length === 0 ? (
                   <div className="rounded-md border border-bo-danger/30 bg-bo-danger-soft p-2.5 text-xs text-bo-danger">
                     Không tìm thấy kho nào đang hoạt động trong hệ thống.
                   </div>
                 ) : (
-                  <select
-                    value={selectedKhoId}
-                    onChange={(e) => setSelectedKhoId(Number(e.target.value))}
-                    disabled={sendingWarehouse}
-                    className="w-full rounded-md border border-bo-border bg-white px-3 py-2 text-sm text-bo-foreground transition-colors focus:border-bo-primary focus:outline-none focus:ring-1 focus:ring-bo-primary"
-                  >
-                    {warehouses.map((kho) => (
-                      <option key={kho.id} value={kho.id}>
-                        {kho.tenKho} ({kho.maKho}){kho.diaChi ? ` · ${kho.diaChi}` : ""}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                    {warehouses.map((kho) => {
+                      const kId = kho.khoId || kho.id;
+                      const isSelected = selectedKhoId === kId;
+                      const isDuHang = Boolean(kho.duHang);
+                      return (
+                        <div
+                          key={kId}
+                          onClick={() => setSelectedKhoId(kId)}
+                          className={`cursor-pointer rounded-lg border p-2.5 transition-all ${
+                            isSelected
+                              ? "border-bo-primary bg-bo-primary/5 ring-1 ring-bo-primary"
+                              : "border-bo-border bg-white hover:border-slate-300 hover:bg-slate-50/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                name="warehouse-choice"
+                                checked={isSelected}
+                                onChange={() => setSelectedKhoId(kId)}
+                                className="text-bo-primary focus:ring-bo-primary cursor-pointer"
+                              />
+                              <span className="font-semibold text-xs text-bo-foreground">
+                                {kho.tenKho} <span className="text-[11px] font-normal text-bo-muted">({kho.maKho})</span>
+                              </span>
+                            </div>
+                            {isDuHang ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 border border-emerald-200">
+                                <CheckCircle2 className="size-3" /> Đủ hàng ({kho.soLuongMatHangDu ?? kho.tongSoMatHang}/{kho.tongSoMatHang ?? 0})
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 border border-amber-200">
+                                <AlertTriangle className="size-3" /> Thiếu hàng ({kho.soLuongMatHangDu ?? 0}/{kho.tongSoMatHang ?? 0})
+                              </span>
+                            )}
+                          </div>
+                          {kho.diaChi && (
+                            <p className="mt-1 pl-5 text-[11px] text-bo-muted truncate">{kho.diaChi}</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
-                <p className="pt-1 text-[11px] text-bo-muted">
-                  Đơn hàng sau khi gửi sẽ chuyển sang trạng thái <strong>Chờ xuất kho</strong> và xuất hiện trong màn hình gom nhặt hàng của kho này.
-                </p>
               </div>
+
+              {/* Cảnh báo kho thiếu hàng nếu user chọn kho không đủ hàng */}
+              {(() => {
+                const selectedKho = warehouses.find(w => (w.khoId || w.id) === selectedKhoId);
+                if (selectedKho && !selectedKho.duHang) {
+                  return (
+                    <div className="mb-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
+                      <AlertTriangle className="size-4 shrink-0 mt-0.5 text-amber-600" />
+                      <div>
+                        <strong>Cảnh báo tồn kho:</strong> Kho <strong>{selectedKho.tenKho}</strong> chỉ có sẵn <strong>{selectedKho.soLuongMatHangDu}/{selectedKho.tongSoMatHang}</strong> mặt hàng. Vui lòng cân nhắc điều chuyển hàng hoặc chọn kho có đủ hàng để tránh trễ đơn xuất kho.
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
+              {/* Chi tiết tồn khả dụng theo từng mặt hàng tại kho đã chọn */}
+              {(() => {
+                const selectedKho = warehouses.find(w => (w.khoId || w.id) === selectedKhoId);
+                if (selectedKho?.chiTietTonKho && selectedKho.chiTietTonKho.length > 0) {
+                  return (
+                    <details className="mb-2 rounded-md border border-bo-border/70 bg-bo-surface-subtle p-2 text-xs">
+                      <summary className="cursor-pointer font-semibold text-bo-foreground hover:text-bo-primary flex items-center justify-between">
+                        <span>Chi tiết tồn khả dụng tại {selectedKho.tenKho}</span>
+                        <span className="text-[11px] text-bo-primary font-normal underline">Xem bảng SKU</span>
+                      </summary>
+                      <div className="mt-2 space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                        {selectedKho.chiTietTonKho.map((item, idx) => (
+                          <div key={idx} className="flex items-center justify-between rounded border border-bo-border/60 bg-white px-2.5 py-1.5 text-[11px]">
+                            <div className="truncate pr-2">
+                              <div className="font-medium text-bo-foreground truncate">{item.tenSanPham || item.maSku}</div>
+                              <div className="text-[10px] text-bo-muted">SKU: {item.maSku} {item.tenBienThe ? `· ${item.tenBienThe}` : ""}</div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <div>
+                                Cần: <span className="font-semibold text-bo-foreground">{item.soLuongDat}</span> · Khả dụng: <span className={item.duHang ? "font-bold text-emerald-600" : "font-bold text-amber-600"}>{item.tonKhaDung}</span>
+                              </div>
+                              <div>
+                                {item.duHang ? (
+                                  <span className="text-[10px] text-emerald-600 font-medium">✓ Đủ hàng</span>
+                                ) : (
+                                  <span className="text-[10px] text-rose-600 font-medium">✕ Thiếu {(Number(item.soLuongDat) - Number(item.tonKhaDung)) > 0 ? (Number(item.soLuongDat) - Number(item.tonKhaDung)) : 0}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  );
+                }
+                return null;
+              })()}
+
+              <p className="text-[11px] text-bo-muted">
+                Đơn hàng sau khi gửi sẽ chuyển sang trạng thái <strong>Chờ xuất kho</strong> và xuất hiện trong màn hình gom nhặt hàng của kho này.
+              </p>
             </div>
 
             <div className="flex items-center justify-end gap-2.5 border-t border-bo-border bg-bo-surface-subtle px-5 py-3.5">

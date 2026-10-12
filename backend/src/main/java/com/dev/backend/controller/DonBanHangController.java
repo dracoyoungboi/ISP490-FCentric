@@ -8,6 +8,7 @@ import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.BienTheSanPhamSelectDto;
 import com.dev.backend.dto.response.customize.DonBanHangDetailResponse;
 import com.dev.backend.dto.response.customize.DonBanHangKpiHomNayDto;
+import com.dev.backend.dto.response.customize.KhoKhaDungDto;
 import com.dev.backend.dto.response.entities.DonBanHangDto;
 import com.dev.backend.entities.DonBanHang;
 import com.dev.backend.mapper.DonBanHangMapper;
@@ -99,6 +100,30 @@ public class DonBanHangController {
                         .build()
         );
     }
+
+    @GetMapping("/{id}/kho-kha-dung")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.nhan_vien_ban_hang,
+                    IRoleType.quan_ly_kho,
+                    IRoleType.nhan_vien_kho
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<ResponseData<List<KhoKhaDungDto>>> getKhoKhaDung(
+            @PathVariable Integer id
+    ) {
+        return ResponseEntity.ok(
+                ResponseData.<List<KhoKhaDungDto>>builder()
+                        .status(200)
+                        .data(donBanHangService.getKhoKhaDungChoDonHang(id))
+                        .message("Success")
+                        .error(null)
+                        .build()
+        );
+    }
+
     @PutMapping("/{id}/send-to-warehouse")
     @RequireAuth(
             roles = {
