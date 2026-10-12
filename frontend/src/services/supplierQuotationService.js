@@ -3,7 +3,7 @@ import apiClient from './apiClient';
 const supplierQuotationService = {
     /**
      * Yêu cầu gửi OTP đến email
-     * @param {Object} data - { email, donMuaHangId }
+     * @param {Object} data - { email, donMuaHangId } hoặc { email, soDonMua } khi nhà cung cấp tự nhập mã đơn
      * @returns Promise<ResponseData<String>>
      */
     requestOtp: async (data) => {
@@ -18,7 +18,7 @@ const supplierQuotationService = {
 
     /**
      * Xác thực OTP và lấy thông tin đơn hàng
-     * @param {Object} data - { email, otp, donMuaHangId }
+     * @param {Object} data - { email, otp, donMuaHangId } hoặc { email, otp, soDonMua }
      * @returns Promise<ResponseData<DonMuaHangDto>>
      */
     verifyOtp: async (data) => {

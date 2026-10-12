@@ -8,7 +8,6 @@ import {
     ChevronRight,
 } from "lucide-react";
 import supplierQuotationService from '@/services/supplierQuotationService';
-import purchaseOrderService from '@/services/purchaseOrderService';
 import BrandLogo from '@/components/brand/BrandLogo';
 
 /* ══════════════════════════════════════════
@@ -22,7 +21,6 @@ function LoginForm() {
 
     const [email, setEmail] = useState(emailParam || '');
     const [manualSoDonMua, setManualSoDonMua] = useState('');
-    const [resolvedId, setResolvedId] = useState(null);
     const [otp, setOtp] = useState('');
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
@@ -43,24 +41,25 @@ function LoginForm() {
         setErrors({}); return true;
     };
 
+    /*
+     * Đơn cần đăng nhập: theo id nếu mở từ liên kết có ?id=, ngược lại theo mã đơn nhà cung cấp tự nhập.
+     * Không tra mã đơn qua /don-mua-hang/filter: API đó chỉ dành cho nhân viên đã đăng nhập (trả 403 cho nhà cung cấp);
+     * backend tự tìm đơn theo mã ở API OTP và chỉ nhận khi email khớp nhà cung cấp của đơn.
+     */
+    const thamChieuDon = () => {
+        if (orderId) return { donMuaHangId: Number(orderId) };
+        const maDon = manualSoDonMua.trim();
+        return maDon ? { soDonMua: maDon } : null;
+    };
+
     const handleSendOtp = async (e) => {
         e?.preventDefault?.();
         if (!validateEmail()) return;
+        const don = thamChieuDon();
+        if (!don) { toast.error('Vui lòng nhập mã đơn hàng hoặc sử dụng liên kết từ email.'); return; }
         setLoading(true);
         try {
-            let targetId = orderId ? Number(orderId) : null;
-            if (!targetId && manualSoDonMua) {
-                try {
-                    const res = await purchaseOrderService?.filter?.({
-                        filters: [{ fieldName: "soDonMua", operation: "EQUALS", value: manualSoDonMua, logicType: "AND" }],
-                        sorts: [], page: 0, size: 1,
-                    });
-                    if (res?.data?.content?.length > 0) { targetId = res.data.content[0].id; setResolvedId(targetId); }
-                    else { toast.error('Không tìm thấy đơn hàng với mã này.'); return; }
-                } catch { toast.error('Có lỗi khi tra cứu mã đơn hàng.'); return; }
-            }
-            if (!targetId) { toast.error('Vui lòng nhập mã đơn hàng hoặc sử dụng liên kết từ email.'); return; }
-            await supplierQuotationService?.requestOtp?.({ email, donMuaHangId: targetId });
+            await supplierQuotationService?.requestOtp?.({ email, ...don });
             toast.success('Mã OTP đã được gửi đến email của bạn');
             setStep(2);
         } catch (err) {
@@ -75,12 +74,13 @@ function LoginForm() {
     const handleVerifyOtp = async (e) => {
         e?.preventDefault?.();
         if (!validateOtp()) return;
-        const activeId = orderId ? Number(orderId) : resolvedId;
-        if (!activeId) { toast.error('Không tìm thấy thông tin đơn hàng.'); return; }
+        const don = thamChieuDon();
+        if (!don) { toast.error('Không tìm thấy thông tin đơn hàng.'); return; }
         setLoading(true);
         try {
-            const res = await supplierQuotationService?.verifyOtp?.({ email, otp, donMuaHangId: activeId });
+            const res = await supplierQuotationService?.verifyOtp?.({ email, otp, ...don });
             if (res?.data) {
+                const activeId = res.data.id ?? don.donMuaHangId;
                 toast.success('Đăng nhập thành công.');
                 setTimeout(() => navigate('/supplier/quotation', { state: { orderData: res.data, supplierEmail: email, orderId: activeId } }), 500);
             }

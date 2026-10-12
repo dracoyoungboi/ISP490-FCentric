@@ -12,5 +12,7 @@ import lombok.experimental.FieldDefaults;
 public class OtpDonMuaHangConfirming {
     Integer donMuaHangId;
     String email;
+    // Mã đơn (VD: PO202610115101) khi nhà cung cấp tự nhập ở trang đăng nhập; dùng thay cho donMuaHangId
+    String soDonMua;
     String otp;
 }

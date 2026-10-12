@@ -59,7 +59,8 @@ const purchaseOrderService = {
      * POST /api/v1/don-mua-hang/filter
      */
     filter: async (filterRequest) => {
-        const response = await apiClient.post(`/api/v1/don-mua-hang/filter`, filterRequest, { needToken: false, needKho: false });
+        // API chỉ cho nhân viên đã đăng nhập (quản trị, quản lý kho, mua hàng, nhân viên kho) nên phải gửi kèm token
+        const response = await apiClient.post(`/api/v1/don-mua-hang/filter`, filterRequest, { needKho: false });
         return response.data;
     },
 
