@@ -3,6 +3,7 @@ import { MonitorSmartphone } from 'lucide-react';
 import PosSalesPage from './PosSalesPage';
 import usePosTabLock from './usePosTabLock';
 import { getMineKhoList } from '@/services/khoService';
+import { laKhoBanTaiQuay } from '@/utils/kho';
 import { donBanHangService } from '@/services/donBanHangService';
 import { currentUserKey, toPosCustomer } from '@/services/posService';
 import { Button } from '@/components/ui/button';
@@ -41,7 +42,8 @@ export default function PosPage() {
     ])
       .then(([khoList, customerResponse]) => {
         const customerRows = customerResponse?.data?.data ?? [];
-        setWarehouses(khoList ?? []);
+        // Kho tổng chỉ phân phối hàng, kho ảo và kho ngừng hoạt động không bán tại quầy
+        setWarehouses((khoList ?? []).filter(laKhoBanTaiQuay));
         setCustomers(customerRows.map(toPosCustomer));
         setLoading(false);
         setError(null);
@@ -99,7 +101,7 @@ export default function PosPage() {
   if (!warehouses.length) {
     return renderState(
       <EmptyState
-        description="Tài khoản của bạn chưa được giao phụ trách kho nào. Hãy liên hệ quản trị viên để được phân quyền kho bán hàng."
+        description="Tài khoản của bạn chưa được giao kho bán hàng nào đang hoạt động (Kho tổng không bán tại quầy). Hãy liên hệ quản trị viên để được phân quyền kho bán hàng."
         title="Chưa có kho bán hàng"
       />
     );

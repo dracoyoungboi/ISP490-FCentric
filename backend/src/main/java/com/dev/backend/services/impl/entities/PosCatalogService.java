@@ -169,6 +169,7 @@ public class PosCatalogService {
         if (kho == null) {
             throw new CommonException("Kho đã chọn không tồn tại");
         }
+        KhoService.kiemTraKhoBanTaiQuay(kho);
 
         NguoiDungAuthInfo currentUser = SecurityContextHolder.getUser();
         boolean isAdmin = currentUser != null && currentUser.getVaiTro().contains(IRoleType.quan_tri_vien);
