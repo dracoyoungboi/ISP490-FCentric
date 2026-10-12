@@ -46,6 +46,7 @@ public class OmnichannelOrderSyncJob {
     KenhBanHangService kenhBanHangService;
     KhoRepository khoRepository;
     NhatHangService nhatHangService;
+    PhieuXuatKhoRepository phieuXuatKhoRepository;
     ObjectMapper objectMapper = new ObjectMapper();
 
     @Scheduled(fixedDelay = 300_000, initialDelay = 60_000)
@@ -161,6 +162,17 @@ public class OmnichannelOrderSyncJob {
                         nhatHangService.xuLyDonBiHuyTrongPickList(existing);
                     } catch (Exception ex) {
                         log.error("[JOB-01] Lỗi khi xử lý hủy đơn trong Pick List cho đơn {}: {}", soDonHang, ex.getMessage());
+                    }
+
+                    // Thu hồi toàn bộ Phiếu Xuất Kho nháp (trangThai = 0) liên kết với đơn này (SRS 6.3.2)
+                    List<PhieuXuatKho> draftPxkList = phieuXuatKhoRepository.findByDonBanHangId(existing.getId());
+                    for (PhieuXuatKho pxk : draftPxkList) {
+                        if (pxk.getTrangThai() != null && pxk.getTrangThai() == 0) {
+                            pxk.setTrangThai(2); // 2: Đã hủy / Thu hồi
+                            String note = (pxk.getGhiChu() != null ? pxk.getGhiChu() + " | " : "") + "Tự động thu hồi do sàn Shopify hủy đơn";
+                            pxk.setGhiChu(note);
+                            phieuXuatKhoRepository.save(pxk);
+                        }
                     }
                 }
             }

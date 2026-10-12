@@ -42,5 +42,7 @@ public interface KenhBanHangDongBoService {
     DayTonResultDto dongBoTatCa();
 
     LienKetSanPhamDto thuLai(Integer lienKetId);
+
+    boolean huyDonHangTrenShopify(String maDonHangKenh, String lyDoHuy);
 }
 

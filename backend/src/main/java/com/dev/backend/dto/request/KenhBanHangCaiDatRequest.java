@@ -12,7 +12,6 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class KenhBanHangCaiDatRequest {
-    @NotNull(message = "Kho FCentric không được để trống")
     Integer khoId;
     String maKhoSan;
     String tenKhoSan;
