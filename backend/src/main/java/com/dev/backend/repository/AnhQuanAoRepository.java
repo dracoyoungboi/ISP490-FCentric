@@ -16,4 +16,7 @@ public interface AnhQuanAoRepository extends JpaRepository<AnhQuanAo, Integer>, 
             "where aq.quanAo.id in :quanAoIds and aq.trangThai = 1 " +
             "order by aq.quanAo.id, aq.anhChinh desc, aq.id")
     List<AnhQuanAo> findActiveByQuanAoIds(@Param("quanAoIds") Collection<Integer> quanAoIds);
+
+    /** Số ảnh sản phẩm đang trỏ tới một tệp (để chỉ xóa tệp khi không còn chỗ nào dùng). */
+    long countByTepTin_Id(Integer tepTinId);
 }

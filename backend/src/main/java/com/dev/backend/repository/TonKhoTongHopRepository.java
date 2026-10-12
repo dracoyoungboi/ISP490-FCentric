@@ -48,7 +48,7 @@ public interface TonKhoTongHopRepository extends JpaRepository<BienTheSanPham, I
                 FROM ChiTietDonBanHang ctdbh
                 WHERE ctdbh.bienTheSanPham = bt
                   AND ctdbh.donBanHang.khoXuat = k
-                  AND ctdbh.donBanHang.trangThai IN (0, 1, 2) 
+                  AND ctdbh.donBanHang.trangThai IN (1, 2, 3) 
                   AND (ctdbh.soLuongDat - ctdbh.soLuongDaGiao) > 0
             ), 0
         )                                                              AS outgoing,
@@ -70,7 +70,7 @@ public interface TonKhoTongHopRepository extends JpaRepository<BienTheSanPham, I
                         FROM ChiTietDonBanHang ctdbh2
                         WHERE ctdbh2.bienTheSanPham = bt
                           AND ctdbh2.donBanHang.khoXuat = k
-                          AND ctdbh2.donBanHang.trangThai IN (0, 1, 2)
+                          AND ctdbh2.donBanHang.trangThai IN (1, 2)
                           AND (ctdbh2.soLuongDat - ctdbh2.soLuongDaGiao) > 0
                     ), 0
                 )
@@ -115,34 +115,7 @@ public interface TonKhoTongHopRepository extends JpaRepository<BienTheSanPham, I
             @Param("keyword") String  keyword
     );
 
-    /**
-     * Tính tổng tồn khả dụng (Free to Use = On-Hand toàn hệ thống - Outgoing các đơn chưa xuất)
-     * cho danh sách biến thể sản phẩm qua tất cả các kho đang hoạt động (k.trangThai = 1).
-     * Phục vụ đẩy tồn tự động chuẩn xác lên kênh bán hàng đa kênh (Shopify, Shopee, Lazada).
-     */
-    @Query("""
-        SELECT bt.id,
-               CAST(
-                   COALESCE(
-                       (SELECT SUM(tkl.soLuongTon)
-                        FROM TonKhoTheoLo tkl
-                        JOIN tkl.kho k
-                        WHERE tkl.loHang.bienTheSanPham = bt
-                          AND k.trangThai = 1), 0
-                   )
-                   -
-                   COALESCE(
-                       (SELECT SUM(ctdbh.soLuongDat - ctdbh.soLuongDaGiao)
-                        FROM ChiTietDonBanHang ctdbh
-                        WHERE ctdbh.bienTheSanPham = bt
-                          AND ctdbh.donBanHang.trangThai IN (0, 1, 2)
-                          AND (ctdbh.soLuongDat - ctdbh.soLuongDaGiao) > 0), 0
-                   )
-               AS BigDecimal)
-        FROM BienTheSanPham bt
-        WHERE bt.id IN :bienTheIds
-    """)
-    List<Object[]> sumTongFreeToUseToanHeThongByBienTheIds(@Param("bienTheIds") List<Integer> bienTheIds);
+
 
     /**
      * Overload tiện lợi: lấy tất cả kho, không lọc keyword.

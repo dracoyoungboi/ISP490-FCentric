@@ -26,6 +26,9 @@ public class SanPhamQuanAoUpdating {
     Integer mucTonToiThieu;
     Integer trangThai;
     boolean isImageUpdated;
+    // Thứ tự ảnh sản phẩm sau khi sửa (ảnh giữ lại + ảnh mới), ô đầu là ảnh chính. Chỉ dùng khi isImageUpdated.
+    // null = cách gửi cũ: thay toàn bộ ảnh bằng các tệp trong anhSanPhams.
+    List<AnhSanPhamSapXep> anhSanPhamSapXep;
     // true = áp dụng thay đổi thương hiệu (null thuongHieuId = gỡ liên kết); false = giữ nguyên
     boolean capNhatThuongHieu;
     List<BienTheSanPhamUpdating> bienTheSanPhams;

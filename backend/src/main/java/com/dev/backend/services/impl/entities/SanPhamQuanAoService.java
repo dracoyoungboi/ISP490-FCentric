@@ -4,6 +4,7 @@ import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.enums.FileType;
 import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.ITable;
+import com.dev.backend.dto.request.AnhSanPhamSapXep;
 import com.dev.backend.dto.request.BienTheSanPhamCreating;
 import com.dev.backend.dto.request.BienTheSanPhamUpdating;
 import com.dev.backend.dto.request.SanPhamQuanAoBasicInfoUpdating;
@@ -14,6 +15,8 @@ import com.dev.backend.dto.response.entities.SanPhamQuanAoDto;
 import com.dev.backend.entities.*;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.SanPhamQuanAoMapper;
+import com.dev.backend.repository.AnhBienTheRepository;
+import com.dev.backend.repository.AnhQuanAoRepository;
 import com.dev.backend.repository.BienTheSanPhamRepository;
 import com.dev.backend.repository.SanPhamQuanAoRepository;
 import com.dev.backend.services.MinioService;
@@ -31,6 +34,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
@@ -80,6 +85,10 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         @Autowired
         private AnhBienTheService anhBienTheService;
         @Autowired
+        private AnhBienTheRepository anhBienTheRepository;
+        @Autowired
+        private AnhQuanAoRepository anhQuanAoRepository;
+        @Autowired
         private TepTinService tepTinService;
         @Autowired
         private MinioService minioService;
@@ -88,6 +97,9 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         @Autowired
         private SanPhamQuanAoMapper sanPhamQuanAoMapper;
         private final ObjectMapper objectMapper = new ObjectMapper();
+
+        /** Số biến thể tối đa của một sản phẩm khi tạo mới (form sinh tổ hợp Màu × Kích cỡ). */
+        private static final int SO_BIEN_THE_TOI_DA = 100;
 
         @Override
         protected EntityManager getEntityManager() {
@@ -188,15 +200,8 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 List<MultipartFile> anhSanPhams,
                 List<MultipartFile> anhBienThes) {
 
-                // Bước 1: Validate nghiệp vụ (không trùng tổ hợp thuộc tính biến thể).
-
-                Set<String> checkDuplicateSet = new HashSet<>();
-                for (BienTheSanPhamCreating bt : creating.getBienTheSanPhams()) {
-                        String key = bt.getMauSacId() + "-" + bt.getSizeId() + "-" + bt.getChatLieuId();
-                        if (!checkDuplicateSet.add(key)) {
-                                throw new CommonException("Có biến thể sản phẩm trùng lặp về thuộc tính (Màu, Size, Chất liệu)!");
-                        }
-                }
+                // Bước 1: Validate nghiệp vụ trước khi ghi (số biến thể, trùng tổ hợp, giá, tệp ảnh biến thể).
+                kiemTraBienTheTaoMoi(creating.getBienTheSanPhams(), anhBienThes);
 
                 Instant instantNow = Instant.now();
                 Date now = new Date();
@@ -275,16 +280,18 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                         }
                 }
 
-                int imageCount = 0;
-
-                // Bước 4: Tạo biến thể + upload ảnh biến thể tương ứng.
-                for (BienTheSanPhamCreating btspCreating : creating.getBienTheSanPhams()) {
+                // Bước 4: Tạo biến thể + gắn ảnh biến thể. Mỗi tệp trong anhBienThes chỉ tải lên 1 lần;
+                // các biến thể có cùng viTriAnh (cùng màu) dùng chung một tệp.
+                List<BienTheSanPhamCreating> dsBienThe = creating.getBienTheSanPhams();
+                Map<Integer, TepTin> tepAnhTheoViTri = new HashMap<>();
+                for (int i = 0; i < dsBienThe.size(); i++) {
+                        BienTheSanPhamCreating btspCreating = dsBienThe.get(i);
 
                         MauSac mauSac = mauSacService.getOne(btspCreating.getMauSacId()).orElseThrow(
                                 () -> new CommonException("Không tìm thấy màu id: " + btspCreating.getMauSacId()));
 
                         Size size = sizeService.getOne(btspCreating.getSizeId()).orElseThrow(
-                                () -> new CommonException("Không tìm thấy size id: " + btspCreating.getSizeId()));
+                                () -> new CommonException("Không tìm thấy kích cỡ id: " + btspCreating.getSizeId()));
 
                         ChatLieu chatLieu = chatLieuService.getOne(btspCreating.getChatLieuId()).orElseThrow(
                                 () -> new CommonException("Không tìm thấy chất liệu id: " + btspCreating.getChatLieuId()));
@@ -307,35 +314,23 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
 
                         bienTheSanPhamService.create(bienTheSanPham);
 
-                        // Xử lý ảnh biến thể
-                        if (anhBienThes != null && imageCount < anhBienThes.size()) {
-                                try {
-                                        String objectName = minioService.upload(anhBienThes.get(imageCount), ITable.bien_the_san_pham + "_" + autoSku + "_" + now.getTime());
-                                        TepTin tepTin = tepTinService.create(
-                                                TepTin.builder()
-                                                        .tenTepGoc(objectName)
-                                                        .tenTaiLen(objectName)
-                                                        .tenLuuTru(objectName)
-                                                        .duongDan(minioService.getPublicUrl(objectName))
-                                                        .loaiTepTin(FileType.IMAGE.toString())
-                                                        .duoiTep(minioService.getObjectInfo(objectName).getUserMetadata().get("file-extension"))
-                                                        .trangThai(1)
-                                                        .ngayTao(instantNow)
-                                                        .build()
-                                        );
-
-                                        anhBienTheService.create(
-                                                AnhBienThe.builder()
-                                                        .bienThe(bienTheSanPham)
-                                                        .tepTin(tepTin)
-                                                        .trangThai(1)
-                                                        .ngayTao(instantNow)
-                                                        .build()
-                                        );
-                                        imageCount++;
-                                } catch (Exception e) {
-                                        log.error("Lỗi tạo tệp tin cho biến thể: {}", autoSku, e);
+                        // viTriAnh = null là cách gửi cũ: tệp thứ i ứng với biến thể thứ i.
+                        int viTriAnh = btspCreating.getViTriAnh() != null ? btspCreating.getViTriAnh() : i;
+                        MultipartFile tepAnh = layTepAnh(anhBienThes, viTriAnh);
+                        if (tepAnh != null) {
+                                TepTin tepTin = tepAnhTheoViTri.get(viTriAnh);
+                                if (tepTin == null) {
+                                        tepTin = taiLenTepAnhBienThe(tepAnh, maSanPhamAuto, now.getTime(), viTriAnh, instantNow);
+                                        tepAnhTheoViTri.put(viTriAnh, tepTin);
                                 }
+                                anhBienTheService.create(
+                                        AnhBienThe.builder()
+                                                .bienThe(bienTheSanPham)
+                                                .tepTin(tepTin)
+                                                .trangThai(1)
+                                                .ngayTao(instantNow)
+                                                .build()
+                                );
                         }
                 }
 
@@ -353,6 +348,110 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 .message("Tạo sản phẩm thành công với mã: " + maSanPhamAuto)
                                 .build()
                 );
+        }
+
+        /**
+         * Kiểm tra danh sách biến thể của sản phẩm mới trước khi ghi (lỗi không để lại dữ liệu lưu dở):
+         * có 1 đến SO_BIEN_THE_TOI_DA biến thể, đủ màu/kích cỡ/chất liệu, không trùng tổ hợp,
+         * giá không âm, và viTriAnh (nếu có) trỏ tới một tệp ảnh thật trong anhBienThes.
+         */
+        private void kiemTraBienTheTaoMoi(List<BienTheSanPhamCreating> dsBienThe, List<MultipartFile> anhBienThes) {
+                if (dsBienThe == null || dsBienThe.isEmpty()) {
+                        throw new CommonException("Sản phẩm phải có ít nhất 1 biến thể.");
+                }
+                if (dsBienThe.size() > SO_BIEN_THE_TOI_DA) {
+                        throw new CommonException("Mỗi sản phẩm có tối đa " + SO_BIEN_THE_TOI_DA
+                                + " biến thể. Vui lòng bỏ bớt màu sắc hoặc kích cỡ.");
+                }
+                Set<String> toHopDaGap = new HashSet<>();
+                for (int i = 0; i < dsBienThe.size(); i++) {
+                        BienTheSanPhamCreating bt = dsBienThe.get(i);
+                        int stt = i + 1;
+                        if (bt == null || bt.getMauSacId() == null || bt.getSizeId() == null || bt.getChatLieuId() == null) {
+                                throw new CommonException("Biến thể #" + stt + ": vui lòng chọn màu sắc, kích cỡ và chất liệu.");
+                        }
+                        if (!toHopDaGap.add(bt.getMauSacId() + "-" + bt.getSizeId() + "-" + bt.getChatLieuId())) {
+                                throw new CommonException("Có biến thể trùng màu sắc, kích cỡ và chất liệu. Mỗi biến thể phải khác nhau.");
+                        }
+                        if ((bt.getGiaVon() != null && bt.getGiaVon().signum() < 0)
+                                || (bt.getGiaBan() != null && bt.getGiaBan().signum() < 0)) {
+                                throw new CommonException("Giá của biến thể #" + stt + " không được âm.");
+                        }
+                        if (bt.getViTriAnh() != null && layTepAnh(anhBienThes, bt.getViTriAnh()) == null) {
+                                throw new CommonException("Thiếu tệp ảnh cho biến thể #" + stt + ".");
+                        }
+                }
+        }
+
+        /** Tệp ở vị trí viTri trong anhBienThes; null nếu không có hoặc là tệp rỗng giữ chỗ. */
+        private static MultipartFile layTepAnh(List<MultipartFile> anhBienThes, int viTri) {
+                if (anhBienThes == null || viTri < 0 || viTri >= anhBienThes.size()) {
+                        return null;
+                }
+                MultipartFile tep = anhBienThes.get(viTri);
+                return tep == null || tep.isEmpty() ? null : tep;
+        }
+
+        /** Tải một tệp ảnh biến thể lên MinIO và lưu bản ghi tep_tin tương ứng. */
+        private TepTin taiLenTepAnhBienThe(MultipartFile tep, String maSanPham, long dauThoiGian, int viTri, Instant bayGio) {
+                try {
+                        String objectName = minioService.upload(tep, ITable.bien_the_san_pham + "_" + maSanPham + "_" + dauThoiGian + "_" + viTri);
+                        return tepTinService.create(TepTin.builder()
+                                .tenTepGoc(objectName)
+                                .tenTaiLen(objectName)
+                                .tenLuuTru(objectName)
+                                .duongDan(minioService.getPublicUrl(objectName))
+                                .loaiTepTin(FileType.IMAGE.toString())
+                                .duoiTep(minioService.getObjectInfo(objectName).getUserMetadata().get("file-extension"))
+                                .ngayTao(bayGio)
+                                .trangThai(1)
+                                .build());
+                } catch (Exception e) {
+                        log.error("Lỗi tải ảnh biến thể của sản phẩm {}", maSanPham, e);
+                        throw new CommonException("Không tải được ảnh biến thể. Vui lòng thử lại.", e);
+                }
+        }
+
+        /**
+         * Xóa tệp ảnh biến thể khi không còn ảnh nào trỏ tới.
+         * Các biến thể cùng màu dùng chung tệp; xóa sớm sẽ kéo theo xóa ảnh của biến thể khác
+         * vì khóa ngoại anh_bien_the.tep_tin_id để ON DELETE CASCADE.
+         */
+        private void xoaTepAnhBienTheNeuKhongConDung(Integer tepTinId) {
+                xoaTepNeuKhongConDung(tepTinId);
+        }
+
+        /**
+         * Xóa tệp (bản ghi tep_tin + đối tượng trên MinIO) nếu không còn ảnh sản phẩm hay ảnh biến thể nào dùng.
+         * Bản ghi xóa trong giao dịch hiện tại; đối tượng MinIO chỉ xóa sau khi giao dịch ghi xong
+         * (MinIO không rollback được, xóa sớm mà giao dịch lỗi thì mất ảnh thật).
+         */
+        private void xoaTepNeuKhongConDung(Integer tepTinId) {
+                entityManager.flush();
+                if (anhBienTheRepository.countByTepTin_Id(tepTinId) > 0 || anhQuanAoRepository.countByTepTin_Id(tepTinId) > 0) {
+                        return;
+                }
+                TepTin tep = tepTinService.getOne(tepTinId).orElse(null);
+                if (tep == null) return;
+                String tenLuuTru = tep.getTenLuuTru();
+                tepTinService.delete(tepTinId);
+                Runnable xoaTrenMinio = () -> {
+                        try {
+                                minioService.delete(tenLuuTru);
+                        } catch (Exception e) {
+                                log.warn("Không xóa được tệp {} trên MinIO: {}", tenLuuTru, e.getMessage());
+                        }
+                };
+                if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                                @Override
+                                public void afterCommit() {
+                                        xoaTrenMinio.run();
+                                }
+                        });
+                } else {
+                        xoaTrenMinio.run();
+                }
         }
 
         private String generateCodeFromName(String name) {
@@ -420,12 +519,16 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 List<BienTheSanPhamUpdating> dsBienTheGuiLen = updating.getBienTheSanPhams() == null
                         ? List.of() : updating.getBienTheSanPhams();
                 List<KeHoachBienThe> keHoachBienThes = lapKeHoachBienThe(sanPhamQuanAo, dsBienTheGuiLen, anhBienThes);
+                List<AnhSanPhamSapXep> sapXepAnh = updating.isImageUpdated()
+                        ? kiemTraAnhSanPhamCapNhat(sanPhamQuanAo, updating.getAnhSanPhamSapXep(), anhSanPhams)
+                        : List.of();
 
                 // ===================== GHI DỮ LIỆU =====================
                 sanPhamQuanAo.setTenSanPham(updating.getTenSanPham());
                 sanPhamQuanAo.setDanhMuc(danhMucQuanAo);
-                sanPhamQuanAo.setMoTa(updating.getMoTa());
-                sanPhamQuanAo.setMaVach(updating.getMaVach());
+                // Giống PATCH /basic-info: ô để trống lưu null.
+                sanPhamQuanAo.setMoTa(blankToNull(updating.getMoTa()));
+                sanPhamQuanAo.setMaVach(blankToNull(updating.getMaVach()));
                 sanPhamQuanAo.setGiaVonMacDinh(updating.getGiaVonMacDinh());
                 sanPhamQuanAo.setMucTonToiThieu(updating.getMucTonToiThieu());
                 sanPhamQuanAo.setTrangThai(updating.getTrangThai());
@@ -435,62 +538,17 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 }
                 sanPhamQuanAo = update(updating.getId(), sanPhamQuanAo);
                 if (updating.isImageUpdated()) {
-                        //Lấy danh sách ID tệp tin để xóa file vật lý sau
-                        List<Integer> tepTinIds = sanPhamQuanAo.getAnhQuanAos()
-                                .stream()
-                                .map(anh -> anh.getTepTin().getId())
-                                .toList();
-
-                        //Xóa sạch danh sách ảnh trong Object (Hibernate sẽ tự xóa bản ghi AnhQuanAo trong DB)
-                        sanPhamQuanAo.getAnhQuanAos().clear();
-
-                        //Ép Hibernate đồng bộ ngay để tránh xung đột với logic upload phía sau
-                        entityManager.flush();
-
-                        //Xóa tệp tin (DB và MinIO)
-                        tepTinIds.forEach(id -> tepTinService.hardDeleteNoMessage(id));
-                        try {
-                                Date now = new Date();
-                                int i = 0;
-                                for (MultipartFile file : anhSanPhams) {
-                                        String objectName = minioService.upload(file, ITable.san_pham_quan_ao + "_" + sanPhamQuanAo.getMaSanPham() + "_" + now.getTime() + "_" + i++);
-
-                                        TepTin tepTin = tepTinService.create(TepTin.builder()
-                                                .tenTepGoc(objectName)
-                                                .tenTaiLen(objectName)
-                                                .tenLuuTru(objectName)
-                                                .duongDan(minioService.getPublicUrl(objectName))
-                                                .loaiTepTin(FileType.IMAGE.toString())
-                                                .duoiTep(minioService.getObjectInfo(objectName).getUserMetadata().get("file-extension"))
-                                                .trangThai(1)
-                                                .ngayTao(Instant.now())
-                                                .build()
-                                        );
-
-                                        //Thêm ảnh mới trực tiếp vào list của sản phẩm
-                                        AnhQuanAo newAnh = AnhQuanAo.builder()
-                                                .quanAo(sanPhamQuanAo)
-                                                .tepTin(tepTin)
-                                                .anhChinh(i == 1 ? 1 : 0)
-                                                .trangThai(1)
-                                                .ngayTao(Instant.now())
-                                                .build();
-
-                                        sanPhamQuanAo.getAnhQuanAos().add(newAnh);
-                                }
-                                System.out.println("Có tổng cộng " + i + " ảnh");
-
-                        } catch (Exception e) {
-                                throw new RuntimeException("Lỗi upload ảnh: " + e.getMessage());
-                        }
-
-
+                        capNhatAnhSanPham(sanPhamQuanAo, sapXepAnh, anhSanPhams);
                 }
 
-                // Biến thể: file ảnh thứ i trong anhBienThes ứng với biến thể thứ i gửi lên
-                // (FE gửi file rỗng giữ chỗ cho biến thể không đổi ảnh).
+                // Ảnh biến thể:
+                // - viTriAnh: tệp thứ viTriAnh trong anhBienThes, mỗi tệp tải lên 1 lần, các biến thể cùng màu dùng chung.
+                // - isImageUpdated (cách gửi cũ): tệp thứ i ứng với biến thể thứ i (FE gửi tệp rỗng giữ chỗ).
+                // - Biến thể mới không gửi ảnh: dùng lại tệp ảnh đang có của màu đó.
                 Instant bayGio = Instant.now();
                 long dauThoiGian = bayGio.toEpochMilli();
+                Map<Integer, TepTin> tepAnhTheoViTri = new HashMap<>();
+                Map<Integer, TepTin> tepAnhTheoMau = tepAnhHienCoTheoMau(keHoachBienThes);
                 List<Map<String, Object>> thuocTinhCu = new ArrayList<>();
                 List<Map<String, Object>> thuocTinhMoi = new ArrayList<>();
                 List<Map<String, Object>> bienTheThemMoi = new ArrayList<>();
@@ -531,9 +589,21 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 }
                                 bienTheThemMoi.add(moTaBienThe(bienThe));
                         }
-                        if (duLieu.isImageUpdated()) {
+                        if (duLieu.getViTriAnh() != null) {
+                                int viTriAnh = duLieu.getViTriAnh();
+                                TepTin tepAnh = tepAnhTheoViTri.get(viTriAnh);
+                                if (tepAnh == null) {
+                                        tepAnh = taiLenTepAnhBienThe(layTepAnh(anhBienThes, viTriAnh),
+                                                sanPhamQuanAo.getMaSanPham(), dauThoiGian, viTriAnh, bayGio);
+                                        tepAnhTheoViTri.put(viTriAnh, tepAnh);
+                                }
+                                ganTepAnhBienThe(bienThe, tepAnh, bayGio);
+                        } else if (duLieu.isImageUpdated()) {
                                 capNhatAnhBienThe(bienThe, anhBienThes.get(keHoach.viTri),
                                         sanPhamQuanAo.getMaSanPham(), dauThoiGian, keHoach.viTri, bayGio);
+                        } else if (keHoach.bienThe == null) {
+                                TepTin tepCuaMau = tepAnhTheoMau.get(keHoach.mauSac.getId());
+                                if (tepCuaMau != null) ganTepAnhBienThe(bienThe, tepCuaMau, bayGio);
                         }
                 }
 
@@ -548,7 +618,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 giaTriMoi.put("bienTheThemMoi", bienTheThemMoi);
                         }
                         List<String> noiDung = new ArrayList<>();
-                        if (!thuocTinhMoi.isEmpty()) noiDung.add("đổi màu/size " + thuocTinhMoi.size() + " biến thể");
+                        if (!thuocTinhMoi.isEmpty()) noiDung.add("đổi màu/kích cỡ " + thuocTinhMoi.size() + " biến thể");
                         if (!bienTheThemMoi.isEmpty()) noiDung.add("thêm " + bienTheThemMoi.size() + " biến thể mới");
                         ghiLichSuCapNhat(sanPhamQuanAo, giaTriCu, giaTriMoi,
                                 "Cập nhật biến thể sản phẩm " + sanPhamQuanAo.getMaSanPham() + ": " + String.join(", ", noiDung));
@@ -653,7 +723,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 keHoach.doiThuocTinh = doiMau || doiSize;
                                 if (keHoach.doiThuocTinh && idDaPhatSinhGiaoDich.contains(bienThe.getId())) {
                                         throw new CommonException("Biến thể " + bienThe.getMaSku()
-                                                + " đã phát sinh giao dịch (tồn kho, chứng từ hoặc đồng bộ sàn) nên không thể đổi màu sắc/size."
+                                                + " đã phát sinh giao dịch (tồn kho, chứng từ hoặc đồng bộ sàn) nên không thể đổi màu sắc, kích cỡ."
                                                 + " Hãy chuyển biến thể này sang Tạm ngừng và thêm biến thể mới.");
                                 }
                                 keHoach.mauSac = doiMau ? timMauSac(duLieu.getMauSacId()) : bienThe.getMauSac();
@@ -662,7 +732,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                         } else {
                                 // ----- Biến thể mới -----
                                 if (duLieu.getMauSacId() == null || duLieu.getSizeId() == null) {
-                                        throw new CommonException("Biến thể mới #" + stt + ": vui lòng chọn màu sắc và size");
+                                        throw new CommonException("Biến thể mới #" + stt + ": vui lòng chọn màu sắc và kích cỡ");
                                 }
                                 keHoach = new KeHoachBienThe(i, duLieu, null);
                                 keHoach.doiThuocTinh = true;
@@ -678,7 +748,11 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 }
                         }
 
-                        if (duLieu.isImageUpdated()) {
+                        if (duLieu.getViTriAnh() != null) {
+                                if (layTepAnh(anhBienThes, duLieu.getViTriAnh()) == null) {
+                                        throw new CommonException("Thiếu tệp ảnh cho biến thể #" + stt);
+                                }
+                        } else if (duLieu.isImageUpdated()) {
                                 MultipartFile file = anhBienThes != null && i < anhBienThes.size() ? anhBienThes.get(i) : null;
                                 if (file == null || file.isEmpty()) {
                                         throw new CommonException("Thiếu tệp ảnh cho biến thể #" + stt);
@@ -692,7 +766,13 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                         dsKeHoach.add(keHoach);
                 }
 
-                // Tổ hợp (màu + size + chất liệu) của TẤT CẢ biến thể sau khi lưu phải khác nhau.
+                long soBienTheMoi = dsKeHoach.stream().filter(k -> k.bienThe == null).count();
+                if (soBienTheMoi > 0 && bienTheHienCo.size() + soBienTheMoi > SO_BIEN_THE_TOI_DA) {
+                        throw new CommonException("Mỗi sản phẩm có tối đa " + SO_BIEN_THE_TOI_DA + " biến thể, sản phẩm đang có "
+                                + bienTheHienCo.size() + ". Vui lòng bớt màu sắc hoặc kích cỡ mới.");
+                }
+
+                // Tổ hợp (màu + kích cỡ + chất liệu) của TẤT CẢ biến thể sau khi lưu phải khác nhau.
                 Set<Integer> idCoTrongYeuCau = new HashSet<>();
                 for (KeHoachBienThe keHoach : dsKeHoach) {
                         if (keHoach.bienThe != null) idCoTrongYeuCau.add(keHoach.bienThe.getId());
@@ -705,7 +785,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 }
                 for (KeHoachBienThe keHoach : dsKeHoach) {
                         if (!toHopSauLuu.add(khoaToHop(keHoach.mauSac, keHoach.size, keHoach.chatLieu))) {
-                                throw new CommonException("Đã có biến thể cùng màu sắc, size và chất liệu ("
+                                throw new CommonException("Đã có biến thể cùng màu sắc, kích cỡ và chất liệu ("
                                         + moTaToHop(keHoach) + "). Mỗi biến thể phải khác nhau.");
                         }
                 }
@@ -722,7 +802,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 khoaToHop(keHoach.mauSac, keHoach.size, keHoach.chatLieu));
                         if (dangGiu != null && (keHoach.bienThe == null || !dangGiu.getId().equals(keHoach.bienThe.getId()))) {
                                 throw new CommonException("Tổ hợp " + moTaToHop(keHoach) + " hiện đang thuộc biến thể "
-                                        + dangGiu.getMaSku() + ". Không thể đổi chéo màu/size giữa các biến thể trong cùng một lần lưu,"
+                                        + dangGiu.getMaSku() + ". Không thể đổi chéo màu, kích cỡ giữa các biến thể trong cùng một lần lưu,"
                                         + " hãy lưu thay đổi của biến thể " + dangGiu.getMaSku() + " trước.");
                         }
                         if (!skuMoi.add(keHoach.maSkuMoi)) {
@@ -732,7 +812,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 ? bienTheSanPhamRepository.existsByMaSku(keHoach.maSkuMoi)
                                 : bienTheSanPhamRepository.existsByMaSkuAndIdNot(keHoach.maSkuMoi, keHoach.bienThe.getId());
                         if (skuDaTonTai) {
-                                throw new CommonException("Mã SKU " + keHoach.maSkuMoi + " đã tồn tại trong hệ thống. Vui lòng chọn màu sắc/size khác.");
+                                throw new CommonException("Mã SKU " + keHoach.maSkuMoi + " đã tồn tại trong hệ thống. Vui lòng chọn màu sắc hoặc kích cỡ khác.");
                         }
                 }
                 return dsKeHoach;
@@ -743,7 +823,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         }
 
         private Size timSize(Integer id) {
-                return sizeService.getOne(id).orElseThrow(() -> new CommonException("Không tìm thấy size id: " + id));
+                return sizeService.getOne(id).orElseThrow(() -> new CommonException("Không tìm thấy kích cỡ id: " + id));
         }
 
         private String khoaToHop(MauSac mauSac, Size size, ChatLieu chatLieu) {
@@ -767,41 +847,133 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 return moTa;
         }
 
-        /** Tải ảnh mới cho biến thể: thay tệp của ảnh cũ (xóa tệp cũ) hoặc tạo ảnh biến thể nếu chưa có. */
+        /** Tải ảnh mới cho một biến thể (cách gửi cũ, từng biến thể một). */
         private void capNhatAnhBienThe(BienTheSanPham bienThe, MultipartFile file, String maSanPham,
                                        long dauThoiGian, int viTri, Instant bayGio) {
+                ganTepAnhBienThe(bienThe, taiLenTepAnhBienThe(file, maSanPham, dauThoiGian, viTri, bayGio), bayGio);
+        }
+
+        /**
+         * Gắn tệp ảnh cho biến thể: thay tệp của ảnh hiện tại hoặc tạo ảnh biến thể nếu chưa có.
+         * Tệp cũ chỉ bị xóa khi không còn chỗ nào dùng (các biến thể cùng màu dùng chung tệp).
+         */
+        private void ganTepAnhBienThe(BienTheSanPham bienThe, TepTin tepTin, Instant bayGio) {
+                AnhBienThe anhHienTai = bienThe.getAnhBienThe();
+                if (anhHienTai != null) {
+                        Integer idTepCu = anhHienTai.getTepTin().getId();
+                        if (idTepCu.equals(tepTin.getId())) return;
+                        anhHienTai.setTepTin(tepTin);
+                        anhBienTheService.update(anhHienTai.getId(), anhHienTai);
+                        xoaTepAnhBienTheNeuKhongConDung(idTepCu);
+                } else {
+                        bienThe.setAnhBienThe(anhBienTheService.create(
+                                AnhBienThe.builder()
+                                        .bienThe(bienThe)
+                                        .tepTin(tepTin)
+                                        .trangThai(1)
+                                        .ngayTao(bayGio)
+                                        .build()
+                        ));
+                }
+        }
+
+        /** Tệp ảnh đang dùng của mỗi màu (lấy từ biến thể đã có), để biến thể mới của màu đó dùng lại. */
+        private static Map<Integer, TepTin> tepAnhHienCoTheoMau(List<KeHoachBienThe> keHoachBienThes) {
+                Map<Integer, TepTin> theoMau = new HashMap<>();
+                for (KeHoachBienThe keHoach : keHoachBienThes) {
+                        BienTheSanPham bt = keHoach.bienThe;
+                        if (bt == null || bt.getAnhBienThe() == null || bt.getAnhBienThe().getTepTin() == null) continue;
+                        theoMau.putIfAbsent(bt.getMauSac().getId(), bt.getAnhBienThe().getTepTin());
+                }
+                return theoMau;
+        }
+
+        /**
+         * Kiểm tra danh sách ảnh sản phẩm gửi lên khi sửa (chưa ghi gì). Trả về thứ tự ảnh sau khi lưu.
+         * Không có anhSanPhamSapXep (cách gửi cũ) thì coi mọi tệp gửi lên là ảnh mới, thay toàn bộ ảnh cũ.
+         */
+        private List<AnhSanPhamSapXep> kiemTraAnhSanPhamCapNhat(SanPhamQuanAo sanPham, List<AnhSanPhamSapXep> sapXep,
+                                                               List<MultipartFile> anhSanPhams) {
+                List<AnhSanPhamSapXep> ketQua = new ArrayList<>();
+                if (sapXep == null) {
+                        int soTep = anhSanPhams == null ? 0 : anhSanPhams.size();
+                        for (int i = 0; i < soTep; i++) {
+                                if (layTepAnh(anhSanPhams, i) != null) ketQua.add(AnhSanPhamSapXep.builder().viTriTep(i).build());
+                        }
+                } else {
+                        Set<Integer> idHienCo = new HashSet<>();
+                        sanPham.getAnhQuanAos().forEach(anh -> idHienCo.add(anh.getId()));
+                        Set<Integer> idDaGap = new HashSet<>();
+                        Set<Integer> viTriDaGap = new HashSet<>();
+                        for (AnhSanPhamSapXep o : sapXep) {
+                                if (o == null || (o.getId() == null) == (o.getViTriTep() == null)) {
+                                        throw new CommonException("Dữ liệu ảnh sản phẩm không hợp lệ. Vui lòng tải lại trang và thử lại.");
+                                }
+                                if (o.getId() != null && (!idHienCo.contains(o.getId()) || !idDaGap.add(o.getId()))) {
+                                        throw new CommonException("Ảnh sản phẩm không còn tồn tại. Vui lòng tải lại trang và thử lại.");
+                                }
+                                if (o.getViTriTep() != null
+                                        && (layTepAnh(anhSanPhams, o.getViTriTep()) == null || !viTriDaGap.add(o.getViTriTep()))) {
+                                        throw new CommonException("Thiếu tệp ảnh sản phẩm mới. Vui lòng chọn lại ảnh.");
+                                }
+                                ketQua.add(o);
+                        }
+                }
+                if (ketQua.isEmpty()) {
+                        throw new CommonException("Sản phẩm cần ít nhất 1 ảnh. Vui lòng thêm ảnh sản phẩm.");
+                }
+                return ketQua;
+        }
+
+        /**
+         * Cập nhật ảnh sản phẩm theo thứ tự đã kiểm tra: tải ảnh mới lên trước, rồi mới gỡ ảnh bị bỏ.
+         * Tệp của ảnh bị bỏ chỉ xóa khỏi MinIO sau khi giao dịch ghi xong, nên lỗi giữa chừng không làm mất ảnh cũ.
+         */
+        private void capNhatAnhSanPham(SanPhamQuanAo sanPham, List<AnhSanPhamSapXep> sapXep, List<MultipartFile> anhSanPhams) {
+                Instant bayGio = Instant.now();
+                long dauThoiGian = bayGio.toEpochMilli();
+                Map<Integer, AnhQuanAo> anhCuTheoId = new HashMap<>();
+                sanPham.getAnhQuanAos().forEach(anh -> anhCuTheoId.put(anh.getId(), anh));
+
+                List<AnhQuanAo> anhSauLuu = new ArrayList<>();
+                for (int i = 0; i < sapXep.size(); i++) {
+                        AnhSanPhamSapXep o = sapXep.get(i);
+                        AnhQuanAo anh = o.getId() != null
+                                ? anhCuTheoId.remove(o.getId())
+                                : AnhQuanAo.builder()
+                                        .quanAo(sanPham)
+                                        .tepTin(taiLenTepAnhSanPham(anhSanPhams.get(o.getViTriTep()), sanPham.getMaSanPham(), dauThoiGian, i))
+                                        .trangThai(1)
+                                        .ngayTao(bayGio)
+                                        .build();
+                        anh.setAnhChinh(i == 0 ? 1 : 0);
+                        anhSauLuu.add(anh);
+                }
+
+                // Ảnh còn lại trong anhCuTheoId là ảnh bị gỡ: orphanRemoval xóa bản ghi anh_quan_ao.
+                List<Integer> idTepBiGo = anhCuTheoId.values().stream().map(anh -> anh.getTepTin().getId()).toList();
+                sanPham.getAnhQuanAos().clear();
+                sanPham.getAnhQuanAos().addAll(anhSauLuu);
+                entityManager.flush();
+                idTepBiGo.forEach(this::xoaTepNeuKhongConDung);
+        }
+
+        private TepTin taiLenTepAnhSanPham(MultipartFile tep, String maSanPham, long dauThoiGian, int viTri) {
                 try {
-                        String objectName = minioService.upload(file, ITable.bien_the_san_pham + "_" + maSanPham + "_" + dauThoiGian + "_" + viTri);
-                        TepTin tepTin = tepTinService.create(TepTin.builder()
+                        String objectName = minioService.upload(tep, ITable.san_pham_quan_ao + "_" + maSanPham + "_" + dauThoiGian + "_" + viTri);
+                        return tepTinService.create(TepTin.builder()
                                 .tenTepGoc(objectName)
                                 .tenTaiLen(objectName)
                                 .tenLuuTru(objectName)
                                 .duongDan(minioService.getPublicUrl(objectName))
                                 .loaiTepTin(FileType.IMAGE.toString())
                                 .duoiTep(minioService.getObjectInfo(objectName).getUserMetadata().get("file-extension"))
-                                .ngayTao(bayGio)
                                 .trangThai(1)
+                                .ngayTao(Instant.now())
                                 .build());
-
-                        if (bienThe.getAnhBienThe() != null) {
-                                Integer idTepCu = bienThe.getAnhBienThe().getTepTin().getId();
-                                bienThe.getAnhBienThe().setTepTin(tepTin);
-                                anhBienTheService.update(bienThe.getAnhBienThe().getId(), bienThe.getAnhBienThe());
-                                tepTinService.hardDeleteNoMessage(idTepCu);
-                        } else {
-                                AnhBienThe anhBienThe = anhBienTheService.create(
-                                        AnhBienThe.builder()
-                                                .bienThe(bienThe)
-                                                .tepTin(tepTin)
-                                                .trangThai(1)
-                                                .ngayTao(bayGio)
-                                                .build()
-                                );
-                                bienThe.setAnhBienThe(anhBienThe);
-                        }
                 } catch (Exception e) {
-                        log.error("Lỗi tạo tệp tin cho biến thể: {}", bienThe.getMaSku(), e);
-                        throw new RuntimeException("Lỗi tạo tệp tin cho biến thể " + bienThe.getMaSku(), e);
+                        log.error("Lỗi tải ảnh sản phẩm {}", maSanPham, e);
+                        throw new CommonException("Không tải được ảnh sản phẩm. Vui lòng thử lại.", e);
                 }
         }
 
@@ -942,7 +1114,12 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 // Đánh dấu biến thể đã phát sinh giao dịch để form Sửa khóa màu/size đúng như backend kiểm tra.
                 if (dto.getBienTheSanPhams() != null && !dto.getBienTheSanPhams().isEmpty()) {
                         Set<Integer> idDaPhatSinhGiaoDich = new HashSet<>(bienTheSanPhamRepository.findIdDaPhatSinhGiaoDich(id));
-                        dto.getBienTheSanPhams().forEach(bt -> bt.setDaPhatSinhGiaoDich(idDaPhatSinhGiaoDich.contains(bt.getId())));
+                        // Biến thể còn tồn kho: giá do hệ thống tính lại theo lô nhập -> form Sửa chỉ cho xem giá.
+                        Set<Integer> idConTonKho = new HashSet<>(bienTheSanPhamRepository.findIdConTonKho(id));
+                        dto.getBienTheSanPhams().forEach(bt -> {
+                                bt.setDaPhatSinhGiaoDich(idDaPhatSinhGiaoDich.contains(bt.getId()));
+                                bt.setConTonKho(idConTonKho.contains(bt.getId()));
+                        });
                 }
                 return dto;
         }

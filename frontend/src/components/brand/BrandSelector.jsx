@@ -37,6 +37,7 @@ const parseRoles = (value) => {
  *   đúng tên ngay khi danh sách còn đang tải, thay vì hiện như "chưa chọn".
  */
 export default function BrandSelector({
+    id,
     value,
     onChange,
     disabled = false,
@@ -82,13 +83,14 @@ export default function BrandSelector({
                 }}>
                     <PopoverTrigger asChild>
                         <Button
+                            id={id}
                             type="button"
                             variant="outline"
                             role="combobox"
                             aria-expanded={open && !disabled}
                             disabled={disabled}
                             className={cn(
-                                "h-9 w-full min-w-0 max-w-full justify-between gap-2 border-bo-border bg-white px-3 py-1 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle",
+                                "h-9 w-full min-w-0 max-w-full justify-between gap-2 border-bo-border bg-white px-3 py-1 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle focus-visible:border-bo-primary focus-visible:ring-bo-primary/15",
                                 !selected && "text-bo-muted",
                             )}
                         >
@@ -119,7 +121,7 @@ export default function BrandSelector({
                         align="start"
                         className="w-[var(--radix-popover-trigger-width)] border-bo-border bg-white p-0"
                     >
-                        <Command className="rounded-lg">
+                        <Command label="Tìm thương hiệu" className="rounded-lg [&_[data-slot=command-input-wrapper]]:border-bo-border">
                             <CommandInput placeholder="Tìm kiếm thương hiệu..." className="text-bo-foreground" />
                             <CommandList className="max-h-[240px]">
                                 <CommandEmpty className="text-bo-muted">Không tìm thấy thương hiệu</CommandEmpty>
@@ -195,6 +197,8 @@ export default function BrandSelector({
                 open={createDialogOpen}
                 onOpenChange={setCreateDialogOpen}
                 onCreated={(brand) => {
+                    // Thêm vào danh sách đang có để ô chọn hiện ngay tên thương hiệu vừa tạo.
+                    setBrands((prev) => (prev.some((b) => b.id === brand.id) ? prev : [...prev, brand]));
                     onChange(brand.id);
                     setCreateDialogOpen(false);
                 }}

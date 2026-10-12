@@ -39,4 +39,7 @@ public class BienTheSanPhamDto implements Serializable {
     // true = đã có lô/tồn kho, chứng từ hoặc đồng bộ sàn -> không được đổi màu/size.
     // Chỉ được set ở API chi tiết sản phẩm (getDetail); các API khác để null.
     Boolean daPhatSinhGiaoDich;
+    // true = còn tồn kho: giá được hệ thống tính lại theo lô nhập (giá bán = giá vốn bình quân × 1,2),
+    // nên form Sửa chỉ cho xem giá. Chỉ được set ở API chi tiết sản phẩm (getDetail); các API khác để null.
+    Boolean conTonKho;
 }

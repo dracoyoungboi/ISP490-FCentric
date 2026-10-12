@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Barcode, ChevronLeft, ChevronRight, LayoutGrid, List, RotateCcw, Search } from 'lucide-react';
+import { AlertCircle, Barcode, CheckCircle2, ChevronLeft, ChevronRight, LayoutGrid, List, Loader2, RotateCcw, Search, Volume2, VolumeX, X } from 'lucide-react';
 import PosProductCard from './PosProductCard';
+import PosScanInput from './PosScanInput';
 
 const VIEW_KEY = 'fcentric.pos.productView';
 const iconButton = 'grid size-10 shrink-0 place-items-center rounded-lg border border-bo-border text-bo-muted transition hover:border-bo-primary/40 hover:bg-slate-50 hover:text-bo-primary focus-visible:outline-2 focus-visible:outline-bo-primary';
+const scanOnButton = 'inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-bo-primary bg-bo-primary-soft px-2.5 text-bo-primary transition hover:bg-bo-primary-soft/70 focus-visible:outline-2 focus-visible:outline-bo-primary';
 
 /** Bộ lọc tồn kho (giá trị = tham số trangThaiTon gửi lên server). */
 const STOCK_FILTERS = [
@@ -32,6 +34,8 @@ function emptyMessage({ search, stockFilter }) {
  * 1280/1600/1920), chế độ Danh sách, localStorage view preference, cuộn độc lập, F3 (searchRef)
  * và Enter SKU-only (onEnterAdd — tra cứu toàn bộ, KHÔNG phụ thuộc bộ lọc đang chọn).
  * Bộ lọc: tồn kho (Còn hàng / Hết hàng / Tất cả), lọc ở server.
+ * Chế độ quét mã (scanMode): ô quét thay ô tìm kiếm, kết quả từng lần quét hiện ngay bên dưới;
+ * từ khóa tìm kiếm vẫn giữ (hiện thành chip "Đang lọc" để không bị lọc ngầm).
  */
 export default function PosProductCatalog({
   products,
@@ -47,8 +51,16 @@ export default function PosProductCatalog({
   onSearch,
   onEnterAdd,
   searchRef,
-  onBarcode,
   onAdd,
+  scanMode = false,
+  onToggleScanMode,
+  scanSound = true,
+  onToggleScanSound,
+  scanInputRef,
+  onScan,
+  scanPending = 0,
+  lastScan = null,
+  onShowScanMatches,
   stockFilter = 'tat_ca',
   onStockFilterChange,
   // Từ khóa server đã dùng cho kết quả đang hiện (sau debounce) — để thông báo rỗng
@@ -84,16 +96,44 @@ export default function PosProductCatalog({
     <section aria-label="Danh mục hàng hóa" className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface">
       <div className="shrink-0 border-b border-bo-border px-3 py-3">
         <div className="flex items-center gap-2">
-          <label className="relative min-w-0 flex-1">
-            <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-bo-muted" size={17} />
-            <input aria-label="Tìm hàng hóa" className="min-h-10 w-full rounded-lg border border-bo-border bg-bo-surface py-2 pl-9 pr-3 text-sm text-bo-foreground outline-none placeholder:text-bo-muted focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/10" onChange={(event) => onSearch(event.target.value)} onKeyDown={onSearchKeyDown} placeholder="Tên hoặc mã hàng (F3)" ref={searchRef} value={search} />
-          </label>
-          <button aria-label="Nhập mã vạch" className={iconButton} onClick={onBarcode} title="Quét mã hàng hóa" type="button"><Barcode aria-hidden="true" size={19} /></button>
+          {scanMode ? (
+            <PosScanInput onScan={onScan} ref={scanInputRef} />
+          ) : (
+            <label className="relative min-w-0 flex-1">
+              <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-bo-muted" size={17} />
+              <input aria-label="Tìm hàng hóa" className="min-h-10 w-full rounded-lg border border-bo-border bg-bo-surface py-2 pl-9 pr-3 text-sm text-bo-foreground outline-none placeholder:text-bo-muted focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/10" onChange={(event) => onSearch(event.target.value)} onKeyDown={onSearchKeyDown} placeholder="Tên hoặc mã hàng (F3)" ref={searchRef} value={search} />
+            </label>
+          )}
+          <button aria-label="Chế độ quét mã vạch" aria-pressed={scanMode} className={scanMode ? scanOnButton : iconButton} onClick={onToggleScanMode} title={scanMode ? 'Tắt chế độ quét mã (F8)' : 'Bật chế độ quét mã (F8)'} type="button">
+            <Barcode aria-hidden="true" size={19} />
+            {scanMode ? <span className="hidden text-xs font-semibold sm:inline">Đang quét</span> : null}
+          </button>
+          {scanMode ? (
+            <button aria-label="Âm báo khi quét" aria-pressed={scanSound} className={iconButton} onClick={onToggleScanSound} title={scanSound ? 'Tắt âm báo quét' : 'Bật âm báo quét'} type="button">
+              {scanSound ? <Volume2 aria-hidden="true" size={18} /> : <VolumeX aria-hidden="true" size={18} />}
+            </button>
+          ) : null}
           <div aria-label="Chế độ xem sản phẩm" className="flex shrink-0 gap-0.5 rounded-lg border border-bo-border p-0.5" role="group">
             <button aria-label="Lưới" aria-pressed={view === 'grid'} className={`grid size-[34px] place-items-center rounded-md transition focus-visible:outline-2 focus-visible:outline-bo-primary ${view === 'grid' ? 'bg-bo-primary-soft text-bo-primary' : 'text-bo-muted hover:bg-slate-100'}`} onClick={() => setView('grid')} title="Lưới" type="button"><LayoutGrid aria-hidden="true" size={17} /></button>
             <button aria-label="Danh sách" aria-pressed={view === 'list'} className={`grid size-[34px] place-items-center rounded-md transition focus-visible:outline-2 focus-visible:outline-bo-primary ${view === 'list' ? 'bg-bo-primary-soft text-bo-primary' : 'text-bo-muted hover:bg-slate-100'}`} onClick={() => setView('list')} title="Danh sách" type="button"><List aria-hidden="true" size={17} /></button>
           </div>
         </div>
+        {scanMode ? (
+          <div aria-live="polite" className={`mt-2 flex min-h-8 flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md px-2.5 py-1.5 text-xs ${lastScan ? (lastScan.ok ? 'bg-bo-success-soft text-bo-success' : 'bg-bo-danger-soft text-bo-danger') : 'bg-slate-50 text-bo-muted'}`} role="status">
+            <span className="flex min-w-0 items-start gap-1.5">
+              {lastScan ? (lastScan.ok ? <CheckCircle2 aria-hidden="true" className="mt-px shrink-0" size={14} /> : <AlertCircle aria-hidden="true" className="mt-px shrink-0" size={14} />) : null}
+              <span className="min-w-0 break-words font-medium">{lastScan ? lastScan.message : 'Sẵn sàng quét. Tiếng “bíp”: đã thêm vào hóa đơn · tiếng “rè”: chưa thêm, xem thông báo tại đây.'}</span>
+            </span>
+            <span className="flex shrink-0 items-center gap-3">
+              {lastScan?.ambiguous && onShowScanMatches ? (
+                <button className="font-semibold underline-offset-2 hover:underline" onClick={() => onShowScanMatches(lastScan.code)} type="button">Xem trong danh mục</button>
+              ) : null}
+              {scanPending > 0 ? (
+                <span className="inline-flex items-center gap-1.5 text-bo-muted"><Loader2 aria-hidden="true" className="animate-spin" size={13} />Đang tra {scanPending} mã</span>
+              ) : null}
+            </span>
+          </div>
+        ) : null}
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
           <div aria-label="Lọc theo tồn kho" className="flex shrink-0 gap-0.5 rounded-lg border border-bo-border p-0.5" role="group">
             {STOCK_FILTERS.map((option) => (
@@ -108,6 +148,11 @@ export default function PosProductCatalog({
               </button>
             ))}
           </div>
+          {scanMode && search.trim() ? (
+            <button aria-label={`Bỏ lọc theo “${search.trim()}”`} className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-bo-border bg-slate-50 py-1 pl-2.5 pr-1.5 text-xs text-bo-foreground transition hover:border-bo-primary/40" onClick={() => onSearch('')} title="Bỏ lọc" type="button">
+              <span className="truncate">Đang lọc: “{search.trim()}”</span><X aria-hidden="true" className="shrink-0 text-bo-muted" size={13} />
+            </button>
+          ) : null}
           <span className="ml-auto hidden shrink-0 text-xs text-bo-muted sm:inline">{totalElements} hàng hóa</span>
         </div>
       </div>

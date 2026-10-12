@@ -27,7 +27,6 @@ import com.dev.backend.repository.KenhBanHangRepository;
 import com.dev.backend.repository.KhoRepository;
 import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.repository.TonKhoTheoLoRepository;
-import com.dev.backend.repository.TonKhoTongHopRepository;
 import com.dev.backend.repository.TrangThaiDongBoSanPhamRepository;
 import com.dev.backend.services.KenhBanHangDongBoService;
 import com.dev.backend.services.KenhBanHangService;
@@ -75,7 +74,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     AnhBienTheRepository anhBienTheRepository;
     MinioService minioService;
     KhoRepository khoRepository;
-    TonKhoTongHopRepository tonKhoTongHopRepository;
     OmnichannelOrderSyncJob omnichannelOrderSyncJob;
     ObjectMapper objectMapper = new ObjectMapper();
 
@@ -323,8 +321,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     // Nếu có inventoryItemId và locationId -> Đẩy tồn kho khả dụng lên Shopify ngay lập tức
                     if (variantInfo != null && variantInfo.getInventoryItemId() != null && locationId != null) {
                         try {
-                            // Tính tổng tồn khả dụng toàn chuỗi theo Rule 5: Free to Use = On Hand (toàn hệ thống) - Outgoing (các đơn chưa xuất)
-                            List<Object[]> stocks = tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(List.of(bt.getId()));
+                            // Tính tồn khả dụng theo Rule 5: Free to Use = On Hand - Outgoing
+                            List<Object[]> stocks = tonKhoTheoLoRepository.sumSoLuongKhaDungByKhoAndBienTheIds(targetKhoId, List.of(bt.getId()));
                             BigDecimal khaDung = BigDecimal.ZERO;
                             if (!stocks.isEmpty() && stocks.get(0)[1] != null) {
                                 khaDung = (BigDecimal) stocks.get(0)[1];
@@ -408,7 +406,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             BienTheSanPham bt = item.getBienTheSanPham();
             BigDecimal soLuongKhaDung = BigDecimal.ZERO;
             if (bt != null) {
-                List<Object[]> stockList = tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(List.of(bt.getId()));
+                List<Object[]> stockList = tonKhoTheoLoRepository.sumSoLuongKhaDungByKhoAndBienTheIds(
+                        SecurityContextHolder.getKhoId() != null ? SecurityContextHolder.getKhoId() : 1,
+                        List.of(bt.getId())
+                );
                 if (!stockList.isEmpty() && stockList.get(0)[1] != null) {
                     soLuongKhaDung = (BigDecimal) stockList.get(0)[1];
                 }
@@ -500,8 +501,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             if ("thanh_cong".equals(mapping.getTrangThaiDongBo()) && mapping.getBienTheSanPham() != null) {
                 BienTheSanPham bt = mapping.getBienTheSanPham();
 
-                // Tính tổng tồn khả dụng toàn chuỗi theo Rule 5: Free to Use = On Hand (toàn hệ thống) - Outgoing (các đơn chưa xuất)
-                List<Object[]> stocks = tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(List.of(bt.getId()));
+                // Tính tồn khả dụng theo Rule 5: Free to Use = On Hand - Outgoing
+                List<Object[]> stocks = tonKhoTheoLoRepository.sumSoLuongKhaDungByKhoAndBienTheIds(targetKhoId, List.of(bt.getId()));
                 BigDecimal khaDung = BigDecimal.ZERO;
                 if (!stocks.isEmpty() && stocks.get(0)[1] != null) {
                     khaDung = (BigDecimal) stocks.get(0)[1];
@@ -555,7 +556,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             String skuKey = m.getBienTheSanPham().getMaSku().trim().toLowerCase();
                             ShopifyVariantInfo vInfo = shopifySkuMap.get(skuKey);
                             if (vInfo != null && vInfo.getInventoryItemId() != null && locationId != null) {
-                                List<Object[]> stocks = tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(List.of(bienTheSanPhamId));
+                                List<Object[]> stocks = tonKhoTheoLoRepository.sumSoLuongKhaDungByKhoAndBienTheIds(1, List.of(bienTheSanPhamId));
                                 BigDecimal khaDung = BigDecimal.ZERO;
                                 if (!stocks.isEmpty() && stocks.get(0)[1] != null) {
                                     khaDung = (BigDecimal) stocks.get(0)[1];
@@ -772,7 +773,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         BienTheSanPham bt = tt.getBienTheSanPham();
         BigDecimal soLuongKhaDung = BigDecimal.ZERO;
         if (bt != null) {
-            List<Object[]> stocks = tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(List.of(bt.getId()));
+            List<Object[]> stocks = tonKhoTheoLoRepository.sumSoLuongKhaDungByKhoAndBienTheIds(1, List.of(bt.getId()));
             if (!stocks.isEmpty() && stocks.get(0)[1] != null) {
                 soLuongKhaDung = (BigDecimal) stocks.get(0)[1];
             }

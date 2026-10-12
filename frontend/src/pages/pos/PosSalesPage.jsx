@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { toast as sonnerToast } from 'sonner';
 import {
   ShoppingBag,
@@ -11,7 +12,10 @@ import PosInvoiceTabs from './components/PosInvoiceTabs';
 import PosDialogs from './components/PosDialogs';
 import PosProductCatalog from './components/PosProductCatalog';
 import { formatMoney } from './pos-format';
+import { createScanBurstTracker, hasNonAscii, isPrintableKey, isTextEntry, readFlag, writeFlag } from './pos-scan';
 import useOnlineStatus, { useOnReconnect, isNetworkError } from '@/hooks/useOnlineStatus';
+import useScanQueue from '@/hooks/useScanQueue';
+import { playScanBeep } from '@/utils/scanBeep';
 import {
   posService,
   toPosProduct,
@@ -34,6 +38,11 @@ const CATALOG_REFRESH_MS = 30000;
 const DEFAULT_STOCK_FILTER = 'con_hang';
 // Giới hạn số SKU mỗi lần hỏi tồn cho giỏ (khớp giới hạn server).
 const MAX_STOCK_IDS = 200;
+// Chế độ quét mã và âm báo nhớ theo máy: máy quầy có súng quét mở POS là quét được ngay.
+const SCAN_MODE_KEY = 'fcentric.pos.scanMode';
+const SCAN_SOUND_KEY = 'fcentric.pos.scanSound';
+// Lookup barcode trả tối đa 10 dòng (server) — đủ 10 nghĩa là "nhiều", không phải đúng 10.
+const LOOKUP_BARCODE_LIMIT = 10;
 
 function countCart(cart) {
   return cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -262,9 +271,13 @@ export default function PosSalesPage({
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [paymentError, setPaymentError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [barcodeInput, setBarcodeInput] = useState('');
-  const [barcodeError, setBarcodeError] = useState('');
-  const [barcodeBusy, setBarcodeBusy] = useState(false);
+  // Chế độ quét mã: ô quét thay ô tìm kiếm, mỗi mã quét được tra CHÍNH XÁC rồi thêm 1 vào hóa đơn.
+  const [scanMode, setScanMode] = useState(() => readFlag(SCAN_MODE_KEY, false));
+  const [scanSound, setScanSound] = useState(() => readFlag(SCAN_SOUND_KEY, true));
+  const [lastScan, setLastScan] = useState(null); // {ok, message, code, ambiguous?}
+  const scanInputRef = useRef(null);
+  // Trạng thái/handler mới nhất cho hàng đợi quét (chạy nền qua await) — tránh closure cũ.
+  const scanContext = useRef(null);
   const [search, setSearch] = useState('');
   // Từ khóa gửi lên server: trễ 250ms sau lần gõ cuối để không gọi API ở MỖI phím.
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -318,6 +331,11 @@ export default function PosSalesPage({
   useEffect(() => {
     invoicesRef.current = invoices;
   }, [invoices]);
+
+  useEffect(() => { writeFlag(SCAN_MODE_KEY, scanMode); }, [scanMode]);
+  useEffect(() => { writeFlag(SCAN_SOUND_KEY, scanSound); }, [scanSound]);
+  // Kết quả quét thuộc hóa đơn/kho trước — đổi hóa đơn hoặc kho thì bỏ, tránh đọc nhầm "SL trong hóa đơn".
+  useEffect(() => { setLastScan(null); }, [activeInvoice, warehouseId]);
 
   // ===== Catalog: fetch theo (kho của hóa đơn đang mở, từ khóa, bộ lọc tồn, trang) =====
   useEffect(() => {
@@ -550,19 +568,22 @@ export default function PosSalesPage({
   };
 
   // ===== Giỏ (key = bienTheSanPhamId — không gộp hai size/màu khác nhau) =====
-  const addProduct = (product) => {
-    if (frozen) {
-      showToast('Hóa đơn đang trong giao dịch thanh toán — giỏ đã được khóa.', 'warning');
-      return false;
-    }
-    const variantId = product.id;
+  const cartQuantity = (variantId) => cart.find((item) => item.product.id === variantId)?.quantity ?? 0;
+
+  /** Lý do KHÔNG được thêm 1 sản phẩm vào giỏ hiện tại (null = thêm được). */
+  const getAddProblem = (product) => {
+    if (frozen) return 'Hóa đơn đang trong giao dịch thanh toán — giỏ đã được khóa.';
     const stock = Number(product.stock);
     // Kiểm tra tồn NGOÀI state updater (updater phải thuần — StrictMode gọi 2 lần sẽ bắn toast 2 lần).
-    const line = cart.find((item) => item.product.id === variantId);
-    if (Number.isFinite(stock) && (line?.quantity ?? 0) + 1 > stock) {
-      showToast(stock > 0 ? `Chỉ còn ${stock} sản phẩm khả dụng tại kho này.` : `${product.name} đã hết hàng tại kho này.`, 'warning');
-      return false;
+    if (Number.isFinite(stock) && cartQuantity(product.id) + 1 > stock) {
+      return stock > 0 ? `Chỉ còn ${stock} sản phẩm khả dụng tại kho này.` : `${product.name} đã hết hàng tại kho này.`;
     }
+    return null;
+  };
+
+  /** Thêm 1 sản phẩm vào giỏ — gọi sau khi getAddProblem đã cho phép. */
+  const commitAddProduct = (product) => {
+    const variantId = product.id;
     setCart((current) => {
       const existing = current.find((item) => item.product.id === variantId);
       if (existing) {
@@ -572,6 +593,15 @@ export default function PosSalesPage({
       return [...current, { product, quantity: 1 }];
     });
     clearFailedAttemptAfterEdit();
+  };
+
+  const addProduct = (product) => {
+    const problem = getAddProblem(product);
+    if (problem) {
+      showToast(problem, 'warning');
+      return false;
+    }
+    commitAddProduct(product);
     return true;
   };
 
@@ -714,36 +744,95 @@ export default function PosSalesPage({
     }
   };
 
-  const findBarcode = async () => {
-    const code = barcodeInput.trim();
-    if (!code || barcodeBusy || frozen) return;
-    if (!warehouseId) return;
-    setBarcodeBusy(true);
-    try {
-      const matches = await posService.lookup(warehouseId, { barcode: code });
-      if (!matches.length) {
-        setBarcodeError('Không tìm thấy biến thể nào khớp chính xác mã đã quét. Mã vạch cấp sản phẩm không tự chọn biến thể thay bạn.');
-        return;
+  // ===== Chế độ quét mã: hàng đợi tuần tự, tra CHÍNH XÁC mã SKU / mã vạch biến thể =====
+  // Mỗi mã mang theo hóa đơn + kho LÚC QUÉT; chỉ thêm khi đó vẫn là hóa đơn/kho đang mở,
+  // không bị khóa và không có cửa sổ nào đang mở (vd. màn thanh toán) — không bao giờ thêm
+  // hàng của kho A vào hóa đơn kho B hay thêm hàng sau lưng màn thanh toán.
+  const processScan = async ({ code, invoiceNumber, warehouseId: scanWarehouseId }) => {
+    const report = (ok, message, extra = {}) => {
+      setLastScan({ ok, message, code, ...extra });
+      if (scanContext.current?.scanSound) playScanBeep(ok);
+      // Đã tắt chế độ quét khi mã còn đang tra: dòng kết quả không hiện -> báo bằng toast.
+      if (!scanContext.current?.scanMode) showToast(message, ok ? 'success' : 'warning');
+    };
+    const blocked = () => {
+      const ctx = scanContext.current;
+      if (ctx.activeInvoice !== invoiceNumber || ctx.warehouseId !== scanWarehouseId) {
+        return `Mã “${code}” chưa được thêm vì đã đổi hóa đơn hoặc kho — quét lại.`;
       }
-      if (matches.length > 1) {
-        setBarcodeError('Mã vạch khớp nhiều biến thể — vui lòng chọn thủ công từ danh mục để tránh bán nhầm kích cỡ/màu.');
-        return;
-      }
-      const product = toPosProduct(matches[0]);
-      if (Number(product.stock) <= 0) {
-        setBarcodeError(`${product.name} đã hết hàng tại kho này.`);
-        return;
-      }
-      if (!addProduct(product)) return;
-      setBarcodeError('');
-      setBarcodeInput('');
-      setDialog(null);
-      showToast(`Đã thêm ${product.name}.`, 'success');
-    } catch (error) {
-      setBarcodeError(isNetworkError(error) ? NETWORK_ERROR_MESSAGE : error?.response?.data?.message || 'Không thể tra cứu mã vạch. Vui lòng thử lại.');
-    } finally {
-      setBarcodeBusy(false);
+      if (ctx.frozen) return 'Hóa đơn đang chờ thanh toán — giỏ đã khóa. Bấm F2 để mở hóa đơn mới rồi quét.';
+      if (ctx.dialog || ctx.isSubmitting) return `Mã “${code}” chưa được thêm vì đang mở cửa sổ khác — đóng cửa sổ rồi quét lại.`;
+      return null;
+    };
+    if (!scanWarehouseId) {
+      report(false, 'Chưa chọn kho bán — chọn kho rồi quét lại.');
+      return;
     }
+    const before = blocked();
+    if (before) {
+      report(false, before);
+      return;
+    }
+    let matches;
+    try {
+      matches = await posService.lookup(scanWarehouseId, { barcode: code });
+    } catch (error) {
+      // Không tự thử lại: tránh một lần quét bị thêm hai lần.
+      report(false, isNetworkError(error) ? NETWORK_ERROR_MESSAGE : error?.response?.data?.message || `Không tra được mã “${code}” — quét lại.`);
+      return;
+    }
+    const after = blocked();
+    if (after) {
+      report(false, after);
+      return;
+    }
+    if (!matches?.length) {
+      report(false, hasNonAscii(code)
+        ? `Không tìm thấy mã “${code}”. Mã có chữ có dấu — có thể bộ gõ tiếng Việt (Unikey/EVKey) đang bật: chuyển sang E rồi quét lại.`
+        : `Không tìm thấy mã “${code}”.`);
+      return;
+    }
+    if (matches.length > 1) {
+      const count = matches.length >= LOOKUP_BARCODE_LIMIT ? 'nhiều' : matches.length;
+      report(false, `Mã “${code}” trùng ${count} biến thể — chọn đúng màu/size trong danh mục.`, { ambiguous: true });
+      return;
+    }
+    const product = toPosProduct(matches[0]);
+    const ctx = scanContext.current;
+    const problem = ctx.getAddProblem(product);
+    if (problem) {
+      report(false, problem.startsWith(product.name) ? problem : `${product.name}: ${problem}`);
+      return;
+    }
+    const quantity = ctx.cartQuantity(product.id) + 1;
+    // Render ngay để lần quét kế tiếp kiểm tồn theo giỏ MỚI NHẤT (quét nhanh cùng một món).
+    flushSync(() => ctx.commitAddProduct(product));
+    report(true, `Đã thêm ${product.name} — SL trong hóa đơn: ${quantity}`);
+  };
+  const { enqueue: enqueueScanJob, pending: scanPending } = useScanQueue(processScan);
+  const enqueueScan = (code) => {
+    const ctx = scanContext.current;
+    enqueueScanJob({ code, invoiceNumber: ctx.activeInvoice, warehouseId: ctx.warehouseId });
+  };
+
+  const toggleScanMode = () => {
+    const next = !scanMode;
+    setScanMode(next);
+    setLastScan(null);
+    // Bật: ô quét tự focus khi hiện ra. Tắt: đưa con trỏ về ô tìm kiếm.
+    if (!next) window.setTimeout(() => searchRef.current?.focus(), 0);
+  };
+
+  const toggleScanSound = () => {
+    const next = !scanSound;
+    setScanSound(next);
+    if (next) playScanBeep(true); // nghe thử ngay khi bật
+  };
+
+  // Mã trùng nhiều biến thể: lọc danh mục theo mã để chọn tay đúng màu/size (vẫn ở chế độ quét).
+  const showScanMatches = (code) => {
+    onSearch(code);
+    setLastScan(null);
   };
 
   // ===== Checkout: attempt + requestId + recovery =====
@@ -1202,7 +1291,8 @@ export default function PosSalesPage({
     if (submittedNumber != null && invoices.some((inv) => inv.number === submittedNumber)) {
       removeInvoice(submittedNumber);
     }
-    window.setTimeout(() => searchRef.current?.focus(), 0); // sẵn sàng cho khách tiếp theo
+    // Sẵn sàng cho khách tiếp theo: con trỏ về ô quét (chế độ quét) hoặc ô tìm kiếm.
+    window.setTimeout(() => (scanMode ? scanInputRef : searchRef).current?.focus(), 0);
   };
 
   const confirmWarehouseChange = () => {
@@ -1244,8 +1334,6 @@ export default function PosSalesPage({
     onCloseRecovered: () => { setRecoveredResult(null); setDialog(null); },
     onConfirmWarehouseChange: confirmWarehouseChange,
     onCancelWarehouseChange: cancelWarehouseChange,
-    onBarcodeInput: (value) => { setBarcodeInput(value); setBarcodeError(''); },
-    onFindBarcode: findBarcode,
   };
 
   const dialogState = {
@@ -1261,9 +1349,6 @@ export default function PosSalesPage({
     paymentAmount,
     paymentError,
     isSubmitting,
-    barcodeInput,
-    barcodeError,
-    barcodeBusy,
     closingInvoice: closingInvoiceNumber != null
       ? invoices.find((invoice) => invoice.number === closingInvoiceNumber) || null
       : null,
@@ -1275,6 +1360,39 @@ export default function PosSalesPage({
     recoveredResult,
     pendingWarehouse: pendingWarehouseId != null ? warehouses.find((w) => w.id === pendingWarehouseId) || null : null,
     activeWarehouse,
+  };
+
+  // ===== Chống quét nhầm chỗ (áp dụng cả khi tắt chế độ quét) =====
+  // Máy quét gõ mã + Enter vào BẤT KỲ chỗ nào đang có con trỏ. Enter cuối một lần quét chỉ được xử lý
+  // ở ô quét và ô tìm kiếm (Enter thêm nhanh như cũ); ở chỗ khác bị chặn để không xác nhận thanh toán
+  // với "tiền khách đưa" = mã vạch, không bấm lại thẻ sản phẩm đang chọn, không gửi form khác.
+  const handleMisplacedScan = (scan, target) => {
+    if (dialog === 'payment' && target?.id === 'payment-amount') {
+      const amount = Number(scan.snapshot?.paymentAmount) || 0;
+      setPaymentAmountForInvoice(amount);
+      // Ô số có thể còn hiện chữ dở dang của mã (state không đổi thì React không vẽ lại) -> ghi lại số tiền.
+      target.value = String(amount);
+      setPaymentError('Vừa quét mã khi đang ở màn thanh toán — CHƯA xác nhận thanh toán, số tiền khách đưa đã trả về như trước. Cần thêm hàng: đóng màn thanh toán (Esc) rồi quét.');
+      if (scanSound) playScanBeep(false);
+      return;
+    }
+    const warn = (message) => {
+      if (scanSound) playScanBeep(false);
+      showToast(message, 'warning');
+    };
+    if (dialog || isSubmitting) {
+      warn('Vừa quét mã khi đang mở cửa sổ khác — mã chưa được thêm. Đóng cửa sổ rồi quét lại.');
+      return;
+    }
+    // Mã lỡ gõ vào ô ghi chú: trả ghi chú về như trước khi quét.
+    if (target?.dataset && 'posNote' in target.dataset) setNoteForInvoice(scan.snapshot?.note ?? '');
+    const code = scan.code.trim();
+    if (scanMode && code) {
+      enqueueScan(code);
+      scanInputRef.current?.focus();
+      return;
+    }
+    warn('Mã vừa quét chưa được thêm vào hóa đơn. Bật chế độ quét mã (F8) để quét.');
   };
 
   // Trạng thái/handler mới nhất cho callback chạy nền (polling payOS, phím tắt) — tránh closure cũ.
@@ -1293,10 +1411,55 @@ export default function PosSalesPage({
     cancelWarehouseChange,
     setDialog,
     setMobileCartOpen,
+    scanMode,
+    scanInputRef,
+    toggleScanMode,
+    handleMisplacedScan,
+    // Chụp lúc bắt đầu một chuỗi phím nhanh: giá trị TRƯỚC khi mã quét nhầm gõ vào ô.
+    scanSnapshot: () => ({ paymentAmount, note }),
+  };
+  scanContext.current = {
+    scanMode,
+    activeInvoice,
+    warehouseId,
+    frozen,
+    dialog,
+    isSubmitting,
+    scanSound,
+    cartQuantity,
+    getAddProblem,
+    commitAddProduct,
   };
 
+  // Bắt phím ở pha capture (trước mọi nút/ô/form): nhận diện lần quét + chuyển phím về ô quét.
   useEffect(() => {
-    const HANDLED_KEYS = new Set(['Escape', 'F1', 'F2', 'F3', 'F4', 'F9']);
+    const tracker = createScanBurstTracker();
+    const handleKeyDownCapture = (event) => {
+      const context = keyboardContext.current;
+      if (!context) return;
+      const scan = tracker.track(event, context.scanSnapshot);
+      if (scan) {
+        const target = event.target;
+        if (target === context.scanInputRef.current?.element || target === context.searchRef.current) return;
+        event.preventDefault();
+        event.stopPropagation();
+        context.handleMisplacedScan(scan, target);
+        return;
+      }
+      // Chế độ quét: phím ký tự gõ khi con trỏ KHÔNG ở ô nhập chữ (đang chọn nút, thẻ sản phẩm, ô chọn
+      // kho...) được chuyển về ô quét — mã không rơi mất và Enter cuối mã không bấm nhầm nút đó.
+      if (!context.scanMode || context.dialog || context.isSubmitting) return;
+      if (event.defaultPrevented || event.isComposing || event.repeat || !isPrintableKey(event) || event.key === ' ') return;
+      if (isTextEntry(event.target) || !context.scanInputRef.current) return;
+      event.preventDefault();
+      context.scanInputRef.current.insert(event.key);
+    };
+    window.addEventListener('keydown', handleKeyDownCapture, true);
+    return () => window.removeEventListener('keydown', handleKeyDownCapture, true);
+  }, []);
+
+  useEffect(() => {
+    const HANDLED_KEYS = new Set(['Escape', 'F1', 'F2', 'F3', 'F4', 'F8', 'F9']);
     const handleKeyDown = (event) => {
       const context = keyboardContext.current;
       if (!context || !HANDLED_KEYS.has(event.key)) return;
@@ -1321,9 +1484,12 @@ export default function PosSalesPage({
       if (event.key === 'F1') context.setDialog('shortcuts');
       else if (event.key === 'F2') context.requestNewInvoice();
       else if (event.key === 'F3') {
-        context.searchRef.current?.focus();
-        context.searchRef.current?.select();
-      } else if (event.key === 'F4') {
+        // Chế độ quét: ô quét thay chỗ ô tìm kiếm.
+        const field = context.scanMode ? context.scanInputRef.current : context.searchRef.current;
+        field?.focus();
+        field?.select();
+      } else if (event.key === 'F8') context.toggleScanMode();
+      else if (event.key === 'F4') {
         // Phím tắt KHÔNG được vượt guard giao dịch đang treo (frozen).
         if (!context.frozen) context.setDialog('customer');
       } else if (event.key === 'F9') context.openPayment();
@@ -1384,9 +1550,13 @@ export default function PosSalesPage({
         <PosProductCatalog
           error={catalog.error}
           loading={catalog.loading}
+          lastScan={lastScan}
           onAdd={addProduct}
-          onBarcode={() => setDialog('barcode')}
           onEnterAdd={handleEnterAdd}
+          onScan={enqueueScan}
+          onShowScanMatches={showScanMatches}
+          onToggleScanMode={toggleScanMode}
+          onToggleScanSound={toggleScanSound}
           onPageChange={(nextPage) => setCatalogPage(Math.max(0, nextPage))}
           onRetry={() => setRefreshKey((key) => key + 1)}
           onSearch={onSearch}
@@ -1396,6 +1566,10 @@ export default function PosSalesPage({
           pageSize={PAGE_SIZE}
           products={catalog.items}
           resultQuery={debouncedSearch}
+          scanInputRef={scanInputRef}
+          scanMode={scanMode}
+          scanPending={scanPending}
+          scanSound={scanSound}
           search={search}
           searchRef={searchRef}
           stockFilter={stockFilter}

@@ -51,7 +51,7 @@ public class SizeController {
         return ResponseEntity.ok(
                 ResponseData.<List<SizeDto>>builder()
                         .status(HttpStatus.OK.value())
-                        .data(sizeMapper.toDtoList(sizeService.getAll()))
+                        .data(sizeMapper.toDtoList(sizeService.getAllTheoThuTu()))
                         .message("Success")
                         .error(null)
                         .build()

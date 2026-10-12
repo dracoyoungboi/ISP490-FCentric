@@ -63,8 +63,6 @@ class KenhBanHangDongBoServiceTest {
     @Mock
     private KhoRepository khoRepository;
     @Mock
-    private TonKhoTongHopRepository tonKhoTongHopRepository;
-    @Mock
     private com.dev.backend.workers.OmnichannelOrderSyncJob omnichannelOrderSyncJob;
 
     private KenhBanHangDongBoServiceImpl service;
@@ -87,7 +85,6 @@ class KenhBanHangDongBoServiceTest {
                 anhBienTheRepository,
                 minioService,
                 khoRepository,
-                tonKhoTongHopRepository,
                 omnichannelOrderSyncJob
         );
 
@@ -149,7 +146,7 @@ class KenhBanHangDongBoServiceTest {
         when(trangThaiDongBoSanPhamRepository.filterByKenh(eq(1), any(), any(), any())).thenReturn(page);
         List<Object[]> mockStock = new java.util.ArrayList<>();
         mockStock.add(new Object[]{101, BigDecimal.valueOf(15)});
-        when(tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(any()))
+        when(tonKhoTheoLoRepository.sumSoLuongKhaDungByKhoAndBienTheIds(any(), any()))
                 .thenReturn(mockStock);
 
         Page<LienKetSanPhamDto> dtos = service.filterLienKet("SHOPIFY", null, null, PageRequest.of(0, 10));
@@ -185,7 +182,7 @@ class KenhBanHangDongBoServiceTest {
         // Tồn khả dụng = 20
         List<Object[]> mockStock2 = new java.util.ArrayList<>();
         mockStock2.add(new Object[]{101, BigDecimal.valueOf(20)});
-        when(tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(eq(List.of(101))))
+        when(tonKhoTheoLoRepository.sumSoLuongKhaDungByKhoAndBienTheIds(any(), eq(List.of(101))))
                 .thenReturn(mockStock2);
 
         DayTonKenhRequest req = DayTonKenhRequest.builder()

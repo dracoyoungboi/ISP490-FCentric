@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-    AlertTriangle, ArrowLeft, ArrowRight, Building2, Calculator, Check, Download, Link2, Loader2, Save, Wand2,
+    AlertTriangle, ArrowLeft, ArrowRight, Calculator, Check, Download, Link2, Loader2, Save, Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,7 +23,7 @@ import { kenhBanHangService, isChannelSyncMock } from "@/services/kenhBanHangSer
 import { getApiErrorMessage } from "@/utils/apiError";
 import { cn } from "@/lib/utils";
 
-const STEPS = ["Quy tắc tồn", "Nhận đơn", "Liên kết & bật đồng bộ"];
+const STEPS = ["Kho đồng bộ", "Quy tắc tồn", "Nhận đơn", "Liên kết & bật đồng bộ"];
 
 const inputClass =
     "h-10 w-full rounded-lg border border-bo-border bg-white px-3 text-sm text-bo-foreground outline-none placeholder:text-slate-500 focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle";
@@ -58,12 +58,16 @@ function formFromKetNoi(kn) {
 function validateStep(step, form) {
     const errors = {};
     if (step === 0) {
+        if (!form.khoId) errors.khoId = "Chọn kho FCentric dùng để đồng bộ tồn và xuất đơn.";
+        if (!form.maKhoSan) errors.maKhoSan = "Chọn vị trí kho trên Shopify.";
+    }
+    if (step === 1) {
         const tyLe = Number(form.tyLeDayTon);
         if (!Number.isInteger(tyLe) || tyLe < 1 || tyLe > 100) errors.tyLeDayTon = "Tỷ lệ là số nguyên từ 1 đến 100.";
         if (!/^\d+$/.test(form.tonDem)) errors.tonDem = "Tồn đệm là số nguyên ≥ 0.";
         if (!/^\d+$/.test(form.nguongVe0)) errors.nguongVe0 = "Ngưỡng về 0 là số nguyên ≥ 0.";
     }
-    if (step === 1) {
+    if (step === 2) {
         if (!form.khachHangMacDinhId) errors.khachHangMacDinhId = "Chọn khách hàng mặc định cho đơn từ sàn.";
         if (!form.layDonTu) errors.layDonTu = "Chọn ngày bắt đầu lấy đơn.";
     }
@@ -103,7 +107,7 @@ export default function ChannelSetupWizard() {
             ]);
             setKetNoi(kn);
             setForm(formFromKetNoi(kn));
-            setSavedOnce(Boolean(kn?.khachHangMacDinhId || kn?.tyLeDayTon != null));
+            setSavedOnce(Boolean(kn?.khoId && kn?.maKhoSan));
             setKhoOptions(khoList ?? []);
             setKhoSanOptions(khoSanList ?? []);
             setKhachOptions(khachList ?? []);
@@ -141,21 +145,21 @@ export default function ChannelSetupWizard() {
                 }
             }
         }
-        if (target === 2 && !savedOnce) {
-            setStep(1);
-            setSaveResult({ ok: false, title: "Chưa lưu cấu hình", message: "Bấm Lưu cấu hình ở bước 2 trước khi sang bước liên kết." });
+        if (target === 3 && !savedOnce) {
+            setStep(2);
+            setSaveResult({ ok: false, title: "Chưa lưu cấu hình", message: "Bấm Lưu cấu hình ở bước 3 trước khi sang bước liên kết." });
             return;
         }
         setErrors({});
         setStep(target);
     };
 
-    // Lưu cấu hình (PUT /cau-hinh). Lưu cấu hình không bật / tắt đồng bộ (BR-OC-02).
+    // Lưu cả bước 1–3 một lần (PUT /cau-hinh). Lưu cấu hình không bật / tắt đồng bộ (BR-OC-02).
     const saveConfig = async () => {
-        const allErrors = { ...validateStep(0, form), ...validateStep(1, form) };
+        const allErrors = { ...validateStep(0, form), ...validateStep(1, form), ...validateStep(2, form) };
         if (Object.keys(allErrors).length) {
             setErrors(allErrors);
-            const firstStep = [0, 1].find((s) => Object.keys(validateStep(s, form)).length);
+            const firstStep = [0, 1, 2].find((s) => Object.keys(validateStep(s, form)).length);
             setStep(firstStep ?? 0);
             return;
         }
@@ -164,10 +168,10 @@ export default function ChannelSetupWizard() {
         setSaving(true);
         setSaveResult(null);
         try {
-            const khoSan = khoSanOptions.find((k) => k.maKhoSan === form.maKhoSan) || khoSanOptions[0];
+            const khoSan = khoSanOptions.find((k) => k.maKhoSan === form.maKhoSan);
             const dto = await kenhBanHangService.luuCauHinh(id, {
-                khoId: form.khoId ? Number(form.khoId) : null,
-                maKhoSan: form.maKhoSan || khoSan?.maKhoSan,
+                khoId: Number(form.khoId),
+                maKhoSan: form.maKhoSan,
                 tenKhoSan: khoSan?.tenKhoSan ?? ketNoi?.tenKhoSan,
                 khachHangMacDinhId: Number(form.khachHangMacDinhId),
                 tyLeDayTon: Number(form.tyLeDayTon),
@@ -178,7 +182,7 @@ export default function ChannelSetupWizard() {
             setKetNoi(dto);
             setSavedOnce(true);
             toast.success("Đã lưu cấu hình kết nối");
-            setStep(2);
+            setStep(3);
         } catch (error) {
             setSaveResult({
                 ok: false,
@@ -255,7 +259,7 @@ export default function ChannelSetupWizard() {
     }
 
     const stepDone = (index) => {
-        if (index < 2) return savedOnce && Object.keys(validateStep(index, form)).length === 0 && index !== step;
+        if (index < 3) return savedOnce && Object.keys(validateStep(index, form)).length === 0 && index !== step;
         return Boolean(ketNoi.tuDongDayTon || ketNoi.tuDongLayDon);
     };
 
@@ -298,20 +302,55 @@ export default function ChannelSetupWizard() {
                 </div>
             </section>
 
-            {/* ── Bước 1: Quy tắc tồn ── */}
+            {/* ── Bước 1: Kho ── */}
             {step === 0 ? (
                 <FormSection
-                    title="Bước 1 · Quy tắc đẩy tồn"
-                    description="Số đẩy lên sàn = (khả dụng < ngưỡng về 0) ? 0 : khả dụng × tỷ lệ − tồn đệm, làm tròn xuống."
+                    title="Bước 1 · Kho đồng bộ"
+                    description="Kho FCentric vừa là nguồn tồn đẩy lên Shopify vừa là kho giữ chỗ và xuất đơn của gian hàng. Đổi kho chỉ được khi không còn đơn đang xử lý."
                 >
-                    <div className="mb-5 flex items-center gap-3 rounded-lg border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
-                        <Building2 className="size-5 shrink-0 text-sky-600" />
+                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                         <div>
-                            <p className="font-semibold text-sky-950">Nguồn tồn kho bán online: Toàn bộ chuỗi kho &amp; cửa hàng</p>
-                            <p className="mt-0.5 text-xs text-sky-700">Hệ thống tự động tổng hợp tổng tồn khả dụng (Free to Use = On Hand − Outgoing) từ tất cả các kho và cửa hàng hợp lệ trong hệ thống để mở bán trên gian hàng trực tuyến.</p>
+                            <label className={labelClass}>Kho FCentric</label>
+                            <Select value={form.khoId} onValueChange={(value) => change("khoId", value)}>
+                                <SelectTrigger className={cn(selectTriggerClass, errors.khoId && "border-bo-danger")}>
+                                    <SelectValue placeholder="Chọn kho" />
+                                </SelectTrigger>
+                                <SelectContent position="popper" sideOffset={4} className={selectContentClass}>
+                                    {khoOptions.map((kho) => (
+                                        <SelectItem key={kho.id} value={String(kho.id)} className={selectItemClass}>
+                                            {kho.tenKho}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FieldMessage error={errors.khoId} hint="Kho Trung Chuyển không được dùng để đồng bộ." />
+                        </div>
+                        <div>
+                            <label className={labelClass}>Vị trí kho trên Shopify</label>
+                            <Select value={form.maKhoSan} onValueChange={(value) => change("maKhoSan", value)}>
+                                <SelectTrigger className={cn(selectTriggerClass, errors.maKhoSan && "border-bo-danger")}>
+                                    <SelectValue placeholder={khoSanOptions.length ? "Chọn vị trí kho" : "Chưa lấy được vị trí kho"} />
+                                </SelectTrigger>
+                                <SelectContent position="popper" sideOffset={4} className={selectContentClass}>
+                                    {khoSanOptions.map((kho) => (
+                                        <SelectItem key={kho.maKhoSan} value={kho.maKhoSan} className={selectItemClass}>
+                                            {kho.tenKhoSan}{kho.macDinh ? " (mặc định)" : ""}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FieldMessage error={errors.maKhoSan} hint="Chỉ đẩy tồn vào vị trí kho này; tồn ở vị trí kho khác trên Shopify giữ nguyên." />
                         </div>
                     </div>
+                </FormSection>
+            ) : null}
 
+            {/* ── Bước 2: Quy tắc tồn ── */}
+            {step === 1 ? (
+                <FormSection
+                    title="Bước 2 · Quy tắc đẩy tồn"
+                    description="Số đẩy lên sàn = (khả dụng < ngưỡng về 0) ? 0 : khả dụng × tỷ lệ − tồn đệm, làm tròn xuống."
+                >
                     <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
                         <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
                             <NumberField label="Tỷ lệ đẩy (%)" value={form.tyLeDayTon} error={errors.tyLeDayTon} hint="100% = đẩy toàn bộ khả dụng" onChange={(v) => change("tyLeDayTon", v)} />
@@ -342,10 +381,10 @@ export default function ChannelSetupWizard() {
                 </FormSection>
             ) : null}
 
-            {/* ── Bước 2: Nhận đơn ── */}
-            {step === 1 ? (
+            {/* ── Bước 3: Nhận đơn ── */}
+            {step === 2 ? (
                 <FormSection
-                    title="Bước 2 · Nhận đơn"
+                    title="Bước 3 · Nhận đơn"
                     description="Đơn từ sàn ghi vào khách hàng mặc định của gian hàng; người nhận và địa chỉ lưu trên đơn. Lưu cấu hình không tự bật đồng bộ."
                 >
                     <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -381,10 +420,10 @@ export default function ChannelSetupWizard() {
                 </FormSection>
             ) : null}
 
-            {/* ── Bước 3: Liên kết & bật đồng bộ ── */}
-            {step === 2 ? (
+            {/* ── Bước 4: Liên kết & bật đồng bộ ── */}
+            {step === 3 ? (
                 <FormSection
-                    title="Bước 3 · Liên kết sản phẩm và bật đồng bộ"
+                    title="Bước 4 · Liên kết sản phẩm và bật đồng bộ"
                     description="Tải SKU từ Shopify, ghép tự động theo SKU, rồi bật đồng bộ khi đủ điều kiện."
                 >
                     <div className="space-y-5">
@@ -463,12 +502,12 @@ export default function ChannelSetupWizard() {
                     <ArrowLeft className="size-4" />
                     Bước trước
                 </Button>
-                {step === 0 ? (
-                    <Button onClick={() => goTo(1)} className="h-10 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
+                {step < 2 ? (
+                    <Button onClick={() => goTo(step + 1)} className="h-10 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
                         Tiếp tục
                         <ArrowRight className="size-4" />
                     </Button>
-                ) : step === 1 ? (
+                ) : step === 2 ? (
                     <Button onClick={saveConfig} disabled={saving} className="h-10 min-w-[160px] gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50">
                         {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
                         {saving ? "Đang lưu…" : "Lưu cấu hình"}

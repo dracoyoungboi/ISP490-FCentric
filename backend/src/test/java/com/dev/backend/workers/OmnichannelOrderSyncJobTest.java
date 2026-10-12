@@ -36,7 +36,6 @@ class OmnichannelOrderSyncJobTest {
     @Mock private KenhBanHangService kenhBanHangService;
     @Mock private KhoRepository khoRepository;
     @Mock private com.dev.backend.services.multitable.NhatHangService nhatHangService;
-    @Mock private PhieuXuatKhoRepository phieuXuatKhoRepository;
 
     private OmnichannelOrderSyncJob job;
     private final ObjectMapper mapper = new ObjectMapper();
@@ -52,8 +51,7 @@ class OmnichannelOrderSyncJobTest {
                 trangThaiDongBoSanPhamRepository,
                 kenhBanHangService,
                 khoRepository,
-                nhatHangService,
-                phieuXuatKhoRepository
+                nhatHangService
         );
         when(donBanHangRepository.save(any(DonBanHang.class))).thenAnswer(inv -> inv.getArgument(0));
     }
