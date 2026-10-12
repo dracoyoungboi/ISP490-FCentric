@@ -93,7 +93,7 @@ export default function KpiStrip({ data, loading, loiChiSo, loiTonKho, khoId, on
                   />
                   <div className="mt-1.5 flex justify-between text-xs text-bo-muted">
                     <span>Kho tổng {formatPhanTram(tyLe(khoTong, tongHeThong), 0)}</span>
-                    <span>Cửa hàng {formatPhanTram(tyLe(tongHeThong - khoTong, tongHeThong), 0)}</span>
+                    <span>Kho bán hàng {formatPhanTram(tyLe(tongHeThong - khoTong, tongHeThong), 0)}</span>
                   </div>
                 </div>
               ) : (

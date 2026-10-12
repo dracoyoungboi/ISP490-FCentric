@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 import { Card, MoreLink, Segmented, StatusChip } from "./ui";
 import { MAU2 } from "./mau";
 import { formatSo, formatTienGon } from "../tong-quan/tongQuanFormat";
+import { dsKhoDayDu } from "./boLoc";
+import { duongDanKemThamSo } from "@/utils/thamSoDuongDan";
 
 const nf1 = new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
@@ -15,6 +17,7 @@ const nf1 = new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 1, maximumFr
  */
 export default function ProductsCard({ data, loading, loiBanChay, loiBoSung, onRetry }) {
   const bs = data?.hangCanBoSung;
+  const khoTongId = timKhoTongId(data);
   const soBoSung = bs?.tongSo ?? 0;
   const [tabChon, setTab] = useState(null);
   const tab = tabChon ?? "boSung";
@@ -39,10 +42,38 @@ export default function ProductsCard({ data, loading, loiBanChay, loiBoSung, onR
       {tab === "banChay" ? (
         <BanChay rows={data?.sanPhamBanChay} error={loiBanChay} onRetry={onRetry} />
       ) : (
-        <BoSung bs={bs} error={loiBoSung} onRetry={onRetry} onXemBanChay={data?.sanPhamBanChay?.length ? () => setTab("banChay") : null} />
+        <BoSung bs={bs} khoTongId={khoTongId} error={loiBoSung} onRetry={onRetry} onXemBanChay={data?.sanPhamBanChay?.length ? () => setTab("banChay") : null} />
       )}
     </Card>
   );
+}
+
+/** Id Kho tổng trong danh sách kho của Tổng quan; không xác định được thì null (form chuyển kho tự chọn Kho tổng). */
+function timKhoTongId(data) {
+  const ds = data?.danhSachKho ?? [];
+  return ds.find((k) => k.laKhoTong)?.id ?? dsKhoDayDu(data, ds).find((k) => k.laKhoTong)?.id ?? null;
+}
+
+/**
+ * Đường dẫn mở sẵn form theo đề xuất của một dòng:
+ * - chuyển kho: Kho tổng → kho cần hàng, đúng mã hàng, số lượng đề xuất;
+ * - yêu cầu nhập: mã hàng, số lượng đề xuất (kho nhận luôn là Kho tổng, trang tự giải thích nếu dòng là kho bán hàng).
+ */
+function duongDanDeXuat(d, khoTongId) {
+  if (d.deXuat === "chuyen_kho") {
+    return duongDanKemThamSo("/transfer-tickets/create", {
+      khoXuatId: khoTongId,
+      khoNhapId: d.khoId,
+      bienTheId: d.bienTheId,
+      soLuong: d.soLuongDeXuat,
+    });
+  }
+  return duongDanKemThamSo("/purchase-requests/create", {
+    khoId: d.khoId,
+    bienTheId: d.bienTheId,
+    soLuong: d.soLuongDeXuat,
+    ten: d.tenSanPham,
+  });
 }
 
 function Loi({ onRetry }) {
@@ -124,7 +155,7 @@ function BanChay({ rows = [], error, onRetry }) {
   );
 }
 
-function BoSung({ bs, error, onRetry, onXemBanChay }) {
+function BoSung({ bs, khoTongId, error, onRetry, onXemBanChay }) {
   if (error) return <Loi onRetry={onRetry} />;
   const rows = bs?.dong ?? [];
   if (!rows.length)
@@ -185,7 +216,7 @@ function BoSung({ bs, error, onRetry, onXemBanChay }) {
                 </td>
                 <td className="py-2 pr-5 text-right">
                   <Link
-                    to={chuyen ? "/transfer-tickets/create" : "/purchase-requests/create"}
+                    to={duongDanDeXuat(d, khoTongId)}
                     title={ghiChu}
                     className="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md border border-[#e6e9ef] bg-white px-2.5 text-[13px] font-medium text-bo-foreground hover:border-bo-primary/40 hover:text-bo-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
                   >
@@ -199,7 +230,7 @@ function BoSung({ bs, error, onRetry, onXemBanChay }) {
         </tbody>
       </table>
       <div className="flex items-center justify-between gap-3 px-5 pt-2 text-xs text-bo-muted">
-        <span>Đề xuất đưa khả dụng về gấp đôi mức tối thiểu; cửa hàng ưu tiên nhận từ Kho tổng.</span>
+        <span>Đề xuất đưa khả dụng về gấp đôi mức tối thiểu; kho bán hàng ưu tiên nhận từ Kho tổng.</span>
         <MoreLink to="/reports/inventory">{`Xem tất cả ${formatSo(bs.tongSo)}`}</MoreLink>
       </div>
     </div>

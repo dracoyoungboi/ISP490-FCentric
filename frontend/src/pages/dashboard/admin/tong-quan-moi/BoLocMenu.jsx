@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { KY_OPTIONS, gioPhut } from "../tong-quan/tongQuanFormat";
 import { FOCUS, KHUNG, MENU, NHAN_KY, dsKhoDayDu, khoangKy } from "./boLoc";
 
-/* Thanh lọc Tổng quan: menu chọn kho (tách Kho tổng / Cửa hàng), menu chọn kỳ (kèm khoảng ngày thật), nút cập nhật. */
+/* Thanh lọc Tổng quan: menu chọn kho (tách Kho tổng / Kho bán hàng), menu chọn kỳ (kèm khoảng ngày thật), nút cập nhật. */
 
 const MUC = "flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-[13px] text-slate-700 focus:bg-bo-surface-subtle focus:text-bo-foreground";
 const NHOM = "px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-bo-muted";
@@ -51,7 +51,7 @@ export function KhoMenu({ data, dsKho, khoId, onChange, disabled, children, alig
         {cuaHang.length ? (
           <>
             <DropdownMenuSeparator className="my-1 bg-bo-border" />
-            <DropdownMenuLabel className={NHOM}>Cửa hàng</DropdownMenuLabel>
+            <DropdownMenuLabel className={NHOM}>Kho bán hàng</DropdownMenuLabel>
             {cuaHang.map((k) => <MucKho key={k.id} id={k.id} ten={k.tenKho} {...chung} />)}
           </>
         ) : null}
