@@ -45,14 +45,16 @@ const PASS_THROUGH_KEYS = new Set(['Shift', 'CapsLock', 'Unidentified', 'Process
  * Nhận diện chuỗi phím do máy quét gõ (súng quét USB, Barcode to PC): máy gõ rất nhanh, đều
  * và kết thúc bằng Enter — người gõ tay không đạt tốc độ này. Phím giữ lì (repeat) không tính.
  * - Khoảng nghỉ > resetGapMs giữa hai phím -> bắt đầu chuỗi mới (gọi snapshot() để chụp trạng thái
- *   TRƯỚC ký tự đầu tiên, dùng để trả lại ô bị quét nhầm).
+ *   TRƯỚC ký tự đầu tiên, dùng để trả lại ô bị quét nhầm). Ngưỡng rộng (150 ms) để một lần máy bận
+ *   giữa lần quét không cắt đôi mã thành "chữ gõ" + "mã quét" sai; người gõ tay vẫn bị loại nhờ
+ *   điều kiện trung bình <= maxAvgGapMs trên cả chuỗi.
  * - Gặp Enter: là lần quét khi đủ minChars ký tự, trung bình <= maxAvgGapMs/ký tự và Enter đến
  *   trong enterGapMs sau ký tự cuối -> trả về { code, count, snapshot }; ngược lại null.
  */
 export function createScanBurstTracker({
   minChars = 6,
   maxAvgGapMs = 30,
-  resetGapMs = 60,
+  resetGapMs = 150,
   enterGapMs = 150,
 } = {}) {
   let run = null;

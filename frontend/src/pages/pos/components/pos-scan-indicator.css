@@ -1,0 +1,58 @@
+/* Đèn báo chế độ quét mã trong ô tìm kiếm POS (PosProductCatalog). */
+
+/* Tia quét chạy lên xuống qua biểu tượng mã vạch: màu theo chữ của biểu tượng (xanh / chớp xanh lá / đỏ). */
+.pos-scan-laser {
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  top: 2px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  box-shadow: 0 0 6px 1px color-mix(in srgb, currentColor 55%, transparent);
+  animation: pos-scan-sweep 2.2s ease-in-out infinite alternate;
+}
+
+@keyframes pos-scan-sweep {
+  to { transform: translateY(11px); }
+}
+
+/* Vừa có kết quả quét: biểu tượng + tia chớp màu kết quả ~0,9 giây rồi về màu thường. */
+.pos-scan-icon[data-tone="ok"] { animation: pos-scan-icon-ok 0.9s ease-out; }
+.pos-scan-icon[data-tone="err"] { animation: pos-scan-icon-err 0.9s ease-out; }
+
+@keyframes pos-scan-icon-ok {
+  0%, 55% { color: var(--color-bo-success, #15803d); }
+}
+
+@keyframes pos-scan-icon-err {
+  0%, 55% { color: var(--color-bo-danger, #dc2626); }
+}
+
+/* Viền ô chớp theo kết quả (lớp phủ, không đụng tới focus của ô nhập). */
+.pos-scan-ring {
+  border: 1px solid transparent;
+  animation: pos-scan-ring 0.9s ease-out forwards;
+}
+
+.pos-scan-ring[data-tone="ok"] { --pos-scan-flash: var(--color-bo-success, #15803d); }
+.pos-scan-ring[data-tone="err"] { --pos-scan-flash: var(--color-bo-danger, #dc2626); }
+
+@keyframes pos-scan-ring {
+  0%, 55% {
+    border-color: var(--pos-scan-flash);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--pos-scan-flash) 16%, transparent);
+  }
+  100% {
+    border-color: transparent;
+    box-shadow: 0 0 0 3px transparent;
+  }
+}
+
+/* Máy bật giảm chuyển động: tia đứng yên giữa biểu tượng (vẫn chớp màu khi có kết quả). */
+@media (prefers-reduced-motion: reduce) {
+  .pos-scan-laser {
+    animation: none;
+    transform: translateY(5px);
+  }
+}
