@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { donBanHangService } from "@/services/donBanHangService";
 import { getKhoList } from "@/services/khoService";
+import { laKhoGiaoDich } from "@/utils/kho";
 
 import PageContainer from "@/components/backoffice/PageContainer";
 import PageHeader from "@/components/backoffice/PageHeader";
@@ -92,7 +93,7 @@ export default function DonBanHangCreate() {
 
       const quotes = quotesRes?.content || [];
       setPendingQuotes(quotes);
-      setWarehouses(warehouseRes || []);
+      setWarehouses((warehouseRes || []).filter(laKhoGiaoDich));
 
       if (initialQuoteId) {
         let targetQuote = quotes.find(q => q.id.toString() === initialQuoteId);

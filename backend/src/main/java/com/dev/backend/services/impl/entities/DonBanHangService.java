@@ -247,6 +247,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         if (request.getKhoXuatId() != null) {
             khoXuat = entityManager.find(Kho.class, request.getKhoXuatId());
             if (khoXuat == null) throw new RuntimeException("Kho đã chọn không tồn tại");
+            KhoService.kiemTraKhoGiaoDich(khoXuat, "Kho xuất hàng");
         }
 
         int retry = 0;
@@ -360,6 +361,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         if (kho == null) {
             throw new RuntimeException("Vui lòng cung cấp kho xuất hàng để có thể tạo đơn bán hàng chính thức");
         }
+        KhoService.kiemTraKhoGiaoDich(kho, "Kho xuất hàng");
 
         for (ChiTietDonBanHang item : baoGia.getChiTietDonBanHangs()) {
             BigDecimal qtyKhaDung = tonKhoTheoLoRepository.sumSoLuongKhaDungByKhoAndBienThe(kho.getId(), item.getBienTheSanPham().getId());
