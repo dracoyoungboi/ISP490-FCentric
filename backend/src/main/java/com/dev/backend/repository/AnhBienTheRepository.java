@@ -18,4 +18,7 @@ public interface AnhBienTheRepository extends JpaRepository<AnhBienThe, Integer>
             "where ab.bienThe.id in :bienTheIds and ab.trangThai = 1 " +
             "order by ab.bienThe.id, ab.id")
     List<AnhBienThe> findActiveByBienTheIds(@Param("bienTheIds") Collection<Integer> bienTheIds);
+
+    /** Số ảnh biến thể đang trỏ tới một tệp: các biến thể cùng màu dùng chung một tệp ảnh. */
+    long countByTepTin_Id(Integer tepTinId);
 }
