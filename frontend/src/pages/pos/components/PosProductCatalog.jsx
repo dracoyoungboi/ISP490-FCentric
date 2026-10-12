@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
-import { AlertCircle, Barcode, CheckCircle2, ChevronLeft, ChevronRight, LayoutGrid, List, Loader2, RotateCcw, Search, Volume2, VolumeX, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AlertCircle, Barcode, CheckCircle2, ChevronLeft, ChevronRight, LayoutGrid, List, Loader2, RotateCcw, Search, Volume2, VolumeX } from 'lucide-react';
 import PosProductCard from './PosProductCard';
-import PosScanInput from './PosScanInput';
+import { isTextEntry } from '../pos-scan';
 
 const VIEW_KEY = 'fcentric.pos.productView';
 const iconButton = 'grid size-10 shrink-0 place-items-center rounded-lg border border-bo-border text-bo-muted transition hover:border-bo-primary/40 hover:bg-slate-50 hover:text-bo-primary focus-visible:outline-2 focus-visible:outline-bo-primary';
@@ -13,6 +13,41 @@ const STOCK_FILTERS = [
   { value: 'het_hang', label: 'Hết hàng' },
   { value: 'tat_ca', label: 'Tất cả' },
 ];
+
+/**
+ * Đèn báo chế độ quét (trong ô tìm kiếm). Xanh: phím quét sẽ được nhận — con trỏ ở ô tìm kiếm hoặc
+ * đang chọn nút/thẻ sản phẩm (POS tự chuyển phím về ô tìm kiếm). Cam: con trỏ đang ở một ô nhập chữ
+ * khác (ghi chú...) — bấm để về ô tìm kiếm.
+ */
+function ScanReadyPill({ inputRef }) {
+  const [ready, setReady] = useState(true);
+  useEffect(() => {
+    const update = () => {
+      const active = document.activeElement;
+      setReady(active === inputRef.current || !isTextEntry(active));
+    };
+    update();
+    document.addEventListener('focusin', update);
+    document.addEventListener('focusout', update);
+    return () => {
+      document.removeEventListener('focusin', update);
+      document.removeEventListener('focusout', update);
+    };
+  }, [inputRef]);
+  return (
+    <button
+      className={`absolute right-1.5 top-1/2 inline-flex -translate-y-1/2 items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${ready ? 'bg-bo-success-soft text-bo-success' : 'bg-bo-warning-soft text-bo-warning'}`}
+      data-pos-scan-pill=""
+      onClick={() => inputRef.current?.focus()}
+      tabIndex={-1}
+      title={ready ? 'Sẵn sàng nhận mã quét' : 'Con trỏ đang ở ô nhập khác — bấm để quét tiếp'}
+      type="button"
+    >
+      <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
+      <span className="hidden sm:inline">{ready ? 'Sẵn sàng quét' : 'Bấm để quét tiếp'}</span>
+    </button>
+  );
+}
 
 /** Nội dung khi không có hàng nào khớp: nói rõ vì sao (từ khóa / bộ lọc tồn kho). */
 function emptyMessage({ search, stockFilter }) {
@@ -34,8 +69,9 @@ function emptyMessage({ search, stockFilter }) {
  * 1280/1600/1920), chế độ Danh sách, localStorage view preference, cuộn độc lập, F3 (searchRef)
  * và Enter SKU-only (onEnterAdd — tra cứu toàn bộ, KHÔNG phụ thuộc bộ lọc đang chọn).
  * Bộ lọc: tồn kho (Còn hàng / Hết hàng / Tất cả), lọc ở server.
- * Chế độ quét mã (scanMode): ô quét thay ô tìm kiếm, kết quả từng lần quét hiện ngay bên dưới;
- * từ khóa tìm kiếm vẫn giữ (hiện thành chip "Đang lọc" để không bị lọc ngầm).
+ * Chế độ quét mã (scanMode): ô tìm kiếm VẪN dùng để tìm theo tên; mã quét được nhận ở mọi chỗ (kể cả
+ * khi đang gõ dở trong ô — PosSalesPage trả lại chữ cũ) và thêm thẳng vào hóa đơn; kết quả từng lần
+ * quét + đèn báo hiện ngay tại ô tìm kiếm.
  */
 export default function PosProductCatalog({
   products,
@@ -56,8 +92,6 @@ export default function PosProductCatalog({
   onToggleScanMode,
   scanSound = true,
   onToggleScanSound,
-  scanInputRef,
-  onScan,
   scanPending = 0,
   lastScan = null,
   onShowScanMatches,
@@ -76,9 +110,16 @@ export default function PosProductCatalog({
   useEffect(() => {
     try { window.localStorage.setItem(VIEW_KEY, view); } catch { /* Storage có thể bị chặn; giữ chế độ trong phiên. */ }
   }, [view]);
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [search, page, view, stockFilter]);
+  // Cuộn về đầu khi KẾT QUẢ đổi (từ khóa đã debounce), không theo từng phím gõ / mã quét lướt qua ô.
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [resultQuery, page, view, stockFilter]);
 
   const empty = emptyMessage({ search: resultQuery ?? search, stockFilter });
+  // Thẻ sản phẩm chỉ dựng lại khi danh sách / chế độ xem đổi (onAdd ổn định) — gõ phím, mã quét đi
+  // qua ô tìm kiếm không vẽ lại cả lưới.
+  const cards = useMemo(
+    () => products.map((product) => <PosProductCard key={product.id} onAdd={onAdd} product={product} view={view} />),
+    [products, onAdd, view],
+  );
 
   const onSearchKeyDown = (event) => {
     if (event.key !== 'Enter' || event.nativeEvent.isComposing || event.repeat) return;
@@ -96,14 +137,13 @@ export default function PosProductCatalog({
     <section aria-label="Danh mục hàng hóa" className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface">
       <div className="shrink-0 border-b border-bo-border px-3 py-3">
         <div className="flex items-center gap-2">
-          {scanMode ? (
-            <PosScanInput onScan={onScan} ref={scanInputRef} />
-          ) : (
-            <label className="relative min-w-0 flex-1">
-              <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-bo-muted" size={17} />
-              <input aria-label="Tìm hàng hóa" className="min-h-10 w-full rounded-lg border border-bo-border bg-bo-surface py-2 pl-9 pr-3 text-sm text-bo-foreground outline-none placeholder:text-bo-muted focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/10" onChange={(event) => onSearch(event.target.value)} onKeyDown={onSearchKeyDown} placeholder="Tên hoặc mã hàng (F3)" ref={searchRef} value={search} />
+          <div className="relative min-w-0 flex-1">
+            <label className="block">
+              <Search aria-hidden="true" className={`absolute left-3 top-1/2 -translate-y-1/2 ${scanMode ? 'text-bo-primary' : 'text-bo-muted'}`} size={17} />
+              <input aria-label="Tìm hàng hóa" autoComplete="off" className={`min-h-10 w-full rounded-lg border bg-bo-surface py-2 pl-9 text-sm text-bo-foreground outline-none placeholder:text-bo-muted focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/10 ${scanMode ? 'border-bo-primary/50 pr-11 sm:pr-36' : 'border-bo-border pr-3'}`} onChange={(event) => onSearch(event.target.value)} onKeyDown={onSearchKeyDown} placeholder={scanMode ? 'Quét mã hoặc gõ tên / mã hàng (F3)' : 'Tên hoặc mã hàng (F3)'} ref={searchRef} spellCheck={false} value={search} />
             </label>
-          )}
+            {scanMode ? <ScanReadyPill inputRef={searchRef} /> : null}
+          </div>
           <button aria-label="Chế độ quét mã vạch" aria-pressed={scanMode} className={scanMode ? scanOnButton : iconButton} onClick={onToggleScanMode} title={scanMode ? 'Tắt chế độ quét mã (F8)' : 'Bật chế độ quét mã (F8)'} type="button">
             <Barcode aria-hidden="true" size={19} />
           </button>
@@ -121,7 +161,7 @@ export default function PosProductCatalog({
           <div aria-live="polite" className={`mt-2 flex min-h-8 flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md px-2.5 py-1.5 text-xs ${lastScan ? (lastScan.ok ? 'bg-bo-success-soft text-bo-success' : 'bg-bo-danger-soft text-bo-danger') : 'bg-slate-50 text-bo-muted'}`} role="status">
             <span className="flex min-w-0 items-start gap-1.5">
               {lastScan ? (lastScan.ok ? <CheckCircle2 aria-hidden="true" className="mt-px shrink-0" size={14} /> : <AlertCircle aria-hidden="true" className="mt-px shrink-0" size={14} />) : null}
-              <span className="min-w-0 break-words font-medium">{lastScan ? lastScan.message : 'Tiếng “bíp”: đã thêm vào hóa đơn · tiếng “rè”: chưa thêm, xem thông báo tại đây.'}</span>
+              <span className="min-w-0 break-words font-medium">{lastScan ? lastScan.message : 'Quét mã: thêm thẳng vào hóa đơn · gõ tên: tìm trong danh mục. Tiếng “bíp”: đã thêm · tiếng “rè”: chưa thêm, xem thông báo tại đây.'}</span>
             </span>
             <span className="flex shrink-0 items-center gap-3">
               {lastScan?.ambiguous && onShowScanMatches ? (
@@ -147,11 +187,6 @@ export default function PosProductCatalog({
               </button>
             ))}
           </div>
-          {scanMode && search.trim() ? (
-            <button aria-label={`Bỏ lọc theo “${search.trim()}”`} className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-bo-border bg-slate-50 py-1 pl-2.5 pr-1.5 text-xs text-bo-foreground transition hover:border-bo-primary/40" onClick={() => onSearch('')} title="Bỏ lọc" type="button">
-              <span className="truncate">Đang lọc: “{search.trim()}”</span><X aria-hidden="true" className="shrink-0 text-bo-muted" size={13} />
-            </button>
-          ) : null}
           <span className="ml-auto hidden shrink-0 text-xs text-bo-muted sm:inline">{totalElements} hàng hóa</span>
         </div>
       </div>
@@ -178,7 +213,7 @@ export default function PosProductCatalog({
             ) : null}
             {/* Đang tải kết quả mới (đổi bộ lọc/từ khóa/trang): làm mờ danh sách cũ để không bị hiểu nhầm là kết quả mới. */}
             <div aria-busy={loading} aria-label={view === 'grid' ? 'Lưới sản phẩm' : 'Danh sách sản phẩm'} className={`${view === 'grid' ? 'grid w-full grid-cols-3 gap-3 min-[1280px]:grid-cols-4 min-[1600px]:grid-cols-5 min-[1920px]:grid-cols-6' : 'flex flex-col divide-y divide-bo-border'} transition-opacity ${loading ? 'opacity-60' : ''}`}>
-              {products.map((product) => <PosProductCard key={product.id} onAdd={onAdd} product={product} view={view} />)}
+              {cards}
             </div>
           </>
         ) : (
