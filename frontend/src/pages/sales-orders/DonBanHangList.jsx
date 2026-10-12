@@ -50,7 +50,7 @@ const ORDER_CHANNEL_OPTIONS = [
 const STATUS_MAP = {
   0: { label: "Nháp", tone: "warning" },
   1: { label: "Chờ xuất kho", tone: "info" },
-  2: { label: "Đã xuất kho 1 phần", tone: "info" },
+  2: { label: "Đang xử lý xuất kho", tone: "info" },
   3: { label: "Đã xuất kho toàn bộ", tone: "warning" },
   4: { label: "Đã hủy", tone: "danger" },
   5: { label: "Hoàn thành", tone: "success" },

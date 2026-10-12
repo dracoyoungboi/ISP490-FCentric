@@ -125,7 +125,12 @@ export default function PickListDetail() {
         try {
             const res = await nhatHangService.hoanTat(id);
             setDto(res);
-            setCompleteResult({ maDonHangs: res?.danhSachMaDonHang ?? dto?.danhSachMaDonHang ?? [] });
+            const tatCaDon = res?.danhSachMaDonHang ?? dto?.danhSachMaDonHang ?? [];
+            const donBoQua = res?.donChuaTaoPhieuXuat ?? [];
+            setCompleteResult({
+                maDonHangs: tatCaDon.filter((code) => !donBoQua.includes(code)),
+                donBoQua,
+            });
             toast.success(`Đã hoàn tất nhặt ${res?.maPickList ?? ""}`.trim());
         } catch (error) {
             toast.error(getApiErrorMessage(error, "Không thể hoàn tất nhặt hàng"));
@@ -417,19 +422,34 @@ function OrderCodes({ codes }) {
 
 function CompleteResultPanel({ result, onClose }) {
     const codes = result.maDonHangs ?? [];
+    const donBoQua = result.donBoQua ?? [];
     return (
         <SurfaceCard
             title="Đã hoàn tất nhặt hàng"
-            description={`Hệ thống đã tạo phiếu xuất kho nháp cho ${codes.length} đơn. Bước tiếp theo: chọn lô và hoàn thành xuất kho ở từng phiếu.`}
+            description={codes.length > 0
+                ? `Hệ thống đã tạo phiếu xuất kho nháp cho ${codes.length} đơn. Bước tiếp theo: chọn lô và hoàn thành xuất kho ở từng phiếu.`
+                : "Không còn đơn nào cần xuất nên hệ thống không tạo phiếu xuất kho."}
             action={
                 <button type="button" onClick={onClose} className="text-sm font-medium text-bo-muted hover:text-bo-foreground">
                     Đóng
                 </button>
             }
         >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                {codes.length > 0 ? <OrderCodes codes={codes} /> : <span />}
-                <GoodsIssueLink />
+            <div className="space-y-3">
+                {codes.length > 0 ? (
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <OrderCodes codes={codes} />
+                        <GoodsIssueLink />
+                    </div>
+                ) : null}
+                {donBoQua.length > 0 ? (
+                    <div className="rounded-lg border border-bo-warning/30 bg-bo-warning-soft p-3 text-sm text-slate-800">
+                        <p className="mb-2 font-semibold">
+                            Không tạo phiếu xuất cho {donBoQua.length} đơn đã hủy hoặc đã xuất trước đó. Hàng đã nhặt cho các đơn này cần trả về kệ.
+                        </p>
+                        <OrderCodes codes={donBoQua} />
+                    </div>
+                ) : null}
             </div>
         </SurfaceCard>
     );

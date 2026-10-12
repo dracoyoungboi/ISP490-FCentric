@@ -6,6 +6,7 @@ import { donBanHangService } from "@/services/donBanHangService";
 import { donBanHangKenhService, isChannelOrderMock } from "@/services/donBanHangKenhService";
 import apiClient from "@/services/apiClient";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/utils/apiError";
 import {
   ArrowLeft, User, Home, Truck, Calculator,
   CheckCircle2, Calendar, Send, XCircle,
@@ -48,7 +49,7 @@ function parseRoles(vaiTro) {
 const STATUS_MAP = {
   0: { label: "Nháp", tone: "warning" },
   1: { label: "Chờ xuất kho", tone: "info" },
-  2: { label: "Đã xuất kho 1 phần", tone: "info" },
+  2: { label: "Đang xử lý xuất kho", tone: "info" },
   3: { label: "Đã xuất kho", tone: "warning" },
   4: { label: "Đã hủy", tone: "danger" },
   5: { label: "Hoàn thành", tone: "success" },
@@ -121,7 +122,7 @@ export default function DonBanHangDetail() {
 
   async function handleCancel() {
     try { setLoading(true); await donBanHangService.cancel(id); toast.success("Đã hủy đơn bán"); fetchDetail(); }
-    catch { toast.error("Không thể hủy đơn"); }
+    catch (error) { toast.error(getApiErrorMessage(error, "Không thể hủy đơn")); }
     finally { setLoading(false); }
   }
 
