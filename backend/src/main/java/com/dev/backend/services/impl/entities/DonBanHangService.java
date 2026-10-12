@@ -30,6 +30,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dev.backend.event.InventoryRestockedEvent;
+import com.dev.backend.services.KenhBanHangDongBoService;
+import com.dev.backend.services.multitable.NhatHangService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.Lazy;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -37,6 +44,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+@Slf4j
 @Service
 public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
 
@@ -72,6 +80,17 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
 
     @Autowired
     private PhieuNhapKhoService phieuNhapKhoService;
+
+    @Autowired
+    @Lazy
+    private NhatHangService nhatHangService;
+
+    @Autowired
+    @Lazy
+    private KenhBanHangDongBoService kenhBanHangDongBoService;
+
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
 
 
     @Override
@@ -180,7 +199,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         repository.save(don);
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void cancel(Integer id) {
         DonBanHang don = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy chứng từ"));
@@ -198,17 +217,30 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             throw new RuntimeException("Đơn đã có phiếu xuất hoàn thành, không thể hủy");
         }
 
-        // Khóa đơn theo phiếu nhặt hàng (SRS: Pick List order lock): đơn đã gom vào phiếu nhặt
-        // còn hoạt động thì không được hủy, tránh nhặt/xuất hàng cho đơn đã hủy.
-        DanhSachNhatHang phieuNhat = don.getDanhSachNhatHang();
-        if (phieuNhat != null && (phieuNhat.getTrangThai() == null
-                || PHIEU_NHAT_DANG_HOAT_DONG.contains(phieuNhat.getTrangThai()))) {
-            throw new CommonException("Đơn đang nằm trong phiếu nhặt hàng " + phieuNhat.getMaPickList()
-                    + " nên không thể hủy.", HttpStatus.CONFLICT, null);
-        }
-
         don.setTrangThai(4); // Hủy đơn
         repository.save(don);
+
+        // 1. Nếu đơn nằm trong Pick List (kể cả đang nhặt hoặc đã nhặt), cập nhật tiến trình Pick List & hoàn kệ (SRS 6.3)
+        if (don.getDanhSachNhatHang() != null) {
+            try {
+                nhatHangService.xuLyDonBiHuyTrongPickList(don);
+            } catch (Exception ex) {
+                log.error("[OUTBOUND-CANCEL] Lỗi khi cập nhật Pick List cho đơn {}: {}", don.getSoDonHang(), ex.getMessage());
+            }
+        }
+
+        // 2. Thu hồi toàn bộ Phiếu Xuất Kho nháp (trangThai = 0) liên kết với đơn này (SRS 6.3.2)
+        List<PhieuXuatKho> draftPxkList = phieuXuatKhoRepository.findByDonBanHangId(don.getId());
+        for (PhieuXuatKho pxk : draftPxkList) {
+            if (pxk.getTrangThai() != null && pxk.getTrangThai() == 0) {
+                pxk.setTrangThai(2); // 2: Đã hủy / Thu hồi
+                String note = (pxk.getGhiChu() != null ? pxk.getGhiChu() + " | " : "") + "Tự động thu hồi do đơn " + don.getSoDonHang() + " bị hủy";
+                pxk.setGhiChu(note);
+                phieuXuatKhoRepository.save(pxk);
+            }
+        }
+
+        // 3. Khôi phục báo giá gốc nếu có
         if (don.getSoDonHang() != null && don.getSoDonHang().startsWith("SO")) {
             String maBaoGiaGoc = don.getSoDonHang().split("-")[0].replaceFirst("^SO", "BG");
 
@@ -218,6 +250,27 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                     repository.save(baoGiaGoc);
                 }
             });
+        }
+
+        // 4. Phát sự kiện InventoryRestockedEvent để giải phóng Outgoing, hồi phục Free to Use và kích hoạt đẩy tồn
+        List<ChiTietDonBanHang> chiTiets = chiTietDonBanHangRepository.findByDonBanHangId(don.getId());
+        for (ChiTietDonBanHang ctd : chiTiets) {
+            if (ctd.getBienTheSanPham() != null && ctd.getSoLuongDat() != null && ctd.getSoLuongDat().compareTo(BigDecimal.ZERO) > 0) {
+                try {
+                    eventPublisher.publishEvent(new InventoryRestockedEvent(this, ctd.getBienTheSanPham().getId(), ctd.getSoLuongDat(), don.getKhoXuat() != null ? don.getKhoXuat().getId() : null));
+                } catch (Exception e) {
+                    log.warn("Không thể phát sự kiện InventoryRestockedEvent cho SKU {}: {}", ctd.getBienTheSanPham().getId(), e.getMessage());
+                }
+            }
+        }
+
+        // 5. Nếu đơn bán hàng từ kênh sàn (Shopify), gọi Shopify Order Cancel API đồng bộ 2 chiều
+        if (don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()) {
+            try {
+                kenhBanHangDongBoService.huyDonHangTrenShopify(don.getMaDonHangKenh(), "Hủy từ FCentric");
+            } catch (Exception e) {
+                log.warn("Không thể đồng bộ hủy đơn {} sang Shopify: {}", don.getMaDonHangKenh(), e.getMessage());
+            }
         }
     }
     @Transactional
