@@ -24,6 +24,9 @@ public class BienTheSanPhamUpdating {
     BigDecimal giaBan;
     Integer trangThai;
     boolean isImageUpdated;
+    // Ảnh theo màu: chỉ số tệp trong anhBienThes; các biến thể cùng màu trỏ cùng chỉ số để dùng chung một tệp.
+    // null = không đổi ảnh (biến thể mới thì tự dùng ảnh đang có của màu); isImageUpdated là cách gửi cũ.
+    Integer viTriAnh;
 
     public static BienTheSanPham toEntity(BienTheSanPhamUpdating updating) {
         return BienTheSanPham.builder()

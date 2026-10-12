@@ -29,9 +29,10 @@ const fieldClass = 'mt-1.5 min-h-10 w-full rounded-lg border border-bo-border bg
 const POS_SHORTCUTS = [
   { key: 'F1', label: 'Mở bảng phím tắt' },
   { key: 'F2', label: 'Thêm hóa đơn mới' },
-  { key: 'F3', label: 'Tìm kiếm hàng hóa' },
-  { key: 'Enter', label: 'Trong ô tìm kiếm: thêm nhanh theo mã SKU / mã vạch' },
+  { key: 'F3', label: 'Tìm kiếm hàng hóa (chế độ quét: về ô quét)' },
+  { key: 'Enter', label: 'Ô tìm kiếm: thêm nhanh theo đầu mã SKU · Ô quét: thêm đúng mã đã quét' },
   { key: 'F4', label: 'Chọn khách hàng' },
+  { key: 'F8', label: 'Bật / tắt chế độ quét mã vạch (có âm báo)' },
   { key: 'F9', label: 'Mở thanh toán · trong màn thanh toán: xác nhận' },
   { key: '← →', label: 'Chuyển giữa các hóa đơn (khi đang chọn tab)' },
   { key: 'Esc', label: 'Đóng cửa sổ đang mở' },
@@ -517,18 +518,6 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
           <button className={`${secondaryButton} flex-1`} onClick={actions.onPrintRecovered} type="button"><Printer aria-hidden="true" size={16} />In hóa đơn</button>
           <button className={`${primaryButton} flex-1`} onClick={actions.onCloseRecovered} type="button">Đóng</button>
         </div>
-      </PosModal>
-    );
-  }
-
-  if (dialog === 'barcode') {
-    return (
-      <PosModal description="Nhập mã SKU hoặc mã vạch biến thể để thêm nhanh vào hóa đơn." onClose={onClose} title="Quét mã hàng hóa" size="sm">
-        <form onSubmit={(event) => { event.preventDefault(); actions.onFindBarcode(); }}>
-          <Field autoFocus id="barcode-value" label="Mã biến thể / mã vạch" onChange={(event) => actions.onBarcodeInput(event.target.value)} placeholder="Mã SKU hoặc mã vạch biến thể" value={state.barcodeInput} />
-          {state.barcodeError ? <p className="mt-2 text-xs text-red-600">{state.barcodeError}</p> : <p className="mt-2 text-xs text-bo-muted">Chỉ khớp chính xác mã của một biến thể; mã trùng nhiều biến thể sẽ báo lỗi để chọn thủ công.</p>}
-          <div className="mt-5"><FooterButtons busy={state.barcodeBusy} confirmText={state.barcodeBusy ? 'Đang tra cứu…' : 'Tìm và thêm hàng'} onClose={onClose} onConfirm={actions.onFindBarcode} /></div>
-        </form>
       </PosModal>
     );
   }

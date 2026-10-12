@@ -1,6 +1,6 @@
 import { getApiErrorMessage } from "@/utils/apiError";
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useForm, Controller, useFieldArray } from "react-hook-form";
+import { useState, useEffect, useCallback, useMemo, useReducer, useRef } from "react";
+import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import {
     Dialog,
@@ -13,354 +13,242 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { Loader2, Upload, X, Package, Info, Lock, Plus } from "lucide-react";
+import { Loader2, Package } from "lucide-react";
 import { toast } from "sonner";
 import { productService } from "@/services/productService.js";
 import { danhMucQuanAoService } from "@/services/danhMucQuanAoService.js";
 import * as yup from "yup";
 
 import FormSection from "@/components/shared/FormSection";
-import BrandSelector from "@/components/brand/BrandSelector";
 import { flattenCategoryTree } from "@/utils/danhMucTree";
 import { formatCurrency } from "@/utils/formatters";
+import { cn } from "@/lib/utils";
+import TrinhTaoBienThe from "./TrinhTaoBienThe";
+import KhuAnhSanPham from "./KhuAnhSanPham";
+import HopHoiBoThayDoi from "./HopHoiBoThayDoi";
+import {
+    TomTatLoi,
+    TruongDanhMuc,
+    TruongMoTa,
+    TruongMucTon,
+    TruongTenSanPham,
+    TruongThuongHieu,
+} from "./TruongThongTin";
+import {
+    CONTROL_CLASS,
+    DO_DAI_TEN_TOI_DA,
+    LOP_FORM,
+    NUT_VIEN_CLASS,
+    O_ANH_MAU,
+    O_CHON_MAU,
+    O_THIEU_GIA,
+    SELECT_CONTENT_CLASS,
+    SELECT_ITEM_CLASS,
+    SELECT_TRIGGER_CLASS,
+    THOI_GIAN_DONG_HOP_THOAI,
+    gopTheoId,
+    layDuLieu,
+} from "./kieuForm";
+import {
+    locTepAnhHopLe,
+    taoXuLyPhimTat,
+    useAnhXemTruoc,
+    useChanRoiTrang,
+    useChanThaTepNgoaiKhung,
+    useCuonToiLoiSauKhiLuu,
+    useHoiTruocKhiBo,
+} from "./dungChungForm";
+import { SO_BIEN_THE_TOI_DA, kiemTraTepAnh, sapXepKichCo } from "./logicBienThe";
+import {
+    coThayDoiBienThe,
+    kichCoBiKhoa,
+    khoiTaoSuaBienThe,
+    mauBiKhoa,
+    suaBienTheReducer,
+    taoDuLieuGuiSua,
+    thongKeSua,
+    tinhNhomSua,
+} from "./logicSuaBienThe";
 
-const PRODUCT_STATUS_LABELS = {
-    1: "Còn hàng",
-    0: "Hết hàng",
-    2: "Ngừng hoạt động",
-};
+const DO_DAI_MA_VACH_TOI_DA = 100; // cột ma_vach là varchar(100)
 
+// Biến thể, ảnh và giá được kiểm tra riêng (xem danhSachLoi); schema chỉ lo thông tin cơ bản.
 const editProductSchema = yup.object({
-    tenSanPham: yup.string().required("Tên sản phẩm là bắt buộc"),
-    maSanPham: yup.string(),
-    maVach: yup.string(),
-    danhMucId: yup.number().required("Danh mục là bắt buộc").typeError("Vui lòng chọn danh mục"),
+    tenSanPham: yup
+        .string()
+        .trim()
+        .required("Vui lòng nhập tên sản phẩm")
+        .max(DO_DAI_TEN_TOI_DA, `Tên sản phẩm tối đa ${DO_DAI_TEN_TOI_DA} ký tự`),
+    danhMucId: yup.number().required("Vui lòng chọn danh mục").typeError("Vui lòng chọn danh mục"),
     thuongHieuId: yup.number().nullable(),
+    maVach: yup.string().trim().max(DO_DAI_MA_VACH_TOI_DA, `Mã vạch tối đa ${DO_DAI_MA_VACH_TOI_DA} ký tự`),
+    mucTonToiThieu: yup
+        .number()
+        .transform((value) => (isNaN(value) ? 0 : value))
+        .min(0, "Vui lòng nhập mức tồn từ 0 trở lên")
+        .integer("Vui lòng nhập số nguyên"),
     moTa: yup.string(),
-    giaVonMacDinh: yup.number().min(0, "Giá vốn phải >= 0").required("Giá vốn là bắt buộc"),
-    giaBanMacDinh: yup.number().min(0, "Giá bán phải >= 0").required("Giá bán là bắt buộc"),
-    mucTonToiThieu: yup.number().min(0, "Mức tồn phải >= 0"),
-    trangThai: yup.number().required(),
-    bienTheSanPhams: yup.array().of(
-        yup.object({
-            // null = biến thể mới thêm trong form Sửa
-            id: yup.number().nullable(),
-            mauSacId: yup.number().typeError("Màu sắc là bắt buộc").required("Màu sắc là bắt buộc"),
-            sizeId: yup.number().typeError("Kích cỡ là bắt buộc").required("Kích cỡ là bắt buộc"),
-            // Chỉ bắt buộc với biến thể mới của sản phẩm có nhiều chất liệu (không có chất liệu chung để tự gán)
-            chatLieuId: yup.number().nullable().when("yeuCauChatLieu", {
-                is: true,
-                then: (schema) => schema.typeError("Chất liệu là bắt buộc").required("Chất liệu là bắt buộc"),
-            }),
-            // SRS 2.3.4: giá biến thể là bắt buộc (ô để trống -> báo lỗi tiếng Việt thay vì lỗi mặc định của yup)
-            giaVon: yup.number().typeError("Giá vốn là bắt buộc").min(0, "Giá vốn phải >= 0").required("Giá vốn là bắt buộc"),
-            giaBan: yup.number().typeError("Giá bán là bắt buộc").min(0, "Giá bán phải >= 0").required("Giá bán là bắt buộc"),
-            trangThai: yup.number().required(),
-        })
-    ).min(1, "Phải có ít nhất 1 biến thể")
-        .test("bien-the-hop-le", function (variants) {
-            if (!Array.isArray(variants)) return true;
-            const khoa = (mauSacId, sizeId, chatLieuId) => `${mauSacId}-${sizeId}-${chatLieuId ?? ""}`;
-            // Dòng "đổi thuộc tính" = biến thể mới hoặc biến thể cũ đã đổi màu/size so với lúc mở form
-            const daDoi = (v) => v.id == null || v.mauSacId !== v.mauSacIdGoc || v.sizeId !== v.sizeIdGoc;
-            const nhieuChatLieu = new Set(variants.map(v => v.chatLieuId ?? null)).size > 1;
-            const tenToHop = nhieuChatLieu ? "Màu sắc + Kích cỡ + Chất liệu" : "Màu sắc + Kích cỡ";
-
-            // 1. Sau khi lưu, mọi biến thể phải khác nhau (giống form Thêm, UC 2.3).
-            const daGap = new Map();
-            for (let i = 0; i < variants.length; i++) {
-                const v = variants[i];
-                // Dòng chưa chọn đủ màu/size đã có lỗi bắt buộc riêng
-                if (v.mauSacId == null || v.sizeId == null) continue;
-                const key = khoa(v.mauSacId, v.sizeId, v.chatLieuId);
-                if (daGap.has(key)) {
-                    const k = daGap.get(key);
-                    // Gắn lỗi vào dòng vừa bị đổi (dòng bị khóa không sửa được nên không gắn lỗi vào đó)
-                    const dongLoi = daDoi(v) ? i : k;
-                    const dongKia = dongLoi === i ? k : i;
-                    return this.createError({
-                        path: `bienTheSanPhams[${dongLoi}].sizeId`,
-                        message: `Trùng ${tenToHop} với biến thể #${dongKia + 1}`,
-                    });
-                }
-                daGap.set(key, i);
-            }
-
-            // 2. Không đổi chéo trong một lần lưu: màu/size mới không được trùng màu/size ĐANG LƯU của biến thể khác
-            //    (DB ràng buộc duy nhất nên backend cũng chặn). Ví dụ đổi #1 sang M trong khi #2 đang là M và cũng đổi.
-            for (let i = 0; i < variants.length; i++) {
-                const v = variants[i];
-                if (v.mauSacId == null || v.sizeId == null || !daDoi(v)) continue;
-                const key = khoa(v.mauSacId, v.sizeId, v.chatLieuId);
-                const j = variants.findIndex((o, idx) =>
-                    idx !== i && o.id != null && khoa(o.mauSacIdGoc, o.sizeIdGoc, o.chatLieuId) === key);
-                if (j !== -1) {
-                    return this.createError({
-                        path: `bienTheSanPhams[${i}].sizeId`,
-                        message: `${tenToHop} này đang được lưu cho biến thể #${j + 1}. Hãy lưu thay đổi của biến thể #${j + 1} trước rồi mới chọn lại.`,
-                    });
-                }
-            }
-            return true;
-        })
 });
 
-const CONTROL_CLASS =
-    "border-bo-border bg-white text-bo-foreground placeholder:text-bo-muted focus-visible:border-bo-primary focus-visible:ring-bo-primary/15";
-// Ô chỉ xem (mã, thuộc tính biến thể, giá tự tính): nền xám, chữ vẫn đọc rõ và bôi đen/copy được
-const READONLY_FIELD_CLASS =
-    "flex min-h-9 items-center gap-2 rounded-md border border-bo-border bg-bo-surface-subtle px-3 py-1.5 text-sm text-bo-foreground select-text";
+const GIA_TRI_TRONG = {
+    tenSanPham: "",
+    danhMucId: "",
+    thuongHieuId: null,
+    maVach: "",
+    mucTonToiThieu: 0,
+    moTa: "",
+};
 
-// Hiển thị giá trị chỉ xem; rỗng -> "Chưa có"
-function ReadOnlyField({ children, className = "" }) {
-    const isEmpty = children === null || children === undefined || children === "";
-    return (
-        <div className={`${READONLY_FIELD_CLASS} ${className}`} aria-readonly="true">
-            {isEmpty ? <span className="text-bo-muted">Chưa có</span> : children}
-        </div>
-    );
-}
+const TRANG_THAI_SAN_PHAM = {
+    1: { nhan: "Còn hàng", lop: "bg-bo-success-soft text-bo-success" },
+    0: { nhan: "Hết hàng", lop: "bg-bo-warning-soft text-bo-warning" },
+    2: { nhan: "Ngừng hoạt động", lop: "bg-bo-surface-subtle text-bo-muted" },
+};
 
-function ColorDot({ hex }) {
-    if (!hex) return null;
-    return (
-        <span
-            className="size-3.5 shrink-0 rounded-full border border-bo-border"
-            style={{ backgroundColor: hex }}
-            aria-hidden="true"
-        />
-    );
-}
-const SELECT_CONTENT_CLASS = "z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg";
-const SELECT_ITEM_CLASS = "rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
-
-// Chọn màu sắc / size / chất liệu của biến thể (giá trị là id dạng số).
-// selectedContent: nội dung hiển thị khi đã chọn — để ô vẫn hiện đúng khi danh sách còn đang tải.
-function AttributeSelect({ id, value, onChange, options, renderOption, selectedContent, placeholder, emptyText, disabled, invalid }) {
-    return (
-        <Select
-            value={value === null || value === undefined || value === "" ? undefined : String(value)}
-            // Radix gọi onValueChange("") khi giá trị hiện tại chưa có trong danh sách (danh sách tải sau) -> bỏ qua
-            onValueChange={(next) => {
-                if (next !== "") onChange(Number(next));
-            }}
-            disabled={disabled}
-        >
-            <SelectTrigger id={id} aria-invalid={invalid || undefined} className="h-10 w-full border-bo-border text-bo-foreground">
-                <SelectValue placeholder={placeholder}>{selectedContent}</SelectValue>
-            </SelectTrigger>
-            <SelectContent position="popper" side="bottom" align="start" sideOffset={4} className={`${SELECT_CONTENT_CLASS} max-h-[220px]`}>
-                {options.length === 0 ? (
-                    <div className="p-2 text-sm text-bo-muted">{emptyText}</div>
-                ) : (
-                    options.map((option) => (
-                        <SelectItem key={option.id} value={String(option.id)} className={SELECT_ITEM_CLASS}>
-                            {renderOption(option)}
-                        </SelectItem>
-                    ))
-                )}
-            </SelectContent>
-        </Select>
-    );
-}
-
-// Mã SKU theo đúng công thức backend: [Mã SP]-[Mã chất liệu]-[Mã size]-[Mã màu]
-function taoMaSkuXemTruoc(maSanPham, mauSac, size, chatLieu) {
-    if (!maSanPham || !mauSac?.maMau || !size?.maSize || !chatLieu?.maChatLieu) return "";
-    return `${maSanPham}-${chatLieu.maChatLieu}-${size.maSize}-${mauSac.maMau}`;
-}
-const STEP_CLASS =
-    "flex items-center justify-center gap-2 rounded-md border border-bo-border bg-white px-2 py-1.5 text-center text-[11px] font-semibold text-bo-muted";
+/** Ảnh đang lưu trên máy chủ; id dạng "cu-…" để không trùng ảnh mới ("moi-…"). */
+const anhTuMayChu = (anh) => ({ id: `cu-${anh.id}`, anhId: anh.id, url: anh.tepTin?.duongDan || anh.urlAnh });
+const chuKyAnh = (anhs) => anhs.map((anh) => anh.id).join(",");
 
 export default function EditProductModal({ isOpen, onClose, onSuccess, productId }) {
-    // Danh sách màu/size/chất liệu: dùng cho biến thể mới và biến thể chưa phát sinh giao dịch
+    const [categories, setCategories] = useState([]);
     const [colors, setColors] = useState([]);
     const [sizes, setSizes] = useState([]);
     const [materials, setMaterials] = useState([]);
-    const [categories, setCategories] = useState([]);
-    const [productImages, setProductImages] = useState([]);
-    const [existingProductImages, setExistingProductImages] = useState([]);
-    const [variantImages, setVariantImages] = useState({});
-    const [existingVariantImages, setExistingVariantImages] = useState({});
-    const [isLoadingProduct, setIsLoadingProduct] = useState(false);
-    const [productImageUpdated, setProductImageUpdated] = useState(false);
-    // Thông tin gốc (lúc mở form) của biến thể đã lưu, tra theo id: màu, size, chất liệu, SKU,
-    // cờ đã phát sinh giao dịch. Tra theo id nên vẫn đúng khi thêm/xóa dòng biến thể mới.
-    const [variantGocById, setVariantGocById] = useState({});
-    // Các chất liệu đang dùng của sản phẩm (form Thêm chọn 1 chất liệu chung cho tất cả biến thể)
-    const [chatLieuGoc, setChatLieuGoc] = useState([]);
-    // Thương hiệu hiện tại của sản phẩm — để ô Thương hiệu hiện đúng ngay khi danh sách thương hiệu còn đang tải
-    const [initialBrand, setInitialBrand] = useState(null);
-    // Snapshot dữ liệu gốc khi mở modal — dùng để quyết định đường lưu (PATCH basic-info vs PUT đầy đủ)
-    const initialRef = useRef(null);
+    const [dangTaiThamChieu, setDangTaiThamChieu] = useState(false);
+    const [loiTaiThamChieu, setLoiTaiThamChieu] = useState(false);
+    // Chi tiết sản phẩm lúc mở form: mốc để biết đã đổi gì và để hiện các thông tin chỉ xem.
+    const [sanPham, setSanPham] = useState(null);
+    const [anhSanPhams, setAnhSanPhams] = useState([]);
+    const [chuKyAnhGoc, setChuKyAnhGoc] = useState("");
+    const [bienThe, dispatchBienThe] = useReducer(suaBienTheReducer, undefined, () => khoiTaoSuaBienThe([]));
+    // Chỉ dùng khi sản phẩm có nhiều chất liệu (không có chất liệu chung cho biến thể mới)
+    const [chatLieuMoiId, setChatLieuMoiId] = useState(null);
+    // Chỉ tô đỏ lỗi ảnh/biến thể sau lần bấm Lưu đầu tiên
+    const [hienLoi, setHienLoi] = useState(false);
+    // Bỏ kết quả của lần tải cũ (đóng form hoặc mở sản phẩm khác khi chưa tải xong)
+    const lanTaiRef = useRef(0);
+    // Trang danh sách truyền onClose dạng hàm mới mỗi lần vẽ: giữ qua ref để không tải lại sản phẩm khi đang sửa.
+    const onCloseRef = useRef(onClose);
+    useEffect(() => {
+        onCloseRef.current = onClose;
+    });
 
     const {
         control,
         handleSubmit,
         reset,
-        formState: { errors, isSubmitting },
-        watch
+        formState: { errors, isSubmitting, isDirty },
     } = useForm({
         resolver: yupResolver(editProductSchema),
-        defaultValues: {
-            tenSanPham: "",
-            maSanPham: "",
-            maVach: "",
-            danhMucId: "",
-            thuongHieuId: null,
-            moTa: "",
-            giaVonMacDinh: 0,
-            giaBanMacDinh: 0,
-            mucTonToiThieu: 0,
-            trangThai: 1,
-            bienTheSanPhams: [],
-        }
+        defaultValues: GIA_TRI_TRONG,
     });
 
-    const { fields, append, remove } = useFieldArray({
-        control,
-        name: "bienTheSanPhams"
-    });
+    // ---------- dữ liệu suy ra ----------
+    const bienTheGoc = useMemo(() => sanPham?.bienTheSanPhams ?? [], [sanPham]);
+    // Màu/kích cỡ/chất liệu đang dùng có thể đã ngừng hoạt động (không có trong danh sách): vẫn phải hiện.
+    const mauSacs = useMemo(() => gopTheoId(colors, bienTheGoc.map((bt) => bt.mauSac)), [colors, bienTheGoc]);
+    const kichCos = useMemo(() => sapXepKichCo(gopTheoId(sizes, bienTheGoc.map((bt) => bt.size))), [sizes, bienTheGoc]);
+    const chatLieuDangDung = useMemo(() => gopTheoId([], bienTheGoc.map((bt) => bt.chatLieu)), [bienTheGoc]);
+    const danhMucs = useMemo(() => {
+        const danhMuc = sanPham?.danhMuc;
+        if (!danhMuc || categories.length === 0 || categories.some((c) => c.id === danhMuc.id)) return categories;
+        return [...categories, { id: danhMuc.id, displayTitle: `${danhMuc.tenDanhMuc} (ngừng hoạt động)`, level: 1 }];
+    }, [categories, sanPham]);
 
-    // Giá trị hiện tại của các dòng biến thể — để tiêu đề, mã SKU xem trước cập nhật ngay khi đổi màu/size.
-    const watchedVariants = watch("bienTheSanPhams") || [];
-    const maSanPhamHienTai = watch("maSanPham");
+    const { bienTheCu, thuTuCu } = bienThe;
+    const mauKhoa = useMemo(() => mauBiKhoa({ bienTheCu, thuTuCu }), [bienTheCu, thuTuCu]);
+    const kichCoKhoa = useMemo(() => kichCoBiKhoa({ bienTheCu, thuTuCu }), [bienTheCu, thuTuCu]);
+    const nhomBienThe = useMemo(() => tinhNhomSua(bienThe, kichCos), [bienThe, kichCos]);
+    const thongKe = useMemo(() => thongKeSua(nhomBienThe, bienThe), [nhomBienThe, bienThe]);
 
-    const fetchProductDetails = useCallback(async (id) => {
-        try {
-            setIsLoadingProduct(true);
-            const res = await productService.getProductById(id);
+    const chatLieuChung = chatLieuDangDung.length === 1 ? chatLieuDangDung[0] : null;
+    const canChonChatLieu = !chatLieuChung && thongKe.soTao > 0;
+    const chatLieuMoi = chatLieuChung ?? materials.find((m) => m.id === chatLieuMoiId) ?? null;
 
-            if (res.data?.status === 200) {
-                const product = res.data.data;
-                reset({
-                    tenSanPham: product.tenSanPham || "",
-                    maSanPham: product.maSanPham || "",
-                    maVach: product.maVach || "",
-                    danhMucId: product.danhMuc?.id ?? "",
-                    thuongHieuId: product.thuongHieu?.id ?? null,
-                    moTa: product.moTa || "",
-                    giaVonMacDinh: product.giaVonMacDinh || 0,
-                    giaBanMacDinh: product.giaBanMacDinh || 0,
-                    mucTonToiThieu: product.mucTonToiThieu || 0,
-                    trangThai: product.trangThai ?? 1,
-                    bienTheSanPhams: product.bienTheSanPhams?.length > 0
-                        ? product.bienTheSanPhams.map(variant => ({
-                            id: variant.id,
-                            mauSacId: variant.mauSac?.id ?? null,
-                            sizeId: variant.size?.id ?? null,
-                            chatLieuId: variant.chatLieu?.id ?? null,
-                            giaVon: variant.giaVon || 0,
-                            giaBan: variant.giaBan || 0,
-                            trangThai: variant.trangThai ?? 1,
-                            // Chỉ dùng để kiểm tra trên form (không gửi lên): màu/size đang lưu
-                            mauSacIdGoc: variant.mauSac?.id ?? null,
-                            sizeIdGoc: variant.size?.id ?? null,
-                            yeuCauChatLieu: false,
-                        }))
-                        : []
-                });
+    // Màu chỉ chọn lại được ảnh sản phẩm vừa thêm (ảnh đang lưu không gửi lại dạng tệp).
+    const anhSanPhamMoi = useMemo(() => anhSanPhams.filter((anh) => anh.file), [anhSanPhams]);
+    const anhDangDung = useMemo(() => [...anhSanPhams, ...Object.values(bienThe.anhMau)], [anhSanPhams, bienThe.anhMau]);
+    const taoAnhXemTruoc = useAnhXemTruoc(anhDangDung);
 
-                // Snapshot dữ liệu gốc để quyết định đường lưu khi bấm Cập nhật:
-                // chỉ đổi thông tin cơ bản -> PATCH /basic-info; đổi giá/ảnh/biến thể -> PUT /update.
-                initialRef.current = {
-                    tenSanPham: product.tenSanPham || "",
-                    maSanPham: product.maSanPham || "",
-                    maVach: product.maVach || "",
-                    danhMucId: product.danhMuc?.id ?? null,
-                    thuongHieuId: product.thuongHieu?.id ?? null,
-                    moTa: product.moTa || "",
-                    giaVonMacDinh: product.giaVonMacDinh || 0,
-                    giaBanMacDinh: product.giaBanMacDinh || 0,
-                    mucTonToiThieu: product.mucTonToiThieu || 0,
-                    trangThai: product.trangThai ?? 1,
-                    bienTheSanPhams: (product.bienTheSanPhams || []).map(variant => ({
-                        id: variant.id,
-                        mauSacId: variant.mauSac?.id ?? null,
-                        sizeId: variant.size?.id ?? null,
-                        giaVon: variant.giaVon || 0,
-                        giaBan: variant.giaBan || 0,
-                        trangThai: variant.trangThai ?? 1,
-                    })),
-                };
+    const anhDaDoi = sanPham != null && chuKyAnh(anhSanPhams) !== chuKyAnhGoc;
+    const bienTheDaDoi = coThayDoiBienThe(bienThe, thongKe);
+    const coThayDoi = sanPham != null && (isDirty || anhDaDoi || bienTheDaDoi);
 
-                const gocTheoId = {};
-                const chatLieuTheoId = new Map();
-                (product.bienTheSanPhams || []).forEach(variant => {
-                    gocTheoId[variant.id] = {
-                        mauSac: variant.mauSac ?? null,
-                        size: variant.size ?? null,
-                        chatLieu: variant.chatLieu ?? null,
-                        maSku: variant.maSku || "",
-                        // Backend cũ chưa trả cờ này -> undefined -> form coi như đã phát sinh giao dịch (khóa)
-                        daPhatSinhGiaoDich: variant.daPhatSinhGiaoDich,
-                    };
-                    if (variant.chatLieu?.id != null) chatLieuTheoId.set(variant.chatLieu.id, variant.chatLieu);
-                });
-                setVariantGocById(gocTheoId);
-                setChatLieuGoc([...chatLieuTheoId.values()]);
-                setInitialBrand(product.thuongHieu ?? null);
+    const { hoiBoThayDoi, setHoiBoThayDoi, dongForm, handleCancel, nhoNutMoForm, traFocusNutMoForm, traFocusSauKhiHoi } =
+        useHoiTruocKhiBo({ coThayDoi, dangLuu: isSubmitting, onClose });
+    useChanRoiTrang(isOpen, coThayDoi);
+    useChanThaTepNgoaiKhung(isOpen);
+    const henCuonToiLoi = useCuonToiLoiSauKhiLuu(isSubmitting);
 
-                setExistingProductImages(product.anhQuanAos || []);
+    // ---------- mở / đóng form ----------
+    const datLaiForm = useCallback(() => {
+        lanTaiRef.current += 1;
+        reset(GIA_TRI_TRONG);
+        setSanPham(null);
+        setAnhSanPhams([]);
+        setChuKyAnhGoc("");
+        dispatchBienThe({ type: "datLai" });
+        setChatLieuMoiId(null);
+        setHienLoi(false);
+        setHoiBoThayDoi(false);
+    }, [reset, setHoiBoThayDoi]);
 
-                // Map variant images by variant ID for easier access
-                const variantImageMap = {};
-                if (product.bienTheSanPhams) {
-                    product.bienTheSanPhams.forEach((variant, index) => {
-                        if (variant.anhBienThe) {
-                            variantImageMap[index] = variant.anhBienThe;
-                        }
-                    });
+    const taiSanPham = useCallback(
+        async (id) => {
+            const lan = ++lanTaiRef.current;
+            try {
+                const res = await productService.getProductById(id);
+                if (lan !== lanTaiRef.current) return;
+                const sp = res?.data?.data;
+                if (res?.data?.status !== 200 || !sp) {
+                    throw new Error(res?.data?.message || "Không thể tải thông tin sản phẩm");
                 }
-                setExistingVariantImages(variantImageMap);
+                reset({
+                    tenSanPham: sp.tenSanPham || "",
+                    danhMucId: sp.danhMuc?.id ?? "",
+                    thuongHieuId: sp.thuongHieu?.id ?? null,
+                    maVach: sp.maVach || "",
+                    mucTonToiThieu: sp.mucTonToiThieu ?? 0,
+                    moTa: sp.moTa || "",
+                });
+                // Ảnh chính lên đầu, các ảnh khác giữ nguyên thứ tự
+                const anhs = [...(sp.anhQuanAos || [])]
+                    .sort((a, b) => (b.anhChinh === 1 ? 1 : 0) - (a.anhChinh === 1 ? 1 : 0))
+                    .map(anhTuMayChu);
+                setAnhSanPhams(anhs);
+                setChuKyAnhGoc(chuKyAnh(anhs));
+                dispatchBienThe({ type: "khoiTaoSua", dsBienThe: sp.bienTheSanPhams || [] });
+                setSanPham(sp);
+            } catch (error) {
+                if (lan !== lanTaiRef.current) return;
+                console.error("Lỗi khi tải chi tiết sản phẩm:", error);
+                toast.error(getApiErrorMessage(error, error?.message || "Không thể tải thông tin sản phẩm"));
+                onCloseRef.current();
             }
-        } catch (error) {
-            console.error("Lỗi khi tải chi tiết sản phẩm:", error);
-            toast.error(error.response?.data?.message || "Không thể tải thông tin sản phẩm");
-            onClose();
-        } finally {
-            setIsLoadingProduct(false);
-        }
-    }, [reset, onClose]);
+        },
+        [reset],
+    );
 
-    const handleResetForm = useCallback(() => {
-        reset({
-            tenSanPham: "",
-            maSanPham: "",
-            maVach: "",
-            danhMucId: "",
-            thuongHieuId: null,
-            moTa: "",
-            giaVonMacDinh: 0,
-            giaBanMacDinh: 0,
-            mucTonToiThieu: 0,
-            trangThai: 1,
-            bienTheSanPhams: [],
-        });
-        setProductImages([]);
-        setExistingProductImages([]);
-        setVariantImages({});
-        setExistingVariantImages({});
-        setProductImageUpdated(false);
-        setVariantGocById({});
-        setChatLieuGoc([]);
-        setInitialBrand(null);
-        initialRef.current = null;
-    }, [reset]);
-
+    // Mở form: bắt đầu sạch rồi tải sản phẩm. Đóng form: chờ hiệu ứng đóng xong mới xóa dữ liệu.
     useEffect(() => {
-        // Hoãn qua microtask để tránh setState đồng bộ trong effect
-        // (react-hooks/set-state-in-effect); dữ liệu vẫn được tải khi mở modal.
-        if (isOpen && productId) {
-            queueMicrotask(() => fetchProductDetails(productId));
+        if (isOpen) {
+            if (!productId) return undefined;
+            // Hoãn qua microtask để tránh setState đồng bộ trong effect (react-hooks/set-state-in-effect).
+            queueMicrotask(() => {
+                datLaiForm();
+                taiSanPham(productId);
+            });
+            return undefined;
         }
-    }, [isOpen, productId, fetchProductDetails]);
+        const hen = setTimeout(datLaiForm, THOI_GIAN_DONG_HOP_THOAI);
+        return () => clearTimeout(hen);
+    }, [isOpen, productId, datLaiForm, taiSanPham]);
 
     const loadReferenceData = useCallback(async () => {
+        setDangTaiThamChieu(true);
+        setLoiTaiThamChieu(false);
         try {
-            const extractData = (response) => response?.data?.data ?? response?.data ?? [];
             const [colorsResult, sizesResult, materialsResult, categoriesResult] = await Promise.allSettled([
                 productService.getColors(),
                 productService.getSizes(),
@@ -368,1048 +256,453 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                 danhMucQuanAoService.getCayDanhMuc(),
             ]);
 
-            if (colorsResult.status === "fulfilled") {
-                setColors(extractData(colorsResult.value));
-            } else {
-                console.error("Lỗi tải màu sắc:", colorsResult.reason);
-            }
-
-            if (sizesResult.status === "fulfilled") {
-                const sizeData = extractData(sizesResult.value);
-                setSizes(sizeData);
-            } else {
-                console.error("Lỗi tải size:", sizesResult.reason);
-            }
-
-            if (materialsResult.status === "fulfilled") {
-                setMaterials(extractData(materialsResult.value));
-            } else {
-                console.error("Lỗi tải chất liệu:", materialsResult.reason);
-            }
-
+            if (colorsResult.status === "fulfilled") setColors(layDuLieu(colorsResult.value));
+            if (sizesResult.status === "fulfilled") setSizes(sapXepKichCo(layDuLieu(sizesResult.value)));
+            if (materialsResult.status === "fulfilled") setMaterials(layDuLieu(materialsResult.value));
             if (categoriesResult.status === "fulfilled") {
-                setCategories(flattenCategoryTree(extractData(categoriesResult.value)));
+                setCategories(flattenCategoryTree(layDuLieu(categoriesResult.value)));
             } else {
-                console.error("Lỗi tải danh mục:", categoriesResult.reason);
+                toast.error("Không thể tải dữ liệu danh mục");
             }
-
-            if (
-                colorsResult.status === "rejected" ||
-                sizesResult.status === "rejected" ||
-                materialsResult.status === "rejected"
-            ) {
-                toast.error("Không thể tải dữ liệu màu sắc, kích cỡ, chất liệu");
+            if ([colorsResult, sizesResult, materialsResult].some((r) => r.status === "rejected")) {
+                setLoiTaiThamChieu(true);
+                toast.error("Không tải được màu sắc, kích cỡ hoặc chất liệu. Vui lòng thử lại.");
             }
-        } catch (error) {
-            console.error("Lỗi khi tải dữ liệu màu sắc, kích cỡ, chất liệu:", error);
-            toast.error("Không thể tải dữ liệu màu sắc, kích cỡ, chất liệu");
+        } catch {
+            setLoiTaiThamChieu(true);
+            toast.error("Lỗi hệ thống khi tải dữ liệu khởi tạo");
+        } finally {
+            setDangTaiThamChieu(false);
         }
     }, []);
 
     useEffect(() => {
         if (!isOpen) return;
-        // Hoãn qua microtask để tránh setState đồng bộ trong effect
-        // (react-hooks/set-state-in-effect); dữ liệu tham chiếu vẫn được tải khi mở modal.
         queueMicrotask(() => loadReferenceData());
     }, [isOpen, loadReferenceData]);
 
-    // Helper function to create an empty file
-    const createEmptyFile = () => {
-        return new File([], 'empty.txt', { type: 'text/plain' });
+    // ---------- lỗi trước khi lưu ----------
+    const danhSachLoi = useMemo(() => {
+        const loi = [];
+        if (anhSanPhams.length === 0) {
+            loi.push({ id: "khu-anh-san-pham", thongBao: "Vui lòng giữ ít nhất 1 ảnh sản phẩm chính." });
+        }
+        if (canChonChatLieu && !chatLieuMoi) {
+            loi.push({ id: "khu-thong-tin", oFocus: "#chatLieuMoiId", thongBao: "Vui lòng chọn chất liệu cho biến thể mới." });
+        }
+        if (thongKe.soSauLuu > SO_BIEN_THE_TOI_DA) {
+            loi.push({
+                id: "khu-bien-the",
+                oFocus: O_CHON_MAU,
+                thongBao: `Mỗi sản phẩm có tối đa ${SO_BIEN_THE_TOI_DA} biến thể, sau khi lưu sẽ có ${thongKe.soSauLuu}. Vui lòng bỏ bớt màu sắc hoặc kích cỡ mới.`,
+            });
+        }
+        if (thongKe.soGiaTrong > 0) {
+            loi.push({
+                id: "khu-bien-the",
+                oFocus: O_THIEU_GIA,
+                thongBao: `Còn ${thongKe.soGiaTrong} biến thể đang có chưa có giá. Vui lòng nhập giá vốn và giá bán.`,
+            });
+        }
+        for (const mauSacId of thongKe.mauThieuAnh) {
+            const tenMau = mauSacs.find((m) => m.id === mauSacId)?.tenMau ?? "";
+            loi.push({
+                id: `nhom-mau-${mauSacId}`,
+                oFocus: O_ANH_MAU,
+                thongBao: `Màu ${tenMau} chưa có ảnh. Bấm ô ảnh ở dòng màu để thêm.`,
+            });
+        }
+        return loi;
+    }, [anhSanPhams.length, canChonChatLieu, chatLieuMoi, thongKe, mauSacs]);
+
+    // ---------- ảnh sản phẩm ----------
+    const themAnhSanPham = (files) => {
+        const hopLe = locTepAnhHopLe(files);
+        if (hopLe.length === 0) return;
+        const anhMoi = hopLe.map(taoAnhXemTruoc);
+        setAnhSanPhams((prev) => [...prev, ...anhMoi]);
+    };
+
+    const xoaAnhSanPham = (anh) => {
+        setAnhSanPhams((prev) => prev.filter((a) => a.id !== anh.id));
+    };
+
+    const datAnhChinh = (anh) => {
+        setAnhSanPhams((prev) => [anh, ...prev.filter((a) => a.id !== anh.id)]);
+    };
+
+    // ---------- ảnh theo màu (hàm ổn định để nhóm màu đã memo không vẽ lại) ----------
+    const ganAnhMau = useCallback(
+        (mauSacId, file) => {
+            const thongBao = kiemTraTepAnh(file);
+            if (thongBao) {
+                toast.error(`${thongBao}. Vui lòng chọn ảnh khác.`);
+                return false;
+            }
+            dispatchBienThe({ type: "ganAnhMau", mauSacId, anh: taoAnhXemTruoc(file) });
+            return true;
+        },
+        [taoAnhXemTruoc],
+    );
+
+    const dungAnhSanPhamChoMau = useCallback((mauSacId, anhSp) => {
+        dispatchBienThe({ type: "ganAnhMau", mauSacId, anh: anhSp });
+    }, []);
+
+    const goAnhMau = useCallback((mauSacId) => {
+        dispatchBienThe({ type: "goAnhMau", mauSacId });
+    }, []);
+
+    // ---------- lưu ----------
+    const onInvalid = () => {
+        setHienLoi(true);
+        toast.error("Vui lòng điền đủ thông tin bắt buộc.");
     };
 
     const onSubmit = async (data) => {
-        const initial = initialRef.current;
-
-        // Quyết định đường lưu: CHỈ đổi thông tin cơ bản -> PATCH /basic-info (1 request,
-        // không tính lại giá/trạng thái, không đụng ảnh/biến thể). Đổi giá/ảnh/biến thể
-        // -> giữ nguyên luồng PUT /update multipart (1 request).
-        // Mã sản phẩm, giá mặc định và trạng thái sản phẩm hiển thị chỉ xem nên không đổi được;
-        // vẫn giữ các phép so sánh dưới đây để an toàn nếu sau này mở lại các ô đó.
-        const brandChanged = (data.thuongHieuId ?? null) !== (initial?.thuongHieuId ?? null);
-        const maSanPhamChanged = (data.maSanPham || "") !== (initial?.maSanPham || "");
-        const productPriceChanged =
-            Number(data.giaVonMacDinh) !== Number(initial?.giaVonMacDinh) ||
-            Number(data.giaBanMacDinh) !== Number(initial?.giaBanMacDinh);
-        const statusChanged = Number(data.trangThai) !== Number(initial?.trangThai);
-        const initialVariantById = new Map((initial?.bienTheSanPhams || []).map(variant => [variant.id, variant]));
-        const variantChanged = !initial
-            ? true
-            : data.bienTheSanPhams.some((variant) => {
-                // Biến thể mới thêm trong form Sửa
-                if (variant.id == null) return true;
-                const init = initialVariantById.get(variant.id);
-                if (!init) return true;
-                return (
-                    Number(variant.giaVon) !== Number(init.giaVon) ||
-                    Number(variant.giaBan) !== Number(init.giaBan) ||
-                    Number(variant.trangThai) !== Number(init.trangThai) ||
-                    Number(variant.mauSacId) !== Number(init.mauSacId) ||
-                    Number(variant.sizeId) !== Number(init.sizeId)
-                );
-            });
-        const imagesChanged = productImageUpdated || Object.keys(variantImages).length > 0;
-
-        // Biến thể mới bắt buộc có ảnh (giống form Thêm sản phẩm)
-        const viTriThieuAnh = data.bienTheSanPhams.findIndex((variant, index) => variant.id == null && !variantImages[index]);
-        if (viTriThieuAnh !== -1) {
-            toast.error(`Vui lòng thêm ảnh cho biến thể #${viTriThieuAnh + 1}`);
+        setHienLoi(true);
+        if (danhSachLoi.length > 0) {
+            const [loiDau] = danhSachLoi;
+            toast.error(loiDau.thongBao);
+            henCuonToiLoi(loiDau);
+            return;
+        }
+        if (!coThayDoi) {
+            toast.info("Chưa có thay đổi nào để lưu.");
             return;
         }
 
-        const basicOnly =
-            !maSanPhamChanged &&
-            !productPriceChanged &&
-            !statusChanged &&
-            !variantChanged &&
-            !imagesChanged;
+        const thongTin = {
+            tenSanPham: data.tenSanPham.trim(),
+            danhMucId: Number(data.danhMucId),
+            thuongHieuId: data.thuongHieuId ?? null,
+            // Chỉ gửi cờ đổi thương hiệu khi thật sự đổi, để không gỡ nhầm liên kết đang có.
+            capNhatThuongHieu: (data.thuongHieuId ?? null) !== (sanPham.thuongHieu?.id ?? null),
+            moTa: data.moTa || "",
+            maVach: data.maVach?.trim() || "",
+            mucTonToiThieu: Number(data.mucTonToiThieu) || 0,
+        };
 
         try {
-            if (basicOnly) {
-                // Đường 1: chỉ thay đổi thông tin cơ bản -> PATCH JSON, không gửi ảnh/biến thể.
-                const res = await productService.updateProductBasicInfo(productId, {
-                    tenSanPham: data.tenSanPham,
-                    moTa: data.moTa || "",
-                    maVach: data.maVach || "",
-                    danhMucId: Number(data.danhMucId),
-                    mucTonToiThieu: Number(data.mucTonToiThieu) || 0,
-                    thuongHieuId: data.thuongHieuId ?? null,
-                    capNhatThuongHieu: brandChanged,
-                });
-
-                if (res?.data?.status >= 400) {
-                    toast.error(res.data.message || 'Có lỗi xảy ra');
-                    return;
-                }
-
-                toast.success("Cập nhật sản phẩm thành công.");
-                handleResetForm();
-                onSuccess();
-                onClose();
-                return;
-            }
-
-            // Đường 2: có thay đổi giá/ảnh/biến thể -> giữ nguyên luồng PUT multipart.
-            const formData = new FormData();
-
-            const productData = {
-                id: productId,
-                maVach: data.maVach || "",
-                tenSanPham: data.tenSanPham,
-                maSanPham: data.maSanPham || "",
-                mucTonToiThieu: data.mucTonToiThieu,
-                moTa: data.moTa || "",
-                danhMucId: Number(data.danhMucId),
-                thuongHieuId: data.thuongHieuId ?? null,
-                capNhatThuongHieu: brandChanged,
-                giaVonMacDinh: Number(data.giaVonMacDinh),
-                giaBanMacDinh: Number(data.giaBanMacDinh),
-                trangThai: Number(data.trangThai),
-                imageUpdated: productImageUpdated,
-                bienTheSanPhams: data.bienTheSanPhams.map((variant, index) => {
-                    const laBienTheMoi = variant.id == null;
-                    return {
-                        // id = null -> backend tạo biến thể mới
-                        id: laBienTheMoi ? null : variant.id,
-                        // Màu/size: backend chỉ đổi khi khác giá trị đang lưu và biến thể chưa phát sinh giao dịch,
-                        // khi đó tự sinh lại mã SKU.
-                        mauSacId: Number(variant.mauSacId),
-                        sizeId: Number(variant.sizeId),
-                        // Chất liệu chỉ gửi cho biến thể mới; biến thể đã có giữ nguyên chất liệu
-                        ...(laBienTheMoi
-                            ? { chatLieuId: variant.chatLieuId != null ? Number(variant.chatLieuId) : null }
-                            : {}),
-                        giaVon: Number(variant.giaVon),
-                        giaBan: Number(variant.giaBan),
-                        trangThai: Number(variant.trangThai),
-                        imageUpdated: !!variantImages[index], // Check if this variant has a new image
-                    };
-                }),
-            };
-
-            const jsonBlob = new Blob([JSON.stringify(productData)], { type: 'application/json' });
-            formData.append('updating', jsonBlob);
-
-            // Append product images if updated
-            if (productImageUpdated) {
-                // Fetch ảnh cũ còn giữ lại thành File rồi gộp với ảnh mới
-                const existingImageFiles = await Promise.all(
-                    existingProductImages.map(async (img) => {
-                        const url = img.tepTin?.duongDan || img.urlAnh;
-                        const response = await fetch(url);
-                        const blob = await response.blob();
-                        const fileName = url.split('/').pop() || 'existing_image.jpg';
-                        return new File([blob], fileName, { type: blob.type });
-                    })
+            let res;
+            if (!anhDaDoi && !bienTheDaDoi) {
+                // Chỉ đổi thông tin cơ bản: PATCH gọn, không tính lại giá, không đụng ảnh và biến thể.
+                res = await productService.updateProductBasicInfo(productId, thongTin);
+            } else {
+                // Sản phẩm 1 chất liệu: để trống, backend tự dùng chất liệu đang có cho biến thể mới.
+                const { bienTheSanPhams, anhBienThes } = taoDuLieuGuiSua(
+                    bienThe,
+                    nhomBienThe,
+                    chatLieuChung ? null : chatLieuMoiId,
                 );
+                const anhMoi = anhSanPhams.filter((anh) => anh.file);
+                const updating = {
+                    id: productId,
+                    maSanPham: sanPham.maSanPham,
+                    ...thongTin,
+                    // Giá mặc định và trạng thái sản phẩm do hệ thống tự tính lại khi lưu: gửi lại giá trị đang có.
+                    giaVonMacDinh: sanPham.giaVonMacDinh ?? 0,
+                    giaBanMacDinh: sanPham.giaBanMacDinh ?? 0,
+                    trangThai: sanPham.trangThai ?? 1,
+                    imageUpdated: anhDaDoi,
+                    // Thứ tự ảnh sau khi sửa (ô đầu là ảnh chính): ảnh giữ lại gửi id, ảnh mới gửi vị trí tệp.
+                    anhSanPhamSapXep: anhDaDoi
+                        ? anhSanPhams.map((anh) => (anh.file ? { viTriTep: anhMoi.indexOf(anh) } : { id: anh.anhId }))
+                        : null,
+                    bienTheSanPhams,
+                };
 
-                // Gửi ảnh cũ trước, ảnh mới sau
-                existingImageFiles.forEach((file) => {
-                    formData.append('anhSanPhams', file);
-                });
-                productImages.forEach((file) => {
-                    formData.append('anhSanPhams', file);
-                });
+                const formData = new FormData();
+                formData.append("updating", new Blob([JSON.stringify(updating)], { type: "application/json" }));
+                anhMoi.forEach((anh) => formData.append("anhSanPhams", anh.file));
+                // Mỗi màu đổi ảnh một tệp; biến thể trỏ tới tệp bằng viTriAnh.
+                anhBienThes.forEach((file) => formData.append("anhBienThes", file));
+                res = await productService.updateProduct(productId, formData);
             }
-
-            // Append variant images in order - send empty file for variants without updates
-            data.bienTheSanPhams.forEach((_, index) => {
-                if (variantImages[index]) {
-                    // Has new image - append the actual file
-                    formData.append('anhBienThes', variantImages[index]);
-                } else {
-                    // No new image - append empty file to maintain order
-                    formData.append('anhBienThes', createEmptyFile());
-                }
-            });
-
-            const res = await productService.updateProduct(productId, formData);
 
             if (res?.data?.status >= 400) {
-                toast.error(res.data.message || 'Có lỗi xảy ra');
+                toast.error(res.data.message || "Có lỗi xảy ra");
                 return;
             }
-
-            toast.success("Cập nhật sản phẩm thành công.");
-            handleResetForm();
+            toast.success(
+                thongKe.soTao > 0
+                    ? `Cập nhật sản phẩm thành công, thêm ${thongKe.soTao} biến thể mới.`
+                    : "Cập nhật sản phẩm thành công.",
+            );
             onSuccess();
             onClose();
         } catch (error) {
-            console.error('Lỗi khi cập nhật sản phẩm:', error);
-            console.error('Error response:', error.response);
-            console.error('Error response data:', error.response?.data);
-
-            const errorMessage = getApiErrorMessage(error, 'Có lỗi xảy ra khi cập nhật sản phẩm');
-            toast.error(errorMessage);
+            console.error("Lỗi khi cập nhật sản phẩm:", error);
+            toast.error(getApiErrorMessage(error, "Có lỗi xảy ra khi cập nhật sản phẩm"));
         }
     };
 
-    const handleCancel = () => {
-        if (!isSubmitting) {
-            handleResetForm();
-            onClose();
-        }
+    // Gọi handleSubmit trong lúc xử lý sự kiện (không gọi lúc render).
+    const handleLuu = (e) => handleSubmit(onSubmit, onInvalid)(e);
+    const duocLuu = sanPham != null && coThayDoi && !isSubmitting;
+    const handleKeyDown = taoXuLyPhimTat({ duocLuu: duocLuu && !hoiBoThayDoi, onLuu: handleLuu });
+
+    // Submit của form trong hộp thoại con (tạo thương hiệu) vẫn nổi lên đây qua React portal: bỏ qua.
+    const handleFormSubmit = (e) => {
+        if (e.target !== e.currentTarget) return;
+        e.preventDefault();
+        if (duocLuu) handleLuu(e);
     };
 
-    const handleProductImagesChange = (e) => {
-        const files = Array.from(e.target.files || []);
-        setProductImages(prev => [...prev, ...files]);
-        setProductImageUpdated(true);
-    };
-
-    const handleRemoveProductImage = (index) => {
-        setProductImages(prev => prev.filter((_, i) => i !== index));
-    };
-
-    const handleRemoveExistingProductImage = (index) => {
-        setExistingProductImages(prev => prev.filter((_, i) => i !== index));
-        setProductImageUpdated(true);
-    };
-
-    const handleVariantImageChange = (variantIndex, e) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setVariantImages(prev => ({
-                ...prev,
-                [variantIndex]: file
-            }));
-        }
-    };
-
-    const handleRemoveVariantImage = (variantIndex) => {
-        setVariantImages(prev => {
-            const updated = { ...prev };
-            delete updated[variantIndex];
-            return updated;
-        });
-    };
-
-    const handleRemoveExistingVariantImage = (variantIndex) => {
-        setExistingVariantImages(prev => {
-            const updated = { ...prev };
-            delete updated[variantIndex];
-            return updated;
-        });
-    };
-
-    // Chất liệu lưu theo từng biến thể; form Thêm chọn 1 chất liệu áp dụng cho tất cả biến thể.
-    const tenChatLieus = chatLieuGoc.map(chatLieu => chatLieu.tenChatLieu).filter(Boolean);
-    const coNhieuChatLieu = chatLieuGoc.length > 1;
-    // Chất liệu chung -> biến thể mới tự dùng; không có (nhiều chất liệu) -> người dùng chọn cho biến thể mới
-    const chatLieuChung = chatLieuGoc.length === 1 ? chatLieuGoc[0] : null;
-
-    const handleAddVariant = () => {
-        const viTriMoi = fields.length;
-        append({
-            id: null,
-            mauSacId: null,
-            sizeId: null,
-            chatLieuId: chatLieuChung?.id ?? null,
-            yeuCauChatLieu: !chatLieuChung,
-            mauSacIdGoc: null,
-            sizeIdGoc: null,
-            giaVon: 0,
-            giaBan: 0,
-            trangThai: 1,
-        }, { shouldFocus: false });
-        // Cuộn tới thẻ biến thể vừa thêm
-        setTimeout(() => {
-            document.getElementById(`edit-variant-${viTriMoi}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-        }, 50);
-    };
-
-    // Chỉ biến thể mới (chưa lưu) mới xóa được; biến thể đã lưu chỉ chuyển Tạm ngừng (xóa mềm theo SRS).
-    const handleRemoveNewVariant = (index) => {
-        remove(index);
-        // Ảnh đang tra theo vị trí dòng -> dồn chỉ số các dòng phía sau lên 1
-        const dichChiSo = (prev) => {
-            const updated = {};
-            Object.keys(prev).forEach(key => {
-                const numKey = Number(key);
-                if (numKey < index) updated[numKey] = prev[key];
-                else if (numKey > index) updated[numKey - 1] = prev[key];
-            });
-            return updated;
-        };
-        setVariantImages(dichChiSo);
-        setExistingVariantImages(dichChiSo);
-    };
-
-    // Tra thông tin hiển thị theo id: ưu tiên danh sách vừa tải, chưa tải xong thì dùng thông tin gốc của biến thể
-    const timMauSac = (id, goc) => colors.find(color => color.id === id) ?? (goc?.mauSac?.id === id ? goc.mauSac : null);
-    const timSize = (id, goc) => sizes.find(size => size.id === id) ?? (goc?.size?.id === id ? goc.size : null);
-    const timChatLieu = (id, goc) => materials.find(material => material.id === id) ?? (goc?.chatLieu?.id === id ? goc.chatLieu : null);
-
-    if (isLoadingProduct) {
-        return (
-            <Dialog open={isOpen} onOpenChange={handleCancel}>
-                <DialogContent className="border-bo-border bg-white sm:max-w-[1180px]">
-                    <div className="flex items-center justify-center gap-3 py-12 text-sm text-bo-muted">
-                        <Loader2 className="size-8 animate-spin text-bo-primary" />
-                        <span>Đang tải thông tin sản phẩm...</span>
-                    </div>
-                </DialogContent>
-            </Dialog>
-        );
-    }
+    const loiCoBan = Object.keys(errors).length;
+    const trangThai = TRANG_THAI_SAN_PHAM[sanPham?.trangThai];
 
     return (
-        <Dialog open={isOpen} onOpenChange={handleCancel}>
-            <DialogContent className="flex max-h-[92vh] flex-col gap-0 overflow-hidden border-bo-border bg-bo-canvas p-0 text-bo-foreground sm:max-w-[1180px]">
-                <DialogHeader className="gap-0 border-b border-bo-border bg-white px-4 py-3.5 text-left sm:px-5">
-                    <div className="flex items-center justify-between gap-3">
+        <>
+            <Dialog open={isOpen} onOpenChange={handleCancel}>
+                <DialogContent
+                    onKeyDown={handleKeyDown}
+                    onOpenAutoFocus={nhoNutMoForm}
+                    onCloseAutoFocus={traFocusNutMoForm}
+                    className="flex max-h-[94vh] flex-col gap-0 overflow-hidden border-bo-border bg-bo-canvas p-0 text-bo-foreground sm:max-w-[1180px]"
+                >
+                    <DialogHeader className="gap-0 border-b border-bo-border bg-white px-4 py-3.5 pr-12 text-left sm:px-5 sm:pr-12">
                         <DialogTitle className="flex items-center gap-2 text-base font-semibold text-bo-foreground">
                             <Package className="size-5 text-bo-primary" />
                             Chỉnh sửa sản phẩm
                         </DialogTitle>
-                    </div>
-                    <DialogDescription className="mt-1 text-sm leading-6 text-bo-muted">
-                        Chỉnh sửa theo từng nhóm thông tin để kiểm tra nhanh sản phẩm, ảnh và biến thể.
+                        <DialogDescription className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm leading-6 text-bo-muted">
+                            {sanPham ? (
+                                <>
+                                    <span className="inline-flex items-center gap-1.5">
+                                        Trạng thái:
+                                        <span className={cn("rounded-full px-2 py-px text-xs font-semibold", trangThai?.lop)}>
+                                            {trangThai?.nhan ?? "Không rõ"}
+                                        </span>
+                                    </span>
+                                    <span aria-hidden="true" className="hidden sm:inline">·</span>
+                                    <span>
+                                        Giá mặc định: vốn <b className="font-medium text-bo-foreground">{formatCurrency(sanPham.giaVonMacDinh)}</b>,
+                                        bán <b className="font-medium text-bo-foreground">{formatCurrency(sanPham.giaBanMacDinh)}</b>
+                                    </span>
+                                    <span aria-hidden="true" className="hidden md:inline">·</span>
+                                    <span className="hidden md:inline">Hệ thống tự tính theo tồn kho</span>
+                                </>
+                            ) : (
+                                "Đang tải thông tin sản phẩm…"
+                            )}
                     </DialogDescription>
-                    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                        <div className={STEP_CLASS}>
-                            <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-bo-primary text-[10px] font-bold text-white">1</span>
-                            <span className="truncate">Bước 1: Thông tin</span>
-                        </div>
-                        <div className={STEP_CLASS}>
-                            <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-bo-primary text-[10px] font-bold text-white">2</span>
-                            <span className="truncate">Bước 2: Ảnh sản phẩm</span>
-                        </div>
-                        <div className={STEP_CLASS}>
-                            <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-bo-primary text-[10px] font-bold text-white">3</span>
-                            <span className="truncate">Bước 3: Biến thể</span>
-                        </div>
-                    </div>
+                    </DialogHeader>
 
-                    <div className="mt-3 grid gap-2 lg:grid-cols-2">
-                        <div className="flex items-start gap-2 rounded-lg border border-bo-border bg-bo-primary-soft p-3">
-                            <Lock className="mt-0.5 size-4 shrink-0 text-bo-primary" />
-                            <p className="text-xs leading-relaxed text-bo-foreground">
-                                <b>Mã và thuộc tính:</b> Mã sản phẩm và chất liệu cố định sau khi tạo. Màu sắc, size chỉ đổi được khi biến thể chưa phát sinh giao dịch (chưa có tồn kho, chứng từ); mã SKU tự sinh lại theo màu, size mới.
-                            </p>
-                        </div>
+                    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+                        {!sanPham ? (
+                            <div className="flex items-center justify-center gap-3 py-16 text-sm text-bo-muted" role="status">
+                                <Loader2 className="size-6 animate-spin text-bo-primary" aria-hidden="true" />
+                                Đang tải thông tin sản phẩm…
+                            </div>
+                        ) : (
+                            <form onSubmit={handleFormSubmit} className={LOP_FORM}>
+                                {hienLoi && <TomTatLoi soLoiCoBan={loiCoBan} danhSachLoi={danhSachLoi} />}
 
-                        <div className="flex items-start gap-2 rounded-lg border border-bo-border bg-bo-primary-soft p-3">
-                            <Info className="mt-0.5 size-4 shrink-0 text-bo-primary" />
-                            <p className="text-xs leading-relaxed text-bo-foreground">
-                                <b>Lưu ý giá:</b> Giá mặc định do hệ thống tự tính từ các biến thể còn hàng. Biến thể đang còn tồn kho sẽ được tính lại khi lưu: giá vốn theo lô nhập, giá bán = giá vốn × 1,2.
-                            </p>
-                        </div>
-                    </div>
-                </DialogHeader>
-
-                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
-                    <form
-                        onSubmit={handleSubmit(onSubmit)}
-                        className="space-y-5 [&_[data-slot=select-trigger]]:bg-white [&_[data-slot=textarea]]:bg-white"
-                    >
-                        <div className="grid items-start gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-                            <div className="space-y-5">
-                                <FormSection title="Thông tin cơ bản">
-                                    {/* Bố cục theo form Thêm sản phẩm; ô cố định/tự tính hiển thị chỉ xem */}
-                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="tenSanPham">
-                                                Tên sản phẩm <span className="text-bo-danger">*</span>
-                                            </Label>
-                                            <Controller
-                                                name="tenSanPham"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <Input {...field} id="tenSanPham" placeholder="VD: Áo sơ mi nam cổ tròn" disabled={isSubmitting} className={CONTROL_CLASS} />
-                                                )}
-                                            />
-                                            {errors.tenSanPham && (
-                                                <p className="text-xs text-bo-danger">{errors.tenSanPham.message}</p>
-                                            )}
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label htmlFor="danhMucId">Danh mục <span className="text-bo-danger">*</span></Label>
-                                            <Controller
-                                                name="danhMucId"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <Select
-                                                        value={field.value?.toString()}
-                                                        // Radix Select tự gọi onValueChange("") khi giá trị chưa có trong danh sách
-                                                        // (chi tiết sản phẩm tải xong TRƯỚC cây danh mục) -> danhMucId thành 0, lưu bị lỗi.
-                                                        // Danh mục là bắt buộc, không có lựa chọn rỗng nên bỏ qua giá trị "".
-                                                        onValueChange={(value) => {
-                                                            if (value !== "") field.onChange(Number(value));
-                                                        }}
-                                                        disabled={isSubmitting}
-                                                    >
-                                                        <SelectTrigger id="danhMucId" className="h-10 w-full border-bo-border text-bo-foreground">
-                                                            <SelectValue placeholder="Chọn danh mục" />
-                                                        </SelectTrigger>
-                                                        <SelectContent
-                                                            position="popper"
-                                                            side="bottom"
-                                                            align="start"
-                                                            className={`${SELECT_CONTENT_CLASS} max-h-[300px]`}
-                                                        >
-                                                            {categories.length === 0 ? (
-                                                                <div className="p-2 text-center text-sm text-bo-muted">Không có danh mục nào đang hoạt động</div>
-                                                            ) : (
-                                                                categories.map((cat) => (
-                                                                    <SelectItem
-                                                                        key={cat.id}
-                                                                        value={cat.id.toString()}
-                                                                        className={`${SELECT_ITEM_CLASS} ${cat.level === 0 ? 'font-semibold text-bo-foreground' : ''}`}
-                                                                    >
-                                                                        {cat.displayTitle}
-                                                                    </SelectItem>
-                                                                ))
-                                                            )}
-                                                        </SelectContent>
-                                                    </Select>
-                                                )}
-                                            />
-                                            {errors.danhMucId && (
-                                                <p className="text-xs text-bo-danger">{errors.danhMucId.message}</p>
-                                            )}
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label htmlFor="thuongHieuId">Thương hiệu</Label>
-                                            <Controller
-                                                name="thuongHieuId"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <BrandSelector
-                                                        value={field.value ?? null}
-                                                        onChange={(id) => field.onChange(id)}
-                                                        disabled={isSubmitting}
-                                                        fallbackBrand={initialBrand}
-                                                    />
-                                                )}
-                                            />
-                                            {errors.thuongHieuId && (
-                                                <p className="text-xs text-bo-danger">{errors.thuongHieuId.message}</p>
-                                            )}
-                                        </div>
-
-                                        {/* Chất liệu: chỉ xem (lưu theo biến thể, cố định sau khi tạo) */}
-                                        <div className="space-y-2">
-                                            <Label className="text-bo-muted">Chất liệu</Label>
-                                            <ReadOnlyField>{tenChatLieus.join(", ")}</ReadOnlyField>
-                                            <p className="text-xs text-bo-muted">
-                                                {coNhieuChatLieu ? "Mỗi biến thể có chất liệu riêng" : "Áp dụng cho tất cả biến thể"}
-                                            </p>
-                                        </div>
-
-                                        {/* Mã sản phẩm: hệ thống sinh khi tạo, đã dùng để ghép mã SKU -> không cho sửa */}
-                                        <div className="space-y-2">
-                                            <Label className="text-bo-muted">Mã sản phẩm</Label>
-                                            <Controller
-                                                name="maSanPham"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <ReadOnlyField>
-                                                        {field.value ? <span className="font-mono">{field.value}</span> : null}
-                                                    </ReadOnlyField>
-                                                )}
-                                            />
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label className="text-bo-muted">Trạng thái</Label>
-                                            <Controller
-                                                name="trangThai"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <ReadOnlyField>
-                                                        <span className="font-medium">{PRODUCT_STATUS_LABELS[field.value] ?? "-"}</span>
-                                                    </ReadOnlyField>
-                                                )}
-                                            />
-                                        </div>
-
-                                        {/* Giá mặc định: hệ thống luôn tính lại khi lưu (trung bình các biến thể còn hàng) -> chỉ xem */}
-                                        <div className="space-y-2">
-                                            <Label className="text-bo-muted">Giá vốn mặc định (tự động)</Label>
-                                            <Controller
-                                                name="giaVonMacDinh"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <ReadOnlyField>{formatCurrency(field.value)}</ReadOnlyField>
-                                                )}
-                                            />
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label className="text-bo-muted">Giá bán mặc định (tự động)</Label>
-                                            <Controller
-                                                name="giaBanMacDinh"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <ReadOnlyField>{formatCurrency(field.value)}</ReadOnlyField>
-                                                )}
-                                            />
-                                        </div>
-
-                                        <p className="-mt-2 text-xs text-bo-muted sm:col-span-2">
-                                            Giá mặc định = trung bình giá các biến thể còn hàng; bằng 0 khi chưa biến thể nào có hàng.
-                                        </p>
-
-                                        <div className="space-y-2">
-                                            <Label htmlFor="maVach">Mã vạch</Label>
-                                            <Controller
-                                                name="maVach"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <Input {...field} id="maVach" placeholder="Mã vạch" disabled={isSubmitting} className={CONTROL_CLASS} />
-                                                )}
-                                            />
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label htmlFor="mucTonToiThieu">Mức tồn tối thiểu</Label>
-                                            <Controller
-                                                name="mucTonToiThieu"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <Input
-                                                        {...field}
-                                                        id="mucTonToiThieu"
-                                                        type="number"
-                                                        min="0"
-                                                        placeholder="0"
-                                                        disabled={isSubmitting}
-                                                        className={CONTROL_CLASS}
-                                                    />
-                                                )}
-                                            />
-                                            {errors.mucTonToiThieu && (
-                                                <p className="text-xs text-bo-danger">{errors.mucTonToiThieu.message}</p>
-                                            )}
-                                        </div>
-
-                                        <div className="space-y-2 sm:col-span-2">
-                                            <Label htmlFor="moTa">Mô tả</Label>
-                                            <Controller
-                                                name="moTa"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <Textarea
-                                                        {...field}
-                                                        id="moTa"
-                                                        placeholder="Nhập mô tả chi tiết về sản phẩm..."
-                                                        rows={3}
-                                                        disabled={isSubmitting}
-                                                        className={CONTROL_CLASS}
-                                                    />
-                                                )}
-                                            />
-                                        </div>
-                                    </div>
-                                </FormSection>
-
-                                <FormSection title="Ảnh sản phẩm">
-                                    <div className="space-y-2 rounded-lg border-2 border-dashed border-bo-border bg-bo-surface-subtle p-4">
-                                        {existingProductImages.length > 0 && (
-                                            <div className="mb-2">
-                                                <p className="mb-2 text-xs text-bo-muted">Ảnh hiện tại:</p>
-                                                <div className="grid grid-cols-3 gap-2">
-                                                    {existingProductImages.map((img, index) => (
-                                                        <div key={`existing-${index}`} className="relative">
-                                                            <img
-                                                                src={img.tepTin?.duongDan || img.urlAnh}
-                                                                alt="Ảnh sản phẩm"
-                                                                className="h-20 w-full rounded-md border border-bo-border object-cover"
-                                                            />
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleRemoveExistingProductImage(index)}
-                                                                aria-label={`Xóa ảnh hiện tại ${index + 1}`}
-                                                                className="absolute -right-2 -top-2 rounded-full bg-bo-danger p-1 text-white transition-opacity hover:opacity-90"
-                                                            >
-                                                                <X className="size-3" />
-                                                            </button>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        <input
-                                            type="file"
-                                            multiple
-                                            accept="image/*"
-                                            onChange={handleProductImagesChange}
-                                            className="hidden"
-                                            id="product-images"
-                                            disabled={isSubmitting}
-                                        />
-                                        <label
-                                            htmlFor="product-images"
-                                            className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-bo-border bg-white p-2 text-sm font-medium text-bo-foreground transition-colors hover:bg-bo-primary-soft hover:text-bo-primary"
+                                <div className="grid items-start gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+                                    <div id="khu-thong-tin" className="scroll-mt-4">
+                                        <FormSection
+                                            title={
+                                                <span className="flex flex-wrap items-center justify-between gap-2">
+                                                    Thông tin cơ bản
+                                                    <span className="rounded-full border border-bo-border bg-bo-surface-subtle px-2.5 py-0.5 text-xs font-medium text-bo-muted">
+                                                        Mã sản phẩm:{" "}
+                                                        <span className="select-all font-mono text-bo-foreground">{sanPham.maSanPham}</span>
+                                                    </span>
+                                                </span>
+                                            }
                                         >
-                                            <Upload className="size-4" />
-                                            <span>Thêm ảnh mới</span>
-                                        </label>
-                                        <div className="grid grid-cols-3 gap-2 md:grid-cols-4">
-                                            {productImages.map((file, index) => (
-                                                <div key={index} className="relative">
-                                                    <img
-                                                        src={URL.createObjectURL(file)}
-                                                        alt="Xem trước ảnh"
-                                                        className="h-20 w-full rounded-md border border-bo-border object-cover"
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleRemoveProductImage(index)}
-                                                        aria-label={`Xóa ảnh mới ${index + 1}`}
-                                                        className="absolute -right-2 -top-2 rounded-full bg-bo-danger p-1 text-white transition-opacity hover:opacity-90"
-                                                    >
-                                                        <X className="size-3" />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </FormSection>
-                            </div>
+                                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                                <TruongTenSanPham control={control} loi={errors.tenSanPham} disabled={isSubmitting} />
+                                                <TruongDanhMuc
+                                                    control={control}
+                                                    loi={errors.danhMucId}
+                                                    disabled={isSubmitting}
+                                                    danhMucs={danhMucs}
+                                                    dangTai={dangTaiThamChieu}
+                                                />
+                                                <TruongThuongHieu
+                                                    control={control}
+                                                    disabled={isSubmitting}
+                                                    thuongHieuHienTai={sanPham.thuongHieu ?? null}
+                                                />
+                                                <TruongMucTon control={control} loi={errors.mucTonToiThieu} disabled={isSubmitting} />
 
-                            <div className="xl:sticky xl:top-0">
-                                <FormSection
-                                    title="Biến thể sản phẩm"
-                                    description="Biến thể chưa phát sinh giao dịch đổi được màu sắc, kích cỡ (mã SKU tự sinh lại). Biến thể đã lưu không xóa được, chỉ chuyển sang Tạm ngừng."
-                                >
-                                    <div className="space-y-3">
-                                        {fields.map((field, index) => {
-                                            const row = watchedVariants[index] || {};
-                                            const laBienTheMoi = row.id == null;
-                                            const goc = laBienTheMoi ? null : variantGocById[row.id];
-                                            // Biến thể đã lưu chỉ đổi màu/size khi backend xác nhận CHƯA phát sinh giao dịch
-                                            // (thiếu cờ -> khóa cho an toàn, backend cũng kiểm tra lại khi lưu).
-                                            const khoaThuocTinh = !laBienTheMoi && goc?.daPhatSinhGiaoDich !== false;
-                                            const mauSac = timMauSac(row.mauSacId, goc);
-                                            const size = timSize(row.sizeId, goc);
-                                            const chatLieu = timChatLieu(row.chatLieuId, goc);
-                                            const daDoiThuocTinh = !laBienTheMoi && goc != null
-                                                && (row.mauSacId !== goc.mauSac?.id || row.sizeId !== goc.size?.id);
-                                            const maSkuHienThi = laBienTheMoi || daDoiThuocTinh
-                                                ? taoMaSkuXemTruoc(maSanPhamHienTai, mauSac, size, chatLieu)
-                                                : goc?.maSku;
-                                            const tomTat = [mauSac?.tenMau, size?.tenSize].filter(Boolean).join(" / ");
-                                            const loiDong = errors.bienTheSanPhams?.[index];
-                                            const loiKhac = ["giaVon", "giaBan", "trangThai"]
-                                                .map(key => loiDong?.[key]?.message)
-                                                .filter(Boolean);
-                                            return (
-                                            <div
-                                                key={field.id}
-                                                id={`edit-variant-${index}`}
-                                                className={`relative space-y-3 overflow-visible rounded-lg border p-4 shadow-sm ${laBienTheMoi ? "border-bo-primary/40 bg-bo-primary-soft/40" : "border-bo-border bg-bo-surface-subtle"}`}
-                                            >
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <div className="flex min-w-0 items-center gap-2">
-                                                        <span className="shrink-0 text-sm font-semibold text-bo-foreground">Biến thể #{index + 1}</span>
-                                                        {laBienTheMoi && (
-                                                            <span className="shrink-0 rounded-full bg-bo-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-                                                                Mới
-                                                            </span>
-                                                        )}
-                                                        {tomTat && (
-                                                            <span className="flex min-w-0 items-center gap-1.5 truncate text-sm text-bo-muted">
-                                                                <span aria-hidden="true">·</span>
-                                                                <ColorDot hex={mauSac?.maMauHex} />
-                                                                <span className="truncate">{tomTat}</span>
-                                                                {coNhieuChatLieu && chatLieu?.tenChatLieu && (
-                                                                    <span className="truncate">· {chatLieu.tenChatLieu}</span>
-                                                                )}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    {laBienTheMoi && (
-                                                        <Button
-                                                            type="button"
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            className="shrink-0 text-bo-danger hover:bg-bo-danger-soft hover:text-bo-danger"
-                                                            onClick={() => handleRemoveNewVariant(index)}
-                                                            disabled={isSubmitting}
-                                                        >
-                                                            <X className="size-4" /> Xóa
-                                                        </Button>
-                                                    )}
-                                                </div>
-
-                                                {/* Thuộc tính biến thể: cùng vị trí với form Thêm */}
-                                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                                                    <div className="space-y-2">
-                                                        <Label htmlFor={khoaThuocTinh ? undefined : `variant-color-${index}`} className={khoaThuocTinh ? "text-bo-muted" : undefined}>
-                                                            Màu sắc {!khoaThuocTinh && <span className="text-bo-danger">*</span>}
-                                                        </Label>
-                                                        {khoaThuocTinh ? (
-                                                            <ReadOnlyField>
-                                                                {mauSac?.tenMau ? (
-                                                                    <>
-                                                                        <ColorDot hex={mauSac.maMauHex} />
-                                                                        <span className="truncate">{mauSac.tenMau}</span>
-                                                                    </>
-                                                                ) : null}
-                                                            </ReadOnlyField>
-                                                        ) : (
-                                                            <Controller
-                                                                name={`bienTheSanPhams.${index}.mauSacId`}
-                                                                control={control}
-                                                                render={({ field }) => (
-                                                                    <AttributeSelect
-                                                                        id={`variant-color-${index}`}
-                                                                        value={field.value}
-                                                                        onChange={field.onChange}
-                                                                        options={colors}
-                                                                        renderOption={(color) => (
-                                                                            <span className="flex items-center gap-2">
-                                                                                <ColorDot hex={color.maMauHex} />
-                                                                                {color.tenMau}
-                                                                            </span>
-                                                                        )}
-                                                                        selectedContent={mauSac ? (
-                                                                            <span className="flex items-center gap-2">
-                                                                                <ColorDot hex={mauSac.maMauHex} />
-                                                                                {mauSac.tenMau}
-                                                                            </span>
-                                                                        ) : undefined}
-                                                                        placeholder="Chọn màu"
-                                                                        emptyText="Không có màu sắc"
-                                                                        disabled={isSubmitting}
-                                                                        invalid={!!loiDong?.mauSacId}
-                                                                    />
-                                                                )}
-                                                            />
-                                                        )}
-                                                        {loiDong?.mauSacId && (
-                                                            <p className="text-xs text-bo-danger">{loiDong.mauSacId.message}</p>
-                                                        )}
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        <Label htmlFor={khoaThuocTinh ? undefined : `variant-size-${index}`} className={khoaThuocTinh ? "text-bo-muted" : undefined}>
-                                                            Size {!khoaThuocTinh && <span className="text-bo-danger">*</span>}
-                                                        </Label>
-                                                        {khoaThuocTinh ? (
-                                                            <ReadOnlyField>{size?.tenSize}</ReadOnlyField>
-                                                        ) : (
-                                                            <Controller
-                                                                name={`bienTheSanPhams.${index}.sizeId`}
-                                                                control={control}
-                                                                render={({ field }) => (
-                                                                    <AttributeSelect
-                                                                        id={`variant-size-${index}`}
-                                                                        value={field.value}
-                                                                        onChange={field.onChange}
-                                                                        options={sizes}
-                                                                        renderOption={(item) => item.tenSize}
-                                                                        selectedContent={size ? size.tenSize : undefined}
-                                                                        placeholder="Chọn kích cỡ"
-                                                                        emptyText="Không có kích cỡ"
-                                                                        disabled={isSubmitting}
-                                                                        invalid={!!loiDong?.sizeId}
-                                                                    />
-                                                                )}
-                                                            />
-                                                        )}
-                                                        {loiDong?.sizeId && (
-                                                            <p className="text-xs text-bo-danger">{loiDong.sizeId.message}</p>
-                                                        )}
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        <Label className="text-bo-muted">
-                                                            {laBienTheMoi || daDoiThuocTinh ? "Mã SKU (tự động)" : "Mã SKU"}
-                                                        </Label>
-                                                        <ReadOnlyField>
-                                                            {maSkuHienThi ? (
-                                                                <span className="break-all font-mono text-xs">{maSkuHienThi}</span>
-                                                            ) : laBienTheMoi ? (
-                                                                <span className="text-xs italic text-bo-muted">Chọn màu sắc và kích cỡ để ghép mã</span>
-                                                            ) : null}
-                                                        </ReadOnlyField>
-                                                        {daDoiThuocTinh && goc?.maSku && (
-                                                            <p className="break-all text-xs text-bo-muted">
-                                                                Mã cũ: <span className="font-mono">{goc.maSku}</span>
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                {/* Biến thể mới của sản phẩm nhiều chất liệu: phải chọn chất liệu */}
-                                                {laBienTheMoi && row.yeuCauChatLieu && (
-                                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                                                        <div className="space-y-2">
-                                                            <Label htmlFor={`variant-material-${index}`}>
-                                                                Chất liệu <span className="text-bo-danger">*</span>
-                                                            </Label>
-                                                            <Controller
-                                                                name={`bienTheSanPhams.${index}.chatLieuId`}
-                                                                control={control}
-                                                                render={({ field }) => (
-                                                                    <AttributeSelect
-                                                                        id={`variant-material-${index}`}
-                                                                        value={field.value}
-                                                                        onChange={field.onChange}
-                                                                        options={materials}
-                                                                        renderOption={(item) => item.tenChatLieu}
-                                                                        selectedContent={chatLieu ? chatLieu.tenChatLieu : undefined}
-                                                                        placeholder="Chọn chất liệu"
-                                                                        emptyText="Không có chất liệu"
-                                                                        disabled={isSubmitting}
-                                                                        invalid={!!loiDong?.chatLieuId}
-                                                                    />
-                                                                )}
-                                                            />
-                                                            {loiDong?.chatLieuId && (
-                                                                <p className="text-xs text-bo-danger">{loiDong.chatLieuId.message}</p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {khoaThuocTinh && (
-                                                    <p className="flex items-start gap-1.5 text-xs leading-relaxed text-bo-muted">
-                                                        <Lock className="mt-0.5 size-3.5 shrink-0" />
-                                                        <span>
-                                                            Đã phát sinh giao dịch (tồn kho, chứng từ) nên không đổi được màu sắc, size.
-                                                            Cần màu/kích cỡ khác: chuyển biến thể này sang Tạm ngừng và thêm biến thể mới.
-                                                        </span>
-                                                    </p>
-                                                )}
-
-                                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                                                    {/* Giá vốn */}
-                                                    <div className="space-y-2">
-                                                        <Label>Giá vốn <span className="text-bo-danger">*</span></Label>
-                                                        <Controller
-                                                            name={`bienTheSanPhams.${index}.giaVon`}
-                                                            control={control}
-                                                            render={({ field }) => (
-                                                                <Input
-                                                                    {...field}
-                                                                    type="number"
-                                                                    min="0"
-                                                                    placeholder="0"
-                                                                    disabled={isSubmitting}
-                                                                    className={CONTROL_CLASS}
-                                                                />
-                                                            )}
-                                                        />
-                                                    </div>
-
-                                                    {/* Giá bán */}
-                                                    <div className="space-y-2">
-                                                        <Label>Giá bán <span className="text-bo-danger">*</span></Label>
-                                                        <Controller
-                                                            name={`bienTheSanPhams.${index}.giaBan`}
-                                                            control={control}
-                                                            render={({ field }) => (
-                                                                <Input
-                                                                    {...field}
-                                                                    type="number"
-                                                                    min="0"
-                                                                    placeholder="0"
-                                                                    disabled={isSubmitting}
-                                                                    className={CONTROL_CLASS}
-                                                                />
-                                                            )}
-                                                        />
-                                                    </div>
-
-                                                    {/* Trạng thái */}
-                                                    <div className="space-y-2">
-                                                        <Label>Trạng thái</Label>
-                                                        <Controller
-                                                            name={`bienTheSanPhams.${index}.trangThai`}
-                                                            control={control}
-                                                            render={({ field }) => (
-                                                                <Select
-                                                                    value={field.value?.toString()}
-                                                                    onValueChange={(value) => field.onChange(Number(value))}
-                                                                    disabled={isSubmitting}
-                                                                >
-                                                                    <SelectTrigger className="h-10 w-full border-bo-border text-bo-foreground">
-                                                                        <SelectValue placeholder="Chọn trạng thái" />
-                                                                    </SelectTrigger>
-                                                                    <SelectContent
-                                                                        position="popper"
-                                                                        side="bottom"
-                                                                        align="start"
-                                                                        sideOffset={4}
-                                                                        className={SELECT_CONTENT_CLASS}
-                                                                    >
-                                                                        <SelectItem value="1" className={SELECT_ITEM_CLASS}>Hoạt động</SelectItem>
-                                                                        <SelectItem value="0" className={SELECT_ITEM_CLASS}>Tạm ngừng</SelectItem>
-                                                                    </SelectContent>
-                                                                </Select>
-                                                            )}
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                {/* Variant Image */}
                                                 <div className="space-y-2">
-                                                    <Label>Ảnh biến thể {laBienTheMoi && <span className="text-bo-danger">*</span>}</Label>
-                                                    <div className="space-y-2 rounded-lg border-2 border-dashed border-bo-border bg-bo-surface-subtle p-3">
-                                                        {/* Existing variant image */}
-                                                        {existingVariantImages[index] && !variantImages[index] && (
-                                                            <div className="mb-2">
-                                                                <p className="mb-2 text-xs text-bo-muted">Ảnh hiện tại:</p>
-                                                                <div className="relative inline-block">
-                                                                    <img
-                                                                        src={existingVariantImages[index].tepTin?.duongDan || existingVariantImages[index].urlAnh}
-                                                                        alt="Ảnh biến thể"
-                                                                        className="size-24 rounded-md border border-bo-border object-cover"
-                                                                    />
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => handleRemoveExistingVariantImage(index)}
-                                                                        aria-label={`Xóa ảnh biến thể hiện tại ${index + 1}`}
-                                                                        className="absolute -right-2 -top-2 rounded-full bg-bo-danger p-1 text-white transition-opacity hover:opacity-90"
-                                                                    >
-                                                                        <X className="size-3" />
-                                                                    </button>
-                                                                </div>
-                                                            </div>
+                                                    <Label htmlFor="maVach">Mã vạch</Label>
+                                                    <Controller
+                                                        name="maVach"
+                                                        control={control}
+                                                        render={({ field }) => (
+                                                            <Input
+                                                                {...field}
+                                                                id="maVach"
+                                                                placeholder="VD: 8935049501234"
+                                                                maxLength={DO_DAI_MA_VACH_TOI_DA}
+                                                                autoComplete="off"
+                                                                disabled={isSubmitting}
+                                                                aria-invalid={errors.maVach ? true : undefined}
+                                                                className={CONTROL_CLASS}
+                                                            />
                                                         )}
-
-                                                        <input
-                                                            type="file"
-                                                            accept="image/*"
-                                                            onChange={(e) => handleVariantImageChange(index, e)}
-                                                            className="hidden"
-                                                            id={`variant-image-${index}`}
-                                                            disabled={isSubmitting}
-                                                        />
-                                                        <label
-                                                            htmlFor={`variant-image-${index}`}
-                                                            className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-bo-border bg-white p-2 text-sm font-medium text-bo-foreground transition-colors hover:bg-bo-primary-soft hover:text-bo-primary"
-                                                        >
-                                                            <Upload className="size-4" />
-                                                            <span>
-                                                                {variantImages[index] || existingVariantImages[index] ? "Thay đổi ảnh" : "Thêm ảnh mới"}
-                                                            </span>
-                                                        </label>
-
-                                                        {variantImages[index] && (
-                                                            <div>
-                                                                <p className="mb-2 text-xs text-bo-muted">Ảnh mới:</p>
-                                                                <div className="relative inline-block">
-                                                                    <img
-                                                                        src={URL.createObjectURL(variantImages[index])}
-                                                                        alt="Ảnh biến thể mới"
-                                                                        className="size-24 rounded-md border border-bo-border object-cover"
-                                                                    />
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => handleRemoveVariantImage(index)}
-                                                                        aria-label={`Xóa ảnh biến thể mới ${index + 1}`}
-                                                                        className="absolute -right-2 -top-2 rounded-full bg-bo-danger p-1 text-white transition-opacity hover:opacity-90"
-                                                                    >
-                                                                        <X className="size-3" />
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                                    />
+                                                    {errors.maVach && <p className="text-xs text-bo-danger">{errors.maVach.message}</p>}
                                                 </div>
 
-                                                {/* Lỗi màu/size/chất liệu đã hiện ngay dưới ô tương ứng */}
-                                                {loiKhac.length > 0 && (
-                                                    <p className="text-xs text-bo-danger">{loiKhac.join(", ")}</p>
+                                                {canChonChatLieu && (
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="chatLieuMoiId">
+                                                            Chất liệu cho biến thể mới <span className="text-bo-danger">*</span>
+                                                        </Label>
+                                                        <Select
+                                                            value={chatLieuMoiId == null ? "" : String(chatLieuMoiId)}
+                                                            onValueChange={(value) => value !== "" && setChatLieuMoiId(Number(value))}
+                                                            disabled={isSubmitting}
+                                                        >
+                                                            <SelectTrigger
+                                                                id="chatLieuMoiId"
+                                                                aria-invalid={hienLoi && !chatLieuMoi ? true : undefined}
+                                                                className={SELECT_TRIGGER_CLASS}
+                                                            >
+                                                                <SelectValue placeholder="Chọn chất liệu" />
+                                                            </SelectTrigger>
+                                                            <SelectContent position="popper" side="bottom" align="start" className={`${SELECT_CONTENT_CLASS} max-h-[300px]`}>
+                                                                {materials.length === 0 ? (
+                                                                    <div className="p-2 text-center text-sm text-bo-muted">
+                                                                        {dangTaiThamChieu ? "Đang tải chất liệu…" : "Không có chất liệu nào đang hoạt động"}
+                                                                    </div>
+                                                                ) : (
+                                                                    materials.map((material) => (
+                                                                        <SelectItem key={material.id} value={String(material.id)} className={SELECT_ITEM_CLASS}>
+                                                                            {material.tenChatLieu}
+                                                                        </SelectItem>
+                                                                    ))
+                                                                )}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
                                                 )}
-                                            </div>
-                                            );
-                                        })}
-                                    </div>
-                                </FormSection>
-                            </div>
-                        </div>
-                    </form>
-                </div>
 
-                <DialogFooter className="border-t border-bo-border bg-white px-4 py-3 sm:px-5">
-                    <div className="flex w-full items-center justify-between gap-3">
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={handleAddVariant}
-                            disabled={isSubmitting}
-                            className="flex items-center gap-1 border-2 border-dashed border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                        >
-                            <Plus className="size-4" />
-                            Thêm biến thể khác
-                        </Button>
-                        <div className="flex items-center gap-2">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={handleCancel}
-                                disabled={isSubmitting}
-                                className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                            >
-                                Hủy
-                            </Button>
-                            <Button
-                                type="submit"
-                                disabled={isSubmitting}
-                                className="bg-bo-primary text-white hover:bg-bo-primary-hover"
-                                onClick={handleSubmit(onSubmit)}
-                            >
-                                {isSubmitting ? (
+                                                <TruongMoTa control={control} disabled={isSubmitting} />
+                                            </div>
+                                            <p className="mt-4 text-xs text-bo-muted">
+                                                Chất liệu:{" "}
+                                                <span className="font-medium text-bo-foreground">
+                                                    {chatLieuDangDung.map((cl) => cl.tenChatLieu).join(", ") || "Chưa có"}
+                                                </span>
+                                                {chatLieuDangDung.length > 1
+                                                    ? " (mỗi biến thể một chất liệu)"
+                                                    : ", cố định sau khi tạo và áp dụng cho mọi biến thể."}
+                                            </p>
+                                        </FormSection>
+                                    </div>
+
+                                    <KhuAnhSanPham
+                                        id="khu-anh-san-pham"
+                                        anhs={anhSanPhams}
+                                        thieuAnh={hienLoi && anhSanPhams.length === 0}
+                                        disabled={isSubmitting}
+                                        onThemTep={themAnhSanPham}
+                                        onXoa={xoaAnhSanPham}
+                                        onDatChinh={datAnhChinh}
+                                    />
+                                </div>
+
+                                <div id="khu-bien-the" className="scroll-mt-4">
+                                    <FormSection
+                                        title={
+                                            <span className="flex items-center justify-between gap-2">
+                                                <span>Biến thể <span className="text-bo-danger">*</span></span>
+                                                <span className="rounded-full bg-bo-primary-soft px-2.5 py-0.5 text-xs font-semibold text-bo-primary">
+                                                    {thongKe.soSauLuu} biến thể
+                                                </span>
+                                            </span>
+                                        }
+                                    >
+                                        <TrinhTaoBienThe
+                                            cheDo="sua"
+                                            state={bienThe}
+                                            dispatch={dispatchBienThe}
+                                            nhom={nhomBienThe}
+                                            thongKe={thongKe}
+                                            mauSacs={mauSacs}
+                                            kichCos={kichCos}
+                                            mauKhoa={mauKhoa}
+                                            kichCoKhoa={kichCoKhoa}
+                                            anhMauCu={bienThe.anhMauCu}
+                                            dangTai={dangTaiThamChieu}
+                                            loiTai={loiTaiThamChieu && (mauSacs.length === 0 || kichCos.length === 0)}
+                                            onThuLai={loadReferenceData}
+                                            tienToMaSanPham={sanPham.maSanPham}
+                                            maChatLieu={chatLieuMoi?.maChatLieu}
+                                            anhSanPhams={anhSanPhamMoi}
+                                            hienLoi={hienLoi}
+                                            disabled={isSubmitting}
+                                            onChonAnhMau={ganAnhMau}
+                                            onDungAnhSanPham={dungAnhSanPhamChoMau}
+                                            onGoAnhMau={goAnhMau}
+                                        />
+                                    </FormSection>
+                                </div>
+                            </form>
+                        )}
+                    </div>
+
+                    <DialogFooter className="border-t border-bo-border bg-white px-4 py-3 sm:px-5">
+                        <div className="flex w-full flex-wrap items-center justify-between gap-3">
+                            <p className="text-sm text-bo-muted" aria-live="polite">
+                                {!sanPham ? null : !coThayDoi ? (
+                                    "Chưa có thay đổi"
+                                ) : thongKe.soTao > 0 ? (
                                     <>
-                                        <Loader2 className="size-4 animate-spin" />
-                                        Đang cập nhật...
+                                        Sẽ thêm <b className="text-bo-foreground">{thongKe.soTao}</b> biến thể mới, tổng{" "}
+                                        <b className="text-bo-foreground">{thongKe.soSauLuu}</b> biến thể
                                     </>
                                 ) : (
-                                    "Cập nhật sản phẩm"
+                                    "Có thay đổi chưa lưu"
                                 )}
-                            </Button>
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handleCancel}
+                                    disabled={isSubmitting}
+                                    className={NUT_VIEN_CLASS}
+                                >
+                                    Hủy
+                                </Button>
+                                <Button
+                                    type="button"
+                                    disabled={!duocLuu}
+                                    title={sanPham && !coThayDoi ? "Chưa có thay đổi để lưu" : "Lưu (Ctrl + S)"}
+                                    aria-keyshortcuts="Control+S Meta+S"
+                                    className="bg-bo-primary text-white hover:bg-bo-primary-hover focus-visible:ring-[3px] focus-visible:ring-bo-primary/30"
+                                    onClick={handleLuu}
+                                >
+                                    {isSubmitting ? (
+                                        <>
+                                            <Loader2 className="size-4 animate-spin" />
+                                            Đang lưu...
+                                        </>
+                                    ) : (
+                                        "Lưu thay đổi"
+                                    )}
+                                </Button>
+                            </div>
                         </div>
-                    </div>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <HopHoiBoThayDoi
+                open={hoiBoThayDoi}
+                onOpenChange={setHoiBoThayDoi}
+                onBo={dongForm}
+                onCloseAutoFocus={traFocusSauKhiHoi}
+                tieuDe="Bỏ các thay đổi chưa lưu?"
+                moTa="Thay đổi về thông tin, ảnh và biến thể của sản phẩm sẽ không được lưu."
+            />
+        </>
     );
 }

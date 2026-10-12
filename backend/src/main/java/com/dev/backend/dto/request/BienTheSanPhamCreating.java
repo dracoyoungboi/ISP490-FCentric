@@ -22,6 +22,9 @@ public class BienTheSanPhamCreating {
     BigDecimal giaVon;
     BigDecimal giaBan;
     Integer trangThai;
+    // Chỉ số tệp trong phần anhBienThes của request. Các biến thể cùng màu trỏ cùng một chỉ số
+    // để dùng chung một tệp ảnh. null = cách cũ: tệp thứ i ứng với biến thể thứ i.
+    Integer viTriAnh;
 
     public static BienTheSanPham toEntity(BienTheSanPhamCreating creating) {
         return BienTheSanPham.builder()

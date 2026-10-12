@@ -1,6 +1,6 @@
 import { getApiErrorMessage } from "@/utils/apiError";
-import { useState, useEffect, useCallback } from "react";
-import { useForm, Controller, useFieldArray } from "react-hook-form";
+import { useState, useEffect, useCallback, useMemo, useReducer } from "react";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import {
     Dialog,
@@ -11,175 +11,157 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { Loader2, Upload, X, Plus, Info, Package, Sparkles } from "lucide-react";
+import { Loader2, Package } from "lucide-react";
 import { toast } from "sonner";
 import { productService } from "@/services/productService.js";
 import { danhMucQuanAoService } from "@/services/danhMucQuanAoService.js";
 import * as yup from "yup";
 
 import FormSection from "@/components/shared/FormSection";
-import BrandSelector from "@/components/brand/BrandSelector";
 import { flattenCategoryTree } from "@/utils/danhMucTree";
+import TrinhTaoBienThe from "./TrinhTaoBienThe";
+import KhuAnhSanPham from "./KhuAnhSanPham";
+import HopHoiBoThayDoi from "./HopHoiBoThayDoi";
+import {
+    TomTatLoi,
+    TruongDanhMuc,
+    TruongMoTa,
+    TruongMucTon,
+    TruongTenSanPham,
+    TruongThuongHieu,
+} from "./TruongThongTin";
+import {
+    DO_DAI_TEN_TOI_DA,
+    LOP_FORM,
+    NUT_VIEN_CLASS,
+    O_ANH_MAU,
+    O_CHON_MAU,
+    O_NUT_KICH_CO,
+    SELECT_CONTENT_CLASS,
+    SELECT_ITEM_CLASS,
+    SELECT_TRIGGER_CLASS,
+    THOI_GIAN_DONG_HOP_THOAI,
+    layDuLieu,
+} from "./kieuForm";
+import {
+    locTepAnhHopLe,
+    taoXuLyPhimTat,
+    useAnhXemTruoc,
+    useChanRoiTrang,
+    useChanThaTepNgoaiKhung,
+    useCuonToiLoiSauKhiLuu,
+    useHoiTruocKhiBo,
+} from "./dungChungForm";
+import {
+    SO_BIEN_THE_TOI_DA,
+    bienTheReducer,
+    daNhapBienThe,
+    kiemTraTepAnh,
+    ngayTrongMa,
+    sapXepKichCo,
+    taoDuLieuGuiBienThe,
+    thongKeBienThe,
+    tinhNhomBienThe,
+    trangThaiBanDau,
+    vietTatDanhMuc,
+} from "./logicBienThe";
 
+// Biến thể, ảnh và giá được kiểm tra riêng (xem danhSachLoiBienThe); schema chỉ lo thông tin cơ bản.
 const addProductSchema = yup.object({
-    tenSanPham: yup.string().required("Tên sản phẩm là bắt buộc"),
-    maSanPham: yup.string().nullable(),
-    danhMucId: yup.number().required("Danh mục là bắt buộc").typeError("Vui lòng chọn danh mục"),
+    tenSanPham: yup
+        .string()
+        .trim()
+        .required("Vui lòng nhập tên sản phẩm")
+        .max(DO_DAI_TEN_TOI_DA, `Tên sản phẩm tối đa ${DO_DAI_TEN_TOI_DA} ký tự`),
+    danhMucId: yup.number().required("Vui lòng chọn danh mục").typeError("Vui lòng chọn danh mục"),
     thuongHieuId: yup.number().nullable(),
-    // Chất liệu chọn 1 lần ở Thông tin cơ bản, áp dụng cho tất cả biến thể.
+    // Chất liệu chọn 1 lần, áp dụng cho tất cả biến thể.
     // Lưu ý: nullable() phải đứng TRƯỚC required() để null vẫn bị required bắt
     // (đã kiểm chứng trên yup 1.7.1 — thứ tự ngược lại sẽ cho null lọt qua).
     chatLieuId: yup.number()
         .nullable()
-        .required("Chất liệu là bắt buộc")
+        .required("Vui lòng chọn chất liệu")
         .typeError("Vui lòng chọn chất liệu")
         .positive("Vui lòng chọn chất liệu hợp lệ"),
+    mucTonToiThieu: yup
+        .number()
+        .transform((value) => (isNaN(value) ? 0 : value))
+        .min(0, "Vui lòng nhập mức tồn từ 0 trở lên")
+        .integer("Vui lòng nhập số nguyên"),
     moTa: yup.string(),
-    giaVonMacDinh: yup.number().transform(value => (isNaN(value) ? 0 : value)).nullable(),
-    giaBanMacDinh: yup.number().transform(value => (isNaN(value) ? 0 : value)).nullable(),
-    mucTonToiThieu: yup.number().min(0, "Mức tồn phải >= 0"),
-    trangThai: yup.number().required(),
-    bienTheSanPhams: yup.array().of(
-        yup.object({
-            mauSacId: yup.number().required("Màu sắc là bắt buộc").nullable(),
-            sizeId: yup.number().required("Kích cỡ là bắt buộc").nullable(),
-            maSku: yup.string().nullable(),
-            giaVon: yup.number().transform(value => (isNaN(value) ? 0 : value)).nullable(),
-            giaBan: yup.number().transform(value => (isNaN(value) ? 0 : value)).nullable(),
-            trangThai: yup.number().required(),
-        })
-    ).min(1, "Phải có ít nhất 1 biến thể")
-        .test("khong-trung-mau-size", function (variants) {
-            // Chặn trùng tổ hợp Màu sắc + Size ngay trên client và báo rõ dòng trùng.
-            // Chất liệu giờ là chung nên không tham gia kiểm tra trùng;
-            // backend vẫn giữ kiểm tra theo cấu trúc cũ (Màu-Size-Chất liệu).
-            const seen = new Map();
-            for (let i = 0; i < variants.length; i++) {
-                const variant = variants[i];
-                // Biến thể chưa chọn đủ Màu/Size đã có lỗi required riêng, bỏ qua ở đây.
-                if (variant.mauSacId == null || variant.sizeId == null) continue;
-                const key = `${variant.mauSacId}-${variant.sizeId}`;
-                if (seen.has(key)) {
-                    // Path đầy đủ để yupResolver gắn lỗi vào đúng dòng biến thể trùng.
-                    return this.createError({
-                        path: `bienTheSanPhams[${i}].sizeId`,
-                        message: `Trùng màu sắc + kích cỡ với biến thể #${seen.get(key) + 1}`,
-                    });
-                }
-                seen.set(key, i);
-            }
-            return true;
-        })
 });
-const CONTROL_CLASS =
-    "border-bo-border bg-white text-bo-foreground placeholder:text-bo-muted focus-visible:border-bo-primary focus-visible:ring-bo-primary/15";
-const CONTROL_DISABLED_CLASS =
-    "cursor-not-allowed border-bo-border bg-bo-surface-subtle italic text-bo-muted";
-const SELECT_CONTENT_CLASS = "z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg";
-const SELECT_ITEM_CLASS = "rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
 
-// Chấm màu theo mã hex — đồng bộ với form Chỉnh sửa sản phẩm
-function ColorDot({ hex }) {
-    if (!hex) return null;
-    return (
-        <span
-            className="size-3.5 shrink-0 rounded-full border border-bo-border"
-            style={{ backgroundColor: hex }}
-            aria-hidden="true"
-        />
-    );
-}
-const STEP_CLASS =
-    "flex items-center justify-center gap-2 rounded-md border border-bo-border bg-white px-2 py-1.5 text-center text-[11px] font-semibold text-bo-muted";
+const GIA_TRI_MAC_DINH = {
+    tenSanPham: "",
+    danhMucId: "",
+    thuongHieuId: null,
+    chatLieuId: null,
+    mucTonToiThieu: 0,
+    moTa: "",
+};
 
 export default function AddProductModal({ isOpen, onClose, onSuccess }) {
     const [categories, setCategories] = useState([]);
     const [colors, setColors] = useState([]);
     const [sizes, setSizes] = useState([]);
     const [materials, setMaterials] = useState([]);
-    const [productImages, setProductImages] = useState([]);
-    const [variantImages, setVariantImages] = useState({});
+    const [dangTaiThamChieu, setDangTaiThamChieu] = useState(false);
+    const [loiTaiThamChieu, setLoiTaiThamChieu] = useState(false);
+    const [anhSanPhams, setAnhSanPhams] = useState([]);
+    const [bienThe, dispatchBienThe] = useReducer(bienTheReducer, undefined, trangThaiBanDau);
+    // Chỉ tô đỏ lỗi ảnh/biến thể sau lần bấm Lưu đầu tiên
+    const [hienLoi, setHienLoi] = useState(false);
+    const [ngayMa, setNgayMa] = useState(() => ngayTrongMa());
 
     const {
         control,
         handleSubmit,
         reset,
-        formState: { errors, isSubmitting },
+        formState: { errors, isSubmitting, isDirty },
     } = useForm({
-        // Client-side schema validation truoc khi goi backend create.
         resolver: yupResolver(addProductSchema),
-        defaultValues: {
-            tenSanPham: "",
-            maSanPham: "",
-            danhMucId: "",
-            thuongHieuId: null,
-            chatLieuId: null,
-            moTa: "",
-            giaVonMacDinh: 0,
-            giaBanMacDinh: 0,
-            mucTonToiThieu: 0,
-            trangThai: 1,
-            bienTheSanPhams: [{
-                mauSacId: null,
-                sizeId: null,
-                maSku: "",
-                giaVon: 0,
-                giaBan: 0,
-                trangThai: 1,
-            }],
-        }
+        defaultValues: GIA_TRI_MAC_DINH,
     });
+    const [danhMucId, chatLieuId] = useWatch({ control, name: ["danhMucId", "chatLieuId"] });
 
-    const { fields, append, remove } = useFieldArray({
-        control,
-        name: "bienTheSanPhams"
-    });
+    const coThayDoi = isDirty || anhSanPhams.length > 0 || daNhapBienThe(bienThe);
+    const { hoiBoThayDoi, setHoiBoThayDoi, dongForm, handleCancel, nhoNutMoForm, traFocusNutMoForm, traFocusSauKhiHoi } =
+        useHoiTruocKhiBo({ coThayDoi, dangLuu: isSubmitting, onClose });
 
+    // Ảnh sản phẩm và ảnh màu có thể dùng chung một URL xem trước.
+    const anhDangDung = useMemo(() => [...anhSanPhams, ...Object.values(bienThe.anhMau)], [anhSanPhams, bienThe.anhMau]);
+    const taoAnhXemTruoc = useAnhXemTruoc(anhDangDung);
+    useChanRoiTrang(isOpen, coThayDoi);
+    useChanThaTepNgoaiKhung(isOpen);
+    const henCuonToiLoi = useCuonToiLoiSauKhiLuu(isSubmitting);
+
+    // ---------- mở / đặt lại form ----------
     const handleResetForm = useCallback(() => {
-        // Reset ve state ban dau sau khi tao thanh cong hoac khi dong modal.
-        reset({
-            tenSanPham: "",
-            maSanPham: "",
-            danhMucId: "",
-            thuongHieuId: null,
-            chatLieuId: null,
-            moTa: "",
-            giaVonMacDinh: 0,
-            giaBanMacDinh: 0,
-            mucTonToiThieu: 0,
-            trangThai: 1,
-            bienTheSanPhams: [{
-                mauSacId: null,
-                sizeId: null,
-                maSku: "",
-                giaVon: 0,
-                giaBan: 0,
-                trangThai: 1,
-            }],
-        });
-        setProductImages([]);
-        setVariantImages({});
-    }, [reset]);
+        reset(GIA_TRI_MAC_DINH);
+        setAnhSanPhams([]);
+        dispatchBienThe({ type: "datLai" });
+        setHienLoi(false);
+        setHoiBoThayDoi(false);
+        setNgayMa(ngayTrongMa());
+    }, [reset, setHoiBoThayDoi]);
 
+    // Mở form: luôn bắt đầu sạch. Đóng form: chờ hiệu ứng đóng xong mới xóa, để form không trống trơn lúc đang mờ dần.
     useEffect(() => {
         if (isOpen) {
-            // Moi lan mo modal thi reset form de tranh du lieu cu con sot lai.
-            // Hoãn qua microtask để tránh setState đồng bộ trong effect
-            // (react-hooks/set-state-in-effect).
+            // Hoãn qua microtask để tránh setState đồng bộ trong effect (react-hooks/set-state-in-effect).
             queueMicrotask(() => handleResetForm());
+            return undefined;
         }
+        const hen = setTimeout(handleResetForm, THOI_GIAN_DONG_HOP_THOAI);
+        return () => clearTimeout(hen);
     }, [isOpen, handleResetForm]);
 
     const loadReferenceData = useCallback(async () => {
+        setDangTaiThamChieu(true);
+        setLoiTaiThamChieu(false);
         try {
-            // Tai du lieu tham chieu cho form (mau, size, chat lieu, danh muc).
-            // Luong backend: Controller.getAll -> Service.getAll -> Repository.findAll.
-            const extractData = (response) => response?.data?.data ?? response?.data ?? [];
-
             const [colorsResult, sizesResult, materialsResult, categoriesResult] = await Promise.allSettled([
                 productService.getColors(),
                 productService.getSizes(),
@@ -187,744 +169,376 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                 danhMucQuanAoService.getCayDanhMuc(),
             ]);
 
-            if (colorsResult.status === "fulfilled") setColors(extractData(colorsResult.value));
-            if (sizesResult.status === "fulfilled") setSizes(extractData(sizesResult.value));
-            if (materialsResult.status === "fulfilled") setMaterials(extractData(materialsResult.value));
-
+            if (colorsResult.status === "fulfilled") setColors(layDuLieu(colorsResult.value));
+            // Sắp theo thứ tự chuẩn ngay ở form để không phụ thuộc thứ tự backend trả về.
+            if (sizesResult.status === "fulfilled") setSizes(sapXepKichCo(layDuLieu(sizesResult.value)));
+            if (materialsResult.status === "fulfilled") setMaterials(layDuLieu(materialsResult.value));
             if (categoriesResult.status === "fulfilled") {
-                const rawCategoriesTree = extractData(categoriesResult.value);
-                // Ép phẳng cây danh mục và tạo lùi lề
-                setCategories(flattenCategoryTree(rawCategoriesTree));
+                setCategories(flattenCategoryTree(layDuLieu(categoriesResult.value)));
             } else {
                 toast.error("Không thể tải dữ liệu danh mục");
             }
-
+            if ([colorsResult, sizesResult, materialsResult].some((r) => r.status === "rejected")) {
+                setLoiTaiThamChieu(true);
+                toast.error("Không tải được màu sắc, kích cỡ hoặc chất liệu. Vui lòng thử lại.");
+            }
         } catch {
+            setLoiTaiThamChieu(true);
             toast.error("Lỗi hệ thống khi tải dữ liệu khởi tạo");
+        } finally {
+            setDangTaiThamChieu(false);
         }
     }, []);
 
     useEffect(() => {
         if (!isOpen) return;
-        // Hoãn qua microtask để tránh setState đồng bộ trong effect
-        // (react-hooks/set-state-in-effect); dữ liệu tham chiếu vẫn được tải khi mở modal.
         queueMicrotask(() => loadReferenceData());
     }, [isOpen, loadReferenceData]);
 
+    // ---------- dữ liệu suy ra ----------
+    const danhMucDaChon = categories.find((c) => c.id === Number(danhMucId));
+    const chatLieuDaChon = materials.find((m) => m.id === Number(chatLieuId));
+    const tienToMaSanPham = danhMucDaChon ? vietTatDanhMuc(danhMucDaChon.tenDanhMuc) + ngayMa : "";
+
+    const nhomBienThe = useMemo(() => tinhNhomBienThe(bienThe, sizes), [bienThe, sizes]);
+    const thongKe = useMemo(() => thongKeBienThe(nhomBienThe, bienThe.anhMau), [nhomBienThe, bienThe.anhMau]);
+
+    const soMauDaChon = bienThe.mauDaChon.length;
+    const soKichCoDaChon = bienThe.kichCoDaChon.length;
+    const danhSachLoiBienThe = useMemo(() => {
+        const loi = [];
+        // Bấm vào lỗi thì đưa con trỏ tới chỗ còn thiếu: ô chọn màu, hoặc nút kích cỡ khi đã có màu.
+        const oChonBienThe = soMauDaChon > 0 && soKichCoDaChon === 0 ? O_NUT_KICH_CO : O_CHON_MAU;
+        if (anhSanPhams.length === 0) {
+            loi.push({ id: "khu-anh-san-pham", thongBao: "Vui lòng thêm ít nhất 1 ảnh sản phẩm chính." });
+        }
+        if (thongKe.soTao === 0) {
+            loi.push({
+                id: "khu-bien-the",
+                oFocus: oChonBienThe,
+                thongBao: "Vui lòng chọn ít nhất 1 màu sắc và 1 kích cỡ để tạo biến thể.",
+            });
+        } else if (thongKe.soTao > SO_BIEN_THE_TOI_DA) {
+            loi.push({
+                id: "khu-bien-the",
+                oFocus: oChonBienThe,
+                thongBao: `Mỗi sản phẩm có tối đa ${SO_BIEN_THE_TOI_DA} biến thể, hiện đang chọn ${thongKe.soTao}. Vui lòng bỏ bớt màu sắc hoặc kích cỡ.`,
+            });
+        }
+        for (const mauSacId of thongKe.mauThieuAnh) {
+            const tenMau = colors.find((c) => c.id === mauSacId)?.tenMau ?? "";
+            loi.push({
+                id: `nhom-mau-${mauSacId}`,
+                oFocus: O_ANH_MAU,
+                thongBao: `Màu ${tenMau} chưa có ảnh. Bấm ô ảnh ở dòng màu để thêm.`,
+            });
+        }
+        return loi;
+    }, [anhSanPhams.length, thongKe, colors, soMauDaChon, soKichCoDaChon]);
+
+    // ---------- ảnh sản phẩm ----------
+    const themAnhSanPham = (files) => {
+        const hopLe = locTepAnhHopLe(files);
+        if (hopLe.length === 0) return;
+        const anhMoi = hopLe.map(taoAnhXemTruoc);
+        setAnhSanPhams((prev) => [...prev, ...anhMoi]);
+    };
+
+    const xoaAnhSanPham = (anh) => {
+        setAnhSanPhams((prev) => prev.filter((a) => a.id !== anh.id));
+    };
+
+    const datAnhChinh = (anh) => {
+        setAnhSanPhams((prev) => [anh, ...prev.filter((a) => a.id !== anh.id)]);
+    };
+
+    // ---------- ảnh theo màu (hàm ổn định để nhóm màu đã memo không vẽ lại) ----------
+    const ganAnhMau = useCallback(
+        (mauSacId, file) => {
+            const thongBao = kiemTraTepAnh(file);
+            if (thongBao) {
+                toast.error(`${thongBao}. Vui lòng chọn ảnh khác.`);
+                return false;
+            }
+            dispatchBienThe({ type: "ganAnhMau", mauSacId, anh: taoAnhXemTruoc(file) });
+            return true;
+        },
+        [taoAnhXemTruoc],
+    );
+
+    // Dùng lại đúng ảnh sản phẩm (cùng tệp, cùng URL), không tạo bản sao.
+    const dungAnhSanPhamChoMau = useCallback((mauSacId, anhSp) => {
+        dispatchBienThe({ type: "ganAnhMau", mauSacId, anh: anhSp });
+    }, []);
+
+    const goAnhMau = useCallback((mauSacId) => {
+        dispatchBienThe({ type: "goAnhMau", mauSacId });
+    }, []);
+
+    // ---------- lưu ----------
+    const onInvalid = () => {
+        setHienLoi(true);
+        toast.error("Vui lòng điền đủ thông tin bắt buộc.");
+    };
+
     const onSubmit = async (data) => {
-        // [User nhan Luu trong modal Them san pham]
-        // Buoc 1: Validate bo sung o client cho anh san pham va anh bien the.
-        if (productImages.length === 0) {
-            toast.error("Vui lòng thêm ít nhất một ảnh sản phẩm chính");
+        setHienLoi(true);
+        if (danhSachLoiBienThe.length > 0) {
+            const [loiDau] = danhSachLoiBienThe;
+            toast.error(loiDau.thongBao);
+            henCuonToiLoi(loiDau);
             return;
         }
 
-        for (let i = 0; i < data.bienTheSanPhams.length; i++) {
-            if (!variantImages[i]) {
-                toast.error(`Vui lòng thêm ảnh cho biến thể #${i + 1}`);
-                return;
-            }
-        }
-
         try {
-            // Buoc 2: Map form UI -> payload backend (RequestDTO) trong FormData.
-            const formData = new FormData();
-
+            const { bienTheSanPhams, anhBienThes } = taoDuLieuGuiBienThe(nhomBienThe, bienThe.anhMau, data.chatLieuId);
             const productData = {
-                // Form không còn ô nhập mã vạch; vẫn gửi chuỗi rỗng theo đúng contract cũ.
+                // Không còn ô mã vạch/giá mặc định/trạng thái: backend tự sinh mã và tính giá, trạng thái theo tồn kho.
                 maVach: "",
-                tenSanPham: data.tenSanPham,
-                maSanPham: data.maSanPham || "",
-                mucTonToiThieu: data.mucTonToiThieu,
+                tenSanPham: data.tenSanPham.trim(),
+                maSanPham: "",
+                mucTonToiThieu: Number(data.mucTonToiThieu) || 0,
                 moTa: data.moTa || "",
                 danhMucId: Number(data.danhMucId),
                 thuongHieuId: data.thuongHieuId ? Number(data.thuongHieuId) : null,
-                giaVonMacDinh: Number(data.giaVonMacDinh) || 0,
-                giaBanMacDinh: Number(data.giaBanMacDinh) || 0,
-                trangThai: Number(data.trangThai),
-                bienTheSanPhams: data.bienTheSanPhams.map(variant => ({
-                    mauSacId: Number(variant.mauSacId),
-                    sizeId: Number(variant.sizeId),
-                    // Chất liệu chung: gán chatLieuId đã chọn vào TẤT CẢ biến thể.
-                    chatLieuId: Number(data.chatLieuId),
-                    maSku: variant.maSku || "",
-                    // Không còn ô nhập mã vạch SKU; backend tự sinh SKU, mã vạch SKU để trống.
-                    maVachSku: "",
-                    giaVon: Number(variant.giaVon) || 0,
-                    giaBan: Number(variant.giaBan) || 0,
-                    trangThai: Number(variant.trangThai),
-                })),
+                giaVonMacDinh: 0,
+                giaBanMacDinh: 0,
+                trangThai: 1,
+                bienTheSanPhams,
             };
 
-            const jsonBlob = new Blob([JSON.stringify(productData)], { type: 'application/json' });
-            formData.append('creating', jsonBlob);
+            const formData = new FormData();
+            formData.append("creating", new Blob([JSON.stringify(productData)], { type: "application/json" }));
+            anhSanPhams.forEach((anh) => formData.append("anhSanPhams", anh.file));
+            // Mỗi màu một tệp; biến thể trỏ tới tệp bằng viTriAnh.
+            anhBienThes.forEach((file) => formData.append("anhBienThes", file));
 
-            productImages.forEach((file) => {
-                formData.append('anhSanPhams', file);
-            });
-
-            data.bienTheSanPhams.forEach((_, index) => {
-                if (variantImages[index]) {
-                    formData.append('anhBienThes', variantImages[index]);
-                } else {
-                    formData.append('anhBienThes', new File([], "empty.txt"));
-                }
-            });
-
-            // Buoc 3: Frontend -> ProductController.create(@Valid)
-            // -> ProductService.create(@Transactional, validate nghiep vu)
-            // -> ProductRepository.save + repository lien quan variant/image.
             const res = await productService.createProduct(formData);
-
             if (res?.data?.status >= 400) {
-                toast.error(res.data.message || 'Có lỗi xảy ra');
+                toast.error(res.data.message || "Có lỗi xảy ra");
                 return;
             }
 
-            toast.success("Tạo sản phẩm thành công.");
-            // Buoc 4: Reload man Quan ly san pham thong qua callback onSuccess.
-            handleResetForm();
+            toast.success(`Tạo sản phẩm thành công với ${bienTheSanPhams.length} biến thể.`);
             onSuccess();
             onClose();
         } catch (error) {
-            console.error('Lỗi khi tạo sản phẩm:', error);
-            const errorMessage = getApiErrorMessage(error, 'Có lỗi xảy ra khi tạo sản phẩm');
-            toast.error(errorMessage);
+            console.error("Lỗi khi tạo sản phẩm:", error);
+            toast.error(getApiErrorMessage(error, "Có lỗi xảy ra khi tạo sản phẩm"));
         }
     };
 
-    const handleCancel = () => {
-        // Chi cho dong modal khi khong trong trang thai submit.
-        if (!isSubmitting) {
-            handleResetForm();
-            onClose();
-        }
+    // Gọi handleSubmit trong lúc xử lý sự kiện (không gọi lúc render).
+    const handleLuu = (e) => handleSubmit(onSubmit, onInvalid)(e);
+    const handleKeyDown = taoXuLyPhimTat({ duocLuu: !isSubmitting && !hoiBoThayDoi, onLuu: handleLuu });
+
+    // Submit của form trong hộp thoại con (tạo thương hiệu) vẫn nổi lên đây qua React portal: bỏ qua.
+    const handleFormSubmit = (e) => {
+        if (e.target !== e.currentTarget) return;
+        handleLuu(e);
     };
 
-    const handleProductImagesChange = (e) => {
-        const files = Array.from(e.target.files || []);
-        setProductImages(prev => [...prev, ...files]);
-    };
-
-    const handleRemoveProductImage = (index) => {
-        setProductImages(prev => prev.filter((_, i) => i !== index));
-    };
-
-    const handleVariantImageChange = (variantIndex, e) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setVariantImages(prev => ({
-                ...prev,
-                [variantIndex]: file
-            }));
-        }
-    };
-
-    const handleRemoveVariantImage = (variantIndex) => {
-        setVariantImages(prev => {
-            const updated = { ...prev };
-            delete updated[variantIndex];
-            return updated;
-        });
-    };
-
-    const handleRemoveVariant = (index) => {
-        remove(index);
-        setVariantImages(prev => {
-            const updated = {};
-            Object.keys(prev).forEach(key => {
-                const numKey = Number(key);
-                if (numKey < index) {
-                    updated[numKey] = prev[key];
-                } else if (numKey > index) {
-                    updated[numKey - 1] = prev[key];
-                }
-            });
-            return updated;
-        });
-    };
+    const loiCoBan = Object.keys(errors).length;
 
     return (
-        <Dialog open={isOpen} onOpenChange={handleCancel}>
-            <DialogContent className="flex max-h-[92vh] flex-col gap-0 overflow-hidden border-bo-border bg-bo-canvas p-0 text-bo-foreground sm:max-w-[1180px]">
-                <DialogHeader className="gap-0 border-b border-bo-border bg-white px-4 py-3.5 text-left sm:px-5">
-                    <div className="flex items-center justify-between gap-3">
+        <>
+            <Dialog open={isOpen} onOpenChange={handleCancel}>
+                <DialogContent
+                    onKeyDown={handleKeyDown}
+                    onOpenAutoFocus={nhoNutMoForm}
+                    onCloseAutoFocus={traFocusNutMoForm}
+                    className="flex max-h-[94vh] flex-col gap-0 overflow-hidden border-bo-border bg-bo-canvas p-0 text-bo-foreground sm:max-w-[1180px]"
+                >
+                    <DialogHeader className="gap-0 border-b border-bo-border bg-white px-4 py-3.5 pr-12 text-left sm:px-5 sm:pr-12">
                         <DialogTitle className="flex items-center gap-2 text-base font-semibold text-bo-foreground">
                             <Package className="size-5 text-bo-primary" />
                             Thêm sản phẩm mới
                         </DialogTitle>
-                    </div>
-                    <DialogDescription className="mt-1 text-sm leading-6 text-bo-muted">
-                        Điền thông tin theo từng nhóm để tạo sản phẩm mới đầy đủ và dễ kiểm soát hơn.
-                    </DialogDescription>
+                        <DialogDescription className="mt-1 text-sm leading-6 text-bo-muted">
+                            Chọn màu sắc và kích cỡ, hệ thống tự tạo đủ biến thể. Mã sản phẩm và mã SKU được tạo khi lưu.
+                        </DialogDescription>
+                    </DialogHeader>
 
-                    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                        <div className={STEP_CLASS}>
-                            <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-bo-primary text-[10px] font-bold text-white">1</span>
-                            <span className="truncate">Bước 1: Thông tin</span>
-                        </div>
-                        <div className={STEP_CLASS}>
-                            <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-bo-primary text-[10px] font-bold text-white">2</span>
-                            <span className="truncate">Bước 2: Ảnh sản phẩm</span>
-                        </div>
-                        <div className={STEP_CLASS}>
-                            <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-bo-primary text-[10px] font-bold text-white">3</span>
-                            <span className="truncate">Bước 3: Biến thể</span>
-                        </div>
-                    </div>
+                    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+                        <form onSubmit={handleFormSubmit} className={LOP_FORM}>
+                            {hienLoi && <TomTatLoi soLoiCoBan={loiCoBan} danhSachLoi={danhSachLoiBienThe} />}
 
-                    <div className="mt-3 grid gap-2 lg:grid-cols-2">
-                        <div className="flex items-start gap-2 rounded-lg border border-bo-border bg-bo-primary-soft p-3">
-                            <Sparkles className="mt-0.5 size-4 shrink-0 text-bo-primary" />
-                            <p className="text-xs leading-relaxed text-bo-foreground">
-                                <b>Tự động sinh mã:</b> Mã sản phẩm và SKU sẽ được hệ thống tạo từ danh mục và thuộc tính biến thể.
-                            </p>
-                        </div>
-
-                        <div className="flex items-start gap-2 rounded-lg border border-bo-border bg-bo-primary-soft p-3">
-                            <Info className="mt-0.5 size-4 shrink-0 text-bo-primary" />
-                            <p className="text-xs leading-relaxed text-bo-foreground">
-                                <b>Lưu ý giá:</b> Có thể để trống giá khi tạo, hệ thống sẽ cập nhật theo dữ liệu nhập kho thực tế.
-                            </p>
-                        </div>
-                    </div>
-                </DialogHeader>
-
-                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
-                    <form
-                        onSubmit={handleSubmit(onSubmit)}
-                        className="space-y-5 [&_[data-slot=select-trigger]]:bg-white [&_[data-slot=textarea]]:bg-white"
-                    >
-                        <div className="grid items-start gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-                            <div className="space-y-5">
-                                <FormSection title="Thông tin cơ bản">
-                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                        {/* Tên sản phẩm */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="tenSanPham">
-                                                Tên sản phẩm <span className="text-bo-danger">*</span>
-                                            </Label>
-                                            <Controller
-                                                name="tenSanPham"
+                            <div className="grid items-start gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+                                <div id="khu-thong-tin" className="scroll-mt-4">
+                                    <FormSection
+                                        title={
+                                            <span className="flex flex-wrap items-center justify-between gap-2">
+                                                Thông tin cơ bản
+                                                <span className="rounded-full border border-bo-border bg-bo-surface-subtle px-2.5 py-0.5 text-xs font-medium text-bo-muted">
+                                                    Mã sản phẩm:{" "}
+                                                    <span className="font-mono text-bo-foreground">
+                                                        {tienToMaSanPham ? `${tienToMaSanPham}?` : "tự sinh theo danh mục"}
+                                                    </span>
+                                                </span>
+                                            </span>
+                                        }
+                                    >
+                                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                            <TruongTenSanPham control={control} loi={errors.tenSanPham} disabled={isSubmitting} />
+                                            <TruongDanhMuc
                                                 control={control}
-                                                render={({ field }) => (
-                                                    <Input {...field} placeholder="VD: Áo sơ mi nam cổ tròn" disabled={isSubmitting} className={CONTROL_CLASS} />
-                                                )}
+                                                loi={errors.danhMucId}
+                                                disabled={isSubmitting}
+                                                danhMucs={categories}
+                                                dangTai={dangTaiThamChieu}
                                             />
-                                            {errors.tenSanPham && (
-                                                <p className="text-xs text-bo-danger">{errors.tenSanPham.message}</p>
-                                            )}
-                                        </div>
+                                            <TruongThuongHieu control={control} disabled={isSubmitting} />
 
-                                        {/* Danh mục sản phẩm - TRẢ LẠI CẤU TRÚC CHA CON */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="danhMucId">Danh mục <span className="text-bo-danger">*</span></Label>
-                                            <Controller
-                                                name="danhMucId"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <Select
-                                                        value={field.value?.toString()}
-                                                        onValueChange={(value) => field.onChange(Number(value))}
-                                                        disabled={isSubmitting}
-                                                    >
-                                                        <SelectTrigger className="h-10 w-full border-bo-border text-bo-foreground">
-                                                            <SelectValue placeholder="Chọn danh mục" />
-                                                        </SelectTrigger>
-                                                        <SelectContent
-                                                            position="popper"
-                                                            side="bottom"
-                                                            align="start"
-                                                            className={`${SELECT_CONTENT_CLASS} max-h-[300px]`}
-                                                        >
-                                                            {categories.length === 0 ? (
-                                                                <div className="p-2 text-center text-sm text-bo-muted">Không có danh mục nào đang hoạt động</div>
-                                                            ) : (
-                                                                categories.map((cat) => (
-                                                                    <SelectItem
-                                                                        key={cat.id}
-                                                                        value={cat.id.toString()}
-                                                                        className={`${SELECT_ITEM_CLASS} ${cat.level === 0 ? 'font-semibold text-bo-foreground' : ''}`}
-                                                                    >
-                                                                        {cat.displayTitle}
-                                                                    </SelectItem>
-                                                                ))
-                                                            )}
-                                                        </SelectContent>
-                                                    </Select>
-                                                )}
-                                            />
-                                            {errors.danhMucId && (
-                                                <p className="text-xs text-bo-danger">{errors.danhMucId.message}</p>
-                                            )}
-                                        </div>
-
-                                        {/* Thương hiệu (không bắt buộc) */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="thuongHieuId">Thương hiệu</Label>
-                                            <Controller
-                                                name="thuongHieuId"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <BrandSelector
-                                                        value={field.value ?? null}
-                                                        onChange={(id) => field.onChange(id)}
-                                                        disabled={isSubmitting}
-                                                    />
-                                                )}
-                                            />
-                                            {errors.thuongHieuId && (
-                                                <p className="text-xs text-bo-danger">{errors.thuongHieuId.message}</p>
-                                            )}
-                                        </div>
-
-                                        {/* Chất liệu chung - chọn 1 lần, áp dụng cho tất cả biến thể */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="chatLieuId">
-                                                Chất liệu <span className="text-bo-danger">*</span>
-                                            </Label>
-                                            <Controller
-                                                name="chatLieuId"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <Select
-                                                        value={field.value === "" || field.value === null || field.value === undefined ? undefined : field.value.toString()}
-                                                        onValueChange={(value) => field.onChange(Number(value))}
-                                                        disabled={isSubmitting}
-                                                    >
-                                                        <SelectTrigger className="h-10 w-full border-bo-border text-bo-foreground">
-                                                            <SelectValue placeholder="Chọn chất liệu" />
-                                                        </SelectTrigger>
-                                                        <SelectContent position="popper" side="bottom" align="start" className={`${SELECT_CONTENT_CLASS} max-h-[300px]`}>
-                                                            {materials.length === 0 ? (
-                                                                <div className="p-2 text-center text-sm text-bo-muted">Không có chất liệu nào đang hoạt động</div>
-                                                            ) : (
-                                                                materials.map((material) => (
-                                                                    <SelectItem key={`material-${material.id}`} value={material.id.toString()} className={SELECT_ITEM_CLASS}>
-                                                                        {material.tenChatLieu}
-                                                                    </SelectItem>
-                                                                ))
-                                                            )}
-                                                        </SelectContent>
-                                                    </Select>
-                                                )}
-                                            />
-                                            <p className="text-xs text-bo-muted">Áp dụng cho tất cả biến thể</p>
-                                            {errors.chatLieuId && (
-                                                <p className="text-xs text-bo-danger">{errors.chatLieuId.message}</p>
-                                            )}
-                                        </div>
-
-                                        {/* Mã sản phẩm (tự động) */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="maSanPham" className="text-bo-muted">Mã sản phẩm (tự động)</Label>
-                                            <Controller
-                                                name="maSanPham"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <Input
-                                                        {...field}
-                                                        placeholder="Hệ thống tự động sinh mã..."
-                                                        disabled
-                                                        className={CONTROL_DISABLED_CLASS}
-                                                    />
-                                                )}
-                                            />
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label htmlFor="trangThai">Trạng thái mặc định</Label>
-                                            <Controller
-                                                name="trangThai"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <Select
-                                                        value={field.value?.toString()}
-                                                        onValueChange={(value) => field.onChange(Number(value))}
-                                                        disabled={isSubmitting}
-                                                    >
-                                                        <SelectTrigger className="h-10 w-full border-bo-border text-bo-foreground">
-                                                            <SelectValue placeholder="Chọn trạng thái" />
-                                                        </SelectTrigger>
-                                                        <SelectContent position="popper" side="bottom" className={SELECT_CONTENT_CLASS}>
-                                                            <SelectItem value="1" className={SELECT_ITEM_CLASS}>Còn hàng</SelectItem>
-                                                            <SelectItem value="0" className={SELECT_ITEM_CLASS}>Hết hàng</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                )}
-                                            />
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label htmlFor="giaVonMacDinh">Giá vốn mặc định</Label>
-                                            <Controller
-                                                name="giaVonMacDinh"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <Input {...field} type="number" min="0" placeholder="0 (Tự động cập nhật)" disabled={isSubmitting} className={CONTROL_CLASS} />
-                                                )}
-                                            />
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label htmlFor="giaBanMacDinh">Giá bán mặc định</Label>
-                                            <Controller
-                                                name="giaBanMacDinh"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <Input {...field} type="number" min="0" placeholder="0 (Tự động cập nhật)" disabled={isSubmitting} className={CONTROL_CLASS} />
-                                                )}
-                                            />
-                                        </div>
-
-                                        <div className="space-y-2 sm:col-span-2">
-                                            <Label htmlFor="mucTonToiThieu">Mức tồn tối thiểu</Label>
-                                            <Controller
-                                                name="mucTonToiThieu"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <Input {...field} type="number" min="0" placeholder="0" disabled={isSubmitting} className={CONTROL_CLASS} />
-                                                )}
-                                            />
-                                        </div>
-
-                                        {/* Mô tả */}
-                                        <div className="space-y-2 sm:col-span-2">
-                                            <Label htmlFor="moTa">Mô tả</Label>
-                                            <Controller
-                                                name="moTa"
-                                                control={control}
-                                                render={({ field }) => (
-                                                    <Textarea {...field} placeholder="Nhập mô tả chi tiết về sản phẩm..." rows={3} disabled={isSubmitting} className={CONTROL_CLASS} />
-                                                )}
-                                            />
-                                        </div>
-                                    </div>
-                                </FormSection>
-
-                                {/* Ảnh sản phẩm - Required */}
-                                <FormSection
-                                    title={
-                                        <>
-                                            Ảnh sản phẩm chính <span className="text-bo-danger">*</span>
-                                        </>
-                                    }
-                                >
-                                    <div className="space-y-2 rounded-lg border-2 border-dashed border-bo-border bg-bo-surface-subtle p-4">
-                                        <input
-                                            type="file"
-                                            multiple
-                                            accept="image/*"
-                                            onChange={handleProductImagesChange}
-                                            className="hidden"
-                                            id="product-images"
-                                            disabled={isSubmitting}
-                                        />
-                                        <label
-                                            htmlFor="product-images"
-                                            className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-bo-border bg-white p-2 text-sm font-medium text-bo-foreground transition-colors hover:bg-bo-primary-soft hover:text-bo-primary"
-                                        >
-                                            <Upload className="size-4" />
-                                            <span>Chọn ảnh sản phẩm</span>
-                                        </label>
-                                        {productImages.length === 0 && (
-                                            <p className="text-center text-xs text-bo-muted">Vui lòng thêm ít nhất 1 ảnh sản phẩm chính</p>
-                                        )}
-                                        <div className="grid grid-cols-3 gap-3 md:grid-cols-4">
-                                            {productImages.map((file, index) => (
-                                                <div key={index} className="relative">
-                                                    <img
-                                                        src={URL.createObjectURL(file)}
-                                                        alt="Xem trước ảnh"
-                                                        className="h-24 w-full rounded-md border border-bo-border object-cover shadow-sm"
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleRemoveProductImage(index)}
-                                                        aria-label={`Xóa ảnh ${index + 1}`}
-                                                        className="absolute -right-2 -top-2 rounded-full bg-bo-danger p-1 text-white transition-opacity hover:opacity-90"
-                                                    >
-                                                        <X className="size-3" />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </FormSection>
-                            </div>
-
-                            {/* Biến thể sản phẩm */}
-                            <div className="xl:sticky xl:top-0">
-                                <FormSection
-                                    title={
-                                        <>
-                                            Danh sách biến thể <span className="text-bo-danger">*</span>
-                                        </>
-                                    }
-                                    description="Cuộn để xem thêm"
-                                >
-                                    <div className="max-h-[55vh] space-y-3 overflow-y-auto pr-1 xl:max-h-[calc(92vh-25rem)]">
-                                        {fields.map((field, index) => (
-                                            <div key={field.id} className="relative space-y-3 overflow-visible rounded-lg border border-bo-border bg-bo-surface-subtle p-4 shadow-sm">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-sm font-semibold text-bo-foreground">Biến thể #{index + 1}</span>
-                                                    {fields.length > 1 && (
-                                                        <Button
-                                                            type="button"
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            className="text-bo-danger hover:bg-bo-danger-soft hover:text-bo-danger"
-                                                            onClick={() => handleRemoveVariant(index)}
+                                            <div className="space-y-2">
+                                                <Label htmlFor="chatLieuId">
+                                                    Chất liệu <span className="text-bo-danger">*</span>
+                                                </Label>
+                                                <Controller
+                                                    name="chatLieuId"
+                                                    control={control}
+                                                    render={({ field }) => (
+                                                        <Select
+                                                            value={field.value == null || field.value === "" ? "" : String(field.value)}
+                                                            onValueChange={(value) => field.onChange(Number(value))}
                                                             disabled={isSubmitting}
                                                         >
-                                                            <X className="size-4" /> Xóa
-                                                        </Button>
-                                                    )}
-                                                </div>
-
-                                                <div className="grid grid-cols-1 gap-4 overflow-visible sm:grid-cols-3">
-                                                    {/* Màu sắc */}
-                                                    <div className="space-y-2">
-                                                        <Label>Màu sắc <span className="text-bo-danger">*</span></Label>
-                                                        <Controller
-                                                            name={`bienTheSanPhams.${index}.mauSacId`}
-                                                            control={control}
-                                                            render={({ field }) => {
-                                                                const mauDaChon = colors.find((color) => color.id === Number(field.value));
-                                                                return (
-                                                                <Select
-                                                                    value={field.value === "" || field.value === null || field.value === undefined ? undefined : field.value.toString()}
-                                                                    onValueChange={(value) => {
-                                                                        if (value !== "") field.onChange(Number(value));
-                                                                    }}
-                                                                    disabled={isSubmitting}
-                                                                >
-                                                                    <SelectTrigger className="h-10 w-full border-bo-border text-bo-foreground">
-                                                                        <SelectValue placeholder="Chọn màu">
-                                                                            {mauDaChon ? (
-                                                                                <span className="flex items-center gap-2">
-                                                                                    <ColorDot hex={mauDaChon.maMauHex} />
-                                                                                    <span className="truncate">{mauDaChon.tenMau}</span>
-                                                                                </span>
-                                                                            ) : undefined}
-                                                                        </SelectValue>
-                                                                    </SelectTrigger>
-                                                                    <SelectContent position="popper" side="bottom" align="start" sideOffset={4} className={`${SELECT_CONTENT_CLASS} max-h-[220px]`}>
-                                                                        {colors.length === 0 ? (
-                                                                            <div className="p-2 text-sm text-bo-muted">Không có màu sắc</div>
-                                                                        ) : (
-                                                                            colors.map((color) => (
-                                                                                <SelectItem key={`color-${index}-${color.id}`} value={color.id.toString()} className={SELECT_ITEM_CLASS}>
-                                                                                    <span className="flex items-center gap-2">
-                                                                                        <ColorDot hex={color.maMauHex} />
-                                                                                        {color.tenMau}
-                                                                                    </span>
-                                                                                </SelectItem>
-                                                                            ))
-                                                                        )}
-                                                                    </SelectContent>
-                                                                </Select>
-                                                                );
-                                                            }}
-                                                        />
-                                                        {errors.bienTheSanPhams?.[index]?.mauSacId && (
-                                                            <p className="text-xs text-bo-danger">{errors.bienTheSanPhams[index].mauSacId.message}</p>
-                                                        )}
-                                                    </div>
-
-                                                    {/* Size */}
-                                                    <div className="space-y-2">
-                                                        <Label>Kích cỡ <span className="text-bo-danger">*</span></Label>
-                                                        <Controller
-                                                            name={`bienTheSanPhams.${index}.sizeId`}
-                                                            control={control}
-                                                            render={({ field }) => (
-                                                                <Select
-                                                                    value={field.value === "" || field.value === null || field.value === undefined ? undefined : field.value.toString()}
-                                                                    onValueChange={(value) => field.onChange(Number(value))}
-                                                                    disabled={isSubmitting}
-                                                                >
-                                                                    <SelectTrigger className="h-10 w-full border-bo-border text-bo-foreground">
-                                                                        <SelectValue placeholder="Chọn kích cỡ" />
-                                                                    </SelectTrigger>
-                                                                    <SelectContent position="popper" side="bottom" align="start" sideOffset={4} className={`${SELECT_CONTENT_CLASS} max-h-[220px]`}>
-                                                                        {sizes.length === 0 ? (
-                                                                            <div className="p-2 text-sm text-bo-muted">Không có kích cỡ</div>
-                                                                        ) : (
-                                                                            sizes.map((size) => (
-                                                                                <SelectItem key={`size-${index}-${size.id}`} value={size.id.toString()} className={SELECT_ITEM_CLASS}>{size.tenSize}</SelectItem>
-                                                                            ))
-                                                                        )}
-                                                                    </SelectContent>
-                                                                </Select>
-                                                            )}
-                                                        />
-                                                        {errors.bienTheSanPhams?.[index]?.sizeId && (
-                                                            <p className="text-xs text-bo-danger">{errors.bienTheSanPhams[index].sizeId.message}</p>
-                                                        )}
-                                                    </div>
-
-                                                    {/* Mã SKU */}
-                                                    <div className="space-y-2">
-                                                        <Label className="text-bo-muted">Mã SKU (tự động)</Label>
-                                                        <Controller
-                                                            name={`bienTheSanPhams.${index}.maSku`}
-                                                            control={control}
-                                                            render={({ field }) => (
-                                                                <Input {...field} placeholder="Hệ thống tự động ghép mã..." disabled className={CONTROL_DISABLED_CLASS} />
-                                                            )}
-                                                        />
-                                                    </div>
-
-                                                    <div className="space-y-2">
-                                                        <Label>Giá vốn</Label>
-                                                        <Controller
-                                                            name={`bienTheSanPhams.${index}.giaVon`}
-                                                            control={control}
-                                                            render={({ field }) => (
-                                                                <Input {...field} type="number" min="0" placeholder="0 (tự động)" disabled={isSubmitting} className={CONTROL_CLASS} />
-                                                            )}
-                                                        />
-                                                    </div>
-
-                                                    <div className="space-y-2">
-                                                        <Label>Giá bán</Label>
-                                                        <Controller
-                                                            name={`bienTheSanPhams.${index}.giaBan`}
-                                                            control={control}
-                                                            render={({ field }) => (
-                                                                <Input {...field} type="number" min="0" placeholder="0 (tự động)" disabled={isSubmitting} className={CONTROL_CLASS} />
-                                                            )}
-                                                        />
-                                                    </div>
-
-                                                    <div className="space-y-2">
-                                                        <Label>Trạng thái</Label>
-                                                        <Controller
-                                                            name={`bienTheSanPhams.${index}.trangThai`}
-                                                            control={control}
-                                                            render={({ field }) => (
-                                                                <Select
-                                                                    value={field.value?.toString()}
-                                                                    onValueChange={(value) => field.onChange(Number(value))}
-                                                                    disabled={isSubmitting}
-                                                                >
-                                                                    <SelectTrigger className="h-10 w-full border-bo-border text-bo-foreground">
-                                                                        <SelectValue placeholder="Chọn trạng thái" />
-                                                                    </SelectTrigger>
-                                                                    <SelectContent position="popper" side="bottom" className={SELECT_CONTENT_CLASS}>
-                                                                        <SelectItem value="1" className={SELECT_ITEM_CLASS}>Hoạt động</SelectItem>
-                                                                        <SelectItem value="0" className={SELECT_ITEM_CLASS}>Tạm ngừng</SelectItem>
-                                                                    </SelectContent>
-                                                                </Select>
-                                                            )}
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                {/* Variant Image */}
-                                                <div className="mt-4 space-y-2 border-t border-bo-border pt-4">
-                                                    <Label>Ảnh biến thể <span className="text-bo-danger">*</span></Label>
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="flex-1 rounded-lg border-2 border-dashed border-bo-border bg-white p-2">
-                                                            <input
-                                                                type="file"
-                                                                accept="image/*"
-                                                                onChange={(e) => handleVariantImageChange(index, e)}
-                                                                className="hidden"
-                                                                id={`variant-image-${index}`}
-                                                                disabled={isSubmitting}
-                                                            />
-                                                            <label
-                                                                htmlFor={`variant-image-${index}`}
-                                                                className="flex h-full cursor-pointer items-center justify-center gap-2 rounded-md border border-bo-border bg-white p-2 text-sm font-medium text-bo-foreground transition-colors hover:bg-bo-primary-soft hover:text-bo-primary"
+                                                            <SelectTrigger
+                                                                id="chatLieuId"
+                                                                aria-invalid={errors.chatLieuId ? true : undefined}
+                                                                className={SELECT_TRIGGER_CLASS}
                                                             >
-                                                                <Upload className="size-4" />
-                                                                <span>Chọn ảnh biến thể</span>
-                                                            </label>
-                                                        </div>
-
-                                                        <div className="relative flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-bo-border bg-white">
-                                                            {!variantImages[index] ? (
-                                                                <p className="px-1 text-center text-[10px] text-bo-muted">Chưa có ảnh</p>
-                                                            ) : (
-                                                                <>
-                                                                    <img
-                                                                        src={URL.createObjectURL(variantImages[index])}
-                                                                        alt="Xem trước ảnh biến thể"
-                                                                        className="h-full w-full object-cover"
-                                                                    />
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => handleRemoveVariantImage(index)}
-                                                                        aria-label={`Xóa ảnh biến thể ${index + 1}`}
-                                                                        className="absolute right-1 top-1 rounded-full bg-bo-danger p-0.5 text-white shadow-sm transition-opacity hover:opacity-90"
-                                                                    >
-                                                                        <X className="size-3" />
-                                                                    </button>
-                                                                </>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                                                <SelectValue placeholder="Chọn chất liệu" />
+                                                            </SelectTrigger>
+                                                            <SelectContent position="popper" side="bottom" align="start" className={`${SELECT_CONTENT_CLASS} max-h-[300px]`}>
+                                                                {materials.length === 0 ? (
+                                                                    <div className="p-2 text-center text-sm text-bo-muted">
+                                                                        {dangTaiThamChieu ? "Đang tải chất liệu…" : "Không có chất liệu nào đang hoạt động"}
+                                                                    </div>
+                                                                ) : (
+                                                                    materials.map((material) => (
+                                                                        <SelectItem key={`material-${material.id}`} value={material.id.toString()} className={SELECT_ITEM_CLASS}>
+                                                                            {material.tenChatLieu}
+                                                                        </SelectItem>
+                                                                    ))
+                                                                )}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    )}
+                                                />
+                                                <p className="text-xs text-bo-muted">Áp dụng cho tất cả biến thể</p>
+                                                {errors.chatLieuId && <p className="text-xs text-bo-danger">{errors.chatLieuId.message}</p>}
                                             </div>
-                                        ))}
-                                    </div>
+
+                                            <TruongMucTon control={control} loi={errors.mucTonToiThieu} disabled={isSubmitting} />
+                                            <TruongMoTa control={control} disabled={isSubmitting} />
+                                        </div>
+                                        <p className="mt-4 text-xs text-bo-muted">
+                                            Trạng thái sản phẩm tự tính theo tồn kho: sản phẩm mới là Hết hàng cho tới lần nhập kho đầu tiên.
+                                        </p>
+                                    </FormSection>
+                                </div>
+
+                                <KhuAnhSanPham
+                                    id="khu-anh-san-pham"
+                                    anhs={anhSanPhams}
+                                    thieuAnh={hienLoi && anhSanPhams.length === 0}
+                                    disabled={isSubmitting}
+                                    onThemTep={themAnhSanPham}
+                                    onXoa={xoaAnhSanPham}
+                                    onDatChinh={datAnhChinh}
+                                />
+                            </div>
+
+                            <div id="khu-bien-the" className="scroll-mt-4">
+                                <FormSection
+                                    title={
+                                        <span className="flex items-center justify-between gap-2">
+                                            <span>Biến thể <span className="text-bo-danger">*</span></span>
+                                            <span className="rounded-full bg-bo-primary-soft px-2.5 py-0.5 text-xs font-semibold text-bo-primary">
+                                                {thongKe.soTao} biến thể
+                                            </span>
+                                        </span>
+                                    }
+                                >
+                                    <TrinhTaoBienThe
+                                        state={bienThe}
+                                        dispatch={dispatchBienThe}
+                                        nhom={nhomBienThe}
+                                        thongKe={thongKe}
+                                        mauSacs={colors}
+                                        kichCos={sizes}
+                                        dangTai={dangTaiThamChieu}
+                                        loiTai={loiTaiThamChieu && (colors.length === 0 || sizes.length === 0)}
+                                        onThuLai={loadReferenceData}
+                                        tienToMaSanPham={tienToMaSanPham}
+                                        maChatLieu={chatLieuDaChon?.maChatLieu}
+                                        anhSanPhams={anhSanPhams}
+                                        hienLoi={hienLoi}
+                                        disabled={isSubmitting}
+                                        onChonAnhMau={ganAnhMau}
+                                        onDungAnhSanPham={dungAnhSanPhamChoMau}
+                                        onGoAnhMau={goAnhMau}
+                                    />
                                 </FormSection>
                             </div>
-                        </div>
-                    </form>
-                </div>
+                        </form>
+                    </div>
 
-                <DialogFooter className="border-t border-bo-border bg-white px-4 py-3 sm:px-5">
-                    <div className="flex w-full items-center justify-between gap-3">
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => append({
-                                mauSacId: null,
-                                sizeId: null,
-                                maSku: "",
-                                giaVon: 0,
-                                giaBan: 0,
-                                trangThai: 1,
-                            })}
-                            disabled={isSubmitting}
-                            className="flex items-center gap-1 border-2 border-dashed border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                        >
-                            <Plus className="size-4" />
-                            Thêm biến thể khác
-                        </Button>
-                        <div className="flex items-center gap-2">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={handleCancel}
-                                disabled={isSubmitting}
-                                className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                            >
-                                Hủy
-                            </Button>
-                            <Button
-                                type="submit"
-                                disabled={isSubmitting}
-                                className="bg-bo-primary text-white hover:bg-bo-primary-hover"
-                                onClick={handleSubmit(onSubmit)}
-                            >
-                                {isSubmitting ? (
+                    <DialogFooter className="border-t border-bo-border bg-white px-4 py-3 sm:px-5">
+                        <div className="flex w-full flex-wrap items-center justify-between gap-3">
+                            <p className="text-sm text-bo-muted" aria-live="polite">
+                                {thongKe.soTao > 0 ? (
                                     <>
-                                        <Loader2 className="size-4 animate-spin" />
-                                        Đang lưu...
+                                        Sẽ tạo <b className="text-bo-foreground">{thongKe.soTao}</b> biến thể ·{" "}
+                                        <b className="text-bo-foreground">{thongKe.soMauCoBienThe}</b> ảnh màu
                                     </>
                                 ) : (
-                                    "Lưu sản phẩm"
+                                    "Chưa có biến thể nào"
                                 )}
-                            </Button>
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handleCancel}
+                                    disabled={isSubmitting}
+                                    className={NUT_VIEN_CLASS}
+                                >
+                                    Hủy
+                                </Button>
+                                <Button
+                                    type="button"
+                                    disabled={isSubmitting}
+                                    title="Lưu (Ctrl + S)"
+                                    aria-keyshortcuts="Control+S Meta+S"
+                                    className="bg-bo-primary text-white hover:bg-bo-primary-hover focus-visible:ring-[3px] focus-visible:ring-bo-primary/30"
+                                    onClick={handleLuu}
+                                >
+                                    {isSubmitting ? (
+                                        <>
+                                            <Loader2 className="size-4 animate-spin" />
+                                            Đang lưu...
+                                        </>
+                                    ) : thongKe.soTao > 0 ? (
+                                        `Lưu sản phẩm (${thongKe.soTao} biến thể)`
+                                    ) : (
+                                        "Lưu sản phẩm"
+                                    )}
+                                </Button>
+                            </div>
                         </div>
-                    </div>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <HopHoiBoThayDoi
+                open={hoiBoThayDoi}
+                onOpenChange={setHoiBoThayDoi}
+                onBo={dongForm}
+                onCloseAutoFocus={traFocusSauKhiHoi}
+                tieuDe="Bỏ sản phẩm đang nhập?"
+                moTa="Thông tin, ảnh và biến thể vừa nhập sẽ không được lưu."
+            />
+        </>
     );
 }

@@ -47,6 +47,20 @@ public interface BienTheSanPhamRepository extends JpaRepository<BienTheSanPham, 
             """, nativeQuery = true)
     List<Integer> findIdDaPhatSinhGiaoDich(@Param("sanPhamId") Integer sanPhamId);
 
+    /**
+     * Biến thể còn tồn kho của một sản phẩm (tổng so_luong_ton theo lô > 0). Cùng điều kiện với
+     * recalculatePriceAndStatus: các biến thể này được tính lại giá theo lô nhập mỗi lần lưu/nhập kho.
+     */
+    @Query(value = """
+            SELECT l.bien_the_san_pham_id FROM ton_kho_theo_lo t
+            JOIN lo_hang l ON t.lo_hang_id = l.id
+            JOIN bien_the_san_pham bt ON bt.id = l.bien_the_san_pham_id
+            WHERE bt.san_pham_id = :sanPhamId
+            GROUP BY l.bien_the_san_pham_id
+            HAVING SUM(t.so_luong_ton) > 0
+            """, nativeQuery = true)
+    List<Integer> findIdConTonKho(@Param("sanPhamId") Integer sanPhamId);
+
 
     @Query(
             """
