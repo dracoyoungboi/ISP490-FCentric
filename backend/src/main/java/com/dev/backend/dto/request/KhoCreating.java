@@ -15,4 +15,5 @@ public class KhoCreating {
     String diaChi;
     Integer quanLyId;
     Integer trangThai;
+    String loaiKho;
 }

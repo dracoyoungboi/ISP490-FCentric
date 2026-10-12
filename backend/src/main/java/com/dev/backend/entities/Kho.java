@@ -35,6 +35,11 @@ public class Kho {
     @Column(name = "ten_kho", nullable = false, length = 100)
     String tenKho;
 
+    /** kho_tong: Kho tổng phân phối hàng; cua_hang: kho bán hàng. */
+    @Size(max = 20)
+    @Column(name = "loai_kho", length = 20)
+    String loaiKho;
+
     @Column(name = "dia_chi")
     String diaChi;
 

@@ -23,6 +23,7 @@ public class KhoDto implements Serializable {
     Integer id;
     String maKho;
     String tenKho;
+    String loaiKho;
     String diaChi;
     NguoiDungDto quanLy;
     Integer trangThai;

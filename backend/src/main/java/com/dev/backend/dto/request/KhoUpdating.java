@@ -16,4 +16,5 @@ public class KhoUpdating {
     String diaChi;
     Integer quanLyId;
     Integer trangThai;
+    String loaiKho;
 }
