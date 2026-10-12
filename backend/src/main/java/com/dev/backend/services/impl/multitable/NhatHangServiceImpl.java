@@ -10,6 +10,7 @@ import com.dev.backend.dto.request.PhanCongNguoiNhatRequest;
 import com.dev.backend.dto.request.TaoPickListRequest;
 import com.dev.backend.dto.request.QuetBarcodeRequest;
 import com.dev.backend.dto.response.customize.DonChoXuatDto;
+import com.dev.backend.dto.response.customize.HangCanHoanKeDto;
 import com.dev.backend.dto.response.customize.KetQuaQuetBarcodeDto;
 import com.dev.backend.dto.response.entities.ChiTietNhatHangDto;
 import com.dev.backend.dto.response.entities.DanhSachNhatHangDto;
@@ -78,6 +79,15 @@ public class NhatHangServiceImpl implements NhatHangService {
 
     @Autowired
     private ChiTietPhieuXuatKhoRepository chiTietPhieuXuatKhoRepository;
+
+    @Autowired
+    private CanhBaoRepository canhBaoRepository;
+
+    @Autowired
+    private ChiTietDonBanHangRepository chiTietDonBanHangRepository;
+
+    @Autowired
+    private com.dev.backend.websocket.OutboundWebSocketHandler outboundWebSocketHandler;
 
     @Override
     @Transactional(readOnly = true)
@@ -965,6 +975,242 @@ public class NhatHangServiceImpl implements NhatHangService {
         DanhSachNhatHangDto ketQua = getChiTietPickList(pickList.getId());
         ketQua.setDonChuaTaoPhieuXuat(donChuaTaoPhieuXuat);
         return ketQua;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void xuLyDonBiHuyTrongPickList(DonBanHang don) {
+        if (don == null || don.getId() == null) {
+            return;
+        }
+
+        DanhSachNhatHang pickList = don.getDanhSachNhatHang();
+        if (pickList == null) {
+            return;
+        }
+
+        Integer pickListId = pickList.getId();
+        String currentTrangThai = pickList.getTrangThai();
+        log.info("[OUTBOUND-CANCEL] Xử lý đơn hàng {} bị hủy trong Pick List {} (Trạng thái: {})",
+                don.getSoDonHang(), pickList.getMaPickList(), currentTrangThai);
+
+        List<ChiTietDonBanHang> chiTietDons = chiTietDonBanHangRepository.findByDonBanHangId(don.getId());
+        List<ChiTietNhatHang> chiTietNhats = chiTietNhatHangRepository.findByDanhSachNhatHang_Id(pickListId);
+
+        // Trường hợp 1: Đang gom nhặt (cho_nhat hoặc dang_nhat)
+        if ("cho_nhat".equals(currentTrangThai) || "dang_nhat".equals(currentTrangThai)) {
+            List<Map<String, Object>> danhSachHangTraKe = new ArrayList<>();
+
+            for (ChiTietDonBanHang ctd : chiTietDons) {
+                BienTheSanPham bt = ctd.getBienTheSanPham();
+                if (bt == null) continue;
+
+                BigDecimal slGiam = ctd.getSoLuongDat() != null ? ctd.getSoLuongDat() : BigDecimal.ZERO;
+                if (slGiam.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+                for (ChiTietNhatHang ctn : chiTietNhats) {
+                    if (ctn.getBienTheSanPham() != null && ctn.getBienTheSanPham().getId().equals(bt.getId())) {
+                        BigDecimal canHienTai = ctn.getSoLuongCanNhat() != null ? ctn.getSoLuongCanNhat() : BigDecimal.ZERO;
+                        BigDecimal canMoi = canHienTai.subtract(slGiam);
+                        if (canMoi.compareTo(BigDecimal.ZERO) < 0) {
+                            canMoi = BigDecimal.ZERO;
+                        }
+                        ctn.setSoLuongCanNhat(canMoi);
+
+                        BigDecimal daQuet = ctn.getSoLuongDaQuet() != null ? ctn.getSoLuongDaQuet() : BigDecimal.ZERO;
+                        if (daQuet.compareTo(canMoi) > 0) {
+                            BigDecimal slThua = daQuet.subtract(canMoi);
+                            ctn.setSoLuongDaQuet(canMoi);
+
+                            // Tạo cảnh báo hoàn kệ Put-back
+                            CanhBao canhBao = CanhBao.builder()
+                                    .loaiCanhBao("HOAN_KE_CHO_CAT")
+                                    .bienTheSanPham(bt)
+                                    .kho(pickList.getKhoXuat())
+                                    .soLuongHienTai(slThua)
+                                    .nguongCanhBao(BigDecimal.valueOf(pickListId))
+                                    .trangThai(0) // 0: Chờ cất kệ
+                                    .build();
+                            canhBaoRepository.save(canhBao);
+
+                            Map<String, Object> itemTraKe = new HashMap<>();
+                            itemTraKe.put("sku", bt.getMaSku());
+                            itemTraKe.put("tenSanPham", bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : bt.getMaSku());
+                            itemTraKe.put("soLuong", slThua);
+                            danhSachHangTraKe.add(itemTraKe);
+                        }
+
+                        chiTietNhatHangRepository.save(ctn);
+                        break;
+                    }
+                }
+            }
+
+            // Kiểm tra các đơn còn lại trong Pick List
+            List<DonBanHang> donCungDot = donBanHangRepository.findByDanhSachNhatHang_Id(pickListId);
+            boolean conDonHoatDong = donCungDot.stream().anyMatch(d -> !d.getId().equals(don.getId()) && d.getTrangThai() != null && d.getTrangThai() != 4);
+
+            if (!conDonHoatDong) {
+                // Toàn bộ các đơn trong đợt đã bị hủy -> Hủy luôn đợt nhặt
+                pickList.setTrangThai("da_huy");
+                danhSachNhatHangRepository.save(pickList);
+
+                // Tạo nhiệm vụ hoàn kệ cho toàn bộ hàng đã quét (nếu còn)
+                for (ChiTietNhatHang ctn : chiTietNhats) {
+                    BigDecimal daQuet = ctn.getSoLuongDaQuet() != null ? ctn.getSoLuongDaQuet() : BigDecimal.ZERO;
+                    if (daQuet.compareTo(BigDecimal.ZERO) > 0) {
+                        CanhBao cb = CanhBao.builder()
+                                .loaiCanhBao("HOAN_KE_CHO_CAT")
+                                .bienTheSanPham(ctn.getBienTheSanPham())
+                                .kho(pickList.getKhoXuat())
+                                .soLuongHienTai(daQuet)
+                                .nguongCanhBao(BigDecimal.valueOf(pickListId))
+                                .trangThai(0)
+                                .build();
+                        canhBaoRepository.save(cb);
+                        ctn.setSoLuongDaQuet(BigDecimal.ZERO);
+                        chiTietNhatHangRepository.save(ctn);
+                    }
+                }
+
+                outboundWebSocketHandler.sendPickListEvent(pickListId, "PICK_LIST_CANCELLED", Map.of(
+                        "pickListId", pickListId,
+                        "maPickList", pickList.getMaPickList(),
+                        "message", "Toàn bộ đơn hàng trong đợt nhặt " + pickList.getMaPickList() + " đã bị hủy! Vui lòng dừng nhặt và cất toàn bộ hàng đã lấy về kệ."
+                ));
+            } else {
+                // Vẫn còn đơn hợp lệ -> Gửi WebSocket báo Pick UI cập nhật
+                outboundWebSocketHandler.sendPickListEvent(pickListId, "ORDER_CANCELLED_IN_PICK_LIST", Map.of(
+                        "pickListId", pickListId,
+                        "maPickList", pickList.getMaPickList(),
+                        "soDonHangBiHuy", don.getSoDonHang(),
+                        "hangCanTraKe", danhSachHangTraKe,
+                        "message", "Đơn hàng " + don.getSoDonHang() + " đã bị hủy! Số lượng cần nhặt đã tự động giảm. Vui lòng chuyển hàng thừa (nếu có) vào khay Put-back trên xe đẩy."
+                ));
+            }
+        }
+        // Trường hợp 2: Đã hoàn tất nhặt (da_nhat), đã có PXK nháp tại bàn đóng gói
+        else if ("da_nhat".equals(currentTrangThai)) {
+            // Tìm các phiếu xuất kho nháp của đơn hàng này
+            List<PhieuXuatKho> pxkList = phieuXuatKhoRepository.findByDonBanHangId(don.getId());
+            for (PhieuXuatKho pxk : pxkList) {
+                if (pxk.getTrangThai() != null && pxk.getTrangThai() == 0) { // 0: Chờ xuất / Nháp
+                    pxk.setTrangThai(2); // 2: Đã hủy / Thu hồi
+                    String note = (pxk.getGhiChu() != null ? pxk.getGhiChu() + " | " : "") + "Tự động hủy do đơn " + don.getSoDonHang() + " bị hủy";
+                    pxk.setGhiChu(note);
+                    phieuXuatKhoRepository.save(pxk);
+                }
+            }
+
+            // Sinh lệnh cất hàng về kệ (Put-away Task) cho toàn bộ sản phẩm của đơn đã nhặt về bàn đóng gói
+            for (ChiTietDonBanHang ctd : chiTietDons) {
+                if (ctd.getBienTheSanPham() != null && ctd.getSoLuongDat() != null && ctd.getSoLuongDat().compareTo(BigDecimal.ZERO) > 0) {
+                    CanhBao canhBao = CanhBao.builder()
+                            .loaiCanhBao("HOAN_KE_CHO_CAT")
+                            .bienTheSanPham(ctd.getBienTheSanPham())
+                            .kho(pickList.getKhoXuat())
+                            .soLuongHienTai(ctd.getSoLuongDat())
+                            .nguongCanhBao(BigDecimal.valueOf(pickListId))
+                            .trangThai(0) // 0: Chờ cất kệ
+                            .build();
+                    canhBaoRepository.save(canhBao);
+                }
+            }
+
+            // Kiểm tra các đơn còn lại trong Pick List
+            List<DonBanHang> donCungDot = donBanHangRepository.findByDanhSachNhatHang_Id(pickListId);
+            boolean conDonHoatDong = donCungDot.stream().anyMatch(d -> !d.getId().equals(don.getId()) && d.getTrangThai() != null && d.getTrangThai() != 4);
+
+            if (!conDonHoatDong) {
+                pickList.setTrangThai("da_huy");
+                danhSachNhatHangRepository.save(pickList);
+                outboundWebSocketHandler.sendPickListEvent(pickListId, "PICK_LIST_CANCELLED", Map.of(
+                        "pickListId", pickListId,
+                        "maPickList", pickList.getMaPickList(),
+                        "message", "Toàn bộ đơn hàng trong đợt đã bị hủy! Toàn bộ phiếu xuất đã bị thu hồi. Đã sinh lệnh cất toàn bộ hàng về kệ."
+                ));
+            } else {
+                outboundWebSocketHandler.sendPickListEvent(pickListId, "ORDER_CANCELLED_IN_PACKING", Map.of(
+                        "pickListId", pickListId,
+                        "maPickList", pickList.getMaPickList(),
+                        "soDonHangBiHuy", don.getSoDonHang(),
+                        "message", "Đơn hàng " + don.getSoDonHang() + " đã bị hủy! Phiếu xuất nháp đã bị thu hồi. Vui lòng chuyển hàng của đơn vào Thùng gom hàng hoàn kệ (Return-to-stock)."
+                ));
+            }
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<HangCanHoanKeDto> getDanhSachHangCanHoanKe(Integer khoId) {
+        Integer contextKhoId = SecurityContextHolder.getKhoId();
+        NguoiDungAuthInfo authUser = SecurityContextHolder.getUser();
+        if (authUser == null) {
+            throw new CommonException("Người dùng chưa được xác thực");
+        }
+        boolean isAdmin = authUser.getVaiTro() != null && authUser.getVaiTro().contains(IRoleType.quan_tri_vien);
+        if (isAdmin && khoId != null) {
+            contextKhoId = khoId;
+        }
+        if (contextKhoId == null) {
+            throw new CommonException("Vui lòng chọn ngữ cảnh kho làm việc");
+        }
+
+        List<CanhBao> list = canhBaoRepository.findByKhoIdAndLoaiCanhBaoAndTrangThai(contextKhoId, "HOAN_KE_CHO_CAT", 0);
+        return list.stream().map(cb -> {
+            BienTheSanPham bt = cb.getBienTheSanPham();
+            String tenSp = bt != null && bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : (bt != null ? bt.getMaSku() : "N/A");
+            String tenMau = bt != null && bt.getMauSac() != null ? bt.getMauSac().getTenMau() : "";
+            String tenSize = bt != null && bt.getSize() != null ? bt.getSize().getTenSize() : "";
+
+            Integer refPickListId = cb.getNguongCanhBao() != null ? cb.getNguongCanhBao().intValue() : null;
+            String maPickList = null;
+            if (refPickListId != null) {
+                maPickList = danhSachNhatHangRepository.findById(refPickListId)
+                        .map(DanhSachNhatHang::getMaPickList).orElse(null);
+            }
+
+            String phanLoai = (tenMau + " " + tenSize).trim();
+            String maNhiemVu = "PA-" + cb.getId();
+
+            return HangCanHoanKeDto.builder()
+                    .id(cb.getId())
+                    .maNhiemVu(maNhiemVu)
+                    .maPickList(maPickList)
+                    .bienTheSanPhamId(bt != null ? bt.getId() : null)
+                    .maSku(bt != null ? bt.getMaSku() : null)
+                    .tenSanPham(tenSp)
+                    .phanLoai(phanLoai)
+                    .viTriKe("A-01-02")
+                    .soLuong(cb.getSoLuongHienTai() != null ? cb.getSoLuongHienTai() : BigDecimal.ZERO)
+                    .loaiNguon("HOAN_KE_KHO")
+                    .thoiGianHuy(cb.getNgayCanhBao())
+                    .trangThai("CHO_CAT_KE")
+                    .lyDo("Đơn hàng bị hủy trong luồng xuất kho")
+                    .build();
+        }).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void xacNhanHoanKe(Integer canhBaoId) {
+        if (canhBaoId == null) {
+            throw new CommonException("Mã nhiệm vụ hoàn kệ không được để trống");
+        }
+        CanhBao cb = canhBaoRepository.findById(canhBaoId)
+                .orElseThrow(() -> new CommonException("Không tìm thấy nhiệm vụ hoàn kệ ID: " + canhBaoId));
+
+        if (!"HOAN_KE_CHO_CAT".equals(cb.getLoaiCanhBao())) {
+            throw new CommonException("Nhiệm vụ này không phải loại hoàn kệ cất hàng");
+        }
+
+        NguoiDungAuthInfo authUser = SecurityContextHolder.getUser();
+        NguoiDung currentUser = authUser != null ? nguoiDungRepository.findById(authUser.getId()).orElse(null) : null;
+
+        cb.setTrangThai(1); // 1: Đã cất kệ
+        cb.setNgayXuLy(Instant.now());
+        cb.setNguoiXuLy(currentUser);
+        canhBaoRepository.save(cb);
     }
 }
 

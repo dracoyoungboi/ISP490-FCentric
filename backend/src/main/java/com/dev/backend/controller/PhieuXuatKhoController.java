@@ -312,4 +312,23 @@ public class PhieuXuatKhoController {
                         .build()
         );
     }
+
+    @PostMapping("/scan-to-pack")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
+            inWarehouse = true,
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    @Operation(summary = "Quét mã đóng gói và kiểm tra chặn đơn bị hủy (SRS 6.3.2)")
+    public ResponseEntity<ResponseData<com.dev.backend.dto.response.customize.ScanToPackResultDto>> scanToPack(
+            @RequestParam String barcode) {
+        com.dev.backend.dto.response.customize.ScanToPackResultDto result = phieuXuatKhoService.scanToPack(barcode);
+        return ResponseEntity.ok(
+                ResponseData.<com.dev.backend.dto.response.customize.ScanToPackResultDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(result)
+                        .message("Quét mã phiếu xuất / đơn hàng thành công")
+                        .build()
+        );
+    }
 }

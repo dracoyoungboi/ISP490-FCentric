@@ -206,8 +206,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             try {
                 Long locationId = layPrimaryLocationId(domain, token);
 
-                // Lấy danh sách SKU hiện có trên Shopify để chống tạo trùng lặp (Idempotent)
-                Map<String, ShopifyVariantInfo> shopifySkuMap = layDanhSachSkuHienCoTrenShopify(domain, token);
+                // Lấy danh sách SKU và Tên sản phẩm hiện có trên Shopify để chống tạo trùng lặp (Idempotent)
+                Map<String, Long> shopifyTitleMap = new HashMap<>();
+                Map<String, ShopifyVariantInfo> shopifySkuMap = layDanhSachSkuHienCoTrenShopify(domain, token, shopifyTitleMap);
 
                 // Gom nhóm biến thể theo sản phẩm cha (SanPhamQuanAo)
                 Map<SanPhamQuanAo, List<BienTheSanPham>> spGroupMap = activeVariants.stream()
@@ -230,14 +231,33 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         }
                     }
 
-                    // Nếu có biến thể chưa có trên Shopify -> Đẩy tạo mới sản phẩm lên Shopify
+                    // Nếu chưa tìm thấy ID qua SKU, đối soát qua Tên sản phẩm cha trên Shopify để chống tạo trùng
+                    if (existingShopifyProdId == null && sp.getTenSanPham() != null) {
+                        existingShopifyProdId = shopifyTitleMap.get(sp.getTenSanPham().trim().toLowerCase());
+                    }
+
+                    // Nếu có biến thể chưa có trên Shopify -> Đẩy lên Shopify
                     if (!variantsCanTaoMoi.isEmpty()) {
                         try {
-                            Map<String, ShopifyVariantInfo> createdMap = taoSanPhamLenShopify(domain, token, sp, variantsCanTaoMoi);
-                            shopifySkuMap.putAll(createdMap);
-                            soTaoMoiTrenShopify += createdMap.size();
+                            if (existingShopifyProdId != null) {
+                                // [CHỐNG XÉ ĐÔI SẢN PHẨM]: Sản phẩm cha ĐÃ CÓ trên Shopify -> Thêm biến thể mới vào đúng sản phẩm này
+                                Map<String, ShopifyVariantInfo> addedMap = themVariantsVaoSanPhamShopify(domain, token, existingShopifyProdId, sp, variantsCanTaoMoi, spVariants);
+                                shopifySkuMap.putAll(addedMap);
+                                soTaoMoiTrenShopify += addedMap.size();
+                            } else {
+                                // Sản phẩm cha CHƯA CÓ trên Shopify -> Tạo mới sản phẩm cha cùng danh sách biến thể
+                                Map<String, ShopifyVariantInfo> createdMap = taoSanPhamLenShopify(domain, token, sp, variantsCanTaoMoi, spVariants);
+                                shopifySkuMap.putAll(createdMap);
+                                soTaoMoiTrenShopify += createdMap.size();
+                                if (!createdMap.isEmpty()) {
+                                    existingShopifyProdId = createdMap.values().iterator().next().getProductId();
+                                    if (sp.getTenSanPham() != null) {
+                                        shopifyTitleMap.put(sp.getTenSanPham().trim().toLowerCase(), existingShopifyProdId);
+                                    }
+                                }
+                            }
                         } catch (Exception e) {
-                            log.error("Lỗi khi tạo sản phẩm [{}] lên Shopify: {}", sp.getTenSanPham(), e.getMessage());
+                            log.error("Lỗi khi đồng bộ sản phẩm [{}] lên Shopify: {}", sp.getTenSanPham(), e.getMessage());
                             soThatBai += variantsCanTaoMoi.size();
                         }
                     } else if (existingShopifyProdId != null) {
@@ -941,6 +961,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     }
 
     private Map<String, ShopifyVariantInfo> layDanhSachSkuHienCoTrenShopify(String domain, String token) {
+        return layDanhSachSkuHienCoTrenShopify(domain, token, null);
+    }
+
+    private Map<String, ShopifyVariantInfo> layDanhSachSkuHienCoTrenShopify(String domain, String token, Map<String, Long> titleToProductIdMap) {
         Map<String, ShopifyVariantInfo> result = new HashMap<>();
         String url = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/products.json?limit=250";
         try {
@@ -954,6 +978,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 if (products.isArray()) {
                     for (JsonNode prod : products) {
                         Long prodId = prod.path("id").asLong();
+                        String prodTitle = prod.path("title").asText("").trim().toLowerCase();
+                        if (!prodTitle.isBlank() && titleToProductIdMap != null) {
+                            titleToProductIdMap.put(prodTitle, prodId);
+                        }
                         JsonNode vars = prod.path("variants");
                         if (vars.isArray()) {
                             for (JsonNode v : vars) {
@@ -979,6 +1007,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     }
 
     private Map<String, ShopifyVariantInfo> taoSanPhamLenShopify(String domain, String token, SanPhamQuanAo sp, List<BienTheSanPham> variants) throws Exception {
+        return taoSanPhamLenShopify(domain, token, sp, variants, variants);
+    }
+
+    private Map<String, ShopifyVariantInfo> taoSanPhamLenShopify(String domain, String token, SanPhamQuanAo sp, List<BienTheSanPham> variants, List<BienTheSanPham> allSpVariants) throws Exception {
         Map<String, ShopifyVariantInfo> result = new HashMap<>();
         String url = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/products.json";
 
@@ -1063,8 +1095,16 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             varMap.put("option3", opt3);
             varMap.put("sku", bt.getMaSku());
 
-            BigDecimal price = bt.getGiaBan() != null ? bt.getGiaBan() :
-                    (sp.getGiaBanMacDinh() != null ? sp.getGiaBanMacDinh() : BigDecimal.ZERO);
+            // Tính giá bán an toàn, tuyệt đối không để 0đ
+            BigDecimal price = bt.getGiaBan();
+            if (price == null || price.compareTo(BigDecimal.ZERO) <= 0) {
+                price = allSpVariants != null ? allSpVariants.stream()
+                        .map(BienTheSanPham::getGiaBan)
+                        .filter(p -> p != null && p.compareTo(BigDecimal.ZERO) > 0)
+                        .findFirst()
+                        .orElse(sp != null && sp.getGiaBanMacDinh() != null ? sp.getGiaBanMacDinh() : BigDecimal.valueOf(100000))
+                        : (sp != null && sp.getGiaBanMacDinh() != null ? sp.getGiaBanMacDinh() : BigDecimal.valueOf(100000));
+            }
             varMap.put("price", price.setScale(2, RoundingMode.HALF_UP).toPlainString());
 
             if (bt.getMaVachSku() != null && !bt.getMaVachSku().isBlank()) {
@@ -1100,6 +1140,70 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         ));
                     }
                 }
+            }
+        }
+        return result;
+    }
+
+    private Map<String, ShopifyVariantInfo> themVariantsVaoSanPhamShopify(String domain, String token, Long shopifyProductId, SanPhamQuanAo sp, List<BienTheSanPham> variants, List<BienTheSanPham> allSpVariants) {
+        Map<String, ShopifyVariantInfo> result = new HashMap<>();
+        String url = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/products/" + shopifyProductId + "/variants.json";
+        RestTemplate restTemplate = createRestTemplate();
+        HttpHeaders headers = createHeaders(token);
+
+        for (BienTheSanPham bt : variants) {
+            try {
+                Map<String, Object> varMap = new LinkedHashMap<>();
+                String opt1 = (bt.getMauSac() != null && bt.getMauSac().getTenMau() != null && !bt.getMauSac().getTenMau().isBlank())
+                        ? bt.getMauSac().getTenMau().trim() : "Mặc định";
+                String opt2 = (bt.getSize() != null && bt.getSize().getTenSize() != null && !bt.getSize().getTenSize().isBlank())
+                        ? bt.getSize().getTenSize().trim() : "Tiêu chuẩn";
+                String opt3 = (bt.getChatLieu() != null && bt.getChatLieu().getTenChatLieu() != null && !bt.getChatLieu().getTenChatLieu().isBlank())
+                        ? bt.getChatLieu().getTenChatLieu().trim() : "Cotton";
+
+                varMap.put("option1", opt1);
+                varMap.put("option2", opt2);
+                varMap.put("option3", opt3);
+                varMap.put("sku", bt.getMaSku());
+
+                // Tính giá bán an toàn, tuyệt đối không để 0đ
+                BigDecimal price = bt.getGiaBan();
+                if (price == null || price.compareTo(BigDecimal.ZERO) <= 0) {
+                    price = allSpVariants != null ? allSpVariants.stream()
+                            .map(BienTheSanPham::getGiaBan)
+                            .filter(p -> p != null && p.compareTo(BigDecimal.ZERO) > 0)
+                            .findFirst()
+                            .orElse(sp != null && sp.getGiaBanMacDinh() != null ? sp.getGiaBanMacDinh() : BigDecimal.valueOf(100000))
+                            : (sp != null && sp.getGiaBanMacDinh() != null ? sp.getGiaBanMacDinh() : BigDecimal.valueOf(100000));
+                }
+                varMap.put("price", price.setScale(2, RoundingMode.HALF_UP).toPlainString());
+
+                if (bt.getMaVachSku() != null && !bt.getMaVachSku().isBlank()) {
+                    varMap.put("barcode", bt.getMaVachSku().trim());
+                }
+                varMap.put("inventory_management", "shopify");
+
+                Map<String, Object> body = Map.of("variant", varMap);
+                String jsonBody = objectMapper.writeValueAsString(body);
+                HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
+                ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+
+                if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                    JsonNode root = objectMapper.readTree(response.getBody());
+                    JsonNode v = root.path("variant");
+                    String sku = v.path("sku").asText("").trim().toLowerCase();
+                    Long imgId = v.path("image_id").isNull() || v.path("image_id").asLong() == 0 ? null : v.path("image_id").asLong();
+                    result.put(sku, new ShopifyVariantInfo(
+                            v.path("id").asLong(),
+                            v.path("inventory_item_id").asLong(),
+                            shopifyProductId,
+                            imgId
+                    ));
+                    log.info("Thêm thành công biến thể [{}] vào sản phẩm Shopify ID {}", bt.getMaSku(), shopifyProductId);
+                }
+                try { Thread.sleep(200); } catch (InterruptedException ignored) {}
+            } catch (Exception e) {
+                log.warn("Lỗi khi thêm biến thể [{}] vào sản phẩm Shopify {}: {}", bt.getMaSku(), shopifyProductId, e.getMessage());
             }
         }
         return result;
@@ -1161,37 +1265,58 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             List<AnhBienThe> anhBienTheList = anhBienTheRepository.findActiveByBienTheIds(btIds);
             if (anhBienTheList.isEmpty()) return 0;
 
-            Map<Integer, AnhBienThe> anhByBtId = anhBienTheList.stream()
-                    .collect(Collectors.toMap(ab -> ab.getBienThe().getId(), ab -> ab, (a, b) -> a));
+            // Gom nhóm: Mỗi file ảnh (TepTin) chỉ upload 1 lần duy nhất, gán cho TẤT CẢ các variants cùng dùng ảnh này
+            Map<Integer, List<BienTheSanPham>> variantsByTepTinId = new HashMap<>();
+            Map<Integer, TepTin> tepTinById = new HashMap<>();
 
-            for (BienTheSanPham bt : variants) {
-                AnhBienThe ab = anhByBtId.get(bt.getId());
-                if (ab != null && ab.getTepTin() != null) {
+            for (AnhBienThe ab : anhBienTheList) {
+                if (ab.getBienThe() != null && ab.getTepTin() != null && ab.getTepTin().getId() != null) {
+                    Integer tepId = ab.getTepTin().getId();
+                    tepTinById.putIfAbsent(tepId, ab.getTepTin());
+                    variantsByTepTinId.computeIfAbsent(tepId, k -> new ArrayList<>()).add(ab.getBienThe());
+                }
+            }
+
+            for (Map.Entry<Integer, List<BienTheSanPham>> entry : variantsByTepTinId.entrySet()) {
+                TepTin tep = tepTinById.get(entry.getKey());
+                List<BienTheSanPham> btsInGroup = entry.getValue();
+
+                // Lấy danh sách Shopify Variant IDs của các biến thể trong nhóm mà CHƯA có ảnh
+                List<Long> variantIdsCanGanAnh = new ArrayList<>();
+                List<ShopifyVariantInfo> vInfoList = new ArrayList<>();
+
+                for (BienTheSanPham bt : btsInGroup) {
                     String skuKey = bt.getMaSku().trim().toLowerCase();
                     ShopifyVariantInfo vInfo = shopifySkuMap.get(skuKey);
-
-                    // Idempotency: Chỉ upload nếu variant đã có trên Shopify và CHƯA có ảnh gắn kèm
                     if (vInfo != null && vInfo.getVariantId() != null && vInfo.getImageId() == null) {
-                        TepTin tep = ab.getTepTin();
-                        if (tep.getTenLuuTru() != null && (tep.getKichCo() == null || tep.getKichCo() <= 3 * 1024 * 1024)) {
-                            try {
-                                byte[] bytes = minioService.download(tep.getTenLuuTru());
-                                if (bytes != null && bytes.length > 0) {
-                                    String base64 = Base64.getEncoder().encodeToString(bytes);
-                                    Long newImgId = uploadAnhBienTheLenShopify(domain, token, shopifyProductId, vInfo.getVariantId(), base64, tep.getTenTaiLen());
-                                    if (newImgId != null) {
-                                        vInfo.setImageId(newImgId);
-                                        count++;
-                                    }
-                                    // Throttle 250ms bảo vệ Shopify leaky bucket rate limit
-                                    try {
-                                        Thread.sleep(250);
-                                    } catch (InterruptedException ignored) {}
+                        variantIdsCanGanAnh.add(vInfo.getVariantId());
+                        vInfoList.add(vInfo);
+                    }
+                }
+
+                if (variantIdsCanGanAnh.isEmpty()) {
+                    continue; // Tất cả variants của nhóm ảnh này đã có ảnh, bỏ qua
+                }
+
+                if (tep.getTenLuuTru() != null && (tep.getKichCo() == null || tep.getKichCo() <= 3 * 1024 * 1024)) {
+                    try {
+                        byte[] bytes = minioService.download(tep.getTenLuuTru());
+                        if (bytes != null && bytes.length > 0) {
+                            String base64 = Base64.getEncoder().encodeToString(bytes);
+                            Long newImgId = uploadAnhBienTheLenShopify(domain, token, shopifyProductId, variantIdsCanGanAnh, base64, tep.getTenTaiLen());
+                            if (newImgId != null) {
+                                for (ShopifyVariantInfo vi : vInfoList) {
+                                    vi.setImageId(newImgId);
                                 }
-                            } catch (Exception e) {
-                                log.warn("Lỗi khi tải hoặc upload ảnh biến thể SKU [{}] sang Shopify: {}", bt.getMaSku(), e.getMessage());
+                                count += variantIdsCanGanAnh.size();
                             }
+                            // Throttle 250ms bảo vệ Shopify leaky bucket rate limit
+                            try {
+                                Thread.sleep(250);
+                            } catch (InterruptedException ignored) {}
                         }
+                    } catch (Exception e) {
+                        log.warn("Lỗi khi tải hoặc upload ảnh nhóm biến thể sang Shopify: {}", e.getMessage());
                     }
                 }
             }
@@ -1201,7 +1326,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return count;
     }
 
-    private Long uploadAnhBienTheLenShopify(String domain, String token, Long shopifyProductId, Long shopifyVariantId, String base64Attachment, String filename) {
+    private Long uploadAnhBienTheLenShopify(String domain, String token, Long shopifyProductId, List<Long> shopifyVariantIds, String base64Attachment, String filename) {
         String url = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/products/" + shopifyProductId + "/images.json";
         try {
             RestTemplate restTemplate = createRestTemplate();
@@ -1209,8 +1334,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
             Map<String, Object> imgMap = new LinkedHashMap<>();
             imgMap.put("attachment", base64Attachment);
-            imgMap.put("filename", filename != null && !filename.isBlank() ? filename : "variant_" + shopifyVariantId + ".jpg");
-            imgMap.put("variant_ids", List.of(shopifyVariantId));
+            String safeFilename = filename != null && !filename.isBlank() ? filename : "product_variant_image.jpg";
+            imgMap.put("filename", safeFilename);
+            imgMap.put("variant_ids", shopifyVariantIds);
 
             Map<String, Object> body = Map.of("image", imgMap);
             HttpEntity<String> entity = new HttpEntity<>(objectMapper.writeValueAsString(body), headers);
@@ -1221,7 +1347,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 return root.path("image").path("id").asLong();
             }
         } catch (Exception e) {
-            log.warn("Lỗi khi gọi API upload ảnh biến thể [{}] lên Shopify: {}", shopifyVariantId, e.getMessage());
+            log.warn("Lỗi khi gọi API upload ảnh cho danh sách biến thể {} lên Shopify: {}", shopifyVariantIds, e.getMessage());
         }
         return null;
     }

@@ -8,6 +8,7 @@ import com.dev.backend.dto.request.QuetBarcodeRequest;
 import com.dev.backend.dto.request.TaoPickListRequest;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.DonChoXuatDto;
+import com.dev.backend.dto.response.customize.HangCanHoanKeDto;
 import com.dev.backend.dto.response.customize.KetQuaQuetBarcodeDto;
 import com.dev.backend.dto.response.entities.DanhSachNhatHangDto;
 import com.dev.backend.services.multitable.NhatHangService;
@@ -21,6 +22,8 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/nhat-hang")
@@ -180,6 +183,41 @@ public class NhatHangController {
                 result,
                 null,
                 "Hoàn tất đợt nhặt hàng thành công"
+        ));
+    }
+
+    @GetMapping("/hang-can-hoan-ke")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
+            inWarehouse = true,
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    @Operation(summary = "Danh sách hàng cần hoàn cất lại kệ sau khi đơn bị hủy (Put-away Task)")
+    public ResponseEntity<ResponseData<List<HangCanHoanKeDto>>> getHangCanHoanKe(
+            @RequestParam(required = false) Integer khoId) {
+        List<HangCanHoanKeDto> list = nhatHangService.getDanhSachHangCanHoanKe(khoId);
+        return ResponseEntity.ok(new ResponseData<>(
+                HttpStatus.OK.value(),
+                list,
+                null,
+                "Lấy danh sách hàng cần hoàn kệ thành công"
+        ));
+    }
+
+    @PostMapping("/xac-nhan-hoan-ke/{id}")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
+            inWarehouse = true,
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    @Operation(summary = "Xác nhận đã cất hàng hoàn trả về đúng vị trí kệ")
+    public ResponseEntity<ResponseData<Void>> xacNhanHoanKe(@PathVariable Integer id) {
+        nhatHangService.xacNhanHoanKe(id);
+        return ResponseEntity.ok(new ResponseData<>(
+                HttpStatus.OK.value(),
+                null,
+                null,
+                "Xác nhận hoàn kệ thành công"
         ));
     }
 }

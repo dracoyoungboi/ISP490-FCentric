@@ -35,6 +35,7 @@ class OmnichannelOrderSyncJobTest {
     @Mock private TrangThaiDongBoSanPhamRepository trangThaiDongBoSanPhamRepository;
     @Mock private KenhBanHangService kenhBanHangService;
     @Mock private KhoRepository khoRepository;
+    @Mock private com.dev.backend.services.multitable.NhatHangService nhatHangService;
 
     private OmnichannelOrderSyncJob job;
     private final ObjectMapper mapper = new ObjectMapper();
@@ -49,7 +50,8 @@ class OmnichannelOrderSyncJobTest {
                 bienTheSanPhamRepository,
                 trangThaiDongBoSanPhamRepository,
                 kenhBanHangService,
-                khoRepository
+                khoRepository,
+                nhatHangService
         );
         when(donBanHangRepository.save(any(DonBanHang.class))).thenAnswer(inv -> inv.getArgument(0));
     }
@@ -115,6 +117,36 @@ class OmnichannelOrderSyncJobTest {
         assertEquals(new BigDecimal("530000.00"), saved.getTongCong());
         assertEquals("chua_thanh_toan", saved.getTrangThaiThanhToan());
         verify(chiTietDonBanHangRepository, times(1)).save(any());
+    }
+
+    @Test
+    void processSingleOrder_cancelledOrder_updatesStatusToCancelledAndCallsPickListAdjustment() throws Exception {
+        String json = """
+        {
+            "id": 5512345678,
+            "order_number": 1024,
+            "cancelled_at": "2026-10-12T15:00:00Z",
+            "cancel_reason": "customer",
+            "financial_status": "voided"
+        }
+        """;
+
+        KenhBanHang kenh = KenhBanHang.builder().id(1).maKenh("SHOPIFY").build();
+        DonBanHang existingOrder = DonBanHang.builder()
+                .id(99)
+                .soDonHang("SHP-1024")
+                .maDonHangKenh("5512345678")
+                .trangThai(2) // Đang nhặt hàng
+                .build();
+
+        when(donBanHangRepository.findBySoDonHang("SHP-1024")).thenReturn(Optional.of(existingOrder));
+
+        boolean processed = job.processSingleOrder(mapper.readTree(json), kenh);
+
+        assertFalse(processed);
+        assertEquals(4, existingOrder.getTrangThai()); // 4 = Đã hủy
+        verify(donBanHangRepository).save(existingOrder);
+        verify(nhatHangService).xuLyDonBiHuyTrongPickList(existingOrder);
     }
 }
 

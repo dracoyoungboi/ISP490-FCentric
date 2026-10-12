@@ -3,6 +3,7 @@ package com.dev.backend.workers;
 import com.dev.backend.entities.*;
 import com.dev.backend.repository.*;
 import com.dev.backend.services.KenhBanHangService;
+import com.dev.backend.services.multitable.NhatHangService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AccessLevel;
@@ -44,6 +45,7 @@ public class OmnichannelOrderSyncJob {
     TrangThaiDongBoSanPhamRepository trangThaiDongBoSanPhamRepository;
     KenhBanHangService kenhBanHangService;
     KhoRepository khoRepository;
+    NhatHangService nhatHangService;
     ObjectMapper objectMapper = new ObjectMapper();
 
     @Scheduled(fixedDelay = 300_000, initialDelay = 60_000)
@@ -155,6 +157,11 @@ public class OmnichannelOrderSyncJob {
                     existing.setLyDoTuChoi("Hủy từ sàn Shopify: " + orderNode.path("cancel_reason").asText(""));
                     donBanHangRepository.save(existing);
                     log.info("[JOB-01] Đơn {} đã bị hủy trên Shopify -> Cập nhật trạng thái FCentric = 4", soDonHang);
+                    try {
+                        nhatHangService.xuLyDonBiHuyTrongPickList(existing);
+                    } catch (Exception ex) {
+                        log.error("[JOB-01] Lỗi khi xử lý hủy đơn trong Pick List cho đơn {}: {}", soDonHang, ex.getMessage());
+                    }
                 }
             }
             return false;
@@ -257,15 +264,17 @@ public class OmnichannelOrderSyncJob {
         final String finalEmail = !email.isBlank() ? email.trim() : "shopify@customer.com";
         final String finalName = name.trim();
 
-        return khachHangRepository.findAll().stream().findFirst().orElseGet(() ->
-                khachHangRepository.save(KhachHang.builder()
-                        .maKhachHang("KH-SHOPIFY")
-                        .tenKhachHang(finalName)
-                        .soDienThoai(finalPhone)
-                        .email(finalEmail)
-                        .trangThai(1)
-                        .build())
-        );
+        String suffix = !phone.isBlank() ? phone.replaceAll("\\D", "") : String.valueOf(System.currentTimeMillis() % 1000000);
+        String maKh = "KH-SP-" + suffix;
+        if (maKh.length() > 30) maKh = maKh.substring(0, 30);
+
+        return khachHangRepository.save(KhachHang.builder()
+                .maKhachHang(maKh)
+                .tenKhachHang(finalName.isBlank() ? "Khách hàng Shopify" : finalName)
+                .soDienThoai(finalPhone)
+                .email(finalEmail)
+                .trangThai(1)
+                .build());
     }
 
     private String extractShippingAddress(JsonNode shipNode) {

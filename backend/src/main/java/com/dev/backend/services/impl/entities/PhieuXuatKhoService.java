@@ -75,6 +75,9 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
     @Autowired
     private PhanQuyenNguoiDungKhoRepository phanQuyenNguoiDungKhoRepository;
 
+    @Autowired
+    private DonBanHangRepository donBanHangRepository;
+
     @Override
     protected EntityManager getEntityManager() {
         return entityManager;
@@ -1009,5 +1012,120 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
             chiTietPhieuXuatKhoRepository.save(ct);
         }
         return px;
+    }
+
+    @Transactional(readOnly = true)
+    public com.dev.backend.dto.response.customize.ScanToPackResultDto scanToPack(String barcode) {
+        if (!org.springframework.util.StringUtils.hasText(barcode)) {
+            throw new CommonException("Mã barcode hoặc số phiếu xuất / đơn hàng không được để trống");
+        }
+        String cleanBarcode = barcode.trim();
+
+        // 1. Tìm phiếu xuất kho theo số phiếu xuất hoặc mã đơn hàng
+        PhieuXuatKho phieu = ((PhieuXuatKhoRepository) repository).findBySoPhieuXuat(cleanBarcode).orElse(null);
+
+        if (phieu == null) {
+            Optional<DonBanHang> donOpt = donBanHangRepository.findBySoDonHang(cleanBarcode);
+            if (donOpt.isEmpty()) {
+                donOpt = donBanHangRepository.findByMaDonHangKenh(cleanBarcode);
+            }
+            if (donOpt.isPresent()) {
+                List<PhieuXuatKho> list = ((PhieuXuatKhoRepository) repository).findByDonBanHangId(donOpt.get().getId());
+                if (!list.isEmpty()) {
+                    phieu = list.stream()
+                            .filter(p -> p.getTrangThai() != null && p.getTrangThai() == 0)
+                            .findFirst()
+                            .orElse(list.get(0));
+                } else {
+                    DonBanHang don = donOpt.get();
+                    if (Integer.valueOf(ITrangThaiDonBanHang.DA_HUY).equals(don.getTrangThai())) {
+                        throw new CommonException("ĐƠN HÀNG " + don.getSoDonHang() + " ĐÃ BỊ HỦY! Không có phiếu xuất kho để đóng gói.", HttpStatus.CONFLICT, null);
+                    }
+                    throw new CommonException("Đơn hàng " + don.getSoDonHang() + " chưa được tạo phiếu xuất kho");
+                }
+            }
+        }
+
+        if (phieu == null) {
+            throw new CommonException("Không tìm thấy phiếu xuất kho hoặc đơn hàng khớp với mã [" + cleanBarcode + "]");
+        }
+
+        DonBanHang don = phieu.getDonBanHang();
+        Integer donStatus = don != null ? don.getTrangThai() : null;
+        Integer phieuStatus = phieu.getTrangThai();
+
+        // 2. Chặn Scan-to-Pack khi đơn hàng bị hủy hoặc phiếu bị hủy (SRS 6.3.2)
+        boolean isOrderCancelled = Integer.valueOf(ITrangThaiDonBanHang.DA_HUY).equals(donStatus);
+        boolean isPhieuCancelled = Integer.valueOf(2).equals(phieuStatus);
+
+        if (isOrderCancelled || isPhieuCancelled) {
+            List<com.dev.backend.dto.response.customize.ScanToPackResultDto.ItemPackDto> returnItems = new ArrayList<>();
+            if (don != null) {
+                List<ChiTietDonBanHang> ctdList = chiTietDonBanHangRepository.findByDonBanHangId(don.getId());
+                for (ChiTietDonBanHang ctd : ctdList) {
+                    BienTheSanPham bt = ctd.getBienTheSanPham();
+                    returnItems.add(com.dev.backend.dto.response.customize.ScanToPackResultDto.ItemPackDto.builder()
+                            .bienTheId(bt != null ? bt.getId() : null)
+                            .maSku(bt != null ? bt.getMaSku() : null)
+                            .tenSanPham(bt != null && bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : (bt != null ? bt.getMaSku() : "N/A"))
+                            .tenMau(bt != null && bt.getMauSac() != null ? bt.getMauSac().getTenMau() : "")
+                            .tenSize(bt != null && bt.getSize() != null ? bt.getSize().getTenSize() : "")
+                            .soLuong(ctd.getSoLuongDat() != null ? ctd.getSoLuongDat() : BigDecimal.ZERO)
+                            .build());
+                }
+            }
+
+            String alertMsg = "ĐƠN HÀNG ĐÃ BỊ HỦY! Hệ thống đã khóa đóng gói. Vui lòng chuyển toàn bộ hàng của đơn này vào Thùng gom hàng hoàn kệ (Return-to-stock) tại bàn đóng gói.";
+
+            com.dev.backend.dto.response.customize.ScanToPackResultDto cancelDto = com.dev.backend.dto.response.customize.ScanToPackResultDto.builder()
+                    .phieuXuatKhoId(phieu.getId())
+                    .soPhieuXuat(phieu.getSoPhieuXuat())
+                    .donBanHangId(don != null ? don.getId() : null)
+                    .soDonHang(don != null ? don.getSoDonHang() : null)
+                    .maDonHangKenh(don != null ? don.getMaDonHangKenh() : null)
+                    .trangThaiPhieu(phieuStatus)
+                    .trangThaiDonHang(donStatus)
+                    .biHuy(true)
+                    .thongBaoCanhBao(alertMsg)
+                    .items(returnItems)
+                    .build();
+
+            throw new CommonException(alertMsg, HttpStatus.CONFLICT, cancelDto);
+        }
+
+        // 3. Trả về thông tin hợp lệ
+        List<com.dev.backend.dto.response.customize.ScanToPackResultDto.ItemPackDto> packItems = new ArrayList<>();
+        List<ChiTietPhieuXuatKho> details = chiTietPhieuXuatKhoRepository.findByPhieuXuatKhoIdAndLoHangIsNull(phieu.getId());
+        for (ChiTietPhieuXuatKho ct : details) {
+            BienTheSanPham bt = ct.getBienTheSanPham();
+            packItems.add(com.dev.backend.dto.response.customize.ScanToPackResultDto.ItemPackDto.builder()
+                    .bienTheId(bt != null ? bt.getId() : null)
+                    .maSku(bt != null ? bt.getMaSku() : null)
+                    .tenSanPham(bt != null && bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : (bt != null ? bt.getMaSku() : "N/A"))
+                    .tenMau(bt != null && bt.getMauSac() != null ? bt.getMauSac().getTenMau() : "")
+                    .tenSize(bt != null && bt.getSize() != null ? bt.getSize().getTenSize() : "")
+                    .soLuong(ct.getSoLuongXuat() != null ? ct.getSoLuongXuat() : BigDecimal.ZERO)
+                    .build());
+        }
+
+        String tenKh = don != null && don.getKhachHang() != null ? don.getKhachHang().getTenKhachHang() : "Khách lẻ";
+        String sdt = don != null && don.getKhachHang() != null ? don.getKhachHang().getSoDienThoai() : null;
+        String diaChi = don != null ? don.getDiaChiGiaoHang() : null;
+
+        return com.dev.backend.dto.response.customize.ScanToPackResultDto.builder()
+                .phieuXuatKhoId(phieu.getId())
+                .soPhieuXuat(phieu.getSoPhieuXuat())
+                .donBanHangId(don != null ? don.getId() : null)
+                .soDonHang(don != null ? don.getSoDonHang() : null)
+                .maDonHangKenh(don != null ? don.getMaDonHangKenh() : null)
+                .tenKhachHang(tenKh)
+                .diaChiGiaoHang(diaChi)
+                .soDienThoai(sdt)
+                .trangThaiPhieu(phieuStatus)
+                .trangThaiDonHang(donStatus)
+                .biHuy(false)
+                .thongBaoCanhBao(null)
+                .items(packItems)
+                .build();
     }
 }

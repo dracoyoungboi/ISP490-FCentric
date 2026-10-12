@@ -37,6 +37,14 @@ const realService = {
     const res = await apiClient.post(`${BASE}/pick-list/${id}/hoan-tat`);
     return res.data?.data;
   },
+  async getHangCanHoanKe(khoId) {
+    const res = await apiClient.get(`${BASE}/hang-can-hoan-ke`, { params: { khoId } });
+    return res.data?.data;
+  },
+  async xacNhanHoanKe(id) {
+    const res = await apiClient.post(`${BASE}/xac-nhan-hoan-ke/${id}`);
+    return res.data?.data;
+  },
   /**
    * Nhân viên có thể nhận Pick List: nhân viên kho và quản lý kho đang hoạt động.
    * POST /api/v1/nguoi-dung/filter cho phép quản trị viên và quản lý kho (NguoiDungController).

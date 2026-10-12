@@ -44,5 +44,23 @@ public interface NhatHangService {
      * API 5: Hoàn tất đợt nhặt hàng và tự động khởi tạo Phiếu xuất kho ở trạng thái chờ xuất (SRS 6.3.1 -> 6.3.2)
      */
     DanhSachNhatHangDto hoanTatNhatHang(Integer pickListId);
+
+    /**
+     * Xử lý ngoại lệ chuẩn đề xuất PM: Đơn bán hàng bị hủy trong đợt nhặt hàng
+     * - Case 1: Nếu phiếu nhặt đang 'cho_nhat' hoặc 'dang_nhat': Tự động giảm trừ số lượng cần nhặt,
+     *   bắn WebSocket thông báo tức thì đến màn hình Pick UI để picker không nhặt thừa hoặc chuyển hàng vào khay Put-back.
+     * - Case 2: Nếu phiếu nhặt đã 'da_nhat' (đã có phiếu xuất nháp): Tự động chuyển phiếu xuất nháp sang 'da_huy'.
+     */
+    void xuLyDonBiHuyTrongPickList(com.dev.backend.entities.DonBanHang don);
+
+    /**
+     * Lấy danh sách nhiệm vụ cất hàng hoàn kệ (Put-away Task) phát sinh từ các đơn hủy trong đợt nhặt hoặc bàn đóng gói.
+     */
+    java.util.List<com.dev.backend.dto.response.customize.HangCanHoanKeDto> getDanhSachHangCanHoanKe(Integer khoId);
+
+    /**
+     * Xác nhận đã cất hàng hoàn kệ xong (hoàn tất Put-away Task).
+     */
+    void xacNhanHoanKe(Integer canhBaoId);
 }
 

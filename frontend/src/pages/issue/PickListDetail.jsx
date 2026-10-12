@@ -52,6 +52,7 @@ export default function PickListDetail() {
     const [completeOpen, setCompleteOpen] = useState(false);
     const [completing, setCompleting] = useState(false);
     const [completeResult, setCompleteResult] = useState(null);
+    const [cancelledAlert, setCancelledAlert] = useState(null);
     const busyRef = useRef(false);
 
     const fetchDetail = useCallback(async ({ silent = false } = {}) => {
@@ -71,6 +72,69 @@ export default function PickListDetail() {
     useEffect(() => {
         queueMicrotask(() => fetchDetail());
     }, [fetchDetail]);
+
+    // Lắng nghe sự kiện Outbound WebSocket realtime (đơn hủy trên sàn, tự động giảm SL nhặt)
+    useEffect(() => {
+        if (!id) return;
+        const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const wsHost = window.location.hostname === "localhost" ? "localhost:8080" : window.location.host;
+        const wsUrl = `${wsProtocol}//${wsHost}/ws-outbound?pickListId=${id}`;
+
+        let ws;
+        try {
+            ws = new WebSocket(wsUrl);
+            ws.onopen = () => {
+                const pingInterval = setInterval(() => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send("ping");
+                    }
+                }, 30000);
+                ws._pingInterval = pingInterval;
+            };
+
+            ws.onmessage = (event) => {
+                if (event.data === "pong") return;
+                try {
+                    const parsed = JSON.parse(event.data);
+                    const eventType = parsed.eventType;
+                    const data = parsed.data || {};
+
+                    if (eventType === "ORDER_CANCELLED_IN_PICK_LIST") {
+                        setCancelledAlert({
+                            soDonHang: data.soDonHangBiHuy,
+                            message: data.message,
+                            hangCanTraKe: data.hangCanTraKe || [],
+                        });
+                        toast.warning(`Đơn hàng ${data.soDonHangBiHuy || ""} đã bị hủy trên sàn! Số lượng cần nhặt đã tự động giảm.`);
+                        fetchDetail({ silent: true });
+                        if (soundOn) playScanBeep(false);
+                    } else if (eventType === "PICK_LIST_CANCELLED") {
+                        setCancelledAlert({
+                            cancelledAll: true,
+                            message: data.message || "Toàn bộ đơn hàng trong đợt đã bị hủy!",
+                        });
+                        toast.error(data.message || "Đợt nhặt hàng đã bị hủy toàn bộ.");
+                        fetchDetail({ silent: true });
+                    }
+                } catch {
+                    // Ignore non-json
+                }
+            };
+
+            ws.onclose = () => {
+                if (ws._pingInterval) clearInterval(ws._pingInterval);
+            };
+        } catch {
+            // Ignore ws error
+        }
+
+        return () => {
+            if (ws) {
+                if (ws._pingInterval) clearInterval(ws._pingInterval);
+                ws.close();
+            }
+        };
+    }, [id, fetchDetail, soundOn]);
 
     // Gửi từng mã một (backend khóa Pick List khi quét)
     const processScan = useCallback(async ({ barcode, soLuong }) => {
@@ -179,6 +243,45 @@ export default function PickListDetail() {
     return (
         <PageContainer className="space-y-5">
             <MockModeNotice show={isPickListMock} />
+
+            {/* ── Cảnh báo Real-time đơn bị hủy trong lúc nhặt (SRS 6.3.1 Outbound cancellation) ── */}
+            {cancelledAlert && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 shadow-sm animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-amber-200 text-amber-800 text-sm font-bold">⚠️</span>
+                            <div className="space-y-1">
+                                <h4 className="text-sm font-semibold text-amber-900">
+                                    {cancelledAlert.cancelledAll
+                                        ? "Đợt nhặt hàng đã bị hủy toàn bộ"
+                                        : `Đơn hàng ${cancelledAlert.soDonHang || ""} đã bị hủy trên sàn`}
+                                </h4>
+                                <p className="text-xs text-amber-800">{cancelledAlert.message}</p>
+                                {cancelledAlert.hangCanTraKe && cancelledAlert.hangCanTraKe.length > 0 && (
+                                    <div className="mt-2 rounded border border-amber-200 bg-white/70 p-2 text-xs">
+                                        <p className="font-semibold text-amber-900 mb-1">Hàng cần chuyển vào khay Put-back (Hàng chờ trả kệ trên xe đẩy):</p>
+                                        <ul className="list-disc pl-4 space-y-0.5 text-amber-800">
+                                            {cancelledAlert.hangCanTraKe.map((item, idx) => (
+                                                <li key={idx}>
+                                                    <span className="font-medium">{item.tenSanPham}</span> ({item.sku}): <span className="font-bold text-amber-900">{formatQuantity(item.soLuong)}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setCancelledAlert(null)}
+                            className="text-xs text-amber-700 hover:bg-amber-200/50 hover:text-amber-900 h-7 px-2"
+                        >
+                            Đóng
+                        </Button>
+                    </div>
+                </div>
+            )}
 
             {/* ── Thanh thao tác ── */}
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

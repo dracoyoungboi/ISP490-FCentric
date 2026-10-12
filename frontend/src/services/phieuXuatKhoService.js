@@ -41,5 +41,11 @@ export const phieuXuatKhoService = {
     async view(id) {
         const res = await apiClient.get(`/api/v1/phieu-xuat-kho/${id}/view`);
         return res.data.data;
+    },
+    async scanToPack(barcode) {
+        const res = await apiClient.post("/api/v1/phieu-xuat-kho/scan-to-pack", null, {
+            params: { barcode }
+        });
+        return res.data?.data || res.data;
     }
 };
