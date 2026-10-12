@@ -83,6 +83,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         Kho khoNhap = khoService.getOne(SecurityContextHolder.getKhoId()).orElseThrow(
                 () -> new CommonException("Không tìm thấy kho id: " + SecurityContextHolder.getKhoId())
         );
+        KhoService.kiemTraKhoNhapNcc(khoNhap);
 
 
         NguoiDungAuthInfo authInfo = SecurityContextHolder.getUser();

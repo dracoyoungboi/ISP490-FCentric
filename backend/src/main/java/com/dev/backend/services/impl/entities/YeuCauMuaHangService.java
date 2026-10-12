@@ -83,6 +83,7 @@ public class YeuCauMuaHangService extends BaseServiceImpl<YeuCauMuaHang, Integer
         Kho khoNhap = khoService.getOne(creating.getKhoNhapId()).orElseThrow(
                 () -> new CommonException("Không tìm thấy kho id: " + creating.getKhoNhapId())
         );
+        KhoService.kiemTraKhoNhapNcc(khoNhap);
 
         // lấy người dùng đang đăng nhập
         NguoiDungAuthInfo authInfo = SecurityContextHolder.getUser();

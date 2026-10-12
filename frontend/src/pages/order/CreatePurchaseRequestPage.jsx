@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -22,6 +22,8 @@ import SurfaceCard from '@/components/shared/SurfaceCard';
 import apiClient from '@/services/apiClient';
 import { productService } from '@/services/productService';
 import purchaseRequestService from '@/services/purchaseRequestService';
+import { laKhoNhapNcc } from '@/utils/kho';
+import { soNguyenDuong } from '@/utils/thamSoDuongDan';
 
 const PRODUCT_PAGE_SIZE = 8;
 
@@ -183,60 +185,74 @@ export default function CreatePurchaseRequestPage() {
     const [submitting, setSubmitting] = useState(false);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
-    // Hàm tìm biến thể bằng API lấy toàn bộ sản phẩm theo kho
-    const findVariantInWarehouse = useCallback(async (warehouseId, variantIdToFind) => {
+    // Chỉ điền sẵn từ đường dẫn một lần (StrictMode chạy effect 2 lần).
+    const daDienSanRef = useRef(false);
+
+    /**
+     * Tìm biến thể từ đường dẫn rồi thêm vào danh sách đã chọn.
+     * 1. Theo tên sản phẩm (tham số `ten`, từ Tổng quan): không phụ thuộc tồn kho, tìm được cả mã đã hết hàng.
+     * 2. Theo kho (cách cũ, cho đường dẫn chỉ có khoId + bienTheId): API theo kho chỉ trả sản phẩm còn hàng ở kho đó.
+     */
+    const findVariantInWarehouse = useCallback(async (warehouseId, variantIdToFind, tenSanPham, soLuong) => {
+        const timTrong = (dsSanPham) => {
+            for (const product of dsSanPham) {
+                const match = (product.bienTheSanPhams || []).find(v => String(v.id) === String(variantIdToFind));
+                if (match) return { variant: match, productName: product.tenSanPham };
+            }
+            return null;
+        };
         try {
-            const res = await apiClient.get(`/api/v1/san-pham-quan-ao/theo-kho/${warehouseId}`);
-            const productsInWarehouse = res.data?.data || res.data || [];
-
-            let foundVariant = null;
-            let parentProductName = '';
-
-            // tìm trong toàn bộ sản phẩm của kho này để tìm đúng biến thể
-            for (const product of productsInWarehouse) {
-                if (product.bienTheSanPhams && product.bienTheSanPhams.length > 0) {
-                    const match = product.bienTheSanPhams.find(v => String(v.id) === String(variantIdToFind));
-                    if (match) {
-                        foundVariant = match;
-                        parentProductName = product.tenSanPham;
-                        break; // Tìm thấy thì thoát vòng lặp ngay
-                    }
-                }
+            let ketQua = null;
+            if (tenSanPham) {
+                const res = await productService.filterProducts({
+                    page: 0, size: 50,
+                    filters: [{ fieldName: 'tenSanPham', operation: 'LIKE', value: tenSanPham, logicType: 'AND' }],
+                    sorts: [{ fieldName: 'ngayTao', direction: 'DESC' }],
+                });
+                const data = res?.data?.data || res?.data || {};
+                ketQua = timTrong(data.content || []);
+            }
+            if (!ketQua && warehouseId) {
+                const res = await apiClient.get(`/api/v1/san-pham-quan-ao/theo-kho/${warehouseId}`);
+                ketQua = timTrong(res.data?.data || res.data || []);
             }
 
-            if (foundVariant) {
-                // Đẩy vào danh sách đã chọn
+            if (ketQua) {
                 setSelected(prev => {
                     const next = new Map(prev);
-                    if (!next.has(foundVariant.id)) {
-                        next.set(foundVariant.id, {
-                            variant: foundVariant,
-                            productName: parentProductName,
-                            soLuong: 1
-                        });
+                    if (!next.has(ketQua.variant.id)) {
+                        next.set(ketQua.variant.id, { variant: ketQua.variant, productName: ketQua.productName, soLuong });
                     }
                     return next;
                 });
+                toast.success('Đã điền sẵn sản phẩm theo đề xuất. Kiểm tra lại số lượng và chọn ngày giao dự kiến trước khi gửi.');
             } else {
-                toast.error('Không tìm thấy biến thể này trong kho đã chọn.');
+                toast.error('Không tìm thấy sản phẩm trong đề xuất (có thể đã ngừng kinh doanh). Hãy tìm và chọn sản phẩm trong danh sách sản phẩm.');
             }
-
         } catch (error) {
-            console.error('Lỗi khi lục tìm biến thể theo kho:', error);
+            console.error('Lỗi khi tìm biến thể từ đường dẫn:', error);
             toast.error('Không thể tự tải sản phẩm từ đường dẫn');
         }
     }, []);
 
-    //Xử lý đọc Params từ URL
+    // Đọc tham số đường dẫn: khoId, bienTheId, soLuong (mặc định 1), ten (tên sản phẩm để tìm).
     const applyUrlParams = useCallback(() => {
+        if (daDienSanRef.current) return;
         const urlKhoId = searchParams.get('khoId');
         const urlBienTheId = searchParams.get('bienTheId');
+        if (!urlKhoId && !urlBienTheId) return;
+        daDienSanRef.current = true;
 
         if (urlKhoId) {
-            setKhoId(urlKhoId); // Tự động chọn kho trên form
+            setKhoId(urlKhoId); // Kho bán hàng sẽ tự chuyển sang Kho tổng và hiện giải thích bên dưới ô chọn
         }
-        if (urlKhoId && urlBienTheId) {
-            findVariantInWarehouse(urlKhoId, urlBienTheId);
+        if (urlBienTheId) {
+            findVariantInWarehouse(
+                urlKhoId,
+                urlBienTheId,
+                searchParams.get('ten')?.trim() || '',
+                soNguyenDuong(searchParams.get('soLuong')),
+            );
         }
     }, [searchParams, findVariantInWarehouse]);
 
@@ -311,9 +327,17 @@ export default function CreatePurchaseRequestPage() {
         });
     };
 
+    // Chỉ Kho tổng nhận hàng từ nhà cung cấp; kho bán hàng được bổ sung bằng phiếu chuyển kho.
+    const khoNhapNcc = useMemo(() => warehouses.filter(laKhoNhapNcc), [warehouses]);
+    const khoIdHieuLuc = khoNhapNcc.some(w => String(w.id) === String(khoId))
+        ? String(khoId)
+        : (khoNhapNcc[0] ? String(khoNhapNcc[0].id) : '');
+    const khoIdDuongDan = searchParams.get('khoId');
+    const khoTuDuongDan = warehouses.find(w => String(w.id) === khoIdDuongDan);
+
     // ── Validate ──
     const validate = () => {
-        if (!khoId) { toast.error('Vui lòng chọn kho nhập'); return false; }
+        if (!khoIdHieuLuc) { toast.error('Chưa có Kho tổng đang hoạt động để nhận hàng từ nhà cung cấp'); return false; }
         if (!ngayGiaoDuKien) { toast.error('Vui lòng chọn ngày giao dự kiến'); return false; }
         if (selected.size === 0) { toast.error('Vui lòng chọn ít nhất một biến thể sản phẩm'); return false; }
         return true;
@@ -329,7 +353,7 @@ export default function CreatePurchaseRequestPage() {
         setSubmitting(true);
         try {
             const payload = {
-                khoNhapId: parseInt(khoId),
+                khoNhapId: parseInt(khoIdHieuLuc),
                 ngayGiaoDuKien: new Date(ngayGiaoDuKien).toISOString(),
                 ghiChu: ghiChu.trim() || null,
                 chiTietYeuCauMuaHangs: Array.from(selected.values()).map(({ variant, soLuong }) => ({
@@ -348,7 +372,7 @@ export default function CreatePurchaseRequestPage() {
         }
     };
 
-    const selectedWarehouse = warehouses.find(w => w.id === parseInt(khoId));
+    const selectedWarehouse = warehouses.find(w => w.id === parseInt(khoIdHieuLuc));
     const totalItems = Array.from(selected.values()).reduce((s, e) => s + (e.soLuong || 1), 0);
 
     return (
@@ -383,17 +407,28 @@ export default function CreatePurchaseRequestPage() {
                             </label>
                             <select
                                 className={`${CONTROL_CLASS} font-semibold`}
-                                value={khoId}
+                                value={khoIdHieuLuc}
                                 onChange={e => setKhoId(e.target.value)}
-                                disabled={loadingWarehouses}
+                                disabled={loadingWarehouses || khoNhapNcc.length === 0}
                             >
-                                <option value="">-- Chọn kho nhập --</option>
-                                {warehouses.map(kho => (
+                                {khoNhapNcc.length === 0 ? <option value="">-- Chưa có Kho tổng --</option> : null}
+                                {khoNhapNcc.map(kho => (
                                     <option key={kho.id} value={kho.id}>
                                         {kho.tenKho} {kho.maKho ? `(${kho.maKho})` : ''}
                                     </option>
                                 ))}
                             </select>
+                            {!loadingWarehouses && khoNhapNcc.length === 0 ? (
+                                <p className="text-xs text-bo-danger">
+                                    Chưa có Kho tổng đang hoạt động. Vào Quản lý kho để đặt một kho làm Kho tổng.
+                                </p>
+                            ) : khoTuDuongDan && !laKhoNhapNcc(khoTuDuongDan) && selectedWarehouse ? (
+                                <p className="text-xs leading-5 text-bo-muted">
+                                    {khoTuDuongDan.tenKho} là kho bán hàng, không nhập trực tiếp từ nhà cung cấp. Hàng sẽ nhập về {selectedWarehouse.tenKho}, sau đó chuyển cho {khoTuDuongDan.tenKho} bằng phiếu chuyển kho.
+                                </p>
+                            ) : (
+                                <p className="text-xs text-bo-muted">Chỉ Kho tổng nhận hàng từ nhà cung cấp.</p>
+                            )}
                         </div>
 
                         {/* Ngày giao dự kiến */}
