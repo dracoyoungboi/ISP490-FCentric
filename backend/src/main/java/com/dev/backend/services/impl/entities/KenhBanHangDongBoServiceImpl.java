@@ -1405,7 +1405,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             return false;
         }
 
-        KenhBanHang kenh = kenhBanHangRepository.findByMaKenhIgnoreCase(MA_KENH_SHOPIFY).orElse(null);
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_SHOPIFY)
+                .or(() -> kenhBanHangRepository.findByMaKenh(MA_KENH_SHOPIFY.toLowerCase()))
+                .orElse(null);
         if (kenh == null) return false;
 
         String token = kenhBanHangService.getDecryptedShopifyAccessToken();
