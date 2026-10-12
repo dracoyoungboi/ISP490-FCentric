@@ -26,6 +26,7 @@ import jakarta.persistence.EntityManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +39,9 @@ import java.util.Set;
 
 @Service
 public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
+
+    /** Trạng thái phiếu nhặt hàng còn hoạt động: đơn thuộc các phiếu này bị khóa, không được hủy. */
+    private static final Set<String> PHIEU_NHAT_DANG_HOAT_DONG = Set.of("cho_nhat", "dang_nhat", "da_nhat");
 
     @Autowired
     private EntityManager entityManager;
@@ -192,6 +196,15 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         boolean existsCompletedPX = phieuXuatKhoRepository.existsByDonBanHangIdAndTrangThai(id, 3);
         if (existsCompletedPX) {
             throw new RuntimeException("Đơn đã có phiếu xuất hoàn thành, không thể hủy");
+        }
+
+        // Khóa đơn theo phiếu nhặt hàng (SRS: Pick List order lock): đơn đã gom vào phiếu nhặt
+        // còn hoạt động thì không được hủy, tránh nhặt/xuất hàng cho đơn đã hủy.
+        DanhSachNhatHang phieuNhat = don.getDanhSachNhatHang();
+        if (phieuNhat != null && (phieuNhat.getTrangThai() == null
+                || PHIEU_NHAT_DANG_HOAT_DONG.contains(phieuNhat.getTrangThai()))) {
+            throw new CommonException("Đơn đang nằm trong phiếu nhặt hàng " + phieuNhat.getMaPickList()
+                    + " nên không thể hủy.", HttpStatus.CONFLICT, null);
         }
 
         don.setTrangThai(4); // Hủy đơn
