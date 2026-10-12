@@ -26,6 +26,7 @@ import com.dev.backend.event.DonHangXuatKhoEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -208,6 +209,13 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
             throw new CommonException("Phiếu không ở trạng thái chờ xuất (trạng thái hiện tại: " + phieu.getTrangThai() + ")");
         }
 
+        // Không xuất hàng cho đơn bán đã hủy (ví dụ đơn bị sàn hủy sau khi đã có phiếu xuất nháp).
+        if ("ban_hang".equals(phieu.getLoaiXuat()) && phieu.getDonBanHang() != null
+                && Integer.valueOf(ITrangThaiDonBanHang.DA_HUY).equals(phieu.getDonBanHang().getTrangThai())) {
+            throw new CommonException("Đơn " + phieu.getDonBanHang().getSoDonHang()
+                    + " đã bị hủy nên không thể xuất kho. Vui lòng hủy phiếu xuất này.", HttpStatus.CONFLICT, null);
+        }
+
         validatePickedQuantity(id);
         NguoiDung nguoiXuat = nguoiDungRepository.findById(nguoiXuatId)
                 .orElseThrow(() -> new CommonException("Không tìm thấy thông tin người xuất kho ID: " + nguoiXuatId));
@@ -374,6 +382,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
 
             updateTrangThaiDonBanHang(don.getId());
             trangThaiDonHang = don.getTrangThai();
+            capNhatPhieuNhatSauXuatKho(don);
 
             // Phát sự kiện Push Trạng thái sang Sàn TMĐT (Shopify, Shopee...) chạy ngầm sau commit
             applicationEventPublisher.publishEvent(
@@ -407,6 +416,24 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 .nguoiXuatTen(nguoiXuat.getHoTen())
                 .message("Xác nhận xuất kho và điều phối giao vận thành công")
                 .build();
+    }
+
+    /**
+     * Phiếu nhặt hàng đã nhặt xong ('da_nhat') chuyển sang 'da_xuat' khi không còn đơn nào của phiếu
+     * đang chờ xuất (1) hoặc đang xử lý xuất kho (2). Đơn đã hủy không chặn việc đóng phiếu.
+     */
+    private void capNhatPhieuNhatSauXuatKho(DonBanHang don) {
+        DanhSachNhatHang phieuNhat = don.getDanhSachNhatHang();
+        if (phieuNhat == null || !"da_nhat".equals(phieuNhat.getTrangThai())) {
+            return;
+        }
+        List<DonBanHang> donCuaPhieu = phieuNhat.getDonBanHangs() != null ? phieuNhat.getDonBanHangs() : List.of();
+        boolean conDonChuaXuat = donCuaPhieu.stream().anyMatch(d -> d.getTrangThai() != null
+                && (d.getTrangThai() == ITrangThaiDonBanHang.CHO_XUAT_KHO
+                    || d.getTrangThai() == ITrangThaiDonBanHang.DANG_XUAT_KHO));
+        if (!conDonChuaXuat) {
+            phieuNhat.setTrangThai("da_xuat"); // phiếu nhặt đang được quản lý trong giao dịch, tự lưu khi commit
+        }
     }
 
     private void updateTrangThaiDonBanHang(Integer donBanHangId) {
