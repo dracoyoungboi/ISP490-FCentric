@@ -74,6 +74,13 @@ const syncApi = {
     const unlinked = tongQuan?.chuaLienKet ?? 0;
     const errors = tongQuan?.loiDongBo ?? 0;
 
+    const isDayTonSaved = localStorage.getItem(`fcentric_sync_${code}_tuDongDayTon`);
+    const isLayDonSaved = localStorage.getItem(`fcentric_sync_${code}_tuDongLayDon`);
+    const tuDongDayTon = isDayTonSaved !== null ? JSON.parse(isDayTonSaved) : (config?.trangThai === 1);
+    const tuDongLayDon = isLayDonSaved !== null ? JSON.parse(isLayDonSaved) : (config?.trangThai === 1);
+    const khachHangIdSaved = localStorage.getItem(`fcentric_sync_${code}_khachHangMacDinhId`);
+    const layDonTuSaved = localStorage.getItem(`fcentric_sync_${code}_layDonTu`);
+
     return {
       id: config?.id || (Number(id) || 2),
       kenhBanId: config?.id || 2,
@@ -84,8 +91,13 @@ const syncApi = {
       tenShopSan: domain,
       tenMienShop: domain,
       trangThai: config?.trangThai === 1 || config?.hasAccessToken ? "dang_hoat_dong" : "tam_dung",
+      coTheBatDongBo: true,
+      tuDongDayTon,
+      tuDongLayDon,
+      khachHangMacDinhId: khachHangIdSaved ? Number(khachHangIdSaved) : 1,
+      layDonTu: layDonTuSaved || new Date(Date.now() - 30 * 86400000).toISOString(),
       khoId: 1,
-      tenKho: "Kho tổng Hà Nội",
+      tenKho: "Toàn bộ chuỗi kho & cửa hàng",
       tyLeDayTon: 100,
       tonDem: 0,
       nguongVe0: 0,
@@ -103,17 +115,33 @@ const syncApi = {
       .then(data)
       .catch(() => kenhBanHangMock.getKhoSan(id)),
 
-  luuCauHinh: (id, payload) =>
-    apiClient
-      .put(`${BASE}/${resolveChannelCode(id)}/cai-dat`, payload)
+  luuCauHinh: (id, payload) => {
+    const code = resolveChannelCode(id);
+    if (payload?.khachHangMacDinhId) {
+      localStorage.setItem(`fcentric_sync_${code}_khachHangMacDinhId`, String(payload.khachHangMacDinhId));
+    }
+    if (payload?.layDonTu) {
+      localStorage.setItem(`fcentric_sync_${code}_layDonTu`, String(payload.layDonTu));
+    }
+    return apiClient
+      .put(`${BASE}/${code}/cai-dat`, payload)
       .then(data)
-      .catch(() => kenhBanHangMock.luuCauHinh(id, payload)),
+      .catch(() => kenhBanHangMock.luuCauHinh(id, payload));
+  },
 
-  batTatDongBo: (id, payload) =>
-    apiClient
-      .put(`${BASE}/${resolveChannelCode(id)}/cai-dat`, payload)
+  batTatDongBo: (id, payload) => {
+    const code = resolveChannelCode(id);
+    if (payload?.tuDongDayTon !== undefined) {
+      localStorage.setItem(`fcentric_sync_${code}_tuDongDayTon`, JSON.stringify(payload.tuDongDayTon));
+    }
+    if (payload?.tuDongLayDon !== undefined) {
+      localStorage.setItem(`fcentric_sync_${code}_tuDongLayDon`, JSON.stringify(payload.tuDongLayDon));
+    }
+    return apiClient
+      .put(`${BASE}/${code}/cai-dat`, payload)
       .then(data)
-      .catch(() => kenhBanHangMock.batTatDongBo(id, payload)),
+      .catch(() => kenhBanHangMock.batTatDongBo(id, payload));
+  },
 
   taiSanPham: (id) => apiClient.post(`${BASE}/${resolveChannelCode(id)}/tai-san-pham`).then(data),
 
@@ -243,6 +271,9 @@ const syncApi = {
       .then(data)
       .then((res) =>
         (res?.content || []).map((kh) => ({
+          id: kh.id,
+          maKhachHang: kh.maKhachHang || (kh.soDienThoai ? kh.soDienThoai : `KH${kh.id}`),
+          tenKhachHang: kh.tenKhachHang,
           value: String(kh.id),
           label: `${kh.tenKhachHang} ${kh.soDienThoai ? `- ${kh.soDienThoai}` : ""}`,
         }))

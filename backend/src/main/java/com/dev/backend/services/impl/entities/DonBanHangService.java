@@ -4,6 +4,7 @@ import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.enums.FilterLogicType;
 import com.dev.backend.constant.enums.FilterOperation;
 import com.dev.backend.constant.variables.IRoleType;
+import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.dto.request.BaseFilterRequest;
 import com.dev.backend.dto.request.ChiTietDonBanHangCreating;
 import com.dev.backend.dto.request.DonBanHangCreating;
@@ -91,6 +92,15 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
 
     @Autowired
     private ApplicationEventPublisher eventPublisher;
+
+    @Autowired
+    private KhoRepository khoRepository;
+
+    @Autowired
+    private LichSuThayDoiService lichSuThayDoiService;
+
+    @Autowired
+    private NguoiDungRepository nguoiDungRepository;
 
 
     @Override
@@ -183,20 +193,73 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 .build();
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void sendToWarehouse(Integer id) {
+        sendToWarehouse(id, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void sendToWarehouse(Integer id, Integer khoId) {
         DonBanHang don = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn bán"));
+                .orElseThrow(() -> new CommonException("Không tìm thấy đơn bán với ID: " + id, HttpStatus.NOT_FOUND, null));
 
         if ("bao_gia".equals(don.getLoaiChungTu())) {
-            throw new RuntimeException("Báo giá không thể gửi sang kho. Vui lòng chuyển thành đơn hàng trước!");
+            throw new CommonException("Báo giá không thể gửi sang kho. Vui lòng chuyển thành đơn hàng trước!", HttpStatus.BAD_REQUEST, null);
         }
 
         if (don.getTrangThai() == null || don.getTrangThai() != 0) {
-            throw new RuntimeException("Chỉ đơn ở trạng thái Nháp mới được gửi kho");
+            throw new CommonException("Chỉ đơn ở trạng thái Nháp mới được gửi kho", HttpStatus.BAD_REQUEST, null);
         }
+
+        Kho khoChon = null;
+        if (khoId != null) {
+            khoChon = khoRepository.findById(khoId)
+                    .orElseThrow(() -> new CommonException("Không tìm thấy kho xuất với ID: " + khoId, HttpStatus.NOT_FOUND, null));
+            if (khoChon.getTrangThai() != null && khoChon.getTrangThai() != 1) {
+                throw new CommonException("Kho xuất [" + khoChon.getTenKho() + "] đang tạm dừng hoạt động", HttpStatus.BAD_REQUEST, null);
+            }
+            don.setKhoXuat(khoChon);
+        } else if (don.getKhoXuat() != null) {
+            khoChon = don.getKhoXuat();
+        } else {
+            Integer contextKhoId = SecurityContextHolder.getKhoId();
+            if (contextKhoId != null) {
+                khoChon = khoRepository.findById(contextKhoId).orElse(null);
+            }
+            if (khoChon == null) {
+                khoChon = khoRepository.findById(1).orElse(null);
+            }
+            if (khoChon != null) {
+                don.setKhoXuat(khoChon);
+            }
+        }
+
         don.setTrangThai(1); // Chờ xuất kho
+        don.setNgayCapNhat(Instant.now());
         repository.save(don);
+
+        // Ghi Audit Trail (lich_su_thay_doi)
+        try {
+            NguoiDungAuthInfo auth = SecurityContextHolder.getUser();
+            NguoiDung actor = null;
+            if (auth != null && auth.getId() != null) {
+                actor = nguoiDungRepository.findById(auth.getId()).orElse(null);
+            }
+            String tenKho = don.getKhoXuat() != null ? don.getKhoXuat().getTenKho() : "Chưa xác định";
+            lichSuThayDoiService.create(
+                    LichSuThayDoi.builder()
+                            .loaiThamChieu(ITable.don_ban_hang)
+                            .idThamChieu(don.getId())
+                            .hanhDong("gui_sang_kho")
+                            .giaTriMoi("Gửi đơn " + don.getSoDonHang() + " sang kho xuất: " + tenKho)
+                            .nguoiThucHien(actor)
+                            .ngayThucHien(Instant.now())
+                            .ghiChu("Chuyển trạng thái đơn sang Chờ xuất kho")
+                            .build()
+            );
+        } catch (Exception e) {
+            log.warn("Không thể ghi log thay đổi khi gửi đơn sang kho: {}", e.getMessage());
+        }
     }
 
     @Transactional(rollbackFor = Exception.class)

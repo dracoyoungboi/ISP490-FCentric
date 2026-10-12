@@ -108,9 +108,11 @@ public class DonBanHangController {
             rolesLogic = RequireAuth.LogicType.OR
     )
     public ResponseEntity<ResponseData<String>> sendToWarehouse(
-            @PathVariable Integer id
+            @PathVariable Integer id,
+            @RequestBody(required = false) com.dev.backend.dto.request.SendToWarehouseRequest request
     ) {
-        donBanHangService.sendToWarehouse(id);
+        Integer khoId = request != null ? request.getKhoId() : null;
+        donBanHangService.sendToWarehouse(id, khoId);
 
         return ResponseEntity.ok(
                 ResponseData.<String>builder()

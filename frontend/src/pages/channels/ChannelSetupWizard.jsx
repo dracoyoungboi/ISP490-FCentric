@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-    AlertTriangle, ArrowLeft, ArrowRight, Building2, Calculator, Check, Download, Link2, Loader2, Save, Wand2,
+    AlertTriangle, ArrowLeft, ArrowRight, Building2, Calculator, Check, Download, Link2, Loader2, Save, Send, Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -51,7 +51,7 @@ function formFromKetNoi(kn) {
         tyLeDayTon: String(kn?.tyLeDayTon ?? 100),
         tonDem: String(kn?.tonDem ?? 0),
         nguongVe0: String(kn?.nguongVe0 ?? 0),
-        layDonTu: toDateInput(kn?.layDonTu),
+        layDonTu: toDateInput(kn?.layDonTu) || toDateInput(new Date(Date.now() - 30 * 86400000)),
     };
 }
 
@@ -102,8 +102,13 @@ export default function ChannelSetupWizard() {
                 kenhBanHangService.getKhachHangOptions().catch(() => []),
             ]);
             setKetNoi(kn);
-            setForm(formFromKetNoi(kn));
-            setSavedOnce(Boolean(kn?.khachHangMacDinhId || kn?.tyLeDayTon != null));
+            const initialForm = formFromKetNoi(kn);
+            if (!initialForm.khachHangMacDinhId && khachList && khachList.length > 0) {
+                const firstKhach = khachList[0];
+                initialForm.khachHangMacDinhId = String(firstKhach.id ?? firstKhach.value);
+            }
+            setForm(initialForm);
+            setSavedOnce(true);
             setKhoOptions(khoList ?? []);
             setKhoSanOptions(khoSanList ?? []);
             setKhachOptions(khachList ?? []);
@@ -143,7 +148,7 @@ export default function ChannelSetupWizard() {
         }
         if (target === 2 && !savedOnce) {
             setStep(1);
-            setSaveResult({ ok: false, title: "Chưa lưu cấu hình", message: "Bấm Lưu cấu hình ở bước 2 trước khi sang bước liên kết." });
+            setSaveResult({ ok: false, title: "Chưa lưu cấu hình", message: "Bấm Lưu cấu hình ở bước Nhận đơn trước khi sang bước liên kết." });
             return;
         }
         setErrors({});
@@ -175,7 +180,9 @@ export default function ChannelSetupWizard() {
                 nguongVe0: Number(form.nguongVe0),
                 layDonTu: new Date(`${form.layDonTu}T00:00:00`).toISOString(),
             });
-            setKetNoi(dto);
+            if (dto) {
+                setKetNoi((prev) => ({ ...prev, ...dto }));
+            }
             setSavedOnce(true);
             toast.success("Đã lưu cấu hình kết nối");
             setStep(2);
@@ -200,6 +207,9 @@ export default function ChannelSetupWizard() {
             if (name === "tai") {
                 const res = await kenhBanHangService.taiSanPham(id);
                 setLinkResult({ ok: true, title: `Đã tải ${res?.soSku ?? 0} SKU từ ${res?.soSanPham ?? 0} sản phẩm`, message: `${res?.soMoi ?? 0} mới · ${res?.soCapNhat ?? 0} cập nhật` });
+            } else if (name === "day-ton") {
+                const res = await kenhBanHangService.dayTon(id);
+                setLinkResult({ ok: true, title: `Đã đưa ${res?.soDong ?? 0} SKU vào hàng đợi đẩy tồn`, message: "Tồn kho khả dụng toàn chuỗi đang được đồng bộ sang Shopify." });
             } else {
                 const res = await kenhBanHangService.tuDongLienKet(id);
                 setLinkResult({ ok: true, title: `Đã tự động ghép ${res?.soDaGhep ?? 0} SKU`, message: `${res?.soKhongKhop ?? 0} không khớp · ${res?.soNhieuKhop ?? 0} khớp nhiều biến thể — ghép tay ở trang Liên kết sản phẩm` });
@@ -219,11 +229,14 @@ export default function ChannelSetupWizard() {
         busyRef.current = true;
         setLinkAction("dong-bo");
         try {
+            setKetNoi((prev) => ({ ...prev, [field]: value }));
             const dto = await kenhBanHangService.batTatDongBo(id, {
                 tuDongDayTon: field === "tuDongDayTon" ? value : ketNoi.tuDongDayTon,
                 tuDongLayDon: field === "tuDongLayDon" ? value : ketNoi.tuDongLayDon,
             });
-            setKetNoi(dto);
+            if (dto) {
+                setKetNoi((prev) => ({ ...prev, ...dto, [field]: value }));
+            }
             toast.success(value ? "Đã bật đồng bộ" : "Đã tắt đồng bộ");
         } catch (error) {
             toast.error(getApiErrorMessage(error, "Không đổi được trạng thái đồng bộ"));
@@ -255,8 +268,9 @@ export default function ChannelSetupWizard() {
     }
 
     const stepDone = (index) => {
-        if (index < 2) return savedOnce && Object.keys(validateStep(index, form)).length === 0 && index !== step;
-        return Boolean(ketNoi.tuDongDayTon || ketNoi.tuDongLayDon);
+        if (index === 0) return Object.keys(validateStep(0, form)).length === 0;
+        if (index === 1) return savedOnce && Object.keys(validateStep(1, form)).length === 0;
+        return Boolean(ketNoi?.tuDongDayTon || ketNoi?.tuDongLayDon);
     };
 
     return (
@@ -356,11 +370,16 @@ export default function ChannelSetupWizard() {
                                     <SelectValue placeholder="Chọn khách hàng" />
                                 </SelectTrigger>
                                 <SelectContent position="popper" sideOffset={4} className={cn(selectContentClass, "max-h-72")}>
-                                    {khachOptions.map((khach) => (
-                                        <SelectItem key={khach.id} value={String(khach.id)} className={selectItemClass}>
-                                            {khach.tenKhachHang}{khach.maKhachHang ? ` · ${khach.maKhachHang}` : ""}
-                                        </SelectItem>
-                                    ))}
+                                    {khachOptions.map((khach) => {
+                                        const kId = String(khach.id ?? khach.value ?? "");
+                                        const kTen = khach.tenKhachHang ?? khach.label ?? "Khách hàng";
+                                        const kMa = khach.maKhachHang ? ` · ${khach.maKhachHang}` : "";
+                                        return (
+                                            <SelectItem key={kId} value={kId} className={selectItemClass}>
+                                                {kTen}{kMa}
+                                            </SelectItem>
+                                        );
+                                    })}
                                 </SelectContent>
                             </Select>
                             <FieldMessage error={errors.khachHangMacDinhId} hint="Mặc định KH-SHOPIFY." />
@@ -414,6 +433,14 @@ export default function ChannelSetupWizard() {
                                 Tự động liên kết
                             </Button>
                             <Button
+                                onClick={() => runLinkAction("day-ton")}
+                                disabled={Boolean(linkAction) || ketNoi.trangThai !== "dang_hoat_dong"}
+                                className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
+                            >
+                                {linkAction === "day-ton" ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+                                Đẩy tồn lên Shopify ngay
+                            </Button>
+                            <Button
                                 variant="outline"
                                 onClick={() => navigate(`/channels/${id}/mappings`)}
                                 className="gap-2 border-bo-primary/30 bg-bo-primary-soft text-bo-primary hover:bg-bo-primary-soft/70 hover:text-bo-primary"
@@ -430,7 +457,7 @@ export default function ChannelSetupWizard() {
                                 label="Tự động đẩy tồn"
                                 description="Đẩy định kỳ và đẩy ngay khi khả dụng xuống dưới ngưỡng cảnh báo."
                                 checked={Boolean(ketNoi.tuDongDayTon)}
-                                disabled={Boolean(linkAction) || (!ketNoi.coTheBatDongBo && !ketNoi.tuDongDayTon)}
+                                disabled={Boolean(linkAction) || ketNoi.trangThai !== "dang_hoat_dong"}
                                 onChange={(value) => toggleSync("tuDongDayTon", value)}
                             />
                             <SyncToggle
@@ -438,11 +465,11 @@ export default function ChannelSetupWizard() {
                                 label="Tự động lấy đơn"
                                 description="Nhận đơn qua webhook và quét bù định kỳ; đơn mới được giữ chỗ ngay."
                                 checked={Boolean(ketNoi.tuDongLayDon)}
-                                disabled={Boolean(linkAction) || (!ketNoi.coTheBatDongBo && !ketNoi.tuDongLayDon)}
+                                disabled={Boolean(linkAction) || ketNoi.trangThai !== "dang_hoat_dong"}
                                 onChange={(value) => toggleSync("tuDongLayDon", value)}
                             />
                         </div>
-                        {!ketNoi.coTheBatDongBo && ketNoi.lyDoKhongTheBat ? (
+                        {ketNoi.trangThai !== "dang_hoat_dong" && ketNoi.lyDoKhongTheBat ? (
                             <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
                                 <AlertTriangle className="mt-0.5 size-4 shrink-0" />
                                 <p>Chưa bật được đồng bộ: {ketNoi.lyDoKhongTheBat}.</p>

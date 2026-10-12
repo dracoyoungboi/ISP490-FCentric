@@ -9,8 +9,8 @@ export const donBanHangService = {
     const res = await apiClient.get(`/api/v1/don-ban-hang/${id}/detail`);
     return res.data;
   },
-  async sendToWarehouse(id) {
-    const res = await apiClient.put(`/api/v1/don-ban-hang/${id}/send-to-warehouse`);
+  async sendToWarehouse(id, payload) {
+    const res = await apiClient.put(`/api/v1/don-ban-hang/${id}/send-to-warehouse`, payload);
     return res.data;
   },
   async cancel(id) {

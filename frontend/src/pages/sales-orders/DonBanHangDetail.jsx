@@ -5,6 +5,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { donBanHangService } from "@/services/donBanHangService";
 import { donBanHangKenhService, isChannelOrderMock } from "@/services/donBanHangKenhService";
 import apiClient from "@/services/apiClient";
+import { getKhoList } from "@/services/khoService";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/utils/apiError";
 import {
@@ -66,6 +67,13 @@ export default function DonBanHangDetail() {
   // State quản lý hiển thị Modal hoàn trả
   const [showReturnModal, setShowReturnModal] = useState(false);
 
+  // State quản lý Modal chọn kho khi gửi sang kho
+  const [showSendWarehouseModal, setShowSendWarehouseModal] = useState(false);
+  const [warehouses, setWarehouses] = useState([]);
+  const [selectedKhoId, setSelectedKhoId] = useState("");
+  const [loadingWarehouses, setLoadingWarehouses] = useState(false);
+  const [sendingWarehouse, setSendingWarehouse] = useState(false);
+
   // Fetch roles
   useEffect(() => {
     const fetchUserInfo = async () => {
@@ -114,10 +122,44 @@ export default function DonBanHangDetail() {
     finally { setLoading(false); }
   }
 
-  async function handleSendToWarehouse() {
-    try { setLoading(true); await donBanHangService.sendToWarehouse(id); toast.success("Đã gửi đơn sang kho"); fetchDetail(); }
-    catch { toast.error("Không thể gửi đơn"); }
-    finally { setLoading(false); }
+  const handleOpenSendWarehouseModal = async () => {
+    setShowSendWarehouseModal(true);
+    setLoadingWarehouses(true);
+    try {
+      const list = await getKhoList();
+      const activeList = Array.isArray(list) ? list.filter(w => w.trangThai === 1) : [];
+      setWarehouses(activeList);
+      const currentKhoId = data?.donBanHang?.khoXuat?.id;
+      const matched = activeList.find(w => w.id === currentKhoId);
+      if (matched) {
+        setSelectedKhoId(matched.id);
+      } else if (activeList.length > 0) {
+        setSelectedKhoId(activeList[0].id);
+      }
+    } catch {
+      toast.error("Không tải được danh sách kho khả dụng");
+    } finally {
+      setLoadingWarehouses(false);
+    }
+  };
+
+  async function confirmSendToWarehouse() {
+    if (!selectedKhoId) {
+      toast.error("Vui lòng chọn kho xuất để gửi đơn");
+      return;
+    }
+    try {
+      setSendingWarehouse(true);
+      await donBanHangService.sendToWarehouse(id, { khoId: Number(selectedKhoId) });
+      const chosenKho = warehouses.find(w => w.id === Number(selectedKhoId));
+      toast.success(`Đã gửi đơn hàng sang kho ${chosenKho?.tenKho || ""} thành công.`);
+      setShowSendWarehouseModal(false);
+      fetchDetail();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Không thể gửi đơn sang kho"));
+    } finally {
+      setSendingWarehouse(false);
+    }
   }
 
   async function handleCancel() {
@@ -219,7 +261,7 @@ export default function DonBanHangDetail() {
             <>
               {canSendToWarehouse && (
                 <Button
-                  onClick={handleSendToWarehouse}
+                  onClick={handleOpenSendWarehouseModal}
                   disabled={loading}
                   className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
                 >
@@ -495,6 +537,112 @@ export default function DonBanHangDetail() {
                 className="border-transparent bg-bo-warning text-white hover:bg-bo-warning/90"
               >
                 Xác nhận hoàn trả
+              </Button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Modal chọn kho gửi sang kho ── */}
+      {showSendWarehouseModal && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[1px]">
+          <div className="w-full max-w-md overflow-hidden rounded-lg border border-bo-border bg-white shadow-lg animate-in fade-in-50 zoom-in-95 duration-150">
+            <div className="p-5">
+              <div className="mb-4 flex items-start gap-3.5">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-bo-primary/10 text-bo-primary">
+                  <Send className="size-5" />
+                </span>
+                <div>
+                  <h3 className="mb-1 text-base font-bold text-bo-foreground">Gửi đơn sang kho xử lý</h3>
+                  <p className="text-xs leading-relaxed text-bo-muted">
+                    Chọn kho xuất hàng phụ trách xử lý và xuất kho cho đơn <strong className="font-semibold text-bo-primary">{donBanHang?.soDonHang}</strong>.
+                  </p>
+                </div>
+              </div>
+
+              {/* Tóm tắt thông tin đơn hàng */}
+              <div className="mb-4 space-y-2 rounded-md border border-bo-border/70 bg-bo-surface-subtle p-3 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-bo-muted">Khách hàng:</span>
+                  <span className="font-medium text-bo-foreground">{donBanHang.khachHang?.tenKhachHang || "Khách lẻ"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-bo-muted">Kho hiện tại:</span>
+                  <span className="font-medium text-bo-primary">{donBanHang.khoXuat?.tenKho || "Chưa xác định"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-bo-muted">Số mặt hàng:</span>
+                  <span className="font-medium text-bo-foreground">{chiTiet?.length || 0} mặt hàng</span>
+                </div>
+                {donBanHang.diaChiGiaoHang && (
+                  <div className="flex justify-between gap-2 border-t border-bo-border/50 pt-1.5">
+                    <span className="shrink-0 text-bo-muted">Địa chỉ nhận:</span>
+                    <span className="truncate text-right font-medium text-bo-foreground" title={donBanHang.diaChiGiaoHang}>
+                      {donBanHang.diaChiGiaoHang}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Lựa chọn kho xuất */}
+              <div className="space-y-1.5">
+                <label className="flex items-center justify-between text-xs font-semibold text-bo-foreground">
+                  <span>Kho xuất tiếp nhận <span className="text-bo-danger">*</span></span>
+                  {loadingWarehouses && <span className="text-[11px] font-normal text-bo-muted">Đang tải danh sách kho...</span>}
+                </label>
+
+                {loadingWarehouses ? (
+                  <div className="flex h-9 items-center justify-center rounded-md border border-bo-border bg-bo-surface-subtle text-xs text-bo-muted">
+                    Đang nạp danh sách kho khả dụng...
+                  </div>
+                ) : warehouses.length === 0 ? (
+                  <div className="rounded-md border border-bo-danger/30 bg-bo-danger-soft p-2.5 text-xs text-bo-danger">
+                    Không tìm thấy kho nào đang hoạt động trong hệ thống.
+                  </div>
+                ) : (
+                  <select
+                    value={selectedKhoId}
+                    onChange={(e) => setSelectedKhoId(Number(e.target.value))}
+                    disabled={sendingWarehouse}
+                    className="w-full rounded-md border border-bo-border bg-white px-3 py-2 text-sm text-bo-foreground transition-colors focus:border-bo-primary focus:outline-none focus:ring-1 focus:ring-bo-primary"
+                  >
+                    {warehouses.map((kho) => (
+                      <option key={kho.id} value={kho.id}>
+                        {kho.tenKho} ({kho.maKho}){kho.diaChi ? ` · ${kho.diaChi}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <p className="pt-1 text-[11px] text-bo-muted">
+                  Đơn hàng sau khi gửi sẽ chuyển sang trạng thái <strong>Chờ xuất kho</strong> và xuất hiện trong màn hình gom nhặt hàng của kho này.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 border-t border-bo-border bg-bo-surface-subtle px-5 py-3.5">
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => setShowSendWarehouseModal(false)}
+                disabled={sendingWarehouse}
+                className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+              >
+                Hủy bỏ
+              </Button>
+              <Button
+                type="button"
+                onClick={confirmSendToWarehouse}
+                disabled={sendingWarehouse || loadingWarehouses || warehouses.length === 0 || !selectedKhoId}
+                className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
+              >
+                {sendingWarehouse ? (
+                  <>Đang gửi sang kho...</>
+                ) : (
+                  <>
+                    <Send className="size-4" /> Xác nhận gửi sang kho
+                  </>
+                )}
               </Button>
             </div>
           </div>
