@@ -37,6 +37,7 @@ class OutboundCancellationTest {
     @Mock private PhieuXuatKhoRepository phieuXuatKhoRepository;
     @Mock private CanhBaoRepository canhBaoRepository;
     @Mock private OutboundWebSocketHandler outboundWebSocketHandler;
+    @Mock private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private NhatHangServiceImpl nhatHangService;
@@ -104,6 +105,7 @@ class OutboundCancellationTest {
         when(chiTietDonBanHangRepository.findByDonBanHangId(101)).thenReturn(List.of(ctdA));
         when(chiTietDonBanHangRepository.findByDonBanHangId(102)).thenReturn(List.of(ctdB));
         when(chiTietNhatHangRepository.findByDanhSachNhatHang_Id(1)).thenReturn(new ArrayList<>(List.of(chiTietNhat)));
+        when(chiTietNhatHangRepository.findByDanhSachNhatHangIdWithLockOrderByIdAsc(1)).thenReturn(new ArrayList<>(List.of(chiTietNhat)));
         when(donBanHangRepository.findByDanhSachNhatHang_Id(1)).thenReturn(List.of(donA, donB));
     }
 

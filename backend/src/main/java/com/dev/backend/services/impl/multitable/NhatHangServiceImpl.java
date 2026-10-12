@@ -22,6 +22,8 @@ import com.dev.backend.mapper.DanhSachNhatHangMapper;
 import com.dev.backend.repository.*;
 import com.dev.backend.services.impl.entities.LichSuThayDoiService;
 import com.dev.backend.services.multitable.NhatHangService;
+import com.dev.backend.event.InventoryRestockedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import jakarta.persistence.criteria.Predicate;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -88,6 +90,9 @@ public class NhatHangServiceImpl implements NhatHangService {
 
     @Autowired
     private com.dev.backend.websocket.OutboundWebSocketHandler outboundWebSocketHandler;
+
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -557,6 +562,25 @@ public class NhatHangServiceImpl implements NhatHangService {
         dto.setCoTheHoanTat(allDone && ("cho_nhat".equals(pickList.getTrangThai()) || "dang_nhat".equals(pickList.getTrangThai())));
         dto.setDanhSachMaDonHang(orderCodes);
 
+        if (pickList.getDonBanHangs() != null) {
+            List<DanhSachNhatHangDto.DonThamChieuDto> donDtos = pickList.getDonBanHangs().stream().map(d -> {
+                boolean biHuy = d.getTrangThai() != null && d.getTrangThai() == 4;
+                String tenTrangThai = "Đang xử lý";
+                if (biHuy) tenTrangThai = "Đã hủy";
+                else if (d.getTrangThai() != null && d.getTrangThai() == 3) tenTrangThai = "Đã xuất kho";
+                else if (d.getTrangThai() != null && d.getTrangThai() == 2) tenTrangThai = "Đang nhặt";
+
+                return DanhSachNhatHangDto.DonThamChieuDto.builder()
+                        .id(d.getId())
+                        .soDonHang(d.getSoDonHang())
+                        .trangThai(d.getTrangThai())
+                        .tenTrangThai(tenTrangThai)
+                        .biHuy(biHuy)
+                        .build();
+            }).collect(Collectors.toList());
+            dto.setDanhSachDonHang(donDtos);
+        }
+
         if (pickList.getChiTietNhatHangs() != null) {
             dto.setChiTietNhatHangs(pickList.getChiTietNhatHangs().stream()
                     .map(ctn -> {
@@ -729,11 +753,15 @@ public class NhatHangServiceImpl implements NhatHangService {
             throw new CommonException("Mã vạch / SKU [" + rawBarcode + "] không thuộc danh sách mặt hàng cần nhặt của đợt này!");
         }
 
-        BigDecimal currentScanned = matchedItem.getSoLuongDaQuet() != null ? matchedItem.getSoLuongDaQuet() : BigDecimal.ZERO;
-        BigDecimal required = matchedItem.getSoLuongCanNhat() != null ? matchedItem.getSoLuongCanNhat() : BigDecimal.ZERO;
+        // Lấy lại dòng chi tiết bằng Pessimistic Write Lock để chống Lost Update & Dirty Read khi có Webhook hủy đơn
+        ChiTietNhatHang lockedItem = chiTietNhatHangRepository.findByIdWithLock(matchedItem.getId())
+                .orElse(matchedItem);
+
+        BigDecimal currentScanned = lockedItem.getSoLuongDaQuet() != null ? lockedItem.getSoLuongDaQuet() : BigDecimal.ZERO;
+        BigDecimal required = lockedItem.getSoLuongCanNhat() != null ? lockedItem.getSoLuongCanNhat() : BigDecimal.ZERO;
 
         if (currentScanned.compareTo(required) >= 0) {
-            throw new CommonException("Mặt hàng [" + matchedItem.getBienTheSanPham().getMaSku() + "] đã nhặt đủ số lượng yêu cầu (" + currentScanned + "/" + required + ")!");
+            throw new CommonException("Mặt hàng [" + (lockedItem.getBienTheSanPham() != null ? lockedItem.getBienTheSanPham().getMaSku() : rawBarcode) + "] đã nhặt đủ số lượng yêu cầu (" + currentScanned + "/" + required + ")!");
         }
 
         BigDecimal newScanned = currentScanned.add(qtyToAdd);
@@ -741,8 +769,8 @@ public class NhatHangServiceImpl implements NhatHangService {
             throw new CommonException("Số lượng quét vượt quá yêu cầu (Đã quét: " + currentScanned + ", Quét thêm: " + qtyToAdd + ", Cần nhặt: " + required + ")");
         }
 
-        matchedItem.setSoLuongDaQuet(newScanned);
-        chiTietNhatHangRepository.save(matchedItem);
+        lockedItem.setSoLuongDaQuet(newScanned);
+        lockedItem = chiTietNhatHangRepository.save(lockedItem);
 
         // Tính toán tổng tiến độ
         BigDecimal totalRequired = BigDecimal.ZERO;
@@ -750,8 +778,8 @@ public class NhatHangServiceImpl implements NhatHangService {
         boolean allFinished = true;
 
         for (ChiTietNhatHang ctn : chiTiets) {
-            BigDecimal can = ctn.getSoLuongCanNhat() != null ? ctn.getSoLuongCanNhat() : BigDecimal.ZERO;
-            BigDecimal da = ctn.getId().equals(matchedItem.getId()) ? newScanned : (ctn.getSoLuongDaQuet() != null ? ctn.getSoLuongDaQuet() : BigDecimal.ZERO);
+            BigDecimal can = ctn.getId().equals(lockedItem.getId()) ? lockedItem.getSoLuongCanNhat() : (ctn.getSoLuongCanNhat() != null ? ctn.getSoLuongCanNhat() : BigDecimal.ZERO);
+            BigDecimal da = ctn.getId().equals(lockedItem.getId()) ? newScanned : (ctn.getSoLuongDaQuet() != null ? ctn.getSoLuongDaQuet() : BigDecimal.ZERO);
             totalRequired = totalRequired.add(can);
             totalScanned = totalScanned.add(da);
             if (da.compareTo(can) < 0) {
@@ -790,16 +818,16 @@ public class NhatHangServiceImpl implements NhatHangService {
             log.warn("Không thể ghi log quét barcode cho Pick List {}: {}", pickList.getMaPickList(), e.getMessage());
         }
 
-        BienTheSanPham bt = matchedItem.getBienTheSanPham();
-        String tenSp = bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : bt.getMaSku();
-        String tenMau = bt.getMauSac() != null ? bt.getMauSac().getTenMau() : "";
-        String tenSize = bt.getSize() != null ? bt.getSize().getTenSize() : "";
+        BienTheSanPham bt = lockedItem.getBienTheSanPham();
+        String tenSp = bt != null && bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : (bt != null ? bt.getMaSku() : rawBarcode);
+        String tenMau = bt != null && bt.getMauSac() != null ? bt.getMauSac().getTenMau() : "";
+        String tenSize = bt != null && bt.getSize() != null ? bt.getSize().getTenSize() : "";
 
         return KetQuaQuetBarcodeDto.builder()
-                .chiTietId(matchedItem.getId())
-                .bienTheId(bt.getId())
-                .maSku(bt.getMaSku())
-                .maVachSku(bt.getMaVachSku())
+                .chiTietId(lockedItem.getId())
+                .bienTheId(bt != null ? bt.getId() : null)
+                .maSku(bt != null ? bt.getMaSku() : null)
+                .maVachSku(bt != null ? bt.getMaVachSku() : null)
                 .tenSanPham(tenSp)
                 .tenMau(tenMau)
                 .tenSize(tenSize)
@@ -813,7 +841,7 @@ public class NhatHangServiceImpl implements NhatHangService {
                 .tongSoLuongConLai(totalRequired.subtract(totalScanned))
                 .phanTramHoanThanh(percent)
                 .coTheHoanTat(allFinished)
-                .thongBao("Đã quét 1x " + tenSp + " [" + bt.getMaSku() + "] (" + newScanned + "/" + required + ")")
+                .thongBao("Đã quét 1x " + tenSp + " [" + (bt != null ? bt.getMaSku() : rawBarcode) + "] (" + newScanned + "/" + required + ")")
                 .build();
     }
 
@@ -995,7 +1023,8 @@ public class NhatHangServiceImpl implements NhatHangService {
                 don.getSoDonHang(), pickList.getMaPickList(), currentTrangThai);
 
         List<ChiTietDonBanHang> chiTietDons = chiTietDonBanHangRepository.findByDonBanHangId(don.getId());
-        List<ChiTietNhatHang> chiTietNhats = chiTietNhatHangRepository.findByDanhSachNhatHang_Id(pickListId);
+        // Áp dụng Ordered Pessimistic Locking (ORDER BY id ASC) theo Rule 8.1 chống Deadlock khi hủy đơn
+        List<ChiTietNhatHang> chiTietNhats = chiTietNhatHangRepository.findByDanhSachNhatHangIdWithLockOrderByIdAsc(pickListId);
 
         // Trường hợp 1: Đang gom nhặt (cho_nhat hoặc dang_nhat)
         if ("cho_nhat".equals(currentTrangThai) || "dang_nhat".equals(currentTrangThai)) {
@@ -1041,6 +1070,13 @@ public class NhatHangServiceImpl implements NhatHangService {
                         }
 
                         chiTietNhatHangRepository.save(ctn);
+
+                        // Phát sự kiện giải phóng Outgoing, hoàn lại Free to Use để đẩy tồn tức thời lên kênh TMĐT (SRS 12.3 JOB-03)
+                        try {
+                            eventPublisher.publishEvent(new InventoryRestockedEvent(this, bt.getId(), slGiam, pickList.getKhoXuat() != null ? pickList.getKhoXuat().getId() : null));
+                        } catch (Exception e) {
+                            log.warn("Không thể phát sự kiện InventoryRestockedEvent cho SKU {}: {}", bt.getId(), e.getMessage());
+                        }
                         break;
                     }
                 }
@@ -1114,6 +1150,13 @@ public class NhatHangServiceImpl implements NhatHangService {
                             .trangThai(0) // 0: Chờ cất kệ
                             .build();
                     canhBaoRepository.save(canhBao);
+
+                    // Phát sự kiện giải phóng Outgoing, hoàn lại Free to Use để đẩy tồn tức thời lên kênh TMĐT (SRS 12.3 JOB-03)
+                    try {
+                        eventPublisher.publishEvent(new InventoryRestockedEvent(this, ctd.getBienTheSanPham().getId(), ctd.getSoLuongDat(), pickList.getKhoXuat() != null ? pickList.getKhoXuat().getId() : null));
+                    } catch (Exception e) {
+                        log.warn("Không thể phát sự kiện InventoryRestockedEvent cho SKU {}: {}", ctd.getBienTheSanPham().getId(), e.getMessage());
+                    }
                 }
             }
 
@@ -1211,6 +1254,14 @@ public class NhatHangServiceImpl implements NhatHangService {
         cb.setNgayXuLy(Instant.now());
         cb.setNguoiXuLy(currentUser);
         canhBaoRepository.save(cb);
+
+        if (cb.getBienTheSanPham() != null) {
+            try {
+                eventPublisher.publishEvent(new InventoryRestockedEvent(this, cb.getBienTheSanPham().getId(), cb.getSoLuongHienTai(), cb.getKho() != null ? cb.getKho().getId() : null));
+            } catch (Exception e) {
+                log.warn("Không thể phát sự kiện InventoryRestockedEvent khi xác nhận hoàn kệ: {}", e.getMessage());
+            }
+        }
     }
 }
 

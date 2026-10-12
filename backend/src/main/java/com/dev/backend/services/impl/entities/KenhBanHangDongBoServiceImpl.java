@@ -39,6 +39,9 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import com.dev.backend.event.InventoryRestockedEvent;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.http.*;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
@@ -1383,6 +1386,18 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
         return headers;
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleInventoryRestockedEvent(InventoryRestockedEvent event) {
+        if (event == null || event.getBienTheSanPhamId() == null) return;
+        log.info("[REALTIME-SYNC] Đơn hàng hủy đã hoàn lại {} units cho SKU ID {}. Kích hoạt đẩy tồn kho cập nhật tức thì lên các sàn!",
+                event.getSoLuongHoanLai(), event.getBienTheSanPhamId());
+        try {
+            dayTonKhoKhanCap(event.getBienTheSanPhamId());
+        } catch (Exception e) {
+            log.warn("[REALTIME-SYNC] Lỗi khi đẩy tồn kho khẩn cấp cho SKU {}: {}", event.getBienTheSanPhamId(), e.getMessage());
+        }
     }
 
     @AllArgsConstructor

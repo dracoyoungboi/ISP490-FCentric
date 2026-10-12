@@ -456,7 +456,7 @@ export default function PickListDetail() {
                     {maDonHangs.length === 0 ? (
                         <p className="py-4 text-center text-sm text-bo-muted">Không có đơn nào.</p>
                     ) : (
-                        <OrderCodes codes={maDonHangs} />
+                        <OrderCodes codes={maDonHangs} orders={dto.danhSachDonHang} cancelledAlert={cancelledAlert} />
                     )}
                 </SurfaceCard>
             </div>
@@ -508,17 +508,55 @@ function GoodsIssueLink() {
     );
 }
 
-function OrderCodes({ codes }) {
+function OrderCodes({ codes, orders, cancelledAlert }) {
+    const orderMap = useMemo(() => {
+        const map = new Map();
+        if (orders && Array.isArray(orders)) {
+            orders.forEach((o) => {
+                if (o.soDonHang) map.set(o.soDonHang, o);
+            });
+        }
+        return map;
+    }, [orders]);
+
     return (
-        <div className="flex flex-wrap gap-2">
-            {codes.map((code) => (
-                <span
-                    key={code}
-                    className="inline-flex items-center rounded-md border border-bo-border bg-bo-surface-subtle px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-bo-foreground"
-                >
-                    {code}
-                </span>
-            ))}
+        <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap gap-2">
+                {codes.map((code) => {
+                    const info = orderMap.get(code);
+                    const isCancelled = info?.biHuy || (cancelledAlert && cancelledAlert.soDonHang === code) || (cancelledAlert?.cancelledAll);
+
+                    if (isCancelled) {
+                        return (
+                            <span
+                                key={code}
+                                className="inline-flex items-center gap-1.5 rounded-md border border-rose-300 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 shadow-sm"
+                                title="Đơn hàng đã bị hủy trên sàn - Cần cất hàng thừa vào khay Put-back"
+                            >
+                                <span className="line-through opacity-75">{code}</span>
+                                <span className="rounded bg-rose-200/90 px-1 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-900">
+                                    HỦY TỪ SÀN · PUT-BACK
+                                </span>
+                            </span>
+                        );
+                    }
+
+                    return (
+                        <span
+                            key={code}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-bo-border bg-bo-surface-subtle px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-bo-foreground"
+                        >
+                            <span className="size-1.5 rounded-full bg-emerald-500" />
+                            {code}
+                        </span>
+                    );
+                })}
+            </div>
+            {orders && orders.some((o) => o.biHuy) && (
+                <p className="text-[11px] text-rose-600 font-medium mt-1">
+                    * Các đơn bị gạch ngang đã hủy từ sàn, không tạo phiếu xuất và đã được tự động trừ khỏi số lượng cần nhặt.
+                </p>
+            )}
         </div>
     );
 }
