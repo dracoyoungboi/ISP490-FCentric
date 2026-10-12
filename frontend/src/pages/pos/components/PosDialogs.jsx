@@ -29,8 +29,8 @@ const fieldClass = 'mt-1.5 min-h-10 w-full rounded-lg border border-bo-border bg
 const POS_SHORTCUTS = [
   { key: 'F1', label: 'Mở bảng phím tắt' },
   { key: 'F2', label: 'Thêm hóa đơn mới' },
-  { key: 'F3', label: 'Tìm kiếm hàng hóa (chế độ quét: về ô quét)' },
-  { key: 'Enter', label: 'Ô tìm kiếm: thêm nhanh theo đầu mã SKU · Ô quét: thêm đúng mã đã quét' },
+  { key: 'F3', label: 'Tìm kiếm hàng hóa' },
+  { key: 'Enter', label: 'Trong ô tìm kiếm: thêm nhanh theo mã SKU / mã vạch (ưu tiên mã khớp đúng)' },
   { key: 'F4', label: 'Chọn khách hàng' },
   { key: 'F8', label: 'Bật / tắt chế độ quét mã vạch (có âm báo)' },
   { key: 'F9', label: 'Mở thanh toán · trong màn thanh toán: xác nhận' },
