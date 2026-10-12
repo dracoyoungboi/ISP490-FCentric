@@ -899,10 +899,22 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
         }
 
         //Tìm và kiểm tra thực thể (Nên ném lỗi nếu null)
+        if (request.getKhoXuatId() == null || request.getKhoNhapId() == null) {
+            throw new CommonException("Vui lòng chọn đầy đủ kho gửi và kho nhận");
+        }
+        if (request.getKhoXuatId().equals(request.getKhoNhapId())) {
+            throw new CommonException("Kho gửi và kho nhận không được trùng nhau");
+        }
+        if (request.getChiTietXuat() == null || request.getChiTietXuat().isEmpty()) {
+            throw new CommonException("Yêu cầu điều chuyển phải có ít nhất 1 sản phẩm");
+        }
         Kho khoA = Optional.ofNullable(entityManager.find(Kho.class, request.getKhoXuatId()))
                 .orElseThrow(() -> new CommonException("Kho xuất hàng không tồn tại"));
         Kho khoB = Optional.ofNullable(entityManager.find(Kho.class, request.getKhoNhapId()))
                 .orElseThrow(() -> new CommonException("Kho nhận hàng không tồn tại"));
+        // Không chuyển qua lại với Kho Trung Chuyển (kho ảo) hay kho đã ngừng hoạt động
+        KhoService.kiemTraKhoGiaoDich(khoA, "Kho xuất hàng");
+        KhoService.kiemTraKhoGiaoDich(khoB, "Kho nhận hàng");
 
         int retry = 0;
         int maxRetry = 5;

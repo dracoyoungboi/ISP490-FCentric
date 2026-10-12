@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import PageContainer from "@/components/backoffice/PageContainer";
 import SurfaceCard from "@/components/shared/SurfaceCard";
@@ -19,6 +19,8 @@ import {
 import { phieuChuyenKhoService } from "@/services/phieuChuyenKhoService";
 import { donBanHangService } from "@/services/donBanHangService";
 import { khoService } from "@/services/khoService";
+import { laKhoGiaoDich, laKhoTong } from "@/utils/kho";
+import { soNguyenDuong } from "@/utils/thamSoDuongDan";
 
 const FIELD_LABEL_CLASS =
     "text-xs font-semibold uppercase tracking-wide text-bo-muted";
@@ -45,8 +47,57 @@ function InfoTile({ icon, iconClass, label, value, valueClass }) {
     );
 }
 
+/** Một dòng hàng điều chuyển từ biến thể (dữ liệu /don-ban-hang/variants-for-create). */
+function taoDongHang(bienThe, soLuong = 1) {
+    return {
+        variantId: bienThe.id,
+        sku: bienThe.maBienThe,
+        name: bienThe.tenSanPham,
+        color: bienThe.tenMau,
+        size: bienThe.tenSize,
+        material: bienThe.tenChatLieu,
+        quantity: soLuong,
+    };
+}
+
+/**
+ * Đọc đề xuất trên đường dẫn: ?khoXuatId=&khoNhapId=&bienTheId=&soLuong=
+ * (nút "Chuyển … từ Kho tổng" ở Tổng quan). Không có tham số nào thì trả về null.
+ * - Chỉ nhận kho có trong danh sách chọn được (đang hoạt động, không phải kho ảo).
+ * - Kho xuất thiếu, sai hoặc trùng kho nhận thì dùng Kho tổng (kho bán hàng nhận hàng từ Kho tổng).
+ * - Mã hàng phải nằm trong danh sách đang kinh doanh; số lượng sai thì về 1.
+ */
+function docDeXuatTuDuongDan(thamSo, dsKho, dsBienThe) {
+    const khoXuatIdUrl = thamSo.get("khoXuatId");
+    const khoNhapIdUrl = thamSo.get("khoNhapId");
+    const bienTheIdUrl = thamSo.get("bienTheId");
+    if (!khoXuatIdUrl && !khoNhapIdUrl && !bienTheIdUrl) return null;
+
+    const timKho = (id) => (id ? dsKho.find((k) => String(k.id) === String(id)) : undefined);
+    const khoNhap = timKho(khoNhapIdUrl);
+    let khoXuat = timKho(khoXuatIdUrl);
+    if ((khoXuatIdUrl || khoNhapIdUrl) && (!khoXuat || khoXuat.id === khoNhap?.id)) {
+        const khoTong = dsKho.find(laKhoTong);
+        khoXuat = khoTong && khoTong.id !== khoNhap?.id ? khoTong : undefined;
+    }
+    const bienThe = bienTheIdUrl ? dsBienThe.find((v) => String(v.id) === String(bienTheIdUrl)) : undefined;
+
+    const canhBao = [];
+    if (khoNhapIdUrl && !khoNhap) canhBao.push("Kho nhận trong đề xuất không còn chọn được (đã ngừng hoạt động hoặc không tồn tại), hãy chọn lại kho nhận.");
+    if (bienTheIdUrl && !bienThe) canhBao.push("Không tìm thấy sản phẩm trong đề xuất (có thể đã ngừng kinh doanh), hãy chọn bằng nút \"Thêm sản phẩm\".");
+    return {
+        khoXuatId: khoXuat ? String(khoXuat.id) : "",
+        khoNhapId: khoNhap ? String(khoNhap.id) : "",
+        dongHang: bienThe ? taoDongHang(bienThe, soNguyenDuong(thamSo.get("soLuong"))) : null,
+        canhBao,
+    };
+}
+
 export default function PhieuChuyenKhoCreate() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    // Chỉ điền sẵn một lần (StrictMode gọi tải dữ liệu 2 lần; không ghi đè khi người dùng đã sửa).
+    const daDienSanRef = useRef(false);
 
     const [warehouses, setWarehouses] = useState([]);
     const [variants, setVariants] = useState([]);
@@ -62,13 +113,34 @@ export default function PhieuChuyenKhoCreate() {
                 donBanHangService.getVariantsForCreate(),
                 khoService.filter({ page: 0, size: 100, filters: [] }),
             ]);
-            setVariants(variantRes?.data?.data || variantRes?.data || []);
+            const dsBienThe = variantRes?.data?.data || variantRes?.data || [];
+            setVariants(dsBienThe);
             const listKho = khoRes.data?.data?.content || khoRes.data?.content || [];
-            setWarehouses(listKho);
+            // Bỏ Kho Trung Chuyển (kho ảo chứa hàng đang chuyển) và kho ngừng hoạt động
+            const dsKho = listKho.filter(laKhoGiaoDich);
+            setWarehouses(dsKho);
+
+            if (daDienSanRef.current) return;
+            const deXuat = docDeXuatTuDuongDan(searchParams, dsKho, dsBienThe);
+            if (!deXuat) return;
+            daDienSanRef.current = true;
+            setFormData(prev => ({
+                ...prev,
+                khoXuatId: deXuat.khoXuatId || prev.khoXuatId,
+                khoNhapId: deXuat.khoNhapId || prev.khoNhapId,
+            }));
+            if (deXuat.dongHang) {
+                setTransferItems(prev => prev.some(i => i.variantId === deXuat.dongHang.variantId) ? prev : [...prev, deXuat.dongHang]);
+            }
+            if (deXuat.canhBao.length) {
+                toast.warning(deXuat.canhBao.join(" "));
+            } else {
+                toast.success("Đã điền sẵn theo đề xuất bổ sung. Kiểm tra lại kho và số lượng trước khi tạo phiếu.");
+            }
         } catch {
             toast.error("Không thể tải dữ liệu khởi tạo");
         }
-    }, []);
+    }, [searchParams]);
 
     // Hoãn qua microtask để tránh setState đồng bộ trong effect
     // (react-hooks/set-state-in-effect); dữ liệu vẫn tải ngay khi mount.
@@ -90,15 +162,7 @@ export default function PhieuChuyenKhoCreate() {
             toast("Sản phẩm này đã có trong danh sách", { icon: "⚠️" });
             return;
         }
-        setTransferItems(prev => [...prev, {
-            variantId: product.id,
-            sku: product.maBienThe,
-            name: product.tenSanPham,
-            color: product.tenMau,
-            size: product.tenSize,
-            material: product.tenChatLieu,
-            quantity: 1,
-        }]);
+        setTransferItems(prev => [...prev, taoDongHang(product)]);
         setShowProductDialog(false);
         setSearchTerm("");
     };
@@ -131,7 +195,8 @@ export default function PhieuChuyenKhoCreate() {
         }
     }
 
-    const totalQty = transferItems.reduce((s, i) => s + i.quantity, 0);
+    // Ô số lượng có thể tạm trống khi đang gõ, không cộng chuỗi
+    const totalQty = transferItems.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
 
     // ── Warehouse dropdown label helper ──
     const khoXuatLabel = formData.khoXuatId
