@@ -3,6 +3,7 @@ package com.dev.backend.workers;
 import com.dev.backend.entities.*;
 import com.dev.backend.repository.*;
 import com.dev.backend.services.KenhBanHangService;
+import com.dev.backend.services.multitable.DieuHanhHeThongService;
 import com.dev.backend.services.multitable.NhatHangService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,14 +20,17 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * JOB-01 (SRS 12.1): Sync Omnichannel Orders.
- * Định kỳ mỗi 5 phút tự động quét đơn hàng mới từ các kênh bán hàng (Shopify, Shopee, Lazada)
+ * Quét đơn hàng mới từ các kênh bán hàng (Shopify, Shopee, Lazada)
  * và đưa vào hệ thống FCentric với tiền tố mã đơn chuẩn (SHP-, SHO-, LZD-) ở trạng thái "Chờ xử lý" (0).
+ * Chu kỳ quét chạy ĐỘNG theo cấu hình OMNI_SYNC_INTERVAL_MINS (mặc định 10 phút).
  */
 @Component
 @Slf4j
@@ -47,24 +51,49 @@ public class OmnichannelOrderSyncJob {
     KhoRepository khoRepository;
     NhatHangService nhatHangService;
     PhieuXuatKhoRepository phieuXuatKhoRepository;
+    DieuHanhHeThongService dieuHanhHeThongService;
     ObjectMapper objectMapper = new ObjectMapper();
+    AtomicReference<Instant> lastSyncTime = new AtomicReference<>(Instant.EPOCH);
 
-    @Scheduled(fixedDelay = 300_000, initialDelay = 60_000)
+    @Scheduled(fixedDelay = 60_000, initialDelay = 30_000)
     public void scheduledOrderSync() {
+        int intervalMins = 10;
+        if (dieuHanhHeThongService != null) {
+            intervalMins = dieuHanhHeThongService.getCauHinhInt("OMNI_SYNC_INTERVAL_MINS", 10);
+        }
+        intervalMins = Math.max(1, Math.min(intervalMins, 1440));
+
+        Instant last = lastSyncTime.get();
+        Instant now = Instant.now();
+        if (last != Instant.EPOCH && Duration.between(last, now).toMinutes() < intervalMins) {
+            return;
+        }
+
+        lastSyncTime.set(now);
         List<KenhBanHang> activeChannels = kenhBanHangRepository.findByTrangThai(1);
         if (activeChannels.isEmpty()) {
             return;
         }
 
+        log.info("[JOB-01 Heartbeat] Bắt đầu quét đơn hàng mới từ các kênh bán (Chu kỳ cấu hình: {} phút)", intervalMins);
         for (KenhBanHang kenh : activeChannels) {
             if (MA_KENH_SHOPIFY.equalsIgnoreCase(kenh.getMaKenh())) {
-                syncShopifyOrders(kenh);
+                syncShopifyOrders(kenh, intervalMins);
             }
         }
     }
 
     public int syncShopifyOrders(KenhBanHang kenh) {
-        return syncShopifyOrders(kenh, Instant.now().minusSeconds(600), null);
+        int intervalMins = 10;
+        if (dieuHanhHeThongService != null) {
+            intervalMins = dieuHanhHeThongService.getCauHinhInt("OMNI_SYNC_INTERVAL_MINS", 10);
+        }
+        return syncShopifyOrders(kenh, intervalMins);
+    }
+
+    public int syncShopifyOrders(KenhBanHang kenh, int intervalMins) {
+        int bufferMinutes = Math.max(intervalMins + 5, 10);
+        return syncShopifyOrders(kenh, Instant.now().minus(Duration.ofMinutes(bufferMinutes)), null);
     }
 
     public int syncShopifyOrders(KenhBanHang kenh, Instant tuNgay, Instant denNgay) {

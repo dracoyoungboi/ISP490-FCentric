@@ -5,6 +5,7 @@ import com.dev.backend.entities.KenhBanHang;
 import com.dev.backend.event.InventoryDeductedEvent;
 import com.dev.backend.repository.KenhBanHangRepository;
 import com.dev.backend.services.KenhBanHangDongBoService;
+import com.dev.backend.services.multitable.DieuHanhHeThongService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -14,13 +15,16 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * JOB-03 (SRS 12.3): Sync Inventory to Channels.
- * Cơ chế HYBRID:
- * 1. Batch Scheduled: Chạy mỗi 5 phút đồng bộ định kỳ cho các kênh bán active.
- * 2. Event-driven Real-time: Khi tồn kho vật lý của SKU rơi xuống < 3 units, lập tức đẩy tồn khẩn cấp chống bán âm.
+ * Cơ chế HYBRID ĐỘNG THEO CẤU HÌNH HỆ THỐNG:
+ * 1. Batch Scheduled: Chạy định kỳ theo cấu hình OMNI_SYNC_INTERVAL_MINS (mặc định 10 phút).
+ * 2. Event-driven Real-time: Khi tồn kho vật lý của SKU rơi xuống < REALTIME_SYNC_THRESHOLD (mặc định 3 đơn vị), lập tức đẩy tồn khẩn cấp chống bán âm.
  */
 @Component
 @Slf4j
@@ -30,18 +34,33 @@ public class InventoryChannelSyncJob {
 
     KenhBanHangDongBoService kenhBanHangDongBoService;
     KenhBanHangRepository kenhBanHangRepository;
+    DieuHanhHeThongService dieuHanhHeThongService;
+    AtomicReference<Instant> lastSyncTime = new AtomicReference<>(Instant.EPOCH);
 
     /**
-     * Trigger 1: Batch Scheduled - Chạy định kỳ mỗi 5 phút (300,000 ms)
+     * Trigger 1: Batch Scheduled - Heartbeat mỗi 60 giây, kiểm tra theo chu kỳ cấu hình OMNI_SYNC_INTERVAL_MINS
      */
-    @Scheduled(fixedDelay = 300_000, initialDelay = 120_000)
+    @Scheduled(fixedDelay = 60_000, initialDelay = 60_000)
     public void scheduledInventoryBatchSync() {
+        int intervalMins = 10;
+        if (dieuHanhHeThongService != null) {
+            intervalMins = dieuHanhHeThongService.getCauHinhInt("OMNI_SYNC_INTERVAL_MINS", 10);
+        }
+        intervalMins = Math.max(1, Math.min(intervalMins, 1440));
+
+        Instant last = lastSyncTime.get();
+        Instant now = Instant.now();
+        if (last != Instant.EPOCH && Duration.between(last, now).toMinutes() < intervalMins) {
+            return;
+        }
+
+        lastSyncTime.set(now);
         List<KenhBanHang> activeChannels = kenhBanHangRepository.findByTrangThai(1);
         if (activeChannels.isEmpty()) {
             return;
         }
 
-        log.info("[JOB-03 Batch] Bắt đầu đợt đồng bộ tồn kho định kỳ cho {} kênh bán active", activeChannels.size());
+        log.info("[JOB-03 Batch] Bắt đầu đợt đồng bộ tồn kho định kỳ cho {} kênh bán active (Chu kỳ: {} phút)", activeChannels.size(), intervalMins);
         for (KenhBanHang kenh : activeChannels) {
             try {
                 DayTonKenhRequest req = DayTonKenhRequest.builder()
@@ -59,13 +78,19 @@ public class InventoryChannelSyncJob {
     }
 
     /**
-     * Trigger 2: Real-time Event-driven - Bắt sự kiện khi tồn kho thực tế < 3 units
+     * Trigger 2: Real-time Event-driven - Bắt sự kiện khi tồn kho thực tế < REALTIME_SYNC_THRESHOLD
      */
     @EventListener
     public void onInventoryDeducted(InventoryDeductedEvent event) {
-        if (event.getSoLuongTonConLai() != null && event.getSoLuongTonConLai().compareTo(BigDecimal.valueOf(3)) < 0) {
-            log.warn("[JOB-03 Real-time] CẢNH BÁO TỒN KHO THẤP: SKU ID {} chỉ còn {} đơn vị (< 3 units). Kích hoạt đẩy tồn tức thì!",
-                    event.getBienTheSanPhamId(), event.getSoLuongTonConLai());
+        int threshold = 3;
+        if (dieuHanhHeThongService != null) {
+            threshold = dieuHanhHeThongService.getCauHinhInt("REALTIME_SYNC_THRESHOLD", 3);
+        }
+        threshold = Math.max(0, Math.min(threshold, 100));
+
+        if (event.getSoLuongTonConLai() != null && event.getSoLuongTonConLai().compareTo(BigDecimal.valueOf(threshold)) < 0) {
+            log.warn("[JOB-03 Real-time] CẢNH BÁO TỒN KHO THẤP: SKU ID {} chỉ còn {} đơn vị (< {} units theo cấu hình). Kích hoạt đẩy tồn tức thì!",
+                    event.getBienTheSanPhamId(), event.getSoLuongTonConLai(), threshold);
             try {
                 kenhBanHangDongBoService.dayTonKhoKhanCap(event.getBienTheSanPhamId());
             } catch (Exception e) {

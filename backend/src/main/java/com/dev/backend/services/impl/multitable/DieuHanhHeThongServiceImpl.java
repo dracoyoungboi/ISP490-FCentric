@@ -24,6 +24,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -268,6 +270,33 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
         );
     }
 
+    public static final String CAU_HINH_DEFAULT_MIN_STOCK_ALERT = "DEFAULT_MIN_STOCK_ALERT";
+    public static final String CAU_HINH_OMNI_SYNC_INTERVAL_MINS = "OMNI_SYNC_INTERVAL_MINS";
+    public static final String CAU_HINH_REALTIME_SYNC_THRESHOLD = "REALTIME_SYNC_THRESHOLD";
+
+    @EventListener(ApplicationReadyEvent.class)
+    @Transactional(rollbackFor = Exception.class)
+    public void initDefaultConfigurations() {
+        log.info("[DieuHanhHeThong] Khởi động kiểm tra và seed cấu hình hệ thống kho tự động (Fail-safe Seed)...");
+        seedIfMissing(CAU_HINH_DEFAULT_MIN_STOCK_ALERT, "100", KieuDuLieuCauHinh.INT, "Ngưỡng cảnh báo tồn kho tối thiểu mặc định");
+        seedIfMissing(CAU_HINH_OMNI_SYNC_INTERVAL_MINS, "10", KieuDuLieuCauHinh.INT, "Chu kỳ đồng bộ đơn hàng đa kênh (phút)");
+        seedIfMissing(CAU_HINH_REALTIME_SYNC_THRESHOLD, "3", KieuDuLieuCauHinh.INT, "Ngưỡng chuyển sang đồng bộ tức thời (số lượng)");
+    }
+
+    private void seedIfMissing(String maCauHinh, String defaultValue, KieuDuLieuCauHinh kieuDuLieu, String moTa) {
+        if (!cauHinhRepository.existsById(maCauHinh)) {
+            CauHinhHeThong entity = CauHinhHeThong.builder()
+                    .maCauHinh(maCauHinh)
+                    .giaTri(defaultValue)
+                    .kieuDuLieu(kieuDuLieu)
+                    .moTa(moTa)
+                    .ngayCapNhat(LocalDateTime.now())
+                    .build();
+            cauHinhRepository.save(entity);
+            log.info("[DieuHanhHeThong] Đã tự động seed cấu hình mặc định: {} = {}", maCauHinh, defaultValue);
+        }
+    }
+
     @Override
     public List<CauHinhHeThongDto> getAllCauHinh() {
         List<CauHinhHeThong> list = cauHinhRepository.findAll();
@@ -282,37 +311,88 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
 
         // Validate kiểu dữ liệu trước khi lưu
         validateDataType(request.getGiaTri(), entity.getKieuDuLieu(), maCauHinh);
+        validateBoundary(maCauHinh, request.getGiaTri());
 
+        String giaTriCu = entity.getGiaTri();
         entity.setGiaTri(request.getGiaTri());
         if (request.getMoTa() != null) {
             entity.setMoTa(request.getMoTa());
         }
         entity.setNgayCapNhat(LocalDateTime.now());
 
+        if (userId == null) {
+            NguoiDungAuthInfo auth = SecurityContextHolder.getUser();
+            if (auth != null) {
+                userId = auth.getId();
+            }
+        }
+
+        NguoiDung user = null;
         if (userId != null) {
-            NguoiDung user = nguoiDungRepository.findById(userId).orElse(null);
+            user = nguoiDungRepository.findById(userId).orElse(null);
             entity.setNguoiCapNhat(user);
         }
 
         CauHinhHeThong saved = cauHinhRepository.save(entity);
+
+        // Ghi nhật ký kiểm toán hành vi (Rule 7) - Chỉ ghi khi có user để tránh vi phạm @NotNull gây bẫy rollback-only
+        if (user != null) {
+            try {
+                lichSuThayDoiService.create(
+                        LichSuThayDoi.builder()
+                                .loaiThamChieu(ITable.cau_hinh_he_thong)
+                                .idThamChieu(0)
+                                .hanhDong(IHanhDong.cap_nhat_cau_hinh)
+                                .giaTriCu("{\"" + maCauHinh + "\":\"" + giaTriCu + "\"}")
+                                .giaTriMoi("{\"" + maCauHinh + "\":\"" + request.getGiaTri() + "\"}")
+                                .nguoiThucHien(user)
+                                .ngayThucHien(Instant.now())
+                                .ghiChu("Cập nhật cấu hình: " + maCauHinh + " = " + request.getGiaTri())
+                                .build()
+                );
+            } catch (Exception e) {
+                log.warn("[DieuHanhHeThong] Không thể ghi nhật ký kiểm toán thay đổi cấu hình {}: {}", maCauHinh, e.getMessage());
+            }
+        } else {
+            log.info("[DieuHanhHeThong] Bỏ qua ghi nhật ký kiểm toán thay đổi cấu hình {} do không có thông tin người dùng", maCauHinh);
+        }
+
         return cauHinhMapper.toDto(saved);
     }
 
     @Override
     @Transactional
     public List<CauHinhHeThongDto> bulkUpdateCauHinh(List<CauHinhHeThongBulkUpdateRequest> requests, Integer userId) {
+        if (userId == null) {
+            NguoiDungAuthInfo auth = SecurityContextHolder.getUser();
+            if (auth != null) {
+                userId = auth.getId();
+            }
+        }
+
         NguoiDung user = null;
         if (userId != null) {
             user = nguoiDungRepository.findById(userId).orElse(null);
         }
 
         List<CauHinhHeThong> updatedList = new ArrayList<>();
+        StringBuilder gtCuBuilder = new StringBuilder("{");
+        StringBuilder gtMoiBuilder = new StringBuilder("{");
 
-        for (CauHinhHeThongBulkUpdateRequest req : requests) {
+        for (int i = 0; i < requests.size(); i++) {
+            CauHinhHeThongBulkUpdateRequest req = requests.get(i);
             CauHinhHeThong entity = cauHinhRepository.findById(req.getMaCauHinh())
                     .orElseThrow(() -> new CommonException("Không tìm thấy cấu hình: " + req.getMaCauHinh()));
 
             validateDataType(req.getGiaTri(), entity.getKieuDuLieu(), req.getMaCauHinh());
+            validateBoundary(req.getMaCauHinh(), req.getGiaTri());
+
+            if (i > 0) {
+                gtCuBuilder.append(",");
+                gtMoiBuilder.append(",");
+            }
+            gtCuBuilder.append("\"").append(req.getMaCauHinh()).append("\":\"").append(entity.getGiaTri()).append("\"");
+            gtMoiBuilder.append("\"").append(req.getMaCauHinh()).append("\":\"").append(req.getGiaTri()).append("\"");
 
             entity.setGiaTri(req.getGiaTri());
             entity.setNgayCapNhat(LocalDateTime.now());
@@ -320,9 +400,54 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
 
             updatedList.add(entity);
         }
+        gtCuBuilder.append("}");
+        gtMoiBuilder.append("}");
 
         cauHinhRepository.saveAll(updatedList);
+
+        // Ghi nhật ký kiểm toán hành vi (Rule 7) - Chỉ ghi khi có user để tránh vi phạm @NotNull gây bẫy rollback-only
+        if (user != null) {
+            try {
+                lichSuThayDoiService.create(
+                        LichSuThayDoi.builder()
+                                .loaiThamChieu(ITable.cau_hinh_he_thong)
+                                .idThamChieu(0)
+                                .hanhDong(IHanhDong.cap_nhat_cau_hinh)
+                                .giaTriCu(gtCuBuilder.toString())
+                                .giaTriMoi(gtMoiBuilder.toString())
+                                .nguoiThucHien(user)
+                                .ngayThucHien(Instant.now())
+                                .ghiChu("Cập nhật hàng loạt " + updatedList.size() + " thông số cấu hình hệ thống")
+                                .build()
+                );
+            } catch (Exception e) {
+                log.warn("[DieuHanhHeThong] Không thể ghi nhật ký kiểm toán cập nhật hàng loạt cấu hình: {}", e.getMessage());
+            }
+        } else {
+            log.info("[DieuHanhHeThong] Bỏ qua ghi nhật ký kiểm toán cập nhật hàng loạt do không có thông tin người dùng");
+        }
+
         return cauHinhMapper.toDtoList(updatedList);
+    }
+
+    // Kiểm tra giới hạn biên giá trị an toàn (Boundary Validation)
+    private void validateBoundary(String maCauHinh, String giaTri) {
+        if (CAU_HINH_DEFAULT_MIN_STOCK_ALERT.equals(maCauHinh)) {
+            int val = Integer.parseInt(giaTri);
+            if (val < 0 || val > 100_000) {
+                throw new CommonException("Ngưỡng cảnh báo tồn kho tối thiểu phải từ 0 đến 100,000 đơn vị");
+            }
+        } else if (CAU_HINH_OMNI_SYNC_INTERVAL_MINS.equals(maCauHinh)) {
+            int val = Integer.parseInt(giaTri);
+            if (val < 1 || val > 1440) {
+                throw new CommonException("Chu kỳ đồng bộ đơn hàng đa kênh phải từ 1 đến 1440 phút (tối đa 24 giờ)");
+            }
+        } else if (CAU_HINH_REALTIME_SYNC_THRESHOLD.equals(maCauHinh)) {
+            int val = Integer.parseInt(giaTri);
+            if (val < 0 || val > 100) {
+                throw new CommonException("Ngưỡng chuyển sang đồng bộ tức thời phải từ 0 đến 100 đơn vị");
+            }
+        }
     }
 
     // Hàm tiện ích validate dữ liệu

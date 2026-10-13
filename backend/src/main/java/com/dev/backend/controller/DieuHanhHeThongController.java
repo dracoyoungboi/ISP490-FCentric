@@ -18,6 +18,8 @@ import com.dev.backend.services.impl.entities.NguoiDungService;
 import com.dev.backend.services.impl.entities.PhanQuyenNguoiDungKhoService;
 import com.dev.backend.services.impl.entities.QuyenHanService;
 import com.dev.backend.services.multitable.DieuHanhHeThongService;
+import com.dev.backend.config.SecurityContextHolder;
+import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -142,10 +144,10 @@ class DieuHanhHeThongController {
     @PutMapping("/cau-hinh/{maCauHinh}")
     public ResponseEntity<ResponseData<CauHinhHeThongDto>> updateCauHinh(
             @PathVariable String maCauHinh,
-            @Valid @RequestBody CauHinhHeThongUpdateRequest request,
-            HttpServletRequest httpRequest) {
+            @Valid @RequestBody CauHinhHeThongUpdateRequest request) {
 
-        Integer userId = (Integer) httpRequest.getAttribute("userId");
+        NguoiDungAuthInfo auth = SecurityContextHolder.getUser();
+        Integer userId = (auth != null) ? auth.getId() : null;
         CauHinhHeThongDto result = dieuHanhHeThongService.updateCauHinh(maCauHinh, request, userId);
 
         return ResponseEntity.ok(
@@ -161,10 +163,10 @@ class DieuHanhHeThongController {
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @PutMapping("/cau-hinh/bulk")
     public ResponseEntity<ResponseData<List<CauHinhHeThongDto>>> bulkUpdateCauHinh(
-            @Valid @RequestBody List<CauHinhHeThongBulkUpdateRequest> requests,
-            HttpServletRequest httpRequest) {
+            @Valid @RequestBody List<CauHinhHeThongBulkUpdateRequest> requests) {
 
-        Integer userId = (Integer) httpRequest.getAttribute("userId");
+        NguoiDungAuthInfo auth = SecurityContextHolder.getUser();
+        Integer userId = (auth != null) ? auth.getId() : null;
         List<CauHinhHeThongDto> result = dieuHanhHeThongService.bulkUpdateCauHinh(requests, userId);
 
         return ResponseEntity.ok(
