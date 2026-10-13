@@ -30,7 +30,7 @@ const KENH = {
   NONE: { kenhBanId: null, maKenhBan: null, tenKenhBan: null },
 };
 
-// Đơn: trangThai 1 = chờ xuất (chưa vào Pick List), 2 = đang trong Pick List.
+// Đơn: trangThai 1 = chờ nhặt hàng (kể cả khi đang trong Pick List), 7 = chờ đóng gói (đã nhặt xong).
 const ORDERS = [
   { id: 501, soDonHang: "SO202610101", kenh: "NONE", tenKhachHang: "Công ty TNHH An Phú", minutesAgo: 300, tongCong: 2_450_000, duHang: true, trangThai: 1, lines: [[77, 5], [93, 3], [105, 2]] },
   { id: 502, soDonHang: "SHP-5550011", kenh: "SHOPIFY", tenKhachHang: "Khách Shopify", minutesAgo: 140, tongCong: 640_000, duHang: true, trangThai: 1, lines: [[77, 1], [81, 1]] },
@@ -40,11 +40,11 @@ const ORDERS = [
   { id: 506, soDonHang: "SO202610102", kenh: "NONE", tenKhachHang: "Shop Thời trang Mộc", minutesAgo: 45, tongCong: 3_960_000, duHang: false, trangThai: 1, lines: [[93, 6], [94, 6]] },
   { id: 507, soDonHang: "SHP-5550013", kenh: "SHOPIFY", tenKhachHang: "Khách Shopify", minutesAgo: 20, tongCong: 320_000, duHang: true, trangThai: 1, lines: [[81, 1]] },
   // Đã vào Pick List
-  { id: 480, soDonHang: "SO202610091", kenh: "NONE", tenKhachHang: "Công ty CP Minh Long", minutesAgo: 1500, tongCong: 1_280_000, duHang: true, trangThai: 2, lines: [[77, 2], [105, 2]] },
-  { id: 481, soDonHang: "SHP-5550007", kenh: "SHOPIFY", tenKhachHang: "Khách Shopify", minutesAgo: 1450, tongCong: 459_000, duHang: true, trangThai: 2, lines: [[93, 1]] },
-  { id: 490, soDonHang: "SO202610095", kenh: "NONE", tenKhachHang: "Shop Thời trang Mộc", minutesAgo: 240, tongCong: 1_890_000, duHang: true, trangThai: 2, lines: [[78, 3], [120, 1]] },
-  { id: 491, soDonHang: "SHP-5550009", kenh: "SHOPIFY", tenKhachHang: "Khách Shopify", minutesAgo: 230, tongCong: 640_000, duHang: true, trangThai: 2, lines: [[81, 2]], canXuLy: "XUNG_DOT_HUY" },
-  { id: 495, soDonHang: "LZD-781200019", kenh: "LAZADA", tenKhachHang: "Khách Lazada", minutesAgo: 120, tongCong: 445_000, duHang: true, trangThai: 2, lines: [[112, 1]] },
+  { id: 480, soDonHang: "SO202610091", kenh: "NONE", tenKhachHang: "Công ty CP Minh Long", minutesAgo: 1500, tongCong: 1_280_000, duHang: true, trangThai: 7, lines: [[77, 2], [105, 2]] },
+  { id: 481, soDonHang: "SHP-5550007", kenh: "SHOPIFY", tenKhachHang: "Khách Shopify", minutesAgo: 1450, tongCong: 459_000, duHang: true, trangThai: 7, lines: [[93, 1]] },
+  { id: 490, soDonHang: "SO202610095", kenh: "NONE", tenKhachHang: "Shop Thời trang Mộc", minutesAgo: 240, tongCong: 1_890_000, duHang: true, trangThai: 1, lines: [[78, 3], [120, 1]] },
+  { id: 491, soDonHang: "SHP-5550009", kenh: "SHOPIFY", tenKhachHang: "Khách Shopify", minutesAgo: 230, tongCong: 640_000, duHang: true, trangThai: 1, lines: [[81, 2]], canXuLy: "XUNG_DOT_HUY" },
+  { id: 495, soDonHang: "LZD-781200019", kenh: "LAZADA", tenKhachHang: "Khách Lazada", minutesAgo: 120, tongCong: 445_000, duHang: true, trangThai: 1, lines: [[112, 1]] },
 ];
 
 let lineSeq = 9000;
@@ -143,12 +143,17 @@ function todayCode() {
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** Đơn đang nằm trong một phiếu nhặt chưa hủy (không còn hiện ở Đơn chờ xuất). */
+function dangTrongPhieuNhat(orderId) {
+  return state.pickLists.some((pl) => pl.trangThai !== "da_huy" && pl.donHangIds.includes(orderId));
+}
+
 export const nhatHangMock = {
   async getDonChoXuat(filter = {}) {
     await mockDelay();
     const keyword = normalizeText(filter.searchText);
     const list = state.orders
-      .filter((o) => o.trangThai === 1 && !o.canXuLy)
+      .filter((o) => o.trangThai === 1 && !o.canXuLy && !dangTrongPhieuNhat(o.id))
       .filter((o) => !filter.kenhBanId || KENH[o.kenh].kenhBanId === Number(filter.kenhBanId))
       .filter((o) => !keyword || normalizeText(`${o.soDonHang} ${o.tenKhachHang}`).includes(keyword))
       .sort((a, b) => b.minutesAgo - a.minutesAgo)
@@ -161,7 +166,7 @@ export const nhatHangMock = {
     if (!donBanHangIds.length) throw mockError(400, "Danh sách ID đơn hàng không được để trống");
     const invalid = donBanHangIds
       .map((id) => state.orders.find((o) => o.id === id))
-      .find((o) => !o || o.trangThai !== 1 || o.canXuLy);
+      .find((o) => !o || o.trangThai !== 1 || o.canXuLy || dangTrongPhieuNhat(o.id));
     if (invalid) {
       throw mockError(409, `Đơn ${invalid?.soDonHang ?? ""} không còn ở trạng thái chờ xuất. Vui lòng tải lại danh sách.`);
     }
@@ -178,10 +183,6 @@ export const nhatHangMock = {
       donHangIds: [...donBanHangIds],
     };
     pl.lines = buildLines(pl.donHangIds);
-    donBanHangIds.forEach((orderId) => {
-      const order = state.orders.find((o) => o.id === orderId);
-      order.trangThai = 2;
-    });
     state.pickLists.unshift(pl);
     return toDto(pl);
   },
@@ -258,6 +259,11 @@ export const nhatHangMock = {
     if (!dto.coTheHoanTat) throw mockError(409, "Chưa nhặt đủ hàng, chưa thể hoàn tất phiếu nhặt hàng.");
     pl.trangThai = "da_nhat";
     pl.ngayHoanTat = new Date().toISOString();
+    // Nhặt xong: đơn chuyển Chờ đóng gói (Scan-to-Pack)
+    pl.donHangIds.forEach((orderId) => {
+      const order = state.orders.find((o) => o.id === orderId);
+      if (order && order.trangThai === 1) order.trangThai = 7;
+    });
     return toDto(pl);
   },
 

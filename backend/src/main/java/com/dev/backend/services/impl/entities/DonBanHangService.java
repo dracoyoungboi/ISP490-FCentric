@@ -5,6 +5,8 @@ import com.dev.backend.constant.enums.FilterLogicType;
 import com.dev.backend.constant.enums.FilterOperation;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.constant.variables.ITable;
+import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
+import com.dev.backend.constant.variables.ITrangThaiPhieuXuat;
 import com.dev.backend.dto.request.BaseFilterRequest;
 import com.dev.backend.dto.request.ChiTietDonBanHangCreating;
 import com.dev.backend.dto.request.DonBanHangCreating;
@@ -37,6 +39,7 @@ import com.dev.backend.event.InventoryRestockedEvent;
 import com.dev.backend.services.KenhBanHangDongBoService;
 import com.dev.backend.services.multitable.NhatHangService;
 import lombok.extern.slf4j.Slf4j;
+import com.dev.backend.utils.SauCommit;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 
@@ -88,6 +91,12 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
 
     @Autowired
     private PhieuNhapKhoService phieuNhapKhoService;
+
+    @Autowired
+    private PhieuXuatKhoService phieuXuatKhoService;
+
+    @Autowired
+    private ChiTietPhieuXuatKhoRepository chiTietPhieuXuatKhoRepository;
 
     @Autowired
     @Lazy
@@ -193,10 +202,14 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                         .map(phieuXuatKhoMapper::toSummaryDto)
                         .toList();
 
+        DanhSachNhatHang phieuNhat = don.getDanhSachNhatHang();
         return DonBanHangDetailResponse.builder()
                 .donBanHang(donDto)
                 .chiTiet(chiTietDtos)
                 .phieuXuatKhoList(phieuDtos)
+                .phieuNhatHangId(phieuNhat != null ? phieuNhat.getId() : null)
+                .maPickList(phieuNhat != null ? phieuNhat.getMaPickList() : null)
+                .trangThaiPhieuNhat(phieuNhat != null ? phieuNhat.getTrangThai() : null)
                 .build();
     }
 
@@ -218,28 +231,22 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             throw new CommonException("Chỉ đơn ở trạng thái Nháp mới được gửi kho", HttpStatus.BAD_REQUEST, null);
         }
 
-        Kho khoChon = null;
+        Kho khoChon;
         if (khoId != null) {
             khoChon = khoRepository.findById(khoId)
                     .orElseThrow(() -> new CommonException("Không tìm thấy kho xuất với ID: " + khoId, HttpStatus.NOT_FOUND, null));
-            if (khoChon.getTrangThai() != null && khoChon.getTrangThai() != 1) {
-                throw new CommonException("Kho xuất [" + khoChon.getTenKho() + "] đang tạm dừng hoạt động", HttpStatus.BAD_REQUEST, null);
-            }
-            don.setKhoXuat(khoChon);
         } else if (don.getKhoXuat() != null) {
             khoChon = don.getKhoXuat();
         } else {
             Integer contextKhoId = SecurityContextHolder.getKhoId();
-            if (contextKhoId != null) {
-                khoChon = khoRepository.findById(contextKhoId).orElse(null);
-            }
+            khoChon = contextKhoId != null ? khoRepository.findById(contextKhoId).orElse(null) : null;
             if (khoChon == null) {
-                khoChon = khoRepository.findById(1).orElse(null);
-            }
-            if (khoChon != null) {
-                don.setKhoXuat(khoChon);
+                throw new CommonException("Vui lòng chọn kho xuất cho đơn hàng", HttpStatus.BAD_REQUEST, null);
             }
         }
+        // Cùng quy tắc lúc tạo đơn: kho đang hoạt động và không phải Kho Trung Chuyển (kho ảo)
+        KhoService.kiemTraKhoGiaoDich(khoChon, "Kho xuất hàng");
+        don.setKhoXuat(khoChon);
 
         don.setTrangThai(1); // Chờ xuất kho
         don.setNgayCapNhat(Instant.now());
@@ -261,7 +268,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                             .giaTriMoi("Gửi đơn " + don.getSoDonHang() + " sang kho xuất: " + tenKho)
                             .nguoiThucHien(actor)
                             .ngayThucHien(Instant.now())
-                            .ghiChu("Chuyển trạng thái đơn sang Chờ xuất kho")
+                            .ghiChu("Chuyển trạng thái đơn sang Chờ nhặt hàng")
                             .build()
             );
         } catch (Exception e) {
@@ -279,7 +286,10 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 .orElseThrow(() -> new CommonException("Không tìm thấy đơn hàng với ID: " + donHangId, HttpStatus.NOT_FOUND, null));
 
         List<ChiTietDonBanHang> chiTiets = chiTietDonBanHangRepository.findByDonBanHangId(donHangId);
-        List<Kho> activeKhos = khoRepository.findByTrangThai(1);
+        // Chỉ gợi ý kho nhận được đơn bán: bỏ Kho Trung Chuyển (kho ảo chứa hàng đang chuyển giữa các kho)
+        List<Kho> activeKhos = khoRepository.findByTrangThai(1).stream()
+                .filter(k -> !KhoService.laKhoAo(k))
+                .toList();
 
         if (activeKhos == null || activeKhos.isEmpty()) {
             return Collections.emptyList();
@@ -305,29 +315,9 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 .distinct()
                 .toList();
 
-        // 1. Batch query On-Hand theo (khoId, bienTheId)
-        Map<Integer, Map<Integer, BigDecimal>> onHandMap = new HashMap<>();
-        if (!bienTheIds.isEmpty()) {
-            List<Object[]> onHandRows = tonKhoTheoLoRepository.sumOnHandByKhoAndBienTheIds(bienTheIds);
-            for (Object[] row : onHandRows) {
-                Integer btId = (Integer) row[0];
-                Integer kId = (Integer) row[1];
-                BigDecimal qty = row[2] instanceof BigDecimal ? (BigDecimal) row[2] : BigDecimal.valueOf(((Number) row[2]).doubleValue());
-                onHandMap.computeIfAbsent(kId, k -> new HashMap<>()).put(btId, qty);
-            }
-        }
-
-        // 2. Batch query Outgoing theo (khoId, bienTheId) loại trừ chính đơn hàng này
-        Map<Integer, Map<Integer, BigDecimal>> outgoingMap = new HashMap<>();
-        if (!bienTheIds.isEmpty()) {
-            List<Object[]> outgoingRows = chiTietDonBanHangRepository.sumOutgoingByKhoAndBienTheIdsExcludingOrder(bienTheIds, donHangId);
-            for (Object[] row : outgoingRows) {
-                Integer btId = (Integer) row[0];
-                Integer kId = (Integer) row[1];
-                BigDecimal qty = row[2] instanceof BigDecimal ? (BigDecimal) row[2] : BigDecimal.valueOf(((Number) row[2]).doubleValue());
-                outgoingMap.computeIfAbsent(kId, k -> new HashMap<>()).put(btId, qty);
-            }
-        }
+        // 1. Tồn khả dụng theo lô (tồn − đang giữ) theo (kho, biến thể); 2. lượng chờ xuất của các đơn khác
+        Map<Integer, Map<Integer, BigDecimal>> onHandMap = bienTheIds.isEmpty() ? Map.of() : khaDungLoTheoKho(bienTheIds);
+        Map<Integer, Map<Integer, BigDecimal>> outgoingMap = bienTheIds.isEmpty() ? Map.of() : choXuatTheoKho(bienTheIds, donHangId);
 
         List<KhoKhaDungDto> results = new ArrayList<>();
         for (Kho kho : activeKhos) {
@@ -398,6 +388,40 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         return results;
     }
 
+    /** Tồn khả dụng theo lô (tồn − đang giữ) ở các kho bán được: kho → (biến thể → số lượng). */
+    private Map<Integer, Map<Integer, BigDecimal>> khaDungLoTheoKho(List<Integer> bienTheIds) {
+        Map<Integer, Map<Integer, BigDecimal>> ketQua = new HashMap<>();
+        for (Object[] row : tonKhoTheoLoRepository.sumKhaDungLoTheoKhoBan(bienTheIds)) {
+            ketQua.computeIfAbsent((Integer) row[1], k -> new HashMap<>()).put((Integer) row[0], soLuong(row[2]));
+        }
+        return ketQua;
+    }
+
+    /**
+     * Lượng chờ xuất của đơn bán đang giữ hàng (ITrangThaiDonBanHang.DANG_GIU_HANG): đặt − đã xuất thật,
+     * kho → (biến thể → số lượng). {@code boQuaDonId} để không tính chính đơn đang xét.
+     */
+    private Map<Integer, Map<Integer, BigDecimal>> choXuatTheoKho(List<Integer> bienTheIds, Integer boQuaDonId) {
+        Map<Integer, Map<Integer, BigDecimal>> ketQua = new HashMap<>();
+        for (Object[] row : chiTietDonBanHangRepository.sumDatDonGiuHangTheoKho(bienTheIds, boQuaDonId, ITrangThaiDonBanHang.DANG_GIU_HANG)) {
+            ketQua.computeIfAbsent((Integer) row[1], k -> new HashMap<>()).merge((Integer) row[0], soLuong(row[2]), BigDecimal::add);
+        }
+        for (Object[] row : chiTietPhieuXuatKhoRepository.sumDaXuatDonGiuHangTheoKho(bienTheIds, boQuaDonId, ITrangThaiDonBanHang.DANG_GIU_HANG)) {
+            ketQua.computeIfAbsent((Integer) row[1], k -> new HashMap<>()).merge((Integer) row[0], soLuong(row[2]).negate(), BigDecimal::add);
+        }
+        return ketQua;
+    }
+
+    private static BigDecimal soLuong(Object value) {
+        if (value == null) return BigDecimal.ZERO;
+        return value instanceof BigDecimal bd ? bd : BigDecimal.valueOf(((Number) value).doubleValue());
+    }
+
+    /**
+     * Hủy đơn thủ công (người dùng FCentric). Chỉ hủy được khi hàng chưa vào khâu kho: đơn đang trong phiếu nhặt
+     * (chờ nhặt / đang nhặt / đã nhặt), chờ đóng gói hoặc chờ xuất kho thì báo 409 để kho xử lý trước —
+     * tránh nhặt / đóng gói / xuất hàng cho đơn đã hủy. Sàn hủy đơn đi đường {@link #huyDonTuSan}.
+     */
     @Transactional(rollbackFor = Exception.class)
     public void cancel(Integer id) {
         DonBanHang don = repository.findById(id)
@@ -407,39 +431,44 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             throw new RuntimeException("Đây là báo giá, vui lòng sử dụng chức năng Từ chối báo giá để có thể ghi nhận lý do!");
         }
 
-        if (don.getTrangThai() == 3 || don.getTrangThai() == 5) {
-            throw new RuntimeException("Đơn đã hoàn thành hoặc đang giao, không thể hủy");
+        // Đơn đã hủy: không chạy lại các bước phía sau (bấm lại, tab thứ hai, gọi API lặp) — nếu chạy lại
+        // sẽ trừ số cần nhặt của phiếu nhặt thêm một lần và sinh lệnh hoàn kệ cho hàng chưa nhặt.
+        if (Integer.valueOf(ITrangThaiDonBanHang.DA_HUY).equals(don.getTrangThai())) {
+            return;
         }
 
-        boolean existsCompletedPX = phieuXuatKhoRepository.existsByDonBanHangIdAndTrangThai(id, 3);
+        Integer trangThai = don.getTrangThai();
+        if (trangThai != null && (trangThai == ITrangThaiDonBanHang.DA_XUAT_TOAN_BO
+                || trangThai == ITrangThaiDonBanHang.HOAN_THANH || trangThai == ITrangThaiDonBanHang.BI_HOAN_TRA)) {
+            throw new CommonException("Đơn đã xuất kho, hoàn thành hoặc đã hoàn trả, không thể hủy", HttpStatus.CONFLICT, null);
+        }
+
+        boolean existsCompletedPX = phieuXuatKhoRepository.existsByDonBanHangIdAndTrangThai(id, ITrangThaiPhieuXuat.DA_XUAT);
         if (existsCompletedPX) {
-            throw new RuntimeException("Đơn đã có phiếu xuất hoàn thành, không thể hủy");
+            throw new CommonException("Đơn đã có phiếu xuất hoàn thành, không thể hủy", HttpStatus.CONFLICT, null);
         }
 
-        don.setTrangThai(4); // Hủy đơn
+        // Khóa đơn theo phiếu nhặt hàng (SRS: Pick List order lock): đơn đã gom vào phiếu nhặt
+        // còn hoạt động thì không được hủy, tránh nhặt/xuất hàng cho đơn đã hủy.
+        DanhSachNhatHang phieuNhat = don.getDanhSachNhatHang();
+        if (phieuNhat != null && (phieuNhat.getTrangThai() == null
+                || PHIEU_NHAT_DANG_HOAT_DONG.contains(phieuNhat.getTrangThai()))) {
+            throw new CommonException("Đơn đang nằm trong phiếu nhặt hàng " + phieuNhat.getMaPickList()
+                    + " nên không thể hủy.", HttpStatus.CONFLICT, null);
+        }
+        // Đơn đã có phiếu xuất đang đóng gói / chờ xuất (kể cả phiếu tạo tay, không qua phiếu nhặt)
+        if (trangThai != null && (trangThai == ITrangThaiDonBanHang.CHO_DONG_GOI || trangThai == ITrangThaiDonBanHang.DA_DONG_GOI)) {
+            throw new CommonException("Đơn đang ở khâu " + (trangThai == ITrangThaiDonBanHang.CHO_DONG_GOI ? "chờ đóng gói" : "chờ xuất kho")
+                    + " nên không thể hủy. Vui lòng liên hệ kho.", HttpStatus.CONFLICT, null);
+        }
+
+        don.setTrangThai(ITrangThaiDonBanHang.DA_HUY);
         repository.save(don);
 
-        // 1. Nếu đơn nằm trong Pick List (kể cả đang nhặt hoặc đã nhặt), cập nhật tiến trình Pick List & hoàn kệ (SRS 6.3)
-        if (don.getDanhSachNhatHang() != null) {
-            try {
-                nhatHangService.xuLyDonBiHuyTrongPickList(don);
-            } catch (Exception ex) {
-                log.error("[OUTBOUND-CANCEL] Lỗi khi cập nhật Pick List cho đơn {}: {}", don.getSoDonHang(), ex.getMessage());
-            }
-        }
+        // Thu hồi phiếu xuất chưa xuất (nếu có) liên kết với đơn này (SRS 6.3.2) → 4 (Đã hủy)
+        phieuXuatKhoService.huyPhieuXuatNhapTheoDon(don.getId(), "Tự động thu hồi do đơn " + don.getSoDonHang() + " bị hủy");
 
-        // 2. Thu hồi toàn bộ Phiếu Xuất Kho nháp (trangThai = 0) liên kết với đơn này (SRS 6.3.2)
-        List<PhieuXuatKho> draftPxkList = phieuXuatKhoRepository.findByDonBanHangId(don.getId());
-        for (PhieuXuatKho pxk : draftPxkList) {
-            if (pxk.getTrangThai() != null && pxk.getTrangThai() == 0) {
-                pxk.setTrangThai(2); // 2: Đã hủy / Thu hồi
-                String note = (pxk.getGhiChu() != null ? pxk.getGhiChu() + " | " : "") + "Tự động thu hồi do đơn " + don.getSoDonHang() + " bị hủy";
-                pxk.setGhiChu(note);
-                phieuXuatKhoRepository.save(pxk);
-            }
-        }
-
-        // 3. Khôi phục báo giá gốc nếu có
+        // Khôi phục báo giá gốc nếu có
         if (don.getSoDonHang() != null && don.getSoDonHang().startsWith("SO")) {
             String maBaoGiaGoc = don.getSoDonHang().split("-")[0].replaceFirst("^SO", "BG");
 
@@ -451,27 +480,96 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             });
         }
 
-        // 4. Phát sự kiện InventoryRestockedEvent để giải phóng Outgoing, hồi phục Free to Use và kích hoạt đẩy tồn
+        // Giải phóng Outgoing, hồi phục Free to Use và kích hoạt đẩy tồn (listener chạy sau commit)
+        phatSuKienHoanTon(don);
+
+        // Đơn từ sàn (Shopify): gọi Shopify Order Cancel API SAU KHI commit — giao dịch rollback thì không hủy trên sàn
+        if (don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()) {
+            String maDonHangKenh = don.getMaDonHangKenh();
+            SauCommit.chay("Đồng bộ hủy đơn " + maDonHangKenh + " sang Shopify",
+                    () -> kenhBanHangDongBoService.huyDonHangTrenShopify(maDonHangKenh, "Hủy từ FCentric"));
+        }
+    }
+
+    /**
+     * Sàn (Shopify) báo hủy đơn. Không chặn được như hủy thủ công nên tự xử lý ở mọi bước kho: giảm số cần nhặt /
+     * sinh lệnh hoàn kệ (phiếu nhặt), thu hồi phiếu xuất chưa xuất. Đơn đã xuất kho (hoặc hoàn thành / hoàn trả)
+     * thì KHÔNG chuyển sang hủy — chỉ ghi nhật ký để xử lý hoàn trả. Đơn được nạp trong giao dịch này nên quan hệ
+     * lazy (phiếu nhặt) đọc được — job đồng bộ gọi qua proxy, không truyền entity tách rời.
+     *
+     * @return true nếu đơn đã được chuyển sang Đã hủy
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public boolean huyDonTuSan(Integer donId, String lyDo) {
+        DonBanHang don = repository.findById(donId).orElse(null);
+        if (don == null || Integer.valueOf(ITrangThaiDonBanHang.DA_HUY).equals(don.getTrangThai())) {
+            return false;
+        }
+        Integer trangThai = don.getTrangThai();
+        boolean daXuat = (trangThai != null && (trangThai == ITrangThaiDonBanHang.DA_XUAT_TOAN_BO
+                || trangThai == ITrangThaiDonBanHang.HOAN_THANH || trangThai == ITrangThaiDonBanHang.BI_HOAN_TRA))
+                || phieuXuatKhoRepository.existsByDonBanHangIdAndTrangThai(donId, ITrangThaiPhieuXuat.DA_XUAT);
+        if (daXuat) {
+            log.warn("[CHANNEL-CANCEL] Sàn báo hủy đơn {} nhưng đơn đã xuất kho (trạng thái {}) — giữ nguyên, cần xử lý hoàn trả",
+                    don.getSoDonHang(), trangThai);
+            ghiNhatKyDon(don, "huy_don_tu_san", "Sàn báo hủy nhưng đơn đã xuất kho — giữ nguyên trạng thái, cần xử lý hoàn trả. " + lyDo);
+            return false;
+        }
+
+        boolean trongPhieuNhat = don.getDanhSachNhatHang() != null;
+        don.setTrangThai(ITrangThaiDonBanHang.DA_HUY);
+        don.setLyDoTuChoi(lyDo);
+        don.setNgayCapNhat(Instant.now());
+        repository.save(don);
+
+        // Lỗi ở bước phiếu nhặt làm hủy cả giao dịch (đơn chưa bị đánh dấu hủy); job đồng bộ thử lại ở lượt sau
+        if (trongPhieuNhat) {
+            nhatHangService.xuLyDonBiHuyTrongPickList(don);
+        }
+        phieuXuatKhoService.huyPhieuXuatNhapTheoDon(donId, "Tự động thu hồi do sàn hủy đơn");
+        if (!trongPhieuNhat) {
+            phatSuKienHoanTon(don); // đơn trong phiếu nhặt: xuLyDonBiHuyTrongPickList đã phát
+        }
+        ghiNhatKyDon(don, "huy_don_tu_san", lyDo);
+        return true;
+    }
+
+    /** Phát InventoryRestockedEvent cho từng dòng đơn (listener đẩy tồn chạy sau commit). */
+    private void phatSuKienHoanTon(DonBanHang don) {
         List<ChiTietDonBanHang> chiTiets = chiTietDonBanHangRepository.findByDonBanHangId(don.getId());
         for (ChiTietDonBanHang ctd : chiTiets) {
             if (ctd.getBienTheSanPham() != null && ctd.getSoLuongDat() != null && ctd.getSoLuongDat().compareTo(BigDecimal.ZERO) > 0) {
-                try {
-                    eventPublisher.publishEvent(new InventoryRestockedEvent(this, ctd.getBienTheSanPham().getId(), ctd.getSoLuongDat(), don.getKhoXuat() != null ? don.getKhoXuat().getId() : null));
-                } catch (Exception e) {
-                    log.warn("Không thể phát sự kiện InventoryRestockedEvent cho SKU {}: {}", ctd.getBienTheSanPham().getId(), e.getMessage());
-                }
-            }
-        }
-
-        // 5. Nếu đơn bán hàng từ kênh sàn (Shopify), gọi Shopify Order Cancel API đồng bộ 2 chiều
-        if (don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()) {
-            try {
-                kenhBanHangDongBoService.huyDonHangTrenShopify(don.getMaDonHangKenh(), "Hủy từ FCentric");
-            } catch (Exception e) {
-                log.warn("Không thể đồng bộ hủy đơn {} sang Shopify: {}", don.getMaDonHangKenh(), e.getMessage());
+                eventPublisher.publishEvent(new InventoryRestockedEvent(this, ctd.getBienTheSanPham().getId(), ctd.getSoLuongDat(),
+                        don.getKhoXuat() != null ? don.getKhoXuat().getId() : null));
             }
         }
     }
+
+    /**
+     * Ghi lịch sử thay đổi của đơn SAU KHI commit: lỗi ghi nhật ký (vd. thiếu người thực hiện) không được làm hỏng
+     * giao dịch nghiệp vụ — lỗi trong giao dịch đánh dấu rollback-only dù đã bắt. Không có người thao tác
+     * (job đồng bộ sàn; cột nguoi_thuc_hien_id NOT NULL) thì chỉ ghi log ứng dụng.
+     */
+    private void ghiNhatKyDon(DonBanHang don, String hanhDong, String ghiChu) {
+        NguoiDungAuthInfo auth = SecurityContextHolder.getUser();
+        Integer donId = don.getId();
+        String giaTriMoi = "Đơn " + don.getSoDonHang() + " - trạng thái " + don.getTrangThai();
+        if (auth == null || auth.getId() == null) {
+            log.info("[NHAT-KY-DON] {} {}: {}", hanhDong, giaTriMoi, ghiChu);
+            return;
+        }
+        Integer nguoiId = auth.getId();
+        SauCommit.chay("Ghi nhật ký đơn " + don.getSoDonHang(), () -> lichSuThayDoiService.create(LichSuThayDoi.builder()
+                .loaiThamChieu(ITable.don_ban_hang)
+                .idThamChieu(donId)
+                .hanhDong(hanhDong)
+                .giaTriMoi(giaTriMoi)
+                .nguoiThucHien(nguoiDungRepository.findById(nguoiId).orElse(null))
+                .ngayThucHien(Instant.now())
+                .ghiChu(ghiChu)
+                .build()));
+    }
+
     @Transactional
     public DonBanHang create(DonBanHangCreating request) {
         if (request.getChiTiet() == null || request.getChiTiet().isEmpty()) {
@@ -615,10 +713,19 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         }
         KhoService.kiemTraKhoGiaoDich(kho, "Kho xuất hàng");
 
+        // Cùng công thức tồn khả dụng với modal Gửi sang kho / đẩy tồn sàn: tồn − đang giữ − lượng chờ xuất của đơn khác
+        List<Integer> bienTheBaoGia = baoGia.getChiTietDonBanHangs().stream()
+                .map(ct -> ct.getBienTheSanPham().getId()).distinct().toList();
+        Map<Integer, BigDecimal> khaDungKho = khaDungLoTheoKho(bienTheBaoGia).getOrDefault(kho.getId(), Map.of());
+        Map<Integer, BigDecimal> choXuatKho = choXuatTheoKho(bienTheBaoGia, null).getOrDefault(kho.getId(), Map.of());
         for (ChiTietDonBanHang item : baoGia.getChiTietDonBanHangs()) {
-            BigDecimal qtyKhaDung = tonKhoTheoLoRepository.sumSoLuongKhaDungByKhoAndBienThe(kho.getId(), item.getBienTheSanPham().getId());
-            if (qtyKhaDung == null || qtyKhaDung.compareTo(item.getSoLuongDat()) < 0) {
-                throw new CommonException("Sản phẩm [" + item.getBienTheSanPham().getMaSku() + "] không đủ hàng trong kho. Không thể tạo đơn!");
+            Integer btId = item.getBienTheSanPham().getId();
+            BigDecimal conBanDuoc = khaDungKho.getOrDefault(btId, BigDecimal.ZERO)
+                    .subtract(choXuatKho.getOrDefault(btId, BigDecimal.ZERO)).max(BigDecimal.ZERO);
+            if (conBanDuoc.compareTo(item.getSoLuongDat()) < 0) {
+                throw new CommonException("Sản phẩm [" + item.getBienTheSanPham().getMaSku() + "] không đủ hàng ở " + kho.getTenKho()
+                        + ": cần " + item.getSoLuongDat().stripTrailingZeros().toPlainString()
+                        + ", còn " + conBanDuoc.stripTrailingZeros().toPlainString() + " có thể bán. Không thể tạo đơn!");
             }
         }
         String baseSoDonHang = baoGia.getSoDonHang().replaceFirst("^BG", "SO");

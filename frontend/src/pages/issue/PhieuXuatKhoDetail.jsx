@@ -2,6 +2,7 @@ import { createElement, useCallback, useEffect, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
 import { phieuChuyenKhoService } from "@/services/phieuChuyenKhoService";
+import { PHIEU_XUAT_CHUA_XUAT, PHIEU_XUAT_STATUS, TRANG_THAI_PHIEU_XUAT } from "@/constants/trangThaiXuatBan";
 import { toast } from "sonner";
 import PageContainer from "@/components/backoffice/PageContainer";
 import SurfaceCard from "@/components/shared/SurfaceCard";
@@ -16,22 +17,11 @@ import {
     Loader2, Printer, Check, X,
     ClipboardList, Package, Warehouse,
     Calendar, User, AlertCircle, Info as InfoIcon,
-    ArrowRight, ArrowLeft, MapPin
+    ArrowRight, ArrowLeft, MapPin, PackageCheck
 } from "lucide-react";
 
-// Trạng thái phiếu xuất
-const STATUS_UI = {
-    0: { label: "Nháp", tone: "warning" },
-    1: { label: "Chờ duyệt", tone: "info" },
-    2: {
-        label: "Đã duyệt",
-        tone: "info",
-        className: "border-indigo-200 bg-indigo-50 text-indigo-700",
-    },
-    3: { label: "Đã xuất", tone: "success" },
-    4: { label: "Đã hủy", tone: "danger" },
-    5: { label: "Đã xuất", tone: "success" },
-};
+// Trạng thái phiếu xuất (dùng chung với danh sách / màn đơn bán)
+const STATUS_UI = PHIEU_XUAT_STATUS;
 
 const TH_CLASS =
     "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted";
@@ -132,6 +122,9 @@ export default function PhieuXuatKhoDetail() {
 
     const { phieu, chiTiet } = data;
     const isChuyenKho = phieu.loaiXuat === "chuyen_kho";
+    // Phiếu bán hàng phải đóng gói (Scan-to-Pack) xong mới xuất kho; phiếu chuyển kho xuất từ Nháp.
+    const trangThaiDuocXuat = isChuyenKho ? TRANG_THAI_PHIEU_XUAT.NHAP : TRANG_THAI_PHIEU_XUAT.CHO_XUAT;
+    const choDongGoi = !isChuyenKho && phieu.trangThai === TRANG_THAI_PHIEU_XUAT.NHAP && phieu.donBanHang?.id;
 
     // Kiểm tra xem tất cả mặt hàng đã bốc đủ lô chưa
     const isAllPicked = Array.isArray(chiTiet)
@@ -161,8 +154,8 @@ export default function PhieuXuatKhoDetail() {
                         className={statusInfo.className}
                     />
 
-                    {/* Nút Hủy: Hiện cho các trạng thái chưa hoàn thành/hủy */}
-                    {[0, 1, 2].includes(phieu.trangThai) && (
+                    {/* Nút Hủy: Hiện cho các trạng thái chưa xuất / chưa hủy */}
+                    {PHIEU_XUAT_CHUA_XUAT.includes(phieu.trangThai) && (
                         <Button
                             disabled={isProcessing}
                             variant="outline"
@@ -184,8 +177,18 @@ export default function PhieuXuatKhoDetail() {
                         </Button>
                     )}
 
-                    {/* Nút Hoàn thành/Vận chuyển: Luôn hiển thị ở trạng thái 0 (Nháp) */}
-                    {phieu.trangThai === 0 && (
+                    {/* Phiếu bán hàng còn Nháp: đóng gói trước khi xuất kho */}
+                    {choDongGoi && (
+                        <Button
+                            onClick={() => navigate(`/goods-issues/packing/${phieu.donBanHang.id}`)}
+                            className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
+                        >
+                            <PackageCheck className="size-4" /> Đóng gói
+                        </Button>
+                    )}
+
+                    {/* Nút Hoàn thành/Vận chuyển: phiếu bán hàng đã đóng gói (Chờ xuất), phiếu chuyển kho ở Nháp */}
+                    {phieu.trangThai === trangThaiDuocXuat && (
                         <Button
                             disabled={isProcessing || !isAllPicked}
                             onClick={() => (isChuyenKho ? setShowConfirm(true) : setShowDispatch(true))}
@@ -290,7 +293,8 @@ export default function PhieuXuatKhoDetail() {
                     </thead>
                     <tbody className="divide-y divide-bo-border">
                         {chiTiet.map((ct) => {
-                            const canEditLot = phieu.trangThai === 0;
+                            const canEditLot = phieu.trangThai === TRANG_THAI_PHIEU_XUAT.NHAP
+                                || (!isChuyenKho && phieu.trangThai === TRANG_THAI_PHIEU_XUAT.CHO_XUAT);
 
                             return (
                                 <tr key={ct.id} className="transition-colors hover:bg-bo-surface-subtle">

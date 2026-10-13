@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
     AlertTriangle, CheckCircle2, ClipboardList, Layers, Loader2,
-    PackageCheck, RefreshCcw, ShoppingBag, Truck, X,
+    PackageCheck, RefreshCcw, ShoppingBag, Truck, Warehouse, X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -32,6 +32,7 @@ import { MARKETPLACE_FILTER_OPTIONS } from "@/constants/channel";
 import { formatQuantity, toNumber } from "@/constants/outbound";
 import { formatDateTime } from "@/utils/dateTime";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
+import useKhoLamViec from "@/hooks/useKhoLamViec";
 
 const TH_CLASS = "h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 const CHECKBOX_CLASS = "border-slate-300 data-[state=checked]:border-bo-primary data-[state=checked]:bg-bo-primary data-[state=checked]:text-white";
@@ -51,6 +52,9 @@ export default function DonChoXuatPage() {
     const [ghiChu, setGhiChu] = useState("");
     const [creating, setCreating] = useState(false);
     const creatingRef = useRef(false);
+    // Kho đang gom nhặt — cũng là kho làm việc chung (header kho_id) nên tạo phiếu nhặt dùng đúng kho này
+    const kho = useKhoLamViec({ mock: isPickListMock });
+    const { khoId } = kho;
 
     // Chờ người dùng ngừng gõ 300 ms rồi mới lọc
     useEffect(() => {
@@ -61,11 +65,11 @@ export default function DonChoXuatPage() {
     }, [searchText]);
 
     const fetchData = useCallback(async () => {
+        if (!khoId) return;
         setLoading(true);
         setLoadError(false);
         try {
             const kenhOption = MARKETPLACE_FILTER_OPTIONS.find((option) => option.value === filters.kenh);
-            const khoId = Number(window.localStorage.getItem("selected_kho_id")) || undefined;
             const res = await nhatHangService.getDonChoXuat({
                 searchText: filters.keyword.trim() || undefined,
                 kenhBanId: kenhOption?.id,
@@ -81,7 +85,7 @@ export default function DonChoXuatPage() {
         } finally {
             setLoading(false);
         }
-    }, [filters]);
+    }, [filters, khoId]);
 
     useEffect(() => {
         queueMicrotask(() => fetchData());
@@ -122,6 +126,12 @@ export default function DonChoXuatPage() {
     const handleReset = () => {
         setSearchText("");
         setFilters(DEFAULT_FILTERS);
+    };
+
+    const handleChangeKho = (value) => {
+        if (!kho.doiKho(value)) return;
+        setSelected(new Map()); // một phiếu nhặt chỉ gom đơn của cùng một kho
+        setFilters((prev) => ({ ...prev, page: 0 }));
     };
 
     const handleCreate = async () => {
@@ -188,7 +198,23 @@ export default function DonChoXuatPage() {
             </section>
 
             {/* ══ BỘ LỌC ══ */}
-            <FilterPanel>
+            <FilterPanel
+                extra={
+                    kho.khoOptions.length > 1 ? (
+                        <FilterSelect
+                            label="Kho xuất"
+                            value={String(khoId ?? "")}
+                            options={kho.khoOptions}
+                            onChange={handleChangeKho}
+                            disabled={loading}
+                            align="end"
+                            className="h-8 sm:w-[200px]"
+                        />
+                    ) : kho.tenKho ? (
+                        <span className="text-xs font-normal text-bo-muted">{kho.tenKho}</span>
+                    ) : null
+                }
+            >
                 <FilterBar
                     primary={
                         <SearchInput
@@ -278,8 +304,16 @@ export default function DonChoXuatPage() {
                     ) : null
                 }
             >
-                {loading ? (
+                {loading || kho.trangThai === "loading" ? (
                     <LoadingState className="min-h-64" label="Đang tải đơn chờ xuất" />
+                ) : kho.trangThai === "error" ? (
+                    <ErrorState title="Không tải được danh sách kho" onRetry={kho.taiDsKho} />
+                ) : kho.trangThai === "empty" ? (
+                    <EmptyState
+                        icon={Warehouse}
+                        title="Chưa có kho làm việc"
+                        description="Tài khoản chưa được phân công kho nào đang hoạt động. Liên hệ quản trị viên để được phân quyền kho."
+                    />
                 ) : loadError ? (
                     <ErrorState onRetry={fetchData} />
                 ) : data.length === 0 ? (

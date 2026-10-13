@@ -40,6 +40,7 @@ import MockModeNotice from "@/components/shared/MockModeNotice";
 import ChannelBadge from "@/components/channel/ChannelBadge";
 import OrderFlagBadges from "@/components/channel/OrderFlagBadges";
 import { CHANNELS, MARKETPLACE_FILTER_OPTIONS } from "@/constants/channel";
+import { DON_BAN_STATUS, DON_BAN_STATUS_ORDER, DON_DANG_O_KHO } from "@/constants/trangThaiXuatBan";
 
 // Lọc theo kênh (S-OC-05): filters kenhBanHang.id EQUALS <id> trên POST /don-ban-hang/filter
 const ORDER_CHANNEL_OPTIONS = [
@@ -47,15 +48,7 @@ const ORDER_CHANNEL_OPTIONS = [
   { value: "pos", label: "POS", id: CHANNELS.POS.id },
 ];
 
-const STATUS_MAP = {
-  0: { label: "Nháp", tone: "warning" },
-  1: { label: "Chờ xuất kho", tone: "info" },
-  2: { label: "Đang xử lý xuất kho", tone: "info" },
-  3: { label: "Đã xuất kho toàn bộ", tone: "warning" },
-  4: { label: "Đã hủy", tone: "danger" },
-  5: { label: "Hoàn thành", tone: "success" },
-  6: { label: "Bị hoàn trả", tone: "danger" }
-};
+const STATUS_MAP = DON_BAN_STATUS;
 
 const ROLE = {
     QUAN_TRI_VIEN: "quan_tri_vien",
@@ -233,7 +226,7 @@ export default function DonBanHangList() {
   // Stats derived from data
   const stats = {
     total: total,
-    choXuatKho: data.filter((d) => d.trangThai === 1).length,
+    dangOKho: data.filter((d) => DON_DANG_O_KHO.includes(d.trangThai)).length,
     hoanThanh: data.filter((d) => d.trangThai === 3 || d.trangThai === 5).length,
     daHuy: data.filter((d) => d.trangThai === 4).length,
     biHoanTra: data.filter((d) => d.trangThai === 6).length,
@@ -277,8 +270,8 @@ export default function DonBanHangList() {
 
         <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
           <div>
-            <p className="text-xs font-medium text-bo-muted">Chờ xuất kho</p>
-            <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.choXuatKho}</p>
+            <p className="text-xs font-medium text-bo-muted">Đang xử lý tại kho</p>
+            <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.dangOKho}</p>
           </div>
           <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-warning-soft text-bo-warning">
             <Clock className="size-5" />
@@ -356,7 +349,7 @@ export default function DonBanHangList() {
                     Tất cả trạng thái
                     {filters.trangThai === "" && <Check className="size-4" />}
                   </DropdownMenuItem>
-                  {Object.entries(STATUS_MAP).map(([key, value]) => (
+                  {DON_BAN_STATUS_ORDER.map((so) => [String(so), STATUS_MAP[so]]).map(([key, value]) => (
                     <DropdownMenuItem
                       key={key}
                       onClick={() => setFilters((p) => ({ ...p, trangThai: key, page: 0 }))}

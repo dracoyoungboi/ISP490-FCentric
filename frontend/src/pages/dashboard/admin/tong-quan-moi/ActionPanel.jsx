@@ -32,8 +32,8 @@ const SO_DONG_GON = 7;
 function danhSachViec(v, tatCaKho) {
   const ds = [
     { ten: "Hết hàng hoặc thiếu hàng", so: v.hetHang == null ? 0 : v.hetHang + v.thieuHang, muc: "bad", icon: AlertTriangle, to: "/reports/inventory" },
-    { ten: "Đơn chờ xuất kho", so: v.donChoXuatKho, muc: "warn", icon: PackageOpen, to: "/goods-issues/pending-orders" },
-    { ten: "Phiếu xuất chờ xuất kho", so: v.phieuXuatChoXuatKho, muc: "warn", icon: Truck, to: "/goods-issues" },
+    { ten: "Đơn chờ nhặt hàng", so: v.donChoXuatKho, muc: "warn", icon: PackageOpen, to: "/goods-issues/pending-orders" },
+    { ten: "Phiếu xuất chưa xuất kho", so: v.phieuXuatChoXuatKho, muc: "warn", icon: Truck, to: "/goods-issues" },
     { ten: "Phiếu chuyển kho chờ duyệt", so: v.phieuChuyenChoDuyet, muc: "warn", icon: ArrowLeftRight, to: "/transfer-tickets" },
     { ten: "Phiếu nhặt chưa phân công", so: v.phieuNhatChuaPhanCong, muc: "warn", icon: ListChecks, to: "/goods-issues/pick-lists" },
     { ten: "Yêu cầu nhập hàng chờ duyệt", so: v.yeuCauNhapChoDuyet, muc: "warn", icon: FileText, to: "/purchase-requests" },

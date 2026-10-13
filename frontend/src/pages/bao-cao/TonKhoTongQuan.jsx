@@ -31,6 +31,7 @@ import SearchInput from "@/components/shared/SearchInput";
 
 import apiClient from "@/services/apiClient";
 import { thongKeHeThongService } from "@/services/thongKeHeThongService";
+import { getKhoLamViecId, laKhoLamViecHopLe, setKhoLamViecId } from "@/utils/khoLamViec";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROLE = {
@@ -170,10 +171,10 @@ export default function TonKhoTongQuan() {
 
                 if (khos.length === 1) {
                     setSelectedKhoId(khos[0].id);
-                    localStorage.setItem("selected_kho_id", khos[0].id);
+                    if (laKhoLamViecHopLe(khos[0])) setKhoLamViecId(khos[0].id);
                 } else {
-                    const savedId = localStorage.getItem("selected_kho_id");
-                    if (savedId) setSelectedKhoId(Number(savedId));
+                    const savedId = getKhoLamViecId();
+                    if (savedId) setSelectedKhoId(savedId);
                 }
             })
             .catch(() => setAuthError("Không thể tải thông tin tài khoản."))
@@ -222,8 +223,11 @@ export default function TonKhoTongQuan() {
     const handleSelectKho = (id) => {
         const numId = id ? Number(id) : null;
         setSelectedKhoId(numId);
-        if (numId) localStorage.setItem("selected_kho_id", numId);
-        else localStorage.removeItem("selected_kho_id");
+        // Bộ lọc báo cáo chỉ đổi kho làm việc chung khi đó là kho người dùng làm việc được.
+        // "Tất cả kho" hay kho không được phân công thì giữ nguyên kho làm việc — xóa/ghi sai ở đây
+        // làm Đơn chờ xuất, Phiếu nhặt hàng, phiếu nhập/xuất báo thiếu ngữ cảnh kho.
+        const khoChon = numId ? khoList.find((kho) => kho.id === numId) : null;
+        if (khoChon && laKhoLamViecHopLe(khoChon)) setKhoLamViecId(numId);
 
         setHasLoaded(false);
         loadTonKho({ khoId: numId ?? undefined, kw: keyword.trim() || undefined });

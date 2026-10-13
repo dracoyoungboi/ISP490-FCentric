@@ -43,7 +43,7 @@ export default function DashboardSalesStaff() {
 
                 <Stat
                     icon={<Truck className="h-5 w-5 text-bo-primary" />}
-                    label="Đơn bán chờ xuất kho"
+                    label="Đơn đang xử lý tại kho"
                     value={data.pendingSaleOrders}
                 />
 

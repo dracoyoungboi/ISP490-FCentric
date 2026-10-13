@@ -1,5 +1,6 @@
 import { formatNumber } from "@/utils/formatters";
 import { formatPrintDate } from "./printFormat";
+import { DON_BAN_STATUS } from "@/constants/trangThaiXuatBan";
 
 /**
  * Adapter cho BÁO GIÁ BÁN và HÓA ĐƠN BÁN HÀNG — cùng một thực thể backend
@@ -15,15 +16,7 @@ export const SALES_QUOTATION_STATUS = {
     4: { label: "Bị từ chối", tone: "danger" },
 };
 
-export const SALES_ORDER_STATUS = {
-    0: { label: "Nháp", tone: "warning" },
-    1: { label: "Chờ xuất kho", tone: "info" },
-    2: { label: "Đang xử lý xuất kho", tone: "info" },
-    3: { label: "Đã xuất kho", tone: "warning" },
-    4: { label: "Đã hủy", tone: "danger" },
-    5: { label: "Hoàn thành", tone: "success" },
-    6: { label: "Bị hoàn trả", tone: "danger" },
-};
+export const SALES_ORDER_STATUS = DON_BAN_STATUS;
 
 export const PAYMENT_STATUS = {
     chua_thanh_toan: { label: "Chưa thanh toán", tone: "warning" },

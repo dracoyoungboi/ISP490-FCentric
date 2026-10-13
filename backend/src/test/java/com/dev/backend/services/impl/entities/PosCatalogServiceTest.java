@@ -77,7 +77,8 @@ class PosCatalogServiceTest {
     }
 
     private Kho kho(Integer id) {
-        return Kho.builder().id(id).tenKho("Kho " + id).maKho("KHO0" + id).build();
+        // Kho bán hàng đang hoạt động — POS chặn kho ngừng hoạt động, kho ảo và Kho tổng (KhoService.kiemTraKhoBanTaiQuay)
+        return Kho.builder().id(id).tenKho("Kho " + id).maKho("KHO0" + id).loaiKho("cua_hang").trangThai(1).build();
     }
 
     private PosCatalogItemDto item(Integer variantId, Integer productId) {

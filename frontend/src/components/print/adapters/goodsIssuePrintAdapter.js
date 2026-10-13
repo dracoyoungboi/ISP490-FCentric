@@ -1,5 +1,6 @@
 import { formatNumber } from "@/utils/formatters";
 import { formatPrintDate } from "./printFormat";
+import { PHIEU_XUAT_STATUS } from "@/constants/trangThaiXuatBan";
 
 /**
  * Adapter cho PHIẾU XUẤT KHO — dữ liệu từ API
@@ -7,14 +8,7 @@ import { formatPrintDate } from "./printFormat";
  * lô đã pick từ `GET /api/v1/phieu-xuat-kho/{id}/picked-lots/{chiTietId}` và
  * tên lô từ `GET /api/v1/phieu-xuat-kho/{id}/available-lots?bienTheSanPhamId=`.
  */
-export const GOODS_ISSUE_STATUS = {
-    0: { label: "Nháp", tone: "warning" },
-    1: { label: "Chờ duyệt", tone: "info" },
-    2: { label: "Đã duyệt", tone: "info" },
-    3: { label: "Đã xuất", tone: "success" },
-    4: { label: "Đã hủy", tone: "danger" },
-    5: { label: "Đã xuất", tone: "success" },
-};
+export const GOODS_ISSUE_STATUS = PHIEU_XUAT_STATUS;
 
 // Loại xuất theo giá trị backend: "ban_hang" = xuất bán, "chuyen_kho" = xuất
 // chuyển kho nội bộ, "khac" = phiếu yêu cầu chuyển kho (chưa có phiếu xuất)

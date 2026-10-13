@@ -3,6 +3,7 @@ package com.dev.backend.services.impl.entities;
 import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
+import com.dev.backend.constant.variables.ITrangThaiPhieuXuat;
 import com.dev.backend.dto.request.XacNhanXuatKhoRequest;
 import com.dev.backend.dto.response.customize.XacNhanXuatKhoResponse;
 import com.dev.backend.entities.*;
@@ -81,7 +82,7 @@ class PhieuXuatKhoDispatchTest {
                 .id(10)
                 .soDonHang("SO-20261009-001")
                 .khoXuat(kho)
-                .trangThai(ITrangThaiDonBanHang.DANG_XUAT_KHO) // 2: Đang nhặt / đóng gói
+                .trangThai(ITrangThaiDonBanHang.DA_DONG_GOI) // 8: Đã đóng gói, chờ xuất kho
                 .build();
 
         phieu = PhieuXuatKho.builder()
@@ -90,7 +91,7 @@ class PhieuXuatKhoDispatchTest {
                 .kho(kho)
                 .donBanHang(don)
                 .loaiXuat("ban_hang")
-                .trangThai(0) // 0: Chờ xuất kho
+                .trangThai(ITrangThaiPhieuXuat.CHO_XUAT) // 6: Đã đóng gói, chờ xuất
                 .build();
 
         SanPhamQuanAo sp = SanPhamQuanAo.builder().id(50).build();
@@ -170,7 +171,7 @@ class PhieuXuatKhoDispatchTest {
         LichSuThayDoi audit = auditCaptor.getValue();
         assertEquals(ITable.phieu_xuat_kho, audit.getLoaiThamChieu());
         assertEquals(IHanhDong.xuat_kho, audit.getHanhDong());
-        assertEquals("trang_thai = 0 (Chờ xuất)", audit.getGiaTriCu());
+        assertEquals("trang_thai = 6 (Chờ xuất - đã đóng gói)", audit.getGiaTriCu());
         assertTrue(audit.getGiaTriMoi().contains("GHTK-HN-8849201"));
 
         // Then: 4. Kiểm tra trạng thái phiếu và đơn
@@ -203,6 +204,20 @@ class PhieuXuatKhoDispatchTest {
                 phieuXuatKhoService.xacNhanXuatKho(20, null, 99)
         );
         assertTrue(ex.getMessage().contains("Phiếu không ở trạng thái chờ xuất"));
+    }
+
+    @Test
+    void test_xacNhanXuatKho_banHang_chuaDongGoi_bi409() {
+        // Phiếu bán hàng còn Nháp (chưa Scan-to-Pack) thì chưa được xuất kho
+        phieu.setTrangThai(ITrangThaiPhieuXuat.NHAP);
+        when(phieuXuatKhoRepository.findById(20)).thenReturn(Optional.of(phieu));
+
+        CommonException ex = assertThrows(CommonException.class, () -> phieuXuatKhoService.xacNhanXuatKho(20, null, 99));
+
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT, ex.getHttpStatus());
+        assertTrue(ex.getMessage().contains("chưa đóng gói"), ex.getMessage());
+        assertEquals(ITrangThaiPhieuXuat.NHAP, phieu.getTrangThai());
+        verifyNoInteractions(tonKhoTheoLoRepository);
     }
 
     @Test

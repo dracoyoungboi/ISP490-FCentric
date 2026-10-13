@@ -5,13 +5,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { donBanHangService } from "@/services/donBanHangService";
 import { donBanHangKenhService, isChannelOrderMock } from "@/services/donBanHangKenhService";
 import apiClient from "@/services/apiClient";
-import { getKhoList } from "@/services/khoService";
+import { laKhoAo } from "@/utils/kho";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/utils/apiError";
 import {
   ArrowLeft, User, Home, Truck, Calculator,
   CheckCircle2, Calendar, Send, XCircle,
-  Receipt, Hash, MapPin, ArrowRightLeft, Undo2, AlertTriangle, Store
+  Receipt, Hash, MapPin, ArrowRightLeft, Undo2, AlertTriangle, Store, PackageCheck, ClipboardList
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -24,6 +24,7 @@ import SurfaceCard from "@/components/shared/SurfaceCard";
 import MockModeNotice from "@/components/shared/MockModeNotice";
 import ChannelOrderPanel from "@/components/channel/ChannelOrderPanel";
 import { parseFlags } from "@/constants/channel";
+import { DON_BAN_STATUS, TRANG_THAI_DON, TRANG_THAI_PHIEU_XUAT, getPhieuXuatStatus } from "@/constants/trangThaiXuatBan";
 
 // ── Constants & Helpers ──────────────────────────────────────────────────
 const ROLE = {
@@ -47,15 +48,10 @@ function parseRoles(vaiTro) {
 }
 
 // ── Trạng thái ────────────────────────────────────────────────────────────
-const STATUS_MAP = {
-  0: { label: "Nháp", tone: "warning" },
-  1: { label: "Chờ xuất kho", tone: "info" },
-  2: { label: "Đang xử lý xuất kho", tone: "info" },
-  3: { label: "Đã xuất kho", tone: "warning" },
-  4: { label: "Đã hủy", tone: "danger" },
-  5: { label: "Hoàn thành", tone: "success" },
-  6: { label: "Bị hoàn trả", tone: "danger" }
-};
+const STATUS_MAP = DON_BAN_STATUS;
+
+/** Phiếu nhặt còn chạy: đơn trong đó không hủy / tạo phiếu xuất tay được (backend cũng chặn). */
+const PHIEU_NHAT_DANG_CHAY = ["cho_nhat", "dang_nhat", "da_nhat"];
 
 export default function DonBanHangDetail() {
   const { id } = useParams();
@@ -128,7 +124,8 @@ export default function DonBanHangDetail() {
     try {
       // Truy vấn tồn khả dụng thực tế của từng kho cho đơn hàng này
       const list = await donBanHangService.getKhoKhaDung(id);
-      const activeList = Array.isArray(list) ? list : [];
+      // Backend đã bỏ Kho Trung Chuyển; lọc thêm ở đây để modal không bao giờ gợi ý kho ảo
+      const activeList = (Array.isArray(list) ? list : []).filter((kho) => !laKhoAo(kho));
       setWarehouses(activeList);
 
       const currentKhoId = data?.donBanHang?.khoXuat?.id;
@@ -203,7 +200,7 @@ export default function DonBanHangDetail() {
 
   if (!data) return null;
 
-  const { donBanHang, chiTiet, phieuXuatKhoList } = data;
+  const { donBanHang, chiTiet, phieuXuatKhoList, maPickList, trangThaiPhieuNhat } = data;
   const st = STATUS_MAP[donBanHang.trangThai] ?? STATUS_MAP[0];
 
   // Kiểm tra xem đơn hàng đã xuất đủ số lượng chưa
@@ -215,7 +212,11 @@ export default function DonBanHangDetail() {
   const maKenh = donBanHang.kenhBanHang?.maKenh;
   const orderFlags = parseFlags(donBanHang.canXuLy);
   const canSendToWarehouse = donBanHang.trangThai === 0 && !isChannelOrder;
-  const canCancel = donBanHang.trangThai < 3 && !isChannelOrder;
+  const dangTrongPhieuNhat = PHIEU_NHAT_DANG_CHAY.includes(trangThaiPhieuNhat);
+  const canCancel = donBanHang.trangThai < 3 && !isChannelOrder && !dangTrongPhieuNhat;
+  // Kho (và quản trị viên) đóng gói / xuất kho ngay trên màn đơn
+  const canWarehouseAct = isKhoRole || userRoles.includes(ROLE.QUAN_TRI_VIEN);
+  const phieuChoXuat = (phieuXuatKhoList ?? []).find((px) => px.trangThai === TRANG_THAI_PHIEU_XUAT.CHO_XUAT);
   const canReturn = (donBanHang.trangThai === 2 || donBanHang.trangThai === 3) && (!isChannelOrder || orderFlags.includes("HOAN_HANG"));
   const canMarkDelivered = donBanHang.trangThai === 3 && (!isChannelOrder || maKenh === "SHOPIFY");
 
@@ -224,6 +225,9 @@ export default function DonBanHangDetail() {
     { icon: Home,     label: "Kho xuất",          value: donBanHang.khoXuat?.tenKho || "Chưa xác định" },
     { icon: Calendar, label: "Ngày đặt",          value: new Date(donBanHang.ngayDatHang).toLocaleDateString("vi-VN", { day: "2-digit", month: "long", year: "numeric" }) },
     { icon: MapPin,   label: "Địa chỉ nhận hàng", value: donBanHang.diaChiGiaoHang || "—" },
+    ...(maPickList
+      ? [{ icon: ClipboardList, label: "Phiếu nhặt hàng", value: maPickList }]
+      : []),
     ...(donBanHang.kenhBanHang
       ? [{
           icon: Store,
@@ -315,8 +319,26 @@ export default function DonBanHangDetail() {
             </>
           )}
 
-          {/* Nút Tạo Phiếu Xuất Kho cho role KHO */}
-          {isKhoRole && (donBanHang.trangThai === 1 || donBanHang.trangThai === 2) && (
+          {/* Đóng gói (Scan-to-Pack) và xuất kho — kho và quản trị viên */}
+          {canWarehouseAct && donBanHang.trangThai === TRANG_THAI_DON.CHO_DONG_GOI && (
+            <Button
+              onClick={() => navigate(`/goods-issues/packing/${id}`)}
+              className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
+            >
+              <PackageCheck className="size-4" /> Tiến hành đóng gói
+            </Button>
+          )}
+          {canWarehouseAct && donBanHang.trangThai === TRANG_THAI_DON.CHO_XUAT_KHO && phieuChoXuat && (
+            <Button
+              onClick={() => navigate(`/goods-issues/${phieuChoXuat.id}`)}
+              className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
+            >
+              <Truck className="size-4" /> Xuất kho
+            </Button>
+          )}
+
+          {/* Nút Tạo Phiếu Xuất Kho cho role KHO (đơn không nằm trong phiếu nhặt đang chạy) */}
+          {isKhoRole && (donBanHang.trangThai === 1 || donBanHang.trangThai === 2) && !dangTrongPhieuNhat && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -477,7 +499,7 @@ export default function DonBanHangDetail() {
                   </thead>
                   <tbody className="divide-y divide-bo-border">
                     {phieuXuatKhoList.map((px) => {
-                      const pxSt = STATUS_MAP[px.trangThai];
+                      const pxSt = getPhieuXuatStatus(px.trangThai);
                       return (
                         <tr
                           key={px.id}
@@ -488,7 +510,7 @@ export default function DonBanHangDetail() {
                             <span className="font-mono font-semibold text-bo-primary">{px.soPhieuXuat}</span>
                           </td>
                           <td className="px-3 py-3 text-sm text-bo-muted">
-                            {new Date(px.ngayXuat).toLocaleDateString("vi-VN")}
+                            {px.ngayXuat ? new Date(px.ngayXuat).toLocaleDateString("vi-VN") : "Chưa xuất"}
                           </td>
                           <td className="px-3 py-3">
                             {pxSt && (
@@ -707,7 +729,7 @@ export default function DonBanHangDetail() {
               })()}
 
               <p className="text-[11px] text-bo-muted">
-                Đơn hàng sau khi gửi sẽ chuyển sang trạng thái <strong>Chờ xuất kho</strong> và xuất hiện trong màn hình gom nhặt hàng của kho này.
+                Đơn hàng sau khi gửi sẽ chuyển sang trạng thái <strong>Chờ nhặt hàng</strong> và xuất hiện trong màn hình gom nhặt hàng của kho này.
               </p>
             </div>
 

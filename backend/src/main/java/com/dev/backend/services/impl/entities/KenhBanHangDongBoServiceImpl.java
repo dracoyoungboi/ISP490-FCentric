@@ -187,9 +187,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             activeVariants = bienTheSanPhamRepository.findByTrangThai(1);
         }
         if (activeVariants == null || activeVariants.isEmpty()) {
-            activeVariants = bienTheSanPhamRepository.findAll();
-        }
-        if (activeVariants == null || activeVariants.isEmpty()) {
             return TuDongLienKetResultDto.builder()
                     .soDaGhep(0)
                     .soKhongKhop(0)
