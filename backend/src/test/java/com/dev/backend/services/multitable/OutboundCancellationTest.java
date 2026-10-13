@@ -18,7 +18,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.http.HttpStatus;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -56,8 +55,6 @@ class OutboundCancellationTest {
 
     @BeforeEach
     void setUp() {
-        // Thu hồi phiếu xuất đi qua PhieuXuatKhoService thật (cùng mock repository) để kiểm tra trạng thái cuối
-        ReflectionTestUtils.setField(nhatHangService, "phieuXuatKhoService", phieuXuatKhoService);
         kho = Kho.builder().id(1).tenKho("Kho Tổng").build();
         SanPhamQuanAo sp = SanPhamQuanAo.builder().id(10).tenSanPham("Áo Polo Nam").build();
         bienTheX = BienTheSanPham.builder().id(100).maSku("POLO-X").sanPham(sp).build();
@@ -151,7 +148,7 @@ class OutboundCancellationTest {
 
     /**
      * Trường hợp 2.1: Đã hoàn tất nhặt (da_nhat), đã có PXK nháp.
-     * Đơn A bị hủy -> PXK nháp của Đơn A bị chuyển sang 4 (Đã hủy), tạo Put-away task.
+     * Đơn A bị hủy -> PXK nháp của Đơn A bị chuyển sang 2 (Đã hủy), tạo Put-away task.
      */
     @Test
     void truongHop2_daNhat_donABiHuy_thuHoiPhieuXuatVaTaoPutAway() {
@@ -166,12 +163,10 @@ class OutboundCancellationTest {
                 .build();
 
         when(phieuXuatKhoRepository.findByDonBanHangId(101)).thenReturn(List.of(pxkA));
-        when(phieuXuatKhoRepository.findById(501)).thenReturn(Optional.of(pxkA));
 
         nhatHangService.xuLyDonBiHuyTrongPickList(donA);
 
-        assertEquals(4, pxkA.getTrangThai()); // 4: Đã hủy (2 là Đã duyệt)
-        assertTrue(pxkA.getGhiChu().contains("Tự động hủy do đơn"));
+        assertEquals(2, pxkA.getTrangThai()); // 2: Đã hủy / Thu hồi
         verify(phieuXuatKhoRepository).save(pxkA);
         verify(canhBaoRepository).save(any(CanhBao.class));
         verify(outboundWebSocketHandler).sendPickListEvent(eq(1), eq("ORDER_CANCELLED_IN_PACKING"), any());

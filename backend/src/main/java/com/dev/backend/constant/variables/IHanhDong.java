@@ -18,9 +18,7 @@ public interface IHanhDong {
             tao_pick_list = "tao_pick_list",
             phan_cong_nhat_hang = "phan_cong_nhat_hang",
             quet_barcode = "quet_barcode",
-            hoan_tat_nhat_hang = "hoan_tat_nhat_hang",
-            quet_dong_goi = "quet_dong_goi",
-            hoan_tat_dong_goi = "hoan_tat_dong_goi";
+            hoan_tat_nhat_hang = "hoan_tat_nhat_hang";
     //Yêu cầu nhập hàng (ghi vào lich_su_thay_doi, ghi_chu = lý do từ chối)
     String
             duyet_yeu_cau_mua_hang = "duyet_yeu_cau_mua_hang",

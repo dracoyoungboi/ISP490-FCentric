@@ -20,14 +20,23 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
-import { PHIEU_XUAT_STATUS } from "@/constants/trangThaiXuatBan";
 
-const STATUS_MAP = PHIEU_XUAT_STATUS;
+const STATUS_MAP = {
+    0: { label: "Nháp", tone: "warning" },
+    1: { label: "Chờ duyệt", tone: "info" },
+    2: {
+        label: "Đã duyệt",
+        tone: "info",
+        className: "border-indigo-200 bg-indigo-50 text-indigo-700",
+    },
+    3: { label: "Đã xuất", tone: "success" },
+    4: { label: "Đã hủy", tone: "danger" },
+    5: { label: "Đã xuất", tone: "success" },
+};
 
 const STATUS_OPTIONS = [
     { value: "", label: "Tất cả trạng thái" },
     { value: "0", label: "Nháp" },
-    { value: "6", label: "Chờ xuất (đã đóng gói)" },
     { value: "1", label: "Chờ duyệt" },
     { value: "2", label: "Đã duyệt" },
     { value: "3", label: "Đã xuất" },

@@ -46,11 +46,6 @@ public class ChiTietPhieuXuatKho {
     @Column(name = "so_luong_xuat", nullable = false, precision = 15, scale = 3)
     BigDecimal soLuongXuat;
 
-    /** Số lượng đã quét khi đóng gói (Scan-to-Pack); chỉ dùng trên dòng gốc (lo_hang_id IS NULL) của phiếu bán hàng. */
-    @Builder.Default
-    @Column(name = "so_luong_da_dong_goi", precision = 15, scale = 3)
-    BigDecimal soLuongDaDongGoi = BigDecimal.ZERO;
-
     @Column(name = "gia_von", precision = 15, scale = 2)
     BigDecimal giaVon;
 

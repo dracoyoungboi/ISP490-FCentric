@@ -25,13 +25,11 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Kiểm thử tích hợp luồng nhặt hàng → đóng gói → phiếu xuất kho trên MySQL thật (qua HTTP, như màn hình gọi).
- * Đơn: 1 Chờ nhặt hàng → (hoàn tất nhặt) 7 Chờ đóng gói → (đóng gói) 8 Chờ xuất kho → (xuất kho) 3.
+ * Kiểm thử tích hợp luồng nhặt hàng → phiếu xuất kho trên MySQL thật (qua HTTP, như màn hình gọi).
  *
  * Yêu cầu schema MySQL DÙNG RIÊNG CHO TEST (test sẽ XÓA dữ liệu đơn bán / phiếu nhặt / phiếu xuất):
  *   import Database/MyDB_v1.3.sql + pos_checkout_v1.sql + payos_v1.sql + tong_quan_v1.sql
- *   + pick_list_trang_thai_v1.sql + kho_tong_v1.sql + hoan_ke_canh_bao_v1.sql + dong_goi_v1.sql
- *   vào schema có tên chứa "test".
+ *   + pick_list_trang_thai_v1.sql vào schema có tên chứa "test".
  * Mặc định: jdbc:mysql://127.0.0.1:3307/fcentric_pick_test (root, mật khẩu rỗng).
  * Chạy: mvn test -Dtest=NhatHangHoanTatIntegrationTest -Dnhathang.it=true -DargLine=-Duser.timezone=UTC
  *   (đổi DB bằng -Dnhathang.it.db.url=..., -Dnhathang.it.db.user=..., -Dnhathang.it.db.pass=...)
@@ -171,18 +169,6 @@ class NhatHangHoanTatIntegrationTest {
                 + "AND lo_hang_id IN (69,70,71)", BigDecimal.class);
     }
 
-    /** Đóng gói (Scan-to-Pack): quét đủ số lượng của phiếu xuất rồi hoàn tất → phiếu 6 Chờ xuất, đơn 8. */
-    private void dongGoi(int phieuXuatId) {
-        BigDecimal can = jdbc.queryForObject("SELECT COALESCE(SUM(so_luong_xuat),0) FROM chi_tiet_phieu_xuat_kho "
-                + "WHERE phieu_xuat_kho_id = ? AND lo_hang_id IS NULL", BigDecimal.class, phieuXuatId);
-        for (int i = 0; i < can.intValue(); i++) {
-            ResponseEntity<Map> res = goi(HttpMethod.POST, "/api/v1/dong-goi/phieu/" + phieuXuatId + "/quet", Map.of("barcode", SKU));
-            assertEquals(HttpStatus.OK, res.getStatusCode(), "quét đóng gói: " + res.getBody());
-        }
-        ResponseEntity<Map> xong = goi(HttpMethod.POST, "/api/v1/dong-goi/phieu/" + phieuXuatId + "/hoan-tat", null);
-        assertEquals(HttpStatus.OK, xong.getStatusCode(), "hoàn tất đóng gói: " + xong.getBody());
-    }
-
     /** Chọn lô 69 cho dòng gốc của phiếu xuất rồi xác nhận xuất kho. */
     private ResponseEntity<Map> chonLoVaXuat(int phieuXuatId, int soLuong) {
         Integer dongGoc = jdbc.queryForObject("SELECT id FROM chi_tiet_phieu_xuat_kho WHERE phieu_xuat_kho_id = ? "
@@ -208,7 +194,7 @@ class NhatHangHoanTatIntegrationTest {
         assertEquals(HttpStatus.OK, res.getStatusCode(), "hoàn tất nhặt: " + res.getBody());
         assertEquals("da_nhat", trangThaiPhieuNhat(phieu));
         assertNotNull(jdbc.queryForObject("SELECT ngay_hoan_tat FROM danh_sach_nhat_hang WHERE id = ?", Object.class, phieu));
-        assertEquals(7, trangThaiDon(don), "đơn chuyển 7 (Chờ đóng gói), chưa được lên 3 khi chưa xuất");
+        assertEquals(2, trangThaiDon(don), "đơn phải giữ 2 (Đang xử lý xuất kho), chưa được lên 3 khi chưa xuất");
         Integer pxk = phieuXuatNhapCuaDon(don);
         assertNotNull(pxk, "phải sinh phiếu xuất nháp cho đơn");
         assertEquals(0, new BigDecimal("2").compareTo(jdbc.queryForObject(
@@ -229,24 +215,21 @@ class NhatHangHoanTatIntegrationTest {
         ResponseEntity<Map> res = goi(HttpMethod.PUT, "/api/v1/don-ban-hang/" + don + "/mark-delivered", null);
 
         assertNotEquals(HttpStatus.OK, res.getStatusCode(), "không được Giao thành công khi kho chưa xuất: " + res.getBody());
-        assertEquals(7, trangThaiDon(don));
+        assertEquals(2, trangThaiDon(don));
     }
 
     @Test
-    void t03_dongGoiRoiXuatKho_donLen3_phieuNhatGiuDaNhat() {
+    void t03_xuatKhoXong_donLen3_phieuNhatChuyenDaXuat() {
         int don = taoDonChoXuat(2);
         int phieu = taoPhieuNhat(don);
         quet(phieu, 2);
         assertEquals(HttpStatus.OK, hoanTat(phieu).getStatusCode());
-        int pxk = phieuXuatNhapCuaDon(don);
-        dongGoi(pxk);
-        assertEquals(8, trangThaiDon(don), "đóng gói xong → Chờ xuất kho");
 
-        ResponseEntity<Map> xuat = chonLoVaXuat(pxk, 2);
+        ResponseEntity<Map> xuat = chonLoVaXuat(phieuXuatNhapCuaDon(don), 2);
 
         assertEquals(HttpStatus.OK, xuat.getStatusCode(), "xuất kho: " + xuat.getBody());
         assertEquals(3, trangThaiDon(don));
-        assertEquals("da_nhat", trangThaiPhieuNhat(phieu), "việc nhặt kết thúc ở Đã nhặt, không còn 'da_xuat'");
+        assertEquals("da_xuat", trangThaiPhieuNhat(phieu));
         assertEquals(0, new BigDecimal("3").compareTo(tonKho()), "tồn phải giảm 2 sau khi xuất");
     }
 
@@ -259,7 +242,7 @@ class NhatHangHoanTatIntegrationTest {
 
         assertEquals(HttpStatus.CONFLICT, res.getStatusCode(), "body: " + res.getBody());
         assertTrue(String.valueOf(res.getBody().get("message")).contains("phiếu nhặt hàng"), "body: " + res.getBody());
-        assertEquals(1, trangThaiDon(don), "đơn đang trong phiếu nhặt giữ 1 (Chờ nhặt hàng)");
+        assertEquals(2, trangThaiDon(don));
         assertEquals("cho_nhat", trangThaiPhieuNhat(phieu));
     }
 
@@ -277,7 +260,7 @@ class NhatHangHoanTatIntegrationTest {
 
         assertEquals(HttpStatus.OK, res.getStatusCode(), "body: " + res.getBody());
         assertEquals("da_nhat", trangThaiPhieuNhat(phieu));
-        assertEquals(7, trangThaiDon(don1));
+        assertEquals(2, trangThaiDon(don1));
         assertEquals(4, trangThaiDon(don2), "đơn đã hủy không được bị đưa lên lại");
         assertNotNull(phieuXuatNhapCuaDon(don1));
         assertNull(phieuXuatNhapCuaDon(don2), "không tạo phiếu xuất cho đơn đã hủy");
@@ -299,14 +282,13 @@ class NhatHangHoanTatIntegrationTest {
     }
 
     @Test
-    void t07_xuatKho_donDaHuySauKhiDongGoi_bi409_khongTruTon() {
+    void t07_xuatKho_donDaHuySauKhiNhat_bi409_khongTruTon() {
         int don = taoDonChoXuat(1);
         int phieu = taoPhieuNhat(don);
         quet(phieu, 1);
         assertEquals(HttpStatus.OK, hoanTat(phieu).getStatusCode());
         Integer pxk = phieuXuatNhapCuaDon(don);
-        dongGoi(pxk);
-        jdbc.update("UPDATE don_ban_hang SET trang_thai = 4 WHERE id = ?", don); // sàn hủy sau khi đã đóng gói
+        jdbc.update("UPDATE don_ban_hang SET trang_thai = 4 WHERE id = ?", don); // sàn hủy sau khi đã có phiếu nháp
 
         ResponseEntity<Map> res = chonLoVaXuat(pxk, 1);
 
@@ -314,7 +296,7 @@ class NhatHangHoanTatIntegrationTest {
         assertTrue(String.valueOf(res.getBody().get("message")).contains("đã bị hủy"), "body: " + res.getBody());
         assertEquals(0, new BigDecimal("5").compareTo(tonKho()), "không được trừ tồn cho đơn đã hủy");
         assertEquals(4, trangThaiDon(don));
-        assertEquals(6, jdbc.queryForObject("SELECT trang_thai FROM phieu_xuat_kho WHERE id = ?", Integer.class, pxk));
+        assertEquals(0, jdbc.queryForObject("SELECT trang_thai FROM phieu_xuat_kho WHERE id = ?", Integer.class, pxk));
     }
 
     @Test
@@ -328,30 +310,25 @@ class NhatHangHoanTatIntegrationTest {
         assertEquals(HttpStatus.BAD_REQUEST, res.getStatusCode(), "body: " + res.getBody());
         assertTrue(String.valueOf(res.getBody().get("message")).contains("Chưa nhặt đủ"), "body: " + res.getBody());
         assertEquals("dang_nhat", trangThaiPhieuNhat(phieu));
-        assertEquals(1, trangThaiDon(don), "đơn đang nhặt giữ 1 (Chờ nhặt hàng)");
+        assertEquals(2, trangThaiDon(don));
         assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM phieu_xuat_kho", Integer.class));
     }
 
     @Test
-    void t09_phieuNhatHaiDon_xuatTungDon_phieuNhatGiuDaNhat() {
+    void t09_phieuNhatHaiDon_chiDongKhiXuatDuCaHai() {
         int don1 = taoDonChoXuat(1);
         int don2 = taoDonChoXuat(1);
         int phieu = taoPhieuNhat(don1, don2);
         quet(phieu, 2);
         assertEquals(HttpStatus.OK, hoanTat(phieu).getStatusCode());
 
-        int pxk1 = phieuXuatNhapCuaDon(don1);
-        dongGoi(pxk1);
-        assertEquals(HttpStatus.OK, chonLoVaXuat(pxk1, 1).getStatusCode());
-        assertEquals("da_nhat", trangThaiPhieuNhat(phieu));
+        assertEquals(HttpStatus.OK, chonLoVaXuat(phieuXuatNhapCuaDon(don1), 1).getStatusCode());
+        assertEquals("da_nhat", trangThaiPhieuNhat(phieu), "còn đơn 2 chưa xuất thì phiếu nhặt chưa đóng");
         assertEquals(3, trangThaiDon(don1));
-        assertEquals(7, trangThaiDon(don2), "đơn 2 vẫn chờ đóng gói");
+        assertEquals(2, trangThaiDon(don2));
 
-        int pxk2 = phieuXuatNhapCuaDon(don2);
-        dongGoi(pxk2);
-        assertEquals(HttpStatus.OK, chonLoVaXuat(pxk2, 1).getStatusCode());
-        assertEquals("da_nhat", trangThaiPhieuNhat(phieu));
-        assertEquals(3, trangThaiDon(don2));
+        assertEquals(HttpStatus.OK, chonLoVaXuat(phieuXuatNhapCuaDon(don2), 1).getStatusCode());
+        assertEquals("da_xuat", trangThaiPhieuNhat(phieu));
         assertEquals(0, new BigDecimal("3").compareTo(tonKho()));
     }
 

@@ -75,6 +75,7 @@ export default function ChannelSetupWizard() {
     const navigate = useNavigate();
 
     const [ketNoi, setKetNoi] = useState(null);
+    const [khoOptions, setKhoOptions] = useState([]);
     const [khoSanOptions, setKhoSanOptions] = useState([]);
     const [khachOptions, setKhachOptions] = useState([]);
     const [form, setForm] = useState(formFromKetNoi(null));
@@ -94,8 +95,9 @@ export default function ChannelSetupWizard() {
         setLoading(true);
         setLoadError(false);
         try {
-            const [kn, khoSanList, khachList] = await Promise.all([
+            const [kn, khoList, khoSanList, khachList] = await Promise.all([
                 kenhBanHangService.getKetNoi(id),
+                kenhBanHangService.getKhoOptions().catch(() => []),
                 kenhBanHangService.getKhoSan(id).catch(() => []),
                 kenhBanHangService.getKhachHangOptions().catch(() => []),
             ]);
@@ -107,6 +109,7 @@ export default function ChannelSetupWizard() {
             }
             setForm(initialForm);
             setSavedOnce(true);
+            setKhoOptions(khoList ?? []);
             setKhoSanOptions(khoSanList ?? []);
             setKhachOptions(khachList ?? []);
         } catch (error) {

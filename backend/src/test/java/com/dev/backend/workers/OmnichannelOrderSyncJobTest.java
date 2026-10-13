@@ -35,7 +35,8 @@ class OmnichannelOrderSyncJobTest {
     @Mock private TrangThaiDongBoSanPhamRepository trangThaiDongBoSanPhamRepository;
     @Mock private KenhBanHangService kenhBanHangService;
     @Mock private KhoRepository khoRepository;
-    @Mock private com.dev.backend.services.impl.entities.DonBanHangService donBanHangService;
+    @Mock private com.dev.backend.services.multitable.NhatHangService nhatHangService;
+    @Mock private PhieuXuatKhoRepository phieuXuatKhoRepository;
 
     private OmnichannelOrderSyncJob job;
     private final ObjectMapper mapper = new ObjectMapper();
@@ -51,7 +52,8 @@ class OmnichannelOrderSyncJobTest {
                 trangThaiDongBoSanPhamRepository,
                 kenhBanHangService,
                 khoRepository,
-                donBanHangService
+                nhatHangService,
+                phieuXuatKhoRepository
         );
         when(donBanHangRepository.save(any(DonBanHang.class))).thenAnswer(inv -> inv.getArgument(0));
     }
@@ -136,7 +138,7 @@ class OmnichannelOrderSyncJobTest {
                 .id(99)
                 .soDonHang("SHP-1024")
                 .maDonHangKenh("5512345678")
-                .trangThai(1) // Chờ nhặt hàng (có thể đang nằm trong phiếu nhặt)
+                .trangThai(2) // Đang nhặt hàng
                 .build();
 
         when(donBanHangRepository.findBySoDonHang("SHP-1024")).thenReturn(Optional.of(existingOrder));
@@ -144,22 +146,9 @@ class OmnichannelOrderSyncJobTest {
         boolean processed = job.processSingleOrder(mapper.readTree(json), kenh);
 
         assertFalse(processed);
-        // Hủy theo sàn đi qua DonBanHangService (giao dịch riêng, nạp lại đơn) — job không sửa entity tách rời
-        verify(donBanHangService).huyDonTuSan(99, "Hủy từ sàn Shopify: customer");
-        verify(donBanHangRepository, never()).save(existingOrder);
-    }
-
-    @Test
-    void processSingleOrder_donDaHuy_khongGoiHuyLanNua() throws Exception {
-        String json = """
-        { "id": 5512345678, "order_number": 1024, "cancelled_at": "2026-10-12T15:00:00Z", "financial_status": "voided" }
-        """;
-        DonBanHang existingOrder = DonBanHang.builder().id(99).soDonHang("SHP-1024").trangThai(4).build();
-        when(donBanHangRepository.findBySoDonHang("SHP-1024")).thenReturn(Optional.of(existingOrder));
-
-        assertFalse(job.processSingleOrder(mapper.readTree(json), KenhBanHang.builder().id(1).maKenh("SHOPIFY").build()));
-
-        verifyNoInteractions(donBanHangService);
+        assertEquals(4, existingOrder.getTrangThai()); // 4 = Đã hủy
+        verify(donBanHangRepository).save(existingOrder);
+        verify(nhatHangService).xuLyDonBiHuyTrongPickList(existingOrder);
     }
 }
 

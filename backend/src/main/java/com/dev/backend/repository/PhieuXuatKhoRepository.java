@@ -5,13 +5,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import jakarta.persistence.LockModeType;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,26 +17,13 @@ public interface PhieuXuatKhoRepository extends JpaRepository<PhieuXuatKho, Inte
     long countBySoPhieuXuatStartingWith(String prefix);
     List<PhieuXuatKho> findByDonBanHangId(Integer donBanHangId);
     boolean existsByDonBanHangIdAndTrangThai(Integer donBanHangId, Integer trangThai);
-
-    boolean existsByDonBanHangIdAndTrangThaiIn(Integer donBanHangId, Collection<Integer> trangThais);
-
-    /** Phiếu của đơn ở một trong các trạng thái cho trước (vd. phiếu đang chờ đóng gói / chờ xuất). */
-    List<PhieuXuatKho> findByDonBanHangIdAndTrangThaiInOrderByIdDesc(Integer donBanHangId, Collection<Integer> trangThais);
-
-    /**
-     * Khóa dòng phiếu (SELECT ... FOR UPDATE). Phải là câu đọc phiếu ĐẦU TIÊN trong giao dịch: quét đóng gói,
-     * hoàn tất đóng gói và hủy đơn từ sàn tuần tự hóa trên dòng này nên không ghi đè lẫn nhau.
-     */
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT p FROM PhieuXuatKho p WHERE p.id = :id")
-    Optional<PhieuXuatKho> findByIdForUpdate(@Param("id") Integer id);
     Optional<PhieuXuatKho> findBySoPhieuXuat(String soPhieuXuat);
     @Query("""
 SELECT COUNT(p)
 FROM PhieuXuatKho p
-WHERE p.trangThai IN (0, 6)
+WHERE p.trangThai = 0
 """)
-    Long countPendingExports(); // phiếu chưa xuất: nháp (chờ đóng gói) và chờ xuất (đã đóng gói)
+    Long countPendingExports();
     @Query("""
 SELECT COUNT(p)
 FROM PhieuXuatKho p

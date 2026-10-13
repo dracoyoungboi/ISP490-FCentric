@@ -87,7 +87,6 @@ import PosLayout from "./pages/pos/PosLayout";
 import DonChoXuatPage from "./pages/issue/DonChoXuatPage";
 import PickListList from "./pages/issue/PickListList";
 import PickListDetail from "./pages/issue/PickListDetail";
-import DongGoiPage from "./pages/issue/DongGoiPage";
 import ChannelsPage from "./pages/channels/ChannelsPage";
 import ChannelSetupWizard from "./pages/channels/ChannelSetupWizard";
 import ChannelMappingsPage from "./pages/channels/ChannelMappingsPage";
@@ -263,7 +262,6 @@ export default function App() {
             <Route path="/goods-issues/pending-orders" element={<DonChoXuatPage />} />
             <Route path="/goods-issues/pick-lists" element={<PickListList />} />
             <Route path="/goods-issues/pick-lists/:id" element={<PickListDetail />} />
-            <Route path="/goods-issues/packing/:donId" element={<DongGoiPage />} />
           </Route>
 
           {/* Kênh bán hàng (FO-073–077) — chỉ quản trị viên (backend cũng chặn bằng @RequireAuth) */}

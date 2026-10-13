@@ -20,7 +20,6 @@ import org.springframework.data.domain.Page;
 import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
-import com.dev.backend.constant.variables.ITrangThaiPhieuXuat;
 import com.dev.backend.dto.request.XacNhanXuatKhoRequest;
 import com.dev.backend.dto.response.customize.XacNhanXuatKhoResponse;
 import com.dev.backend.event.DonHangXuatKhoEvent;
@@ -102,35 +101,15 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
     @Transactional
     public PhieuXuatKho createFromSO(PhieuXuatKhoCreating request) {
         if (request.getChiTietXuat() == null || request.getChiTietXuat().isEmpty()) {
-            throw new CommonException("Phiếu xuất phải có ít nhất 1 sản phẩm");
+            throw new RuntimeException("Phiếu xuất phải có nhất 1 sản phẩm");
         }
 
         DonBanHang donBanHang = entityManager.find(DonBanHang.class, request.getDonBanHangId());
         if (donBanHang == null) {
-            throw new CommonException("Đơn bán không tồn tại", HttpStatus.NOT_FOUND, null);
+            throw new RuntimeException("Đơn bán không tồn tại");
         }
         if (donBanHang.getTrangThai() == 4) {
-            throw new CommonException("Đơn bán đã bị hủy", HttpStatus.CONFLICT, null);
-        }
-        Integer ttDon = donBanHang.getTrangThai();
-        if (ttDon == null || (ttDon != ITrangThaiDonBanHang.CHO_NHAT_HANG && ttDon != ITrangThaiDonBanHang.DANG_XUAT_KHO)) {
-            throw new CommonException("Chỉ tạo phiếu xuất cho đơn đã gửi kho và còn hàng chưa xuất "
-                    + "(đơn chờ đóng gói / chờ xuất kho đã có phiếu xuất).");
-        }
-        // Đơn đang trong phiếu nhặt chưa nhặt xong: phiếu xuất được tạo tự động khi hoàn tất nhặt.
-        DanhSachNhatHang phieuNhatDangMo = donBanHang.getDanhSachNhatHang();
-        if (phieuNhatDangMo != null && ("cho_nhat".equals(phieuNhatDangMo.getTrangThai())
-                || "dang_nhat".equals(phieuNhatDangMo.getTrangThai()))) {
-            throw new CommonException("Đơn " + donBanHang.getSoDonHang() + " đang nằm trong phiếu nhặt hàng "
-                    + phieuNhatDangMo.getMaPickList() + ". Phiếu xuất sẽ được tạo tự động khi hoàn tất nhặt.",
-                    HttpStatus.CONFLICT, null);
-        }
-        // Mỗi đơn chỉ có một phiếu xuất đang mở (nháp / chờ xuất) — tránh xuất trùng hàng.
-        List<PhieuXuatKho> phieuDangMo = ((PhieuXuatKhoRepository) repository).findByDonBanHangIdAndTrangThaiInOrderByIdDesc(
-                donBanHang.getId(), List.of(ITrangThaiPhieuXuat.NHAP, ITrangThaiPhieuXuat.CHO_XUAT));
-        if (!phieuDangMo.isEmpty()) {
-            throw new CommonException("Đơn " + donBanHang.getSoDonHang() + " đã có phiếu xuất "
-                    + phieuDangMo.get(0).getSoPhieuXuat() + " đang chờ đóng gói / chờ xuất.", HttpStatus.CONFLICT, null);
+            throw new RuntimeException("Đơn bán đã bị huỷ");
         }
 
         Kho khoXuat = donBanHang.getKhoXuat();
@@ -153,14 +132,15 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
             }
         }
 
-        // Kiểm tra sản phẩm còn lại: đặt − đã xuất thực tế (phiếu đã xuất). soLuongDaGiao chỉ được ghi khi
-        // giao thành công nên không dùng được cho đơn đã xuất một phần.
+        // Kiểm tra sản phẩm còn lại
         List<ChiTietDonBanHang> chiTietSOList = chiTietDonBanHangRepository.findByDonBanHangId(donBanHang.getId());
-        boolean hasRemaining = chiTietSOList.stream()
-                .anyMatch(ct -> ct.getSoLuongDat().compareTo(daXuatThucTe(donBanHang.getId(), ct)) > 0);
+        boolean hasRemaining = chiTietSOList.stream().anyMatch(ct -> {
+            BigDecimal daGiao = ct.getSoLuongDaGiao() != null ? ct.getSoLuongDaGiao() : BigDecimal.ZERO;
+            return ct.getSoLuongDat().compareTo(daGiao) > 0;
+        });
 
         if (!hasRemaining) {
-            throw new CommonException("Đơn bán đã xuất đủ toàn bộ sản phẩm");
+            throw new RuntimeException("Đơn bán đã giao đủ toàn bộ sản phẩm");
         }
 
         int retry = 0;
@@ -183,15 +163,16 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                     ChiTietDonBanHang ctSO = chiTietSOList.stream()
                             .filter(ct -> ct.getBienTheSanPham().getId().equals(reqCt.getBienTheSanPhamId()))
                             .findFirst()
-                            .orElseThrow(() -> new CommonException("Sản phẩm không thuộc đơn bán"));
+                            .orElseThrow(() -> new RuntimeException("Sản phẩm không thuộc đơn bán"));
 
-                    BigDecimal conLai = ctSO.getSoLuongDat().subtract(daXuatThucTe(donBanHang.getId(), ctSO));
+                    BigDecimal daGiao = ctSO.getSoLuongDaGiao() != null ? ctSO.getSoLuongDaGiao() : BigDecimal.ZERO;
+                    BigDecimal conLai = ctSO.getSoLuongDat().subtract(daGiao);
 
                     if (reqCt.getSoLuongXuat().compareTo(conLai) > 0) {
-                        throw new CommonException("Sản phẩm " + ctSO.getBienTheSanPham().getMaSku() + " xuất vượt quá số lượng còn lại");
+                        throw new RuntimeException("Sản phẩm " + ctSO.getBienTheSanPham().getMaSku() + " xuất vượt quá số lượng còn lại");
                     }
                     if (reqCt.getSoLuongXuat().compareTo(BigDecimal.ZERO) <= 0) {
-                        throw new CommonException("Số lượng xuất phải > 0");
+                        throw new RuntimeException("Số lượng xuất phải > 0");
                     }
 
                     ChiTietPhieuXuatKho ctXuat = ChiTietPhieuXuatKho.builder()
@@ -201,9 +182,6 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                             .build();
                     entityManager.persist(ctXuat);
                 }
-                // Có phiếu xuất nháp → đơn chờ đóng gói (Scan-to-Pack) trước khi xuất kho
-                donBanHang.setTrangThai(ITrangThaiDonBanHang.CHO_DONG_GOI);
-                donBanHang.setNgayCapNhat(Instant.now());
                 return phieu;
             } catch (org.springframework.dao.DataIntegrityViolationException ex) {
                 if (isDuplicateSoPhieu(ex) && retry < maxRetry) {
@@ -230,13 +208,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
         if (!"ban_hang".equals(phieu.getLoaiXuat()) && !isXuatChuyenKho) {
             throw new CommonException("Loại phiếu không hợp lệ để xuất kho");
         }
-        // Phiếu bán hàng phải đóng gói xong (6 - Chờ xuất); phiếu xuất chuyển kho xuất từ nháp (0).
-        int trangThaiDuocXuat = isXuatChuyenKho ? ITrangThaiPhieuXuat.NHAP : ITrangThaiPhieuXuat.CHO_XUAT;
-        if (phieu.getTrangThai() == null || phieu.getTrangThai() != trangThaiDuocXuat) {
-            if (!isXuatChuyenKho && Integer.valueOf(ITrangThaiPhieuXuat.NHAP).equals(phieu.getTrangThai())) {
-                throw new CommonException("Phiếu xuất " + phieu.getSoPhieuXuat()
-                        + " chưa đóng gói. Vui lòng đóng gói (Scan-to-Pack) trước khi xuất kho.", HttpStatus.CONFLICT, null);
-            }
+        if (phieu.getTrangThai() != 0) {
             throw new CommonException("Phiếu không ở trạng thái chờ xuất (trạng thái hiện tại: " + phieu.getTrangThai() + ")");
         }
 
@@ -387,7 +359,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                             .idThamChieu(phieu.getId())
                             .kho(phieu.getKho())
                             .hanhDong(IHanhDong.xuat_kho)
-                            .giaTriCu(isXuatChuyenKho ? "trang_thai = 0 (Nháp)" : "trang_thai = 6 (Chờ xuất - đã đóng gói)")
+                            .giaTriCu("trang_thai = 0 (Chờ xuất)")
                             .giaTriMoi(auditDetail)
                             .nguoiThucHien(nguoiXuat)
                             .ngayThucHien(Instant.now())
@@ -413,6 +385,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
 
             updateTrangThaiDonBanHang(don.getId());
             trangThaiDonHang = don.getTrangThai();
+            capNhatPhieuNhatSauXuatKho(don);
 
             // Phát sự kiện Push Trạng thái sang Sàn TMĐT (Shopify, Shopee...) chạy ngầm sau commit
             applicationEventPublisher.publishEvent(
@@ -448,6 +421,24 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 .build();
     }
 
+    /**
+     * Phiếu nhặt hàng đã nhặt xong ('da_nhat') chuyển sang 'da_xuat' khi không còn đơn nào của phiếu
+     * đang chờ xuất (1) hoặc đang xử lý xuất kho (2). Đơn đã hủy không chặn việc đóng phiếu.
+     */
+    private void capNhatPhieuNhatSauXuatKho(DonBanHang don) {
+        DanhSachNhatHang phieuNhat = don.getDanhSachNhatHang();
+        if (phieuNhat == null || !"da_nhat".equals(phieuNhat.getTrangThai())) {
+            return;
+        }
+        List<DonBanHang> donCuaPhieu = phieuNhat.getDonBanHangs() != null ? phieuNhat.getDonBanHangs() : List.of();
+        boolean conDonChuaXuat = donCuaPhieu.stream().anyMatch(d -> d.getTrangThai() != null
+                && (d.getTrangThai() == ITrangThaiDonBanHang.CHO_XUAT_KHO
+                    || d.getTrangThai() == ITrangThaiDonBanHang.DANG_XUAT_KHO));
+        if (!conDonChuaXuat) {
+            phieuNhat.setTrangThai("da_xuat"); // phiếu nhặt đang được quản lý trong giao dịch, tự lưu khi commit
+        }
+    }
+
     private void updateTrangThaiDonBanHang(Integer donBanHangId) {
         DonBanHang don = entityManager.find(DonBanHang.class, donBanHangId);
         List<ChiTietDonBanHang> list = chiTietDonBanHangRepository.findByDonBanHangId(donBanHangId);
@@ -475,7 +466,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
         } else if (!allZero) {
             don.setTrangThai(ITrangThaiDonBanHang.DANG_XUAT_KHO); // 2: Có hàng đã xuất nhưng chưa đủ -> Đang xuất kho
         } else {
-            don.setTrangThai(ITrangThaiDonBanHang.CHO_NHAT_HANG); // 1: Chưa có hàng nào xuất
+            don.setTrangThai(ITrangThaiDonBanHang.CHO_XUAT_KHO); // 1: Chưa có hàng nào xuất -> Chờ xuất kho
         }
         entityManager.merge(don);
     }
@@ -504,47 +495,6 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
 
         phieu.setTrangThai(4); // Đã hủy
         repository.save(phieu);
-
-        // Hủy tay phiếu bán hàng đang chờ đóng gói / chờ xuất: đơn không còn phiếu mở thì quay về chờ kho xử lý
-        // (tạo phiếu xuất mới từ màn đơn). Đơn đã hủy (gọi từ luồng hủy đơn) giữ nguyên.
-        DonBanHang don = phieu.getDonBanHang();
-        if ("ban_hang".equals(phieu.getLoaiXuat()) && don != null && don.getTrangThai() != null
-                && (don.getTrangThai() == ITrangThaiDonBanHang.CHO_DONG_GOI || don.getTrangThai() == ITrangThaiDonBanHang.DA_DONG_GOI)
-                && !((PhieuXuatKhoRepository) repository).existsByDonBanHangIdAndTrangThaiIn(don.getId(),
-                        List.of(ITrangThaiPhieuXuat.NHAP, ITrangThaiPhieuXuat.CHO_XUAT))) {
-            boolean daXuatMotPhan = ((PhieuXuatKhoRepository) repository).existsByDonBanHangIdAndTrangThai(don.getId(), ITrangThaiPhieuXuat.DA_XUAT);
-            don.setTrangThai(daXuatMotPhan ? ITrangThaiDonBanHang.DANG_XUAT_KHO : ITrangThaiDonBanHang.CHO_NHAT_HANG);
-            don.setNgayCapNhat(Instant.now());
-        }
-    }
-
-    /** Số lượng của dòng đơn đã xuất thật (dòng lô của phiếu đã xuất). */
-    private BigDecimal daXuatThucTe(Integer donBanHangId, ChiTietDonBanHang ct) {
-        BigDecimal daXuat = chiTietPhieuXuatKhoRepository.sumSoLuongDaXuatThucTe(donBanHangId, ct.getBienTheSanPham().getId());
-        return daXuat != null ? daXuat : BigDecimal.ZERO;
-    }
-
-    /**
-     * Thu hồi phiếu xuất chưa xuất (0 Nháp / 6 Chờ xuất - đã đóng gói) của một đơn bán vừa bị hủy: đi qua đúng
-     * {@link #cancel(Integer)} nên phiếu về 4 (Đã hủy), không phải 2 (Đã duyệt). Phiếu đã xuất (3) hoặc đã hủy (4) giữ nguyên.
-     * Chạy trong giao dịch của bên gọi (hủy đơn, hủy trong phiếu nhặt, đồng bộ sàn).
-     *
-     * @return số phiếu đã thu hồi
-     */
-    @Transactional
-    public int huyPhieuXuatNhapTheoDon(Integer donBanHangId, String lyDo) {
-        int soPhieu = 0;
-        for (PhieuXuatKho phieu : ((PhieuXuatKhoRepository) repository).findByDonBanHangId(donBanHangId)) {
-            if (phieu.getTrangThai() == null || (phieu.getTrangThai() != ITrangThaiPhieuXuat.NHAP
-                    && phieu.getTrangThai() != ITrangThaiPhieuXuat.CHO_XUAT)) {
-                continue;
-            }
-            String ghiChu = phieu.getGhiChu();
-            phieu.setGhiChu((ghiChu != null && !ghiChu.isBlank() ? ghiChu + " | " : "") + lyDo);
-            cancel(phieu.getId());
-            soPhieu++;
-        }
-        return soPhieu;
     }
 
     @Transactional
@@ -558,9 +508,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
         if (isXuatChuyenKho) {
             if (phieu.getTrangThai() != 0) throw new RuntimeException("Chỉ được pick lô cho phiếu xuất chuyển kho ở trạng thái Nháp (0)");
         } else if ("ban_hang".equals(phieu.getLoaiXuat())) {
-            if (phieu.getTrangThai() != ITrangThaiPhieuXuat.NHAP && phieu.getTrangThai() != ITrangThaiPhieuXuat.CHO_XUAT) {
-                throw new RuntimeException("Chỉ được chọn lô cho phiếu bán hàng chưa xuất kho (Nháp hoặc Chờ xuất)");
-            }
+            if (phieu.getTrangThai() != 0) throw new RuntimeException("Chỉ được pick lô cho đơn bán hàng ở trạng thái Mới tạo (0)");
         } else if (isYeuCauChuyenKho) {
             throw new RuntimeException("Không được pick lô trực tiếp trên phiếu yêu cầu. Vui lòng tạo Phiếu Xuất.");
         }
@@ -1085,8 +1033,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 List<PhieuXuatKho> list = ((PhieuXuatKhoRepository) repository).findByDonBanHangId(donOpt.get().getId());
                 if (!list.isEmpty()) {
                     phieu = list.stream()
-                            .filter(p -> p.getTrangThai() != null && (p.getTrangThai() == ITrangThaiPhieuXuat.NHAP
-                                    || p.getTrangThai() == ITrangThaiPhieuXuat.CHO_XUAT))
+                            .filter(p -> p.getTrangThai() != null && p.getTrangThai() == 0)
                             .findFirst()
                             .orElse(list.get(0));
                 } else {
@@ -1109,7 +1056,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
 
         // 2. Chặn Scan-to-Pack khi đơn hàng bị hủy hoặc phiếu bị hủy (SRS 6.3.2)
         boolean isOrderCancelled = Integer.valueOf(ITrangThaiDonBanHang.DA_HUY).equals(donStatus);
-        boolean isPhieuCancelled = Integer.valueOf(4).equals(phieuStatus); // 4: Đã hủy (2 là Đã duyệt)
+        boolean isPhieuCancelled = Integer.valueOf(2).equals(phieuStatus);
 
         if (isOrderCancelled || isPhieuCancelled) {
             List<com.dev.backend.dto.response.customize.ScanToPackResultDto.ItemPackDto> returnItems = new ArrayList<>();

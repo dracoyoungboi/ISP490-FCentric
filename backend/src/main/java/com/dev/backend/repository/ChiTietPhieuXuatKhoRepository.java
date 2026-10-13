@@ -69,30 +69,6 @@ public interface ChiTietPhieuXuatKhoRepository extends JpaRepository<ChiTietPhie
     """)
     List<Integer> findTopSanPham(@Param("top") Integer top);
 
-    /**
-     * Số lượng đã xuất thật (dòng lô của phiếu đã xuất) của các đơn bán đang giữ hàng, gom theo (biến thể, kho xuất
-     * của đơn). Lượng chờ xuất = đặt − đã xuất; không dùng soLuongDaGiao (chỉ ghi khi giao thành công).
-     */
-    @Query("""
-        SELECT ct.bienTheSanPham.id, d.khoXuat.id, COALESCE(SUM(ct.soLuongXuat), 0)
-        FROM ChiTietPhieuXuatKho ct
-        JOIN ct.phieuXuatKho p
-        JOIN p.donBanHang d
-        WHERE ct.loHang IS NOT NULL
-          AND p.trangThai = 3
-          AND d.khoXuat IS NOT NULL
-          AND d.loaiChungTu = 'don_ban_hang'
-          AND d.trangThai IN :trangThais
-          AND ct.bienTheSanPham.id IN :bienTheIds
-          AND (:boQuaDonId IS NULL OR d.id <> :boQuaDonId)
-        GROUP BY ct.bienTheSanPham.id, d.khoXuat.id
-    """)
-    List<Object[]> sumDaXuatDonGiuHangTheoKho(
-            @Param("bienTheIds") List<Integer> bienTheIds,
-            @Param("boQuaDonId") Integer boQuaDonId,
-            @Param("trangThais") List<Integer> trangThais
-    );
-
     @Query("SELECT SUM(ct.soLuongXuat) FROM ChiTietPhieuXuatKho ct " +
             "JOIN ct.phieuXuatKho p " +
             "WHERE p.donBanHang.id = :donBanHangId " +

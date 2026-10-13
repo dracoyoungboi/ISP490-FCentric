@@ -65,8 +65,7 @@ class YeuCauMuaHangServiceTest {
 
     private YeuCauMuaHangService service;
 
-    // Kho nhận hàng NCC phải là Kho tổng đang hoạt động (KhoService.kiemTraKhoNhapNcc)
-    private final Kho khoTong = Kho.builder().id(1).maKho("KHO01").tenKho("Kho tổng").loaiKho("kho_tong").trangThai(1).build();
+    private final Kho khoTong = Kho.builder().id(1).maKho("KHO01").tenKho("Kho tổng").build();
     private final Kho khoCuaHang = Kho.builder().id(2).maKho("CH01").tenKho("Cửa hàng 1").build();
     private final NguoiDung nguoiDuyet = NguoiDung.builder().id(7).hoTen("Quản lý A").build();
 

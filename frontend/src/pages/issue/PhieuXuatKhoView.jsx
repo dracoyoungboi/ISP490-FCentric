@@ -1,7 +1,6 @@
 import { createElement, useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
-import { PHIEU_XUAT_STATUS } from "@/constants/trangThaiXuatBan";
 import { toast } from "sonner";
 import PageContainer from "@/components/backoffice/PageContainer";
 import SurfaceCard from "@/components/shared/SurfaceCard";
@@ -17,7 +16,17 @@ import {
     ArrowLeft
 } from "lucide-react";
 
-const STATUS_UI = PHIEU_XUAT_STATUS;
+const STATUS_UI = {
+    0: { label: "Nháp", tone: "warning" },
+    1: { label: "Chờ duyệt", tone: "info" },
+    2: {
+        label: "Đã duyệt",
+        tone: "info",
+        className: "border-indigo-200 bg-indigo-50 text-indigo-700",
+    },
+    3: { label: "Đã xuất", tone: "success" },
+    4: { label: "Đã hủy", tone: "danger" },
+};
 
 export default function PhieuXuatKhoView() {
     const { id } = useParams();

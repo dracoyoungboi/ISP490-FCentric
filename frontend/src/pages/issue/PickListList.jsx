@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
     ClipboardCheck, Eye, ListChecks, PackageSearch, Plus,
-    RefreshCcw, ScanBarcode, UserPlus, Users, Warehouse,
+    RefreshCcw, ScanBarcode, UserPlus, Users,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -28,7 +28,6 @@ import {
 } from "@/constants/outbound";
 import { formatDateTime } from "@/utils/dateTime";
 import { getApiErrorMessage } from "@/utils/apiError";
-import useKhoLamViec from "@/hooks/useKhoLamViec";
 
 const TH_CLASS = "h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 const DEFAULT_FILTERS = { keyword: "", trangThai: "", page: 0, size: 10 };
@@ -42,9 +41,6 @@ export default function PickListList() {
     const [loading, setLoading] = useState(false);
     const [loadError, setLoadError] = useState(false);
     const [assignTarget, setAssignTarget] = useState(null);
-    // Kho đang xem — cũng là kho làm việc chung (header kho_id) nên phân công dùng đúng kho này
-    const kho = useKhoLamViec({ mock: isPickListMock });
-    const { khoId } = kho;
 
     useEffect(() => {
         const timer = window.setTimeout(() => {
@@ -54,10 +50,10 @@ export default function PickListList() {
     }, [searchText]);
 
     const fetchData = useCallback(async () => {
-        if (!khoId) return;
         setLoading(true);
         setLoadError(false);
         try {
+            const khoId = Number(window.localStorage.getItem("selected_kho_id")) || undefined;
             const res = await nhatHangService.getPickLists({
                 khoId,
                 trangThai: filters.trangThai || undefined,
@@ -73,7 +69,7 @@ export default function PickListList() {
         } finally {
             setLoading(false);
         }
-    }, [filters, khoId]);
+    }, [filters]);
 
     useEffect(() => {
         queueMicrotask(() => fetchData());
@@ -88,11 +84,6 @@ export default function PickListList() {
     const handleReset = () => {
         setSearchText("");
         setFilters(DEFAULT_FILTERS);
-    };
-
-    const handleChangeKho = (value) => {
-        if (!kho.doiKho(value)) return;
-        setFilters((prev) => ({ ...prev, page: 0 }));
     };
 
     const handleAssigned = (dto) => {
@@ -135,23 +126,7 @@ export default function PickListList() {
             </section>
 
             {/* ══ BỘ LỌC ══ */}
-            <FilterPanel
-                extra={
-                    kho.khoOptions.length > 1 ? (
-                        <FilterSelect
-                            label="Kho xuất"
-                            value={String(khoId ?? "")}
-                            options={kho.khoOptions}
-                            onChange={handleChangeKho}
-                            disabled={loading}
-                            align="end"
-                            className="h-8 sm:w-[200px]"
-                        />
-                    ) : kho.tenKho ? (
-                        <span className="text-xs font-normal text-bo-muted">{kho.tenKho}</span>
-                    ) : null
-                }
-            >
+            <FilterPanel>
                 <FilterBar
                     primary={
                         <SearchInput
@@ -208,16 +183,8 @@ export default function PickListList() {
                     ) : null
                 }
             >
-                {loading || kho.trangThai === "loading" ? (
+                {loading ? (
                     <LoadingState className="min-h-64" label="Đang tải danh sách phiếu nhặt hàng" />
-                ) : kho.trangThai === "error" ? (
-                    <ErrorState title="Không tải được danh sách kho" onRetry={kho.taiDsKho} />
-                ) : kho.trangThai === "empty" ? (
-                    <EmptyState
-                        icon={Warehouse}
-                        title="Chưa có kho làm việc"
-                        description="Tài khoản chưa được phân công kho nào đang hoạt động. Liên hệ quản trị viên để được phân quyền kho."
-                    />
                 ) : loadError ? (
                     <ErrorState onRetry={fetchData} />
                 ) : data.length === 0 ? (

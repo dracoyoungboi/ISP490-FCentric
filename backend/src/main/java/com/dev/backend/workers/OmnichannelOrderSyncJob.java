@@ -3,9 +3,7 @@ package com.dev.backend.workers;
 import com.dev.backend.entities.*;
 import com.dev.backend.repository.*;
 import com.dev.backend.services.KenhBanHangService;
-import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
-import com.dev.backend.services.impl.entities.DonBanHangService;
-import com.dev.backend.services.impl.entities.KhoService;
+import com.dev.backend.services.multitable.NhatHangService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AccessLevel;
@@ -47,7 +45,8 @@ public class OmnichannelOrderSyncJob {
     TrangThaiDongBoSanPhamRepository trangThaiDongBoSanPhamRepository;
     KenhBanHangService kenhBanHangService;
     KhoRepository khoRepository;
-    DonBanHangService donBanHangService;
+    NhatHangService nhatHangService;
+    PhieuXuatKhoRepository phieuXuatKhoRepository;
     ObjectMapper objectMapper = new ObjectMapper();
 
     @Scheduled(fixedDelay = 300_000, initialDelay = 60_000)
@@ -154,17 +153,26 @@ public class OmnichannelOrderSyncJob {
             // Nếu sàn hủy đơn -> cập nhật trạng thái đã hủy (4)
             if ("cancelled".equalsIgnoreCase(orderNode.path("financial_status").asText())
                     || !orderNode.path("cancelled_at").isNull()) {
-                // Xử lý trong giao dịch riêng của DonBanHangService (nạp lại đơn, phiếu nhặt, phiếu xuất) — không
-                // truyền entity tách rời. Đơn đã xuất / hoàn thành / hoàn trả được giữ nguyên, chỉ ghi nhật ký.
-                if (existing.getTrangThai() != null && existing.getTrangThai() != ITrangThaiDonBanHang.DA_HUY) {
+                if (existing.getTrangThai() != null && existing.getTrangThai() != 4 && existing.getTrangThai() != 3) {
+                    existing.setTrangThai(4); // Đã hủy
+                    existing.setLyDoTuChoi("Hủy từ sàn Shopify: " + orderNode.path("cancel_reason").asText(""));
+                    donBanHangRepository.save(existing);
+                    log.info("[JOB-01] Đơn {} đã bị hủy trên Shopify -> Cập nhật trạng thái FCentric = 4", soDonHang);
                     try {
-                        boolean daHuy = donBanHangService.huyDonTuSan(existing.getId(),
-                                "Hủy từ sàn Shopify: " + orderNode.path("cancel_reason").asText(""));
-                        if (daHuy) {
-                            log.info("[JOB-01] Đơn {} đã bị hủy trên Shopify -> Cập nhật trạng thái FCentric = 4", soDonHang);
-                        }
+                        nhatHangService.xuLyDonBiHuyTrongPickList(existing);
                     } catch (Exception ex) {
-                        log.error("[JOB-01] Lỗi khi hủy đơn {} theo sàn (giữ nguyên, thử lại lượt sau): {}", soDonHang, ex.getMessage());
+                        log.error("[JOB-01] Lỗi khi xử lý hủy đơn trong Pick List cho đơn {}: {}", soDonHang, ex.getMessage());
+                    }
+
+                    // Thu hồi toàn bộ Phiếu Xuất Kho nháp (trangThai = 0) liên kết với đơn này (SRS 6.3.2)
+                    List<PhieuXuatKho> draftPxkList = phieuXuatKhoRepository.findByDonBanHangId(existing.getId());
+                    for (PhieuXuatKho pxk : draftPxkList) {
+                        if (pxk.getTrangThai() != null && pxk.getTrangThai() == 0) {
+                            pxk.setTrangThai(2); // 2: Đã hủy / Thu hồi
+                            String note = (pxk.getGhiChu() != null ? pxk.getGhiChu() + " | " : "") + "Tự động thu hồi do sàn Shopify hủy đơn";
+                            pxk.setGhiChu(note);
+                            phieuXuatKhoRepository.save(pxk);
+                        }
                     }
                 }
             }
@@ -182,10 +190,7 @@ public class OmnichannelOrderSyncJob {
         String ttThanhToan = "paid".equalsIgnoreCase(financialStatus) ? "da_thanh_toan" : "chua_thanh_toan";
 
         // Chọn kho xuất mặc định
-        // Kho tạm cho đơn sàn: Kho tổng đang hoạt động; nhân viên bán hàng định tuyến lại bằng "Gửi sang kho".
-        List<Kho> khoHoatDong = khoRepository.findByTrangThai(1);
-        Kho defaultKho = khoHoatDong.stream().filter(KhoService::laKhoTong).findFirst()
-                .orElse(khoHoatDong.stream().filter(k -> !KhoService.laKhoAo(k)).findFirst().orElse(null));
+        Kho defaultKho = khoRepository.findById(1).orElse(null);
 
         DonBanHang don = DonBanHang.builder()
                 .soDonHang(soDonHang)

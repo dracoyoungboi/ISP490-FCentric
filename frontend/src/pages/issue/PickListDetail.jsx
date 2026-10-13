@@ -26,7 +26,6 @@ import { PICK_LIST_EDITABLE, formatQuantity, getPickListStatus, toNumber } from 
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { playScanBeep } from "@/utils/scanBeep";
 import { formatDateTime } from "@/utils/dateTime";
-import { TRANG_THAI_DON } from "@/constants/trangThaiXuatBan";
 
 const TH_CLASS = "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 
@@ -340,7 +339,7 @@ export default function PickListDetail() {
 
             {/* ── Kết quả hoàn tất nhặt ── */}
             {completeResult ? (
-                <CompleteResultPanel result={completeResult} orders={dto.danhSachDonHang} onClose={() => setCompleteResult(null)} />
+                <CompleteResultPanel result={completeResult} onClose={() => setCompleteResult(null)} />
             ) : null}
 
             {/* ── Chế độ chỉ xem ── */}
@@ -351,7 +350,7 @@ export default function PickListDetail() {
                         {dto.trangThai === "da_huy" || dto.trangThai === "huy"
                             ? "Phiếu nhặt hàng đã hủy."
                             : dto.trangThai === "da_nhat"
-                                ? "Đã nhặt xong. Bấm Đóng gói ở từng đơn (bên phải) để quét đóng gói, sau đó xác nhận xuất kho ở phiếu xuất."
+                                ? "Đã nhặt xong. Mở phiếu xuất kho nháp của từng đơn để chọn lô và hoàn thành xuất kho."
                                 : "Phiếu nhặt hàng đã xuất kho."}
                     </p>
                     {dto.trangThai === "da_nhat" ? <GoodsIssueLink /> : null}
@@ -475,7 +474,7 @@ export default function PickListDetail() {
                 onConfirm={handleComplete}
                 variant="info"
                 title="Hoàn tất nhặt hàng"
-                description={`Phiếu nhặt hàng ${dto.maPickList} sẽ chuyển sang Đã nhặt, hệ thống tạo phiếu xuất kho nháp cho từng đơn và các đơn chuyển sang Chờ đóng gói.`}
+                description={`Phiếu nhặt hàng ${dto.maPickList} sẽ chuyển sang Đã nhặt và hệ thống tạo phiếu xuất kho nháp cho từng đơn trong đợt.`}
                 confirmText="Hoàn tất nhặt"
                 cancelText="Quay lại"
                 isLoading={completing}
@@ -542,7 +541,6 @@ function OrderCodes({ codes, orders, cancelledAlert }) {
                         );
                     }
 
-                    const choDongGoi = info?.trangThai === TRANG_THAI_DON.CHO_DONG_GOI;
                     return (
                         <span
                             key={code}
@@ -550,17 +548,6 @@ function OrderCodes({ codes, orders, cancelledAlert }) {
                         >
                             <span className="size-1.5 rounded-full bg-emerald-500" />
                             {code}
-                            {info && info.trangThai !== TRANG_THAI_DON.CHO_NHAT_HANG && !choDongGoi ? (
-                                <span className="font-normal normal-case tracking-normal text-bo-muted">· {info.tenTrangThai}</span>
-                            ) : null}
-                            {choDongGoi ? (
-                                <Link
-                                    to={`/goods-issues/packing/${info.id}`}
-                                    className="inline-flex items-center gap-0.5 font-semibold normal-case tracking-normal text-bo-primary hover:underline"
-                                >
-                                    Đóng gói <ArrowRight className="size-3" />
-                                </Link>
-                            ) : null}
                         </span>
                     );
                 })}
@@ -574,14 +561,14 @@ function OrderCodes({ codes, orders, cancelledAlert }) {
     );
 }
 
-function CompleteResultPanel({ result, orders, onClose }) {
+function CompleteResultPanel({ result, onClose }) {
     const codes = result.maDonHangs ?? [];
     const donBoQua = result.donBoQua ?? [];
     return (
         <SurfaceCard
             title="Đã hoàn tất nhặt hàng"
             description={codes.length > 0
-                ? `Hệ thống đã tạo phiếu xuất kho nháp cho ${codes.length} đơn, các đơn chuyển sang Chờ đóng gói. Bước tiếp theo: đóng gói (Scan-to-Pack) từng đơn rồi xác nhận xuất kho.`
+                ? `Hệ thống đã tạo phiếu xuất kho nháp cho ${codes.length} đơn. Bước tiếp theo: chọn lô và hoàn thành xuất kho ở từng phiếu.`
                 : "Không còn đơn nào cần xuất nên hệ thống không tạo phiếu xuất kho."}
             action={
                 <button type="button" onClick={onClose} className="text-sm font-medium text-bo-muted hover:text-bo-foreground">
@@ -592,7 +579,7 @@ function CompleteResultPanel({ result, orders, onClose }) {
             <div className="space-y-3">
                 {codes.length > 0 ? (
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <OrderCodes codes={codes} orders={orders} />
+                        <OrderCodes codes={codes} />
                         <GoodsIssueLink />
                     </div>
                 ) : null}

@@ -45,10 +45,10 @@ public interface DonBanHangRepository
     @Query("""
         select count(d)
         from DonBanHang d
-        where d.trangThai in (1, 2, 7, 8)
+        where d.trangThai = 1
           and d.loaiChungTu = 'don_ban_hang'
     """)
-    Long countPendingSaleOrders(); // đơn đang xử lý ở kho: chờ nhặt, xuất một phần, chờ đóng gói, chờ xuất kho
+    Long countPendingSaleOrders();
 
     @Query("""
         select count(d)

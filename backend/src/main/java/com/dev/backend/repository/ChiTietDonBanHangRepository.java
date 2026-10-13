@@ -14,23 +14,19 @@ import java.util.List;
 public interface ChiTietDonBanHangRepository extends JpaRepository<ChiTietDonBanHang, Integer>, JpaSpecificationExecutor<ChiTietDonBanHang> {
     List<ChiTietDonBanHang> findByDonBanHangId(Integer donBanHangId);
 
-    /**
-     * Số lượng ĐẶT của đơn bán đang giữ hàng (chỉ đơn bán, không tính báo giá) gom theo (biến thể, kho xuất).
-     * Trừ đi số đã xuất thật ({@code ChiTietPhieuXuatKhoRepository.sumDaXuatDonGiuHangTheoKho}) mới ra lượng chờ xuất.
-     */
     @Query("""
-        SELECT ctdbh.bienTheSanPham.id, ctdbh.donBanHang.khoXuat.id, COALESCE(SUM(ctdbh.soLuongDat), 0)
+        SELECT ctdbh.bienTheSanPham.id, ctdbh.donBanHang.khoXuat.id, COALESCE(SUM(ctdbh.soLuongDat - ctdbh.soLuongDaGiao), 0)
         FROM ChiTietDonBanHang ctdbh
         WHERE ctdbh.donBanHang.khoXuat IS NOT NULL
-          AND ctdbh.donBanHang.loaiChungTu = 'don_ban_hang'
-          AND ctdbh.donBanHang.trangThai IN :trangThais
+          AND ctdbh.donBanHang.khoXuat.trangThai = 1
+          AND ctdbh.donBanHang.trangThai IN (0, 1, 2)
+          AND (ctdbh.soLuongDat - ctdbh.soLuongDaGiao) > 0
           AND ctdbh.bienTheSanPham.id IN :bienTheIds
-          AND (:boQuaDonId IS NULL OR ctdbh.donBanHang.id <> :boQuaDonId)
+          AND (:currentDonHangId IS NULL OR ctdbh.donBanHang.id != :currentDonHangId)
         GROUP BY ctdbh.bienTheSanPham.id, ctdbh.donBanHang.khoXuat.id
     """)
-    List<Object[]> sumDatDonGiuHangTheoKho(
+    List<Object[]> sumOutgoingByKhoAndBienTheIdsExcludingOrder(
             @Param("bienTheIds") List<Integer> bienTheIds,
-            @Param("boQuaDonId") Integer boQuaDonId,
-            @Param("trangThais") List<Integer> trangThais
+            @Param("currentDonHangId") Integer currentDonHangId
     );
 }

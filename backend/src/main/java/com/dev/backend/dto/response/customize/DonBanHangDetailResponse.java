@@ -13,8 +13,4 @@ public class DonBanHangDetailResponse {
     private DonBanHangDto donBanHang;
     private List<ChiTietDonBanHangDto> chiTiet;
     private List<PhieuXuatKhoSummaryDto> phieuXuatKhoList;
-    /** Phiếu nhặt mà đơn đang thuộc (nếu có) — màn đơn ẩn Hủy / Tạo phiếu xuất khi phiếu nhặt còn chạy. */
-    private Integer phieuNhatHangId;
-    private String maPickList;
-    private String trangThaiPhieuNhat;
 }

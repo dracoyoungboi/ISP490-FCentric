@@ -1,12 +1,9 @@
 package com.dev.backend.services.impl.entities;
 
-import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.dto.response.customize.KhoKhaDungDto;
 import com.dev.backend.entities.*;
 import com.dev.backend.exception.customize.CommonException;
-import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
 import com.dev.backend.repository.ChiTietDonBanHangRepository;
-import com.dev.backend.repository.ChiTietPhieuXuatKhoRepository;
 import com.dev.backend.repository.DonBanHangRepository;
 import com.dev.backend.repository.KhoRepository;
 import com.dev.backend.repository.NguoiDungRepository;
@@ -38,13 +35,11 @@ class DonBanHangServiceSendToWarehouseTest {
     @Mock private NguoiDungRepository nguoiDungRepository;
     @Mock private ChiTietDonBanHangRepository chiTietDonBanHangRepository;
     @Mock private TonKhoTheoLoRepository tonKhoTheoLoRepository;
-    @Mock private ChiTietPhieuXuatKhoRepository chiTietPhieuXuatKhoRepository;
 
     private DonBanHangService service;
 
     private Kho kho1;
     private Kho kho2;
-    private Kho khoTrungChuyen;
     private DonBanHang donDraft;
 
     @BeforeEach
@@ -55,11 +50,9 @@ class DonBanHangServiceSendToWarehouseTest {
         ReflectionTestUtils.setField(service, "nguoiDungRepository", nguoiDungRepository);
         ReflectionTestUtils.setField(service, "chiTietDonBanHangRepository", chiTietDonBanHangRepository);
         ReflectionTestUtils.setField(service, "tonKhoTheoLoRepository", tonKhoTheoLoRepository);
-        ReflectionTestUtils.setField(service, "chiTietPhieuXuatKhoRepository", chiTietPhieuXuatKhoRepository);
 
         kho1 = Kho.builder().id(1).maKho("KHO-HN").tenKho("Kho Hà Nội").trangThai(1).build();
         kho2 = Kho.builder().id(2).maKho("KHO-HCM").tenKho("Kho Hồ Chí Minh").trangThai(1).build();
-        khoTrungChuyen = Kho.builder().id(20).maKho("KHO_TRANSIT").tenKho("Kho Trung Chuyển").trangThai(1).build();
 
         donDraft = DonBanHang.builder()
                 .id(120)
@@ -114,42 +107,7 @@ class DonBanHangServiceSendToWarehouseTest {
 
         CommonException ex = assertThrows(CommonException.class, () -> service.sendToWarehouse(120, 3));
         assertEquals(HttpStatus.BAD_REQUEST, ex.getHttpStatus());
-        assertTrue(ex.getMessage().contains("ngừng hoạt động"));
-        verify(donBanHangRepository, never()).save(any());
-    }
-
-    @Test
-    void sendToWarehouse_thatBai_khoTrungChuyen() {
-        when(donBanHangRepository.findById(120)).thenReturn(Optional.of(donDraft));
-        when(khoRepository.findById(20)).thenReturn(Optional.of(khoTrungChuyen));
-
-        CommonException ex = assertThrows(CommonException.class, () -> service.sendToWarehouse(120, 20));
-        assertEquals(HttpStatus.BAD_REQUEST, ex.getHttpStatus());
-        assertTrue(ex.getMessage().contains("Kho Trung Chuyển"));
-        assertEquals(0, donDraft.getTrangThai());
-        verify(donBanHangRepository, never()).save(any());
-    }
-
-    @Test
-    void sendToWarehouse_thatBai_khongTruyenKhoId_khoHienTaiLaKhoTrungChuyen() {
-        donDraft.setKhoXuat(khoTrungChuyen);
-        when(donBanHangRepository.findById(120)).thenReturn(Optional.of(donDraft));
-
-        CommonException ex = assertThrows(CommonException.class, () -> service.sendToWarehouse(120, null));
-        assertEquals(HttpStatus.BAD_REQUEST, ex.getHttpStatus());
-        verify(donBanHangRepository, never()).save(any());
-    }
-
-    @Test
-    void sendToWarehouse_thatBai_khongCoKhoNao_khongMacDinhKho1() {
-        donDraft.setKhoXuat(null);
-        SecurityContextHolder.clear(); // không có ngữ cảnh kho
-        when(donBanHangRepository.findById(120)).thenReturn(Optional.of(donDraft));
-
-        CommonException ex = assertThrows(CommonException.class, () -> service.sendToWarehouse(120, null));
-        assertEquals(HttpStatus.BAD_REQUEST, ex.getHttpStatus());
-        assertTrue(ex.getMessage().contains("Vui lòng chọn kho xuất"));
-        verify(khoRepository, never()).findById(any());
+        assertTrue(ex.getMessage().contains("tạm dừng"));
         verify(donBanHangRepository, never()).save(any());
     }
 
@@ -213,21 +171,20 @@ class DonBanHangServiceSendToWarehouseTest {
         when(chiTietDonBanHangRepository.findByDonBanHangId(120)).thenReturn(List.of(ct1, ct2));
         when(khoRepository.findByTrangThai(1)).thenReturn(List.of(kho1, kho2));
 
-        // Khả dụng theo lô (tồn − đang giữ): Kho 1 có bt1: 10, bt2: 5. Kho 2 có bt1: 1, bt2: 10
+        // On-Hand: Kho 1 có bt1: 10, bt2: 5. Kho 2 có bt1: 1, bt2: 10
         List<Object[]> onHandData = List.<Object[]>of(
                 new Object[]{10, 1, BigDecimal.valueOf(10)},
                 new Object[]{20, 1, BigDecimal.valueOf(5)},
                 new Object[]{10, 2, BigDecimal.valueOf(1)},
                 new Object[]{20, 2, BigDecimal.valueOf(10)}
         );
-        when(tonKhoTheoLoRepository.sumKhaDungLoTheoKhoBan(List.of(10, 20))).thenReturn(onHandData);
+        when(tonKhoTheoLoRepository.sumOnHandByKhoAndBienTheIds(List.of(10, 20))).thenReturn(onHandData);
 
-        // Chờ xuất: Kho 1 có đơn khác đặt bt2: 1 cái, chưa xuất (còn lại 4 >= 3). Kho 2: không có
+        // Outgoing: Kho 1 có đơn khác giữ bt2: 1 cái (còn lại 4 >= 3). Kho 2: outgoing = 0
         List<Object[]> outgoingData = List.<Object[]>of(
                 new Object[]{20, 1, BigDecimal.valueOf(1)}
         );
-        when(chiTietDonBanHangRepository.sumDatDonGiuHangTheoKho(List.of(10, 20), 120, ITrangThaiDonBanHang.DANG_GIU_HANG))
-                .thenReturn(outgoingData);
+        when(chiTietDonBanHangRepository.sumOutgoingByKhoAndBienTheIdsExcludingOrder(List.of(10, 20), 120)).thenReturn(outgoingData);
 
         List<KhoKhaDungDto> result = service.getKhoKhaDungChoDonHang(120);
 
@@ -251,30 +208,6 @@ class DonBanHangServiceSendToWarehouseTest {
     }
 
     @Test
-    void getKhoKhaDung_choXuatChiTinhPhanChuaXuat() {
-        BienTheSanPham bt = BienTheSanPham.builder().id(10).maSku("AT-TRG-M")
-                .sanPham(SanPhamQuanAo.builder().id(1).tenSanPham("Áo").build()).build();
-        ChiTietDonBanHang ct = ChiTietDonBanHang.builder().id(1).donBanHang(donDraft).bienTheSanPham(bt)
-                .soLuongDat(BigDecimal.valueOf(3)).build();
-        when(donBanHangRepository.findById(120)).thenReturn(Optional.of(donDraft));
-        when(chiTietDonBanHangRepository.findByDonBanHangId(120)).thenReturn(List.of(ct));
-        when(khoRepository.findByTrangThai(1)).thenReturn(List.of(kho1));
-        when(tonKhoTheoLoRepository.sumKhaDungLoTheoKhoBan(List.of(10)))
-                .thenReturn(List.<Object[]>of(new Object[]{10, 1, BigDecimal.valueOf(5)}));
-        // Đơn khác đặt 4, đã xuất 2 (xuất một phần) → còn chờ xuất 2 → khả dụng 5 − 2 = 3 >= 3
-        when(chiTietDonBanHangRepository.sumDatDonGiuHangTheoKho(List.of(10), 120, ITrangThaiDonBanHang.DANG_GIU_HANG))
-                .thenReturn(List.<Object[]>of(new Object[]{10, 1, BigDecimal.valueOf(4)}));
-        when(chiTietPhieuXuatKhoRepository.sumDaXuatDonGiuHangTheoKho(List.of(10), 120, ITrangThaiDonBanHang.DANG_GIU_HANG))
-                .thenReturn(List.<Object[]>of(new Object[]{10, 1, BigDecimal.valueOf(2)}));
-
-        List<KhoKhaDungDto> result = service.getKhoKhaDungChoDonHang(120);
-
-        assertEquals(1, result.size());
-        assertTrue(result.get(0).getDuHang(), "phần đã xuất không được trừ lần nữa");
-        assertEquals(0, BigDecimal.valueOf(3).compareTo(result.get(0).getChiTietTonKho().get(0).getTonKhaDung()));
-    }
-
-    @Test
     void getKhoKhaDung_thatBai_donKhongTonTai() {
         when(donBanHangRepository.findById(999)).thenReturn(Optional.empty());
 
@@ -293,18 +226,6 @@ class DonBanHangServiceSendToWarehouseTest {
         assertEquals(2, result.size());
         assertTrue(result.get(0).getDuHang());
         assertEquals(0, result.get(0).getTongSoMatHang());
-    }
-
-    @Test
-    void getKhoKhaDung_boQuaKhoTrungChuyen() {
-        when(donBanHangRepository.findById(120)).thenReturn(Optional.of(donDraft));
-        when(chiTietDonBanHangRepository.findByDonBanHangId(120)).thenReturn(Collections.emptyList());
-        when(khoRepository.findByTrangThai(1)).thenReturn(List.of(kho1, khoTrungChuyen, kho2));
-
-        List<KhoKhaDungDto> result = service.getKhoKhaDungChoDonHang(120);
-
-        assertEquals(List.of(1, 2), result.stream().map(KhoKhaDungDto::getKhoId).toList(),
-                "modal Gửi sang kho không được gợi ý Kho Trung Chuyển");
     }
 
     @Test

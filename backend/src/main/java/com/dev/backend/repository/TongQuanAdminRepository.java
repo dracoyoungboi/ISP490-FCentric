@@ -584,7 +584,7 @@ public class TongQuanAdminRepository {
                 WHERE n.trang_thai IN ('cho_nhat', 'dang_nhat') AND n.nguoi_nhat_id IS NULL
                   AND (:khoId IS NULL OR n.kho_xuat_id = :khoId))                          AS nhat_chua_giao,
               (SELECT COUNT(*) FROM phieu_xuat_kho p
-                WHERE p.loai_xuat = 'ban_hang' AND p.trang_thai IN (0, 6)
+                WHERE p.loai_xuat = 'ban_hang' AND p.trang_thai IN (0, 1, 2)
                   AND (:khoId IS NULL OR p.kho_id = :khoId))                               AS px_cho_xuat,
               (SELECT COUNT(*) FROM yeu_cau_mua_hang y
                 WHERE y.trang_thai = 1 AND (:khoId IS NULL OR y.kho_nhap_id = :khoId))     AS yc_cho_duyet,
