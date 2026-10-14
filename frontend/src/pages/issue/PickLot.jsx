@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2, Package, CheckCircle2, ClipboardList } from "lucide-react";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { formatDate } from "@/utils/formatters";
+import { TRANG_THAI_PHIEU_XUAT } from "@/constants/trangThaiXuatBan";
 
 const TH_CLASS =
     "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
@@ -51,7 +52,10 @@ export default function PickLot() {
     const tenBienThe       = state?.tenBienThe || "-";
     const soLuongCanXuat   = Number(state?.soLuongXuat ?? 0);
     const phieuTrangThai   = state?.phieuTrangThai;
-    const isReadOnly       = phieuTrangThai !== 0;
+    // Chọn lô được khi phiếu còn Nháp; phiếu bán hàng đã đóng gói (Chờ xuất) vẫn chọn lô trước khi xuất kho
+    // (khớp PhieuXuatKhoService.pickLoHang)
+    const isReadOnly       = !(phieuTrangThai === TRANG_THAI_PHIEU_XUAT.NHAP
+        || (state?.loaiXuat === "ban_hang" && phieuTrangThai === TRANG_THAI_PHIEU_XUAT.CHO_XUAT));
 
     // Trang tự tải ngay khi mở nên bắt đầu ở trạng thái đang tải (không hiện "Không có lô" trước khi có kết quả)
     const [loading,  setLoading]  = useState(true);

@@ -55,8 +55,10 @@ function parseRoles(vaiTro) {
 // ── Trạng thái: dùng chung tên với danh sách và hóa đơn in (constants/donBanHang) ──
 const STATUS_MAP = DON_BAN_HANG_STATUS;
 
-/** Phiếu nhặt còn chạy: đơn trong đó không hủy / tạo phiếu xuất tay được (backend cũng chặn). */
-const PHIEU_NHAT_DANG_CHAY = ["cho_nhat", "dang_nhat", "da_nhat"];
+/** Phiếu nhặt chưa nhặt xong: phiếu xuất được tạo tự động khi hoàn tất nhặt, không tạo tay (khớp PhieuXuatKhoService.createFromSO). */
+const PHIEU_NHAT_CHUA_XONG = ["cho_nhat", "dang_nhat"];
+/** Đơn đã gom vào phiếu nhặt (kể cả đã nhặt xong) không hủy được (khớp DonBanHangService.cancel). */
+const PHIEU_NHAT_KHOA_HUY = ["cho_nhat", "dang_nhat", "da_nhat"];
 
 export default function DonBanHangDetail() {
   const { id } = useParams();
@@ -275,8 +277,11 @@ export default function DonBanHangDetail() {
   const maKenh = donBanHang.kenhBanHang?.maKenh;
   const orderFlags = parseFlags(donBanHang.canXuLy);
   const canSendToWarehouse = donBanHang.trangThai === 0 && !isChannelOrder;
-  const dangTrongPhieuNhat = PHIEU_NHAT_DANG_CHAY.includes(trangThaiPhieuNhat);
-  const canCancel = donBanHang.trangThai < 3 && !isChannelOrder && !dangTrongPhieuNhat;
+  const phieuNhatChuaXong = PHIEU_NHAT_CHUA_XONG.includes(trangThaiPhieuNhat);
+  // Đơn đã có phiếu xuất hoàn thành (vd. đã xuất một phần) thì backend không cho hủy
+  const coPhieuDaXuat = (phieuXuatKhoList ?? []).some((px) => px.trangThai === TRANG_THAI_PHIEU_XUAT.DA_XUAT);
+  const canCancel = donBanHang.trangThai < 3 && !isChannelOrder
+    && !PHIEU_NHAT_KHOA_HUY.includes(trangThaiPhieuNhat) && !coPhieuDaXuat;
   // Kho (và quản trị viên) đóng gói / xuất kho ngay trên màn đơn
   const canWarehouseAct = isKhoRole || userRoles.includes(ROLE.QUAN_TRI_VIEN);
   const phieuChoXuat = (phieuXuatKhoList ?? []).find((px) => px.trangThai === TRANG_THAI_PHIEU_XUAT.CHO_XUAT);
@@ -391,7 +396,7 @@ export default function DonBanHangDetail() {
               <PackageCheck className="size-4" /> Tiến hành đóng gói
             </Button>
           )}
-          {canWarehouseAct && donBanHang.trangThai === TRANG_THAI_DON.CHO_XUAT_KHO && phieuChoXuat && (
+          {canWarehouseAct && donBanHang.trangThai === TRANG_THAI_DON.DA_DONG_GOI && phieuChoXuat && (
             <Button
               onClick={() => navigate(`/goods-issues/${phieuChoXuat.id}`)}
               className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
@@ -401,7 +406,7 @@ export default function DonBanHangDetail() {
           )}
 
           {/* Nút Tạo Phiếu Xuất Kho cho role KHO (đơn không nằm trong phiếu nhặt đang chạy) */}
-          {isKhoRole && (donBanHang.trangThai === 1 || donBanHang.trangThai === 2) && !dangTrongPhieuNhat && (
+          {isKhoRole && (donBanHang.trangThai === 1 || donBanHang.trangThai === 2) && !phieuNhatChuaXong && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>

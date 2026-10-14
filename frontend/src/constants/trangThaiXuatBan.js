@@ -16,7 +16,7 @@ export const TRANG_THAI_DON = {
   HOAN_THANH: 5,
   BI_HOAN_TRA: 6,
   CHO_DONG_GOI: 7,
-  CHO_XUAT_KHO: 8,
+  DA_DONG_GOI: 8, // đã đóng gói, hiển thị "Chờ xuất kho" (cùng tên với backend ITrangThaiDonBanHang)
 };
 
 export const TRANG_THAI_PHIEU_XUAT = {
@@ -28,5 +28,5 @@ export const TRANG_THAI_PHIEU_XUAT = {
   CHO_XUAT: 6,
 };
 
-/** Phiếu xuất chưa xuất kho (còn chọn lô / hủy được). */
+/** Phiếu xuất chưa xuất kho và chưa hủy — còn hủy được. */
 export const PHIEU_XUAT_CHUA_XUAT = [0, 1, 2, 6];

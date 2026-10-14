@@ -4,6 +4,7 @@ import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
 import { donBanHangService } from "@/services/donBanHangService";
 import { phieuChuyenKhoService } from "@/services/phieuChuyenKhoService";
 import { getMineKhoList } from "@/services/khoService";
+import { getDonBanHangStatus } from "@/constants/donBanHang";
 import { toast } from "sonner";
 import PageContainer from "@/components/backoffice/PageContainer";
 import SurfaceCard from "@/components/shared/SurfaceCard";
@@ -92,7 +93,11 @@ export default function PhieuXuatKhoCreate() {
             // 1. Tải danh sách Đơn Bán Hàng
             const soRes = await donBanHangService.filter({
                 page: 0, size: 1000,
-                filters: [{ fieldName: "trangThai", operation: "IN", value: [1, 2] }],
+                // Chỉ đơn bán hàng: báo giá "Đã chốt đơn" cũng mang trạng thái 2 nhưng không được xuất kho
+                filters: [
+                    { fieldName: "loaiChungTu", operation: "EQUALS", value: "don_ban_hang" },
+                    { fieldName: "trangThai", operation: "IN", value: [1, 2] },
+                ],
                 sorts: [{ fieldName: "ngayDatHang", direction: "DESC" }],
             });
             const validSoList = soRes.content || soRes.data?.content || [];
@@ -316,7 +321,7 @@ export default function PhieuXuatKhoCreate() {
                                     ) : soList.map(so => (
                                         <DropdownMenuItem key={so.id} onClick={() => handleSelectSO(so.id)} className={`${DROPDOWN_ITEM_CLASS} flex flex-col items-start py-2`}>
                                             <span className="font-medium text-slate-900">{so.soDonHang}</span>
-                                            <span className="text-xs text-bo-muted">{so.trangThai === 2 ? "Đã xuất một phần" : "Chờ nhặt hàng"}</span>
+                                            <span className="text-xs text-bo-muted">{getDonBanHangStatus(so.trangThai).label}</span>
                                         </DropdownMenuItem>
                                     ))
                                 ) : (
