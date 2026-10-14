@@ -36,6 +36,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -321,6 +322,15 @@ public class NhatHangServiceImpl implements NhatHangService {
         if (request.getNguoiNhatId() != null) {
             nguoiNhat = nguoiDungRepository.findById(request.getNguoiNhatId())
                     .orElseThrow(() -> new CommonException("Không tìm thấy nhân viên nhặt hàng ID: " + request.getNguoiNhatId()));
+            // Cùng quy tắc với phanCongNguoiNhat: tài khoản còn hoạt động; nhân viên kho chỉ giao cho chính mình
+            if (nguoiNhat.getTrangThai() == null || nguoiNhat.getTrangThai() != 1) {
+                throw new CommonException("Tài khoản nhân viên nhặt hàng đang bị khóa hoặc ngưng hoạt động");
+            }
+            boolean laQuanLy = authUser.getVaiTro() != null && (authUser.getVaiTro().contains(IRoleType.quan_tri_vien)
+                    || authUser.getVaiTro().contains(IRoleType.quan_ly_kho));
+            if (!laQuanLy && !authUser.getId().equals(nguoiNhat.getId())) {
+                throw new CommonException("Nhân viên kho chỉ có quyền tự nhận việc (Self-assignment)");
+            }
         }
 
         // Khởi tạo và lưu DanhSachNhatHang
@@ -643,6 +653,12 @@ public class NhatHangServiceImpl implements NhatHangService {
         if (!isQuanLy && !authUser.getId().equals(request.getNguoiNhatId())) {
             throw new CommonException("Nhân viên kho chỉ có quyền tự nhận việc (Self-assignment)");
         }
+        // Nhân viên kho chỉ tự nhận phiếu CHƯA có người nhặt — không nhận lại phiếu đã giao cho người khác
+        if (!isQuanLy && pickList.getNguoiNhat() != null && !authUser.getId().equals(pickList.getNguoiNhat().getId())) {
+            throw new CommonException("Phiếu nhặt " + pickList.getMaPickList() + " đã được giao cho "
+                    + pickList.getNguoiNhat().getHoTen() + ". Liên hệ quản lý kho nếu cần phân công lại.",
+                    HttpStatus.CONFLICT, null);
+        }
 
         String oldPickerName = pickList.getNguoiNhat() != null ? pickList.getNguoiNhat().getHoTen() : "Chưa phân công";
         pickList.setNguoiNhat(assignee);
@@ -698,18 +714,6 @@ public class NhatHangServiceImpl implements NhatHangService {
             throw new CommonException("Bạn không có quyền quét nhặt hàng cho Pick List thuộc kho khác");
         }
 
-        // Kiểm tra quyền đối với nhân viên kho
-        boolean isKhoStaff = authUser.getVaiTro() != null && authUser.getVaiTro().contains(IRoleType.nhan_vien_kho);
-        if (isKhoStaff && !isAdmin && authUser.getVaiTro().size() == 1) {
-            if (pickList.getNguoiNhat() != null && !authUser.getId().equals(pickList.getNguoiNhat().getId())) {
-                throw new CommonException("Đợt nhặt hàng này đã được phân công cho nhân viên: " + pickList.getNguoiNhat().getHoTen());
-            }
-            if (pickList.getNguoiNhat() == null) {
-                NguoiDung currentUser = nguoiDungRepository.findById(authUser.getId()).orElse(null);
-                pickList.setNguoiNhat(currentUser);
-            }
-        }
-
         // Kiểm tra State Machine
         String trangThai = pickList.getTrangThai();
         if ("da_nhat".equals(trangThai)) {
@@ -721,6 +725,10 @@ public class NhatHangServiceImpl implements NhatHangService {
         if ("da_huy".equals(trangThai)) {
             throw new CommonException("Đợt nhặt hàng này đã bị hủy");
         }
+
+        // Bắt buộc phân công trước khi nhặt, với MỌI vai trò: chỉ người được giao mới quét nhặt được.
+        // Quản lý kho / quản trị viên muốn tự nhặt thì phân công cho chính mình trước; nhân viên kho tự nhận việc.
+        kiemTraNguoiNhat(pickList, authUser);
 
         // Nếu đang ở trạng thái cho_nhat, tự động chuyển sang dang_nhat
         if ("cho_nhat".equals(trangThai)) {
@@ -848,6 +856,23 @@ public class NhatHangServiceImpl implements NhatHangService {
                 .build();
     }
 
+    /**
+     * Bắt buộc phân công trước khi nhặt: phiếu chưa có người nhặt thì không ai quét được, và chỉ người được
+     * giao mới quét được (kể cả quản lý kho / quản trị viên — muốn tự nhặt thì phân công cho chính mình).
+     */
+    private void kiemTraNguoiNhat(DanhSachNhatHang pickList, NguoiDungAuthInfo authUser) {
+        NguoiDung nguoiNhat = pickList.getNguoiNhat();
+        if (nguoiNhat == null) {
+            throw new CommonException("Phiếu nhặt " + pickList.getMaPickList() + " chưa được phân công. "
+                    + "Cần phân công người nhặt (hoặc bấm Nhận việc) trước khi nhặt hàng.", HttpStatus.CONFLICT, null);
+        }
+        if (!authUser.getId().equals(nguoiNhat.getId())) {
+            throw new CommonException("Phiếu nhặt " + pickList.getMaPickList() + " đang giao cho " + nguoiNhat.getHoTen()
+                    + ". Chỉ người được phân công mới nhặt được — muốn tự nhặt thì phân công lại cho mình.",
+                    HttpStatus.CONFLICT, null);
+        }
+    }
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public DanhSachNhatHangDto hoanTatNhatHang(Integer pickListId) {
@@ -877,6 +902,18 @@ public class NhatHangServiceImpl implements NhatHangService {
         }
         if ("da_huy".equals(pickList.getTrangThai())) {
             throw new CommonException("Đợt nhặt hàng này đã bị hủy");
+        }
+
+        // Phiếu chưa phân công thì chưa ai được nhặt nên không hoàn tất được. Nhân viên kho chỉ hoàn tất phiếu
+        // giao cho mình; quản lý kho / quản trị viên hoàn tất thay được (giám sát).
+        if (pickList.getNguoiNhat() == null) {
+            throw new CommonException("Phiếu nhặt " + pickList.getMaPickList() + " chưa được phân công người nhặt.",
+                    HttpStatus.CONFLICT, null);
+        }
+        boolean isQuanLy = isAdmin || (authUser.getVaiTro() != null && authUser.getVaiTro().contains(IRoleType.quan_ly_kho));
+        if (!isQuanLy && !authUser.getId().equals(pickList.getNguoiNhat().getId())) {
+            throw new CommonException("Phiếu nhặt " + pickList.getMaPickList() + " đang giao cho "
+                    + pickList.getNguoiNhat().getHoTen() + ", bạn không hoàn tất được.", HttpStatus.CONFLICT, null);
         }
 
         List<ChiTietNhatHang> chiTiets = pickList.getChiTietNhatHangs();

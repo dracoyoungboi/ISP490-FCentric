@@ -72,6 +72,7 @@ class NhatHangHoanTatIntegrationTest {
     private JdbcTemplate jdbc;
 
     private String adminToken;
+    private int adminId;
     private int soDonSeq = 0;
 
     @BeforeEach
@@ -93,7 +94,7 @@ class NhatHangHoanTatIntegrationTest {
                 + "so_luong_da_dat = 0.000, ngay_xuat_gan_nhat = NULL WHERE kho_id = 1");
         jdbc.execute("UPDATE bien_the_san_pham SET trang_thai = 1 WHERE id = 93");
 
-        Integer adminId = jdbc.queryForObject(
+        adminId = jdbc.queryForObject(
                 "SELECT id FROM nguoi_dung WHERE vai_tro = 'quan_tri_vien' AND trang_thai = 1 ORDER BY id LIMIT 1",
                 Integer.class);
         adminToken = jwtService.generateTokenWithPermissions(adminId, "admin-it", "Admin IT",
@@ -133,11 +134,20 @@ class NhatHangHoanTatIntegrationTest {
         return (Map<String, Object>) res.getBody().get("data");
     }
 
-    private int taoPhieuNhat(Integer... donIds) {
+    private int taoPhieuNhatChuaPhanCong(Integer... donIds) {
         ResponseEntity<Map> res = goi(HttpMethod.POST, "/api/v1/nhat-hang/tao-pick-list",
                 Map.of("donBanHangIds", List.of(donIds)));
         assertEquals(HttpStatus.CREATED, res.getStatusCode(), "tạo phiếu nhặt: " + res.getBody());
         return ((Number) data(res).get("id")).intValue();
+    }
+
+    /** Tạo phiếu nhặt rồi phân công cho chính quản trị viên đang chạy test (bắt buộc phân công trước khi nhặt). */
+    private int taoPhieuNhat(Integer... donIds) {
+        int id = taoPhieuNhatChuaPhanCong(donIds);
+        ResponseEntity<Map> res = goi(HttpMethod.PUT, "/api/v1/nhat-hang/pick-list/" + id + "/phan-cong",
+                Map.of("nguoiNhatId", adminId));
+        assertEquals(HttpStatus.OK, res.getStatusCode(), "phân công: " + res.getBody());
+        return id;
     }
 
     private void quet(int phieuNhatId, int soLan) {
@@ -367,5 +377,17 @@ class NhatHangHoanTatIntegrationTest {
         assertEquals(HttpStatus.BAD_REQUEST, res.getStatusCode(), "body: " + res.getBody());
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM phieu_xuat_kho", Integer.class),
                 "bấm Hoàn tất lần hai không được sinh thêm phiếu xuất");
+    }
+
+    @Test
+    void t11_quetKhiChuaPhanCong_bi409_phieuVanChoNhat() {
+        int don = taoDonChoXuat(1);
+        int phieuNhat = taoPhieuNhatChuaPhanCong(don);
+
+        ResponseEntity<Map> res = goi(HttpMethod.POST, "/api/v1/nhat-hang/pick-list/" + phieuNhat + "/quet-barcode",
+                Map.of("barcode", SKU, "soLuong", 1));
+
+        assertEquals(HttpStatus.CONFLICT, res.getStatusCode(), "quét phiếu chưa phân công phải bị chặn: " + res.getBody());
+        assertEquals("cho_nhat", trangThaiPhieuNhat(phieuNhat), "phiếu nhặt chưa phân công không được chuyển sang đang nhặt");
     }
 }
