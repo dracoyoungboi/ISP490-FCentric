@@ -362,7 +362,7 @@ public interface BienTheSanPhamRepository extends JpaRepository<BienTheSanPham, 
             LEFT JOIN FETCH bt.mauSac
             LEFT JOIN FETCH bt.size
             LEFT JOIN FETCH bt.chatLieu
-            WHERE bt.sanPham IS NOT NULL
+            WHERE bt.trangThai = 1 AND sp.trangThai = 1
             ORDER BY sp.id, bt.id
             """)
     List<BienTheSanPham> findActiveVariantsWithDetails();
@@ -373,7 +373,7 @@ public interface BienTheSanPhamRepository extends JpaRepository<BienTheSanPham, 
             LEFT JOIN FETCH bt.mauSac
             LEFT JOIN FETCH bt.size
             LEFT JOIN FETCH bt.chatLieu
-            WHERE bt.sanPham IS NOT NULL
+            WHERE bt.trangThai = 1 AND sp.trangThai = 1
               AND (:keyword IS NULL OR :keyword = ''
                    OR LOWER(bt.maSku) LIKE LOWER(CONCAT('%', :keyword, '%'))
                    OR LOWER(sp.tenSanPham) LIKE LOWER(CONCAT('%', :keyword, '%')))

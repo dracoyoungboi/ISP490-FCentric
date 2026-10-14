@@ -45,13 +45,17 @@ public interface TonKhoTheoLoRepository extends JpaRepository<TonKhoTheoLo, Inte
     """)
     List<Object[]> sumSoLuongKhaDungByKhoAndBienTheIds(@Param("khoId") Integer khoId, @Param("bienTheIds") List<Integer> bienTheIds);
 
+    /**
+     * Tồn khả dụng theo lô (tồn − đang giữ cho POS / chuyển kho) gom theo (biến thể, kho), chỉ kho bán được:
+     * đang hoạt động và không phải Kho Trung Chuyển (hàng đang chuyển chưa bán được).
+     */
     @Query("""
-        SELECT tk.loHang.bienTheSanPham.id, tk.kho.id, COALESCE(SUM(tk.soLuongTon), 0)
+        SELECT tk.loHang.bienTheSanPham.id, tk.kho.id, COALESCE(SUM(tk.soLuongKhaDung), 0)
         FROM TonKhoTheoLo tk
-        WHERE tk.kho.trangThai = 1 AND tk.loHang.bienTheSanPham.id IN :bienTheIds
+        WHERE tk.kho.trangThai = 1 AND tk.kho.maKho <> 'KHO_TRANSIT' AND tk.loHang.bienTheSanPham.id IN :bienTheIds
         GROUP BY tk.loHang.bienTheSanPham.id, tk.kho.id
     """)
-    List<Object[]> sumOnHandByKhoAndBienTheIds(@Param("bienTheIds") List<Integer> bienTheIds);
+    List<Object[]> sumKhaDungLoTheoKhoBan(@Param("bienTheIds") List<Integer> bienTheIds);
 
     @Query("""
         select count(t)
