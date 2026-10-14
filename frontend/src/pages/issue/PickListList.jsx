@@ -11,6 +11,7 @@ import SearchInput from "@/components/shared/SearchInput";
 import StatusTabs from "@/components/shared/StatusTabs";
 import TableShell from "@/components/shared/TableShell";
 import TablePagination from "@/components/shared/TablePagination";
+import { RowActionButton, RowActions } from "@/components/shared/RowActions";
 import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
@@ -25,11 +26,12 @@ import { nhatHangService, isPickListMock } from "@/services/nhatHangService";
 import {
     PICK_LIST_EDITABLE, PICK_LIST_TABS, getPickListStatus,
 } from "@/constants/outbound";
-import { formatDateTime } from "@/utils/dateTime";
+import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
+import { formatDateTime, formatNumber } from "@/utils/formatters";
 import { getApiErrorMessage } from "@/utils/apiError";
 
 const TH_CLASS = "h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
-const DEFAULT_FILTERS = { keyword: "", page: 0, size: 10 };
+const DEFAULT_FILTERS = { keyword: "", page: 0, size: SO_DONG_MAC_DINH };
 
 // Tab trạng thái (bố cục A+G) — mã tab nằm trên URL ?trangThai=
 const TAB_MAS = PICK_LIST_TABS.map((tab) => tab.ma);
@@ -157,7 +159,7 @@ export default function PickListList() {
     const emptyTabLabel = PICK_LIST_TABS.find((t) => t.ma === tab)?.label;
 
     return (
-        <PageContainer className="space-y-4">
+        <PageContainer fill className="space-y-4">
             <ListPageHeader
                 actions={
                     <Link to="/goods-issues/pending-orders">
@@ -173,6 +175,7 @@ export default function PickListList() {
 
             {/* ══ BẢNG ══ */}
             <TableShell
+                fill
                 toolbar={
                     <ListToolbar
                         tabs={
@@ -253,11 +256,11 @@ export default function PickListList() {
                     )
                 ) : (
                     <table className="w-full min-w-[1040px] text-sm">
-                        <thead>
+                        <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                 <th className={`${TH_CLASS} text-left`}>Mã phiếu nhặt hàng</th>
                                 <th className={`${TH_CLASS} text-left`}>Đơn hàng</th>
-                                <th className={`${TH_CLASS} text-center`}>SKU</th>
+                                <th className={`${TH_CLASS} text-right tabular-nums`}>SKU</th>
                                 <th className={`${TH_CLASS} w-[220px] text-left`}>Tiến độ</th>
                                 <th className={`${TH_CLASS} text-left`}>Người nhặt</th>
                                 <th className={`${TH_CLASS} text-center`}>Ngày tạo</th>
@@ -290,7 +293,13 @@ export default function PickListList() {
                                                 </span>
                                             ) : null}
                                         </td>
-                                        <td className="px-3 py-3 text-center font-semibold text-bo-foreground">{row.tongSku ?? "—"}</td>
+                                        <td className="px-3 py-3 text-right tabular-nums">
+                                            {row.tongSku == null ? (
+                                                <span className="text-bo-muted">—</span>
+                                            ) : (
+                                                <span className="font-semibold text-bo-foreground">{formatNumber(row.tongSku)}</span>
+                                            )}
+                                        </td>
                                         <td className="px-3 py-3">
                                             <PickProgress
                                                 compact
@@ -307,38 +316,26 @@ export default function PickListList() {
                                             )}
                                         </td>
                                         <td className="whitespace-nowrap px-3 py-3 text-center text-xs text-bo-muted">
-                                            {formatDateTime(row.ngayTao, { withYear: false }) || "—"}
+                                            {formatDateTime(row.ngayTao)}
                                         </td>
                                         <td className="px-3 py-3 text-center">
                                             <StatusBadge label={status.label} tone={status.tone} />
                                         </td>
                                         <td className="px-3 py-3 text-center">
-                                            <div className="flex items-center justify-center gap-1">
+                                            <RowActions>
                                                 {canAssign ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={(event) => {
-                                                            event.stopPropagation();
-                                                            setAssignTarget(row);
-                                                        }}
-                                                        className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
-                                                        title={row.nguoiNhatId ? "Phân công lại" : "Phân công"}
-                                                    >
-                                                        <UserPlus className="size-4" />
-                                                    </button>
+                                                    <RowActionButton
+                                                        icon={UserPlus}
+                                                        label={row.nguoiNhatId ? "Phân công lại" : "Phân công"}
+                                                        onClick={() => setAssignTarget(row)}
+                                                    />
                                                 ) : null}
-                                                <button
-                                                    type="button"
-                                                    onClick={(event) => {
-                                                        event.stopPropagation();
-                                                        navigate(`/goods-issues/pick-lists/${row.id}`);
-                                                    }}
-                                                    className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
-                                                    title="Xem chi tiết"
-                                                >
-                                                    <Eye className="size-4" />
-                                                </button>
-                                            </div>
+                                                <RowActionButton
+                                                    icon={Eye}
+                                                    label="Xem chi tiết"
+                                                    onClick={() => navigate(`/goods-issues/pick-lists/${row.id}`)}
+                                                />
+                                            </RowActions>
                                         </td>
                                     </tr>
                                 );

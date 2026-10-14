@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, Link, useLocation, useNavigate } from "react-router-dom";
 import { adminService } from "@/services/adminService.js";
 
@@ -6,9 +6,23 @@ import PageContainer from "@/components/backoffice/PageContainer";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import StatusBadge from "@/components/shared/StatusBadge";
 import LoadingState from "@/components/shared/LoadingState";
+import EmptyState from "@/components/shared/EmptyState";
+import ErrorState from "@/components/shared/ErrorState";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import UserAvatar from "@/components/UserAvatar";
+import { formatDate } from "@/utils/formatters";
+import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 
 import {
     Table,
@@ -29,7 +43,8 @@ import {
     IdCard,
     Clock3,
     Building2,
-    UserCog
+    UserCog,
+    UserX
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -43,6 +58,11 @@ const ROLE_LABELS = {
     khach_hang: "Khách hàng",
 };
 
+const LOAD_ERROR_MESSAGE = "Không thể tải thông tin người dùng. Vui lòng thử lại.";
+// Mã HTTP coi là "không có người dùng này": 404, và 400 vì backend hiện báo
+// "Không tìm thấy người dùng" bằng CommonException (400). Thử lại cũng không ra kết quả khác.
+const NOT_FOUND_STATUSES = [400, 404];
+
 export default function ViewUserDetailByAdmin() {
 
     const { id } = useParams();
@@ -55,46 +75,106 @@ export default function ViewUserDetailByAdmin() {
             : "/users";
 
     const [user, setUser] = useState(null);
+    // { notFound, message } khi tải lỗi; null khi đang tải hoặc đã tải xong
+    const [loadError, setLoadError] = useState(null);
+    const requestIdRef = useRef(0);
     const [loadingToggle, setLoadingToggle] = useState(false);
+    // Hộp xác nhận Khóa / Mở khóa tài khoản
+    const [confirmToggleOpen, setConfirmToggleOpen] = useState(false);
 
-    const handleToggleStatus = async () => {
+    const fetchUser = useCallback(async () => {
+        // Chỉ nhận kết quả của lần tải mới nhất (đổi id / bấm Thử lại liên tiếp)
+        const requestId = ++requestIdRef.current;
+        setUser(null);
+        setLoadError(null);
         try {
-
-            setLoadingToggle(true);
-
-            await adminService.toggleUserStatusByAdmin(id);
-
-            const refreshed = await adminService.getByIdByAdmin(id);
-
-            setUser(refreshed.data);
-
-            toast.success("Cập nhật trạng thái tài khoản thành công");
-
+            const res = await adminService.getByIdByAdmin(id);
+            if (requestId !== requestIdRef.current) return;
+            if (!res?.data) throw new Error(res?.message || LOAD_ERROR_MESSAGE);
+            setUser(res.data);
         } catch (err) {
+            if (requestId !== requestIdRef.current) return;
+            console.error(err);
+            setLoadError({
+                notFound: NOT_FOUND_STATUSES.includes(getApiErrorStatus(err)),
+                message: getApiErrorMessage(err, LOAD_ERROR_MESSAGE),
+            });
+        }
+    }, [id]);
 
+    // Hoãn qua microtask để tránh setState đồng bộ trong effect
+    // (react-hooks/set-state-in-effect); vẫn tải ngay khi mở trang / đổi id.
+    useEffect(() => {
+        queueMicrotask(() => fetchUser());
+    }, [fetchUser]);
+
+    // Chạy sau khi bấm xác nhận trong hộp thoại; đang xử lý thì bỏ qua lần bấm tiếp theo.
+    const handleToggleStatus = async () => {
+        if (loadingToggle) return;
+        setLoadingToggle(true);
+        try {
+            await adminService.toggleUserStatusByAdmin(id);
+        } catch (err) {
             toast.error(
                 err?.response?.data?.message ||
                 "Không thể cập nhật trạng thái tài khoản"
             );
-
-        } finally {
-
             setLoadingToggle(false);
+            return;
+        }
 
+        setConfirmToggleOpen(false);
+        toast.success("Cập nhật trạng thái tài khoản thành công");
+        try {
+            const refreshed = await adminService.getByIdByAdmin(id);
+            if (refreshed?.data) setUser(refreshed.data);
+            else fetchUser();
+        } catch {
+            // Đã đổi trạng thái nhưng tải lại hồ sơ lỗi → tải lại cả trang (có nút Thử lại nếu vẫn lỗi)
+            fetchUser();
+        } finally {
+            setLoadingToggle(false);
         }
     };
 
-    useEffect(() => {
-
-        adminService.getByIdByAdmin(id)
-            .then((res) => {
-                setUser(res.data);
-            })
-            .catch((err) => {
-                console.error(err);
-            });
-
-    }, [id]);
+    if (loadError) {
+        return (
+            <PageContainer className="space-y-4">
+                <Link
+                    to={backTo}
+                    className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-bo-primary hover:text-bo-primary-hover"
+                >
+                    <ArrowLeft className="h-4 w-4" />
+                    Quay lại danh sách
+                </Link>
+                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                    {loadError.notFound ? (
+                        <EmptyState
+                            icon={UserX}
+                            title="Không tìm thấy người dùng"
+                            description="Tài khoản có thể đã bị xóa hoặc đường dẫn không còn hợp lệ."
+                            action={
+                                <Button
+                                    variant="outline"
+                                    onClick={() => navigate(backTo)}
+                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                >
+                                    <ArrowLeft className="size-4" />
+                                    Quay lại danh sách
+                                </Button>
+                            }
+                        />
+                    ) : (
+                        <ErrorState
+                            title="Không thể tải thông tin người dùng"
+                            description={loadError.message}
+                            onRetry={fetchUser}
+                        />
+                    )}
+                </div>
+            </PageContainer>
+        );
+    }
 
     if (!user) {
         return (
@@ -148,7 +228,7 @@ export default function ViewUserDetailByAdmin() {
                                 ? "bg-bo-danger text-white hover:bg-bo-danger/90"
                                 : "bg-bo-success text-white hover:bg-bo-success/90"
                         }
-                        onClick={handleToggleStatus}
+                        onClick={() => setConfirmToggleOpen(true)}
                     >
                         {loadingToggle
                             ? "Đang xử lý..."
@@ -220,12 +300,12 @@ export default function ViewUserDetailByAdmin() {
                             <InfoMini
                                 icon={<Calendar className="h-4 w-4" />}
                                 label="Ngày tạo"
-                                value={formatDate(user.ngayTao) || "—"}
+                                value={formatDate(user.ngayTao)}
                             />
                             <InfoMini
                                 icon={<Clock3 className="h-4 w-4" />}
                                 label="Cập nhật gần nhất"
-                                value={formatDate(user.ngayCapNhat) || "—"}
+                                value={formatDate(user.ngayCapNhat)}
                             />
                         </div>
 
@@ -332,6 +412,58 @@ export default function ViewUserDetailByAdmin() {
                 </SurfaceCard>
             )}
 
+            {/* ── HỘP XÁC NHẬN KHÓA / MỞ KHÓA TÀI KHOẢN ── */}
+            <AlertDialog
+                open={confirmToggleOpen}
+                onOpenChange={(open) => {
+                    if (!open && !loadingToggle) setConfirmToggleOpen(false);
+                }}
+            >
+                <AlertDialogContent className="bg-white">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            {isActive ? "Khóa tài khoản người dùng" : "Mở khóa tài khoản người dùng"}
+                        </AlertDialogTitle>
+                        {/* asChild: Description mặc định render <p>; bên trong có <p> sẽ sai cấu trúc HTML */}
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-2 text-sm text-slate-600">
+                                <p>
+                                    Bạn có muốn {isActive ? "khóa" : "mở khóa"} tài khoản{" "}
+                                    <span className="font-semibold text-slate-900">{user.tenDangNhap}</span>
+                                    {user.hoTen ? ` (${user.hoTen})` : ""}?
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                    {isActive
+                                        ? "Người dùng sẽ không đăng nhập được và bị đăng xuất ở thao tác tiếp theo. Có thể mở khóa lại bất cứ lúc nào."
+                                        : "Người dùng sẽ đăng nhập và sử dụng hệ thống trở lại được."}
+                                </p>
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="gap-2 sm:justify-end">
+                        <AlertDialogCancel disabled={loadingToggle}>Hủy</AlertDialogCancel>
+                        <AlertDialogAction
+                            disabled={loadingToggle}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                handleToggleStatus();
+                            }}
+                            className={
+                                isActive
+                                    ? "bg-bo-danger text-white hover:bg-bo-danger/90"
+                                    : "bg-bo-success text-white hover:bg-bo-success/90"
+                            }
+                        >
+                            {loadingToggle
+                                ? "Đang xử lý..."
+                                : isActive
+                                    ? "Khóa tài khoản"
+                                    : "Mở khóa tài khoản"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
         </PageContainer>
     );
 }
@@ -348,15 +480,6 @@ function InfoRow({ icon, label, value }) {
             </div>
         </div>
     );
-}
-
-/** "16/03/2026" — DD/MM/YYYY có số 0 đứng đầu; "" nếu thiếu hoặc sai định dạng. */
-function formatDate(iso) {
-    if (!iso) return "";
-    const date = new Date(iso);
-    if (Number.isNaN(date.getTime())) return "";
-    const pad = (n) => String(n).padStart(2, "0");
-    return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
 }
 
 function InfoMini({ icon, label, value }) {

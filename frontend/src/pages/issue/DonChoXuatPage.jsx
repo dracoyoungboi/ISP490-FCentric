@@ -1,4 +1,4 @@
-import { formatCurrency } from "@/utils/formatters";
+import { formatCurrency, formatDateTime, formatNumber } from "@/utils/formatters";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -28,13 +28,13 @@ import {
 } from "@/components/ui/dialog";
 import { nhatHangService, isPickListMock } from "@/services/nhatHangService";
 import { MARKETPLACE_FILTER_OPTIONS } from "@/constants/channel";
+import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { formatQuantity, toNumber } from "@/constants/outbound";
-import { formatDateTime } from "@/utils/dateTime";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 
 const TH_CLASS = "h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 const CHECKBOX_CLASS = "border-slate-300 data-[state=checked]:border-bo-primary data-[state=checked]:bg-bo-primary data-[state=checked]:text-white";
-const DEFAULT_FILTERS = { keyword: "", kenh: "", page: 0, size: 10 };
+const DEFAULT_FILTERS = { keyword: "", kenh: "", page: 0, size: SO_DONG_MAC_DINH };
 
 /** Kho làm việc hiện tại (KhoLamViecSelect ghi vào localStorage, apiClient gửi kèm header kho_id). */
 const docKhoLamViec = () => Number(window.localStorage.getItem("selected_kho_id")) || undefined;
@@ -172,7 +172,7 @@ export default function DonChoXuatPage() {
     const tongDon = loading || loadError ? null : total;
 
     return (
-        <PageContainer className="space-y-4">
+        <PageContainer fill className="space-y-4">
             <ListPageHeader
                 actions={
                     <Link to="/goods-issues/pick-lists">
@@ -191,6 +191,7 @@ export default function DonChoXuatPage() {
 
             {/* ══ BẢNG ══ */}
             <TableShell
+                fill
                 toolbar={
                     <>
                         {/* Không có tab trạng thái: mọi đơn ở đây đều đang chờ xuất. Bên trái ghi tổng số đơn. */}
@@ -262,7 +263,6 @@ export default function DonChoXuatPage() {
                             page={filters.page}
                             size={filters.size}
                             total={total}
-                            sizeOptions={[10, 20, 50]}
                             onPageChange={(page) => setFilters((prev) => ({ ...prev, page }))}
                             onSizeChange={(size) => setFilters((prev) => ({ ...prev, size, page: 0 }))}
                         />
@@ -302,7 +302,7 @@ export default function DonChoXuatPage() {
                     )
                 ) : (
                     <table className="w-full min-w-[1040px] text-sm">
-                        <thead>
+                        <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                 <th className={`${TH_CLASS} w-12 text-center`}>
                                     <Checkbox
@@ -317,9 +317,9 @@ export default function DonChoXuatPage() {
                                 <th className={`${TH_CLASS} text-left`}>Khách hàng</th>
                                 <th className={`${TH_CLASS} text-left`}>Kho xuất</th>
                                 <th className={`${TH_CLASS} text-center`}>Ngày tạo</th>
-                                <th className={`${TH_CLASS} text-center`}>SKU</th>
-                                <th className={`${TH_CLASS} text-center`}>Số lượng</th>
-                                <th className={`${TH_CLASS} text-right`}>Tổng tiền</th>
+                                <th className={`${TH_CLASS} text-right tabular-nums`}>SKU</th>
+                                <th className={`${TH_CLASS} text-right tabular-nums`}>Số lượng</th>
+                                <th className={`${TH_CLASS} text-right tabular-nums`}>Tổng tiền</th>
                                 <th className={`${TH_CLASS} text-center`}>Tồn kho</th>
                             </tr>
                         </thead>
@@ -355,15 +355,21 @@ export default function DonChoXuatPage() {
                                         <td className="px-3 py-3 font-semibold text-bo-foreground">{row.tenKhachHang || "Khách lẻ"}</td>
                                         <td className="px-3 py-3 text-bo-muted">{row.tenKhoXuat || "—"}</td>
                                         <td className="whitespace-nowrap px-3 py-3 text-center text-xs text-bo-muted">
-                                            {formatDateTime(row.ngayTao, { withYear: false }) || "—"}
+                                            {formatDateTime(row.ngayTao)}
                                         </td>
-                                        <td className="px-3 py-3 text-center font-semibold text-bo-foreground">{row.soLuongSku ?? "—"}</td>
-                                        <td className="px-3 py-3 text-center">
+                                        <td className="px-3 py-3 text-right tabular-nums">
+                                            {row.soLuongSku == null ? (
+                                                <span className="text-bo-muted">—</span>
+                                            ) : (
+                                                <span className="font-semibold text-bo-foreground">{formatNumber(row.soLuongSku)}</span>
+                                            )}
+                                        </td>
+                                        <td className="px-3 py-3 text-right tabular-nums">
                                             <span className="inline-flex h-7 min-w-[32px] items-center justify-center rounded-md bg-bo-surface-subtle px-2 text-xs font-bold text-bo-foreground">
-                                                {formatQuantity(row.tongSoLuong)}
+                                                {formatNumber(toNumber(row.tongSoLuong))}
                                             </span>
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-3 text-right font-semibold text-bo-foreground">
+                                        <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums font-semibold text-bo-foreground">
                                             {formatCurrency(toNumber(row.tongCong))}
                                         </td>
                                         <td className="px-3 py-3 text-center">

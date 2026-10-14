@@ -1,4 +1,4 @@
-import { formatCurrency } from "@/utils/formatters";
+import { formatCurrency, formatDate } from "@/utils/formatters";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { donBanHangService } from "@/services/donBanHangService";
 import { Link, useNavigate } from "react-router-dom";
@@ -24,6 +24,8 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import StatusTabs from "@/components/shared/StatusTabs";
 import TablePagination from "@/components/shared/TablePagination";
 import TableShell from "@/components/shared/TableShell";
+import { RowActionButton, RowActions } from "@/components/shared/RowActions";
+import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { BAO_GIA_TABS, getBaoGiaStatus } from "@/constants/baoGia";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
@@ -39,7 +41,6 @@ const ROLE = {
 // Tab trạng thái (bố cục A+G) — mã tab nằm trên URL ?trangThai=
 const TAB_MAS = BAO_GIA_TABS.map((tab) => tab.ma);
 const TAB_MAC_DINH = "tat-ca";
-const PAGE_SIZE_OPTIONS = [10, 20, 30, 50];
 const SEARCH_DEBOUNCE_MS = 350;
 const LOAD_ERROR_MESSAGE = "Không thể tải danh sách báo giá. Vui lòng thử lại.";
 
@@ -106,7 +107,7 @@ export default function BaoGiaList() {
     keyword: "",
     ngayDatHang: "",
     page: 0,
-    size: 10,
+    size: SO_DONG_MAC_DINH,
   });
   // Ô tìm kiếm đổi ngay khi gõ; filters.keyword chỉ đổi khi ngừng gõ hoặc bấm Enter.
   const [searchText, setSearchText] = useState("");
@@ -238,7 +239,7 @@ export default function BaoGiaList() {
   const emptyTabLabel = BAO_GIA_TABS.find((t) => t.ma === tab)?.label;
 
   return (
-    <PageContainer className="space-y-4">
+    <PageContainer fill className="space-y-4">
       <ListPageHeader
         scope={scopeNote}
         actions={
@@ -255,6 +256,7 @@ export default function BaoGiaList() {
 
       {/* ── Table ── */}
       <TableShell
+        fill
         toolbar={
           <ListToolbar
             tabs={
@@ -303,7 +305,6 @@ export default function BaoGiaList() {
               page={filters.page}
               size={filters.size}
               total={total}
-              sizeOptions={PAGE_SIZE_OPTIONS}
               onPageChange={(page) => {
                 if (page < 0) return;
                 setFilters((p) => ({ ...p, page }));
@@ -357,15 +358,15 @@ export default function BaoGiaList() {
           )
         ) : (
           <table className="w-full min-w-[980px] text-sm">
-            <thead>
+            <thead className="sticky top-0 z-10">
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
-                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã báo giá</th>
-                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Khách hàng</th>
-                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày lập</th>
-                <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền</th>
-                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
-                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
+                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
+                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã báo giá</th>
+                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Khách hàng</th>
+                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày lập</th>
+                <th className="h-10 whitespace-nowrap px-3 text-right tabular-nums text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền</th>
+                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
+                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-bo-border">
@@ -387,9 +388,9 @@ export default function BaoGiaList() {
                       <div className="font-semibold text-bo-foreground">{item.khachHang?.tenKhachHang || "Khách lẻ"}</div>
                     </td>
                     <td className="whitespace-nowrap px-3 py-3 text-center text-xs text-bo-muted">
-                      {new Date(item.ngayTao).toLocaleDateString("vi-VN")}
+                      {formatDate(item.ngayTao)}
                     </td>
-                    <td className="px-3 py-3 text-right">
+                    <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">
                       <span className="font-semibold text-bo-foreground">
                         {formatCurrency(item.tongCong)}
                       </span>
@@ -397,20 +398,14 @@ export default function BaoGiaList() {
                     <td className="px-3 py-3 text-center">
                       <StatusBadge label={st.label} tone={st.tone} />
                     </td>
-                    <td className="px-3 py-3 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/sales-quotations/${item.id}`);
-                          }}
-                          className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
-                          title="Xem chi tiết"
-                        >
-                          <Eye className="size-4" />
-                        </button>
-                      </div>
+                    <td className="px-3 py-3">
+                      <RowActions>
+                        <RowActionButton
+                          icon={Eye}
+                          label="Xem chi tiết"
+                          onClick={() => navigate(`/sales-quotations/${item.id}`)}
+                        />
+                      </RowActions>
                     </td>
                   </tr>
                 );

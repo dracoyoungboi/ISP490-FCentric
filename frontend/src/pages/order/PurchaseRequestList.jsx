@@ -11,7 +11,7 @@ import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-    ChevronLeft, ChevronRight, ChevronDown, Calendar,
+    ChevronDown, Calendar,
     Plus, RefreshCw, Warehouse, CheckCircle,
     XCircle, Clock, FileText, Loader2, AlertCircle, Package, SearchX,
 } from 'lucide-react';
@@ -25,7 +25,10 @@ import ListToolbar from '@/components/shared/ListToolbar';
 import LoadingState from '@/components/shared/LoadingState';
 import StatusBadge from '@/components/shared/StatusBadge';
 import StatusTabs from '@/components/shared/StatusTabs';
+import TablePagination from '@/components/shared/TablePagination';
 import TableShell from '@/components/shared/TableShell';
+import { SO_DONG_MAC_DINH } from '@/constants/phanTrang';
+import { formatDate } from '@/utils/formatters';
 
 import { YEU_CAU_NHAP_HANG_TABS, getYeuCauNhapHangStatus } from '@/constants/yeuCauNhapHang';
 import useDemTheoTrangThai from '@/hooks/useDemTheoTrangThai';
@@ -60,11 +63,6 @@ const TAB_MAS = YEU_CAU_NHAP_HANG_TABS.map((tab) => tab.ma);
 const TAB_MAC_DINH = 'tat-ca';
 const TONE_TAB = { 'cho-duyet': 'warning' };
 
-const formatDate = (d) => {
-    if (!d) return '—';
-    return new Date(d).toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' });
-};
-
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -85,7 +83,7 @@ export default function PurchaseRequestList() {
     const [canApprove, setCanApprove] = useState(false);
 
     // Pagination
-    const [pagination, setPagination] = useState({ pageNumber: 0, pageSize: 10, totalElements: 0, totalPages: 0 });
+    const [pagination, setPagination] = useState({ pageNumber: 0, pageSize: SO_DONG_MAC_DINH, totalElements: 0, totalPages: 0 });
 
     // Filters: tab trạng thái + kho đọc từ URL (F5 / link từ Tổng quan mở đúng tab); ngày giữ trong state
     const tabParam = searchParams.get('trangThai');
@@ -181,7 +179,7 @@ export default function PurchaseRequestList() {
     };
 
     // ── Fetch list ──
-    const fetchRequests = useCallback(async (page = 0, size = 10) => {
+    const fetchRequests = useCallback(async (page = 0, size = SO_DONG_MAC_DINH) => {
         // Đổi tab / bộ lọc liên tiếp có thể chạy 2 yêu cầu cùng lúc: chỉ nhận kết quả của yêu cầu mới nhất
         const requestId = ++requestIdRef.current;
         setLoading(true);
@@ -196,7 +194,7 @@ export default function PurchaseRequestList() {
             setRequests(data.content || []);
             setPagination({
                 pageNumber: data.pageable?.pageNumber || 0,
-                pageSize: data.pageable?.pageSize || 10,
+                pageSize: data.pageable?.pageSize || size,
                 totalElements: data.totalElements || 0,
                 totalPages: data.totalPages || 0,
             });
@@ -326,7 +324,7 @@ export default function PurchaseRequestList() {
     const emptyTabLabel = YEU_CAU_NHAP_HANG_TABS.find((t) => t.ma === tab)?.label;
 
     return (
-        <PageContainer className="space-y-4">
+        <PageContainer fill className="space-y-4">
             <ListPageHeader
                 scope={scopeNote}
                 actions={
@@ -358,6 +356,7 @@ export default function PurchaseRequestList() {
 
             {/* ── Table ── */}
             <TableShell
+                fill
                 toolbar={
                     <ListToolbar
                         tabs={
@@ -435,95 +434,15 @@ export default function PurchaseRequestList() {
                     </ListToolbar>
                 }
                 footer={
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        {/* Page size */}
-                        <div className="flex items-center gap-2">
-                            <span className="whitespace-nowrap text-xs text-bo-muted">Hiển thị</span>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className="h-8 w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                                    >
-                                        {pagination.pageSize} dòng
-                                        <ChevronDown className="size-3.5 opacity-60" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent className="backoffice-user-menu z-50 w-[110px] rounded-lg border border-bo-border bg-white p-1 shadow-lg">
-                                    {[5, 10, 20, 50].map(size => (
-                                        <DropdownMenuItem
-                                            key={size}
-                                            onClick={() => setPagination(p => ({ ...p, pageNumber: 0, pageSize: size }))}
-                                            className="cursor-pointer rounded-md px-2.5 py-1.5 text-xs text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                        >
-                                            {size} dòng
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-
-                        {/* Page info */}
-                        <p className="text-xs text-bo-muted">
-                            Hiển thị{' '}
-                            <span className="font-semibold text-bo-foreground">
-                                {pagination.totalElements === 0 ? 0 : pagination.pageNumber * pagination.pageSize + 1}
-                            </span>
-                            {' – '}
-                            <span className="font-semibold text-bo-foreground">
-                                {Math.min((pagination.pageNumber + 1) * pagination.pageSize, pagination.totalElements)}
-                            </span>
-                            {' trong '}
-                            <span className="font-semibold text-bo-primary">{pagination.totalElements}</span> kết quả
-                        </p>
-
-                        {/* Navigation */}
-                        <div className="flex items-center gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setPagination(p => ({ ...p, pageNumber: p.pageNumber - 1 }))}
-                                disabled={pagination.pageNumber === 0}
-                                className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                            >
-                                <ChevronLeft className="size-3.5" />Trước
-                            </Button>
-                            <div className="hidden items-center gap-1 sm:flex">
-                                {[...Array(Math.min(5, pagination.totalPages))].map((_, idx) => {
-                                    let pg = idx;
-                                    if (pagination.totalPages > 5) {
-                                        if (pagination.pageNumber < 3) pg = idx;
-                                        else if (pagination.pageNumber > pagination.totalPages - 4) pg = pagination.totalPages - 5 + idx;
-                                        else pg = pagination.pageNumber - 2 + idx;
-                                    }
-                                    return (
-                                        <Button
-                                            key={idx}
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => setPagination(p => ({ ...p, pageNumber: pg }))}
-                                            className={
-                                                pagination.pageNumber === pg
-                                                    ? 'h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover'
-                                                    : 'h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle'
-                                            }
-                                        >
-                                            {pg + 1}
-                                        </Button>
-                                    );
-                                })}
-                            </div>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setPagination(p => ({ ...p, pageNumber: p.pageNumber + 1 }))}
-                                disabled={pagination.pageNumber >= pagination.totalPages - 1 || pagination.totalPages === 0}
-                                className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                            >
-                                Sau<ChevronRight className="size-3.5" />
-                            </Button>
-                        </div>
-                    </div>
+                    !loading && !loadingInitial && !loadError && requests.length > 0 ? (
+                        <TablePagination
+                            page={pagination.pageNumber}
+                            size={pagination.pageSize}
+                            total={pagination.totalElements}
+                            onPageChange={(pg) => setPagination(p => ({ ...p, pageNumber: pg }))}
+                            onSizeChange={(size) => setPagination(p => ({ ...p, pageNumber: 0, pageSize: size }))}
+                        />
+                    ) : null
                 }
             >
                 {loading || loadingInitial ? (
@@ -572,15 +491,16 @@ export default function PurchaseRequestList() {
                         />
                     )
                 ) : (
+                    /* Bảng: khung giãn hết màn, thân bảng tự cuộn, tiêu đề cột đứng yên */
                     <table className="w-full min-w-[900px] text-sm">
-                        <thead>
+                        <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                <th className="h-10 w-14 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kho nhập</th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Người tạo</th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày tạo</th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày giao DK</th>
-                                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
+                                <th className="h-10 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kho nhập</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Người tạo</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày tạo</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày giao DK</th>
+                                <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-bo-border">
@@ -604,16 +524,16 @@ export default function PurchaseRequestList() {
                                             <p className="text-xs text-bo-muted">{req.nguoiTao?.email}</p>
                                         </td>
                                         <td className="px-3 py-3">
-                                            <div className="flex items-center gap-1.5 text-slate-600">
+                                            <div className="flex items-center gap-1.5 whitespace-nowrap text-slate-600">
                                                 <Calendar className="size-3.5 shrink-0 text-slate-400" />{formatDate(req.ngayTao)}
                                             </div>
                                         </td>
                                         <td className="px-3 py-3">
-                                            <div className="flex items-center gap-1.5 text-slate-600">
+                                            <div className="flex items-center gap-1.5 whitespace-nowrap text-slate-600">
                                                 <Calendar className="size-3.5 shrink-0 text-slate-400" />{formatDate(req.ngayGiaoDuKien)}
                                             </div>
                                         </td>
-                                        <td className="px-3 py-3 text-center">
+                                        <td className="whitespace-nowrap px-3 py-3 text-center">
                                             <StatusBadge
                                                 tone={cfg.tone}
                                                 dot={false}

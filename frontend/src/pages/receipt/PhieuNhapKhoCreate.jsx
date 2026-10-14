@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
 import { phieuChuyenKhoService } from "@/services/phieuChuyenKhoService";
@@ -57,6 +57,10 @@ export default function PhieuNhapKhoCreate() {
     const [loading, setLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
     const [createdId, setCreatedId] = useState(null);
+    // Khóa tạo phiếu: dangTaoRef chặn bấm đúp (state chỉ cập nhật ở lần render sau);
+    // createdIdRef giữ id phiếu đã tạo để không bao giờ gọi API tạo lần 2.
+    const dangTaoRef = useRef(false);
+    const createdIdRef = useRef(null);
 
     const [form, setForm] = useState({
         donMuaHangId: "",
@@ -338,7 +342,24 @@ export default function PhieuNhapKhoCreate() {
         } finally { setActionLoading(false); }
     }, [returnList]);
 
+    // Trả về id phiếu (đã có hoặc vừa tạo); null nếu chưa tạo được hoặc đang tạo dở
     async function createPhieu() {
+        if (createdIdRef.current) return createdIdRef.current;
+        if (dangTaoRef.current) return null;
+        dangTaoRef.current = true;
+        try {
+            const newId = await taoPhieuMoi();
+            if (newId) {
+                createdIdRef.current = newId;
+                setCreatedId(newId);
+            }
+            return newId;
+        } finally {
+            dangTaoRef.current = false;
+        }
+    }
+
+    async function taoPhieuMoi() {
         if (importSource === "PO") {
             if (!selectedPO) return toast.error("Vui lòng chọn đơn mua hàng"), null;
             const chiTiet = selectedPO.chiTietDonMuaHangs.map(ct => ({
@@ -353,7 +374,6 @@ export default function PhieuNhapKhoCreate() {
                     ghiChu: form.ghiChu,
                     chiTietPhieuNhapKhos: chiTiet
                 });
-                setCreatedId(res.id);
                 toast.success("Tạo phiếu nhập thành công");
                 return res.id;
             } catch (e) {
@@ -366,7 +386,6 @@ export default function PhieuNhapKhoCreate() {
                 setActionLoading(true);
                 const res = await phieuNhapKhoService.createFromTransfer(form.transferId);
                 const newId = res.data?.id || res.id;
-                setCreatedId(newId);
                 toast.success("Khởi tạo phiếu nhập luân chuyển thành công");
                 return newId;
             } catch (e) {
@@ -379,7 +398,6 @@ export default function PhieuNhapKhoCreate() {
                 setActionLoading(true);
                 const res = await phieuNhapKhoService.createFromSalesReturn(form.phieuXuatId, { ghiChu: form.ghiChu });
                 const newId = res.data?.id || res.id;
-                setCreatedId(newId);
                 toast.success("Khởi tạo phiếu nhập trả hàng thành công");
                 return newId;
             } catch (e) {
@@ -389,8 +407,10 @@ export default function PhieuNhapKhoCreate() {
         }
     }
 
+    // "Lưu nháp" và "Tiếp tục khai Lô" cùng tạo phiếu (một lần) rồi mở chi tiết phiếu vừa tạo
+    // — ở đó khai báo lô / hủy phiếu. Phiếu đã tạo thì chỉ mở lại, không tạo thêm.
     const handleContinue = async () => {
-        let id = createdId || await createPhieu();
+        const id = await createPhieu();
         if (id) navigate(`/goods-receipts/${id}`);
     };
 
@@ -623,8 +643,8 @@ export default function PhieuNhapKhoCreate() {
             <FormActions>
                 <Button
                     variant="outline"
-                    onClick={createPhieu}
-                    disabled={actionLoading || !form.khoId}
+                    onClick={handleContinue}
+                    disabled={actionLoading || !form.khoId || Boolean(createdId)}
                     className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
                 >
                     {actionLoading && <Loader2 className="size-4 animate-spin" />}

@@ -1,5 +1,5 @@
-import { formatCurrency } from "@/utils/formatters";
-import { createElement, useCallback, useEffect, useState } from "react";
+import { formatCurrency, formatDate } from "@/utils/formatters";
+import { createElement, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import { donBanHangService } from "@/services/donBanHangService";
@@ -7,18 +7,21 @@ import { donBanHangKenhService, isChannelOrderMock } from "@/services/donBanHang
 import apiClient from "@/services/apiClient";
 import { getKhoList } from "@/services/khoService";
 import { toast } from "sonner";
-import { getApiErrorMessage } from "@/utils/apiError";
+import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import {
   ArrowLeft, User, Home, Truck, Calculator,
   CheckCircle2, Calendar, Send, XCircle,
-  Receipt, Hash, MapPin, ArrowRightLeft, Undo2, AlertTriangle, Store
+  Receipt, Hash, MapPin, ArrowRightLeft, Undo2, AlertTriangle, Store, SearchX
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import ConfirmModal from "@/components/ui/confirm-modal";
 
 import PageContainer from "@/components/backoffice/PageContainer";
 import PageHeader from "@/components/backoffice/PageHeader";
 import LoadingState from "@/components/shared/LoadingState";
+import ErrorState from "@/components/shared/ErrorState";
+import EmptyState from "@/components/shared/EmptyState";
 import StatusBadge from "@/components/shared/StatusBadge";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import MockModeNotice from "@/components/shared/MockModeNotice";
@@ -56,7 +59,13 @@ export default function DonBanHangDetail() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+  const coDuLieuRef = useRef(false);
   const [userRoles, setUserRoles] = useState([]);
+
+  // Hộp xác nhận "Hủy đơn" / "Xác nhận đã giao": null | "huy" | "da-giao"
+  const [xacNhan, setXacNhan] = useState(null);
+  const [dangXuLy, setDangXuLy] = useState(false);
 
   // State quản lý hiển thị Modal hoàn trả
   const [showReturnModal, setShowReturnModal] = useState(false);
@@ -94,8 +103,17 @@ export default function DonBanHangDetail() {
 
   const fetchDetail = useCallback(async () => {
     setLoading(true);
-    try { const res = await donBanHangKenhService.getDetail(id); setData(res.data); }
-    catch { toast.error("Không tải được chi tiết đơn bán"); }
+    setLoadError(null);
+    try {
+      const res = await donBanHangKenhService.getDetail(id);
+      setData(res.data);
+      coDuLieuRef.current = true;
+    }
+    catch (error) {
+      setLoadError(error);
+      // Đang xem đơn mà tải lại lỗi (sau một thao tác): giữ nguyên màn, chỉ báo lỗi
+      if (coDuLieuRef.current) toast.error(getApiErrorMessage(error, "Không tải được chi tiết đơn bán"));
+    }
     finally { setLoading(false); }
   }, [id]);
 
@@ -105,15 +123,17 @@ export default function DonBanHangDetail() {
     queueMicrotask(() => fetchDetail());
   }, [fetchDetail]);
 
+  // Chỉ chạy sau khi người dùng đồng ý ở hộp xác nhận
   async function handleMarkAsDelivered() {
+    if (dangXuLy) return;
     try {
-      setLoading(true);
+      setDangXuLy(true);
       await donBanHangKenhService.markAsDelivered(id);
       toast.success("Đã xác nhận giao hàng thành công.");
       fetchDetail();
     }
-    catch { toast.error("Không thể xác nhận giao hàng"); }
-    finally { setLoading(false); }
+    catch (error) { toast.error(getApiErrorMessage(error, "Không thể xác nhận giao hàng")); }
+    finally { setDangXuLy(false); setXacNhan(null); }
   }
 
   const handleOpenSendWarehouseModal = async () => {
@@ -159,10 +179,12 @@ export default function DonBanHangDetail() {
     }
   }
 
+  // Chỉ chạy sau khi người dùng đồng ý ở hộp xác nhận
   async function handleCancel() {
-    try { setLoading(true); await donBanHangService.cancel(id); toast.success("Đã hủy đơn bán"); fetchDetail(); }
+    if (dangXuLy) return;
+    try { setDangXuLy(true); await donBanHangService.cancel(id); toast.success("Đã hủy đơn bán"); fetchDetail(); }
     catch (error) { toast.error(getApiErrorMessage(error, "Không thể hủy đơn")); }
-    finally { setLoading(false); }
+    finally { setDangXuLy(false); setXacNhan(null); }
   }
 
   // Mở modal hoàn trả
@@ -185,17 +207,55 @@ export default function DonBanHangDetail() {
     }
   }
 
-  if (loading && !data) {
+  if (!data) {
+    if (!loadError) {
+      return (
+        <PageContainer>
+          <SurfaceCard>
+            <LoadingState rows={4} label="Đang tải chi tiết đơn hàng" />
+          </SurfaceCard>
+        </PageContainer>
+      );
+    }
+
+    // Không tìm thấy đơn (404) thì mời quay lại danh sách; lỗi khác cho phép thử lại
+    const khongTimThay = getApiErrorStatus(loadError) === 404;
     return (
-      <PageContainer>
-        <SurfaceCard>
-          <LoadingState rows={4} label="Đang tải chi tiết đơn hàng" />
+      <PageContainer className="space-y-3">
+        <button
+          type="button"
+          onClick={() => navigate("/sales-orders")}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-bo-primary transition-colors hover:text-bo-primary-hover"
+        >
+          <ArrowLeft className="size-4" />
+          Quay lại danh sách
+        </button>
+        <SurfaceCard contentClassName="p-0 sm:p-0">
+          {khongTimThay ? (
+            <EmptyState
+              icon={SearchX}
+              title="Không tìm thấy đơn bán"
+              description="Đơn bán không tồn tại hoặc đã bị xóa khỏi hệ thống."
+              action={
+                <Button
+                  onClick={() => navigate("/sales-orders")}
+                  className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                >
+                  Về danh sách đơn bán
+                </Button>
+              }
+            />
+          ) : (
+            <ErrorState
+              title="Không tải được chi tiết đơn bán"
+              description={getApiErrorMessage(loadError, "Đã xảy ra lỗi khi tải đơn bán. Vui lòng thử lại.")}
+              onRetry={fetchDetail}
+            />
+          )}
         </SurfaceCard>
       </PageContainer>
     );
   }
-
-  if (!data) return null;
 
   const { donBanHang, chiTiet, phieuXuatKhoList } = data;
   // Mã lạ hiện rõ mã, không mượn tên "Nháp"
@@ -217,7 +277,7 @@ export default function DonBanHangDetail() {
   const infoRows = [
     { icon: User,     label: "Khách hàng",        value: donBanHang.khachHang?.tenKhachHang },
     { icon: Home,     label: "Kho xuất",          value: donBanHang.khoXuat?.tenKho || "Chưa xác định" },
-    { icon: Calendar, label: "Ngày đặt",          value: new Date(donBanHang.ngayDatHang).toLocaleDateString("vi-VN", { day: "2-digit", month: "long", year: "numeric" }) },
+    { icon: Calendar, label: "Ngày đặt",          value: formatDate(donBanHang.ngayDatHang) },
     { icon: MapPin,   label: "Địa chỉ nhận hàng", value: donBanHang.diaChiGiaoHang || "—" },
     ...(donBanHang.kenhBanHang
       ? [{
@@ -270,8 +330,8 @@ export default function DonBanHangDetail() {
               {canCancel && (
                 <Button
                   variant="outline"
-                  onClick={handleCancel}
-                  disabled={loading}
+                  onClick={() => setXacNhan("huy")}
+                  disabled={loading || dangXuLy}
                   className="gap-1.5 border-bo-danger/40 bg-white text-bo-danger hover:bg-bo-danger-soft hover:text-bo-danger"
                 >
                   <XCircle className="size-4" /> Hủy đơn
@@ -291,8 +351,8 @@ export default function DonBanHangDetail() {
 
               {canMarkDelivered && (
                 <Button
-                  onClick={handleMarkAsDelivered}
-                  disabled={loading}
+                  onClick={() => setXacNhan("da-giao")}
+                  disabled={loading || dangXuLy}
                   className="gap-1.5 bg-bo-success text-white hover:bg-bo-success/90"
                 >
                   <CheckCircle2 className="size-4" /> Xác nhận đã giao
@@ -484,7 +544,7 @@ export default function DonBanHangDetail() {
                             <span className="font-mono font-semibold text-bo-primary">{px.soPhieuXuat}</span>
                           </td>
                           <td className="px-3 py-3 text-sm text-bo-muted">
-                            {new Date(px.ngayXuat).toLocaleDateString("vi-VN")}
+                            {formatDate(px.ngayXuat)}
                           </td>
                           <td className="px-3 py-3">
                             {pxSt && (
@@ -504,6 +564,41 @@ export default function DonBanHangDetail() {
           )}
         </div>
       </div>
+
+      {/* ── Hộp xác nhận Hủy đơn / Xác nhận đã giao ── */}
+      <ConfirmModal
+        isOpen={xacNhan === "huy"}
+        onClose={() => { if (!dangXuLy) setXacNhan(null); }}
+        onConfirm={handleCancel}
+        variant="danger"
+        title={`Hủy đơn bán ${donBanHang.soDonHang}?`}
+        description={
+          <>
+            Đơn sẽ chuyển sang trạng thái <strong className="font-semibold text-bo-danger">{STATUS_MAP[4].label}</strong> và
+            không thể hoàn tác. Hàng đang giữ cho đơn được trả lại tồn khả dụng; phiếu xuất kho nháp của đơn (nếu có) bị thu hồi.
+          </>
+        }
+        confirmText="Hủy đơn"
+        cancelText="Giữ đơn"
+        isLoading={dangXuLy}
+      />
+      <ConfirmModal
+        isOpen={xacNhan === "da-giao"}
+        onClose={() => { if (!dangXuLy) setXacNhan(null); }}
+        onConfirm={handleMarkAsDelivered}
+        variant="success"
+        title={`Xác nhận đơn ${donBanHang.soDonHang} đã giao?`}
+        description={
+          <>
+            Chỉ xác nhận khi khách đã nhận đủ hàng. Đơn sẽ chuyển sang trạng thái{" "}
+            <strong className="font-semibold text-bo-success">{STATUS_MAP[5].label}</strong>, số lượng đã giao được ghi bằng
+            số lượng đặt và không thể hoàn tác.
+          </>
+        }
+        confirmText="Xác nhận đã giao"
+        cancelText="Hủy bỏ"
+        isLoading={dangXuLy}
+      />
 
       {/* ── Modal Xác Nhận Hoàn Trả ── */}
       {showReturnModal && createPortal(

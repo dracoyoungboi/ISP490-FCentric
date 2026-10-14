@@ -17,20 +17,19 @@ import FilterSelect from "@/components/shared/FilterSelect";
 import { Button } from "@/components/ui/button";
 import { API_BASE_URL } from "@/config/apiBase";
 import { Input } from "@/components/ui/input";
+import { khoService } from "@/services/khoService";
+import { laKhoAo } from "@/pages/warehouse/loaiKho";
+import {
+  formatAxisMoney,
+  formatCurrency,
+  formatCurrencyCompact,
+  formatNumber,
+  formatPercent,
+} from "@/utils/formatters";
 
 // ─── API ───
 const API_BASE = `${API_BASE_URL}/api/v1`;
 const getAuthHeader = () => ({ Authorization: `Bearer ${localStorage.getItem("access_token") ?? ""}` });
-
-async function fetchKhoList() {
-  const res = await fetch(`${API_BASE}/kho/filter`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getAuthHeader() },
-    body: JSON.stringify({ filters: [], sorts: [], page: 0, size: 100 }),
-  });
-  const json = await res.json();
-  return json?.data?.content ?? [];
-}
 
 async function fetchDoanhThu(params) {
   const query = new URLSearchParams();
@@ -43,12 +42,8 @@ async function fetchDoanhThu(params) {
 }
 
 // ─── HELPERS ───
-const fmt = (n) => {
-  const num = Number(n || 0);
-  if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(1) + " tỷ";
-  if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + " tr";
-  return num.toLocaleString("vi-VN");
-};
+// Tỷ lệ lãi gộp = lợi nhuận gộp / doanh thu (0–1); doanh thu 0 thì không có tỷ lệ (null → "—")
+const tyLeLai = (loiNhuan, doanhThu) => (doanhThu ? loiNhuan / doanhThu : null);
 
 // Màu biểu đồ lấy từ token bo-* (recharts cần giá trị màu cụ thể)
 const CHART_COLORS = {
@@ -78,8 +73,12 @@ const TAB_KY = [
   { value: "so_sanh", label: "So sánh" },
 ];
 
-// Tông màu tỷ lệ lãi gộp: >= 20% tốt, >= 10% trung bình, còn lại thấp
-const laiTone = (value) => (value >= 20 ? "success" : value >= 10 ? "warning" : "danger");
+// Tông màu tỷ lệ lãi gộp (tỷ lệ 0–1): >= 20% tốt, >= 10% trung bình, còn lại thấp; không có tỷ lệ thì trung tính
+const laiTone = (ratio) => {
+  if (ratio == null) return "neutral";
+  const value = ratio * 100;
+  return value >= 20 ? "success" : value >= 10 ? "warning" : "danger";
+};
 
 // ─── CUSTOM TOOLTIP ───
 const CustomTooltip = ({ active, payload, label }) => {
@@ -93,7 +92,7 @@ const CustomTooltip = ({ active, payload, label }) => {
             <circle cx="5" cy="5" r="5" fill={entry.color} />
           </svg>
           <span className="flex-1 text-xs text-slate-600">{entry.name}</span>
-          <span className="text-xs font-bold text-bo-foreground">{fmt(entry.value)}</span>
+          <span className="text-xs font-bold tabular-nums text-bo-foreground">{formatCurrency(entry.value)}</span>
         </div>
       ))}
     </div>
@@ -159,8 +158,17 @@ export default function BaoCaoDoanhThu() {
   const [tuNgay, setTuNgay] = useState(() => { const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10); });
   const [denNgay, setDenNgay] = useState(new Date().toISOString().slice(0, 10));
 
+  // Danh sách kho cho bộ lọc: bỏ kho ảo và kho ngừng hoạt động.
+  // Lỗi tải thì chỉ còn "Tất cả kho", trang vẫn dùng được.
   useEffect(() => {
-    fetchKhoList().then(list => setKhoList(list.filter(k => k.trangThai !== 0)));
+    let huy = false;
+    khoService.getAllKho()
+      .then((body) => {
+        const ds = body?.data?.content ?? [];
+        if (!huy) setKhoList(ds.filter((k) => !laKhoAo(k) && Number(k.trangThai) === 1));
+      })
+      .catch(() => {});
+    return () => { huy = true; };
   }, []);
 
   const buildParams = useCallback(() => {
@@ -203,50 +211,56 @@ export default function BaoCaoDoanhThu() {
     queueMicrotask(() => loadDataRef.current());
   }, [loai, khoId]);
 
-  const chartData = data.map(d => ({
-    ...d,
-    doanhThu: Number(d.doanhThu || 0),
-    giaVon: Number(d.giaVon || 0),
-    loiNhuan: Number(d.loiNhuan || 0),
-    soLuongDon: Number(d.soLuongDon || 0),
-    tyLeLaiGop: Number(d.tyLeLaiGop || 0),
-  }));
+  const chartData = data.map(d => {
+    const doanhThu = Number(d.doanhThu || 0);
+    const loiNhuan = Number(d.loiNhuan || 0);
+    return {
+      ...d,
+      doanhThu,
+      giaVon: Number(d.giaVon || 0),
+      loiNhuan,
+      soLuongDon: Number(d.soLuongDon || 0),
+      // Tỷ lệ lãi của từng kỳ = lợi nhuận kỳ / doanh thu kỳ (0–1)
+      tyLeLaiGop: tyLeLai(loiNhuan, doanhThu),
+    };
+  });
 
   const totalDoanhThu = chartData.reduce((s, d) => s + d.doanhThu, 0);
   const totalLoiNhuan = chartData.reduce((s, d) => s + d.loiNhuan, 0);
   const totalGiaVon = chartData.reduce((s, d) => s + d.giaVon, 0);
   const totalDon = chartData.reduce((s, d) => s + d.soLuongDon, 0);
-  const avgTyLe = chartData.length
-    ? (chartData.reduce((s, d) => s + d.tyLeLaiGop, 0) / chartData.length).toFixed(2)
-    : 0;
-
-  const loiNhuanPct = totalDoanhThu ? Math.round((totalLoiNhuan / totalDoanhThu) * 100) : 0;
-  const giaVonPct = totalDoanhThu ? Math.round((totalGiaVon / totalDoanhThu) * 100) : 0;
+  // Một chỉ số duy nhất cho cả trang: tổng lợi nhuận gộp / tổng doanh thu (không lấy trung bình các kỳ)
+  const tyLeLaiGop = tyLeLai(totalLoiNhuan, totalDoanhThu);
+  const giaVonTyLe = totalDoanhThu ? totalGiaVon / totalDoanhThu : null;
 
   // Chưa có số thật (đang tải lần đầu hoặc lỗi): hiện "—", không hiện số 0 giả
   const coSo = !loi && !(loading && chartData.length === 0);
   // Gợi ý phụ có số tính từ dữ liệu: ẩn khi đang tải hoặc lỗi
   const anGoiYSo = loading || Boolean(loi);
 
-  // Dải chỉ số: giữ đủ 4 chỉ số, nhãn, cách tính và định dạng như các ô cũ
+  // Dải chỉ số: giữ đủ 4 chỉ số; tỷ lệ lãi gộp tính theo tổng (cùng số với bảng và khung bên phải)
   const chiSo = [
     {
       label: "Tổng doanh thu",
-      value: loi ? "—" : fmt(totalDoanhThu),
+      value: loi ? "—" : formatCurrencyCompact(totalDoanhThu),
       hint: anGoiYSo ? null : `${chartData.length} kỳ thống kê`,
     },
     {
       label: "Lợi nhuận gộp",
-      value: loi ? "—" : fmt(totalLoiNhuan),
-      hint: anGoiYSo ? null : `Chiếm ${loiNhuanPct}% doanh thu`,
+      value: loi ? "—" : formatCurrencyCompact(totalLoiNhuan),
+      hint: "Doanh thu trừ giá vốn",
     },
-    { label: "Tỷ lệ lãi gộp TB", value: loi ? "—" : avgTyLe + "%", hint: "Trung bình các kỳ" },
-    { label: "Tổng đơn hàng", value: loi ? "—" : totalDon.toLocaleString("vi-VN"), hint: "Đơn hàng hoàn thành" },
+    {
+      label: "Tỷ lệ lãi gộp",
+      value: loi ? "—" : formatPercent(tyLeLaiGop),
+      hint: "Lợi nhuận gộp / doanh thu",
+    },
+    { label: "Tổng đơn hàng", value: loi ? "—" : formatNumber(totalDon), hint: "Đơn hàng hoàn thành" },
   ];
 
   const khoOptions = [
     { value: "ALL", label: "Tất cả kho" },
-    ...khoList.map(k => ({ value: String(k.id), label: `[${k.maKho}] ${k.tenKho}` })),
+    ...khoList.map(k => ({ value: String(k.id), label: k.tenKho })),
   ];
 
   return (
@@ -358,7 +372,7 @@ export default function BaoCaoDoanhThu() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} vertical={false} />
                   <XAxis dataKey="nhanThoiGian" tick={{ fill: CHART_COLORS.axis, fontSize: 11 }} axisLine={{ stroke: CHART_COLORS.grid }} tickLine={false} />
-                  <YAxis tickFormatter={fmt} tick={{ fill: CHART_COLORS.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={formatAxisMoney} tick={{ fill: CHART_COLORS.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: CHART_COLORS.grid }} />
                   <Bar dataKey="giaVon" name="Giá vốn" stackId="a" fill="url(#gradGiaVon)" radius={[0, 0, 0, 0]} />
                   <Bar dataKey="loiNhuan" name="Lợi nhuận" stackId="a" fill="url(#gradLoiNhuan)" radius={[4, 4, 0, 0]} />
@@ -371,20 +385,21 @@ export default function BaoCaoDoanhThu() {
 
           {/* Side summary */}
           <div className="flex flex-col gap-3">
+            {/* Tỷ lệ so với doanh thu (0–1); phần lợi nhuận chính là tỷ lệ lãi gộp */}
             {[
-              { label: "Doanh thu", value: fmt(totalDoanhThu), pct: 100, barClass: "bg-bo-primary", textClass: "text-bo-primary", bg: "bg-bo-primary-soft" },
-              { label: "Giá vốn", value: fmt(totalGiaVon), pct: giaVonPct, barClass: "bg-slate-400", textClass: "text-slate-600", bg: "bg-slate-100" },
-              { label: "Lợi nhuận", value: fmt(totalLoiNhuan), pct: loiNhuanPct, barClass: "bg-bo-success", textClass: "text-bo-success", bg: "bg-bo-success-soft" },
+              { label: "Doanh thu", value: formatCurrencyCompact(totalDoanhThu), tyLe: totalDoanhThu ? 1 : null, barClass: "bg-bo-primary", textClass: "text-bo-primary", bg: "bg-bo-primary-soft" },
+              { label: "Giá vốn", value: formatCurrencyCompact(totalGiaVon), tyLe: giaVonTyLe, barClass: "bg-slate-400", textClass: "text-slate-600", bg: "bg-slate-100" },
+              { label: "Lợi nhuận", value: formatCurrencyCompact(totalLoiNhuan), tyLe: tyLeLaiGop, barClass: "bg-bo-success", textClass: "text-bo-success", bg: "bg-bo-success-soft" },
             ].map(item => (
               <div key={item.label} className="rounded-lg border border-bo-border bg-white p-4 shadow-sm">
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <span className="text-xs font-medium text-bo-muted">{item.label}</span>
-                  {coSo && (
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${item.bg} ${item.textClass}`}>{item.pct}%</span>
+                  {coSo && item.tyLe != null && (
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${item.bg} ${item.textClass}`}>{formatPercent(item.tyLe)}</span>
                   )}
                 </div>
                 <p className={`mb-3 text-xl font-bold ${item.textClass}`}>{coSo ? item.value : "—"}</p>
-                <ProgressBar pct={coSo ? item.pct : 0} barClass={item.barClass} />
+                <ProgressBar pct={coSo && item.tyLe != null ? Math.max(item.tyLe * 100, 0) : 0} barClass={item.barClass} />
               </div>
             ))}
 
@@ -399,20 +414,20 @@ export default function BaoCaoDoanhThu() {
               <p className="mb-3 text-xs font-medium text-bo-muted">Chỉ số nhanh</p>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-bo-muted">Giá trị TB / đơn</span>
-                <span className="text-xs font-bold text-bo-primary">{totalDon > 0 ? fmt(totalDoanhThu / totalDon) : "—"}</span>
+                <span className="text-xs font-bold tabular-nums text-bo-primary">{totalDon > 0 ? formatCurrencyCompact(totalDoanhThu / totalDon) : "—"}</span>
               </div>
               <div className="my-3 h-px bg-bo-border" />
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-bo-muted">LN trung bình / kỳ</span>
-                <span className="text-xs font-bold text-bo-success">{chartData.length > 0 ? fmt(totalLoiNhuan / chartData.length) : "—"}</span>
+                <span className="text-xs font-bold tabular-nums text-bo-success">{chartData.length > 0 ? formatCurrencyCompact(totalLoiNhuan / chartData.length) : "—"}</span>
               </div>
               <div className="my-3 h-px bg-bo-border" />
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-bo-muted">Tỷ lệ lãi gộp TB</span>
+                <span className="text-xs text-bo-muted">Tỷ lệ lãi gộp</span>
                 {coSo ? (
                   <StatusBadge
-                    label={`${avgTyLe}%`}
-                    tone={laiTone(Number(avgTyLe))}
+                    label={formatPercent(tyLeLaiGop)}
+                    tone={laiTone(tyLeLaiGop)}
                     dot={false}
                   />
                 ) : (
@@ -444,7 +459,7 @@ export default function BaoCaoDoanhThu() {
             <thead>
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
                 {["#", "Thời kỳ", "Doanh thu", "Giá vốn", "Lợi nhuận", "Tỷ lệ lãi", "Số đơn"].map((h, i) => (
-                  <th key={i} className={`${TH_CLASS} ${i > 1 ? "text-right" : "text-left"}`}>
+                  <th key={i} className={`${TH_CLASS} ${i > 1 ? "text-right tabular-nums" : "text-left"}`}>
                     {h}
                   </th>
                 ))}
@@ -453,15 +468,15 @@ export default function BaoCaoDoanhThu() {
             <tbody className="divide-y divide-bo-border">
               {chartData.map((row, i) => (
                 <tr key={i} className="transition-colors hover:bg-bo-surface-subtle">
-                  <td className="px-4 py-3.5 text-xs font-medium text-bo-muted">{String(i + 1).padStart(2, "0")}</td>
+                  <td className="px-4 py-3.5 text-xs font-medium tabular-nums text-bo-muted">{String(i + 1).padStart(2, "0")}</td>
                   <td className="px-4 py-3.5 font-medium text-bo-foreground">{row.nhanThoiGian}</td>
-                  <td className="px-4 py-3.5 text-right font-bold text-bo-primary">{fmt(row.doanhThu)}</td>
-                  <td className="px-4 py-3.5 text-right text-slate-600">{fmt(row.giaVon)}</td>
-                  <td className="px-4 py-3.5 text-right font-bold text-bo-success">{fmt(row.loiNhuan)}</td>
-                  <td className="px-4 py-3.5 text-right">
-                    <StatusBadge label={`${row.tyLeLaiGop.toFixed(2)}%`} tone={laiTone(row.tyLeLaiGop)} dot={false} />
+                  <td className="whitespace-nowrap px-4 py-3.5 text-right font-bold tabular-nums text-bo-primary">{formatCurrency(row.doanhThu)}</td>
+                  <td className="whitespace-nowrap px-4 py-3.5 text-right tabular-nums text-slate-600">{formatCurrency(row.giaVon)}</td>
+                  <td className="whitespace-nowrap px-4 py-3.5 text-right font-bold tabular-nums text-bo-success">{formatCurrency(row.loiNhuan)}</td>
+                  <td className="px-4 py-3.5 text-right tabular-nums">
+                    <StatusBadge label={formatPercent(row.tyLeLaiGop)} tone={laiTone(row.tyLeLaiGop)} dot={false} />
                   </td>
-                  <td className="px-4 py-3.5 text-right text-slate-600">{row.soLuongDon.toLocaleString("vi-VN")}</td>
+                  <td className="px-4 py-3.5 text-right tabular-nums text-slate-600">{formatNumber(row.soLuongDon)}</td>
                 </tr>
               ))}
             </tbody>
@@ -469,13 +484,14 @@ export default function BaoCaoDoanhThu() {
             <tfoot>
               <tr className="border-t-2 border-bo-border bg-bo-surface-subtle">
                 <td colSpan={2} className="px-4 py-3.5 text-xs font-bold uppercase tracking-wide text-bo-foreground">Tổng cộng</td>
-                <td className="px-4 py-3.5 text-right text-sm font-extrabold text-bo-primary">{fmt(totalDoanhThu)}</td>
-                <td className="px-4 py-3.5 text-right text-sm font-bold text-slate-600">{fmt(totalGiaVon)}</td>
-                <td className="px-4 py-3.5 text-right text-sm font-extrabold text-bo-success">{fmt(totalLoiNhuan)}</td>
-                <td className="px-4 py-3.5 text-right">
-                  <StatusBadge label={`${avgTyLe}%`} tone="info" dot={false} />
+                <td className="whitespace-nowrap px-4 py-3.5 text-right text-sm font-extrabold tabular-nums text-bo-primary">{formatCurrency(totalDoanhThu)}</td>
+                <td className="whitespace-nowrap px-4 py-3.5 text-right text-sm font-bold tabular-nums text-slate-600">{formatCurrency(totalGiaVon)}</td>
+                <td className="whitespace-nowrap px-4 py-3.5 text-right text-sm font-extrabold tabular-nums text-bo-success">{formatCurrency(totalLoiNhuan)}</td>
+                <td className="px-4 py-3.5 text-right tabular-nums">
+                  {/* Tỷ lệ của cả kỳ báo cáo = tổng lợi nhuận / tổng doanh thu (không phải trung bình các dòng) */}
+                  <StatusBadge label={formatPercent(tyLeLaiGop)} tone="info" dot={false} />
                 </td>
-                <td className="px-4 py-3.5 text-right text-sm font-bold text-slate-600">{totalDon.toLocaleString("vi-VN")}</td>
+                <td className="px-4 py-3.5 text-right text-sm font-bold tabular-nums text-slate-600">{formatNumber(totalDon)}</td>
               </tr>
             </tfoot>
           </table>

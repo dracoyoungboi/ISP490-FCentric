@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    AlignLeft, ChevronDown, ChevronLeft, ChevronRight, Edit, Eye,
+    AlignLeft, Edit, Eye,
     Hash, Layers, Palette, Pipette, Plus, RotateCcw, Ruler,
     Save, SearchX, SortAsc, Tag, Trash2, Upload, X,
 } from 'lucide-react';
@@ -25,9 +25,9 @@ import ListToolbar from "@/components/shared/ListToolbar";
 import LoadingState from "@/components/shared/LoadingState";
 import SearchInput from "@/components/shared/SearchInput";
 import StatusTabs from "@/components/shared/StatusTabs";
-import {
-    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import TablePagination from "@/components/shared/TablePagination";
+import { RowActionButton, RowActions } from "@/components/shared/RowActions";
+import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { toast } from "sonner";
 import { mauSacService, sizeService } from "@/services/attributeService";
 import { getAllChatLieu, deleteChatLieu, createChatLieu, updateChatLieu } from "@/services/chatLieuService";
@@ -69,7 +69,7 @@ const BRAND_STATUS_OPTIONS = [
     { value: "1", label: "Hoạt động" },
     { value: "0", label: "Ngừng hoạt động" },
 ];
-const DEFAULT_FILTERS = { keyword: "", page: 0, size: 10, trangThai: "ALL" };
+const DEFAULT_FILTERS = { keyword: "", page: 0, size: SO_DONG_MAC_DINH, trangThai: "ALL" };
 
 // Hàng tab loại thuộc tính (bố cục A+G) — giữ trên URL ?loai= bằng mã không dấu;
 // Màu sắc là tab mặc định nên không ghi lên URL.
@@ -305,6 +305,8 @@ const ProductAttributeHub = () => {
                 const res = await thuongHieuService.filter(payload);
                 content = res.data.content || []; totalElements = res.data.totalElements || 0;
             } else {
+                // Chất liệu: API trả toàn bộ danh sách (lọc theo từ khóa), không phân trang máy chủ
+                // → giữ cả danh sách, cắt trang tại chỗ khi vẽ bảng (xem `rows` bên dưới).
                 const res = await getAllChatLieu(filters.keyword);
                 content = res || []; totalElements = res?.length || 0;
             }
@@ -312,6 +314,7 @@ const ProductAttributeHub = () => {
             if (requestId !== requestIdRef.current) return;
 
             // Trang đang xem vượt quá số trang thực tế (vd. vừa xóa dòng cuối) → lùi về trang cuối có dữ liệu
+            // (tab Chất liệu phân trang tại chỗ: tự lùi trang ở `currentPage`)
             if (content.length === 0 && totalElements > 0 && filters.page > 0) {
                 const lastPage = Math.max(Math.ceil(totalElements / filters.size) - 1, 0);
                 setFilters((p) => ({ ...p, page: lastPage }));
@@ -425,13 +428,18 @@ const ProductAttributeHub = () => {
         finally { setIsDeleting(false); }
     };
 
+    // Màu sắc / Kích cỡ / Thương hiệu: phân trang máy chủ (`data` là đúng một trang).
+    // Chất liệu: `data` là toàn bộ danh sách → cắt trang tại chỗ; trang vượt quá (vừa xóa dòng cuối) lùi về trang cuối.
+    const phanTrangTaiCho = activeTab === 'material';
     const totalPages = Math.max(1, Math.ceil(total / filters.size));
-    const startItem = total === 0 ? 0 : filters.page * filters.size + 1;
-    const endItem = Math.min((filters.page + 1) * filters.size, total);
+    const currentPage = phanTrangTaiCho ? Math.min(filters.page, totalPages - 1) : filters.page;
+    const rows = phanTrangTaiCho
+        ? data.slice(currentPage * filters.size, (currentPage + 1) * filters.size)
+        : data;
     const TabIcon = TAB_ICONS[activeTab];
 
     return (
-        <PageContainer className="space-y-4">
+        <PageContainer fill className="space-y-4">
             <ListPageHeader
                 actions={
                     <Button
@@ -446,6 +454,7 @@ const ProductAttributeHub = () => {
 
             {/* ── BẢNG: tab loại thuộc tính + tìm kiếm (+ trạng thái thương hiệu) cùng một hàng ── */}
             <TableShell
+                fill
                 toolbar={
                     <ListToolbar
                         tabs={
@@ -481,90 +490,13 @@ const ProductAttributeHub = () => {
                 }
                 footer={
                     !loading && !loadError && data.length > 0 ? (
-                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                            <div className="flex items-center gap-2">
-                                <Label className="whitespace-nowrap text-xs text-bo-muted">Hiển thị:</Label>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            className="h-8 w-[120px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                                        >
-                                            {filters.size} dòng
-                                            <ChevronDown className="size-3.5 opacity-60" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent
-                                        align="start"
-                                        className="backoffice-user-menu z-50 w-[120px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
-                                    >
-                                        {[5, 10, 20, 50, 100].map(size => (
-                                            <DropdownMenuItem
-                                                key={size}
-                                                onClick={() => setFilters((p) => ({ ...p, size, page: 0 }))}
-                                                className="cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                            >
-                                                {size} dòng
-                                            </DropdownMenuItem>
-                                        ))}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-
-                            <p className="text-xs text-bo-muted">
-                                Hiển thị <span className="font-semibold text-bo-foreground">{startItem}</span>
-                                {" "}-{" "}
-                                <span className="font-semibold text-bo-foreground">{endItem}</span>
-                                {" "}trong tổng số <span className="font-semibold text-bo-primary">{total}</span> kết quả
-                            </p>
-
-                            <div className="flex items-center gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setFilters(p => ({ ...p, page: p.page - 1 }))}
-                                    disabled={filters.page === 0}
-                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                                >
-                                    <ChevronLeft className="size-3.5" /> Trước
-                                </Button>
-
-                                <div className="hidden items-center gap-1 sm:flex">
-                                    {[...Array(Math.min(5, totalPages))].map((_, idx) => {
-                                        let pageNum;
-                                        if (totalPages <= 5) pageNum = idx;
-                                        else if (filters.page < 3) pageNum = idx;
-                                        else if (filters.page > totalPages - 4) pageNum = totalPages - 5 + idx;
-                                        else pageNum = filters.page - 2 + idx;
-                                        return (
-                                            <Button
-                                                key={idx}
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => setFilters(p => ({ ...p, page: pageNum }))}
-                                                className={
-                                                    filters.page === pageNum
-                                                        ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
-                                                        : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
-                                                }
-                                            >
-                                                {pageNum + 1}
-                                            </Button>
-                                        );
-                                    })}
-                                </div>
-
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setFilters(p => ({ ...p, page: p.page + 1 }))}
-                                    disabled={filters.page >= totalPages - 1}
-                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                                >
-                                    Sau <ChevronRight className="size-3.5" />
-                                </Button>
-                            </div>
-                        </div>
+                        <TablePagination
+                            page={currentPage}
+                            size={filters.size}
+                            total={total}
+                            onPageChange={(page) => setFilters((p) => ({ ...p, page }))}
+                            onSizeChange={(size) => setFilters((p) => ({ ...p, size, page: 0 }))}
+                        />
                     ) : null
                 }
             >
@@ -596,32 +528,32 @@ const ProductAttributeHub = () => {
                         />
                     )
                 ) : (
-                    <div className="max-h-[520px] overflow-y-auto">
+                    /* Bảng dữ liệu: khung giãn hết màn, thân bảng tự cuộn, tiêu đề cột đứng yên */
                         <table className="w-full min-w-[880px] text-sm">
                             <thead className="sticky top-0 z-10">
                                 <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                    <th className="h-11 w-14 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
-                                    <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã</th>
-                                    <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tên hiển thị</th>
-                                    {activeTab === 'color' && <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Màu sắc</th>}
-                                    {activeTab === 'size' && <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Phân loại</th>}
-                                    {activeTab === 'material' && <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mô tả</th>}
-                                    {activeTab === 'brand' && <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Logo</th>}
-                                    {activeTab === 'brand' && <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mô tả</th>}
-                                    {activeTab === 'brand' && <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>}
-                                    {activeTab === 'brand' && <th className="h-11 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày tạo</th>}
-                                    <th className="h-11 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
+                                    <th className="h-11 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
+                                    <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã</th>
+                                    <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tên hiển thị</th>
+                                    {activeTab === 'color' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Màu sắc</th>}
+                                    {activeTab === 'size' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Phân loại</th>}
+                                    {activeTab === 'material' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mô tả</th>}
+                                    {activeTab === 'brand' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Logo</th>}
+                                    {activeTab === 'brand' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mô tả</th>}
+                                    {activeTab === 'brand' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>}
+                                    {activeTab === 'brand' && <th className="h-11 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày tạo</th>}
+                                    <th className="h-11 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-bo-border">
-                                {data.map((item, index) => (
+                                {rows.map((item, index) => (
                                     <tr
                                         key={item.id}
                                         className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
                                         onClick={() => handleOpenModal('edit', item)}
                                     >
                                         <td className="w-14 px-3 py-3 text-center font-mono text-xs text-bo-muted">
-                                            {filters.page * filters.size + index + 1}
+                                            {currentPage * filters.size + index + 1}
                                         </td>
                                         <td className="px-3 py-3">
                                             <span className="font-mono font-semibold tracking-wide text-bo-primary">
@@ -690,40 +622,31 @@ const ProductAttributeHub = () => {
                                             </td>
                                         )}
                                         <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                                            <div className="flex items-center justify-center gap-1">
-                                                <button
-                                                    type="button"
-                                                    title="Xem chi tiết"
-                                                    className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
+                                            <RowActions>
+                                                <RowActionButton
+                                                    icon={Eye}
+                                                    label="Xem chi tiết"
                                                     onClick={() => handleOpenModal('view', item)}
-                                                >
-                                                    <Eye className="size-4" />
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    title="Chỉnh sửa"
-                                                    className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
+                                                />
+                                                <RowActionButton
+                                                    icon={Edit}
+                                                    label="Chỉnh sửa"
                                                     onClick={() => handleOpenModal('edit', item)}
-                                                >
-                                                    <Edit className="size-4" />
-                                                </button>
+                                                />
                                                 {activeTab !== 'brand' && (
-                                                    <button
-                                                        type="button"
-                                                        title="Xóa"
-                                                        className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-danger hover:text-bo-danger"
+                                                    <RowActionButton
+                                                        icon={Trash2}
+                                                        label="Xóa"
+                                                        tone="danger"
                                                         onClick={() => setDeleteConfig({ open: true, item })}
-                                                    >
-                                                        <Trash2 className="size-4" />
-                                                    </button>
+                                                    />
                                                 )}
-                                            </div>
+                                            </RowActions>
                                         </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
-                    </div>
                 )}
             </TableShell>
 

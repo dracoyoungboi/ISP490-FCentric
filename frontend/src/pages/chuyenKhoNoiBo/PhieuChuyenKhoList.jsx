@@ -13,20 +13,14 @@ import SearchInput from "@/components/shared/SearchInput";
 import StatusBadge from "@/components/shared/StatusBadge";
 import StatusTabs from "@/components/shared/StatusTabs";
 import TableShell from "@/components/shared/TableShell";
+import TablePagination from "@/components/shared/TablePagination";
 import { Button } from "@/components/ui/button";
-import {
-    Plus, ChevronDown, ChevronLeft, ChevronRight,
-    ClipboardList, SearchX,
-} from "lucide-react";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Plus, ClipboardList, SearchX } from "lucide-react";
+import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { PHIEU_CHUYEN_KHO_TABS, getPhieuChuyenKhoStatus } from "@/constants/phieuChuyenKho";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
+import { formatDate } from "@/utils/formatters";
 
 //Constants & Helpers
 const ROLE = {
@@ -63,10 +57,9 @@ const TAB_MAS = PHIEU_CHUYEN_KHO_TABS.map((tab) => tab.ma);
 const TAB_MAC_DINH = "tat-ca";
 const trangThaiCuaTab = (ma) => PHIEU_CHUYEN_KHO_TABS.find((tab) => tab.ma === ma)?.trangThai ?? null;
 
-const PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100];
 const SEARCH_DEBOUNCE_MS = 350;
 const TH_CLASS =
-    "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted";
+    "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 
 // Điều kiện lọc dùng chung cho danh sách và số trên tab. API chỉ nhận MỘT trạng thái mỗi lần gọi.
 function buildFilterPayload({ keyword, tenKhoNhap, trangThai, page, size }) {
@@ -101,7 +94,7 @@ export default function PhieuChuyenKhoList() {
         keyword: "",
         tenKhoNhap: "",
         page: 0,
-        size: 10,
+        size: SO_DONG_MAC_DINH,
     });
     // Ô chữ đổi ngay khi gõ; filters chỉ đổi khi ngừng gõ (mỗi lần đổi gọi danh sách + đếm từng tab)
     const [keywordInput, setKeywordInput] = useState("");
@@ -185,8 +178,6 @@ export default function PhieuChuyenKhoList() {
         `${khoLamViec}|${filters.keyword}|${filters.tenKhoNhap}`
     );
 
-    const totalPages = Math.max(1, Math.ceil(total / filters.size));
-
     const changeTab = (value) => {
         setTab(value);
         setFilters((p) => (p.page === 0 ? p : { ...p, page: 0 }));
@@ -223,7 +214,7 @@ export default function PhieuChuyenKhoList() {
     const emptyTabLabel = PHIEU_CHUYEN_KHO_TABS.find((t) => t.ma === tab)?.label;
 
     return (
-        <PageContainer className="space-y-4">
+        <PageContainer fill className="space-y-4">
             <ListPageHeader
                 actions={
                     !isNhanVienKho ? (
@@ -239,6 +230,7 @@ export default function PhieuChuyenKhoList() {
 
             {/* ══ BẢNG: tab trạng thái + kho làm việc + tìm kiếm cùng một hàng ══ */}
             <TableShell
+                fill
                 toolbar={
                     <ListToolbar
                         tabs={
@@ -276,88 +268,14 @@ export default function PhieuChuyenKhoList() {
                     </ListToolbar>
                 }
                 footer={
-                    total > 0 ? (
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs text-bo-muted">Hiển thị</span>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            className="h-8 w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                                        >
-                                            {filters.size} dòng
-                                            <ChevronDown className="size-3.5 opacity-60" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="start" className="backoffice-user-menu z-50 w-[110px] rounded-lg border border-bo-border bg-white p-1 shadow-lg">
-                                        {PAGE_SIZE_OPTIONS.map(size => (
-                                            <DropdownMenuItem
-                                                key={size}
-                                                onClick={() => setFilters((p) => ({ ...p, size, page: 0 }))}
-                                                className="cursor-pointer rounded-md px-2.5 py-1.5 text-xs text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                            >
-                                                {size} dòng
-                                            </DropdownMenuItem>
-                                        ))}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-
-                            <p className="text-xs text-bo-muted">
-                                Hiển thị{" "}
-                                <span className="font-semibold text-bo-foreground">{filters.page * filters.size + 1}</span>
-                                {" – "}
-                                <span className="font-semibold text-bo-foreground">{Math.min((filters.page + 1) * filters.size, total)}</span>
-                                {" trong tổng số "}
-                                <span className="font-semibold text-bo-primary">{total}</span> kết quả
-                            </p>
-
-                            <div className="flex items-center gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setFilters((p) => ({ ...p, page: p.page - 1 }))}
-                                    disabled={filters.page === 0}
-                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                                >
-                                    <ChevronLeft className="size-3.5" /> Trước
-                                </Button>
-                                <div className="hidden items-center gap-1 sm:flex">
-                                    {[...Array(Math.min(5, totalPages))].map((_, idx) => {
-                                        let pageNum;
-                                        if (totalPages <= 5) pageNum = idx;
-                                        else if (filters.page < 3) pageNum = idx;
-                                        else if (filters.page > totalPages - 4) pageNum = totalPages - 5 + idx;
-                                        else pageNum = filters.page - 2 + idx;
-                                        return (
-                                            <Button
-                                                key={idx}
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => setFilters((p) => ({ ...p, page: pageNum }))}
-                                                className={
-                                                    filters.page === pageNum
-                                                        ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
-                                                        : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
-                                                }
-                                            >
-                                                {pageNum + 1}
-                                            </Button>
-                                        );
-                                    })}
-                                </div>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setFilters((p) => ({ ...p, page: p.page + 1 }))}
-                                    disabled={filters.page + 1 >= totalPages}
-                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                                >
-                                    Sau <ChevronRight className="size-3.5" />
-                                </Button>
-                            </div>
-                        </div>
+                    !loading && !loadError && data.length > 0 ? (
+                        <TablePagination
+                            page={filters.page}
+                            size={filters.size}
+                            total={total}
+                            onPageChange={(page) => setFilters((p) => ({ ...p, page }))}
+                            onSizeChange={(size) => setFilters((p) => ({ ...p, size, page: 0 }))}
+                        />
                     ) : null
                 }
             >
@@ -408,7 +326,7 @@ export default function PhieuChuyenKhoList() {
                     )
                 ) : (
                     <table className="w-full min-w-[900px] text-sm">
-                        <thead>
+                        <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                 <th className={`${TH_CLASS} w-14 text-center`}>STT</th>
                                 <th className={`${TH_CLASS} text-left`}>Số phiếu</th>
@@ -427,16 +345,14 @@ export default function PhieuChuyenKhoList() {
                                         onClick={() => navigate(`/transfer-tickets/${item.id}`)}
                                         className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
                                     >
-                                        <td className="w-14 px-4 py-3.5 text-center align-middle">
-                                            <span className="inline-flex size-7 items-center justify-center rounded-full bg-bo-surface-subtle text-xs font-semibold text-slate-600">
-                                                {filters.page * filters.size + index + 1}
-                                            </span>
+                                        <td className="w-14 px-4 py-3.5 text-center align-middle text-xs text-bo-muted">
+                                            {filters.page * filters.size + index + 1}
                                         </td>
                                         <td className="px-4 py-3.5 align-middle font-semibold text-bo-primary">{item.soPhieuXuat}</td>
                                         <td className="px-4 py-3.5 align-middle text-bo-foreground">{item.kho?.tenKho}</td>
                                         <td className="px-4 py-3.5 align-middle text-bo-foreground">{item.khoChuyenDen?.tenKho}</td>
                                         <td className="px-4 py-3.5 text-center align-middle">
-                                            <span className="text-xs text-bo-muted">{new Date(item.ngayTao).toLocaleDateString("vi-VN")}</span>
+                                            <span className="whitespace-nowrap text-xs text-bo-muted">{formatDate(item.ngayTao)}</span>
                                         </td>
                                         <td className="px-4 py-3.5 text-center align-middle">
                                             {status ? (

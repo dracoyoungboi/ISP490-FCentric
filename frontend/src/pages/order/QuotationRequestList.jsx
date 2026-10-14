@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-    Calendar, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp,
+    Calendar, CheckCircle, ChevronDown, ChevronUp,
     Clock, CreditCard, Eye, FileText, Package, Plus,
     RefreshCw, SearchX, Send, ShoppingCart, Warehouse, XCircle,
 } from 'lucide-react';
@@ -11,9 +11,6 @@ import { Input } from "@/components/ui/input";
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-    Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
-} from "@/components/ui/tooltip";
 import PageContainer from "@/components/backoffice/PageContainer";
 import TableShell from "@/components/shared/TableShell";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -22,12 +19,16 @@ import ErrorState from "@/components/shared/ErrorState";
 import ListPageHeader from "@/components/shared/ListPageHeader";
 import ListToolbar from "@/components/shared/ListToolbar";
 import LoadingState from "@/components/shared/LoadingState";
+import { RowActionButton, RowActions } from "@/components/shared/RowActions";
 import SearchInput from "@/components/shared/SearchInput";
 import StatusTabs from "@/components/shared/StatusTabs";
+import TablePagination from "@/components/shared/TablePagination";
+import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { YEU_CAU_BAO_GIA_TABS, YEU_CAU_NHAP_HANG_STATUS } from "@/constants/yeuCauNhapHang";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import purchaseOrderService from "../../services/purchaseOrderService";
+import { formatCurrency, formatDate } from "@/utils/formatters";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROLE = {
@@ -47,9 +48,6 @@ function parseRoles(vaiTro) {
     return vaiTro.includes(" ") ? vaiTro.split(" ") : [vaiTro];
 }
 
-const formatCurrency = (v) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v || 0);
-const formatDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '—';
-
 // ─── Status configs ────────────────────────────────────────────────────────────
 // Dòng yêu cầu chỉ có 3 và 5: tên lấy từ constants/yeuCauNhapHang (một tên cho danh sách, chi tiết, bản in);
 // màu giữ như trang này đang dùng.
@@ -61,7 +59,6 @@ const PR_STATUS = {
 // Tab trạng thái (bố cục A+G) — mã tab trên URL ?trangThai=, kho đang lọc trên ?kho=
 const TAB_MAS = YEU_CAU_BAO_GIA_TABS.map((tab) => tab.ma);
 const TAB_MAC_DINH = 'tat-ca';
-const PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100];
 const API_FILTER = '/api/v1/yeu-cau-mua-hang/filter';
 
 // ─── Điều kiện lọc dùng chung cho danh sách và số trên tab ─────────────────────
@@ -115,7 +112,7 @@ function DonMuaHangRows({ donMuaHangs = [], navigate }) {
     if (donMuaHangs.length === 0) {
         return (
             <tr>
-                <td colSpan={9}>
+                <td colSpan={8}>
                     <EmptyState
                         icon={ShoppingCart}
                         title="Chưa có đơn mua hàng (báo giá) nào"
@@ -138,35 +135,29 @@ function DonMuaHangRows({ donMuaHangs = [], navigate }) {
                 onClick={() => navigate(`/quotation/${po.id}`)}
                 className="cursor-pointer border-b border-bo-border transition-colors last:border-0 hover:bg-bo-surface-subtle"
             >
-                <td className="w-12 pl-6" />
-
                 <td className="px-3 py-3">
                     <div className="flex items-center gap-2">
                         <div className="size-1.5 shrink-0 rounded-full bg-bo-primary" />
                         <span className="text-[13px] font-semibold text-bo-foreground">
-                            {po.soDonMua?.replace(/^PO/, 'Q-')}
+                            {po.soDonMua}
                         </span>
                     </div>
                 </td>
 
                 <td className="px-3 py-3">
-                    <p className="max-w-[150px] truncate text-[13px] font-semibold text-bo-foreground">{po.nhaCungCap?.tenNhaCungCap}</p>
+                    <p className="max-w-[120px] truncate text-[13px] font-semibold text-bo-foreground" title={po.nhaCungCap?.tenNhaCungCap}>{po.nhaCungCap?.tenNhaCungCap}</p>
                     <p className="mt-0.5 font-mono text-[11px] text-bo-muted">{po.nhaCungCap?.maNhaCungCap}</p>
                 </td>
 
-                <td className="px-3 py-3">
-                    <div className="flex items-center gap-1.5 text-[12px] font-medium text-bo-muted">
-                        <Calendar className="size-3 shrink-0" /> {formatDate(po.ngayDatHang)}
-                    </div>
+                <td className="whitespace-nowrap px-3 py-3 text-[12px] font-medium text-bo-muted">
+                    {formatDate(po.ngayDatHang)}
                 </td>
 
-                <td className="px-3 py-3">
-                    <div className="flex items-center gap-1.5 text-[12px] font-medium text-bo-muted">
-                        <Calendar className="size-3 shrink-0" /> {formatDate(po.ngayGiaoDuKien)}
-                    </div>
+                <td className="whitespace-nowrap px-3 py-3 text-[12px] font-medium text-bo-muted">
+                    {formatDate(po.ngayGiaoDuKien)}
                 </td>
 
-                <td className="px-3 py-3">
+                <td className="whitespace-nowrap px-3 py-3">
                     <StatusBadge label={cfg.label} tone={cfg.tone} />
                 </td>
 
@@ -174,40 +165,33 @@ function DonMuaHangRows({ donMuaHangs = [], navigate }) {
                     {po.nguoiTao?.hoTen || '-'}
                 </td>
 
-                <td className="px-3 py-3 text-right">
-                    <span className={`text-[14px] font-bold ${isAccepted ? 'text-bo-success' : 'text-bo-foreground'}`}>
-                        {formatCurrency(po.tongTien)}
-                    </span>
+                <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">
+                    {po.tongTien != null ? (
+                        <span className="text-[13px] font-semibold text-bo-foreground">{formatCurrency(po.tongTien)}</span>
+                    ) : (
+                        <span className="text-[13px] text-bo-muted">—</span>
+                    )}
                     {isAccepted && <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-bo-success">Đã chốt</p>}
                 </td>
 
-                <td className="px-3 py-3 text-center" onClick={e => e.stopPropagation()}>
-                    <TooltipProvider>
-                        <div className="flex items-center justify-center gap-1">
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="size-8 text-bo-muted hover:bg-bo-primary-soft hover:text-bo-primary"
-                                        onClick={() => navigate(`/quotation/${po.id}`)}>
-                                        <Eye className="size-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent><p>Xem chi tiết báo giá</p></TooltipContent>
-                            </Tooltip>
-
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <span tabIndex={canPay ? undefined : 0}>
-                                        <Button variant="ghost" size="icon" className="size-8 hover:bg-bo-primary-soft hover:text-bo-primary"
-                                            disabled={!canPay}
-                                            onClick={(e) => { e.stopPropagation(); navigate(`/purchase-orders/${po.id}/payment`); }}>
-                                            <CreditCard className={`size-4 ${canPay ? 'text-bo-primary' : 'text-slate-300'}`} />
-                                        </Button>
-                                    </span>
-                                </TooltipTrigger>
-                                <TooltipContent><p>{getPaymentTooltip(po.trangThai)}</p></TooltipContent>
-                            </Tooltip>
-                        </div>
-                    </TooltipProvider>
+                {/* Chặn bấm lan ra dòng: nút Thanh toán đang khóa không nhận chuột nên cú bấm rơi vào ô */}
+                <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
+                    <RowActions>
+                        <RowActionButton
+                            icon={Eye}
+                            label="Xem chi tiết báo giá"
+                            onClick={() => navigate(`/quotation/${po.id}`)}
+                        />
+                        {/* Nút khóa không hiện chú thích khi rê chuột: lý do đặt ở lớp bọc */}
+                        <span className="inline-flex" title={getPaymentTooltip(po.trangThai)}>
+                            <RowActionButton
+                                icon={CreditCard}
+                                label={getPaymentTooltip(po.trangThai)}
+                                disabled={!canPay}
+                                onClick={() => navigate(`/purchase-orders/${po.id}/payment`)}
+                            />
+                        </span>
+                    </RowActions>
                 </td>
             </tr>
         );
@@ -229,7 +213,7 @@ export default function QuotationRequestList() {
     const [warehouses, setWarehouses] = useState([]);
     const [khoDaTai, setKhoDaTai] = useState(false);
 
-    const [pagination, setPagination] = useState({ pageNumber: 0, pageSize: 10, totalElements: 0, totalPages: 0 });
+    const [pagination, setPagination] = useState({ pageNumber: 0, pageSize: SO_DONG_MAC_DINH, totalElements: 0, totalPages: 0 });
     // Ô tìm kiếm chỉ áp dụng khi nhấn Enter (giữ hành vi cũ): searchText là chữ đang gõ, keyword là từ khóa đang lọc
     const [searchText, setSearchText] = useState('');
     const [keyword, setKeyword] = useState('');
@@ -283,7 +267,7 @@ export default function QuotationRequestList() {
     }, []);
 
     // ── Fetch requests ────────────────────────────────────────────────────────
-    const fetchRequests = useCallback(async (page = 0, size = 10) => {
+    const fetchRequests = useCallback(async (page = 0, size = SO_DONG_MAC_DINH) => {
         const requestId = ++requestIdRef.current;
         setLoading(true);
         try {
@@ -413,7 +397,7 @@ export default function QuotationRequestList() {
 
     // ── Render ────────────────────────────────────────────────────────────────
     return (
-        <PageContainer className="space-y-4">
+        <PageContainer fill className="space-y-4">
             <ListPageHeader
                 actions={
                     <>
@@ -436,6 +420,7 @@ export default function QuotationRequestList() {
 
             {/* Bấm vào dòng để xem chi tiết yêu cầu, mở rộng để xem các báo giá con */}
             <TableShell
+                fill
                 toolbar={
                     <ListToolbar
                         tabs={
@@ -516,102 +501,15 @@ export default function QuotationRequestList() {
                     </ListToolbar>
                 }
                 footer={
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        {/* Page size */}
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-bo-muted">Hiển thị</span>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className="h-8 w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                                    >
-                                        {pagination.pageSize} dòng
-                                        <ChevronDown className="size-3.5 opacity-60" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    align="start"
-                                    className="backoffice-user-menu z-50 w-[110px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
-                                >
-                                    {PAGE_SIZE_OPTIONS.map(s => (
-                                        <DropdownMenuItem
-                                            key={s}
-                                            onClick={() => handlePageSizeChange(s)}
-                                            className="cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                        >
-                                            {s} dòng
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-
-                        {/* Page info */}
-                        <p className="text-xs text-bo-muted">
-                            Hiển thị{" "}
-                            <span className="font-semibold text-bo-foreground">
-                                {pagination.totalElements === 0 ? 0 : pagination.pageNumber * pagination.pageSize + 1}
-                            </span>
-                            {" – "}
-                            <span className="font-semibold text-bo-foreground">
-                                {Math.min((pagination.pageNumber + 1) * pagination.pageSize, pagination.totalElements)}
-                            </span>
-                            {" trong tổng số "}
-                            <span className="font-semibold text-bo-primary">{pagination.totalElements}</span> kết quả
-                        </p>
-
-                        {/* Navigation */}
-                        <div className="flex items-center gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handlePageChange(pagination.pageNumber - 1)}
-                                disabled={pagination.pageNumber === 0}
-                                className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                            >
-                                <ChevronLeft className="size-3.5" />
-                                Trước
-                            </Button>
-
-                            <div className="hidden items-center gap-1 sm:flex">
-                                {[...Array(Math.min(5, pagination.totalPages))].map((_, idx) => {
-                                    let p = idx;
-                                    if (pagination.totalPages > 5) {
-                                        if (pagination.pageNumber < 3) p = idx;
-                                        else if (pagination.pageNumber > pagination.totalPages - 4) p = pagination.totalPages - 5 + idx;
-                                        else p = pagination.pageNumber - 2 + idx;
-                                    }
-                                    return (
-                                        <Button
-                                            key={idx}
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handlePageChange(p)}
-                                            className={
-                                                pagination.pageNumber === p
-                                                    ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
-                                                    : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
-                                            }
-                                        >
-                                            {p + 1}
-                                        </Button>
-                                    );
-                                })}
-                            </div>
-
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handlePageChange(pagination.pageNumber + 1)}
-                                disabled={pagination.pageNumber >= pagination.totalPages - 1 || pagination.totalPages === 0}
-                                className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                            >
-                                Sau
-                                <ChevronRight className="size-3.5" />
-                            </Button>
-                        </div>
-                    </div>
+                    !loading && !loadError && requests.length > 0 ? (
+                        <TablePagination
+                            page={pagination.pageNumber}
+                            size={pagination.pageSize}
+                            total={pagination.totalElements}
+                            onPageChange={handlePageChange}
+                            onSizeChange={handlePageSizeChange}
+                        />
+                    ) : null
                 }
             >
                 {loading ? (
@@ -668,18 +566,20 @@ export default function QuotationRequestList() {
                         />
                     )
                 ) : (
-                    <table className="w-full min-w-[1080px] text-sm">
-                        <thead>
+                    /* Bảng: khung giãn hết màn, thân bảng tự cuộn, tiêu đề cột đứng yên.
+                       Dòng mở rộng chứa bảng báo giá con nằm gọn trong một ô của bảng chính. */
+                    <table className="w-full min-w-[1040px] text-sm">
+                        <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                 <th className="h-10 w-14 px-3" />
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã yêu cầu</th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kho nhập</th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày tạo</th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày giao DK</th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Người tạo</th>
-                                <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền chốt</th>
-                                <th className="h-10 w-24 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã yêu cầu</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kho nhập</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày tạo</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày giao DK</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Người tạo</th>
+                                <th className="h-10 px-3 text-right tabular-nums whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền chốt</th>
+                                <th className="h-10 w-24 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-bo-border">
@@ -726,18 +626,18 @@ export default function QuotationRequestList() {
                                             </td>
 
                                             <td className="px-3 py-3">
-                                                <div className="flex items-center gap-1.5 text-[12px] font-medium text-bo-muted">
+                                                <div className="flex items-center gap-1.5 whitespace-nowrap text-[12px] font-medium text-bo-muted">
                                                     <Calendar className="size-3.5 shrink-0" /> {formatDate(req.ngayTao)}
                                                 </div>
                                             </td>
 
                                             <td className="px-3 py-3">
-                                                <div className="flex items-center gap-1.5 text-[12px] font-medium text-bo-muted">
+                                                <div className="flex items-center gap-1.5 whitespace-nowrap text-[12px] font-medium text-bo-muted">
                                                     <Calendar className="size-3.5 shrink-0" /> {formatDate(req.ngayGiaoDuKien)}
                                                 </div>
                                             </td>
 
-                                            <td className="px-3 py-3">
+                                            <td className="whitespace-nowrap px-3 py-3">
                                                 <StatusBadge label={prCfg.label} tone={prCfg.tone} />
                                             </td>
 
@@ -745,29 +645,22 @@ export default function QuotationRequestList() {
                                                 {req.nguoiTao?.hoTen || '-'}
                                             </td>
 
-                                            <td className="px-3 py-3 text-right">
+                                            <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">
                                                 {acceptedTotal !== null ? (
-                                                    <div className="flex flex-col items-end">
-                                                        <span className="text-[15px] font-bold text-bo-success">{formatCurrency(acceptedTotal)}</span>
-                                                        <span className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-bo-success">Giá trị chốt</span>
-                                                    </div>
+                                                    <span className="font-semibold text-bo-foreground">{formatCurrency(acceptedTotal)}</span>
                                                 ) : (
-                                                    <span className="text-[12px] font-medium italic text-bo-muted">Chưa có dữ liệu</span>
+                                                    <span className="text-bo-muted">—</span>
                                                 )}
                                             </td>
 
-                                            <td className="px-3 py-3 text-center" onClick={e => e.stopPropagation()}>
-                                                <TooltipProvider>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Button variant="ghost" size="icon" className="size-8 text-bo-muted hover:bg-bo-primary-soft hover:text-bo-primary"
-                                                                onClick={() => navigate(`/quotation-requests/${req.id}`)}>
-                                                                <Eye className="size-4" />
-                                                            </Button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent><p>Xem chi tiết yêu cầu</p></TooltipContent>
-                                                    </Tooltip>
-                                                </TooltipProvider>
+                                            <td className="px-3 py-3">
+                                                <RowActions>
+                                                    <RowActionButton
+                                                        icon={Eye}
+                                                        label="Xem chi tiết yêu cầu"
+                                                        onClick={() => navigate(`/quotation-requests/${req.id}`)}
+                                                    />
+                                                </RowActions>
                                             </td>
                                         </tr>
 
@@ -775,24 +668,24 @@ export default function QuotationRequestList() {
                                         {isExpanded && hasPos && (
                                             <tr>
                                                 <td colSpan={9} className="border-b border-bo-border p-0">
-                                                    <div className="bg-bo-surface-subtle pb-5 pt-3">
-                                                        <div className="pl-4 pr-4 sm:pl-10 sm:pr-6">
+                                                    {/* w-0 min-w-full: bảng con không đẩy rộng bảng chính — rộng bằng ô, thiếu chỗ thì tự cuộn ngang trong khung của nó */}
+                                                    <div className="w-0 min-w-full bg-bo-surface-subtle pb-5 pt-3">
+                                                        <div className="px-3">
                                                             <TableShell
                                                                 title="Danh sách báo giá từ NCC thuộc yêu cầu này"
                                                                 className="shadow-none"
                                                             >
-                                                                <table className="w-full min-w-[900px] text-sm">
+                                                                <table className="w-full text-sm">
                                                                     <thead>
                                                                         <tr className="border-b border-bo-border bg-white">
-                                                                            <th className="h-9 w-8" />
                                                                             <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Mã báo giá</th>
-                                                                            <th className="h-9 px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Nhà cung cấp</th>
+                                                                            <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Nhà cung cấp</th>
                                                                             <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Ngày gửi</th>
                                                                             <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Hạn chót</th>
                                                                             <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
                                                                             <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Người tạo (NCC)</th>
-                                                                            <th className="h-9 whitespace-nowrap px-3 text-right text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Giá NCC báo</th>
-                                                                            <th className="h-9 w-28 px-3 text-center text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
+                                                                            <th className="h-9 whitespace-nowrap px-3 text-right tabular-nums text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Giá NCC báo</th>
+                                                                            <th className="h-9 w-28 whitespace-nowrap px-3 text-center text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody>

@@ -16,16 +16,17 @@ import purchaseRequestService from '@/services/purchaseRequestService';
 import PageContainer from '@/components/backoffice/PageContainer';
 import PageHeader from '@/components/backoffice/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
+import ErrorState from '@/components/shared/ErrorState';
 import LoadingState from '@/components/shared/LoadingState';
 import SearchInput from '@/components/shared/SearchInput';
 import StatusBadge from '@/components/shared/StatusBadge';
 import SurfaceCard from '@/components/shared/SurfaceCard';
+import { getApiErrorMessage, getApiErrorStatus } from '@/utils/apiError';
+import { formatDate as dinhDangNgay } from "@/utils/formatters";
 
 /* ─── Helpers ────────────────────────────────────────────────────────────────── */
-const formatDate = (d) => {
-    if (!d) return '—';
-    return new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-};
+// Định dạng chung toàn hệ thống: 05/10/2026 · 08:03; trống → "—"
+const formatDate = (d) => dinhDangNgay(d);
 
 const getInitials = (name = '') =>
     name.split(' ').filter(Boolean).slice(-2).map(w => w[0].toUpperCase()).join('');
@@ -105,7 +106,7 @@ function SupplierListItem({ supplier, isSelected, onToggle }) {
 }
 
 /* ─── RequestInfoPanel ──────────────────────────────────────────────────────── */
-function RequestInfoPanel({ request, loading, id }) {
+function RequestInfoPanel({ request, loading, error, onRetry, onBack, id }) {
     if (loading) {
         return (
             <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
@@ -116,11 +117,28 @@ function RequestInfoPanel({ request, loading, id }) {
     if (!request) {
         return (
             <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                <EmptyState
-                    icon={AlertCircle}
-                    title="Không tìm thấy yêu cầu"
-                    description="Yêu cầu nhập hàng có thể đã bị xóa hoặc không còn khả dụng."
-                />
+                {error && !error.notFound ? (
+                    <ErrorState
+                        title="Không thể tải thông tin yêu cầu"
+                        description={error.message}
+                        onRetry={onRetry}
+                    />
+                ) : (
+                    <EmptyState
+                        icon={AlertCircle}
+                        title="Không tìm thấy yêu cầu nhập hàng"
+                        description="Yêu cầu nhập hàng có thể đã bị xóa hoặc không còn khả dụng."
+                        action={
+                            <Button
+                                type="button"
+                                onClick={onBack}
+                                className="bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover"
+                            >
+                                Quay lại danh sách
+                            </Button>
+                        }
+                    />
+                )}
             </div>
         );
     }
@@ -219,34 +237,56 @@ export default function SendQuotationRequestPage() {
     // State
     const [suppliers, setSuppliers] = useState([]);
     const [loadingSuppliers, setLoadingSuppliers] = useState(true);
+    const [suppliersError, setSuppliersError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [request, setRequest] = useState(null);
     const [loadingRequest, setLoadingRequest] = useState(true);
+    // null | { notFound: true } | { notFound: false, message }
+    const [requestError, setRequestError] = useState(null);
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [submitting, setSubmitting] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
 
-    /* ── Load Data ── */
-    const loadData = useCallback(async () => {
+    /* ── Load Data: yêu cầu và nhà cung cấp tải riêng, lỗi bên nào báo bên đó ── */
+    const loadRequest = useCallback(async () => {
         if (!id) return;
+        setLoadingRequest(true);
+        setRequestError(null);
         try {
-            const [resSup, resReq] = await Promise.all([
-                apiClient.get('/api/supplier'),
-                apiClient.get(`/api/v1/yeu-cau-mua-hang/get-by-id/${id}`)
-            ]);
-            setSuppliers(resSup.data?.data || []);
-            setRequest(resReq.data?.data || null);
-        } catch {
-            toast.error('Lỗi khi tải dữ liệu. Vui lòng thử lại.');
+            const resReq = await apiClient.get(`/api/v1/yeu-cau-mua-hang/get-by-id/${id}`);
+            const data = resReq.data?.data || null;
+            setRequest(data);
+            if (!data) setRequestError({ notFound: true });
+        } catch (error) {
+            setRequest(null);
+            // Máy chủ trả 400 "Không tìm thấy yêu cầu mua hàng id: …" khi mã không tồn tại
+            const status = getApiErrorStatus(error);
+            setRequestError(status === 404 || status === 400
+                ? { notFound: true }
+                : { notFound: false, message: getApiErrorMessage(error, 'Không thể tải thông tin yêu cầu nhập hàng') });
         } finally {
-            setLoadingSuppliers(false);
             setLoadingRequest(false);
         }
     }, [id]);
 
+    const loadSuppliers = useCallback(async () => {
+        setLoadingSuppliers(true);
+        setSuppliersError(null);
+        try {
+            const resSup = await apiClient.get('/api/supplier');
+            setSuppliers(resSup.data?.data || []);
+        } catch (error) {
+            setSuppliers([]);
+            setSuppliersError(getApiErrorMessage(error, 'Không thể tải danh sách nhà cung cấp'));
+        } finally {
+            setLoadingSuppliers(false);
+        }
+    }, []);
+
     // Hoãn qua microtask để tránh setState đồng bộ trong effect
     // (react-hooks/set-state-in-effect); vẫn fetch ngay khi mount / khi id đổi.
-    useEffect(() => { queueMicrotask(() => loadData()); }, [loadData]);
+    useEffect(() => { queueMicrotask(() => loadRequest()); }, [loadRequest]);
+    useEffect(() => { queueMicrotask(() => loadSuppliers()); }, [loadSuppliers]);
 
     /* ── Derived State ── */
     const filteredSuppliers = useMemo(() => {
@@ -324,7 +364,14 @@ export default function SendQuotationRequestPage() {
                 {/* ════ LEFT COLUMN (Main Content) ════ */}
                 <div className="w-full min-w-0 flex-1 space-y-5">
                     {/* 1. Request Info */}
-                    <RequestInfoPanel request={request} loading={loadingRequest} id={id} />
+                    <RequestInfoPanel
+                        request={request}
+                        loading={loadingRequest}
+                        error={requestError}
+                        onRetry={() => loadRequest()}
+                        onBack={() => navigate('/purchase-requests')}
+                        id={id}
+                    />
 
                     {/* 2. Supplier Selection */}
                     <SurfaceCard
@@ -353,6 +400,12 @@ export default function SendQuotationRequestPage() {
                     >
                         {loadingSuppliers ? (
                             <LoadingState rows={4} label="Đang tải danh sách nhà cung cấp" />
+                        ) : suppliersError ? (
+                            <ErrorState
+                                title="Không thể tải danh sách nhà cung cấp"
+                                description={suppliersError}
+                                onRetry={() => loadSuppliers()}
+                            />
                         ) : filteredSuppliers.length === 0 ? (
                             <EmptyState
                                 icon={Building2}

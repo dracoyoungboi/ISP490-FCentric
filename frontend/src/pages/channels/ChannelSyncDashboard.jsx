@@ -37,10 +37,13 @@ import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { formatDateTime } from "@/utils/dateTime";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import { cn } from "@/lib/utils";
+import { RowActionButton, RowActions } from "@/components/shared/RowActions";
+import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 
 const TH_CLASS = "h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 // Trạng thái sự kiện nằm ở tab (URL ?trangThai=), không còn trong bộ lọc
-const DEFAULT_FILTERS = { keyword: "", ketNoiKenhId: "", loai: "", page: 0, size: 10 };
+const DEFAULT_FILTERS = { keyword: "", ketNoiKenhId: "", loai: "", page: 0, size: SO_DONG_MAC_DINH };
 const REFRESH_MS = 30_000;
 const inputClass =
     "h-10 w-full rounded-lg border border-bo-border bg-white px-3 text-sm text-bo-foreground outline-none focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15";
@@ -60,6 +63,9 @@ function toLocalInput(date) {
 }
 
 const formatDateTimeLocal = (value) => formatDateTime(value, { withYear: false });
+
+// Icon xoay cho nút "Thử lại" của dòng đang chạy (RowActionButton nhận một icon)
+const IconDangChay = ({ className, ...props }) => <Loader2 {...props} className={cn(className, "animate-spin")} />;
 
 export default function ChannelSyncDashboard() {
     const navigate = useNavigate();
@@ -588,36 +594,24 @@ export default function ChannelSyncDashboard() {
                                             <td className="px-3 py-3 text-center">
                                                 <SyncStatusBadge trangThai={log.trangThai} />
                                             </td>
-                                            <td className="px-3 py-3 text-center">
-                                                <div className="flex items-center justify-center gap-1">
+                                            <td className="px-3 py-3">
+                                                <RowActions>
                                                     {log.coTheThuLai ? (
-                                                        <button
-                                                            type="button"
+                                                        <RowActionButton
+                                                            icon={action === `log:${log.id}` ? IconDangChay : RotateCcw}
+                                                            label={action === `log:${log.id}` ? "Đang thử lại..." : "Thử lại"}
                                                             disabled={Boolean(action)}
-                                                            onClick={(event) => {
-                                                                event.stopPropagation();
-                                                                retryLog(log);
-                                                            }}
-                                                            className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary disabled:opacity-50"
-                                                            title="Thử lại"
-                                                        >
-                                                            {action === `log:${log.id}` ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
-                                                        </button>
+                                                            onClick={() => retryLog(log)}
+                                                        />
                                                     ) : (
-                                                        <span className="size-8" aria-hidden="true" />
+                                                        <span className="size-8 shrink-0" aria-hidden="true" />
                                                     )}
-                                                    <button
-                                                        type="button"
-                                                        onClick={(event) => {
-                                                            event.stopPropagation();
-                                                            setDetailId(log.id);
-                                                        }}
-                                                        className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
-                                                        title="Xem chi tiết"
-                                                    >
-                                                        <Eye className="size-4" />
-                                                    </button>
-                                                </div>
+                                                    <RowActionButton
+                                                        icon={Eye}
+                                                        label="Xem chi tiết"
+                                                        onClick={() => setDetailId(log.id)}
+                                                    />
+                                                </RowActions>
                                             </td>
                                         </tr>
                                     );

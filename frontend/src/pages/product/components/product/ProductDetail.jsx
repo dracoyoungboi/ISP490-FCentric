@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { productService } from "@/services/productService.js";
 import { danhMucQuanAoService } from "@/services/danhMucQuanAoService.js";
 import { formatCurrency } from "@/utils/formatters";
+import { dinhDangKhoangGia } from "@/pages/product/components/product/khoangGiaBienThe";
 import { Button } from "@/components/ui/button";
 
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -105,6 +106,9 @@ export default function ProductDetail() {
     }, [product?.trangThai]);
 
     const variantCount = product?.bienTheSanPhams?.length || 0;
+    // Giá theo các biến thể đang bán (không dùng giaBanMacDinh/giaVonMacDinh: sản phẩm hết hàng ra 0)
+    const giaBanHienThi = dinhDangKhoangGia(product?.bienTheSanPhams, "giaBan");
+    const giaVonHienThi = dinhDangKhoangGia(product?.bienTheSanPhams, "giaVon");
 
     if (isLoading) return (
         <PageContainer>
@@ -156,7 +160,7 @@ export default function ProductDetail() {
                 </nav>
             </div>
 
-            <div className="grid gap-5 xl:grid-cols-2">
+            <div className="grid items-start gap-5 xl:grid-cols-2">
                 {/* ── THƯ VIỆN ẢNH ── */}
                 <SurfaceCard>
                     <div className="group relative aspect-square overflow-hidden rounded-lg border border-bo-border bg-bo-surface-subtle">
@@ -264,12 +268,16 @@ export default function ProductDetail() {
 
                         <div className="grid gap-3 sm:grid-cols-3">
                             <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-3">
-                                <p className="text-xs font-medium text-bo-muted">Giá bán mặc định</p>
-                                <p className="mt-1 text-lg font-bold text-bo-foreground">{formatCurrency(product.giaBanMacDinh)}</p>
+                                <p className="text-xs font-medium text-bo-muted">Giá bán</p>
+                                <p className="mt-1 text-lg font-bold tabular-nums text-bo-foreground">
+                                    {giaBanHienThi ?? <span className="font-normal text-bo-muted">—</span>}
+                                </p>
                             </div>
                             <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-3">
-                                <p className="text-xs font-medium text-bo-muted">Giá vốn mặc định</p>
-                                <p className="mt-1 text-lg font-bold text-bo-foreground">{formatCurrency(product.giaVonMacDinh)}</p>
+                                <p className="text-xs font-medium text-bo-muted">Giá vốn</p>
+                                <p className="mt-1 text-lg font-bold tabular-nums text-bo-foreground">
+                                    {giaVonHienThi ?? <span className="font-normal text-bo-muted">—</span>}
+                                </p>
                             </div>
                             <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-3">
                                 <p className="text-xs font-medium text-bo-muted">Biến thể hiện có</p>
@@ -280,45 +288,43 @@ export default function ProductDetail() {
                         <div className="space-y-3">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-sm font-semibold text-bo-foreground">Danh sách biến thể</h3>
-                                <span className="text-xs text-bo-muted">{variantCount} tùy chọn</span>
+                                <span className="text-xs text-bo-muted">{variantCount} biến thể</span>
                             </div>
 
                             <div className="overflow-hidden rounded-lg border border-bo-border bg-white">
-                                <div className="max-h-[340px] overflow-y-auto">
-                                    <table className="w-full text-sm">
-                                        <thead className="sticky top-0 z-10 border-b border-bo-border bg-bo-surface-subtle">
-                                            <tr>
-                                                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                                    Chi tiết màu sắc &amp; size
-                                                </th>
-                                                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                                    Giá bán lẻ
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-bo-border">
-                                            {product.bienTheSanPhams?.map((variant) => (
-                                                <tr key={variant.id} className="transition-colors hover:bg-bo-surface-subtle">
-                                                    <td className="px-4 py-3">
-                                                        <div className="flex items-center gap-3">
-                                                            <div
-                                                                className="size-5 flex-shrink-0 rounded-full border border-white shadow-sm ring-2 ring-bo-border"
-                                                                style={{ backgroundColor: variant.mauSac?.maMauHex || variant.mauSac?.maMau }}
-                                                            />
-                                                            <div className="flex flex-col">
-                                                                <span className="font-semibold text-bo-foreground">{variant.mauSac?.tenMau || "-"}</span>
-                                                                <span className="text-xs text-bo-muted">Kích cỡ: {variant.size?.tenSize || "-"}</span>
-                                                            </div>
+                                <table className="w-full text-sm">
+                                    <thead className="border-b border-bo-border bg-bo-surface-subtle">
+                                        <tr>
+                                            <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                                Chi tiết màu sắc &amp; kích cỡ
+                                            </th>
+                                            <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                                Giá bán lẻ
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-bo-border">
+                                        {product.bienTheSanPhams?.map((variant) => (
+                                            <tr key={variant.id} className="transition-colors hover:bg-bo-surface-subtle">
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div
+                                                            className="size-5 flex-shrink-0 rounded-full border border-white shadow-sm ring-2 ring-bo-border"
+                                                            style={{ backgroundColor: variant.mauSac?.maMauHex || variant.mauSac?.maMau }}
+                                                        />
+                                                        <div className="flex flex-col">
+                                                            <span className="font-semibold text-bo-foreground">{variant.mauSac?.tenMau || "-"}</span>
+                                                            <span className="text-xs text-bo-muted">Kích cỡ: {variant.size?.tenSize || "-"}</span>
                                                         </div>
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right">
-                                                        <span className="font-bold text-bo-foreground">{formatCurrency(variant.giaBan)}</span>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                                    </div>
+                                                </td>
+                                                <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">
+                                                    <span className="font-bold text-bo-foreground">{formatCurrency(variant.giaBan)}</span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>

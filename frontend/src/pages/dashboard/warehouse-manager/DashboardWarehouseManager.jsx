@@ -1,23 +1,56 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { dashboardService } from "@/services/dashboardService";
 import Stat from "@/components/dashboard/Stat";
 import AlertBox from "@/components/dashboard/AlertBox";
 import PageContainer from "@/components/backoffice/PageContainer";
 import PageHeader from "@/components/backoffice/PageHeader";
+import LoadingState from "@/components/shared/LoadingState";
+import ErrorState from "@/components/shared/ErrorState";
+import { getApiErrorMessage } from "@/utils/apiError";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import { Package, ArrowDownToLine, ArrowUpFromLine, AlertTriangle } from "lucide-react";
 
 export default function DashboardWarehouseManager() {
 
     const [data, setData] = useState(null);
+    const [loadError, setLoadError] = useState(null);
 
-    useEffect(() => {
-        dashboardService.getDashboard().then(res => {
-            setData(res.data.data);
-        });
+    // Tải số liệu; lỗi thì hiện khối lỗi có nút "Thử lại" thay vì để trống trang
+    const taiTongQuan = useCallback(async () => {
+        setLoadError(null);
+        try {
+            const res = await dashboardService.getDashboard();
+            const soLieu = res.data?.data;
+            if (!soLieu) throw new Error("Máy chủ không trả về số liệu tổng quan");
+            setData(soLieu);
+        } catch (error) {
+            setLoadError(error);
+        }
     }, []);
 
-    if (!data) return null;
+    // Hoãn qua microtask để tránh setState đồng bộ trong effect (react-hooks/set-state-in-effect)
+    useEffect(() => {
+        queueMicrotask(() => taiTongQuan());
+    }, [taiTongQuan]);
+
+    if (!data) {
+        return (
+            <PageContainer className="space-y-5">
+                <PageHeader title="Tổng quan kho" />
+                {loadError ? (
+                    <SurfaceCard contentClassName="p-0 sm:p-0">
+                        <ErrorState
+                            title="Không tải được số liệu tổng quan"
+                            description={getApiErrorMessage(loadError, "Đã xảy ra lỗi khi tải số liệu. Vui lòng thử lại.")}
+                            onRetry={taiTongQuan}
+                        />
+                    </SurfaceCard>
+                ) : (
+                    <LoadingState label="Đang tải số liệu tổng quan" />
+                )}
+            </PageContainer>
+        );
+    }
 
     return (
 

@@ -23,6 +23,8 @@ import {
 
 import PageContainer from "@/components/backoffice/PageContainer";
 import TableShell from "@/components/shared/TableShell";
+import TablePagination from "@/components/shared/TablePagination";
+import { RowActionButton, RowActions } from "@/components/shared/RowActions";
 import StatusBadge from "@/components/shared/StatusBadge";
 import StatusTabs from "@/components/shared/StatusTabs";
 import ListPageHeader from "@/components/shared/ListPageHeader";
@@ -36,6 +38,8 @@ import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import apiClient from "@/services/apiClient";
 import { thongKeHeThongService } from "@/services/thongKeHeThongService";
 import { laKhoGiaoDich } from "@/utils/kho";
+import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
+import { formatCurrency, formatNumber } from "@/utils/formatters";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROLE = {
@@ -86,12 +90,6 @@ function canNhapKho(roles) {
         ROLE.NHAN_VIEN_KHO, ROLE.NHAN_VIEN_MUA_HANG,
     ].includes(r));
 }
-
-const formatCurrency = (value) =>
-    new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(value ?? 0);
-
-const fmt = (n) =>
-    n != null ? Number(n).toLocaleString("vi-VN", { maximumFractionDigits: 0 }) : "—";
 
 function trangThaiTon(item) {
     const kha = Number(item.tongSoLuongKhaDung ?? item.onHand ?? 0);
@@ -155,6 +153,10 @@ export default function TonKhoTongQuan() {
     const [hasLoaded, setHasLoaded] = useState(false);
     const [loadError, setLoadError] = useState(null);
     const requestIdRef = useRef(0);
+
+    // Phân trang tại chỗ (API trả hết các dòng của kho + từ khóa)
+    const [page, setPage] = useState(0);
+    const [pageSize, setPageSize] = useState(SO_DONG_MAC_DINH);
 
     const initDone = useRef(false);
 
@@ -261,6 +263,7 @@ export default function TonKhoTongQuan() {
 
     // Bấm nút Lọc
     const handleFilter = () => {
+        setPage(0);
         const khoId = selectedKhoId ?? (khoList.length === 1 ? khoList[0].id : undefined);
         loadTonKho({ khoId, kw: keyword.trim() || undefined });
     };
@@ -274,6 +277,7 @@ export default function TonKhoTongQuan() {
         if (numId) localStorage.setItem("selected_kho_id", numId);
 
         setHasLoaded(false);
+        setPage(0);
         loadTonKho({ khoId: numId ?? undefined, kw: keyword.trim() || undefined });
     };
 
@@ -286,6 +290,7 @@ export default function TonKhoTongQuan() {
     const handleClearFilters = () => {
         setKeyword("");
         if (tuKhoaDaApDung) {
+            setPage(0);
             const khoId = selectedKhoId ?? (khoList.length === 1 ? khoList[0].id : undefined);
             loadTonKho({ khoId });
         }
@@ -293,6 +298,17 @@ export default function TonKhoTongQuan() {
 
     // Filter phía client
     const filteredData = data.filter(item => khopTab(item, trangThaiFilter));
+
+    // Cắt trang tại chỗ; trang đang xem vượt quá số trang (đổi tab qua đường dẫn, Làm mới ít dòng hơn) thì về trang cuối
+    const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
+    const safePage = Math.min(page, totalPages - 1);
+    const pageItems = filteredData.slice(safePage * pageSize, (safePage + 1) * pageSize);
+
+    // Đổi tab tình trạng: về trang đầu
+    const changeTab = (value) => {
+        setTrangThaiFilter(value);
+        setPage(0);
+    };
 
     // Số trên tab = số dòng thấy khi bấm tab, trên dữ liệu đã lọc kho + từ khóa (R1);
     // đang tải / lỗi / chưa tải thì không hiện số (R9)
@@ -361,7 +377,7 @@ export default function TonKhoTongQuan() {
     }
 
     return (
-        <PageContainer className="space-y-4">
+        <PageContainer fill className="space-y-4">
             <ListPageHeader
                 scope={scopeNote}
                 actions={
@@ -378,6 +394,7 @@ export default function TonKhoTongQuan() {
 
             {/* ── Bảng dữ liệu: tab tình trạng + kho + tìm kiếm cùng một hàng ── */}
             <TableShell
+                fill
                 toolbar={
                     <ListToolbar
                         tabs={
@@ -385,7 +402,7 @@ export default function TonKhoTongQuan() {
                                 label="Lọc tồn kho theo tình trạng"
                                 tabs={statusTabs}
                                 value={trangThaiFilter}
-                                onChange={setTrangThaiFilter}
+                                onChange={changeTab}
                             />
                         }
                         hasFilter={hasFilter}
@@ -445,22 +462,23 @@ export default function TonKhoTongQuan() {
                     </ListToolbar>
                 }
                 footer={!loading && !loadError && hasLoaded && filteredData.length > 0 ? (
-                    <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex flex-col gap-3">
+                        {/* Dòng tổng: cộng mọi dòng của tab đang chọn (không chỉ trang đang xem) */}
                         <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
                             <SummaryItem
                                 label="Tổng tồn kho"
-                                value={fmt(filteredData.reduce((s, i) => s + Number(i.onHand ?? i.tongSoLuongKhaDung ?? 0), 0))}
+                                value={formatNumber(filteredData.reduce((s, i) => s + Number(i.onHand ?? i.tongSoLuongKhaDung ?? 0), 0))}
                             />
                             <Divider />
                             <SummaryItem
                                 label="Đang về"
-                                value={fmt(filteredData.reduce((s, i) => s + Number(i.incoming ?? i.tongSoLuongChoNhan ?? 0), 0))}
+                                value={formatNumber(filteredData.reduce((s, i) => s + Number(i.incoming ?? i.tongSoLuongChoNhan ?? 0), 0))}
                                 valueClass="text-bo-primary"
                             />
                             <Divider />
                             <SummaryItem
                                 label="Đang xuất"
-                                value={fmt(filteredData.reduce((s, i) => s + Number(i.outgoing ?? i.tongSoLuongChoDuaHang ?? 0), 0))}
+                                value={formatNumber(filteredData.reduce((s, i) => s + Number(i.outgoing ?? i.tongSoLuongChoDuaHang ?? 0), 0))}
                                 valueClass="text-bo-warning"
                             />
                             <Divider />
@@ -486,14 +504,13 @@ export default function TonKhoTongQuan() {
                             )}
                         </div>
 
-                        {/* Số dòng đang hiện / tổng số dòng của kho + từ khóa (bảng không phân trang) */}
-                        <p className="shrink-0 text-xs text-bo-muted">
-                            {"Hiển thị "}
-                            <span className="font-semibold text-bo-primary">{filteredData.length}</span>
-                            {" / "}
-                            <span className="font-semibold text-bo-foreground">{data.length}</span>
-                            {" bản ghi"}
-                        </p>
+                        <TablePagination
+                            page={safePage}
+                            size={pageSize}
+                            total={filteredData.length}
+                            onPageChange={setPage}
+                            onSizeChange={(size) => { setPageSize(size); setPage(0); }}
+                        />
                     </div>
                 ) : null}
             >
@@ -534,7 +551,7 @@ export default function TonKhoTongQuan() {
                             action={
                                 <Button
                                     variant="outline"
-                                    onClick={() => setTrangThaiFilter(TAB_MAC_DINH)}
+                                    onClick={() => changeTab(TAB_MAC_DINH)}
                                     className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
                                     Xem tất cả
@@ -549,118 +566,120 @@ export default function TonKhoTongQuan() {
                         />
                     )
                 ) : (
-                    <div className="max-h-[600px] overflow-y-auto">
-                        <table className="w-full min-w-[1280px] text-sm">
-                            <thead className="sticky top-0 z-10 bg-bo-surface-subtle">
-                                <tr className="border-b border-bo-border">
-                                    <th className={`${TH_CLASS} text-center`}>STT</th>
-                                    <th className={`${TH_CLASS} text-left`}>Mã SP / SKU</th>
-                                    <th className={`${TH_CLASS} min-w-[200px] text-left`}>Sản phẩm &amp; biến thể</th>
-                                    <th className={`${TH_CLASS} text-left`}>Kho</th>
-                                    <th className={`${TH_CLASS} text-center`}>On Hand</th>
-                                    <th className={`${TH_CLASS} text-center`}>↓ Incoming</th>
-                                    <th className={`${TH_CLASS} text-center`}>↑ Outgoing</th>
-                                    <th className={`${TH_CLASS} text-center`}>Free to Use</th>
-                                    <th className={`${TH_CLASS} text-right`}>Tồn tối thiểu</th>
-                                    <th className={`${TH_CLASS} text-right`}>Giá trị tồn</th>
-                                    <th className={`${TH_CLASS} text-center`}>Tình trạng</th>
-                                    <th className={`${TH_CLASS} text-center`}>Thao tác</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-bo-border">
-                                {filteredData.map((item, idx) => {
-                                    const statusKey = trangThaiTon(item);
-                                    const statusCfg = STATUS_CFG[statusKey] ?? STATUS_CFG.binh_thuong;
-                                    const isLow = statusKey === "het_hang" || statusKey === "thieu_hang";
+                    <table className="w-full min-w-[1280px] text-sm">
+                        <thead className="sticky top-0 z-10 bg-bo-surface-subtle">
+                            <tr className="border-b border-bo-border">
+                                <th className={`${TH_CLASS} text-center`}>STT</th>
+                                <th className={`${TH_CLASS} text-left`}>Mã SP / SKU</th>
+                                <th className={`${TH_CLASS} min-w-[200px] text-left`}>Sản phẩm &amp; biến thể</th>
+                                <th className={`${TH_CLASS} text-left`}>Kho</th>
+                                <th className={`${TH_CLASS} text-right tabular-nums`}>On Hand</th>
+                                <th className={`${TH_CLASS} text-right tabular-nums`}>↓ Incoming</th>
+                                <th className={`${TH_CLASS} text-right tabular-nums`}>↑ Outgoing</th>
+                                <th className={`${TH_CLASS} text-right tabular-nums`}>Free to Use</th>
+                                <th className={`${TH_CLASS} text-right tabular-nums`}>Tồn tối thiểu</th>
+                                <th className={`${TH_CLASS} text-right tabular-nums`}>Giá trị tồn</th>
+                                <th className={`${TH_CLASS} text-center`}>Tình trạng</th>
+                                <th className={`${TH_CLASS} text-center`}>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-bo-border">
+                            {pageItems.map((item, idx) => {
+                                const statusKey = trangThaiTon(item);
+                                const statusCfg = STATUS_CFG[statusKey] ?? STATUS_CFG.binh_thuong;
+                                const isLow = statusKey === "het_hang" || statusKey === "thieu_hang";
 
-                                    const onHand = Number(item.onHand ?? item.tongSoLuongKhaDung ?? 0);
-                                    const incoming = Number(item.incoming ?? item.tongSoLuongChoNhan ?? 0);
-                                    const outgoing = Number(item.outgoing ?? item.tongSoLuongChoDuaHang ?? 0);
-                                    const freeToUse = item.freeToUse != null ? Number(item.freeToUse) : (onHand + incoming - outgoing);
-                                    const giaTri = Number(item.tongGiaTri ?? item.giaTriTonKho ?? 0);
+                                const onHand = Number(item.onHand ?? item.tongSoLuongKhaDung ?? 0);
+                                const incoming = Number(item.incoming ?? item.tongSoLuongChoNhan ?? 0);
+                                const outgoing = Number(item.outgoing ?? item.tongSoLuongChoDuaHang ?? 0);
+                                const freeToUse = item.freeToUse != null ? Number(item.freeToUse) : (onHand + incoming - outgoing);
+                                const giaTri = Number(item.tongGiaTri ?? item.giaTriTonKho ?? 0);
 
-                                    return (
-                                        <tr
-                                            key={`${item.bienTheId}-${item.khoId}-${idx}`}
-                                            className={`transition-colors ${isLow ? "bg-bo-warning-soft" : "bg-white hover:bg-bo-surface-subtle"}`}
-                                        >
-                                            <td className="px-3 py-3 text-center text-xs text-bo-muted">{idx + 1}</td>
+                                return (
+                                    <tr
+                                        key={`${item.bienTheId}-${item.khoId}-${idx}`}
+                                        className={`transition-colors ${isLow ? "bg-bo-warning-soft" : "bg-white hover:bg-bo-surface-subtle"}`}
+                                    >
+                                        <td className="px-3 py-3 text-center text-xs text-bo-muted">{safePage * pageSize + idx + 1}</td>
 
-                                            <td className="px-3 py-3">
-                                                <div className="flex flex-col gap-1">
-                                                    <span className="text-[10px] font-semibold uppercase text-bo-muted">{item.maSanPham}</span>
-                                                    <span className="w-fit rounded border border-bo-primary/20 bg-bo-primary-soft px-1.5 py-0.5 font-mono text-[11px] font-semibold text-bo-primary">
-                                                        {item.maSku}
-                                                    </span>
-                                                </div>
-                                            </td>
-
-                                            <td className="max-w-[250px] px-3 py-3">
-                                                <p className="mb-1 truncate font-semibold text-bo-foreground">{item.tenSanPham}</p>
-                                                <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-600">
-                                                    {item.maMauHex && (
-                                                        <svg className="size-3 shrink-0" viewBox="0 0 12 12" aria-hidden="true">
-                                                            <circle cx="6" cy="6" r="6" fill={item.maMauHex} />
-                                                        </svg>
-                                                    )}
-                                                    <span className="font-medium">{item.tenMau}</span>
-                                                    <span className="text-slate-300">|</span>
-                                                    <span className="rounded border border-bo-border bg-bo-surface-subtle px-1.5 py-0 font-mono text-[10px] font-semibold text-slate-600">
-                                                        {item.tenSize ?? item.maSize}
-                                                    </span>
-                                                    <span className="text-slate-300">|</span>
-                                                    <span>{item.tenChatLieu}</span>
-                                                </div>
-                                            </td>
-
-                                            <td className="px-3 py-3">
-                                                <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-bo-border bg-white px-2 py-1 text-[11px] font-medium text-slate-600">
-                                                    <Warehouse className="size-3" /> {item.tenKho}
+                                        <td className="px-3 py-3">
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-[10px] font-semibold uppercase text-bo-muted">{item.maSanPham}</span>
+                                                <span className="w-fit rounded border border-bo-primary/20 bg-bo-primary-soft px-1.5 py-0.5 font-mono text-[11px] font-semibold text-bo-primary">
+                                                    {item.maSku}
                                                 </span>
-                                            </td>
+                                            </div>
+                                        </td>
 
-                                            <td className="px-3 py-3 text-center">
-                                                <NumBadge value={onHand} colorClass={isLow ? "bg-bo-danger text-white" : "bg-bo-success text-white"} />
-                                            </td>
-
-                                            <td className="px-3 py-3 text-center">
-                                                <NumBadge value={incoming} colorClass={incoming > 0 ? "bg-bo-primary text-white" : "border border-bo-border bg-white text-slate-400"} />
-                                            </td>
-
-                                            <td className="px-3 py-3 text-center">
-                                                <NumBadge value={outgoing} colorClass={outgoing > 0 ? "bg-bo-warning text-white" : "border border-bo-border bg-white text-slate-400"} />
-                                            </td>
-
-                                            <td className="px-3 py-3 text-center">
-                                                <NumBadge value={freeToUse} colorClass={freeToUse < 0 ? "bg-bo-danger text-white" : freeToUse === 0 ? "border border-bo-border bg-white text-slate-400" : "bg-slate-700 text-white"} />
-                                            </td>
-
-                                            <td className="px-3 py-3 text-right text-xs font-semibold text-slate-600">{fmt(item.mucTonToiThieu)}</td>
-                                            <td className="px-3 py-3 text-right text-xs font-bold text-bo-foreground">{formatCurrency(giaTri)}</td>
-
-                                            <td className="px-3 py-3 text-center">
-                                                <StatusBadge label={statusCfg.label} tone={statusCfg.tone} />
-                                            </td>
-
-                                            <td className="px-3 py-3 text-center">
-                                                {showNhapKho && (
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => navigate(`/purchase-requests/create?bienTheId=${item.bienTheId}&khoId=${item.khoId}`)}
-                                                        className="h-8 gap-1.5 border-bo-primary/20 bg-bo-primary-soft px-3 text-[11px] font-medium text-bo-primary hover:bg-bo-primary hover:text-white"
-                                                        title="Tạo yêu cầu nhập kho"
-                                                    >
-                                                        <PackagePlus className="size-3.5" /> Nhập
-                                                    </Button>
+                                        <td className="max-w-[250px] px-3 py-3">
+                                            <p className="mb-1 truncate font-semibold text-bo-foreground">{item.tenSanPham}</p>
+                                            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-600">
+                                                {item.maMauHex && (
+                                                    <svg className="size-3 shrink-0" viewBox="0 0 12 12" aria-hidden="true">
+                                                        <circle cx="6" cy="6" r="6" fill={item.maMauHex} />
+                                                    </svg>
                                                 )}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                                                <span className="font-medium">{item.tenMau}</span>
+                                                <span className="text-slate-300">|</span>
+                                                <span className="rounded border border-bo-border bg-bo-surface-subtle px-1.5 py-0 font-mono text-[10px] font-semibold text-slate-600">
+                                                    {item.tenSize ?? item.maSize}
+                                                </span>
+                                                <span className="text-slate-300">|</span>
+                                                <span>{item.tenChatLieu}</span>
+                                            </div>
+                                        </td>
+
+                                        <td className="px-3 py-3">
+                                            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-bo-border bg-white px-2 py-1 text-[11px] font-medium text-slate-600">
+                                                <Warehouse className="size-3" /> {item.tenKho}
+                                            </span>
+                                        </td>
+
+                                        <td className="px-3 py-3 text-right tabular-nums">
+                                            <NumBadge value={onHand} colorClass={isLow ? "bg-bo-danger text-white" : "bg-bo-success text-white"} />
+                                        </td>
+
+                                        <td className="px-3 py-3 text-right tabular-nums">
+                                            <NumBadge value={incoming} colorClass={incoming > 0 ? "bg-bo-primary text-white" : "border border-bo-border bg-white text-slate-400"} />
+                                        </td>
+
+                                        <td className="px-3 py-3 text-right tabular-nums">
+                                            <NumBadge value={outgoing} colorClass={outgoing > 0 ? "bg-bo-warning text-white" : "border border-bo-border bg-white text-slate-400"} />
+                                        </td>
+
+                                        <td className="px-3 py-3 text-right tabular-nums">
+                                            <NumBadge value={freeToUse} colorClass={freeToUse < 0 ? "bg-bo-danger text-white" : freeToUse === 0 ? "border border-bo-border bg-white text-slate-400" : "bg-slate-700 text-white"} />
+                                        </td>
+
+                                        <td className="px-3 py-3 text-right text-xs tabular-nums">
+                                            {item.mucTonToiThieu == null ? (
+                                                <span className="text-bo-muted">—</span>
+                                            ) : (
+                                                <span className="font-semibold text-slate-600">{formatNumber(item.mucTonToiThieu)}</span>
+                                            )}
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-3 text-right text-xs font-bold tabular-nums text-bo-foreground">{formatCurrency(giaTri)}</td>
+
+                                        <td className="px-3 py-3 text-center">
+                                            <StatusBadge label={statusCfg.label} tone={statusCfg.tone} />
+                                        </td>
+
+                                        <td className="px-3 py-3 text-center">
+                                            {showNhapKho && (
+                                                <RowActions>
+                                                    <RowActionButton
+                                                        icon={PackagePlus}
+                                                        label="Tạo yêu cầu nhập kho"
+                                                        onClick={() => navigate(`/purchase-requests/create?bienTheId=${item.bienTheId}&khoId=${item.khoId}`)}
+                                                    />
+                                                </RowActions>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
                 )}
             </TableShell>
         </PageContainer>
@@ -671,7 +690,7 @@ export default function TonKhoTongQuan() {
 function NumBadge({ value, colorClass }) {
     return (
         <span className={`inline-flex min-w-[36px] items-center justify-center rounded px-1.5 py-0.5 font-mono text-xs font-bold ${colorClass}`}>
-            {Number(value).toLocaleString("vi-VN")}
+            {formatNumber(Number(value))}
         </span>
     );
 }

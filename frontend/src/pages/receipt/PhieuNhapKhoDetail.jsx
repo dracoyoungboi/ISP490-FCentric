@@ -12,6 +12,7 @@ import {
     Loader2,
     Package,
     Printer,
+    SearchX,
     Truck,
     User,
     Warehouse,
@@ -19,19 +20,26 @@ import {
 } from "lucide-react";
 
 import PageContainer from "@/components/backoffice/PageContainer";
+import EmptyState from "@/components/shared/EmptyState";
+import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
 import StatusBadge from "@/components/shared/StatusBadge";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import TableShell from "@/components/shared/TableShell";
 import { Button } from "@/components/ui/button";
 import { getGoodsReceiptStatus, getGoodsReceiptTypeLabel } from "@/constants/goodsReceipt";
+import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
+import { formatDate } from "@/utils/formatters";
 
 export default function PhieuNhapKhoDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
 
     const [data, setData] = useState(null);
-    const [loading, setLoading] = useState(false);
+    // Bắt đầu ở trạng thái đang tải: lần render đầu chưa gọi API
+    const [loading, setLoading] = useState(true);
+    // null | { notFound: true } | { notFound: false, message }
+    const [loadError, setLoadError] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
 
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -39,12 +47,20 @@ export default function PhieuNhapKhoDetail() {
 
     const fetchDetail = useCallback(async () => {
         setLoading(true);
+        setLoadError(null);
         try {
             const res = await phieuNhapKhoService.getDetail(id);
-            setData(res?.data || res);
+            const detail = res?.data || res;
+            setData(detail || null);
+            if (!detail) setLoadError({ notFound: true });
         } catch (e) {
             console.error(e);
-            toast.error("Không thể tải chi tiết phiếu nhập");
+            setData(null);
+            // Máy chủ trả 400 "Không tìm thấy phiếu nhập id: …" khi mã không tồn tại
+            const status = getApiErrorStatus(e);
+            setLoadError(status === 404 || status === 400
+                ? { notFound: true }
+                : { notFound: false, message: getApiErrorMessage(e, "Không thể tải chi tiết phiếu nhập") });
         } finally {
             setLoading(false);
         }
@@ -56,10 +72,40 @@ export default function PhieuNhapKhoDetail() {
         queueMicrotask(() => fetchDetail());
     }, [fetchDetail]);
 
-    if (loading || !data) {
+    if (loading) {
         return (
             <PageContainer>
                 <LoadingState rows={4} label="Đang tải chi tiết phiếu nhập" />
+            </PageContainer>
+        );
+    }
+
+    if (!data) {
+        return (
+            <PageContainer>
+                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                    {loadError && !loadError.notFound ? (
+                        <ErrorState
+                            title="Không thể tải chi tiết phiếu nhập kho"
+                            description={loadError.message}
+                            onRetry={() => fetchDetail()}
+                        />
+                    ) : (
+                        <EmptyState
+                            icon={SearchX}
+                            title="Không tìm thấy phiếu nhập kho"
+                            description="Phiếu nhập kho không tồn tại hoặc đã bị xóa khỏi hệ thống."
+                            action={
+                                <Button
+                                    onClick={() => navigate("/goods-receipts")}
+                                    className="bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover"
+                                >
+                                    Quay lại danh sách
+                                </Button>
+                            }
+                        />
+                    )}
+                </div>
             </PageContainer>
         );
     }
@@ -206,7 +252,7 @@ export default function PhieuNhapKhoDetail() {
                     {isInternalTransfer && <InfoItem icon={<ClipboardList className="size-3.5" />} label="Phiếu xuất gốc" value={data.soPhieuXuatGoc || (data.phieuXuatGocId ? `#${data.phieuXuatGocId}` : "Tự động")} />}
                     {isSalesReturn && <InfoItem icon={<ClipboardList className="size-3.5" />} label="Ghi chú" value="Tự động kế thừa lô" />}
 
-                    <InfoItem icon={<Calendar className="size-3.5" />} label="Ngày nhập" value={data.ngayNhap ? new Date(data.ngayNhap).toLocaleDateString("vi-VN") : "---"} />
+                    <InfoItem icon={<Calendar className="size-3.5" />} label="Ngày nhập" value={formatDate(data.ngayNhap)} />
                     <InfoItem icon={<User className="size-3.5" />} label="Người nhập" value={data.tenNguoiNhap || "---"} />
                 </div>
 

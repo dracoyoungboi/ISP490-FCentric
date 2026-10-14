@@ -5,11 +5,6 @@ import {
     Dialog, DialogContent, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-    DropdownMenu, DropdownMenuContent,
-    DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-    ChevronDown, ChevronLeft, ChevronRight,
     Loader2, History, ArrowDownToLine, ArrowUpFromLine,
     ArrowLeftRight, SlidersHorizontal, Warehouse, Eye,
     CalendarDays, User2, FileText, Hash, Package, SearchX,
@@ -21,12 +16,16 @@ import ListToolbar from "@/components/shared/ListToolbar";
 import SearchInput from "@/components/shared/SearchInput";
 import StatusTabs from "@/components/shared/StatusTabs";
 import TableShell from "@/components/shared/TableShell";
+import TablePagination from "@/components/shared/TablePagination";
+import { RowActionButton, RowActions } from "@/components/shared/RowActions";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import { getLichSuGiaoDichKho, getChiTietLichSu } from "@/services/lichSuGiaoDichKhoService";
 import { getMineKhoList } from "@/services/khoService";
+import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
+import { formatDateTime, formatNumber } from "@/utils/formatters";
 
 // ── Constants ─────────────────────────────────────────────────────────────
 // "chuyen_kho" giữ để hiện nhãn cho dữ liệu cũ (nếu có); backend hiện chỉ ghi 3 loại còn lại.
@@ -63,17 +62,22 @@ const matchSearch = (item, search) => {
         item.nguoiDungTen?.toLowerCase().includes(q);
 };
 
-const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 const TH_CLASS =
     "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
-const DROPDOWN_CONTENT_CLASS =
-    "backoffice-user-menu z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg";
 
-const formatDate = (val) =>
-    val ? new Date(val).toLocaleString("vi-VN", {
-        year: "numeric", month: "2-digit", day: "2-digit",
-        hour: "2-digit", minute: "2-digit",
-    }) : "—";
+// Tiêu đề cột của bảng (căn lề theo kiểu dữ liệu: số căn phải, thao tác căn giữa)
+const TABLE_COLUMNS = [
+    { label: "STT",             className: "w-14 text-left" },
+    { label: "Ngày giao dịch",  className: "text-left" },
+    { label: "Loại",            className: "text-left" },
+    { label: "Sản phẩm",        className: "text-left" },
+    { label: "SKU",             className: "text-left" },
+    { label: "Lô hàng",         className: "text-left" },
+    { label: "Kho",             className: "text-left" },
+    { label: "Số lượng",        className: "text-right tabular-nums" },
+    { label: "Người thực hiện", className: "text-left" },
+    { label: "Thao tác",        className: "text-center" },
+];
 
 // ── Loại Badge ────────────────────────────────────────────────────────────
 function LoaiBadge({ loai }) {
@@ -87,20 +91,6 @@ function LoaiBadge({ loai }) {
             <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
             {cfg.label}
         </span>
-    );
-}
-
-// ── Action button ─────────────────────────────────────────────────────────
-function ActionBtn({ title, onClick, children }) {
-    return (
-        <button
-            type="button"
-            title={title}
-            onClick={onClick}
-            className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border bg-white text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
-        >
-            {children}
-        </button>
     );
 }
 
@@ -156,7 +146,7 @@ function DetailModal({ open, onClose, item, loading }) {
                         {/* Ngày giao dịch */}
                         <div className="flex items-center gap-2 rounded-lg border border-bo-border bg-bo-surface-subtle px-4 py-2.5 text-sm text-slate-700">
                             <CalendarDays className="size-4 shrink-0 text-bo-muted" />
-                            <span className="font-medium">{formatDate(item.ngayGiaoDich)}</span>
+                            <span className="font-medium">{formatDateTime(item.ngayGiaoDich)}</span>
                         </div>
 
                         {/* Grid fields */}
@@ -211,7 +201,7 @@ export default function LichSuGiaoDichKhoList() {
     const [loadError,      setLoadError]      = useState(false);
     const [search,         setSearch]         = useState("");
     const [pageNumber,     setPageNumber]      = useState(0);
-    const [pageSize,       setPageSize]       = useState(10);
+    const [pageSize,       setPageSize]       = useState(SO_DONG_MAC_DINH);
     const [selectedId,     setSelectedId]     = useState(null);
     const [chiTiet,        setChiTiet]        = useState(null);
     const [loadingDetail,  setLoadingDetail]  = useState(false);
@@ -329,7 +319,7 @@ export default function LichSuGiaoDichKhoList() {
     const currentLoaiLabel = LOAI_TABS.find((t) => t.value === filterLoai)?.label;
 
     return (
-        <PageContainer className="space-y-4">
+        <PageContainer fill className="space-y-4">
 
             <DetailModal open={!!selectedId} onClose={handleCloseModal} item={chiTiet} loading={loadingDetail} />
 
@@ -338,6 +328,7 @@ export default function LichSuGiaoDichKhoList() {
 
             {/* ── Table: tab loại giao dịch + tìm kiếm cùng một hàng ── */}
             <TableShell
+                fill
                 toolbar={
                     <ListToolbar
                         tabs={
@@ -362,95 +353,13 @@ export default function LichSuGiaoDichKhoList() {
                     </ListToolbar>
                 }
                 footer={!loading && !loadError && totalElements > 0 ? (
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-
-                        {/* Page size */}
-                        <div className="flex items-center gap-2">
-                            <span className="whitespace-nowrap text-xs text-bo-muted">Hiển thị</span>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className="h-8 w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                                    >
-                                        {pageSize} dòng
-                                        <ChevronDown className="size-3.5 opacity-60" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start" className={`${DROPDOWN_CONTENT_CLASS} w-[110px]`}>
-                                    {PAGE_SIZE_OPTIONS.map((size) => (
-                                        <DropdownMenuItem
-                                            key={size}
-                                            onClick={() => { setPageSize(size); setPageNumber(0); }}
-                                            className="cursor-pointer rounded-md px-2.5 py-1.5 text-xs text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                        >
-                                            {size} dòng
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-
-                        {/* Page info */}
-                        <p className="text-xs text-bo-muted">
-                            Hiển thị{" "}
-                            <span className="font-semibold text-bo-foreground">{safePage * pageSize + 1}</span>
-                            {" – "}
-                            <span className="font-semibold text-bo-foreground">
-                                {Math.min((safePage + 1) * pageSize, totalElements)}
-                            </span>
-                            {" trong tổng số "}
-                            <span className="font-semibold text-bo-primary">{totalElements}</span> kết quả
-                        </p>
-
-                        {/* Nav */}
-                        <div className="flex items-center gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handlePageChange(safePage - 1)}
-                                disabled={safePage === 0}
-                                className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                            >
-                                <ChevronLeft className="size-3.5" /> Trước
-                            </Button>
-
-                            <div className="hidden items-center gap-1 sm:flex">
-                                {[...Array(Math.min(5, totalPages))].map((_, idx) => {
-                                    let pageNum;
-                                    if (totalPages <= 5)                pageNum = idx;
-                                    else if (safePage < 3)              pageNum = idx;
-                                    else if (safePage > totalPages - 4) pageNum = totalPages - 5 + idx;
-                                    else                                pageNum = safePage - 2 + idx;
-                                    return (
-                                        <Button
-                                            key={idx}
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handlePageChange(pageNum)}
-                                            className={
-                                                safePage === pageNum
-                                                    ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
-                                                    : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
-                                            }
-                                        >
-                                            {pageNum + 1}
-                                        </Button>
-                                    );
-                                })}
-                            </div>
-
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handlePageChange(safePage + 1)}
-                                disabled={safePage >= totalPages - 1}
-                                className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                            >
-                                Sau <ChevronRight className="size-3.5" />
-                            </Button>
-                        </div>
-                    </div>
+                    <TablePagination
+                        page={safePage}
+                        size={pageSize}
+                        total={totalElements}
+                        onPageChange={handlePageChange}
+                        onSizeChange={(size) => { setPageSize(size); setPageNumber(0); }}
+                    />
                 ) : null}
             >
                 {loading ? (
@@ -500,14 +409,11 @@ export default function LichSuGiaoDichKhoList() {
                     )
                 ) : (
                     <table className="w-full min-w-[1080px] text-sm">
-                        <thead>
+                        <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                {["STT", "Ngày giao dịch", "Loại", "Sản phẩm", "SKU", "Lô hàng", "Kho", "Số lượng", "Người thực hiện", ""].map((h, i) => (
-                                    <th
-                                        key={i}
-                                        className={`${TH_CLASS} ${i === 9 ? "text-center" : "text-left"} ${i === 0 ? "w-14" : ""}`}
-                                    >
-                                        {h}
+                                {TABLE_COLUMNS.map((col) => (
+                                    <th key={col.label} className={`${TH_CLASS} ${col.className}`}>
+                                        {col.label}
                                     </th>
                                 ))}
                             </tr>
@@ -531,7 +437,7 @@ export default function LichSuGiaoDichKhoList() {
                                         </td>
 
                                         <td className="whitespace-nowrap px-4 py-3.5 align-middle">
-                                            <span className="text-xs text-bo-muted">{formatDate(item.ngayGiaoDich)}</span>
+                                            <span className="text-xs text-bo-muted">{formatDateTime(item.ngayGiaoDich)}</span>
                                         </td>
 
                                         <td className="px-4 py-3.5 align-middle">
@@ -560,9 +466,9 @@ export default function LichSuGiaoDichKhoList() {
                                             <span className="font-medium text-bo-foreground">{item.tenKho || "—"}</span>
                                         </td>
 
-                                        <td className="px-4 py-3.5 align-middle">
+                                        <td className="whitespace-nowrap px-4 py-3.5 text-right align-middle tabular-nums">
                                             <span className={`text-base font-bold ${soLuongColor}`}>
-                                                {soLuongPrefix}{Math.abs(displaySoLuong)}
+                                                {soLuongPrefix}{formatNumber(Math.abs(displaySoLuong))}
                                             </span>
                                         </td>
 
@@ -571,9 +477,13 @@ export default function LichSuGiaoDichKhoList() {
                                         </td>
 
                                         <td className="px-4 py-3.5 text-center align-middle">
-                                            <ActionBtn title="Xem chi tiết" onClick={() => handleViewDetail(item)}>
-                                                <Eye className="size-4" />
-                                            </ActionBtn>
+                                            <RowActions>
+                                                <RowActionButton
+                                                    icon={Eye}
+                                                    label="Xem chi tiết"
+                                                    onClick={() => handleViewDetail(item)}
+                                                />
+                                            </RowActions>
                                         </td>
                                     </tr>
                                 );

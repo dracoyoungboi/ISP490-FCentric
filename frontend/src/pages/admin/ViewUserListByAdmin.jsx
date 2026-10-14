@@ -23,6 +23,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import StatusTabs from "@/components/shared/StatusTabs";
 import TablePagination from "@/components/shared/TablePagination";
 import TableShell from "@/components/shared/TableShell";
+import { RowActionButton, RowActions } from "@/components/shared/RowActions";
 import { Button } from "@/components/ui/button";
 import {
     AlertDialog,
@@ -35,6 +36,7 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ROLES } from "@/constants/backend/role";
+import { LUA_CHON_SO_DONG, SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { cn } from "@/lib/utils";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import { adminService } from "@/services/adminService";
@@ -61,8 +63,6 @@ const EMPTY_TAB_TITLE = {
     0: "Không có tài khoản nào bị khóa",
 };
 
-const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
-const DEFAULT_PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 350;
 const SEARCH_FIELDS = ["hoTen", "tenDangNhap", "email", "soDienThoai"];
 // Cột Thao tác: `w-px` + nowrap để co vừa đúng nút; ghim mép phải khi bảng phải cuộn ngang.
@@ -88,7 +88,7 @@ const DEFAULT_FILTERS = {
     vaiTro: "ALL",
     trangThai: "ALL",
     page: 0,
-    size: DEFAULT_PAGE_SIZE,
+    size: SO_DONG_MAC_DINH,
 };
 
 const formatRole = (role) => ROLES.find((r) => r.value === role)?.label || role || "—";
@@ -156,7 +156,7 @@ function readFiltersFromUrl(searchParams) {
         vaiTro: ROLE_OPTIONS.some((o) => o.value === vaiTro) ? vaiTro : "ALL",
         trangThai: STATUS_TAB_VALUES.includes(trangThai) ? trangThai : "ALL",
         page: page > 1 ? page - 1 : 0,
-        size: PAGE_SIZE_OPTIONS.includes(size) ? size : DEFAULT_PAGE_SIZE,
+        size: LUA_CHON_SO_DONG.includes(size) ? size : SO_DONG_MAC_DINH,
     };
 }
 
@@ -166,7 +166,7 @@ function filtersToSearchParams(filters) {
     if (filters.vaiTro !== "ALL") params.set("vaiTro", filters.vaiTro);
     if (filters.trangThai !== "ALL") params.set("trangThai", filters.trangThai);
     if (filters.page > 0) params.set("page", String(filters.page + 1));
-    if (filters.size !== DEFAULT_PAGE_SIZE) params.set("size", String(filters.size));
+    if (filters.size !== SO_DONG_MAC_DINH) params.set("size", String(filters.size));
     return params;
 }
 
@@ -373,7 +373,7 @@ export default function ViewUserListByAdmin() {
     }));
 
     return (
-        <PageContainer className="space-y-4">
+        <PageContainer fill className="space-y-4">
             <ListPageHeader
                 actions={
                     <Button
@@ -388,6 +388,7 @@ export default function ViewUserListByAdmin() {
 
             {/* ── BẢNG: tab trạng thái + tìm kiếm + vai trò cùng một hàng ── */}
             <TableShell
+                fill
                 toolbar={
                     <ListToolbar
                         tabs={
@@ -425,21 +426,22 @@ export default function ViewUserListByAdmin() {
                     </ListToolbar>
                 }
                 footer={
-                    <TablePagination
-                        page={filters.page}
-                        size={filters.size}
-                        total={total}
-                        sizeOptions={PAGE_SIZE_OPTIONS}
-                        onPageChange={(page) => {
-                            if (page < 0) return;
-                            setFilters((prev) => ({ ...prev, page }));
-                        }}
-                        onSizeChange={(size) =>
-                            setFilters((prev) =>
-                                prev.size === size ? prev : { ...prev, size, page: 0 }
-                            )
-                        }
-                    />
+                    !loading && !loadError && users.length > 0 ? (
+                        <TablePagination
+                            page={filters.page}
+                            size={filters.size}
+                            total={total}
+                            onPageChange={(page) => {
+                                if (page < 0) return;
+                                setFilters((prev) => ({ ...prev, page }));
+                            }}
+                            onSizeChange={(size) =>
+                                setFilters((prev) =>
+                                    prev.size === size ? prev : { ...prev, size, page: 0 }
+                                )
+                            }
+                        />
+                    ) : null
                 }
             >
                 {loading ? (
@@ -492,7 +494,7 @@ export default function ViewUserListByAdmin() {
                     )
                 ) : (
                     <table ref={setTableEl} className="w-full text-sm">
-                        <thead>
+                        <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                 {COLUMNS.map((column) => (
                                     <th
@@ -605,16 +607,14 @@ export default function ViewUserListByAdmin() {
                                                     : undefined
                                             }
                                         >
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                disabled={isSelf}
-                                                onClick={() => setSelectedUserForReset(u)}
-                                                className="border-bo-border bg-white text-xs text-bo-foreground hover:border-bo-primary/40 hover:bg-bo-primary-soft hover:text-bo-primary"
-                                            >
-                                                <KeyRound className="size-3.5" />
-                                                Cấp lại mật khẩu
-                                            </Button>
+                                            <RowActions>
+                                                <RowActionButton
+                                                    icon={KeyRound}
+                                                    label="Cấp lại mật khẩu"
+                                                    disabled={isSelf}
+                                                    onClick={() => setSelectedUserForReset(u)}
+                                                />
+                                            </RowActions>
                                         </td>
                                     </tr>
                                 );

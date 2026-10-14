@@ -9,7 +9,7 @@ import {
 import {
     ArrowLeft, Building2, Calendar, User, FileText, Package,
     CheckCircle, XCircle, Printer, Phone, Mail,
-    Clock, Send, CreditCard, DollarSign, Loader2
+    Clock, Send, CreditCard, DollarSign, Loader2, SearchX
 } from "lucide-react";
 
 import apiClient from '@/services/apiClient';
@@ -21,6 +21,8 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
 import LoadingState from "@/components/shared/LoadingState";
 import ErrorState from "@/components/shared/ErrorState";
+import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
+import { formatDate as dinhDangNgay, formatDateTime as dinhDangNgayGio } from "@/utils/formatters";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROLE = {
@@ -46,15 +48,11 @@ function parseRoles(vaiTro) {
 const formatCurrency = (amount) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
 
-const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' });
-};
+// Định dạng chung toàn hệ thống: 05/10/2026 · 08:03; trống → "—"
+const formatDate = (dateString) => dinhDangNgay(dateString);
 
-const formatDateTime = (dateString) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-};
+// Định dạng chung toàn hệ thống: 05/10/2026 · 08:03; trống → "—"
+const formatDateTime = (dateString) => dinhDangNgayGio(dateString);
 
 // ─── Status configs ────────────────────────────────────────────────────────────
 const PO_STATUS = {
@@ -94,6 +92,8 @@ export default function QuotationDetail() {
 
     const [orderData, setOrderData] = useState(null);
     const [loading, setLoading] = useState(true);
+    // null | { notFound: true } | { notFound: false, message }
+    const [loadError, setLoadError] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
 
     // Dialog States
@@ -105,15 +105,24 @@ export default function QuotationDetail() {
 
     const fetchOrderDetail = useCallback(async () => {
         setLoading(true);
+        setLoadError(null);
         try {
             // Lấy chi tiết đơn mua hàng (báo giá) từ API
             const result = await apiClient.get(`/api/v1/don-mua-hang/get-by-id/${id}`);
             if (result && result.data?.data) {
                 setOrderData(result.data.data);
+            } else {
+                setOrderData(null);
+                setLoadError({ notFound: true });
             }
         } catch (error) {
             console.error('Error fetching PO detail:', error);
-            toast.error('Không thể tải chi tiết báo giá');
+            setOrderData(null);
+            // Máy chủ trả 400 "Không tìm thấy đơn mua hàng id: …" khi mã không tồn tại
+            const status = getApiErrorStatus(error);
+            setLoadError(status === 404 || status === 400
+                ? { notFound: true }
+                : { notFound: false, message: getApiErrorMessage(error, 'Không thể tải chi tiết báo giá') });
         } finally {
             setLoading(false);
         }
@@ -173,18 +182,27 @@ export default function QuotationDetail() {
         return (
             <PageContainer>
                 <SurfaceCard contentClassName="p-0 sm:p-0">
-                    <ErrorState
-                        title="Không tìm thấy dữ liệu báo giá"
-                        description="Báo giá không tồn tại hoặc đã bị xóa khỏi hệ thống."
-                    />
-                    <div className="flex justify-center pb-10">
-                        <Button
-                            onClick={() => navigate(-1)}
-                            className="h-10 bg-bo-primary px-5 font-semibold text-white hover:bg-bo-primary-hover"
-                        >
-                            Quay lại
-                        </Button>
-                    </div>
+                    {loadError && !loadError.notFound ? (
+                        <ErrorState
+                            title="Không thể tải chi tiết báo giá"
+                            description={loadError.message}
+                            onRetry={() => fetchOrderDetail()}
+                        />
+                    ) : (
+                        <EmptyState
+                            icon={SearchX}
+                            title="Không tìm thấy báo giá"
+                            description="Báo giá không tồn tại hoặc đã bị xóa khỏi hệ thống."
+                            action={
+                                <Button
+                                    onClick={() => navigate('/quotation-requests')}
+                                    className="bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover"
+                                >
+                                    Quay lại danh sách
+                                </Button>
+                            }
+                        />
+                    )}
                 </SurfaceCard>
             </PageContainer>
         );
@@ -201,7 +219,7 @@ export default function QuotationDetail() {
         <PageContainer className="space-y-5">
             <PageHeader
                 eyebrow="Báo giá nhà cung cấp"
-                title={orderData.soDonMua?.replace(/^PO/, 'Q-') || '—'}
+                title={orderData.soDonMua || '—'}
                 description="Chi tiết báo giá, đơn giá nhà cung cấp và thao tác duyệt."
                 actions={
                     <>

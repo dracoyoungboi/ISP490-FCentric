@@ -58,7 +58,6 @@ import PhieuXuatKhoPrint from "./pages/issue/PhieuXuatKhoPrint";
 import Dashboard from "@/pages/dashboard/Dashboard";
 import NotFound404 from "./pages/page-error/NotFound404";
 import TonKhoTongQuan from "./pages/bao-cao/TonKhoTongQuan";
-import ApplicationRequestManagement from "./pages/purchase-oder-create-req/ApplicationRequestManagement";
 import LichSuGiaoDichKhoList from "./pages/lich-su-giao-dich-kho/LichSuGiaoDichKhoList";
 import QuotationRequestList from "./pages/order/QuotationRequestList";
 import QuotationRequestCreate from "./pages/order/QuotationRequestCreate";
@@ -219,7 +218,8 @@ export default function App() {
           <Route path="/bao-cao/xuat-nhap" element={<Navigate to="/reports/stock-movements" replace />} />
           <Route path="/bao-cao/ton-kho" element={<Navigate to="/reports/inventory" replace />} />
 
-          <Route path="/duyet-don-hang" element={<ApplicationRequestManagement />} />
+          {/* Màn "Duyệt yêu cầu tạo đơn" cũ: backend không còn API này; việc duyệt nằm ở Yêu cầu nhập hàng */}
+          <Route path="/duyet-don-hang" element={<Navigate to="/purchase-requests" replace />} />
 
           {/*Lịch sử giao dịch kho */}
           <Route path="/inventory-transactions" element={<LichSuGiaoDichKhoList />} />

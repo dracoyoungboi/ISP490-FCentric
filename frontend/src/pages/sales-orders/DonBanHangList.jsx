@@ -1,4 +1,4 @@
-import { formatCurrency } from "@/utils/formatters";
+import { formatCurrency, formatDate } from "@/utils/formatters";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { donBanHangKenhService, isChannelOrderMock } from "@/services/donBanHangKenhService";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -27,6 +27,8 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import StatusTabs from "@/components/shared/StatusTabs";
 import TablePagination from "@/components/shared/TablePagination";
 import TableShell from "@/components/shared/TableShell";
+import { RowActionButton, RowActions } from "@/components/shared/RowActions";
+import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import FilterSelect from "@/components/shared/FilterSelect";
 import MockModeNotice from "@/components/shared/MockModeNotice";
 import ChannelBadge from "@/components/channel/ChannelBadge";
@@ -47,7 +49,6 @@ const TAB_MAS = DON_BAN_HANG_TABS.map((tab) => tab.ma);
 const TAB_MAC_DINH = "tat-ca";
 const TAB_NHAP = "nhap";
 const TONE_TAB = { [TAB_NHAP]: "warning" };
-const PAGE_SIZE_OPTIONS = [10, 20, 30, 40, 50];
 const SEARCH_DEBOUNCE_MS = 350;
 const LOAD_ERROR_MESSAGE = "Không thể tải danh sách đơn bán hàng. Vui lòng thử lại.";
 
@@ -143,7 +144,7 @@ export default function DonBanHangList() {
     keyword: "",
     ngayDatHang: "",
     page: 0,
-    size: 10,
+    size: SO_DONG_MAC_DINH,
   });
   // Ô tìm kiếm đổi ngay khi gõ; filters.keyword chỉ đổi khi ngừng gõ hoặc bấm Enter.
   const [searchText, setSearchText] = useState("");
@@ -314,7 +315,7 @@ export default function DonBanHangList() {
   const emptyTabLabel = DON_BAN_HANG_TABS.find((t) => t.ma === tab)?.label;
 
   return (
-    <PageContainer className="space-y-4">
+    <PageContainer fill className="space-y-4">
       <ListPageHeader
         scope={scopeNote}
         actions={
@@ -341,6 +342,7 @@ export default function DonBanHangList() {
 
       {/* ── Table ── */}
       <TableShell
+        fill
         toolbar={
           <ListToolbar
             tabs={
@@ -397,7 +399,6 @@ export default function DonBanHangList() {
               page={filters.page}
               size={filters.size}
               total={total}
-              sizeOptions={PAGE_SIZE_OPTIONS}
               onPageChange={(page) => {
                 if (page < 0) return;
                 setFilters((p) => ({ ...p, page }));
@@ -451,15 +452,15 @@ export default function DonBanHangList() {
           )
         ) : (
           <table className="w-full min-w-[980px] text-sm">
-            <thead>
+            <thead className="sticky top-0 z-10">
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Số đơn</th>
-                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Khách hàng</th>
-                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kho xuất</th>
-                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày chốt đơn</th>
-                <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền</th>
-                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
-                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
+                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Số đơn</th>
+                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Khách hàng</th>
+                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kho xuất</th>
+                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày chốt đơn</th>
+                <th className="h-10 whitespace-nowrap px-3 text-right tabular-nums text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền</th>
+                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
+                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-bo-border">
@@ -492,15 +493,19 @@ export default function DonBanHangList() {
                       </div>
                     </td>
                     <td className="px-3 py-3">
-                      <div className="flex items-center gap-1.5 text-bo-muted">
-                        <FileText className="size-3.5 shrink-0" />
-                        {item.khoXuat?.tenKho}
-                      </div>
+                      {item.khoXuat?.tenKho ? (
+                        <div className="flex items-center gap-1.5 text-bo-muted">
+                          <FileText className="size-3.5 shrink-0" />
+                          {item.khoXuat.tenKho}
+                        </div>
+                      ) : (
+                        <span className="text-bo-muted">—</span>
+                      )}
                     </td>
                     <td className="whitespace-nowrap px-3 py-3 text-center text-xs text-bo-muted">
-                      {new Date(item.ngayDatHang).toLocaleDateString("vi-VN")}
+                      {formatDate(item.ngayDatHang)}
                     </td>
-                    <td className="px-3 py-3 text-right">
+                    <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">
                       <span className="font-semibold text-bo-foreground">
                         {formatCurrency(item.tongCong)}
                       </span>
@@ -513,20 +518,14 @@ export default function DonBanHangList() {
                         </div>
                       ) : null}
                     </td>
-                    <td className="px-3 py-3 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/sales-orders/${item.id}`);
-                          }}
-                          className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
-                          title="Xem chi tiết"
-                        >
-                          <Eye className="size-4" />
-                        </button>
-                      </div>
+                    <td className="px-3 py-3">
+                      <RowActions>
+                        <RowActionButton
+                          icon={Eye}
+                          label="Xem chi tiết"
+                          onClick={() => navigate(`/sales-orders/${item.id}`)}
+                        />
+                      </RowActions>
                     </td>
                   </tr>
                 );

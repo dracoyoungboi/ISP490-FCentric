@@ -16,6 +16,9 @@ import FilterSelect from "@/components/shared/FilterSelect";
 import { Button } from "@/components/ui/button";
 import { API_BASE_URL } from "@/config/apiBase";
 import { Input } from "@/components/ui/input";
+import { khoService } from "@/services/khoService";
+import { laKhoAo } from "@/pages/warehouse/loaiKho";
+import { formatCurrency, formatCurrencyCompact, formatNumber } from "@/utils/formatters";
 
 // ─── API ───
 const BASE_URL = `${API_BASE_URL}/api/v1/admin/dashboard/bao-cao/nhat-ky-nhap-xuat`;
@@ -29,13 +32,8 @@ const defaultTuNgay = `${thisYear}-${pad(thisMonth)}-01`;
 const defaultDenNgay = today.toISOString().split("T")[0];
 
 // ─── HELPERS ───
-const fmt = (n) => {
-  const num = Number(n || 0);
-  if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(1) + " tỷ";
-  if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + " tr";
-  return num.toLocaleString("vi-VN");
-};
-const fmtSL = (n) => (n != null ? Number(n).toLocaleString("vi-VN") : "—");
+// Số lượng có dấu (+/-) cho cột chênh lệch
+const fmtChenhLech = (n) => `${n >= 0 ? "+" : ""}${formatNumber(n)}`;
 
 // Màu biểu đồ lấy từ token bo-* (recharts cần giá trị màu cụ thể)
 const CHART_COLORS = {
@@ -69,14 +67,7 @@ const TAB_KY = [
   { value: "theo_kho", label: "Theo kho" },
 ];
 
-// Giữ nguyên danh sách kho và loại giao dịch của ô chọn cũ
-const KHO_OPTIONS = [
-  { value: "ALL", label: "Tất cả kho" },
-  { value: "1", label: "KHO01 – Hà Nội" },
-  { value: "2", label: "KHO02 – Miền Nam" },
-  { value: "3", label: "KHO03 – Miền Trung" },
-  { value: "4", label: "KHO04 – Ngoại thành" },
-];
+// Giữ nguyên danh sách loại giao dịch của ô chọn cũ (danh sách kho tải từ máy chủ)
 const LOAI_GD_OPTIONS = [
   { value: "ALL", label: "Tất cả loại GD" },
   { value: "nhap_kho", label: "Nhập kho" },
@@ -108,7 +99,7 @@ const CustomTooltip = ({ active, payload, label }) => {
             <circle cx="5" cy="5" r="5" fill={entry.color} />
           </svg>
           <span className="flex-1 text-xs text-slate-600">{entry.name}</span>
-          <span className="text-xs font-bold text-bo-foreground">{fmtSL(entry.value)}</span>
+          <span className="text-xs font-bold tabular-nums text-bo-foreground">{formatNumber(entry.value)}</span>
         </div>
       ))}
     </div>
@@ -175,6 +166,7 @@ export default function NhatKyNhapXuat() {
   const [tuNgay, setTuNgay] = useState(defaultTuNgay);
   const [denNgay, setDenNgay] = useState(defaultDenNgay);
   const [khoId, setKhoId] = useState("ALL");
+  const [khoList, setKhoList] = useState([]);
   const [loaiGiaoDich, setLoaiGiaoDich] = useState("ALL");
   const [data, setData] = useState([]);
   // Trang tự tải ngay khi mở nên bắt đầu ở trạng thái đang tải (không hiện số 0 trước khi có số)
@@ -182,6 +174,24 @@ export default function NhatKyNhapXuat() {
   // null: không lỗi; { moTa }: lần tải gần nhất lỗi
   const [loi, setLoi] = useState(null);
   const requestIdRef = useRef(0);
+
+  // Danh sách kho cho bộ lọc: bỏ kho ảo và kho ngừng hoạt động.
+  // Lỗi tải thì chỉ còn "Tất cả kho", trang vẫn dùng được.
+  useEffect(() => {
+    let huy = false;
+    khoService.getAllKho()
+      .then((body) => {
+        const ds = body?.data?.content ?? [];
+        if (!huy) setKhoList(ds.filter((k) => !laKhoAo(k) && Number(k.trangThai) === 1));
+      })
+      .catch(() => {});
+    return () => { huy = true; };
+  }, []);
+
+  const khoOptions = [
+    { value: "ALL", label: "Tất cả kho" },
+    ...khoList.map((k) => ({ value: String(k.id), label: k.tenKho })),
+  ];
 
   const fetchData = useCallback(async () => {
     // Đổi tab / kho / loại giao dịch liên tiếp có thể chạy 2 yêu cầu cùng lúc: chỉ nhận kết quả mới nhất
@@ -255,20 +265,20 @@ export default function NhatKyNhapXuat() {
   const chiSo = [
     {
       label: "Tổng SL nhập",
-      value: loi ? "—" : fmtSL(kpi.tongNhap),
+      value: loi ? "—" : formatNumber(kpi.tongNhap),
       hint: anGoiYSo ? null : `${chartData.length} kỳ thống kê`,
     },
     {
       label: "Tổng SL xuất",
-      value: loi ? "—" : fmtSL(kpi.tongXuat),
-      hint: anGoiYSo ? null : `Chênh lệch: ${tongChenhLech >= 0 ? "+" : ""}${fmtSL(tongChenhLech)}`,
+      value: loi ? "—" : formatNumber(kpi.tongXuat),
+      hint: anGoiYSo ? null : `Chênh lệch: ${fmtChenhLech(tongChenhLech)}`,
     },
     {
       label: "Giá trị nhập",
-      value: loi ? "—" : fmt(kpi.tongGtrNhap),
+      value: loi ? "—" : formatCurrencyCompact(kpi.tongGtrNhap),
       hint: anGoiYSo ? null : `${gtrNhapPct}% tổng giá trị`,
     },
-    { label: "Giá trị xuất", value: loi ? "—" : fmt(kpi.tongGtrXuat), hint: "Giá trị xuất kho" },
+    { label: "Giá trị xuất", value: loi ? "—" : formatCurrencyCompact(kpi.tongGtrXuat), hint: "Giá trị xuất kho" },
   ];
 
   return (
@@ -350,7 +360,7 @@ export default function NhatKyNhapXuat() {
           <FilterSelect
             label="Lọc theo kho"
             value={khoId}
-            options={KHO_OPTIONS}
+            options={khoOptions}
             onChange={setKhoId}
             align="end"
             className="sm:w-[180px]"
@@ -413,7 +423,7 @@ export default function NhatKyNhapXuat() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} vertical={false} />
                   <XAxis dataKey="nhanThoiGian" tick={{ fill: CHART_COLORS.axis, fontSize: 11 }} axisLine={{ stroke: CHART_COLORS.grid }} tickLine={false} />
-                  <YAxis tickFormatter={fmtSL} tick={{ fill: CHART_COLORS.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={formatNumber} tick={{ fill: CHART_COLORS.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: CHART_COLORS.grid }} />
                   <Bar dataKey="tongNhap" name="Nhập kho" fill="url(#gradNhap)" radius={[4, 4, 0, 0]} maxBarSize={40} />
                   <Bar dataKey="tongXuat" name="Xuất kho" fill="url(#gradXuat)" radius={[4, 4, 0, 0]} maxBarSize={40} />
@@ -427,9 +437,9 @@ export default function NhatKyNhapXuat() {
           {/* Side summary */}
           <div className="flex flex-col gap-3">
             {[
-              { label: "Nhập kho", value: fmtSL(kpi.tongNhap), pct: nhapPct, barClass: "bg-bo-success", textClass: "text-bo-success", bg: "bg-bo-success-soft" },
-              { label: "Xuất kho", value: fmtSL(kpi.tongXuat), pct: xuatPct, barClass: "bg-bo-danger", textClass: "text-bo-danger", bg: "bg-bo-danger-soft" },
-              { label: "Giá trị nhập", value: fmt(kpi.tongGtrNhap), pct: gtrNhapPct, barClass: "bg-bo-primary", textClass: "text-bo-primary", bg: "bg-bo-primary-soft" },
+              { label: "Nhập kho", value: formatNumber(kpi.tongNhap), pct: nhapPct, barClass: "bg-bo-success", textClass: "text-bo-success", bg: "bg-bo-success-soft" },
+              { label: "Xuất kho", value: formatNumber(kpi.tongXuat), pct: xuatPct, barClass: "bg-bo-danger", textClass: "text-bo-danger", bg: "bg-bo-danger-soft" },
+              { label: "Giá trị nhập", value: formatCurrencyCompact(kpi.tongGtrNhap), pct: gtrNhapPct, barClass: "bg-bo-primary", textClass: "text-bo-primary", bg: "bg-bo-primary-soft" },
             ].map(item => (
               <div key={item.label} className="rounded-lg border border-bo-border bg-white p-4 shadow-sm">
                 <div className="mb-2 flex items-center justify-between gap-2">
@@ -454,23 +464,23 @@ export default function NhatKyNhapXuat() {
               <p className="mb-3 text-xs font-medium text-bo-muted">Chỉ số nhanh</p>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-bo-muted">Nhập TB / kỳ</span>
-                <span className="text-xs font-bold text-bo-success">
-                  {chartData.length > 0 ? fmtSL(Math.round(kpi.tongNhap / chartData.length)) : "—"}
+                <span className="text-xs font-bold tabular-nums text-bo-success">
+                  {chartData.length > 0 ? formatNumber(Math.round(kpi.tongNhap / chartData.length)) : "—"}
                 </span>
               </div>
               <div className="my-3 h-px bg-bo-border" />
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-bo-muted">Xuất TB / kỳ</span>
-                <span className="text-xs font-bold text-bo-danger">
-                  {chartData.length > 0 ? fmtSL(Math.round(kpi.tongXuat / chartData.length)) : "—"}
+                <span className="text-xs font-bold tabular-nums text-bo-danger">
+                  {chartData.length > 0 ? formatNumber(Math.round(kpi.tongXuat / chartData.length)) : "—"}
                 </span>
               </div>
               <div className="my-3 h-px bg-bo-border" />
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-bo-muted">Tỷ lệ nhập/xuất</span>
-                <span className={`text-xs font-bold ${tongChenhLech >= 0 ? "text-bo-success" : "text-bo-danger"}`}>
-                  {/* Không có số xuất thì chỉ hiện "—" (trước đây hiện "—x") */}
-                  {kpi.tongXuat > 0 ? `${(kpi.tongNhap / kpi.tongXuat).toFixed(2)}x` : "—"}
+                <span className={`text-xs font-bold tabular-nums ${tongChenhLech >= 0 ? "text-bo-success" : "text-bo-danger"}`}>
+                  {/* Không có số xuất thì chỉ hiện "—" (trước đây hiện "—x"); dấu phẩy thập phân */}
+                  {kpi.tongXuat > 0 ? `${formatNumber(Math.round((kpi.tongNhap / kpi.tongXuat) * 100) / 100)}x` : "—"}
                 </span>
               </div>
             </div>
@@ -498,7 +508,7 @@ export default function NhatKyNhapXuat() {
             <thead>
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
                 {["#", "Thời kỳ", "SL nhập", "SL xuất", "Chênh lệch", "Giá trị nhập", "Giá trị xuất", "Loại GD"].map((h, i) => (
-                  <th key={i} className={`${TH_CLASS} ${i > 1 ? "text-right" : "text-left"} ${i === 7 ? "text-center" : ""}`}>
+                  <th key={i} className={`${TH_CLASS} ${i === 7 ? "text-center" : i > 1 ? "text-right tabular-nums" : "text-left"}`}>
                     {h}
                   </th>
                 ))}
@@ -509,20 +519,20 @@ export default function NhatKyNhapXuat() {
                 const cl = row.tongNhap - row.tongXuat;
                 return (
                   <tr key={i} className="transition-colors hover:bg-bo-surface-subtle">
-                    <td className="px-4 py-3.5 text-xs font-medium text-bo-muted">{String(i + 1).padStart(2, "0")}</td>
+                    <td className="px-4 py-3.5 text-xs font-medium tabular-nums text-bo-muted">{String(i + 1).padStart(2, "0")}</td>
                     <td className="px-4 py-3.5 font-medium text-bo-foreground">{row.nhanThoiGian}</td>
-                    <td className="px-4 py-3.5 text-right font-bold text-bo-success">{fmtSL(row.tongNhap)}</td>
-                    <td className="px-4 py-3.5 text-right font-bold text-bo-danger">{fmtSL(row.tongXuat)}</td>
-                    <td className="px-4 py-3.5 text-right">
+                    <td className="px-4 py-3.5 text-right font-bold tabular-nums text-bo-success">{formatNumber(row.tongNhap)}</td>
+                    <td className="px-4 py-3.5 text-right font-bold tabular-nums text-bo-danger">{formatNumber(row.tongXuat)}</td>
+                    <td className="px-4 py-3.5 text-right tabular-nums">
                       <span className={`inline-block rounded-full border px-2.5 py-1 text-xs font-semibold ${cl >= 0
                         ? "border-bo-success/20 bg-bo-success-soft text-bo-success"
                         : "border-bo-danger/20 bg-bo-danger-soft text-bo-danger"
                         }`}>
-                        {cl >= 0 ? "+" : ""}{fmtSL(cl)}
+                        {fmtChenhLech(cl)}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 text-right font-semibold text-bo-primary">{fmt(row.tongGiaTriNhap)}</td>
-                    <td className="px-4 py-3.5 text-right font-semibold text-slate-600">{fmt(row.tongGiaTriXuat)}</td>
+                    <td className="whitespace-nowrap px-4 py-3.5 text-right font-semibold tabular-nums text-bo-primary">{formatCurrency(row.tongGiaTriNhap)}</td>
+                    <td className="whitespace-nowrap px-4 py-3.5 text-right font-semibold tabular-nums text-slate-600">{formatCurrency(row.tongGiaTriXuat)}</td>
                     <td className="px-4 py-3.5 text-center">
                       {row.loaiGiaoDich ? <LoaiGdBadge loai={row.loaiGiaoDich} /> : <span className="text-xs text-bo-muted">—</span>}
                     </td>
@@ -534,18 +544,18 @@ export default function NhatKyNhapXuat() {
             <tfoot>
               <tr className="border-t-2 border-bo-border bg-bo-surface-subtle">
                 <td colSpan={2} className="px-4 py-3.5 text-xs font-bold uppercase tracking-wide text-bo-foreground">Tổng cộng</td>
-                <td className="px-4 py-3.5 text-right text-sm font-extrabold text-bo-success">{fmtSL(kpi.tongNhap)}</td>
-                <td className="px-4 py-3.5 text-right text-sm font-extrabold text-bo-danger">{fmtSL(kpi.tongXuat)}</td>
-                <td className="px-4 py-3.5 text-right">
+                <td className="px-4 py-3.5 text-right text-sm font-extrabold tabular-nums text-bo-success">{formatNumber(kpi.tongNhap)}</td>
+                <td className="px-4 py-3.5 text-right text-sm font-extrabold tabular-nums text-bo-danger">{formatNumber(kpi.tongXuat)}</td>
+                <td className="px-4 py-3.5 text-right tabular-nums">
                   <span className={`inline-block rounded-full border px-2.5 py-1 text-xs font-semibold ${tongChenhLech >= 0
                     ? "border-bo-success/20 bg-bo-success-soft text-bo-success"
                     : "border-bo-danger/20 bg-bo-danger-soft text-bo-danger"
                     }`}>
-                    {tongChenhLech >= 0 ? "+" : ""}{fmtSL(tongChenhLech)}
+                    {fmtChenhLech(tongChenhLech)}
                   </span>
                 </td>
-                <td className="px-4 py-3.5 text-right text-sm font-extrabold text-bo-primary">{fmt(kpi.tongGtrNhap)}</td>
-                <td className="px-4 py-3.5 text-right text-sm font-extrabold text-slate-600">{fmt(kpi.tongGtrXuat)}</td>
+                <td className="whitespace-nowrap px-4 py-3.5 text-right text-sm font-extrabold tabular-nums text-bo-primary">{formatCurrency(kpi.tongGtrNhap)}</td>
+                <td className="whitespace-nowrap px-4 py-3.5 text-right text-sm font-extrabold tabular-nums text-slate-600">{formatCurrency(kpi.tongGtrXuat)}</td>
                 <td />
               </tr>
             </tfoot>

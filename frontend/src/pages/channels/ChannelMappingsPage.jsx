@@ -28,11 +28,13 @@ import { LINK_STATUS, LINK_STATUS_TABS } from "@/constants/channel";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { formatNumber } from "@/utils/formatters";
+import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 
 const TH_CLASS = "h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 const switchClass = "data-[state=checked]:bg-bo-primary data-[state=unchecked]:bg-slate-300 [&>span]:bg-white";
-const DEFAULT_FILTERS = { keyword: "", page: 0, size: 10 };
+const DEFAULT_FILTERS = { keyword: "", page: 0, size: SO_DONG_MAC_DINH };
 
 // Tab trạng thái liên kết (bố cục A+G) — mã tab nằm trên URL ?trangThai=
 const TAB_MAS = LINK_STATUS_TABS.map((tab) => tab.ma);
@@ -227,7 +229,7 @@ export default function ChannelMappingsPage() {
     const loadingOther = loading && (rows.length === 0 || rowsKey !== filterKey);
 
     return (
-        <PageContainer className="space-y-4">
+        <PageContainer fill className="space-y-4">
             <MockModeNotice show={isChannelSyncMock} reason="hệ thống chưa hỗ trợ liên kết sản phẩm" />
 
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -297,6 +299,7 @@ export default function ChannelMappingsPage() {
 
             {/* ══ BẢNG LIÊN KẾT ══ */}
             <TableShell
+                fill
                 toolbar={
                     <ListToolbar
                         tabs={
@@ -372,13 +375,13 @@ export default function ChannelMappingsPage() {
                 ) : (
                     <TooltipProvider>
                         <table className="w-full min-w-[1080px] text-sm">
-                            <thead>
+                            <thead className="sticky top-0 z-10">
                                 <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                     <th className={`${TH_CLASS} text-left`}>Sản phẩm trên sàn</th>
                                     <th className={`${TH_CLASS} w-[320px] text-left`}>Biến thể FCentric</th>
-                                    <th className={`${TH_CLASS} text-center`}>Khả dụng</th>
-                                    <th className={`${TH_CLASS} text-center`}>Sẽ đẩy</th>
-                                    <th className={`${TH_CLASS} text-center`}>Đã đẩy</th>
+                                    <th className={`${TH_CLASS} text-right tabular-nums`}>Khả dụng</th>
+                                    <th className={`${TH_CLASS} text-right tabular-nums`}>Sẽ đẩy</th>
+                                    <th className={`${TH_CLASS} text-right tabular-nums`}>Đã đẩy</th>
                                     <th className={`${TH_CLASS} text-center`}>Đồng bộ</th>
                                     <th className={`${TH_CLASS} text-center`}>Trạng thái</th>
                                 </tr>
@@ -409,17 +412,23 @@ export default function ChannelMappingsPage() {
                                                 />
                                                 {rowErrors[row.id] ? <p className="mt-1 text-xs text-bo-danger">{rowErrors[row.id]}</p> : null}
                                             </td>
-                                            <td className="px-3 py-3 text-center font-semibold text-bo-foreground">{row.khaDung ?? "—"}</td>
-                                            <td className="px-3 py-3 text-center">
-                                                {row.soDay !== null && row.soDay !== undefined ? (
-                                                    <span className="font-semibold text-bo-primary">{row.soDay}</span>
+                                            <td className="px-3 py-3 text-right tabular-nums">
+                                                {row.khaDung !== null && row.khaDung !== undefined ? (
+                                                    <span className="font-semibold text-bo-foreground">{formatNumber(row.khaDung)}</span>
                                                 ) : (
                                                     <span className="text-bo-muted">—</span>
                                                 )}
                                             </td>
-                                            <td className="px-3 py-3 text-center">
+                                            <td className="px-3 py-3 text-right tabular-nums">
+                                                {row.soDay !== null && row.soDay !== undefined ? (
+                                                    <span className="font-semibold text-bo-primary">{formatNumber(row.soDay)}</span>
+                                                ) : (
+                                                    <span className="text-bo-muted">—</span>
+                                                )}
+                                            </td>
+                                            <td className="px-3 py-3 text-right tabular-nums">
                                                 {row.soLuongDaDay !== null && row.soLuongDaDay !== undefined ? (
-                                                    <span className="font-semibold text-bo-foreground">{row.soLuongDaDay}</span>
+                                                    <span className="font-semibold text-bo-foreground">{formatNumber(row.soLuongDaDay)}</span>
                                                 ) : linked ? (
                                                     <span className="text-xs text-bo-muted">Chưa rõ, sẽ đẩy lại</span>
                                                 ) : (

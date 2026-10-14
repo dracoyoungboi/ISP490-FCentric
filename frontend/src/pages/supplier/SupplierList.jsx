@@ -2,8 +2,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-    Plus, Edit, Trash2, ChevronLeft, ChevronRight, Eye, Loader2, Users,
-    ChevronDown, Phone, Mail, User2, AlertTriangle, SearchX,
+    Plus, Edit, Trash2, Eye, Loader2, Users,
+    Phone, Mail, User2, AlertTriangle, SearchX,
 } from 'lucide-react';
 import { toast } from "sonner";
 
@@ -12,38 +12,19 @@ import EmptyState from "@/components/shared/EmptyState";
 import ListPageHeader from "@/components/shared/ListPageHeader";
 import ListToolbar from "@/components/shared/ListToolbar";
 import LoadingState from "@/components/shared/LoadingState";
+import { RowActionButton, RowActions } from "@/components/shared/RowActions";
 import SearchInput from "@/components/shared/SearchInput";
 import StatusBadge from "@/components/shared/StatusBadge";
 import StatusTabs from "@/components/shared/StatusTabs";
+import TablePagination from "@/components/shared/TablePagination";
 import TableShell from "@/components/shared/TableShell";
 import { Button } from "@/components/ui/button";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 
 import { getAllSupplier, deleteSupplier } from "@/services/supplierService";
 
-// ── Action button ─────────────────────────────────────────────────────────
-function ActionBtn({ title, onClick, tone = "neutral", children }) {
-    const tones = {
-        neutral: "text-bo-muted hover:border-bo-primary hover:text-bo-primary",
-        danger: "text-bo-muted hover:border-bo-danger hover:text-bo-danger",
-    };
-
-    return (
-        <button
-            type="button"
-            title={title}
-            onClick={onClick}
-            className={`inline-flex size-8 items-center justify-center rounded-md border border-bo-border bg-white transition-colors ${tones[tone]}`}
-        >
-            {children}
-        </button>
-    );
-}
+// Ô tìm kiếm: lọc ngay trên dữ liệu đang có, chỉ gọi lại API khi ngừng gõ
+const SEARCH_DEBOUNCE_MS = 350;
 
 // ── Confirm Delete Modal (tách hoàn toàn khỏi table row) ─────────────────
 function ConfirmDeleteModal({ target, isDeleting, onConfirm, onCancel }) {
@@ -142,6 +123,8 @@ const matchSearch = (item, search) => {
 export default function SupplierList() {
     const [suppliers,    setSuppliers]    = useState([]);
     const [search,       setSearch]       = useState("");
+    // Từ khóa gửi lên API: đổi sau khi ngừng gõ SEARCH_DEBOUNCE_MS (gõ từng chữ không gọi API, bảng không nháy)
+    const [apiSearch,    setApiSearch]    = useState("");
     const [loading,      setLoading]      = useState(true);
     const [searchParams, setSearchParams] = useSearchParams();
     const tabParam     = searchParams.get("trangThai");
@@ -153,7 +136,7 @@ export default function SupplierList() {
 
     // Pagination
     const [pageNumber,  setPageNumber]  = useState(0);
-    const [pageSize,    setPageSize]    = useState(5); // mặc định 5 dòng
+    const [pageSize,    setPageSize]    = useState(SO_DONG_MAC_DINH);
 
     const navigate = useNavigate();
 
@@ -161,7 +144,7 @@ export default function SupplierList() {
     const fetchSuppliers = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await getAllSupplier(search);
+            const data = await getAllSupplier(apiSearch);
             setSuppliers(data);
             setPageNumber(0);
         } catch {
@@ -169,11 +152,18 @@ export default function SupplierList() {
         } finally {
             setLoading(false);
         }
-    }, [search]);
+    }, [apiSearch]);
 
     // Hoãn qua microtask để tránh setState đồng bộ trong effect
     // (react-hooks/set-state-in-effect); request vẫn chạy ngay khi mount.
     useEffect(() => { queueMicrotask(() => fetchSuppliers()); }, [fetchSuppliers]);
+
+    useEffect(() => {
+        const value = search.trim();
+        if (value === apiSearch) return undefined;
+        const timer = setTimeout(() => setApiSearch(value), SEARCH_DEBOUNCE_MS);
+        return () => clearTimeout(timer);
+    }, [search, apiSearch]);
 
     // Đổi tab: ghi lên URL (F5 / quay lại vẫn đúng tab) và về trang đầu
     const changeTab = (value) => {
@@ -247,6 +237,7 @@ export default function SupplierList() {
     // "Xóa lọc" chỉ xóa từ khóa, giữ tab đang chọn
     const handleClearSearch = () => {
         setSearch("");
+        setApiSearch("");
     };
 
     return (
@@ -259,7 +250,7 @@ export default function SupplierList() {
                 onCancel={handleCancelDelete}
             />
 
-            <PageContainer className="space-y-4">
+            <PageContainer fill className="space-y-4">
                 <ListPageHeader
                     actions={
                         <Button
@@ -274,6 +265,7 @@ export default function SupplierList() {
 
                 {/* ── Table ── */}
                 <TableShell
+                    fill
                     toolbar={
                         <ListToolbar
                             tabs={
@@ -298,99 +290,14 @@ export default function SupplierList() {
                         </ListToolbar>
                     }
                     footer={
-                        totalElements > 0 ? (
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                {/* Page size */}
-                                <div className="flex items-center gap-2">
-                                    <span className="whitespace-nowrap text-xs text-bo-muted">Hiển thị</span>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button
-                                                variant="outline"
-                                                className="h-8 w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                                            >
-                                                {pageSize} dòng
-                                                <ChevronDown className="size-3.5 opacity-60" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent
-                                            align="start"
-                                            className="backoffice-user-menu z-50 w-[110px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
-                                        >
-                                            {[5, 10, 20, 50].map((size) => (
-                                                <DropdownMenuItem
-                                                    key={size}
-                                                    onClick={() => { setPageSize(size); setPageNumber(0); }}
-                                                    className="cursor-pointer rounded-md px-2.5 py-1.5 text-xs text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                                >
-                                                    {size} dòng
-                                                </DropdownMenuItem>
-                                            ))}
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </div>
-
-                                {/* Page info */}
-                                <p className="text-xs text-bo-muted">
-                                    Hiển thị{" "}
-                                    <span className="font-semibold text-bo-foreground">{safePage * pageSize + 1}</span>
-                                    {" – "}
-                                    <span className="font-semibold text-bo-foreground">
-                                        {Math.min((safePage + 1) * pageSize, totalElements)}
-                                    </span>
-                                    {" trong tổng số "}
-                                    <span className="font-semibold text-bo-primary">{totalElements}</span> kết quả
-                                </p>
-
-                                {/* Nav */}
-                                <div className="flex items-center gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => handlePageChange(safePage - 1)}
-                                        disabled={safePage === 0}
-                                        className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                                    >
-                                        <ChevronLeft className="size-3.5" /> Trước
-                                    </Button>
-
-                                    <div className="hidden items-center gap-1 sm:flex">
-                                        {[...Array(Math.min(5, totalPages))].map((_, idx) => {
-                                            let pageNum;
-                                            if (totalPages <= 5)               pageNum = idx;
-                                            else if (safePage < 3)             pageNum = idx;
-                                            else if (safePage > totalPages - 4) pageNum = totalPages - 5 + idx;
-                                            else                               pageNum = safePage - 2 + idx;
-
-                                            return (
-                                                <Button
-                                                    key={idx}
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => handlePageChange(pageNum)}
-                                                    className={
-                                                        safePage === pageNum
-                                                            ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
-                                                            : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
-                                                    }
-                                                >
-                                                    {pageNum + 1}
-                                                </Button>
-                                            );
-                                        })}
-                                    </div>
-
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => handlePageChange(safePage + 1)}
-                                        disabled={safePage >= totalPages - 1}
-                                        className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                                    >
-                                        Sau <ChevronRight className="size-3.5" />
-                                    </Button>
-                                </div>
-                            </div>
+                        !loading && pageItems.length > 0 ? (
+                            <TablePagination
+                                page={safePage}
+                                size={pageSize}
+                                total={totalElements}
+                                onPageChange={handlePageChange}
+                                onSizeChange={(size) => { setPageSize(size); setPageNumber(0); }}
+                            />
                         ) : null
                     }
                 >
@@ -435,13 +342,14 @@ export default function SupplierList() {
                             />
                         )
                     ) : (
+                        /* Bảng: khung giãn hết màn, thân bảng tự cuộn, tiêu đề cột đứng yên */
                         <table className="w-full min-w-[960px] text-sm">
-                            <thead>
+                            <thead className="sticky top-0 z-10">
                                 <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                     {["STT", "Mã NCC", "Tên nhà cung cấp", "Người liên hệ", "SĐT", "Email", "Trạng thái", "Thao tác"].map((h, i) => (
                                         <th
                                             key={h}
-                                            className={`h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted ${i === 7 ? "text-center" : "text-left"}`}
+                                            className={`h-10 whitespace-nowrap px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted ${i === 7 ? "text-center" : "text-left"}`}
                                         >
                                             {h}
                                         </th>
@@ -495,7 +403,7 @@ export default function SupplierList() {
                                         </td>
 
                                         {/* Trạng thái */}
-                                        <td className="px-3 py-3">
+                                        <td className="whitespace-nowrap px-3 py-3">
                                             <StatusBadge
                                                 label={item.trangThai === 1 ? "Hoạt động" : "Ngừng hoạt động"}
                                                 tone={item.trangThai === 1 ? "success" : "neutral"}
@@ -504,21 +412,24 @@ export default function SupplierList() {
 
                                         {/* Thao tác */}
                                         <td className="px-3 py-3">
-                                            <div className="flex items-center justify-center gap-1">
-                                                <ActionBtn title="Xem chi tiết" onClick={() => navigate(`/supplier/view/${item.id}`)}>
-                                                    <Eye className="size-4" />
-                                                </ActionBtn>
-                                                <ActionBtn title="Chỉnh sửa" onClick={() => navigate(`/supplier/${item.id}`)}>
-                                                    <Edit className="size-4" />
-                                                </ActionBtn>
-                                                <ActionBtn
-                                                    title="Xóa"
+                                            <RowActions>
+                                                <RowActionButton
+                                                    icon={Eye}
+                                                    label="Xem chi tiết"
+                                                    onClick={() => navigate(`/supplier/view/${item.id}`)}
+                                                />
+                                                <RowActionButton
+                                                    icon={Edit}
+                                                    label="Chỉnh sửa"
+                                                    onClick={() => navigate(`/supplier/${item.id}`)}
+                                                />
+                                                <RowActionButton
+                                                    icon={Trash2}
+                                                    label="Xóa"
                                                     tone="danger"
                                                     onClick={() => handleDeleteClick(item)}
-                                                >
-                                                    <Trash2 className="size-4" />
-                                                </ActionBtn>
-                                            </div>
+                                                />
+                                            </RowActions>
                                         </td>
                                     </tr>
                                 ))}

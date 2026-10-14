@@ -1,24 +1,14 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { productService } from "@/services/productService.js";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
-import {
-    Save, Printer, RefreshCcw,
-    Layers, ChevronDown, ChevronLeft, ChevronRight, SearchX,
-} from "lucide-react";
+import { Save, Printer, RefreshCcw, Layers, SearchX } from "lucide-react";
 
 import BarcodePrint from "@/pages/product/components/product/BarcodePrint";
 import { useToggle } from "@/hooks/useToggle";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -31,6 +21,10 @@ import SearchInput from "@/components/shared/SearchInput";
 import StatusBadge from "@/components/shared/StatusBadge";
 import StatusTabs from "@/components/shared/StatusTabs";
 import TableShell from "@/components/shared/TableShell";
+import TablePagination from "@/components/shared/TablePagination";
+import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
+import { RowActionButton, RowActions } from "@/components/shared/RowActions";
+import MoneyInput from "@/components/shared/MoneyInput";
 
 // Tab trạng thái (bố cục A+G) — mã tab nằm trên URL ?trangThai=
 const STATUS_TABS = [
@@ -65,9 +59,7 @@ const isPriceChanged = (sku) =>
 
 // Bảng class tĩnh cho ô nhập giá: highlight khi giá đã thay đổi nhưng chưa lưu.
 const priceInputClass = (daDoiGia) =>
-    `mx-auto h-8 w-28 text-right text-xs font-medium text-bo-foreground focus-visible:border-bo-primary ${
-        daDoiGia ? "border-bo-warning bg-bo-warning-soft" : "border-bo-border bg-white"
-    }`;
+    cn("ml-auto w-28", daDoiGia && "border-bo-warning bg-bo-warning-soft");
 
 export default function SkuBuilder() {
     const location = useLocation();
@@ -86,7 +78,7 @@ export default function SkuBuilder() {
     const [savingSkuIds, setSavingSkuIds] = useState(new Set());
 
     const [page, setPage] = useState(0);
-    const [pageSize, setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(SO_DONG_MAC_DINH);
 
     const fetchSkus = useCallback(async () => {
         // Chỉ nhận kết quả của lần tải mới nhất
@@ -239,7 +231,7 @@ export default function SkuBuilder() {
     const emptyTabLabel = STATUS_TABS.find((t) => t.value === tab)?.label;
 
     return (
-        <PageContainer key={location.pathname} className="space-y-4">
+        <PageContainer key={location.pathname} fill className="space-y-4">
             <ListPageHeader
                 actions={
                     <Button
@@ -256,6 +248,7 @@ export default function SkuBuilder() {
 
             {/* ══ BẢNG: tab trạng thái + tìm kiếm cùng một hàng ══ */}
             <TableShell
+                fill
                 toolbar={
                     <ListToolbar
                         tabs={
@@ -287,106 +280,13 @@ export default function SkuBuilder() {
                 }
                 footer={
                     !isLoading && !loadError && processedSkus.length > 0 ? (
-                        <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
-                            {/* Số dòng hiển thị */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs text-bo-muted">Hiển thị:</span>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            className="h-8 w-[120px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                                        >
-                                            {pageSize} dòng
-                                            <ChevronDown className="size-3.5 opacity-60" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent
-                                        align="start"
-                                        className="backoffice-user-menu z-50 w-[120px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
-                                    >
-                                        {[5, 10, 20, 50, 100].map(size => (
-                                            <DropdownMenuItem
-                                                key={size}
-                                                onClick={() => { setPageSize(size); setPage(0); }}
-                                                className="cursor-pointer rounded-md px-2.5 py-1.5 text-xs text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                            >
-                                                {size} dòng
-                                            </DropdownMenuItem>
-                                        ))}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-
-                            {/* Thông tin trang */}
-                            <p className="text-xs text-bo-muted">
-                                Hiển thị{" "}
-                                <span className="font-semibold text-bo-foreground">
-                                    {safePage * pageSize + 1}
-                                </span>
-                                {" - "}
-                                <span className="font-semibold text-bo-foreground">
-                                    {Math.min((safePage + 1) * pageSize, processedSkus.length)}
-                                </span>
-                                {" trong tổng số "}
-                                <span className="font-semibold text-bo-primary">{processedSkus.length}</span> kết quả
-                            </p>
-
-                            {/* Điều hướng */}
-                            <div className="flex items-center gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setPage(safePage - 1)}
-                                    disabled={safePage === 0}
-                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                                >
-                                    <ChevronLeft className="size-3.5" />
-                                    Trước
-                                </Button>
-
-                                <div className="hidden items-center gap-1 sm:flex">
-                                    {[...Array(Math.min(5, totalPages))].map((_, idx) => {
-                                        let pageNum;
-                                        if (totalPages <= 5) {
-                                            pageNum = idx;
-                                        } else if (safePage < 3) {
-                                            pageNum = idx;
-                                        } else if (safePage > totalPages - 4) {
-                                            pageNum = totalPages - 5 + idx;
-                                        } else {
-                                            pageNum = safePage - 2 + idx;
-                                        }
-                                        return (
-                                            <Button
-                                                key={idx}
-                                                variant={safePage === pageNum ? "default" : "outline"}
-                                                size="sm"
-                                                onClick={() => setPage(pageNum)}
-                                                className={
-                                                    safePage === pageNum
-                                                        ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
-                                                        : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
-                                                }
-                                            >
-                                                {pageNum + 1}
-                                            </Button>
-                                        );
-                                    })}
-                                </div>
-
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setPage(safePage + 1)}
-                                    disabled={safePage >= totalPages - 1}
-                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                                >
-                                    Sau
-                                    <ChevronRight className="size-3.5" />
-                                </Button>
-                            </div>
-                        </div>
+                        <TablePagination
+                            page={safePage}
+                            size={pageSize}
+                            total={processedSkus.length}
+                            onPageChange={setPage}
+                            onSizeChange={(size) => { setPageSize(size); setPage(0); }}
+                        />
                     ) : null
                 }
             >
@@ -433,20 +333,19 @@ export default function SkuBuilder() {
                         />
                     )
                 ) : (
-                    /* Bảng dữ liệu, cuộn bên trong khung */
-                    <div className="max-h-[520px] overflow-y-auto">
+                    /* Bảng dữ liệu: khung giãn hết màn, thân bảng tự cuộn, tiêu đề cột đứng yên */
                         <table className="w-full min-w-[1080px] text-sm">
                             <thead className="sticky top-0 z-10">
                                 <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                    <th className="h-10 w-14 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
-                                    <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SKU</th>
-                                    <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Sản phẩm</th>
-                                    <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Màu</th>
-                                    <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kích cỡ</th>
-                                    <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
-                                    <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Giá vốn</th>
-                                    <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Giá bán</th>
-                                    <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
+                                    <th className="h-10 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
+                                    <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SKU</th>
+                                    <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Sản phẩm</th>
+                                    <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Màu</th>
+                                    <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kích cỡ</th>
+                                    <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
+                                    <th className="h-10 w-36 px-3 text-right whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Giá vốn</th>
+                                    <th className="h-10 w-36 px-3 text-right whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Giá bán</th>
+                                    <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-bo-border">
@@ -459,7 +358,7 @@ export default function SkuBuilder() {
                                             </td>
 
                                             <td className="px-3 py-3 align-middle">
-                                                <span className="font-mono text-xs font-bold tracking-wide text-bo-primary">
+                                                <span className="whitespace-nowrap font-mono text-xs font-bold tracking-wide text-bo-primary">
                                                     {sku.maSku || sku.maBienThe || sku.skuCode || "—"}
                                                 </span>
                                             </td>
@@ -505,58 +404,48 @@ export default function SkuBuilder() {
                                                 )}
                                             </td>
 
-                                            <td className="px-3 py-3 text-center align-middle">
-                                                <Input
-                                                    type="number"
+                                            <td className="px-3 py-3 text-right align-middle">
+                                                <MoneyInput
                                                     aria-label={`Giá vốn ${sku.maSku || sku.maBienThe || ""}`.trim()}
                                                     className={priceInputClass(daDoiGia)}
                                                     value={sku.giaVon}
-                                                    onChange={(e) => handlePriceChange(sku.id, "giaVon", e.target.value)}
+                                                    onChange={(giaTri) => handlePriceChange(sku.id, "giaVon", giaTri)}
                                                 />
                                             </td>
 
-                                            <td className="px-3 py-3 text-center align-middle">
-                                                <Input
-                                                    type="number"
+                                            <td className="px-3 py-3 text-right align-middle">
+                                                <MoneyInput
                                                     aria-label={`Giá bán ${sku.maSku || sku.maBienThe || ""}`.trim()}
                                                     className={priceInputClass(daDoiGia)}
                                                     value={sku.giaBan}
-                                                    onChange={(e) => handlePriceChange(sku.id, "giaBan", e.target.value)}
+                                                    onChange={(giaTri) => handlePriceChange(sku.id, "giaBan", giaTri)}
                                                 />
                                             </td>
 
                                             <td className="px-3 py-3 align-middle">
-                                                <div className="flex items-center justify-center gap-1">
+                                                <RowActions>
                                                     {daDoiGia && (
-                                                        <button
-                                                            type="button"
-                                                            title={savingSkuIds.has(sku.id) ? "Đang lưu giá..." : "Lưu giá"}
-                                                            aria-label="Lưu giá"
+                                                        <RowActionButton
+                                                            icon={Save}
+                                                            tone="success"
+                                                            label={savingSkuIds.has(sku.id) ? "Đang lưu giá..." : "Lưu giá"}
                                                             disabled={savingSkuIds.has(sku.id)}
                                                             onClick={() => savePrice(sku)}
-                                                            className="inline-flex size-8 items-center justify-center rounded-md text-bo-success transition-colors hover:bg-bo-success-soft disabled:cursor-not-allowed disabled:opacity-50"
-                                                        >
-                                                            <Save className="size-4" />
-                                                        </button>
+                                                        />
                                                     )}
-                                                    <button
-                                                        type="button"
-                                                        title="In mã vạch"
-                                                        aria-label="In mã vạch"
+                                                    <RowActionButton
+                                                        icon={Printer}
+                                                        label="In mã vạch"
                                                         disabled={savingSkuIds.has(sku.id)}
                                                         onClick={() => handlePrintBarcode(sku)}
-                                                        className="inline-flex size-8 items-center justify-center rounded-md text-bo-primary transition-colors hover:bg-bo-primary-soft disabled:cursor-not-allowed disabled:opacity-50"
-                                                    >
-                                                        <Printer className="size-4" />
-                                                    </button>
-                                                </div>
+                                                    />
+                                                </RowActions>
                                             </td>
                                         </tr>
                                     );
                                 })}
                             </tbody>
                         </table>
-                    </div>
                 )}
             </TableShell>
 

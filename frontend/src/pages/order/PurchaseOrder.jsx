@@ -7,10 +7,7 @@ import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-    Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-    ChevronLeft, ChevronRight, ChevronDown, Calendar,
+    ChevronDown, Calendar,
     Eye, RefreshCw, Warehouse, CreditCard,
     ShoppingCart, PackagePlus, Plus, SearchX,
 } from 'lucide-react';
@@ -25,8 +22,12 @@ import ErrorState from '@/components/shared/ErrorState';
 import ListPageHeader from '@/components/shared/ListPageHeader';
 import ListToolbar from '@/components/shared/ListToolbar';
 import LoadingState from '@/components/shared/LoadingState';
+import { RowActionButton, RowActions } from '@/components/shared/RowActions';
 import SearchInput from '@/components/shared/SearchInput';
 import StatusTabs from '@/components/shared/StatusTabs';
+import TablePagination from '@/components/shared/TablePagination';
+import { SO_DONG_MAC_DINH } from '@/constants/phanTrang';
+import { formatCurrency, formatDate } from '@/utils/formatters';
 
 import { DON_MUA_HANG_TABS, getDonMuaHangStatus } from '@/constants/donMuaHang';
 import useDemTheoTrangThai from '@/hooks/useDemTheoTrangThai';
@@ -60,9 +61,6 @@ function parseRoles(vaiTro) {
     return vaiTro.includes(' ') ? vaiTro.split(' ') : [vaiTro];
 }
 
-const formatCurrency = (v) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v || 0);
-const formatDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '—';
-
 async function countOrders(filters) {
     const res = await apiClient.post(API_FILTER, { filters, sorts: [], page: 0, size: 1 });
     const data = res?.data?.data || res?.data || {};
@@ -89,7 +87,7 @@ export default function PurchaseOrderList() {
     const [isRestrictedWarehouse, setIsRestrictedWarehouse] = useState(false);
 
     // Pagination
-    const [pagination, setPagination] = useState({ pageNumber: 0, pageSize: 10, totalElements: 0, totalPages: 0 });
+    const [pagination, setPagination] = useState({ pageNumber: 0, pageSize: SO_DONG_MAC_DINH, totalElements: 0, totalPages: 0 });
 
     // Filters: tab trạng thái + kho đọc từ URL (F5 / quay lại từ chi tiết vẫn đúng tab); mã đơn + ngày giữ trong state.
     // Ô tìm kiếm: searchText là chữ đang gõ, keyword là từ khóa đang lọc (áp dụng khi ngừng gõ hoặc nhấn Enter).
@@ -186,7 +184,7 @@ export default function PurchaseOrderList() {
     }, [isRestrictedWarehouse, warehouses]);
 
     // ── Fetch list ──
-    const fetchOrders = useCallback(async (page = 0, size = 10) => {
+    const fetchOrders = useCallback(async (page = 0, size = SO_DONG_MAC_DINH) => {
         const requestId = ++requestIdRef.current;
         setLoading(true);
         try {
@@ -201,7 +199,7 @@ export default function PurchaseOrderList() {
             setOrders(data.content || []);
             setPagination({
                 pageNumber: data.pageable?.pageNumber || 0,
-                pageSize: data.pageable?.pageSize || 10,
+                pageSize: data.pageable?.pageSize || size,
                 totalElements: data.totalElements || 0,
                 totalPages: data.totalPages || 0,
             });
@@ -320,7 +318,7 @@ export default function PurchaseOrderList() {
             : 'Bạn chưa được phân công kho nào nên danh sách đang trống.';
 
     return (
-        <PageContainer className="space-y-4">
+        <PageContainer fill className="space-y-4">
             <ListPageHeader
                 scope={scopeNote}
                 actions={
@@ -344,6 +342,7 @@ export default function PurchaseOrderList() {
 
             {/* ── Table (nhấn vào dòng để xem chi tiết đơn mua hàng) ── */}
             <TableShell
+                fill
                 toolbar={
                     <ListToolbar
                         tabs={
@@ -431,100 +430,15 @@ export default function PurchaseOrderList() {
                     </ListToolbar>
                 }
                 footer={
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        {/* Page size */}
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-bo-muted">Hiển thị</span>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className="h-8 w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                                    >
-                                        {pagination.pageSize} dòng
-                                        <ChevronDown className="size-3.5 opacity-60" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    align="start"
-                                    className="backoffice-user-menu z-50 w-[110px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
-                                >
-                                    {[5, 10, 20, 50].map(s => (
-                                        <DropdownMenuItem
-                                            key={s}
-                                            onClick={() => handlePageSizeChange(s)}
-                                            className="cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                        >
-                                            {s} dòng
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-
-                        {/* Page info */}
-                        <p className="text-xs text-bo-muted">
-                            Hiển thị{" "}
-                            <span className="font-semibold text-bo-foreground">
-                                {pagination.totalElements === 0 ? 0 : pagination.pageNumber * pagination.pageSize + 1}
-                            </span>
-                            {" – "}
-                            <span className="font-semibold text-bo-foreground">
-                                {Math.min((pagination.pageNumber + 1) * pagination.pageSize, pagination.totalElements)}
-                            </span>
-                            {" trong "}
-                            <span className="font-semibold text-bo-primary">{pagination.totalElements}</span> kết quả
-                        </p>
-
-                        {/* Navigation */}
-                        <div className="flex items-center gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handlePageChange(pagination.pageNumber - 1)}
-                                disabled={pagination.pageNumber === 0}
-                                className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                            >
-                                <ChevronLeft className="size-3.5" /> Trước
-                            </Button>
-
-                            <div className="hidden items-center gap-1 sm:flex">
-                                {[...Array(Math.min(5, pagination.totalPages))].map((_, idx) => {
-                                    let p = idx;
-                                    if (pagination.totalPages > 5) {
-                                        if (pagination.pageNumber < 3) p = idx;
-                                        else if (pagination.pageNumber > pagination.totalPages - 4) p = pagination.totalPages - 5 + idx;
-                                        else p = pagination.pageNumber - 2 + idx;
-                                    }
-                                    return (
-                                        <Button
-                                            key={idx}
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handlePageChange(p)}
-                                            className={
-                                                pagination.pageNumber === p
-                                                    ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
-                                                    : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
-                                            }
-                                        >
-                                            {p + 1}
-                                        </Button>
-                                    );
-                                })}
-                            </div>
-
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handlePageChange(pagination.pageNumber + 1)}
-                                disabled={pagination.pageNumber >= pagination.totalPages - 1 || pagination.totalPages === 0}
-                                className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                            >
-                                Sau <ChevronRight className="size-3.5" />
-                            </Button>
-                        </div>
-                    </div>
+                    !loading && !loadingInitial && !loadError && orders.length > 0 ? (
+                        <TablePagination
+                            page={pagination.pageNumber}
+                            size={pagination.pageSize}
+                            total={pagination.totalElements}
+                            onPageChange={handlePageChange}
+                            onSizeChange={handlePageSizeChange}
+                        />
+                    ) : null
                 }
             >
                 {loading || loadingInitial ? (
@@ -573,16 +487,17 @@ export default function PurchaseOrderList() {
                         />
                     )
                 ) : (
+                    /* Bảng: khung giãn hết màn, thân bảng tự cuộn, tiêu đề cột đứng yên */
                     <table className="w-full min-w-[960px] text-sm">
-                        <thead>
+                        <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                <th className="h-10 w-14 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã đơn mua</th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Nhà cung cấp</th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày tạo</th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
-                                <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền</th>
-                                <th className="h-10 w-32 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
+                                <th className="h-10 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã đơn mua</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Nhà cung cấp</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày tạo</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
+                                <th className="h-10 px-3 text-right tabular-nums whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền</th>
+                                <th className="h-10 w-32 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-bo-border">
@@ -614,74 +529,43 @@ export default function PurchaseOrderList() {
                                         </td>
 
                                         <td className="px-3 py-3">
-                                            <div className="flex items-center gap-1.5 text-[13px] font-medium text-slate-600">
+                                            <div className="flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-slate-600">
                                                 <Calendar className="size-3.5 text-bo-muted" /> {formatDate(order.ngayTao)}
                                             </div>
                                         </td>
 
-                                        <td className="px-3 py-3">
+                                        <td className="whitespace-nowrap px-3 py-3">
                                             <StatusBadge label={cfg.label} tone={cfg.tone} />
                                         </td>
 
-                                        <td className="px-3 py-3 text-right">
-                                            <span className={`text-[15px] font-bold tracking-tight ${isStatus5 ? 'text-bo-success' : 'text-bo-foreground'}`}>
-                                                {formatCurrency(order.tongTien)}
-                                            </span>
+                                        <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums font-semibold text-bo-foreground">
+                                            {order.tongTien != null ? formatCurrency(order.tongTien) : <span className="font-normal text-bo-muted">—</span>}
                                         </td>
 
-                                        <td className="px-3 py-3 text-center" onClick={e => e.stopPropagation()}>
-                                            <TooltipProvider>
-                                                <div className="flex items-center justify-center gap-1">
-                                                    {/* Xem chi tiết */}
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="size-8 text-bo-muted hover:bg-bo-primary-soft hover:text-bo-primary"
-                                                                onClick={() => navigate(`/purchase-orders/${order.id}`)}
-                                                            >
-                                                                <Eye className="size-4" />
-                                                            </Button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent><p>Xem chi tiết đơn</p></TooltipContent>
-                                                    </Tooltip>
-
-                                                    {/* Thanh toán (Chỉ trạng thái 3) */}
-                                                    {isStatus3 && (
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="size-8 text-bo-muted hover:bg-bo-success-soft hover:text-bo-success"
-                                                                    onClick={() => navigate(`/purchase-orders/${order.id}/payment`)}
-                                                                >
-                                                                    <CreditCard className="size-4" />
-                                                                </Button>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent><p>Thanh toán đơn hàng</p></TooltipContent>
-                                                        </Tooltip>
-                                                    )}
-
-                                                    {/* Nhập kho (Chỉ trạng thái 3 hoặc 5, và có quyền) */}
-                                                    {canCreateReceipt && (isStatus3 || isStatus5) && (
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="size-8 text-bo-muted hover:bg-bo-warning-soft hover:text-bo-warning"
-                                                                    onClick={() => navigate(`/goods-receipts/create?poId=${order.id}`)}
-                                                                >
-                                                                    <PackagePlus className="size-4" />
-                                                                </Button>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent><p>Tạo phiếu nhập kho</p></TooltipContent>
-                                                        </Tooltip>
-                                                    )}
-                                                </div>
-                                            </TooltipProvider>
+                                        <td className="px-3 py-3">
+                                            <RowActions>
+                                                <RowActionButton
+                                                    icon={Eye}
+                                                    label="Xem chi tiết đơn"
+                                                    onClick={() => navigate(`/purchase-orders/${order.id}`)}
+                                                />
+                                                {/* Thanh toán (Chỉ trạng thái 3) */}
+                                                {isStatus3 && (
+                                                    <RowActionButton
+                                                        icon={CreditCard}
+                                                        label="Thanh toán đơn hàng"
+                                                        onClick={() => navigate(`/purchase-orders/${order.id}/payment`)}
+                                                    />
+                                                )}
+                                                {/* Nhập kho (Chỉ trạng thái 3 hoặc 5, và có quyền) */}
+                                                {canCreateReceipt && (isStatus3 || isStatus5) && (
+                                                    <RowActionButton
+                                                        icon={PackagePlus}
+                                                        label="Tạo phiếu nhập kho"
+                                                        onClick={() => navigate(`/goods-receipts/create?poId=${order.id}`)}
+                                                    />
+                                                )}
+                                            </RowActions>
                                         </td>
                                     </tr>
                                 );

@@ -1,13 +1,14 @@
-import { formatCurrency } from "@/utils/formatters";
-import { createElement, useCallback, useEffect, useState } from "react";
+import { formatCurrency, formatDate } from "@/utils/formatters";
+import { createElement, useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { donBanHangService } from "@/services/donBanHangService";
 import apiClient from "@/services/apiClient";
 import { toast } from "sonner";
+import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import {
   ArrowLeft, Loader2, User, Calculator,
   CheckCircle2, Calendar, XCircle,
-  Receipt, Hash, MapPin
+  Receipt, Hash, MapPin, SearchX
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -15,6 +16,8 @@ import { Textarea } from "@/components/ui/textarea";
 
 import PageContainer from "@/components/backoffice/PageContainer";
 import LoadingState from "@/components/shared/LoadingState";
+import ErrorState from "@/components/shared/ErrorState";
+import EmptyState from "@/components/shared/EmptyState";
 import StatusBadge from "@/components/shared/StatusBadge";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import { BAO_GIA_STATUS, getBaoGiaStatus } from "@/constants/baoGia";
@@ -48,7 +51,8 @@ export default function BaoGiaDetail() {
   const navigate = useNavigate();
 
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+  const coDuLieuRef = useRef(false);
   const [userRoles, setUserRoles] = useState([]);
 
   // State cho Modal Từ chối
@@ -80,13 +84,17 @@ export default function BaoGiaDetail() {
   const isKhoRole = userRoles.includes(ROLE.QUAN_LY_KHO) || userRoles.includes(ROLE.NHAN_VIEN_KHO);
 
   const fetchDetail = useCallback(async () => {
-    setLoading(true);
+    setLoadError(null);
     try {
       const res = await donBanHangService.getDetail(id);
       setData(res.data);
+      coDuLieuRef.current = true;
     }
-    catch { toast.error("Không tải được chi tiết báo giá"); }
-    finally { setLoading(false); }
+    catch (error) {
+      setLoadError(error);
+      // Đang xem báo giá mà tải lại lỗi (sau khi từ chối): giữ nguyên màn, chỉ báo lỗi
+      if (coDuLieuRef.current) toast.error(getApiErrorMessage(error, "Không tải được chi tiết báo giá"));
+    }
   }, [id]);
 
   // Hoãn qua microtask để tránh setState đồng bộ trong effect
@@ -119,24 +127,62 @@ export default function BaoGiaDetail() {
       navigate(`/sales-orders/create?quoteId=${id}`);
   };
 
-  if (loading && !data) {
+  if (!data) {
+    if (!loadError) {
+      return (
+        <PageContainer>
+          <SurfaceCard>
+            <LoadingState rows={4} label="Đang tải chi tiết báo giá" />
+          </SurfaceCard>
+        </PageContainer>
+      );
+    }
+
+    // Không tìm thấy báo giá (404) thì mời quay lại danh sách; lỗi khác cho phép thử lại
+    const khongTimThay = getApiErrorStatus(loadError) === 404;
     return (
-      <PageContainer>
-        <SurfaceCard>
-          <LoadingState rows={4} label="Đang tải chi tiết báo giá" />
+      <PageContainer className="space-y-3">
+        <button
+          type="button"
+          onClick={() => navigate("/sales-quotations")}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-bo-primary transition-colors hover:text-bo-primary-hover"
+        >
+          <ArrowLeft className="size-4" />
+          Quay lại danh sách báo giá
+        </button>
+        <SurfaceCard contentClassName="p-0 sm:p-0">
+          {khongTimThay ? (
+            <EmptyState
+              icon={SearchX}
+              title="Không tìm thấy báo giá"
+              description="Báo giá không tồn tại hoặc đã bị xóa khỏi hệ thống."
+              action={
+                <Button
+                  onClick={() => navigate("/sales-quotations")}
+                  className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                >
+                  Về danh sách báo giá
+                </Button>
+              }
+            />
+          ) : (
+            <ErrorState
+              title="Không tải được chi tiết báo giá"
+              description={getApiErrorMessage(loadError, "Đã xảy ra lỗi khi tải báo giá. Vui lòng thử lại.")}
+              onRetry={fetchDetail}
+            />
+          )}
         </SurfaceCard>
       </PageContainer>
     );
   }
-
-  if (!data) return null;
 
   const { donBanHang, chiTiet } = data;
   const st = getBaoGiaStatus(donBanHang.trangThai);
 
   const infoRows = [
     { icon: User,     label: "Khách hàng",     value: donBanHang.khachHang?.tenKhachHang },
-    { icon: Calendar, label: "Ngày lập",       value: new Date(donBanHang.ngayDatHang).toLocaleDateString("vi-VN", { day: "2-digit", month: "long", year: "numeric" }) },
+    { icon: Calendar, label: "Ngày lập",       value: formatDate(donBanHang.ngayDatHang) },
     { icon: MapPin,   label: "Địa chỉ dự kiến", value: donBanHang.diaChiGiaoHang || "—" },
   ];
 

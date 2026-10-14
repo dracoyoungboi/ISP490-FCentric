@@ -30,6 +30,8 @@ import FilterSelect from "@/components/shared/FilterSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { API_BASE_URL } from "@/config/apiBase";
+import { khoService } from "@/services/khoService";
+import { laKhoAo } from "@/pages/warehouse/loaiKho";
 
 
 // API
@@ -82,13 +84,6 @@ const TAB_KY = [
   { value: "thang", label: "Tháng" },
   { value: "nam", label: "Năm" },
   { value: "so_sanh", label: "So sánh" },
-];
-
-// Giữ nguyên danh sách kho của ô chọn cũ ("" = tất cả kho)
-const KHO_OPTIONS = [
-  { value: "", label: "Tất cả kho" },
-  { value: "1", label: "KHO01 – Hà Nội" },
-  { value: "2", label: "KHO02 – Miền Nam" },
 ];
 
 
@@ -161,6 +156,8 @@ export default function KhachHangReport() {
 
   const [khoId, setKhoId] = useState("");
 
+  const [khoList, setKhoList] = useState([]);
+
   const [data, setData] = useState([]);
 
   // Trang tự tải ngay khi mở nên bắt đầu ở trạng thái đang tải (không hiện số 0 trước khi có số)
@@ -170,6 +167,26 @@ export default function KhachHangReport() {
   const [loi, setLoi] = useState(null);
 
   const requestIdRef = useRef(0);
+
+
+  // Danh sách kho cho bộ lọc: bỏ kho ảo và kho ngừng hoạt động.
+  // Lỗi tải thì chỉ còn "Tất cả kho", trang vẫn dùng được.
+  useEffect(() => {
+    let huy = false;
+    khoService.getAllKho()
+      .then((body) => {
+        const ds = body?.data?.content ?? [];
+        if (!huy) setKhoList(ds.filter((k) => !laKhoAo(k) && Number(k.trangThai) === 1));
+      })
+      .catch(() => {});
+    return () => { huy = true; };
+  }, []);
+
+  // "" = tất cả kho
+  const khoOptions = [
+    { value: "", label: "Tất cả kho" },
+    ...khoList.map((k) => ({ value: String(k.id), label: k.tenKho })),
+  ];
 
 
   const fetchData = useCallback(async () => {
@@ -386,7 +403,7 @@ export default function KhachHangReport() {
           <FilterSelect
             label="Lọc theo kho"
             value={khoId}
-            options={KHO_OPTIONS}
+            options={khoOptions}
             onChange={setKhoId}
             align="end"
             className="sm:w-[200px]"

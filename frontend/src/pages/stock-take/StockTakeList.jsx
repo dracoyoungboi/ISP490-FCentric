@@ -8,25 +8,20 @@ import ListToolbar from "@/components/shared/ListToolbar";
 import SearchInput from "@/components/shared/SearchInput";
 import StatusTabs from "@/components/shared/StatusTabs";
 import TableShell from "@/components/shared/TableShell";
+import TablePagination from "@/components/shared/TablePagination";
+import { RowActionButton, RowActions } from "@/components/shared/RowActions";
 import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Plus, Eye, ClipboardList, ChevronDown, ChevronLeft,
-  ChevronRight, Play, SearchX,
-} from "lucide-react";
+import { Plus, Eye, ClipboardList, Play, SearchX } from "lucide-react";
 import { toast } from "sonner";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import { getStockTakes } from "@/services/stockTakeService";
 import { hasAnyRole, ROLES } from "@/utils/roles";
+import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
+import { formatDate } from "@/utils/formatters";
 
 // ── Trạng thái ────────────────────────────────────────────────────────────
 const TRANG_THAI = {
@@ -59,11 +54,8 @@ const matchSearch = (item, searchTerm) => {
   );
 };
 
-const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 const TH_CLASS =
   "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
-const DROPDOWN_CONTENT_CLASS =
-  "backoffice-user-menu z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg";
 
 // ── Main component ────────────────────────────────────────────────────────
 export default function StockTakeList() {
@@ -75,7 +67,7 @@ export default function StockTakeList() {
   const [searchTerm,   setSearchTerm]   = useState("");
   const [tab,          setTab]          = useTabTrenUrl(STATUS_TAB_VALUES, TAB_MAC_DINH);
   const [pageNumber,   setPageNumber]   = useState(0);
-  const [pageSize,     setPageSize]     = useState(10);
+  const [pageSize,     setPageSize]     = useState(SO_DONG_MAC_DINH);
   // Dòng chú ý "đợt kiểm kê đang mở" chỉ cho người làm kiểm kê (R4)
   const [coQuyenKiemKe] = useState(() => hasAnyRole([ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_KHO]));
 
@@ -160,7 +152,7 @@ export default function StockTakeList() {
   const emptyTabLabel = STATUS_TABS.find((t) => t.value === tab)?.label;
 
   return (
-    <PageContainer className="space-y-4">
+    <PageContainer fill className="space-y-4">
       <ListPageHeader
         actions={
           <Button
@@ -184,6 +176,7 @@ export default function StockTakeList() {
 
       {/* ── Table ── */}
       <TableShell
+        fill
         toolbar={
           <ListToolbar
             tabs={
@@ -208,96 +201,13 @@ export default function StockTakeList() {
           </ListToolbar>
         }
         footer={!loading && !loadError && totalElements > 0 ? (
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-
-            {/* Page size */}
-            <div className="flex items-center gap-2">
-              <span className="whitespace-nowrap text-xs text-bo-muted">Hiển thị</span>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="h-8 w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                  >
-                    {pageSize} dòng
-                    <ChevronDown className="size-3.5 opacity-60" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className={`${DROPDOWN_CONTENT_CLASS} w-[110px]`}>
-                  {PAGE_SIZE_OPTIONS.map((size) => (
-                    <DropdownMenuItem
-                      key={size}
-                      onClick={() => { setPageSize(size); setPageNumber(0); }}
-                      className="cursor-pointer rounded-md px-2.5 py-1.5 text-xs text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                    >
-                      {size} dòng
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            {/* Page info */}
-            <p className="text-xs text-bo-muted">
-              Hiển thị{" "}
-              <span className="font-semibold text-bo-foreground">{safePage * pageSize + 1}</span>
-              {" – "}
-              <span className="font-semibold text-bo-foreground">
-                {Math.min((safePage + 1) * pageSize, totalElements)}
-              </span>
-              {" trong tổng số "}
-              <span className="font-semibold text-bo-primary">{totalElements}</span> kết quả
-            </p>
-
-            {/* Nav */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePageChange(safePage - 1)}
-                disabled={safePage === 0}
-                className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-              >
-                <ChevronLeft className="size-3.5" /> Trước
-              </Button>
-
-              <div className="hidden items-center gap-1 sm:flex">
-                {[...Array(Math.min(5, totalPages))].map((_, idx) => {
-                  let pageNum;
-                  if (totalPages <= 5)                pageNum = idx;
-                  else if (safePage < 3)              pageNum = idx;
-                  else if (safePage > totalPages - 4) pageNum = totalPages - 5 + idx;
-                  else                                pageNum = safePage - 2 + idx;
-
-                  return (
-                    <Button
-                      key={idx}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePageChange(pageNum)}
-                      className={
-                        safePage === pageNum
-                          ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
-                          : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
-                      }
-                    >
-                      {pageNum + 1}
-                    </Button>
-                  );
-                })}
-              </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePageChange(safePage + 1)}
-                disabled={safePage >= totalPages - 1}
-                className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-              >
-                Sau <ChevronRight className="size-3.5" />
-              </Button>
-            </div>
-          </div>
+          <TablePagination
+            page={safePage}
+            size={pageSize}
+            total={totalElements}
+            onPageChange={handlePageChange}
+            onSizeChange={(size) => { setPageSize(size); setPageNumber(0); }}
+          />
         ) : null}
       >
         {loading ? (
@@ -356,7 +266,7 @@ export default function StockTakeList() {
           )
         ) : (
           <table className="w-full min-w-[1020px] text-sm">
-            <thead>
+            <thead className="sticky top-0 z-10">
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
                 <th className={`${TH_CLASS} w-14 text-center`}>STT</th>
                 <th className={`${TH_CLASS} text-left`}>Mã đợt</th>
@@ -365,7 +275,7 @@ export default function StockTakeList() {
                 <th className={`${TH_CLASS} text-left`}>Người chủ trì</th>
                 <th className={`${TH_CLASS} text-left`}>Ngày bắt đầu</th>
                 <th className={`${TH_CLASS} text-left`}>Trạng thái</th>
-                <th className={`${TH_CLASS} text-left`}>Thao tác</th>
+                <th className={`${TH_CLASS} text-center`}>Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-bo-border">
@@ -410,9 +320,7 @@ export default function StockTakeList() {
                     {/* Ngày bắt đầu */}
                     <td className="px-4 py-3.5 align-middle">
                       <span className="text-xs text-bo-muted">
-                        {item.ngayBatDau
-                          ? new Date(item.ngayBatDau).toLocaleDateString("vi-VN")
-                          : "—"}
+                        {formatDate(item.ngayBatDau)}
                       </span>
                     </td>
 
@@ -423,22 +331,13 @@ export default function StockTakeList() {
 
                     {/* Thao tác */}
                     <td className="px-4 py-3.5 align-middle">
-                      <button
-                        type="button"
-                        title={isOngoing ? "Tiếp tục" : "Xem chi tiết"}
-                        aria-label={isOngoing ? "Tiếp tục đợt kiểm kê" : "Xem chi tiết đợt kiểm kê"}
-                        onClick={() => navigate(`/stock-take/${item.id}`)}
-                        className={`inline-flex size-8 items-center justify-center rounded-md border transition-colors ${isOngoing
-                          ? "border-bo-primary/30 bg-bo-primary-soft text-bo-primary hover:bg-bo-primary-soft/70"
-                          : "border-bo-border bg-white text-bo-muted hover:border-bo-primary hover:text-bo-primary"
-                          }`}
-                      >
-                        {isOngoing ? (
-                          <Play className="size-3.5 fill-current" />
-                        ) : (
-                          <Eye className="size-4" />
-                        )}
-                      </button>
+                      <RowActions>
+                        <RowActionButton
+                          icon={isOngoing ? Play : Eye}
+                          label={isOngoing ? "Tiếp tục kiểm kê" : "Xem chi tiết"}
+                          onClick={() => navigate(`/stock-take/${item.id}`)}
+                        />
+                      </RowActions>
                     </td>
                   </tr>
                 );

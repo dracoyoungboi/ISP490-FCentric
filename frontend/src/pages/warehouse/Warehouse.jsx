@@ -1,9 +1,6 @@
 import { getApiErrorMessage } from "@/utils/apiError";
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-    ChevronDown, ChevronLeft, ChevronRight,
-    Edit, Eye, Package, Plus, SearchX, Trash2,
-} from 'lucide-react';
+import { Edit, Eye, Package, Plus, SearchX, Trash2 } from 'lucide-react';
 
 import PageContainer from '@/components/backoffice/PageContainer';
 import EmptyState from '@/components/shared/EmptyState';
@@ -15,13 +12,11 @@ import SearchInput from '@/components/shared/SearchInput';
 import StatusBadge from '@/components/shared/StatusBadge';
 import StatusTabs from '@/components/shared/StatusTabs';
 import TableShell from '@/components/shared/TableShell';
+import TablePagination from '@/components/shared/TablePagination';
+import { RowActionButton, RowActions } from '@/components/shared/RowActions';
 import { Button } from '@/components/ui/button';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { SO_DONG_MAC_DINH } from '@/constants/phanTrang';
+import { formatNumber } from '@/utils/formatters';
 import { toast } from 'sonner';
 import { khoService } from '@/services/khoService';
 import useDemTheoTrangThai from '@/hooks/useDemTheoTrangThai';
@@ -68,8 +63,6 @@ function buildPayload(filters) {
     };
 }
 
-const PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100];
-
 /* ════════════════════════════════════════════════════════════════
    COMPONENT
 ════════════════════════════════════════════════════════════════ */
@@ -85,7 +78,7 @@ export default function WarehouseManagement() {
     const [searchTerm, setSearchTerm] = useState('');
     const [tab, setTab] = useTabTrenUrl(STATUS_TAB_VALUES, TAB_MAC_DINH);
     const [pagination, setPagination] = useState({
-        pageNumber: 0, pageSize: 10, totalElements: 0, totalPages: 0,
+        pageNumber: 0, pageSize: SO_DONG_MAC_DINH, totalElements: 0, totalPages: 0,
     });
 
     const [showDialog, setShowDialog] = useState(false);
@@ -298,7 +291,7 @@ export default function WarehouseManagement() {
        RENDER
     ══════════════ */
     return (
-        <PageContainer className="space-y-4">
+        <PageContainer fill className="space-y-4">
             <ListPageHeader
                 actions={
                     <Button
@@ -313,6 +306,7 @@ export default function WarehouseManagement() {
 
             {/* ── Table ── */}
             <TableShell
+                fill
                 toolbar={
                     <ListToolbar
                         tabs={
@@ -337,113 +331,14 @@ export default function WarehouseManagement() {
                     </ListToolbar>
                 }
                 footer={
-                    !loadError && pagination.totalElements > 0 ? (
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            {/* Page size */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs text-bo-muted">Hiển thị</span>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            className="h-8 w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                                        >
-                                            {pagination.pageSize} dòng
-                                            <ChevronDown className="size-3.5 opacity-60" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent
-                                        align="start"
-                                        className="backoffice-user-menu z-50 w-[110px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
-                                    >
-                                        {PAGE_SIZE_OPTIONS.map((sz) => (
-                                            <DropdownMenuItem
-                                                key={sz}
-                                                onClick={() => handlePageSizeChange(sz)}
-                                                className="cursor-pointer rounded-md px-2.5 py-1.5 text-xs text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                            >
-                                                {sz} dòng
-                                            </DropdownMenuItem>
-                                        ))}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-
-                            {/* Page info */}
-                            <p className="text-xs text-bo-muted">
-                                Hiển thị{" "}
-                                <span className="font-semibold text-bo-foreground">
-                                    {pagination.pageNumber * pagination.pageSize + 1}
-                                </span>
-                                {" – "}
-                                <span className="font-semibold text-bo-foreground">
-                                    {Math.min(
-                                        (pagination.pageNumber + 1) * pagination.pageSize,
-                                        pagination.totalElements
-                                    )}
-                                </span>
-                                {" trong tổng số "}
-                                <span className="font-semibold text-bo-primary">
-                                    {pagination.totalElements}
-                                </span>{" "}
-                                kết quả
-                            </p>
-
-                            {/* Navigation */}
-                            <div className="flex items-center gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handlePageChange(pagination.pageNumber - 1)}
-                                    disabled={pagination.pageNumber === 0}
-                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                                >
-                                    <ChevronLeft className="size-3.5" />
-                                    Trước
-                                </Button>
-
-                                <div className="hidden items-center gap-1 sm:flex">
-                                    {[...Array(Math.min(5, pagination.totalPages))].map((_, idx) => {
-                                        let pageNum;
-                                        if (pagination.totalPages <= 5) {
-                                            pageNum = idx;
-                                        } else if (pagination.pageNumber < 3) {
-                                            pageNum = idx;
-                                        } else if (pagination.pageNumber > pagination.totalPages - 4) {
-                                            pageNum = pagination.totalPages - 5 + idx;
-                                        } else {
-                                            pageNum = pagination.pageNumber - 2 + idx;
-                                        }
-                                        return (
-                                            <Button
-                                                key={idx}
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => handlePageChange(pageNum)}
-                                                className={
-                                                    pagination.pageNumber === pageNum
-                                                        ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
-                                                        : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
-                                                }
-                                            >
-                                                {pageNum + 1}
-                                            </Button>
-                                        );
-                                    })}
-                                </div>
-
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handlePageChange(pagination.pageNumber + 1)}
-                                    disabled={pagination.pageNumber >= pagination.totalPages - 1}
-                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                                >
-                                    Sau
-                                    <ChevronRight className="size-3.5" />
-                                </Button>
-                            </div>
-                        </div>
+                    !isLoading && !loadError && warehouses.length > 0 ? (
+                        <TablePagination
+                            page={pagination.pageNumber}
+                            size={pagination.pageSize}
+                            total={pagination.totalElements}
+                            onPageChange={handlePageChange}
+                            onSizeChange={handlePageSizeChange}
+                        />
                     ) : null
                 }
             >
@@ -503,30 +398,30 @@ export default function WarehouseManagement() {
                     )
                 ) : (
                     <table className="w-full min-w-[1020px] text-sm">
-                        <thead>
+                        <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                <th className="h-10 w-14 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     STT
                                 </th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Mã kho
                                 </th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Tên kho
                                 </th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Loại kho
                                 </th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Người quản lý
                                 </th>
-                                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Trạng thái
                                 </th>
-                                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 px-3 text-right tabular-nums whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Tồn kho
                                 </th>
-                                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Thao tác
                                 </th>
                             </tr>
@@ -562,39 +457,32 @@ export default function WarehouseManagement() {
                                             tone={wh.trangThai === 1 ? 'success' : 'danger'}
                                         />
                                     </td>
-                                    <td className="px-3 py-3 text-center font-semibold text-bo-foreground">
-                                        {(wh.soLuongTon || 0).toLocaleString("vi-VN")}
+                                    <td className="px-3 py-3 text-right tabular-nums">
+                                        {wh.soLuongTon == null ? (
+                                            <span className="text-bo-muted">—</span>
+                                        ) : (
+                                            <span className="font-semibold text-bo-foreground">{formatNumber(wh.soLuongTon)}</span>
+                                        )}
                                     </td>
                                     <td className="px-3 py-3">
-                                        <div className="flex items-center justify-center gap-1.5">
-                                            <button
-                                                type="button"
-                                                title="Xem chi tiết"
-                                                aria-label={`Xem chi tiết ${wh.tenKho}`}
+                                        <RowActions>
+                                            <RowActionButton
+                                                icon={Eye}
+                                                label="Xem chi tiết"
                                                 onClick={() => handleOpenDialog('view', wh)}
-                                                className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
-                                            >
-                                                <Eye className="size-4" />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                title="Chỉnh sửa"
-                                                aria-label={`Chỉnh sửa ${wh.tenKho}`}
+                                            />
+                                            <RowActionButton
+                                                icon={Edit}
+                                                label="Chỉnh sửa"
                                                 onClick={() => handleOpenDialog('edit', wh)}
-                                                className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
-                                            >
-                                                <Edit className="size-4" />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                title="Xóa kho"
-                                                aria-label={`Xóa kho ${wh.tenKho}`}
+                                            />
+                                            <RowActionButton
+                                                icon={Trash2}
+                                                label="Xóa kho"
+                                                tone="danger"
                                                 onClick={() => handleDeleteClick(wh)}
-                                                className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-danger hover:text-bo-danger"
-                                            >
-                                                <Trash2 className="size-4" />
-                                            </button>
-                                        </div>
+                                            />
+                                        </RowActions>
                                     </td>
                                 </tr>
                             ))}

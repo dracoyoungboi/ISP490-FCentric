@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import {
-    Calendar, ChevronDown, ChevronLeft, ChevronRight,
-    ClipboardList, Plus, SearchX,
-} from "lucide-react";
+import { Calendar, ClipboardList, Plus, SearchX } from "lucide-react";
 
 import PageContainer from "@/components/backoffice/PageContainer";
 import AttentionBar from "@/components/shared/AttentionBar";
@@ -16,23 +13,19 @@ import SearchInput from "@/components/shared/SearchInput";
 import StatusBadge from "@/components/shared/StatusBadge";
 import StatusTabs from "@/components/shared/StatusTabs";
 import TableShell from "@/components/shared/TableShell";
+import TablePagination from "@/components/shared/TablePagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { PHIEU_XUAT_KHO_TABS, getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import apiClient from "@/services/apiClient";
 import { getMineKhoList } from "@/services/khoService";
 import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
+import { formatDate } from "@/utils/formatters";
 import { getCurrentUserId } from "@/utils/roles";
 
-const PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100];
 const SEARCH_DEBOUNCE_MS = 350;
 
 // Tab trạng thái (bố cục A+G) — mã tab nằm trên URL ?trangThai=
@@ -94,7 +87,7 @@ export default function PhieuXuatKhoList() {
         tenKho: "",
         ngayXuat: "",
         page: 0,
-        size: 10,
+        size: SO_DONG_MAC_DINH,
     });
     // Ô chữ đổi ngay khi gõ; filters chỉ đổi khi ngừng gõ (mỗi lần đổi gọi danh sách + đếm từng tab)
     const [keywordInput, setKeywordInput] = useState("");
@@ -158,7 +151,7 @@ export default function PhieuXuatKhoList() {
             }
 
             setData(finalData);
-            setTotal(res?.totalElements || 0); // Phân trang sẽ nhận chuẩn 10/10 dòng
+            setTotal(res?.totalElements || 0); // Tổng của máy chủ (chưa tính lọc ngày tại chỗ)
             setLoadError(false);
         } catch (e) {
             if (requestId !== requestIdRef.current) return;
@@ -194,8 +187,6 @@ export default function PhieuXuatKhoList() {
         TAB_CHO_XUAT,
         { enabled: coQuyenXuatKho }
     );
-
-    const totalPages = Math.max(1, Math.ceil(total / filters.size));
 
     const changeTab = (value) => {
         setTab(value);
@@ -243,7 +234,7 @@ export default function PhieuXuatKhoList() {
     const emptyTabLabel = PHIEU_XUAT_KHO_TABS.find((t) => t.ma === tab)?.label;
 
     return (
-        <PageContainer className="space-y-4">
+        <PageContainer fill className="space-y-4">
             <ListPageHeader
                 scope={scopeNote}
                 actions={
@@ -266,6 +257,7 @@ export default function PhieuXuatKhoList() {
 
             {/* ══ BẢNG: tab trạng thái + tìm kiếm + bộ lọc cùng một hàng ══ */}
             <TableShell
+                fill
                 toolbar={
                     <ListToolbar
                         tabs={
@@ -315,99 +307,23 @@ export default function PhieuXuatKhoList() {
                     </ListToolbar>
                 }
                 footer={
-                    total > 0 ? (
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs text-bo-muted">Hiển thị</span>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            className="h-8 w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                                        >
-                                            {filters.size} dòng
-                                            <ChevronDown className="size-3.5 opacity-60" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent
-                                        align="start"
-                                        className="backoffice-user-menu z-50 w-[110px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
-                                    >
-                                        {PAGE_SIZE_OPTIONS.map((size) => (
-                                            <DropdownMenuItem
-                                                key={size}
-                                                onClick={() => setFilters((p) => ({ ...p, size, page: 0 }))}
-                                                className="cursor-pointer rounded-md px-2.5 py-1.5 text-xs text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                            >
-                                                {size} dòng
-                                            </DropdownMenuItem>
-                                        ))}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-
-                            <p className="text-xs text-bo-muted">
-                                Hiển thị{" "}
-                                <span className="font-semibold text-bo-foreground">
-                                    {filters.page * filters.size + 1}
-                                </span>
-                                {" – "}
-                                <span className="font-semibold text-bo-foreground">
-                                    {Math.min((filters.page + 1) * filters.size, total)}
-                                </span>
-                                {" trong tổng số "}
-                                <span className="font-semibold text-bo-primary">{total}</span> kết quả
-                            </p>
-
-                            <div className="flex items-center gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setFilters((p) => ({ ...p, page: p.page - 1 }))}
-                                    disabled={filters.page === 0}
-                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                                >
-                                    <ChevronLeft className="size-3.5" />
-                                    Trước
-                                </Button>
-
-                                <div className="hidden items-center gap-1 sm:flex">
-                                    {[...Array(Math.min(5, totalPages))].map((_, idx) => {
-                                        let pageNum;
-                                        if (totalPages <= 5) pageNum = idx;
-                                        else if (filters.page < 3) pageNum = idx;
-                                        else if (filters.page > totalPages - 4) pageNum = totalPages - 5 + idx;
-                                        else pageNum = filters.page - 2 + idx;
-                                        return (
-                                            <Button
-                                                key={idx}
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => setFilters((p) => ({ ...p, page: pageNum }))}
-                                                className={
-                                                    filters.page === pageNum
-                                                        ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
-                                                        : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
-                                                }
-                                            >
-                                                {pageNum + 1}
-                                            </Button>
-                                        );
-                                    })}
-                                </div>
-
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setFilters((p) => ({ ...p, page: p.page + 1 }))}
-                                    disabled={filters.page + 1 >= totalPages || data.length === 0}
-                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                                >
-                                    Sau
-                                    <ChevronRight className="size-3.5" />
-                                </Button>
-                            </div>
-                        </div>
+                    !loading && !loadError && total > 0 ? (
+                        // Lọc ngày chạy tại chỗ trên trang vừa tải (API chưa nhận điều kiện ngày), nên vẫn giữ phân trang
+                        // theo máy chủ để xem tiếp các trang sau; trang đang xem không có phiếu ngày đó thì bảng trống.
+                        <TablePagination
+                            page={filters.page}
+                            size={filters.size}
+                            total={total}
+                            onPageChange={(page) => setFilters((p) => ({ ...p, page }))}
+                            onSizeChange={(size) => setFilters((p) => ({ ...p, size, page: 0 }))}
+                            extra={
+                                filters.ngayXuat ? (
+                                    <span className="text-xs text-bo-muted">
+                                        Lọc ngày chỉ áp dụng cho trang đang xem
+                                    </span>
+                                ) : null
+                            }
+                        />
                     ) : null
                 }
             >
@@ -423,7 +339,11 @@ export default function PhieuXuatKhoList() {
                         <EmptyState
                             icon={SearchX}
                             title="Không tìm thấy phiếu xuất kho phù hợp"
-                            description="Thử đổi từ khóa, tên kho hoặc ngày xuất."
+                            description={
+                                filters.ngayXuat && total > 0
+                                    ? "Trang này không có phiếu của ngày đã chọn. Chuyển trang ở dưới để xem tiếp, hoặc đổi điều kiện lọc."
+                                    : "Thử đổi từ khóa, tên kho hoặc ngày xuất."
+                            }
                             action={
                                 <Button
                                     variant="outline"
@@ -458,27 +378,27 @@ export default function PhieuXuatKhoList() {
                     )
                 ) : (
                     <table className="w-full min-w-[980px] text-sm">
-                        <thead>
+                        <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                <th className="h-10 w-14 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     STT
                                 </th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Số phiếu xuất
                                 </th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Tham chiếu gốc
                                 </th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Kho xuất
                                 </th>
-                                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Ngày tạo
                                 </th>
-                                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Ngày xuất
                                 </th>
-                                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Trạng thái
                                 </th>
                             </tr>
@@ -522,10 +442,10 @@ export default function PhieuXuatKhoList() {
                                             {item.kho?.tenKho || "-"}
                                         </td>
                                         <td className="whitespace-nowrap px-3 py-3 text-center text-xs text-bo-muted">
-                                            {new Date(item.ngayTao).toLocaleDateString("vi-VN")}
+                                            {formatDate(item.ngayTao)}
                                         </td>
                                         <td className="whitespace-nowrap px-3 py-3 text-center text-xs text-bo-muted">
-                                            {item.ngayXuat ? new Date(item.ngayXuat).toLocaleDateString("vi-VN") : "Chưa xuất kho"}
+                                            {item.ngayXuat ? formatDate(item.ngayXuat) : "Chưa xuất kho"}
                                         </td>
                                         <td className="px-3 py-3 text-center">
                                             {status ? (

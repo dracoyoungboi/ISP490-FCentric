@@ -9,6 +9,7 @@ import TableShell from "@/components/shared/TableShell";
 import StatusBadge from "@/components/shared/StatusBadge";
 import LoadingState from "@/components/shared/LoadingState";
 import EmptyState from "@/components/shared/EmptyState";
+import ErrorState from "@/components/shared/ErrorState";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import DispatchDialog from "@/components/outbound/DispatchDialog";
 import { Button } from "@/components/ui/button";
@@ -16,9 +17,11 @@ import {
     Loader2, Printer, Check, X,
     ClipboardList, Package, Warehouse,
     Calendar, User, AlertCircle, Info as InfoIcon,
-    ArrowRight, ArrowLeft, MapPin
+    ArrowRight, ArrowLeft, MapPin, SearchX
 } from "lucide-react";
 import { PHIEU_XUAT_KHO_STATUS, getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
+import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
+import { formatDate } from "@/utils/formatters";
 
 // Trạng thái phiếu xuất — dùng chung tên với danh sách và bản in (constants/phieuXuatKho)
 const STATUS_UI = PHIEU_XUAT_KHO_STATUS;
@@ -32,6 +35,8 @@ export default function PhieuXuatKhoDetail() {
 
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
+    // null: không lỗi; { khongTimThay, moTa }: lần tải gần nhất lỗi
+    const [loadError, setLoadError] = useState(null);
     const [showConfirm, setShowConfirm] = useState(false);
     const [showDispatch, setShowDispatch] = useState(false);
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -39,12 +44,23 @@ export default function PhieuXuatKhoDetail() {
 
     const fetchDetail = useCallback(async () => {
         setLoading(true);
+        setLoadError(null);
         try {
             const res = await phieuXuatKhoService.getDetail(id);
-            setData(res?.data || res);
+            const payload = res?.data || res;
+            if (payload?.phieu) {
+                setData(payload);
+            } else {
+                // Máy chủ trả về rỗng: coi như không có phiếu này
+                setData(null);
+                setLoadError({ khongTimThay: true });
+            }
         } catch (e) {
-            console.error(e);
-            toast.error("Không thể tải chi tiết phiếu xuất");
+            setData(null);
+            setLoadError({
+                khongTimThay: getApiErrorStatus(e) === 404,
+                moTa: getApiErrorMessage(e, "Đã xảy ra lỗi khi tải phiếu xuất kho. Vui lòng thử lại."),
+            });
         } finally {
             setLoading(false);
         }
@@ -110,11 +126,42 @@ export default function PhieuXuatKhoDetail() {
         }
     };
 
+    // Đang tải, lỗi tải hoặc không có phiếu: vẫn giữ nút quay lại danh sách
     if (loading || !data) {
         return (
-            <PageContainer>
+            <PageContainer className="space-y-5">
+                <button
+                    type="button"
+                    onClick={() => navigate("/goods-issues")}
+                    className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-bo-muted transition-colors hover:text-bo-primary"
+                >
+                    <ArrowLeft className="size-4" />
+                    Quay lại danh sách
+                </button>
                 <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                    <LoadingState rows={5} label="Đang tải dữ liệu phiếu xuất kho" />
+                    {loading || !loadError ? (
+                        <LoadingState rows={5} label="Đang tải dữ liệu phiếu xuất kho" />
+                    ) : loadError.khongTimThay ? (
+                        <EmptyState
+                            icon={SearchX}
+                            title="Không tìm thấy phiếu xuất kho"
+                            description="Phiếu xuất kho không tồn tại hoặc đã bị xóa khỏi hệ thống."
+                            action={
+                                <Button
+                                    onClick={() => navigate("/goods-issues")}
+                                    className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                                >
+                                    Về danh sách phiếu xuất
+                                </Button>
+                            }
+                        />
+                    ) : (
+                        <ErrorState
+                            title="Không tải được phiếu xuất kho"
+                            description={loadError.moTa}
+                            onRetry={fetchDetail}
+                        />
+                    )}
                 </div>
             </PageContainer>
         );
@@ -218,13 +265,13 @@ export default function PhieuXuatKhoDetail() {
                     <InfoItem
                         icon={Calendar}
                         label="Ngày tạo phiếu"
-                        value={new Date(phieu.ngayTao).toLocaleDateString("vi-VN")}
+                        value={formatDate(phieu.ngayTao)}
                     />
 
                     <InfoItem
                         icon={Calendar}
                         label="Ngày xuất"
-                        value={phieu.ngayXuat ? new Date(phieu.ngayXuat).toLocaleDateString("vi-VN") : "Chưa xuất kho"}
+                        value={phieu.ngayXuat ? formatDate(phieu.ngayXuat) : "Chưa xuất kho"}
                     />
 
                     <InfoItem

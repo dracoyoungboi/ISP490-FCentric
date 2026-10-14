@@ -24,8 +24,6 @@ import {
     CheckCircle2,
     Loader2,
     ChevronDown,
-    ChevronLeft,
-    ChevronRight,
     Check,
     Users,
     UserPlus,
@@ -50,6 +48,9 @@ import SearchInput from "@/components/shared/SearchInput";
 import StatusBadge from "@/components/shared/StatusBadge";
 import StatusTabs from "@/components/shared/StatusTabs";
 import TableShell from "@/components/shared/TableShell";
+import TablePagination from "@/components/shared/TablePagination";
+import { RowActionButton, RowActions } from "@/components/shared/RowActions";
+import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import {
@@ -61,28 +62,6 @@ import {
 
 // Gõ ô tìm kiếm: chờ người dùng ngừng gõ một chút rồi mới gọi API
 const SEARCH_DEBOUNCE_MS = 300;
-
-// Dãy nút trang: luôn có trang đầu, trang cuối và các trang quanh trang hiện tại;
-// khoảng bị bỏ qua hiển thị "…" (khoảng chỉ thiếu đúng 1 trang thì hiện luôn trang đó).
-// Trang tính từ 0, phần tử dạng chuỗi là dấu "…".
-function getPageItems(current, totalPages) {
-    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i);
-
-    const pages = new Set([0, totalPages - 1, current - 1, current, current + 1]);
-    // Gần đầu / cuối dãy: hiện đủ các trang liền kề để số nút không bị co lại
-    if (current <= 2) [1, 2, 3].forEach(p => pages.add(p));
-    if (current >= totalPages - 3) [totalPages - 4, totalPages - 3, totalPages - 2].forEach(p => pages.add(p));
-
-    const sorted = [...pages].filter(p => p >= 0 && p < totalPages).sort((a, b) => a - b);
-    const items = [];
-    sorted.forEach((page, i) => {
-        const prev = sorted[i - 1];
-        if (i > 0 && page - prev === 2) items.push(prev + 1);
-        else if (i > 0 && page - prev > 2) items.push(`gap-${prev}`);
-        items.push(page);
-    });
-    return items;
-}
 
 // Bản đồ nhãn + tông màu loại khách hàng (giữ nguyên 3 giá trị nghiệp vụ)
 const LOAI_KHACH_HANG_MAP = {
@@ -181,7 +160,7 @@ export default function KhachHangPage() {
     const [khachHangs, setKhachHangs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(0);
-    const [pageSize, setPageSize] = useState(20);
+    const [pageSize, setPageSize] = useState(SO_DONG_MAC_DINH);
     const [totalItems, setTotalItems] = useState(0);
     const navigate = useNavigate();
     // Filter states
@@ -468,7 +447,7 @@ export default function KhachHangPage() {
     const loaiTabLabel = LOAI_TABS.find((tab) => tab.value === loaiKhachHang)?.label;
 
     return (
-        <PageContainer className="space-y-4">
+        <PageContainer fill className="space-y-4">
             {/* ── Hàng tiêu đề: tên trang + nút chính ── */}
             <ListPageHeader
                 actions={
@@ -509,6 +488,7 @@ export default function KhachHangPage() {
 
             {/* ── Table ── */}
             <TableShell
+                fill
                 toolbar={
                     <ListToolbar
                         tabs={
@@ -542,107 +522,14 @@ export default function KhachHangPage() {
                     </ListToolbar>
                 }
                 footer={
-                    totalItems > 0 ? (
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            {/* Page size */}
-                            <div className="flex items-center gap-2">
-                                <span className="whitespace-nowrap text-xs text-bo-muted">Hiển thị</span>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            className="h-8 w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                                        >
-                                            {pageSize} dòng
-                                            <ChevronDown className="size-3.5 opacity-60" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent
-                                        align="start"
-                                        className="backoffice-user-menu z-50 w-[110px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
-                                    >
-                                        {[5,10,20, 50, 100].map(size => (
-                                            <DropdownMenuItem
-                                                key={size}
-                                                onClick={() => handlePageSizeChange(size)}
-                                                className="cursor-pointer rounded-md px-2.5 py-1.5 text-xs text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                            >
-                                                {size} dòng
-                                            </DropdownMenuItem>
-                                        ))}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-
-                            {/* Page info */}
-                            <p className="text-xs text-bo-muted">
-                                Hiển thị{" "}
-                                <span className="font-semibold text-bo-foreground">
-                                    {currentPage * pageSize + 1}
-                                </span>
-                                {" – "}
-                                <span className="font-semibold text-bo-foreground">
-                                    {Math.min((currentPage + 1) * pageSize, totalItems)}
-                                </span>
-                                {" trong tổng số "}
-                                <span className="font-semibold text-bo-primary">{totalItems}</span> kết quả
-                            </p>
-
-                            {/* Navigation */}
-                            <div className="flex items-center gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handlePageChange(currentPage - 1)}
-                                    disabled={currentPage === 0}
-                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                                >
-                                    <ChevronLeft className="size-3.5" />
-                                    Trước
-                                </Button>
-
-                                <div className="hidden items-center gap-1 sm:flex">
-                                    {getPageItems(currentPage, totalPages).map((item) => (
-                                        typeof item === "number" ? (
-                                            <Button
-                                                key={item}
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => handlePageChange(item)}
-                                                aria-current={currentPage === item ? "page" : undefined}
-                                                className={
-                                                    currentPage === item
-                                                        ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
-                                                        : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
-                                                }
-                                            >
-                                                {item + 1}
-                                            </Button>
-                                        ) : (
-                                            <span key={item} className="px-1 text-xs text-bo-muted" aria-hidden="true">
-                                                …
-                                            </span>
-                                        )
-                                    ))}
-                                </div>
-
-                                {/* Màn hình nhỏ ẩn dãy số trang -> hiện vị trí trang hiện tại */}
-                                <span className="text-xs text-bo-muted sm:hidden">
-                                    {currentPage + 1} / {totalPages}
-                                </span>
-
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handlePageChange(currentPage + 1)}
-                                    disabled={currentPage >= totalPages - 1}
-                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                                >
-                                    Sau
-                                    <ChevronRight className="size-3.5" />
-                                </Button>
-                            </div>
-                        </div>
+                    !loading && !loadError && totalItems > 0 ? (
+                        <TablePagination
+                            page={currentPage}
+                            size={pageSize}
+                            total={totalItems}
+                            onPageChange={handlePageChange}
+                            onSizeChange={handlePageSizeChange}
+                        />
                     ) : null
                 }
             >
@@ -692,108 +579,95 @@ export default function KhachHangPage() {
                         />
                     )
                 ) : (
-                    <div className="max-h-[520px] overflow-y-auto">
-                        <table className="w-full min-w-[900px] text-sm">
-                            <thead>
-                                <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                    <th className="h-10 w-14 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                        STT
-                                    </th>
-                                    <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                        Mã KH
-                                    </th>
-                                    <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                        Khách hàng
-                                    </th>
-                                    <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                        Loại KH
-                                    </th>
-                                    <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                        Liên hệ
-                                    </th>
-                                    <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                        Trạng thái
-                                    </th>
-                                    <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                        Thao tác
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-bo-border">
-                                {khachHangs.map((khachHang, index) => (
-                                    <tr
-                                        key={khachHang.id}
-                                        onClick={() => handleRowClick(khachHang)}
-                                        className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
-                                    >
-                                        <td className="px-3 py-3 text-center text-xs text-bo-muted">
-                                            {currentPage * pageSize + index + 1}
-                                        </td>
-                                        <td className="px-3 py-3">
-                                            <span className="font-semibold tracking-wide text-bo-primary">
-                                                {khachHang.maKhachHang}
-                                            </span>
-                                        </td>
-                                        <td className="px-3 py-3">
-                                            <div className="font-semibold text-bo-foreground">
-                                                {khachHang.tenKhachHang}
+                    <table className="w-full min-w-[900px] text-sm">
+                        <thead className="sticky top-0 z-10">
+                            <tr className="border-b border-bo-border bg-bo-surface-subtle">
+                                <th className="h-10 w-14 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                    STT
+                                </th>
+                                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                    Mã KH
+                                </th>
+                                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                    Khách hàng
+                                </th>
+                                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                    Loại KH
+                                </th>
+                                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                    Liên hệ
+                                </th>
+                                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                    Trạng thái
+                                </th>
+                                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                    Thao tác
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-bo-border">
+                            {khachHangs.map((khachHang, index) => (
+                                <tr
+                                    key={khachHang.id}
+                                    onClick={() => handleRowClick(khachHang)}
+                                    className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
+                                >
+                                    <td className="px-3 py-3 text-center text-xs text-bo-muted">
+                                        {currentPage * pageSize + index + 1}
+                                    </td>
+                                    <td className="px-3 py-3">
+                                        <span className="font-semibold tracking-wide text-bo-primary">
+                                            {khachHang.maKhachHang}
+                                        </span>
+                                    </td>
+                                    <td className="px-3 py-3">
+                                        <div className="font-semibold text-bo-foreground">
+                                            {khachHang.tenKhachHang}
+                                        </div>
+                                        {khachHang.nguoiLienHe && (
+                                            <div className="mt-0.5 flex items-center gap-1 text-xs text-bo-muted">
+                                                <User className="size-3 shrink-0" /> {khachHang.nguoiLienHe}
                                             </div>
-                                            {khachHang.nguoiLienHe && (
-                                                <div className="mt-0.5 flex items-center gap-1 text-xs text-bo-muted">
-                                                    <User className="size-3 shrink-0" /> {khachHang.nguoiLienHe}
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td className="px-3 py-3 text-center">
-                                            {getLoaiKhachHangBadge(khachHang.loaiKhachHang)}
-                                        </td>
-                                        <td className="px-3 py-3">
-                                            <div className="flex flex-col gap-1 text-xs text-bo-muted">
-                                                <div className="flex items-center gap-1.5">
-                                                    <Phone className="size-3 shrink-0" /> {khachHang.soDienThoai || "-"}
-                                                </div>
-                                                <div className="flex items-center gap-1.5">
-                                                    <Mail className="size-3 shrink-0" /> {khachHang.email || "-"}
-                                                </div>
+                                        )}
+                                    </td>
+                                    <td className="px-3 py-3 text-center">
+                                        {getLoaiKhachHangBadge(khachHang.loaiKhachHang)}
+                                    </td>
+                                    <td className="px-3 py-3">
+                                        <div className="flex flex-col gap-1 text-xs text-bo-muted">
+                                            <div className="flex items-center gap-1.5">
+                                                <Phone className="size-3 shrink-0" /> {khachHang.soDienThoai || "—"}
                                             </div>
-                                        </td>
-                                        <td className="px-3 py-3 text-center">
-                                            <StatusBadge
-                                                label={khachHang.trangThai === 1 ? "Hoạt động" : "Ngừng hoạt động"}
-                                                tone={khachHang.trangThai === 1 ? "success" : "neutral"}
+                                            <div className="flex items-center gap-1.5">
+                                                <Mail className="size-3 shrink-0" /> {khachHang.email || "—"}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-3 py-3 text-center">
+                                        <StatusBadge
+                                            label={khachHang.trangThai === 1 ? "Hoạt động" : "Ngừng hoạt động"}
+                                            tone={khachHang.trangThai === 1 ? "success" : "neutral"}
+                                        />
+                                    </td>
+                                    <td className="px-3 py-3">
+                                        <RowActions>
+                                            <RowActionButton
+                                                icon={Eye}
+                                                label="Xem chi tiết"
+                                                onClick={() => navigate(`/customers/${khachHang.id}`)}
                                             />
-                                        </td>
-                                        <td className="px-3 py-3">
-                                            <div className="flex items-center justify-center gap-1">
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        navigate(`/customers/${khachHang.id}`);
-                                                    }}
-                                                    className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
-                                                    title="Xem chi tiết"
-                                                >
-                                                    <Eye className="size-4" />
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDeleteClick(khachHang);
-                                                    }}
-                                                    className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-danger hover:text-bo-danger"
-                                                    title="Xóa"
-                                                >
-                                                    <Trash2 className="size-4" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                            <RowActionButton
+                                                icon={Trash2}
+                                                label="Xóa"
+                                                tone="danger"
+                                                onClick={() => handleDeleteClick(khachHang)}
+                                            />
+                                        </RowActions>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 )}
             </TableShell>
 
