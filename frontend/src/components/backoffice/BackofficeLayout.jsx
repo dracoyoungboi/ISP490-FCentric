@@ -364,6 +364,12 @@ export default function BackofficeLayout() {
             title: "Thực hiện nhặt hàng",
         },
         {
+            key: "PACKING",
+            match: (path) => /^\/goods-issues\/packing\/\d+$/.test(path),
+            title: "Đóng gói đơn hàng",
+            subtitle: "Quét từng sản phẩm để đối chiếu và hoàn tất đóng gói trước khi xuất kho",
+        },
+        {
             key: "CHANNELS",
             match: (path) => path === "/channels",
             title: "Kết nối gian hàng",
