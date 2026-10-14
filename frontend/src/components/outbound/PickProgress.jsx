@@ -2,8 +2,8 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { formatQuantity, toNumber } from "@/constants/outbound";
 
-/** Tiến độ nhặt: thanh + "đã quét / cần nhặt (x%)". */
-export default function PickProgress({ daQuet, canNhat, percent, compact = false, className }) {
+/** Tiến độ quét (nhặt hàng / đóng gói): thanh + "đã quét / cần (x%)". */
+export default function PickProgress({ daQuet, canNhat, percent, compact = false, className, label = "Tiến độ nhặt hàng" }) {
   const total = toNumber(canNhat);
   const done = toNumber(daQuet);
   const pct = percent !== undefined && percent !== null
@@ -15,7 +15,7 @@ export default function PickProgress({ daQuet, canNhat, percent, compact = false
     <div className={cn("min-w-0", className)}>
       <Progress
         value={pct}
-        aria-label="Tiến độ nhặt hàng"
+        aria-label={label}
         className={cn(
           "bg-slate-100",
           compact ? "h-1.5" : "h-2",
