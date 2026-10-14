@@ -78,7 +78,7 @@ class DonBanHangServiceSendToWarehouseTest {
 
         service.sendToWarehouse(120, 2);
 
-        assertEquals(1, donDraft.getTrangThai(), "Trạng thái đơn phải chuyển sang 1 (Chờ xuất kho)");
+        assertEquals(1, donDraft.getTrangThai(), "Trạng thái đơn phải chuyển sang 1 (Chờ nhặt hàng)");
         assertEquals(kho2, donDraft.getKhoXuat(), "Kho xuất phải được cập nhật sang Kho 2");
         verify(donBanHangRepository).save(donDraft);
         verify(lichSuThayDoiService).create(any(LichSuThayDoi.class));
@@ -155,7 +155,7 @@ class DonBanHangServiceSendToWarehouseTest {
 
     @Test
     void sendToWarehouse_thatBai_donKhongPhaiTrangThaiNhap() {
-        donDraft.setTrangThai(1); // Đã ở Chờ xuất kho
+        donDraft.setTrangThai(1); // Đã ở Chờ nhặt hàng
         when(donBanHangRepository.findById(120)).thenReturn(Optional.of(donDraft));
 
         CommonException ex = assertThrows(CommonException.class, () -> service.sendToWarehouse(120, 2));

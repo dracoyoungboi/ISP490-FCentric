@@ -248,7 +248,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         KhoService.kiemTraKhoGiaoDich(khoChon, "Kho xuất hàng");
         don.setKhoXuat(khoChon);
 
-        don.setTrangThai(1); // Chờ xuất kho
+        don.setTrangThai(ITrangThaiDonBanHang.CHO_NHAT_HANG); // 1: Chờ nhặt hàng
         don.setNgayCapNhat(Instant.now());
         repository.save(don);
 
@@ -559,7 +559,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             return;
         }
         Integer nguoiId = auth.getId();
-        SauCommit.chay("Ghi nhật ký đơn " + don.getSoDonHang(), () -> lichSuThayDoiService.create(LichSuThayDoi.builder()
+        SauCommit.chay("Ghi nhật ký đơn " + don.getSoDonHang(), () -> lichSuThayDoiService.createGiaoDichRieng(LichSuThayDoi.builder()
                 .loaiThamChieu(ITable.don_ban_hang)
                 .idThamChieu(donId)
                 .hanhDong(hanhDong)

@@ -174,10 +174,15 @@ public class DongGoiServiceImpl implements DongGoiService {
         if (!"ban_hang".equals(phieu.getLoaiXuat()) || don == null) {
             throw new CommonException("Chỉ đóng gói được phiếu xuất bán hàng");
         }
-        if (Integer.valueOf(ITrangThaiDonBanHang.DA_HUY).equals(don.getTrangThai())
-                || Integer.valueOf(ITrangThaiPhieuXuat.DA_HUY).equals(phieu.getTrangThai())) {
+        if (Integer.valueOf(ITrangThaiDonBanHang.DA_HUY).equals(don.getTrangThai())) {
             String canhBao = "ĐƠN HÀNG " + don.getSoDonHang() + " ĐÃ BỊ HỦY! Hệ thống đã khóa đóng gói. "
                     + "Vui lòng chuyển toàn bộ hàng của đơn này về khu hoàn kệ.";
+            throw new CommonException(canhBao, HttpStatus.CONFLICT, taoPhien(don, phieu, null, null, canhBao));
+        }
+        // Chỉ phiếu xuất bị hủy (kho hủy tay): đơn vẫn còn hiệu lực, cần phiếu xuất mới — không phải hàng của đơn đã hủy
+        if (Integer.valueOf(ITrangThaiPhieuXuat.DA_HUY).equals(phieu.getTrangThai())) {
+            String canhBao = "Phiếu xuất " + phieu.getSoPhieuXuat() + " đã bị hủy nên đã khóa đóng gói. Đơn "
+                    + don.getSoDonHang() + " vẫn còn hiệu lực — tạo phiếu xuất mới từ màn đơn bán hàng để đóng gói lại.";
             throw new CommonException(canhBao, HttpStatus.CONFLICT, taoPhien(don, phieu, null, null, canhBao));
         }
         Integer tt = phieu.getTrangThai();
@@ -286,7 +291,7 @@ public class DongGoiServiceImpl implements DongGoiService {
         Integer nguoiId = auth.getId();
         Integer phieuId = phieu.getId();
         Kho kho = phieu.getKho();
-        SauCommit.chay("Ghi nhật ký đóng gói phiếu " + phieu.getSoPhieuXuat(), () -> lichSuThayDoiService.create(LichSuThayDoi.builder()
+        SauCommit.chay("Ghi nhật ký đóng gói phiếu " + phieu.getSoPhieuXuat(), () -> lichSuThayDoiService.createGiaoDichRieng(LichSuThayDoi.builder()
                 .loaiThamChieu(ITable.phieu_xuat_kho)
                 .idThamChieu(phieuId)
                 .kho(kho)
