@@ -47,7 +47,6 @@ export default function PickListDetail() {
     const [loadError, setLoadError] = useState(null);
     const [lastResult, setLastResult] = useState(null);
     const [highlightId, setHighlightId] = useState(null);
-    const [soundOn, setSoundOn] = useState(true);
     const [assignOpen, setAssignOpen] = useState(false);
     const [completeOpen, setCompleteOpen] = useState(false);
     const [completing, setCompleting] = useState(false);
@@ -107,7 +106,7 @@ export default function PickListDetail() {
                         });
                         toast.warning(`Đơn hàng ${data.soDonHangBiHuy || ""} đã bị hủy trên sàn! Số lượng cần nhặt đã tự động giảm.`);
                         fetchDetail({ silent: true });
-                        if (soundOn) playScanBeep(false);
+                        playScanBeep(false); // cảnh báo đơn bị hủy: máy quét không báo được việc này
                     } else if (eventType === "PICK_LIST_CANCELLED") {
                         setCancelledAlert({
                             cancelledAll: true,
@@ -134,7 +133,7 @@ export default function PickListDetail() {
                 ws.close();
             }
         };
-    }, [id, fetchDetail, soundOn]);
+    }, [id, fetchDetail]);
 
     // Gửi từng mã một (backend khóa Pick List khi quét)
     const processScan = useCallback(async ({ barcode, soLuong }) => {
@@ -163,13 +162,14 @@ export default function PickListDetail() {
                 message: res?.thongBao
                     || `${res?.maSku ?? barcode} +${soLuong} → ${formatQuantity(res?.soLuongDaQuet)}/${formatQuantity(res?.soLuongCanNhat)}`,
             });
-            if (soundOn) playScanBeep(true);
         } catch (error) {
             setLastResult({ ok: false, message: getApiErrorMessage(error, `Không quét được mã ${barcode}`) });
-            if (soundOn) playScanBeep(false);
+            // Chỉ kêu khi KHÔNG cộng được: máy quét đã tự kêu "bíp" khi đọc được mã, nhưng không biết mã có
+            // thuộc đợt nhặt này / còn cần nhặt hay không.
+            playScanBeep(false);
             if (getApiErrorStatus(error) === 409) fetchDetail({ silent: true });
         }
-    }, [id, soundOn, fetchDetail]);
+    }, [id, fetchDetail]);
 
     const { enqueue, pending } = useScanQueue(processScan);
 
@@ -368,11 +368,6 @@ export default function PickListDetail() {
                         onScan={(barcode, soLuong) => enqueue({ barcode, soLuong })}
                         pending={pending}
                         lastResult={lastResult}
-                        soundOn={soundOn}
-                        onToggleSound={() => {
-                            setSoundOn((value) => !value);
-                            scanBarRef.current?.focus();
-                        }}
                     />
                 </SurfaceCard>
             ) : null}
