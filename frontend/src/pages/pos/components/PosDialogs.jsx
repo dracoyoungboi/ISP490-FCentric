@@ -33,7 +33,7 @@ const POS_SHORTCUTS = [
   { key: 'F3', label: 'Tìm kiếm hàng hóa' },
   { key: 'Enter', label: 'Trong ô tìm kiếm: thêm nhanh theo mã SKU / mã vạch (ưu tiên mã khớp đúng)' },
   { key: 'F4', label: 'Chọn khách hàng' },
-  { key: 'F8', label: 'Bật / tắt chế độ quét mã vạch (có âm báo)', hint: SCAN_HINT },
+  { key: 'F8', label: 'Bật / tắt chế độ quét mã vạch', hint: SCAN_HINT },
   { key: 'F9', label: 'Mở thanh toán · trong màn thanh toán: xác nhận' },
   { key: '← →', label: 'Chuyển giữa các hóa đơn (khi đang chọn tab)' },
   { key: 'Esc', label: 'Đóng cửa sổ đang mở' },

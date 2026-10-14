@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, Barcode, CheckCircle2, ChevronLeft, ChevronRight, LayoutGrid, List, Loader2, PenLine, RotateCcw, ScanBarcode, Search, Volume2, VolumeX } from 'lucide-react';
+import { AlertCircle, Barcode, CheckCircle2, ChevronLeft, ChevronRight, LayoutGrid, List, Loader2, PenLine, RotateCcw, ScanBarcode, Search } from 'lucide-react';
 import PosProductCard from './PosProductCard';
 import { SCAN_HINT, isTextEntry } from '../pos-scan';
 import './pos-scan-indicator.css';
@@ -82,8 +82,6 @@ export default function PosProductCatalog({
   onAdd,
   scanMode = false,
   onToggleScanMode,
-  scanSound = true,
-  onToggleScanSound,
   scanPending = 0,
   lastScan = null,
   onShowScanMatches,
@@ -178,11 +176,6 @@ export default function PosProductCatalog({
           <button aria-label="Chế độ quét mã vạch" aria-pressed={scanMode} className={scanMode ? scanOnButton : iconButton} onClick={onToggleScanMode} title={scanMode ? `Đang bật quét mã — bấm để tắt (F8). ${SCAN_HINT}` : 'Bật chế độ quét mã (F8)'} type="button">
             <Barcode aria-hidden="true" size={19} />
           </button>
-          {scanMode ? (
-            <button aria-label="Âm báo khi quét" aria-pressed={scanSound} className={iconButton} onClick={onToggleScanSound} title={scanSound ? 'Tắt âm báo quét' : 'Bật âm báo quét'} type="button">
-              {scanSound ? <Volume2 aria-hidden="true" size={18} /> : <VolumeX aria-hidden="true" size={18} />}
-            </button>
-          ) : null}
           <div aria-label="Chế độ xem sản phẩm" className="flex shrink-0 gap-0.5 rounded-lg border border-bo-border p-0.5" role="group">
             <button aria-label="Lưới" aria-pressed={view === 'grid'} className={`grid size-[34px] place-items-center rounded-md transition focus-visible:outline-2 focus-visible:outline-bo-primary ${view === 'grid' ? 'bg-bo-primary-soft text-bo-primary' : 'text-bo-muted hover:bg-slate-100'}`} onClick={() => setView('grid')} title="Lưới" type="button"><LayoutGrid aria-hidden="true" size={17} /></button>
             <button aria-label="Danh sách" aria-pressed={view === 'list'} className={`grid size-[34px] place-items-center rounded-md transition focus-visible:outline-2 focus-visible:outline-bo-primary ${view === 'list' ? 'bg-bo-primary-soft text-bo-primary' : 'text-bo-muted hover:bg-slate-100'}`} onClick={() => setView('list')} title="Danh sách" type="button"><List aria-hidden="true" size={17} /></button>

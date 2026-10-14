@@ -42,9 +42,8 @@ const CATALOG_REFRESH_MS = 30000;
 const DEFAULT_STOCK_FILTER = 'con_hang';
 // Giới hạn số SKU mỗi lần hỏi tồn cho giỏ (khớp giới hạn server).
 const MAX_STOCK_IDS = 200;
-// Chế độ quét mã và âm báo nhớ theo máy: máy quầy có súng quét mở POS là quét được ngay.
+// Chế độ quét mã nhớ theo máy: máy quầy có súng quét mở POS là quét được ngay.
 const SCAN_MODE_KEY = 'fcentric.pos.scanMode';
-const SCAN_SOUND_KEY = 'fcentric.pos.scanSound';
 // Lookup barcode trả tối đa 10 dòng (server) — đủ 10 nghĩa là "nhiều", không phải đúng 10.
 const LOOKUP_BARCODE_LIMIT = 10;
 
@@ -320,7 +319,6 @@ export default function PosSalesPage({
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Chế độ quét mã: ô quét thay ô tìm kiếm, mỗi mã quét được tra CHÍNH XÁC rồi thêm 1 vào hóa đơn.
   const [scanMode, setScanMode] = useState(() => readFlag(SCAN_MODE_KEY, false));
-  const [scanSound, setScanSound] = useState(() => readFlag(SCAN_SOUND_KEY, true));
   const [lastScan, setLastScan] = useState(null); // {ok, message, code, seq, ambiguous?}
   // Số thứ tự kết quả quét: đèn báo chớp đúng một lần cho mỗi kết quả, kể cả khi trùng nội dung lần trước.
   const scanSeq = useRef(0);
@@ -392,7 +390,6 @@ export default function PosSalesPage({
   }, [invoices]);
 
   useEffect(() => { writeFlag(SCAN_MODE_KEY, scanMode); }, [scanMode]);
-  useEffect(() => { writeFlag(SCAN_SOUND_KEY, scanSound); }, [scanSound]);
   // Kết quả quét thuộc hóa đơn/kho trước — đổi hóa đơn hoặc kho thì bỏ, tránh đọc nhầm "SL trong hóa đơn".
   useEffect(() => { setLastScan(null); }, [activeInvoice, warehouseId]);
 
@@ -846,7 +843,9 @@ export default function PosSalesPage({
       if (!ok && typed) setSearch((current) => (current === '' ? code : current));
       scanSeq.current += 1;
       setLastScan({ ok, message, code, seq: scanSeq.current, ...extra });
-      if (scanContext.current?.scanSound) playScanBeep(ok);
+      // Chỉ kêu khi KHÔNG thêm được (mã sai, hết hàng, trùng mã…): máy quét đã tự kêu "bíp" khi đọc được mã,
+      // nhưng không biết hàng có vào hóa đơn hay không.
+      if (!ok) playScanBeep(false);
       // Đã tắt chế độ quét khi mã còn đang tra: dòng kết quả không hiện -> báo bằng toast.
       if (!scanContext.current?.scanMode) showToast(message, ok ? 'success' : 'warning');
     };
@@ -915,12 +914,6 @@ export default function PosSalesPage({
     setLastScan(null);
     // Bật hay tắt, ô tìm kiếm vẫn là chỗ nhận mã/gõ tìm -> đưa con trỏ về đó.
     window.setTimeout(() => searchRef.current?.focus(), 0);
-  };
-
-  const toggleScanSound = () => {
-    const next = !scanSound;
-    setScanSound(next);
-    if (next) playScanBeep(true); // nghe thử ngay khi bật
   };
 
   // Mã trùng nhiều biến thể: lọc danh mục theo mã để chọn tay đúng màu/size (vẫn ở chế độ quét).
@@ -1476,14 +1469,14 @@ export default function PosSalesPage({
       // Ô số có thể còn hiện chữ dở dang của mã (state không đổi thì React không vẽ lại) -> ghi lại số tiền.
       target.value = String(amount);
       setPaymentError('Vừa quét mã khi đang ở màn thanh toán — CHƯA xác nhận thanh toán, số tiền khách đưa đã trả về như trước. Cần thêm hàng: đóng màn thanh toán (Esc) rồi quét.');
-      if (scanSound) playScanBeep(false);
+      playScanBeep(false);
       return;
     }
     // Mã gõ vào ô tìm kiếm / ô ghi chú: trả nội dung ô về như trước khi quét.
     if (target === searchRef.current) setSearch(scan.snapshot?.search ?? '');
     if (target?.dataset && 'posNote' in target.dataset) setNoteForInvoice(scan.snapshot?.note ?? '');
     const warn = (message) => {
-      if (scanSound) playScanBeep(false);
+      playScanBeep(false);
       showToast(message, 'warning');
     };
     if (dialog || isSubmitting) {
@@ -1533,7 +1526,6 @@ export default function PosSalesPage({
     frozen,
     dialog,
     isSubmitting,
-    scanSound,
     cartQuantity,
     getAddProblem,
     commitAddProduct,
@@ -1676,7 +1668,6 @@ export default function PosSalesPage({
           onEnterAdd={handleEnterAdd}
           onShowScanMatches={showScanMatches}
           onToggleScanMode={toggleScanMode}
-          onToggleScanSound={toggleScanSound}
           onPageChange={(nextPage) => setCatalogPage(Math.max(0, nextPage))}
           onRetry={() => setRefreshKey((key) => key + 1)}
           onSearch={onSearch}
@@ -1687,7 +1678,6 @@ export default function PosSalesPage({
           resultQuery={debouncedSearch}
           scanMode={scanMode}
           scanPending={scanPending}
-          scanSound={scanSound}
           search={search}
           searchRef={searchRef}
           stockFilter={stockFilter}
