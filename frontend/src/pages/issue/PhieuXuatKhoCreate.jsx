@@ -316,7 +316,7 @@ export default function PhieuXuatKhoCreate() {
                                     ) : soList.map(so => (
                                         <DropdownMenuItem key={so.id} onClick={() => handleSelectSO(so.id)} className={`${DROPDOWN_ITEM_CLASS} flex flex-col items-start py-2`}>
                                             <span className="font-medium text-slate-900">{so.soDonHang}</span>
-                                            <span className="text-xs text-bo-muted">{so.trangThai === 2 ? "Đang xuất dở" : "Chờ xuất kho"}</span>
+                                            <span className="text-xs text-bo-muted">{so.trangThai === 2 ? "Đã xuất một phần" : "Chờ nhặt hàng"}</span>
                                         </DropdownMenuItem>
                                     ))
                                 ) : (

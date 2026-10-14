@@ -31,6 +31,7 @@ const SEARCH_DEBOUNCE_MS = 350;
 // Tab trạng thái (bố cục A+G) — mã tab nằm trên URL ?trangThai=
 const TAB_MAS = PHIEU_XUAT_KHO_TABS.map((tab) => tab.ma);
 const TAB_MAC_DINH = "tat-ca";
+// Phiếu xuất bán hàng đã đóng gói, chờ xác nhận xuất kho (mã 6)
 const TAB_CHO_XUAT = "cho-xuat-kho";
 const TONE_TAB = { [TAB_CHO_XUAT]: "warning" };
 // Vai trò xử lý phiếu chờ xuất kho (thấy dòng chú ý)
@@ -178,8 +179,8 @@ export default function PhieuXuatKhoList() {
         `${filters.keyword}|${filters.tenKho}`
     );
 
-    // ── Dòng chú ý: phiếu chờ xuất kho trong phạm vi danh sách, bỏ qua các bộ lọc khác (R4).
-    //    API chưa lọc được loại xuất nên đếm cả phiếu xuất bán hàng lẫn xuất chuyển kho (khớp tab Chờ xuất kho). ──
+    // ── Dòng chú ý: phiếu đã đóng gói, chờ xuất kho trong phạm vi danh sách, bỏ qua các bộ lọc khác (R4).
+    //    Chỉ phiếu bán hàng có trạng thái này (phiếu chuyển kho xuất thẳng từ Nháp), khớp tab Chờ xuất. ──
     const coQuyenXuatKho = roles?.some((role) => VAI_TRO_XUAT_KHO.includes(role)) ?? false;
     const choXuat = useDemTheoTrangThai(
         [TAB_CHO_XUAT],
@@ -202,7 +203,7 @@ export default function PhieuXuatKhoList() {
         setFilters((p) => ({ ...p, keyword: "", tenKho: "", ngayXuat: "", page: 0 }));
     };
 
-    // Nút của dòng chú ý: mở tab Chờ xuất kho, bỏ các bộ lọc khác để số dòng khớp số trên dòng chú ý
+    // Nút của dòng chú ý: mở tab Chờ xuất, bỏ các bộ lọc khác để số dòng khớp số trên dòng chú ý
     const showPending = () => {
         clearFilters();
         setTab(TAB_CHO_XUAT);
@@ -252,7 +253,7 @@ export default function PhieuXuatKhoList() {
                 actionLabel="Xem phiếu chờ xuất kho"
                 onAction={showPending}
             >
-                <strong className="font-semibold">{pendingCount?.toLocaleString("vi-VN")} phiếu</strong> đang chờ xuất kho.
+                <strong className="font-semibold">{pendingCount?.toLocaleString("vi-VN")} phiếu</strong> đã đóng gói, đang chờ xuất kho.
             </AttentionBar>
 
             {/* ══ BẢNG: tab trạng thái + tìm kiếm + bộ lọc cùng một hàng ══ */}

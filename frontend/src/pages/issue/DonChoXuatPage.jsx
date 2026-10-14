@@ -392,8 +392,9 @@ export default function DonChoXuatPage() {
                     <DialogHeader>
                         <DialogTitle className="text-bo-foreground">Tạo phiếu nhặt hàng</DialogTitle>
                         <DialogDescription className="text-slate-600">
-                            Gom {selectedSummary.donHang} đơn thành một đợt nhặt hàng. Các đơn sẽ chuyển sang{" "}
-                            <strong className="font-semibold text-bo-foreground">Đang xử lý xuất kho</strong>.
+                            Gom {selectedSummary.donHang} đơn thành một đợt nhặt hàng. Các đơn giữ trạng thái{" "}
+                            <strong className="font-semibold text-bo-foreground">Chờ nhặt hàng</strong> tới khi nhặt xong,
+                            sau đó chuyển sang <strong className="font-semibold text-bo-foreground">Chờ đóng gói</strong>.
                         </DialogDescription>
                     </DialogHeader>
 
