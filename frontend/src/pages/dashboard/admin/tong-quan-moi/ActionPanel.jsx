@@ -50,8 +50,9 @@ function danhSachViec(v, khoId) {
   const tatCaKho = khoId == null;
   const ds = [
     { key: "hetThieu", ten: "Hết hàng hoặc thiếu hàng", so: v.hetHang == null ? 0 : v.hetHang + v.thieuHang, muc: "bad", icon: AlertTriangle, to: `/reports/inventory?kho=${tatCaKho ? "tat-ca" : khoId}` },
-    { key: "donChoXuatKho", ten: "Đơn chờ xuất kho", so: v.donChoXuatKho, muc: "warn", icon: PackageOpen, to: "/goods-issues/pending-orders" },
-    { key: "phieuXuatChoXuatKho", ten: "Phiếu xuất chờ xuất kho", so: v.phieuXuatChoXuatKho, muc: "warn", icon: Truck, to: "/goods-issues?trangThai=cho-xuat-kho" },
+    { key: "donChoXuatKho", ten: "Đơn chờ nhặt hàng", so: v.donChoXuatKho, muc: "warn", icon: PackageOpen, to: "/goods-issues/pending-orders" },
+    // Đếm phiếu bán hàng Nháp (chờ đóng gói) + Chờ xuất; danh sách phiếu xuất chỉ lọc được một trạng thái nên mở tab Tất cả
+    { key: "phieuXuatChoXuatKho", ten: "Phiếu xuất chưa xuất kho", so: v.phieuXuatChoXuatKho, muc: "warn", icon: Truck, to: "/goods-issues" },
     { key: "phieuChuyenChoDuyet", ten: "Phiếu chuyển kho chờ duyệt", so: v.phieuChuyenChoDuyet, muc: "warn", icon: ArrowLeftRight, to: "/transfer-tickets?trangThai=cho-duyet" },
     { key: "phieuNhatChuaPhanCong", ten: "Phiếu nhặt chưa phân công", so: v.phieuNhatChuaPhanCong, muc: "warn", icon: ListChecks, to: "/goods-issues/pick-lists" },
     // Mở đúng tab Chờ duyệt (và đúng kho đang xem) để số trên dòng bằng số dòng trên trang
