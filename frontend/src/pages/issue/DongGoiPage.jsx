@@ -24,7 +24,7 @@ import { donBanHangService } from "@/services/donBanHangService";
 import { formatQuantity, toNumber } from "@/constants/outbound";
 import { getDonBanHangStatus } from "@/constants/donBanHang";
 import { getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
-import { TRANG_THAI_PHIEU_XUAT } from "@/constants/trangThaiXuatBan";
+import { TRANG_THAI_DON, TRANG_THAI_PHIEU_XUAT } from "@/constants/trangThaiXuatBan";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { getKhoLamViecId, laKhoLamViecHopLe, setKhoLamViecId } from "@/utils/khoLamViec";
 import { playScanBeep } from "@/utils/scanBeep";
@@ -68,8 +68,14 @@ export default function DongGoiPage() {
      * để header kho_id khớp phiếu xuất. Trả về true nếu đã chuyển.
      */
     const chuyenSangKhoCuaDon = useCallback(async () => {
-        const detail = await donBanHangService.getDetail(donId);
-        const kho = detail?.donBanHang?.khoXuat;
+        let kho;
+        try {
+            // getDetail trả về ResponseData ({ status, data, message })
+            const res = await donBanHangService.getDetail(donId);
+            kho = res?.data?.donBanHang?.khoXuat;
+        } catch {
+            return false; // không đọc được đơn: giữ lỗi 403 ban đầu
+        }
         if (!kho?.id || kho.id === getKhoLamViecId() || !laKhoLamViecHopLe(kho)) return false;
         setKhoLamViecId(kho.id);
         toast.info(`Đã chuyển kho làm việc sang ${kho.tenKho}`);
@@ -95,7 +101,7 @@ export default function DongGoiPage() {
             const status = getApiErrorStatus(error);
             setLoadError(status === 404
                 ? { kind: "notfound" }
-                : status === 409 || status === 403
+                : status === 409 || status === 403 || status === 400
                     ? { kind: "message", message: getApiErrorMessage(error, "Không mở được phiên đóng gói") }
                     : { kind: "error" });
             if (silent) toast.error(getApiErrorMessage(error, "Không tải lại được phiên đóng gói"));
@@ -188,6 +194,8 @@ export default function DongGoiPage() {
     const dangDongGoi = dto.trangThaiPhieu === TRANG_THAI_PHIEU_XUAT.NHAP && !dto.biHuy;
     const daDongGoi = dto.trangThaiPhieu === TRANG_THAI_PHIEU_XUAT.CHO_XUAT && !dto.biHuy;
     const conLai = Math.max(0, toNumber(dto.tongSoLuongCan) - toNumber(dto.tongSoLuongDaQuet));
+    // biHuy = đơn hủy HOẶC chỉ phiếu xuất bị hủy; chỉ đơn hủy mới phải chuyển hàng về khu hoàn kệ
+    const donDaHuy = dto.trangThaiDon === TRANG_THAI_DON.DA_HUY;
 
     return (
         <PageContainer className="space-y-5">
@@ -221,7 +229,7 @@ export default function DongGoiPage() {
             </div>
 
             {/* ── Đơn bị hủy trong lúc đóng gói ── */}
-            {dto.biHuy ? (
+            {dto.biHuy && donDaHuy ? (
                 <div role="alert" className="rounded-lg border border-rose-300 bg-rose-50 p-4 shadow-sm">
                     <h4 className="text-sm font-semibold text-rose-900">Đơn {dto.soDonHang} đã bị hủy — đã khóa đóng gói</h4>
                     <p className="mt-1 text-xs text-rose-800">
@@ -234,6 +242,16 @@ export default function DongGoiPage() {
                             </li>
                         ))}
                     </ul>
+                </div>
+            ) : null}
+
+            {/* ── Chỉ phiếu xuất bị hủy: đơn vẫn còn hiệu lực ── */}
+            {dto.biHuy && !donDaHuy ? (
+                <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-4 shadow-sm">
+                    <h4 className="text-sm font-semibold text-amber-900">Phiếu xuất {dto.soPhieuXuat} đã bị hủy — đã khóa đóng gói</h4>
+                    <p className="mt-1 text-xs text-amber-800">
+                        Đơn {dto.soDonHang} vẫn còn hiệu lực. Tạo phiếu xuất mới từ màn đơn bán hàng để đóng gói lại.
+                    </p>
                 </div>
             ) : null}
 
@@ -317,7 +335,7 @@ export default function DongGoiPage() {
                         <tbody className="divide-y divide-bo-border">
                             {lines.map((line) => {
                                 // Đơn đã hủy: mọi dòng là hàng cần cất về kệ, không còn "thiếu"
-                                const state = dto.biHuy ? { label: "Cất về kệ", tone: "danger" } : lineState(line);
+                                const state = dto.biHuy && donDaHuy ? { label: "Cất về kệ", tone: "danger" } : lineState(line);
                                 const conLaiDong = Math.max(0, toNumber(line.soLuongCan) - toNumber(line.soLuongDaQuet));
                                 const variantName = [line.tenMau, line.tenSize].filter(Boolean).join(" / ");
                                 return (
