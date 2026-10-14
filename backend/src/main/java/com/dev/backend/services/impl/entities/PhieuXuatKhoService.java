@@ -109,10 +109,14 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
         if (donBanHang == null) {
             throw new CommonException("Đơn bán không tồn tại", HttpStatus.NOT_FOUND, null);
         }
-        if (donBanHang.getTrangThai() == 4) {
-            throw new CommonException("Đơn bán đã bị hủy", HttpStatus.CONFLICT, null);
+        // Báo giá "Đã chốt đơn" cũng mang trạng thái 2 nhưng không được xuất kho (đơn bán chuyển từ báo giá là chứng từ riêng)
+        if (!"don_ban_hang".equals(donBanHang.getLoaiChungTu())) {
+            throw new CommonException("Chỉ tạo phiếu xuất cho đơn bán hàng, không tạo từ báo giá", HttpStatus.CONFLICT, null);
         }
         Integer ttDon = donBanHang.getTrangThai();
+        if (Integer.valueOf(ITrangThaiDonBanHang.DA_HUY).equals(ttDon)) {
+            throw new CommonException("Đơn bán đã bị hủy", HttpStatus.CONFLICT, null);
+        }
         if (ttDon == null || (ttDon != ITrangThaiDonBanHang.CHO_NHAT_HANG && ttDon != ITrangThaiDonBanHang.DANG_XUAT_KHO)) {
             throw new CommonException("Chỉ tạo phiếu xuất cho đơn đã gửi kho và còn hàng chưa xuất "
                     + "(đơn chờ đóng gói / chờ xuất kho đã có phiếu xuất).");
@@ -473,7 +477,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 don.setNgayGiaoHang(Instant.now());
             }
         } else if (!allZero) {
-            don.setTrangThai(ITrangThaiDonBanHang.DANG_XUAT_KHO); // 2: Có hàng đã xuất nhưng chưa đủ -> Đang xuất kho
+            don.setTrangThai(ITrangThaiDonBanHang.DANG_XUAT_KHO); // 2: Có hàng đã xuất nhưng chưa đủ -> Đã xuất một phần
         } else {
             don.setTrangThai(ITrangThaiDonBanHang.CHO_NHAT_HANG); // 1: Chưa có hàng nào xuất
         }

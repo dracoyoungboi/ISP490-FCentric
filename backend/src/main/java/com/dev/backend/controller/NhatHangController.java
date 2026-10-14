@@ -173,7 +173,7 @@ public class NhatHangController {
     )
     @Operation(
             summary = "Hoàn tất đợt nhặt hàng và sinh Phiếu xuất kho (SRS 6.3.1 -> 6.3.2)",
-            description = "Kích hoạt hành động Complete Picking khi 100% các dòng đã nhặt đủ. Chuyển trạng thái Pick List sang 'da_nhat', cập nhật đơn bán hàng sang 'Chờ xuất', và tự động khởi tạo Phiếu xuất kho ở trạng thái Chờ xuất."
+            description = "Kích hoạt hành động Complete Picking khi 100% các dòng đã nhặt đủ. Chuyển trạng thái Pick List sang 'da_nhat', cập nhật đơn bán hàng sang 7 (Chờ đóng gói), và tự động khởi tạo Phiếu xuất kho Nháp (chờ đóng gói)."
     )
     public ResponseEntity<ResponseData<DanhSachNhatHangDto>> hoanTatNhatHang(
             @PathVariable Integer id) {

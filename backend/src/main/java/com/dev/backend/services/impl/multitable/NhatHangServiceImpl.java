@@ -958,9 +958,18 @@ public class NhatHangServiceImpl implements NhatHangService {
                             .build();
                     phieuXuatKhoRepository.save(pxk);
 
-                    // Tạo chi tiết phiếu xuất kho cho từng sản phẩm trong đơn
+                    // Tạo chi tiết phiếu xuất kho cho từng sản phẩm trong đơn — chỉ phần CÒN LẠI chưa xuất
+                    // (đơn 2 - dữ liệu cũ đã xuất một phần - không được xuất lại phần đã xuất)
                     if (dbh.getChiTietDonBanHangs() != null) {
                         for (ChiTietDonBanHang ctdb : dbh.getChiTietDonBanHangs()) {
+                            BigDecimal soLuongDat = ctdb.getSoLuongDat() != null ? ctdb.getSoLuongDat() : BigDecimal.ONE;
+                            BigDecimal daXuat = ctdb.getBienTheSanPham() != null
+                                    ? chiTietPhieuXuatKhoRepository.sumSoLuongDaXuatThucTe(dbh.getId(), ctdb.getBienTheSanPham().getId())
+                                    : null;
+                            BigDecimal conLai = daXuat != null ? soLuongDat.subtract(daXuat) : soLuongDat;
+                            if (conLai.compareTo(BigDecimal.ZERO) <= 0) {
+                                continue;
+                            }
                             BigDecimal giaVon = ctdb.getBienTheSanPham() != null && ctdb.getBienTheSanPham().getGiaVon() != null
                                     ? ctdb.getBienTheSanPham().getGiaVon()
                                     : (ctdb.getDonGia() != null ? ctdb.getDonGia() : BigDecimal.ZERO);
@@ -968,7 +977,7 @@ public class NhatHangServiceImpl implements NhatHangService {
                             ChiTietPhieuXuatKho ctPxk = ChiTietPhieuXuatKho.builder()
                                     .phieuXuatKho(pxk)
                                     .bienTheSanPham(ctdb.getBienTheSanPham())
-                                    .soLuongXuat(ctdb.getSoLuongDat() != null ? ctdb.getSoLuongDat() : BigDecimal.ONE)
+                                    .soLuongXuat(conLai)
                                     .giaVon(giaVon)
                                     .ghiChu("Xuất theo đơn " + dbh.getSoDonHang())
                                     .build();
