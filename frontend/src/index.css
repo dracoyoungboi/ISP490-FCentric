@@ -5,6 +5,9 @@
    kể cả khi dev server không tự quét thư mục mới thêm vào. */
 @source "./pages/dashboard/admin/tong-quan";
 @source "./pages/dashboard/admin/tong-quan-moi";
+/* Thanh trên cùng và chuông thông báo: file mới thêm vào thư mục này có lúc không được dev server quét,
+   làm thiếu class (ví dụ viên số trên chuông bị méo), nên khai báo rõ như trên. */
+@source "./components/backoffice";
 /* Giao diện luôn sáng, không theo chế độ tối của trình duyệt */
 @custom-variant dark (&:where(.dark, .dark *));
 /*
