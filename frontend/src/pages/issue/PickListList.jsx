@@ -158,8 +158,6 @@ export default function PickListList() {
 
     return (
         <PageContainer className="space-y-4">
-            <MockModeNotice show={isPickListMock} />
-
             <ListPageHeader
                 actions={
                     <Link to="/goods-issues/pending-orders">
@@ -170,6 +168,8 @@ export default function PickListList() {
                     </Link>
                 }
             />
+
+            <MockModeNotice show={isPickListMock} />
 
             {/* ══ BẢNG ══ */}
             <TableShell

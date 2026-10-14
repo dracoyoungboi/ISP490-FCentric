@@ -45,7 +45,6 @@ export default function DashboardAdmin() {
   if (status === "error") {
     return (
       <PageContainer>
-        <h1 className="mb-5 text-2xl font-semibold tracking-[-0.01em] text-bo-foreground">Tổng quan</h1>
         <div className="rounded-xl border border-[#e6e9ef] bg-white">
           <ErrorState title="Không tải được trang Tổng quan" description="Kiểm tra kết nối tới máy chủ rồi thử lại." onRetry={reload} />
         </div>

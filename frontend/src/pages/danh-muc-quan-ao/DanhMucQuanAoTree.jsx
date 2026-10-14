@@ -18,6 +18,7 @@ import { danhMucQuanAoService } from '@/services/danhMucQuanAoService';
 import { toast } from 'sonner';
 import PageContainer from '@/components/backoffice/PageContainer';
 import SurfaceCard from '@/components/shared/SurfaceCard';
+import ListPageHeader from '@/components/shared/ListPageHeader';
 import EmptyState from '@/components/shared/EmptyState';
 import ErrorState from '@/components/shared/ErrorState';
 import LoadingState from '@/components/shared/LoadingState';
@@ -481,20 +482,20 @@ const DanhMucQuanAoTree = () => {
             <div className="ml-2 flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
               {isEditing ? (
                 <>
-                  <button
-                    onClick={handleSaveEdit}
-                    className="inline-flex size-7 items-center justify-center rounded-md text-bo-success transition-colors hover:bg-bo-success-soft"
-                    title="Lưu"
-                  >
-                    <Save className="size-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setEditingNode(null)}
-                    className="inline-flex size-7 items-center justify-center rounded-md text-bo-muted transition-colors hover:bg-slate-100"
-                    title="Hủy"
-                  >
-                    <X className="size-3.5" />
-                  </button>
+                <button
+                  onClick={handleSaveEdit}
+                  className="inline-flex size-7 items-center justify-center rounded-md text-bo-success transition-colors hover:bg-bo-success-soft"
+                  title="Lưu"
+                >
+                  <Save className="size-3.5" />
+                </button>
+                <button
+                  onClick={() => setEditingNode(null)}
+                  className="inline-flex size-7 items-center justify-center rounded-md text-bo-muted transition-colors hover:bg-slate-100"
+                  title="Hủy"
+                >
+                  <X className="size-3.5" />
+                </button>
                 </>
               ) : (
                 <>
@@ -563,43 +564,46 @@ const DanhMucQuanAoTree = () => {
 
   return (
     <PageContainer className="space-y-4">
-      {/* Hàng trên khung cây (cùng kiểu ListPageHeader): trái là số lượng danh mục, phải là nút chính.
-          Tên trang đã có ở thanh trên cùng nên không lặp tiêu đề trong trang. */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {showStats ? (
-          <p className="min-w-0 text-sm text-bo-muted">
-            {formatCount(stats.total)} danh mục · {formatCount(stats.root)} danh mục gốc · {formatCount(stats.sub)} danh mục con
-          </p>
-        ) : <span />}
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchTreeData}
-            disabled={isLoading}
-            className="h-9 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-          >
-            <RefreshCcw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Làm mới
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleAddRoot}
-            className="h-9 gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
-          >
-            <Plus className="size-4" />
-            Thêm danh mục gốc
-          </Button>
-        </div>
-      </div>
+      {/* Hàng tiêu đề: tên trang trái, nút chính phải (ListPageHeader dùng chung) */}
+      <ListPageHeader
+        actions={
+          <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchTreeData}
+                disabled={isLoading}
+                className="h-9 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
+              >
+                <RefreshCcw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
+                Làm mới
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleAddRoot}
+                className="h-9 gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
+              >
+                <Plus className="size-4" />
+                Thêm danh mục gốc
+              </Button>
+          </>
+        }
+      />
 
       {/* ── Main tree ── */}
       <SurfaceCard>
-        {/* Hướng dẫn kéo thả (trước đây là mô tả dưới tiêu đề trang) */}
-        <p className="mb-3 flex items-center gap-1.5 text-xs text-bo-muted">
-          <GripVertical className="size-3.5 shrink-0 text-slate-400" aria-hidden="true" />
-          Kéo và thả để thay đổi mối quan hệ cha – con
-        </p>
+        {/* Hướng dẫn kéo thả + số lượng danh mục (số chỉ hiện khi đã tải xong, không lỗi và có dữ liệu) */}
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-bo-muted">
+          <p className="flex items-center gap-1.5">
+            <GripVertical className="size-3.5 shrink-0 text-slate-400" aria-hidden="true" />
+            Kéo và thả để thay đổi mối quan hệ cha – con
+          </p>
+          {showStats ? (
+            <p>
+              {formatCount(stats.total)} danh mục · {formatCount(stats.root)} danh mục gốc · {formatCount(stats.sub)} danh mục con
+            </p>
+          ) : null}
+        </div>
 
         {/* Drop-to-root zone */}
         <div

@@ -469,7 +469,7 @@ export default function KhachHangPage() {
 
     return (
         <PageContainer className="space-y-4">
-            {/* ── Nút chính (tên trang đã ở thanh trên cùng) ── */}
+            {/* ── Hàng tiêu đề: tên trang + nút chính ── */}
             <ListPageHeader
                 actions={
                     <Button

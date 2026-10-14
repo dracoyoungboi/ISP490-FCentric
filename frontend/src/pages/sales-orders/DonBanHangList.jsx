@@ -315,8 +315,6 @@ export default function DonBanHangList() {
 
   return (
     <PageContainer className="space-y-4">
-      <MockModeNotice show={isChannelOrderMock} />
-
       <ListPageHeader
         scope={scopeNote}
         actions={
@@ -330,6 +328,8 @@ export default function DonBanHangList() {
           ) : null
         }
       />
+
+      <MockModeNotice show={isChannelOrderMock} />
 
       <AttentionBar
         count={draftCount}

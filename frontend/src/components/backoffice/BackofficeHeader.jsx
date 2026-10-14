@@ -10,6 +10,7 @@ import { jwtDecode } from "jwt-decode";
 
 import UserAvatar from "@/components/UserAvatar";
 import NotificationBell from "@/components/backoffice/NotificationBell";
+import GlobalSearch from "@/components/backoffice/GlobalSearch";
 import { useCurrentUserAvatarUrl } from "@/utils/avatar";
 import { nguoiDungService } from "@/services/nguoiDungService";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useSidebar } from "@/components/ui/sidebar";
 
+// Phím tắt mở ô tìm kiếm: ⌘ + K trên máy Mac, Ctrl + K trên Windows/Linux
+const PHIM_TAT =
+  typeof navigator !== "undefined" && /Mac|iPhone|iPad/i.test(navigator.platform || "") ? "⌘ + K" : "Ctrl + K";
+
 const ROLE_LABELS = {
   quan_tri_vien: "Quản trị viên",
   quan_ly_kho: "Quản lý kho",
@@ -30,7 +35,7 @@ const ROLE_LABELS = {
   nhan_vien_ban_hang: "Nhân viên bán hàng",
 };
 
-export default function BackofficeHeader({ title, subtitle, routeKey }) {
+export default function BackofficeHeader() {
   const {
     toggleSidebar,
     open,
@@ -67,14 +72,12 @@ export default function BackofficeHeader({ title, subtitle, routeKey }) {
   };
 
   const sidebarOpen = isMobile ? openMobile : open;
-  const displayTitle =
-    routeKey === "WAREHOUSE" ? "Quản lý kho hàng" : title || "FCentric";
   const roleLabel = ROLE_LABELS[role] || "Thành viên hệ thống";
 
   return (
     <header className="sticky top-0 z-40 shrink-0 border-b border-bo-border bg-bo-surface">
       <div className="flex h-14 items-center justify-between gap-3 px-3 sm:px-4 lg:px-5">
-        <div className="flex min-w-0 items-center gap-2.5">
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <Button
             variant="ghost"
             size="icon"
@@ -92,22 +95,13 @@ export default function BackofficeHeader({ title, subtitle, routeKey }) {
             )}
           </Button>
 
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-              <span className="hidden sm:inline">FCentric</span>
-              <span className="hidden sm:inline" aria-hidden="true">
-                /
-              </span>
-              <span className="truncate normal-case tracking-normal text-bo-foreground">
-                {displayTitle}
-              </span>
-            </div>
-            {subtitle ? (
-              <p className="hidden max-w-[60vw] truncate text-xs text-bo-muted md:block">
-                {subtitle}
-              </p>
-            ) : null}
-          </div>
+          {/* Tìm kiếm toàn hệ thống thay cho breadcrumb; tên trang nằm ở hàng tiêu đề trong trang */}
+          <GlobalSearch
+            userId={userId}
+            role={role}
+            isPhone={isMobile}
+            placeholder={isMobile ? "Tìm kiếm" : `Tìm kiếm (${PHIM_TAT})`}
+          />
         </div>
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">

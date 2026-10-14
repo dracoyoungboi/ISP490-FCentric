@@ -173,8 +173,6 @@ export default function DonChoXuatPage() {
 
     return (
         <PageContainer className="space-y-4">
-            <MockModeNotice show={isPickListMock} />
-
             <ListPageHeader
                 actions={
                     <Link to="/goods-issues/pick-lists">
@@ -188,6 +186,8 @@ export default function DonChoXuatPage() {
                     </Link>
                 }
             />
+
+            <MockModeNotice show={isPickListMock} />
 
             {/* ══ BẢNG ══ */}
             <TableShell
