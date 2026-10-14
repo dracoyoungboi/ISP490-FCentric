@@ -29,6 +29,7 @@ import {
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { formatDateTime, formatNumber } from "@/utils/formatters";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { hasAnyRole, ROLES } from "@/utils/roles";
 
 const TH_CLASS = "h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 const DEFAULT_FILTERS = { keyword: "", page: 0, size: SO_DONG_MAC_DINH };
@@ -51,6 +52,8 @@ const buildParams = ({ khoId, keyword, trangThai, page, size }) => ({
 
 export default function PickListList() {
     const navigate = useNavigate();
+    // Quản lý kho / quản trị viên phân công (lại) được; nhân viên kho chỉ tự nhận phiếu chưa có người nhặt
+    const laQuanLy = hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO]);
     const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);
     const tabTrangThai = PICK_LIST_TABS.find((t) => t.ma === tab)?.trangThai ?? null;
     const [khoId, setKhoId] = useState(docKhoLamViec);
@@ -271,7 +274,7 @@ export default function PickListList() {
                         <tbody className="divide-y divide-bo-border">
                             {data.map((row) => {
                                 const status = getPickListStatus(row.trangThai);
-                                const canAssign = PICK_LIST_EDITABLE.includes(row.trangThai);
+                                const canAssign = PICK_LIST_EDITABLE.includes(row.trangThai) && (laQuanLy || !row.nguoiNhatId);
                                 const maDons = row.danhSachMaDonHang ?? [];
                                 return (
                                     <tr
@@ -326,7 +329,7 @@ export default function PickListList() {
                                                 {canAssign ? (
                                                     <RowActionButton
                                                         icon={UserPlus}
-                                                        label={row.nguoiNhatId ? "Phân công lại" : "Phân công"}
+                                                        label={!laQuanLy ? "Nhận việc" : row.nguoiNhatId ? "Phân công lại" : "Phân công"}
                                                         onClick={() => setAssignTarget(row)}
                                                     />
                                                 ) : null}

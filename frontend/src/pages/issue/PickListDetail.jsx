@@ -28,6 +28,7 @@ import { playScanBeep } from "@/utils/scanBeep";
 import { formatDateTime } from "@/utils/dateTime";
 import { TRANG_THAI_DON } from "@/constants/trangThaiXuatBan";
 import { getDonBanHangStatus } from "@/constants/donBanHang";
+import { getCurrentUserId, hasAnyRole, ROLES } from "@/utils/roles";
 
 const TH_CLASS = "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 
@@ -239,6 +240,16 @@ export default function PickListDetail() {
 
     const status = getPickListStatus(dto.trangThai);
     const editable = PICK_LIST_EDITABLE.includes(dto.trangThai);
+    // Bắt buộc phân công trước khi nhặt (khớp NhatHangServiceImpl): chỉ người được giao mới quét được,
+    // kể cả quản lý kho / quản trị viên — muốn tự nhặt thì phân công cho chính mình.
+    const laQuanLy = hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO]);
+    const daPhanCong = dto.nguoiNhatId != null;
+    const laNguoiNhat = daPhanCong && Number(dto.nguoiNhatId) === Number(getCurrentUserId());
+    const duocQuet = editable && laNguoiNhat;
+    // Nhân viên kho chỉ tự nhận phiếu chưa có người nhặt; quản lý / quản trị viên phân công (lại) được
+    const duocPhanCong = editable && (laQuanLy || !daPhanCong);
+    // Hoàn tất: người được giao, hoặc quản lý / quản trị viên hoàn tất thay
+    const duocHoanTat = editable && daPhanCong && (laNguoiNhat || laQuanLy);
     const conLai = Math.max(0, toNumber(dto.tongSoLuongCanNhat) - toNumber(dto.tongSoLuongDaQuet));
     const maDonHangs = dto.danhSachMaDonHang ?? [];
 
@@ -290,17 +301,17 @@ export default function PickListDetail() {
                 <BackLink onClick={() => navigate("/goods-issues/pick-lists")} />
                 <div className="flex flex-wrap items-center gap-2">
                     <StatusBadge label={status.label} tone={status.tone} />
-                    {editable ? (
+                    {duocPhanCong ? (
                         <Button
                             variant="outline"
                             onClick={() => setAssignOpen(true)}
                             className="gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                         >
                             <UserPlus className="size-4" />
-                            {dto.nguoiNhatId ? "Phân công lại" : "Phân công"}
+                            {!laQuanLy ? "Nhận việc" : daPhanCong ? "Phân công lại" : "Phân công"}
                         </Button>
                     ) : null}
-                    {editable ? (
+                    {duocHoanTat ? (
                         <span title={dto.coTheHoanTat ? undefined : `Còn ${formatQuantity(conLai)} sản phẩm chưa nhặt`}>
                             <Button
                                 disabled={!dto.coTheHoanTat || completing || pending > 0}
@@ -359,8 +370,8 @@ export default function PickListDetail() {
                 </div>
             ) : null}
 
-            {/* ── Quét mã ── */}
-            {editable ? (
+            {/* ── Quét mã: chỉ người được phân công ── */}
+            {duocQuet ? (
                 <SurfaceCard
                     title="Quét mã vạch"
                     description="Mỗi lần quét cộng số lượng vào đúng SKU. Mã được gửi lần lượt nên có thể quét liên tục."
@@ -372,6 +383,33 @@ export default function PickListDetail() {
                         lastResult={lastResult}
                     />
                 </SurfaceCard>
+            ) : editable && !daPhanCong ? (
+                <div role="status" className="flex flex-col gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 sm:flex-row sm:items-center">
+                    <UserPlus className="size-5 shrink-0 text-amber-700" />
+                    <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-amber-900">Phiếu nhặt chưa được phân công</p>
+                        <p className="mt-0.5 text-xs text-amber-800">
+                            {laQuanLy
+                                ? "Phân công người nhặt trước khi nhặt hàng. Muốn tự nhặt thì chọn Nhận việc cho tôi."
+                                : "Bấm Nhận việc để nhận phiếu này rồi bắt đầu quét mã."}
+                        </p>
+                    </div>
+                    <Button
+                        onClick={() => setAssignOpen(true)}
+                        className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
+                    >
+                        <UserPlus className="size-4" />
+                        {laQuanLy ? "Phân công" : "Nhận việc"}
+                    </Button>
+                </div>
+            ) : editable ? (
+                <div role="status" className="flex items-center gap-3 rounded-lg border border-bo-border bg-bo-surface-subtle p-3 text-sm text-slate-700">
+                    <User className="size-4 shrink-0 text-bo-muted" />
+                    <p className="min-w-0 flex-1">
+                        Phiếu đang giao cho <strong className="font-semibold">{dto.tenNguoiNhat}</strong>. Chỉ người được phân công mới quét nhặt được
+                        {laQuanLy ? " — muốn tự nhặt thì phân công lại cho mình." : "."}
+                    </p>
+                </div>
             ) : null}
 
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">

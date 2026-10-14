@@ -220,6 +220,10 @@ export const nhatHangMock = {
     if (!["cho_nhat", "dang_nhat"].includes(pl.trangThai)) {
       throw mockError(409, "Phiếu nhặt hàng không còn ở trạng thái nhặt hàng.");
     }
+    // Bắt buộc phân công trước khi nhặt (khớp NhatHangServiceImpl.kiemTraNguoiNhat)
+    if (!pl.nguoiNhatId) {
+      throw mockError(409, `Phiếu nhặt ${pl.maPickList} chưa được phân công. Cần phân công người nhặt (hoặc bấm Nhận việc) trước khi nhặt hàng.`);
+    }
     const code = normalizeText(barcode);
     const line = pl.lines.find((l) => normalizeText(l.maVachSku) === code || normalizeText(l.maSku) === code);
     if (!line) throw mockError(400, `Mã "${barcode}" không có trong phiếu nhặt hàng này.`);
@@ -255,6 +259,7 @@ export const nhatHangMock = {
   async hoanTat(id) {
     await mockDelay(300, 500);
     const pl = findPickList(id);
+    if (!pl.nguoiNhatId) throw mockError(409, `Phiếu nhặt ${pl.maPickList} chưa được phân công người nhặt.`);
     const dto = toDto(pl);
     if (!dto.coTheHoanTat) throw mockError(409, "Chưa nhặt đủ hàng, chưa thể hoàn tất phiếu nhặt hàng.");
     pl.trangThai = "da_nhat";
