@@ -215,7 +215,7 @@ class PhieuXuatKhoServiceDetailTest {
                 .chiTietPhieuXuatKhoId(200).loHangPicks(List.of()).build();
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> service.pickLoHang(PHIEU_ID, req));
-        assertTrue(ex.getMessage().contains("trạng thái Mới tạo"));
+        assertTrue(ex.getMessage().contains("chưa xuất kho"), ex.getMessage());
         verify(chiTietRepo, never()).deletePickedByPhieuAndBienThe(anyInt(), anyInt());
     }
 
