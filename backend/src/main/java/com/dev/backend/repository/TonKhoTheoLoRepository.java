@@ -28,6 +28,15 @@ public interface TonKhoTheoLoRepository extends JpaRepository<TonKhoTheoLo, Inte
     // FIX: Thêm method tìm chi tiết kiểm kê theo phiếu (dùng trong ChiTietKiemKeRepository nếu cần)
     // (giữ nguyên các method cũ bên dưới)
 
+    /** Tổng số lượng tồn (mọi lô) của từng kho — cột "Tồn kho" ở danh sách kho. Trả về [khoId, tổng]. */
+    @Query("""
+        SELECT tk.kho.id, COALESCE(SUM(tk.soLuongTon), 0)
+        FROM TonKhoTheoLo tk
+        WHERE tk.kho.id IN :khoIds
+        GROUP BY tk.kho.id
+    """)
+    List<Object[]> sumSoLuongTonTheoKho(@Param("khoIds") List<Integer> khoIds);
+
     @Query("""
         SELECT tk.loHang.bienTheSanPham.id, COALESCE(SUM(tk.soLuongKhaDung), 0)
         FROM TonKhoTheoLo tk

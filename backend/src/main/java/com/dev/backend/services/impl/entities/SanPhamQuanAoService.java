@@ -1155,4 +1155,58 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 .build()
                 );
         }
-}
+
+        // ==========================================================
+        // LỌC THEO GIÁ BIẾN THỂ (trang Sản phẩm, ô "Giá từ / Giá đến")
+        // giaBanMacDinh chỉ tính trên biến thể còn hàng nên sản phẩm hết hàng luôn là 0;
+        // danh sách hiện giá theo biến thể đang bán nên bộ lọc cũng phải lọc theo đó.
+        // ==========================================================
+
+        /** Trường lọc ảo: có ít nhất một biến thể đang bán (trang_thai = 1, giá > 0) có giá bán thỏa mọi điều kiện. */
+        public static final String TRUONG_LOC_GIA_BIEN_THE = "giaBanBienThe";
+
+        @Override
+        protected org.springframework.data.jpa.domain.Specification<SanPhamQuanAo> createSpecification(
+                List<com.dev.backend.dto.request.FilterCriteria> filters) {
+                if (filters == null || filters.stream().noneMatch(f -> TRUONG_LOC_GIA_BIEN_THE.equals(f.getFieldName()))) {
+                        return super.createSpecification(filters);
+                }
+                List<com.dev.backend.dto.request.FilterCriteria> locGia = filters.stream()
+                        .filter(f -> TRUONG_LOC_GIA_BIEN_THE.equals(f.getFieldName()))
+                        .toList();
+                List<com.dev.backend.dto.request.FilterCriteria> conLai = filters.stream()
+                        .filter(f -> !TRUONG_LOC_GIA_BIEN_THE.equals(f.getFieldName()))
+                        .toList();
+
+                org.springframework.data.jpa.domain.Specification<SanPhamQuanAo> theoGia = (root, query, cb) -> {
+                        jakarta.persistence.criteria.Subquery<Integer> sub = query.subquery(Integer.class);
+                        jakarta.persistence.criteria.Root<BienTheSanPham> bt = sub.from(BienTheSanPham.class);
+                        List<jakarta.persistence.criteria.Predicate> dieuKien = new ArrayList<>();
+                        dieuKien.add(cb.equal(bt.get("sanPham"), root));
+                        dieuKien.add(cb.equal(bt.get("trangThai"), 1));
+                        // Giống cột giá ở danh sách: biến thể chưa đặt giá (0 hoặc trống) không tính
+                        dieuKien.add(cb.greaterThan(bt.<BigDecimal>get("giaBan"), BigDecimal.ZERO));
+                        for (com.dev.backend.dto.request.FilterCriteria f : locGia) {
+                                if (f.getValue() == null || String.valueOf(f.getValue()).isBlank()) continue;
+                                BigDecimal giaTri;
+                                try {
+                                        giaTri = new BigDecimal(String.valueOf(f.getValue()).trim());
+                                } catch (NumberFormatException e) {
+                                        throw new CommonException("Giá lọc không hợp lệ: " + f.getValue());
+                                }
+                                jakarta.persistence.criteria.Path<BigDecimal> gia = bt.get("giaBan");
+                                switch (f.getOperation()) {
+                                        case GREATER_THAN_OR_EQUAL -> dieuKien.add(cb.greaterThanOrEqualTo(gia, giaTri));
+                                        case GREATER_THAN -> dieuKien.add(cb.greaterThan(gia, giaTri));
+                                        case LESS_THAN_OR_EQUAL -> dieuKien.add(cb.lessThanOrEqualTo(gia, giaTri));
+                                        case LESS_THAN -> dieuKien.add(cb.lessThan(gia, giaTri));
+                                        case EQUALS -> dieuKien.add(cb.equal(gia, giaTri));
+                                        default -> throw new CommonException("Không hỗ trợ phép lọc " + f.getOperation() + " cho giá biến thể");
+                                }
+                        }
+                        sub.select(bt.get("id")).where(dieuKien.toArray(new jakarta.persistence.criteria.Predicate[0]));
+                        return cb.exists(sub);
+                };
+                return super.createSpecification(conLai).and(theoGia);
+        }
+}
