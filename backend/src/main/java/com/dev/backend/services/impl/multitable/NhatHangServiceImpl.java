@@ -5,6 +5,7 @@ import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
+import com.dev.backend.constant.variables.ITrangThaiPhieuXuat;
 import com.dev.backend.dto.request.DonChoXuatFilterRequest;
 import com.dev.backend.dto.request.PhanCongNguoiNhatRequest;
 import com.dev.backend.dto.request.TaoPickListRequest;
@@ -21,6 +22,8 @@ import com.dev.backend.mapper.ChiTietNhatHangMapper;
 import com.dev.backend.mapper.DanhSachNhatHangMapper;
 import com.dev.backend.repository.*;
 import com.dev.backend.services.impl.entities.LichSuThayDoiService;
+import com.dev.backend.services.impl.entities.PhieuXuatKhoService;
+import com.dev.backend.utils.SauCommit;
 import com.dev.backend.services.multitable.NhatHangService;
 import com.dev.backend.event.InventoryRestockedEvent;
 import org.springframework.context.ApplicationEventPublisher;
@@ -78,6 +81,9 @@ public class NhatHangServiceImpl implements NhatHangService {
 
     @Autowired
     private PhieuXuatKhoRepository phieuXuatKhoRepository;
+
+    @Autowired
+    private PhieuXuatKhoService phieuXuatKhoService;
 
     @Autowired
     private ChiTietPhieuXuatKhoRepository chiTietPhieuXuatKhoRepository;
@@ -361,11 +367,11 @@ public class NhatHangServiceImpl implements NhatHangService {
         chiTietNhatHangRepository.saveAll(chiTietList);
         pickList.setChiTietNhatHangs(chiTietList);
 
-        // Cập nhật trạng thái các đơn hàng sang 2 (Picking / Đang nhặt hàng) và liên kết với Pick List
+        // Liên kết đơn với Pick List. Đơn GIỮ trạng thái 1 (Chờ nhặt hàng) tới khi hoàn tất nhặt
+        // (lúc đó chuyển 7 - Chờ đóng gói); trạng thái 2 chỉ còn nghĩa "đã xuất một phần".
         List<String> maDonList = new ArrayList<>();
         for (DonBanHang don : donList) {
             don.setDanhSachNhatHang(pickList);
-            don.setTrangThai(2); // Picking
             don.setNgayCapNhat(Instant.now());
             maDonList.add(don.getSoDonHang());
         }
@@ -564,11 +570,8 @@ public class NhatHangServiceImpl implements NhatHangService {
 
         if (pickList.getDonBanHangs() != null) {
             List<DanhSachNhatHangDto.DonThamChieuDto> donDtos = pickList.getDonBanHangs().stream().map(d -> {
-                boolean biHuy = d.getTrangThai() != null && d.getTrangThai() == 4;
-                String tenTrangThai = "Đang xử lý";
-                if (biHuy) tenTrangThai = "Đã hủy";
-                else if (d.getTrangThai() != null && d.getTrangThai() == 3) tenTrangThai = "Đã xuất kho";
-                else if (d.getTrangThai() != null && d.getTrangThai() == 2) tenTrangThai = "Đang nhặt";
+                boolean biHuy = d.getTrangThai() != null && d.getTrangThai() == ITrangThaiDonBanHang.DA_HUY;
+                String tenTrangThai = tenTrangThaiDon(d.getTrangThai());
 
                 return DanhSachNhatHangDto.DonThamChieuDto.builder()
                         .id(d.getId())
@@ -895,7 +898,7 @@ public class NhatHangServiceImpl implements NhatHangService {
         List<DonBanHang> donHangs = pickList.getDonBanHangs() != null ? pickList.getDonBanHangs() : List.of();
         NguoiDung currentUser = nguoiDungRepository.findById(authUser.getId()).orElse(null);
 
-        // 1. Chỉ đơn chưa xuất và chưa hủy (1 Chờ xuất kho / 2 Đang xử lý xuất kho) mới được tạo phiếu xuất.
+        // 1. Chỉ đơn chưa xuất và chưa hủy (1 Chờ nhặt hàng; 2 là dữ liệu cũ trước bản đóng gói) mới được tạo phiếu xuất.
         //    Đơn bị hủy trong lúc nhặt (ví dụ sàn hủy qua đồng bộ đơn) hoặc đã xuất bằng phiếu khác thì bỏ qua,
         //    trả về danh sách để màn hình nhắc nhân viên trả hàng đã nhặt của các đơn này về kệ.
         List<DonBanHang> donHopLe = new ArrayList<>();
@@ -904,7 +907,7 @@ public class NhatHangServiceImpl implements NhatHangService {
         boolean conDonDaXuat = false;
         for (DonBanHang dbh : donHangs) {
             Integer tt = dbh.getTrangThai();
-            if (tt != null && (tt == ITrangThaiDonBanHang.CHO_XUAT_KHO || tt == ITrangThaiDonBanHang.DANG_XUAT_KHO)) {
+            if (tt != null && (tt == ITrangThaiDonBanHang.CHO_NHAT_HANG || tt == ITrangThaiDonBanHang.DANG_XUAT_KHO)) {
                 donHopLe.add(dbh);
                 continue;
             }
@@ -922,20 +925,23 @@ public class NhatHangServiceImpl implements NhatHangService {
             lyDoBoQua.add(dbh.getSoDonHang() + " (" + lyDo + ")");
         }
 
-        // 2. Trạng thái phiếu nhặt: còn đơn cần xuất → 'da_nhat'; không còn đơn nào cần xuất thì
-        //    'da_xuat' nếu có đơn đã xuất, 'da_huy' nếu mọi đơn đều đã hủy.
-        String trangThaiMoi = !donHopLe.isEmpty() ? "da_nhat" : (conDonDaXuat ? "da_xuat" : "da_huy");
+        // 2. Trạng thái phiếu nhặt: việc nhặt kết thúc ở 'da_nhat' (đóng gói / xuất kho theo dõi trên từng đơn
+        //    và phiếu xuất); chỉ 'da_huy' khi mọi đơn đều đã hủy. Không còn 'da_xuat'.
+        String trangThaiMoi = (!donHopLe.isEmpty() || conDonDaXuat) ? "da_nhat" : "da_huy";
         pickList.setTrangThai(trangThaiMoi);
         pickList.setNgayHoanTat(Instant.now());
         pickList = danhSachNhatHangRepository.save(pickList);
 
-        // 3. Đơn bán GIỮ NGUYÊN trạng thái (2 = Đang xử lý xuất kho). Trạng thái 3 (Đã xuất toàn bộ)
-        //    chỉ do PhieuXuatKhoService.updateTrangThaiDonBanHang đặt khi phiếu xuất đã hoàn thành,
+        // 3. Đơn chuyển 7 (Chờ đóng gói) kèm phiếu xuất nháp. Trạng thái 3 (Đã xuất toàn bộ) chỉ do
+        //    PhieuXuatKhoService.updateTrangThaiDonBanHang đặt khi phiếu xuất đã hoàn thành,
         //    để đơn không hiện "đã xuất" và không "Giao thành công" được khi kho chưa trừ tồn.
         if (!donHopLe.isEmpty()) {
             for (DonBanHang dbh : donHopLe) {
-                // Tự động sinh Phiếu Xuất Kho ở trạng thái 0 ("Chờ xuất") nếu chưa có
-                boolean daCoPhieu = phieuXuatKhoRepository.existsByDonBanHangIdAndTrangThai(dbh.getId(), 0);
+                dbh.setTrangThai(ITrangThaiDonBanHang.CHO_DONG_GOI);
+                dbh.setNgayCapNhat(Instant.now());
+                // Tự động sinh Phiếu Xuất Kho nháp (chờ đóng gói) nếu đơn chưa có phiếu nháp / đã đóng gói
+                boolean daCoPhieu = phieuXuatKhoRepository.existsByDonBanHangIdAndTrangThaiIn(dbh.getId(),
+                        List.of(ITrangThaiPhieuXuat.NHAP, ITrangThaiPhieuXuat.CHO_XUAT));
                 if (!daCoPhieu) {
                     long seq = phieuXuatKhoRepository.countBySoPhieuXuatStartingWith("PXK-") + 1;
                     String soPxk = String.format("PXK-%s-%03d",
@@ -946,7 +952,7 @@ public class NhatHangServiceImpl implements NhatHangService {
                             .donBanHang(dbh)
                             .kho(pickList.getKhoXuat())
                             .loaiXuat("ban_hang")
-                            .trangThai(0) // 0: Chờ xuất (Pending Export - badge cam SRS 6.3.2)
+                            .trangThai(ITrangThaiPhieuXuat.NHAP) // Nháp: chờ đóng gói (Scan-to-Pack)
                             .nguoiXuat(currentUser)
                             .ghiChu("Phiếu xuất tự động từ đợt nhặt hàng " + pickList.getMaPickList())
                             .build();
@@ -977,7 +983,7 @@ public class NhatHangServiceImpl implements NhatHangService {
         String ghiChuNhatKy = "Hoàn tất đợt nhặt hàng " + pickList.getMaPickList()
                 + (donHopLe.isEmpty()
                     ? ", không còn đơn nào cần xuất nên không tạo phiếu xuất"
-                    : ", tự động sinh phiếu xuất kho chờ xuất cho " + donHopLe.size() + " đơn")
+                    : ", tự động sinh phiếu xuất kho nháp (chờ đóng gói) cho " + donHopLe.size() + " đơn")
                 + (donChuaTaoPhieuXuat.isEmpty()
                     ? ""
                     : ". Không tạo phiếu xuất cho đơn: " + String.join(", ", lyDoBoQua)
@@ -1109,34 +1115,26 @@ public class NhatHangServiceImpl implements NhatHangService {
                     }
                 }
 
-                outboundWebSocketHandler.sendPickListEvent(pickListId, "PICK_LIST_CANCELLED", Map.of(
-                        "pickListId", pickListId,
-                        "maPickList", pickList.getMaPickList(),
-                        "message", "Toàn bộ đơn hàng trong đợt nhặt " + pickList.getMaPickList() + " đã bị hủy! Vui lòng dừng nhặt và cất toàn bộ hàng đã lấy về kệ."
-                ));
+                SauCommit.chay("Gửi WebSocket phiếu nhặt " + pickListId, () -> outboundWebSocketHandler.sendPickListEvent(pickListId, "PICK_LIST_CANCELLED", Map.of(
+                            "pickListId", pickListId,
+                            "maPickList", pickList.getMaPickList(),
+                            "message", "Toàn bộ đơn hàng trong đợt nhặt " + pickList.getMaPickList() + " đã bị hủy! Vui lòng dừng nhặt và cất toàn bộ hàng đã lấy về kệ."
+                    )));
             } else {
                 // Vẫn còn đơn hợp lệ -> Gửi WebSocket báo Pick UI cập nhật
-                outboundWebSocketHandler.sendPickListEvent(pickListId, "ORDER_CANCELLED_IN_PICK_LIST", Map.of(
-                        "pickListId", pickListId,
-                        "maPickList", pickList.getMaPickList(),
-                        "soDonHangBiHuy", don.getSoDonHang(),
-                        "hangCanTraKe", danhSachHangTraKe,
-                        "message", "Đơn hàng " + don.getSoDonHang() + " đã bị hủy! Số lượng cần nhặt đã tự động giảm. Vui lòng chuyển hàng thừa (nếu có) vào khay Put-back trên xe đẩy."
-                ));
+                SauCommit.chay("Gửi WebSocket phiếu nhặt " + pickListId, () -> outboundWebSocketHandler.sendPickListEvent(pickListId, "ORDER_CANCELLED_IN_PICK_LIST", Map.of(
+                            "pickListId", pickListId,
+                            "maPickList", pickList.getMaPickList(),
+                            "soDonHangBiHuy", don.getSoDonHang(),
+                            "hangCanTraKe", danhSachHangTraKe,
+                            "message", "Đơn hàng " + don.getSoDonHang() + " đã bị hủy! Số lượng cần nhặt đã tự động giảm. Vui lòng chuyển hàng thừa (nếu có) vào khay Put-back trên xe đẩy."
+                    )));
             }
         }
         // Trường hợp 2: Đã hoàn tất nhặt (da_nhat), đã có PXK nháp tại bàn đóng gói
         else if ("da_nhat".equals(currentTrangThai)) {
-            // Tìm các phiếu xuất kho nháp của đơn hàng này
-            List<PhieuXuatKho> pxkList = phieuXuatKhoRepository.findByDonBanHangId(don.getId());
-            for (PhieuXuatKho pxk : pxkList) {
-                if (pxk.getTrangThai() != null && pxk.getTrangThai() == 0) { // 0: Chờ xuất / Nháp
-                    pxk.setTrangThai(2); // 2: Đã hủy / Thu hồi
-                    String note = (pxk.getGhiChu() != null ? pxk.getGhiChu() + " | " : "") + "Tự động hủy do đơn " + don.getSoDonHang() + " bị hủy";
-                    pxk.setGhiChu(note);
-                    phieuXuatKhoRepository.save(pxk);
-                }
-            }
+            // Thu hồi phiếu xuất kho nháp của đơn hàng này → 4 (Đã hủy)
+            phieuXuatKhoService.huyPhieuXuatNhapTheoDon(don.getId(), "Tự động hủy do đơn " + don.getSoDonHang() + " bị hủy");
 
             // Sinh lệnh cất hàng về kệ (Put-away Task) cho toàn bộ sản phẩm của đơn đã nhặt về bàn đóng gói
             for (ChiTietDonBanHang ctd : chiTietDons) {
@@ -1167,20 +1165,36 @@ public class NhatHangServiceImpl implements NhatHangService {
             if (!conDonHoatDong) {
                 pickList.setTrangThai("da_huy");
                 danhSachNhatHangRepository.save(pickList);
-                outboundWebSocketHandler.sendPickListEvent(pickListId, "PICK_LIST_CANCELLED", Map.of(
-                        "pickListId", pickListId,
-                        "maPickList", pickList.getMaPickList(),
-                        "message", "Toàn bộ đơn hàng trong đợt đã bị hủy! Toàn bộ phiếu xuất đã bị thu hồi. Đã sinh lệnh cất toàn bộ hàng về kệ."
-                ));
+                SauCommit.chay("Gửi WebSocket phiếu nhặt " + pickListId, () -> outboundWebSocketHandler.sendPickListEvent(pickListId, "PICK_LIST_CANCELLED", Map.of(
+                            "pickListId", pickListId,
+                            "maPickList", pickList.getMaPickList(),
+                            "message", "Toàn bộ đơn hàng trong đợt đã bị hủy! Toàn bộ phiếu xuất đã bị thu hồi. Đã sinh lệnh cất toàn bộ hàng về kệ."
+                    )));
             } else {
-                outboundWebSocketHandler.sendPickListEvent(pickListId, "ORDER_CANCELLED_IN_PACKING", Map.of(
-                        "pickListId", pickListId,
-                        "maPickList", pickList.getMaPickList(),
-                        "soDonHangBiHuy", don.getSoDonHang(),
-                        "message", "Đơn hàng " + don.getSoDonHang() + " đã bị hủy! Phiếu xuất nháp đã bị thu hồi. Vui lòng chuyển hàng của đơn vào Thùng gom hàng hoàn kệ (Return-to-stock)."
-                ));
+                SauCommit.chay("Gửi WebSocket phiếu nhặt " + pickListId, () -> outboundWebSocketHandler.sendPickListEvent(pickListId, "ORDER_CANCELLED_IN_PACKING", Map.of(
+                            "pickListId", pickListId,
+                            "maPickList", pickList.getMaPickList(),
+                            "soDonHangBiHuy", don.getSoDonHang(),
+                            "message", "Đơn hàng " + don.getSoDonHang() + " đã bị hủy! Phiếu xuất nháp đã bị thu hồi. Vui lòng chuyển hàng của đơn vào Thùng gom hàng hoàn kệ (Return-to-stock)."
+                    )));
             }
         }
+    }
+
+    /** Nhãn trạng thái đơn hiển thị trong phiếu nhặt (theo ITrangThaiDonBanHang). */
+    private static String tenTrangThaiDon(Integer trangThai) {
+        if (trangThai == null) return "Không xác định";
+        return switch (trangThai) {
+            case ITrangThaiDonBanHang.CHO_NHAT_HANG -> "Chờ nhặt hàng";
+            case ITrangThaiDonBanHang.CHO_DONG_GOI -> "Chờ đóng gói";
+            case ITrangThaiDonBanHang.DA_DONG_GOI -> "Chờ xuất kho";
+            case ITrangThaiDonBanHang.DANG_XUAT_KHO -> "Đã xuất một phần";
+            case ITrangThaiDonBanHang.DA_XUAT_TOAN_BO -> "Đã xuất kho";
+            case ITrangThaiDonBanHang.HOAN_THANH -> "Hoàn thành";
+            case ITrangThaiDonBanHang.BI_HOAN_TRA -> "Bị hoàn trả";
+            case ITrangThaiDonBanHang.DA_HUY -> "Đã hủy";
+            default -> "Đang xử lý";
+        };
     }
 
     @Override
