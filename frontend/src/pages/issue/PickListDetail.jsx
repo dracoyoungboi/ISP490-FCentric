@@ -27,6 +27,7 @@ import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { playScanBeep } from "@/utils/scanBeep";
 import { formatDateTime } from "@/utils/dateTime";
 import { TRANG_THAI_DON } from "@/constants/trangThaiXuatBan";
+import { getDonBanHangStatus } from "@/constants/donBanHang";
 
 const TH_CLASS = "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 
@@ -546,7 +547,7 @@ function OrderCodes({ codes, orders, cancelledAlert }) {
                             <span className="size-1.5 rounded-full bg-emerald-500" />
                             {code}
                             {info && info.trangThai !== TRANG_THAI_DON.CHO_NHAT_HANG && !choDongGoi ? (
-                                <span className="font-normal normal-case tracking-normal text-bo-muted">· {info.tenTrangThai}</span>
+                                <span className="font-normal normal-case tracking-normal text-bo-muted">· {getDonBanHangStatus(info.trangThai).label}</span>
                             ) : null}
                             {choDongGoi ? (
                                 <Link

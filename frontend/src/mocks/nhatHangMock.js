@@ -168,7 +168,7 @@ export const nhatHangMock = {
       .map((id) => state.orders.find((o) => o.id === id))
       .find((o) => !o || o.trangThai !== 1 || o.canXuLy || dangTrongPhieuNhat(o.id));
     if (invalid) {
-      throw mockError(409, `Đơn ${invalid?.soDonHang ?? ""} không còn ở trạng thái chờ xuất. Vui lòng tải lại danh sách.`);
+      throw mockError(409, `Đơn ${invalid?.soDonHang ?? ""} không còn ở trạng thái Chờ nhặt hàng. Vui lòng tải lại danh sách.`);
     }
     state.seq += 1;
     const id = 40 + state.seq;
