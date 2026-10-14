@@ -13,6 +13,9 @@ public interface DonMuaHangRepository extends JpaRepository<DonMuaHang, Integer>
     /** Mã đơn là duy nhất (UNIQUE so_don_mua), so khớp không phân biệt hoa thường theo collation của cột. */
     Optional<DonMuaHang> findBySoDonMua(String soDonMua);
 
+    /** Số đơn mua hàng / yêu cầu báo giá (mọi trạng thái) của một nhà cung cấp — dùng khi kiểm tra xóa nhà cung cấp. */
+    long countByNhaCungCap_Id(Integer nhaCungCapId);
+
     @Query("""
     select count(d)
     from DonMuaHang d
