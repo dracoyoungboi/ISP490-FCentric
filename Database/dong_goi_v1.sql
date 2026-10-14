@@ -45,6 +45,8 @@ SET SQL_SAFE_UPDATES = 0;
 --    a. Đơn nằm trong phiếu nhặt chưa nhặt xong (trước đây bị đặt 2 lúc tạo phiếu nhặt) → 1 Chờ nhặt hàng
 --    b. Đơn đã gửi kho có phiếu xuất bán hàng NHÁP (đã nhặt xong / tạo phiếu tay) → 7 Chờ đóng gói
 --       (phiếu nháp này phải đóng gói trước khi xuất kho)
+--    c. Đơn còn ở 2 nhưng chưa xuất gì và không còn phiếu xuất mở (vd. phiếu nháp cũ đã bị hủy) → 1 Chờ nhặt hàng
+--       (2 nay chỉ còn nghĩa "đã xuất một phần")
 -- ---------------------------------------------------------------------
 UPDATE don_ban_hang d
 JOIN danh_sach_nhat_hang n ON n.id = d.danh_sach_nhat_hang_id
@@ -60,6 +62,13 @@ WHERE d.loai_chung_tu = 'don_ban_hang'
   AND d.trang_thai IN (1, 2)
   AND EXISTS (SELECT 1 FROM phieu_xuat_kho p
               WHERE p.don_ban_hang_id = d.id AND p.loai_xuat = 'ban_hang' AND p.trang_thai = 0);
+
+UPDATE don_ban_hang d
+SET d.trang_thai = 1
+WHERE d.loai_chung_tu = 'don_ban_hang'
+  AND d.trang_thai = 2
+  AND NOT EXISTS (SELECT 1 FROM phieu_xuat_kho p WHERE p.don_ban_hang_id = d.id AND p.trang_thai = 3)
+  AND NOT EXISTS (SELECT 1 FROM phieu_xuat_kho p WHERE p.don_ban_hang_id = d.id AND p.trang_thai IN (0, 6));
 
 -- ---------------------------------------------------------------------
 -- 3) Phiếu nhặt: việc nhặt kết thúc ở 'da_nhat' (đóng gói / xuất kho theo dõi trên đơn và phiếu xuất)
@@ -88,8 +97,8 @@ ALTER TABLE phieu_xuat_kho
 SHOW COLUMNS FROM chi_tiet_phieu_xuat_kho LIKE 'so_luong_da_dong_goi';
 SHOW COLUMNS FROM danh_sach_nhat_hang LIKE 'trang_thai';
 SELECT trang_thai, COUNT(*) AS so_don FROM don_ban_hang WHERE loai_chung_tu = 'don_ban_hang' GROUP BY trang_thai;
--- Phải ra 0: đơn còn ở 2 mà vẫn nằm trong phiếu nhặt chưa nhặt xong
+-- Phải ra 0: đơn còn ở 2 (đã xuất một phần) mà chưa có phiếu xuất nào đã xuất
 SELECT COUNT(*) AS con_sai
-FROM don_ban_hang d JOIN danh_sach_nhat_hang n ON n.id = d.danh_sach_nhat_hang_id
-WHERE d.trang_thai = 2 AND n.trang_thai IN ('cho_nhat', 'dang_nhat')
+FROM don_ban_hang d
+WHERE d.loai_chung_tu = 'don_ban_hang' AND d.trang_thai = 2
   AND NOT EXISTS (SELECT 1 FROM phieu_xuat_kho p WHERE p.don_ban_hang_id = d.id AND p.trang_thai = 3);
