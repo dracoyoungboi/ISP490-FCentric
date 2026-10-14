@@ -36,7 +36,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
@@ -385,12 +387,29 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
             throw new CommonException("Vui lòng chọn ít nhất một nhà cung cấp");
         }
 
-        Instant now = Instant.now();
-        //duyệt qua danh sách ID nhà cung cấp
-        for (Integer nhaCungCapId : yeuCau.getNhaCungCapIds()) {
+        // Kiểm tra hết các nhà cung cấp TRƯỚC khi tạo đơn và gửi mail: chỉ một nhà cung cấp không hợp lệ
+        // thì không gửi cho ai (tránh gửi mail dở dang rồi mới báo lỗi). Trùng id thì chỉ gửi một lần.
+        List<NhaCungCap> danhSachNhaCungCap = new ArrayList<>();
+        for (Integer nhaCungCapId : new LinkedHashSet<>(yeuCau.getNhaCungCapIds())) {
             NhaCungCap nhaCungCap = nhaCungCapService.getOne(nhaCungCapId).orElseThrow(
                     () -> new CommonException("Không tìm thấy nhà cung cấp id: " + nhaCungCapId)
             );
+            // Nhà cung cấp đã ngừng hoạt động thì không nhận yêu cầu báo giá mới
+            if (!Objects.equals(nhaCungCap.getTrangThai(), NhaCungCapService.TRANG_THAI_HOAT_DONG)) {
+                throw new CommonException("Nhà cung cấp " + nhaCungCap.getTenNhaCungCap()
+                        + " đã ngừng hoạt động, không thể gửi yêu cầu báo giá.");
+            }
+            // Yêu cầu báo giá gửi qua email và nhà cung cấp đăng nhập cổng bằng email
+            if (nhaCungCap.getEmail() == null || nhaCungCap.getEmail().isBlank()) {
+                throw new CommonException("Nhà cung cấp " + nhaCungCap.getTenNhaCungCap()
+                        + " chưa có email nên không gửi được yêu cầu báo giá. Vui lòng cập nhật email trước.");
+            }
+            danhSachNhaCungCap.add(nhaCungCap);
+        }
+
+        Instant now = Instant.now();
+        //duyệt qua danh sách nhà cung cấp đã kiểm tra
+        for (NhaCungCap nhaCungCap : danhSachNhaCungCap) {
             //tạo đơn báo giá cho từng nhà cung cấp
             DonMuaHang donMuaHang = DonMuaHang.builder()
                     .yeuCauMuaHang(yeuCauMuaHang)
