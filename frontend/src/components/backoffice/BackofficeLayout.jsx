@@ -230,19 +230,10 @@ export default function BackofficeLayout() {
             title: "Chỉnh sửa khách hàng",
         },
         {
-            key: "SUPPLIER_EDIT",
-            match: (path) => /^\/supplier\/\d+$/.test(path),
-            title: "Chỉnh sửa nhà cung cấp",
-        },
-        {
+            // Thêm / sửa nhà cung cấp là popup trên danh sách và trang chi tiết (không còn trang riêng).
             key: "SUPPLIER_DETAIL",
-            match: (path) => /^\/supplier\/view\/\d+$/.test(path),
+            match: (path) => /^\/supplier\/\d+$/.test(path),
             title: "Chi tiết nhà cung cấp",
-        },
-        {
-            key: "SUPPLIER_CREATE",
-            match: (path) => path === "/supplier/new",
-            title: "Thêm nhà cung cấp mới",
         },
         {
             key: "INVENTORY_REPORT",

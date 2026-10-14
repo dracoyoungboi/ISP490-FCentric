@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import BackofficeLayout from "@/components/backoffice/BackofficeLayout";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { Toaster } from "@/components/ui/sonner";
@@ -10,7 +10,6 @@ import ChatLieuList from "./pages/attribute/ChatLieuList";
 import ChatLieuDetail from "./pages/attribute/ChatLieuDetail";
 import ChatLieuDetailView from "./pages/attribute/ChatLieuDetailView";
 import SupplierList from "./pages/supplier/SupplierList";
-import SupplierDetail from "./pages/supplier/SupplierDetail";
 import SupplierDetailView from "./pages/supplier/SupplierDetailView";
 import ProductList from "./pages/product";
 import ViewUserListByAdmin from "./pages/admin/ViewUserListByAdmin";
@@ -92,6 +91,12 @@ import ChannelSetupWizard from "./pages/channels/ChannelSetupWizard";
 import ChannelMappingsPage from "./pages/channels/ChannelMappingsPage";
 import ChannelSyncDashboard from "./pages/channels/ChannelSyncDashboard";
 
+/** Đường dẫn cũ /supplier/view/:id → trang chi tiết /supplier/:id (giống /customers/:id, /users/:id). */
+function SupplierViewRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/supplier/${id}`} replace />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -165,11 +170,11 @@ export default function App() {
           <Route path="/purchase-requests/:id" element={<PurchaseRequestDetail />} />
           
 
-          {/* Supplier */}
+          {/* Supplier — Thêm / Sửa là popup; giữ đường dẫn cũ để link cũ không hỏng */}
           <Route path="/supplier" element={<SupplierList />} />
-          <Route path="/supplier/new" element={<SupplierDetail />} />
-          <Route path="/supplier/view/:id" element={<SupplierDetailView />} />
-          <Route path="/supplier/:id" element={<SupplierDetail />} />
+          <Route path="/supplier/new" element={<Navigate to="/supplier" replace state={{ openCreateSupplier: true }} />} />
+          <Route path="/supplier/view/:id" element={<SupplierViewRedirect />} />
+          <Route path="/supplier/:id" element={<SupplierDetailView />} />
 
           {/* Customer */}
           <Route path="/customers" element={<KhachHangPage />} />

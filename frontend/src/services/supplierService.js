@@ -46,7 +46,29 @@ export const updateSupplier = async (id, data) => {
     }
 };
 
-// Xóa
+// Ngừng hoạt động (0) / cho phép hoạt động lại (1) — thao tác riêng, không đi qua form sửa
+export const updateSupplierStatus = async (id, trangThai) => {
+    try {
+        const response = await apiClient.put(`${API_URL}/${id}/trang-thai`, { trangThai });
+        return response.data.data;
+    } catch (error) {
+        console.error('Lỗi đổi trạng thái nhà cung cấp:', error);
+        throw error;
+    }
+};
+
+// Kiểm tra trước khi xóa: { coTheXoa, soDonMuaHang, soPhieuNhapKho, soLoHang }
+export const checkSupplierDelete = async (id) => {
+    try {
+        const response = await apiClient.get(`${API_URL}/${id}/kiem-tra-xoa`);
+        return response.data.data;
+    } catch (error) {
+        console.error('Lỗi kiểm tra xóa nhà cung cấp:', error);
+        throw error;
+    }
+};
+
+// Xóa (chỉ xóa được nhà cung cấp chưa phát sinh giao dịch)
 export const deleteSupplier = async (id) => {
     try {
         await apiClient.delete(`${API_URL}/${id}`);

@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import {
     ArrowLeft, Send, Loader2, Building2,
     Mail, User, Package, AlertCircle,
-    X, Sparkles, Check, ShoppingBag, Warehouse, Calendar, ListChecks
+    X, Sparkles, Check, ShoppingBag, Warehouse, Calendar, ListChecks, Plus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,6 +21,9 @@ import LoadingState from '@/components/shared/LoadingState';
 import SearchInput from '@/components/shared/SearchInput';
 import StatusBadge from '@/components/shared/StatusBadge';
 import SurfaceCard from '@/components/shared/SurfaceCard';
+import SupplierFormDialog from '@/components/supplier/SupplierFormDialog';
+import { coTheGuiYeuCauBaoGia, laHoatDong } from '@/components/supplier/quyTacNhaCungCap';
+import { ROLES, hasAnyRole } from '@/utils/roles';
 import { getApiErrorMessage, getApiErrorStatus } from '@/utils/apiError';
 import { formatDate as dinhDangNgay } from "@/utils/formatters";
 
@@ -43,7 +46,9 @@ const avatarColor = (name = '') => AVATAR_PALETTES[(name.charCodeAt(0) || 0) % A
 
 /* ─── SupplierListItem ───────────────────────────────────────────────────────── */
 function SupplierListItem({ supplier, isSelected, onToggle }) {
-    const active = supplier.trangThai === 1;
+    // Chọn được khi đang hoạt động và có email (yêu cầu báo giá gửi qua email).
+    const active = coTheGuiYeuCauBaoGia(supplier);
+    const hoatDong = laHoatDong(supplier);
     return (
         <button
             type="button"
@@ -95,10 +100,10 @@ function SupplierListItem({ supplier, isSelected, onToggle }) {
             </div>
 
             {/* Status */}
-            <div className="hidden w-28 shrink-0 text-right md:block">
+            <div className="hidden w-36 shrink-0 text-right md:block">
                 <StatusBadge
-                    label={active ? 'Hoạt động' : 'Ngừng GD'}
-                    tone={active ? 'success' : 'neutral'}
+                    label={!hoatDong ? 'Ngừng hoạt động' : active ? 'Hoạt động' : 'Chưa có email'}
+                    tone={!hoatDong ? 'neutral' : active ? 'success' : 'warning'}
                 />
             </div>
         </button>
@@ -246,6 +251,9 @@ export default function SendQuotationRequestPage() {
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [submitting, setSubmitting] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
+    // Thêm nhanh nhà cung cấp ngay tại đây (không phải rời màn sang trang Nhà cung cấp).
+    const [addSupplierOpen, setAddSupplierOpen] = useState(false);
+    const coTheThemNhaCungCap = hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_MUA_HANG]);
 
     /* ── Load Data: yêu cầu và nhà cung cấp tải riêng, lỗi bên nào báo bên đó ── */
     const loadRequest = useCallback(async () => {
@@ -300,11 +308,21 @@ export default function SendQuotationRequestPage() {
         );
     }, [suppliers, searchTerm]);
 
-    const activeSuppliers = useMemo(() => suppliers.filter(s => s.trangThai === 1), [suppliers]);
+    const activeSuppliers = useMemo(() => suppliers.filter(coTheGuiYeuCauBaoGia), [suppliers]);
     const selectedSuppliersList = useMemo(() => suppliers.filter(s => selectedIds.has(s.id)), [suppliers, selectedIds]);
     const selectedCount = selectedIds.size;
 
     /* ── Handlers ── */
+    const handleSupplierCreated = (created) => {
+        setSuppliers(prev => [created, ...prev.filter(s => s.id !== created.id)]);
+        if (coTheGuiYeuCauBaoGia(created)) {
+            setSelectedIds(prev => new Set(prev).add(created.id));
+        }
+        // Đang lọc mà nhà cung cấp mới không khớp từ khóa thì xóa lọc để thấy dòng vừa thêm.
+        setSearchTerm('');
+        toast.success(`Đã thêm nhà cung cấp "${created.tenNhaCungCap}" và chọn vào danh sách gửi.`);
+    };
+
     const toggleSupplier = (supplierId) => {
         setSelectedIds(prev => {
             const next = new Set(prev);
@@ -382,7 +400,7 @@ export default function SendQuotationRequestPage() {
                         }
                         action={
                             <div className="flex items-center gap-3">
-                                <div className="w-full sm:w-64">
+                                <div className="w-full sm:w-56">
                                     <SearchInput
                                         placeholder="Tìm tên, mã, email..."
                                         label="Tìm nhà cung cấp"
@@ -395,6 +413,18 @@ export default function SendQuotationRequestPage() {
                                 <Button variant="outline" onClick={selectAll} className="hidden h-9 shrink-0 border-bo-border bg-white text-[13px] font-semibold text-bo-foreground hover:bg-bo-surface-subtle sm:flex">
                                     Chọn tất cả
                                 </Button>
+                                {coTheThemNhaCungCap ? (
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setAddSupplierOpen(true)}
+                                        aria-label="Thêm nhà cung cấp"
+                                        title="Thêm nhà cung cấp mới"
+                                        className="h-9 shrink-0 gap-1.5 border-bo-border bg-white text-[13px] font-semibold text-bo-primary hover:bg-bo-primary-soft hover:text-bo-primary"
+                                    >
+                                        <Plus className="size-4" />
+                                        Thêm mới
+                                    </Button>
+                                ) : null}
                             </div>
                         }
                     >
@@ -530,6 +560,14 @@ export default function SendQuotationRequestPage() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {coTheThemNhaCungCap ? (
+                <SupplierFormDialog
+                    open={addSupplierOpen}
+                    onOpenChange={setAddSupplierOpen}
+                    onSaved={handleSupplierCreated}
+                />
+            ) : null}
         </PageContainer>
     );
 }

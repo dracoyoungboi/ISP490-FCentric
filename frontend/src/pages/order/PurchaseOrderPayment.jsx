@@ -12,10 +12,13 @@ import SurfaceCard from "@/components/shared/SurfaceCard";
 import StatusBadge from "@/components/shared/StatusBadge";
 import LoadingState from "@/components/shared/LoadingState";
 import ErrorState from "@/components/shared/ErrorState";
+import { tenNganHang, useDanhSachNganHang } from "@/services/nganHangService";
 
 const buildVietQRUrl = (data) => {
   if (!data) return null;
   const { nganHang, soNganHang, tongTien, maGiaoDich, tenNhaCungCap } = data;
+  // Nhà cung cấp chưa khai báo tài khoản ngân hàng: không tạo được mã QR.
+  if (!nganHang || !soNganHang) return null;
   const base = `https://img.vietqr.io/image/${nganHang}-${soNganHang}-qr_only.png`;
   const params = new URLSearchParams({
     amount: tongTien?.toString() ?? "0",
@@ -35,6 +38,8 @@ export default function PurchaseOrderPayment() {
   const [paid, setPaid] = useState(false);
   const [checking, setChecking] = useState(false);
   const intervalRef = useRef(null);
+  // Mã ngân hàng lưu dạng BIN (VD 970415) → hiện tên ngân hàng (VietinBank) cho dễ đọc.
+  const { danhSach: nganHangs } = useDanhSachNganHang();
 
   useEffect(() => {
     purchaseOrderService.layGiaoDich(orderId)
@@ -93,7 +98,7 @@ export default function PurchaseOrderPayment() {
     ? [
       { label: "Mã đơn mua", value: data.soDonMua, key: "soDonMua" },
       { label: "Mã giao dịch", value: data.maGiaoDich, key: "maGiaoDich", highlight: true },
-      { label: "Ngân hàng", value: data.nganHang?.toUpperCase(), key: "nganHang" },
+      { label: "Ngân hàng", value: data.nganHang ? tenNganHang(nganHangs, data.nganHang) : null, key: "nganHang" },
       { label: "Số tài khoản", value: data.soNganHang, key: "soNganHang" },
       { label: "Chủ tài khoản", value: data.tenNhaCungCap, key: "tenNhaCungCap" },
       { label: "Kho", value: data.tenKho, key: "tenKho" },
@@ -174,7 +179,12 @@ export default function PurchaseOrderPayment() {
               {/* ── QR Section ── */}
               <div className="flex shrink-0 flex-col items-center gap-4 border-b border-bo-border p-6 lg:w-[300px] lg:border-b-0 lg:border-r">
                 <div className="relative flex size-[200px] items-center justify-center overflow-hidden rounded-lg border border-bo-border bg-white">
-                  {!qrLoaded && (
+                  {!qrUrl && (
+                    <p className="px-4 text-center text-xs leading-5 text-bo-muted">
+                      Nhà cung cấp chưa có tài khoản ngân hàng nên chưa tạo được mã QR. Cập nhật ở trang Nhà cung cấp.
+                    </p>
+                  )}
+                  {qrUrl && !qrLoaded && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="size-7 animate-spin rounded-full border-[3px] border-bo-border border-t-bo-primary" />
                     </div>

@@ -1,14 +1,15 @@
 // src/pages/supplier/SupplierList.jsx
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-    Plus, Edit, Trash2, Eye, Loader2, Users,
-    Phone, Mail, User2, AlertTriangle, SearchX,
+    Plus, Edit, Trash2, Eye, Users,
+    Phone, Mail, User2, SearchX,
 } from 'lucide-react';
 import { toast } from "sonner";
 
 import PageContainer from "@/components/backoffice/PageContainer";
 import EmptyState from "@/components/shared/EmptyState";
+import ErrorState from "@/components/shared/ErrorState";
 import ListPageHeader from "@/components/shared/ListPageHeader";
 import ListToolbar from "@/components/shared/ListToolbar";
 import LoadingState from "@/components/shared/LoadingState";
@@ -18,80 +19,20 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import StatusTabs from "@/components/shared/StatusTabs";
 import TablePagination from "@/components/shared/TablePagination";
 import TableShell from "@/components/shared/TableShell";
+import SupplierDeleteDialog from "@/components/supplier/SupplierDeleteDialog";
+import SupplierFormDialog from "@/components/supplier/SupplierFormDialog";
+import { laHoatDong } from "@/components/supplier/quyTacNhaCungCap";
 import { Button } from "@/components/ui/button";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
+import { getAllSupplier } from "@/services/supplierService";
+import { getApiErrorMessage } from "@/utils/apiError";
+import { ROLES, hasAnyRole } from "@/utils/roles";
 
-import { getAllSupplier, deleteSupplier } from "@/services/supplierService";
-
-// Ô tìm kiếm: lọc ngay trên dữ liệu đang có, chỉ gọi lại API khi ngừng gõ
-const SEARCH_DEBOUNCE_MS = 350;
-
-// ── Confirm Delete Modal (tách hoàn toàn khỏi table row) ─────────────────
-function ConfirmDeleteModal({ target, isDeleting, onConfirm, onCancel }) {
-    if (!target) return null;
-    return (
-        // Backdrop
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-            {/* Overlay */}
-            <div
-                className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-                onClick={!isDeleting ? onCancel : undefined}
-            />
-            {/* Dialog */}
-            <div className="relative z-10 mx-4 w-full max-w-md overflow-hidden rounded-lg border border-bo-border bg-white text-bo-foreground shadow-lg">
-                {/* Header */}
-                <div className="flex items-center gap-3 border-b border-bo-border bg-bo-danger-soft px-5 py-4">
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-bo-danger">
-                        <AlertTriangle className="size-5" />
-                    </span>
-                    <div>
-                        <p className="text-base font-semibold leading-snug text-bo-danger">
-                            Xác nhận xóa nhà cung cấp
-                        </p>
-                        <p className="mt-0.5 text-xs text-bo-muted">Hành động này không thể hoàn tác</p>
-                    </div>
-                </div>
-
-                {/* Body */}
-                <div className="px-5 py-4">
-                    <p className="text-sm leading-relaxed text-slate-600">
-                        Bạn có chắc chắn muốn xóa nhà cung cấp{" "}
-                        <span className="font-semibold text-bo-foreground">"{target.tenNhaCungCap}"</span>{" "}
-                        (mã: <span className="font-mono font-semibold text-bo-foreground">{target.maNhaCungCap}</span>)?
-                    </p>
-                    <p className="mt-2 text-xs text-bo-muted">
-                        Toàn bộ thông tin liên quan đến nhà cung cấp này sẽ bị xóa vĩnh viễn.
-                    </p>
-                </div>
-
-                {/* Footer */}
-                <div className="flex justify-end gap-2 border-t border-bo-border bg-bo-surface-subtle px-5 py-3">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                        onClick={onCancel}
-                        disabled={isDeleting}
-                    >
-                        Hủy bỏ
-                    </Button>
-                    <Button
-                        type="button"
-                        className="min-w-[100px] border border-bo-danger bg-bo-danger text-white hover:bg-bo-danger/90"
-                        onClick={onConfirm}
-                        disabled={isDeleting}
-                    >
-                        {isDeleting ? (
-                            <><Loader2 className="mr-2 size-4 animate-spin" />Đang xóa...</>
-                        ) : (
-                            <><Trash2 className="mr-2 size-4" />Xóa</>
-                        )}
-                    </Button>
-                </div>
-            </div>
-        </div>
-    );
-}
+// Thêm / sửa / xóa / ngừng hoạt động: khớp quyền ở backend (NhaCungCapController).
+// Quản lý kho vẫn xem được danh sách và chi tiết nhưng không thấy các nút này.
+const QUYEN_QUAN_LY_NCC = [ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_MUA_HANG];
+// Dòng vừa thêm được tô nền vài giây để dễ thấy.
+const NEW_ROW_HIGHLIGHT_MS = 4000;
 
 // ── Tab trạng thái (bố cục A+G) — giữ trên URL ?trangThai= ───────────────
 const STATUS_TABS = [
@@ -107,63 +48,75 @@ const EMPTY_TAB_TITLE = {
 
 // Khớp badge trong bảng: trangThai = 1 là "Hoạt động", còn lại là "Ngừng hoạt động".
 const matchTab = (item, tab) =>
-    tab === "tat-ca" || (tab === "hoat-dong" ? item.trangThai === 1 : item.trangThai !== 1);
+    tab === "tat-ca" || (tab === "hoat-dong" ? laHoatDong(item) : !laHoatDong(item));
 
+// Danh sách nhà cung cấp nhỏ: tải một lần, lọc ngay trên máy (không gọi lại API mỗi lần gõ).
 const matchSearch = (item, search) => {
     const keyword = search.trim().toLowerCase();
-    return (
-        !keyword ||
-        item.maNhaCungCap?.toLowerCase().includes(keyword) ||
-        item.tenNhaCungCap?.toLowerCase().includes(keyword) ||
-        item.nguoiLienHe?.toLowerCase().includes(keyword)
-    );
+    if (!keyword) return true;
+    return [item.maNhaCungCap, item.tenNhaCungCap, item.nguoiLienHe, item.soDienThoai, item.email]
+        .some((value) => value?.toLowerCase().includes(keyword));
 };
 
 // ── Main component ────────────────────────────────────────────────────────
 export default function SupplierList() {
+    const location = useLocation();
+    const navigate = useNavigate();
+    const coTheQuanLy = hasAnyRole(QUYEN_QUAN_LY_NCC);
+
     const [suppliers,    setSuppliers]    = useState([]);
     const [search,       setSearch]       = useState("");
-    // Từ khóa gửi lên API: đổi sau khi ngừng gõ SEARCH_DEBOUNCE_MS (gõ từng chữ không gọi API, bảng không nháy)
-    const [apiSearch,    setApiSearch]    = useState("");
     const [loading,      setLoading]      = useState(true);
+    const [loadError,    setLoadError]    = useState(null);
     const [searchParams, setSearchParams] = useSearchParams();
     const tabParam     = searchParams.get("trangThai");
     const filterStatus = STATUS_TAB_VALUES.includes(tabParam) ? tabParam : "tat-ca";
 
-    // Delete state — tách riêng, không dùng Dialog lồng trong table row
-    const [deleteTarget, setDeleteTarget] = useState(null); // object nhà cung cấp cần xóa
-    const [isDeleting,   setIsDeleting]   = useState(false);
+    // Popup Thêm / Sửa: supplier null = thêm mới. Đóng popup chỉ đổi `open`, giữ `supplier`
+    // để nội dung không đổi giữa chừng khi hiệu ứng đóng còn chạy.
+    // /supplier/new (đường dẫn cũ) chuyển về đây kèm state để mở sẵn popup thêm mới.
+    const [formDialog, setFormDialog] = useState(() => ({
+        open: Boolean(location.state?.openCreateSupplier) && coTheQuanLy,
+        supplier: null,
+    }));
+    const [deleteDialog, setDeleteDialog] = useState({ open: false, supplier: null });
+    const openForm = (supplier = null) => setFormDialog({ open: true, supplier });
+    const [highlightId, setHighlightId] = useState(null);
 
     // Pagination
     const [pageNumber,  setPageNumber]  = useState(0);
     const [pageSize,    setPageSize]    = useState(SO_DONG_MAC_DINH);
 
-    const navigate = useNavigate();
-
     // ── Fetch ──────────────────────────────────────────────────────────
     const fetchSuppliers = useCallback(async () => {
         setLoading(true);
+        setLoadError(null);
         try {
-            const data = await getAllSupplier(apiSearch);
-            setSuppliers(data);
-            setPageNumber(0);
-        } catch {
-            toast.error("Không thể tải danh sách nhà cung cấp");
+            const data = await getAllSupplier();
+            setSuppliers(Array.isArray(data) ? data : []);
+        } catch (error) {
+            setLoadError(getApiErrorMessage(error, "Không thể tải danh sách nhà cung cấp"));
         } finally {
             setLoading(false);
         }
-    }, [apiSearch]);
+    }, []);
 
     // Hoãn qua microtask để tránh setState đồng bộ trong effect
     // (react-hooks/set-state-in-effect); request vẫn chạy ngay khi mount.
     useEffect(() => { queueMicrotask(() => fetchSuppliers()); }, [fetchSuppliers]);
 
+    // /supplier/new đã mở sẵn popup: xóa state để F5 / quay lại không tự mở lại.
     useEffect(() => {
-        const value = search.trim();
-        if (value === apiSearch) return undefined;
-        const timer = setTimeout(() => setApiSearch(value), SEARCH_DEBOUNCE_MS);
+        if (!location.state?.openCreateSupplier) return;
+        navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: null });
+    }, [location, navigate]);
+
+    // Bỏ tô nền dòng vừa thêm sau vài giây.
+    useEffect(() => {
+        if (highlightId == null) return undefined;
+        const timer = setTimeout(() => setHighlightId(null), NEW_ROW_HIGHLIGHT_MS);
         return () => clearTimeout(timer);
-    }, [search, apiSearch]);
+    }, [highlightId]);
 
     // Đổi tab: ghi lên URL (F5 / quay lại vẫn đúng tab) và về trang đầu
     const changeTab = (value) => {
@@ -176,33 +129,9 @@ export default function SupplierList() {
         setPageNumber(0);
     };
 
-    // ── Delete ─────────────────────────────────────────────────────────
-    const handleDeleteClick = (item) => {
-        setDeleteTarget(item);
-    };
-
-    const handleConfirmDelete = async () => {
-        if (!deleteTarget) return;
-        setIsDeleting(true);
-        try {
-            await deleteSupplier(deleteTarget.id);
-            toast.success(`Đã xóa nhà cung cấp "${deleteTarget.tenNhaCungCap}" thành công`);
-            setDeleteTarget(null);
-            // Reload và điều chỉnh trang nếu xóa hết item trang cuối
-            const updated = suppliers.filter(s => s.id !== deleteTarget.id);
-            setSuppliers(updated);
-            const newTotal  = updated.filter(s => matchSearch(s, search) && matchTab(s, filterStatus)).length;
-            const newTotalPages = Math.max(1, Math.ceil(newTotal / pageSize));
-            if (pageNumber >= newTotalPages) setPageNumber(Math.max(0, newTotalPages - 1));
-        } catch (err) {
-            toast.error(err.response?.data?.message || "Xóa thất bại, vui lòng thử lại");
-        } finally {
-            setIsDeleting(false);
-        }
-    };
-
-    const handleCancelDelete = () => {
-        if (!isDeleting) setDeleteTarget(null);
+    const changeSearch = (value) => {
+        setSearch(value);
+        setPageNumber(0);
     };
 
     // ── Client-side filter ─────────────────────────────────────────────
@@ -219,9 +148,9 @@ export default function SupplierList() {
     const statusTabs = useMemo(
         () => STATUS_TABS.map((tab) => ({
             ...tab,
-            count: loading ? null : searched.filter((item) => matchTab(item, tab.value)).length,
+            count: loading || loadError ? null : searched.filter((item) => matchTab(item, tab.value)).length,
         })),
-        [searched, loading]
+        [searched, loading, loadError]
     );
 
     // ── Pagination ─────────────────────────────────────────────────────
@@ -235,31 +164,52 @@ export default function SupplierList() {
     };
 
     // "Xóa lọc" chỉ xóa từ khóa, giữ tab đang chọn
-    const handleClearSearch = () => {
-        setSearch("");
-        setApiSearch("");
+    const handleClearSearch = () => changeSearch("");
+
+    // ── Kết quả từ các popup: cập nhật ngay trên bảng, giữ nguyên tab / trang / từ khóa ──
+    const handleSaved = (saved, { laSua }) => {
+        if (laSua) {
+            setSuppliers((prev) => prev.map((item) => (item.id === saved.id ? { ...item, ...saved } : item)));
+            toast.success(`Đã lưu thay đổi của nhà cung cấp "${saved.tenNhaCungCap}"`);
+            return;
+        }
+        // Danh sách xếp mới nhất lên đầu: thêm vào đầu, về trang 1 và tô nền dòng mới.
+        setSuppliers((prev) => [saved, ...prev.filter((item) => item.id !== saved.id)]);
+        setHighlightId(saved.id);
+        setPageNumber(0);
+        toast.success(`Đã thêm nhà cung cấp "${saved.tenNhaCungCap}"`, {
+            description: filterStatus === "ngung-hoat-dong"
+                ? "Nhà cung cấp mới ở tab Hoạt động."
+                : undefined,
+        });
+    };
+
+    const handleDeleted = (deleted) => {
+        setSuppliers((prev) => prev.filter((item) => item.id !== deleted.id));
+        toast.success(`Đã xóa nhà cung cấp "${deleted.tenNhaCungCap}"`);
+    };
+
+    const handleStatusChanged = (updated) => {
+        setSuppliers((prev) => prev.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)));
+        toast.success(laHoatDong(updated)
+            ? `Đã cho phép "${updated.tenNhaCungCap}" hoạt động lại`
+            : `Đã ngừng hoạt động "${updated.tenNhaCungCap}"`);
     };
 
     return (
         <>
-            {/* ── Confirm delete modal (portal-like, ngoài layout chính) ── */}
-            <ConfirmDeleteModal
-                target={deleteTarget}
-                isDeleting={isDeleting}
-                onConfirm={handleConfirmDelete}
-                onCancel={handleCancelDelete}
-            />
-
             <PageContainer fill className="space-y-4">
                 <ListPageHeader
                     actions={
-                        <Button
-                            onClick={() => navigate("/supplier/new")}
-                            className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
-                        >
-                            <Plus className="size-4" />
-                            Thêm nhà cung cấp
-                        </Button>
+                        coTheQuanLy ? (
+                            <Button
+                                onClick={() => openForm()}
+                                className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
+                            >
+                                <Plus className="size-4" />
+                                Thêm nhà cung cấp
+                            </Button>
+                        ) : null
                     }
                 />
 
@@ -281,16 +231,16 @@ export default function SupplierList() {
                         >
                             <SearchInput
                                 label="Tìm nhà cung cấp"
-                                placeholder="Tìm theo mã, tên, người liên hệ..."
+                                placeholder="Tìm mã, tên, liên hệ, SĐT..."
                                 value={search}
-                                onChange={(e) => setSearch(e.target.value)}
+                                onChange={(e) => changeSearch(e.target.value)}
                                 onClear={handleClearSearch}
                                 className="sm:w-[300px]"
                             />
                         </ListToolbar>
                     }
                     footer={
-                        !loading && pageItems.length > 0 ? (
+                        !loading && !loadError && pageItems.length > 0 ? (
                             <TablePagination
                                 page={safePage}
                                 size={pageSize}
@@ -303,6 +253,12 @@ export default function SupplierList() {
                 >
                     {loading ? (
                         <LoadingState rows={5} label="Đang tải danh sách nhà cung cấp" />
+                    ) : loadError ? (
+                        <ErrorState
+                            title="Không thể tải danh sách nhà cung cấp"
+                            description={loadError}
+                            onRetry={fetchSuppliers}
+                        />
                     ) : pageItems.length === 0 ? (
                         search.trim() ? (
                             <EmptyState
@@ -339,6 +295,17 @@ export default function SupplierList() {
                                 icon={Users}
                                 title="Chưa có nhà cung cấp"
                                 description="Thêm nhà cung cấp để gửi yêu cầu báo giá và lập đơn mua hàng."
+                                action={
+                                    coTheQuanLy ? (
+                                        <Button
+                                            onClick={() => openForm()}
+                                            className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
+                                        >
+                                            <Plus className="size-4" />
+                                            Thêm nhà cung cấp
+                                        </Button>
+                                    ) : null
+                                }
                             />
                         )
                     ) : (
@@ -358,7 +325,11 @@ export default function SupplierList() {
                             </thead>
                             <tbody className="divide-y divide-bo-border">
                                 {pageItems.map((item, index) => (
-                                    <tr key={item.id} className="transition-colors hover:bg-bo-surface-subtle">
+                                    <tr
+                                        key={item.id}
+                                        onClick={() => navigate(`/supplier/${item.id}`)}
+                                        className={`cursor-pointer transition-colors hover:bg-bo-surface-subtle ${item.id === highlightId ? "bg-bo-primary-soft" : ""}`}
+                                    >
                                         {/* STT */}
                                         <td className="px-3 py-3 text-xs text-bo-muted">
                                             {safePage * pageSize + index + 1}
@@ -405,8 +376,8 @@ export default function SupplierList() {
                                         {/* Trạng thái */}
                                         <td className="whitespace-nowrap px-3 py-3">
                                             <StatusBadge
-                                                label={item.trangThai === 1 ? "Hoạt động" : "Ngừng hoạt động"}
-                                                tone={item.trangThai === 1 ? "success" : "neutral"}
+                                                label={laHoatDong(item) ? "Hoạt động" : "Ngừng hoạt động"}
+                                                tone={laHoatDong(item) ? "success" : "neutral"}
                                             />
                                         </td>
 
@@ -416,19 +387,23 @@ export default function SupplierList() {
                                                 <RowActionButton
                                                     icon={Eye}
                                                     label="Xem chi tiết"
-                                                    onClick={() => navigate(`/supplier/view/${item.id}`)}
-                                                />
-                                                <RowActionButton
-                                                    icon={Edit}
-                                                    label="Chỉnh sửa"
                                                     onClick={() => navigate(`/supplier/${item.id}`)}
                                                 />
-                                                <RowActionButton
-                                                    icon={Trash2}
-                                                    label="Xóa"
-                                                    tone="danger"
-                                                    onClick={() => handleDeleteClick(item)}
-                                                />
+                                                {coTheQuanLy ? (
+                                                    <>
+                                                        <RowActionButton
+                                                            icon={Edit}
+                                                            label="Chỉnh sửa"
+                                                            onClick={() => openForm(item)}
+                                                        />
+                                                        <RowActionButton
+                                                            icon={Trash2}
+                                                            label="Xóa"
+                                                            tone="danger"
+                                                            onClick={() => setDeleteDialog({ open: true, supplier: item })}
+                                                        />
+                                                    </>
+                                                ) : null}
                                             </RowActions>
                                         </td>
                                     </tr>
@@ -438,6 +413,21 @@ export default function SupplierList() {
                     )}
                 </TableShell>
             </PageContainer>
+
+            <SupplierFormDialog
+                open={formDialog.open}
+                supplier={formDialog.supplier}
+                onOpenChange={(open) => setFormDialog((prev) => ({ ...prev, open }))}
+                onSaved={handleSaved}
+            />
+
+            <SupplierDeleteDialog
+                supplier={deleteDialog.supplier}
+                open={deleteDialog.open}
+                onOpenChange={(open) => setDeleteDialog((prev) => ({ ...prev, open }))}
+                onDeleted={handleDeleted}
+                onStatusChanged={handleStatusChanged}
+            />
         </>
     );
 }
