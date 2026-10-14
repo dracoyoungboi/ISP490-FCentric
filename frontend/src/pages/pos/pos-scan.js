@@ -38,6 +38,10 @@ export const isPrintableKey = (event) =>
 /** Mã SKU của hệ thống luôn không dấu: mã có chữ có dấu gần như chắc chắn do bộ gõ tiếng Việt đổi. */
 export const hasNonAscii = (text) => /[^\x20-\x7e]/.test(text);
 
+// Hướng dẫn chế độ quét (chốt A4: không còn hiện thường trực dưới ô tìm kiếm). Hiện ở chú thích nút quét,
+// bảng phím tắt (F1) và mô tả ô tìm kiếm cho trình đọc màn hình.
+export const SCAN_HINT = 'Quét mã: thêm thẳng vào hóa đơn · gõ tên: tìm trong danh mục. Tiếng “bíp”: đã thêm · tiếng “rè”: chưa thêm, xem thông báo ngay dưới ô tìm kiếm.';
+
 // Phím không làm đứt một lần quét: Shift đi kèm chữ hoa; phím bộ gõ/không xác định.
 const PASS_THROUGH_KEYS = new Set(['Shift', 'CapsLock', 'Unidentified', 'Process', 'Dead']);
 

@@ -3,10 +3,10 @@ import { flushSync } from 'react-dom';
 import { toast as sonnerToast } from 'sonner';
 import {
   ShoppingBag,
-  Warehouse,
   X,
 } from 'lucide-react';
 import PosTopBar from './components/PosTopBar';
+import PosWarehousePicker from './components/PosWarehousePicker';
 import PosCartPanel from './components/PosCartPanel';
 import PosInvoiceTabs from './components/PosInvoiceTabs';
 import PosDialogs from './components/PosDialogs';
@@ -18,6 +18,7 @@ import useScanQueue from '@/hooks/useScanQueue';
 import { playScanBeep } from '@/utils/scanBeep';
 import {
   posService,
+  toPosGroup,
   toPosProduct,
   toPosCustomer,
   WALKIN_CUSTOMER_CODE,
@@ -29,7 +30,10 @@ import {
   removePendingCheckoutId,
 } from '@/services/posService';
 
-const PAGE_SIZE = 120;
+// Danh mục gộp kích cỡ: mỗi trang 60 dòng mẫu + màu (mỗi dòng gồm đủ các kích cỡ của nó).
+const PAGE_SIZE = 60;
+// Từ 1280px (cùng mốc xl hiện giỏ cố định bên phải) dải hóa đơn nằm trên thanh trên cùng (chốt Mẫu B).
+const WIDE_SCREEN_QUERY = '(min-width: 1280px)';
 const SEARCH_DEBOUNCE_MS = 250;
 const PAYOS_POLL_MS = 3000;
 // Tồn đổi do quầy khác bán: tải ngầm lại trang catalog đang xem theo chu kỳ (khi tab đang hiển thị).
@@ -47,6 +51,34 @@ const LOOKUP_BARCODE_LIMIT = 10;
 function countCart(cart) {
   return cart.reduce((sum, item) => sum + item.quantity, 0);
 }
+
+/** Theo dõi một media query (an toàn khi trình duyệt/môi trường test không có matchMedia). */
+function useMediaQuery(query) {
+  const [matches, setMatches] = useState(() => Boolean(window.matchMedia?.(query)?.matches));
+  useEffect(() => {
+    const mql = window.matchMedia?.(query);
+    if (!mql) return undefined;
+    const onChange = () => setMatches(mql.matches);
+    onChange();
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, [query]);
+  return matches;
+}
+
+const NO_CART_QUANTITIES = new Map();
+
+/** Trang danh mục rỗng (chưa chọn kho / đổi kho). */
+const EMPTY_CATALOG = { groups: [], items: [], totalElements: 0, page: 0, pageCount: 1, loading: false, error: null };
+
+/**
+ * Một trang danh mục gộp từ server -> { groups: dòng mẫu + màu cho lưới, items: mọi kích cỡ (SKU) của
+ * trang để cập nhật tồn vào giỏ như trước }.
+ */
+const readCatalogPage = (pageData) => {
+  const groups = (pageData?.content ?? []).map(toPosGroup);
+  return { groups, items: groups.flatMap((group) => group.variants) };
+};
 
 /**
  * Hóa đơn (tab) giữ riêng: giỏ (key = bienTheSanPhamId), khách, ghi chú, phương thức,
@@ -301,7 +333,7 @@ export default function PosSalesPage({
   // Bộ lọc tồn kho của danh mục hàng (lọc ở server). Không lưu lại — mỗi lần mở POS về mặc định.
   const [stockFilter, setStockFilter] = useState(DEFAULT_STOCK_FILTER);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [catalog, setCatalog] = useState({ items: [], totalElements: 0, page: 0, pageCount: 1, loading: false, error: null });
+  const [catalog, setCatalog] = useState(EMPTY_CATALOG);
   const catalogSeq = useRef(0);
   // Bản mới nhất của danh sách hóa đơn cho các lượt tải catalog (không đưa invoices vào deps
   // để sửa giỏ không kéo theo tải lại catalog).
@@ -310,6 +342,7 @@ export default function PosSalesPage({
   const keyboardContext = useRef(null);
   // Mất mạng (navigator.onLine=false) -> chặn gửi thanh toán MỚI; hóa đơn đang treo vẫn xem được.
   const online = useOnlineStatus();
+  const wideScreen = useMediaQuery(WIDE_SCREEN_QUERY);
   const uiRef = useRef({ dialog: null, isSubmitting: false, activeInvoice: null });
 
   // Kết quả thanh toán chính thức (dữ liệu server) cho dialog receipt + kết quả phục hồi sau refresh.
@@ -367,13 +400,13 @@ export default function PosSalesPage({
   useEffect(() => {
     if (!warehouseId) {
       catalogSeq.current += 1;
-      setCatalog({ items: [], totalElements: 0, page: 0, pageCount: 1, loading: false, error: null });
+      setCatalog(EMPTY_CATALOG);
       return undefined;
     }
     const controller = new AbortController();
     const seq = ++catalogSeq.current;
     setCatalog((prev) => ({ ...prev, loading: true, error: null }));
-    posService.getCatalog(warehouseId, {
+    posService.getCatalogGroups(warehouseId, {
       q: debouncedSearch,
       trangThaiTon: stockFilter,
       page: catalogPage,
@@ -387,8 +420,9 @@ export default function PosSalesPage({
           setCatalogPage(clampedPage); // tải lại đúng trang cuối còn dữ liệu
           return;
         }
-        const items = (pageData?.content ?? []).map(toPosProduct);
+        const { groups, items } = readCatalogPage(pageData);
         setCatalog({
+          groups,
           items,
           totalElements: pageData?.totalElements ?? 0,
           page: pageData?.number ?? 0,
@@ -419,7 +453,7 @@ export default function PosSalesPage({
       const seq = catalogSeq.current;
       const current = new AbortController();
       controller = current;
-      posService.getCatalog(warehouseId, {
+      posService.getCatalogGroups(warehouseId, {
         q: debouncedSearch,
         trangThaiTon: stockFilter,
         page: catalogPage,
@@ -433,9 +467,10 @@ export default function PosSalesPage({
             setCatalogPage(clampedPage);
             return;
           }
-          const items = (pageData?.content ?? []).map(toPosProduct);
+          const { groups, items } = readCatalogPage(pageData);
           setCatalog((prev) => (prev.loading ? prev : {
             ...prev,
+            groups,
             items,
             totalElements: pageData?.totalElements ?? prev.totalElements,
             pageCount: pageData?.totalPages ?? prev.pageCount,
@@ -559,6 +594,8 @@ export default function PosSalesPage({
   };
 
   const [pendingWarehouseId, setPendingWarehouseId] = useState(null);
+  // Lần chọn kho vừa rồi có mở hộp hỏi lại không: có -> con trỏ ở nút "Giữ kho hiện tại", không -> về ô tìm kiếm.
+  const warehouseConfirmOpening = useRef(false);
 
   const applyWarehouseChange = (target) => {
     // Chính sách Phase 01 mục 5: đổi kho -> xóa giỏ hóa đơn hiện tại (không giữ nhầm dòng hàng).
@@ -576,14 +613,18 @@ export default function PosSalesPage({
   };
 
   const changeWarehouse = (nextWarehouseId) => {
+    // Đang có hộp thoại (biên lai, thanh toán…) hoặc đang gửi thanh toán: không đổi kho đè lên.
+    if (dialog || isSubmitting) return;
     if (frozen) {
       showToast('Hóa đơn đang trong giao dịch thanh toán — không thể đổi kho lúc này.', 'warning');
       return;
     }
     const target = Number(nextWarehouseId);
+    warehouseConfirmOpening.current = false;
     if (!target || target === warehouseId) return;
     // Giỏ đang có hàng -> hỏi lại trước khi xóa, tránh lỡ tay mất cả hóa đơn.
     if (cart.length) {
+      warehouseConfirmOpening.current = true;
       setPendingWarehouseId(target);
       setDialog('change-warehouse');
       return;
@@ -593,6 +634,13 @@ export default function PosSalesPage({
 
   // ===== Giỏ (key = bienTheSanPhamId — không gộp hai size/màu khác nhau) =====
   const cartQuantity = (variantId) => cart.find((item) => item.product.id === variantId)?.quantity ?? 0;
+  // Số lượng đang có trong giỏ theo SKU — ô kích cỡ trong danh mục mờ đi khi đã thêm đủ tồn.
+  // Hóa đơn đang treo thanh toán: tồn trên danh mục ĐÃ trừ phần hóa đơn này giữ chỗ (QR payOS) nên không
+  // trừ thêm lần nữa (cùng lý do withCartStock bỏ qua hóa đơn bị khóa); bấm vẫn bị chặn và có thông báo.
+  const cartQuantities = useMemo(
+    () => (frozen ? NO_CART_QUANTITIES : new Map(cart.map((line) => [line.product.id, line.quantity]))),
+    [cart, frozen],
+  );
 
   /** Lý do KHÔNG được thêm 1 sản phẩm vào giỏ hiện tại (null = thêm được). */
   const getAddProblem = (product) => {
@@ -629,7 +677,7 @@ export default function PosSalesPage({
     return true;
   };
   // Hàm thêm ỔN ĐỊNH cho lưới sản phẩm (luôn gọi addProduct mới nhất): lưới không phải vẽ lại
-  // 120 thẻ ở mỗi phím gõ / mã quét đi qua ô tìm kiếm.
+  // cả trang danh mục ở mỗi phím gõ / mã quét đi qua ô tìm kiếm.
   const addProductRef = useRef(addProduct);
   addProductRef.current = addProduct;
   const addFromCatalog = useCallback((product) => addProductRef.current(product), []);
@@ -1343,10 +1391,18 @@ export default function PosSalesPage({
   const confirmWarehouseChange = () => {
     if (pendingWarehouseId != null) applyWarehouseChange(pendingWarehouseId);
     setDialog(null);
+    window.setTimeout(() => searchRef.current?.focus(), 0);
   };
   const cancelWarehouseChange = () => {
     setPendingWarehouseId(null);
     setDialog(null);
+    window.setTimeout(() => searchRef.current?.focus(), 0);
+  };
+  // Đã chọn kho trong menu (menu đã đóng): đổi ngay -> con trỏ về ô tìm kiếm để quét/gõ tiếp; đang hỏi lại -> để
+  // nút trong hộp thoại giữ con trỏ (không đưa về nút kho nằm phía sau hộp thoại).
+  const afterWarehousePicked = () => {
+    if (!warehouseConfirmOpening.current) searchRef.current?.focus();
+    warehouseConfirmOpening.current = false;
   };
 
   // Phím F9 trong hộp thoại thanh toán = xác nhận (tiền mặt) / tạo mã QR (chuyển khoản).
@@ -1505,6 +1561,8 @@ export default function PosSalesPage({
       if (event.defaultPrevented || event.isComposing || event.repeat || !isPrintableKey(event) || event.key === ' ') return;
       if (isTextEntry(event.target) || !context.searchRef.current) return;
       event.preventDefault();
+      // Không để phím đi tiếp tới chỗ đang chọn (vd. tìm nhanh theo chữ cái trong menu kho kéo con trỏ đi).
+      event.stopPropagation();
       context.insertIntoSearch(event.key);
     };
     window.addEventListener('keydown', handleKeyDownCapture, true);
@@ -1518,6 +1576,8 @@ export default function PosSalesPage({
       if (!context || !HANDLED_KEYS.has(event.key)) return;
       if (context.isSubmitting) { event.preventDefault(); return; }
       if (event.key === 'Escape') {
+        // Esc đã được menu đang mở (chọn kho, tài khoản…) dùng để tự đóng: không đóng thêm hộp thoại phía dưới.
+        if (event.defaultPrevented) return;
         // Mỗi hộp thoại đóng theo đúng hành động của nó (receipt -> hoàn tất & đóng tab đã bán).
         if (context.dialog === 'receipt') context.closeReceipt();
         else if (context.dialog === 'recovered-result') context.closeRecovered();
@@ -1569,39 +1629,49 @@ export default function PosSalesPage({
     />
   );
 
+  const renderInvoiceTabs = (variant) => (
+    <PosInvoiceTabs
+      activeInvoice={activeInvoice}
+      disabled={isSubmitting || Boolean(dialog)}
+      invoices={invoices}
+      onAdd={requestNewInvoice}
+      onClose={requestCloseInvoice}
+      onSelect={selectInvoice}
+      variant={variant}
+    />
+  );
+
   return (
     <div className="relative flex min-h-0 flex-1 flex-col bg-bo-canvas text-bo-foreground">
-      <PosTopBar onHelp={() => { if (!dialog && !isSubmitting) setDialog('shortcuts'); }} pendingPaymentCount={invoices.filter(isFrozenInvoice).length}>
-        <label className="flex min-h-9 min-w-0 items-center gap-1.5 rounded-lg border border-bo-border bg-bo-surface px-2.5 text-xs font-medium text-bo-foreground transition hover:border-bo-primary/40" htmlFor="pos-warehouse" title={frozen ? 'Hóa đơn đang chờ thanh toán — không đổi kho được' : 'Kho xuất hàng cho hóa đơn đang mở'}>
-          <Warehouse aria-hidden="true" size={14} className="shrink-0 text-bo-muted" />
-          <span className="hidden shrink-0 text-bo-muted md:inline">Kho bán:</span>
-          <select
-            className="min-w-0 max-w-56 truncate bg-transparent py-1.5 pl-1 pr-6 text-xs font-semibold outline-none disabled:cursor-not-allowed"
-            disabled={!warehouses.length || isSubmitting || frozen}
-            id="pos-warehouse"
-            onChange={(event) => changeWarehouse(event.target.value)}
-            value={warehouseId ?? ''}
-          >
-            {!warehouses.length ? <option value="">Chưa có kho</option> : null}
-            {warehouses.map((w) => <option key={w.id} value={w.id}>{w.tenKho} ({w.maKho})</option>)}
-          </select>
-        </label>
+      <PosTopBar
+        onHelp={() => { if (!dialog && !isSubmitting) setDialog('shortcuts'); }}
+        pendingPaymentCount={invoices.filter(isFrozenInvoice).length}
+        tabs={wideScreen ? renderInvoiceTabs('bar') : null}
+      >
+        <PosWarehousePicker
+          blocked={Boolean(dialog)}
+          disabled={isSubmitting || frozen}
+          disabledReason={frozen ? 'Hóa đơn đang chờ thanh toán nên chưa đổi được kho.' : 'Đang xử lý thanh toán nên chưa đổi được kho.'}
+          onBlockedOpen={() => showToast(frozen
+            ? 'Hóa đơn đang trong giao dịch thanh toán — không thể đổi kho lúc này.'
+            : 'Đang xử lý thanh toán — đợi xong rồi đổi kho.', 'warning')}
+          onChange={changeWarehouse}
+          onPicked={afterWarehousePicked}
+          value={warehouseId}
+          warehouses={warehouses}
+        />
       </PosTopBar>
 
-      <PosInvoiceTabs
-        activeInvoice={activeInvoice}
-        disabled={isSubmitting || Boolean(dialog)}
-        invoices={invoices}
-        onAdd={requestNewInvoice}
-        onClose={requestCloseInvoice}
-        onSelect={selectInvoice}
-      />
+      {/* Màn hẹp hơn 1280px: thanh trên cùng không đủ chỗ -> dải hóa đơn giữ hàng riêng như cũ. */}
+      {wideScreen ? null : renderInvoiceTabs('strip')}
 
       <main aria-labelledby={`pos-invoice-tab-${ticketNumber}`} id="pos-invoice-panel" role="tabpanel" className="grid min-h-0 flex-1 gap-3 overflow-hidden bg-bo-surface px-3 pb-24 pt-3 sm:px-4 xl:grid-cols-[minmax(0,1fr)_390px] xl:pb-3">
         <PosProductCatalog
           error={catalog.error}
           loading={catalog.loading}
           lastScan={lastScan}
+          cartQuantities={cartQuantities}
+          groups={catalog.groups}
           onAdd={addFromCatalog}
           onEnterAdd={handleEnterAdd}
           onShowScanMatches={showScanMatches}
@@ -1614,7 +1684,6 @@ export default function PosSalesPage({
           page={catalog.page}
           pageCount={catalog.pageCount}
           pageSize={PAGE_SIZE}
-          products={catalog.items}
           resultQuery={debouncedSearch}
           scanMode={scanMode}
           scanPending={scanPending}

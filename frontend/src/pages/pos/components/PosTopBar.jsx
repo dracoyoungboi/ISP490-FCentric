@@ -80,11 +80,13 @@ function useFullscreen() {
 
 /**
  * Thanh trên cùng của màn POS toàn màn hình (thay cho sidebar + header backoffice):
- * logo · tiêu đề · [children: chọn kho…] · giờ · toàn màn hình · trợ giúp · tài khoản.
+ * logo · [children: chọn kho…] · [tabs: dải hóa đơn đang mở, màn rộng] · giờ · toàn màn hình · trợ giúp · tài khoản.
+ * Không hiện dòng tiêu đề trang (đã chốt): tên trang vẫn có ở tiêu đề tab trình duyệt và trong
+ * thẻ h1 ẩn cho trình đọc màn hình.
  * Trạng thái mạng chỉ hiện khi CÓ VẤN ĐỀ: mất mạng -> dải cảnh báo đỏ ngay dưới thanh này;
  * có mạng lại -> thông báo ngắn rồi tự tắt. Lúc bình thường không hiện gì để đỡ rối mắt.
  */
-export default function PosTopBar({ children, onHelp, pendingPaymentCount = 0 }) {
+export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymentCount = 0 }) {
   const navigate = useNavigate();
   const online = useOnlineStatus();
   useOnReconnect(showReconnectedToast);
@@ -140,15 +142,18 @@ export default function PosTopBar({ children, onHelp, pendingPaymentCount = 0 })
         >
           <ArrowLeft aria-hidden="true" size={16} />
         </Link>
-        <div className="flex min-w-0 shrink-0 items-center gap-2.5 pr-1">
-          <img alt="" className="size-8 shrink-0 object-contain" draggable={false} src="/branding/f-centric-icon.svg" />
-          <span className="hidden min-w-0 leading-tight sm:block">
-            <span className="block truncate text-sm font-semibold text-bo-foreground">Bán hàng tại quầy</span>
-            <span className="block truncate text-[11px] text-bo-muted">FCentric POS</span>
-          </span>
-        </div>
+        <h1 className="sr-only">Bán hàng tại quầy</h1>
+        <img alt="FCentric" className="size-8 shrink-0 object-contain" draggable={false} src="/branding/f-centric-icon.svg" />
 
-        <div className="flex min-w-0 flex-1 items-center gap-2">{children}</div>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          {children}
+          {tabs ? (
+            <>
+              <span aria-hidden="true" className="mx-1 h-6 w-px shrink-0 bg-bo-border" />
+              {tabs}
+            </>
+          ) : null}
+        </div>
 
         <div className="flex shrink-0 items-center gap-2">
           <span className="hidden text-right leading-tight lg:block">
@@ -189,7 +194,9 @@ export default function PosTopBar({ children, onHelp, pendingPaymentCount = 0 })
                 <ChevronDown aria-hidden="true" className="hidden size-4 text-bo-muted xl:block" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="z-[90] w-56 rounded-lg border border-bo-border bg-white p-1 text-bo-foreground shadow-lg" sideOffset={6}>
+            {/* backoffice-user-menu: dùng đúng giao diện menu tài khoản của trang quản trị (nền trắng),
+                không bị CSS menu cũ tông vàng trong index.css áp vào. */}
+            <DropdownMenuContent align="end" className="backoffice-user-menu z-[90] w-56 rounded-lg border border-bo-border bg-white p-1 text-bo-foreground shadow-lg" sideOffset={6}>
               <div className="px-2 py-2">
                 <p className="truncate text-sm font-semibold">{username}</p>
                 <p className="mt-0.5 truncate text-xs text-bo-muted">{roleLabel}</p>

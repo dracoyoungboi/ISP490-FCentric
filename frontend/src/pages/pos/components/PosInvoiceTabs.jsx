@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, FileText, Lock, Plus, QrCode, X } from 'lucide-react';
 import './pos-invoice-tabs.css';
 
@@ -10,8 +10,37 @@ function getTabStatus(invoice) {
   return null;
 }
 
-export default function PosInvoiceTabs({ invoices, activeInvoice, disabled, onSelect, onClose, onAdd }) {
+/**
+ * Dải hóa đơn đang mở. variant:
+ * - 'bar'  : nằm trên thanh trên cùng (màn từ 1280px — chốt Mẫu B), tab dạng viên, cuộn ngang khi nhiều.
+ * - 'strip': hàng riêng dưới thanh trên cùng (màn hẹp hơn 1280px), giữ kiểu thẻ cũ.
+ * Cả hai giữ nguyên hành vi: chọn/đóng/thêm, phím mũi tên/Home/End/Delete, tự cuộn tới hóa đơn đang chọn.
+ */
+export default function PosInvoiceTabs({ invoices, activeInvoice, disabled, onSelect, onClose, onAdd, variant = 'strip' }) {
   const tabRefs = useRef(new Map());
+  const listRef = useRef(null);
+  // Còn tab bị khuất bên trái/phải (nhiều hóa đơn): làm mờ mép tương ứng để thu ngân biết có thể cuộn.
+  const [overflow, setOverflow] = useState({ left: false, right: false });
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return undefined;
+    const update = () => {
+      const left = list.scrollLeft > 1;
+      const right = list.scrollLeft + list.clientWidth < list.scrollWidth - 1;
+      setOverflow((prev) => (prev.left === left && prev.right === right ? prev : { left, right }));
+    };
+    update();
+    list.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(update) : null;
+    observer?.observe(list);
+    return () => {
+      list.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+      observer?.disconnect();
+    };
+  }, [invoices.length]);
 
   useEffect(() => {
     const revealActive = () => tabRefs.current.get(activeInvoice)?.parentElement?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
@@ -39,8 +68,13 @@ export default function PosInvoiceTabs({ invoices, activeInvoice, disabled, onSe
   };
 
   return (
-    <div className="pos-invoice-strip">
-      <div aria-label="Các hóa đơn đang mở" className="pos-invoice-tabs" role="tablist">
+    <div className={`pos-invoice-strip${variant === 'bar' ? ' is-bar' : ''}`}>
+      <div
+        aria-label="Các hóa đơn đang mở"
+        className={`pos-invoice-tabs${overflow.left ? ' has-left' : ''}${overflow.right ? ' has-right' : ''}`}
+        ref={listRef}
+        role="tablist"
+      >
         {invoices.map((invoice, index) => {
           const active = invoice.number === activeInvoice;
           const status = getTabStatus(invoice);

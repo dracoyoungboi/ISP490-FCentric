@@ -2,6 +2,7 @@ package com.dev.backend.controller;
 
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
+import com.dev.backend.dto.PosCatalogNhomDto;
 import com.dev.backend.dto.request.PosCheckoutCreating;
 import com.dev.backend.dto.request.PosQuickCustomerCreating;
 import com.dev.backend.dto.response.ResponseData;
@@ -77,6 +78,39 @@ public class PosController {
                 ResponseData.<Page<PosCatalogItemDto>>builder()
                         .status(200)
                         .data(posCatalogService.getCatalog(khoId, q, trangThaiTon, page, size))
+                        .message("Success")
+                        .error(null)
+                        .build()
+        );
+    }
+
+    /**
+     * Danh mục POS GỘP KÍCH CỠ: mỗi phần tử là một mẫu + màu (+ chất liệu) kèm đủ các kích cỡ,
+     * tồn khả dụng và giá của từng kích cỡ. Phân trang và bộ lọc tồn tính theo nhóm
+     * (con_hang = còn ít nhất một kích cỡ có hàng; het_hang = mọi kích cỡ đều hết; tat_ca).
+     * Cùng kiểm tra quyền kho như /catalog. /catalog (từng SKU) vẫn giữ cho client cũ.
+     */
+    @GetMapping("/catalog/groups")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
+                    IRoleType.nhan_vien_kho,
+                    IRoleType.nhan_vien_ban_hang
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<ResponseData<Page<PosCatalogNhomDto>>> getCatalogGroups(
+            @RequestParam Integer khoId,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String trangThaiTon,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "60") int size
+    ) {
+        return ResponseEntity.ok(
+                ResponseData.<Page<PosCatalogNhomDto>>builder()
+                        .status(200)
+                        .data(posCatalogService.getCatalogNhom(khoId, q, trangThaiTon, page, size))
                         .message("Success")
                         .error(null)
                         .build()

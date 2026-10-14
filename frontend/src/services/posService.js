@@ -155,6 +155,26 @@ export const posService = {
   },
 
   /**
+   * Danh mục GỘP KÍCH CỠ: mỗi phần tử là một mẫu + màu (+ chất liệu) kèm đủ các kích cỡ (bienThes).
+   * Phân trang và bộ lọc tồn tính THEO NHÓM ở server: con_hang = còn ít nhất một kích cỡ có hàng
+   * (kích cỡ đã hết vẫn trả về để làm mờ), het_hang = mọi kích cỡ đều hết, tat_ca = không lọc.
+   * Trả về envelope data (Page) hoặc null khi response không hợp lệ.
+   */
+  async getCatalogGroups(khoId, { q, trangThaiTon, page = 0, size = 60, signal } = {}) {
+    const res = await apiClient.get("/api/v1/pos/catalog/groups", {
+      params: {
+        khoId,
+        q: q || undefined,
+        trangThaiTon: trangThaiTon || undefined,
+        page,
+        size,
+      },
+      signal,
+    });
+    return res.data?.data ?? null;
+  },
+
+  /**
    * Tồn khả dụng hiện tại của các SKU (thường là dòng trong giỏ) tại kho đang bán.
    * Trả về object { [bienTheSanPhamId]: tồn }. ids gửi dạng "1,2,3" để Spring đọc được
    * (axios mặc định gửi mảng thành ids[]=1&ids[]=2, server không nhận).
@@ -268,6 +288,7 @@ export const toPosProduct = (item) => ({
   // Hiển thị màu + size để hai biến thể không nhìn giống hệt nhau
   name: `${item.tenSanPham} · ${item.tenMau} · ${item.tenSize}`,
   sku: item.maSku,
+  barcode: item.maVachSku || null,
   price: Number(item.giaBan ?? 0),
   // Tồn khả dụng của ĐÚNG kho đang bán (server đã SUM theo kho); null = chưa biết
   stock: item.soLuongKhaDung != null ? Number(item.soLuongKhaDung) : null,
@@ -276,6 +297,29 @@ export const toPosProduct = (item) => ({
   tenSize: item.tenSize,
   tenChatLieu: item.tenChatLieu,
 });
+
+/**
+ * Ánh xạ PosCatalogNhomDto (server) -> một dòng danh mục gộp kích cỡ.
+ * variants: từng kích cỡ là một sản phẩm đầy đủ (toPosProduct) để thêm thẳng vào giỏ như trước,
+ * đã xếp theo thứ tự kích cỡ của server.
+ */
+export const toPosGroup = (group) => {
+  const variants = (group.bienThes ?? []).map(toPosProduct);
+  const minPrice = Number(group.giaThapNhat ?? 0);
+  const maxPrice = Number(group.giaCaoNhat ?? minPrice);
+  return {
+    key: group.khoaNhom ?? `${group.sanPhamId}-${group.mauSacId}-${group.chatLieuId}`,
+    sanPhamId: group.sanPhamId,
+    name: group.tenSanPham,
+    colorName: group.tenMau,
+    colorHex: group.maMauHex || null,
+    materialName: group.tenChatLieu || null,
+    image: group.anhUrl || variants.find((variant) => variant.image)?.image || null,
+    minPrice,
+    maxPrice,
+    variants,
+  };
+};
 
 /** Ánh xạ KhachHangDto (server) -> khách hàng cho dialog chọn khách. */
 export const toPosCustomer = (customer) => ({
