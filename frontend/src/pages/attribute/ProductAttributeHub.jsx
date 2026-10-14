@@ -1,13 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    AlignLeft, ChevronDown, ChevronLeft, ChevronRight, Edit, Eye, Filter,
-    Hash, Layers, Palette, Pipette, Plus, RefreshCcw, RotateCcw, Ruler,
-    Save, SortAsc, Tag, Trash2, Upload, X,
+    AlignLeft, ChevronDown, ChevronLeft, ChevronRight, Edit, Eye,
+    Hash, Layers, Palette, Pipette, Plus, RotateCcw, Ruler,
+    Save, SearchX, SortAsc, Tag, Trash2, Upload, X,
 } from 'lucide-react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,12 +15,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import PageContainer from "@/components/backoffice/PageContainer";
-import SurfaceCard from "@/components/shared/SurfaceCard";
 import TableShell from "@/components/shared/TableShell";
 import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
+import ErrorState from "@/components/shared/ErrorState";
+import FilterSelect from "@/components/shared/FilterSelect";
+import ListPageHeader from "@/components/shared/ListPageHeader";
+import ListToolbar from "@/components/shared/ListToolbar";
 import LoadingState from "@/components/shared/LoadingState";
 import SearchInput from "@/components/shared/SearchInput";
+import StatusTabs from "@/components/shared/StatusTabs";
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -30,6 +33,8 @@ import { mauSacService, sizeService } from "@/services/attributeService";
 import { getAllChatLieu, deleteChatLieu, createChatLieu, updateChatLieu } from "@/services/chatLieuService";
 import { thuongHieuService } from "@/services/thuongHieuService";
 import { formatDate } from "@/utils/formatters";
+import { getApiErrorMessage } from "@/utils/apiError";
+import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 
 // Chuẩn hoá mã màu về dạng #RRGGBB (chấp nhận thiếu '#', viết thường, dạng rút gọn #RGB).
 // Trả về null nếu không hợp lệ — <input type="color"> chỉ nhận đúng #rrggbb.
@@ -59,7 +64,30 @@ const formSchema = z.object({
 const TAB_ICONS = { color: Palette, size: Ruler, material: Layers, brand: Tag };
 const TAB_LABELS = { color: 'màu sắc', size: 'kích cỡ', material: 'chất liệu', brand: 'thương hiệu' };
 const TAB_NAMES = { color: 'Màu sắc', size: 'Kích cỡ', material: 'Chất liệu', brand: 'Thương hiệu' };
-const BRAND_STATUS_LABELS = { "ALL": "Tất cả trạng thái", "1": "Hoạt động", "0": "Ngừng hoạt động" };
+const BRAND_STATUS_OPTIONS = [
+    { value: "ALL", label: "Tất cả trạng thái" },
+    { value: "1", label: "Hoạt động" },
+    { value: "0", label: "Ngừng hoạt động" },
+];
+const DEFAULT_FILTERS = { keyword: "", page: 0, size: 10, trangThai: "ALL" };
+
+// Hàng tab loại thuộc tính (bố cục A+G) — giữ trên URL ?loai= bằng mã không dấu;
+// Màu sắc là tab mặc định nên không ghi lên URL.
+const TAB_KEYS = ['color', 'size', 'material', 'brand'];
+const TAB_URL_CODES = { color: 'mau-sac', size: 'kich-co', material: 'chat-lieu', brand: 'thuong-hieu' };
+const TAB_URL_VALUES = TAB_KEYS.map((tab) => TAB_URL_CODES[tab]);
+const LOAI_TABS = TAB_KEYS.map((tab) => {
+    const Icon = TAB_ICONS[tab];
+    return {
+        value: TAB_URL_CODES[tab],
+        label: (
+            <>
+                <Icon className="size-3.5" aria-hidden="true" />
+                {TAB_NAMES[tab]}
+            </>
+        ),
+    };
+});
 
 /* ══════════════════════════════════════════════════════
    VIEW MODAL — Chi tiết thuộc tính
@@ -200,17 +228,29 @@ const ViewModal = ({ viewItem, activeTab, onClose, onEdit }) => {
 };
 
 const ProductAttributeHub = () => {
-    const [activeTab, setActiveTab] = useState('color');
+    const [tabLoai, setTabLoai] = useTabTrenUrl(TAB_URL_VALUES, TAB_URL_CODES.color, { ten: 'loai' });
+    const activeTab = TAB_KEYS.find((tab) => TAB_URL_CODES[tab] === tabLoai) ?? 'color';
     const [data, setData] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(null);
     const [total, setTotal] = useState(0);
-    const [filters, setFilters] = useState({ keyword: "", page: 0, size: 10, trangThai: "ALL" });
+    const [filters, setFilters] = useState(DEFAULT_FILTERS);
+    const requestIdRef = useRef(0);
     const [modalConfig, setModalConfig] = useState({ open: false, mode: 'add', item: null });
     const [deleteConfig, setDeleteConfig] = useState({ open: false, item: null });
     const [isDeleting, setIsDeleting] = useState(false);
     const [viewItem, setViewItem] = useState(null);
     const [logoFile, setLogoFile] = useState(null);
     const [logoPreview, setLogoPreview] = useState(null);
+
+    // Đổi tab loại (bấm tab, quay lại, mở đường dẫn có ?loai=): về bộ lọc mặc định như trước,
+    // và hiện vòng tải ngay để không lộ dòng của loại cũ dưới cột của loại mới.
+    const [filtersTab, setFiltersTab] = useState(activeTab);
+    if (filtersTab !== activeTab) {
+        setFiltersTab(activeTab);
+        setFilters(DEFAULT_FILTERS);
+        setLoading(true);
+    }
 
     const form = useForm({
         resolver: zodResolver(formSchema),
@@ -234,7 +274,9 @@ const ProductAttributeHub = () => {
     };
 
     const fetchData = useCallback(async () => {
+        const requestId = ++requestIdRef.current;
         setLoading(true);
+        setLoadError(null);
         try {
             const filterList = [];
             if (filters.keyword?.trim()) {
@@ -251,28 +293,49 @@ const ProductAttributeHub = () => {
                 filterList.push({ fieldName: "trangThai", operation: "EQUALS", value: Number(filters.trangThai), logicType: "AND" });
             }
             const payload = { page: filters.page, size: filters.size, filters: filterList, sorts: [{ fieldName: "id", direction: "DESC" }] };
+            let content = [];
+            let totalElements = 0;
             if (activeTab === 'color') {
                 const res = await mauSacService.filter(payload);
-                setData(res.data.content || []); setTotal(res.data.totalElements || 0);
+                content = res.data.content || []; totalElements = res.data.totalElements || 0;
             } else if (activeTab === 'size') {
                 const res = await sizeService.filter(payload);
-                setData(res.data.content || []); setTotal(res.data.totalElements || 0);
+                content = res.data.content || []; totalElements = res.data.totalElements || 0;
             } else if (activeTab === 'brand') {
                 const res = await thuongHieuService.filter(payload);
-                setData(res.data.content || []); setTotal(res.data.totalElements || 0);
+                content = res.data.content || []; totalElements = res.data.totalElements || 0;
             } else {
                 const res = await getAllChatLieu(filters.keyword);
-                setData(res || []); setTotal(res?.length || 0);
+                content = res || []; totalElements = res?.length || 0;
             }
-        } catch { toast.error("Lỗi tải dữ liệu"); }
-        finally { setLoading(false); }
+            // Bỏ qua kết quả cũ về muộn (đã đổi tab / từ khóa / trang trong lúc chờ)
+            if (requestId !== requestIdRef.current) return;
+
+            // Trang đang xem vượt quá số trang thực tế (vd. vừa xóa dòng cuối) → lùi về trang cuối có dữ liệu
+            if (content.length === 0 && totalElements > 0 && filters.page > 0) {
+                const lastPage = Math.max(Math.ceil(totalElements / filters.size) - 1, 0);
+                setFilters((p) => ({ ...p, page: lastPage }));
+                return; // vẫn đang tải: lần gọi cho trang cuối sẽ tắt vòng tải
+            }
+
+            setData(content); setTotal(totalElements);
+            setLoading(false);
+        } catch (err) {
+            if (requestId !== requestIdRef.current) return;
+            // Lỗi: hiện khung báo lỗi trong bảng, không giữ dòng/tổng số cũ (R9)
+            setData([]); setTotal(0);
+            setLoadError(getApiErrorMessage(err, `Không thể tải danh sách ${TAB_LABELS[activeTab]}`));
+            setLoading(false);
+        }
     }, [activeTab, filters]);
 
     // Hoãn qua microtask để tránh setState đồng bộ trong effect
     // (react-hooks/set-state-in-effect); vẫn tải lại ngay mỗi khi tab/bộ lọc đổi.
     useEffect(() => { queueMicrotask(() => fetchData()); }, [fetchData]);
 
-    const handleReset = () => setFilters({ keyword: "", page: 0, size: 10, trangThai: "ALL" });
+    // Bộ lọc ngoài tab loại; "Xóa lọc" bỏ từ khóa + trạng thái thương hiệu, giữ tab loại và số dòng mỗi trang
+    const hasActiveFilters = Boolean(filters.keyword.trim()) || (activeTab === 'brand' && filters.trangThai !== "ALL");
+    const clearFilters = () => setFilters((p) => ({ ...DEFAULT_FILTERS, size: p.size }));
     const generateAutoCode = () => {
         const r = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
         if (activeTab === 'color') return `MS-${r}`;
@@ -368,104 +431,56 @@ const ProductAttributeHub = () => {
     const TabIcon = TAB_ICONS[activeTab];
 
     return (
-        <PageContainer className="space-y-5">
-            <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); handleReset(); }}>
-                <TabsList className="h-auto w-fit flex-wrap items-center justify-start gap-1 rounded-lg border border-bo-border bg-bo-surface-subtle p-1">
-                    {['color', 'size', 'material', 'brand'].map(tab => {
-                        const Icon = TAB_ICONS[tab];
-                        return (
-                            <TabsTrigger
-                                key={tab}
-                                value={tab}
-                                className="rounded-md px-3 py-1.5 text-sm font-medium text-bo-muted data-[state=active]:bg-white data-[state=active]:text-bo-primary data-[state=active]:shadow-sm"
-                            >
-                                <Icon className="mr-2 size-3.5" />
-                                {TAB_NAMES[tab]}
-                            </TabsTrigger>
-                        );
-                    })}
-                </TabsList>
-            </Tabs>
-
-            <SurfaceCard
-                title={
-                    <span className="flex items-center gap-2">
-                        <Filter className="size-4 text-bo-primary" />
-                        Bộ lọc tìm kiếm
-                    </span>
+        <PageContainer className="space-y-4">
+            <ListPageHeader
+                actions={
+                    <Button
+                        onClick={() => handleOpenModal('add')}
+                        className="h-9 gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
+                    >
+                        <Plus className="size-4" />
+                        Thêm {TAB_LABELS[activeTab]} mới
+                    </Button>
                 }
-            >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <SearchInput
-                        value={filters.keyword}
-                        onChange={e => setFilters(p => ({ ...p, keyword: e.target.value, page: 0 }))}
-                        placeholder="Tìm kiếm theo mã hoặc tên..."
-                    />
-                    <div className="flex items-center gap-2">
+            />
+
+            {/* ── BẢNG: tab loại thuộc tính + tìm kiếm (+ trạng thái thương hiệu) cùng một hàng ── */}
+            <TableShell
+                toolbar={
+                    <ListToolbar
+                        tabs={
+                            <StatusTabs
+                                label="Chọn loại thuộc tính"
+                                tabs={LOAI_TABS}
+                                value={tabLoai}
+                                onChange={(value) => setTabLoai(value)}
+                            />
+                        }
+                        hasFilter={hasActiveFilters}
+                        onClear={clearFilters}
+                    >
+                        <SearchInput
+                            label={`Tìm ${TAB_LABELS[activeTab]}`}
+                            value={filters.keyword}
+                            onChange={e => setFilters(p => ({ ...p, keyword: e.target.value, page: 0 }))}
+                            onClear={() => setFilters(p => ({ ...p, keyword: "", page: 0 }))}
+                            placeholder="Tìm kiếm theo mã hoặc tên..."
+                            className="sm:w-[300px]"
+                        />
+                        {/* Lọc trạng thái chỉ có ở tab thương hiệu */}
                         {activeTab === 'brand' && (
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className="h-9 shrink-0 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                                    >
-                                        {BRAND_STATUS_LABELS[filters.trangThai] ?? "Tất cả trạng thái"}
-                                        <ChevronDown className="size-3.5 opacity-60" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    align="start"
-                                    className="backoffice-user-menu z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg"
-                                >
-                                    {[["ALL", "Tất cả trạng thái"], ["1", "Hoạt động"], ["0", "Ngừng hoạt động"]].map(([value, label]) => (
-                                        <DropdownMenuItem
-                                            key={value}
-                                            onClick={() => setFilters(p => ({ ...p, trangThai: value, page: 0 }))}
-                                            className="cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                        >
-                                            {label}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                            <FilterSelect
+                                label="Lọc thương hiệu theo trạng thái"
+                                value={filters.trangThai}
+                                options={BRAND_STATUS_OPTIONS}
+                                onChange={(value) => setFilters(p => ({ ...p, trangThai: value, page: 0 }))}
+                                align="end"
+                            />
                         )}
-                        <Button
-                            variant="outline"
-                            onClick={handleReset}
-                            className="h-9 shrink-0 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                        >
-                            <RefreshCcw className="size-4" />
-                            Đặt lại
-                        </Button>
-                    </div>
-                </div>
-            </SurfaceCard>
-
-            <div className="flex items-center justify-end">
-                <Button
-                    onClick={() => handleOpenModal('add')}
-                    className="h-9 gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
-                >
-                    <Plus className="size-4" />
-                    Thêm {TAB_LABELS[activeTab]} mới
-                </Button>
-            </div>
-
-            {loading ? (
-                <SurfaceCard contentClassName="p-0 sm:p-0">
-                    <LoadingState rows={5} />
-                </SurfaceCard>
-            ) : data.length === 0 ? (
-                <SurfaceCard contentClassName="p-0 sm:p-0">
-                    <EmptyState
-                        icon={TabIcon}
-                        title={`Chưa có ${TAB_LABELS[activeTab]}`}
-                        description="Danh mục này hiện đang trống. Hãy bắt đầu bằng cách thêm mới một mục."
-                    />
-                </SurfaceCard>
-            ) : (
-                <TableShell
-                    footer={
+                    </ListToolbar>
+                }
+                footer={
+                    !loading && !loadError && data.length > 0 ? (
                         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                             <div className="flex items-center gap-2">
                                 <Label className="whitespace-nowrap text-xs text-bo-muted">Hiển thị:</Label>
@@ -550,8 +565,37 @@ const ProductAttributeHub = () => {
                                 </Button>
                             </div>
                         </div>
-                    }
-                >
+                    ) : null
+                }
+            >
+                {loading ? (
+                    <LoadingState label={`Đang tải danh sách ${TAB_LABELS[activeTab]}`} />
+                ) : loadError ? (
+                    <ErrorState description={loadError} onRetry={fetchData} />
+                ) : data.length === 0 ? (
+                    hasActiveFilters ? (
+                        <EmptyState
+                            icon={SearchX}
+                            title={`Không tìm thấy ${TAB_LABELS[activeTab]} phù hợp`}
+                            description="Thử đổi từ khóa hoặc bỏ bớt bộ lọc."
+                            action={
+                                <Button
+                                    variant="outline"
+                                    onClick={clearFilters}
+                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                >
+                                    Xóa lọc
+                                </Button>
+                            }
+                        />
+                    ) : (
+                        <EmptyState
+                            icon={TabIcon}
+                            title={`Chưa có ${TAB_LABELS[activeTab]}`}
+                            description="Danh mục này hiện đang trống. Hãy bắt đầu bằng cách thêm mới một mục."
+                        />
+                    )
+                ) : (
                     <div className="max-h-[520px] overflow-y-auto">
                         <table className="w-full min-w-[880px] text-sm">
                             <thead className="sticky top-0 z-10">
@@ -680,8 +724,8 @@ const ProductAttributeHub = () => {
                             </tbody>
                         </table>
                     </div>
-                </TableShell>
-            )}
+                )}
+            </TableShell>
 
             {/* ── Form Modal ── */}
             <Dialog open={modalConfig.open} onOpenChange={o => setModalConfig({ ...modalConfig, open: o })}>

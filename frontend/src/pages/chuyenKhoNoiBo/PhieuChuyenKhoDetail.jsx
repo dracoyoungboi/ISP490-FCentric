@@ -15,24 +15,10 @@ import { Button } from "@/components/ui/button";
 import { AlertTriangle, ArrowLeft, Loader2, ClipboardList, Building2, Package, ArrowRightLeft } from "lucide-react";
 import { createPortal } from "react-dom";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { PHIEU_CHUYEN_KHO_STATUS, getPhieuChuyenKhoStatus } from "@/constants/phieuChuyenKho";
 
-// ── Trạng thái ────────────────────────────────────────────────────────────
-const STATUS_MAP = {
-    0: { label: "Nháp", tone: "warning" },
-    1: { label: "Chờ duyệt", tone: "info" },
-    2: {
-        label: "Chờ xuất hàng",
-        tone: "info",
-        className: "border-indigo-200 bg-indigo-50 text-indigo-700",
-    },
-    3: {
-        label: "Đang vận chuyển",
-        tone: "info",
-        className: "border-purple-200 bg-purple-50 text-purple-700",
-    },
-    5: { label: "Hoàn tất", tone: "success" },
-    4: { label: "Đã hủy", tone: "danger" },
-};
+// ── Trạng thái — dùng chung tên với danh sách (constants/phieuChuyenKho) ──
+const STATUS_MAP = PHIEU_CHUYEN_KHO_STATUS;
 
 const TH_CLASS =
     "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
@@ -178,7 +164,7 @@ export default function PhieuChuyenKhoDetail() {
     const isAdmin              = userRoles.includes("quan_tri_vien");
     const isQuanLy             = userRoles.includes("quan_ly_kho") || isAdmin;
 
-    const st                   = STATUS_MAP[data.trangThai] ?? STATUS_MAP[0];
+    const st                   = getPhieuChuyenKhoStatus(data.trangThai);
     const isDestinationManager = isAdmin || (isQuanLy && myWarehouseIds.includes(data.khoNhapId));
     const isSourceStaff        = isAdmin || (isQuanLy && myWarehouseIds.includes(data.khoXuatId));
     const totalItems           = data.items?.length || 0;

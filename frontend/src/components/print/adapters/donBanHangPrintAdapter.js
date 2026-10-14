@@ -1,4 +1,6 @@
 import { formatNumber } from "@/utils/formatters";
+import { BAO_GIA_STATUS } from "@/constants/baoGia";
+import { DON_BAN_HANG_STATUS } from "@/constants/donBanHang";
 import { formatPrintDate } from "./printFormat";
 
 /**
@@ -9,21 +11,10 @@ import { formatPrintDate } from "./printFormat";
  * Lưu ý: API không có chiết khấu, thuế, số tiền đã trả/còn nợ hay hạn
  * hiệu lực — chỉ in những gì API thật sự trả về.
  */
-export const SALES_QUOTATION_STATUS = {
-    0: { label: "Đang chờ phản hồi", tone: "warning" },
-    2: { label: "Đã chốt đơn", tone: "success" },
-    4: { label: "Bị từ chối", tone: "danger" },
-};
+// Trạng thái dùng chung hằng số với danh sách + trang chi tiết (một tên cho mỗi trạng thái).
+export const SALES_QUOTATION_STATUS = BAO_GIA_STATUS;
 
-export const SALES_ORDER_STATUS = {
-    0: { label: "Nháp", tone: "warning" },
-    1: { label: "Chờ xuất kho", tone: "info" },
-    2: { label: "Đang xử lý xuất kho", tone: "info" },
-    3: { label: "Đã xuất kho", tone: "warning" },
-    4: { label: "Đã hủy", tone: "danger" },
-    5: { label: "Hoàn thành", tone: "success" },
-    6: { label: "Bị hoàn trả", tone: "danger" },
-};
+export const SALES_ORDER_STATUS = DON_BAN_HANG_STATUS;
 
 export const PAYMENT_STATUS = {
     chua_thanh_toan: { label: "Chưa thanh toán", tone: "warning" },

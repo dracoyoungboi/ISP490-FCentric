@@ -23,6 +23,7 @@ import LoadingState from "@/components/shared/LoadingState";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import TableShell from "@/components/shared/TableShell";
 
+import { YEU_CAU_NHAP_HANG_STATUS } from '@/constants/yeuCauNhapHang';
 import purchaseRequestService from '@/services/purchaseRequestService';
 import apiClient from '@/services/apiClient';
 
@@ -102,10 +103,10 @@ export default function PurchaseRequestDetail() {
             icon: CheckCircle, description: 'Yêu cầu đã được duyệt — có thể gửi yêu cầu báo giá'
         },
         3: {
-            label: 'Đã chuyển thành báo giá',
+            label: YEU_CAU_NHAP_HANG_STATUS[3].label,
             bannerBg: 'bg-bo-primary-soft', bannerBorder: 'border-bo-primary/30',
             iconBg: 'bg-white', iconColor: 'text-bo-primary', textColor: 'text-bo-foreground',
-            icon: FileText, description: 'Yêu cầu này đã được tạo thành đơn báo giá'
+            icon: FileText, description: 'Đã gửi yêu cầu báo giá tới nhà cung cấp, đang chờ báo giá'
         },
         4: {
             label: 'Từ chối',
@@ -114,10 +115,10 @@ export default function PurchaseRequestDetail() {
             icon: XCircle, description: 'Yêu cầu nhập hàng đã bị từ chối'
         },
         5: {
-            label: 'Đã chuyển thành báo giá',
+            label: YEU_CAU_NHAP_HANG_STATUS[5].label,
             bannerBg: 'bg-bo-primary-soft', bannerBorder: 'border-bo-primary/30',
             iconBg: 'bg-white', iconColor: 'text-bo-primary', textColor: 'text-bo-foreground',
-            icon: FileText, description: 'Yêu cầu này đã được tạo thành đơn báo giá'
+            icon: FileText, description: 'Đã chốt báo giá, yêu cầu này đã thành đơn mua hàng'
         }
     };
 

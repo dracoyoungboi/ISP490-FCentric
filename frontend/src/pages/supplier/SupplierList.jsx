@@ -1,20 +1,20 @@
 // src/pages/supplier/SupplierList.jsx
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     Plus, Edit, Trash2, ChevronLeft, ChevronRight, Eye, Loader2, Users,
-    ChevronDown, Phone, Mail, User2, Filter, RefreshCcw, Check, AlertTriangle,
-    CheckCircle2,
+    ChevronDown, Phone, Mail, User2, AlertTriangle, SearchX,
 } from 'lucide-react';
 import { toast } from "sonner";
 
 import PageContainer from "@/components/backoffice/PageContainer";
-import PageHeader from "@/components/backoffice/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
-import FilterBar from "@/components/shared/FilterBar";
+import ListPageHeader from "@/components/shared/ListPageHeader";
+import ListToolbar from "@/components/shared/ListToolbar";
 import LoadingState from "@/components/shared/LoadingState";
 import SearchInput from "@/components/shared/SearchInput";
 import StatusBadge from "@/components/shared/StatusBadge";
+import StatusTabs from "@/components/shared/StatusTabs";
 import TableShell from "@/components/shared/TableShell";
 import { Button } from "@/components/ui/button";
 import {
@@ -112,19 +112,40 @@ function ConfirmDeleteModal({ target, isDeleting, onConfirm, onCancel }) {
     );
 }
 
-// ── Filter options ────────────────────────────────────────────────────────
-const STATUS_FILTER_OPTIONS = [
-    { value: "all",      label: "Tất cả trạng thái" },
-    { value: "active",   label: "Hoạt động" },
-    { value: "inactive", label: "Ngừng hoạt động" },
+// ── Tab trạng thái (bố cục A+G) — giữ trên URL ?trangThai= ───────────────
+const STATUS_TABS = [
+    { value: "tat-ca",          label: "Tất cả" },
+    { value: "hoat-dong",       label: "Hoạt động" },
+    { value: "ngung-hoat-dong", label: "Ngừng hoạt động" },
 ];
+const STATUS_TAB_VALUES = STATUS_TABS.map((tab) => tab.value);
+const EMPTY_TAB_TITLE = {
+    "hoat-dong":       "Không có nhà cung cấp nào đang hoạt động",
+    "ngung-hoat-dong": "Không có nhà cung cấp nào ngừng hoạt động",
+};
+
+// Khớp badge trong bảng: trangThai = 1 là "Hoạt động", còn lại là "Ngừng hoạt động".
+const matchTab = (item, tab) =>
+    tab === "tat-ca" || (tab === "hoat-dong" ? item.trangThai === 1 : item.trangThai !== 1);
+
+const matchSearch = (item, search) => {
+    const keyword = search.trim().toLowerCase();
+    return (
+        !keyword ||
+        item.maNhaCungCap?.toLowerCase().includes(keyword) ||
+        item.tenNhaCungCap?.toLowerCase().includes(keyword) ||
+        item.nguoiLienHe?.toLowerCase().includes(keyword)
+    );
+};
 
 // ── Main component ────────────────────────────────────────────────────────
 export default function SupplierList() {
     const [suppliers,    setSuppliers]    = useState([]);
     const [search,       setSearch]       = useState("");
-    const [filterStatus, setFilterStatus] = useState("all");
     const [loading,      setLoading]      = useState(true);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const tabParam     = searchParams.get("trangThai");
+    const filterStatus = STATUS_TAB_VALUES.includes(tabParam) ? tabParam : "tat-ca";
 
     // Delete state — tách riêng, không dùng Dialog lồng trong table row
     const [deleteTarget, setDeleteTarget] = useState(null); // object nhà cung cấp cần xóa
@@ -154,8 +175,16 @@ export default function SupplierList() {
     // (react-hooks/set-state-in-effect); request vẫn chạy ngay khi mount.
     useEffect(() => { queueMicrotask(() => fetchSuppliers()); }, [fetchSuppliers]);
 
-    // Reset page khi filter đổi
-    useEffect(() => { setPageNumber(0); }, [filterStatus]);
+    // Đổi tab: ghi lên URL (F5 / quay lại vẫn đúng tab) và về trang đầu
+    const changeTab = (value) => {
+        setSearchParams((prev) => {
+            const next = new URLSearchParams(prev);
+            if (value === "tat-ca") next.delete("trangThai");
+            else next.set("trangThai", value);
+            return next;
+        }, { replace: true });
+        setPageNumber(0);
+    };
 
     // ── Delete ─────────────────────────────────────────────────────────
     const handleDeleteClick = (item) => {
@@ -172,11 +201,7 @@ export default function SupplierList() {
             // Reload và điều chỉnh trang nếu xóa hết item trang cuối
             const updated = suppliers.filter(s => s.id !== deleteTarget.id);
             setSuppliers(updated);
-            const newTotal  = updated.filter(s =>
-                filterStatus === "all"      ? true :
-                filterStatus === "active"   ? s.trangThai === 1 :
-                s.trangThai === 0
-            ).length;
+            const newTotal  = updated.filter(s => matchSearch(s, search) && matchTab(s, filterStatus)).length;
             const newTotalPages = Math.max(1, Math.ceil(newTotal / pageSize));
             if (pageNumber >= newTotalPages) setPageNumber(Math.max(0, newTotalPages - 1));
         } catch (err) {
@@ -191,33 +216,23 @@ export default function SupplierList() {
     };
 
     // ── Client-side filter ─────────────────────────────────────────────
-    const filtered = useMemo(() => {
-        return suppliers.filter((item) => {
-            const matchSearch =
-                !search.trim() ||
-                item.maNhaCungCap?.toLowerCase().includes(search.toLowerCase()) ||
-                item.tenNhaCungCap?.toLowerCase().includes(search.toLowerCase()) ||
-                item.nguoiLienHe?.toLowerCase().includes(search.toLowerCase());
+    const searched = useMemo(
+        () => suppliers.filter((item) => matchSearch(item, search)),
+        [suppliers, search]
+    );
+    const filtered = useMemo(
+        () => searched.filter((item) => matchTab(item, filterStatus)),
+        [searched, filterStatus]
+    );
 
-            const matchStatus =
-                filterStatus === "all"      ||
-                (filterStatus === "active"   && item.trangThai === 1) ||
-                (filterStatus === "inactive" && item.trangThai === 0);
-
-            return matchSearch && matchStatus;
-        });
-    }, [suppliers, search, filterStatus]);
-
-    const stats = useMemo(() => {
-        const active = filtered.filter((item) => item.trangThai === 1).length;
-        const inactive = filtered.filter((item) => item.trangThai === 0).length;
-
-        return {
-            total: filtered.length,
-            active,
-            inactive,
-        };
-    }, [filtered]);
+    // Số trên tab = số dòng sẽ thấy khi bấm tab, theo từ khóa đang tìm (R1); đang tải thì không hiện (R9)
+    const statusTabs = useMemo(
+        () => STATUS_TABS.map((tab) => ({
+            ...tab,
+            count: loading ? null : searched.filter((item) => matchTab(item, tab.value)).length,
+        })),
+        [searched, loading]
+    );
 
     // ── Pagination ─────────────────────────────────────────────────────
     const totalElements = filtered.length;
@@ -229,12 +244,10 @@ export default function SupplierList() {
         if (p >= 0 && p < totalPages) setPageNumber(p);
     };
 
-    const handleReset = () => {
+    // "Xóa lọc" chỉ xóa từ khóa, giữ tab đang chọn
+    const handleClearSearch = () => {
         setSearch("");
-        setFilterStatus("all");
     };
-
-    const currentFilterLabel = STATUS_FILTER_OPTIONS.find(o => o.value === filterStatus)?.label ?? "Tất cả trạng thái";
 
     return (
         <>
@@ -246,11 +259,8 @@ export default function SupplierList() {
                 onCancel={handleCancelDelete}
             />
 
-            <PageContainer className="space-y-5">
-                {/* ── Page header ── */}
-                <PageHeader
-                    title="Quản lý nhà cung cấp"
-                    description="Danh sách nhà cung cấp và trạng thái hợp tác trong hệ thống"
+            <PageContainer className="space-y-4">
+                <ListPageHeader
                     actions={
                         <Button
                             onClick={() => navigate("/supplier/new")}
@@ -262,101 +272,31 @@ export default function SupplierList() {
                     }
                 />
 
-                {/* ── Stats ── */}
-                <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-                        <div>
-                            <p className="text-xs font-medium text-bo-muted">Tổng nhà cung cấp</p>
-                            <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.total}</p>
-                        </div>
-                        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary">
-                            <Users className="size-5" />
-                        </span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-                        <div>
-                            <p className="text-xs font-medium text-bo-muted">Đang hoạt động</p>
-                            <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.active}</p>
-                        </div>
-                        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-success-soft text-bo-success">
-                            <CheckCircle2 className="size-5" />
-                        </span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-                        <div>
-                            <p className="text-xs font-medium text-bo-muted">Ngừng hoạt động</p>
-                            <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.inactive}</p>
-                        </div>
-                        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-danger-soft text-bo-danger">
-                            <AlertTriangle className="size-5" />
-                        </span>
-                    </div>
-                </section>
-
-                {/* ── Filter bar ── */}
-                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                    <div className="flex items-center gap-2 border-b border-bo-border px-4 py-3 sm:px-5">
-                        <Filter className="size-4 text-bo-primary" />
-                        <h2 className="text-sm font-semibold text-bo-foreground sm:text-base">
-                            Bộ lọc tìm kiếm
-                        </h2>
-                    </div>
-                    <FilterBar
-                        primary={
+                {/* ── Table ── */}
+                <TableShell
+                    toolbar={
+                        <ListToolbar
+                            tabs={
+                                <StatusTabs
+                                    label="Lọc nhà cung cấp theo trạng thái"
+                                    tabs={statusTabs}
+                                    value={filterStatus}
+                                    onChange={changeTab}
+                                />
+                            }
+                            hasFilter={Boolean(search.trim())}
+                            onClear={handleClearSearch}
+                        >
                             <SearchInput
+                                label="Tìm nhà cung cấp"
                                 placeholder="Tìm theo mã, tên, người liên hệ..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
-                                onClear={() => setSearch("")}
+                                onClear={handleClearSearch}
+                                className="sm:w-[300px]"
                             />
-                        }
-                        filters={
-                            <DropdownMenu modal={false}>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className="h-9 w-full justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-[200px]"
-                                    >
-                                        <span className="truncate">{currentFilterLabel}</span>
-                                        <ChevronDown className="size-4 shrink-0 opacity-60" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    align="end"
-                                    className="backoffice-user-menu z-50 w-[200px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
-                                >
-                                    {STATUS_FILTER_OPTIONS.map((opt) => (
-                                        <DropdownMenuItem
-                                            key={opt.value}
-                                            onClick={() => setFilterStatus(opt.value)}
-                                            className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                        >
-                                            {opt.label}
-                                            {filterStatus === opt.value && <Check className="size-4" />}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        }
-                        actions={
-                            <Button
-                                variant="outline"
-                                onClick={handleReset}
-                                className="h-9 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                            >
-                                <RefreshCcw className="size-4" />
-                                Đặt lại
-                            </Button>
-                        }
-                    />
-                </div>
-
-                {/* ── Table ── */}
-                <TableShell
-                    title="Danh sách nhà cung cấp"
-                    description="Nhấn vào thao tác để xem chi tiết, chỉnh sửa hoặc xóa nhà cung cấp"
+                        </ListToolbar>
+                    }
                     footer={
                         totalElements > 0 ? (
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -457,11 +397,43 @@ export default function SupplierList() {
                     {loading ? (
                         <LoadingState rows={5} label="Đang tải danh sách nhà cung cấp" />
                     ) : pageItems.length === 0 ? (
-                        <EmptyState
-                            icon={Users}
-                            title="Không tìm thấy nhà cung cấp"
-                            description="Chưa có nhà cung cấp nào phù hợp. Hãy thêm mới hoặc thay đổi bộ lọc tìm kiếm."
-                        />
+                        search.trim() ? (
+                            <EmptyState
+                                icon={SearchX}
+                                title="Không tìm thấy nhà cung cấp phù hợp"
+                                description="Thử đổi từ khóa tìm kiếm."
+                                action={
+                                    <Button
+                                        variant="outline"
+                                        onClick={handleClearSearch}
+                                        className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                    >
+                                        Xóa lọc
+                                    </Button>
+                                }
+                            />
+                        ) : filterStatus !== "tat-ca" ? (
+                            <EmptyState
+                                icon={Users}
+                                title={EMPTY_TAB_TITLE[filterStatus]}
+                                description="Chọn tab Tất cả để xem mọi nhà cung cấp."
+                                action={
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => changeTab("tat-ca")}
+                                        className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                    >
+                                        Xem tất cả
+                                    </Button>
+                                }
+                            />
+                        ) : (
+                            <EmptyState
+                                icon={Users}
+                                title="Chưa có nhà cung cấp"
+                                description="Thêm nhà cung cấp để gửi yêu cầu báo giá và lập đơn mua hàng."
+                            />
+                        )
                     ) : (
                         <table className="w-full min-w-[960px] text-sm">
                             <thead>

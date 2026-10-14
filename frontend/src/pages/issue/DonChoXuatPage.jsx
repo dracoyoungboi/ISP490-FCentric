@@ -2,15 +2,15 @@ import { formatCurrency } from "@/utils/formatters";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-    AlertTriangle, CheckCircle2, ClipboardList, Layers, Loader2,
-    PackageCheck, RefreshCcw, ShoppingBag, Truck, X,
+    AlertTriangle, Loader2, PackageCheck, SearchX, ShoppingBag, Truck, X,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import PageContainer from "@/components/backoffice/PageContainer";
-import FilterBar from "@/components/shared/FilterBar";
-import FilterPanel from "@/components/shared/FilterPanel";
 import FilterSelect from "@/components/shared/FilterSelect";
+import KhoLamViecSelect from "@/components/shared/KhoLamViecSelect";
+import ListPageHeader from "@/components/shared/ListPageHeader";
+import ListToolbar from "@/components/shared/ListToolbar";
 import SearchInput from "@/components/shared/SearchInput";
 import TableShell from "@/components/shared/TableShell";
 import TablePagination from "@/components/shared/TablePagination";
@@ -18,7 +18,6 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
-import KpiCard from "@/components/shared/KpiCard";
 import MockModeNotice from "@/components/shared/MockModeNotice";
 import ChannelBadge from "@/components/channel/ChannelBadge";
 import { Button } from "@/components/ui/button";
@@ -37,14 +36,19 @@ const TH_CLASS = "h-10 px-3 text-[11px] font-semibold uppercase tracking-wide te
 const CHECKBOX_CLASS = "border-slate-300 data-[state=checked]:border-bo-primary data-[state=checked]:bg-bo-primary data-[state=checked]:text-white";
 const DEFAULT_FILTERS = { keyword: "", kenh: "", page: 0, size: 10 };
 
+/** Kho làm việc hiện tại (KhoLamViecSelect ghi vào localStorage, apiClient gửi kèm header kho_id). */
+const docKhoLamViec = () => Number(window.localStorage.getItem("selected_kho_id")) || undefined;
+
 export default function DonChoXuatPage() {
     const navigate = useNavigate();
+    const [khoId, setKhoId] = useState(docKhoLamViec);
     const [filters, setFilters] = useState(DEFAULT_FILTERS);
     const [searchText, setSearchText] = useState("");
     const [data, setData] = useState([]);
     const [total, setTotal] = useState(0);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(false);
+    const requestIdRef = useRef(0);
     // Giữ lựa chọn qua nhiều trang: id -> dòng
     const [selected, setSelected] = useState(() => new Map());
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -61,11 +65,12 @@ export default function DonChoXuatPage() {
     }, [searchText]);
 
     const fetchData = useCallback(async () => {
+        // Đổi kho / từ khóa / kênh liên tiếp: chỉ nhận kết quả của yêu cầu mới nhất
+        const requestId = ++requestIdRef.current;
         setLoading(true);
         setLoadError(false);
         try {
             const kenhOption = MARKETPLACE_FILTER_OPTIONS.find((option) => option.value === filters.kenh);
-            const khoId = Number(window.localStorage.getItem("selected_kho_id")) || undefined;
             const res = await nhatHangService.getDonChoXuat({
                 searchText: filters.keyword.trim() || undefined,
                 kenhBanId: kenhOption?.id,
@@ -73,15 +78,20 @@ export default function DonChoXuatPage() {
                 page: filters.page,
                 size: filters.size,
             });
+            if (requestId !== requestIdRef.current) return;
             setData(res?.content ?? []);
             setTotal(res?.totalElements ?? 0);
         } catch (error) {
+            if (requestId !== requestIdRef.current) return;
+            // Không giữ dòng + tổng số của lần tải trước (R9)
+            setData([]);
+            setTotal(0);
             setLoadError(true);
             toast.error(getApiErrorMessage(error, "Không tải được danh sách đơn chờ xuất"));
         } finally {
-            setLoading(false);
+            if (requestId === requestIdRef.current) setLoading(false);
         }
-    }, [filters]);
+    }, [khoId, filters]);
 
     useEffect(() => {
         queueMicrotask(() => fetchData());
@@ -114,14 +124,10 @@ export default function DonChoXuatPage() {
         });
     };
 
-    const stats = useMemo(() => ({
-        duHang: data.filter((row) => row.duHang).length,
-        thieuHang: data.filter((row) => row.duHang === false).length,
-    }), [data]);
-
-    const handleReset = () => {
+    // "Xóa lọc": bỏ từ khóa + kênh bán, giữ kho làm việc và số dòng mỗi trang
+    const clearFilters = () => {
         setSearchText("");
-        setFilters(DEFAULT_FILTERS);
+        setFilters((prev) => ({ ...prev, keyword: "", kenh: "", page: 0 }));
     };
 
     const handleCreate = async () => {
@@ -152,118 +158,103 @@ export default function DonChoXuatPage() {
         }
     };
 
-    const hasFilter = Boolean(filters.keyword || filters.kenh);
+    const hasFilter = Boolean(searchText.trim() || filters.keyword.trim() || filters.kenh);
+    const dangLoc = Boolean(filters.keyword.trim() || filters.kenh);
+
+    // Đổi kho làm việc: đơn đã chọn thuộc kho cũ nên bỏ chọn, tải lại từ trang đầu
+    const handleDoiKho = (id) => {
+        setSelected(new Map());
+        setKhoId(id || undefined);
+        setFilters((prev) => ({ ...prev, page: 0 }));
+    };
+
+    // Tổng số đơn của danh sách (totalElements, theo kho làm việc + bộ lọc đang chọn); đang tải / lỗi thì không hiện (R9)
+    const tongDon = loading || loadError ? null : total;
 
     return (
-        <PageContainer className="space-y-5">
+        <PageContainer className="space-y-4">
             <MockModeNotice show={isPickListMock} />
 
-            {/* ══ STATS ══ */}
-            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <KpiCard
-                    icon={<ClipboardList className="size-5" />}
-                    iconClass="bg-bo-primary-soft text-bo-primary"
-                    label="Đơn chờ xuất"
-                    value={total}
-                />
-                <KpiCard
-                    icon={<CheckCircle2 className="size-5" />}
-                    iconClass="bg-bo-success-soft text-bo-success"
-                    label="Đủ hàng (trang này)"
-                    value={stats.duHang}
-                />
-                <KpiCard
-                    icon={<AlertTriangle className="size-5" />}
-                    iconClass="bg-bo-warning-soft text-bo-warning"
-                    label="Thiếu hàng (trang này)"
-                    value={stats.thieuHang}
-                />
-                <KpiCard
-                    icon={<Layers className="size-5" />}
-                    iconClass="bg-indigo-50 text-indigo-600"
-                    label="Đã chọn để gom"
-                    value={selectedSummary.donHang}
-                    sub={selectedSummary.donHang ? `${formatQuantity(selectedSummary.sanPham)} sản phẩm` : "Chưa chọn đơn"}
-                />
-            </section>
+            <ListPageHeader
+                actions={
+                    <Link to="/goods-issues/pick-lists">
+                        <Button
+                            variant="outline"
+                            className="h-9 gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                        >
+                            <Truck className="size-4" />
+                            Danh sách phiếu nhặt hàng
+                        </Button>
+                    </Link>
+                }
+            />
 
-            {/* ══ BỘ LỌC ══ */}
-            <FilterPanel>
-                <FilterBar
-                    primary={
-                        <SearchInput
-                            placeholder="Nhập số đơn hoặc tên khách hàng..."
-                            label="Tìm đơn chờ xuất"
-                            value={searchText}
-                            onChange={(event) => setSearchText(event.target.value)}
-                            onClear={() => setSearchText("")}
-                        />
-                    }
-                    filters={
-                        <>
+            {/* ══ BẢNG ══ */}
+            <TableShell
+                toolbar={
+                    <>
+                        {/* Không có tab trạng thái: mọi đơn ở đây đều đang chờ xuất. Bên trái ghi tổng số đơn. */}
+                        <ListToolbar
+                            tabs={
+                                tongDon != null ? (
+                                    <p className="whitespace-nowrap py-3.5 text-sm leading-5 text-bo-muted">
+                                        <strong className="font-semibold text-bo-foreground">
+                                            {tongDon.toLocaleString("vi-VN")} đơn
+                                        </strong>{" "}
+                                        chờ gom nhặt
+                                    </p>
+                                ) : null
+                            }
+                            hasFilter={hasFilter}
+                            onClear={clearFilters}
+                        >
+                            <KhoLamViecSelect onChange={handleDoiKho} />
+                            <SearchInput
+                                placeholder="Nhập số đơn hoặc tên khách hàng..."
+                                label="Tìm đơn chờ xuất"
+                                value={searchText}
+                                onChange={(event) => setSearchText(event.target.value)}
+                                onClear={() => setSearchText("")}
+                                className="sm:w-[300px]"
+                            />
                             <FilterSelect
                                 label="Kênh bán"
                                 value={filters.kenh}
                                 options={MARKETPLACE_FILTER_OPTIONS}
                                 onChange={(kenh) => setFilters((prev) => ({ ...prev, kenh, page: 0 }))}
+                                align="end"
                             />
-                            <Button
-                                variant="outline"
-                                onClick={handleReset}
-                                disabled={loading}
-                                className="h-9 gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                            >
-                                <RefreshCcw className="size-4" />
-                                Đặt lại
-                            </Button>
-                        </>
-                    }
-                    actions={
-                        <>
-                            <Link to="/goods-issues/pick-lists">
-                                <Button
-                                    variant="outline"
-                                    className="h-9 gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                                >
-                                    <Truck className="size-4" />
-                                    Danh sách phiếu nhặt hàng
-                                </Button>
-                            </Link>
-                            <Button
-                                onClick={() => setDialogOpen(true)}
-                                disabled={selectedSummary.donHang === 0}
-                                className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
-                            >
-                                <PackageCheck className="size-4" />
-                                Tạo phiếu nhặt hàng{selectedSummary.donHang ? ` (${selectedSummary.donHang})` : ""}
-                            </Button>
-                        </>
-                    }
-                />
-            </FilterPanel>
+                        </ListToolbar>
 
-            {/* ══ BẢNG ══ */}
-            <TableShell
-                title="Đơn chờ gom nhặt"
-                description="Đơn đã gửi kho, chưa vào phiếu nhặt hàng và không có cờ cần xử lý. Chọn đơn rồi bấm Tạo phiếu nhặt hàng."
-                toolbar={
-                    selectedSummary.donHang > 0 ? (
-                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-bo-border bg-bo-primary-soft px-4 py-2.5 sm:px-5">
-                            <p className="text-sm text-blue-800">
-                                Đã chọn <span className="font-semibold">{selectedSummary.donHang}</span> đơn ·{" "}
-                                <span className="font-semibold">{formatQuantity(selectedSummary.sanPham)}</span> sản phẩm
-                                {selectedSummary.thieuHang > 0 ? ` · ${selectedSummary.thieuHang} đơn thiếu hàng` : ""}
-                            </p>
-                            <button
-                                type="button"
-                                onClick={() => setSelected(new Map())}
-                                className="inline-flex items-center gap-1 text-sm font-medium text-bo-primary hover:text-bo-primary-hover"
-                            >
-                                <X className="size-4" />
-                                Bỏ chọn
-                            </button>
-                        </div>
-                    ) : null
+                        {/* Thanh thao tác: chỉ hiện khi đã chọn đơn */}
+                        {selectedSummary.donHang > 0 ? (
+                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-bo-border bg-bo-primary-soft px-4 py-2.5 sm:px-5">
+                                <p className="text-sm text-blue-800">
+                                    Đã chọn <span className="font-semibold">{selectedSummary.donHang}</span> đơn ·{" "}
+                                    <span className="font-semibold">{formatQuantity(selectedSummary.sanPham)}</span> sản phẩm
+                                    {selectedSummary.thieuHang > 0 ? ` · ${selectedSummary.thieuHang} đơn thiếu hàng` : ""}
+                                </p>
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelected(new Map())}
+                                        className="inline-flex items-center gap-1 text-sm font-medium text-bo-primary hover:text-bo-primary-hover"
+                                    >
+                                        <X className="size-4" />
+                                        Bỏ chọn
+                                    </button>
+                                    <Button
+                                        onClick={() => setDialogOpen(true)}
+                                        disabled={selectedSummary.donHang === 0}
+                                        className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
+                                    >
+                                        <PackageCheck className="size-4" />
+                                        Tạo phiếu nhặt hàng ({selectedSummary.donHang})
+                                    </Button>
+                                </div>
+                            </div>
+                        ) : null}
+                    </>
                 }
                 footer={
                     !loading && !loadError && data.length > 0 ? (
@@ -281,28 +272,34 @@ export default function DonChoXuatPage() {
                 {loading ? (
                     <LoadingState className="min-h-64" label="Đang tải đơn chờ xuất" />
                 ) : loadError ? (
-                    <ErrorState onRetry={fetchData} />
+                    <ErrorState
+                        description="Không thể tải danh sách đơn chờ xuất. Vui lòng thử lại."
+                        onRetry={fetchData}
+                    />
                 ) : data.length === 0 ? (
-                    <EmptyState
-                        icon={ShoppingBag}
-                        title={hasFilter ? "Không có đơn phù hợp" : "Không có đơn chờ xuất"}
-                        description={
-                            hasFilter
-                                ? "Thử đổi từ khóa hoặc kênh bán."
-                                : "Đơn bán đã gửi sang kho sẽ hiện ở đây để gom thành phiếu nhặt hàng."
-                        }
-                        action={
-                            hasFilter ? (
-                                <Button variant="outline" onClick={handleReset} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
-                                    Xóa bộ lọc
+                    dangLoc ? (
+                        <EmptyState
+                            icon={SearchX}
+                            title="Không tìm thấy đơn chờ xuất phù hợp"
+                            description="Thử đổi từ khóa hoặc kênh bán."
+                            action={
+                                <Button variant="outline" onClick={clearFilters} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
+                                    Xóa lọc
                                 </Button>
-                            ) : (
+                            }
+                        />
+                    ) : (
+                        <EmptyState
+                            icon={ShoppingBag}
+                            title="Chưa có đơn chờ xuất"
+                            description="Đơn bán đã gửi sang kho sẽ hiện ở đây để gom thành phiếu nhặt hàng."
+                            action={
                                 <Link to="/sales-orders" className="text-sm font-medium text-bo-primary hover:underline">
                                     Xem đơn bán hàng
                                 </Link>
-                            )
-                        }
-                    />
+                            }
+                        />
+                    )
                 ) : (
                     <table className="w-full min-w-[1040px] text-sm">
                         <thead>

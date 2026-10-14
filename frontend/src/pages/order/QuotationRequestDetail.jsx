@@ -26,6 +26,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
 import LoadingState from "@/components/shared/LoadingState";
 import ErrorState from "@/components/shared/ErrorState";
+import { YEU_CAU_NHAP_HANG_STATUS } from "@/constants/yeuCauNhapHang";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROLE = {
@@ -59,9 +60,10 @@ const formatDateTime = (dateString) => {
 };
 
 // ─── Status configs (Đồng bộ với List) ─────────────────────────────────────────
+// Tên trạng thái yêu cầu lấy từ constants/yeuCauNhapHang (một tên cho danh sách, chi tiết, bản in)
 const PR_STATUS = {
-    3: { label: 'Đã gửi yêu cầu báo giá', tone: 'info', icon: FileText, desc: 'Yêu cầu này đã được tạo thành các đơn báo giá để gửi NCC.' },
-    5: { label: 'Đã chuyển thành đơn mua hàng', tone: 'success', icon: Ship, desc: 'Đã chốt báo giá, đơn hàng đang được tiến hành xử lý/vận chuyển.' },
+    3: { label: YEU_CAU_NHAP_HANG_STATUS[3].label, tone: 'info', icon: FileText, desc: 'Yêu cầu này đã được tạo thành các đơn báo giá để gửi NCC.' },
+    5: { label: YEU_CAU_NHAP_HANG_STATUS[5].label, tone: 'success', icon: Ship, desc: 'Đã chốt báo giá, đơn hàng đang được tiến hành xử lý/vận chuyển.' },
 };
 
 const PO_STATUS = {

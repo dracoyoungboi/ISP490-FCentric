@@ -11,16 +11,15 @@ import {
   Trash2,
   Save,
   X,
-  Layers,
   RefreshCcw,
   Tag,
 } from 'lucide-react';
 import { danhMucQuanAoService } from '@/services/danhMucQuanAoService';
 import { toast } from 'sonner';
 import PageContainer from '@/components/backoffice/PageContainer';
-import PageHeader from '@/components/backoffice/PageHeader';
 import SurfaceCard from '@/components/shared/SurfaceCard';
 import EmptyState from '@/components/shared/EmptyState';
+import ErrorState from '@/components/shared/ErrorState';
 import LoadingState from '@/components/shared/LoadingState';
 import ConfirmModal from '@/components/ui/confirm-modal';
 import { Button } from '@/components/ui/button';
@@ -31,7 +30,17 @@ import { Input } from '@/components/ui/input';
 // Thụt lề theo cấp = level × 20px, ánh xạ qua bảng class tĩnh (không dựng class động).
 const LEVEL_INDENT_CLASSES = ['pl-0', 'pl-5', 'pl-10', 'pl-15', 'pl-20', 'pl-25'];
 
-// Đếm tổng/gốc/con cho dashboard – chỉ tính node đang hoạt động (trangThai !== 0)
+const EMPTY_STATS = { total: 0, root: 0, sub: 0 };
+const LOAD_ERROR_MESSAGE = 'Không thể tải dữ liệu danh mục';
+
+// Câu báo lỗi của một lời gọi trong Promise.allSettled (lỗi mạng/HTTP hoặc status ≠ 200 trong body)
+const getSettledErrorMessage = (result) => (
+  result.status === 'rejected'
+    ? getApiErrorMessage(result.reason, LOAD_ERROR_MESSAGE)
+    : result.value?.data?.message || LOAD_ERROR_MESSAGE
+);
+
+// Đếm tổng/gốc/con cho dòng số lượng trên khung cây – chỉ tính node đang hoạt động (trangThai !== 0)
 const computeStats = (nodes) => {
   let total = 0, root = 0, sub = 0;
   const walk = (list, level) => {
@@ -100,10 +109,11 @@ const DanhMucQuanAoTree = () => {
   const [creatingNode, setCreatingNode] = useState(null);                   // 'root' hoặc id cha khi đang tạo mới
   const [createForm, setCreateForm] = useState({ maDanhMuc: '', tenDanhMuc: '', moTa: '', trangThai: 1 }); // dữ liệu form tạo mới
   const [deleteModal, setDeleteModal] = useState({ show: false, nodeId: null, nodeName: '' }); // trạng thái modal xác nhận xóa
-  const [isLoading, setIsLoading] = useState(false);                        // cờ loading khi tải/reload dữ liệu
+  const [isLoading, setIsLoading] = useState(true);                         // cờ loading khi tải/reload dữ liệu (true: đang tải lần đầu)
+  const [loadError, setLoadError] = useState(null);                         // câu báo lỗi khi không tải được cây (null = không lỗi)
 
   // ── STATS ──────────────────────────────────────────────────────────────────
-  const [stats, setStats] = useState({ total: 0, root: 0, sub: 0 });       // số liệu thống kê hiển thị dashboard card
+  const [stats, setStats] = useState(EMPTY_STATS);                          // số liệu cho dòng "N danh mục · N gốc · N con"
 
   // LUỒNG TẢI DỮ LIỆU: gọi song song getCayDanhMuc + getAll → ưu tiên getAll (đầy đủ hơn) → buildTreeFromAll → setTreeData
   const fetchTreeData = useCallback(async () => {
@@ -114,6 +124,17 @@ const DanhMucQuanAoTree = () => {
         danhMucQuanAoService.getCayDanhMuc(), // GET /get-cay-danh-muc – chỉ trả node đang hoạt động
         danhMucQuanAoService.getAll(),         // GET /all – trả toàn bộ kể cả trangThai=0
       ]);
+
+      // Cả 2 API đều lỗi → báo lỗi trong khung cây, không giữ cây/số cũ (R9)
+      const allOk = allResponse.status === 'fulfilled' && allResponse.value?.data?.status === 200;
+      const treeOk = treeResponse.status === 'fulfilled' && treeResponse.value?.data?.status === 200;
+      if (!allOk && !treeOk) {
+        setTreeData([]);
+        setStats(EMPTY_STATS);
+        setLoadError(getSettledErrorMessage(allResponse));
+        return;
+      }
+      setLoadError(null);
 
       let data = [];
 
@@ -146,14 +167,15 @@ const DanhMucQuanAoTree = () => {
       } else {
         // Cả 2 API đều không trả về dữ liệu hợp lệ
         setTreeData([]);
-        setStats({ total: 0, root: 0, sub: 0 });
+        setStats(EMPTY_STATS);
         toast.warning('Không có danh mục nào được tải');
       }
     } catch (error) {
       console.error('Lỗi khi tải danh mục:', error);
-      toast.error('Không thể tải dữ liệu danh mục');
+      toast.error(LOAD_ERROR_MESSAGE);
       setTreeData([]);
-      setStats({ total: 0, root: 0, sub: 0 });
+      setStats(EMPTY_STATS);
+      setLoadError(LOAD_ERROR_MESSAGE);
     } finally {
       setIsLoading(false);
     }
@@ -533,59 +555,52 @@ const DanhMucQuanAoTree = () => {
     );
   };
 
-  return (
-    <PageContainer className="space-y-5">
-      <PageHeader
-        title="Danh mục sản phẩm"
-        description="Kéo và thả để thay đổi mối quan hệ cha – con"
-        actions={
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchTreeData}
-              disabled={isLoading}
-              className="h-9 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-            >
-              <RefreshCcw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
-              Làm mới
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleAddRoot}
-              className="h-9 gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
-            >
-              <Plus className="size-4" />
-              Thêm danh mục gốc
-            </Button>
-          </>
-        }
-      />
+  // Danh mục gốc đang hoạt động (node gốc đã khóa không hiển thị trên cây)
+  const activeRoots = treeData.filter((node) => node.trangThai !== 0);
+  // Dòng số lượng chỉ hiện khi đã tải xong, không lỗi và có dữ liệu
+  const showStats = !isLoading && !loadError && stats.total > 0;
+  const formatCount = (value) => value.toLocaleString('vi-VN');
 
-      {/* ── Stats ── */}
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatTile
-          icon={<Tag className="size-4" />}
-          iconClass="bg-bo-primary-soft text-bo-primary"
-          label="Tổng danh mục"
-          value={stats.total}
-        />
-        <StatTile
-          icon={<Folder className="size-4" />}
-          iconClass="bg-bo-success-soft text-bo-success"
-          label="Danh mục gốc"
-          value={stats.root}
-        />
-        <StatTile
-          icon={<Layers className="size-4" />}
-          iconClass="bg-bo-warning-soft text-bo-warning"
-          label="Danh mục con"
-          value={stats.sub}
-        />
-      </section>
+  return (
+    <PageContainer className="space-y-4">
+      {/* Hàng trên khung cây (cùng kiểu ListPageHeader): trái là số lượng danh mục, phải là nút chính.
+          Tên trang đã có ở thanh trên cùng nên không lặp tiêu đề trong trang. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {showStats ? (
+          <p className="min-w-0 text-sm text-bo-muted">
+            {formatCount(stats.total)} danh mục · {formatCount(stats.root)} danh mục gốc · {formatCount(stats.sub)} danh mục con
+          </p>
+        ) : <span />}
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchTreeData}
+            disabled={isLoading}
+            className="h-9 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
+          >
+            <RefreshCcw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
+            Làm mới
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleAddRoot}
+            className="h-9 gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
+          >
+            <Plus className="size-4" />
+            Thêm danh mục gốc
+          </Button>
+        </div>
+      </div>
 
       {/* ── Main tree ── */}
       <SurfaceCard>
+        {/* Hướng dẫn kéo thả (trước đây là mô tả dưới tiêu đề trang) */}
+        <p className="mb-3 flex items-center gap-1.5 text-xs text-bo-muted">
+          <GripVertical className="size-3.5 shrink-0 text-slate-400" aria-hidden="true" />
+          Kéo và thả để thay đổi mối quan hệ cha – con
+        </p>
+
         {/* Drop-to-root zone */}
         <div
           onDragOver={(e) => { e.preventDefault(); setDragOverNode('root'); }}
@@ -595,12 +610,18 @@ const DanhMucQuanAoTree = () => {
             }`}
         >
           {isLoading && treeData.length === 0 && creatingNode === null ? (
-            <LoadingState />
+            <LoadingState label="Đang tải danh mục" />
           ) : (
             <>
               {creatingNode === 'root' && renderCreateForm('root')}
 
-              {treeData.filter(node => node.trangThai !== 0).length === 0 && creatingNode !== 'root' ? (
+              {loadError ? (
+                <ErrorState
+                  title="Không thể tải danh mục"
+                  description={loadError}
+                  onRetry={fetchTreeData}
+                />
+              ) : activeRoots.length === 0 && creatingNode !== 'root' ? (
                 <EmptyState
                   icon={Tag}
                   title="Chưa có danh mục nào"
@@ -610,7 +631,7 @@ const DanhMucQuanAoTree = () => {
                 // Render toàn bộ node gốc (level=0, parentId=null).
                 // Mỗi node tự đệ quy render node con thông qua renderNode(child, level+1, node.id).
                 // Chỉ hiển thị danh mục gốc đang hoạt động (trangThai !== 0)
-                treeData.filter(node => node.trangThai !== 0).map((node) => renderNode(node, 0, null))
+                activeRoots.map((node) => renderNode(node, 0, null))
               )}
             </>
           )}
@@ -639,22 +660,5 @@ const DanhMucQuanAoTree = () => {
     </PageContainer>
   );
 };
-
-/* ══════════════════════════════════════════════════
-   SUB-COMPONENTS
-══════════════════════════════════════════════════ */
-function StatTile({ icon, iconClass, label, value }) {
-  return (
-    <div className="rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-xs font-medium text-bo-muted">{label}</span>
-        <span className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${iconClass}`}>
-          {icon}
-        </span>
-      </div>
-      <p className="mt-3 text-2xl font-bold tracking-tight text-bo-foreground">{value}</p>
-    </div>
-  );
-}
 
 export default DanhMucQuanAoTree;

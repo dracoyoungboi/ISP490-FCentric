@@ -1,45 +1,40 @@
 import { formatCurrency } from "@/utils/formatters";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { donBanHangKenhService, isChannelOrderMock } from "@/services/donBanHangKenhService";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import apiClient from "@/services/apiClient";
+import { getMineKhoList } from "@/services/khoService";
 import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  ShoppingCart,
-  Clock,
-  CheckCircle,
-  XCircle,
-  Filter,
-  RefreshCcw,
-  Check,
+  Calendar,
   Eye,
   FileText,
-  Undo2
+  Plus,
+  SearchX,
+  ShoppingCart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 
 import PageContainer from "@/components/backoffice/PageContainer";
-import PageHeader from "@/components/backoffice/PageHeader";
+import AttentionBar from "@/components/shared/AttentionBar";
 import EmptyState from "@/components/shared/EmptyState";
-import FilterBar from "@/components/shared/FilterBar";
+import ErrorState from "@/components/shared/ErrorState";
+import ListPageHeader from "@/components/shared/ListPageHeader";
+import ListToolbar from "@/components/shared/ListToolbar";
 import LoadingState from "@/components/shared/LoadingState";
 import SearchInput from "@/components/shared/SearchInput";
 import StatusBadge from "@/components/shared/StatusBadge";
+import StatusTabs from "@/components/shared/StatusTabs";
+import TablePagination from "@/components/shared/TablePagination";
 import TableShell from "@/components/shared/TableShell";
 import FilterSelect from "@/components/shared/FilterSelect";
 import MockModeNotice from "@/components/shared/MockModeNotice";
 import ChannelBadge from "@/components/channel/ChannelBadge";
 import OrderFlagBadges from "@/components/channel/OrderFlagBadges";
 import { CHANNELS, MARKETPLACE_FILTER_OPTIONS } from "@/constants/channel";
+import { DON_BAN_HANG_TABS, getDonBanHangStatus } from "@/constants/donBanHang";
+import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
+import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 
 // Lọc theo kênh (S-OC-05): filters kenhBanHang.id EQUALS <id> trên POST /don-ban-hang/filter
 const ORDER_CHANNEL_OPTIONS = [
@@ -47,15 +42,14 @@ const ORDER_CHANNEL_OPTIONS = [
   { value: "pos", label: "POS", id: CHANNELS.POS.id },
 ];
 
-const STATUS_MAP = {
-  0: { label: "Nháp", tone: "warning" },
-  1: { label: "Chờ xuất kho", tone: "info" },
-  2: { label: "Đang xử lý xuất kho", tone: "info" },
-  3: { label: "Đã xuất kho toàn bộ", tone: "warning" },
-  4: { label: "Đã hủy", tone: "danger" },
-  5: { label: "Hoàn thành", tone: "success" },
-  6: { label: "Bị hoàn trả", tone: "danger" }
-};
+// Tab trạng thái (bố cục A+G) — mã tab nằm trên URL ?trangThai=, kênh trên ?kenh=
+const TAB_MAS = DON_BAN_HANG_TABS.map((tab) => tab.ma);
+const TAB_MAC_DINH = "tat-ca";
+const TAB_NHAP = "nhap";
+const TONE_TAB = { [TAB_NHAP]: "warning" };
+const PAGE_SIZE_OPTIONS = [10, 20, 30, 40, 50];
+const SEARCH_DEBOUNCE_MS = 350;
+const LOAD_ERROR_MESSAGE = "Không thể tải danh sách đơn bán hàng. Vui lòng thử lại.";
 
 const ROLE = {
     QUAN_TRI_VIEN: "quan_tri_vien",
@@ -77,37 +71,97 @@ function parseRoles(vaiTro) {
     return vaiTro.includes(" ") ? vaiTro.split(" ") : [vaiTro];
 }
 
+// Điều kiện lọc dùng chung cho danh sách, số trên tab và dòng chú ý (R1):
+// chỉ khác điều kiện trạng thái. Phạm vi theo vai trò do backend tự thêm (kho phụ trách / đơn mình tạo).
+function buildFilterList({ keyword, kenh, ngay, trangThai }) {
+  const filterList = [
+    {
+      fieldName: "loaiChungTu",
+      operation: "EQUALS",
+      value: "don_ban_hang",
+    }
+  ];
+
+  if (keyword) {
+    filterList.push({
+      fieldName: "soDonHang",
+      operation: "LIKE",
+      value: keyword,
+    });
+  }
+
+  if (trangThai?.length === 1) {
+    filterList.push({ fieldName: "trangThai", operation: "EQUALS", value: trangThai[0] });
+  } else if (trangThai?.length > 1) {
+    filterList.push({ fieldName: "trangThai", operation: "IN", value: trangThai });
+  }
+
+  const kenhOption = ORDER_CHANNEL_OPTIONS.find((option) => option.value === kenh);
+  if (kenhOption?.id) {
+    filterList.push({
+      fieldName: "kenhBanHang.id",
+      operation: "EQUALS",
+      value: kenhOption.id,
+    });
+  }
+
+  // Ngày đặt: lọc ở máy chủ (trước đây chỉ lọc trên trang đang xem nên tổng số không khớp)
+  if (ngay) {
+    filterList.push({ fieldName: "ngayDatHang", operation: "GREATER_THAN_OR_EQUAL", value: ngay });
+    filterList.push({ fieldName: "ngayDatHang", operation: "LESS_THAN_OR_EQUAL", value: `${ngay}T23:59:59` });
+  }
+
+  return filterList;
+}
+
+const countOrders = async (filters) => {
+  const res = await donBanHangKenhService.filterDonBan({ filters, sorts: [], page: 0, size: 1 });
+  return res?.totalElements ?? 0;
+};
+
 export default function DonBanHangList() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [userRoles, setUserRoles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const requestIdRef = useRef(0);
+  // null = chưa đọc xong vai trò (chưa bật dòng chú ý / ghi chú phạm vi)
+  const [userRoles, setUserRoles] = useState(null);
+  // Kho phụ trách của vai trò kho, chỉ để ghi chú phạm vi (backend tự lọc theo kho này)
+  const [khoPhuTrach, setKhoPhuTrach] = useState(null);
 
-  const [filters, setFilters] = useState(() => {
-    const kenhParam = (searchParams.get("kenh") || "").toLowerCase();
-    return {
-      keyword: "",
-      trangThai: "",
-      ngayDatHang: "",
-      kenh: ORDER_CHANNEL_OPTIONS.some((option) => option.value === kenhParam) ? kenhParam : "",
-      page: 0,
-      size: 10,
-    };
-  });
+  const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);
+  const tabTrangThai = DON_BAN_HANG_TABS.find((t) => t.ma === tab)?.trangThai ?? null;
 
   // Giữ ?kenh= trên URL để thẻ kênh / Dashboard mở thẳng danh sách đơn của kênh đó
-  const changeKenh = (kenh) => {
-    setFilters((p) => ({ ...p, kenh, page: 0 }));
-    const next = new URLSearchParams(searchParams);
-    if (kenh) next.set("kenh", kenh);
-    else next.delete("kenh");
-    setSearchParams(next, { replace: true });
+  const kenhParam = (searchParams.get("kenh") || "").toLowerCase();
+  const kenh = ORDER_CHANNEL_OPTIONS.some((option) => option.value === kenhParam) ? kenhParam : "";
+
+  const [filters, setFilters] = useState({
+    keyword: "",
+    ngayDatHang: "",
+    page: 0,
+    size: 10,
+  });
+  // Ô tìm kiếm đổi ngay khi gõ; filters.keyword chỉ đổi khi ngừng gõ hoặc bấm Enter.
+  const [searchText, setSearchText] = useState("");
+
+  const changeKenh = (value) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (value) next.set("kenh", value);
+      else next.delete("kenh");
+      return next;
+    }, { replace: true });
+    setFilters((p) => (p.page === 0 ? p : { ...p, page: 0 }));
   };
 
   // Kiểm tra quyền kho
-  const isKhoRole = userRoles.includes(ROLE.QUAN_LY_KHO) || userRoles.includes(ROLE.NHAN_VIEN_KHO);
+  const roles = userRoles ?? [];
+  const isAdmin = roles.includes(ROLE.QUAN_TRI_VIEN);
+  const isKhoRole = roles.includes(ROLE.QUAN_LY_KHO) || roles.includes(ROLE.NHAN_VIEN_KHO);
   useEffect(() => {
     const fetchUserInfo = async () => {
         try {
@@ -119,7 +173,17 @@ export default function DonBanHangList() {
             const userResponse = await apiClient.get(`/api/v1/nguoi-dung/get-by-id/${payload.id}`);
             const userData = userResponse.data?.data;
             if (userData && userData.vaiTro) {
-                setUserRoles(parseRoles(userData.vaiTro));
+                const vaiTro = parseRoles(userData.vaiTro);
+                setUserRoles(vaiTro);
+                // Backend giới hạn vai trò kho (không phải quản trị viên) theo kho xuất phụ trách
+                if (!vaiTro.includes(ROLE.QUAN_TRI_VIEN)
+                    && (vaiTro.includes(ROLE.QUAN_LY_KHO) || vaiTro.includes(ROLE.NHAN_VIEN_KHO))) {
+                    try {
+                        setKhoPhuTrach(await getMineKhoList());
+                    } catch (error) {
+                        console.error('Lỗi khi tải kho phụ trách:', error);
+                    }
+                }
             }
         } catch (error) {
             console.error('Lỗi khi lấy thông tin user:', error);
@@ -128,73 +192,33 @@ export default function DonBanHangList() {
     fetchUserInfo();
   }, []);
 
-  const buildFilterPayload = useCallback(() => {
-    const filterList = [
-      {
-        fieldName: "loaiChungTu",
-        operation: "EQUALS",
-        value: "don_ban_hang",
-      }
-    ];
-
-    if (filters.keyword?.trim()) {
-      filterList.push({
-        fieldName: "soDonHang",
-        operation: "LIKE",
-        value: filters.keyword.trim(),
-      });
-    }
-
-    if (filters.trangThai !== "") {
-      filterList.push({
-        fieldName: "trangThai",
-        operation: "EQUALS",
-        value: Number(filters.trangThai),
-      });
-    }
-
-    const kenhOption = ORDER_CHANNEL_OPTIONS.find((option) => option.value === filters.kenh);
-    if (kenhOption?.id) {
-      filterList.push({
-        fieldName: "kenhBanHang.id",
-        operation: "EQUALS",
-        value: kenhOption.id,
-      });
-    }
-
-    return {
-      page: filters.page,
-      size: filters.size,
-      filters: filterList,
-      sorts: [{ fieldName: "id", direction: "DESC" }],
-    };
-  }, [filters.keyword, filters.trangThai, filters.kenh, filters.page, filters.size]);
-
   const fetchData = useCallback(async () => {
+    // Đổi tab / bộ lọc liên tiếp: chỉ nhận kết quả của yêu cầu mới nhất
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     try {
-      const payload = buildFilterPayload();
-      const res = await donBanHangKenhService.filterDonBan(payload);
-      let list = res.content || [];
-
-      if (filters.ngayDatHang) {
-        list = list.filter((item) => {
-          if (!item.ngayDatHang) return false;
-          const date = new Date(item.ngayDatHang);
-          const year = date.getFullYear();
-          const month = String(date.getMonth() + 1).padStart(2, "0");
-          const day = String(date.getDate()).padStart(2, "0");
-          const localDate = `${year}-${month}-${day}`;
-          return localDate === filters.ngayDatHang;
-        });
-      }
-
-      setData(list);
-      setTotal(res.totalElements || 0);
+      const res = await donBanHangKenhService.filterDonBan({
+        page: filters.page,
+        size: filters.size,
+        filters: buildFilterList({ keyword: filters.keyword, kenh, ngay: filters.ngayDatHang, trangThai: tabTrangThai }),
+        sorts: [{ fieldName: "id", direction: "DESC" }],
+      });
+      if (requestId !== requestIdRef.current) return;
+      setData(res?.content || []);
+      setTotal(res?.totalElements || 0);
+      setLoadError(false);
+    } catch (error) {
+      if (requestId !== requestIdRef.current) return;
+      console.error(error);
+      // Không giữ dòng + tổng số của lần tải trước (R9)
+      setData([]);
+      setTotal(0);
+      setLoadError(true);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
-  }, [buildFilterPayload, filters.ngayDatHang]);
+    // tabTrangThai là mảng hằng trong DON_BAN_HANG_TABS, chỉ đổi khi đổi tab
+  }, [filters, kenh, tabTrangThai]);
 
   // Hoãn qua microtask để tránh setState đồng bộ trong effect
   // (react-hooks/set-state-in-effect); dữ liệu vẫn được tải ngay khi mount.
@@ -202,55 +226,99 @@ export default function DonBanHangList() {
     queueMicrotask(() => fetchData());
   }, [fetchData]);
 
-  const totalPages = Math.ceil(total / filters.size);
+  // ── Số trên tab: cùng số đơn + kênh + ngày đặt đang lọc, chỉ thay trạng thái (R1) ──
+  const tabCounts = useDemTheoTrangThai(
+    TAB_MAS,
+    (ma) => countOrders(buildFilterList({
+      keyword: filters.keyword,
+      kenh,
+      ngay: filters.ngayDatHang,
+      trangThai: DON_BAN_HANG_TABS.find((t) => t.ma === ma)?.trangThai,
+    })),
+    `${filters.keyword}|${kenh}|${filters.ngayDatHang}`
+  );
 
-  const handleReset = () => {
-    setFilters({
-      keyword: "",
-      trangThai: "",
-      ngayDatHang: "",
-      kenh: "",
-      page: 0,
-      size: 10,
-    });
-    if (searchParams.has("kenh")) {
-      const next = new URLSearchParams(searchParams);
-      next.delete("kenh");
-      setSearchParams(next, { replace: true });
-    }
+  // ── Dòng chú ý: đơn nháp chưa gửi kho trong phạm vi danh sách, bỏ qua các bộ lọc khác (R4) ──
+  const canSeeDrafts = roles.includes(ROLE.NHAN_VIEN_BAN_HANG) || isAdmin;
+  const donNhap = useDemTheoTrangThai(
+    [TAB_NHAP],
+    () => countOrders(buildFilterList({ trangThai: [0] })),
+    "don-nhap",
+    { enabled: userRoles !== null && canSeeDrafts }
+  );
+
+  // ── Debounce ô tìm kiếm: không gọi API ở mỗi lần gõ phím ──
+  useEffect(() => {
+    const keyword = searchText.trim();
+    const timer = setTimeout(() => {
+      setFilters((p) => (p.keyword === keyword ? p : { ...p, keyword, page: 0 }));
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchText]);
+
+  const applyKeyword = (keyword) => {
+    setFilters((p) => (p.keyword === keyword ? p : { ...p, keyword, page: 0 }));
   };
 
-  const handlePageChange = (newPage) => {
-    if (newPage >= 0 && newPage < totalPages) {
-      setFilters((p) => ({ ...p, page: newPage }));
-    }
+  // Đổi tab: ghi lên URL (F5 / quay lại vẫn đúng tab) và về trang đầu
+  const changeTab = (value) => {
+    setTab(value);
+    setFilters((p) => (p.page === 0 ? p : { ...p, page: 0 }));
   };
 
-  const handlePageSizeChange = (newSize) => {
-    setFilters((p) => ({ ...p, size: newSize, page: 0 }));
+  const hasActiveFilters = Boolean(searchText.trim() || filters.ngayDatHang || kenh);
+
+  // "Xóa lọc": bỏ số đơn + kênh + ngày đặt, giữ tab đang chọn
+  const clearFilters = () => {
+    setSearchText("");
+    setFilters((p) => ({ ...p, keyword: "", ngayDatHang: "", page: 0 }));
+    if (kenh) changeKenh("");
   };
 
-  // Stats derived from data
-  const stats = {
-    total: total,
-    choXuatKho: data.filter((d) => d.trangThai === 1).length,
-    hoanThanh: data.filter((d) => d.trangThai === 3 || d.trangThai === 5).length,
-    daHuy: data.filter((d) => d.trangThai === 4).length,
-    biHoanTra: data.filter((d) => d.trangThai === 6).length,
+  // Nút của dòng chú ý: mở tab Nháp, bỏ các bộ lọc khác (kể cả kênh) để số dòng khớp số trong câu
+  const showDrafts = () => {
+    setSearchText("");
+    setFilters((p) => ({ ...p, keyword: "", ngayDatHang: "", page: 0 }));
+    setTab(TAB_NHAP, { kenh: null });
   };
 
-  const trangThaiLabel = filters.trangThai === ""
-    ? "Tất cả trạng thái"
-    : STATUS_MAP[filters.trangThai]?.label;
+  const handleRetry = () => {
+    fetchData();
+    tabCounts.reload();
+    donNhap.reload();
+  };
+
+  // Số chỉ hiện khi đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs
+  const statusTabs = DON_BAN_HANG_TABS.map((t) => ({
+    value: t.ma,
+    label: t.label,
+    tone: TONE_TAB[t.ma],
+    count: loadError ? null : tabCounts.counts[t.ma],
+  }));
+
+  // Ghi chú phạm vi (R3) theo đúng điều kiện backend tự thêm ở DonBanHangService.filter:
+  // quản trị viên xem tất cả; vai trò kho theo kho xuất phụ trách; còn lại NV bán hàng chỉ thấy đơn mình tạo.
+  const scopeNote = userRoles === null || isAdmin
+    ? null
+    : isKhoRole
+      ? khoPhuTrach === null
+        ? null
+        : khoPhuTrach.length > 0
+          ? `Kho bạn phụ trách: ${khoPhuTrach.map((k) => k.tenKho).join(", ")}`
+          : "Bạn chưa được phân công kho nào nên danh sách đang trống."
+      : roles.includes(ROLE.NHAN_VIEN_BAN_HANG)
+        ? "Đơn bán hàng bạn tạo"
+        : null;
+
+  const draftCount = canSeeDrafts && tab !== TAB_NHAP ? donNhap.counts[TAB_NHAP] : null;
+  const emptyTabLabel = DON_BAN_HANG_TABS.find((t) => t.ma === tab)?.label;
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
       <MockModeNotice show={isChannelOrderMock} />
 
-      {/* ── Page header ── */}
-      <PageHeader
-        title="Đơn bán hàng"
-        description="Danh sách đơn bán hàng và tiến độ xuất kho"
+      <ListPageHeader
+        scope={scopeNote}
         actions={
           !isKhoRole ? (
             <Link to="/sales-orders/create">
@@ -263,258 +331,124 @@ export default function DonBanHangList() {
         }
       />
 
-      {/* ── Stats ── */}
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-          <div>
-            <p className="text-xs font-medium text-bo-muted">Tổng đơn bán</p>
-            <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.total}</p>
-          </div>
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary">
-            <ShoppingCart className="size-5" />
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-          <div>
-            <p className="text-xs font-medium text-bo-muted">Chờ xuất kho</p>
-            <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.choXuatKho}</p>
-          </div>
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-warning-soft text-bo-warning">
-            <Clock className="size-5" />
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-          <div>
-            <p className="text-xs font-medium text-bo-muted">Hoàn thành</p>
-            <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.hoanThanh}</p>
-          </div>
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-success-soft text-bo-success">
-            <CheckCircle className="size-5" />
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-          <div>
-            <p className="text-xs font-medium text-bo-muted">Bị hoàn trả</p>
-            <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.biHoanTra}</p>
-          </div>
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
-            <Undo2 className="size-5" />
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-          <div>
-            <p className="text-xs font-medium text-bo-muted">Đã hủy</p>
-            <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.daHuy}</p>
-          </div>
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-danger-soft text-bo-danger">
-            <XCircle className="size-5" />
-          </span>
-        </div>
-      </section>
-
-      {/* ── Filters ── */}
-      <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-        <div className="flex items-center gap-2 border-b border-bo-border px-4 py-3 sm:px-5">
-          <Filter className="size-4 text-bo-primary" />
-          <h2 className="text-sm font-semibold text-bo-foreground sm:text-base">
-            Bộ lọc tìm kiếm
-          </h2>
-        </div>
-        <FilterBar
-          primary={
-            <SearchInput
-              placeholder="Nhập số đơn hàng..."
-              value={filters.keyword}
-              onChange={(e) => setFilters((p) => ({ ...p, keyword: e.target.value, page: 0 }))}
-              onClear={() => setFilters((p) => ({ ...p, keyword: "", page: 0 }))}
-            />
-          }
-          filters={
-            <>
-              <DropdownMenu modal={false}>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="h-9 w-full justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-[200px]"
-                  >
-                    <span className="truncate">{trangThaiLabel}</span>
-                    <ChevronDown className="size-4 shrink-0 opacity-60" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  className="backoffice-user-menu z-50 w-[200px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
-                >
-                  <DropdownMenuItem
-                    onClick={() => setFilters((p) => ({ ...p, trangThai: "", page: 0 }))}
-                    className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                  >
-                    Tất cả trạng thái
-                    {filters.trangThai === "" && <Check className="size-4" />}
-                  </DropdownMenuItem>
-                  {Object.entries(STATUS_MAP).map(([key, value]) => (
-                    <DropdownMenuItem
-                      key={key}
-                      onClick={() => setFilters((p) => ({ ...p, trangThai: key, page: 0 }))}
-                      className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                    >
-                      {value.label}
-                      {filters.trangThai === key && <Check className="size-4" />}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <FilterSelect
-                label="Kênh bán"
-                value={filters.kenh}
-                options={ORDER_CHANNEL_OPTIONS}
-                onChange={changeKenh}
-                align="end"
-              />
-
-              <input
-                type="date"
-                aria-label="Ngày đặt"
-                value={filters.ngayDatHang}
-                onChange={(e) => setFilters((p) => ({ ...p, ngayDatHang: e.target.value, page: 0 }))}
-                className="h-9 w-full rounded-md border border-bo-border bg-white px-3 text-sm text-bo-foreground focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 sm:w-[170px]"
-              />
-            </>
-          }
-          actions={
-            <Button
-              variant="outline"
-              onClick={handleReset}
-              className="h-9 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-            >
-              <RefreshCcw className="size-4" />
-              Đặt lại
-            </Button>
-          }
-        />
-      </div>
+      <AttentionBar
+        count={draftCount}
+        actionLabel="Xem đơn nháp"
+        onAction={showDrafts}
+      >
+        <strong className="font-semibold">{draftCount?.toLocaleString("vi-VN")} đơn nháp</strong> chưa gửi kho.
+      </AttentionBar>
 
       {/* ── Table ── */}
       <TableShell
-        title="Danh sách đơn bán hàng"
-        description="Nhấn vào dòng để xem chi tiết đơn bán"
+        toolbar={
+          <ListToolbar
+            tabs={
+              <StatusTabs
+                label="Lọc đơn bán hàng theo trạng thái"
+                tabs={statusTabs}
+                value={tab}
+                onChange={changeTab}
+              />
+            }
+            hasFilter={hasActiveFilters}
+            onClear={clearFilters}
+          >
+            <SearchInput
+              label="Tìm đơn bán hàng"
+              placeholder="Nhập số đơn hàng..."
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") applyKeyword(searchText.trim());
+              }}
+              onClear={() => {
+                setSearchText("");
+                applyKeyword("");
+              }}
+              className="sm:w-[300px]"
+            />
+
+            <FilterSelect
+              label="Kênh bán"
+              value={kenh}
+              options={ORDER_CHANNEL_OPTIONS}
+              onChange={changeKenh}
+              align="end"
+            />
+
+            {/* Ngày đặt: nhãn nằm trong ô để hàng công cụ gọn một dòng */}
+            <label className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-white pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto">
+              <Calendar className="size-4 shrink-0 text-bo-muted" />
+              <span className="shrink-0 text-xs text-bo-muted">Ngày đặt</span>
+              <Input
+                type="date"
+                aria-label="Ngày đặt"
+                className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm text-bo-foreground shadow-none focus-visible:ring-0"
+                value={filters.ngayDatHang}
+                onChange={(e) => setFilters((p) => ({ ...p, ngayDatHang: e.target.value, page: 0 }))}
+              />
+            </label>
+          </ListToolbar>
+        }
         footer={
-          data.length > 0 ? (
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              {/* Page size */}
-              <div className="flex items-center gap-2">
-                <span className="whitespace-nowrap text-xs text-bo-muted">Hiển thị</span>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="h-8 w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                    >
-                      {filters.size} dòng
-                      <ChevronDown className="size-3.5 opacity-60" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="start"
-                    className="backoffice-user-menu z-50 w-[110px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
-                  >
-                    {[10, 20, 30, 40, 50].map((s) => (
-                      <DropdownMenuItem
-                        key={s}
-                        onClick={() => handlePageSizeChange(s)}
-                        className="cursor-pointer rounded-md px-2.5 py-1.5 text-xs text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                      >
-                        {s} dòng
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              {/* Page info */}
-              <p className="text-xs text-bo-muted">
-                Hiển thị{" "}
-                <span className="font-semibold text-bo-foreground">{filters.page * filters.size + 1}</span>
-                {" – "}
-                <span className="font-semibold text-bo-foreground">
-                  {Math.min((filters.page + 1) * filters.size, total)}
-                </span>
-                {" trong tổng số "}
-                <span className="font-semibold text-bo-primary">{total}</span> kết quả
-              </p>
-
-              {/* Navigation */}
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(filters.page - 1)}
-                  disabled={filters.page === 0}
-                  className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                >
-                  <ChevronLeft className="size-3.5" />
-                  Trước
-                </Button>
-
-                <div className="hidden items-center gap-1 sm:flex">
-                  {[...Array(Math.min(5, totalPages))].map((_, idx) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = idx;
-                    } else if (filters.page < 3) {
-                      pageNum = idx;
-                    } else if (filters.page > totalPages - 4) {
-                      pageNum = totalPages - 5 + idx;
-                    } else {
-                      pageNum = filters.page - 2 + idx;
-                    }
-
-                    return (
-                      <Button
-                        key={idx}
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePageChange(pageNum)}
-                        className={
-                          filters.page === pageNum
-                            ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
-                            : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
-                        }
-                      >
-                        {pageNum + 1}
-                      </Button>
-                    );
-                  })}
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(filters.page + 1)}
-                  disabled={filters.page >= totalPages - 1}
-                  className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                >
-                  Sau
-                  <ChevronRight className="size-3.5" />
-                </Button>
-              </div>
-            </div>
+          !loadError && total > 0 ? (
+            <TablePagination
+              page={filters.page}
+              size={filters.size}
+              total={total}
+              sizeOptions={PAGE_SIZE_OPTIONS}
+              onPageChange={(page) => {
+                if (page < 0) return;
+                setFilters((p) => ({ ...p, page }));
+              }}
+              onSizeChange={(size) => setFilters((p) => (p.size === size ? p : { ...p, size, page: 0 }))}
+            />
           ) : null
         }
       >
         {loading ? (
-          <LoadingState rows={6} />
+          <LoadingState label="Đang tải danh sách đơn bán hàng" />
+        ) : loadError ? (
+          <ErrorState description={LOAD_ERROR_MESSAGE} onRetry={handleRetry} />
         ) : data.length === 0 ? (
-          <EmptyState
-            icon={ShoppingCart}
-            title="Không tìm thấy đơn bán hàng nào"
-            description="Hãy tạo một đơn bán mới hoặc điều chỉnh bộ lọc tìm kiếm."
-          />
+          hasActiveFilters ? (
+            <EmptyState
+              icon={SearchX}
+              title="Không tìm thấy đơn bán hàng phù hợp"
+              description="Thử đổi số đơn, kênh bán hoặc ngày đặt."
+              action={
+                <Button
+                  variant="outline"
+                  onClick={clearFilters}
+                  className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                >
+                  Xóa lọc
+                </Button>
+              }
+            />
+          ) : tab !== TAB_MAC_DINH ? (
+            <EmptyState
+              icon={ShoppingCart}
+              title={`Không có đơn bán hàng nào ở trạng thái "${emptyTabLabel}"`}
+              description="Chọn tab Tất cả để xem mọi đơn bán hàng."
+              action={
+                <Button
+                  variant="outline"
+                  onClick={() => changeTab(TAB_MAC_DINH)}
+                  className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                >
+                  Xem tất cả
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState
+              icon={ShoppingCart}
+              title="Chưa có đơn bán hàng"
+              description="Đơn bán hàng được tạo khi chốt báo giá, bán tại quầy hoặc nhận từ sàn."
+            />
+          )
         ) : (
           <table className="w-full min-w-[980px] text-sm">
             <thead>
@@ -529,74 +463,74 @@ export default function DonBanHangList() {
               </tr>
             </thead>
             <tbody className="divide-y divide-bo-border">
-              {data.map((item) => (
-                <tr
-                  key={item.id}
-                  className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
-                  onClick={() => navigate(`/sales-orders/${item.id}`)}
-                >
-                  <td className="px-3 py-3">
-                    <span className="font-semibold uppercase tracking-wide text-bo-primary">{item.soDonHang}</span>
-                    {item.kenhBanHang ? (
-                      <div className="mt-1 flex items-center gap-1.5">
-                        <ChannelBadge
-                          className="h-5 px-1.5 text-[11px]"
-                          maKenh={item.kenhBanHang.maKenh}
-                          label={item.kenhBanHang.tenKenh}
-                        />
-                        {item.maDonHangKenh ? (
-                          <span className="font-mono text-[11px] text-bo-muted">#{item.maDonHangKenh}</span>
-                        ) : null}
+              {data.map((item) => {
+                const st = getDonBanHangStatus(item.trangThai);
+                return (
+                  <tr
+                    key={item.id}
+                    className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
+                    onClick={() => navigate(`/sales-orders/${item.id}`)}
+                  >
+                    <td className="px-3 py-3">
+                      <span className="font-semibold uppercase tracking-wide text-bo-primary">{item.soDonHang}</span>
+                      {item.kenhBanHang ? (
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <ChannelBadge
+                            className="h-5 px-1.5 text-[11px]"
+                            maKenh={item.kenhBanHang.maKenh}
+                            label={item.kenhBanHang.tenKenh}
+                          />
+                          {item.maDonHangKenh ? (
+                            <span className="font-mono text-[11px] text-bo-muted">#{item.maDonHangKenh}</span>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="font-semibold text-bo-foreground">
+                        {item.khachHang?.tenKhachHang || "Khách lẻ"}
                       </div>
-                    ) : null}
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className="font-semibold text-bo-foreground">
-                      {item.khachHang?.tenKhachHang || "Khách lẻ"}
-                    </div>
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className="flex items-center gap-1.5 text-bo-muted">
-                      <FileText className="size-3.5 shrink-0" />
-                      {item.khoXuat?.tenKho}
-                    </div>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-3 text-center text-xs text-bo-muted">
-                    {new Date(item.ngayDatHang).toLocaleDateString("vi-VN")}
-                  </td>
-                  <td className="px-3 py-3 text-right">
-                    <span className="font-semibold text-bo-foreground">
-                      {formatCurrency(item.tongCong)}
-                    </span>
-                  </td>
-                  <td className="px-3 py-3 text-center">
-                    <StatusBadge
-                      label={STATUS_MAP[item.trangThai]?.label}
-                      tone={STATUS_MAP[item.trangThai]?.tone}
-                    />
-                    {item.canXuLy ? (
-                      <div className="mt-1 flex justify-center">
-                        <OrderFlagBadges value={item.canXuLy} />
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="flex items-center gap-1.5 text-bo-muted">
+                        <FileText className="size-3.5 shrink-0" />
+                        {item.khoXuat?.tenKho}
                       </div>
-                    ) : null}
-                  </td>
-                  <td className="px-3 py-3 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/sales-orders/${item.id}`);
-                        }}
-                        className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
-                        title="Xem chi tiết"
-                      >
-                        <Eye className="size-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3 text-center text-xs text-bo-muted">
+                      {new Date(item.ngayDatHang).toLocaleDateString("vi-VN")}
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      <span className="font-semibold text-bo-foreground">
+                        {formatCurrency(item.tongCong)}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      <StatusBadge label={st.label} tone={st.tone} />
+                      {item.canXuLy ? (
+                        <div className="mt-1 flex justify-center">
+                          <OrderFlagBadges value={item.canXuLy} />
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/sales-orders/${item.id}`);
+                          }}
+                          className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
+                          title="Xem chi tiết"
+                        >
+                          <Eye className="size-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

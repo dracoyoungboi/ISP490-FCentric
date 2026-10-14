@@ -36,7 +36,7 @@ export default function DashboardPurchaseStaff() {
 
                 <Stat
                     icon={<Clock className="h-5 w-5 text-bo-warning" />}
-                    label="Đơn chờ duyệt"
+                    label="Yêu cầu nhập chờ duyệt"
                     value={data.pendingPurchaseOrders}
                 />
 

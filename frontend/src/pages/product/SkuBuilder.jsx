@@ -6,46 +6,79 @@ import { productService } from "@/services/productService.js";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import {
-    Save, Printer, RefreshCcw, Package,
-    Layers, Tag, ChevronDown, ChevronLeft, ChevronRight, Check, Filter, DollarSign,
+    Save, Printer, RefreshCcw,
+    Layers, ChevronDown, ChevronLeft, ChevronRight, SearchX,
 } from "lucide-react";
 
 import BarcodePrint from "@/pages/product/components/product/BarcodePrint";
 import { useToggle } from "@/hooks/useToggle";
+import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 import PageContainer from "@/components/backoffice/PageContainer";
-import FilterBar from "@/components/shared/FilterBar";
-import SearchInput from "@/components/shared/SearchInput";
-import TableShell from "@/components/shared/TableShell";
-import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
+import ErrorState from "@/components/shared/ErrorState";
+import ListPageHeader from "@/components/shared/ListPageHeader";
+import ListToolbar from "@/components/shared/ListToolbar";
 import LoadingState from "@/components/shared/LoadingState";
+import SearchInput from "@/components/shared/SearchInput";
+import StatusBadge from "@/components/shared/StatusBadge";
+import StatusTabs from "@/components/shared/StatusTabs";
+import TableShell from "@/components/shared/TableShell";
 
-const STATUS_OPTIONS = [
-    { value: "ALL", label: "Tất cả trạng thái" },
-    { value: "1",   label: "Đang hoạt động" },
-    { value: "0",   label: "Ngừng hoạt động" },
+// Tab trạng thái (bố cục A+G) — mã tab nằm trên URL ?trangThai=
+const STATUS_TABS = [
+    { value: "tat-ca",          label: "Tất cả" },
+    { value: "hoat-dong",       label: "Hoạt động" },
+    { value: "ngung-hoat-dong", label: "Ngừng hoạt động" },
 ];
+const STATUS_TAB_VALUES = STATUS_TABS.map((tab) => tab.value);
+const TAB_MAC_DINH = "tat-ca";
+const LOAD_ERROR_MESSAGE = "Không thể tải danh sách biến thể. Vui lòng thử lại.";
+
+// Khớp nhãn trên dòng: trangThai = 1 là "Hoạt động", còn lại là "Ngừng hoạt động".
+const matchTab = (sku, tab) =>
+    tab === TAB_MAC_DINH || (tab === "hoat-dong" ? sku.trangThai === 1 : sku.trangThai !== 1);
+
+const matchSearch = (sku, keyword) => {
+    if (!keyword.trim()) return true;
+    const lk = keyword.toLowerCase();
+    return (
+        sku.productName?.toLowerCase().includes(lk) ||
+        sku.maSku?.toLowerCase().includes(lk) ||
+        sku.maVachSku?.toLowerCase().includes(lk) ||
+        sku.maVach?.toLowerCase().includes(lk) ||
+        sku.maBienThe?.toLowerCase().includes(lk)
+    );
+};
+
+// Dòng đang sửa giá vốn / giá bán mà chưa lưu (ô giá tô vàng, hiện nút Lưu giá).
+const isPriceChanged = (sku) =>
+    sku.giaBan === "" || sku.giaVon === "" ||
+    Number(sku.giaBan) !== Number(sku.originalPrice) || Number(sku.giaVon) !== Number(sku.originalCost);
 
 // Bảng class tĩnh cho ô nhập giá: highlight khi giá đã thay đổi nhưng chưa lưu.
-const priceInputClass = (isPriceChanged) =>
+const priceInputClass = (daDoiGia) =>
     `mx-auto h-8 w-28 text-right text-xs font-medium text-bo-foreground focus-visible:border-bo-primary ${
-        isPriceChanged ? "border-bo-warning bg-bo-warning-soft" : "border-bo-border bg-white"
+        daDoiGia ? "border-bo-warning bg-bo-warning-soft" : "border-bo-border bg-white"
     }`;
 
 export default function SkuBuilder() {
     const location = useLocation();
     const [skus, setSkus] = useState([]);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState(null);
+    const requestIdRef = useRef(0);
 
     const [keyword, setKeyword] = useState("");
-    const [statusFilter, setStatusFilter] = useState("ALL");
+    // Tab trạng thái trên URL ?trangThai= (F5 / quay lại vẫn đúng tab)
+    const [tab, setTab] = useTabTrenUrl(STATUS_TAB_VALUES, TAB_MAC_DINH);
 
     const [isBarcodeModalOpen, openBarcodeModal, closeBarcodeModal] = useToggle(false);
     const [selectedSkusToPrint, setSelectedSkusToPrint] = useState([]);
@@ -56,8 +89,11 @@ export default function SkuBuilder() {
     const [pageSize, setPageSize] = useState(10);
 
     const fetchSkus = useCallback(async () => {
+        // Chỉ nhận kết quả của lần tải mới nhất
+        const requestId = ++requestIdRef.current;
+        setIsLoading(true);
+        setLoadError(null);
         try {
-            setIsLoading(true);
             const payload = {
                 page: 0,
                 size: 1000,
@@ -65,68 +101,71 @@ export default function SkuBuilder() {
                 sorts: [{ fieldName: "ngayTao", direction: "DESC" }],
             };
             const res = await productService.filterProducts(payload);
+            if (requestId !== requestIdRef.current) return;
             const serverResponse = res.data;
-            if (serverResponse?.status === 200) {
-                const products = serverResponse.data.content || [];
-                const flattenedSkus = [];
-                products.forEach((product) => {
-                    if (product.bienTheSanPhams?.length) {
-                        product.bienTheSanPhams.forEach((variant) => {
-                            flattenedSkus.push({
-                                ...variant,
-                                productId: product.id,
-                                productName: product.tenSanPham,
-                                productCode: product.maSanPham,
-                                originalPrice: variant.giaBan,
-                                originalCost: variant.giaVon,
-                                image: variant.anhBienThe || (product.anhQuanAos?.[0]?.tepTin?.duongDan || product.anhQuanAos?.[0]?.urlAnh),
-                            });
-                        });
-                    }
-                });
-                setSkus(flattenedSkus);
+            if (serverResponse?.status !== 200) {
+                throw new Error(serverResponse?.message || LOAD_ERROR_MESSAGE);
             }
+            const products = serverResponse.data?.content || [];
+            const flattenedSkus = [];
+            products.forEach((product) => {
+                if (product.bienTheSanPhams?.length) {
+                    product.bienTheSanPhams.forEach((variant) => {
+                        flattenedSkus.push({
+                            ...variant,
+                            productId: product.id,
+                            productName: product.tenSanPham,
+                            productCode: product.maSanPham,
+                            originalPrice: variant.giaBan,
+                            originalCost: variant.giaVon,
+                            image: variant.anhBienThe || (product.anhQuanAos?.[0]?.tepTin?.duongDan || product.anhQuanAos?.[0]?.urlAnh),
+                        });
+                    });
+                }
+            });
+            setSkus(flattenedSkus);
         } catch (error) {
+            if (requestId !== requestIdRef.current) return;
             console.error("Lỗi khi tải danh sách SKU:", error);
             toast.error("Không thể tải danh sách SKU");
+            // Không giữ dòng của lần tải trước (R9)
+            setSkus([]);
+            setLoadError(error?.response?.data?.message || LOAD_ERROR_MESSAGE);
         } finally {
-            setIsLoading(false);
+            if (requestId === requestIdRef.current) setIsLoading(false);
         }
     }, []);
 
     useEffect(() => {
         // Hoãn qua microtask để tránh setState đồng bộ trong effect
         // (react-hooks/set-state-in-effect); dữ liệu vẫn được tải ngay khi mount.
+        // Không tải lại khi chỉ đổi tab (?trangThai=) để giữ giá đang sửa dở.
         queueMicrotask(() => fetchSkus());
         // Force scroll to top on navigation
         window.scrollTo(0, 0);
-    }, [fetchSkus, location.pathname, location.search]);
+    }, [fetchSkus, location.pathname]);
 
-    // Derived state using useMemo to ensure consistency
-    const processedSkus = useMemo(() => {
-        let result = [...skus];
-        if (keyword.trim()) {
-            const lk = keyword.toLowerCase();
-            result = result.filter((sku) =>
-                sku.productName?.toLowerCase().includes(lk) ||
-                sku.maSku?.toLowerCase().includes(lk) ||
-                sku.maVachSku?.toLowerCase().includes(lk) ||
-                sku.maVach?.toLowerCase().includes(lk) ||
-                sku.maBienThe?.toLowerCase().includes(lk)
-            );
-        }
-        if (statusFilter !== "ALL") {
-            result = result.filter((sku) => sku.trangThai === Number(statusFilter));
-        }
-        return result;
-    }, [skus, keyword, statusFilter]);
+    // Lọc tại chỗ: từ khóa trước, trạng thái sau — số trên tab đếm trên `searched` (R1)
+    const searched = useMemo(
+        () => skus.filter((sku) => matchSearch(sku, keyword)),
+        [skus, keyword]
+    );
+    const processedSkus = useMemo(
+        () => searched.filter((sku) => matchTab(sku, tab)),
+        [searched, tab]
+    );
 
-    const stats = useMemo(() => ({
-        total: skus.length,
-        active: skus.filter((s) => s.trangThai === 1).length,
-        inactive: skus.filter((s) => s.trangThai === 0).length,
-        changed: skus.filter((s) => s.giaBan === "" || s.giaVon === "" || Number(s.giaBan) !== Number(s.originalPrice) || Number(s.giaVon) !== Number(s.originalCost)).length,
-    }), [skus]);
+    // Số trên tab = số dòng sẽ thấy khi bấm tab, theo từ khóa đang tìm; đang tải / lỗi thì không hiện (R9)
+    const statusTabs = useMemo(
+        () => STATUS_TABS.map((t) => ({
+            ...t,
+            count: isLoading || loadError ? null : searched.filter((sku) => matchTab(sku, t.value)).length,
+        })),
+        [searched, isLoading, loadError]
+    );
+
+    // Số dòng đang sửa giá dở (trên mọi dòng đã tải, kể cả dòng bị bộ lọc che)
+    const soDongChuaLuu = useMemo(() => skus.filter(isPriceChanged).length, [skus]);
 
     const handlePriceChange = (id, field, value) => {
         setSkus((prev) => prev.map((sku) => sku.id === id ? { ...sku, [field]: value } : sku));
@@ -182,137 +221,72 @@ export default function SkuBuilder() {
         openBarcodeModal();
     };
 
-    const currentPageSkus = processedSkus.slice(page * pageSize, (page + 1) * pageSize);
+    // Đổi tab: ghi lên URL và về trang đầu
+    const changeTab = (value) => {
+        setTab(value);
+        setPage(0);
+    };
+
+    // "Xóa lọc" chỉ xóa từ khóa, giữ tab đang chọn
+    const handleClearSearch = () => {
+        setKeyword("");
+        setPage(0);
+    };
+
     const totalPages = Math.max(1, Math.ceil(processedSkus.length / pageSize));
+    const safePage = Math.min(page, totalPages - 1);
+    const currentPageSkus = processedSkus.slice(safePage * pageSize, (safePage + 1) * pageSize);
+    const emptyTabLabel = STATUS_TABS.find((t) => t.value === tab)?.label;
 
     return (
-        <PageContainer key={location.pathname} className="space-y-5">
+        <PageContainer key={location.pathname} className="space-y-4">
+            <ListPageHeader
+                actions={
+                    <Button
+                        variant="outline"
+                        onClick={fetchSkus}
+                        disabled={isLoading || savingSkuIds.size > 0}
+                        className="gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                    >
+                        <RefreshCcw className={cn("size-4", isLoading && "animate-spin")} />
+                        Tải lại
+                    </Button>
+                }
+            />
 
-            {/* ══ STATS ════════════════════════════════════════════════════════ */}
-            <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-                    <div>
-                        <p className="text-xs font-medium text-bo-muted">Tổng biến thể</p>
-                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.total}</p>
-                    </div>
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary">
-                        <Package className="size-5" />
-                    </span>
-                </div>
-
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-                    <div>
-                        <p className="text-xs font-medium text-bo-muted">Đang hoạt động</p>
-                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.active}</p>
-                    </div>
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-success-soft text-bo-success">
-                        <Layers className="size-5" />
-                    </span>
-                </div>
-
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-                    <div>
-                        <p className="text-xs font-medium text-bo-muted">Ngừng hoạt động</p>
-                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.inactive}</p>
-                    </div>
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
-                        <Tag className="size-5" />
-                    </span>
-                </div>
-
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-                    <div>
-                        <p className="text-xs font-medium text-bo-muted">Chờ lưu giá</p>
-                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.changed}</p>
-                    </div>
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-warning-soft text-bo-warning">
-                        <DollarSign className="size-5" />
-                    </span>
-                </div>
-            </section>
-
-            {/* ══ BỘ LỌC TÌM KIẾM ═════════════════════════════════════════════ */}
-            <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                <div className="flex items-center gap-2 border-b border-bo-border px-4 py-3 sm:px-5">
-                    <Filter className="size-4 text-bo-primary" />
-                    <h2 className="text-sm font-semibold text-bo-foreground sm:text-base">
-                        Bộ lọc tìm kiếm
-                    </h2>
-                </div>
-                <FilterBar
-                    className="border-b-0"
-                    primary={
+            {/* ══ BẢNG: tab trạng thái + tìm kiếm cùng một hàng ══ */}
+            <TableShell
+                toolbar={
+                    <ListToolbar
+                        tabs={
+                            <StatusTabs
+                                label="Lọc biến thể theo trạng thái"
+                                tabs={statusTabs}
+                                value={tab}
+                                onChange={changeTab}
+                            />
+                        }
+                        hasFilter={Boolean(keyword.trim())}
+                        onClear={handleClearSearch}
+                    >
+                        {/* Nhắc dòng đang sửa giá dở (không phải số thống kê) */}
+                        {soDongChuaLuu > 0 ? (
+                            <span className="inline-flex h-7 items-center whitespace-nowrap rounded-full border border-bo-warning/30 bg-bo-warning-soft px-2.5 text-xs font-medium text-bo-warning">
+                                {soDongChuaLuu.toLocaleString("vi-VN")} dòng chưa lưu giá
+                            </span>
+                        ) : null}
                         <SearchInput
                             value={keyword}
                             onChange={(e) => { setKeyword(e.target.value); setPage(0); }}
+                            onClear={handleClearSearch}
                             placeholder="Tìm theo tên SP, SKU, mã vạch..."
                             label="Tìm kiếm SKU"
-                            disabled={isLoading}
+                            className="sm:w-[300px]"
                         />
-                    }
-                    filters={
-                        <>
-                            {/* Trạng thái */}
-                            <DropdownMenu modal={false}>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className="h-9 w-[200px] justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                                    >
-                                        <span className="truncate">
-                                            {STATUS_OPTIONS.find((o) => o.value === statusFilter)?.label}
-                                        </span>
-                                        <ChevronDown className="size-4 shrink-0 opacity-70" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    align="end"
-                                    className="backoffice-user-menu z-50 w-[200px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
-                                >
-                                    {STATUS_OPTIONS.map((opt) => (
-                                        <DropdownMenuItem
-                                            key={opt.value}
-                                            onClick={() => { setStatusFilter(opt.value); setPage(0); }}
-                                            className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                        >
-                                            {opt.label}
-                                            {statusFilter === opt.value && <Check className="size-4" />}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-
-                            {/* Tải lại */}
-                            <Button
-                                variant="outline"
-                                onClick={fetchSkus}
-                                disabled={isLoading || savingSkuIds.size > 0}
-                                className="flex h-9 items-center gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                            >
-                                <RefreshCcw className={`size-4 ${isLoading ? "animate-spin" : ""}`} />
-                                Tải lại
-                            </Button>
-                        </>
-                    }
-                />
-            </div>
-
-            {/* ══ TABLE / LOADING / EMPTY ══════════════════════════════════════ */}
-            {isLoading ? (
-                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                    <LoadingState label="Đang tải danh sách biến thể..." />
-                </div>
-            ) : processedSkus.length === 0 ? (
-                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                    <EmptyState
-                        icon={Layers}
-                        title="Không tìm thấy biến thể nào"
-                        description="Hãy thử thay đổi bộ lọc hoặc từ khóa tìm kiếm để xem kết quả khác."
-                    />
-                </div>
-            ) : (
-                <TableShell
-                    footer={
+                    </ListToolbar>
+                }
+                footer={
+                    !isLoading && !loadError && processedSkus.length > 0 ? (
                         <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
                             {/* Số dòng hiển thị */}
                             <div className="flex items-center gap-2">
@@ -348,11 +322,11 @@ export default function SkuBuilder() {
                             <p className="text-xs text-bo-muted">
                                 Hiển thị{" "}
                                 <span className="font-semibold text-bo-foreground">
-                                    {page * pageSize + 1}
+                                    {safePage * pageSize + 1}
                                 </span>
                                 {" - "}
                                 <span className="font-semibold text-bo-foreground">
-                                    {Math.min((page + 1) * pageSize, processedSkus.length)}
+                                    {Math.min((safePage + 1) * pageSize, processedSkus.length)}
                                 </span>
                                 {" trong tổng số "}
                                 <span className="font-semibold text-bo-primary">{processedSkus.length}</span> kết quả
@@ -363,8 +337,8 @@ export default function SkuBuilder() {
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => setPage(page - 1)}
-                                    disabled={page === 0}
+                                    onClick={() => setPage(safePage - 1)}
+                                    disabled={safePage === 0}
                                     className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
                                 >
                                     <ChevronLeft className="size-3.5" />
@@ -376,21 +350,21 @@ export default function SkuBuilder() {
                                         let pageNum;
                                         if (totalPages <= 5) {
                                             pageNum = idx;
-                                        } else if (page < 3) {
+                                        } else if (safePage < 3) {
                                             pageNum = idx;
-                                        } else if (page > totalPages - 4) {
+                                        } else if (safePage > totalPages - 4) {
                                             pageNum = totalPages - 5 + idx;
                                         } else {
-                                            pageNum = page - 2 + idx;
+                                            pageNum = safePage - 2 + idx;
                                         }
                                         return (
                                             <Button
                                                 key={idx}
-                                                variant={page === pageNum ? "default" : "outline"}
+                                                variant={safePage === pageNum ? "default" : "outline"}
                                                 size="sm"
                                                 onClick={() => setPage(pageNum)}
                                                 className={
-                                                    page === pageNum
+                                                    safePage === pageNum
                                                         ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
                                                         : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
                                                 }
@@ -404,8 +378,8 @@ export default function SkuBuilder() {
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => setPage(page + 1)}
-                                    disabled={page >= totalPages - 1}
+                                    onClick={() => setPage(safePage + 1)}
+                                    disabled={safePage >= totalPages - 1}
                                     className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
                                 >
                                     Sau
@@ -413,9 +387,53 @@ export default function SkuBuilder() {
                                 </Button>
                             </div>
                         </div>
-                    }
-                >
-                    {/* Bảng dữ liệu, cuộn bên trong khung */}
+                    ) : null
+                }
+            >
+                {isLoading ? (
+                    <LoadingState label="Đang tải danh sách biến thể" />
+                ) : loadError ? (
+                    <ErrorState description={loadError} onRetry={fetchSkus} />
+                ) : processedSkus.length === 0 ? (
+                    keyword.trim() ? (
+                        <EmptyState
+                            icon={SearchX}
+                            title="Không tìm thấy biến thể phù hợp"
+                            description="Thử đổi từ khóa tìm kiếm."
+                            action={
+                                <Button
+                                    variant="outline"
+                                    onClick={handleClearSearch}
+                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                >
+                                    Xóa lọc
+                                </Button>
+                            }
+                        />
+                    ) : tab !== TAB_MAC_DINH ? (
+                        <EmptyState
+                            icon={Layers}
+                            title={`Không có biến thể nào ở trạng thái "${emptyTabLabel}"`}
+                            description="Chọn tab Tất cả để xem mọi biến thể."
+                            action={
+                                <Button
+                                    variant="outline"
+                                    onClick={() => changeTab(TAB_MAC_DINH)}
+                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                >
+                                    Xem tất cả
+                                </Button>
+                            }
+                        />
+                    ) : (
+                        <EmptyState
+                            icon={Layers}
+                            title="Chưa có biến thể"
+                            description="Biến thể được tạo khi thêm hoặc sửa sản phẩm ở trang Sản phẩm."
+                        />
+                    )
+                ) : (
+                    /* Bảng dữ liệu, cuộn bên trong khung */
                     <div className="max-h-[520px] overflow-y-auto">
                         <table className="w-full min-w-[1080px] text-sm">
                             <thead className="sticky top-0 z-10">
@@ -433,11 +451,11 @@ export default function SkuBuilder() {
                             </thead>
                             <tbody className="divide-y divide-bo-border">
                                 {currentPageSkus.map((sku, index) => {
-                                    const isPriceChanged = sku.giaBan === "" || sku.giaVon === "" || Number(sku.giaBan) !== Number(sku.originalPrice) || Number(sku.giaVon) !== Number(sku.originalCost);
+                                    const daDoiGia = isPriceChanged(sku);
                                     return (
                                         <tr key={`${sku.id}-${index}`} className="transition-colors hover:bg-bo-surface-subtle">
                                             <td className="w-14 px-3 py-3 text-center align-middle text-xs text-bo-muted">
-                                                {page * pageSize + index + 1}
+                                                {safePage * pageSize + index + 1}
                                             </td>
 
                                             <td className="px-3 py-3 align-middle">
@@ -481,16 +499,17 @@ export default function SkuBuilder() {
 
                                             <td className="px-3 py-3 text-center align-middle">
                                                 {sku.trangThai === 1 ? (
-                                                    <StatusBadge label="Hoạt động" tone="success" />
+                                                    <StatusBadge label="Hoạt động" tone="success" className="whitespace-nowrap" />
                                                 ) : (
-                                                    <StatusBadge label="Ngừng HĐ" tone="neutral" />
+                                                    <StatusBadge label="Ngừng hoạt động" tone="neutral" className="whitespace-nowrap" />
                                                 )}
                                             </td>
 
                                             <td className="px-3 py-3 text-center align-middle">
                                                 <Input
                                                     type="number"
-                                                    className={priceInputClass(isPriceChanged)}
+                                                    aria-label={`Giá vốn ${sku.maSku || sku.maBienThe || ""}`.trim()}
+                                                    className={priceInputClass(daDoiGia)}
                                                     value={sku.giaVon}
                                                     onChange={(e) => handlePriceChange(sku.id, "giaVon", e.target.value)}
                                                 />
@@ -499,7 +518,8 @@ export default function SkuBuilder() {
                                             <td className="px-3 py-3 text-center align-middle">
                                                 <Input
                                                     type="number"
-                                                    className={priceInputClass(isPriceChanged)}
+                                                    aria-label={`Giá bán ${sku.maSku || sku.maBienThe || ""}`.trim()}
+                                                    className={priceInputClass(daDoiGia)}
                                                     value={sku.giaBan}
                                                     onChange={(e) => handlePriceChange(sku.id, "giaBan", e.target.value)}
                                                 />
@@ -507,7 +527,7 @@ export default function SkuBuilder() {
 
                                             <td className="px-3 py-3 align-middle">
                                                 <div className="flex items-center justify-center gap-1">
-                                                    {isPriceChanged && (
+                                                    {daDoiGia && (
                                                         <button
                                                             type="button"
                                                             title={savingSkuIds.has(sku.id) ? "Đang lưu giá..." : "Lưu giá"}
@@ -537,8 +557,8 @@ export default function SkuBuilder() {
                             </tbody>
                         </table>
                     </div>
-                </TableShell>
-            )}
+                )}
+            </TableShell>
 
             <BarcodePrint
                 isOpen={isBarcodeModalOpen}

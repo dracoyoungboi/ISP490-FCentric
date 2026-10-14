@@ -18,20 +18,10 @@ import {
     Calendar, User, AlertCircle, Info as InfoIcon,
     ArrowRight, ArrowLeft, MapPin
 } from "lucide-react";
+import { PHIEU_XUAT_KHO_STATUS, getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
 
-// Trạng thái phiếu xuất
-const STATUS_UI = {
-    0: { label: "Nháp", tone: "warning" },
-    1: { label: "Chờ duyệt", tone: "info" },
-    2: {
-        label: "Đã duyệt",
-        tone: "info",
-        className: "border-indigo-200 bg-indigo-50 text-indigo-700",
-    },
-    3: { label: "Đã xuất", tone: "success" },
-    4: { label: "Đã hủy", tone: "danger" },
-    5: { label: "Đã xuất", tone: "success" },
-};
+// Trạng thái phiếu xuất — dùng chung tên với danh sách và bản in (constants/phieuXuatKho)
+const STATUS_UI = PHIEU_XUAT_KHO_STATUS;
 
 const TH_CLASS =
     "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted";
@@ -138,7 +128,7 @@ export default function PhieuXuatKhoDetail() {
         && chiTiet.length > 0
         && chiTiet.every(ct => ct.duSoLuong === true);
 
-    const statusInfo = STATUS_UI[phieu.trangThai] || { label: "Không xác định", tone: "info" };
+    const statusInfo = getPhieuXuatKhoStatus(phieu.trangThai);
 
     return (
         <PageContainer className="space-y-5">

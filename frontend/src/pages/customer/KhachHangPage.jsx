@@ -17,13 +17,11 @@ import {
     Eye,
     Trash2,
     User,
-    Filter,
     Mail,
     Phone,
     MapPin,
     AlertCircle,
     CheckCircle2,
-    RefreshCcw,
     Loader2,
     ChevronDown,
     ChevronLeft,
@@ -31,8 +29,7 @@ import {
     Check,
     Users,
     UserPlus,
-    Building2,
-    Store
+    SearchX
 } from "lucide-react";
 import {
     DropdownMenu,
@@ -42,14 +39,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import PageContainer from "@/components/backoffice/PageContainer";
-import PageHeader from "@/components/backoffice/PageHeader";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import EmptyState from "@/components/shared/EmptyState";
-import FilterBar from "@/components/shared/FilterBar";
+import ErrorState from "@/components/shared/ErrorState";
+import FilterSelect from "@/components/shared/FilterSelect";
+import ListPageHeader from "@/components/shared/ListPageHeader";
+import ListToolbar from "@/components/shared/ListToolbar";
 import LoadingState from "@/components/shared/LoadingState";
 import SearchInput from "@/components/shared/SearchInput";
 import StatusBadge from "@/components/shared/StatusBadge";
+import StatusTabs from "@/components/shared/StatusTabs";
 import TableShell from "@/components/shared/TableShell";
+import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
+import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import {
     PHONE_ERROR_MESSAGE,
     getPhoneError,
@@ -89,19 +91,62 @@ const LOAI_KHACH_HANG_MAP = {
     si: { label: "Khách sỉ", tone: "success" }
 };
 
-// Thứ tự lựa chọn lọc loại khách hàng (giữ nguyên như bản cũ)
-const LOAI_FILTER_OPTIONS = [
-    { value: "all", label: "Tất cả loại" },
-    { value: "le", label: "Khách lẻ" },
-    { value: "si", label: "Khách sỉ" },
-    { value: "doanh_nghiep", label: "Doanh nghiệp" }
+// Tab theo loại khách hàng (bố cục A+G), thứ tự giữ như bộ lọc loại cũ.
+// Giá trị tab là mã loại trong code, nằm trên URL ?loai= (tab "Tất cả" không ghi lên URL).
+const LOAI_TAB_MAC_DINH = "tat-ca";
+const LOAI_TABS = [
+    { value: LOAI_TAB_MAC_DINH, label: "Tất cả" },
+    { value: "le", label: LOAI_KHACH_HANG_MAP.le.label },
+    { value: "si", label: LOAI_KHACH_HANG_MAP.si.label },
+    { value: "doanh_nghiep", label: LOAI_KHACH_HANG_MAP.doanh_nghiep.label }
 ];
+const LOAI_TAB_VALUES = LOAI_TABS.map((tab) => tab.value);
 
+// Trạng thái vẫn là ô chọn (SRS 1.5.1); một tên "Ngừng hoạt động" cho cả bộ lọc, bảng và hộp thoại xóa
 const TRANG_THAI_FILTER_OPTIONS = [
     { value: "all", label: "Tất cả trạng thái" },
     { value: "1", label: "Hoạt động" },
-    { value: "0", label: "Ngưng hoạt động" }
+    { value: "0", label: "Ngừng hoạt động" }
 ];
+
+// Điều kiện lọc dùng chung cho danh sách và số trên tab (chỉ khác điều kiện loại)
+function buildKhachHangFilters({ keyword, loai, trangThai }) {
+    const filters = [];
+
+    // Search filter - tìm theo tên, mã, số điện thoại, email
+    if (keyword) {
+        ["tenKhachHang", "maKhachHang", "soDienThoai", "email"].forEach((fieldName) => {
+            filters.push({
+                fieldName,
+                operation: "ILIKE",
+                value: `%${keyword}%`,
+                logicType: "OR"
+            });
+        });
+    }
+
+    // Loại khách hàng filter
+    if (loai && loai !== LOAI_TAB_MAC_DINH) {
+        filters.push({
+            fieldName: "loaiKhachHang",
+            operation: "EQUALS",
+            value: loai,
+            logicType: "AND"
+        });
+    }
+
+    // Trạng thái filter
+    if (trangThai !== "all") {
+        filters.push({
+            fieldName: "trangThai",
+            operation: "EQUALS",
+            value: parseInt(trangThai),
+            logicType: "AND"
+        });
+    }
+
+    return filters;
+}
 
 // Service xử lý API calls
 const khachHangService = {
@@ -134,7 +179,7 @@ const khachHangService = {
 // Component chính
 export default function KhachHangPage() {
     const [khachHangs, setKhachHangs] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(0);
     const [pageSize, setPageSize] = useState(20);
     const [totalItems, setTotalItems] = useState(0);
@@ -143,13 +188,12 @@ export default function KhachHangPage() {
     const [searchQuery, setSearchQuery] = useState("");
     // Từ khóa thực sự gửi lên server (trễ SEARCH_DEBOUNCE_MS sau lần gõ cuối, hoặc ngay khi Enter)
     const [debouncedSearch, setDebouncedSearch] = useState("");
-    const [loaiKhachHang, setLoaiKhachHang] = useState("all");
+    // Tab loại khách hàng nằm trên URL ?loai= (F5 / quay lại từ chi tiết vẫn đúng tab)
+    const [loaiKhachHang, setLoaiKhachHang] = useTabTrenUrl(LOAI_TAB_VALUES, LOAI_TAB_MAC_DINH, { ten: "loai" });
     const [trangThai, setTrangThai] = useState("all");
+    const [loadError, setLoadError] = useState(false);
     // Đánh số mỗi lần tải danh sách: phản hồi về muộn của lần tải cũ bị bỏ qua
     const requestSeq = useRef(0);
-
-    // Thống kê toàn bộ khách hàng (không phụ thuộc bộ lọc / trang đang xem); null = chưa tải được
-    const [stats, setStats] = useState({ total: null, le: null, si: null, doanh_nghiep: null });
 
     // Dialog states
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -186,55 +230,7 @@ export default function KhachHangPage() {
         const seq = ++requestSeq.current;
         setLoading(true);
         try {
-            const filters = [];
-
-            // Search filter - tìm theo tên, mã, số điện thoại, email
-            if (debouncedSearch) {
-                filters.push({
-                    fieldName: "tenKhachHang",
-                    operation: "ILIKE",
-                    value: `%${debouncedSearch}%`,
-                    logicType: "OR"
-                });
-                filters.push({
-                    fieldName: "maKhachHang",
-                    operation: "ILIKE",
-                    value: `%${debouncedSearch}%`,
-                    logicType: "OR"
-                });
-                filters.push({
-                    fieldName: "soDienThoai",
-                    operation: "ILIKE",
-                    value: `%${debouncedSearch}%`,
-                    logicType: "OR"
-                });
-                filters.push({
-                    fieldName: "email",
-                    operation: "ILIKE",
-                    value: `%${debouncedSearch}%`,
-                    logicType: "OR"
-                });
-            }
-
-            // Loại khách hàng filter
-            if (loaiKhachHang !== "all") {
-                filters.push({
-                    fieldName: "loaiKhachHang",
-                    operation: "EQUALS",
-                    value: loaiKhachHang,
-                    logicType: "AND"
-                });
-            }
-
-            // Trạng thái filter
-            if (trangThai !== "all") {
-                filters.push({
-                    fieldName: "trangThai",
-                    operation: "EQUALS",
-                    value: parseInt(trangThai),
-                    logicType: "AND"
-                });
-            }
+            const filters = buildKhachHangFilters({ keyword: debouncedSearch, loai: loaiKhachHang, trangThai });
 
             const filterRequest = {
                 filters,
@@ -260,40 +256,18 @@ export default function KhachHangPage() {
             }
             setKhachHangs(content);
             setTotalItems(data.totalElements || 0);
+            setLoadError(false);
         } catch (error) {
             if (seq !== requestSeq.current) return;
+            // Không giữ dòng + tổng số của lần tải trước (R9)
+            setLoadError(true);
+            setKhachHangs([]);
+            setTotalItems(0);
             showAlert(getApiErrorMessage(error, "Không tải được danh sách khách hàng"), "error");
         } finally {
             if (seq === requestSeq.current) setLoading(false);
         }
     }, [currentPage, pageSize, debouncedSearch, loaiKhachHang, trangThai, showAlert]);
-
-    // Đếm số khách theo từng loại trên toàn hệ thống: mỗi thẻ gọi filter size=1 và lấy totalElements,
-    // dùng đúng điều kiện của bộ lọc "Loại KH" nên số trên thẻ khớp với kết quả khi lọc theo loại đó.
-    const loadStats = useCallback(async () => {
-        const countBy = async (loai) => {
-            const data = await khachHangService.filter({
-                filters: loai
-                    ? [{ fieldName: "loaiKhachHang", operation: "EQUALS", value: loai, logicType: "AND" }]
-                    : [],
-                sorts: [],
-                page: 0,
-                size: 1
-            });
-            return data.totalElements || 0;
-        };
-        try {
-            const [total, le, si, doanh_nghiep] = await Promise.all([
-                countBy(null),
-                countBy("le"),
-                countBy("si"),
-                countBy("doanh_nghiep")
-            ]);
-            setStats({ total, le, si, doanh_nghiep });
-        } catch {
-            // Thẻ thống kê giữ "—"; lỗi tải danh sách đã có thông báo riêng
-        }
-    }, []);
 
     // Hoãn qua microtask để tránh setState đồng bộ trong effect
     // (react-hooks/set-state-in-effect); dữ liệu vẫn được tải ngay khi mount.
@@ -301,9 +275,21 @@ export default function KhachHangPage() {
         queueMicrotask(() => loadKhachHangs());
     }, [loadKhachHangs]);
 
-    useEffect(() => {
-        queueMicrotask(() => loadStats());
-    }, [loadStats]);
+    // Số trên tab: cùng từ khóa + trạng thái đang lọc, chỉ thay điều kiện loại (R1);
+    // cùng điều kiện "loaiKhachHang EQUALS" của danh sách nên số khớp số dòng khi bấm tab
+    const tabCounts = useDemTheoTrangThai(
+        LOAI_TAB_VALUES,
+        async (loai) => {
+            const data = await khachHangService.filter({
+                filters: buildKhachHangFilters({ keyword: debouncedSearch, loai, trangThai }),
+                sorts: [],
+                page: 0,
+                size: 1
+            });
+            return data.totalElements || 0;
+        },
+        `${debouncedSearch}|${trangThai}`
+    );
 
     // Áp dụng từ khóa tìm kiếm và quay về trang đầu (chỉ khi từ khóa thực sự đổi)
     const applySearch = useCallback((term) => {
@@ -330,6 +316,7 @@ export default function KhachHangPage() {
         applySearch("");
     };
 
+    // Đổi tab loại: ghi lên URL và về trang đầu
     const handleLoaiKhachHangChange = (value) => {
         setLoaiKhachHang(value);
         setCurrentPage(0);
@@ -340,12 +327,17 @@ export default function KhachHangPage() {
         setCurrentPage(0);
     };
 
+    // "Xóa lọc": bỏ từ khóa + trạng thái, giữ tab loại đang chọn
     const handleResetFilters = () => {
         setSearchQuery("");
         setDebouncedSearch("");
-        setLoaiKhachHang("all");
         setTrangThai("all");
         setCurrentPage(0);
+    };
+
+    const handleRetry = () => {
+        loadKhachHangs();
+        tabCounts.reload();
     };
 
     // Nhấn vào dòng -> xem chi tiết; bỏ qua khi người dùng đang bôi đen chữ (vd. copy SĐT, email)
@@ -365,6 +357,7 @@ export default function KhachHangPage() {
             showAlert("Xóa khách hàng thành công");
             setShowDeleteDialog(false);
             loadKhachHangs();
+            tabCounts.reload();
         } catch (error) {
             showAlert(getApiErrorMessage(error, "Không xóa được khách hàng"), "error");
         }
@@ -430,7 +423,7 @@ export default function KhachHangPage() {
             showAlert("Thêm khách hàng thành công");
             setShowCreateDialog(false);
             loadKhachHangs();
-            loadStats();
+            tabCounts.reload();
         } catch (error) {
             // Hiện trong dialog (thông báo ngoài trang bị lớp phủ dialog che); ưu tiên message của backend,
             // vd. "Số điện thoại đã thuộc khách hàng ..." thay vì "Request failed with status code 409"
@@ -448,8 +441,6 @@ export default function KhachHangPage() {
         return <StatusBadge label={item.label} tone={item.tone} dot={false} />;
     };
 
-    const formatStat = (value) => (value == null ? "—" : value);
-
     const totalPages = Math.ceil(totalItems / pageSize);
 
     const handlePageChange = (newPage) => {
@@ -466,16 +457,20 @@ export default function KhachHangPage() {
         setCurrentPage(0);
     };
 
-    const loaiKhachHangLabel = LOAI_FILTER_OPTIONS.find(o => o.value === loaiKhachHang)?.label;
+    // Bộ lọc ngoài tab loại (nút "Xóa lọc" chỉ xóa các bộ lọc này)
+    const hasActiveFilters = Boolean(searchQuery.trim() || debouncedSearch || trangThai !== "all");
 
-    const trangThaiLabel = TRANG_THAI_FILTER_OPTIONS.find(o => o.value === trangThai)?.label;
+    // Số chỉ hiện khi đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs
+    const loaiTabs = LOAI_TABS.map((tab) => ({
+        ...tab,
+        count: loadError ? null : tabCounts.counts[tab.value],
+    }));
+    const loaiTabLabel = LOAI_TABS.find((tab) => tab.value === loaiKhachHang)?.label;
 
     return (
-        <PageContainer className="space-y-5">
-            {/* ── Page header ── */}
-            <PageHeader
-                title="Quản lý khách hàng"
-                description="Danh sách khách hàng, loại khách hàng và trạng thái hoạt động"
+        <PageContainer className="space-y-4">
+            {/* ── Nút chính (tên trang đã ở thanh trên cùng) ── */}
+            <ListPageHeader
                 actions={
                     <Button
                         onClick={handleOpenCreateDialog}
@@ -512,141 +507,40 @@ export default function KhachHangPage() {
                 </div>
             )}
 
-            {/* ── Stats ── */}
-            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-                    <div>
-                        <p className="text-xs font-medium text-bo-muted">Tổng khách hàng</p>
-                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{formatStat(stats.total)}</p>
-                    </div>
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary">
-                        <Users className="size-5" />
-                    </span>
-                </div>
-
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-                    <div>
-                        <p className="text-xs font-medium text-bo-muted">Khách lẻ</p>
-                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{formatStat(stats.le)}</p>
-                    </div>
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
-                        <User className="size-5" />
-                    </span>
-                </div>
-
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-                    <div>
-                        <p className="text-xs font-medium text-bo-muted">Khách sỉ</p>
-                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{formatStat(stats.si)}</p>
-                    </div>
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-success-soft text-bo-success">
-                        <Store className="size-5" />
-                    </span>
-                </div>
-
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-                    <div>
-                        <p className="text-xs font-medium text-bo-muted">Doanh nghiệp</p>
-                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{formatStat(stats.doanh_nghiep)}</p>
-                    </div>
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-warning-soft text-bo-warning">
-                        <Building2 className="size-5" />
-                    </span>
-                </div>
-            </section>
-
-            {/* ── Filters ── */}
-            <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                <div className="flex items-center gap-2 border-b border-bo-border px-4 py-3 sm:px-5">
-                    <Filter className="size-4 text-bo-primary" />
-                    <h2 className="text-sm font-semibold text-bo-foreground sm:text-base">
-                        Bộ lọc tìm kiếm
-                    </h2>
-                </div>
-                <FilterBar
-                    primary={
+            {/* ── Table ── */}
+            <TableShell
+                toolbar={
+                    <ListToolbar
+                        tabs={
+                            <StatusTabs
+                                label="Lọc khách hàng theo loại"
+                                tabs={loaiTabs}
+                                value={loaiKhachHang}
+                                onChange={handleLoaiKhachHangChange}
+                            />
+                        }
+                        hasFilter={hasActiveFilters}
+                        onClear={handleResetFilters}
+                    >
                         <SearchInput
+                            label="Tìm khách hàng"
                             placeholder="Tìm theo tên, mã, SĐT, email..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onClear={handleClearSearch}
                             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                            className="sm:w-[300px]"
                         />
-                    }
-                    filters={
-                        <>
-                            <DropdownMenu modal={false}>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className="h-9 w-full justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-[180px]"
-                                    >
-                                        <span className="truncate">{loaiKhachHangLabel}</span>
-                                        <ChevronDown className="size-4 shrink-0 opacity-60" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    align="end"
-                                    className="backoffice-user-menu z-50 w-[200px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
-                                >
-                                    {LOAI_FILTER_OPTIONS.map((opt) => (
-                                        <DropdownMenuItem
-                                            key={opt.value}
-                                            onClick={() => handleLoaiKhachHangChange(opt.value)}
-                                            className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                        >
-                                            {opt.label}
-                                            {loaiKhachHang === opt.value && <Check className="size-4" />}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-
-                            <DropdownMenu modal={false}>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className="h-9 w-full justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-[180px]"
-                                    >
-                                        <span className="truncate">{trangThaiLabel}</span>
-                                        <ChevronDown className="size-4 shrink-0 opacity-60" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    align="end"
-                                    className="backoffice-user-menu z-50 w-[200px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
-                                >
-                                    {TRANG_THAI_FILTER_OPTIONS.map((opt) => (
-                                        <DropdownMenuItem
-                                            key={opt.value}
-                                            onClick={() => handleTrangThaiChange(opt.value)}
-                                            className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                        >
-                                            {opt.label}
-                                            {trangThai === opt.value && <Check className="size-4" />}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </>
-                    }
-                    actions={
-                        <Button
-                            variant="outline"
-                            onClick={handleResetFilters}
-                            className="h-9 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                        >
-                            <RefreshCcw className="size-4" />
-                            Đặt lại
-                        </Button>
-                    }
-                />
-            </div>
-
-            {/* ── Table ── */}
-            <TableShell
-                title="Danh sách khách hàng"
-                description="Nhấn vào một dòng để xem chi tiết khách hàng"
+                        <FilterSelect
+                            label="Lọc theo trạng thái"
+                            value={trangThai}
+                            options={TRANG_THAI_FILTER_OPTIONS}
+                            onChange={handleTrangThaiChange}
+                            className="sm:w-[180px]"
+                            align="end"
+                        />
+                    </ListToolbar>
+                }
                 footer={
                     totalItems > 0 ? (
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -753,13 +647,50 @@ export default function KhachHangPage() {
                 }
             >
                 {loading ? (
-                    <LoadingState rows={6} />
-                ) : khachHangs.length === 0 ? (
-                    <EmptyState
-                        icon={Users}
-                        title="Không có khách hàng"
-                        description="Chưa có khách hàng nào khớp với bộ lọc hiện tại."
+                    <LoadingState rows={6} label="Đang tải danh sách khách hàng" />
+                ) : loadError ? (
+                    <ErrorState
+                        description="Không tải được danh sách khách hàng. Vui lòng thử lại."
+                        onRetry={handleRetry}
                     />
+                ) : khachHangs.length === 0 ? (
+                    hasActiveFilters ? (
+                        <EmptyState
+                            icon={SearchX}
+                            title="Không tìm thấy khách hàng phù hợp"
+                            description="Thử đổi từ khóa hoặc trạng thái."
+                            action={
+                                <Button
+                                    variant="outline"
+                                    onClick={handleResetFilters}
+                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                >
+                                    Xóa lọc
+                                </Button>
+                            }
+                        />
+                    ) : loaiKhachHang !== LOAI_TAB_MAC_DINH ? (
+                        <EmptyState
+                            icon={Users}
+                            title={`Không có khách hàng nào thuộc loại "${loaiTabLabel}"`}
+                            description="Chọn tab Tất cả để xem mọi khách hàng."
+                            action={
+                                <Button
+                                    variant="outline"
+                                    onClick={() => handleLoaiKhachHangChange(LOAI_TAB_MAC_DINH)}
+                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                >
+                                    Xem tất cả
+                                </Button>
+                            }
+                        />
+                    ) : (
+                        <EmptyState
+                            icon={Users}
+                            title="Chưa có khách hàng"
+                            description="Thêm khách hàng để lập đơn bán hàng và theo dõi lịch sử mua."
+                        />
+                    )
                 ) : (
                     <div className="max-h-[520px] overflow-y-auto">
                         <table className="w-full min-w-[900px] text-sm">
@@ -828,7 +759,7 @@ export default function KhachHangPage() {
                                         </td>
                                         <td className="px-3 py-3 text-center">
                                             <StatusBadge
-                                                label={khachHang.trangThai === 1 ? "Hoạt động" : "Ngừng"}
+                                                label={khachHang.trangThai === 1 ? "Hoạt động" : "Ngừng hoạt động"}
                                                 tone={khachHang.trangThai === 1 ? "success" : "neutral"}
                                             />
                                         </td>
@@ -1145,7 +1076,7 @@ export default function KhachHangPage() {
                         <span className="font-semibold text-bo-foreground">
                             {selectedKhachHang?.tenKhachHang}
                         </span>
-                        ? Khách hàng sẽ được chuyển sang trạng thái &quot;Ngưng hoạt động&quot;.
+                        ? Khách hàng sẽ được chuyển sang trạng thái &quot;Ngừng hoạt động&quot;.
                     </>
                 }
                 confirmText="Xóa"

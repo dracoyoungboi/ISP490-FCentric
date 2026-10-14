@@ -24,6 +24,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -314,7 +321,7 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     protected Predicate createPredicate(CriteriaBuilder cb, Path<?> path, FilterCriteria filter) {
-        Object value = filter.getValue();
+        Object value = chuyenChuoiThoiGian(path.getJavaType(), filter.getValue(), filter.getFieldName());
         if (value == null) return null;
 
         switch (filter.getOperation()) {
@@ -374,6 +381,53 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
         }
     }
 
+
+    /** Múi giờ nghiệp vụ: ngày/giờ gửi lên không kèm múi giờ được hiểu theo giờ Việt Nam. */
+    private static final ZoneId MUI_GIO_NGHIEP_VU = ZoneId.of("Asia/Ho_Chi_Minh");
+
+    /**
+     * Bộ lọc gửi ngày dạng chuỗi ("2026-10-01", "2026-10-01T23:59:59", hoặc ISO có múi giờ như "...Z").
+     * Trường kiểu thời gian (Instant, LocalDateTime, LocalDate…) không so sánh được với chuỗi
+     * (Hibernate báo SemanticException → lỗi 500), nên đổi sang đúng kiểu của trường trước khi so sánh.
+     * Giá trị khác (số, chuỗi của trường chữ, danh sách…) giữ nguyên.
+     */
+    private Object chuyenChuoiThoiGian(Class<?> kieuTruong, Object value, String tenTruong) {
+        if (!(value instanceof String chuoi) || chuoi.isBlank()) return value;
+        boolean laThoiGian = kieuTruong == Instant.class || kieuTruong == LocalDateTime.class
+                || kieuTruong == LocalDate.class || kieuTruong == OffsetDateTime.class
+                || kieuTruong == ZonedDateTime.class;
+        if (!laThoiGian) return value;
+
+        String s = chuoi.trim().replace(' ', 'T');
+        try {
+            Instant thoiDiem;
+            if (s.length() == 10) {
+                // Chỉ có ngày: lấy đầu ngày theo giờ Việt Nam
+                LocalDate ngay = LocalDate.parse(s);
+                if (kieuTruong == LocalDate.class) return ngay;
+                if (kieuTruong == LocalDateTime.class) return ngay.atStartOfDay();
+                thoiDiem = ngay.atStartOfDay(MUI_GIO_NGHIEP_VU).toInstant();
+            } else {
+                String phanGio = s.substring(10);
+                boolean coMuiGio = phanGio.endsWith("Z") || phanGio.contains("+") || phanGio.lastIndexOf('-') > 0;
+                if (coMuiGio) {
+                    thoiDiem = OffsetDateTime.parse(s).toInstant();
+                } else {
+                    LocalDateTime ngayGio = LocalDateTime.parse(s);
+                    if (kieuTruong == LocalDate.class) return ngayGio.toLocalDate();
+                    if (kieuTruong == LocalDateTime.class) return ngayGio;
+                    thoiDiem = ngayGio.atZone(MUI_GIO_NGHIEP_VU).toInstant();
+                }
+            }
+            if (kieuTruong == Instant.class) return thoiDiem;
+            if (kieuTruong == LocalDateTime.class) return LocalDateTime.ofInstant(thoiDiem, MUI_GIO_NGHIEP_VU);
+            if (kieuTruong == LocalDate.class) return LocalDate.ofInstant(thoiDiem, MUI_GIO_NGHIEP_VU);
+            if (kieuTruong == OffsetDateTime.class) return thoiDiem.atZone(MUI_GIO_NGHIEP_VU).toOffsetDateTime();
+            return thoiDiem.atZone(MUI_GIO_NGHIEP_VU);
+        } catch (DateTimeParseException | StringIndexOutOfBoundsException e) {
+            throw new IllegalArgumentException("Giá trị thời gian không hợp lệ cho trường '" + tenTruong + "': " + chuoi);
+        }
+    }
 
     protected Pageable createPageable(List<SortCriteria> sorts, Integer page, Integer size) {
         for (SortCriteria sort : sorts) {

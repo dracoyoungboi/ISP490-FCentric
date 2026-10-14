@@ -1,5 +1,7 @@
 import { formatNumber } from "@/utils/formatters";
+import { DON_MUA_HANG_STATUS } from "@/constants/donMuaHang";
 import { formatPrintDate, formatPrintDateTime } from "./printFormat";
+import { trangThaiLa } from "@/constants/trangThaiChung";
 
 /**
  * Adapter cho ĐƠN MUA HÀNG — dữ liệu từ API
@@ -8,14 +10,8 @@ import { formatPrintDate, formatPrintDateTime } from "./printFormat";
  * Lưu ý: DTO không trả về nguồn yêu cầu nhập hàng, phí vận chuyển,
  * phương thức/điều khoản thanh toán hay thuế — chỉ in những gì API có.
  */
-export const PURCHASE_ORDER_STATUS = {
-    0: { label: "Đã xóa", tone: "danger" },
-    1: { label: "Đã gửi", tone: "info" },
-    2: { label: "Đã báo giá", tone: "info" },
-    3: { label: "Đang vận chuyển", tone: "warning" },
-    4: { label: "Không chấp nhận báo giá", tone: "danger" },
-    5: { label: "Đã thanh toán", tone: "success" },
-};
+// Trạng thái đơn mua hàng — dùng chung hằng số với PurchaseOrder (danh sách) / PurchaseOrderDetail.
+export const PURCHASE_ORDER_STATUS = DON_MUA_HANG_STATUS;
 
 const dash = (value) => {
     if (value === null || value === undefined) return "—";
@@ -46,7 +42,7 @@ export function toPurchaseOrderPrintModel(raw) {
         };
     });
 
-    const status = PURCHASE_ORDER_STATUS[data.trangThai] || PURCHASE_ORDER_STATUS[1];
+    const status = PURCHASE_ORDER_STATUS[data.trangThai] || trangThaiLa(data.trangThai);
     const total = dashMoney(data.tongTien);
 
     return {

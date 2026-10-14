@@ -1,23 +1,21 @@
 import { createElement, useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-    AlertCircle, ArrowLeft, CheckCircle2, Download, Link2, Loader2, PackageSearch,
-    RefreshCcw, Send, Settings2, Unlink, Wand2,
+    ArrowLeft, Download, Link2, Loader2, SearchX, Send, Settings2, Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import PageContainer from "@/components/backoffice/PageContainer";
-import FilterBar from "@/components/shared/FilterBar";
-import FilterPanel from "@/components/shared/FilterPanel";
-import FilterSelect from "@/components/shared/FilterSelect";
+import AttentionBar from "@/components/shared/AttentionBar";
+import ListToolbar from "@/components/shared/ListToolbar";
 import SearchInput from "@/components/shared/SearchInput";
+import StatusTabs from "@/components/shared/StatusTabs";
 import TableShell from "@/components/shared/TableShell";
 import TablePagination from "@/components/shared/TablePagination";
 import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
-import KpiCard from "@/components/shared/KpiCard";
 import MockModeNotice from "@/components/shared/MockModeNotice";
 import ChannelLogo from "@/components/channel/ChannelLogo";
 import ConnectionStatusBadge from "@/components/channel/ConnectionStatusBadge";
@@ -26,28 +24,48 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { kenhBanHangService, isChannelSyncMock } from "@/services/kenhBanHangService";
-import { LINK_STATUS, LINK_STATUS_OPTIONS } from "@/constants/channel";
+import { LINK_STATUS, LINK_STATUS_TABS } from "@/constants/channel";
+import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
+import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { ROLES, hasAnyRole } from "@/utils/roles";
 
 const TH_CLASS = "h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 const switchClass = "data-[state=checked]:bg-bo-primary data-[state=unchecked]:bg-slate-300 [&>span]:bg-white";
-const DEFAULT_FILTERS = { keyword: "", trangThaiLienKet: "", page: 0, size: 10 };
+const DEFAULT_FILTERS = { keyword: "", page: 0, size: 10 };
+
+// Tab trạng thái liên kết (bố cục A+G) — mã tab nằm trên URL ?trangThai=
+const TAB_MAS = LINK_STATUS_TABS.map((tab) => tab.ma);
+const TAB_MAC_DINH = "tat-ca";
+const TAB_CHUA_LIEN_KET = "chua-lien-ket";
+const TONE_TAB = { [TAB_CHUA_LIEN_KET]: "warning" };
+const trangThaiCuaTab = (ma) => LINK_STATUS_TABS.find((tab) => tab.ma === ma)?.trangThai ?? undefined;
 
 export default function ChannelMappingsPage() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);
+    // Dòng chú ý chỉ cho quản trị viên (cùng nguồn vai trò với RequireRole của route)
+    const [laQuanTriVien] = useState(() => hasAnyRole([ROLES.QUAN_TRI_VIEN]));
 
     const [ketNoi, setKetNoi] = useState(null);
     const [filters, setFilters] = useState(DEFAULT_FILTERS);
     const [searchText, setSearchText] = useState("");
     const [rows, setRows] = useState([]);
+    // Bộ lọc của các dòng đang hiện: đổi tab / trang thì hiện khung tải thay vì dòng của tab cũ
+    const [rowsKey, setRowsKey] = useState(null);
     const [total, setTotal] = useState(0);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(false);
     const [rowSaving, setRowSaving] = useState({});
     const [rowErrors, setRowErrors] = useState({});
     const [toolbarAction, setToolbarAction] = useState(null);
     const toolbarRef = useRef(false);
+    const requestIdRef = useRef(0);
+
+    const trangThaiLienKet = trangThaiCuaTab(tab);
+    const tuKhoa = filters.keyword.trim();
+    const filterKey = `${id}|${tab}|${tuKhoa}|${filters.page}|${filters.size}`;
 
     useEffect(() => {
         const timer = window.setTimeout(() => {
@@ -65,24 +83,33 @@ export default function ChannelMappingsPage() {
     }, [id]);
 
     const fetchRows = useCallback(async () => {
+        // Đổi tab / từ khóa liên tiếp: chỉ nhận kết quả của yêu cầu mới nhất
+        const requestId = ++requestIdRef.current;
         setLoading(true);
         setLoadError(false);
         try {
             const res = await kenhBanHangService.filterLienKet(id, {
                 page: filters.page,
                 size: filters.size,
-                trangThaiLienKet: filters.trangThaiLienKet || undefined,
-                search: filters.keyword.trim() || undefined,
+                trangThaiLienKet,
+                search: tuKhoa || undefined,
             });
+            if (requestId !== requestIdRef.current) return;
             setRows(res?.content ?? []);
             setTotal(res?.totalElements ?? 0);
+            setRowsKey(filterKey);
         } catch (error) {
+            if (requestId !== requestIdRef.current) return;
+            // Không giữ dòng + tổng số của lần tải trước (R9)
             setLoadError(true);
+            setRows([]);
+            setTotal(0);
+            setRowsKey(null);
             toast.error(getApiErrorMessage(error, "Không tải được danh sách liên kết"));
         } finally {
-            setLoading(false);
+            if (requestId === requestIdRef.current) setLoading(false);
         }
-    }, [id, filters]);
+    }, [id, filters.page, filters.size, trangThaiLienKet, tuKhoa, filterKey]);
 
     useEffect(() => {
         queueMicrotask(() => fetchKetNoi());
@@ -91,6 +118,30 @@ export default function ChannelMappingsPage() {
     useEffect(() => {
         queueMicrotask(() => fetchRows());
     }, [fetchRows]);
+
+    // ── Số trên tab: cùng gian hàng + từ khóa, chỉ thay trạng thái liên kết (R1) ──
+    const demLienKet = async (trangThai, search) => {
+        const res = await kenhBanHangService.filterLienKet(id, { page: 0, size: 1, trangThaiLienKet: trangThai, search });
+        return res?.totalElements ?? 0;
+    };
+    const tabCounts = useDemTheoTrangThai(
+        TAB_MAS,
+        (ma) => demLienKet(trangThaiCuaTab(ma), tuKhoa || undefined),
+        `${id}|${tuKhoa}`
+    );
+
+    // ── Dòng chú ý: SKU chưa liên kết của gian hàng, bỏ qua từ khóa (R4) ──
+    const chuaLienKet = useDemTheoTrangThai(
+        [TAB_CHUA_LIEN_KET],
+        () => demLienKet(trangThaiCuaTab(TAB_CHUA_LIEN_KET)),
+        String(id),
+        { enabled: laQuanTriVien }
+    );
+
+    const reloadCounts = () => {
+        tabCounts.reload();
+        chuaLienKet.reload();
+    };
 
     const saveRow = async (row, patch) => {
         if (rowSaving[row.id]) return;
@@ -104,6 +155,8 @@ export default function ChannelMappingsPage() {
             });
             setRows((prev) => prev.map((item) => (item.id === row.id ? { ...item, ...dto } : item)));
             fetchKetNoi();
+            // Ghép / bỏ ghép đổi trạng thái liên kết: đếm lại số trên tab (R8)
+            reloadCounts();
         } catch (error) {
             setRowErrors((prev) => ({ ...prev, [row.id]: getApiErrorMessage(error, "Không lưu được liên kết") }));
         } finally {
@@ -128,6 +181,7 @@ export default function ChannelMappingsPage() {
             }
             fetchRows();
             fetchKetNoi();
+            reloadCounts();
         } catch (error) {
             toast.error(getApiErrorMessage(error, "Không thực hiện được thao tác"));
         } finally {
@@ -136,16 +190,44 @@ export default function ChannelMappingsPage() {
         }
     };
 
-    const handleReset = () => {
-        setSearchText("");
-        setFilters(DEFAULT_FILTERS);
+    // Đổi tab: ghi lên URL và về trang đầu
+    const changeTab = (value) => {
+        setTab(value);
+        setFilters((prev) => (prev.page === 0 ? prev : { ...prev, page: 0 }));
     };
 
-    const hasFilter = Boolean(filters.keyword || filters.trangThaiLienKet);
-    const soLoi = ketNoi ? Math.max(0, (ketNoi.soLienKet ?? 0) - (ketNoi.soLienKetDangBat ?? 0) - (ketNoi.soChuaLienKet ?? 0)) : 0;
+    // "Xóa lọc": bỏ từ khóa, giữ tab đang chọn
+    const clearFilters = () => {
+        setSearchText("");
+        setFilters((prev) => (prev.keyword === "" && prev.page === 0 ? prev : { ...prev, keyword: "", page: 0 }));
+    };
+
+    // Nút của dòng chú ý: mở tab Chưa liên kết, bỏ từ khóa để số dòng khớp số trên dòng chú ý
+    const showChuaLienKet = () => {
+        clearFilters();
+        changeTab(TAB_CHUA_LIEN_KET);
+    };
+
+    const handleRetry = () => {
+        fetchRows();
+        reloadCounts();
+    };
+
+    const hasFilter = Boolean(searchText.trim() || tuKhoa);
+    // Số chỉ hiện khi đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs
+    const statusTabs = LINK_STATUS_TABS.map((t) => ({
+        value: t.ma,
+        label: t.label,
+        tone: TONE_TAB[t.ma],
+        count: loadError ? null : tabCounts.counts[t.ma],
+    }));
+    const pendingCount = laQuanTriVien && tab !== TAB_CHUA_LIEN_KET ? chuaLienKet.counts[TAB_CHUA_LIEN_KET] : null;
+    const emptyTabLabel = LINK_STATUS_TABS.find((t) => t.ma === tab)?.label;
+    // Đang tải cho bộ lọc khác (đổi tab / trang / từ khóa) thì không hiện dòng cũ; tải lại sau thao tác thì giữ bảng
+    const loadingOther = loading && (rows.length === 0 || rowsKey !== filterKey);
 
     return (
-        <PageContainer className="space-y-5">
+        <PageContainer className="space-y-4">
             <MockModeNotice show={isChannelSyncMock} reason="hệ thống chưa hỗ trợ liên kết sản phẩm" />
 
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -198,57 +280,48 @@ export default function ChannelMappingsPage() {
                             </Button>
                         </div>
                     </div>
+                    {/* Quy tắc liên kết (trước nằm ở mô tả khung bảng) */}
+                    <p className="border-t border-bo-border px-4 py-2.5 text-xs leading-5 text-bo-muted sm:px-6">
+                        Mỗi biến thể chỉ liên kết với 1 SKU sàn trong một gian hàng. Đổi liên kết thì lần đẩy sau sẽ đặt lại số tồn trên sàn.
+                    </p>
                 </section>
             ) : null}
 
-            {/* ══ STATS ══ */}
-            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <KpiCard icon={<PackageSearch className="size-5" />} iconClass="bg-bo-primary-soft text-bo-primary" label="SKU trên sàn" value={ketNoi?.soLienKet ?? "—"} />
-                <KpiCard icon={<CheckCircle2 className="size-5" />} iconClass="bg-bo-success-soft text-bo-success" label="Đang đồng bộ" value={ketNoi?.soLienKetDangBat ?? "—"} />
-                <KpiCard icon={<Unlink className="size-5" />} iconClass="bg-bo-warning-soft text-bo-warning" label="Chưa liên kết" value={ketNoi?.soChuaLienKet ?? "—"} />
-                <KpiCard icon={<AlertCircle className="size-5" />} iconClass="bg-bo-danger-soft text-bo-danger" label="Lỗi / tắt đồng bộ" value={ketNoi ? soLoi : "—"} />
-            </section>
+            <AttentionBar
+                count={pendingCount}
+                actionLabel="Xem SKU chưa liên kết"
+                onAction={showChuaLienKet}
+            >
+                <strong className="font-semibold">{pendingCount?.toLocaleString("vi-VN")} SKU</strong> chưa liên kết.
+            </AttentionBar>
 
-            {/* ══ BỘ LỌC ══ */}
-            <FilterPanel>
-                <FilterBar
-                    primary={
+            {/* ══ BẢNG LIÊN KẾT ══ */}
+            <TableShell
+                toolbar={
+                    <ListToolbar
+                        tabs={
+                            <StatusTabs
+                                label="Lọc SKU theo trạng thái liên kết"
+                                tabs={statusTabs}
+                                value={tab}
+                                onChange={changeTab}
+                            />
+                        }
+                        hasFilter={hasFilter}
+                        onClear={clearFilters}
+                    >
                         <SearchInput
                             placeholder="Tìm SKU sàn, tên sản phẩm..."
                             label="Tìm liên kết"
                             value={searchText}
                             onChange={(event) => setSearchText(event.target.value)}
                             onClear={() => setSearchText("")}
+                            className="sm:w-[300px]"
                         />
-                    }
-                    filters={
-                        <>
-                            <FilterSelect
-                                label="Trạng thái liên kết"
-                                value={filters.trangThaiLienKet}
-                                options={LINK_STATUS_OPTIONS}
-                                onChange={(trangThaiLienKet) => setFilters((prev) => ({ ...prev, trangThaiLienKet, page: 0 }))}
-                            />
-                            <Button
-                                variant="outline"
-                                onClick={handleReset}
-                                disabled={loading}
-                                className="h-9 gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                            >
-                                <RefreshCcw className="size-4" />
-                                Đặt lại
-                            </Button>
-                        </>
-                    }
-                />
-            </FilterPanel>
-
-            {/* ══ BẢNG LIÊN KẾT ══ */}
-            <TableShell
-                title="Liên kết SKU sàn ↔ biến thể FCentric"
-                description="Mỗi biến thể chỉ liên kết với 1 SKU sàn trong một gian hàng. Đổi liên kết thì lần đẩy sau sẽ đặt lại số tồn trên sàn."
+                    </ListToolbar>
+                }
                 footer={
-                    !loading && !loadError && rows.length > 0 ? (
+                    !loadingOther && !loadError && rows.length > 0 ? (
                         <TablePagination
                             page={filters.page}
                             size={filters.size}
@@ -259,23 +332,43 @@ export default function ChannelMappingsPage() {
                     ) : null
                 }
             >
-                {loading && rows.length === 0 ? (
+                {loadingOther ? (
                     <LoadingState className="min-h-64" label="Đang tải liên kết sản phẩm" />
                 ) : loadError ? (
-                    <ErrorState onRetry={fetchRows} />
-                ) : rows.length === 0 ? (
-                    <EmptyState
-                        icon={Link2}
-                        title={hasFilter ? "Không có SKU phù hợp" : "Chưa có SKU nào từ sàn"}
-                        description={hasFilter ? "Thử đổi trạng thái hoặc từ khóa." : "Bấm Tải lại sản phẩm để lấy danh sách SKU từ Shopify."}
-                        action={
-                            hasFilter ? (
-                                <Button variant="outline" onClick={handleReset} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
-                                    Xóa bộ lọc
-                                </Button>
-                            ) : null
-                        }
+                    <ErrorState
+                        description="Không tải được danh sách liên kết. Vui lòng thử lại."
+                        onRetry={handleRetry}
                     />
+                ) : rows.length === 0 ? (
+                    hasFilter ? (
+                        <EmptyState
+                            icon={SearchX}
+                            title="Không tìm thấy SKU phù hợp"
+                            description="Thử đổi từ khóa tìm kiếm."
+                            action={
+                                <Button variant="outline" onClick={clearFilters} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
+                                    Xóa lọc
+                                </Button>
+                            }
+                        />
+                    ) : tab !== TAB_MAC_DINH ? (
+                        <EmptyState
+                            icon={Link2}
+                            title={`Không có SKU nào ở trạng thái "${emptyTabLabel}"`}
+                            description="Chọn tab Tất cả để xem mọi SKU của gian hàng."
+                            action={
+                                <Button variant="outline" onClick={() => changeTab(TAB_MAC_DINH)} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
+                                    Xem tất cả
+                                </Button>
+                            }
+                        />
+                    ) : (
+                        <EmptyState
+                            icon={Link2}
+                            title="Chưa có SKU nào từ sàn"
+                            description="Bấm Tải lại sản phẩm để lấy danh sách SKU từ Shopify."
+                        />
+                    )
                 ) : (
                     <TooltipProvider>
                         <table className="w-full min-w-[1080px] text-sm">

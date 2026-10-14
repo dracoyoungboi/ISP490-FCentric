@@ -20,6 +20,7 @@ import TableShell from '@/components/shared/TableShell';
 import EmptyState from '@/components/shared/EmptyState';
 import LoadingState from '@/components/shared/LoadingState';
 import ErrorState from '@/components/shared/ErrorState';
+import { DON_MUA_HANG_STATUS } from '@/constants/donMuaHang';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROLE = {
@@ -53,9 +54,10 @@ const formatDateTime = (dateString) => {
 };
 
 // ─── Status configs ────────────────────────────────────────────────────────────
+// Tên trạng thái lấy từ constants/donMuaHang (một tên cho danh sách, chi tiết, bản in)
 const PO_STATUS = {
-    3: { label: 'Đang vận chuyển', tone: 'warning', icon: Clock, desc: 'Đơn hàng đang chờ nhà cung cấp vận chuyển đến kho.' },
-    5: { label: 'Đã thanh toán', tone: 'success', icon: CreditCard, desc: 'Đơn hàng đã được thanh toán hoàn tất.' },
+    3: { label: DON_MUA_HANG_STATUS[3].label, tone: 'warning', icon: Clock, desc: 'Đơn hàng đang chờ nhà cung cấp vận chuyển đến kho.' },
+    5: { label: DON_MUA_HANG_STATUS[5].label, tone: 'success', icon: CreditCard, desc: 'Đơn hàng đã được thanh toán hoàn tất.' },
 };
 
 // Nền banner trạng thái — bám theo bảng tone của StatusBadge

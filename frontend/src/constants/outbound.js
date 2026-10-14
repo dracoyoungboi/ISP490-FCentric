@@ -19,6 +19,19 @@ export const PICK_LIST_STATUS_OPTIONS = [
   { value: "da_huy", label: "Đã hủy" },
 ];
 
+/**
+ * Tab trạng thái của danh sách phiếu nhặt hàng (bố cục A+G): `ma` nằm trên URL ?trangThai=,
+ * `trangThai` là mã gửi API (mỗi lần gọi một trạng thái). Nhãn lấy từ PICK_LIST_STATUS.
+ */
+export const PICK_LIST_TABS = [
+  { ma: "tat-ca", label: "Tất cả", trangThai: null },
+  { ma: "cho-nhat", label: PICK_LIST_STATUS.cho_nhat.label, trangThai: "cho_nhat" },
+  { ma: "dang-nhat", label: PICK_LIST_STATUS.dang_nhat.label, trangThai: "dang_nhat" },
+  { ma: "da-nhat", label: PICK_LIST_STATUS.da_nhat.label, trangThai: "da_nhat" },
+  { ma: "da-xuat", label: PICK_LIST_STATUS.da_xuat.label, trangThai: "da_xuat" },
+  { ma: "da-huy", label: PICK_LIST_STATUS.da_huy.label, trangThai: "da_huy" },
+];
+
 /** Pick List còn quét / phân công được. */
 export const PICK_LIST_EDITABLE = ["cho_nhat", "dang_nhat"];
 

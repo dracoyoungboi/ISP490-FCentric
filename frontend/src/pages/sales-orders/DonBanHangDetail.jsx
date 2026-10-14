@@ -24,6 +24,8 @@ import SurfaceCard from "@/components/shared/SurfaceCard";
 import MockModeNotice from "@/components/shared/MockModeNotice";
 import ChannelOrderPanel from "@/components/channel/ChannelOrderPanel";
 import { parseFlags } from "@/constants/channel";
+import { DON_BAN_HANG_STATUS, getDonBanHangStatus } from "@/constants/donBanHang";
+import { getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
 
 // ── Constants & Helpers ──────────────────────────────────────────────────
 const ROLE = {
@@ -46,16 +48,8 @@ function parseRoles(vaiTro) {
     return vaiTro.includes(" ") ? vaiTro.split(" ") : [vaiTro];
 }
 
-// ── Trạng thái ────────────────────────────────────────────────────────────
-const STATUS_MAP = {
-  0: { label: "Nháp", tone: "warning" },
-  1: { label: "Chờ xuất kho", tone: "info" },
-  2: { label: "Đang xử lý xuất kho", tone: "info" },
-  3: { label: "Đã xuất kho", tone: "warning" },
-  4: { label: "Đã hủy", tone: "danger" },
-  5: { label: "Hoàn thành", tone: "success" },
-  6: { label: "Bị hoàn trả", tone: "danger" }
-};
+// ── Trạng thái: dùng chung tên với danh sách và hóa đơn in (constants/donBanHang) ──
+const STATUS_MAP = DON_BAN_HANG_STATUS;
 
 export default function DonBanHangDetail() {
   const { id } = useParams();
@@ -204,7 +198,8 @@ export default function DonBanHangDetail() {
   if (!data) return null;
 
   const { donBanHang, chiTiet, phieuXuatKhoList } = data;
-  const st = STATUS_MAP[donBanHang.trangThai] ?? STATUS_MAP[0];
+  // Mã lạ hiện rõ mã, không mượn tên "Nháp"
+  const st = getDonBanHangStatus(donBanHang.trangThai);
 
   // Kiểm tra xem đơn hàng đã xuất đủ số lượng chưa
   const isFullyExported = chiTiet.every(item => item.soLuongDaGiao >= item.soLuongDat);
@@ -477,7 +472,8 @@ export default function DonBanHangDetail() {
                   </thead>
                   <tbody className="divide-y divide-bo-border">
                     {phieuXuatKhoList.map((px) => {
-                      const pxSt = STATUS_MAP[px.trangThai];
+                      // Phiếu xuất dùng nhãn của phiếu xuất (trước đây lấy nhầm nhãn của đơn bán hàng)
+                      const pxSt = getPhieuXuatKhoStatus(px.trangThai);
                       return (
                         <tr
                           key={px.id}

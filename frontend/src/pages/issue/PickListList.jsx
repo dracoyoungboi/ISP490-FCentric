@@ -1,45 +1,64 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import {
-    ClipboardCheck, Eye, ListChecks, PackageSearch, Plus,
-    RefreshCcw, ScanBarcode, UserPlus, Users,
-} from "lucide-react";
+import { Eye, PackageSearch, Plus, SearchX, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
 import PageContainer from "@/components/backoffice/PageContainer";
-import FilterBar from "@/components/shared/FilterBar";
-import FilterPanel from "@/components/shared/FilterPanel";
-import FilterSelect from "@/components/shared/FilterSelect";
+import KhoLamViecSelect from "@/components/shared/KhoLamViecSelect";
+import ListPageHeader from "@/components/shared/ListPageHeader";
+import ListToolbar from "@/components/shared/ListToolbar";
 import SearchInput from "@/components/shared/SearchInput";
+import StatusTabs from "@/components/shared/StatusTabs";
 import TableShell from "@/components/shared/TableShell";
 import TablePagination from "@/components/shared/TablePagination";
 import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
-import KpiCard from "@/components/shared/KpiCard";
 import MockModeNotice from "@/components/shared/MockModeNotice";
 import PickProgress from "@/components/outbound/PickProgress";
 import AssignPickerDialog from "@/components/outbound/AssignPickerDialog";
 import { Button } from "@/components/ui/button";
+import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
+import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import { nhatHangService, isPickListMock } from "@/services/nhatHangService";
 import {
-    PICK_LIST_EDITABLE, PICK_LIST_STATUS_OPTIONS, getPickListStatus,
+    PICK_LIST_EDITABLE, PICK_LIST_TABS, getPickListStatus,
 } from "@/constants/outbound";
 import { formatDateTime } from "@/utils/dateTime";
 import { getApiErrorMessage } from "@/utils/apiError";
 
 const TH_CLASS = "h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
-const DEFAULT_FILTERS = { keyword: "", trangThai: "", page: 0, size: 10 };
+const DEFAULT_FILTERS = { keyword: "", page: 0, size: 10 };
+
+// Tab trạng thái (bố cục A+G) — mã tab nằm trên URL ?trangThai=
+const TAB_MAS = PICK_LIST_TABS.map((tab) => tab.ma);
+const TAB_MAC_DINH = "tat-ca";
+
+/** Kho làm việc hiện tại (KhoLamViecSelect ghi vào localStorage, apiClient gửi kèm header kho_id). */
+const docKhoLamViec = () => Number(window.localStorage.getItem("selected_kho_id")) || undefined;
+
+/** Tham số gửi API dùng chung cho danh sách và số trên tab (R1, R2): chỉ khác trạng thái và trang. */
+const buildParams = ({ khoId, keyword, trangThai, page, size }) => ({
+    khoId,
+    trangThai: trangThai || undefined,
+    searchText: keyword.trim() || undefined,
+    page,
+    size,
+});
 
 export default function PickListList() {
     const navigate = useNavigate();
+    const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);
+    const tabTrangThai = PICK_LIST_TABS.find((t) => t.ma === tab)?.trangThai ?? null;
+    const [khoId, setKhoId] = useState(docKhoLamViec);
     const [filters, setFilters] = useState(DEFAULT_FILTERS);
     const [searchText, setSearchText] = useState("");
     const [data, setData] = useState([]);
     const [total, setTotal] = useState(0);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(false);
+    const requestIdRef = useRef(0);
     const [assignTarget, setAssignTarget] = useState(null);
 
     useEffect(() => {
@@ -50,127 +69,134 @@ export default function PickListList() {
     }, [searchText]);
 
     const fetchData = useCallback(async () => {
+        // Đổi tab / kho / từ khóa liên tiếp: chỉ nhận kết quả của yêu cầu mới nhất
+        const requestId = ++requestIdRef.current;
         setLoading(true);
         setLoadError(false);
         try {
-            const khoId = Number(window.localStorage.getItem("selected_kho_id")) || undefined;
-            const res = await nhatHangService.getPickLists({
+            const res = await nhatHangService.getPickLists(buildParams({
                 khoId,
-                trangThai: filters.trangThai || undefined,
-                searchText: filters.keyword.trim() || undefined,
+                keyword: filters.keyword,
+                trangThai: tabTrangThai,
                 page: filters.page,
                 size: filters.size,
-            });
+            }));
+            if (requestId !== requestIdRef.current) return;
             setData(res?.content ?? []);
             setTotal(res?.totalElements ?? 0);
         } catch (error) {
+            if (requestId !== requestIdRef.current) return;
+            // Không giữ dòng + tổng số của lần tải trước (R9)
+            setData([]);
+            setTotal(0);
             setLoadError(true);
             toast.error(getApiErrorMessage(error, "Không tải được danh sách phiếu nhặt hàng"));
         } finally {
-            setLoading(false);
+            if (requestId === requestIdRef.current) setLoading(false);
         }
-    }, [filters]);
+    }, [khoId, filters, tabTrangThai]);
 
     useEffect(() => {
         queueMicrotask(() => fetchData());
     }, [fetchData]);
 
-    const stats = useMemo(() => ({
-        choNhat: data.filter((row) => row.trangThai === "cho_nhat").length,
-        dangNhat: data.filter((row) => row.trangThai === "dang_nhat").length,
-        chuaPhanCong: data.filter((row) => !row.nguoiNhatId && PICK_LIST_EDITABLE.includes(row.trangThai)).length,
-    }), [data]);
+    // ── Số trên tab: cùng kho làm việc + từ khóa, chỉ thay trạng thái (R1) ──
+    const tabCounts = useDemTheoTrangThai(
+        TAB_MAS,
+        async (ma) => {
+            const res = await nhatHangService.getPickLists(buildParams({
+                khoId,
+                keyword: filters.keyword,
+                trangThai: PICK_LIST_TABS.find((t) => t.ma === ma)?.trangThai,
+                page: 0,
+                size: 1,
+            }));
+            return res?.totalElements ?? 0;
+        },
+        `${khoId ?? ""}|${filters.keyword.trim()}`
+    );
 
-    const handleReset = () => {
+    // Đổi tab: ghi lên URL và về trang đầu
+    const changeTab = (value) => {
+        setTab(value);
+        setFilters((prev) => (prev.page === 0 ? prev : { ...prev, page: 0 }));
+    };
+
+    // Đổi kho làm việc: danh sách + số trên tab tải lại theo kho mới, về trang đầu
+    const handleDoiKho = (id) => {
+        setKhoId(id || undefined);
+        setFilters((prev) => ({ ...prev, page: 0 }));
+    };
+
+    // "Xóa lọc": bỏ từ khóa, giữ tab và kho làm việc
+    const clearFilters = () => {
         setSearchText("");
-        setFilters(DEFAULT_FILTERS);
+        setFilters((prev) => ({ ...prev, keyword: "", page: 0 }));
+    };
+
+    const handleRefresh = () => {
+        fetchData();
+        tabCounts.reload();
     };
 
     const handleAssigned = (dto) => {
         if (!dto) return;
         setData((prev) => prev.map((row) => (row.id === dto.id ? { ...row, ...dto } : row)));
+        tabCounts.reload();
     };
 
-    const hasFilter = Boolean(filters.keyword || filters.trangThai);
+    const hasFilter = Boolean(searchText.trim() || filters.keyword.trim());
+    const dangTimKiem = Boolean(filters.keyword.trim());
+
+    // Số chỉ hiện khi đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs
+    const statusTabs = PICK_LIST_TABS.map((t) => ({
+        value: t.ma,
+        label: t.label,
+        count: loadError ? null : tabCounts.counts[t.ma],
+    }));
+    const emptyTabLabel = PICK_LIST_TABS.find((t) => t.ma === tab)?.label;
 
     return (
-        <PageContainer className="space-y-5">
+        <PageContainer className="space-y-4">
             <MockModeNotice show={isPickListMock} />
 
-            {/* ══ STATS ══ */}
-            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <KpiCard
-                    icon={<ListChecks className="size-5" />}
-                    iconClass="bg-bo-primary-soft text-bo-primary"
-                    label="Tổng phiếu nhặt hàng"
-                    value={total}
-                />
-                <KpiCard
-                    icon={<ClipboardCheck className="size-5" />}
-                    iconClass="bg-slate-100 text-slate-600"
-                    label="Chờ nhặt (trang này)"
-                    value={stats.choNhat}
-                />
-                <KpiCard
-                    icon={<ScanBarcode className="size-5" />}
-                    iconClass="bg-indigo-50 text-indigo-600"
-                    label="Đang nhặt (trang này)"
-                    value={stats.dangNhat}
-                />
-                <KpiCard
-                    icon={<Users className="size-5" />}
-                    iconClass="bg-bo-warning-soft text-bo-warning"
-                    label="Chưa phân công (trang này)"
-                    value={stats.chuaPhanCong}
-                />
-            </section>
+            <ListPageHeader
+                actions={
+                    <Link to="/goods-issues/pending-orders">
+                        <Button className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
+                            <Plus className="size-4" />
+                            Tạo phiếu nhặt hàng
+                        </Button>
+                    </Link>
+                }
+            />
 
-            {/* ══ BỘ LỌC ══ */}
-            <FilterPanel>
-                <FilterBar
-                    primary={
+            {/* ══ BẢNG ══ */}
+            <TableShell
+                toolbar={
+                    <ListToolbar
+                        tabs={
+                            <StatusTabs
+                                label="Lọc phiếu nhặt hàng theo trạng thái"
+                                tabs={statusTabs}
+                                value={tab}
+                                onChange={changeTab}
+                            />
+                        }
+                        hasFilter={hasFilter}
+                        onClear={clearFilters}
+                    >
+                        <KhoLamViecSelect onChange={handleDoiKho} />
                         <SearchInput
                             placeholder="Nhập mã phiếu nhặt hàng..."
                             label="Tìm phiếu nhặt hàng"
                             value={searchText}
                             onChange={(event) => setSearchText(event.target.value)}
-                            onClear={() => setSearchText("")}
+                            onClear={clearFilters}
+                            className="sm:w-[300px]"
                         />
-                    }
-                    filters={
-                        <>
-                            <FilterSelect
-                                label="Trạng thái phiếu nhặt hàng"
-                                value={filters.trangThai}
-                                options={PICK_LIST_STATUS_OPTIONS}
-                                onChange={(trangThai) => setFilters((prev) => ({ ...prev, trangThai, page: 0 }))}
-                            />
-                            <Button
-                                variant="outline"
-                                onClick={handleReset}
-                                disabled={loading}
-                                className="h-9 gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                            >
-                                <RefreshCcw className="size-4" />
-                                Đặt lại
-                            </Button>
-                        </>
-                    }
-                    actions={
-                        <Link to="/goods-issues/pending-orders">
-                            <Button className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
-                                <Plus className="size-4" />
-                                Tạo phiếu nhặt hàng
-                            </Button>
-                        </Link>
-                    }
-                />
-            </FilterPanel>
-
-            {/* ══ BẢNG ══ */}
-            <TableShell
-                title="Danh sách phiếu nhặt hàng"
-                description="Nhấn vào dòng để mở màn quét mã và hoàn tất nhặt hàng"
+                    </ListToolbar>
+                }
                 footer={
                     !loading && !loadError && data.length > 0 ? (
                         <TablePagination
@@ -186,28 +212,45 @@ export default function PickListList() {
                 {loading ? (
                     <LoadingState className="min-h-64" label="Đang tải danh sách phiếu nhặt hàng" />
                 ) : loadError ? (
-                    <ErrorState onRetry={fetchData} />
+                    <ErrorState
+                        description="Không thể tải danh sách phiếu nhặt hàng. Vui lòng thử lại."
+                        onRetry={handleRefresh}
+                    />
                 ) : data.length === 0 ? (
-                    <EmptyState
-                        icon={PackageSearch}
-                        title={hasFilter ? "Không có phiếu nhặt hàng phù hợp" : "Chưa có phiếu nhặt hàng"}
-                        description={
-                            hasFilter
-                                ? "Thử đổi trạng thái hoặc từ khóa tìm kiếm."
-                                : "Chọn đơn ở màn Đơn chờ xuất để gom thành phiếu nhặt hàng đầu tiên."
-                        }
-                        action={
-                            hasFilter ? (
-                                <Button variant="outline" onClick={handleReset} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
-                                    Xóa bộ lọc
+                    dangTimKiem ? (
+                        <EmptyState
+                            icon={SearchX}
+                            title="Không tìm thấy phiếu nhặt hàng phù hợp"
+                            description="Thử đổi từ khóa tìm kiếm."
+                            action={
+                                <Button variant="outline" onClick={clearFilters} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
+                                    Xóa lọc
                                 </Button>
-                            ) : (
+                            }
+                        />
+                    ) : tab !== TAB_MAC_DINH ? (
+                        <EmptyState
+                            icon={PackageSearch}
+                            title={`Không có phiếu nhặt hàng nào ở trạng thái "${emptyTabLabel}"`}
+                            description="Chọn tab Tất cả để xem mọi phiếu nhặt hàng của kho làm việc."
+                            action={
+                                <Button variant="outline" onClick={() => changeTab(TAB_MAC_DINH)} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
+                                    Xem tất cả
+                                </Button>
+                            }
+                        />
+                    ) : (
+                        <EmptyState
+                            icon={PackageSearch}
+                            title="Chưa có phiếu nhặt hàng"
+                            description="Chọn đơn ở màn Đơn chờ xuất để gom thành phiếu nhặt hàng đầu tiên."
+                            action={
                                 <Link to="/goods-issues/pending-orders" className="text-sm font-medium text-bo-primary hover:underline">
                                     Đến Đơn chờ xuất
                                 </Link>
-                            )
-                        }
-                    />
+                            }
+                        />
+                    )
                 ) : (
                     <table className="w-full min-w-[1040px] text-sm">
                         <thead>

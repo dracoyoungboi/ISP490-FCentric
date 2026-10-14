@@ -3,19 +3,19 @@ import {
   ComposedChart, Bar, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart,
 } from "recharts";
-import {
-  TrendingUp, TrendingDown, ArrowDownToLine, ArrowUpFromLine,
-  Search, RefreshCw, BarChart2, Calendar, Warehouse, ArrowLeftRight,
-} from "lucide-react";
+import { Search, RefreshCw, BarChart2, Calendar } from "lucide-react";
 import PageContainer from "@/components/backoffice/PageContainer";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import TableShell from "@/components/shared/TableShell";
 import EmptyState from "@/components/shared/EmptyState";
+import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
+import MetricStrip from "@/components/shared/MetricStrip";
+import StatusTabs from "@/components/shared/StatusTabs";
+import FilterSelect from "@/components/shared/FilterSelect";
 import { Button } from "@/components/ui/button";
 import { API_BASE_URL } from "@/config/apiBase";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // ─── API ───
 const BASE_URL = `${API_BASE_URL}/api/v1/admin/dashboard/bao-cao/nhat-ky-nhap-xuat`;
@@ -50,10 +50,40 @@ const CHART_COLORS = {
 
 const TH_CLASS =
   "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
-const SELECT_CLASS =
-  "h-9 rounded-md border border-bo-border bg-white px-3 text-sm text-bo-foreground focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15";
-const SELECT_ITEM_CLASS =
-  "rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
+// Ô có nhãn nằm trong ô (theo mẫu ô ngày của PurchaseRequestList) để hàng công cụ gọn một dòng
+const O_NHAN_CLASS =
+  "flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-white pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto";
+const O_NGAY_CLASS =
+  "h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm text-bo-foreground shadow-none focus-visible:ring-0";
+const O_CHON_CLASS =
+  "h-8 min-w-0 flex-1 cursor-pointer border-0 bg-transparent text-sm text-bo-foreground focus:outline-none sm:w-[76px] sm:flex-none";
+
+// Kỳ / kiểu báo cáo: giữ đủ 7 kiểu như trước, đổi sang tab chung
+const TAB_KY = [
+  { value: "ngay", label: "Theo ngày" },
+  { value: "tuan", label: "Theo tuần" },
+  { value: "thang", label: "Theo tháng" },
+  { value: "nam", label: "Theo năm" },
+  { value: "so_sanh", label: "So sánh" },
+  { value: "chi_tiet", label: "Chi tiết GD" },
+  { value: "theo_kho", label: "Theo kho" },
+];
+
+// Giữ nguyên danh sách kho và loại giao dịch của ô chọn cũ
+const KHO_OPTIONS = [
+  { value: "ALL", label: "Tất cả kho" },
+  { value: "1", label: "KHO01 – Hà Nội" },
+  { value: "2", label: "KHO02 – Miền Nam" },
+  { value: "3", label: "KHO03 – Miền Trung" },
+  { value: "4", label: "KHO04 – Ngoại thành" },
+];
+const LOAI_GD_OPTIONS = [
+  { value: "ALL", label: "Tất cả loại GD" },
+  { value: "nhap_kho", label: "Nhập kho" },
+  { value: "xuat_kho", label: "Xuất kho" },
+  { value: "chuyen_kho", label: "Chuyển kho" },
+  { value: "dieu_chinh", label: "Điều chỉnh" },
+];
 
 function buildParams({ loai, nam, thang, tuNam, denNam, tuNgay, denNgay, khoId, loaiGiaoDich }) {
   const p = new URLSearchParams({ loai });
@@ -85,21 +115,14 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
-// ─── KPI CARD ───
-function KpiCard({ icon, label, value, sub, valueClass, iconClass }) {
+// ─── Ô NHẬP CÓ NHÃN TRONG Ô ───
+function ONhan({ label, icon, children }) {
   return (
-    <div className="rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium text-bo-muted">{label}</p>
-          <p className={`mt-1 truncate text-2xl font-bold tracking-tight ${valueClass}`}>{value}</p>
-          {sub && <p className="mt-1 text-xs text-bo-muted">{sub}</p>}
-        </div>
-        <span className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${iconClass}`}>
-          {icon}
-        </span>
-      </div>
-    </div>
+    <label className={O_NHAN_CLASS}>
+      {icon}
+      <span className="shrink-0 text-xs text-bo-muted">{label}</span>
+      {children}
+    </label>
   );
 }
 
@@ -154,21 +177,33 @@ export default function NhatKyNhapXuat() {
   const [khoId, setKhoId] = useState("ALL");
   const [loaiGiaoDich, setLoaiGiaoDich] = useState("ALL");
   const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(false);
+  // Trang tự tải ngay khi mở nên bắt đầu ở trạng thái đang tải (không hiện số 0 trước khi có số)
+  const [loading, setLoading] = useState(true);
+  // null: không lỗi; { moTa }: lần tải gần nhất lỗi
+  const [loi, setLoi] = useState(null);
+  const requestIdRef = useRef(0);
 
   const fetchData = useCallback(async () => {
+    // Đổi tab / kho / loại giao dịch liên tiếp có thể chạy 2 yêu cầu cùng lúc: chỉ nhận kết quả mới nhất
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     try {
       const params = buildParams({ loai, nam, thang, tuNam, denNam, tuNgay, denNgay, khoId, loaiGiaoDich });
       const res = await fetch(`${BASE_URL}?${params}`, {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
       });
-      const json = await res.json();
-      setData(Array.isArray(json) ? json : json.data ?? []);
-    } catch {
+      const json = await res.json().catch(() => null);
+      // Máy chủ báo lỗi thì ném lỗi để trang không hiện số 0 giả
+      if (!res.ok) throw new Error(json?.message ?? "");
+      if (requestId !== requestIdRef.current) return;
+      setData(Array.isArray(json) ? json : json?.data ?? []);
+      setLoi(null);
+    } catch (e) {
+      if (requestId !== requestIdRef.current) return;
       setData([]);
+      setLoi({ moTa: e?.message ?? "" });
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
   }, [loai, nam, thang, tuNam, denNam, tuNgay, denNgay, khoId, loaiGiaoDich]);
 
@@ -211,265 +246,247 @@ export default function NhatKyNhapXuat() {
   const gtrNhapPct = kpi.tongGtrNhap + kpi.tongGtrXuat > 0
     ? Math.round((kpi.tongGtrNhap / (kpi.tongGtrNhap + kpi.tongGtrXuat)) * 100) : 50;
 
-  const tabConfig = [
-    { key: "ngay", label: "Theo ngày" },
-    { key: "tuan", label: "Theo tuần" },
-    { key: "thang", label: "Theo tháng" },
-    { key: "nam", label: "Theo năm" },
-    { key: "so_sanh", label: "So sánh" },
-    { key: "chi_tiet", label: "Chi tiết GD" },
-    { key: "theo_kho", label: "Theo kho" },
+  // Chưa có số thật (đang tải lần đầu hoặc lỗi): hiện "—", không hiện số 0 giả
+  const coSo = !loi && !(loading && chartData.length === 0);
+  // Gợi ý phụ có số tính từ dữ liệu: ẩn khi đang tải hoặc lỗi
+  const anGoiYSo = loading || Boolean(loi);
+
+  // Dải chỉ số: giữ đủ 4 chỉ số, nhãn, cách tính và định dạng như các ô cũ
+  const chiSo = [
+    {
+      label: "Tổng SL nhập",
+      value: loi ? "—" : fmtSL(kpi.tongNhap),
+      hint: anGoiYSo ? null : `${chartData.length} kỳ thống kê`,
+    },
+    {
+      label: "Tổng SL xuất",
+      value: loi ? "—" : fmtSL(kpi.tongXuat),
+      hint: anGoiYSo ? null : `Chênh lệch: ${tongChenhLech >= 0 ? "+" : ""}${fmtSL(tongChenhLech)}`,
+    },
+    {
+      label: "Giá trị nhập",
+      value: loi ? "—" : fmt(kpi.tongGtrNhap),
+      hint: anGoiYSo ? null : `${gtrNhapPct}% tổng giá trị`,
+    },
+    { label: "Giá trị xuất", value: loi ? "—" : fmt(kpi.tongGtrXuat), hint: "Giá trị xuất kho" },
   ];
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
 
-      {/* ── KPI CARDS ── */}
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard icon={<ArrowDownToLine className="size-5" />} label="Tổng SL nhập"
-          value={fmtSL(kpi.tongNhap)} sub={`${chartData.length} kỳ thống kê`}
-          valueClass="text-bo-success" iconClass="bg-bo-success-soft text-bo-success" />
-        <KpiCard icon={<ArrowUpFromLine className="size-5" />} label="Tổng SL xuất"
-          value={fmtSL(kpi.tongXuat)} sub={`Chênh lệch: ${tongChenhLech >= 0 ? "+" : ""}${fmtSL(tongChenhLech)}`}
-          valueClass="text-bo-danger" iconClass="bg-bo-danger-soft text-bo-danger" />
-        <KpiCard icon={<TrendingDown className="size-5" />} label="Giá trị nhập"
-          value={fmt(kpi.tongGtrNhap)} sub={`${gtrNhapPct}% tổng giá trị`}
-          valueClass="text-bo-primary" iconClass="bg-bo-primary-soft text-bo-primary" />
-        <KpiCard icon={<TrendingUp className="size-5" />} label="Giá trị xuất"
-          value={fmt(kpi.tongGtrXuat)} sub="Giá trị xuất kho"
-          valueClass="text-bo-warning" iconClass="bg-bo-warning-soft text-bo-warning" />
-      </section>
-
-      {/* ── FILTER PANEL ── */}
-      <section className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-        <div className="flex items-center gap-2 border-b border-bo-border px-4 py-3 sm:px-5">
-          <Calendar className="size-4 text-bo-primary" />
-          <span className="text-xs font-semibold uppercase tracking-wide text-bo-muted">Bộ lọc nhật ký</span>
+      {/* ── HÀNG CÔNG CỤ (thay khung "Bộ lọc nhật ký") ──
+          Trái: kiểu báo cáo; phải: mốc thời gian, kho, loại giao dịch, nút xem.
+          Màn hẹp: bộ lọc lên trên, tab xuống dưới (tab tự cuộn ngang) để gạch chân tab nằm sát đường kẻ */}
+      <div className="flex flex-wrap-reverse items-start gap-x-3 border-b border-bo-border">
+        <div className="min-w-0 max-w-full">
+          <StatusTabs tabs={TAB_KY} value={loai} onChange={setLoai} label="Kiểu báo cáo" />
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 p-4 sm:p-5">
-          {/* Tab group */}
-          <div className="flex flex-wrap gap-1 rounded-lg border border-bo-border bg-bo-surface-subtle p-1">
-            {tabConfig.map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => setLoai(key)}
-                className={`cursor-pointer rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${loai === key
-                  ? "bg-bo-primary text-white shadow-sm"
-                  : "text-slate-600 hover:bg-white hover:text-bo-foreground"
-                  }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {/* Date range */}
+        <div className="ml-auto flex w-full flex-wrap items-center justify-end gap-2 py-2 sm:w-auto">
+          {/* Khoảng ngày */}
           {["ngay", "chi_tiet", "theo_kho"].includes(loai) && (
-            <div className="flex items-center gap-2">
-              <Input type="date" value={tuNgay} onChange={e => setTuNgay(e.target.value)}
-                className="h-9 w-[160px] border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20" />
-              <span className="font-medium text-bo-muted">→</span>
-              <Input type="date" value={denNgay} onChange={e => setDenNgay(e.target.value)}
-                className="h-9 w-[160px] border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20" />
-            </div>
+            <>
+              <ONhan label="Từ ngày" icon={<Calendar className="size-4 shrink-0 text-bo-muted" />}>
+                <Input type="date" aria-label="Từ ngày" value={tuNgay} onChange={e => setTuNgay(e.target.value)}
+                  className={O_NGAY_CLASS} />
+              </ONhan>
+              <ONhan label="Đến ngày" icon={<Calendar className="size-4 shrink-0 text-bo-muted" />}>
+                <Input type="date" aria-label="Đến ngày" value={denNgay} onChange={e => setDenNgay(e.target.value)}
+                  className={O_NGAY_CLASS} />
+              </ONhan>
+            </>
           )}
 
-          {/* Year */}
+          {/* Năm */}
           {["tuan", "thang", "so_sanh"].includes(loai) && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-bo-muted">Năm</span>
+            <ONhan label="Năm">
               <select
+                aria-label="Năm"
                 value={nam}
                 onChange={e => setNam(+e.target.value)}
-                className={`${SELECT_CLASS} w-[110px]`}
+                className={O_CHON_CLASS}
               >
                 {Array.from({ length: 8 }, (_, i) => thisYear - 7 + i).map(y => (
                   <option key={y} value={y}>{y}</option>
                 ))}
               </select>
-            </div>
+            </ONhan>
           )}
 
-          {/* Month for compare */}
+          {/* Tháng đem so sánh */}
           {loai === "so_sanh" && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-bo-muted">Tháng</span>
+            <ONhan label="Tháng">
               <select
+                aria-label="Tháng"
                 value={thang}
                 onChange={e => setThang(+e.target.value)}
-                className={`${SELECT_CLASS} w-[90px]`}
+                className={O_CHON_CLASS}
               >
                 {Array.from({ length: 12 }, (_, i) => (
                   <option key={i + 1} value={i + 1}>T{i + 1}</option>
                 ))}
               </select>
-            </div>
+            </ONhan>
           )}
 
-          {/* Year range */}
+          {/* Khoảng năm */}
           {loai === "nam" && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-bo-muted">Từ</span>
-              <select value={tuNam} onChange={e => setTuNam(+e.target.value)}
-                className={`${SELECT_CLASS} w-[100px]`}>
-                {Array.from({ length: 10 }, (_, i) => thisYear - 9 + i).map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
-              <span className="font-medium text-bo-muted">→</span>
-              <span className="text-xs font-medium text-bo-muted">Đến</span>
-              <select value={denNam} onChange={e => setDenNam(+e.target.value)}
-                className={`${SELECT_CLASS} w-[100px]`}>
-                {Array.from({ length: 10 }, (_, i) => thisYear - 9 + i).map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
-            </div>
+            <>
+              <ONhan label="Từ năm">
+                <select aria-label="Từ năm" value={tuNam} onChange={e => setTuNam(+e.target.value)}
+                  className={O_CHON_CLASS}>
+                  {Array.from({ length: 10 }, (_, i) => thisYear - 9 + i).map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </ONhan>
+              <ONhan label="Đến năm">
+                <select aria-label="Đến năm" value={denNam} onChange={e => setDenNam(+e.target.value)}
+                  className={O_CHON_CLASS}>
+                  {Array.from({ length: 10 }, (_, i) => thisYear - 9 + i).map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </ONhan>
+            </>
           )}
 
-          {/* Kho */}
-          <div className="flex items-center gap-2">
-            <Warehouse className="size-4 shrink-0 text-bo-muted" />
-            <Select value={khoId} onValueChange={setKhoId}>
-              <SelectTrigger className="h-9 min-w-[180px] border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20">
-                <SelectValue placeholder="Tất cả kho" />
-              </SelectTrigger>
-              <SelectContent position="popper" sideOffset={4} className="z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg">
-                <SelectItem value="ALL" className={SELECT_ITEM_CLASS}>Tất cả kho</SelectItem>
-                <SelectItem value="1" className={SELECT_ITEM_CLASS}>KHO01 – Hà Nội</SelectItem>
-                <SelectItem value="2" className={SELECT_ITEM_CLASS}>KHO02 – Miền Nam</SelectItem>
-                <SelectItem value="3" className={SELECT_ITEM_CLASS}>KHO03 – Miền Trung</SelectItem>
-                <SelectItem value="4" className={SELECT_ITEM_CLASS}>KHO04 – Ngoại thành</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <FilterSelect
+            label="Lọc theo kho"
+            value={khoId}
+            options={KHO_OPTIONS}
+            onChange={setKhoId}
+            align="end"
+            className="sm:w-[180px]"
+          />
 
-          {/* Loại GD */}
-          <div className="flex items-center gap-2">
-            <ArrowLeftRight className="size-4 shrink-0 text-bo-muted" />
-            <Select value={loaiGiaoDich} onValueChange={setLoaiGiaoDich}>
-              <SelectTrigger className="h-9 min-w-[160px] border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20">
-                <SelectValue placeholder="Tất cả loại GD" />
-              </SelectTrigger>
-              <SelectContent position="popper" sideOffset={4} className="z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg">
-                <SelectItem value="ALL" className={SELECT_ITEM_CLASS}>Tất cả loại GD</SelectItem>
-                <SelectItem value="nhap_kho" className={SELECT_ITEM_CLASS}>Nhập kho</SelectItem>
-                <SelectItem value="xuat_kho" className={SELECT_ITEM_CLASS}>Xuất kho</SelectItem>
-                <SelectItem value="chuyen_kho" className={SELECT_ITEM_CLASS}>Chuyển kho</SelectItem>
-                <SelectItem value="dieu_chinh" className={SELECT_ITEM_CLASS}>Điều chỉnh</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <FilterSelect
+            label="Lọc theo loại giao dịch"
+            value={loaiGiaoDich}
+            options={LOAI_GD_OPTIONS}
+            onChange={setLoaiGiaoDich}
+            align="end"
+            className="sm:w-[170px]"
+          />
 
           <Button
             onClick={fetchData}
             disabled={loading}
-            className="h-9 gap-2 bg-bo-primary px-4 text-sm font-medium text-white hover:bg-bo-primary-hover disabled:opacity-50"
+            className="h-9 w-full gap-2 bg-bo-primary px-4 text-sm font-medium text-white hover:bg-bo-primary-hover disabled:opacity-50 sm:w-auto"
           >
             {loading ? <RefreshCw className="size-4 animate-spin" /> : <Search className="size-4" />}
             Xem báo cáo
           </Button>
         </div>
-      </section>
+      </div>
 
-      {/* ── CHART + SUMMARY ── */}
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_300px]">
+      {/* ── DẢI CHỈ SỐ (một khung, thay 4 ô rời) ── */}
+      <MetricStrip label="Chỉ số nhập xuất" items={chiSo} loading={loading} />
 
-        <SurfaceCard title="Biểu đồ nhập xuất kho" description="Số lượng nhập, xuất & chênh lệch tồn kho theo kỳ">
-          <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-bo-muted">
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block size-3 rounded-sm bg-bo-success" />Nhập kho
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block size-3 rounded-sm bg-bo-danger" />Xuất kho
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block h-0.5 w-5 rounded-full bg-bo-primary" />Chênh lệch
-            </span>
-          </div>
+      {/* ── CHART + SUMMARY (lỗi tải thì ẩn, báo lỗi ở khung bảng) ── */}
+      {!loi && (
+        <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_300px]">
 
-          {loading && chartData.length === 0 ? (
-            <LoadingState rows={4} label="Đang tải biểu đồ nhập xuất" />
-          ) : (
-            <ResponsiveContainer width="100%" height={360}>
-              <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="gradNhap" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={CHART_COLORS.nhapLight} />
-                    <stop offset="100%" stopColor={CHART_COLORS.nhap} />
-                  </linearGradient>
-                  <linearGradient id="gradXuat" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={CHART_COLORS.xuatLight} />
-                    <stop offset="100%" stopColor={CHART_COLORS.xuat} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} vertical={false} />
-                <XAxis dataKey="nhanThoiGian" tick={{ fill: CHART_COLORS.axis, fontSize: 11 }} axisLine={{ stroke: CHART_COLORS.grid }} tickLine={false} />
-                <YAxis tickFormatter={fmtSL} tick={{ fill: CHART_COLORS.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: CHART_COLORS.grid }} />
-                <Bar dataKey="tongNhap" name="Nhập kho" fill="url(#gradNhap)" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                <Bar dataKey="tongXuat" name="Xuất kho" fill="url(#gradXuat)" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                <Line dataKey="chenhLech" name="Chênh lệch" stroke={CHART_COLORS.chenhLech} strokeWidth={2.5}
-                  dot={{ r: 3, fill: CHART_COLORS.chenhLech, strokeWidth: 0 }} activeDot={{ r: 5 }} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          )}
-        </SurfaceCard>
+          <SurfaceCard title="Biểu đồ nhập xuất kho" description="Số lượng nhập, xuất & chênh lệch tồn kho theo kỳ">
+            <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-bo-muted">
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block size-3 rounded-sm bg-bo-success" />Nhập kho
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block size-3 rounded-sm bg-bo-danger" />Xuất kho
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-0.5 w-5 rounded-full bg-bo-primary" />Chênh lệch
+              </span>
+            </div>
 
-        {/* Side summary */}
-        <div className="flex flex-col gap-3">
-          {[
-            { label: "Nhập kho", value: fmtSL(kpi.tongNhap), pct: nhapPct, barClass: "bg-bo-success", textClass: "text-bo-success", bg: "bg-bo-success-soft" },
-            { label: "Xuất kho", value: fmtSL(kpi.tongXuat), pct: xuatPct, barClass: "bg-bo-danger", textClass: "text-bo-danger", bg: "bg-bo-danger-soft" },
-            { label: "Giá trị nhập", value: fmt(kpi.tongGtrNhap), pct: gtrNhapPct, barClass: "bg-bo-primary", textClass: "text-bo-primary", bg: "bg-bo-primary-soft" },
-          ].map(item => (
-            <div key={item.label} className="rounded-lg border border-bo-border bg-white p-4 shadow-sm">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <span className="text-xs font-medium text-bo-muted">{item.label}</span>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${item.bg} ${item.textClass}`}>{item.pct}%</span>
+            {loading && chartData.length === 0 ? (
+              <LoadingState rows={4} label="Đang tải biểu đồ nhập xuất" />
+            ) : (
+              <ResponsiveContainer width="100%" height={360}>
+                <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="gradNhap" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={CHART_COLORS.nhapLight} />
+                      <stop offset="100%" stopColor={CHART_COLORS.nhap} />
+                    </linearGradient>
+                    <linearGradient id="gradXuat" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={CHART_COLORS.xuatLight} />
+                      <stop offset="100%" stopColor={CHART_COLORS.xuat} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} vertical={false} />
+                  <XAxis dataKey="nhanThoiGian" tick={{ fill: CHART_COLORS.axis, fontSize: 11 }} axisLine={{ stroke: CHART_COLORS.grid }} tickLine={false} />
+                  <YAxis tickFormatter={fmtSL} tick={{ fill: CHART_COLORS.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: CHART_COLORS.grid }} />
+                  <Bar dataKey="tongNhap" name="Nhập kho" fill="url(#gradNhap)" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  <Bar dataKey="tongXuat" name="Xuất kho" fill="url(#gradXuat)" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  <Line dataKey="chenhLech" name="Chênh lệch" stroke={CHART_COLORS.chenhLech} strokeWidth={2.5}
+                    dot={{ r: 3, fill: CHART_COLORS.chenhLech, strokeWidth: 0 }} activeDot={{ r: 5 }} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            )}
+          </SurfaceCard>
+
+          {/* Side summary */}
+          <div className="flex flex-col gap-3">
+            {[
+              { label: "Nhập kho", value: fmtSL(kpi.tongNhap), pct: nhapPct, barClass: "bg-bo-success", textClass: "text-bo-success", bg: "bg-bo-success-soft" },
+              { label: "Xuất kho", value: fmtSL(kpi.tongXuat), pct: xuatPct, barClass: "bg-bo-danger", textClass: "text-bo-danger", bg: "bg-bo-danger-soft" },
+              { label: "Giá trị nhập", value: fmt(kpi.tongGtrNhap), pct: gtrNhapPct, barClass: "bg-bo-primary", textClass: "text-bo-primary", bg: "bg-bo-primary-soft" },
+            ].map(item => (
+              <div key={item.label} className="rounded-lg border border-bo-border bg-white p-4 shadow-sm">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-bo-muted">{item.label}</span>
+                  {coSo && (
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${item.bg} ${item.textClass}`}>{item.pct}%</span>
+                  )}
+                </div>
+                <p className={`mb-3 text-xl font-bold ${item.textClass}`}>{coSo ? item.value : "—"}</p>
+                <ProgressBar pct={coSo ? item.pct : 0} barClass={item.barClass} />
               </div>
-              <p className={`mb-3 text-xl font-bold ${item.textClass}`}>{item.value}</p>
-              <ProgressBar pct={item.pct} barClass={item.barClass} />
-            </div>
-          ))}
+            ))}
 
-          {chartData.length > 1 && (
+            {chartData.length > 1 && (
+              <div className="rounded-lg border border-bo-border bg-white p-4 shadow-sm">
+                <p className="mb-2 text-xs font-medium text-bo-muted">Xu hướng nhập kho</p>
+                <MiniSparkline data={chartData} dataKey="tongNhap" color={CHART_COLORS.nhap} />
+              </div>
+            )}
+
             <div className="rounded-lg border border-bo-border bg-white p-4 shadow-sm">
-              <p className="mb-2 text-xs font-medium text-bo-muted">Xu hướng nhập kho</p>
-              <MiniSparkline data={chartData} dataKey="tongNhap" color={CHART_COLORS.nhap} />
-            </div>
-          )}
-
-          <div className="rounded-lg border border-bo-border bg-white p-4 shadow-sm">
-            <p className="mb-3 text-xs font-medium text-bo-muted">Chỉ số nhanh</p>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-bo-muted">Nhập TB / kỳ</span>
-              <span className="text-xs font-bold text-bo-success">
-                {chartData.length > 0 ? fmtSL(Math.round(kpi.tongNhap / chartData.length)) : "—"}
-              </span>
-            </div>
-            <div className="my-3 h-px bg-bo-border" />
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-bo-muted">Xuất TB / kỳ</span>
-              <span className="text-xs font-bold text-bo-danger">
-                {chartData.length > 0 ? fmtSL(Math.round(kpi.tongXuat / chartData.length)) : "—"}
-              </span>
-            </div>
-            <div className="my-3 h-px bg-bo-border" />
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-bo-muted">Tỷ lệ nhập/xuất</span>
-              <span className={`text-xs font-bold ${tongChenhLech >= 0 ? "text-bo-success" : "text-bo-danger"}`}>
-                {kpi.tongXuat > 0 ? (kpi.tongNhap / kpi.tongXuat).toFixed(2) : "—"}x
-              </span>
+              <p className="mb-3 text-xs font-medium text-bo-muted">Chỉ số nhanh</p>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-bo-muted">Nhập TB / kỳ</span>
+                <span className="text-xs font-bold text-bo-success">
+                  {chartData.length > 0 ? fmtSL(Math.round(kpi.tongNhap / chartData.length)) : "—"}
+                </span>
+              </div>
+              <div className="my-3 h-px bg-bo-border" />
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-bo-muted">Xuất TB / kỳ</span>
+                <span className="text-xs font-bold text-bo-danger">
+                  {chartData.length > 0 ? fmtSL(Math.round(kpi.tongXuat / chartData.length)) : "—"}
+                </span>
+              </div>
+              <div className="my-3 h-px bg-bo-border" />
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-bo-muted">Tỷ lệ nhập/xuất</span>
+                <span className={`text-xs font-bold ${tongChenhLech >= 0 ? "text-bo-success" : "text-bo-danger"}`}>
+                  {/* Không có số xuất thì chỉ hiện "—" (trước đây hiện "—x") */}
+                  {kpi.tongXuat > 0 ? `${(kpi.tongNhap / kpi.tongXuat).toFixed(2)}x` : "—"}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ── DATA TABLE ── */}
       <TableShell
         title="Chi tiết nhật ký nhập xuất"
-        description={`${chartData.length} kỳ được tổng hợp`}
+        description={coSo ? `${chartData.length} kỳ được tổng hợp` : undefined}
       >
         {loading && chartData.length === 0 ? (
           <LoadingState rows={5} label="Đang tải nhật ký nhập xuất" />
+        ) : loi ? (
+          <ErrorState description={loi.moTa || undefined} onRetry={fetchData} />
         ) : chartData.length === 0 ? (
           <EmptyState
             icon={BarChart2}

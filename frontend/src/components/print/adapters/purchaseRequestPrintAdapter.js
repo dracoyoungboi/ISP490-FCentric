@@ -1,19 +1,13 @@
 import { formatNumber } from "@/utils/formatters";
+import { YEU_CAU_NHAP_HANG_STATUS } from "@/constants/yeuCauNhapHang";
 import { formatPrintDate, formatPrintDateTime } from "./printFormat";
+import { trangThaiLa } from "@/constants/trangThaiChung";
 
 /**
- * Trạng thái yêu cầu nhập hàng — khớp với bản đồ trạng thái
- * đang dùng ở PurchaseRequestList / PurchaseRequestDetail.
+ * Trạng thái yêu cầu nhập hàng — dùng chung hằng số với PurchaseRequestList / PurchaseRequestDetail.
  * `tone` khớp với tone của StatusBadge.
  */
-export const PURCHASE_REQUEST_STATUS = {
-    0: { label: "Nháp", tone: "neutral" },
-    1: { label: "Chờ duyệt", tone: "warning" },
-    2: { label: "Đã duyệt", tone: "success" },
-    3: { label: "Đã chuyển thành báo giá", tone: "info" },
-    4: { label: "Từ chối", tone: "danger" },
-    5: { label: "Đã chuyển thành báo giá", tone: "info" },
-};
+export const PURCHASE_REQUEST_STATUS = YEU_CAU_NHAP_HANG_STATUS;
 
 // Chuẩn hoá giá trị rỗng về "—" để layout bản in không bị vỡ
 const dash = (value) => {
@@ -62,7 +56,7 @@ export function toPurchaseRequestPrintModel(raw) {
         0
     );
 
-    const status = PURCHASE_REQUEST_STATUS[data.trangThai] || PURCHASE_REQUEST_STATUS[1];
+    const status = PURCHASE_REQUEST_STATUS[data.trangThai] || trangThaiLa(data.trangThai);
 
     // Phiếu bị từ chối: người xử lý (nguoiDuyet) là NGƯỜI TỪ CHỐI — đổi nhãn
     // để giấy in không ghi "Người duyệt" cho một phiếu không được duyệt, và

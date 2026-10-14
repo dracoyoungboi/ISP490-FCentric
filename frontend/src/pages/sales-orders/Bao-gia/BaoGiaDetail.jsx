@@ -17,6 +17,7 @@ import PageContainer from "@/components/backoffice/PageContainer";
 import LoadingState from "@/components/shared/LoadingState";
 import StatusBadge from "@/components/shared/StatusBadge";
 import SurfaceCard from "@/components/shared/SurfaceCard";
+import { BAO_GIA_STATUS, getBaoGiaStatus } from "@/constants/baoGia";
 
 // ── Constants & Helpers ──────────────────────────────────────────────────
 const ROLE = {
@@ -39,12 +40,8 @@ function parseRoles(vaiTro) {
     return vaiTro.includes(" ") ? vaiTro.split(" ") : [vaiTro];
 }
 
-// ── Trạng thái Báo Giá ───────────────────────────────────────────────────
-const QUOTE_STATUS_MAP = {
-  0: { label: "Đang chờ phản hồi", tone: "warning" },
-  2: { label: "Đã chốt đơn", tone: "success" },
-  4: { label: "Bị từ chối", tone: "danger" },
-};
+// ── Trạng thái Báo Giá: dùng chung tên với danh sách và bản in (constants/baoGia) ──
+const QUOTE_STATUS_MAP = BAO_GIA_STATUS;
 
 export default function BaoGiaDetail() {
   const { id } = useParams();
@@ -135,7 +132,7 @@ export default function BaoGiaDetail() {
   if (!data) return null;
 
   const { donBanHang, chiTiet } = data;
-  const st = QUOTE_STATUS_MAP[donBanHang.trangThai] ?? QUOTE_STATUS_MAP[0];
+  const st = getBaoGiaStatus(donBanHang.trangThai);
 
   const infoRows = [
     { icon: User,     label: "Khách hàng",     value: donBanHang.khachHang?.tenKhachHang },

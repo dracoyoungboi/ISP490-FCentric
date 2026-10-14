@@ -1,14 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
     AlertTriangle,
-    CheckCircle2,
-    Filter,
     KeyRound,
     Plus,
     SearchX,
     Users,
-    X,
-    XCircle,
 } from "lucide-react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -18,12 +14,13 @@ import PageContainer from "@/components/backoffice/PageContainer";
 import UserAvatar from "@/components/UserAvatar";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
-import FilterBar from "@/components/shared/FilterBar";
 import FilterSelect from "@/components/shared/FilterSelect";
-import KpiCard from "@/components/shared/KpiCard";
+import ListPageHeader from "@/components/shared/ListPageHeader";
+import ListToolbar from "@/components/shared/ListToolbar";
 import LoadingState from "@/components/shared/LoadingState";
 import SearchInput from "@/components/shared/SearchInput";
 import StatusBadge from "@/components/shared/StatusBadge";
+import StatusTabs from "@/components/shared/StatusTabs";
 import TablePagination from "@/components/shared/TablePagination";
 import TableShell from "@/components/shared/TableShell";
 import { Button } from "@/components/ui/button";
@@ -39,6 +36,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ROLES } from "@/constants/backend/role";
 import { cn } from "@/lib/utils";
+import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import { adminService } from "@/services/adminService";
 import { getCurrentUserId } from "@/utils/roles";
 
@@ -50,11 +48,18 @@ const ROLE_OPTIONS = [
     ...ROLES.filter((role) => role.value !== "khach_hang"),
 ];
 
-const STATUS_OPTIONS = [
-    { value: "ALL", label: "Tất cả trạng thái" },
+// Tab trạng thái (bố cục A+G). Giá trị giữ như tham số ?trangThai= cũ trên URL.
+// "Bị khóa" = mọi tài khoản trangThai ≠ 1: khớp badge trong bảng và điều kiện chặn đăng nhập ở backend.
+const STATUS_TABS = [
+    { value: "ALL", label: "Tất cả" },
     { value: "1", label: "Hoạt động" },
-    { value: "0", label: "Bị khóa" },
+    { value: "0", label: "Bị khóa", tone: "danger" },
 ];
+const STATUS_TAB_VALUES = STATUS_TABS.map((tab) => tab.value);
+const EMPTY_TAB_TITLE = {
+    1: "Không có tài khoản nào đang hoạt động",
+    0: "Không có tài khoản nào bị khóa",
+};
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 const DEFAULT_PAGE_SIZE = 10;
@@ -114,11 +119,18 @@ function buildUserFilterPayload(filters) {
         });
     }
 
-    if (filters.trangThai !== "ALL") {
+    if (filters.trangThai === "1") {
         filterList.push({
             fieldName: "trangThai",
             operation: "EQUALS",
-            value: Number(filters.trangThai),
+            value: 1,
+            logicType: "AND",
+        });
+    } else if (filters.trangThai === "0") {
+        filterList.push({
+            fieldName: "trangThai",
+            operation: "NOT_IN",
+            value: [1],
             logicType: "AND",
         });
     }
@@ -142,7 +154,7 @@ function readFiltersFromUrl(searchParams) {
     return {
         keyword: (searchParams.get("q") ?? "").trim(),
         vaiTro: ROLE_OPTIONS.some((o) => o.value === vaiTro) ? vaiTro : "ALL",
-        trangThai: STATUS_OPTIONS.some((o) => o.value === trangThai) ? trangThai : "ALL",
+        trangThai: STATUS_TAB_VALUES.includes(trangThai) ? trangThai : "ALL",
         page: page > 1 ? page - 1 : 0,
         size: PAGE_SIZE_OPTIONS.includes(size) ? size : DEFAULT_PAGE_SIZE,
     };
@@ -173,7 +185,6 @@ export default function ViewUserListByAdmin() {
     const [loadError, setLoadError] = useState(null);
     const requestIdRef = useRef(0);
 
-    const [stats, setStats] = useState(null);
     const [currentUserId] = useState(() => getCurrentUserId());
 
     const [selectedUserForReset, setSelectedUserForReset] = useState(null);
@@ -189,8 +200,8 @@ export default function ViewUserListByAdmin() {
     const [tableEl, setTableEl] = useState(null);
     const [columnsHidden, setColumnsHidden] = useState(false);
 
-    const hasActiveFilters =
-        Boolean(searchText.trim()) || filters.vaiTro !== "ALL" || filters.trangThai !== "ALL";
+    // Bộ lọc ngoài tab trạng thái (nút "Xóa lọc" chỉ xóa các bộ lọc này, giữ tab đang chọn).
+    const hasActiveFilters = Boolean(searchText.trim()) || filters.vaiTro !== "ALL";
 
     // ── Danh sách ────────────────────────────────────────────────
     // silent: tải lại sau khi thêm người dùng — giữ nguyên bảng đang xem, không hiện vòng xoay.
@@ -238,35 +249,18 @@ export default function ViewUserListByAdmin() {
         queueMicrotask(() => fetchUsers());
     }, [fetchUsers]);
 
-    // ── Thống kê toàn hệ thống (không phụ thuộc bộ lọc / trang đang xem) ──
-    const fetchStats = useCallback(async () => {
-        const countUsers = async (trangThai) => {
+    // ── Số trên từng tab: cùng từ khóa + vai trò đang lọc, chỉ thay trạng thái (R1) ──
+    const tabCounts = useDemTheoTrangThai(
+        STATUS_TAB_VALUES,
+        async (trangThai) => {
             const res = await adminService.filterUsersByAdmin(
-                buildUserFilterPayload({ ...DEFAULT_FILTERS, trangThai, size: 1 })
+                buildUserFilterPayload({ ...filters, trangThai, page: 0, size: 1 })
             );
+            if (res.data?.status !== 200) throw new Error(res.data?.message || LOAD_ERROR_MESSAGE);
             return res.data?.data?.totalElements ?? 0;
-        };
-
-        try {
-            const [totalUsers, activeUsers] = await Promise.all([
-                countUsers("ALL"),
-                countUsers("1"),
-            ]);
-            // "Bị khóa" = mọi tài khoản trangThai ≠ 1: khớp badge trong bảng
-            // và điều kiện chặn đăng nhập ở backend.
-            setStats({
-                totalUsers,
-                activeUsers,
-                lockedUsers: Math.max(totalUsers - activeUsers, 0),
-            });
-        } catch (error) {
-            console.error(error);
-        }
-    }, []);
-
-    useEffect(() => {
-        queueMicrotask(() => fetchStats());
-    }, [fetchStats]);
+        },
+        `${filters.keyword}|${filters.vaiTro}`
+    );
 
     // ── Debounce ô tìm kiếm: không gọi API ở mỗi lần gõ phím ──
     useEffect(() => {
@@ -334,7 +328,7 @@ export default function ViewUserListByAdmin() {
         setHighlightUserId(user.id ?? null);
         // Giữ nguyên bộ lọc + trang đang xem; danh sách xếp mới tạo lên đầu.
         fetchUsers({ silent: true });
-        fetchStats();
+        tabCounts.reload();
     };
 
     const applyKeyword = (keyword) => {
@@ -347,7 +341,7 @@ export default function ViewUserListByAdmin() {
 
     const clearFilters = () => {
         setSearchText("");
-        setFilters((prev) => ({ ...DEFAULT_FILTERS, size: prev.size }));
+        setFilters((prev) => ({ ...DEFAULT_FILTERS, trangThai: prev.trangThai, size: prev.size }));
     };
 
     const isCurrentUser = (user) =>
@@ -372,42 +366,41 @@ export default function ViewUserListByAdmin() {
     // Trang chi tiết dùng `from` cho nút "Quay lại danh sách" (giữ nguyên bộ lọc + trang).
     const detailLinkState = { from: `${location.pathname}${location.search}` };
 
-    const statValue = (key) => (stats ? stats[key] : "—");
+    // Số chỉ hiện khi đã đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs.
+    const statusTabs = STATUS_TABS.map((tab) => ({
+        ...tab,
+        count: loadError ? null : tabCounts.counts[tab.value],
+    }));
 
     return (
-        <PageContainer className="space-y-5">
-            {/* ── STATS ── */}
-            <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <KpiCard
-                    label="Tổng người dùng"
-                    value={statValue("totalUsers")}
-                    icon={<Users className="size-5" />}
-                    iconClass="bg-bo-primary-soft text-bo-primary"
-                />
-                <KpiCard
-                    label="Hoạt động"
-                    value={statValue("activeUsers")}
-                    icon={<CheckCircle2 className="size-5" />}
-                    iconClass="bg-bo-success-soft text-bo-success"
-                />
-                <KpiCard
-                    label="Bị khóa"
-                    value={statValue("lockedUsers")}
-                    icon={<XCircle className="size-5" />}
-                    iconClass="bg-bo-danger-soft text-bo-danger"
-                />
-            </section>
+        <PageContainer className="space-y-4">
+            <ListPageHeader
+                actions={
+                    <Button
+                        onClick={() => setCreateOpen(true)}
+                        className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                    >
+                        <Plus className="size-4" />
+                        Thêm người dùng
+                    </Button>
+                }
+            />
 
-            {/* ── FILTER ── */}
-            <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                <div className="flex items-center gap-2 border-b border-bo-border px-4 py-3 sm:px-5">
-                    <Filter className="size-4 text-bo-primary" />
-                    <h2 className="text-sm font-semibold text-bo-foreground sm:text-base">
-                        Bộ lọc tìm kiếm
-                    </h2>
-                </div>
-                <FilterBar
-                    primary={
+            {/* ── BẢNG: tab trạng thái + tìm kiếm + vai trò cùng một hàng ── */}
+            <TableShell
+                toolbar={
+                    <ListToolbar
+                        tabs={
+                            <StatusTabs
+                                label="Lọc người dùng theo trạng thái"
+                                tabs={statusTabs}
+                                value={filters.trangThai}
+                                onChange={(value) => changeFilter("trangThai", value)}
+                            />
+                        }
+                        hasFilter={hasActiveFilters}
+                        onClear={clearFilters}
+                    >
                         <SearchInput
                             label="Tìm người dùng"
                             placeholder="Tên, tên đăng nhập, email hoặc SĐT"
@@ -420,51 +413,17 @@ export default function ViewUserListByAdmin() {
                                 setSearchText("");
                                 applyKeyword("");
                             }}
+                            className="sm:w-[340px]"
                         />
-                    }
-                    filters={
-                        <>
-                            <FilterSelect
-                                label="Lọc theo vai trò"
-                                value={filters.vaiTro}
-                                options={ROLE_OPTIONS}
-                                onChange={(value) => changeFilter("vaiTro", value)}
-                            />
-
-                            <FilterSelect
-                                label="Lọc theo trạng thái"
-                                value={filters.trangThai}
-                                options={STATUS_OPTIONS}
-                                onChange={(value) => changeFilter("trangThai", value)}
-                                className="sm:w-[170px]"
-                            />
-
-                            {hasActiveFilters ? (
-                                <Button
-                                    variant="ghost"
-                                    onClick={clearFilters}
-                                    className="h-9 gap-1.5 px-2.5 text-sm font-normal text-bo-muted hover:bg-bo-surface-subtle hover:text-bo-foreground"
-                                >
-                                    <X className="size-4" />
-                                    Xóa lọc
-                                </Button>
-                            ) : null}
-                        </>
-                    }
-                    actions={
-                        <Button
-                            onClick={() => setCreateOpen(true)}
-                            className="bg-bo-primary text-white hover:bg-bo-primary-hover"
-                        >
-                            <Plus className="size-4" />
-                            Thêm người dùng
-                        </Button>
-                    }
-                />
-            </div>
-
-            {/* ── TABLE ── */}
-            <TableShell
+                        <FilterSelect
+                            label="Lọc theo vai trò"
+                            value={filters.vaiTro}
+                            options={ROLE_OPTIONS}
+                            onChange={(value) => changeFilter("vaiTro", value)}
+                            align="end"
+                        />
+                    </ListToolbar>
+                }
                 footer={
                     <TablePagination
                         page={filters.page}
@@ -490,7 +449,7 @@ export default function ViewUserListByAdmin() {
                         description={loadError}
                         onRetry={() => {
                             fetchUsers();
-                            if (!stats) fetchStats();
+                            tabCounts.reload();
                         }}
                     />
                 ) : users.length === 0 ? (
@@ -505,7 +464,22 @@ export default function ViewUserListByAdmin() {
                                     onClick={clearFilters}
                                     className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    Xóa bộ lọc
+                                    Xóa lọc
+                                </Button>
+                            }
+                        />
+                    ) : filters.trangThai !== "ALL" ? (
+                        <EmptyState
+                            icon={Users}
+                            title={EMPTY_TAB_TITLE[filters.trangThai]}
+                            description="Chọn tab Tất cả để xem mọi tài khoản."
+                            action={
+                                <Button
+                                    variant="outline"
+                                    onClick={() => changeFilter("trangThai", "ALL")}
+                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                >
+                                    Xem tất cả
                                 </Button>
                             }
                         />
