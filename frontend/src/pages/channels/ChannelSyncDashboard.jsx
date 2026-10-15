@@ -309,8 +309,8 @@ export default function ChannelSyncDashboard() {
         },
         {
             label: "Chu kỳ đồng bộ tồn",
-            value: overview ? `${overview.chuKyDongBoTonPhut} phút` : "—",
-            hint: overview ? `Lấy đơn mỗi ${overview.chuKyLayDonPhut} phút` : undefined,
+            value: overview?.chuKyDongBoTonPhut != null ? `${overview.chuKyDongBoTonPhut} phút` : "—",
+            hint: overview?.chuKyLayDonPhut != null ? `Lấy đơn mỗi ${overview.chuKyLayDonPhut} phút` : undefined,
         },
     ];
 
