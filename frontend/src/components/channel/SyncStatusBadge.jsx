@@ -1,7 +1,8 @@
 import StatusBadge from "@/components/shared/StatusBadge";
-import { SYNC_STATUS } from "@/constants/channel";
+import { LIEN_KET_STATUS } from "@/constants/channel";
 
-export default function SyncStatusBadge({ trangThai }) {
-  const meta = SYNC_STATUS[trangThai] ?? { label: trangThai || "—", tone: "neutral" };
-  return <StatusBadge label={meta.label} tone={meta.tone} />;
+/** Trạng thái đồng bộ của một sản phẩm đã liên kết: Đang đồng bộ / Ngừng đồng bộ / Lỗi. */
+export default function SyncStatusBadge({ trangThai, className }) {
+  const meta = LIEN_KET_STATUS[trangThai] ?? { label: trangThai || "—", tone: "neutral" };
+  return <StatusBadge label={meta.label} tone={meta.tone} className={className} />;
 }

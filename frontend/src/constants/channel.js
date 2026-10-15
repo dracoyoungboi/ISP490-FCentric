@@ -48,7 +48,7 @@ export const CONNECTION_STATUS = {
   chua_ket_noi: { label: "Chưa kết nối", tone: "neutral" },
   dang_hoat_dong: { label: "Đang hoạt động", tone: "success" },
   tam_dung: { label: "Tạm dừng", tone: "warning" },
-  het_han: { label: "Hết hạn", tone: "danger" },
+  het_han: { label: "Hết hạn khóa", tone: "danger" },
   loi: { label: "Lỗi", tone: "danger" },
 };
 
@@ -207,4 +207,49 @@ export function locKhoDongBo(list) {
   return (Array.isArray(list) ? list : []).filter(
     (kho) => kho?.maKho !== "KHO_TRANSIT" && (kho?.trangThai === undefined || kho?.trangThai === null || Number(kho.trangThai) === 1),
   );
+}
+
+// ── Màn Kênh bán hàng theo từng sàn (bố cục học từ trang quản lý kênh của Sapo) ──
+
+/** Các sàn hiển thị ở trang Kênh bán hàng. Hiện chỉ Shopify có tích hợp thật. */
+export const SAN_BAN_HANG = [
+  { maKenh: "SHOPIFY", ten: "Shopify", duongDan: "/channels/shopify", hoTro: true },
+  { maKenh: "LAZADA", ten: "Lazada", duongDan: null, hoTro: false },
+  { maKenh: "TIKTOK", ten: "TikTok Shop", duongDan: null, hoTro: false },
+];
+
+/** Bốn bước thiết lập gian hàng (tên ngắn trùng tên thẻ ở trang Cấu hình). */
+export const BUOC_THIET_LAP = [
+  { so: 1, ten: "Gian hàng", moTa: "Nhập tên miền và khóa truy cập của ứng dụng Shopify." },
+  { so: 2, ten: "Tồn kho", moTa: "Chọn cách cập nhật số tồn lên Shopify." },
+  { so: 3, ten: "Đơn hàng", moTa: "Bật nhận đơn mới từ Shopify về FCentric." },
+  { so: 4, ten: "Liên kết sản phẩm", moTa: "Ghép sản phẩm trên Shopify với biến thể FCentric." },
+];
+
+/**
+ * Trạng thái một dòng liên kết sản phẩm. Mỗi dòng luôn gắn một biến thể FCentric:
+ * "chua_lien_ket" là dòng đang ngừng đồng bộ (backend lưu "chua_dong_bo").
+ */
+export const LIEN_KET_STATUS = {
+  da_lien_ket: { label: "Đang đồng bộ", tone: "success" },
+  chua_lien_ket: { label: "Ngừng đồng bộ", tone: "warning" },
+  loi: { label: "Lỗi", tone: "danger" },
+};
+
+/** Tab của trang Sản phẩm theo sàn. `ma` nằm trên đường dẫn `?trangThai=`. */
+export const LIEN_KET_TABS = [
+  { ma: "tat-ca", label: "Tất cả", trangThai: null },
+  { ma: "dang-dong-bo", label: LIEN_KET_STATUS.da_lien_ket.label, trangThai: "da_lien_ket" },
+  { ma: "ngung-dong-bo", label: LIEN_KET_STATUS.chua_lien_ket.label, trangThai: "chua_lien_ket" },
+  { ma: "loi", label: LIEN_KET_STATUS.loi.label, trangThai: "loi" },
+];
+
+/**
+ * Số lượng đẩy lên sàn, khớp KenhBanHangDongBoServiceImpl.dayTonKhoLenKenh:
+ * lấy ⌊khả dụng × tỷ lệ / 100⌋ trừ tồn đệm; kết quả không vượt ngưỡng về 0 thì đẩy 0.
+ */
+export function tinhSoTonDayLenSan(khaDung, { tyLeDayTon = 100, tonDem = 0, nguongVe0 = 0 } = {}) {
+  const kd = Math.max(0, Math.floor(Number(khaDung) || 0));
+  const soDay = Math.floor((kd * (Number(tyLeDayTon) || 0)) / 100) - (Number(tonDem) || 0);
+  return soDay <= (Number(nguongVe0) || 0) ? 0 : soDay;
 }

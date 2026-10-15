@@ -1,293 +1,203 @@
 import apiClient from "./apiClient";
-import { CHANNEL_MOCK } from "@/mocks/mockHelpers";
+import { CHANNEL_MOCK, mockDelay, mockError } from "@/mocks/mockHelpers";
 import { kenhBanHangMock } from "@/mocks/kenhBanHangMock";
 
+/**
+ * Kênh bán hàng — gọi KenhBanHangController (/api/v1/kenh-ban-hang).
+ * Mỗi sàn dùng mã kênh (SHOPIFY…) trên đường dẫn. Hiện chỉ Shopify có API thật.
+ * Bật VITE_CHANNEL_MOCK=true để chạy bằng dữ liệu mẫu (mocks/kenhBanHangMock.js).
+ */
 const BASE = "/api/v1/kenh-ban-hang";
 const data = (res) => res.data?.data;
+const ma = (maKenh) => encodeURIComponent(String(maKenh || "SHOPIFY").toUpperCase());
 
 /**
- * Chuẩn hóa mã kênh (Hỗ trợ cả ID số như 2 và chuỗi như 'SHOPIFY')
+ * Trạng thái liên kết dùng ở giao diện ↔ giá trị lưu trong bảng trang_thai_dong_bo_san_pham.
+ * Mỗi dòng liên kết luôn gắn một biến thể FCentric; "chua_lien_ket" nghĩa là đang ngừng đồng bộ dòng đó.
  */
-export function resolveChannelCode(channelIdOrCode) {
-  if (!channelIdOrCode) return "SHOPIFY";
-  const str = String(channelIdOrCode).trim();
-  if (str === "2" || str.toUpperCase() === "SHOPIFY") return "SHOPIFY";
-  if (str === "3" || str.toUpperCase() === "LAZADA") return "LAZADA";
-  if (str === "5" || str.toUpperCase() === "TIKTOK") return "TIKTOK";
-  return str.toUpperCase();
-}
+const TRANG_THAI_DB = { da_lien_ket: "thanh_cong", chua_lien_ket: "chua_dong_bo", loi: "that_bai" };
 
-/**
- * Chuẩn hóa dữ liệu phân trang liên kết từ backend về frontend model
- */
-function normalizeLienKetPage(pageData) {
-  if (!pageData) return { content: [], totalElements: 0, totalPages: 0 };
-  const content = (pageData.content || []).map((row) => ({
-    ...row,
-    khaDung: row.soLuongKhaDung !== undefined ? row.soLuongKhaDung : row.khaDung,
-    soDay: row.soLuongDaDay !== undefined ? row.soLuongDaDay : row.soDay,
-    trangThaiLienKet: row.trangThaiLienKet || (row.bienTheSanPhamId ? "da_lien_ket" : "chua_lien_ket"),
-  }));
+function chuanHoaLienKet(row) {
+  if (!row) return row;
+  const trangThai = row.trangThaiLienKet === "that_bai" ? "loi" : row.trangThaiLienKet;
   return {
-    ...pageData,
-    content,
+    ...row,
+    trangThaiLienKet: trangThai || "chua_lien_ket",
+    soLuongKhaDung: row.soLuongKhaDung ?? row.khaDung ?? null,
+    sanPhamId: row.sanPhamId ?? null,
+    anhDaiDien: row.anhDaiDien ?? null,
   };
 }
 
-/**
- * Cấu hình kênh Shopify — ĐÃ CÓ backend (KenhBanHangController, chỉ quan_tri_vien).
- * Token luôn trả về dạng che (accessTokenMasked, refreshTokenMasked).
- */
-const shopifyApi = {
+const realApi = {
+  // ── Kết nối gian hàng (chỉ quản trị viên) ──
   getShopifyConfig: () => apiClient.get(`${BASE}/shopify`).then(data),
   updateShopifyConfig: (payload) => apiClient.put(`${BASE}/shopify`, payload).then(data),
   testShopifyConnection: (payload) => apiClient.post(`${BASE}/shopify/test-connection`, payload).then(data),
   refreshShopifyToken: () => apiClient.post(`${BASE}/shopify/refresh-token`).then(data),
+
+  // ── Cấu hình đồng bộ theo kênh ──
+  getCauHinhDongBo: (maKenh) => apiClient.get(`${BASE}/${ma(maKenh)}/cau-hinh-dong-bo`).then(data),
+  luuCauHinhDongBo: (maKenh, payload) => apiClient.put(`${BASE}/${ma(maKenh)}/cau-hinh-dong-bo`, payload).then(data),
+
+  // ── Số liệu ──
+  getTongQuan: (maKenh) => apiClient.get(`${BASE}/${ma(maKenh)}/tong-quan`).then(data),
+  /** Đơn của kênh theo ngày trong [tu, den] (yyyy-MM-dd, tối đa 92 ngày) và số đơn theo trạng thái. */
+  getThongKeDon: (maKenh, { tu, den } = {}) =>
+    apiClient.get(`${BASE}/${ma(maKenh)}/thong-ke-don`, { params: { tu, den } }).then(data),
+  getKhoSan: (maKenh) => apiClient.get(`${BASE}/${ma(maKenh)}/locations`).then(data),
+
+  // ── Sản phẩm ──
+  taiSanPham: (maKenh) => apiClient.post(`${BASE}/${ma(maKenh)}/tai-san-pham`).then(data),
+  dayVaLienKetSanPham: (maKenh) => apiClient.post(`${BASE}/${ma(maKenh)}/tu-dong-lien-ket`).then(data),
+  filterLienKet: (maKenh, { page = 0, size = 20, search, trangThai } = {}) => {
+    const params = { page, size };
+    if (search?.trim()) params.search = search.trim();
+    if (trangThai) params.trangThai = TRANG_THAI_DB[trangThai] ?? trangThai;
+    return apiClient
+      .get(`${BASE}/${ma(maKenh)}/lien-ket`, { params })
+      .then(data)
+      .then((page) => ({ ...page, content: (page?.content ?? []).map(chuanHoaLienKet) }));
+  },
+  capNhatLienKet: (lienKetId, payload) =>
+    apiClient.put(`${BASE}/lien-ket/${lienKetId}`, payload).then(data).then(chuanHoaLienKet),
+  thuLaiLienKet: (lienKetId) => apiClient.post(`${BASE}/lien-ket/${lienKetId}/thu-lai`).then(data).then(chuanHoaLienKet),
+  timBienThe: (q = "", limit = 20) =>
+    apiClient.get(`${BASE}/bien-the/tim-kiem`, { params: { q, limit } }).then(data),
+
+  // ── Tồn kho và đơn hàng ──
+  dayTon: (maKenh, payload = {}) => apiClient.post(`${BASE}/${ma(maKenh)}/day-ton`, payload).then(data),
+  layDon: (maKenh, { tu, den } = {}) => apiClient.post(`${BASE}/${ma(maKenh)}/lay-don`, { tu, den }).then(data),
 };
 
-const shopifyMock = {
+// ── Dữ liệu mẫu: dựng lại đúng hình dạng API thật từ kenhBanHangMock ──
+const MOCK_KET_NOI_ID = 10;
+const mockCauHinh = {
+  tuDongDayTon: true,
+  tuDongLayDon: true,
+  tyLeDayTon: 100,
+  tonDem: 0,
+  nguongVe0: 0,
+  daLuu: false,
+  daLuuTonKho: false,
+  daLuuDonHang: false,
+};
+
+const PHAN_TON_KHO = ["tuDongDayTon", "tyLeDayTon", "tonDem", "nguongVe0"];
+
+/** Số liệu đơn mẫu: cố định theo ngày để mỗi lần tải ra cùng một biểu đồ. */
+function mockThongKeDon(tu, den) {
+  const pad = (n) => String(n).padStart(2, "0");
+  const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const homNay = new Date();
+  const ngayDen = den ? new Date(`${den}T00:00:00`) : new Date(homNay.getFullYear(), homNay.getMonth(), homNay.getDate());
+  const ngayTu = tu ? new Date(`${tu}T00:00:00`) : new Date(ngayDen.getTime() - 29 * 86_400_000);
+  const theoNgay = [];
+  for (let d = new Date(ngayTu); d <= ngayDen; d.setDate(d.getDate() + 1)) {
+    const hat = (d.getDate() * 7 + d.getMonth() * 3) % 11;
+    const soDon = hat % 4 === 0 ? 0 : (hat % 5) + 1;
+    const soHuy = soDon > 3 ? 1 : 0;
+    theoNgay.push({ ngay: iso(d), soDon, soHuy, doanhSo: (soDon - soHuy) * (320000 + hat * 15000) });
+  }
+  const tongDon = theoNgay.reduce((s, n) => s + n.soDon, 0);
+  const donHuy = theoNgay.reduce((s, n) => s + n.soHuy, 0);
+  return {
+    maKenh: "SHOPIFY",
+    tu: iso(ngayTu),
+    den: iso(ngayDen),
+    tongDon,
+    donHuy,
+    doanhSo: theoNgay.reduce((s, n) => s + n.doanhSo, 0),
+    tyLeHuy: tongDon ? Math.round((donHuy * 1000) / tongDon) / 10 : 0,
+    theoNgay,
+    theoTrangThai: { 0: 2, 1: 3, 7: 1, 8: 0, 3: 4, 5: 18, 4: donHuy },
+  };
+}
+
+async function mockTatCaLienKet() {
+  const page = await kenhBanHangMock.filterLienKet(MOCK_KET_NOI_ID, { page: 0, size: 1000 });
+  return page.content ?? [];
+}
+
+const mockApi = {
   getShopifyConfig: kenhBanHangMock.getShopifyConfig,
   updateShopifyConfig: kenhBanHangMock.updateShopifyConfig,
   testShopifyConnection: kenhBanHangMock.testShopifyConnection,
   refreshShopifyToken: kenhBanHangMock.refreshShopifyToken,
-};
 
-/**
- * API đồng bộ sản phẩm, SKU mapping, tồn kho và KPI kênh bán hàng
- */
-const syncApi = {
-  getKetNoi: async (id) => {
-    const code = resolveChannelCode(id);
-    const [configRes, tongQuanRes] = await Promise.allSettled([
-      apiClient.get(`${BASE}/shopify`).then(data),
-      apiClient.get(`${BASE}/${code}/tong-quan`).then(data),
-    ]);
+  async getCauHinhDongBo(maKenh) {
+    await mockDelay();
+    return { maKenh: String(maKenh).toUpperCase(), ...mockCauHinh, chuKyPhut: 10, nguongDayNgay: 3 };
+  },
+  async luuCauHinhDongBo(maKenh, payload = {}) {
+    await mockDelay(300, 500);
+    const tyLe = payload.tyLeDayTon;
+    if (tyLe != null && (tyLe < 1 || tyLe > 100)) throw mockError(400, "Tỷ lệ đẩy tồn phải từ 1 đến 100%");
+    Object.entries(payload).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && key in mockCauHinh) mockCauHinh[key] = value;
+    });
+    mockCauHinh.daLuu = true;
+    if (PHAN_TON_KHO.some((key) => payload[key] != null)) mockCauHinh.daLuuTonKho = true;
+    if (payload.tuDongLayDon != null) mockCauHinh.daLuuDonHang = true;
+    return mockApi.getCauHinhDongBo(maKenh);
+  },
 
-    const config = configRes.status === "fulfilled" ? configRes.value : null;
-    const tongQuan = tongQuanRes.status === "fulfilled" ? tongQuanRes.value : null;
-
-    const domain =
-      config?.shopDomain ||
-      (config?.apiUrl ? config.apiUrl.replace(/^https?:\/\//i, "").split("/")[0] : "fcentric-dev.myshopify.com");
-    const total = tongQuan?.tongSkuSan ?? 0;
-    const linked = tongQuan?.daLienKet ?? 0;
-    const unlinked = tongQuan?.chuaLienKet ?? 0;
-    const errors = tongQuan?.loiDongBo ?? 0;
-
-    const isDayTonSaved = localStorage.getItem(`fcentric_sync_${code}_tuDongDayTon`);
-    const isLayDonSaved = localStorage.getItem(`fcentric_sync_${code}_tuDongLayDon`);
-    const tuDongDayTon = isDayTonSaved !== null ? JSON.parse(isDayTonSaved) : (config?.trangThai === 1);
-    const tuDongLayDon = isLayDonSaved !== null ? JSON.parse(isLayDonSaved) : (config?.trangThai === 1);
-    const khachHangIdSaved = localStorage.getItem(`fcentric_sync_${code}_khachHangMacDinhId`);
-    const layDonTuSaved = localStorage.getItem(`fcentric_sync_${code}_layDonTu`);
-
+  async getTongQuan() {
+    const [links, tq] = await Promise.all([mockTatCaLienKet(), kenhBanHangMock.tongQuan()]);
+    const kn = tq.ketNois?.[0] ?? {};
+    const daLienKet = links.filter((l) => l.trangThaiLienKet === "da_lien_ket").length;
+    const loi = links.filter((l) => l.trangThaiLienKet === "loi").length;
     return {
-      id: config?.id || (Number(id) || 2),
-      kenhBanId: config?.id || 2,
-      maKenh: code,
-      tenKenh: code === "SHOPIFY" ? "Shopify" : code,
-      tenHienThi: domain ? `Shopify (${domain})` : "Shopify Official",
-      shopIdSan: domain,
-      tenShopSan: domain,
-      tenMienShop: domain,
-      trangThai: config?.trangThai === 1 || config?.hasAccessToken ? "dang_hoat_dong" : "tam_dung",
-      coTheBatDongBo: true,
-      tuDongDayTon,
-      tuDongLayDon,
-      khachHangMacDinhId: khachHangIdSaved ? Number(khachHangIdSaved) : 1,
-      layDonTu: layDonTuSaved || new Date(Date.now() - 30 * 86400000).toISOString(),
-      khoId: 1,
-      tenKho: "Toàn bộ chuỗi kho & cửa hàng",
-      tyLeDayTon: 100,
-      tonDem: 0,
-      nguongVe0: 0,
-      lanDayTonCuoi: tongQuan?.lanDayTonCuoi ?? null,
-      soLienKet: total,
-      soLienKetDangBat: linked,
-      soChuaLienKet: unlinked,
-      soLoi: errors,
+      tongSkuSan: links.length,
+      daLienKet,
+      loiDongBo: loi,
+      chuaLienKet: Math.max(0, links.length - daLienKet - loi),
+      chuKyDongBoTonPhut: 10,
+      chuKyLayDonPhut: 10,
+      lanDayTonCuoi: kn.lanDayTonCuoi ?? null,
+      lanLayDonCuoi: kn.lanLayDonCuoi ?? null,
     };
   },
-
-  getKhoSan: (id) =>
-    apiClient
-      .get(`${BASE}/${resolveChannelCode(id)}/locations`)
-      .then(data)
-      .catch(() => kenhBanHangMock.getKhoSan(id)),
-
-  luuCauHinh: (id, payload) => {
-    const code = resolveChannelCode(id);
-    if (payload?.khachHangMacDinhId) {
-      localStorage.setItem(`fcentric_sync_${code}_khachHangMacDinhId`, String(payload.khachHangMacDinhId));
-    }
-    if (payload?.layDonTu) {
-      localStorage.setItem(`fcentric_sync_${code}_layDonTu`, String(payload.layDonTu));
-    }
-    return apiClient
-      .put(`${BASE}/${code}/cai-dat`, payload)
-      .then(data)
-      .catch(() => kenhBanHangMock.luuCauHinh(id, payload));
+  getKhoSan: () => kenhBanHangMock.getKhoSan(MOCK_KET_NOI_ID),
+  async getThongKeDon(_maKenh, { tu, den } = {}) {
+    await mockDelay();
+    return mockThongKeDon(tu, den);
   },
 
-  batTatDongBo: (id, payload) => {
-    const code = resolveChannelCode(id);
-    if (payload?.tuDongDayTon !== undefined) {
-      localStorage.setItem(`fcentric_sync_${code}_tuDongDayTon`, JSON.stringify(payload.tuDongDayTon));
-    }
-    if (payload?.tuDongLayDon !== undefined) {
-      localStorage.setItem(`fcentric_sync_${code}_tuDongLayDon`, JSON.stringify(payload.tuDongLayDon));
-    }
-    return apiClient
-      .put(`${BASE}/${code}/cai-dat`, payload)
-      .then(data)
-      .catch(() => kenhBanHangMock.batTatDongBo(id, payload));
+  async taiSanPham() {
+    const res = await kenhBanHangMock.taiSanPham(MOCK_KET_NOI_ID);
+    return { soSku: res.soSku, soMoi: res.soMoi, soCapNhat: res.soCapNhat };
   },
-
-  taiSanPham: (id) => apiClient.post(`${BASE}/${resolveChannelCode(id)}/tai-san-pham`).then(data),
-
-  tuDongLienKet: (id) => apiClient.post(`${BASE}/${resolveChannelCode(id)}/tu-dong-lien-ket`).then(data),
-
-  filterLienKet: (id, params = {}) => {
-    const code = resolveChannelCode(id);
-    const query = {
-      page: params.page ?? 0,
-      size: params.size ?? 10,
+  async dayVaLienKetSanPham() {
+    const res = await kenhBanHangMock.tuDongLienKet(MOCK_KET_NOI_ID);
+    return { soDaGhep: res.soDaGhep, soTaoMoiTrenShopify: 0, soCapNhatTrenShopify: 0, soTonKhoDaDay: res.soDaGhep, soAnhDaDay: 0, soThatBai: res.soKhongKhop };
+  },
+  async filterLienKet(_maKenh, { page = 0, size = 20, search, trangThai } = {}) {
+    const res = await kenhBanHangMock.filterLienKet(MOCK_KET_NOI_ID, { page, size, search, trangThaiLienKet: trangThai || undefined });
+    // Dữ liệu mẫu không có tên sản phẩm FCentric: dùng tên trên sàn để gom nhóm như dữ liệu thật
+    return {
+      ...res,
+      content: (res.content ?? []).map((row) =>
+        chuanHoaLienKet({ ...row, tenSanPham: row.tenSanPham ?? row.tenSanPhamSan, tenBienThe: row.tenBienTheSan ?? row.tenBienThe }),
+      ),
     };
-    if (params.search?.trim()) query.search = params.search.trim();
-    if (params.trangThaiLienKet) query.trangThai = params.trangThaiLienKet;
-
-    return apiClient.get(`${BASE}/${code}/lien-ket`, { params: query }).then(data).then(normalizeLienKetPage);
   },
-
-  capNhatLienKet: (lienKetId, payload = {}) =>
-    apiClient
-      .put(`${BASE}/lien-ket/${lienKetId}`, payload)
-      .then(data)
-      .then((row) => ({
-        ...row,
-        khaDung: row?.soLuongKhaDung !== undefined ? row.soLuongKhaDung : row?.khaDung,
-        soDay: row?.soLuongDaDay !== undefined ? row.soLuongDaDay : row?.soDay,
-        trangThaiLienKet: row?.trangThaiLienKet || (row?.bienTheSanPhamId ? "da_lien_ket" : "chua_lien_ket"),
-      })),
-
-  dayTon: (id, payload) => apiClient.post(`${BASE}/${resolveChannelCode(id)}/day-ton`, payload || {}).then(data),
-
-  layDon: (id, range) =>
-    apiClient
-      .post(`${BASE}/${resolveChannelCode(id)}/lay-don`, range)
-      .then(data)
-      .then((res) => ({
-        soSuKien: res?.soDonMoi ?? 0,
-        ...res,
-      }))
-      .catch(() => kenhBanHangMock.layDon(id, range)),
-
-  dongBoTatCa: () =>
-    apiClient
-      .post(`${BASE}/dong-bo-tat-ca`)
-      .then(data)
-      .then((res) => ({
-        soKetNoi: 1,
-        ...res,
-      }))
-      .catch(() => kenhBanHangMock.dongBoTatCa()),
-
-  tongQuan: () =>
-    apiClient
-      .get(`${BASE}/tong-quan`)
-      .then(data)
-      .then((tq) => ({
-        kenhDangKetNoi: 1,
-        tongKetNoi: 1,
-        suKienTrongNhatKy: (tq?.tongSkuSan ?? 0),
-        suKienCanXuLy: tq?.loiDongBo ?? 0,
-        // Chu kỳ và thời điểm đẩy tồn / lấy đơn lấy từ backend (OMNI_SYNC_INTERVAL_MINS + lần chạy thật)
-        chuKyDongBoTonPhut: tq?.chuKyDongBoTonPhut ?? null,
-        chuKyLayDonPhut: tq?.chuKyLayDonPhut ?? null,
-        ketNois: [
-          {
-            id: 2,
-            maKenh: "SHOPIFY",
-            tenHienThi: "Shopify Official",
-            trangThai: "dang_hoat_dong",
-            lanDayTonCuoi: tq?.lanDayTonCuoi ?? null,
-            lanLayDonCuoi: tq?.lanLayDonCuoi ?? null,
-            soLoi: tq?.loiDongBo ?? 0,
-            soChoDay: tq?.chuaLienKet ?? 0,
-          },
-        ],
-      }))
-      .catch(() => kenhBanHangMock.tongQuan()),
-
-  filterNhatKy: (params = {}) => {
-    const code = resolveChannelCode(params.ketNoiKenhId);
-    const query = {
-      page: params.page ?? 0,
-      size: params.size ?? 10,
-    };
-    if (params.loai) query.loai = params.loai;
-    if (params.trangThai) query.trangThai = params.trangThai;
-    if (params.search?.trim()) query.search = params.search.trim();
-
-    return apiClient
-      .get(`${BASE}/${code}/nhat-ky`, { params: query })
-      .then(data)
-      .catch(() => kenhBanHangMock.filterNhatKy(params));
+  capNhatLienKet: (lienKetId, payload) => kenhBanHangMock.capNhatLienKet(lienKetId, payload).then(chuanHoaLienKet),
+  async thuLaiLienKet(lienKetId) {
+    await mockDelay();
+    const links = await mockTatCaLienKet();
+    return chuanHoaLienKet(links.find((l) => l.id === Number(lienKetId)));
   },
+  timBienThe: kenhBanHangMock.timBienThe,
 
-  getNhatKy: (id) =>
-    apiClient
-      .get(`${BASE}/nhat-ky/${id}`)
-      .then(data)
-      .catch(() => kenhBanHangMock.getNhatKy(id)),
-
-  thuLai: (id) =>
-    apiClient
-      .post(`${BASE}/lien-ket/${id}/thu-lai`)
-      .then(data)
-      .catch(() => kenhBanHangMock.thuLai(id)),
-
-  timBienThe: (q = "", limit = 20) =>
-    apiClient
-      .get(`${BASE}/bien-the/tim-kiem`, { params: { q, limit } })
-      .then(data)
-      .catch(() => kenhBanHangMock.timBienThe(q, limit)),
-
-  getKhoOptions: () =>
-    apiClient
-      .get("/api/v1/kho/all")
-      .then(data)
-      .then((list) =>
-        (list || []).map((k) => ({
-          value: String(k.id),
-          label: k.tenKho,
-          diaChi: k.diaChi,
-        }))
-      )
-      .catch(() => kenhBanHangMock.getKhoOptions()),
-
-  getKhachHangOptions: () =>
-    apiClient
-      .post("/api/v1/khach-hang/filter", { page: 0, size: 50, filters: [] })
-      .then(data)
-      .then((res) =>
-        (res?.content || []).map((kh) => ({
-          id: kh.id,
-          maKhachHang: kh.maKhachHang || (kh.soDienThoai ? kh.soDienThoai : `KH${kh.id}`),
-          tenKhachHang: kh.tenKhachHang,
-          value: String(kh.id),
-          label: `${kh.tenKhachHang} ${kh.soDienThoai ? `- ${kh.soDienThoai}` : ""}`,
-        }))
-      )
-      .catch(() => kenhBanHangMock.getKhachHangOptions()),
+  dayTon: () => kenhBanHangMock.dayTon(MOCK_KET_NOI_ID),
+  async layDon(_maKenh, range) {
+    const res = await kenhBanHangMock.layDon(MOCK_KET_NOI_ID, range);
+    return { soDonMoi: res.soSuKien ?? 0, soDonCapNhat: 0, thongDiep: `Nhận ${res.soSuKien ?? 0} đơn hàng mới` };
+  },
 };
 
-export const kenhBanHangService = {
-  ...(CHANNEL_MOCK ? shopifyMock : shopifyApi),
-  ...(CHANNEL_MOCK ? kenhBanHangMock : syncApi),
-};
+export const kenhBanHangService = CHANNEL_MOCK ? mockApi : realApi;
 
-/** Cấu hình Shopify chạy dữ liệu mẫu khi bật VITE_CHANNEL_MOCK=true. */
-export const isShopifyConfigMock = CHANNEL_MOCK;
-/** Chạy dữ liệu mẫu khi bật VITE_CHANNEL_MOCK=true. */
-export const isChannelSyncMock = CHANNEL_MOCK;
+/** true khi đang chạy dữ liệu mẫu (VITE_CHANNEL_MOCK=true). */
+export const isChannelMock = CHANNEL_MOCK;

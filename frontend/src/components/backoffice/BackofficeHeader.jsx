@@ -75,7 +75,7 @@ export default function BackofficeHeader() {
   const roleLabel = ROLE_LABELS[role] || "Thành viên hệ thống";
 
   return (
-    <header className="sticky top-0 z-40 shrink-0 border-b border-bo-border bg-bo-surface">
+    <header id="backoffice-header" className="sticky top-0 z-40 shrink-0 border-b border-bo-border bg-bo-surface">
       <div className="flex h-14 items-center justify-between gap-3 px-3 sm:px-4 lg:px-5">
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
           {/* Nút mở menu chỉ còn trên điện thoại (menu là ngăn kéo).

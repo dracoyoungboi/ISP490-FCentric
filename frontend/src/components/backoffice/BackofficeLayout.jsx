@@ -366,22 +366,32 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
         {
             key: "CHANNELS",
             match: (path) => path === "/channels",
-            title: "Kết nối gian hàng",
+            title: "Kênh bán hàng",
         },
         {
-            key: "CHANNEL_SYNC",
-            match: (path) => path === "/channels/sync",
-            title: "Theo dõi đồng bộ",
+            key: "CHANNEL_SHOPIFY",
+            match: (path) => path === "/channels/shopify",
+            title: "Tổng quan Shopify",
         },
         {
-            key: "CHANNEL_SETUP",
-            match: (path) => /^\/channels\/\d+\/setup$/.test(path),
-            title: "Thiết lập kết nối",
+            key: "CHANNEL_SHOPIFY_SETUP",
+            match: (path) => path === "/channels/shopify/setup",
+            title: "Thiết lập gian hàng Shopify",
         },
         {
-            key: "CHANNEL_MAPPINGS",
-            match: (path) => /^\/channels\/\d+\/mappings$/.test(path),
-            title: "Liên kết sản phẩm",
+            key: "CHANNEL_SHOPIFY_PRODUCTS",
+            match: (path) => path === "/channels/shopify/products",
+            title: "Sản phẩm Shopify",
+        },
+        {
+            key: "CHANNEL_SHOPIFY_ORDERS",
+            match: (path) => path === "/channels/shopify/orders",
+            title: "Đơn hàng Shopify",
+        },
+        {
+            key: "CHANNEL_SHOPIFY_SETTINGS",
+            match: (path) => path === "/channels/shopify/settings",
+            title: "Cấu hình Shopify",
         },
     ];
 

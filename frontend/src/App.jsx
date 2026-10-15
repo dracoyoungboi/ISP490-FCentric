@@ -90,6 +90,8 @@ import ChannelsPage from "./pages/channels/ChannelsPage";
 import ChannelSetupWizard from "./pages/channels/ChannelSetupWizard";
 import ChannelMappingsPage from "./pages/channels/ChannelMappingsPage";
 import ChannelSyncDashboard from "./pages/channels/ChannelSyncDashboard";
+import ChannelOrdersPage from "./pages/channels/ChannelOrdersPage";
+import ChannelSettingsPage from "./pages/channels/ChannelSettingsPage";
 
 /** Đường dẫn cũ /supplier/view/:id → trang chi tiết /supplier/:id (giống /customers/:id, /users/:id). */
 function SupplierViewRedirect() {
@@ -277,9 +279,16 @@ export default function App() {
           {/* Kênh bán hàng (FO-073–077) — chỉ quản trị viên (backend cũng chặn bằng @RequireAuth) */}
           <Route element={<RequireRole roles={["quan_tri_vien"]} />}>
             <Route path="/channels" element={<ChannelsPage />} />
-            <Route path="/channels/sync" element={<ChannelSyncDashboard />} />
-            <Route path="/channels/:id/setup" element={<ChannelSetupWizard />} />
-            <Route path="/channels/:id/mappings" element={<ChannelMappingsPage />} />
+            <Route path="/channels/shopify" element={<ChannelSyncDashboard />} />
+            <Route path="/channels/shopify/setup" element={<ChannelSetupWizard />} />
+            <Route path="/channels/shopify/products" element={<ChannelMappingsPage />} />
+            <Route path="/channels/shopify/orders" element={<ChannelOrdersPage />} />
+            <Route path="/channels/shopify/tools" element={<Navigate to="/channels/shopify/products" replace />} />
+            <Route path="/channels/shopify/settings" element={<ChannelSettingsPage />} />
+            {/* Đường dẫn cũ trước khi tách trang theo sàn */}
+            <Route path="/channels/sync" element={<Navigate to="/channels/shopify" replace />} />
+            <Route path="/channels/:id/setup" element={<Navigate to="/channels/shopify/settings" replace />} />
+            <Route path="/channels/:id/mappings" element={<Navigate to="/channels/shopify/products" replace />} />
           </Route>
           </Route>
 

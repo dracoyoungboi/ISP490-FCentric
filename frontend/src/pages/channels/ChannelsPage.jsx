@@ -1,418 +1,135 @@
-import { createElement, useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import {
-    Activity, AlertTriangle, CalendarClock, Globe, KeyRound, Link2, MoreHorizontal, PauseCircle, PlayCircle,
-    PlugZap, RefreshCcw, Settings2, ShieldCheck, ShoppingBag, XCircle,
-} from "lucide-react";
-import { toast } from "sonner";
-
+import { Button } from "@/components/ui/button";
 import PageContainer from "@/components/backoffice/PageContainer";
-import AttentionBar from "@/components/shared/AttentionBar";
-import InfoItem from "@/components/shared/InfoItem";
-import InlineResult from "@/components/shared/InlineResult";
-import ErrorState from "@/components/shared/ErrorState";
-import LoadingState from "@/components/shared/LoadingState";
+import ListPageHeader from "@/components/shared/ListPageHeader";
 import MockModeNotice from "@/components/shared/MockModeNotice";
 import ChannelLogo from "@/components/channel/ChannelLogo";
-import ConnectionStatusBadge from "@/components/channel/ConnectionStatusBadge";
-import ShopifyConfigDialog from "@/components/channel/ShopifyConfigDialog";
-import ConfirmModal from "@/components/ui/confirm-modal";
-import { Button } from "@/components/ui/button";
-import {
-    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { kenhBanHangService, isShopifyConfigMock } from "@/services/kenhBanHangService";
-import { CHANNELS, CONNECTION_STATUS } from "@/constants/channel";
-import { getApiErrorMessage } from "@/utils/apiError";
+import { TrangThaiCham } from "@/components/channel/HienThiKenh";
+import { daKetNoi, trangThaiKetNoi } from "@/components/channel/ketNoiShopify";
+import { CONNECTION_STATUS, SAN_BAN_HANG } from "@/constants/channel";
+import { isChannelMock, kenhBanHangService } from "@/services/kenhBanHangService";
+import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { formatDateTime } from "@/utils/dateTime";
-import { ROLES, hasAnyRole } from "@/utils/roles";
 
-// Lazada / TikTok Shop chưa có backend: hiển thị để người dùng biết lộ trình (Phần 12–13).
-const UPCOMING_CHANNELS = [
-    { maKenh: "LAZADA", tenKenh: "Lazada", description: "Kết nối bằng OAuth với Lazada Seller Center. Sẽ mở ở giai đoạn sau." },
-    { maKenh: "TIKTOK", tenKenh: "TikTok Shop", description: "Kết nối bằng OAuth với TikTok Shop Partner Center. Sẽ mở ở giai đoạn sau." },
-];
+const soVN = (n) => (n === null || n === undefined ? "—" : Number(n).toLocaleString("vi-VN"));
+const TH = "h-10 whitespace-nowrap px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted";
+const SAN_CHUA_HO_TRO = SAN_BAN_HANG.filter((s) => !s.hoTro).map((s) => s.ten);
 
-/** ShopifyConfigResponse → trạng thái kết nối dùng chung (CONNECTION_STATUS). */
-function shopifyStatus(config) {
-    if (!config?.hasAccessToken || !config?.shopDomain) return "chua_ket_noi";
-    if (config.tokenExpired ?? config.isTokenExpired) return "het_han";
-    return Number(config.trangThai) === 1 ? "dang_hoat_dong" : "tam_dung";
+function moiHon(a, b) {
+  if (!a) return b ?? null;
+  if (!b) return a;
+  return new Date(a) > new Date(b) ? a : b;
 }
 
-// Lý do mất kết nối cho dòng chú ý — cùng trạng thái mà thẻ kênh tô đỏ (CONNECTION_STATUS tone "danger")
-const LY_DO_MAT_KET_NOI = {
-    het_han: "access token đã hết hạn",
-};
-
-function formatDuration(seconds) {
-    const s = Math.max(0, Number(seconds) || 0);
-    if (s < 3600) return `${Math.max(1, Math.round(s / 60))} phút`;
-    if (s < 86400) return `${Math.round(s / 3600)} giờ`;
-    return `${Math.round(s / 86400)} ngày`;
-}
-
-function tokenExpiryText(config) {
-    if (!config?.hasAccessToken) return "Chưa có token";
-    if (!config.tokenExpiresAt) return "Token tĩnh, không hết hạn";
-    if (config.tokenExpired ?? config.isTokenExpired) return `Đã hết hạn lúc ${formatDateTime(config.tokenExpiresAt)}`;
-    const remain = config.secondsUntilExpiration != null ? ` · còn ${formatDuration(config.secondsUntilExpiration)}` : "";
-    return `Hết hạn ${formatDateTime(config.tokenExpiresAt)}${remain}`;
-}
-
+/** Danh sách gian hàng đã có: mỗi gian hàng một dòng, bấm để mở trang quản lý của sàn. Sàn chưa hỗ trợ ghi ở chân bảng. */
 export default function ChannelsPage() {
-    const navigate = useNavigate();
-    const [config, setConfig] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [loadError, setLoadError] = useState(false);
-    const [configOpen, setConfigOpen] = useState(false);
-    const [confirm, setConfirm] = useState(null); // "pause" | "resume"
-    const [busy, setBusy] = useState(null); // "check" | "refresh" | "status"
-    const [checkResult, setCheckResult] = useState(null);
-    const busyRef = useRef(false);
-    const shopifyCardRef = useRef(null);
-    // Dòng chú ý chỉ cho quản trị viên (cùng nguồn vai trò với RequireRole của route)
-    const [laQuanTriVien] = useState(() => hasAnyRole([ROLES.QUAN_TRI_VIEN]));
+  const navigate = useNavigate();
+  const cfg = useTaiDuLieu(() => kenhBanHangService.getShopifyConfig(), "cau-hinh-shopify");
+  const ketNoi = daKetNoi(cfg.data);
+  const ch = useTaiDuLieu(() => kenhBanHangService.getCauHinhDongBo("SHOPIFY"), "cau-hinh-dong-bo", { enabled: ketNoi });
+  const tq = useTaiDuLieu(() => kenhBanHangService.getTongQuan("SHOPIFY"), "tong-quan", { enabled: ketNoi });
+  const san = SAN_BAN_HANG.find((s) => s.maKenh === "SHOPIFY");
+  const duongDan = ketNoi ? san.duongDan : `${san.duongDan}/setup`;
+  const trangThai = trangThaiKetNoi(cfg.data);
+  const meta = CONNECTION_STATUS[trangThai] ?? CONNECTION_STATUS.chua_ket_noi;
+  const cauHinh = ch.data;
+  const viecTuDong = cauHinh
+    ? [cauHinh.tuDongDayTon ? "tồn kho" : null, cauHinh.tuDongLayDon ? "đơn hàng" : null].filter(Boolean)
+    : [];
+  const lanCuoi = moiHon(tq.data?.lanDayTonCuoi, tq.data?.lanLayDonCuoi);
 
-    const fetchConfig = useCallback(async () => {
-        setLoading(true);
-        setLoadError(false);
-        try {
-            setConfig(await kenhBanHangService.getShopifyConfig());
-        } catch (error) {
-            setLoadError(true);
-            toast.error(getApiErrorMessage(error, "Không tải được cấu hình Shopify"));
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        queueMicrotask(() => fetchConfig());
-    }, [fetchConfig]);
-
-    const run = async (type, action) => {
-        if (busyRef.current) return;
-        busyRef.current = true;
-        setBusy(type);
-        try {
-            await action();
-        } finally {
-            busyRef.current = false;
-            setBusy(null);
-        }
-    };
-
-    const handleCheck = () => run("check", async () => {
-        try {
-            const res = await kenhBanHangService.testShopifyConnection({ shopDomain: config?.shopDomain, accessToken: null });
-            setCheckResult(
-                res?.connected
-                    ? { ok: true, title: "Kết nối hoạt động", message: [res.shopName, res.myshopifyDomain].filter(Boolean).join(" · ") || res.message }
-                    : { ok: false, title: "Kết nối có lỗi", message: res?.message },
-            );
-        } catch (error) {
-            setCheckResult({ ok: false, title: "Kiểm tra thất bại", message: getApiErrorMessage(error, "Không kiểm tra được kết nối") });
-        }
-    });
-
-    const handleRefreshToken = () => run("refresh", async () => {
-        try {
-            const dto = await kenhBanHangService.refreshShopifyToken();
-            if (dto && typeof dto === "object") setConfig(dto);
-            else await fetchConfig();
-            toast.success("Đã làm mới access token");
-        } catch (error) {
-            toast.error(getApiErrorMessage(error, "Không làm mới được token"));
-        }
-    });
-
-    const handleConfirmStatus = async () => {
-        const nextStatus = confirm === "pause" ? 0 : 1;
-        await run("status", async () => {
-            try {
-                const dto = await kenhBanHangService.updateShopifyConfig({ shopDomain: config.shopDomain, trangThai: nextStatus });
-                setConfig(dto);
-                toast.success(nextStatus === 0 ? "Đã tạm dừng kênh Shopify" : "Kênh Shopify đã hoạt động lại");
-            } catch (error) {
-                toast.error(getApiErrorMessage(error, "Không đổi được trạng thái kênh"));
-            }
-        });
-        setConfirm(null);
-    };
-
-    const status = shopifyStatus(config);
-    const connected = status !== "chua_ket_noi";
-    const kenhId = config?.id ?? CHANNELS.SHOPIFY.id;
-
-    // Dòng chú ý: kênh mất kết nối theo đúng trạng thái thẻ kênh đang hiện (badge đỏ: hết hạn / lỗi).
-    // Thẻ kênh chưa có ngưỡng "token sắp hết hạn" nên không đặt ngưỡng mới ở đây.
-    const matKetNoi = Boolean(config) && CONNECTION_STATUS[status]?.tone === "danger";
-    const soKenhMatKetNoi = laQuanTriVien && matKetNoi ? 1 : 0;
-    const lyDoMatKetNoi = LY_DO_MAT_KET_NOI[status] ?? CONNECTION_STATUS[status]?.label.toLowerCase();
-
-    // Nút của dòng chú ý: cuộn tới thẻ kênh Shopify (thẻ có sẵn nút làm mới / cập nhật token)
-    const showShopifyCard = () => {
-        const card = shopifyCardRef.current;
-        if (!card) return;
-        card.scrollIntoView({ behavior: "smooth", block: "start" });
-        card.focus({ preventScroll: true });
-    };
-
-    return (
-        <PageContainer className="space-y-4">
-            <MockModeNotice show={isShopifyConfigMock} />
-
-            {/* ══ THAO TÁC ══ */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-bo-muted">
-                    Kết nối cửa hàng Shopify để đồng bộ trạng thái đơn khi xuất kho. Token được mã hóa trước khi lưu.
-                </p>
-                <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                        variant="outline"
-                        onClick={() => navigate("/channels/sync")}
-                        className="h-9 gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                    >
-                        <Activity className="size-4" />
-                        Theo dõi đồng bộ
-                    </Button>
-                    <Button
-                        variant="outline"
-                        onClick={fetchConfig}
-                        disabled={loading}
-                        className="h-9 gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                    >
-                        <RefreshCcw className="size-4" />
-                        Tải lại
-                    </Button>
-                    <Button
-                        onClick={() => setConfigOpen(true)}
-                        disabled={!config}
-                        className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
-                    >
-                        <PlugZap className="size-4" />
-                        {connected ? "Cập nhật cấu hình" : "Kết nối Shopify"}
-                    </Button>
-                </div>
-            </div>
-
-            <AttentionBar
-                count={soKenhMatKetNoi}
-                tone="danger"
-                actionLabel="Xem kênh Shopify"
-                onAction={showShopifyCard}
-            >
-                <strong className="font-semibold">{soKenhMatKetNoi} kênh</strong> mất kết nối: Shopify ({lyDoMatKetNoi}).
-            </AttentionBar>
-
-            {/* ══ SHOPIFY ══ */}
-            <section
-                ref={shopifyCardRef}
-                tabIndex={-1}
-                aria-label="Kênh Shopify"
-                className="scroll-mt-4 overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm focus:outline-none"
-            >
-                <div className="flex flex-col gap-3 border-b border-bo-border px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-                    <div className="flex min-w-0 items-center gap-3">
-                        <ChannelLogo maKenh="SHOPIFY" />
-                        <div className="min-w-0">
-                            <h2 className="flex flex-wrap items-center gap-2 text-sm font-semibold text-bo-foreground sm:text-base">
-                                {config?.tenKenh || "Cửa hàng Shopify"}
-                                {config ? <ConnectionStatusBadge trangThai={status} /> : null}
-                            </h2>
-                            <p className="mt-0.5 text-xs leading-5 text-bo-muted sm:text-sm">
-                                Kết nối bằng Admin API access token của ứng dụng Shopify đã cài vào cửa hàng.
-                            </p>
-                        </div>
-                    </div>
-                    {connected ? (
-                        <div className="flex flex-wrap items-center gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => navigate(`/channels/${kenhId}/setup`)}
-                                className="h-8 gap-1.5 border-bo-primary/30 bg-bo-primary-soft px-3 text-xs font-semibold text-bo-primary hover:bg-bo-primary-soft/70 hover:text-bo-primary"
-                            >
-                                <Settings2 className="size-3.5" />
-                                Thiết lập đồng bộ
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => navigate(`/channels/${kenhId}/mappings`)}
-                                className="h-8 gap-1.5 border-bo-border bg-white px-3 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
-                            >
-                                <Link2 className="size-3.5" />
-                                Liên kết sản phẩm
-                            </Button>
-                            <Link to="/sales-orders?kenh=shopify">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 gap-1.5 border-bo-border bg-white px-3 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
-                                >
-                                    <ShoppingBag className="size-3.5" />
-                                    Xem đơn
-                                </Button>
-                            </Link>
-                            <DropdownMenu modal={false}>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        disabled={Boolean(busy)}
-                                        aria-label="Thao tác khác"
-                                        className="h-8 w-8 border-bo-border bg-white p-0 text-bo-muted hover:bg-bo-surface-subtle"
-                                    >
-                                        <MoreHorizontal className="size-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    align="end"
-                                    className="backoffice-user-menu z-50 w-[210px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
-                                >
-                                    <MenuItem icon={Activity} onClick={handleCheck}>Kiểm tra kết nối</MenuItem>
-                                    {config?.hasRefreshToken ? (
-                                        <MenuItem icon={RefreshCcw} onClick={handleRefreshToken}>Làm mới token</MenuItem>
-                                    ) : null}
-                                    <MenuItem icon={KeyRound} onClick={() => setConfigOpen(true)}>Cập nhật cấu hình</MenuItem>
-                                    {Number(config?.trangThai) === 1 ? (
-                                        <MenuItem icon={PauseCircle} onClick={() => setConfirm("pause")}>Tạm dừng kênh</MenuItem>
-                                    ) : (
-                                        <MenuItem icon={PlayCircle} onClick={() => setConfirm("resume")}>Hoạt động lại</MenuItem>
-                                    )}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-                    ) : null}
-                </div>
-
-                {loading && !config ? (
-                    <LoadingState className="min-h-48" label="Đang tải cấu hình Shopify" />
-                ) : loadError && !config ? (
-                    <ErrorState onRetry={fetchConfig} />
-                ) : !connected ? (
-                    <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
-                        <p className="text-sm text-bo-muted">Chưa kết nối cửa hàng Shopify nào.</p>
-                        <Button
-                            variant="outline"
-                            onClick={() => setConfigOpen(true)}
-                            className="h-9 gap-2 border-bo-primary/30 bg-bo-primary-soft text-bo-primary hover:bg-bo-primary-soft/70 hover:text-bo-primary"
-                        >
-                            <PlugZap className="size-4" />
-                            Kết nối Shopify
-                        </Button>
-                    </div>
-                ) : (
-                    <div className="space-y-4 p-4 sm:p-5">
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                            <InfoItem icon={Globe} label="Cửa hàng" value={<span className="font-mono text-[13px]">{config.shopDomain}</span>} />
-                            <InfoItem icon={KeyRound} label="Admin access token" value={config.accessTokenMasked ? <span className="font-mono text-[13px]">{config.accessTokenMasked}</span> : "Chưa có"} />
-                            <InfoItem icon={CalendarClock} label="Hạn token" value={tokenExpiryText(config)} />
-                            <InfoItem
-                                icon={ShieldCheck}
-                                label="Khóa OAuth"
-                                value={[
-                                    config.clientId ? "Client ID" : null,
-                                    config.hasApiSecret ? "API secret" : null,
-                                    config.hasRefreshToken ? "Refresh token" : null,
-                                ].filter(Boolean).join(" · ") || "Không dùng"}
-                            />
-                        </div>
-                        <p className="text-xs text-bo-muted">
-                            Admin API: <span className="font-mono">{config.apiUrl || "—"}</span>
-                            {/* Trước nằm ở ô số "Lưu gần nhất" */}
-                            {" · "}Lưu cấu hình gần nhất: {config.ngayCapNhat ? formatDateTime(config.ngayCapNhat, { withYear: false }) : "—"}
+  return (
+    <PageContainer>
+      <ListPageHeader title="Kênh bán hàng" />
+      <div className="mt-4 space-y-4">
+        <MockModeNotice show={isChannelMock} />
+        <section className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+          <div className="w-full overflow-x-auto">
+            <table className="w-full min-w-[860px] text-sm">
+              <thead>
+                <tr className="border-b border-bo-border bg-bo-surface-subtle">
+                  <th className={`${TH} text-left`}>Gian hàng</th>
+                  <th className={`${TH} text-left`}>Trạng thái</th>
+                  <th className={`${TH} text-left`}>Đồng bộ tự động</th>
+                  <th className={`${TH} text-right`}>SKU đang đồng bộ</th>
+                  <th className={`${TH} text-left`}>Lần chạy gần nhất</th>
+                  <th className={`${TH} w-px`}>
+                    <span className="sr-only">Thao tác</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr onClick={() => navigate(duongDan)} className="cursor-pointer transition-colors hover:bg-bo-surface-subtle">
+                  <td className="px-3 py-3">
+                    <div className="flex items-center gap-3">
+                      <ChannelLogo maKenh={san.maKenh} size={28} />
+                      <div className="min-w-0">
+                        <p className="font-medium text-bo-heading">{san.ten}</p>
+                        <p className="truncate text-[13px] text-bo-muted">
+                          {cfg.initialLoading ? "Đang tải…" : !cfg.data && cfg.error ? "Không tải được gian hàng" : cfg.data?.shopDomain || "Chưa kết nối"}
                         </p>
-
-                        {status === "het_han" ? (
-                            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-bo-danger-soft px-3 py-2.5 text-sm text-red-800" role="alert">
-                                <XCircle className="mt-0.5 size-4 shrink-0" />
-                                <div className="min-w-0">
-                                    <p>Access token đã hết hạn, hệ thống không gọi được Shopify.</p>
-                                    <button
-                                        type="button"
-                                        onClick={config.hasRefreshToken ? handleRefreshToken : () => setConfigOpen(true)}
-                                        className="mt-1 text-xs font-semibold text-bo-primary hover:underline"
-                                    >
-                                        {config.hasRefreshToken ? "Làm mới token" : "Cập nhật token"}
-                                    </button>
-                                </div>
-                            </div>
-                        ) : null}
-
-                        {status === "tam_dung" ? (
-                            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
-                                <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-                                <p>Kênh đang tạm dừng: hệ thống không đồng bộ với Shopify cho tới khi hoạt động lại.</p>
-                            </div>
-                        ) : null}
-
-                        <InlineResult result={checkResult} />
+                      </div>
                     </div>
-                )}
-            </section>
-
-            {/* ══ KÊNH GIAI ĐOẠN SAU ══ */}
-            {UPCOMING_CHANNELS.map((kenh) => (
-                <section key={kenh.maKenh} className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
-                    <div className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-                        <div className="flex min-w-0 items-center gap-3">
-                            <ChannelLogo maKenh={kenh.maKenh} />
-                            <div className="min-w-0">
-                                <h2 className="text-sm font-semibold text-bo-foreground sm:text-base">{kenh.tenKenh}</h2>
-                                <p className="mt-0.5 text-xs leading-5 text-bo-muted sm:text-sm">{kenh.description}</p>
-                            </div>
-                        </div>
-                        <Button variant="outline" disabled className="h-9 shrink-0 border-bo-border bg-white text-bo-muted">
-                            Giai đoạn sau
-                        </Button>
-                    </div>
-                </section>
-            ))}
-
-            {configOpen ? (
-                <ShopifyConfigDialog
-                    open
-                    onOpenChange={setConfigOpen}
-                    config={config}
-                    onSaved={(dto) => {
-                        setConfig(dto);
-                        setCheckResult(null);
-                        setConfigOpen(false);
-                        toast.success("Đã lưu cấu hình Shopify");
-                    }}
-                />
-            ) : null}
-
-            <ConfirmModal
-                isOpen={Boolean(confirm)}
-                onClose={() => busy === null && setConfirm(null)}
-                onConfirm={handleConfirmStatus}
-                isLoading={busy === "status"}
-                variant={confirm === "pause" ? "warning" : "info"}
-                title={confirm === "pause" ? "Tạm dừng kênh Shopify" : "Cho kênh Shopify hoạt động lại"}
-                description={
-                    confirm === "pause"
-                        ? "Hệ thống sẽ ngừng đồng bộ với Shopify. Cấu hình và token vẫn được giữ nguyên."
-                        : "Hệ thống sẽ tiếp tục đồng bộ với Shopify bằng cấu hình đã lưu."
-                }
-                confirmText={confirm === "pause" ? "Tạm dừng" : "Hoạt động lại"}
-                cancelText="Quay lại"
-            />
-        </PageContainer>
-    );
-}
-
-function MenuItem({ icon, onClick, children }) {
-    return (
-        <DropdownMenuItem
-            onClick={onClick}
-            className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-        >
-            {createElement(icon, { className: "size-4" })}
-            {children}
-        </DropdownMenuItem>
-    );
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-3">
+                    {cfg.initialLoading || (!cfg.data && cfg.error) ? (
+                      <span className="text-bo-muted">—</span>
+                    ) : (
+                      <TrangThaiCham label={meta.label} tone={meta.tone} />
+                    )}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-3 text-bo-foreground">
+                    {!ketNoi || !cauHinh
+                      ? "—"
+                      : viecTuDong.length
+                        ? `${viecTuDong.join(", ").replace(/^./, (c) => c.toUpperCase())} · mỗi ${cauHinh.chuKyPhut ?? "—"} phút`
+                        : "Đang tắt"}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums text-bo-foreground">
+                    {ketNoi ? soVN(tq.data?.daLienKet) : "—"}
+                    {ketNoi && Number(tq.data?.loiDongBo) > 0 ? (
+                      <span className="ml-1.5 text-[13px] text-bo-danger">· {soVN(tq.data.loiDongBo)} lỗi</span>
+                    ) : null}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-3 tabular-nums text-bo-muted">{ketNoi ? formatDateTime(lanCuoi, { withYear: false }) || "—" : "—"}</td>
+                  <td className="whitespace-nowrap px-3 py-3 text-right">
+                    {!cfg.data && cfg.error ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          cfg.reload();
+                        }}
+                        className="h-8 rounded-lg border-bo-border bg-white px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle"
+                      >
+                        Thử lại
+                      </Button>
+                    ) : (
+                      <Button
+                        asChild
+                        variant={ketNoi ? "outline" : "default"}
+                        className={
+                          ketNoi
+                            ? "h-8 rounded-lg border-bo-border bg-white px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle"
+                            : "h-8 rounded-lg bg-bo-primary px-3 text-[13px] text-white hover:bg-bo-primary-hover"
+                        }
+                      >
+                        <Link to={duongDan} onClick={(event) => event.stopPropagation()}>
+                          {ketNoi ? "Mở" : "Kết nối"}
+                        </Link>
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          {SAN_CHUA_HO_TRO.length ? (
+            <p className="border-t border-bo-border px-4 py-3 text-[13px] text-bo-muted">{SAN_CHUA_HO_TRO.join(" và ")}: sắp hỗ trợ.</p>
+          ) : null}
+        </section>
+      </div>
+    </PageContainer>
+  );
 }

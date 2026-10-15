@@ -10,8 +10,8 @@ import {
   Settings2,
   CreditCard,
   Store,
-  RefreshCw,
 } from "lucide-react";
+import { ShopifyMenuIcon } from "@/components/channel/ChannelLogo";
 
 // Nhóm hiển thị trên sidebar — thứ tự khai báo cũng là thứ tự render.
 // Label chỉ hiển thị khi sidebar mở rộng; khi thu gọn chỉ còn divider + khoảng cách.
@@ -181,20 +181,32 @@ export const SIDEBAR_MENU = [
   },
 
   // ================= KÊNH BÁN HÀNG (omnichannel, FO-073–077) =================
+  // Mỗi sàn đã kết nối là một mục riêng có menu con; "Tất cả kênh" để kết nối thêm sàn.
   {
-    label: "Kết nối gian hàng",
+    label: "Tất cả kênh",
     icon: Store,
     section: "channels",
     to: "/channels",
     roles: ["quan_tri_vien"],
-    match: (path) => path === "/channels" || /^\/channels\/\d+\//.test(path),
+    match: (path) => path === "/channels",
   },
   {
-    label: "Theo dõi đồng bộ",
-    icon: RefreshCw,
+    label: "Shopify",
+    icon: ShopifyMenuIcon,
     section: "channels",
-    to: "/channels/sync",
     roles: ["quan_tri_vien"],
+    children: [
+      {
+        label: "Tổng quan",
+        to: "/channels/shopify",
+        roles: ["quan_tri_vien"],
+        // Màn Thiết lập (/channels/shopify/setup) tính vào Tổng quan
+        match: (path) => path === "/channels/shopify" || path === "/channels/shopify/setup",
+      },
+      { label: "Sản phẩm", to: "/channels/shopify/products", roles: ["quan_tri_vien"] },
+      { label: "Đơn hàng", to: "/channels/shopify/orders", roles: ["quan_tri_vien"] },
+      { label: "Cấu hình", to: "/channels/shopify/settings", roles: ["quan_tri_vien"] },
+    ],
   },
 
   // ================= BÁO CÁO & CẢNH BÁO =================
