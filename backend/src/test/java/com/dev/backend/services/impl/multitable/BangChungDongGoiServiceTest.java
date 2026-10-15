@@ -222,4 +222,48 @@ public class BangChungDongGoiServiceTest {
         assertFalse(map.get(102));
         verify(bangChungDongGoiRepository, times(1)).findByDonBanHangIdInAndTrangThai(ids, 1);
     }
+
+    @Test
+    @DisplayName("Upload ảnh thành công: sinh URL công khai HTTPS qua getPublicUrl và PublicAssetUrl")
+    void testUploadBangChung_ThanhCong_SinhUrlPublicHttps() throws Exception {
+        when(donBanHangRepository.findById(101)).thenReturn(Optional.of(donDuoi1Tr));
+        when(bangChungDongGoiRepository.findByDonBanHangIdAndLoaiBangChungAndTrangThai(eq(101), anyString(), eq(1)))
+                .thenReturn(Optional.empty());
+        when(minioService.upload(any(), anyString())).thenReturn("packing-proofs/101/uuid.jpg");
+        when(minioService.getPublicUrl(anyString())).thenReturn("http://171.244.142.43:9000/fashion/packing-proofs/101/uuid.jpg");
+        when(tepTinService.create(any(TepTin.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(bangChungDongGoiRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        MockMultipartFile fileAnh = new MockMultipartFile("file", "test.jpg", "image/jpeg", new byte[100]);
+        var dto = bangChungDongGoiService.uploadBangChung(101, fileAnh, LoaiBangChungDongGoi.ANH_HANG_TRONG_HOP.name(), null);
+
+        assertNotNull(dto);
+        assertEquals("https://minio.slmglobal.vn/fashion/packing-proofs/101/uuid.jpg", dto.getUrlPublic());
+        assertEquals("https://minio.slmglobal.vn/fashion/packing-proofs/101/uuid.jpg", dto.getDuongDanMinio());
+        verify(minioService, times(1)).getPublicUrl(anyString());
+    }
+
+    @Test
+    @DisplayName("Backward Compatibility: Bản ghi cũ lưu đường dẫn tương đối tự động sinh HTTPS URL")
+    void testLayThongTinBangChung_DuLieuCuTuDongChuyenHttps() {
+        BangChungDongGoi bcCu = BangChungDongGoi.builder()
+                .id(99)
+                .donBanHang(donDuoi1Tr)
+                .loaiBangChung(LoaiBangChungDongGoi.ANH_HANG_TRONG_HOP.name())
+                .duongDanMinio("packing-proofs/101/old.jpg")
+                .trangThai(1)
+                .build();
+        when(donBanHangRepository.findById(101)).thenReturn(Optional.of(donDuoi1Tr));
+        when(bangChungDongGoiRepository.findByDonBanHangIdAndTrangThaiOrderByNgayTaoAsc(101, 1))
+                .thenReturn(List.of(bcCu));
+        when(minioService.getPublicUrl("packing-proofs/101/old.jpg"))
+                .thenReturn("http://171.244.142.43:9000/fashion/packing-proofs/101/old.jpg");
+
+        ThongTinBangChungDonDto res = bangChungDongGoiService.layThongTinBangChung(101);
+
+        assertNotNull(res);
+        assertEquals(1, res.getDanhSachBangChung().size());
+        assertEquals("https://minio.slmglobal.vn/fashion/packing-proofs/101/old.jpg",
+                res.getDanhSachBangChung().get(0).getUrlPublic());
+    }
 }

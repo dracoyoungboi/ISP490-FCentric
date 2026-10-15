@@ -155,7 +155,8 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
         String objectName = "packing-proofs/" + donBanHangId + "/" + UUID.randomUUID() + (ext.isEmpty() ? "" : "." + ext);
         String minioUrl;
         try {
-            minioUrl = minioService.upload(file, objectName);
+            minioService.upload(file, objectName);
+            minioUrl = minioService.getPublicUrl(objectName);
         } catch (Exception e) {
             log.error("Lỗi khi tải tệp lên MinIO: {}", e.getMessage(), e);
             throw new CommonException("Không thể lưu trữ tệp lên hệ thống MinIO: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, null);
@@ -339,9 +340,14 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
             tenLoai = LoaiBangChungDongGoi.valueOf(b.getLoaiBangChung()).getMoTa();
         } catch (Exception ignored) {}
 
-        String urlPublic = b.getDuongDanMinio();
-        if (urlPublic != null) {
-            urlPublic = PublicAssetUrl.toHttps(urlPublic);
+        String rawUrl = b.getDuongDanMinio();
+        String urlPublic = rawUrl;
+        if (rawUrl != null) {
+            // Tương thích ngược: Nếu bản ghi cũ chỉ lưu objectName ("packing-proofs/..."), sinh URL đầy đủ
+            if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
+                rawUrl = minioService.getPublicUrl(rawUrl);
+            }
+            urlPublic = PublicAssetUrl.toHttps(rawUrl);
         }
 
         return BangChungDongGoiDto.builder()
@@ -355,7 +361,7 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
                 .loaiTep(b.getLoaiTep())
                 .thoiLuongGiay(b.getThoiLuongGiay())
                 .kichThuocBytes(b.getKichThuocBytes())
-                .duongDanMinio(b.getDuongDanMinio())
+                .duongDanMinio(urlPublic)
                 .urlPublic(urlPublic)
                 .nguoiTaoId(b.getNguoiTao() != null ? b.getNguoiTao().getId() : null)
                 .tenNguoiTao(b.getNguoiTao() != null ? b.getNguoiTao().getHoTen() : null)

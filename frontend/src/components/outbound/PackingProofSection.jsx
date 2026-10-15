@@ -7,15 +7,32 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import StatusBadge from "@/components/shared/StatusBadge";
+import CameraCaptureModal from "./CameraCaptureModal";
 import { dongGoiService } from "@/services/dongGoiService";
 import { formatCurrency } from "@/utils/formatters";
 import { getApiErrorMessage } from "@/utils/apiError";
 
-const LOAI_BANG_CHUNG = {
+export const LOAI_BANG_CHUNG = {
   ANH_HANG_TRONG_HOP: "ANH_HANG_TRONG_HOP",
   ANH_NIEM_PHONG_TEM_VC: "ANH_NIEM_PHONG_TEM_VC",
   VIDEO_DONG_GOI: "VIDEO_DONG_GOI",
 };
+
+/**
+ * Chuẩn hóa URL hiển thị bằng chứng đóng gói:
+ * - Nếu URL đầy đủ (HTTP/HTTPS/blob/data): giữ nguyên.
+ * - Nếu URL là đường dẫn tương đối MinIO (legacy data "packing-proofs/..."): tự động ghép origin MinIO công khai HTTPS.
+ */
+export function resolveProofMediaUrl(url) {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("blob:") || url.startsWith("data:")) {
+    return url;
+  }
+  if (url.startsWith("packing-proofs/")) {
+    return `https://minio.slmglobal.vn/fashion/${url}`;
+  }
+  return url;
+}
 
 /**
  * Section Bằng chứng đóng gói bắt buộc theo giá trị đơn hàng (SRS 6.3.1 - 6.3.2)
@@ -199,9 +216,9 @@ export default function PackingProofSection({
             </div>
             <div className="p-4 flex items-center justify-center bg-black min-h-[300px] max-h-[75vh] overflow-auto">
               {previewMedia.type === "video" ? (
-                <video src={previewMedia.url} controls autoPlay className="max-h-[70vh] max-w-full rounded" />
+                <video src={resolveProofMediaUrl(previewMedia.url)} controls autoPlay className="max-h-[70vh] max-w-full rounded" />
               ) : (
-                <img src={previewMedia.url} alt="Preview" className="max-h-[70vh] max-w-full object-contain rounded" />
+                <img src={resolveProofMediaUrl(previewMedia.url)} alt="Preview" className="max-h-[70vh] max-w-full object-contain rounded" />
               )}
             </div>
           </div>
@@ -225,7 +242,8 @@ function PhotoUploadSlot({
   readOnly,
 }) {
   const fileInputRef = useRef(null);
-  const cameraInputRef = useRef(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [hasImageError, setHasImageError] = useState(false);
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -238,13 +256,15 @@ function PhotoUploadSlot({
         toast.error("Dung lượng ảnh tối đa là 10MB");
         return;
       }
+      setHasImageError(false);
       onUpload(file, loaiBangChung);
     }
     e.target.value = "";
   };
 
-  const isUploaded = Boolean(proof?.urlPublic || proof?.duongDanMinio);
-  const mediaUrl = proof?.urlPublic || proof?.duongDanMinio;
+  const rawUrl = proof?.urlPublic || proof?.duongDanMinio;
+  const isUploaded = Boolean(rawUrl);
+  const mediaUrl = resolveProofMediaUrl(rawUrl);
 
   return (
     <div className={`rounded-lg border p-4 transition-all ${
@@ -272,20 +292,37 @@ function PhotoUploadSlot({
       {isUploaded ? (
         <div className="mt-3 space-y-2">
           <div className="relative group rounded-md overflow-hidden border border-slate-200 bg-slate-100 aspect-video max-h-48 flex items-center justify-center">
-            <img
-              src={mediaUrl}
-              alt={title}
-              className="w-full h-full object-cover transition-transform group-hover:scale-105"
-            />
+            {hasImageError ? (
+              <div className="flex flex-col items-center justify-center p-4 text-center text-slate-500">
+                <AlertCircle className="size-6 text-amber-500 mb-1" />
+                <span className="text-xs font-medium">Không thể tải ảnh từ MinIO</span>
+                <button
+                  type="button"
+                  onClick={() => setHasImageError(false)}
+                  className="mt-1 text-[11px] text-bo-primary underline font-medium"
+                >
+                  Thử tải lại
+                </button>
+              </div>
+            ) : (
+              <img
+                src={mediaUrl}
+                alt={title}
+                onError={() => setHasImageError(true)}
+                className="w-full h-full object-cover transition-transform group-hover:scale-105"
+              />
+            )}
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-              <button
-                type="button"
-                onClick={() => onPreview({ type: "image", url: mediaUrl, title })}
-                className="bg-white/90 hover:bg-white text-slate-800 p-2 rounded-full shadow"
-                title="Xem ảnh lớn"
-              >
-                <Eye className="size-4" />
-              </button>
+              {!hasImageError && (
+                <button
+                  type="button"
+                  onClick={() => onPreview({ type: "image", url: mediaUrl, title })}
+                  className="bg-white/90 hover:bg-white text-slate-800 p-2 rounded-full shadow"
+                  title="Xem ảnh lớn"
+                >
+                  <Eye className="size-4" />
+                </button>
+              )}
               {!readOnly && (
                 <button
                   type="button"
@@ -302,28 +339,38 @@ function PhotoUploadSlot({
           <div className="flex items-center justify-between text-[11px] text-slate-500 px-1">
             <span>Người chụp: {proof.tenNguoiTao || "Nhân viên"}</span>
             {!readOnly && (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="text-bo-primary hover:underline font-medium"
-              >
-                Chụp lại ảnh
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCameraOpen(true)}
+                  className="text-emerald-700 hover:underline font-medium"
+                >
+                  Chụp lại
+                </button>
+                <span>·</span>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-bo-primary hover:underline font-medium"
+                >
+                  Chọn tệp khác
+                </button>
+              </div>
             )}
           </div>
         </div>
       ) : (
         <div className="mt-3 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-lg p-5 bg-slate-50/50 hover:bg-slate-50 transition-colors">
           <Camera className="size-8 text-slate-400 mb-2" />
-          <p className="text-xs text-slate-600 font-medium mb-3">Tải ảnh hoặc chụp trực tiếp từ máy ảnh</p>
+          <p className="text-xs text-slate-600 font-medium mb-3">Chụp trực tiếp từ camera hoặc tải ảnh từ máy tính</p>
           <div className="flex flex-wrap items-center justify-center gap-2">
             <Button
               type="button"
               size="sm"
               variant="outline"
-              onClick={() => cameraInputRef.current?.click()}
+              onClick={() => setIsCameraOpen(true)}
               disabled={uploading || readOnly}
-              className="gap-1.5 text-xs h-8"
+              className="gap-1.5 text-xs h-8 border-emerald-600 text-emerald-700 hover:bg-emerald-50 font-medium"
             >
               <Camera className="size-3.5" /> Chụp ảnh
             </Button>
@@ -340,7 +387,7 @@ function PhotoUploadSlot({
         </div>
       )}
 
-      {/* Hidden Inputs */}
+      {/* Hidden File Input */}
       <input
         type="file"
         ref={fileInputRef}
@@ -348,13 +395,17 @@ function PhotoUploadSlot({
         accept="image/jpeg,image/png,image/webp"
         className="hidden"
       />
-      <input
-        type="file"
-        ref={cameraInputRef}
-        onChange={handleFileChange}
-        accept="image/*"
-        capture="environment"
-        className="hidden"
+
+      {/* Camera Capture Modal (WebRTC) */}
+      <CameraCaptureModal
+        isOpen={isCameraOpen}
+        onClose={() => setIsCameraOpen(false)}
+        onCapture={(file) => {
+          setHasImageError(false);
+          onUpload(file, loaiBangChung);
+        }}
+        title={`Chụp ảnh: ${title}`}
+        description={description}
       />
     </div>
   );
@@ -380,8 +431,9 @@ function VideoUploadSection({
   const [stream, setStream] = useState(null);
   const [recordedChunks, setRecordedChunks] = useState([]);
 
-  const isUploaded = Boolean(proof?.urlPublic || proof?.duongDanMinio);
-  const mediaUrl = proof?.urlPublic || proof?.duongDanMinio;
+  const rawUrl = proof?.urlPublic || proof?.duongDanMinio;
+  const isUploaded = Boolean(rawUrl);
+  const mediaUrl = resolveProofMediaUrl(rawUrl);
 
   // Dọn dẹp stream camera khi unmount
   useEffect(() => {
