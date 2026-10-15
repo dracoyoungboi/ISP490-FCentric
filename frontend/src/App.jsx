@@ -261,7 +261,7 @@ export default function App() {
             <Route path="/settings/print-templates/:documentType/:templateId/edit" element={<PrintTemplateEditorPage />} />
           </Route>
 
-          <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"]} />}>
+          <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />}>
             <Route path="/settings/inventory" element={<InventorySystemSettingsPage />} />
           </Route>
 

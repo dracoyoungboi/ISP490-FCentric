@@ -249,7 +249,7 @@ export const SIDEBAR_MENU = [
     icon: Settings2,
     section: "settings",
     to: "/settings/inventory",
-    roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"],
+    roles: ["quan_tri_vien", "quan_ly_kho"],
   },
   // ================= CẤU HÌNH MẪU IN =================
   // Hồ sơ công ty không còn là mục riêng trên sidebar — mở qua hộp thoại

@@ -1,5 +1,5 @@
 import { createElement, useCallback, useEffect, useRef, useState } from "react";
-import { AlertCircle, Boxes, Info, Loader2, LockKeyhole, RefreshCcw, RotateCcw, Save } from "lucide-react";
+import { AlertCircle, Boxes, Info, Loader2, LockKeyhole, Pencil, RefreshCcw, Save } from "lucide-react";
 import { toast } from "sonner";
 import PageContainer from "@/components/backoffice/PageContainer";
 import PageHeader from "@/components/backoffice/PageHeader";
@@ -8,18 +8,26 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getInventorySettings, bulkUpdateInventorySettings } from "@/services/inventorySettingsService";
-import { INVENTORY_SETTINGS, createEmptyInventoryValues, readCompleteInventorySettings, selectInventorySettings, validateInventorySetting, getInventoryChanges } from "@/validations/inventorySettingsSchema";
+import { INVENTORY_SETTINGS, createEmptyInventoryValues, readCompleteInventorySettings, selectInventorySettings, validateInventorySetting, validateInventoryField, getInventoryChanges } from "@/validations/inventorySettingsSchema";
 import "./InventorySystemSettingsPage.css";
 
 function valuesFromSettings(settings) {
   return Object.fromEntries(settings.map((item) => [item.maCauHinh, item.giaTri]));
 }
 
+// Chế độ chỉ xem: số nguyên hiện có phân cách hàng nghìn, chưa có giá trị thì hiện "—".
+function formatReadOnlyValue(value) {
+  if (!value) return "—";
+  return /^[+-]?\d+$/.test(value) ? Number(value).toLocaleString("vi-VN") : value;
+}
+
+// Mô tả trung tính để dùng chung cho cả chế độ sửa và chỉ xem.
 const SETTING_GROUPS = [
-  { key: "stock", title: "Cảnh báo tồn kho", description: "Thiết lập ngưỡng cảnh báo mặc định cho hàng trong kho.", Icon: Boxes },
-  { key: "sync", title: "Đồng bộ đơn hàng", description: "Điều chỉnh chu kỳ và ngưỡng chuyển sang đồng bộ tức thời.", Icon: RefreshCcw },
+  { key: "stock", title: "Cảnh báo tồn kho", description: "Ngưỡng cảnh báo mặc định cho hàng trong kho.", Icon: Boxes },
+  { key: "sync", title: "Đồng bộ đơn hàng", description: "Chu kỳ đồng bộ định kỳ và ngưỡng chuyển sang đồng bộ tức thời.", Icon: RefreshCcw },
 ];
 
 export default function InventorySystemSettingsPage() {
@@ -32,10 +40,15 @@ export default function InventorySystemSettingsPage() {
   const [status, setStatus] = useState(canView ? "loading" : "idle");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  // Mặc định ai cũng ở chế độ xem; quản trị viên bấm "Chỉnh sửa" mới hiện ô nhập và Hủy / Lưu.
+  const [editing, setEditing] = useState(false);
+  const isEditing = hasPermission && editing;
   const [stockTooltipOpen, setStockTooltipOpen] = useState(false);
   const requestRef = useRef(null);
   const saveLockRef = useRef(false);
   const mountedRef = useRef(false);
+  const editButtonRef = useRef(null);
+  const wasEditingRef = useRef(false);
 
   const loadSettings = useCallback(async () => {
     if (!canView) return;
@@ -46,6 +59,7 @@ export default function InventorySystemSettingsPage() {
     setLoaded(null);
     setValues(createEmptyInventoryValues());
     setSaveError("");
+    setEditing(false);
     try {
       const settings = readCompleteInventorySettings(await getInventorySettings({ signal: controller.signal }));
       if (controller.signal.aborted) return;
@@ -68,15 +82,22 @@ export default function InventorySystemSettingsPage() {
     };
   }, [loadSettings]);
 
+  // dirty: có giá trị thật sự khác (đã chuẩn hóa, "0100" = "100") → hiện "Có thay đổi chưa lưu" và cho bật Lưu.
   const changes = loaded ? getInventoryChanges(loaded, values) : [];
   const dirty = changes.length > 0;
   const errors = {};
   for (const setting of loaded || []) {
-    const error = validateInventorySetting(values[setting.maCauHinh], setting.kieuDuLieu);
+    const error = validateInventoryField(setting.maCauHinh, values[setting.maCauHinh], setting.kieuDuLieu);
     if (error) errors[setting.maCauHinh] = error;
   }
-  const canSave = hasPermission && status === "loaded" && Boolean(loaded) && dirty && !saving && !Object.keys(errors).length;
-  const inputsDisabled = !hasPermission || status !== "loaded" || saving;
+  const canSave = isEditing && status === "loaded" && Boolean(loaded) && dirty && !saving && !Object.keys(errors).length;
+  const inputsDisabled = status !== "loaded" || saving;
+
+  // Thoát chế độ sửa (Hủy / Lưu xong): trả focus về nút "Chỉnh sửa" thay vì rơi về đầu trang.
+  useEffect(() => {
+    if (wasEditingRef.current && !isEditing) editButtonRef.current?.focus();
+    wasEditingRef.current = isEditing;
+  }, [isEditing]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -104,6 +125,7 @@ export default function InventorySystemSettingsPage() {
       if (!mountedRef.current) return;
       setLoaded(merged);
       setValues(valuesFromSettings(merged));
+      setEditing(false);
       toast.success("Đã lưu cài đặt.");
     } catch (error) {
       if (!mountedRef.current) return;
@@ -114,6 +136,13 @@ export default function InventorySystemSettingsPage() {
       saveLockRef.current = false;
       if (mountedRef.current) setSaving(false);
     }
+  };
+
+  // Hủy: bỏ mọi giá trị đang nhập và quay về chế độ xem.
+  const cancelEditing = () => {
+    setValues(valuesFromSettings(loaded));
+    setSaveError("");
+    setEditing(false);
   };
 
   const renderField = (field) => (
@@ -129,9 +158,16 @@ export default function InventorySystemSettingsPage() {
           <TooltipContent side="top" align="start" sideOffset={8} collisionPadding={16} className="max-w-[min(18rem,calc(100vw-2rem))] bg-bo-foreground py-2 leading-5 text-white shadow-md [&>svg]:bg-bo-foreground [&>svg]:fill-bo-foreground">Áp dụng khi sản phẩm chưa có ngưỡng riêng.</TooltipContent>
         </Tooltip>}
       </div>
-      <div className="min-w-0 space-y-1.5">
+      {/* Chế độ xem (quản lý kho, hoặc quản trị viên chưa bấm "Chỉnh sửa"): giá trị dạng chữ. */}
+      {!isEditing ? <output id={field.code} className={`flex h-11 min-w-0 items-center gap-3 ${field.group === "stock" ? "lg:justify-end" : ""}`}>
+        {status === "loading"
+          ? <Skeleton className="h-6 w-16 bg-slate-100" aria-hidden="true" />
+          : <span className="text-lg font-semibold tabular-nums text-bo-foreground">{formatReadOnlyValue(values[field.code])}</span>}
+        <span className="border-l border-bo-border pl-3 text-xs text-bo-muted">{field.unit}</span>
+      </output> : <div className="min-w-0 space-y-1.5">
         <div className="relative">
-          <Input id={field.code} type="number" inputMode="numeric" step="1" value={values[field.code]} disabled={inputsDisabled}
+          <Input id={field.code} type="number" inputMode="numeric" step="1" min={field.min} max={field.max} value={values[field.code]} disabled={inputsDisabled}
+            autoFocus={field.code === INVENTORY_SETTINGS[0].code}
             onFocus={() => setStockTooltipOpen(false)} placeholder={status === "loading" ? "Đang tải..." : "Chưa có giá trị"}
             aria-invalid={Boolean(errors[field.code])} aria-describedby={errors[field.code] ? `${field.code}-error` : undefined}
             className="h-11 border-bo-border bg-white pr-24 font-semibold tabular-nums text-bo-foreground md:text-base focus-visible:border-bo-primary focus-visible:ring-bo-primary/15 aria-invalid:border-bo-danger aria-invalid:ring-bo-danger/20 disabled:bg-bo-surface-subtle"
@@ -139,24 +175,25 @@ export default function InventorySystemSettingsPage() {
           <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 border-l border-bo-border pl-3 text-xs text-bo-muted">{field.unit}</span>
         </div>
         {errors[field.code] && <p id={`${field.code}-error`} role="alert" className="text-xs leading-5 text-bo-danger">{errors[field.code]}</p>}
-      </div>
+      </div>}
     </div>
   );
 
   return (
     <PageContainer className="max-w-none space-y-5">
       <PageHeader  title="Cấu hình hệ thống kho" description="Thiết lập cảnh báo tồn kho và các thông số đồng bộ đơn hàng."
-        actions={<>
-          <Button type="button" variant="outline" disabled={!hasPermission || !loaded || !dirty || saving} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle hover:text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/15" onClick={() => { setValues(valuesFromSettings(loaded)); setSaveError(""); }}><RotateCcw className="size-4" />Hủy thay đổi</Button>
+        actions={hasPermission ? (isEditing ? <>
+          {dirty && <span role="status" className="text-sm text-bo-muted">Có thay đổi chưa lưu</span>}
+          <Button type="button" variant="outline" disabled={saving} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle hover:text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/15" onClick={cancelEditing}>Hủy</Button>
           <Button type="submit" form="inventory-settings-form" disabled={!canSave} className="bg-bo-primary text-white hover:bg-bo-primary-hover focus-visible:border-bo-primary focus-visible:ring-bo-primary/15">{saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}{saving ? "Đang lưu…" : "Lưu thay đổi"}</Button>
-        </>} />
-      {status === "loading" && <div role="status" className="flex items-center gap-2 text-sm text-bo-muted"><Loader2 className="size-4 animate-spin" />Đang tải cài đặt...</div>}
+        </> : <Button ref={editButtonRef} type="button" disabled={status !== "loaded"} onClick={() => setEditing(true)} className="bg-bo-primary text-white hover:bg-bo-primary-hover focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"><Pencil className="size-4" />Chỉnh sửa</Button>) : canView && <span className="inline-flex items-center gap-1.5 rounded-full border border-bo-border bg-white px-2.5 py-1 text-xs font-medium text-bo-foreground"><LockKeyhole aria-hidden="true" className="size-3.5" />Chỉ xem</span>} />
+      {/* Khung xám trong từng ô đã báo đang tải; dòng này chỉ cho trình đọc màn hình, không đẩy thẻ xuống. */}
+      <p role="status" className="sr-only">{status === "loading" ? "Đang tải cài đặt..." : ""}</p>
       {status === "error" && <Alert className="border-bo-danger/20 bg-bo-danger-soft text-bo-danger">
         <AlertCircle /><AlertTitle>Không thể tải cài đặt.</AlertTitle>
         <AlertDescription className="text-bo-danger"><p>Thử lại để lấy cài đặt mới nhất.</p><Button type="button" variant="outline" onClick={loadSettings} className="mt-2 border-bo-danger/20 bg-white text-bo-danger hover:bg-bo-danger-soft"><RefreshCcw className="size-4" />Thử lại</Button></AlertDescription>
       </Alert>}
       {!canView && <Alert className="border-bo-border bg-bo-surface-subtle text-bo-muted"><LockKeyhole /><AlertTitle>Bạn không có quyền truy cập cài đặt này.</AlertTitle><AlertDescription>Vui lòng liên hệ Quản trị viên để được hỗ trợ.</AlertDescription></Alert>}
-      {canView && !hasPermission && <Alert className="border-bo-border bg-bo-surface-subtle text-bo-muted"><LockKeyhole /><AlertTitle>Bạn chỉ có quyền xem cài đặt này.</AlertTitle><AlertDescription>Vui lòng liên hệ Quản trị viên nếu cần thay đổi.</AlertDescription></Alert>}
       <form id="inventory-settings-form" noValidate onSubmit={saveSettings} aria-busy={status === "loading" || saving} className="space-y-5">
         <SurfaceCard contentClassName="inventory-settings-layout p-0 sm:p-0">
           <div className="inventory-settings-rail bg-bo-sidebar text-white">
@@ -177,6 +214,7 @@ export default function InventorySystemSettingsPage() {
             </section>
           ))}
         </SurfaceCard>
+        {canView && !hasPermission && <p className="text-sm text-bo-muted">Cần thay đổi thông số? Liên hệ Quản trị viên.</p>}
         {saveError && <Alert className="border-bo-danger/20 bg-bo-danger-soft text-bo-danger"><AlertCircle /><AlertTitle>Không thể lưu cài đặt.</AlertTitle><AlertDescription className="text-bo-danger">{saveError}</AlertDescription></Alert>}
       </form>
     </PageContainer>
