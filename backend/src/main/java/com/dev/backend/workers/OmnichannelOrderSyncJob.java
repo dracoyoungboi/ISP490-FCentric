@@ -26,7 +26,9 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -58,14 +60,26 @@ public class OmnichannelOrderSyncJob {
     DonBanHangService donBanHangService;
     ObjectMapper objectMapper = new ObjectMapper();
     AtomicReference<Instant> lastSyncTime = new AtomicReference<>(Instant.EPOCH);
+    // Lần gọi API đơn hàng của sàn thành công gần nhất, theo id kênh (màn Theo dõi đồng bộ)
+    Map<Integer, Instant> lanLayDonCuoi = new ConcurrentHashMap<>();
 
-    @Scheduled(fixedDelay = 60_000, initialDelay = 30_000)
-    public void scheduledOrderSync() {
+    /** Chu kỳ quét đơn (phút) theo cấu hình OMNI_SYNC_INTERVAL_MINS, giới hạn 1..1440. */
+    public int getChuKyPhut() {
         int intervalMins = 10;
         if (dieuHanhHeThongService != null) {
             intervalMins = dieuHanhHeThongService.getCauHinhInt("OMNI_SYNC_INTERVAL_MINS", 10);
         }
-        intervalMins = Math.max(1, Math.min(intervalMins, 1440));
+        return Math.max(1, Math.min(intervalMins, 1440));
+    }
+
+    /** Thời điểm lấy đơn thành công gần nhất của kênh; null nếu chưa lấy được lần nào từ khi khởi động. */
+    public Instant getLanLayDonCuoi(Integer kenhId) {
+        return kenhId == null ? null : lanLayDonCuoi.get(kenhId);
+    }
+
+    @Scheduled(fixedDelay = 60_000, initialDelay = 30_000)
+    public void scheduledOrderSync() {
+        int intervalMins = getChuKyPhut();
 
         Instant last = lastSyncTime.get();
         Instant now = Instant.now();
@@ -88,11 +102,7 @@ public class OmnichannelOrderSyncJob {
     }
 
     public int syncShopifyOrders(KenhBanHang kenh) {
-        int intervalMins = 10;
-        if (dieuHanhHeThongService != null) {
-            intervalMins = dieuHanhHeThongService.getCauHinhInt("OMNI_SYNC_INTERVAL_MINS", 10);
-        }
-        return syncShopifyOrders(kenh, intervalMins);
+        return syncShopifyOrders(kenh, getChuKyPhut());
     }
 
     public int syncShopifyOrders(KenhBanHang kenh, int intervalMins) {
@@ -142,6 +152,9 @@ public class OmnichannelOrderSyncJob {
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                if (kenh.getId() != null) {
+                    lanLayDonCuoi.put(kenh.getId(), Instant.now());
+                }
                 JsonNode root = objectMapper.readTree(response.getBody());
                 JsonNode orders = root.path("orders");
                 if (orders.isArray()) {

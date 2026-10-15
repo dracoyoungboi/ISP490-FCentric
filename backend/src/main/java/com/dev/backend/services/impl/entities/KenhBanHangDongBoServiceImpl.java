@@ -78,6 +78,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     TonKhoTongHopRepository tonKhoTongHopRepository;
     OmnichannelOrderSyncJob omnichannelOrderSyncJob;
     ObjectMapper objectMapper = new ObjectMapper();
+    // Lần đẩy tồn lên sàn gần nhất (đã kết nối được Shopify), theo id kênh (màn Theo dõi đồng bộ)
+    Map<Integer, Instant> lanDayTonCuoi = new java.util.concurrent.ConcurrentHashMap<>();
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -532,6 +534,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
         }
 
+        if (locationId != null && !shopifySkuMap.isEmpty()) {
+            lanDayTonCuoi.put(kenh.getId(), Instant.now());
+        }
         ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_ton_kho, "Đẩy tồn kho kênh " + maKenh + " thành công cho " + count + " SKU");
         return DayTonResultDto.builder().soDong(count).build();
     }
@@ -561,6 +566,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                     khaDung = (BigDecimal) stocks.get(0)[1];
                                 }
                                 dayTonKhoChoInventoryItem(domain, token, locationId, vInfo.getInventoryItemId(), Math.max(0, khaDung.intValue()));
+                                lanDayTonCuoi.put(m.getKenhBanHang().getId(), Instant.now());
                             }
                         }
                     }
@@ -581,6 +587,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         long daLienKet = trangThaiDongBoSanPhamRepository.countByKenhBanHangIdAndTrangThaiDongBo(kenh.getId(), "thanh_cong");
         long thatBai = trangThaiDongBoSanPhamRepository.countByKenhBanHangIdAndTrangThaiDongBo(kenh.getId(), "that_bai");
         long chuaLienKet = Math.max(0, tong - daLienKet - thatBai);
+        // Job đẩy tồn (JOB-03) và lấy đơn (JOB-01) cùng chạy theo OMNI_SYNC_INTERVAL_MINS
+        int chuKyPhut = omnichannelOrderSyncJob.getChuKyPhut();
 
         return DongBoTongQuanDto.builder()
                 .tongSkuSan(tong)
@@ -588,6 +596,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .chuaLienKet(chuaLienKet)
                 .loiDongBo(thatBai)
                 .lanDongBoCuoi(kenh.getNgayCapNhat())
+                .chuKyDongBoTonPhut(chuKyPhut)
+                .chuKyLayDonPhut(chuKyPhut)
+                .lanDayTonCuoi(lanDayTonCuoi.get(kenh.getId()))
+                .lanLayDonCuoi(omnichannelOrderSyncJob.getLanLayDonCuoi(kenh.getId()))
                 .build();
     }
 

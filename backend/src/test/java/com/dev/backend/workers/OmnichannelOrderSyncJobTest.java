@@ -63,6 +63,21 @@ class OmnichannelOrderSyncJobTest {
     }
 
     @Test
+    void getChuKyPhut_docCauHinhVaGioiHan() {
+        when(dieuHanhHeThongService.getCauHinhInt("OMNI_SYNC_INTERVAL_MINS", 10)).thenReturn(3, 0, 5000);
+
+        assertEquals(3, job.getChuKyPhut());
+        assertEquals(1, job.getChuKyPhut());
+        assertEquals(1440, job.getChuKyPhut());
+    }
+
+    @Test
+    void getLanLayDonCuoi_chuaLayDonThiNull() {
+        assertNull(job.getLanLayDonCuoi(1));
+        assertNull(job.getLanLayDonCuoi(null));
+    }
+
+    @Test
     void processSingleOrder_newOrder_createsOrderWithShpPrefixAndStatusZero() throws Exception {
         String json = """
         {

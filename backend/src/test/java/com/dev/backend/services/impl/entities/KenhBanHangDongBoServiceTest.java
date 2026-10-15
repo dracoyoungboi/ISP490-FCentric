@@ -227,6 +227,21 @@ class KenhBanHangDongBoServiceTest {
     }
 
     @Test
+    void getTongQuan_traChuKyVaLanLayDonTuJob() {
+        java.time.Instant layDon = java.time.Instant.parse("2026-10-10T07:26:00Z");
+        when(omnichannelOrderSyncJob.getChuKyPhut()).thenReturn(3);
+        when(omnichannelOrderSyncJob.getLanLayDonCuoi(1)).thenReturn(layDon);
+
+        DongBoTongQuanDto kpi = service.getTongQuan("SHOPIFY");
+
+        assertEquals(3, kpi.getChuKyDongBoTonPhut());
+        assertEquals(3, kpi.getChuKyLayDonPhut());
+        assertEquals(layDon, kpi.getLanLayDonCuoi());
+        // Chưa đẩy tồn lần nào thì không lấy ngày cập nhật kênh thay vào
+        assertNull(kpi.getLanDayTonCuoi());
+    }
+
+    @Test
     void getLocations_traVeFallbackKhiChuaCoToken() {
         when(kenhBanHangService.getDecryptedShopifyAccessToken()).thenReturn(null);
 
