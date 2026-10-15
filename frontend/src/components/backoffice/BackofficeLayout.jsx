@@ -10,7 +10,11 @@ import "@/styles/print.css";
 const DEFAULT_DOCUMENT_TITLE =
     "FCentric · Quản lý kho & bán lẻ thời trang đa kênh";
 
-export default function BackofficeLayout() {
+/**
+ * - metaCoDinh: tiêu đề cố định cho trang không đi theo đường dẫn (trang 404 trong khung quản trị).
+ *   Có giá trị thì dùng luôn, không dò PAGE_META_CONFIG theo đường dẫn.
+ */
+export default function BackofficeLayout({ metaCoDinh = null }) {
     const { pathname } = useLocation();
     const { mustChangePassword, setMustChangePassword } = useOutletContext();
     const handlePasswordChangeSuccess = () => setMustChangePassword(false);
@@ -381,7 +385,7 @@ export default function BackofficeLayout() {
         },
     ];
 
-    const pageMeta = PAGE_META_CONFIG.find((item) =>
+    const pageMeta = metaCoDinh ?? PAGE_META_CONFIG.find((item) =>
         item.match(pathname)
     );
 

@@ -9,9 +9,12 @@ import { cn } from '@/lib/utils';
  *  - header             : lockup đầy đủ, cỡ nhỏ cho header (nền sáng)
  *  - auth               : lockup đầy đủ cho trang xác thực (nền sáng; `chip` bọc nền trắng khi đặt trên ảnh)
  *  - compact            : lockup đầy đủ, cỡ nhỏ cho storefront / supplier
+ *  - light              : lockup đầy đủ, chữ "Centric" màu tối cho nền sáng (trang 404 khi chưa đăng nhập).
+ *                         Logo gốc có chữ trắng nên đặt trên nền sáng gần như không thấy.
  */
 const ASSETS = {
   full: '/branding/f-centric-logo.svg',
+  fullLight: '/branding/f-centric-logo-light.png',
   icon: '/branding/f-centric-icon.svg',
 };
 
@@ -54,7 +57,7 @@ export default function BrandLogo({ variant = 'auth', chip = false, className = 
 
   const img = (
     <img
-      src={ASSETS.full}
+      src={variant === 'light' ? ASSETS.fullLight : ASSETS.full}
       alt={ALT}
       draggable={false}
       className={cn(
@@ -62,6 +65,7 @@ export default function BrandLogo({ variant = 'auth', chip = false, className = 
         variant === 'header' && 'h-7.5 max-w-[170px]',
         variant === 'auth' && 'h-12 max-w-[240px] max-sm:max-w-[210px]',
         variant === 'compact' && 'h-9 max-w-[180px]',
+        variant === 'light' && 'h-8',
         className,
       )}
     />
