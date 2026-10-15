@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { getKhachHangById } from "@/services/khachHangService";
 
 import PageContainer from "@/components/backoffice/PageContainer";
+import { ENTITY_NAME_TYPE } from "@/components/backoffice/pageTitle";
 import LoadingState from "@/components/shared/LoadingState";
 import StatusBadge from "@/components/shared/StatusBadge";
 import SurfaceCard from "@/components/shared/SurfaceCard";
@@ -110,7 +111,7 @@ export default function KhachHangDetails() {
               Chỉnh sửa hồ sơ
             </Button>
           </div>
-          <h1 className="max-w-5xl break-words text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl">{khachHang.tenKhachHang || "—"}</h1>
+          <h1 className={`max-w-5xl break-words text-2xl leading-tight sm:text-3xl lg:text-4xl ${ENTITY_NAME_TYPE}`}>{khachHang.tenKhachHang || "—"}</h1>
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <StatusBadge
               label={`Mã khách hàng: ${khachHang.maKhachHang || "—"}`}

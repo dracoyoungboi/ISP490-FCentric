@@ -4,6 +4,7 @@ import { ROLES } from "@/constants/backend/role";
 import { nguoiDungService } from "@/services/nguoiDungService";
 import { quyenHanService } from "@/services/quyenHan";
 import PageContainer from "@/components/backoffice/PageContainer";
+import { PAGE_HEADING_TYPE } from "@/components/backoffice/pageTitle";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -122,8 +123,8 @@ export default function UserPermissionEditByAdmin() {
       {/* Header Card */}
       <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm sm:p-5">
         <div className="min-w-0 space-y-1">
-          <h1 className="flex items-center gap-2 text-lg font-bold text-bo-foreground sm:text-xl">
-            <UserCog className="h-6 w-6 text-bo-primary" />
+          <h1 className={`flex items-center gap-2 ${PAGE_HEADING_TYPE}`}>
+            <UserCog className="h-6 w-6 shrink-0 text-bo-primary" />
             Thiết lập vai trò & quyền kho
           </h1>
           <p className="text-sm text-bo-muted">

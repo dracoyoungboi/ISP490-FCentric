@@ -17,6 +17,7 @@ import AvatarEditorModal from "@/components/AvatarEditorModal";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import PageContainer from "@/components/backoffice/PageContainer";
+import { ENTITY_NAME_TYPE } from "@/components/backoffice/pageTitle";
 
 import {
     Calendar,
@@ -242,7 +243,7 @@ export default function UserDetail() {
                         </button>
 
                         <div className="min-w-0">
-                            <h1 className="break-all text-xl font-bold text-bo-foreground sm:text-2xl">
+                            <h1 className={`break-all text-xl text-bo-heading sm:text-2xl ${ENTITY_NAME_TYPE}`}>
                                 {loadingUser ? "Đang tải..." : userData.hoTen || "—"}
                             </h1>
                             <p className="mt-1 text-sm text-bo-muted">@{userData.tenDangNhap || "—"}</p>

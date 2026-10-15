@@ -12,6 +12,7 @@ import { dinhDangKhoangGia } from "@/pages/product/components/product/khoangGiaB
 import { Button } from "@/components/ui/button";
 
 import PageContainer from "@/components/backoffice/PageContainer";
+import { ENTITY_NAME_TYPE } from "@/components/backoffice/pageTitle";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
@@ -250,7 +251,7 @@ export default function ProductDetail() {
                                 <StatusBadge label={statusMeta.label} tone={statusMeta.tone} />
                             </div>
 
-                            <h1 className="text-2xl font-bold leading-tight tracking-tight text-bo-foreground sm:text-3xl">
+                            <h1 className={`text-2xl leading-tight tracking-tight text-bo-heading sm:text-3xl ${ENTITY_NAME_TYPE}`}>
                                 {product.tenSanPham}
                             </h1>
 

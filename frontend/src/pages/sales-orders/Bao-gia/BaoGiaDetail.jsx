@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Textarea } from "@/components/ui/textarea";
 
 import PageContainer from "@/components/backoffice/PageContainer";
+import { PAGE_HEADING_TYPE } from "@/components/backoffice/pageTitle";
 import LoadingState from "@/components/shared/LoadingState";
 import ErrorState from "@/components/shared/ErrorState";
 import EmptyState from "@/components/shared/EmptyState";
@@ -201,7 +202,7 @@ export default function BaoGiaDetail() {
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold text-bo-foreground">Báo giá {donBanHang.soDonHang}</h1>
+            <h1 className={PAGE_HEADING_TYPE}>Báo giá {donBanHang.soDonHang}</h1>
             <StatusBadge label={st.label} tone={st.tone} />
           </div>
 

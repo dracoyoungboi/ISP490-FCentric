@@ -3,6 +3,7 @@ import { useParams, Link, useLocation, useNavigate } from "react-router-dom";
 import { adminService } from "@/services/adminService.js";
 
 import PageContainer from "@/components/backoffice/PageContainer";
+import { ENTITY_NAME_TYPE } from "@/components/backoffice/pageTitle";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import StatusBadge from "@/components/shared/StatusBadge";
 import LoadingState from "@/components/shared/LoadingState";
@@ -202,7 +203,7 @@ export default function ViewUserDetailByAdmin() {
                         Quay lại danh sách
                     </Link>
                     <div>
-                        <h1 className="truncate text-lg font-bold text-bo-foreground">
+                        <h1 className={`truncate text-lg text-bo-heading ${ENTITY_NAME_TYPE}`}>
                             {user.hoTen}
                         </h1>
                         <p className="mt-1 text-sm text-bo-muted">
