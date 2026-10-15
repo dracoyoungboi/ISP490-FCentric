@@ -202,6 +202,34 @@ class KenhBanHangDongBoServiceTest {
     }
 
     @Test
+    void filterLienKet_anhTheoIpMinioDoiSangHttps() {
+        // Web HTTPS chặn ảnh http://IP (Mixed Content) nên phải trả tên miền HTTPS
+        when(trangThaiDongBoSanPhamRepository.filterByKenh(eq(1), any(), any(), any())).thenReturn(new PageImpl<>(List.of(mapping1)));
+        when(tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(any())).thenReturn(List.of());
+        AnhQuanAo anh = AnhQuanAo.builder().id(1).quanAo(bienThe1.getSanPham()).anhChinh(1)
+                .tepTin(TepTin.builder().id(1).duongDan("http://171.244.142.43:9000/fashion/polo.jpg").build()).build();
+        when(anhQuanAoRepository.findActiveByQuanAoIds(any())).thenReturn(List.of(anh));
+
+        LienKetSanPhamDto dto = service.filterLienKet("SHOPIFY", null, null, PageRequest.of(0, 10)).getContent().get(0);
+
+        assertEquals("https://minio.slmglobal.vn/fashion/polo.jpg", dto.getAnhDaiDien());
+    }
+
+    @Test
+    void filterLienKet_anhTuTenLuuTruCungDoiSangHttps() {
+        when(trangThaiDongBoSanPhamRepository.filterByKenh(eq(1), any(), any(), any())).thenReturn(new PageImpl<>(List.of(mapping1)));
+        when(tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(any())).thenReturn(List.of());
+        AnhQuanAo anh = AnhQuanAo.builder().id(1).quanAo(bienThe1.getSanPham()).anhChinh(1)
+                .tepTin(TepTin.builder().id(1).tenLuuTru("san-pham/polo.jpg").build()).build();
+        when(anhQuanAoRepository.findActiveByQuanAoIds(any())).thenReturn(List.of(anh));
+        when(minioService.getPublicUrl("san-pham/polo.jpg")).thenReturn("http://171.244.142.43:9000/fashion/san-pham/polo.jpg");
+
+        LienKetSanPhamDto dto = service.filterLienKet("SHOPIFY", null, null, PageRequest.of(0, 10)).getContent().get(0);
+
+        assertEquals("https://minio.slmglobal.vn/fashion/san-pham/polo.jpg", dto.getAnhDaiDien());
+    }
+
+    @Test
     void filterLienKet_loiDocAnhVanTraDanhSach() {
         when(trangThaiDongBoSanPhamRepository.filterByKenh(eq(1), any(), any(), any())).thenReturn(new PageImpl<>(List.of(mapping1)));
         when(tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(any())).thenReturn(List.of());

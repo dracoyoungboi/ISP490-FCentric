@@ -34,6 +34,7 @@ import com.dev.backend.services.KenhBanHangService;
 import com.dev.backend.services.MinioService;
 import com.dev.backend.services.multitable.DieuHanhHeThongService;
 import com.dev.backend.utils.KenhCauHinhDongBo;
+import com.dev.backend.utils.PublicAssetUrl;
 import com.dev.backend.workers.OmnichannelOrderSyncJob;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -913,11 +914,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return sanPhamId == null ? null : anhDaiDienTheoSanPham(List.of(sanPhamId)).get(sanPhamId);
     }
 
+    /** URL ảnh đã đổi sang tên miền HTTPS, nếu không web HTTPS chặn ảnh từ IP MinIO (Mixed Content). */
     private String duongDanAnh(TepTin tep) {
-        if (tep.getDuongDan() != null && !tep.getDuongDan().isBlank()) return tep.getDuongDan();
+        if (tep.getDuongDan() != null && !tep.getDuongDan().isBlank()) return PublicAssetUrl.toHttps(tep.getDuongDan());
         if (tep.getTenLuuTru() == null || tep.getTenLuuTru().isBlank()) return null;
         try {
-            return minioService.getPublicUrl(tep.getTenLuuTru());
+            return PublicAssetUrl.toHttps(minioService.getPublicUrl(tep.getTenLuuTru()));
         } catch (Exception ex) {
             return null;
         }
