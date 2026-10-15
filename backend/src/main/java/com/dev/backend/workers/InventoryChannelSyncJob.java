@@ -6,6 +6,7 @@ import com.dev.backend.event.InventoryDeductedEvent;
 import com.dev.backend.repository.KenhBanHangRepository;
 import com.dev.backend.services.KenhBanHangDongBoService;
 import com.dev.backend.services.multitable.DieuHanhHeThongService;
+import com.dev.backend.utils.KenhCauHinhDongBo;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -62,12 +63,17 @@ public class InventoryChannelSyncJob {
 
         log.info("[JOB-03 Batch] Bắt đầu đợt đồng bộ tồn kho định kỳ cho {} kênh bán active (Chu kỳ: {} phút)", activeChannels.size(), intervalMins);
         for (KenhBanHang kenh : activeChannels) {
+            // Cấu hình theo kênh (màn Cấu hình kênh); chưa lưu thì giữ mặc định cũ: bật, 100%, tồn đệm 0, ngưỡng 0
+            if (!KenhCauHinhDongBo.tuDongDayTon(dieuHanhHeThongService, kenh.getMaKenh())) {
+                log.info("[JOB-03 Batch] Kênh {} đang tắt tự động đẩy tồn, bỏ qua", kenh.getMaKenh());
+                continue;
+            }
             try {
                 DayTonKenhRequest req = DayTonKenhRequest.builder()
                         .khoId(1)
-                        .tyLeDayTon(BigDecimal.valueOf(100))
-                        .tonDem(0)
-                        .nguongVe0(0)
+                        .tyLeDayTon(BigDecimal.valueOf(KenhCauHinhDongBo.tyLeDayTon(dieuHanhHeThongService, kenh.getMaKenh())))
+                        .tonDem(KenhCauHinhDongBo.tonDem(dieuHanhHeThongService, kenh.getMaKenh()))
+                        .nguongVe0(KenhCauHinhDongBo.nguongVe0(dieuHanhHeThongService, kenh.getMaKenh()))
                         .build();
                 var result = kenhBanHangDongBoService.dayTonKhoLenKenh(kenh.getMaKenh(), req);
                 log.info("[JOB-03 Batch] Đồng bộ tồn kho định kỳ kênh {} thành công: {} SKU", kenh.getMaKenh(), result.getSoDong());
@@ -89,6 +95,11 @@ public class InventoryChannelSyncJob {
         threshold = Math.max(0, Math.min(threshold, 100));
 
         if (event.getSoLuongTonConLai() != null && event.getSoLuongTonConLai().compareTo(BigDecimal.valueOf(threshold)) < 0) {
+            // Đẩy tồn khẩn cấp hiện chỉ đẩy lên Shopify; tôn trọng công tắc "Tự động đẩy tồn" của kênh này
+            if (!KenhCauHinhDongBo.tuDongDayTon(dieuHanhHeThongService, KenhCauHinhDongBo.MA_KENH_SHOPIFY)) {
+                log.info("[JOB-03 Real-time] Kênh Shopify đang tắt tự động đẩy tồn, bỏ qua đẩy khẩn SKU ID {}", event.getBienTheSanPhamId());
+                return;
+            }
             log.warn("[JOB-03 Real-time] CẢNH BÁO TỒN KHO THẤP: SKU ID {} chỉ còn {} đơn vị (< {} units theo cấu hình). Kích hoạt đẩy tồn tức thì!",
                     event.getBienTheSanPhamId(), event.getSoLuongTonConLai(), threshold);
             try {

@@ -32,6 +32,8 @@ import com.dev.backend.repository.TrangThaiDongBoSanPhamRepository;
 import com.dev.backend.services.KenhBanHangDongBoService;
 import com.dev.backend.services.KenhBanHangService;
 import com.dev.backend.services.MinioService;
+import com.dev.backend.services.multitable.DieuHanhHeThongService;
+import com.dev.backend.utils.KenhCauHinhDongBo;
 import com.dev.backend.workers.OmnichannelOrderSyncJob;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -77,6 +79,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     KhoRepository khoRepository;
     TonKhoTongHopRepository tonKhoTongHopRepository;
     OmnichannelOrderSyncJob omnichannelOrderSyncJob;
+    // Đọc quy tắc đẩy tồn đã lưu theo kênh (màn Cấu hình kênh)
+    DieuHanhHeThongService dieuHanhHeThongService;
     ObjectMapper objectMapper = new ObjectMapper();
     // Lần đẩy tồn lên sàn gần nhất (đã kết nối được Shopify), theo id kênh (màn Theo dõi đồng bộ)
     Map<Integer, Instant> lanDayTonCuoi = new java.util.concurrent.ConcurrentHashMap<>();
@@ -141,9 +145,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                     if (mappingOpt.isPresent()) {
                                         record = mappingOpt.get();
                                         record.setMaSanPhamKenh(variantId);
-                                        record.setTrangThaiDongBo("thanh_cong");
+                                        // Dòng người dùng đã ngừng đồng bộ thì giữ nguyên trạng thái ngừng
+                                        if (!TRANG_THAI_NGUNG.equals(record.getTrangThaiDongBo())) {
+                                            record.setTrangThaiDongBo("thanh_cong");
+                                            record.setChiTietLoi(null);
+                                        }
                                         record.setNgayDongBoCuoi(Instant.now());
-                                        record.setChiTietLoi(null);
                                         soCapNhat++;
                                     } else {
                                         record = TrangThaiDongBoSanPham.builder()
@@ -305,10 +312,15 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndBienTheSanPhamId(kenh.getId(), bt.getId());
 
                     TrangThaiDongBoSanPham record;
+                    boolean dangNgung = false;
                     if (mappingOpt.isPresent()) {
                         record = mappingOpt.get();
                         record.setMaSanPhamKenh(maVariantKenh);
-                        record.setTrangThaiDongBo(trangThaiDongBo);
+                        // Dòng người dùng đã ngừng đồng bộ thì giữ nguyên trạng thái ngừng và không đẩy tồn
+                        dangNgung = TRANG_THAI_NGUNG.equals(record.getTrangThaiDongBo());
+                        if (!dangNgung) {
+                            record.setTrangThaiDongBo(trangThaiDongBo);
+                        }
                         record.setNgayDongBoCuoi(Instant.now());
                     } else {
                         record = TrangThaiDongBoSanPham.builder()
@@ -322,8 +334,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     trangThaiDongBoSanPhamRepository.save(record);
                     soDaGhep++;
 
-                    // Nếu có inventoryItemId và locationId -> Đẩy tồn kho khả dụng lên Shopify ngay lập tức
-                    if (variantInfo != null && variantInfo.getInventoryItemId() != null && locationId != null) {
+                    // Nếu có inventoryItemId và locationId -> Đẩy tồn kho lên Shopify ngay theo quy tắc đã lưu của kênh
+                    if (!dangNgung && variantInfo != null && variantInfo.getInventoryItemId() != null && locationId != null) {
                         try {
                             // Tính tổng tồn khả dụng toàn chuỗi theo Rule 5: Free to Use = On Hand (toàn hệ thống) - Outgoing (các đơn chưa xuất)
                             List<Object[]> stocks = tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(List.of(bt.getId()));
@@ -331,10 +343,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             if (!stocks.isEmpty() && stocks.get(0)[1] != null) {
                                 khaDung = (BigDecimal) stocks.get(0)[1];
                             }
-                            int availableQty = Math.max(0, khaDung.intValue());
+                            int availableQty = soTonDayTheoQuyTacDaLuu(kenh.getMaKenh(), khaDung);
 
-                            dayTonKhoChoInventoryItem(domain, token, locationId, variantInfo.getInventoryItemId(), availableQty);
-                            soTonKhoDaDay++;
+                            if (dayTonKhoChoInventoryItem(domain, token, locationId, variantInfo.getInventoryItemId(), availableQty)) {
+                                soTonKhoDaDay++;
+                            }
                         } catch (Exception e) {
                             log.warn("Không thể cập nhật tồn kho cho SKU [{}] lên Shopify: {}", bt.getMaSku(), e.getMessage());
                         }
@@ -405,9 +418,18 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 (search == null || search.isBlank()) ? null : search.trim(),
                 pageable
         );
+        Map<Integer, String> anhTheoSanPham = anhDaiDienTheoSanPham(page.getContent().stream()
+                .map(TrangThaiDongBoSanPham::getBienTheSanPham)
+                .filter(Objects::nonNull)
+                .map(BienTheSanPham::getSanPham)
+                .filter(Objects::nonNull)
+                .map(SanPhamQuanAo::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet()));
 
         return page.map(item -> {
             BienTheSanPham bt = item.getBienTheSanPham();
+            Integer sanPhamId = bt != null && bt.getSanPham() != null ? bt.getSanPham().getId() : null;
             BigDecimal soLuongKhaDung = BigDecimal.ZERO;
             if (bt != null) {
                 List<Object[]> stockList = tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(List.of(bt.getId()));
@@ -423,6 +445,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     .tenBienTheSan(bt != null ? buildVariantName(bt) : null)
                     .giaBanSan(bt != null ? bt.getGiaBan() : null)
                     .bienTheSanPhamId(bt != null ? bt.getId() : null)
+                    .sanPhamId(sanPhamId)
+                    .anhDaiDien(sanPhamId != null ? anhTheoSanPham.get(sanPhamId) : null)
                     .maSku(bt != null ? bt.getMaSku() : null)
                     .tenSanPham(bt != null && bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : null)
                     .tenBienThe(bt != null ? buildVariantName(bt) : null)
@@ -446,6 +470,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (request.getBienTheSanPhamId() != null) {
             BienTheSanPham bt = bienTheSanPhamRepository.findById(request.getBienTheSanPhamId())
                     .orElseThrow(() -> new CommonException("Không tìm thấy biến thể ID " + request.getBienTheSanPhamId(), HttpStatus.BAD_REQUEST, null));
+            Integer kenhId = record.getKenhBanHang() != null ? record.getKenhBanHang().getId() : null;
+            if (kenhId != null && trangThaiDongBoSanPhamRepository
+                    .existsByKenhBanHangIdAndBienTheSanPhamIdAndIdNot(kenhId, bt.getId(), record.getId())) {
+                throw new CommonException("Biến thể " + bt.getMaSku() + " đã được ghép với một sản phẩm khác của gian hàng này",
+                        HttpStatus.BAD_REQUEST, null);
+            }
             record.setBienTheSanPham(bt);
             record.setTrangThaiDongBo("thanh_cong");
             record.setChiTietLoi(null);
@@ -456,6 +486,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         TrangThaiDongBoSanPham saved = trangThaiDongBoSanPhamRepository.save(record);
 
         BienTheSanPham bt = saved.getBienTheSanPham();
+        Integer sanPhamId = bt != null && bt.getSanPham() != null ? bt.getSanPham().getId() : null;
         return LienKetSanPhamDto.builder()
                 .id(saved.getId())
                 .skuSan(saved.getMaSanPhamKenh())
@@ -463,6 +494,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .tenBienTheSan(bt != null ? buildVariantName(bt) : null)
                 .giaBanSan(bt != null ? bt.getGiaBan() : null)
                 .bienTheSanPhamId(bt != null ? bt.getId() : null)
+                .sanPhamId(sanPhamId)
+                .anhDaiDien(anhDaiDienCuaSanPham(sanPhamId))
                 .maSku(bt != null ? bt.getMaSku() : null)
                 .tenSanPham(bt != null && bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : null)
                 .tenBienThe(bt != null ? buildVariantName(bt) : null)
@@ -510,13 +543,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 }
 
                 // Áp dụng công thức BR-OC-10
-                BigDecimal soLuongDay = khaDung.multiply(tyLe).divide(BigDecimal.valueOf(100), 0, RoundingMode.FLOOR);
-                soLuongDay = soLuongDay.subtract(BigDecimal.valueOf(tonDem));
-                if (soLuongDay.compareTo(BigDecimal.valueOf(nguongVe0)) <= 0) {
-                    soLuongDay = BigDecimal.ZERO;
-                } else if (soLuongDay.compareTo(BigDecimal.ZERO) < 0) {
-                    soLuongDay = BigDecimal.ZERO;
-                }
+                BigDecimal soLuongDay = BigDecimal.valueOf(tinhSoTonDay(khaDung, tyLe, tonDem, nguongVe0));
 
                 // Đẩy sang Shopify nếu có thông tin inventory_item_id
                 if (locationId != null && !shopifySkuMap.isEmpty()) {
@@ -547,7 +574,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (bienTheSanPhamId == null) return;
         List<TrangThaiDongBoSanPham> mappings = trangThaiDongBoSanPhamRepository.findByBienTheSanPhamId(bienTheSanPhamId);
         for (TrangThaiDongBoSanPham m : mappings) {
-            if (m.getKenhBanHang() != null && m.getKenhBanHang().getTrangThai() == 1) {
+            if (m.getKenhBanHang() != null && Integer.valueOf(1).equals(m.getKenhBanHang().getTrangThai())
+                    && "thanh_cong".equals(m.getTrangThaiDongBo())) {
+                String maKenhCuaDong = m.getKenhBanHang().getMaKenh();
+                if (!KenhCauHinhDongBo.tuDongDayTon(dieuHanhHeThongService, maKenhCuaDong)) {
+                    log.info("[JOB-03 Real-time] Kênh {} đang tắt tự động đẩy tồn, bỏ qua SKU ID {}", maKenhCuaDong, bienTheSanPhamId);
+                    continue;
+                }
                 log.info("[JOB-03 Real-time] Tồn kho SKU ID {} < 3 units. Kích hoạt đẩy tồn khẩn cấp lên kênh {} (Sàn SKU: {})",
                         bienTheSanPhamId, m.getKenhBanHang().getMaKenh(), m.getMaSanPhamKenh());
                 try {
@@ -565,8 +598,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                 if (!stocks.isEmpty() && stocks.get(0)[1] != null) {
                                     khaDung = (BigDecimal) stocks.get(0)[1];
                                 }
-                                dayTonKhoChoInventoryItem(domain, token, locationId, vInfo.getInventoryItemId(), Math.max(0, khaDung.intValue()));
-                                lanDayTonCuoi.put(m.getKenhBanHang().getId(), Instant.now());
+                                int soDay = soTonDayTheoQuyTacDaLuu(maKenhCuaDong, khaDung);
+                                if (dayTonKhoChoInventoryItem(domain, token, locationId, vInfo.getInventoryItemId(), soDay)) {
+                                    lanDayTonCuoi.put(m.getKenhBanHang().getId(), Instant.now());
+                                }
                             }
                         }
                     }
@@ -763,7 +798,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         int totalSku = 0;
         for (KenhBanHang kenh : activeKenh) {
             if (MA_KENH_SHOPIFY.equalsIgnoreCase(kenh.getMaKenh())) {
-                DayTonResultDto dayTonRes = dayTonKhoLenKenh(kenh.getMaKenh(), new DayTonKenhRequest());
+                DayTonResultDto dayTonRes = dayTonKhoLenKenh(kenh.getMaKenh(), quyTacDaLuu(kenh.getMaKenh()));
                 if (dayTonRes != null) {
                     totalSku += dayTonRes.getSoDong();
                 }
@@ -783,36 +818,55 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         BienTheSanPham bt = tt.getBienTheSanPham();
         BigDecimal soLuongKhaDung = BigDecimal.ZERO;
+        BigDecimal soLuongDaDay = BigDecimal.ZERO;
         if (bt != null) {
             List<Object[]> stocks = tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(List.of(bt.getId()));
             if (!stocks.isEmpty() && stocks.get(0)[1] != null) {
                 soLuongKhaDung = (BigDecimal) stocks.get(0)[1];
             }
 
+            // Chỉ đánh dấu "thành công" khi đã gửi được số tồn lên Shopify; không được thì ghi rõ lý do
+            String loi = null;
             try {
+                KenhBanHang kenhCuaDong = tt.getKenhBanHang();
                 String token = kenhBanHangService.getDecryptedShopifyAccessToken();
-                String domain = extractDomainFromApiUrl(tt.getKenhBanHang().getApiUrl());
-                if (token != null && !token.isBlank() && !domain.isBlank()) {
+                String domain = kenhCuaDong != null ? extractDomainFromApiUrl(kenhCuaDong.getApiUrl()) : "";
+                if (token == null || token.isBlank() || domain.isBlank()) {
+                    loi = "Chưa có khóa truy cập hoặc tên miền gian hàng";
+                } else {
                     Long locationId = layPrimaryLocationId(domain, token);
                     Map<String, ShopifyVariantInfo> shopifySkuMap = layDanhSachSkuHienCoTrenShopify(domain, token);
-                    if (locationId != null && !shopifySkuMap.isEmpty()) {
-                        ShopifyVariantInfo vInfo = shopifySkuMap.get(bt.getMaSku().trim().toLowerCase());
-                        if (vInfo != null && vInfo.getInventoryItemId() != null) {
-                            dayTonKhoChoInventoryItem(domain, token, locationId, vInfo.getInventoryItemId(), Math.max(0, soLuongKhaDung.intValue()));
+                    ShopifyVariantInfo vInfo = bt.getMaSku() == null ? null : shopifySkuMap.get(bt.getMaSku().trim().toLowerCase());
+                    if (locationId == null) {
+                        loi = "Không lấy được địa điểm kho chính trên Shopify";
+                    } else if (vInfo == null || vInfo.getInventoryItemId() == null) {
+                        loi = "Không tìm thấy SKU " + bt.getMaSku() + " trên Shopify";
+                    } else {
+                        int soDay = soTonDayTheoQuyTacDaLuu(kenhCuaDong.getMaKenh(), soLuongKhaDung);
+                        if (dayTonKhoChoInventoryItem(domain, token, locationId, vInfo.getInventoryItemId(), soDay)) {
+                            soLuongDaDay = BigDecimal.valueOf(soDay);
+                            lanDayTonCuoi.put(kenhCuaDong.getId(), Instant.now());
+                        } else {
+                            loi = "Shopify không nhận số tồn, vui lòng thử lại sau";
                         }
                     }
                 }
+            } catch (Exception ex) {
+                loi = ex.getMessage() != null ? ex.getMessage() : "Lỗi không xác định khi đẩy tồn";
+            }
+            if (loi == null) {
                 tt.setTrangThaiDongBo("thanh_cong");
                 tt.setChiTietLoi(null);
-            } catch (Exception ex) {
-                log.warn("Thử lại đồng bộ SKU {} thất bại: {}", bt.getMaSku(), ex.getMessage());
+            } else {
+                log.warn("Thử lại đồng bộ SKU {} thất bại: {}", bt.getMaSku(), loi);
                 tt.setTrangThaiDongBo("that_bai");
-                tt.setChiTietLoi(ex.getMessage());
+                tt.setChiTietLoi(loi);
             }
             tt.setNgayDongBoCuoi(Instant.now());
             trangThaiDongBoSanPhamRepository.save(tt);
         }
 
+        Integer sanPhamIdCuaDong = bt != null && bt.getSanPham() != null ? bt.getSanPham().getId() : null;
         return LienKetSanPhamDto.builder()
                 .id(tt.getId())
                 .skuSan(tt.getMaSanPhamKenh())
@@ -820,17 +874,53 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .tenBienTheSan(bt != null ? buildVariantName(bt) : null)
                 .giaBanSan(bt != null ? bt.getGiaBan() : null)
                 .bienTheSanPhamId(bt != null ? bt.getId() : null)
+                .sanPhamId(sanPhamIdCuaDong)
+                .anhDaiDien(anhDaiDienCuaSanPham(sanPhamIdCuaDong))
                 .maSku(bt != null ? bt.getMaSku() : null)
                 .tenSanPham(bt != null && bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : null)
                 .tenBienThe(bt != null ? buildVariantName(bt) : null)
                 .giaBan(bt != null ? bt.getGiaBan() : null)
                 .soLuongKhaDung(soLuongKhaDung)
-                .soLuongDaDay(soLuongKhaDung)
+                .soLuongDaDay(soLuongDaDay)
                 .choPhepDongBo(true)
                 .trangThaiLienKet(mapStatusToFrontend(tt.getTrangThaiDongBo()))
                 .ngayDongBoCuoi(tt.getNgayDongBoCuoi())
                 .chiTietLoi(tt.getChiTietLoi())
                 .build();
+    }
+
+    /**
+     * Ảnh đại diện của từng sản phẩm (ảnh chính, không có thì ảnh đầu), một truy vấn cho cả danh sách.
+     * Chỉ để hiển thị: lỗi đọc ảnh thì trả rỗng, không làm hỏng danh sách liên kết.
+     */
+    private Map<Integer, String> anhDaiDienTheoSanPham(Collection<Integer> sanPhamIds) {
+        if (sanPhamIds == null || sanPhamIds.isEmpty()) return Map.of();
+        Map<Integer, String> ketQua = new HashMap<>();
+        try {
+            // Truy vấn đã sắp ảnh chính lên trước trong từng sản phẩm, nên giữ ảnh gặp đầu tiên
+            for (AnhQuanAo anh : anhQuanAoRepository.findActiveByQuanAoIds(sanPhamIds)) {
+                if (anh.getQuanAo() == null || anh.getTepTin() == null) continue;
+                String url = duongDanAnh(anh.getTepTin());
+                if (url != null) ketQua.putIfAbsent(anh.getQuanAo().getId(), url);
+            }
+        } catch (Exception ex) {
+            log.warn("Không lấy được ảnh sản phẩm cho danh sách liên kết: {}", ex.getMessage());
+        }
+        return ketQua;
+    }
+
+    private String anhDaiDienCuaSanPham(Integer sanPhamId) {
+        return sanPhamId == null ? null : anhDaiDienTheoSanPham(List.of(sanPhamId)).get(sanPhamId);
+    }
+
+    private String duongDanAnh(TepTin tep) {
+        if (tep.getDuongDan() != null && !tep.getDuongDan().isBlank()) return tep.getDuongDan();
+        if (tep.getTenLuuTru() == null || tep.getTenLuuTru().isBlank()) return null;
+        try {
+            return minioService.getPublicUrl(tep.getTenLuuTru());
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     private NhatKyDongBoDto mapToNhatKyDto(TrangThaiDongBoSanPham tt) {
@@ -1366,7 +1456,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return null;
     }
 
-    private void dayTonKhoChoInventoryItem(String domain, String token, Long locationId, Long inventoryItemId, int available) {
+    /** @return true nếu Shopify nhận số tồn (HTTP 2xx) */
+    private boolean dayTonKhoChoInventoryItem(String domain, String token, Long locationId, Long inventoryItemId, int available) {
         String url = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/inventory_levels/set.json";
         try {
             RestTemplate restTemplate = createRestTemplate();
@@ -1378,10 +1469,44 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     "available", available
             );
             HttpEntity<String> entity = new HttpEntity<>(objectMapper.writeValueAsString(body), headers);
-            restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+            ResponseEntity<String> res = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+            return res != null && res.getStatusCode().is2xxSuccessful();
         } catch (Exception e) {
             log.warn("Lỗi khi set inventory level cho item [{}]: {}", inventoryItemId, e.getMessage());
+            return false;
         }
+    }
+
+    /** Trạng thái dòng liên kết mà người dùng đã bấm "Ngừng đồng bộ". */
+    static final String TRANG_THAI_NGUNG = "chua_dong_bo";
+
+    /**
+     * Số tồn đẩy lên sàn (BR-OC-10): floor(khả dụng × tỷ lệ / 100) − tồn đệm; kết quả ≤ ngưỡng về 0 thì đẩy 0.
+     */
+    static int tinhSoTonDay(BigDecimal khaDung, BigDecimal tyLe, int tonDem, int nguongVe0) {
+        BigDecimal kd = khaDung != null ? khaDung : BigDecimal.ZERO;
+        BigDecimal tl = tyLe != null ? tyLe : BigDecimal.valueOf(100);
+        BigDecimal so = kd.multiply(tl).divide(BigDecimal.valueOf(100), 0, RoundingMode.FLOOR)
+                .subtract(BigDecimal.valueOf(tonDem));
+        if (so.compareTo(BigDecimal.valueOf(nguongVe0)) <= 0 || so.signum() < 0) {
+            return 0;
+        }
+        return so.min(BigDecimal.valueOf(Integer.MAX_VALUE)).intValue();
+    }
+
+    /** Quy tắc đẩy tồn đã lưu của kênh (chưa lưu thì 100%, tồn đệm 0, ngưỡng 0). */
+    private DayTonKenhRequest quyTacDaLuu(String maKenh) {
+        return DayTonKenhRequest.builder()
+                .khoId(1)
+                .tyLeDayTon(BigDecimal.valueOf(KenhCauHinhDongBo.tyLeDayTon(dieuHanhHeThongService, maKenh)))
+                .tonDem(KenhCauHinhDongBo.tonDem(dieuHanhHeThongService, maKenh))
+                .nguongVe0(KenhCauHinhDongBo.nguongVe0(dieuHanhHeThongService, maKenh))
+                .build();
+    }
+
+    private int soTonDayTheoQuyTacDaLuu(String maKenh, BigDecimal khaDung) {
+        DayTonKenhRequest q = quyTacDaLuu(maKenh);
+        return tinhSoTonDay(khaDung, q.getTyLeDayTon(), q.getTonDem(), q.getNguongVe0());
     }
 
     private RestTemplate createRestTemplate() {

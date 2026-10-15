@@ -19,6 +19,10 @@ public class LienKetSanPhamDto {
     String tenBienTheSan;
     BigDecimal giaBanSan;
     Integer bienTheSanPhamId;
+    /** Sản phẩm FCentric của biến thể (chỉ đọc, để giao diện gom các SKU cùng sản phẩm). */
+    Integer sanPhamId;
+    /** Đường dẫn ảnh đại diện của sản phẩm (ảnh chính, không có thì ảnh đầu); null nếu chưa có ảnh. */
+    String anhDaiDien;
     String maSku;
     String tenSanPham;
     String tenBienThe;

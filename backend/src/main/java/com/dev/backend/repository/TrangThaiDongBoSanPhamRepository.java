@@ -17,6 +17,9 @@ public interface TrangThaiDongBoSanPhamRepository extends JpaRepository<TrangTha
 
     Optional<TrangThaiDongBoSanPham> findByKenhBanHangIdAndBienTheSanPhamId(Integer kenhBanId, Integer bienTheSanPhamId);
 
+    /** Biến thể đã được ghép với một dòng khác (khác id) của cùng kênh hay chưa */
+    boolean existsByKenhBanHangIdAndBienTheSanPhamIdAndIdNot(Integer kenhBanId, Integer bienTheSanPhamId, Integer id);
+
     Optional<TrangThaiDongBoSanPham> findByKenhBanHangIdAndMaSanPhamKenh(Integer kenhBanId, String maSanPhamKenh);
 
     List<TrangThaiDongBoSanPham> findByKenhBanHangId(Integer kenhBanId);

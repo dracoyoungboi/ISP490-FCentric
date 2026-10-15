@@ -57,6 +57,27 @@ public interface DonBanHangRepository
           and d.loaiChungTu = 'don_ban_hang'
     """)
     Long countOrdersChoXuLy();
+
+    /** [ngayDatHang, trangThai, tongCong] của đơn bán thuộc kênh, nhận trong [tu, den) — màn Tổng quan kênh */
+    @Query("""
+        select d.ngayDatHang, d.trangThai, d.tongCong
+        from DonBanHang d
+        where d.kenhBanHang.id = :kenhId
+          and d.loaiChungTu = 'don_ban_hang'
+          and d.ngayDatHang >= :tu
+          and d.ngayDatHang < :den
+    """)
+    List<Object[]> layDonKenhTrongKhoang(@Param("kenhId") Integer kenhId, @Param("tu") Instant tu, @Param("den") Instant den);
+
+    /** [trangThai, số đơn] của đơn bán thuộc kênh (mọi thời điểm) — mục Việc cần xử lý */
+    @Query("""
+        select d.trangThai, count(d)
+        from DonBanHang d
+        where d.kenhBanHang.id = :kenhId
+          and d.loaiChungTu = 'don_ban_hang'
+        group by d.trangThai
+    """)
+    List<Object[]> demDonKenhTheoTrangThai(@Param("kenhId") Integer kenhId);
     long countBySoDonHangStartingWith(String prefix);
 
     // Dùng để tìm kiếm khôi phục chứng từ khi Hủy đơn

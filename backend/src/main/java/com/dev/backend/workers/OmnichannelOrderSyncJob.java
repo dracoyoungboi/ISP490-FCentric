@@ -8,6 +8,7 @@ import com.dev.backend.services.multitable.NhatHangService;
 import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
 import com.dev.backend.services.impl.entities.DonBanHangService;
 import com.dev.backend.services.impl.entities.KhoService;
+import com.dev.backend.utils.KenhCauHinhDongBo;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AccessLevel;
@@ -96,6 +97,11 @@ public class OmnichannelOrderSyncJob {
         log.info("[JOB-01 Heartbeat] Bắt đầu quét đơn hàng mới từ các kênh bán (Chu kỳ cấu hình: {} phút)", intervalMins);
         for (KenhBanHang kenh : activeChannels) {
             if (MA_KENH_SHOPIFY.equalsIgnoreCase(kenh.getMaKenh())) {
+                // Cấu hình theo kênh; chưa lưu thì mặc định bật như trước
+                if (!KenhCauHinhDongBo.tuDongLayDon(dieuHanhHeThongService, kenh.getMaKenh())) {
+                    log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", kenh.getMaKenh());
+                    continue;
+                }
                 syncShopifyOrders(kenh, intervalMins);
             }
         }

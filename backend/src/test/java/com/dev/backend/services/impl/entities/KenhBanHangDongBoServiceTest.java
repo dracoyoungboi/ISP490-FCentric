@@ -6,15 +6,19 @@ import com.dev.backend.dto.response.customize.DayTonResultDto;
 import com.dev.backend.dto.response.customize.DongBoTongQuanDto;
 import com.dev.backend.dto.response.customize.TuDongLienKetResultDto;
 import com.dev.backend.dto.response.entities.LienKetSanPhamDto;
+import com.dev.backend.entities.AnhQuanAo;
 import com.dev.backend.entities.BienTheSanPham;
 import com.dev.backend.entities.DanhMucQuanAo;
 import com.dev.backend.entities.KenhBanHang;
 import com.dev.backend.entities.SanPhamQuanAo;
+import com.dev.backend.entities.TepTin;
 import com.dev.backend.entities.ThuongHieu;
 import com.dev.backend.entities.TrangThaiDongBoSanPham;
 import com.dev.backend.repository.*;
 import com.dev.backend.services.KenhBanHangService;
 import com.dev.backend.services.MinioService;
+import com.dev.backend.services.multitable.DieuHanhHeThongService;
+import com.dev.backend.exception.customize.CommonException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -66,6 +70,8 @@ class KenhBanHangDongBoServiceTest {
     private TonKhoTongHopRepository tonKhoTongHopRepository;
     @Mock
     private com.dev.backend.workers.OmnichannelOrderSyncJob omnichannelOrderSyncJob;
+    @Mock
+    private DieuHanhHeThongService dieuHanhHeThongService;
 
     private KenhBanHangDongBoServiceImpl service;
 
@@ -88,7 +94,8 @@ class KenhBanHangDongBoServiceTest {
                 minioService,
                 khoRepository,
                 tonKhoTongHopRepository,
-                omnichannelOrderSyncJob
+                omnichannelOrderSyncJob,
+                dieuHanhHeThongService
         );
 
         shopifyKenh = KenhBanHang.builder()
@@ -160,6 +167,51 @@ class KenhBanHangDongBoServiceTest {
         assertEquals("POLO-BLK-M", dto.getMaSku());
         assertEquals("da_lien_ket", dto.getTrangThaiLienKet());
         assertEquals(BigDecimal.valueOf(15), dto.getSoLuongKhaDung());
+    }
+
+    @Test
+    void filterLienKet_traVeMaSanPhamVaAnhChinh() {
+        when(trangThaiDongBoSanPhamRepository.filterByKenh(eq(1), any(), any(), any())).thenReturn(new PageImpl<>(List.of(mapping1)));
+        when(tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(any())).thenReturn(List.of());
+        // Truy vấn trả ảnh chính trước, ảnh phụ sau: phải lấy ảnh chính
+        AnhQuanAo anhChinh = AnhQuanAo.builder().id(1).quanAo(bienThe1.getSanPham()).anhChinh(1)
+                .tepTin(TepTin.builder().id(1).duongDan("http://minio/fcentric/polo-chinh.jpg").build()).build();
+        AnhQuanAo anhPhu = AnhQuanAo.builder().id(2).quanAo(bienThe1.getSanPham()).anhChinh(0)
+                .tepTin(TepTin.builder().id(2).duongDan("http://minio/fcentric/polo-phu.jpg").build()).build();
+        when(anhQuanAoRepository.findActiveByQuanAoIds(any())).thenReturn(List.of(anhChinh, anhPhu));
+
+        LienKetSanPhamDto dto = service.filterLienKet("SHOPIFY", null, null, PageRequest.of(0, 10)).getContent().get(0);
+
+        assertEquals(10, dto.getSanPhamId());
+        assertEquals("http://minio/fcentric/polo-chinh.jpg", dto.getAnhDaiDien());
+        verify(anhQuanAoRepository, times(1)).findActiveByQuanAoIds(any());
+    }
+
+    @Test
+    void filterLienKet_anhChuaCoDuongDanThiDungTenLuuTru() {
+        when(trangThaiDongBoSanPhamRepository.filterByKenh(eq(1), any(), any(), any())).thenReturn(new PageImpl<>(List.of(mapping1)));
+        when(tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(any())).thenReturn(List.of());
+        AnhQuanAo anh = AnhQuanAo.builder().id(1).quanAo(bienThe1.getSanPham()).anhChinh(1)
+                .tepTin(TepTin.builder().id(1).tenLuuTru("san-pham/polo.jpg").build()).build();
+        when(anhQuanAoRepository.findActiveByQuanAoIds(any())).thenReturn(List.of(anh));
+        when(minioService.getPublicUrl("san-pham/polo.jpg")).thenReturn("http://minio/fcentric/san-pham/polo.jpg");
+
+        LienKetSanPhamDto dto = service.filterLienKet("SHOPIFY", null, null, PageRequest.of(0, 10)).getContent().get(0);
+
+        assertEquals("http://minio/fcentric/san-pham/polo.jpg", dto.getAnhDaiDien());
+    }
+
+    @Test
+    void filterLienKet_loiDocAnhVanTraDanhSach() {
+        when(trangThaiDongBoSanPhamRepository.filterByKenh(eq(1), any(), any(), any())).thenReturn(new PageImpl<>(List.of(mapping1)));
+        when(tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(any())).thenReturn(List.of());
+        when(anhQuanAoRepository.findActiveByQuanAoIds(any())).thenThrow(new RuntimeException("mất kết nối"));
+
+        LienKetSanPhamDto dto = service.filterLienKet("SHOPIFY", null, null, PageRequest.of(0, 10)).getContent().get(0);
+
+        assertEquals("POLO-BLK-M", dto.getMaSku());
+        assertEquals(10, dto.getSanPhamId());
+        assertNull(dto.getAnhDaiDien());
     }
 
     @Test
@@ -330,5 +382,63 @@ class KenhBanHangDongBoServiceTest {
         assertNotNull(res);
         verify(trangThaiDongBoSanPhamRepository).save(mapping1);
     }
-}
 
+    @Test
+    void tinhSoTonDay_apDungTyLeTonDemVaNguong() {
+        assertEquals(18, KenhBanHangDongBoServiceImpl.tinhSoTonDay(BigDecimal.valueOf(20), BigDecimal.valueOf(100), 2, 1));
+        assertEquals(10, KenhBanHangDongBoServiceImpl.tinhSoTonDay(BigDecimal.valueOf(20), BigDecimal.valueOf(50), 0, 0));
+        assertEquals(7, KenhBanHangDongBoServiceImpl.tinhSoTonDay(BigDecimal.valueOf(9), BigDecimal.valueOf(80), 0, 0));
+        // 5 - 2 = 3, không vượt ngưỡng 3 -> đẩy 0
+        assertEquals(0, KenhBanHangDongBoServiceImpl.tinhSoTonDay(BigDecimal.valueOf(5), BigDecimal.valueOf(100), 2, 3));
+        assertEquals(0, KenhBanHangDongBoServiceImpl.tinhSoTonDay(BigDecimal.valueOf(-4), BigDecimal.valueOf(100), 0, 0));
+        assertEquals(0, KenhBanHangDongBoServiceImpl.tinhSoTonDay(null, null, 0, 0));
+    }
+
+    @Test
+    void capNhatLienKet_bienTheDaGhepDongKhac_bao400() {
+        when(trangThaiDongBoSanPhamRepository.findById(1)).thenReturn(Optional.of(mapping1));
+        when(bienTheSanPhamRepository.findById(101)).thenReturn(Optional.of(bienThe1));
+        when(trangThaiDongBoSanPhamRepository.existsByKenhBanHangIdAndBienTheSanPhamIdAndIdNot(1, 101, 1)).thenReturn(true);
+
+        CommonException ex = assertThrows(CommonException.class, () -> service.capNhatLienKet(1,
+                CapNhatLienKetRequest.builder().bienTheSanPhamId(101).choPhepDongBo(true).build()));
+
+        assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, ex.getHttpStatus());
+        verify(trangThaiDongBoSanPhamRepository, never()).save(any());
+    }
+
+    @Test
+    void dayTonKhoKhanCap_boQuaDongDangNgung() {
+        mapping1.setTrangThaiDongBo("chua_dong_bo");
+        when(trangThaiDongBoSanPhamRepository.findByBienTheSanPhamId(101)).thenReturn(List.of(mapping1));
+
+        service.dayTonKhoKhanCap(101);
+
+        verify(trangThaiDongBoSanPhamRepository, never()).save(any());
+    }
+
+    @Test
+    void dayTonKhoKhanCap_kenhTatTuDongDayTon_boQua() {
+        when(dieuHanhHeThongService.getCauHinhString("KENH_SHOPIFY_TU_DONG_DAY_TON", null)).thenReturn("false");
+        when(trangThaiDongBoSanPhamRepository.findByBienTheSanPhamId(101)).thenReturn(List.of(mapping1));
+
+        service.dayTonKhoKhanCap(101);
+
+        verify(trangThaiDongBoSanPhamRepository, never()).save(any());
+    }
+
+    @Test
+    void thuLai_chuaCoKhoa_ghiThatBaiKemLyDo() {
+        mapping1.setTrangThaiDongBo("that_bai");
+        mapping1.setChiTietLoi("Lỗi kết nối");
+        when(trangThaiDongBoSanPhamRepository.findById(1)).thenReturn(Optional.of(mapping1));
+        when(kenhBanHangService.getDecryptedShopifyAccessToken()).thenReturn(null);
+
+        var res = service.thuLai(1);
+
+        assertEquals("that_bai", mapping1.getTrangThaiDongBo());
+        assertTrue(mapping1.getChiTietLoi().contains("khóa truy cập"));
+        assertEquals("that_bai", res.getTrangThaiLienKet());
+        assertEquals(0, BigDecimal.ZERO.compareTo(res.getSoLuongDaDay()));
+    }
+}

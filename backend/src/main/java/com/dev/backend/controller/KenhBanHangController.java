@@ -5,6 +5,7 @@ import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.CapNhatLienKetRequest;
 import com.dev.backend.dto.request.DayTonKenhRequest;
 import com.dev.backend.dto.request.KenhBanHangCaiDatRequest;
+import com.dev.backend.dto.request.KenhCauHinhDongBoRequest;
 import com.dev.backend.dto.request.LayDonHangKenhRequest;
 import com.dev.backend.dto.request.ShopifyConfigUpdating;
 import com.dev.backend.dto.request.ShopifyTestConnectionRequest;
@@ -14,6 +15,8 @@ import com.dev.backend.dto.response.entities.LienKetSanPhamDto;
 import com.dev.backend.dto.response.entities.ShopifyConfigResponse;
 import com.dev.backend.services.KenhBanHangDongBoService;
 import com.dev.backend.services.KenhBanHangService;
+import com.dev.backend.services.impl.entities.KenhCauHinhDongBoService;
+import com.dev.backend.services.impl.entities.KenhThongKeDonService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 
@@ -37,6 +40,8 @@ public class KenhBanHangController {
 
     KenhBanHangService kenhBanHangService;
     KenhBanHangDongBoService kenhBanHangDongBoService;
+    KenhCauHinhDongBoService kenhCauHinhDongBoService;
+    KenhThongKeDonService kenhThongKeDonService;
 
     @GetMapping("/shopify")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
@@ -235,6 +240,50 @@ public class KenhBanHangController {
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangDongBoService.luuCaiDat(maKenh, request))
                         .message("Lưu cấu hình kênh bán hàng thành công")
+                        .build()
+        );
+    }
+
+    @GetMapping("/{maKenh}/cau-hinh-dong-bo")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Lấy cấu hình đồng bộ của kênh (tự đẩy tồn, tự lấy đơn, quy tắc tồn)")
+    public ResponseEntity<ResponseData<KenhCauHinhDongBoDto>> layCauHinhDongBo(@PathVariable String maKenh) {
+        return ResponseEntity.ok(
+                ResponseData.<KenhCauHinhDongBoDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhCauHinhDongBoService.layCauHinh(maKenh))
+                        .message("Lấy cấu hình đồng bộ thành công")
+                        .build()
+        );
+    }
+
+    @GetMapping("/{maKenh}/thong-ke-don")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Số liệu đơn hàng của kênh theo ngày (tối đa 92 ngày) và số đơn theo trạng thái")
+    public ResponseEntity<ResponseData<KenhThongKeDonDto>> thongKeDon(
+            @PathVariable String maKenh,
+            @RequestParam(required = false) String tu,
+            @RequestParam(required = false) String den) {
+        return ResponseEntity.ok(
+                ResponseData.<KenhThongKeDonDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhThongKeDonService.thongKe(maKenh, tu, den))
+                        .message("Lấy số liệu đơn hàng của kênh thành công")
+                        .build()
+        );
+    }
+
+    @PutMapping("/{maKenh}/cau-hinh-dong-bo")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Lưu cấu hình đồng bộ của kênh; trường để trống giữ nguyên giá trị cũ")
+    public ResponseEntity<ResponseData<KenhCauHinhDongBoDto>> luuCauHinhDongBo(
+            @PathVariable String maKenh,
+            @Valid @RequestBody KenhCauHinhDongBoRequest request) {
+        return ResponseEntity.ok(
+                ResponseData.<KenhCauHinhDongBoDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhCauHinhDongBoService.luuCauHinh(maKenh, request))
+                        .message("Lưu cấu hình đồng bộ thành công")
                         .build()
         );
     }
