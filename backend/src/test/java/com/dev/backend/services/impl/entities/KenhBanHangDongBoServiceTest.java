@@ -19,6 +19,8 @@ import com.dev.backend.services.KenhBanHangService;
 import com.dev.backend.services.MinioService;
 import com.dev.backend.services.multitable.DieuHanhHeThongService;
 import com.dev.backend.exception.customize.CommonException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -274,7 +276,7 @@ class KenhBanHangDongBoServiceTest {
             skuMap.put(skus[i].toLowerCase(),
                     new KenhBanHangDongBoServiceImpl.ShopifyVariantInfo(1001L + i, 2001L + i, 3001L, null));
         }
-        return new KenhBanHangDongBoServiceImpl.KetNoiDayTon("fcentric-store.myshopify.com", "shpat_token", 99L, skuMap, null);
+        return new KenhBanHangDongBoServiceImpl.KetNoiDayTon("fcentric-store.myshopify.com", "shpat_token", 99L, "Shop location", skuMap, null);
     }
 
     private KenhBanHangDongBoServiceImpl spyVoiKetNoi(KenhBanHangDongBoServiceImpl.KetNoiDayTon ketNoi) {
@@ -489,15 +491,95 @@ class KenhBanHangDongBoServiceTest {
     }
 
     @Test
-    void moTaKetQuaDayTon_ghiDungKetQuaVaoNhatKy() {
-        assertEquals("Đẩy tồn kho kênh SHOPIFY: 48 SKU thành công",
-                KenhBanHangDongBoServiceImpl.moTaKetQuaDayTon("SHOPIFY", 48, 0, 0, null));
-        assertEquals("Đẩy tồn kho kênh SHOPIFY: 45 SKU thành công, 3 SKU lỗi",
-                KenhBanHangDongBoServiceImpl.moTaKetQuaDayTon("SHOPIFY", 45, 3, 0, null));
+    void moTaKetQuaDayTon_ghiDungKetQuaVaDiaDiemVaoNhatKy() {
+        assertEquals("Đẩy tồn kho kênh SHOPIFY vào Shop location: 48 SKU thành công",
+                KenhBanHangDongBoServiceImpl.moTaKetQuaDayTon("SHOPIFY", "Shop location", 48, 0, 0, null));
+        assertEquals("Đẩy tồn kho kênh SHOPIFY vào Shop location: 45 SKU thành công, 3 SKU lỗi",
+                KenhBanHangDongBoServiceImpl.moTaKetQuaDayTon("SHOPIFY", "Shop location", 45, 3, 0, null));
+        // Chưa xác định được địa điểm (thiếu khóa, không đọc được địa điểm mặc định): không ghi tên
         assertEquals("Đẩy tồn kho kênh SHOPIFY thất bại: Chưa có khóa",
-                KenhBanHangDongBoServiceImpl.moTaKetQuaDayTon("SHOPIFY", 0, 0, 48, "Chưa có khóa"));
-        assertEquals("Đẩy tồn kho kênh SHOPIFY: 10 SKU thành công; dừng giữa chừng, còn 38 SKU chưa đẩy: Shopify lỗi",
-                KenhBanHangDongBoServiceImpl.moTaKetQuaDayTon("SHOPIFY", 10, 0, 38, "Shopify lỗi"));
+                KenhBanHangDongBoServiceImpl.moTaKetQuaDayTon("SHOPIFY", null, 0, 0, 48, "Chưa có khóa"));
+        assertEquals("Đẩy tồn kho kênh SHOPIFY vào Shop location: 10 SKU thành công; dừng giữa chừng, còn 38 SKU chưa đẩy: Shopify lỗi",
+                KenhBanHangDongBoServiceImpl.moTaKetQuaDayTon("SHOPIFY", "Shop location", 10, 0, 38, "Shopify lỗi"));
+    }
+
+    // ── Địa điểm Shopify nhận tồn: luôn là địa điểm mặc định (shop.primary_location_id), không lấy dòng đầu ──
+
+    private static final ObjectMapper JSON = new ObjectMapper();
+
+    /** Đúng thứ tự gian hàng thật trả: địa điểm mặc định (Shop location) đứng thứ hai. */
+    private static JsonNode locationsGianHang() throws Exception {
+        return JSON.readTree("{\"locations\":["
+                + "{\"id\":93895229699,\"name\":\"My Custom Location\",\"legacy\":false},"
+                + "{\"id\":93895196931,\"name\":\"Shop location\",\"legacy\":false},"
+                + "{\"id\":93895262467,\"name\":\"Snow City Warehouse\",\"legacy\":true}]}");
+    }
+
+    @Test
+    void chonDiaDiemMacDinh_diaDiemMacDinhKhongDungDau_vanChonDung() throws Exception {
+        JsonNode shop = JSON.readTree("{\"shop\":{\"primary_location_id\":93895196931}}");
+
+        var diaDiem = KenhBanHangDongBoServiceImpl.chonDiaDiemMacDinh(shop, locationsGianHang());
+
+        assertEquals(93895196931L, diaDiem.id());
+        assertEquals("Shop location", diaDiem.ten());
+    }
+
+    @Test
+    void chonDiaDiemMacDinh_thieuHoacLechThongTin_traNullKhongDoan() throws Exception {
+        assertNull(KenhBanHangDongBoServiceImpl.chonDiaDiemMacDinh(JSON.readTree("{\"shop\":{}}"), locationsGianHang()));
+        assertNull(KenhBanHangDongBoServiceImpl.chonDiaDiemMacDinh(
+                JSON.readTree("{\"shop\":{\"primary_location_id\":111}}"), locationsGianHang()));
+        assertNull(KenhBanHangDongBoServiceImpl.chonDiaDiemMacDinh(
+                JSON.readTree("{\"shop\":{\"primary_location_id\":93895196931}}"), JSON.readTree("{\"locations\":[]}")));
+    }
+
+    @Test
+    void dsDiaDiem_danhDauVaXepDiaDiemMacDinhLenDau() throws Exception {
+        var ds = KenhBanHangDongBoServiceImpl.dsDiaDiem(locationsGianHang(), 93895196931L);
+
+        assertEquals(List.of("Shop location", "My Custom Location", "Snow City Warehouse"),
+                ds.stream().map(com.dev.backend.dto.response.customize.ShopifyLocationDto::getTenKhoSan).toList());
+        assertEquals(List.of(true, false, false),
+                ds.stream().map(com.dev.backend.dto.response.customize.ShopifyLocationDto::isMacDinh).toList());
+        assertEquals("legacy", ds.get(2).getLoai());
+    }
+
+    @Test
+    void dsDiaDiem_khongDocDuocMacDinh_khongDanhDauAi() throws Exception {
+        var ds = KenhBanHangDongBoServiceImpl.dsDiaDiem(locationsGianHang(), null);
+
+        assertEquals("My Custom Location", ds.get(0).getTenKhoSan());
+        assertTrue(ds.stream().noneMatch(com.dev.backend.dto.response.customize.ShopifyLocationDto::isMacDinh));
+    }
+
+    @Test
+    void moKetNoiDayTon_khongXacDinhDuocDiaDiemMacDinh_baoLoiCaGianHang() {
+        when(kenhBanHangService.getDecryptedShopifyAccessToken()).thenReturn("shpat_token");
+        KenhBanHangDongBoServiceImpl spy = spy(service);
+        doReturn(null).when(spy).layDiaDiemMacDinh(any(), any());
+
+        var ketNoi = spy.moKetNoiDayTon(shopifyKenh);
+
+        assertEquals("Không xác định được địa điểm mặc định trên Shopify", ketNoi.lyDoLoi());
+        assertNull(ketNoi.locationId());
+        verify(spy).layDiaDiemMacDinh("fcentric-store.myshopify.com", "shpat_token");
+    }
+
+    @Test
+    void dayTonKhoLenKenh_khongXacDinhDuocDiaDiemMacDinh_khongDayKhongDoiDong() {
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(1)).thenReturn(List.of(mapping1));
+        when(kenhBanHangService.getDecryptedShopifyAccessToken()).thenReturn("shpat_token");
+        KenhBanHangDongBoServiceImpl spy = spy(service);
+        doReturn(null).when(spy).layDiaDiemMacDinh(any(), any());
+
+        DayTonResultDto result = spy.dayTonKhoLenKenh("SHOPIFY", new DayTonKenhRequest());
+
+        assertEquals(0, result.getSoDong());
+        assertEquals(1, result.getSoChuaDay());
+        assertEquals("Không xác định được địa điểm mặc định trên Shopify", result.getLoiKenh());
+        verify(spy, never()).guiTonLenShopify(any(), any(), any(), any(), anyInt());
+        verify(trangThaiDongBoSanPhamRepository, never()).save(any());
     }
 
     @Test

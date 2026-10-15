@@ -55,6 +55,15 @@ export function cheDoTheoGiaTri(values) {
   return q.tyLeDayTon === 100 && q.tonDem === 0 && q.nguongVe0 === 0 ? "bang" : "tuy";
 }
 
+/**
+ * Tên địa điểm Shopify nhận số tồn (địa điểm mặc định của cửa hàng) từ kết quả `getKhoSan`.
+ * Không lấy dòng đầu khi thiếu đánh dấu mặc định: Shopify không xếp địa điểm mặc định lên đầu.
+ */
+export function tenDiaDiemNhanTon(kho) {
+  if (kho?.initialLoading) return "Đang đọc từ Shopify…";
+  return (Array.isArray(kho?.data) ? kho.data.find((k) => k.macDinh)?.tenKhoSan : null) ?? null;
+}
+
 export function coThayDoiCauHinh(values, dto) {
   const goc = taoGiaTriCauHinh(dto);
   return Object.keys(goc).some((key) => String(goc[key]) !== String(values[key]));

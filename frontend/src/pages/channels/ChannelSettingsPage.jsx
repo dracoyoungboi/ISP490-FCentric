@@ -24,6 +24,7 @@ import {
   kiemTraCauHinh,
   taoGiaTriCauHinh,
   taoPayloadCauHinh,
+  tenDiaDiemNhanTon,
 } from "@/components/channel/cauHinhDongBo";
 import { CONNECTION_STATUS, SAN_BAN_HANG } from "@/constants/channel";
 import { isChannelMock, kenhBanHangService } from "@/services/kenhBanHangService";
@@ -43,7 +44,7 @@ export default function ChannelSettingsPage() {
   const ch = useTaiDuLieu(() => kenhBanHangService.getCauHinhDongBo(SAN.maKenh), "cau-hinh-dong-bo");
   const ketNoi = daKetNoi(cfg.data);
   const kho = useTaiDuLieu(() => kenhBanHangService.getKhoSan(SAN.maKenh).catch(() => []), "kho-san", { enabled: ketNoi });
-  const khoChinh = Array.isArray(kho.data) ? kho.data.find((k) => k.macDinh) ?? kho.data[0] : null;
+  const khoSan = tenDiaDiemNhanTon(kho);
 
   if (cfg.initialLoading || ch.initialLoading) {
     return (
@@ -77,7 +78,7 @@ export default function ChannelSettingsPage() {
     <SettingsForm
       config={cfg.data}
       cauHinh={ch.data}
-      khoSan={khoChinh?.tenKhoSan}
+      khoSan={khoSan}
       onConfigSaved={cfg.setData}
       onCauHinhSaved={ch.setData}
     />

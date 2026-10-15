@@ -221,7 +221,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         // Nếu có cấu hình Shopify API hợp lệ, thực hiện đồng bộ trực tiếp với Shopify
         if (token != null && !token.isBlank() && !domain.isBlank()) {
             try {
-                Long locationId = layPrimaryLocationId(domain, token);
+                // Tồn ghi vào địa điểm mặc định của cửa hàng; không xác định được thì chỉ liên kết, không đẩy tồn
+                DiaDiemShopify diaDiem = layDiaDiemMacDinh(domain, token);
+                Long locationId = diaDiem != null ? diaDiem.id() : null;
+                String tenDiaDiem = diaDiem != null ? diaDiem.ten() : null;
 
                 // Lấy danh sách SKU và Tên sản phẩm hiện có trên Shopify để chống tạo trùng lặp (Idempotent)
                 Map<String, Long> shopifyTitleMap = new HashMap<>();
@@ -342,7 +345,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         try {
                             // Free to Use toàn chuỗi theo quy tắc đã lưu; ghi số Shopify đã nhận hoặc lý do lỗi vào dòng
                             int availableQty = soTonDayTheoQuyTacDaLuu(kenh.getMaKenh(), khaDungToanChuoi(bt.getId()));
-                            KetQuaGuiTon kq = dayTonChoDong(record, new KetNoiDayTon(domain, token, locationId, shopifySkuMap, null), availableQty);
+                            KetQuaGuiTon kq = dayTonChoDong(record, new KetNoiDayTon(domain, token, locationId, tenDiaDiem, shopifySkuMap, null), availableQty);
                             if (kq.thanhCong()) {
                                 soTonKhoDaDay++;
                             } else {
@@ -554,7 +557,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (soThanhCong > 0) {
             lanDayTonCuoi.put(kenh.getId(), Instant.now());
         }
-        ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_ton_kho, moTaKetQuaDayTon(maKenh, soThanhCong, soLoi, soChuaDay, loiKenh));
+        ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_ton_kho,
+                moTaKetQuaDayTon(maKenh, ketNoi.tenDiaDiem(), soThanhCong, soLoi, soChuaDay, loiKenh));
         return DayTonResultDto.builder()
                 .soDong(soThanhCong)
                 .soLoi(soLoi)
@@ -563,11 +567,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .build();
     }
 
-    static String moTaKetQuaDayTon(String maKenh, int soThanhCong, int soLoi, int soChuaDay, String loiKenh) {
+    /** Câu nhật ký của một đợt đẩy tồn; {@code tenDiaDiem}: địa điểm Shopify nhận số (null nếu chưa xác định được). */
+    static String moTaKetQuaDayTon(String maKenh, String tenDiaDiem, int soThanhCong, int soLoi, int soChuaDay, String loiKenh) {
+        String dau = "Đẩy tồn kho kênh " + maKenh + (tenDiaDiem != null ? " vào " + tenDiaDiem : "");
         if (loiKenh != null && soThanhCong == 0 && soLoi == 0) {
-            return "Đẩy tồn kho kênh " + maKenh + " thất bại: " + loiKenh;
+            return dau + " thất bại: " + loiKenh;
         }
-        StringBuilder sb = new StringBuilder("Đẩy tồn kho kênh ").append(maKenh).append(": ")
+        StringBuilder sb = new StringBuilder(dau).append(": ")
                 .append(soThanhCong).append(" SKU thành công");
         if (soLoi > 0) {
             sb.append(", ").append(soLoi).append(" SKU lỗi");
@@ -676,45 +682,22 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             );
         }
 
-        String url = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/locations.json";
+        JsonNode locations;
         try {
-            RestTemplate restTemplate = createRestTemplate();
-            HttpHeaders headers = createHeaders(token);
-            HttpEntity<Void> entity = new HttpEntity<>(headers);
-            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                JsonNode root = objectMapper.readTree(response.getBody());
-                JsonNode locations = root.path("locations");
-                if (locations.isArray() && !locations.isEmpty()) {
-                    List<ShopifyLocationDto> list = new ArrayList<>();
-                    boolean isFirst = true;
-                    for (JsonNode loc : locations) {
-                        String id = String.valueOf(loc.path("id").asLong());
-                        String name = loc.path("name").asText("Kho Shopify " + id);
-                        boolean legacy = loc.path("legacy").asBoolean(false);
-                        list.add(ShopifyLocationDto.builder()
-                                .maKhoSan(id)
-                                .tenKhoSan(name)
-                                .loai(legacy ? "legacy" : "fulfillment")
-                                .macDinh(isFirst)
-                                .build());
-                        isFirst = false;
-                    }
-                    return list;
-                }
-            }
+            locations = docShopify(domain, token, "locations.json");
         } catch (Exception e) {
+            // Rỗng thay vì một "kho mặc định" giả: giao diện báo không đọc được, không hiện tên sai
             log.warn("Không lấy được danh sách location từ Shopify: {}", e.getMessage());
+            return List.of();
         }
-
-        return List.of(
-                ShopifyLocationDto.builder()
-                        .maKhoSan("gid://shopify/Location/default")
-                        .tenKhoSan("Kho mặc định Shopify")
-                        .loai("fulfillment")
-                        .macDinh(true)
-                        .build()
-        );
+        Long primaryId = null;
+        try {
+            long id = docShopify(domain, token, "shop.json?fields=primary_location_id").path("shop").path("primary_location_id").asLong(0);
+            primaryId = id > 0 ? id : null;
+        } catch (Exception e) {
+            log.warn("Không đọc được địa điểm mặc định của cửa hàng Shopify: {}", e.getMessage());
+        }
+        return dsDiaDiem(locations, primaryId);
     }
 
     @Override
@@ -1024,24 +1007,60 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
     }
 
-    private Long layPrimaryLocationId(String domain, String token) {
-        String url = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/locations.json";
+    /** Địa điểm Shopify nhận số tồn: địa điểm mặc định của cửa hàng (Settings › Locations › Default location). */
+    record DiaDiemShopify(Long id, String ten) {}
+
+    /** GET một tài nguyên Admin API của Shopify; lỗi HTTP hoặc kết nối thì ném ra. */
+    private JsonNode docShopify(String domain, String token, String duongDan) throws Exception {
+        String url = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/" + duongDan;
+        ResponseEntity<String> response = createRestTemplate()
+                .exchange(url, HttpMethod.GET, new HttpEntity<Void>(createHeaders(token)), String.class);
+        if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+            throw new IllegalStateException("Shopify trả mã " + response.getStatusCode().value() + " khi đọc " + duongDan);
+        }
+        return objectMapper.readTree(response.getBody());
+    }
+
+    /**
+     * Địa điểm mặc định của cửa hàng (shop.primary_location_id) kèm tên; null nếu không xác định được.
+     * Không lấy địa điểm đầu danh sách: Shopify không trả địa điểm mặc định lên đầu.
+     */
+    DiaDiemShopify layDiaDiemMacDinh(String domain, String token) {
         try {
-            RestTemplate restTemplate = createRestTemplate();
-            HttpHeaders headers = createHeaders(token);
-            HttpEntity<Void> entity = new HttpEntity<>(headers);
-            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                JsonNode root = objectMapper.readTree(response.getBody());
-                JsonNode locations = root.path("locations");
-                if (locations.isArray() && !locations.isEmpty()) {
-                    return locations.get(0).path("id").asLong();
-                }
-            }
+            return chonDiaDiemMacDinh(docShopify(domain, token, "shop.json?fields=primary_location_id"),
+                    docShopify(domain, token, "locations.json"));
         } catch (Exception e) {
-            log.warn("Không thể lấy Location ID từ Shopify: {}", e.getMessage());
+            log.warn("Không xác định được địa điểm mặc định trên Shopify: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /** Tìm địa điểm có id = shop.primary_location_id trong danh sách locations; null nếu thiếu một trong hai. */
+    static DiaDiemShopify chonDiaDiemMacDinh(JsonNode shop, JsonNode locations) {
+        long id = shop.path("shop").path("primary_location_id").asLong(0);
+        if (id <= 0) return null;
+        for (JsonNode loc : locations.path("locations")) {
+            if (loc.path("id").asLong() == id) {
+                return new DiaDiemShopify(id, loc.path("name").asText("Địa điểm " + id));
+            }
         }
         return null;
+    }
+
+    /** Danh sách địa điểm cho giao diện: đánh dấu và xếp địa điểm mặc định lên đầu, giữ thứ tự các địa điểm còn lại. */
+    static List<ShopifyLocationDto> dsDiaDiem(JsonNode locations, Long primaryId) {
+        List<ShopifyLocationDto> list = new ArrayList<>();
+        for (JsonNode loc : locations.path("locations")) {
+            long id = loc.path("id").asLong();
+            list.add(ShopifyLocationDto.builder()
+                    .maKhoSan(String.valueOf(id))
+                    .tenKhoSan(loc.path("name").asText("Kho Shopify " + id))
+                    .loai(loc.path("legacy").asBoolean(false) ? "legacy" : "fulfillment")
+                    .macDinh(primaryId != null && primaryId == id)
+                    .build());
+        }
+        list.sort(Comparator.comparing(ShopifyLocationDto::isMacDinh).reversed());
+        return list;
     }
 
     private Map<String, ShopifyVariantInfo> layDanhSachSkuHienCoTrenShopify(String domain, String token, Map<String, Long> titleToProductIdMap) {
@@ -1456,26 +1475,31 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
     }
 
-    /** Kết nối Shopify cho một đợt đẩy tồn; {@code lyDoLoi} khác null là lỗi cả gian hàng, không đẩy được SKU nào. */
-    record KetNoiDayTon(String domain, String token, Long locationId, Map<String, ShopifyVariantInfo> skuMap, String lyDoLoi) {
+    /**
+     * Kết nối Shopify cho một đợt đẩy tồn; {@code lyDoLoi} khác null là lỗi cả gian hàng, không đẩy được SKU nào.
+     * {@code locationId}/{@code tenDiaDiem}: địa điểm mặc định của cửa hàng, nơi nhận số tồn.
+     */
+    record KetNoiDayTon(String domain, String token, Long locationId, String tenDiaDiem,
+                        Map<String, ShopifyVariantInfo> skuMap, String lyDoLoi) {
         static KetNoiDayTon loi(String lyDo) {
-            return new KetNoiDayTon(null, null, null, Map.of(), lyDo);
+            return new KetNoiDayTon(null, null, null, null, Map.of(), lyDo);
         }
     }
 
-    /** Lấy khóa, kho chính và danh sách SKU trên Shopify của kênh; thiếu bước nào thì trả lý do lỗi cả gian hàng. */
+    /** Lấy khóa, địa điểm mặc định và danh sách SKU trên Shopify của kênh; thiếu bước nào thì trả lý do lỗi cả gian hàng. */
     KetNoiDayTon moKetNoiDayTon(KenhBanHang kenh) {
         String token = kenhBanHangService.getDecryptedShopifyAccessToken();
         String domain = kenh != null ? extractDomainFromApiUrl(kenh.getApiUrl()) : "";
         if (token == null || token.isBlank() || domain.isBlank()) {
             return KetNoiDayTon.loi("Chưa có khóa truy cập hoặc tên miền gian hàng");
         }
-        Long locationId = layPrimaryLocationId(domain, token);
-        if (locationId == null) {
-            return KetNoiDayTon.loi("Không lấy được địa điểm kho chính trên Shopify");
+        // Không đoán địa điểm khác: ghi nhầm chỗ thì Shopify vẫn báo thành công mà không ai biết
+        DiaDiemShopify diaDiem = layDiaDiemMacDinh(domain, token);
+        if (diaDiem == null) {
+            return KetNoiDayTon.loi("Không xác định được địa điểm mặc định trên Shopify");
         }
         try {
-            return new KetNoiDayTon(domain, token, locationId, taiDanhSachSkuShopify(domain, token, null), null);
+            return new KetNoiDayTon(domain, token, diaDiem.id(), diaDiem.ten(), taiDanhSachSkuShopify(domain, token, null), null);
         } catch (Exception e) {
             log.warn("Không tải được danh sách sản phẩm trên Shopify để đẩy tồn: {}", e.getMessage());
             return KetNoiDayTon.loi("Không tải được danh sách sản phẩm trên Shopify");

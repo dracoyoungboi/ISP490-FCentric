@@ -75,7 +75,12 @@ export function TheTonKho({ moTa, values, errors = {}, onChange, cheDo, onDoiChe
       </DongCaiDat>
       <DongCaiDat
         title="Vị trí kho trên Shopify"
-        control={<span className="max-w-[240px] truncate text-sm text-bo-foreground">{khoSan || "Vị trí chính của cửa hàng"}</span>}
+        description="Số tồn được ghi vào địa điểm mặc định của cửa hàng Shopify (Settings › Locations)."
+        control={
+          <span className={`max-w-[240px] truncate text-sm ${khoSan ? "text-bo-foreground" : "text-bo-muted"}`}>
+            {khoSan || "Không đọc được vị trí từ Shopify"}
+          </span>
+        }
       />
     </TheCaiDat>
   );

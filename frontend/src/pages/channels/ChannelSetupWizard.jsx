@@ -28,6 +28,7 @@ import {
   kiemTraCauHinh,
   taoGiaTriCauHinh,
   taoPayloadCauHinh,
+  tenDiaDiemNhanTon,
 } from "@/components/channel/cauHinhDongBo";
 import { ketQuaDayLenSan, ketQuaTaiSanPham } from "@/components/channel/ketQuaThaoTac";
 import { BUOC_THIET_LAP, SAN_BAN_HANG } from "@/constants/channel";
@@ -74,7 +75,7 @@ export default function ChannelSetupWizard() {
   const ch = useTaiDuLieu(() => kenhBanHangService.getCauHinhDongBo(SAN.maKenh), "cau-hinh-dong-bo");
   const tq = useTaiDuLieu(() => kenhBanHangService.getTongQuan(SAN.maKenh), "tong-quan", { enabled: ketNoi });
   const kho = useTaiDuLieu(() => kenhBanHangService.getKhoSan(SAN.maKenh).catch(() => []), "kho-san", { enabled: ketNoi });
-  const khoChinh = Array.isArray(kho.data) ? kho.data.find((k) => k.macDinh) ?? kho.data[0] : null;
+  const khoSan = tenDiaDiemNhanTon(kho);
 
   const daXong = (so) => {
     if (so === 1) return ketNoi;
@@ -141,7 +142,7 @@ export default function ChannelSetupWizard() {
               <BuocTonKho
                 key="ton-kho"
                 cauHinh={ch.data}
-                khoSan={khoChinh?.tenKhoSan}
+                khoSan={khoSan}
                 onHuy={huyBo}
                 onQuayLai={() => denBuoc(1)}
                 onXong={(dto) => {
