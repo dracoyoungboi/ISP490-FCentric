@@ -1,11 +1,14 @@
 import { cn } from "@/lib/utils";
 
-/** Kiểu chữ chuẩn của tiêu đề trang: 20px, đậm 600, một dòng (dài thì cắt "…"). */
+/**
+ * Kiểu chữ chuẩn của tiêu đề trang: 24px, đậm 560, nét Inter Display (opsz 32), màu bo-heading,
+ * một dòng (dài thì cắt "…"). Dòng chữ cao 32px nên vẫn nằm gọn trong hàng tiêu đề 36px.
+ */
 export default function PageHeading({ children, className }) {
   return (
     <h1
       className={cn(
-        "min-w-0 truncate text-xl font-semibold leading-7 tracking-[-0.01em] text-bo-foreground",
+        "min-w-0 truncate text-[24px] leading-8 font-[560] tracking-[-0.01em] text-bo-heading [font-variation-settings:'opsz'_32]",
         className,
       )}
     >

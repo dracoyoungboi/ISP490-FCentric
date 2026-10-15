@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800;900&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800;900&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&family=Inter:opsz,wght@14..32,400..700&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 /* Màn Tổng quan quản trị: khai báo rõ thư mục để Tailwind luôn sinh đủ class của màn này,
@@ -19,11 +19,16 @@
  */
 @theme {
 	--font-backoffice: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	/* Inter tải bản variable có trục cỡ quang học (opsz 14–32). Ghim opsz 14 để mọi chữ giữ đúng dáng
+	   Inter cũ; riêng tiêu đề trang (PageHeading) dùng opsz 32 cho nét gọn ở cỡ lớn. */
+	--font-backoffice--font-variation-settings: "opsz" 14;
 
 	--color-bo-canvas: #f4f6f8;
 	--color-bo-surface: #ffffff;
 	--color-bo-surface-subtle: #f8fafc;
 	--color-bo-foreground: #182537;
+	/* Màu tiêu đề trang: tối hơn chữ nội dung một bậc, vẫn ngả xanh navy như sidebar */
+	--color-bo-heading: #0b1320;
 	--color-bo-muted: #64748b;
 	--color-bo-border: #e1e6ec;
 
