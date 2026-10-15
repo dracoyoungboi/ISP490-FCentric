@@ -31,12 +31,44 @@ export function ketQuaDayLenSan(res, tenSan) {
   };
 }
 
-/** POST day-ton: đẩy số tồn theo quy tắc cho mọi dòng đang đồng bộ. */
+/**
+ * POST day-ton: đẩy số tồn theo quy tắc cho mọi dòng đang đồng bộ hoặc đang lỗi.
+ * `tone`: "error" khi không đẩy được SKU nào vì lỗi cả gian hàng, "warning" khi có SKU lỗi hoặc dừng giữa chừng.
+ */
 export function ketQuaDayTon(res, tenSan) {
+  const daDay = Number(res?.soDong || 0);
+  const soLoi = Number(res?.soLoi || 0);
+  const chuaDay = Number(res?.soChuaDay || 0);
+  const tong = daDay + soLoi + chuaDay;
+  const loiKenh = res?.loiKenh || null;
+
+  if (loiKenh && daDay === 0 && soLoi === 0) {
+    return { ok: false, tone: "error", title: `Không đẩy được tồn lên ${tenSan}`, message: loiKenh };
+  }
+  if (loiKenh) {
+    return {
+      ok: false,
+      tone: "warning",
+      title: `Đã đẩy ${soVN(daDay)}/${soVN(tong)} SKU lên ${tenSan}${soLoi > 0 ? ` · ${soVN(soLoi)} lỗi` : ""}`,
+      message: `Dừng giữa chừng: ${loiKenh}. ${soVN(chuaDay)} SKU chưa đẩy sẽ được đẩy ở lần sau.`,
+    };
+  }
+  if (soLoi > 0) {
+    return {
+      ok: false,
+      tone: "warning",
+      title: `Đã đẩy ${soVN(daDay)}/${soVN(tong)} SKU lên ${tenSan} · ${soVN(soLoi)} lỗi`,
+      message: "Xem lý do ở tab Lỗi. Lần đẩy sau sẽ tự thử lại các SKU này.",
+    };
+  }
+  if (tong === 0) {
+    return { ok: true, tone: "success", title: "Không có SKU nào đang đồng bộ để đẩy tồn", message: null };
+  }
   return {
     ok: true,
-    title: `Đã đẩy tồn ${soVN(res?.soDong)} SKU lên ${tenSan}`,
-    message: "Chỉ các sản phẩm đang đồng bộ; dòng ngừng hoặc lỗi không được đẩy.",
+    tone: "success",
+    title: `Đã đẩy tồn ${soVN(daDay)} SKU lên ${tenSan}`,
+    message: "Dòng ngừng đồng bộ không được đẩy.",
   };
 }
 

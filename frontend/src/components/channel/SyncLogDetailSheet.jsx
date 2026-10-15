@@ -73,7 +73,17 @@ export default function SyncLogDetailSheet({ lienKet, open, onOpenChange, quyTac
                 <Dong nhan="Khả dụng ở FCentric">
                   <span className="tabular-nums">{soVN(lienKet.soLuongKhaDung)}</span>
                 </Dong>
-                <Dong nhan={`Hiện trên ${tenSan}`}>
+                <Dong nhan={`Đã đẩy lên ${tenSan}`}>
+                  {lienKet.soLuongDaDay !== null && lienKet.soLuongDaDay !== undefined ? (
+                    <>
+                      <span className="tabular-nums">{soVN(lienKet.soLuongDaDay)}</span>
+                      {lienKet.ngayDayTonCuoi ? <span className="text-bo-muted"> · lúc {formatDateTime(lienKet.ngayDayTonCuoi)}</span> : null}
+                    </>
+                  ) : (
+                    "Chưa đẩy"
+                  )}
+                </Dong>
+                <Dong nhan="Lần đẩy tới">
                   {dangDongBo && quyTac ? <span className="tabular-nums">{soVN(tinhSoTonDayLenSan(lienKet.soLuongKhaDung, quyTac))}</span> : "Không cập nhật"}
                 </Dong>
                 {quyTac ? (

@@ -28,7 +28,10 @@ public class LienKetSanPhamDto {
     String tenBienThe;
     BigDecimal giaBan;
     BigDecimal soLuongKhaDung;
+    /** Số tồn sàn đã nhận ở lần đẩy thành công gần nhất; null = chưa đẩy lần nào. */
     BigDecimal soLuongDaDay;
+    /** Thời điểm của lần đẩy thành công đó. */
+    Instant ngayDayTonCuoi;
     Boolean choPhepDongBo;
     String trangThaiLienKet; // "da_lien_ket", "chua_lien_ket", "that_bai"
     Instant ngayDongBoCuoi;

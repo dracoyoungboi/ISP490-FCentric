@@ -46,5 +46,13 @@ public class TrangThaiDongBoSanPham {
 
     @Column(name = "ngay_dong_bo_cuoi")
     Instant ngayDongBoCuoi;
+
+    /** Số tồn sàn đã nhận ở lần đẩy thành công gần nhất; null = chưa đẩy lần nào */
+    @Column(name = "so_luong_da_day")
+    Integer soLuongDaDay;
+
+    /** Thời điểm đẩy tồn thành công gần nhất */
+    @Column(name = "ngay_day_ton_cuoi")
+    Instant ngayDayTonCuoi;
 }
 

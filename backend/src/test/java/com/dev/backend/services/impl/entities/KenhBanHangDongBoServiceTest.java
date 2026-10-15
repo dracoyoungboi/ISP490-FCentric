@@ -32,11 +32,14 @@ import org.springframework.data.domain.PageRequest;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -167,6 +170,9 @@ class KenhBanHangDongBoServiceTest {
         assertEquals("POLO-BLK-M", dto.getMaSku());
         assertEquals("da_lien_ket", dto.getTrangThaiLienKet());
         assertEquals(BigDecimal.valueOf(15), dto.getSoLuongKhaDung());
+        // Chưa đẩy lần nào: không lấy số khả dụng thay vào
+        assertNull(dto.getSoLuongDaDay());
+        assertNull(dto.getNgayDayTonCuoi());
     }
 
     @Test
@@ -259,36 +265,239 @@ class KenhBanHangDongBoServiceTest {
         verify(trangThaiDongBoSanPhamRepository).save(mapping1);
     }
 
+    // ── Đẩy tồn: giả lập Shopify qua spy (moKetNoiDayTon, guiTonLenShopify), không gọi mạng ──
+
+    /** Kết nối giả có các SKU cho trước; inventory item của SKU thứ i là 2000 + i. */
+    private KenhBanHangDongBoServiceImpl.KetNoiDayTon ketNoiCo(String... skus) {
+        Map<String, KenhBanHangDongBoServiceImpl.ShopifyVariantInfo> skuMap = new HashMap<>();
+        for (int i = 0; i < skus.length; i++) {
+            skuMap.put(skus[i].toLowerCase(),
+                    new KenhBanHangDongBoServiceImpl.ShopifyVariantInfo(1001L + i, 2001L + i, 3001L, null));
+        }
+        return new KenhBanHangDongBoServiceImpl.KetNoiDayTon("fcentric-store.myshopify.com", "shpat_token", 99L, skuMap, null);
+    }
+
+    private KenhBanHangDongBoServiceImpl spyVoiKetNoi(KenhBanHangDongBoServiceImpl.KetNoiDayTon ketNoi) {
+        KenhBanHangDongBoServiceImpl spy = spy(service);
+        doReturn(ketNoi).when(spy).moKetNoiDayTon(any());
+        return spy;
+    }
+
+    private void tonKhaDung(int bienTheId, int soLuong) {
+        List<Object[]> stock = new java.util.ArrayList<>();
+        stock.add(new Object[]{bienTheId, BigDecimal.valueOf(soLuong)});
+        when(tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(eq(List.of(bienTheId)))).thenReturn(stock);
+    }
+
+    /** Dòng thứ hai của cùng kênh: POLO-BLK-L (biến thể 102). */
+    private TrangThaiDongBoSanPham dongThuHai() {
+        BienTheSanPham bt2 = BienTheSanPham.builder().id(102).sanPham(bienThe1.getSanPham()).maSku("POLO-BLK-L").trangThai(1).build();
+        return TrangThaiDongBoSanPham.builder().id(2).kenhBanHang(shopifyKenh).bienTheSanPham(bt2)
+                .maSanPhamKenh("48123456790").trangThaiDongBo("thanh_cong").build();
+    }
+
     @Test
-    void dayTonKhoLenKenh_apDungCongThucTonKhaDung() {
+    void dayTonKhoLenKenh_shopifyNhan_luuSoVaGioDaDay() {
         when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(1)).thenReturn(List.of(mapping1));
-        // Tồn khả dụng = 20
-        List<Object[]> mockStock2 = new java.util.ArrayList<>();
-        mockStock2.add(new Object[]{101, BigDecimal.valueOf(20)});
-        when(tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(eq(List.of(101))))
-                .thenReturn(mockStock2);
+        tonKhaDung(101, 20);
+        KenhBanHangDongBoServiceImpl spy = spyVoiKetNoi(ketNoiCo("POLO-BLK-M"));
+        doReturn(KenhBanHangDongBoServiceImpl.KetQuaGuiTon.THANH_CONG).when(spy).guiTonLenShopify(any(), any(), any(), any(), anyInt());
 
-        DayTonKenhRequest req = DayTonKenhRequest.builder()
-                .khoId(1)
-                .tyLeDayTon(BigDecimal.valueOf(100))
-                .tonDem(2) // 20 - 2 = 18
-                .nguongVe0(1)
-                .build();
+        // 20 × 100% − tồn đệm 2 = 18 (vượt ngưỡng 1)
+        DayTonKenhRequest req = DayTonKenhRequest.builder().khoId(1).tyLeDayTon(BigDecimal.valueOf(100)).tonDem(2).nguongVe0(1).build();
+        DayTonResultDto result = spy.dayTonKhoLenKenh("SHOPIFY", req);
 
-        DayTonResultDto result = service.dayTonKhoLenKenh("SHOPIFY", req);
-
-        assertNotNull(result);
         assertEquals(1, result.getSoDong());
+        assertEquals(0, result.getSoLoi());
+        assertEquals(0, result.getSoChuaDay());
+        assertNull(result.getLoiKenh());
+        verify(spy).guiTonLenShopify("fcentric-store.myshopify.com", "shpat_token", 99L, 2001L, 18);
+        assertEquals(18, mapping1.getSoLuongDaDay());
+        assertNotNull(mapping1.getNgayDayTonCuoi());
+        assertEquals("thanh_cong", mapping1.getTrangThaiDongBo());
+        verify(trangThaiDongBoSanPhamRepository).save(mapping1);
+        assertNotNull(spy.getTongQuan("SHOPIFY").getLanDayTonCuoi());
+    }
+
+    @Test
+    void dayTonKhoLenKenh_shopifyTuChoiMotSku_chiDongDoSangLoi() {
+        TrangThaiDongBoSanPham mapping2 = dongThuHai();
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(1)).thenReturn(List.of(mapping1, mapping2));
+        tonKhaDung(101, 5);
+        tonKhaDung(102, 3);
+        KenhBanHangDongBoServiceImpl spy = spyVoiKetNoi(ketNoiCo("POLO-BLK-M", "POLO-BLK-L"));
+        doReturn(KenhBanHangDongBoServiceImpl.KetQuaGuiTon.THANH_CONG).when(spy).guiTonLenShopify(any(), any(), any(), eq(2001L), anyInt());
+        doReturn(KenhBanHangDongBoServiceImpl.KetQuaGuiTon.loiSku("Shopify từ chối số tồn: Inventory item does not have inventory tracking enabled"))
+                .when(spy).guiTonLenShopify(any(), any(), any(), eq(2002L), anyInt());
+
+        DayTonResultDto result = spy.dayTonKhoLenKenh("SHOPIFY", new DayTonKenhRequest());
+
+        assertEquals(1, result.getSoDong());
+        assertEquals(1, result.getSoLoi());
+        assertNull(result.getLoiKenh());
+        assertEquals("thanh_cong", mapping1.getTrangThaiDongBo());
+        assertEquals(5, mapping1.getSoLuongDaDay());
+        assertEquals("that_bai", mapping2.getTrangThaiDongBo());
+        assertTrue(mapping2.getChiTietLoi().contains("inventory tracking"));
+        assertNull(mapping2.getSoLuongDaDay());
+        verify(trangThaiDongBoSanPhamRepository).save(mapping1);
+        verify(trangThaiDongBoSanPhamRepository).save(mapping2);
+    }
+
+    @Test
+    void dayTonKhoLenKenh_skuKhongCoTrenShopify_dongSangLoiKhongGoiShopify() {
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(1)).thenReturn(List.of(mapping1));
+        tonKhaDung(101, 5);
+        KenhBanHangDongBoServiceImpl spy = spyVoiKetNoi(ketNoiCo());
+
+        DayTonResultDto result = spy.dayTonKhoLenKenh("SHOPIFY", new DayTonKenhRequest());
+
+        assertEquals(0, result.getSoDong());
+        assertEquals(1, result.getSoLoi());
+        assertEquals("that_bai", mapping1.getTrangThaiDongBo());
+        assertEquals("Không tìm thấy SKU POLO-BLK-M trên Shopify", mapping1.getChiTietLoi());
+        verify(spy, never()).guiTonLenShopify(any(), any(), any(), any(), anyInt());
+        verify(trangThaiDongBoSanPhamRepository).save(mapping1);
+        assertNull(spy.getTongQuan("SHOPIFY").getLanDayTonCuoi());
+    }
+
+    @Test
+    void dayTonKhoLenKenh_chuaCoKhoa_baoLoiKenhKhongDoiDongNao() {
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(1)).thenReturn(List.of(mapping1));
+        when(kenhBanHangService.getDecryptedShopifyAccessToken()).thenReturn(null);
+
+        DayTonResultDto result = service.dayTonKhoLenKenh("SHOPIFY", new DayTonKenhRequest());
+
+        assertEquals(0, result.getSoDong());
+        assertEquals(0, result.getSoLoi());
+        assertEquals(1, result.getSoChuaDay());
+        assertTrue(result.getLoiKenh().contains("khóa truy cập"));
+        assertEquals("thanh_cong", mapping1.getTrangThaiDongBo());
+        assertNull(mapping1.getChiTietLoi());
+        verify(trangThaiDongBoSanPhamRepository, never()).save(any());
+        assertNull(service.getTongQuan("SHOPIFY").getLanDayTonCuoi());
+    }
+
+    @Test
+    void dayTonKhoLenKenh_loiCaGianHangGiuaChung_dungLaiGiuNguyenDongChuaDay() {
+        TrangThaiDongBoSanPham mapping2 = dongThuHai();
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(1)).thenReturn(List.of(mapping1, mapping2));
+        tonKhaDung(101, 5);
+        tonKhaDung(102, 3);
+        KenhBanHangDongBoServiceImpl spy = spyVoiKetNoi(ketNoiCo("POLO-BLK-M", "POLO-BLK-L"));
+        doReturn(KenhBanHangDongBoServiceImpl.KetQuaGuiTon.THANH_CONG).when(spy).guiTonLenShopify(any(), any(), any(), eq(2001L), anyInt());
+        doReturn(KenhBanHangDongBoServiceImpl.KetQuaGuiTon.loiCaKenh("Shopify đang giới hạn số lần gọi, vui lòng thử lại sau ít phút"))
+                .when(spy).guiTonLenShopify(any(), any(), any(), eq(2002L), anyInt());
+
+        DayTonResultDto result = spy.dayTonKhoLenKenh("SHOPIFY", new DayTonKenhRequest());
+
+        assertEquals(1, result.getSoDong());
+        assertEquals(0, result.getSoLoi());
+        assertEquals(1, result.getSoChuaDay());
+        assertTrue(result.getLoiKenh().contains("giới hạn"));
+        // Dòng đã đẩy được vẫn lưu; dòng gặp lỗi cả gian hàng giữ nguyên để lần sau đẩy lại
+        verify(trangThaiDongBoSanPhamRepository).save(mapping1);
+        verify(trangThaiDongBoSanPhamRepository, never()).save(mapping2);
+        assertEquals("thanh_cong", mapping2.getTrangThaiDongBo());
+        assertNull(mapping2.getChiTietLoi());
+        assertNull(mapping2.getSoLuongDaDay());
+    }
+
+    @Test
+    void dayTonKhoLenKenh_dongLoiLanTruocDuocDayLaiVaHetLoi() {
+        mapping1.setTrangThaiDongBo("that_bai");
+        mapping1.setChiTietLoi("Shopify từ chối số tồn (mã 422)");
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(1)).thenReturn(List.of(mapping1));
+        tonKhaDung(101, 4);
+        KenhBanHangDongBoServiceImpl spy = spyVoiKetNoi(ketNoiCo("POLO-BLK-M"));
+        doReturn(KenhBanHangDongBoServiceImpl.KetQuaGuiTon.THANH_CONG).when(spy).guiTonLenShopify(any(), any(), any(), any(), anyInt());
+
+        DayTonResultDto result = spy.dayTonKhoLenKenh("SHOPIFY", new DayTonKenhRequest());
+
+        assertEquals(1, result.getSoDong());
+        assertEquals("thanh_cong", mapping1.getTrangThaiDongBo());
+        assertNull(mapping1.getChiTietLoi());
+        assertEquals(4, mapping1.getSoLuongDaDay());
+    }
+
+    @Test
+    void dayTonKhoLenKenh_boQuaDongNgungDongBo() {
+        mapping1.setTrangThaiDongBo("chua_dong_bo");
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(1)).thenReturn(List.of(mapping1));
+        KenhBanHangDongBoServiceImpl spy = spyVoiKetNoi(ketNoiCo("POLO-BLK-M"));
+
+        DayTonResultDto result = spy.dayTonKhoLenKenh("SHOPIFY", new DayTonKenhRequest());
+
+        assertEquals(0, result.getSoDong());
+        assertEquals(0, result.getSoChuaDay());
+        verify(spy, never()).guiTonLenShopify(any(), any(), any(), any(), anyInt());
+        verify(trangThaiDongBoSanPhamRepository, never()).save(any());
+    }
+
+    @Test
+    void dayTonKhoKhanCap_kichHoatChoSKUDuoi3Units_luuSoDaDay() {
+        when(trangThaiDongBoSanPhamRepository.findByBienTheSanPhamId(101)).thenReturn(List.of(mapping1));
+        tonKhaDung(101, 2);
+        KenhBanHangDongBoServiceImpl spy = spyVoiKetNoi(ketNoiCo("POLO-BLK-M"));
+        doReturn(KenhBanHangDongBoServiceImpl.KetQuaGuiTon.THANH_CONG).when(spy).guiTonLenShopify(any(), any(), any(), any(), anyInt());
+
+        spy.dayTonKhoKhanCap(101);
+
+        // Chưa lưu quy tắc: 100%, tồn đệm 0, ngưỡng 0 -> đẩy đúng 2
+        verify(spy).guiTonLenShopify(any(), any(), any(), eq(2001L), eq(2));
+        assertEquals(2, mapping1.getSoLuongDaDay());
         verify(trangThaiDongBoSanPhamRepository).save(mapping1);
     }
 
     @Test
-    void dayTonKhoKhanCap_kichHoatChoSKUDuoi3Units() {
+    void dayTonKhoKhanCap_chuaCoKhoa_khongDoiDong() {
         when(trangThaiDongBoSanPhamRepository.findByBienTheSanPhamId(101)).thenReturn(List.of(mapping1));
+        when(kenhBanHangService.getDecryptedShopifyAccessToken()).thenReturn(null);
 
         service.dayTonKhoKhanCap(101);
 
-        verify(trangThaiDongBoSanPhamRepository).save(mapping1);
+        verify(trangThaiDongBoSanPhamRepository, never()).save(any());
+        assertEquals("thanh_cong", mapping1.getTrangThaiDongBo());
+    }
+
+    @Test
+    void phanLoaiLoiShopify_tachLoiGianHangVaLoiSku() {
+        assertTrue(service.phanLoaiLoiShopify(401, null).loiKenh());
+        assertTrue(service.phanLoaiLoiShopify(403, null).loiKenh());
+        assertTrue(service.phanLoaiLoiShopify(429, null).loiKenh());
+        assertTrue(service.phanLoaiLoiShopify(500, null).loiKenh());
+        assertTrue(service.phanLoaiLoiShopify(503, null).loiKenh());
+
+        var loi422 = service.phanLoaiLoiShopify(422, "{\"errors\":[\"Inventory item does not have inventory tracking enabled\"]}");
+        assertFalse(loi422.loiKenh());
+        assertFalse(loi422.thanhCong());
+        assertEquals("Shopify từ chối số tồn: Inventory item does not have inventory tracking enabled", loi422.lyDo());
+
+        var loi404 = service.phanLoaiLoiShopify(404, "");
+        assertFalse(loi404.loiKenh());
+        assertEquals("Shopify từ chối số tồn (mã 404)", loi404.lyDo());
+    }
+
+    @Test
+    void loiTuShopify_docCacDangBodyLoi() {
+        assertEquals("Not Found", service.loiTuShopify("{\"errors\":\"Not Found\"}"));
+        assertEquals("a; b", service.loiTuShopify("{\"errors\":[\"a\",\"b\"]}"));
+        assertEquals("must be an integer", service.loiTuShopify("{\"errors\":{\"available\":[\"must be an integer\"]}}"));
+        assertNull(service.loiTuShopify("<html>Bad Gateway</html>"));
+        assertNull(service.loiTuShopify(null));
+        assertNull(service.loiTuShopify("{\"product\":{}}"));
+    }
+
+    @Test
+    void moTaKetQuaDayTon_ghiDungKetQuaVaoNhatKy() {
+        assertEquals("Đẩy tồn kho kênh SHOPIFY: 48 SKU thành công",
+                KenhBanHangDongBoServiceImpl.moTaKetQuaDayTon("SHOPIFY", 48, 0, 0, null));
+        assertEquals("Đẩy tồn kho kênh SHOPIFY: 45 SKU thành công, 3 SKU lỗi",
+                KenhBanHangDongBoServiceImpl.moTaKetQuaDayTon("SHOPIFY", 45, 3, 0, null));
+        assertEquals("Đẩy tồn kho kênh SHOPIFY thất bại: Chưa có khóa",
+                KenhBanHangDongBoServiceImpl.moTaKetQuaDayTon("SHOPIFY", 0, 0, 48, "Chưa có khóa"));
+        assertEquals("Đẩy tồn kho kênh SHOPIFY: 10 SKU thành công; dừng giữa chừng, còn 38 SKU chưa đẩy: Shopify lỗi",
+                KenhBanHangDongBoServiceImpl.moTaKetQuaDayTon("SHOPIFY", 10, 0, 38, "Shopify lỗi"));
     }
 
     @Test
@@ -400,14 +609,36 @@ class KenhBanHangDongBoServiceTest {
     }
 
     @Test
-    void thuLai_thanhCong() {
+    void thuLai_thanhCong_hetLoiVaTraSoDaDay() {
         mapping1.setTrangThaiDongBo("that_bai");
         mapping1.setChiTietLoi("Lỗi kết nối");
         when(trangThaiDongBoSanPhamRepository.findById(1)).thenReturn(Optional.of(mapping1));
+        tonKhaDung(101, 6);
+        KenhBanHangDongBoServiceImpl spy = spyVoiKetNoi(ketNoiCo("POLO-BLK-M"));
+        doReturn(KenhBanHangDongBoServiceImpl.KetQuaGuiTon.THANH_CONG).when(spy).guiTonLenShopify(any(), any(), any(), any(), anyInt());
 
-        var res = service.thuLai(1);
+        var res = spy.thuLai(1);
 
-        assertNotNull(res);
+        assertEquals("da_lien_ket", res.getTrangThaiLienKet());
+        assertNull(res.getChiTietLoi());
+        assertEquals(0, BigDecimal.valueOf(6).compareTo(res.getSoLuongDaDay()));
+        assertNotNull(res.getNgayDayTonCuoi());
+        verify(trangThaiDongBoSanPhamRepository).save(mapping1);
+    }
+
+    @Test
+    void thuLai_shopifyTuChoi_ghiLyDoVaoDong() {
+        when(trangThaiDongBoSanPhamRepository.findById(1)).thenReturn(Optional.of(mapping1));
+        tonKhaDung(101, 6);
+        KenhBanHangDongBoServiceImpl spy = spyVoiKetNoi(ketNoiCo("POLO-BLK-M"));
+        doReturn(KenhBanHangDongBoServiceImpl.KetQuaGuiTon.loiSku("Shopify từ chối số tồn (mã 422)"))
+                .when(spy).guiTonLenShopify(any(), any(), any(), any(), anyInt());
+
+        var res = spy.thuLai(1);
+
+        assertEquals("that_bai", res.getTrangThaiLienKet());
+        assertEquals("Shopify từ chối số tồn (mã 422)", res.getChiTietLoi());
+        assertNull(res.getSoLuongDaDay());
         verify(trangThaiDongBoSanPhamRepository).save(mapping1);
     }
 
@@ -456,17 +687,47 @@ class KenhBanHangDongBoServiceTest {
     }
 
     @Test
-    void thuLai_chuaCoKhoa_ghiThatBaiKemLyDo() {
+    void thuLai_chuaCoKhoa_baoLoiGiuNguyenDong() {
         mapping1.setTrangThaiDongBo("that_bai");
         mapping1.setChiTietLoi("Lỗi kết nối");
         when(trangThaiDongBoSanPhamRepository.findById(1)).thenReturn(Optional.of(mapping1));
         when(kenhBanHangService.getDecryptedShopifyAccessToken()).thenReturn(null);
 
-        var res = service.thuLai(1);
+        CommonException ex = assertThrows(CommonException.class, () -> service.thuLai(1));
 
+        assertTrue(ex.getMessage().contains("khóa truy cập"));
+        assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, ex.getHttpStatus());
         assertEquals("that_bai", mapping1.getTrangThaiDongBo());
-        assertTrue(mapping1.getChiTietLoi().contains("khóa truy cập"));
-        assertEquals("that_bai", res.getTrangThaiLienKet());
-        assertEquals(0, BigDecimal.ZERO.compareTo(res.getSoLuongDaDay()));
+        assertEquals("Lỗi kết nối", mapping1.getChiTietLoi());
+        verify(trangThaiDongBoSanPhamRepository, never()).save(any());
+    }
+
+    @Test
+    void thuLai_loiCaGianHangKhiGui_baoLoiGiuNguyenDong() {
+        when(trangThaiDongBoSanPhamRepository.findById(1)).thenReturn(Optional.of(mapping1));
+        tonKhaDung(101, 6);
+        KenhBanHangDongBoServiceImpl spy = spyVoiKetNoi(ketNoiCo("POLO-BLK-M"));
+        doReturn(KenhBanHangDongBoServiceImpl.KetQuaGuiTon.loiCaKenh("Không kết nối được Shopify, vui lòng thử lại sau"))
+                .when(spy).guiTonLenShopify(any(), any(), any(), any(), anyInt());
+
+        assertThrows(CommonException.class, () -> spy.thuLai(1));
+
+        assertEquals("thanh_cong", mapping1.getTrangThaiDongBo());
+        verify(trangThaiDongBoSanPhamRepository, never()).save(any());
+    }
+
+    @Test
+    void filterLienKet_traSoDaDayDaLuuThayViSoKhaDung() {
+        Instant luc = Instant.parse("2026-10-16T07:05:00Z");
+        mapping1.setSoLuongDaDay(7);
+        mapping1.setNgayDayTonCuoi(luc);
+        when(trangThaiDongBoSanPhamRepository.filterByKenh(eq(1), any(), any(), any())).thenReturn(new PageImpl<>(List.of(mapping1)));
+        tonKhaDung(101, 15);
+
+        LienKetSanPhamDto dto = service.filterLienKet("SHOPIFY", null, null, PageRequest.of(0, 10)).getContent().get(0);
+
+        assertEquals(0, BigDecimal.valueOf(15).compareTo(dto.getSoLuongKhaDung()));
+        assertEquals(0, BigDecimal.valueOf(7).compareTo(dto.getSoLuongDaDay()));
+        assertEquals(luc, dto.getNgayDayTonCuoi());
     }
 }

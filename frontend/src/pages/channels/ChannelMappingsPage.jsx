@@ -45,6 +45,42 @@ const CHECKBOX_CLASS =
   "border-slate-300 bg-white data-[state=checked]:border-bo-primary data-[state=checked]:bg-bo-primary data-[state=indeterminate]:border-bo-primary data-[state=indeterminate]:bg-bo-primary data-[state=indeterminate]:text-white";
 const soVN = (n) => (n === null || n === undefined ? "—" : Number(n).toLocaleString("vi-VN"));
 const dangDongBo = (dong) => dong.trangThaiLienKet !== "chua_lien_ket";
+const coSo = (n) => n !== null && n !== undefined;
+
+/** Giờ đẩy ngắn gọn: hôm nay chỉ ghi giờ, ngày khác ghi thêm ngày/tháng. */
+function gioDayTon(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const gio = d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+  return d.toDateString() === new Date().toDateString() ? gio : `${gio} ${d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}`;
+}
+
+/**
+ * Ô "Đã đẩy lên sàn": số sàn đã nhận ở lần đẩy thành công gần nhất, dòng dưới là giờ đẩy,
+ * hoặc "→ sẽ đẩy N" (cam) khi theo khả dụng và quy tắc hiện tại, lần đẩy tới sẽ đổi số.
+ */
+function OTonDaDay({ dong, seDay }) {
+  if (!dangDongBo(dong)) return <span className="text-bo-muted">—</span>;
+  const daDay = dong.soLuongDaDay;
+  const lech = coSo(seDay) && (!coSo(daDay) || Number(seDay) !== Number(daDay));
+  const gio = coSo(daDay) && dong.ngayDayTonCuoi ? gioDayTon(dong.ngayDayTonCuoi) : null;
+  return (
+    <div className="flex flex-col items-end">
+      {coSo(daDay) ? (
+        <span className="tabular-nums text-bo-foreground" title={gio ? `${SAN.ten} đã nhận lúc ${gio}` : undefined}>
+          {soVN(daDay)}
+        </span>
+      ) : (
+        <span className="text-[13px] text-bo-muted">Chưa đẩy</span>
+      )}
+      {lech ? (
+        <span className="text-[12px] font-medium tabular-nums text-amber-600">→ sẽ đẩy {soVN(seDay)}</span>
+      ) : gio ? (
+        <span className="text-[12px] tabular-nums text-slate-400">{gio}</span>
+      ) : null}
+    </div>
+  );
+}
 
 /** Một mục đếm ở hàng sản phẩm: chấm màu + "N trạng thái". */
 function DemTrangThai({ so, nhan, mau, className }) {
@@ -205,7 +241,9 @@ export default function ChannelMappingsPage() {
       if (!quyTac) return;
       try {
         const res = await kenhBanHangService.dayTon(SAN.maKenh, quyTac);
-        toast.success(ketQuaDayTon(res, SAN.ten).title);
+        const kq = ketQuaDayTon(res, SAN.ten);
+        const bao = kq.tone === "error" ? toast.error : kq.tone === "warning" ? toast.warning : toast.success;
+        bao(kq.title, kq.message ? { description: kq.message } : undefined);
         taiLaiTatCa();
       } catch (error) {
         toast.error(getApiErrorMessage(error, "Không đẩy được tồn kho"));
@@ -335,7 +373,8 @@ export default function ChannelMappingsPage() {
       return moi;
     });
 
-  const soTrenSan = (dong) => (dangDongBo(dong) && quyTac ? tinhSoTonDayLenSan(dong.soLuongKhaDung, quyTac) : null);
+  /** Số lần đẩy tới sẽ gửi lên sàn (khả dụng × quy tắc ở Cấu hình); null khi dòng ngừng hoặc chưa tải quy tắc. */
+  const soSeDay = (dong) => (dangDongBo(dong) && quyTac ? tinhSoTonDayLenSan(dong.soLuongKhaDung, quyTac) : null);
 
   /** Một dòng SKU. `trongNhom`: nằm dưới hàng sản phẩm (chỉ ghi biến thể, thụt vào). */
   const dongSku = (dong, trongNhom) => {
@@ -376,7 +415,9 @@ export default function ChannelMappingsPage() {
           </p>
         </td>
         <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-bo-foreground">{soVN(dong.soLuongKhaDung)}</td>
-        <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-bo-foreground">{soVN(soTrenSan(dong))}</td>
+        <td className="whitespace-nowrap px-3 py-2.5 text-right">
+          <OTonDaDay dong={dong} seDay={soSeDay(dong)} />
+        </td>
         <td className="px-3 py-2.5">
           <TrangThaiCham label={meta.label} tone={meta.tone} />
           {dong.trangThaiLienKet === "loi" && dong.chiTietLoi ? (
@@ -472,7 +513,7 @@ export default function ChannelMappingsPage() {
     const soDangDongBo = g.dong.filter((d) => d.trangThaiLienKet === "da_lien_ket").length;
     const soNgung = g.dong.filter((d) => d.trangThaiLienKet === "chua_lien_ket").length;
     const tongKhaDung = g.dong.reduce((s, d) => s + (Number(d.soLuongKhaDung) || 0), 0);
-    const trenSan = g.dong.map(soTrenSan).filter((v) => v !== null);
+    const daDay = g.dong.filter((d) => dangDongBo(d) && coSo(d.soLuongDaDay)).map((d) => Number(d.soLuongDaDay));
     return (
       <tr key={g.khoa} className="bg-white">
         <td className="w-10 px-3 py-2.5">
@@ -499,7 +540,7 @@ export default function ChannelMappingsPage() {
         <td className="px-3 py-2.5" />
         <td className="whitespace-nowrap px-3 py-2.5 text-right font-medium tabular-nums text-bo-heading">{soVN(tongKhaDung)}</td>
         <td className="whitespace-nowrap px-3 py-2.5 text-right font-medium tabular-nums text-bo-heading">
-          {trenSan.length ? soVN(trenSan.reduce((s, v) => s + v, 0)) : "—"}
+          {daDay.length ? soVN(daDay.reduce((s, v) => s + v, 0)) : "—"}
         </td>
         <td className="px-3 py-2.5">
           {/* Cùng kiểu chấm + chữ với dòng SKU bên dưới, chỉ ghi số theo từng trạng thái */}
@@ -684,8 +725,8 @@ export default function ChannelMappingsPage() {
                 <th className={`${TH} text-left`}>Sản phẩm</th>
                 <th className={`${TH} text-left`}>SKU FCentric</th>
                 <th className={`${TH} text-right`}>Khả dụng</th>
-                <th className={`${TH} text-right`} title="Số đẩy lên theo quy tắc ở Cấu hình">
-                  Trên {SAN.ten}
+                <th className={`${TH} text-right`} title={`Số ${SAN.ten} đã nhận ở lần đẩy tồn thành công gần nhất`}>
+                  Đã đẩy lên {SAN.ten}
                 </th>
                 <th className={`${TH} text-left`}>Trạng thái</th>
                 <th className={`${TH} text-left`}>Đồng bộ</th>

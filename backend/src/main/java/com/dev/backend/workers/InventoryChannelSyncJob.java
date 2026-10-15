@@ -76,7 +76,13 @@ public class InventoryChannelSyncJob {
                         .nguongVe0(KenhCauHinhDongBo.nguongVe0(dieuHanhHeThongService, kenh.getMaKenh()))
                         .build();
                 var result = kenhBanHangDongBoService.dayTonKhoLenKenh(kenh.getMaKenh(), req);
-                log.info("[JOB-03 Batch] Đồng bộ tồn kho định kỳ kênh {} thành công: {} SKU", kenh.getMaKenh(), result.getSoDong());
+                if (result.getLoiKenh() != null) {
+                    log.warn("[JOB-03 Batch] Đồng bộ tồn kho định kỳ kênh {}: {} SKU thành công, {} SKU lỗi, {} SKU chưa đẩy — {}",
+                            kenh.getMaKenh(), result.getSoDong(), result.getSoLoi(), result.getSoChuaDay(), result.getLoiKenh());
+                } else {
+                    log.info("[JOB-03 Batch] Đồng bộ tồn kho định kỳ kênh {}: {} SKU thành công, {} SKU lỗi",
+                            kenh.getMaKenh(), result.getSoDong(), result.getSoLoi());
+                }
             } catch (Exception e) {
                 log.warn("[JOB-03 Batch] Lỗi đồng bộ tồn kho kênh {}: {}", kenh.getMaKenh(), e.getMessage());
             }

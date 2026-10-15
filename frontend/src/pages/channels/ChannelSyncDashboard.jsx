@@ -19,6 +19,7 @@ import { NUT_CHINH } from "@/components/channel/BottomActionBar";
 import { ngayIso } from "@/components/channel/ngay";
 import { daKetNoi, trangThaiKetNoi } from "@/components/channel/ketNoiShopify";
 import { quyTacTonKho } from "@/components/channel/cauHinhDongBo";
+import { ketQuaDayTon } from "@/components/channel/ketQuaThaoTac";
 import { BUOC_THIET_LAP, SAN_BAN_HANG } from "@/constants/channel";
 import { isChannelMock, kenhBanHangService } from "@/services/kenhBanHangService";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
@@ -118,7 +119,9 @@ export default function ChannelSyncDashboard() {
     try {
       try {
         const res = await kenhBanHangService.dayTon(SAN.maKenh, quyTacTonKho(cauHinh));
-        ketQua.push(`đẩy tồn ${formatSo(res?.soDong)} SKU`);
+        const kq = ketQuaDayTon(res, SAN.ten);
+        if (kq.tone === "success") ketQua.push(`đẩy tồn ${formatSo(res?.soDong)} SKU`);
+        else (kq.tone === "error" ? toast.error : toast.warning)(kq.title, { description: kq.message });
       } catch (error) {
         toast.error(getApiErrorMessage(error, "Không đẩy được tồn kho"));
       }

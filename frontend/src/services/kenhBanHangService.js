@@ -24,6 +24,9 @@ function chuanHoaLienKet(row) {
     ...row,
     trangThaiLienKet: trangThai || "chua_lien_ket",
     soLuongKhaDung: row.soLuongKhaDung ?? row.khaDung ?? null,
+    // Số Shopify đã nhận ở lần đẩy thành công gần nhất; null = chưa đẩy lần nào
+    soLuongDaDay: row.soLuongDaDay ?? null,
+    ngayDayTonCuoi: row.ngayDayTonCuoi ?? row.ngayDayCuoi ?? null,
     sanPhamId: row.sanPhamId ?? null,
     anhDaiDien: row.anhDaiDien ?? null,
   };
@@ -190,7 +193,10 @@ const mockApi = {
   },
   timBienThe: kenhBanHangMock.timBienThe,
 
-  dayTon: () => kenhBanHangMock.dayTon(MOCK_KET_NOI_ID),
+  async dayTon(_maKenh, quyTac) {
+    const res = await kenhBanHangMock.dayTon(MOCK_KET_NOI_ID, quyTac);
+    return { soDong: res.soDong, soLoi: 0, soChuaDay: 0, loiKenh: null };
+  },
   async layDon(_maKenh, range) {
     const res = await kenhBanHangMock.layDon(MOCK_KET_NOI_ID, range);
     return { soDonMoi: res.soSuKien ?? 0, soDonCapNhat: 0, thongDiep: `Nhận ${res.soSuKien ?? 0} đơn hàng mới` };

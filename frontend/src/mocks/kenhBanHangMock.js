@@ -423,15 +423,20 @@ export const kenhBanHangMock = {
     return linkDto(link, kn);
   },
 
-  async dayTon(id) {
+  /** `quyTac`: quy tắc gửi kèm như API thật (trang Cấu hình); không có thì dùng quy tắc của kết nối mẫu. */
+  async dayTon(id, quyTac) {
     await mockDelay(500, 800);
     const kn = findKetNoi(id);
     if (kn.trangThai !== "dang_hoat_dong") throw mockError(409, "Kết nối không hoạt động nên không đẩy tồn được.");
     const links = (state.links[kn.id] ?? []).filter((l) => l.trangThaiLienKet !== "chua_lien_ket" && l.choPhepDongBo);
+    // Như backend: dòng lỗi cũng được đẩy lại, đẩy được thì hết lỗi
     links.forEach((l) => {
-      if (l.trangThaiLienKet === "loi") return;
-      l.soLuongDaDay = tinhSoDay(bienTheById(l.bienTheSanPhamId)?.khaDung, kn);
+      l.soLuongDaDay = tinhSoDay(bienTheById(l.bienTheSanPhamId)?.khaDung, quyTac ?? kn);
       l.ngayDayCuoi = new Date().toISOString();
+      if (l.trangThaiLienKet === "loi") {
+        l.trangThaiLienKet = "da_lien_ket";
+        l.chiTietLoi = null;
+      }
     });
     kn.lanDayTonCuoi = new Date().toISOString();
     addLog(kn, { loai: "TON_KHO", nguon: "MANUAL", trangThai: "THANH_CONG", maThamChieu: kn.tenMienShop, thongDiep: `Đẩy tồn thủ công ${links.length} SKU` });
