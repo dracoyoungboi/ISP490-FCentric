@@ -1,8 +1,9 @@
 // Chỉ định nghĩa nhãn/đơn vị và mã, không có giá trị mặc định. Giá trị/kiểu lấy từ API.
+// min/max khớp validateBoundary của BE (DieuHanhHeThongServiceImpl); đổi một bên thì đổi cả bên kia.
 export const INVENTORY_SETTINGS = [
-  { code: "DEFAULT_MIN_STOCK_ALERT", label: "Ngưỡng cảnh báo tồn kho tối thiểu", unit: "Số lượng", description: "Ngưỡng cảnh báo mặc định khi sản phẩm chưa có thiết lập riêng.", group: "stock" },
-  { code: "OMNI_SYNC_INTERVAL_MINS", label: "Chu kỳ đồng bộ đơn hàng đa kênh", unit: "Phút", description: "Khoảng thời gian giữa các lần đồng bộ đơn hàng định kỳ.", group: "sync" },
-  { code: "REALTIME_SYNC_THRESHOLD", label: "Ngưỡng chuyển sang đồng bộ tức thời", unit: "Số lượng", description: "Ngưỡng số lượng dùng để kích hoạt đồng bộ theo thời gian thực.", group: "sync" },
+  { code: "DEFAULT_MIN_STOCK_ALERT", label: "Ngưỡng cảnh báo tồn kho tối thiểu", unit: "Số lượng", description: "Ngưỡng cảnh báo mặc định khi sản phẩm chưa có thiết lập riêng.", group: "stock", min: 0, max: 100000 },
+  { code: "OMNI_SYNC_INTERVAL_MINS", label: "Chu kỳ đồng bộ đơn hàng đa kênh", unit: "Phút", description: "Khoảng thời gian giữa các lần đồng bộ đơn hàng định kỳ.", group: "sync", min: 1, max: 1440 },
+  { code: "REALTIME_SYNC_THRESHOLD", label: "Ngưỡng chuyển sang đồng bộ tức thời", unit: "Số lượng", description: "Ngưỡng số lượng dùng để kích hoạt đồng bộ theo thời gian thực.", group: "sync", min: 0, max: 100 },
 ];
 
 export function createEmptyInventoryValues() {
@@ -58,7 +59,26 @@ export function selectInventorySettings(data) {
   });
 }
 
+// Kiểm tra kiểu dữ liệu trước, rồi tới giới hạn min/max của từng cấu hình.
+export function validateInventoryField(code, value, type) {
+  const typeError = validateInventorySetting(value, type);
+  if (typeError) return typeError;
+  const field = INVENTORY_SETTINGS.find((item) => item.code === code);
+  if (field?.min === undefined || field?.max === undefined) return "";
+  const number = Number(value);
+  return number < field.min || number > field.max
+    ? `Nhập giá trị từ ${field.min.toLocaleString("vi-VN")} đến ${field.max.toLocaleString("vi-VN")}.`
+    : "";
+}
+
+// "0100", "+100" và "100" là cùng một số: chuẩn hóa để không tính là thay đổi và gửi BE dạng gọn.
+function normalizeInventoryValue(value, type) {
+  return type === "INT" && /^[+-]?\d+$/.test(value) ? String(Number(value)) : value;
+}
+
 export function getInventoryChanges(settings, values) {
-  return settings.filter((setting) => values[setting.maCauHinh] !== setting.giaTri)
-    .map((setting) => ({ maCauHinh: setting.maCauHinh, giaTri: values[setting.maCauHinh] }));
+  return settings
+    .map((setting) => ({ setting, giaTri: normalizeInventoryValue(values[setting.maCauHinh], setting.kieuDuLieu) }))
+    .filter(({ setting, giaTri }) => giaTri !== normalizeInventoryValue(setting.giaTri, setting.kieuDuLieu))
+    .map(({ setting, giaTri }) => ({ maCauHinh: setting.maCauHinh, giaTri }));
 }

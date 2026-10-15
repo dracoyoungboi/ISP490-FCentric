@@ -299,7 +299,7 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
 
     @Override
     public List<CauHinhHeThongDto> getAllCauHinh() {
-        List<CauHinhHeThong> list = cauHinhRepository.findAll();
+        List<CauHinhHeThong> list = cauHinhRepository.findAllWithNguoiCapNhat();
         return cauHinhMapper.toDtoList(list);
     }
 
