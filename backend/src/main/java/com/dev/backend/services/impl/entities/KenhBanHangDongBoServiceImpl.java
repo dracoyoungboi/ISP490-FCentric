@@ -518,7 +518,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public DayTonResultDto dayTonKhoLenKenh(String maKenh, DayTonKenhRequest request) {
         KenhBanHang kenh = getKenhActive(maKenh);
         BigDecimal tyLe = request.getTyLeDayTon() != null ? request.getTyLeDayTon() : BigDecimal.valueOf(100);
@@ -536,6 +535,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         int daXuLy = 0;
         if (loiKenh == null) {
             for (TrangThaiDongBoSanPham dong : dongCanDay) {
+                // Throttling 250ms bảo vệ Shopify leaky bucket rate limit khi đẩy danh sách SKU
+                if (daXuLy > 0) {
+                    try {
+                        Thread.sleep(250);
+                    } catch (InterruptedException ignored) {}
+                }
                 // Free to Use toàn chuỗi rồi áp công thức BR-OC-10
                 int soDay = tinhSoTonDay(khaDungToanChuoi(dong.getBienTheSanPham().getId()), tyLe, tonDem, nguongVe0);
                 KetQuaGuiTon kq = dayTonChoDong(dong, ketNoi, soDay);
@@ -1026,24 +1031,54 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
      * Không lấy địa điểm đầu danh sách: Shopify không trả địa điểm mặc định lên đầu.
      */
     DiaDiemShopify layDiaDiemMacDinh(String domain, String token) {
+        JsonNode shop = null;
         try {
-            return chonDiaDiemMacDinh(docShopify(domain, token, "shop.json?fields=primary_location_id"),
-                    docShopify(domain, token, "locations.json"));
+            shop = docShopify(domain, token, "shop.json?fields=primary_location_id");
         } catch (Exception e) {
-            log.warn("Không xác định được địa điểm mặc định trên Shopify: {}", e.getMessage());
+            log.warn("Không đọc được shop.json trên Shopify: {}", e.getMessage());
+        }
+
+        JsonNode locations = null;
+        try {
+            locations = docShopify(domain, token, "locations.json");
+        } catch (Exception e) {
+            log.warn("Không đọc được locations.json trên Shopify: {}", e.getMessage());
             return null;
         }
+
+        return chonDiaDiemMacDinh(shop, locations);
     }
 
-    /** Tìm địa điểm có id = shop.primary_location_id trong danh sách locations; null nếu thiếu một trong hai. */
+    /**
+     * Tìm địa điểm có id = shop.primary_location_id trong danh sách locations.
+     * Fallback an toàn: nếu chỉ có đúng 1 địa điểm duy nhất trong cửa hàng thì chọn địa điểm đó.
+     * Null nếu không có địa điểm nào hoặc có nhiều địa điểm mà không xác định được địa điểm mặc định.
+     */
     static DiaDiemShopify chonDiaDiemMacDinh(JsonNode shop, JsonNode locations) {
-        long id = shop.path("shop").path("primary_location_id").asLong(0);
-        if (id <= 0) return null;
-        for (JsonNode loc : locations.path("locations")) {
-            if (loc.path("id").asLong() == id) {
-                return new DiaDiemShopify(id, loc.path("name").asText("Địa điểm " + id));
+        if (locations == null || !locations.has("locations")) return null;
+        JsonNode locList = locations.path("locations");
+        if (!locList.isArray() || locList.isEmpty()) return null;
+
+        if (shop != null) {
+            long id = shop.path("shop").path("primary_location_id").asLong(0);
+            if (id > 0) {
+                for (JsonNode loc : locList) {
+                    if (loc.path("id").asLong() == id) {
+                        return new DiaDiemShopify(id, loc.path("name").asText("Địa điểm " + id));
+                    }
+                }
             }
         }
+
+        // Fallback an toàn cho store chỉ có đúng 1 địa điểm duy nhất
+        if (locList.size() == 1) {
+            JsonNode single = locList.get(0);
+            long id = single.path("id").asLong(0);
+            if (id > 0) {
+                return new DiaDiemShopify(id, single.path("name").asText("Địa điểm " + id));
+            }
+        }
+
         return null;
     }
 
@@ -1545,31 +1580,54 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
      */
     KetQuaGuiTon guiTonLenShopify(String domain, String token, Long locationId, Long inventoryItemId, int available) {
         String url = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/inventory_levels/set.json";
-        try {
-            RestTemplate restTemplate = createRestTemplate();
-            HttpHeaders headers = createHeaders(token);
+        int retryCount = 0;
+        int maxRetries = 2;
+        while (true) {
+            try {
+                RestTemplate restTemplate = createRestTemplate();
+                HttpHeaders headers = createHeaders(token);
 
-            Map<String, Object> body = Map.of(
-                    "location_id", locationId,
-                    "inventory_item_id", inventoryItemId,
-                    "available", available
-            );
-            HttpEntity<String> entity = new HttpEntity<>(objectMapper.writeValueAsString(body), headers);
-            ResponseEntity<String> res = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
-            if (res != null && res.getStatusCode().is2xxSuccessful()) {
-                return KetQuaGuiTon.THANH_CONG;
+                Map<String, Object> body = Map.of(
+                        "location_id", locationId,
+                        "inventory_item_id", inventoryItemId,
+                        "available", available
+                );
+                HttpEntity<String> entity = new HttpEntity<>(objectMapper.writeValueAsString(body), headers);
+                ResponseEntity<String> res = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+                if (res != null && res.getStatusCode().is2xxSuccessful()) {
+                    return KetQuaGuiTon.THANH_CONG;
+                }
+                return KetQuaGuiTon.loiSku("Shopify không nhận số tồn (mã " + (res != null ? res.getStatusCode().value() : "?") + ")");
+            } catch (HttpStatusCodeException e) {
+                if (e.getStatusCode().value() == 429 && retryCount < maxRetries) {
+                    retryCount++;
+                    long waitMs = 2000L;
+                    String retryAfter = e.getResponseHeaders() != null ? e.getResponseHeaders().getFirst("Retry-After") : null;
+                    if (retryAfter != null) {
+                        try {
+                            waitMs = (long) (Double.parseDouble(retryAfter.trim()) * 1000);
+                        } catch (Exception ignored) {}
+                    }
+                    log.warn("Shopify trả lỗi 429 (Too Many Requests) cho item [{}], đợi {}ms rồi thử lại lần {}/{}",
+                            inventoryItemId, waitMs, retryCount, maxRetries);
+                    try {
+                        Thread.sleep(Math.max(1000L, Math.min(waitMs, 5000L)));
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        return KetQuaGuiTon.loiCaKenh("Tiến trình bị gián đoạn khi đang chờ giới hạn tốc độ");
+                    }
+                    continue;
+                }
+                log.warn("Shopify trả lỗi {} khi set inventory level cho item [{}]: {}",
+                        e.getStatusCode().value(), inventoryItemId, e.getResponseBodyAsString());
+                return phanLoaiLoiShopify(e.getStatusCode().value(), e.getResponseBodyAsString());
+            } catch (ResourceAccessException e) {
+                log.warn("Không kết nối được Shopify khi set inventory level cho item [{}]: {}", inventoryItemId, e.getMessage());
+                return KetQuaGuiTon.loiCaKenh("Không kết nối được Shopify, vui lòng thử lại sau");
+            } catch (Exception e) {
+                log.warn("Lỗi khi set inventory level cho item [{}]: {}", inventoryItemId, e.getMessage());
+                return KetQuaGuiTon.loiSku(e.getMessage() != null ? e.getMessage() : "Lỗi không xác định khi đẩy tồn");
             }
-            return KetQuaGuiTon.loiSku("Shopify không nhận số tồn (mã " + (res != null ? res.getStatusCode().value() : "?") + ")");
-        } catch (HttpStatusCodeException e) {
-            log.warn("Shopify trả lỗi {} khi set inventory level cho item [{}]: {}",
-                    e.getStatusCode().value(), inventoryItemId, e.getResponseBodyAsString());
-            return phanLoaiLoiShopify(e.getStatusCode().value(), e.getResponseBodyAsString());
-        } catch (ResourceAccessException e) {
-            log.warn("Không kết nối được Shopify khi set inventory level cho item [{}]: {}", inventoryItemId, e.getMessage());
-            return KetQuaGuiTon.loiCaKenh("Không kết nối được Shopify, vui lòng thử lại sau");
-        } catch (Exception e) {
-            log.warn("Lỗi khi set inventory level cho item [{}]: {}", inventoryItemId, e.getMessage());
-            return KetQuaGuiTon.loiSku(e.getMessage() != null ? e.getMessage() : "Lỗi không xác định khi đẩy tồn");
         }
     }
 
@@ -1640,8 +1698,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
     /** Quy tắc đẩy tồn đã lưu của kênh (chưa lưu thì 100%, tồn đệm 0, ngưỡng 0). */
     private DayTonKenhRequest quyTacDaLuu(String maKenh) {
+        Integer khoId = SecurityContextHolder.getKhoId();
+        if (khoId == null || khoId <= 0) {
+            khoId = 1;
+        }
         return DayTonKenhRequest.builder()
-                .khoId(1)
+                .khoId(khoId)
                 .tyLeDayTon(BigDecimal.valueOf(KenhCauHinhDongBo.tyLeDayTon(dieuHanhHeThongService, maKenh)))
                 .tonDem(KenhCauHinhDongBo.tonDem(dieuHanhHeThongService, maKenh))
                 .nguongVe0(KenhCauHinhDongBo.nguongVe0(dieuHanhHeThongService, maKenh))
