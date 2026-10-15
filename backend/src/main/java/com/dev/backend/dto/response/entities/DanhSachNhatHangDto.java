@@ -57,6 +57,10 @@ public class DanhSachNhatHangDto implements Serializable {
         Integer trangThai;
         String tenTrangThai;
         Boolean biHuy;
+        BigDecimal tongCong;
+        Boolean yeuCauVideo;
+        Boolean daDuBangChung;
+        Integer soLuongBangChung;
     }
 }
 

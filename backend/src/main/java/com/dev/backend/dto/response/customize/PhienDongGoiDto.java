@@ -44,6 +44,12 @@ public class PhienDongGoiDto {
     /** Dòng vừa quét (để màn hình tô sáng). */
     Integer chiTietVuaQuetId;
 
+    BigDecimal tongTienDonHang;
+    Boolean yeuCauVideo;
+    String loaiYeuCau;
+    Boolean daDuBangChung;
+    List<BangChungDongGoiDto> danhSachBangChung;
+
     List<DongDongGoiDto> items;
 
     @Data

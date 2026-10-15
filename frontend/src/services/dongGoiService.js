@@ -19,4 +19,18 @@ export const dongGoiService = {
     const res = await apiClient.post(`${BASE}/phieu/${phieuXuatKhoId}/hoan-tat`);
     return res.data?.data;
   },
+  async layBangChung(donBanHangId) {
+    const res = await apiClient.get(`${BASE}/don/${donBanHangId}/bang-chung`);
+    return res.data?.data;
+  },
+  async uploadBangChung(donBanHangId, formData) {
+    const res = await apiClient.post(`${BASE}/don/${donBanHangId}/bang-chung`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data?.data;
+  },
+  async xoaBangChung(bangChungId) {
+    const res = await apiClient.delete(`${BASE}/bang-chung/${bangChungId}`);
+    return res.data?.data;
+  },
 };

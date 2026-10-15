@@ -18,6 +18,7 @@ import PickProgress from "@/components/outbound/PickProgress";
 import ScanBar from "@/components/outbound/ScanBar";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import { Button } from "@/components/ui/button";
+import PackingProofSection from "@/components/outbound/PackingProofSection";
 import useScanQueue from "@/hooks/useScanQueue";
 import { dongGoiService } from "@/services/dongGoiService";
 import { donBanHangService } from "@/services/donBanHangService";
@@ -206,7 +207,7 @@ export default function DongGoiPage() {
                     <StatusBadge label={donStatus.label} tone={donStatus.tone} />
                     <StatusBadge label={`Phiếu xuất: ${phieuStatus.label}`} tone={phieuStatus.tone} className={phieuStatus.className} />
                     {dangDongGoi ? (
-                        <span title={dto.coTheHoanTat ? undefined : `Còn ${formatQuantity(conLai)} sản phẩm chưa quét`}>
+                        <span title={dto.coTheHoanTat ? undefined : !dto.daDuBangChung ? "Cần tải lên đầy đủ bằng chứng đóng gói để hoàn tất" : `Còn ${formatQuantity(conLai)} sản phẩm chưa quét`}>
                             <Button
                                 disabled={!dto.coTheHoanTat || completing || pending > 0}
                                 onClick={() => setCompleteOpen(true)}
@@ -316,6 +317,18 @@ export default function DongGoiPage() {
                     />
                 </SurfaceCard>
             ) : null}
+
+            {/* ── Bằng chứng đóng gói (SRS 6.3.1 - 6.3.2) ── */}
+            <PackingProofSection
+                donId={dto.donBanHangId}
+                soDonHang={dto.soDonHang}
+                tongTienDonHang={dto.tongTienDonHang}
+                yeuCauVideo={dto.yeuCauVideo}
+                danhSachBangChung={dto.danhSachBangChung || []}
+                daDuBangChung={dto.daDuBangChung}
+                onRefresh={() => fetchPhien({ silent: true })}
+                readOnly={!dangDongGoi}
+            />
 
             {/* ── Sản phẩm cần đóng gói ── */}
             <TableShell title="Sản phẩm cần đóng gói" description={`${lines.length} dòng · dòng chưa đủ lên trước`}>

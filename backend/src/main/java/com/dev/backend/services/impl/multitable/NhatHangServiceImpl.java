@@ -101,6 +101,9 @@ public class NhatHangServiceImpl implements NhatHangService {
     @Autowired
     private ApplicationEventPublisher eventPublisher;
 
+    @Autowired
+    private com.dev.backend.services.multitable.BangChungDongGoiService bangChungDongGoiService;
+
     @Override
     @Transactional(readOnly = true)
     public Page<DonChoXuatDto> getDonChoXuat(DonChoXuatFilterRequest filterRequest) {
@@ -579,9 +582,15 @@ public class NhatHangServiceImpl implements NhatHangService {
         dto.setDanhSachMaDonHang(orderCodes);
 
         if (pickList.getDonBanHangs() != null) {
+            List<Integer> donIds = pickList.getDonBanHangs().stream().map(DonBanHang::getId).collect(Collectors.toList());
+            Map<Integer, Boolean> daDuMap = bangChungDongGoiService.kiemTraDaDuBangChungTheoDanhSachDon(donIds);
+            Map<Integer, Integer> demMap = bangChungDongGoiService.demSoLuongBangChungTheoDanhSachDon(donIds);
+
             List<DanhSachNhatHangDto.DonThamChieuDto> donDtos = pickList.getDonBanHangs().stream().map(d -> {
                 boolean biHuy = d.getTrangThai() != null && d.getTrangThai() == ITrangThaiDonBanHang.DA_HUY;
                 String tenTrangThai = tenTrangThaiDon(d.getTrangThai());
+                BigDecimal tongCong = d.getTongCong() != null ? d.getTongCong() : BigDecimal.ZERO;
+                boolean yeuCauVideo = tongCong.compareTo(com.dev.backend.services.impl.multitable.BangChungDongGoiServiceImpl.NGUONG_TIEN_VIDEO) >= 0;
 
                 return DanhSachNhatHangDto.DonThamChieuDto.builder()
                         .id(d.getId())
@@ -589,6 +598,10 @@ public class NhatHangServiceImpl implements NhatHangService {
                         .trangThai(d.getTrangThai())
                         .tenTrangThai(tenTrangThai)
                         .biHuy(biHuy)
+                        .tongCong(tongCong)
+                        .yeuCauVideo(yeuCauVideo)
+                        .daDuBangChung(daDuMap.getOrDefault(d.getId(), false))
+                        .soLuongBangChung(demMap.getOrDefault(d.getId(), 0))
                         .build();
             }).collect(Collectors.toList());
             dto.setDanhSachDonHang(donDtos);

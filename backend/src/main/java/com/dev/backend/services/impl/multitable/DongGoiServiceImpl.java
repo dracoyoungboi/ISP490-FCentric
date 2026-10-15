@@ -11,11 +11,13 @@ import com.dev.backend.dto.response.customize.PhienDongGoiDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.entities.*;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.repository.BangChungDongGoiRepository;
 import com.dev.backend.repository.ChiTietPhieuXuatKhoRepository;
 import com.dev.backend.repository.DonBanHangRepository;
 import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.repository.PhieuXuatKhoRepository;
 import com.dev.backend.services.impl.entities.LichSuThayDoiService;
+import com.dev.backend.services.multitable.BangChungDongGoiService;
 import com.dev.backend.services.multitable.DongGoiService;
 import com.dev.backend.utils.SauCommit;
 import lombok.extern.slf4j.Slf4j;
@@ -50,6 +52,12 @@ public class DongGoiServiceImpl implements DongGoiService {
 
     @Autowired
     private LichSuThayDoiService lichSuThayDoiService;
+
+    @Autowired
+    private BangChungDongGoiService bangChungDongGoiService;
+
+    @Autowired
+    private BangChungDongGoiRepository bangChungDongGoiRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -141,6 +149,24 @@ public class DongGoiServiceImpl implements DongGoiService {
             if (daQuet.compareTo(can) < 0) {
                 throw new CommonException("Chưa đóng gói đủ hàng! Mặt hàng [" + ct.getBienTheSanPham().getMaSku()
                         + "] mới quét " + hienThi(daQuet) + "/" + hienThi(can));
+            }
+        }
+
+        if (!bangChungDongGoiService.kiemTraDaDuBangChung(don)) {
+            BigDecimal tongTien = don.getTongCong() != null ? don.getTongCong() : BigDecimal.ZERO;
+            boolean yeuCauVideo = tongTien.compareTo(BangChungDongGoiServiceImpl.NGUONG_TIEN_VIDEO) >= 0;
+            String thieuMsg = yeuCauVideo
+                    ? "Đơn hàng " + don.getSoDonHang() + " (≥ 1.000.000đ) chưa có video đóng gói (15-30s) hợp lệ!"
+                    : "Đơn hàng " + don.getSoDonHang() + " (< 1.000.000đ) chưa có đủ 2 ảnh đóng gói theo quy định!";
+            throw new CommonException(thieuMsg, HttpStatus.BAD_REQUEST, null);
+        }
+
+        // Liên kết các bản ghi bằng chứng của đơn vào phiếu xuất kho này
+        List<BangChungDongGoi> proofs = bangChungDongGoiRepository.findByDonBanHangIdAndTrangThaiOrderByNgayTaoAsc(don.getId(), 1);
+        for (BangChungDongGoi bc : proofs) {
+            if (bc.getPhieuXuatKho() == null) {
+                bc.setPhieuXuatKho(phieu);
+                bangChungDongGoiRepository.save(bc);
             }
         }
 
@@ -253,6 +279,16 @@ public class DongGoiServiceImpl implements DongGoiService {
                 : 0.0;
         boolean biHuy = Integer.valueOf(ITrangThaiDonBanHang.DA_HUY).equals(don.getTrangThai())
                 || Integer.valueOf(ITrangThaiPhieuXuat.DA_HUY).equals(phieu.getTrangThai());
+        BigDecimal tongTien = don.getTongCong() != null ? don.getTongCong() : BigDecimal.ZERO;
+        boolean yeuCauVideo = tongTien.compareTo(BangChungDongGoiServiceImpl.NGUONG_TIEN_VIDEO) >= 0;
+        com.dev.backend.dto.response.customize.ThongTinBangChungDonDto thongTinBc = null;
+        boolean daDuBangChung = false;
+        try {
+            thongTinBc = bangChungDongGoiService.layThongTinBangChung(don.getId());
+            daDuBangChung = Boolean.TRUE.equals(thongTinBc.getDaDuBangChung());
+        } catch (Exception ex) {
+            log.warn("Không thể lấy thông tin bằng chứng cho đơn {}: {}", don.getSoDonHang(), ex.getMessage());
+        }
         KhachHang kh = don.getKhachHang();
 
         return PhienDongGoiDto.builder()
@@ -273,10 +309,15 @@ public class DongGoiServiceImpl implements DongGoiService {
                 .tongSoLuongCan(tongCan)
                 .tongSoLuongDaQuet(tongDaQuet)
                 .phanTramHoanThanh(phanTram)
-                .coTheHoanTat(!biHuy && duHet && Integer.valueOf(ITrangThaiPhieuXuat.NHAP).equals(phieu.getTrangThai()))
+                .coTheHoanTat(!biHuy && duHet && daDuBangChung && Integer.valueOf(ITrangThaiPhieuXuat.NHAP).equals(phieu.getTrangThai()))
                 .biHuy(biHuy)
                 .thongBao(thongBao)
                 .chiTietVuaQuetId(chiTietVuaQuetId)
+                .tongTienDonHang(tongTien)
+                .yeuCauVideo(yeuCauVideo)
+                .loaiYeuCau(yeuCauVideo ? "VIDEO_15_30S" : "ANH_2_BUOC")
+                .daDuBangChung(daDuBangChung)
+                .danhSachBangChung(thongTinBc != null ? thongTinBc.getDanhSachBangChung() : java.util.Collections.emptyList())
                 .items(items)
                 .build();
     }

@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
-    ArrowLeft, ArrowRight, Calendar, CheckCheck, ClipboardList, Hash,
-    Info as InfoIcon, Loader2, MapPin, Package, PackageX, User, UserPlus, Warehouse,
+    ArrowLeft, ArrowRight, Calendar, Camera, CheckCheck, ClipboardList, Hash,
+    Info as InfoIcon, Loader2, MapPin, Package, PackageX, ShieldCheck, User, UserPlus, Warehouse,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import PageContainer from "@/components/backoffice/PageContainer";
+import PackingProofModal from "@/components/outbound/PackingProofModal";
+import { formatCurrency } from "@/utils/formatters";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import TableShell from "@/components/shared/TableShell";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -55,6 +57,7 @@ export default function PickListDetail() {
     const [completing, setCompleting] = useState(false);
     const [completeResult, setCompleteResult] = useState(null);
     const [cancelledAlert, setCancelledAlert] = useState(null);
+    const [proofModalOrder, setProofModalOrder] = useState(null);
     const busyRef = useRef(false);
 
     const fetchDetail = useCallback(async ({ silent = false } = {}) => {
@@ -352,7 +355,12 @@ export default function PickListDetail() {
 
             {/* ── Kết quả hoàn tất nhặt ── */}
             {completeResult ? (
-                <CompleteResultPanel result={completeResult} orders={dto.danhSachDonHang} onClose={() => setCompleteResult(null)} />
+                <CompleteResultPanel
+                    result={completeResult}
+                    orders={dto.danhSachDonHang}
+                    onClose={() => setCompleteResult(null)}
+                    onOpenProofModal={(order) => setProofModalOrder(order)}
+                />
             ) : null}
 
             {/* ── Chế độ chỉ xem ── */}
@@ -491,7 +499,12 @@ export default function PickListDetail() {
                     {maDonHangs.length === 0 ? (
                         <p className="py-4 text-center text-sm text-bo-muted">Không có đơn nào.</p>
                     ) : (
-                        <OrderCodes codes={maDonHangs} orders={dto.danhSachDonHang} cancelledAlert={cancelledAlert} />
+                        <OrderCodes
+                            codes={maDonHangs}
+                            orders={dto.danhSachDonHang}
+                            cancelledAlert={cancelledAlert}
+                            onOpenProofModal={(order) => setProofModalOrder(order)}
+                        />
                     )}
                 </SurfaceCard>
             </div>
@@ -513,6 +526,16 @@ export default function PickListDetail() {
                 confirmText="Hoàn tất nhặt"
                 cancelText="Quay lại"
                 isLoading={completing}
+            />
+
+            {/* Modal xem / upload bằng chứng đóng gói nhanh từ màn nhặt hàng */}
+            <PackingProofModal
+                isOpen={Boolean(proofModalOrder)}
+                onClose={() => setProofModalOrder(null)}
+                donId={proofModalOrder?.id}
+                soDonHang={proofModalOrder?.soDonHang}
+                tongTienDonHang={proofModalOrder?.tongCong}
+                onProofChanged={() => fetchDetail({ silent: true })}
             />
 
         </PageContainer>
@@ -543,7 +566,7 @@ function GoodsIssueLink() {
     );
 }
 
-function OrderCodes({ codes, orders, cancelledAlert }) {
+function OrderCodes({ codes, orders, cancelledAlert, onOpenProofModal }) {
     const orderMap = useMemo(() => {
         const map = new Map();
         if (orders && Array.isArray(orders)) {
@@ -555,47 +578,84 @@ function OrderCodes({ codes, orders, cancelledAlert }) {
     }, [orders]);
 
     return (
-        <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col gap-2.5">
+            <div className="flex flex-col gap-2">
                 {codes.map((code) => {
                     const info = orderMap.get(code);
                     const isCancelled = info?.biHuy || (cancelledAlert && cancelledAlert.soDonHang === code) || (cancelledAlert?.cancelledAll);
 
                     if (isCancelled) {
                         return (
-                            <span
+                            <div
                                 key={code}
-                                className="inline-flex items-center gap-1.5 rounded-md border border-rose-300 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 shadow-sm"
+                                className="flex items-center justify-between rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 shadow-sm"
                                 title="Đơn hàng đã bị hủy trên sàn - Cần cất hàng thừa vào khay Put-back"
                             >
                                 <span className="line-through opacity-75">{code}</span>
-                                <span className="rounded bg-rose-200/90 px-1 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-900">
+                                <span className="rounded bg-rose-200/90 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-900">
                                     HỦY TỪ SÀN · PUT-BACK
                                 </span>
-                            </span>
+                            </div>
                         );
                     }
 
                     const choDongGoi = info?.trangThai === TRANG_THAI_DON.CHO_DONG_GOI;
+                    const daDongGoi = info?.trangThai === TRANG_THAI_DON.DA_DONG_GOI;
+                    const tongTien = info?.tongCong != null ? formatCurrency(info.tongCong) : null;
+                    const yeuCauVideo = info?.yeuCauVideo;
+                    const daDuBangChung = info?.daDuBangChung;
+
                     return (
-                        <span
+                        <div
                             key={code}
-                            className="inline-flex items-center gap-1.5 rounded-md border border-bo-border bg-bo-surface-subtle px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-bo-foreground"
+                            className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-bo-border bg-bo-surface-subtle px-3 py-2 text-xs text-bo-foreground hover:bg-slate-50 transition-colors"
                         >
-                            <span className="size-1.5 rounded-full bg-emerald-500" />
-                            {code}
-                            {info && info.trangThai !== TRANG_THAI_DON.CHO_NHAT_HANG && !choDongGoi ? (
-                                <span className="font-normal normal-case tracking-normal text-bo-muted">· {getDonBanHangStatus(info.trangThai).label}</span>
-                            ) : null}
-                            {choDongGoi ? (
-                                <Link
-                                    to={`/goods-issues/packing/${info.id}`}
-                                    className="inline-flex items-center gap-0.5 font-semibold normal-case tracking-normal text-bo-primary hover:underline"
-                                >
-                                    Đóng gói <ArrowRight className="size-3" />
-                                </Link>
-                            ) : null}
-                        </span>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="size-2 rounded-full bg-emerald-500" />
+                                <span className="font-semibold uppercase tracking-wide">{code}</span>
+                                {tongTien && (
+                                    <span className="font-mono text-slate-600 font-medium">({tongTien})</span>
+                                )}
+                                {info && info.trangThai !== TRANG_THAI_DON.CHO_NHAT_HANG && !choDongGoi ? (
+                                    <span className="font-normal text-bo-muted">· {getDonBanHangStatus(info.trangThai).label}</span>
+                                ) : null}
+
+                                {/* Badge bằng chứng */}
+                                {info && (choDongGoi || daDongGoi) && (
+                                    <span
+                                        className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold ${
+                                            daDuBangChung
+                                                ? "bg-emerald-100 text-emerald-800"
+                                                : "bg-amber-100 text-amber-800"
+                                        }`}
+                                    >
+                                        <ShieldCheck className="size-3" />
+                                        {daDuBangChung ? "Đủ bằng chứng" : yeuCauVideo ? "Cần video (15-30s)" : "Cần 2 ảnh"}
+                                    </span>
+                                )}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                {info?.id && onOpenProofModal && (choDongGoi || daDongGoi) && (
+                                    <button
+                                        type="button"
+                                        onClick={() => onOpenProofModal(info)}
+                                        className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100 shadow-xs"
+                                        title="Xem hoặc tải lên bằng chứng đóng gói"
+                                    >
+                                        <Camera className="size-3 text-slate-500" /> Bằng chứng
+                                    </button>
+                                )}
+                                {choDongGoi ? (
+                                    <Link
+                                        to={`/goods-issues/packing/${info.id}`}
+                                        className="inline-flex items-center gap-1 rounded bg-bo-primary px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-bo-primary-hover shadow-xs"
+                                    >
+                                        Đóng gói <ArrowRight className="size-3" />
+                                    </Link>
+                                ) : null}
+                            </div>
+                        </div>
                     );
                 })}
             </div>
@@ -608,7 +668,7 @@ function OrderCodes({ codes, orders, cancelledAlert }) {
     );
 }
 
-function CompleteResultPanel({ result, orders, onClose }) {
+function CompleteResultPanel({ result, orders, onClose, onOpenProofModal }) {
     const codes = result.maDonHangs ?? [];
     const donBoQua = result.donBoQua ?? [];
     return (
@@ -626,7 +686,7 @@ function CompleteResultPanel({ result, orders, onClose }) {
             <div className="space-y-3">
                 {codes.length > 0 ? (
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <OrderCodes codes={codes} orders={orders} />
+                        <OrderCodes codes={codes} orders={orders} onOpenProofModal={onOpenProofModal} />
                         <GoodsIssueLink />
                     </div>
                 ) : null}
