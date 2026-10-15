@@ -211,6 +211,11 @@ export const SIDEBAR_MENU = [
     ],
     children: [
       {
+        label: "Báo cáo doanh thu",
+        to: "/reports/revenue",
+        roles: ["quan_tri_vien", "quan_ly_kho"],
+      },
+      {
         label: "Báo cáo tồn kho",
         to: "/reports/inventory",
         roles: [
@@ -220,6 +225,16 @@ export const SIDEBAR_MENU = [
           "nhan_vien_mua_hang",
           "nhan_vien_ban_hang",
         ],
+      },
+      {
+        label: "Báo cáo nhập xuất",
+        to: "/reports/stock-movements",
+        roles: ["quan_tri_vien", "quan_ly_kho"],
+      },
+      {
+        label: "Báo cáo khách hàng",
+        to: "/reports/customers",
+        roles: ["quan_tri_vien", "quan_ly_kho"],
       },
       {
         label: "Lịch sử giao dịch kho",

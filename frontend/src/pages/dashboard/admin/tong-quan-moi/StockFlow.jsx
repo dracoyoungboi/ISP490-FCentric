@@ -1,5 +1,6 @@
 import { Boxes } from "lucide-react";
-import { Bar, BarChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, ReferenceLine, Tooltip, XAxis, YAxis } from "recharts";
+import KhungBieuDo from "@/components/shared/KhungBieuDo";
 import { Card, MoreLink, StackBar } from "./ui";
 import { MAU2 } from "./mau";
 import { formatPhanTram, formatSo, nhanDayDu, tyLe } from "../tong-quan/tongQuanFormat";
@@ -75,7 +76,7 @@ export default function StockFlow({ data, khoId, loading, loiTonKho, loiNhapXuat
               <p role="alert" className="mt-2 text-[13px] text-bo-warning">Không tải được số liệu nhập – xuất.</p>
             ) : (
               <div className="mt-2 h-[92px]" role="figure" aria-label={`Nhập ${formatSo(io?.tongNhap)} và xuất ${formatSo(io?.tongXuat)} sản phẩm trong kỳ`}>
-                <ResponsiveContainer width="100%" height="100%">
+                <KhungBieuDo>
                   <BarChart data={cot} stackOffset="sign" margin={{ top: 2, right: 0, bottom: 2, left: 0 }} barCategoryGap="22%">
                     <XAxis dataKey="tu" hide />
                     <YAxis hide domain={["dataMin", "dataMax"]} />
@@ -84,7 +85,7 @@ export default function StockFlow({ data, khoId, loading, loiTonKho, loiNhapXuat
                     <Bar dataKey="nhap" stackId="a" fill={MAU2.nhap} radius={[3, 3, 0, 0]} maxBarSize={10} isAnimationActive={false} />
                     <Bar dataKey="xuatAm" stackId="a" fill={MAU2.xuat} radius={[3, 3, 0, 0]} maxBarSize={10} isAnimationActive={false} />
                   </BarChart>
-                </ResponsiveContainer>
+                </KhungBieuDo>
               </div>
             )}
             <div className="mt-1 flex justify-between text-xs text-bo-muted">

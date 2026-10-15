@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Info, LineChart as LineChartIcon, Table2 } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, Tooltip, XAxis, YAxis } from "recharts";
+import KhungBieuDo from "@/components/shared/KhungBieuDo";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Delta, MoreLink } from "./ui";
@@ -157,7 +158,7 @@ export default function TrendCard({ data, loading, error, onRetry }) {
             </div>
           ) : (
             <div className="relative h-[292px] px-3 pb-3 pt-2" role="figure" aria-label={`Biểu đồ cột ${cs.ten.toLowerCase()} theo ${nhom === "thang" ? "tháng" : "ngày"}`}>
-              <ResponsiveContainer width="100%" height="100%">
+              <KhungBieuDo>
                 <BarChart data={chart} margin={{ top: 12, right: 8, bottom: 0, left: 0 }} barCategoryGap="34%" accessibilityLayer>
                   <CartesianGrid vertical={false} stroke={MAU2.luoi} />
                   <XAxis dataKey="nhan" tickLine={false} axisLine={false} tick={{ fill: MAU2.chu, fontSize: 12 }} interval="preserveStartEnd" minTickGap={24} tickMargin={10} />
@@ -170,7 +171,7 @@ export default function TrendCard({ data, loading, error, onRetry }) {
                     ))}
                   </Bar>
                 </BarChart>
-              </ResponsiveContainer>
+              </KhungBieuDo>
             </div>
           )}
         </>

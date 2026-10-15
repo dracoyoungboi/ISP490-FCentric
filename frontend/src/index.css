@@ -68,14 +68,16 @@
 
 /*
  * Logo sidebar: logo đầy đủ và icon F luôn cùng được render, chồng lên nhau và
- * biến hình qua lại quanh tâm chữ F (F trong logo lớn gấp ~1/0.75 lần F của icon),
- * nên chữ F như đứng yên còn phần chữ "Centric" mờ dần.
+ * biến hình qua lại quanh tâm chữ F (logo cao 36px: F trong logo lớn gấp ~1,18 lần
+ * F của icon 32px; tâm F của logo ở 19,8px × 18px, của icon ở 18px × 16px,
+ * hai tâm cách nhau 11px theo chiều ngang), nên chữ F như đứng yên còn phần
+ * chữ "Centric" mờ dần.
  * Ảnh nằm trên (icon) chỉ mờ đi sau khi logo đã gần hiện hẳn, nên chữ F luôn
  * đặc, không bị nhạt ở giữa quá trình mờ chéo. Khi mở rộng, logo hiện trễ một
  * nhịp để chữ "Centric" không bị mép rail còn hẹp cắt ngang.
  */
 .bo-sidebar-logo {
-	transform-origin: 22px 20px;
+	transform-origin: 19.8px 18px;
 	transition:
 		opacity 120ms ease-out 80ms,
 		translate 250ms var(--ease-sidebar),
@@ -85,8 +87,8 @@
 .bo-sidebar-mark {
 	opacity: 0;
 	transform-origin: 18px 16px;
-	translate: 13px 0;
-	scale: 1.3333;
+	translate: 11px 0;
+	scale: 1.18;
 	transition:
 		opacity 150ms ease-out 120ms,
 		translate 250ms var(--ease-sidebar),
@@ -95,8 +97,8 @@
 
 [data-collapsible="icon"] .bo-sidebar-logo {
 	opacity: 0;
-	translate: -13px 0;
-	scale: 0.75;
+	translate: -11px 0;
+	scale: 0.85;
 	transition:
 		opacity 150ms ease-out 50ms,
 		translate 250ms var(--ease-sidebar),
@@ -111,6 +113,47 @@
 		opacity 100ms ease-out,
 		translate 250ms var(--ease-sidebar),
 		scale 250ms var(--ease-sidebar);
+}
+
+/*
+ * Khi thu gọn, rê chuột vào đầu rail (hoặc Tab tới nút) thì chữ F mờ đi, nhường chỗ
+ * cho nút "Mở rộng menu" hiện đúng vị trí đó (BackofficeSidebar.jsx). Focus do bấm
+ * chuột không tính, để sau khi bấm thu gọn chữ F hiện lại ngay.
+ * Máy cảm ứng (không rê chuột được, :hover dính sau khi chạm): nút luôn hiện thay chữ F.
+ */
+[data-collapsible="icon"] .bo-sidebar-head:has(:focus-visible) .bo-sidebar-mark {
+	opacity: 0;
+}
+
+@media (hover: hover) {
+	[data-collapsible="icon"] .bo-sidebar-head:hover .bo-sidebar-mark {
+		opacity: 0;
+	}
+}
+
+@media (hover: none) {
+	[data-collapsible="icon"] .bo-sidebar-mark {
+		opacity: 0;
+	}
+}
+
+/*
+ * Nút thu gọn ở đầu sidebar: màu, nền, độ mờ đổi nhanh (150ms); độ hạ 3,5px khi mở rộng
+ * đổi cùng nhịp độ rộng sidebar để nút trượt liền một đường với mép sidebar.
+ */
+.bo-sidebar-toggle {
+	transition:
+		background-color 150ms ease-out,
+		color 150ms ease-out,
+		opacity 150ms ease-out,
+		scale 150ms ease-out,
+		translate 250ms var(--ease-sidebar);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.bo-sidebar-toggle {
+		transition: none;
+	}
 }
 
 /*

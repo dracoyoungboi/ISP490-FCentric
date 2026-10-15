@@ -76,10 +76,51 @@ const getRailRight = (el) =>
 const isSidebarWidthTransition = (event) =>
   event.target === event.currentTarget && event.propertyName === "width";
 
+// Phím bổ trợ của phím tắt Ctrl + B (thu gọn / mở rộng menu, khai báo ở ui/sidebar.jsx):
+// ⌘ trên máy Mac, Ctrl trên Windows/Linux — cùng cách BackofficeHeader hiện Ctrl + K.
+const PHIM_MOD =
+  typeof navigator !== "undefined" && /Mac|iPhone|iPad/i.test(navigator.platform || "") ? "⌘" : "Ctrl";
+
+// Rê chuột vào nút thu gọn bao lâu thì hiện chú thích (focus bằng bàn phím thì hiện ngay).
+const TOGGLE_TOOLTIP_DELAY = 300;
+
+// Biểu tượng nút thu gọn (vẽ riêng, khung 20×20). Khung ngoài cao 16,6px: cạnh trên chạm
+// đỉnh chữ thường, cạnh dưới chạm chân chữ "Centric" của logo 36px. Cột trái co lại khi
+// rê chuột lúc đang mở rộng, giãn ra lúc đang thu gọn — gợi hướng menu sắp đổi.
+function BieuTuongKhungMenu({ thuGon }) {
+  return (
+    <svg viewBox="0 0 20 20" className="size-5" fill="none" aria-hidden="true">
+      <rect
+        x="1.875"
+        y="2.575"
+        width="16.25"
+        height="14.85"
+        rx="3.25"
+        stroke="currentColor"
+        strokeWidth="1.75"
+      />
+      <rect
+        x="4.25"
+        y="5.25"
+        width="3.25"
+        height="9.5"
+        rx="1.1"
+        fill="currentColor"
+        className={cn(
+          "origin-left transition-transform duration-200 [transform-box:fill-box] motion-reduce:transition-none",
+          thuGon
+            ? "group-hover/tg:scale-x-[1.6] group-focus-visible/tg:scale-x-[1.6]"
+            : "group-hover/tg:scale-x-[0.55] group-focus-visible/tg:scale-x-[0.55]",
+        )}
+      />
+    </svg>
+  );
+}
+
 export default function BackofficeSidebar() {
   const location = useLocation();
   const role = localStorage.getItem("role");
-  const { open, isMobile, setOpenMobile } = useSidebar();
+  const { open, isMobile, setOpenMobile, toggleSidebar } = useSidebar();
 
   const filteredMenu = useMemo(
     () =>
@@ -161,29 +202,51 @@ export default function BackofficeSidebar() {
   // khác là thay thế nguyên tooltip (không có 2 tooltip chồng nhau), và vị trí
   // luôn được tính lại từ rect hiện tại của đúng item đó (viewport coordinates,
   // portal ra document.body + position:fixed — cùng một hệ tọa độ).
-  // railTooltip = { label, description, left, anchorCenterY, top }
+  // railTooltip = { label, description, placement, phimTat, left, anchorCenterY,
+  //                 anchorRight, anchorBottom, top }
+  // placement "right": cạnh phải rail (mục menu khi thu gọn) — mặc định.
+  // placement "bottom": dưới nút, canh mép phải nút (nút thu gọn khi menu đang mở rộng).
+  // phimTat: hiện thêm phím tắt Ctrl B dạng phím.
+  // xuyenChuot: chú thích chỉ để đọc, không giữ chuột — bấm xuyên qua được xuống mục bên dưới.
   const [railTooltip, setRailTooltip] = useState(null);
   const tooltipRef = useRef(null);
   const tooltipTriggerRef = useRef(null);
   const tooltipCloseTimerRef = useRef(null);
+  const tooltipOpenTimerRef = useRef(null);
+  const toggleButtonRef = useRef(null);
+  // Mục đang mang title tên đầy đủ (xem showFullLabelIfTruncated).
+  const titledItemRef = useRef(null);
 
-  const clearTooltipTimer = () => clearTimeout(tooltipCloseTimerRef.current);
+  const clearTooltipTimer = () => {
+    clearTimeout(tooltipCloseTimerRef.current);
+    clearTimeout(tooltipOpenTimerRef.current);
+  };
 
-  const showRailTooltip = (event, label, description) => {
+  const showRailTooltipAt = (element, label, description, tuyChon = {}) => {
     clearTooltipTimer();
-    const rect = event.currentTarget.getBoundingClientRect();
+    const rect = element?.getBoundingClientRect();
     if (!rect) return;
-    tooltipTriggerRef.current = event.currentTarget;
-    // Tính ngay trong handler: updater chạy sau, khi currentTarget đã là null.
-    const left = getRailRight(event.currentTarget) + FLYOUT_GAP;
+    tooltipTriggerRef.current = element;
+    const placement = tuyChon.placement ?? "right";
+    // Tính ngay ở đây: updater chạy sau, khi currentTarget của sự kiện đã là null.
+    const left =
+      placement === "bottom" ? rect.right : getRailRight(element) + FLYOUT_GAP;
     setRailTooltip((current) => ({
       label,
       description,
+      placement,
+      phimTat: Boolean(tuyChon.phimTat),
+      xuyenChuot: Boolean(tuyChon.xuyenChuot),
       left,
       anchorCenterY: rect.top + rect.height / 2,
+      anchorRight: rect.right,
+      anchorBottom: rect.bottom,
       top: current?.top ?? 0,
     }));
   };
+
+  const showRailTooltip = (event, label, description) =>
+    showRailTooltipAt(event.currentTarget, label, description);
 
   const hideRailTooltip = () => {
     clearTooltipTimer();
@@ -196,16 +259,24 @@ export default function BackofficeSidebar() {
   // Căn giữa dọc theo icon đang hover và kẹp trong viewport.
   // Deps là cả object railTooltip: mỗi lần đổi item (object mới) đều tính lại
   // top — sửa lỗi tooltip kẹt ở top:0 khi hover liên tiếp nhiều item.
+  // Chú thích đặt dưới nút: canh mép phải với nút, không tràn mép trái màn hình.
   useLayoutEffect(() => {
     if (!railTooltip || !tooltipRef.current) return;
-    const height = tooltipRef.current.getBoundingClientRect().height;
-    const top = Math.min(
-      Math.max(railTooltip.anchorCenterY - height / 2, FLYOUT_VIEWPORT_MARGIN),
-      window.innerHeight - height - FLYOUT_VIEWPORT_MARGIN,
-    );
-    setRailTooltip((current) =>
-      current && top === current.top ? current : { ...current, top },
-    );
+    const { width, height } = tooltipRef.current.getBoundingClientRect();
+    const isBottom = railTooltip.placement === "bottom";
+    const top = isBottom
+      ? railTooltip.anchorBottom + FLYOUT_GAP
+      : Math.min(
+          Math.max(railTooltip.anchorCenterY - height / 2, FLYOUT_VIEWPORT_MARGIN),
+          window.innerHeight - height - FLYOUT_VIEWPORT_MARGIN,
+        );
+    const bottomLeft = Math.max(railTooltip.anchorRight - width, FLYOUT_VIEWPORT_MARGIN);
+    setRailTooltip((current) => {
+      if (!current) return current;
+      const left = isBottom ? bottomLeft : current.left;
+      if (top === current.top && left === current.left) return current;
+      return { ...current, top, left };
+    });
   }, [railTooltip]);
 
   // Resize hoặc rail vừa co xong (tooltip mở khi đang chuyển động): neo lại
@@ -216,15 +287,17 @@ export default function BackofficeSidebar() {
       const trigger = tooltipTriggerRef.current;
       if (!trigger) return;
       const rect = trigger.getBoundingClientRect();
-      setRailTooltip((current) =>
-        current
-          ? {
-              ...current,
-              left: getRailRight(trigger) + FLYOUT_GAP,
-              anchorCenterY: rect.top + rect.height / 2,
-            }
-          : null,
-      );
+      setRailTooltip((current) => {
+        if (!current) return null;
+        if (current.placement === "bottom") {
+          return { ...current, anchorRight: rect.right, anchorBottom: rect.bottom };
+        }
+        return {
+          ...current,
+          left: getRailRight(trigger) + FLYOUT_GAP,
+          anchorCenterY: rect.top + rect.height / 2,
+        };
+      });
     };
     const handleTransitionEnd = (event) => {
       if (isSidebarWidthTransition(event)) handleResize();
@@ -264,6 +337,27 @@ export default function BackofficeSidebar() {
     setTooltipContext({ pathname: location.pathname, expanded: isExpanded });
     if (railTooltip !== null) setRailTooltip(null);
   }
+
+  // Thu gọn / mở rộng (kể cả bằng Ctrl + B) khi chú thích của nút thu gọn đang chờ hiện:
+  // hủy lượt chờ, tránh hiện chú thích cũ ở vị trí nút cũ. Đồng thời gỡ title tên đầy đủ
+  // của mục đang rê chuột, để khi thu gọn không hiện chồng với chú thích của rail.
+  useEffect(
+    () => () => {
+      clearTimeout(tooltipOpenTimerRef.current);
+      titledItemRef.current?.removeAttribute("title");
+      titledItemRef.current = null;
+    },
+    [isExpanded],
+  );
+
+  // Thu gọn (Ctrl + B) khi logo đang được focus bằng bàn phím: logo thành ảnh (không focus
+  // được nữa), nên chuyển focus sang nút mở rộng ở đúng chỗ đó để không mất focus.
+  useEffect(() => {
+    if (isExpanded) return;
+    const button = toggleButtonRef.current;
+    const active = document.activeElement;
+    if (button && active !== button && active?.closest(".bo-sidebar-head")) button.focus();
+  }, [isExpanded]);
 
   // Đóng flyout khi sidebar mở rộng trở lại hoặc khi route thay đổi —
   // điều chỉnh trong render (giống pattern của menuState) để tránh render thừa.
@@ -455,6 +549,53 @@ export default function BackofficeSidebar() {
     if (isMobile) setOpenMobile(false);
   };
 
+  // ---- Nút thu gọn ở đầu sidebar ----
+  // Chỉ máy tính; trên điện thoại menu là ngăn kéo, mở bằng nút ở thanh trên.
+  const showToggleButton = !isMobile;
+  const toggleLabel = isExpanded ? "Thu gọn menu" : "Mở rộng menu";
+
+  const showToggleTooltip = (element) =>
+    showRailTooltipAt(element, toggleLabel, undefined, {
+      placement: isExpanded ? "bottom" : "right",
+      phimTat: true,
+      // Chú thích nằm đè lên mục "Tổng quan" / ô tìm kiếm: không được chặn cú bấm.
+      xuyenChuot: true,
+    });
+
+  const scheduleToggleTooltip = (event) => {
+    const element = event.currentTarget;
+    // Đang có chú thích của mục khác: đổi ngay sang chú thích của nút (như tooltip thường).
+    if (railTooltip) {
+      showToggleTooltip(element);
+      return;
+    }
+    // Chỉ hủy lượt chờ hiện; lượt đóng của chú thích trước (nếu có) vẫn chạy đúng giờ.
+    clearTimeout(tooltipOpenTimerRef.current);
+    tooltipOpenTimerRef.current = setTimeout(
+      () => showToggleTooltip(element),
+      TOGGLE_TOOLTIP_DELAY,
+    );
+  };
+
+  // Nhãn bị cắt (vd "Danh mục & sản p…") hiện tên đầy đủ khi rê chuột, qua title của mục.
+  // Chỉ gắn khi đang mở rộng và chữ thật sự bị cắt; khi thu gọn đã có chú thích riêng.
+  const showFullLabelIfTruncated = (event) => {
+    const element = event.currentTarget;
+    const label = element.matches("[data-nhan]") ? element : element.querySelector("[data-nhan]");
+    if (isExpanded && label && label.scrollWidth > label.clientWidth + 1) {
+      element.title = label.textContent;
+      titledItemRef.current = element;
+    } else {
+      element.removeAttribute("title");
+    }
+  };
+
+  const handleToggleClick = () => {
+    clearTooltipTimer();
+    setRailTooltip(null);
+    toggleSidebar();
+  };
+
   // Mục cha chỉ còn một đích đến: khi thu gọn, link phủ thay chỗ nút (và ngược
   // lại khi mở rộng) — chuyển focus theo để Ctrl+B không làm mất focus bàn phím.
   // Gắn vào span bọc ngoài (không phải NavLink: NavLink gộp ref thành hàm mới mỗi
@@ -504,6 +645,7 @@ export default function BackofficeSidebar() {
           <SidebarMenuButton
             asChild
             className={MENU_BUTTON_LAYOUT}
+            onPointerEnter={showFullLabelIfTruncated}
             {...directLinkTooltipProps}
           >
             <NavLink
@@ -518,7 +660,7 @@ export default function BackofficeSidebar() {
               }
             >
               <Icon className="size-[18px]" />
-              <span className={cn("truncate", SIDEBAR_FADE)}>{item.label}</span>
+              <span data-nhan className={cn("truncate", SIDEBAR_FADE)}>{item.label}</span>
               {item.badge ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -605,11 +747,12 @@ export default function BackofficeSidebar() {
                 : undefined
             }
             onPointerOut={opensFlyout && canHover ? scheduleFlyoutClose : undefined}
+            onPointerEnter={showFullLabelIfTruncated}
             onClick={handleGroupClick}
             className={cn(MENU_BUTTON_LAYOUT, buttonTone)}
           >
             <Icon className="size-[18px]" />
-            <span className={cn("truncate", SIDEBAR_FADE)}>{item.label}</span>
+            <span data-nhan className={cn("truncate", SIDEBAR_FADE)}>{item.label}</span>
             <span aria-hidden="true" className={cn("ml-auto flex shrink-0", SIDEBAR_FADE)}>
               <ChevronDown className="size-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
             </span>
@@ -645,6 +788,8 @@ export default function BackofficeSidebar() {
                   key={child.to}
                   to={child.to}
                   onClick={handleNavigate}
+                  data-nhan
+                  onPointerEnter={showFullLabelIfTruncated}
                   className={({ isActive }) =>
                     `block truncate rounded-md px-3 py-2 text-[13px] leading-5 transition-colors ${
                       isNavItemActive(child, isActive, location.pathname)
@@ -674,37 +819,75 @@ export default function BackofficeSidebar() {
         collapsible="icon"
         className="z-50 border-r border-bo-sidebar-border bg-bo-sidebar text-white"
       >
-        <SidebarHeader className="h-[72px] justify-center overflow-hidden border-b border-bo-sidebar-border bg-bo-sidebar px-3">
-          {/* Logo đầy đủ + icon F chồng lên nhau, biến hình qua lại bằng CSS
+        {/* Cao 57px = thanh trên (h-14 + viền dưới 1px), nên hai đường kẻ ngang thẳng hàng. */}
+        <SidebarHeader className="bo-sidebar-head group/head relative h-[57px] flex-row items-center overflow-hidden border-b border-bo-sidebar-border bg-bo-sidebar px-3">
+          {/* Logo đầy đủ (cao 36px) + icon F chồng lên nhau, biến hình qua lại bằng CSS
               (.bo-sidebar-logo / .bo-sidebar-mark trong index.css). Tâm chữ F
-              nằm ở 32px — trùng tâm rail và cột icon menu. */}
+              nằm ở 32px — trùng tâm rail và cột icon menu. Khi thu gọn, logo chỉ
+              để nhìn: nút mở rộng hiện chồng lên chữ F khi rê chuột / Tab tới. */}
           <NavLink
             to="/dashboard"
             onClick={handleNavigate}
             aria-label="FCentric — Trang tổng quan"
-            className="relative block h-10 w-full shrink-0 rounded-md outline-hidden ring-sidebar-ring focus-visible:ring-2"
-            {...(isExpanded
-              ? {}
-              : {
-                  onPointerOver: (event) => showRailTooltip(event, "FCentric"),
-                  onPointerOut: hideRailTooltip,
-                  onFocus: (event) => showRailTooltip(event, "FCentric"),
-                  onBlur: hideRailTooltip,
-                })}
+            tabIndex={isExpanded ? undefined : -1}
+            aria-hidden={isExpanded ? undefined : true}
+            className={cn(
+              "relative block h-9 min-w-0 flex-1 rounded-md outline-hidden ring-sidebar-ring focus-visible:ring-2",
+              // Chừa chỗ cho nút thu gọn (28px + 5px) nằm đè ở mép phải đầu sidebar.
+              showToggleButton && "mr-[33px]",
+              !isExpanded && "pointer-events-none",
+            )}
           >
             <img
               src="/branding/f-centric-logo.svg"
               alt=""
-              className="bo-sidebar-logo absolute left-[11px] top-0 h-10 w-auto max-w-none"
+              className="bo-sidebar-logo absolute left-[11px] top-0 h-9 w-auto max-w-none"
               draggable={false}
             />
             <img
               src="/branding/f-centric-icon.svg"
               alt=""
-              className="bo-sidebar-mark absolute left-0.5 top-1 h-8 w-auto max-w-none"
+              className="bo-sidebar-mark absolute left-0.5 top-0.5 h-8 w-auto max-w-none"
               draggable={false}
             />
           </NavLink>
+
+          {/* Nút thu gọn / mở rộng menu (mẫu "Khung mảnh"). Luôn neo cách mép phải 17px
+              (12px lề + 5px): khi mở rộng tâm trùng cột mũi tên của menu (x = 208px), khi
+              thu gọn tâm trùng chữ F giữa rail 64px (x = 32px). Nhờ vậy lúc thu / mở, nút
+              trượt theo mép sidebar thay vì nhảy chỗ. Khi mở rộng hạ thêm 3,5px để tâm nằm
+              giữa dải chữ thường của logo (chuyển động ở .bo-sidebar-toggle, index.css).
+              Khi thu gọn chỉ hiện khi rê chuột vào đầu rail hoặc Tab tới (focus bằng chuột
+              thì không giữ nút hiện); máy cảm ứng không rê chuột được nên nút luôn hiện. */}
+          {showToggleButton ? (
+            <button
+              ref={toggleButtonRef}
+              type="button"
+              onClick={handleToggleClick}
+              aria-label={toggleLabel}
+              aria-expanded={isExpanded}
+              aria-controls="backoffice-navigation"
+              aria-keyshortcuts={PHIM_MOD === "⌘" ? "Meta+B" : "Control+B"}
+              onPointerEnter={scheduleToggleTooltip}
+              onPointerLeave={hideRailTooltip}
+              onFocus={(event) => {
+                if (event.currentTarget.matches(":focus-visible")) {
+                  showToggleTooltip(event.currentTarget);
+                }
+              }}
+              onBlur={hideRailTooltip}
+              className={cn(
+                "bo-sidebar-toggle group/tg absolute right-[17px] top-1/2 grid size-7 place-items-center rounded-lg text-white/80 outline-hidden",
+                "hover:bg-white/8 hover:text-white active:scale-94 active:bg-white/12",
+                "focus-visible:ring-2 focus-visible:ring-blue-300",
+                isExpanded
+                  ? "translate-y-[calc(-50%+3.5px)]"
+                  : "-translate-y-1/2 opacity-0 group-hover/head:opacity-100 group-has-[:focus-visible]/head:opacity-100 [@media(hover:none)]:opacity-100",
+              )}
+            >
+              <BieuTuongKhungMenu thuGon={!isExpanded} />
+            </button>
+          ) : null}
         </SidebarHeader>
 
         <SidebarContent className="bo-sidebar-scroll bg-bo-sidebar px-3 py-3">
@@ -830,21 +1013,48 @@ export default function BackofficeSidebar() {
           )
         : null}
 
-      {!isExpanded && railTooltip
+      {railTooltip && (!isExpanded || railTooltip.placement === "bottom")
         ? createPortal(
             <div
               ref={tooltipRef}
               role="tooltip"
-              className="fixed z-[80] max-w-56 rounded-md border border-bo-sidebar-border bg-bo-sidebar px-2.5 py-1.5 text-xs font-medium leading-5 text-white shadow-[0_8px_24px_rgba(2,8,20,0.45)]"
+              className={cn(
+                "fixed z-[80] max-w-56 rounded-md border border-bo-sidebar-border bg-bo-sidebar px-2.5 py-1.5 text-xs font-medium leading-5 text-white shadow-[0_8px_24px_rgba(2,8,20,0.45)]",
+                railTooltip.xuyenChuot && "pointer-events-none",
+              )}
               style={{ left: railTooltip.left, top: railTooltip.top }}
-              onPointerOver={keepTooltipOpen}
-              onPointerOut={hideRailTooltip}
+              onPointerOver={railTooltip.xuyenChuot ? undefined : keepTooltipOpen}
+              onPointerOut={railTooltip.xuyenChuot ? undefined : hideRailTooltip}
             >
-              <div
-                aria-hidden="true"
-                className="absolute -left-[5px] top-1/2 size-2.5 -translate-y-1/2 rotate-45 rounded-[1px] border-b border-l border-bo-sidebar-border bg-bo-sidebar"
-              />
-              <span className="block">{railTooltip.label}</span>
+              {railTooltip.placement === "bottom" ? (
+                // Mũi tên ở cạnh trên, chỉ vào giữa nút 28px (tooltip canh mép phải với nút).
+                <div
+                  aria-hidden="true"
+                  className="absolute -top-[5px] right-[9px] size-2.5 rotate-45 rounded-[1px] border-l border-t border-bo-sidebar-border bg-bo-sidebar"
+                />
+              ) : (
+                <div
+                  aria-hidden="true"
+                  className="absolute -left-[5px] top-1/2 size-2.5 -translate-y-1/2 rotate-45 rounded-[1px] border-b border-l border-bo-sidebar-border bg-bo-sidebar"
+                />
+              )}
+              {railTooltip.phimTat ? (
+                <span className="flex items-center gap-2 whitespace-nowrap">
+                  {railTooltip.label}
+                  <span className="flex gap-0.5" aria-hidden="true">
+                    {[PHIM_MOD, "B"].map((phim) => (
+                      <kbd
+                        key={phim}
+                        className="min-w-[18px] rounded border border-white/15 bg-white/10 px-1 text-center font-sans text-[11px] font-semibold leading-4 text-slate-300"
+                      >
+                        {phim}
+                      </kbd>
+                    ))}
+                  </span>
+                </span>
+              ) : (
+                <span className="block">{railTooltip.label}</span>
+              )}
               {railTooltip.description ? (
                 <span className="mt-0.5 block text-[10px] font-normal leading-4 text-amber-300">
                   {railTooltip.description}

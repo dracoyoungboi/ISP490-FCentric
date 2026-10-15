@@ -78,22 +78,26 @@ export default function BackofficeHeader() {
     <header className="sticky top-0 z-40 shrink-0 border-b border-bo-border bg-bo-surface">
       <div className="flex h-14 items-center justify-between gap-3 px-3 sm:px-4 lg:px-5">
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            type="button"
-            onClick={toggleSidebar}
-            aria-label={sidebarOpen ? "Thu gọn menu" : "Mở menu"}
-            aria-expanded={sidebarOpen}
-            aria-controls="backoffice-navigation"
-            className="shrink-0 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
-          >
-            {sidebarOpen ? (
-              <PanelLeftClose className="size-5" />
-            ) : (
-              <PanelLeftOpen className="size-5" />
-            )}
-          </Button>
+          {/* Nút mở menu chỉ còn trên điện thoại (menu là ngăn kéo).
+              Trên máy tính, nút thu gọn nằm ở đầu sidebar, cạnh logo (BackofficeSidebar.jsx). */}
+          {isMobile ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              type="button"
+              onClick={toggleSidebar}
+              aria-label={sidebarOpen ? "Thu gọn menu" : "Mở menu"}
+              aria-expanded={sidebarOpen}
+              aria-controls="backoffice-navigation"
+              className="shrink-0 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+            >
+              {sidebarOpen ? (
+                <PanelLeftClose className="size-5" />
+              ) : (
+                <PanelLeftOpen className="size-5" />
+              )}
+            </Button>
+          ) : null}
 
           {/* Tìm kiếm toàn hệ thống thay cho breadcrumb; tên trang nằm ở hàng tiêu đề trong trang */}
           <GlobalSearch

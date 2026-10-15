@@ -213,10 +213,13 @@ export default function App() {
           <Route path="/stock-take/new" element={<StockTakeCreate />} />
           <Route path="/stock-take/:id" element={<StockTakeCreate />} /> {/* Để hoàn thành kiểm kê */}
 
-          {/* Báo cáo */}
-          <Route path="/reports/revenue" element={<BaoCaoDoanhThu />} />
-          <Route path="/reports/customers" element={<KhachHangReport />} />
-          <Route path="/reports/stock-movements" element={<NhatKyNhapXuat />} />
+          {/* Báo cáo. Doanh thu, khách hàng, nhập xuất: API chỉ cho quản trị viên và
+              quản lý kho (@RequireAuth ở backend), menu cũng chỉ hiện cho hai vai trò này. */}
+          <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />}>
+            <Route path="/reports/revenue" element={<BaoCaoDoanhThu />} />
+            <Route path="/reports/customers" element={<KhachHangReport />} />
+            <Route path="/reports/stock-movements" element={<NhatKyNhapXuat />} />
+          </Route>
           <Route path="/reports/inventory" element={<TonKhoTongQuan />} />
           {/* Legacy: URL tiếng Việt cũ chuyển hướng sang URL mới */}
           <Route path="/bao-cao/doanh-thu" element={<Navigate to="/reports/revenue" replace />} />

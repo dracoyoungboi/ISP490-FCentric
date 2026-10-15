@@ -4,11 +4,11 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
   ComposedChart,
   Bar,
   Line,
 } from "recharts";
+import KhungBieuDo from "@/components/shared/KhungBieuDo";
 
 import {
   Users,
@@ -445,7 +445,7 @@ export default function KhachHangReport() {
           {loading && data.length === 0 ? (
             <LoadingState rows={4} label="Đang tải biểu đồ khách hàng" />
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
+            <KhungBieuDo>
 
               <ComposedChart data={data}>
 
@@ -496,7 +496,7 @@ export default function KhachHangReport() {
 
               </ComposedChart>
 
-            </ResponsiveContainer>
+            </KhungBieuDo>
           )}
         </SurfaceCard>
       )}

@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   ComposedChart, Bar, Line, XAxis, YAxis,
-  CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart,
+  CartesianGrid, Tooltip, Area, AreaChart,
 } from "recharts";
+import KhungBieuDo from "@/components/shared/KhungBieuDo";
 import { Search, RefreshCw, BarChart2, Calendar } from "lucide-react";
 import PageContainer from "@/components/backoffice/PageContainer";
 import SurfaceCard from "@/components/shared/SurfaceCard";
@@ -121,7 +122,7 @@ function ONhan({ label, icon, children }) {
 function MiniSparkline({ data, dataKey, color }) {
   if (!data?.length) return null;
   return (
-    <ResponsiveContainer width="100%" height={52}>
+    <KhungBieuDo height={52}>
       <AreaChart data={data} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id={`sparkGrad_${dataKey}`} x1="0" y1="0" x2="0" y2="1">
@@ -131,7 +132,7 @@ function MiniSparkline({ data, dataKey, color }) {
         </defs>
         <Area type="monotone" dataKey={dataKey} stroke={color} strokeWidth={2} fill={`url(#sparkGrad_${dataKey})`} dot={false} />
       </AreaChart>
-    </ResponsiveContainer>
+    </KhungBieuDo>
   );
 }
 
@@ -409,7 +410,7 @@ export default function NhatKyNhapXuat() {
             {loading && chartData.length === 0 ? (
               <LoadingState rows={4} label="Đang tải biểu đồ nhập xuất" />
             ) : (
-              <ResponsiveContainer width="100%" height={360}>
+              <KhungBieuDo height={360}>
                 <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="gradNhap" x1="0" y1="0" x2="0" y2="1">
@@ -430,7 +431,7 @@ export default function NhatKyNhapXuat() {
                   <Line dataKey="chenhLech" name="Chênh lệch" stroke={CHART_COLORS.chenhLech} strokeWidth={2.5}
                     dot={{ r: 3, fill: CHART_COLORS.chenhLech, strokeWidth: 0 }} activeDot={{ r: 5 }} />
                 </ComposedChart>
-              </ResponsiveContainer>
+              </KhungBieuDo>
             )}
           </SurfaceCard>
 
