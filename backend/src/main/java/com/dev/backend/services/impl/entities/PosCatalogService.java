@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
 
 /**
  * Catalog POS (chỉ đọc). Mỗi phần tử là một SKU đang bán được của KHO ĐƯỢC ỦY QUYỀN:
- * - Kho được kiểm tra server-side bằng đúng pattern PhieuXuatKhoService.createFromSO
+ * - Kho được kiểm tra server-side bằng đúng pattern PhieuXuatKhoService.kiemTraQuyenKho
  *   (admin bỏ qua; người khác phải có phân quyền kho active + chưa hết hạn).
  * - Tồn khả dụng = SUM(ton - dat) theo lô của ĐÚNG kho truy vấn (trong JPQL), không phải
  *   tồn toàn hệ thống; không có lô nào -> 0 (dữ liệu đã biết, không bịa).
@@ -200,7 +200,7 @@ public class PosCatalogService {
     }
 
     /**
-     * Kiểm tra quyền kho server-side (pattern PhieuXuatKhoService.createFromSO).
+     * Kiểm tra quyền kho server-side (pattern PhieuXuatKhoService.kiemTraQuyenKho).
      * Admin được mọi kho; người khác phải có phân quyền active và chưa hết hạn.
      * Public để luồng checkout POS tái sử dụng đúng một cơ chế ủy quyền kho.
      */

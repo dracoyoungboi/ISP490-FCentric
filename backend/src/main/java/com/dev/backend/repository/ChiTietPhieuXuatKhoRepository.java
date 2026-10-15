@@ -93,6 +93,25 @@ public interface ChiTietPhieuXuatKhoRepository extends JpaRepository<ChiTietPhie
             @Param("trangThais") List<Integer> trangThais
     );
 
+    /**
+     * Lượng đang giữ theo lô bởi dòng lô của phiếu xuất BÁN HÀNG chưa xuất (0 Nháp / 6 Chờ xuất) ở một kho,
+     * bỏ qua một phiếu (phiếu đang sửa lô của chính nó). Trả về [loHangId, tổng số lượng].
+     */
+    @Query("""
+        SELECT ct.loHang.id, SUM(ct.soLuongXuat)
+        FROM ChiTietPhieuXuatKho ct
+        JOIN ct.phieuXuatKho p
+        WHERE p.kho.id = :khoId
+          AND p.loaiXuat = 'ban_hang'
+          AND p.trangThai IN (0, 6)
+          AND ct.loHang.id IN :loHangIds
+          AND (:boQuaPhieuXuatId IS NULL OR p.id <> :boQuaPhieuXuatId)
+        GROUP BY ct.loHang.id
+    """)
+    List<Object[]> sumDangGiuPhieuBanChuaXuat(@Param("khoId") Integer khoId,
+                                              @Param("loHangIds") java.util.Collection<Integer> loHangIds,
+                                              @Param("boQuaPhieuXuatId") Integer boQuaPhieuXuatId);
+
     @Query("SELECT SUM(ct.soLuongXuat) FROM ChiTietPhieuXuatKho ct " +
             "JOIN ct.phieuXuatKho p " +
             "WHERE p.donBanHang.id = :donBanHangId " +

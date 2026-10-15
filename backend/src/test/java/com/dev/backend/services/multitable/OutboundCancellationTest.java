@@ -39,6 +39,8 @@ class OutboundCancellationTest {
     @Mock private CanhBaoRepository canhBaoRepository;
     @Mock private OutboundWebSocketHandler outboundWebSocketHandler;
     @Mock private org.springframework.context.ApplicationEventPublisher eventPublisher;
+    @Mock private PhanBoLoNhatHangRepository phanBoLoNhatHangRepository;
+    @Mock private TonKhoTheoLoRepository tonKhoTheoLoRepository;
 
     @InjectMocks
     private NhatHangServiceImpl nhatHangService;
@@ -110,6 +112,31 @@ class OutboundCancellationTest {
         when(chiTietNhatHangRepository.findByDanhSachNhatHang_Id(1)).thenReturn(new ArrayList<>(List.of(chiTietNhat)));
         when(chiTietNhatHangRepository.findByDanhSachNhatHangIdWithLockOrderByIdAsc(1)).thenReturn(new ArrayList<>(List.of(chiTietNhat)));
         when(donBanHangRepository.findByDanhSachNhatHang_Id(1)).thenReturn(List.of(donA, donB));
+    }
+
+    /**
+     * E1 (Log 2): đơn A (5) bị hủy khi phiếu nhặt còn mở → số cần nhặt 11 → 6, phân bổ lô cắt từ lô MỚI NHẤT:
+     * L1 (nhập 01/10) × 4 + L2 (nhập 08/10) × 7 → L1 × 4 + L2 × 2 (L2 bớt 5); lô cắt hết thì xóa dòng phân bổ.
+     */
+    @Test
+    void truongHop1_dangNhat_donABiHuy_catPhanBoLoTuLoMoiNhat() {
+        LoHang l1 = LoHang.builder().id(1).maLo("L1").bienTheSanPham(bienTheX).build();
+        LoHang l2 = LoHang.builder().id(2).maLo("L2").bienTheSanPham(bienTheX).build();
+        PhanBoLoNhatHang pb1 = PhanBoLoNhatHang.builder().id(51).chiTietNhatHang(chiTietNhat).loHang(l1).soLuong(BigDecimal.valueOf(4)).build();
+        PhanBoLoNhatHang pb2 = PhanBoLoNhatHang.builder().id(52).chiTietNhatHang(chiTietNhat).loHang(l2).soLuong(BigDecimal.valueOf(7)).build();
+        when(phanBoLoNhatHangRepository.findByChiTietId(10)).thenReturn(List.of(pb2, pb1));
+        when(tonKhoTheoLoRepository.findByKho_IdAndLoHang_IdIn(eq(1), any())).thenReturn(List.of(
+                TonKhoTheoLo.builder().loHang(l1).ngayNhapGanNhat(java.time.Instant.parse("2026-10-01T00:00:00Z")).build(),
+                TonKhoTheoLo.builder().loHang(l2).ngayNhapGanNhat(java.time.Instant.parse("2026-10-08T00:00:00Z")).build()));
+        donA.setTrangThai(ITrangThaiDonBanHang.DA_HUY);
+
+        nhatHangService.xuLyDonBiHuyTrongPickList(donA);
+
+        assertEquals(BigDecimal.valueOf(6), chiTietNhat.getSoLuongCanNhat());
+        assertEquals(0, BigDecimal.valueOf(4).compareTo(pb1.getSoLuong()), "lô cũ nhất giữ nguyên");
+        assertEquals(0, BigDecimal.valueOf(2).compareTo(pb2.getSoLuong()), "lô mới nhất bị cắt 5");
+        verify(phanBoLoNhatHangRepository).save(pb2);
+        verify(phanBoLoNhatHangRepository, never()).delete(any());
     }
 
     /**

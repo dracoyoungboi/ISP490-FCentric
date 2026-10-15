@@ -208,7 +208,7 @@ public class DongGoiServiceImpl implements DongGoiService {
         // Chỉ phiếu xuất bị hủy (kho hủy tay): đơn vẫn còn hiệu lực, cần phiếu xuất mới — không phải hàng của đơn đã hủy
         if (Integer.valueOf(ITrangThaiPhieuXuat.DA_HUY).equals(phieu.getTrangThai())) {
             String canhBao = "Phiếu xuất " + phieu.getSoPhieuXuat() + " đã bị hủy nên đã khóa đóng gói. Đơn "
-                    + don.getSoDonHang() + " vẫn còn hiệu lực — tạo phiếu xuất mới từ màn đơn bán hàng để đóng gói lại.";
+                    + don.getSoDonHang() + " vẫn còn hiệu lực — bấm Tạo lại phiếu xuất ở màn đơn bán hàng để đóng gói lại.";
             throw new CommonException(canhBao, HttpStatus.CONFLICT, taoPhien(don, phieu, null, null, canhBao));
         }
         Integer tt = phieu.getTrangThai();

@@ -46,6 +46,17 @@ public interface NhatHangService {
     DanhSachNhatHangDto hoanTatNhatHang(Integer pickListId);
 
     /**
+     * Các lô có thể phân bổ cho một dòng phiếu nhặt, sắp FIFO; số còn lại đã trừ phần phiếu nhặt / phiếu xuất khác giữ.
+     */
+    java.util.List<com.dev.backend.dto.response.customize.LoKhaDungNhatHangDto> getLoKhaDungChoDong(Integer pickListId, Integer chiTietId);
+
+    /**
+     * Lưu phân bổ lô (sửa tay) cho một dòng phiếu nhặt đang mở: tổng phải bằng số cần nhặt, mỗi lô không vượt phần
+     * còn lại; chỉ người được giao nhặt hoặc quản lý kho / quản trị viên.
+     */
+    DanhSachNhatHangDto luuPhanBoLo(Integer pickListId, Integer chiTietId, com.dev.backend.dto.request.PhanBoLoNhatHangRequest request);
+
+    /**
      * Xử lý ngoại lệ chuẩn đề xuất PM: Đơn bán hàng bị hủy trong đợt nhặt hàng
      * - Case 1: Nếu phiếu nhặt đang 'cho_nhat' hoặc 'dang_nhat': Tự động giảm trừ số lượng cần nhặt,
      *   bắn WebSocket thông báo tức thì đến màn hình Pick UI để picker không nhặt thừa hoặc chuyển hàng vào khay Put-back.

@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import { donBanHangService } from "@/services/donBanHangService";
 import { donBanHangKenhService, isChannelOrderMock } from "@/services/donBanHangKenhService";
+import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
 import apiClient from "@/services/apiClient";
 import { laKhoAo } from "@/utils/kho";
 import { toast } from "sonner";
@@ -55,8 +56,6 @@ function parseRoles(vaiTro) {
 // ── Trạng thái: dùng chung tên với danh sách và hóa đơn in (constants/donBanHang) ──
 const STATUS_MAP = DON_BAN_HANG_STATUS;
 
-/** Phiếu nhặt chưa nhặt xong: phiếu xuất được tạo tự động khi hoàn tất nhặt, không tạo tay (khớp PhieuXuatKhoService.createFromSO). */
-const PHIEU_NHAT_CHUA_XONG = ["cho_nhat", "dang_nhat"];
 /** Đơn đã gom vào phiếu nhặt (kể cả đã nhặt xong) không hủy được (khớp DonBanHangService.cancel). */
 const PHIEU_NHAT_KHOA_HUY = ["cho_nhat", "dang_nhat", "da_nhat"];
 
@@ -72,6 +71,7 @@ export default function DonBanHangDetail() {
   // Hộp xác nhận "Hủy đơn" / "Xác nhận đã giao": null | "huy" | "da-giao"
   const [xacNhan, setXacNhan] = useState(null);
   const [dangXuLy, setDangXuLy] = useState(false);
+  const [taoLaiDangChay, setTaoLaiDangChay] = useState(false);
 
   // State quản lý hiển thị Modal hoàn trả
   const [showReturnModal, setShowReturnModal] = useState(false);
@@ -140,6 +140,24 @@ export default function DonBanHangDetail() {
     }
     catch (error) { toast.error(getApiErrorMessage(error, "Không thể xác nhận giao hàng")); }
     finally { setDangXuLy(false); setXacNhan(null); }
+  }
+
+  // Đơn đã nhặt xong mà phiếu xuất bị hủy: tạo phiếu mới chép lô của phiếu cũ, rồi mở phiếu để đóng gói lại
+  async function handleTaoLaiPhieuXuat() {
+    if (taoLaiDangChay) return;
+    setTaoLaiDangChay(true);
+    try {
+      const res = await phieuXuatKhoService.taoLaiTheoDon(id);
+      const ketQua = res?.data;
+      if (ketQua?.canSuaLo?.length) toast.warning(res?.message);
+      else toast.success(res?.message || "Đã tạo lại phiếu xuất");
+      if (ketQua?.phieuXuatKhoId) navigate(`/goods-issues/${ketQua.phieuXuatKhoId}`);
+      else fetchDetail();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Không tạo lại được phiếu xuất"));
+    } finally {
+      setTaoLaiDangChay(false);
+    }
   }
 
   const handleOpenSendWarehouseModal = async () => {
@@ -277,7 +295,6 @@ export default function DonBanHangDetail() {
   const maKenh = donBanHang.kenhBanHang?.maKenh;
   const orderFlags = parseFlags(donBanHang.canXuLy);
   const canSendToWarehouse = donBanHang.trangThai === 0 && !isChannelOrder;
-  const phieuNhatChuaXong = PHIEU_NHAT_CHUA_XONG.includes(trangThaiPhieuNhat);
   // Đơn đã có phiếu xuất hoàn thành (vd. đã xuất một phần) thì backend không cho hủy
   const coPhieuDaXuat = (phieuXuatKhoList ?? []).some((px) => px.trangThai === TRANG_THAI_PHIEU_XUAT.DA_XUAT);
   const canCancel = donBanHang.trangThai < 3 && !isChannelOrder
@@ -405,23 +422,25 @@ export default function DonBanHangDetail() {
             </Button>
           )}
 
-          {/* Nút Tạo Phiếu Xuất Kho cho role KHO (đơn không nằm trong phiếu nhặt đang chạy) */}
-          {isKhoRole && (donBanHang.trangThai === 1 || donBanHang.trangThai === 2) && !phieuNhatChuaXong && (
+          {/* Phiếu xuất bán hàng sinh khi hoàn tất nhặt; đơn đã nhặt xong mà phiếu xuất bị hủy → tạo lại (chép lô phiếu cũ) */}
+          {canWarehouseAct && (donBanHang.trangThai === 1 || donBanHang.trangThai === 2) && trangThaiPhieuNhat === "da_nhat" && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span>
                     <Button
-                      onClick={() => navigate(`/goods-issues/create?soId=${id}`)}
-                      disabled={isFullyExported || loading}
+                      onClick={handleTaoLaiPhieuXuat}
+                      disabled={isFullyExported || loading || taoLaiDangChay}
                       className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <ArrowRightLeft className="size-4" /> Tạo phiếu xuất kho
+                      <ArrowRightLeft className="size-4" /> Tạo lại phiếu xuất
                     </Button>
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>{isFullyExported ? "Đơn hàng đã được xuất kho toàn bộ" : "Tạo phiếu xuất kho cho đơn hàng này"}</p>
+                  <p>{isFullyExported
+                    ? "Đơn hàng đã được xuất kho toàn bộ"
+                    : "Phiếu xuất trước đã bị hủy: tạo phiếu mới, dùng lại lô đã nhặt, rồi đóng gói lại"}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

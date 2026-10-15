@@ -14,6 +14,7 @@ import com.dev.backend.dto.request.XacNhanXuatKhoRequest;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.PhieuXuatKhoViewDto;
 import com.dev.backend.dto.response.customize.PickedLotDto;
+import com.dev.backend.dto.response.customize.TaoLaiPhieuXuatDto;
 import com.dev.backend.dto.response.customize.XacNhanXuatKhoResponse;
 import com.dev.backend.dto.response.entities.ChiTietPhieuNhapKhoResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -65,6 +66,28 @@ public class PhieuXuatKhoController {
                 "id", phieu.getId(),
                 "soPhieuXuat", phieu.getSoPhieuXuat()
         );
+    }
+
+    @PostMapping("/tao-lai-theo-don/{donBanHangId}")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
+            inWarehouse = true,
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    @Operation(
+            summary = "Tạo lại phiếu xuất cho đơn đã nhặt xong mà phiếu xuất bị hủy",
+            description = "Phiếu Nháp mới gồm phần còn phải xuất, chép lô của phiếu vừa hủy; canSuaLo liệt kê SKU thiếu lô (quản lý kho sửa lô trước khi xuất)."
+    )
+    public ResponseEntity<ResponseData<TaoLaiPhieuXuatDto>> taoLaiPhieuXuat(@PathVariable Integer donBanHangId) {
+        TaoLaiPhieuXuatDto result = phieuXuatKhoService.taoLaiPhieuXuat(donBanHangId);
+        return ResponseEntity.ok(ResponseData.<TaoLaiPhieuXuatDto>builder()
+                .status(HttpStatus.OK.value())
+                .data(result)
+                .message(result.getCanSuaLo().isEmpty()
+                        ? "Đã tạo lại phiếu xuất " + result.getSoPhieuXuat()
+                        : "Đã tạo lại phiếu xuất " + result.getSoPhieuXuat() + ". Lô cũ không còn đủ cho: "
+                                + String.join(", ", result.getCanSuaLo()) + " — quản lý kho sửa lô trước khi xuất.")
+                .build());
     }
 
     @GetMapping("/{id}")

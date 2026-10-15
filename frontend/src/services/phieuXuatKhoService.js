@@ -5,8 +5,9 @@ export const phieuXuatKhoService = {
         const res = await apiClient.post("/api/v1/phieu-xuat-kho/filter", payload);
         return res.data?.data || res.data;
     },
-    async create(payload) {
-        const res = await apiClient.post("/api/v1/phieu-xuat-kho/create", payload);
+    // Phiếu xuất bán hàng sinh khi hoàn tất nhặt hàng; phiếu bị hủy sau khi nhặt thì tạo lại theo đơn (chép lô phiếu cũ)
+    async taoLaiTheoDon(donBanHangId) {
+        const res = await apiClient.post(`/api/v1/phieu-xuat-kho/tao-lai-theo-don/${donBanHangId}`);
         return res.data;
     },
     async getDetail(id) {

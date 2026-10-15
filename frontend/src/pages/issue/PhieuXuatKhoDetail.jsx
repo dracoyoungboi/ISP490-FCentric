@@ -23,6 +23,7 @@ import {
 import { PHIEU_XUAT_KHO_STATUS, getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { formatDate } from "@/utils/formatters";
+import { hasAnyRole, ROLES } from "@/utils/roles";
 
 // Trạng thái phiếu xuất — dùng chung tên với danh sách và bản in (constants/phieuXuatKho)
 const STATUS_UI = PHIEU_XUAT_KHO_STATUS;
@@ -179,6 +180,16 @@ export default function PhieuXuatKhoDetail() {
         && chiTiet.length > 0
         && chiTiet.every(ct => ct.duSoLuong === true);
 
+    // Lô của phiếu bán hàng lấy từ phân bổ ở phiếu nhặt: nhân viên chỉ xem; quản lý kho / quản trị viên sửa lô
+    // (lấy nhầm lô, lô cũ không còn khi tạo lại phiếu) khi phiếu chưa xuất. Phiếu chuyển kho chọn lô ở Nháp như cũ.
+    const laQuanLy = hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO]);
+    const phieuChuaXuat = phieu.trangThai === TRANG_THAI_PHIEU_XUAT.NHAP || phieu.trangThai === TRANG_THAI_PHIEU_XUAT.CHO_XUAT;
+    const canEditLot = isChuyenKho
+        ? phieu.trangThai === TRANG_THAI_PHIEU_XUAT.NHAP
+        : laQuanLy && phieuChuaXuat;
+    const nhanNutLo = !canEditLot ? "Xem lô" : isChuyenKho ? "Chọn lô" : "Sửa lô";
+    const banHangThieuLo = !isChuyenKho && phieuChuaXuat && !isAllPicked;
+
     const statusInfo = getPhieuXuatKhoStatus(phieu.trangThai);
 
     return (
@@ -315,6 +326,18 @@ export default function PhieuXuatKhoDetail() {
                         </p>
                     </div>
                 )}
+
+                {banHangThieuLo && (
+                    <div role="status" className="mt-5 flex items-center gap-3 rounded-lg border border-bo-warning/20 bg-bo-warning-soft p-3">
+                        <AlertCircle className="size-4 shrink-0 text-bo-warning" />
+                        <p className="text-xs font-medium text-bo-warning">
+                            Phiếu còn dòng chưa đủ lô nên chưa xuất kho được.{" "}
+                            {laQuanLy
+                                ? "Bấm Sửa lô ở dòng thiếu để chọn lô còn hàng."
+                                : "Báo quản lý kho sửa lô cho các dòng thiếu."}
+                        </p>
+                    </div>
+                )}
             </SurfaceCard>
 
             {/* ── Product List ── */}
@@ -341,9 +364,6 @@ export default function PhieuXuatKhoDetail() {
                     </thead>
                     <tbody className="divide-y divide-bo-border">
                         {chiTiet.map((ct) => {
-                            const canEditLot = phieu.trangThai === TRANG_THAI_PHIEU_XUAT.NHAP
-                                || (!isChuyenKho && phieu.trangThai === TRANG_THAI_PHIEU_XUAT.CHO_XUAT);
-
                             return (
                                 <tr key={ct.id} className="transition-colors hover:bg-bo-surface-subtle">
                                     <td className="px-4 py-3.5">
@@ -398,7 +418,7 @@ export default function PhieuXuatKhoDetail() {
                                                 ? "border-bo-primary/30 bg-bo-primary-soft text-bo-primary hover:bg-bo-primary-soft/70 hover:text-bo-primary"
                                                 : "border-bo-border bg-white text-slate-600 hover:bg-bo-surface-subtle hover:text-slate-700"}`}
                                         >
-                                            {canEditLot ? "Chọn lô" : "Xem lô"} <ArrowRight className="size-3" />
+                                            {nhanNutLo} <ArrowRight className="size-3" />
                                         </Button>
                                     </td>
                                 </tr>

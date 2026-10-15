@@ -57,6 +57,10 @@ public class DanhSachNhatHangDto implements Serializable {
         Integer trangThai;
         String tenTrangThai;
         Boolean biHuy;
+        /** Tên kênh bán ("Trực tiếp" khi đơn không từ sàn), tên khách và tóm tắt hàng cho thẻ đơn ở màn nhặt. */
+        String tenKenh;
+        String tenKhachHang;
+        String tomTatHang;
         BigDecimal tongCong;
         Boolean yeuCauVideo;
         Boolean daDuBangChung;

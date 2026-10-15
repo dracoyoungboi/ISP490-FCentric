@@ -1,25 +1,42 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.config.SecurityContextHolder;
+import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.dto.request.PickLoHangRequest;
+import com.dev.backend.dto.response.customize.PickedLotDto;
+import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
+import com.dev.backend.dto.response.entities.TonKhoTheoLoDto;
+import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.repository.LoHangRepository;
+import com.dev.backend.repository.NguoiDungRepository;
+import com.dev.backend.repository.TonKhoTheoLoRepository;
+import com.dev.backend.services.impl.multitable.LoDangGiuService;
 import com.dev.backend.dto.response.entities.ChiTietPhieuNhapKhoResponse;
 import com.dev.backend.dto.response.entities.ChiTietPhieuXuatKhoDto;
 import com.dev.backend.entities.*;
 import com.dev.backend.repository.ChiTietPhieuXuatKhoRepository;
 import com.dev.backend.repository.PhieuXuatKhoRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.*;
 
 /**
@@ -36,6 +53,16 @@ class PhieuXuatKhoServiceDetailTest {
     private PhieuXuatKhoRepository repository;
     @Mock
     private ChiTietPhieuXuatKhoRepository chiTietRepo;
+    @Mock
+    private LoDangGiuService loDangGiuService;
+    @Mock
+    private LoHangRepository loHangRepository;
+    @Mock
+    private TonKhoTheoLoRepository tonKhoTheoLoRepository;
+    @Mock
+    private NguoiDungRepository nguoiDungRepository;
+    @Mock
+    private LichSuThayDoiService lichSuThayDoiService;
 
     private PhieuXuatKhoService service;
 
@@ -43,6 +70,20 @@ class PhieuXuatKhoServiceDetailTest {
     void setUp() {
         service = new PhieuXuatKhoService(repository);
         ReflectionTestUtils.setField(service, "chiTietPhieuXuatKhoRepository", chiTietRepo);
+        ReflectionTestUtils.setField(service, "loDangGiuService", loDangGiuService);
+        ReflectionTestUtils.setField(service, "loHangRepository", loHangRepository);
+        ReflectionTestUtils.setField(service, "tonKhoTheoLoRepository", tonKhoTheoLoRepository);
+        ReflectionTestUtils.setField(service, "nguoiDungRepository", nguoiDungRepository);
+        ReflectionTestUtils.setField(service, "lichSuThayDoiService", lichSuThayDoiService);
+    }
+
+    @AfterEach
+    void dangXuat() {
+        SecurityContextHolder.clear();
+    }
+
+    private static void dangNhap(String vaiTro) {
+        SecurityContextHolder.setUser(NguoiDungAuthInfo.builder().id(7).vaiTro(Set.of(vaiTro)).build());
     }
 
     // ── Dữ liệu mẫu ──
@@ -221,6 +262,7 @@ class PhieuXuatKhoServiceDetailTest {
 
     @Test
     void kb9_pickLoBangIdDongTheoLo_trenPhieuNhap_biChan() {
+        dangNhap(IRoleType.quan_ly_kho);
         PhieuXuatKho p = phieu("ban_hang", 0);
         BienTheSanPham a = bienThe(1, "SKU-A");
         when(repository.findById(PHIEU_ID)).thenReturn(Optional.of(p));
@@ -231,6 +273,134 @@ class PhieuXuatKhoServiceDetailTest {
         RuntimeException ex = assertThrows(RuntimeException.class, () -> service.pickLoHang(PHIEU_ID, req));
         assertTrue(ex.getMessage().contains("dòng sản phẩm gốc"));
         verify(chiTietRepo, never()).deletePickedByPhieuAndBienThe(anyInt(), anyInt());
+    }
+
+    // ── KB11–16: phiếu bán hàng — lô lấy từ phiếu nhặt, chỉ quản lý kho sửa lô (Log 2 / Log 4) ──
+
+    private PhieuXuatKho phieuCoKho(String loaiXuat, int trangThai) {
+        PhieuXuatKho p = phieu(loaiXuat, trangThai);
+        p.setKho(Kho.builder().id(1).tenKho("Kho HN").build());
+        return p;
+    }
+
+    private static PickLoHangRequest yeuCauLo(int dongGocId, int loHangId, String soLuong) {
+        PickLoHangRequest.Item item = new PickLoHangRequest.Item();
+        item.setLoHangId(loHangId);
+        item.setSoLuongXuat(new BigDecimal(soLuong));
+        return PickLoHangRequest.builder().chiTietPhieuXuatKhoId(dongGocId).loHangPicks(List.of(item)).build();
+    }
+
+    private static TonKhoTheoLo ton(LoHang lo, String ton, String dat, Instant ngayNhap) {
+        return TonKhoTheoLo.builder().loHang(lo).soLuongTon(new BigDecimal(ton)).soLuongDaDat(new BigDecimal(dat))
+                .ngayNhapGanNhat(ngayNhap).build();
+    }
+
+    @Test
+    void kb11_nhanVienKho_suaLoPhieuBan_biChan() {
+        dangNhap(IRoleType.nhan_vien_kho);
+        when(repository.findById(PHIEU_ID)).thenReturn(Optional.of(phieuCoKho("ban_hang", 6)));
+
+        CommonException ex = assertThrows(CommonException.class, () -> service.pickLoHang(PHIEU_ID, yeuCauLo(200, 7, "1")));
+
+        assertEquals(HttpStatus.FORBIDDEN, ex.getHttpStatus());
+        verify(chiTietRepo, never()).deletePickedByPhieuAndBienThe(anyInt(), anyInt());
+    }
+
+    @Test
+    void kb12_quanLy_suaLoPhieuBan_phaiDuSoLuongDong() {
+        dangNhap(IRoleType.quan_ly_kho);
+        PhieuXuatKho p = phieuCoKho("ban_hang", 6);
+        when(repository.findById(PHIEU_ID)).thenReturn(Optional.of(p));
+        when(chiTietRepo.findById(200)).thenReturn(Optional.of(dongGoc(200, p, bienThe(1, "SKU-A"), "5")));
+
+        CommonException ex = assertThrows(CommonException.class, () -> service.pickLoHang(PHIEU_ID, yeuCauLo(200, 7, "3")));
+
+        assertTrue(ex.getMessage().contains("phải đủ số lượng"), ex.getMessage());
+        verify(chiTietRepo, never()).deletePickedByPhieuAndBienThe(anyInt(), anyInt());
+    }
+
+    @Test
+    void kb13_quanLy_suaLo_loCuaSanPhamKhac_biChan() {
+        dangNhap(IRoleType.quan_ly_kho);
+        PhieuXuatKho p = phieuCoKho("ban_hang", 6);
+        BienTheSanPham a = bienThe(1, "SKU-A");
+        when(repository.findById(PHIEU_ID)).thenReturn(Optional.of(p));
+        when(chiTietRepo.findById(200)).thenReturn(Optional.of(dongGoc(200, p, a, "2")));
+        when(loDangGiuService.khoaTonTheoBienThe(eq(1), anyList())).thenReturn(List.of());
+        when(loDangGiuService.dangGiuTheoLo(eq(1), any(), isNull(), eq(PHIEU_ID))).thenReturn(new HashMap<>());
+        when(loHangRepository.findById(8)).thenReturn(Optional.of(
+                LoHang.builder().id(8).maLo("LO-B").bienTheSanPham(bienThe(2, "SKU-B")).build()));
+
+        CommonException ex = assertThrows(CommonException.class, () -> service.pickLoHang(PHIEU_ID, yeuCauLo(200, 8, "2")));
+
+        assertTrue(ex.getMessage().contains("không phải lô của sản phẩm"), ex.getMessage());
+        verify(chiTietRepo, never()).save(any());
+    }
+
+    @Test
+    void kb14_quanLy_suaLo_vuotPhanConLaiSauKhiTruPhieuKhacGiu_biChan() {
+        dangNhap(IRoleType.quan_ly_kho);
+        PhieuXuatKho p = phieuCoKho("ban_hang", 0);
+        BienTheSanPham a = bienThe(1, "SKU-A");
+        LoHang lo7 = LoHang.builder().id(7).maLo("LO-7").bienTheSanPham(a).build();
+        when(repository.findById(PHIEU_ID)).thenReturn(Optional.of(p));
+        when(chiTietRepo.findById(200)).thenReturn(Optional.of(dongGoc(200, p, a, "3")));
+        when(loDangGiuService.khoaTonTheoBienThe(eq(1), anyList())).thenReturn(List.of(ton(lo7, "5", "0", Instant.now())));
+        // Phiếu nhặt / phiếu xuất khác đang giữ 3 trên lô 7 → chỉ còn 2
+        when(loDangGiuService.dangGiuTheoLo(eq(1), any(), isNull(), eq(PHIEU_ID)))
+                .thenReturn(new HashMap<>(Map.of(7, new BigDecimal("3"))));
+        when(loHangRepository.findById(7)).thenReturn(Optional.of(lo7));
+
+        CommonException ex = assertThrows(CommonException.class, () -> service.pickLoHang(PHIEU_ID, yeuCauLo(200, 7, "3")));
+
+        assertEquals(HttpStatus.CONFLICT, ex.getHttpStatus());
+        assertTrue(ex.getMessage().contains("chỉ còn 2"), ex.getMessage());
+        verify(chiTietRepo, never()).save(any());
+    }
+
+    @Test
+    void kb15_quanLy_suaLo_hopLe_luuDongLo_khongDungSoLuongDaDat() {
+        dangNhap(IRoleType.quan_ly_kho);
+        PhieuXuatKho p = phieuCoKho("ban_hang", 6);
+        BienTheSanPham a = bienThe(1, "SKU-A");
+        LoHang lo7 = LoHang.builder().id(7).maLo("LO-7").bienTheSanPham(a).giaVon(new BigDecimal("100")).build();
+        TonKhoTheoLo t7 = ton(lo7, "5", "1", Instant.now());
+        when(repository.findById(PHIEU_ID)).thenReturn(Optional.of(p));
+        when(chiTietRepo.findById(200)).thenReturn(Optional.of(dongGoc(200, p, a, "3")));
+        when(loDangGiuService.khoaTonTheoBienThe(eq(1), anyList())).thenReturn(List.of(t7));
+        when(loDangGiuService.dangGiuTheoLo(eq(1), any(), isNull(), eq(PHIEU_ID))).thenReturn(new HashMap<>());
+        when(loHangRepository.findById(7)).thenReturn(Optional.of(lo7));
+
+        service.pickLoHang(PHIEU_ID, yeuCauLo(200, 7, "3"));
+
+        verify(chiTietRepo).deletePickedByPhieuAndBienThe(PHIEU_ID, 1);
+        verify(chiTietRepo).save(argThat(ct -> ct.getLoHang() == lo7 && ct.getSoLuongXuat().compareTo(new BigDecimal("3")) == 0));
+        assertEquals(0, new BigDecimal("1").compareTo(t7.getSoLuongDaDat()), "phiếu bán không cộng vào so_luong_da_dat");
+        verify(tonKhoTheoLoRepository, never()).save(any());
+    }
+
+    @Test
+    void kb16_loKhaDung_truPhanPhieuKhacGiu_vanGiuLoCuaChinhPhieu_sapFifo() {
+        PhieuXuatKho p = phieuCoKho("ban_hang", 6);
+        BienTheSanPham a = bienThe(1, "SKU-A");
+        LoHang lo7 = LoHang.builder().id(7).maLo("LO-7").bienTheSanPham(a).build();
+        LoHang lo8 = LoHang.builder().id(8).maLo("LO-8").bienTheSanPham(a).build();
+        LoHang lo9 = LoHang.builder().id(9).maLo("LO-9").bienTheSanPham(a).build();
+        Instant cu = Instant.parse("2026-10-01T00:00:00Z");
+        Instant moi = Instant.parse("2026-10-08T00:00:00Z");
+        when(repository.findById(PHIEU_ID)).thenReturn(Optional.of(p));
+        when(chiTietRepo.findPickedLots(PHIEU_ID, 1)).thenReturn(List.of(new PickedLotDto(9, new BigDecimal("2"))));
+        when(tonKhoTheoLoRepository.findByKhoAndBienThe(1, 1)).thenReturn(List.of(
+                ton(lo7, "5", "0", moi), ton(lo8, "4", "1", cu), ton(lo9, "2", "0", moi)));
+        // Lô 8 bị phiếu nhặt khác giữ hết phần còn lại; lô 9 là lô của chính phiếu (không tính là bị giữ)
+        when(loDangGiuService.dangGiuTheoLo(eq(1), any(), isNull(), eq(PHIEU_ID)))
+                .thenReturn(new HashMap<>(Map.of(8, new BigDecimal("3"))));
+
+        List<TonKhoTheoLoDto> lots = service.getAvailableLots(PHIEU_ID, 1);
+
+        assertEquals(List.of(7, 9), lots.stream().map(TonKhoTheoLoDto::getLoHangId).toList(), "lô 8 hết phần lấy được nên ẩn");
+        assertQty("5", lots.get(0).getSoLuongKhaDung());
+        assertQty("2", lots.get(1).getSoLuongKhaDung());
     }
 
     // ── KB10: "Xem lô" / in phiếu dùng id dòng gộp → tra lô theo đúng biến thể ──

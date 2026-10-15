@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
     ArrowLeft, ArrowRight, Calendar, Camera, CheckCheck, ClipboardList, Hash,
-    Info as InfoIcon, Loader2, MapPin, Package, PackageX, ShieldCheck, User, UserPlus, Warehouse,
+    Info as InfoIcon, Layers, Loader2, Package, PackageX, ShieldCheck, User, UserPlus, Warehouse,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -20,6 +20,7 @@ import MockModeNotice from "@/components/shared/MockModeNotice";
 import PickProgress from "@/components/outbound/PickProgress";
 import ScanBar from "@/components/outbound/ScanBar";
 import AssignPickerDialog from "@/components/outbound/AssignPickerDialog";
+import LotAllocationDialog from "@/components/outbound/LotAllocationDialog";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import { Button } from "@/components/ui/button";
 import useScanQueue from "@/hooks/useScanQueue";
@@ -58,6 +59,7 @@ export default function PickListDetail() {
     const [completeResult, setCompleteResult] = useState(null);
     const [cancelledAlert, setCancelledAlert] = useState(null);
     const [proofModalOrder, setProofModalOrder] = useState(null);
+    const [lotLine, setLotLine] = useState(null);
     const busyRef = useRef(false);
 
     const fetchDetail = useCallback(async ({ silent = false } = {}) => {
@@ -184,7 +186,7 @@ export default function PickListDetail() {
         return list.sort((a, b) => {
             const diff = lineState(a).order - lineState(b).order;
             if (diff !== 0) return diff;
-            return String(a.viTriKho ?? "").localeCompare(String(b.viTriKho ?? ""), "vi", { numeric: true });
+            return String(a.maSku ?? "").localeCompare(String(b.maSku ?? ""), "vi", { numeric: true });
         });
     }, [dto]);
 
@@ -253,6 +255,8 @@ export default function PickListDetail() {
     const duocPhanCong = editable && (laQuanLy || !daPhanCong);
     // Hoàn tất: người được giao, hoặc quản lý / quản trị viên hoàn tất thay
     const duocHoanTat = editable && daPhanCong && (laNguoiNhat || laQuanLy);
+    // Phân bổ lô: người được giao nhặt, hoặc quản lý / quản trị viên sửa thay; khóa sau Hoàn tất nhặt
+    const duocPhanBoLo = editable && (laNguoiNhat || laQuanLy);
     const conLai = Math.max(0, toNumber(dto.tongSoLuongCanNhat) - toNumber(dto.tongSoLuongDaQuet));
     const maDonHangs = dto.danhSachMaDonHang ?? [];
 
@@ -425,20 +429,21 @@ export default function PickListDetail() {
                 <TableShell
                     className="xl:col-span-2"
                     title="Sản phẩm cần nhặt"
-                    description={`${lines.length} SKU · sắp theo vị trí kệ, dòng chưa đủ lên trước`}
+                    description={`${lines.length} SKU · dòng chưa đủ lên trước · lô gợi ý theo FIFO (lô nhập kho sớm lấy trước)`}
                 >
                     {lines.length === 0 ? (
                         <EmptyState icon={Package} title="Phiếu nhặt hàng không có sản phẩm" description="Đợt nhặt này chưa có dòng sản phẩm nào." />
                     ) : (
-                        <table className="w-full min-w-[760px] text-sm">
+                        <table className="w-full min-w-[860px] text-sm">
                             <thead>
                                 <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                     <th className={`${TH_CLASS} text-left`}>Sản phẩm</th>
-                                    <th className={`${TH_CLASS} text-left`}>Vị trí</th>
+                                    <th className={`${TH_CLASS} text-left`}>Lô phân bổ</th>
                                     <th className={`${TH_CLASS} text-center`}>Cần nhặt</th>
                                     <th className={`${TH_CLASS} text-center`}>Đã quét</th>
                                     <th className={`${TH_CLASS} text-center`}>Còn lại</th>
                                     <th className={`${TH_CLASS} text-center`}>Trạng thái</th>
+                                    {duocPhanBoLo ? <th className={`${TH_CLASS} text-right`}>Thao tác</th> : null}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-bo-border">
@@ -466,15 +471,8 @@ export default function PickListDetail() {
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="whitespace-nowrap px-4 py-3">
-                                                {line.viTriKho ? (
-                                                    <span className="inline-flex items-center gap-1 text-sm font-semibold text-bo-foreground">
-                                                        <MapPin className="size-3.5 text-bo-muted" />
-                                                        {line.viTriKho}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-xs text-bo-muted">—</span>
-                                                )}
+                                            <td className="px-4 py-3">
+                                                <LotCell line={line} />
                                             </td>
                                             <td className="px-4 py-3 text-center font-semibold text-bo-foreground">{formatQuantity(line.soLuongCanNhat)}</td>
                                             <td className="px-4 py-3 text-center">
@@ -486,6 +484,20 @@ export default function PickListDetail() {
                                             <td className="px-4 py-3 text-center">
                                                 <StatusBadge label={state.label} tone={state.tone} />
                                             </td>
+                                            {duocPhanBoLo ? (
+                                                <td className="whitespace-nowrap px-4 py-3 text-right">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        disabled={toNumber(line.soLuongCanNhat) <= 0}
+                                                        onClick={() => setLotLine(line)}
+                                                        className="h-8 gap-1.5 border-bo-primary/30 bg-bo-primary-soft px-3 text-xs font-semibold text-bo-primary hover:bg-bo-primary-soft/70 hover:text-bo-primary"
+                                                    >
+                                                        <Layers className="size-3.5" />
+                                                        Phân bổ lô
+                                                    </Button>
+                                                </td>
+                                            ) : null}
                                         </tr>
                                     );
                                 })}
@@ -516,13 +528,21 @@ export default function PickListDetail() {
                 onAssigned={(res) => res && setDto((prev) => ({ ...prev, ...res }))}
             />
 
+            <LotAllocationDialog
+                open={Boolean(lotLine)}
+                onOpenChange={(next) => !next && setLotLine(null)}
+                pickListId={dto.id}
+                line={lotLine}
+                onSaved={(res) => res && setDto(res)}
+            />
+
             <ConfirmModal
                 isOpen={completeOpen}
                 onClose={() => !completing && setCompleteOpen(false)}
                 onConfirm={handleComplete}
                 variant="info"
                 title="Hoàn tất nhặt hàng"
-                description={`Phiếu nhặt hàng ${dto.maPickList} sẽ chuyển sang Đã nhặt, hệ thống tạo phiếu xuất kho nháp cho từng đơn và các đơn chuyển sang Chờ đóng gói.`}
+                description={`Phiếu nhặt hàng ${dto.maPickList} sẽ chuyển sang Đã nhặt và khóa phân bổ lô. Hệ thống tạo phiếu xuất kho nháp có sẵn lô cho từng đơn (đơn đặt sớm nhận lô cũ trước), các đơn chuyển sang Chờ đóng gói.`}
                 confirmText="Hoàn tất nhặt"
                 cancelText="Quay lại"
                 isLoading={completing}
@@ -552,6 +572,34 @@ function BackLink({ onClick }) {
             <ArrowLeft className="size-4" />
             Quay lại danh sách phiếu nhặt hàng
         </button>
+    );
+}
+
+/** Lô đang phân bổ cho dòng nhặt (gợi ý FIFO hoặc đã sửa tay); phân bổ thiếu so với số cần nhặt thì cảnh báo. */
+function LotCell({ line }) {
+    const phanBo = line.phanBoLo ?? [];
+    const canNhat = toNumber(line.soLuongCanNhat);
+    const thieu = canNhat - toNumber(line.soLuongDaPhanBo);
+    if (phanBo.length === 0) {
+        return canNhat > 0
+            ? <span className="text-xs font-semibold text-bo-warning">Chưa phân bổ lô</span>
+            : <span className="text-xs text-bo-muted">—</span>;
+    }
+    return (
+        <div className="flex flex-col gap-1">
+            {phanBo.map((lo) => (
+                <span key={lo.loHangId} className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs">
+                    <span className="rounded-md border border-bo-border bg-white px-1.5 py-0.5 font-mono font-semibold text-bo-foreground">
+                        {lo.maLo}
+                    </span>
+                    <span className="font-semibold text-slate-600">× {formatQuantity(lo.soLuong)}</span>
+                </span>
+            ))}
+            <span className="text-[11px] text-bo-muted">{line.phanBoThuCong ? "Đã sửa tay" : "Gợi ý FIFO"}</span>
+            {thieu > 0 ? (
+                <span className="text-[11px] font-semibold text-bo-warning">Còn thiếu {formatQuantity(thieu)} — tồn theo lô không đủ</span>
+            ) : null}
+        </div>
     );
 }
 
@@ -655,6 +703,16 @@ function OrderCodes({ codes, orders, cancelledAlert, onOpenProofModal }) {
                                     </Link>
                                 ) : null}
                             </div>
+
+                            {info && (info.tenKenh || info.tenKhachHang || info.tomTatHang) ? (
+                                <div className="w-full space-y-0.5 text-[11px] text-bo-muted">
+                                    <p>
+                                        <span className="font-semibold text-slate-600">{info.tenKenh || "Trực tiếp"}</span>
+                                        {info.tenKhachHang ? ` · ${info.tenKhachHang}` : ""}
+                                    </p>
+                                    {info.tomTatHang ? <p className="line-clamp-2">{info.tomTatHang}</p> : null}
+                                </div>
+                            ) : null}
                         </div>
                     );
                 })}

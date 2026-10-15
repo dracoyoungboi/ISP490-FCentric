@@ -13,6 +13,7 @@ import { ArrowLeft, Loader2, Package, CheckCircle2, ClipboardList } from "lucide
 import { getApiErrorMessage } from "@/utils/apiError";
 import { formatDate } from "@/utils/formatters";
 import { TRANG_THAI_PHIEU_XUAT } from "@/constants/trangThaiXuatBan";
+import { hasAnyRole, ROLES } from "@/utils/roles";
 
 const TH_CLASS =
     "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
@@ -52,10 +53,13 @@ export default function PickLot() {
     const tenBienThe       = state?.tenBienThe || "-";
     const soLuongCanXuat   = Number(state?.soLuongXuat ?? 0);
     const phieuTrangThai   = state?.phieuTrangThai;
-    // Chọn lô được khi phiếu còn Nháp; phiếu bán hàng đã đóng gói (Chờ xuất) vẫn chọn lô trước khi xuất kho
-    // (khớp PhieuXuatKhoService.pickLoHang)
-    const isReadOnly       = !(phieuTrangThai === TRANG_THAI_PHIEU_XUAT.NHAP
-        || (state?.loaiXuat === "ban_hang" && phieuTrangThai === TRANG_THAI_PHIEU_XUAT.CHO_XUAT));
+    const isBanHang        = state?.loaiXuat === "ban_hang";
+    // Khớp PhieuXuatKhoService.pickLoHang: phiếu chuyển kho chọn lô khi còn Nháp; lô phiếu bán hàng lấy từ phiếu nhặt,
+    // chỉ quản lý kho / quản trị viên sửa lô (đủ số lượng của dòng) khi phiếu còn Nháp / Chờ xuất.
+    const isReadOnly       = isBanHang
+        ? !(hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO])
+            && (phieuTrangThai === TRANG_THAI_PHIEU_XUAT.NHAP || phieuTrangThai === TRANG_THAI_PHIEU_XUAT.CHO_XUAT))
+        : phieuTrangThai !== TRANG_THAI_PHIEU_XUAT.NHAP;
 
     // Trang tự tải ngay khi mở nên bắt đầu ở trạng thái đang tải (không hiện "Không có lô" trước khi có kết quả)
     const [loading,  setLoading]  = useState(true);
@@ -116,6 +120,10 @@ export default function PickLot() {
             if (Number(val) > (lot?.soLuongKhaDung || 0)) { toast.error(`Lô ${lot?.maLo} không đủ tồn kho`); return; }
         }
         if (tongPickMoi > soLuongCanXuat) { toast.error("Tổng số lượng lấy vượt quá số lượng cần xuất"); return; }
+        if (isBanHang && tongPickMoi !== soLuongCanXuat) {
+            toast.error(`Sửa lô phải đủ ${soLuongCanXuat} (không đổi số lượng phiếu)`);
+            return;
+        }
 
         setLoading(true);
         try {

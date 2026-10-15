@@ -178,24 +178,18 @@ public interface TonKhoTheoLoRepository extends JpaRepository<TonKhoTheoLo, Inte
             """)
     List<TonKhoChiTietDTO> findTonKhoThapByKho(@Param("khoId") Integer khoId);
 
+    List<TonKhoTheoLo> findByKho_IdAndLoHang_IdIn(Integer khoId, java.util.Collection<Integer> loHangIds);
+
+    /** Mọi dòng tồn của một biến thể tại một kho, nạp sẵn lô (chỉ đọc; sắp FIFO ở tầng service). */
     @Query("""
         select t from TonKhoTheoLo t
+        join fetch t.loHang l
         where t.kho.id = :khoId
-          and t.loHang.bienTheSanPham.id = :bienTheSanPhamId
-          and (
-            t.soLuongKhaDung > 0
-            or exists (
-                select 1 from ChiTietPhieuXuatKho ct
-                where ct.phieuXuatKho.id = :phieuId
-                and ct.loHang.id = t.loHang.id
-            )
-          )
-        order by t.ngayNhapGanNhat asc
+          and l.bienTheSanPham.id = :bienTheSanPhamId
     """)
-    List<TonKhoTheoLo> findAvailableLots(
+    List<TonKhoTheoLo> findByKhoAndBienThe(
             @Param("khoId") Integer khoId,
-            @Param("bienTheSanPhamId") Integer bienTheSanPhamId,
-            @Param("phieuId") Integer phieuId
+            @Param("bienTheSanPhamId") Integer bienTheSanPhamId
     );
 
     /**

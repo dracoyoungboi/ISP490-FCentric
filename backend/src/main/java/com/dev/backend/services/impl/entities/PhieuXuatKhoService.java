@@ -8,12 +8,15 @@ import com.dev.backend.dto.request.PhieuXuatKhoCreating;
 import com.dev.backend.dto.request.PickLoHangRequest;
 import com.dev.backend.dto.response.customize.PhieuXuatKhoViewDto;
 import com.dev.backend.dto.response.customize.PickedLotDto;
+import com.dev.backend.dto.response.customize.TaoLaiPhieuXuatDto;
 import com.dev.backend.dto.response.customize.TransferDetailDto;
 import com.dev.backend.dto.response.entities.*;
 import com.dev.backend.entities.*;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.*;
 import com.dev.backend.services.impl.BaseServiceImpl;
+import com.dev.backend.services.impl.multitable.LoDangGiuService;
+import com.dev.backend.utils.SauCommit;
 import jakarta.persistence.EntityManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -36,6 +39,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -66,6 +70,9 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
 
     @Autowired
     private TonKhoTheoLoRepository tonKhoTheoLoRepository;
+
+    @Autowired
+    private LoDangGiuService loDangGiuService;
 
     @Autowired
     private NguoiDungRepository nguoiDungRepository;
@@ -99,124 +106,186 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
         return ((PhieuXuatKhoRepository) repository).findDanhSachYeuCauChuyenKho(khoId, keyword, trangThai, khoNhapTen, pageable);
     }
 
-    @Transactional
+    /**
+     * Phiếu xuất bán hàng KHÔNG còn tạo tay từ đơn bán: phiếu được sinh khi hoàn tất nhặt hàng, có sẵn lô của phiếu
+     * nhặt. Đơn chưa nhặt thì gom vào phiếu nhặt ở màn Đơn chờ xuất; phiếu xuất bị hủy sau khi nhặt thì
+     * {@link #taoLaiPhieuXuat(Integer)}.
+     */
     public PhieuXuatKho createFromSO(PhieuXuatKhoCreating request) {
-        if (request.getChiTietXuat() == null || request.getChiTietXuat().isEmpty()) {
-            throw new CommonException("Phiếu xuất phải có ít nhất 1 sản phẩm");
-        }
+        throw new CommonException("Phiếu xuất bán hàng được tạo tự động khi hoàn tất nhặt hàng. Gom đơn vào phiếu nhặt ở màn "
+                + "Đơn chờ xuất; phiếu xuất bị hủy sau khi nhặt thì bấm Tạo lại phiếu xuất ở màn đơn bán hàng.",
+                HttpStatus.CONFLICT, null);
+    }
 
-        DonBanHang donBanHang = entityManager.find(DonBanHang.class, request.getDonBanHangId());
-        if (donBanHang == null) {
+    /**
+     * Tạo lại phiếu xuất cho đơn đã nhặt xong mà phiếu xuất bị hủy (kho hủy tay): phần còn phải xuất của đơn, chép lô
+     * của phiếu vừa hủy. Lô nào nay không còn đủ (nơi khác đã lấy) thì để trống, quản lý kho sửa lô trên phiếu mới.
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public TaoLaiPhieuXuatDto taoLaiPhieuXuat(Integer donBanHangId) {
+        DonBanHang don = entityManager.find(DonBanHang.class, donBanHangId);
+        if (don == null) {
             throw new CommonException("Đơn bán không tồn tại", HttpStatus.NOT_FOUND, null);
         }
-        // Báo giá "Đã chốt đơn" cũng mang trạng thái 2 nhưng không được xuất kho (đơn bán chuyển từ báo giá là chứng từ riêng)
-        if (!"don_ban_hang".equals(donBanHang.getLoaiChungTu())) {
+        if (!"don_ban_hang".equals(don.getLoaiChungTu())) {
             throw new CommonException("Chỉ tạo phiếu xuất cho đơn bán hàng, không tạo từ báo giá", HttpStatus.CONFLICT, null);
         }
-        Integer ttDon = donBanHang.getTrangThai();
+        Integer ttDon = don.getTrangThai();
         if (Integer.valueOf(ITrangThaiDonBanHang.DA_HUY).equals(ttDon)) {
             throw new CommonException("Đơn bán đã bị hủy", HttpStatus.CONFLICT, null);
         }
         if (ttDon == null || (ttDon != ITrangThaiDonBanHang.CHO_NHAT_HANG && ttDon != ITrangThaiDonBanHang.DANG_XUAT_KHO)) {
-            throw new CommonException("Chỉ tạo phiếu xuất cho đơn đã gửi kho và còn hàng chưa xuất "
-                    + "(đơn chờ đóng gói / chờ xuất kho đã có phiếu xuất).");
+            throw new CommonException("Đơn " + don.getSoDonHang() + " không cần tạo lại phiếu xuất (đơn đang chờ đóng gói, "
+                    + "chờ xuất hoặc đã xuất).", HttpStatus.CONFLICT, null);
         }
-        // Đơn đang trong phiếu nhặt chưa nhặt xong: phiếu xuất được tạo tự động khi hoàn tất nhặt.
-        DanhSachNhatHang phieuNhatDangMo = donBanHang.getDanhSachNhatHang();
-        if (phieuNhatDangMo != null && ("cho_nhat".equals(phieuNhatDangMo.getTrangThai())
-                || "dang_nhat".equals(phieuNhatDangMo.getTrangThai()))) {
-            throw new CommonException("Đơn " + donBanHang.getSoDonHang() + " đang nằm trong phiếu nhặt hàng "
-                    + phieuNhatDangMo.getMaPickList() + ". Phiếu xuất sẽ được tạo tự động khi hoàn tất nhặt.",
+        DanhSachNhatHang phieuNhat = don.getDanhSachNhatHang();
+        if (phieuNhat == null || !"da_nhat".equals(phieuNhat.getTrangThai())) {
+            throw new CommonException("Đơn " + don.getSoDonHang() + " chưa nhặt hàng xong. Gom đơn vào phiếu nhặt ở màn Đơn chờ xuất "
+                    + "để nhặt; phiếu xuất sinh tự động khi hoàn tất nhặt.", HttpStatus.CONFLICT, null);
+        }
+        if (((PhieuXuatKhoRepository) repository).existsByDonBanHangIdAndTrangThaiIn(don.getId(),
+                List.of(ITrangThaiPhieuXuat.NHAP, ITrangThaiPhieuXuat.CHO_XUAT))) {
+            throw new CommonException("Đơn " + don.getSoDonHang() + " đã có phiếu xuất đang chờ đóng gói / chờ xuất.",
                     HttpStatus.CONFLICT, null);
         }
-        // Mỗi đơn chỉ có một phiếu xuất đang mở (nháp / chờ xuất) — tránh xuất trùng hàng.
-        List<PhieuXuatKho> phieuDangMo = ((PhieuXuatKhoRepository) repository).findByDonBanHangIdAndTrangThaiInOrderByIdDesc(
-                donBanHang.getId(), List.of(ITrangThaiPhieuXuat.NHAP, ITrangThaiPhieuXuat.CHO_XUAT));
-        if (!phieuDangMo.isEmpty()) {
-            throw new CommonException("Đơn " + donBanHang.getSoDonHang() + " đã có phiếu xuất "
-                    + phieuDangMo.get(0).getSoPhieuXuat() + " đang chờ đóng gói / chờ xuất.", HttpStatus.CONFLICT, null);
-        }
-
-        Kho khoXuat = donBanHang.getKhoXuat();
-        if (khoXuat == null) {
+        Kho kho = don.getKhoXuat();
+        if (kho == null) {
             throw new CommonException("Đơn bán hàng này chưa được chỉ định kho xuất. Vui lòng liên hệ Sales.");
         }
+        NguoiDungAuthInfo currentUser = kiemTraQuyenKho(kho);
 
-        NguoiDungAuthInfo currentUser = SecurityContextHolder.getUser();
-        boolean isAdmin = currentUser.getVaiTro().contains(IRoleType.quan_tri_vien);
-
-        if (!isAdmin) {
-            PhanQuyenNguoiDungKho phanQuyen = phanQuyenNguoiDungKhoRepository
-                    .findByNguoiDungIdAndKhoId(currentUser.getId(), khoXuat.getId())
-                    .orElseThrow(() -> new CommonException("Bạn không phụ trách kho [" + khoXuat.getTenKho() +
-                            "]. Không thể thực hiện xuất kho cho đơn hàng này."));
-
-            if (phanQuyen.getTrangThai() != 1 ||
-                    (phanQuyen.getNgayKetThuc() != null && phanQuyen.getNgayKetThuc().isBefore(Instant.now()))) {
-                throw new CommonException("Quyền truy cập kho [" + khoXuat.getTenKho() + "] của bạn đã hết hạn hoặc bị khóa.");
-            }
+        // Phần còn phải xuất theo biến thể: đặt − đã xuất thật
+        Map<Integer, BigDecimal> datTheoBienThe = new LinkedHashMap<>();
+        Map<Integer, BienTheSanPham> bienTheMap = new HashMap<>();
+        for (ChiTietDonBanHang ct : chiTietDonBanHangRepository.findByDonBanHangId(don.getId())) {
+            if (ct.getBienTheSanPham() == null || ct.getSoLuongDat() == null) continue;
+            datTheoBienThe.merge(ct.getBienTheSanPham().getId(), ct.getSoLuongDat(), BigDecimal::add);
+            bienTheMap.put(ct.getBienTheSanPham().getId(), ct.getBienTheSanPham());
         }
-
-        // Kiểm tra sản phẩm còn lại: đặt − đã xuất thực tế (phiếu đã xuất). soLuongDaGiao chỉ được ghi khi
-        // giao thành công nên không dùng được cho đơn đã xuất một phần.
-        List<ChiTietDonBanHang> chiTietSOList = chiTietDonBanHangRepository.findByDonBanHangId(donBanHang.getId());
-        boolean hasRemaining = chiTietSOList.stream()
-                .anyMatch(ct -> ct.getSoLuongDat().compareTo(daXuatThucTe(donBanHang.getId(), ct)) > 0);
-
-        if (!hasRemaining) {
+        Map<Integer, BigDecimal> canXuat = new LinkedHashMap<>();
+        datTheoBienThe.forEach((bienTheId, dat) -> {
+            BigDecimal daXuat = chiTietPhieuXuatKhoRepository.sumSoLuongDaXuatThucTe(don.getId(), bienTheId);
+            BigDecimal con = dat.subtract(daXuat != null ? daXuat : BigDecimal.ZERO);
+            if (con.signum() > 0) canXuat.put(bienTheId, con);
+        });
+        if (canXuat.isEmpty()) {
             throw new CommonException("Đơn bán đã xuất đủ toàn bộ sản phẩm");
         }
 
+        // Lô của phiếu vừa hủy gần nhất (đã gồm chỗ quản lý kho sửa lô nếu có)
+        List<ChiTietPhieuXuatKho> loCu = ((PhieuXuatKhoRepository) repository)
+                .findByDonBanHangIdAndTrangThaiInOrderByIdDesc(don.getId(), List.of(ITrangThaiPhieuXuat.DA_HUY)).stream()
+                .findFirst()
+                .map(p -> chiTietPhieuXuatKhoRepository.findByPhieuXuatKhoIdAndLoHangIsNotNull(p.getId()).stream()
+                        .sorted(Comparator.comparing(ChiTietPhieuXuatKho::getId)).toList())
+                .orElse(List.of());
+
+        Map<Integer, TonKhoTheoLo> tonTheoLo = new HashMap<>();
+        loDangGiuService.khoaTonTheoBienThe(kho.getId(), canXuat.keySet())
+                .forEach(t -> tonTheoLo.put(t.getLoHang().getId(), t));
+        Map<Integer, BigDecimal> dangGiu = loDangGiuService.dangGiuTheoLo(kho.getId(), tonTheoLo.keySet(), null, null);
+
+        PhieuXuatKho phieu = luuPhieuBanHangMoi(don, kho, "Tạo lại sau khi phiếu xuất trước bị hủy");
+        List<String> canSuaLo = new ArrayList<>();
+        for (Map.Entry<Integer, BigDecimal> e : canXuat.entrySet()) {
+            BienTheSanPham bt = bienTheMap.get(e.getKey());
+            entityManager.persist(ChiTietPhieuXuatKho.builder()
+                    .phieuXuatKho(phieu)
+                    .bienTheSanPham(bt)
+                    .soLuongXuat(e.getValue())
+                    .giaVon(bt.getGiaVon())
+                    .ghiChu("Xuất theo đơn " + don.getSoDonHang())
+                    .build());
+            BigDecimal conThieu = e.getValue();
+            for (ChiTietPhieuXuatKho cu : loCu) {
+                if (conThieu.signum() <= 0) break;
+                if (!e.getKey().equals(cu.getBienTheSanPham().getId())) continue;
+                TonKhoTheoLo t = tonTheoLo.get(cu.getLoHang().getId());
+                if (t == null) continue;
+                BigDecimal lay = cu.getSoLuongXuat().min(LoDangGiuService.conLai(t, dangGiu)).min(conThieu);
+                if (lay.signum() <= 0) continue;
+                entityManager.persist(ChiTietPhieuXuatKho.builder()
+                        .phieuXuatKho(phieu)
+                        .bienTheSanPham(bt)
+                        .loHang(cu.getLoHang())
+                        .soLuongXuat(lay)
+                        .giaVon(cu.getLoHang().getGiaVon())
+                        .build());
+                dangGiu.merge(cu.getLoHang().getId(), lay, BigDecimal::add);
+                conThieu = conThieu.subtract(lay);
+            }
+            if (conThieu.signum() > 0) {
+                canSuaLo.add(bt.getMaSku());
+            }
+        }
+
+        // Có phiếu xuất nháp → đơn chờ đóng gói lại (Scan-to-Pack) trước khi xuất kho
+        don.setTrangThai(ITrangThaiDonBanHang.CHO_DONG_GOI);
+        don.setNgayCapNhat(Instant.now());
+
+        Integer phieuId = phieu.getId();
+        String soPhieu = phieu.getSoPhieuXuat();
+        Integer nguoiId = currentUser.getId();
+        String ghiChuNhatKy = "Tạo lại phiếu xuất cho đơn " + don.getSoDonHang()
+                + (canSuaLo.isEmpty() ? "" : "; cần sửa lô: " + String.join(", ", canSuaLo));
+        SauCommit.chay("Ghi nhật ký tạo lại phiếu xuất " + soPhieu, () -> lichSuThayDoiService.createGiaoDichRieng(
+                LichSuThayDoi.builder()
+                        .loaiThamChieu(ITable.phieu_xuat_kho)
+                        .idThamChieu(phieuId)
+                        .kho(kho)
+                        .hanhDong(IHanhDong.tao_lai_phieu_xuat)
+                        .giaTriMoi("trang_thai = 0 (Nháp)")
+                        .nguoiThucHien(nguoiDungRepository.findById(nguoiId).orElse(null))
+                        .ngayThucHien(Instant.now())
+                        .ghiChu(ghiChuNhatKy)
+                        .build()));
+
+        return TaoLaiPhieuXuatDto.builder()
+                .phieuXuatKhoId(phieuId)
+                .soPhieuXuat(soPhieu)
+                .canSuaLo(canSuaLo)
+                .build();
+    }
+
+    /** Lưu phiếu xuất bán hàng Nháp mới cho đơn; số phiếu trùng (hai giao dịch đếm cùng lúc) thì thử lại. */
+    private PhieuXuatKho luuPhieuBanHangMoi(DonBanHang don, Kho kho, String ghiChu) {
         int retry = 0;
-        int maxRetry = 5;
         while (true) {
             try {
-                PhieuXuatKho phieu = PhieuXuatKho.builder()
+                PhieuXuatKho phieu = repository.save(PhieuXuatKho.builder()
                         .soPhieuXuat(generateSoPhieu())
-                        .donBanHang(donBanHang)
-                        .ngayXuat(null)
-                        .kho(khoXuat)
-                        .ghiChu(request.getGhiChu())
+                        .donBanHang(don)
+                        .kho(kho)
                         .loaiXuat("ban_hang")
-                        .trangThai(0)
-                        .build();
-
-                phieu = repository.save(phieu);
-
-                for (ChiTietPhieuXuatKhoCreating reqCt : request.getChiTietXuat()) {
-                    ChiTietDonBanHang ctSO = chiTietSOList.stream()
-                            .filter(ct -> ct.getBienTheSanPham().getId().equals(reqCt.getBienTheSanPhamId()))
-                            .findFirst()
-                            .orElseThrow(() -> new CommonException("Sản phẩm không thuộc đơn bán"));
-
-                    BigDecimal conLai = ctSO.getSoLuongDat().subtract(daXuatThucTe(donBanHang.getId(), ctSO));
-
-                    if (reqCt.getSoLuongXuat().compareTo(conLai) > 0) {
-                        throw new CommonException("Sản phẩm " + ctSO.getBienTheSanPham().getMaSku() + " xuất vượt quá số lượng còn lại");
-                    }
-                    if (reqCt.getSoLuongXuat().compareTo(BigDecimal.ZERO) <= 0) {
-                        throw new CommonException("Số lượng xuất phải > 0");
-                    }
-
-                    ChiTietPhieuXuatKho ctXuat = ChiTietPhieuXuatKho.builder()
-                            .phieuXuatKho(phieu)
-                            .bienTheSanPham(ctSO.getBienTheSanPham())
-                            .soLuongXuat(reqCt.getSoLuongXuat())
-                            .build();
-                    entityManager.persist(ctXuat);
-                }
-                // Có phiếu xuất nháp → đơn chờ đóng gói (Scan-to-Pack) trước khi xuất kho
-                donBanHang.setTrangThai(ITrangThaiDonBanHang.CHO_DONG_GOI);
-                donBanHang.setNgayCapNhat(Instant.now());
+                        .trangThai(ITrangThaiPhieuXuat.NHAP)
+                        .ghiChu(ghiChu)
+                        .build());
+                entityManager.flush();
                 return phieu;
             } catch (org.springframework.dao.DataIntegrityViolationException ex) {
-                if (isDuplicateSoPhieu(ex) && retry < maxRetry) {
-                    retry++;
+                if (isDuplicateSoPhieu(ex) && retry++ < 5) {
                     continue;
                 }
                 throw ex;
             }
         }
+    }
+
+    /** Quản trị viên thao tác mọi kho; người khác phải được phân quyền kho này còn hiệu lực. Trả người đang thao tác. */
+    private NguoiDungAuthInfo kiemTraQuyenKho(Kho kho) {
+        NguoiDungAuthInfo currentUser = SecurityContextHolder.getUser();
+        boolean isAdmin = currentUser.getVaiTro().contains(IRoleType.quan_tri_vien);
+        if (!isAdmin) {
+            PhanQuyenNguoiDungKho phanQuyen = phanQuyenNguoiDungKhoRepository
+                    .findByNguoiDungIdAndKhoId(currentUser.getId(), kho.getId())
+                    .orElseThrow(() -> new CommonException("Bạn không phụ trách kho [" + kho.getTenKho() +
+                            "]. Không thể thực hiện xuất kho cho đơn hàng này."));
+            if (phanQuyen.getTrangThai() != 1 ||
+                    (phanQuyen.getNgayKetThuc() != null && phanQuyen.getNgayKetThuc().isBefore(Instant.now()))) {
+                throw new CommonException("Quyền truy cập kho [" + kho.getTenKho() + "] của bạn đã hết hạn hoặc bị khóa.");
+            }
+        }
+        return currentUser;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -255,9 +324,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
         NguoiDung nguoiXuat = nguoiDungRepository.findById(nguoiXuatId)
                 .orElseThrow(() -> new CommonException("Không tìm thấy thông tin người xuất kho ID: " + nguoiXuatId));
 
-        List<ChiTietPhieuXuatKho> detailedPicks = chiTietPhieuXuatKhoRepository.findAll().stream()
-                .filter(ct -> ct.getPhieuXuatKho().getId().equals(id) && ct.getLoHang() != null)
-                .toList();
+        List<ChiTietPhieuXuatKho> detailedPicks = chiTietPhieuXuatKhoRepository.findByPhieuXuatKhoIdAndLoHangIsNotNull(id);
         Set<Integer> sanPhamIdsCanCapNhat = new HashSet<>();
 
         // Khóa các dòng tồn sẽ ghi theo thứ tự PK ổn định (Quy tắc 8.1 - Ordered Pessimistic Locking)
@@ -288,8 +355,10 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
             // Quy tắc 5: Trừ tồn kho vật lý On Hand
             tonKho.setSoLuongTon(soLuongTruoc.subtract(soLuongXuat));
 
-            // Quy tắc 5: Giải phóng nghĩa vụ xuất khỏi Outgoing (soLuongDaDat) nếu có giữ chỗ
-            if (tonKho.getSoLuongDaDat() != null && tonKho.getSoLuongDaDat().compareTo(BigDecimal.ZERO) > 0) {
+            // Quy tắc 5: Giải phóng phần phiếu xuất chuyển kho đã giữ (soLuongDaDat). Phiếu bán hàng không cộng vào
+            // soLuongDaDat (đơn giữ hàng qua lượng chờ xuất / phân bổ lô) nên không được trừ — trừ là ăn mất phần
+            // chuyển kho / POS payOS đang giữ trên cùng lô.
+            if (isXuatChuyenKho && tonKho.getSoLuongDaDat() != null && tonKho.getSoLuongDaDat().compareTo(BigDecimal.ZERO) > 0) {
                 BigDecimal giamDaDat = soLuongXuat.min(tonKho.getSoLuongDaDat());
                 tonKho.setSoLuongDaDat(tonKho.getSoLuongDaDat().subtract(giamDaDat));
             }
@@ -559,11 +628,21 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
         // 1. KIỂM TRA TRẠNG THÁI PHÙ HỢP
         boolean isXuatChuyenKho = "chuyen_kho".equals(phieu.getLoaiXuat()) && phieu.getPhieuChuyenKhoGoc() != null;
         boolean isYeuCauChuyenKho = "khac".equals(phieu.getLoaiXuat()) && phieu.getPhieuChuyenKhoGoc() == null;
+        boolean isBanHang = "ban_hang".equals(phieu.getLoaiXuat());
         if (isXuatChuyenKho) {
             if (phieu.getTrangThai() != 0) throw new RuntimeException("Chỉ được pick lô cho phiếu xuất chuyển kho ở trạng thái Nháp (0)");
-        } else if ("ban_hang".equals(phieu.getLoaiXuat())) {
+        } else if (isBanHang) {
+            // Lô của phiếu bán hàng lấy từ phân bổ ở phiếu nhặt; chỉ quản lý kho / quản trị viên sửa lô (lấy nhầm lô,
+            // lô cũ không còn khi tạo lại phiếu) trước khi xuất kho.
             if (phieu.getTrangThai() != ITrangThaiPhieuXuat.NHAP && phieu.getTrangThai() != ITrangThaiPhieuXuat.CHO_XUAT) {
-                throw new RuntimeException("Chỉ được chọn lô cho phiếu bán hàng chưa xuất kho (Nháp hoặc Chờ xuất)");
+                throw new RuntimeException("Chỉ được sửa lô cho phiếu bán hàng chưa xuất kho (Nháp hoặc Chờ xuất)");
+            }
+            NguoiDungAuthInfo user = SecurityContextHolder.getUser();
+            boolean laQuanLy = user != null && user.getVaiTro() != null && (user.getVaiTro().contains(IRoleType.quan_tri_vien)
+                    || user.getVaiTro().contains(IRoleType.quan_ly_kho));
+            if (!laQuanLy) {
+                throw new CommonException("Lô của phiếu xuất bán hàng lấy từ phiếu nhặt. Chỉ quản lý kho hoặc quản trị viên "
+                        + "được sửa lô.", HttpStatus.FORBIDDEN, null);
             }
         } else if (isYeuCauChuyenKho) {
             throw new RuntimeException("Không được pick lô trực tiếp trên phiếu yêu cầu. Vui lòng tạo Phiếu Xuất.");
@@ -573,6 +652,12 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy dòng phiếu xuất gốc"));
 
         if (ctGoc.getLoHang() != null) throw new RuntimeException("Vui lòng thực hiện pick lô từ dòng sản phẩm gốc");
+        if (!phieuXuatKhoId.equals(ctGoc.getPhieuXuatKho().getId())) {
+            throw new CommonException("Dòng sản phẩm không thuộc phiếu xuất này");
+        }
+        if (request.getLoHangPicks() == null) {
+            throw new CommonException("Thiếu danh sách lô");
+        }
 
         BigDecimal tongPickLanNay = request.getLoHangPicks().stream()
                 .map(PickLoHangRequest.Item::getSoLuongXuat)
@@ -582,38 +667,65 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
         if (tongPickLanNay.compareTo(ctGoc.getSoLuongXuat()) > 0) {
             throw new RuntimeException("Tổng số lượng bốc lô vượt quá số lượng yêu cầu");
         }
+        Integer bienTheId = ctGoc.getBienTheSanPham().getId();
+        String sku = ctGoc.getBienTheSanPham().getMaSku();
+        if (isBanHang && tongPickLanNay.compareTo(ctGoc.getSoLuongXuat()) != 0) {
+            throw new CommonException("Sửa lô phải đủ số lượng của dòng [" + sku + "]: tổng "
+                    + tongPickLanNay.stripTrailingZeros().toPlainString() + ", cần "
+                    + ctGoc.getSoLuongXuat().stripTrailingZeros().toPlainString() + " (không đổi số lượng phiếu)");
+        }
+
+        // Khóa dòng tồn của biến thể (thứ tự PK như mọi luồng ghi tồn) trước khi đọc / ghi
+        Integer khoId = phieu.getKho().getId();
+        Map<Integer, TonKhoTheoLo> tonTheoLo = new HashMap<>();
+        loDangGiuService.khoaTonTheoBienThe(khoId, List.of(bienTheId)).forEach(t -> tonTheoLo.put(t.getLoHang().getId(), t));
 
         // 2. RẼ NHÁNH HOÀN LẠI SO_LUONG_DA_DAT (Chỉ áp dụng cho Chuyển kho)
         if (isXuatChuyenKho) {
             List<ChiTietPhieuXuatKho> oldPicks = chiTietPhieuXuatKhoRepository
-                    .findByPhieuXuatKhoIdAndBienTheSanPhamIdAndLoHangIsNotNull(phieuXuatKhoId, ctGoc.getBienTheSanPham().getId());
+                    .findByPhieuXuatKhoIdAndBienTheSanPhamIdAndLoHangIsNotNull(phieuXuatKhoId, bienTheId);
 
             for (ChiTietPhieuXuatKho old : oldPicks) {
-                tonKhoTheoLoRepository.findByKho_IdAndLoHang_Id(phieu.getKho().getId(), old.getLoHang().getId())
-                        .ifPresent(t -> {
-                            BigDecimal currentDaDat = t.getSoLuongDaDat() != null ? t.getSoLuongDaDat() : BigDecimal.ZERO;
-                            t.setSoLuongDaDat(currentDaDat.subtract(old.getSoLuongXuat()));
-                            tonKhoTheoLoRepository.save(t);
-                        });
+                TonKhoTheoLo t = tonTheoLo.get(old.getLoHang().getId());
+                if (t != null) {
+                    BigDecimal currentDaDat = t.getSoLuongDaDat() != null ? t.getSoLuongDaDat() : BigDecimal.ZERO;
+                    t.setSoLuongDaDat(currentDaDat.subtract(old.getSoLuongXuat()));
+                    tonKhoTheoLoRepository.save(t);
+                }
             }
         }
 
         // 3. Xóa các dòng pick cũ
-        chiTietPhieuXuatKhoRepository.deletePickedByPhieuAndBienThe(phieuXuatKhoId, ctGoc.getBienTheSanPham().getId());
+        chiTietPhieuXuatKhoRepository.deletePickedByPhieuAndBienThe(phieuXuatKhoId, bienTheId);
+
+        // Phần phiếu nhặt đang mở / phiếu xuất bán chưa xuất khác đang giữ (không tính chính phiếu này)
+        Map<Integer, BigDecimal> dangGiu = loDangGiuService.dangGiuTheoLo(khoId, tonTheoLo.keySet(), null, phieuXuatKhoId);
+        Set<Integer> loDaChon = new HashSet<>();
 
         // 4. LƯU PICK MỚI VÀ RẼ NHÁNH CẬP NHẬT SO_LUONG_DA_DAT
         for (PickLoHangRequest.Item item : request.getLoHangPicks()) {
             if (item.getSoLuongXuat() == null || item.getSoLuongXuat().compareTo(BigDecimal.ZERO) <= 0) continue;
+            if (item.getLoHangId() == null || !loDaChon.add(item.getLoHangId())) {
+                throw new CommonException("Mỗi lô chỉ được chọn một lần");
+            }
 
             LoHang loHang = loHangRepository.findById(item.getLoHangId())
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy lô hàng"));
+            if (loHang.getBienTheSanPham() == null || !bienTheId.equals(loHang.getBienTheSanPham().getId())) {
+                throw new CommonException("Lô " + loHang.getMaLo() + " không phải lô của sản phẩm [" + sku + "]");
+            }
 
-            TonKhoTheoLo tonKho = tonKhoTheoLoRepository.findByKho_IdAndLoHang_Id(phieu.getKho().getId(), loHang.getId())
-                    .orElseThrow(() -> new RuntimeException("Sản phẩm không có tồn kho trong lô đã chọn tại kho này"));
+            TonKhoTheoLo tonKho = tonTheoLo.get(loHang.getId());
+            if (tonKho == null) {
+                throw new RuntimeException("Sản phẩm không có tồn kho trong lô đã chọn tại kho này");
+            }
 
-            // Kiểm tra tồn khả dụng (Chỉ áp dụng cho Chuyển kho vì SO đã giữ hàng từ trước)
-            if (isXuatChuyenKho && item.getSoLuongXuat().compareTo(tonKho.getSoLuongKhaDung()) > 0) {
-                throw new RuntimeException("Lô " + loHang.getMaLo() + " không đủ tồn khả dụng để chuyển đi");
+            // Còn lại = tồn − đang giữ − phần phiếu nhặt / phiếu xuất bán khác giữ (chuyển kho: lô cũ của chính
+            // phiếu đã được trả khỏi so_luong_da_dat ở bước 2)
+            BigDecimal conLai = LoDangGiuService.conLai(tonKho, dangGiu);
+            if (item.getSoLuongXuat().compareTo(conLai) > 0) {
+                throw new CommonException("Lô " + loHang.getMaLo() + " chỉ còn " + conLai.max(BigDecimal.ZERO).stripTrailingZeros().toPlainString()
+                        + " có thể lấy (phần còn lại đang được phiếu khác giữ)", HttpStatus.CONFLICT, null);
             }
 
             // CHỈ CẬP NHẬT SO_LUONG_DA_DAT NẾU LÀ CHUYỂN KHO
@@ -631,6 +743,23 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                     .giaVon(loHang.getGiaVon())
                     .build();
             chiTietPhieuXuatKhoRepository.save(ctPick);
+        }
+
+        if (isBanHang) {
+            NguoiDungAuthInfo user = SecurityContextHolder.getUser();
+            Integer phieuId = phieu.getId();
+            Kho kho = phieu.getKho();
+            String ghiChu = "Sửa lô dòng [" + sku + "] của phiếu xuất " + phieu.getSoPhieuXuat();
+            SauCommit.chay("Ghi nhật ký sửa lô phiếu " + phieu.getSoPhieuXuat(), () -> lichSuThayDoiService.createGiaoDichRieng(
+                    LichSuThayDoi.builder()
+                            .loaiThamChieu(ITable.phieu_xuat_kho)
+                            .idThamChieu(phieuId)
+                            .kho(kho)
+                            .hanhDong(IHanhDong.sua_lo_phieu_xuat)
+                            .nguoiThucHien(nguoiDungRepository.findById(user.getId()).orElse(null))
+                            .ngayThucHien(Instant.now())
+                            .ghiChu(ghiChu)
+                            .build()));
         }
     }
 
@@ -768,16 +897,41 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 .build();
     }
 
+    /**
+     * Lô chọn được cho một dòng phiếu xuất, sắp FIFO. soLuongKhaDung = tồn − đang giữ − phần phiếu nhặt / phiếu xuất
+     * bán khác giữ (không trừ phần của chính phiếu); lô chính phiếu đã chọn luôn có mặt để "Xem lô" / in phiếu tra tên.
+     */
     @Transactional(readOnly = true)
     public List<TonKhoTheoLoDto> getAvailableLots(Integer phieuXuatKhoId, Integer bienTheSanPhamId) {
         PhieuXuatKho phieu = repository.findById(phieuXuatKhoId).orElseThrow(() -> new RuntimeException("Không tìm thấy phiếu"));
-        return tonKhoTheoLoRepository.findAvailableLots(phieu.getKho().getId(), bienTheSanPhamId, phieuXuatKhoId).stream()
-                .map(t -> TonKhoTheoLoDto.builder()
-                        .loHangId(t.getLoHang().getId())
-                        .maLo(t.getLoHang().getMaLo())
-                        .ngayNhapGanNhat(t.getNgayNhapGanNhat())
-                        .soLuongKhaDung(t.getSoLuongKhaDung())
-                        .build()).toList();
+        Integer khoId = phieu.getKho().getId();
+        Map<Integer, BigDecimal> cuaPhieu = new HashMap<>();
+        chiTietPhieuXuatKhoRepository.findPickedLots(phieuXuatKhoId, bienTheSanPhamId)
+                .forEach(p -> cuaPhieu.put(p.getLoHangId(), p.getSoLuongDaPick()));
+        // Phiếu xuất chuyển kho còn nháp: lô đã chọn của chính phiếu đang nằm trong so_luong_da_dat → trả lại cho phiếu này
+        boolean cuaPhieuTrongDaDat = "chuyen_kho".equals(phieu.getLoaiXuat()) && phieu.getPhieuChuyenKhoGoc() != null
+                && Integer.valueOf(ITrangThaiPhieuXuat.NHAP).equals(phieu.getTrangThai());
+
+        List<TonKhoTheoLo> tonList = tonKhoTheoLoRepository.findByKhoAndBienThe(khoId, bienTheSanPhamId);
+        Map<Integer, BigDecimal> dangGiu = loDangGiuService.dangGiuTheoLo(khoId,
+                tonList.stream().map(t -> t.getLoHang().getId()).toList(), null, phieuXuatKhoId);
+        return tonList.stream()
+                .map(t -> {
+                    BigDecimal conLai = LoDangGiuService.conLai(t, dangGiu);
+                    if (cuaPhieuTrongDaDat) {
+                        conLai = conLai.add(cuaPhieu.getOrDefault(t.getLoHang().getId(), BigDecimal.ZERO));
+                    }
+                    return Map.entry(t, conLai.max(BigDecimal.ZERO));
+                })
+                .filter(e -> e.getValue().signum() > 0 || cuaPhieu.containsKey(e.getKey().getLoHang().getId()))
+                .sorted(Map.Entry.comparingByKey(LoDangGiuService.FIFO))
+                .map(e -> TonKhoTheoLoDto.builder()
+                        .loHangId(e.getKey().getLoHang().getId())
+                        .maLo(e.getKey().getLoHang().getMaLo())
+                        .ngayNhapGanNhat(e.getKey().getNgayNhapGanNhat())
+                        .soLuongKhaDung(e.getValue())
+                        .build())
+                .toList();
     }
 
     @Transactional(readOnly = true)

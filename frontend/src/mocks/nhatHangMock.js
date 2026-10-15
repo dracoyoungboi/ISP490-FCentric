@@ -49,6 +49,32 @@ const ORDERS = [
 
 let lineSeq = 9000;
 
+// Hai lô mẫu cho mỗi biến thể, đã sắp FIFO (lô nhập kho sớm đứng đầu); lô đầu cố ý ít hàng để thấy chia nhiều lô.
+function lotsOf(bienTheId) {
+  return [
+    { loHangId: bienTheId * 10 + 1, maLo: `LO-${bienTheId}-A`, ngayNhapGanNhat: isoMinutesAgo(60 * 24 * 20), conLai: 4 },
+    { loHangId: bienTheId * 10 + 2, maLo: `LO-${bienTheId}-B`, ngayNhapGanNhat: isoMinutesAgo(60 * 24 * 6), conLai: 40 },
+  ];
+}
+
+function phanBoFifo(bienTheId, canNhat) {
+  let conThieu = canNhat;
+  return lotsOf(bienTheId).flatMap((lot) => {
+    const lay = Math.min(lot.conLai, conThieu);
+    conThieu -= lay;
+    return lay > 0 ? [{ loHangId: lot.loHangId, maLo: lot.maLo, soLuong: lay, ngayNhapGanNhat: lot.ngayNhapGanNhat }] : [];
+  });
+}
+
+function withPhanBo(line, phanBoLo, thuCong = false) {
+  return {
+    ...line,
+    phanBoLo,
+    soLuongDaPhanBo: phanBoLo.reduce((s, p) => s + p.soLuong, 0),
+    phanBoThuCong: thuCong,
+  };
+}
+
 function buildLines(orderIds, scanned = {}) {
   const map = new Map();
   orderIds.forEach((orderId) => {
@@ -57,14 +83,14 @@ function buildLines(orderIds, scanned = {}) {
       map.set(bienTheId, (map.get(bienTheId) ?? 0) + qty);
     });
   });
-  return [...map.entries()].map(([bienTheId, canNhat]) => ({
+  return [...map.entries()].map(([bienTheId, canNhat]) => withPhanBo({
     id: (lineSeq += 1),
     bienTheSanPhamId: bienTheId,
     ...VARIANTS[bienTheId],
     anhBienTheUrl: null,
     soLuongCanNhat: canNhat,
     soLuongDaQuet: Math.min(scanned[bienTheId] ?? 0, canNhat),
-  }));
+  }, phanBoFifo(bienTheId, canNhat)));
 }
 
 const state = {
@@ -272,6 +298,40 @@ export const nhatHangMock = {
     return toDto(pl);
   },
 
+  async getLoKhaDung(id, chiTietId) {
+    await mockDelay();
+    const pl = findPickList(id);
+    const line = pl.lines.find((l) => l.id === Number(chiTietId));
+    if (!line) throw mockError(404, "Dòng sản phẩm không thuộc phiếu nhặt.");
+    return lotsOf(line.bienTheSanPhamId).map((lot) => ({
+      ...lot,
+      daPhanBo: line.phanBoLo.find((p) => p.loHangId === lot.loHangId)?.soLuong ?? 0,
+    }));
+  },
+
+  async luuPhanBoLo(id, chiTietId, { phanBo = [] } = {}) {
+    await mockDelay(200, 350);
+    const pl = findPickList(id);
+    if (!["cho_nhat", "dang_nhat"].includes(pl.trangThai)) {
+      throw mockError(409, `Phiếu nhặt ${pl.maPickList} đã kết thúc nhặt nên không sửa phân bổ lô được.`);
+    }
+    const index = pl.lines.findIndex((l) => l.id === Number(chiTietId));
+    if (index < 0) throw mockError(404, "Dòng sản phẩm không thuộc phiếu nhặt.");
+    const line = pl.lines[index];
+    const tong = phanBo.reduce((s, p) => s + Number(p.soLuong || 0), 0);
+    if (tong !== line.soLuongCanNhat) {
+      throw mockError(400, `Tổng phân bổ của [${line.maSku}] là ${tong}, phải bằng số cần nhặt ${line.soLuongCanNhat}`);
+    }
+    const lots = lotsOf(line.bienTheSanPhamId);
+    const moi = phanBo.filter((p) => Number(p.soLuong) > 0).map((p) => {
+      const lot = lots.find((l) => l.loHangId === p.loHangId);
+      if (!lot) throw mockError(400, "Lô không phải lô của sản phẩm này");
+      if (Number(p.soLuong) > lot.conLai) throw mockError(409, `Lô ${lot.maLo} chỉ còn ${lot.conLai} có thể lấy`);
+      return { loHangId: lot.loHangId, maLo: lot.maLo, soLuong: Number(p.soLuong), ngayNhapGanNhat: lot.ngayNhapGanNhat };
+    });
+    pl.lines[index] = withPhanBo(line, moi, true);
+    return toDto(pl);
+  },
 
   async getNguoiNhat() {
     await mockDelay();

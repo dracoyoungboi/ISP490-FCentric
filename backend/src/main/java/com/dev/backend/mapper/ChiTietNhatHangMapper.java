@@ -17,6 +17,9 @@ public interface ChiTietNhatHangMapper {
     @Mapping(target = "tenSize", source = "bienTheSanPham.size.tenSize")
     @Mapping(target = "tenChatLieu", source = "bienTheSanPham.chatLieu.tenChatLieu")
     @Mapping(target = "anhBienTheUrl", source = "bienTheSanPham.anhBienThe.tepTin.duongDan")
-    @Mapping(target = "viTriKho", ignore = true) // NhatHangServiceImpl tự điền vị trí kệ
+    @Mapping(target = "viTriKho", ignore = true) // hệ thống chưa lưu vị trí kệ
+    @Mapping(target = "phanBoLo", ignore = true) // NhatHangServiceImpl tự điền phân bổ lô
+    @Mapping(target = "soLuongDaPhanBo", ignore = true)
+    @Mapping(target = "phanBoThuCong", ignore = true)
     ChiTietNhatHangDto toDto(ChiTietNhatHang entity);
 }

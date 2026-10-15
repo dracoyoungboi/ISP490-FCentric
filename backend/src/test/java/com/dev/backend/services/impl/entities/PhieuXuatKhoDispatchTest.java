@@ -137,7 +137,7 @@ class PhieuXuatKhoDispatchTest {
         when(nguoiDungRepository.findById(99)).thenReturn(Optional.of(staff));
         when(chiTietPhieuXuatKhoRepository.findByPhieuXuatKhoIdAndLoHangIsNull(20)).thenReturn(List.of(ctGoc));
         when(chiTietPhieuXuatKhoRepository.sumSoLuongDaPick(20, 100)).thenReturn(new BigDecimal("2.000"));
-        when(chiTietPhieuXuatKhoRepository.findAll()).thenReturn(List.of(pick));
+        when(chiTietPhieuXuatKhoRepository.findByPhieuXuatKhoIdAndLoHangIsNotNull(20)).thenReturn(List.of(pick));
         when(tonKhoTheoLoRepository.findByKho_IdAndLoHang_Id(1, 200)).thenReturn(Optional.of(tonKho));
         when(phieuXuatKhoRepository.save(any(PhieuXuatKho.class))).thenReturn(phieu);
         when(entityManager.find(DonBanHang.class, 10)).thenReturn(don);
@@ -154,7 +154,9 @@ class PhieuXuatKhoDispatchTest {
 
         // Then: 1. Kiểm tra trừ tồn kho vật lý On Hand và giải phóng Outgoing
         assertEquals(new BigDecimal("8.000"), tonKho.getSoLuongTon(), "On Hand (soLuongTon) phải giảm từ 10 xuống 8");
-        assertEquals(new BigDecimal("3.000"), tonKho.getSoLuongDaDat(), "Outgoing (soLuongDaDat) phải giải phóng từ 5 xuống 3");
+        // Phiếu bán hàng không cộng vào soLuongDaDat (đơn giữ hàng qua lượng chờ xuất / phân bổ lô) nên xuất kho không
+        // được trừ: 5 là phần phiếu chuyển kho / POS payOS khác đang giữ trên cùng lô
+        assertEquals(new BigDecimal("5.000"), tonKho.getSoLuongDaDat(), "Xuất bán không được ăn phần đang giữ của nơi khác");
         verify(tonKhoTheoLoRepository).save(tonKho);
 
         // Then: 2. Kiểm tra SỔ 1 (Thẻ kho vật lý)
@@ -227,7 +229,7 @@ class PhieuXuatKhoDispatchTest {
         when(nguoiDungRepository.findById(99)).thenReturn(Optional.of(staff));
         when(chiTietPhieuXuatKhoRepository.findByPhieuXuatKhoIdAndLoHangIsNull(20)).thenReturn(List.of(ctGoc));
         when(chiTietPhieuXuatKhoRepository.sumSoLuongDaPick(20, 100)).thenReturn(new BigDecimal("2.000"));
-        when(chiTietPhieuXuatKhoRepository.findAll()).thenReturn(List.of(pick));
+        when(chiTietPhieuXuatKhoRepository.findByPhieuXuatKhoIdAndLoHangIsNotNull(20)).thenReturn(List.of(pick));
         when(tonKhoTheoLoRepository.findByKho_IdAndLoHang_Id(1, 200)).thenReturn(Optional.of(tonKho));
         when(phieuXuatKhoRepository.save(any(PhieuXuatKho.class))).thenReturn(phieu);
         when(entityManager.find(DonBanHang.class, 10)).thenReturn(don);

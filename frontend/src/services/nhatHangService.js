@@ -37,6 +37,16 @@ const realService = {
     const res = await apiClient.post(`${BASE}/pick-list/${id}/hoan-tat`);
     return res.data?.data;
   },
+  /** Lô chọn được cho một dòng phiếu nhặt, sắp FIFO (conLai đã trừ phần phiếu khác giữ, daPhanBo là phần của dòng). */
+  async getLoKhaDung(id, chiTietId) {
+    const res = await apiClient.get(`${BASE}/pick-list/${id}/chi-tiet/${chiTietId}/lo-kha-dung`);
+    return res.data?.data;
+  },
+  /** Lưu phân bổ lô của một dòng: { phanBo: [{ loHangId, soLuong }] }, tổng phải bằng số cần nhặt. */
+  async luuPhanBoLo(id, chiTietId, payload) {
+    const res = await apiClient.put(`${BASE}/pick-list/${id}/chi-tiet/${chiTietId}/phan-bo-lo`, payload);
+    return res.data?.data;
+  },
   async getHangCanHoanKe(khoId) {
     const res = await apiClient.get(`${BASE}/hang-can-hoan-ke`, { params: { khoId } });
     return res.data?.data;

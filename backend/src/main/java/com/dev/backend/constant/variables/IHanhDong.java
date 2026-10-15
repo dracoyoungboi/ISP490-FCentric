@@ -19,6 +19,9 @@ public interface IHanhDong {
             phan_cong_nhat_hang = "phan_cong_nhat_hang",
             quet_barcode = "quet_barcode",
             hoan_tat_nhat_hang = "hoan_tat_nhat_hang",
+            phan_bo_lo_nhat_hang = "phan_bo_lo_nhat_hang",
+            sua_lo_phieu_xuat = "sua_lo_phieu_xuat",
+            tao_lai_phieu_xuat = "tao_lai_phieu_xuat",
             quet_dong_goi = "quet_dong_goi",
             hoan_tat_dong_goi = "hoan_tat_dong_goi";
     //Yêu cầu nhập hàng (ghi vào lich_su_thay_doi, ghi_chu = lý do từ chối)

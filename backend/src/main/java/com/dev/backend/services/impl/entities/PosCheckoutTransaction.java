@@ -10,6 +10,7 @@ import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.entities.*;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.*;
+import com.dev.backend.services.impl.multitable.LoDangGiuService;
 import com.dev.backend.utils.PosCheckoutPayloadHash;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
@@ -63,6 +64,8 @@ public class PosCheckoutTransaction {
     private ChiTietPhieuXuatKhoRepository chiTietPhieuXuatKhoRepository;
     @Autowired
     private TonKhoTheoLoRepository tonKhoTheoLoRepository;
+    @Autowired
+    private LoDangGiuService loDangGiuService;
     @Autowired
     private LichSuGiaoDichKhoRepository lichSuGiaoDichKhoRepository;
     @Autowired
@@ -156,7 +159,8 @@ public class PosCheckoutTransaction {
 
         // 6. Phân bổ lô theo chính sách FIFO: ngayNhapGanNhat tăng dần, tie-break loHang.id;
         //    chỉ lấy lô đúng kho + đúng SKU (đã bảo đảm bởi query), khả dụng = ton - dat.
-        Map<Integer, List<LotAllocation>> allocationByVariant = allocateFifo(items, lotsByVariant, variants);
+        Map<Integer, List<LotAllocation>> allocationByVariant = allocateFifo(items, lotsByVariant, variants,
+                dangGiuTheoLo(request.getKhoId(), lockedLots));
 
         // 7. Sinh số chứng từ (count+1 — convention repo). Trùng số khi hai giao dịch đếm cùng
         //    lúc -> lỗi unique nổi lên, transaction rollback, caller thử lại bằng transaction
@@ -289,7 +293,8 @@ public class PosCheckoutTransaction {
         List<TonKhoTheoLo> lockedLots = lockLots(request.getKhoId(), variantIds);
         Map<Integer, List<TonKhoTheoLo>> lotsByVariant = lockedLots.stream()
                 .collect(Collectors.groupingBy(t -> t.getLoHang().getBienTheSanPham().getId()));
-        Map<Integer, List<LotAllocation>> allocations = allocateFifo(items, lotsByVariant, variants);
+        Map<Integer, List<LotAllocation>> allocations = allocateFifo(items, lotsByVariant, variants,
+                dangGiuTheoLo(request.getKhoId(), lockedLots));
 
         List<ReservedLot> reserved = new ArrayList<>();
         for (List<LotAllocation> list : allocations.values()) {
@@ -411,23 +416,36 @@ public class PosCheckoutTransaction {
         return total;
     }
 
-    /** FIFO: ngayNhapGanNhat tăng dần, tie-break loHang.id; chỉ lô còn khả dụng (ton - dat > 0). */
+    /**
+     * Phần lô phiếu nhặt đang mở / phiếu xuất bán chưa xuất giữ: hàng đó đã (hoặc sắp) nằm trên xe nhặt, quầy bán
+     * không được ghi vào lô đó (lúc xuất phiếu bán sẽ thiếu lô).
+     */
+    private Map<Integer, BigDecimal> dangGiuTheoLo(Integer khoId, List<TonKhoTheoLo> lockedLots) {
+        return loDangGiuService.dangGiuTheoLo(khoId,
+                lockedLots.stream().map(t -> t.getLoHang().getId()).toList(), null, null);
+    }
+
+    /**
+     * FIFO: ngayNhapGanNhat tăng dần, tie-break loHang.id; chỉ lô còn khả dụng
+     * (ton - dat - phần phiếu nhặt / phiếu xuất bán đang giữ > 0, xem LoDangGiuService).
+     */
     private Map<Integer, List<LotAllocation>> allocateFifo(List<PosCheckoutCreating.PosCheckoutItemCreating> items,
                                                            Map<Integer, List<TonKhoTheoLo>> lotsByVariant,
-                                                           Map<Integer, BienTheSanPham> variants) {
+                                                           Map<Integer, BienTheSanPham> variants,
+                                                           Map<Integer, BigDecimal> dangGiu) {
         Map<Integer, List<LotAllocation>> allocationByVariant = new LinkedHashMap<>();
         List<PosInsufficientStockInfo.PosInsufficientItem> insufficient = new ArrayList<>();
         List<String> messages = new ArrayList<>();
         for (PosCheckoutCreating.PosCheckoutItemCreating item : items) {
             List<TonKhoTheoLo> rows = lotsByVariant.getOrDefault(item.getBienTheSanPhamId(), List.of());
             List<TonKhoTheoLo> fifo = rows.stream()
-                    .filter(t -> soLuongKhaDung(t).compareTo(BigDecimal.ZERO) > 0)
+                    .filter(t -> LoDangGiuService.conLai(t, dangGiu).compareTo(BigDecimal.ZERO) > 0)
                     .sorted(Comparator.comparing(
                             (TonKhoTheoLo t) -> t.getNgayNhapGanNhat() == null ? Instant.MAX : t.getNgayNhapGanNhat())
                             .thenComparing(t -> t.getLoHang().getId()))
                     .toList();
 
-            BigDecimal can = fifo.stream().map(PosCheckoutTransaction::soLuongKhaDung)
+            BigDecimal can = fifo.stream().map(t -> LoDangGiuService.conLai(t, dangGiu))
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal need = item.getQuantity();
             if (can.compareTo(need) < 0) {
@@ -447,7 +465,7 @@ public class PosCheckoutTransaction {
             BigDecimal remaining = need;
             for (TonKhoTheoLo t : fifo) {
                 if (remaining.compareTo(BigDecimal.ZERO) <= 0) break;
-                BigDecimal available = soLuongKhaDung(t);
+                BigDecimal available = LoDangGiuService.conLai(t, dangGiu);
                 BigDecimal take = available.min(remaining);
                 allocations.add(new LotAllocation(t, take));
                 remaining = remaining.subtract(take);

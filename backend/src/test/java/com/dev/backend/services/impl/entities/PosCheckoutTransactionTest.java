@@ -1,5 +1,6 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.services.impl.multitable.LoDangGiuService;
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.dto.request.PosCheckoutCreating;
 import com.dev.backend.dto.response.customize.PosCheckoutResponse;
@@ -52,6 +53,7 @@ class PosCheckoutTransactionTest {
     @Mock private PhieuXuatKhoRepository phieuXuatKhoRepository;
     @Mock private ChiTietPhieuXuatKhoRepository chiTietPhieuXuatKhoRepository;
     @Mock private TonKhoTheoLoRepository tonKhoTheoLoRepository;
+    @Mock private LoDangGiuService loDangGiuService;
     @Mock private LichSuGiaoDichKhoRepository lichSuGiaoDichKhoRepository;
     @Mock private PosCheckoutRequestRepository posCheckoutRequestRepository;
     @Mock private PosPaymentRepository posPaymentRepository;
@@ -76,6 +78,7 @@ class PosCheckoutTransactionTest {
         ReflectionTestUtils.setField(executor, "phieuXuatKhoRepository", phieuXuatKhoRepository);
         ReflectionTestUtils.setField(executor, "chiTietPhieuXuatKhoRepository", chiTietPhieuXuatKhoRepository);
         ReflectionTestUtils.setField(executor, "tonKhoTheoLoRepository", tonKhoTheoLoRepository);
+        ReflectionTestUtils.setField(executor, "loDangGiuService", loDangGiuService);
         ReflectionTestUtils.setField(executor, "lichSuGiaoDichKhoRepository", lichSuGiaoDichKhoRepository);
         ReflectionTestUtils.setField(executor, "posCheckoutRequestRepository", posCheckoutRequestRepository);
         ReflectionTestUtils.setField(executor, "posPaymentRepository", posPaymentRepository);
@@ -251,6 +254,26 @@ class PosCheckoutTransactionTest {
         assertEquals(70, pickCaptor.getAllValues().get(1).getLoHang().getId());
         assertEquals(0, new BigDecimal("1").compareTo(pickCaptor.getAllValues().get(1).getSoLuongXuat()));
         assertEquals(0, new BigDecimal("100000").compareTo(pickCaptor.getAllValues().get(0).getGiaVon()));
+    }
+
+    @Test
+    void checkout_boQuaPhanLoDangBiPhieuNhatGiu() {
+        Kho kho = kho1();
+        BienTheSanPham variant = variant(93, 1, "120000");
+        stubSuccessBasics(kho, variant);
+        TonKhoTheoLo lotSom = lotRow(72, 69, "2", "0", Instant.parse("2026-10-05T12:00:00Z"), variant, kho);
+        TonKhoTheoLo lotMuon = lotRow(73, 70, "2", "0", Instant.parse("2026-10-05T13:00:00Z"), variant, kho);
+        when(tonKhoTheoLoRepository.lockLotsForUpdateByKhoAndVariants(1, List.of(93)))
+                .thenReturn(List.of(lotSom, lotMuon));
+        // Phiếu nhặt đang mở giữ cả 2 chiếc của lô nhập sớm (hàng đã/đang nằm trên xe nhặt)
+        when(loDangGiuService.dangGiuTheoLo(eq(1), any(), isNull(), isNull()))
+                .thenReturn(new java.util.HashMap<>(java.util.Map.of(69, new BigDecimal("2"))));
+
+        executor.execute(request("rq-giu", 120000, "120000", "1", 93));
+
+        ArgumentCaptor<ChiTietPhieuXuatKho> pickCaptor = ArgumentCaptor.forClass(ChiTietPhieuXuatKho.class);
+        verify(chiTietPhieuXuatKhoRepository).save(pickCaptor.capture());
+        assertEquals(70, pickCaptor.getValue().getLoHang().getId(), "quầy không được ghi vào lô phiếu nhặt đang giữ");
     }
 
     @Test

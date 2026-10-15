@@ -3,6 +3,7 @@ package com.dev.backend.controller;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.DonChoXuatFilterRequest;
+import com.dev.backend.dto.request.PhanBoLoNhatHangRequest;
 import com.dev.backend.dto.request.PhanCongNguoiNhatRequest;
 import com.dev.backend.dto.request.QuetBarcodeRequest;
 import com.dev.backend.dto.request.TaoPickListRequest;
@@ -10,6 +11,7 @@ import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.DonChoXuatDto;
 import com.dev.backend.dto.response.customize.HangCanHoanKeDto;
 import com.dev.backend.dto.response.customize.KetQuaQuetBarcodeDto;
+import com.dev.backend.dto.response.customize.LoKhaDungNhatHangDto;
 import com.dev.backend.dto.response.entities.DanhSachNhatHangDto;
 import com.dev.backend.services.multitable.NhatHangService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -183,6 +185,47 @@ public class NhatHangController {
                 result,
                 null,
                 "Hoàn tất đợt nhặt hàng thành công"
+        ));
+    }
+
+    @GetMapping("/pick-list/{id}/chi-tiet/{chiTietId}/lo-kha-dung")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
+            inWarehouse = true,
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    @Operation(
+            summary = "Lô có thể phân bổ cho một dòng phiếu nhặt",
+            description = "Sắp FIFO theo ngày lô nhập kho; conLai đã trừ phần phiếu nhặt / phiếu xuất khác đang giữ, daPhanBo là phần của chính dòng."
+    )
+    public ResponseEntity<ResponseData<List<LoKhaDungNhatHangDto>>> getLoKhaDungChoDong(
+            @PathVariable Integer id, @PathVariable Integer chiTietId) {
+        return ResponseEntity.ok(new ResponseData<>(
+                HttpStatus.OK.value(),
+                nhatHangService.getLoKhaDungChoDong(id, chiTietId),
+                null,
+                "Lấy danh sách lô thành công"
+        ));
+    }
+
+    @PutMapping("/pick-list/{id}/chi-tiet/{chiTietId}/phan-bo-lo")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
+            inWarehouse = true,
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    @Operation(
+            summary = "Lưu phân bổ lô cho một dòng phiếu nhặt",
+            description = "Tổng số lượng phải bằng số cần nhặt, mỗi lô không vượt phần còn lại. Chỉ người được giao nhặt hoặc quản lý kho / quản trị viên; khóa sau Hoàn tất nhặt."
+    )
+    public ResponseEntity<ResponseData<DanhSachNhatHangDto>> luuPhanBoLo(
+            @PathVariable Integer id, @PathVariable Integer chiTietId,
+            @RequestBody PhanBoLoNhatHangRequest request) {
+        return ResponseEntity.ok(new ResponseData<>(
+                HttpStatus.OK.value(),
+                nhatHangService.luuPhanBoLo(id, chiTietId, request),
+                null,
+                "Đã lưu phân bổ lô"
         ));
     }
 

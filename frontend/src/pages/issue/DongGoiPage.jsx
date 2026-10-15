@@ -251,7 +251,7 @@ export default function DongGoiPage() {
                 <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-4 shadow-sm">
                     <h4 className="text-sm font-semibold text-amber-900">Phiếu xuất {dto.soPhieuXuat} đã bị hủy — đã khóa đóng gói</h4>
                     <p className="mt-1 text-xs text-amber-800">
-                        Đơn {dto.soDonHang} vẫn còn hiệu lực. Tạo phiếu xuất mới từ màn đơn bán hàng để đóng gói lại.
+                        Đơn {dto.soDonHang} vẫn còn hiệu lực. Bấm Tạo lại phiếu xuất ở màn đơn bán hàng để đóng gói lại.
                     </p>
                 </div>
             ) : null}
@@ -295,7 +295,7 @@ export default function DongGoiPage() {
                     <InfoIcon className="size-4 shrink-0 text-bo-muted" />
                     <p className="min-w-0 flex-1">
                         {daDongGoi
-                            ? `Đã đóng gói xong. Phiếu xuất ${dto.soPhieuXuat} chờ chọn lô và xác nhận xuất kho.`
+                            ? `Đã đóng gói xong. Phiếu xuất ${dto.soPhieuXuat} chờ xác nhận xuất kho (lô đã có sẵn từ phiếu nhặt).`
                             : dto.trangThaiPhieu === TRANG_THAI_PHIEU_XUAT.DA_XUAT
                                 ? `Phiếu xuất ${dto.soPhieuXuat} đã xuất kho.`
                                 : `Phiếu xuất ${dto.soPhieuXuat} không còn ở bước đóng gói.`}
@@ -393,7 +393,7 @@ export default function DongGoiPage() {
                 onConfirm={handleComplete}
                 variant="info"
                 title="Hoàn tất đóng gói"
-                description={`Đơn ${dto.soDonHang} sẽ chuyển sang Chờ xuất kho và phiếu xuất ${dto.soPhieuXuat} sang Chờ xuất. Bước tiếp theo: chọn lô và xác nhận xuất kho.`}
+                description={`Đơn ${dto.soDonHang} sẽ chuyển sang Chờ xuất kho và phiếu xuất ${dto.soPhieuXuat} sang Chờ xuất. Bước tiếp theo: xác nhận xuất kho (lô đã có sẵn từ phiếu nhặt).`}
                 confirmText="Hoàn tất đóng gói"
                 cancelText="Quay lại"
                 isLoading={completing}
