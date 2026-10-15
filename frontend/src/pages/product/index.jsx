@@ -1,25 +1,35 @@
-import { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { productService } from "@/services/productService.js";
 import { thuongHieuService } from "@/services/thuongHieuService.js";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
-import { Loader2, Eye, Edit, Trash2, RefreshCcw, Package, Plus, CheckCircle2, XCircle, ShoppingBag, ChevronDown, ChevronLeft, ChevronRight, Check, Filter, Tag } from "lucide-react";
+import { Eye, Edit, Trash2, Package, Plus, ChevronDown, Check, Info, SearchX, Tag } from "lucide-react";
 import { useToggle } from "@/hooks/useToggle";
 import AddProductModal from "@/pages/product/components/product/AddProductModal";
 import EditProductModal from "@/pages/product/components/product/EditProductModal";
 import ProductModal from "@/pages/product/components/product/ProductModal";
 import ConfirmModal from "@/components/ui/confirm-modal";
-import { formatCurrency, formatDate } from "@/utils/formatters";
+import { formatDate } from "@/utils/formatters";
 import InventoryDrawer from "@/pages/product/components/product/InventoryDrawer";
+import { dinhDangKhoangGia } from "@/pages/product/components/product/khoangGiaBienThe";
 
 import PageContainer from "@/components/backoffice/PageContainer";
-import FilterBar from "@/components/shared/FilterBar";
-import SearchInput from "@/components/shared/SearchInput";
-import TableShell from "@/components/shared/TableShell";
-import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
+import ErrorState from "@/components/shared/ErrorState";
+import ListPageHeader from "@/components/shared/ListPageHeader";
+import ListToolbar from "@/components/shared/ListToolbar";
+import LoadingState from "@/components/shared/LoadingState";
+import SearchInput from "@/components/shared/SearchInput";
+import StatusBadge from "@/components/shared/StatusBadge";
+import StatusTabs from "@/components/shared/StatusTabs";
+import TableShell from "@/components/shared/TableShell";
+import TablePagination from "@/components/shared/TablePagination";
+import { RowActionButton, RowActions } from "@/components/shared/RowActions";
+import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
+import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
+import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 
 import {
     DropdownMenu,
@@ -27,6 +37,34 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+// Tab trạng thái (bố cục A+G): mã tab nằm trên URL ?trangThai=, `trangThai` là giá trị gửi API.
+// "Hết hàng" ở đây = hết trên mọi kho (backend tự tính lại 1/0 theo tồn kho các biến thể),
+// khác "Hết hàng" theo từng kho ở Báo cáo tồn kho → có chú thích khi rê chuột.
+const STATUS_TABS = [
+    { value: "tat-ca", label: "Tất cả", trangThai: "ALL" },
+    { value: "con-hang", label: "Còn hàng", trangThai: "1" },
+    { value: "het-hang", label: "Hết hàng", trangThai: "0", hint: "Hết hàng ở mọi kho" },
+    { value: "ngung-hoat-dong", label: "Ngừng hoạt động", trangThai: "2" },
+];
+const STATUS_TAB_VALUES = STATUS_TABS.map((tab) => tab.value);
+const TAB_MAC_DINH = "tat-ca";
+const trangThaiCuaTab = (ma) => STATUS_TABS.find((tab) => tab.value === ma)?.trangThai ?? "ALL";
+
+const SEARCH_DEBOUNCE_MS = 500;
+const LOAD_ERROR_MESSAGE = "Không thể tải danh sách sản phẩm. Vui lòng thử lại.";
+
+// Bộ lọc ngoài tab trạng thái (trạng thái lấy từ URL).
+const DEFAULT_FILTERS = {
+    keyword: "",
+    danhMuc: "ALL",
+    thuongHieu: "ALL",
+    giaTu: "",
+    giaDen: "",
+    page: 0,
+    size: SO_DONG_MAC_DINH,
+};
+const EMPTY_DRAFT = { keyword: "", giaTu: "", giaDen: "" };
 
 function buildProductFilterPayload(filters) {
     // Chuan hoa bo loc tu UI -> payload backend filter API.
@@ -71,9 +109,11 @@ function buildProductFilterPayload(filters) {
         });
     }
 
+    // Khoảng giá: trường lọc ảo của backend — sản phẩm có ít nhất một biến thể đang bán
+    // (trangThai = 1) có giá bán thỏa điều kiện. Không dùng giaBanMacDinh (sản phẩm hết hàng = 0).
     if (filters.giaTu && filters.giaTu !== "") {
         filterList.push({
-            fieldName: "giaBanMacDinh",
+            fieldName: "giaBanBienThe",
             operation: "GREATER_THAN_OR_EQUAL",
             value: Number(filters.giaTu),
             logicType: "AND",
@@ -82,7 +122,7 @@ function buildProductFilterPayload(filters) {
 
     if (filters.giaDen && filters.giaDen !== "") {
         filterList.push({
-            fieldName: "giaBanMacDinh",
+            fieldName: "giaBanBienThe",
             operation: "LESS_THAN_OR_EQUAL",
             value: Number(filters.giaDen),
             logicType: "AND",
@@ -97,22 +137,33 @@ function buildProductFilterPayload(filters) {
     };
 }
 
+// Nhãn tab kèm chú thích khi rê chuột (StatusTabs hiện `label` nguyên trạng nên truyền được phần tử).
+function TabLabel({ label, hint }) {
+    if (!hint) return label;
+    return (
+        <span title={hint} className="inline-flex items-center gap-1">
+            {label}
+            <Info className="size-3.5 shrink-0 text-slate-400" aria-hidden="true" />
+            <span className="sr-only">({hint.toLowerCase()})</span>
+        </span>
+    );
+}
+
 export default function ProductList() {
     // Du lieu danh sach hien thi tren bang Quan ly san pham.
     const [products, setProducts] = useState([]);
     const [total, setTotal] = useState(0);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState(null);
+    const requestIdRef = useRef(0);
 
-    const [filters, setFilters] = useState({
-        keyword: "",
-        danhMuc: "ALL",
-        thuongHieu: "ALL",
-        trangThai: "ALL",
-        giaTu: "",
-        giaDen: "",
-        page: 0,
-        size: 10,
-    });
+    const [filters, setFilters] = useState(DEFAULT_FILTERS);
+    // Ô từ khóa / khoảng giá đổi ngay khi gõ; chỉ áp vào `filters` (gọi API, đếm tab) khi ngừng gõ.
+    const [draft, setDraft] = useState(EMPTY_DRAFT);
+
+    // Tab trạng thái trên URL ?trangThai= (F5 / quay lại từ trang chi tiết vẫn đúng tab)
+    const [tab, setTab] = useTabTrenUrl(STATUS_TAB_VALUES, TAB_MAC_DINH);
+    const trangThai = trangThaiCuaTab(tab);
 
     // Danh sách thương hiệu cho bộ lọc (nạp 1 lần)
     const [brands, setBrands] = useState([]);
@@ -120,7 +171,6 @@ export default function ProductList() {
     const location = useLocation();
     const toastShownRef = useRef(false);
     const navigate = useNavigate();
-    const searchTimeoutRef = useRef(null);
 
     const [isAddModalOpen, openAddModal, closeAddModal] = useToggle(false);
     const [isEditModalOpen, openEditModal, closeEditModal] = useToggle(false);
@@ -135,45 +185,6 @@ export default function ProductList() {
     const [selectedProductId, setSelectedProductId] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    const STATUS_OPTIONS = useMemo(() => [
-        { value: "ALL", label: "Tất cả trạng thái" },
-        { value: "1", label: "Còn hàng" },
-        { value: "0", label: "Hết hàng" },
-        { value: "2", label: "Ngừng hoạt động" },
-    ], []);
-
-    // ── Global stats: đếm toàn bộ không phụ thuộc trang ─────────────────────
-    const [globalStats, setGlobalStats] = useState({ conHang: 0, hetHang: 0, ngungHoatDong: 0 });
-
-    const fetchGlobalStats = useCallback(async () => {
-        // Luong thong ke tong quan:
-        // Frontend goi 3 lan filterProducts theo trangThai -> backend filter/page query -> lay totalElements.
-        try {
-            const makePayload = (trangThai) => ({
-                page: 0,
-                size: 1,
-                filters: [{ fieldName: "trangThai", operation: "EQUALS", value: trangThai, logicType: "AND" }],
-                sorts: [{ fieldName: "ngayTao", direction: "DESC" }],
-            });
-            const [r1, r0, r2] = await Promise.all([
-                productService.filterProducts(makePayload(1)),
-                productService.filterProducts(makePayload(0)),
-                productService.filterProducts(makePayload(2)),
-            ]);
-            setGlobalStats({
-                conHang:        r1.data?.data?.totalElements ?? 0,
-                hetHang:        r0.data?.data?.totalElements ?? 0,
-                ngungHoatDong:  r2.data?.data?.totalElements ?? 0,
-            });
-        } catch {
-            // ignore stats error silently
-        }
-    }, []);
-
-    // Hoãn qua microtask để tránh setState đồng bộ trong effect
-    // (react-hooks/set-state-in-effect).
-    useEffect(() => { queueMicrotask(() => fetchGlobalStats()); }, [fetchGlobalStats]);
-
     // Nạp danh sách thương hiệu cho bộ lọc (lỗi thì bỏ qua, không chặn màn danh sách)
     useEffect(() => {
         let cancelled = false;
@@ -184,53 +195,109 @@ export default function ProductList() {
     }, []);
 
     const fetchProducts = useCallback(async () => {
+        // Đổi tab / bộ lọc / trang liên tiếp có thể chạy nhiều yêu cầu cùng lúc: chỉ nhận kết quả của yêu cầu mới nhất
+        const requestId = ++requestIdRef.current;
+        setIsLoading(true);
+        setLoadError(null);
         try {
-            setIsLoading(true);
             // [User thao tac bo loc/tim kiem]
             // -> buildProductFilterPayload
             // -> productService.filterProducts
             // -> ProductController.filter -> ProductService.filter -> ProductRepository
-            const payload = buildProductFilterPayload(filters);
+            const payload = buildProductFilterPayload({ ...filters, trangThai });
             const res = await productService.filterProducts(payload);
+            if (requestId !== requestIdRef.current) return;
             const serverResponse = res.data;
-            if (serverResponse?.status === 200) {
-                const pageData = serverResponse.data;
-                const statusOrder = { 1: 0, 0: 1, 2: 2 };
-                const sortedContent = [...(pageData.content || [])].sort((a, b) => {
-                    const orderA = statusOrder[a?.trangThai] ?? 99;
-                    const orderB = statusOrder[b?.trangThai] ?? 99;
-                    return orderA - orderB;
-                });
-                setProducts(sortedContent);
-                setTotal(pageData.totalElements || 0);
+            if (serverResponse?.status !== 200) {
+                throw new Error(serverResponse?.message || LOAD_ERROR_MESSAGE);
             }
+            const pageData = serverResponse.data ?? {};
+            const content = pageData.content || [];
+            const totalElements = pageData.totalElements || 0;
+
+            // Trang đang xem vượt quá số trang (vd. vừa xóa dòng cuối của trang cuối) → lùi về trang cuối có dữ liệu
+            if (content.length === 0 && totalElements > 0 && filters.page > 0) {
+                const lastPage = Math.max(Math.ceil(totalElements / filters.size) - 1, 0);
+                setFilters((prev) => ({ ...prev, page: lastPage }));
+                return; // vẫn đang tải: lần gọi cho trang cuối sẽ tắt loading
+            }
+
+            const statusOrder = { 1: 0, 0: 1, 2: 2 };
+            const sortedContent = [...content].sort((a, b) => {
+                const orderA = statusOrder[a?.trangThai] ?? 99;
+                const orderB = statusOrder[b?.trangThai] ?? 99;
+                return orderA - orderB;
+            });
+            setProducts(sortedContent);
+            setTotal(totalElements);
+            setIsLoading(false);
         } catch (error) {
+            if (requestId !== requestIdRef.current) return;
             console.error("Lỗi khi tải sản phẩm:", error.response?.data || error.message);
             toast.error("Không thể tải danh sách sản phẩm");
+            // Không giữ dòng + tổng số của lần tải trước (R9)
             setProducts([]);
             setTotal(0);
-        } finally {
+            setLoadError(error?.response?.data?.message || LOAD_ERROR_MESSAGE);
             setIsLoading(false);
         }
-    }, [filters]);
+    }, [filters, trangThai]);
 
+    // Hoãn qua microtask để tránh setState đồng bộ trong effect
+    // (react-hooks/set-state-in-effect); vẫn tải lại ngay mỗi khi bộ lọc / tab / trang đổi.
     useEffect(() => {
-        // Debounce keyword tim kiem de tranh goi API lien tuc khi user dang go phim.
-        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-        searchTimeoutRef.current = setTimeout(fetchProducts, filters.keyword ? 500 : 0);
-        return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
-    }, [filters, fetchProducts]);
+        queueMicrotask(() => fetchProducts());
+    }, [fetchProducts]);
+
+    // ── Số trên tab: cùng từ khóa, danh mục, thương hiệu, khoảng giá; chỉ thay trạng thái (R1) ──
+    const { counts: soTheoTab, reload: taiLaiSoTab } = useDemTheoTrangThai(
+        STATUS_TAB_VALUES,
+        async (ma) => {
+            const res = await productService.filterProducts(
+                buildProductFilterPayload({ ...filters, trangThai: trangThaiCuaTab(ma), page: 0, size: 1 })
+            );
+            if (res.data?.status !== 200) throw new Error(res.data?.message || LOAD_ERROR_MESSAGE);
+            return res.data?.data?.totalElements ?? 0;
+        },
+        `${filters.keyword.trim()}|${filters.danhMuc}|${filters.thuongHieu}|${filters.giaTu}|${filters.giaDen}`
+    );
+
+    // ── Debounce ô từ khóa + khoảng giá: không gọi API ở mỗi lần gõ phím ──
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setFilters((prev) =>
+                prev.keyword === draft.keyword && prev.giaTu === draft.giaTu && prev.giaDen === draft.giaDen
+                    ? prev
+                    : { ...prev, ...draft, page: 0 }
+            );
+        }, SEARCH_DEBOUNCE_MS);
+        return () => clearTimeout(timer);
+    }, [draft]);
 
     useEffect(() => {
         if (!location.state?.success || toastShownRef.current) return;
         toastShownRef.current = true;
         toast.success(location.state.message || "Thao tác thành công");
-        navigate(location.pathname, { replace: true });
-    }, [location.state, navigate, location.pathname]);
+        // Xóa state nhưng giữ tham số URL (tab đang chọn)
+        navigate({ pathname: location.pathname, search: location.search }, { replace: true });
+    }, [location.state, navigate, location.pathname, location.search]);
 
-    const handleReset = useCallback(() => {
-        setFilters({ keyword: "", danhMuc: "ALL", thuongHieu: "ALL", trangThai: "ALL", giaTu: "", giaDen: "", page: 0, size: 10 });
+    // Bộ lọc ngoài tab trạng thái (nút "Xóa lọc" chỉ xóa các bộ lọc này, giữ tab đang chọn).
+    const hasActiveFilters =
+        Boolean(draft.keyword.trim() || draft.giaTu || draft.giaDen) ||
+        filters.thuongHieu !== "ALL" ||
+        filters.danhMuc !== "ALL";
+
+    const clearFilters = useCallback(() => {
+        setDraft(EMPTY_DRAFT);
+        setFilters((prev) => ({ ...DEFAULT_FILTERS, size: prev.size }));
     }, []);
+
+    // Đổi tab: ghi lên URL và về trang đầu
+    const changeTab = useCallback((value) => {
+        setTab(value);
+        setFilters((prev) => (prev.page === 0 ? prev : { ...prev, page: 0 }));
+    }, [setTab]);
 
     const handleDeleteClick = useCallback((product) => {
         // Mo modal xac nhan xoa mem san pham.
@@ -245,19 +312,20 @@ export default function ProductList() {
             // Luong xoa mem:
             // Frontend -> productService.deleteProduct
             // -> ProductController.softDelete -> ProductService.softDelete -> Repository.save(status)
-            // -> reload lai danh sach o frontend.
+            // -> reload lai danh sach va so tren tab o frontend (R8).
             await productService.deleteProduct(productToDelete.id);
             toast.success("Xóa sản phẩm thành công");
             closeConfirm();
             setProductToDelete(null);
             fetchProducts();
+            taiLaiSoTab();
         } catch (error) {
             console.error("Lỗi khi xóa sản phẩm:", error);
             toast.error(error.response?.data?.message || "Có lỗi xảy ra khi xóa sản phẩm");
         } finally {
             setIsDeleting(false);
         }
-    }, [productToDelete, closeConfirm, fetchProducts]);
+    }, [productToDelete, closeConfirm, fetchProducts, taiLaiSoTab]);
 
     const handleCancelDelete = useCallback(() => {
         if (!isDeleting) { setProductToDelete(null); closeConfirm(); }
@@ -265,23 +333,16 @@ export default function ProductList() {
 
     const updateFilter = useCallback((field, value, resetPage = true) => {
         // Dong bo gia tri bo loc, mac dinh quay ve trang dau khi bo loc thay doi.
-        const actualValue = value?.target ? value.target.value : value;
-        setFilters(prev => ({ ...prev, [field]: actualValue, ...(resetPage && { page: 0 }) }));
+        setFilters(prev => ({ ...prev, [field]: value, ...(resetPage && { page: 0 }) }));
     }, []);
 
-    const handleFilterChange = useMemo(() => ({
-        keyword:  (e) => updateFilter("keyword", e),
-        giaTu:    (e) => updateFilter("giaTu", e),
-        giaDen:   (e) => updateFilter("giaDen", e),
-        danhMuc:  (v) => updateFilter("danhMuc", v),
-        thuongHieu: (v) => updateFilter("thuongHieu", v),
-        trangThai:(v) => updateFilter("trangThai", v),
-        size:     (v) => updateFilter("size", Number(v)),
-        page:     (v) => updateFilter("page", v, false),
-    }), [updateFilter]);
+    const updateDraft = useCallback((field) => (e) => {
+        const value = e.target.value;
+        setDraft((prev) => ({ ...prev, [field]: value }));
+    }, []);
 
-    const handleModalSuccess = useCallback(() => { fetchProducts(); fetchGlobalStats(); }, [fetchProducts, fetchGlobalStats]);
-    // Sau khi Them/Sua thanh cong, refresh lai danh sach va thong ke de UI phan anh du lieu moi nhat.
+    // Sau khi Them/Sua thanh cong, refresh lai danh sach va so tren tab de UI phan anh du lieu moi nhat.
+    const handleModalSuccess = useCallback(() => { fetchProducts(); taiLaiSoTab(); }, [fetchProducts, taiLaiSoTab]);
 
     // ── Handlers Inventory Drawer ────────────────────────────────────────────
     const handleOpenInventory = useCallback((product) => {
@@ -294,469 +355,333 @@ export default function ProductList() {
         setSelectedInventoryProduct(null);
     }, []);
 
-    const totalPages = Math.max(1, Math.ceil(total / filters.size));
+    // Số chỉ hiện khi đã đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs.
+    const statusTabs = STATUS_TABS.map((t) => ({
+        value: t.value,
+        label: <TabLabel label={t.label} hint={t.hint} />,
+        count: loadError ? null : soTheoTab[t.value],
+    }));
+    const emptyTabLabel = STATUS_TABS.find((t) => t.value === tab)?.label;
 
     return (
-        <PageContainer className="space-y-5">
-            {/* ══ STATS ════════════════════════════════════════════════════════ */}
-            <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-                    <div>
-                        <p className="text-xs font-medium text-bo-muted">Tổng sản phẩm</p>
-                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{total}</p>
-                    </div>
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary">
-                        <Package className="size-5" />
-                    </span>
-                </div>
+        <PageContainer fill className="space-y-4">
+            <ListPageHeader
+                actions={
+                    <Button
+                        onClick={openAddModal}
+                        className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                    >
+                        <Plus className="h-4 w-4" />
+                        Thêm sản phẩm
+                    </Button>
+                }
+            />
 
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-                    <div>
-                        <p className="text-xs font-medium text-bo-muted">Còn hàng</p>
-                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{globalStats.conHang}</p>
-                    </div>
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-success-soft text-bo-success">
-                        <CheckCircle2 className="size-5" />
-                    </span>
-                </div>
-
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-                    <div>
-                        <p className="text-xs font-medium text-bo-muted">Hết hàng</p>
-                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{globalStats.hetHang}</p>
-                    </div>
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-danger-soft text-bo-danger">
-                        <XCircle className="size-5" />
-                    </span>
-                </div>
-
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-                    <div>
-                        <p className="text-xs font-medium text-bo-muted">Ngừng hoạt động</p>
-                        <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{globalStats.ngungHoatDong}</p>
-                    </div>
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
-                        <ShoppingBag className="size-5" />
-                    </span>
-                </div>
-            </section>
-
-            {/* ══ BỘ LỌC TÌM KIẾM ═════════════════════════════════════════════ */}
-            <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                <div className="flex items-center gap-2 border-b border-bo-border px-4 py-3 sm:px-5">
-                    <Filter className="size-4 text-bo-primary" />
-                    <h2 className="text-sm font-semibold text-bo-foreground sm:text-base">
-                        Bộ lọc tìm kiếm
-                    </h2>
-                </div>
-                <FilterBar
-                    primary={
+            {/* ══ BẢNG: tab trạng thái + tìm kiếm + thương hiệu + khoảng giá cùng một hàng ══ */}
+            <TableShell
+                fill
+                toolbar={
+                    <ListToolbar
+                        tabs={
+                            <StatusTabs
+                                label="Lọc sản phẩm theo trạng thái"
+                                tabs={statusTabs}
+                                value={tab}
+                                onChange={changeTab}
+                            />
+                        }
+                        hasFilter={hasActiveFilters}
+                        onClear={clearFilters}
+                    >
                         <SearchInput
+                            label="Tìm sản phẩm"
                             placeholder="Tìm theo tên, mô tả sản phẩm..."
-                            value={filters.keyword}
-                            onChange={handleFilterChange.keyword}
-                            disabled={isLoading}
+                            value={draft.keyword}
+                            onChange={updateDraft("keyword")}
+                            onClear={() => {
+                                setDraft((prev) => ({ ...prev, keyword: "" }));
+                                updateFilter("keyword", "");
+                            }}
+                            className="sm:w-[300px]"
                         />
-                    }
-                    filters={
-                        <>
-                            {/* Trạng thái */}
-                            <DropdownMenu modal={false}>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className="h-9 max-w-[200px] justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                                    >
-                                        <span className="truncate">
-                                            {filters.trangThai === "ALL" && "Tất cả trạng thái"}
-                                            {filters.trangThai === "1"   && "Còn hàng"}
-                                            {filters.trangThai === "0"   && "Hết hàng"}
-                                            {filters.trangThai === "2"   && "Ngừng hoạt động"}
-                                        </span>
-                                        <ChevronDown className="size-4 shrink-0 opacity-70" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    align="end"
-                                    className="backoffice-user-menu z-50 w-[200px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
-                                >
-                                    {STATUS_OPTIONS.map((s) => (
-                                        <DropdownMenuItem
-                                            key={s.value}
-                                            /*[User chọn trạng thái trên bộ lọc*/
-                                            onClick={() => handleFilterChange.trangThai(s.value)}
-                                            className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                        >
-                                            {s.label}
-                                            {filters.trangThai === s.value && <Check className="h-4 w-4" />}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
 
-                            {/* Thương hiệu */}
-                            <DropdownMenu modal={false}>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className="h-9 max-w-[200px] justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                                    >
-                                        <span className="truncate">
-                                            {filters.thuongHieu === "ALL"
-                                                ? "Tất cả thương hiệu"
-                                                : brands.find((b) => b.id === Number(filters.thuongHieu))?.tenThuongHieu ?? "Thương hiệu"}
-                                        </span>
-                                        <ChevronDown className="size-4 shrink-0 opacity-70" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    align="end"
-                                    className="backoffice-user-menu z-50 w-[200px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                        {/* Thương hiệu */}
+                        <DropdownMenu modal={false}>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    aria-label="Lọc theo thương hiệu"
+                                    className="h-9 w-full justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-[190px]"
                                 >
+                                    <span className="truncate">
+                                        {filters.thuongHieu === "ALL"
+                                            ? "Tất cả thương hiệu"
+                                            : brands.find((b) => b.id === Number(filters.thuongHieu))?.tenThuongHieu ?? "Thương hiệu"}
+                                    </span>
+                                    <ChevronDown className="size-4 shrink-0 opacity-60" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                                align="end"
+                                className="backoffice-user-menu z-50 max-h-[400px] w-[220px] overflow-y-auto rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                            >
+                                <DropdownMenuItem
+                                    onClick={() => updateFilter("thuongHieu", "ALL")}
+                                    className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
+                                >
+                                    Tất cả thương hiệu
+                                    {filters.thuongHieu === "ALL" && <Check className="h-4 w-4" />}
+                                </DropdownMenuItem>
+                                {brands.map((brand) => (
                                     <DropdownMenuItem
-                                        onClick={() => handleFilterChange.thuongHieu("ALL")}
+                                        key={brand.id}
+                                        onClick={() => updateFilter("thuongHieu", String(brand.id))}
                                         className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
                                     >
-                                        Tất cả thương hiệu
-                                        {filters.thuongHieu === "ALL" && <Check className="h-4 w-4" />}
+                                        <span className="min-w-0 truncate">
+                                            {brand.tenThuongHieu}
+                                            {Number(brand.trangThai) !== 1 && (
+                                                <span className="ml-2 text-xs text-bo-muted">(Ngừng)</span>
+                                            )}
+                                        </span>
+                                        {filters.thuongHieu === String(brand.id) && <Check className="h-4 w-4 shrink-0" />}
                                     </DropdownMenuItem>
-                                    {brands.map((brand) => (
-                                        <DropdownMenuItem
-                                            key={brand.id}
-                                            onClick={() => handleFilterChange.thuongHieu(String(brand.id))}
-                                            className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                        >
-                                            <span className="min-w-0 truncate">
-                                                {brand.tenThuongHieu}
-                                                {Number(brand.trangThai) !== 1 && (
-                                                    <span className="ml-2 text-xs text-bo-muted">(Ngừng)</span>
-                                                )}
-                                            </span>
-                                            {filters.thuongHieu === String(brand.id) && <Check className="h-4 w-4 shrink-0" />}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                                ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
 
-                            {/* Giá từ */}
+                        {/* Khoảng giá bán */}
+                        <div className="flex w-full items-center gap-2 sm:w-auto">
                             <Input
                                 type="number"
-                                value={filters.giaTu}
-                                onChange={handleFilterChange.giaTu}
+                                value={draft.giaTu}
+                                onChange={updateDraft("giaTu")}
                                 placeholder="Giá từ"
                                 aria-label="Giá từ"
                                 min="0"
-                                className="h-9 w-28 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-                                disabled={isLoading}
+                                className="h-9 min-w-0 flex-1 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20 sm:w-28 sm:flex-none"
                             />
-
-                            {/* Giá đến */}
                             <Input
                                 type="number"
-                                value={filters.giaDen}
-                                onChange={handleFilterChange.giaDen}
+                                value={draft.giaDen}
+                                onChange={updateDraft("giaDen")}
                                 placeholder="Giá đến"
                                 aria-label="Giá đến"
                                 min="0"
-                                className="h-9 w-28 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-                                disabled={isLoading}
+                                className="h-9 min-w-0 flex-1 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20 sm:w-28 sm:flex-none"
                             />
-
-                            {/* Đặt lại */}
-                            <Button
-                                variant="outline"
-                                onClick={handleReset}
-                                disabled={isLoading}
-                                className="flex h-9 items-center gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                            >
-                                <RefreshCcw className="h-4 w-4" />
-                                Đặt lại
-                            </Button>
-                        </>
-                    }
-                    actions={
-                        <Button
-                            onClick={openAddModal}
-                            className="bg-bo-primary text-white hover:bg-bo-primary-hover"
-                        >
-                            <Plus className="h-4 w-4" />
-                            Thêm sản phẩm
-                        </Button>
-                    }
-                />
-            </div>
-
-            {/* ══ TABLE / LOADING / EMPTY ══════════════════════════════════════ */}
-            {isLoading ? (
-                <div className="flex items-center justify-center rounded-lg border border-bo-border bg-white py-12 shadow-sm">
-                    <Loader2 className="h-8 w-8 animate-spin text-bo-primary" />
-                    <span className="ml-3 text-sm text-bo-muted">Đang tải danh sách sản phẩm...</span>
-                </div>
-            ) : products.length === 0 ? (
-                <div className="rounded-lg border border-bo-border bg-white shadow-sm">
-                    <EmptyState
-                        icon={Package}
-                        title="Không tìm thấy sản phẩm"
-                        description="Hiện tại chưa có dữ liệu sản phẩm phù hợp. Hãy thử thay đổi bộ lọc hoặc từ khóa tìm kiếm để xem kết quả khác."
-                    />
-                </div>
-            ) : (
-                <TableShell
-                    footer={
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            {/* Số dòng hiển thị */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs text-bo-muted">Hiển thị:</span>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            className="h-8 w-[120px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                                        >
-                                            {filters.size} dòng
-                                            <ChevronDown className="size-3.5 opacity-60" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent
-                                        align="start"
-                                        className="backoffice-user-menu z-50 w-[120px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
-                                    >
-                                        {[5, 10, 20, 50, 100].map(size => (
-                                            <DropdownMenuItem
-                                                key={size}
-                                                onClick={() => handleFilterChange.size(size)}
-                                                className="cursor-pointer rounded-md px-2.5 py-1.5 text-xs text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                            >
-                                                {size} dòng
-                                            </DropdownMenuItem>
-                                        ))}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-
-                            {/* Thông tin trang */}
-                            <p className="text-xs text-bo-muted">
-                                Hiển thị{" "}
-                                <span className="font-semibold text-bo-foreground">
-                                    {filters.page * filters.size + 1}
-                                </span>
-                                {" - "}
-                                <span className="font-semibold text-bo-foreground">
-                                    {Math.min((filters.page + 1) * filters.size, total)}
-                                </span>
-                                {" trong tổng số "}
-                                <span className="font-semibold text-bo-primary">{total}</span>{" "}
-                                kết quả
-                            </p>
-
-                            {/* Điều hướng */}
-                            <div className="flex items-center gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleFilterChange.page(filters.page - 1)}
-                                    disabled={filters.page === 0}
-                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                                >
-                                    <ChevronLeft className="size-3.5" />
-                                    Trước
-                                </Button>
-
-                                <div className="hidden items-center gap-1 sm:flex">
-                                    {[...Array(Math.min(5, totalPages))].map((_, idx) => {
-                                        let pageNum;
-                                        if (totalPages <= 5) {
-                                            pageNum = idx;
-                                        } else if (filters.page < 3) {
-                                            pageNum = idx;
-                                        } else if (filters.page > totalPages - 4) {
-                                            pageNum = totalPages - 5 + idx;
-                                        } else {
-                                            pageNum = filters.page - 2 + idx;
-                                        }
-                                        return (
-                                            <Button
-                                                key={idx}
-                                                variant={filters.page === pageNum ? "default" : "outline"}
-                                                size="sm"
-                                                onClick={() => handleFilterChange.page(pageNum)}
-                                                className={
-                                                    filters.page === pageNum
-                                                        ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
-                                                        : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
-                                                }
-                                            >
-                                                {pageNum + 1}
-                                            </Button>
-                                        );
-                                    })}
-                                </div>
-
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleFilterChange.page(filters.page + 1)}
-                                    disabled={filters.page >= totalPages - 1}
-                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                                >
-                                    Sau
-                                    <ChevronRight className="size-3.5" />
-                                </Button>
-                            </div>
                         </div>
-                    }
-                >
-                    {/* Bảng có chiều cao cố định, cuộn bên trong */}
-                    <div className="max-h-[520px] overflow-y-auto">
-                        <table className="w-full min-w-[1100px] text-sm">
-                            <thead className="sticky top-0 z-10">
-                            <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    STT
-                                </th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Hình ảnh
-                                </th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Tên sản phẩm
-                                </th>
-                                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Thương hiệu
-                                </th>
-                                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Giá bán
-                                </th>
-                                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Trạng thái
-                                </th>
-                                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Ngày tạo
-                                </th>
-                                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                                    Thao tác
-                                </th>
-                            </tr>
-                            </thead>
-                            <tbody className="divide-y divide-bo-border">
-                            {products.map((product, index) => (
-                                <tr
-                                    key={product.id}
-                                    className="transition-colors hover:bg-bo-surface-subtle"
+                    </ListToolbar>
+                }
+                footer={
+                    !isLoading && !loadError && total > 0 ? (
+                        <TablePagination
+                            page={filters.page}
+                            size={filters.size}
+                            total={total}
+                            onPageChange={(page) => updateFilter("page", page, false)}
+                            onSizeChange={(size) => updateFilter("size", Number(size))}
+                        />
+                    ) : null
+                }
+            >
+                {isLoading ? (
+                    <LoadingState label="Đang tải danh sách sản phẩm" />
+                ) : loadError ? (
+                    <ErrorState
+                        description={loadError}
+                        onRetry={() => {
+                            fetchProducts();
+                            taiLaiSoTab();
+                        }}
+                    />
+                ) : products.length === 0 ? (
+                    hasActiveFilters ? (
+                        <EmptyState
+                            icon={SearchX}
+                            title="Không tìm thấy sản phẩm phù hợp"
+                            description="Thử đổi từ khóa, thương hiệu hoặc khoảng giá."
+                            action={
+                                <Button
+                                    variant="outline"
+                                    onClick={clearFilters}
+                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    {/* STT */}
-                                    <td className="px-3 py-3 text-center text-xs text-bo-muted">
-                                        {filters.page * filters.size + index + 1}
-                                    </td>
+                                    Xóa lọc
+                                </Button>
+                            }
+                        />
+                    ) : tab !== TAB_MAC_DINH ? (
+                        <EmptyState
+                            icon={Package}
+                            title={`Không có sản phẩm nào ở trạng thái "${emptyTabLabel}"`}
+                            description="Chọn tab Tất cả để xem mọi sản phẩm."
+                            action={
+                                <Button
+                                    variant="outline"
+                                    onClick={() => changeTab(TAB_MAC_DINH)}
+                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                >
+                                    Xem tất cả
+                                </Button>
+                            }
+                        />
+                    ) : (
+                        <EmptyState
+                            icon={Package}
+                            title="Chưa có sản phẩm"
+                            description="Thêm sản phẩm để quản lý biến thể, giá bán và tồn kho."
+                        />
+                    )
+                ) : (
+                    /* Bảng dữ liệu: khung giãn hết màn, thân bảng tự cuộn, tiêu đề cột đứng yên */
+                    <table className="w-full min-w-[1100px] text-sm">
+                        <thead className="sticky top-0 z-10">
+                        <tr className="border-b border-bo-border bg-bo-surface-subtle">
+                            <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                STT
+                            </th>
+                            <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                Hình ảnh
+                            </th>
+                            <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                Tên sản phẩm
+                            </th>
+                            <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                Thương hiệu
+                            </th>
+                            <th className="h-10 px-3 text-right whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                Giá bán
+                            </th>
+                            <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                Trạng thái
+                            </th>
+                            <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                Ngày tạo
+                            </th>
+                            <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                Thao tác
+                            </th>
+                        </tr>
+                        </thead>
+                        <tbody className="divide-y divide-bo-border">
+                        {products.map((product, index) => {
+                            // Giá theo biến thể đang bán: một giá "980.000 ₫", khác giá "450.000 ₫ – 980.000 ₫"
+                            const giaBan = dinhDangKhoangGia(product.bienTheSanPhams, "giaBan");
+                            return (
+                            <tr
+                                key={product.id}
+                                className="transition-colors hover:bg-bo-surface-subtle"
+                            >
+                                {/* STT */}
+                                <td className="px-3 py-3 text-center text-xs text-bo-muted">
+                                    {filters.page * filters.size + index + 1}
+                                </td>
 
-                                    {/* Hình ảnh */}
-                                    <td className="px-3 py-3">
-                                        <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-bo-border bg-slate-100">
-                                            {product.anhQuanAos?.[0]?.tepTin?.duongDan ? (
-                                                <img
-                                                    src={product.anhQuanAos[0].tepTin.duongDan}
-                                                    alt={product.tenSanPham}
-                                                    className="h-full w-full object-cover"
-                                                />
-                                            ) : (
-                                                <Package className="h-5 w-5 text-slate-300" />
-                                            )}
-                                        </div>
-                                    </td>
-
-                                    {/* Tên sản phẩm */}
-                                    <td className="max-w-[260px] px-3 py-3">
-                                        <Link
-                                            to={`/products/${product.id}`}
-                                            title={product.tenSanPham}
-                                            className="block w-full truncate text-left font-semibold leading-snug text-bo-foreground hover:underline"
-                                        >
-                                            {product.tenSanPham}
-                                        </Link>
-                                        {product.moTa && (
-                                            <p className="mt-0.5 line-clamp-1 text-xs text-bo-muted">
-                                                {product.moTa}
-                                            </p>
-                                        )}
-                                    </td>
-
-                                    {/* Thương hiệu */}
-                                    <td className="max-w-[180px] px-3 py-3">
-                                        {product.thuongHieu?.tenThuongHieu ? (
-                                            <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-bo-border bg-bo-surface-subtle px-2 py-0.5 text-xs font-medium text-bo-foreground">
-                                                <Tag className="size-3 shrink-0 text-bo-muted" />
-                                                <span className="truncate">{product.thuongHieu.tenThuongHieu}</span>
-                                            </span>
+                                {/* Hình ảnh */}
+                                <td className="px-3 py-3">
+                                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-bo-border bg-slate-100">
+                                        {product.anhQuanAos?.[0]?.tepTin?.duongDan ? (
+                                            <img
+                                                src={product.anhQuanAos[0].tepTin.duongDan}
+                                                alt={product.tenSanPham}
+                                                className="h-full w-full object-cover"
+                                            />
                                         ) : (
-                                            <span className="text-xs italic text-bo-muted">Chưa xác định</span>
+                                            <Package className="h-5 w-5 text-slate-300" />
                                         )}
-                                    </td>
+                                    </div>
+                                </td>
 
-                                    {/* Giá bán */}
-                                    <td className="px-3 py-3 text-center">
-                                        <span className="inline-flex items-center gap-1.5 rounded-md bg-bo-success-soft px-2.5 py-1 text-xs font-semibold text-bo-success">
-                                            {product.giaBanMacDinh ? formatCurrency(product.giaBanMacDinh) : "—"}
+                                {/* Tên sản phẩm */}
+                                <td className="max-w-[260px] px-3 py-3">
+                                    <Link
+                                        to={`/products/${product.id}`}
+                                        title={product.tenSanPham}
+                                        className="block w-full truncate text-left font-semibold leading-snug text-bo-foreground hover:underline"
+                                    >
+                                        {product.tenSanPham}
+                                    </Link>
+                                    {product.moTa && (
+                                        <p className="mt-0.5 line-clamp-1 text-xs text-bo-muted">
+                                            {product.moTa}
+                                        </p>
+                                    )}
+                                </td>
+
+                                {/* Thương hiệu */}
+                                <td className="max-w-[180px] px-3 py-3">
+                                    {product.thuongHieu?.tenThuongHieu ? (
+                                        <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-bo-border bg-bo-surface-subtle px-2 py-0.5 text-xs font-medium text-bo-foreground">
+                                            <Tag className="size-3 shrink-0 text-bo-muted" />
+                                            <span className="truncate">{product.thuongHieu.tenThuongHieu}</span>
                                         </span>
-                                    </td>
+                                    ) : (
+                                        <span className="text-xs italic text-bo-muted">Chưa xác định</span>
+                                    )}
+                                </td>
 
-                                    {/* Trạng thái */}
-                                    <td className="px-3 py-3 text-center">
-                                        {product.trangThai === 1 ? (
-                                            <StatusBadge label="Còn hàng" tone="success" />
-                                        ) : product.trangThai === 0 ? (
-                                            <StatusBadge label="Hết hàng" tone="danger" />
-                                        ) : (
-                                            <StatusBadge label="Ngừng hoạt động" tone="neutral" />
-                                        )}
-                                    </td>
+                                {/* Giá bán (biến thể đang bán) */}
+                                <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">
+                                    {giaBan ? (
+                                        <span className="text-bo-foreground">{giaBan}</span>
+                                    ) : (
+                                        <span className="text-bo-muted">—</span>
+                                    )}
+                                </td>
 
-                                    {/* Ngày tạo */}
-                                    <td className="px-3 py-3 text-center text-sm text-bo-muted">
-                                        {formatDate(product.ngayTao) !== "—" ? formatDate(product.ngayTao) : "-"}
-                                    </td>
+                                {/* Trạng thái */}
+                                <td className="px-3 py-3 text-center">
+                                    {product.trangThai === 1 ? (
+                                        <StatusBadge label="Còn hàng" tone="success" />
+                                    ) : product.trangThai === 0 ? (
+                                        <StatusBadge label="Hết hàng" tone="danger" />
+                                    ) : (
+                                        <StatusBadge label="Ngừng hoạt động" tone="neutral" />
+                                    )}
+                                </td>
 
-                                    {/* Thao tác */}
-                                    <td className="px-3 py-3">
-                                        <div className="flex items-center justify-center gap-1">
-                                            <Link
-                                                to={`/products/${product.id}`}
-                                                title="Xem chi tiết"
-                                                className="inline-flex size-8 items-center justify-center rounded-md text-bo-primary transition-colors hover:bg-bo-primary-soft"
-                                            >
-                                                <Eye className="h-4 w-4" />
-                                            </Link>
-                                            {/*<button*/}
-                                            {/*    type="button"*/}
-                                            {/*    title="Tồn kho biến thể"*/}
-                                            {/*    onClick={() => handleOpenInventory(product)}*/}
-                                            {/*    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent transition-all duration-150 hover:scale-110 active:scale-95 text-blue-600 hover:bg-blue-50 hover:border-blue-200"*/}
-                                            {/*>*/}
-                                            {/*    <Layers className="h-4 w-4" />*/}
-                                            {/*</button>*/}
-                                            <button
-                                                type="button"
-                                                title="Chỉnh sửa"
-                                                onClick={() => { setSelectedProductId(product.id); openEditModal(); }}
-                                                className="inline-flex size-8 items-center justify-center rounded-md text-bo-primary transition-colors hover:bg-bo-primary-soft"
-                                            >
-                                                <Edit className="h-4 w-4" />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                title="Xóa sản phẩm"
-                                                onClick={() => handleDeleteClick(product)}
-                                                className="inline-flex size-8 items-center justify-center rounded-md text-bo-danger transition-colors hover:bg-bo-danger-soft"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </TableShell>
-            )}
+                                {/* Ngày tạo */}
+                                <td className="whitespace-nowrap px-3 py-3 text-center text-sm tabular-nums text-bo-muted">
+                                    {formatDate(product.ngayTao)}
+                                </td>
+
+                                {/* Thao tác */}
+                                <td className="px-3 py-3">
+                                    <RowActions>
+                                        <RowActionButton
+                                            icon={Eye}
+                                            label="Xem chi tiết"
+                                            onClick={() => navigate(`/products/${product.id}`)}
+                                        />
+                                        {/*<button*/}
+                                        {/*    type="button"*/}
+                                        {/*    title="Tồn kho biến thể"*/}
+                                        {/*    onClick={() => handleOpenInventory(product)}*/}
+                                        {/*    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent transition-all duration-150 hover:scale-110 active:scale-95 text-blue-600 hover:bg-blue-50 hover:border-blue-200"*/}
+                                        {/*>*/}
+                                        {/*    <Layers className="h-4 w-4" />*/}
+                                        {/*</button>*/}
+                                        <RowActionButton
+                                            icon={Edit}
+                                            label="Chỉnh sửa"
+                                            onClick={() => { setSelectedProductId(product.id); openEditModal(); }}
+                                        />
+                                        <RowActionButton
+                                            icon={Trash2}
+                                            label="Xóa sản phẩm"
+                                            tone="danger"
+                                            onClick={() => handleDeleteClick(product)}
+                                        />
+                                    </RowActions>
+                                </td>
+                            </tr>
+                            );
+                        })}
+                        </tbody>
+                    </table>
+                )}
+            </TableShell>
 
             {/* ══ MODALS & DRAWER ══════════════════════════════════════════════════ */}
             <AddProductModal

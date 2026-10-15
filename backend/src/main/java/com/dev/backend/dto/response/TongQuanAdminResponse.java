@@ -102,8 +102,16 @@ public record TongQuanAdminResponse(
             /** Null khi khối Tồn kho lỗi. */
             Long hetHang,
             Long thieuHang,
-            long taiKhoanBiKhoa
+            long taiKhoanBiKhoa,
+            /**
+             * Chỉ có khi xem "Tất cả kho" (khoId = null): bốn việc trên tách theo kho, vì Đơn chờ xuất,
+             * Phiếu nhặt hàng và Chuyển kho nội bộ chỉ xem kho làm việc. Null khi đang xem một kho.
+             */
+            List<ViecTheoKho> theoKho
     ) {}
+
+    public record ViecTheoKho(Integer khoId, String tenKho, long donChoXuatKho, long phieuNhatChuaPhanCong,
+                              long phieuChuyenChoDuyet, long phieuChuyenChoXuatHang) {}
 
     /**
      * Tồn kho theo 3 con số của SRS (khả dụng = tồn thực tế − đang giữ) và 4 mức tình trạng tính trên

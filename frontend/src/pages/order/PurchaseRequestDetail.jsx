@@ -19,12 +19,16 @@ import {
 import PageContainer from "@/components/backoffice/PageContainer";
 import PageHeader from "@/components/backoffice/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
+import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import TableShell from "@/components/shared/TableShell";
 
+import { YEU_CAU_NHAP_HANG_STATUS } from '@/constants/yeuCauNhapHang';
 import purchaseRequestService from '@/services/purchaseRequestService';
 import apiClient from '@/services/apiClient';
+import { getApiErrorMessage, getApiErrorStatus } from '@/utils/apiError';
+import { formatDate as dinhDangNgay, formatDateTime as dinhDangNgayGio } from "@/utils/formatters";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROLE = {
@@ -77,6 +81,8 @@ export default function PurchaseRequestDetail() {
 
     const [requestData, setRequestData] = useState(null);
     const [loading, setLoading] = useState(true);
+    // null | { notFound: true } | { notFound: false, message }
+    const [loadError, setLoadError] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
 
     const [approveDialog, setApproveDialog] = useState(false);
@@ -102,10 +108,10 @@ export default function PurchaseRequestDetail() {
             icon: CheckCircle, description: 'Yêu cầu đã được duyệt — có thể gửi yêu cầu báo giá'
         },
         3: {
-            label: 'Đã chuyển thành báo giá',
+            label: YEU_CAU_NHAP_HANG_STATUS[3].label,
             bannerBg: 'bg-bo-primary-soft', bannerBorder: 'border-bo-primary/30',
             iconBg: 'bg-white', iconColor: 'text-bo-primary', textColor: 'text-bo-foreground',
-            icon: FileText, description: 'Yêu cầu này đã được tạo thành đơn báo giá'
+            icon: FileText, description: 'Đã gửi yêu cầu báo giá tới nhà cung cấp, đang chờ báo giá'
         },
         4: {
             label: 'Từ chối',
@@ -114,33 +120,38 @@ export default function PurchaseRequestDetail() {
             icon: XCircle, description: 'Yêu cầu nhập hàng đã bị từ chối'
         },
         5: {
-            label: 'Đã chuyển thành báo giá',
+            label: YEU_CAU_NHAP_HANG_STATUS[5].label,
             bannerBg: 'bg-bo-primary-soft', bannerBorder: 'border-bo-primary/30',
             iconBg: 'bg-white', iconColor: 'text-bo-primary', textColor: 'text-bo-foreground',
-            icon: FileText, description: 'Yêu cầu này đã được tạo thành đơn báo giá'
+            icon: FileText, description: 'Đã chốt báo giá, yêu cầu này đã thành đơn mua hàng'
         }
     };
 
-    const formatDate = (dateString) => {
-        if (!dateString) return '-';
-        return new Date(dateString).toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' });
-    };
+    // Định dạng chung toàn hệ thống: 05/10/2026 · 08:03; trống → "—"
+    const formatDate = (dateString) => dinhDangNgay(dateString);
 
-    const formatDateTime = (dateString) => {
-        if (!dateString) return '-';
-        return new Date(dateString).toLocaleString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-    };
+    // Định dạng chung toàn hệ thống: 05/10/2026 · 08:03; trống → "—"
+    const formatDateTime = (dateString) => dinhDangNgayGio(dateString);
 
     const fetchRequestDetail = useCallback(async () => {
         setLoading(true);
+        setLoadError(null);
         try {
             const result = await apiClient.get(`/api/v1/yeu-cau-mua-hang/get-by-id/${id}`);
             if (result && result.data && result.data.data) {
                 setRequestData(result.data.data);
+            } else {
+                setRequestData(null);
+                setLoadError({ notFound: true });
             }
         } catch (error) {
             console.error('Error fetching request detail:', error);
-            toast.error('Không thể tải chi tiết yêu cầu mua hàng');
+            setRequestData(null);
+            // Máy chủ trả 400 "Không tìm thấy yêu cầu mua hàng id: …" khi mã không tồn tại
+            const status = getApiErrorStatus(error);
+            setLoadError(status === 404 || status === 400
+                ? { notFound: true }
+                : { notFound: false, message: getApiErrorMessage(error, 'Không thể tải chi tiết yêu cầu nhập hàng') });
         } finally {
             setLoading(false);
         }
@@ -214,19 +225,27 @@ export default function PurchaseRequestDetail() {
         return (
             <PageContainer>
                 <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                    <EmptyState
-                        icon={AlertCircle}
-                        title="Không tìm thấy yêu cầu nhập hàng"
-                        description="Yêu cầu có thể đã bị xóa hoặc bạn không có quyền truy cập."
-                        action={
-                            <Button
-                                onClick={() => navigate('/purchase-requests')}
-                                className="bg-bo-primary text-white hover:bg-bo-primary-hover"
-                            >
-                                Quay lại danh sách
-                            </Button>
-                        }
-                    />
+                    {loadError && !loadError.notFound ? (
+                        <ErrorState
+                            title="Không thể tải chi tiết yêu cầu nhập hàng"
+                            description={loadError.message}
+                            onRetry={() => fetchRequestDetail()}
+                        />
+                    ) : (
+                        <EmptyState
+                            icon={AlertCircle}
+                            title="Không tìm thấy yêu cầu nhập hàng"
+                            description="Yêu cầu có thể đã bị xóa hoặc bạn không có quyền truy cập."
+                            action={
+                                <Button
+                                    onClick={() => navigate('/purchase-requests')}
+                                    className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                                >
+                                    Quay lại danh sách
+                                </Button>
+                            }
+                        />
+                    )}
                 </div>
             </PageContainer>
         );

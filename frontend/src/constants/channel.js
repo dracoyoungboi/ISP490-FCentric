@@ -104,6 +104,30 @@ export const LOG_STATUS_OPTIONS = [
   { value: "BO_QUA", label: "Bỏ qua" },
 ];
 
+/**
+ * Tab trạng thái của bảng Nhật ký đồng bộ (bố cục A+G). `ma` nằm trên đường dẫn `?trangThai=`,
+ * `trangThai` là mã gửi API (cùng mã SYNC_STATUS để một trạng thái chỉ có một tên).
+ */
+// Chỉ các trạng thái backend thật sự trả về và lọc được (KenhBanHangDongBoServiceImpl.filterNhatKy:
+// THANH_CONG, LOI, CHO). "Chờ thử lại", "Bỏ qua" chỉ có trong dữ liệu giả nên không làm tab (N4).
+export const LOG_STATUS_TABS = [
+  { ma: "tat-ca", label: "Tất cả", trangThai: null },
+  { ma: "cho", label: SYNC_STATUS.CHO.label, trangThai: "CHO" },
+  { ma: "thanh-cong", label: SYNC_STATUS.THANH_CONG.label, trangThai: "THANH_CONG" },
+  { ma: "loi", label: SYNC_STATUS.LOI.label, trangThai: "LOI" },
+];
+
+/**
+ * Tab trạng thái liên kết của trang Liên kết sản phẩm (S-OC-03). Bật/tắt đồng bộ là cột công tắc riêng,
+ * không phải trạng thái liên kết. `ma` nằm trên đường dẫn `?trangThai=`, `trangThai` là mã gửi API.
+ */
+export const LINK_STATUS_TABS = [
+  { ma: "tat-ca", label: "Tất cả", trangThai: null },
+  { ma: "da-lien-ket", label: LINK_STATUS.da_lien_ket.label, trangThai: "da_lien_ket" },
+  { ma: "chua-lien-ket", label: LINK_STATUS.chua_lien_ket.label, trangThai: "chua_lien_ket" },
+  { ma: "loi", label: LINK_STATUS.loi.label, trangThai: "loi" },
+];
+
 /** Cờ cần xử lý trên đơn (TK 7.4). Mọi cờ đều chặn Pick List và xuất kho. */
 export const FLAG_META = {
   THIEU_HANG: {

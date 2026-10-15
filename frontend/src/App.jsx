@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import BackofficeLayout from "@/components/backoffice/BackofficeLayout";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { Toaster } from "@/components/ui/sonner";
@@ -10,7 +10,6 @@ import ChatLieuList from "./pages/attribute/ChatLieuList";
 import ChatLieuDetail from "./pages/attribute/ChatLieuDetail";
 import ChatLieuDetailView from "./pages/attribute/ChatLieuDetailView";
 import SupplierList from "./pages/supplier/SupplierList";
-import SupplierDetail from "./pages/supplier/SupplierDetail";
 import SupplierDetailView from "./pages/supplier/SupplierDetailView";
 import ProductList from "./pages/product";
 import ViewUserListByAdmin from "./pages/admin/ViewUserListByAdmin";
@@ -58,7 +57,6 @@ import PhieuXuatKhoPrint from "./pages/issue/PhieuXuatKhoPrint";
 import Dashboard from "@/pages/dashboard/Dashboard";
 import NotFound404 from "./pages/page-error/NotFound404";
 import TonKhoTongQuan from "./pages/bao-cao/TonKhoTongQuan";
-import ApplicationRequestManagement from "./pages/purchase-oder-create-req/ApplicationRequestManagement";
 import LichSuGiaoDichKhoList from "./pages/lich-su-giao-dich-kho/LichSuGiaoDichKhoList";
 import QuotationRequestList from "./pages/order/QuotationRequestList";
 import QuotationRequestCreate from "./pages/order/QuotationRequestCreate";
@@ -87,10 +85,17 @@ import PosLayout from "./pages/pos/PosLayout";
 import DonChoXuatPage from "./pages/issue/DonChoXuatPage";
 import PickListList from "./pages/issue/PickListList";
 import PickListDetail from "./pages/issue/PickListDetail";
+import DongGoiPage from "./pages/issue/DongGoiPage";
 import ChannelsPage from "./pages/channels/ChannelsPage";
 import ChannelSetupWizard from "./pages/channels/ChannelSetupWizard";
 import ChannelMappingsPage from "./pages/channels/ChannelMappingsPage";
 import ChannelSyncDashboard from "./pages/channels/ChannelSyncDashboard";
+
+/** Đường dẫn cũ /supplier/view/:id → trang chi tiết /supplier/:id (giống /customers/:id, /users/:id). */
+function SupplierViewRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/supplier/${id}`} replace />;
+}
 
 export default function App() {
   return (
@@ -165,11 +170,11 @@ export default function App() {
           <Route path="/purchase-requests/:id" element={<PurchaseRequestDetail />} />
           
 
-          {/* Supplier */}
+          {/* Supplier — Thêm / Sửa là popup; giữ đường dẫn cũ để link cũ không hỏng */}
           <Route path="/supplier" element={<SupplierList />} />
-          <Route path="/supplier/new" element={<SupplierDetail />} />
-          <Route path="/supplier/view/:id" element={<SupplierDetailView />} />
-          <Route path="/supplier/:id" element={<SupplierDetail />} />
+          <Route path="/supplier/new" element={<Navigate to="/supplier" replace state={{ openCreateSupplier: true }} />} />
+          <Route path="/supplier/view/:id" element={<SupplierViewRedirect />} />
+          <Route path="/supplier/:id" element={<SupplierDetailView />} />
 
           {/* Customer */}
           <Route path="/customers" element={<KhachHangPage />} />
@@ -219,7 +224,8 @@ export default function App() {
           <Route path="/bao-cao/xuat-nhap" element={<Navigate to="/reports/stock-movements" replace />} />
           <Route path="/bao-cao/ton-kho" element={<Navigate to="/reports/inventory" replace />} />
 
-          <Route path="/duyet-don-hang" element={<ApplicationRequestManagement />} />
+          {/* Màn "Duyệt yêu cầu tạo đơn" cũ: backend không còn API này; việc duyệt nằm ở Yêu cầu nhập hàng */}
+          <Route path="/duyet-don-hang" element={<Navigate to="/purchase-requests" replace />} />
 
           {/*Lịch sử giao dịch kho */}
           <Route path="/inventory-transactions" element={<LichSuGiaoDichKhoList />} />
@@ -262,6 +268,7 @@ export default function App() {
             <Route path="/goods-issues/pending-orders" element={<DonChoXuatPage />} />
             <Route path="/goods-issues/pick-lists" element={<PickListList />} />
             <Route path="/goods-issues/pick-lists/:id" element={<PickListDetail />} />
+            <Route path="/goods-issues/packing/:donId" element={<DongGoiPage />} />
           </Route>
 
           {/* Kênh bán hàng (FO-073–077) — chỉ quản trị viên (backend cũng chặn bằng @RequireAuth) */}

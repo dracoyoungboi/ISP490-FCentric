@@ -1,43 +1,34 @@
-import { formatCurrency } from "@/utils/formatters";
-import { useCallback, useEffect, useState } from "react";
+import { formatCurrency, formatDate } from "@/utils/formatters";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { donBanHangService } from "@/services/donBanHangService";
 import { Link, useNavigate } from "react-router-dom";
 import apiClient from "@/services/apiClient";
 import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  RefreshCcw,
-  Check,
+  Calendar,
   Eye,
-  Filter,
   FileText,
-  Clock,
-  XCircle
+  Plus,
+  SearchX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 
 import PageContainer from "@/components/backoffice/PageContainer";
-import PageHeader from "@/components/backoffice/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
-import FilterBar from "@/components/shared/FilterBar";
+import ErrorState from "@/components/shared/ErrorState";
+import ListPageHeader from "@/components/shared/ListPageHeader";
+import ListToolbar from "@/components/shared/ListToolbar";
 import LoadingState from "@/components/shared/LoadingState";
 import SearchInput from "@/components/shared/SearchInput";
 import StatusBadge from "@/components/shared/StatusBadge";
+import StatusTabs from "@/components/shared/StatusTabs";
+import TablePagination from "@/components/shared/TablePagination";
 import TableShell from "@/components/shared/TableShell";
-
-const QUOTE_STATUS_MAP = {
-  0: { label: "Chờ phản hồi", tone: "warning" },
-  2: { label: "Đã chốt đơn", tone: "success" },
-  4: { label: "Bị từ chối", tone: "danger" },
-};
+import { RowActionButton, RowActions } from "@/components/shared/RowActions";
+import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
+import { BAO_GIA_TABS, getBaoGiaStatus } from "@/constants/baoGia";
+import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
+import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 
 const ROLE = {
     QUAN_TRI_VIEN: "quan_tri_vien",
@@ -46,6 +37,12 @@ const ROLE = {
     NHAN_VIEN_MUA_HANG: "nhan_vien_mua_hang",
     NHAN_VIEN_BAN_HANG: "nhan_vien_ban_hang",
 };
+
+// Tab trạng thái (bố cục A+G) — mã tab nằm trên URL ?trangThai=
+const TAB_MAS = BAO_GIA_TABS.map((tab) => tab.ma);
+const TAB_MAC_DINH = "tat-ca";
+const SEARCH_DEBOUNCE_MS = 350;
+const LOAD_ERROR_MESSAGE = "Không thể tải danh sách báo giá. Vui lòng thử lại.";
 
 function parseJwt(token) {
     try {
@@ -59,20 +56,61 @@ function parseRoles(vaiTro) {
     return vaiTro.includes(" ") ? vaiTro.split(" ") : [vaiTro];
 }
 
+// Điều kiện lọc dùng chung cho danh sách và số trên tab (R1): chỉ khác điều kiện trạng thái.
+// Phạm vi theo vai trò do backend tự thêm (NV bán hàng: báo giá mình tạo).
+function buildFilterList({ keyword, ngay, trangThai }) {
+  // LỌC CHỨNG TỪ BÁO GIÁ
+  const filterList = [
+    {
+      fieldName: "loaiChungTu",
+      operation: "EQUALS",
+      value: "bao_gia",
+    }
+  ];
+
+  if (keyword) {
+    filterList.push({
+      fieldName: "soDonHang",
+      operation: "LIKE",
+      value: keyword,
+    });
+  }
+
+  if (trangThai?.length === 1) {
+    filterList.push({ fieldName: "trangThai", operation: "EQUALS", value: trangThai[0] });
+  } else if (trangThai?.length > 1) {
+    filterList.push({ fieldName: "trangThai", operation: "IN", value: trangThai });
+  }
+
+  // Ngày lập: lọc ở máy chủ (trước đây chỉ lọc trên trang đang xem nên tổng số không khớp)
+  if (ngay) {
+    filterList.push({ fieldName: "ngayDatHang", operation: "GREATER_THAN_OR_EQUAL", value: ngay });
+    filterList.push({ fieldName: "ngayDatHang", operation: "LESS_THAN_OR_EQUAL", value: `${ngay}T23:59:59` });
+  }
+
+  return filterList;
+}
+
 export default function BaoGiaList() {
   const navigate = useNavigate();
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const requestIdRef = useRef(0);
   const [userRoles, setUserRoles] = useState([]);
+
+  const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);
+  const tabTrangThai = BAO_GIA_TABS.find((t) => t.ma === tab)?.trangThai ?? null;
 
   const [filters, setFilters] = useState({
     keyword: "",
-    trangThai: "",
     ngayDatHang: "",
     page: 0,
-    size: 10,
+    size: SO_DONG_MAC_DINH,
   });
+  // Ô tìm kiếm đổi ngay khi gõ; filters.keyword chỉ đổi khi ngừng gõ hoặc bấm Enter.
+  const [searchText, setSearchText] = useState("");
 
   const isKhoRole = userRoles.includes(ROLE.QUAN_LY_KHO) || userRoles.includes(ROLE.NHAN_VIEN_KHO);
 
@@ -96,65 +134,33 @@ export default function BaoGiaList() {
     fetchUserInfo();
   }, []);
 
-  const buildFilterPayload = useCallback(() => {
-    // LỌC CHỨNG TỪ BÁO GIÁ
-    const filterList = [
-      {
-        fieldName: "loaiChungTu",
-        operation: "EQUALS",
-        value: "bao_gia",
-      }
-    ];
-
-    if (filters.keyword?.trim()) {
-      filterList.push({
-        fieldName: "soDonHang",
-        operation: "LIKE",
-        value: filters.keyword.trim(),
-      });
-    }
-
-    if (filters.trangThai !== "") {
-      filterList.push({
-        fieldName: "trangThai",
-        operation: "EQUALS",
-        value: Number(filters.trangThai),
-      });
-    }
-
-    return {
-      page: filters.page,
-      size: filters.size,
-      filters: filterList,
-      sorts: [{ fieldName: "id", direction: "DESC" }],
-    };
-  }, [filters.keyword, filters.trangThai, filters.page, filters.size]);
-
   const fetchData = useCallback(async () => {
+    // Đổi tab / bộ lọc liên tiếp: chỉ nhận kết quả của yêu cầu mới nhất
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     try {
-      const payload = buildFilterPayload();
-      const res = await donBanHangService.filter(payload);
-      let list = res.content || [];
-
-      if (filters.ngayDatHang) {
-        list = list.filter((item) => {
-          if (!item.ngayDatHang) return false;
-          const date = new Date(item.ngayDatHang);
-          const year = date.getFullYear();
-          const month = String(date.getMonth() + 1).padStart(2, "0");
-          const day = String(date.getDate()).padStart(2, "0");
-          const localDate = `${year}-${month}-${day}`;
-          return localDate === filters.ngayDatHang;
-        });
-      }
-
-      setData(list);
-      setTotal(res.totalElements || 0);
+      const res = await donBanHangService.filter({
+        page: filters.page,
+        size: filters.size,
+        filters: buildFilterList({ keyword: filters.keyword, ngay: filters.ngayDatHang, trangThai: tabTrangThai }),
+        sorts: [{ fieldName: "id", direction: "DESC" }],
+      });
+      if (requestId !== requestIdRef.current) return;
+      setData(res?.content || []);
+      setTotal(res?.totalElements || 0);
+      setLoadError(false);
+    } catch (error) {
+      if (requestId !== requestIdRef.current) return;
+      console.error(error);
+      // Không giữ dòng + tổng số của lần tải trước (R9)
+      setData([]);
+      setTotal(0);
+      setLoadError(true);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
-  }, [buildFilterPayload, filters.ngayDatHang]);
+    // tabTrangThai là mảng hằng trong BAO_GIA_TABS, chỉ đổi khi đổi tab
+  }, [filters, tabTrangThai]);
 
   // Hoãn qua microtask để tránh setState đồng bộ trong effect
   // (react-hooks/set-state-in-effect); dữ liệu vẫn được tải ngay khi mount.
@@ -162,37 +168,80 @@ export default function BaoGiaList() {
     queueMicrotask(() => fetchData());
   }, [fetchData]);
 
-  const totalPages = Math.ceil(total / filters.size);
+  // ── Số trên tab: cùng mã báo giá + ngày lập đang lọc, chỉ thay trạng thái (R1) ──
+  const tabCounts = useDemTheoTrangThai(
+    TAB_MAS,
+    async (ma) => {
+      const res = await donBanHangService.filter({
+        page: 0,
+        size: 1,
+        filters: buildFilterList({
+          keyword: filters.keyword,
+          ngay: filters.ngayDatHang,
+          trangThai: BAO_GIA_TABS.find((t) => t.ma === ma)?.trangThai,
+        }),
+        sorts: [],
+      });
+      return res?.totalElements ?? 0;
+    },
+    `${filters.keyword}|${filters.ngayDatHang}`
+  );
 
-  const handleReset = () => {
-    setFilters({ keyword: "", trangThai: "", ngayDatHang: "", page: 0, size: 10 });
+  // ── Debounce ô tìm kiếm: không gọi API ở mỗi lần gõ phím ──
+  useEffect(() => {
+    const keyword = searchText.trim();
+    const timer = setTimeout(() => {
+      setFilters((p) => (p.keyword === keyword ? p : { ...p, keyword, page: 0 }));
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchText]);
+
+  const applyKeyword = (keyword) => {
+    setFilters((p) => (p.keyword === keyword ? p : { ...p, keyword, page: 0 }));
   };
 
-  const handlePageChange = (newPage) => {
-    if (newPage >= 0 && newPage < totalPages) setFilters((p) => ({ ...p, page: newPage }));
+  // Đổi tab: ghi lên URL (F5 / quay lại vẫn đúng tab) và về trang đầu
+  const changeTab = (value) => {
+    setTab(value);
+    setFilters((p) => (p.page === 0 ? p : { ...p, page: 0 }));
   };
 
-  const handlePageSizeChange = (newSize) => {
-    setFilters((p) => ({ ...p, size: newSize, page: 0 }));
+  const hasActiveFilters = Boolean(searchText.trim() || filters.ngayDatHang);
+
+  // "Xóa lọc": bỏ mã báo giá + ngày lập, giữ tab đang chọn
+  const clearFilters = () => {
+    setSearchText("");
+    setFilters((p) => ({ ...p, keyword: "", ngayDatHang: "", page: 0 }));
   };
 
-  // Thống kê dành cho Báo Giá
-  const stats = {
-    total: total,
-    choPhanHoi: data.filter((d) => d.trangThai === 0).length,
-    tuChoi: data.filter((d) => d.trangThai === 4).length,
+  const handleRetry = () => {
+    fetchData();
+    tabCounts.reload();
   };
 
-  const trangThaiLabel = filters.trangThai === ""
-    ? "Tất cả trạng thái"
-    : QUOTE_STATUS_MAP[filters.trangThai]?.label;
+  // Số chỉ hiện khi đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs
+  const statusTabs = BAO_GIA_TABS.map((t) => ({
+    value: t.ma,
+    label: t.label,
+    count: loadError ? null : tabCounts.counts[t.ma],
+  }));
+
+  // Ghi chú phạm vi (R3) theo đúng điều kiện backend tự thêm ở DonBanHangService.filter:
+  // quản trị viên xem tất cả; vai trò kho theo kho xuất phụ trách; còn lại NV bán hàng chỉ thấy báo giá mình tạo.
+  const scopeNote = userRoles.length === 0 || userRoles.includes(ROLE.QUAN_TRI_VIEN)
+    ? null
+    : isKhoRole
+      ? "Báo giá xuất từ kho bạn phụ trách"
+      : userRoles.includes(ROLE.NHAN_VIEN_BAN_HANG)
+        ? "Báo giá bạn tạo"
+        : null;
+
+  const emptyTabLabel = BAO_GIA_TABS.find((t) => t.ma === tab)?.label;
 
   return (
-    <PageContainer className="space-y-5">
-      {/* ── Page header ── */}
-      <PageHeader
-        title="Báo giá"
-        description="Danh sách báo giá gửi khách hàng và trạng thái phản hồi"
+    <PageContainer fill className="space-y-4">
+      <ListPageHeader
+        scope={scopeNote}
         actions={
           !isKhoRole ? (
             <Link to="/sales-quotations/create">
@@ -205,285 +254,162 @@ export default function BaoGiaList() {
         }
       />
 
-      {/* ── Stats ── */}
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-          <div>
-            <p className="text-xs font-medium text-bo-muted">Tổng báo giá</p>
-            <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.total}</p>
-          </div>
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary">
-            <FileText className="size-5" />
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-          <div>
-            <p className="text-xs font-medium text-bo-muted">Đang chờ phản hồi</p>
-            <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.choPhanHoi}</p>
-          </div>
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-warning-soft text-bo-warning">
-            <Clock className="size-5" />
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-          <div>
-            <p className="text-xs font-medium text-bo-muted">Bị từ chối</p>
-            <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{stats.tuChoi}</p>
-          </div>
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-danger-soft text-bo-danger">
-            <XCircle className="size-5" />
-          </span>
-        </div>
-      </section>
-
-      {/* ── Filters ── */}
-      <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-        <div className="flex items-center gap-2 border-b border-bo-border px-4 py-3 sm:px-5">
-          <Filter className="size-4 text-bo-primary" />
-          <h2 className="text-sm font-semibold text-bo-foreground sm:text-base">
-            Lọc báo giá
-          </h2>
-        </div>
-        <FilterBar
-          primary={
-            <SearchInput
-              placeholder="Nhập mã báo giá..."
-              value={filters.keyword}
-              onChange={(e) => setFilters((p) => ({ ...p, keyword: e.target.value, page: 0 }))}
-              onClear={() => setFilters((p) => ({ ...p, keyword: "", page: 0 }))}
-            />
-          }
-          filters={
-            <>
-              <DropdownMenu modal={false}>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="h-9 w-full justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-[200px]"
-                  >
-                    <span className="truncate">{trangThaiLabel}</span>
-                    <ChevronDown className="size-4 shrink-0 opacity-60" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  className="backoffice-user-menu z-50 w-[200px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
-                >
-                  <DropdownMenuItem
-                    onClick={() => setFilters((p) => ({ ...p, trangThai: "", page: 0 }))}
-                    className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                  >
-                    Tất cả trạng thái
-                    {filters.trangThai === "" && <Check className="size-4" />}
-                  </DropdownMenuItem>
-                  {Object.entries(QUOTE_STATUS_MAP).map(([key, value]) => (
-                    <DropdownMenuItem
-                      key={key}
-                      onClick={() => setFilters((p) => ({ ...p, trangThai: key, page: 0 }))}
-                      className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                    >
-                      {value.label}
-                      {filters.trangThai === key && <Check className="size-4" />}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <input
-                type="date"
-                aria-label="Ngày lập"
-                value={filters.ngayDatHang}
-                onChange={(e) => setFilters((p) => ({ ...p, ngayDatHang: e.target.value, page: 0 }))}
-                className="h-9 w-full rounded-md border border-bo-border bg-white px-3 text-sm text-bo-foreground focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 sm:w-[170px]"
-              />
-            </>
-          }
-          actions={
-            <Button
-              variant="outline"
-              onClick={handleReset}
-              className="h-9 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-            >
-              <RefreshCcw className="size-4" />
-              Đặt lại
-            </Button>
-          }
-        />
-      </div>
-
       {/* ── Table ── */}
       <TableShell
-        title="Danh sách báo giá"
-        description="Nhấn vào dòng để xem chi tiết báo giá"
+        fill
+        toolbar={
+          <ListToolbar
+            tabs={
+              <StatusTabs
+                label="Lọc báo giá theo trạng thái"
+                tabs={statusTabs}
+                value={tab}
+                onChange={changeTab}
+              />
+            }
+            hasFilter={hasActiveFilters}
+            onClear={clearFilters}
+          >
+            <SearchInput
+              label="Tìm báo giá"
+              placeholder="Nhập mã báo giá..."
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") applyKeyword(searchText.trim());
+              }}
+              onClear={() => {
+                setSearchText("");
+                applyKeyword("");
+              }}
+              className="sm:w-[300px]"
+            />
+
+            {/* Ngày lập: nhãn nằm trong ô để hàng công cụ gọn một dòng */}
+            <label className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-white pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto">
+              <Calendar className="size-4 shrink-0 text-bo-muted" />
+              <span className="shrink-0 text-xs text-bo-muted">Ngày lập</span>
+              <Input
+                type="date"
+                aria-label="Ngày lập"
+                className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm text-bo-foreground shadow-none focus-visible:ring-0"
+                value={filters.ngayDatHang}
+                onChange={(e) => setFilters((p) => ({ ...p, ngayDatHang: e.target.value, page: 0 }))}
+              />
+            </label>
+          </ListToolbar>
+        }
         footer={
-          data.length > 0 ? (
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              {/* Page size */}
-              <div className="flex items-center gap-2">
-                <span className="whitespace-nowrap text-xs text-bo-muted">Hiển thị</span>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="h-8 w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                    >
-                      {filters.size} dòng
-                      <ChevronDown className="size-3.5 opacity-60" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="start"
-                    className="backoffice-user-menu z-50 w-[110px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
-                  >
-                    {[10, 20, 30, 50].map((s) => (
-                      <DropdownMenuItem
-                        key={s}
-                        onClick={() => handlePageSizeChange(s)}
-                        className="cursor-pointer rounded-md px-2.5 py-1.5 text-xs text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                      >
-                        {s} dòng
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              {/* Page info */}
-              <p className="text-xs text-bo-muted">
-                Hiển thị{" "}
-                <span className="font-semibold text-bo-foreground">{filters.page * filters.size + 1}</span>
-                {" - "}
-                <span className="font-semibold text-bo-foreground">
-                  {Math.min((filters.page + 1) * filters.size, total)}
-                </span>
-                {" trong tổng số "}
-                <span className="font-semibold text-bo-primary">{total}</span> kết quả
-              </p>
-
-              {/* Navigation */}
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(filters.page - 1)}
-                  disabled={filters.page === 0}
-                  className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                >
-                  <ChevronLeft className="size-3.5" />
-                  Trước
-                </Button>
-
-                <div className="hidden items-center gap-1 sm:flex">
-                  {[...Array(Math.min(5, totalPages))].map((_, idx) => {
-                    let pageNum;
-                    if (totalPages <= 5) pageNum = idx;
-                    else if (filters.page < 3) pageNum = idx;
-                    else if (filters.page > totalPages - 4) pageNum = totalPages - 5 + idx;
-                    else pageNum = filters.page - 2 + idx;
-
-                    return (
-                      <Button
-                        key={idx}
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePageChange(pageNum)}
-                        className={
-                          filters.page === pageNum
-                            ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
-                            : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
-                        }
-                      >
-                        {pageNum + 1}
-                      </Button>
-                    );
-                  })}
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(filters.page + 1)}
-                  disabled={filters.page >= totalPages - 1}
-                  className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                >
-                  Sau
-                  <ChevronRight className="size-3.5" />
-                </Button>
-              </div>
-            </div>
+          !loadError && total > 0 ? (
+            <TablePagination
+              page={filters.page}
+              size={filters.size}
+              total={total}
+              onPageChange={(page) => {
+                if (page < 0) return;
+                setFilters((p) => ({ ...p, page }));
+              }}
+              onSizeChange={(size) => setFilters((p) => (p.size === size ? p : { ...p, size, page: 0 }))}
+            />
           ) : null
         }
       >
         {loading ? (
-          <LoadingState rows={6} />
+          <LoadingState label="Đang tải danh sách báo giá" />
+        ) : loadError ? (
+          <ErrorState description={LOAD_ERROR_MESSAGE} onRetry={handleRetry} />
         ) : data.length === 0 ? (
-          <EmptyState
-            icon={FileText}
-            title="Không tìm thấy báo giá nào"
-            description="Bấm tạo báo giá mới hoặc điều chỉnh bộ lọc."
-          />
+          hasActiveFilters ? (
+            <EmptyState
+              icon={SearchX}
+              title="Không tìm thấy báo giá phù hợp"
+              description="Thử đổi mã báo giá hoặc ngày lập."
+              action={
+                <Button
+                  variant="outline"
+                  onClick={clearFilters}
+                  className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                >
+                  Xóa lọc
+                </Button>
+              }
+            />
+          ) : tab !== TAB_MAC_DINH ? (
+            <EmptyState
+              icon={FileText}
+              title={`Không có báo giá nào ở trạng thái "${emptyTabLabel}"`}
+              description="Chọn tab Tất cả để xem mọi báo giá."
+              action={
+                <Button
+                  variant="outline"
+                  onClick={() => changeTab(TAB_MAC_DINH)}
+                  className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                >
+                  Xem tất cả
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState
+              icon={FileText}
+              title="Chưa có báo giá"
+              description="Báo giá gửi khách hàng sẽ hiện ở đây. Khi khách đồng ý, báo giá được chốt thành đơn bán hàng."
+            />
+          )
         ) : (
           <table className="w-full min-w-[980px] text-sm">
-            <thead>
+            <thead className="sticky top-0 z-10">
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
-                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã báo giá</th>
-                <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Khách hàng</th>
-                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày lập</th>
-                <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền</th>
-                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
-                <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
+                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
+                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mã báo giá</th>
+                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Khách hàng</th>
+                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày lập</th>
+                <th className="h-10 whitespace-nowrap px-3 text-right tabular-nums text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền</th>
+                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
+                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-bo-border">
-              {data.map((item, index) => (
-                <tr
-                  key={item.id}
-                  className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
-                  onClick={() => navigate(`/sales-quotations/${item.id}`)}
-                >
-                  <td className="px-3 py-3 text-center text-xs text-bo-muted">
-                    {filters.page * filters.size + index + 1}
-                  </td>
-                  <td className="px-3 py-3">
-                    <span className="font-semibold uppercase tracking-wide text-bo-primary">{item.soDonHang}</span>
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className="font-semibold text-bo-foreground">{item.khachHang?.tenKhachHang || "Khách lẻ"}</div>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-3 text-center text-xs text-bo-muted">
-                    {new Date(item.ngayTao).toLocaleDateString("vi-VN")}
-                  </td>
-                  <td className="px-3 py-3 text-right">
-                    <span className="font-semibold text-bo-foreground">
-                      {formatCurrency(item.tongCong)}
-                    </span>
-                  </td>
-                  <td className="px-3 py-3 text-center">
-                    <StatusBadge
-                      label={QUOTE_STATUS_MAP[item.trangThai]?.label}
-                      tone={QUOTE_STATUS_MAP[item.trangThai]?.tone}
-                    />
-                  </td>
-                  <td className="px-3 py-3 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/sales-quotations/${item.id}`);
-                        }}
-                        className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
-                        title="Xem chi tiết"
-                      >
-                        <Eye className="size-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {data.map((item, index) => {
+                const st = getBaoGiaStatus(item.trangThai);
+                return (
+                  <tr
+                    key={item.id}
+                    className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
+                    onClick={() => navigate(`/sales-quotations/${item.id}`)}
+                  >
+                    <td className="px-3 py-3 text-center text-xs text-bo-muted">
+                      {filters.page * filters.size + index + 1}
+                    </td>
+                    <td className="px-3 py-3">
+                      <span className="font-semibold uppercase tracking-wide text-bo-primary">{item.soDonHang}</span>
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="font-semibold text-bo-foreground">{item.khachHang?.tenKhachHang || "Khách lẻ"}</div>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3 text-center text-xs text-bo-muted">
+                      {formatDate(item.ngayTao)}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">
+                      <span className="font-semibold text-bo-foreground">
+                        {formatCurrency(item.tongCong)}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      <StatusBadge label={st.label} tone={st.tone} />
+                    </td>
+                    <td className="px-3 py-3">
+                      <RowActions>
+                        <RowActionButton
+                          icon={Eye}
+                          label="Xem chi tiết"
+                          onClick={() => navigate(`/sales-quotations/${item.id}`)}
+                        />
+                      </RowActions>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

@@ -103,6 +103,9 @@ public class TongQuanAdminRepository {
                                   long phieuChuyenChoDuyet, long phieuChuyenChoXuatHang, long dotKiemKeDangMo,
                                   long taiKhoanBiKhoa) {}
 
+    public record ViecTheoKhoDong(Integer khoId, String tenKho, long donChoXuatKho, long phieuNhatChuaPhanCong,
+                                  long phieuChuyenChoDuyet, long phieuChuyenChoXuatHang) {}
+
     public record HangCanBoSungDong(Integer bienTheId, String maSku, String tenSanPham, String tenMau,
                                     String tenKichCo, Integer khoId, BigDecimal khaDung, int nguong,
                                     BigDecimal khaDungKhoTong) {}
@@ -584,7 +587,7 @@ public class TongQuanAdminRepository {
                 WHERE n.trang_thai IN ('cho_nhat', 'dang_nhat') AND n.nguoi_nhat_id IS NULL
                   AND (:khoId IS NULL OR n.kho_xuat_id = :khoId))                          AS nhat_chua_giao,
               (SELECT COUNT(*) FROM phieu_xuat_kho p
-                WHERE p.loai_xuat = 'ban_hang' AND p.trang_thai IN (0, 1, 2)
+                WHERE p.loai_xuat = 'ban_hang' AND p.trang_thai IN (0, 6)
                   AND (:khoId IS NULL OR p.kho_id = :khoId))                               AS px_cho_xuat,
               (SELECT COUNT(*) FROM yeu_cau_mua_hang y
                 WHERE y.trang_thai = 1 AND (:khoId IS NULL OR y.kho_nhap_id = :khoId))     AS yc_cho_duyet,
@@ -607,6 +610,39 @@ public class TongQuanAdminRepository {
                 rs.getLong("px_cho_xuat"), rs.getLong("yc_cho_duyet"), rs.getLong("pn_cho_nhap"),
                 rs.getLong("pck_cho_duyet"), rs.getLong("pck_cho_xuat"), rs.getLong("kiem_ke_mo"),
                 rs.getLong("tk_khoa")));
+    }
+
+    /**
+     * Bốn việc mà trang danh sách chỉ xem kho làm việc (Đơn chờ xuất, Phiếu nhặt hàng, Chuyển kho nội bộ),
+     * đếm riêng từng kho: Tổng quan "Tất cả kho" tách dòng theo kho để bấm vào mở đúng kho và số khớp
+     * số dòng. Cùng điều kiện với SQL_VIEC_CAN_XU_LY; chuyển kho tính theo kho đi. Chỉ trả kho có việc.
+     */
+    static final String SQL_VIEC_THEO_KHO = """
+            SELECT x.kho_id, x.ten_kho, x.don_cho_xuat, x.nhat_chua_giao, x.pck_cho_duyet, x.pck_cho_xuat
+            FROM (
+              SELECT k.id AS kho_id, k.ten_kho,
+                (SELECT COUNT(*) FROM don_ban_hang d
+                  WHERE d.loai_chung_tu = 'don_ban_hang' AND d.trang_thai = 1
+                    AND d.danh_sach_nhat_hang_id IS NULL AND d.kho_xuat_id = k.id)            AS don_cho_xuat,
+                (SELECT COUNT(*) FROM danh_sach_nhat_hang n
+                  WHERE n.trang_thai IN ('cho_nhat', 'dang_nhat') AND n.nguoi_nhat_id IS NULL
+                    AND n.kho_xuat_id = k.id)                                                   AS nhat_chua_giao,
+                (SELECT COUNT(*) FROM phieu_xuat_kho p
+                  WHERE p.loai_xuat = 'khac' AND p.kho_chuyen_den_id IS NOT NULL AND p.trang_thai = 1
+                    AND p.kho_id = k.id)                                                        AS pck_cho_duyet,
+                (SELECT COUNT(*) FROM phieu_xuat_kho p
+                  WHERE p.loai_xuat = 'khac' AND p.kho_chuyen_den_id IS NOT NULL AND p.trang_thai = 2
+                    AND p.kho_id = k.id)                                                        AS pck_cho_xuat
+              FROM kho k
+            ) x
+            WHERE x.don_cho_xuat + x.nhat_chua_giao + x.pck_cho_duyet + x.pck_cho_xuat > 0
+            ORDER BY x.kho_id
+            """;
+
+    public List<ViecTheoKhoDong> viecTheoKho() {
+        return jdbc.query(SQL_VIEC_THEO_KHO, new MapSqlParameterSource(), (rs, i) -> new ViecTheoKhoDong(
+                rs.getInt("kho_id"), rs.getString("ten_kho"), rs.getLong("don_cho_xuat"),
+                rs.getLong("nhat_chua_giao"), rs.getLong("pck_cho_duyet"), rs.getLong("pck_cho_xuat")));
     }
 
     /* ======================================================================

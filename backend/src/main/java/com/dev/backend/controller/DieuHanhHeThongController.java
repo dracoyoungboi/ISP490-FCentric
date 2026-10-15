@@ -125,8 +125,8 @@ class DieuHanhHeThongController {
         );
     }
 
-    // Lấy danh sách toàn bộ cấu hình hệ thống
-    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    // Lấy danh sách toàn bộ cấu hình hệ thống (quản lý kho chỉ xem; sửa vẫn chỉ quản trị viên)
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
     @GetMapping("/cau-hinh")
     public ResponseEntity<ResponseData<List<CauHinhHeThongDto>>> getAllCauHinh() {
         List<CauHinhHeThongDto> result = dieuHanhHeThongService.getAllCauHinh();

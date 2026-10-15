@@ -15,18 +15,10 @@ import {
     Info as InfoIcon,
     ArrowLeft
 } from "lucide-react";
+import { PHIEU_XUAT_KHO_STATUS, getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
 
-const STATUS_UI = {
-    0: { label: "Nháp", tone: "warning" },
-    1: { label: "Chờ duyệt", tone: "info" },
-    2: {
-        label: "Đã duyệt",
-        tone: "info",
-        className: "border-indigo-200 bg-indigo-50 text-indigo-700",
-    },
-    3: { label: "Đã xuất", tone: "success" },
-    4: { label: "Đã hủy", tone: "danger" },
-};
+// Trạng thái phiếu xuất — dùng chung tên với danh sách và bản in (constants/phieuXuatKho)
+const STATUS_UI = PHIEU_XUAT_KHO_STATUS;
 
 export default function PhieuXuatKhoView() {
     const { id } = useParams();
@@ -62,7 +54,7 @@ export default function PhieuXuatKhoView() {
         );
     }
 
-    const statusInfo = STATUS_UI[data.trangThai] || { label: "Không xác định", tone: "info" };
+    const statusInfo = getPhieuXuatKhoStatus(data.trangThai);
 
     return (
         <PageContainer className="space-y-5">

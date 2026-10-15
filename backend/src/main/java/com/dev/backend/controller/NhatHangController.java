@@ -129,7 +129,7 @@ public class NhatHangController {
     )
     @Operation(
             summary = "Phân công nhân viên nhặt hàng cho Pick List (SRS 6.2.1 Action 'Phân công')",
-            description = "Gán nhân viên kho phụ trách đợt nhặt hàng. Quản lý kho có thể phân công bất kỳ nhân viên nào trong kho; Nhân viên kho có thể tự nhận việc (Self-assignment)."
+            description = "Gán người phụ trách đợt nhặt hàng — BẮT BUỘC trước khi quét nhặt. Quản lý kho / quản trị viên phân công được cho bất kỳ ai (kể cả chính mình); nhân viên kho chỉ tự nhận phiếu chưa có người nhặt (Self-assignment)."
     )
     public ResponseEntity<ResponseData<DanhSachNhatHangDto>> phanCongNguoiNhat(
             @PathVariable Integer id,
@@ -151,7 +151,7 @@ public class NhatHangController {
     )
     @Operation(
             summary = "Quét Barcode / SKU đối soát và cập nhật số lượng nhặt (SRS 6.3.1 Execute Picking)",
-            description = "Nhận barcode (từ app Barcode to PC hoặc máy quét) hoặc SKU, đối soát với danh sách cần nhặt của Pick List. Tự động tăng số lượng đã quét, cập nhật tiến độ % và kiểm tra điều kiện hoàn tất."
+            description = "Nhận barcode (từ app Barcode to PC hoặc máy quét) hoặc SKU, đối soát với danh sách cần nhặt của Pick List. Tự động tăng số lượng đã quét, cập nhật tiến độ % và kiểm tra điều kiện hoàn tất. Chỉ người được phân công mới quét được (phiếu chưa phân công trả 409)."
     )
     public ResponseEntity<ResponseData<KetQuaQuetBarcodeDto>> quetBarcode(
             @PathVariable Integer id,
@@ -173,7 +173,7 @@ public class NhatHangController {
     )
     @Operation(
             summary = "Hoàn tất đợt nhặt hàng và sinh Phiếu xuất kho (SRS 6.3.1 -> 6.3.2)",
-            description = "Kích hoạt hành động Complete Picking khi 100% các dòng đã nhặt đủ. Chuyển trạng thái Pick List sang 'da_nhat', cập nhật đơn bán hàng sang 'Chờ xuất', và tự động khởi tạo Phiếu xuất kho ở trạng thái Chờ xuất."
+            description = "Kích hoạt hành động Complete Picking khi 100% các dòng đã nhặt đủ. Chuyển trạng thái Pick List sang 'da_nhat', cập nhật đơn bán hàng sang 7 (Chờ đóng gói), và tự động khởi tạo Phiếu xuất kho Nháp (chờ đóng gói)."
     )
     public ResponseEntity<ResponseData<DanhSachNhatHangDto>> hoanTatNhatHang(
             @PathVariable Integer id) {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   XAxis,
   YAxis,
@@ -12,11 +12,9 @@ import {
 
 import {
   Users,
-  UserPlus,
-  Repeat,
-  TrendingUp,
   Search,
   RefreshCw,
+  Calendar,
 } from "lucide-react";
 
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -24,24 +22,16 @@ import SurfaceCard from "@/components/shared/SurfaceCard";
 import TableShell from "@/components/shared/TableShell";
 import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
+import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
+import MetricStrip from "@/components/shared/MetricStrip";
+import StatusTabs from "@/components/shared/StatusTabs";
+import FilterSelect from "@/components/shared/FilterSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-
-import {
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from "@/components/ui/select";
 import { API_BASE_URL } from "@/config/apiBase";
+import { khoService } from "@/services/khoService";
+import { laKhoAo } from "@/pages/warehouse/loaiKho";
 
 
 // API
@@ -77,12 +67,24 @@ const CHART_COLORS = {
   axis: "#64748b",
 };
 
-const DROPDOWN_CLASS =
-  "z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg";
-const SELECT_ITEM_CLASS =
-  "rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
 const TH_CLASS =
   "h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
+
+// Ô có nhãn nằm trong ô (theo mẫu ô ngày của PurchaseRequestList) để hàng công cụ gọn một dòng
+const O_NHAN_CLASS =
+  "flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-white pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto";
+const O_NGAY_CLASS =
+  "h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm text-bo-foreground shadow-none focus-visible:ring-0";
+const O_SO_CLASS = `${O_NGAY_CLASS} sm:w-[72px] sm:flex-none`;
+
+
+// Kỳ báo cáo: giữ đủ 4 kỳ và nhãn như trước, đổi sang tab chung
+const TAB_KY = [
+  { value: "ngay", label: "Ngày" },
+  { value: "thang", label: "Tháng" },
+  { value: "nam", label: "Năm" },
+  { value: "so_sanh", label: "So sánh" },
+];
 
 
 // build query
@@ -126,24 +128,14 @@ function buildParams({
 }
 
 
-// KPI CARD
-function KpiCard({ icon, label, value }) {
+// Ô nhập có nhãn trong ô
+function ONhan({ label, icon, children }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-      <div className="min-w-0">
-        <p className="text-xs font-medium text-bo-muted">
-          {label}
-        </p>
-
-        <p className="mt-1 break-words text-2xl font-bold tracking-tight text-bo-foreground">
-          {fmt(value)}
-        </p>
-      </div>
-
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary">
-        {icon}
-      </span>
-    </div>
+    <label className={O_NHAN_CLASS}>
+      {icon}
+      <span className="shrink-0 text-xs text-bo-muted">{label}</span>
+      {children}
+    </label>
   );
 }
 
@@ -152,23 +144,55 @@ export default function KhachHangReport() {
 
   const [loai, setLoai] = useState("thang");
 
-  const [nam, setNam] = useState(null);
-  const [thang, setThang] = useState(null);
+  // Mặc định kỳ hiện tại như Báo cáo doanh thu (để trống thì máy chủ báo "Vui lòng chọn năm" ngay lần mở đầu)
+  const [nam, setNam] = useState(() => new Date().getFullYear());
+  const [thang, setThang] = useState(() => new Date().getMonth() + 1);
 
-  const [tuNam, setTuNam] = useState(null);
-  const [denNam, setDenNam] = useState(null);
+  const [tuNam, setTuNam] = useState(() => new Date().getFullYear() - 4);
+  const [denNam, setDenNam] = useState(() => new Date().getFullYear());
 
   const [tuNgay, setTuNgay] = useState(defaultTuNgay);
   const [denNgay, setDenNgay] = useState(defaultDenNgay);
 
   const [khoId, setKhoId] = useState("");
 
+  const [khoList, setKhoList] = useState([]);
+
   const [data, setData] = useState([]);
 
-  const [loading, setLoading] = useState(false);
+  // Trang tự tải ngay khi mở nên bắt đầu ở trạng thái đang tải (không hiện số 0 trước khi có số)
+  const [loading, setLoading] = useState(true);
+
+  // null: không lỗi; { moTa }: lần tải gần nhất lỗi
+  const [loi, setLoi] = useState(null);
+
+  const requestIdRef = useRef(0);
+
+
+  // Danh sách kho cho bộ lọc: bỏ kho ảo và kho ngừng hoạt động.
+  // Lỗi tải thì chỉ còn "Tất cả kho", trang vẫn dùng được.
+  useEffect(() => {
+    let huy = false;
+    khoService.getAllKho()
+      .then((body) => {
+        const ds = body?.data?.content ?? [];
+        if (!huy) setKhoList(ds.filter((k) => !laKhoAo(k) && Number(k.trangThai) === 1));
+      })
+      .catch(() => {});
+    return () => { huy = true; };
+  }, []);
+
+  // "" = tất cả kho
+  const khoOptions = [
+    { value: "", label: "Tất cả kho" },
+    ...khoList.map((k) => ({ value: String(k.id), label: k.tenKho })),
+  ];
 
 
   const fetchData = useCallback(async () => {
+
+    // Gõ năm / đổi bộ lọc liên tiếp chạy nhiều yêu cầu cùng lúc: chỉ nhận kết quả của yêu cầu mới nhất
+    const requestId = ++requestIdRef.current;
 
     setLoading(true);
 
@@ -183,20 +207,33 @@ export default function KhachHangReport() {
       khoId,
     });
 
-    const res = await fetch(
-      `${BASE_URL}?${params}`,
-      {
-        headers: {
-          Authorization: `Bearer ${getToken()}`,
-        },
-      }
-    );
+    try {
+      const res = await fetch(
+        `${BASE_URL}?${params}`,
+        {
+          headers: {
+            Authorization: `Bearer ${getToken()}`,
+          },
+        }
+      );
 
-    const json = await res.json();
+      const json = await res.json().catch(() => null);
 
-    setData(Array.isArray(json?.data) ? json.data : []);
+      // Máy chủ báo lỗi (vd. thiếu năm) thì ném lỗi để trang không hiện số 0 giả
+      if (!res.ok) throw new Error(json?.message ?? "");
 
-    setLoading(false);
+      if (requestId !== requestIdRef.current) return;
+
+      setData(Array.isArray(json?.data) ? json.data : []);
+      setLoi(null);
+    } catch (e) {
+      if (requestId !== requestIdRef.current) return;
+
+      setData([]);
+      setLoi({ moTa: e?.message ?? "" });
+    } finally {
+      if (requestId === requestIdRef.current) setLoading(false);
+    }
 
   }, [
     loai,
@@ -233,159 +270,150 @@ export default function KhachHangReport() {
   );
 
 
+  // Chưa có số thật (đang tải lần đầu hoặc lỗi): không hiện số 0 giả
+  const coSo = !loi && !(loading && data.length === 0);
+
+
+  // Dải chỉ số: giữ đủ 3 chỉ số, nhãn và định dạng như các ô cũ
+  const chiSo = [
+    { label: "Khách mới", value: loi ? "—" : fmt(tongMoi) },
+    { label: "Khách quay lại", value: loi ? "—" : fmt(tongQuayLai) },
+    { label: "Tổng khách mua", value: loi ? "—" : fmt(tongMua) },
+  ];
+
+
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
 
-      {/* ── BỘ LỌC ── */}
-      <section className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-        <div className="flex flex-wrap items-end gap-3 p-4 sm:p-5">
+      {/* ── HÀNG CÔNG CỤ (thay khung bộ lọc) ──
+          Trái: kỳ báo cáo; phải: mốc thời gian, kho, nút xem.
+          Màn hẹp: bộ lọc lên trên, tab xuống dưới để gạch chân tab nằm sát đường kẻ */}
+      <div className="flex flex-wrap-reverse items-start gap-x-3 border-b border-bo-border">
+        <div className="min-w-0 max-w-full">
+          <StatusTabs
+            tabs={TAB_KY}
+            value={loai}
+            onChange={setLoai}
+            label="Kỳ báo cáo"
+          />
+        </div>
 
-          <Tabs value={loai} onValueChange={setLoai}>
-            <TabsList className="h-9 rounded-lg border border-bo-border bg-bo-surface-subtle p-1">
-              <TabsTrigger
-                value="ngay"
-                className="rounded-md px-3 text-sm text-slate-600 data-[state=active]:bg-white data-[state=active]:text-bo-primary data-[state=active]:shadow-sm"
-              >
-                Ngày
-              </TabsTrigger>
-              <TabsTrigger
-                value="thang"
-                className="rounded-md px-3 text-sm text-slate-600 data-[state=active]:bg-white data-[state=active]:text-bo-primary data-[state=active]:shadow-sm"
-              >
-                Tháng
-              </TabsTrigger>
-              <TabsTrigger
-                value="nam"
-                className="rounded-md px-3 text-sm text-slate-600 data-[state=active]:bg-white data-[state=active]:text-bo-primary data-[state=active]:shadow-sm"
-              >
-                Năm
-              </TabsTrigger>
-              <TabsTrigger
-                value="so_sanh"
-                className="rounded-md px-3 text-sm text-slate-600 data-[state=active]:bg-white data-[state=active]:text-bo-primary data-[state=active]:shadow-sm"
-              >
-                So sánh
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-
+        <div className="ml-auto flex w-full flex-wrap items-center justify-end gap-2 py-2 sm:w-auto">
 
           {loai === "ngay" && (
             <>
-              <Input
-                type="date"
-                value={tuNgay}
-                onChange={(e) =>
-                  setTuNgay(e.target.value)
-                }
-                className="h-9 w-[160px] border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-              />
+              <ONhan
+                label="Từ ngày"
+                icon={<Calendar className="size-4 shrink-0 text-bo-muted" />}
+              >
+                <Input
+                  type="date"
+                  aria-label="Từ ngày"
+                  value={tuNgay}
+                  onChange={(e) =>
+                    setTuNgay(e.target.value)
+                  }
+                  className={O_NGAY_CLASS}
+                />
+              </ONhan>
 
-              <Input
-                type="date"
-                value={denNgay}
-                onChange={(e) =>
-                  setDenNgay(e.target.value)
-                }
-                className="h-9 w-[160px] border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-              />
+              <ONhan
+                label="Đến ngày"
+                icon={<Calendar className="size-4 shrink-0 text-bo-muted" />}
+              >
+                <Input
+                  type="date"
+                  aria-label="Đến ngày"
+                  value={denNgay}
+                  onChange={(e) =>
+                    setDenNgay(e.target.value)
+                  }
+                  className={O_NGAY_CLASS}
+                />
+              </ONhan>
             </>
           )}
 
 
           {(loai === "thang" ||
             loai === "so_sanh") && (
-              <Input
-                type="number"
-                placeholder="Năm"
-                value={nam ?? ""}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setNam(v === "" ? null : Number(v));
-                }}
-                className="h-9 w-[120px] border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-              />
+              <ONhan label="Năm">
+                <Input
+                  type="number"
+                  aria-label="Năm"
+                  value={nam ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setNam(v === "" ? null : Number(v));
+                  }}
+                  className={O_SO_CLASS}
+                />
+              </ONhan>
             )}
 
 
           {loai === "nam" && (
-            <div className="flex gap-2">
+            <>
+              <ONhan label="Từ năm">
+                <Input
+                  type="number"
+                  aria-label="Từ năm"
+                  value={tuNam ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setTuNam(v === "" ? null : Number(v));
+                  }}
+                  className={O_SO_CLASS}
+                />
+              </ONhan>
 
-              <Input
-                type="number"
-                placeholder="Từ năm"
-                value={tuNam ?? ""}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setTuNam(v === "" ? null : Number(v));
-                }}
-                className="h-9 w-[120px] border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-              />
-
-              <Input
-                type="number"
-                placeholder="Đến năm"
-                value={denNam ?? ""}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setDenNam(v === "" ? null : Number(v));
-                }}
-                className="h-9 w-[120px] border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-              />
-
-            </div>
+              <ONhan label="Đến năm">
+                <Input
+                  type="number"
+                  aria-label="Đến năm"
+                  value={denNam ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setDenNam(v === "" ? null : Number(v));
+                  }}
+                  className={O_SO_CLASS}
+                />
+              </ONhan>
+            </>
           )}
 
 
           {loai === "so_sanh" && (
-            <Input
-              type="number"
-              placeholder="Tháng"
-              value={thang ?? ""}
-              onChange={(e) => {
-                const v = e.target.value;
-                setThang(v === "" ? null : Number(v));
-              }}
-              className="h-9 w-[110px] border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-            />
+            <ONhan label="Tháng">
+              <Input
+                type="number"
+                aria-label="Tháng"
+                value={thang ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setThang(v === "" ? null : Number(v));
+                }}
+                className={O_SO_CLASS}
+              />
+            </ONhan>
           )}
 
 
-          <Select
-            value={khoId || "ALL"}
-            onValueChange={(v) => setKhoId(v === "ALL" ? "" : v)}
-          >
-            <SelectTrigger className="h-9 w-[200px] border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20">
-              <SelectValue placeholder="Tất cả kho" />
-            </SelectTrigger>
-
-            <SelectContent
-              position="popper"
-              sideOffset={4}
-              className={DROPDOWN_CLASS}
-            >
-
-              <SelectItem value="ALL" className={SELECT_ITEM_CLASS}>
-                Tất cả kho
-              </SelectItem>
-
-              <SelectItem value="1" className={SELECT_ITEM_CLASS}>
-                KHO01 – Hà Nội
-              </SelectItem>
-
-              <SelectItem value="2" className={SELECT_ITEM_CLASS}>
-                KHO02 – Miền Nam
-              </SelectItem>
-
-            </SelectContent>
-          </Select>
+          <FilterSelect
+            label="Lọc theo kho"
+            value={khoId}
+            options={khoOptions}
+            onChange={setKhoId}
+            align="end"
+            className="sm:w-[200px]"
+          />
 
 
           <Button
             onClick={fetchData}
             disabled={loading}
-            className="h-9 gap-2 bg-bo-primary px-4 text-sm font-medium text-white hover:bg-bo-primary-hover disabled:opacity-50"
+            className="h-9 w-full gap-2 bg-bo-primary px-4 text-sm font-medium text-white hover:bg-bo-primary-hover disabled:opacity-50 sm:w-auto"
           >
             {loading ? (
               <RefreshCw className="size-4 animate-spin" />
@@ -396,106 +424,97 @@ export default function KhachHangReport() {
             Xem báo cáo
           </Button>
         </div>
-      </section>
+      </div>
 
-      {/* ── KPI ── */}
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-
-        <KpiCard
-          icon={<UserPlus className="size-5" />}
-          label="Khách mới"
-          value={tongMoi}
-        />
-
-        <KpiCard
-          icon={<Repeat className="size-5" />}
-          label="Khách quay lại"
-          value={tongQuayLai}
-        />
-
-        <KpiCard
-          icon={<TrendingUp className="size-5" />}
-          label="Tổng khách mua"
-          value={tongMua}
-        />
-
-      </section>
+      {/* ── DẢI CHỈ SỐ (một khung, thay 3 ô rời) ── */}
+      <MetricStrip
+        label="Chỉ số khách hàng"
+        items={chiSo}
+        loading={loading}
+      />
 
 
 
-      {/* ── BIỂU ĐỒ ── */}
-      <SurfaceCard
-        title="Phân tích khách hàng"
-        description="Xu hướng khách mới & quay lại"
-        contentClassName="h-[420px]"
-      >
-        {loading && data.length === 0 ? (
-          <LoadingState rows={4} label="Đang tải biểu đồ khách hàng" />
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
+      {/* ── BIỂU ĐỒ (lỗi tải thì ẩn, báo lỗi ở khung bảng) ── */}
+      {!loi && (
+        <SurfaceCard
+          title="Phân tích khách hàng"
+          description="Xu hướng khách mới & quay lại"
+          contentClassName="h-[420px]"
+        >
+          {loading && data.length === 0 ? (
+            <LoadingState rows={4} label="Đang tải biểu đồ khách hàng" />
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
 
-            <ComposedChart data={data}>
+              <ComposedChart data={data}>
 
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke={CHART_COLORS.grid}
-                vertical={false}
-              />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke={CHART_COLORS.grid}
+                  vertical={false}
+                />
 
-              <XAxis
-                dataKey="nhanThoiGian"
-                tick={{ fill: CHART_COLORS.axis, fontSize: 11 }}
-                tickLine={false}
-              />
+                <XAxis
+                  dataKey="nhanThoiGian"
+                  tick={{ fill: CHART_COLORS.axis, fontSize: 11 }}
+                  tickLine={false}
+                />
 
-              <YAxis
-                tick={{ fill: CHART_COLORS.axis, fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-              />
+                <YAxis
+                  tick={{ fill: CHART_COLORS.axis, fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
 
-              <Tooltip />
+                <Tooltip />
 
-              <Bar
-                dataKey="soKhachMoi"
-                fill={CHART_COLORS.khachMoi}
-                name="Khách mới"
-                radius={[4, 4, 0, 0]}
-                maxBarSize={36}
-              />
+                <Bar
+                  dataKey="soKhachMoi"
+                  fill={CHART_COLORS.khachMoi}
+                  name="Khách mới"
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={36}
+                />
 
-              <Bar
-                dataKey="soKhachQuayLai"
-                fill={CHART_COLORS.quayLai}
-                name="Quay lại"
-                radius={[4, 4, 0, 0]}
-                maxBarSize={36}
-              />
+                <Bar
+                  dataKey="soKhachQuayLai"
+                  fill={CHART_COLORS.quayLai}
+                  name="Quay lại"
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={36}
+                />
 
-              <Line
-                dataKey="tongKhachMua"
-                stroke={CHART_COLORS.tongKhach}
-                strokeWidth={3}
-                name="Tổng khách"
-                dot={{ r: 3, fill: CHART_COLORS.tongKhach, strokeWidth: 0 }}
-                activeDot={{ r: 5 }}
-              />
+                <Line
+                  dataKey="tongKhachMua"
+                  stroke={CHART_COLORS.tongKhach}
+                  strokeWidth={3}
+                  name="Tổng khách"
+                  dot={{ r: 3, fill: CHART_COLORS.tongKhach, strokeWidth: 0 }}
+                  activeDot={{ r: 5 }}
+                />
 
-            </ComposedChart>
+              </ComposedChart>
 
-          </ResponsiveContainer>
-        )}
-      </SurfaceCard>
+            </ResponsiveContainer>
+          )}
+        </SurfaceCard>
+      )}
 
 
 
       {/* ── BẢNG CHI TIẾT ── */}
       <TableShell
         title="Chi tiết dữ liệu"
-        description={`${data.length} kỳ được tổng hợp`}
+        description={coSo ? `${data.length} kỳ được tổng hợp` : undefined}
       >
         {loading && data.length === 0 ? (
           <LoadingState rows={5} label="Đang tải chi tiết khách hàng" />
+        ) : loi ? (
+          <ErrorState
+            description={loi.moTa || undefined}
+            onRetry={fetchData}
+          />
         ) : data.length === 0 ? (
           <EmptyState
             icon={Users}

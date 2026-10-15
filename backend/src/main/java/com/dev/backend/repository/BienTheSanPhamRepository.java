@@ -1,5 +1,6 @@
 package com.dev.backend.repository;
 
+import com.dev.backend.dto.PosCatalogBienTheDto;
 import com.dev.backend.dto.response.customize.PosCatalogItemDto;
 import com.dev.backend.entities.BienTheSanPham;
 import org.springframework.data.domain.Page;
@@ -194,6 +195,72 @@ public interface BienTheSanPhamRepository extends JpaRepository<BienTheSanPham, 
     );
 
     /**
+     * Danh mục POS dạng GỘP KÍCH CỠ (PosCatalogService.getCatalogNhom): mọi SKU khớp từ khóa, KHÔNG
+     * phân trang — service gộp theo mẫu + màu + chất liệu rồi mới phân trang theo nhóm.
+     * Cùng điều kiện tìm kiếm và cùng công thức tồn khả dụng với findPosCatalog; thêm mauSacId,
+     * chatLieuId (khóa nhóm) và thứ tự kích cỡ. Sắp theo mẫu, màu, chất liệu rồi kích cỡ để các SKU
+     * cùng nhóm đứng liền nhau và nhóm giữ đúng thứ tự cũ của danh mục.
+     */
+    @Query("""
+            SELECT new com.dev.backend.dto.PosCatalogBienTheDto(
+                bt.id, sp.id, sp.tenSanPham, bt.maSku, bt.maVachSku,
+                ms.id, ms.tenMau, ms.maMauHex, s.tenSize, s.thuTuSapXep, cl.id, cl.tenChatLieu,
+                bt.giaBan, CAST(COALESCE(SUM(tk.soLuongTon - tk.soLuongDaDat), CAST(0 AS BIGDECIMAL)) AS BIGDECIMAL),
+                dm.id, dm.tenDanhMuc)
+            FROM BienTheSanPham bt
+            JOIN bt.sanPham sp
+            JOIN sp.danhMuc dm
+            JOIN bt.mauSac ms
+            JOIN bt.size s
+            JOIN bt.chatLieu cl
+            LEFT JOIN TonKhoTheoLo tk ON tk.loHang.bienTheSanPham.id = bt.id AND tk.kho.id = :khoId
+            WHERE bt.trangThai = 1 AND sp.trangThai = 1
+              AND (:q IS NULL OR :q = ''
+                   OR LOWER(bt.maSku) LIKE LOWER(CONCAT('%', :q, '%'))
+                   OR LOWER(bt.maVachSku) LIKE LOWER(CONCAT('%', :q, '%'))
+                   OR LOWER(sp.tenSanPham) LIKE LOWER(CONCAT('%', :q, '%'))
+                   OR LOWER(sp.maSanPham) LIKE LOWER(CONCAT('%', :q, '%')))
+            GROUP BY bt.id, sp.id, sp.tenSanPham, bt.maSku, bt.maVachSku,
+                     ms.id, ms.tenMau, ms.maMauHex, s.tenSize, s.thuTuSapXep, cl.id, cl.tenChatLieu,
+                     bt.giaBan, dm.id, dm.tenDanhMuc
+            ORDER BY sp.tenSanPham, sp.id, ms.tenMau, ms.id, cl.tenChatLieu, cl.id, s.thuTuSapXep, bt.id
+            """)
+    List<PosCatalogBienTheDto> findPosCatalogBienThe(
+            @Param("khoId") Integer khoId,
+            @Param("q") String q
+    );
+
+    /**
+     * Mọi SKU đang bán của các sản phẩm cho trước (cùng cột và công thức tồn với findPosCatalogBienThe).
+     * Dùng khi đang tìm kiếm: từ khóa có thể chỉ khớp mã SKU của một kích cỡ, nhưng nhóm phải hiện
+     * đủ các kích cỡ của mẫu + màu đó.
+     */
+    @Query("""
+            SELECT new com.dev.backend.dto.PosCatalogBienTheDto(
+                bt.id, sp.id, sp.tenSanPham, bt.maSku, bt.maVachSku,
+                ms.id, ms.tenMau, ms.maMauHex, s.tenSize, s.thuTuSapXep, cl.id, cl.tenChatLieu,
+                bt.giaBan, CAST(COALESCE(SUM(tk.soLuongTon - tk.soLuongDaDat), CAST(0 AS BIGDECIMAL)) AS BIGDECIMAL),
+                dm.id, dm.tenDanhMuc)
+            FROM BienTheSanPham bt
+            JOIN bt.sanPham sp
+            JOIN sp.danhMuc dm
+            JOIN bt.mauSac ms
+            JOIN bt.size s
+            JOIN bt.chatLieu cl
+            LEFT JOIN TonKhoTheoLo tk ON tk.loHang.bienTheSanPham.id = bt.id AND tk.kho.id = :khoId
+            WHERE bt.trangThai = 1 AND sp.trangThai = 1
+              AND sp.id IN :sanPhamIds
+            GROUP BY bt.id, sp.id, sp.tenSanPham, bt.maSku, bt.maVachSku,
+                     ms.id, ms.tenMau, ms.maMauHex, s.tenSize, s.thuTuSapXep, cl.id, cl.tenChatLieu,
+                     bt.giaBan, dm.id, dm.tenDanhMuc
+            ORDER BY sp.tenSanPham, sp.id, ms.tenMau, ms.id, cl.tenChatLieu, cl.id, s.thuTuSapXep, bt.id
+            """)
+    List<PosCatalogBienTheDto> findPosCatalogBienTheTheoSanPham(
+            @Param("khoId") Integer khoId,
+            @Param("sanPhamIds") Collection<Integer> sanPhamIds
+    );
+
+    /**
      * Tồn khả dụng hiện tại của một nhóm SKU tại ĐÚNG kho (cùng công thức với catalog).
      * Dùng để cập nhật tồn cho các dòng giỏ không nằm trong trang catalog đang xem
      * (ví dụ đang lọc "Còn hàng" mà SKU trong giỏ vừa bị quầy khác bán hết).
@@ -295,7 +362,7 @@ public interface BienTheSanPhamRepository extends JpaRepository<BienTheSanPham, 
             LEFT JOIN FETCH bt.mauSac
             LEFT JOIN FETCH bt.size
             LEFT JOIN FETCH bt.chatLieu
-            WHERE bt.sanPham IS NOT NULL
+            WHERE bt.trangThai = 1 AND sp.trangThai = 1
             ORDER BY sp.id, bt.id
             """)
     List<BienTheSanPham> findActiveVariantsWithDetails();
@@ -306,7 +373,7 @@ public interface BienTheSanPhamRepository extends JpaRepository<BienTheSanPham, 
             LEFT JOIN FETCH bt.mauSac
             LEFT JOIN FETCH bt.size
             LEFT JOIN FETCH bt.chatLieu
-            WHERE bt.sanPham IS NOT NULL
+            WHERE bt.trangThai = 1 AND sp.trangThai = 1
               AND (:keyword IS NULL OR :keyword = ''
                    OR LOWER(bt.maSku) LIKE LOWER(CONCAT('%', :keyword, '%'))
                    OR LOWER(sp.tenSanPham) LIKE LOWER(CONCAT('%', :keyword, '%')))

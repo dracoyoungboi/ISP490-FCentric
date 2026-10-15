@@ -5,6 +5,11 @@
    kể cả khi dev server không tự quét thư mục mới thêm vào. */
 @source "./pages/dashboard/admin/tong-quan";
 @source "./pages/dashboard/admin/tong-quan-moi";
+/* Thanh trên cùng và chuông thông báo: file mới thêm vào thư mục này có lúc không được dev server quét,
+   làm thiếu class (ví dụ viên số trên chuông bị méo), nên khai báo rõ như trên. */
+@source "./components/backoffice";
+/* Thành phần dùng chung (khung bảng, nút thao tác, phân trang) */
+@source "./components/shared";
 /* Giao diện luôn sáng, không theo chế độ tối của trình duyệt */
 @custom-variant dark (&:where(.dark, .dark *));
 /*
@@ -805,3 +810,48 @@
 	}
 }
 
+
+/*
+ * Trang danh sách dạng "giãn hết màn" (PageContainer fill + TableShell fill):
+ * khung bảng cao tới đáy vùng nội dung, thân bảng tự cuộn, tiêu đề cột dính, phân trang luôn nằm ở đáy.
+ * Chỉ bật khi màn đủ rộng và đủ cao; màn hẹp/thấp thì bảng cao theo nội dung và cả trang cuộn như cũ.
+ * Viết bằng CSS thường (không qua class Tailwind) để không phụ thuộc việc dev server quét file mới.
+ */
+@media (min-width: 768px) and (min-height: 600px) {
+	.bo-page-fill {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+	}
+	.bo-page-fill > * {
+		flex-shrink: 0;
+	}
+	/* Lớp bọc trung gian (nếu có) giữa PageContainer và khung bảng */
+	.bo-page-fill > .bo-fill-wrap {
+		display: flex;
+		flex: 1 1 auto;
+		flex-direction: column;
+		min-height: 0;
+	}
+	.bo-page-fill > .bo-table-fill,
+	.bo-fill-wrap > .bo-table-fill {
+		display: flex;
+		flex: 1 1 auto;
+		flex-direction: column;
+		min-height: 360px;
+	}
+	.bo-table-fill > .bo-table-body {
+		display: flex;
+		flex: 1 1 auto;
+		flex-direction: column;
+		min-height: 0;
+		overflow: auto;
+	}
+	.bo-table-fill > .bo-table-body > table {
+		flex-shrink: 0;
+	}
+	/* Đang tải / trống / lỗi: nằm giữa phần thân bảng */
+	.bo-table-fill > .bo-table-body > :only-child:not(table) {
+		flex: 1 1 auto;
+	}
+}

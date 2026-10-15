@@ -28,22 +28,52 @@ import { formatSo, formatTien, thoiGianNgan } from "../tong-quan/tongQuanFormat"
 const UU_TIEN = { bad: 0, warn: 1, info: 2 };
 const SO_DONG_GON = 7;
 
-/** Việc đang chờ: chỉ giữ dòng có số > 0, xếp gấp trước. Một dòng = một trạng thái chứng từ, mở đúng danh sách. */
-function danhSachViec(v, tatCaKho) {
+/**
+ * Đơn chờ xuất, Phiếu nhặt hàng và Chuyển kho nội bộ chỉ xem kho làm việc (selected_kho_id).
+ * Dòng của các trang này mang theo kho: bấm vào thì đổi kho làm việc sang kho đó rồi mở trang,
+ * để số trên dòng bằng số dòng trên trang. Xem "Tất cả kho" thì tách một dòng cho mỗi kho có việc
+ * (backend trả viecCanXuLy.theoKho).
+ */
+const VIEC_THEO_KHO_LAM_VIEC = new Set(["donChoXuatKho", "phieuNhatChuaPhanCong", "phieuChuyenChoDuyet", "phieuChuyenChoXuatHang"]);
+
+function tachTheoKho(dong, v, khoId) {
+  if (!VIEC_THEO_KHO_LAM_VIEC.has(dong.key)) return [dong];
+  if (khoId != null) return [{ ...dong, kho: khoId }];
+  if (!Array.isArray(v.theoKho)) return [dong];
+  return v.theoKho
+    .filter((k) => (k[dong.key] ?? 0) > 0)
+    .map((k) => ({ ...dong, key: `${dong.key}-${k.khoId}`, so: k[dong.key], phu: k.tenKho, kho: k.khoId }));
+}
+
+/** Việc đang chờ: chỉ giữ dòng có số > 0, xếp gấp trước. Một dòng = một trạng thái chứng từ, mở đúng danh sách và đúng tab (?trangThai=). */
+function danhSachViec(v, khoId) {
+  const tatCaKho = khoId == null;
   const ds = [
-    { ten: "Hết hàng hoặc thiếu hàng", so: v.hetHang == null ? 0 : v.hetHang + v.thieuHang, muc: "bad", icon: AlertTriangle, to: "/reports/inventory" },
-    { ten: "Đơn chờ xuất kho", so: v.donChoXuatKho, muc: "warn", icon: PackageOpen, to: "/goods-issues/pending-orders" },
-    { ten: "Phiếu xuất chờ xuất kho", so: v.phieuXuatChoXuatKho, muc: "warn", icon: Truck, to: "/goods-issues" },
-    { ten: "Phiếu chuyển kho chờ duyệt", so: v.phieuChuyenChoDuyet, muc: "warn", icon: ArrowLeftRight, to: "/transfer-tickets" },
-    { ten: "Phiếu nhặt chưa phân công", so: v.phieuNhatChuaPhanCong, muc: "warn", icon: ListChecks, to: "/goods-issues/pick-lists" },
-    { ten: "Yêu cầu nhập hàng chờ duyệt", so: v.yeuCauNhapChoDuyet, muc: "warn", icon: FileText, to: "/purchase-requests" },
-    { ten: "Đơn nháp chưa gửi kho", so: v.donNhapChuaGuiKho, muc: "info", icon: FilePen, to: "/sales-orders" },
-    { ten: "Phiếu nhập chờ nhập kho", so: v.phieuNhapChoNhapKho, muc: "info", icon: FileInput, to: "/goods-receipts" },
-    { ten: "Phiếu chuyển chờ xuất hàng", so: v.phieuChuyenChoXuatHang, muc: "info", icon: ArrowLeftRight, to: "/transfer-tickets" },
-    { ten: "Đợt kiểm kê đang mở", so: v.dotKiemKeDangMo, muc: "info", icon: ClipboardCheck, to: "/stock-take" },
-    ...(tatCaKho ? [{ ten: "Tài khoản bị khóa", so: v.taiKhoanBiKhoa, muc: "info", icon: Lock, to: "/users" }] : []),
+    { key: "hetThieu", ten: "Hết hàng hoặc thiếu hàng", so: v.hetHang == null ? 0 : v.hetHang + v.thieuHang, muc: "bad", icon: AlertTriangle, to: `/reports/inventory?kho=${tatCaKho ? "tat-ca" : khoId}` },
+    { key: "donChoXuatKho", ten: "Đơn chờ nhặt hàng", so: v.donChoXuatKho, muc: "warn", icon: PackageOpen, to: "/goods-issues/pending-orders" },
+    // Đếm phiếu bán hàng Nháp (chờ đóng gói) + Chờ xuất; danh sách phiếu xuất chỉ lọc được một trạng thái nên mở tab Tất cả
+    { key: "phieuXuatChoXuatKho", ten: "Phiếu xuất chưa xuất kho", so: v.phieuXuatChoXuatKho, muc: "warn", icon: Truck, to: "/goods-issues" },
+    { key: "phieuChuyenChoDuyet", ten: "Phiếu chuyển kho chờ duyệt", so: v.phieuChuyenChoDuyet, muc: "warn", icon: ArrowLeftRight, to: "/transfer-tickets?trangThai=cho-duyet" },
+    { key: "phieuNhatChuaPhanCong", ten: "Phiếu nhặt chưa phân công", so: v.phieuNhatChuaPhanCong, muc: "warn", icon: ListChecks, to: "/goods-issues/pick-lists" },
+    // Mở đúng tab Chờ duyệt (và đúng kho đang xem) để số trên dòng bằng số dòng trên trang
+    { key: "yeuCauNhapChoDuyet", ten: "Yêu cầu nhập hàng chờ duyệt", so: v.yeuCauNhapChoDuyet, muc: "warn", icon: FileText, to: `/purchase-requests?trangThai=cho-duyet${tatCaKho ? "" : `&kho=${khoId}`}` },
+    { key: "donNhapChuaGuiKho", ten: "Đơn nháp chưa gửi kho", so: v.donNhapChuaGuiKho, muc: "info", icon: FilePen, to: "/sales-orders?trangThai=nhap" },
+    { key: "phieuNhapChoNhapKho", ten: "Phiếu nhập chờ nhập kho", so: v.phieuNhapChoNhapKho, muc: "info", icon: FileInput, to: "/goods-receipts?trangThai=cho-nhap-kho" },
+    { key: "phieuChuyenChoXuatHang", ten: "Phiếu chuyển chờ xuất hàng", so: v.phieuChuyenChoXuatHang, muc: "info", icon: ArrowLeftRight, to: "/transfer-tickets?trangThai=cho-xuat-hang" },
+    { key: "dotKiemKeDangMo", ten: "Đợt kiểm kê đang mở", so: v.dotKiemKeDangMo, muc: "info", icon: ClipboardCheck, to: "/stock-take?trangThai=dang-kiem-ke" },
+    ...(tatCaKho ? [{ key: "taiKhoanBiKhoa", ten: "Tài khoản bị khóa", so: v.taiKhoanBiKhoa, muc: "info", icon: Lock, to: "/users?trangThai=0" }] : []),
   ];
-  return ds.filter((d) => (d.so ?? 0) > 0).sort((a, b) => UU_TIEN[a.muc] - UU_TIEN[b.muc] || b.so - a.so);
+  return ds
+    .filter((d) => (d.so ?? 0) > 0)
+    // nhom = số của cả việc, thuTu = vị trí trong danh sách: xếp như cũ; các dòng tách theo kho
+    // của cùng một việc đứng liền nhau, kho nhiều việc hơn đứng trước
+    .flatMap((d, thuTu) => tachTheoKho({ ...d, nhom: d.so, thuTu }, v, khoId))
+    .sort((a, b) => UU_TIEN[a.muc] - UU_TIEN[b.muc] || b.nhom - a.nhom || a.thuTu - b.thuTu || b.so - a.so);
+}
+
+/** Đổi kho làm việc trước khi mở trang chỉ xem một kho. */
+function datKhoLamViec(kho) {
+  if (kho != null) window.localStorage.setItem("selected_kho_id", String(kho));
 }
 
 const LOAI = {
@@ -65,7 +95,7 @@ export default function ActionPanel({ data, khoId, loading, loiViec, loiHoatDong
   const [moRong, setMoRong] = useState(false);
   const [tabChon, setTab] = useState(null);
   const v = data?.viecCanXuLy;
-  const viec = v ? danhSachViec(v, khoId == null) : [];
+  const viec = v ? danhSachViec(v, khoId) : [];
   const tong = viec.reduce((s, d) => s + d.so, 0);
   const tab = tabChon ?? "viec";
   const hienViec = moRong ? viec : viec.slice(0, SO_DONG_GON);
@@ -115,15 +145,18 @@ export default function ActionPanel({ data, khoId, loading, loiViec, loiHoatDong
             <>
               <ul>
                 {hienViec.map((d) => (
-                  <li key={d.ten}>
+                  <li key={d.key}>
                     <Link
                       to={d.to}
+                      onClick={() => datKhoLamViec(d.kho)}
                       className="group flex h-10 items-center gap-3 rounded-lg px-2 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
                     >
                       <span className={cn("flex size-7 shrink-0 items-center justify-center rounded-md", d.muc === "bad" ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500")}>
                         {createElement(d.icon, { className: "size-[15px]", "aria-hidden": true })}
                       </span>
                       <span className="min-w-0 flex-1 truncate text-sm text-bo-foreground">{d.ten}</span>
+                      {/* Tên kho luôn hiện đủ (dòng tách theo kho); tên việc rút gọn trước */}
+                      {d.phu ? <span className="max-w-[45%] shrink-0 truncate text-[13px] text-bo-muted" title={d.phu}>{d.phu}</span> : null}
                       <span className={cn("text-sm font-semibold tabular-nums", d.muc === "bad" ? "text-red-600" : d.muc === "warn" ? "text-amber-700" : "text-bo-foreground")}>
                         {formatSo(d.so)}
                       </span>

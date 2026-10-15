@@ -2,6 +2,8 @@ package com.dev.backend.services.impl.entities;
 
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.IRoleType;
+import com.dev.backend.dto.PosCatalogBienTheDto;
+import com.dev.backend.dto.PosCatalogNhomDto;
 import com.dev.backend.dto.response.customize.PosCatalogItemDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.entities.AnhBienThe;
@@ -17,6 +19,7 @@ import com.dev.backend.utils.PublicAssetUrl;
 import jakarta.persistence.EntityManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -24,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -56,6 +60,12 @@ public class PosCatalogService {
 
     /** Số SKU tối đa mỗi lần tra tồn cho giỏ hàng (giỏ POS thực tế nhỏ hơn nhiều). */
     private static final int MAX_STOCK_IDS = 200;
+
+    /** Số nhóm (mẫu + màu) tối đa mỗi trang của danh mục gộp kích cỡ. */
+    private static final int MAX_NHOM_MOI_TRANG = 120;
+
+    /** Số id tối đa trong một mệnh đề IN (giữ câu lệnh gọn, tránh giới hạn số tham số của CSDL/driver). */
+    private static final int KICH_THUOC_LO_IN = 1000;
 
     @Autowired
     private EntityManager entityManager;
@@ -96,6 +106,39 @@ public class PosCatalogService {
                 : bienTheSanPhamRepository.findPosCatalogFiltered(authorizedKhoId, query, boLocTon, pageable);
         attachImages(result.getContent());
         return result;
+    }
+
+    /**
+     * Danh mục POS GỘP KÍCH CỠ: mỗi phần tử là một mẫu + màu + chất liệu kèm đủ các kích cỡ
+     * (PosCatalogNhomBuilder). Phân trang và bộ lọc tồn tính THEO NHÓM:
+     * con_hang = còn ít nhất một kích cỡ có hàng (kích cỡ đã hết vẫn trả về để màn POS làm mờ),
+     * het_hang = mọi kích cỡ đều hết, tat_ca = không lọc.
+     * Không tìm kiếm: 1 truy vấn. Có từ khóa: thêm 1 truy vấn lấy đủ kích cỡ của các mẫu khớp
+     * (từ khóa có thể chỉ khớp mã SKU của một kích cỡ). Ảnh chỉ tải cho các nhóm của trang.
+     */
+    @Transactional(readOnly = true)
+    public Page<PosCatalogNhomDto> getCatalogNhom(Integer khoId, String q, String trangThaiTon, int page, int size) {
+        Integer authorizedKhoId = authorizeWarehouse(khoId);
+        int safeSize = Math.min(Math.max(size, 1), MAX_NHOM_MOI_TRANG);
+        int safePage = Math.max(page, 0);
+        String query = (q == null || q.isBlank()) ? null : q.trim();
+        String boLocTon = chuanHoaBoLocTon(trangThaiTon);
+
+        List<PosCatalogBienTheDto> khop = bienTheSanPhamRepository.findPosCatalogBienThe(authorizedKhoId, query);
+        List<PosCatalogBienTheDto> dayDu = khop;
+        if (query != null && !khop.isEmpty()) {
+            List<Integer> sanPhamIds = khop.stream().map(PosCatalogBienTheDto::getSanPhamId).toList();
+            // chiaLo bỏ trùng/null và chia lô để mệnh đề IN không vượt giới hạn tham số của CSDL khi từ khóa khớp rất nhiều mẫu.
+            List<PosCatalogBienTheDto> tatCa = new ArrayList<>();
+            for (List<Integer> lo : chiaLo(sanPhamIds)) {
+                tatCa.addAll(bienTheSanPhamRepository.findPosCatalogBienTheTheoSanPham(authorizedKhoId, lo));
+            }
+            dayDu = tatCa;
+        }
+
+        PosCatalogNhomBuilder.KetQua ketQua = PosCatalogNhomBuilder.xayDung(khop, dayDu, boLocTon, safePage, safeSize);
+        attachNhomImages(ketQua.trang());
+        return new PageImpl<>(ketQua.trang(), PageRequest.of(safePage, safeSize), ketQua.tongSoNhom());
     }
 
     /**
@@ -219,5 +262,81 @@ public class PosCatalogService {
             }
             item.setAnhUrl(url);
         }
+    }
+
+    /**
+     * Ảnh cho danh mục gộp: mỗi kích cỡ lấy ảnh biến thể (ảnh theo màu) -> ảnh sản phẩm; ảnh của nhóm là
+     * ảnh của kích cỡ đầu tiên có ảnh. 2 truy vấn batch cho cả trang (chia lô khi quá KICH_THUOC_LO_IN id).
+     */
+    private void attachNhomImages(List<PosCatalogNhomDto> nhoms) {
+        if (nhoms == null || nhoms.isEmpty()) {
+            return;
+        }
+        List<PosCatalogBienTheDto> bienThes = nhoms.stream()
+                .flatMap(nhom -> nhom.getBienThes().stream())
+                .toList();
+        if (bienThes.isEmpty()) {
+            return;
+        }
+        BoAnh boAnh = taiAnhTheoLo(
+                bienThes.stream().map(PosCatalogBienTheDto::getBienTheSanPhamId).toList(),
+                bienThes.stream().map(PosCatalogBienTheDto::getSanPhamId).distinct().toList());
+        for (PosCatalogNhomDto nhom : nhoms) {
+            String anhNhom = null;
+            for (PosCatalogBienTheDto bienThe : nhom.getBienThes()) {
+                String url = boAnh.chon(bienThe.getBienTheSanPhamId(), bienThe.getSanPhamId());
+                bienThe.setAnhUrl(url);
+                if (anhNhom == null) {
+                    anhNhom = url;
+                }
+            }
+            nhom.setAnhUrl(anhNhom);
+        }
+    }
+
+    /** Ảnh biến thể theo id biến thể + ảnh sản phẩm (ưu tiên ảnh chính) theo id sản phẩm. */
+    private record BoAnh(Map<Integer, String> theoBienThe, Map<Integer, String> theoSanPham) {
+        String chon(Integer bienTheId, Integer sanPhamId) {
+            String url = theoBienThe.get(bienTheId);
+            return url != null ? url : theoSanPham.get(sanPhamId);
+        }
+    }
+
+    /**
+     * Ảnh biến thể + ảnh sản phẩm cho danh mục gộp, truy vấn theo lô id (cùng quy tắc ưu tiên với
+     * attachImages; mỗi id nằm trọn trong một lô nên thứ tự ưu tiên ảnh không đổi).
+     */
+    private BoAnh taiAnhTheoLo(List<Integer> variantIds, List<Integer> productIds) {
+        Map<Integer, String> variantImageByVariant = new HashMap<>();
+        for (List<Integer> lo : chiaLo(variantIds)) {
+            for (AnhBienThe ab : anhBienTheRepository.findActiveByBienTheIds(lo)) {
+                variantImageByVariant.putIfAbsent(ab.getBienThe().getId(),
+                        PublicAssetUrl.toHttps(ab.getTepTin().getDuongDan()));
+            }
+        }
+
+        Map<Integer, String> productImageByProduct = new HashMap<>();
+        // Query đã sort (quanAo.id, anhChinh desc, id): ảnh chính (anhChinh=1) luôn gặp trước —
+        // putIfAbsent là đủ để ưu tiên ảnh chính, nếu không có ảnh chính thì dùng ảnh đầu tiên.
+        for (List<Integer> lo : chiaLo(productIds)) {
+            for (AnhQuanAo aq : anhQuanAoRepository.findActiveByQuanAoIds(lo)) {
+                productImageByProduct.putIfAbsent(aq.getQuanAo().getId(),
+                        PublicAssetUrl.toHttps(aq.getTepTin().getDuongDan()));
+            }
+        }
+        return new BoAnh(variantImageByVariant, productImageByProduct);
+    }
+
+    /** Chia danh sách id (bỏ trùng, bỏ null) thành các lô tối đa KICH_THUOC_LO_IN phần tử. */
+    static List<List<Integer>> chiaLo(List<Integer> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        List<Integer> sach = ids.stream().filter(Objects::nonNull).distinct().toList();
+        List<List<Integer>> los = new ArrayList<>();
+        for (int i = 0; i < sach.size(); i += KICH_THUOC_LO_IN) {
+            los.add(sach.subList(i, Math.min(i + KICH_THUOC_LO_IN, sach.size())));
+        }
+        return los;
     }
 }

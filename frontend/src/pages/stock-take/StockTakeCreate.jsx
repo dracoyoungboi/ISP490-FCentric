@@ -41,6 +41,17 @@ const formSchema = z.object({
 const TH_CLASS =
   "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 
+/**
+ * Số lượng thực tế mặc định của một dòng khi người dùng chưa sửa ô nhập.
+ * Máy chủ tạo dòng kiểm kê mới với soLuongThucTe = 0 và chưa có loại chênh lệch (chưa đếm),
+ * nên dòng chưa đếm lấy tồn hệ thống; dòng đã đếm (đợt đã hoàn thành) lấy số máy chủ đã ghi.
+ * Làm tròn như ô nhập (máy chủ nhận số nguyên).
+ */
+function soThucTeMacDinh(ct) {
+  const daDem = ct.loaiChenhLech != null && ct.soLuongThucTe != null;
+  return Math.round(Number(daDem ? ct.soLuongThucTe : ct.soLuongHeThong) || 0);
+}
+
 // ── Step indicator ────────────────────────────────────────────────────────
 function StepIndicator({ step }) {
   const steps = [
@@ -123,7 +134,7 @@ export default function StockTakeCreate() {
         setChiTiets(details);
         const initMap = {};
         details.forEach((ct) => {
-          initMap[ct.id] = parseFloat(ct.soLuongThucTe ?? ct.soLuongHeThong ?? 0);
+          initMap[ct.id] = soThucTeMacDinh(ct);
         });
         setUpdates(initMap);
       }
@@ -163,6 +174,10 @@ export default function StockTakeCreate() {
     }));
   };
 
+  // Số thực tế của một dòng: số người dùng đã nhập, chưa sửa thì đúng số đang hiện trong ô.
+  // Dùng chung cho ô nhập, tổng "Thực tế đã nhập", cột chênh lệch và dữ liệu gửi khi hoàn thành.
+  const layThucTe = (ct) => (updates[ct.id] !== undefined ? updates[ct.id] : soThucTeMacDinh(ct));
+
   const onComplete = async () => {
     if (!dotKiemKeId || !selectedKhoId) {
       toast.error("Thiếu thông tin đợt kiểm kê");
@@ -172,9 +187,7 @@ export default function StockTakeCreate() {
     try {
       const updateList = chiTiets.map((ct) => ({
         chiTietId: ct.id,
-        soLuongThucTe: updates[ct.id] !== undefined
-          ? updates[ct.id]
-          : parseFloat(ct.soLuongThucTe ?? 0),
+        soLuongThucTe: layThucTe(ct),
       }));
       await completeStockTake(dotKiemKeId, selectedKhoId, updateList);
       toast.success("Hoàn thành kiểm kê thành công.");
@@ -189,10 +202,7 @@ export default function StockTakeCreate() {
   // Stats bước 2
   const totalLo      = chiTiets.length;
   const totalHeThong = chiTiets.reduce((s, ct) => s + parseFloat(ct.soLuongHeThong ?? 0), 0);
-  const totalThucTe  = chiTiets.reduce((s, ct) => {
-    const v = updates[ct.id] !== undefined ? updates[ct.id] : parseFloat(ct.soLuongThucTe ?? 0);
-    return s + v;
-  }, 0);
+  const totalThucTe  = chiTiets.reduce((s, ct) => s + layThucTe(ct), 0);
 
   return (
     <PageContainer className="space-y-5">
@@ -388,9 +398,7 @@ export default function StockTakeCreate() {
               <tbody className="divide-y divide-bo-border">
                 {chiTiets.map((ct) => {
                   const tonHeThong = parseFloat(ct.soLuongHeThong ?? 0);
-                  const thucTe     = updates[ct.id] !== undefined
-                    ? updates[ct.id]
-                    : parseFloat(ct.soLuongThucTe ?? 0);
+                  const thucTe     = layThucTe(ct);
                   const chenhLech  = thucTe - tonHeThong;
                   const hasInput   = updates[ct.id] !== undefined;
 
@@ -434,11 +442,7 @@ export default function StockTakeCreate() {
                           <Input
                             type="number"
                             min="0"
-                            defaultValue={
-                              updates[ct.id] !== undefined
-                                ? updates[ct.id]
-                                : Math.round(parseFloat(ct.soLuongThucTe ?? tonHeThong))
-                            }
+                            defaultValue={thucTe}
                             onChange={(e) => handleSoLuongChange(ct.id, e.target.value)}
                             className="ml-auto w-28 border-bo-border bg-white text-right text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-2 focus-visible:ring-bo-primary/15"
                           />

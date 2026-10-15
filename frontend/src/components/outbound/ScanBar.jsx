@@ -1,5 +1,5 @@
 import { forwardRef, useImperativeHandle, useRef, useState } from "react";
-import { CheckCircle2, Loader2, ScanBarcode, Volume2, VolumeX, XCircle } from "lucide-react";
+import { CheckCircle2, Loader2, ScanBarcode, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const inputClass =
@@ -8,9 +8,10 @@ const inputClass =
 /**
  * Ô quét mã vạch cho Barcode to PC / súng quét USB: thiết bị gõ mã như bàn phím rồi gửi Enter.
  * Ô luôn giữ focus sau mỗi lần quét; mất focus thì đèn báo chuyển cam để người dùng bấm lại.
+ * Âm thanh: máy quét tự kêu khi đọc được mã; trang chỉ kêu tiếng "rè" khi mã không cộng được (không có nút loa).
  */
 const ScanBar = forwardRef(function ScanBar(
-  { onScan, disabled = false, pending = 0, lastResult, soundOn, onToggleSound },
+  { onScan, disabled = false, pending = 0, lastResult },
   ref,
 ) {
   const inputRef = useRef(null);
@@ -103,16 +104,6 @@ const ScanBar = forwardRef(function ScanBar(
               className="h-11 w-full rounded-lg border border-bo-border bg-white px-3 text-center text-base font-semibold text-bo-foreground outline-none focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle"
             />
           </div>
-          <button
-            type="button"
-            onClick={onToggleSound}
-            aria-pressed={soundOn}
-            aria-label={soundOn ? "Tắt âm báo" : "Bật âm báo"}
-            title={soundOn ? "Tắt âm báo" : "Bật âm báo"}
-            className="inline-flex size-11 items-center justify-center rounded-lg border border-bo-border bg-white text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
-          >
-            {soundOn ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
-          </button>
         </div>
       </div>
 
@@ -129,7 +120,7 @@ const ScanBar = forwardRef(function ScanBar(
           </p>
         ) : (
           <p className="text-sm text-bo-muted">
-            Dùng Barcode to PC (đặt hậu tố là phím Enter) hoặc súng quét USB. Có thể gõ SKU rồi nhấn Enter.
+            Dùng Barcode to PC (đặt hậu tố là phím Enter) hoặc súng quét USB. Có thể gõ SKU rồi nhấn Enter. Nghe tiếng “rè” là mã chưa được cộng.
           </p>
         )}
         {pending > 0 ? (

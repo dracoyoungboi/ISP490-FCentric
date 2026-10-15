@@ -75,7 +75,8 @@ export default function ConfirmModal({
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
+        // Đang xử lý thì không cho đóng (Esc, bấm ra ngoài, nút X) để thao tác không bị bỏ dở giữa chừng
+        <Dialog open={isOpen} onOpenChange={(mo) => { if (!mo && isLoading) return; onClose?.(mo); }}>
             <DialogContent className={`sm:max-w-[425px] rounded-xl shadow-lg ${mergedConfig.dialogClass}`}>
                 <DialogHeader>
                     <div className="flex items-center gap-3">

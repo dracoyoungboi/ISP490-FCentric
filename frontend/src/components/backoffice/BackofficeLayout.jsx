@@ -1,15 +1,20 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useOutletContext } from "react-router-dom";
 import BackofficeSidebar from "./BackofficeSidebar";
 import BackofficeHeader from "./BackofficeHeader";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
+import { PageTitleContext } from "./pageTitle";
 import "@/styles/print.css";
 
 const DEFAULT_DOCUMENT_TITLE =
-    "FCentric | Quản lý kho & bán lẻ thời trang đa kênh";
+    "FCentric · Quản lý kho & bán lẻ thời trang đa kênh";
 
-export default function BackofficeLayout() {
+/**
+ * - metaCoDinh: tiêu đề cố định cho trang không đi theo đường dẫn (trang 404 trong khung quản trị).
+ *   Có giá trị thì dùng luôn, không dò PAGE_META_CONFIG theo đường dẫn.
+ */
+export default function BackofficeLayout({ metaCoDinh = null }) {
     const { pathname } = useLocation();
     const { mustChangePassword, setMustChangePassword } = useOutletContext();
     const handlePasswordChangeSuccess = () => setMustChangePassword(false);
@@ -17,273 +22,222 @@ export default function BackofficeLayout() {
     const PAGE_META_CONFIG = [
         {
             key: "DASHBOARD",
+            // Tổng quan không hiện tiêu đề nhìn thấy (hàng lọc kho/kỳ đứng đầu trang); h1 ẩn nằm trong TongQuanHeader
+            ownTitle: true,
             match: (path) => path === "/dashboard",
-            title: "Tổng quan quản trị",
+            title: "Tổng quan",
         },
         {
             key: "EDIT_USER_ROLE",
+            ownTitle: true,
             match: (path) => path.endsWith("/edit-role"),
             title: "Chỉnh sửa quyền người dùng",
-            subtitle: "Cập nhật quyền hạn cho người dùng dựa trên chức vụ",
         },
         {
             key: "USER_PROFILE",
+            ownTitle: true,
             // giữ legacy regex để tránh flash meta khi /user/:id redirect sang /profile
             match: (path) => path === "/profile" || /^\/user\/\d+$/.test(path),
             title: "Hồ sơ cá nhân",
-            subtitle: "Thông tin tài khoản của bạn",
         },
         {
             key: "USER_DETAIL",
             match: (path) =>
                 /^\/admin\/users\/\d+$/.test(path),
             title: "Chi tiết người dùng",
-            subtitle: "Thông tin chi tiết",
         },
         {
             key: "USER_LIST",
             match: (path) => path === "/users",
-            title: "Danh sách người dùng",
+            title: "Người dùng",
         },
         {
             key: "ATTRIBUTES",
             match: (path) => path === "/attributes",
-            title: "Quản lý thuộc tính",
-            subtitle: "Màu sắc, kích cỡ, chất liệu",
+            title: "Thuộc tính",
         },
         {
             key: "MATERIALS",
             match: (path) => path === "/material",
-            title: "Quản lý chất liệu",
-            subtitle: "Chất liệu sản phẩm",
+            title: "Chất liệu",
         },
         {
             key: "PRODUCTS",
             match: (path) => path === "/products",
-            title: "Quản lý sản phẩm",
-            subtitle: "Danh sách sản phẩm",
+            title: "Sản phẩm",
         },
         {
             key: "SKU_BUILDER",
             match: (path) => path === "/sku-builder",
-            title: "Danh sách biến thể và giá",
-            subtitle: "Quản lý biến thể SKU và giá sản phẩm",
+            title: "Biến thể SKU & giá",
         },
         {
             key: "SUPPLIERS",
             match: (path) => path === "/supplier",
-            title: "Quản lý nhà cung cấp",
-            subtitle: "Danh sách nhà cung cấp",
+            title: "Nhà cung cấp",
         },
         {
             key: "WAREHOUSE",
             match: (path) => path === "/warehouse",
-            title: "Danh sách kho",
-            subtitle: "Quản lý kho hàng",
+            title: "Kho",
         },
         {
             key: "LICH_SU_GIAO_DICH_KHO",
             match: (path) => path === "/inventory-transactions",
             title: "Lịch sử giao dịch kho",
-            subtitle: "Xem lịch sử các giao dịch nhập xuất trong kho",
         },
         {
             key: "GOODS_RECEIPTS",
             match: (path) => path === "/goods-receipts",
-            title: "Quản lý phiếu nhập kho",
-            subtitle: "Danh sách phiếu nhập kho",
+            title: "Phiếu nhập kho",
         },
         {
             key: "GOODS_RECEIPTS_CREATE",
             match: (path) => path === "/goods-receipts/create",
             title: "Tạo phiếu nhập kho",
-            subtitle: "Tạo mới phiếu nhập kho từ đơn mua hàng",
         },
         {
             key: "GOODS_RECEIPTS_DETAIL",
             match: (path) => /^\/goods-receipts\/\d+$/.test(path),
             title: "Chi tiết phiếu nhập kho",
-            subtitle: "",
         },
         {
             key: "LOT_INPUT",
             match: (path) => /^\/goods-receipts\/\d+\/lot-input\/\d+$/.test(path),
             title: "Khai báo lô",
-            subtitle: "Khai báo thông tin lô cho sản phẩm nhập kho",
         },
         {
             key: "GOODS_ISSUES",
             match: (path) => path === "/goods-issues",
-            title: "Quản lý phiếu xuất kho",
-            subtitle: "Danh sách phiếu xuất kho",
+            title: "Phiếu xuất kho",
         },
         {
             key: "GOODS_ISSUES_CREATE",
             match: (path) => path === "/goods-issues/create",
             title: "Tạo phiếu xuất kho",
-            subtitle: "Tạo mới phiếu xuất kho từ đơn bán hàng",
         },
         {
             key: "GOODS_ISSUES_DETAIL",
             match: (path) => /^\/goods-issues\/\d+$/.test(path),
             title: "Chi tiết phiếu xuất kho",
-            subtitle: "Xem chi tiết phiếu xuất kho",
         },
         {
             key: "PURCHASE_REQUESTS",
             match: (path) => path === "/purchase-requests",
             title: "Yêu cầu nhập hàng",
-            subtitle: "Quản lý các yêu cầu nhập hàng từ nhà cung cấp",
         },
         {
             key: "PURCHASE_ORDERS",
             match: (path) => path === "/purchase-orders",
             title: "Đơn mua hàng",
-            subtitle: "Danh sách các đơn hàng nhập đã được xác nhận",
         },
         {
             key: "TRANSFER_TICKETS",
             match: (path) => path === "/transfer-tickets",
-            title: "Quản lý phiếu chuyển kho nội bộ",
-            subtitle: "Danh sách phiếu chuyển kho nội bộ",
+            title: "Chuyển kho nội bộ",
         },
         {
             key: "PICK_LOT",
             match: (path) => /^\/goods-issues\/\d+\/pick-lot\/\d+$/.test(path),
             title: "Chọn lô hàng",
-            subtitle: "Chọn lô hàng để xuất kho",
         },
         {
             key: "STOCK_TAKE_LIST",
             match: (path) => path === "/stock-take",
-            title: "Kiểm kê kho hàng",
-            subtitle: "Quản lý và theo dõi các đợt kiểm kê kho",
+            title: "Kiểm kê",
         },
         {
             key: "STOCK_TAKE_CREATE",
             match: (path) => path === "/stock-take/new",
             title: "Tạo đợt kiểm kê",
-            subtitle: "Chọn kho và điền thông tin để bắt đầu kiểm kê",
         },
         {
             key: "STOCK_TAKE_DETAIL",
             match: (path) => /^\/stock-take\/\d+$/.test(path),
             title: "Chi tiết đợt kiểm kê",
-            subtitle: "Thông tin chi tiết đợt kiểm kê đã hoàn thành",
         },
         {
             key: "DANH_MUC_QUAN_AO",
             match: (path) => path === "/categories",
-            title: "Quản lý danh mục",
-            subtitle: "Xem và quản lý cấu trúc danh mục quần áo",
+            title: "Danh mục",
         },
         {
             key: "CHI_TIET_SAN_PHAM",
+            ownTitle: true,
             match: (path) => /^\/products\/\d+$/.test(path),
             title: "Chi tiết sản phẩm",
-            subtitle: "Xem thông tin chi tiết về sản phẩm",
         },
         {
             key: "CREATE_TRANSFER_TICKET",
             match: (path) => path === "/transfer-tickets/create",
             title: "Tạo phiếu chuyển kho nội bộ",
-            subtitle: "Tạo mới phiếu chuyển kho nội bộ",
         },
         {
             key: "TRANSFER_TICKET_DETAIL",
             match: (path) => /^\/transfer-tickets\/\d+$/.test(path),
             title: "Chi tiết phiếu chuyển kho nội bộ",
-            subtitle: "Xem chi tiết phiếu chuyển kho nội bộ",
         },
         {
             key: "SALES_ORDERS",
             match: (path) => path === "/sales-orders",
-            title: "Quản lý đơn bán hàng",
-            subtitle: "Danh sách đơn bán hàng",
+            title: "Đơn bán hàng",
         },
         {
             key: "SALES_ORDER_DETAIL",
             match: (path) => /^\/sales-orders\/\d+$/.test(path),
             title: "Chi tiết đơn bán hàng",
-            subtitle: "Xem chi tiết đơn hàng",
         },
         {
             key: "CREATE_SALES_ORDER",
             match: (path) => path === "/sales-orders/create",
             title: "Tạo đơn bán hàng",
-            subtitle: "Tạo mới đơn bán hàng",
         },
         {
             key: "BAO_CAO_DOANH_THU",
             match: (path) => path === "/reports/revenue",
             title: "Báo cáo doanh thu",
-            subtitle: "Xem báo cáo doanh thu theo thời gian",
         },
         {
             key: "BAO_CAO_KHACH_HANG",
             match: (path) => path === "/reports/customers",
             title: "Báo cáo khách hàng",
-            subtitle: "Xem báo cáo về khách hàng theo thời gian",
         },
         {
             key: "BAO_CAO_NHAP_XUAT",
             match: (path) => path === "/reports/stock-movements",
             title: "Báo cáo nhập xuất",
-            subtitle: "Xem báo cáo về nhập xuất hàng hóa theo thời gian",
         },
         {
             key: "PHIEU_NHAP_KHO_PRINT",
             match: (path) => /^\/goods-receipts\/\d+\/print$/.test(path),
             title: "In phiếu nhập kho",
-            subtitle: "Xem bản in phiếu nhập kho",
         },
         {
             key: "PHIEU_XUAT_KHO_PRINT",
             match: (path) => /^\/goods-issues\/\d+\/print$/.test(path),
             title: "In phiếu xuất kho",
-            subtitle: "Xem bản in phiếu xuất kho",
-        },
-        {
-            key: "STOCK_TAKE",
-            match: (path) => path === "/stock-take",
-            title: "Quản lý kiểm kê",
-            subtitle: "Xem và quản lý các lần kiểm kê tồn kho",
         },
         {
             key: "CUSTOMERS",
             match: (path) => path === "/customers",
-            title: "Quản lý khách hàng",
-            subtitle: "Danh sách và thông tin khách hàng",
+            title: "Khách hàng",
         },
         {
             key: "CUSTOMER_DETAIL",
+            ownTitle: true,
             match: (path) => /^\/customers\/\d+$/.test(path),
             title: "Chi tiết khách hàng",
-            subtitle: "Xem và quản lý thông tin chi tiết của khách hàng trong hệ thống",
         },
         {
             key: "CUSTOMER_EDIT",
             match: (path) => /^\/customers\/\d+\/edit$/.test(path),
             title: "Chỉnh sửa khách hàng",
-            subtitle: "Cập nhật thông tin khách hàng",
         },
         {
-            key: "SUPPLIER_EDIT",
-            match: (path) => /^\/supplier\/\d+$/.test(path),
-            title: "Chỉnh sửa nhà cung cấp",
-            subtitle: "Cập nhật thông tin nhà cung cấp",
-        },
-        {
+            // Thêm / sửa nhà cung cấp là popup trên danh sách và trang chi tiết (không còn trang riêng).
             key: "SUPPLIER_DETAIL",
-            match: (path) => /^\/supplier\/view\/\d+$/.test(path),
+            match: (path) => /^\/supplier\/\d+$/.test(path),
             title: "Chi tiết nhà cung cấp",
-            subtitle: "",
-        },
-        {
-            key: "SUPPLIER_CREATE",
-            match: (path) => path === "/supplier/new",
-            title: "Thêm nhà cung cấp mới",
-            subtitle: "Nhập thông tin để tạo nhà cung cấp mới",
         },
         {
             key: "INVENTORY_REPORT",
@@ -297,6 +251,7 @@ export default function BackofficeLayout() {
         },
         {
             key: "USER_DETAIL",
+            ownTitle: true,
             match: (path) => /^\/users\/\d+$/.test(path),
             title: "Thông tin chi tiết người dùng",
         },
@@ -304,12 +259,11 @@ export default function BackofficeLayout() {
             key: "PURCHASE_REQUEST_QUOTATION",
             match: (path) => /^\/purchase-requests\/\d+\/send-quotation$/.test(path),
             title: "Tạo yêu cầu báo giá",
-            subtitle: "Gửi yêu cầu báo giá đến nhà cung cấp dựa trên phiếu yêu cầu",
         },
         {
             key: "QUOTATION_REQUEST",
             match: (path) => path === "/quotation-requests",
-            title: "Danh sách yêu cầu báo giá",
+            title: "Yêu cầu báo giá",
         },
         {
             key: "QUOTATION_REQUEST_CREATE",
@@ -349,23 +303,23 @@ export default function BackofficeLayout() {
         {
             key: "SALE_QUOTATION",
             match: (path) => path === "/sales-quotations",
-            title: "Danh sách báo giá bán hàng",
+            title: "Báo giá",
         },
         {
             key: "SALE_QUOTATION_CREATE",
             match: (path) => path === "/sales-quotations/create",
-            title: "Tạo báo giá bán hàng",
+            title: "Tạo báo giá",
         },
         {
             key: "SALE_QUOTATION_DETAIL",
+            ownTitle: true,
             match: (path) => /^\/sales-quotations\/\d+$/.test(path),
-            title: "Chi tiết báo giá bán hàng",
+            title: "Chi tiết báo giá",
         },
         {
             key: "INVENTORY_SYSTEM_SETTINGS",
             match: (path) => path === "/settings/inventory",
             title: "Cấu hình hệ thống kho",
-            subtitle: "Thông số cảnh báo và đồng bộ đơn hàng",
         },
         {
             key: "PRINT_TEMPLATES",
@@ -373,84 +327,89 @@ export default function BackofficeLayout() {
                 path === "/settings/print-templates" ||
                 /^\/settings\/print-templates\/[^/]+$/.test(path),
             title: "Cấu hình mẫu in",
-            subtitle: "Xem các mẫu in có sẵn theo loại chứng từ",
         },
         {
             key: "PAYMENT_SETTINGS",
             match: (path) => path === "/settings/payment",
             title: "Cài đặt thanh toán",
-            subtitle: "Kết nối payOS cho thanh toán chuyển khoản QR",
         },
         {
             key: "PRINT_TEMPLATE_EDIT",
             match: (path) => /^\/settings\/print-templates\/[^/]+\/([^/]+\/)?edit$/.test(path),
             title: "Chỉnh sửa mẫu in",
-            subtitle: "Tùy chỉnh hiển thị của mẫu in",
         },
         {
             key: "PRINT_TEMPLATE_DETAIL",
             match: (path) => /^\/settings\/print-templates\/[^/]+\/[^/]+$/.test(path),
             title: "Mẫu in",
-            subtitle: "Xem trước mẫu in",
         },
         {
             key: "PENDING_ORDERS",
             match: (path) => path === "/goods-issues/pending-orders",
             title: "Đơn chờ xuất",
-            subtitle: "Gom đơn đã gửi kho thành phiếu nhặt hàng",
         },
         {
             key: "PICK_LISTS",
             match: (path) => path === "/goods-issues/pick-lists",
             title: "Phiếu nhặt hàng",
-            subtitle: "Phân công và theo dõi tiến độ nhặt hàng",
         },
         {
             key: "PICK_LIST_DETAIL",
             match: (path) => /^\/goods-issues\/pick-lists\/\d+$/.test(path),
             title: "Thực hiện nhặt hàng",
-            subtitle: "Quét mã vạch, theo dõi tiến độ và hoàn tất nhặt hàng",
+        },
+        {
+            key: "PACKING",
+            match: (path) => /^\/goods-issues\/packing\/\d+$/.test(path),
+            title: "Đóng gói đơn hàng",
         },
         {
             key: "CHANNELS",
             match: (path) => path === "/channels",
             title: "Kết nối gian hàng",
-            subtitle: "Kết nối Shopify, Lazada, TikTok Shop với kho FCentric",
         },
         {
             key: "CHANNEL_SYNC",
             match: (path) => path === "/channels/sync",
             title: "Theo dõi đồng bộ",
-            subtitle: "Theo dõi đẩy tồn, nhận đơn và lỗi đồng bộ theo từng gian hàng",
         },
         {
             key: "CHANNEL_SETUP",
             match: (path) => /^\/channels\/\d+\/setup$/.test(path),
             title: "Thiết lập kết nối",
-            subtitle: "Kho đồng bộ, quy tắc tồn, nhận đơn và liên kết sản phẩm",
         },
         {
             key: "CHANNEL_MAPPINGS",
             match: (path) => /^\/channels\/\d+\/mappings$/.test(path),
             title: "Liên kết sản phẩm",
-            subtitle: "Ghép SKU trên sàn với biến thể FCentric",
         },
     ];
 
-    const pageMeta = PAGE_META_CONFIG.find((item) =>
+    const pageMeta = metaCoDinh ?? PAGE_META_CONFIG.find((item) =>
         item.match(pathname)
     );
 
+    // Tên tab trình duyệt = tiêu đề trang + " · FCentric"
     useEffect(() => {
-        const pageTitle =
-            pageMeta?.key === "WAREHOUSE"
-                ? "Quản lý kho hàng"
-                : pageMeta?.title;
-
-        document.title = pageTitle
-            ? `FCentric | ${pageTitle}`
+        document.title = pageMeta?.title
+            ? `${pageMeta.title} · FCentric`
             : DEFAULT_DOCUMENT_TITLE;
-    }, [pageMeta?.key, pageMeta?.title]);
+    }, [pageMeta?.title]);
+
+    // Số hàng tiêu đề trang đang tự vẽ (ListPageHeader / PageHeader). Bằng 0 thì PageContainer vẽ tiêu đề dự phòng.
+    const [soTieuDeRieng, setSoTieuDeRieng] = useState(0);
+    const claimPageTitle = useCallback(() => {
+        setSoTieuDeRieng((n) => n + 1);
+        return () => setSoTieuDeRieng((n) => n - 1);
+    }, []);
+    const pageTitleValue = useMemo(
+        () => ({
+            title: pageMeta?.title ?? null,
+            showFallback: Boolean(pageMeta?.title) && !pageMeta?.ownTitle && soTieuDeRieng === 0,
+            claim: claimPageTitle,
+        }),
+        [pageMeta?.title, pageMeta?.ownTitle, soTieuDeRieng, claimPageTitle],
+    );
 
     useEffect(() => {
         return () => {
@@ -476,18 +435,16 @@ export default function BackofficeLayout() {
 
                 {/* MAIN CONTENT */}
                 <SidebarInset className="flex min-w-0 flex-col bg-bo-canvas">
-                    <BackofficeHeader
-                        title={pageMeta?.title}
-                        subtitle={pageMeta?.subtitle}
-                        routeKey={pageMeta?.key}
-                    />
+                    <BackofficeHeader />
 
                     <main
                         id="backoffice-main-content"
                         tabIndex="-1"
                         className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-bo-canvas"
                     >
-                        <Outlet />
+                        <PageTitleContext.Provider value={pageTitleValue}>
+                            <Outlet />
+                        </PageTitleContext.Provider>
                     </main>
                 </SidebarInset>
             </div>

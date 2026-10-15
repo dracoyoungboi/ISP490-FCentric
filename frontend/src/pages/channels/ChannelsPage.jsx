@@ -2,12 +2,12 @@ import { createElement, useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
     Activity, AlertTriangle, CalendarClock, Globe, KeyRound, Link2, MoreHorizontal, PauseCircle, PlayCircle,
-    PlugZap, RefreshCcw, Settings2, ShieldCheck, ShoppingBag, Store, XCircle,
+    PlugZap, RefreshCcw, Settings2, ShieldCheck, ShoppingBag, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import PageContainer from "@/components/backoffice/PageContainer";
-import KpiCard from "@/components/shared/KpiCard";
+import AttentionBar from "@/components/shared/AttentionBar";
 import InfoItem from "@/components/shared/InfoItem";
 import InlineResult from "@/components/shared/InlineResult";
 import ErrorState from "@/components/shared/ErrorState";
@@ -25,6 +25,7 @@ import { kenhBanHangService, isShopifyConfigMock } from "@/services/kenhBanHangS
 import { CHANNELS, CONNECTION_STATUS } from "@/constants/channel";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { formatDateTime } from "@/utils/dateTime";
+import { ROLES, hasAnyRole } from "@/utils/roles";
 
 // Lazada / TikTok Shop chưa có backend: hiển thị để người dùng biết lộ trình (Phần 12–13).
 const UPCOMING_CHANNELS = [
@@ -38,6 +39,11 @@ function shopifyStatus(config) {
     if (config.tokenExpired ?? config.isTokenExpired) return "het_han";
     return Number(config.trangThai) === 1 ? "dang_hoat_dong" : "tam_dung";
 }
+
+// Lý do mất kết nối cho dòng chú ý — cùng trạng thái mà thẻ kênh tô đỏ (CONNECTION_STATUS tone "danger")
+const LY_DO_MAT_KET_NOI = {
+    het_han: "access token đã hết hạn",
+};
 
 function formatDuration(seconds) {
     const s = Math.max(0, Number(seconds) || 0);
@@ -64,6 +70,9 @@ export default function ChannelsPage() {
     const [busy, setBusy] = useState(null); // "check" | "refresh" | "status"
     const [checkResult, setCheckResult] = useState(null);
     const busyRef = useRef(false);
+    const shopifyCardRef = useRef(null);
+    // Dòng chú ý chỉ cho quản trị viên (cùng nguồn vai trò với RequireRole của route)
+    const [laQuanTriVien] = useState(() => hasAnyRole([ROLES.QUAN_TRI_VIEN]));
 
     const fetchConfig = useCallback(async () => {
         setLoading(true);
@@ -136,44 +145,23 @@ export default function ChannelsPage() {
     const connected = status !== "chua_ket_noi";
     const kenhId = config?.id ?? CHANNELS.SHOPIFY.id;
 
-    return (
-        <PageContainer className="space-y-5">
-            <MockModeNotice show={isShopifyConfigMock} />
+    // Dòng chú ý: kênh mất kết nối theo đúng trạng thái thẻ kênh đang hiện (badge đỏ: hết hạn / lỗi).
+    // Thẻ kênh chưa có ngưỡng "token sắp hết hạn" nên không đặt ngưỡng mới ở đây.
+    const matKetNoi = Boolean(config) && CONNECTION_STATUS[status]?.tone === "danger";
+    const soKenhMatKetNoi = laQuanTriVien && matKetNoi ? 1 : 0;
+    const lyDoMatKetNoi = LY_DO_MAT_KET_NOI[status] ?? CONNECTION_STATUS[status]?.label.toLowerCase();
 
-            {/* ══ STATS ══ */}
-            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <KpiCard
-                    icon={<Store className="size-5" />}
-                    iconClass="bg-bo-primary-soft text-bo-primary"
-                    label="Kênh đã kết nối"
-                    value={`${connected ? 1 : 0} / 3`}
-                    sub="Lazada, TikTok: giai đoạn sau"
-                />
-                <KpiCard
-                    icon={<Activity className="size-5" />}
-                    iconClass={status === "dang_hoat_dong" ? "bg-bo-success-soft text-bo-success" : "bg-bo-warning-soft text-bo-warning"}
-                    label="Trạng thái Shopify"
-                    value={config ? CONNECTION_STATUS[status]?.label ?? "—" : "—"}
-                    valueClass="text-lg"
-                    sub={config?.shopDomain || "Chưa cấu hình cửa hàng"}
-                />
-                <KpiCard
-                    icon={<KeyRound className="size-5" />}
-                    iconClass={status === "het_han" ? "bg-bo-danger-soft text-bo-danger" : "bg-slate-100 text-slate-600"}
-                    label="Access token"
-                    value={config?.hasAccessToken ? "Đã lưu" : "Chưa có"}
-                    valueClass="text-lg"
-                    sub={config?.hasAccessToken ? tokenExpiryText(config) : "Nhập khi kết nối cửa hàng"}
-                />
-                <KpiCard
-                    icon={<CalendarClock className="size-5" />}
-                    iconClass="bg-slate-100 text-slate-600"
-                    label="Lưu gần nhất"
-                    value={config?.ngayCapNhat ? formatDateTime(config.ngayCapNhat, { withYear: false }) : "—"}
-                    valueClass="text-lg"
-                    sub="Cấu hình Shopify"
-                />
-            </section>
+    // Nút của dòng chú ý: cuộn tới thẻ kênh Shopify (thẻ có sẵn nút làm mới / cập nhật token)
+    const showShopifyCard = () => {
+        const card = shopifyCardRef.current;
+        if (!card) return;
+        card.scrollIntoView({ behavior: "smooth", block: "start" });
+        card.focus({ preventScroll: true });
+    };
+
+    return (
+        <PageContainer className="space-y-4">
+            <MockModeNotice show={isShopifyConfigMock} />
 
             {/* ══ THAO TÁC ══ */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -209,8 +197,22 @@ export default function ChannelsPage() {
                 </div>
             </div>
 
+            <AttentionBar
+                count={soKenhMatKetNoi}
+                tone="danger"
+                actionLabel="Xem kênh Shopify"
+                onAction={showShopifyCard}
+            >
+                <strong className="font-semibold">{soKenhMatKetNoi} kênh</strong> mất kết nối: Shopify ({lyDoMatKetNoi}).
+            </AttentionBar>
+
             {/* ══ SHOPIFY ══ */}
-            <section className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
+            <section
+                ref={shopifyCardRef}
+                tabIndex={-1}
+                aria-label="Kênh Shopify"
+                className="scroll-mt-4 overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm focus:outline-none"
+            >
                 <div className="flex flex-col gap-3 border-b border-bo-border px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
                     <div className="flex min-w-0 items-center gap-3">
                         <ChannelLogo maKenh="SHOPIFY" />
@@ -320,6 +322,8 @@ export default function ChannelsPage() {
                         </div>
                         <p className="text-xs text-bo-muted">
                             Admin API: <span className="font-mono">{config.apiUrl || "—"}</span>
+                            {/* Trước nằm ở ô số "Lưu gần nhất" */}
+                            {" · "}Lưu cấu hình gần nhất: {config.ngayCapNhat ? formatDateTime(config.ngayCapNhat, { withYear: false }) : "—"}
                         </p>
 
                         {status === "het_han" ? (

@@ -11,28 +11,18 @@ import SurfaceCard from "@/components/shared/SurfaceCard";
 import TableShell from "@/components/shared/TableShell";
 import StatusBadge from "@/components/shared/StatusBadge";
 import LoadingState from "@/components/shared/LoadingState";
+import EmptyState from "@/components/shared/EmptyState";
+import ErrorState from "@/components/shared/ErrorState";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, ArrowLeft, Loader2, ClipboardList, Building2, Package, ArrowRightLeft } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Loader2, ClipboardList, Building2, Package, ArrowRightLeft, SearchX } from "lucide-react";
 import { createPortal } from "react-dom";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { PHIEU_CHUYEN_KHO_STATUS, getPhieuChuyenKhoStatus } from "@/constants/phieuChuyenKho";
+import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
+import { formatDate } from "@/utils/formatters";
 
-// ── Trạng thái ────────────────────────────────────────────────────────────
-const STATUS_MAP = {
-    0: { label: "Nháp", tone: "warning" },
-    1: { label: "Chờ duyệt", tone: "info" },
-    2: {
-        label: "Chờ xuất hàng",
-        tone: "info",
-        className: "border-indigo-200 bg-indigo-50 text-indigo-700",
-    },
-    3: {
-        label: "Đang vận chuyển",
-        tone: "info",
-        className: "border-purple-200 bg-purple-50 text-purple-700",
-    },
-    5: { label: "Hoàn tất", tone: "success" },
-    4: { label: "Đã hủy", tone: "danger" },
-};
+// ── Trạng thái — dùng chung tên với danh sách (constants/phieuChuyenKho) ──
+const STATUS_MAP = PHIEU_CHUYEN_KHO_STATUS;
 
 const TH_CLASS =
     "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
@@ -57,6 +47,8 @@ export default function PhieuChuyenKhoDetail() {
 
     const [data,               setData]               = useState(null);
     const [loading,            setLoading]            = useState(false);
+    // null: không lỗi; { khongTimThay, moTa }: lần tải gần nhất lỗi
+    const [loadError,          setLoadError]          = useState(null);
     const [showCancelConfirm,  setShowCancelConfirm]  = useState(false);
     const [isProcessing,       setIsProcessing]       = useState(false);
     const [myWarehouseIds,     setMyWarehouseIds]     = useState([]);
@@ -68,11 +60,24 @@ export default function PhieuChuyenKhoDetail() {
 
     const fetchDetail = useCallback(async () => {
         setLoading(true);
+        setLoadError(null);
         try {
             const res = await phieuChuyenKhoService.getDetail(id);
-            setData(res?.data || res);
-        } catch {
-            toast.error("Không thể tải chi tiết phiếu chuyển kho");
+            const payload = res?.data || res;
+            if (payload?.id != null) {
+                setData(payload);
+            } else {
+                // Máy chủ trả về rỗng: coi như không có phiếu này
+                setData(null);
+                setLoadError({ khongTimThay: true });
+            }
+        } catch (e) {
+            setData(null);
+            setLoadError({
+                // Máy chủ trả 400 ("Không tìm thấy phiếu chuyển kho id: …") cho mã không tồn tại
+                khongTimThay: [400, 404].includes(getApiErrorStatus(e)),
+                moTa: getApiErrorMessage(e, "Đã xảy ra lỗi khi tải phiếu chuyển kho. Vui lòng thử lại."),
+            });
         } finally {
             setLoading(false);
         }
@@ -162,12 +167,42 @@ export default function PhieuChuyenKhoDetail() {
         }
     }
 
-    // ── Loading ──
+    // ── Đang tải / lỗi tải / không có phiếu: vẫn giữ nút quay lại danh sách ──
     if (loading || !data) {
         return (
-            <PageContainer>
+            <PageContainer className="space-y-5">
+                <button
+                    type="button"
+                    onClick={() => navigate("/transfer-tickets")}
+                    className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-bo-muted transition-colors hover:text-bo-primary"
+                >
+                    <ArrowLeft className="size-4" />
+                    Quay lại danh sách
+                </button>
                 <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                    <LoadingState rows={5} label="Đang tải dữ liệu phiếu chuyển kho" />
+                    {loading || !loadError ? (
+                        <LoadingState rows={5} label="Đang tải dữ liệu phiếu chuyển kho" />
+                    ) : loadError.khongTimThay ? (
+                        <EmptyState
+                            icon={SearchX}
+                            title="Không tìm thấy phiếu chuyển kho"
+                            description="Phiếu chuyển kho không tồn tại hoặc đã bị xóa khỏi hệ thống."
+                            action={
+                                <Button
+                                    onClick={() => navigate("/transfer-tickets")}
+                                    className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                                >
+                                    Về danh sách phiếu chuyển kho
+                                </Button>
+                            }
+                        />
+                    ) : (
+                        <ErrorState
+                            title="Không tải được phiếu chuyển kho"
+                            description={loadError.moTa}
+                            onRetry={fetchDetail}
+                        />
+                    )}
                 </div>
             </PageContainer>
         );
@@ -178,7 +213,7 @@ export default function PhieuChuyenKhoDetail() {
     const isAdmin              = userRoles.includes("quan_tri_vien");
     const isQuanLy             = userRoles.includes("quan_ly_kho") || isAdmin;
 
-    const st                   = STATUS_MAP[data.trangThai] ?? STATUS_MAP[0];
+    const st                   = getPhieuChuyenKhoStatus(data.trangThai);
     const isDestinationManager = isAdmin || (isQuanLy && myWarehouseIds.includes(data.khoNhapId));
     const isSourceStaff        = isAdmin || (isQuanLy && myWarehouseIds.includes(data.khoXuatId));
     const totalItems           = data.items?.length || 0;
@@ -349,7 +384,7 @@ export default function PhieuChuyenKhoDetail() {
                     <InfoField label="Người phê duyệt"   value={data.nguoiDuyetTen || "Chưa duyệt"} />
                     <InfoField
                         label="Ngày tạo"
-                        value={data.ngayTao ? new Date(data.ngayTao).toLocaleDateString("vi-VN") : "—"}
+                        value={formatDate(data.ngayTao)}
                     />
                     <div className="md:col-span-3">
                         <InfoField label="Ghi chú" value={data.ghiChu || "Không có ghi chú"} />

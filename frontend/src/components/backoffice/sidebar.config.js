@@ -43,7 +43,7 @@ export const SIDEBAR_MENU = [
 
   // ================= QUẢN TRỊ HỆ THỐNG =================
   {
-    label: "Quản lý người dùng",
+    label: "Người dùng",
     icon: User,
     section: "management",
     to: "/users",

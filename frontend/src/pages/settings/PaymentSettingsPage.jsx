@@ -738,7 +738,7 @@ export default function PaymentSettingsPage() {
 
   return (
     <PageContainer>
-      <PageHeader title="Thanh toán" />
+      <PageHeader title="Cài đặt thanh toán" />
 
       {!canStoreKeys ? (
         <div className="mb-4 flex gap-3 rounded-xl border border-red-200 bg-bo-danger-soft p-3 text-sm text-red-800" role="alert">

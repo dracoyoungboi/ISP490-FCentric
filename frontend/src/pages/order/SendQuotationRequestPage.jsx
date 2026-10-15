@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import {
     ArrowLeft, Send, Loader2, Building2,
     Mail, User, Package, AlertCircle,
-    X, Sparkles, Check, ShoppingBag, Warehouse, Calendar, ListChecks
+    X, Sparkles, Check, ShoppingBag, Warehouse, Calendar, ListChecks, Plus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,16 +16,20 @@ import purchaseRequestService from '@/services/purchaseRequestService';
 import PageContainer from '@/components/backoffice/PageContainer';
 import PageHeader from '@/components/backoffice/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
+import ErrorState from '@/components/shared/ErrorState';
 import LoadingState from '@/components/shared/LoadingState';
 import SearchInput from '@/components/shared/SearchInput';
 import StatusBadge from '@/components/shared/StatusBadge';
 import SurfaceCard from '@/components/shared/SurfaceCard';
+import SupplierFormDialog from '@/components/supplier/SupplierFormDialog';
+import { coTheGuiYeuCauBaoGia, laHoatDong } from '@/components/supplier/quyTacNhaCungCap';
+import { ROLES, hasAnyRole } from '@/utils/roles';
+import { getApiErrorMessage, getApiErrorStatus } from '@/utils/apiError';
+import { formatDate as dinhDangNgay } from "@/utils/formatters";
 
 /* ─── Helpers ────────────────────────────────────────────────────────────────── */
-const formatDate = (d) => {
-    if (!d) return '—';
-    return new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-};
+// Định dạng chung toàn hệ thống: 05/10/2026 · 08:03; trống → "—"
+const formatDate = (d) => dinhDangNgay(d);
 
 const getInitials = (name = '') =>
     name.split(' ').filter(Boolean).slice(-2).map(w => w[0].toUpperCase()).join('');
@@ -42,7 +46,9 @@ const avatarColor = (name = '') => AVATAR_PALETTES[(name.charCodeAt(0) || 0) % A
 
 /* ─── SupplierListItem ───────────────────────────────────────────────────────── */
 function SupplierListItem({ supplier, isSelected, onToggle }) {
-    const active = supplier.trangThai === 1;
+    // Chọn được khi đang hoạt động và có email (yêu cầu báo giá gửi qua email).
+    const active = coTheGuiYeuCauBaoGia(supplier);
+    const hoatDong = laHoatDong(supplier);
     return (
         <button
             type="button"
@@ -94,10 +100,10 @@ function SupplierListItem({ supplier, isSelected, onToggle }) {
             </div>
 
             {/* Status */}
-            <div className="hidden w-28 shrink-0 text-right md:block">
+            <div className="hidden w-36 shrink-0 text-right md:block">
                 <StatusBadge
-                    label={active ? 'Hoạt động' : 'Ngừng GD'}
-                    tone={active ? 'success' : 'neutral'}
+                    label={!hoatDong ? 'Ngừng hoạt động' : active ? 'Hoạt động' : 'Chưa có email'}
+                    tone={!hoatDong ? 'neutral' : active ? 'success' : 'warning'}
                 />
             </div>
         </button>
@@ -105,7 +111,7 @@ function SupplierListItem({ supplier, isSelected, onToggle }) {
 }
 
 /* ─── RequestInfoPanel ──────────────────────────────────────────────────────── */
-function RequestInfoPanel({ request, loading, id }) {
+function RequestInfoPanel({ request, loading, error, onRetry, onBack, id }) {
     if (loading) {
         return (
             <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
@@ -116,11 +122,28 @@ function RequestInfoPanel({ request, loading, id }) {
     if (!request) {
         return (
             <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                <EmptyState
-                    icon={AlertCircle}
-                    title="Không tìm thấy yêu cầu"
-                    description="Yêu cầu nhập hàng có thể đã bị xóa hoặc không còn khả dụng."
-                />
+                {error && !error.notFound ? (
+                    <ErrorState
+                        title="Không thể tải thông tin yêu cầu"
+                        description={error.message}
+                        onRetry={onRetry}
+                    />
+                ) : (
+                    <EmptyState
+                        icon={AlertCircle}
+                        title="Không tìm thấy yêu cầu nhập hàng"
+                        description="Yêu cầu nhập hàng có thể đã bị xóa hoặc không còn khả dụng."
+                        action={
+                            <Button
+                                type="button"
+                                onClick={onBack}
+                                className="bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover"
+                            >
+                                Quay lại danh sách
+                            </Button>
+                        }
+                    />
+                )}
             </div>
         );
     }
@@ -219,34 +242,59 @@ export default function SendQuotationRequestPage() {
     // State
     const [suppliers, setSuppliers] = useState([]);
     const [loadingSuppliers, setLoadingSuppliers] = useState(true);
+    const [suppliersError, setSuppliersError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [request, setRequest] = useState(null);
     const [loadingRequest, setLoadingRequest] = useState(true);
+    // null | { notFound: true } | { notFound: false, message }
+    const [requestError, setRequestError] = useState(null);
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [submitting, setSubmitting] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
+    // Thêm nhanh nhà cung cấp ngay tại đây (không phải rời màn sang trang Nhà cung cấp).
+    const [addSupplierOpen, setAddSupplierOpen] = useState(false);
+    const coTheThemNhaCungCap = hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_MUA_HANG]);
 
-    /* ── Load Data ── */
-    const loadData = useCallback(async () => {
+    /* ── Load Data: yêu cầu và nhà cung cấp tải riêng, lỗi bên nào báo bên đó ── */
+    const loadRequest = useCallback(async () => {
         if (!id) return;
+        setLoadingRequest(true);
+        setRequestError(null);
         try {
-            const [resSup, resReq] = await Promise.all([
-                apiClient.get('/api/supplier'),
-                apiClient.get(`/api/v1/yeu-cau-mua-hang/get-by-id/${id}`)
-            ]);
-            setSuppliers(resSup.data?.data || []);
-            setRequest(resReq.data?.data || null);
-        } catch {
-            toast.error('Lỗi khi tải dữ liệu. Vui lòng thử lại.');
+            const resReq = await apiClient.get(`/api/v1/yeu-cau-mua-hang/get-by-id/${id}`);
+            const data = resReq.data?.data || null;
+            setRequest(data);
+            if (!data) setRequestError({ notFound: true });
+        } catch (error) {
+            setRequest(null);
+            // Máy chủ trả 400 "Không tìm thấy yêu cầu mua hàng id: …" khi mã không tồn tại
+            const status = getApiErrorStatus(error);
+            setRequestError(status === 404 || status === 400
+                ? { notFound: true }
+                : { notFound: false, message: getApiErrorMessage(error, 'Không thể tải thông tin yêu cầu nhập hàng') });
         } finally {
-            setLoadingSuppliers(false);
             setLoadingRequest(false);
         }
     }, [id]);
 
+    const loadSuppliers = useCallback(async () => {
+        setLoadingSuppliers(true);
+        setSuppliersError(null);
+        try {
+            const resSup = await apiClient.get('/api/supplier');
+            setSuppliers(resSup.data?.data || []);
+        } catch (error) {
+            setSuppliers([]);
+            setSuppliersError(getApiErrorMessage(error, 'Không thể tải danh sách nhà cung cấp'));
+        } finally {
+            setLoadingSuppliers(false);
+        }
+    }, []);
+
     // Hoãn qua microtask để tránh setState đồng bộ trong effect
     // (react-hooks/set-state-in-effect); vẫn fetch ngay khi mount / khi id đổi.
-    useEffect(() => { queueMicrotask(() => loadData()); }, [loadData]);
+    useEffect(() => { queueMicrotask(() => loadRequest()); }, [loadRequest]);
+    useEffect(() => { queueMicrotask(() => loadSuppliers()); }, [loadSuppliers]);
 
     /* ── Derived State ── */
     const filteredSuppliers = useMemo(() => {
@@ -260,11 +308,21 @@ export default function SendQuotationRequestPage() {
         );
     }, [suppliers, searchTerm]);
 
-    const activeSuppliers = useMemo(() => suppliers.filter(s => s.trangThai === 1), [suppliers]);
+    const activeSuppliers = useMemo(() => suppliers.filter(coTheGuiYeuCauBaoGia), [suppliers]);
     const selectedSuppliersList = useMemo(() => suppliers.filter(s => selectedIds.has(s.id)), [suppliers, selectedIds]);
     const selectedCount = selectedIds.size;
 
     /* ── Handlers ── */
+    const handleSupplierCreated = (created) => {
+        setSuppliers(prev => [created, ...prev.filter(s => s.id !== created.id)]);
+        if (coTheGuiYeuCauBaoGia(created)) {
+            setSelectedIds(prev => new Set(prev).add(created.id));
+        }
+        // Đang lọc mà nhà cung cấp mới không khớp từ khóa thì xóa lọc để thấy dòng vừa thêm.
+        setSearchTerm('');
+        toast.success(`Đã thêm nhà cung cấp "${created.tenNhaCungCap}" và chọn vào danh sách gửi.`);
+    };
+
     const toggleSupplier = (supplierId) => {
         setSelectedIds(prev => {
             const next = new Set(prev);
@@ -324,7 +382,14 @@ export default function SendQuotationRequestPage() {
                 {/* ════ LEFT COLUMN (Main Content) ════ */}
                 <div className="w-full min-w-0 flex-1 space-y-5">
                     {/* 1. Request Info */}
-                    <RequestInfoPanel request={request} loading={loadingRequest} id={id} />
+                    <RequestInfoPanel
+                        request={request}
+                        loading={loadingRequest}
+                        error={requestError}
+                        onRetry={() => loadRequest()}
+                        onBack={() => navigate('/purchase-requests')}
+                        id={id}
+                    />
 
                     {/* 2. Supplier Selection */}
                     <SurfaceCard
@@ -335,7 +400,7 @@ export default function SendQuotationRequestPage() {
                         }
                         action={
                             <div className="flex items-center gap-3">
-                                <div className="w-full sm:w-64">
+                                <div className="w-full sm:w-56">
                                     <SearchInput
                                         placeholder="Tìm tên, mã, email..."
                                         label="Tìm nhà cung cấp"
@@ -348,11 +413,29 @@ export default function SendQuotationRequestPage() {
                                 <Button variant="outline" onClick={selectAll} className="hidden h-9 shrink-0 border-bo-border bg-white text-[13px] font-semibold text-bo-foreground hover:bg-bo-surface-subtle sm:flex">
                                     Chọn tất cả
                                 </Button>
+                                {coTheThemNhaCungCap ? (
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setAddSupplierOpen(true)}
+                                        aria-label="Thêm nhà cung cấp"
+                                        title="Thêm nhà cung cấp mới"
+                                        className="h-9 shrink-0 gap-1.5 border-bo-border bg-white text-[13px] font-semibold text-bo-primary hover:bg-bo-primary-soft hover:text-bo-primary"
+                                    >
+                                        <Plus className="size-4" />
+                                        Thêm mới
+                                    </Button>
+                                ) : null}
                             </div>
                         }
                     >
                         {loadingSuppliers ? (
                             <LoadingState rows={4} label="Đang tải danh sách nhà cung cấp" />
+                        ) : suppliersError ? (
+                            <ErrorState
+                                title="Không thể tải danh sách nhà cung cấp"
+                                description={suppliersError}
+                                onRetry={() => loadSuppliers()}
+                            />
                         ) : filteredSuppliers.length === 0 ? (
                             <EmptyState
                                 icon={Building2}
@@ -477,6 +560,14 @@ export default function SendQuotationRequestPage() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {coTheThemNhaCungCap ? (
+                <SupplierFormDialog
+                    open={addSupplierOpen}
+                    onOpenChange={setAddSupplierOpen}
+                    onSaved={handleSupplierCreated}
+                />
+            ) : null}
         </PageContainer>
     );
 }

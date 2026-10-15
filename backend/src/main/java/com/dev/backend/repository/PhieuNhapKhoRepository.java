@@ -14,6 +14,8 @@ public interface PhieuNhapKhoRepository extends JpaRepository<PhieuNhapKho, Inte
     @Query("SELECT COUNT(p) FROM PhieuNhapKho p WHERE p.soPhieuNhap LIKE :prefix%")
     long countBySoPhieuPrefix(@Param("prefix") String prefix);
     Optional<PhieuNhapKho> findByGhiChuContaining(String ghiChu);
+    /** Số phiếu nhập kho (mọi trạng thái) của một nhà cung cấp — dùng khi kiểm tra xóa nhà cung cấp. */
+    long countByNhaCungCap_Id(Integer nhaCungCapId);
     @Query("""
 SELECT COUNT(p)
 FROM PhieuNhapKho p

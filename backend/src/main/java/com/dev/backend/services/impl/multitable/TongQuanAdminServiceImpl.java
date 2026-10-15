@@ -17,6 +17,7 @@ import com.dev.backend.dto.response.TongQuanAdminResponse.SoDonNgay;
 import com.dev.backend.dto.response.TongQuanAdminResponse.TonKho;
 import com.dev.backend.dto.response.TongQuanAdminResponse.TonKhoKho;
 import com.dev.backend.dto.response.TongQuanAdminResponse.ViecCanXuLy;
+import com.dev.backend.dto.response.TongQuanAdminResponse.ViecTheoKho;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.TongQuanAdminRepository;
 import com.dev.backend.repository.TongQuanAdminRepository.DoanhThuKhoDong;
@@ -321,13 +322,18 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
 
     private ViecCanXuLy tinhViecCanXuLy(Integer khoId, TonKhoTongHopDong ton) {
         TongQuanAdminRepository.ViecCanXuLyDong v = repo.viecCanXuLy(khoId);
+        List<ViecTheoKho> theoKho = khoId != null ? null : repo.viecTheoKho().stream()
+                .map(r -> new ViecTheoKho(r.khoId(), r.tenKho(), r.donChoXuatKho(), r.phieuNhatChuaPhanCong(),
+                        r.phieuChuyenChoDuyet(), r.phieuChuyenChoXuatHang()))
+                .toList();
         return new ViecCanXuLy(
                 v.donNhapChuaGuiKho(), v.donChoXuatKho(), v.phieuNhatChuaPhanCong(), v.phieuXuatChoXuatKho(),
                 v.yeuCauNhapChoDuyet(), v.phieuNhapChoNhapKho(), v.phieuChuyenChoDuyet(), v.phieuChuyenChoXuatHang(),
                 v.dotKiemKeDangMo(),
                 ton == null ? null : ton.hetHang(),
                 ton == null ? null : ton.thieuHang(),
-                v.taiKhoanBiKhoa());
+                v.taiKhoanBiKhoa(),
+                theoKho);
     }
 
     private NhapXuat tinhNhapXuat(KhungKy khung, LocalDate homNay, Integer khoId) {

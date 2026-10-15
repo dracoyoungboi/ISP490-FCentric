@@ -7,6 +7,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
@@ -29,4 +30,6 @@ public class KhoDto implements Serializable {
     Integer trangThai;
     @JsonFormat(shape = JsonFormat.Shape.STRING)
     Instant ngayTao;
+    /** Tổng số lượng tồn của kho (chỉ API danh sách kho điền; nơi khác để null). */
+    BigDecimal soLuongTon;
 }

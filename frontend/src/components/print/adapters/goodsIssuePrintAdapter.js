@@ -1,4 +1,7 @@
 import { formatNumber } from "@/utils/formatters";
+import { PHIEU_XUAT_KHO_STATUS } from "@/constants/phieuXuatKho";
+import { PHIEU_CHUYEN_KHO_STATUS } from "@/constants/phieuChuyenKho";
+import { trangThaiLa } from "@/constants/trangThaiChung";
 import { formatPrintDate } from "./printFormat";
 
 /**
@@ -6,15 +9,9 @@ import { formatPrintDate } from "./printFormat";
  * `GET /api/v1/phieu-xuat-kho/{id}` ({phieu, chiTiet} — không có envelope),
  * lô đã pick từ `GET /api/v1/phieu-xuat-kho/{id}/picked-lots/{chiTietId}` và
  * tên lô từ `GET /api/v1/phieu-xuat-kho/{id}/available-lots?bienTheSanPhamId=`.
+ * Trạng thái dùng chung tên với danh sách và chi tiết phiếu xuất (constants/phieuXuatKho).
  */
-export const GOODS_ISSUE_STATUS = {
-    0: { label: "Nháp", tone: "warning" },
-    1: { label: "Chờ duyệt", tone: "info" },
-    2: { label: "Đã duyệt", tone: "info" },
-    3: { label: "Đã xuất", tone: "success" },
-    4: { label: "Đã hủy", tone: "danger" },
-    5: { label: "Đã xuất", tone: "success" },
-};
+export const GOODS_ISSUE_STATUS = PHIEU_XUAT_KHO_STATUS;
 
 // Loại xuất theo giá trị backend: "ban_hang" = xuất bán, "chuyen_kho" = xuất
 // chuyển kho nội bộ, "khac" = phiếu yêu cầu chuyển kho (chưa có phiếu xuất)
@@ -80,7 +77,10 @@ export function toGoodsIssuePrintModel(payload) {
     // "—" ở từng dòng — phân biệt được với số 0 hợp lệ.
     const totalQuantity = items.reduce((sum, row) => sum + (row._rawQuantity ?? 0), 0);
 
-    const status = GOODS_ISSUE_STATUS[phieu.trangThai] || GOODS_ISSUE_STATUS[0];
+    // Phiếu chuyển kho nội bộ (loại `khac`) dùng bảng tên của Chuyển kho (mã 2 = Chờ xuất hàng);
+    // mã lạ hiện rõ mã, không mượn tên của mã 0
+    const bangTen = phieu.loaiXuat === "khac" ? PHIEU_CHUYEN_KHO_STATUS : GOODS_ISSUE_STATUS;
+    const status = bangTen[phieu.trangThai] || trangThaiLa(phieu.trangThai);
 
     const isSale = phieu.loaiXuat === "ban_hang";
     const isTransfer = phieu.loaiXuat === "chuyen_kho" || phieu.loaiXuat === "khac";

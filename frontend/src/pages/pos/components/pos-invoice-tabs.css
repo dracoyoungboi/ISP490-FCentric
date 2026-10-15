@@ -17,6 +17,8 @@
   gap: 2px;
   overflow-x: auto;
   overflow-y: hidden;
+  /* Tự cuộn tới hóa đơn đang chọn chừa chỗ cho phần mép mờ. */
+  scroll-padding-inline: 28px;
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
 }
@@ -92,6 +94,13 @@
 .pos-invoice-tab-close:hover { background: #e2e8f0; color: #0f172a; }
 .pos-invoice-add { width: 32px; height: 32px; margin-bottom: 4px; color: #475569; }
 .pos-invoice-add:hover { background: #e2e8f0; color: var(--color-bo-primary, #1677ff); }
+/* Còn tab khuất ở mép: mép đó mờ dần (has-left / has-right do PosInvoiceTabs đặt theo vị trí cuộn). */
+.pos-invoice-tabs.has-left { -webkit-mask-image: linear-gradient(to right, transparent 0, #000 28px); mask-image: linear-gradient(to right, transparent 0, #000 28px); }
+.pos-invoice-tabs.has-right { -webkit-mask-image: linear-gradient(to left, transparent 0, #000 28px); mask-image: linear-gradient(to left, transparent 0, #000 28px); }
+.pos-invoice-tabs.has-left.has-right {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+}
 .pos-invoice-strip button { cursor: pointer; }
 .pos-invoice-strip button:focus-visible { outline: 2px solid var(--color-bo-primary, #1677ff); outline-offset: -3px; }
 .pos-invoice-strip button:disabled { cursor: default; opacity: .45; }
@@ -99,3 +108,41 @@
   .pos-invoice-strip { padding-left: 12px; padding-right: 12px; }
   .pos-invoice-tab { flex-basis: 148px; }
 }
+
+/* ===== Biến thể 'bar': dải hóa đơn nằm trên thanh trên cùng (màn từ 1280px) ===== */
+.pos-invoice-strip.is-bar {
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+.is-bar .pos-invoice-tabs {
+  flex: 0 1 auto;
+  max-width: none;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 0;
+}
+.is-bar .pos-invoice-tab {
+  flex: 0 0 152px;
+  height: 36px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+.is-bar .pos-invoice-tab:not(.is-active):hover { background: #f1f5f9; }
+.is-bar .pos-invoice-tab:not(.is-active)::after,
+.is-bar .pos-invoice-tab.is-active::after { display: none; }
+.is-bar .pos-invoice-tab.is-active {
+  border-color: #cfe1ff;
+  background: var(--color-bo-primary-soft, #eaf3ff);
+  color: #0b4fae;
+  box-shadow: none;
+}
+.is-bar .pos-invoice-tab-select { gap: 8px; padding: 0 4px 0 10px; border-radius: 8px 0 0 8px; }
+.is-bar .pos-invoice-tab.is-active .pos-invoice-tab-count { background: #fff; }
+.is-bar .pos-invoice-tab-close { width: 24px; height: 24px; margin-right: 5px; }
+.is-bar .pos-invoice-tab.is-active .pos-invoice-tab-close:hover { background: #d6e7ff; }
+.is-bar .pos-invoice-add { margin-bottom: 0; }
+.is-bar .pos-invoice-add:hover { background: #f1f5f9; }

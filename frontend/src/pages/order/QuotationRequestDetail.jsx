@@ -14,7 +14,7 @@ import {
 import {
     ArrowLeft, Warehouse, Calendar, User, FileText, Package,
     CheckCircle, Printer, MapPin, Clock, Send, CreditCard, ListChecks,
-    Eye, Loader2, Ship, XCircle
+    Eye, Loader2, Ship, XCircle, SearchX
 } from "lucide-react";
 
 import apiClient from '@/services/apiClient';
@@ -26,6 +26,9 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
 import LoadingState from "@/components/shared/LoadingState";
 import ErrorState from "@/components/shared/ErrorState";
+import { YEU_CAU_NHAP_HANG_STATUS } from "@/constants/yeuCauNhapHang";
+import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
+import { formatDate as dinhDangNgay, formatDateTime as dinhDangNgayGio } from "@/utils/formatters";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROLE = {
@@ -48,20 +51,17 @@ function parseRoles(vaiTro) {
 const formatCurrency = (amount) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
 
-const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' });
-};
+// Định dạng chung toàn hệ thống: 05/10/2026 · 08:03; trống → "—"
+const formatDate = (dateString) => dinhDangNgay(dateString);
 
-const formatDateTime = (dateString) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-};
+// Định dạng chung toàn hệ thống: 05/10/2026 · 08:03; trống → "—"
+const formatDateTime = (dateString) => dinhDangNgayGio(dateString);
 
 // ─── Status configs (Đồng bộ với List) ─────────────────────────────────────────
+// Tên trạng thái yêu cầu lấy từ constants/yeuCauNhapHang (một tên cho danh sách, chi tiết, bản in)
 const PR_STATUS = {
-    3: { label: 'Đã gửi yêu cầu báo giá', tone: 'info', icon: FileText, desc: 'Yêu cầu này đã được tạo thành các đơn báo giá để gửi NCC.' },
-    5: { label: 'Đã chuyển thành đơn mua hàng', tone: 'success', icon: Ship, desc: 'Đã chốt báo giá, đơn hàng đang được tiến hành xử lý/vận chuyển.' },
+    3: { label: YEU_CAU_NHAP_HANG_STATUS[3].label, tone: 'info', icon: FileText, desc: 'Yêu cầu này đã được tạo thành các đơn báo giá để gửi NCC.' },
+    5: { label: YEU_CAU_NHAP_HANG_STATUS[5].label, tone: 'success', icon: Ship, desc: 'Đã chốt báo giá, đơn hàng đang được tiến hành xử lý/vận chuyển.' },
 };
 
 const PO_STATUS = {
@@ -113,6 +113,8 @@ export default function QuotationRequestDetail() {
 
     const [orderData, setOrderData] = useState(null);
     const [loading, setLoading] = useState(true);
+    // null | { notFound: true } | { notFound: false, message }
+    const [loadError, setLoadError] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
 
     // States Dialog
@@ -126,14 +128,23 @@ export default function QuotationRequestDetail() {
 
     const fetchOrderDetail = useCallback(async () => {
         setLoading(true);
+        setLoadError(null);
         try {
             const result = await apiClient.get(`/api/v1/yeu-cau-mua-hang/get-by-id/${id}`);
             if (result && result.data?.data) {
                 setOrderData(result.data.data);
+            } else {
+                setOrderData(null);
+                setLoadError({ notFound: true });
             }
         } catch (error) {
             console.error('Error fetching quotation detail:', error);
-            toast.error('Không thể tải chi tiết yêu cầu báo giá');
+            setOrderData(null);
+            // Máy chủ trả 400 "Không tìm thấy yêu cầu mua hàng id: …" khi mã không tồn tại
+            const status = getApiErrorStatus(error);
+            setLoadError(status === 404 || status === 400
+                ? { notFound: true }
+                : { notFound: false, message: getApiErrorMessage(error, 'Không thể tải chi tiết yêu cầu báo giá') });
         } finally {
             setLoading(false);
         }
@@ -200,11 +211,27 @@ export default function QuotationRequestDetail() {
         return (
             <PageContainer>
                 <SurfaceCard>
-                    <ErrorState
-                        title="Không tìm thấy dữ liệu yêu cầu"
-                        description="Yêu cầu mua hàng không tồn tại hoặc đã bị xóa."
-                        onRetry={() => navigate('/quotation-requests')}
-                    />
+                    {loadError && !loadError.notFound ? (
+                        <ErrorState
+                            title="Không thể tải chi tiết yêu cầu báo giá"
+                            description={loadError.message}
+                            onRetry={() => fetchOrderDetail()}
+                        />
+                    ) : (
+                        <EmptyState
+                            icon={SearchX}
+                            title="Không tìm thấy yêu cầu báo giá"
+                            description="Yêu cầu mua hàng không tồn tại hoặc đã bị xóa."
+                            action={
+                                <Button
+                                    onClick={() => navigate('/quotation-requests')}
+                                    className="bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover"
+                                >
+                                    Quay lại danh sách
+                                </Button>
+                            }
+                        />
+                    )}
                 </SurfaceCard>
             </PageContainer>
         );
@@ -430,7 +457,7 @@ export default function QuotationRequestDetail() {
                                         <td className="px-3 py-3">
                                             <div className="flex items-center gap-2">
                                                 <div className="size-1.5 shrink-0 rounded-full bg-bo-primary" />
-                                                <span className="text-[13px] font-semibold text-bo-foreground">{po.soDonMua?.replace(/^PO/, 'Q-')}</span>
+                                                <span className="text-[13px] font-semibold text-bo-foreground">{po.soDonMua}</span>
                                             </div>
                                         </td>
                                         <td className="px-3 py-3">

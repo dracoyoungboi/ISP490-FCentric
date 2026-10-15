@@ -26,6 +26,9 @@ import { PICK_LIST_EDITABLE, formatQuantity, getPickListStatus, toNumber } from 
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { playScanBeep } from "@/utils/scanBeep";
 import { formatDateTime } from "@/utils/dateTime";
+import { TRANG_THAI_DON } from "@/constants/trangThaiXuatBan";
+import { getDonBanHangStatus } from "@/constants/donBanHang";
+import { getCurrentUserId, hasAnyRole, ROLES } from "@/utils/roles";
 
 const TH_CLASS = "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 
@@ -47,7 +50,6 @@ export default function PickListDetail() {
     const [loadError, setLoadError] = useState(null);
     const [lastResult, setLastResult] = useState(null);
     const [highlightId, setHighlightId] = useState(null);
-    const [soundOn, setSoundOn] = useState(true);
     const [assignOpen, setAssignOpen] = useState(false);
     const [completeOpen, setCompleteOpen] = useState(false);
     const [completing, setCompleting] = useState(false);
@@ -107,7 +109,7 @@ export default function PickListDetail() {
                         });
                         toast.warning(`Đơn hàng ${data.soDonHangBiHuy || ""} đã bị hủy trên sàn! Số lượng cần nhặt đã tự động giảm.`);
                         fetchDetail({ silent: true });
-                        if (soundOn) playScanBeep(false);
+                        playScanBeep(false); // cảnh báo đơn bị hủy: máy quét không báo được việc này
                     } else if (eventType === "PICK_LIST_CANCELLED") {
                         setCancelledAlert({
                             cancelledAll: true,
@@ -134,7 +136,7 @@ export default function PickListDetail() {
                 ws.close();
             }
         };
-    }, [id, fetchDetail, soundOn]);
+    }, [id, fetchDetail]);
 
     // Gửi từng mã một (backend khóa Pick List khi quét)
     const processScan = useCallback(async ({ barcode, soLuong }) => {
@@ -163,13 +165,14 @@ export default function PickListDetail() {
                 message: res?.thongBao
                     || `${res?.maSku ?? barcode} +${soLuong} → ${formatQuantity(res?.soLuongDaQuet)}/${formatQuantity(res?.soLuongCanNhat)}`,
             });
-            if (soundOn) playScanBeep(true);
         } catch (error) {
             setLastResult({ ok: false, message: getApiErrorMessage(error, `Không quét được mã ${barcode}`) });
-            if (soundOn) playScanBeep(false);
+            // Chỉ kêu khi KHÔNG cộng được: máy quét đã tự kêu "bíp" khi đọc được mã, nhưng không biết mã có
+            // thuộc đợt nhặt này / còn cần nhặt hay không.
+            playScanBeep(false);
             if (getApiErrorStatus(error) === 409) fetchDetail({ silent: true });
         }
-    }, [id, soundOn, fetchDetail]);
+    }, [id, fetchDetail]);
 
     const { enqueue, pending } = useScanQueue(processScan);
 
@@ -237,6 +240,16 @@ export default function PickListDetail() {
 
     const status = getPickListStatus(dto.trangThai);
     const editable = PICK_LIST_EDITABLE.includes(dto.trangThai);
+    // Bắt buộc phân công trước khi nhặt (khớp NhatHangServiceImpl): chỉ người được giao mới quét được,
+    // kể cả quản lý kho / quản trị viên — muốn tự nhặt thì phân công cho chính mình.
+    const laQuanLy = hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO]);
+    const daPhanCong = dto.nguoiNhatId != null;
+    const laNguoiNhat = daPhanCong && Number(dto.nguoiNhatId) === Number(getCurrentUserId());
+    const duocQuet = editable && laNguoiNhat;
+    // Nhân viên kho chỉ tự nhận phiếu chưa có người nhặt; quản lý / quản trị viên phân công (lại) được
+    const duocPhanCong = editable && (laQuanLy || !daPhanCong);
+    // Hoàn tất: người được giao, hoặc quản lý / quản trị viên hoàn tất thay
+    const duocHoanTat = editable && daPhanCong && (laNguoiNhat || laQuanLy);
     const conLai = Math.max(0, toNumber(dto.tongSoLuongCanNhat) - toNumber(dto.tongSoLuongDaQuet));
     const maDonHangs = dto.danhSachMaDonHang ?? [];
 
@@ -288,17 +301,17 @@ export default function PickListDetail() {
                 <BackLink onClick={() => navigate("/goods-issues/pick-lists")} />
                 <div className="flex flex-wrap items-center gap-2">
                     <StatusBadge label={status.label} tone={status.tone} />
-                    {editable ? (
+                    {duocPhanCong ? (
                         <Button
                             variant="outline"
                             onClick={() => setAssignOpen(true)}
                             className="gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                         >
                             <UserPlus className="size-4" />
-                            {dto.nguoiNhatId ? "Phân công lại" : "Phân công"}
+                            {!laQuanLy ? "Nhận việc" : daPhanCong ? "Phân công lại" : "Phân công"}
                         </Button>
                     ) : null}
-                    {editable ? (
+                    {duocHoanTat ? (
                         <span title={dto.coTheHoanTat ? undefined : `Còn ${formatQuantity(conLai)} sản phẩm chưa nhặt`}>
                             <Button
                                 disabled={!dto.coTheHoanTat || completing || pending > 0}
@@ -339,7 +352,7 @@ export default function PickListDetail() {
 
             {/* ── Kết quả hoàn tất nhặt ── */}
             {completeResult ? (
-                <CompleteResultPanel result={completeResult} onClose={() => setCompleteResult(null)} />
+                <CompleteResultPanel result={completeResult} orders={dto.danhSachDonHang} onClose={() => setCompleteResult(null)} />
             ) : null}
 
             {/* ── Chế độ chỉ xem ── */}
@@ -350,15 +363,15 @@ export default function PickListDetail() {
                         {dto.trangThai === "da_huy" || dto.trangThai === "huy"
                             ? "Phiếu nhặt hàng đã hủy."
                             : dto.trangThai === "da_nhat"
-                                ? "Đã nhặt xong. Mở phiếu xuất kho nháp của từng đơn để chọn lô và hoàn thành xuất kho."
+                                ? "Đã nhặt xong. Bấm Đóng gói ở từng đơn (bên phải) để quét đóng gói, sau đó xác nhận xuất kho ở phiếu xuất."
                                 : "Phiếu nhặt hàng đã xuất kho."}
                     </p>
                     {dto.trangThai === "da_nhat" ? <GoodsIssueLink /> : null}
                 </div>
             ) : null}
 
-            {/* ── Quét mã ── */}
-            {editable ? (
+            {/* ── Quét mã: chỉ người được phân công ── */}
+            {duocQuet ? (
                 <SurfaceCard
                     title="Quét mã vạch"
                     description="Mỗi lần quét cộng số lượng vào đúng SKU. Mã được gửi lần lượt nên có thể quét liên tục."
@@ -368,13 +381,35 @@ export default function PickListDetail() {
                         onScan={(barcode, soLuong) => enqueue({ barcode, soLuong })}
                         pending={pending}
                         lastResult={lastResult}
-                        soundOn={soundOn}
-                        onToggleSound={() => {
-                            setSoundOn((value) => !value);
-                            scanBarRef.current?.focus();
-                        }}
                     />
                 </SurfaceCard>
+            ) : editable && !daPhanCong ? (
+                <div role="status" className="flex flex-col gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 sm:flex-row sm:items-center">
+                    <UserPlus className="size-5 shrink-0 text-amber-700" />
+                    <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-amber-900">Phiếu nhặt chưa được phân công</p>
+                        <p className="mt-0.5 text-xs text-amber-800">
+                            {laQuanLy
+                                ? "Phân công người nhặt trước khi nhặt hàng. Muốn tự nhặt thì chọn Nhận việc cho tôi."
+                                : "Bấm Nhận việc để nhận phiếu này rồi bắt đầu quét mã."}
+                        </p>
+                    </div>
+                    <Button
+                        onClick={() => setAssignOpen(true)}
+                        className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
+                    >
+                        <UserPlus className="size-4" />
+                        {laQuanLy ? "Phân công" : "Nhận việc"}
+                    </Button>
+                </div>
+            ) : editable ? (
+                <div role="status" className="flex items-center gap-3 rounded-lg border border-bo-border bg-bo-surface-subtle p-3 text-sm text-slate-700">
+                    <User className="size-4 shrink-0 text-bo-muted" />
+                    <p className="min-w-0 flex-1">
+                        Phiếu đang giao cho <strong className="font-semibold">{dto.tenNguoiNhat}</strong>. Chỉ người được phân công mới quét nhặt được
+                        {laQuanLy ? " — muốn tự nhặt thì phân công lại cho mình." : "."}
+                    </p>
+                </div>
             ) : null}
 
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
@@ -474,7 +509,7 @@ export default function PickListDetail() {
                 onConfirm={handleComplete}
                 variant="info"
                 title="Hoàn tất nhặt hàng"
-                description={`Phiếu nhặt hàng ${dto.maPickList} sẽ chuyển sang Đã nhặt và hệ thống tạo phiếu xuất kho nháp cho từng đơn trong đợt.`}
+                description={`Phiếu nhặt hàng ${dto.maPickList} sẽ chuyển sang Đã nhặt, hệ thống tạo phiếu xuất kho nháp cho từng đơn và các đơn chuyển sang Chờ đóng gói.`}
                 confirmText="Hoàn tất nhặt"
                 cancelText="Quay lại"
                 isLoading={completing}
@@ -541,6 +576,7 @@ function OrderCodes({ codes, orders, cancelledAlert }) {
                         );
                     }
 
+                    const choDongGoi = info?.trangThai === TRANG_THAI_DON.CHO_DONG_GOI;
                     return (
                         <span
                             key={code}
@@ -548,6 +584,17 @@ function OrderCodes({ codes, orders, cancelledAlert }) {
                         >
                             <span className="size-1.5 rounded-full bg-emerald-500" />
                             {code}
+                            {info && info.trangThai !== TRANG_THAI_DON.CHO_NHAT_HANG && !choDongGoi ? (
+                                <span className="font-normal normal-case tracking-normal text-bo-muted">· {getDonBanHangStatus(info.trangThai).label}</span>
+                            ) : null}
+                            {choDongGoi ? (
+                                <Link
+                                    to={`/goods-issues/packing/${info.id}`}
+                                    className="inline-flex items-center gap-0.5 font-semibold normal-case tracking-normal text-bo-primary hover:underline"
+                                >
+                                    Đóng gói <ArrowRight className="size-3" />
+                                </Link>
+                            ) : null}
                         </span>
                     );
                 })}
@@ -561,14 +608,14 @@ function OrderCodes({ codes, orders, cancelledAlert }) {
     );
 }
 
-function CompleteResultPanel({ result, onClose }) {
+function CompleteResultPanel({ result, orders, onClose }) {
     const codes = result.maDonHangs ?? [];
     const donBoQua = result.donBoQua ?? [];
     return (
         <SurfaceCard
             title="Đã hoàn tất nhặt hàng"
             description={codes.length > 0
-                ? `Hệ thống đã tạo phiếu xuất kho nháp cho ${codes.length} đơn. Bước tiếp theo: chọn lô và hoàn thành xuất kho ở từng phiếu.`
+                ? `Hệ thống đã tạo phiếu xuất kho nháp cho ${codes.length} đơn, các đơn chuyển sang Chờ đóng gói. Bước tiếp theo: đóng gói (Scan-to-Pack) từng đơn rồi xác nhận xuất kho.`
                 : "Không còn đơn nào cần xuất nên hệ thống không tạo phiếu xuất kho."}
             action={
                 <button type="button" onClick={onClose} className="text-sm font-medium text-bo-muted hover:text-bo-foreground">
@@ -579,7 +626,7 @@ function CompleteResultPanel({ result, onClose }) {
             <div className="space-y-3">
                 {codes.length > 0 ? (
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <OrderCodes codes={codes} />
+                        <OrderCodes codes={codes} orders={orders} />
                         <GoodsIssueLink />
                     </div>
                 ) : null}

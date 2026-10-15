@@ -6,9 +6,13 @@ import PageContainer from "@/components/backoffice/PageContainer";
 import TableShell from "@/components/shared/TableShell";
 import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
+import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2, Package, CheckCircle2, ClipboardList } from "lucide-react";
+import { getApiErrorMessage } from "@/utils/apiError";
+import { formatDate } from "@/utils/formatters";
+import { TRANG_THAI_PHIEU_XUAT } from "@/constants/trangThaiXuatBan";
 
 const TH_CLASS =
     "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
@@ -48,14 +52,21 @@ export default function PickLot() {
     const tenBienThe       = state?.tenBienThe || "-";
     const soLuongCanXuat   = Number(state?.soLuongXuat ?? 0);
     const phieuTrangThai   = state?.phieuTrangThai;
-    const isReadOnly       = phieuTrangThai !== 0;
+    // Chọn lô được khi phiếu còn Nháp; phiếu bán hàng đã đóng gói (Chờ xuất) vẫn chọn lô trước khi xuất kho
+    // (khớp PhieuXuatKhoService.pickLoHang)
+    const isReadOnly       = !(phieuTrangThai === TRANG_THAI_PHIEU_XUAT.NHAP
+        || (state?.loaiXuat === "ban_hang" && phieuTrangThai === TRANG_THAI_PHIEU_XUAT.CHO_XUAT));
 
-    const [loading,  setLoading]  = useState(false);
+    // Trang tự tải ngay khi mở nên bắt đầu ở trạng thái đang tải (không hiện "Không có lô" trước khi có kết quả)
+    const [loading,  setLoading]  = useState(true);
     const [lots,     setLots]     = useState([]);
     const [pickMap,  setPickMap]  = useState({});
+    // null: không lỗi; chuỗi: mô tả lỗi tải danh sách lô (không hiện nhầm "Không có lô khả dụng")
+    const [loadError, setLoadError] = useState(null);
 
     const loadInitialData = useCallback(async () => {
         setLoading(true);
+        setLoadError(null);
         try {
             const [lotsRes, pickedRes] = await Promise.all([
                 phieuXuatKhoService.getAvailableLots(phieuXuatKhoId, bienTheSanPhamId),
@@ -67,7 +78,10 @@ export default function PickLot() {
                 pickedRes.forEach(item => { map[item.loHangId] = String(item.soLuongDaPick); });
                 setPickMap(map);
             }
-        } catch { toast.error("Không tải được dữ liệu lô"); }
+        } catch (e) {
+            setLots([]);
+            setLoadError(getApiErrorMessage(e, "Đã xảy ra lỗi khi tải danh sách lô. Vui lòng thử lại."));
+        }
         finally { setLoading(false); }
     }, [phieuXuatKhoId, bienTheSanPhamId, chiTietPhieuXuatKhoId]);
 
@@ -116,6 +130,8 @@ export default function PickLot() {
     }
 
     const daDu = tongPickMoi >= soLuongCanXuat;
+    // Chưa tải xong lần đầu hoặc tải lỗi: chưa biết số đã lấy, hiện "—" thay vì 0
+    const coSoDaLay = !loadError && !(loading && lots.length === 0);
 
     return (
         <PageContainer className="space-y-5">
@@ -158,11 +174,11 @@ export default function PickLot() {
                 />
                 <PickStatTile
                     icon={<CheckCircle2 className="size-5" />}
-                    iconClass={daDu ? "bg-bo-success-soft text-bo-success" : "bg-slate-100 text-slate-400"}
+                    iconClass={coSoDaLay && daDu ? "bg-bo-success-soft text-bo-success" : "bg-slate-100 text-slate-400"}
                     label="Đã lấy"
-                    value={tongPickMoi}
-                    valueClass={daDu ? "text-bo-success" : "text-bo-foreground"}
-                    sub={<span className="text-sm font-normal text-bo-muted">/{soLuongCanXuat}</span>}
+                    value={coSoDaLay ? tongPickMoi : "—"}
+                    valueClass={coSoDaLay && daDu ? "text-bo-success" : "text-bo-foreground"}
+                    sub={coSoDaLay ? <span className="text-sm font-normal text-bo-muted">/{soLuongCanXuat}</span> : null}
                 />
             </section>
 
@@ -194,6 +210,12 @@ export default function PickLot() {
             >
                 {loading ? (
                     <LoadingState rows={4} label="Đang tải danh sách lô" />
+                ) : loadError ? (
+                    <ErrorState
+                        title="Không tải được danh sách lô"
+                        description={loadError}
+                        onRetry={loadInitialData}
+                    />
                 ) : lots.length === 0 ? (
                     <EmptyState
                         icon={Package}
@@ -225,7 +247,7 @@ export default function PickLot() {
                                         </td>
                                         <td className="px-4 py-3.5 text-center align-middle">
                                             <span className="text-sm text-bo-muted">
-                                                {lot.ngayNhapGanNhat ? new Date(lot.ngayNhapGanNhat).toLocaleDateString("vi-VN") : "—"}
+                                                {lot.ngayNhapGanNhat ? formatDate(lot.ngayNhapGanNhat) : "—"}
                                             </span>
                                         </td>
                                         {!isReadOnly && (

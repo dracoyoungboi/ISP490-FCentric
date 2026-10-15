@@ -1,26 +1,26 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { phieuChuyenKhoService } from "@/services/phieuChuyenKhoService";
 import apiClient from "@/services/apiClient";
 import PageContainer from "@/components/backoffice/PageContainer";
-import FilterBar from "@/components/shared/FilterBar";
-import SearchInput from "@/components/shared/SearchInput";
-import TableShell from "@/components/shared/TableShell";
-import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
+import ErrorState from "@/components/shared/ErrorState";
+import KhoLamViecSelect from "@/components/shared/KhoLamViecSelect";
+import ListPageHeader from "@/components/shared/ListPageHeader";
+import ListToolbar from "@/components/shared/ListToolbar";
 import LoadingState from "@/components/shared/LoadingState";
+import SearchInput from "@/components/shared/SearchInput";
+import StatusBadge from "@/components/shared/StatusBadge";
+import StatusTabs from "@/components/shared/StatusTabs";
+import TableShell from "@/components/shared/TableShell";
+import TablePagination from "@/components/shared/TablePagination";
 import { Button } from "@/components/ui/button";
-import {
-    RefreshCcw, Package, Plus,
-    ChevronDown, ChevronLeft, ChevronRight, Filter,
-    CheckCircle2, XCircle, ClipboardList, Truck,
-} from "lucide-react";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Plus, ClipboardList, SearchX } from "lucide-react";
+import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
+import { PHIEU_CHUYEN_KHO_TABS, getPhieuChuyenKhoStatus } from "@/constants/phieuChuyenKho";
+import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
+import useTabTrenUrl from "@/hooks/useTabTrenUrl";
+import { formatDate } from "@/utils/formatters";
 
 //Constants & Helpers
 const ROLE = {
@@ -43,60 +43,71 @@ function parseRoles(vaiTro) {
     return vaiTro.includes(" ") ? vaiTro.split(" ") : [vaiTro];
 }
 
-const STATUS_MAP = {
-    0: { label: "Nháp", tone: "warning" },
-    1: { label: "Chờ duyệt", tone: "info" },
-    2: {
-        label: "Chờ xuất hàng",
-        tone: "info",
-        className: "border-indigo-200 bg-indigo-50 text-indigo-700",
-    },
-    3: {
-        label: "Đang vận chuyển",
-        tone: "info",
-        className: "border-purple-200 bg-purple-50 text-purple-700",
-    },
-    4: { label: "Đã hủy", tone: "danger" },
-    5: { label: "Hoàn tất", tone: "success" },
-};
+/** Kho làm việc hiện tại (apiClient gửi qua header `kho_id`); đọc lỗi thì coi như chưa chọn. */
+function docKhoLamViec() {
+    try {
+        return window.localStorage.getItem("selected_kho_id") ?? "";
+    } catch {
+        return "";
+    }
+}
 
-const STATUS_OPTIONS = [
-    { value: "", label: "Tất cả trạng thái" },
-    ...Object.entries(STATUS_MAP).map(([key, val]) => ({ value: key, label: val.label })),
-];
+// Tab trạng thái (bố cục A+G) — mã tab nằm trên URL ?trangThai=
+const TAB_MAS = PHIEU_CHUYEN_KHO_TABS.map((tab) => tab.ma);
+const TAB_MAC_DINH = "tat-ca";
+const trangThaiCuaTab = (ma) => PHIEU_CHUYEN_KHO_TABS.find((tab) => tab.ma === ma)?.trangThai ?? null;
 
-const PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100];
+const SEARCH_DEBOUNCE_MS = 350;
 const TH_CLASS =
-    "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted";
+    "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 
-function buildFilterPayload(filters) {
+// Điều kiện lọc dùng chung cho danh sách và số trên tab. API chỉ nhận MỘT trạng thái mỗi lần gọi.
+function buildFilterPayload({ keyword, tenKhoNhap, trangThai, page, size }) {
     const filterList = [];
-    if (filters.keyword?.trim()) {
-        filterList.push({ fieldName: "soPhieuXuat", operation: "LIKE", value: filters.keyword.trim() });
+    if (keyword?.trim()) {
+        filterList.push({ fieldName: "soPhieuXuat", operation: "LIKE", value: keyword.trim() });
     }
-    if (filters.tenKhoNhap?.trim()) {
-        filterList.push({ fieldName: "khoChuyenDen.tenKho", operation: "LIKE", value: filters.tenKhoNhap.trim() });
+    if (tenKhoNhap?.trim()) {
+        filterList.push({ fieldName: "khoChuyenDen.tenKho", operation: "LIKE", value: tenKhoNhap.trim() });
     }
-    if (filters.trangThai !== "") {
-        filterList.push({ fieldName: "trangThai", operation: "EQUALS", value: Number(filters.trangThai) });
+    if (trangThai != null) {
+        filterList.push({ fieldName: "trangThai", operation: "EQUALS", value: trangThai });
     }
-    return { page: filters.page, size: filters.size, filters: filterList, sorts: [{ fieldName: "ngayTao", direction: "DESC" }] };
+    return { page, size, filters: filterList, sorts: [{ fieldName: "ngayTao", direction: "DESC" }] };
 }
 
 export default function PhieuChuyenKhoList() {
     const navigate = useNavigate();
+    const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);
+    const tabTrangThai = trangThaiCuaTab(tab);
+
     const [data, setData] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [total, setTotal] = useState(0);
     const [userRoles, setUserRoles] = useState([]);
+    const requestIdRef = useRef(0);
+    // Danh sách xem phiếu đi và đến của kho làm việc: đổi kho thì tải lại danh sách và số trên tab
+    const [khoLamViec, setKhoLamViec] = useState(docKhoLamViec);
 
     const [filters, setFilters] = useState({
         keyword: "",
         tenKhoNhap: "",
-        trangThai: "",
         page: 0,
-        size: 10,
+        size: SO_DONG_MAC_DINH,
     });
+    // Ô chữ đổi ngay khi gõ; filters chỉ đổi khi ngừng gõ (mỗi lần đổi gọi danh sách + đếm từng tab)
+    const [keywordInput, setKeywordInput] = useState("");
+    const [tenKhoNhapInput, setTenKhoNhapInput] = useState("");
+
+    useEffect(() => {
+        const keyword = keywordInput.trim();
+        const tenKhoNhap = tenKhoNhapInput.trim();
+        const timer = setTimeout(() => {
+            setFilters((p) => (p.keyword === keyword && p.tenKhoNhap === tenKhoNhap ? p : { ...p, keyword, tenKhoNhap, page: 0 }));
+        }, SEARCH_DEBOUNCE_MS);
+        return () => clearTimeout(timer);
+    }, [keywordInput, tenKhoNhapInput]);
 
     // Kiểm tra quyền (chỉ nhân viên kho)
     const isNhanVienKho = userRoles.includes(ROLE.NHAN_VIEN_KHO);
@@ -120,20 +131,29 @@ export default function PhieuChuyenKhoList() {
     }, []);
 
     const fetchData = useCallback(async () => {
+        // Đổi tab / bộ lọc / kho liên tiếp có thể chạy 2 yêu cầu cùng lúc: chỉ nhận kết quả của yêu cầu mới nhất
+        const requestId = ++requestIdRef.current;
         setLoading(true);
         try {
-            const res = await phieuChuyenKhoService.filter(buildFilterPayload(filters));
+            const res = await phieuChuyenKhoService.filter(buildFilterPayload({ ...filters, trangThai: tabTrangThai }));
+            if (requestId !== requestIdRef.current) return;
             setData(res?.content || []);
             setTotal(res?.totalElements || 0);
+            setLoadError(false);
         } catch (error) {
+            if (requestId !== requestIdRef.current) return;
             console.error("Lỗi lấy danh sách:", error);
+            // Không giữ dòng + tổng số của lần tải trước (R9)
+            setData([]);
+            setTotal(0);
+            setLoadError(true);
         } finally {
-            setLoading(false);
+            if (requestId === requestIdRef.current) setLoading(false);
         }
-    }, [filters]);
+    }, [filters, tabTrangThai]);
 
     // Hoãn qua microtask để tránh setState đồng bộ trong effect
-    // (react-hooks/set-state-in-effect); dữ liệu vẫn tải lại mỗi khi bộ lọc đổi.
+    // (react-hooks/set-state-in-effect); dữ liệu vẫn tải lại mỗi khi bộ lọc / tab / kho đổi.
     useEffect(() => {
         queueMicrotask(() => fetchUserInfo());
     }, [fetchUserInfo]);
@@ -142,228 +162,171 @@ export default function PhieuChuyenKhoList() {
         queueMicrotask(() => fetchData());
     }, [fetchData]);
 
-    const totalPages = Math.max(1, Math.ceil(total / filters.size));
+    // ── Số trên tab: cùng kho làm việc + từ khóa + kho nhận đang lọc, chỉ thay trạng thái (R1) ──
+    const tabCounts = useDemTheoTrangThai(
+        TAB_MAS,
+        async (ma) => {
+            const res = await phieuChuyenKhoService.filter(buildFilterPayload({
+                keyword: filters.keyword,
+                tenKhoNhap: filters.tenKhoNhap,
+                trangThai: trangThaiCuaTab(ma),
+                page: 0,
+                size: 1,
+            }));
+            return res?.totalElements ?? 0;
+        },
+        `${khoLamViec}|${filters.keyword}|${filters.tenKhoNhap}`
+    );
 
-    const handleReset = () => {
-        setFilters({ keyword: "", tenKhoNhap: "", trangThai: "", page: 0, size: 10 });
+    const changeTab = (value) => {
+        setTab(value);
+        setFilters((p) => (p.page === 0 ? p : { ...p, page: 0 }));
     };
 
-    const stats = useMemo(() => ({
-        dangVanChuyen: data.filter((d) => d.trangThai === 3).length,
-        hoanTat: data.filter((d) => d.trangThai === 5).length,
-        daHuy: data.filter((d) => d.trangThai === 4).length,
-    }), [data]);
+    // Đổi kho làm việc: kho không nằm trong payload (apiClient gửi header kho_id từ localStorage) nên
+    // luôn tạo filters mới để danh sách tải lại; khoLamViec nằm trong khóa đếm nên số trên tab cũng đếm lại
+    const handleDoiKho = (id) => {
+        setKhoLamViec(String(id));
+        setFilters((p) => ({ ...p, page: 0 }));
+    };
+
+    // Bộ lọc ngoài tab trạng thái ("Xóa lọc" chỉ xóa các bộ lọc này, giữ tab và kho làm việc)
+    const hasActiveFilters = Boolean(keywordInput.trim() || tenKhoNhapInput.trim());
+
+    const clearFilters = () => {
+        setKeywordInput("");
+        setTenKhoNhapInput("");
+        setFilters((p) => ({ ...p, keyword: "", tenKhoNhap: "", page: 0 }));
+    };
+
+    const handleRetry = () => {
+        fetchData();
+        tabCounts.reload();
+    };
+
+    // Số chỉ hiện khi đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs
+    const statusTabs = PHIEU_CHUYEN_KHO_TABS.map((t) => ({
+        value: t.ma,
+        label: t.label,
+        count: loadError ? null : tabCounts.counts[t.ma],
+    }));
+
+    const emptyTabLabel = PHIEU_CHUYEN_KHO_TABS.find((t) => t.ma === tab)?.label;
 
     return (
-        <PageContainer className="space-y-5">
+        <PageContainer fill className="space-y-4">
+            <ListPageHeader
+                actions={
+                    !isNhanVienKho ? (
+                        <Link to="/transfer-tickets/create">
+                            <Button className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
+                                <Plus className="size-4" />
+                                Tạo phiếu chuyển kho
+                            </Button>
+                        </Link>
+                    ) : null
+                }
+            />
 
-            {/* ══ STATS ═══════════════════════════════════════════════════════ */}
-            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <StatTile
-                    icon={<Package className="size-5" />}
-                    iconClass="bg-bo-primary-soft text-bo-primary"
-                    label="Tổng phiếu chuyển"
-                    value={total}
-                />
-                <StatTile
-                    icon={<Truck className="size-5" />}
-                    iconClass="bg-purple-50 text-purple-600"
-                    label="Đang vận chuyển"
-                    value={stats.dangVanChuyen}
-                />
-                <StatTile
-                    icon={<CheckCircle2 className="size-5" />}
-                    iconClass="bg-bo-success-soft text-bo-success"
-                    label="Hoàn tất"
-                    value={stats.hoanTat}
-                />
-                <StatTile
-                    icon={<XCircle className="size-5" />}
-                    iconClass="bg-bo-danger-soft text-bo-danger"
-                    label="Đã hủy"
-                    value={stats.daHuy}
-                />
-            </section>
-
-            {/* ══ BỘ LỌC TÌM KIẾM ════════════════════════════════════════════ */}
-            <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                <div className="flex items-center gap-2 border-b border-bo-border px-4 py-3 sm:px-5">
-                    <Filter className="size-4 text-bo-primary" />
-                    <h2 className="text-sm font-semibold text-bo-foreground sm:text-base">
-                        Bộ lọc tìm kiếm
-                    </h2>
-                </div>
-                <FilterBar
-                    primary={
+            {/* ══ BẢNG: tab trạng thái + kho làm việc + tìm kiếm cùng một hàng ══ */}
+            <TableShell
+                fill
+                toolbar={
+                    <ListToolbar
+                        tabs={
+                            <StatusTabs
+                                label="Lọc phiếu chuyển kho theo trạng thái"
+                                tabs={statusTabs}
+                                value={tab}
+                                onChange={changeTab}
+                            />
+                        }
+                        hasFilter={hasActiveFilters}
+                        onClear={clearFilters}
+                    >
+                        {/* API lấy phiếu đi và đến của kho làm việc (header kho_id) */}
+                        <KhoLamViecSelect onChange={handleDoiKho} />
                         <SearchInput
                             placeholder="Nhập số phiếu..."
                             label="Số phiếu"
-                            value={filters.keyword}
-                            onChange={(e) => setFilters(p => ({ ...p, keyword: e.target.value, page: 0 }))}
-                            onClear={() => setFilters(p => ({ ...p, keyword: "", page: 0 }))}
+                            value={keywordInput}
+                            onChange={(e) => setKeywordInput(e.target.value)}
+                            onClear={() => {
+                                setKeywordInput("");
+                                setFilters((p) => (p.keyword === "" ? p : { ...p, keyword: "", page: 0 }));
+                            }}
+                            className="sm:w-[300px]"
                         />
-                    }
-                    filters={
-                        <>
-                            <input
-                                type="text"
-                                placeholder="Tên kho nhận hàng"
-                                aria-label="Kho nhập (đích)"
-                                value={filters.tenKhoNhap}
-                                onChange={(e) => setFilters(p => ({ ...p, tenKhoNhap: e.target.value, page: 0 }))}
-                                className="h-9 w-full rounded-md border border-bo-border bg-white px-3 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 sm:w-[200px]"
-                            />
-
-                            <DropdownMenu modal={false}>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className="h-9 w-full justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-[190px]"
-                                    >
-                                        <span className="truncate">{STATUS_OPTIONS.find((s) => s.value === filters.trangThai)?.label || "Tất cả trạng thái"}</span>
-                                        <ChevronDown className="size-4 shrink-0 opacity-70" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="backoffice-user-menu z-50 w-[200px] rounded-lg border border-bo-border bg-white p-1 shadow-lg">
-                                    {STATUS_OPTIONS.map((s) => (
-                                        <DropdownMenuItem
-                                            key={s.value}
-                                            onClick={() => setFilters((p) => ({ ...p, trangThai: s.value, page: 0 }))}
-                                            className="cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                        >
-                                            {s.label}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-
-                            <Button
-                                variant="outline"
-                                onClick={handleReset}
-                                disabled={loading}
-                                className="h-9 gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                            >
-                                <RefreshCcw className="size-4" />
-                                Đặt lại
-                            </Button>
-                        </>
-                    }
-                    actions={
-                        !isNhanVienKho ? (
-                            <Link to="/transfer-tickets/create">
-                                <Button className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
-                                    <Plus className="size-4" />
-                                    Tạo phiếu chuyển kho
-                                </Button>
-                            </Link>
-                        ) : null
-                    }
-                />
-            </div>
-
-            {/* ══ TABLE / LOADING / EMPTY ═════════════════════════════════════ */}
-            {loading ? (
-                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                        <input
+                            type="text"
+                            placeholder="Tên kho nhận hàng"
+                            aria-label="Kho nhập (đích)"
+                            value={tenKhoNhapInput}
+                            onChange={(e) => setTenKhoNhapInput(e.target.value)}
+                            className="h-9 w-full rounded-md border border-bo-border bg-white px-3 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 sm:w-[200px]"
+                        />
+                    </ListToolbar>
+                }
+                footer={
+                    !loading && !loadError && data.length > 0 ? (
+                        <TablePagination
+                            page={filters.page}
+                            size={filters.size}
+                            total={total}
+                            onPageChange={(page) => setFilters((p) => ({ ...p, page }))}
+                            onSizeChange={(size) => setFilters((p) => ({ ...p, size, page: 0 }))}
+                        />
+                    ) : null
+                }
+            >
+                {loading ? (
                     <LoadingState rows={6} label="Đang tải danh sách phiếu chuyển kho" />
-                </div>
-            ) : data.length === 0 ? (
-                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                    <EmptyState
-                        icon={ClipboardList}
-                        title="Không có dữ liệu phiếu chuyển"
-                        description="Hiện tại chưa có dữ liệu phù hợp. Hãy thử thay đổi bộ lọc hoặc từ khóa tìm kiếm."
+                ) : loadError ? (
+                    <ErrorState
+                        description="Không thể tải danh sách phiếu chuyển kho. Vui lòng thử lại."
+                        onRetry={handleRetry}
                     />
-                </div>
-            ) : (
-                <TableShell
-                    title="Danh sách phiếu chuyển kho"
-                    description={`Tổng ${total} phiếu chuyển kho`}
-                    footer={
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs text-bo-muted">Hiển thị</span>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            className="h-8 w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                                        >
-                                            {filters.size} dòng
-                                            <ChevronDown className="size-3.5 opacity-60" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="start" className="backoffice-user-menu z-50 w-[110px] rounded-lg border border-bo-border bg-white p-1 shadow-lg">
-                                        {PAGE_SIZE_OPTIONS.map(size => (
-                                            <DropdownMenuItem
-                                                key={size}
-                                                onClick={() => setFilters((p) => ({ ...p, size, page: 0 }))}
-                                                className="cursor-pointer rounded-md px-2.5 py-1.5 text-xs text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                            >
-                                                {size} dòng
-                                            </DropdownMenuItem>
-                                        ))}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-
-                            <p className="text-xs text-bo-muted">
-                                Hiển thị{" "}
-                                <span className="font-semibold text-bo-foreground">{filters.page * filters.size + 1}</span>
-                                {" – "}
-                                <span className="font-semibold text-bo-foreground">{Math.min((filters.page + 1) * filters.size, total)}</span>
-                                {" trong tổng số "}
-                                <span className="font-semibold text-bo-primary">{total}</span> kết quả
-                            </p>
-
-                            <div className="flex items-center gap-2">
+                ) : data.length === 0 ? (
+                    hasActiveFilters ? (
+                        <EmptyState
+                            icon={SearchX}
+                            title="Không tìm thấy phiếu chuyển kho phù hợp"
+                            description="Thử đổi số phiếu hoặc tên kho nhận hàng."
+                            action={
                                 <Button
                                     variant="outline"
-                                    size="sm"
-                                    onClick={() => setFilters((p) => ({ ...p, page: p.page - 1 }))}
-                                    disabled={filters.page === 0}
-                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
+                                    onClick={clearFilters}
+                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    <ChevronLeft className="size-3.5" /> Trước
+                                    Xóa lọc
                                 </Button>
-                                <div className="hidden items-center gap-1 sm:flex">
-                                    {[...Array(Math.min(5, totalPages))].map((_, idx) => {
-                                        let pageNum;
-                                        if (totalPages <= 5) pageNum = idx;
-                                        else if (filters.page < 3) pageNum = idx;
-                                        else if (filters.page > totalPages - 4) pageNum = totalPages - 5 + idx;
-                                        else pageNum = filters.page - 2 + idx;
-                                        return (
-                                            <Button
-                                                key={idx}
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => setFilters((p) => ({ ...p, page: pageNum }))}
-                                                className={
-                                                    filters.page === pageNum
-                                                        ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
-                                                        : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
-                                                }
-                                            >
-                                                {pageNum + 1}
-                                            </Button>
-                                        );
-                                    })}
-                                </div>
+                            }
+                        />
+                    ) : tab !== TAB_MAC_DINH ? (
+                        <EmptyState
+                            icon={ClipboardList}
+                            title={`Không có phiếu chuyển kho nào ở trạng thái "${emptyTabLabel}"`}
+                            description="Chọn tab Tất cả để xem mọi phiếu chuyển đi và chuyển đến của kho làm việc."
+                            action={
                                 <Button
                                     variant="outline"
-                                    size="sm"
-                                    onClick={() => setFilters((p) => ({ ...p, page: p.page + 1 }))}
-                                    disabled={filters.page + 1 >= totalPages}
-                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
+                                    onClick={() => changeTab(TAB_MAC_DINH)}
+                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    Sau <ChevronRight className="size-3.5" />
+                                    Xem tất cả
                                 </Button>
-                            </div>
-                        </div>
-                    }
-                >
+                            }
+                        />
+                    ) : (
+                        <EmptyState
+                            icon={ClipboardList}
+                            title="Chưa có phiếu chuyển kho"
+                            description="Kho làm việc chưa có phiếu chuyển đi hoặc chuyển đến."
+                        />
+                    )
+                ) : (
                     <table className="w-full min-w-[900px] text-sm">
-                        <thead>
+                        <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                 <th className={`${TH_CLASS} w-14 text-center`}>STT</th>
                                 <th className={`${TH_CLASS} text-left`}>Số phiếu</th>
@@ -375,23 +338,21 @@ export default function PhieuChuyenKhoList() {
                         </thead>
                         <tbody className="divide-y divide-bo-border">
                             {data.map((item, index) => {
-                                const status = STATUS_MAP[item.trangThai];
+                                const status = getPhieuChuyenKhoStatus(item.trangThai);
                                 return (
                                     <tr
                                         key={item.id}
                                         onClick={() => navigate(`/transfer-tickets/${item.id}`)}
                                         className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
                                     >
-                                        <td className="w-14 px-4 py-3.5 text-center align-middle">
-                                            <span className="inline-flex size-7 items-center justify-center rounded-full bg-bo-surface-subtle text-xs font-semibold text-slate-600">
-                                                {filters.page * filters.size + index + 1}
-                                            </span>
+                                        <td className="w-14 px-4 py-3.5 text-center align-middle text-xs text-bo-muted">
+                                            {filters.page * filters.size + index + 1}
                                         </td>
                                         <td className="px-4 py-3.5 align-middle font-semibold text-bo-primary">{item.soPhieuXuat}</td>
                                         <td className="px-4 py-3.5 align-middle text-bo-foreground">{item.kho?.tenKho}</td>
                                         <td className="px-4 py-3.5 align-middle text-bo-foreground">{item.khoChuyenDen?.tenKho}</td>
                                         <td className="px-4 py-3.5 text-center align-middle">
-                                            <span className="text-xs text-bo-muted">{new Date(item.ngayTao).toLocaleDateString("vi-VN")}</span>
+                                            <span className="whitespace-nowrap text-xs text-bo-muted">{formatDate(item.ngayTao)}</span>
                                         </td>
                                         <td className="px-4 py-3.5 text-center align-middle">
                                             {status ? (
@@ -405,22 +366,8 @@ export default function PhieuChuyenKhoList() {
                             })}
                         </tbody>
                     </table>
-                </TableShell>
-            )}
+                )}
+            </TableShell>
         </PageContainer>
-    );
-}
-
-function StatTile({ icon, iconClass, label, value }) {
-    return (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-            <div className="min-w-0">
-                <p className="text-xs font-medium text-bo-muted">{label}</p>
-                <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{value}</p>
-            </div>
-            <span className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${iconClass}`}>
-                {icon}
-            </span>
-        </div>
     );
 }

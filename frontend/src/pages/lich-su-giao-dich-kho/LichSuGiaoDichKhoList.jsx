@@ -1,30 +1,34 @@
 // src/pages/lich-su-giao-dich-kho/LichSuGiaoDichKhoList.jsx
-import { createElement, useState, useEffect, useMemo, useCallback } from 'react';
+import { createElement, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import {
     Dialog, DialogContent, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-    DropdownMenu, DropdownMenuContent,
-    DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-    Filter, RefreshCcw, ChevronDown, ChevronLeft, ChevronRight,
-    Check, Loader2, History, ArrowDownToLine, ArrowUpFromLine,
+    Loader2, History, ArrowDownToLine, ArrowUpFromLine,
     ArrowLeftRight, SlidersHorizontal, Warehouse, Eye,
-    CalendarDays, User2, FileText, Hash, Package,
+    CalendarDays, User2, FileText, Hash, Package, SearchX,
 } from "lucide-react";
 import { toast } from "sonner";
 import PageContainer from "@/components/backoffice/PageContainer";
-import FilterBar from "@/components/shared/FilterBar";
+import ListPageHeader from "@/components/shared/ListPageHeader";
+import ListToolbar from "@/components/shared/ListToolbar";
 import SearchInput from "@/components/shared/SearchInput";
+import StatusTabs from "@/components/shared/StatusTabs";
 import TableShell from "@/components/shared/TableShell";
+import TablePagination from "@/components/shared/TablePagination";
+import { RowActionButton, RowActions } from "@/components/shared/RowActions";
 import EmptyState from "@/components/shared/EmptyState";
+import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
+import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import { getLichSuGiaoDichKho, getChiTietLichSu } from "@/services/lichSuGiaoDichKhoService";
 import { getMineKhoList } from "@/services/khoService";
+import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
+import { formatDateTime, formatNumber } from "@/utils/formatters";
 
 // ── Constants ─────────────────────────────────────────────────────────────
+// "chuyen_kho" giữ để hiện nhãn cho dữ liệu cũ (nếu có); backend hiện chỉ ghi 3 loại còn lại.
 const LOAI_GIAO_DICH_CONFIG = {
     nhap_kho:   { label: "Nhập kho",   icon: ArrowDownToLine,   badge: "border-bo-success/20 bg-bo-success-soft text-bo-success", dot: "bg-bo-success" },
     xuat_kho:   { label: "Xuất kho",   icon: ArrowUpFromLine,   badge: "border-bo-danger/20 bg-bo-danger-soft text-bo-danger",   dot: "bg-bo-danger"  },
@@ -32,34 +36,48 @@ const LOAI_GIAO_DICH_CONFIG = {
     dieu_chinh: { label: "Điều chỉnh", icon: SlidersHorizontal, badge: "border-bo-warning/20 bg-bo-warning-soft text-bo-warning", dot: "bg-bo-warning" },
 };
 
-const LOAI_FILTER_OPTIONS = [
-    { value: "all",        label: "Tất cả loại giao dịch" },
-    { value: "nhap_kho",   label: "Nhập kho"   },
-    { value: "xuat_kho",   label: "Xuất kho"   },
-    { value: "chuyen_kho", label: "Chuyển kho" },
-    { value: "dieu_chinh", label: "Điều chỉnh" },
+// Tab theo LOẠI giao dịch (bố cục A+G) — mã tab trên URL ?loai=; `loai` là giá trị loaiGiaoDich
+const LOAI_TABS = [
+    { value: "tat-ca",     label: "Tất cả",                             loai: null         },
+    { value: "nhap-kho",   label: LOAI_GIAO_DICH_CONFIG.nhap_kho.label,   loai: "nhap_kho"   },
+    { value: "xuat-kho",   label: LOAI_GIAO_DICH_CONFIG.xuat_kho.label,   loai: "xuat_kho"   },
+    { value: "dieu-chinh", label: LOAI_GIAO_DICH_CONFIG.dieu_chinh.label, loai: "dieu_chinh" },
 ];
+const LOAI_TAB_VALUES = LOAI_TABS.map((t) => t.value);
+const TAB_MAC_DINH = "tat-ca";
 
-const STAT_TILES = [
-    { key: "nhap_kho",   label: "Nhập kho",   iconClass: "bg-bo-success-soft text-bo-success" },
-    { key: "xuat_kho",   label: "Xuất kho",   iconClass: "bg-bo-danger-soft text-bo-danger"   },
-    { key: "chuyen_kho", label: "Chuyển kho", iconClass: "bg-bo-primary-soft text-bo-primary" },
-    { key: "dieu_chinh", label: "Điều chỉnh", iconClass: "bg-bo-warning-soft text-bo-warning" },
-];
+// Dòng thuộc tab nào: dùng chung cho bảng và số trên tab (R1)
+const matchLoai = (item, tab) => {
+    const loai = LOAI_TABS.find((t) => t.value === tab)?.loai;
+    return !loai || item.loaiGiaoDich === loai;
+};
 
-const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+const matchSearch = (item, search) => {
+    const q = search.toLowerCase().trim();
+    return !q ||
+        item.tenSanPham?.toLowerCase().includes(q) ||
+        item.maSku?.toLowerCase().includes(q) ||
+        item.maLo?.toLowerCase().includes(q) ||
+        item.tenKho?.toLowerCase().includes(q) ||
+        item.nguoiDungTen?.toLowerCase().includes(q);
+};
+
 const TH_CLASS =
     "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
-const DROPDOWN_CONTENT_CLASS =
-    "backoffice-user-menu z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg";
-const DROPDOWN_ITEM_CLASS =
-    "cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
 
-const formatDate = (val) =>
-    val ? new Date(val).toLocaleString("vi-VN", {
-        year: "numeric", month: "2-digit", day: "2-digit",
-        hour: "2-digit", minute: "2-digit",
-    }) : "—";
+// Tiêu đề cột của bảng (căn lề theo kiểu dữ liệu: số căn phải, thao tác căn giữa)
+const TABLE_COLUMNS = [
+    { label: "STT",             className: "w-14 text-left" },
+    { label: "Ngày giao dịch",  className: "text-left" },
+    { label: "Loại",            className: "text-left" },
+    { label: "Sản phẩm",        className: "text-left" },
+    { label: "SKU",             className: "text-left" },
+    { label: "Lô hàng",         className: "text-left" },
+    { label: "Kho",             className: "text-left" },
+    { label: "Số lượng",        className: "text-right tabular-nums" },
+    { label: "Người thực hiện", className: "text-left" },
+    { label: "Thao tác",        className: "text-center" },
+];
 
 // ── Loại Badge ────────────────────────────────────────────────────────────
 function LoaiBadge({ loai }) {
@@ -73,35 +91,6 @@ function LoaiBadge({ loai }) {
             <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
             {cfg.label}
         </span>
-    );
-}
-
-// ── Stat tile ─────────────────────────────────────────────────────────────
-function StatTile({ icon, iconClass, label, value }) {
-    return (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-            <div className="min-w-0">
-                <p className="text-xs font-medium text-bo-muted">{label}</p>
-                <p className="mt-1 text-2xl font-bold tracking-tight text-bo-foreground">{value}</p>
-            </div>
-            <span className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${iconClass}`}>
-                {icon}
-            </span>
-        </div>
-    );
-}
-
-// ── Action button ─────────────────────────────────────────────────────────
-function ActionBtn({ title, onClick, children }) {
-    return (
-        <button
-            type="button"
-            title={title}
-            onClick={onClick}
-            className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border bg-white text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
-        >
-            {children}
-        </button>
     );
 }
 
@@ -157,7 +146,7 @@ function DetailModal({ open, onClose, item, loading }) {
                         {/* Ngày giao dịch */}
                         <div className="flex items-center gap-2 rounded-lg border border-bo-border bg-bo-surface-subtle px-4 py-2.5 text-sm text-slate-700">
                             <CalendarDays className="size-4 shrink-0 text-bo-muted" />
-                            <span className="font-medium">{formatDate(item.ngayGiaoDich)}</span>
+                            <span className="font-medium">{formatDateTime(item.ngayGiaoDich)}</span>
                         </div>
 
                         {/* Grid fields */}
@@ -209,54 +198,60 @@ function DetailModal({ open, onClose, item, loading }) {
 export default function LichSuGiaoDichKhoList() {
     const [data,           setData]           = useState([]);
     const [loading,        setLoading]        = useState(true);
+    const [loadError,      setLoadError]      = useState(false);
     const [search,         setSearch]         = useState("");
-    const [filterLoai,     setFilterLoai]     = useState("all");
     const [pageNumber,     setPageNumber]      = useState(0);
-    const [pageSize,       setPageSize]       = useState(10);
+    const [pageSize,       setPageSize]       = useState(SO_DONG_MAC_DINH);
     const [selectedId,     setSelectedId]     = useState(null);
     const [chiTiet,        setChiTiet]        = useState(null);
     const [loadingDetail,  setLoadingDetail]  = useState(false);
     const [myWarehouseIds, setMyWarehouseIds] = useState([]);
+    const requestIdRef = useRef(0);
+
+    // Tab loại giao dịch trên URL (?loai=nhap-kho | xuat-kho | dieu-chinh)
+    const [filterLoai, setFilterLoai] = useTabTrenUrl(LOAI_TAB_VALUES, TAB_MAC_DINH, { ten: "loai" });
 
     // Phân quyền — giống PhieuChuyenKhoDetail
     const role     = localStorage.getItem("role");
     const isAdmin  = role === "quan_tri_vien";
-    const isQuanLy = role === "quan_ly_kho" || isAdmin;
 
     // ── Fetch ──────────────────────────────────────────────────────────
+    // Tải lịch sử + danh sách kho mình có quyền (cùng pattern PhieuChuyenKhoDetail) cùng lúc,
+    // để người không phải quản trị viên không thấy bảng rỗng tạm thời khi kho chưa tải xong.
     const fetchData = useCallback(async () => {
+        const requestId = ++requestIdRef.current;
         setLoading(true);
         try {
-            const list = await getLichSuGiaoDichKho();
-            setData(list);
+            const [list, listKho] = await Promise.all([
+                getLichSuGiaoDichKho(),
+                getMineKhoList().catch((err) => {
+                    // Quản trị viên xem mọi kho nên không cần danh sách này (giữ như cũ: chỉ ghi log)
+                    if (!isAdmin) throw err;
+                    console.error("Lỗi khi tải danh sách kho phân quyền:", err);
+                    return [];
+                }),
+            ]);
+            if (requestId !== requestIdRef.current) return;
+            setData(list ?? []);
+            setMyWarehouseIds((listKho ?? []).map((k) => k.id));
+            setLoadError(false);
             setPageNumber(0);
         } catch {
+            if (requestId !== requestIdRef.current) return;
+            // Không giữ dòng + tổng số của lần tải trước (R9)
+            setData([]);
+            setLoadError(true);
             toast.error("Không thể tải lịch sử giao dịch kho");
         } finally {
-            setLoading(false);
+            if (requestId === requestIdRef.current) setLoading(false);
         }
-    }, []);
-
-    // Lấy danh sách kho mình có quyền — cùng pattern PhieuChuyenKhoDetail
-    const fetchMyWarehouses = useCallback(async () => {
-        try {
-            const listKho = await getMineKhoList();
-            setMyWarehouseIds(listKho.map((k) => k.id));
-        } catch (err) {
-            console.error("Lỗi khi tải danh sách kho phân quyền:", err);
-        }
-    }, []);
+    }, [isAdmin]);
 
     // Hoãn qua microtask để tránh setState đồng bộ trong effect
     // (react-hooks/set-state-in-effect); dữ liệu vẫn tải ngay khi mount.
     useEffect(() => {
-        queueMicrotask(() => {
-            fetchData();
-            fetchMyWarehouses();
-        });
-    }, [fetchData, fetchMyWarehouses]);
-
-    useEffect(() => { setPageNumber(0); }, [filterLoai, search]);
+        queueMicrotask(() => fetchData());
+    }, [fetchData]);
 
     // ── Filter ─────────────────────────────────────────────────────────
     // Phân quyền lọc danh sách: admin thấy tất, còn lại chỉ thấy kho mình có quyền
@@ -265,27 +260,25 @@ export default function LichSuGiaoDichKhoList() {
         return data.filter((item) => myWarehouseIds.includes(item.khoId));
     }, [data, myWarehouseIds, isAdmin]);
 
-    const filtered = useMemo(() => {
-        return visibleData.filter((item) => {
-            const q = search.toLowerCase().trim();
-            const matchSearch = !q ||
-                item.tenSanPham?.toLowerCase().includes(q) ||
-                item.maSku?.toLowerCase().includes(q) ||
-                item.maLo?.toLowerCase().includes(q) ||
-                item.tenKho?.toLowerCase().includes(q) ||
-                item.nguoiDungTen?.toLowerCase().includes(q);
-            const matchLoai = filterLoai === "all" || item.loaiGiaoDich === filterLoai;
-            return matchSearch && matchLoai;
-        });
-    }, [visibleData, search, filterLoai]);
+    // Lọc mọi thứ trừ loại (để đếm số trên tab), rồi lọc loại cho bảng
+    const searched = useMemo(
+        () => visibleData.filter((item) => matchSearch(item, search)),
+        [visibleData, search]
+    );
+    const filtered = useMemo(
+        () => searched.filter((item) => matchLoai(item, filterLoai)),
+        [searched, filterLoai]
+    );
 
-    // ── Stats ──────────────────────────────────────────────────────────
-    const stats = useMemo(() => ({
-        nhap_kho:   visibleData.filter(i => i.loaiGiaoDich === "nhap_kho").length,
-        xuat_kho:   visibleData.filter(i => i.loaiGiaoDich === "xuat_kho").length,
-        chuyen_kho: visibleData.filter(i => i.loaiGiaoDich === "chuyen_kho").length,
-        dieu_chinh: visibleData.filter(i => i.loaiGiaoDich === "dieu_chinh").length,
-    }), [visibleData]);
+    // Số trên tab = số dòng thấy khi bấm tab, theo từ khóa đang tìm (R1); đang tải / lỗi thì không hiện (R9)
+    const loaiTabs = useMemo(
+        () => LOAI_TABS.map((tab) => ({
+            value: tab.value,
+            label: tab.label,
+            count: loading || loadError ? null : searched.filter((item) => matchLoai(item, tab.value)).length,
+        })),
+        [searched, loading, loadError]
+    );
 
     // ── Pagination ─────────────────────────────────────────────────────
     const totalElements = filtered.length;
@@ -293,7 +286,12 @@ export default function LichSuGiaoDichKhoList() {
     const safePage      = Math.min(pageNumber, totalPages - 1);
     const pageItems     = filtered.slice(safePage * pageSize, (safePage + 1) * pageSize);
     const handlePageChange = (p) => { if (p >= 0 && p < totalPages) setPageNumber(p); };
-    const handleReset = () => { setSearch(""); setFilterLoai("all"); };
+
+    // Đổi tab / từ khóa: về trang đầu
+    const changeTab = (value) => { setFilterLoai(value); setPageNumber(0); };
+    const changeSearch = (value) => { setSearch(value); setPageNumber(0); };
+    // "Xóa lọc" chỉ xóa từ khóa, giữ tab loại đang chọn
+    const handleClearSearch = () => changeSearch("");
 
     // ── Detail ─────────────────────────────────────────────────────────
     const handleViewDetail = async (item) => {
@@ -318,209 +316,104 @@ export default function LichSuGiaoDichKhoList() {
 
     const handleCloseModal = () => { setSelectedId(null); setChiTiet(null); };
 
-    const currentLoaiLabel = LOAI_FILTER_OPTIONS.find(o => o.value === filterLoai)?.label ?? "Tất cả";
+    const currentLoaiLabel = LOAI_TABS.find((t) => t.value === filterLoai)?.label;
 
     return (
-        <PageContainer className="space-y-5">
+        <PageContainer fill className="space-y-4">
 
             <DetailModal open={!!selectedId} onClose={handleCloseModal} item={chiTiet} loading={loadingDetail} />
 
-            {/* ── Stats ── */}
-            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {STAT_TILES.map(({ key, label, iconClass }) => (
-                    <StatTile
-                        key={key}
-                        icon={createElement(LOAI_GIAO_DICH_CONFIG[key].icon, { className: "size-5" })}
-                        iconClass={iconClass}
-                        label={label}
-                        value={stats[key]}
-                    />
-                ))}
-            </section>
+            {/* Ghi chú phạm vi (R3): mọi vai trò không phải quản trị viên đều lọc theo kho phụ trách (visibleData) */}
+            <ListPageHeader scope={isAdmin ? null : "Kho bạn phụ trách"} />
 
-            {/* ── Filter bar ── */}
-            <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-bo-border px-4 py-3 sm:px-5">
-                    <div className="flex items-center gap-2">
-                        <Filter className="size-4 text-bo-primary" />
-                        <h2 className="text-sm font-semibold text-bo-foreground sm:text-base">
-                            Bộ lọc tìm kiếm
-                        </h2>
-                    </div>
-                    <span className="text-xs font-normal text-bo-muted">
-                        {isAdmin ? "Hiển thị toàn bộ giao dịch" : isQuanLy ? "Kho bạn phụ trách" : "Giao dịch bạn thực hiện"}
-                    </span>
-                </div>
-                <FilterBar
-                    primary={
+            {/* ── Table: tab loại giao dịch + tìm kiếm cùng một hàng ── */}
+            <TableShell
+                fill
+                toolbar={
+                    <ListToolbar
+                        tabs={
+                            <StatusTabs
+                                label="Lọc giao dịch theo loại"
+                                tabs={loaiTabs}
+                                value={filterLoai}
+                                onChange={changeTab}
+                            />
+                        }
+                        hasFilter={Boolean(search.trim())}
+                        onClear={handleClearSearch}
+                    >
                         <SearchInput
                             label="Tìm kiếm"
                             placeholder="Tìm theo sản phẩm, SKU, lô, kho, người thực hiện..."
                             value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            onClear={() => setSearch("")}
+                            onChange={(e) => changeSearch(e.target.value)}
+                            onClear={handleClearSearch}
+                            className="sm:w-[380px]"
                         />
-                    }
-                    filters={
-                        <>
-                            <DropdownMenu modal={false}>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className="h-9 w-full justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-[220px]"
-                                    >
-                                        <span className="truncate">{currentLoaiLabel}</span>
-                                        <ChevronDown className="size-4 shrink-0 opacity-70" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className={`${DROPDOWN_CONTENT_CLASS} w-[220px]`}>
-                                    {LOAI_FILTER_OPTIONS.map((opt) => (
-                                        <DropdownMenuItem
-                                            key={opt.value}
-                                            onClick={() => setFilterLoai(opt.value)}
-                                            className={`${DROPDOWN_ITEM_CLASS} gap-2`}
-                                        >
-                                            {opt.value !== "all" && (
-                                                <span className={`h-2 w-2 shrink-0 rounded-full ${LOAI_GIAO_DICH_CONFIG[opt.value]?.dot}`} />
-                                            )}
-                                            <span className="flex-1">{opt.label}</span>
-                                            {filterLoai === opt.value && <Check className="size-4" />}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-
-                            <Button
-                                variant="outline"
-                                onClick={handleReset}
-                                className="h-9 gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                            >
-                                <RefreshCcw className="size-4" />
-                                Đặt lại
-                            </Button>
-                        </>
-                    }
-                />
-            </div>
-
-            {/* ── Table / Loading / Empty ── */}
-            {loading ? (
-                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                    <LoadingState rows={6} label="Đang tải lịch sử giao dịch kho" />
-                </div>
-            ) : pageItems.length === 0 ? (
-                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                    <EmptyState
-                        icon={History}
-                        title="Không có giao dịch nào"
-                        description="Chưa có dữ liệu phù hợp. Hãy thay đổi bộ lọc tìm kiếm."
+                    </ListToolbar>
+                }
+                footer={!loading && !loadError && totalElements > 0 ? (
+                    <TablePagination
+                        page={safePage}
+                        size={pageSize}
+                        total={totalElements}
+                        onPageChange={handlePageChange}
+                        onSizeChange={(size) => { setPageSize(size); setPageNumber(0); }}
                     />
-                </div>
-            ) : (
-                <TableShell
-                    title="Lịch sử giao dịch kho"
-                    description={`Tổng ${totalElements} giao dịch`}
-                    footer={totalElements > 0 ? (
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-
-                            {/* Page size */}
-                            <div className="flex items-center gap-2">
-                                <span className="whitespace-nowrap text-xs text-bo-muted">Hiển thị</span>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            className="h-8 w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                                        >
-                                            {pageSize} dòng
-                                            <ChevronDown className="size-3.5 opacity-60" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="start" className={`${DROPDOWN_CONTENT_CLASS} w-[110px]`}>
-                                        {PAGE_SIZE_OPTIONS.map((size) => (
-                                            <DropdownMenuItem
-                                                key={size}
-                                                onClick={() => { setPageSize(size); setPageNumber(0); }}
-                                                className="cursor-pointer rounded-md px-2.5 py-1.5 text-xs text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                            >
-                                                {size} dòng
-                                            </DropdownMenuItem>
-                                        ))}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-
-                            {/* Page info */}
-                            <p className="text-xs text-bo-muted">
-                                Hiển thị{" "}
-                                <span className="font-semibold text-bo-foreground">{safePage * pageSize + 1}</span>
-                                {" – "}
-                                <span className="font-semibold text-bo-foreground">
-                                    {Math.min((safePage + 1) * pageSize, totalElements)}
-                                </span>
-                                {" trong tổng số "}
-                                <span className="font-semibold text-bo-primary">{totalElements}</span> kết quả
-                            </p>
-
-                            {/* Nav */}
-                            <div className="flex items-center gap-2">
+                ) : null}
+            >
+                {loading ? (
+                    <LoadingState rows={6} label="Đang tải lịch sử giao dịch kho" />
+                ) : loadError ? (
+                    <ErrorState
+                        description="Không thể tải lịch sử giao dịch kho. Vui lòng thử lại."
+                        onRetry={fetchData}
+                    />
+                ) : pageItems.length === 0 ? (
+                    search.trim() ? (
+                        <EmptyState
+                            icon={SearchX}
+                            title="Không tìm thấy giao dịch phù hợp"
+                            description="Thử đổi từ khóa tìm kiếm."
+                            action={
                                 <Button
                                     variant="outline"
-                                    size="sm"
-                                    onClick={() => handlePageChange(safePage - 1)}
-                                    disabled={safePage === 0}
-                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
+                                    onClick={handleClearSearch}
+                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    <ChevronLeft className="size-3.5" /> Trước
+                                    Xóa lọc
                                 </Button>
-
-                                <div className="hidden items-center gap-1 sm:flex">
-                                    {[...Array(Math.min(5, totalPages))].map((_, idx) => {
-                                        let pageNum;
-                                        if (totalPages <= 5)                pageNum = idx;
-                                        else if (safePage < 3)              pageNum = idx;
-                                        else if (safePage > totalPages - 4) pageNum = totalPages - 5 + idx;
-                                        else                                pageNum = safePage - 2 + idx;
-                                        return (
-                                            <Button
-                                                key={idx}
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => handlePageChange(pageNum)}
-                                                className={
-                                                    safePage === pageNum
-                                                        ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
-                                                        : "h-8 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle"
-                                                }
-                                            >
-                                                {pageNum + 1}
-                                            </Button>
-                                        );
-                                    })}
-                                </div>
-
+                            }
+                        />
+                    ) : filterLoai !== TAB_MAC_DINH ? (
+                        <EmptyState
+                            icon={History}
+                            title={`Không có giao dịch loại "${currentLoaiLabel}"`}
+                            description="Chọn tab Tất cả để xem mọi giao dịch kho."
+                            action={
                                 <Button
                                     variant="outline"
-                                    size="sm"
-                                    onClick={() => handlePageChange(safePage + 1)}
-                                    disabled={safePage >= totalPages - 1}
-                                    className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
+                                    onClick={() => changeTab(TAB_MAC_DINH)}
+                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
-                                    Sau <ChevronRight className="size-3.5" />
+                                    Xem tất cả
                                 </Button>
-                            </div>
-                        </div>
-                    ) : null}
-                >
+                            }
+                        />
+                    ) : (
+                        <EmptyState
+                            icon={History}
+                            title="Chưa có giao dịch kho"
+                            description="Các lần nhập kho, xuất kho và điều chỉnh tồn sẽ được ghi lại tại đây."
+                        />
+                    )
+                ) : (
                     <table className="w-full min-w-[1080px] text-sm">
-                        <thead>
+                        <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                {["STT", "Ngày giao dịch", "Loại", "Sản phẩm", "SKU", "Lô hàng", "Kho", "Số lượng", "Người thực hiện", ""].map((h, i) => (
-                                    <th
-                                        key={i}
-                                        className={`${TH_CLASS} ${i === 9 ? "text-center" : "text-left"} ${i === 0 ? "w-14" : ""}`}
-                                    >
-                                        {h}
+                                {TABLE_COLUMNS.map((col) => (
+                                    <th key={col.label} className={`${TH_CLASS} ${col.className}`}>
+                                        {col.label}
                                     </th>
                                 ))}
                             </tr>
@@ -544,7 +437,7 @@ export default function LichSuGiaoDichKhoList() {
                                         </td>
 
                                         <td className="whitespace-nowrap px-4 py-3.5 align-middle">
-                                            <span className="text-xs text-bo-muted">{formatDate(item.ngayGiaoDich)}</span>
+                                            <span className="text-xs text-bo-muted">{formatDateTime(item.ngayGiaoDich)}</span>
                                         </td>
 
                                         <td className="px-4 py-3.5 align-middle">
@@ -573,9 +466,9 @@ export default function LichSuGiaoDichKhoList() {
                                             <span className="font-medium text-bo-foreground">{item.tenKho || "—"}</span>
                                         </td>
 
-                                        <td className="px-4 py-3.5 align-middle">
+                                        <td className="whitespace-nowrap px-4 py-3.5 text-right align-middle tabular-nums">
                                             <span className={`text-base font-bold ${soLuongColor}`}>
-                                                {soLuongPrefix}{Math.abs(displaySoLuong)}
+                                                {soLuongPrefix}{formatNumber(Math.abs(displaySoLuong))}
                                             </span>
                                         </td>
 
@@ -584,17 +477,21 @@ export default function LichSuGiaoDichKhoList() {
                                         </td>
 
                                         <td className="px-4 py-3.5 text-center align-middle">
-                                            <ActionBtn title="Xem chi tiết" onClick={() => handleViewDetail(item)}>
-                                                <Eye className="size-4" />
-                                            </ActionBtn>
+                                            <RowActions>
+                                                <RowActionButton
+                                                    icon={Eye}
+                                                    label="Xem chi tiết"
+                                                    onClick={() => handleViewDetail(item)}
+                                                />
+                                            </RowActions>
                                         </td>
                                     </tr>
                                 );
                             })}
                         </tbody>
                     </table>
-                </TableShell>
-            )}
+                )}
+            </TableShell>
         </PageContainer>
     );
 }

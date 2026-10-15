@@ -17,6 +17,7 @@ import com.dev.backend.entities.Kho;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.KhoMapper;
 import com.dev.backend.repository.PhanQuyenNguoiDungKhoRepository;
+import com.dev.backend.repository.TonKhoTheoLoRepository;
 import com.dev.backend.services.impl.entities.KhoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -24,8 +25,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -39,6 +43,9 @@ public class KhoController {
 
     @Autowired
     private PhanQuyenNguoiDungKhoRepository phanQuyenNguoiDungKhoRepository;
+
+    @Autowired
+    private TonKhoTheoLoRepository tonKhoTheoLoRepository;
 
 
     @GetMapping("/get-by-id/{id}")
@@ -64,13 +71,26 @@ public class KhoController {
             roles = {IRoleType.all}
     )
     public ResponseEntity<ResponseData<Page<KhoDto>>> filter(@RequestBody BaseFilterRequest filter) {
+        Page<KhoDto> page = khoMapper.toDtoPage(khoService.filter(filter));
+        ganSoLuongTon(page.getContent());
         return ResponseEntity.ok(
                 ResponseData.<Page<KhoDto>>builder()
                         .status(HttpStatus.OK.value())
-                        .data(khoMapper.toDtoPage(khoService.filter(filter)))
+                        .data(page)
                         .message("Success")
                         .build()
         );
+    }
+
+    /** Điền tổng tồn cho các kho trong trang bằng một truy vấn gộp (kho chưa có lô nào = 0). */
+    private void ganSoLuongTon(List<KhoDto> dsKho) {
+        if (dsKho == null || dsKho.isEmpty()) return;
+        List<Integer> khoIds = dsKho.stream().map(KhoDto::getId).toList();
+        Map<Integer, BigDecimal> tongTheoKho = new HashMap<>();
+        for (Object[] dong : tonKhoTheoLoRepository.sumSoLuongTonTheoKho(khoIds)) {
+            tongTheoKho.put(((Number) dong[0]).intValue(), dong[1] == null ? BigDecimal.ZERO : new BigDecimal(dong[1].toString()));
+        }
+        dsKho.forEach(kho -> kho.setSoLuongTon(tongTheoKho.getOrDefault(kho.getId(), BigDecimal.ZERO)));
     }
 
     @GetMapping("/all")

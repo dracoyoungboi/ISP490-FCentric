@@ -20,12 +20,15 @@ import { cn } from "@/lib/utils";
 /**
  * Phân công người nhặt cho Pick List.
  * - Quản trị viên / quản lý kho: chọn người trong danh sách nhân viên kho.
- * - Mọi vai trò kho: "Nhận việc" (tự phân công cho mình).
+ * - Mọi vai trò kho: "Nhận việc" (tự phân công cho mình) — bắt buộc phân công trước khi nhặt, kể cả quản lý.
+ * - Nhân viên kho chỉ nhận phiếu chưa có người nhặt (backend từ chối phiếu đã giao cho người khác).
  */
 export default function AssignPickerDialog({ open, onOpenChange, pickList, onAssigned }) {
   const canAssignOthers = hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO]);
   const isAdmin = hasAnyRole([ROLES.QUAN_TRI_VIEN]);
   const currentUserId = getCurrentUserId();
+  const daLaCuaToi = pickList?.nguoiNhatId != null && Number(pickList.nguoiNhatId) === Number(currentUserId);
+  const daGiaoNguoiKhac = pickList?.nguoiNhatId != null && !daLaCuaToi;
 
   const [staff, setStaff] = useState([]);
   const [loadingStaff, setLoadingStaff] = useState(false);
@@ -151,7 +154,7 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
           <Button
             type="button"
             variant="outline"
-            disabled={saving || !currentUserId}
+            disabled={saving || !currentUserId || daLaCuaToi || (!canAssignOthers && daGiaoNguoiKhac)}
             onClick={() => assign(currentUserId)}
             className="gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
           >

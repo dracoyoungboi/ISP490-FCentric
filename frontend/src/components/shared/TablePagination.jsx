@@ -6,15 +6,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { LUA_CHON_SO_DONG } from "@/constants/phanTrang";
 
-/** Chân bảng phân trang, cùng markup với DonBanHangList / PhieuXuatKhoList. */
+
+const soVN = (n) => Number(n || 0).toLocaleString("vi-VN");
+
+/**
+ * Chân bảng phân trang dùng chung. `page` tính từ 0.
+ * Truyền vào `footer` của TableShell; khi không có dòng nào thì trang tự ẩn (không truyền footer).
+ */
 export default function TablePagination({
   page,
   size,
   total,
   onPageChange,
   onSizeChange,
-  sizeOptions = [10, 20, 50],
+  sizeOptions = LUA_CHON_SO_DONG,
   extra,
 }) {
   const totalPages = Math.max(1, Math.ceil(total / size));
@@ -30,12 +37,12 @@ export default function TablePagination({
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2">
-          <span className="whitespace-nowrap text-xs text-bo-muted">Hiển thị</span>
+        {onSizeChange ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
+                aria-label="Số dòng mỗi trang"
                 className="h-8 w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
               >
                 {size} dòng
@@ -57,16 +64,16 @@ export default function TablePagination({
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
+        ) : null}
         {extra}
       </div>
 
-      <p className="text-xs text-bo-muted">
-        Hiển thị <span className="font-semibold text-bo-foreground">{from}</span>
+      <p className="text-xs text-bo-muted tabular-nums">
+        Hiển thị <span className="font-semibold text-bo-foreground">{soVN(from)}</span>
         {" – "}
-        <span className="font-semibold text-bo-foreground">{to}</span>
+        <span className="font-semibold text-bo-foreground">{soVN(to)}</span>
         {" trong tổng số "}
-        <span className="font-semibold text-bo-primary">{total}</span> kết quả
+        <span className="font-semibold text-bo-primary">{soVN(total)}</span> kết quả
       </p>
 
       <div className="flex items-center gap-2">
@@ -87,6 +94,7 @@ export default function TablePagination({
               variant="outline"
               size="sm"
               onClick={() => onPageChange(pageNum)}
+              aria-current={page === pageNum ? "page" : undefined}
               className={
                 page === pageNum
                   ? "h-8 border-bo-primary bg-bo-primary px-2.5 text-xs text-white hover:bg-bo-primary-hover"
@@ -97,6 +105,9 @@ export default function TablePagination({
             </Button>
           ))}
         </div>
+        <span className="text-xs text-bo-muted tabular-nums sm:hidden">
+          {page + 1} / {totalPages}
+        </span>
         <Button
           variant="outline"
           size="sm"

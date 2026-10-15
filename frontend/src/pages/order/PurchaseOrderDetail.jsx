@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { toast } from 'sonner';
 import { Button } from "@/components/ui/button";
 import {
     Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
@@ -8,7 +7,7 @@ import {
 import {
     ArrowLeft, Building2, Warehouse, Calendar, User, FileText, Package,
     Printer, Phone, Mail, MapPin, Clock, CreditCard, DollarSign,
-    PackagePlus,
+    PackagePlus, SearchX,
 } from 'lucide-react';
 
 import apiClient from '@/services/apiClient';
@@ -20,6 +19,9 @@ import TableShell from '@/components/shared/TableShell';
 import EmptyState from '@/components/shared/EmptyState';
 import LoadingState from '@/components/shared/LoadingState';
 import ErrorState from '@/components/shared/ErrorState';
+import { DON_MUA_HANG_STATUS } from '@/constants/donMuaHang';
+import { getApiErrorMessage, getApiErrorStatus } from '@/utils/apiError';
+import { formatDate as dinhDangNgay, formatDateTime as dinhDangNgayGio } from "@/utils/formatters";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROLE = {
@@ -42,20 +44,17 @@ function parseRoles(vaiTro) {
 const formatCurrency = (amount) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
 
-const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' });
-};
+// Định dạng chung toàn hệ thống: 05/10/2026 · 08:03; trống → "—"
+const formatDate = (dateString) => dinhDangNgay(dateString);
 
-const formatDateTime = (dateString) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-};
+// Định dạng chung toàn hệ thống: 05/10/2026 · 08:03; trống → "—"
+const formatDateTime = (dateString) => dinhDangNgayGio(dateString);
 
 // ─── Status configs ────────────────────────────────────────────────────────────
+// Tên trạng thái lấy từ constants/donMuaHang (một tên cho danh sách, chi tiết, bản in)
 const PO_STATUS = {
-    3: { label: 'Đang vận chuyển', tone: 'warning', icon: Clock, desc: 'Đơn hàng đang chờ nhà cung cấp vận chuyển đến kho.' },
-    5: { label: 'Đã thanh toán', tone: 'success', icon: CreditCard, desc: 'Đơn hàng đã được thanh toán hoàn tất.' },
+    3: { label: DON_MUA_HANG_STATUS[3].label, tone: 'warning', icon: Clock, desc: 'Đơn hàng đang chờ nhà cung cấp vận chuyển đến kho.' },
+    5: { label: DON_MUA_HANG_STATUS[5].label, tone: 'success', icon: CreditCard, desc: 'Đơn hàng đã được thanh toán hoàn tất.' },
 };
 
 // Nền banner trạng thái — bám theo bảng tone của StatusBadge
@@ -75,9 +74,10 @@ function InfoField({ label, value, mono = false, icon, children }) {
                 {icon}
                 {label}
             </div>
-            <div className="mt-0.5 flex flex-1 items-start">
+            {/* flex-col: các dòng con (tên / mã, tên / email) xếp dọc — xếp ngang thì bị dính liền nhau */}
+            <div className="mt-0.5 flex min-w-0 flex-1 flex-col items-start gap-0.5">
                 {children ?? (
-                    <p className={`text-sm font-semibold text-bo-foreground ${mono ? "font-mono font-bold tracking-tight" : ""}`}>
+                    <p className={`max-w-full break-words text-sm font-semibold text-bo-foreground ${mono ? "font-mono font-bold tracking-tight" : ""}`}>
                         {value || "—"}
                     </p>
                 )}
@@ -92,20 +92,31 @@ export default function PurchaseOrderDetail() {
 
     const [orderData, setOrderData] = useState(null);
     const [loading, setLoading] = useState(true);
+    // null | { notFound: true } | { notFound: false, message }
+    const [loadError, setLoadError] = useState(null);
 
     const [userRoles, setUserRoles] = useState([]);
     const [loadingAuth, setLoadingAuth] = useState(true);
 
     const fetchOrderDetail = useCallback(async () => {
         setLoading(true);
+        setLoadError(null);
         try {
             const result = await apiClient.get(`/api/v1/don-mua-hang/get-by-id/${id}`);
             if (result && result.data?.data) {
                 setOrderData(result.data.data);
+            } else {
+                setOrderData(null);
+                setLoadError({ notFound: true });
             }
         } catch (error) {
             console.error('Error fetching PO detail:', error);
-            toast.error('Không thể tải chi tiết đơn mua hàng');
+            setOrderData(null);
+            // Máy chủ trả 400 "Không tìm thấy đơn mua hàng id: …" khi mã không tồn tại
+            const status = getApiErrorStatus(error);
+            setLoadError(status === 404 || status === 400
+                ? { notFound: true }
+                : { notFound: false, message: getApiErrorMessage(error, 'Không thể tải chi tiết đơn mua hàng') });
         } finally {
             setLoading(false);
         }
@@ -152,18 +163,27 @@ export default function PurchaseOrderDetail() {
         return (
             <PageContainer>
                 <SurfaceCard contentClassName="p-0 sm:p-0">
-                    <ErrorState
-                        title="Không tìm thấy đơn mua hàng"
-                        description="Đơn mua hàng không tồn tại hoặc đã bị xóa khỏi hệ thống."
-                    />
-                    <div className="flex justify-center pb-10">
-                        <Button
-                            onClick={() => navigate('/purchase-orders')}
-                            className="h-10 bg-bo-primary px-5 font-semibold text-white hover:bg-bo-primary-hover"
-                        >
-                            Quay lại danh sách
-                        </Button>
-                    </div>
+                    {loadError && !loadError.notFound ? (
+                        <ErrorState
+                            title="Không thể tải chi tiết đơn mua hàng"
+                            description={loadError.message}
+                            onRetry={() => fetchOrderDetail()}
+                        />
+                    ) : (
+                        <EmptyState
+                            icon={SearchX}
+                            title="Không tìm thấy đơn mua hàng"
+                            description="Đơn mua hàng không tồn tại hoặc đã bị xóa khỏi hệ thống."
+                            action={
+                                <Button
+                                    onClick={() => navigate('/purchase-orders')}
+                                    className="bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover"
+                                >
+                                    Quay lại danh sách
+                                </Button>
+                            }
+                        />
+                    )}
                 </SurfaceCard>
             </PageContainer>
         );
@@ -296,12 +316,10 @@ export default function PurchaseOrderDetail() {
                     {orderData.nhaCungCap ? (
                         <>
                             <InfoField label="Tên nhà cung cấp">
-                                <div className="font-semibold text-bo-foreground">{orderData.nhaCungCap.tenNhaCungCap}</div>
-                                <div className="mt-1">
-                                    <span className="inline-flex rounded border border-blue-200 bg-bo-primary-soft px-2 py-0.5 font-mono text-xs font-semibold text-bo-primary">
-                                        {orderData.nhaCungCap.maNhaCungCap}
-                                    </span>
-                                </div>
+                                <div className="max-w-full break-words font-semibold text-bo-foreground">{orderData.nhaCungCap.tenNhaCungCap}</div>
+                                {orderData.nhaCungCap.maNhaCungCap && (
+                                    <div className="font-mono text-xs text-bo-muted">{orderData.nhaCungCap.maNhaCungCap}</div>
+                                )}
                             </InfoField>
                             <div className="my-4 border-t border-bo-border" />
                             <div className="space-y-4">
@@ -322,13 +340,9 @@ export default function PurchaseOrderDetail() {
 
                 <SurfaceCard title="Kho tiếp nhận & phụ trách">
                     <InfoField label="Tên kho nhận hàng">
-                        <div className="font-semibold text-bo-foreground">{orderData.khoNhap?.tenKho || '—'}</div>
+                        <div className="max-w-full break-words font-semibold text-bo-foreground">{orderData.khoNhap?.tenKho || '—'}</div>
                         {orderData.khoNhap?.maKho && (
-                            <div className="mt-1">
-                                <span className="inline-flex rounded border border-orange-200 bg-bo-warning-soft px-2 py-0.5 font-mono text-xs font-semibold text-bo-warning">
-                                    {orderData.khoNhap.maKho}
-                                </span>
-                            </div>
+                            <div className="font-mono text-xs text-bo-muted">{orderData.khoNhap.maKho}</div>
                         )}
                     </InfoField>
                     <div className="my-4 border-t border-bo-border" />
@@ -337,8 +351,10 @@ export default function PurchaseOrderDetail() {
                             <span className="block text-sm leading-6 text-slate-700">{orderData.khoNhap?.diaChi || "—"}</span>
                         </InfoField>
                         <InfoField label="Người phụ trách tạo đơn" icon={<User className="size-3.5" />}>
-                            <div className="font-semibold text-bo-foreground">{orderData.nguoiTao?.hoTen || '—'}</div>
-                            <div className="mt-0.5 text-[13px] text-bo-muted">{orderData.nguoiTao?.email}</div>
+                            <div className="max-w-full break-words font-semibold text-bo-foreground">{orderData.nguoiTao?.hoTen || '—'}</div>
+                            {orderData.nguoiTao?.email && (
+                                <div className="max-w-full break-words text-[13px] text-bo-muted">{orderData.nguoiTao.email}</div>
+                            )}
                         </InfoField>
                     </div>
                 </SurfaceCard>

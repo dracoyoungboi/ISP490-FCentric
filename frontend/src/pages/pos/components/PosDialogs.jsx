@@ -20,6 +20,7 @@ import PayosLogo from '@/components/shared/PayosLogo';
 import PosModal from './PosModal';
 import { posService, toPosCustomer } from '@/services/posService';
 import { formatMoney } from '../pos-format';
+import { SCAN_HINT } from '../pos-scan';
 
 const primaryButton = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-bo-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-bo-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary disabled:cursor-not-allowed disabled:bg-slate-300';
 const secondaryButton = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-bo-border bg-bo-surface px-4 py-2 text-sm font-medium text-bo-foreground transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary disabled:cursor-not-allowed disabled:opacity-50';
@@ -32,16 +33,16 @@ const POS_SHORTCUTS = [
   { key: 'F3', label: 'Tìm kiếm hàng hóa' },
   { key: 'Enter', label: 'Trong ô tìm kiếm: thêm nhanh theo mã SKU / mã vạch (ưu tiên mã khớp đúng)' },
   { key: 'F4', label: 'Chọn khách hàng' },
-  { key: 'F8', label: 'Bật / tắt chế độ quét mã vạch (có âm báo)' },
+  { key: 'F8', label: 'Bật / tắt chế độ quét mã vạch', hint: SCAN_HINT },
   { key: 'F9', label: 'Mở thanh toán · trong màn thanh toán: xác nhận' },
   { key: '← →', label: 'Chuyển giữa các hóa đơn (khi đang chọn tab)' },
   { key: 'Esc', label: 'Đóng cửa sổ đang mở' },
 ];
 
-function FooterButtons({ onClose, onConfirm, confirmText = 'Xác nhận', cancelText = 'Đóng', disabled = false, destructive = false, busy = false }) {
+function FooterButtons({ onClose, onConfirm, confirmText = 'Xác nhận', cancelText = 'Đóng', disabled = false, destructive = false, busy = false, cancelAutoFocus = false }) {
   return (
     <div className="flex flex-col-reverse justify-end gap-2 sm:flex-row">
-      <button className={secondaryButton} onClick={onClose} type="button">{cancelText}</button>
+      <button autoFocus={cancelAutoFocus} className={secondaryButton} onClick={onClose} type="button">{cancelText}</button>
       <button className={destructive ? 'inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:cursor-not-allowed disabled:bg-slate-300' : primaryButton} disabled={disabled || busy} onClick={onConfirm} type="button">
         {busy ? 'Đang xử lý…' : confirmText}
       </button>
@@ -332,7 +333,7 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
             Chuyển từ <strong>{state.activeWarehouse?.tenKho || 'kho hiện tại'}</strong> sang <strong>{state.pendingWarehouse?.tenKho || 'kho mới'}</strong> sẽ xóa {count} sản phẩm trong hóa đơn {state.invoiceNumber}, để không bán nhầm tồn của kho khác. Các hóa đơn khác giữ nguyên.
           </p>
         </div>
-        <div className="mt-5"><FooterButtons cancelText="Giữ kho hiện tại" confirmText="Đổi kho và xóa giỏ" destructive onClose={actions.onCancelWarehouseChange} onConfirm={actions.onConfirmWarehouseChange} /></div>
+        <div className="mt-5"><FooterButtons cancelAutoFocus cancelText="Giữ kho hiện tại" confirmText="Đổi kho và xóa giỏ" destructive onClose={actions.onCancelWarehouseChange} onConfirm={actions.onConfirmWarehouseChange} /></div>
       </PosModal>
     );
   }
@@ -526,7 +527,7 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
     return (
       <PosModal description="Phím tắt dùng được khi màn POS đang mở." onClose={onClose} title="Phím tắt chức năng" size="sm">
         <ul className="divide-y divide-bo-border rounded-lg border border-bo-border">
-          {POS_SHORTCUTS.map((shortcut) => <li className="flex items-center justify-between gap-4 px-3 py-3" key={shortcut.key}><span className="text-sm text-bo-foreground">{shortcut.label}</span><kbd className="min-w-11 rounded-md border border-bo-border bg-slate-50 px-2 py-1 text-center text-xs font-semibold text-bo-muted">{shortcut.key}</kbd></li>)}
+          {POS_SHORTCUTS.map((shortcut) => <li className="flex items-center justify-between gap-4 px-3 py-3" key={shortcut.key}><span className="min-w-0 text-sm text-bo-foreground">{shortcut.label}{shortcut.hint ? <span className="mt-0.5 block text-xs leading-5 text-bo-muted">{shortcut.hint}</span> : null}</span><kbd className="min-w-11 rounded-md border border-bo-border bg-slate-50 px-2 py-1 text-center text-xs font-semibold text-bo-muted">{shortcut.key}</kbd></li>)}
         </ul>
       </PosModal>
     );

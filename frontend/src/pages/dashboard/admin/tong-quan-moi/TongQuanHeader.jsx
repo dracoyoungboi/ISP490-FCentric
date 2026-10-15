@@ -8,7 +8,7 @@ import { FOCUS, KHUNG, NHAN_KY, khoangKy, tenKhoDangXem } from "./boLoc";
  * Thanh lọc đầu trang Tổng quan. Bố cục kiểu Shopify, kiểu dáng theo hệ thống (token bo-*):
  * bên trái là nút chọn kho và nút chọn kỳ (bấm mở danh sách kèm khoảng ngày thật) cùng kỳ đem so sánh,
  * bên phải là ngày, giờ số liệu và nút cập nhật (SRS 11.1.1: nút Cập nhật + thời điểm cập nhật).
- * Không hiện khối tiêu đề vì tên trang đã có ở thanh trên cùng; thẻ h1 vẫn giữ cho trình đọc màn hình.
+ * Không hiện tiêu đề nhìn thấy (DASHBOARD là ownTitle trong BackofficeLayout); thẻ h1 vẫn giữ cho trình đọc màn hình.
  */
 export default function TongQuanHeader({ data, ky, setKy, khoId, setKhoId, dsKho, loading, refreshing, onReload }) {
   const k = khoangKy(ky, data?.thoiDiem);

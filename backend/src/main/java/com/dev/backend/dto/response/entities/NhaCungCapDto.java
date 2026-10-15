@@ -17,7 +17,11 @@ public class NhaCungCapDto {
     private String soDienThoai;
     private String email;
     private String diaChi;
-    private Integer trangThai;      // 0 = Ngừng, 1 = Hoạt động (theo DB)
+    /** Mã ngân hàng theo VietQR (mã BIN), dùng tạo mã QR khi thanh toán đơn mua. */
+    private String nganHang;
+    /** Số tài khoản nhận tiền của nhà cung cấp. */
+    private String soNganHang;
+    private Integer trangThai;      // 0 = Ngừng hoạt động, 1 = Hoạt động
     private Instant ngayTao;
     private Instant ngayCapNhat;
 }

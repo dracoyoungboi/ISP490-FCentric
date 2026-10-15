@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
+
 import java.util.List;
 
 @Repository
@@ -15,6 +17,8 @@ public interface TonKhoTongHopRepository extends JpaRepository<BienTheSanPham, I
     /**
      * Lấy thông tin tồn kho tổng hợp theo từng biến thể sản phẩm và kho.
      * Bao gồm cả những biến thể chưa có dữ liệu tồn kho (số lượng = 0).
+     * Chờ xuất (outgoing) = đặt − đã xuất thật của đơn bán đang giữ hàng (ITrangThaiDonBanHang.DANG_GIU_HANG),
+     * không tính báo giá; không dùng soLuongDaGiao (chỉ ghi khi giao thành công nên xuất một phần bị trừ hai lần).
      * * Điều kiện lọc:
      * - Sản phẩm cha đang hoạt động (trangThai IN (0, 1))
      * - Biến thể đang hoạt động (trangThai = 1)
@@ -42,15 +46,29 @@ public interface TonKhoTongHopRepository extends JpaRepository<BienTheSanPham, I
                   AND (ctdmh.soLuongDat - ctdmh.soLuongDaNhan) > 0
             ), 0
         )                                                              AS incoming,
+        (
         COALESCE(
             (
-                SELECT SUM(ctdbh.soLuongDat - ctdbh.soLuongDaGiao)
+                SELECT SUM(ctdbh.soLuongDat)
                 FROM ChiTietDonBanHang ctdbh
                 WHERE ctdbh.bienTheSanPham = bt
                   AND ctdbh.donBanHang.khoXuat = k
-                  AND ctdbh.donBanHang.trangThai IN (0, 1, 2) 
-                  AND (ctdbh.soLuongDat - ctdbh.soLuongDaGiao) > 0
+                  AND ctdbh.donBanHang.loaiChungTu = 'don_ban_hang'
+                  AND ctdbh.donBanHang.trangThai IN :trangThaiGiuHang
             ), 0
+        )
+        - COALESCE(
+            (
+                SELECT SUM(ctpx.soLuongXuat)
+                FROM ChiTietPhieuXuatKho ctpx
+                WHERE ctpx.bienTheSanPham = bt
+                  AND ctpx.loHang IS NOT NULL
+                  AND ctpx.phieuXuatKho.trangThai = 3
+                  AND ctpx.phieuXuatKho.donBanHang.khoXuat = k
+                  AND ctpx.phieuXuatKho.donBanHang.loaiChungTu = 'don_ban_hang'
+                  AND ctpx.phieuXuatKho.donBanHang.trangThai IN :trangThaiGiuHang
+            ), 0
+        )
         )                                                              AS outgoing,
         (
                 COALESCE(SUM(tkl.soLuongTon), 0)\s
@@ -64,15 +82,29 @@ public interface TonKhoTongHopRepository extends JpaRepository<BienTheSanPham, I
                           AND (ctdmh2.soLuongDat - ctdmh2.soLuongDaNhan) > 0
                     ), 0
                 )
-                - COALESCE(
-                    (
-                        SELECT SUM(ctdbh2.soLuongDat - ctdbh2.soLuongDaGiao)
-                        FROM ChiTietDonBanHang ctdbh2
-                        WHERE ctdbh2.bienTheSanPham = bt
-                          AND ctdbh2.donBanHang.khoXuat = k
-                          AND ctdbh2.donBanHang.trangThai IN (0, 1, 2)
-                          AND (ctdbh2.soLuongDat - ctdbh2.soLuongDaGiao) > 0
-                    ), 0
+                - (
+        COALESCE(
+            (
+                SELECT SUM(ctdbh2.soLuongDat)
+                FROM ChiTietDonBanHang ctdbh2
+                WHERE ctdbh2.bienTheSanPham = bt
+                  AND ctdbh2.donBanHang.khoXuat = k
+                  AND ctdbh2.donBanHang.loaiChungTu = 'don_ban_hang'
+                  AND ctdbh2.donBanHang.trangThai IN :trangThaiGiuHang
+            ), 0
+        )
+        - COALESCE(
+            (
+                SELECT SUM(ctpx2.soLuongXuat)
+                FROM ChiTietPhieuXuatKho ctpx2
+                WHERE ctpx2.bienTheSanPham = bt
+                  AND ctpx2.loHang IS NOT NULL
+                  AND ctpx2.phieuXuatKho.trangThai = 3
+                  AND ctpx2.phieuXuatKho.donBanHang.khoXuat = k
+                  AND ctpx2.phieuXuatKho.donBanHang.loaiChungTu = 'don_ban_hang'
+                  AND ctpx2.phieuXuatKho.donBanHang.trangThai IN :trangThaiGiuHang
+            ), 0
+        )
                 )
             )                                                              AS freeToUse,
         COALESCE(SUM(tkl.soLuongTon * lh.giaVon), 0)                   AS tongGiaTri
@@ -110,39 +142,66 @@ public interface TonKhoTongHopRepository extends JpaRepository<BienTheSanPham, I
     
     ORDER BY sp.maSanPham ASC, bt.maSku ASC, k.tenKho ASC
     """)
-    List<TonKhoProjection> findTonKhoTongHop(
+    List<TonKhoProjection> findTonKhoTongHopTheoTrangThai(
             @Param("khoId")   Integer khoId,
-            @Param("keyword") String  keyword
+            @Param("keyword") String  keyword,
+            @Param("trangThaiGiuHang") List<Integer> trangThaiGiuHang
     );
 
+    default List<TonKhoProjection> findTonKhoTongHop(Integer khoId, String keyword) {
+        return findTonKhoTongHopTheoTrangThai(khoId, keyword, ITrangThaiDonBanHang.DANG_GIU_HANG);
+    }
+
     /**
-     * Tính tổng tồn khả dụng (Free to Use = On-Hand toàn hệ thống - Outgoing các đơn chưa xuất)
-     * cho danh sách biến thể sản phẩm qua tất cả các kho đang hoạt động (k.trangThai = 1).
-     * Phục vụ đẩy tồn tự động chuẩn xác lên kênh bán hàng đa kênh (Shopify, Shopee, Lazada).
+     * Tồn khả dụng toàn chuỗi (Free to Use) đẩy lên sàn, không âm:
+     *   Σ (tồn − đang giữ) ở các kho bán được (đang hoạt động, không phải Kho Trung Chuyển)
+     *   − lượng chờ xuất (đặt − đã xuất thật) của MỌI đơn bán đang giữ hàng (không tính báo giá).
+     * "Đang giữ" (so_luong_da_dat) là hàng POS payOS / phiếu xuất chuyển kho đã giữ; đơn bán giữ hàng qua lượng chờ xuất
+     * nên không bị trừ hai lần.
      */
     @Query("""
         SELECT bt.id,
-               CAST(
+               CAST(GREATEST(
                    COALESCE(
-                       (SELECT SUM(tkl.soLuongTon)
+                       (SELECT SUM(tkl.soLuongKhaDung)
                         FROM TonKhoTheoLo tkl
                         JOIN tkl.kho k
                         WHERE tkl.loHang.bienTheSanPham = bt
-                          AND k.trangThai = 1), 0
+                          AND k.trangThai = 1
+                          AND k.maKho <> 'KHO_TRANSIT'), 0
                    )
                    -
                    COALESCE(
-                       (SELECT SUM(ctdbh.soLuongDat - ctdbh.soLuongDaGiao)
+                       (SELECT SUM(ctdbh.soLuongDat)
                         FROM ChiTietDonBanHang ctdbh
                         WHERE ctdbh.bienTheSanPham = bt
-                          AND ctdbh.donBanHang.trangThai IN (0, 1, 2)
-                          AND (ctdbh.soLuongDat - ctdbh.soLuongDaGiao) > 0), 0
+                          AND ctdbh.donBanHang.loaiChungTu = 'don_ban_hang'
+                          AND ctdbh.donBanHang.trangThai IN :trangThaiGiuHang), 0
                    )
-               AS BigDecimal)
+                   +
+                   COALESCE(
+                       (SELECT SUM(ctpx.soLuongXuat)
+                        FROM ChiTietPhieuXuatKho ctpx
+                        WHERE ctpx.bienTheSanPham = bt
+                          AND ctpx.loHang IS NOT NULL
+                          AND ctpx.phieuXuatKho.trangThai = 3
+                          AND ctpx.phieuXuatKho.donBanHang.loaiChungTu = 'don_ban_hang'
+                          AND ctpx.phieuXuatKho.donBanHang.trangThai IN :trangThaiGiuHang), 0
+                   ),
+                   0
+               ) AS BigDecimal)
         FROM BienTheSanPham bt
         WHERE bt.id IN :bienTheIds
     """)
-    List<Object[]> sumTongFreeToUseToanHeThongByBienTheIds(@Param("bienTheIds") List<Integer> bienTheIds);
+    List<Object[]> sumTongFreeToUseToanChuoi(
+            @Param("bienTheIds") List<Integer> bienTheIds,
+            @Param("trangThaiGiuHang") List<Integer> trangThaiGiuHang
+    );
+
+    /** Tồn khả dụng toàn chuỗi theo đơn bán đang giữ hàng chuẩn (giữ tên cũ cho các chỗ đẩy tồn sàn). */
+    default List<Object[]> sumTongFreeToUseToanHeThongByBienTheIds(List<Integer> bienTheIds) {
+        return sumTongFreeToUseToanChuoi(bienTheIds, ITrangThaiDonBanHang.DANG_GIU_HANG);
+    }
 
     /**
      * Overload tiện lợi: lấy tất cả kho, không lọc keyword.

@@ -1,29 +1,35 @@
-import { formatCurrency } from "@/utils/formatters";
-import { createElement, useCallback, useEffect, useState } from "react";
+import { formatCurrency, formatDate } from "@/utils/formatters";
+import { createElement, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import { donBanHangService } from "@/services/donBanHangService";
 import { donBanHangKenhService, isChannelOrderMock } from "@/services/donBanHangKenhService";
 import apiClient from "@/services/apiClient";
-import { getKhoList } from "@/services/khoService";
+import { laKhoAo } from "@/utils/kho";
 import { toast } from "sonner";
-import { getApiErrorMessage } from "@/utils/apiError";
+import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import {
   ArrowLeft, User, Home, Truck, Calculator,
   CheckCircle2, Calendar, Send, XCircle,
-  Receipt, Hash, MapPin, ArrowRightLeft, Undo2, AlertTriangle, Store
+  Receipt, Hash, MapPin, ArrowRightLeft, Undo2, AlertTriangle, Store, SearchX, PackageCheck, ClipboardList
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import ConfirmModal from "@/components/ui/confirm-modal";
 
 import PageContainer from "@/components/backoffice/PageContainer";
 import PageHeader from "@/components/backoffice/PageHeader";
 import LoadingState from "@/components/shared/LoadingState";
+import ErrorState from "@/components/shared/ErrorState";
+import EmptyState from "@/components/shared/EmptyState";
 import StatusBadge from "@/components/shared/StatusBadge";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import MockModeNotice from "@/components/shared/MockModeNotice";
 import ChannelOrderPanel from "@/components/channel/ChannelOrderPanel";
 import { parseFlags } from "@/constants/channel";
+import { DON_BAN_HANG_STATUS, getDonBanHangStatus } from "@/constants/donBanHang";
+import { getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
+import { TRANG_THAI_DON, TRANG_THAI_PHIEU_XUAT } from "@/constants/trangThaiXuatBan";
 
 // ── Constants & Helpers ──────────────────────────────────────────────────
 const ROLE = {
@@ -46,23 +52,26 @@ function parseRoles(vaiTro) {
     return vaiTro.includes(" ") ? vaiTro.split(" ") : [vaiTro];
 }
 
-// ── Trạng thái ────────────────────────────────────────────────────────────
-const STATUS_MAP = {
-  0: { label: "Nháp", tone: "warning" },
-  1: { label: "Chờ xuất kho", tone: "info" },
-  2: { label: "Đang xử lý xuất kho", tone: "info" },
-  3: { label: "Đã xuất kho", tone: "warning" },
-  4: { label: "Đã hủy", tone: "danger" },
-  5: { label: "Hoàn thành", tone: "success" },
-  6: { label: "Bị hoàn trả", tone: "danger" }
-};
+// ── Trạng thái: dùng chung tên với danh sách và hóa đơn in (constants/donBanHang) ──
+const STATUS_MAP = DON_BAN_HANG_STATUS;
+
+/** Phiếu nhặt chưa nhặt xong: phiếu xuất được tạo tự động khi hoàn tất nhặt, không tạo tay (khớp PhieuXuatKhoService.createFromSO). */
+const PHIEU_NHAT_CHUA_XONG = ["cho_nhat", "dang_nhat"];
+/** Đơn đã gom vào phiếu nhặt (kể cả đã nhặt xong) không hủy được (khớp DonBanHangService.cancel). */
+const PHIEU_NHAT_KHOA_HUY = ["cho_nhat", "dang_nhat", "da_nhat"];
 
 export default function DonBanHangDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+  const coDuLieuRef = useRef(false);
   const [userRoles, setUserRoles] = useState([]);
+
+  // Hộp xác nhận "Hủy đơn" / "Xác nhận đã giao": null | "huy" | "da-giao"
+  const [xacNhan, setXacNhan] = useState(null);
+  const [dangXuLy, setDangXuLy] = useState(false);
 
   // State quản lý hiển thị Modal hoàn trả
   const [showReturnModal, setShowReturnModal] = useState(false);
@@ -100,8 +109,17 @@ export default function DonBanHangDetail() {
 
   const fetchDetail = useCallback(async () => {
     setLoading(true);
-    try { const res = await donBanHangKenhService.getDetail(id); setData(res.data); }
-    catch { toast.error("Không tải được chi tiết đơn bán"); }
+    setLoadError(null);
+    try {
+      const res = await donBanHangKenhService.getDetail(id);
+      setData(res.data);
+      coDuLieuRef.current = true;
+    }
+    catch (error) {
+      setLoadError(error);
+      // Đang xem đơn mà tải lại lỗi (sau một thao tác): giữ nguyên màn, chỉ báo lỗi
+      if (coDuLieuRef.current) toast.error(getApiErrorMessage(error, "Không tải được chi tiết đơn bán"));
+    }
     finally { setLoading(false); }
   }, [id]);
 
@@ -111,15 +129,17 @@ export default function DonBanHangDetail() {
     queueMicrotask(() => fetchDetail());
   }, [fetchDetail]);
 
+  // Chỉ chạy sau khi người dùng đồng ý ở hộp xác nhận
   async function handleMarkAsDelivered() {
+    if (dangXuLy) return;
     try {
-      setLoading(true);
+      setDangXuLy(true);
       await donBanHangKenhService.markAsDelivered(id);
       toast.success("Đã xác nhận giao hàng thành công.");
       fetchDetail();
     }
-    catch { toast.error("Không thể xác nhận giao hàng"); }
-    finally { setLoading(false); }
+    catch (error) { toast.error(getApiErrorMessage(error, "Không thể xác nhận giao hàng")); }
+    finally { setDangXuLy(false); setXacNhan(null); }
   }
 
   const handleOpenSendWarehouseModal = async () => {
@@ -128,7 +148,8 @@ export default function DonBanHangDetail() {
     try {
       // Truy vấn tồn khả dụng thực tế của từng kho cho đơn hàng này
       const list = await donBanHangService.getKhoKhaDung(id);
-      const activeList = Array.isArray(list) ? list : [];
+      // Backend đã bỏ Kho Trung Chuyển; lọc thêm ở đây để modal không bao giờ gợi ý kho ảo
+      const activeList = (Array.isArray(list) ? list : []).filter((kho) => !laKhoAo(kho));
       setWarehouses(activeList);
 
       const currentKhoId = data?.donBanHang?.khoXuat?.id;
@@ -165,10 +186,12 @@ export default function DonBanHangDetail() {
     }
   }
 
+  // Chỉ chạy sau khi người dùng đồng ý ở hộp xác nhận
   async function handleCancel() {
-    try { setLoading(true); await donBanHangService.cancel(id); toast.success("Đã hủy đơn bán"); fetchDetail(); }
+    if (dangXuLy) return;
+    try { setDangXuLy(true); await donBanHangService.cancel(id); toast.success("Đã hủy đơn bán"); fetchDetail(); }
     catch (error) { toast.error(getApiErrorMessage(error, "Không thể hủy đơn")); }
-    finally { setLoading(false); }
+    finally { setDangXuLy(false); setXacNhan(null); }
   }
 
   // Mở modal hoàn trả
@@ -191,20 +214,59 @@ export default function DonBanHangDetail() {
     }
   }
 
-  if (loading && !data) {
+  if (!data) {
+    if (!loadError) {
+      return (
+        <PageContainer>
+          <SurfaceCard>
+            <LoadingState rows={4} label="Đang tải chi tiết đơn hàng" />
+          </SurfaceCard>
+        </PageContainer>
+      );
+    }
+
+    // Không tìm thấy đơn (404) thì mời quay lại danh sách; lỗi khác cho phép thử lại
+    const khongTimThay = getApiErrorStatus(loadError) === 404;
     return (
-      <PageContainer>
-        <SurfaceCard>
-          <LoadingState rows={4} label="Đang tải chi tiết đơn hàng" />
+      <PageContainer className="space-y-3">
+        <button
+          type="button"
+          onClick={() => navigate("/sales-orders")}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-bo-primary transition-colors hover:text-bo-primary-hover"
+        >
+          <ArrowLeft className="size-4" />
+          Quay lại danh sách
+        </button>
+        <SurfaceCard contentClassName="p-0 sm:p-0">
+          {khongTimThay ? (
+            <EmptyState
+              icon={SearchX}
+              title="Không tìm thấy đơn bán"
+              description="Đơn bán không tồn tại hoặc đã bị xóa khỏi hệ thống."
+              action={
+                <Button
+                  onClick={() => navigate("/sales-orders")}
+                  className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                >
+                  Về danh sách đơn bán
+                </Button>
+              }
+            />
+          ) : (
+            <ErrorState
+              title="Không tải được chi tiết đơn bán"
+              description={getApiErrorMessage(loadError, "Đã xảy ra lỗi khi tải đơn bán. Vui lòng thử lại.")}
+              onRetry={fetchDetail}
+            />
+          )}
         </SurfaceCard>
       </PageContainer>
     );
   }
 
-  if (!data) return null;
-
-  const { donBanHang, chiTiet, phieuXuatKhoList } = data;
-  const st = STATUS_MAP[donBanHang.trangThai] ?? STATUS_MAP[0];
+  const { donBanHang, chiTiet, phieuXuatKhoList, maPickList, trangThaiPhieuNhat } = data;
+  // Mã lạ hiện rõ mã, không mượn tên "Nháp"
+  const st = getDonBanHangStatus(donBanHang.trangThai);
 
   // Kiểm tra xem đơn hàng đã xuất đủ số lượng chưa
   const isFullyExported = chiTiet.every(item => item.soLuongDaGiao >= item.soLuongDat);
@@ -215,15 +277,25 @@ export default function DonBanHangDetail() {
   const maKenh = donBanHang.kenhBanHang?.maKenh;
   const orderFlags = parseFlags(donBanHang.canXuLy);
   const canSendToWarehouse = donBanHang.trangThai === 0 && !isChannelOrder;
-  const canCancel = donBanHang.trangThai < 3 && !isChannelOrder;
+  const phieuNhatChuaXong = PHIEU_NHAT_CHUA_XONG.includes(trangThaiPhieuNhat);
+  // Đơn đã có phiếu xuất hoàn thành (vd. đã xuất một phần) thì backend không cho hủy
+  const coPhieuDaXuat = (phieuXuatKhoList ?? []).some((px) => px.trangThai === TRANG_THAI_PHIEU_XUAT.DA_XUAT);
+  const canCancel = donBanHang.trangThai < 3 && !isChannelOrder
+    && !PHIEU_NHAT_KHOA_HUY.includes(trangThaiPhieuNhat) && !coPhieuDaXuat;
+  // Kho (và quản trị viên) đóng gói / xuất kho ngay trên màn đơn
+  const canWarehouseAct = isKhoRole || userRoles.includes(ROLE.QUAN_TRI_VIEN);
+  const phieuChoXuat = (phieuXuatKhoList ?? []).find((px) => px.trangThai === TRANG_THAI_PHIEU_XUAT.CHO_XUAT);
   const canReturn = (donBanHang.trangThai === 2 || donBanHang.trangThai === 3) && (!isChannelOrder || orderFlags.includes("HOAN_HANG"));
   const canMarkDelivered = donBanHang.trangThai === 3 && (!isChannelOrder || maKenh === "SHOPIFY");
 
   const infoRows = [
     { icon: User,     label: "Khách hàng",        value: donBanHang.khachHang?.tenKhachHang },
     { icon: Home,     label: "Kho xuất",          value: donBanHang.khoXuat?.tenKho || "Chưa xác định" },
-    { icon: Calendar, label: "Ngày đặt",          value: new Date(donBanHang.ngayDatHang).toLocaleDateString("vi-VN", { day: "2-digit", month: "long", year: "numeric" }) },
+    { icon: Calendar, label: "Ngày đặt",          value: formatDate(donBanHang.ngayDatHang) },
     { icon: MapPin,   label: "Địa chỉ nhận hàng", value: donBanHang.diaChiGiaoHang || "—" },
+    ...(maPickList
+      ? [{ icon: ClipboardList, label: "Phiếu nhặt hàng", value: maPickList }]
+      : []),
     ...(donBanHang.kenhBanHang
       ? [{
           icon: Store,
@@ -275,8 +347,8 @@ export default function DonBanHangDetail() {
               {canCancel && (
                 <Button
                   variant="outline"
-                  onClick={handleCancel}
-                  disabled={loading}
+                  onClick={() => setXacNhan("huy")}
+                  disabled={loading || dangXuLy}
                   className="gap-1.5 border-bo-danger/40 bg-white text-bo-danger hover:bg-bo-danger-soft hover:text-bo-danger"
                 >
                   <XCircle className="size-4" /> Hủy đơn
@@ -296,8 +368,8 @@ export default function DonBanHangDetail() {
 
               {canMarkDelivered && (
                 <Button
-                  onClick={handleMarkAsDelivered}
-                  disabled={loading}
+                  onClick={() => setXacNhan("da-giao")}
+                  disabled={loading || dangXuLy}
                   className="gap-1.5 bg-bo-success text-white hover:bg-bo-success/90"
                 >
                   <CheckCircle2 className="size-4" /> Xác nhận đã giao
@@ -315,8 +387,26 @@ export default function DonBanHangDetail() {
             </>
           )}
 
-          {/* Nút Tạo Phiếu Xuất Kho cho role KHO */}
-          {isKhoRole && (donBanHang.trangThai === 1 || donBanHang.trangThai === 2) && (
+          {/* Đóng gói (Scan-to-Pack) và xuất kho — kho và quản trị viên */}
+          {canWarehouseAct && donBanHang.trangThai === TRANG_THAI_DON.CHO_DONG_GOI && (
+            <Button
+              onClick={() => navigate(`/goods-issues/packing/${id}`)}
+              className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
+            >
+              <PackageCheck className="size-4" /> Tiến hành đóng gói
+            </Button>
+          )}
+          {canWarehouseAct && donBanHang.trangThai === TRANG_THAI_DON.DA_DONG_GOI && phieuChoXuat && (
+            <Button
+              onClick={() => navigate(`/goods-issues/${phieuChoXuat.id}`)}
+              className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
+            >
+              <Truck className="size-4" /> Xuất kho
+            </Button>
+          )}
+
+          {/* Nút Tạo Phiếu Xuất Kho cho role KHO (đơn không nằm trong phiếu nhặt đang chạy) */}
+          {isKhoRole && (donBanHang.trangThai === 1 || donBanHang.trangThai === 2) && !phieuNhatChuaXong && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -477,7 +567,8 @@ export default function DonBanHangDetail() {
                   </thead>
                   <tbody className="divide-y divide-bo-border">
                     {phieuXuatKhoList.map((px) => {
-                      const pxSt = STATUS_MAP[px.trangThai];
+                      // Phiếu xuất dùng nhãn của phiếu xuất (trước đây lấy nhầm nhãn của đơn bán hàng)
+                      const pxSt = getPhieuXuatKhoStatus(px.trangThai);
                       return (
                         <tr
                           key={px.id}
@@ -488,7 +579,7 @@ export default function DonBanHangDetail() {
                             <span className="font-mono font-semibold text-bo-primary">{px.soPhieuXuat}</span>
                           </td>
                           <td className="px-3 py-3 text-sm text-bo-muted">
-                            {new Date(px.ngayXuat).toLocaleDateString("vi-VN")}
+                            {px.ngayXuat ? formatDate(px.ngayXuat) : "Chưa xuất"}
                           </td>
                           <td className="px-3 py-3">
                             {pxSt && (
@@ -508,6 +599,41 @@ export default function DonBanHangDetail() {
           )}
         </div>
       </div>
+
+      {/* ── Hộp xác nhận Hủy đơn / Xác nhận đã giao ── */}
+      <ConfirmModal
+        isOpen={xacNhan === "huy"}
+        onClose={() => { if (!dangXuLy) setXacNhan(null); }}
+        onConfirm={handleCancel}
+        variant="danger"
+        title={`Hủy đơn bán ${donBanHang.soDonHang}?`}
+        description={
+          <>
+            Đơn sẽ chuyển sang trạng thái <strong className="font-semibold text-bo-danger">{STATUS_MAP[4].label}</strong> và
+            không thể hoàn tác. Hàng đang giữ cho đơn được trả lại tồn khả dụng; phiếu xuất kho nháp của đơn (nếu có) bị thu hồi.
+          </>
+        }
+        confirmText="Hủy đơn"
+        cancelText="Giữ đơn"
+        isLoading={dangXuLy}
+      />
+      <ConfirmModal
+        isOpen={xacNhan === "da-giao"}
+        onClose={() => { if (!dangXuLy) setXacNhan(null); }}
+        onConfirm={handleMarkAsDelivered}
+        variant="success"
+        title={`Xác nhận đơn ${donBanHang.soDonHang} đã giao?`}
+        description={
+          <>
+            Chỉ xác nhận khi khách đã nhận đủ hàng. Đơn sẽ chuyển sang trạng thái{" "}
+            <strong className="font-semibold text-bo-success">{STATUS_MAP[5].label}</strong>, số lượng đã giao được ghi bằng
+            số lượng đặt và không thể hoàn tác.
+          </>
+        }
+        confirmText="Xác nhận đã giao"
+        cancelText="Hủy bỏ"
+        isLoading={dangXuLy}
+      />
 
       {/* ── Modal Xác Nhận Hoàn Trả ── */}
       {showReturnModal && createPortal(
@@ -707,7 +833,7 @@ export default function DonBanHangDetail() {
               })()}
 
               <p className="text-[11px] text-bo-muted">
-                Đơn hàng sau khi gửi sẽ chuyển sang trạng thái <strong>Chờ xuất kho</strong> và xuất hiện trong màn hình gom nhặt hàng của kho này.
+                Đơn hàng sau khi gửi sẽ chuyển sang trạng thái <strong>Chờ nhặt hàng</strong> và xuất hiện trong màn hình gom nhặt hàng của kho này.
               </p>
             </div>
 

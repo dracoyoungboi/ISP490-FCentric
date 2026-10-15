@@ -1,34 +1,23 @@
 import { cn } from "@/lib/utils";
+import PageHeading from "@/components/backoffice/PageHeading";
+import { useClaimPageTitle } from "@/components/backoffice/pageTitle";
 
-export default function PageHeader({
-  title,
-  description,
-  eyebrow,
-  actions,
-  className,
-}) {
+/**
+ * Hàng tiêu đề của trang chi tiết / tạo mới / cấu hình: tiêu đề trái, thao tác phải.
+ * Không còn dòng mô tả và dòng nhãn nhỏ phía trên tiêu đề (quyết định 14/10/2026);
+ * nơi gọi vẫn truyền `description` / `eyebrow` được nhưng hai prop này bị bỏ qua.
+ */
+export default function PageHeader({ title, actions, className }) {
+  useClaimPageTitle(true);
+
   return (
     <div
       className={cn(
-        "mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between",
+        "mb-5 flex min-h-9 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between",
         className,
       )}
     >
-      <div className="min-w-0">
-        {eyebrow ? (
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-bo-primary">
-            {eyebrow}
-          </p>
-        ) : null}
-        <h1 className="text-xl font-bold tracking-tight text-bo-foreground sm:text-2xl">
-          {title}
-        </h1>
-        {description ? (
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-bo-muted">
-            {description}
-          </p>
-        ) : null}
-      </div>
+      <PageHeading>{title}</PageHeading>
 
       {actions ? (
         <div className="flex shrink-0 flex-wrap items-center gap-2">

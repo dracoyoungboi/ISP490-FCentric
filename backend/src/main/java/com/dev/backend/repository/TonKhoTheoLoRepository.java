@@ -28,6 +28,15 @@ public interface TonKhoTheoLoRepository extends JpaRepository<TonKhoTheoLo, Inte
     // FIX: Thêm method tìm chi tiết kiểm kê theo phiếu (dùng trong ChiTietKiemKeRepository nếu cần)
     // (giữ nguyên các method cũ bên dưới)
 
+    /** Tổng số lượng tồn (mọi lô) của từng kho — cột "Tồn kho" ở danh sách kho. Trả về [khoId, tổng]. */
+    @Query("""
+        SELECT tk.kho.id, COALESCE(SUM(tk.soLuongTon), 0)
+        FROM TonKhoTheoLo tk
+        WHERE tk.kho.id IN :khoIds
+        GROUP BY tk.kho.id
+    """)
+    List<Object[]> sumSoLuongTonTheoKho(@Param("khoIds") List<Integer> khoIds);
+
     @Query("""
         SELECT tk.loHang.bienTheSanPham.id, COALESCE(SUM(tk.soLuongKhaDung), 0)
         FROM TonKhoTheoLo tk
@@ -36,13 +45,17 @@ public interface TonKhoTheoLoRepository extends JpaRepository<TonKhoTheoLo, Inte
     """)
     List<Object[]> sumSoLuongKhaDungByKhoAndBienTheIds(@Param("khoId") Integer khoId, @Param("bienTheIds") List<Integer> bienTheIds);
 
+    /**
+     * Tồn khả dụng theo lô (tồn − đang giữ cho POS / chuyển kho) gom theo (biến thể, kho), chỉ kho bán được:
+     * đang hoạt động và không phải Kho Trung Chuyển (hàng đang chuyển chưa bán được).
+     */
     @Query("""
-        SELECT tk.loHang.bienTheSanPham.id, tk.kho.id, COALESCE(SUM(tk.soLuongTon), 0)
+        SELECT tk.loHang.bienTheSanPham.id, tk.kho.id, COALESCE(SUM(tk.soLuongKhaDung), 0)
         FROM TonKhoTheoLo tk
-        WHERE tk.kho.trangThai = 1 AND tk.loHang.bienTheSanPham.id IN :bienTheIds
+        WHERE tk.kho.trangThai = 1 AND tk.kho.maKho <> 'KHO_TRANSIT' AND tk.loHang.bienTheSanPham.id IN :bienTheIds
         GROUP BY tk.loHang.bienTheSanPham.id, tk.kho.id
     """)
-    List<Object[]> sumOnHandByKhoAndBienTheIds(@Param("bienTheIds") List<Integer> bienTheIds);
+    List<Object[]> sumKhaDungLoTheoKhoBan(@Param("bienTheIds") List<Integer> bienTheIds);
 
     @Query("""
         select count(t)

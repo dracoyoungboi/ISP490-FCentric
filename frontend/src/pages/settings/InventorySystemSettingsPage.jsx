@@ -23,11 +23,13 @@ const SETTING_GROUPS = [
 ];
 
 export default function InventorySystemSettingsPage() {
-  // Cả GET và PUT trong controller đều yêu cầu quan_tri_vien.
-  const hasPermission = (localStorage.getItem("role") || "").split(/\s+/).includes("quan_tri_vien");
+  // GET cho quản trị viên và quản lý kho (chỉ xem); PUT chỉ quản trị viên.
+  const vaiTro = (localStorage.getItem("role") || "").split(/\s+/);
+  const hasPermission = vaiTro.includes("quan_tri_vien");
+  const canView = hasPermission || vaiTro.includes("quan_ly_kho");
   const [loaded, setLoaded] = useState(null);
   const [values, setValues] = useState(createEmptyInventoryValues);
-  const [status, setStatus] = useState(hasPermission ? "loading" : "idle");
+  const [status, setStatus] = useState(canView ? "loading" : "idle");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [stockTooltipOpen, setStockTooltipOpen] = useState(false);
@@ -36,7 +38,7 @@ export default function InventorySystemSettingsPage() {
   const mountedRef = useRef(false);
 
   const loadSettings = useCallback(async () => {
-    if (!hasPermission) return;
+    if (!canView) return;
     requestRef.current?.abort();
     const controller = new AbortController();
     requestRef.current = controller;
@@ -53,7 +55,7 @@ export default function InventorySystemSettingsPage() {
     } catch {
       if (!controller.signal.aborted) setStatus("error");
     }
-  }, [hasPermission]);
+  }, [canView]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -153,7 +155,8 @@ export default function InventorySystemSettingsPage() {
         <AlertCircle /><AlertTitle>Không thể tải cài đặt.</AlertTitle>
         <AlertDescription className="text-bo-danger"><p>Thử lại để lấy cài đặt mới nhất.</p><Button type="button" variant="outline" onClick={loadSettings} className="mt-2 border-bo-danger/20 bg-white text-bo-danger hover:bg-bo-danger-soft"><RefreshCcw className="size-4" />Thử lại</Button></AlertDescription>
       </Alert>}
-      {!hasPermission && <Alert className="border-bo-border bg-bo-surface-subtle text-bo-muted"><LockKeyhole /><AlertTitle>Bạn không có quyền truy cập cài đặt này.</AlertTitle><AlertDescription>Vui lòng liên hệ Quản trị viên để được hỗ trợ.</AlertDescription></Alert>}
+      {!canView && <Alert className="border-bo-border bg-bo-surface-subtle text-bo-muted"><LockKeyhole /><AlertTitle>Bạn không có quyền truy cập cài đặt này.</AlertTitle><AlertDescription>Vui lòng liên hệ Quản trị viên để được hỗ trợ.</AlertDescription></Alert>}
+      {canView && !hasPermission && <Alert className="border-bo-border bg-bo-surface-subtle text-bo-muted"><LockKeyhole /><AlertTitle>Bạn chỉ có quyền xem cài đặt này.</AlertTitle><AlertDescription>Vui lòng liên hệ Quản trị viên nếu cần thay đổi.</AlertDescription></Alert>}
       <form id="inventory-settings-form" noValidate onSubmit={saveSettings} aria-busy={status === "loading" || saving} className="space-y-5">
         <SurfaceCard contentClassName="inventory-settings-layout p-0 sm:p-0">
           <div className="inventory-settings-rail bg-bo-sidebar text-white">

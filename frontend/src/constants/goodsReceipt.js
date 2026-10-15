@@ -1,3 +1,5 @@
+import { trangThaiLa } from "@/constants/trangThaiChung";
+
 /**
  * Trạng thái PHIẾU NHẬP KHO — nguồn DUY NHẤT cho danh sách, chi tiết và bản in
  * (trước đây mỗi trang tự khai báo nên cùng một phiếu hiện "Nháp" ở danh sách,
@@ -21,8 +23,19 @@ export const GOODS_RECEIPT_STATUS = {
 /** Trạng thái dùng cho bộ lọc danh sách — chỉ các trạng thái có thật. */
 export const GOODS_RECEIPT_FILTER_STATUSES = [0, 3, 4];
 
+/**
+ * Tab của trang danh sách phiếu nhập kho (bố cục A+G) — cùng các trạng thái của bộ lọc ở trên,
+ * nhãn lấy từ GOODS_RECEIPT_STATUS. `ma` là giá trị trên đường dẫn `?trangThai=`.
+ */
+export const GOODS_RECEIPT_TABS = [
+    { ma: "tat-ca", label: "Tất cả", trangThai: null },
+    { ma: "cho-nhap-kho", label: GOODS_RECEIPT_STATUS[0].label, trangThai: 0 },
+    { ma: "da-nhap-kho", label: GOODS_RECEIPT_STATUS[3].label, trangThai: 3 },
+    { ma: "da-huy", label: GOODS_RECEIPT_STATUS[4].label, trangThai: 4 },
+];
+
 export function getGoodsReceiptStatus(trangThai) {
-    return GOODS_RECEIPT_STATUS[trangThai] ?? { label: "Không xác định", tone: "neutral" };
+    return GOODS_RECEIPT_STATUS[trangThai] ?? trangThaiLa(trangThai);
 }
 
 /**
