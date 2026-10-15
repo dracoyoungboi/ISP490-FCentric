@@ -1043,7 +1043,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 List<AnhQuanAo> prodImages = anhQuanAoRepository.findActiveByQuanAoIds(List.of(sp.getId()));
                 if (!prodImages.isEmpty()) {
                     AnhQuanAo mainImg = prodImages.stream()
-                            .filter(a -> Boolean.TRUE.equals(a.getAnhChinh()))
+                            .filter(a -> Integer.valueOf(1).equals(a.getAnhChinh()))
                             .findFirst()
                             .orElse(prodImages.get(0));
 

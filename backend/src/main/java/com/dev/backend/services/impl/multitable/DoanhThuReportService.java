@@ -3,7 +3,6 @@ package com.dev.backend.services.impl.multitable;
 import com.dev.backend.dto.response.DoanhThuChartDTO;
 import com.dev.backend.repository.DoanhThuReportRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -15,7 +14,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DoanhThuReportService {
 
-    @Autowired
     private final DoanhThuReportRepository repo;
 
     public List<DoanhThuChartDTO> layBaoCaoTheoNgay(LocalDate tuNgay, LocalDate denNgay, Integer khoId) {

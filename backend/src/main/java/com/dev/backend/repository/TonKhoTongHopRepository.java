@@ -71,7 +71,7 @@ public interface TonKhoTongHopRepository extends JpaRepository<BienTheSanPham, I
         )
         )                                                              AS outgoing,
         (
-                COALESCE(SUM(tkl.soLuongTon), 0)\s
+                COALESCE(SUM(tkl.soLuongTon), 0)
                 + COALESCE(
                     (
                         SELECT SUM(ctdmh2.soLuongDat - ctdmh2.soLuongDaNhan)
