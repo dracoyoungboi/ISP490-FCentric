@@ -56,7 +56,7 @@ class OmnichannelOrderSyncJobTest {
                 khoRepository,
                 nhatHangService,
                 phieuXuatKhoRepository,
-                dieuHanhHeThongService
+                dieuHanhHeThongService,
                 donBanHangService
         );
         when(donBanHangRepository.save(any(DonBanHang.class))).thenAnswer(inv -> inv.getArgument(0));
