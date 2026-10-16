@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ThanhMuc } from "@/components/nhap-kho/ThanhBuoc";
+import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { mucDay, nhomTrangThaiKe, toneMucDay } from "@/constants/nhapKho";
 import { cn } from "@/lib/utils";
 import { NUT_CHINH, NUT_PHU, TAB_TRANG_THAI_KE, dinhDangSo, soSanhViTri } from "./kieuNhap";
@@ -41,8 +42,6 @@ const khopTab = (viTri, tab) => {
 const O_CHON = "border-slate-300 data-[state=checked]:border-bo-primary data-[state=checked]:bg-bo-primary data-[state=checked]:text-white data-[state=indeterminate]:border-bo-primary data-[state=indeterminate]:bg-bo-primary data-[state=indeterminate]:text-white";
 const MENU = "backoffice-user-menu z-50 min-w-[180px] rounded-lg border border-bo-border bg-white p-1 shadow-lg";
 const MUC_MENU = "flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
-// Riêng trang này mặc định 10 dòng (các trang khác dùng SO_DONG_MAC_DINH = 20): bảng gọn trong một màn hình
-const SO_DONG_MAC_DINH_VI_TRI = 10;
 
 /**
  * Vị trí kệ — PA1 "Danh sách theo khu" (màn chính FO-094).
@@ -72,7 +71,7 @@ export default function DanhSachViTri({
 }) {
   const [tuKhoa, setTuKhoa] = useState("");
   const [trang, setTrang] = useState(0);
-  const [soDong, setSoDong] = useState(SO_DONG_MAC_DINH_VI_TRI);
+  const [soDong, setSoDong] = useState(SO_DONG_MAC_DINH);
   const [chonIds, setChonIds] = useState(() => new Set());
 
   const tenKhu = useMemo(() => new Map(khuVucs.map((k) => [k.id, k.tenKhuVuc])), [khuVucs]);
@@ -161,14 +160,15 @@ export default function DanhSachViTri({
   }
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-[264px_minmax(0,1fr)]">
-      {/* Khu vực: cao theo số khu, dính khi cuộn bảng dài */}
-      <section aria-label="Khu vực" className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm lg:sticky lg:top-4">
-        <div className="flex items-center justify-between gap-2 border-b border-bo-border px-4 py-3">
+    // bo-fill-grid: khung bảng giãn tới đáy màn, thân bảng tự cuộn, phân trang luôn ở đáy (như các trang danh sách khác)
+    <div className="bo-fill-grid grid items-start gap-4 lg:grid-cols-[264px_minmax(0,1fr)]">
+      {/* Khu vực: cao theo số khu; nhiều khu quá chiều cao màn thì danh sách khu tự cuộn */}
+      <section aria-label="Khu vực" className="flex flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm lg:max-h-full">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-bo-border px-4 py-3">
           <h2 className="text-sm font-semibold text-bo-heading">Khu vực</h2>
           <span className="text-xs text-bo-muted">{khuVucs.length} khu</span>
         </div>
-        <nav className="flex flex-col gap-0.5 p-2">
+        <nav className="flex min-h-0 flex-col gap-0.5 overflow-y-auto p-2">
           {[{ id: null, tenKhuVuc: "Tất cả khu vực", so: viTris.length }, ...khuVucs.map((k) => ({ ...k, so: soTheoKhu.get(k.id) ?? 0 }))].map((k) => {
             const chon = (khuId ?? null) === k.id;
             return (
@@ -222,7 +222,7 @@ export default function DanhSachViTri({
             );
           })}
         </nav>
-        <div className="border-t border-bo-border p-3">
+        <div className="shrink-0 border-t border-bo-border p-3">
           <Button variant="outline" onClick={() => onXemTrenMatBang({ khuVucId: khuId ?? null })} className={cn("h-9 w-full gap-1.5", NUT_PHU)}>
             <MapIcon className="size-4" />
             {khuId ? "Xem khu trên mặt bằng" : "Xem mặt bằng kho"}
@@ -231,6 +231,7 @@ export default function DanhSachViTri({
       </section>
 
       <TableShell
+        fill
         toolbar={
           <>
             <ListToolbar
@@ -310,7 +311,7 @@ export default function DanhSachViTri({
       >
         {dongTrang.length ? (
           <table className="w-full min-w-[860px] text-sm">
-            <thead>
+            <thead className="sticky top-0 z-10">
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
                 <th className="h-10 w-11 px-3 text-center">
                   <Checkbox
@@ -346,15 +347,15 @@ export default function DanhSachViTri({
                     onClick={() => onMoSoDo(v)}
                     className={cn("cursor-pointer transition-colors", dangChon ? "bg-bo-primary-soft/60" : "hover:bg-bo-surface-subtle")}
                   >
-                    <td className="px-3 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-3 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                       <Checkbox aria-label={`Chọn vị trí ${v.maViTri}`} checked={dangChon} onCheckedChange={() => doiChon(v.id)} className={O_CHON} />
                     </td>
-                    <td className="whitespace-nowrap px-3 py-2 font-mono text-[13px] font-semibold leading-5 text-bo-heading">{v.maViTri}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-bo-foreground">{tenKhu.get(v.khuVucId) ?? "—"}</td>
-                    <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-600">
+                    <td className="whitespace-nowrap px-3 py-3 font-mono text-[13px] font-semibold leading-5 text-bo-heading">{v.maViTri}</td>
+                    <td className="whitespace-nowrap px-3 py-3 text-bo-foreground">{tenKhu.get(v.khuVucId) ?? "—"}</td>
+                    <td className="whitespace-nowrap px-3 py-3 tabular-nums text-slate-600">
                       {v.day} · {v.hang} · {v.tang}
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-3">
                       {nhom.ma === "BAO_TRI" ? (
                         <span className="text-[13px] text-bo-muted">Không nhận hàng · sức chứa {dinhDangSo(v.sucChua)}</span>
                       ) : (
@@ -366,10 +367,10 @@ export default function DanhSachViTri({
                         </div>
                       )}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-2">
+                    <td className="whitespace-nowrap px-3 py-3">
                       <StatusBadge label={nhom.label} tone={nhom.tone} />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-3">
                       <RowActions>
                         <RowActionButton icon={MapPin} label="Xem trên mặt bằng" onClick={() => onXemTrenMatBang({ viTriId: v.id })} />
                         {coTheSua ? (

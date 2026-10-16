@@ -382,4 +382,21 @@
 	.bo-table-fill > .bo-table-body > :only-child:not(table) {
 		flex: 1 1 auto;
 	}
+	/* Lớp bọc dạng lưới (VD cột lọc bên trái + khung bảng): khung bảng là ô cuối, giãn hết hàng của nó */
+	.bo-page-fill > .bo-fill-grid {
+		flex: 1 1 auto;
+		grid-template-rows: auto minmax(360px, 1fr);
+		min-height: 0;
+	}
+	.bo-fill-grid > .bo-table-fill {
+		display: flex;
+		flex-direction: column;
+		align-self: stretch;
+		min-height: 0;
+	}
+}
+@media (min-width: 1024px) and (min-height: 600px) {
+	.bo-page-fill > .bo-fill-grid {
+		grid-template-rows: minmax(360px, 1fr);
+	}
 }
