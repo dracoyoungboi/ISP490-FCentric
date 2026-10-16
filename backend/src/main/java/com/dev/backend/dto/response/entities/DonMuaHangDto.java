@@ -21,6 +21,8 @@ import java.util.List;
 public class DonMuaHangDto implements Serializable {
     Integer id;
     String soDonMua;
+    // Yêu cầu nhập hàng gốc (rút gọn). Trước đây DTO thiếu trường này nên ô "Yêu cầu mua hàng gốc" luôn trống.
+    YeuCauMuaHangRutGonDto yeuCauMuaHang;
     NhaCungCapDto nhaCungCap;
     KhoDto khoNhap;
     Instant ngayDatHang;
