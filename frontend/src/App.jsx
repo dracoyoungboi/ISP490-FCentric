@@ -31,7 +31,6 @@ import PhieuXuatKhoCreate from "./pages/issue/PhieuXuatKhoCreate.jsx";
 import PhieuXuatKhoDetail from "./pages/issue/PhieuXuatKhoDetail.jsx";
 import PhieuXuatKhoView from "./pages/issue/PhieuXuatKhoView.jsx";
 import PickLot from "./pages/issue/PickLot.jsx";
-import QuoteSuccess from "./pages/supplier/pages/Quotesuccess.jsx";
 import SupplierQuotation from "./pages/supplier/pages/Supplierquotation.jsx";
 import SupplierLogin from "./pages/supplier/pages/Supplierlogin.jsx";
 import KhachHangPage from "./pages/customer/KhachHangPage";
@@ -111,7 +110,8 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/supplier/quotation" element={<SupplierQuotation />} />
-        <Route path="/quote-success" element={<QuoteSuccess />} />
+        {/* Trang cũ sau khi gửi báo giá: nay báo thành công ngay trên trang báo giá; giữ đường dẫn để link cũ không hỏng */}
+        <Route path="/quote-success" element={<Navigate to="/supplier/login" replace />} />
         <Route path="/supplier/login" element={<SupplierLogin />} />
 
         {/* ========== BACKOFFICE ROUTES (CÓ SIDEBAR + HEADER) ========== */}
