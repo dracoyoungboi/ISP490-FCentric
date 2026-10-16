@@ -51,7 +51,7 @@ export default function TablePagination({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="start"
-              className="backoffice-user-menu z-50 w-[110px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+              className="z-50 w-[110px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
             >
               {sizeOptions.map((option) => (
                 <DropdownMenuItem

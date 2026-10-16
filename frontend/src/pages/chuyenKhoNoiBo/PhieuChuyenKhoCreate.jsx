@@ -25,7 +25,7 @@ import { soNguyenDuong } from "@/utils/thamSoDuongDan";
 const FIELD_LABEL_CLASS =
     "text-xs font-semibold uppercase tracking-wide text-bo-muted";
 const DROPDOWN_CONTENT_CLASS =
-    "backoffice-user-menu z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg";
+    "z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg";
 const DROPDOWN_ITEM_CLASS =
     "cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
 const TH_CLASS =

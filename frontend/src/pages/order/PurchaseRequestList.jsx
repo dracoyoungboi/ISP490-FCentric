@@ -388,7 +388,7 @@ export default function PurchaseRequestList() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
                                 align="end"
-                                className="backoffice-user-menu z-50 max-h-[400px] w-[260px] overflow-y-auto rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                                className="z-50 max-h-[400px] w-[260px] overflow-y-auto rounded-lg border border-bo-border bg-white p-1 shadow-lg"
                             >
                                 <DropdownMenuItem
                                     onClick={() => updateUrl({ kho: '' })}

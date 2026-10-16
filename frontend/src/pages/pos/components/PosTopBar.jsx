@@ -194,9 +194,7 @@ export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymen
                 <ChevronDown aria-hidden="true" className="hidden size-4 text-bo-muted xl:block" />
               </button>
             </DropdownMenuTrigger>
-            {/* backoffice-user-menu: dùng đúng giao diện menu tài khoản của trang quản trị (nền trắng),
-                không bị CSS menu cũ tông vàng trong index.css áp vào. */}
-            <DropdownMenuContent align="end" className="backoffice-user-menu z-[90] w-56 rounded-lg border border-bo-border bg-white p-1 text-bo-foreground shadow-lg" sideOffset={6}>
+            <DropdownMenuContent align="end" className="z-[90] w-56 rounded-lg border border-bo-border bg-white p-1 text-bo-foreground shadow-lg" sideOffset={6}>
               <div className="px-2 py-2">
                 <p className="truncate text-sm font-semibold">{username}</p>
                 <p className="mt-0.5 truncate text-xs text-bo-muted">{roleLabel}</p>

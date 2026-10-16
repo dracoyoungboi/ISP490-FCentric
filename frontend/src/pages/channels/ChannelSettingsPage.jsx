@@ -275,7 +275,7 @@ function SettingsForm({ config, cauHinh, khoSan, onConfigSaved, onCauHinhSaved }
                       {dangChay === "lam-moi" ? <Loader2 className="size-4 animate-spin" /> : <MoreHorizontal className="size-4" />}
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-60 backoffice-user-menu z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg">
+                  <DropdownMenuContent align="end" className="w-60 z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg">
                     <DropdownMenuItem onClick={() => setMoDoiKhoa(true)} className={nutMenu}>
                       <KeyRound className="size-4 text-bo-muted" />
                       Cập nhật khóa truy cập

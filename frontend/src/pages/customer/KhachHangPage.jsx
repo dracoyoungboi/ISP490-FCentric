@@ -790,7 +790,7 @@ export default function KhachHangPage() {
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent
                                                 align="start"
-                                                className="backoffice-user-menu z-50 w-[--radix-dropdown-menu-trigger-width] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                                                className="z-50 w-[--radix-dropdown-menu-trigger-width] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
                                             >
                                                 {[
                                                     { value: "le", label: "Khách lẻ" },

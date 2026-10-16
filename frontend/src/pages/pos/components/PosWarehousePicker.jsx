@@ -20,7 +20,7 @@ function WarehouseLabel({ name, hidden = false }) {
 
 /**
  * Ô chọn kho của hóa đơn đang mở (chốt PA2, thu gọn kiểu C): hai dòng chữ, không viền, mở danh sách
- * nền trắng như menu tài khoản (lớp backoffice-user-menu để CSS menu cũ tông vàng không áp vào).
+ * nền trắng như menu tài khoản.
  * - Chỉ có 1 Kho bán hàng bán được (kể cả quản trị viên khi hệ thống chỉ có 1 Kho bán hàng): hiện chữ cố định.
  * - disabled (đang thanh toán / hóa đơn chờ thanh toán): vẫn hiện kho, vẫn nhận con trỏ để đọc lý do,
  *   bấm không mở danh sách mà gọi onBlockedOpen (trang hiện thông báo lý do).
@@ -97,7 +97,7 @@ export default function PosWarehousePicker({
         align="start"
         aria-describedby={noteId}
         aria-labelledby={titleId}
-        className="backoffice-user-menu z-[90] w-[300px] max-w-[calc(100vw-24px)] rounded-lg border border-bo-border bg-white p-1 text-bo-foreground shadow-lg"
+        className="z-[90] w-[300px] max-w-[calc(100vw-24px)] rounded-lg border border-bo-border bg-white p-1 text-bo-foreground shadow-lg"
         onCloseAutoFocus={(event) => {
           if (pickedRef.current && onPicked) {
             event.preventDefault();

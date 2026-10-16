@@ -454,7 +454,7 @@ export default function ChannelMappingsPage() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent
                     align="end"
-                    className="w-52 backoffice-user-menu z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                    className="w-52 z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg"
                     onCloseAutoFocus={(event) => {
                       // Mở ô ghép sau khi menu đóng hẳn, không trả tiêu điểm về nút ⋯ (ô tìm sẽ nhận tiêu điểm)
                       if (moGhepSauMenuRef.current !== dong.id) return;
@@ -587,7 +587,7 @@ export default function ChannelMappingsPage() {
                   <ChevronDown className="size-4 text-bo-muted" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-max min-w-60 backoffice-user-menu z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg">
+              <DropdownMenuContent align="end" className="w-max min-w-60 z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg">
                 <DropdownMenuItem onSelect={() => setHoiDayLen(true)} className="cursor-pointer gap-2 rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">
                   <CloudUpload className="size-4 text-bo-muted" />
                   Đưa sản phẩm FCentric lên {SAN.ten}…

@@ -37,7 +37,7 @@ export default function FilterSelect({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align={align}
-        className="backoffice-user-menu z-50 min-w-[200px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+        className="z-50 min-w-[200px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
       >
         {options.map((option) => (
           <DropdownMenuItem

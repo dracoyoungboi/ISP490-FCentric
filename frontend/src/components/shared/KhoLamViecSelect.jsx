@@ -89,7 +89,7 @@ export default function KhoLamViecSelect({ onChange }) {
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
-        className="backoffice-user-menu z-50 w-[260px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+        className="z-50 w-[260px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
       >
         <p className="px-2.5 pb-1 pt-1.5 text-xs text-bo-muted">
           Đổi kho làm việc. Các trang chỉ xem một kho sẽ hiện theo kho này.

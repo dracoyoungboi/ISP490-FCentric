@@ -270,7 +270,7 @@ export default function SendQuotationRequest() {
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
-                                className="backoffice-user-menu z-50 max-h-[320px] w-[380px] overflow-y-auto rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                                className="z-50 max-h-[320px] w-[380px] overflow-y-auto rounded-lg border border-bo-border bg-white p-1 shadow-lg"
                                 align="start"
                             >
                                 {suppliers.length === 0 ? (

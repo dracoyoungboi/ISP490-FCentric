@@ -9,8 +9,8 @@ export const KHUNG =
 
 export const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30";
 
-/** Khung menu thả xuống. Lớp backoffice-user-menu để không bị kiểu menu cũ trong index.css tô màu kem. */
-export const MENU = "backoffice-user-menu z-50 rounded-xl border border-bo-border bg-white p-1.5 shadow-lg";
+/** Khung menu thả xuống. */
+export const MENU = "z-50 rounded-xl border border-bo-border bg-white p-1.5 shadow-lg";
 
 
 const hai = (n) => String(n).padStart(2, "0");

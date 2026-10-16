@@ -9,10 +9,8 @@ import { Eye, Edit, Trash2, Package, Plus, ChevronDown, Check, Info, SearchX, Ta
 import { useToggle } from "@/hooks/useToggle";
 import AddProductModal from "@/pages/product/components/product/AddProductModal";
 import EditProductModal from "@/pages/product/components/product/EditProductModal";
-import ProductModal from "@/pages/product/components/product/ProductModal";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import { formatDate } from "@/utils/formatters";
-import InventoryDrawer from "@/pages/product/components/product/InventoryDrawer";
 import { dinhDangKhoangGia } from "@/pages/product/components/product/khoangGiaBienThe";
 
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -174,12 +172,7 @@ export default function ProductList() {
 
     const [isAddModalOpen, openAddModal, closeAddModal] = useToggle(false);
     const [isEditModalOpen, openEditModal, closeEditModal] = useToggle(false);
-    const [isViewModalOpen, , closeViewModal] = useToggle(false);
     const [isConfirmOpen, openConfirm, closeConfirm] = useToggle(false);
-
-    // ── State mới: Inventory Drawer ──────────────────────────────────────────
-    const [isInventoryOpen, setIsInventoryOpen] = useState(false);
-    const [selectedInventoryProduct, setSelectedInventoryProduct] = useState(null);
 
     const [productToDelete, setProductToDelete] = useState(null);
     const [selectedProductId, setSelectedProductId] = useState(null);
@@ -344,17 +337,6 @@ export default function ProductList() {
     // Sau khi Them/Sua thanh cong, refresh lai danh sach va so tren tab de UI phan anh du lieu moi nhat.
     const handleModalSuccess = useCallback(() => { fetchProducts(); taiLaiSoTab(); }, [fetchProducts, taiLaiSoTab]);
 
-    // ── Handlers Inventory Drawer ────────────────────────────────────────────
-    const handleOpenInventory = useCallback((product) => {
-        setSelectedInventoryProduct(product);
-        setIsInventoryOpen(true);
-    }, []);
-
-    const handleCloseInventory = useCallback(() => {
-        setIsInventoryOpen(false);
-        setSelectedInventoryProduct(null);
-    }, []);
-
     // Số chỉ hiện khi đã đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs.
     const statusTabs = STATUS_TABS.map((t) => ({
         value: t.value,
@@ -423,7 +405,7 @@ export default function ProductList() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
                                 align="end"
-                                className="backoffice-user-menu z-50 max-h-[400px] w-[220px] overflow-y-auto rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                                className="z-50 max-h-[400px] w-[220px] overflow-y-auto rounded-lg border border-bo-border bg-white p-1 shadow-lg"
                             >
                                 <DropdownMenuItem
                                     onClick={() => updateFilter("thuongHieu", "ALL")}
@@ -654,14 +636,6 @@ export default function ProductList() {
                                             label="Xem chi tiết"
                                             onClick={() => navigate(`/products/${product.id}`)}
                                         />
-                                        {/*<button*/}
-                                        {/*    type="button"*/}
-                                        {/*    title="Tồn kho biến thể"*/}
-                                        {/*    onClick={() => handleOpenInventory(product)}*/}
-                                        {/*    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent transition-all duration-150 hover:scale-110 active:scale-95 text-blue-600 hover:bg-blue-50 hover:border-blue-200"*/}
-                                        {/*>*/}
-                                        {/*    <Layers className="h-4 w-4" />*/}
-                                        {/*</button>*/}
                                         <RowActionButton
                                             icon={Edit}
                                             label="Chỉnh sửa"
@@ -697,13 +671,6 @@ export default function ProductList() {
                 productId={selectedProductId}
             />
 
-            <ProductModal
-                isOpen={isViewModalOpen}
-                onClose={() => { setSelectedProductId(null); closeViewModal(); }}
-                onSuccess={handleModalSuccess}
-                productId={selectedProductId}
-            />
-
             <ConfirmModal
                 isOpen={isConfirmOpen}
                 onClose={handleCancelDelete}
@@ -718,12 +685,6 @@ export default function ProductList() {
                 cancelText="Hủy"
                 variant="danger"
                 isLoading={isDeleting}
-            />
-
-            <InventoryDrawer
-                isOpen={isInventoryOpen}
-                onClose={handleCloseInventory}
-                product={selectedInventoryProduct}
             />
 
         </PageContainer>

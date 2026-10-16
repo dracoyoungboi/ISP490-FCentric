@@ -11,7 +11,7 @@ Baseline: the approved Admin Dashboard (`frontend/src/pages/dashboard/admin/Dash
 
 ## Reusable components (always prefer these)
 
-`components/backoffice/`: PageContainer, PageHeader · `components/shared/`: FilterBar, SearchInput, TableShell, StatusBadge, EmptyState, LoadingState, ErrorState, SurfaceCard, FormSection, FormActions · `components/ui/`: existing shadcn primitives.
+`components/backoffice/`: PageContainer, PageHeader · `components/shared/`: ListToolbar, SearchInput, TableShell, StatusBadge, EmptyState, LoadingState, ErrorState, SurfaceCard, FormSection, FormActions · `components/ui/`: existing shadcn primitives.
 
 ## Rules
 
@@ -20,7 +20,7 @@ Baseline: the approved Admin Dashboard (`frontend/src/pages/dashboard/admin/Dash
 - No `<style>` blocks in JSX, no CDN Tailwind, no new framework/dependency, no Font Awesome, no dynamic partial Tailwind class names (complete static class maps).
 - Tables scroll inside their card (`overflow-x-auto`); the page never scrolls horizontally; responsive at 390/768/1024/1280/1440.
 - Loading / populated / empty / zero-data / no-result / error / retry / validation / submitting / confirmation / unauthorized states must each render deliberately; empty and zero states are valid data.
-- Migrated-page dropdowns add `backoffice-user-menu` to `DropdownMenuContent` (opt-out hook for the legacy gold dropdown CSS in index.css).
+- Dropdowns: `DropdownMenuContent` sets its own surface classes (`rounded-lg border border-bo-border bg-white p-1 shadow-lg`). The legacy gold dropdown CSS has been removed from index.css, so do not add `backoffice-user-menu`.
 
 ## Logic-preservation contract (FROZEN)
 

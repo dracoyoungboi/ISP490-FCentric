@@ -6,7 +6,6 @@ import { donBanHangService } from '@/services/donBanHangService';
  * Trang in thật của hóa đơn bán hàng — dữ liệu API thật
  * (`GET /api/v1/don-ban-hang/{id}/detail`, cùng service với DonBanHangDetail)
  * + mẫu đang hoạt động của sales_invoice (A4 / A5 / K80).
- * Thay thế trang in kiểu gold/ivory cũ bằng hệ thống in FCentric chung.
  */
 export default function DonBanHangInvoice() {
     return (

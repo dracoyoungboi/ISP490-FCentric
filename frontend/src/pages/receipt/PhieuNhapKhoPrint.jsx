@@ -6,7 +6,6 @@ import { phieuNhapKhoService } from '@/services/phieuNhapKhoService';
  * Trang in thật của phiếu nhập kho — dữ liệu API thật
  * (`GET /api/v1/phieu-nhap-kho/{id}/detail` + danh sách lô khai báo)
  * + mẫu đang hoạt động của goods_receipt.
- * Thay thế trang in kiểu gold/ivory cũ bằng hệ thống in FCentric chung.
  *
  * PHÂN BIỆT rõ "request lô thất bại" (lotFetchFailures — chặn in, hiện nút
  * "Thử lại") với "thành công nhưng không có lô khai báo" (in bình thường,

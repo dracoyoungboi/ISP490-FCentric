@@ -6,7 +6,6 @@ import { phieuXuatKhoService } from '@/services/phieuXuatKhoService';
  * Trang in thật của phiếu xuất kho — dữ liệu API thật
  * (`GET /api/v1/phieu-xuat-kho/{id}` + lô đã pick / tên lô)
  * + mẫu đang hoạt động của goods_issue.
- * Thay thế trang in kiểu gold/ivory cũ bằng hệ thống in FCentric chung.
  *
  * PHÂN BIỆT rõ request lô thất bại (pickedLotFailures / availableLotFailures —
  * chặn in, hiện nút "Thử lại") với "thành công nhưng không có lô" (in bình

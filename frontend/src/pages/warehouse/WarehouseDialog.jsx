@@ -37,7 +37,7 @@ const FIELD_LABEL_CLASS =
 const INPUT_CLASS =
     "h-10 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-2 focus-visible:ring-bo-primary/15";
 const DROPDOWN_CONTENT_CLASS =
-    "backoffice-user-menu z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg";
+    "z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg";
 const DROPDOWN_ITEM_CLASS =
     "cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
 

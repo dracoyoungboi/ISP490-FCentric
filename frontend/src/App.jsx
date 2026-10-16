@@ -6,16 +6,12 @@ import Login from "./pages/Login";
 import UserDetail from "./pages/UserDetail";
 import ForgotPassword from "./pages/ForgotPassword";
 import Warehouse from "./pages/warehouse/Warehouse";
-import ChatLieuList from "./pages/attribute/ChatLieuList";
-import ChatLieuDetail from "./pages/attribute/ChatLieuDetail";
-import ChatLieuDetailView from "./pages/attribute/ChatLieuDetailView";
 import SupplierList from "./pages/supplier/SupplierList";
 import SupplierDetailView from "./pages/supplier/SupplierDetailView";
 import ProductList from "./pages/product";
 import ViewUserListByAdmin from "./pages/admin/ViewUserListByAdmin";
 import ViewUserDetailByAdmin from "@/pages/admin/ViewUserDetailByAdmin.jsx";
 import EditUserRoleByAdmin from "@/pages/admin/EditUserRoleByAdmin.jsx";
-import DashboardByAdmin from "@/pages/admin/DashboardByAdmin.jsx";
 import PhieuNhapKhoList from "./pages/receipt/PhieuNhapKhoList";
 import PhieuNhapKhoCreate from "./pages/receipt/PhieuNhapKhoCreate";
 import PhieuNhapKhoDetail from "./pages/receipt/PhieuNhapKhoDetail.jsx";
@@ -23,7 +19,6 @@ import KhaiBaoLo from "./pages/receipt/KhaiBaoLo.jsx";
 import PhieuXuatKhoList from "./pages/issue/PhieuXuatKhoList.jsx";
 import PurchaseOrderDetail from "./pages/order/PurchaseOrderDetail.jsx";
 import PurchaseOrder from "./pages/order/PurchaseOrder.jsx";
-import PurchaseOrderCreate from "./pages/order/PurchaseOrderCreate.jsx";
 import PurchaseOrderPayment from "./pages/order/PurchaseOrderPayment.jsx";
 import SendQuotationRequest from "./pages/order/SendQuotationRequest.jsx";
 import SkuBuilder from "./pages/product/SkuBuilder";
@@ -149,12 +144,6 @@ export default function App() {
           <Route path="/products/:id" element={<ProductDetail />} />
           {/* Warehouse */}
           <Route path="/warehouse" element={<Warehouse />} />
-
-          {/* Material */}
-          {/* <Route path="/material" element={<ChatLieuList />} /> */}
-          {/* <Route path="/material/new" element={<ChatLieuDetail />} />
-          <Route path="/material/view/:id" element={<ChatLieuDetailView />} />
-          <Route path="/material/:id" element={<ChatLieuDetail />} /> */}
 
           {/* Purchase Order */}
           <Route path="/purchase-requests" element={<PurchaseRequestList />} />
@@ -319,4 +308,4 @@ export default function App() {
       </Routes>
     </BrowserRouter>
   );
-}
+}

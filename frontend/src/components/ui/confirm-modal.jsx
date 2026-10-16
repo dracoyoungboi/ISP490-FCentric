@@ -7,7 +7,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Info, CheckCircle2, XCircle } from "lucide-react";
+import { AlertTriangle, Info, CheckCircle2 } from "lucide-react";
 
 const VARIANT_CONFIG = {
     danger: {
@@ -32,17 +32,6 @@ const VARIANT_CONFIG = {
         icon: CheckCircle2,
         iconColor: "text-green-500",
         confirmButtonClass: "bg-green-600 hover:bg-green-700 text-white",
-        title: "Xác nhận"
-    },
-    gold: {
-        icon: AlertTriangle,
-        iconColor: "!text-amber-700 dark:!text-amber-700",
-        iconBgClass: "!bg-amber-100 dark:!bg-amber-100",
-        dialogClass: "!bg-[#fffdf8] !text-[#3d3529] dark:!bg-[#fffdf8] dark:!text-[#3d3529] !border-[#e6dcc9]",
-        titleClass: "!text-[#3d3529] dark:!text-[#3d3529]",
-        descriptionClass: "!text-[#7a6e5f] dark:!text-[#7a6e5f]",
-        cancelButtonClass: "!border-[#d7cab2] !text-[#6b5f4c] !bg-[#fffdf8] hover:!bg-[#f8f2e4] dark:!border-[#d7cab2] dark:!text-[#6b5f4c] dark:!bg-[#fffdf8] dark:hover:!bg-[#f8f2e4]",
-        confirmButtonClass: "!bg-[#b8860b] hover:!bg-[#9c7108] !text-white dark:!bg-[#b8860b] dark:hover:!bg-[#9c7108] dark:!text-white",
         title: "Xác nhận"
     }
 };

@@ -137,7 +137,7 @@ export default function BackofficeHeader() {
             <DropdownMenuContent
               align="end"
               sideOffset={6}
-              className="backoffice-user-menu z-50 w-56 rounded-lg border border-bo-border bg-white p-1 text-bo-foreground shadow-lg"
+              className="z-50 w-56 rounded-lg border border-bo-border bg-white p-1 text-bo-foreground shadow-lg"
             >
               <div className="px-2 py-2">
                 <p className="truncate text-sm font-semibold">{username}</p>

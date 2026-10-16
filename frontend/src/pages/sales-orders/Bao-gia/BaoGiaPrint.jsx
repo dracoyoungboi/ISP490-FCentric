@@ -6,7 +6,6 @@ import { donBanHangService } from '@/services/donBanHangService';
  * Trang in thật của báo giá bán — dữ liệu API thật
  * (`GET /api/v1/don-ban-hang/{id}/detail`, cùng service với BaoGiaDetail)
  * + mẫu đang hoạt động của sales_quotation.
- * Thay thế trang in kiểu gold/ivory cũ bằng hệ thống in FCentric chung.
  */
 export default function BaoGiaPrint() {
     return (
