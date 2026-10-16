@@ -5,14 +5,15 @@ import BrandLogo from '@/components/brand/BrandLogo';
  * Khung layout chung cho các màn hình xác thực:
  * - Desktop (lg+): 2 cột 50/50 — trái là panel ảnh slider, phải là form trên nền trắng.
  * - Mobile (< lg): ẩn panel ảnh, logo hiển thị phía trên form, trang cuộn dọc tự do.
+ * `slides` (tùy chọn): bộ ảnh riêng cho panel trái; bỏ trống thì dùng bộ ảnh mặc định.
  */
-export default function AuthShell({ children }) {
+export default function AuthShell({ children, slides }) {
     return (
         <div
             data-auth-page
             className="min-h-dvh w-full flex flex-col lg:flex-row bg-white lg:h-dvh lg:overflow-hidden"
         >
-            <AuthImagePanel />
+            <AuthImagePanel slides={slides} />
 
             <div className="relative z-30 w-full lg:w-1/2 lg:h-full overflow-y-auto bg-white flex flex-col shadow-[-20px_0_40px_-15px_rgba(0,0,0,0.1)]">
                 {/* my-auto thay cho justify-center: không cắt phần đầu form khi nội dung dài hơn màn hình */}

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import BrandLogo from '@/components/brand/BrandLogo';
 
-const SLIDES = [
+// Bộ ảnh mặc định (Đăng nhập, Quên mật khẩu); trang khác truyền `slides` riêng qua AuthShell
+const DEFAULT_SLIDES = [
     {
         src: '/images/auth/slide-1.jpg',
         fallbackSrc: 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?q=80&w=2000&auto=format&fit=crop',
@@ -22,7 +23,9 @@ const SLIDES = [
 const AUTOPLAY_MS = 5000;
 const TRANSITION_MS = 1200;
 
-export default function AuthImagePanel() {
+/** @param {{ src: string, fallbackSrc: string, alt: string }[]} [slides] */
+export default function AuthImagePanel({ slides = DEFAULT_SLIDES }) {
+    const soAnh = slides.length;
     const [current, setCurrent] = useState(0);
     const [prev, setPrev] = useState(null);
     // Tier per slide: 0 = local ok, 1 = dùng fallbackSrc (remote), 2 = ẩn ảnh (panel đen)
@@ -79,12 +82,12 @@ export default function AuthImagePanel() {
     useEffect(() => {
         if (reducedMotion) return undefined;
         intervalRef.current = setInterval(() => {
-            goTo((currentRef.current + 1) % SLIDES.length);
+            goTo((currentRef.current + 1) % soAnh);
         }, AUTOPLAY_MS);
         return () => {
             if (intervalRef.current) clearInterval(intervalRef.current);
         };
-    }, [goTo, reducedMotion]);
+    }, [goTo, reducedMotion, soAnh]);
 
     // Cleanup mọi timer khi unmount / chuyển route
     useEffect(() => () => {
@@ -98,7 +101,7 @@ export default function AuthImagePanel() {
         if (intervalRef.current) clearInterval(intervalRef.current);
         if (!reducedMotion) {
             intervalRef.current = setInterval(() => {
-                goTo((currentRef.current + 1) % SLIDES.length);
+                goTo((currentRef.current + 1) % soAnh);
             }, AUTOPLAY_MS);
         }
     };
@@ -114,7 +117,7 @@ export default function AuthImagePanel() {
 
     return (
         <div className="hidden lg:flex relative w-1/2 h-full bg-black overflow-hidden">
-            {SLIDES.map((slide, index) => {
+            {slides.map((slide, index) => {
                 const tier = failedTier[index] || 0;
                 if (tier === 2) return null;
                 const isCurrent = index === current;
@@ -149,7 +152,7 @@ export default function AuthImagePanel() {
 
             {/* Chấm điều hướng */}
             <div className="absolute bottom-12 right-12 z-30 flex gap-3">
-                {SLIDES.map((slide, index) => (
+                {slides.map((slide, index) => (
                     <button
                         key={index}
                         type="button"
