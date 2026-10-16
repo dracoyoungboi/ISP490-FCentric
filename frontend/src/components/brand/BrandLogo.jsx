@@ -14,7 +14,8 @@ import { cn } from '@/lib/utils';
  */
 const ASSETS = {
   full: '/branding/f-centric-logo.svg',
-  fullLight: '/branding/f-centric-logo-light.png',
+  // Bản vector chữ tối (vẽ lại từ logo gốc). Bản PNG 532×128 cũ bị nhòe, răng cưa khi thu nhỏ.
+  fullLight: '/branding/f-centric-logo-light.svg',
   icon: '/branding/f-centric-icon.svg',
 };
 
