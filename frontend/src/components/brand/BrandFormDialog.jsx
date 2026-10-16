@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Loader2, Tag, Upload, X } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import { thuongHieuService } from "@/services/thuongHieuService.js";
 
 const brandSchema = z.object({

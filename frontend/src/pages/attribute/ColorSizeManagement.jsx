@@ -18,7 +18,7 @@ import EmptyState from "@/components/shared/EmptyState";
 import LoadingState from "@/components/shared/LoadingState";
 import SearchInput from "@/components/shared/SearchInput";
 import { mauSacService, sizeService } from "@/services/attributeService";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 
 const PaginationBar = ({ page, totalPages, total, pageSize, onPageChange }) => (
     <div className="flex flex-col gap-3 rounded-lg border border-bo-border bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">

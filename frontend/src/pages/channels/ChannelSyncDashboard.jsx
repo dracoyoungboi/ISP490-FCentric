@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, BarChart3, ChevronRight, Loader2, RefreshCw } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import PageContainer from "@/components/backoffice/PageContainer";

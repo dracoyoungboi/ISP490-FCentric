@@ -7,7 +7,7 @@ import { donBanHangKenhService, isChannelOrderMock } from "@/services/donBanHang
 import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
 import apiClient from "@/services/apiClient";
 import { laKhoAo } from "@/utils/kho";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import {
   ArrowLeft, User, Home, Truck, Calculator,

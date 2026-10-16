@@ -22,7 +22,7 @@ import {
   ShieldCheck, RefreshCcw, UserCog,
   Warehouse, AlertCircle, Save, Trash2,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import AssignWarehousePermissionModal from "@/components/admin/AssignWarehousePermissionModal";
 
 export default function UserPermissionEditByAdmin() {

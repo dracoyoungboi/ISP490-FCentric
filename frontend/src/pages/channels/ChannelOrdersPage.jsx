@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { CalendarRange, Loader2, SearchX, ShoppingCart } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import { Button } from "@/components/ui/button";
 import PageContainer from "@/components/backoffice/PageContainer";
 import ListPageHeader from "@/components/shared/ListPageHeader";

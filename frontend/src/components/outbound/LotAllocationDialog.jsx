@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Check, Loader2, PackageX, RotateCcw } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import {
   Dialog,
   DialogContent,

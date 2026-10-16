@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { productService } from "@/services/productService.js";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import { Link } from "react-router-dom";
 import { Save, Printer, RefreshCcw, Layers, SearchX } from "lucide-react";
 

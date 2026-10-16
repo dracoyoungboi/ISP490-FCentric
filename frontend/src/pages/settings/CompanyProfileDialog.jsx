@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import { Building2, ImagePlus, X } from "lucide-react";
 import {
     Dialog,

@@ -1,6 +1,6 @@
 import { createElement, useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, Boxes, Info, Loader2, LockKeyhole, Pencil, RefreshCcw, Save } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import PageContainer from "@/components/backoffice/PageContainer";
 import PageHeader from "@/components/backoffice/PageHeader";
 import SurfaceCard from "@/components/shared/SurfaceCard";

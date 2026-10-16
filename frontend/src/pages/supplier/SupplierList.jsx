@@ -5,7 +5,7 @@ import {
     Plus, Edit, Trash2, Eye, Users,
     Phone, Mail, User2, SearchX,
 } from 'lucide-react';
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 
 import PageContainer from "@/components/backoffice/PageContainer";
 import EmptyState from "@/components/shared/EmptyState";

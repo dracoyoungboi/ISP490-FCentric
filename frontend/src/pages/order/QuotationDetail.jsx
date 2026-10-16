@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { toast } from 'sonner';
+import { toast } from '@/lib/thongBaoNhanh';
 import { Button } from "@/components/ui/button";
 import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,

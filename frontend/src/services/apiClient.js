@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { toast } from 'sonner';
+import { toast } from '@/lib/thongBaoNhanh';
 import { clearCurrentUserProfile } from '../utils/avatar';
 import { API_BASE_URL } from '../config/apiBase';
 

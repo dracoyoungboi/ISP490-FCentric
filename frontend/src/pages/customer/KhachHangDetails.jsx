@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Edit, User, Phone, Mail, MapPin,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import { getKhachHangById } from "@/services/khachHangService";
 
 import PageContainer from "@/components/backoffice/PageContainer";

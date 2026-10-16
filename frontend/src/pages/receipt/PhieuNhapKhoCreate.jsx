@@ -6,7 +6,7 @@ import purchaseOrderService from "@/services/purchaseOrderService";
 import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
 import { donBanHangService } from "@/services/donBanHangService";
 import { getMineKhoList } from "@/services/khoService";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import {
     ArrowLeft,
     ArrowRightLeft,

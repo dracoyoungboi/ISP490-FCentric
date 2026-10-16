@@ -3,7 +3,7 @@ import { createElement, useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { donBanHangService } from "@/services/donBanHangService";
 import apiClient from "@/services/apiClient";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import {
   ArrowLeft, Loader2, User, Calculator,

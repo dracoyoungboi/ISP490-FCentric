@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { productService } from "@/services/productService.js";
 import { thuongHieuService } from "@/services/thuongHieuService.js";
 import { useLocation, useNavigate, Link } from "react-router-dom";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import { Eye, Edit, Trash2, Package, Plus, ChevronDown, Check, Info, SearchX, Tag } from "lucide-react";
 import { useToggle } from "@/hooks/useToggle";
 import AddProductModal from "@/pages/product/components/product/AddProductModal";

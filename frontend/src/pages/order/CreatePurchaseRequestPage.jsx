@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { toast } from 'sonner';
+import { toast } from '@/lib/thongBaoNhanh';
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle,
 } from '@/components/ui/dialog';

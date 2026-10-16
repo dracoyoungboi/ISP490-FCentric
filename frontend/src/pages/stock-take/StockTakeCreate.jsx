@@ -23,7 +23,7 @@ import {
   ArrowLeft, Loader2, PackageSearch, Check, CheckCircle2,
   Package, ClipboardList,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import { getKhoList } from "@/services/khoService";
 import {
   createStockTake,

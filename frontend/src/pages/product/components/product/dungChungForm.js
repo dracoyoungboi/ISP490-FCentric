@@ -3,7 +3,7 @@
  * ảnh xem trước, hỏi trước khi bỏ thay đổi, chặn rời trang và chặn thả tệp lệch khung.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import { cuonToiLoi } from "./kieuForm";
 import { kiemTraTepAnh } from "./logicBienThe";
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { toast } from 'sonner';
+import { toast } from '@/lib/thongBaoNhanh';
 import {
     ArrowLeft, Send, Loader2, Building2,
     Mail, User, Package, AlertCircle,

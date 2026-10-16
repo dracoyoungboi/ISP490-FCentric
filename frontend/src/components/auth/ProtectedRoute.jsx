@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, Outlet, useNavigate } from "react-router-dom";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import { nguoiDungService } from "../../services/nguoiDungService";
 import { ensureTokenUsable } from "../../utils/authToken";
 

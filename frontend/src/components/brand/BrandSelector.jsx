@@ -17,7 +17,7 @@ import BrandFormDialog from "@/components/brand/BrandFormDialog";
 import { thuongHieuService } from "@/services/thuongHieuService.js";
 import { Check, ChevronsUpDown, Loader2, Plus, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 
 const parseRoles = (value) => {
     if (typeof value !== "string") return [];

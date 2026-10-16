@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import { FileX, Lock } from "lucide-react";
 import PrintLayout from "@/components/print/PrintLayout";
 import PrintTemplateDocument from "@/components/print/PrintTemplateDocument";

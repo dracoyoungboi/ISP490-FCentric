@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
     AlertTriangle, Loader2, PackageCheck, SearchX, ShoppingBag, Truck, X,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 
 import PageContainer from "@/components/backoffice/PageContainer";
 import FilterSelect from "@/components/shared/FilterSelect";

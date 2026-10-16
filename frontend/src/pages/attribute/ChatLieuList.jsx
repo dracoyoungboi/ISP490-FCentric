@@ -12,7 +12,7 @@ import {
     Eye, Loader2, Layers, ChevronDown, Filter, RefreshCcw,
     Check, AlertCircle, X,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import { getAllChatLieu, deleteChatLieu } from "@/services/chatLieuService";
 
 export default function ChatLieuList() {

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { X, ShieldCheck, Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import PackingProofSection from "@/components/outbound/PackingProofSection";
 import { dongGoiService } from "@/services/dongGoiService";
 import { getApiErrorMessage } from "@/utils/apiError";

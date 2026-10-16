@@ -3,7 +3,7 @@ import {
   Camera, Video, Upload, Trash2, CheckCircle2, AlertCircle, Play,
   Square, RefreshCw, Eye, X, Loader2, Sparkles, ShieldCheck
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import { Button } from "@/components/ui/button";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import StatusBadge from "@/components/shared/StatusBadge";

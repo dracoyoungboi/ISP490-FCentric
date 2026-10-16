@@ -48,7 +48,7 @@ import {
     UserX
 } from "lucide-react";
 
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 
 const ROLE_LABELS = {
     quan_tri_vien: "Quản trị viên",

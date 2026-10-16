@@ -5,7 +5,7 @@ import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
 import { getMineKhoList } from "@/services/khoService";
 import apiClient from "@/services/apiClient";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import PageContainer from "@/components/backoffice/PageContainer";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import TableShell from "@/components/shared/TableShell";

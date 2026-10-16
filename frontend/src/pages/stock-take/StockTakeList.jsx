@@ -16,7 +16,7 @@ import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
 import { Button } from "@/components/ui/button";
 import { Plus, Eye, ClipboardList, Play, SearchX } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import { getStockTakes } from "@/services/stockTakeService";
 import { hasAnyRole, ROLES } from "@/utils/roles";

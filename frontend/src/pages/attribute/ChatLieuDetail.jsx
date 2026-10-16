@@ -10,7 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Save, Layers, Loader2, CheckCircle2, XCircle } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import { getChatLieuById, createChatLieu, updateChatLieu } from "@/services/chatLieuService";
 
 const formSchema = z.object({

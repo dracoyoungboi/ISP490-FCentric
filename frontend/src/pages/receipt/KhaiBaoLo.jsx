@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import {
     AlertCircle,
     ArrowLeft,

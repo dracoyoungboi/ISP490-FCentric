@@ -4,7 +4,7 @@ import {
     ArrowLeft, ArrowRight, Calendar, Camera, CheckCheck, ClipboardList, Hash,
     Info as InfoIcon, Layers, Loader2, Package, PackageX, ShieldCheck, User, UserPlus, Warehouse,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 
 import PageContainer from "@/components/backoffice/PageContainer";
 import PackingProofModal from "@/components/outbound/PackingProofModal";

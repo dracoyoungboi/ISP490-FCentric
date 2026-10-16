@@ -28,7 +28,7 @@ import StatusTabs from "@/components/shared/StatusTabs";
 import TablePagination from "@/components/shared/TablePagination";
 import { RowActionButton, RowActions } from "@/components/shared/RowActions";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import { mauSacService, sizeService } from "@/services/attributeService";
 import { getAllChatLieu, deleteChatLieu, createChatLieu, updateChatLieu } from "@/services/chatLieuService";
 import { thuongHieuService } from "@/services/thuongHieuService";

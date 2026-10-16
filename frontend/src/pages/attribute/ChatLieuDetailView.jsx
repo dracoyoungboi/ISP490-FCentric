@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Layers, Loader2, CheckCircle2, XCircle, Edit, Calendar, Hash, FileText } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import { getChatLieuById } from "@/services/chatLieuService";
 
 function InfoField({ label, value }) {

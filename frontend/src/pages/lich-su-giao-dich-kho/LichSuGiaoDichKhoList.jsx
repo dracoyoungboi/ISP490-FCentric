@@ -9,7 +9,7 @@ import {
     ArrowLeftRight, SlidersHorizontal, Warehouse, Eye,
     CalendarDays, User2, FileText, Hash, Package, SearchX,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import PageContainer from "@/components/backoffice/PageContainer";
 import ListPageHeader from "@/components/shared/ListPageHeader";
 import ListToolbar from "@/components/shared/ListToolbar";

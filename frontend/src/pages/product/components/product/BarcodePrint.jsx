@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import Barcode from "react-barcode";
 import { useReactToPrint } from "react-to-print";
 import { AlertCircle, Loader2, Printer, ScanBarcode } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,

@@ -17,7 +17,7 @@ import { RowActionButton, RowActions } from '@/components/shared/RowActions';
 import { Button } from '@/components/ui/button';
 import { SO_DONG_MAC_DINH } from '@/constants/phanTrang';
 import { formatNumber } from '@/utils/formatters';
-import { toast } from 'sonner';
+import { toast } from '@/lib/thongBaoNhanh';
 import { khoService } from '@/services/khoService';
 import useDemTheoTrangThai from '@/hooks/useDemTheoTrangThai';
 import useTabTrenUrl from '@/hooks/useTabTrenUrl';
