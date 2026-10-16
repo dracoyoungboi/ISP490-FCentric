@@ -52,9 +52,10 @@
 	--ease-sidebar: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Sidebar mở rộng 240px; thu gọn còn rail 48px (thông số ở khối "Rail thu gọn 48px" bên dưới). */
 [data-backoffice-shell] {
 	--sidebar-width: 15rem;
-	--sidebar-width-icon: 4rem;
+	--sidebar-width-icon: 3rem;
 }
 
 /*
@@ -77,6 +78,8 @@
  * F của icon 32px; tâm F của logo ở 19,8px × 18px, của icon ở 18px × 16px,
  * hai tâm cách nhau 11px theo chiều ngang), nên chữ F như đứng yên còn phần
  * chữ "Centric" mờ dần.
+ * Khi thu gọn, chữ F dời thêm 8px sang trái và thu còn 28px (0,875 lần) để nằm giữa
+ * rail 48px (tâm x = 24px); logo dời và thu theo cùng tỉ lệ để hai chữ F vẫn trùng nhau.
  * Ảnh nằm trên (icon) chỉ mờ đi sau khi logo đã gần hiện hẳn, nên chữ F luôn
  * đặc, không bị nhạt ở giữa quá trình mờ chéo. Khi mở rộng, logo hiện trễ một
  * nhịp để chữ "Centric" không bị mép rail còn hẹp cắt ngang.
@@ -102,8 +105,8 @@
 
 [data-collapsible="icon"] .bo-sidebar-logo {
 	opacity: 0;
-	translate: -11px 0;
-	scale: 0.85;
+	translate: -19px 0;
+	scale: 0.74;
 	transition:
 		opacity 150ms ease-out 50ms,
 		translate 250ms var(--ease-sidebar),
@@ -112,8 +115,8 @@
 
 [data-collapsible="icon"] .bo-sidebar-mark {
 	opacity: 1;
-	translate: 0 0;
-	scale: 1;
+	translate: -8px 0;
+	scale: 0.875;
 	transition:
 		opacity 100ms ease-out,
 		translate 250ms var(--ease-sidebar),
@@ -143,8 +146,9 @@
 }
 
 /*
- * Nút thu gọn ở đầu sidebar: màu, nền, độ mờ đổi nhanh (150ms); độ hạ 3,5px khi mở rộng
- * đổi cùng nhịp độ rộng sidebar để nút trượt liền một đường với mép sidebar.
+ * Nút thu gọn ở đầu sidebar: màu, nền, độ mờ đổi nhanh (150ms); độ hạ 3,5px khi mở rộng và
+ * khoảng cách tới mép phải (17px khi mở rộng, 9px khi thu gọn còn rail 48px) đổi cùng nhịp độ
+ * rộng sidebar để nút trượt liền một đường với mép sidebar.
  */
 .bo-sidebar-toggle {
 	transition:
@@ -152,12 +156,73 @@
 		color 150ms ease-out,
 		opacity 150ms ease-out,
 		scale 150ms ease-out,
-		translate 250ms var(--ease-sidebar);
+		translate 250ms var(--ease-sidebar),
+		right 250ms var(--ease-sidebar);
 }
 
 @media (prefers-reduced-motion: reduce) {
 	.bo-sidebar-toggle {
 		transition: none;
+	}
+}
+
+/*
+ * Rail thu gọn 48px, tính cả viền phải 1px. Mọi tâm nằm ở x = 24px (giữa 48px); cạnh của ô mục,
+ * biểu tượng, đường kẻ và nút mở rộng rơi đúng điểm ảnh nguyên, nên ở màn 100% không bị nhòe:
+ * - Vùng menu: lề trái 6px, lề phải 5px (cộng viền phải 1px là 6px), nên ô mục rộng 36px (6 → 42).
+ * - Mục menu: đệm 10px hai bên, biểu tượng 16px nằm giữa (10 + 16 + 10). Biểu tượng svg bị
+ *   SidebarMenuButton ép [&>svg]:size-4; ảnh Shopify co theo vùng nội dung 16px của nút.
+ * - Đường kẻ giữa các nhóm: lề 6px, dài 24px (12 → 36).
+ * - Chữ F và nút mở rộng: khối .bo-sidebar-mark ở trên và nút thu gọn trong BackofficeSidebar.jsx.
+ * Khi mở rộng giữ nguyên lề 12px, đệm 11px. Lề và đệm đổi cùng nhịp 250ms với độ rộng sidebar,
+ * nên biểu tượng trượt êm từ x = 31px về 24px thay vì nhảy.
+ * Các khối này nằm ngoài @layer nên đè lên tiện ích Tailwind (px-3, px-[11px], mx-2,
+ * transition-colors). Mục menu vì vậy khai báo lại chuyển màu chữ, màu nền như transition-colors
+ * (150ms, vẫn nhận duration-* / ease-* nếu thêm vào mục); muốn thêm transition khác cho mục
+ * menu thì sửa ở đây, thêm lớp transition-* vào mục sẽ không có tác dụng.
+ */
+.bo-sidebar-content {
+	transition: padding 250ms var(--ease-sidebar);
+}
+
+[data-collapsible="icon"] .bo-sidebar-content {
+	padding-left: 6px;
+	padding-right: 5px;
+}
+
+.bo-sidebar-item {
+	transition:
+		color var(--tw-duration, var(--default-transition-duration, 150ms))
+			var(--tw-ease, var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1))),
+		background-color var(--tw-duration, var(--default-transition-duration, 150ms))
+			var(--tw-ease, var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1))),
+		padding 250ms var(--ease-sidebar);
+}
+
+[data-collapsible="icon"] .bo-sidebar-item {
+	padding-inline: 10px;
+}
+
+.bo-sidebar-divider {
+	transition: margin 250ms var(--ease-sidebar);
+}
+
+[data-collapsible="icon"] .bo-sidebar-divider {
+	margin-inline: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.bo-sidebar-content,
+	.bo-sidebar-divider {
+		transition: none;
+	}
+
+	.bo-sidebar-item {
+		transition:
+			color var(--tw-duration, var(--default-transition-duration, 150ms))
+				var(--tw-ease, var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1))),
+			background-color var(--tw-duration, var(--default-transition-duration, 150ms))
+				var(--tw-ease, var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1)));
 	}
 }
 

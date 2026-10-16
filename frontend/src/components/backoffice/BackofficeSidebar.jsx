@@ -52,11 +52,12 @@ const HOVER_CLOSE_DELAY = 150;
 // chữ, nhóm menu và logo chuyển tiếp cùng nhịp với độ rộng thay vì bật/tắt ở
 // khung hình đầu.
 
-// Icon giữ nguyên toạ độ ngang và nằm giữa rail 4rem (63px trong viền phải):
-// SidebarContent px-3 (12px) + padding trái 11px + icon 16px (SidebarMenuButton
-// ép [&>svg]:size-4) => tâm icon ~31px. gap-3 đẩy chữ ra ngoài vùng nút 39px khi
-// thu gọn nên chữ không bao giờ ló ra mép rail.
-const MENU_BUTTON_LAYOUT = "h-10 gap-3 px-[11px]";
+// Biểu tượng 16px (SidebarMenuButton ép [&>svg]:size-4). Mở rộng: lề SidebarContent 12px
+// + đệm nút 11px, tâm biểu tượng ở x = 31px. Thu gọn còn rail 48px: lề 6px + đệm 10px,
+// tâm ở x = 24px, giữa rail (lề, đệm và chuyển động ở .bo-sidebar-content /
+// .bo-sidebar-item trong index.css).
+// gap-3 đẩy chữ ra ngoài vùng nút 36px khi thu gọn nên chữ không bao giờ ló ra mép rail.
+const MENU_BUTTON_LAYOUT = "bo-sidebar-item h-10 gap-3 px-[11px]";
 
 // Chữ: thu gọn thì mờ nhanh trước khi bị mép rail cắt, mở rộng thì hiện trễ
 // một nhịp khi đã đủ chỗ. `invisible` đưa chữ ra khỏi Tab và trình đọc màn hình.
@@ -822,9 +823,9 @@ export default function BackofficeSidebar() {
         {/* Cao 57px = thanh trên (h-14 + viền dưới 1px), nên hai đường kẻ ngang thẳng hàng. */}
         <SidebarHeader className="bo-sidebar-head group/head relative h-[57px] flex-row items-center overflow-hidden border-b border-bo-sidebar-border bg-bo-sidebar px-3">
           {/* Logo đầy đủ (cao 36px) + icon F chồng lên nhau, biến hình qua lại bằng CSS
-              (.bo-sidebar-logo / .bo-sidebar-mark trong index.css). Tâm chữ F
-              nằm ở 32px — trùng tâm rail và cột icon menu. Khi thu gọn, logo chỉ
-              để nhìn: nút mở rộng hiện chồng lên chữ F khi rê chuột / Tab tới. */}
+              (.bo-sidebar-logo / .bo-sidebar-mark trong index.css). Khi thu gọn, chữ F
+              cao 28px, tâm ở x = 24px — giữa rail 48px, thẳng cột biểu tượng menu. Lúc
+              đó logo chỉ để nhìn: nút mở rộng hiện chồng lên chữ F khi rê chuột / Tab tới. */}
           <NavLink
             to="/dashboard"
             onClick={handleNavigate}
@@ -852,11 +853,12 @@ export default function BackofficeSidebar() {
             />
           </NavLink>
 
-          {/* Nút thu gọn / mở rộng menu (mẫu "Khung mảnh"). Luôn neo cách mép phải 17px
-              (12px lề + 5px): khi mở rộng tâm trùng cột mũi tên của menu (x = 208px), khi
-              thu gọn tâm trùng chữ F giữa rail 64px (x = 32px). Nhờ vậy lúc thu / mở, nút
-              trượt theo mép sidebar thay vì nhảy chỗ. Khi mở rộng hạ thêm 3,5px để tâm nằm
-              giữa dải chữ thường của logo (chuyển động ở .bo-sidebar-toggle, index.css).
+          {/* Nút thu gọn / mở rộng menu (mẫu "Khung mảnh"). Khi mở rộng neo cách mép phải
+              17px (12px lề + 5px): tâm trùng cột mũi tên của menu (x = 208px). Khi thu gọn neo
+              cách mép phải 9px: tâm trùng chữ F giữa rail 48px (x = 24px). Nút neo theo mép
+              phải nên lúc thu / mở trượt theo mép sidebar thay vì nhảy chỗ (kể cả khi bấm đảo
+              chiều giữa chừng). Khi mở rộng hạ thêm 3,5px để tâm nằm giữa dải chữ thường của
+              logo (chuyển động ở .bo-sidebar-toggle, index.css).
               Khi thu gọn chỉ hiện khi rê chuột vào đầu rail hoặc Tab tới (focus bằng chuột
               thì không giữ nút hiện); máy cảm ứng không rê chuột được nên nút luôn hiện. */}
           {showToggleButton ? (
@@ -882,7 +884,7 @@ export default function BackofficeSidebar() {
                 "focus-visible:ring-2 focus-visible:ring-blue-300",
                 isExpanded
                   ? "translate-y-[calc(-50%+3.5px)]"
-                  : "-translate-y-1/2 opacity-0 group-hover/head:opacity-100 group-has-[:focus-visible]/head:opacity-100 [@media(hover:none)]:opacity-100",
+                  : "right-[9px] -translate-y-1/2 opacity-0 group-hover/head:opacity-100 group-has-[:focus-visible]/head:opacity-100 [@media(hover:none)]:opacity-100",
               )}
             >
               <BieuTuongKhungMenu thuGon={!isExpanded} />
@@ -890,13 +892,13 @@ export default function BackofficeSidebar() {
           ) : null}
         </SidebarHeader>
 
-        <SidebarContent className="bo-sidebar-scroll bg-bo-sidebar px-3 py-3">
+        <SidebarContent className="bo-sidebar-scroll bo-sidebar-content bg-bo-sidebar px-3 py-3">
           {sections.map((section, index) => (
             <div key={section.key}>
               {index > 0 ? (
                 <div
                   aria-hidden="true"
-                  className="mx-2 my-2 border-t border-bo-sidebar-border/70"
+                  className="bo-sidebar-divider mx-2 my-2 border-t border-bo-sidebar-border/70"
                 />
               ) : null}
 
