@@ -98,7 +98,7 @@ export default function App() {
     <BrowserRouter>
       {/* Toaster global: dùng chung cho mọi trang (kể cả auth — toast từ ProtectedRoute
           cần sống sót khi chuyển sang /login, nơi BackofficeLayout không còn mount) */}
-      <Toaster position="top-center" richColors containerAriaLabel="Thông báo" />
+      <Toaster />
       <Routes>
         {/* ========== PUBLIC ROUTES ========== */}
         <Route path="/" element={<Navigate to={localStorage.getItem("access_token") ? "/dashboard" : "/login"} replace />} />

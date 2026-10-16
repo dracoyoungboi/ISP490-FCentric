@@ -1,0 +1,225 @@
+/*
+ * Giao diện thông báo nhanh (toast) — kiểu "Đề xuất cho FCentric", chốt ngày 16/10/2026:
+ * ô trắng, viền mảnh, màu chỉ nằm ở biểu tượng, chữ tiêu đề đậm, nút thao tác dạng chữ xanh.
+ *
+ * Vị trí, thời gian, bề rộng, tốc độ hiệu ứng: src/config/thongBaoNhanh.js
+ * (Toaster truyền vào đây qua biến --width, --tb-vao, --tb-ra).
+ *
+ * Sonner tự chèn CSS mặc định lúc chạy (đứng sau file này trong <head> khi build),
+ * nên mọi bộ chọn đều bắt đầu bằng .fc-thong-bao[data-sonner-toaster] để luôn thắng.
+ */
+
+.fc-thong-bao[data-sonner-toaster] {
+	font-family: var(--font-backoffice, Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif);
+	font-variation-settings: "opsz" 14;
+	-webkit-font-smoothing: antialiased;
+}
+
+/* ---------- Ô thông báo ---------- */
+
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-styled="true"] {
+	align-items: flex-start;
+	gap: 10px;
+	padding: 12px 40px 12px 14px;
+	background: var(--color-bo-surface, #ffffff);
+	border: 1px solid var(--color-bo-border, #e1e6ec);
+	border-radius: 10px;
+	box-shadow:
+		0 1px 2px rgba(16, 24, 40, 0.06),
+		0 8px 24px rgba(16, 24, 40, 0.12);
+	color: var(--color-bo-foreground, #182537);
+	font-size: 13px;
+}
+
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-styled="true"]:focus-visible {
+	box-shadow:
+		0 8px 24px rgba(16, 24, 40, 0.12),
+		0 0 0 2px var(--color-bo-primary, #1677ff);
+}
+
+/* Biểu tượng: màu theo loại, canh với dòng tiêu đề */
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-icon] {
+	width: 16px;
+	height: 20px;
+	margin: 0;
+	justify-content: center;
+}
+
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-icon] svg {
+	margin: 0;
+}
+
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-type="success"] [data-icon] {
+	color: var(--color-bo-success, #15803d);
+}
+
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-type="error"] [data-icon] {
+	color: var(--color-bo-danger, #dc2626);
+}
+
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-type="warning"] [data-icon] {
+	color: #d97706;
+}
+
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-type="info"] [data-icon] {
+	color: var(--color-bo-primary, #1677ff);
+}
+
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-type="loading"] [data-icon] {
+	color: var(--color-bo-muted, #64748b);
+}
+
+/* Chữ */
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-content] {
+	flex: 1 1 auto;
+	min-width: 0;
+	gap: 2px;
+}
+
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-title] {
+	font-size: 13.5px;
+	font-weight: 600;
+	line-height: 20px;
+	color: var(--color-bo-heading, #0b1320);
+}
+
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-description] {
+	font-size: 12.5px;
+	font-weight: 400;
+	line-height: 18px;
+	color: var(--color-bo-muted, #64748b);
+}
+
+/* Số lần lặp của thông báo trùng: "Đã sao chép ×3" */
+.fc-thong-bao .fc-tb-dem {
+	display: inline-block;
+	margin-left: 6px;
+	padding: 0 6px;
+	border-radius: 999px;
+	background: #eef1f5;
+	color: var(--color-bo-muted, #64748b);
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 18px;
+	font-variant-numeric: tabular-nums;
+	vertical-align: 1px;
+}
+
+/* Nút thao tác (Hoàn tác, Thử lại, Mở phiếu…): dạng chữ xanh, không nền đen */
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-button] {
+	align-self: center;
+	flex: none;
+	height: 28px;
+	margin: 0 0 0 4px;
+	padding: 0 8px;
+	border: 0;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--color-bo-primary, #1677ff);
+	font-size: 13px;
+	font-weight: 600;
+	transition: background-color 120ms;
+}
+
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-button]:hover {
+	background: var(--color-bo-primary-soft, #eaf3ff);
+}
+
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-button]:focus-visible {
+	box-shadow: 0 0 0 2px var(--color-bo-primary, #1677ff);
+}
+
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-cancel] {
+	color: var(--color-bo-muted, #64748b);
+}
+
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-cancel]:hover {
+	background: #f1f4f7;
+}
+
+/* Nút đóng: góc trên phải bên trong ô. Lỗi, cảnh báo luôn hiện; loại khác hiện khi rê chuột hoặc dùng bàn phím. */
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button] {
+	top: 10px;
+	right: 8px;
+	left: auto;
+	width: 24px;
+	height: 24px;
+	transform: none;
+	border: 0;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--color-bo-muted, #64748b);
+	opacity: 0;
+	transition:
+		opacity 120ms,
+		background-color 120ms;
+}
+
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button] svg {
+	width: 14px;
+	height: 14px;
+}
+
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-styled="true"]:hover [data-close-button],
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button]:focus-visible,
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-type="error"] [data-close-button],
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-type="warning"] [data-close-button] {
+	opacity: 1;
+}
+
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-styled="true"]:hover [data-close-button]:hover {
+	background: #f1f4f7;
+	border: 0;
+	color: var(--color-bo-heading, #0b1320);
+}
+
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button]:focus-visible {
+	box-shadow: 0 0 0 2px var(--color-bo-primary, #1677ff);
+}
+
+/* Đang xử lý thì không cho đóng */
+.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-type="loading"] [data-close-button] {
+	display: none;
+}
+
+/* Màn cảm ứng không rê chuột được: luôn hiện nút đóng */
+@media (hover: none) {
+	.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button] {
+		opacity: 1;
+	}
+}
+
+/* ---------- Chuyển động: nhanh, chỉ trượt và mờ ---------- */
+@media (prefers-reduced-motion: no-preference) {
+	.fc-thong-bao[data-sonner-toaster] {
+		transition:
+			bottom var(--tb-vao, 200ms) ease-out,
+			transform 400ms ease;
+	}
+
+	.fc-thong-bao[data-sonner-toaster] [data-sonner-toast] {
+		transition:
+			transform var(--tb-vao, 200ms) cubic-bezier(0.2, 0.8, 0.2, 1),
+			opacity var(--tb-vao, 200ms) cubic-bezier(0.2, 0.8, 0.2, 1),
+			height var(--tb-vao, 200ms) ease-out,
+			box-shadow 200ms;
+	}
+
+	.fc-thong-bao[data-sonner-toaster] [data-sonner-toast] > * {
+		transition: opacity var(--tb-vao, 200ms);
+	}
+
+	.fc-thong-bao[data-sonner-toaster] [data-sonner-toast][data-removed="true"] {
+		transition:
+			transform var(--tb-ra, 150ms) cubic-bezier(0.4, 0, 1, 1),
+			opacity var(--tb-ra, 150ms) cubic-bezier(0.4, 0, 1, 1),
+			height var(--tb-ra, 150ms) ease-in;
+	}
+}
+
+/* Không in thông báo ra giấy */
+@media print {
+	.fc-thong-bao[data-sonner-toaster] {
+		display: none !important;
+	}
+}
