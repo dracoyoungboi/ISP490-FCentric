@@ -3,9 +3,10 @@ import { useRef } from 'react';
 const OTP_LENGTH = 6;
 
 /**
- * Nhóm 6 ô nhập OTP dùng chung cho ForgotPassword.
+ * Nhóm 6 ô nhập OTP dùng chung cho ForgotPassword và đăng nhập cổng nhà cung cấp.
  * value/onChange: mảng 6 chuỗi (mỗi ô 1 ký tự số), do trang cha quản lý.
  * Hỗ trợ: auto-focus ô kế tiếp, Backspace lùi ô, dán (paste) mã 6 số, inputMode numeric.
+ * Ô rộng tối đa 44px (48px từ sm) và tự co lại trên màn rất hẹp (dưới ~360px) để không tràn khung.
  */
 export default function OtpInputs({
     value,
@@ -67,7 +68,7 @@ export default function OtpInputs({
                     onChange={(e) => handleChange(index, e)}
                     onKeyDown={(e) => handleKeyDown(index, e)}
                     onPaste={handlePaste}
-                    className={`h-12 w-11 sm:h-14 sm:w-12 rounded-lg border bg-white text-center text-xl font-bold text-gray-900 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:opacity-50 ${
+                    className={`h-12 w-full min-w-0 max-w-11 sm:h-14 sm:max-w-12 rounded-lg border bg-white text-center text-xl font-bold text-gray-900 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:opacity-50 ${
                         error ? 'border-red-500' : 'border-gray-300'
                     }`}
                 />
