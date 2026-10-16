@@ -37,6 +37,27 @@ export const phieuNhapKhoService = {
             }),
         );
     },
+    /**
+     * Phiếu nhập (chưa hủy) của một nhà cung cấp cho màn Chi tiết nhà cung cấp, mới nhất trước.
+     * `khoIds`: chỉ lấy phiếu của các kho này (quản lý kho / nhân viên kho). Trả `{ nhaCungCapId, phieus, tong }`.
+     */
+    async layTheoNhaCungCap(nhaCungCapId, { khoIds, size = 500 } = {}) {
+        const filters = [
+            { fieldName: "nhaCungCap.id", operation: "EQUALS", value: Number(nhaCungCapId) },
+            { fieldName: "trangThai", operation: "NOT_IN", value: [4] },
+        ];
+        if (Array.isArray(khoIds)) {
+            filters.push({ fieldName: "kho.id", operation: "IN", value: khoIds.length ? khoIds : [-1] });
+        }
+        const res = await apiClient.post("/api/v1/phieu-nhap-kho/filter", {
+            page: 0,
+            size,
+            filters,
+            sorts: [{ fieldName: "ngayTao", direction: "DESC" }],
+        });
+        const phieus = res.data?.content || [];
+        return { nhaCungCapId: Number(nhaCungCapId), phieus, tong: res.data?.totalElements ?? phieus.length };
+    },
     async cancel(id) {
         return apiClient.put(`/api/v1/phieu-nhap-kho/${id}/cancel`);
     },

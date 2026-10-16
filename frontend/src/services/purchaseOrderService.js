@@ -71,6 +71,30 @@ const purchaseOrderService = {
         size,
     }),
 
+    /**
+     * Đơn mua và báo giá của một nhà cung cấp cho màn Chi tiết nhà cung cấp (trạng thái 1–5, bỏ 0 "Đã xóa"),
+     * mới nhất trước. `khoIds`: chỉ lấy đơn nhập về các kho này (quản lý kho / nhân viên kho, như trang
+     * Đơn mua hàng). Lấy tối đa `size` đơn; trả `{ nhaCungCapId, dons, tong }` để màn hình báo khi còn đơn chưa tải.
+     */
+    layTheoNhaCungCap: async (nhaCungCapId, { khoIds, size = 500 } = {}) => {
+        const filters = [
+            { fieldName: 'nhaCungCap.id', operation: 'EQUALS', value: Number(nhaCungCapId) },
+            { fieldName: 'trangThai', operation: 'IN', value: [1, 2, 3, 4, 5] },
+        ];
+        if (Array.isArray(khoIds)) {
+            filters.push({ fieldName: 'khoNhap.id', operation: 'IN', value: khoIds.length ? khoIds : [-1] });
+        }
+        const response = await apiClient.post(`/api/v1/don-mua-hang/filter`, {
+            page: 0,
+            size,
+            filters,
+            sorts: [{ fieldName: 'ngayTao', direction: 'DESC' }],
+        }, { needKho: false });
+        const page = response.data?.data ?? {};
+        const dons = page.content ?? [];
+        return { nhaCungCapId: Number(nhaCungCapId), dons, tong: page.totalElements ?? dons.length };
+    },
+
     /** Lấy danh sách nhà cung cấp unique từ các đơn mua hàng */
     getUniqueSuppliers: async () => {
         const response = await apiClient.post(`/api/v1/don-mua-hang/filter`, {

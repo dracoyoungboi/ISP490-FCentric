@@ -1,322 +1,350 @@
-// src/pages/supplier/SupplierDetailView.jsx — trang Chi tiết nhà cung cấp (/supplier/:id)
-import { useCallback, useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+// src/pages/supplier/SupplierDetailView.jsx — trang Chi tiết nhà cung cấp (/supplier/:id), bản "một khối" (chốt 17/10/2026)
+import { createElement, useCallback, useMemo, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { AlertTriangle, CirclePause, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-    AlertTriangle, ArrowLeft, CircleCheck, CirclePause, Clock, Calendar, Edit,
-    Landmark, Mail, MapPin, Phone, User2,
-} from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 
 import PageContainer from "@/components/backoffice/PageContainer";
-import PageHeader from "@/components/backoffice/PageHeader";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
-import StatusBadge from "@/components/shared/StatusBadge";
 import SurfaceCard from "@/components/shared/SurfaceCard";
+import SupplierDeleteDialog from "@/components/supplier/SupplierDeleteDialog";
 import SupplierFormDialog from "@/components/supplier/SupplierFormDialog";
 import SupplierStatusDialog from "@/components/supplier/SupplierStatusDialog";
 import { laHoatDong } from "@/components/supplier/quyTacNhaCungCap";
+import DauTrangNcc from "@/components/supplier/chi-tiet/DauTrangNcc";
+import TinhHinhNcc from "@/components/supplier/chi-tiet/TinhHinhNcc";
+import GiaoDichNcc from "@/components/supplier/chi-tiet/GiaoDichNcc";
+import ThuocTinhNcc from "@/components/supplier/chi-tiet/ThuocTinhNcc";
+import {
+  TRANG_THAI_DA_CHOT,
+  demViecDangDo,
+  dungHoatDong,
+  giaoHangTheoDon,
+  phanLoaiDon,
+  tinhChiSo,
+  tinhLichSuGia,
+  timViecDangMo,
+} from "@/components/supplier/chi-tiet/tinhNhaCungCap";
+import useTabTrenUrl from "@/hooks/useTabTrenUrl";
+import useTaiDuLieu from "@/hooks/useTaiDuLieu";
+import { getMineKhoList } from "@/services/khoService";
+import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
+import purchaseOrderService from "@/services/purchaseOrderService";
 import { getSupplierById } from "@/services/supplierService";
-import { timNganHang, useDanhSachNganHang } from "@/services/nganHangService";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
-import { formatDateTime } from "@/utils/formatters";
+import { getKhoLamViecId } from "@/utils/khoLamViec";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 
-// Khớp quyền ở backend (NhaCungCapController): Quản lý kho chỉ xem.
+// Khớp quyền ở backend (NhaCungCapController): sửa, đổi trạng thái, xóa. Quản lý kho chỉ xem.
 const QUYEN_QUAN_LY_NCC = [ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_MUA_HANG];
+// Vai trò backend cho xem đơn mua (DonMuaHangController.filter).
+const QUYEN_XEM_GIAO_DICH = [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_MUA_HANG, ROLES.NHAN_VIEN_KHO];
+// Vai trò backend cho xem và tạo phiếu nhập kho (PhieuNhapKhoController).
+const QUYEN_PHIEU_NHAP = [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_KHO];
+// Vai trò xem mọi kho; vai trò kho còn lại chỉ thấy đơn của kho mình phụ trách (như trang Đơn mua hàng).
+const QUYEN_XEM_MOI_KHO = [ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_MUA_HANG];
 
-// ── Info field — hiển thị label + value dạng readonly ────────────────────
-function InfoField({ label, icon: Icon, children, value, className }) {
-    const content = children ?? (
-        <span className="text-sm font-medium text-bo-foreground">{value || "—"}</span>
-    );
-    return (
-        <div className={`flex min-w-0 flex-col gap-1.5 ${className ?? ""}`}>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{label}</p>
-            <div className="flex min-w-0 items-start gap-2">
-                {Icon ? <Icon className="mt-0.5 size-4 shrink-0 text-slate-400" aria-hidden="true" /> : null}
-                <div className="min-w-0 break-words">{content}</div>
-            </div>
-        </div>
-    );
-}
+const TAB_HOP_LE = ["dang-mo", "don-mua", "bao-gia", "phieu-nhap", "san-pham", "hoat-dong"];
 
-function Notice({ tone = "warning", children, action }) {
-    const toneClass = tone === "warning"
-        ? "border-orange-200 bg-bo-warning-soft text-bo-warning"
-        : "border-bo-border bg-slate-50 text-slate-700";
-    return (
-        <div className={`flex flex-col gap-3 rounded-lg border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between ${toneClass}`}>
-            <div className="flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                <div className="leading-6">{children}</div>
-            </div>
-            {action ? <div className="shrink-0">{action}</div> : null}
-        </div>
-    );
-}
-
-// ── Main component ────────────────────────────────────────────────────────
-export default function SupplierDetailView() {
-    const { id }      = useParams();
-    const navigate    = useNavigate();
-    const coTheQuanLy = hasAnyRole(QUYEN_QUAN_LY_NCC);
-    const [supplier, setSupplier] = useState(null);
-    const [loading,  setLoading]  = useState(true);
-    // null | { notFound: true } | { message }
-    const [loadError, setLoadError] = useState(null);
-    const [editOpen, setEditOpen] = useState(false);
-    const [statusOpen, setStatusOpen] = useState(false);
-    const { danhSach: nganHangs } = useDanhSachNganHang();
-
-    const fetchSupplier = useCallback(async () => {
-        setLoading(true);
-        setLoadError(null);
-        try {
-            const data = await getSupplierById(id);
-            setSupplier(data ?? null);
-            if (!data) setLoadError({ notFound: true });
-        } catch (error) {
-            setSupplier(null);
-            const status = getApiErrorStatus(error);
-            setLoadError(status === 404
-                ? { notFound: true }
-                : { message: getApiErrorMessage(error, "Không thể tải thông tin nhà cung cấp") });
-        } finally {
-            setLoading(false);
-        }
-    }, [id]);
-
-    // Hoãn qua microtask để tránh setState đồng bộ trong effect
-    // (react-hooks/set-state-in-effect); request vẫn chạy ngay khi mount.
-    useEffect(() => { queueMicrotask(() => fetchSupplier()); }, [fetchSupplier]);
-
-    const backButton = (
+/** Dải báo nằm trong khối, ngay dưới đầu khối: đã ngừng hoạt động (xám) hoặc chưa có email (cam). */
+function DaiBao({ tone, icon, children, nutNhan, onNut }) {
+  const kieu = tone === "warning"
+    ? "border-orange-200 bg-bo-warning-soft text-bo-warning"
+    : "border-bo-border bg-slate-100 text-slate-700";
+  return (
+    <div
+      role="status"
+      className={`flex flex-col gap-3 border-t px-4 py-3 text-[13px] leading-5 sm:flex-row sm:items-center sm:justify-between sm:px-6 ${kieu}`}
+    >
+      <span className="flex items-start gap-2.5">
+        {createElement(icon, { className: "mt-0.5 size-4 shrink-0", "aria-hidden": true })}
+        <span>{children}</span>
+      </span>
+      {nutNhan ? (
         <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate("/supplier")}
-            className="gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onNut}
+          className="shrink-0 border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle max-sm:h-11"
         >
-            <ArrowLeft className="size-4" />
-            Quay lại danh sách
+          {nutNhan}
         </Button>
-    );
+      ) : null}
+    </div>
+  );
+}
 
-    if (loading) {
-        return (
-            <PageContainer>
-                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                    <LoadingState rows={4} label="Đang tải thông tin nhà cung cấp" />
-                </div>
-            </PageContainer>
-        );
-    }
+export default function SupplierDetailView() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-    if (!supplier) {
-        return (
-            <PageContainer className="space-y-5">
-                <PageHeader title="Chi tiết nhà cung cấp" actions={backButton} />
-                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                    {loadError?.notFound ? (
-                        <EmptyState
-                            title="Không tìm thấy nhà cung cấp"
-                            description="Nhà cung cấp có thể đã bị xóa hoặc đường dẫn không đúng."
-                        />
-                    ) : (
-                        <ErrorState
-                            title="Không thể tải thông tin nhà cung cấp"
-                            description={loadError?.message}
-                            onRetry={fetchSupplier}
-                        />
-                    )}
-                </div>
-            </PageContainer>
-        );
-    }
+  const coTheQuanLy = hasAnyRole(QUYEN_QUAN_LY_NCC);
+  const xemGiaoDich = hasAnyRole(QUYEN_XEM_GIAO_DICH);
+  const xemPhieu = hasAnyRole(QUYEN_PHIEU_NHAP);
+  const gioiHanKho = xemGiaoDich && !hasAnyRole(QUYEN_XEM_MOI_KHO);
+  const laQuanTriVien = hasAnyRole([ROLES.QUAN_TRI_VIEN]);
 
-    const dangHoatDong = laHoatDong(supplier);
-    const thieuEmail = !supplier.email?.trim();
-    const nganHang = timNganHang(nganHangs, supplier.nganHang);
-    const coThongTinThanhToan = Boolean(supplier.nganHang && supplier.soNganHang);
+  const [editOpen, setEditOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
-    const handleSaved = (saved) => {
-        setSupplier((prev) => ({ ...prev, ...saved }));
-        toast.success("Đã lưu thay đổi nhà cung cấp");
+  // ── Nhà cung cấp ────────────────────────────────────────────────────────
+  const taiNcc = useCallback(() => getSupplierById(id), [id]);
+  const nccQ = useTaiDuLieu(taiNcc, `ncc-${id}`, { enabled: Boolean(id) });
+  const ncc = nccQ.data && String(nccQ.data.id) === String(id) ? nccQ.data : null;
+
+  // ── Kho phụ trách (quản lý kho / nhân viên kho) ─────────────────────────
+  const khoQ = useTaiDuLieu(getMineKhoList, "kho-phu-trach", { enabled: gioiHanKho });
+  const khoPhuTrach = gioiHanKho ? khoQ.data : undefined;
+  // undefined = không giới hạn kho (hoặc chưa tải xong danh sách kho phụ trách)
+  const khoIds = useMemo(() => (Array.isArray(khoPhuTrach) ? khoPhuTrach.map((k) => k.id) : undefined), [khoPhuTrach]);
+  const duKho = !gioiHanKho || Array.isArray(khoIds);
+  const khoaKho = gioiHanKho ? (khoIds ?? []).join(",") : "moi-kho";
+
+  // ── Đơn mua và báo giá của nhà cung cấp ─────────────────────────────────
+  const taiDon = useCallback(() => purchaseOrderService.layTheoNhaCungCap(id, { khoIds }), [id, khoIds]);
+  const donQ = useTaiDuLieu(taiDon, `don-ncc-${id}-${khoaKho}`, { enabled: Boolean(id) && xemGiaoDich && duKho });
+
+  // ── Phiếu nhập kho (không chặn trang khi lỗi) ───────────────────────────
+  const taiPhieu = useCallback(() => phieuNhapKhoService.layTheoNhaCungCap(id, { khoIds }), [id, khoIds]);
+  const phieuQ = useTaiDuLieu(taiPhieu, `phieu-ncc-${id}-${khoaKho}`, { enabled: Boolean(id) && xemPhieu && duKho });
+
+  // ── Tính toán ───────────────────────────────────────────────────────────
+  // Chỉ dùng dữ liệu của đúng nhà cung cấp đang xem (lúc chuyển sang nhà cung cấp khác, dữ liệu cũ còn giữ trong lúc tải)
+  const donData = donQ.data?.nhaCungCapId === Number(id) ? donQ.data : undefined;
+  const phieuData = phieuQ.data?.nhaCungCapId === Number(id) ? phieuQ.data : undefined;
+  const dons = donData?.dons;
+  const phieus = xemPhieu && phieuData && !phieuQ.error ? phieuData.phieus : null;
+  const tinh = useMemo(() => {
+    const { chot, baoGia } = phanLoaiDon(dons);
+    const giaoTheoDon = giaoHangTheoDon(chot, phieus);
+    const viec = timViecDangMo(chot, baoGia, giaoTheoDon);
+    return {
+      chot,
+      baoGia,
+      giaoTheoDon,
+      viec,
+      chiSo: tinhChiSo(chot, baoGia, giaoTheoDon, { coNgayNhap: phieus != null }),
+      lichSuGia: tinhLichSuGia(chot),
     };
+  }, [dons, phieus]);
+  const suKien = useMemo(() => dungHoatDong({ ncc, dons, phieus }), [ncc, dons, phieus]);
 
-    const handleStatusChanged = (updated) => {
-        setSupplier((prev) => ({ ...prev, ...updated }));
-        toast.success(laHoatDong(updated)
-            ? "Đã cho phép nhà cung cấp hoạt động lại"
-            : "Đã ngừng hoạt động nhà cung cấp");
-    };
+  const loiDon = khoQ.error
+    ? getApiErrorMessage(khoQ.error, "Không tải được danh sách kho bạn phụ trách")
+    : donQ.error
+      ? getApiErrorMessage(donQ.error, "Không tải được đơn mua của nhà cung cấp")
+      : null;
+  const loiPhieu = xemPhieu && phieuQ.error ? getApiErrorMessage(phieuQ.error, "") || true : null;
+  // Chưa có dữ liệu lần nào và chưa lỗi = đang tải (kể cả lúc chờ danh sách kho phụ trách)
+  const dangTaiDon = xemGiaoDich && !loiDon && dons === undefined;
+  const dangTaiPhieu = xemPhieu && !khoQ.error && !phieuQ.error && phieuData === undefined;
 
+  // ── Tab (lưu trên đường dẫn ?tab=) ──────────────────────────────────────
+  const coViec = tinh.viec.length > 0;
+  const [tab, setTab] = useTabTrenUrl(
+    TAB_HOP_LE.filter((ma) => (ma === "dang-mo" ? coViec || dangTaiDon : ma === "phieu-nhap" ? xemPhieu : true)),
+    coViec || dangTaiDon ? "dang-mo" : "don-mua",
+    { ten: "tab" },
+  );
+  const tabs = [
+    coViec || dangTaiDon
+      ? { ma: "dang-mo", nhan: "Đang mở", so: tinh.viec.length, gap: tinh.viec.some((v) => v.giao?.loai === "quaHan") }
+      : null,
+    { ma: "don-mua", nhan: "Đơn mua hàng", so: tinh.chot.length },
+    { ma: "bao-gia", nhan: "Báo giá", so: tinh.baoGia.length },
+    xemPhieu ? { ma: "phieu-nhap", nhan: "Phiếu nhập kho", so: phieus?.length ?? 0 } : null,
+    { ma: "san-pham", nhan: "Sản phẩm & giá", so: tinh.lichSuGia.length },
+    { ma: "hoat-dong", nhan: "Hoạt động", so: 0 },
+  ].filter(Boolean);
+
+  // Đơn được nhập hàng tại đây: đúng vai trò kho và (quản trị viên hoặc đang chọn đúng kho nhận của đơn)
+  const khoLamViecId = getKhoLamViecId();
+  const nutCuaDon = (don) => {
+    const duocNhap =
+      xemPhieu &&
+      TRANG_THAI_DA_CHOT.includes(Number(don.trangThai)) &&
+      (laQuanTriVien || (don.khoNhap?.id != null && khoLamViecId === don.khoNhap.id));
+    return duocNhap
+      ? { nhan: "Tạo phiếu nhập", href: `/goods-receipts/create?poId=${don.id}` }
+      : { nhan: "Xem đơn", href: `/purchase-orders/${don.id}` };
+  };
+
+  const ghiChu = [
+    gioiHanKho && Array.isArray(khoIds)
+      ? khoIds.length
+        ? `Chỉ tính đơn và phiếu nhập của kho bạn phụ trách: ${(khoQ.data ?? []).map((k) => k.tenKho).filter(Boolean).join(", ")}.`
+        : "Bạn chưa được phân công kho nào nên chưa thấy giao dịch."
+      : null,
+    donData && donData.tong > donData.dons.length
+      ? `Đang tính trên ${donData.dons.length} đơn gần nhất trong tổng số ${donData.tong} đơn.`
+      : null,
+  ].filter(Boolean).join(" ");
+
+  const lyDoKhongTinhGiao = !xemPhieu
+    ? "Cần quyền xem phiếu nhập kho để tính"
+    : phieuQ.error
+      ? "Chưa tải được phiếu nhập kho"
+      : "";
+
+  const quayLai = () => {
+    // Mở thẳng bằng đường dẫn (không có trang trước trong ứng dụng) thì về danh sách nhà cung cấp
+    if (location.key === "default") navigate("/supplier");
+    else navigate(-1);
+  };
+
+  // ── Đang tải / lỗi / không tìm thấy ────────────────────────────────────
+  if (!ncc && (nccQ.loading || (!nccQ.error && nccQ.data === undefined))) {
     return (
-        <PageContainer className="space-y-5">
-            {/* ── Page header ── */}
-            <PageHeader
-                title="Chi tiết nhà cung cấp"
-                actions={
-                    <>
-                        {backButton}
-                        {coTheQuanLy ? (
-                            <>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => setStatusOpen(true)}
-                                    className={dangHoatDong
-                                        ? "gap-1.5 border-bo-border bg-white text-bo-warning hover:bg-bo-warning-soft hover:text-bo-warning"
-                                        : "gap-1.5 border-bo-border bg-white text-bo-success hover:bg-bo-success-soft hover:text-bo-success"}
-                                >
-                                    {dangHoatDong ? <CirclePause className="size-4" /> : <CircleCheck className="size-4" />}
-                                    {dangHoatDong ? "Ngừng hoạt động" : "Cho phép hoạt động"}
-                                </Button>
-                                <Button
-                                    onClick={() => setEditOpen(true)}
-                                    className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
-                                >
-                                    <Edit className="size-4" />
-                                    Chỉnh sửa
-                                </Button>
-                            </>
-                        ) : null}
-                    </>
-                }
-            />
-
-            {!dangHoatDong ? (
-                <Notice tone="neutral">
-                    <span className="font-semibold">Nhà cung cấp đang ngừng hoạt động.</span>{" "}
-                    Không được chọn khi gửi yêu cầu báo giá; đơn mua đang xử lý vẫn tiếp tục bình thường.
-                </Notice>
-            ) : thieuEmail ? (
-                <Notice
-                    action={coTheQuanLy ? (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setEditOpen(true)}
-                            className="border-orange-200 bg-white text-bo-warning hover:bg-bo-warning-soft hover:text-bo-warning"
-                        >
-                            Thêm email
-                        </Button>
-                    ) : null}
-                >
-                    <span className="font-semibold">Chưa có email.</span>{" "}
-                    Chưa gửi được yêu cầu báo giá cho nhà cung cấp này.
-                </Notice>
-            ) : null}
-
-            {/* ── Row 1: Định danh ── */}
-            <SurfaceCard title="Thông tin cơ bản">
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-                    <InfoField label="Mã nhà cung cấp">
-                        <span className="rounded-md border border-bo-border bg-bo-surface-subtle px-2 py-1 font-mono text-sm font-semibold text-bo-foreground">
-                            {supplier.maNhaCungCap || "—"}
-                        </span>
-                    </InfoField>
-                    <InfoField label="Tên nhà cung cấp" value={supplier.tenNhaCungCap} />
-                    <InfoField label="Trạng thái">
-                        <StatusBadge
-                            label={dangHoatDong ? "Hoạt động" : "Ngừng hoạt động"}
-                            tone={dangHoatDong ? "success" : "neutral"}
-                        />
-                    </InfoField>
-                </div>
-            </SurfaceCard>
-
-            {/* ── Row 2: Liên hệ + Thanh toán & Hệ thống ── */}
-            <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
-
-                {/* Liên hệ */}
-                <SurfaceCard title="Thông tin liên hệ" className="h-full">
-                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                        <InfoField label="Người liên hệ" icon={User2} value={supplier.nguoiLienHe} />
-                        <InfoField label="Số điện thoại" icon={Phone}>
-                            <span className="font-mono text-sm font-medium text-bo-foreground">
-                                {supplier.soDienThoai || "—"}
-                            </span>
-                        </InfoField>
-                        <InfoField label="Email" icon={Mail} value={supplier.email} className="sm:col-span-2" />
-                        <InfoField label="Địa chỉ" icon={MapPin} className="sm:col-span-2">
-                            <span className="text-sm font-medium leading-relaxed text-bo-foreground">
-                                {supplier.diaChi || "—"}
-                            </span>
-                        </InfoField>
-                    </div>
-                </SurfaceCard>
-
-                {/* Thanh toán + Hệ thống xếp chồng */}
-                <div className="flex flex-col gap-5">
-                    <SurfaceCard
-                        title="Thông tin thanh toán"
-                        description="Dùng để tạo mã QR khi thanh toán đơn mua."
-                    >
-                        {coThongTinThanhToan ? (
-                            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                                <InfoField label="Ngân hàng" icon={Landmark}>
-                                    <span className="block text-sm font-medium text-bo-foreground">
-                                        {nganHang?.tenNgan ?? supplier.nganHang}
-                                    </span>
-                                    {nganHang?.tenDayDu ? (
-                                        <span className="block text-xs text-bo-muted">{nganHang.tenDayDu}</span>
-                                    ) : null}
-                                </InfoField>
-                                <InfoField label="Số tài khoản">
-                                    <span className="font-mono text-sm font-medium text-bo-foreground">
-                                        {supplier.soNganHang}
-                                    </span>
-                                </InfoField>
-                            </div>
-                        ) : (
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <p className="text-sm text-bo-muted">
-                                    Chưa có tài khoản ngân hàng nên chưa tạo được mã QR khi thanh toán đơn mua.
-                                </p>
-                                {coTheQuanLy ? (
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => setEditOpen(true)}
-                                        className="shrink-0 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                                    >
-                                        Thêm tài khoản
-                                    </Button>
-                                ) : null}
-                            </div>
-                        )}
-                    </SurfaceCard>
-
-                    {/* Thông tin hệ thống */}
-                    <SurfaceCard title="Thông tin hệ thống" className="bg-bo-surface-subtle">
-                        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                            <InfoField label="Ngày tạo" icon={Calendar} value={formatDateTime(supplier.ngayTao)} />
-                            <InfoField label="Cập nhật lần cuối" icon={Clock} value={formatDateTime(supplier.ngayCapNhat)} />
-                        </div>
-                    </SurfaceCard>
-                </div>
-            </div>
-
-            {coTheQuanLy ? (
-                <>
-                    <SupplierFormDialog
-                        open={editOpen}
-                        onOpenChange={setEditOpen}
-                        supplier={supplier}
-                        onSaved={handleSaved}
-                    />
-                    <SupplierStatusDialog
-                        supplier={supplier}
-                        open={statusOpen}
-                        onOpenChange={setStatusOpen}
-                        onChanged={handleStatusChanged}
-                    />
-                </>
-            ) : null}
-        </PageContainer>
+      <PageContainer>
+        <SurfaceCard>
+          <LoadingState label="Đang tải thông tin nhà cung cấp" />
+        </SurfaceCard>
+      </PageContainer>
     );
+  }
+
+  if (!ncc) {
+    const status = getApiErrorStatus(nccQ.error);
+    const khongThay = !nccQ.error || status === 404 || status === 400;
+    return (
+      <PageContainer>
+        <SurfaceCard contentClassName="p-0 sm:p-0">
+          {khongThay ? (
+            <EmptyState
+              icon={SearchX}
+              title="Không tìm thấy nhà cung cấp"
+              description="Nhà cung cấp có thể đã bị xóa hoặc đường dẫn không đúng."
+              action={
+                <Button
+                  onClick={() => navigate("/supplier")}
+                  className="bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover"
+                >
+                  Quay lại danh sách
+                </Button>
+              }
+            />
+          ) : (
+            <ErrorState
+              title="Không thể tải thông tin nhà cung cấp"
+              description={getApiErrorMessage(nccQ.error, "Không thể tải thông tin nhà cung cấp")}
+              onRetry={nccQ.reload}
+            />
+          )}
+        </SurfaceCard>
+      </PageContainer>
+    );
+  }
+
+  const dangHoatDong = laHoatDong(ncc);
+  const thieuEmail = !ncc.email?.trim();
+
+  const capNhatNcc = (moi) => nccQ.setData((cu) => ({ ...cu, ...moi }));
+  const handleSaved = (saved) => {
+    capNhatNcc(saved);
+    toast.success("Đã lưu thay đổi nhà cung cấp");
+  };
+  const handleStatusChanged = (updated) => {
+    capNhatNcc(updated);
+    toast.success(laHoatDong(updated)
+      ? "Đã cho phép nhà cung cấp hoạt động lại"
+      : "Đã ngừng hoạt động nhà cung cấp");
+  };
+  const handleDeleted = (deleted) => {
+    toast.success(`Đã xóa nhà cung cấp "${deleted.tenNhaCungCap}"`);
+    navigate("/supplier", { replace: true });
+  };
+
+  return (
+    <PageContainer className="flex min-h-full flex-col">
+      <article className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+        <DauTrangNcc
+          ncc={ncc}
+          coTheQuanLy={coTheQuanLy}
+          onQuayLai={quayLai}
+          onChinhSua={() => setEditOpen(true)}
+          onDoiTrangThai={() => setStatusOpen(true)}
+          onXoa={() => setDeleteOpen(true)}
+        />
+
+        {!dangHoatDong ? (
+          <DaiBao
+            icon={CirclePause}
+            nutNhan={coTheQuanLy ? "Cho phép hoạt động" : null}
+            onNut={() => setStatusOpen(true)}
+          >
+            <span className="font-semibold text-bo-foreground">Nhà cung cấp đang ngừng hoạt động.</span>{" "}
+            Không được chọn khi gửi yêu cầu báo giá mới. Đơn đang chờ giao vẫn nhận hàng, nhập kho bình thường.
+          </DaiBao>
+        ) : thieuEmail ? (
+          <DaiBao
+            tone="warning"
+            icon={AlertTriangle}
+            nutNhan={coTheQuanLy ? "Thêm email" : null}
+            onNut={() => setEditOpen(true)}
+          >
+            <span className="font-semibold">Chưa có email.</span> Chưa gửi được yêu cầu báo giá cho nhà cung cấp này.
+          </DaiBao>
+        ) : null}
+
+        {xemGiaoDich && !loiDon ? (
+          <TinhHinhNcc chiSo={tinh.chiSo} dangTai={dangTaiDon || dangTaiPhieu} lyDoKhongTinhGiao={lyDoKhongTinhGiao} />
+        ) : null}
+
+        <div className="@container grid flex-1 border-t border-bo-border xl:grid-cols-[minmax(0,1fr)_340px]">
+          {xemGiaoDich ? (
+            <GiaoDichNcc
+              tabs={tabs}
+              tab={tab}
+              onDoiTab={setTab}
+              dangTai={dangTaiDon}
+              loiDon={loiDon}
+              onThuLaiDon={() => (khoQ.error ? khoQ.reload() : donQ.reload())}
+              loiPhieu={loiPhieu}
+              onThuLaiPhieu={phieuQ.reload}
+              ghiChu={ghiChu}
+              d={{ ...tinh, phieus, suKien, nutCuaDon }}
+            />
+          ) : (
+            <EmptyState
+              className="min-h-72"
+              title="Giao dịch chỉ hiện với vai trò mua hàng và kho"
+              description="Bạn vẫn xem được thông tin liên hệ của nhà cung cấp ở cột bên cạnh."
+            />
+          )}
+          <ThuocTinhNcc ncc={ncc} />
+        </div>
+      </article>
+
+      {coTheQuanLy ? (
+        <>
+          <SupplierFormDialog
+            open={editOpen}
+            onOpenChange={setEditOpen}
+            supplier={ncc}
+            onSaved={handleSaved}
+          />
+          <SupplierStatusDialog
+            supplier={ncc}
+            open={statusOpen}
+            onOpenChange={setStatusOpen}
+            onChanged={handleStatusChanged}
+            viecDangDo={dons ? demViecDangDo(tinh.viec) : undefined}
+          />
+          <SupplierDeleteDialog
+            supplier={ncc}
+            open={deleteOpen}
+            onOpenChange={setDeleteOpen}
+            onDeleted={handleDeleted}
+            onStatusChanged={handleStatusChanged}
+          />
+        </>
+      ) : null}
+    </PageContainer>
+  );
 }
