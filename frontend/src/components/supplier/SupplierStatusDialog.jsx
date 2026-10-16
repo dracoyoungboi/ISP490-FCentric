@@ -16,10 +16,35 @@ import { getApiErrorMessage } from "@/utils/apiError";
 import { TRANG_THAI_NCC, laHoatDong } from "./quyTacNhaCungCap";
 
 /**
+ * Câu về việc đang dở trong hộp Ngừng hoạt động (bản chốt 17/10/2026).
+ * `viecDangDo = { donChoGiao, baoGiaChoDuyet }` khi trang biết số việc (Chi tiết nhà cung cấp);
+ * không truyền thì nói chung. Biết số mà không có việc nào thì bỏ câu này.
+ */
+function CauViecDangDo({ viecDangDo }) {
+    const so = (n) => <span className="font-semibold text-bo-foreground">{n}</span>;
+    if (!viecDangDo) {
+        return <li>Đơn mua và báo giá đang xử lý vẫn tiếp tục bình thường: nhận hàng, nhập kho, duyệt báo giá.</li>;
+    }
+    const don = Number(viecDangDo.donChoGiao) || 0;
+    const baoGia = Number(viecDangDo.baoGiaChoDuyet) || 0;
+    if (don > 0 && baoGia > 0) {
+        return (
+            <li>
+                Đang có {so(`${don} đơn chờ giao`)} và {so(`${baoGia} báo giá chờ duyệt`)}: vẫn xử lý bình thường (nhận hàng, nhập kho, duyệt báo giá).
+            </li>
+        );
+    }
+    if (don > 0) return <li>Đang có {so(`${don} đơn chờ giao`)}: vẫn xử lý bình thường (nhận hàng, nhập kho).</li>;
+    if (baoGia > 0) return <li>Đang có {so(`${baoGia} báo giá chờ duyệt`)}: vẫn duyệt được bình thường.</li>;
+    return null;
+}
+
+/**
  * Xác nhận Ngừng hoạt động / Cho phép hoạt động lại một nhà cung cấp — nói rõ hệ quả trước khi đổi.
  * `onChanged(supplier)` nhận nhà cung cấp sau khi đổi (máy chủ trả về).
+ * `viecDangDo` (tuỳ chọn): số đơn chờ giao và báo giá chờ duyệt, để kể đúng số việc đang dở.
  */
-export default function SupplierStatusDialog({ supplier, open, onOpenChange, onChanged }) {
+export default function SupplierStatusDialog({ supplier, open, onOpenChange, onChanged, viecDangDo }) {
     const [session, setSession] = useState(0);
     const [prevOpen, setPrevOpen] = useState(open);
     if (open !== prevOpen) {
@@ -35,13 +60,14 @@ export default function SupplierStatusDialog({ supplier, open, onOpenChange, onC
                     supplier={supplier}
                     onClose={() => onOpenChange(false)}
                     onChanged={onChanged}
+                    viecDangDo={viecDangDo}
                 />
             ) : null}
         </AlertDialog>
     );
 }
 
-function StatusContent({ supplier: supplierLucMo, onClose, onChanged }) {
+function StatusContent({ supplier: supplierLucMo, onClose, onChanged, viecDangDo }) {
     // Giữ nguyên nội dung lúc mở: đổi xong trang cha cập nhật trạng thái ngay, nhưng hộp thoại
     // đang chạy hiệu ứng đóng không được lật sang câu ngược lại.
     const [supplier] = useState(supplierLucMo);
@@ -97,7 +123,7 @@ function StatusContent({ supplier: supplierLucMo, onClose, onChanged }) {
                             <>
                                 <p>{ten} sẽ không được chọn khi gửi yêu cầu báo giá mới.</p>
                                 <ul className="list-disc space-y-1 pl-5">
-                                    <li>Đơn mua và yêu cầu báo giá đã gửi vẫn xử lý bình thường: nhận hàng, nhập kho, thanh toán.</li>
+                                    <CauViecDangDo viecDangDo={viecDangDo} />
                                     <li>Thông tin và lịch sử giao dịch được giữ nguyên; có thể cho phép hoạt động lại bất cứ lúc nào.</li>
                                 </ul>
                             </>
