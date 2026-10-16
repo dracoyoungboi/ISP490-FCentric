@@ -14,6 +14,8 @@
    (thiếu thì logo phóng to hết cỡ, ô đơn giá giãn hết cột, nút Thoát biến mất) */
 @source "./components/supplier-portal";
 @source "./pages/supplier";
+/* Chi tiết đơn mua hàng (bản một khối): thư mục mới, khai báo rõ để dev server sinh đủ class */
+@source "./components/order";
 /* Giao diện luôn sáng, không theo chế độ tối của trình duyệt */
 @custom-variant dark (&:where(.dark, .dark *));
 /*
