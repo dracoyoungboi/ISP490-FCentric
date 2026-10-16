@@ -188,13 +188,15 @@ function BoSung({ bs, khoTongId, error, onRetry, onXemBanChay }) {
         <tbody>
           {rows.map((d) => {
             const chuyen = d.deXuat === "chuyen_kho";
+            // "Có thể chuyển" (đã trừ đơn bán đang chờ xuất ở Kho tổng), khác cột Khả dụng; khớp mức tạo phiếu chuyển cho phép
+            const daTru = d.choXuatKhoTong > 0 ? ` (đã trừ ${formatSo(d.choXuatKhoTong)} đơn bán đang chờ xuất)` : "";
             const ghiChu = chuyen
-              ? `Kho tổng còn ${formatSo(d.khaDungKhoTong)} khả dụng`
+              ? `Kho tổng còn ${formatSo(d.khaDungKhoTong)} có thể chuyển${daTru}`
               : d.laKhoTong
                 ? "Kho tổng nhập từ nhà cung cấp"
                 : !bs.coKhoTong
                   ? "Chưa đánh dấu Kho tổng"
-                  : `Kho tổng chỉ còn ${formatSo(d.khaDungKhoTong ?? 0)}, không đủ chuyển`;
+                  : `Kho tổng chỉ còn ${formatSo(d.khaDungKhoTong ?? 0)} có thể chuyển${daTru}, không đủ chuyển`;
             const pct = d.nguong > 0 ? Math.min(100, (d.khaDung / d.nguong) * 100) : 0;
             return (
               <tr key={`${d.khoId}-${d.bienTheId}`} className="border-b border-[#f3f5f8] last:border-b-0 hover:bg-slate-50/70">

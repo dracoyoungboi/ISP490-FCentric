@@ -15,6 +15,7 @@ import com.dev.backend.repository.ChiTietDonBanHangRepository;
 import com.dev.backend.repository.ChiTietPhieuXuatKhoRepository;
 import com.dev.backend.repository.PhieuXuatKhoRepository;
 import com.dev.backend.repository.TonKhoTheoLoRepository;
+import com.dev.backend.services.impl.multitable.KhaDungChuyenKhoService;
 import com.dev.backend.services.impl.multitable.LoDangGiuService;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.AfterEach;
@@ -69,6 +70,9 @@ class PhieuXuatKhoTransferKhaDungTest {
         ReflectionTestUtils.setField(service, "chiTietDonBanHangRepository", chiTietDonBanHangRepository);
         ReflectionTestUtils.setField(service, "chiTietPhieuXuatKhoRepository", chiTietPhieuXuatKhoRepository);
         ReflectionTestUtils.setField(service, "loDangGiuService", loDangGiuService);
+        // Bản thật, dùng chung với Tổng quan: các ca dưới kiểm cả phép tính lẫn thông báo lỗi
+        ReflectionTestUtils.setField(service, "khaDungChuyenKhoService", new KhaDungChuyenKhoService(
+                tonKhoTheoLoRepository, chiTietDonBanHangRepository, chiTietPhieuXuatKhoRepository));
         SecurityContextHolder.setUser(NguoiDungAuthInfo.builder().id(7).vaiTro(Set.of(IRoleType.quan_tri_vien)).build());
 
         when(entityManager.find(Kho.class, KHO_GUI)).thenReturn(

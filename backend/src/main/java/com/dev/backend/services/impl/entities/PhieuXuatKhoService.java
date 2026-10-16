@@ -15,6 +15,8 @@ import com.dev.backend.entities.*;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.*;
 import com.dev.backend.services.impl.BaseServiceImpl;
+import com.dev.backend.services.impl.multitable.KhaDungChuyenKhoService;
+import com.dev.backend.services.impl.multitable.KhaDungChuyenKhoService.KhaDungChuyen;
 import com.dev.backend.services.impl.multitable.LoDangGiuService;
 import com.dev.backend.utils.SauCommit;
 import jakarta.persistence.EntityManager;
@@ -73,6 +75,9 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
 
     @Autowired
     private LoDangGiuService loDangGiuService;
+
+    @Autowired
+    private KhaDungChuyenKhoService khaDungChuyenKhoService;
 
     @Autowired
     private NguoiDungRepository nguoiDungRepository;
@@ -1178,47 +1183,25 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
     }
 
     /**
-     * Khả dụng để chuyển ở kho gửi = (tồn − đang giữ) − chờ xuất (đặt − đã xuất thật) của đơn bán đang giữ hàng
-     * (ITrangThaiDonBanHang.DANG_GIU_HANG) có kho xuất là kho này: đúng phần của một kho trong tồn đẩy lên sàn
-     * (TonKhoTongHopRepository.sumTongFreeToUseToanChuoi), giống gợi ý kho cho đơn bán. Không trừ thêm phần lô phiếu
-     * nhặt / phiếu xuất bán đang giữ: phần đó thuộc chính các đơn ấy, đã nằm trong chờ xuất. Chỉ kiểm, không giữ hàng.
+     * Khả dụng để chuyển ở kho gửi = (tồn − đang giữ) − chờ xuất của đơn bán đang giữ hàng có kho xuất là kho này,
+     * tính ở KhaDungChuyenKhoService (dùng chung với đề xuất "Chuyển từ Kho tổng" ở Tổng quan). Chỉ kiểm, không giữ hàng.
      */
     private void kiemTraKhaDungChuyenKho(Kho khoGui, Map<Integer, BienTheSanPham> bienTheTheoId,
                                          Map<Integer, BigDecimal> yeuCauTheoBienThe) {
-        List<Integer> bienTheIds = new ArrayList<>(yeuCauTheoBienThe.keySet());
-        Map<Integer, BigDecimal> tonTruGiu = new HashMap<>();
-        for (Object[] row : tonKhoTheoLoRepository.sumSoLuongKhaDungByKhoAndBienTheIds(khoGui.getId(), bienTheIds)) {
-            tonTruGiu.put((Integer) row[0], soLuong(row[1]));
-        }
-        Map<Integer, BigDecimal> choXuat = new HashMap<>();
-        for (Object[] row : chiTietDonBanHangRepository.sumDatDonGiuHangTheoKho(bienTheIds, null, ITrangThaiDonBanHang.DANG_GIU_HANG)) {
-            if (khoGui.getId().equals(row[1])) {
-                choXuat.merge((Integer) row[0], soLuong(row[2]), BigDecimal::add);
-            }
-        }
-        for (Object[] row : chiTietPhieuXuatKhoRepository.sumDaXuatDonGiuHangTheoKho(bienTheIds, null, ITrangThaiDonBanHang.DANG_GIU_HANG)) {
-            if (khoGui.getId().equals(row[1])) {
-                choXuat.merge((Integer) row[0], soLuong(row[2]).negate(), BigDecimal::add);
-            }
-        }
+        Map<Integer, KhaDungChuyen> khaDungTheoBienThe =
+                khaDungChuyenKhoService.theoBienThe(khoGui.getId(), yeuCauTheoBienThe.keySet());
         for (Map.Entry<Integer, BigDecimal> e : yeuCauTheoBienThe.entrySet()) {
-            BigDecimal ton = tonTruGiu.getOrDefault(e.getKey(), BigDecimal.ZERO);
-            BigDecimal cho = choXuat.getOrDefault(e.getKey(), BigDecimal.ZERO).max(BigDecimal.ZERO);
-            BigDecimal khaDung = ton.subtract(cho).max(BigDecimal.ZERO);
-            if (khaDung.compareTo(e.getValue()) < 0) {
-                String chiTiet = cho.signum() > 0
-                        ? " (tồn trừ phần đang giữ " + hienThi(ton) + ", đơn bán đang chờ xuất " + hienThi(cho) + ")"
+            KhaDungChuyen kd = khaDungTheoBienThe.get(e.getKey());
+            if (kd.khaDung().compareTo(e.getValue()) < 0) {
+                String chiTiet = kd.choXuat().signum() > 0
+                        ? " (tồn trừ phần đang giữ " + hienThi(kd.tonTruGiu()) + ", đơn bán đang chờ xuất "
+                                + hienThi(kd.choXuat()) + ")"
                         : "";
                 throw new CommonException("Sản phẩm [" + bienTheTheoId.get(e.getKey()).getMaSku() + "] chỉ còn "
-                        + hienThi(khaDung) + " có thể chuyển tại kho " + khoGui.getTenKho() + chiTiet
+                        + hienThi(kd.khaDung()) + " có thể chuyển tại kho " + khoGui.getTenKho() + chiTiet
                         + ". Yêu cầu: " + hienThi(e.getValue()) + ".");
             }
         }
-    }
-
-    private static BigDecimal soLuong(Object value) {
-        if (value == null) return BigDecimal.ZERO;
-        return value instanceof BigDecimal bd ? bd : BigDecimal.valueOf(((Number) value).doubleValue());
     }
 
     private static String hienThi(BigDecimal soLuong) {

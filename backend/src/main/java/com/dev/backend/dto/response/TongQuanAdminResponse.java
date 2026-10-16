@@ -152,10 +152,15 @@ public record TongQuanAdminResponse(
 
     public record HangCanBoSung(long tongSo, boolean coKhoTong, List<DongBoSung> dong) {}
 
-    /** deXuat: "chuyen_kho" (chuyển từ Kho tổng) hoặc "yeu_cau_nhap" (nhập về Kho tổng từ nhà cung cấp). */
+    /**
+     * deXuat: "chuyen_kho" (chuyển từ Kho tổng) hoặc "yeu_cau_nhap" (nhập về Kho tổng từ nhà cung cấp).
+     * khaDungKhoTong: số Kho tổng có thể chuyển = (tồn − đang giữ) − chờ xuất của đơn bán ở Kho tổng, đúng mức tạo yêu
+     * cầu chuyển kho cho phép; choXuatKhoTong: phần chờ xuất đã trừ. Cả hai null khi chưa có Kho tổng hoặc dòng là
+     * chính Kho tổng.
+     */
     public record DongBoSung(Integer bienTheId, String maSku, String tenSanPham, String tenMau, String tenKichCo,
                              Integer khoId, String tenKho, boolean laKhoTong, long khaDung, int nguong,
-                             Long khaDungKhoTong, String deXuat, long soLuongDeXuat) {}
+                             Long khaDungKhoTong, Long choXuatKhoTong, String deXuat, long soLuongDeXuat) {}
 
     /**
      * loai: nhap_kho, nhap_chuyen_kho, xuat_kho, xuat_chuyen_kho, don_ban, ban_tai_quay, kiem_ke.

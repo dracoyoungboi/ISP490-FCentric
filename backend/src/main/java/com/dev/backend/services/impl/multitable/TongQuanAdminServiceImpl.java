@@ -29,6 +29,7 @@ import com.dev.backend.repository.TongQuanAdminRepository.NhapXuatNgay;
 import com.dev.backend.repository.TongQuanAdminRepository.SanPhamBanChayDong;
 import com.dev.backend.repository.TongQuanAdminRepository.TonKhoTheoKhoDong;
 import com.dev.backend.repository.TongQuanAdminRepository.TonKhoTongHopDong;
+import com.dev.backend.services.impl.multitable.KhaDungChuyenKhoService.KhaDungChuyen;
 import com.dev.backend.services.multitable.TongQuanAdminService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,10 +83,12 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
     private record BanDaTinh(long luc, TongQuanAdminResponse duLieu) {}
 
     private final TongQuanAdminRepository repo;
+    private final KhaDungChuyenKhoService khaDungChuyenKhoService;
     private final Map<String, BanDaTinh> banDaTinh = new ConcurrentHashMap<>();
 
-    public TongQuanAdminServiceImpl(TongQuanAdminRepository repo) {
+    public TongQuanAdminServiceImpl(TongQuanAdminRepository repo, KhaDungChuyenKhoService khaDungChuyenKhoService) {
         this.repo = repo;
+        this.khaDungChuyenKhoService = khaDungChuyenKhoService;
     }
 
     /**
@@ -370,24 +373,36 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
                 .toList();
     }
 
-    private HangCanBoSung tinhHangCanBoSung(Integer khoId, int nguong, TonKhoTongHopDong ton,
-                                            Map<Integer, KhoDong> khoTheoId) {
-        boolean coKhoTong = khoTheoId.values().stream().anyMatch(KhoDong::laKhoTong);
+    /**
+     * Số Kho tổng có thể chuyển lấy từ KhaDungChuyenKhoService, cùng phép kiểm khi tạo yêu cầu chuyển kho, nên số điền
+     * sẵn ở nút "Chuyển … từ Kho tổng" luôn tạo được phiếu (trừ khi số liệu đổi giữa lúc xem và lúc bấm).
+     */
+    HangCanBoSung tinhHangCanBoSung(Integer khoId, int nguong, TonKhoTongHopDong ton,
+                                    Map<Integer, KhoDong> khoTheoId) {
+        KhoDong khoTong = khoTheoId.values().stream().filter(KhoDong::laKhoTong).findFirst().orElse(null);
         List<HangCanBoSungDong> dong = repo.hangCanBoSung(khoId, nguong, SO_DONG_BO_SUNG);
+        Map<Integer, KhaDungChuyen> khoTongCoTheChuyen = khoTong == null ? Map.of()
+                : khaDungChuyenKhoService.theoBienThe(khoTong.id(), dong.stream()
+                        .filter(r -> !r.khoId().equals(khoTong.id()))
+                        .map(HangCanBoSungDong::bienTheId)
+                        .toList());
         List<DongBoSung> ketQua = new ArrayList<>();
         for (HangCanBoSungDong r : dong) {
             KhoDong kho = khoTheoId.get(r.khoId());
             boolean laKhoTong = kho != null && kho.laKhoTong();
             long khaDung = so(r.khaDung());
-            Long khaDungKhoTong = coKhoTong ? Long.valueOf(so(r.khaDungKhoTong())) : null;
+            KhaDungChuyen kt = laKhoTong ? null : khoTongCoTheChuyen.get(r.bienTheId());
+            // Làm tròn xuống: với N nguyên, so sánh phần nguyên khớp phép so số thập phân khi tạo phiếu
+            Long khaDungKhoTong = kt == null ? null : kt.khaDung().setScale(0, RoundingMode.FLOOR).longValue();
+            Long choXuatKhoTong = kt == null ? null : so(kt.choXuat());
             long canBoSung = soLuongDeXuat(khaDung, r.nguong());
             String deXuat = deXuat(laKhoTong, khaDungKhoTong, canBoSung);
             ketQua.add(new DongBoSung(r.bienTheId(), r.maSku(), r.tenSanPham(), r.tenMau(), r.tenKichCo(),
                     r.khoId(), kho != null ? kho.tenKho() : null, laKhoTong, khaDung, r.nguong(),
-                    khaDungKhoTong, deXuat, canBoSung));
+                    khaDungKhoTong, choXuatKhoTong, deXuat, canBoSung));
         }
         long tongSo = ton != null ? ton.hetHang() + ton.thieuHang() : ketQua.size();
-        return new HangCanBoSung(tongSo, coKhoTong, ketQua);
+        return new HangCanBoSung(tongSo, khoTong != null, ketQua);
     }
 
     /** Đưa khả dụng về gấp đôi ngưỡng tối thiểu (tạm thời, khi chưa có mức tồn tối đa cho từng mã). */

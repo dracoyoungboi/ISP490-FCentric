@@ -117,10 +117,15 @@ class NhatHangHoanTatIntegrationTest {
 
     /** Tạo đơn bán ở trạng thái 1 (Chờ xuất kho) tại kho 1, 1 dòng biến thể 93. */
     private int taoDonChoXuat(int soLuong) {
+        return taoDonChoXuat(KHO, soLuong);
+    }
+
+    /** Tạo đơn bán ở trạng thái 1 (Chờ xuất kho) xuất từ khoXuatId, 1 dòng biến thể 93. */
+    private int taoDonChoXuat(int khoXuatId, int soLuong) {
         String so = "IT-NH-" + System.nanoTime() + "-" + (++soDonSeq);
         jdbc.update("INSERT INTO don_ban_hang (so_don_hang, loai_chung_tu, khach_hang_id, kho_xuat_id, ngay_dat_hang, "
                         + "trang_thai, tien_hang, tong_cong) VALUES (?, 'don_ban_hang', ?, ?, NOW(), 1, ?, ?)",
-                so, KHACH_HANG, KHO, soLuong * 120000, soLuong * 120000);
+                so, KHACH_HANG, khoXuatId, soLuong * 120000, soLuong * 120000);
         Integer id = jdbc.queryForObject("SELECT id FROM don_ban_hang WHERE so_don_hang = ?", Integer.class, so);
         jdbc.update("INSERT INTO chi_tiet_don_ban_hang (don_ban_hang_id, bien_the_san_pham_id, so_luong_dat, don_gia) "
                 + "VALUES (?, ?, ?, 120000)", id, BIEN_THE, soLuong);
@@ -731,5 +736,71 @@ class NhatHangHoanTatIntegrationTest {
         assertEquals(0, BigDecimal.ZERO.compareTo(jdbc.queryForObject("SELECT COALESCE(SUM(so_luong_da_dat),0) "
                 + "FROM ton_kho_theo_lo WHERE kho_id = 1 AND lo_hang_id IN (69,70,71)", BigDecimal.class)));
         assertEquals(0, sanTruoc.compareTo(tonDayLenSan()), "tạo yêu cầu chuyển kho không đổi tồn đẩy sàn");
+    }
+
+    // ===================== đề xuất bổ sung ở Tổng quan =====================
+
+    /** Dòng Đề xuất bổ sung của (kho, biến thể 93) ở Tổng quan, tính lại ngay (không dùng bản giữ 60 giây). */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> dongBoSung(int khoId) {
+        ResponseEntity<Map> res = goi(HttpMethod.GET, "/api/v1/admin/dashboard/tong-quan?lamMoi=true", null);
+        assertEquals(HttpStatus.OK, res.getStatusCode(), "tổng quan: " + res.getBody());
+        Map<String, Object> boSung = (Map<String, Object>) data(res).get("hangCanBoSung");
+        assertNotNull(boSung, "khối Đề xuất bổ sung lỗi: " + data(res).get("khoiLoi"));
+        return ((List<Map<String, Object>>) boSung.get("dong")).stream()
+                .filter(d -> ((Number) d.get("khoId")).intValue() == khoId && ((Number) d.get("bienTheId")).intValue() == BIEN_THE)
+                .findFirst().orElseThrow(() -> new AssertionError("không có dòng kho " + khoId + ": " + boSung));
+    }
+
+    private static long so(Map<String, Object> d, String truong) {
+        return ((Number) d.get(truong)).longValue();
+    }
+
+    @Test
+    void t23_deXuatBoSung_soKhoTongTruDonChoXuat_nutChuyenTaoDuocPhieu() {
+        int khoTong = jdbc.queryForObject("SELECT id FROM kho WHERE loai_kho = 'kho_tong' AND trang_thai = 1", Integer.class);
+        assertNotEquals(KHO, khoTong, "kho 1 phải là kho bán hàng cần bổ sung");
+        // Đề xuất bổ sung chỉ xét mã đang kinh doanh; ca trước xuất hết hàng có thể đã tự chuyển sản phẩm về 0
+        jdbc.update("UPDATE san_pham_quan_ao SET trang_thai = 1 WHERE id = "
+                + "(SELECT san_pham_id FROM bien_the_san_pham WHERE id = ?)", BIEN_THE);
+        jdbc.update("DELETE FROM ton_kho_theo_lo WHERE kho_id = ? AND lo_hang_id = 69", khoTong);
+        jdbc.update("INSERT INTO ton_kho_theo_lo (lo_hang_id, kho_id, so_luong_ton, so_luong_da_dat, ngay_nhap_gan_nhat) "
+                + "VALUES (69, ?, 60, 0, '2026-10-01 08:00:00')", khoTong);
+        try {
+            // Kho 1 khả dụng 5, ngưỡng của sản phẩm 25 → cần 2 × 25 − 5 = 45. Kho tổng: tồn 60, đơn bán chờ xuất 20.
+            assertEquals(25, jdbc.queryForObject("SELECT sp.muc_ton_toi_thieu FROM bien_the_san_pham bt "
+                    + "JOIN san_pham_quan_ao sp ON sp.id = bt.san_pham_id WHERE bt.id = ?", Integer.class, BIEN_THE),
+                    "dữ liệu mẫu: ngưỡng tối thiểu của sản phẩm");
+            int donLon = taoDonChoXuat(khoTong, 20);
+            BigDecimal sanTruoc = tonDayLenSan();
+
+            Map<String, Object> d = dongBoSung(KHO);
+            assertEquals(45, so(d, "soLuongDeXuat"));
+            assertEquals(40, so(d, "khaDungKhoTong"), "Kho tổng có thể chuyển = 60 − 20");
+            assertEquals(20, so(d, "choXuatKhoTong"));
+            assertEquals("yeu_cau_nhap", d.get("deXuat"), "trước khi sửa ra chuyen_kho vì 60 ≥ 45");
+            assertEquals(0, sanTruoc.compareTo(tonDayLenSan()), "xem Tổng quan không đổi tồn đẩy sàn");
+
+            // Số cũ (60) sẽ đề xuất chuyển 45; bước tạo phiếu chặn ở đúng con số mà Tổng quan nay hiện
+            ResponseEntity<Map> chan = goi(HttpMethod.POST, "/api/v1/phieu-chuyen-kho/create", Map.of(
+                    "khoXuatId", khoTong, "khoNhapId", KHO,
+                    "chiTietXuat", List.of(Map.of("bienTheSanPhamId", BIEN_THE, "soLuongXuat", 45))));
+            assertEquals(HttpStatus.BAD_REQUEST, chan.getStatusCode(), "body: " + chan.getBody());
+            assertTrue(String.valueOf(chan.getBody().get("message")).contains("chỉ còn 40"), chan.getBody().toString());
+
+            // Đơn lớn hủy, còn đơn chờ xuất 10 → có thể chuyển 50 ≥ 45: nút "Chuyển" điền sẵn đúng số, tạo được phiếu
+            jdbc.update("UPDATE don_ban_hang SET trang_thai = 4 WHERE id = ?", donLon);
+            taoDonChoXuat(khoTong, 10);
+            d = dongBoSung(KHO);
+            assertEquals("chuyen_kho", d.get("deXuat"));
+            assertEquals(50, so(d, "khaDungKhoTong"));
+            assertEquals(10, so(d, "choXuatKhoTong"));
+            ResponseEntity<Map> tao = goi(HttpMethod.POST, "/api/v1/phieu-chuyen-kho/create", Map.of(
+                    "khoXuatId", khoTong, "khoNhapId", KHO,
+                    "chiTietXuat", List.of(Map.of("bienTheSanPhamId", BIEN_THE, "soLuongXuat", so(d, "soLuongDeXuat")))));
+            assertEquals(HttpStatus.OK, tao.getStatusCode(), "body: " + tao.getBody());
+        } finally {
+            jdbc.update("DELETE FROM ton_kho_theo_lo WHERE kho_id = ? AND lo_hang_id = 69", khoTong);
+        }
     }
 }

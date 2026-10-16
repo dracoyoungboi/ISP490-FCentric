@@ -107,8 +107,7 @@ public class TongQuanAdminRepository {
                                   long phieuChuyenChoDuyet, long phieuChuyenChoXuatHang) {}
 
     public record HangCanBoSungDong(Integer bienTheId, String maSku, String tenSanPham, String tenMau,
-                                    String tenKichCo, Integer khoId, BigDecimal khaDung, int nguong,
-                                    BigDecimal khaDungKhoTong) {}
+                                    String tenKichCo, Integer khoId, BigDecimal khaDung, int nguong) {}
 
     public record HoatDongDong(String loai, Integer id, String maChungTu, LocalDateTime thoiGian, String tenKho,
                                String nguoiThucHien, BigDecimal soLuong, String doiTac, BigDecimal soTien) {}
@@ -509,34 +508,29 @@ public class TongQuanAdminRepository {
     }
 
     static final String SQL_HANG_CAN_BO_SUNG = """
-            , kho_tong AS (
-                SELECT cap.bien_the_id, SUM(cap.kha_dung) AS kha_dung
-                FROM cap
-                JOIN kho k ON k.id = cap.kho_id
-                WHERE %s = 1
-                GROUP BY cap.bien_the_id
-            )
             SELECT l.bien_the_id, bt.ma_sku, sp.ten_san_pham, ms.ten_mau, sz.ten_size,
-                   l.kho_id, l.kha_dung, l.nguong, kt.kha_dung AS kha_dung_kho_tong
+                   l.kho_id, l.kha_dung, l.nguong
             FROM loai l
             JOIN bien_the_san_pham bt ON bt.id = l.bien_the_id
             JOIN san_pham_quan_ao sp  ON sp.id = bt.san_pham_id
             LEFT JOIN mau_sac ms      ON ms.id = bt.mau_sac_id
             LEFT JOIN size sz         ON sz.id = bt.size_id
-            LEFT JOIN kho_tong kt     ON kt.bien_the_id = l.bien_the_id
             WHERE l.dang_ban = 1 AND l.kha_dung <= l.nguong
               AND (:khoId IS NULL OR l.kho_id = :khoId)
             ORDER BY l.kha_dung / l.nguong, l.kha_dung, l.kho_id, l.bien_the_id
             LIMIT :soDong
             """;
 
-    /** Các cặp (kho, biến thể) đang Hết hàng hoặc Thiếu hàng, tệ nhất trước, kèm khả dụng ở Kho tổng. */
+    /**
+     * Các cặp (kho, biến thể) đang Hết hàng hoặc Thiếu hàng, tệ nhất trước. Số Kho tổng có thể chuyển không tính ở đây
+     * mà ở KhaDungChuyenKhoService, cùng phép kiểm khi tạo yêu cầu chuyển kho.
+     */
     public List<HangCanBoSungDong> hangCanBoSung(Integer khoId, int nguongMacDinh, int soDong) {
-        String sql = CTE_TON_THEO_CAP + SQL_HANG_CAN_BO_SUNG.formatted(bieuThucLaKhoTong("k"));
+        String sql = CTE_TON_THEO_CAP + SQL_HANG_CAN_BO_SUNG;
         MapSqlParameterSource p = thamSo(khoId).addValue("nguongMacDinh", nguongMacDinh).addValue("soDong", soDong);
         return jdbc.query(sql, p, (rs, i) -> new HangCanBoSungDong(rs.getInt("bien_the_id"), rs.getString("ma_sku"),
                 rs.getString("ten_san_pham"), rs.getString("ten_mau"), rs.getString("ten_size"), rs.getInt("kho_id"),
-                bd(rs, "kha_dung"), rs.getInt("nguong"), rs.getBigDecimal("kha_dung_kho_tong")));
+                bd(rs, "kha_dung"), rs.getInt("nguong")));
     }
 
     /* ======================================================================
