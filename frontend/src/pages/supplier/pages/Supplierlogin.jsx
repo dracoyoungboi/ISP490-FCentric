@@ -1,45 +1,143 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { toast } from 'sonner';
-import { Label } from "@/components/ui/label";
-import {
-    Building2, Mail, Loader2, Package,
-    TrendingUp, CheckCircle, ShieldCheck,
-    ChevronRight,
-} from "lucide-react";
+import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { AlertCircle, ArrowLeft, CheckCircle2, Info, Link2, Loader2 } from 'lucide-react';
+import AuthShell from '@/components/auth/AuthShell';
+import AuthProgress from '@/components/auth/AuthProgress';
+import OtpInputs from '@/components/auth/OtpInputs';
 import supplierQuotationService from '@/services/supplierQuotationService';
-import BrandLogo from '@/components/brand/BrandLogo';
 
-/* ══════════════════════════════════════════
-   LOGIN FORM
-══════════════════════════════════════════ */
-function LoginForm() {
-    const [searchParams] = useSearchParams?.() || [new URLSearchParams()];
-    const navigate = useNavigate?.() || (() => { });
-    const orderId = searchParams?.get?.('id');
-    const emailParam = searchParams?.get?.('email');
+/* ── Class dùng chung với Đăng nhập / Quên mật khẩu (khung AuthShell) ── */
+const INPUT_BASE =
+    'flex h-11 w-full rounded-lg border bg-white px-3 py-2 text-base text-gray-900 shadow-sm transition-colors placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:opacity-50';
+const INPUT_NORMAL = 'border-gray-300';
+const INPUT_ERROR = 'border-red-500 focus:ring-red-500';
+const LABEL = 'text-sm font-medium leading-none text-gray-900';
+const PRIMARY_BTN =
+    'inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow-md transition-colors hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+const BANNER = 'flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm';
+const BANNER_TONE = {
+    loi: 'border-red-200 bg-red-50 text-red-700',
+    'thanh-cong': 'border-green-200 bg-green-50 text-green-800',
+    'thong-tin': 'border-gray-200 bg-gray-50 text-gray-700',
+};
+const BANNER_ICON = { loi: AlertCircle, 'thanh-cong': CheckCircle2, 'thong-tin': Info };
+const FIELD_ERROR = 'mt-1.5 flex items-center gap-1.5 text-sm text-red-600';
+
+// Ảnh panel trái riêng của cổng nhà cung cấp (Đăng nhập / Quên mật khẩu vẫn dùng bộ ảnh mặc định)
+const ANH_NEN_NCC = [
+    {
+        src: '/images/auth/supplier-1.jpg',
+        fallbackSrc: 'https://images.pexels.com/photos/4484073/pexels-photo-4484073.jpeg?auto=compress&cs=tinysrgb&w=2000',
+        alt: 'Ba nhân viên kho đứng giữa lối đi giữa các kệ hàng',
+    },
+    {
+        src: '/images/auth/supplier-2.jpg',
+        fallbackSrc: 'https://images.pexels.com/photos/6169641/pexels-photo-6169641.jpeg?auto=compress&cs=tinysrgb&w=2000',
+        alt: 'Nhân viên sắp xếp thùng hàng lên kệ và ghi phiếu gửi hàng',
+    },
+    {
+        src: '/images/auth/supplier-3.jpg',
+        fallbackSrc: 'https://images.pexels.com/photos/4483775/pexels-photo-4483775.jpeg?auto=compress&cs=tinysrgb&w=2000',
+        alt: 'Nhân viên đi kiểm hàng giữa các dãy kệ pallet trong nhà kho',
+    },
+];
+
+const CAC_BUOC = ['Thông tin đơn', 'Mã OTP'];
+const OTP_TRONG = ['', '', '', '', '', ''];
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Khớp SchedulingJob.cleanOutOfDateOtp phía BE: mã OTP bị xóa sau 300 giây (5 phút).
+// Trong thời gian đó BE từ chối gửi mã mới ("Otp chưa hết hạn chờ 5p để gửi lại otp").
+const OTP_HIEU_LUC_GIAY = 300;
+
+const TB_DA_GUI = `Đã gửi mã OTP. Mã có hiệu lực trong ${OTP_HIEU_LUC_GIAY / 60} phút. Nếu không thấy email, hãy kiểm tra thư mục Thư rác.`;
+const TB_DA_GUI_LAI = 'Đã gửi lại mã OTP. Vui lòng kiểm tra email.';
+const TB_MA_CU_CON_HIEU_LUC = 'Mã OTP gửi trước đó vẫn còn hiệu lực. Hãy dùng mã trong email gần nhất.';
+const LOI_OTP = 'Mã OTP không đúng hoặc đã hết hạn. Vui lòng nhập lại hoặc gửi lại mã.';
+const LOI_MAT_KET_NOI = 'Không kết nối được máy chủ. Vui lòng kiểm tra mạng và thử lại.';
+const LOI_DON_KHONG_CON_NHAN = 'Đơn mua hàng này không còn nhận báo giá. Vui lòng liên hệ nhân viên mua hàng của FCentric.';
+
+const thongDiepMayChu = (err) => err?.response?.data?.message || '';
+
+/** Câu hiển thị cho lỗi từ máy chủ; không khớp mẫu nào thì giữ nguyên câu của máy chủ. */
+const dichLoi = (err, macDinh) => {
+    if (!err?.response) return LOI_MAT_KET_NOI;
+    const msg = thongDiepMayChu(err);
+    // getOtpForSupplier: đơn không ở trạng thái chờ báo giá -> "Đơn mua hàng không tồn tại id: …"
+    if (msg.startsWith('Đơn mua hàng không tồn tại')) return LOI_DON_KHONG_CON_NHAN;
+    return msg || macDinh;
+};
+
+// BE trả 400 kèm câu có chữ "otp" khi mã gửi trước đó còn hiệu lực: vẫn cho sang bước nhập mã
+const laMaCuConHieuLuc = (err) =>
+    err?.response?.status === 400 && thongDiepMayChu(err).toLowerCase().includes('otp');
+
+const dinhDangDemNguoc = (giay) => `${Math.floor(giay / 60)}:${String(giay % 60).padStart(2, '0')}`;
+
+function Banner({ loai, children }) {
+    const Icon = BANNER_ICON[loai];
+    return (
+        <div className={`${BANNER} ${BANNER_TONE[loai]}`} role={loai === 'loi' ? 'alert' : 'status'}>
+            <Icon size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <span>{children}</span>
+        </div>
+    );
+}
+
+function LoiO({ id, children }) {
+    if (!children) return null;
+    return (
+        <p id={id} className={FIELD_ERROR}>
+            <AlertCircle size={13} className="shrink-0" aria-hidden="true" />
+            {children}
+        </p>
+    );
+}
+
+export default function SupplierLoginPage() {
+    const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const orderId = searchParams.get('id');
+    const emailParam = searchParams.get('email');
 
     const [email, setEmail] = useState(emailParam || '');
     const [manualSoDonMua, setManualSoDonMua] = useState('');
-    const [otp, setOtp] = useState('');
-    const [step, setStep] = useState(1);
-    const [loading, setLoading] = useState(false);
-    const [errors, setErrors] = useState({});
-    const [visible, setVisible] = useState(false);
+    const [otp, setOtp] = useState(OTP_TRONG);
+    const [buoc, setBuoc] = useState('thong-tin');
+    // false | 'gui-ma' | 'gui-lai' | 'xac-thuc'
+    const [dangXuLy, setDangXuLy] = useState(false);
+    const [loi, setLoi] = useState({});
+    // { loai: 'thanh-cong' | 'thong-tin', noiDung } — thông báo ở bước nhập mã
+    const [thongBao, setThongBao] = useState(null);
+    // thời điểm (ms) được phép gửi lại mã; 0 = gửi lại được ngay
+    const [guiLaiLuc, setGuiLaiLuc] = useState(0);
+    const [bayGio, setBayGio] = useState(() => Date.now());
 
-    useEffect(() => { setTimeout(() => setVisible(true), 80); }, []);
+    const emailRef = useRef(null);
+    const maDonRef = useRef(null);
 
-    const validateEmail = () => {
-        if (!email) { setErrors({ email: 'Vui lòng nhập email' }); return false; }
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setErrors({ email: 'Email không hợp lệ' }); return false; }
-        setErrors({}); return true;
-    };
+    // Trang báo giá chuyển về đây khi chưa xác thực (không có dữ liệu đơn)
+    const thongBaoVao = location.state?.thongBao;
+    const conLaiGiay = Math.max(0, Math.ceil((guiLaiLuc - bayGio) / 1000));
 
-    const validateOtp = () => {
-        if (!otp) { setErrors({ otp: 'Vui lòng nhập mã OTP' }); return false; }
-        if (otp.length < 6) { setErrors({ otp: 'Mã OTP phải có 6 ký tự' }); return false; }
-        setErrors({}); return true;
-    };
+    useEffect(() => {
+        if (guiLaiLuc <= Date.now()) return undefined;
+        const timer = setInterval(() => {
+            const t = Date.now();
+            setBayGio(t);
+            if (t >= guiLaiLuc) clearInterval(timer);
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [guiLaiLuc]);
+
+    // Ô nhận con trỏ khi hết xử lý (các ô bị khóa lúc gọi API nên con trỏ rơi ra ngoài):
+    // sai mã / gửi lại mã -> ô OTP đầu (các ô đã bị xóa); lỗi ở bước 1 -> ô email
+    const tieuDiemSauRef = useRef(null);
+    useEffect(() => {
+        if (dangXuLy || !tieuDiemSauRef.current) return;
+        document.getElementById(tieuDiemSauRef.current)?.focus();
+        tieuDiemSauRef.current = null;
+    }, [buoc, dangXuLy]);
 
     /*
      * Đơn cần đăng nhập: theo id nếu mở từ liên kết có ?id=, ngược lại theo mã đơn nhà cung cấp tự nhập.
@@ -52,512 +150,301 @@ function LoginForm() {
         return maDon ? { soDonMua: maDon } : null;
     };
 
+    const batDauDemNguoc = () => {
+        const t = Date.now();
+        setBayGio(t);
+        setGuiLaiLuc(t + OTP_HIEU_LUC_GIAY * 1000);
+    };
+    // Mã vẫn còn hiệu lực nhưng không rõ gửi lúc nào: giữ đếm ngược đang chạy (nếu có), không đặt mới
+    const giuDemNguocNeuCon = () => setGuiLaiLuc((cu) => (cu > Date.now() ? cu : 0));
+
     const handleSendOtp = async (e) => {
         e?.preventDefault?.();
-        if (!validateEmail()) return;
+        const loiMoi = {};
+        if (!email) loiMoi.email = 'Vui lòng nhập email';
+        else if (!EMAIL_REGEX.test(email)) loiMoi.email = 'Email không hợp lệ';
         const don = thamChieuDon();
-        if (!don) { toast.error('Vui lòng nhập mã đơn hàng hoặc sử dụng liên kết từ email.'); return; }
-        setLoading(true);
+        if (!don) loiMoi.maDon = 'Vui lòng nhập mã đơn mua hàng';
+        if (loiMoi.email || loiMoi.maDon) {
+            setLoi(loiMoi);
+            (loiMoi.email ? emailRef : maDonRef).current?.focus();
+            return;
+        }
+
+        setLoi({});
+        setDangXuLy('gui-ma');
         try {
-            await supplierQuotationService?.requestOtp?.({ email, ...don });
-            toast.success('Mã OTP đã được gửi đến email của bạn');
-            setStep(2);
+            await supplierQuotationService.requestOtp({ email, ...don });
+            setThongBao({ loai: 'thanh-cong', noiDung: TB_DA_GUI });
+            batDauDemNguoc();
+            setOtp(OTP_TRONG);
+            setBuoc('otp');
         } catch (err) {
-            const msg = err?.response?.data?.message || '';
-            if (err?.response?.status === 400 && msg.toLowerCase().includes('otp')) {
-                toast.info('Mã OTP vẫn còn hiệu lực. Vui lòng kiểm tra email.'); setStep(2); return;
+            if (laMaCuConHieuLuc(err)) {
+                setThongBao({ loai: 'thong-tin', noiDung: TB_MA_CU_CON_HIEU_LUC });
+                giuDemNguocNeuCon();
+                setOtp(OTP_TRONG);
+                setBuoc('otp');
+                return;
             }
-            toast.error(msg || 'Có lỗi xảy ra khi gửi OTP.');
-        } finally { setLoading(false); }
+            setLoi({ chung: dichLoi(err, 'Có lỗi xảy ra khi gửi OTP.') });
+            tieuDiemSauRef.current = 'ncc-email';
+        } finally {
+            setDangXuLy(false);
+        }
+    };
+
+    const handleResendOtp = async () => {
+        const don = thamChieuDon();
+        if (!don) return;
+        setLoi({});
+        setDangXuLy('gui-lai');
+        tieuDiemSauRef.current = 'ncc-otp-0';
+        try {
+            await supplierQuotationService.requestOtp({ email, ...don });
+            setThongBao({ loai: 'thanh-cong', noiDung: TB_DA_GUI_LAI });
+            batDauDemNguoc();
+            setOtp(OTP_TRONG);
+        } catch (err) {
+            if (laMaCuConHieuLuc(err)) {
+                setThongBao({ loai: 'thong-tin', noiDung: TB_MA_CU_CON_HIEU_LUC });
+                giuDemNguocNeuCon();
+                return;
+            }
+            setLoi({ chung: dichLoi(err, 'Có lỗi xảy ra khi gửi OTP.') });
+        } finally {
+            setDangXuLy(false);
+        }
     };
 
     const handleVerifyOtp = async (e) => {
         e?.preventDefault?.();
-        if (!validateOtp()) return;
+        const maOtp = otp.join('');
+        if (maOtp.length !== OTP_TRONG.length) {
+            setLoi({ otp: 'Vui lòng nhập đủ 6 số OTP' });
+            return;
+        }
         const don = thamChieuDon();
-        if (!don) { toast.error('Không tìm thấy thông tin đơn hàng.'); return; }
-        setLoading(true);
+        if (!don) {
+            setLoi({ chung: 'Không tìm thấy thông tin đơn hàng.' });
+            return;
+        }
+
+        setLoi({});
+        setDangXuLy('xac-thuc');
+        tieuDiemSauRef.current = 'ncc-otp-0';
         try {
-            const res = await supplierQuotationService?.verifyOtp?.({ email, otp, ...don });
+            const res = await supplierQuotationService.verifyOtp({ email, otp: maOtp, ...don });
             if (res?.data) {
                 const activeId = res.data.id ?? don.donMuaHangId;
-                toast.success('Đăng nhập thành công.');
-                setTimeout(() => navigate('/supplier/quotation', { state: { orderData: res.data, supplierEmail: email, orderId: activeId } }), 500);
+                navigate('/supplier/quotation', { state: { orderData: res.data, supplierEmail: email, orderId: activeId } });
+                return;
             }
+            setLoi({ chung: 'Không lấy được thông tin đơn mua hàng. Vui lòng thử lại.' });
         } catch (err) {
-            toast.error(err?.response?.data?.message || 'Mã OTP không chính xác hoặc đã hết hạn.');
-        } finally { setLoading(false); }
+            const msg = thongDiepMayChu(err);
+            // confirmOtpForSupplier: "Otp hoặc email nhà cung cấp không hợp lệ" -> nhập lại mã
+            if (err?.response && (!msg || msg.toLowerCase().includes('otp'))) {
+                setOtp(OTP_TRONG);
+                setLoi({ otp: LOI_OTP });
+            } else {
+                setLoi({ chung: dichLoi(err, LOI_OTP) });
+            }
+        } finally {
+            setDangXuLy(false);
+        }
     };
 
+    const handleBack = () => {
+        setBuoc('thong-tin');
+        setOtp(OTP_TRONG);
+        setLoi({});
+        setThongBao(null);
+    };
+
+    const maDonHienThi = orderId ? '' : manualSoDonMua.trim();
+
     return (
-        <div className={`lf-page ${visible ? 'lf-visible' : ''}`}>
-            <style>{LOGIN_STYLES}</style>
+        <AuthShell slides={ANH_NEN_NCC}>
+            {buoc === 'otp' && (
+                <button
+                    type="button"
+                    className="mb-6 flex items-center gap-2 text-sm text-gray-500 transition-colors hover:text-black disabled:opacity-50 fade-in-up"
+                    onClick={handleBack}
+                    disabled={Boolean(dangXuLy)}
+                >
+                    <ArrowLeft size={16} aria-hidden="true" /> Quay lại
+                </button>
+            )}
 
-            {/* Left panel */}
-            <div className="lf-left">
-                <div className="lf-left-grid" />
-                <div className="lf-left-orb-1" />
-                <div className="lf-left-orb-2" />
-                <div className="lf-corner-tl" />
-                <div className="lf-corner-br" />
-
-                <div className="lf-left-content">
-                    {/* Logo */}
-                    <BrandLogo variant="sidebar" />
-
-                    {/* Headline */}
-                    <div className="lf-headline">
-                        <h1 className="lf-title">Cổng<br />nhà cung cấp</h1>
-                        <p className="lf-desc">
-                            Nền tảng quản lý đơn hàng và báo giá dành riêng cho nhà cung cấp của FCentric.
-                        </p>
-                    </div>
-
-                    {/* Features */}
-                    <div className="lf-features">
-                        {[
-                            { Icon: CheckCircle, color: '#22c55e', bg: 'rgba(34,197,94,0.12)', title: 'Báo giá nhanh chóng', desc: 'Nhận và phản hồi yêu cầu báo giá trong vài phút' },
-                            { Icon: Package, color: '#60a5fa', bg: 'rgba(96,165,250,0.12)', title: 'Theo dõi đơn hàng', desc: 'Lịch sử và trạng thái đơn theo thời gian thực' },
-                            { Icon: TrendingUp, color: '#e8b923', bg: 'rgba(232,185,35,0.12)', title: 'Phân tích hiệu suất', desc: 'Bảng thống kê doanh thu & giao dịch' },
-                        ].map(({ Icon, color, bg, title, desc }) => (
-                            <div key={title} className="lf-feat">
-                                <div className="lf-feat-icon" style={{ background: bg, border: `1px solid ${color}33` }}>
-                                    <Icon size={15} strokeWidth={2} style={{ color }} />
-                                </div>
-                                <div>
-                                    <p className="lf-feat-title">{title}</p>
-                                    <p className="lf-feat-desc">{desc}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Bottom badge */}
-                    <div className="lf-bottom-badge">
-                        <ShieldCheck size={12} style={{ color: '#b8860b' }} />
-                        <span>Kết nối được mã hóa TLS 256-bit</span>
-                    </div>
-                </div>
+            <div className="mb-8 text-center lg:text-left">
+                <h1 className="mb-3 text-3xl font-bold tracking-tight text-gray-900 fade-in-up delay-1">
+                    {buoc === 'otp' ? 'Nhập mã OTP' : 'Cổng nhà cung cấp'}
+                </h1>
+                <p className="text-base text-gray-500 fade-in-up delay-2">
+                    {buoc === 'otp' ? (
+                        <>
+                            Mã 6 chữ số đã được gửi tới{' '}
+                            <strong className="font-semibold break-words text-gray-900">{email}</strong>.
+                        </>
+                    ) : orderId ? (
+                        'Nhập email nhận yêu cầu báo giá để nhận mã OTP.'
+                    ) : (
+                        'Nhập email và mã đơn mua hàng để nhận mã OTP.'
+                    )}
+                </p>
             </div>
 
-            {/* Right panel */}
-            <div className="lf-right">
-                <div className="lf-right-orb" />
-                <div className="lf-form-wrap">
+            <AuthProgress steps={CAC_BUOC} currentStep={buoc === 'otp' ? 2 : 1} />
 
-                    {/* Step indicator */}
-                    <div className="lf-steps">
-                        <div className={`lf-step ${step >= 1 ? 'lf-step-active' : 'lf-step-dim'}`}>
-                            <span className="lf-step-dot">{step > 1 ? '✓' : '1'}</span>
-                            <span>Email</span>
+            {/* ── BƯỚC 1: EMAIL + MÃ ĐƠN ── */}
+            {buoc === 'thong-tin' && (
+                <>
+                    <form className="space-y-5 fade-in-up delay-4" onSubmit={handleSendOtp} noValidate>
+                        {loi.chung ? (
+                            <Banner loai="loi">{loi.chung}</Banner>
+                        ) : thongBaoVao ? (
+                            <Banner loai="thong-tin">{thongBaoVao}</Banner>
+                        ) : null}
+
+                        <div className="space-y-2">
+                            <label htmlFor="ncc-email" className={LABEL}>Email</label>
+                            <input
+                                ref={emailRef}
+                                id="ncc-email"
+                                type="email"
+                                autoComplete="email"
+                                placeholder="ten@congty.vn"
+                                className={`${INPUT_BASE} ${loi.email ? INPUT_ERROR : INPUT_NORMAL}`}
+                                value={email}
+                                onChange={(e) => {
+                                    setEmail(e.target.value);
+                                    setLoi((p) => ({ ...p, email: '', chung: '' }));
+                                }}
+                                disabled={Boolean(dangXuLy)}
+                                aria-invalid={Boolean(loi.email)}
+                                aria-describedby={loi.email ? 'ncc-email-loi' : undefined}
+                            />
+                            <LoiO id="ncc-email-loi">{loi.email}</LoiO>
                         </div>
-                        <div className="lf-step-line" />
-                        <div className={`lf-step ${step >= 2 ? 'lf-step-active' : 'lf-step-dim'}`}>
-                            <span className="lf-step-dot">{step > 2 ? '✓' : '2'}</span>
-                            <span>Xác thực</span>
-                        </div>
-                    </div>
 
-                    {/* Card */}
-                    <div className="lf-card">
-                        {/* Gold top line */}
-                        <div className="lf-card-topline" />
+                        {orderId ? (
+                            <div className="flex items-center gap-2.5 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+                                <Link2 size={16} className="shrink-0 text-gray-500" aria-hidden="true" />
+                                <span>Đơn mua hàng đã lấy từ liên kết trong email</span>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                <label htmlFor="ncc-ma-don" className={LABEL}>Mã đơn mua hàng</label>
+                                <input
+                                    ref={maDonRef}
+                                    id="ncc-ma-don"
+                                    type="text"
+                                    autoComplete="off"
+                                    spellCheck={false}
+                                    placeholder="VD: PO202610115101"
+                                    className={`${INPUT_BASE} ${loi.maDon ? INPUT_ERROR : INPUT_NORMAL}`}
+                                    value={manualSoDonMua}
+                                    onChange={(e) => {
+                                        setManualSoDonMua(e.target.value);
+                                        setLoi((p) => ({ ...p, maDon: '', chung: '' }));
+                                    }}
+                                    disabled={Boolean(dangXuLy)}
+                                    aria-invalid={Boolean(loi.maDon)}
+                                    aria-describedby={loi.maDon ? 'ncc-ma-don-loi' : 'ncc-ma-don-goi-y'}
+                                />
+                                {loi.maDon ? (
+                                    <LoiO id="ncc-ma-don-loi">{loi.maDon}</LoiO>
+                                ) : (
+                                    <p id="ncc-ma-don-goi-y" className="text-sm text-gray-500">
+                                        Mã đơn có trong email yêu cầu báo giá.
+                                    </p>
+                                )}
+                            </div>
+                        )}
 
-                        <div className="lf-card-header">
-                            <h2 className="lf-card-title">
-                                {step === 1 ? 'Đăng nhập' : 'Nhập mã OTP'}
-                            </h2>
-                            <p className="lf-card-sub">
-                                {step === 1
-                                    ? 'Nhập email và mã đơn để nhận OTP xác thực'
-                                    : <><span>Mã đã gửi đến </span><strong>{email}</strong></>}
+                        <button type="submit" className={`${PRIMARY_BTN} mt-4`} disabled={Boolean(dangXuLy)}>
+                            {dangXuLy === 'gui-ma' ? (
+                                <><Loader2 size={16} className="animate-spin" aria-hidden="true" /> Đang gửi mã...</>
+                            ) : (
+                                'Nhận mã OTP'
+                            )}
+                        </button>
+                    </form>
+
+                    <p className="mt-8 text-sm text-gray-500 fade-in-up delay-5">
+                        Chưa nhận được email yêu cầu báo giá? Hãy liên hệ nhân viên mua hàng của FCentric.
+                    </p>
+                </>
+            )}
+
+            {/* ── BƯỚC 2: MÃ OTP ── */}
+            {buoc === 'otp' && (
+                <>
+                    <form className="space-y-5 fade-in-up delay-4" onSubmit={handleVerifyOtp} noValidate>
+                        {loi.otp ? (
+                            <Banner loai="loi">{loi.otp}</Banner>
+                        ) : loi.chung ? (
+                            <Banner loai="loi">{loi.chung}</Banner>
+                        ) : thongBao ? (
+                            <Banner loai={thongBao.loai}>{thongBao.noiDung}</Banner>
+                        ) : null}
+
+                        <div className="space-y-2">
+                            <label htmlFor="ncc-otp-0" className={LABEL}>Mã OTP 6 số</label>
+                            <OtpInputs
+                                value={otp}
+                                onChange={(next) => {
+                                    setOtp(next);
+                                    if (loi.otp || loi.chung) setLoi({});
+                                }}
+                                disabled={Boolean(dangXuLy)}
+                                error={Boolean(loi.otp)}
+                                idPrefix="ncc-otp"
+                            />
+                            <p className="pt-1 text-sm text-gray-600">
+                                {loi.otp && 'Các ô đã được xóa để nhập lại. '}
+                                Không nhận được mã?{' '}
+                                {dangXuLy === 'gui-lai' ? (
+                                    <span className="font-medium text-gray-400">Đang gửi lại...</span>
+                                ) : conLaiGiay > 0 ? (
+                                    <span className="font-medium whitespace-nowrap text-gray-400">
+                                        Gửi lại OTP sau <span className="tabular-nums">{dinhDangDemNguoc(conLaiGiay)}</span>
+                                    </span>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        className="font-medium text-black hover:underline disabled:cursor-not-allowed disabled:text-gray-400 disabled:no-underline"
+                                        onClick={handleResendOtp}
+                                        disabled={Boolean(dangXuLy)}
+                                    >
+                                        Gửi lại OTP
+                                    </button>
+                                )}
                             </p>
                         </div>
 
-                        <form
-                            onSubmit={step === 1 ? handleSendOtp : handleVerifyOtp}
-                            className="lf-form"
+                        <button
+                            type="submit"
+                            className={`${PRIMARY_BTN} mt-4`}
+                            disabled={Boolean(dangXuLy) || otp.join('').length !== OTP_TRONG.length}
                         >
-                            {/* Email field */}
-                            <div className="lf-field">
-                                <label className="lf-lbl">
-                                    Email <span className="lf-req">*</span>
-                                </label>
-                                <div className="lf-input-wrap">
-                                    <Mail size={14} className="lf-input-icon" />
-                                    <input
-                                        type="email"
-                                        placeholder="supplier@company.com"
-                                        className={`lf-input ${errors.email ? 'lf-input-err' : ''}`}
-                                        value={email}
-                                        onChange={e => { setEmail(e.target.value); setErrors(p => ({ ...p, email: '' })); }}
-                                        disabled={loading || step === 2}
-                                    />
-                                </div>
-                                {errors.email && <p className="lf-err-msg">{errors.email}</p>}
-                            </div>
-
-                            {/* Order code field */}
-                            {!orderId && step === 1 && (
-                                <div className="lf-field">
-                                    <label className="lf-lbl">
-                                        Mã đơn hàng <span className="lf-req">*</span>
-                                    </label>
-                                    <div className="lf-input-wrap">
-                                        <Package size={14} className="lf-input-icon" />
-                                        <input
-                                            type="text"
-                                            placeholder="VD: PO2026-00142"
-                                            className="lf-input lf-mono"
-                                            value={manualSoDonMua}
-                                            onChange={e => setManualSoDonMua(e.target.value)}
-                                            disabled={loading}
-                                        />
-                                    </div>
-                                </div>
+                            {dangXuLy === 'xac-thuc' ? (
+                                <><Loader2 size={16} className="animate-spin" aria-hidden="true" /> Đang xác thực...</>
+                            ) : (
+                                'Xác nhận'
                             )}
+                        </button>
+                    </form>
 
-                            {/* OTP field */}
-                            {step === 2 && (
-                                <div className="lf-field lf-otp-anim">
-                                    <div className="lf-otp-label-row">
-                                        <label className="lf-lbl">
-                                            Mã OTP <span className="lf-req">*</span>
-                                        </label>
-                                    </div>
-                                    <div className="lf-input-wrap">
-                                        <ShieldCheck size={14} className="lf-input-icon" />
-                                        <input
-                                            type="text"
-                                            maxLength={6}
-                                            placeholder="Nhập mã 6 chữ số"
-                                            className={`lf-input lf-input-otp ${errors.otp ? 'lf-input-err' : ''}`}
-                                            value={otp}
-                                            onChange={e => {
-                                                const v = e.target.value.replace(/\D/, '').slice(0, 6);
-                                                setOtp(v);
-                                                setErrors(p => ({ ...p, otp: '' }));
-                                            }}
-                                            autoFocus
-                                            disabled={loading}
-                                        />
-                                    </div>
-                                    {errors.otp && <p className="lf-err-msg">{errors.otp}</p>}
-                                    <div className="lf-resend">
-                                        Không nhận được mã?{' '}
-                                        <button
-                                            type="button"
-                                            className="lf-link"
-                                            onClick={() => handleSendOtp({ preventDefault: () => { } })}
-                                            disabled={loading}
-                                        >
-                                            Gửi lại
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Submit button */}
-                            <button type="submit" disabled={loading} className="lf-btn">
-                                {loading ? (
-                                    <>
-                                        <Loader2 size={15} className="lf-spin" />
-                                        Đang xử lý...
-                                    </>
-                                ) : step === 1 ? (
-                                    <>Nhận mã OTP <ChevronRight size={15} style={{ opacity: 0.7 }} /></>
-                                ) : (
-                                    <>Xác thực & đăng nhập <ChevronRight size={15} style={{ opacity: 0.7 }} /></>
-                                )}
-                            </button>
-                        </form>
-                    </div>
-
-                    <p className="lf-footer">
-                        Cần hỗ trợ?{' '}
-                        <a href="mailto:support@fswms.vn" className="lf-link">
-                            Liên hệ bộ phận kỹ thuật
-                        </a>
-                    </p>
-                    <p className="lf-copy">© 2026 FCentric · Bảo lưu mọi quyền</p>
-                </div>
-            </div>
-        </div>
+                    {maDonHienThi && (
+                        <div className="mt-8 flex justify-between gap-3 border-t border-gray-200 pt-4 text-sm fade-in-up delay-5">
+                            <span className="text-gray-500">Đơn mua hàng</span>
+                            <span className="min-w-0 text-right font-semibold break-words tabular-nums text-gray-900">{maDonHienThi}</span>
+                        </div>
+                    )}
+                </>
+            )}
+        </AuthShell>
     );
 }
-
-/* ══════════════════════════════════════════
-   ROOT
-══════════════════════════════════════════ */
-export default function SupplierLoginPage() {
-    return <LoginForm />;
-}
-
-/* ══════════════════════════════════════════
-   LOGIN CSS — Gold / Ivory (matches homepage)
-══════════════════════════════════════════ */
-const LOGIN_STYLES = `
-
-.lf-page {
-  display: flex; min-height: 100vh;
-  font-family: system-ui, sans-serif;
-  opacity: 0; transform: translateY(12px);
-  transition: opacity 0.6s ease, transform 0.6s ease;
-  background: linear-gradient(160deg, #faf8f3 0%, #f5f0e4 55%, #ede9de 100%);
-}
-.lf-page.lf-visible { opacity: 1; transform: translateY(0); }
-
-/* ── Left dark panel ── */
-.lf-left {
-  width: 420px; flex-shrink: 0;
-  background: linear-gradient(160deg, #1a1200 0%, #2d2106 60%, #3d2e08 100%);
-  position: relative; overflow: hidden;
-  display: flex; align-items: center; justify-content: center;
-  padding: 48px 40px;
-}
-@media (max-width: 900px) { .lf-left { display: none; } }
-
-.lf-left-grid {
-  position: absolute; inset: 0;
-  background-image:
-    linear-gradient(rgba(184,134,11,0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(184,134,11,0.08) 1px, transparent 1px);
-  background-size: 56px 56px;
-  animation: lfGrid 35s linear infinite;
-}
-@keyframes lfGrid { to { background-position: 56px 56px; } }
-
-.lf-left-orb-1 {
-  position: absolute; width: 400px; height: 400px; border-radius: 50%;
-  background: rgba(184,134,11,0.12); filter: blur(90px);
-  top: -130px; right: -130px; pointer-events: none;
-}
-.lf-left-orb-2 {
-  position: absolute; width: 300px; height: 300px; border-radius: 50%;
-  background: rgba(201,150,12,0.08); filter: blur(80px);
-  bottom: -80px; left: -80px; pointer-events: none;
-}
-
-.lf-corner-tl, .lf-corner-br {
-  position: absolute; width: 100px; height: 100px;
-  border: 1px solid rgba(184,134,11,0.25);
-}
-.lf-corner-tl { top: 24px; left: 24px; border-right: none; border-bottom: none; }
-.lf-corner-br { bottom: 24px; right: 24px; border-left: none; border-top: none; }
-
-.lf-left-content {
-  position: relative; z-index: 1; width: 100%;
-  display: flex; flex-direction: column; gap: 32px;
-}
-
-/* Logo */
-.lf-logo { display: flex; align-items: center; gap: 10px; }
-.lf-logo-box {
-  width: 42px; height: 42px; border-radius: 12px;
-  background: linear-gradient(135deg, #b8860b, #e8b923);
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 18px rgba(184,134,11,0.45);
-}
-.lf-logo-text { display: flex; align-items: center; gap: 8px; }
-.lf-logo-fs { font-size: 22px; font-weight: 900; color: #e8b923; letter-spacing: -0.5px; }
-.lf-logo-sep { width: 1px; height: 18px; background: rgba(184,134,11,0.4); }
-.lf-logo-wms {
-  font-family: ui-monospace, monospace; font-size: 13px;
-  font-weight: 500; color: rgba(255,255,255,0.5); letter-spacing: 0.08em;
-}
-
-/* Headline */
-.lf-eyebrow {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-family: ui-monospace, monospace; font-size: 10px;
-  letter-spacing: 0.18em; color: rgba(184,134,11,0.65);
-  text-transform: uppercase; margin-bottom: 10px;
-}
-.lf-title {
-  font-size: 40px; font-weight: 900; color: #fff;
-  line-height: 1.05; letter-spacing: -1px; margin-bottom: 12px;
-}
-.lf-desc { font-size: 13px; color: rgba(255,255,255,0.38); line-height: 1.7; }
-
-/* Feature items */
-.lf-features { display: flex; flex-direction: column; gap: 10px; }
-.lf-feat {
-  display: flex; align-items: flex-start; gap: 12px;
-  padding: 13px; border-radius: 12px;
-  background: rgba(255,255,255,0.04); border: 1px solid rgba(184,134,11,0.12);
-  transition: background 0.2s, border-color 0.2s;
-}
-.lf-feat:hover { background: rgba(255,255,255,0.07); border-color: rgba(184,134,11,0.25); }
-.lf-feat-icon {
-  width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-}
-.lf-feat-title { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.8); margin-bottom: 2px; }
-.lf-feat-desc { font-size: 11px; color: rgba(255,255,255,0.32); line-height: 1.5; }
-
-/* Bottom badge */
-.lf-bottom-badge {
-  display: flex; align-items: center; gap: 6px;
-  font-family: ui-monospace, monospace; font-size: 10px;
-  color: rgba(184,134,11,0.5); letter-spacing: 0.06em;
-}
-
-/* ── Right panel ── */
-.lf-right {
-  flex: 1; position: relative;
-  display: flex; align-items: center; justify-content: center;
-  padding: 40px 32px; overflow: hidden;
-  background: linear-gradient(160deg, #faf8f3 0%, #f5f0e4 60%, #ede9de 100%);
-}
-.lf-right-orb {
-  position: absolute; width: 400px; height: 400px; border-radius: 50%;
-  background: rgba(184,134,11,0.07); filter: blur(90px);
-  top: -120px; right: -80px; pointer-events: none;
-}
-
-.lf-form-wrap {
-  width: 100%; max-width: 420px;
-  display: flex; flex-direction: column; gap: 18px;
-  position: relative; z-index: 1;
-}
-
-/* Steps */
-.lf-steps { display: flex; align-items: center; gap: 8px; }
-.lf-step {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 12px; font-weight: 600; color: #a89f92;
-  transition: color 0.3s;
-}
-.lf-step-active { color: #1a1612; }
-.lf-step-dim { color: #c9b99a; }
-.lf-step-dot {
-  width: 22px; height: 22px; border-radius: 50%;
-  background: rgba(184,134,11,0.12); color: #a89f92;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 10px; font-weight: 700;
-  transition: all 0.3s;
-}
-.lf-step-active .lf-step-dot {
-  background: linear-gradient(135deg, #b8860b, #e8b923);
-  color: #fff;
-  box-shadow: 0 2px 10px rgba(184,134,11,0.4);
-}
-.lf-step-line { flex: 1; height: 1px; background: rgba(184,134,11,0.2); max-width: 40px; }
-
-/* Card */
-.lf-card {
-  background: #fff;
-  border: 1px solid rgba(184,134,11,0.2);
-  border-radius: 20px; overflow: hidden;
-  box-shadow: 0 4px 24px rgba(100,80,30,0.1), 0 1px 4px rgba(100,80,30,0.06);
-  position: relative;
-}
-.lf-card-topline {
-  height: 2px;
-  background: linear-gradient(90deg, transparent, #b8860b, transparent);
-}
-.lf-card-header {
-  padding: 24px 28px 20px;
-  border-bottom: 1px solid rgba(184,134,11,0.1);
-  background: linear-gradient(180deg, rgba(184,134,11,0.03) 0%, transparent 100%);
-}
-.lf-card-title {
-  font-size: 22px; font-weight: 800; color: #1a1612; letter-spacing: -0.5px;
-}
-.lf-card-sub { font-size: 13px; color: #a89f92; margin-top: 4px; }
-.lf-card-sub strong { color: #3d3529; }
-
-/* Form */
-.lf-form {
-  padding: 24px 28px 28px;
-  display: flex; flex-direction: column; gap: 16px;
-}
-.lf-field { display: flex; flex-direction: column; gap: 6px; }
-.lf-lbl {
-  font-family: ui-monospace, monospace; font-size: 10px; font-weight: 500;
-  letter-spacing: 0.18em; text-transform: uppercase; color: rgba(184,134,11,0.7);
-}
-.lf-req { color: #ef4444; }
-
-.lf-input-wrap { position: relative; }
-.lf-input-icon {
-  position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
-  color: #a89f92; pointer-events: none;
-}
-.lf-input {
-  width: 100%; height: 44px; padding: 0 14px 0 38px;
-  background: #faf8f3; border: 1.5px solid rgba(184,134,11,0.2);
-  border-radius: 11px; outline: none;
-  font-size: 14px; color: #1a1612;
-  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
-}
-.lf-input::placeholder { color: #a89f92; }
-.lf-input:focus {
-  border-color: #b8860b; background: #fff;
-  box-shadow: 0 0 0 3px rgba(184,134,11,0.1);
-}
-.lf-input:disabled { opacity: 0.5; cursor: not-allowed; }
-.lf-input-err { border-color: #ef4444 !important; }
-.lf-input.lf-mono { font-family: ui-monospace, monospace; font-size: 13px; letter-spacing: 0.05em; }
-.lf-input.lf-input-otp { font-family: ui-monospace, monospace; font-size: 18px; letter-spacing: 0.3em; font-weight: bold; }
-.lf-input.lf-input-otp::placeholder { font-family: system-ui, sans-serif; font-size: 14px; letter-spacing: normal; font-weight: normal; }
-
-.lf-err-msg { font-size: 12px; color: #ef4444; }
-
-/* OTP */
-.lf-otp-anim { animation: lfOtpIn 0.35s ease both; }
-@keyframes lfOtpIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-.lf-otp-label-row { display: flex; align-items: center; justify-content: space-between; }
-.lf-otp-boxes { display: flex; gap: 8px; margin-top: 2px; }
-.lf-otp-box {
-  flex: 1; height: 52px; border-radius: 12px;
-  border: 1.5px solid rgba(184,134,11,0.2); background: #faf8f3;
-  text-align: center;
-  font-family: ui-monospace, monospace; font-size: 20px; font-weight: 700;
-  color: #1a1612; outline: none; transition: all 0.15s;
-}
-.lf-otp-box:focus { border-color: #b8860b; background: #fff; box-shadow: 0 0 0 3px rgba(184,134,11,0.1); }
-.lf-otp-box.lf-otp-filled { border-color: #22c55e; background: rgba(34,197,94,0.06); }
-.lf-otp-box.lf-otp-err { border-color: #ef4444; }
-.lf-resend { font-size: 12px; color: #a89f92; text-align: center; margin-top: 6px; }
-
-/* Submit button */
-.lf-btn {
-  height: 48px; border-radius: 12px; width: 100%;
-  background: linear-gradient(135deg, #b8860b, #e8b923);
-  color: #fff; border: none;
-  font-size: 14px; font-weight: 700; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 18px rgba(184,134,11,0.38);
-  position: relative; overflow: hidden;
-}
-.lf-btn::before {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.18), transparent);
-  opacity: 0; transition: opacity 0.3s;
-}
-.lf-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 28px rgba(184,134,11,0.52);
-}
-.lf-btn:hover::before { opacity: 1; }
-.lf-btn:active { transform: translateY(0); }
-.lf-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
-.lf-spin { animation: lfSpin 1s linear infinite; }
-@keyframes lfSpin { to { transform: rotate(360deg); } }
-
-/* Links */
-.lf-link {
-  background: none; border: none; cursor: pointer;
-  color: #b8860b; font-size: 12px; font-weight: 600;
-  text-decoration: none; transition: color 0.2s;
-}
-.lf-link:hover { color: #8a6308; text-decoration: underline; }
-
-.lf-footer { font-size: 13px; color: #a89f92; text-align: center; }
-.lf-copy {
-  font-family: ui-monospace, monospace; font-size: 11px;
-  color: #c9b99a; text-align: center; letter-spacing: 0.04em;
-}
-`;
