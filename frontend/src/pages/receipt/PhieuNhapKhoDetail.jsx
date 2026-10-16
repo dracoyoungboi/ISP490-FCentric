@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import {
     AlertCircle,
     ArrowLeft,
@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { getGoodsReceiptStatus, getGoodsReceiptTypeLabel } from "@/constants/goodsReceipt";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { formatDate } from "@/utils/formatters";
+import ChiTietNhapTuDonMua from "./ChiTietNhapTuDonMua";
 
 export default function PhieuNhapKhoDetail() {
     const { id } = useParams();
@@ -45,9 +46,12 @@ export default function PhieuNhapKhoDetail() {
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
     const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
 
-    const fetchDetail = useCallback(async () => {
-        setLoading(true);
-        setLoadError(null);
+    // silent: tải lại sau một thao tác (khóa lô, xác nhận…) — giữ màn đang hiện, lỗi chỉ báo toast
+    const fetchDetail = useCallback(async ({ silent = false } = {}) => {
+        if (!silent) {
+            setLoading(true);
+            setLoadError(null);
+        }
         try {
             const res = await phieuNhapKhoService.getDetail(id);
             const detail = res?.data || res;
@@ -55,6 +59,10 @@ export default function PhieuNhapKhoDetail() {
             if (!detail) setLoadError({ notFound: true });
         } catch (e) {
             console.error(e);
+            if (silent) {
+                toast.error(getApiErrorMessage(e, "Không tải lại được phiếu nhập"));
+                return;
+            }
             setData(null);
             // Máy chủ trả 400 "Không tìm thấy phiếu nhập id: …" khi mã không tồn tại
             const status = getApiErrorStatus(e);
@@ -62,7 +70,7 @@ export default function PhieuNhapKhoDetail() {
                 ? { notFound: true }
                 : { notFound: false, message: getApiErrorMessage(e, "Không thể tải chi tiết phiếu nhập") });
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [id]);
 
@@ -108,6 +116,11 @@ export default function PhieuNhapKhoDetail() {
                 </div>
             </PageContainer>
         );
+    }
+
+    // Phiếu nhập từ đơn mua: màn mới "Thanh 3 bước + bảng hàng" (FO-096/099/100)
+    if (data.soDonMua) {
+        return <ChiTietNhapTuDonMua data={data} onReload={() => fetchDetail({ silent: true })} />;
     }
 
     // 1. Nếu có data.soDonMua -> Nhập từ Đối tác (PO)
