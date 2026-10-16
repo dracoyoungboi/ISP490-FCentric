@@ -12,7 +12,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -37,6 +36,7 @@ public interface TonKhoTheoLoRepository extends JpaRepository<TonKhoTheoLo, Inte
     """)
     List<Object[]> sumSoLuongTonTheoKho(@Param("khoIds") List<Integer> khoIds);
 
+    /** Tồn − đang giữ (so_luong_kha_dung) theo biến thể ở một kho. Trả về [bienTheId, tổng]. */
     @Query("""
         SELECT tk.loHang.bienTheSanPham.id, COALESCE(SUM(tk.soLuongKhaDung), 0)
         FROM TonKhoTheoLo tk
@@ -180,6 +180,18 @@ public interface TonKhoTheoLoRepository extends JpaRepository<TonKhoTheoLo, Inte
 
     List<TonKhoTheoLo> findByKho_IdAndLoHang_IdIn(Integer khoId, java.util.Collection<Integer> loHangIds);
 
+    /** Mọi dòng tồn của các biến thể tại một kho, nạp sẵn lô (chỉ đọc, không khóa). */
+    @Query("""
+        select t from TonKhoTheoLo t
+        join fetch t.loHang l
+        where t.kho.id = :khoId
+          and l.bienTheSanPham.id in :bienTheIds
+    """)
+    List<TonKhoTheoLo> findByKhoAndBienTheIds(
+            @Param("khoId") Integer khoId,
+            @Param("bienTheIds") java.util.Collection<Integer> bienTheIds
+    );
+
     /** Mọi dòng tồn của một biến thể tại một kho, nạp sẵn lô (chỉ đọc; sắp FIFO ở tầng service). */
     @Query("""
         select t from TonKhoTheoLo t
@@ -243,17 +255,6 @@ public interface TonKhoTheoLoRepository extends JpaRepository<TonKhoTheoLo, Inte
     """)
     List<TonKhoTheoLo> lockLotsForUpdateByLotIds(
             @Param("lotIds") java.util.Collection<Integer> lotIds
-    );
-
-    @Query("""
-    SELECT COALESCE(SUM(t.soLuongTon - t.soLuongDaDat), 0)
-    FROM TonKhoTheoLo t
-    WHERE t.kho.id = :khoId 
-    AND t.loHang.bienTheSanPham.id = :bienTheId
-""")
-    BigDecimal sumSoLuongKhaDungByKhoAndBienThe(
-            @Param("khoId") Integer khoId,
-            @Param("bienTheId") Integer bienTheId
     );
 
     /**

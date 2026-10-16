@@ -206,15 +206,9 @@ public class NhatHangServiceImpl implements NhatHangService {
             }
         }
 
-        Map<Integer, BigDecimal> availableStockMap = new HashMap<>();
-        if (!allVariantIds.isEmpty()) {
-            List<Object[]> stockRows = tonKhoTheoLoRepository.sumSoLuongKhaDungByKhoAndBienTheIds(finalKhoId, new ArrayList<>(allVariantIds));
-            for (Object[] row : stockRows) {
-                Integer vId = (Integer) row[0];
-                BigDecimal qty = (BigDecimal) row[1];
-                availableStockMap.put(vId, qty != null ? qty : BigDecimal.ZERO);
-            }
-        }
+        // Khả dụng cho đơn chờ = phần còn lại của các lô (trừ đang giữ, phân bổ phiếu nhặt đang mở, dòng lô phiếu xuất
+        // bán chưa xuất) — đúng phép phân bổ lô khi tạo phiếu nhặt, nên "Đủ hàng" là tạo phiếu nhặt sẽ phân bổ đủ
+        Map<Integer, BigDecimal> availableStockMap = loDangGiuService.conLaiTheoBienThe(finalKhoId, allVariantIds);
 
         // Ánh xạ sang DonChoXuatDto kèm kiểm tra khả dụng tồn kho
         List<DonChoXuatDto> dtoList = donPage.getContent().stream().map(dbh -> {

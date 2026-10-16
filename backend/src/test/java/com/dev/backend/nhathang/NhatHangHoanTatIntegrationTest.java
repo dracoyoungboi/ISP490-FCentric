@@ -1,5 +1,6 @@
 package com.dev.backend.nhathang;
 
+import com.dev.backend.repository.TonKhoTongHopRepository;
 import com.dev.backend.services.impl.utils.JwtServiceImpl;
 import io.minio.MinioClient;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +19,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -72,6 +74,8 @@ class NhatHangHoanTatIntegrationTest {
     private JwtServiceImpl jwtService;
     @Autowired
     private JdbcTemplate jdbc;
+    @Autowired
+    private TonKhoTongHopRepository tonKhoTongHopRepository;
 
     private String adminToken;
     private int adminId;
@@ -646,5 +650,86 @@ class NhatHangHoanTatIntegrationTest {
         dongGoi(pxk3);
         assertEquals(HttpStatus.OK, xuatKho(pxk3).getStatusCode());
         assertEquals(3, trangThaiDon(don));
+    }
+
+    // ===================== tồn khả dụng sau giữ lô =====================
+
+    /** Cờ duHang của từng đơn ở màn Đơn chờ xuất (kho 1). */
+    @SuppressWarnings("unchecked")
+    private Map<Integer, Boolean> duHangDonCho() {
+        ResponseEntity<Map> res = goi(HttpMethod.POST, "/api/v1/nhat-hang/don-cho-xuat", Map.of("size", 50));
+        assertEquals(HttpStatus.OK, res.getStatusCode(), "đơn chờ xuất: " + res.getBody());
+        Map<Integer, Boolean> ketQua = new HashMap<>();
+        for (Map<String, Object> d : (List<Map<String, Object>>) data(res).get("content")) {
+            ketQua.put(((Number) d.get("id")).intValue(), (Boolean) d.get("duHang"));
+        }
+        return ketQua;
+    }
+
+    /** Tồn đẩy lên sàn của biến thể 93 (toàn chuỗi). */
+    private BigDecimal tonDayLenSan() {
+        return (BigDecimal) tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(List.of(BIEN_THE)).get(0)[1];
+    }
+
+    @Test
+    void t21_donChoXuat_coDuHang_truPhanLoDangGiu() {
+        int donA = taoDonChoXuat(3);
+        int donB = taoDonChoXuat(2);
+        int donC = taoDonChoXuat(3);
+        assertEquals(Boolean.TRUE, duHangDonCho().get(donC), "chưa ai giữ lô: tồn 5 đủ cho 3");
+
+        // Phiếu nhặt của A giữ lô 69 × 3 → còn lô 70 + 71 = 2
+        int phieuA = taoPhieuNhat(donA);
+        assertEquals("69×3", phanBo(phieuA));
+        BigDecimal sanTruoc = tonDayLenSan();
+        Map<Integer, Boolean> co = duHangDonCho();
+        assertEquals(Boolean.TRUE, co.get(donB), "B cần 2, còn 2");
+        assertEquals(Boolean.FALSE, co.get(donC), "C cần 3, còn 2 (trước đây báo Đủ hàng vì chỉ trừ so_luong_da_dat)");
+        assertNull(co.get(donA), "đơn đã vào phiếu nhặt không còn ở Đơn chờ xuất");
+        assertEquals(0, sanTruoc.compareTo(tonDayLenSan()), "xem Đơn chờ xuất không đổi tồn đẩy sàn");
+
+        // Hoàn tất nhặt: phần giữ chuyển sang dòng lô của phiếu xuất nháp → C vẫn thiếu
+        quet(phieuA, 3);
+        assertEquals(HttpStatus.OK, hoanTat(phieuA).getStatusCode());
+        int pxkA = phieuXuatNhapCuaDon(donA);
+        assertEquals(Boolean.FALSE, duHangDonCho().get(donC));
+
+        // Hủy phiếu xuất của A → lô được trả, C đủ hàng
+        assertEquals(HttpStatus.OK, goi(HttpMethod.PUT, "/api/v1/phieu-xuat-kho/" + pxkA + "/cancel", null).getStatusCode());
+        assertEquals(Boolean.TRUE, duHangDonCho().get(donC));
+    }
+
+    @Test
+    void t22_taoYeuCauChuyenKho_truDonDangChoXuat_khongTruLoHaiLan() {
+        int khoNhan = jdbc.queryForObject("SELECT id FROM kho WHERE trang_thai = 1 AND UPPER(ma_kho) <> 'KHO_TRANSIT' "
+                + "AND id <> ? ORDER BY id LIMIT 1", Integer.class, KHO);
+        // Đơn A cần 3 đã vào phiếu nhặt (giữ lô 69 × 3), đơn B cần 1 đang chờ → chờ xuất 4, khả dụng 5 − 4 = 1
+        int donA = taoDonChoXuat(3);
+        taoPhieuNhat(donA);
+        taoDonChoXuat(1);
+        // Đơn đã hủy và báo giá không giữ hàng
+        jdbc.update("UPDATE don_ban_hang SET trang_thai = 4 WHERE id = ?", taoDonChoXuat(3));
+        jdbc.update("UPDATE don_ban_hang SET loai_chung_tu = 'bao_gia' WHERE id = ?", taoDonChoXuat(2));
+        BigDecimal sanTruoc = tonDayLenSan();
+
+        ResponseEntity<Map> qua = goi(HttpMethod.POST, "/api/v1/phieu-chuyen-kho/create", Map.of(
+                "khoXuatId", KHO, "khoNhapId", khoNhan,
+                "chiTietXuat", List.of(Map.of("bienTheSanPhamId", BIEN_THE, "soLuongXuat", 2))));
+        assertEquals(HttpStatus.BAD_REQUEST, qua.getStatusCode(), "body: " + qua.getBody());
+        String loi = String.valueOf(qua.getBody().get("message"));
+        assertTrue(loi.contains("chỉ còn 1") && loi.contains("đơn bán đang chờ xuất 4") && loi.contains("Yêu cầu: 2."), loi);
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM phieu_xuat_kho WHERE loai_xuat = 'khac'", Integer.class));
+
+        // Trừ thêm phần lô phiếu nhặt đang giữ (3) thì 1 cũng bị chặn — đúng là chỉ trừ một lần
+        ResponseEntity<Map> du = goi(HttpMethod.POST, "/api/v1/phieu-chuyen-kho/create", Map.of(
+                "khoXuatId", KHO, "khoNhapId", khoNhan,
+                "chiTietXuat", List.of(Map.of("bienTheSanPhamId", BIEN_THE, "soLuongXuat", 1))));
+        assertEquals(HttpStatus.OK, du.getStatusCode(), "body: " + du.getBody());
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM phieu_xuat_kho WHERE loai_xuat = 'khac'", Integer.class));
+
+        // Yêu cầu chuyển kho chỉ kiểm, không giữ hàng: so_luong_da_dat và tồn đẩy sàn giữ nguyên
+        assertEquals(0, BigDecimal.ZERO.compareTo(jdbc.queryForObject("SELECT COALESCE(SUM(so_luong_da_dat),0) "
+                + "FROM ton_kho_theo_lo WHERE kho_id = 1 AND lo_hang_id IN (69,70,71)", BigDecimal.class)));
+        assertEquals(0, sanTruoc.compareTo(tonDayLenSan()), "tạo yêu cầu chuyển kho không đổi tồn đẩy sàn");
     }
 }

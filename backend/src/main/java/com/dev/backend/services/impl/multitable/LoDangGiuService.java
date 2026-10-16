@@ -60,6 +60,25 @@ public class LoDangGiuService {
         return ketQua;
     }
 
+    /**
+     * Còn lại theo biến thể ở một kho (chỉ đọc, không khóa): Σ theo lô max(0, còn lại). Đúng phép phân bổ lô khi tạo
+     * phiếu nhặt, nên dùng cho cờ "Đủ hàng" ở màn Đơn chờ xuất. Lô âm (dữ liệu lệch) tính 0, không bù cho lô khác.
+     * Không trừ lượng chờ xuất của các đơn chưa vào phiếu nhặt: các đơn đó chưa giữ lô nào.
+     */
+    public Map<Integer, BigDecimal> conLaiTheoBienThe(Integer khoId, Collection<Integer> bienTheIds) {
+        Map<Integer, BigDecimal> ketQua = new HashMap<>();
+        if (khoId == null || bienTheIds == null || bienTheIds.isEmpty()) {
+            return ketQua;
+        }
+        List<TonKhoTheoLo> tonList = tonKhoTheoLoRepository.findByKhoAndBienTheIds(khoId, bienTheIds);
+        Map<Integer, BigDecimal> dangGiu = dangGiuTheoLo(khoId,
+                tonList.stream().map(t -> t.getLoHang().getId()).toList(), null, null);
+        for (TonKhoTheoLo t : tonList) {
+            ketQua.merge(t.getLoHang().getBienTheSanPham().getId(), conLai(t, dangGiu).max(BigDecimal.ZERO), BigDecimal::add);
+        }
+        return ketQua;
+    }
+
     /** Còn lại của lô sau khi trừ đang giữ (so_luong_da_dat) và phần phiếu nhặt / phiếu xuất bán giữ. */
     public static BigDecimal conLai(TonKhoTheoLo t, Map<Integer, BigDecimal> dangGiu) {
         BigDecimal ton = t.getSoLuongTon() != null ? t.getSoLuongTon() : BigDecimal.ZERO;

@@ -1129,6 +1129,21 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
         KhoService.kiemTraKhoGiaoDich(khoA, "Kho xuất hàng");
         KhoService.kiemTraKhoGiaoDich(khoB, "Kho nhận hàng");
 
+        // Kiểm tồn ở kho gửi một lần cho mọi mã, gộp các dòng cùng mã
+        Map<Integer, BienTheSanPham> bienTheTheoId = new LinkedHashMap<>();
+        Map<Integer, BigDecimal> yeuCauTheoBienThe = new LinkedHashMap<>();
+        for (ChiTietPhieuXuatKhoCreating reqCt : request.getChiTietXuat()) {
+            BienTheSanPham bt = Optional.ofNullable(reqCt.getBienTheSanPhamId())
+                    .map(id -> entityManager.find(BienTheSanPham.class, id))
+                    .orElseThrow(() -> new CommonException("Sản phẩm ID " + reqCt.getBienTheSanPhamId() + " không tồn tại"));
+            if (reqCt.getSoLuongXuat() == null || reqCt.getSoLuongXuat().signum() <= 0) {
+                throw new CommonException("Số lượng chuyển của sản phẩm [" + bt.getMaSku() + "] phải lớn hơn 0");
+            }
+            bienTheTheoId.put(bt.getId(), bt);
+            yeuCauTheoBienThe.merge(bt.getId(), reqCt.getSoLuongXuat(), BigDecimal::add);
+        }
+        kiemTraKhaDungChuyenKho(khoA, bienTheTheoId, yeuCauTheoBienThe);
+
         int retry = 0;
         int maxRetry = 5;
         while (true) {
@@ -1144,21 +1159,10 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                         .build();
                 phieu = repository.save(phieu);
                 for (ChiTietPhieuXuatKhoCreating reqCt : request.getChiTietXuat()) {
-                    BienTheSanPham bt = Optional.ofNullable(entityManager.find(BienTheSanPham.class, reqCt.getBienTheSanPhamId()))
-                            .orElseThrow(() -> new CommonException("Sản phẩm ID " + reqCt.getBienTheSanPhamId() + " không tồn tại"));
-
-                    // check tồn kho
-                    BigDecimal qtyYeuCau = reqCt.getSoLuongXuat();
-                    BigDecimal qtyKhaDung = tonKhoTheoLoRepository.sumSoLuongKhaDungByKhoAndBienThe(khoA.getId(), bt.getId());
-
-                    if (qtyKhaDung.compareTo(qtyYeuCau) < 0) {
-                        throw new CommonException("Sản phẩm [" + bt.getMaSku() + "] không đủ tồn kho tại kho " + khoA.getTenKho() +
-                                " (Yêu cầu: " + qtyYeuCau + ", Hiện có: " + qtyKhaDung + ")");
-                    }
                     ChiTietPhieuXuatKho ct = ChiTietPhieuXuatKho.builder()
                             .phieuXuatKho(phieu)
-                            .bienTheSanPham(bt)
-                            .soLuongXuat(qtyYeuCau)
+                            .bienTheSanPham(bienTheTheoId.get(reqCt.getBienTheSanPhamId()))
+                            .soLuongXuat(reqCt.getSoLuongXuat())
                             .build();
                     entityManager.persist(ct); // Dùng persist trong vòng lặp Transactional sẽ hiệu quả hơn
                 }
@@ -1171,6 +1175,54 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 throw ex;
             }
         }
+    }
+
+    /**
+     * Khả dụng để chuyển ở kho gửi = (tồn − đang giữ) − chờ xuất (đặt − đã xuất thật) của đơn bán đang giữ hàng
+     * (ITrangThaiDonBanHang.DANG_GIU_HANG) có kho xuất là kho này: đúng phần của một kho trong tồn đẩy lên sàn
+     * (TonKhoTongHopRepository.sumTongFreeToUseToanChuoi), giống gợi ý kho cho đơn bán. Không trừ thêm phần lô phiếu
+     * nhặt / phiếu xuất bán đang giữ: phần đó thuộc chính các đơn ấy, đã nằm trong chờ xuất. Chỉ kiểm, không giữ hàng.
+     */
+    private void kiemTraKhaDungChuyenKho(Kho khoGui, Map<Integer, BienTheSanPham> bienTheTheoId,
+                                         Map<Integer, BigDecimal> yeuCauTheoBienThe) {
+        List<Integer> bienTheIds = new ArrayList<>(yeuCauTheoBienThe.keySet());
+        Map<Integer, BigDecimal> tonTruGiu = new HashMap<>();
+        for (Object[] row : tonKhoTheoLoRepository.sumSoLuongKhaDungByKhoAndBienTheIds(khoGui.getId(), bienTheIds)) {
+            tonTruGiu.put((Integer) row[0], soLuong(row[1]));
+        }
+        Map<Integer, BigDecimal> choXuat = new HashMap<>();
+        for (Object[] row : chiTietDonBanHangRepository.sumDatDonGiuHangTheoKho(bienTheIds, null, ITrangThaiDonBanHang.DANG_GIU_HANG)) {
+            if (khoGui.getId().equals(row[1])) {
+                choXuat.merge((Integer) row[0], soLuong(row[2]), BigDecimal::add);
+            }
+        }
+        for (Object[] row : chiTietPhieuXuatKhoRepository.sumDaXuatDonGiuHangTheoKho(bienTheIds, null, ITrangThaiDonBanHang.DANG_GIU_HANG)) {
+            if (khoGui.getId().equals(row[1])) {
+                choXuat.merge((Integer) row[0], soLuong(row[2]).negate(), BigDecimal::add);
+            }
+        }
+        for (Map.Entry<Integer, BigDecimal> e : yeuCauTheoBienThe.entrySet()) {
+            BigDecimal ton = tonTruGiu.getOrDefault(e.getKey(), BigDecimal.ZERO);
+            BigDecimal cho = choXuat.getOrDefault(e.getKey(), BigDecimal.ZERO).max(BigDecimal.ZERO);
+            BigDecimal khaDung = ton.subtract(cho).max(BigDecimal.ZERO);
+            if (khaDung.compareTo(e.getValue()) < 0) {
+                String chiTiet = cho.signum() > 0
+                        ? " (tồn trừ phần đang giữ " + hienThi(ton) + ", đơn bán đang chờ xuất " + hienThi(cho) + ")"
+                        : "";
+                throw new CommonException("Sản phẩm [" + bienTheTheoId.get(e.getKey()).getMaSku() + "] chỉ còn "
+                        + hienThi(khaDung) + " có thể chuyển tại kho " + khoGui.getTenKho() + chiTiet
+                        + ". Yêu cầu: " + hienThi(e.getValue()) + ".");
+            }
+        }
+    }
+
+    private static BigDecimal soLuong(Object value) {
+        if (value == null) return BigDecimal.ZERO;
+        return value instanceof BigDecimal bd ? bd : BigDecimal.valueOf(((Number) value).doubleValue());
+    }
+
+    private static String hienThi(BigDecimal soLuong) {
+        return soLuong.stripTrailingZeros().toPlainString();
     }
 
     private static boolean isIsAdmin(PhieuChuyenKhoCreating request) {
