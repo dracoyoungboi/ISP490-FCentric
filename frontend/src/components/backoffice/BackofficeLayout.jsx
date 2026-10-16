@@ -82,6 +82,16 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             title: "Kho",
         },
         {
+            key: "WAREHOUSE_LOCATIONS",
+            match: (path) => path === "/warehouse/locations",
+            title: "Vị trí kệ",
+        },
+        {
+            key: "SUPPLIER_BARCODES",
+            match: (path) => path === "/supplier-barcodes",
+            title: "Mã vạch nhà cung cấp",
+        },
+        {
             key: "LICH_SU_GIAO_DICH_KHO",
             match: (path) => path === "/inventory-transactions",
             title: "Lịch sử giao dịch kho",
@@ -105,6 +115,11 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             key: "LOT_INPUT",
             match: (path) => /^\/goods-receipts\/\d+\/lot-input\/\d+$/.test(path),
             title: "Khai báo lô",
+        },
+        {
+            key: "RECEIVE_COUNT",
+            match: (path) => /^\/goods-receipts\/\d+\/receive\/\d+$/.test(path),
+            title: "Kiểm đếm & khóa lô",
         },
         {
             key: "GOODS_ISSUES",

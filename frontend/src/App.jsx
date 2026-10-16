@@ -16,6 +16,9 @@ import PhieuNhapKhoList from "./pages/receipt/PhieuNhapKhoList";
 import PhieuNhapKhoCreate from "./pages/receipt/PhieuNhapKhoCreate";
 import PhieuNhapKhoDetail from "./pages/receipt/PhieuNhapKhoDetail.jsx";
 import KhaiBaoLo from "./pages/receipt/KhaiBaoLo.jsx";
+import KiemDemLo from "./pages/receipt/KiemDemLo.jsx";
+import ViTriKhoPage from "./pages/warehouse/vi-tri-kho/ViTriKhoPage.jsx";
+import MaVachNhaCungCapPage from "./pages/supplier/MaVachNhaCungCapPage.jsx";
 import PhieuXuatKhoList from "./pages/issue/PhieuXuatKhoList.jsx";
 import PurchaseOrderDetail from "./pages/order/PurchaseOrderDetail.jsx";
 import PurchaseOrder from "./pages/order/PurchaseOrder.jsx";
@@ -144,6 +147,9 @@ export default function App() {
           <Route path="/products/:id" element={<ProductDetail />} />
           {/* Warehouse */}
           <Route path="/warehouse" element={<Warehouse />} />
+          <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"]} />}>
+            <Route path="/warehouse/locations" element={<ViTriKhoPage />} />
+          </Route>
 
           {/* Purchase Order */}
           <Route path="/purchase-requests" element={<PurchaseRequestList />} />
@@ -166,6 +172,11 @@ export default function App() {
           <Route path="/supplier/new" element={<Navigate to="/supplier" replace state={{ openCreateSupplier: true }} />} />
           <Route path="/supplier/view/:id" element={<SupplierViewRedirect />} />
           <Route path="/supplier/:id" element={<SupplierDetailView />} />
+          <Route
+            element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho", "nhan_vien_mua_hang"]} />}
+          >
+            <Route path="/supplier-barcodes" element={<MaVachNhaCungCapPage />} />
+          </Route>
 
           {/* Customer */}
           <Route path="/customers" element={<KhachHangPage />} />
@@ -177,6 +188,8 @@ export default function App() {
           <Route path="/goods-receipts" element={<PhieuNhapKhoList />} />
           <Route path="/goods-receipts/:id" element={<PhieuNhapKhoDetail />} />
           <Route path="/goods-receipts/:phieuNhapKhoId/lot-input/:bienTheSanPhamId" element={<KhaiBaoLo />} />
+          {/* FO-097/098: kiểm đếm & khóa lô một biến thể của phiếu nhập từ đơn mua */}
+          <Route path="/goods-receipts/:phieuNhapKhoId/receive/:bienTheSanPhamId" element={<KiemDemLo />} />
 
           {/* Issue */}
           <Route path="/goods-issues" element={<PhieuXuatKhoList />} />

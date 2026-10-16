@@ -59,6 +59,18 @@ const HOVER_CLOSE_DELAY = 150;
 // gap-3 đẩy chữ ra ngoài vùng nút 36px khi thu gọn nên chữ không bao giờ ló ra mép rail.
 const MENU_BUTTON_LAYOUT = "bo-sidebar-item h-10 gap-3 px-[11px]";
 
+// Nhãn nhỏ cạnh tên mục (vd "Mới"): khai báo `badge: { label, description, tone }` trong sidebar.config.js.
+// tone: "moi" (vàng, mặc định) | "cho" (xám, chờ máy chủ).
+const BADGE_TONE = {
+  moi: { nhan: "bg-amber-400/15 text-amber-300", cham: "bg-amber-300" },
+  cho: { nhan: "bg-slate-400/20 text-slate-300", cham: "bg-slate-400" },
+};
+const badgeTone = (badge) => BADGE_TONE[badge?.tone] ?? BADGE_TONE.moi;
+const badgeClass = (badge) =>
+  cn("shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none", badgeTone(badge).nhan);
+const badgeLabel = (badge) => (typeof badge === "string" ? badge : badge?.label);
+const badgeDescription = (badge) => (typeof badge === "string" ? badge : badge?.description ?? badge?.label);
+
 // Chữ: thu gọn thì mờ nhanh trước khi bị mép rail cắt, mở rộng thì hiện trễ
 // một nhịp khi đã đủ chỗ. `invisible` đưa chữ ra khỏi Tab và trình đọc màn hình.
 const SIDEBAR_FADE =
@@ -668,10 +680,7 @@ export default function BackofficeSidebar() {
                     <span
                       tabIndex={0}
                       aria-label={`${item.badge.label} — ${item.badge.description}`}
-                      className={cn(
-                        "ml-auto shrink-0 rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-amber-300",
-                        SIDEBAR_FADE,
-                      )}
+                      className={cn("ml-auto", badgeClass(item.badge), SIDEBAR_FADE)}
                     >
                       {item.badge.label}
                     </span>
@@ -705,6 +714,8 @@ export default function BackofficeSidebar() {
     const isOnlyChildActive =
       onlyChild !== null && isDirectLinkActive(onlyChild, location.pathname);
     const opensFlyout = !isExpanded && onlyChild === null;
+    // Nhóm đang đóng mà có mục con gắn nhãn (vd "Mới"): chấm nhỏ cạnh mũi tên để người dùng mở ra xem
+    const childWithBadge = visibleChildren.find((child) => child.badge);
 
     // Link phủ nhận hover thay nút, nên nút đổi màu theo hover của cả mục.
     const buttonTone = isOnlyChildActive
@@ -754,7 +765,13 @@ export default function BackofficeSidebar() {
           >
             <Icon className="size-[18px]" />
             <span data-nhan className={cn("truncate", SIDEBAR_FADE)}>{item.label}</span>
-            <span aria-hidden="true" className={cn("ml-auto flex shrink-0", SIDEBAR_FADE)}>
+            <span aria-hidden="true" className={cn("ml-auto flex shrink-0 items-center gap-2", SIDEBAR_FADE)}>
+              {childWithBadge && !isOpen ? (
+                <span
+                  title={`${childWithBadge.label}: ${badgeLabel(childWithBadge.badge)}`}
+                  className={cn("size-1.5 rounded-full", badgeTone(childWithBadge.badge).cham)}
+                />
+              ) : null}
               <ChevronDown className="size-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
             </span>
           </SidebarMenuButton>
@@ -789,17 +806,21 @@ export default function BackofficeSidebar() {
                   key={child.to}
                   to={child.to}
                   onClick={handleNavigate}
-                  data-nhan
                   onPointerEnter={showFullLabelIfTruncated}
                   className={({ isActive }) =>
-                    `block truncate rounded-md px-3 py-2 text-[13px] leading-5 transition-colors ${
+                    `flex items-center gap-2 rounded-md px-3 py-2 text-[13px] leading-5 transition-colors ${
                       isNavItemActive(child, isActive, location.pathname)
                         ? "bg-bo-primary/15 font-semibold text-blue-300"
                         : "text-bo-sidebar-muted hover:bg-bo-sidebar-hover hover:text-white"
                     }`
                   }
                 >
-                  {child.label}
+                  <span data-nhan className="min-w-0 flex-1 truncate">{child.label}</span>
+                  {child.badge ? (
+                    <span title={badgeDescription(child.badge)} className={badgeClass(child.badge)}>
+                      {badgeLabel(child.badge)}
+                    </span>
+                  ) : null}
                 </NavLink>
               ))}
             </div>
@@ -1001,10 +1022,8 @@ export default function BackofficeSidebar() {
                     ) : null}
                     <span className="min-w-0 flex-1 truncate">{child.label}</span>
                     {child.badge ? (
-                      <span className="shrink-0 rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-amber-300">
-                        {typeof child.badge === "string"
-                          ? child.badge
-                          : child.badge.label}
+                      <span title={badgeDescription(child.badge)} className={badgeClass(child.badge)}>
+                        {badgeLabel(child.badge)}
                       </span>
                     ) : null}
                   </NavLink>
