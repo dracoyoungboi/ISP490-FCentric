@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
-import { toast } from 'sonner';
+import { toast } from '@/lib/thongBaoNhanh';
 import {
   ArrowLeft,
   ChevronDown,
@@ -52,7 +52,7 @@ function readCurrentUser() {
   return { userId, username, roleLabel: ROLE_LABELS[role] || 'Thành viên hệ thống' };
 }
 
-const showReconnectedToast = () => toast.success('Đã kết nối lại mạng.', { id: 'pos-network', duration: 3000 });
+const showReconnectedToast = () => toast.success('Đã kết nối lại mạng.', { id: 'pos-network' });
 
 function useClock() {
   const [now, setNow] = useState(() => new Date());

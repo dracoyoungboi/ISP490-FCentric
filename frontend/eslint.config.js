@@ -26,4 +26,18 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    // Thông báo nhanh: luôn gọi qua "@/lib/thongBaoNhanh" để dùng chung vị trí, thời gian, gộp trùng
+    // (config/thongBaoNhanh.js). Chỉ hai file bọc thư viện được import thẳng sonner.
+    files: ['src/**/*.{js,jsx}'],
+    ignores: ['src/lib/thongBaoNhanh.jsx', 'src/components/ui/sonner.jsx'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        paths: [{
+          name: 'sonner',
+          message: 'Dùng toast từ "@/lib/thongBaoNhanh" để theo cấu hình thông báo chung (src/config/thongBaoNhanh.js).',
+        }],
+      }],
+    },
+  },
 ])

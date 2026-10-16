@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { toast as sonnerToast } from 'sonner';
+import { toast as sonnerToast } from '@/lib/thongBaoNhanh';
 import {
   ShoppingBag,
   X,
@@ -357,10 +357,10 @@ export default function PosSalesPage({
 
   const subtotal = useMemo(() => cart.reduce((sum, line) => sum + line.product.price * line.quantity, 0), [cart]);
   const total = subtotal;
-  // Thông báo dùng Toaster (sonner) toàn cục: có phân loại, xếp chồng, không đè nhau.
+  // Thông báo nhanh toàn cục: thời gian tự tắt theo loại lấy từ config/thongBaoNhanh.js.
   const showToast = (message, type = 'info') => {
     const notify = sonnerToast[type] || sonnerToast;
-    notify(message, { duration: type === 'error' ? 5000 : 3000 });
+    notify(message);
   };
 
   // Sau thất bại XÁC ĐỊNH, mọi sửa đổi draft phải mở khóa attempt để lần sau dùng key MỚI.
@@ -568,7 +568,7 @@ export default function PosSalesPage({
             removePendingCheckoutId(target.requestId); // lỗi xác định — không cần giữ metadata
             if (target.invoiceNumber != null) {
               setAttempt(target.invoiceNumber, { status: 'failed', error: res.errorMessage || 'Giao dịch đã thất bại trước đó' });
-              sonnerToast.warning(`Giao dịch của hóa đơn ${target.invoiceNumber} không thành công${res.errorMessage ? `: ${res.errorMessage}` : ''}. Hóa đơn đã được mở lại.`, { duration: 5000 });
+              sonnerToast.warning(`Giao dịch của hóa đơn ${target.invoiceNumber} không thành công${res.errorMessage ? `: ${res.errorMessage}` : ''}. Hóa đơn đã được mở lại.`);
             }
           }
         } catch (error) {

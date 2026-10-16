@@ -7,7 +7,7 @@ import {
     Users,
 } from "lucide-react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 
 import AddUserDialog from "@/components/admin/AddUserDialog";
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -317,7 +317,6 @@ export default function ViewUserListByAdmin() {
         const canAssignWarehouse = user.id != null && user.vaiTro !== "quan_tri_vien";
         toast.success("Đã tạo tài khoản.", {
             description: `Mật khẩu tạm thời của ${user.tenDangNhap} sẽ được gửi tới ${user.email}.`,
-            duration: 8000,
             action: canAssignWarehouse
                 ? {
                       label: "Phân quyền kho",

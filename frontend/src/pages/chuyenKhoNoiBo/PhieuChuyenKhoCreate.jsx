@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import PageContainer from "@/components/backoffice/PageContainer";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import TableShell from "@/components/shared/TableShell";
@@ -159,7 +159,7 @@ export default function PhieuChuyenKhoCreate() {
 
     const handleAddProduct = (product) => {
         if (transferItems.some(i => i.variantId === product.id)) {
-            toast("Sản phẩm này đã có trong danh sách", { icon: "⚠️" });
+            toast.warning("Sản phẩm này đã có trong danh sách");
             return;
         }
         setTransferItems(prev => [...prev, taoDongHang(product)]);

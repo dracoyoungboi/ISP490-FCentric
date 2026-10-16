@@ -1,7 +1,7 @@
 import { formatCurrency } from "@/utils/formatters";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
+import { toast } from "@/lib/thongBaoNhanh";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -80,7 +80,7 @@ export default function BaoGiaCreate() {
 
   const handleAddProduct = (product) => {
     if (orderItems.some(i => i.bienTheSanPhamId === product.id)) {
-      toast("Sản phẩm này đã có trong danh sách", { icon: "⚠️" });
+      toast.warning("Sản phẩm này đã có trong danh sách");
       return;
     }
     setOrderItems(prev => [...prev, {
