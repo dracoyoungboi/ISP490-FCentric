@@ -137,6 +137,26 @@ public class PhieuNhapKhoController {
         );
     }
 
+    @PutMapping("/{id}/bien-the/{bienTheSanPhamId}/hoan-tat")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
+            inWarehouse = true,
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<ResponseData<String>> hoanTatKiemDemBienThe(
+            @PathVariable Integer id,
+            @PathVariable Integer bienTheSanPhamId
+    ) {
+        phieuNhapKhoService.hoanTatKiemDemBienThe(id, bienTheSanPhamId);
+        return ResponseEntity.ok(
+                ResponseData.<String>builder()
+                        .status(HttpStatus.OK.value())
+                        .message("Chốt hoàn tất kiểm đếm biến thể thành công")
+                        .data("SUCCESS")
+                        .build()
+        );
+    }
+
     @DeleteMapping("/{phieuNhapId}/lo-hang/{chiTietId}")
     @RequireAuth(
             roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},

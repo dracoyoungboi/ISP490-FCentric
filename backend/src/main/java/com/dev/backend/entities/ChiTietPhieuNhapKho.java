@@ -55,6 +55,22 @@ public class ChiTietPhieuNhapKho {
     @Generated(event = EventType.INSERT)
     BigDecimal thanhTien;
 
+    @Column(name = "so_luong_yeu_cau")
+    @Builder.Default
+    Integer soLuongYeuCau = 0;
+
+    @Column(name = "so_luong_dat_qc")
+    @Builder.Default
+    Integer soLuongDatQc = 0;
+
+    @Column(name = "so_luong_loi_qc")
+    @Builder.Default
+    Integer soLuongLoiQc = 0;
+
+    @Column(name = "trang_thai_kiem_dem", length = 30)
+    @Builder.Default
+    String trangThaiKiemDem = "CHO_KIEM_DEM";
+
     @Lob
     @Column(name = "ghi_chu")
     String ghiChu;
@@ -63,6 +79,4 @@ public class ChiTietPhieuNhapKho {
     @Column(name = "ngay_tao")
     @Generated(event = EventType.INSERT)
     Instant ngayTao;
-
-
 }

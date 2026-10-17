@@ -43,6 +43,27 @@ public class LoHang {
     @JoinColumn(name = "nha_cung_cap_id")
     NhaCungCap nhaCungCap;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vi_tri_kho_id")
+    ViTriKho viTriKho;
+
+    @Column(name = "so_luong_nhap")
+    @Builder.Default
+    Integer soLuongNhap = 0;
+
+    @Column(name = "so_luong_con_lai")
+    @Builder.Default
+    Integer soLuongConLai = 0;
+
+    @Column(name = "so_luong_loi")
+    @Builder.Default
+    Integer soLuongLoi = 0;
+
+    @Size(max = 30)
+    @Column(name = "trang_thai", length = 30)
+    @Builder.Default
+    String trangThai = "HOAT_DONG";
+
     @NotNull
     @Column(name = "gia_von", nullable = false, precision = 15, scale = 2)
     BigDecimal giaVon;
@@ -55,6 +76,4 @@ public class LoHang {
     @Generated(event = EventType.INSERT)
     @Column(name = "ngay_tao")
     Instant ngayTao;
-
-
 }

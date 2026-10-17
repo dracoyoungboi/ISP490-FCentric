@@ -16,6 +16,10 @@ public class LoHangKhaiBaoDto {
     Integer loHangId;
     String maLo;
     Instant ngaySanXuat;
-    BigDecimal soLuongNhap; // số lượng theo lô
+    BigDecimal soLuongNhap; // số lượng theo lô (Đạt)
+    BigDecimal soLuongLoi;  // số lượng lỗi
+    Integer viTriKhoId;
+    String maViTri;
+    String trangThai;
     String ghiChu;
 }

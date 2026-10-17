@@ -9,7 +9,7 @@ import { bienBanTraHangMock } from "@/mocks/bienBanTraHangMock";
  * ở bước "Xử lý hàng lỗi". Backend xong thì đổi cờ thành true.
  * Khi chưa có máy chủ, màn tự chạy dữ liệu mẫu (mocks/) để cả nhóm xem trên web; tắt bằng VITE_NHAP_KHO_MOCK=false.
  */
-export const BIEN_BAN_TRA_HANG_DA_CO_MAY_CHU = false;
+export const BIEN_BAN_TRA_HANG_DA_CO_MAY_CHU = true;
 
 /** Đang chạy dữ liệu mẫu: máy chủ chưa có API (mặc định bật, tắt bằng VITE_NHAP_KHO_MOCK=false). */
 export const BIEN_BAN_TRA_HANG_MAU = !BIEN_BAN_TRA_HANG_DA_CO_MAY_CHU && NHAP_KHO_MOCK;

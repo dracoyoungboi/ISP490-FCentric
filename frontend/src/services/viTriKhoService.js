@@ -10,7 +10,7 @@ import { viTriKhoMock } from "@/mocks/viTriKhoMock";
  * Backend làm xong thì đổi cờ dưới đây thành true (đường dẫn đã thống nhất trong kế hoạch FO-094).
  * Khi chưa có máy chủ, màn tự chạy dữ liệu mẫu (mocks/) để cả nhóm xem trên web; tắt bằng VITE_NHAP_KHO_MOCK=false.
  */
-export const VI_TRI_KHO_DA_CO_MAY_CHU = false;
+export const VI_TRI_KHO_DA_CO_MAY_CHU = true;
 
 /** Đang chạy dữ liệu mẫu: máy chủ chưa có API (mặc định bật, tắt bằng VITE_NHAP_KHO_MOCK=false). */
 export const VI_TRI_KHO_MAU = !VI_TRI_KHO_DA_CO_MAY_CHU && NHAP_KHO_MOCK;
