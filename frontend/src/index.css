@@ -18,6 +18,8 @@
 @source "./components/supplier";
 /* Chi tiết đơn mua hàng (bản một khối): thư mục mới, khai báo rõ để dev server sinh đủ class */
 @source "./components/order";
+/* Màn Danh mục (cây dạng bảng PA1): thư mục mới, khai báo rõ để dev server sinh đủ class */
+@source "./components/danh-muc";
 /* Giao diện luôn sáng, không theo chế độ tối của trình duyệt */
 @custom-variant dark (&:where(.dark, .dark *));
 /*
