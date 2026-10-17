@@ -92,7 +92,7 @@ public class TongQuanAdminRepository {
 
     public record TonKhoTongHopDong(BigDecimal tonThucTe, BigDecimal dangGiu, BigDecimal khaDung, BigDecimal giaTri,
                                     long soBienThe, long soDong, long hetHang, long thieuHang,
-                                    long binhThuong, long duHang) {}
+                                    long binhThuong, long duHang, BigDecimal giaTriDu) {}
 
     public record TonKhoTheoKhoDong(Integer khoId, BigDecimal tonThucTe, BigDecimal khaDung, BigDecimal giaTri) {}
 
@@ -101,7 +101,9 @@ public class TongQuanAdminRepository {
     public record ViecCanXuLyDong(long donNhapChuaGuiKho, long donChoXuatKho, long phieuNhatChuaPhanCong,
                                   long phieuXuatChoXuatKho, long yeuCauNhapChoDuyet, long phieuNhapChoNhapKho,
                                   long phieuChuyenChoDuyet, long phieuChuyenChoXuatHang, long dotKiemKeDangMo,
-                                  long taiKhoanBiKhoa) {}
+                                  long taiKhoanBiKhoa, long donMuaQuaHan) {}
+
+    public record LoiDongBoDong(Integer kenhId, String maKenh, String tenKenh, long soLoi) {}
 
     public record ViecTheoKhoDong(Integer khoId, String tenKho, long donChoXuatKho, long phieuNhatChuaPhanCong,
                                   long phieuChuyenChoDuyet, long phieuChuyenChoXuatHang) {}
@@ -446,7 +448,8 @@ public class TongQuanAdminRepository {
                    COALESCE(SUM(CASE WHEN dang_ban = 1 AND kha_dung > 0 AND kha_dung <= nguong THEN 1 ELSE 0 END), 0) AS thieu,
                    COALESCE(SUM(CASE WHEN dang_ban = 1 AND kha_dung > nguong
                                       AND kha_dung <= nguong * :heSoDu THEN 1 ELSE 0 END), 0)            AS binh_thuong,
-                   COALESCE(SUM(CASE WHEN dang_ban = 1 AND kha_dung > nguong * :heSoDu THEN 1 ELSE 0 END), 0) AS du
+                   COALESCE(SUM(CASE WHEN dang_ban = 1 AND kha_dung > nguong * :heSoDu THEN 1 ELSE 0 END), 0) AS du,
+                   COALESCE(SUM(CASE WHEN dang_ban = 1 AND kha_dung > nguong * :heSoDu THEN gia_tri ELSE 0 END), 0) AS gia_tri_du
             FROM loai
             WHERE (:khoId IS NULL OR kho_id = :khoId)
             """;
@@ -457,7 +460,36 @@ public class TongQuanAdminRepository {
         return jdbc.queryForObject(sql, p, (rs, i) -> new TonKhoTongHopDong(
                 bd(rs, "ton"), bd(rs, "giu"), bd(rs, "kha_dung"), bd(rs, "gia_tri"),
                 rs.getLong("so_bien_the"), rs.getLong("so_dong"), rs.getLong("het"), rs.getLong("thieu"),
-                rs.getLong("binh_thuong"), rs.getLong("du")));
+                rs.getLong("binh_thuong"), rs.getLong("du"), bd(rs, "gia_tri_du")));
+    }
+
+    /**
+     * Dòng Dư hàng (cùng phân loại với SQL_TON_KHO_TONG_HOP) mà kho đó không có đơn bán đã giao nào của mã này từ :tu.
+     * Ngày bán lấy ngày giao; đơn cũ chưa ghi ngày giao thì lấy ngày đặt (đủ để biết "có bán gần đây hay không").
+     */
+    static final String SQL_DU_CHAM_BAN = """
+            SELECT COUNT(*) AS so_dong
+            FROM loai l
+            WHERE l.dang_ban = 1 AND l.kha_dung > l.nguong * :heSoDu
+              AND (:khoId IS NULL OR l.kho_id = :khoId)
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM chi_tiet_don_ban_hang ct
+                  JOIN don_ban_hang d ON d.id = ct.don_ban_hang_id
+                  WHERE ct.bien_the_san_pham_id = l.bien_the_id
+                    AND d.kho_xuat_id = l.kho_id
+                    AND d.loai_chung_tu = 'don_ban_hang'
+                    AND d.trang_thai IN (3, 5)
+                    AND COALESCE(d.ngay_giao_hang, d.ngay_dat_hang) >= :tu)
+            """;
+
+    /** Số dòng Dư hàng chưa bán được kể từ :tu (giờ Việt Nam). */
+    public long demDuChamBan(Integer khoId, int nguongMacDinh, int heSoDu, LocalDateTime tu) {
+        String sql = CTE_TON_THEO_CAP + SQL_DU_CHAM_BAN;
+        MapSqlParameterSource p = thamSo(khoId).addValue("nguongMacDinh", nguongMacDinh).addValue("heSoDu", heSoDu)
+                .addValue("tu", moc(tu));
+        Long n = jdbc.queryForObject(sql, p, Long.class);
+        return n == null ? 0 : n;
     }
 
     static final String SQL_TON_KHO_THEO_KHO = """
@@ -595,15 +627,51 @@ public class TongQuanAdminRepository {
                   AND (:khoId IS NULL OR p.kho_id = :khoId))                               AS pck_cho_xuat,
               (SELECT COUNT(*) FROM dot_kiem_ke dk
                 WHERE dk.trang_thai = 0 AND (:khoId IS NULL OR dk.kho_id = :khoId))        AS kiem_ke_mo,
-              (SELECT COUNT(*) FROM nguoi_dung u WHERE u.trang_thai = 0)                   AS tk_khoa
+              (SELECT COUNT(*) FROM nguoi_dung u WHERE u.trang_thai = 0)                   AS tk_khoa,
+              (SELECT COUNT(*) FROM don_mua_hang dm
+                WHERE dm.trang_thai = 3
+                  AND dm.ngay_giao_du_kien IS NOT NULL AND dm.ngay_giao_du_kien < :homNay
+                  AND (:khoId IS NULL OR dm.kho_nhap_id = :khoId)
+                  AND EXISTS (SELECT 1 FROM chi_tiet_don_mua_hang ct
+                               WHERE ct.don_mua_hang_id = dm.id
+                                 AND ct.so_luong_dat > COALESCE(ct.so_luong_da_nhan, 0)))     AS dm_qua_han
             """;
 
+    /**
+     * Đếm các việc đang chờ. Đơn mua quá hạn: đang vận chuyển (3), ngày giao dự kiến trước :homNay (0 giờ hôm nay,
+     * giờ Việt Nam) và còn dòng chưa nhận đủ, cùng cách tính phần "đang về" với SQL_DANG_VE.
+     */
+    public ViecCanXuLyDong viecCanXuLy(Integer khoId, LocalDateTime homNay) {
+        return jdbc.queryForObject(SQL_VIEC_CAN_XU_LY, thamSo(khoId).addValue("homNay", moc(homNay)),
+                (rs, i) -> new ViecCanXuLyDong(
+                        rs.getLong("don_nhap"), rs.getLong("don_cho_xuat"), rs.getLong("nhat_chua_giao"),
+                        rs.getLong("px_cho_xuat"), rs.getLong("yc_cho_duyet"), rs.getLong("pn_cho_nhap"),
+                        rs.getLong("pck_cho_duyet"), rs.getLong("pck_cho_xuat"), rs.getLong("kiem_ke_mo"),
+                        rs.getLong("tk_khoa"), rs.getLong("dm_qua_han")));
+    }
+
+    /** Như trên, "hôm nay" lấy theo thời điểm hiện tại. */
     public ViecCanXuLyDong viecCanXuLy(Integer khoId) {
-        return jdbc.queryForObject(SQL_VIEC_CAN_XU_LY, thamSo(khoId), (rs, i) -> new ViecCanXuLyDong(
-                rs.getLong("don_nhap"), rs.getLong("don_cho_xuat"), rs.getLong("nhat_chua_giao"),
-                rs.getLong("px_cho_xuat"), rs.getLong("yc_cho_duyet"), rs.getLong("pn_cho_nhap"),
-                rs.getLong("pck_cho_duyet"), rs.getLong("pck_cho_xuat"), rs.getLong("kiem_ke_mo"),
-                rs.getLong("tk_khoa")));
+        return viecCanXuLy(khoId, thoiDiemHienTai().toLocalDate().atStartOfDay());
+    }
+
+    static final String SQL_LOI_DONG_BO = """
+            SELECT kb.id AS kenh_id, kb.ma_kenh, kb.ten_kenh, COUNT(*) AS so_loi
+            FROM trang_thai_dong_bo_san_pham t
+            JOIN kenh_ban_hang kb ON kb.id = t.kenh_ban_id AND kb.trang_thai = 1
+            WHERE t.trang_thai_dong_bo = 'that_bai'
+            GROUP BY kb.id, kb.ma_kenh, kb.ten_kenh
+            ORDER BY so_loi DESC, kb.id
+            """;
+
+    /**
+     * Sản phẩm đồng bộ lỗi của từng kênh đang hoạt động, đếm như ô "Lỗi" ở trang Sản phẩm của kênh
+     * (KenhBanHangDongBoServiceImpl.getTongQuan). Máy chưa có bảng đồng bộ thì trả danh sách rỗng.
+     */
+    public List<LoiDongBoDong> loiDongBoTheoKenh() {
+        if (!coBang("trang_thai_dong_bo_san_pham") || !coBang("kenh_ban_hang")) return List.of();
+        return jdbc.query(SQL_LOI_DONG_BO, new MapSqlParameterSource(), (rs, i) -> new LoiDongBoDong(
+                rs.getInt("kenh_id"), rs.getString("ma_kenh"), rs.getString("ten_kenh"), rs.getLong("so_loi")));
     }
 
     /**
