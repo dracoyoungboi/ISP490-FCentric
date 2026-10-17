@@ -312,12 +312,16 @@ export default function KiemDemLo() {
     const t = thungRef.current;
     const ma = maLo.trim();
     try {
-      if (t.dat > 0) {
+      if (t.dat > 0 || tongSoLuong(t.loi) > 0) {
         await phieuNhapKhoService.khaiBaoLo(phieuNhapKhoId, {
           bienTheSanPhamId: btId,
           maLo: ma,
           ngaySanXuat: `${t.ngaySanXuat}T00:00:00.000Z`,
           soLuongNhap: t.dat,
+          ...(tongSoLuong(t.loi) > 0 ? {
+            soLuongLoi: tongSoLuong(t.loi),
+            lyDoLoi: t.loi.map((l) => l.lyDo).join(", "),
+          } : {}),
           // Chỉ gửi vị trí khi máy chủ thật đã có vị trí kệ (id của dữ liệu mẫu không có ở máy chủ)
           ...(VI_TRI_KHO_DA_CO_MAY_CHU && t.viTriId ? { viTriKhoId: t.viTriId } : {}),
         });
@@ -739,7 +743,14 @@ export default function KiemDemLo() {
         </span>
         <Button
           disabled={!xongBienThe}
-          onClick={() => navigate(`/goods-receipts/${phieuNhapKhoId}`)}
+          onClick={async () => {
+            try {
+              await phieuNhapKhoService.hoanTatKiemDemBienThe(phieuNhapKhoId, btId);
+            } catch (_) {
+              // Bỏ qua nếu máy chủ đã tự chốt ở khaiBaoLo
+            }
+            navigate(`/goods-receipts/${phieuNhapKhoId}`);
+          }}
           className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
         >
           <Check className="size-4" /> Hoàn tất kiểm đếm biến thể

@@ -28,4 +28,11 @@ public class ChiTietPhieuNhapKhoDto {
     private String tenNguoiDuyet;
     List<PhieuNhapKhoItemDto> items;
     private Integer phieuXuatGocId;
+    Double tienDoKiemDem;
+    Integer tongSoLuongLoi;
+    Integer tongSoLuongDat;
+    Boolean coBienBanRtv;
+    String maBienBanRtv;
+    Boolean safetyLock;
+    Boolean coTheNhapKho;
 }

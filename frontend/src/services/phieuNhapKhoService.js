@@ -76,6 +76,10 @@ export const phieuNhapKhoService = {
         const res = await apiClient.put(`/api/v1/phieu-nhap-kho/${id}/complete`);
         return res.data;
     },
+    async hoanTatKiemDemBienThe(phieuNhapKhoId, bienTheSanPhamId) {
+        const res = await apiClient.put(`/api/v1/phieu-nhap-kho/${phieuNhapKhoId}/bien-the/${bienTheSanPhamId}/hoan-tat`);
+        return res.data;
+    },
     createFromTransfer: (transferId) => {
         return apiClient.post(`/api/v1/phieu-nhap-kho/from-transfer/${transferId}`);
     },

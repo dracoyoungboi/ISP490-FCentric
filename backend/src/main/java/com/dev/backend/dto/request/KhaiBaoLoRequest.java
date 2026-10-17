@@ -22,6 +22,9 @@ public class KhaiBaoLoRequest {
     )
     Instant ngaySanXuat;
     BigDecimal soLuongNhap;
+    Integer viTriKhoId;
+    BigDecimal soLuongLoi;
+    String lyDoLoi;
     BigDecimal giaVon;
     String ghiChu;
 }

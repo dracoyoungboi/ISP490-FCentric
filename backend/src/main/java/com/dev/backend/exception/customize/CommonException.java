@@ -24,6 +24,15 @@ public class CommonException extends RuntimeException {
         this.httpStatus = HttpStatus.BAD_REQUEST;
     }
 
+    public CommonException(HttpStatus httpStatus, String message) {
+        super(message);
+        this.httpStatus = httpStatus;
+    }
+
+    public HttpStatus getStatus() {
+        return httpStatus != null ? httpStatus : HttpStatus.BAD_REQUEST;
+    }
+
     /** Lỗi nghiệp vụ với HTTP status + data có cấu trúc (ví dụ price-change của POS). */
     public CommonException(String message, HttpStatus httpStatus, Object data) {
         super(message);
