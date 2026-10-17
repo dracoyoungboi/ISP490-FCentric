@@ -1,182 +1,118 @@
-import { AlertTriangle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { Delta, Sparkline, StackBar } from "./ui";
-import { MAU2 } from "./mau";
-import { formatPhanTram, formatSo, phanTramThayDoi, tachTienGon, tyLe } from "../tong-quan/tongQuanFormat";
+import { Delta } from "./ui";
+import { khoangKy } from "./boLoc";
+import { bienDong, formatPhanTram, formatSo, formatTienNgan, tachTien, tyLe } from "../tong-quan/tongQuanFormat";
+import { CHI_SO, diemDaTron, tongHopKy } from "../tong-quan/tongQuanSoLieu";
 
-const nf1 = new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+export const ID_BIEU_DO = "tq-bieu-do-ky";
 
 /**
- * 4 chỉ số chính trong MỘT thẻ, ngăn bằng vạch dọc (thay cho 4 thẻ rời mỗi thẻ 6 tầng chữ).
- * Mỗi ô: nhãn · số lớn · một dòng so sánh · một hình nhỏ cùng chiều cao.
+ * 4 chỉ số của kỳ xem trong dải đầu trang. Mỗi ô là một tab: bấm để biểu đồ bên dưới vẽ chỉ số đó theo ngày
+ * (hoặc tháng). Số so sánh: kỳ liền trước (7/30 ngày) hoặc cùng kỳ năm trước (12 tháng); kỳ trước bằng 0 thì
+ * không ghi % mà ghi một ý có ích (biên lãi, số ngày có đơn). Dòng phụ chỉ ghi số đọc ngay; cách tính và số kỳ trước
+ * nằm ở chú thích khi rê chuột (title).
  */
-export default function KpiStrip({ data, loading, loiChiSo, loiTonKho, khoId, onRetry }) {
-  const c = data?.chiSo;
-  const t = data?.tonKho;
+export default function KpiStrip({ data, ky, loading, error, onRetry, chon, setChon }) {
+  const dt = data?.doanhThu;
+  const { nay, truoc } = tongHopKy(dt);
+  const k = khoangKy(ky, data?.thoiDiem);
+  const namTruoc = dt?.kieuSoSanh === "cung_ky_nam_truoc";
+  const soVoi = namTruoc ? " so với năm trước" : " so với kỳ trước";
+  const bien = nay ? tyLe(nay.loiNhuan, nay.doanhThu) : null;
+  const daTron = diemDaTron(dt);
+  const coDon = daTron.filter((d) => d.soDon > 0).length;
+  const donVi = dt?.nhom === "thang" ? "tháng" : "ngày";
 
-  const tichLuy = c ? c.doanhThuTheoGio.reduce((acc, v) => [...acc, (acc.at(-1) ?? 0) + v], []) : [];
-  const chenhDon = c ? c.soDonMoiHomNay - c.soDonMoiCungGioTuanTruoc : 0;
-  const bienNay = c ? tyLe(c.loiNhuanThangNay, c.doanhThuThangNay) : null;
-  const bienTruoc = c ? tyLe(c.loiNhuanThangTruoc, c.doanhThuThangTruoc) : null;
-  const chenhBien = bienNay != null && bienTruoc != null ? bienNay - bienTruoc : null;
-  const thangTruoc = c ? (c.thang === 1 ? 12 : c.thang - 1) : null;
-
-  const theoKho = t?.theoKho ?? [];
-  const tongHeThong = theoKho.reduce((s, k) => s + k.giaTri, 0);
-  const khoTong = theoKho.filter((k) => k.laKhoTong).reduce((s, k) => s + k.giaTri, 0);
-  const coKhoTong = theoKho.some((k) => k.laKhoTong);
-
-  return (
-    <section aria-label="Chỉ số chính" className="grid grid-cols-1 overflow-hidden rounded-xl border border-[#e6e9ef] bg-white sm:grid-cols-2 xl:grid-cols-4">
-      <Cell idx={0} label="Doanh thu hôm nay" loading={loading} error={loiChiSo} onRetry={onRetry}>
-        {c ? (
-          <>
-            <Value tien={c.doanhThuHomNay} />
-            <Line>
-              <Delta value={phanTramThayDoi(c.doanhThuHomNay, c.doanhThuCungGioTuanTruoc)} />
-              <span>so với cùng giờ tuần trước</span>
-            </Line>
-            <Viz>
-              <Sparkline values={tichLuy} />
-            </Viz>
-          </>
-        ) : null}
-      </Cell>
-
-      <Cell idx={1} label="Đơn bán mới hôm nay" loading={loading} error={loiChiSo} onRetry={onRetry}>
-        {c ? (
-          <>
-            <Value so={c.soDonMoiHomNay} donVi="đơn" />
-            <Line>
-              <Delta value={chenhDon} text={`${formatSo(Math.abs(chenhDon))} đơn`} />
-              <span>so với cùng giờ tuần trước</span>
-            </Line>
-            <Viz>
-              <Sparkline values={c.soDonMoiTheoNgay.map((d) => d.soDon)} />
-            </Viz>
-          </>
-        ) : null}
-      </Cell>
-
-      <Cell idx={2} label={c ? `Lợi nhuận gộp tháng ${c.thang}` : "Lợi nhuận gộp tháng này"} loading={loading} error={loiChiSo} onRetry={onRetry}>
-        {c ? (
-          <>
-            <Value tien={c.loiNhuanThangNay} />
-            <Line>
-              <Delta value={chenhBien} text={chenhBien == null ? "—" : `${nf1.format(Math.abs(chenhBien))} điểm`} />
-              <span>biên lãi so với tháng {thangTruoc}</span>
-            </Line>
-            <Viz>
-              <Meter value={bienNay} marker={bienTruoc} markerLabel={`Tháng ${thangTruoc}: ${formatPhanTram(bienTruoc)}`} />
-            </Viz>
-          </>
-        ) : null}
-      </Cell>
-
-      <Cell idx={3} label="Giá trị tồn kho" loading={loading} error={loiTonKho} onRetry={onRetry}>
-        {t ? (
-          <>
-            <Value tien={t.giaTri} />
-            <Line>
-              <span>{formatSo(t.khaDung)} sản phẩm khả dụng</span>
-            </Line>
-            <Viz>
-              {khoId == null && coKhoTong ? (
-                <div className="w-full">
-                  <StackBar
-                    height="h-1.5"
-                    segments={[
-                      { key: "tong", value: khoTong, color: MAU2.chinh },
-                      { key: "ch", value: tongHeThong - khoTong, color: MAU2.chinhNhat },
-                    ]}
-                  />
-                  <div className="mt-1.5 flex justify-between text-xs text-bo-muted">
-                    <span>Kho tổng {formatPhanTram(tyLe(khoTong, tongHeThong), 0)}</span>
-                    <span>Kho bán hàng {formatPhanTram(tyLe(tongHeThong - khoTong, tongHeThong), 0)}</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="w-full text-xs text-bo-muted">
-                  {khoId != null ? `${formatPhanTram(tyLe(t.giaTri, tongHeThong), 0)} giá trị tồn toàn hệ thống` : `${formatSo(t.tonThucTe)} sản phẩm tồn thực tế`}
-                </div>
-              )}
-            </Viz>
-          </>
-        ) : null}
-      </Cell>
-    </section>
+  /* Phần chữ sau % là một khối không ngắt giữa chừng: ô hẹp thì cả khối xuống dòng ("+13,7%" / "so với kỳ trước"). */
+  const khoiSoVoi = <span className="whitespace-nowrap">{soVoi}</span>;
+  const khoiBien = (
+    <span className="whitespace-nowrap @max-[400px]/dau:block">
+      <span className="@max-[400px]/dau:hidden"> ·</span> biên lãi {formatPhanTram(bien)}
+    </span>
   );
-}
+  const phu = {
+    doanhThu: { soVoi: khoiSoVoi, khongSo: "Kỳ trước chưa có số liệu" },
+    loiNhuan: { soVoi: bien == null ? khoiSoVoi : khoiBien, khongSo: bien == null ? "" : `Biên lãi gộp ${formatPhanTram(bien)}` },
+    soDon: { soVoi: khoiSoVoi, khongSo: coDon ? `Có đơn trong ${formatSo(coDon)}/${formatSo(daTron.length)} ${donVi}` : "Chưa có đơn đã giao" },
+    tbDon: { soVoi: khoiSoVoi, khongSo: "", cachTinh: "Doanh thu ÷ số đơn đã giao" },
+  };
 
-const VACH = [
-  "",
-  "border-t sm:border-t-0 sm:border-l",
-  "border-t xl:border-t-0 xl:border-l",
-  "border-t sm:border-l xl:border-t-0",
-];
-
-function Cell({ label, loading, error, onRetry, children, idx }) {
-  return (
-    <div className={cn("flex min-w-0 flex-col border-[#eef1f5] p-5", VACH[idx])}>
-      <h3 className="text-[13px] font-medium text-bo-muted">{label}</h3>
-      {loading ? (
-        <div className="mt-2.5 space-y-2" aria-hidden="true">
-          <Skeleton className="h-8 w-2/3 bg-slate-100" />
-          <Skeleton className="h-4 w-1/2 bg-slate-100" />
-          <Skeleton className="h-8 w-full bg-slate-100" />
-        </div>
-      ) : error ? (
-        <div role="alert" className="mt-3 flex flex-col items-start gap-1.5 text-[13px] text-bo-muted">
-          <span className="inline-flex items-center gap-1.5 font-medium text-bo-warning">
-            <AlertTriangle className="size-4" aria-hidden="true" />
-            Không tải được
-          </span>
-          {onRetry ? (
-            <button type="button" onClick={onRetry} className="font-medium text-bo-primary hover:underline">
-              Thử lại
-            </button>
-          ) : null}
-        </div>
-      ) : (
-        children
-      )}
-    </div>
-  );
-}
-
-function Value({ tien, so, donVi }) {
-  const t = tien != null ? tachTienGon(tien) : { so: formatSo(so), donVi };
-  return (
-    <p className="mt-1.5 truncate text-[28px] font-semibold leading-9 tracking-[-0.02em] text-bo-foreground">
-      {t.so}
-      <span className="ml-1.5 text-[15px] font-medium tracking-normal text-bo-muted">{t.donVi}</span>
-    </p>
-  );
-}
-
-function Line({ children }) {
-  return <p className="mt-1 flex min-h-5 flex-wrap items-center gap-x-1.5 text-xs leading-5 text-bo-muted">{children}</p>;
-}
-
-function Viz({ children }) {
-  return <div className="mt-auto hidden h-10 items-end pt-3 sm:flex">{children}</div>;
-}
-
-function Meter({ value, marker, markerLabel }) {
-  const k = (v) => Math.max(0, Math.min(100, v ?? 0));
-  return (
-    <div className="w-full">
-      <div className="relative h-1.5 rounded-full bg-[#e8f1ff]">
-        <div className="h-full rounded-full" style={{ width: `${k(value)}%`, background: MAU2.chinh }} />
-        {marker != null ? <span className="absolute -top-[3px] h-3 w-0.5 rounded-sm bg-slate-500" style={{ left: `calc(${k(marker)}% - 1px)` }} aria-hidden="true" /> : null}
+  if (error && !loading) {
+    return (
+      <div role="alert" className="flex flex-1 flex-wrap items-center justify-center gap-x-3 gap-y-1 px-5 py-6 text-sm text-bo-muted">
+        Không tải được kết quả kinh doanh của kỳ.
+        <button type="button" onClick={onRetry} className="cursor-pointer font-medium text-bo-primary hover:underline">
+          Thử lại
+        </button>
       </div>
-      <div className="mt-1.5 flex justify-between text-xs text-bo-muted">
-        <span>
-          Biên lãi <b className="font-semibold text-bo-foreground">{formatPhanTram(value)}</b>
-        </span>
-        {marker != null ? <span>{markerLabel}</span> : null}
-      </div>
+    );
+  }
+
+  return (
+    <div role="tablist" aria-label="Chỉ số của kỳ, chọn để xem theo ngày" className="grid min-w-0 flex-1 grid-cols-2 @min-[640px]/dau:grid-cols-4">
+      {CHI_SO.map((c, i) => {
+        const on = c.key === chon;
+        const gt = nay?.[c.key] ?? 0;
+        const so = c.tien ? tachTien(gt) : { so: formatSo(gt), donVi: "đơn" };
+        const bd = truoc ? bienDong(gt, truoc[c.key]) : null;
+        const p = phu[c.key];
+        const tieuDe =
+          [
+            p.cachTinh,
+            truoc?.[c.key] != null
+              ? `${namTruoc ? "Cùng kỳ năm trước" : "Kỳ trước"} (${k.soSanh}): ${c.tien ? formatTienNgan(truoc[c.key]) : `${formatSo(truoc[c.key])} đơn`}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(". ") || undefined;
+        return (
+          <button
+            key={c.key}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            aria-controls={ID_BIEU_DO}
+            title={tieuDe}
+            onClick={() => setChon(c.key)}
+            className={cn(
+              "flex min-w-0 cursor-pointer flex-col justify-start gap-0.5 px-4 py-3 text-left transition-colors hover:bg-bo-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bo-primary/30",
+              "@max-[400px]/dau:px-3.5 @min-[640px]/dau:py-4",
+              // Vạch ngăn: 2 × 2 trên điện thoại, một hàng 4 ô từ 640px
+              i % 2 === 0 && "border-r border-[#eef1f5]",
+              i < 2 && "border-b border-[#eef1f5] @min-[640px]/dau:border-b-0",
+              i === 1 && "@min-[640px]/dau:border-r",
+              on ? "shadow-[inset_0_-2px_0_var(--color-bo-primary)]" : "shadow-[inset_0_-2px_0_transparent]",
+            )}
+          >
+            <span className={cn("truncate text-sm @max-[400px]/dau:text-[13px]", on ? "font-medium text-bo-foreground" : "text-bo-muted")}>{c.ten}</span>
+            {loading ? (
+              <span className="flex flex-col gap-1.5 py-1" aria-hidden="true">
+                <Skeleton className="h-6 w-3/4 bg-slate-100" />
+                <Skeleton className="h-3 w-1/2 bg-slate-100" />
+              </span>
+            ) : (
+              <>
+                <span className="truncate whitespace-nowrap text-xl font-bold leading-7 tracking-[-0.025em] text-bo-foreground @min-[800px]/dau:text-2xl @min-[800px]/dau:leading-8">
+                  {so.so}
+                  <span className="ml-1 text-sm font-medium tracking-normal text-bo-muted">{so.donVi}</span>
+                </span>
+                {/* Không có gì để ghi thì vẫn giữ chiều cao dòng để 4 ô thẳng hàng; ô hẹp thì xuống dòng thay vì cắt */}
+                <span className="min-h-4 text-xs text-bo-muted">
+                  {bd ? (
+                    <>
+                      <Delta bd={bd} />
+                      {p.soVoi}
+                    </>
+                  ) : (
+                    p.khongSo
+                  )}
+                </span>
+              </>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }

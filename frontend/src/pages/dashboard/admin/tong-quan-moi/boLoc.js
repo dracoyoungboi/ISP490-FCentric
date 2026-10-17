@@ -17,6 +17,7 @@ const hai = (n) => String(n).padStart(2, "0");
 const dm = (d) => `${hai(d.getDate())}/${hai(d.getMonth() + 1)}`;
 const dmy = (d) => `${dm(d)}/${d.getFullYear()}`;
 const thangNam = (d) => `T${d.getMonth() + 1}/${d.getFullYear()}`;
+const thangNamGon = (d) => `T${d.getMonth() + 1}/${String(d.getFullYear()).slice(2)}`;
 
 export const NHAN_KY = { "7_ngay": "7 ngày qua", "30_ngay": "30 ngày qua", "12_thang": "12 tháng qua" };
 
@@ -38,6 +39,9 @@ export function khoangKy(ky, thoiDiem) {
       day: `${thangNam(tu)} – ${thangNam(den)}`,
       soSanh: `${thangNam(tuTruoc)} – ${thangNam(denTruoc)}`,
       tenSoSanh: "Cùng kỳ năm trước",
+      // Bản không có năm đầy đủ, cho ô phạm vi và chú thích biểu đồ (chỗ hẹp)
+      gon: `${thangNamGon(tu)} – ${thangNamGon(den)}`,
+      soSanhGon: `${thangNamGon(tuTruoc)} – ${thangNamGon(denTruoc)}`,
     };
   }
   const n = ky === "7_ngay" ? 7 : 30;
@@ -54,6 +58,9 @@ export function khoangKy(ky, thoiDiem) {
     day: `${dmy(tu)} – ${dmy(den)}`,
     soSanh: `${dm(tuTruoc)} – ${dmy(denTruoc)}`,
     tenSoSanh: `${n} ngày liền trước`,
+    // Bản không có năm, cho ô phạm vi và chú thích biểu đồ (chỗ hẹp)
+    gon: `${dm(tu)} – ${dm(den)}`,
+    soSanhGon: `${dm(tuTruoc)} – ${dm(denTruoc)}`,
   };
 }
 
