@@ -58,6 +58,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 @Service
@@ -87,6 +89,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     ObjectMapper objectMapper = new ObjectMapper();
     // Lần đẩy tồn lên sàn gần nhất (đã kết nối được Shopify), theo id kênh (màn Theo dõi đồng bộ)
     Map<Integer, Instant> lanDayTonCuoi = new java.util.concurrent.ConcurrentHashMap<>();
+    // Khóa đẩy tồn theo id kênh: một kênh chỉ một đợt đẩy tồn cùng lúc (trong một máy chủ)
+    Map<Integer, ReentrantLock> khoaDayTon = new java.util.concurrent.ConcurrentHashMap<>();
+
+    static final String LOI_KENH_DANG_DAY_TON =
+            "Kênh đang có một đợt đẩy tồn khác (tự động hoặc người khác bấm), vui lòng thử lại sau ít phút";
+    /** Khi chờ khóa đẩy tồn, cứ bấy lâu xem lại có yêu cầu dừng không */
+    static final long CHU_KY_CHO_KHOA_MS = 500;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -529,6 +538,43 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
     DayTonResultDto dayTonKhoLenKenh(String maKenh, DayTonKenhRequest request, TheoDoiDayTon theoDoi) {
         KenhBanHang kenh = getKenhActive(maKenh);
+        // Mỗi kênh chỉ một đợt đẩy tồn cùng lúc (JOB-03, Đồng bộ ngay, nút Đẩy tồn, Đồng bộ tất cả):
+        // hai đợt chồng nhau gấp đôi số lần gọi Shopify, dễ chạm giới hạn rồi dừng giữa chừng
+        ReentrantLock khoa = khoaDayTon.computeIfAbsent(kenh.getId(), id -> new ReentrantLock());
+        if (!giuKhoaDayTon(khoa, theoDoi)) {
+            // Dừng theo yêu cầu khi còn đang chờ thì không phải lỗi; nơi gọi tự kết thúc đợt là đã dừng
+            return DayTonResultDto.builder().loiKenh(theoDoi.canDung() ? null : LOI_KENH_DANG_DAY_TON).build();
+        }
+        try {
+            return dayTonKhiDaGiuKhoa(kenh, maKenh, request, theoDoi);
+        } finally {
+            khoa.unlock();
+        }
+    }
+
+    /**
+     * Giữ khóa đẩy tồn của kênh. Kênh đang có đợt khác thì chờ tối đa {@code theoDoi.choKenhRanhToiDa()}
+     * (mặc định không chờ); có yêu cầu dừng thì thôi chờ.
+     */
+    static boolean giuKhoaDayTon(ReentrantLock khoa, TheoDoiDayTon theoDoi) {
+        long han = System.nanoTime() + theoDoi.choKenhRanhToiDa().toNanos();
+        try {
+            while (true) {
+                long conLaiMs = TimeUnit.NANOSECONDS.toMillis(han - System.nanoTime());
+                if (khoa.tryLock(Math.max(0, Math.min(CHU_KY_CHO_KHOA_MS, conLaiMs)), TimeUnit.MILLISECONDS)) {
+                    return true;
+                }
+                if (theoDoi.canDung() || System.nanoTime() - han >= 0) {
+                    return false;
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
+    private DayTonResultDto dayTonKhiDaGiuKhoa(KenhBanHang kenh, String maKenh, DayTonKenhRequest request, TheoDoiDayTon theoDoi) {
         BigDecimal tyLe = request.getTyLeDayTon() != null ? request.getTyLeDayTon() : BigDecimal.valueOf(100);
         int tonDem = request.getTonDem() != null ? request.getTonDem() : 0;
         int nguongVe0 = request.getNguongVe0() != null ? request.getNguongVe0() : 0;
@@ -971,20 +1017,29 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .build();
     }
 
+    @Override
+    public boolean coKenh(String maKenh) {
+        return maKenh != null && !maKenh.isBlank() && timKenh(maKenh.trim()).isPresent();
+    }
+
     private KenhBanHang getKenhActive(String maKenh) {
         if (maKenh == null || maKenh.isBlank()) {
             throw new CommonException("Mã kênh không được để trống", HttpStatus.BAD_REQUEST, null);
         }
-        String trimmed = maKenh.trim();
+        return timKenh(maKenh.trim())
+                .orElseThrow(() -> new CommonException("Không tìm thấy kênh bán hàng: " + maKenh, HttpStatus.NOT_FOUND, null));
+    }
+
+    /** Tìm kênh theo id (chuỗi số) hoặc mã kênh (nguyên văn, rồi in hoa). */
+    private Optional<KenhBanHang> timKenh(String trimmed) {
         try {
             Integer id = Integer.parseInt(trimmed);
             Optional<KenhBanHang> byId = kenhBanHangRepository.findById(id);
-            if (byId.isPresent()) return byId.get();
+            if (byId.isPresent()) return byId;
         } catch (NumberFormatException ignored) {
         }
         return kenhBanHangRepository.findByMaKenh(trimmed)
-                .or(() -> kenhBanHangRepository.findByMaKenh(trimmed.toUpperCase()))
-                .orElseThrow(() -> new CommonException("Không tìm thấy kênh bán hàng: " + maKenh, HttpStatus.NOT_FOUND, null));
+                .or(() -> kenhBanHangRepository.findByMaKenh(trimmed.toUpperCase()));
     }
 
     private String extractDomainFromApiUrl(String apiUrl) {

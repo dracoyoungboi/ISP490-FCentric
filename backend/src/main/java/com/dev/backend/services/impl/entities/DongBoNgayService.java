@@ -60,6 +60,8 @@ public class DongBoNgayService {
     static final Duration KHOANG_LAY_DON = Duration.ofHours(24);
     /** Lý do hiện cho người dùng khi lỗi không rõ (không lộ chi tiết kỹ thuật) */
     static final String LOI_MAY_CHU = "Máy chủ gặp lỗi khi đồng bộ, vui lòng thử lại";
+    /** Kênh đang có đợt đẩy tồn khác (thường là JOB-03 tự động) thì chờ tối đa bấy lâu rồi mới đẩy */
+    static final Duration CHO_KENH_RANH_TOI_DA = Duration.ofMinutes(5);
 
     private final KenhBanHangDongBoService dongBoService;
     private final Executor luong;
@@ -83,6 +85,10 @@ public class DongBoNgayService {
     /** Bắt đầu một đợt; kênh đang có đợt chạy thì trả đợt đó, không tạo đợt thứ hai. */
     public DongBoNgayDto batDau(String maKenh) {
         String ma = chuanHoaMa(maKenh);
+        // Kiểm tra trước khi lập phiếu theo dõi, để mã kênh không có thật không nằm lại trong bộ nhớ
+        if (!dongBoService.coKenh(ma)) {
+            throw new CommonException("Không tìm thấy kênh bán hàng: " + ma, HttpStatus.NOT_FOUND, null);
+        }
         NguoiDungAuthInfo nguoi = SecurityContextHolder.getUser();
         Integer khoId = SecurityContextHolder.getKhoId();
         Phien moi = new Phien(ma, nguoi != null ? nguoi.getHoTen() : null, dongHo);
@@ -254,6 +260,12 @@ public class DongBoNgayService {
         @Override
         public boolean canDung() {
             return yeuCauDung;
+        }
+
+        /** Người bấm đang chờ kết quả: chờ đợt đẩy tồn khác của kênh xong thay vì báo lỗi ngay */
+        @Override
+        public Duration choKenhRanhToiDa() {
+            return CHO_KENH_RANH_TOI_DA;
         }
 
         synchronized void yeuCauDung() {

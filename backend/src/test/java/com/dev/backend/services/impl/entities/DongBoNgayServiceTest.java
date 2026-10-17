@@ -89,6 +89,7 @@ class DongBoNgayServiceTest {
     @BeforeEach
     void setUp() {
         dongBo = mock(KenhBanHangDongBoService.class);
+        when(dongBo.coKenh(anyString())).thenReturn(true);
         dongHo = new DongHoTay();
         luong = new LuongGiu();
         daBocPhienJpa = new AtomicBoolean();
@@ -314,6 +315,7 @@ class DongBoNgayServiceTest {
         assertEquals(DongBoNgayService.LOI, service.hienTai("SHOPIFY").getTrangThai());
 
         reset(dongBo);
+        when(dongBo.coKenh(anyString())).thenReturn(true);
         dayTonGia(new String[]{"A-1"}, new String[]{null}, Duration.ZERO);
         when(dongBo.layDonHang(any(), any())).thenThrow(new IllegalStateException("could not initialize proxy - no Session"));
         service.batDau("SHOPIFY");
@@ -323,6 +325,31 @@ class DongBoNgayServiceTest {
         assertEquals(DongBoNgayService.LAY_DON, kq.getGiaiDoan());
         assertEquals("Máy chủ gặp lỗi khi đồng bộ, vui lòng thử lại", kq.getLoi());
         assertEquals(1, kq.getSoThanhCong());
+    }
+
+    @Test
+    void batDau_maKenhKhongCo_bao404_khongLapPhieuTheoDoi() {
+        when(dongBo.coKenh("ABC")).thenReturn(false);
+
+        CommonException loi = assertThrows(CommonException.class, () -> service.batDau("abc"));
+
+        assertEquals(HttpStatus.NOT_FOUND, loi.getStatus());
+        assertNull(service.hienTai("ABC"));
+        assertTrue(luong.viec.isEmpty());
+        verify(dongBo, never()).dayTonTheoQuyTacDaLuu(any(), any());
+    }
+
+    @Test
+    void dotDongBoNgay_choDotDayTonKhacCuaKenhXongToiDa5Phut() {
+        ArgumentCaptor<TheoDoiDayTon> theoDoi = ArgumentCaptor.forClass(TheoDoiDayTon.class);
+        when(dongBo.dayTonTheoQuyTacDaLuu(eq("SHOPIFY"), theoDoi.capture())).thenReturn(ketQuaTon(0, 0, 0, null));
+
+        service.batDau("SHOPIFY");
+        luong.chayHet();
+
+        assertEquals(Duration.ofMinutes(5), theoDoi.getValue().choKenhRanhToiDa());
+        // Đường không theo dõi (job định kỳ, nút Đẩy tồn) thì không chờ
+        assertEquals(Duration.ZERO, TheoDoiDayTon.KHONG_THEO_DOI.choKenhRanhToiDa());
     }
 
     @Test

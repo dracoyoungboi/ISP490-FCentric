@@ -9,6 +9,7 @@ import com.dev.backend.dto.response.entities.LienKetSanPhamDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.time.Duration;
 import java.util.List;
 
 public interface KenhBanHangDongBoService {
@@ -45,7 +46,18 @@ public interface KenhBanHangDongBoService {
         default boolean canDung() {
             return false;
         }
+
+        /**
+         * Kênh đang có đợt đẩy tồn khác thì chờ tối đa bấy lâu rồi mới đẩy; mặc định không chờ:
+         * trả ngay lỗi cả gian hàng "kênh đang có đợt đẩy tồn khác" (job định kỳ bỏ lượt này).
+         */
+        default Duration choKenhRanhToiDa() {
+            return Duration.ZERO;
+        }
     }
+
+    /** Có kênh bán hàng với mã (hoặc id) này không, cùng cách tìm kênh với các thao tác đồng bộ. */
+    boolean coKenh(String maKenh);
 
     void dayTonKhoKhanCap(Integer bienTheSanPhamId);
 

@@ -34,11 +34,18 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -947,5 +954,164 @@ class KenhBanHangDongBoServiceTest {
         assertEquals(0, BigDecimal.valueOf(15).compareTo(dto.getSoLuongKhaDung()));
         assertEquals(0, BigDecimal.valueOf(7).compareTo(dto.getSoLuongDaDay()));
         assertEquals(luc, dto.getNgayDayTonCuoi());
+    }
+
+    // ── Khóa đẩy tồn theo kênh: một kênh chỉ một đợt đẩy tồn cùng lúc ──
+
+    /** Theo dõi chỉ để chọn cách chờ khi kênh đang bận. */
+    private static KenhBanHangDongBoService.TheoDoiDayTon choToiDa(Duration cho, boolean canDung) {
+        return new KenhBanHangDongBoService.TheoDoiDayTon() {
+            @Override
+            public Duration choKenhRanhToiDa() {
+                return cho;
+            }
+
+            @Override
+            public boolean canDung() {
+                return canDung;
+            }
+        };
+    }
+
+    /**
+     * Mỗi lần gọi Shopify: đếm số lần gọi đang diễn ra cùng lúc ({@code toiDaCungLuc}), báo {@code daVao}
+     * rồi đứng chờ {@code thaRa} — để đợt đầu "đang đẩy" đúng lúc đợt thứ hai tới.
+     */
+    private void shopifyDungChoTha(KenhBanHangDongBoServiceImpl spy, CountDownLatch daVao, CountDownLatch thaRa,
+                                   AtomicInteger toiDaCungLuc) {
+        AtomicInteger dangGoi = new AtomicInteger();
+        doAnswer(inv -> {
+            toiDaCungLuc.accumulateAndGet(dangGoi.incrementAndGet(), Math::max);
+            daVao.countDown();
+            try {
+                assertTrue(thaRa.await(5, TimeUnit.SECONDS));
+                return KenhBanHangDongBoServiceImpl.KetQuaGuiTon.THANH_CONG;
+            } finally {
+                dangGoi.decrementAndGet();
+            }
+        }).when(spy).guiTonLenShopify(any(), any(), any(), any(), anyInt());
+    }
+
+    @Test
+    void dayTonKhoLenKenh_kenhDangCoDotKhac_khongChoThiBaoBanNgay_khongMoKetNoiShopify() throws Exception {
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(1)).thenReturn(List.of(mapping1));
+        tonKhaDung(101, 20);
+        KenhBanHangDongBoServiceImpl spy = spyVoiKetNoi(ketNoiCo("POLO-BLK-M"));
+        CountDownLatch daVao = new CountDownLatch(1);
+        CountDownLatch thaRa = new CountDownLatch(1);
+        shopifyDungChoTha(spy, daVao, thaRa, new AtomicInteger());
+        ExecutorService luong = Executors.newSingleThreadExecutor();
+        try {
+            // Đợt đầu (vd. JOB-03) đang đẩy dở
+            Future<DayTonResultDto> dotDau = luong.submit(() -> spy.dayTonKhoLenKenh("SHOPIFY", new DayTonKenhRequest()));
+            assertTrue(daVao.await(5, TimeUnit.SECONDS));
+
+            // Đợt sau không chờ (job định kỳ, nút Đẩy tồn): báo bận ngay, không kết nối Shopify
+            DayTonResultDto dotSau = spy.dayTonKhoLenKenh("SHOPIFY", new DayTonKenhRequest());
+
+            assertEquals(KenhBanHangDongBoServiceImpl.LOI_KENH_DANG_DAY_TON, dotSau.getLoiKenh());
+            assertEquals(0, dotSau.getSoDong());
+            verify(spy, times(1)).moKetNoiDayTon(any());
+            thaRa.countDown();
+            assertEquals(1, dotDau.get(5, TimeUnit.SECONDS).getSoDong());
+        } finally {
+            thaRa.countDown();
+            luong.shutdownNow();
+        }
+    }
+
+    @Test
+    void dayTonKhoLenKenh_coChoKenhRanh_chaySauKhiDotTruocXong_khongChongNhau() throws Exception {
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(1)).thenReturn(List.of(mapping1));
+        tonKhaDung(101, 20);
+        KenhBanHangDongBoServiceImpl spy = spyVoiKetNoi(ketNoiCo("POLO-BLK-M"));
+        CountDownLatch daVao = new CountDownLatch(1);
+        CountDownLatch thaRa = new CountDownLatch(1);
+        AtomicInteger toiDaCungLuc = new AtomicInteger();
+        shopifyDungChoTha(spy, daVao, thaRa, toiDaCungLuc);
+        ExecutorService luong = Executors.newFixedThreadPool(2);
+        try {
+            Future<DayTonResultDto> dotDau = luong.submit(() -> spy.dayTonKhoLenKenh("SHOPIFY", new DayTonKenhRequest()));
+            assertTrue(daVao.await(5, TimeUnit.SECONDS));
+            // Đợt đầu xong sau ~0,3 giây, trong lúc đợt sau (Đồng bộ ngay) đang chờ
+            luong.submit(() -> {
+                Thread.sleep(300);
+                thaRa.countDown();
+                return null;
+            });
+
+            DayTonResultDto dotSau = spy.dayTonKhoLenKenh("SHOPIFY", new DayTonKenhRequest(),
+                    choToiDa(Duration.ofSeconds(5), false));
+
+            assertNull(dotSau.getLoiKenh());
+            assertEquals(1, dotSau.getSoDong());
+            assertEquals(1, dotDau.get(5, TimeUnit.SECONDS).getSoDong());
+            assertEquals(1, toiDaCungLuc.get(), "Hai đợt không được gọi Shopify cùng lúc");
+            verify(spy, times(2)).moKetNoiDayTon(any());
+        } finally {
+            thaRa.countDown();
+            luong.shutdownNow();
+        }
+    }
+
+    @Test
+    void dayTonKhoLenKenh_yeuCauDungKhiDangChoKenhRanh_thoiChoNgay_khongBaoLoi() throws Exception {
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(1)).thenReturn(List.of(mapping1));
+        tonKhaDung(101, 20);
+        KenhBanHangDongBoServiceImpl spy = spyVoiKetNoi(ketNoiCo("POLO-BLK-M"));
+        CountDownLatch daVao = new CountDownLatch(1);
+        CountDownLatch thaRa = new CountDownLatch(1);
+        shopifyDungChoTha(spy, daVao, thaRa, new AtomicInteger());
+        ExecutorService luong = Executors.newSingleThreadExecutor();
+        try {
+            luong.submit(() -> spy.dayTonKhoLenKenh("SHOPIFY", new DayTonKenhRequest()));
+            assertTrue(daVao.await(5, TimeUnit.SECONDS));
+
+            // Được phép chờ 30 giây nhưng người bấm đã yêu cầu dừng: thôi chờ sau một nhịp kiểm tra
+            DayTonResultDto dotSau = assertTimeoutPreemptively(Duration.ofSeconds(3),
+                    () -> spy.dayTonKhoLenKenh("SHOPIFY", new DayTonKenhRequest(), choToiDa(Duration.ofSeconds(30), true)));
+
+            assertNull(dotSau.getLoiKenh());
+            assertEquals(0, dotSau.getSoDong());
+            verify(spy, times(1)).moKetNoiDayTon(any());
+        } finally {
+            thaRa.countDown();
+            luong.shutdownNow();
+        }
+    }
+
+    @Test
+    void dayTonKhoLenKenh_dotTruocNemLoi_vanTraKhoaChoDotSau() throws Exception {
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(1))
+                .thenThrow(new IllegalStateException("mất kết nối CSDL"))
+                .thenReturn(List.of(mapping1));
+        tonKhaDung(101, 20);
+        KenhBanHangDongBoServiceImpl spy = spyVoiKetNoi(ketNoiCo("POLO-BLK-M"));
+        doReturn(KenhBanHangDongBoServiceImpl.KetQuaGuiTon.THANH_CONG).when(spy).guiTonLenShopify(any(), any(), any(), any(), anyInt());
+
+        assertThrows(IllegalStateException.class, () -> spy.dayTonKhoLenKenh("SHOPIFY", new DayTonKenhRequest()));
+
+        // Luồng khác (khóa giữ lại thì luồng khác mới thấy kênh bận; cùng luồng thì khóa cho vào lại)
+        ExecutorService luong = Executors.newSingleThreadExecutor();
+        try {
+            DayTonResultDto dotSau = luong.submit(() -> spy.dayTonKhoLenKenh("SHOPIFY", new DayTonKenhRequest()))
+                    .get(5, TimeUnit.SECONDS);
+            assertNull(dotSau.getLoiKenh());
+            assertEquals(1, dotSau.getSoDong());
+        } finally {
+            luong.shutdownNow();
+        }
+    }
+
+    @Test
+    void coKenh_timTheoMaHoacId_giongCacThaoTacDongBo() {
+        when(kenhBanHangRepository.findById(1)).thenReturn(Optional.of(shopifyKenh));
+
+        assertTrue(service.coKenh("SHOPIFY"));
+        assertTrue(service.coKenh("  shopify "));
+        assertTrue(service.coKenh("1"));
+        assertFalse(service.coKenh("ABC"));
+        assertFalse(service.coKenh(" "));
+        assertFalse(service.coKenh(null));
     }
 }
