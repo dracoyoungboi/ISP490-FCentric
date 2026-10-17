@@ -629,7 +629,7 @@ public class TongQuanAdminRepository {
                 WHERE dk.trang_thai = 0 AND (:khoId IS NULL OR dk.kho_id = :khoId))        AS kiem_ke_mo,
               (SELECT COUNT(*) FROM nguoi_dung u WHERE u.trang_thai = 0)                   AS tk_khoa,
               (SELECT COUNT(*) FROM don_mua_hang dm
-                WHERE dm.trang_thai = 3
+                WHERE dm.trang_thai IN (3, 5)
                   AND dm.ngay_giao_du_kien IS NOT NULL AND dm.ngay_giao_du_kien < :homNay
                   AND (:khoId IS NULL OR dm.kho_nhap_id = :khoId)
                   AND EXISTS (SELECT 1 FROM chi_tiet_don_mua_hang ct
@@ -638,7 +638,7 @@ public class TongQuanAdminRepository {
             """;
 
     /**
-     * Đếm các việc đang chờ. Đơn mua quá hạn: đang vận chuyển (3), ngày giao dự kiến trước :homNay (0 giờ hôm nay,
+     * Đếm các việc đang chờ. Đơn mua quá hạn: đã chốt (3 hoặc 5), ngày giao dự kiến trước :homNay (0 giờ hôm nay,
      * giờ Việt Nam) và còn dòng chưa nhận đủ, cùng cách tính phần "đang về" với SQL_DANG_VE.
      */
     public ViecCanXuLyDong viecCanXuLy(Integer khoId, LocalDateTime homNay) {
