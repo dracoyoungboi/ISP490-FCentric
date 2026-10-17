@@ -4,6 +4,7 @@ import com.dev.backend.entities.MaVachNhaCungCap;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -17,6 +18,11 @@ public interface MaVachNhaCungCapRepository extends JpaRepository<MaVachNhaCungC
     Optional<MaVachNhaCungCap> findFirstByBarcodeNcc(String barcodeNcc);
 
     boolean existsByBarcodeNccAndNhaCungCap_Id(String barcodeNcc, Integer nhaCungCapId);
+
+    /** Gỡ toàn bộ mã vạch của một nhà cung cấp (dùng khi xóa nhà cung cấp chưa có giao dịch). */
+    @Modifying
+    @Query("delete from MaVachNhaCungCap m where m.nhaCungCap.id = :nhaCungCapId")
+    int deleteByNhaCungCapId(@Param("nhaCungCapId") Integer nhaCungCapId);
 
     @Query("SELECT m FROM MaVachNhaCungCap m " +
            "JOIN FETCH m.nhaCungCap " +

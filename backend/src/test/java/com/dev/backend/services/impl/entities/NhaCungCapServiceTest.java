@@ -9,6 +9,7 @@ import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.NhaCungCapMapper;
 import com.dev.backend.repository.DonMuaHangRepository;
 import com.dev.backend.repository.LoHangRepository;
+import com.dev.backend.repository.MaVachNhaCungCapRepository;
 import com.dev.backend.repository.NhaCungCapRepository;
 import com.dev.backend.repository.PhieuNhapKhoRepository;
 import jakarta.persistence.EntityManager;
@@ -33,7 +34,7 @@ import static org.mockito.Mockito.*;
  * - Tạo mới luôn ở trạng thái Hoạt động; trường tùy chọn để trống lưu NULL.
  * - Sửa thay toàn bộ form nhưng không đổi mã và trạng thái.
  * - Ngừng / cho phép hoạt động là thao tác riêng.
- * - Chỉ xóa được nhà cung cấp chưa phát sinh giao dịch.
+ * - Chỉ xóa được nhà cung cấp chưa phát sinh giao dịch; mã vạch nhà cung cấp xóa kèm.
  */
 @ExtendWith(MockitoExtension.class)
 class NhaCungCapServiceTest {
@@ -48,6 +49,8 @@ class NhaCungCapServiceTest {
     private PhieuNhapKhoRepository phieuNhapKhoRepository;
     @Mock
     private LoHangRepository loHangRepository;
+    @Mock
+    private MaVachNhaCungCapRepository maVachNhaCungCapRepository;
 
     private NhaCungCapService service;
 
@@ -55,7 +58,7 @@ class NhaCungCapServiceTest {
     void setUp() {
         NhaCungCapMapper mapper = Mappers.getMapper(NhaCungCapMapper.class);
         service = new NhaCungCapService(repository, mapper, entityManager,
-                donMuaHangRepository, phieuNhapKhoRepository, loHangRepository);
+                donMuaHangRepository, phieuNhapKhoRepository, loHangRepository, maVachNhaCungCapRepository);
     }
 
     private NhaCungCap nhaCungCap(int id, int trangThai) {
@@ -208,18 +211,23 @@ class NhaCungCapServiceTest {
         NhaCungCapKiemTraXoaDto data = assertInstanceOf(NhaCungCapKiemTraXoaDto.class, ex.getData());
         assertFalse(data.isCoTheXoa());
         verify(repository, never()).deleteById(anyInt());
+        verifyNoInteractions(maVachNhaCungCapRepository);
     }
 
     @Test
-    void delete_chuaCoGiaoDich_xoa() {
+    void delete_chuaCoGiaoDich_xoaKemMaVachRoiXoaNhaCungCap() {
         when(repository.existsById(6)).thenReturn(true);
         when(donMuaHangRepository.countByNhaCungCap_Id(6)).thenReturn(0L);
         when(phieuNhapKhoRepository.countByNhaCungCap_Id(6)).thenReturn(0L);
         when(loHangRepository.countByNhaCungCap_Id(6)).thenReturn(0L);
+        when(maVachNhaCungCapRepository.deleteByNhaCungCapId(6)).thenReturn(2);
 
         service.delete(6);
 
-        verify(repository).deleteById(6);
+        // Mã vạch gỡ trước để không còn dòng nào trỏ tới nhà cung cấp đã xóa
+        var thuTu = inOrder(maVachNhaCungCapRepository, repository);
+        thuTu.verify(maVachNhaCungCapRepository).deleteByNhaCungCapId(6);
+        thuTu.verify(repository).deleteById(6);
     }
 
     @Test

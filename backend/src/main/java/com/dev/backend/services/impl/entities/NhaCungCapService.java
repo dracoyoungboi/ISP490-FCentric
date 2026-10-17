@@ -9,6 +9,7 @@ import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.NhaCungCapMapper;
 import com.dev.backend.repository.DonMuaHangRepository;
 import com.dev.backend.repository.LoHangRepository;
+import com.dev.backend.repository.MaVachNhaCungCapRepository;
 import com.dev.backend.repository.NhaCungCapRepository;
 import com.dev.backend.repository.PhieuNhapKhoRepository;
 import com.dev.backend.services.impl.BaseServiceImpl;
@@ -54,13 +55,18 @@ public class NhaCungCapService extends BaseServiceImpl<NhaCungCap, Integer> {
     private final PhieuNhapKhoRepository phieuNhapKhoRepository;
     private final LoHangRepository loHangRepository;
 
+    // Mã vạch của nhà cung cấp là cấu hình, không phải giao dịch: xóa nhà cung cấp thì xóa kèm
+    // (bảng ma_vach_nha_cung_cap không có khóa ngoại nên không tự chặn, để lại sẽ thành dòng mồ côi)
+    private final MaVachNhaCungCapRepository maVachNhaCungCapRepository;
+
     @Autowired
     public NhaCungCapService(NhaCungCapRepository repository,
                              NhaCungCapMapper mapper,
                              EntityManager entityManager,
                              DonMuaHangRepository donMuaHangRepository,
                              PhieuNhapKhoRepository phieuNhapKhoRepository,
-                             LoHangRepository loHangRepository) {
+                             LoHangRepository loHangRepository,
+                             MaVachNhaCungCapRepository maVachNhaCungCapRepository) {
         // Truyền repository lên class cha
         super(repository);
         this.repository = repository;
@@ -69,6 +75,7 @@ public class NhaCungCapService extends BaseServiceImpl<NhaCungCap, Integer> {
         this.donMuaHangRepository = donMuaHangRepository;
         this.phieuNhapKhoRepository = phieuNhapKhoRepository;
         this.loHangRepository = loHangRepository;
+        this.maVachNhaCungCapRepository = maVachNhaCungCapRepository;
     }
 
     /**
@@ -216,6 +223,7 @@ public class NhaCungCapService extends BaseServiceImpl<NhaCungCap, Integer> {
     /**
      * Xóa nhà cung cấp theo ID — chỉ khi chưa phát sinh giao dịch (nhập nhầm).
      * Đã có giao dịch thì từ chối, kèm kết quả kiểm tra trong `data` để giao diện đề nghị Ngừng hoạt động.
+     * Mã vạch nhà cung cấp (nếu có) xóa kèm trong cùng giao dịch.
      */
     @Override
     @Transactional
@@ -224,6 +232,7 @@ public class NhaCungCapService extends BaseServiceImpl<NhaCungCap, Integer> {
         if (!kiemTra.isCoTheXoa()) {
             throw new CommonException(lyDoKhongTheXoa(kiemTra), HttpStatus.CONFLICT, kiemTra);
         }
+        maVachNhaCungCapRepository.deleteByNhaCungCapId(id);
         repository.deleteById(id);
     }
 
