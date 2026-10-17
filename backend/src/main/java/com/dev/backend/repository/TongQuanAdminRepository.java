@@ -848,6 +848,30 @@ public class TongQuanAdminRepository {
         return thamSo(khoId).addValue("tuLoc", moc(tuLoc)).addValue("lech", lechPhut);
     }
 
+    /* Cho các truy vấn Tổng quan khác (TongQuanVaiTroRepository) dùng chung cách đổi giờ. */
+
+    /** Mốc giờ Việt Nam → chuỗi giờ của cột do ứng dụng ghi (Instant đi qua driver). */
+    public String mocUngDung(LocalDateTime gioViet) {
+        return moc(gioViet);
+    }
+
+    /** Mốc giờ Việt Nam → chuỗi giờ của cột do MySQL tự điền (DEFAULT CURRENT_TIMESTAMP). */
+    public String mocTuDien(LocalDateTime gioViet) {
+        return mocCsdl(gioViet);
+    }
+
+    /** Giờ Việt Nam − giờ của cột do ứng dụng ghi, tính bằng phút (đo ở lần gọi thoiDiemHienTai() gần nhất). */
+    public int lechUngDung() {
+        if (!daDoLech) thoiDiemHienTai();
+        return lechPhut;
+    }
+
+    /** Giờ Việt Nam − giờ của cột do MySQL tự điền, tính bằng phút. */
+    public int lechTuDien() {
+        if (!daDoLech) thoiDiemHienTai();
+        return lechPhutCsdl;
+    }
+
     /** Mốc giờ Việt Nam → chuỗi giờ của cột do ứng dụng ghi. */
     private String moc(LocalDateTime gioViet) {
         if (!daDoLech) thoiDiemHienTai();
