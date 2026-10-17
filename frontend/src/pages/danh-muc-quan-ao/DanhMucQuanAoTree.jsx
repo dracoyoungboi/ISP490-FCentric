@@ -1,668 +1,718 @@
-import { getApiErrorMessage } from "@/utils/apiError";
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { ArrowLeft, ChevronsDownUp, ChevronsUpDown, FolderTree, Plus, RefreshCcw, SearchX } from "lucide-react";
+
+import PageContainer from "@/components/backoffice/PageContainer";
+import EmptyState from "@/components/shared/EmptyState";
+import ErrorState from "@/components/shared/ErrorState";
+import ListPageHeader from "@/components/shared/ListPageHeader";
+import ListToolbar from "@/components/shared/ListToolbar";
+import LoadingState from "@/components/shared/LoadingState";
+import SearchInput from "@/components/shared/SearchInput";
+import TableShell from "@/components/shared/TableShell";
+import { Button } from "@/components/ui/button";
+import BangCayDanhMuc from "@/components/danh-muc/BangCayDanhMuc";
+import DanhSachDiSau from "@/components/danh-muc/DanhSachDiSau";
+import HopChuyenDanhMuc from "@/components/danh-muc/HopChuyenDanhMuc";
+import HopDanhMuc from "@/components/danh-muc/HopDanhMuc";
+import HopNgungHoatDong from "@/components/danh-muc/HopNgungHoatDong";
+import LocTrangThai from "@/components/danh-muc/LocTrangThai";
 import {
-  ChevronRight,
-  ChevronDown,
-  Folder,
-  FolderOpen,
-  GripVertical,
-  Plus,
-  Edit,
-  Trash2,
-  Save,
-  X,
-  RefreshCcw,
-  Tag,
-} from 'lucide-react';
-import { danhMucQuanAoService } from '@/services/danhMucQuanAoService';
-import { toast } from '@/lib/thongBaoNhanh';
-import PageContainer from '@/components/backoffice/PageContainer';
-import SurfaceCard from '@/components/shared/SurfaceCard';
-import ListPageHeader from '@/components/shared/ListPageHeader';
-import EmptyState from '@/components/shared/EmptyState';
-import ErrorState from '@/components/shared/ErrorState';
-import LoadingState from '@/components/shared/LoadingState';
-import ConfirmModal from '@/components/ui/confirm-modal';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+  LOC_MAC_DINH,
+  LOC_TRANG_THAI,
+  apDungCapNhat,
+  chuanHoaChu,
+  demSeHoatDongLai,
+  demThongKe,
+  dungCay,
+  kiemTraChuyen,
+  kiemTraPhanHoi,
+  kiemTraSua,
+  layCon,
+  layConChau,
+  layDongCap,
+  layDuongDan,
+  phangHoa,
+  taoBodyCapNhat,
+  taoDongHienThi,
+  timPhang,
+  tinhThaoTac,
+  tinhTrangThai,
+} from "@/components/danh-muc/cayDanhMuc";
+import useTaiDuLieu from "@/hooks/useTaiDuLieu";
+import { toast } from "@/lib/thongBaoNhanh";
+import { cn } from "@/lib/utils";
+import { danhMucQuanAoService } from "@/services/danhMucQuanAoService";
+import { getApiErrorMessage } from "@/utils/apiError";
+import { ROLES, hasAnyRole } from "@/utils/roles";
 
-// Màn hình quản lý danh mục quần áo dạng cây – hỗ trợ thêm/sửa/xóa/khoá/kéo-thả đổi cha-con
+/**
+ * Màn Danh mục (PA1 · cây dạng bảng, chốt 17/10/2026).
+ * - Máy tính: bảng cây hàng 48px, thụt lề đều 24px có đường gióng; tìm không dấu, lọc trạng thái,
+ *   một nút Mở tất cả / Thu gọn tất cả; xem riêng một nhánh (?nhanh=id); kéo thả để chuyển nhánh.
+ * - Điện thoại (< 640px): bấm vào danh mục để vào cấp con (dùng chung ?nhanh=id), thao tác trong bảng trượt.
+ * - Thêm / sửa / chuyển / đổi trạng thái: chỉ quản trị viên (khớp quyền ở backend). Người khác chỉ xem.
+ * - Ngừng hoạt động theo nhánh: chỉ đổi trạng thái của chính danh mục, con ngừng theo nhưng giữ trạng thái riêng.
+ */
 
-// Thụt lề theo cấp = level × 20px, ánh xạ qua bảng class tĩnh (không dựng class động).
-const LEVEL_INDENT_CLASSES = ['pl-0', 'pl-5', 'pl-10', 'pl-15', 'pl-20', 'pl-25'];
+const GIA_TRI_LOC = Object.values(LOC_TRANG_THAI);
+const KHONG_TAI_DUOC = "Không tải được danh mục";
 
-const EMPTY_STATS = { total: 0, root: 0, sub: 0 };
-const LOAD_ERROR_MESSAGE = 'Không thể tải dữ liệu danh mục';
+/** Theo dõi một media query (an toàn khi môi trường không có matchMedia). */
+function useMediaQuery(query) {
+  const [khop, setKhop] = useState(() => Boolean(window.matchMedia?.(query)?.matches));
+  useEffect(() => {
+    const mql = window.matchMedia?.(query);
+    if (!mql) return undefined;
+    const doi = () => setKhop(mql.matches);
+    doi();
+    mql.addEventListener("change", doi);
+    return () => mql.removeEventListener("change", doi);
+  }, [query]);
+  return khop;
+}
 
-// Câu báo lỗi của một lời gọi trong Promise.allSettled (lỗi mạng/HTTP hoặc status ≠ 200 trong body)
-const getSettledErrorMessage = (result) => (
-  result.status === 'rejected'
-    ? getApiErrorMessage(result.reason, LOAD_ERROR_MESSAGE)
-    : result.value?.data?.message || LOAD_ERROR_MESSAGE
-);
-
-// Đếm tổng/gốc/con cho dòng số lượng trên khung cây – chỉ tính node đang hoạt động (trangThai !== 0)
-const computeStats = (nodes) => {
-  let total = 0, root = 0, sub = 0;
-  const walk = (list, level) => {
-    list.forEach((n) => {
-      if (n.trangThai === 0) return; // bỏ qua node đã khóa
-      total++;
-      if (level === 0) root++; else sub++;
-      if (n.danhMucCons?.length) walk(n.danhMucCons, level + 1);
-    });
-  };
-  walk(nodes, 0);
-  return { total, root, sub };
-};
-
-// Chuẩn hóa payload phẳng hoặc lồng nhau từ API thành cây cha-con đúng chuẩn cho UI
-const buildTreeFromAll = (list) => {
-  if (!Array.isArray(list) || list.length === 0) return [];
-  const rawById = new Map();    // id → node gốc từ API
-  const parentById = new Map(); // id → parentId
-
-  // Duyệt toàn bộ node, ghi nhận id và quan hệ cha (hỗ trợ cả payload phẳng lẫn lồng nhau)
-  const visit = (nodes, inferredParentId = null) => {
-    (nodes || []).forEach((item) => {
-      if (!item || item.id == null) return;
-      const explicitParentId = item.danhMucChaId ?? item.danhMucCha?.id ?? null;
-      const parentId = explicitParentId ?? inferredParentId;
-      if (!rawById.has(item.id)) rawById.set(item.id, item);
-      if (parentId != null && parentId !== item.id) parentById.set(item.id, parentId);
-      else if (!parentById.has(item.id)) parentById.set(item.id, null); // node gốc
-      if (Array.isArray(item.danhMucCons) && item.danhMucCons.length > 0) visit(item.danhMucCons, item.id);
-    });
-  };
-  visit(list, null);
-
-  // Clone node, reset danhMucCons để lắp ráp lại từ đầu (tránh phụ thuộc cấu trúc payload gốc)
-  const nodeMap = new Map();
-  rawById.forEach((item, id) => nodeMap.set(id, { ...item, danhMucCons: [] }));
-
-  // Gắn node vào cha tương ứng; node không có cha hợp lệ → roots[]
-  const roots = [];
-  nodeMap.forEach((node, id) => {
-    const parentId = parentById.get(id);
-    if (parentId != null && parentId !== id && nodeMap.has(parentId)) nodeMap.get(parentId).danhMucCons.push(node);
-    else roots.push(node);
-  });
-  return roots;
-};
-
-// Thu thập tất cả id node hợp lệ – dùng để lọc expandedNodes sau reload (tránh id mồ côi)
-const collectNodeIds = (nodes) => {
-  const ids = new Set();
-  const walk = (list) => { (list || []).forEach((item) => { ids.add(item.id); if (item.danhMucCons?.length) walk(item.danhMucCons); }); };
-  walk(nodes);
-  return ids;
-};
-
-const DanhMucQuanAoTree = () => {
-
-  // ── STATE ──────────────────────────────────────────────────────────────────
-  const [treeData, setTreeData] = useState([]);                              // dữ liệu cây danh mục, nguồn chính render UI
-  const [expandedNodes, setExpandedNodes] = useState(new Set());            // tập id các node đang mở (Set → O(1) lookup)
-  const [draggedNode, setDraggedNode] = useState(null);                     // node đang được kéo
-  const [dragOverNode, setDragOverNode] = useState(null);                   // node đang được hover khi kéo
-  const [editingNode, setEditingNode] = useState(null);                     // id node đang ở chế độ sửa inline
-  const [editForm, setEditForm] = useState({});                             // dữ liệu form sửa
-  const [creatingNode, setCreatingNode] = useState(null);                   // 'root' hoặc id cha khi đang tạo mới
-  const [createForm, setCreateForm] = useState({ maDanhMuc: '', tenDanhMuc: '', moTa: '', trangThai: 1 }); // dữ liệu form tạo mới
-  const [deleteModal, setDeleteModal] = useState({ show: false, nodeId: null, nodeName: '' }); // trạng thái modal xác nhận xóa
-  const [isLoading, setIsLoading] = useState(true);                         // cờ loading khi tải/reload dữ liệu (true: đang tải lần đầu)
-  const [loadError, setLoadError] = useState(null);                         // câu báo lỗi khi không tải được cây (null = không lỗi)
-
-  // ── STATS ──────────────────────────────────────────────────────────────────
-  const [stats, setStats] = useState(EMPTY_STATS);                          // số liệu cho dòng "N danh mục · N gốc · N con"
-
-  // LUỒNG TẢI DỮ LIỆU: gọi song song getCayDanhMuc + getAll → ưu tiên getAll (đầy đủ hơn) → buildTreeFromAll → setTreeData
-  const fetchTreeData = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      // Gọi song song 2 API để giảm thời gian chờ
-      const [treeResponse, allResponse] = await Promise.allSettled([
-        danhMucQuanAoService.getCayDanhMuc(), // GET /get-cay-danh-muc – chỉ trả node đang hoạt động
-        danhMucQuanAoService.getAll(),         // GET /all – trả toàn bộ kể cả trangThai=0
-      ]);
-
-      // Cả 2 API đều lỗi → báo lỗi trong khung cây, không giữ cây/số cũ (R9)
-      const allOk = allResponse.status === 'fulfilled' && allResponse.value?.data?.status === 200;
-      const treeOk = treeResponse.status === 'fulfilled' && treeResponse.value?.data?.status === 200;
-      if (!allOk && !treeOk) {
-        setTreeData([]);
-        setStats(EMPTY_STATS);
-        setLoadError(getSettledErrorMessage(allResponse));
-        return;
-      }
-      setLoadError(null);
-
-      let data = [];
-
-      // Ưu tiên getAll() vì đầy đủ cả node khoá
-      if (allResponse.status === 'fulfilled' && allResponse.value?.data?.status === 200) {
-        const allData = allResponse.value.data.data;
-        if (Array.isArray(allData) && allData.length > 0) {
-          data = buildTreeFromAll(allData);
-        }
-      }
-
-      // Fallback sang getCayDanhMuc nếu getAll() lỗi hoặc không có dữ liệu
-      if (data.length === 0 && treeResponse.status === 'fulfilled' && treeResponse.value?.data?.status === 200) {
-        const treeDataRaw = treeResponse.value.data.data;
-        if (Array.isArray(treeDataRaw) && treeDataRaw.length > 0) {
-          data = buildTreeFromAll(treeDataRaw); // Sử dụng buildTreeFromAll cho nhất quán
-        }
-      }
-
-      if (Array.isArray(data)) {
-        setTreeData(data);
-        setStats(computeStats(data));
-        // Giữ lại các node đang mở hợp lệ sau reload (không đóng sập toàn bộ cây)
-        setExpandedNodes((prev) => {
-          const availableIds = collectNodeIds(data);
-          const next = new Set();
-          prev.forEach((id) => { if (availableIds.has(id)) next.add(id); });
-          return next;
-        });
-      } else {
-        // Cả 2 API đều không trả về dữ liệu hợp lệ
-        setTreeData([]);
-        setStats(EMPTY_STATS);
-        toast.warning('Không có danh mục nào được tải');
-      }
-    } catch (error) {
-      console.error('Lỗi khi tải danh mục:', error);
-      toast.error(LOAD_ERROR_MESSAGE);
-      setTreeData([]);
-      setStats(EMPTY_STATS);
-      setLoadError(LOAD_ERROR_MESSAGE);
-    } finally {
-      setIsLoading(false);
+/**
+ * `/all` trả đủ cả danh mục ngừng hoạt động. Lỗi thì lùi về cây `/get-cay-danh-muc` (chỉ có danh mục đang hoạt động).
+ * Dữ liệu được chuẩn hóa thành danh sách phẳng để sửa tại chỗ ngay sau mỗi lần lưu.
+ * `choLui = false` (đã có đủ dữ liệu): `/all` lỗi thì báo lỗi, không thay bảng bằng cây thiếu.
+ */
+async function taiDanhMuc({ choLui = true } = {}) {
+  let loiAll;
+  try {
+    const phanHoi = await danhMucQuanAoService.getAll();
+    if (phanHoi?.data?.status === 200 && Array.isArray(phanHoi.data.data)) {
+      return { danhSach: phangHoa(phanHoi.data.data), chiHoatDong: false };
     }
-  }, []);
-
-  // Tải dữ liệu khi component mount lần đầu
-  // Hoãn qua microtask để tránh setState đồng bộ trong effect
-  // (react-hooks/set-state-in-effect); request vẫn chạy ngay khi mount.
-  useEffect(() => { queueMicrotask(() => fetchTreeData()); }, [fetchTreeData]);
-
-  // Toggle đóng/mở một node theo id
-  const toggleExpand = (nodeId) => {
-    setExpandedNodes((prev) => { const next = new Set(prev); if (next.has(nodeId)) next.delete(nodeId); else next.add(nodeId); return next; });
-  };
-
-  // ── DRAG & DROP ────────────────────────────────────────────────────────────
-
-  // Bắt đầu kéo: lưu thông tin node đang kéo để dùng khi drop
-  const handleDragStart = (e, node, parentId) => {
-    e.stopPropagation();
-    setDraggedNode({ ...node, currentParentId: parentId });
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  // Đang kéo qua node: highlight nếu hợp lệ (không phải chính nó, không phải con cháu)
-  const handleDragOver = (e, node) => {
-    e.preventDefault(); e.stopPropagation();
-    if (draggedNode && draggedNode.id !== node.id && !isDescendant(draggedNode, node)) setDragOverNode(node.id);
-  };
-
-  // Rời vùng hover: xóa highlight
-  const handleDragLeave = (e) => { e.preventDefault(); e.stopPropagation(); setDragOverNode(null); };
-
-  // LUỒNG KÉO-THẢ ĐỔI CHA: validate → Axios PUT update { danhMucChaId: targetNode.id } → Service.update → UPDATE DB → reload cây
-  const handleDrop = async (e, targetNode) => {
-    e.preventDefault(); e.stopPropagation(); setDragOverNode(null);
-    if (!draggedNode || draggedNode.id === targetNode.id) { setDraggedNode(null); return; }
-    if (isDescendant(draggedNode, targetNode)) {
-      toast.warning('Không thể kéo danh mục cha vào con của nó'); // chặn vòng lặp cha-con
-      setDraggedNode(null); return;
+    loiAll = new Error(phanHoi?.data?.message || KHONG_TAI_DUOC);
+  } catch (err) {
+    loiAll = err;
+  }
+  // Đang có đủ dữ liệu (cả danh mục ngừng) thì không lùi về cây thiếu: giữ bảng cũ và báo lỗi tải lại
+  if (!choLui) throw loiAll;
+  try {
+    const phanHoi = await danhMucQuanAoService.getCayDanhMuc();
+    if (phanHoi?.data?.status === 200 && Array.isArray(phanHoi.data.data)) {
+      return { danhSach: phangHoa(phanHoi.data.data), chiHoatDong: true };
     }
-    try {
-      const response = await danhMucQuanAoService.update({
-        id: draggedNode.id, tenDanhMuc: draggedNode.tenDanhMuc,
-        danhMucChaId: targetNode.id, // gắn cha mới = node vừa thả vào
-        moTa: draggedNode.moTa, trangThai: draggedNode.trangThai,
-      });
-      if (response.data.status === 200) { toast.success('Cập nhật thành công'); fetchTreeData(); }
-      else toast.error('Cập nhật thất bại: ' + response.data.message);
-    } catch { toast.error('Có lỗi xảy ra khi cập nhật'); }
-    setDraggedNode(null);
-  };
+  } catch {
+    // Báo lỗi của `/all` (nguồn chính) cho người dùng
+  }
+  throw loiAll;
+}
 
-  // LUỒNG KÉO VỀ ROOT: Axios PUT update { danhMucChaId: null } → Service.update → UPDATE danh_muc_cha_id=NULL → reload
-  const handleDropToRoot = async (e) => {
-    e.preventDefault(); e.stopPropagation(); setDragOverNode(null);
-    if (!draggedNode) return;
-    try {
-      const response = await danhMucQuanAoService.update({
-        id: draggedNode.id, tenDanhMuc: draggedNode.tenDanhMuc,
-        danhMucChaId: null, // null = chuyển về danh mục gốc
-        moTa: draggedNode.moTa, trangThai: draggedNode.trangThai,
-      });
-      if (response.data.status === 200) { toast.success('Đã chuyển thành danh mục gốc.'); fetchTreeData(); }
-      else toast.error('Cập nhật thất bại: ' + response.data.message);
-    } catch { toast.error('Có lỗi xảy ra khi cập nhật'); }
-    setDraggedNode(null);
-  };
+async function guiCapNhat(body) {
+  return kiemTraPhanHoi(await danhMucQuanAoService.update(body));
+}
 
-  // Kiểm tra targetNode có nằm trong nhánh con của sourceNode không (DFS – phòng cycle)
-  const isDescendant = (sourceNode, targetNode) => {
-    if (!sourceNode.danhMucCons?.length) return false;
-    for (const child of sourceNode.danhMucCons) {
-      if (child.id === targetNode.id) return true;
-      if (isDescendant(child, targetNode)) return true;
-    }
-    return false;
-  };
+export default function DanhMucQuanAoTree() {
+  const coTheSua = hasAnyRole([ROLES.QUAN_TRI_VIEN]);
+  const laDienThoai = useMediaQuery("(max-width: 639px)");
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  // ── EDIT ───────────────────────────────────────────────────────────────────
+  const thamSoLoc = searchParams.get("trangThai");
+  // Không có ?trangThai= trên URL là bộ lọc mặc định (Đang hoạt động); chọn Tất cả thì ghi ?trangThai=tat-ca
+  const loc = GIA_TRI_LOC.includes(thamSoLoc) ? thamSoLoc : LOC_MAC_DINH;
+  const thamSoNhanh = searchParams.get("nhanh");
 
-  // Mở inline edit: nạp dữ liệu node hiện tại vào editForm
-  const handleEdit = (node, parentId) => {
-    setEditingNode(node.id);
-    setEditForm({ id: node.id, tenDanhMuc: node.tenDanhMuc, moTa: node.moTa, trangThai: node.trangThai, danhMucChaId: parentId });
-  };
+  const [tuKhoa, setTuKhoa] = useState("");
+  const [moRong, setMoRong] = useState({});
+  const [daMoLanDau, setDaMoLanDau] = useState(false);
+  const [hop, setHop] = useState(null);
+  const [keo, setKeo] = useState(null);
+  const [dangBatLai, setDangBatLai] = useState(false);
 
-  // LUỒNG LƯU SỬA: Axios PUT /update (editForm) → Controller → Service.update → Repository.save → UPDATE DB → reload cây
-  const handleSaveEdit = async () => {
-    try {
-      const response = await danhMucQuanAoService.update(editForm);
-      if (response.data.status === 200) { toast.success('Cập nhật thành công.'); setEditingNode(null); fetchTreeData(); }
-      else toast.error('Cập nhật thất bại: ' + response.data.message);
-    } catch { toast.error('Có lỗi xảy ra khi cập nhật'); }
-  };
+  const daCoDayDu = useRef(false);
+  const taiDuLieu = useTaiDuLieu(() => taiDanhMuc({ choLui: !daCoDayDu.current }), "danh-muc");
+  const danhSach = taiDuLieu.data?.danhSach;
+  const cay = useMemo(() => dungCay(danhSach ?? []), [danhSach]);
+  const trangThai = useMemo(() => tinhTrangThai(cay), [cay]);
+  const thongKe = useMemo(() => demThongKe(cay, trangThai), [cay, trangThai]);
 
-  // ── DELETE ─────────────────────────────────────────────────────────────────
+  // Thao tác Hoàn tác dựng body từ dữ liệu mới nhất (tránh ghi đè bằng tên / cha cũ)
+  const cayRef = useRef(cay);
+  useEffect(() => {
+    cayRef.current = cay;
+  }, [cay]);
+  useEffect(() => {
+    if (taiDuLieu.data) daCoDayDu.current = !taiDuLieu.data.chiHoatDong;
+  }, [taiDuLieu.data]);
 
-  // Mở modal xác nhận xóa, lưu id và tên node cần xóa
-  const confirmDelete = (node) => setDeleteModal({ show: true, nodeId: node.id, nodeName: node.tenDanhMuc });
+  // Lần tải đầu: mở sẵn các danh mục gốc
+  if (danhSach && !daMoLanDau) {
+    setDaMoLanDau(true);
+    setMoRong(Object.fromEntries(layCon(cay, null).filter((id) => layCon(cay, id).length).map((id) => [id, true])));
+  }
 
-  // LUỒNG XÓA MỀM: Axios DELETE /{id} → Controller set trangThai=0 → Repository.save → node vẫn ở DB nhưng hiển thị mờ
-  const handleDelete = async () => {
-    try {
-      const response = await danhMucQuanAoService.delete(deleteModal.nodeId);
-      if (response.data.status === 200) { toast.success(`Đã chuyển "${deleteModal.nodeName}" sang ngừng hoạt động`); fetchTreeData(); }
-    } catch { toast.error('Lỗi khi xóa danh mục'); }
-    finally { setDeleteModal({ show: false, nodeId: null, nodeName: '' }); }
-  };
+  const goc = useMemo(() => {
+    if (thamSoNhanh == null) return null;
+    for (const id of cay.theoId.keys()) if (String(id) === thamSoNhanh) return id;
+    return null;
+  }, [cay, thamSoNhanh]);
+  const nutGoc = goc != null ? cay.theoId.get(goc) : null;
 
-  // ── CREATE ─────────────────────────────────────────────────────────────────
+  const tuKhoaChuan = chuanHoaChu(tuKhoa.trim());
+  const coTuKhoa = Boolean(tuKhoa.trim());
+  // "Đang lọc" (hiện Xóa lọc) = có từ khóa, hoặc bộ lọc trạng thái khác mặc định
+  const dangLoc = coTuKhoa || loc !== LOC_MAC_DINH;
 
-  // Mở form tạo danh mục con ngay dưới parentNode và tự động expand node cha
-  const handleAddChild = (parentNode) => {
-    setCreatingNode(parentNode.id);
-    setCreateForm({ maDanhMuc: '', tenDanhMuc: '', moTa: '', trangThai: 1, danhMucChaId: parentNode.id });
-    const newExpanded = new Set(expandedNodes);
-    newExpanded.add(parentNode.id);
-    setExpandedNodes(newExpanded);
-  };
-
-  // LUỒNG TẠO MỚI: validate client → chuẩn hóa payload → Axios POST /create → Controller → Service.create → Repository.findByMaDanhMuc + save → INSERT DB → reload cây
-  const handleSaveCreate = async () => {
-    // Validate client-side: tránh gửi request thiếu trường bắt buộc lên server
-    if (!createForm.tenDanhMuc.trim()) { toast.warning('Vui lòng nhập tên danh mục.'); return; }
-    if (!createForm.maDanhMuc.trim()) { toast.warning('Vui lòng nhập mã danh mục.'); return; }
-    try {
-      // Chuẩn hóa payload: trim chuỗi, ép trangThai về Number, đảm bảo danhMucChaId gửi null cho danh mục gốc
-      const payload = {
-        ...createForm,
-        maDanhMuc: createForm.maDanhMuc.trim(),
-        tenDanhMuc: createForm.tenDanhMuc.trim(),
-        moTa: createForm.moTa?.trim() || '',
-        trangThai: Number(createForm.trangThai) || 1,
-        danhMucChaId: Object.prototype.hasOwnProperty.call(createForm, 'danhMucChaId') ? createForm.danhMucChaId : null,
-      };
-      // Gọi API: Frontend → Controller.create → Service.create (@Transactional) → Repository → DB
-      const response = await danhMucQuanAoService.create(payload);
-      if (response.data.status === 200) {
-        toast.success('Tạo danh mục thành công.');
-        setCreatingNode(null);
-        setCreateForm({ maDanhMuc: '', tenDanhMuc: '', moTa: '', trangThai: 1 }); // reset form sau khi tạo thành công
-        fetchTreeData(); // reload cây để đồng bộ dữ liệu mới từ DB
-      } else {
-        toast.error('Tạo danh mục thất bại: ' + (response.data.message || 'Không rõ lỗi')); // hiển thị lỗi nghiệp vụ từ backend (VD: trùng mã)
-      }
-    } catch (error) {
-      // Lấy message lỗi từ response body backend thay vì thông báo chung chung
-      const message = getApiErrorMessage(error, 'Có lỗi xảy ra khi tạo danh mục');
-      toast.error(message);
-    }
-  };
-
-  // Huỷ tạo mới, reset form về mặc định
-  const handleCancelCreate = () => { setCreatingNode(null); setCreateForm({ maDanhMuc: '', tenDanhMuc: '', moTa: '', trangThai: 1 }); };
-
-  // Mở form tạo danh mục cấp gốc (danhMucChaId = null)
-  const handleAddRoot = () => { setCreatingNode('root'); setCreateForm({ maDanhMuc: '', tenDanhMuc: '', moTa: '', trangThai: 1, danhMucChaId: null }); };
-
-  // ── Render create form ────────────────────────────────────────────────────
-  const renderCreateForm = (parentId) => (
-    <div className={`my-2 ${parentId !== 'root' ? 'pl-5' : ''}`}>
-      <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-4 shadow-sm">
-        <p className="mb-3 text-sm font-semibold text-bo-foreground">
-          {parentId === 'root' ? 'Thêm danh mục gốc mới' : 'Thêm danh mục con'}
-        </p>
-        <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-bo-muted">Mã danh mục *</label>
-            <Input
-              value={createForm.maDanhMuc}
-              onChange={(e) => setCreateForm({ ...createForm, maDanhMuc: e.target.value })}
-              placeholder="VD: DM001"
-              className="h-8 border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-              autoFocus
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-bo-muted">Tên danh mục *</label>
-            <Input
-              value={createForm.tenDanhMuc}
-              onChange={(e) => setCreateForm({ ...createForm, tenDanhMuc: e.target.value })}
-              placeholder="VD: Áo thun"
-              className="h-8 border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-            />
-          </div>
-        </div>
-        <div className="mb-3 space-y-1">
-          <label className="text-xs font-medium text-bo-muted">Mô tả</label>
-          <textarea
-            value={createForm.moTa}
-            onChange={(e) => setCreateForm({ ...createForm, moTa: e.target.value })}
-            placeholder="Nhập mô tả..."
-            rows={2}
-            className="w-full resize-none rounded-md border border-bo-border bg-white px-3 py-2 text-sm text-bo-foreground outline-none placeholder:text-bo-muted focus:border-bo-primary"
-          />
-        </div>
-        <div className="flex justify-end gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleCancelCreate}
-            className="h-8 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-          >
-            <X className="size-3.5" /> Hủy
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleSaveCreate}
-            className="h-8 gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
-          >
-            <Save className="size-3.5" /> Lưu
-          </Button>
-        </div>
-      </div>
-    </div>
+  const hienThi = useMemo(
+    () => taoDongHienThi(cay, { tuKhoa, loc, moRong, goc, trangThai }),
+    [cay, tuKhoa, loc, moRong, goc, trangThai],
   );
 
-  // ── Render node ───────────────────────────────────────────────────────────
-  /**
-   * Render đệ quy từng node trong cây danh mục.
-   * - level: độ sâu hiện tại → thụt lề level × 20px để thể hiện cấp bậc.
-   * - parentId: id cha của node hiện tại (dùng cho edit).
-   * - isInactive: node trangThai=0 hiển thị mờ.
-   * - isEditing: render Input thay vì text thuần để sửa inline.
-   * - isCreating: mở form tạo con ngay dưới node này khi đang expanded.
-   * - Chỉ render con khi isExpanded = true → giảm số DOM node, cải thiện hiệu năng.
-   */
-  const renderNode = (node, level = 0, parentId = null) => {
-    const allChildren = node.danhMucCons || [];
-    const hasChildren = allChildren.length > 0;
-    const isExpanded = expandedNodes.has(node.id);
-    const isDragOver = dragOverNode === node.id;
-    const isEditing = editingNode === node.id;
-    const isCreating = creatingNode === node.id;
-    const isInactive = Number(node.trangThai) === 0;
+  const demLoc = useMemo(() => ({
+    [LOC_TRANG_THAI.TAT_CA]: thongKe.tong,
+    [LOC_TRANG_THAI.HOAT_DONG]: thongKe.hoatDong,
+    [LOC_TRANG_THAI.NGUNG]: thongKe.ngung,
+  }), [thongKe]);
 
-    return (
-      <div key={node.id} className={LEVEL_INDENT_CLASSES[Math.min(level, LEVEL_INDENT_CLASSES.length - 1)]}>
-        {/* Moi cap trong cay se thut vao 20px de the hien quan he cap bac. */}
-        <div
-          draggable={!isEditing}
-          onDragStart={(e) => handleDragStart(e, node, parentId)}
-          onDragOver={(e) => handleDragOver(e, node)}
-          onDragLeave={handleDragLeave}
-          onDrop={(e) => handleDrop(e, node)}
-          className={`my-1 rounded-lg border transition-colors ${isDragOver ? 'border-bo-primary bg-bo-primary-soft' : 'border-transparent'
-            }`}
+  const soBatLaiTheo = useMemo(() => {
+    const ketQua = new Map();
+    trangThai.forEach((tt, id) => {
+      if (tt.tuNgung && !tt.doCha) ketQua.set(id, demSeHoatDongLai(cay, id));
+    });
+    return ketQua;
+  }, [cay, trangThai]);
+
+  const layThaoTac = useCallback(
+    (dong) => tinhThaoTac({
+      dong,
+      coTheSua,
+      kiemTraSua: kiemTraSua(cay, dong.id),
+      soHoatDongLai: soBatLaiTheo.get(dong.id) ?? 0,
+    }),
+    [cay, coTheSua, soBatLaiTheo],
+  );
+
+  // ── Bộ lọc, tìm kiếm, nhánh đang xem ──────────────────────────────────────
+  // Gõ từ khóa mới hoặc đổi bộ lọc: bỏ các lần thu gọn cũ để kết quả luôn hiện ra
+  const boThuGon = () => setMoRong((cu) => Object.fromEntries(Object.entries(cu).filter(([, mo]) => mo)));
+
+  const doiTuKhoa = (giaTri) => {
+    setTuKhoa(giaTri);
+    boThuGon();
+  };
+
+  const doiLoc = (giaTri) => {
+    boThuGon();
+    setSearchParams((cu) => {
+      const moi = new URLSearchParams(cu);
+      if (giaTri === LOC_MAC_DINH) moi.delete("trangThai");
+      else moi.set("trangThai", giaTri);
+      return moi;
+    }, { replace: true });
+  };
+
+  const xoaLoc = () => {
+    setTuKhoa("");
+    boThuGon();
+    setSearchParams((cu) => {
+      const moi = new URLSearchParams(cu);
+      moi.delete("trangThai");
+      return moi;
+    }, { replace: true });
+  };
+
+  const xemNhanh = (id) => {
+    setTuKhoa("");
+    if (id != null) setMoRong((cu) => ({ ...cu, [id]: true }));
+    setSearchParams((cu) => {
+      const moi = new URLSearchParams(cu);
+      if (id == null) moi.delete("nhanh");
+      else moi.set("nhanh", String(id));
+      return moi;
+    });
+  };
+
+  const moDong = useCallback((id, mo) => setMoRong((cu) => ({ ...cu, [id]: mo })), []);
+
+  const doiMoTatCa = () => {
+    const pham = goc != null ? layConChau(cay, goc) : [...cay.theoId.keys()];
+    const mo = !hienThi.tatCaDangMo;
+    setMoRong((cu) => {
+      const moi = { ...cu };
+      pham.forEach((id) => {
+        if (layCon(cay, id).length) moi[id] = mo;
+      });
+      return moi;
+    });
+  };
+
+  // ── Thay đổi dữ liệu ─────────────────────────────────────────────────────
+  const taiLai = taiDuLieu.reload;
+  const { setData } = taiDuLieu;
+
+  // Sửa ngay dữ liệu đang hiện theo đúng body vừa lưu, rồi tải lại để đồng bộ với máy chủ.
+  // Nhờ vậy thao tác kế tiếp (kể cả Hoàn tác) luôn dựng body từ dữ liệu mới, không ghi đè ngược.
+  const apDung = useCallback((body) => {
+    setData((cu) => (cu ? { ...cu, danhSach: apDungCapNhat(cu.danhSach, body) } : cu));
+    taiLai();
+  }, [setData, taiLai]);
+
+  const loiThaoTac = (tieuDe, err) => toast.error(tieuDe, { description: getApiErrorMessage(err, "Vui lòng thử lại.") });
+
+  /** Hoàn tác: kiểm lại trên cây mới nhất rồi mới gửi (cây có thể đã đổi sau khi thông báo hiện ra). */
+  const hoanTac = async (body, thongBaoLoi) => {
+    try {
+      await guiCapNhat(body);
+      apDung(body);
+      toast.success("Đã hoàn tác");
+    } catch (err) {
+      loiThaoTac(thongBaoLoi, err);
+      taiLai();
+    }
+  };
+
+  const hoanTacChuyen = (id, tuChaId) => {
+    const cayMoi = cayRef.current;
+    const nut = cayMoi.theoId.get(id);
+    if (!nut) return;
+    const kq = kiemTraChuyen(cayMoi, id, tuChaId, tinhTrangThai(cayMoi));
+    if (kq.dangOday) {
+      toast.info(`“${nut.ten}” đã ở chỗ cũ`);
+      return;
+    }
+    if (!kq.duoc) {
+      toast.error("Không hoàn tác được việc chuyển danh mục", { description: `Chỗ cũ: ${kq.lyDo}.` });
+      return;
+    }
+    hoanTac(taoBodyCapNhat(nut, { chaId: tuChaId }), "Không hoàn tác được việc chuyển danh mục");
+  };
+
+  const hoanTacTrangThai = (id, trangThaiCu, thongBaoLoi) => {
+    const cayMoi = cayRef.current;
+    const nut = cayMoi.theoId.get(id);
+    if (!nut) return;
+    const sua = kiemTraSua(cayMoi, id);
+    if (!sua.duoc) {
+      toast.error(thongBaoLoi, { description: sua.lyDo });
+      return;
+    }
+    hoanTac(taoBodyCapNhat(nut, { trangThai: trangThaiCu }), thongBaoLoi);
+  };
+
+  const daLuuDanhMuc = ({ cheDo, ten, body, duLieu }) => {
+    if (cheDo === "them") {
+      if (body.danhMucChaId != null) setMoRong((cu) => ({ ...cu, [body.danhMucChaId]: true }));
+      if (duLieu?.id != null) {
+        setData((cu) => (cu ? {
+          ...cu,
+          danhSach: [...cu.danhSach, { ...body, id: duLieu.id, ngayTao: duLieu.ngayTao ?? null }],
+        } : cu));
+      }
+      toast.success(`Đã thêm danh mục “${ten}”`);
+      taiLai();
+    } else {
+      toast.success(`Đã lưu “${ten}”`);
+      apDung(body);
+    }
+  };
+
+  const daChuyen = ({ nut, tuChaId, denChaId, body }) => {
+    const cayLucChuyen = cayRef.current;
+    if (denChaId != null) setMoRong((cu) => ({ ...cu, [denChaId]: true }));
+    const noiDen = denChaId != null ? `vào “${cayLucChuyen.theoId.get(denChaId)?.ten ?? ""}”` : "thành danh mục gốc";
+    // Máy chủ từ chối cập nhật khi danh mục cha trực tiếp đang tắt, nên không hoàn tác về chỗ đó được
+    const veDuoc = tuChaId == null || cayLucChuyen.theoId.get(tuChaId)?.trangThai !== 0;
+    toast.success(`Đã chuyển “${nut.ten}” ${noiDen}`, {
+      action: veDuoc ? { label: "Hoàn tác", onClick: () => hoanTacChuyen(nut.id, tuChaId) } : undefined,
+    });
+    apDung(body);
+  };
+
+  // Kéo thả: mỗi lần chỉ gửi một yêu cầu chuyển
+  const dangTha = useRef(false);
+  const tha = async ({ idChuyen, idDich }) => {
+    const nut = cay.theoId.get(idChuyen);
+    if (!nut || dangTha.current) return;
+    if (!kiemTraChuyen(cay, idChuyen, idDich, trangThai).duoc) return;
+    dangTha.current = true;
+    try {
+      const body = taoBodyCapNhat(nut, { chaId: idDich });
+      await guiCapNhat(body);
+      daChuyen({ nut, tuChaId: nut.chaId ?? null, denChaId: idDich, body });
+    } catch (err) {
+      loiThaoTac("Không chuyển được danh mục", err);
+      taiLai();
+    } finally {
+      dangTha.current = false;
+    }
+  };
+
+  const daNgung = ({ nut, soTheo, body }) => {
+    const ghiChu = [
+      soTheo > 0 ? `${soTheo} danh mục con ngừng theo.` : "",
+      // Đang lọc Đang hoạt động: dòng vừa ngừng biến mất khỏi bảng, nói rõ để người dùng không tưởng là bị xóa
+      loc === LOC_TRANG_THAI.HOAT_DONG ? `Đang lọc “Đang hoạt động” nên ${soTheo > 0 ? "cả nhánh" : "danh mục này"} được ẩn.` : "",
+    ].filter(Boolean).join(" ");
+    toast.success(`Đã ngừng hoạt động “${nut.ten}”`, {
+      description: ghiChu || undefined,
+      action: {
+        label: "Hoàn tác",
+        onClick: () => hoanTacTrangThai(nut.id, 1, "Không hoàn tác được việc ngừng hoạt động"),
+      },
+    });
+    apDung(body);
+  };
+
+  const batLai = async (id) => {
+    const nut = cay.theoId.get(id);
+    if (dangBatLai || !nut) return;
+    const soTheo = soBatLaiTheo.get(id) ?? 0;
+    setDangBatLai(true);
+    try {
+      const body = taoBodyCapNhat(nut, { trangThai: 1 });
+      await guiCapNhat(body);
+      toast.success(`Đã cho “${nut.ten}” hoạt động lại`, {
+        description: soTheo > 0 ? `${soTheo} danh mục con hoạt động lại theo.` : undefined,
+        action: {
+          label: "Hoàn tác",
+          onClick: () => hoanTacTrangThai(id, 0, "Không hoàn tác được việc cho hoạt động lại"),
+        },
+      });
+      apDung(body);
+    } catch (err) {
+      loiThaoTac(`Không cho “${nut.ten}” hoạt động lại được`, err);
+      taiLai();
+    } finally {
+      setDangBatLai(false);
+    }
+  };
+
+  // Popup giữ id; nội dung lấy từ cây mới nhất mỗi lần vẽ lại
+  const xuLy = {
+    onThemCon: (nut) => setHop({ loai: "them", chaId: nut.id }),
+    onSua: (nut) => setHop({ loai: "sua", id: nut.id }),
+    onChuyen: (nut) => setHop({ loai: "chuyen", id: nut.id }),
+    onDoiTrangThai: (nut, viec) => {
+      if (!viec || viec.khoa) return;
+      if (viec.loai === "ngung") setHop({ loai: "ngung", id: nut.id });
+      else batLai(nut.id);
+    },
+  };
+  const dongHop = (mo) => {
+    if (!mo) setHop(null);
+  };
+  const nutHop = hop?.id != null ? cay.theoId.get(hop.id) ?? null : null;
+
+  // ── Nút trên hàng tiêu đề ────────────────────────────────────────────────
+  const themVaoNhanhKhoa = nutGoc ? trangThai.get(goc)?.ngung : false;
+  const nhanThem = nutGoc ? `Thêm vào “${nutGoc.ten}”` : "Thêm danh mục";
+  const dangTai = taiDuLieu.loading;
+
+  const hanhDong = (
+    <>
+      <Button
+        variant="outline"
+        onClick={taiLai}
+        disabled={dangTai}
+        aria-label="Làm mới danh sách danh mục"
+        className="gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+      >
+        <RefreshCcw className={cn("size-4", dangTai && "animate-spin")} aria-hidden="true" />
+        <span className="hidden sm:inline">Làm mới</span>
+      </Button>
+      {coTheSua ? (
+        <Button
+          onClick={() => setHop({ loai: "them", chaId: goc })}
+          disabled={!danhSach || themVaoNhanhKhoa}
+          title={themVaoNhanhKhoa ? `“${nutGoc.ten}” đang ngừng hoạt động, không thêm được danh mục con` : undefined}
+          className="max-w-[calc(100vw-8rem)] gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover sm:max-w-[320px]"
         >
-          {/* Node row */}
-          <div
-            className={`group flex items-center justify-between gap-2 rounded-lg border bg-white px-3 py-2 shadow-sm transition-colors ${isEditing
-                ? 'cursor-default border-bo-primary'
-                : 'cursor-move border-bo-border hover:border-bo-primary/40'
-              } ${isInactive ? 'border-bo-border bg-bo-surface-subtle opacity-55' : ''}`}
-          >
-            {/* Left */}
-            <div className="flex min-w-0 flex-1 items-center gap-2">
-              <GripVertical className="size-4 shrink-0 text-slate-300 group-hover:text-slate-400" />
+          <Plus className="size-4 shrink-0" aria-hidden="true" />
+          <span className="truncate">{nhanThem}</span>
+        </Button>
+      ) : null}
+    </>
+  );
 
-              {(hasChildren || isCreating) ? (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    toggleExpand(node.id);
-                  }}
-                  className="flex size-5 shrink-0 items-center justify-center rounded text-bo-muted transition-colors hover:bg-bo-primary-soft hover:text-bo-primary"
-                >
-                  {isExpanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-                </button>
-              ) : (
-                <div className="w-5 shrink-0" />
-              )}
+  // ── Thân bảng ────────────────────────────────────────────────────────────
+  const nutXoaLoc = (
+    <Button variant="outline" onClick={xoaLoc} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
+      Xóa lọc
+    </Button>
+  );
 
-              {isExpanded && (hasChildren || isCreating)
-                ? <FolderOpen className="size-4 shrink-0 text-bo-primary" />
-                : <Folder className="size-4 shrink-0 text-bo-primary" />
-              }
+  // Trống vì bộ lọc trạng thái: đếm số danh mục (trong phạm vi đang xem, khớp từ khóa) đang bị bộ lọc ẩn đi,
+  // để gợi ý "Xem tất cả trạng thái" thay vì để người dùng tưởng là không có
+  const demBiAn = () => {
+    if (loc === LOC_TRANG_THAI.TAT_CA) return 0;
+    const tatCa = [...cay.theoId.keys()];
+    const phamVi = laDienThoai
+      ? (coTuKhoa ? tatCa : layCon(cay, goc))
+      : (goc != null ? layConChau(cay, goc) : tatCa);
+    return phamVi.filter((id) => {
+      const nut = cay.theoId.get(id);
+      const khop = !tuKhoaChuan || chuanHoaChu(nut.ten).includes(tuKhoaChuan) || chuanHoaChu(nut.ma).includes(tuKhoaChuan);
+      const ngung = trangThai.get(id).ngung;
+      return khop && (loc === LOC_TRANG_THAI.HOAT_DONG ? ngung : !ngung);
+    }).length;
+  };
 
-              {isEditing ? (
-                <Input
-                  value={editForm.tenDanhMuc}
-                  onChange={(e) => setEditForm({ ...editForm, tenDanhMuc: e.target.value })}
-                  className="h-8 min-w-0 flex-1 border-bo-border bg-white text-sm text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
-                  autoFocus
-                />
-              ) : (
-                <span className="truncate text-sm font-semibold text-bo-foreground">{node.tenDanhMuc}</span>
-              )}
-
-              <span className="shrink-0 font-mono text-xs text-bo-muted">({node.maDanhMuc})</span>
-
-              {level === 0 && (
-                <span className="ml-1 inline-flex shrink-0 items-center rounded-full border border-bo-border bg-bo-surface-subtle px-2 py-0.5 text-[10px] font-semibold text-bo-muted">
-                  Gốc
-                </span>
-              )}
-            </div>
-
-            {/* Actions */}
-            <div className="ml-2 flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-              {isEditing ? (
-                <>
-                <button
-                  onClick={handleSaveEdit}
-                  className="inline-flex size-7 items-center justify-center rounded-md text-bo-success transition-colors hover:bg-bo-success-soft"
-                  title="Lưu"
-                >
-                  <Save className="size-3.5" />
-                </button>
-                <button
-                  onClick={() => setEditingNode(null)}
-                  className="inline-flex size-7 items-center justify-center rounded-md text-bo-muted transition-colors hover:bg-slate-100"
-                  title="Hủy"
-                >
-                  <X className="size-3.5" />
-                </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={() => handleAddChild(node)}
-                    className="inline-flex size-7 items-center justify-center rounded-md text-bo-primary transition-colors hover:bg-bo-primary-soft"
-                    title="Thêm danh mục con"
-                  >
-                    <Plus className="size-3.5" />
-                  </button>
-                  <button
-                    onClick={() => handleEdit(node, parentId)}
-                    className="inline-flex size-7 items-center justify-center rounded-md text-slate-600 transition-colors hover:bg-slate-100"
-                    title="Sửa"
-                  >
-                    <Edit className="size-3.5" />
-                  </button>
-                  <button
-                    onClick={() => confirmDelete(node)}
-                    className="inline-flex size-7 items-center justify-center rounded-md text-bo-danger transition-colors hover:bg-bo-danger-soft"
-                    title="Xóa mềm"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Mô tả & inline edit */}
-          {node.moTa && !isEditing && (
-            <p className="mt-1 pl-[72px] text-xs italic text-bo-muted">{node.moTa}</p>
-          )}
-          {isEditing && (
-            <div className="mt-1 pl-[72px] pr-3">
-              <textarea
-                value={editForm.moTa || ''}
-                onChange={(e) => setEditForm({ ...editForm, moTa: e.target.value })}
-                placeholder="Mô tả..."
-                rows={2}
-                className="w-full resize-none rounded-md border border-bo-border bg-white px-3 py-1.5 text-xs text-bo-foreground outline-none placeholder:text-bo-muted focus:border-bo-primary"
-              />
-            </div>
-          )}
-        </div>
-
-        {/* ── Danh sách con & form tạo con ── */}
-        {isExpanded && (
-          <div className="mt-1">
-            {/* Chỉ render danh sách con khi node đang mở (isExpanded=true)
-                → tránh render toàn bộ cây cùng lúc, tối ưu hiệu năng DOM. */}
-            {allChildren.map((child) => renderNode(child, level + 1, node.id))}
-            {/* Form tạo con xuất hiện ngay dưới cùng của danh sách con khi đang tạo mới. */}
-            {isCreating && renderCreateForm(node.id)}
-          </div>
-        )}
-      </div>
+  const trongKhiLoc = () => {
+    const soBiAn = demBiAn();
+    if (soBiAn > 0) {
+      const laHoatDong = loc === LOC_TRANG_THAI.HOAT_DONG;
+      const tenLoc = laHoatDong ? "đang hoạt động" : "ngừng hoạt động";
+      const tieuDe = coTuKhoa
+        ? `Không có danh mục ${tenLoc} nào khớp`
+        : nutGoc
+          ? `“${nutGoc.ten}” không có danh mục con ${tenLoc}`
+          : `Không có danh mục nào ${tenLoc}`;
+      return (
+        <EmptyState
+          icon={SearchX}
+          title={tieuDe}
+          description={`Có ${soBiAn} danh mục ${laHoatDong ? "ngừng hoạt động" : "đang hoạt động"}${coTuKhoa ? " khớp" : ""} đang được ẩn.`}
+          action={
+            <Button variant="outline" onClick={() => doiLoc(LOC_TRANG_THAI.TAT_CA)} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
+              Xem tất cả trạng thái
+            </Button>
+          }
+        />
+      );
+    }
+    if (!coTuKhoa && trongNhanh) return trongNhanh;
+    return (
+      <EmptyState
+        icon={SearchX}
+        title="Không có danh mục nào khớp"
+        description={
+          coTuKhoa
+            ? `Không tìm thấy “${tuKhoa.trim()}”${nutGoc && !laDienThoai ? ` trong nhánh “${nutGoc.ten}”` : ""}. Thử bỏ dấu hoặc tìm theo mã.`
+            : "Không có danh mục nào ở trạng thái này."
+        }
+        action={nutXoaLoc}
+      />
     );
   };
 
-  // Danh mục gốc đang hoạt động (node gốc đã khóa không hiển thị trên cây)
-  const activeRoots = treeData.filter((node) => node.trangThai !== 0);
-  // Dòng số lượng chỉ hiện khi đã tải xong, không lỗi và có dữ liệu
-  const showStats = !isLoading && !loadError && stats.total > 0;
-  const formatCount = (value) => value.toLocaleString('vi-VN');
+  const trongNhanh = nutGoc ? (
+    <EmptyState
+      icon={FolderTree}
+      title={`“${nutGoc.ten}” chưa có danh mục con`}
+      description={coTheSua ? "Thêm danh mục con để chia nhỏ nhóm sản phẩm." : "Danh mục con sẽ hiện tại đây khi được thêm."}
+      action={
+        coTheSua && !themVaoNhanhKhoa ? (
+          <Button onClick={() => setHop({ loai: "them", chaId: goc })} className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover">
+            <Plus className="size-4" aria-hidden="true" />
+            Thêm danh mục con
+          </Button>
+        ) : null
+      }
+    />
+  ) : null;
+
+  let than;
+  if (taiDuLieu.initialLoading) {
+    than = <LoadingState label="Đang tải danh mục" className="min-h-64" />;
+  } else if (taiDuLieu.error && !danhSach) {
+    than = (
+      <ErrorState
+        title={KHONG_TAI_DUOC}
+        description={getApiErrorMessage(taiDuLieu.error, "Vui lòng thử lại.")}
+        onRetry={taiLai}
+      />
+    );
+  } else if (!cay.theoId.size) {
+    than = (
+      <EmptyState
+        icon={FolderTree}
+        title="Chưa có danh mục nào"
+        description="Danh mục dùng để nhóm sản phẩm, ví dụ Áo › Áo thun › Áo thun cổ tròn."
+        action={
+          coTheSua ? (
+            <Button onClick={() => setHop({ loai: "them", chaId: null })} className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover">
+              <Plus className="size-4" aria-hidden="true" />
+              Thêm danh mục
+            </Button>
+          ) : null
+        }
+      />
+    );
+  } else if (laDienThoai) {
+    const coDong = tuKhoaChuan
+      ? timPhang(cay, tuKhoa, { loc, trangThai }).length > 0
+      : layDongCap(cay, trangThai, goc, loc).length > 0;
+    than = (
+      <DanhSachDiSau
+        cay={cay}
+        trangThai={trangThai}
+        cha={goc}
+        loc={loc}
+        tuKhoa={tuKhoa}
+        tuKhoaChuan={tuKhoaChuan}
+        coTheSua={coTheSua}
+        layThaoTac={layThaoTac}
+        onVao={xemNhanh}
+        {...xuLy}
+        trong={coDong ? null : trongKhiLoc()}
+      />
+    );
+  } else if (!hienThi.dong.length) {
+    than = trongKhiLoc();
+  } else {
+    than = (
+      <BangCayDanhMuc
+        dong={hienThi.dong}
+        cay={cay}
+        trangThai={trangThai}
+        tuKhoaChuan={tuKhoaChuan}
+        goc={goc}
+        coTheSua={coTheSua}
+        layThaoTac={layThaoTac}
+        onMoDong={moDong}
+        onXemNhanh={xemNhanh}
+        onTha={tha}
+        onDangKeo={setKeo}
+        {...xuLy}
+      />
+    );
+  }
+
+  const coDuLieu = Boolean(danhSach) && cay.theoId.size > 0;
+  const duongDanGoc = nutGoc ? layDuongDan(cay, goc) : [];
+
+  const thanhNhanh = nutGoc && !laDienThoai ? (
+    <nav aria-label="Nhánh đang xem" className="flex flex-wrap items-center gap-x-1.5 gap-y-1 border-b border-bo-border bg-bo-surface-subtle px-4 py-2 text-[13px] text-bo-muted">
+      <span>Đang xem riêng nhánh:</span>
+      <button type="button" onClick={() => xemNhanh(null)} className="rounded px-1 py-0.5 font-medium text-bo-primary hover:bg-bo-primary-soft">
+        Tất cả danh mục
+      </button>
+      {duongDanGoc.map((n, i) => (
+        <span key={n.id} className="flex items-center gap-1.5">
+          <span aria-hidden="true" className="text-slate-400">›</span>
+          {i === duongDanGoc.length - 1 ? (
+            <span aria-current="page" className="font-semibold text-bo-foreground">{n.ten}</span>
+          ) : (
+            <button type="button" onClick={() => xemNhanh(n.id)} className="rounded px-1 py-0.5 font-medium text-bo-primary hover:bg-bo-primary-soft">
+              {n.ten}
+            </button>
+          )}
+        </span>
+      ))}
+      <Button
+        variant="ghost"
+        onClick={() => xemNhanh(null)}
+        className="ml-auto h-8 gap-1.5 px-2.5 text-[13px] font-medium text-slate-600 hover:bg-slate-100 hover:text-bo-foreground"
+      >
+        <ArrowLeft className="size-4" aria-hidden="true" />
+        Xem toàn bộ cây
+      </Button>
+    </nav>
+  ) : null;
+
+  const nutMoTatCa = !laDienThoai && coDuLieu ? (
+    <div className="py-2">
+      <Button
+        variant="ghost"
+        onClick={doiMoTatCa}
+        disabled={!hienThi.coNhanhDeMo}
+        className="h-9 gap-1.5 px-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-bo-foreground"
+      >
+        {hienThi.tatCaDangMo ? (
+          <ChevronsDownUp className="size-4" aria-hidden="true" />
+        ) : (
+          <ChevronsUpDown className="size-4" aria-hidden="true" />
+        )}
+        {hienThi.tatCaDangMo ? "Thu gọn tất cả" : "Mở tất cả"}
+      </Button>
+    </div>
+  ) : null;
+
+  const goiYKeo = keo
+    ? keo.idDich === undefined
+      ? "Thả vào một danh mục để chuyển vào trong đó"
+      : keo.duoc
+        ? `Thả để chuyển vào ${keo.idDich == null ? "danh mục gốc" : `“${cay.theoId.get(keo.idDich)?.ten ?? ""}”`}`
+        : `Không thả vào đây được: ${keo.lyDo}`
+    : "Kéo một dòng thả vào danh mục khác để chuyển nhánh";
+
+  const chanBang = coDuLieu ? (
+    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 text-xs text-bo-muted">
+      <span className="tabular-nums">
+        {thongKe.tong} danh mục · {thongKe.goc} danh mục gốc · {thongKe.ngung} ngừng hoạt động · sâu nhất {thongKe.sauNhat} cấp
+      </span>
+      {coTheSua && !laDienThoai ? (
+        <span aria-live="polite" className={cn(keo && (keo.duoc ? "text-bo-primary-hover" : keo.idDich !== undefined && "text-bo-warning"))}>
+          {goiYKeo}
+        </span>
+      ) : null}
+    </div>
+  ) : null;
 
   return (
-    <PageContainer className="space-y-4">
-      {/* Hàng tiêu đề: tên trang trái, nút chính phải (ListPageHeader dùng chung) */}
-      <ListPageHeader
-        actions={
+    <PageContainer fill className="space-y-4">
+      <ListPageHeader actions={hanhDong} />
+
+      <TableShell
+        fill
+        toolbar={
           <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={fetchTreeData}
-                disabled={isLoading}
-                className="h-9 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-              >
-                <RefreshCcw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
-                Làm mới
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleAddRoot}
-                className="h-9 gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
-              >
-                <Plus className="size-4" />
-                Thêm danh mục gốc
-              </Button>
+            <ListToolbar tabs={nutMoTatCa} hasFilter={dangLoc} onClear={xoaLoc}>
+              <SearchInput
+                label="Tìm danh mục"
+                placeholder="Tìm theo tên hoặc mã danh mục"
+                value={tuKhoa}
+                onChange={(event) => doiTuKhoa(event.target.value)}
+                onClear={() => doiTuKhoa("")}
+                className="sm:w-[320px]"
+              />
+              <LocTrangThai value={loc} onChange={doiLoc} dem={demLoc} />
+            </ListToolbar>
+            {taiDuLieu.error && danhSach ? (
+              <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-bo-border bg-bo-danger-soft px-4 py-2 text-[13px] text-bo-danger">
+                <span className="min-w-0 flex-1">
+                  Không tải lại được danh mục ({getApiErrorMessage(taiDuLieu.error, "lỗi kết nối")}). Bảng đang hiện dữ liệu lần tải trước.
+                </span>
+                <button type="button" onClick={taiLai} className="shrink-0 rounded px-1.5 py-0.5 font-semibold hover:bg-white/60">
+                  Thử lại
+                </button>
+              </div>
+            ) : null}
+            {taiDuLieu.data?.chiHoatDong ? (
+              <p role="status" className="border-b border-bo-border bg-bo-warning-soft px-4 py-2 text-[13px] text-bo-warning">
+                Chỉ tải được danh mục đang hoạt động. Bấm Làm mới để tải lại đủ cả danh mục ngừng hoạt động.
+              </p>
+            ) : null}
+            {thanhNhanh}
           </>
         }
-      />
+        footer={chanBang}
+      >
+        {than}
+      </TableShell>
 
-      {/* ── Main tree ── */}
-      <SurfaceCard>
-        {/* Hướng dẫn kéo thả + số lượng danh mục (số chỉ hiện khi đã tải xong, không lỗi và có dữ liệu) */}
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-bo-muted">
-          <p className="flex items-center gap-1.5">
-            <GripVertical className="size-3.5 shrink-0 text-slate-400" aria-hidden="true" />
-            Kéo và thả để thay đổi mối quan hệ cha – con
-          </p>
-          {showStats ? (
-            <p>
-              {formatCount(stats.total)} danh mục · {formatCount(stats.root)} danh mục gốc · {formatCount(stats.sub)} danh mục con
-            </p>
-          ) : null}
-        </div>
-
-        {/* Drop-to-root zone */}
-        <div
-          onDragOver={(e) => { e.preventDefault(); setDragOverNode('root'); }}
-          onDragLeave={() => setDragOverNode(null)}
-          onDrop={handleDropToRoot}
-          className={`min-h-[400px] rounded-lg border border-dashed p-3 transition-colors ${dragOverNode === 'root' ? 'border-bo-primary bg-bo-primary-soft' : 'border-bo-border bg-bo-surface-subtle'
-            }`}
-        >
-          {isLoading && treeData.length === 0 && creatingNode === null ? (
-            <LoadingState label="Đang tải danh mục" />
-          ) : (
-            <>
-              {creatingNode === 'root' && renderCreateForm('root')}
-
-              {loadError ? (
-                <ErrorState
-                  title="Không thể tải danh mục"
-                  description={loadError}
-                  onRetry={fetchTreeData}
-                />
-              ) : activeRoots.length === 0 && creatingNode !== 'root' ? (
-                <EmptyState
-                  icon={Tag}
-                  title="Chưa có danh mục nào"
-                  description='Nhấn "Thêm danh mục gốc" để bắt đầu'
-                />
-              ) : (
-                // Render toàn bộ node gốc (level=0, parentId=null).
-                // Mỗi node tự đệ quy render node con thông qua renderNode(child, level+1, node.id).
-                // Chỉ hiển thị danh mục gốc đang hoạt động (trangThai !== 0)
-                activeRoots.map((node) => renderNode(node, 0, null))
-              )}
-            </>
-          )}
-        </div>
-      </SurfaceCard>
-
-      {/* ── Delete Confirm Modal ── */}
-      <ConfirmModal
-        isOpen={deleteModal.show}
-        onClose={() => setDeleteModal({ show: false })}
-        onConfirm={handleDelete}
-        title="Xác nhận xóa danh mục"
-        description={
-          <>
-            Bạn có chắc chắn muốn xóa{" "}
-            <strong className="font-semibold text-bo-foreground">"{deleteModal.nodeName}"</strong>?
-            <span className="mt-1 block text-xs font-medium text-bo-danger">
-              Danh mục sẽ được chuyển sang trạng thái ngừng hoạt động và vẫn hiển thị mờ trong danh sách.
-            </span>
-          </>
-        }
-        confirmText="Xác nhận xóa"
-        cancelText="Hủy"
-        variant="danger"
-      />
+      {coTheSua ? (
+        <>
+          <HopDanhMuc
+            open={hop?.loai === "them" || hop?.loai === "sua"}
+            onOpenChange={dongHop}
+            cheDo={hop?.loai === "sua" ? "sua" : "them"}
+            nut={hop?.loai === "sua" ? nutHop : null}
+            chaId={hop?.loai === "them" ? hop.chaId : null}
+            cay={cay}
+            onDaLuu={daLuuDanhMuc}
+          />
+          <HopChuyenDanhMuc
+            open={hop?.loai === "chuyen"}
+            onOpenChange={dongHop}
+            cay={cay}
+            trangThai={trangThai}
+            idChuyen={hop?.loai === "chuyen" ? hop.id : null}
+            onDaChuyen={daChuyen}
+          />
+          <HopNgungHoatDong
+            open={hop?.loai === "ngung"}
+            onOpenChange={dongHop}
+            cay={cay}
+            trangThai={trangThai}
+            nut={hop?.loai === "ngung" ? nutHop : null}
+            onDaNgung={daNgung}
+          />
+        </>
+      ) : null}
     </PageContainer>
   );
-};
-
-export default DanhMucQuanAoTree;
+}

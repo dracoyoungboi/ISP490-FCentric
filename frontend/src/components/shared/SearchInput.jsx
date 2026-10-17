@@ -1,6 +1,8 @@
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Ô type="search": Chrome / Edge / Safari tự vẽ thêm nút × khi có chữ. Ẩn nút đó để chỉ còn nút × của ô này
+// (nút của ô này gọi onClear và đọc được bằng trình đọc màn hình).
 export default function SearchInput({
   value,
   onChange,
@@ -19,7 +21,7 @@ export default function SearchInput({
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="h-9 w-full rounded-md border border-bo-border bg-white py-2 pr-9 pl-9 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15"
+        className="h-9 w-full rounded-md border border-bo-border bg-white py-2 pr-9 pl-9 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 [&::-webkit-search-cancel-button]:appearance-none"
         {...props}
       />
       {value && onClear ? (
