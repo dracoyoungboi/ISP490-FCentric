@@ -33,7 +33,7 @@ import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { getMineKhoList } from "@/services/khoService";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
 import purchaseOrderService from "@/services/purchaseOrderService";
-import { getSupplierById } from "@/services/supplierService";
+import { checkSupplierDelete, getSupplierById } from "@/services/supplierService";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { getKhoLamViecId } from "@/utils/khoLamViec";
 import { ROLES, hasAnyRole } from "@/utils/roles";
@@ -97,6 +97,20 @@ export default function SupplierDetailView() {
   const taiNcc = useCallback(() => getSupplierById(id), [id]);
   const nccQ = useTaiDuLieu(taiNcc, `ncc-${id}`, { enabled: Boolean(id) });
   const ncc = nccQ.data && String(nccQ.data.id) === String(id) ? nccQ.data : null;
+
+  // ── Xóa được không (đã phát sinh giao dịch thì menu ⋯ không hiện Xóa) ───
+  // Hỏi máy chủ thay vì suy từ dữ liệu trên trang: nhân viên mua hàng không xem được phiếu nhập,
+  // lô hàng không tải ở đây, danh sách đơn có thể chỉ là các đơn gần nhất.
+  const taiKiemTraXoa = useCallback(() => checkSupplierDelete(id), [id]);
+  const xoaQ = useTaiDuLieu(taiKiemTraXoa, `kiem-tra-xoa-ncc-${id}`, { enabled: Boolean(id) && coTheQuanLy });
+  // "chua-ro" (kiểm tra lỗi): vẫn hiện Xóa như cũ, hộp thoại xóa tự kiểm tra lại
+  const trangThaiXoa = xoaQ.loading
+    ? "dang-kiem-tra"
+    : xoaQ.error || typeof xoaQ.data?.coTheXoa !== "boolean"
+      ? "chua-ro"
+      : xoaQ.data.coTheXoa
+        ? "duoc"
+        : "khong";
 
   // ── Kho phụ trách (quản lý kho / nhân viên kho) ─────────────────────────
   const khoQ = useTaiDuLieu(getMineKhoList, "kho-phu-trach", { enabled: gioiHanKho });
@@ -266,6 +280,7 @@ export default function SupplierDetailView() {
         <DauTrangNcc
           ncc={ncc}
           coTheQuanLy={coTheQuanLy}
+          trangThaiXoa={trangThaiXoa}
           onQuayLai={quayLai}
           onChinhSua={() => setEditOpen(true)}
           onDoiTrangThai={() => setStatusOpen(true)}
@@ -342,6 +357,7 @@ export default function SupplierDetailView() {
             onOpenChange={setDeleteOpen}
             onDeleted={handleDeleted}
             onStatusChanged={handleStatusChanged}
+            onChecked={xoaQ.setData}
           />
         </>
       ) : null}

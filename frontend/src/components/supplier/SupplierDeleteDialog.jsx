@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, Loader2, ShieldAlert, Trash2 } from "lucide-react";
 
 import {
@@ -28,8 +28,9 @@ function moTaGiaoDich(kiemTra) {
  * Xóa nhà cung cấp: hỏi máy chủ trước rồi mới hiện nội dung phù hợp.
  * - Chưa phát sinh giao dịch (tạo nhầm): xác nhận xóa hẳn.
  * - Đã có giao dịch: không xóa được, đề nghị Ngừng hoạt động (giữ lịch sử, không gửi yêu cầu báo giá mới).
+ * - onChecked(kiemTra): báo kết quả kiểm tra mới nhất cho trang cha (tùy chọn).
  */
-export default function SupplierDeleteDialog({ supplier, open, onOpenChange, onDeleted, onStatusChanged }) {
+export default function SupplierDeleteDialog({ supplier, open, onOpenChange, onDeleted, onStatusChanged, onChecked }) {
     const [session, setSession] = useState(0);
     const [prevOpen, setPrevOpen] = useState(open);
     if (open !== prevOpen) {
@@ -46,23 +47,30 @@ export default function SupplierDeleteDialog({ supplier, open, onOpenChange, onD
                     onClose={() => onOpenChange(false)}
                     onDeleted={onDeleted}
                     onStatusChanged={onStatusChanged}
+                    onChecked={onChecked}
                 />
             ) : null}
         </AlertDialog>
     );
 }
 
-function DeleteContent({ supplier, onClose, onDeleted, onStatusChanged }) {
+function DeleteContent({ supplier, onClose, onDeleted, onStatusChanged, onChecked }) {
     // { loading } | { kiemTra } | { loadError }
     const [check, setCheck] = useState({ loading: true });
     const [working, setWorking] = useState(false);
     const [actionError, setActionError] = useState("");
+    // Giữ trong ref: trang cha truyền hàm mới mỗi lần vẽ thì runCheck không đổi theo (tránh kiểm tra lặp)
+    const onCheckedRef = useRef(onChecked);
+    useEffect(() => {
+        onCheckedRef.current = onChecked;
+    });
 
     const runCheck = useCallback(async () => {
         setCheck({ loading: true });
         try {
             const kiemTra = await checkSupplierDelete(supplier.id);
             setCheck({ kiemTra });
+            onCheckedRef.current?.(kiemTra);
         } catch (error) {
             setCheck({ loadError: getApiErrorMessage(error, "Không kiểm tra được giao dịch của nhà cung cấp") });
         }
@@ -85,6 +93,7 @@ function DeleteContent({ supplier, onClose, onDeleted, onStatusChanged }) {
             const kiemTra = error?.response?.data?.data;
             if (kiemTra && typeof kiemTra === "object" && kiemTra.coTheXoa === false) {
                 setCheck({ kiemTra });
+                onCheckedRef.current?.(kiemTra);
             } else {
                 setActionError(getApiErrorMessage(error, "Xóa thất bại, vui lòng thử lại."));
             }

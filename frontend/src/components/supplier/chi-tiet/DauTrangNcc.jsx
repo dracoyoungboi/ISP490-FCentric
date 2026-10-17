@@ -25,13 +25,16 @@ const MUC_MENU = "cursor-pointer items-start gap-2 rounded-md px-2.5 py-2 text-s
  *
  * Thao tác (chỉ vai trò quản lý nhà cung cấp): ⋯ và nút chính Chỉnh sửa. Menu ⋯ (vị trí 2 đã chốt):
  * Sao chép mã nhà cung cấp, Ngừng hoạt động / Cho phép hoạt động (kèm một dòng hệ quả), vạch ngăn, Xóa.
+ * Xóa theo `trangThaiXoa` (trang cha hỏi máy chủ): "khong" (đã có giao dịch) và "dang-kiem-tra" thì ẩn,
+ * "duoc" thì hiện, "chua-ro" (kiểm tra lỗi) vẫn hiện để hộp thoại xóa tự kiểm tra lại.
  * Điện thoại: hai nút lớn Gọi và Gửi email, Chỉnh sửa chuyển vào ⋯.
  * Màn tự vẽ tiêu đề nên phải "nhận" tiêu đề để layout không vẽ thêm tiêu đề dự phòng.
  */
-export default function DauTrangNcc({ ncc, coTheQuanLy, onQuayLai, onChinhSua, onDoiTrangThai, onXoa }) {
+export default function DauTrangNcc({ ncc, coTheQuanLy, trangThaiXoa, onQuayLai, onChinhSua, onDoiTrangThai, onXoa }) {
   useClaimPageTitle(true);
 
   const dangHoatDong = laHoatDong(ncc);
+  const hienXoa = trangThaiXoa === "duoc" || trangThaiXoa === "chua-ro";
   const [moMenu, setMoMenu] = useState(false);
   const { daChep, saoChep, quenDaChep, taiCho } = useSaoChep();
   const henDongMenu = useRef(0);
@@ -163,14 +166,22 @@ export default function DauTrangNcc({ ncc, coTheQuanLy, onQuayLai, onChinhSua, o
                     </span>
                   </span>
                 </DropdownMenuItem>
-                <DropdownMenuSeparator className="my-1 bg-bo-border" />
-                <DropdownMenuItem onClick={onXoa} className={`${MUC_MENU} focus:bg-bo-danger-soft`}>
-                  <Trash2 className="mt-0.5 size-4 text-bo-danger" aria-hidden="true" />
-                  <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className="font-medium text-bo-danger">Xóa nhà cung cấp</span>
-                    <span className="text-xs leading-4 text-bo-muted">Chỉ xóa được khi chưa có giao dịch</span>
-                  </span>
-                </DropdownMenuItem>
+                {hienXoa ? (
+                  <>
+                    <DropdownMenuSeparator className="my-1 bg-bo-border" />
+                    <DropdownMenuItem onClick={onXoa} className={`${MUC_MENU} focus:bg-bo-danger-soft`}>
+                      <Trash2 className="mt-0.5 size-4 text-bo-danger" aria-hidden="true" />
+                      <span className="flex min-w-0 flex-col gap-0.5">
+                        <span className="font-medium text-bo-danger">Xóa nhà cung cấp</span>
+                        <span className="text-xs leading-4 text-bo-muted">
+                          {trangThaiXoa === "duoc"
+                            ? "Chưa có giao dịch · xóa xong không khôi phục được"
+                            : "Chỉ xóa được khi chưa có giao dịch"}
+                        </span>
+                      </span>
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
                 <span className="sr-only" aria-live="polite">
                   {daChep ? "Đã sao chép mã nhà cung cấp" : ""}
                 </span>
