@@ -713,7 +713,8 @@ public class TongQuanAdminRepository {
 
     /**
      * Mỗi nhánh lấy :soDong chứng từ mới nhất (dùng chỉ mục thời gian), gộp lại rồi lấy :soDong dòng;
-     * số lượng chỉ tính cho các dòng cuối cùng.
+     * số lượng chỉ tính cho các dòng cuối cùng. Phiếu nhập theo đơn mua giữ cả dòng dự kiến (chưa có lô) lẫn dòng
+     * theo lô đã kiểm đếm, nên chỉ cộng dòng theo lô (phiếu cũ không có lô thì cộng mọi dòng).
      */
     static final String SQL_HOAT_DONG = """
             SELECT x.loai, x.id, x.ma,
@@ -721,8 +722,10 @@ public class TongQuanAdminRepository {
                    x.ten_kho, x.nguoi,
                    CASE
                      WHEN x.loai IN ('nhap_kho', 'nhap_chuyen_kho') THEN
-                       (SELECT COALESCE(SUM(ct.so_luong_nhap), 0) FROM chi_tiet_phieu_nhap_kho ct
-                         WHERE ct.phieu_nhap_kho_id = x.id)
+                       (SELECT CASE WHEN SUM(ct.lo_hang_id IS NOT NULL) > 0
+                                    THEN SUM(CASE WHEN ct.lo_hang_id IS NOT NULL THEN ct.so_luong_nhap ELSE 0 END)
+                                    ELSE COALESCE(SUM(ct.so_luong_nhap), 0) END
+                          FROM chi_tiet_phieu_nhap_kho ct WHERE ct.phieu_nhap_kho_id = x.id)
                      WHEN x.loai IN ('xuat_kho', 'xuat_chuyen_kho') THEN
                        (SELECT COALESCE(SUM(ct.so_luong_xuat), 0) FROM chi_tiet_phieu_xuat_kho ct
                          WHERE ct.phieu_xuat_kho_id = x.id AND ct.lo_hang_id IS NOT NULL)
