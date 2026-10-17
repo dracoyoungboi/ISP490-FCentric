@@ -299,7 +299,7 @@ export default function WarehouseManagement() {
                         className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
                     >
                         <Plus className="size-4" />
-                        Thêm kho mới
+                        Thêm kho
                     </Button>
                 }
             />
@@ -391,7 +391,7 @@ export default function WarehouseManagement() {
                                     className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
                                 >
                                     <Plus className="size-4" />
-                                    Thêm kho mới
+                                    Thêm kho
                                 </Button>
                             }
                         />

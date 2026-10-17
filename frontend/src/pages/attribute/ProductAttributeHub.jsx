@@ -442,7 +442,7 @@ const ProductAttributeHub = () => {
                         className="h-9 gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
                     >
                         <Plus className="size-4" />
-                        Thêm {TAB_LABELS[activeTab]} mới
+                        Thêm {TAB_LABELS[activeTab]}
                     </Button>
                 }
             />
