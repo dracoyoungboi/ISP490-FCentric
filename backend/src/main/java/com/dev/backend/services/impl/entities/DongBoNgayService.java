@@ -58,6 +58,8 @@ public class DongBoNgayService {
     static final int TOI_DA_DS_LOI = 50;
     /** Khoảng lấy đơn của đồng bộ tay, giống nút cũ */
     static final Duration KHOANG_LAY_DON = Duration.ofHours(24);
+    /** Lý do hiện cho người dùng khi lỗi không rõ (không lộ chi tiết kỹ thuật) */
+    static final String LOI_MAY_CHU = "Máy chủ gặp lỗi khi đồng bộ, vui lòng thử lại";
 
     private final KenhBanHangDongBoService dongBoService;
     private final Executor luong;
@@ -130,6 +132,9 @@ public class DongBoNgayService {
             log.warn("[Đồng bộ ngay] Kênh {} dừng vì lỗi: {}", phien.maKenh, e.getMessage(), e);
             phien.ketThuc(LOI, thongDiepLoi(e), null);
         } finally {
+            // Lỗi nặng (Error) không vào catch trên và vẫn được ném tiếp; đợt phải kết thúc ở đây,
+            // nếu không sẽ kẹt "đang chạy" và mọi lần bấm sau chỉ trả lại đợt kẹt tới khi khởi động lại máy chủ.
+            phien.ketThuc(LOI, LOI_MAY_CHU, null);
             SecurityContextHolder.clear();
         }
     }
@@ -155,7 +160,7 @@ public class DongBoNgayService {
         if (e instanceof CommonException && e.getMessage() != null && !e.getMessage().isBlank()) {
             return e.getMessage();
         }
-        return "Máy chủ gặp lỗi khi đồng bộ, vui lòng thử lại";
+        return LOI_MAY_CHU;
     }
 
     private static String chuanHoaMa(String maKenh) {

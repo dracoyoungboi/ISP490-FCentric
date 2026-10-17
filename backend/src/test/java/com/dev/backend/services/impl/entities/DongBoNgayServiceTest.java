@@ -326,6 +326,33 @@ class DongBoNgayServiceTest {
     }
 
     @Test
+    void loiNang_dotVanKetThucLoi_bamLaiChayDotMoi_vaErrorKhongBiNuot() {
+        // Như thread pool thật: Error làm chết luồng; ghi lại để biết nó vẫn được ném tiếp
+        AtomicReference<Throwable> nemRa = new AtomicReference<>();
+        DongBoNgayService s = new DongBoNgayService(dongBo, r -> {
+            try {
+                r.run();
+            } catch (Throwable t) {
+                nemRa.set(t);
+            }
+        }, dongHo, Runnable::run);
+        when(dongBo.dayTonTheoQuyTacDaLuu(eq("SHOPIFY"), any())).thenThrow(new StackOverflowError("giả lập"));
+
+        DongBoNgayDto lan1 = s.batDau("SHOPIFY");
+
+        DongBoNgayDto kq = s.hienTai("SHOPIFY");
+        assertEquals(DongBoNgayService.LOI, kq.getTrangThai());
+        assertEquals("Máy chủ gặp lỗi khi đồng bộ, vui lòng thử lại", kq.getLoi());
+        assertNotNull(kq.getKetThuc());
+        assertInstanceOf(StackOverflowError.class, nemRa.get());
+
+        // Không còn kẹt: bấm lại là một đợt mới
+        DongBoNgayDto lan2 = s.batDau("SHOPIFY");
+        assertNotEquals(lan1.getMaPhien(), lan2.getMaPhien());
+        verify(dongBo, times(2)).dayTonTheoQuyTacDaLuu(eq("SHOPIFY"), any());
+    }
+
+    @Test
     void dsLoi_toiDa50DongNhungVanDemDu() {
         String[] skus = new String[60];
         String[] loi = new String[60];
