@@ -189,20 +189,20 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
             kho = findingUpdatingKho.get();
         }
         String loaiKho = chuanHoaLoaiKho(updating.getLoaiKho(), kho.getLoaiKho() != null ? kho.getLoaiKho() : KHO_BAN_HANG);
-        kiemTraKhoAoLuonHoatDong(kho, updating.getTrangThai());
         // Mã KHO_TRANSIT được dùng cố định trong nhiều câu SQL; đổi mã hay loại thì kho ảo mất vai trò (và lách được
-        // quy tắc "luôn hoạt động" ở trên), nên kho ảo chỉ sửa được tên, địa chỉ, người quản lý.
+        // quy tắc "luôn hoạt động" của kho ảo), nên kho ảo chỉ sửa được tên, địa chỉ, người quản lý.
         if (laKhoAo(kho) && (!MA_KHO_AO.equalsIgnoreCase(updating.getMaKho())
                 || !Objects.equals(loaiKho, kho.getLoaiKho() != null ? kho.getLoaiKho() : KHO_BAN_HANG))) {
             throw new CommonException("Kho Trung Chuyển là kho ảo: không đổi được mã kho và loại kho");
         }
-        kiemTraKhoTong(kho.getId(), updating.getMaKho(), loaiKho, updating.getTrangThai());
+        // Sửa thông tin không đổi trạng thái (trangThai trong payload bị bỏ qua): form mở từ trước còn giữ trạng thái cũ,
+        // lưu form sẽ lặng lẽ đảo lại thao tác Ngừng / Cho phép hoạt động. Trạng thái chỉ đổi qua doiTrangThai.
+        kiemTraKhoTong(kho.getId(), updating.getMaKho(), loaiKho, kho.getTrangThai());
         kho.setLoaiKho(loaiKho);
         kho.setMaKho(updating.getMaKho());
         kho.setTenKho(updating.getTenKho());
         kho.setDiaChi(updating.getDiaChi());
         kho.setQuanLy(findingQuanLy.get());
-        kho.setTrangThai(updating.getTrangThai());
         kho = update(updating.getId(), kho);
 
         return ResponseEntity.ok(

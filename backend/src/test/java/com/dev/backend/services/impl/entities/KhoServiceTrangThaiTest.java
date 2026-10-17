@@ -78,12 +78,61 @@ class KhoServiceTrangThaiTest {
         CommonException loi = assertThrows(CommonException.class, () -> service.doiTrangThai(2, 0));
         assertTrue(loi.getMessage().contains("kho ảo"));
 
+        verify(khoRepository, never()).save(any());
+
+        // Lần cập nhật gửi trangThai 0 cũng không ngừng được: sửa kho bỏ qua trạng thái trong payload
         when(nguoiDungService.getOne(7)).thenReturn(Optional.of(NguoiDung.builder().id(7).build()));
         when(khoRepository.findByMaKho("KHO_TRANSIT")).thenReturn(Optional.of(ao));
         KhoUpdating sua = KhoUpdating.builder().id(2).maKho("KHO_TRANSIT").tenKho("Kho Trung Chuyển")
                 .diaChi("—").quanLyId(7).trangThai(0).loaiKho(KhoService.KHO_BAN_HANG).build();
-        assertThrows(CommonException.class, () -> service.update(sua));
+        service.update(sua);
 
+        assertEquals(1, ao.getTrangThai());
+    }
+
+    private Kho khoDangSua(int trangThai) {
+        Kho k = kho(3, "KHO01", KhoService.KHO_BAN_HANG, trangThai);
+        when(nguoiDungService.getOne(7)).thenReturn(Optional.of(NguoiDung.builder().id(7).build()));
+        when(khoRepository.findByMaKho("KHO01")).thenReturn(Optional.of(k));
+        return k;
+    }
+
+    private static KhoUpdating.KhoUpdatingBuilder suaKho01() {
+        return KhoUpdating.builder().id(3).maKho("KHO01").tenKho("Kho Quận 1 (mới)").diaChi("—").quanLyId(7)
+                .loaiKho(KhoService.KHO_BAN_HANG);
+    }
+
+    @Test
+    void suaKho_formMoTuTruocGuiTrangThaiCu_khongBatLaiKhoDaNgung() {
+        // Kho vừa bị Ngừng hoạt động ở tab khác; form Sửa mở từ trước vẫn gửi trangThai = 1
+        Kho k = khoDangSua(0);
+
+        service.update(suaKho01().trangThai(1).build());
+
+        assertEquals(0, k.getTrangThai());
+        assertEquals("Kho Quận 1 (mới)", k.getTenKho());
+        verify(khoRepository).save(k);
+    }
+
+    @Test
+    void suaKho_payloadThieuTrangThai_vanGiuTrangThaiHienTai() {
+        Kho k = khoDangSua(1);
+
+        service.update(suaKho01().build());
+
+        assertEquals(1, k.getTrangThai());
+    }
+
+    @Test
+    void suaKho_doiThanhKhoTong_kiemTraTheoTrangThaiThat_khongLachDuocBangTrangThai0() {
+        // Kho đang hoạt động đổi thành Kho tổng trong khi đã có Kho tổng khác: gửi trangThai 0 cũng không lách được
+        khoDangSua(1);
+        when(khoTongKhac.getResultList()).thenReturn(List.of(Kho.builder().id(9).tenKho("Kho tổng").build()));
+
+        CommonException loi = assertThrows(CommonException.class,
+                () -> service.update(suaKho01().trangThai(0).loaiKho(KhoService.KHO_TONG).build()));
+
+        assertTrue(loi.getMessage().contains("Đã có Kho tổng"));
         verify(khoRepository, never()).save(any());
     }
 
