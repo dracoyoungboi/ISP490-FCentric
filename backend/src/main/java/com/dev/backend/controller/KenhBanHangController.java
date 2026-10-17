@@ -15,6 +15,7 @@ import com.dev.backend.dto.response.entities.LienKetSanPhamDto;
 import com.dev.backend.dto.response.entities.ShopifyConfigResponse;
 import com.dev.backend.services.KenhBanHangDongBoService;
 import com.dev.backend.services.KenhBanHangService;
+import com.dev.backend.services.impl.entities.DongBoNgayService;
 import com.dev.backend.services.impl.entities.KenhCauHinhDongBoService;
 import com.dev.backend.services.impl.entities.KenhThongKeDonService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -42,6 +43,7 @@ public class KenhBanHangController {
     KenhBanHangDongBoService kenhBanHangDongBoService;
     KenhCauHinhDongBoService kenhCauHinhDongBoService;
     KenhThongKeDonService kenhThongKeDonService;
+    DongBoNgayService dongBoNgayService;
 
     @GetMapping("/shopify")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
@@ -330,6 +332,45 @@ public class KenhBanHangController {
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangDongBoService.layDonHang(maKenh, request))
                         .message("Lấy đơn hàng từ sàn thành công")
+                        .build()
+        );
+    }
+
+    @PostMapping("/{maKenh}/dong-bo-ngay")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Bắt đầu đồng bộ tay chạy nền (đẩy tồn theo quy tắc đã lưu rồi lấy đơn 24 giờ qua); đang chạy thì trả đợt đang chạy")
+    public ResponseEntity<ResponseData<DongBoNgayDto>> batDauDongBoNgay(@PathVariable String maKenh) {
+        return ResponseEntity.ok(
+                ResponseData.<DongBoNgayDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(dongBoNgayService.batDau(maKenh))
+                        .message("Đã bắt đầu đồng bộ")
+                        .build()
+        );
+    }
+
+    @GetMapping("/{maKenh}/dong-bo-ngay")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Tiến độ đợt đồng bộ tay gần nhất của kênh (null nếu chưa có đợt nào từ khi máy chủ khởi động)")
+    public ResponseEntity<ResponseData<DongBoNgayDto>> layDongBoNgay(@PathVariable String maKenh) {
+        return ResponseEntity.ok(
+                ResponseData.<DongBoNgayDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(dongBoNgayService.hienTai(maKenh))
+                        .message("Lấy tiến độ đồng bộ thành công")
+                        .build()
+        );
+    }
+
+    @PostMapping("/{maKenh}/dong-bo-ngay/dung")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Dừng đợt đồng bộ tay đang chạy sau SKU đang đẩy (bỏ bước lấy đơn)")
+    public ResponseEntity<ResponseData<DongBoNgayDto>> dungDongBoNgay(@PathVariable String maKenh) {
+        return ResponseEntity.ok(
+                ResponseData.<DongBoNgayDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(dongBoNgayService.dung(maKenh))
+                        .message("Đã yêu cầu dừng đồng bộ")
                         .build()
         );
     }

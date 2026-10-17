@@ -1,6 +1,34 @@
 import apiClient from "./apiClient";
 
+/**
+ * Yêu cầu về một kho cụ thể (popup Chi tiết kho): gửi header kho_id là chính kho đó thay cho kho làm việc,
+ * để backend (inWarehouse) kiểm tra quyền đúng kho đang xem.
+ */
+const theoKho = (id) => ({ needKho: false, headers: { kho_id: String(id) } });
+
 export const khoService = {
+  /**
+   * Số liệu tóm tắt cho popup Chi tiết kho:
+   * { khoId, soLuongTon, soLuongKhaDung, soLuongDangGiu, giaTriTon, soMaHang, soMaHetHang, soMaSapHet,
+   *   nguongSapHet, soNguoiPhanQuyen }. Quản lý kho chỉ xem được kho mình phụ trách (403).
+   */
+  tomTat: async (id) => {
+    const res = await apiClient.get(`/api/v1/kho/${id}/tom-tat`, theoKho(id));
+    return res.data?.data ?? null;
+  },
+  /** Khu vực và vị trí kệ của một kho: { khuVucs, viTris }. */
+  khuVucVaViTri: async (id) => {
+    const [khuVuc, viTri] = await Promise.all([
+      apiClient.get(`/api/v1/kho/${id}/khu-vuc`, theoKho(id)),
+      apiClient.get(`/api/v1/kho/${id}/vi-tri`, theoKho(id)),
+    ]);
+    return { khuVucs: khuVuc.data?.data ?? [], viTris: viTri.data?.data ?? [] };
+  },
+  /** Ngừng hoạt động (0) / cho phép hoạt động lại (1); trả về kho sau khi đổi. */
+  doiTrangThai: async (id, trangThai) => {
+    const res = await apiClient.put(`/api/v1/kho/${id}/trang-thai`, { trangThai });
+    return res.data?.data ?? null;
+  },
   filter: (payload) => {
     console.log(payload);
     return apiClient.post("/api/v1/kho/filter", payload);
@@ -14,12 +42,12 @@ export const khoService = {
     try {
       return await apiClient.put("/api/v1/kho/update", payload);
     } catch (error) {
-      // Backward compatibility for BE versions that still accept POST.
-      return apiClient.post("/api/v1/kho/update", payload);
+      // Chỉ thử POST khi máy chủ cũ không nhận PUT. Lỗi nghiệp vụ (vd. "Đã có Kho tổng đang hoạt động")
+      // phải trả nguyên cho màn hình, trước đây bị lỗi của lần gọi POST đè mất.
+      const status = error?.response?.status;
+      if (status === 404 || status === 405) return apiClient.post("/api/v1/kho/update", payload);
+      throw error;
     }
-  },
-  delete: (id) => {
-    return apiClient.delete(`/api/v1/kho/soft-delete/${id}`);
   },
   getAllKho: async () => {
     const res = await apiClient.post("/api/v1/kho/filter", {

@@ -2,6 +2,7 @@ package com.dev.backend.services.impl.entities;
 
 import com.dev.backend.dto.request.KhoCreating;
 import com.dev.backend.dto.request.KhoUpdating;
+import com.dev.backend.dto.response.KhoTomTatResponse;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.entities.KhoDto;
 import com.dev.backend.entities.Kho;
@@ -9,7 +10,9 @@ import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.KhoMapper;
 import com.dev.backend.repository.KhoRepository;
+import com.dev.backend.repository.KhoTomTatRepository;
 import com.dev.backend.services.impl.BaseServiceImpl;
+import com.dev.backend.services.impl.multitable.TongQuanAdminServiceImpl;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,7 +21,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -41,6 +47,11 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
     private NguoiDungService nguoiDungService;
     @Autowired
     private KhoMapper khoMapper;
+    @Autowired
+    private KhoTomTatRepository khoTomTatRepository;
+
+    /** Ngưỡng sắp hết mặc định: cấu hình DEFAULT_MIN_STOCK_ALERT, chưa đặt thì dùng mặc định của Tổng quan. */
+    private static final String CH_NGUONG_SAP_HET = "DEFAULT_MIN_STOCK_ALERT";
 
     /** Loại kho (cột kho.loai_kho). */
     public static final String KHO_TONG = "kho_tong";
@@ -178,6 +189,13 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
             kho = findingUpdatingKho.get();
         }
         String loaiKho = chuanHoaLoaiKho(updating.getLoaiKho(), kho.getLoaiKho() != null ? kho.getLoaiKho() : KHO_BAN_HANG);
+        kiemTraKhoAoLuonHoatDong(kho, updating.getTrangThai());
+        // Mã KHO_TRANSIT được dùng cố định trong nhiều câu SQL; đổi mã hay loại thì kho ảo mất vai trò (và lách được
+        // quy tắc "luôn hoạt động" ở trên), nên kho ảo chỉ sửa được tên, địa chỉ, người quản lý.
+        if (laKhoAo(kho) && (!MA_KHO_AO.equalsIgnoreCase(updating.getMaKho())
+                || !Objects.equals(loaiKho, kho.getLoaiKho() != null ? kho.getLoaiKho() : KHO_BAN_HANG))) {
+            throw new CommonException("Kho Trung Chuyển là kho ảo: không đổi được mã kho và loại kho");
+        }
         kiemTraKhoTong(kho.getId(), updating.getMaKho(), loaiKho, updating.getTrangThai());
         kho.setLoaiKho(loaiKho);
         kho.setMaKho(updating.getMaKho());
@@ -194,6 +212,61 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
                         .message("Success")
                         .build()
         );
+    }
+
+    /** Kho ảo giữ hàng đang chuyển giữa các kho, ngừng nó thì phiếu chuyển đang đi không nhận được. */
+    private static void kiemTraKhoAoLuonHoatDong(Kho kho, Integer trangThaiMoi) {
+        if (laKhoAo(kho) && !Integer.valueOf(1).equals(trangThaiMoi)) {
+            throw new CommonException("Kho Trung Chuyển là kho ảo giữ hàng đang chuyển giữa các kho, không ngừng hoạt động được");
+        }
+    }
+
+    /**
+     * Ngừng hoạt động (0) / cho phép hoạt động lại (1). Tồn kho, lịch sử và chứng từ cũ giữ nguyên;
+     * kho ngừng hoạt động chỉ không chọn được cho chứng từ mới (kiemTraKhoGiaoDich).
+     * Cho phép lại một Kho tổng thì vẫn phải bảo đảm chỉ có một Kho tổng đang hoạt động.
+     */
+    @Transactional
+    public Kho doiTrangThai(Integer id, Integer trangThai) {
+        if (trangThai == null || (trangThai != 0 && trangThai != 1)) {
+            throw new CommonException("Trạng thái không hợp lệ");
+        }
+        Kho kho = getOne(id).orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy kho id: " + id));
+        kiemTraKhoAoLuonHoatDong(kho, trangThai);
+        if (trangThai.equals(kho.getTrangThai())) {
+            return kho;
+        }
+        String loaiKho = kho.getLoaiKho() != null ? kho.getLoaiKho() : KHO_BAN_HANG;
+        kiemTraKhoTong(kho.getId(), kho.getMaKho(), loaiKho, trangThai);
+        kho.setTrangThai(trangThai);
+        return update(kho.getId(), kho);
+    }
+
+    /** Số liệu tóm tắt cho popup Chi tiết kho; xem KhoTomTatRepository về cách tính. */
+    @Transactional(readOnly = true)
+    public KhoTomTatResponse tomTat(Integer khoId) {
+        if (getOne(khoId).isEmpty()) {
+            throw new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy kho id: " + khoId);
+        }
+        Integer cauHinh = khoTomTatRepository.cauHinhSoDuong(CH_NGUONG_SAP_HET);
+        int nguong = cauHinh != null ? cauHinh : TongQuanAdminServiceImpl.NGUONG_TON_MAC_DINH;
+        KhoTomTatRepository.TonKhoDong ton = khoTomTatRepository.tonKho(khoId, nguong);
+        return new KhoTomTatResponse(
+                khoId,
+                tron(ton.ton()),
+                tron(ton.khaDung()),
+                tron(ton.dangGiu()),
+                tron(ton.giaTri()),
+                ton.soMaHang(),
+                ton.soMaHetHang(),
+                ton.soMaSapHet(),
+                nguong,
+                khoTomTatRepository.soNguoiPhanQuyen(khoId)
+        );
+    }
+
+    private static long tron(BigDecimal v) {
+        return v == null ? 0L : v.setScale(0, RoundingMode.HALF_UP).longValue();
     }
 
 }

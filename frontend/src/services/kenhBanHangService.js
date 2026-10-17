@@ -71,6 +71,12 @@ const realApi = {
   // ── Tồn kho và đơn hàng ──
   dayTon: (maKenh, payload = {}) => apiClient.post(`${BASE}/${ma(maKenh)}/day-ton`, payload).then(data),
   layDon: (maKenh, { tu, den } = {}) => apiClient.post(`${BASE}/${ma(maKenh)}/lay-don`, { tu, den }).then(data),
+
+  // ── Đồng bộ ngay: máy chủ chạy nền (đẩy tồn theo quy tắc đã lưu rồi lấy đơn 24 giờ qua), trang hỏi tiến độ ──
+  batDauDongBoNgay: (maKenh) => apiClient.post(`${BASE}/${ma(maKenh)}/dong-bo-ngay`).then(data),
+  /** Đợt gần nhất của kênh; null nếu chưa có đợt nào từ khi máy chủ khởi động. */
+  layDongBoNgay: (maKenh) => apiClient.get(`${BASE}/${ma(maKenh)}/dong-bo-ngay`).then(data),
+  dungDongBoNgay: (maKenh) => apiClient.post(`${BASE}/${ma(maKenh)}/dong-bo-ngay/dung`).then(data),
 };
 
 // ── Dữ liệu mẫu: dựng lại đúng hình dạng API thật từ kenhBanHangMock ──
@@ -114,6 +120,42 @@ function mockThongKeDon(tu, den) {
     tyLeHuy: tongDon ? Math.round((donHuy * 1000) / tongDon) / 10 : 0,
     theoNgay,
     theoTrangThai: { 0: 2, 1: 3, 7: 1, 8: 0, 3: 4, 5: 18, 4: donHuy },
+  };
+}
+
+/** Đồng bộ ngay mẫu: tiến độ tính theo đồng hồ, cùng hình dạng DongBoNgayDto của máy chủ. */
+const MOCK_DONG_BO = { tongSku: 12, docSanPhamMs: 1200, moiSkuMs: 600, layDonMs: 1500 };
+let mockPhienDongBo = null;
+
+function mockChupDongBo() {
+  const p = mockPhienDongBo;
+  if (!p) return null;
+  const { tongSku, docSanPhamMs, moiSkuMs, layDonMs } = MOCK_DONG_BO;
+  const daChayMs = (p.dungLuc ?? Date.now()) - p.batDauLuc;
+  const daXuLy = Math.max(0, Math.min(tongSku, Math.floor((daChayMs - docSanPhamMs) / moiSkuMs)));
+  const xong = !p.dungLuc && daChayMs >= docSanPhamMs + tongSku * moiSkuMs + layDonMs;
+  const giaiDoan = daChayMs < docSanPhamMs ? "doc_san_pham" : daXuLy < tongSku ? "day_ton" : "lay_don";
+  const trangThai = p.dungLuc ? "da_dung" : xong ? "xong" : "dang_chay";
+  return {
+    maPhien: p.maPhien,
+    maKenh: "SHOPIFY",
+    trangThai,
+    giaiDoan,
+    tongSku: giaiDoan === "doc_san_pham" ? null : tongSku,
+    daXuLy,
+    soThanhCong: daXuLy,
+    soLoi: 0,
+    soChuaDay: trangThai === "dang_chay" ? null : tongSku - daXuLy,
+    skuDangDay: trangThai === "dang_chay" && giaiDoan === "day_ton" ? `MAU-${String(daXuLy + 1).padStart(3, "0")}` : null,
+    soDonMoi: xong ? 2 : null,
+    loi: null,
+    yeuCauDung: Boolean(p.dungLuc),
+    nguoiBam: "Dữ liệu mẫu",
+    batDau: new Date(p.batDauLuc).toISOString(),
+    ketThuc: trangThai === "dang_chay" ? null : new Date(p.batDauLuc + daChayMs).toISOString(),
+    daChayMs,
+    dayTonDaChayMs: daChayMs < docSanPhamMs ? null : Math.min(daChayMs - docSanPhamMs, tongSku * moiSkuMs),
+    dsLoi: [],
   };
 }
 
@@ -200,6 +242,25 @@ const mockApi = {
   async layDon(_maKenh, range) {
     const res = await kenhBanHangMock.layDon(MOCK_KET_NOI_ID, range);
     return { soDonMoi: res.soSuKien ?? 0, soDonCapNhat: 0, thongDiep: `Nhận ${res.soSuKien ?? 0} đơn hàng mới` };
+  },
+
+  async batDauDongBoNgay() {
+    await mockDelay(150, 300);
+    if (mockChupDongBo()?.trangThai !== "dang_chay") {
+      mockPhienDongBo = { maPhien: `mau-${Date.now()}`, batDauLuc: Date.now(), dungLuc: null };
+    }
+    return mockChupDongBo();
+  },
+  async layDongBoNgay() {
+    await mockDelay(80, 160);
+    return mockChupDongBo();
+  },
+  async dungDongBoNgay() {
+    await mockDelay(80, 160);
+    // Như máy chủ: dừng được khi chưa tới bước lấy đơn
+    const hienTai = mockChupDongBo();
+    if (hienTai?.trangThai === "dang_chay" && hienTai.giaiDoan !== "lay_don") mockPhienDongBo.dungLuc = Date.now();
+    return mockChupDongBo();
   },
 };
 

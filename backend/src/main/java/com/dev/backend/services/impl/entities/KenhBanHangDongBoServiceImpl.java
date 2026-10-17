@@ -519,6 +519,15 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
     @Override
     public DayTonResultDto dayTonKhoLenKenh(String maKenh, DayTonKenhRequest request) {
+        return dayTonKhoLenKenh(maKenh, request, TheoDoiDayTon.KHONG_THEO_DOI);
+    }
+
+    @Override
+    public DayTonResultDto dayTonTheoQuyTacDaLuu(String maKenh, TheoDoiDayTon theoDoi) {
+        return dayTonKhoLenKenh(maKenh, quyTacDaLuu(maKenh), theoDoi != null ? theoDoi : TheoDoiDayTon.KHONG_THEO_DOI);
+    }
+
+    DayTonResultDto dayTonKhoLenKenh(String maKenh, DayTonKenhRequest request, TheoDoiDayTon theoDoi) {
         KenhBanHang kenh = getKenhActive(maKenh);
         BigDecimal tyLe = request.getTyLeDayTon() != null ? request.getTyLeDayTon() : BigDecimal.valueOf(100);
         int tonDem = request.getTonDem() != null ? request.getTonDem() : 0;
@@ -533,7 +542,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         int soThanhCong = 0;
         int soLoi = 0;
         int daXuLy = 0;
+        boolean dungTheoYeuCau = false;
         if (loiKenh == null) {
+            theoDoi.batDauDay(dongCanDay.size());
             for (TrangThaiDongBoSanPham dong : dongCanDay) {
                 // Throttling 250ms bảo vệ Shopify leaky bucket rate limit khi đẩy danh sách SKU
                 if (daXuLy > 0) {
@@ -541,8 +552,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         Thread.sleep(250);
                     } catch (InterruptedException ignored) {}
                 }
+                if (theoDoi.canDung()) {
+                    dungTheoYeuCau = true;
+                    break;
+                }
+                BienTheSanPham bt = dong.getBienTheSanPham();
+                theoDoi.dangDay(bt.getMaSku());
                 // Free to Use toàn chuỗi rồi áp công thức BR-OC-10
-                int soDay = tinhSoTonDay(khaDungToanChuoi(dong.getBienTheSanPham().getId()), tyLe, tonDem, nguongVe0);
+                int soDay = tinhSoTonDay(khaDungToanChuoi(bt.getId()), tyLe, tonDem, nguongVe0);
                 KetQuaGuiTon kq = dayTonChoDong(dong, ketNoi, soDay);
                 if (kq.loiKenh()) {
                     loiKenh = kq.lyDo();
@@ -555,6 +572,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     soLoi++;
                 }
                 trangThaiDongBoSanPhamRepository.save(dong);
+                theoDoi.daDay(bt.getMaSku(), kq.thanhCong() ? null : tenHienThi(bt), kq.thanhCong(), kq.lyDo());
             }
         }
         int soChuaDay = dongCanDay.size() - daXuLy;
@@ -562,8 +580,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (soThanhCong > 0) {
             lanDayTonCuoi.put(kenh.getId(), Instant.now());
         }
-        ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_ton_kho,
-                moTaKetQuaDayTon(maKenh, ketNoi.tenDiaDiem(), soThanhCong, soLoi, soChuaDay, loiKenh));
+        String moTa = moTaKetQuaDayTon(maKenh, ketNoi.tenDiaDiem(), soThanhCong, soLoi, soChuaDay, loiKenh);
+        if (dungTheoYeuCau) {
+            moTa += "; dừng theo yêu cầu, còn " + soChuaDay + " SKU chưa đẩy";
+        }
+        ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_ton_kho, moTa);
         return DayTonResultDto.builder()
                 .soDong(soThanhCong)
                 .soLoi(soLoi)
@@ -971,6 +992,18 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         String clean = apiUrl.trim().replaceFirst("^(?i)https?://", "");
         int slashIdx = clean.indexOf('/');
         return (slashIdx > 0 ? clean.substring(0, slashIdx) : clean).trim().toLowerCase();
+    }
+
+    /** "Tên sản phẩm - Màu - Size" cho danh sách SKU lỗi; đọc không được thì null (không làm hỏng đợt đẩy). */
+    private String tenHienThi(BienTheSanPham bt) {
+        try {
+            String tenSp = bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : null;
+            String bienThe = buildVariantName(bt);
+            if (tenSp == null) return bienThe.isBlank() ? null : bienThe;
+            return bienThe.isBlank() ? tenSp : tenSp + " - " + bienThe;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private String buildVariantName(BienTheSanPham bt) {

@@ -23,6 +23,30 @@ public interface KenhBanHangDongBoService {
 
     DayTonResultDto dayTonKhoLenKenh(String maKenh, DayTonKenhRequest request);
 
+    /** Đẩy tồn theo quy tắc đã lưu của kênh, báo tiến độ từng SKU cho {@code theoDoi} (đồng bộ tay chạy nền). */
+    DayTonResultDto dayTonTheoQuyTacDaLuu(String maKenh, TheoDoiDayTon theoDoi);
+
+    /**
+     * Nhận tiến độ của một đợt đẩy tồn. Gọi trên luồng đang đẩy, theo thứ tự:
+     * {@code batDauDay} (đã kết nối Shopify) → mỗi SKU {@code dangDay} rồi {@code daDay}.
+     * Lỗi cả gian hàng thì dừng giữa chừng, SKU gặp lỗi đó không có {@code daDay}.
+     */
+    interface TheoDoiDayTon {
+        TheoDoiDayTon KHONG_THEO_DOI = new TheoDoiDayTon() {};
+
+        default void batDauDay(int tongSku) {}
+
+        default void dangDay(String maSku) {}
+
+        /** {@code tenSku} chỉ có khi lỗi (để hiện danh sách lỗi), thành công thì null. */
+        default void daDay(String maSku, String tenSku, boolean thanhCong, String lyDo) {}
+
+        /** true thì dừng trước SKU kế tiếp; SKU đã đẩy giữ nguyên. */
+        default boolean canDung() {
+            return false;
+        }
+    }
+
     void dayTonKhoKhanCap(Integer bienTheSanPhamId);
 
     DongBoTongQuanDto getTongQuan(String maKenh);

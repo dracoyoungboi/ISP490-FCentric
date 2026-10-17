@@ -5,8 +5,10 @@ import com.dev.backend.entities.KenhBanHang;
 import com.dev.backend.event.InventoryDeductedEvent;
 import com.dev.backend.repository.KenhBanHangRepository;
 import com.dev.backend.services.KenhBanHangDongBoService;
+import com.dev.backend.services.impl.entities.DongBoNgayService;
 import com.dev.backend.services.multitable.DieuHanhHeThongService;
 import com.dev.backend.utils.KenhCauHinhDongBo;
+import jakarta.persistence.EntityManagerFactory;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -36,6 +38,7 @@ public class InventoryChannelSyncJob {
     KenhBanHangDongBoService kenhBanHangDongBoService;
     KenhBanHangRepository kenhBanHangRepository;
     DieuHanhHeThongService dieuHanhHeThongService;
+    EntityManagerFactory entityManagerFactory;
     AtomicReference<Instant> lastSyncTime = new AtomicReference<>(Instant.EPOCH);
 
     /**
@@ -75,14 +78,18 @@ public class InventoryChannelSyncJob {
                         .tonDem(KenhCauHinhDongBo.tonDem(dieuHanhHeThongService, kenh.getMaKenh()))
                         .nguongVe0(KenhCauHinhDongBo.nguongVe0(dieuHanhHeThongService, kenh.getMaKenh()))
                         .build();
-                var result = kenhBanHangDongBoService.dayTonKhoLenKenh(kenh.getMaKenh(), req);
-                if (result.getLoiKenh() != null) {
-                    log.warn("[JOB-03 Batch] Đồng bộ tồn kho định kỳ kênh {}: {} SKU thành công, {} SKU lỗi, {} SKU chưa đẩy — {}",
-                            kenh.getMaKenh(), result.getSoDong(), result.getSoLoi(), result.getSoChuaDay(), result.getLoiKenh());
-                } else {
-                    log.info("[JOB-03 Batch] Đồng bộ tồn kho định kỳ kênh {}: {} SKU thành công, {} SKU lỗi",
-                            kenh.getMaKenh(), result.getSoDong(), result.getSoLoi());
-                }
+                // Luồng @Scheduled không có phiên JPA như request HTTP: thiếu phiên thì đọc quan hệ LAZY của dòng liên kết
+                // bị "no session". Không bọc @Transactional cả đợt: một SKU lỗi sẽ rollback cả các SKU đã đẩy.
+                DongBoNgayService.chayTrongPhienJpa(entityManagerFactory, () -> {
+                    var result = kenhBanHangDongBoService.dayTonKhoLenKenh(kenh.getMaKenh(), req);
+                    if (result.getLoiKenh() != null) {
+                        log.warn("[JOB-03 Batch] Đồng bộ tồn kho định kỳ kênh {}: {} SKU thành công, {} SKU lỗi, {} SKU chưa đẩy — {}",
+                                kenh.getMaKenh(), result.getSoDong(), result.getSoLoi(), result.getSoChuaDay(), result.getLoiKenh());
+                    } else {
+                        log.info("[JOB-03 Batch] Đồng bộ tồn kho định kỳ kênh {}: {} SKU thành công, {} SKU lỗi",
+                                kenh.getMaKenh(), result.getSoDong(), result.getSoLoi());
+                    }
+                });
             } catch (Exception e) {
                 log.warn("[JOB-03 Batch] Lỗi đồng bộ tồn kho kênh {}: {}", kenh.getMaKenh(), e.getMessage());
             }

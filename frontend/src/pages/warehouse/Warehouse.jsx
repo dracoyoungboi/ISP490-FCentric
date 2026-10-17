@@ -1,6 +1,6 @@
 import { getApiErrorMessage } from "@/utils/apiError";
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Edit, Eye, Package, Plus, SearchX, Trash2 } from 'lucide-react';
+import { Edit, Eye, Package, Plus, SearchX } from 'lucide-react';
 
 import PageContainer from '@/components/backoffice/PageContainer';
 import EmptyState from '@/components/shared/EmptyState';
@@ -21,11 +21,12 @@ import { toast } from '@/lib/thongBaoNhanh';
 import { khoService } from '@/services/khoService';
 import useDemTheoTrangThai from '@/hooks/useDemTheoTrangThai';
 import useTabTrenUrl from '@/hooks/useTabTrenUrl';
-import { useToggle } from '@/hooks/useToggle';
-import ConfirmModal from '@/components/ui/confirm-modal';
+import { hasAnyRole, ROLES } from '@/utils/roles';
 import {
     WarehouseDialog
 } from '.';
+import ChiTietKhoDialog from './ChiTietKhoDialog';
+import HopTrangThaiKho from './HopTrangThaiKho';
 import { laKhoAo, nhanLoaiKho } from './loaiKho';
 
 /* ── Tab trạng thái (bố cục A+G) — giữ trên URL ?trangThai= ── */
@@ -84,9 +85,11 @@ export default function WarehouseManagement() {
     const [showDialog, setShowDialog] = useState(false);
     const [dialogMode, setDialogMode] = useState('create');
     const [selectedWarehouse, setSelectedWarehouse] = useState(null);
-    const [isConfirmOpen, openConfirm, closeConfirm] = useToggle(false);
-    const [warehouseToDelete, setWarehouseToDelete] = useState(null);
-    const [isDeleting, setIsDeleting] = useState(false);
+    // Popup Chi tiết kho (PA2) và hộp Ngừng / Cho phép hoạt động (thay cho nút "Xóa kho" cũ)
+    const [chiTiet, setChiTiet] = useState({ open: false, kho: null });
+    const [doiTrangThai, setDoiTrangThai] = useState({ open: false, kho: null });
+    // Thêm / sửa / đổi trạng thái kho là quyền của quản trị viên (API create, update, trang-thai)
+    const laQuanTriVien = hasAnyRole([ROLES.QUAN_TRI_VIEN]);
 
     const [formData, setFormData] = useState({
         maKho: '', tenKho: '', diaChi: '', quanLyId: '', trangThai: 1, loaiKho: 'cua_hang',
@@ -231,6 +234,8 @@ export default function WarehouseManagement() {
     };
 
     /* ── Dialog ── */
+    const moChiTiet = (wh) => setChiTiet({ open: true, kho: wh });
+
     const handleOpenDialog = (mode, wh = null) => {
         setDialogMode(mode);
         setSelectedWarehouse(wh);
@@ -262,24 +267,15 @@ export default function WarehouseManagement() {
         }
     };
 
-    const handleDeleteClick = useCallback((wh) => { setWarehouseToDelete(wh); openConfirm(); }, [openConfirm]);
-
-    const handleConfirmDelete = useCallback(async () => {
-        if (!warehouseToDelete) return;
-        try {
-            setIsDeleting(true);
-            await khoService.delete(warehouseToDelete.id);
-            toast.success('Xóa kho thành công.');
-            closeConfirm(); setWarehouseToDelete(null); fetchWarehouses(); reloadCounts();
-        } catch (err) {
-            console.error('Lỗi khi xóa kho:', err);
-            toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi xóa kho');
-        } finally { setIsDeleting(false); }
-    }, [warehouseToDelete, closeConfirm, fetchWarehouses, reloadCounts]);
-
-    const handleCancelDelete = useCallback(() => {
-        if (!isDeleting) { setWarehouseToDelete(null); closeConfirm(); }
-    }, [isDeleting, closeConfirm]);
+    // Sau khi đổi trạng thái: cập nhật ngay dòng và popup đang mở, rồi tải lại danh sách + số trên tab
+    const handleTrangThaiDaDoi = (khoMoi) => {
+        const hoatDong = Number(khoMoi?.trangThai) === 1;
+        toast.success(hoatDong ? `Đã cho phép ${khoMoi.tenKho} hoạt động lại.` : `Đã ngừng hoạt động ${khoMoi.tenKho}.`);
+        setWarehouses(prev => prev.map(w => (w.id === khoMoi.id ? { ...w, ...khoMoi } : w)));
+        setChiTiet(prev => (prev.kho?.id === khoMoi.id ? { ...prev, kho: { ...prev.kho, ...khoMoi } } : prev));
+        fetchWarehouses();
+        reloadCounts();
+    };
 
     // Số chỉ hiện khi đã đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs
     const statusTabs = STATUS_TABS.map((t) => ({
@@ -294,13 +290,15 @@ export default function WarehouseManagement() {
         <PageContainer fill className="space-y-4">
             <ListPageHeader
                 actions={
-                    <Button
-                        onClick={() => handleOpenDialog('create')}
-                        className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
-                    >
-                        <Plus className="size-4" />
-                        Thêm kho
-                    </Button>
+                    laQuanTriVien ? (
+                        <Button
+                            onClick={() => handleOpenDialog('create')}
+                            className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
+                        >
+                            <Plus className="size-4" />
+                            Thêm kho
+                        </Button>
+                    ) : null
                 }
             />
 
@@ -386,13 +384,15 @@ export default function WarehouseManagement() {
                             title="Chưa có kho"
                             description="Thêm kho để quản lý tồn kho và người phụ trách từng kho."
                             action={
-                                <Button
-                                    onClick={() => handleOpenDialog('create')}
-                                    className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
-                                >
-                                    <Plus className="size-4" />
-                                    Thêm kho
-                                </Button>
+                                laQuanTriVien ? (
+                                    <Button
+                                        onClick={() => handleOpenDialog('create')}
+                                        className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
+                                    >
+                                        <Plus className="size-4" />
+                                        Thêm kho
+                                    </Button>
+                                ) : null
                             }
                         />
                     )
@@ -428,7 +428,11 @@ export default function WarehouseManagement() {
                         </thead>
                         <tbody className="divide-y divide-bo-border">
                             {warehouses.map((wh, idx) => (
-                                <tr key={wh.id} className="transition-colors hover:bg-bo-surface-subtle">
+                                <tr
+                                    key={wh.id}
+                                    onClick={() => moChiTiet(wh)}
+                                    className={`cursor-pointer transition-colors hover:bg-bo-surface-subtle ${chiTiet.open && chiTiet.kho?.id === wh.id ? 'bg-bo-primary-soft' : ''}`}
+                                >
                                     <td className="px-3 py-3 text-center text-xs text-bo-muted">
                                         {pagination.pageNumber * pagination.pageSize + idx + 1}
                                     </td>
@@ -466,19 +470,15 @@ export default function WarehouseManagement() {
                                             <RowActionButton
                                                 icon={Eye}
                                                 label="Xem chi tiết"
-                                                onClick={() => handleOpenDialog('view', wh)}
+                                                onClick={() => moChiTiet(wh)}
                                             />
-                                            <RowActionButton
-                                                icon={Edit}
-                                                label="Chỉnh sửa"
-                                                onClick={() => handleOpenDialog('edit', wh)}
-                                            />
-                                            <RowActionButton
-                                                icon={Trash2}
-                                                label="Xóa kho"
-                                                tone="danger"
-                                                onClick={() => handleDeleteClick(wh)}
-                                            />
+                                            {laQuanTriVien ? (
+                                                <RowActionButton
+                                                    icon={Edit}
+                                                    label="Chỉnh sửa"
+                                                    onClick={() => handleOpenDialog('edit', wh)}
+                                                />
+                                            ) : null}
                                         </RowActions>
                                     </td>
                                 </tr>
@@ -493,7 +493,6 @@ export default function WarehouseManagement() {
                 showDialog={showDialog}
                 setShowDialog={setShowDialog}
                 dialogMode={dialogMode}
-                selectedWarehouse={selectedWarehouse}
                 formData={formData}
                 setFormData={setFormData}
                 errors={errors}
@@ -503,20 +502,23 @@ export default function WarehouseManagement() {
                 onClose={handleCloseDialog}
             />
 
-            <ConfirmModal
-                isOpen={isConfirmOpen}
-                onClose={handleCancelDelete}
-                onConfirm={handleConfirmDelete}
-                title="Xác nhận xóa kho"
-                description={
-                    warehouseToDelete
-                        ? `Bạn có chắc chắn muốn xóa kho "${warehouseToDelete.tenKho}"? Hành động này không thể hoàn tác.`
-                        : "Bạn có chắc chắn muốn xóa kho này?"
-                }
-                confirmText="Xóa"
-                cancelText="Hủy"
-                variant="danger"
-                isLoading={isDeleting}
+            <ChiTietKhoDialog
+                kho={chiTiet.kho}
+                open={chiTiet.open}
+                onOpenChange={(open) => setChiTiet(prev => ({ ...prev, open }))}
+                coTheQuanLy={laQuanTriVien}
+                onChinhSua={(wh) => {
+                    setChiTiet(prev => ({ ...prev, open: false }));
+                    handleOpenDialog('edit', wh);
+                }}
+                onDoiTrangThai={(wh) => setDoiTrangThai({ open: true, kho: wh })}
+            />
+
+            <HopTrangThaiKho
+                kho={doiTrangThai.kho}
+                open={doiTrangThai.open}
+                onOpenChange={(open) => setDoiTrangThai(prev => ({ ...prev, open }))}
+                onChanged={handleTrangThaiDaDoi}
             />
         </PageContainer>
     );

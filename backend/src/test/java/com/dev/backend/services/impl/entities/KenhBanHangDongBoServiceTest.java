@@ -15,6 +15,7 @@ import com.dev.backend.entities.TepTin;
 import com.dev.backend.entities.ThuongHieu;
 import com.dev.backend.entities.TrangThaiDongBoSanPham;
 import com.dev.backend.repository.*;
+import com.dev.backend.services.KenhBanHangDongBoService;
 import com.dev.backend.services.KenhBanHangService;
 import com.dev.backend.services.MinioService;
 import com.dev.backend.services.multitable.DieuHanhHeThongService;
@@ -403,6 +404,141 @@ class KenhBanHangDongBoServiceTest {
         assertEquals("thanh_cong", mapping2.getTrangThaiDongBo());
         assertNull(mapping2.getChiTietLoi());
         assertNull(mapping2.getSoLuongDaDay());
+    }
+
+    /** Ghi lại thứ tự sự kiện tiến độ của một đợt đẩy tồn; {@code dungSauSoSku}: đòi dừng khi đã đẩy đủ chừng ấy SKU. */
+    private static class GhiTienDo implements KenhBanHangDongBoService.TheoDoiDayTon {
+        final List<String> suKien = new java.util.ArrayList<>();
+        int dungSauSoSku = Integer.MAX_VALUE;
+        int soDaDay;
+
+        @Override
+        public void batDauDay(int tongSku) {
+            suKien.add("bat-dau:" + tongSku);
+        }
+
+        @Override
+        public void dangDay(String maSku) {
+            suKien.add("dang:" + maSku);
+        }
+
+        @Override
+        public void daDay(String maSku, String tenSku, boolean thanhCong, String lyDo) {
+            soDaDay++;
+            suKien.add((thanhCong ? "ok:" : "loi:") + maSku + (tenSku != null ? "|" + tenSku : "") + (lyDo != null ? "|" + lyDo : ""));
+        }
+
+        @Override
+        public boolean canDung() {
+            return soDaDay >= dungSauSoSku;
+        }
+    }
+
+    @Test
+    void dayTonKhoLenKenh_baoTienDoTungSkuTheoThuTu_skuLoiKemTenVaLyDo() {
+        TrangThaiDongBoSanPham mapping2 = dongThuHai();
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(1)).thenReturn(List.of(mapping1, mapping2));
+        tonKhaDung(101, 5);
+        tonKhaDung(102, 3);
+        KenhBanHangDongBoServiceImpl spy = spyVoiKetNoi(ketNoiCo("POLO-BLK-M", "POLO-BLK-L"));
+        doReturn(KenhBanHangDongBoServiceImpl.KetQuaGuiTon.THANH_CONG).when(spy).guiTonLenShopify(any(), any(), any(), eq(2001L), anyInt());
+        doReturn(KenhBanHangDongBoServiceImpl.KetQuaGuiTon.loiSku("Shopify từ chối số tồn: bad"))
+                .when(spy).guiTonLenShopify(any(), any(), any(), eq(2002L), anyInt());
+        GhiTienDo tienDo = new GhiTienDo();
+
+        DayTonResultDto result = spy.dayTonKhoLenKenh("SHOPIFY", new DayTonKenhRequest(), tienDo);
+
+        assertEquals(List.of(
+                "bat-dau:2",
+                "dang:POLO-BLK-M", "ok:POLO-BLK-M",
+                "dang:POLO-BLK-L", "loi:POLO-BLK-L|Áo Polo FCentric|Shopify từ chối số tồn: bad"
+        ), tienDo.suKien);
+        assertEquals(1, result.getSoDong());
+        assertEquals(1, result.getSoLoi());
+    }
+
+    @Test
+    void dayTonKhoLenKenh_yeuCauDung_dungTruocSkuKeTiepVaGhiNhatKy() {
+        TrangThaiDongBoSanPham mapping2 = dongThuHai();
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(1)).thenReturn(List.of(mapping1, mapping2));
+        tonKhaDung(101, 5);
+        tonKhaDung(102, 3);
+        KenhBanHangDongBoServiceImpl spy = spyVoiKetNoi(ketNoiCo("POLO-BLK-M", "POLO-BLK-L"));
+        doReturn(KenhBanHangDongBoServiceImpl.KetQuaGuiTon.THANH_CONG).when(spy).guiTonLenShopify(any(), any(), any(), any(), anyInt());
+        GhiTienDo tienDo = new GhiTienDo();
+        tienDo.dungSauSoSku = 1;
+        com.dev.backend.config.SecurityContextHolder.setUser(
+                com.dev.backend.dto.response.entities.NguoiDungAuthInfo.builder().id(7).hoTen("Quản lý kho").build());
+        when(nguoiDungRepository.findById(7)).thenReturn(Optional.of(com.dev.backend.entities.NguoiDung.builder().id(7).build()));
+        try {
+            DayTonResultDto result = spy.dayTonKhoLenKenh("SHOPIFY", new DayTonKenhRequest(), tienDo);
+
+            assertEquals(1, result.getSoDong());
+            assertEquals(1, result.getSoChuaDay());
+            assertNull(result.getLoiKenh());
+            verify(spy, times(1)).guiTonLenShopify(any(), any(), any(), any(), anyInt());
+            verify(trangThaiDongBoSanPhamRepository).save(mapping1);
+            verify(trangThaiDongBoSanPhamRepository, never()).save(mapping2);
+            assertEquals(List.of("bat-dau:2", "dang:POLO-BLK-M", "ok:POLO-BLK-M"), tienDo.suKien);
+            org.mockito.ArgumentCaptor<com.dev.backend.entities.LichSuThayDoi> nhatKy =
+                    org.mockito.ArgumentCaptor.forClass(com.dev.backend.entities.LichSuThayDoi.class);
+            verify(lichSuThayDoiService).create(nhatKy.capture());
+            assertTrue(nhatKy.getValue().getGiaTriMoi().endsWith("dừng theo yêu cầu, còn 1 SKU chưa đẩy"),
+                    nhatKy.getValue().getGiaTriMoi());
+        } finally {
+            com.dev.backend.config.SecurityContextHolder.clear();
+        }
+    }
+
+    @Test
+    void dayTonKhoLenKenh_loiCaGianHangGiuaChung_khongBaoDaDayChoSkuGapLoi() {
+        TrangThaiDongBoSanPham mapping2 = dongThuHai();
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(1)).thenReturn(List.of(mapping1, mapping2));
+        tonKhaDung(101, 5);
+        tonKhaDung(102, 3);
+        KenhBanHangDongBoServiceImpl spy = spyVoiKetNoi(ketNoiCo("POLO-BLK-M", "POLO-BLK-L"));
+        doReturn(KenhBanHangDongBoServiceImpl.KetQuaGuiTon.THANH_CONG).when(spy).guiTonLenShopify(any(), any(), any(), eq(2001L), anyInt());
+        doReturn(KenhBanHangDongBoServiceImpl.KetQuaGuiTon.loiCaKenh("Khóa truy cập Shopify không hợp lệ hoặc thiếu quyền ghi tồn kho"))
+                .when(spy).guiTonLenShopify(any(), any(), any(), eq(2002L), anyInt());
+        GhiTienDo tienDo = new GhiTienDo();
+
+        DayTonResultDto result = spy.dayTonKhoLenKenh("SHOPIFY", new DayTonKenhRequest(), tienDo);
+
+        assertEquals(List.of("bat-dau:2", "dang:POLO-BLK-M", "ok:POLO-BLK-M", "dang:POLO-BLK-L"), tienDo.suKien);
+        assertEquals(1, result.getSoChuaDay());
+        assertTrue(result.getLoiKenh().contains("Khóa truy cập"));
+    }
+
+    @Test
+    void dayTonKhoLenKenh_khongKetNoiDuocShopify_khongBaoBatDauDay() {
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(1)).thenReturn(List.of(mapping1));
+        when(kenhBanHangService.getDecryptedShopifyAccessToken()).thenReturn(null);
+        GhiTienDo tienDo = new GhiTienDo();
+
+        DayTonResultDto result = service.dayTonKhoLenKenh("SHOPIFY", new DayTonKenhRequest(), tienDo);
+
+        assertTrue(tienDo.suKien.isEmpty());
+        assertNotNull(result.getLoiKenh());
+        assertEquals(1, result.getSoChuaDay());
+    }
+
+    @Test
+    void dayTonTheoQuyTacDaLuu_dungTyLeDaLuuCuaKenhVaBaoTienDo() {
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(1)).thenReturn(List.of(mapping1));
+        tonKhaDung(101, 20);
+        when(dieuHanhHeThongService.getCauHinhString(
+                com.dev.backend.utils.KenhCauHinhDongBo.khoa("SHOPIFY", com.dev.backend.utils.KenhCauHinhDongBo.TY_LE_DAY_TON), null))
+                .thenReturn("50");
+        KenhBanHangDongBoServiceImpl spy = spyVoiKetNoi(ketNoiCo("POLO-BLK-M"));
+        doReturn(KenhBanHangDongBoServiceImpl.KetQuaGuiTon.THANH_CONG).when(spy).guiTonLenShopify(any(), any(), any(), any(), anyInt());
+        GhiTienDo tienDo = new GhiTienDo();
+
+        DayTonResultDto result = spy.dayTonTheoQuyTacDaLuu("SHOPIFY", tienDo);
+
+        // 20 × 50% = 10
+        verify(spy).guiTonLenShopify("fcentric-store.myshopify.com", "shpat_token", 99L, 2001L, 10);
+        assertEquals(1, result.getSoDong());
+        assertEquals(List.of("bat-dau:1", "dang:POLO-BLK-M", "ok:POLO-BLK-M"), tienDo.suKien);
     }
 
     @Test

@@ -1,8 +1,6 @@
-import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, BarChart3, ChevronRight, Loader2, RefreshCw } from "lucide-react";
+import { ArrowRight, BarChart3, ChevronRight } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
-import { toast } from "@/lib/thongBaoNhanh";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -19,13 +17,12 @@ import { ChonPhuongAn, CotCaiDat } from "@/components/channel/KhuonCaiDat";
 import { NUT_CHINH } from "@/components/channel/BottomActionBar";
 import { ngayIso } from "@/components/channel/ngay";
 import { daKetNoi, trangThaiKetNoi } from "@/components/channel/ketNoiShopify";
-import { quyTacTonKho } from "@/components/channel/cauHinhDongBo";
-import { ketQuaDayTon } from "@/components/channel/ketQuaThaoTac";
+import NutDongBoNgay from "@/components/channel/NutDongBoNgay";
+import useDongBoNgay from "@/components/channel/useDongBoNgay";
 import { BUOC_THIET_LAP, SAN_BAN_HANG } from "@/constants/channel";
 import { isChannelMock, kenhBanHangService } from "@/services/kenhBanHangService";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
-import { getApiErrorMessage } from "@/utils/apiError";
 import { formatDateTime } from "@/utils/dateTime";
 import { cn } from "@/lib/utils";
 import { formatNhanTien, formatPhanTram, formatSo, formatTien, formatTienGon, nhanDayDu, nhanTruc } from "@/pages/dashboard/admin/tong-quan/tongQuanFormat";
@@ -84,8 +81,14 @@ export default function ChannelSyncDashboard() {
     enabled: ketNoi,
   });
 
-  const [dangDongBo, setDangDongBo] = useState(false);
-  const dangDongBoRef = useRef(false);
+  // Đồng bộ tay chạy nền ở máy chủ; xong thì tải lại số liệu của trang
+  const dongBo = useDongBoNgay(SAN.maKenh, {
+    enabled: ketNoi,
+    onXong: () => {
+      tq.reload();
+      tk.reload();
+    },
+  });
 
   if (cfg.initialLoading) {
     return (
@@ -110,39 +113,6 @@ export default function ChannelSyncDashboard() {
   const thongKe = tk.data;
   const trangThai = trangThaiKetNoi(config);
   const tamDung = trangThai === "tam_dung";
-
-  const dongBoNgay = async () => {
-    // Quy tắc đẩy tồn phải tải xong mới cho đồng bộ tay, tránh đẩy theo số mặc định
-    if (dangDongBoRef.current || !cauHinh) return;
-    dangDongBoRef.current = true;
-    setDangDongBo(true);
-    const ketQua = [];
-    try {
-      try {
-        const res = await kenhBanHangService.dayTon(SAN.maKenh, quyTacTonKho(cauHinh));
-        const kq = ketQuaDayTon(res, SAN.ten);
-        if (kq.tone === "success") ketQua.push(`đẩy tồn ${formatSo(res?.soDong)} SKU`);
-        else (kq.tone === "error" ? toast.error : toast.warning)(kq.title, { description: kq.message });
-      } catch (error) {
-        toast.error(getApiErrorMessage(error, "Không đẩy được tồn kho"));
-      }
-      try {
-        const res = await kenhBanHangService.layDon(SAN.maKenh, {
-          tu: new Date(Date.now() - 86_400_000).toISOString(),
-          den: new Date().toISOString(),
-        });
-        ketQua.push(`nhận ${formatSo(res?.soDonMoi)} đơn mới`);
-      } catch (error) {
-        toast.error(getApiErrorMessage(error, "Không lấy được đơn hàng"));
-      }
-      if (ketQua.length) toast.success(`Đã ${ketQua.join(", ")}`);
-      tq.reload();
-      tk.reload();
-    } finally {
-      dangDongBoRef.current = false;
-      setDangDongBo(false);
-    }
-  };
 
   const moTrang = (duongDan) => navigate(`${SAN.duongDan}${duongDan}`);
   const theoNgay = thongKe?.theoNgay ?? [];
@@ -172,19 +142,10 @@ export default function ChannelSyncDashboard() {
             <p className="truncate text-base font-semibold leading-[22px] text-bo-heading">Gian hàng {SAN.ten}</p>
             <p className="truncate text-[13px] leading-[18px] text-bo-muted">{config.shopDomain}</p>
           </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2">
+          {/* max-w-full: màn hẹp thì nút xuống dòng dưới nhãn trạng thái, không lẹm ra ngoài */}
+          <div className="flex max-w-full shrink-0 flex-wrap items-center gap-x-4 gap-y-2">
             <StatusBadge size="lg" nhom={tinhTrang.nhom} label={tinhTrang.label} />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={dongBoNgay}
-              disabled={dangDongBo || !cauHinh}
-              title={!cauHinh ? "Đang tải quy tắc đồng bộ" : undefined}
-              className="h-9 gap-2 rounded-lg border-bo-border bg-white px-3.5 text-bo-foreground hover:bg-bo-surface-subtle"
-            >
-              {dangDongBo ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-              {dangDongBo ? "Đang đồng bộ…" : "Đồng bộ ngay"}
-            </Button>
+            <NutDongBoNgay tienDo={dongBo} tenSan={SAN.ten} onDen={moTrang} />
           </div>
         </div>
 

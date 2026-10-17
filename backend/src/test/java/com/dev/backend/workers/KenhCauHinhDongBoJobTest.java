@@ -10,6 +10,7 @@ import com.dev.backend.services.KenhBanHangService;
 import com.dev.backend.services.impl.entities.DonBanHangService;
 import com.dev.backend.services.multitable.DieuHanhHeThongService;
 import com.dev.backend.services.multitable.NhatHangService;
+import jakarta.persistence.EntityManagerFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,6 +46,7 @@ class KenhCauHinhDongBoJobTest {
     @Mock private NhatHangService nhatHangService;
     @Mock private PhieuXuatKhoRepository phieuXuatKhoRepository;
     @Mock private DonBanHangService donBanHangService;
+    @Mock private EntityManagerFactory entityManagerFactory;
 
     private InventoryChannelSyncJob tonJob;
     private OmnichannelOrderSyncJob donJob;
@@ -52,7 +54,7 @@ class KenhCauHinhDongBoJobTest {
 
     @BeforeEach
     void setUp() {
-        tonJob = new InventoryChannelSyncJob(kenhBanHangDongBoService, kenhBanHangRepository, dieuHanhHeThongService);
+        tonJob = new InventoryChannelSyncJob(kenhBanHangDongBoService, kenhBanHangRepository, dieuHanhHeThongService, entityManagerFactory);
         donJob = new OmnichannelOrderSyncJob(kenhBanHangRepository, donBanHangRepository, chiTietDonBanHangRepository,
                 khachHangRepository, bienTheSanPhamRepository, trangThaiDongBoSanPhamRepository, kenhBanHangService,
                 khoRepository, nhatHangService, phieuXuatKhoRepository, dieuHanhHeThongService, donBanHangService);

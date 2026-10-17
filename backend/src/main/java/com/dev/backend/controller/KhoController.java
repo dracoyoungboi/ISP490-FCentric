@@ -9,7 +9,9 @@ import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.BaseFilterRequest;
 import com.dev.backend.dto.request.FilterCriteria;
 import com.dev.backend.dto.request.KhoCreating;
+import com.dev.backend.dto.request.KhoTrangThaiUpdating;
 import com.dev.backend.dto.request.KhoUpdating;
+import com.dev.backend.dto.response.KhoTomTatResponse;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.entities.KhoDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
@@ -18,7 +20,9 @@ import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.KhoMapper;
 import com.dev.backend.repository.PhanQuyenNguoiDungKhoRepository;
 import com.dev.backend.repository.TonKhoTheoLoRepository;
+import com.dev.backend.services.JwtService;
 import com.dev.backend.services.impl.entities.KhoService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -47,6 +51,9 @@ public class KhoController {
     @Autowired
     private TonKhoTheoLoRepository tonKhoTheoLoRepository;
 
+    @Autowired
+    private JwtService jwtService;
+
 
     @GetMapping("/get-by-id/{id}")
     @RequireAuth(
@@ -57,11 +64,59 @@ public class KhoController {
         if (findingKho.isEmpty()) {
             throw new CommonException("Không tìm thấy kho id: " + id);
         }
+        KhoDto dto = khoMapper.toDto(findingKho.get());
+        ganSoLuongTon(List.of(dto));
         return ResponseEntity.ok(
                 ResponseData.<KhoDto>builder()
                         .status(HttpStatus.OK.value())
-                        .data(khoMapper.toDto(findingKho.get()))
+                        .data(dto)
                         .message("Success")
+                        .build()
+        );
+    }
+
+    /**
+     * Số liệu tóm tắt cho popup Chi tiết kho: tồn, khả dụng, giá trị theo giá vốn lô, số mã hàng
+     * (hết / sắp hết) và số người được phân quyền. Quản lý kho chỉ xem được kho mình được phân quyền
+     * (kiểm tra theo id trên đường dẫn, không theo kho làm việc).
+     */
+    @GetMapping("/{id}/tom-tat")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho}
+    )
+    public ResponseEntity<ResponseData<KhoTomTatResponse>> tomTat(@PathVariable Integer id) {
+        NguoiDungAuthInfo nguoiDung = SecurityContextHolder.getUser();
+        boolean laQuanTriVien = nguoiDung != null && nguoiDung.getVaiTro() != null
+                && nguoiDung.getVaiTro().contains(IRoleType.quan_tri_vien);
+        if (!laQuanTriVien && (nguoiDung == null || nguoiDung.getPhanQuyenNguoiDungKhos() == null
+                || !jwtService.inWorkspace(id, nguoiDung))) {
+            throw new CommonException("Bạn không phụ trách kho này nên không xem được số liệu tồn kho", HttpStatus.FORBIDDEN, null);
+        }
+        return ResponseEntity.ok(
+                ResponseData.<KhoTomTatResponse>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(khoService.tomTat(id))
+                        .message("Success")
+                        .build()
+        );
+    }
+
+    /** Ngừng hoạt động (0) / cho phép hoạt động lại (1). Kho Trung Chuyển (kho ảo) luôn hoạt động. */
+    @PutMapping("/{id}/trang-thai")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien}
+    )
+    public ResponseEntity<ResponseData<KhoDto>> doiTrangThai(@PathVariable Integer id,
+                                                           @Valid @RequestBody KhoTrangThaiUpdating updating) {
+        KhoDto dto = khoMapper.toDto(khoService.doiTrangThai(id, updating.getTrangThai()));
+        ganSoLuongTon(List.of(dto));
+        return ResponseEntity.ok(
+                ResponseData.<KhoDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(dto)
+                        .message(Integer.valueOf(1).equals(dto.getTrangThai())
+                                ? "Đã cho phép kho hoạt động lại"
+                                : "Đã ngừng hoạt động kho")
                         .build()
         );
     }
@@ -125,13 +180,9 @@ public class KhoController {
             roles = {IRoleType.quan_tri_vien}
     )
     public ResponseEntity<ResponseData<String>> softDelete(@PathVariable Integer id) {
-        Optional<Kho> findingKho = khoService.getOne(id);
-        if (findingKho.isEmpty()) {
-            throw new CommonException("Không tìm thấy kho id: " + id);
-        }
-        Kho kho = findingKho.get();
-        kho.setTrangThai(0);
-        khoService.update(kho.getId(), kho);
+        // "Xóa" kho chỉ là ngừng hoạt động: tồn kho và lịch sử giữ nguyên, cho phép hoạt động lại được.
+        // Giữ đường dẫn cũ cho nơi khác còn gọi; giao diện dùng PUT /{id}/trang-thai.
+        khoService.doiTrangThai(id, 0);
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
