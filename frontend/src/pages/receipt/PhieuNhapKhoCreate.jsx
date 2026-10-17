@@ -545,14 +545,15 @@ export default function PhieuNhapKhoCreate() {
                         contentClassName="p-0"
                         action={
                             <>
+                                {/* Mã chứng từ nguồn là chữ thường (không bấm được nên không tô màu) */}
                                 {importSource === "PO" && selectedPO && (
-                                    <StatusBadge label={`#${selectedPO.soDonMua}`} tone="neutral" dot={false} />
+                                    <span className="font-mono text-xs font-semibold text-slate-600">#{selectedPO.soDonMua}</span>
                                 )}
                                 {importSource === "TRANSFER" && selectedTransfer && (
-                                    <StatusBadge label={`#${selectedTransfer.soPhieuXuat}`} tone="info" dot={false} />
+                                    <span className="font-mono text-xs font-semibold text-slate-600">#{selectedTransfer.soPhieuXuat}</span>
                                 )}
                                 {importSource === "RETURN" && selectedReturn && (
-                                    <StatusBadge label={`#${selectedReturn?.phieu.soPhieuXuat}`} tone="danger" dot={false} />
+                                    <span className="font-mono text-xs font-semibold text-slate-600">#{selectedReturn?.phieu.soPhieuXuat}</span>
                                 )}
                             </>
                         }
@@ -571,7 +572,7 @@ export default function PhieuNhapKhoCreate() {
                                         <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                             <th className="h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Sản phẩm</th>
                                             <th className="h-10 px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Số lượng</th>
-                                            <th className="h-10 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
+                                            <th className="h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-bo-border">
@@ -600,8 +601,8 @@ export default function PhieuNhapKhoCreate() {
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="px-4 py-3 text-right">
-                                                    <StatusBadge label="Chờ nhập" tone="warning" />
+                                                <td className="px-4 py-3">
+                                                    <StatusBadge label="Chờ nhập" />
                                                 </td>
                                             </tr>
                                         )) : importSource === "TRANSFER" ? selectedTransfer.items?.map(item => (
@@ -613,8 +614,8 @@ export default function PhieuNhapKhoCreate() {
                                                 <td className="px-4 py-3 text-center">
                                                     <span className="text-sm font-semibold text-bo-primary">{item.soLuongYeuCau}</span>
                                                 </td>
-                                                <td className="px-4 py-3 text-right">
-                                                    <StatusBadge label="Đang vận chuyển" tone="info" />
+                                                <td className="px-4 py-3">
+                                                    <StatusBadge label="Đang vận chuyển" />
                                                 </td>
                                             </tr>
                                         )) : returnItemsToRender.map(item => (
@@ -626,8 +627,8 @@ export default function PhieuNhapKhoCreate() {
                                                 <td className="px-4 py-3 text-center">
                                                     <span className="text-sm font-semibold text-bo-danger">{item.soLuongCanXuat || item.soLuong}</span>
                                                 </td>
-                                                <td className="px-4 py-3 text-right">
-                                                    <StatusBadge label="Hàng trả lại" tone="danger" />
+                                                <td className="px-4 py-3">
+                                                    <StatusBadge label="Hàng trả lại" />
                                                 </td>
                                             </tr>
                                         ))}

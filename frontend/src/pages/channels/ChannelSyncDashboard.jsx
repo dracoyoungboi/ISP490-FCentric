@@ -14,6 +14,7 @@ import MockModeNotice from "@/components/shared/MockModeNotice";
 import KhungBieuDo from "@/components/shared/KhungBieuDo";
 import ChannelLogo from "@/components/channel/ChannelLogo";
 import { TrangThaiCham } from "@/components/channel/HienThiKenh";
+import StatusBadge from "@/components/shared/StatusBadge";
 import { ChonPhuongAn, CotCaiDat } from "@/components/channel/KhuonCaiDat";
 import { NUT_CHINH } from "@/components/channel/BottomActionBar";
 import { ngayIso } from "@/components/channel/ngay";
@@ -151,13 +152,13 @@ export default function ChannelSyncDashboard() {
   const tuDongTat = cauHinh && !cauHinh.tuDongDayTon && !cauHinh.tuDongLayDon;
   const tinhTrang =
     trangThai === "het_han"
-      ? { tone: "danger", label: "Khóa truy cập đã hết hạn" }
+      ? { nhom: "loi", label: "Khóa truy cập đã hết hạn" }
       : tamDung
-        ? { tone: "warning", label: "Đang tạm dừng đồng bộ" }
+        ? { nhom: "cho", label: "Đang tạm dừng đồng bộ" }
         : tuDongTat
-          ? { tone: "neutral", label: "Tự động đồng bộ đang tắt" }
+          ? { nhom: "cho", label: "Tự động đồng bộ đang tắt" }
           : {
-              tone: "success",
+              nhom: "xong",
               label: lanCuoi ? `Đang đồng bộ · lần cuối ${lanCuoi}` : `Đang đồng bộ · mỗi ${cauHinh?.chuKyPhut ?? "—"} phút`,
             };
 
@@ -172,7 +173,7 @@ export default function ChannelSyncDashboard() {
             <p className="truncate text-[13px] leading-[18px] text-bo-muted">{config.shopDomain}</p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2">
-            <TrangThaiCham label={tinhTrang.label} tone={tinhTrang.tone} />
+            <StatusBadge size="lg" nhom={tinhTrang.nhom} label={tinhTrang.label} />
             <Button
               type="button"
               variant="outline"

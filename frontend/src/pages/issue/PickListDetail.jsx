@@ -307,7 +307,7 @@ export default function PickListDetail() {
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <BackLink onClick={() => navigate("/goods-issues/pick-lists")} />
                 <div className="flex flex-wrap items-center gap-2">
-                    <StatusBadge label={status.label} tone={status.tone} />
+                    <StatusBadge size="lg" label={status.label} />
                     {duocPhanCong ? (
                         <Button
                             variant="outline"
@@ -442,7 +442,7 @@ export default function PickListDetail() {
                                     <th className={`${TH_CLASS} text-center`}>Cần nhặt</th>
                                     <th className={`${TH_CLASS} text-center`}>Đã quét</th>
                                     <th className={`${TH_CLASS} text-center`}>Còn lại</th>
-                                    <th className={`${TH_CLASS} text-center`}>Trạng thái</th>
+                                    <th className={`${TH_CLASS} text-left`}>Trạng thái</th>
                                     {duocPhanBoLo ? <th className={`${TH_CLASS} text-right`}>Thao tác</th> : null}
                                 </tr>
                             </thead>
@@ -481,8 +481,8 @@ export default function PickListDetail() {
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-center font-semibold text-bo-muted">{formatQuantity(conLaiDong)}</td>
-                                            <td className="px-4 py-3 text-center">
-                                                <StatusBadge label={state.label} tone={state.tone} />
+                                            <td className="px-4 py-3">
+                                                <StatusBadge label={state.label} />
                                             </td>
                                             {duocPhanBoLo ? (
                                                 <td className="whitespace-nowrap px-4 py-3 text-right">

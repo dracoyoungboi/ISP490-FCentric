@@ -5,7 +5,7 @@
  */
 export function trangThaiLa(trangThai) {
     if (trangThai === null || trangThai === undefined || trangThai === "") {
-        return { label: "Chưa có trạng thái", tone: "neutral" };
+        return { label: "Chưa có trạng thái" };
     }
-    return { label: `Không xác định (mã ${trangThai})`, tone: "neutral" };
+    return { label: `Không xác định (mã ${trangThai})` };
 }

@@ -7,7 +7,7 @@ import { formatPhanTram, formatSo, nhanDayDu, tyLe } from "../tong-quan/tongQuan
 
 const MUC = [
   { key: "hetHang", ten: "Hết hàng" },
-  { key: "thieuHang", ten: "Thiếu hàng" },
+  { key: "thieuHang", ten: "Sắp hết hàng" },
   { key: "binhThuong", ten: "Bình thường" },
   { key: "duHang", ten: "Dư hàng" },
 ];

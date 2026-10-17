@@ -177,7 +177,7 @@ function ChiTietViTri({ khoId, khu, viTri, coTheSua, onCapNhatViTri, onSuaViTri,
       <div className="border-b border-bo-border px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">
           <h2 className="truncate font-mono text-base font-semibold text-bo-heading">{viTri.maViTri}</h2>
-          <StatusBadge label={nhom.label} tone={nhom.tone} />
+          <StatusBadge label={nhom.label} />
         </div>
         <p className="mt-0.5 text-xs text-bo-muted">
           {khu.tenKhuVuc} · Dãy {viTri.day} · Hàng {viTri.hang} · Tầng {viTri.tang}

@@ -207,11 +207,7 @@ export default function PhieuXuatKhoDetail() {
                 </button>
 
                 <div className="flex flex-wrap items-center gap-2">
-                    <StatusBadge
-                        label={statusInfo.label}
-                        tone={statusInfo.tone}
-                        className={statusInfo.className}
-                    />
+                    <StatusBadge size="lg" label={statusInfo.label} />
 
                     {/* Nút Hủy: Hiện cho các trạng thái chưa xuất / chưa hủy */}
                     {PHIEU_XUAT_CHUA_XUAT.includes(phieu.trangThai) && (
@@ -358,7 +354,7 @@ export default function PhieuXuatKhoDetail() {
                             <th className={`${TH_CLASS} text-left`}>SKU / Biến thể</th>
                             <th className={`${TH_CLASS} text-center`}>SL yêu cầu</th>
                             <th className={`${TH_CLASS} text-center`}>SL đã lấy</th>
-                            <th className={`${TH_CLASS} text-center`}>Trạng thái</th>
+                            <th className={`${TH_CLASS} text-left`}>Trạng thái</th>
                             <th className={`${TH_CLASS} text-right`}>Thao tác</th>
                         </tr>
                     </thead>
@@ -387,11 +383,11 @@ export default function PhieuXuatKhoDetail() {
                                         </span>
                                     </td>
 
-                                    <td className="px-4 py-3.5 text-center">
+                                    <td className="px-4 py-3.5">
                                         {ct.duSoLuong ? (
-                                            <StatusBadge label="Đủ hàng" tone="success" />
+                                            <StatusBadge label="Đủ hàng" />
                                         ) : (
-                                            <StatusBadge label="Chưa đủ" tone="warning" />
+                                            <StatusBadge label="Chưa đủ" />
                                         )}
                                     </td>
 

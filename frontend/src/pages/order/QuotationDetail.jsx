@@ -21,6 +21,8 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
 import LoadingState from "@/components/shared/LoadingState";
 import ErrorState from "@/components/shared/ErrorState";
+import { getBaoGiaNccStatus } from "@/constants/donMuaHang";
+import { KHUNG_THEO_NHOM, layNhomTrangThai } from "@/constants/trangThai";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { formatDate as dinhDangNgay, formatDateTime as dinhDangNgayGio } from "@/utils/formatters";
 
@@ -54,23 +56,16 @@ const formatDate = (dateString) => dinhDangNgay(dateString);
 // Định dạng chung toàn hệ thống: 05/10/2026 · 08:03; trống → "—"
 const formatDateTime = (dateString) => dinhDangNgayGio(dateString);
 
-// ─── Status configs ────────────────────────────────────────────────────────────
-const PO_STATUS = {
-    0: { label: 'Đã xóa', tone: 'danger', icon: XCircle, desc: 'Báo giá này đã bị xóa khỏi hệ thống.' },
-    1: { label: 'Đã gửi YC báo giá', tone: 'neutral', icon: Send, desc: 'Đã gửi email yêu cầu báo giá đến nhà cung cấp. Đang chờ phản hồi.' },
-    2: { label: 'Đã nhận báo giá', tone: 'info', icon: FileText, desc: 'Nhà cung cấp đã cập nhật đơn giá. Vui lòng kiểm tra và duyệt.' },
-    3: { label: 'Đã chuyển thành đơn mua hàng', tone: 'warning', icon: CheckCircle, desc: 'Báo giá đã được chấp nhận. Đơn hàng đang được vận chuyển từ nhà cung cấp.' },
-    4: { label: 'Từ chối báo giá', tone: 'danger', icon: XCircle, desc: 'Báo giá này đã bị từ chối.' },
-    5: { label: 'Đã thanh toán', tone: 'success', icon: CreditCard, desc: 'Đơn hàng đã được thanh toán thành công.' },
-};
-
-// Nền banner trạng thái — bám theo bảng tone của StatusBadge
-const BANNER_TONES = {
-    neutral: 'border-bo-border bg-bo-surface-subtle',
-    info: 'border-blue-200 bg-bo-primary-soft',
-    success: 'border-green-200 bg-bo-success-soft',
-    warning: 'border-orange-200 bg-bo-warning-soft',
-    danger: 'border-red-200 bg-bo-danger-soft',
+// ─── Trạng thái ────────────────────────────────────────────────────────────────
+// Tên lấy từ BAO_GIA_NCC_STATUS (constants/donMuaHang), màu banner theo nhóm của tên (constants/trangThai);
+// ở đây chỉ giữ icon và câu mô tả của banner.
+const PO_BANNER = {
+    0: { icon: XCircle, desc: 'Báo giá này đã bị xóa khỏi hệ thống.' },
+    1: { icon: Send, desc: 'Đã gửi email yêu cầu báo giá đến nhà cung cấp. Đang chờ phản hồi.' },
+    2: { icon: FileText, desc: 'Nhà cung cấp đã cập nhật đơn giá. Vui lòng kiểm tra và duyệt.' },
+    3: { icon: CheckCircle, desc: 'Báo giá đã được chấp nhận. Đơn hàng đang được vận chuyển từ nhà cung cấp.' },
+    4: { icon: XCircle, desc: 'Báo giá này đã bị từ chối.' },
+    5: { icon: CheckCircle, desc: 'Đã nhận đủ hàng của đơn mua này.' },
 };
 
 // ── Shared components ──────────────────────────────────────────────────────────
@@ -208,9 +203,9 @@ export default function QuotationDetail() {
         );
     }
 
-    const currentStatus = PO_STATUS[orderData.trangThai] || { label: 'Không rõ', tone: 'neutral', icon: Clock, desc: '' };
+    const currentStatus = { ...getBaoGiaNccStatus(orderData.trangThai), icon: Clock, desc: '', ...PO_BANNER[orderData.trangThai] };
     const StatusIcon = currentStatus.icon;
-    const bannerClass = BANNER_TONES[currentStatus.tone] || BANNER_TONES.neutral;
+    const bannerClass = KHUNG_THEO_NHOM[layNhomTrangThai(currentStatus.label)];
     const canApprove = APPROVE_QUOTATION_ROLES.some(role => userRoles.includes(role));
     const showApproveActions = orderData.trangThai === 2;
     const canPay = orderData.trangThai === 3;

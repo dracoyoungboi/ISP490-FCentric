@@ -29,11 +29,12 @@ import { formatDateTime, formatNumber } from "@/utils/formatters";
 
 // ── Constants ─────────────────────────────────────────────────────────────
 // "chuyen_kho" giữ để hiện nhãn cho dữ liệu cũ (nếu có); backend hiện chỉ ghi 3 loại còn lại.
+// Loại giao dịch là phân loại, không phải trạng thái: hiện chữ thường kèm icon xám; chiều nhập / xuất đọc ở dấu +/− của cột Số lượng.
 const LOAI_GIAO_DICH_CONFIG = {
-    nhap_kho:   { label: "Nhập kho",   icon: ArrowDownToLine,   badge: "border-bo-success/20 bg-bo-success-soft text-bo-success", dot: "bg-bo-success" },
-    xuat_kho:   { label: "Xuất kho",   icon: ArrowUpFromLine,   badge: "border-bo-danger/20 bg-bo-danger-soft text-bo-danger",   dot: "bg-bo-danger"  },
-    chuyen_kho: { label: "Chuyển kho", icon: ArrowLeftRight,    badge: "border-bo-primary/20 bg-bo-primary-soft text-bo-primary", dot: "bg-bo-primary" },
-    dieu_chinh: { label: "Điều chỉnh", icon: SlidersHorizontal, badge: "border-bo-warning/20 bg-bo-warning-soft text-bo-warning", dot: "bg-bo-warning" },
+    nhap_kho:   { label: "Nhập kho",   icon: ArrowDownToLine },
+    xuat_kho:   { label: "Xuất kho",   icon: ArrowUpFromLine },
+    chuyen_kho: { label: "Chuyển kho", icon: ArrowLeftRight },
+    dieu_chinh: { label: "Điều chỉnh", icon: SlidersHorizontal },
 };
 
 // Tab theo LOẠI giao dịch (bố cục A+G) — mã tab trên URL ?loai=; `loai` là giá trị loaiGiaoDich
@@ -79,16 +80,13 @@ const TABLE_COLUMNS = [
     { label: "Thao tác",        className: "text-center" },
 ];
 
-// ── Loại Badge ────────────────────────────────────────────────────────────
-function LoaiBadge({ loai }) {
-    const cfg = LOAI_GIAO_DICH_CONFIG[loai] ?? {
-        label: loai,
-        badge: "border-bo-border bg-bo-surface-subtle text-slate-600",
-        dot: "bg-slate-400",
-    };
+// ── Loại giao dịch ────────────────────────────────────────────────────────
+function LoaiGiaoDich({ loai }) {
+    const cfg = LOAI_GIAO_DICH_CONFIG[loai] ?? { label: loai || "—", icon: null };
+    const Icon = cfg.icon;
     return (
-        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${cfg.badge}`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-700">
+            {Icon ? <Icon className="size-3.5 shrink-0 text-slate-400" aria-hidden="true" /> : null}
             {cfg.label}
         </span>
     );
@@ -132,7 +130,7 @@ function DetailModal({ open, onClose, item, loading }) {
                             <span className="font-mono text-bo-primary">#{item.id}</span>
                         ) : ""}
                     </DialogTitle>
-                    {item && <LoaiBadge loai={item.loaiGiaoDich} />}
+                    {item && <LoaiGiaoDich loai={item.loaiGiaoDich} />}
                 </div>
 
                 {loading ? (
@@ -441,7 +439,7 @@ export default function LichSuGiaoDichKhoList() {
                                         </td>
 
                                         <td className="px-4 py-3.5 align-middle">
-                                            <LoaiBadge loai={item.loaiGiaoDich} />
+                                            <LoaiGiaoDich loai={item.loaiGiaoDich} />
                                         </td>
 
                                         <td className="max-w-[180px] px-4 py-3.5 align-middle">
@@ -451,7 +449,7 @@ export default function LichSuGiaoDichKhoList() {
                                         </td>
 
                                         <td className="px-4 py-3.5 align-middle">
-                                            <span className="rounded-md border border-bo-primary/20 bg-bo-primary-soft px-2 py-0.5 font-mono text-xs font-semibold text-bo-primary">
+                                            <span className="whitespace-nowrap font-mono text-xs font-semibold text-slate-700">
                                                 {item.maSku || "—"}
                                             </span>
                                         </td>

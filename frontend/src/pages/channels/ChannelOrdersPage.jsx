@@ -16,7 +16,7 @@ import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
 import MockModeNotice from "@/components/shared/MockModeNotice";
 import OrderFlagBadges from "@/components/channel/OrderFlagBadges";
-import { TrangThaiCham } from "@/components/channel/HienThiKenh";
+import StatusBadge from "@/components/shared/StatusBadge";
 import { NUT_CHINH, NUT_PHU } from "@/components/channel/BottomActionBar";
 import LayDonDialog from "@/components/channel/LayDonDialog";
 import { ngayIso } from "@/components/channel/ngay";
@@ -314,7 +314,7 @@ export default function ChannelOrdersPage() {
                     <td className="whitespace-nowrap px-3 py-3 tabular-nums text-bo-muted">{formatDate(don.ngayDatHang)}</td>
                     <td className="whitespace-nowrap px-3 py-3 text-right font-semibold tabular-nums text-bo-heading">{formatCurrency(don.tongCong)}</td>
                     <td className="px-3 py-3">
-                      <TrangThaiCham label={st.label} tone={st.tone} />
+                      <StatusBadge label={st.label} />
                       {don.canXuLy ? (
                         <div className="mt-1">
                           <OrderFlagBadges value={don.canXuLy} />

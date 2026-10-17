@@ -167,7 +167,7 @@ export function trangThaiGiao(ngayGiaoDuKien, daDu, homNay = new Date()) {
 
 /**
  * 6 bước của đơn mua hàng, theo đúng trạng thái đang dùng (constants/donMuaHang.js):
- * 1 Đã gửi · 2 Đã báo giá · 3 Đang vận chuyển · 4 Không chấp nhận báo giá · 5 Đã thanh toán (dữ liệu cũ).
+ * 1 Đã gửi · 2 Đã báo giá · 3 Đang vận chuyển · 4 Không chấp nhận báo giá · 5 Đã nhận đủ (dữ liệu cũ, trước gọi "Đã thanh toán").
  * Mỗi bước: `{ ma, nhan, trangThai: "xong" | "dangLam" | "chua" | "dung", phu, ngay, canhBao }`.
  * `ngay` để màn tự định dạng; `canhBao` là chữ cảnh báo (vd. "quá hạn 1 ngày").
  */

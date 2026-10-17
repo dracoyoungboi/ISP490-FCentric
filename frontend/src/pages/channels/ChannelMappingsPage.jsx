@@ -22,7 +22,8 @@ import AttentionBar from "@/components/shared/AttentionBar";
 import MockModeNotice from "@/components/shared/MockModeNotice";
 import SyncLogDetailSheet from "@/components/channel/SyncLogDetailSheet";
 import GhepBienThe from "@/components/channel/GhepBienThe";
-import { AnhSanPham, TrangThaiCham } from "@/components/channel/HienThiKenh";
+import { AnhSanPham } from "@/components/channel/HienThiKenh";
+import StatusBadge from "@/components/shared/StatusBadge";
 import { SWITCH_CLASS } from "@/components/channel/SettingsCard";
 import { NUT_CHINH, NUT_PHU } from "@/components/channel/BottomActionBar";
 import { daKetNoi } from "@/components/channel/ketNoiShopify";
@@ -378,7 +379,7 @@ export default function ChannelMappingsPage() {
 
   /** Một dòng SKU. `trongNhom`: nằm dưới hàng sản phẩm (chỉ ghi biến thể, thụt vào). */
   const dongSku = (dong, trongNhom) => {
-    const meta = LIEN_KET_STATUS[dong.trangThaiLienKet] ?? { label: dong.trangThaiLienKet || "—", tone: "neutral" };
+    const meta = LIEN_KET_STATUS[dong.trangThaiLienKet] ?? { label: dong.trangThaiLienKet ? `Không xác định (mã ${dong.trangThaiLienKet})` : "Chưa có trạng thái" };
     const dangXuLyDong = dangChay?.id === dong.id;
     const choPhepBat = dangDongBo(dong) || Boolean(dong.bienTheSanPhamId);
     return (
@@ -419,7 +420,7 @@ export default function ChannelMappingsPage() {
           <OTonDaDay dong={dong} seDay={soSeDay(dong)} />
         </td>
         <td className="px-3 py-2.5">
-          <TrangThaiCham label={meta.label} tone={meta.tone} />
+          <StatusBadge label={meta.label} />
           {dong.trangThaiLienKet === "loi" && dong.chiTietLoi ? (
             <p className="mt-1 max-w-[220px] truncate text-xs text-bo-danger" title={dong.chiTietLoi}>
               {dong.chiTietLoi}

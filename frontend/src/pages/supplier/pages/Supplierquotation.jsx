@@ -28,8 +28,8 @@ const TB_CAN_DANG_NHAP = 'Vui lòng đăng nhập để xem và gửi báo giá.
 // Trang cũ không cho gửi khi đơn chưa có ngày giao dự kiến (ô ngày chỉ đọc) — giữ nguyên điều kiện này
 const LOI_THIEU_NGAY_GIAO = 'Đơn mua hàng chưa có ngày cần giao nên chưa gửi được báo giá. Vui lòng liên hệ người phụ trách đơn.';
 // Tên trạng thái hiển thị cho nhà cung cấp (phía nhà cung cấp, khác tên trạng thái đơn ở phần quản trị)
-const NHAN_CHO_BAO_GIA = { label: 'Chờ báo giá', tone: 'warning' };
-const NHAN_DA_GUI = { label: 'Đã gửi báo giá', tone: 'success' };
+const NHAN_CHO_BAO_GIA = { label: 'Chờ báo giá' };
+const NHAN_DA_GUI = { label: 'Đã gửi báo giá' };
 const LOI_GUI_MAC_DINH = 'Không gửi được báo giá. Đơn giá bạn đã nhập vẫn còn trên trang. Kiểm tra kết nối mạng rồi thử lại.';
 
 const O_GHI_CHU_CHUNG =
@@ -169,7 +169,7 @@ function TrangBaoGia({ orderData, daGuiLuc }) {
                             Báo giá đơn {orderData.soDonMua}
                         </h1>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                            <StatusBadge label={nhan.label} tone={nhan.tone} />
+                            <StatusBadge label={nhan.label} />
                             <CanGiaoTruoc ngay={orderData.ngayGiaoDuKien} className="text-[13px] leading-5 text-slate-600 md:hidden" />
                         </div>
                     </div>

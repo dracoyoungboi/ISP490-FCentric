@@ -11,16 +11,16 @@ import { trangThaiLa } from "@/constants/trangThaiChung";
  *   (trang Chuyển kho nội bộ, có bảng tên riêng); 5 không xảy ra với hai loại phiếu này. Vẫn giữ nhãn để hiện
  *   nếu gặp, KHÔNG đưa vào tab của danh sách.
  * Mã lạ (dữ liệu cũ / ghi từ phiên bản khác) hiện "Không xác định (mã N)" hoặc "Chưa có trạng thái".
- * `tone` khớp tone của StatusBadge (giữ như đang dùng ở danh sách).
+ * Màu thẻ tra theo tên ở constants/trangThai.js.
  */
 export const PHIEU_XUAT_KHO_STATUS = {
-    0: { label: "Nháp", tone: "warning" },
-    1: { label: "Chờ duyệt", tone: "info" },
-    2: { label: "Đã duyệt", tone: "info", className: "border-indigo-200 bg-indigo-50 text-indigo-700" },
-    3: { label: "Đã xuất", tone: "success" },
-    4: { label: "Đã hủy", tone: "danger" },
-    5: { label: "Đã xuất", tone: "success" },
-    6: { label: "Chờ xuất", tone: "info", className: "border-sky-200 bg-sky-50 text-sky-700" },
+    0: { label: "Nháp" },
+    1: { label: "Chờ duyệt" },
+    2: { label: "Đã duyệt" },
+    3: { label: "Đã xuất" },
+    4: { label: "Đã hủy" },
+    5: { label: "Đã xuất" },
+    6: { label: "Chờ xuất" },
 };
 
 /**

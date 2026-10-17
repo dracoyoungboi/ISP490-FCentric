@@ -316,11 +316,11 @@ export default function DonChoXuatPage() {
                                 <th className={`${TH_CLASS} text-left`}>Kênh</th>
                                 <th className={`${TH_CLASS} text-left`}>Khách hàng</th>
                                 <th className={`${TH_CLASS} text-left`}>Kho xuất</th>
-                                <th className={`${TH_CLASS} text-center`}>Ngày tạo</th>
+                                <th className={`${TH_CLASS} text-left`}>Ngày tạo</th>
                                 <th className={`${TH_CLASS} text-right tabular-nums`}>SKU</th>
                                 <th className={`${TH_CLASS} text-right tabular-nums`}>Số lượng</th>
                                 <th className={`${TH_CLASS} text-right tabular-nums`}>Tổng tiền</th>
-                                <th className={`${TH_CLASS} text-center`}>Tồn kho</th>
+                                <th className={`${TH_CLASS} text-left`}>Tồn kho</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-bo-border">
@@ -354,7 +354,7 @@ export default function DonChoXuatPage() {
                                         </td>
                                         <td className="px-3 py-3 font-semibold text-bo-foreground">{row.tenKhachHang || "Khách lẻ"}</td>
                                         <td className="px-3 py-3 text-bo-muted">{row.tenKhoXuat || "—"}</td>
-                                        <td className="whitespace-nowrap px-3 py-3 text-center text-xs text-bo-muted">
+                                        <td className="whitespace-nowrap px-3 py-3 text-xs text-bo-muted">
                                             {formatDateTime(row.ngayTao)}
                                         </td>
                                         <td className="px-3 py-3 text-right tabular-nums">
@@ -372,10 +372,11 @@ export default function DonChoXuatPage() {
                                         <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums font-semibold text-bo-foreground">
                                             {formatCurrency(toNumber(row.tongCong))}
                                         </td>
-                                        <td className="px-3 py-3 text-center">
+                                        <td className="px-3 py-3">
+                                            {/* Thiếu hàng là đơn chưa nhặt được: Đỏ như cờ "Thiếu hàng" của đơn kênh */}
                                             <StatusBadge
+                                                nhom={row.duHang ? "xong" : "loi"}
                                                 label={row.khaDung || (row.duHang ? "Đủ hàng" : "Thiếu hàng")}
-                                                tone={row.duHang ? "success" : "warning"}
                                             />
                                         </td>
                                     </tr>

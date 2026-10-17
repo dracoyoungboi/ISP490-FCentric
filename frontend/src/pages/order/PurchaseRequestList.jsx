@@ -13,7 +13,7 @@ import {
 import {
     ChevronDown, Calendar,
     Plus, RefreshCw, Warehouse, CheckCircle,
-    XCircle, Clock, FileText, Loader2, AlertCircle, Package, SearchX,
+    XCircle, Loader2, Package, SearchX,
 } from 'lucide-react';
 
 import PageContainer from '@/components/backoffice/PageContainer';
@@ -49,14 +49,7 @@ function parseRoles(vaiTro) {
     return vaiTro.includes(' ') ? vaiTro.split(' ') : [vaiTro];
 }
 
-// Tên + màu trạng thái lấy từ constants/yeuCauNhapHang (một tên cho danh sách, chi tiết, bản in); ở đây chỉ giữ icon.
-const STATUS_ICON = {
-    1: Clock,
-    2: CheckCircle,
-    3: FileText,
-    4: XCircle,
-    5: FileText,
-};
+// Tên trạng thái lấy từ constants/yeuCauNhapHang, màu thẻ từ constants/trangThai (thẻ R8 không kèm icon).
 
 // Tab trạng thái (bố cục A+G) — mã tab nằm trên URL ?trangThai=, kho đang lọc trên ?kho=
 const TAB_MAS = YEU_CAU_NHAP_HANG_TABS.map((tab) => tab.ma);
@@ -295,11 +288,6 @@ export default function PurchaseRequestList() {
         reloadCounts();
     };
 
-    const getStatusIcon = (status) => {
-        const StatusIcon = STATUS_ICON[status] || AlertCircle;
-        return <StatusIcon className="size-3.5" />;
-    };
-
     const getSelectedWarehouseName = () => {
         if (!khoId) return 'Tất cả kho';
         return warehouses.find(w => String(w.id) === khoId)?.tenKho || 'Đang tải...';
@@ -500,7 +488,7 @@ export default function PurchaseRequestList() {
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Người tạo</th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày tạo</th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày giao DK</th>
-                                <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-bo-border">
@@ -533,16 +521,8 @@ export default function PurchaseRequestList() {
                                                 <Calendar className="size-3.5 shrink-0 text-slate-400" />{formatDate(req.ngayGiaoDuKien)}
                                             </div>
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-3 text-center">
-                                            <StatusBadge
-                                                tone={cfg.tone}
-                                                dot={false}
-                                                label={
-                                                    <span className="flex items-center gap-1.5">
-                                                        {getStatusIcon(req.trangThai)}{cfg.label}
-                                                    </span>
-                                                }
-                                            />
+                                        <td className="whitespace-nowrap px-3 py-3">
+                                            <StatusBadge label={cfg.label} />
                                         </td>
                                     </tr>
                                 );

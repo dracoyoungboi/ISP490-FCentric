@@ -340,9 +340,9 @@ export default function SkuBuilder() {
                                     <th className="h-10 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
                                     <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SKU</th>
                                     <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Sản phẩm</th>
-                                    <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Màu</th>
-                                    <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kích cỡ</th>
-                                    <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
+                                    <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Màu</th>
+                                    <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kích cỡ</th>
+                                    <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
                                     <th className="h-10 w-36 px-3 text-right whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Giá vốn</th>
                                     <th className="h-10 w-36 px-3 text-right whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Giá bán</th>
                                     <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
@@ -376,32 +376,24 @@ export default function SkuBuilder() {
                                                 )}
                                             </td>
 
-                                            <td className="px-3 py-3 text-center align-middle">
+                                            <td className="whitespace-nowrap px-3 py-3 align-middle text-slate-700">
                                                 {sku.mauSac?.tenMau ? (
-                                                    <span className="inline-flex items-center rounded-full border border-bo-border bg-bo-surface-subtle px-2.5 py-0.5 text-xs font-medium text-bo-muted">
-                                                        {sku.mauSac.tenMau}
-                                                    </span>
+                                                    sku.mauSac.tenMau
                                                 ) : (
                                                     <span className="text-xs text-slate-300">—</span>
                                                 )}
                                             </td>
 
-                                            <td className="px-3 py-3 text-center align-middle">
+                                            <td className="whitespace-nowrap px-3 py-3 align-middle text-slate-700">
                                                 {sku.size?.tenSize ? (
-                                                    <span className="inline-flex items-center rounded-full border border-bo-border bg-bo-surface-subtle px-2.5 py-0.5 text-xs font-medium text-bo-muted">
-                                                        {sku.size.tenSize}
-                                                    </span>
+                                                    sku.size.tenSize
                                                 ) : (
                                                     <span className="text-xs text-slate-300">—</span>
                                                 )}
                                             </td>
 
-                                            <td className="px-3 py-3 text-center align-middle">
-                                                {sku.trangThai === 1 ? (
-                                                    <StatusBadge label="Hoạt động" tone="success" className="whitespace-nowrap" />
-                                                ) : (
-                                                    <StatusBadge label="Ngừng hoạt động" tone="neutral" className="whitespace-nowrap" />
-                                                )}
+                                            <td className="px-3 py-3 align-middle">
+                                                <StatusBadge label={sku.trangThai === 1 ? "Hoạt động" : "Ngừng hoạt động"} />
                                             </td>
 
                                             <td className="px-3 py-3 text-right align-middle">

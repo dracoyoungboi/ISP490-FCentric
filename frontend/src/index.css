@@ -56,6 +56,22 @@
 	--color-bo-danger: #dc2626;
 	--color-bo-danger-soft: #fef2f2;
 
+	/* Thẻ trạng thái R8: 6 nhóm theo giai đoạn của việc (bảng nhãn ở src/constants/trangThai.js).
+	   Mọi cặp nền / chữ tương phản từ 6,9:1 trở lên. Đang làm nền vàng nhạt, Cần chú ý nền cam:
+	   hai nền khác nhau ΔE2000 13,3 để nhìn riêng một thẻ vẫn không lẫn. */
+	--color-bo-tt-cho: #e2e8f0;
+	--color-bo-tt-cho-chu: #1e293b;
+	--color-bo-tt-dang: #fef9c3;
+	--color-bo-tt-dang-chu: #713f12;
+	--color-bo-tt-chu-y: #fed7aa;
+	--color-bo-tt-chu-y-chu: #7c2d12;
+	--color-bo-tt-xong: #dcfce7;
+	--color-bo-tt-xong-chu: #14532d;
+	--color-bo-tt-dong: #f1f5f9;
+	--color-bo-tt-dong-chu: #475569;
+	--color-bo-tt-loi: #fee2e2;
+	--color-bo-tt-loi-chu: #7f1d1d;
+
 	/* Nhịp thu gọn / mở rộng sidebar: dùng chung cho độ rộng, chữ, logo và nhóm menu. */
 	--ease-sidebar: cubic-bezier(0.4, 0, 0.2, 1);
 }

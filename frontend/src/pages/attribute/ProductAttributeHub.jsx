@@ -148,12 +148,7 @@ const ViewModal = ({ viewItem, activeTab, onClose, onEdit }) => {
                             <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-3">
                                 <TileLabel icon={<Ruler className="size-3.5" />} label="Loại kích cỡ" />
                                 {viewItem.loaiSize ? (
-                                    <StatusBadge
-                                        label={viewItem.loaiSize}
-                                        tone="neutral"
-                                        dot={false}
-                                        className="mt-1.5 uppercase"
-                                    />
+                                    <p className="mt-1.5 text-sm font-medium uppercase text-bo-foreground">{viewItem.loaiSize}</p>
                                 ) : (
                                     <p className="mt-1.5 text-sm italic text-bo-muted">—</p>
                                 )}
@@ -567,7 +562,7 @@ const ProductAttributeHub = () => {
                                             <td className="px-3 py-3">
                                                 <div className="flex items-center gap-2">
                                                     <ColorSwatch hex={item.maMauHex} className="size-6" />
-                                                    <span className="inline-flex items-center rounded-md border border-bo-border bg-bo-surface-subtle px-2 py-0.5 font-mono text-xs text-bo-foreground">
+                                                    <span className="font-mono text-xs uppercase text-slate-600">
                                                         {item.maMauHex || '—'}
                                                     </span>
                                                 </div>
@@ -575,12 +570,7 @@ const ProductAttributeHub = () => {
                                         )}
                                         {activeTab === 'size' && (
                                             <td className="px-3 py-3">
-                                                <StatusBadge
-                                                    label={item.loaiSize || '—'}
-                                                    tone="neutral"
-                                                    dot={false}
-                                                    className="uppercase"
-                                                />
+                                                <span className="whitespace-nowrap uppercase text-slate-700">{item.loaiSize || '—'}</span>
                                             </td>
                                         )}
                                         {activeTab === 'material' && (
@@ -610,10 +600,7 @@ const ProductAttributeHub = () => {
                                         )}
                                         {activeTab === 'brand' && (
                                             <td className="px-3 py-3">
-                                                <StatusBadge
-                                                    label={Number(item.trangThai) === 1 ? 'Hoạt động' : 'Ngừng hoạt động'}
-                                                    tone={Number(item.trangThai) === 1 ? 'success' : 'neutral'}
-                                                />
+                                                <StatusBadge label={Number(item.trangThai) === 1 ? 'Hoạt động' : 'Ngừng hoạt động'} />
                                             </td>
                                         )}
                                         {activeTab === 'brand' && (

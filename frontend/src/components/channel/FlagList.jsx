@@ -10,10 +10,10 @@ export default function FlagList({ value, compact = false }) {
   return (
     <ul className="space-y-2">
       {flags.map((flag) => {
-        const meta = FLAG_META[flag] ?? { label: flag, tone: "warning", description: "", resolve: "" };
+        const meta = FLAG_META[flag] ?? { label: flag, description: "", resolve: "" };
         return (
           <li key={flag} className="rounded-md border border-bo-border bg-bo-surface-subtle p-3">
-            <StatusBadge label={meta.label} tone={meta.tone} dot={false} />
+            <StatusBadge label={meta.label} tone="warning" />
             {meta.description ? <p className="mt-1.5 text-sm text-slate-700">{meta.description}</p> : null}
             {meta.resolve ? <p className="mt-0.5 text-xs text-bo-muted">Cách xử lý: {meta.resolve}</p> : null}
           </li>

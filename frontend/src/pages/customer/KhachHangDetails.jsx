@@ -14,10 +14,11 @@ import SurfaceCard from "@/components/shared/SurfaceCard";
 import { Button } from "@/components/ui/button";
 import CustomerPurchaseHistory from "./components/CustomerPurchaseHistory";
 
+// Loại khách là phân loại: hiện chữ thường cạnh mã khách, không dùng thẻ màu.
 const LOAI_MAP = {
-  le:           { label: "Khách lẻ",       tone: "info" },
-  si:           { label: "Khách sỉ",     tone: "success" },
-  doanh_nghiep: { label: "Doanh nghiệp", tone: "warning" },
+  le:           { label: "Khách lẻ" },
+  si:           { label: "Khách sỉ" },
+  doanh_nghiep: { label: "Doanh nghiệp" },
 };
 
 function InfoField({ label, value, icon, className = "" }) {
@@ -112,18 +113,13 @@ export default function KhachHangDetails() {
             </Button>
           </div>
           <h1 className={`max-w-5xl break-words text-2xl leading-tight sm:text-3xl lg:text-4xl ${ENTITY_NAME_TYPE}`}>{khachHang.tenKhachHang || "—"}</h1>
-          <div className="mt-5 flex flex-wrap items-center gap-2">
-            <StatusBadge
-              label={`Mã khách hàng: ${khachHang.maKhachHang || "—"}`}
-              dot={false}
-              className="h-auto min-h-8 break-words border-blue-200/40 bg-[#0d2747] px-3 py-1.5 text-sm font-semibold leading-5 text-blue-50"
-            />
-            <StatusBadge label={loai?.label || "—"} tone={loai?.tone} dot={false} className="h-auto min-h-8 px-3 py-1.5 text-sm font-semibold leading-5" />
-            <StatusBadge
-              label={khachHang.trangThai === 1 ? "Đang hoạt động" : "Ngừng hoạt động"}
-              tone={khachHang.trangThai === 1 ? "success" : "neutral"}
-              className="h-auto min-h-8 px-3 py-1.5 text-sm font-semibold leading-5"
-            />
+          <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-blue-100/90">
+            <StatusBadge size="lg" label={khachHang.trangThai === 1 ? "Đang hoạt động" : "Ngừng hoạt động"} />
+            <span className="break-words">
+              Mã khách hàng: <span className="font-semibold text-white">{khachHang.maKhachHang || "—"}</span>
+            </span>
+            <span aria-hidden="true" className="text-blue-100/50">·</span>
+            <span>{loai?.label || "Chưa phân loại"}</span>
           </div>
         </div>
       </section>

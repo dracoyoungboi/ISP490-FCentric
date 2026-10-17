@@ -72,8 +72,8 @@ const COLUMNS = [
     { label: "Họ tên" },
     { label: "Email" },
     { label: "SĐT" },
-    { label: "Vai trò", center: true },
-    { label: "Trạng thái", center: true },
+    { label: "Vai trò" },
+    { label: "Trạng thái" },
     { label: "Thao tác", center: true, sticky: true, className: "w-px" },
 ];
 
@@ -575,21 +575,13 @@ export default function ViewUserListByAdmin() {
                                             {u.soDienThoai || "—"}
                                         </td>
 
-                                        <td className="px-3 py-3 text-center">
-                                            <StatusBadge
-                                                label={formatRole(u.vaiTro)}
-                                                tone="neutral"
-                                                dot={false}
-                                                className="whitespace-nowrap"
-                                            />
+                                        {/* Vai trò là phân loại: chữ thường, không dùng thẻ trạng thái */}
+                                        <td className="whitespace-nowrap px-3 py-3 text-slate-700">
+                                            {formatRole(u.vaiTro)}
                                         </td>
 
-                                        <td className="px-3 py-3 text-center">
-                                            <StatusBadge
-                                                label={isActive ? "Hoạt động" : "Bị khóa"}
-                                                tone={isActive ? "success" : "danger"}
-                                                className="whitespace-nowrap"
-                                            />
+                                        <td className="px-3 py-3">
+                                            <StatusBadge label={isActive ? "Hoạt động" : "Bị khóa"} />
                                         </td>
 
                                         {/* Ô thao tác không điều hướng: bấm trượt nút (hoặc nút đang khóa) không mở chi tiết */}

@@ -1,14 +1,15 @@
 // Hằng số cho luồng xuất kho theo Pick List (NhatHangController: cho_nhat → dang_nhat → da_nhat; da_huy).
 // Nhặt xong thì đơn chuyển "Chờ đóng gói" (Scan-to-Pack); 'da_xuat' chỉ còn trong dữ liệu cũ chưa chạy dong_goi_v1.sql.
+// Màu thẻ tra theo tên ở constants/trangThai.js.
 
 export const PICK_LIST_STATUS = {
-  cho_nhat: { label: "Chờ nhặt", tone: "neutral" },
-  dang_nhat: { label: "Đang nhặt", tone: "info" },
-  da_nhat: { label: "Đã nhặt", tone: "success" },
-  da_xuat: { label: "Đã xuất", tone: "success" },
-  da_huy: { label: "Đã hủy", tone: "danger" },
-  hoan_tat: { label: "Hoàn tất", tone: "success" },
-  huy: { label: "Đã hủy", tone: "danger" },
+  cho_nhat: { label: "Chờ nhặt" },
+  dang_nhat: { label: "Đang nhặt" },
+  da_nhat: { label: "Đã nhặt" },
+  da_xuat: { label: "Đã xuất" },
+  da_huy: { label: "Đã hủy" },
+  hoan_tat: { label: "Hoàn thành" },
+  huy: { label: "Đã hủy" },
 };
 
 /**
@@ -28,7 +29,7 @@ export const PICK_LIST_TABS = [
 export const PICK_LIST_EDITABLE = ["cho_nhat", "dang_nhat"];
 
 export function getPickListStatus(trangThai) {
-  return PICK_LIST_STATUS[trangThai] ?? { label: trangThai || "Không xác định", tone: "neutral" };
+  return PICK_LIST_STATUS[trangThai] ?? { label: trangThai ? `Không xác định (mã ${trangThai})` : "Chưa có trạng thái" };
 }
 
 export const toNumber = (value) => {

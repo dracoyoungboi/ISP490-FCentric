@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/tooltip";
 import {
     ArrowLeft, Warehouse, Calendar, User, FileText, Package,
-    CheckCircle, Printer, MapPin, Clock, Send, CreditCard, ListChecks,
+    CheckCircle, Printer, MapPin, Clock, CreditCard, ListChecks,
     Eye, Loader2, Ship, XCircle, SearchX
 } from "lucide-react";
 
@@ -26,7 +26,9 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
 import LoadingState from "@/components/shared/LoadingState";
 import ErrorState from "@/components/shared/ErrorState";
-import { YEU_CAU_NHAP_HANG_STATUS } from "@/constants/yeuCauNhapHang";
+import { getYeuCauNhapHangStatus } from "@/constants/yeuCauNhapHang";
+import { getBaoGiaNccStatus } from "@/constants/donMuaHang";
+import { KHUNG_THEO_NHOM, layNhomTrangThai } from "@/constants/trangThai";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { formatDate as dinhDangNgay, formatDateTime as dinhDangNgayGio } from "@/utils/formatters";
 
@@ -59,27 +61,11 @@ const formatDateTime = (dateString) => dinhDangNgayGio(dateString);
 
 // ─── Status configs (Đồng bộ với List) ─────────────────────────────────────────
 // Tên trạng thái yêu cầu lấy từ constants/yeuCauNhapHang (một tên cho danh sách, chi tiết, bản in)
-const PR_STATUS = {
-    3: { label: YEU_CAU_NHAP_HANG_STATUS[3].label, tone: 'info', icon: FileText, desc: 'Yêu cầu này đã được tạo thành các đơn báo giá để gửi NCC.' },
-    5: { label: YEU_CAU_NHAP_HANG_STATUS[5].label, tone: 'success', icon: Ship, desc: 'Đã chốt báo giá, đơn hàng đang được tiến hành xử lý/vận chuyển.' },
-};
-
-const PO_STATUS = {
-    0: { label: 'Đã xóa', tone: 'danger', icon: XCircle },
-    1: { label: 'Đã gửi YC báo giá', tone: 'neutral', icon: Send },
-    2: { label: 'Đã nhận báo giá', tone: 'info', icon: FileText },
-    3: { label: 'Đã chuyển thành đơn mua hàng', tone: 'warning', icon: CheckCircle },
-    4: { label: 'Từ chối báo giá', tone: 'danger', icon: XCircle },
-    5: { label: 'Đã thanh toán', tone: 'success', icon: CreditCard },
-};
-
-// Nền banner trạng thái — bám theo bảng tone của StatusBadge
-const BANNER_TONES = {
-    neutral: 'border-bo-border bg-bo-surface-subtle',
-    info: 'border-blue-200 bg-bo-primary-soft',
-    success: 'border-green-200 bg-bo-success-soft',
-    warning: 'border-orange-200 bg-bo-warning-soft',
-    danger: 'border-red-200 bg-bo-danger-soft',
+// Icon + mô tả của banner theo mã yêu cầu; tên lấy từ constants/yeuCauNhapHang, màu banner theo nhóm của tên
+// (constants/trangThai). Báo giá từng nhà cung cấp dùng BAO_GIA_NCC_STATUS (constants/donMuaHang).
+const PR_BANNER = {
+    3: { icon: FileText, desc: 'Yêu cầu này đã được tạo thành các đơn báo giá để gửi NCC.' },
+    5: { icon: Ship, desc: 'Đã chốt báo giá, đơn hàng đang được tiến hành xử lý/vận chuyển.' },
 };
 
 function getPaymentTooltip(trangThai) {
@@ -237,9 +223,9 @@ export default function QuotationRequestDetail() {
         );
     }
 
-    const currentStatus = PR_STATUS[orderData.trangThai] || { label: 'Không rõ', tone: 'neutral', icon: Clock, desc: '' };
+    const currentStatus = { ...getYeuCauNhapHangStatus(orderData.trangThai), icon: Clock, desc: '', ...PR_BANNER[orderData.trangThai] };
     const StatusIcon = currentStatus.icon;
-    const bannerClass = BANNER_TONES[currentStatus.tone] || BANNER_TONES.neutral;
+    const bannerClass = KHUNG_THEO_NHOM[layNhomTrangThai(currentStatus.label)];
 
     // Ghi chú: UI duyệt/từ chối báo giá chưa từng có nút mở (dead UI từ bản cũ).
 
@@ -440,7 +426,7 @@ export default function QuotationRequestDetail() {
                             <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Nhà cung cấp</th>
                             <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày gửi</th>
                             <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Hạn chót</th>
-                            <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
+                            <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
                             <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền (NCC báo)</th>
                             <th className="h-10 w-[140px] px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
                         </tr>
@@ -448,7 +434,7 @@ export default function QuotationRequestDetail() {
                     <tbody className="divide-y divide-bo-border">
                         {orderData.donMuaHangs?.length > 0 ? (
                             orderData.donMuaHangs.map((po) => {
-                                const cfg = PO_STATUS[po.trangThai] ?? { label: 'Không rõ', tone: 'neutral', icon: Clock };
+                                const cfg = getBaoGiaNccStatus(po.trangThai);
                                 const isAccepted = po.trangThai === 3 || po.trangThai === 5;
                                 const canPay = po.trangThai === 3;
 
@@ -474,8 +460,8 @@ export default function QuotationRequestDetail() {
                                                 <Calendar className="size-3.5 shrink-0" /> {formatDate(po.ngayGiaoDuKien)}
                                             </div>
                                         </td>
-                                        <td className="px-3 py-3 text-center">
-                                            <StatusBadge label={cfg.label} tone={cfg.tone} />
+                                        <td className="px-3 py-3">
+                                            <StatusBadge label={cfg.label} />
                                         </td>
                                         <td className="px-3 py-3 text-right">
                                             <span className={`text-[15px] font-bold ${isAccepted ? 'text-bo-success' : 'text-bo-foreground'}`}>

@@ -393,13 +393,13 @@ export default function PhieuXuatKhoList() {
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Kho xuất
                                 </th>
-                                <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Ngày tạo
                                 </th>
-                                <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Ngày xuất
                                 </th>
-                                <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Trạng thái
                                 </th>
                             </tr>
@@ -427,34 +427,22 @@ export default function PhieuXuatKhoList() {
                                         <td className="px-3 py-3 font-semibold text-bo-primary">
                                             {item.soPhieuXuat}
                                         </td>
-                                        {/* CỘT THAM CHIẾU — chuyển kho dùng bo-primary, SO dùng slate để phân biệt */}
-                                        <td className="px-3 py-3">
-                                            <span
-                                                className={
-                                                    isChuyenKho
-                                                        ? "inline-flex items-center rounded-md border border-bo-primary/20 bg-bo-primary-soft px-2 py-1 text-xs font-semibold text-bo-primary"
-                                                        : "inline-flex items-center rounded-md border border-bo-border bg-bo-surface-subtle px-2 py-1 text-xs font-semibold text-slate-600"
-                                                }
-                                            >
-                                                {maThamChieu}
-                                            </span>
+                                        {/* Mã tham chiếu là chữ thường: không bấm được nên không tô màu liên kết */}
+                                        <td className="whitespace-nowrap px-3 py-3 text-slate-700">
+                                            {maThamChieu}
                                         </td>
                                         <td className="px-3 py-3 text-sm text-bo-foreground">
                                             {item.kho?.tenKho || "-"}
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-3 text-center text-xs text-bo-muted">
+                                        <td className="whitespace-nowrap px-3 py-3 text-xs text-bo-muted">
                                             {formatDate(item.ngayTao)}
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-3 text-center text-xs text-bo-muted">
+                                        <td className="whitespace-nowrap px-3 py-3 text-xs text-bo-muted">
                                             {item.ngayXuat ? formatDate(item.ngayXuat) : "Chưa xuất kho"}
                                         </td>
-                                        <td className="px-3 py-3 text-center">
+                                        <td className="px-3 py-3">
                                             {status ? (
-                                                <StatusBadge
-                                                    label={status.label}
-                                                    tone={status.tone}
-                                                    className={status.className}
-                                                />
+                                                <StatusBadge label={status.label} />
                                             ) : (
                                                 <span className="text-xs text-bo-muted">—</span>
                                             )}

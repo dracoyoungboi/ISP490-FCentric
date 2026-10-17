@@ -49,7 +49,7 @@ export function toPurchaseOrderPrintModel(raw) {
         documentNumber: dash(data.soDonMua || `#${data.id}`),
         orderDate: dashDateTime(data.ngayDatHang),
         expectedDate: dashDate(data.ngayGiaoDuKien),
-        status: { label: status.label, tone: status.tone },
+        status: { label: status.label },
         supplier: {
             name: dash(data.nhaCungCap?.tenNhaCungCap),
             code: dash(data.nhaCungCap?.maNhaCungCap),

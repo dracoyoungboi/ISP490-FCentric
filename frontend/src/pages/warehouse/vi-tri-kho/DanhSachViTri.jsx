@@ -368,7 +368,7 @@ export default function DanhSachViTri({
                       )}
                     </td>
                     <td className="whitespace-nowrap px-3 py-3">
-                      <StatusBadge label={nhom.label} tone={nhom.tone} />
+                      <StatusBadge label={nhom.label} />
                     </td>
                     <td className="px-3 py-3">
                       <RowActions>

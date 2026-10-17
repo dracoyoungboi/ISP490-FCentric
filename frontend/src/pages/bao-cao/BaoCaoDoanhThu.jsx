@@ -8,7 +8,6 @@ import { Search, RefreshCw, BarChart2, Calendar } from "lucide-react";
 import PageContainer from "@/components/backoffice/PageContainer";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import TableShell from "@/components/shared/TableShell";
-import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
@@ -74,11 +73,12 @@ const TAB_KY = [
   { value: "so_sanh", label: "So sánh" },
 ];
 
-// Tông màu tỷ lệ lãi gộp (tỷ lệ 0–1): >= 20% tốt, >= 10% trung bình, còn lại thấp; không có tỷ lệ thì trung tính
-const laiTone = (ratio) => {
-  if (ratio == null) return "neutral";
+// Màu chữ tỷ lệ lãi gộp (tỷ lệ 0–1): >= 20% tốt, >= 10% trung bình, còn lại thấp; không có tỷ lệ thì xám.
+// Tỷ lệ là con số, không phải trạng thái: hiện chữ đậm có màu, không dùng thẻ trạng thái.
+const mauLai = (ratio) => {
+  if (ratio == null) return "text-bo-muted";
   const value = ratio * 100;
-  return value >= 20 ? "success" : value >= 10 ? "warning" : "danger";
+  return value >= 20 ? "text-bo-success" : value >= 10 ? "text-bo-warning" : "text-bo-danger";
 };
 
 // ─── CUSTOM TOOLTIP ───
@@ -426,11 +426,7 @@ export default function BaoCaoDoanhThu() {
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-bo-muted">Tỷ lệ lãi gộp</span>
                 {coSo ? (
-                  <StatusBadge
-                    label={formatPercent(tyLeLaiGop)}
-                    tone={laiTone(tyLeLaiGop)}
-                    dot={false}
-                  />
+                  <span className={`text-xs font-bold tabular-nums ${mauLai(tyLeLaiGop)}`}>{formatPercent(tyLeLaiGop)}</span>
                 ) : (
                   <span className="text-xs font-bold text-bo-muted">—</span>
                 )}
@@ -475,7 +471,7 @@ export default function BaoCaoDoanhThu() {
                   <td className="whitespace-nowrap px-4 py-3.5 text-right tabular-nums text-slate-600">{formatCurrency(row.giaVon)}</td>
                   <td className="whitespace-nowrap px-4 py-3.5 text-right font-bold tabular-nums text-bo-success">{formatCurrency(row.loiNhuan)}</td>
                   <td className="px-4 py-3.5 text-right tabular-nums">
-                    <StatusBadge label={formatPercent(row.tyLeLaiGop)} tone={laiTone(row.tyLeLaiGop)} dot={false} />
+                    <span className={`font-semibold ${mauLai(row.tyLeLaiGop)}`}>{formatPercent(row.tyLeLaiGop)}</span>
                   </td>
                   <td className="px-4 py-3.5 text-right tabular-nums text-slate-600">{formatNumber(row.soLuongDon)}</td>
                 </tr>
@@ -490,7 +486,7 @@ export default function BaoCaoDoanhThu() {
                 <td className="whitespace-nowrap px-4 py-3.5 text-right text-sm font-extrabold tabular-nums text-bo-success">{formatCurrency(totalLoiNhuan)}</td>
                 <td className="px-4 py-3.5 text-right tabular-nums">
                   {/* Tỷ lệ của cả kỳ báo cáo = tổng lợi nhuận / tổng doanh thu (không phải trung bình các dòng) */}
-                  <StatusBadge label={formatPercent(tyLeLaiGop)} tone="info" dot={false} />
+                  <span className="text-sm font-extrabold text-bo-foreground">{formatPercent(tyLeLaiGop)}</span>
                 </td>
                 <td className="px-4 py-3.5 text-right text-sm font-bold tabular-nums text-slate-600">{formatNumber(totalDon)}</td>
               </tr>

@@ -45,26 +45,26 @@ export function getChannelBadgeClass(maKenh) {
 }
 
 export const CONNECTION_STATUS = {
-  chua_ket_noi: { label: "Chưa kết nối", tone: "neutral" },
-  dang_hoat_dong: { label: "Đang hoạt động", tone: "success" },
-  tam_dung: { label: "Tạm dừng", tone: "warning" },
-  het_han: { label: "Hết hạn khóa", tone: "danger" },
-  loi: { label: "Lỗi", tone: "danger" },
+  chua_ket_noi: { label: "Chưa kết nối" },
+  dang_hoat_dong: { label: "Đang hoạt động" },
+  tam_dung: { label: "Tạm dừng" },
+  het_han: { label: "Hết hạn khóa" },
+  loi: { label: "Lỗi" },
 };
 
 export const SYNC_STATUS = {
-  CHO: { label: "Chờ", tone: "neutral" },
-  DANG_XU_LY: { label: "Đang xử lý", tone: "info" },
-  THANH_CONG: { label: "Thành công", tone: "success" },
-  CHO_THU_LAI: { label: "Chờ thử lại", tone: "warning" },
-  LOI: { label: "Lỗi", tone: "danger" },
-  BO_QUA: { label: "Bỏ qua", tone: "neutral" },
+  CHO: { label: "Chờ" },
+  DANG_XU_LY: { label: "Đang xử lý" },
+  THANH_CONG: { label: "Thành công" },
+  CHO_THU_LAI: { label: "Chờ thử lại" },
+  LOI: { label: "Lỗi" },
+  BO_QUA: { label: "Bỏ qua" },
 };
 
 export const LINK_STATUS = {
-  da_lien_ket: { label: "Đã liên kết", tone: "success" },
-  chua_lien_ket: { label: "Chưa liên kết", tone: "neutral" },
-  loi: { label: "Lỗi", tone: "danger" },
+  da_lien_ket: { label: "Đã liên kết" },
+  chua_lien_ket: { label: "Chưa liên kết" },
+  loi: { label: "Lỗi" },
 };
 
 export const LINK_STATUS_OPTIONS = [
@@ -132,31 +132,26 @@ export const LINK_STATUS_TABS = [
 export const FLAG_META = {
   THIEU_HANG: {
     label: "Thiếu hàng",
-    tone: "danger",
     description: "Giữ chỗ chưa đủ số lượng đặt.",
     resolve: "Giữ bù khi có hàng, hoặc nhập / chuyển kho thêm.",
   },
   YEU_CAU_HUY: {
     label: "Khách yêu cầu hủy",
-    tone: "warning",
     description: "Sàn đang xử lý yêu cầu hủy của người mua.",
     resolve: "Chờ sàn duyệt hoặc đóng yêu cầu.",
   },
   XUNG_DOT_HUY: {
     label: "Xung đột hủy",
-    tone: "danger",
     description: "Sàn hủy hoặc sửa đơn khi đơn đã vào phiếu nhặt hàng / có phiếu xuất.",
     resolve: "Xác nhận hủy theo sàn hoặc Áp dụng thay đổi từ sàn.",
   },
   HOAN_HANG: {
     label: "Hoàn hàng",
-    tone: "warning",
     description: "Hàng đã rời kho nhưng sàn báo hủy hoặc hoàn.",
     resolve: "Hoàn trả hàng, hoặc Đánh dấu đã xử lý sau khi xử lý tay.",
   },
   CAN_KIEM_TRA: {
     label: "Cần kiểm tra",
-    tone: "warning",
     description: "Trạng thái trên sàn không khớp với kho.",
     resolve: "Kiểm tra rồi Đánh dấu đã xử lý.",
   },
@@ -173,9 +168,9 @@ export function parseFlags(value) {
 }
 
 export const HOLD_STATUS = {
-  dang_giu: { label: "Đang giữ", tone: "info" },
-  da_nha: { label: "Đã nhả", tone: "neutral" },
-  da_xuat: { label: "Đã xuất", tone: "success" },
+  dang_giu: { label: "Đang giữ" },
+  da_nha: { label: "Đã nhả" },
+  da_xuat: { label: "Đã xuất" },
 };
 
 /** Gợi ý xử lý theo mã lỗi nhật ký đồng bộ. */
@@ -231,9 +226,9 @@ export const BUOC_THIET_LAP = [
  * "chua_lien_ket" là dòng đang ngừng đồng bộ (backend lưu "chua_dong_bo").
  */
 export const LIEN_KET_STATUS = {
-  da_lien_ket: { label: "Đang đồng bộ", tone: "success" },
-  chua_lien_ket: { label: "Ngừng đồng bộ", tone: "warning" },
-  loi: { label: "Lỗi", tone: "danger" },
+  da_lien_ket: { label: "Đang đồng bộ" },
+  chua_lien_ket: { label: "Ngừng đồng bộ" },
+  loi: { label: "Lỗi" },
 };
 
 /** Tab của trang Sản phẩm theo sàn. `ma` nằm trên đường dẫn `?trangThai=`. */

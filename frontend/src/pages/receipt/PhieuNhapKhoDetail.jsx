@@ -196,7 +196,7 @@ export default function PhieuNhapKhoDetail() {
                 </button>
 
                 <div className="flex flex-wrap items-center gap-2">
-                    <StatusBadge label={statusInfo.label} tone={statusInfo.tone} className="uppercase" />
+                    <StatusBadge size="lg" label={statusInfo.label} />
 
                     {data.trangThai !== 4 && (
                         <Button
@@ -298,7 +298,7 @@ export default function PhieuNhapKhoDetail() {
                             <th className="h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Sản phẩm / Biến thể</th>
                             <th className="h-10 px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SL cần nhập</th>
                             <th className="h-10 px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SL thực tế</th>
-                            <th className="h-10 px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
+                            <th className="h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
                             <th className="h-10 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
                         </tr>
                     </thead>
@@ -323,11 +323,11 @@ export default function PhieuNhapKhoDetail() {
                                         {item.soLuongCanNhap || 0}
                                     </span>
                                 </td>
-                                <td className="px-4 py-3 text-center">
+                                <td className="px-4 py-3">
                                     {(item.daDuLo || isInternalTransfer || isSalesReturn) ? (
-                                        <StatusBadge label="Đủ hàng" tone="success" />
+                                        <StatusBadge label="Đủ hàng" />
                                     ) : (
-                                        <StatusBadge label="Thiếu lô" tone="warning" />
+                                        <StatusBadge label="Thiếu lô" />
                                     )}
                                 </td>
                                 <td className="px-4 py-3 text-right">

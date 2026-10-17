@@ -79,10 +79,7 @@ export default function DauTrangNcc({ ncc, coTheQuanLy, onQuayLai, onChinhSua, o
             <PageHeading className="max-sm:line-clamp-2 max-sm:whitespace-normal">
               <span title={ncc.tenNhaCungCap || undefined}>{ncc.tenNhaCungCap || ncc.maNhaCungCap || "—"}</span>
             </PageHeading>
-            <StatusBadge
-              label={dangHoatDong ? "Hoạt động" : "Ngừng hoạt động"}
-              tone={dangHoatDong ? "success" : "neutral"}
-            />
+            <StatusBadge size="lg" label={dangHoatDong ? "Hoạt động" : "Ngừng hoạt động"} />
           </div>
           <p className="mt-0.5 text-[13px] leading-5 text-bo-muted">
             {ncc.maNhaCungCap ? <span className="font-mono font-semibold text-slate-700">{ncc.maNhaCungCap}</span> : null}

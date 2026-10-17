@@ -332,8 +332,8 @@ export default function PhieuChuyenKhoList() {
                                 <th className={`${TH_CLASS} text-left`}>Số phiếu</th>
                                 <th className={`${TH_CLASS} text-left`}>Kho xuất</th>
                                 <th className={`${TH_CLASS} text-left`}>Kho nhập</th>
-                                <th className={`${TH_CLASS} text-center`}>Ngày tạo</th>
-                                <th className={`${TH_CLASS} text-center`}>Trạng thái</th>
+                                <th className={`${TH_CLASS} text-left`}>Ngày tạo</th>
+                                <th className={`${TH_CLASS} text-left`}>Trạng thái</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-bo-border">
@@ -351,12 +351,12 @@ export default function PhieuChuyenKhoList() {
                                         <td className="px-4 py-3.5 align-middle font-semibold text-bo-primary">{item.soPhieuXuat}</td>
                                         <td className="px-4 py-3.5 align-middle text-bo-foreground">{item.kho?.tenKho}</td>
                                         <td className="px-4 py-3.5 align-middle text-bo-foreground">{item.khoChuyenDen?.tenKho}</td>
-                                        <td className="px-4 py-3.5 text-center align-middle">
+                                        <td className="px-4 py-3.5 align-middle">
                                             <span className="whitespace-nowrap text-xs text-bo-muted">{formatDate(item.ngayTao)}</span>
                                         </td>
-                                        <td className="px-4 py-3.5 text-center align-middle">
+                                        <td className="px-4 py-3.5 align-middle">
                                             {status ? (
-                                                <StatusBadge label={status.label} tone={status.tone} className={status.className} />
+                                                <StatusBadge label={status.label} />
                                             ) : (
                                                 <span className="text-xs text-bo-muted">—</span>
                                             )}

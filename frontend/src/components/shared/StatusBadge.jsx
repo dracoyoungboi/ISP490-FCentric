@@ -1,28 +1,50 @@
 import { cn } from "@/lib/utils";
+import { NHOM_TRANG_THAI, layNhomTrangThai, nhomCuaNhan } from "@/constants/trangThai";
 
-const TONE_CLASSES = {
-  neutral: "border-bo-border bg-slate-100 text-slate-600",
-  info: "border-blue-200 bg-bo-primary-soft text-blue-700",
-  success: "border-green-200 bg-bo-success-soft text-bo-success",
-  warning: "border-orange-200 bg-bo-warning-soft text-bo-warning",
-  danger: "border-red-200 bg-bo-danger-soft text-bo-danger",
+/**
+ * Thẻ trạng thái kiểu R8 (lozenge): ô bo 3px, chữ 12px đậm 600, viết thường như câu; nền nhạt, chữ đậm cùng màu;
+ * không viền, không chấm, không icon. Màu tra theo TÊN nhãn ở constants/trangThai.js để một nhãn một màu ở mọi màn.
+ *
+ * - `nhom`: ép nhóm màu (cho, dang, canChuY, xong, dong, loi, thuong). Thường không cần truyền.
+ * - `tone`: chỉ dùng cho giá trị không phải trạng thái (vd. tỷ lệ %), khi nhãn không có trong bảng.
+ * - `size`: "md" (20px, trong bảng) hoặc "lg" (24px, đầu trang chi tiết).
+ * Nhóm `thuong` ("Còn hàng", "Bình thường"…) hiện chữ xám thường, không thẻ.
+ */
+const KICH_THUOC = {
+  md: "h-5 px-1 text-xs leading-4",
+  lg: "h-6 px-1.5 text-[13px] leading-4",
 };
 
-export default function StatusBadge({
-  label,
-  tone = "neutral",
-  dot = true,
-  className,
-}) {
+const CHU_THUONG = {
+  md: "text-[13px] leading-5",
+  lg: "text-sm leading-6",
+};
+
+export default function StatusBadge({ label, nhom, tone, size = "md", className }) {
+  const nhomMau = layNhomTrangThai(label, { nhom, tone });
+
+  if (import.meta.env?.DEV && typeof label === "string" && !nhom && !tone && !nhomCuaNhan(label)) {
+    console.warn(`[StatusBadge] Nhãn "${label}" chưa có trong constants/trangThai.js — đang tô Xám.`);
+  }
+
+  if (nhomMau === "thuong") {
+    return (
+      <span className={cn("inline-flex items-center whitespace-nowrap text-bo-muted", CHU_THUONG[size] ?? CHU_THUONG.md, className)}>
+        {label}
+      </span>
+    );
+  }
+
   return (
     <span
+      data-nhom={nhomMau}
       className={cn(
-        "inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 text-xs font-medium",
-        TONE_CLASSES[tone] || TONE_CLASSES.neutral,
+        "inline-flex shrink-0 items-center whitespace-nowrap rounded-[3px] font-semibold",
+        KICH_THUOC[size] ?? KICH_THUOC.md,
+        NHOM_TRANG_THAI[nhomMau].lop,
         className,
       )}
     >
-      {dot ? <span className="size-1.5 rounded-full bg-current" /> : null}
       {label}
     </span>
   );

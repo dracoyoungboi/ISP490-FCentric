@@ -87,7 +87,7 @@ function NoiDung({ khoId, viTriId, khuVucId, duLieu, onDong, onMoSoDoKe }) {
               ["Khu vực", khu.tenKhuVuc, `${khu.maKhuVuc}${khu.loaiKhu ? ` · ${khu.loaiKhu}` : ""}`],
               ["Dãy · Hàng · Tầng", `${viTri.day} · ${viTri.hang} · ${viTri.tang}`, "Tầng 01 là tầng sát sàn"],
               ["Đang chứa", `${viTri.dangChua ?? 0} / ${viTri.sucChua ?? 0}`, `Còn trống ${Math.max(0, (viTri.sucChua ?? 0) - (viTri.dangChua ?? 0))}`],
-              ["Trạng thái", <StatusBadge key="tt" label={nhom.label} tone={nhom.tone} />, nhom.ma === "CON_CHO" ? "Nhận hàng được" : "Không nhận hàng"],
+              ["Trạng thái", <StatusBadge key="tt" label={nhom.label} />, nhom.ma === "CON_CHO" ? "Nhận hàng được" : "Không nhận hàng"],
             ].map(([nhan, giaTri, phu]) => (
               <div key={nhan} className="flex min-w-0 flex-col gap-1 bg-white px-4 py-3">
                 <span className="text-xs font-medium text-bo-muted">{nhan}</span>

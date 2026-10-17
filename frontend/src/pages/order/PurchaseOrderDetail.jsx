@@ -30,7 +30,7 @@ const VAI_TRO_TAO_PHIEU_NHAP = [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO, ROLES.NH
 // Ai xem được số đơn mua của nhà cung cấp (vai trò xem mọi kho, quản lý nhà cung cấp).
 const VAI_TRO_XEM_SO_DON_NCC = [ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_MUA_HANG];
 // Trạng thái đơn được tạo phiếu nhập — đúng như backend PhieuNhapKhoService.createDraft đang nhận:
-// 3 Đang vận chuyển, 5 Đã thanh toán (dữ liệu cũ).
+// 3 Đang vận chuyển, 5 Đã nhận đủ (dữ liệu cũ, trước gọi "Đã thanh toán").
 const TRANG_THAI_TAO_PHIEU_NHAP = [3, 5];
 
 /**

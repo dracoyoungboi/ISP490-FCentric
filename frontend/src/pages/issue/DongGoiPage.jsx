@@ -204,8 +204,11 @@ export default function DongGoiPage() {
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <BackLink onClick={backToOrder} />
                 <div className="flex flex-wrap items-center gap-2">
-                    <StatusBadge label={donStatus.label} tone={donStatus.tone} />
-                    <StatusBadge label={`Phiếu xuất: ${phieuStatus.label}`} tone={phieuStatus.tone} className={phieuStatus.className} />
+                    <StatusBadge size="lg" label={donStatus.label} />
+                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] text-bo-muted">
+                        Phiếu xuất
+                        <StatusBadge size="lg" label={phieuStatus.label} />
+                    </span>
                     {dangDongGoi ? (
                         <span title={dto.coTheHoanTat ? undefined : !dto.daDuBangChung ? "Cần tải lên đầy đủ bằng chứng đóng gói để hoàn tất" : `Còn ${formatQuantity(conLai)} sản phẩm chưa quét`}>
                             <Button
@@ -342,7 +345,7 @@ export default function DongGoiPage() {
                                 <th className={`${TH_CLASS} text-center`}>Cần đóng gói</th>
                                 <th className={`${TH_CLASS} text-center`}>Đã quét</th>
                                 <th className={`${TH_CLASS} text-center`}>Còn lại</th>
-                                <th className={`${TH_CLASS} text-center`}>Trạng thái</th>
+                                <th className={`${TH_CLASS} text-left`}>Trạng thái</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-bo-border">
@@ -376,8 +379,8 @@ export default function DongGoiPage() {
                                             </span>
                                         </td>
                                         <td className="px-4 py-3 text-center font-semibold text-bo-muted">{formatQuantity(conLaiDong)}</td>
-                                        <td className="px-4 py-3 text-center">
-                                            <StatusBadge label={state.label} tone={state.tone} />
+                                        <td className="px-4 py-3">
+                                            <StatusBadge label={state.label} />
                                         </td>
                                     </tr>
                                 );

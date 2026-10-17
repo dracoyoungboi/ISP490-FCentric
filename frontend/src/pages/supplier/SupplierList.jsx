@@ -375,10 +375,7 @@ export default function SupplierList() {
 
                                         {/* Trạng thái */}
                                         <td className="whitespace-nowrap px-3 py-3">
-                                            <StatusBadge
-                                                label={laHoatDong(item) ? "Hoạt động" : "Ngừng hoạt động"}
-                                                tone={laHoatDong(item) ? "success" : "neutral"}
-                                            />
+                                            <StatusBadge label={laHoatDong(item) ? "Hoạt động" : "Ngừng hoạt động"} />
                                         </td>
 
                                         {/* Thao tác */}

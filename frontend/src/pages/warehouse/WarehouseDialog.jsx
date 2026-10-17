@@ -110,10 +110,7 @@ export default function WarehouseDialog({
                                 <div className="space-y-1.5">
                                     <Label className={FIELD_LABEL_CLASS}>Trạng thái</Label>
                                     <div>
-                                        <StatusBadge
-                                            label={selectedWarehouse?.trangThai === 1 ? 'Hoạt động' : 'Không hoạt động'}
-                                            tone={selectedWarehouse?.trangThai === 1 ? 'success' : 'neutral'}
-                                        />
+                                        <StatusBadge label={selectedWarehouse?.trangThai === 1 ? 'Hoạt động' : 'Ngừng hoạt động'} />
                                     </div>
                                 </div>
                             </div>
@@ -122,7 +119,7 @@ export default function WarehouseDialog({
                             <div className="space-y-1.5">
                                 <Label className={FIELD_LABEL_CLASS}>Loại kho</Label>
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <StatusBadge label={nhanLoaiKho(selectedWarehouse).label} tone={nhanLoaiKho(selectedWarehouse).tone} dot={false} />
+                                    <span className="text-sm font-medium text-bo-foreground">{nhanLoaiKho(selectedWarehouse).label}</span>
                                     <span className="text-xs text-bo-muted">{nhanLoaiKho(selectedWarehouse).moTa}</span>
                                 </div>
                             </div>
@@ -220,7 +217,7 @@ export default function WarehouseDialog({
                                                 type="button"
                                                 className="flex h-10 w-full items-center justify-between rounded-md border border-bo-border bg-white px-3 text-left text-sm text-bo-foreground transition-colors hover:bg-bo-surface-subtle"
                                             >
-                                                <span>{formData.trangThai === 1 ? 'Hoạt động' : 'Không hoạt động'}</span>
+                                                <span>{formData.trangThai === 1 ? 'Hoạt động' : 'Ngừng hoạt động'}</span>
                                                 <ChevronDown className="size-4 shrink-0 text-bo-muted" />
                                             </button>
                                         </DropdownMenuTrigger>
@@ -241,7 +238,7 @@ export default function WarehouseDialog({
                                                 onClick={() => setFormData({ ...formData, trangThai: 0 })}
                                                 className={`${DROPDOWN_ITEM_CLASS} flex items-center justify-between`}
                                             >
-                                                Không hoạt động
+                                                Ngừng hoạt động
                                                 {Number(formData.trangThai) === 0 && (
                                                     <Check className="size-4 text-bo-primary" />
                                                 )}

@@ -63,11 +63,11 @@ import {
 // Gõ ô tìm kiếm: chờ người dùng ngừng gõ một chút rồi mới gọi API
 const SEARCH_DEBOUNCE_MS = 300;
 
-// Bản đồ nhãn + tông màu loại khách hàng (giữ nguyên 3 giá trị nghiệp vụ)
+// Tên loại khách hàng (giữ nguyên 3 giá trị nghiệp vụ). Loại là phân loại, hiện chữ thường, không tô màu.
 const LOAI_KHACH_HANG_MAP = {
-    le: { label: "Khách lẻ", tone: "info" },
-    doanh_nghiep: { label: "Doanh nghiệp", tone: "warning" },
-    si: { label: "Khách sỉ", tone: "success" }
+    le: { label: "Khách lẻ" },
+    doanh_nghiep: { label: "Doanh nghiệp" },
+    si: { label: "Khách sỉ" }
 };
 
 // Tab theo loại khách hàng (bố cục A+G), thứ tự giữ như bộ lọc loại cũ.
@@ -414,10 +414,10 @@ export default function KhachHangPage() {
 
     // Render helpers
     const getLoaiKhachHangBadge = (loai) => {
-        // Khách tạo trước khi backend lưu loại có loaiKhachHang = null -> "Chưa phân loại"
-        const item = LOAI_KHACH_HANG_MAP[loai] || { label: loai || "Chưa phân loại", tone: "neutral" };
-
-        return <StatusBadge label={item.label} tone={item.tone} dot={false} />;
+        // Khách tạo trước khi backend lưu loại có loaiKhachHang = null -> "Chưa phân loại" (chữ xám)
+        const item = LOAI_KHACH_HANG_MAP[loai];
+        if (!item) return <span className="whitespace-nowrap text-bo-muted">{loai || "Chưa phân loại"}</span>;
+        return <span className="whitespace-nowrap text-slate-700">{item.label}</span>;
     };
 
     const totalPages = Math.ceil(totalItems / pageSize);
@@ -591,13 +591,13 @@ export default function KhachHangPage() {
                                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Khách hàng
                                 </th>
-                                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Loại KH
                                 </th>
                                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Liên hệ
                                 </th>
-                                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Trạng thái
                                 </th>
                                 <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
@@ -630,7 +630,7 @@ export default function KhachHangPage() {
                                             </div>
                                         )}
                                     </td>
-                                    <td className="px-3 py-3 text-center">
+                                    <td className="px-3 py-3">
                                         {getLoaiKhachHangBadge(khachHang.loaiKhachHang)}
                                     </td>
                                     <td className="px-3 py-3">
@@ -643,11 +643,8 @@ export default function KhachHangPage() {
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-3 py-3 text-center">
-                                        <StatusBadge
-                                            label={khachHang.trangThai === 1 ? "Hoạt động" : "Ngừng hoạt động"}
-                                            tone={khachHang.trangThai === 1 ? "success" : "neutral"}
-                                        />
+                                    <td className="px-3 py-3">
+                                        <StatusBadge label={khachHang.trangThai === 1 ? "Hoạt động" : "Ngừng hoạt động"} />
                                     </td>
                                     <td className="px-3 py-3">
                                         <RowActions>

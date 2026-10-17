@@ -1,4 +1,6 @@
 import { formatNumber } from "@/utils/formatters";
+import { BAO_GIA_NCC_STATUS } from "@/constants/donMuaHang";
+import { getYeuCauNhapHangStatus } from "@/constants/yeuCauNhapHang";
 import { formatPrintDate, formatPrintDateTime } from "./printFormat";
 
 /**
@@ -7,26 +9,8 @@ import { formatPrintDate, formatPrintDateTime } from "./printFormat";
  * yêu cầu nhập hàng; nhà cung cấp được mời nằm trong `donMuaHangs`).
  */
 
-// Trạng thái yêu cầu (entity YeuCauMuaHang: 0 Nháp, 1 Đã gửi, 2 Đã duyệt,
-// 3 Đã tạo đơn yêu cầu báo giá, 4 Từ chối, 5 Đã vận chuyển)
-export const QUOTATION_REQUEST_STATUS = {
-    0: { label: "Nháp", tone: "neutral" },
-    1: { label: "Đã gửi", tone: "info" },
-    2: { label: "Đã duyệt", tone: "success" },
-    3: { label: "Đã gửi yêu cầu báo giá", tone: "info" },
-    4: { label: "Từ chối", tone: "danger" },
-    5: { label: "Đã chuyển thành đơn mua hàng", tone: "success" },
-};
-
-// Trạng thái đơn báo giá gửi từng nhà cung cấp (donMuaHangs)
-export const SUPPLIER_QUOTE_STATUS = {
-    0: { label: "Đã xóa", tone: "danger" },
-    1: { label: "Đã gửi YC báo giá", tone: "neutral" },
-    2: { label: "Đã nhận báo giá", tone: "info" },
-    3: { label: "Đã chuyển thành đơn mua hàng", tone: "warning" },
-    4: { label: "Từ chối báo giá", tone: "danger" },
-    5: { label: "Đã thanh toán", tone: "success" },
-};
+// Tên trạng thái dùng chung với màn hình: yêu cầu lấy từ constants/yeuCauNhapHang,
+// báo giá từng nhà cung cấp (donMuaHangs) lấy từ BAO_GIA_NCC_STATUS ở constants/donMuaHang.
 
 const dash = (value) => {
     if (value === null || value === undefined) return "—";
@@ -47,7 +31,7 @@ export function toQuotationRequestPrintModel(raw) {
     const suppliers = (data.donMuaHangs || [])
         .filter((po) => po?.trangThai !== 0)
         .map((po) => {
-            const status = SUPPLIER_QUOTE_STATUS[po.trangThai] || SUPPLIER_QUOTE_STATUS[1];
+            const status = BAO_GIA_NCC_STATUS[po.trangThai] || BAO_GIA_NCC_STATUS[1];
             return {
                 name: dash(po.nhaCungCap?.tenNhaCungCap),
                 email: dash(po.nhaCungCap?.email),
@@ -73,7 +57,7 @@ export function toQuotationRequestPrintModel(raw) {
         0
     );
 
-    const status = QUOTATION_REQUEST_STATUS[data.trangThai] || QUOTATION_REQUEST_STATUS[0];
+    const status = getYeuCauNhapHangStatus(data.trangThai);
 
     return {
         documentNumber: dash(data.soYeuCauMuaHang || `#${data.id}`),
@@ -81,7 +65,7 @@ export function toQuotationRequestPrintModel(raw) {
         // Ngày giao dự kiến của yêu cầu (ngayGiaoDuKien) — KHÔNG phải hạn
         // nhà cung cấp phải gửi báo giá
         expectedDate: dashDate(data.ngayGiaoDuKien),
-        status: { label: status.label, tone: status.tone },
+        status: { label: status.label },
         warehouse: {
             name: dash(data.khoNhap?.tenKho),
             manager: dash(data.khoNhap?.quanLy?.hoTen),

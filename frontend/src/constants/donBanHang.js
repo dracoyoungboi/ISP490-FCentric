@@ -7,18 +7,18 @@ import { trangThaiLa } from "@/constants/trangThaiChung";
  * Luồng kho (khớp backend ITrangThaiDonBanHang, mã số dùng trong code ở constants/trangThaiXuatBan):
  *   0 Nháp → 1 Chờ nhặt hàng → 7 Chờ đóng gói → 8 Chờ xuất kho → 3 Đã xuất kho → 5 Hoàn thành
  *   (2 Đã xuất một phần, 4 Đã hủy, 6 Bị hoàn trả).
- * `tone` khớp tone của StatusBadge (giữ như đang dùng ở danh sách).
+ * Màu thẻ tra theo tên ở constants/trangThai.js.
  */
 export const DON_BAN_HANG_STATUS = {
-    0: { label: "Nháp", tone: "warning" },
-    1: { label: "Chờ nhặt hàng", tone: "info" },
-    2: { label: "Đã xuất một phần", tone: "info" },
-    3: { label: "Đã xuất kho", tone: "warning" },
-    4: { label: "Đã hủy", tone: "danger" },
-    5: { label: "Hoàn thành", tone: "success" },
-    6: { label: "Bị hoàn trả", tone: "danger" },
-    7: { label: "Chờ đóng gói", tone: "info" },
-    8: { label: "Chờ xuất kho", tone: "info" },
+    0: { label: "Nháp" },
+    1: { label: "Chờ nhặt hàng" },
+    2: { label: "Đã xuất một phần" },
+    3: { label: "Đã xuất kho" },
+    4: { label: "Đã hủy" },
+    5: { label: "Hoàn thành" },
+    6: { label: "Bị hoàn trả" },
+    7: { label: "Chờ đóng gói" },
+    8: { label: "Chờ xuất kho" },
 };
 
 /**
