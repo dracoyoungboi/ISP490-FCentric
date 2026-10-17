@@ -480,8 +480,8 @@ export default function BackofficeSidebar() {
       Math.max(flyout.anchorCenterY - headerHeight / 2, FLYOUT_VIEWPORT_MARGIN),
       window.innerHeight - panelHeight - FLYOUT_VIEWPORT_MARGIN,
     );
-    if (top !== flyout.top) {
-      setFlyout((current) => (current ? { ...current, top } : null));
+    if (top !== flyout.top || headerHeight !== flyout.headerHeight) {
+      setFlyout((current) => (current ? { ...current, top, headerHeight } : null));
     }
   }, [flyout]);
 
@@ -833,6 +833,11 @@ export default function BackofficeSidebar() {
   const flyoutArrowTop = flyout
     ? `clamp(8px, ${flyout.anchorCenterY - flyout.top - 5}px, calc(100% - 14px))`
     : undefined;
+  // Mũi tên cùng màu vùng nó đè lên để nửa trong panel chìm vào nền, chỉ còn
+  // tam giác như tooltip: thường là header; mục sát đáy màn hình làm panel bị
+  // đẩy lên thì mũi tên rơi xuống phần danh sách con.
+  const flyoutArrowOnHeader =
+    flyout != null && flyout.anchorCenterY - flyout.top < flyout.headerHeight;
 
   return (
     <>
@@ -989,7 +994,10 @@ export default function BackofficeSidebar() {
             >
               <div
                 aria-hidden="true"
-                className="absolute -left-[5px] size-2.5 rotate-45 rounded-[1px] border-b border-l border-bo-sidebar-border bg-bo-sidebar"
+                className={cn(
+                  "absolute -left-[5px] size-2.5 rotate-45 rounded-[1px] border-b border-l border-bo-sidebar-border",
+                  flyoutArrowOnHeader ? "bg-bo-sidebar-hover" : "bg-bo-sidebar",
+                )}
                 style={{ top: flyoutArrowTop }}
               />
               <div
