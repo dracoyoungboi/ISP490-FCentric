@@ -110,46 +110,49 @@ export default function GiaoDichNcc({ tabs, tab, onDoiTab, dangTai, loiDon, onTh
 
   return (
     <section aria-label="Giao dịch với nhà cung cấp" className="flex min-w-0 flex-col">
-      <div
-        role="tablist"
-        aria-label="Loại giao dịch"
-        className="flex gap-5 overflow-x-auto border-b border-bo-border px-4 [scrollbar-width:thin] sm:px-6"
-      >
-        {tabs.map((t, i) => {
-          const chon = t.ma === tab;
-          return (
-            <button
-              key={t.ma}
-              ref={(el) => {
-                nutTab.current[t.ma] = el;
-              }}
-              type="button"
-              role="tab"
-              id={`tab-ncc-${t.ma}`}
-              aria-selected={chon}
-              aria-controls="vung-tab-ncc"
-              tabIndex={chon ? 0 : -1}
-              onClick={() => onDoiTab(t.ma)}
-              onKeyDown={(e) => doiBangPhim(e, i)}
-              className={cn(
-                "-mb-px inline-flex h-12 shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-0.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/40",
-                chon ? "border-bo-primary font-semibold text-bo-foreground" : "border-transparent font-medium text-bo-muted hover:text-bo-foreground",
-              )}
-            >
-              {t.nhan}
-              {t.so > 0 ? (
-                <span
-                  className={cn(
-                    "inline-flex h-5 min-w-[22px] items-center justify-center rounded-full px-1.5 text-xs font-semibold tabular-nums",
-                    t.gap ? "bg-bo-danger-soft text-bo-danger" : chon ? "bg-bo-primary-soft text-bo-primary" : "bg-slate-100 text-slate-600",
-                  )}
-                >
-                  {t.so}
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
+      {/* Hẹp thì cuộn ngang (ẩn thanh cuộn); -mb-px để gạch chân tab đè lên viền dưới mà không tràn dọc */}
+      <div className="border-b border-bo-border px-4 sm:px-6">
+        <div
+          role="tablist"
+          aria-label="Loại giao dịch"
+          className="-mb-px flex gap-5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {tabs.map((t, i) => {
+            const chon = t.ma === tab;
+            return (
+              <button
+                key={t.ma}
+                ref={(el) => {
+                  nutTab.current[t.ma] = el;
+                }}
+                type="button"
+                role="tab"
+                id={`tab-ncc-${t.ma}`}
+                aria-selected={chon}
+                aria-controls="vung-tab-ncc"
+                tabIndex={chon ? 0 : -1}
+                onClick={() => onDoiTab(t.ma)}
+                onKeyDown={(e) => doiBangPhim(e, i)}
+                className={cn(
+                  "inline-flex h-12 shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-0.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/40",
+                  chon ? "border-bo-primary font-semibold text-bo-foreground" : "border-transparent font-medium text-bo-muted hover:text-bo-foreground",
+                )}
+              >
+                {t.nhan}
+                {t.so > 0 ? (
+                  <span
+                    className={cn(
+                      "inline-flex h-5 min-w-[22px] items-center justify-center rounded-full px-1.5 text-xs font-semibold tabular-nums",
+                      t.gap ? "bg-bo-danger-soft text-bo-danger" : chon ? "bg-bo-primary-soft text-bo-primary" : "bg-slate-100 text-slate-600",
+                    )}
+                  >
+                    {t.so}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {loiPhieu && !loiDon ? (
