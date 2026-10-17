@@ -457,9 +457,9 @@ export default function DonBanHangList() {
                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Số đơn</th>
                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Khách hàng</th>
                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kho xuất</th>
-                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày chốt đơn</th>
+                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày chốt đơn</th>
                 <th className="h-10 whitespace-nowrap px-3 text-right tabular-nums text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền</th>
-                <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
+                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
                 <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
               </tr>
             </thead>
@@ -502,7 +502,7 @@ export default function DonBanHangList() {
                         <span className="text-bo-muted">—</span>
                       )}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3 text-center text-xs text-bo-muted">
+                    <td className="whitespace-nowrap px-3 py-3 text-xs text-bo-muted">
                       {formatDate(item.ngayDatHang)}
                     </td>
                     <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">
@@ -510,10 +510,10 @@ export default function DonBanHangList() {
                         {formatCurrency(item.tongCong)}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-center">
-                      <StatusBadge label={st.label} tone={st.tone} />
+                    <td className="px-3 py-3">
+                      <StatusBadge label={st.label} />
                       {item.canXuLy ? (
-                        <div className="mt-1 flex justify-center">
+                        <div className="mt-1 flex">
                           <OrderFlagBadges value={item.canXuLy} />
                         </div>
                       ) : null}

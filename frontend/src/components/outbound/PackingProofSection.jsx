@@ -122,9 +122,9 @@ export default function PackingProofSection({
       action={
         <div className="flex items-center gap-2">
           {daDuBangChung ? (
-            <StatusBadge label="Đã đủ bằng chứng" tone="success" />
+            <StatusBadge label="Đã đủ bằng chứng" />
           ) : (
-            <StatusBadge label="Chưa đủ bằng chứng" tone="warning" />
+            <StatusBadge label="Chưa đủ bằng chứng" />
           )}
         </div>
       }

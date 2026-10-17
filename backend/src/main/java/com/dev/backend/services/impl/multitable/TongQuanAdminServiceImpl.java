@@ -11,6 +11,7 @@ import com.dev.backend.dto.response.TongQuanAdminResponse.HangCanBoSung;
 import com.dev.backend.dto.response.TongQuanAdminResponse.HoatDong;
 import com.dev.backend.dto.response.TongQuanAdminResponse.Kenh;
 import com.dev.backend.dto.response.TongQuanAdminResponse.Kho;
+import com.dev.backend.dto.response.TongQuanAdminResponse.LoiDongBoKenh;
 import com.dev.backend.dto.response.TongQuanAdminResponse.NhapXuat;
 import com.dev.backend.dto.response.TongQuanAdminResponse.SanPhamBanChay;
 import com.dev.backend.dto.response.TongQuanAdminResponse.SoDonNgay;
@@ -69,6 +70,8 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
     public static final int NGUONG_TON_MAC_DINH = 10;
     /** Dư hàng khi khả dụng vượt ngưỡng × hệ số này (có thể ghi đè bằng cấu hình SURPLUS_STOCK_RATIO). */
     public static final int HE_SO_DU_MAC_DINH = 3;
+    /** Số ngày xét hàng dư "chưa bán được" (có thể ghi đè bằng cấu hình SLOW_MOVING_DAYS). */
+    public static final int SO_NGAY_CHAM_BAN_MAC_DINH = 60;
 
     private static final int SO_SAN_PHAM_BAN_CHAY = 5;
     private static final int SO_DONG_BO_SUNG = 7;
@@ -158,16 +161,19 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
                 NGUONG_TON_MAC_DINH);
         int heSoDu = macDinhNeuKhongHopLe(chay("cauHinh", khoiLoi, () -> repo.cauHinhSo("SURPLUS_STOCK_RATIO")),
                 HE_SO_DU_MAC_DINH);
+        int soNgayChamBan = macDinhNeuKhongHopLe(chay("cauHinh", khoiLoi, () -> repo.cauHinhSo("SLOW_MOVING_DAYS")),
+                SO_NGAY_CHAM_BAN_MAC_DINH);
         khoiLoi.remove("cauHinh");
 
         /*
          * Doanh thu theo ngày: đủ rộng cho kỳ xem, kỳ so sánh, lũy kế năm, năm trước và tháng trước.
-         * Giá vốn (tốn kém hơn) chỉ lấy cho phần cần lợi nhuận: biểu đồ của kỳ xem, tháng này và tháng trước.
+         * Giá vốn (tốn kém hơn) chỉ lấy cho phần cần lợi nhuận: kỳ xem và kỳ so sánh (lợi nhuận của biểu đồ
+         * kỳ trước), tháng này và tháng trước.
          */
         YearMonth thangNay = YearMonth.from(homNay);
         LocalDate tuTruyVan = minNgay(khung.tuTruoc(), LocalDate.of(homNay.getYear() - 1, 1, 1),
                 thangNay.minusMonths(1).atDay(1));
-        LocalDate tuGiaVon = minNgay(khung.tu(), thangNay.minusMonths(1).atDay(1));
+        LocalDate tuGiaVon = minNgay(khung.tuTruoc(), thangNay.minusMonths(1).atDay(1));
         DuLieuNgay theoNgay = chay(TongQuanAdminResponse.KHOI_DOANH_THU, khoiLoi, () -> {
             DuLieuNgay m = new DuLieuNgay();
             repo.doanhThuTheoNgay(tuTruyVan.atStartOfDay(), homNay.plusDays(1).atStartOfDay(), khoId)
@@ -189,9 +195,9 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
                 () -> repo.tonKhoTongHop(khoId, nguong, heSoDu));
         TonKho tonKho = tongHopTon == null ? null
                 : chay(TongQuanAdminResponse.KHOI_TON_KHO, khoiLoi,
-                        () -> tinhTonKho(tongHopTon, khoId, khoTheoId, nguong, heSoDu));
+                        () -> tinhTonKho(tongHopTon, khoId, khoTheoId, nguong, heSoDu, soNgayChamBan, homNay));
         ViecCanXuLy viec = chay(TongQuanAdminResponse.KHOI_VIEC_CAN_XU_LY, khoiLoi,
-                () -> tinhViecCanXuLy(khoId, tongHopTon));
+                () -> tinhViecCanXuLy(khoId, tongHopTon, homNay));
         NhapXuat nhapXuat = chay(TongQuanAdminResponse.KHOI_NHAP_XUAT, khoiLoi,
                 () -> tinhNhapXuat(khung, homNay, khoId));
         List<SanPhamBanChay> banChay = chay(TongQuanAdminResponse.KHOI_SAN_PHAM_BAN_CHAY, khoiLoi,
@@ -244,7 +250,7 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
                 thangNay.getMonthValue(), thang.doanhThu, thang.loiNhuan, truoc.doanhThu, truoc.loiNhuan);
     }
 
-    private DoanhThu tinhDoanhThu(KhungKy khung, LocalDate homNay, DuLieuNgay theoNgay) {
+    DoanhThu tinhDoanhThu(KhungKy khung, LocalDate homNay, DuLieuNgay theoNgay) {
         List<Diem> diem = new ArrayList<>();
         if (khung.theoThang()) {
             YearMonth thangNay = YearMonth.from(homNay);
@@ -268,7 +274,28 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
                 khung.tu().toString(), khung.den().minusDays(1).toString(),
                 diem, ky.doanhThu, ky.loiNhuan, ky.soDon, kyTruoc.doanhThu,
                 khung.theoThang() ? "cung_ky_nam_truoc" : "ky_truoc",
-                nam, luyKe.doanhThu, namTruoc.doanhThu);
+                nam, luyKe.doanhThu, namTruoc.doanhThu, diemKyTruoc(khung, theoNgay));
+    }
+
+    /**
+     * Kỳ so sánh [tuTruoc, denTruoc) chia cùng cách với kỳ xem: 7/30 ngày liền trước theo từng ngày, cùng 12 tháng năm
+     * trước theo từng tháng. Mọi điểm đều đã trọn; số điểm bằng số điểm đã trọn của kỳ xem.
+     */
+    static List<Diem> diemKyTruoc(KhungKy khung, DuLieuNgay theoNgay) {
+        List<Diem> diem = new ArrayList<>();
+        if (khung.theoThang()) {
+            YearMonth den = YearMonth.from(khung.denTruoc());
+            for (YearMonth ym = YearMonth.from(khung.tuTruoc()); ym.isBefore(den); ym = ym.plusMonths(1)) {
+                TongKy t = cong(theoNgay, ym.atDay(1), ym.plusMonths(1).atDay(1));
+                diem.add(new Diem(ym.atDay(1).toString(), t.doanhThu, t.loiNhuan, t.soDon, false));
+            }
+        } else {
+            for (LocalDate d = khung.tuTruoc(); d.isBefore(khung.denTruoc()); d = d.plusDays(1)) {
+                TongKy t = cong(theoNgay, d, d.plusDays(1));
+                diem.add(new Diem(d.toString(), t.doanhThu, t.loiNhuan, t.soDon, false));
+            }
+        }
+        return diem;
     }
 
     private List<DoanhThuKho> tinhDoanhThuTheoKho(KhungKy khung, Map<Integer, KhoDong> khoTheoId) {
@@ -306,7 +333,7 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
     }
 
     private TonKho tinhTonKho(TonKhoTongHopDong t, Integer khoId, Map<Integer, KhoDong> khoTheoId,
-                              int nguong, int heSoDu) {
+                              int nguong, int heSoDu, int soNgayChamBan, LocalDate homNay) {
         Map<Integer, TonKhoTheoKhoDong> theoKhoDong = new HashMap<>();
         repo.tonKhoTheoKho().forEach(r -> theoKhoDong.put(r.khoId(), r));
         List<TonKhoKho> theoKho = new ArrayList<>();
@@ -317,14 +344,18 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
                     : new TonKhoKho(k.id(), k.tenKho(), k.laKhoTong(), so(r.tonThucTe()), so(r.khaDung()), so(r.giaTri())));
         }
         theoKho.sort(Comparator.comparingLong(TonKhoKho::giaTri).reversed().thenComparing(TonKhoKho::khoId));
+        // Số phụ: lỗi thì để null, không làm hỏng cả khối Tồn kho
+        Long duChamBan = t.duHang() == 0 ? Long.valueOf(0) : phu("duChamBan",
+                () -> repo.demDuChamBan(khoId, nguong, heSoDu, homNay.minusDays(soNgayChamBan).atStartOfDay()));
         return new TonKho(
                 so(t.tonThucTe()), so(t.dangGiu()), so(t.khaDung()), so(t.giaTri()),
                 t.soBienThe(), t.soDong(), t.hetHang(), t.thieuHang(), t.binhThuong(), t.duHang(),
-                so(repo.hangDangVe(khoId)), so(repo.hangDangChuyen(khoId)), nguong, heSoDu, theoKho);
+                so(repo.hangDangVe(khoId)), so(repo.hangDangChuyen(khoId)), nguong, heSoDu, theoKho,
+                so(t.giaTriDu()), duChamBan, soNgayChamBan);
     }
 
-    private ViecCanXuLy tinhViecCanXuLy(Integer khoId, TonKhoTongHopDong ton) {
-        TongQuanAdminRepository.ViecCanXuLyDong v = repo.viecCanXuLy(khoId);
+    private ViecCanXuLy tinhViecCanXuLy(Integer khoId, TonKhoTongHopDong ton, LocalDate homNay) {
+        TongQuanAdminRepository.ViecCanXuLyDong v = repo.viecCanXuLy(khoId, homNay.atStartOfDay());
         List<ViecTheoKho> theoKho = khoId != null ? null : repo.viecTheoKho().stream()
                 .map(r -> new ViecTheoKho(r.khoId(), r.tenKho(), r.donChoXuatKho(), r.phieuNhatChuaPhanCong(),
                         r.phieuChuyenChoDuyet(), r.phieuChuyenChoXuatHang()))
@@ -336,7 +367,11 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
                 ton == null ? null : ton.hetHang(),
                 ton == null ? null : ton.thieuHang(),
                 v.taiKhoanBiKhoa(),
-                theoKho);
+                theoKho,
+                v.donMuaQuaHan(),
+                phu("loiDongBo", () -> repo.loiDongBoTheoKenh().stream()
+                        .map(r -> new LoiDongBoKenh(r.kenhId(), r.maKenh(), tenKenh(r.maKenh(), r.tenKenh()), r.soLoi()))
+                        .toList()));
     }
 
     private NhapXuat tinhNhapXuat(KhungKy khung, LocalDate homNay, Integer khoId) {
@@ -497,6 +532,16 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
     private static <T> T batBuoc(T giaTri) {
         if (giaTri == null) throw new IllegalStateException("Thiếu dữ liệu doanh thu theo ngày");
         return giaTri;
+    }
+
+    /** Số phụ trong một khối: lỗi thì ghi log và trả null, khối vẫn hiển thị phần còn lại. */
+    private <T> T phu(String ten, Supplier<T> viec) {
+        try {
+            return viec.get();
+        } catch (RuntimeException e) {
+            log.warn("Tổng quan quản trị: không tính được {}", ten, e);
+            return null;
+        }
     }
 
     /** Chạy một khối; lỗi thì ghi log, đánh dấu khối lỗi và trả null để các khối khác vẫn hiển thị. */

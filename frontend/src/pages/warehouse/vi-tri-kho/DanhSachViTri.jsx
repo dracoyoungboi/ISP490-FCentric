@@ -160,14 +160,15 @@ export default function DanhSachViTri({
   }
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-[264px_minmax(0,1fr)]">
-      {/* Khu vực: cao theo số khu, dính khi cuộn bảng dài */}
-      <section aria-label="Khu vực" className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm lg:sticky lg:top-4">
-        <div className="flex items-center justify-between gap-2 border-b border-bo-border px-4 py-3">
+    // bo-fill-grid: khung bảng giãn tới đáy màn, thân bảng tự cuộn, phân trang luôn ở đáy (như các trang danh sách khác)
+    <div className="bo-fill-grid grid items-start gap-4 lg:grid-cols-[264px_minmax(0,1fr)]">
+      {/* Khu vực: cao theo số khu; nhiều khu quá chiều cao màn thì danh sách khu tự cuộn */}
+      <section aria-label="Khu vực" className="flex flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm lg:max-h-full">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-bo-border px-4 py-3">
           <h2 className="text-sm font-semibold text-bo-heading">Khu vực</h2>
           <span className="text-xs text-bo-muted">{khuVucs.length} khu</span>
         </div>
-        <nav className="flex flex-col gap-0.5 p-2">
+        <nav className="flex min-h-0 flex-col gap-0.5 overflow-y-auto p-2">
           {[{ id: null, tenKhuVuc: "Tất cả khu vực", so: viTris.length }, ...khuVucs.map((k) => ({ ...k, so: soTheoKhu.get(k.id) ?? 0 }))].map((k) => {
             const chon = (khuId ?? null) === k.id;
             return (
@@ -221,7 +222,7 @@ export default function DanhSachViTri({
             );
           })}
         </nav>
-        <div className="border-t border-bo-border p-3">
+        <div className="shrink-0 border-t border-bo-border p-3">
           <Button variant="outline" onClick={() => onXemTrenMatBang({ khuVucId: khuId ?? null })} className={cn("h-9 w-full gap-1.5", NUT_PHU)}>
             <MapIcon className="size-4" />
             {khuId ? "Xem khu trên mặt bằng" : "Xem mặt bằng kho"}
@@ -230,6 +231,7 @@ export default function DanhSachViTri({
       </section>
 
       <TableShell
+        fill
         toolbar={
           <>
             <ListToolbar
@@ -309,7 +311,7 @@ export default function DanhSachViTri({
       >
         {dongTrang.length ? (
           <table className="w-full min-w-[860px] text-sm">
-            <thead>
+            <thead className="sticky top-0 z-10">
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
                 <th className="h-10 w-11 px-3 text-center">
                   <Checkbox
@@ -366,7 +368,7 @@ export default function DanhSachViTri({
                       )}
                     </td>
                     <td className="whitespace-nowrap px-3 py-3">
-                      <StatusBadge label={nhom.label} tone={nhom.tone} />
+                      <StatusBadge label={nhom.label} />
                     </td>
                     <td className="px-3 py-3">
                       <RowActions>

@@ -421,7 +421,7 @@ export default function KiemDemLo() {
       <div className="min-w-0">
         <div className="flex min-h-9 flex-wrap items-center gap-3">
           <h1 className={cn("min-w-0 truncate", PAGE_HEADING_TYPE)}>{item.tenBienThe}</h1>
-          <StatusBadge label={ttKiem.label} tone={ttKiem.tone} />
+          <StatusBadge label={ttKiem.label} />
         </div>
         <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-bo-muted">
           <span>SKU <span className="font-mono">{item.sku}</span></span>

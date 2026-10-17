@@ -84,7 +84,7 @@ export function toGoodsReceiptPrintModel(payload) {
         // Chỉ phiếu nhập từ đơn mua mới có mã đơn — phiếu khác ẩn trường này
         purchaseOrder: data.soDonMua ? dash(data.soDonMua) : null,
         partner,
-        status: { label: status.label, tone: status.tone },
+        status: { label: status.label },
         warehouse: { name: dash(data.tenKho) },
         items,
         totalQuantity: formatNumber(totalQuantity),

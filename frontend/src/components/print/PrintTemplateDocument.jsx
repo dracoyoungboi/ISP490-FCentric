@@ -55,10 +55,10 @@ function resolveFieldValue(field, model, company) {
 
 /**
  * Render giá trị một field theo `kind` khai báo trong schema.
- * `kind: "badge"` (trạng thái, thanh toán): adapter trả { label, tone } —
+ * `kind: "badge"` (trạng thái, thanh toán): adapter trả { label } —
  * trên GIẤY in thành CHỮ THƯỜNG như mọi trường khác (không khung/chấm/màu):
  * badge là thành phần giao diện web, in ra trông như ảnh chụp màn hình và
- * màu nhạt bị mờ trên máy in trắng đen. `tone` được bỏ qua ở bản in.
+ * màu nhạt bị mờ trên máy in trắng đen.
  */
 function renderFieldValue(field, model, company) {
     const value = resolveFieldValue(field, model, company);

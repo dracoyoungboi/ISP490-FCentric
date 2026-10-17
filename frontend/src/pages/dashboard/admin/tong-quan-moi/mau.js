@@ -1,11 +1,12 @@
-// Màu số liệu của màn Tổng quan (bản đề xuất). Đã chạy kiểm tra phân biệt màu cho người mù màu.
+// Màu số liệu của màn Tổng quan (bản Kiểu 3). Một chuỗi số liệu một màu; kỳ trước là nét đứt xám.
+// Bốn mức tồn: hai mức cần xử lý nổi màu, Bình thường xám để các mức cần chú ý dễ thấy.
+// Chữ trên biểu đồ (trục, nhãn) đạt tương phản 4,5:1 trên nền trắng; nét kỳ trước đạt 3:1 (WCAG 1.4.11).
 export const MAU2 = {
   chinh: "#1677ff",
-  chinhNhat: "#cfe2ff",
+  nenVung: "rgba(22, 119, 255, 0.08)",
+  kyTruoc: "#8592a6",
   luoi: "#eef1f5",
-  chu: "#94a3b8",
-  kenh: { POS: "#1677ff", SHOPIFY: "#eb6834", LAZADA: "#1baf7a", TRUC_TIEP: "#eda100", SHOPEE: "#e87ba4", TIKTOK: "#6250d6" },
-  tinhTrang: { hetHang: "#dc2626", thieuHang: "#f59e0b", binhThuong: "#22a06b", duHang: "#6250d6" },
-  nhap: "#1baf7a",
-  xuat: "#eb6834",
+  truc: "#cbd5e1",
+  chu: "#64748b",
+  tinhTrang: { hetHang: "#d92d20", thieuHang: "#f38744", binhThuong: "#d0d5dd", duHang: "#6250d6" },
 };

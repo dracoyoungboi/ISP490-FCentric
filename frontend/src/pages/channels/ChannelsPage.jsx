@@ -4,7 +4,7 @@ import PageContainer from "@/components/backoffice/PageContainer";
 import ListPageHeader from "@/components/shared/ListPageHeader";
 import MockModeNotice from "@/components/shared/MockModeNotice";
 import ChannelLogo from "@/components/channel/ChannelLogo";
-import { TrangThaiCham } from "@/components/channel/HienThiKenh";
+import StatusBadge from "@/components/shared/StatusBadge";
 import { daKetNoi, trangThaiKetNoi } from "@/components/channel/ketNoiShopify";
 import { CONNECTION_STATUS, SAN_BAN_HANG } from "@/constants/channel";
 import { isChannelMock, kenhBanHangService } from "@/services/kenhBanHangService";
@@ -75,7 +75,7 @@ export default function ChannelsPage() {
                     {cfg.initialLoading || (!cfg.data && cfg.error) ? (
                       <span className="text-bo-muted">—</span>
                     ) : (
-                      <TrangThaiCham label={meta.label} tone={meta.tone} />
+                      <StatusBadge label={meta.label} />
                     )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-3 text-bo-foreground">

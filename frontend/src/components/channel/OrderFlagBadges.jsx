@@ -10,12 +10,8 @@ export default function OrderFlagBadges({ value, max = 2, emptyText = "—" }) {
   return (
     <div className="flex flex-wrap items-center gap-1">
       {shown.map((flag) => (
-        <StatusBadge
-          key={flag}
-          label={FLAG_META[flag]?.label ?? flag}
-          tone={FLAG_META[flag]?.tone ?? "warning"}
-          dot={false}
-        />
+        // Cờ lạ (chưa có trong FLAG_META) vẫn hiện mã, tô Cam đậm "Cần chú ý"
+        <StatusBadge key={flag} label={FLAG_META[flag]?.label ?? flag} tone="warning" />
       ))}
       {rest > 0 ? (
         <span className="text-xs font-semibold text-bo-muted" title={flags.slice(max).map((f) => FLAG_META[f]?.label ?? f).join(", ")}>

@@ -342,7 +342,7 @@ export default function DonBanHangDetail() {
           title={`Đơn bán ${donBanHang.soDonHang}`}
           description="Chi tiết đơn bán hàng, sản phẩm và lịch sử xuất kho"
           actions={
-            <StatusBadge label={st.label} tone={st.tone} />
+            <StatusBadge size="lg" label={st.label} />
           }
         />
 
@@ -458,7 +458,7 @@ export default function DonBanHangDetail() {
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-bo-muted">
                   Trạng thái hiện tại
                 </p>
-                <StatusBadge label={st.label} tone={st.tone} />
+                <StatusBadge label={st.label} />
               </div>
 
               {/* Info rows */}
@@ -602,7 +602,7 @@ export default function DonBanHangDetail() {
                           </td>
                           <td className="px-3 py-3">
                             {pxSt && (
-                              <StatusBadge label={pxSt.label} tone={pxSt.tone} />
+                              <StatusBadge label={pxSt.label} />
                             )}
                           </td>
                           <td className="px-3 py-3 text-xs italic text-bo-muted">
@@ -778,13 +778,9 @@ export default function DonBanHangDetail() {
                               </span>
                             </div>
                             {isDuHang ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 border border-emerald-200">
-                                <CheckCircle2 className="size-3" /> Đủ hàng ({kho.soLuongMatHangDu ?? kho.tongSoMatHang}/{kho.tongSoMatHang ?? 0})
-                              </span>
+                              <StatusBadge nhom="xong" label={`Đủ hàng (${kho.soLuongMatHangDu ?? kho.tongSoMatHang}/${kho.tongSoMatHang ?? 0})`} />
                             ) : (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 border border-amber-200">
-                                <AlertTriangle className="size-3" /> Thiếu hàng ({kho.soLuongMatHangDu ?? 0}/{kho.tongSoMatHang ?? 0})
-                              </span>
+                              <StatusBadge nhom="loi" label={`Thiếu hàng (${kho.soLuongMatHangDu ?? 0}/${kho.tongSoMatHang ?? 0})`} />
                             )}
                           </div>
                           {kho.diaChi && (
@@ -899,7 +895,7 @@ function SkuSanLine({ sku, skuSan }) {
       <span>Sàn:</span>
       <span className="font-mono text-bo-foreground">{hasSkuSan ? String(skuSan).trim() : "—"}</span>
       {hasSkuSan ? (
-        <StatusBadge label={matched ? "Khớp SKU" : "Ghép tay"} tone={matched ? "success" : "info"} dot={false} className="h-5 px-2 text-[11px]" />
+        <StatusBadge label={matched ? "Khớp SKU" : "Ghép tay"} />
       ) : null}
     </span>
   );

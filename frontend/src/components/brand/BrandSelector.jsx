@@ -167,7 +167,7 @@ export default function BrandSelector({
                                             <span className="min-w-0 flex-1 truncate">{brand.tenThuongHieu}</span>
                                             <span className="shrink-0 font-mono text-xs text-bo-muted">{brand.maThuongHieu}</span>
                                             {isInactive ? (
-                                                <StatusBadge label="Ngừng hoạt động" tone="neutral" dot={false} className="shrink-0" />
+                                                <StatusBadge label="Ngừng hoạt động" className="shrink-0" />
                                             ) : null}
                                             {isCurrent ? <Check className="size-4 shrink-0 text-bo-primary" /> : null}
                                         </CommandItem>

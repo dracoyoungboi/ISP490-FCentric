@@ -77,7 +77,12 @@ public record TongQuanAdminResponse(
             String kieuSoSanh,
             int nam,
             long luyKeNam,
-            long caNamTruoc
+            long caNamTruoc,
+            /**
+             * Kỳ so sánh chia theo cùng cách (ngày hoặc tháng), chỉ gồm ngày/tháng đã trọn: phần tử thứ i so với
+             * phần tử thứ i đã trọn của {@code diem}. Tổng doanh thu bằng {@code doanhThuKyTruoc}.
+             */
+            List<Diem> diemKyTruoc
     ) {}
 
     /** Một điểm trên biểu đồ: một ngày hoặc một tháng (tu = ngày đầu). */
@@ -107,11 +112,20 @@ public record TongQuanAdminResponse(
              * Chỉ có khi xem "Tất cả kho" (khoId = null): bốn việc trên tách theo kho, vì Đơn chờ xuất,
              * Phiếu nhặt hàng và Chuyển kho nội bộ chỉ xem kho làm việc. Null khi đang xem một kho.
              */
-            List<ViecTheoKho> theoKho
+            List<ViecTheoKho> theoKho,
+            /** Đơn mua đang vận chuyển (trạng thái 3) đã qua ngày giao dự kiến mà chưa nhận đủ hàng. */
+            long donMuaQuaHan,
+            /**
+             * Sản phẩm đồng bộ lỗi theo từng kênh đang hoạt động (cùng số "Lỗi" ở trang Sản phẩm của kênh); chỉ kênh có lỗi.
+             * Không lọc theo kho. Null khi không đếm được (các việc khác vẫn trả về).
+             */
+            List<LoiDongBoKenh> loiDongBo
     ) {}
 
     public record ViecTheoKho(Integer khoId, String tenKho, long donChoXuatKho, long phieuNhatChuaPhanCong,
                               long phieuChuyenChoDuyet, long phieuChuyenChoXuatHang) {}
+
+    public record LoiDongBoKenh(Integer kenhId, String maKenh, String tenKenh, long soLoi) {}
 
     /**
      * Tồn kho theo 3 con số của SRS (khả dụng = tồn thực tế − đang giữ) và 4 mức tình trạng tính trên
@@ -133,7 +147,16 @@ public record TongQuanAdminResponse(
             long dangChuyen,
             int nguongMacDinh,
             int heSoDu,
-            List<TonKhoKho> theoKho
+            List<TonKhoKho> theoKho,
+            /** Giá trị tồn (theo giá vốn lô) của các dòng Dư hàng. */
+            long giaTriDu,
+            /**
+             * Số dòng Dư hàng không có đơn đã giao nào trong {@code soNgayChamBan} ngày gần nhất (tính ở đúng kho đó).
+             * Null khi không đếm được.
+             */
+            Long duChamBan,
+            /** Số ngày xét "chưa bán được" (cấu hình SLOW_MOVING_DAYS, mặc định 60). */
+            int soNgayChamBan
     ) {}
 
     public record TonKhoKho(Integer khoId, String tenKho, boolean laKhoTong,

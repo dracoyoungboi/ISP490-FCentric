@@ -415,7 +415,7 @@ export default function WarehouseManagement() {
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Người quản lý
                                 </th>
-                                <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Trạng thái
                                 </th>
                                 <th className="h-10 px-3 text-right tabular-nums whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
@@ -444,18 +444,15 @@ export default function WarehouseManagement() {
                                         )}
                                     </td>
                                     <td className="px-3 py-3">
-                                        <span title={nhanLoaiKho(wh).moTa}>
-                                            <StatusBadge label={nhanLoaiKho(wh).label} tone={nhanLoaiKho(wh).tone} dot={false} />
+                                        <span title={nhanLoaiKho(wh).moTa} className="whitespace-nowrap text-slate-700">
+                                            {nhanLoaiKho(wh).label}
                                         </span>
                                     </td>
                                     <td className="px-3 py-3 text-sm text-bo-foreground">
                                         {wh.quanLy?.hoTen || '—'}
                                     </td>
-                                    <td className="px-3 py-3 text-center">
-                                        <StatusBadge
-                                            label={wh.trangThai === 1 ? 'Hoạt động' : 'Ngừng hoạt động'}
-                                            tone={wh.trangThai === 1 ? 'success' : 'danger'}
-                                        />
+                                    <td className="px-3 py-3">
+                                        <StatusBadge label={wh.trangThai === 1 ? 'Hoạt động' : 'Ngừng hoạt động'} />
                                     </td>
                                     <td className="px-3 py-3 text-right tabular-nums">
                                         {wh.soLuongTon == null ? (

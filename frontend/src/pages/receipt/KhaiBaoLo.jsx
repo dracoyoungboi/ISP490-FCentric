@@ -232,7 +232,7 @@ export default function KhaiBaoLo() {
             {/* ── Info Component ── */}
             <SurfaceCard
                 title="Thông tin biến thể"
-                action={<StatusBadge label={`SKU: ${item.sku}`} tone="neutral" dot={false} />}
+                action={<span className="font-mono text-xs font-semibold text-slate-600">SKU: {item.sku}</span>}
             >
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
                     <InfoItem label="Sản phẩm" value={item.tenBienThe} />
@@ -258,7 +258,6 @@ export default function KhaiBaoLo() {
                                     <StatusBadge
                                         label={isAutoLotMode ? "Lô tự động" : "Chỉ xem"}
                                         tone="neutral"
-                                        dot={false}
                                     />
                                 </div>
                             ) : null

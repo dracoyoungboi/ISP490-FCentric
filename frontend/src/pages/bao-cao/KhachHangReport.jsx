@@ -20,7 +20,6 @@ import {
 import PageContainer from "@/components/backoffice/PageContainer";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import TableShell from "@/components/shared/TableShell";
-import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
@@ -562,11 +561,7 @@ export default function KhachHangReport() {
 
                   <td className="px-3 py-3.5 text-right">
                     {row.tyLeTangTruong != null ? (
-                      <StatusBadge
-                        label={`${row.tyLeTangTruong.toFixed(1)}%`}
-                        tone="info"
-                        dot={false}
-                      />
+                      <span className="font-semibold tabular-nums text-bo-foreground">{`${row.tyLeTangTruong.toFixed(1)}%`}</span>
                     ) : (
                       <span className="text-bo-muted">—</span>
                     )}

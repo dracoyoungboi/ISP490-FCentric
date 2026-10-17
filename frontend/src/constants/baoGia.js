@@ -6,12 +6,12 @@ import { trangThaiLa } from "@/constants/trangThaiChung";
  *
  * Backend chỉ gán 3 mã: 0 khi tạo (hoặc khi đơn sinh từ báo giá bị hủy), 2 khi chốt thành đơn bán hàng,
  * 4 khi khách từ chối. Mã 0 trước đây trang chi tiết và bản in ghi "Đang chờ phản hồi"; nay dùng tên của danh sách.
- * `tone` khớp tone của StatusBadge (giữ như đang dùng ở danh sách).
+ * Màu thẻ tra theo tên ở constants/trangThai.js.
  */
 export const BAO_GIA_STATUS = {
-    0: { label: "Chờ phản hồi", tone: "warning" },
-    2: { label: "Đã chốt đơn", tone: "success" },
-    4: { label: "Bị từ chối", tone: "danger" },
+    0: { label: "Chờ phản hồi" },
+    2: { label: "Đã chốt đơn" },
+    4: { label: "Bị từ chối" },
 };
 
 /**

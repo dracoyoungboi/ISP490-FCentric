@@ -2,7 +2,8 @@ import { Link } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { AnhSanPham, TrangThaiCham } from "@/components/channel/HienThiKenh";
+import { AnhSanPham } from "@/components/channel/HienThiKenh";
+import StatusBadge from "@/components/shared/StatusBadge";
 import { LIEN_KET_STATUS, tinhSoTonDayLenSan } from "@/constants/channel";
 import { formatCurrency } from "@/utils/formatters";
 import { formatDateTime } from "@/utils/dateTime";
@@ -34,7 +35,7 @@ function Dong({ nhan, children }) {
 export default function SyncLogDetailSheet({ lienKet, open, onOpenChange, quyTac, duongDanCauHinh, tenSan = "Shopify", dangXuLy, onThuLai, onDoiBienThe, onBatTat }) {
   const trangThai = lienKet?.trangThaiLienKet;
   const dangDongBo = trangThai !== "chua_lien_ket";
-  const meta = LIEN_KET_STATUS[trangThai] ?? { label: trangThai || "—", tone: "neutral" };
+  const meta = LIEN_KET_STATUS[trangThai] ?? { label: trangThai ? `Không xác định (mã ${trangThai})` : "Chưa có trạng thái" };
   const khoa = Boolean(dangXuLy);
   const nutPhu = "h-9 gap-2 rounded-lg border-bo-border bg-white px-3.5 text-bo-foreground hover:bg-bo-surface-subtle";
 
@@ -51,7 +52,7 @@ export default function SyncLogDetailSheet({ lienKet, open, onOpenChange, quyTac
                 </SheetTitle>
                 <SheetDescription className="text-[13px] text-bo-muted">{lienKet.tenBienThe || lienKet.tenBienTheSan || "—"}</SheetDescription>
                 <div className="mt-1.5">
-                  <TrangThaiCham label={meta.label} tone={meta.tone} />
+                  <StatusBadge label={meta.label} />
                 </div>
               </div>
             </SheetHeader>

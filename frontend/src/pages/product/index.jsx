@@ -5,7 +5,7 @@ import { productService } from "@/services/productService.js";
 import { thuongHieuService } from "@/services/thuongHieuService.js";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { toast } from "@/lib/thongBaoNhanh";
-import { Eye, Edit, Trash2, Package, Plus, ChevronDown, Check, Info, SearchX, Tag } from "lucide-react";
+import { Eye, Edit, Trash2, Package, Plus, ChevronDown, Check, Info, SearchX } from "lucide-react";
 import { useToggle } from "@/hooks/useToggle";
 import AddProductModal from "@/pages/product/components/product/AddProductModal";
 import EditProductModal from "@/pages/product/components/product/EditProductModal";
@@ -535,10 +535,10 @@ export default function ProductList() {
                             <th className="h-10 px-3 text-right whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                 Giá bán
                             </th>
-                            <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                            <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                 Trạng thái
                             </th>
-                            <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                            <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                 Ngày tạo
                             </th>
                             <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
@@ -594,9 +594,8 @@ export default function ProductList() {
                                 {/* Thương hiệu */}
                                 <td className="max-w-[180px] px-3 py-3">
                                     {product.thuongHieu?.tenThuongHieu ? (
-                                        <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-bo-border bg-bo-surface-subtle px-2 py-0.5 text-xs font-medium text-bo-foreground">
-                                            <Tag className="size-3 shrink-0 text-bo-muted" />
-                                            <span className="truncate">{product.thuongHieu.tenThuongHieu}</span>
+                                        <span className="block truncate text-slate-700" title={product.thuongHieu.tenThuongHieu}>
+                                            {product.thuongHieu.tenThuongHieu}
                                         </span>
                                     ) : (
                                         <span className="text-xs italic text-bo-muted">Chưa xác định</span>
@@ -613,18 +612,18 @@ export default function ProductList() {
                                 </td>
 
                                 {/* Trạng thái */}
-                                <td className="px-3 py-3 text-center">
+                                <td className="px-3 py-3">
                                     {product.trangThai === 1 ? (
-                                        <StatusBadge label="Còn hàng" tone="success" />
+                                        <StatusBadge label="Còn hàng" />
                                     ) : product.trangThai === 0 ? (
-                                        <StatusBadge label="Hết hàng" tone="danger" />
+                                        <StatusBadge label="Hết hàng" />
                                     ) : (
-                                        <StatusBadge label="Ngừng hoạt động" tone="neutral" />
+                                        <StatusBadge label="Ngừng hoạt động" />
                                     )}
                                 </td>
 
                                 {/* Ngày tạo */}
-                                <td className="whitespace-nowrap px-3 py-3 text-center text-sm tabular-nums text-bo-muted">
+                                <td className="whitespace-nowrap px-3 py-3 text-sm tabular-nums text-bo-muted">
                                     {formatDate(product.ngayTao)}
                                 </td>
 

@@ -97,11 +97,11 @@ export default function ProductDetail() {
     }, [product, allCategories]);
 
     const statusMeta = useMemo(() => {
-        // Map trang thai backend sang nhan + tone hien thi tren StatusBadge.
+        // Tên trạng thái sản phẩm; màu thẻ tra theo tên ở constants/trangThai ("Còn hàng" là chữ thường).
         const configs = {
-            1: { label: "Còn hàng", tone: "success" },
-            0: { label: "Hết hàng", tone: "danger" },
-            2: { label: "Ngừng hoạt động", tone: "neutral" }
+            1: { label: "Còn hàng" },
+            0: { label: "Hết hàng" },
+            2: { label: "Ngừng hoạt động" }
         };
         return configs[product?.trangThai] || configs[2];
     }, [product?.trangThai]);
@@ -226,29 +226,25 @@ export default function ProductDetail() {
                     <div className="space-y-6">
                         <div className="space-y-3">
                             <div className="flex flex-wrap items-center gap-2">
-                                <span className="inline-flex h-6 items-center rounded-full border border-bo-border bg-bo-surface-subtle px-2.5 text-xs font-medium text-bo-muted">
-                                    {product.danhMuc?.tenDanhMuc}
-                                </span>
+                                {/* Danh mục, thương hiệu là phân loại: chữ thường, cách nhau bằng dấu chấm giữa */}
+                                <span className="text-[13px] text-bo-muted">{product.danhMuc?.tenDanhMuc}</span>
+                                <span aria-hidden="true" className="text-slate-300">·</span>
                                 {product.thuongHieu?.tenThuongHieu ? (
-                                    <span className="inline-flex h-6 items-center gap-1.5 rounded-full border border-bo-primary bg-bo-primary-soft px-2.5 text-xs font-medium text-bo-primary">
+                                    <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-slate-700">
                                         {product.thuongHieu.logoUrl ? (
                                             <img
                                                 src={product.thuongHieu.logoUrl}
                                                 alt=""
                                                 className="size-4 rounded object-contain"
                                             />
-                                        ) : (
-                                            <Tag className="size-3.5" />
-                                        )}
+                                        ) : null}
                                         {product.thuongHieu.tenThuongHieu}
                                     </span>
                                 ) : (
-                                    <span className="inline-flex h-6 items-center gap-1.5 rounded-full border border-bo-border bg-bo-surface-subtle px-2.5 text-xs font-medium italic text-bo-muted">
-                                        <Tag className="size-3.5" />
-                                        Chưa xác định
-                                    </span>
+                                    <span className="text-[13px] italic text-bo-muted">Chưa có thương hiệu</span>
                                 )}
-                                <StatusBadge label={statusMeta.label} tone={statusMeta.tone} />
+                                <span aria-hidden="true" className="text-slate-300">·</span>
+                                <StatusBadge size="lg" label={statusMeta.label} />
                             </div>
 
                             <h1 className={`text-2xl leading-tight tracking-tight text-bo-heading sm:text-3xl ${ENTITY_NAME_TYPE}`}>

@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-    Calendar, CheckCircle, ChevronDown, ChevronUp,
-    Clock, CreditCard, Eye, FileText, Package, Plus,
-    RefreshCw, SearchX, Send, ShoppingCart, Warehouse, XCircle,
+    Calendar, ChevronDown, ChevronUp,
+    CreditCard, Eye, Package, Plus,
+    RefreshCw, SearchX, ShoppingCart, Warehouse,
 } from 'lucide-react';
 import apiClient from "@/services/apiClient";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,8 @@ import SearchInput from "@/components/shared/SearchInput";
 import StatusTabs from "@/components/shared/StatusTabs";
 import TablePagination from "@/components/shared/TablePagination";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
-import { YEU_CAU_BAO_GIA_TABS, YEU_CAU_NHAP_HANG_STATUS } from "@/constants/yeuCauNhapHang";
+import { YEU_CAU_BAO_GIA_TABS, getYeuCauNhapHangStatus } from "@/constants/yeuCauNhapHang";
+import { getBaoGiaNccStatus } from "@/constants/donMuaHang";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import purchaseOrderService from "../../services/purchaseOrderService";
@@ -48,13 +49,9 @@ function parseRoles(vaiTro) {
     return vaiTro.includes(" ") ? vaiTro.split(" ") : [vaiTro];
 }
 
-// ─── Status configs ────────────────────────────────────────────────────────────
-// Dòng yêu cầu chỉ có 3 và 5: tên lấy từ constants/yeuCauNhapHang (một tên cho danh sách, chi tiết, bản in);
-// màu giữ như trang này đang dùng.
-const PR_STATUS = {
-    3: { label: YEU_CAU_NHAP_HANG_STATUS[3].label, tone: 'info' },
-    5: { label: YEU_CAU_NHAP_HANG_STATUS[5].label, tone: 'success' },
-};
+// ─── Trạng thái ────────────────────────────────────────────────────────────────
+// Dòng yêu cầu (chỉ 3 và 5) lấy tên từ constants/yeuCauNhapHang; dòng báo giá từng nhà cung cấp lấy từ
+// BAO_GIA_NCC_STATUS ở constants/donMuaHang. Màu thẻ tra theo tên ở constants/trangThai.
 
 // Tab trạng thái (bố cục A+G) — mã tab trên URL ?trangThai=, kho đang lọc trên ?kho=
 const TAB_MAS = YEU_CAU_BAO_GIA_TABS.map((tab) => tab.ma);
@@ -84,15 +81,6 @@ async function countRequests(filters) {
     const res = await apiClient.post(API_FILTER, { filters, sorts: [], page: 0, size: 1 });
     return res?.data?.data?.totalElements ?? 0;
 }
-
-const PO_STATUS = {
-    0: { label: 'Đã xóa', tone: 'danger', icon: XCircle },
-    1: { label: 'Đã gửi YC báo giá', tone: 'neutral', icon: Send },
-    2: { label: 'Đã nhận báo giá', tone: 'info', icon: FileText },
-    3: { label: 'Đã chuyển thành đơn mua hàng', tone: 'warning', icon: CheckCircle },
-    4: { label: 'Từ chối báo giá', tone: 'danger', icon: XCircle },
-    5: { label: 'Đã thanh toán', tone: 'success', icon: CreditCard },
-};
 
 function getPaymentTooltip(trangThai) {
     switch (trangThai) {
@@ -125,7 +113,7 @@ function DonMuaHangRows({ donMuaHangs = [], navigate }) {
     }
 
     return donMuaHangs.map((po) => {
-        const cfg = PO_STATUS[po.trangThai] ?? { label: 'Không rõ', tone: 'neutral', icon: Clock };
+        const cfg = getBaoGiaNccStatus(po.trangThai);
         const isAccepted = po.trangThai === 3 || po.trangThai === 5;
         const canPay = po.trangThai === 3;
 
@@ -158,7 +146,7 @@ function DonMuaHangRows({ donMuaHangs = [], navigate }) {
                 </td>
 
                 <td className="whitespace-nowrap px-3 py-3">
-                    <StatusBadge label={cfg.label} tone={cfg.tone} />
+                    <StatusBadge label={cfg.label} />
                 </td>
 
                 <td className="max-w-[120px] truncate px-3 py-3 text-[13px] font-medium text-bo-muted">
@@ -585,7 +573,7 @@ export default function QuotationRequestList() {
                         <tbody className="divide-y divide-bo-border">
                             {requests.map((req) => {
                                 const isExpanded = expandedRows.has(req.id);
-                                const prCfg = PR_STATUS[req.trangThai] ?? { label: 'Không rõ', tone: 'neutral' };
+                                const prCfg = getYeuCauNhapHangStatus(req.trangThai);
                                 const poCount = req.donMuaHangs?.length || 0;
                                 const acceptedTotal = getAcceptedTotal(req);
                                 const hasPos = poCount > 0;
@@ -613,9 +601,7 @@ export default function QuotationRequestList() {
                                                 <div className="flex flex-col items-start gap-1.5">
                                                     <span className="text-[14px] font-semibold tracking-tight text-bo-primary">#{req.soYeuCauMuaHang}</span>
                                                     {poCount > 0 && (
-                                                        <span className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-bo-primary-soft px-1.5 py-0.5 text-[10px] font-semibold text-blue-700">
-                                                            <ShoppingCart className="size-3" />{poCount} báo giá
-                                                        </span>
+                                                        <span className="text-xs text-bo-muted">{poCount} báo giá</span>
                                                     )}
                                                 </div>
                                             </td>
@@ -638,7 +624,7 @@ export default function QuotationRequestList() {
                                             </td>
 
                                             <td className="whitespace-nowrap px-3 py-3">
-                                                <StatusBadge label={prCfg.label} tone={prCfg.tone} />
+                                                <StatusBadge label={prCfg.label} />
                                             </td>
 
                                             <td className="px-3 py-3 text-[13px] font-medium text-bo-muted">

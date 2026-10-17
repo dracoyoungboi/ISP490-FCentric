@@ -15,9 +15,9 @@ export const PHUONG_AN_TRA_HANG = [
 
 /** Trạng thái kiểm đếm của một biến thể trong phiếu nhập, tính từ số đã kiểm so với số đặt. */
 export const TRANG_THAI_KIEM_DEM = {
-  CHO: { label: "Chờ kiểm đếm", tone: "neutral" },
-  DANG: { label: "Đang kiểm đếm", tone: "info" },
-  XONG: { label: "Đã kiểm xong", tone: "success" },
+  CHO: { label: "Chờ kiểm đếm" },
+  DANG: { label: "Đang kiểm đếm" },
+  XONG: { label: "Đã kiểm xong" },
 };
 
 export function trangThaiKiemDem(daKiem, canNhap) {
@@ -36,9 +36,9 @@ export const TRANG_THAI_KE_CHON = [
 ];
 
 export const NHOM_TRANG_THAI_KE = {
-  CON_CHO: { ma: "CON_CHO", label: "Còn chỗ", tone: "success" },
-  DAY: { ma: "DAY", label: "Đầy", tone: "warning" },
-  BAO_TRI: { ma: "BAO_TRI", label: "Bảo trì", tone: "neutral" },
+  CON_CHO: { ma: "CON_CHO", label: "Còn chỗ" },
+  DAY: { ma: "DAY", label: "Đầy" },
+  BAO_TRI: { ma: "BAO_TRI", label: "Bảo trì" },
 };
 
 export function nhomTrangThaiKe(viTri) {

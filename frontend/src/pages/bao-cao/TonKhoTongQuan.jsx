@@ -100,18 +100,20 @@ function trangThaiTon(item) {
     return "du_hang";
 }
 
+// Tên tình trạng tồn; màu thẻ tra theo tên ở constants/trangThai ("Bình thường" là chữ thường, không thẻ).
+// "Sắp hết hàng" (trước là "Thiếu hàng") để không trùng tên cờ "Thiếu hàng" của đơn kênh (đơn không giao được).
 const STATUS_CFG = {
-    het_hang: { label: "Hết hàng", tone: "danger" },
-    thieu_hang: { label: "Thiếu hàng", tone: "warning" },
-    binh_thuong: { label: "Bình thường", tone: "success" },
-    du_hang: { label: "Dư hàng", tone: "info" },
+    het_hang: { label: "Hết hàng" },
+    thieu_hang: { label: "Sắp hết hàng" },
+    binh_thuong: { label: "Bình thường" },
+    du_hang: { label: "Dư hàng" },
 };
 
 // Tab tình trạng tồn (bố cục A+G) — mã tab trên URL ?tinhTrang=, `key` là kết quả của trangThaiTon()
 const TRANG_THAI_FILTERS = [
     { value: "tat-ca", key: "tat_ca", label: "Tất cả" },
     { value: "het-hang", key: "het_hang", label: "Hết hàng" },
-    { value: "thieu-hang", key: "thieu_hang", label: "Thiếu" },
+    { value: "thieu-hang", key: "thieu_hang", label: "Sắp hết hàng" },
     { value: "binh-thuong", key: "binh_thuong", label: "Bình thường" },
     { value: "du-hang", key: "du_hang", label: "Dư hàng" },
 ];
@@ -489,7 +491,7 @@ export default function TonKhoTongQuan() {
                             />
                             <Divider />
                             <SummaryItem
-                                label="Cảnh báo (hết/thiếu)"
+                                label="Cảnh báo (hết / sắp hết)"
                                 value={`${filteredData.filter(i => ["het_hang", "thieu_hang"].includes(trangThaiTon(i))).length} SKU`}
                                 valueClass="text-bo-danger"
                             />
@@ -579,7 +581,7 @@ export default function TonKhoTongQuan() {
                                 <th className={`${TH_CLASS} text-right tabular-nums`}>Free to Use</th>
                                 <th className={`${TH_CLASS} text-right tabular-nums`}>Tồn tối thiểu</th>
                                 <th className={`${TH_CLASS} text-right tabular-nums`}>Giá trị tồn</th>
-                                <th className={`${TH_CLASS} text-center`}>Tình trạng</th>
+                                <th className={`${TH_CLASS} text-left`}>Tình trạng</th>
                                 <th className={`${TH_CLASS} text-center`}>Thao tác</th>
                             </tr>
                         </thead>
@@ -587,7 +589,6 @@ export default function TonKhoTongQuan() {
                             {pageItems.map((item, idx) => {
                                 const statusKey = trangThaiTon(item);
                                 const statusCfg = STATUS_CFG[statusKey] ?? STATUS_CFG.binh_thuong;
-                                const isLow = statusKey === "het_hang" || statusKey === "thieu_hang";
 
                                 const onHand = Number(item.onHand ?? item.tongSoLuongKhaDung ?? 0);
                                 const incoming = Number(item.incoming ?? item.tongSoLuongChoNhan ?? 0);
@@ -598,16 +599,14 @@ export default function TonKhoTongQuan() {
                                 return (
                                     <tr
                                         key={`${item.bienTheId}-${item.khoId}-${idx}`}
-                                        className={`transition-colors ${isLow ? "bg-bo-warning-soft" : "bg-white hover:bg-bo-surface-subtle"}`}
+                                        className="bg-white transition-colors hover:bg-bo-surface-subtle"
                                     >
                                         <td className="px-3 py-3 text-center text-xs text-bo-muted">{safePage * pageSize + idx + 1}</td>
 
                                         <td className="px-3 py-3">
                                             <div className="flex flex-col gap-1">
                                                 <span className="text-[10px] font-semibold uppercase text-bo-muted">{item.maSanPham}</span>
-                                                <span className="w-fit rounded border border-bo-primary/20 bg-bo-primary-soft px-1.5 py-0.5 font-mono text-[11px] font-semibold text-bo-primary">
-                                                    {item.maSku}
-                                                </span>
+                                                <span className="font-mono text-xs font-semibold text-slate-700">{item.maSku}</span>
                                             </div>
                                         </td>
 
@@ -621,34 +620,30 @@ export default function TonKhoTongQuan() {
                                                 )}
                                                 <span className="font-medium">{item.tenMau}</span>
                                                 <span className="text-slate-300">|</span>
-                                                <span className="rounded border border-bo-border bg-bo-surface-subtle px-1.5 py-0 font-mono text-[10px] font-semibold text-slate-600">
-                                                    {item.tenSize ?? item.maSize}
-                                                </span>
+                                                <span className="font-medium">{item.tenSize ?? item.maSize}</span>
                                                 <span className="text-slate-300">|</span>
                                                 <span>{item.tenChatLieu}</span>
                                             </div>
                                         </td>
 
                                         <td className="px-3 py-3">
-                                            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-bo-border bg-white px-2 py-1 text-[11px] font-medium text-slate-600">
-                                                <Warehouse className="size-3" /> {item.tenKho}
-                                            </span>
+                                            <span className="whitespace-nowrap text-slate-700">{item.tenKho}</span>
                                         </td>
 
                                         <td className="px-3 py-3 text-right tabular-nums">
-                                            <NumBadge value={onHand} colorClass={isLow ? "bg-bo-danger text-white" : "bg-bo-success text-white"} />
+                                            <SoLuong value={onHand} className="font-semibold text-bo-foreground" />
                                         </td>
 
                                         <td className="px-3 py-3 text-right tabular-nums">
-                                            <NumBadge value={incoming} colorClass={incoming > 0 ? "bg-bo-primary text-white" : "border border-bo-border bg-white text-slate-400"} />
+                                            <SoLuong value={incoming} />
                                         </td>
 
                                         <td className="px-3 py-3 text-right tabular-nums">
-                                            <NumBadge value={outgoing} colorClass={outgoing > 0 ? "bg-bo-warning text-white" : "border border-bo-border bg-white text-slate-400"} />
+                                            <SoLuong value={outgoing} />
                                         </td>
 
                                         <td className="px-3 py-3 text-right tabular-nums">
-                                            <NumBadge value={freeToUse} colorClass={freeToUse < 0 ? "bg-bo-danger text-white" : freeToUse === 0 ? "border border-bo-border bg-white text-slate-400" : "bg-slate-700 text-white"} />
+                                            <SoLuong value={freeToUse} className="font-semibold text-bo-foreground" />
                                         </td>
 
                                         <td className="px-3 py-3 text-right text-xs tabular-nums">
@@ -660,8 +655,8 @@ export default function TonKhoTongQuan() {
                                         </td>
                                         <td className="whitespace-nowrap px-3 py-3 text-right text-xs font-bold tabular-nums text-bo-foreground">{formatCurrency(giaTri)}</td>
 
-                                        <td className="px-3 py-3 text-center">
-                                            <StatusBadge label={statusCfg.label} tone={statusCfg.tone} />
+                                        <td className="px-3 py-3">
+                                            <StatusBadge label={statusCfg.label} />
                                         </td>
 
                                         <td className="px-3 py-3 text-center">
@@ -687,12 +682,11 @@ export default function TonKhoTongQuan() {
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-function NumBadge({ value, colorClass }) {
-    return (
-        <span className={`inline-flex min-w-[36px] items-center justify-center rounded px-1.5 py-0.5 font-mono text-xs font-bold ${colorClass}`}>
-            {formatNumber(Number(value))}
-        </span>
-    );
+/** Số lượng trong bảng: chữ thường (không ô màu); 0 hiện xám, số âm hiện đỏ để nổi lên. */
+function SoLuong({ value, className = "text-slate-700" }) {
+    const so = Number(value);
+    const mau = so < 0 ? "font-semibold text-bo-danger" : so === 0 ? "text-bo-muted" : className;
+    return <span className={mau}>{formatNumber(so)}</span>;
 }
 
 function SummaryItem({ label, value, valueClass = "text-bo-foreground" }) {

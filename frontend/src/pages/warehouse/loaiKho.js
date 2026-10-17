@@ -21,9 +21,9 @@ export const LOAI_KHO_OPTIONS = [
     },
 ];
 
-/** Nhãn hiển thị cho một kho: { label, tone, moTa } dùng với StatusBadge. */
+/** Nhãn hiển thị cho một kho: { label, moTa }. Loại kho là phân loại nên hiện chữ thường, không dùng thẻ trạng thái. */
 export function nhanLoaiKho(kho) {
-    if (laKhoAo(kho)) return { label: "Kho ảo", tone: "neutral", moTa: "Chứa hàng đang chuyển giữa các kho, không dùng để bán hay nhập hàng." };
+    if (laKhoAo(kho)) return { label: "Kho ảo", moTa: "Chứa hàng đang chuyển giữa các kho, không dùng để bán hay nhập hàng." };
     const o = LOAI_KHO_OPTIONS.find((x) => x.value === kho?.loaiKho) ?? LOAI_KHO_OPTIONS[1];
-    return { label: o.label, tone: o.value === "kho_tong" ? "info" : "neutral", moTa: o.moTa };
+    return { label: o.label, moTa: o.moTa };
 }

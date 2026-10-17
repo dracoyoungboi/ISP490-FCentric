@@ -41,9 +41,9 @@ const GOI_Y_THEO_TAB = {
 };
 
 const TRANG_THAI_SAN_PHAM = {
-  1: { label: "Còn hàng", tone: "success" },
-  0: { label: "Hết hàng", tone: "danger" },
-  2: { label: "Ngừng hoạt động", tone: "neutral" },
+  1: { label: "Còn hàng" },
+  0: { label: "Hết hàng" },
+  2: { label: "Ngừng hoạt động" },
 };
 
 /* ---------- Tiện ích ---------- */
@@ -382,7 +382,7 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
       phu = [item.thuongHieu?.tenThuongHieu, item.giaBanMacDinh != null ? formatCurrency(item.giaBanMacDinh) : null]
         .filter(Boolean)
         .join(" · ") || "—";
-      benPhai = tt ? <StatusBadge label={tt.label} tone={tt.tone} /> : null;
+      benPhai = tt ? <StatusBadge label={tt.label} /> : null;
     } else if (d.loai === "donHang") {
       const tt = getDonBanHangStatus(item.trangThai);
       bieuTuong = <ShoppingCart className="size-4" />;
@@ -399,7 +399,7 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
           {item.tongCong != null ? (
             <span className="text-xs font-medium text-bo-foreground">{formatCurrency(item.tongCong)}</span>
           ) : null}
-          {tt?.label ? <StatusBadge label={tt.label} tone={tt.tone} /> : null}
+          {tt?.label ? <StatusBadge label={tt.label} /> : null}
         </span>
       );
     } else if (d.loai === "khachHang") {

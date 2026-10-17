@@ -23,10 +23,10 @@ import { hasAnyRole, ROLES } from "@/utils/roles";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { formatDate } from "@/utils/formatters";
 
-// ── Trạng thái ────────────────────────────────────────────────────────────
+// ── Trạng thái (màu thẻ tra theo tên ở constants/trangThai) ──────────────
 const TRANG_THAI = {
-  0: { label: "Đang kiểm kê", tone: "warning" },
-  1: { label: "Hoàn thành", tone: "success" },
+  0: { label: "Đang kiểm kê" },
+  1: { label: "Hoàn thành" },
 };
 
 // ── Tab trạng thái (bố cục A+G) — mã tab nằm trên URL ?trangThai= ─────────
@@ -326,7 +326,7 @@ export default function StockTakeList() {
 
                     {/* Trạng thái */}
                     <td className="px-4 py-3.5 align-middle">
-                      <StatusBadge label={tt.label} tone={tt.tone} />
+                      <StatusBadge label={tt.label} />
                     </td>
 
                     {/* Thao tác */}

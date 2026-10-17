@@ -236,7 +236,7 @@ export default function PhieuChuyenKhoDetail() {
                 {/* Actions */}
                 <div className="flex flex-wrap items-center gap-2">
                     {/* Badge trạng thái */}
-                    <StatusBadge label={st.label} tone={st.tone} className={st.className} />
+                    <StatusBadge size="lg" label={st.label} />
 
                     {/* Các nút xử lý kho đặc thù cho role KHO */}
                     {isKhoRole && data.trangThai === 2 && myWarehouseIds.includes(data.khoXuatId) && (

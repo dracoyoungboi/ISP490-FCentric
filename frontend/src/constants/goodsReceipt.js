@@ -11,13 +11,14 @@ import { trangThaiLa } from "@/constants/trangThaiChung";
  * - 4: đã huỷ
  * 1/2 (Chờ duyệt / Đã duyệt) có trong enum nhưng không có luồng nào gán —
  * chỉ giữ để hiển thị nếu gặp dữ liệu cũ, KHÔNG đưa vào bộ lọc.
+ * Màu thẻ tra theo tên ở constants/trangThai.js.
  */
 export const GOODS_RECEIPT_STATUS = {
-    0: { label: "Chờ nhập kho", tone: "warning" },
-    1: { label: "Chờ duyệt", tone: "info" },
-    2: { label: "Đã duyệt", tone: "info" },
-    3: { label: "Đã nhập kho", tone: "success" },
-    4: { label: "Đã hủy", tone: "danger" },
+    0: { label: "Chờ nhập kho" },
+    1: { label: "Chờ duyệt" },
+    2: { label: "Đã duyệt" },
+    3: { label: "Đã nhập kho" },
+    4: { label: "Đã hủy" },
 };
 
 /** Trạng thái dùng cho bộ lọc danh sách — chỉ các trạng thái có thật. */

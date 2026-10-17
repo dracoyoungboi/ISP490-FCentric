@@ -364,7 +364,7 @@ export default function PrintTemplatesPage() {
                                 {schema.label}
                             </h2>
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                <StatusBadge label="Dữ liệu mẫu" tone="neutral" dot={false} />
+                                <StatusBadge label="Dữ liệu mẫu" />
                                 {formatLabel ? (
                                     <span className="text-xs text-bo-muted">
                                         Khổ giấy đã lưu: <strong className="font-semibold">{formatLabel}</strong>

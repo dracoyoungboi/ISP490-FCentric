@@ -266,8 +266,8 @@ export default function PickListList() {
                                 <th className={`${TH_CLASS} text-right tabular-nums`}>SKU</th>
                                 <th className={`${TH_CLASS} w-[220px] text-left`}>Tiến độ</th>
                                 <th className={`${TH_CLASS} text-left`}>Người nhặt</th>
-                                <th className={`${TH_CLASS} text-center`}>Ngày tạo</th>
-                                <th className={`${TH_CLASS} text-center`}>Trạng thái</th>
+                                <th className={`${TH_CLASS} text-left`}>Ngày tạo</th>
+                                <th className={`${TH_CLASS} text-left`}>Trạng thái</th>
                                 <th className={`${TH_CLASS} text-center`}>Thao tác</th>
                             </tr>
                         </thead>
@@ -318,11 +318,11 @@ export default function PickListList() {
                                                 <span className="text-xs italic text-bo-muted">Chưa phân công</span>
                                             )}
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-3 text-center text-xs text-bo-muted">
+                                        <td className="whitespace-nowrap px-3 py-3 text-xs text-bo-muted">
                                             {formatDateTime(row.ngayTao)}
                                         </td>
-                                        <td className="px-3 py-3 text-center">
-                                            <StatusBadge label={status.label} tone={status.tone} />
+                                        <td className="px-3 py-3">
+                                            <StatusBadge label={status.label} />
                                         </td>
                                         <td className="px-3 py-3 text-center">
                                             <RowActions>

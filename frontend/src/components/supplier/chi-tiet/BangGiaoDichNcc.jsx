@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Clock, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
+import StatusBadge from "@/components/shared/StatusBadge";
 import { getDonMuaHangStatus } from "@/constants/donMuaHang";
 import { getGoodsReceiptStatus } from "@/constants/goodsReceipt";
 import { tinhTienDoNhan } from "@/components/order/chi-tiet-don-mua/tinhNhanHang";
@@ -13,24 +14,6 @@ const NUT_VIEN =
   "inline-flex h-8 items-center justify-center whitespace-nowrap rounded-md border border-bo-border bg-white px-3 text-[13px] font-medium text-bo-foreground hover:bg-bo-surface-subtle @max-2xl:h-11 @max-2xl:w-full @max-2xl:text-sm";
 const DONG_VIEC =
   "grid grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-3.5 sm:px-6 @2xl:grid-cols-[32px_minmax(180px,1.4fr)_minmax(120px,1fr)_auto_auto] @2xl:gap-x-4";
-
-/** Màu chữ theo tone của StatusBadge (dùng cho cột trạng thái dạng chữ trong bảng). */
-const MAU_TONE = {
-  success: "font-medium text-bo-success",
-  warning: "font-medium text-bo-warning",
-  danger: "font-medium text-bo-danger",
-  info: "font-medium text-blue-700",
-  neutral: "text-bo-muted",
-};
-
-/** Viên trạng thái giao của việc đang mở. */
-const VIEN = {
-  quaHan: "border-red-200 bg-bo-danger-soft text-bo-danger",
-  homNay: "border-orange-200 bg-bo-warning-soft text-bo-warning",
-  conLai: "border-bo-border bg-slate-100 text-slate-600",
-  khongCo: "border-bo-border bg-slate-100 text-slate-600",
-  choDuyet: "border-blue-200 bg-bo-primary-soft text-blue-700",
-};
 
 function chuHanGiao(giao) {
   if (giao.loai === "quaHan") return `Quá hạn ${giao.soNgay} ngày`;
@@ -103,9 +86,8 @@ export function DangMoNcc({ viec, nutCuaDon }) {
                   <Link to={`/purchase-orders/${d.id}`} className={LIEN_KET}>
                     {d.soDonMua || `#${d.id}`}
                   </Link>
-                  <span className={cn("inline-flex h-5 items-center whitespace-nowrap rounded-full border px-2 text-xs font-medium", VIEN[v.giao.loai] ?? VIEN.khongCo)}>
-                    {chuHanGiao(v.giao)}
-                  </span>
+                  {/* Quá hạn: Đỏ · Hạn hôm nay: Cam đậm · Còn N ngày, chưa có hạn: chữ xám (constants/trangThai) */}
+                  <StatusBadge label={chuHanGiao(v.giao)} />
                 </div>
                 <div className="mt-0.5 text-[13px] text-bo-muted">
                   Đơn mua ·{" "}
@@ -148,9 +130,7 @@ export function DangMoNcc({ viec, nutCuaDon }) {
                 <Link to={`/quotation/${d.id}`} className={LIEN_KET}>
                   {d.soDonMua || `#${d.id}`}
                 </Link>
-                <span className={cn("inline-flex h-5 items-center whitespace-nowrap rounded-full border px-2 text-xs font-medium", VIEN.choDuyet)}>
-                  Chờ duyệt
-                </span>
+                <StatusBadge label="Chờ duyệt" />
               </div>
               <div className="mt-0.5 text-[13px] text-bo-muted">
                 Báo giá · gửi yêu cầu {formatDate(ngayDat(d))}
@@ -251,11 +231,16 @@ export function BangDonMuaNcc({ chot, giaoTheoDon }) {
   );
 }
 
-function chuTrangThaiBaoGia(trangThai) {
+/** Thẻ trạng thái của báo giá kèm chú thích việc đang chờ ai (chữ xám sau thẻ). */
+function TrangThaiBaoGia({ trangThai }) {
   const tt = getDonMuaHangStatus(trangThai);
-  if (Number(trangThai) === 1) return { chu: `${tt.label} · chờ nhà cung cấp`, tone: tt.tone };
-  if (Number(trangThai) === 2) return { chu: `${tt.label} · chờ duyệt`, tone: tt.tone };
-  return { chu: tt.label, tone: tt.tone };
+  const chuThich = Number(trangThai) === 1 ? "chờ nhà cung cấp" : Number(trangThai) === 2 ? "chờ duyệt" : null;
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <StatusBadge label={tt.label} />
+      {chuThich ? <span className="text-xs text-bo-muted">{chuThich}</span> : null}
+    </span>
+  );
 }
 
 /** Tab "Báo giá": yêu cầu báo giá chưa thành đơn mua (1, 2, 4). */
@@ -274,7 +259,6 @@ export function BangBaoGiaNcc({ baoGia }) {
       />
       <tbody>
         {baoGia.map((d) => {
-          const tt = chuTrangThaiBaoGia(d.trangThai);
           const coGia = Number(d.trangThai) !== 1;
           return (
             <tr key={d.id} className={DONG}>
@@ -285,7 +269,9 @@ export function BangBaoGiaNcc({ baoGia }) {
               </th>
               <td className={cn(O, "text-slate-700")}>{formatDate(ngayDat(d))}</td>
               <td className={cn(O, "text-slate-700")}>{formatDate(d.ngayCapNhat)}</td>
-              <td className={cn(O, "whitespace-nowrap text-[13px]", MAU_TONE[tt.tone] ?? MAU_TONE.neutral)}>{tt.chu}</td>
+              <td className={cn(O, "whitespace-nowrap")}>
+                <TrangThaiBaoGia trangThai={d.trangThai} />
+              </td>
               <td className={cn(O, "text-right text-slate-700")}>{formatNumber((d.chiTietDonMuaHangs ?? []).length)}</td>
               <td className={cn(O_CUOI, "font-semibold text-bo-foreground")}>
                 {coGia ? formatCurrency(d.tongTien) : <span className="font-normal text-bo-muted">—</span>}
@@ -308,7 +294,7 @@ export function BangPhieuNhapNcc({ phieus }) {
           { nhan: "Ngày nhập" },
           { nhan: "Theo đơn mua" },
           { nhan: "Kho" },
-          { nhan: "Trạng thái", phai: true },
+          { nhan: "Trạng thái" },
         ]}
       />
       <tbody>
@@ -334,7 +320,9 @@ export function BangPhieuNhapNcc({ phieus }) {
                 )}
               </td>
               <td className={cn(O, "text-slate-700")}>{p.tenKho || "—"}</td>
-              <td className={cn(O_CUOI, "whitespace-nowrap text-[13px]", MAU_TONE[tt.tone] ?? MAU_TONE.neutral)}>{tt.label}</td>
+              <td className="whitespace-nowrap py-3 pl-3 pr-4 sm:pr-6">
+                <StatusBadge label={tt.label} />
+              </td>
             </tr>
           );
         })}

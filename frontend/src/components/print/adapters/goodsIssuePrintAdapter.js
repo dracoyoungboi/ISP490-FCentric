@@ -96,7 +96,7 @@ export function toGoodsIssuePrintModel(payload) {
             isSale || (!isTransfer && phieu.donBanHang)
                 ? dash(phieu.donBanHang?.soDonHang)
                 : null,
-        status: { label: status.label, tone: status.tone },
+        status: { label: status.label },
         warehouse: {
             name: dash(phieu.kho?.tenKho),
             code: dash(phieu.kho?.maKho),

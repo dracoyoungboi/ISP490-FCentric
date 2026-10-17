@@ -13,6 +13,7 @@ import MockModeNotice from "@/components/shared/MockModeNotice";
 import ChannelLogo from "@/components/channel/ChannelLogo";
 import ShopifyConfigDialog from "@/components/channel/ShopifyConfigDialog";
 import { TrangThaiCham } from "@/components/channel/HienThiKenh";
+import StatusBadge from "@/components/shared/StatusBadge";
 import { TheCaiDat, ThanhLuuTrenCung } from "@/components/channel/KhuonCaiDat";
 import { SWITCH_CLASS } from "@/components/channel/SettingsCard";
 import { TheDonHang, TheTonKho } from "@/components/channel/CauHinhDongBoCards";
@@ -230,7 +231,7 @@ function SettingsForm({ config, cauHinh, khoSan, onConfigSaved, onCauHinhSaved }
               </div>
             </div>
             <span aria-hidden="true" className="hidden h-10 w-px bg-[#eef1f5] md:block" />
-            <TrangThaiCham label={tinhTrang.label} tone={tinhTrang.tone} />
+            <StatusBadge label={tinhTrang.label} />
 
             {/* Cụm bên phải: hẹp ngang thì cả cụm xuống hàng dưới, vẫn nằm bên phải */}
             <div className="ml-auto flex flex-wrap items-center justify-end gap-x-5 gap-y-3">

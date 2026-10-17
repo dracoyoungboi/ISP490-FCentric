@@ -5,7 +5,6 @@ import { trangThaiLa } from "@/constants/trangThaiChung";
 
 /**
  * Trạng thái yêu cầu nhập hàng — dùng chung hằng số với PurchaseRequestList / PurchaseRequestDetail.
- * `tone` khớp với tone của StatusBadge.
  */
 export const PURCHASE_REQUEST_STATUS = YEU_CAU_NHAP_HANG_STATUS;
 
@@ -68,7 +67,7 @@ export function toPurchaseRequestPrintModel(raw) {
         documentNumber: dash(data.soYeuCauMuaHang || `#${data.id}`),
         createdAt: dashDateTime(data.ngayTao),
         expectedDate: dashDate(data.ngayGiaoDuKien),
-        status: { label: status.label, tone: status.tone },
+        status: { label: status.label },
         rejectionReason: isRejected ? dash(data.lyDoTuChoi) : null,
         warehouse: {
             name: dash(data.khoNhap?.tenKho),

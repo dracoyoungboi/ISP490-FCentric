@@ -387,7 +387,8 @@ export default function ViTriKhoPage() {
   }
 
   return (
-    <PageContainer className="flex flex-col gap-4">
+    // Chế độ Danh sách: khung bảng giãn hết màn như các trang danh sách khác; Sơ đồ kệ / Mặt bằng cao theo nội dung
+    <PageContainer fill={Boolean(data) && noiDung?.type === DanhSachViTri} className="flex flex-col gap-4">
       <div className="flex min-h-9 flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <PageHeading>{title || "Vị trí kệ"}</PageHeading>

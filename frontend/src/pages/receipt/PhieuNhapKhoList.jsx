@@ -350,9 +350,9 @@ export default function PhieuNhapKhoList() {
                 <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Số phiếu nhập</th>
                 <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Đơn mua / nhà cung cấp</th>
                 <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kho nhập</th>
-                <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày tạo</th>
-                <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày nhập</th>
-                <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
+                <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày tạo</th>
+                <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày nhập</th>
+                <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-bo-border">
@@ -379,17 +379,14 @@ export default function PhieuNhapKhoList() {
                   <td className="px-4 py-3 align-middle text-bo-foreground">
                     {item.tenKho || item.kho?.tenKho || "—"}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-center align-middle text-xs text-bo-muted">
+                  <td className="whitespace-nowrap px-4 py-3 align-middle text-xs text-bo-muted">
                     {formatDate(item.ngayTao)}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-center align-middle text-xs text-bo-muted">
+                  <td className="whitespace-nowrap px-4 py-3 align-middle text-xs text-bo-muted">
                     {item.ngayNhap ? formatDate(item.ngayNhap) : "Chưa nhập kho"}
                   </td>
-                  <td className="px-4 py-3 text-center align-middle">
-                    <StatusBadge
-                      label={getGoodsReceiptStatus(item.trangThai).label}
-                      tone={getGoodsReceiptStatus(item.trangThai).tone}
-                    />
+                  <td className="px-4 py-3 align-middle">
+                    <StatusBadge label={getGoodsReceiptStatus(item.trangThai).label} />
                   </td>
                 </tr>
               ))}

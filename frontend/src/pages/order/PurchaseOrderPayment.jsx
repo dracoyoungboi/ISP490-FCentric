@@ -121,10 +121,7 @@ export default function PurchaseOrderPayment() {
             >
               <ArrowLeft className="size-4" /> Quay lại
             </Button>
-            <StatusBadge
-              label={checking ? "Đang kiểm tra..." : "Chờ thanh toán"}
-              tone={checking ? "info" : "warning"}
-            />
+            <StatusBadge label={checking ? "Đang kiểm tra..." : "Chờ thanh toán"} />
           </>
         }
       />

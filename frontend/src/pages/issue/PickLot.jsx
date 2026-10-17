@@ -18,12 +18,12 @@ import { hasAnyRole, ROLES } from "@/utils/roles";
 const TH_CLASS =
     "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 
-// Badge trạng thái lô
+// Thẻ trạng thái lô (lấy hết lô là việc xong, không phải lỗi nên gọi "Đã lấy hết lô")
 function LotStatusBadge({ numValue, tonKhaDung }) {
     if (numValue <= 0) return <span className="text-xs text-bo-muted">Không dùng</span>;
-    if (numValue > tonKhaDung) return <StatusBadge label="Vượt mức" tone="danger" />;
-    if (numValue === tonKhaDung) return <StatusBadge label="Hết lô" tone="success" />;
-    return <StatusBadge label="Một phần" tone="warning" />;
+    if (numValue > tonKhaDung) return <StatusBadge label="Vượt mức" />;
+    if (numValue === tonKhaDung) return <StatusBadge label="Đã lấy hết lô" />;
+    return <StatusBadge label="Một phần" />;
 }
 
 function PickStatTile({ icon, iconClass, label, value, valueClass, sub }) {
@@ -238,7 +238,7 @@ export default function PickLot() {
                                 <th className={`${TH_CLASS} text-center`}>Ngày nhập</th>
                                 {!isReadOnly && <th className={`${TH_CLASS} text-center`}>Tồn khả dụng</th>}
                                 <th className={`${TH_CLASS} text-center`}>Số lượng xuất</th>
-                                {!isReadOnly && <th className={`${TH_CLASS} text-center`}>Trạng thái</th>}
+                                {!isReadOnly && <th className={`${TH_CLASS} text-left`}>Trạng thái</th>}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-bo-border">
@@ -280,7 +280,7 @@ export default function PickLot() {
                                             />
                                         </td>
                                         {!isReadOnly && (
-                                            <td className="px-4 py-3.5 text-center align-middle">
+                                            <td className="px-4 py-3.5 align-middle">
                                                 <LotStatusBadge numValue={numValue} tonKhaDung={tonKhaDung} />
                                             </td>
                                         )}

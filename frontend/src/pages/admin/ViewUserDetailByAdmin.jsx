@@ -288,14 +288,9 @@ export default function ViewUserDetailByAdmin() {
                             </p>
                         </div>
 
-                        <Badge variant="outline" className="border-bo-border bg-bo-surface-subtle text-bo-foreground">
-                            {roleLabel}
-                        </Badge>
+                        <p className="text-sm font-medium text-slate-700">{roleLabel}</p>
 
-                        <StatusBadge
-                            label={isActive ? "Hoạt động" : "Bị khóa"}
-                            tone={isActive ? "success" : "danger"}
-                        />
+                        <StatusBadge size="lg" label={isActive ? "Hoạt động" : "Bị khóa"} />
 
                         <div className="w-full space-y-2 border-t border-bo-border pt-4 text-left">
                             <InfoMini

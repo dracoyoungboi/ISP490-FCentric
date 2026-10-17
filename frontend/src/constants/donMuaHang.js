@@ -8,15 +8,16 @@ import { trangThaiLa } from "@/constants/trangThaiChung";
  * - 0, 1, 2, 4 giữ đúng tên bản in đơn mua hàng đang dùng. Các màn báo giá (QuotationDetail, bảng báo giá
  *   ở Yêu cầu báo giá, bản in yêu cầu báo giá) đang gọi cùng mã bằng tên khác — chờ chốt, chưa gộp.
  * - Hệ thống chưa có trạng thái "đã nhập kho" cho đơn mua (C6): đơn đã nhập kho vẫn ở 3 hoặc 5.
- * `tone` khớp tone của StatusBadge (giữ như đang dùng ở danh sách, chi tiết, bản in).
+ * - Mã 5 hiện "Đã nhận đủ": thanh toán nhà cung cấp đã bỏ khỏi hệ thống (đổi tên ngày 17/10, trước là "Đã thanh toán").
+ * Màu thẻ tra theo tên ở constants/trangThai.js.
  */
 export const DON_MUA_HANG_STATUS = {
-    0: { label: "Đã xóa", tone: "danger" },
-    1: { label: "Đã gửi", tone: "info" },
-    2: { label: "Đã báo giá", tone: "info" },
-    3: { label: "Đang vận chuyển", tone: "warning" },
-    4: { label: "Không chấp nhận báo giá", tone: "danger" },
-    5: { label: "Đã thanh toán", tone: "success" },
+    0: { label: "Đã xóa" },
+    1: { label: "Đã gửi" },
+    2: { label: "Đã báo giá" },
+    3: { label: "Đang vận chuyển" },
+    4: { label: "Không chấp nhận báo giá" },
+    5: { label: "Đã nhận đủ" },
 };
 
 /**
@@ -31,4 +32,22 @@ export const DON_MUA_HANG_TABS = [
 
 export function getDonMuaHangStatus(trangThai) {
     return DON_MUA_HANG_STATUS[trangThai] ?? trangThaiLa(trangThai);
+}
+
+/**
+ * Cùng bảng don_mua_hang nhưng xem như BÁO GIÁ NHÀ CUNG CẤP (màn Yêu cầu báo giá, chi tiết báo giá,
+ * bản in yêu cầu báo giá): các màn này gọi mã 1–4 theo bước báo giá. Trước đây mỗi màn tự khai báo một bảng
+ * riêng; nay dùng chung bảng này. Mã 5 dùng cùng tên với DON_MUA_HANG_STATUS.
+ */
+export const BAO_GIA_NCC_STATUS = {
+    0: { label: "Đã xóa" },
+    1: { label: "Đã gửi YC báo giá" },
+    2: { label: "Đã nhận báo giá" },
+    3: { label: "Đã chuyển thành đơn mua hàng" },
+    4: { label: "Từ chối báo giá" },
+    5: { label: DON_MUA_HANG_STATUS[5].label },
+};
+
+export function getBaoGiaNccStatus(trangThai) {
+    return BAO_GIA_NCC_STATUS[trangThai] ?? trangThaiLa(trangThai);
 }

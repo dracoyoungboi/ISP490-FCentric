@@ -93,7 +93,7 @@ export default function DauTrangDonMua({ don, taoPhieu, onQuayLai, onIn, onTaoPh
         <div className="min-w-0">
           <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
             <PageHeading className="tabular-nums">{don.soDonMua || "—"}</PageHeading>
-            <StatusBadge label={trangThai.label} tone={trangThai.tone} />
+            <StatusBadge size="lg" label={trangThai.label} />
           </div>
           <p className="mt-0.5 text-[13px] leading-5 text-bo-muted">
             <span className="font-semibold tabular-nums text-bo-foreground">{formatCurrency(don.tongTien)}</span>

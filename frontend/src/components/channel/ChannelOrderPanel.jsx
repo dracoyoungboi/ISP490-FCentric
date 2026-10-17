@@ -226,21 +226,21 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
                       <th className={`${TH_CLASS} text-left`}>SKU</th>
                       <th className={`${TH_CLASS} text-left`}>Lô</th>
                       <th className={`${TH_CLASS} text-right`}>Số lượng</th>
-                      <th className={`${TH_CLASS} text-center`}>Trạng thái</th>
+                      <th className={`${TH_CLASS} text-left`}>Trạng thái</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-bo-border">
                     {giuCho.map((row, index) => {
-                      const status = HOLD_STATUS[row.trangThai] ?? { label: row.trangThai, tone: "neutral" };
+                      const status = HOLD_STATUS[row.trangThai] ?? { label: row.trangThai ? `Không xác định (mã ${row.trangThai})` : "Chưa có trạng thái" };
                       return (
                         <tr key={`${row.chiTietId}-${row.maLo}-${index}`}>
                           <td className="px-3 py-2.5 font-mono text-xs font-semibold text-bo-foreground">{row.maSku}</td>
                           <td className="px-3 py-2.5">
-                            <span className="rounded-md bg-bo-primary-soft px-2 py-0.5 font-mono text-xs font-semibold text-bo-primary">{row.maLo}</span>
+                            <span className="font-mono text-xs text-slate-700">{row.maLo}</span>
                           </td>
                           <td className="px-3 py-2.5 text-right font-semibold text-bo-foreground">{row.soLuong}</td>
-                          <td className="px-3 py-2.5 text-center">
-                            <StatusBadge label={status.label} tone={status.tone} />
+                          <td className="px-3 py-2.5">
+                            <StatusBadge label={status.label} />
                           </td>
                         </tr>
                       );

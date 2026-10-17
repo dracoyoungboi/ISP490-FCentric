@@ -17,8 +17,8 @@ export const SALES_QUOTATION_STATUS = BAO_GIA_STATUS;
 export const SALES_ORDER_STATUS = DON_BAN_HANG_STATUS;
 
 export const PAYMENT_STATUS = {
-    chua_thanh_toan: { label: "Chưa thanh toán", tone: "warning" },
-    da_thanh_toan: { label: "Đã thanh toán", tone: "success" },
+    chua_thanh_toan: { label: "Chưa thanh toán" },
+    da_thanh_toan: { label: "Đã thanh toán" },
 };
 
 const dash = (value) => {
@@ -54,7 +54,7 @@ function toDonBanHangPrintModel(raw, { statusMap }) {
     return {
         documentNumber: dash(don.soDonHang || `#${don.id}`),
         issuedDate: dashDate(don.ngayDatHang),
-        status: { label: status.label, tone: status.tone },
+        status: { label: status.label },
         // "Người lập" = nhân viên tạo chứng từ (nguoiTao) — phân biệt với
         // "Đơn vị bán" là hồ sơ công ty dùng chung (schema đọc company.*).
         creator: {
@@ -97,12 +97,9 @@ export function toSalesQuotationPrintModel(raw) {
 export function toSalesInvoicePrintModel(raw) {
     const model = toDonBanHangPrintModel(raw, { statusMap: SALES_ORDER_STATUS });
     const don = raw?.donBanHang || {};
-    const payment = PAYMENT_STATUS[don.trangThaiThanhToan] || {
-        label: dash(don.trangThaiThanhToan),
-        tone: "neutral",
-    };
+    const payment = PAYMENT_STATUS[don.trangThaiThanhToan] || { label: dash(don.trangThaiThanhToan) };
     return {
         ...model,
-        paymentStatus: { label: payment.label, tone: payment.tone },
+        paymentStatus: { label: payment.label },
     };
 }
