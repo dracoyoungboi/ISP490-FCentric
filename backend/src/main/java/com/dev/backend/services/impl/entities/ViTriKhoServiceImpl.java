@@ -149,7 +149,7 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     @Override
     @Transactional(readOnly = true)
     public List<ViTriKhoDto> dsViTri(Integer khoId) {
-        List<ViTriKho> list = viTriKhoRepository.findByKhuVucKho_Kho_IdOrderByMaViTriAsc(khoId);
+        List<ViTriKho> list = viTriKhoRepository.findByKho_IdOrderByMaViTriAsc(khoId);
         if (list.isEmpty()) return List.of();
 
         // Batch query gom nhóm tính dangChua chống N+1 queries (hunt-springboot)
@@ -216,8 +216,9 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
             for (int h = hTu; h <= hDen; h++) {
                 for (int t = tTu; t <= tDen; t++) {
                     String ma = String.format("%s-%02d-%02d", day, h, t);
-                    if (!viTriKhoRepository.existsByMaViTri(ma)) {
+                    if (!viTriKhoRepository.existsByKho_IdAndMaViTri(khoId, ma)) {
                         danhSachTao.add(ViTriKho.builder()
+                                .kho(khuVuc.getKho())
                                 .khuVucKho(khuVuc)
                                 .maViTri(ma)
                                 .dayKe(day)
@@ -235,10 +236,11 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
             if (ma.isBlank()) {
                 throw new CommonException(HttpStatus.BAD_REQUEST, "Mã vị trí kệ không được để trống");
             }
-            if (viTriKhoRepository.existsByMaViTri(ma)) {
-                throw new CommonException(HttpStatus.CONFLICT, "Mã vị trí `" + ma + "` đã tồn tại");
+            if (viTriKhoRepository.existsByKho_IdAndMaViTri(khoId, ma)) {
+                throw new CommonException(HttpStatus.CONFLICT, "Mã vị trí `" + ma + "` đã tồn tại trong kho này");
             }
             danhSachTao.add(ViTriKho.builder()
+                    .kho(khuVuc.getKho())
                     .khuVucKho(khuVuc)
                     .maViTri(ma)
                     .dayKe(request.getDay())

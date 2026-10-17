@@ -102,7 +102,7 @@ class PhieuNhapKhoQcGuardTest {
         bienThe = BienTheSanPham.builder().id(100).maSku("FCT-TSHIRT-01").sanPham(sanPham).build();
         nguoiNhap = NguoiDung.builder().id(1).hoTen("Nguyễn Văn Kho").build();
 
-        viTri = ViTriKho.builder().id(20).maViTri("A-01-01").sucChuaToiDa(100).trangThai("HOAT_DONG").khuVucKho(
+        viTri = ViTriKho.builder().id(20).kho(kho).maViTri("A-01-01").sucChuaToiDa(100).trangThai("HOAT_DONG").khuVucKho(
                 KhuVucKho.builder().id(5).kho(kho).build()
         ).build();
 

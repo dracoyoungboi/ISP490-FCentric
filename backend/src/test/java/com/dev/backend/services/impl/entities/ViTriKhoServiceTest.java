@@ -114,7 +114,7 @@ class ViTriKhoServiceTest {
     @DisplayName("Sinh vị trí kệ hàng loạt thành công")
     void testSinhViTriHangLoat_ThanhCong() {
         when(khuVucKhoRepository.findById(10)).thenReturn(Optional.of(khuVuc));
-        when(viTriKhoRepository.existsByMaViTri(anyString())).thenReturn(false);
+        when(viTriKhoRepository.existsByKho_IdAndMaViTri(eq(1), anyString())).thenReturn(false);
         when(viTriKhoRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
 
         ViTriKhoRequest req = ViTriKhoRequest.builder()
@@ -129,6 +129,46 @@ class ViTriKhoServiceTest {
 
         List<ViTriKhoDto> created = service.taoViTri(1, req);
         assertEquals(4, created.size()); // 2 hàng x 2 tầng = 4 vị trí
+    }
+
+    @Test
+    @DisplayName("Tạo vị trí kệ cùng mã ở 2 kho khác nhau thành công")
+    void testTaoViTri_CungMaKhacKho_ThanhCong() {
+        Kho kho22 = Kho.builder().id(22).maKho("KHO_TONG").tenKho("Kho Tổng").build();
+        KhuVucKho khuVuc22 = KhuVucKho.builder().id(220).kho(kho22).maKhuVuc("KHU-A").build();
+
+        when(khuVucKhoRepository.findById(220)).thenReturn(Optional.of(khuVuc22));
+        when(viTriKhoRepository.existsByKho_IdAndMaViTri(22, "A-01-01")).thenReturn(false);
+        when(viTriKhoRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        ViTriKhoRequest req = ViTriKhoRequest.builder()
+                .khuVucId(220)
+                .maViTri("A-01-01")
+                .day("A")
+                .hang("01")
+                .tang("01")
+                .sucChua(100)
+                .build();
+
+        List<ViTriKhoDto> result = service.taoViTri(22, req);
+        assertEquals(1, result.size());
+        assertEquals("A-01-01", result.get(0).getMaViTri());
+    }
+
+    @Test
+    @DisplayName("Tạo vị trí kệ trùng mã trong cùng một kho báo lỗi CONFLICT 409")
+    void testTaoViTri_TrungMaCungKho_BaoLoiConflict() {
+        when(khuVucKhoRepository.findById(10)).thenReturn(Optional.of(khuVuc));
+        when(viTriKhoRepository.existsByKho_IdAndMaViTri(1, "A-01-01")).thenReturn(true);
+
+        ViTriKhoRequest req = ViTriKhoRequest.builder()
+                .khuVucId(10)
+                .maViTri("A-01-01")
+                .build();
+
+        CommonException ex = assertThrows(CommonException.class, () -> service.taoViTri(1, req));
+        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+        assertTrue(ex.getMessage().contains("đã tồn tại trong kho này"));
     }
 
     @Test

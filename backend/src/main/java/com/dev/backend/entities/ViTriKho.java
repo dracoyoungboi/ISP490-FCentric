@@ -18,12 +18,19 @@ import java.time.Instant;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Entity
-@Table(name = "vi_tri_kho")
+@Table(name = "vi_tri_kho", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_kho_vi_tri", columnNames = {"kho_id", "ma_vi_tri"})
+})
 public class ViTriKho {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     Integer id;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "kho_id", nullable = false)
+    Kho kho;
 
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
