@@ -55,6 +55,32 @@ export function formatTienGon(v) {
   return `${t.so} ${t.donVi}`;
 }
 
+/**
+ * Tiền trên màn Tổng quan (bản Kiểu 3): dưới 1 triệu ghi đủ "495.000 ₫", từ 1 triệu "17,8 triệu ₫",
+ * từ 1 tỷ "2,49 tỷ ₫". Không dùng "nghìn" để mọi số tiền đọc cùng một kiểu.
+ */
+export function tachTien(v) {
+  const n = so(v);
+  const a = Math.abs(n);
+  if (a >= 1e9) return { so: nf2.format(n / 1e9), donVi: "tỷ ₫" };
+  if (a >= 1e6) return { so: nf1.format(n / 1e6), donVi: "triệu ₫" };
+  return { so: nf0.format(Math.round(n)), donVi: "₫" };
+}
+
+export function formatTienNgan(v) {
+  const t = tachTien(v);
+  return `${t.so} ${t.donVi}`;
+}
+
+/** Mức thay đổi có dấu: "+12,4%", "−3,1%", "0%"; null khi kỳ trước bằng 0 hoặc không có (không ghi % vô nghĩa). */
+export function bienDong(hienTai, truoc) {
+  const p = phanTramThayDoi(hienTai, truoc);
+  if (p == null || !Number.isFinite(p)) return null;
+  // Dưới 0,05% coi như không đổi: ghi "0%" màu chữ thường, không xanh/đỏ
+  if (Math.abs(p) < 0.05) return { tang: null, chu: "0%" };
+  return { tang: p > 0, chu: `${p > 0 ? "+" : "−"}${nfToiDa1.format(Math.abs(p))}%` };
+}
+
 /** Nhãn trục tiền: 4 tỷ, 1,5 tr, 250 nghìn. Giữ phần lẻ để các vạch không bị làm tròn trùng nhau. */
 export function formatTrucTien(v) {
   const n = so(v);
