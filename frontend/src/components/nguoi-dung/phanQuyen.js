@@ -219,6 +219,8 @@ export function phanQuyenHienCo(nguoiDung) {
 export function danhGiaQuyen({ vaiTro, quyenIds, dsQuyen, mau = [], nhayCam = [], daApDung = null, menu = [] }) {
   const co = new Set(quyenIds ?? []);
   const trongMau = new Set(mau ?? []);
+  // Vai trò chưa có mẫu (hoặc không tải được cấu hình) thì không so với mẫu: không quyền nào "Ngoài mẫu"
+  const coMauCauHinh = trongMau.size > 0;
   const nhay = new Set(nhayCam ?? []);
   const apDung = Array.isArray(daApDung) ? new Set(daApDung) : null;
   const coMan = new Set(manHinhCuaVaiTro(menu, vaiTro).duongDan);
@@ -237,6 +239,7 @@ export function danhGiaQuyen({ vaiTro, quyenIds, dsQuyen, mau = [], nhayCam = []
         moTa: q.moTa || "",
         cap,
         trongMau: trongMau.has(q.id),
+        ngoaiMau: cap && coMauCauHinh && !trongMau.has(q.id),
         nhayCam: nhay.has(q.id),
         voHieu: cap && !tacDung(q.maQuyen),
         chuaApDung: cap && apDung !== null && !apDung.has(q.maQuyen),
@@ -247,12 +250,11 @@ export function danhGiaQuyen({ vaiTro, quyenIds, dsQuyen, mau = [], nhayCam = []
 
   const tatCa = nhom.flatMap((n) => n.dong);
   const maCo = new Set(tatCa.filter((d) => d.cap).map((d) => d.ma));
-  const coMauCauHinh = trongMau.size > 0;
   return {
     nhom,
     tong: tatCa.length,
     soCap: tatCa.filter((d) => d.cap).length,
-    ngoaiMau: coMauCauHinh ? tatCa.filter((d) => d.cap && !d.trongMau) : [],
+    ngoaiMau: tatCa.filter((d) => d.ngoaiMau),
     thieuMau: tatCa.filter((d) => !d.cap && d.trongMau),
     voHieu: tatCa.filter((d) => d.voHieu),
     chuaApDung: tatCa.filter((d) => d.chuaApDung),
@@ -476,12 +478,42 @@ export function soSanhPhanQuyen(goc, nhap, { dsQuyen = [], tenKho = (id) => `kho
 }
 
 /**
+ * Tên các quyền nhạy cảm mà lần lưu này cấp mới, theo thứ tự hiển thị, để hộp "Lưu phân quyền?" hỏi lại riêng.
+ * Tính là cấp mới khi: chưa có trong bản đã lưu; hoặc đổi sang kho khác (quyền ở kho mới là cấp mới, máy chủ cũng
+ * ghi lịch sử như vậy); hoặc trước đây không có tác dụng với vai trò cũ mà nay có (đổi vai trò mở được màn dùng nó)
+ * — cần `menu`. Quyền nhạy cảm vốn đã có thì không nhắc lại, kể cả khi vẫn chưa dùng được.
+ */
+export function quyenNhayCamCapThem(goc, nhap, { dsQuyen = [], nhayCam = [], menu = [] } = {}) {
+  const nhay = new Set(nhayCam ?? []);
+  if (!nhay.size) return [];
+  const a = giaTriHieuLuc(goc);
+  const b = giaTriHieuLuc(nhap);
+  const ma = new Map((dsQuyen ?? []).map((q) => [q.id, q.maQuyen]));
+  const coTruoc = new Set(a.khoId === b.khoId ? a.quyenIds : []);
+  const dungDuoc = (id, vaiTro) => !menu?.length || quyenCoTacDung(ma.get(id), vaiTro, menu);
+  const moi = b.quyenIds.filter(
+    (id) => nhay.has(id) && (!coTruoc.has(id) || (!dungDuoc(id, a.vaiTro) && dungDuoc(id, b.vaiTro))),
+  );
+  const thuTu = thuTuQuyen(dsQuyen).map((q) => q.id);
+  const ten = new Map((dsQuyen ?? []).map((q) => [q.id, q.tenQuyen || q.maQuyen]));
+  return [...moi]
+    .sort((x, y) => {
+      const i = thuTu.indexOf(x);
+      const j = thuTu.indexOf(y);
+      return (i < 0 ? 1e9 : i) - (j < 0 ? 1e9 : j) || x - y;
+    })
+    .map((id) => ten.get(id) ?? `Quyền ${id}`);
+}
+
+/**
  * Kiểm tra bản nháp trước khi lưu (dải "Kiểm tra" cuối ngăn kéo).
- * Mỗi mục: { loai: "canhBao" | "luuY" | "on", tieuDe, moTa }. `chanLuu` = có lỗi phải sửa trước khi lưu.
+ * Mỗi mục: { loai: "canhBao" | "luuY" | "on", tieuDe, moTa, phu? }. `chanLuu` = có lỗi phải sửa trước khi lưu.
+ * Quyền nhạy cảm đang chọn (`nhayCam`: id) là một lưu ý riêng, đứng sau "Khớp mẫu" (không làm mất dòng này);
+ * mục có `phu` chỉ để liệt kê, không tính vào `soLuuY` / dòng tóm tắt.
  */
 export function kiemTraBanNhap(
   nhap,
-  { dsQuyen = [], mau = [], daApDung = null, menu = [], homNay = sangNgayNhap(new Date()) } = {},
+  { dsQuyen = [], mau = [], nhayCam = [], daApDung = null, menu = [], homNay = sangNgayNhap(new Date()) } = {},
 ) {
   const muc = [];
   const them = (loai, tieuDe, moTa) => muc.push({ loai, tieuDe, moTa });
@@ -506,7 +538,7 @@ export function kiemTraBanNhap(
       chanLuu = true;
       them("canhBao", "Ngày hết hiệu lực đã qua", "Chọn từ hôm nay trở đi, hoặc đổi sang Không thời hạn.");
     }
-    const dg = danhGiaQuyen({ vaiTro, quyenIds: nhap.quyenIds, dsQuyen, mau, daApDung, menu });
+    const dg = danhGiaQuyen({ vaiTro, quyenIds: nhap.quyenIds, dsQuyen, mau, nhayCam, daApDung, menu });
     if (dg.capTrung.length) {
       them(
         "canhBao",
@@ -540,17 +572,24 @@ export function kiemTraBanNhap(
         `Hệ thống hiện kiểm ${soKiem}/${dg.tong} quyền. Các quyền này bật hay tắt đều chưa chặn thao tác.`,
       );
     }
-    if (!muc.length) {
-      them(
-        "on",
-        dg.soMau ? `Khớp mẫu ${tenVt}` : "Không có điểm cần xem lại",
-        "Không có cặp tạo–duyệt, không có quyền thừa.",
-      );
+    // Duyệt, hủy, điều chỉnh tồn, cấp quyền, báo cáo tiền: nhắc người cấp xem lại, không chặn lưu. Quyền nhạy cảm
+    // đều nằm trong mẫu thì chỉ liệt kê (`phu`), không tính vào dòng tóm tắt — vai trò đúng mẫu vẫn thấy "Khớp mẫu"
+    const nhay = dg.nhom.flatMap((n) => n.dong).filter((d) => d.cap && d.nhayCam);
+    if (nhay.length) {
+      them("luuY", `${nhay.length} quyền nhạy cảm`, `${nhay.map((d) => d.ten).join(", ")}.`);
+      if (dg.soMau && nhay.every((d) => d.trongMau)) muc[muc.length - 1].phu = true;
+    }
+    if (!muc.some((m) => !m.phu)) {
+      muc.unshift({
+        loai: "on",
+        tieuDe: dg.soMau ? `Khớp mẫu ${tenVt}` : "Không có điểm cần xem lại",
+        moTa: "Không có cặp tạo–duyệt, không có quyền thừa.",
+      });
     }
   }
 
   const soCanhBao = muc.filter((m) => m.loai === "canhBao").length;
-  const soLuuY = muc.filter((m) => m.loai === "luuY").length;
+  const soLuuY = muc.filter((m) => m.loai === "luuY" && !m.phu).length;
   let tomTat;
   let loai;
   if (soCanhBao) {
@@ -645,20 +684,19 @@ export const MO_TA_CHO_NGUOI_DUNG = {
 
 /**
  * Nội dung tab Quyền của tôi từ QuyenCuaToiDto (GET /nguoi-dung/me/quyen).
- * Chỉ liệt kê việc làm được thật: bỏ quyền vai trò không mở được màn dùng nó (cần `menu`) và quyền hệ thống
- * chưa kiểm (`quyenDaApDung`, rỗng = không đọc được thì không lọc) — trang admin gắn hai loại này
- * "Không có tác dụng" / "Chưa áp dụng".
- * Trả về { nhom: [{ ten, viec: [{ ma, ten, moTa, moi }] }], soViec, canDuyet: [tên chứng từ], daThuHoi }.
+ * Liệt kê mọi quyền đang được cấp mà vai trò mở được màn dùng nó (cần `menu`). Quyền hệ thống chưa kiểm
+ * (`quyenDaApDung`) vẫn liệt kê: chưa kiểm nghĩa là không bị chặn, người dùng vẫn làm được — nhãn "Chưa áp dụng"
+ * chỉ có ở trang quản trị. Quyền vai trò không mở được màn thì tách sang `khongDungDuoc` (trang admin gắn
+ * "Không có tác dụng").
+ * Trả về { nhom: [{ ten, viec: [{ ma, ten, moTa, moi }] }], soViec, soDaCap, khongDungDuoc: [tên quyền],
+ * canDuyet: [tên chứng từ], daThuHoi }.
  */
 export function quyenCuaToiTheoNhom(quyenCuaToi, { menu = [] } = {}) {
-  const apDung = Array.isArray(quyenCuaToi?.quyenDaApDung) && quyenCuaToi.quyenDaApDung.length
-    ? new Set(quyenCuaToi.quyenDaApDung)
-    : null;
   const vaiTro = quyenCuaToi?.vaiTro;
-  const ds = (Array.isArray(quyenCuaToi?.quyen) ? quyenCuaToi.quyen : []).filter(
-    (q) =>
-      (!apDung || apDung.has(q.maQuyen)) && (!menu?.length || !vaiTro || quyenCoTacDung(q.maQuyen, vaiTro, menu)),
-  );
+  const daCap = (Array.isArray(quyenCuaToi?.quyen) ? quyenCuaToi.quyen : []).filter((q) => q && q.id != null);
+  const dungDuoc = (q) => !menu?.length || !vaiTro || quyenCoTacDung(q.maQuyen, vaiTro, menu);
+  const ds = daCap.filter(dungDuoc);
+  const khongDungDuoc = thuTuQuyen(daCap.filter((q) => !dungDuoc(q))).map((q) => q.tenQuyen || q.maQuyen);
   const moi = new Set(Array.isArray(quyenCuaToi?.quyenMoi) ? quyenCuaToi.quyenMoi : []);
   const nhom = nhomTheoLuong(ds).map((n) => ({
     ma: n.ma,
@@ -674,6 +712,8 @@ export function quyenCuaToiTheoNhom(quyenCuaToi, { menu = [] } = {}) {
   return {
     nhom,
     soViec: ds.length,
+    soDaCap: daCap.length,
+    khongDungDuoc,
     canDuyet: CAP_TAO_DUYET.filter((c) => ma.has(c.tao) && !ma.has(c.duyet)).map((c) => c.ten.toLowerCase()),
     daThuHoi: Array.isArray(quyenCuaToi?.quyenDaThuHoi) ? quyenCuaToi.quyenDaThuHoi : [],
   };

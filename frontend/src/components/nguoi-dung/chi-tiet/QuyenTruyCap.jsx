@@ -7,16 +7,16 @@ import { QUAN_TRI_VIEN, canKho, tenVaiTro } from "@/components/nguoi-dung/phanQu
 
 const NHAN_TAC_DUNG = "Hệ thống chưa kiểm quyền này. Bật hay tắt đều chưa chặn thao tác.";
 
-/** Dấu ở đầu dòng: tròn đậm = theo mẫu, cam = ngoài mẫu, viền = chưa cấp. */
-function Dau({ cap, trongMau }) {
+/** Dấu ở đầu dòng: tròn đậm = theo mẫu (đã cấp, khi vai trò chưa có mẫu), cam = ngoài mẫu, viền = chưa cấp. */
+function Dau({ cap, ngoaiMau }) {
   return (
     <span
       aria-hidden="true"
       className={cn(
         "inline-flex size-4 shrink-0 items-center justify-center rounded-full",
         !cap && "border-[1.5px] border-slate-300 bg-white",
-        cap && trongMau && "bg-bo-foreground",
-        cap && !trongMau && "bg-orange-600",
+        cap && !ngoaiMau && "bg-bo-foreground",
+        cap && ngoaiMau && "bg-orange-600",
       )}
     >
       {cap ? <Check className="size-2.5 text-white" strokeWidth={3.5} /> : null}
@@ -24,17 +24,17 @@ function Dau({ cap, trongMau }) {
   );
 }
 
-function DongQuyen({ d, vaiTro }) {
-  const goiY = d.cap
-    ? d.trongMau
-      ? `Có trong mẫu ${tenVaiTro(vaiTro)}`
-      : `Cấp thêm ngoài mẫu ${tenVaiTro(vaiTro)}`
-    : d.trongMau
-      ? "Có trong mẫu nhưng chưa cấp"
-      : "Chưa cấp";
+function DongQuyen({ d, vaiTro, coMau }) {
+  let goiY = "Chưa cấp";
+  if (d.cap) {
+    if (!coMau) goiY = "Đã cấp";
+    else goiY = d.ngoaiMau ? `Cấp thêm ngoài mẫu ${tenVaiTro(vaiTro)}` : `Có trong mẫu ${tenVaiTro(vaiTro)}`;
+  } else if (coMau && d.trongMau) {
+    goiY = "Có trong mẫu nhưng chưa cấp";
+  }
   return (
     <li className="flex min-h-[34px] items-center gap-2 border-t border-slate-100 px-3.5 py-[7px] text-[13px] leading-[18px] first:border-t-0" title={goiY}>
-      <Dau cap={d.cap} trongMau={d.trongMau} />
+      <Dau cap={d.cap} ngoaiMau={d.ngoaiMau} />
       <span className={cn("min-w-0 flex-1", !d.cap && "text-slate-400")}>
         {d.ten}
         <span className="sr-only">{` · ${goiY}`}</span>
@@ -60,7 +60,7 @@ function DongQuyen({ d, vaiTro }) {
   );
 }
 
-function KhungNhom({ n, so, vaiTro }) {
+function KhungNhom({ n, so, vaiTro, coMau }) {
   return (
     <div className="min-w-0 flex-1 rounded-lg border border-bo-border">
       <div className="flex items-center justify-between gap-2 rounded-t-lg border-b border-bo-border bg-bo-surface-subtle px-3.5 py-2.5">
@@ -78,25 +78,28 @@ function KhungNhom({ n, so, vaiTro }) {
       </div>
       <ul className="m-0 list-none p-0">
         {n.dong.map((d) => (
-          <DongQuyen key={d.id} d={d} vaiTro={vaiTro} />
+          <DongQuyen key={d.id} d={d} vaiTro={vaiTro} coMau={coMau} />
         ))}
       </ul>
     </div>
   );
 }
 
-function ChuGiai({ coChuaApDung }) {
+function ChuGiai({ coChuaApDung, coMau }) {
   const o = "inline-flex items-center gap-1.5";
   return (
     <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-xs text-bo-muted">
       <span className={o}>
         <i className="inline-block size-2.5 rounded-[2px] bg-bo-foreground" />
-        Theo mẫu
+        {coMau ? "Theo mẫu" : "Đã cấp"}
       </span>
-      <span className={o}>
-        <i className="inline-block size-2.5 rounded-[2px] bg-orange-600" />
-        Ngoài mẫu
-      </span>
+      {/* Vai trò chưa có mẫu (hoặc không tải được cấu hình) thì không so với mẫu */}
+      {coMau ? (
+        <span className={o}>
+          <i className="inline-block size-2.5 rounded-[2px] bg-orange-600" />
+          Ngoài mẫu
+        </span>
+      ) : null}
       <span className={o}>
         <i className="inline-block size-2.5 rounded-[2px] border-[1.5px] border-slate-300 bg-white" />
         Chưa cấp
@@ -195,7 +198,7 @@ export default function QuyenTruyCap({ vaiTro, pq, danhGia, coThePhanQuyen, onPh
             {danhGia.soMau ? `So với mẫu quyền của vai trò ${tenVaiTro(vaiTro)}` : `Vai trò ${tenVaiTro(vaiTro)} chưa có mẫu quyền`}
           </p>
         </div>
-        <ChuGiai coChuaApDung={danhGia.chuaApDung.length > 0} />
+        <ChuGiai coChuaApDung={danhGia.chuaApDung.length > 0} coMau={danhGia.soMau > 0} />
       </div>
 
       <div className="flex flex-col gap-3 @4xl/quyen:flex-row @4xl/quyen:items-stretch @4xl/quyen:gap-0">
@@ -206,7 +209,7 @@ export default function QuyenTruyCap({ vaiTro, pq, danhGia, coThePhanQuyen, onPh
                 <ArrowRight className="size-4" />
               </div>
             ) : null}
-            <KhungNhom n={n} so={i + 1} vaiTro={vaiTro} />
+            <KhungNhom n={n} so={i + 1} vaiTro={vaiTro} coMau={danhGia.soMau > 0} />
           </div>
         ))}
       </div>
@@ -214,7 +217,7 @@ export default function QuyenTruyCap({ vaiTro, pq, danhGia, coThePhanQuyen, onPh
       {phu.length ? (
         <div className="mt-4 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(280px,1fr))]">
           {phu.map((n) => (
-            <KhungNhom key={n.ma} n={n} vaiTro={vaiTro} />
+            <KhungNhom key={n.ma} n={n} vaiTro={vaiTro} coMau={danhGia.soMau > 0} />
           ))}
         </div>
       ) : null}

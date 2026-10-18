@@ -1,4 +1,4 @@
-import { createElement, useEffect, useMemo, useRef, useState } from "react";
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -43,6 +43,7 @@ import {
   moTaVaiTro,
   noiDungLuu,
   phanQuyenHienCo,
+  quyenNhayCamCapThem,
   sangNgayNhap,
   soManHinh,
   soSanhPhanQuyen,
@@ -160,12 +161,15 @@ export default function NganKeoPhanQuyen({ mo, nguoiDung, laChinhMinh, dsQuyen, 
   const ngu = {
     dsQuyen,
     mau,
+    nhayCam: cauHinh?.quyenNhayCam ?? [],
     daApDung: cauHinh?.quyenDaApDung ?? null,
     menu,
   };
-  const danhGia = danhGiaQuyen({ vaiTro: nhap.vaiTro, quyenIds: nhap.quyenIds, nhayCam: cauHinh?.quyenNhayCam ?? [], ...ngu });
+  const danhGia = danhGiaQuyen({ vaiTro: nhap.vaiTro, quyenIds: nhap.quyenIds, ...ngu });
   const kiemTra = kiemTraBanNhap(nhap, ngu);
   const thayDoi = soSanhPhanQuyen(goc, nhap, { dsQuyen, tenKho });
+  // Quyền nhạy cảm lần lưu này cấp mới: hộp "Lưu phân quyền?" hỏi lại riêng
+  const nhayCamCapThem = quyenNhayCamCapThem(goc, nhap, ngu);
   const coThayDoi = thayDoi.length > 0;
   const dungKho = canKho(nhap.vaiTro);
   const coKho = dungKho && nhap.khoId != null;
@@ -178,6 +182,21 @@ export default function NganKeoPhanQuyen({ mo, nguoiDung, laChinhMinh, dsQuyen, 
     (goc.khoId != null && (!coKho || nhap.khoId !== goc.khoId)) ||
     [...quyenGoc].some((id) => !nhap.quyenIds.includes(id));
 
+  // Ngăn kéo vẫn gắn trên trang khi đóng, nên mở lại không qua nút Phân quyền (Forward của trình duyệt, đường dẫn
+  // ?phan-quyen=1) sẽ thấy lại trạng thái cũ. Sau khi Bỏ thay đổi ("bo": bản nháp về dữ liệu đang lưu) hoặc lưu xong
+  // ("luu": chỉ bỏ gợi ý đã điền mẫu, nhóm đang mở, dải Kiểm tra) thì đặt lại — đợi ngăn kéo đóng hẳn (hết hiệu ứng
+  // trượt ra) mới làm để nội dung và hộp "Bỏ N thay đổi?" không nhảy trong lúc đang đóng.
+  const datLaiKhiDong = useRef(null);
+  const datLai = useCallback(() => {
+    const loai = datLaiKhiDong.current;
+    if (!loai) return;
+    datLaiKhiDong.current = null;
+    if (loai === "bo") setNhap(goc);
+    setDaDienMau(null);
+    setMoNhom({});
+    setMoKiemTra(false);
+  }, [goc]);
+
   // Back của trình duyệt bỏ `?phan-quyen=1` → ngăn kéo đóng mà không qua yeuCauDong: còn thay đổi thì mở lại và hỏi
   const dongChuDong = useRef(false);
   const moTruoc = useRef(mo);
@@ -186,12 +205,21 @@ export default function NganKeoPhanQuyen({ mo, nguoiDung, laChinhMinh, dsQuyen, 
       onMoLai();
       setHop("bo");
     }
-    if (mo) dongChuDong.current = false;
+    if (mo && !moTruoc.current) {
+      dongChuDong.current = false;
+      // Mở lại trước khi kịp đóng hẳn: đặt lại ngay
+      if (datLaiKhiDong.current) queueMicrotask(datLai);
+    }
     moTruoc.current = mo;
-  }, [mo, coThayDoi, onMoLai]);
+  }, [mo, coThayDoi, onMoLai, datLai]);
   const dong = () => {
     dongChuDong.current = true;
     onDong();
+  };
+  const boThayDoi = () => {
+    datLaiKhiDong.current = "bo";
+    setHop(null);
+    dong();
   };
 
   const sua = (thayDoiMoi) => setNhap((cu) => ({ ...cu, ...thayDoiMoi }));
@@ -220,6 +248,7 @@ export default function NganKeoPhanQuyen({ mo, nguoiDung, laChinhMinh, dsQuyen, 
       const moi = await adminService.luuPhanQuyen(nguoiDung.id, noiDungLuu(nhap, pqGoc));
       setHop(null);
       dongChuDong.current = true;
+      datLaiKhiDong.current = "luu";
       onDaLuu(moi, { catQuyen });
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Không lưu được phân quyền. Vui lòng thử lại."));
@@ -237,6 +266,7 @@ export default function NganKeoPhanQuyen({ mo, nguoiDung, laChinhMinh, dsQuyen, 
         <SheetContent
           side="right"
           className="w-full gap-0 bg-white p-0 sm:max-w-[640px] [&>button:last-child]:hidden"
+          onCloseAutoFocus={datLai}
           onInteractOutside={(e) => {
             if (coThayDoi || dangLuu) {
               e.preventDefault();
@@ -492,7 +522,7 @@ export default function NganKeoPhanQuyen({ mo, nguoiDung, laChinhMinh, dsQuyen, 
                   ) : (
                     <div className="space-y-2">
                       {danhGia.nhom.map((n) => {
-                        const soNgoai = n.dong.filter((d) => d.cap && danhGia.soMau && !d.trongMau).length;
+                        const soNgoai = n.dong.filter((d) => d.ngoaiMau).length;
                         const coDoi = n.dong.some((d) => d.cap !== quyenGoc.has(d.id));
                         const dangMo = moNhom[n.ma] ?? (soNgoai > 0 || coDoi);
                         const tatCa = n.soCap === n.dong.length;
@@ -559,7 +589,7 @@ export default function NganKeoPhanQuyen({ mo, nguoiDung, laChinhMinh, dsQuyen, 
                                           {d.nhayCam ? (
                                             <ShieldAlert className="size-3.5 text-amber-700" aria-label="Quyền nhạy cảm" />
                                           ) : null}
-                                          {d.cap && danhGia.soMau && !d.trongMau ? <StatusBadge label="Ngoài mẫu" nhom="canChuY" /> : null}
+                                          {d.ngoaiMau ? <StatusBadge label="Ngoài mẫu" nhom="canChuY" /> : null}
                                           {!d.cap && d.trongMau ? <StatusBadge label="Có trong mẫu" nhom="dong" /> : null}
                                           {d.voHieu ? (
                                             <span title={`Vai trò ${tenVaiTro(nhap.vaiTro)} không mở được màn dùng quyền này`}>
@@ -668,6 +698,15 @@ export default function NganKeoPhanQuyen({ mo, nguoiDung, laChinhMinh, dsQuyen, 
                     </div>
                   ))}
                 </div>
+                {nhayCamCapThem.length ? (
+                  <div className="flex gap-2 rounded-md border border-orange-200 bg-orange-50 px-2.5 py-2 text-[13px] leading-[19px] text-orange-900">
+                    <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                    <span>
+                      <span className="font-semibold">Cấp thêm {nhayCamCapThem.length} quyền nhạy cảm:</span>{" "}
+                      {nhayCamCapThem.join(", ")}. Kiểm tra lại đúng người, đúng kho trước khi lưu.
+                    </span>
+                  </div>
+                ) : null}
                 {kiemTra.soCanhBao ? (
                   <div className="flex gap-2 rounded-md border border-orange-200 bg-orange-50 px-2.5 py-2 text-[13px] leading-[19px] text-orange-900">
                     <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
@@ -713,10 +752,7 @@ export default function NganKeoPhanQuyen({ mo, nguoiDung, laChinhMinh, dsQuyen, 
           <AlertDialogFooter className="gap-2 sm:justify-end">
             <AlertDialogCancel>Tiếp tục sửa</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
-                setHop(null);
-                dong();
-              }}
+              onClick={boThayDoi}
               className="bg-bo-danger text-white hover:bg-bo-danger/90"
             >
               Bỏ thay đổi

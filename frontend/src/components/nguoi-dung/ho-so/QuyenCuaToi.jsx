@@ -37,6 +37,16 @@ function Trong({ icon, tieuDe, noiDung, netDut, mau = "xanh", children }) {
   );
 }
 
+/** Dòng nhắc dưới lưới việc (chứng từ cần người khác duyệt, quyền không dùng được, quyền vừa thu hồi). */
+function DongNhac({ children }) {
+  return (
+    <p className="flex items-start gap-2.5 rounded-lg border border-bo-border bg-bo-surface-subtle px-3.5 py-3 text-[13px] leading-[19px] text-slate-700">
+      <Info className="mt-0.5 size-4 shrink-0 text-bo-muted" aria-hidden="true" />
+      <span>{children}</span>
+    </p>
+  );
+}
+
 function NutEmail({ email, ten }) {
   if (!email) return null;
   return (
@@ -52,7 +62,7 @@ function NutEmail({ email, ten }) {
 /**
  * Tab Quyền của tôi ở Hồ sơ (chốt 18/10/2026): việc người dùng làm được tại kho đang phụ trách,
  * đọc từ CSDL (không từ phiên đăng nhập). Quyền vừa cấp có thẻ "Mới" cho tới khi đăng nhập lại;
- * quyền vừa bị thu hồi và chứng từ cần người khác duyệt có một dòng nhắc riêng.
+ * quyền vừa bị thu hồi, quyền vai trò không mở được màn dùng nó và chứng từ cần người khác duyệt có dòng nhắc riêng.
  */
 export default function QuyenCuaToi({ quyen, dangTai, loi, onThuLai }) {
   if (loi && !quyen) {
@@ -108,8 +118,9 @@ export default function QuyenCuaToi({ quyen, dangTai, loi, onThuLai }) {
     );
   }
 
-  const { nhom, soViec, canDuyet, daThuHoi } = quyenCuaToiTheoNhom(quyen, { menu: SIDEBAR_MENU });
+  const { nhom, soViec, soDaCap, khongDungDuoc, canDuyet, daThuHoi } = quyenCuaToiTheoNhom(quyen, { menu: SIDEBAR_MENU });
   const tenKho = quyen.kho.tenKho || quyen.kho.maKho;
+  const tenVt = tenVaiTro(quyen.vaiTro);
   const hieuLuc = moTaHieuLuc({ ngayBatDau: quyen.ngayBatDau, ngayKetThuc: quyen.ngayKetThuc });
 
   return (
@@ -121,7 +132,7 @@ export default function QuyenCuaToi({ quyen, dangTai, loi, onThuLai }) {
         <div className="min-w-0 flex-1 basis-60">
           <h2 className="text-base font-semibold leading-6 text-bo-foreground">Việc bạn làm được tại {tenKho}</h2>
           <p className="text-[13px] text-bo-muted">
-            {tenVaiTro(quyen.vaiTro)} · {soViec} việc · hiệu lực {hieuLuc}
+            {tenVt} · {soViec} việc · hiệu lực {hieuLuc}
           </p>
         </div>
         {quyen.capNhatBoi || quyen.capNhatLuc ? (
@@ -165,27 +176,38 @@ export default function QuyenCuaToi({ quyen, dangTai, loi, onThuLai }) {
           ))}
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-bo-muted">
-          Bạn đã được phân {tenKho} nhưng chưa được cấp việc nào.
+        <div className="flex flex-col items-center rounded-lg border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-bo-muted">
+          {soDaCap ? (
+            <>
+              <span className="max-w-[560px]">
+                Các quyền bạn được cấp tại {tenKho} chưa dùng được vì vai trò {tenVt} không mở được màn hình của:{" "}
+                {khongDungDuoc.join(", ")}. Liên hệ quản trị viên để chỉnh lại.
+              </span>
+              <NutEmail email={quyen.capNhatBoiEmail} ten={quyen.capNhatBoi} />
+            </>
+          ) : (
+            `Bạn đã được phân ${tenKho} nhưng chưa được cấp việc nào.`
+          )}
         </div>
       )}
 
-      {canDuyet.length ? (
-        <p className="mt-4 flex items-start gap-2.5 rounded-lg border border-bo-border bg-bo-surface-subtle px-3.5 py-3 text-[13px] leading-[19px] text-slate-700">
-          <Info className="mt-0.5 size-4 shrink-0 text-bo-muted" aria-hidden="true" />
-          <span>
-            Bạn lập được {canDuyet.join(" và ")}. Chứng từ bạn lập cần người có quyền duyệt xác nhận.
-          </span>
-        </p>
-      ) : null}
-      {daThuHoi.length ? (
-        <p className="mt-2.5 flex items-start gap-2.5 rounded-lg border border-bo-border bg-bo-surface-subtle px-3.5 py-3 text-[13px] leading-[19px] text-slate-700">
-          <Info className="mt-0.5 size-4 shrink-0 text-bo-muted" aria-hidden="true" />
-          <span>
-            Không còn làm được: {daThuHoi.join(", ")}
-            {quyen.capNhatLuc ? ` (thu hồi lúc ${ngayGio(quyen.capNhatLuc)})` : ""}.
-          </span>
-        </p>
+      {canDuyet.length || (soViec && khongDungDuoc.length) || daThuHoi.length ? (
+        <div className="mt-4 flex flex-col gap-2.5">
+          {canDuyet.length ? (
+            <DongNhac>Bạn lập được {canDuyet.join(" và ")}. Chứng từ bạn lập cần người có quyền duyệt xác nhận.</DongNhac>
+          ) : null}
+          {soViec && khongDungDuoc.length ? (
+            <DongNhac>
+              Được cấp nhưng chưa dùng được vì vai trò {tenVt} không mở được màn hình của: {khongDungDuoc.join(", ")}.
+            </DongNhac>
+          ) : null}
+          {daThuHoi.length ? (
+            <DongNhac>
+              Không còn làm được: {daThuHoi.join(", ")}
+              {quyen.capNhatLuc ? ` (thu hồi lúc ${ngayGio(quyen.capNhatLuc)})` : ""}.
+            </DongNhac>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );

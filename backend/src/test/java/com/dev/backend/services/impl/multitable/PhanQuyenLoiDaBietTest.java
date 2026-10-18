@@ -5,6 +5,7 @@ import com.dev.backend.dto.request.ChiTietQuyenKhoCreating;
 import com.dev.backend.dto.request.PhanQuyenNguoiDungKhoCreating;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.entities.*;
+import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.ChiTietQuyenKhoMapper;
 import com.dev.backend.mapper.NguoiDungMapper;
 import com.dev.backend.services.impl.entities.*;
@@ -31,10 +32,9 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 
 /**
- * B1 · Lỗi đã biết (18/10/2026): bỏ tick quyền trong popup "Thêm phân quyền kho" không thu hồi được quyền.
- *
- * Các test này khẳng định HÀNH VI ĐÚNG, nên hiện đang ĐỎ. Sửa xong (API lưu đủ tập quyền, quyền vắng mặt
- * thì trang_thai = 0 và ghi lịch sử) thì phải XANH. CSDL thay bằng danh sách trong bộ nhớ qua Mockito.
+ * B1 · Lỗi bỏ tick quyền trong popup "Thêm phân quyền kho" không thu hồi được quyền (đã sửa 18/10/2026:
+ * API cũ gan-quyen coi danh sách gửi lên là tập quyền đầy đủ, quyền vắng mặt thì trang_thai = 0 và ghi lịch sử).
+ * Giữ test để không tái phát, kèm quy tắc mỗi người tối đa một kho. CSDL thay bằng danh sách trong bộ nhớ qua Mockito.
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -69,12 +69,14 @@ class PhanQuyenLoiDaBietTest {
         when(nguoiDungService.getOne(52)).thenReturn(Optional.of(nhanVien));
         when(nguoiDungService.update(anyInt(), any(NguoiDung.class))).thenAnswer(i -> i.getArgument(1));
         when(khoService.getOne(22)).thenReturn(Optional.of(khoTong));
+        when(khoService.getOne(23)).thenReturn(Optional.of(Kho.builder().id(23).maKho("KHO_HN").tenKho("Kho Hà Nội").trangThai(1).build()));
         when(quyenHanService.getOne(anyInt())).thenAnswer(i -> {
             int id = i.getArgument(0);
             return Optional.of(QuyenHan.builder().id(id).maQuyen("q" + id).tenQuyen("q" + id).nhomQuyen("x").build());
         });
 
-        when(phanQuyenNguoiDungKhoService.findByNguoiDungIdAndActive(anyInt())).thenAnswer(i -> bangPhanQuyen.stream()
+        // Service kiểm "tối đa một kho" bằng phân quyền đang giữ chỗ (đang hiệu lực hoặc hẹn ngày bắt đầu): ở đây là dòng trangThai = 1
+        when(phanQuyenNguoiDungKhoService.findGiuChoByNguoiDungId(anyInt())).thenAnswer(i -> bangPhanQuyen.stream()
                 .filter(p -> p.getNguoiDung().getId().equals(i.getArgument(0)) && Integer.valueOf(1).equals(p.getTrangThai()))
                 .collect(Collectors.toList()));
         when(phanQuyenNguoiDungKhoService.findByNguoiDungIdAndKhoId(anyInt(), anyInt())).thenAnswer(i -> bangPhanQuyen.stream()
@@ -112,12 +114,16 @@ class PhanQuyenLoiDaBietTest {
         SecurityContextHolder.clear();
     }
 
-    /** Gửi đúng payload mà AssignWarehousePermissionModal.jsx đang gửi: chỉ quyền đang tick, trangThai = 1. */
+    /** Gửi đúng payload của popup "Thêm phân quyền kho" cũ (API gan-quyen): chỉ quyền đang tick, trangThai = 1. */
     private void ganNhuPopup(List<Integer> quyenDangTick) {
+        ganNhuPopup(22, quyenDangTick);
+    }
+
+    private void ganNhuPopup(int khoId, List<Integer> quyenDangTick) {
         Set<ChiTietQuyenKhoCreating> ds = quyenDangTick.stream()
                 .map(id -> new ChiTietQuyenKhoCreating(id, 1)).collect(Collectors.toCollection(LinkedHashSet::new));
         service.ganQuyenNhanVienKho(PhanQuyenNguoiDungKhoCreating.builder()
-                .nguoiDungId(52).khoId(22).laQuanLyKho(0).ngayBatDau(Instant.now()).chiTietQuyenKhos(ds).build());
+                .nguoiDungId(52).khoId(khoId).laQuanLyKho(0).ngayBatDau(Instant.now()).chiTietQuyenKhos(ds).build());
     }
 
     private List<Integer> quyenDangBat() {
@@ -153,6 +159,18 @@ class PhanQuyenLoiDaBietTest {
         long soDongThuHoi = bangLichSu.subList(truoc, bangLichSu.size()).stream()
                 .filter(l -> l.getGiaTriMoi() != null && l.getGiaTriMoi().contains("\"trangThai\":0")).count();
         assertEquals(17, soDongThuHoi, "Mỗi quyền bị thu hồi phải có một dòng lịch sử");
+    }
+
+    @Test
+    @DisplayName("Một kho · Đang phụ trách Kho tổng thì không gán thêm Kho Hà Nội, quyền cũ giữ nguyên")
+    void dangPhuTrachKhoKhac_khongGanDuoc() {
+        ganNhuPopup(MAU_NHAN_VIEN_KHO);
+
+        CommonException loi = assertThrows(CommonException.class, () -> ganNhuPopup(23, List.of(1)));
+
+        assertTrue(loi.getMessage().contains("kho khác"), loi.getMessage());
+        assertEquals(1, bangPhanQuyen.size(), "Không tạo phân quyền ở kho thứ hai");
+        assertEquals(MAU_NHAN_VIEN_KHO, quyenDangBat());
     }
 
     @Test

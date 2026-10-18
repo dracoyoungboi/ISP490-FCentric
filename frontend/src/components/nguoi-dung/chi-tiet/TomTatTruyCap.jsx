@@ -23,14 +23,16 @@ const MAU_VACH = {
 
 /**
  * "Mã vạch quyền": mỗi vạch một quyền theo thứ tự nhóm, vạch cao là quyền nhạy cảm;
- * màu đậm = theo mẫu, cam = ngoài mẫu, xám nhạt = chưa cấp. Có khoảng hở giữa các nhóm.
+ * màu đậm = theo mẫu (hoặc đã cấp, khi vai trò chưa có mẫu), cam = ngoài mẫu, xám nhạt = chưa cấp.
+ * Có khoảng hở giữa các nhóm.
  */
 function MaVachQuyen({ nhom }) {
   const vach = [];
   nhom.forEach((n, ni) => {
     n.dong.forEach((d, i) => {
-      const loai = d.cap ? (d.trongMau ? "mau" : "ngoai") : "chua";
-      const nhanLoai = { mau: "theo mẫu", ngoai: "ngoài mẫu", chua: "chưa cấp" }[loai];
+      // Vai trò chưa có mẫu thì không dòng nào ngoài mẫu: quyền đã cấp vẫn là vạch đậm
+      const loai = d.cap ? (d.ngoaiMau ? "ngoai" : "mau") : "chua";
+      const nhanLoai = d.cap ? (d.ngoaiMau ? "ngoài mẫu" : d.trongMau ? "theo mẫu" : "đã cấp") : "chưa cấp";
       vach.push(
         <span
           key={d.id}

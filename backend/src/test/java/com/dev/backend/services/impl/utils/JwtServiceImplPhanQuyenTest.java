@@ -13,14 +13,14 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * B2 · Lỗi đã biết (18/10/2026) ở JwtServiceImpl. Đi đúng đường thật: phát hành token có quyền kho
- * → đọc lại token như AuthInterceptor → hỏi quyền như AuthorizationAspect.
- * Các test khẳng định HÀNH VI ĐÚNG nên hiện đang ĐỎ; sửa xong phải XANH.
+ * B2 · Lỗi kiểm quyền ở JwtServiceImpl (đã sửa 18/10/2026, giữ test để không tái phát). Đi đúng đường thật:
+ * phát hành token có quyền kho → đọc lại token như AuthInterceptor → hỏi quyền như AuthorizationAspect.
  */
 class JwtServiceImplPhanQuyenTest {
 
@@ -36,16 +36,27 @@ class JwtServiceImplPhanQuyenTest {
         f.set(jwt, om);
     }
 
-    /** Token của một nhân viên kho tại kho 22, map quyền → trangThai (1 đang bật, 0 đã thu hồi). */
+    /**
+     * Token của một nhân viên kho tại kho 22, map quyền → trangThai (1 đang bật, 0 đã thu hồi).
+     * Mỗi chi tiết quyền có id riêng như dòng trong CSDL: ChiTietQuyenKhoDto so bằng theo id, id null thì
+     * Set gộp mọi quyền làm một và test thu hồi đạt mà không kiểm gì.
+     */
     private NguoiDungAuthInfo dangNhap(Map<String, Integer> quyen) {
+        AtomicInteger idChiTiet = new AtomicInteger(1000);
         Set<ChiTietQuyenKhoDto> ds = quyen.entrySet().stream().map(e -> ChiTietQuyenKhoDto.builder()
+                .id(idChiTiet.incrementAndGet())
                 .quyenHan(QuyenHanDto.builder().maQuyen(e.getKey()).build()).trangThai(e.getValue()).build())
                 .collect(Collectors.toSet());
+        assertEquals(quyen.size(), ds.size(), "Chuẩn bị: không quyền nào bị gộp");
         PhanQuyenNguoiDungKhoDto pq = PhanQuyenNguoiDungKhoDto.builder().id(100).trangThai(1)
                 .kho(KhoDto.builder().id(22).maKho("KHO_TONG").build()).chiTietQuyenKhos(ds).build();
         String token = jwt.generateTokenWithPermissions(52, "nhanvienkhotong", "nhanvienkhotong", "b@fcentric.net", null,
                 Set.of("nhan_vien_kho"), 1, null, null, List.of(pq), "Google", null);
-        return jwt.getNguoiDungAuthInfoFromToken(token);
+        NguoiDungAuthInfo info = jwt.getNguoiDungAuthInfoFromToken(token);
+        Map<String, Integer> trongToken = info.getPhanQuyenNguoiDungKhos().get(0).getChiTietQuyenKhos().stream()
+                .collect(Collectors.toMap(ChiTietQuyenKhoDto::getMaQuyenHan, ChiTietQuyenKhoDto::getTrangThai));
+        assertEquals(quyen, trongToken, "Chuẩn bị: token mang đủ mọi quyền, kể cả quyền đã thu hồi");
+        return info;
     }
 
     @Test

@@ -1,5 +1,5 @@
-import { useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useRef } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
 
 /**
  * Tab trạng thái lưu trên đường dẫn (bố cục A+G, quy tắc R7): F5, quay lại từ trang chi tiết
@@ -11,10 +11,16 @@ import { useSearchParams } from "react-router-dom";
  *
  * Trả về `[tab, setTab]`. `setTab(giaTri, thayDoiKhac?)` ghi đè lịch sử (replace), có thể đổi kèm
  * tham số khác trong cùng một lần, vd. `setTab("cho-xuat-kho", { loai: "ban_hang" })`;
- * truyền `null`/"" để xóa tham số đó.
+ * truyền `null`/"" để xóa tham số đó. Vẫn là mục lịch sử đó nên giữ nguyên `location.state`
+ * (vd. `from` của trang chi tiết để nút Quay lại về đúng danh sách đang lọc).
  */
 export default function useTabTrenUrl(giaTriHopLe, macDinh, { ten = "trangThai" } = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const stateRef = useRef(location.state);
+  useEffect(() => {
+    stateRef.current = location.state;
+  });
   const giaTri = searchParams.get(ten);
   const tab = giaTriHopLe.includes(giaTri) ? giaTri : macDinh;
 
@@ -31,7 +37,7 @@ export default function useTabTrenUrl(giaTriHopLe, macDinh, { ten = "trangThai" 
           Object.entries(thayDoiKhac).forEach(([khoa, v]) => ghi(khoa, v));
           return next;
         },
-        { replace: true },
+        { replace: true, state: stateRef.current },
       );
     },
     [setSearchParams, ten, macDinh],
