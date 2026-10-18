@@ -19,8 +19,8 @@ import { chuYDon, diemTheoGio, giaBan, gioPhut, guiLuc, nhanGio, tenBienThe, the
 
 /**
  * Tổng quan của NHÂN VIÊN BÁN HÀNG tại kho làm việc (ô đầu trang). Hàng 1: 4 ô số. Cột chính: doanh thu cộng dồn
- * trong ngày so với cùng thứ tuần trước · đơn của bạn (3 tab) · tra còn hàng. Cột phải: bán nhanh · bán chạy.
- * Điện thoại: nút bán ngay sau ô số. "Của bạn" là chứng từ bạn tạo.
+ * trong ngày so với cùng thứ tuần trước · đơn của bạn (3 tab). Cột phải: bán nhanh · tra còn hàng (ngay cạnh nút bán,
+ * khách hỏi là tra được) · bán chạy. Điện thoại: nút bán ngay sau ô số. "Của bạn" là chứng từ bạn tạo.
  */
 export default function DashboardSalesStaff() {
   return (
@@ -55,7 +55,6 @@ export default function DashboardSalesStaff() {
                   loiBaoGia={loi("baoGia")}
                   onRetry={reload}
                 />,
-                <TraTon key="tra" className={THU_TU[3]} />,
               ]}
               phai={[
                 <ThaoTacNhanh
@@ -68,6 +67,7 @@ export default function DashboardSalesStaff() {
                     { ten: "Tạo báo giá", to: "/sales-quotations/create" },
                   ]}
                 />,
+                <TraTon key="tra" className={THU_TU[3]} />,
                 <BanChay key="bc" className={THU_TU[5]} dong={b?.banChay} loading={loading} error={loi("banChay")} onRetry={reload} />,
               ]}
             />
