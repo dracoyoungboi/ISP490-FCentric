@@ -233,35 +233,38 @@ function DonCuaBan({ don, baoGia, tom, thoiDiem, className, loading, loiDon, loi
       error={loiDon && loiBaoGia}
       onRetry={onRetry}
     >
-      <div
-        role="tablist"
-        aria-label="Nhóm đơn"
-        className={cn(LE, "flex gap-5 overflow-x-auto border-b border-[#eef1f5]")}
-        onKeyDown={(e) => phimTab(e, TAB_DON.map((t) => t.key), tabHien, setTab, "don-tab-")}
-      >
-        {TAB_DON.map((t) => {
-          const on = t.key === tabHien;
-          const n = soTab[t.key];
-          return (
-            <button
-              key={t.key}
-              id={`don-tab-${t.key}`}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              aria-controls="don-ds"
-              tabIndex={on ? 0 : -1}
-              onClick={() => setTab(t.key)}
-              className={cn(
-                "-mb-px inline-flex h-11 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap border-b-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bo-primary/30",
-                on ? "border-bo-primary font-medium text-bo-foreground" : "border-transparent text-bo-muted hover:text-bo-foreground",
-              )}
-            >
-              {t.ten}
-              <span className={cn("text-xs font-semibold tabular-nums", t.key === "chuY" && n ? "text-[#a34a06]" : "text-bo-muted")}>{formatSo(n)}</span>
-            </button>
-          );
-        })}
+      {/* Hẹp thì cuộn ngang (ẩn thanh cuộn); -mb-px để gạch chân tab đè lên viền dưới mà không tràn dọc */}
+      <div className={cn(LE, "border-b border-[#eef1f5]")}>
+        <div
+          role="tablist"
+          aria-label="Nhóm đơn"
+          className="-mb-px flex gap-5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          onKeyDown={(e) => phimTab(e, TAB_DON.map((t) => t.key), tabHien, setTab, "don-tab-")}
+        >
+          {TAB_DON.map((t) => {
+            const on = t.key === tabHien;
+            const n = soTab[t.key];
+            return (
+              <button
+                key={t.key}
+                id={`don-tab-${t.key}`}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                aria-controls="don-ds"
+                tabIndex={on ? 0 : -1}
+                onClick={() => setTab(t.key)}
+                className={cn(
+                  "inline-flex h-11 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap border-b-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bo-primary/30",
+                  on ? "border-bo-primary font-medium text-bo-foreground" : "border-transparent text-bo-muted hover:text-bo-foreground",
+                )}
+              >
+                {t.ten}
+                <span className={cn("text-xs font-semibold tabular-nums", t.key === "chuY" && n ? "text-[#a34a06]" : "text-bo-muted")}>{formatSo(n)}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
       <div id="don-ds" role="tabpanel" aria-labelledby={`don-tab-${tabHien}`}>
         {loiTab ? (
