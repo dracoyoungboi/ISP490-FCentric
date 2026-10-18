@@ -127,7 +127,19 @@ const KY_HIEU = {
  * Ngăn kéo bị đóng từ bên ngoài (nút Back của trình duyệt) khi còn thay đổi chưa lưu thì gọi `onMoLai`
  * để mở lại và hỏi "Bỏ thay đổi?", không mất bản nháp.
  */
-export default function NganKeoPhanQuyen({ mo, nguoiDung, laChinhMinh, dsQuyen, cauHinh, menu, onDong, onDaLuu, onMoLai }) {
+export default function NganKeoPhanQuyen({
+  mo,
+  nguoiDung,
+  laChinhMinh,
+  dsQuyen,
+  cauHinh,
+  menu,
+  onDong,
+  onDaLuu,
+  onMoLai,
+  onTaiLaiCauHinh,
+  dangTaiCauHinh,
+}) {
   const goc = useMemo(() => banNhapTuNguoiDung(nguoiDung), [nguoiDung]);
   const pqGoc = useMemo(() => phanQuyenHienCo(nguoiDung).pq, [nguoiDung]);
   const [nhap, setNhap] = useState(goc);
@@ -160,7 +172,8 @@ export default function NganKeoPhanQuyen({ mo, nguoiDung, laChinhMinh, dsQuyen, 
   const mau = mauCua(nhap.vaiTro);
   const ngu = {
     dsQuyen,
-    mau,
+    // Không đọc được cấu hình: null để phần đánh giá không coi là "vai trò chưa có mẫu"
+    mau: cauHinh ? mau : null,
     nhayCam: cauHinh?.quyenNhayCam ?? [],
     daApDung: cauHinh?.quyenDaApDung ?? null,
     menu,
@@ -484,7 +497,13 @@ export default function NganKeoPhanQuyen({ mo, nguoiDung, laChinhMinh, dsQuyen, 
                       </Button>
                       <span
                         className="inline-flex"
-                        title={coKho && !mau.length ? `Vai trò ${tenVaiTro(nhap.vaiTro)} chưa có mẫu quyền` : undefined}
+                        title={
+                          !coKho || mau.length
+                            ? undefined
+                            : cauHinh
+                              ? `Vai trò ${tenVaiTro(nhap.vaiTro)} chưa có mẫu quyền`
+                              : "Không đọc được mẫu quyền"
+                        }
                       >
                         <Button
                           type="button"
@@ -506,6 +525,30 @@ export default function NganKeoPhanQuyen({ mo, nguoiDung, laChinhMinh, dsQuyen, 
                       ? `Đang chọn ${nhap.quyenIds.length}/${danhGia.tong}${mau.length ? ` · mẫu ${tenVaiTro(nhap.vaiTro)} có ${mau.length} quyền` : ""}`
                       : "Chưa có kho"}
                   </p>
+
+                  {coKho && !cauHinh ? (
+                    <div className="mb-3 flex items-start gap-2 rounded-md border border-orange-200 bg-orange-50 px-2.5 py-2 text-[13px] leading-[19px] text-orange-900">
+                      <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                      <span className="min-w-0 flex-1">
+                        Không đọc được mẫu quyền và danh sách quyền nhạy cảm: chưa so được với mẫu, khi lưu cũng không nhắc
+                        quyền nhạy cảm.
+                      </span>
+                      {onTaiLaiCauHinh ? (
+                        // Tải lại ngay trong ngăn kéo: tải lại cả trang sẽ mất bản nháp đang sửa
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={dangTaiCauHinh}
+                          onClick={onTaiLaiCauHinh}
+                          className={`h-7 shrink-0 ${NUT_VIEN}`}
+                        >
+                          <RefreshCcw className="size-3.5" aria-hidden="true" />
+                          Thử lại
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : null}
 
                   {daDienMau && coKho ? (
                     <div className="mb-3">

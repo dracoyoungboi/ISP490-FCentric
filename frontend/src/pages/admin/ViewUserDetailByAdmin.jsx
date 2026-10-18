@@ -146,7 +146,8 @@ function ChiTietNguoiDung({ id }) {
                 vaiTro: nguoiDung?.vaiTro,
                 quyenIds: pq ? quyenIds : [],
                 dsQuyen: thamChieu?.dsQuyen ?? [],
-                mau: thamChieu?.cauHinh?.mauQuyen?.[nguoiDung?.vaiTro] ?? [],
+                // Không đọc được cấu hình: null để không ghi nhầm "vai trò chưa có mẫu"
+                mau: thamChieu && !thamChieu.cauHinh ? null : (thamChieu?.cauHinh?.mauQuyen?.[nguoiDung?.vaiTro] ?? []),
                 nhayCam: thamChieu?.cauHinh?.quyenNhayCam ?? [],
                 daApDung: thamChieu?.cauHinh?.quyenDaApDung ?? null,
                 menu: SIDEBAR_MENU,
@@ -431,6 +432,8 @@ function ChiTietNguoiDung({ id }) {
                     onDong={() => datNganKeo(false)}
                     onDaLuu={daLuuPhanQuyen}
                     onMoLai={moLaiNganKeo}
+                    onTaiLaiCauHinh={thamChieuQ.reload}
+                    dangTaiCauHinh={thamChieuQ.loading}
                 />
             ) : (
                 <NganKeoCho

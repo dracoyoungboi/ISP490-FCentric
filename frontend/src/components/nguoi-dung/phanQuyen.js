@@ -212,9 +212,11 @@ export function phanQuyenHienCo(nguoiDung) {
 
 /**
  * Đánh giá tập quyền tại kho so với mẫu của vai trò.
- * - `mau`: id quyền trong mẫu của vai trò (có thể rỗng khi chưa cấu hình).
+ * - `mau`: id quyền trong mẫu của vai trò (rỗng khi vai trò chưa có mẫu); `null` khi không đọc được cấu hình
+ *   (`khongDocDuocMau` = true, để giao diện không ghi nhầm "chưa có mẫu").
  * - `nhayCam`: id quyền nhạy cảm.
- * - `daApDung`: mã quyền máy chủ đang kiểm; `null` khi không đọc được (không gắn "Chưa áp dụng").
+ * - `daApDung`: mã quyền máy chủ đang kiểm; `null` khi không đọc được (không gắn "Chưa áp dụng"). Máy chủ luôn kiểm
+ *   ít nhất một quyền, nên mảng rỗng cũng coi là không đọc được (máy chủ bản cũ trả rỗng khi quét lỗi).
  */
 export function danhGiaQuyen({ vaiTro, quyenIds, dsQuyen, mau = [], nhayCam = [], daApDung = null, menu = [] }) {
   const co = new Set(quyenIds ?? []);
@@ -222,7 +224,7 @@ export function danhGiaQuyen({ vaiTro, quyenIds, dsQuyen, mau = [], nhayCam = []
   // Vai trò chưa có mẫu (hoặc không tải được cấu hình) thì không so với mẫu: không quyền nào "Ngoài mẫu"
   const coMauCauHinh = trongMau.size > 0;
   const nhay = new Set(nhayCam ?? []);
-  const apDung = Array.isArray(daApDung) ? new Set(daApDung) : null;
+  const apDung = Array.isArray(daApDung) && daApDung.length ? new Set(daApDung) : null;
   const coMan = new Set(manHinhCuaVaiTro(menu, vaiTro).duongDan);
   const tacDung = (ma) => {
     const man = MAN_DUNG_QUYEN[ma];
@@ -260,6 +262,7 @@ export function danhGiaQuyen({ vaiTro, quyenIds, dsQuyen, mau = [], nhayCam = []
     chuaApDung: tatCa.filter((d) => d.chuaApDung),
     capTrung: CAP_TAO_DUYET.filter((c) => maCo.has(c.tao) && maCo.has(c.duyet)),
     soMau: trongMau.size,
+    khongDocDuocMau: mau === null,
   };
 }
 
@@ -284,6 +287,7 @@ export function diemCanXemLai({ vaiTro, coKho, danhGia }) {
 export function moTaSoVoiMau({ vaiTro, coKho, danhGia }) {
   if (!coKho) return "Chưa có quyền tại kho nào";
   const ten = tenVaiTro(vaiTro);
+  if (danhGia.khongDocDuocMau) return "Chưa so được với mẫu";
   if (!danhGia.soMau) return "Vai trò chưa có mẫu quyền";
   const them = danhGia.ngoaiMau.length;
   const thieu = danhGia.thieuMau.length;
@@ -563,6 +567,14 @@ export function kiemTraBanNhap(
     }
     if (dg.thieuMau.length) {
       them("luuY", `Thiếu ${dg.thieuMau.length} quyền so với mẫu`, `${dg.thieuMau.map((d) => d.ten).join(", ")}.`);
+    }
+    // Không đọc được cấu hình: không được báo "Không có điểm cần xem lại… không có quyền thừa" khi chưa so được
+    if (dg.khongDocDuocMau) {
+      them(
+        "luuY",
+        "Chưa so được với mẫu",
+        "Không đọc được mẫu quyền và danh sách quyền nhạy cảm, nên chưa kiểm được quyền thừa hay quyền nhạy cảm.",
+      );
     }
     if (dg.chuaApDung.length && Array.isArray(daApDung)) {
       const soKiem = dg.nhom.flatMap((n) => n.dong).filter((d) => daApDung.includes(d.ma)).length;

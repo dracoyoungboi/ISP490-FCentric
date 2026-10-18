@@ -45,6 +45,9 @@ public class QuyenCuaToiDto {
     List<String> quyenMoi;
     /** Tên quyền đã bị thu hồi so với phiên hiện tại. */
     List<String> quyenDaThuHoi;
-    /** Mã quyền có API thật sự kiểm (rỗng nếu không quét được): quyền ngoài danh sách chưa có tác dụng. */
+    /**
+     * Mã quyền có API thật sự kiểm: quyền ngoài danh sách chưa có tác dụng. Null khi không quét được, và với quản trị
+     * viên (toàn quyền, không tính).
+     */
     List<String> quyenDaApDung;
 }

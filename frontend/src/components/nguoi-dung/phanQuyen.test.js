@@ -189,8 +189,9 @@ test("đánh giá quyền so với mẫu: ngoài mẫu, thiếu, cặp tạo–d
   assert.equal(dg.nhom[1].dong.find((d) => d.id === 1).ngoaiMau, false, "quyền trong mẫu");
   assert.equal(dg.nhom[1].dong.find((d) => d.id === 3).ngoaiMau, false, "chưa cấp thì không ngoài mẫu");
 
-  const khongCauHinh = danhGiaQuyen({ vaiTro: NVK, quyenIds: [1], dsQuyen: QUYEN, daApDung: null, menu: MENU });
-  assert.deepEqual(khongCauHinh.ngoaiMau, [], "chưa có mẫu thì không gắn Ngoài mẫu");
+  const khongCauHinh = danhGiaQuyen({ vaiTro: NVK, quyenIds: [1], dsQuyen: QUYEN, mau: null, daApDung: null, menu: MENU });
+  assert.equal(khongCauHinh.khongDocDuocMau, true);
+  assert.deepEqual(khongCauHinh.ngoaiMau, [], "không đọc được mẫu thì không gắn Ngoài mẫu");
   assert.equal(khongCauHinh.nhom[1].dong.find((d) => d.id === 1).ngoaiMau, false, "từng dòng cũng không tô Ngoài mẫu");
   assert.deepEqual(khongCauHinh.chuaApDung, [], "không đọc được cấu hình thì không gắn Chưa áp dụng");
 });
@@ -224,6 +225,44 @@ test("dải tóm tắt: quản trị viên, chưa phân kho, lệch mẫu, khớ
   const dgKhongMau = danhGiaQuyen({ vaiTro: NVK, quyenIds: [1], dsQuyen: QUYEN, mau: [], menu: MENU });
   const khongMau = tomTatTruyCap({ vaiTro: NVK, pq: p, danhGia: dgKhongMau, menu: MENU });
   assert.equal(khongMau.canXemLai.phu, "Không có cặp tạo–duyệt");
+});
+
+test("máy chủ trả danh sách quyền đã áp dụng rỗng (quét lỗi): không gắn Chưa áp dụng, Kiểm tra không ghi 'kiểm 0/23'", () => {
+  const dg = danhGiaQuyen({ vaiTro: NVK, quyenIds: MAU_NVK, dsQuyen: QUYEN, mau: MAU_NVK, daApDung: [], menu: MENU });
+  assert.deepEqual(dg.chuaApDung, []);
+  assert.equal(dg.nhom.flatMap((n) => n.dong).some((d) => d.chuaApDung), false, "từng dòng cũng không gắn");
+  const kq = kiemTraBanNhap({ vaiTro: NVK, khoId: 22, hieuLuc: "vo_han", quyenIds: MAU_NVK },
+    { dsQuyen: QUYEN, mau: MAU_NVK, daApDung: [], menu: MENU });
+  assert.equal(kq.muc.some((m) => m.tieuDe.endsWith("chưa áp dụng")), false);
+  assert.equal(kq.tomTat, "Khớp mẫu Nhân viên kho");
+});
+
+test("không đọc được cấu hình (mẫu = null) khác vai trò chưa có mẫu (mẫu = [])", () => {
+  const p = pq([[1, 1], [7, 1]]);
+  const khongDoc = danhGiaQuyen({ vaiTro: NVK, quyenIds: [1, 7], dsQuyen: QUYEN, mau: null, menu: MENU });
+  assert.equal(khongDoc.khongDocDuocMau, true);
+  assert.equal(khongDoc.soMau, 0);
+  assert.deepEqual(khongDoc.ngoaiMau, []);
+  assert.deepEqual(khongDoc.thieuMau, []);
+  assert.equal(tomTatTruyCap({ vaiTro: NVK, pq: p, danhGia: khongDoc, menu: MENU }).quyen.phu, "Chưa so được với mẫu");
+
+  const chuaMau = danhGiaQuyen({ vaiTro: NVK, quyenIds: [1, 7], dsQuyen: QUYEN, mau: [], menu: MENU });
+  assert.equal(chuaMau.khongDocDuocMau, false);
+  assert.equal(tomTatTruyCap({ vaiTro: NVK, pq: p, danhGia: chuaMau, menu: MENU }).quyen.phu, "Vai trò chưa có mẫu quyền");
+  assert.equal(danhGiaQuyen({ vaiTro: NVK, quyenIds: [1], dsQuyen: QUYEN, menu: MENU }).khongDocDuocMau, false,
+    "không truyền mẫu = mẫu rỗng");
+
+  // Kiểm tra trong ngăn kéo: không so được với mẫu thì không báo xanh "Không có điểm cần xem lại"
+  const kq = kiemTraBanNhap({ vaiTro: NVK, khoId: 22, hieuLuc: "vo_han", quyenIds: [1, 7] },
+    { dsQuyen: QUYEN, mau: null, menu: MENU });
+  assert.equal(kq.loai, "luuY");
+  assert.equal(kq.tomTat, "1 lưu ý trước khi lưu");
+  assert.deepEqual(kq.muc.map((m) => m.tieuDe), ["Chưa so được với mẫu"]);
+  assert.equal(kq.chanLuu, false, "chỉ nhắc, không chặn lưu");
+
+  const chuaMauKt = kiemTraBanNhap({ vaiTro: NVK, khoId: 22, hieuLuc: "vo_han", quyenIds: [1, 7] },
+    { dsQuyen: QUYEN, mau: [], menu: MENU });
+  assert.equal(chuaMauKt.tomTat, "Không có điểm cần xem lại", "vai trò chưa có mẫu thì vẫn như cũ");
 });
 
 test("phân quyền hiện có: quản trị viên / khách hàng còn dòng kho cũ thì bỏ qua", () => {

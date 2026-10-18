@@ -38,7 +38,6 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.data.domain.PageRequest;
@@ -770,7 +769,8 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
 
     /**
      * Mã quyền mà ít nhất một API thật sự kiểm: quyền khai báo trong @RequireAuth chỉ được kiểm
-     * khi có inWarehouse = true (xem AuthorizationAspect). Lỗi thì trả rỗng và lần sau quét lại.
+     * khi có inWarehouse = true (xem AuthorizationAspect). Không quét được thì trả null (giao diện coi là chưa biết,
+     * không gắn "Chưa áp dụng" cho quyền nào) và lần sau quét lại — danh sách rỗng sẽ bị hiểu là không API nào kiểm quyền.
      */
     List<String> quyenDaApDung() {
         List<String> daQuet = quyenDaApDungDaQuet;
@@ -779,7 +779,7 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
         try {
             RequestMappingHandlerMapping anhXa = applicationContext.getBean(
                     "requestMappingHandlerMapping", RequestMappingHandlerMapping.class);
-            if (anhXa == null) return List.of();
+            if (anhXa == null) return null;
             for (HandlerMethod hm : anhXa.getHandlerMethods().values()) {
                 // Giống AuthorizationAspect: chỉ đọc @RequireAuth trên phương thức; roles chứa "all" thì cho qua, không kiểm quyền
                 RequireAuth ra = AnnotatedElementUtils.findMergedAnnotation(hm.getMethod(), RequireAuth.class);
@@ -787,9 +787,10 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
                     ma.addAll(Arrays.asList(ra.permissions()));
                 }
             }
-        } catch (BeansException e) {
+        } catch (RuntimeException e) {
+            // Bean thiếu hoặc lỗi khi đọc annotation: chỉ mất phần "chưa áp dụng", không làm hỏng cả cấu hình / Quyền của tôi
             log.warn("[PHAN-QUYEN] Không quét được quyền đang áp dụng: {}", e.getMessage());
-            return List.of();
+            return null;
         }
         daQuet = List.copyOf(ma);
         quyenDaApDungDaQuet = daQuet;

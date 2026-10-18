@@ -195,7 +195,11 @@ export default function QuyenTruyCap({ vaiTro, pq, danhGia, coThePhanQuyen, onPh
         <div>
           <h2 className="text-base font-semibold leading-6 text-bo-foreground">Quyền tại {tenKho}</h2>
           <p className="text-[13px] text-bo-muted">
-            {danhGia.soMau ? `So với mẫu quyền của vai trò ${tenVaiTro(vaiTro)}` : `Vai trò ${tenVaiTro(vaiTro)} chưa có mẫu quyền`}
+            {danhGia.khongDocDuocMau
+              ? `Chưa so được với mẫu quyền của vai trò ${tenVaiTro(vaiTro)}`
+              : danhGia.soMau
+                ? `So với mẫu quyền của vai trò ${tenVaiTro(vaiTro)}`
+                : `Vai trò ${tenVaiTro(vaiTro)} chưa có mẫu quyền`}
           </p>
         </div>
         <ChuGiai coChuaApDung={danhGia.chuaApDung.length > 0} coMau={danhGia.soMau > 0} />

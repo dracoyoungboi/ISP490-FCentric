@@ -38,6 +38,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -506,14 +507,7 @@ class PhanQuyenNguoiDungServiceImplTest {
         @Test
         @DisplayName("Đủ 4 vai trò có mẫu; quyền đã áp dụng chỉ tính API có inWarehouse = true")
         void cauHinh() throws Exception {
-            RequestMappingHandlerMapping anhXa = mock(RequestMappingHandlerMapping.class);
-            BoDieuKhienGia gia = new BoDieuKhienGia();
-            Map<RequestMappingInfo, HandlerMethod> ds = new LinkedHashMap<>();
-            ds.put(RequestMappingInfo.paths("/a").build(), new HandlerMethod(gia, BoDieuKhienGia.class.getMethod("taoPhieuNhap")));
-            ds.put(RequestMappingInfo.paths("/b").build(), new HandlerMethod(gia, BoDieuKhienGia.class.getMethod("khongTrongKho")));
-            ds.put(RequestMappingInfo.paths("/c").build(), new HandlerMethod(gia, BoDieuKhienGia.class.getMethod("khongBaoVe")));
-            when(anhXa.getHandlerMethods()).thenReturn(ds);
-            when(applicationContext.getBean("requestMappingHandlerMapping", RequestMappingHandlerMapping.class)).thenReturn(anhXa);
+            ganAnhXaGia();
 
             CauHinhPhanQuyenDto c = service.layCauHinhPhanQuyen();
 
@@ -529,6 +523,29 @@ class PhanQuyenNguoiDungServiceImplTest {
         }
 
         @Test
+        @DisplayName("Không quét được quyền đã áp dụng: trả null (không phải rỗng) và lần sau quét lại")
+        void cauHinh_quetLoi() throws Exception {
+            when(applicationContext.getBean("requestMappingHandlerMapping", RequestMappingHandlerMapping.class))
+                    .thenThrow(new NoSuchBeanDefinitionException("requestMappingHandlerMapping"));
+            assertNull(service.layCauHinhPhanQuyen().getQuyenDaApDung(), "bean lỗi");
+
+            reset(applicationContext);
+            assertNull(service.layCauHinhPhanQuyen().getQuyenDaApDung(), "getBean trả null");
+
+            RequestMappingHandlerMapping hong = mock(RequestMappingHandlerMapping.class);
+            when(hong.getHandlerMethods()).thenThrow(new IllegalStateException("lỗi khi đọc ánh xạ"));
+            when(applicationContext.getBean("requestMappingHandlerMapping", RequestMappingHandlerMapping.class)).thenReturn(hong);
+            CauHinhPhanQuyenDto c = service.layCauHinhPhanQuyen();
+            assertNull(c.getQuyenDaApDung(), "lỗi không thuộc BeansException cũng chỉ mất phần này");
+            assertEquals(MAU_NHAN_VIEN_KHO, c.getMauQuyen().get(IRoleType.nhan_vien_kho), "mẫu quyền vẫn trả về");
+
+            reset(applicationContext);
+            ganAnhXaGia();
+            assertEquals(List.of(IPermissionType.huy_phieu_nhap, IPermissionType.tao_phieu_nhap),
+                    service.layCauHinhPhanQuyen().getQuyenDaApDung(), "lần lỗi không được giữ lại");
+        }
+
+        @Test
         @DisplayName("Cập nhật mẫu: kiểm vai trò, kiểm id quyền, ghi lịch sử")
         void capNhatMau() {
             assertThrows(CommonException.class, () -> service.capNhatMauQuyen(IRoleType.quan_tri_vien, List.of(1)));
@@ -541,6 +558,18 @@ class PhanQuyenNguoiDungServiceImplTest {
             assertEquals(IHanhDong.cap_nhat_mau_quyen, l.getHanhDong());
             assertTrue(l.getGiaTriMoi().contains("[\"xem_ton_kho\",\"tao_phieu_nhap\"]"), l.getGiaTriMoi());
         }
+    }
+
+    /** Cho applicationContext trả ánh xạ gồm ba phương thức của BoDieuKhienGia. */
+    private void ganAnhXaGia() throws NoSuchMethodException {
+        RequestMappingHandlerMapping anhXa = mock(RequestMappingHandlerMapping.class);
+        BoDieuKhienGia gia = new BoDieuKhienGia();
+        Map<RequestMappingInfo, HandlerMethod> ds = new LinkedHashMap<>();
+        ds.put(RequestMappingInfo.paths("/a").build(), new HandlerMethod(gia, BoDieuKhienGia.class.getMethod("taoPhieuNhap")));
+        ds.put(RequestMappingInfo.paths("/b").build(), new HandlerMethod(gia, BoDieuKhienGia.class.getMethod("khongTrongKho")));
+        ds.put(RequestMappingInfo.paths("/c").build(), new HandlerMethod(gia, BoDieuKhienGia.class.getMethod("khongBaoVe")));
+        when(anhXa.getHandlerMethods()).thenReturn(ds);
+        when(applicationContext.getBean("requestMappingHandlerMapping", RequestMappingHandlerMapping.class)).thenReturn(anhXa);
     }
 
     /** Bộ điều khiển giả để kiểm việc quét @RequireAuth. */
@@ -791,10 +820,29 @@ class PhanQuyenNguoiDungServiceImplTest {
 
         @Test
         @DisplayName("Quyền của tôi kèm danh sách quyền có API kiểm (để ẩn quyền chưa có tác dụng)")
-        void quyenCuaToi_quyenDaApDung() {
+        void quyenCuaToi_quyenDaApDung() throws Exception {
             phanKhoSan(nhanVien, khoTong, List.of(1));
             dangNhap(nhanVien);
-            assertNotNull(service.layQuyenCuaToi().getQuyenDaApDung());
+            ganAnhXaGia();
+            assertEquals(List.of(IPermissionType.huy_phieu_nhap, IPermissionType.tao_phieu_nhap),
+                    service.layQuyenCuaToi().getQuyenDaApDung());
+        }
+
+        @Test
+        @DisplayName("Quyền của tôi khi không quét được: quyenDaApDung = null, phần còn lại vẫn trả về, lần sau quét lại")
+        void quyenCuaToi_quetLoi() throws Exception {
+            phanKhoSan(nhanVien, khoTong, List.of(1));
+            dangNhap(nhanVien);
+            when(applicationContext.getBean("requestMappingHandlerMapping", RequestMappingHandlerMapping.class))
+                    .thenThrow(new NoSuchBeanDefinitionException("requestMappingHandlerMapping"));
+            QuyenCuaToiDto q = service.layQuyenCuaToi();
+            assertNull(q.getQuyenDaApDung());
+            assertEquals(List.of(1), q.getQuyen().stream().map(QuyenHanDto::getId).toList());
+
+            reset(applicationContext);
+            ganAnhXaGia();
+            assertEquals(List.of(IPermissionType.huy_phieu_nhap, IPermissionType.tao_phieu_nhap),
+                    service.layQuyenCuaToi().getQuyenDaApDung());
         }
     }
 }
