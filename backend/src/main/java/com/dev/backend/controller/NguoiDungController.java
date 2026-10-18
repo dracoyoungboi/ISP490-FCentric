@@ -6,10 +6,12 @@ import com.dev.backend.dto.request.*;
 import com.dev.backend.dto.response.LoginResponse;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.entities.NguoiDungDto;
+import com.dev.backend.dto.response.phanquyen.QuyenCuaToiDto;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.NguoiDungMapper;
 import com.dev.backend.services.impl.entities.NguoiDungService;
+import com.dev.backend.services.multitable.PhanQuyenNguoiDungService;
 import com.dev.backend.utils.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -34,6 +36,9 @@ public class NguoiDungController {
     @Autowired
     private NguoiDungMapper nguoiDungMapper;
 
+    @Autowired
+    private PhanQuyenNguoiDungService phanQuyenNguoiDungService;
+
     // call api này để lấy danh sách người dùng quản lý kho(lấy dc thông tin danh sách kho mà user đó quản lý)
     @GetMapping("/get-by-id/{id}")
     @RequireAuth(roles = {IRoleType.all})
@@ -56,7 +61,7 @@ public class NguoiDungController {
         return nguoiDungService.login(loginRequest);
     }
 
-    //update thông tin người dùng
+    // cập nhật thông tin người dùng: email không đổi được; tên đăng nhập chỉ quản trị viên đổi
     @PutMapping("/update")
     @RequireAuth(roles = {IRoleType.all})
     public ResponseEntity<ResponseData<NguoiDungDto>> update(@Valid @RequestBody UpdateNguoiDungRequest request) {
@@ -68,6 +73,21 @@ public class NguoiDungController {
     @RequireAuth(roles = {IRoleType.all})
     public ResponseEntity<ResponseData<NguoiDungDto>> getMe() {
         return nguoiDungService.getMe();
+    }
+
+    // quyền của người đang đăng nhập (tab "Quyền của tôi" ở Hồ sơ): đọc từ CSDL, chỉ quyền đang bật
+    // tại kho đang hiệu lực, kèm cờ cần đăng nhập lại khi quyền đã đổi so với phiên hiện tại
+    @GetMapping("/me/quyen")
+    @RequireAuth(roles = {IRoleType.all})
+    public ResponseEntity<ResponseData<QuyenCuaToiDto>> getMyPermissions() {
+        return ResponseEntity.ok(
+                ResponseData.<QuyenCuaToiDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(phanQuyenNguoiDungService.layQuyenCuaToi())
+                        .message("Success")
+                        .error(null)
+                        .build()
+        );
     }
 
     // cập nhật thông tin người dùng đang đăng nhập (id lấy từ token)

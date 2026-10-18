@@ -1,10 +1,14 @@
 package com.dev.backend.config;
 
+import com.dev.backend.constant.variables.IRoleType;
+import com.dev.backend.dto.response.entities.ChiTietQuyenKhoDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
+import com.dev.backend.dto.response.entities.PhanQuyenNguoiDungKhoDto;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.exception.customize.AccountDisabledException;
 import com.dev.backend.exception.customize.SessionRevokedException;
 import com.dev.backend.repository.NguoiDungRepository;
+import com.dev.backend.repository.PhanQuyenNguoiDungKhoRepository;
 import com.dev.backend.services.JwtService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -12,6 +16,11 @@ import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
+
+import java.time.Instant;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 @Component
 public class AuthInterceptor implements HandlerInterceptor {
@@ -21,6 +30,11 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     @Autowired
     private NguoiDungRepository nguoiDungRepository;
+
+    @Autowired
+    private PhanQuyenNguoiDungKhoRepository phanQuyenNguoiDungKhoRepository;
+
+    static final String LOI_QUYEN_DA_DOI = "Quyền của bạn vừa được quản trị viên thay đổi. Vui lòng đăng nhập lại.";
 
     @Override
     public boolean preHandle(HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull Object handler) {
@@ -48,12 +62,62 @@ public class AuthInterceptor implements HandlerInterceptor {
                     SecurityContextHolder.clear();
                     throw new SessionRevokedException();
                 }
+                // Token mang vai trò và quyền lúc đăng nhập (sống 24 giờ). Đổi vai trò, đổi/thu hồi kho, bỏ quyền
+                // hoặc hết hạn hiệu lực thì token cũ không được dùng tiếp: buộc đăng nhập lại ngay ở request kế tiếp.
+                // Quyền vừa được CẤP THÊM không làm thu hồi phiên (người dùng đăng nhập lại khi muốn dùng).
+                List<Object[]> khoVaQuyen = IRoleType.quan_tri_vien.equals(nguoiDung.getVaiTro()) ? List.of()
+                        : phanQuyenNguoiDungKhoRepository.layKhoVaQuyenHieuLuc(nguoiDung.getId(), Instant.now());
+                if (tokenVuotQuyenHienTai(nguoiDungAuthInfo, nguoiDung.getVaiTro(), khoVaQuyen)) {
+                    SecurityContextHolder.clear();
+                    throw new SessionRevokedException(LOI_QUYEN_DA_DOI);
+                }
             }
         }
         if (khoId != null) {
             SecurityContextHolder.setKhoId(Integer.parseInt(khoId));
         }
         return true;
+    }
+
+    /**
+     * Token có vai trò khác CSDL, hoặc có kho / quyền (đang bật) mà CSDL không còn cho phép.
+     *
+     * @param khoVaQuyenCsdl các dòng {khoId, maQuyen} của phân quyền kho đang hiệu lực (maQuyen null = kho chưa có quyền)
+     */
+    static boolean tokenVuotQuyenHienTai(NguoiDungAuthInfo token, String vaiTroCsdl, List<Object[]> khoVaQuyenCsdl) {
+        Set<String> vaiTroToken = token.getVaiTro() == null ? Set.of() : token.getVaiTro();
+        if (vaiTroCsdl == null || vaiTroToken.size() != 1 || !vaiTroToken.contains(vaiTroCsdl)) {
+            return true;
+        }
+        if (IRoleType.quan_tri_vien.equals(vaiTroCsdl) || token.getPhanQuyenNguoiDungKhos() == null) {
+            return false;
+        }
+        Set<Integer> khoCsdl = new HashSet<>();
+        Set<String> quyenCsdl = new HashSet<>();
+        for (Object[] dong : khoVaQuyenCsdl) {
+            if (dong == null || dong.length < 2 || dong[0] == null) continue;
+            Integer khoId = ((Number) dong[0]).intValue();
+            khoCsdl.add(khoId);
+            if (dong[1] != null) {
+                quyenCsdl.add(khoId + ":" + dong[1]);
+            }
+        }
+        for (PhanQuyenNguoiDungKhoDto pq : token.getPhanQuyenNguoiDungKhos()) {
+            if (pq == null || pq.getKho() == null || pq.getKho().getId() == null) continue;
+            Integer khoId = pq.getKho().getId();
+            if (!khoCsdl.contains(khoId)) {
+                return true;
+            }
+            if (pq.getChiTietQuyenKhos() == null) continue;
+            for (ChiTietQuyenKhoDto ct : pq.getChiTietQuyenKhos()) {
+                if (ct == null || !Integer.valueOf(1).equals(ct.getTrangThai()) || ct.getQuyenHan() == null
+                        || ct.getQuyenHan().getMaQuyen() == null) continue;
+                if (!quyenCsdl.contains(khoId + ":" + ct.getQuyenHan().getMaQuyen())) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @Override

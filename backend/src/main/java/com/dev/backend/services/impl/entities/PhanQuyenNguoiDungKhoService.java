@@ -32,6 +32,11 @@ public class PhanQuyenNguoiDungKhoService extends BaseServiceImpl<PhanQuyenNguoi
         return phanQuyenNguoiDungKhoRepository.findByNguoiDungIdAndActive(id);
     }
 
+    /** Phân quyền đang hoạt động, chưa hết hạn, kể cả chưa tới ngày bắt đầu (quy tắc tối đa một kho). */
+    public List<PhanQuyenNguoiDungKho> findGiuChoByNguoiDungId(Integer id) {
+        return phanQuyenNguoiDungKhoRepository.findGiuChoByNguoiDungId(id, java.time.Instant.now());
+    }
+
     public Optional<PhanQuyenNguoiDungKho> findByNguoiDungIdAndKhoId(Integer nguoiDungId, Integer khoId) {
         return phanQuyenNguoiDungKhoRepository.findByNguoiDungIdAndKhoId(nguoiDungId, khoId);
     }

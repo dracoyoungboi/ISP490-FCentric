@@ -4,17 +4,22 @@ import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.AdminUpdateRequest;
 import com.dev.backend.dto.request.BaseFilterRequest;
+import com.dev.backend.dto.request.LuuPhanQuyenRequest;
 import com.dev.backend.dto.request.NguoiDungCreating;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.entities.NguoiDungDto;
+import com.dev.backend.dto.response.phanquyen.LichSuPhanQuyenDto;
 import com.dev.backend.mapper.NguoiDungMapper;
 import com.dev.backend.services.impl.entities.NguoiDungService;
+import com.dev.backend.services.multitable.PhanQuyenNguoiDungService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/admin/")
@@ -23,9 +28,13 @@ public class AdminController {
 
     private final NguoiDungMapper nguoiDungMapper;
 
-    public AdminController(NguoiDungService nguoiDungService, NguoiDungMapper nguoiDungMapper) {
+    private final PhanQuyenNguoiDungService phanQuyenNguoiDungService;
+
+    public AdminController(NguoiDungService nguoiDungService, NguoiDungMapper nguoiDungMapper,
+                           PhanQuyenNguoiDungService phanQuyenNguoiDungService) {
         this.nguoiDungService = nguoiDungService;
         this.nguoiDungMapper = nguoiDungMapper;
+        this.phanQuyenNguoiDungService = phanQuyenNguoiDungService;
     }
 
     @PostMapping("/filter")
@@ -150,6 +159,41 @@ public class AdminController {
                         .status(HttpStatus.OK.value())
                         .message("Đã cấp mật khẩu ngẫu nhiên cho người dùng")
                         .error(null)
+                        .build()
+        );
+    }
+
+    // Lưu phân quyền trong một lần (ngăn kéo Phân quyền ở trang chi tiết): vai trò, kho, hạn hiệu lực
+    // và TẬP QUYỀN ĐẦY ĐỦ tại kho. Quyền không có trong danh sách bị thu hồi. Trả về chi tiết mới nhất.
+    @PutMapping("/users/{id}/phan-quyen")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    public ResponseEntity<ResponseData<NguoiDungDto>> luuPhanQuyen(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Integer id,
+            @RequestBody LuuPhanQuyenRequest request
+    ) {
+        phanQuyenNguoiDungService.luuPhanQuyen(id, request);
+        return ResponseEntity.ok(
+                ResponseData.<NguoiDungDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(nguoiDungMapper.toDto(nguoiDungService.getDetailByAdmin(id)))
+                        .message("Đã lưu phân quyền")
+                        .build()
+        );
+    }
+
+    // Lịch sử phân quyền của người dùng (đổi vai trò, kho, quyền), mới nhất trước
+    @GetMapping("/users/{id}/lich-su-phan-quyen")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    public ResponseEntity<ResponseData<List<LichSuPhanQuyenDto>>> layLichSuPhanQuyen(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Integer id
+    ) {
+        return ResponseEntity.ok(
+                ResponseData.<List<LichSuPhanQuyenDto>>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(phanQuyenNguoiDungService.layLichSuPhanQuyen(id))
+                        .message("Success")
                         .build()
         );
     }

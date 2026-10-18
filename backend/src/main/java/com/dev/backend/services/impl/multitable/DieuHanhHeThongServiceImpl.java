@@ -33,9 +33,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @Slf4j
@@ -115,8 +118,9 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
 
         // Quy định nghiệp vụ: mỗi người dùng chỉ được có TỐI ĐA 1 phân quyền kho đang hoạt động.
         // Chỉ cho phép khi toàn bộ phân quyền đang hoạt động hiện có đều thuộc đúng kho đang gán.
+        // Tính cả phân quyền hẹn ngày bắt đầu ở tương lai, để tới ngày không thành hai kho
         List<PhanQuyenNguoiDungKho> activeAssignments = phanQuyenNguoiDungKhoService
-                .findByNguoiDungIdAndActive(pqndkCreating.getNguoiDungId());
+                .findGiuChoByNguoiDungId(pqndkCreating.getNguoiDungId());
         if (activeAssignments != null && !activeAssignments.isEmpty()) {
             boolean allSameKho = activeAssignments.stream()
                     .allMatch(pq -> pq.getKho() != null
@@ -240,6 +244,49 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
         }
 
 
+        // Danh sách gửi lên là TẬP QUYỀN ĐẦY ĐỦ của kho này: quyền đang bật mà không có trong danh sách
+        // thì thu hồi (trang_thai = 0) và ghi lịch sử. Trước đây popup bỏ tick nhưng quyền vẫn còn (lỗi B1).
+        if (!firstTimeInWorkSpace && phanQuyenNguoiDungKho.getChiTietQuyenKhos() != null) {
+            Set<Integer> idGuiLen = new HashSet<>();
+            for (ChiTietQuyenKhoCreating ct : pqndkCreating.getChiTietQuyenKhos()) {
+                idGuiLen.add(ct.getQuyenHanId());
+            }
+            for (ChiTietQuyenKho dangCo : new ArrayList<>(phanQuyenNguoiDungKho.getChiTietQuyenKhos())) {
+                boolean conTrongDanhSach = idGuiLen.contains(dangCo.getQuyenHan().getId());
+                if (conTrongDanhSach || !Integer.valueOf(1).equals(dangCo.getTrangThai())) {
+                    continue;
+                }
+                String cu;
+                String moi;
+                try {
+                    cu = objectMapper.writeValueAsString(chiTietQuyenKhoMapper.toDto(dangCo));
+                } catch (JsonProcessingException e) {
+                    cu = "error when parse";
+                }
+                dangCo.setTrangThai(0);
+                dangCo = chiTietQuyenKhoService.update(dangCo.getId(), dangCo);
+                try {
+                    moi = objectMapper.writeValueAsString(
+                            Map.of("quyenHanId", dangCo.getQuyenHan().getId(), "trangThai", 0));
+                } catch (JsonProcessingException e) {
+                    moi = "error when parse";
+                }
+                lichSuThayDoiService.create(
+                        LichSuThayDoi.builder()
+                                .loaiThamChieu(ITable.nguoi_dung)
+                                .idThamChieu(nguoiDung.getId())
+                                .kho(findingKho.get())
+                                .hanhDong(IHanhDong.thu_hoi_quyen)
+                                .giaTriCu(cu)
+                                .giaTriMoi(moi)
+                                .nguoiThucHien(findingCurrentUser.get())
+                                .ngayThucHien(now)
+                                .ghiChu("Thu hồi quyen_han id " + dangCo.getQuyenHan().getId()
+                                        + " của " + ITable.nguoi_dung + " id: " + nguoiDung.getId())
+                                .build()
+                );
+            }
+        }
         String giaTriMoiJson;
 
         nguoiDung = nguoiDungService.update(nguoiDung.getId(), nguoiDung);

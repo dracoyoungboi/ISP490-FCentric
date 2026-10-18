@@ -9,7 +9,10 @@ public interface IHanhDong {
             cap_nhat_quyen = "cap_nhat_quyen",
             them_kho = "them_kho",
             xoa_kho = "xoa_kho",
-            nang_cap_chuc_vu = "nang_cap_chuc_vu";
+            nang_cap_chuc_vu = "nang_cap_chuc_vu",
+            // Một lần lưu ở ngăn kéo Phân quyền (vai trò + kho + tập quyền), giá trị cũ/mới là ảnh chụp JSON
+            cap_nhat_phan_quyen = "cap_nhat_phan_quyen",
+            cap_nhat_mau_quyen = "cap_nhat_mau_quyen";
     //Sản phẩm
     String
             cap_nhat_san_pham = "cap_nhat_san_pham",

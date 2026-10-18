@@ -4,23 +4,21 @@ import com.dev.backend.constant.variables.IPermissionType;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.CauHinhHeThongBulkUpdateRequest;
+import com.dev.backend.dto.request.CapNhatMauQuyenRequest;
 import com.dev.backend.dto.request.CauHinhHeThongUpdateRequest;
 import com.dev.backend.dto.request.GanVaiTro;
 import com.dev.backend.dto.request.PhanQuyenNguoiDungKhoCreating;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.entities.CauHinhHeThongDto;
 import com.dev.backend.dto.response.entities.QuyenHanDto;
-import com.dev.backend.entities.NguoiDung;
-import com.dev.backend.entities.PhanQuyenNguoiDungKho;
+import com.dev.backend.dto.response.phanquyen.CauHinhPhanQuyenDto;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.QuyenHanMapper;
-import com.dev.backend.services.impl.entities.NguoiDungService;
-import com.dev.backend.services.impl.entities.PhanQuyenNguoiDungKhoService;
 import com.dev.backend.services.impl.entities.QuyenHanService;
 import com.dev.backend.services.multitable.DieuHanhHeThongService;
+import com.dev.backend.services.multitable.PhanQuyenNguoiDungService;
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -39,13 +37,10 @@ class DieuHanhHeThongController {
     private DieuHanhHeThongService dieuHanhHeThongService;
 
     @Autowired
-    private PhanQuyenNguoiDungKhoService phanQuyenNguoiDungKhoService;
-
-    @Autowired
     private QuyenHanMapper quyenHanMapper;
 
     @Autowired
-    private NguoiDungService nguoiDungService;
+    private PhanQuyenNguoiDungService phanQuyenNguoiDungService;
 
 
     //Lấy danh sách quyền hạn trong hệ thống
@@ -64,7 +59,8 @@ class DieuHanhHeThongController {
         );
     }
 
-    // Gán quyền cho một user trong hệ thống vào một kho nào đó
+    // Gán quyền cho một user trong hệ thống vào một kho nào đó (luồng cũ; giao diện dùng PUT /admin/users/{id}/phan-quyen).
+    // Quản lý kho có quyền cap_quyen_nhan_vien chỉ phân được nhân viên trong kho đang chọn, không vượt quyền của mình.
     @PostMapping("/quyen-han/gan-quyen")
     @RequireAuth(
             roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
@@ -73,12 +69,13 @@ class DieuHanhHeThongController {
             permissionsLogic = RequireAuth.LogicType.OR
     )
     public ResponseEntity<ResponseData<String>> ganQuyenNhanVienKho(
+            @RequestHeader(value = "kho_id", required = false) Integer khoIdDangChon,
             @RequestBody PhanQuyenNguoiDungKhoCreating pqndkCreating) {
-
+        phanQuyenNguoiDungService.kiemTraGanQuyenCu(khoIdDangChon, pqndkCreating);
         return dieuHanhHeThongService.ganQuyenNhanVienKho(pqndkCreating);
     }
 
-    //xoá quyền hạn của 1 user nào đó
+    // Thu hồi phân quyền kho của 1 user (không xóa hẳn, có ghi lịch sử)
     @DeleteMapping("/quyen-han/xoa-quyen/{id}")
     @RequireAuth(
             roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
@@ -87,13 +84,10 @@ class DieuHanhHeThongController {
             permissionsLogic = RequireAuth.LogicType.OR
     )
     public ResponseEntity<ResponseData<String>> xoaQuyenNhanVienKho(
+            @RequestHeader(value = "kho_id", required = false) Integer khoIdDangChon,
             @PathVariable Integer id
     ){
-        PhanQuyenNguoiDungKho phanQuyenNguoiDungKho = phanQuyenNguoiDungKhoService.getOne(id).orElseThrow(
-                () -> new CommonException("Không tìm thấy phân quyền người dùng kho id: " + id)
-        );
-
-        phanQuyenNguoiDungKhoService.delete(phanQuyenNguoiDungKho.getId());
+        phanQuyenNguoiDungService.thuHoiPhanQuyenKhoTheoId(id, khoIdDangChon);
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
@@ -112,15 +106,41 @@ class DieuHanhHeThongController {
         if (ganVaiTro == null || ganVaiTro.getId() == null || ganVaiTro.getVaiTro() == null || ganVaiTro.getVaiTro().isBlank()) {
             throw new CommonException("Thông tin gán vai trò không hợp lệ");
         }
-        NguoiDung nguoiDung = nguoiDungService.getOne(ganVaiTro.getId()).orElseThrow(
-                () -> new CommonException("Không tìm thấy người dùng id: " + ganVaiTro.getId())
-        );
-        nguoiDung.setVaiTro(ganVaiTro.getVaiTro());
-        nguoiDungService.update(ganVaiTro.getId(), nguoiDung);
+        // Cùng luồng với ngăn kéo Phân quyền: chặn tự đổi, vai trò không dùng kho thì thu hồi kho, ghi lịch sử
+        phanQuyenNguoiDungService.doiVaiTro(ganVaiTro.getId(), ganVaiTro.getVaiTro());
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
                         .message("Success")
+                        .build()
+        );
+    }
+
+    // Cấu hình cho ngăn kéo Phân quyền: mẫu quyền theo vai trò, quyền nhạy cảm, quyền máy chủ đang kiểm
+    @GetMapping("/phan-quyen/cau-hinh")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    public ResponseEntity<ResponseData<CauHinhPhanQuyenDto>> layCauHinhPhanQuyen() {
+        return ResponseEntity.ok(
+                ResponseData.<CauHinhPhanQuyenDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(phanQuyenNguoiDungService.layCauHinhPhanQuyen())
+                        .message("Success")
+                        .build()
+        );
+    }
+
+    // Thay mẫu quyền của một vai trò (quản lý kho, nhân viên kho, nhân viên mua hàng, nhân viên bán hàng)
+    @PutMapping("/phan-quyen/mau-quyen/{vaiTro}")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    public ResponseEntity<ResponseData<CauHinhPhanQuyenDto>> capNhatMauQuyen(
+            @PathVariable String vaiTro,
+            @RequestBody CapNhatMauQuyenRequest request) {
+        phanQuyenNguoiDungService.capNhatMauQuyen(vaiTro, request == null ? null : request.getQuyenHanIds());
+        return ResponseEntity.ok(
+                ResponseData.<CauHinhPhanQuyenDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(phanQuyenNguoiDungService.layCauHinhPhanQuyen())
+                        .message("Đã lưu mẫu quyền")
                         .build()
         );
     }

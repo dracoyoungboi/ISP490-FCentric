@@ -20,12 +20,14 @@ import java.util.List;
 public interface PhanQuyenNguoiDungKhoMapper {
     @Mapping(target = "nguoiDung", ignore = true)
     @Mapping(target = "nguoiCapQuyen", ignore = true)
+    // Chỉ lấy họ tên người cấp (hiện ở trang chi tiết người dùng), không nhúng cả hồ sơ vào token
+    @Mapping(target = "tenNguoiCapQuyen", source = "nguoiCapQuyen.hoTen")
     @Mapping(target = "kho.quanLy", ignore = true)
     PhanQuyenNguoiDungKhoDto toDto(PhanQuyenNguoiDungKho phanQuyenNguoiDungKho);
 
-    // Người cấp quyền chỉ cần thông tin cơ bản: avatar và kho đang phụ trách không áp dụng ở ngữ cảnh này.
-    @Mapping(target = "nguoiCap.avatarUrl", ignore = true)
-    @Mapping(target = "nguoiCap.khoPhuTrachActive", ignore = true)
+    // Danh sách này đi vào token đăng nhập (mỗi quyền một phần tử): bỏ người cấp để token không phình to.
+    // Ai cấp, lúc nào đã có trong lịch sử phân quyền.
+    @Mapping(target = "nguoiCap", ignore = true)
     ChiTietQuyenKhoDto toChiTietQuyenKhoDto(ChiTietQuyenKho chiTietQuyenKho);
 
 

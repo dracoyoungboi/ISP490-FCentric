@@ -33,6 +33,8 @@ public class PhanQuyenNguoiDungKhoDto implements Serializable {
     @JsonFormat(shape = JsonFormat.Shape.STRING)
     Instant ngayKetThuc;
     NguoiDungDto nguoiCapQuyen;
+    // Họ tên người cấp phân quyền kho (nguoiCapQuyen không được map để token gọn)
+    String tenNguoiCapQuyen;
     String ghiChu;
     Instant ngayTao;
     Instant ngayCapNhat;

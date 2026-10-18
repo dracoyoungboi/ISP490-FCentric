@@ -245,13 +245,12 @@ public class JwtServiceImpl implements JwtService {
 
     @Override
     public boolean hasAllRoles(NguoiDungAuthInfo nguoiDungAuthInfo, String... roles) {
-
         for (String role : roles) {
             if (!nguoiDungAuthInfo.getVaiTro().contains(role)) {
                 return false;
             }
         }
-        return false;
+        return true;
     }
 
     @Override
@@ -266,39 +265,28 @@ public class JwtServiceImpl implements JwtService {
         return false;
     }
 
-    @Override
-    public boolean hasAnyPermissionInWorkSpace(Integer workspaceId, NguoiDungAuthInfo nguoiDungAuthInfo, String... permissions) {
-        for (String permission : permissions) {
-            for (PhanQuyenNguoiDungKhoDto phanQuyenNguoiDungKhoDto : nguoiDungAuthInfo.getPhanQuyenNguoiDungKhos()) {
-                if (phanQuyenNguoiDungKhoDto.getKho().getId().equals(workspaceId)) {
-                    return phanQuyenNguoiDungKhoDto.getChiTietQuyenKhos().stream().anyMatch(
-                            chiTietQuyenKho ->
-                                    chiTietQuyenKho.getQuyenHan().getMaQuyen().equals(permission));
-                }
-            }
+    /** Mã các quyền CÒN HIỆU LỰC (trang_thai = 1) của người dùng tại một kho. */
+    private Set<String> quyenConHieuLucTaiKho(Integer workspaceId, NguoiDungAuthInfo nguoiDungAuthInfo) {
+        Set<String> ketQua = new java.util.HashSet<>();
+        if (nguoiDungAuthInfo.getPhanQuyenNguoiDungKhos() == null) return ketQua;
+        for (PhanQuyenNguoiDungKhoDto pq : nguoiDungAuthInfo.getPhanQuyenNguoiDungKhos()) {
+            if (pq.getKho() == null || !pq.getKho().getId().equals(workspaceId) || pq.getChiTietQuyenKhos() == null) continue;
+            pq.getChiTietQuyenKhos().stream()
+                    .filter(ct -> Integer.valueOf(1).equals(ct.getTrangThai()))
+                    .forEach(ct -> ketQua.add(ct.getQuyenHan().getMaQuyen()));
         }
-        return false;
+        return ketQua;
     }
 
     @Override
-    public boolean hasAllPermissionsInWorkSpace(
-            Integer workspaceId,
-            NguoiDungAuthInfo nguoiDungAuthInfo,
-            String... permissions) {
+    public boolean hasAnyPermissionInWorkSpace(Integer workspaceId, NguoiDungAuthInfo nguoiDungAuthInfo, String... permissions) {
+        Set<String> co = quyenConHieuLucTaiKho(workspaceId, nguoiDungAuthInfo);
+        return Arrays.stream(permissions).anyMatch(co::contains);
+    }
 
-        return nguoiDungAuthInfo.getPhanQuyenNguoiDungKhos()
-                .stream()
-                .filter(dto -> dto.getKho().getId().equals(workspaceId))
-                .findFirst()
-                .map(dto -> {
-                    Set<String> userPermissions = dto.getChiTietQuyenKhos()
-                            .stream()
-                            .map(p -> p.getQuyenHan().getMaQuyen())
-                            .collect(java.util.stream.Collectors.toSet());
-
-                    return java.util.Arrays.stream(permissions)
-                            .allMatch(userPermissions::contains);
-                })
-                .orElse(false);
+    @Override
+    public boolean hasAllPermissionsInWorkSpace(Integer workspaceId, NguoiDungAuthInfo nguoiDungAuthInfo, String... permissions) {
+        Set<String> co = quyenConHieuLucTaiKho(workspaceId, nguoiDungAuthInfo);
+        return permissions.length > 0 && Arrays.stream(permissions).allMatch(co::contains);
     }
 }
