@@ -17,7 +17,7 @@ import {
     DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-    PackagePlus, Warehouse, RefreshCw, ShieldAlert,
+    PackagePlus, Warehouse, ShieldAlert,
     ChevronDown, Check, SearchX,
 } from "lucide-react";
 
@@ -35,6 +35,7 @@ import ErrorState from "@/components/shared/ErrorState";
 import SearchInput from "@/components/shared/SearchInput";
 
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
+import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
 import apiClient from "@/services/apiClient";
 import { thongKeHeThongService } from "@/services/thongKeHeThongService";
 import { laKhoGiaoDich } from "@/utils/kho";
@@ -222,10 +223,11 @@ export default function TonKhoTongQuan() {
     }, [userId]);
 
     // STEP 2 — gọi API getTonKhoTongQuan
-    const loadTonKho = useCallback(async ({ khoId, kw } = {}) => {
+    // silent: tải lại ngầm (nút ⟳ / quay lại tab) — giữ bảng đang xem; lỗi thì ném ra cho chân bảng báo
+    const loadTonKho = useCallback(async ({ khoId, kw, silent = false } = {}) => {
         // Đổi kho liên tiếp có thể chạy 2 yêu cầu cùng lúc: chỉ nhận kết quả của yêu cầu mới nhất
         const requestId = ++requestIdRef.current;
-        setLoading(true);
+        if (!silent) setLoading(true);
         try {
             const params = {};
             if (khoId) params.khoId = khoId;
@@ -240,6 +242,7 @@ export default function TonKhoTongQuan() {
             setHasLoaded(true);
         } catch (err) {
             if (requestId !== requestIdRef.current) return;
+            if (silent) throw err;
             const message = err?.response?.data?.message ?? "Không thể tải dữ liệu tồn kho";
             // Không giữ dòng + tổng của lần tải trước (R9)
             setData([]);
@@ -283,10 +286,22 @@ export default function TonKhoTongQuan() {
         loadTonKho({ khoId: numId ?? undefined, kw: keyword.trim() || undefined });
     };
 
-    // Nút Làm mới / Thử lại: tải lại đúng kho + từ khóa đang chọn (như nút Làm mới cũ)
+    // Nút Thử lại: tải lại đúng kho + từ khóa đang chọn
     const handleRefresh = () => {
         loadTonKho({ khoId: selectedKhoId ?? undefined, kw: keyword.trim() || undefined });
     };
+
+    // Nút ⟳ ở chân bảng + tự tải lại khi quay lại tab: tồn đổi theo từng lần bán POS, nhập, xuất.
+    // Tải lại đúng kho đang xem + từ khóa đã áp dụng (không lấy chữ đang gõ dở trong ô tìm).
+    const capNhat = useTaiLaiDanhSach({
+        duLieu: data,
+        taiNgam: () => loadTonKho({
+            khoId: selectedKhoId ?? (khoList.length === 1 ? khoList[0].id : undefined),
+            kw: tuKhoaDaApDung || undefined,
+            silent: true,
+        }),
+        bat: !loading && hasLoaded,
+    });
 
     // "Xóa lọc": bỏ từ khóa, giữ kho và tab tình trạng đang chọn
     const handleClearFilters = () => {
@@ -301,7 +316,7 @@ export default function TonKhoTongQuan() {
     // Filter phía client
     const filteredData = data.filter(item => khopTab(item, trangThaiFilter));
 
-    // Cắt trang tại chỗ; trang đang xem vượt quá số trang (đổi tab qua đường dẫn, Làm mới ít dòng hơn) thì về trang cuối
+    // Cắt trang tại chỗ; trang đang xem vượt quá số trang (đổi tab qua đường dẫn, tải lại ít dòng hơn) thì về trang cuối
     const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
     const safePage = Math.min(page, totalPages - 1);
     const pageItems = filteredData.slice(safePage * pageSize, (safePage + 1) * pageSize);
@@ -380,19 +395,7 @@ export default function TonKhoTongQuan() {
 
     return (
         <PageContainer fill className="space-y-4">
-            <ListPageHeader
-                scope={scopeNote}
-                actions={
-                    <Button
-                        variant="outline"
-                        disabled={loading}
-                        onClick={handleRefresh}
-                        className="gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                    >
-                        <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} /> Làm mới
-                    </Button>
-                }
-            />
+            <ListPageHeader scope={scopeNote} />
 
             {/* ── Bảng dữ liệu: tab tình trạng + kho + tìm kiếm cùng một hàng ── */}
             <TableShell
@@ -463,48 +466,50 @@ export default function TonKhoTongQuan() {
                         />
                     </ListToolbar>
                 }
-                footer={!loading && !loadError && hasLoaded && filteredData.length > 0 ? (
+                footer={!loading && !loadError && hasLoaded ? (
                     <div className="flex flex-col gap-3">
                         {/* Dòng tổng: cộng mọi dòng của tab đang chọn (không chỉ trang đang xem) */}
-                        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                            <SummaryItem
-                                label="Tổng tồn kho"
-                                value={formatNumber(filteredData.reduce((s, i) => s + Number(i.onHand ?? i.tongSoLuongKhaDung ?? 0), 0))}
-                            />
-                            <Divider />
-                            <SummaryItem
-                                label="Đang về"
-                                value={formatNumber(filteredData.reduce((s, i) => s + Number(i.incoming ?? i.tongSoLuongChoNhan ?? 0), 0))}
-                                valueClass="text-bo-primary"
-                            />
-                            <Divider />
-                            <SummaryItem
-                                label="Đang xuất"
-                                value={formatNumber(filteredData.reduce((s, i) => s + Number(i.outgoing ?? i.tongSoLuongChoDuaHang ?? 0), 0))}
-                                valueClass="text-bo-warning"
-                            />
-                            <Divider />
-                            <SummaryItem
-                                label="Tổng giá trị tồn"
-                                value={formatCurrency(filteredData.reduce((s, i) => s + Number(i.tongGiaTri ?? i.giaTriTonKho ?? 0), 0))}
-                                valueClass="text-bo-success"
-                            />
-                            <Divider />
-                            <SummaryItem
-                                label="Cảnh báo (hết / sắp hết)"
-                                value={`${filteredData.filter(i => ["het_hang", "thieu_hang"].includes(trangThaiTon(i))).length} SKU`}
-                                valueClass="text-bo-danger"
-                            />
-                            {multiKho && (
-                                <>
-                                    <Divider />
-                                    <SummaryItem
-                                        label="Số lượng kho"
-                                        value={`${new Set(filteredData.map(i => i.khoId)).size} kho`}
-                                    />
-                                </>
-                            )}
-                        </div>
+                        {filteredData.length > 0 ? (
+                            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                                <SummaryItem
+                                    label="Tổng tồn kho"
+                                    value={formatNumber(filteredData.reduce((s, i) => s + Number(i.onHand ?? i.tongSoLuongKhaDung ?? 0), 0))}
+                                />
+                                <Divider />
+                                <SummaryItem
+                                    label="Đang về"
+                                    value={formatNumber(filteredData.reduce((s, i) => s + Number(i.incoming ?? i.tongSoLuongChoNhan ?? 0), 0))}
+                                    valueClass="text-bo-primary"
+                                />
+                                <Divider />
+                                <SummaryItem
+                                    label="Đang xuất"
+                                    value={formatNumber(filteredData.reduce((s, i) => s + Number(i.outgoing ?? i.tongSoLuongChoDuaHang ?? 0), 0))}
+                                    valueClass="text-bo-warning"
+                                />
+                                <Divider />
+                                <SummaryItem
+                                    label="Tổng giá trị tồn"
+                                    value={formatCurrency(filteredData.reduce((s, i) => s + Number(i.tongGiaTri ?? i.giaTriTonKho ?? 0), 0))}
+                                    valueClass="text-bo-success"
+                                />
+                                <Divider />
+                                <SummaryItem
+                                    label="Cảnh báo (hết / sắp hết)"
+                                    value={`${filteredData.filter(i => ["het_hang", "thieu_hang"].includes(trangThaiTon(i))).length} SKU`}
+                                    valueClass="text-bo-danger"
+                                />
+                                {multiKho && (
+                                    <>
+                                        <Divider />
+                                        <SummaryItem
+                                            label="Số lượng kho"
+                                            value={`${new Set(filteredData.map(i => i.khoId)).size} kho`}
+                                        />
+                                    </>
+                                )}
+                            </div>
+                        ) : null}
 
                         <TablePagination
                             page={safePage}
@@ -512,6 +517,7 @@ export default function TonKhoTongQuan() {
                             total={filteredData.length}
                             onPageChange={setPage}
                             onSizeChange={(size) => { setPageSize(size); setPage(0); }}
+                            capNhat={capNhat}
                         />
                     </div>
                 ) : null}
@@ -527,7 +533,16 @@ export default function TonKhoTongQuan() {
                     <EmptyState
                         icon={Warehouse}
                         title="Chưa có dữ liệu tồn kho"
-                        description="Chọn kho hoặc bấm Làm mới để tải dữ liệu."
+                        description="Chọn kho hoặc bấm Tải dữ liệu để xem tồn kho."
+                        action={
+                            <Button
+                                variant="outline"
+                                onClick={handleRefresh}
+                                className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                            >
+                                Tải dữ liệu
+                            </Button>
+                        }
                     />
                 ) : filteredData.length === 0 ? (
                     tuKhoaDaApDung ? (

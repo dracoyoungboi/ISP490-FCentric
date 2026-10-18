@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
+import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
 import { nguoiDungService } from "@/services/nguoiDungService";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
 import {
@@ -94,7 +95,8 @@ async function demPhieu(filters) {
 export default function PhieuNhapKhoList() {
   const navigate = useNavigate();
   const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(false);
+  // Trang tải ngay khi mở: bắt đầu ở trạng thái đang tải để không nháy ô "chưa có phiếu"
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [total, setTotal] = useState(0);
   const requestIdRef = useRef(0);
@@ -136,10 +138,11 @@ export default function PhieuNhapKhoList() {
     return () => { huy = true; };
   }, []);
 
-  const fetchData = useCallback(async () => {
+  // silent: tải lại ngầm (nút ⟳ / quay lại tab) — giữ bảng đang xem; lỗi thì ném ra cho chân bảng báo
+  const fetchData = useCallback(async ({ silent = false } = {}) => {
     // Đổi tab / bộ lọc liên tiếp có thể chạy 2 yêu cầu cùng lúc: chỉ nhận kết quả của yêu cầu mới nhất
     const requestId = ++requestIdRef.current;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const res = await phieuNhapKhoService.filter(buildFilterPayload({ ...filters, trangThai: tabTrangThai }));
       if (requestId !== requestIdRef.current) return;
@@ -149,6 +152,7 @@ export default function PhieuNhapKhoList() {
     } catch (err) {
       if (requestId !== requestIdRef.current) return;
       console.error("Lỗi tải danh sách phiếu nhập:", err);
+      if (silent) throw err;
       // Không giữ dòng + tổng số của lần tải trước (R9)
       setLoadError(true);
       setData([]);
@@ -205,6 +209,17 @@ export default function PhieuNhapKhoList() {
     tabCounts.reload();
     choNhapKho.reload();
   };
+
+  // Nút ⟳ ở chân bảng + tự tải lại khi quay lại tab: kiểm đếm, QC, xác nhận nhập do nhân viên kho làm
+  const capNhat = useTaiLaiDanhSach({
+    duLieu: data,
+    taiNgam: () => {
+      tabCounts.reload();
+      choNhapKho.reload();
+      return fetchData({ silent: true });
+    },
+    bat: !loading,
+  });
 
   // Số chỉ hiện khi đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs
   const statusTabs = GOODS_RECEIPT_TABS.map((t) => ({
@@ -285,13 +300,14 @@ export default function PhieuNhapKhoList() {
           </ListToolbar>
         }
         footer={
-          !loading && !loadError && data.length > 0 ? (
+          !loading && !loadError ? (
             <TablePagination
               page={filters.page}
               size={filters.size}
               total={total}
               onPageChange={(page) => setFilters(p => ({ ...p, page }))}
               onSizeChange={(size) => setFilters(p => ({ ...p, size, page: 0 }))}
+              capNhat={capNhat}
             />
           ) : null
         }

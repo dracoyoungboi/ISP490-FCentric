@@ -7,10 +7,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * - Trong lúc tải lại vẫn giữ `data` cũ để trang không nháy trắng; `loading` cho biết đang tải.
  * - `enabled = false`: chưa tải (vd. chưa đủ dữ liệu để dựng yêu cầu).
  * - `setData(fn)`: sửa dữ liệu tại chỗ sau một thao tác (vd. cập nhật một dòng của bảng).
+ * - `capNhatLuc`: thời điểm (Date) của lần tải thành công gần nhất.
+ * - `loiTaiLai`: lần tải gần nhất lỗi nhưng `data` đang giữ vẫn đúng `khoa` hiện tại (lỗi khi tải lại,
+ *   không phải khi đổi bộ lọc) — trang có thể giữ bảng cũ thay vì thay bằng ô báo lỗi.
  */
 export default function useTaiDuLieu(tai, khoa = "", { enabled = true } = {}) {
   const [lanTai, setLanTai] = useState(0);
-  const [ketQua, setKetQua] = useState({ khoa: null, data: undefined, error: null });
+  const [ketQua, setKetQua] = useState({ khoa: null, khoaDuLieu: null, data: undefined, error: null, luc: undefined });
   const taiRef = useRef(tai);
   useEffect(() => {
     taiRef.current = tai;
@@ -24,16 +27,16 @@ export default function useTaiDuLieu(tai, khoa = "", { enabled = true } = {}) {
       .then(() => taiRef.current())
       .then(
         (data) => {
-          if (!boQua) setKetQua({ khoa: khoaDayDu, data, error: null });
+          if (!boQua) setKetQua({ khoa: khoaDayDu, khoaDuLieu: khoa, data, error: null, luc: new Date() });
         },
         (error) => {
-          if (!boQua) setKetQua((cu) => ({ khoa: khoaDayDu, data: cu.data, error }));
+          if (!boQua) setKetQua((cu) => ({ ...cu, khoa: khoaDayDu, error }));
         },
       );
     return () => {
       boQua = true;
     };
-  }, [khoaDayDu, enabled]);
+  }, [khoaDayDu, khoa, enabled]);
 
   const reload = useCallback(() => setLanTai((n) => n + 1), []);
   const setData = useCallback((capNhat) => {
@@ -47,6 +50,8 @@ export default function useTaiDuLieu(tai, khoa = "", { enabled = true } = {}) {
     loading,
     /** Chưa có dữ liệu lần nào (lần tải đầu) */
     initialLoading: loading && ketQua.data === undefined,
+    capNhatLuc: ketQua.luc,
+    loiTaiLai: !loading && Boolean(ketQua.error) && ketQua.khoaDuLieu === khoa,
     reload,
     setData,
   };

@@ -22,6 +22,7 @@ import AssignPickerDialog from "@/components/outbound/AssignPickerDialog";
 import { Button } from "@/components/ui/button";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
+import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
 import { nhatHangService, isPickListMock } from "@/services/nhatHangService";
 import {
     PICK_LIST_EDITABLE, PICK_LIST_TABS, getPickListStatus,
@@ -73,11 +74,14 @@ export default function PickListList() {
         return () => window.clearTimeout(timer);
     }, [searchText]);
 
-    const fetchData = useCallback(async () => {
+    // silent: tải lại ngầm (nút ⟳ / quay lại tab) — giữ bảng đang xem; lỗi thì ném ra cho chân bảng báo
+    const fetchData = useCallback(async ({ silent = false } = {}) => {
         // Đổi tab / kho / từ khóa liên tiếp: chỉ nhận kết quả của yêu cầu mới nhất
         const requestId = ++requestIdRef.current;
-        setLoading(true);
-        setLoadError(false);
+        if (!silent) {
+            setLoading(true);
+            setLoadError(false);
+        }
         try {
             const res = await nhatHangService.getPickLists(buildParams({
                 khoId,
@@ -89,8 +93,10 @@ export default function PickListList() {
             if (requestId !== requestIdRef.current) return;
             setData(res?.content ?? []);
             setTotal(res?.totalElements ?? 0);
+            setLoadError(false);
         } catch (error) {
             if (requestId !== requestIdRef.current) return;
+            if (silent) throw error;
             // Không giữ dòng + tổng số của lần tải trước (R9)
             setData([]);
             setTotal(0);
@@ -143,6 +149,16 @@ export default function PickListList() {
         fetchData();
         tabCounts.reload();
     };
+
+    // Nút ⟳ ở chân bảng + tự tải lại khi quay lại tab: phân công và tiến độ nhặt do nhân viên kho khác cập nhật
+    const capNhat = useTaiLaiDanhSach({
+        duLieu: data,
+        taiNgam: () => {
+            tabCounts.reload();
+            return fetchData({ silent: true });
+        },
+        bat: !loading,
+    });
 
     const handleAssigned = (dto) => {
         if (!dto) return;
@@ -204,13 +220,14 @@ export default function PickListList() {
                     </ListToolbar>
                 }
                 footer={
-                    !loading && !loadError && data.length > 0 ? (
+                    !loading && !loadError ? (
                         <TablePagination
                             page={filters.page}
                             size={filters.size}
                             total={total}
                             onPageChange={(page) => setFilters((prev) => ({ ...prev, page }))}
                             onSizeChange={(size) => setFilters((prev) => ({ ...prev, size, page: 0 }))}
+                            capNhat={capNhat}
                         />
                     ) : null
                 }

@@ -21,6 +21,7 @@ import { toast } from '@/lib/thongBaoNhanh';
 import { khoService } from '@/services/khoService';
 import useDemTheoTrangThai from '@/hooks/useDemTheoTrangThai';
 import useTabTrenUrl from '@/hooks/useTabTrenUrl';
+import useTaiLaiKhiQuayLai from '@/hooks/useTaiLaiKhiQuayLai';
 import { hasAnyRole, ROLES } from '@/utils/roles';
 import {
     WarehouseDialog
@@ -107,14 +108,16 @@ export default function WarehouseManagement() {
     }, [searchInput]);
 
     /* ── Fetch warehouses ── */
+    // silent: tải lại ngầm khi quay lại tab — giữ bảng đang xem, lỗi chỉ ghi log
     const fetchWarehouses = useCallback(async (
         page = pagination.pageNumber,
         size = pagination.pageSize,
+        { silent = false } = {},
     ) => {
         // Đổi tab / từ khóa liên tiếp có thể chạy 2 yêu cầu cùng lúc: chỉ nhận kết quả của yêu cầu mới nhất
         const requestId = ++requestIdRef.current;
         try {
-            setIsLoading(true);
+            if (!silent) setIsLoading(true);
             const res = await khoService.filter(
                 buildPayload({ searchTerm, trangThai: tab, pageNumber: page, pageSize: size })
             );
@@ -144,6 +147,7 @@ export default function WarehouseManagement() {
         } catch (err) {
             if (requestId !== requestIdRef.current) return;
             console.error("Lỗi khi tải danh sách kho:", err);
+            if (silent) return;
             toast.error("Không thể tải danh sách kho");
             // Không giữ dòng + tổng số của lần tải trước (R9)
             setWarehouses([]);
@@ -216,6 +220,12 @@ export default function WarehouseManagement() {
         fetchWarehouses();
         reloadCounts();
     };
+
+    // Quay lại tab thì tải lại ngầm danh sách + số trên tab (không tải khi đang mở popup)
+    useTaiLaiKhiQuayLai(() => {
+        reloadCounts();
+        fetchWarehouses(pagination.pageNumber, pagination.pageSize, { silent: true });
+    }, { bat: !isLoading });
 
     /* ── Validation ── */
     const validateForm = () => {

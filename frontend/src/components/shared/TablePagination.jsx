@@ -6,14 +6,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import CapNhatLuc from "@/components/shared/CapNhatLuc";
 import { LUA_CHON_SO_DONG } from "@/constants/phanTrang";
-
 
 const soVN = (n) => Number(n || 0).toLocaleString("vi-VN");
 
 /**
  * Chân bảng phân trang dùng chung. `page` tính từ 0.
  * Truyền vào `footer` của TableShell; khi không có dòng nào thì trang tự ẩn (không truyền footer).
+ * Bảng phân trang theo đơn vị khác dòng (vd. theo sản phẩm) thì đổi `sizeLabel`, `totalLabel`;
+ * `totalNote` ghi thêm sau tổng số (vd. "49 SKU").
+ *
+ * `capNhat` (kết quả của useTaiLaiDanhSach): thêm "Cập nhật lúc HH:mm" + nút ⟳ cạnh dòng tổng số (PA1).
+ * Khi có `capNhat`, trang truyền footer cả lúc danh sách trống: chân bảng chỉ còn phần cập nhật,
+ * vì danh sách trống chính là lúc người dùng chờ dữ liệu mới.
  */
 export default function TablePagination({
   page,
@@ -22,8 +28,20 @@ export default function TablePagination({
   onPageChange,
   onSizeChange,
   sizeOptions = LUA_CHON_SO_DONG,
+  sizeLabel = "dòng",
+  totalLabel = "kết quả",
+  totalNote,
   extra,
+  capNhat,
 }) {
+  if (capNhat && total === 0) {
+    return (
+      <div className="flex justify-center">
+        <CapNhatLuc {...capNhat} />
+      </div>
+    );
+  }
+
   const totalPages = Math.max(1, Math.ceil(total / size));
   const from = total === 0 ? 0 : page * size + 1;
   const to = Math.min((page + 1) * size, total);
@@ -42,16 +60,16 @@ export default function TablePagination({
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
-                aria-label="Số dòng mỗi trang"
-                className="h-8 w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
+                aria-label={`Số ${sizeLabel} mỗi trang`}
+                className="h-8 w-auto min-w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
               >
-                {size} dòng
+                {size} {sizeLabel}
                 <ChevronDown className="size-3.5 opacity-60" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="start"
-              className="z-50 w-[110px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+              className="z-50 w-max min-w-[8rem] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
             >
               {sizeOptions.map((option) => (
                 <DropdownMenuItem
@@ -59,7 +77,7 @@ export default function TablePagination({
                   onClick={() => onSizeChange(option)}
                   className="cursor-pointer rounded-md px-2.5 py-1.5 text-xs text-slate-700 focus:bg-slate-100 focus:text-slate-900"
                 >
-                  {option} dòng
+                  {option} {sizeLabel}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
@@ -68,13 +86,22 @@ export default function TablePagination({
         {extra}
       </div>
 
-      <p className="text-xs text-bo-muted tabular-nums">
-        Hiển thị <span className="font-semibold text-bo-foreground">{soVN(from)}</span>
-        {" – "}
-        <span className="font-semibold text-bo-foreground">{soVN(to)}</span>
-        {" trong tổng số "}
-        <span className="font-semibold text-bo-primary">{soVN(total)}</span> kết quả
-      </p>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <p className="text-xs text-bo-muted tabular-nums">
+          Hiển thị <span className="font-semibold text-bo-foreground">{soVN(from)}</span>
+          {" – "}
+          <span className="font-semibold text-bo-foreground">{soVN(to)}</span>
+          {" trong tổng số "}
+          <span className="font-semibold text-bo-primary">{soVN(total)}</span> {totalLabel}
+          {totalNote ? <> · {totalNote}</> : null}
+        </p>
+        {capNhat ? (
+          <>
+            <span aria-hidden="true" className="hidden h-4 w-px bg-bo-border sm:block" />
+            <CapNhatLuc {...capNhat} />
+          </>
+        ) : null}
+      </div>
 
       <div className="flex items-center gap-2">
         <Button

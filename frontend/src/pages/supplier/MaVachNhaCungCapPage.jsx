@@ -20,6 +20,7 @@ import ConfirmModal from "@/components/ui/confirm-modal";
 import DongThongBao from "@/components/nhap-kho/DongThongBao";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { cn } from "@/lib/utils";
 import { THONG_BAO_CHUA_HO_TRO_MA_VACH, maVachNhaCungCapService } from "@/services/maVachNhaCungCapService";
 import { getApiErrorMessage } from "@/utils/apiError";
@@ -58,6 +59,8 @@ export default function MaVachNhaCungCapPage() {
     `${tuKhoaTim}|${nhaCungCapId}|${trang}|${soDong}`,
     { enabled: hoTro },
   );
+  // Quay lại tab thì tải lại ngầm (giữ bảng đang xem)
+  useTaiLaiKhiQuayLai(ketQua.reload, { bat: hoTro && !ketQua.loading, lanCuoi: ketQua.capNhatLuc });
   const dong = ketQua.data?.content ?? [];
   const tong = Number(ketQua.data?.totalElements ?? 0);
   const dangLoc = Boolean(tuKhoa.trim() || nhaCungCapId);

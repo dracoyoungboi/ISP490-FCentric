@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     Calendar, ChevronDown, ChevronUp,
     CreditCard, Eye, Package, Plus,
-    RefreshCw, SearchX, ShoppingCart, Warehouse,
+    SearchX, ShoppingCart, Warehouse,
 } from 'lucide-react';
 import apiClient from "@/services/apiClient";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ import { YEU_CAU_BAO_GIA_TABS, getYeuCauNhapHangStatus } from "@/constants/yeuCa
 import { getBaoGiaNccStatus } from "@/constants/donMuaHang";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
+import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
 import purchaseOrderService from "../../services/purchaseOrderService";
 import { formatCurrency, formatDate } from "@/utils/formatters";
 
@@ -255,9 +256,10 @@ export default function QuotationRequestList() {
     }, []);
 
     // ── Fetch requests ────────────────────────────────────────────────────────
-    const fetchRequests = useCallback(async (page = 0, size = SO_DONG_MAC_DINH) => {
+    // silent: tải lại ngầm (nút ⟳ / quay lại tab) — giữ bảng đang xem; lỗi thì ném ra cho chân bảng báo
+    const fetchRequests = useCallback(async (page = 0, size = SO_DONG_MAC_DINH, { silent = false } = {}) => {
         const requestId = ++requestIdRef.current;
-        setLoading(true);
+        if (!silent) setLoading(true);
         try {
             const response = await apiClient.post(API_FILTER, {
                 filters: buildFilterArray({ trangThai: tabTrangThai, tuKhoa: keyword, kho: khoId, ngay: dateRange }),
@@ -278,6 +280,7 @@ export default function QuotationRequestList() {
         } catch (e) {
             if (requestId !== requestIdRef.current) return;
             console.error('Error fetching purchase requests:', e);
+            if (silent) throw e;
             // Không giữ dòng + tổng số của lần tải trước (R9)
             setLoadError(true);
             setRequests([]);
@@ -304,6 +307,16 @@ export default function QuotationRequestList() {
         })),
         `${keyword}|${khoId}|${dateRange.from}|${dateRange.to}`
     );
+
+    // Nút ⟳ ở chân bảng + tự tải lại khi quay lại tab: nhà cung cấp trả báo giá qua Cổng NCC
+    const capNhat = useTaiLaiDanhSach({
+        duLieu: requests,
+        taiNgam: () => {
+            tabCounts.reload();
+            return fetchRequests(pagination.pageNumber, pagination.pageSize, { silent: true });
+        },
+        bat: !loading,
+    });
 
     // ── Toggle expand ─────────────────────────────────────────────────────────
     const toggleExpand = (id, e) => {
@@ -388,21 +401,12 @@ export default function QuotationRequestList() {
         <PageContainer fill className="space-y-4">
             <ListPageHeader
                 actions={
-                    <>
-                        <Button
-                            variant="outline"
-                            onClick={handleRefresh}
-                            className="gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                        >
-                            <RefreshCw className="size-4" /> Làm mới
-                        </Button>
-                        <Button
-                            onClick={() => navigate('/quotation-requests/create')}
-                            className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
-                        >
-                            <Plus className="size-4" /> Tạo yêu cầu báo giá
-                        </Button>
-                    </>
+                    <Button
+                        onClick={() => navigate('/quotation-requests/create')}
+                        className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
+                    >
+                        <Plus className="size-4" /> Tạo yêu cầu báo giá
+                    </Button>
                 }
             />
 
@@ -489,13 +493,14 @@ export default function QuotationRequestList() {
                     </ListToolbar>
                 }
                 footer={
-                    !loading && !loadError && requests.length > 0 ? (
+                    !loading && !loadError ? (
                         <TablePagination
                             page={pagination.pageNumber}
                             size={pagination.pageSize}
                             total={pagination.totalElements}
                             onPageChange={handlePageChange}
                             onSizeChange={handlePageSizeChange}
+                            capNhat={capNhat}
                         />
                     ) : null
                 }

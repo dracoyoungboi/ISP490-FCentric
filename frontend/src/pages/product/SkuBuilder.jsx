@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button";
 import { productService } from "@/services/productService.js";
 import { toast } from "@/lib/thongBaoNhanh";
 import { Link } from "react-router-dom";
-import { Save, Printer, RefreshCcw, Layers, SearchX } from "lucide-react";
+import { Save, Printer, Layers, SearchX } from "lucide-react";
 
 import BarcodePrint from "@/pages/product/components/product/BarcodePrint";
 import { useToggle } from "@/hooks/useToggle";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { cn } from "@/lib/utils";
 
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -76,15 +77,21 @@ export default function SkuBuilder() {
     const [selectedSkusToPrint, setSelectedSkusToPrint] = useState([]);
     const savingSkuIdsRef = useRef(new Set());
     const [savingSkuIds, setSavingSkuIds] = useState(new Set());
+    // Tăng mỗi lần sửa / lưu giá: lần tải ngầm thấy số này đổi thì bỏ kết quả để không đè giá vừa nhập
+    const lanSuaGiaRef = useRef(0);
 
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(SO_DONG_MAC_DINH);
 
-    const fetchSkus = useCallback(async () => {
+    // silent: tải lại ngầm khi quay lại tab — giữ bảng đang xem, lỗi chỉ ghi log
+    const fetchSkus = useCallback(async ({ silent = false } = {}) => {
         // Chỉ nhận kết quả của lần tải mới nhất
         const requestId = ++requestIdRef.current;
-        setIsLoading(true);
-        setLoadError(null);
+        const lanSuaGia = lanSuaGiaRef.current;
+        if (!silent) {
+            setIsLoading(true);
+            setLoadError(null);
+        }
         try {
             const payload = {
                 page: 0,
@@ -94,6 +101,7 @@ export default function SkuBuilder() {
             };
             const res = await productService.filterProducts(payload);
             if (requestId !== requestIdRef.current) return;
+            if (silent && lanSuaGiaRef.current !== lanSuaGia) return;
             const serverResponse = res.data;
             if (serverResponse?.status !== 200) {
                 throw new Error(serverResponse?.message || LOAD_ERROR_MESSAGE);
@@ -116,9 +124,11 @@ export default function SkuBuilder() {
                 }
             });
             setSkus(flattenedSkus);
+            setLoadError(null);
         } catch (error) {
             if (requestId !== requestIdRef.current) return;
             console.error("Lỗi khi tải danh sách SKU:", error);
+            if (silent) return;
             toast.error("Không thể tải danh sách SKU");
             // Không giữ dòng của lần tải trước (R9)
             setSkus([]);
@@ -159,7 +169,13 @@ export default function SkuBuilder() {
     // Số dòng đang sửa giá dở (trên mọi dòng đã tải, kể cả dòng bị bộ lọc che)
     const soDongChuaLuu = useMemo(() => skus.filter(isPriceChanged).length, [skus]);
 
+    // Quay lại tab thì tải lại ngầm; không tải khi đang sửa giá dở hoặc đang lưu để khỏi mất giá vừa nhập
+    useTaiLaiKhiQuayLai(() => fetchSkus({ silent: true }), {
+        bat: !isLoading && soDongChuaLuu === 0 && savingSkuIds.size === 0,
+    });
+
     const handlePriceChange = (id, field, value) => {
+        lanSuaGiaRef.current += 1;
         setSkus((prev) => prev.map((sku) => sku.id === id ? { ...sku, [field]: value } : sku));
     };
 
@@ -175,6 +191,7 @@ export default function SkuBuilder() {
             toast.error("Giá bán và giá vốn phải là số hợp lệ, không âm.");
             return;
         }
+        lanSuaGiaRef.current += 1;
         savingSkuIdsRef.current.add(sku.id);
         setSavingSkuIds(new Set(savingSkuIdsRef.current));
         try {
@@ -232,19 +249,7 @@ export default function SkuBuilder() {
 
     return (
         <PageContainer key={location.pathname} fill className="space-y-4">
-            <ListPageHeader
-                actions={
-                    <Button
-                        variant="outline"
-                        onClick={fetchSkus}
-                        disabled={isLoading || savingSkuIds.size > 0}
-                        className="gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                    >
-                        <RefreshCcw className={cn("size-4", isLoading && "animate-spin")} />
-                        Tải lại
-                    </Button>
-                }
-            />
+            <ListPageHeader />
 
             {/* ══ BẢNG: tab trạng thái + tìm kiếm cùng một hàng ══ */}
             <TableShell
@@ -293,7 +298,7 @@ export default function SkuBuilder() {
                 {isLoading ? (
                     <LoadingState label="Đang tải danh sách biến thể" />
                 ) : loadError ? (
-                    <ErrorState description={loadError} onRetry={fetchSkus} />
+                    <ErrorState description={loadError} onRetry={() => fetchSkus()} />
                 ) : processedSkus.length === 0 ? (
                     keyword.trim() ? (
                         <EmptyState

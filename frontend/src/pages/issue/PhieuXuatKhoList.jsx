@@ -20,6 +20,7 @@ import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { PHIEU_XUAT_KHO_TABS, getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
+import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
 import apiClient from "@/services/apiClient";
 import { getMineKhoList } from "@/services/khoService";
 import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
@@ -129,10 +130,11 @@ export default function PhieuXuatKhoList() {
     }, [loadPhamVi]);
 
     // ── Danh sách ──
-    const fetchData = useCallback(async () => {
+    // silent: tải lại ngầm (nút ⟳ / quay lại tab) — giữ bảng đang xem; lỗi thì ném ra cho chân bảng báo
+    const fetchData = useCallback(async ({ silent = false } = {}) => {
         // Đổi tab / bộ lọc liên tiếp có thể chạy 2 yêu cầu cùng lúc: chỉ nhận kết quả của yêu cầu mới nhất
         const requestId = ++requestIdRef.current;
-        setLoading(true);
+        if (!silent) setLoading(true);
         try {
             const res = await phieuXuatKhoService.filter(buildFilterPayload({ ...filters, trangThai: tabTrangThai }));
             if (requestId !== requestIdRef.current) return;
@@ -157,6 +159,7 @@ export default function PhieuXuatKhoList() {
         } catch (e) {
             if (requestId !== requestIdRef.current) return;
             console.error("Fetch list error:", e);
+            if (silent) throw e;
             // Không giữ dòng + tổng số của lần tải trước (R9)
             setData([]);
             setTotal(0);
@@ -214,6 +217,17 @@ export default function PhieuXuatKhoList() {
         tabCounts.reload();
         choXuat.reload();
     };
+
+    // Nút ⟳ ở chân bảng + tự tải lại khi quay lại tab: trạng thái phiếu do kho cập nhật
+    const capNhat = useTaiLaiDanhSach({
+        duLieu: data,
+        taiNgam: () => {
+            tabCounts.reload();
+            choXuat.reload();
+            return fetchData({ silent: true });
+        },
+        bat: !loading,
+    });
 
     // Số chỉ hiện khi đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs.
     // Lọc ngày chỉ áp dụng trong trang đang xem (API chưa nhận ngày) nên khi đang lọc ngày tab không hiện số.
@@ -308,7 +322,7 @@ export default function PhieuXuatKhoList() {
                     </ListToolbar>
                 }
                 footer={
-                    !loading && !loadError && total > 0 ? (
+                    !loading && !loadError ? (
                         // Lọc ngày chạy tại chỗ trên trang vừa tải (API chưa nhận điều kiện ngày), nên vẫn giữ phân trang
                         // theo máy chủ để xem tiếp các trang sau; trang đang xem không có phiếu ngày đó thì bảng trống.
                         <TablePagination
@@ -317,6 +331,7 @@ export default function PhieuXuatKhoList() {
                             total={total}
                             onPageChange={(page) => setFilters((p) => ({ ...p, page }))}
                             onSizeChange={(size) => setFilters((p) => ({ ...p, size, page: 0 }))}
+                            capNhat={capNhat}
                             extra={
                                 filters.ngayXuat ? (
                                     <span className="text-xs text-bo-muted">

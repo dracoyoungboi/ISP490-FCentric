@@ -15,6 +15,7 @@ import ConfirmModal from "@/components/ui/confirm-modal";
 import HopViTriNamODau from "@/components/mat-bang/HopViTriNamODau";
 import DongThongBao from "@/components/nhap-kho/DongThongBao";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { cn } from "@/lib/utils";
 import { THONG_BAO_CHUA_HO_TRO_VI_TRI, viTriKhoService } from "@/services/viTriKhoService";
 import { getApiErrorMessage } from "@/utils/apiError";
@@ -64,7 +65,7 @@ export default function ViTriKhoPage() {
   const [khoId, setKhoId] = useState(getKhoLamViecId);
   const hoTro = viTriKhoService.hoTro;
 
-  const { data, error, initialLoading, reload, setData } = useTaiDuLieu(
+  const { data, error, loading, initialLoading, capNhatLuc, reload, setData } = useTaiDuLieu(
     async () => {
       const [khuVucs, viTris, matBang] = await Promise.all([
         viTriKhoService.dsKhuVuc(khoId),
@@ -76,6 +77,8 @@ export default function ViTriKhoPage() {
     `kho-${khoId}`,
     { enabled: hoTro && Boolean(khoId) },
   );
+  // Quay lại tab thì tải lại ngầm khu, kệ, mặt bằng (giữ màn đang xem; không tải khi đang mở hộp thao tác)
+  useTaiLaiKhiQuayLai(reload, { bat: hoTro && Boolean(khoId) && !loading, lanCuoi: capNhatLuc });
 
   const [hopKhu, setHopKhu] = useState({ open: false, khu: null });
   const [hopViTri, setHopViTri] = useState({ open: false, viTri: null, khu: null });

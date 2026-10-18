@@ -1,5 +1,5 @@
 // src/pages/stock-take/StockTakeList.jsx
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageContainer from "@/components/backoffice/PageContainer";
 import AttentionBar from "@/components/shared/AttentionBar";
@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Eye, ClipboardList, Play, SearchX } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { getStockTakes } from "@/services/stockTakeService";
 import { hasAnyRole, ROLES } from "@/utils/roles";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
@@ -71,19 +72,32 @@ export default function StockTakeList() {
   // Dòng chú ý "đợt kiểm kê đang mở" chỉ cho người làm kiểm kê (R4)
   const [coQuyenKiemKe] = useState(() => hasAnyRole([ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_KHO]));
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setLoadError(false);
+  // Chỉ nhận kết quả của lần tải mới nhất: lần tải ngầm về chậm không đè dữ liệu tải sau một thao tác
+  const requestIdRef = useRef(0);
+  // silent: tải lại ngầm khi quay lại tab — giữ bảng đang xem, lỗi chỉ ghi log
+  const fetchData = useCallback(async ({ silent = false } = {}) => {
+    const requestId = ++requestIdRef.current;
+    if (!silent) {
+      setLoading(true);
+      setLoadError(false);
+    }
     try {
       const data = await getStockTakes();
+      if (requestId !== requestIdRef.current) return;
       setStockTakes(data);
+      setLoadError(false);
     } catch (error) {
+      if (requestId !== requestIdRef.current) return;
+      if (silent) {
+        console.error(error);
+        return;
+      }
       // Không giữ dữ liệu cũ khi lỗi (R9)
       setStockTakes([]);
       setLoadError(true);
       toast.error(error.response?.data?.message || "Không thể tải danh sách kiểm kê");
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
   }, []);
 
@@ -92,6 +106,9 @@ export default function StockTakeList() {
   useEffect(() => {
     queueMicrotask(() => fetchData());
   }, [fetchData]);
+
+  // Quay lại tab thì tải lại ngầm (đợt kiểm kê do nhân viên kho khác mở / hoàn thành)
+  useTaiLaiKhiQuayLai(() => fetchData({ silent: true }), { bat: !loading });
 
   // Đổi tab: ghi lên URL và về trang đầu
   const changeTab = (value) => {
@@ -215,7 +232,7 @@ export default function StockTakeList() {
         ) : loadError ? (
           <ErrorState
             description="Không thể tải danh sách đợt kiểm kê. Vui lòng thử lại."
-            onRetry={fetchData}
+            onRetry={() => fetchData()}
           />
         ) : pageItems.length === 0 ? (
           dangTimKiem ? (

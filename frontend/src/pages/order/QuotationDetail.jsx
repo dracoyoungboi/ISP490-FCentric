@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from '@/lib/thongBaoNhanh';
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import LoadingState from "@/components/shared/LoadingState";
 import ErrorState from "@/components/shared/ErrorState";
 import { getBaoGiaNccStatus } from "@/constants/donMuaHang";
 import { KHUNG_THEO_NHOM, layNhomTrangThai } from "@/constants/trangThai";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { formatDate as dinhDangNgay, formatDateTime as dinhDangNgayGio } from "@/utils/formatters";
 
@@ -98,20 +99,30 @@ export default function QuotationDetail() {
     const [userRoles, setUserRoles] = useState([]);
     const [loadingAuth, setLoadingAuth] = useState(true);
 
-    const fetchOrderDetail = useCallback(async () => {
-        setLoading(true);
-        setLoadError(null);
+    // Chỉ nhận kết quả của lần tải mới nhất: lần tải ngầm về chậm không đè dữ liệu tải sau một thao tác
+    const requestIdRef = useRef(0);
+    // silent: tải lại ngầm khi quay lại tab — giữ màn đang xem, chỉ thay khi tải được dữ liệu mới
+    const fetchOrderDetail = useCallback(async ({ silent = false } = {}) => {
+        const requestId = ++requestIdRef.current;
+        if (!silent) {
+            setLoading(true);
+            setLoadError(null);
+        }
         try {
             // Lấy chi tiết đơn mua hàng (báo giá) từ API
             const result = await apiClient.get(`/api/v1/don-mua-hang/get-by-id/${id}`);
+            if (requestId !== requestIdRef.current) return;
             if (result && result.data?.data) {
                 setOrderData(result.data.data);
-            } else {
+                setLoadError(null);
+            } else if (!silent) {
                 setOrderData(null);
                 setLoadError({ notFound: true });
             }
         } catch (error) {
+            if (requestId !== requestIdRef.current) return;
             console.error('Error fetching PO detail:', error);
+            if (silent) return;
             setOrderData(null);
             // Máy chủ trả 400 "Không tìm thấy đơn mua hàng id: …" khi mã không tồn tại
             const status = getApiErrorStatus(error);
@@ -119,7 +130,7 @@ export default function QuotationDetail() {
                 ? { notFound: true }
                 : { notFound: false, message: getApiErrorMessage(error, 'Không thể tải chi tiết báo giá') });
         } finally {
-            setLoading(false);
+            if (requestId === requestIdRef.current) setLoading(false);
         }
     }, [id]);
 
@@ -127,6 +138,9 @@ export default function QuotationDetail() {
     useEffect(() => {
         if (id) queueMicrotask(() => fetchOrderDetail());
     }, [id, fetchOrderDetail]);
+
+    // Quay lại tab thì tải lại ngầm (nhà cung cấp có thể vừa cập nhật báo giá); không tải khi đang thao tác
+    useTaiLaiKhiQuayLai(() => fetchOrderDetail({ silent: true }), { bat: Boolean(id) && !loading && !actionLoading });
 
     useEffect(() => {
         const fetchUserInfo = async () => {

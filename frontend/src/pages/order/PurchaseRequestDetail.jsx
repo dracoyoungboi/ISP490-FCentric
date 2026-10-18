@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from '@/lib/thongBaoNhanh';
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ import SurfaceCard from "@/components/shared/SurfaceCard";
 import TableShell from "@/components/shared/TableShell";
 
 import { YEU_CAU_NHAP_HANG_STATUS } from '@/constants/yeuCauNhapHang';
+import useTaiLaiKhiQuayLai from '@/hooks/useTaiLaiKhiQuayLai';
 import purchaseRequestService from '@/services/purchaseRequestService';
 import apiClient from '@/services/apiClient';
 import { getApiErrorMessage, getApiErrorStatus } from '@/utils/apiError';
@@ -133,19 +134,29 @@ export default function PurchaseRequestDetail() {
     // Định dạng chung toàn hệ thống: 05/10/2026 · 08:03; trống → "—"
     const formatDateTime = (dateString) => dinhDangNgayGio(dateString);
 
-    const fetchRequestDetail = useCallback(async () => {
-        setLoading(true);
-        setLoadError(null);
+    // Chỉ nhận kết quả của lần tải mới nhất: lần tải ngầm về chậm không đè dữ liệu tải sau một thao tác
+    const requestIdRef = useRef(0);
+    // silent: tải lại ngầm khi quay lại tab — giữ màn đang xem, chỉ thay khi tải được dữ liệu mới
+    const fetchRequestDetail = useCallback(async ({ silent = false } = {}) => {
+        const requestId = ++requestIdRef.current;
+        if (!silent) {
+            setLoading(true);
+            setLoadError(null);
+        }
         try {
             const result = await apiClient.get(`/api/v1/yeu-cau-mua-hang/get-by-id/${id}`);
+            if (requestId !== requestIdRef.current) return;
             if (result && result.data && result.data.data) {
                 setRequestData(result.data.data);
-            } else {
+                setLoadError(null);
+            } else if (!silent) {
                 setRequestData(null);
                 setLoadError({ notFound: true });
             }
         } catch (error) {
+            if (requestId !== requestIdRef.current) return;
             console.error('Error fetching request detail:', error);
+            if (silent) return;
             setRequestData(null);
             // Máy chủ trả 400 "Không tìm thấy yêu cầu mua hàng id: …" khi mã không tồn tại
             const status = getApiErrorStatus(error);
@@ -153,7 +164,7 @@ export default function PurchaseRequestDetail() {
                 ? { notFound: true }
                 : { notFound: false, message: getApiErrorMessage(error, 'Không thể tải chi tiết yêu cầu nhập hàng') });
         } finally {
-            setLoading(false);
+            if (requestId === requestIdRef.current) setLoading(false);
         }
     }, [id]);
 
@@ -181,6 +192,9 @@ export default function PurchaseRequestDetail() {
     }, [id, fetchRequestDetail]);
 
     useEffect(() => { queueMicrotask(() => fetchUserInfo()); }, [fetchUserInfo]);
+
+    // Quay lại tab thì tải lại ngầm (yêu cầu có thể vừa được duyệt / từ chối); không tải khi đang thao tác
+    useTaiLaiKhiQuayLai(() => fetchRequestDetail({ silent: true }), { bat: Boolean(id) && !loading && !actionLoading });
 
     const handleAction = async (trangThai) => {
         const lyDo = lyDoTuChoi.trim();

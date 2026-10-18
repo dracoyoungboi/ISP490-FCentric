@@ -20,6 +20,7 @@ import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { PHIEU_CHUYEN_KHO_TABS, getPhieuChuyenKhoStatus } from "@/constants/phieuChuyenKho";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
+import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
 import { formatDate } from "@/utils/formatters";
 
 //Constants & Helpers
@@ -130,10 +131,11 @@ export default function PhieuChuyenKhoList() {
         }
     }, []);
 
-    const fetchData = useCallback(async () => {
+    // silent: tải lại ngầm (nút ⟳ / quay lại tab) — giữ bảng đang xem; lỗi thì ném ra cho chân bảng báo
+    const fetchData = useCallback(async ({ silent = false } = {}) => {
         // Đổi tab / bộ lọc / kho liên tiếp có thể chạy 2 yêu cầu cùng lúc: chỉ nhận kết quả của yêu cầu mới nhất
         const requestId = ++requestIdRef.current;
-        setLoading(true);
+        if (!silent) setLoading(true);
         try {
             const res = await phieuChuyenKhoService.filter(buildFilterPayload({ ...filters, trangThai: tabTrangThai }));
             if (requestId !== requestIdRef.current) return;
@@ -143,6 +145,7 @@ export default function PhieuChuyenKhoList() {
         } catch (error) {
             if (requestId !== requestIdRef.current) return;
             console.error("Lỗi lấy danh sách:", error);
+            if (silent) throw error;
             // Không giữ dòng + tổng số của lần tải trước (R9)
             setData([]);
             setTotal(0);
@@ -203,6 +206,16 @@ export default function PhieuChuyenKhoList() {
         fetchData();
         tabCounts.reload();
     };
+
+    // Nút ⟳ ở chân bảng + tự tải lại khi quay lại tab: kho gửi và kho nhận là hai người ở hai nơi
+    const capNhat = useTaiLaiDanhSach({
+        duLieu: data,
+        taiNgam: () => {
+            tabCounts.reload();
+            return fetchData({ silent: true });
+        },
+        bat: !loading,
+    });
 
     // Số chỉ hiện khi đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs
     const statusTabs = PHIEU_CHUYEN_KHO_TABS.map((t) => ({
@@ -268,13 +281,14 @@ export default function PhieuChuyenKhoList() {
                     </ListToolbar>
                 }
                 footer={
-                    !loading && !loadError && data.length > 0 ? (
+                    !loading && !loadError ? (
                         <TablePagination
                             page={filters.page}
                             size={filters.size}
                             total={total}
                             onPageChange={(page) => setFilters((p) => ({ ...p, page }))}
                             onSizeChange={(size) => setFilters((p) => ({ ...p, size, page: 0 }))}
+                            capNhat={capNhat}
                         />
                     ) : null
                 }

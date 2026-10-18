@@ -188,14 +188,14 @@ function SettingsForm({ config, cauHinh, khoSan, onConfigSaved, onCauHinhSaved }
       }
     });
 
-  const lamMoiToken = () =>
-    chay("lam-moi", async () => {
+  const capLaiKhoa = () =>
+    chay("cap-lai-khoa", async () => {
       try {
         const dto = await kenhBanHangService.refreshShopifyToken();
         if (dto && typeof dto === "object") onConfigSaved(dto);
-        toast.success("Đã làm mới khóa truy cập");
+        toast.success("Đã cấp lại khóa truy cập");
       } catch (error) {
-        toast.error(getApiErrorMessage(error, "Không làm mới được khóa truy cập"));
+        toast.error(getApiErrorMessage(error, "Không cấp lại được khóa truy cập"));
       }
     });
 
@@ -273,7 +273,7 @@ function SettingsForm({ config, cauHinh, khoSan, onConfigSaved, onCauHinhSaved }
                       aria-label="Thao tác khác với gian hàng"
                       className="size-8 rounded-lg p-0 text-bo-muted hover:bg-slate-100 hover:text-bo-foreground"
                     >
-                      {dangChay === "lam-moi" ? <Loader2 className="size-4 animate-spin" /> : <MoreHorizontal className="size-4" />}
+                      {dangChay === "cap-lai-khoa" ? <Loader2 className="size-4 animate-spin" /> : <MoreHorizontal className="size-4" />}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-60 z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg">
@@ -282,9 +282,9 @@ function SettingsForm({ config, cauHinh, khoSan, onConfigSaved, onCauHinhSaved }
                       Cập nhật khóa truy cập
                     </DropdownMenuItem>
                     {config.hasRefreshToken ? (
-                      <DropdownMenuItem onClick={lamMoiToken} className={nutMenu}>
+                      <DropdownMenuItem onClick={capLaiKhoa} className={nutMenu}>
                         <RefreshCw className="size-4 text-bo-muted" />
-                        Làm mới khóa
+                        Cấp lại khóa
                       </DropdownMenuItem>
                     ) : null}
                     <DropdownMenuItem asChild className={nutMenu}>

@@ -22,6 +22,7 @@ import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
+import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
 import { getLichSuGiaoDichKho, getChiTietLichSu } from "@/services/lichSuGiaoDichKhoService";
 import { getMineKhoList } from "@/services/khoService";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
@@ -216,9 +217,10 @@ export default function LichSuGiaoDichKhoList() {
     // ── Fetch ──────────────────────────────────────────────────────────
     // Tải lịch sử + danh sách kho mình có quyền (cùng pattern PhieuChuyenKhoDetail) cùng lúc,
     // để người không phải quản trị viên không thấy bảng rỗng tạm thời khi kho chưa tải xong.
-    const fetchData = useCallback(async () => {
+    // silent: tải lại ngầm (nút ⟳ / quay lại tab) — giữ bảng và trang đang xem; lỗi thì ném ra cho chân bảng báo
+    const fetchData = useCallback(async ({ silent = false } = {}) => {
         const requestId = ++requestIdRef.current;
-        setLoading(true);
+        if (!silent) setLoading(true);
         try {
             const [list, listKho] = await Promise.all([
                 getLichSuGiaoDichKho(),
@@ -233,9 +235,10 @@ export default function LichSuGiaoDichKhoList() {
             setData(list ?? []);
             setMyWarehouseIds((listKho ?? []).map((k) => k.id));
             setLoadError(false);
-            setPageNumber(0);
-        } catch {
+            if (!silent) setPageNumber(0);
+        } catch (error) {
             if (requestId !== requestIdRef.current) return;
+            if (silent) throw error;
             // Không giữ dòng + tổng số của lần tải trước (R9)
             setData([]);
             setLoadError(true);
@@ -250,6 +253,13 @@ export default function LichSuGiaoDichKhoList() {
     useEffect(() => {
         queueMicrotask(() => fetchData());
     }, [fetchData]);
+
+    // Nút ⟳ ở chân bảng + tự tải lại khi quay lại tab: sổ ghi liên tục từ POS, nhập, xuất, chuyển kho
+    const capNhat = useTaiLaiDanhSach({
+        duLieu: data,
+        taiNgam: () => fetchData({ silent: true }),
+        bat: !loading,
+    });
 
     // ── Filter ─────────────────────────────────────────────────────────
     // Phân quyền lọc danh sách: admin thấy tất, còn lại chỉ thấy kho mình có quyền
@@ -350,13 +360,14 @@ export default function LichSuGiaoDichKhoList() {
                         />
                     </ListToolbar>
                 }
-                footer={!loading && !loadError && totalElements > 0 ? (
+                footer={!loading && !loadError ? (
                     <TablePagination
                         page={safePage}
                         size={pageSize}
                         total={totalElements}
                         onPageChange={handlePageChange}
                         onSizeChange={(size) => { setPageSize(size); setPageNumber(0); }}
+                        capNhat={capNhat}
                     />
                 ) : null}
             >
@@ -365,7 +376,7 @@ export default function LichSuGiaoDichKhoList() {
                 ) : loadError ? (
                     <ErrorState
                         description="Không thể tải lịch sử giao dịch kho. Vui lòng thử lại."
-                        onRetry={fetchData}
+                        onRetry={() => fetchData()}
                     />
                 ) : pageItems.length === 0 ? (
                     search.trim() ? (

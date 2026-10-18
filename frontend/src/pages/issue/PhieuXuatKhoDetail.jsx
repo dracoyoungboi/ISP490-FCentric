@@ -21,6 +21,7 @@ import {
     ArrowRight, ArrowLeft, MapPin, SearchX, PackageCheck
 } from "lucide-react";
 import { PHIEU_XUAT_KHO_STATUS, getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { formatDate } from "@/utils/formatters";
 import { hasAnyRole, ROLES } from "@/utils/roles";
@@ -44,27 +45,35 @@ export default function PhieuXuatKhoDetail() {
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
 
-    const fetchDetail = useCallback(async () => {
-        setLoading(true);
-        setLoadError(null);
+    // silent: tải lại ngầm khi quay lại tab — giữ màn đang xem, chỉ thay khi tải được dữ liệu mới
+    const fetchDetail = useCallback(async ({ silent = false } = {}) => {
+        if (!silent) {
+            setLoading(true);
+            setLoadError(null);
+        }
         try {
             const res = await phieuXuatKhoService.getDetail(id);
             const payload = res?.data || res;
             if (payload?.phieu) {
                 setData(payload);
-            } else {
+                setLoadError(null);
+            } else if (!silent) {
                 // Máy chủ trả về rỗng: coi như không có phiếu này
                 setData(null);
                 setLoadError({ khongTimThay: true });
             }
         } catch (e) {
+            if (silent) {
+                console.error(e);
+                return;
+            }
             setData(null);
             setLoadError({
                 khongTimThay: getApiErrorStatus(e) === 404,
                 moTa: getApiErrorMessage(e, "Đã xảy ra lỗi khi tải phiếu xuất kho. Vui lòng thử lại."),
             });
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [id]);
 
@@ -73,6 +82,9 @@ export default function PhieuXuatKhoDetail() {
     useEffect(() => {
         queueMicrotask(() => fetchDetail());
     }, [fetchDetail]);
+
+    // Quay lại tab thì tải lại ngầm (trạng thái phiếu do kho cập nhật); không tải khi đang thao tác
+    useTaiLaiKhiQuayLai(() => fetchDetail({ silent: true }), { bat: Boolean(data) && !loading && !isProcessing });
 
     // Hàm xử lý khi xác nhận Hoàn thành/Vận chuyển
     const handleConfirmComplete = async () => {
@@ -161,7 +173,7 @@ export default function PhieuXuatKhoDetail() {
                         <ErrorState
                             title="Không tải được phiếu xuất kho"
                             description={loadError.moTa}
-                            onRetry={fetchDetail}
+                            onRetry={() => fetchDetail()}
                         />
                     )}
                 </div>

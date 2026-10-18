@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
     ChevronDown, Calendar,
-    Eye, RefreshCw, Warehouse, CreditCard,
+    Eye, Warehouse, CreditCard,
     ShoppingCart, PackagePlus, Plus, SearchX,
 } from 'lucide-react';
 import apiClient from '@/services/apiClient';
@@ -32,6 +32,7 @@ import { formatCurrency, formatDate } from '@/utils/formatters';
 import { DON_MUA_HANG_TABS, getDonMuaHangStatus } from '@/constants/donMuaHang';
 import useDemTheoTrangThai from '@/hooks/useDemTheoTrangThai';
 import useTabTrenUrl from '@/hooks/useTabTrenUrl';
+import useTaiLaiDanhSach from '@/hooks/useTaiLaiDanhSach';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROLE = {
@@ -184,9 +185,10 @@ export default function PurchaseOrderList() {
     }, [isRestrictedWarehouse, warehouses]);
 
     // ── Fetch list ──
-    const fetchOrders = useCallback(async (page = 0, size = SO_DONG_MAC_DINH) => {
+    // silent: tải lại ngầm (nút ⟳ / quay lại tab) — giữ bảng đang xem; lỗi thì ném ra cho chân bảng báo
+    const fetchOrders = useCallback(async (page = 0, size = SO_DONG_MAC_DINH, { silent = false } = {}) => {
         const requestId = ++requestIdRef.current;
-        setLoading(true);
+        if (!silent) setLoading(true);
         try {
             const res = await apiClient.post(API_FILTER, {
                 filters: buildFilterArray({ trangThai: tabTrangThai, tuKhoa: keyword, kho: khoId, ngay: dateRange }),
@@ -204,8 +206,9 @@ export default function PurchaseOrderList() {
                 totalPages: data.totalPages || 0,
             });
             setLoadError(false);
-        } catch {
+        } catch (error) {
             if (requestId !== requestIdRef.current) return;
+            if (silent) throw error;
             // Không giữ dòng + tổng số của lần tải trước (R9)
             setLoadError(true);
             setOrders([]);
@@ -235,6 +238,16 @@ export default function PurchaseOrderList() {
         `${phamViKho}|${keyword}|${khoId}|${dateRange.from}|${dateRange.to}`,
         { enabled: !loadingInitial }
     );
+
+    // Nút ⟳ ở chân bảng + tự tải lại khi quay lại tab: trạng thái đơn đổi khi kho nhận hàng, nhập kho
+    const capNhat = useTaiLaiDanhSach({
+        duLieu: orders,
+        taiNgam: () => {
+            tabCounts.reload();
+            return fetchOrders(pagination.pageNumber, pagination.pageSize, { silent: true });
+        },
+        bat: !loading && !loadingInitial,
+    });
 
     // ── Debounce ô tìm kiếm: không gọi API ở mỗi lần gõ phím ──
     useEffect(() => {
@@ -322,21 +335,12 @@ export default function PurchaseOrderList() {
             <ListPageHeader
                 scope={scopeNote}
                 actions={
-                    <>
-                        <Button
-                            variant="outline"
-                            onClick={handleRefresh}
-                            className="gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                        >
-                            <RefreshCw className="size-4" /> Làm mới
-                        </Button>
-                        <Button
-                            className="gap-1.5 bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover"
-                            onClick={() => navigate('/purchase-orders/create')}
-                        >
-                            <Plus className="size-4" /> Tạo đơn mua hàng
-                        </Button>
-                    </>
+                    <Button
+                        className="gap-1.5 bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover"
+                        onClick={() => navigate('/purchase-orders/create')}
+                    >
+                        <Plus className="size-4" /> Tạo đơn mua hàng
+                    </Button>
                 }
             />
 
@@ -430,13 +434,14 @@ export default function PurchaseOrderList() {
                     </ListToolbar>
                 }
                 footer={
-                    !loading && !loadingInitial && !loadError && orders.length > 0 ? (
+                    !loading && !loadingInitial && !loadError ? (
                         <TablePagination
                             page={pagination.pageNumber}
                             size={pagination.pageSize}
                             total={pagination.totalElements}
                             onPageChange={handlePageChange}
                             onSizeChange={handlePageSizeChange}
+                            capNhat={capNhat}
                         />
                     ) : null
                 }

@@ -19,6 +19,7 @@ import {
 } from "@/components/order/chi-tiet-don-mua/tinhNhanHang";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import purchaseOrderService from "@/services/purchaseOrderService";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { getKhoLamViecId } from "@/utils/khoLamViec";
@@ -56,6 +57,15 @@ export default function PurchaseOrderDetail() {
     const xemDotNhan = hasAnyRole(VAI_TRO_TAO_PHIEU_NHAP);
     const taiDot = useCallback(() => phieuNhapKhoService.layTheoDonMua(id), [id]);
     const dotQ = useTaiDuLieu(taiDot, `dot-nhan-${id}`, { enabled: Boolean(id) && xemDotNhan });
+
+    // Quay lại tab thì tải lại ngầm đơn + các đợt nhận (kho có thể vừa nhận hàng / nhập kho)
+    useTaiLaiKhiQuayLai(
+        () => {
+            donQ.reload();
+            if (xemDotNhan) dotQ.reload();
+        },
+        { bat: Boolean(id) && !donQ.loading, lanCuoi: donQ.capNhatLuc },
+    );
 
     // ── Số đơn mua của nhà cung cấp (chỉ vai trò xem mọi kho) ───────────────
     const nccId = don?.nhaCungCap?.id;
@@ -169,8 +179,9 @@ export default function PurchaseOrderDetail() {
                         bang={bang}
                         tongTien={don.tongTien}
                         xemDot={xemDotNhan}
-                        dangTaiDot={dotQ.loading}
-                        loiDot={dotQ.error ? getApiErrorMessage(dotQ.error, "") : null}
+                        // Tự tải lại ngầm: giữ các đợt nhận đang hiện, không bật chữ đang tải / dòng báo lỗi
+                        dangTaiDot={dotQ.initialLoading}
+                        loiDot={dotQ.error && !dotQ.loiTaiLai ? getApiErrorMessage(dotQ.error, "") : null}
                         onThuLai={dotQ.reload}
                     />
                     <ThuocTinhDonMua

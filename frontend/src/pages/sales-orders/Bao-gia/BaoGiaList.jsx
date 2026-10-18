@@ -29,6 +29,7 @@ import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { BAO_GIA_TABS, getBaoGiaStatus } from "@/constants/baoGia";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 
 const ROLE = {
     QUAN_TRI_VIEN: "quan_tri_vien",
@@ -134,10 +135,11 @@ export default function BaoGiaList() {
     fetchUserInfo();
   }, []);
 
-  const fetchData = useCallback(async () => {
+  // silent: tải lại ngầm khi quay lại tab — giữ bảng đang xem, lỗi chỉ ghi log
+  const fetchData = useCallback(async ({ silent = false } = {}) => {
     // Đổi tab / bộ lọc liên tiếp: chỉ nhận kết quả của yêu cầu mới nhất
     const requestId = ++requestIdRef.current;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const res = await donBanHangService.filter({
         page: filters.page,
@@ -152,6 +154,7 @@ export default function BaoGiaList() {
     } catch (error) {
       if (requestId !== requestIdRef.current) return;
       console.error(error);
+      if (silent) return;
       // Không giữ dòng + tổng số của lần tải trước (R9)
       setData([]);
       setTotal(0);
@@ -218,6 +221,12 @@ export default function BaoGiaList() {
     fetchData();
     tabCounts.reload();
   };
+
+  // Quay lại tab thì tải lại ngầm danh sách + số trên tab
+  useTaiLaiKhiQuayLai(() => {
+    tabCounts.reload();
+    fetchData({ silent: true });
+  }, { bat: !loading });
 
   // Số chỉ hiện khi đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs
   const statusTabs = BAO_GIA_TABS.map((t) => ({

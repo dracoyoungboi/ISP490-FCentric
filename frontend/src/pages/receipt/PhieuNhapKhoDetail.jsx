@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
 import { toast } from "@/lib/thongBaoNhanh";
@@ -28,6 +28,7 @@ import SurfaceCard from "@/components/shared/SurfaceCard";
 import TableShell from "@/components/shared/TableShell";
 import { Button } from "@/components/ui/button";
 import { getGoodsReceiptStatus, getGoodsReceiptTypeLabel } from "@/constants/goodsReceipt";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { formatDate } from "@/utils/formatters";
 import ChiTietNhapTuDonMua from "./ChiTietNhapTuDonMua";
@@ -46,21 +47,28 @@ export default function PhieuNhapKhoDetail() {
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
     const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
 
-    // silent: tải lại sau một thao tác (khóa lô, xác nhận…) — giữ màn đang hiện, lỗi chỉ báo toast
-    const fetchDetail = useCallback(async ({ silent = false } = {}) => {
+    // Chỉ nhận kết quả của lần tải mới nhất: lần tải ngầm về chậm không đè dữ liệu tải sau một thao tác
+    const requestIdRef = useRef(0);
+    // silent: tải lại sau một thao tác (khóa lô, xác nhận…) — giữ màn đang hiện, lỗi chỉ báo toast.
+    // quiet: tải lại ngầm khi quay lại tab — như silent nhưng lỗi chỉ ghi log (người dùng không bấm gì).
+    const fetchDetail = useCallback(async ({ silent = false, quiet = false } = {}) => {
+        const requestId = ++requestIdRef.current;
         if (!silent) {
             setLoading(true);
             setLoadError(null);
         }
         try {
             const res = await phieuNhapKhoService.getDetail(id);
+            if (requestId !== requestIdRef.current) return;
             const detail = res?.data || res;
+            if (silent && !detail) return;
             setData(detail || null);
             if (!detail) setLoadError({ notFound: true });
         } catch (e) {
+            if (requestId !== requestIdRef.current) return;
             console.error(e);
             if (silent) {
-                toast.error(getApiErrorMessage(e, "Không tải lại được phiếu nhập"));
+                if (!quiet) toast.error(getApiErrorMessage(e, "Không tải lại được phiếu nhập"));
                 return;
             }
             setData(null);
@@ -70,7 +78,7 @@ export default function PhieuNhapKhoDetail() {
                 ? { notFound: true }
                 : { notFound: false, message: getApiErrorMessage(e, "Không thể tải chi tiết phiếu nhập") });
         } finally {
-            if (!silent) setLoading(false);
+            if (requestId === requestIdRef.current) setLoading(false);
         }
     }, [id]);
 
@@ -79,6 +87,9 @@ export default function PhieuNhapKhoDetail() {
     useEffect(() => {
         queueMicrotask(() => fetchDetail());
     }, [fetchDetail]);
+
+    // Quay lại tab thì tải lại ngầm (kiểm đếm, QC, xác nhận do nhân viên kho khác làm); không tải khi đang thao tác
+    useTaiLaiKhiQuayLai(() => fetchDetail({ silent: true, quiet: true }), { bat: Boolean(data) && !loading && !isProcessing });
 
     if (loading) {
         return (

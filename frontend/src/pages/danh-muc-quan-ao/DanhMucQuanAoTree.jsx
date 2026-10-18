@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ArrowLeft, ChevronsDownUp, ChevronsUpDown, FolderTree, Plus, RefreshCcw, SearchX } from "lucide-react";
+import { ArrowLeft, ChevronsDownUp, ChevronsUpDown, FolderTree, Plus, SearchX } from "lucide-react";
 
 import PageContainer from "@/components/backoffice/PageContainer";
 import EmptyState from "@/components/shared/EmptyState";
@@ -40,6 +40,7 @@ import {
   tinhTrangThai,
 } from "@/components/danh-muc/cayDanhMuc";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
 import { danhMucQuanAoService } from "@/services/danhMucQuanAoService";
@@ -242,6 +243,8 @@ export default function DanhMucQuanAoTree() {
   // ── Thay đổi dữ liệu ─────────────────────────────────────────────────────
   const taiLai = taiDuLieu.reload;
   const { setData } = taiDuLieu;
+  // Quay lại tab thì tải lại ngầm (giữ bảng); không tải khi đang kéo thả hoặc đang mở hộp thao tác
+  useTaiLaiKhiQuayLai(taiLai, { bat: !taiDuLieu.loading && !keo && !hop, lanCuoi: taiDuLieu.capNhatLuc });
 
   // Sửa ngay dữ liệu đang hiện theo đúng body vừa lưu, rồi tải lại để đồng bộ với máy chủ.
   // Nhờ vậy thao tác kế tiếp (kể cả Hoàn tác) luôn dựng body từ dữ liệu mới, không ghi đè ngược.
@@ -399,33 +402,18 @@ export default function DanhMucQuanAoTree() {
   // ── Nút trên hàng tiêu đề ────────────────────────────────────────────────
   const themVaoNhanhKhoa = nutGoc ? trangThai.get(goc)?.ngung : false;
   const nhanThem = nutGoc ? `Thêm vào “${nutGoc.ten}”` : "Thêm danh mục";
-  const dangTai = taiDuLieu.loading;
 
-  const hanhDong = (
-    <>
-      <Button
-        variant="outline"
-        onClick={taiLai}
-        disabled={dangTai}
-        aria-label="Làm mới danh sách danh mục"
-        className="gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-      >
-        <RefreshCcw className={cn("size-4", dangTai && "animate-spin")} aria-hidden="true" />
-        <span className="hidden sm:inline">Làm mới</span>
-      </Button>
-      {coTheSua ? (
-        <Button
-          onClick={() => setHop({ loai: "them", chaId: goc })}
-          disabled={!danhSach || themVaoNhanhKhoa}
-          title={themVaoNhanhKhoa ? `“${nutGoc.ten}” đang ngừng hoạt động, không thêm được danh mục con` : undefined}
-          className="max-w-[calc(100vw-8rem)] gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover sm:max-w-[320px]"
-        >
-          <Plus className="size-4 shrink-0" aria-hidden="true" />
-          <span className="truncate">{nhanThem}</span>
-        </Button>
-      ) : null}
-    </>
-  );
+  const hanhDong = coTheSua ? (
+    <Button
+      onClick={() => setHop({ loai: "them", chaId: goc })}
+      disabled={!danhSach || themVaoNhanhKhoa}
+      title={themVaoNhanhKhoa ? `“${nutGoc.ten}” đang ngừng hoạt động, không thêm được danh mục con` : undefined}
+      className="max-w-[calc(100vw-8rem)] gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover sm:max-w-[320px]"
+    >
+      <Plus className="size-4 shrink-0" aria-hidden="true" />
+      <span className="truncate">{nhanThem}</span>
+    </Button>
+  ) : null;
 
   // ── Thân bảng ────────────────────────────────────────────────────────────
   const nutXoaLoc = (
@@ -672,9 +660,19 @@ export default function DanhMucQuanAoTree() {
               </div>
             ) : null}
             {taiDuLieu.data?.chiHoatDong ? (
-              <p role="status" className="border-b border-bo-border bg-bo-warning-soft px-4 py-2 text-[13px] text-bo-warning">
-                Chỉ tải được danh mục đang hoạt động. Bấm Làm mới để tải lại đủ cả danh mục ngừng hoạt động.
-              </p>
+              <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-bo-border bg-bo-warning-soft px-4 py-2 text-[13px] text-bo-warning">
+                <span className="min-w-0 flex-1">
+                  Chỉ tải được danh mục đang hoạt động, chưa có các danh mục ngừng hoạt động.
+                </span>
+                <button
+                  type="button"
+                  onClick={taiLai}
+                  disabled={taiDuLieu.loading}
+                  className="shrink-0 rounded px-1.5 py-0.5 font-semibold hover:bg-white/60 disabled:opacity-60"
+                >
+                  {taiDuLieu.loading ? "Đang tải…" : "Thử lại"}
+                </button>
+              </div>
             ) : null}
             {thanhNhanh}
           </>

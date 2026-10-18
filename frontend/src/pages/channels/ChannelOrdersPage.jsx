@@ -31,6 +31,7 @@ import { getKhoList } from "@/services/khoService";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { formatCurrency, formatDate } from "@/utils/formatters";
 
@@ -98,6 +99,15 @@ export default function ChannelOrdersPage() {
     { enabled: Boolean(cfg.data) },
   );
 
+  const taiLai = () => {
+    ds.reload();
+    demLai();
+  };
+  // Nút ⟳ ở chân bảng + tự tải lại khi quay lại tab: đơn được lấy tự động theo Cấu hình.
+  // Tải lại lỗi thì giữ bảng cũ (ds.loiTaiLai), chân bảng báo "Không tải lại được".
+  const capNhat = { thoiDiem: ds.capNhatLuc, dangTai: ds.loading, loi: ds.loiTaiLai, taiLai };
+  useTaiLaiKhiQuayLai(taiLai, { bat: Boolean(cfg.data) && !ds.loading, lanCuoi: ds.capNhatLuc });
+
   const [moLayDon, setMoLayDon] = useState(false);
   const [dangLay, setDangLay] = useState(false);
   const dangLayRef = useRef(false);
@@ -136,11 +146,6 @@ export default function ChannelOrdersPage() {
     setSoNgay("");
     veTrangDau();
   };
-  const taiLai = () => {
-    ds.reload();
-    demLai();
-  };
-
   // Lấy đơn mới trong 24 giờ qua (đơn đã có không tạo lại)
   const layDonMoi = async () => {
     if (dangLayRef.current) return;
@@ -234,20 +239,21 @@ export default function ChannelOrdersPage() {
           </ListToolbar>
         }
         footer={
-          !ds.error && tong > 0 ? (
+          cfg.data && !ds.initialLoading && (!ds.error || ds.loiTaiLai) ? (
             <TablePagination
               page={trang.page}
               size={trang.size}
               total={tong}
               onPageChange={(page) => page >= 0 && setTrang((cu) => ({ ...cu, page }))}
               onSizeChange={(size) => setTrang({ page: 0, size })}
+              capNhat={capNhat}
             />
           ) : null
         }
       >
         {cfg.initialLoading || ds.initialLoading ? (
           <LoadingState label="Đang tải đơn hàng" />
-        ) : ds.error || (cfg.error && !cfg.data) ? (
+        ) : (ds.error && !ds.loiTaiLai) || (cfg.error && !cfg.data) ? (
           <ErrorState description="Không tải được danh sách đơn. Vui lòng thử lại." onRetry={() => (cfg.data ? ds.reload() : cfg.reload())} />
         ) : rows.length === 0 ? (
           dangLoc ? (

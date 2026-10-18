@@ -9,6 +9,7 @@ import apiClient from "@/services/apiClient";
 import { laKhoAo } from "@/utils/kho";
 import { toast } from "@/lib/thongBaoNhanh";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import {
   ArrowLeft, User, Home, Truck, Calculator,
   CheckCircle2, Calendar, Send, XCircle,
@@ -107,20 +108,35 @@ export default function DonBanHangDetail() {
   const isKhoRole = userRoles.includes(ROLE.QUAN_LY_KHO) || userRoles.includes(ROLE.NHAN_VIEN_KHO);
   const isAdminOrSaleRole = userRoles.includes(ROLE.QUAN_TRI_VIEN) || userRoles.includes(ROLE.NHAN_VIEN_BAN_HANG);
 
-  const fetchDetail = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
+  // Chỉ nhận kết quả của lần tải mới nhất: lần tải ngầm về chậm không đè dữ liệu tải sau một thao tác
+  const requestIdRef = useRef(0);
+  // silent: tải lại ngầm khi quay lại tab — giữ màn đang xem, lỗi chỉ ghi log
+  const fetchDetail = useCallback(async ({ silent = false } = {}) => {
+    const requestId = ++requestIdRef.current;
+    if (!silent) {
+      setLoading(true);
+      setLoadError(null);
+    }
     try {
       const res = await donBanHangKenhService.getDetail(id);
+      if (requestId !== requestIdRef.current) return;
       setData(res.data);
+      setLoadError(null);
       coDuLieuRef.current = true;
     }
     catch (error) {
+      if (requestId !== requestIdRef.current) return;
+      if (silent) {
+        console.error(error);
+        return;
+      }
       setLoadError(error);
       // Đang xem đơn mà tải lại lỗi (sau một thao tác): giữ nguyên màn, chỉ báo lỗi
       if (coDuLieuRef.current) toast.error(getApiErrorMessage(error, "Không tải được chi tiết đơn bán"));
     }
-    finally { setLoading(false); }
+    finally {
+      if (requestId === requestIdRef.current) setLoading(false);
+    }
   }, [id]);
 
   // Hoãn qua microtask để tránh setState đồng bộ trong effect
@@ -128,6 +144,12 @@ export default function DonBanHangDetail() {
   useEffect(() => {
     queueMicrotask(() => fetchDetail());
   }, [fetchDetail]);
+
+  // Quay lại tab thì tải lại ngầm (kho đổi trạng thái khi nhặt, đóng gói, xuất). Không tải khi đang thao tác;
+  // hộp hoàn trả / gửi kho tự vẽ bằng portal (không có role dialog) nên chặn riêng.
+  useTaiLaiKhiQuayLai(() => fetchDetail({ silent: true }), {
+    bat: Boolean(data) && !loading && !dangXuLy && !taoLaiDangChay && !showReturnModal && !showSendWarehouseModal,
+  });
 
   // Chỉ chạy sau khi người dùng đồng ý ở hộp xác nhận
   async function handleMarkAsDelivered() {
@@ -274,7 +296,7 @@ export default function DonBanHangDetail() {
             <ErrorState
               title="Không tải được chi tiết đơn bán"
               description={getApiErrorMessage(loadError, "Đã xảy ra lỗi khi tải đơn bán. Vui lòng thử lại.")}
-              onRetry={fetchDetail}
+              onRetry={() => fetchDetail()}
             />
           )}
         </SurfaceCard>

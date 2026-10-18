@@ -9,6 +9,7 @@ import { daKetNoi, trangThaiKetNoi } from "@/components/channel/ketNoiShopify";
 import { CONNECTION_STATUS, SAN_BAN_HANG } from "@/constants/channel";
 import { isChannelMock, kenhBanHangService } from "@/services/kenhBanHangService";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { formatDateTime } from "@/utils/dateTime";
 
 const soVN = (n) => (n === null || n === undefined ? "—" : Number(n).toLocaleString("vi-VN"));
@@ -28,6 +29,17 @@ export default function ChannelsPage() {
   const ketNoi = daKetNoi(cfg.data);
   const ch = useTaiDuLieu(() => kenhBanHangService.getCauHinhDongBo("SHOPIFY"), "cau-hinh-dong-bo", { enabled: ketNoi });
   const tq = useTaiDuLieu(() => kenhBanHangService.getTongQuan("SHOPIFY"), "tong-quan", { enabled: ketNoi });
+  // Quay lại tab thì tải lại ngầm trạng thái kết nối và lần đồng bộ gần nhất
+  useTaiLaiKhiQuayLai(
+    () => {
+      cfg.reload();
+      if (ketNoi) {
+        ch.reload();
+        tq.reload();
+      }
+    },
+    { bat: !cfg.loading, lanCuoi: cfg.capNhatLuc },
+  );
   const san = SAN_BAN_HANG.find((s) => s.maKenh === "SHOPIFY");
   const duongDan = ketNoi ? san.duongDan : `${san.duongDan}/setup`;
   const trangThai = trangThaiKetNoi(cfg.data);

@@ -28,6 +28,7 @@ import { RowActionButton, RowActions } from "@/components/shared/RowActions";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 
 import {
     DropdownMenu,
@@ -187,11 +188,14 @@ export default function ProductList() {
         return () => { cancelled = true; };
     }, []);
 
-    const fetchProducts = useCallback(async () => {
+    // silent: tải lại ngầm khi quay lại tab — giữ bảng đang xem, lỗi chỉ ghi log
+    const fetchProducts = useCallback(async ({ silent = false } = {}) => {
         // Đổi tab / bộ lọc / trang liên tiếp có thể chạy nhiều yêu cầu cùng lúc: chỉ nhận kết quả của yêu cầu mới nhất
         const requestId = ++requestIdRef.current;
-        setIsLoading(true);
-        setLoadError(null);
+        if (!silent) {
+            setIsLoading(true);
+            setLoadError(null);
+        }
         try {
             // [User thao tac bo loc/tim kiem]
             // -> buildProductFilterPayload
@@ -223,10 +227,16 @@ export default function ProductList() {
             });
             setProducts(sortedContent);
             setTotal(totalElements);
+            setLoadError(null);
             setIsLoading(false);
         } catch (error) {
             if (requestId !== requestIdRef.current) return;
             console.error("Lỗi khi tải sản phẩm:", error.response?.data || error.message);
+            if (silent) {
+                // Giữ bảng; tắt vòng tải phòng khi lần tải ngầm này đã thay một lần tải thường đang chạy
+                setIsLoading(false);
+                return;
+            }
             toast.error("Không thể tải danh sách sản phẩm");
             // Không giữ dòng + tổng số của lần tải trước (R9)
             setProducts([]);
@@ -254,6 +264,12 @@ export default function ProductList() {
         },
         `${filters.keyword.trim()}|${filters.danhMuc}|${filters.thuongHieu}|${filters.giaTu}|${filters.giaDen}`
     );
+
+    // Quay lại tab thì tải lại ngầm danh sách + số trên tab
+    useTaiLaiKhiQuayLai(() => {
+        taiLaiSoTab();
+        fetchProducts({ silent: true });
+    }, { bat: !isLoading });
 
     // ── Debounce ô từ khóa + khoảng giá: không gọi API ở mỗi lần gõ phím ──
     useEffect(() => {

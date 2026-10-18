@@ -37,6 +37,7 @@ import { CHANNELS, MARKETPLACE_FILTER_OPTIONS } from "@/constants/channel";
 import { DON_BAN_HANG_TABS, getDonBanHangStatus } from "@/constants/donBanHang";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
+import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
 
 // Lọc theo kênh (S-OC-05): filters kenhBanHang.id EQUALS <id> trên POST /don-ban-hang/filter
 const ORDER_CHANNEL_OPTIONS = [
@@ -193,10 +194,11 @@ export default function DonBanHangList() {
     fetchUserInfo();
   }, []);
 
-  const fetchData = useCallback(async () => {
+  // silent: tải lại ngầm (nút ⟳ / quay lại tab) — giữ bảng đang xem; lỗi thì ném ra cho chân bảng báo
+  const fetchData = useCallback(async ({ silent = false } = {}) => {
     // Đổi tab / bộ lọc liên tiếp: chỉ nhận kết quả của yêu cầu mới nhất
     const requestId = ++requestIdRef.current;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const res = await donBanHangKenhService.filterDonBan({
         page: filters.page,
@@ -211,6 +213,7 @@ export default function DonBanHangList() {
     } catch (error) {
       if (requestId !== requestIdRef.current) return;
       console.error(error);
+      if (silent) throw error;
       // Không giữ dòng + tổng số của lần tải trước (R9)
       setData([]);
       setTotal(0);
@@ -288,6 +291,17 @@ export default function DonBanHangList() {
     tabCounts.reload();
     donNhap.reload();
   };
+
+  // Nút ⟳ ở chân bảng + tự tải lại khi quay lại tab: đơn từ POS, Shopify; kho đổi trạng thái khi nhặt, đóng gói, xuất
+  const capNhat = useTaiLaiDanhSach({
+    duLieu: data,
+    taiNgam: () => {
+      tabCounts.reload();
+      donNhap.reload();
+      return fetchData({ silent: true });
+    },
+    bat: !loading,
+  });
 
   // Số chỉ hiện khi đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs
   const statusTabs = DON_BAN_HANG_TABS.map((t) => ({
@@ -394,7 +408,7 @@ export default function DonBanHangList() {
           </ListToolbar>
         }
         footer={
-          !loadError && total > 0 ? (
+          !loadError && (total > 0 || !loading) ? (
             <TablePagination
               page={filters.page}
               size={filters.size}
@@ -404,6 +418,7 @@ export default function DonBanHangList() {
                 setFilters((p) => ({ ...p, page }));
               }}
               onSizeChange={(size) => setFilters((p) => (p.size === size ? p : { ...p, size, page: 0 }))}
+              capNhat={capNhat}
             />
           ) : null
         }

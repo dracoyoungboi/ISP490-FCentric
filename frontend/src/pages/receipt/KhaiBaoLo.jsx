@@ -9,7 +9,7 @@ import {
     Database,
     Info,
     Loader2,
-    RefreshCcw,
+    RotateCcw,
     SearchX,
     Trash2,
 } from "lucide-react";
@@ -384,7 +384,7 @@ export default function KhaiBaoLo() {
                                         onClick={resetForm}
                                         className="w-full gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                                     >
-                                        <RefreshCcw className="size-4" /> {form.dangSua ? "Hủy sửa" : "Làm mới"}
+                                        <RotateCcw className="size-4" /> {form.dangSua ? "Hủy sửa" : "Nhập lại"}
                                     </Button>
                                 </div>
                                 {isEnough && (

@@ -1,5 +1,5 @@
 // src/pages/supplier/SupplierList.jsx
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
     Plus, Edit, Trash2, Eye, Users,
@@ -24,6 +24,7 @@ import SupplierFormDialog from "@/components/supplier/SupplierFormDialog";
 import { laHoatDong } from "@/components/supplier/quyTacNhaCungCap";
 import { Button } from "@/components/ui/button";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { getAllSupplier } from "@/services/supplierService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { ROLES, hasAnyRole } from "@/utils/roles";
@@ -87,23 +88,39 @@ export default function SupplierList() {
     const [pageNumber,  setPageNumber]  = useState(0);
     const [pageSize,    setPageSize]    = useState(SO_DONG_MAC_DINH);
 
+    // Chỉ nhận kết quả của lần tải mới nhất: lần tải ngầm về chậm không đè dữ liệu tải sau một thao tác
+    const requestIdRef = useRef(0);
     // ── Fetch ──────────────────────────────────────────────────────────
-    const fetchSuppliers = useCallback(async () => {
-        setLoading(true);
-        setLoadError(null);
+    // silent: tải lại ngầm khi quay lại tab — giữ bảng đang xem, lỗi chỉ ghi log
+    const fetchSuppliers = useCallback(async ({ silent = false } = {}) => {
+        const requestId = ++requestIdRef.current;
+        if (!silent) {
+            setLoading(true);
+            setLoadError(null);
+        }
         try {
             const data = await getAllSupplier();
+            if (requestId !== requestIdRef.current) return;
             setSuppliers(Array.isArray(data) ? data : []);
+            setLoadError(null);
         } catch (error) {
+            if (requestId !== requestIdRef.current) return;
+            if (silent) {
+                console.error(error);
+                return;
+            }
             setLoadError(getApiErrorMessage(error, "Không thể tải danh sách nhà cung cấp"));
         } finally {
-            setLoading(false);
+            if (requestId === requestIdRef.current) setLoading(false);
         }
     }, []);
 
     // Hoãn qua microtask để tránh setState đồng bộ trong effect
     // (react-hooks/set-state-in-effect); request vẫn chạy ngay khi mount.
     useEffect(() => { queueMicrotask(() => fetchSuppliers()); }, [fetchSuppliers]);
+
+    // Quay lại tab thì tải lại ngầm (không tải khi đang mở hộp thêm / sửa / xóa)
+    useTaiLaiKhiQuayLai(() => fetchSuppliers({ silent: true }), { bat: !loading });
 
     // /supplier/new đã mở sẵn popup: xóa state để F5 / quay lại không tự mở lại.
     useEffect(() => {
@@ -257,7 +274,7 @@ export default function SupplierList() {
                         <ErrorState
                             title="Không thể tải danh sách nhà cung cấp"
                             description={loadError}
-                            onRetry={fetchSuppliers}
+                            onRetry={() => fetchSuppliers()}
                         />
                     ) : pageItems.length === 0 ? (
                         search.trim() ? (

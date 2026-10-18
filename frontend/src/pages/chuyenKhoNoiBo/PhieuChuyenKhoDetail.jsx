@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { phieuChuyenKhoService } from "@/services/phieuChuyenKhoService";
 import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
@@ -18,6 +18,7 @@ import { AlertTriangle, ArrowLeft, Loader2, ClipboardList, Building2, Package, A
 import { createPortal } from "react-dom";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { PHIEU_CHUYEN_KHO_STATUS, getPhieuChuyenKhoStatus } from "@/constants/phieuChuyenKho";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { formatDate } from "@/utils/formatters";
 
@@ -58,20 +59,36 @@ export default function PhieuChuyenKhoDetail() {
     const [relatedIssue, setRelatedIssue] = useState(null);
     const [relatedReceipt, setRelatedReceipt] = useState(null);
 
-    const fetchDetail = useCallback(async () => {
-        setLoading(true);
-        setLoadError(null);
+    // Chỉ nhận kết quả của lần tải mới nhất: lần tải ngầm về chậm không đè dữ liệu tải sau một thao tác
+    const requestIdRef = useRef(0);
+    // silent: tải lại ngầm khi quay lại tab — giữ màn đang xem, chỉ thay khi tải được dữ liệu mới.
+    // Trả về phiếu vừa tải (không có khi lỗi / không tìm thấy / đã có lần tải mới hơn).
+    const fetchDetail = useCallback(async ({ silent = false } = {}) => {
+        const requestId = ++requestIdRef.current;
+        if (!silent) {
+            setLoading(true);
+            setLoadError(null);
+        }
         try {
             const res = await phieuChuyenKhoService.getDetail(id);
+            if (requestId !== requestIdRef.current) return;
             const payload = res?.data || res;
             if (payload?.id != null) {
                 setData(payload);
-            } else {
+                setLoadError(null);
+                return payload;
+            }
+            if (!silent) {
                 // Máy chủ trả về rỗng: coi như không có phiếu này
                 setData(null);
                 setLoadError({ khongTimThay: true });
             }
         } catch (e) {
+            if (requestId !== requestIdRef.current) return;
+            if (silent) {
+                console.error(e);
+                return;
+            }
             setData(null);
             setLoadError({
                 // Máy chủ trả 400 ("Không tìm thấy phiếu chuyển kho id: …") cho mã không tồn tại
@@ -79,7 +96,7 @@ export default function PhieuChuyenKhoDetail() {
                 moTa: getApiErrorMessage(e, "Đã xảy ra lỗi khi tải phiếu chuyển kho. Vui lòng thử lại."),
             });
         } finally {
-            setLoading(false);
+            if (requestId === requestIdRef.current) setLoading(false);
         }
     }, [id]);
 
@@ -111,19 +128,23 @@ export default function PhieuChuyenKhoDetail() {
     }, []);
 
     // Lấy trước thông tin phiếu xuất / nhập liên kết để validate (Disable nút nếu đã tồn tại)
-    const fetchRelatedDocs = useCallback(() => {
+    const fetchRelatedDocs = useCallback(({ phieuXuat = true, phieuNhap = true } = {}) => {
         if (!id) return;
-        phieuXuatKhoService.filter({ page: 0, size: 2000 }).then(res => {
-            const issues = res.content || res.data?.content || [];
-            const found = issues.find(i => (String(i.phieuChuyenKhoGocId) === String(id) || String(i.phieuChuyenId) === String(id) || String(i.transferId) === String(id)) && i.trangThai !== 4);
-            if (found) setRelatedIssue(found);
-        }).catch(() => {});
+        if (phieuXuat) {
+            phieuXuatKhoService.filter({ page: 0, size: 2000 }).then(res => {
+                const issues = res.content || res.data?.content || [];
+                const found = issues.find(i => (String(i.phieuChuyenKhoGocId) === String(id) || String(i.phieuChuyenId) === String(id) || String(i.transferId) === String(id)) && i.trangThai !== 4);
+                if (found) setRelatedIssue(found);
+            }).catch(() => {});
+        }
 
-        phieuNhapKhoService.filter({ page: 0, size: 2000 }).then(res => {
-            const receipts = res.content || res.data?.content || [];
-            const found = receipts.find(r => (String(r.phieuXuatGocId) === String(id) || String(r.phieuChuyenId) === String(id) || String(r.transferId) === String(id)));
-            if (found) setRelatedReceipt(found);
-        }).catch(() => {});
+        if (phieuNhap) {
+            phieuNhapKhoService.filter({ page: 0, size: 2000 }).then(res => {
+                const receipts = res.content || res.data?.content || [];
+                const found = receipts.find(r => (String(r.phieuXuatGocId) === String(id) || String(r.phieuChuyenId) === String(id) || String(r.transferId) === String(id)));
+                if (found) setRelatedReceipt(found);
+            }).catch(() => {});
+        }
     }, [id]);
 
     // Hoãn qua microtask để tránh setState đồng bộ trong effect
@@ -139,6 +160,16 @@ export default function PhieuChuyenKhoDetail() {
     useEffect(() => {
         queueMicrotask(() => fetchUserInfo());
     }, [fetchUserInfo]);
+
+    // Quay lại tab thì tải lại ngầm phiếu (kho gửi / kho nhận là hai người khác nhau).
+    // Chứng từ liên kết là hai danh sách lớn: chỉ tải lại khi nút tạo phiếu tương ứng đang hiện mà chưa bị khóa
+    // (cùng điều kiện trạng thái với các nút bên dưới). Hộp xác nhận hủy tự vẽ bằng portal (không có role dialog) nên chặn riêng.
+    useTaiLaiKhiQuayLai(async () => {
+        const phieu = (await fetchDetail({ silent: true })) ?? data;
+        const canPhieuXuat = phieu.trangThai === 2 && !relatedIssue;
+        const canPhieuNhap = [3, 4].includes(phieu.trangThai) && !relatedReceipt;
+        if (canPhieuXuat || canPhieuNhap) fetchRelatedDocs({ phieuXuat: canPhieuXuat, phieuNhap: canPhieuNhap });
+    }, { bat: Boolean(data) && !loading && !isProcessing && !showCancelConfirm });
 
     async function handleStatusChange(actionFn, successMsg) {
         setIsProcessing(true);
@@ -200,7 +231,7 @@ export default function PhieuChuyenKhoDetail() {
                         <ErrorState
                             title="Không tải được phiếu chuyển kho"
                             description={loadError.moTa}
-                            onRetry={fetchDetail}
+                            onRetry={() => fetchDetail()}
                         />
                     )}
                 </div>

@@ -35,6 +35,7 @@ import { thuongHieuService } from "@/services/thuongHieuService";
 import { formatDate } from "@/utils/formatters";
 import { getApiErrorMessage } from "@/utils/apiError";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 
 // Chuẩn hoá mã màu về dạng #RRGGBB (chấp nhận thiếu '#', viết thường, dạng rút gọn #RGB).
 // Trả về null nếu không hợp lệ — <input type="color"> chỉ nhận đúng #rrggbb.
@@ -268,10 +269,13 @@ const ProductAttributeHub = () => {
         if (activeTab === 'brand') return { maThuongHieu: values.ma, tenThuongHieu: values.ten, moTa: values.moTa, trangThai: values.trangThai };
     };
 
-    const fetchData = useCallback(async () => {
+    // silent: tải lại ngầm khi quay lại tab — giữ bảng đang xem, lỗi chỉ ghi log
+    const fetchData = useCallback(async ({ silent = false } = {}) => {
         const requestId = ++requestIdRef.current;
-        setLoading(true);
-        setLoadError(null);
+        if (!silent) {
+            setLoading(true);
+            setLoadError(null);
+        }
         try {
             const filterList = [];
             if (filters.keyword?.trim()) {
@@ -317,9 +321,16 @@ const ProductAttributeHub = () => {
             }
 
             setData(content); setTotal(totalElements);
+            setLoadError(null);
             setLoading(false);
         } catch (err) {
             if (requestId !== requestIdRef.current) return;
+            if (silent) {
+                // Giữ bảng; tắt vòng tải phòng khi lần tải ngầm này đã thay một lần tải thường đang chạy
+                console.error(err);
+                setLoading(false);
+                return;
+            }
             // Lỗi: hiện khung báo lỗi trong bảng, không giữ dòng/tổng số cũ (R9)
             setData([]); setTotal(0);
             setLoadError(getApiErrorMessage(err, `Không thể tải danh sách ${TAB_LABELS[activeTab]}`));
@@ -330,6 +341,9 @@ const ProductAttributeHub = () => {
     // Hoãn qua microtask để tránh setState đồng bộ trong effect
     // (react-hooks/set-state-in-effect); vẫn tải lại ngay mỗi khi tab/bộ lọc đổi.
     useEffect(() => { queueMicrotask(() => fetchData()); }, [fetchData]);
+
+    // Quay lại tab thì tải lại ngầm (không tải khi đang mở hộp thêm / sửa / xóa — xem useTaiLaiKhiQuayLai)
+    useTaiLaiKhiQuayLai(() => fetchData({ silent: true }), { bat: !loading });
 
     // Bộ lọc ngoài tab loại; "Xóa lọc" bỏ từ khóa + trạng thái thương hiệu, giữ tab loại và số dòng mỗi trang
     const hasActiveFilters = Boolean(filters.keyword.trim()) || (activeTab === 'brand' && filters.trangThai !== "ALL");
@@ -498,7 +512,7 @@ const ProductAttributeHub = () => {
                 {loading ? (
                     <LoadingState label={`Đang tải danh sách ${TAB_LABELS[activeTab]}`} />
                 ) : loadError ? (
-                    <ErrorState description={loadError} onRetry={fetchData} />
+                    <ErrorState description={loadError} onRetry={() => fetchData()} />
                 ) : data.length === 0 ? (
                     hasActiveFilters ? (
                         <EmptyState

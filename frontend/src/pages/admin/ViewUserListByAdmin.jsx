@@ -39,6 +39,7 @@ import { ROLES } from "@/constants/backend/role";
 import { LUA_CHON_SO_DONG, SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { cn } from "@/lib/utils";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { adminService } from "@/services/adminService";
 import { getCurrentUserId } from "@/utils/roles";
 
@@ -205,10 +206,11 @@ export default function ViewUserListByAdmin() {
 
     // ── Danh sách ────────────────────────────────────────────────
     // silent: tải lại sau khi thêm người dùng — giữ nguyên bảng đang xem, không hiện vòng xoay.
-    const fetchUsers = useCallback(async ({ silent = false } = {}) => {
+    // quiet: tự tải lại ngầm khi quay lại tab — như silent, nhưng lỗi chỉ ghi log và giữ bảng.
+    const fetchUsers = useCallback(async ({ silent = false, quiet = false } = {}) => {
         const requestId = ++requestIdRef.current;
-        if (!silent) setLoading(true);
-        setLoadError(null);
+        if (!silent && !quiet) setLoading(true);
+        if (!quiet) setLoadError(null);
 
         try {
             const res = await adminService.filterUsersByAdmin(buildUserFilterPayload(filters));
@@ -232,10 +234,16 @@ export default function ViewUserListByAdmin() {
 
             setUsers(content);
             setTotal(totalElements);
+            setLoadError(null);
             setLoading(false);
         } catch (error) {
             if (requestId !== requestIdRef.current) return;
             console.error(error);
+            if (quiet) {
+                // Giữ bảng; tắt vòng tải phòng khi lần tải ngầm này đã thay một lần tải thường đang chạy
+                setLoading(false);
+                return;
+            }
             setUsers([]);
             setTotal(0);
             setLoadError(error?.response?.data?.message || LOAD_ERROR_MESSAGE);
@@ -261,6 +269,12 @@ export default function ViewUserListByAdmin() {
         },
         `${filters.keyword}|${filters.vaiTro}`
     );
+
+    // Quay lại tab thì tải lại ngầm danh sách + số trên tab
+    useTaiLaiKhiQuayLai(() => {
+        tabCounts.reload();
+        fetchUsers({ quiet: true });
+    }, { bat: !loading });
 
     // ── Debounce ô tìm kiếm: không gọi API ở mỗi lần gõ phím ──
     useEffect(() => {

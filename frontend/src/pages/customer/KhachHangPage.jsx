@@ -53,6 +53,7 @@ import { RowActionButton, RowActions } from "@/components/shared/RowActions";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import {
     PHONE_ERROR_MESSAGE,
     getPhoneError,
@@ -205,9 +206,10 @@ export default function KhachHangPage() {
     }, []);
 
     // Load data
-    const loadKhachHangs = useCallback(async () => {
+    // silent: tải lại ngầm khi quay lại tab — giữ bảng đang xem, lỗi chỉ ghi log
+    const loadKhachHangs = useCallback(async ({ silent = false } = {}) => {
         const seq = ++requestSeq.current;
-        setLoading(true);
+        if (!silent) setLoading(true);
         try {
             const filters = buildKhachHangFilters({ keyword: debouncedSearch, loai: loaiKhachHang, trangThai });
 
@@ -238,6 +240,10 @@ export default function KhachHangPage() {
             setLoadError(false);
         } catch (error) {
             if (seq !== requestSeq.current) return;
+            if (silent) {
+                console.error(error);
+                return;
+            }
             // Không giữ dòng + tổng số của lần tải trước (R9)
             setLoadError(true);
             setKhachHangs([]);
@@ -269,6 +275,12 @@ export default function KhachHangPage() {
         },
         `${debouncedSearch}|${trangThai}`
     );
+
+    // Quay lại tab thì tải lại ngầm danh sách + số trên tab (khách mới có thể được tạo ở quầy POS)
+    useTaiLaiKhiQuayLai(() => {
+        tabCounts.reload();
+        loadKhachHangs({ silent: true });
+    }, { bat: !loading });
 
     // Áp dụng từ khóa tìm kiếm và quay về trang đầu (chỉ khi từ khóa thực sự đổi)
     const applySearch = useCallback((term) => {

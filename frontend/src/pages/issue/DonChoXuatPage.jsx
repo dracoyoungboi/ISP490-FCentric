@@ -31,6 +31,7 @@ import { MARKETPLACE_FILTER_OPTIONS } from "@/constants/channel";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { formatQuantity, toNumber } from "@/constants/outbound";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
+import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
 
 const TH_CLASS = "h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 const CHECKBOX_CLASS = "border-slate-300 data-[state=checked]:border-bo-primary data-[state=checked]:bg-bo-primary data-[state=checked]:text-white";
@@ -38,6 +39,18 @@ const DEFAULT_FILTERS = { keyword: "", kenh: "", page: 0, size: SO_DONG_MAC_DINH
 
 /** Kho làm việc hiện tại (KhoLamViecSelect ghi vào localStorage, apiClient gửi kèm header kho_id). */
 const docKhoLamViec = () => Number(window.localStorage.getItem("selected_kho_id")) || undefined;
+
+/**
+ * Đơn đang chọn có trong trang vừa tải thì thay bằng bản mới (tồn, số lượng có thể đã đổi).
+ * Đơn chọn ở trang khác giữ nguyên; đơn không còn chờ xuất do backend chặn khi tạo phiếu (409).
+ */
+const capNhatDonDaChon = (daChon, dsMoi) => {
+    const trongTrang = dsMoi.filter((row) => daChon.has(row.id));
+    if (trongTrang.length === 0) return daChon;
+    const next = new Map(daChon);
+    trongTrang.forEach((row) => next.set(row.id, row));
+    return next;
+};
 
 export default function DonChoXuatPage() {
     const navigate = useNavigate();
@@ -64,11 +77,14 @@ export default function DonChoXuatPage() {
         return () => window.clearTimeout(timer);
     }, [searchText]);
 
-    const fetchData = useCallback(async () => {
+    // silent: tải lại ngầm (nút ⟳ / quay lại tab) — giữ bảng và các đơn đang chọn; lỗi thì ném ra cho chân bảng báo
+    const fetchData = useCallback(async ({ silent = false } = {}) => {
         // Đổi kho / từ khóa / kênh liên tiếp: chỉ nhận kết quả của yêu cầu mới nhất
         const requestId = ++requestIdRef.current;
-        setLoading(true);
-        setLoadError(false);
+        if (!silent) {
+            setLoading(true);
+            setLoadError(false);
+        }
         try {
             const kenhOption = MARKETPLACE_FILTER_OPTIONS.find((option) => option.value === filters.kenh);
             const res = await nhatHangService.getDonChoXuat({
@@ -79,10 +95,14 @@ export default function DonChoXuatPage() {
                 size: filters.size,
             });
             if (requestId !== requestIdRef.current) return;
-            setData(res?.content ?? []);
+            const dsMoi = res?.content ?? [];
+            setData(dsMoi);
             setTotal(res?.totalElements ?? 0);
+            setLoadError(false);
+            setSelected((prev) => capNhatDonDaChon(prev, dsMoi));
         } catch (error) {
             if (requestId !== requestIdRef.current) return;
+            if (silent) throw error;
             // Không giữ dòng + tổng số của lần tải trước (R9)
             setData([]);
             setTotal(0);
@@ -96,6 +116,13 @@ export default function DonChoXuatPage() {
     useEffect(() => {
         queueMicrotask(() => fetchData());
     }, [fetchData]);
+
+    // Nút ⟳ ở chân bảng + tự tải lại khi quay lại tab: đơn mới gửi kho, nhân viên khác vừa gom đơn
+    const capNhat = useTaiLaiDanhSach({
+        duLieu: data,
+        taiNgam: () => fetchData({ silent: true }),
+        bat: !loading,
+    });
 
     const selectedRows = useMemo(() => [...selected.values()], [selected]);
     const selectedSummary = useMemo(() => ({
@@ -258,13 +285,14 @@ export default function DonChoXuatPage() {
                     </>
                 }
                 footer={
-                    !loading && !loadError && data.length > 0 ? (
+                    !loading && !loadError ? (
                         <TablePagination
                             page={filters.page}
                             size={filters.size}
                             total={total}
                             onPageChange={(page) => setFilters((prev) => ({ ...prev, page }))}
                             onSizeChange={(size) => setFilters((prev) => ({ ...prev, size, page: 0 }))}
+                            capNhat={capNhat}
                         />
                     ) : null
                 }
@@ -274,7 +302,7 @@ export default function DonChoXuatPage() {
                 ) : loadError ? (
                     <ErrorState
                         description="Không thể tải danh sách đơn chờ xuất. Vui lòng thử lại."
-                        onRetry={fetchData}
+                        onRetry={() => fetchData()}
                     />
                 ) : data.length === 0 ? (
                     dangLoc ? (

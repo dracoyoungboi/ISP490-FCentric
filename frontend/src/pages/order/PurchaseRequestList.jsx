@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
     ChevronDown, Calendar,
-    Plus, RefreshCw, Warehouse, CheckCircle,
+    Plus, Warehouse, CheckCircle,
     XCircle, Loader2, Package, SearchX,
 } from 'lucide-react';
 
@@ -32,6 +32,7 @@ import { formatDate } from '@/utils/formatters';
 
 import { YEU_CAU_NHAP_HANG_TABS, getYeuCauNhapHangStatus } from '@/constants/yeuCauNhapHang';
 import useDemTheoTrangThai from '@/hooks/useDemTheoTrangThai';
+import useTaiLaiDanhSach from '@/hooks/useTaiLaiDanhSach';
 import purchaseRequestService from '@/services/purchaseRequestService';
 import apiClient from '@/services/apiClient';
 import { getMineKhoList } from '@/services/khoService';
@@ -172,10 +173,11 @@ export default function PurchaseRequestList() {
     };
 
     // ── Fetch list ──
-    const fetchRequests = useCallback(async (page = 0, size = SO_DONG_MAC_DINH) => {
+    // silent: tải lại ngầm (nút ⟳ / quay lại tab) — giữ bảng đang xem; lỗi thì ném ra cho chân bảng báo
+    const fetchRequests = useCallback(async (page = 0, size = SO_DONG_MAC_DINH, { silent = false } = {}) => {
         // Đổi tab / bộ lọc liên tiếp có thể chạy 2 yêu cầu cùng lúc: chỉ nhận kết quả của yêu cầu mới nhất
         const requestId = ++requestIdRef.current;
-        setLoading(true);
+        if (!silent) setLoading(true);
         try {
             const res = await purchaseRequestService.filter({
                 filters: buildFilterArray({ trangThai: tabTrangThai, kho: khoId, ngay: dateRange }),
@@ -192,8 +194,9 @@ export default function PurchaseRequestList() {
                 totalPages: data.totalPages || 0,
             });
             setLoadError(false);
-        } catch {
+        } catch (error) {
             if (requestId !== requestIdRef.current) return;
+            if (silent) throw error;
             // Không giữ dòng + tổng số của lần tải trước: tránh hiện số liệu cũ như thể khớp bộ lọc mới (R9)
             setLoadError(true);
             setRequests([]);
@@ -237,6 +240,16 @@ export default function PurchaseRequestList() {
         tabCounts.reload();
         choDuyet.reload();
     };
+
+    // Nút ⟳ ở chân bảng + tự tải lại khi quay lại tab: kho tạo yêu cầu, mua hàng duyệt trên cùng danh sách
+    const capNhat = useTaiLaiDanhSach({
+        duLieu: requests,
+        taiNgam: () => {
+            reloadCounts();
+            return fetchRequests(pagination.pageNumber, pagination.pageSize, { silent: true });
+        },
+        bat: !loading && !loadingInitial,
+    });
 
     // ── Approve / Reject ──
     const handleApprove = async (id, trangThai) => {
@@ -316,21 +329,12 @@ export default function PurchaseRequestList() {
             <ListPageHeader
                 scope={scopeNote}
                 actions={
-                    <>
-                        <Button
-                            variant="outline"
-                            onClick={handleRefresh}
-                            className="gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                        >
-                            <RefreshCw className="size-4" />Làm mới
-                        </Button>
-                        <Button
-                            className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
-                            onClick={() => navigate('/purchase-requests/create')}
-                        >
-                            <Plus className="size-4" />Tạo yêu cầu nhập hàng
-                        </Button>
-                    </>
+                    <Button
+                        className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
+                        onClick={() => navigate('/purchase-requests/create')}
+                    >
+                        <Plus className="size-4" />Tạo yêu cầu nhập hàng
+                    </Button>
                 }
             />
 
@@ -422,13 +426,14 @@ export default function PurchaseRequestList() {
                     </ListToolbar>
                 }
                 footer={
-                    !loading && !loadingInitial && !loadError && requests.length > 0 ? (
+                    !loading && !loadingInitial && !loadError ? (
                         <TablePagination
                             page={pagination.pageNumber}
                             size={pagination.pageSize}
                             total={pagination.totalElements}
                             onPageChange={(pg) => setPagination(p => ({ ...p, pageNumber: pg }))}
                             onSizeChange={(size) => setPagination(p => ({ ...p, pageNumber: 0, pageSize: size }))}
+                            capNhat={capNhat}
                         />
                     ) : null
                 }

@@ -199,14 +199,6 @@ export default function PrintTemplatesPage() {
                         icon={Lock}
                         title="Bạn không có quyền đọc cấu hình mẫu in"
                         description="Tài khoản của bạn không được phép đọc cấu hình mẫu in trên máy chủ. Liên hệ quản trị viên nếu bạn cần quyền này."
-                        action={
-                            <Button
-                                className="bg-bo-primary text-white hover:bg-bo-primary-hover"
-                                onClick={reload}
-                            >
-                                Tải lại
-                            </Button>
-                        }
                     />
                 </PageContainer>
             );
