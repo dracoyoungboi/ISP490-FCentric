@@ -24,8 +24,19 @@ export const nguoiDungService = {
     return res.data;
 },
 
+    /**
+     * Quyền của người đang đăng nhập, đọc từ CSDL (tab Quyền của tôi ở Hồ sơ):
+     * { vaiTro, toanQuyen, kho, ngayBatDau, ngayKetThuc, quyen[], capNhatLuc, capNhatBoi, capNhatBoiEmail,
+     *   canDangNhapLai, quyenMoi[], quyenDaThuHoi[] }.
+     */
+    async getMyPermissions() {
+        const res = await apiClient.get("/api/v1/nguoi-dung/me/quyen");
+        return res?.data?.data ?? null;
+    },
+
     async updateMe(payload) {
-        // payload: { hoTen, soDienThoai } — không kèm id (BE lấy user từ token)
+        // payload: { hoTen, soDienThoai } — không kèm id (BE lấy user từ token).
+        // Email và tên đăng nhập không đổi được ở đây (máy chủ cũng chặn).
         const res = await apiClient.put("/api/v1/nguoi-dung/me", payload);
 
         // DTO trả về là hồ sơ mới nhất -> đồng bộ cache hiển thị header

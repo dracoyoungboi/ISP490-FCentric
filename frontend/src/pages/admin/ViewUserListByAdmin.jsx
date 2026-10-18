@@ -313,14 +313,14 @@ export default function ViewUserListByAdmin() {
     }, [highlightUserId]);
 
     const handleUserCreated = (user) => {
-        // Vai trò khác Quản trị viên thường cần gán kho phụ trách ngay sau khi tạo.
-        const canAssignWarehouse = user.id != null && user.vaiTro !== "quan_tri_vien";
+        // Vai trò dùng kho thường cần phân kho ngay sau khi tạo: mở thẳng ngăn kéo Phân quyền ở trang chi tiết.
+        const canAssignWarehouse = user.id != null && !["quan_tri_vien", "khach_hang"].includes(user.vaiTro);
         toast.success("Đã tạo tài khoản.", {
             description: `Mật khẩu tạm thời của ${user.tenDangNhap} sẽ được gửi tới ${user.email}.`,
             action: canAssignWarehouse
                 ? {
-                      label: "Phân quyền kho",
-                      onClick: () => navigate(`/users/${user.id}/edit-role`),
+                      label: "Phân quyền",
+                      onClick: () => navigate(`/users/${user.id}?phan-quyen=1`, { state: detailLinkState }),
                   }
                 : undefined,
         });
