@@ -34,6 +34,7 @@ import { getAllChatLieu, deleteChatLieu, createChatLieu, updateChatLieu } from "
 import { thuongHieuService } from "@/services/thuongHieuService";
 import { formatDate } from "@/utils/formatters";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 
@@ -314,9 +315,11 @@ const ProductAttributeHub = () => {
 
             // Trang đang xem vượt quá số trang thực tế (vd. vừa xóa dòng cuối) → lùi về trang cuối có dữ liệu
             // (tab Chất liệu phân trang tại chỗ: tự lùi trang ở `currentPage`)
-            if (content.length === 0 && totalElements > 0 && filters.page > 0) {
-                const lastPage = Math.max(Math.ceil(totalElements / filters.size) - 1, 0);
-                setFilters((p) => ({ ...p, page: lastPage }));
+            const trangCuoi = trangCuoiNeuVuot({
+                trang: filters.page, kichThuoc: filters.size, soDong: content.length, tong: totalElements,
+            });
+            if (trangCuoi != null) {
+                setFilters((p) => ({ ...p, page: trangCuoi }));
                 return; // vẫn đang tải: lần gọi cho trang cuối sẽ tắt vòng tải
             }
 

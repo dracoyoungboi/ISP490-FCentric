@@ -26,6 +26,7 @@ import TableShell from "@/components/shared/TableShell";
 import TablePagination from "@/components/shared/TablePagination";
 import { RowActionButton, RowActions } from "@/components/shared/RowActions";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
+import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
@@ -213,9 +214,11 @@ export default function ProductList() {
             const totalElements = pageData.totalElements || 0;
 
             // Trang đang xem vượt quá số trang (vd. vừa xóa dòng cuối của trang cuối) → lùi về trang cuối có dữ liệu
-            if (content.length === 0 && totalElements > 0 && filters.page > 0) {
-                const lastPage = Math.max(Math.ceil(totalElements / filters.size) - 1, 0);
-                setFilters((prev) => ({ ...prev, page: lastPage }));
+            const trangCuoi = trangCuoiNeuVuot({
+                trang: filters.page, kichThuoc: filters.size, soDong: content.length, tong: totalElements,
+            });
+            if (trangCuoi != null) {
+                setFilters((prev) => ({ ...prev, page: trangCuoi }));
                 return; // vẫn đang tải: lần gọi cho trang cuối sẽ tắt loading
             }
 

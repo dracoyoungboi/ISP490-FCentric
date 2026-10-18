@@ -19,6 +19,7 @@ import { SO_DONG_MAC_DINH } from '@/constants/phanTrang';
 import { formatNumber } from '@/utils/formatters';
 import { toast } from '@/lib/thongBaoNhanh';
 import { khoService } from '@/services/khoService';
+import { trangCuoiNeuVuot } from '@/lib/tinhTaiLai';
 import useDemTheoTrangThai from '@/hooks/useDemTheoTrangThai';
 import useTabTrenUrl from '@/hooks/useTabTrenUrl';
 import useTaiLaiKhiQuayLai from '@/hooks/useTaiLaiKhiQuayLai';
@@ -127,9 +128,9 @@ export default function WarehouseManagement() {
                 const content = d.content || [];
                 const totalElements = d.totalElements || 0;
                 // Trang đang xem vượt quá số trang (vd. vừa xóa kho cuối của trang cuối) → lùi về trang cuối có dữ liệu
-                if (content.length === 0 && totalElements > 0 && page > 0) {
-                    const lastPage = Math.max(Math.ceil(totalElements / Math.max(size, 1)) - 1, 0);
-                    setPagination(prev => ({ ...prev, pageNumber: lastPage }));
+                const trangCuoi = trangCuoiNeuVuot({ trang: page, kichThuoc: size, soDong: content.length, tong: totalElements });
+                if (trangCuoi != null) {
+                    setPagination(prev => ({ ...prev, pageNumber: trangCuoi }));
                     return;
                 }
                 setWarehouses(content);

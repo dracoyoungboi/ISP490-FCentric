@@ -38,6 +38,7 @@ import {
 import { ROLES } from "@/constants/backend/role";
 import { LUA_CHON_SO_DONG, SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { cn } from "@/lib/utils";
+import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { adminService } from "@/services/adminService";
@@ -226,9 +227,11 @@ export default function ViewUserListByAdmin() {
             const totalElements = pageData.totalElements ?? 0;
 
             // Trang trên URL vượt quá số trang thực tế → lùi về trang cuối có dữ liệu.
-            if (content.length === 0 && totalElements > 0 && filters.page > 0) {
-                const lastPage = Math.max(Math.ceil(totalElements / filters.size) - 1, 0);
-                setFilters((prev) => ({ ...prev, page: lastPage }));
+            const trangCuoi = trangCuoiNeuVuot({
+                trang: filters.page, kichThuoc: filters.size, soDong: content.length, tong: totalElements,
+            });
+            if (trangCuoi != null) {
+                setFilters((prev) => ({ ...prev, page: trangCuoi }));
                 return; // vẫn đang tải: lần gọi cho trang cuối sẽ tắt loading
             }
 
