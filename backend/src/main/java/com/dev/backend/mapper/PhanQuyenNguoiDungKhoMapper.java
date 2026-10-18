@@ -35,7 +35,6 @@ public interface PhanQuyenNguoiDungKhoMapper {
 
 
     default Page<PhanQuyenNguoiDungKhoDto> toDtoPage(Page<PhanQuyenNguoiDungKho> page) {
-        if (page.isEmpty()) return Page.empty();
         return page.map(this::toDto);
     }
 }

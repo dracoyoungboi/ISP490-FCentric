@@ -20,7 +20,6 @@ public interface KhoMapper {
     KhoDto toDto(Kho kho);
     List<KhoDto> toDtoList(List<Kho> list);
     default Page<KhoDto> toDtoPage(Page<Kho> page){
-        if(page.isEmpty()) return Page.empty();
         return page.map(this::toDto);
     }
 

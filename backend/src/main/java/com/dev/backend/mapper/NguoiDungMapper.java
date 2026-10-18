@@ -31,7 +31,6 @@ public interface NguoiDungMapper {
     }
 
     default Page<NguoiDungDto> toDtoPage(Page<NguoiDung> page){
-        if(page.isEmpty()) return Page.empty();
         return page.map(this::toDto);
     }
 }

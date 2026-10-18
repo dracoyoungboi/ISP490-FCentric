@@ -14,7 +14,6 @@ public interface KhachHangMapper {
     KhachHangDto toDto(KhachHang khachHang);
 
     default Page<KhachHangDto> toDtoPage(Page<KhachHang> page){
-        if(page.isEmpty()) return Page.empty();
         return page.map(this::toDto);
     }
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)

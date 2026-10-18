@@ -43,7 +43,6 @@ public interface ThuongHieuMapper {
      * Hỗ trợ phân trang
      */
     default Page<ThuongHieuDto> toDtoPage(Page<ThuongHieu> page) {
-        if (page.isEmpty()) return Page.empty();
         return page.map(this::toDto);
     }
 

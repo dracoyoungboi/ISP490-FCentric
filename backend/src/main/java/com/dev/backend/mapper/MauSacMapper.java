@@ -24,8 +24,6 @@ public interface MauSacMapper {
     List<MauSacDto> toDtoList(List<MauSac> list);
 
     default Page<MauSacDto> toDtoPage(Page<MauSac> page) {
-        if (page.isEmpty())
-            return Page.empty();
         return page.map(this::toDto);
     }
 

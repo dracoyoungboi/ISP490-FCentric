@@ -190,8 +190,9 @@ public class NhatHangServiceImpl implements NhatHangService {
 
         Page<DonBanHang> donPage = donBanHangRepository.findAll(spec, pageable);
 
+        // Trang rỗng (kể cả xin trang vượt số trang) vẫn giữ tổng thật để giao diện lùi về trang cuối còn dữ liệu
         if (donPage.isEmpty()) {
-            return Page.empty(pageable);
+            return new PageImpl<>(List.of(), pageable, donPage.getTotalElements());
         }
 
         // Tối ưu hóa: Thu thập toàn bộ ID biến thể xuất hiện trong trang để truy vấn tồn khả dụng 1 lần duy nhất

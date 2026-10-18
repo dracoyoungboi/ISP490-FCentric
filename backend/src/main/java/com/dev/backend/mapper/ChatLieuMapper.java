@@ -30,7 +30,6 @@ public interface ChatLieuMapper {
      * Hỗ trợ phân trang
      */
     default Page<ChatLieuDto> toDtoPage(Page<ChatLieu> page) {
-        if (page.isEmpty()) return Page.empty();
         return page.map(this::toDto);
     }
 

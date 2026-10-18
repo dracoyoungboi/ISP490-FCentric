@@ -24,8 +24,6 @@ public interface SizeMapper {
     List<SizeDto> toDtoList(List<Size> list);
 
     default Page<SizeDto> toDtoPage(Page<Size> page) {
-        if (page.isEmpty())
-            return Page.empty();
         return page.map(this::toDto);
     }
 

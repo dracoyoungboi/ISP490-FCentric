@@ -17,7 +17,6 @@ public interface LoHangMapper {
     List<LoHangDto> toDtoList(List<LoHang> list);
 
     default Page<LoHangDto> toDtoPage(Page<LoHang> page){
-        if(page.isEmpty()) return Page.empty();
         return page.map(this::toDto);
     }
 

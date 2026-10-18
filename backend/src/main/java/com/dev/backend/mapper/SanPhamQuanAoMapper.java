@@ -26,7 +26,6 @@ public interface SanPhamQuanAoMapper {
 
     default Page<SanPhamQuanAoDto> toDtoPage(Page<SanPhamQuanAo> page){
         // Preserve metadata phân trang (totalElements/totalPages/pageable) khi map sang DTO.
-        if(page.isEmpty()) return Page.empty();
         return page.map(this::toDto);
     }
 }

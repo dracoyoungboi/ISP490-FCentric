@@ -15,7 +15,6 @@ public interface YeuCauMuaHangMapper {
     YeuCauMuaHangDto toDto(YeuCauMuaHang yeuCauMuaHang);
     List<YeuCauMuaHangDto> toDtoList(List<YeuCauMuaHang> list);
     default Page<YeuCauMuaHangDto> toDtoPage(Page<YeuCauMuaHang> page){
-        if(page.isEmpty()) return Page.empty();
         return page.map(this::toDto);
     }
 

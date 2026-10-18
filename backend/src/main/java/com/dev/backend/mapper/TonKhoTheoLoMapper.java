@@ -15,7 +15,6 @@ public interface TonKhoTheoLoMapper {
     List<TonKhoTheoLoDto> toDtoList(List<TonKhoTheoLo> list);
 
     default Page<TonKhoTheoLoDto> toDtoPage(Page<TonKhoTheoLo> page){
-        if(page.isEmpty()) return Page.empty();
         return page.map(this::toDto);
     }
 }

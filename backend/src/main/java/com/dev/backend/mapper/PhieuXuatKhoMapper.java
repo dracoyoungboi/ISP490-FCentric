@@ -15,7 +15,6 @@ public interface PhieuXuatKhoMapper {
     PhieuXuatKhoDto toDto(PhieuXuatKho entity);
 
     default Page<PhieuXuatKhoDto> toDtoPage(Page<PhieuXuatKho> page){
-        if(page.isEmpty()) return Page.empty();
         return page.map(this::toDto);
     }
     @Mapping(source = "id", target = "id")
