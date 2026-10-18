@@ -220,6 +220,10 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         if (request.getTenDangNhap() != null && !request.getTenDangNhap().isBlank()) {
             String newUsername = request.getTenDangNhap().trim();
             if (!newUsername.equalsIgnoreCase(nguoiDung.getTenDangNhap())) {
+                // Hồ sơ cá nhân ghi "Tên đăng nhập không đổi được": chỉ quản trị viên được đổi
+                if (!isAdmin) {
+                    throw new CommonException("Tên đăng nhập không đổi được. Liên hệ quản trị viên nếu cần đổi.");
+                }
                 if (nguoiDungRepository.existsByTenDangNhap(newUsername)) {
                     throw new CommonException("Tên đăng nhập đã tồn tại trong hệ thống");
                 }
@@ -229,9 +233,16 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         if (request.getHoTen() != null && !request.getHoTen().isBlank()) {
             nguoiDung.setHoTen(request.getHoTen().trim());
         }
+        // Hệ thống không cho đổi email: email dùng để đăng nhập, nhận mật khẩu tạm thời và mã đặt lại mật khẩu.
+        // Tài khoản chưa có email thì được thêm một lần.
         if (request.getEmail() != null && !request.getEmail().isBlank()) {
             String newEmail = request.getEmail().trim();
-            if (!newEmail.equalsIgnoreCase(nguoiDung.getEmail())) {
+            String emailHienTai = nguoiDung.getEmail() == null ? "" : nguoiDung.getEmail().trim();
+            if (!newEmail.equalsIgnoreCase(emailHienTai)) {
+                if (!emailHienTai.isEmpty()) {
+                    throw new CommonException("Email không đổi được. Email dùng để đăng nhập và nhận mã đặt lại mật khẩu.");
+                }
+                validateEmail(newEmail);
                 if (nguoiDungRepository.existsByEmail(newEmail)) {
                     throw new CommonException("Email đã tồn tại trong hệ thống");
                 }
@@ -311,6 +322,15 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         // cho phép xóa số điện thoại: rỗng -> null (giống createInternalUserByAdmin)
         String soDienThoai = normalizePhone(request.getSoDienThoai());
         validatePhone(soDienThoai);
+        // Số điện thoại cũng dùng để đăng nhập: không cho trùng với tài khoản khác (giống lúc tạo người dùng)
+        if (soDienThoai != null && !soDienThoai.equals(nguoiDung.getSoDienThoai())) {
+            Integer toiId = nguoiDung.getId();
+            boolean trung = nguoiDungRepository.findAllBySoDienThoai(soDienThoai).stream()
+                    .anyMatch(khac -> !khac.getId().equals(toiId));
+            if (trung) {
+                throw new CommonException("Số điện thoại đã được tài khoản khác sử dụng");
+            }
+        }
         nguoiDung.setSoDienThoai(soDienThoai);
 
         nguoiDung = nguoiDungRepository.save(nguoiDung); // ngayCapNhat tự cập nhật (@Generated UPDATE)
@@ -751,6 +771,11 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             if (userIdClaim != null) {
                 currentUserId = Integer.valueOf(userIdClaim.toString());
             }
+        }
+        // Hệ thống xác thực bằng AuthInterceptor (không qua Spring Security) nên lấy người đang đăng nhập từ context riêng
+        NguoiDungAuthInfo contextUser = com.dev.backend.config.SecurityContextHolder.getUser();
+        if (currentUserId == null && contextUser != null) {
+            currentUserId = contextUser.getId();
         }
 
         // lay id bi thao tac
