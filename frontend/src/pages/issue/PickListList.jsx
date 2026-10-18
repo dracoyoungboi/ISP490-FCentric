@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
+import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import { nhatHangService, isPickListMock } from "@/services/nhatHangService";
 import {
     PICK_LIST_EDITABLE, PICK_LIST_TABS, getPickListStatus,
@@ -91,6 +92,12 @@ export default function PickListList() {
                 size: filters.size,
             }));
             if (requestId !== requestIdRef.current) return;
+            // Trang đang xem vượt số trang thật (vd. dòng cuối vừa được xử lý ở nơi khác) → lùi về trang cuối còn dữ liệu
+            const trangCuoi = trangCuoiNeuVuot({ trang: filters.page, kichThuoc: filters.size, soDong: res?.content?.length ?? 0, tong: res?.totalElements });
+            if (trangCuoi != null) {
+                setFilters((p) => ({ ...p, page: trangCuoi }));
+                return;
+            }
             setData(res?.content ?? []);
             setTotal(res?.totalElements ?? 0);
             setLoadError(false);

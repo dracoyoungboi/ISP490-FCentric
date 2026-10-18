@@ -30,6 +30,7 @@ import { BAO_GIA_TABS, getBaoGiaStatus } from "@/constants/baoGia";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
+import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 
 const ROLE = {
     QUAN_TRI_VIEN: "quan_tri_vien",
@@ -148,6 +149,12 @@ export default function BaoGiaList() {
         sorts: [{ fieldName: "id", direction: "DESC" }],
       });
       if (requestId !== requestIdRef.current) return;
+      // Trang đang xem vượt số trang thật (vd. dòng cuối vừa được xử lý ở nơi khác) → lùi về trang cuối còn dữ liệu
+      const trangCuoi = trangCuoiNeuVuot({ trang: filters.page, kichThuoc: filters.size, soDong: res?.content?.length ?? 0, tong: res?.totalElements });
+      if (trangCuoi != null) {
+        setFilters((p) => ({ ...p, page: trangCuoi }));
+        return;
+      }
       setData(res?.content || []);
       setTotal(res?.totalElements || 0);
       setLoadError(false);

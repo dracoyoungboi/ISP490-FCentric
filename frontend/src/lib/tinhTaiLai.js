@@ -21,6 +21,25 @@ export function nenTuTaiLai({ bat, hienThi, coHopThoai, bayGio, lanCuoi, giaCach
   return bayGio - lanCuoi >= giaCach;
 }
 
+/**
+ * Trang đang xem vượt quá số trang thật (vd. tải lại sau khi dòng cuối của trang cuối được xử lý ở nơi khác:
+ * bảng rỗng, chân bảng "Hiển thị 21 – 20") thì trả số trang cuối còn dữ liệu (đếm từ 0) để trang lùi về;
+ * không vượt thì trả null.
+ * - `trang`, `kichThuoc`: trang và số dòng mỗi trang của yêu cầu vừa gửi.
+ * - `soDong`: số dòng máy chủ trả về cho trang đó (trước khi lọc thêm tại chỗ).
+ * - `tong`: tổng số dòng khớp bộ lọc (totalElements). Nhiều API trả trang rỗng kèm tổng 0 khi xin trang vượt
+ *   (Page.empty() ở mapper hay service) nên không biết trang cuối: khi đó về trang đầu.
+ */
+export function trangCuoiNeuVuot({ trang, kichThuoc, soDong, tong }) {
+  const trangHienTai = Number(trang) || 0;
+  const tongSo = Number(tong) || 0;
+  if (soDong > 0 || !(trangHienTai > 0)) return null;
+  if (tongSo <= 0) return 0;
+  const cuoi = Math.max(Math.ceil(tongSo / Math.max(Number(kichThuoc) || 1, 1)) - 1, 0);
+  // Máy chủ đếm lệch với danh sách (tổng > 0 mà trang cuối vẫn rỗng): không lùi tiếp để tránh tải lặp
+  return cuoi < trangHienTai ? cuoi : null;
+}
+
 /** "Cập nhật lúc 14:16". Chưa có thời điểm thì trả chuỗi rỗng. */
 export function nhanCapNhat(thoiDiem) {
   if (!(thoiDiem instanceof Date) || Number.isNaN(thoiDiem.getTime())) return "";

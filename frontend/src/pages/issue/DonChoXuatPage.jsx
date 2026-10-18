@@ -32,6 +32,7 @@ import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { formatQuantity, toNumber } from "@/constants/outbound";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
+import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 
 const TH_CLASS = "h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 const CHECKBOX_CLASS = "border-slate-300 data-[state=checked]:border-bo-primary data-[state=checked]:bg-bo-primary data-[state=checked]:text-white";
@@ -95,6 +96,12 @@ export default function DonChoXuatPage() {
                 size: filters.size,
             });
             if (requestId !== requestIdRef.current) return;
+            // Trang đang xem vượt số trang thật (vd. dòng cuối vừa được xử lý ở nơi khác) → lùi về trang cuối còn dữ liệu
+            const trangCuoi = trangCuoiNeuVuot({ trang: filters.page, kichThuoc: filters.size, soDong: res?.content?.length ?? 0, tong: res?.totalElements });
+            if (trangCuoi != null) {
+                setFilters((p) => ({ ...p, page: trangCuoi }));
+                return;
+            }
             const dsMoi = res?.content ?? [];
             setData(dsMoi);
             setTotal(res?.totalElements ?? 0);

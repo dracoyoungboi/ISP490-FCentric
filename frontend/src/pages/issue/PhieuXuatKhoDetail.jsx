@@ -1,4 +1,4 @@
-import { createElement, useCallback, useEffect, useState } from "react";
+import { createElement, useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
 import { phieuChuyenKhoService } from "@/services/phieuChuyenKhoService";
@@ -45,14 +45,18 @@ export default function PhieuXuatKhoDetail() {
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
 
+    // Chỉ nhận kết quả của lần tải mới nhất: lần tải ngầm về chậm không đè dữ liệu của lần tải sau (Thử lại, đổi phiếu)
+    const requestIdRef = useRef(0);
     // silent: tải lại ngầm khi quay lại tab — giữ màn đang xem, chỉ thay khi tải được dữ liệu mới
     const fetchDetail = useCallback(async ({ silent = false } = {}) => {
+        const requestId = ++requestIdRef.current;
         if (!silent) {
             setLoading(true);
             setLoadError(null);
         }
         try {
             const res = await phieuXuatKhoService.getDetail(id);
+            if (requestId !== requestIdRef.current) return;
             const payload = res?.data || res;
             if (payload?.phieu) {
                 setData(payload);
@@ -63,6 +67,7 @@ export default function PhieuXuatKhoDetail() {
                 setLoadError({ khongTimThay: true });
             }
         } catch (e) {
+            if (requestId !== requestIdRef.current) return;
             if (silent) {
                 console.error(e);
                 return;
@@ -73,9 +78,10 @@ export default function PhieuXuatKhoDetail() {
                 moTa: getApiErrorMessage(e, "Đã xảy ra lỗi khi tải phiếu xuất kho. Vui lòng thử lại."),
             });
         } finally {
-            if (!silent) setLoading(false);
+            if (!silent && requestId === requestIdRef.current) setLoading(false);
         }
     }, [id]);
+
 
     // Hoãn qua microtask để tránh setState đồng bộ trong effect
     // (react-hooks/set-state-in-effect); vẫn tải lại chi tiết mỗi khi id đổi.

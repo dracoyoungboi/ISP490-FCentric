@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { CalendarRange, Loader2, SearchX, ShoppingCart } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
+import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import { Button } from "@/components/ui/button";
 import PageContainer from "@/components/backoffice/PageContainer";
 import ListPageHeader from "@/components/shared/ListPageHeader";
@@ -121,6 +122,18 @@ export default function ChannelOrdersPage() {
     }, SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
   }, [searchText, tuKhoa]);
+
+  // Trang đang xem vượt số trang thật sau khi tải lại (đơn cuối vừa đổi trạng thái) → lùi về trang cuối còn dữ liệu
+  useEffect(() => {
+    if (ds.loading) return;
+    const trangCuoi = trangCuoiNeuVuot({
+      trang: trang.page,
+      kichThuoc: trang.size,
+      soDong: ds.data?.content?.length ?? 0,
+      tong: ds.data?.totalElements,
+    });
+    if (trangCuoi != null) queueMicrotask(() => setTrang((cu) => ({ ...cu, page: trangCuoi })));
+  }, [ds.loading, ds.data, trang.page, trang.size]);
 
   if (cfg.data && !ketNoi) return <Navigate to={`${SAN.duongDan}/setup`} replace />;
 
@@ -251,7 +264,8 @@ export default function ChannelOrdersPage() {
           ) : null
         }
       >
-        {cfg.initialLoading || ds.initialLoading ? (
+        {/* Đang lùi về trang cuối (trang vừa tải rỗng vì vượt số trang) thì hiện đang tải, không hiện ô trống */}
+        {cfg.initialLoading || ds.initialLoading || (ds.loading && rows.length === 0 && trang.page > 0) ? (
           <LoadingState label="Đang tải đơn hàng" />
         ) : (ds.error && !ds.loiTaiLai) || (cfg.error && !cfg.data) ? (
           <ErrorState description="Không tải được danh sách đơn. Vui lòng thử lại." onRetry={() => (cfg.data ? ds.reload() : cfg.reload())} />

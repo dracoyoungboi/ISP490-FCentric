@@ -21,6 +21,7 @@ import { PHIEU_XUAT_KHO_TABS, getPhieuXuatKhoStatus } from "@/constants/phieuXua
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
+import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import apiClient from "@/services/apiClient";
 import { getMineKhoList } from "@/services/khoService";
 import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
@@ -138,6 +139,12 @@ export default function PhieuXuatKhoList() {
         try {
             const res = await phieuXuatKhoService.filter(buildFilterPayload({ ...filters, trangThai: tabTrangThai }));
             if (requestId !== requestIdRef.current) return;
+            // Trang đang xem vượt số trang thật (vd. dòng cuối vừa được xử lý ở nơi khác) → lùi về trang cuối còn dữ liệu
+            const trangCuoi = trangCuoiNeuVuot({ trang: filters.page, kichThuoc: filters.size, soDong: res?.content?.length ?? 0, tong: res?.totalElements });
+            if (trangCuoi != null) {
+                setFilters((p) => ({ ...p, page: trangCuoi }));
+                return;
+            }
             let finalData = res?.content || [];
 
             // Lọc ngày xuất phía client (ngayXuat, fallback ngayTao) — API chưa nhận điều kiện ngày

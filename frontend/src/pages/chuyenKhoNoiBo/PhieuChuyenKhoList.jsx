@@ -21,6 +21,7 @@ import { PHIEU_CHUYEN_KHO_TABS, getPhieuChuyenKhoStatus } from "@/constants/phie
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
+import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import { formatDate } from "@/utils/formatters";
 
 //Constants & Helpers
@@ -139,6 +140,12 @@ export default function PhieuChuyenKhoList() {
         try {
             const res = await phieuChuyenKhoService.filter(buildFilterPayload({ ...filters, trangThai: tabTrangThai }));
             if (requestId !== requestIdRef.current) return;
+            // Trang đang xem vượt số trang thật (vd. dòng cuối vừa được xử lý ở nơi khác) → lùi về trang cuối còn dữ liệu
+            const trangCuoi = trangCuoiNeuVuot({ trang: filters.page, kichThuoc: filters.size, soDong: res?.content?.length ?? 0, tong: res?.totalElements });
+            if (trangCuoi != null) {
+                setFilters((p) => ({ ...p, page: trangCuoi }));
+                return;
+            }
             setData(res?.content || []);
             setTotal(res?.totalElements || 0);
             setLoadError(false);

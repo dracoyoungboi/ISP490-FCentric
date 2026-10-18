@@ -21,6 +21,7 @@ import DongThongBao from "@/components/nhap-kho/DongThongBao";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
+import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import { cn } from "@/lib/utils";
 import { THONG_BAO_CHUA_HO_TRO_MA_VACH, maVachNhaCungCapService } from "@/services/maVachNhaCungCapService";
 import { getApiErrorMessage } from "@/utils/apiError";
@@ -61,6 +62,17 @@ export default function MaVachNhaCungCapPage() {
   );
   // Quay lại tab thì tải lại ngầm (giữ bảng đang xem)
   useTaiLaiKhiQuayLai(ketQua.reload, { bat: hoTro && !ketQua.loading, lanCuoi: ketQua.capNhatLuc });
+  // Trang đang xem vượt số trang thật (vd. vừa gỡ dòng cuối của trang cuối) → lùi về trang cuối còn dữ liệu
+  useEffect(() => {
+    if (ketQua.loading) return;
+    const trangCuoi = trangCuoiNeuVuot({
+      trang,
+      kichThuoc: soDong,
+      soDong: ketQua.data?.content?.length ?? 0,
+      tong: ketQua.data?.totalElements,
+    });
+    if (trangCuoi != null) queueMicrotask(() => setTrang(trangCuoi));
+  }, [ketQua.loading, ketQua.data, trang, soDong]);
   const dong = ketQua.data?.content ?? [];
   const tong = Number(ketQua.data?.totalElements ?? 0);
   const dangLoc = Boolean(tuKhoa.trim() || nhaCungCapId);
@@ -105,7 +117,8 @@ export default function MaVachNhaCungCapPage() {
   }
 
   let bang;
-  if (ketQua.initialLoading) {
+  // Đang lùi về trang cuối (trang vừa tải rỗng vì vượt số trang) thì hiện đang tải, không hiện ô trống
+  if (ketQua.initialLoading || (ketQua.loading && !dong.length && trang > 0)) {
     bang = <LoadingState rows={6} label="Đang tải mã vạch nhà cung cấp" />;
   } else if (ketQua.error && !ketQua.data) {
     bang = (

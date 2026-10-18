@@ -6,31 +6,71 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * - Chỉ nhận kết quả của lần tải mới nhất (đổi bộ lọc liên tiếp không bị kết quả cũ đè lên).
  * - Trong lúc tải lại vẫn giữ `data` cũ để trang không nháy trắng; `loading` cho biết đang tải.
  * - `enabled = false`: chưa tải (vd. chưa đủ dữ liệu để dựng yêu cầu).
- * - `setData(fn)`: sửa dữ liệu tại chỗ sau một thao tác (vd. cập nhật một dòng của bảng).
+ * - `setData(fn)`: sửa dữ liệu tại chỗ sau một thao tác (vd. cập nhật một dòng của bảng). Gọi trong lúc đang
+ *   tải lại cùng `khoa` (vd. tải ngầm khi quay lại tab, hay `reload()` sau thao tác trước) thì kết quả lần tải đó
+ *   bị bỏ — yêu cầu gửi trước thao tác nên có thể cũ hơn dữ liệu vừa sửa — và hook tự tải lại một lần nữa,
+ *   nên dữ liệu vừa sửa không bị đè mà lần tải lại cũng không mất. Thao tác cứ chen vào liên tục thì sau
+ *   SO_LAN_TAI_LAI_TOI_DA lần hook thôi tải, giữ dữ liệu đang có (không đè thao tác cuối).
  * - `capNhatLuc`: thời điểm (Date) của lần tải thành công gần nhất.
  * - `loiTaiLai`: lần tải gần nhất lỗi nhưng `data` đang giữ vẫn đúng `khoa` hiện tại (lỗi khi tải lại,
  *   không phải khi đổi bộ lọc) — trang có thể giữ bảng cũ thay vì thay bằng ô báo lỗi.
  */
+// Khóa của dữ liệu khi chưa tải được lần nào: không trùng với bất kỳ `khoa` nào trang truyền vào (kể cả null)
+const CHUA_CO_DU_LIEU = Symbol("chuaCoDuLieu");
+// Số lần tự tải lại liên tiếp tối đa vì có setData chen vào; quá số này thì thôi tải (giữ dữ liệu đang có)
+const SO_LAN_TAI_LAI_TOI_DA = 3;
+
 export default function useTaiDuLieu(tai, khoa = "", { enabled = true } = {}) {
   const [lanTai, setLanTai] = useState(0);
-  const [ketQua, setKetQua] = useState({ khoa: null, khoaDuLieu: null, data: undefined, error: null, luc: undefined });
+  const [ketQua, setKetQua] = useState({ khoa: null, khoaDuLieu: CHUA_CO_DU_LIEU, data: undefined, error: null, luc: undefined });
   const taiRef = useRef(tai);
+  const ketQuaRef = useRef(ketQua);
+  // Số lần trang sửa dữ liệu tại chỗ (setData), để biết có thao tác nào chen vào giữa lúc một lần tải đang chạy
+  const lanSuaRef = useRef(0);
+  // Số lần đã tự tải lại liên tiếp cho khóa `khoaDemRef`; về 0 khi nhận kết quả, khi đổi khóa, khi tắt và khi reload()
+  const lanTaiLaiNoiTiepRef = useRef(0);
+  const khoaDemRef = useRef(khoa);
   useEffect(() => {
     taiRef.current = tai;
+    ketQuaRef.current = ketQua;
   });
 
   const khoaDayDu = `${khoa}#${lanTai}`;
   useEffect(() => {
+    // Lần tự tải lại trước bị hủy giữa chừng (đổi khóa, tắt) thì bộ đếm không kịp về 0: đặt lại ở đây
+    if (!enabled || khoaDemRef.current !== khoa) {
+      khoaDemRef.current = khoa;
+      lanTaiLaiNoiTiepRef.current = 0;
+    }
     if (!enabled) return undefined;
     let boQua = false;
+    const lanSuaLucDau = lanSuaRef.current;
     Promise.resolve()
       .then(() => taiRef.current())
       .then(
         (data) => {
-          if (!boQua) setKetQua({ khoa: khoaDayDu, khoaDuLieu: khoa, data, error: null, luc: new Date() });
+          if (boQua) return;
+          // Tải lại cùng khóa mà trang vừa sửa dữ liệu tại chỗ: bỏ kết quả này (có thể cũ hơn dữ liệu vừa sửa),
+          // giữ dữ liệu đang có và gửi một lần tải mới — yêu cầu mới đi sau thao tác nên không còn cũ
+          const daSua = lanSuaRef.current !== lanSuaLucDau;
+          if (daSua && ketQuaRef.current.khoaDuLieu === khoa) {
+            if (lanTaiLaiNoiTiepRef.current < SO_LAN_TAI_LAI_TOI_DA) {
+              lanTaiLaiNoiTiepRef.current += 1;
+              setLanTai((n) => n + 1);
+              return;
+            }
+            // Đã tự tải lại đủ số lần mà thao tác vẫn chen vào: thôi tải, giữ dữ liệu đang có
+            lanTaiLaiNoiTiepRef.current = 0;
+            setKetQua((cu) => ({ ...cu, khoa: khoaDayDu, error: null }));
+            return;
+          }
+          lanTaiLaiNoiTiepRef.current = 0;
+          setKetQua({ khoa: khoaDayDu, khoaDuLieu: khoa, data, error: null, luc: new Date() });
         },
         (error) => {
-          if (!boQua) setKetQua((cu) => ({ ...cu, khoa: khoaDayDu, error }));
+          if (boQua) return;
+          lanTaiLaiNoiTiepRef.current = 0;
+          setKetQua((cu) => ({ ...cu, khoa: khoaDayDu, error }));
         },
       );
     return () => {
@@ -38,8 +78,12 @@ export default function useTaiDuLieu(tai, khoa = "", { enabled = true } = {}) {
     };
   }, [khoaDayDu, khoa, enabled]);
 
-  const reload = useCallback(() => setLanTai((n) => n + 1), []);
+  const reload = useCallback(() => {
+    lanTaiLaiNoiTiepRef.current = 0;
+    setLanTai((n) => n + 1);
+  }, []);
   const setData = useCallback((capNhat) => {
+    lanSuaRef.current += 1;
     setKetQua((cu) => ({ ...cu, data: typeof capNhat === "function" ? capNhat(cu.data) : capNhat }));
   }, []);
 

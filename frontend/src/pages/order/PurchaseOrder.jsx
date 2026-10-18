@@ -33,6 +33,7 @@ import { DON_MUA_HANG_TABS, getDonMuaHangStatus } from '@/constants/donMuaHang';
 import useDemTheoTrangThai from '@/hooks/useDemTheoTrangThai';
 import useTabTrenUrl from '@/hooks/useTabTrenUrl';
 import useTaiLaiDanhSach from '@/hooks/useTaiLaiDanhSach';
+import { trangCuoiNeuVuot } from '@/lib/tinhTaiLai';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROLE = {
@@ -198,6 +199,12 @@ export default function PurchaseOrderList() {
             if (requestId !== requestIdRef.current) return;
 
             const data = res?.data?.data || res?.data || {};
+            // Trang đang xem vượt số trang thật (vd. dòng cuối vừa được xử lý ở nơi khác) → lùi về trang cuối còn dữ liệu
+            const trangCuoi = trangCuoiNeuVuot({ trang: page, kichThuoc: size, soDong: data.content?.length ?? 0, tong: data.totalElements });
+            if (trangCuoi != null) {
+                setPagination((p) => ({ ...p, pageNumber: trangCuoi }));
+                return;
+            }
             setOrders(data.content || []);
             setPagination({
                 pageNumber: data.pageable?.pageNumber || 0,
