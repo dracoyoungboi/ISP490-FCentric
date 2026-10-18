@@ -5,7 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
  *
  * - Chỉ nhận kết quả của lần tải mới nhất (đổi bộ lọc liên tiếp không bị kết quả cũ đè lên).
  * - Trong lúc tải lại vẫn giữ `data` cũ để trang không nháy trắng; `loading` cho biết đang tải.
- * - `enabled = false`: chưa tải (vd. chưa đủ dữ liệu để dựng yêu cầu).
+ * - `enabled = false`: chưa tải (vd. chưa đủ dữ liệu để dựng yêu cầu). Bật lại (false → true) là một lần tải mới
+ *   như `reload()` dù `khoa` giữ nguyên: `loading` = true, không trả lỗi của lần trước, `data` cũ vẫn giữ.
  * - `setData(fn)`: sửa dữ liệu tại chỗ sau một thao tác (vd. cập nhật một dòng của bảng). Gọi trong lúc đang
  *   tải lại cùng `khoa` (vd. tải ngầm khi quay lại tab, hay `reload()` sau thao tác trước) thì kết quả lần tải đó
  *   bị bỏ — yêu cầu gửi trước thao tác nên có thể cũ hơn dữ liệu vừa sửa — và hook tự tải lại một lần nữa,
@@ -20,7 +21,9 @@ const CHUA_CO_DU_LIEU = Symbol("chuaCoDuLieu");
 // Số lần tự tải lại liên tiếp tối đa vì có setData chen vào; quá số này thì thôi tải (giữ dữ liệu đang có)
 const SO_LAN_TAI_LAI_TOI_DA = 3;
 
-export default function useTaiDuLieu(tai, khoa = "", { enabled = true } = {}) {
+export default function useTaiDuLieu(tai, khoa = "", { enabled: batVao = true } = {}) {
+  // Ép về boolean: NaN hay object mới mỗi lần render sẽ làm phép so sánh bật/tắt bên dưới không bao giờ dừng
+  const enabled = Boolean(batVao);
   const [lanTai, setLanTai] = useState(0);
   const [ketQua, setKetQua] = useState({ khoa: null, khoaDuLieu: CHUA_CO_DU_LIEU, data: undefined, error: null, luc: undefined });
   const taiRef = useRef(tai);
@@ -35,7 +38,13 @@ export default function useTaiDuLieu(tai, khoa = "", { enabled = true } = {}) {
     ketQuaRef.current = ketQua;
   });
 
-  const khoaDayDu = `${khoa}#${lanTai}`;
+  // Số lần `enabled` chuyển từ false sang true, nằm trong khóa đầy đủ: bật lại cùng `khoa` (vd. đóng rồi mở lại ngăn
+  // kéo) là một lần tải mới thay vì tải ngầm với loading = false và lỗi cũ còn hiện. Tăng ngay trong lúc render
+  // (React vẽ lại trước khi hiển thị) để không có khung hình nào đã bật mà khóa chưa đổi
+  const [bat, setBat] = useState({ enabled, lan: 0 });
+  if (bat.enabled !== enabled) setBat({ enabled, lan: enabled ? bat.lan + 1 : bat.lan });
+
+  const khoaDayDu = `${khoa}#${lanTai}#${bat.lan}`;
   useEffect(() => {
     // Lần tự tải lại trước bị hủy giữa chừng (đổi khóa, tắt) thì bộ đếm không kịp về 0: đặt lại ở đây
     if (!enabled || khoaDemRef.current !== khoa) {
