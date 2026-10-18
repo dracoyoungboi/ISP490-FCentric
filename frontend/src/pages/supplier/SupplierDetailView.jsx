@@ -1,6 +1,6 @@
 // src/pages/supplier/SupplierDetailView.jsx — trang Chi tiết nhà cung cấp (/supplier/:id), bản "một khối" (chốt 17/10/2026)
 import { createElement, useCallback, useMemo, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { AlertTriangle, CirclePause, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/thongBaoNhanh";
@@ -28,6 +28,7 @@ import {
   tinhLichSuGia,
   timViecDangMo,
 } from "@/components/supplier/chi-tiet/tinhNhaCungCap";
+import useQuayLai from "@/hooks/useQuayLai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { getMineKhoList } from "@/services/khoService";
@@ -81,7 +82,6 @@ function DaiBao({ tone, icon, children, nutNhan, onNut }) {
 export default function SupplierDetailView() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
 
   const coTheQuanLy = hasAnyRole(QUYEN_QUAN_LY_NCC);
   const xemGiaoDich = hasAnyRole(QUYEN_XEM_GIAO_DICH);
@@ -206,11 +206,8 @@ export default function SupplierDetailView() {
       ? "Chưa tải được phiếu nhập kho"
       : "";
 
-  const quayLai = () => {
-    // Mở thẳng bằng đường dẫn (không có trang trước trong ứng dụng) thì về danh sách nhà cung cấp
-    if (location.key === "default") navigate("/supplier");
-    else navigate(-1);
-  };
+  // Có trang trước trong ứng dụng thì lùi lại; mở thẳng bằng đường dẫn thì về danh sách nhà cung cấp
+  const quayLai = useQuayLai("/supplier");
 
   // ── Đang tải / lỗi / không tìm thấy ────────────────────────────────────
   if (!ncc && (nccQ.loading || (!nccQ.error && nccQ.data === undefined))) {

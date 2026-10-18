@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -20,6 +20,7 @@ import {
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import purchaseOrderService from "@/services/purchaseOrderService";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
+import useQuayLai from "@/hooks/useQuayLai";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { getKhoLamViecId } from "@/utils/khoLamViec";
@@ -41,7 +42,6 @@ const TRANG_THAI_TAO_PHIEU_NHAP = [3, 5];
  */
 export default function PurchaseOrderDetail() {
     const navigate = useNavigate();
-    const location = useLocation();
     const { id } = useParams();
 
     // ── Đơn mua hàng ────────────────────────────────────────────────────────
@@ -112,11 +112,8 @@ export default function PurchaseOrderDetail() {
                 : "",
     };
 
-    const quayLai = () => {
-        // Mở thẳng bằng đường dẫn (không có trang trước trong ứng dụng) thì về danh sách đơn mua
-        if (location.key === "default") navigate("/purchase-orders");
-        else navigate(-1);
-    };
+    // Có trang trước trong ứng dụng thì lùi lại; mở thẳng bằng đường dẫn thì về danh sách đơn mua
+    const quayLai = useQuayLai("/purchase-orders");
 
     // ── Đang tải / lỗi / không tìm thấy ────────────────────────────────────
     if (!don && (donQ.loading || (!donQ.error && donQ.data === undefined))) {
