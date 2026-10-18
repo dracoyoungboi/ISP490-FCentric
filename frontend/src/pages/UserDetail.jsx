@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Camera, LogIn, Mail, Pencil, RefreshCcw } from "lucide-react";
+import { Camera, Copy, KeyRound, Lock } from "lucide-react";
 
 import { nguoiDungService } from "@/services/nguoiDungService";
+import { companyProfileService } from "@/services/companyProfileService";
 import { getApiErrorMessage } from "@/utils/apiError";
-import { formatDateTime } from "@/utils/formatters";
 import { PHONE_ERROR_MESSAGE, getPhoneError, isPhoneValid, sanitizePhoneInput } from "@/utils/phoneValidation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,438 +16,470 @@ import PageHeading from "@/components/backoffice/PageHeading";
 import { useClaimPageTitle } from "@/components/backoffice/pageTitle";
 import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
+import StatusBadge from "@/components/shared/StatusBadge";
+import HangCoBieuTuong from "@/components/nguoi-dung/ho-so/HangCoBieuTuong";
 import QuyenCuaToi from "@/components/nguoi-dung/ho-so/QuyenCuaToi";
-import { SIDEBAR_MENU } from "@/components/backoffice/sidebar.config";
-import { QUAN_TRI_VIEN, canKho, ngayGio, quyenCuaToiTheoNhom, tenVaiTro } from "@/components/nguoi-dung/phanQuyen";
-import useTabTrenUrl from "@/hooks/useTabTrenUrl";
+import {
+  goiYHoSo,
+  hieuLucCuaToi,
+  khoCuaToiNgan,
+  mailtoLienHe,
+  ngayGio,
+  ngayNgan,
+  tenVaiTro,
+} from "@/components/nguoi-dung/phanQuyen";
+import useSaoChep from "@/hooks/useSaoChep";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
 
 const NUT_VIEN = "border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle";
-const TABS = ["thong-tin", "quyen"];
+const NUT_CHINH = "bg-bo-primary text-white hover:bg-bo-primary-hover";
 const O_NHAP =
-    "h-9 max-w-[420px] border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20";
+  "h-9 w-full border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20";
+const NHAN = "flex items-center gap-1 text-[12.5px] leading-[18px] text-bo-muted";
+const MUC = "border-b border-slate-100 py-5 sm:py-[22px]";
 
-/** Một dòng của form thông tin: nhãn bên trái (trên điện thoại thì nằm trên), nội dung bên phải. */
-function DongThongTin({ nhan, htmlFor, children }) {
-    return (
-        <div className="grid gap-1.5 border-b border-slate-100 py-3.5 last:border-b-0 sm:grid-cols-[180px_minmax(0,1fr)] sm:items-center sm:gap-4">
-            {htmlFor ? (
-                <label htmlFor={htmlFor} className="text-[13px] font-medium text-bo-muted">
-                    {nhan}
-                </label>
-            ) : (
-                <span className="text-[13px] font-medium text-bo-muted">{nhan}</span>
-            )}
-            <div className="min-w-0 text-sm text-bo-foreground">{children}</div>
-        </div>
-    );
+const KIEU_GOI_Y = {
+  cam: "border-orange-200 bg-orange-50 text-orange-950",
+  xanh: "border-blue-200 bg-blue-50 text-blue-950",
+  xam: "border-bo-border bg-bo-surface-subtle text-slate-700",
+};
+
+/** Một ô của mục Thông tin cá nhân: nhãn trên, giá trị dưới. `khoa` = không đổi được (biểu tượng khóa cạnh nhãn). */
+function O({ nhan, htmlFor, khoa, children }) {
+  return (
+    <div className="group min-w-0">
+      {htmlFor ? (
+        <label htmlFor={htmlFor} className={NHAN}>
+          {nhan}
+        </label>
+      ) : (
+        <span className={NHAN}>
+          {nhan}
+          {khoa ? (
+            <span title="Không đổi được" className="inline-flex">
+              <Lock className="size-3" aria-hidden="true" />
+              <span className="sr-only">(không đổi được)</span>
+            </span>
+          ) : null}
+        </span>
+      )}
+      <div className="mt-1 flex min-h-[30px] min-w-0 items-center gap-1 text-sm leading-[22px] text-bo-foreground">{children}</div>
+    </div>
+  );
 }
 
-function KhongDoiDuoc({ children }) {
-    return <span className="text-xs text-bo-muted">{children}</span>;
+/** Nút sao chép cạnh giá trị: chỉ hiện khi rê chuột vào ô (máy cảm ứng, điện thoại thì luôn hiện). */
+function NutChep({ nhan, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={nhan}
+      title="Sao chép"
+      className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-bo-muted opacity-0 outline-none transition-opacity hover:bg-slate-100 hover:text-bo-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-bo-primary/40 group-hover:opacity-100 max-sm:size-9 max-sm:opacity-100 [@media(hover:none)]:opacity-100"
+    >
+      <Copy className="size-3.5" aria-hidden="true" />
+    </button>
+  );
 }
 
-function NhanNhom({ children }) {
-    return <div className="mb-2.5 text-xs font-medium leading-4 text-bo-muted">{children}</div>;
+/** Thanh gợi ý ở đầu trang: chỉ khi có việc cần làm, mỗi lần một cái, kèm một nút làm ngay. */
+function ThanhGoiY({ kieu, tieuDe, noiDung, nut }) {
+  return (
+    <div className="px-4 pb-4 sm:px-6">
+      <div role="status" className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border px-3.5 py-2.5 text-[13px] leading-[19px]", KIEU_GOI_Y[kieu])}>
+        <span className="min-w-60 flex-1">
+          <b className="font-semibold">{tieuDe}</b> {noiDung}
+        </span>
+        {nut}
+      </div>
+    </div>
+  );
 }
 
 /**
- * Hồ sơ của tôi (route /profile, chốt 18/10/2026): một khối gồm đầu trang, tab Thông tin cá nhân / Quyền của tôi
- * và cột Tài khoản · Cần hỗ trợ. Chỉ sửa được họ tên và số điện thoại; tên đăng nhập và email không đổi được
- * (máy chủ cũng chặn). Quyền đọc từ CSDL; quyền khác phiên đăng nhập thì nhắc đăng nhập lại.
+ * Hồ sơ của tôi (route /profile, chốt 18/10/2026, mẫu chung cho 5 vai trò): một khối gồm đầu khối, thanh gợi ý,
+ * Thông tin cá nhân (một nút Chỉnh sửa; Hủy/Lưu hiện đúng chỗ nút đó), Mật khẩu và Quyền của tôi.
+ * Chỉ sửa được họ tên và số điện thoại; tên đăng nhập và email không đổi được (máy chủ cũng chặn).
+ * Quyền đọc từ CSDL; quyền khác phiên đăng nhập thì nhắc đăng nhập lại. Không cần API mới.
  */
 export default function UserDetail() {
-    useClaimPageTitle(true);
-    const navigate = useNavigate();
+  useClaimPageTitle(true);
+  const navigate = useNavigate();
+  const { saoChep } = useSaoChep();
 
-    const hoSoQ = useTaiDuLieu(async () => {
-        const res = await nguoiDungService.getMe();
-        if (!res?.data) throw new Error("Không đọc được dữ liệu người dùng");
-        return res.data;
-    }, "");
-    const quyenQ = useTaiDuLieu(() => nguoiDungService.getMyPermissions(), "");
+  const hoSoQ = useTaiDuLieu(async () => {
+    const res = await nguoiDungService.getMe();
+    if (!res?.data) throw new Error("Không đọc được dữ liệu người dùng");
+    return res.data;
+  }, "");
+  const quyenQ = useTaiDuLieu(() => nguoiDungService.getMyPermissions(), "");
+  // Email liên hệ của công ty (Cấu hình → Thông tin công ty) cho các liên kết "Liên hệ quản trị viên"
+  const congTyQ = useTaiDuLieu(() => companyProfileService.get(), "");
 
-    const [tab, setTab] = useTabTrenUrl(TABS, "thong-tin", { ten: "tab" });
-    const [dangSua, setDangSua] = useState(false);
-    const [nhap, setNhap] = useState({ hoTen: "", soDienThoai: "" });
-    const [loi, setLoi] = useState({ hoTen: "", soDienThoai: "" });
-    const [dangLuu, setDangLuu] = useState(false);
-    const [moAnh, setMoAnh] = useState(false);
-    const [moMatKhau, setMoMatKhau] = useState(false);
+  const [dangSua, setDangSua] = useState(false);
+  const [nhap, setNhap] = useState({ hoTen: "", soDienThoai: "" });
+  const [loi, setLoi] = useState({ hoTen: "", soDienThoai: "" });
+  const [dangLuu, setDangLuu] = useState(false);
+  const [oDauTien, setODauTien] = useState("ho-ten");
+  const [moAnh, setMoAnh] = useState(false);
+  const [moMatKhau, setMoMatKhau] = useState(false);
+  const nutSuaRef = useRef(null);
 
-    const hoSo = hoSoQ.data;
-    const quyen = quyenQ.data;
+  // Vào chế độ sửa: đặt con trỏ vào ô vừa chọn (bấm "Thêm số điện thoại" thì vào ô số điện thoại)
+  useEffect(() => {
+    if (dangSua) document.getElementById(oDauTien)?.focus();
+  }, [dangSua, oDauTien]);
 
-    if (hoSoQ.error && !hoSo) {
-        return (
-            <PageContainer>
-                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                    <ErrorState
-                        title="Không tải được hồ sơ"
-                        description={getApiErrorMessage(hoSoQ.error, "Kiểm tra kết nối rồi thử lại.")}
-                        onRetry={hoSoQ.reload}
-                    />
-                </div>
-            </PageContainer>
-        );
-    }
-    if (!hoSo) {
-        return (
-            <PageContainer>
-                <LoadingState label="Đang tải hồ sơ" />
-            </PageContainer>
-        );
-    }
+  const hoSo = hoSoQ.data;
+  const quyen = quyenQ.data;
 
-    const laQuanTri = hoSo.vaiTro === QUAN_TRI_VIEN;
-    const khoHienTai = quyen?.kho ?? hoSo.khoPhuTrachActive?.[0] ?? null;
-    const khoNgan = laQuanTri
-        ? "mọi kho"
-        : !canKho(hoSo.vaiTro)
-            ? "không dùng kho"
-            : khoHienTai
-                ? khoHienTai.tenKho || khoHienTai.maKho
-                : "chưa có kho";
-    // Đếm đúng như tab hiển thị: chỉ việc làm được thật (bỏ quyền chưa có tác dụng)
-    const soQuyen = quyen && !quyen.toanQuyen ? quyenCuaToiTheoNhom(quyen, { menu: SIDEBAR_MENU }).soViec : 0;
-
-    const batSua = () => {
-        setNhap({ hoTen: hoSo.hoTen || "", soDienThoai: hoSo.soDienThoai || "" });
-        setLoi({ hoTen: "", soDienThoai: "" });
-        setDangSua(true);
-        setTab("thong-tin");
-    };
-    const huySua = () => {
-        setDangSua(false);
-        setLoi({ hoTen: "", soDienThoai: "" });
-    };
-    const chuan = (v) => (v ?? "").trim();
-    const coThayDoi = chuan(nhap.hoTen) !== chuan(hoSo.hoTen) || chuan(nhap.soDienThoai) !== chuan(hoSo.soDienThoai);
-
-    const luu = async () => {
-        const loiMoi = {
-            hoTen: chuan(nhap.hoTen) ? "" : "Họ và tên không được để trống.",
-            soDienThoai: isPhoneValid(nhap.soDienThoai) ? "" : PHONE_ERROR_MESSAGE,
-        };
-        setLoi(loiMoi);
-        if (loiMoi.hoTen || loiMoi.soDienThoai || dangLuu) return;
-        setDangLuu(true);
-        try {
-            const res = await nguoiDungService.updateMe({
-                hoTen: chuan(nhap.hoTen),
-                soDienThoai: chuan(nhap.soDienThoai) || null,
-            });
-            if (!res?.data) throw new Error("Không đọc được dữ liệu trả về");
-            hoSoQ.setData(res.data);
-            setDangSua(false);
-            toast.success("Đã cập nhật hồ sơ.");
-        } catch (err) {
-            toast.error(getApiErrorMessage(err, "Không cập nhật được hồ sơ. Vui lòng thử lại."));
-        } finally {
-            setDangLuu(false);
-        }
-    };
-
-    const dangNhapLai = () => {
-        nguoiDungService.logout();
-        sessionStorage.clear();
-        navigate("/login", { replace: true });
-    };
-
-    const loiSdtTrucTiep = loi.soDienThoai || getPhoneError(nhap.soDienThoai);
-
+  if (hoSoQ.error && !hoSo) {
     return (
-        <PageContainer className="flex min-h-full flex-col">
-            <article className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                {/* Đầu khối */}
-                <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-4 sm:px-6 sm:py-5">
-                    <div className="flex min-w-0 flex-1 basis-80 items-center gap-4">
-                        <div className="relative shrink-0">
-                            <UserAvatar userId={hoSo.id} name={hoSo.hoTen} avatarUrl={hoSo.avatarUrl} size="md" />
-                            <button
-                                type="button"
-                                onClick={() => setMoAnh(true)}
-                                aria-label="Đổi ảnh đại diện"
-                                title="Đổi ảnh đại diện"
-                                className="absolute -bottom-0.5 -right-0.5 inline-flex size-6 items-center justify-center rounded-full border-2 border-white bg-bo-foreground text-white hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary"
-                            >
-                                <Camera className="size-3" aria-hidden="true" />
-                            </button>
-                        </div>
-                        <div className="min-w-0">
-                            {/* Không hiện thẻ trạng thái: tự xem hồ sơ thì luôn đang hoạt động (tài khoản bị khóa không đăng nhập được) */}
-                            <PageHeading className="max-sm:line-clamp-2 max-sm:whitespace-normal">
-                                <span title={hoSo.hoTen || undefined}>{hoSo.hoTen || hoSo.tenDangNhap || "—"}</span>
-                            </PageHeading>
-                            <p className="mt-0.5 break-words text-[13px] leading-5 text-bo-muted">
-                                <span className="font-mono font-semibold text-slate-700">@{hoSo.tenDangNhap}</span>
-                                {` · ${tenVaiTro(hoSo.vaiTro)} · ${khoNgan}`}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2 max-sm:w-full">
-                        {dangSua ? (
-                            <>
-                                <Button type="button" variant="outline" onClick={huySua} disabled={dangLuu} className={`max-sm:h-11 max-sm:flex-1 ${NUT_VIEN}`}>
-                                    Hủy
-                                </Button>
-                                <Button
-                                    type="button"
-                                    onClick={luu}
-                                    disabled={dangLuu || !coThayDoi}
-                                    className="bg-bo-primary text-white hover:bg-bo-primary-hover max-sm:h-11 max-sm:flex-1"
-                                >
-                                    {dangLuu ? "Đang lưu..." : "Lưu thông tin"}
-                                </Button>
-                            </>
-                        ) : (
-                            // Đổi mật khẩu nằm ở dòng Mật khẩu trong tab Thông tin cá nhân, không lặp lại ở đầu trang
-                            <Button type="button" onClick={batSua} className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover max-sm:h-11 max-sm:flex-1">
-                                <Pencil className="size-4" aria-hidden="true" />
-                                Chỉnh sửa
-                            </Button>
-                        )}
-                    </div>
-                </header>
-
-                {quyen?.canDangNhapLai ? (
-                    <div className="px-4 pb-4 sm:px-6">
-                        <div role="status" className="flex flex-wrap items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-2.5 text-[13px] leading-5 text-blue-950">
-                            <RefreshCcw className="size-4 shrink-0 text-bo-primary" aria-hidden="true" />
-                            <span className="min-w-60 flex-1">
-                                <b className="font-semibold">
-                                    Quyền của bạn vừa được cập nhật{quyen.capNhatLuc ? ` lúc ${ngayGio(quyen.capNhatLuc)}` : ""}.
-                                </b>{" "}
-                                Đăng nhập lại để dùng quyền mới.
-                            </span>
-                            <Button type="button" variant="outline" size="sm" onClick={dangNhapLai} className={`gap-1.5 ${NUT_VIEN}`}>
-                                <LogIn className="size-3.5" aria-hidden="true" />
-                                Đăng nhập lại
-                            </Button>
-                        </div>
-                    </div>
-                ) : null}
-
-                <div className="border-b border-bo-border px-4 sm:px-6">
-                    <div role="tablist" aria-label="Hồ sơ" className="-mb-px flex gap-6 overflow-x-auto [scrollbar-width:none]">
-                        {[
-                            { ma: "thong-tin", nhan: "Thông tin cá nhân" },
-                            { ma: "quyen", nhan: "Quyền của tôi", so: soQuyen },
-                        ].map((t) => {
-                            const chon = t.ma === tab;
-                            return (
-                                <button
-                                    key={t.ma}
-                                    type="button"
-                                    role="tab"
-                                    id={`tab-ho-so-${t.ma}`}
-                                    aria-selected={chon}
-                                    aria-controls="vung-tab-ho-so"
-                                    // Đang sửa mà sang tab khác thì giữ nguyên nội dung đang sửa (nút Hủy/Lưu vẫn ở đầu trang)
-                                    onClick={() => setTab(t.ma)}
-                                    className={cn(
-                                        "inline-flex h-12 shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-0.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/40",
-                                        chon
-                                            ? "border-bo-primary font-semibold text-bo-foreground"
-                                            : "border-transparent font-medium text-bo-muted hover:text-bo-foreground",
-                                    )}
-                                >
-                                    {t.nhan}
-                                    {t.so > 0 ? (
-                                        <span
-                                            className={cn(
-                                                "inline-flex h-5 min-w-[22px] items-center justify-center rounded-full px-1.5 text-xs font-semibold tabular-nums",
-                                                chon ? "bg-bo-primary-soft text-bo-primary" : "bg-slate-100 text-slate-600",
-                                            )}
-                                        >
-                                            {t.so}
-                                        </span>
-                                    ) : null}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                <div className="@container grid flex-1 xl:grid-cols-[minmax(0,1fr)_340px]">
-                    <section
-                        id="vung-tab-ho-so"
-                        role="tabpanel"
-                        aria-labelledby={`tab-ho-so-${tab}`}
-                        className="min-w-0 px-4 pb-6 pt-2 sm:px-6"
-                    >
-                        {tab === "quyen" ? (
-                            <QuyenCuaToi quyen={quyen} dangTai={quyenQ.loading} loi={quyenQ.error} onThuLai={quyenQ.reload} />
-                        ) : (
-                            <div>
-                                <DongThongTin nhan="Họ và tên" htmlFor={dangSua ? "ho-ten" : undefined}>
-                                    {dangSua ? (
-                                        <div>
-                                            <Input
-                                                id="ho-ten"
-                                                value={nhap.hoTen}
-                                                maxLength={100}
-                                                autoComplete="name"
-                                                aria-invalid={Boolean(loi.hoTen)}
-                                                onChange={(e) => {
-                                                    setNhap((cu) => ({ ...cu, hoTen: e.target.value }));
-                                                    setLoi((cu) => ({ ...cu, hoTen: "" }));
-                                                }}
-                                                className={cn(O_NHAP, loi.hoTen && "border-bo-danger")}
-                                            />
-                                            {loi.hoTen ? <p className="mt-1 text-xs text-bo-danger">{loi.hoTen}</p> : null}
-                                        </div>
-                                    ) : (
-                                        hoSo.hoTen || "—"
-                                    )}
-                                </DongThongTin>
-                                <DongThongTin nhan="Số điện thoại" htmlFor={dangSua ? "so-dien-thoai" : undefined}>
-                                    {dangSua ? (
-                                        <div>
-                                            <Input
-                                                id="so-dien-thoai"
-                                                value={nhap.soDienThoai}
-                                                inputMode="numeric"
-                                                autoComplete="tel"
-                                                maxLength={10}
-                                                placeholder="10 số, bắt đầu bằng 0"
-                                                aria-invalid={Boolean(loiSdtTrucTiep)}
-                                                onChange={(e) => {
-                                                    setNhap((cu) => ({ ...cu, soDienThoai: sanitizePhoneInput(e.target.value) }));
-                                                    setLoi((cu) => ({ ...cu, soDienThoai: "" }));
-                                                }}
-                                                className={cn(O_NHAP, loiSdtTrucTiep && "border-bo-danger")}
-                                            />
-                                            {loiSdtTrucTiep ? (
-                                                <p className="mt-1 text-xs text-bo-danger">{loiSdtTrucTiep}</p>
-                                            ) : (
-                                                <p className="mt-1 text-xs text-bo-muted">Cũng dùng để đăng nhập. Để trống nếu không muốn lưu.</p>
-                                            )}
-                                        </div>
-                                    ) : hoSo.soDienThoai ? (
-                                        <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                                            <span className="tabular-nums">{hoSo.soDienThoai}</span>
-                                            <span className="text-xs text-bo-muted">Cũng dùng để đăng nhập</span>
-                                        </span>
-                                    ) : (
-                                        <span className="text-bo-muted">Chưa có</span>
-                                    )}
-                                </DongThongTin>
-                                <DongThongTin nhan="Tên đăng nhập">
-                                    <span className="flex flex-wrap items-center gap-2">
-                                        <span className="font-mono">{hoSo.tenDangNhap}</span>
-                                        <KhongDoiDuoc>Không đổi được</KhongDoiDuoc>
-                                    </span>
-                                </DongThongTin>
-                                <DongThongTin nhan="Email">
-                                    <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                                        {hoSo.email ? (
-                                            <span className="break-all">{hoSo.email}</span>
-                                        ) : (
-                                            <span className="text-bo-muted">Chưa có</span>
-                                        )}
-                                        <KhongDoiDuoc>
-                                            {hoSo.email
-                                                ? "Không đổi được · dùng để đăng nhập và nhận thư đặt lại mật khẩu"
-                                                : "Liên hệ quản trị viên để thêm email"}
-                                        </KhongDoiDuoc>
-                                    </span>
-                                </DongThongTin>
-                                <DongThongTin nhan="Mật khẩu">
-                                    <span className="flex flex-wrap items-center gap-3">
-                                        {hoSo.mustChangePassword ? (
-                                            <span className="text-amber-700">Đang dùng mật khẩu tạm thời</span>
-                                        ) : (
-                                            <span aria-label="Đã đặt mật khẩu" className="tracking-widest text-bo-muted">
-                                                ••••••••
-                                            </span>
-                                        )}
-                                        <Button type="button" variant="outline" size="sm" onClick={() => setMoMatKhau(true)} className={NUT_VIEN}>
-                                            Đổi mật khẩu
-                                        </Button>
-                                    </span>
-                                </DongThongTin>
-                            </div>
-                        )}
-                    </section>
-
-                    <aside
-                        aria-label="Tài khoản"
-                        className="grid min-w-0 content-start gap-x-8 border-t border-bo-border bg-bo-surface-subtle px-4 pb-5 sm:px-6 @xl:grid-cols-2 xl:block xl:border-l xl:border-t-0"
-                    >
-                        <section className="border-b border-slate-200/70 py-4">
-                            <NhanNhom>Tài khoản</NhanNhom>
-                            <dl className="m-0 grid grid-cols-[104px_minmax(0,1fr)] gap-x-3 gap-y-2.5 text-[13px] leading-5">
-                                <dt className="text-bo-muted">Vai trò</dt>
-                                <dd className="m-0 min-w-0 text-bo-foreground">{tenVaiTro(hoSo.vaiTro)}</dd>
-                                <dt className="text-bo-muted">Kho phụ trách</dt>
-                                <dd className="m-0 min-w-0 break-words text-bo-foreground">
-                                    {laQuanTri ? (
-                                        "Mọi kho"
-                                    ) : khoHienTai ? (
-                                        <>
-                                            {khoHienTai.tenKho || khoHienTai.maKho}{" "}
-                                            {khoHienTai.maKho ? (
-                                                <span className="font-mono text-xs text-bo-muted">{khoHienTai.maKho}</span>
-                                            ) : null}
-                                        </>
-                                    ) : (
-                                        <span className="text-bo-muted">{canKho(hoSo.vaiTro) ? "Chưa có" : "Không dùng kho"}</span>
-                                    )}
-                                </dd>
-                                <dt className="text-bo-muted">Ngày tạo</dt>
-                                <dd className="m-0 min-w-0 tabular-nums text-bo-foreground">{formatDateTime(hoSo.ngayTao)}</dd>
-                                <dt className="text-bo-muted">Cập nhật</dt>
-                                <dd className="m-0 min-w-0 tabular-nums text-bo-foreground">{formatDateTime(hoSo.ngayCapNhat)}</dd>
-                            </dl>
-                        </section>
-                        {!laQuanTri ? (
-                            <section className="py-4">
-                                <NhanNhom>Cần hỗ trợ</NhanNhom>
-                                {quyen?.capNhatBoi ? (
-                                    <div className="flex items-center gap-2.5">
-                                        <UserAvatar name={quyen.capNhatBoi} size="xs" className="shrink-0" />
-                                        <div className="min-w-0 flex-1 text-[13px] leading-[18px]">
-                                            <div className="truncate font-semibold">{quyen.capNhatBoi}</div>
-                                            <div className="text-bo-muted">Người phân quyền gần nhất</div>
-                                        </div>
-                                        {quyen.capNhatBoiEmail ? (
-                                            <Button asChild variant="outline" size="sm" className={`gap-1.5 ${NUT_VIEN}`}>
-                                                <a href={`mailto:${quyen.capNhatBoiEmail}`} aria-label={`Gửi email cho ${quyen.capNhatBoi}`}>
-                                                    <Mail className="size-3.5" aria-hidden="true" />
-                                                    Email
-                                                </a>
-                                            </Button>
-                                        ) : null}
-                                    </div>
-                                ) : null}
-                                <p className="mt-2.5 text-[12.5px] leading-[18px] text-bo-muted">
-                                    Đổi kho hoặc thêm quyền do quản trị viên làm.
-                                </p>
-                            </section>
-                        ) : null}
-                    </aside>
-                </div>
-            </article>
-
-            <AvatarEditorModal
-                open={moAnh}
-                onOpenChange={setMoAnh}
-                userId={hoSo.id}
-                userName={hoSo.hoTen}
-                avatarUrl={hoSo.avatarUrl}
-                onSaved={(dto) => hoSoQ.setData(dto)}
-            />
-            <ChangePasswordModal
-                open={moMatKhau}
-                onOpenChange={setMoMatKhau}
-                onSuccess={() => {
-                    toast.success("Đã đổi mật khẩu.");
-                    hoSoQ.reload();
-                }}
-            />
-        </PageContainer>
+      <PageContainer>
+        <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+          <ErrorState
+            title="Không tải được hồ sơ"
+            description={getApiErrorMessage(hoSoQ.error, "Kiểm tra kết nối rồi thử lại.")}
+            onRetry={hoSoQ.reload}
+          />
+        </div>
+      </PageContainer>
     );
+  }
+  if (!hoSo) {
+    return (
+      <PageContainer>
+        <LoadingState label="Đang tải hồ sơ" />
+      </PageContainer>
+    );
+  }
+
+  const emailLienHe = congTyQ.data?.email?.trim() || "";
+  const khoNgan = khoCuaToiNgan({ vaiTro: hoSo.vaiTro, quyen, khoTuHoSo: hoSo.khoPhuTrachActive?.[0] ?? null });
+  const tenKho = quyen?.kho ? quyen.kho.tenKho || quyen.kho.maKho : "";
+
+  const batSua = (o = "ho-ten") => {
+    setNhap({ hoTen: hoSo.hoTen || "", soDienThoai: hoSo.soDienThoai || "" });
+    setLoi({ hoTen: "", soDienThoai: "" });
+    setODauTien(o);
+    setDangSua(true);
+  };
+  const veNutSua = () => requestAnimationFrame(() => nutSuaRef.current?.focus());
+  const huySua = () => {
+    if (dangLuu) return;
+    setDangSua(false);
+    setLoi({ hoTen: "", soDienThoai: "" });
+    veNutSua();
+  };
+  const chuan = (v) => (v ?? "").trim();
+  const coThayDoi = chuan(nhap.hoTen) !== chuan(hoSo.hoTen) || chuan(nhap.soDienThoai) !== chuan(hoSo.soDienThoai);
+
+  const luu = async () => {
+    if (dangLuu) return;
+    if (!coThayDoi) {
+      huySua();
+      return;
+    }
+    const loiMoi = {
+      hoTen: chuan(nhap.hoTen) ? "" : "Họ và tên không được để trống.",
+      soDienThoai: isPhoneValid(nhap.soDienThoai) ? "" : PHONE_ERROR_MESSAGE,
+    };
+    setLoi(loiMoi);
+    if (loiMoi.hoTen || loiMoi.soDienThoai) return;
+    setDangLuu(true);
+    try {
+      const res = await nguoiDungService.updateMe({
+        hoTen: chuan(nhap.hoTen),
+        soDienThoai: chuan(nhap.soDienThoai) || null,
+      });
+      if (!res?.data) throw new Error("Không đọc được dữ liệu trả về");
+      hoSoQ.setData(res.data);
+      setDangSua(false);
+      toast.success("Đã cập nhật hồ sơ.");
+      veNutSua();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Không cập nhật được hồ sơ. Vui lòng thử lại."));
+    } finally {
+      setDangLuu(false);
+    }
+  };
+  const phim = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      luu();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      huySua();
+    }
+  };
+
+  const dangNhapLai = () => {
+    nguoiDungService.logout();
+    sessionStorage.clear();
+    navigate("/login", { replace: true });
+  };
+
+  const loiSdtTrucTiep = loi.soDienThoai || getPhoneError(nhap.soDienThoai);
+
+  // Thanh gợi ý: mật khẩu tạm → quyền vừa đổi → hiệu lực sắp hết → chưa có số điện thoại
+  const loaiGoiY = goiYHoSo({ hoSo, quyen });
+  let goiY = null;
+  if (loaiGoiY === "mat_khau_tam") {
+    goiY = {
+      kieu: "cam",
+      tieuDe: "Bạn đang dùng mật khẩu tạm thời.",
+      noiDung: "Đổi sang mật khẩu riêng để bảo vệ tài khoản.",
+      nut: (
+        <Button type="button" variant="outline" size="sm" onClick={() => setMoMatKhau(true)} className={NUT_VIEN}>
+          Đổi mật khẩu
+        </Button>
+      ),
+    };
+  } else if (loaiGoiY === "quyen_vua_doi") {
+    goiY = {
+      kieu: "xanh",
+      tieuDe: `Quyền của bạn vừa được cập nhật${quyen?.capNhatLuc ? ` lúc ${ngayGio(quyen.capNhatLuc)}` : ""}.`,
+      noiDung: "Đăng nhập lại để dùng quyền mới.",
+      nut: (
+        <Button type="button" variant="outline" size="sm" onClick={dangNhapLai} className={NUT_VIEN}>
+          Đăng nhập lại
+        </Button>
+      ),
+    };
+  } else if (loaiGoiY === "sap_het_hieu_luc") {
+    const hl = hieuLucCuaToi(quyen?.ngayKetThuc);
+    const href = mailtoLienHe(emailLienHe, `Đề nghị gia hạn quyền tại ${tenKho}`);
+    goiY = {
+      kieu: "cam",
+      tieuDe: `Quyền tại ${tenKho} hết hiệu lực sau ${hl.conNgay} ngày (${hl.denNgay}).`,
+      noiDung: "Liên hệ quản trị viên nếu cần gia hạn.",
+      nut: href ? (
+        <Button asChild variant="outline" size="sm" className={NUT_VIEN}>
+          <a href={href}>Liên hệ quản trị viên</a>
+        </Button>
+      ) : null,
+    };
+  } else if (loaiGoiY === "chua_co_sdt") {
+    goiY = {
+      kieu: "xam",
+      tieuDe: "Chưa có số điện thoại.",
+      noiDung: "Thêm số để đăng nhập bằng số điện thoại.",
+      nut: dangSua ? null : (
+        <Button type="button" variant="outline" size="sm" onClick={() => batSua("so-dien-thoai")} className={NUT_VIEN}>
+          Thêm số điện thoại
+        </Button>
+      ),
+    };
+  }
+
+  const chanKhoi = [
+    hoSo.ngayTao ? `Tạo tài khoản ${ngayNgan(hoSo.ngayTao)}` : "",
+    hoSo.ngayCapNhat ? `Cập nhật hồ sơ ${ngayNgan(hoSo.ngayCapNhat)}` : "",
+  ].filter(Boolean);
+
+  return (
+    <PageContainer>
+      <article className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+        {/* Đầu khối: vai trò và kho chỉ ghi một lần ở đây */}
+        <header className="flex items-center gap-4 px-4 py-4 sm:px-6 sm:py-5">
+          <div className="relative shrink-0">
+            <UserAvatar userId={hoSo.id} name={hoSo.hoTen} avatarUrl={hoSo.avatarUrl} size="md" />
+            <button
+              type="button"
+              onClick={() => setMoAnh(true)}
+              aria-label="Đổi ảnh đại diện"
+              title="Đổi ảnh đại diện"
+              className="absolute -bottom-0.5 -right-0.5 inline-flex size-6 items-center justify-center rounded-full border-2 border-white bg-bo-foreground text-white hover:bg-slate-700 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary"
+            >
+              <Camera className="size-3" aria-hidden="true" />
+            </button>
+          </div>
+          <div className="min-w-0">
+            {/* Không hiện thẻ trạng thái: tự xem hồ sơ thì luôn đang hoạt động (tài khoản bị khóa không đăng nhập được) */}
+            <PageHeading className="max-sm:line-clamp-2 max-sm:whitespace-normal">
+              <span title={hoSo.hoTen || undefined}>{hoSo.hoTen || hoSo.tenDangNhap || "—"}</span>
+            </PageHeading>
+            <p className="mt-0.5 break-words text-[13px] leading-5 text-bo-muted">
+              <span className="font-mono font-semibold text-slate-700">@{hoSo.tenDangNhap}</span>
+              {` · ${tenVaiTro(hoSo.vaiTro)}`}
+              {khoNgan ? ` · ${khoNgan}` : ""}
+            </p>
+          </div>
+        </header>
+
+        {goiY ? <ThanhGoiY {...goiY} /> : null}
+
+        <div className="border-t border-bo-border px-4 sm:px-6">
+          {/* Thông tin cá nhân */}
+          <section aria-labelledby="ho-so-thong-tin" className={MUC}>
+            <div className="mb-3.5 flex min-h-9 flex-wrap items-center justify-between gap-3">
+              <h2 id="ho-so-thong-tin" className="text-[15px] font-semibold leading-[22px] text-bo-foreground">
+                Thông tin cá nhân
+              </h2>
+              {dangSua ? (
+                // Hủy và Lưu thay đúng chỗ nút Chỉnh sửa, không nhảy xuống cuối mục
+                <div className="flex items-center gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={huySua} disabled={dangLuu} className={`max-sm:h-10 ${NUT_VIEN}`}>
+                    Hủy
+                  </Button>
+                  <Button type="button" size="sm" onClick={luu} disabled={dangLuu || !coThayDoi} className={`max-sm:h-10 ${NUT_CHINH}`}>
+                    {dangLuu ? "Đang lưu..." : "Lưu"}
+                  </Button>
+                </div>
+              ) : (
+                <Button ref={nutSuaRef} type="button" variant="outline" size="sm" onClick={() => batSua()} className={`max-sm:h-10 ${NUT_VIEN}`}>
+                  Chỉnh sửa
+                </Button>
+              )}
+            </div>
+
+            <div className="@container">
+              <div className="grid gap-x-8 gap-y-4 @xl:grid-cols-2 @4xl:grid-cols-4">
+                <O nhan="Họ và tên" htmlFor={dangSua ? "ho-ten" : undefined}>
+                  {dangSua ? (
+                    <div className="w-full">
+                      <Input
+                        id="ho-ten"
+                        value={nhap.hoTen}
+                        maxLength={100}
+                        autoComplete="name"
+                        aria-invalid={Boolean(loi.hoTen)}
+                        onKeyDown={phim}
+                        onChange={(e) => {
+                          setNhap((cu) => ({ ...cu, hoTen: e.target.value }));
+                          setLoi((cu) => ({ ...cu, hoTen: "" }));
+                        }}
+                        className={cn(O_NHAP, loi.hoTen && "border-bo-danger")}
+                      />
+                      {loi.hoTen ? <p className="mt-1 text-xs text-bo-danger">{loi.hoTen}</p> : null}
+                    </div>
+                  ) : (
+                    <span className="truncate" title={hoSo.hoTen || undefined}>
+                      {hoSo.hoTen || "—"}
+                    </span>
+                  )}
+                </O>
+
+                <O nhan="Số điện thoại" htmlFor={dangSua ? "so-dien-thoai" : undefined}>
+                  {dangSua ? (
+                    <div className="w-full">
+                      <Input
+                        id="so-dien-thoai"
+                        value={nhap.soDienThoai}
+                        inputMode="numeric"
+                        autoComplete="tel"
+                        maxLength={10}
+                        placeholder="10 số, bắt đầu bằng 0"
+                        aria-invalid={Boolean(loiSdtTrucTiep)}
+                        onKeyDown={phim}
+                        onChange={(e) => {
+                          setNhap((cu) => ({ ...cu, soDienThoai: sanitizePhoneInput(e.target.value) }));
+                          setLoi((cu) => ({ ...cu, soDienThoai: "" }));
+                        }}
+                        className={cn(O_NHAP, "tabular-nums", loiSdtTrucTiep && "border-bo-danger")}
+                      />
+                      {loiSdtTrucTiep ? (
+                        <p className="mt-1 text-xs text-bo-danger">{loiSdtTrucTiep}</p>
+                      ) : (
+                        <p className="mt-1 text-xs text-bo-muted">Cũng dùng để đăng nhập. Để trống nếu không muốn lưu.</p>
+                      )}
+                    </div>
+                  ) : hoSo.soDienThoai ? (
+                    <span className="truncate tabular-nums">{hoSo.soDienThoai}</span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => batSua("so-dien-thoai")}
+                      className="rounded text-sm font-medium text-bo-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-bo-primary/40"
+                    >
+                      + Thêm số điện thoại
+                    </button>
+                  )}
+                </O>
+
+                <O nhan="Email" khoa>
+                  {hoSo.email ? (
+                    <>
+                      <span className="truncate" title={hoSo.email}>
+                        {hoSo.email}
+                      </span>
+                      <NutChep nhan="Sao chép email" onClick={() => saoChep(hoSo.email, { nhan: "Sao chép email" })} />
+                    </>
+                  ) : (
+                    <span className="text-bo-muted">Chưa có</span>
+                  )}
+                </O>
+
+                <O nhan="Tên đăng nhập" khoa>
+                  <span className="truncate font-mono text-[13.5px]" title={hoSo.tenDangNhap}>
+                    {hoSo.tenDangNhap}
+                  </span>
+                  <NutChep nhan="Sao chép tên đăng nhập" onClick={() => saoChep(hoSo.tenDangNhap, { nhan: "Sao chép tên đăng nhập" })} />
+                </O>
+              </div>
+            </div>
+          </section>
+
+          {/* Mật khẩu: một hàng, lời nghiệp vụ; không nói cơ chế phiên hay token */}
+          <section aria-labelledby="ho-so-mat-khau" className={MUC}>
+            <HangCoBieuTuong
+              icon={KeyRound}
+              tieuDeId="ho-so-mat-khau"
+              tieuDe={
+                <>
+                  Mật khẩu
+                  {hoSo.mustChangePassword ? <StatusBadge label="Tạm thời" nhom="canChuY" /> : null}
+                </>
+              }
+              moTa={
+                hoSo.mustChangePassword
+                  ? "Mật khẩu do quản trị viên cấp lúc tạo tài khoản."
+                  : "Cập nhật mật khẩu để bảo vệ tài khoản của bạn."
+              }
+              hanhDong={
+                <Button type="button" variant="outline" size="sm" onClick={() => setMoMatKhau(true)} className={`max-sm:h-10 max-sm:w-full ${NUT_VIEN}`}>
+                  Đổi mật khẩu
+                </Button>
+              }
+            />
+          </section>
+
+          <QuyenCuaToi
+            vaiTro={hoSo.vaiTro}
+            quyen={quyen}
+            dangTai={quyenQ.loading}
+            loi={quyenQ.error}
+            onThuLai={quyenQ.reload}
+            emailLienHe={emailLienHe}
+          />
+        </div>
+
+        {chanKhoi.length ? (
+          <footer className="border-t border-slate-100 bg-bo-surface-subtle px-4 py-3 text-[12.5px] leading-[18px] text-bo-muted sm:px-6">
+            {chanKhoi.join(" · ")}
+          </footer>
+        ) : null}
+      </article>
+
+      <AvatarEditorModal
+        open={moAnh}
+        onOpenChange={setMoAnh}
+        userId={hoSo.id}
+        userName={hoSo.hoTen}
+        avatarUrl={hoSo.avatarUrl}
+        onSaved={(dto) => hoSoQ.setData(dto)}
+      />
+      <ChangePasswordModal
+        open={moMatKhau}
+        onOpenChange={setMoMatKhau}
+        onSuccess={() => {
+          toast.success("Đã đổi mật khẩu.");
+          hoSoQ.reload();
+        }}
+      />
+    </PageContainer>
+  );
 }

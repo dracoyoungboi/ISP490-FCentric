@@ -117,7 +117,7 @@ export default function ChangePasswordModal({ open, onOpenChange, onSuccess, for
           <DialogDescription className="text-bo-muted">
             {forceChange
               ? "Tài khoản của bạn vừa được cấp lại mật khẩu tạm thời. Vui lòng nhập mật khẩu tạm thời và tạo mật khẩu mới để tiếp tục."
-              : "Cập nhật mật khẩu đăng nhập cho tài khoản của bạn."}
+              : "Cập nhật mật khẩu đăng nhập cho tài khoản của bạn. Sau khi đổi, các thiết bị khác đang đăng nhập sẽ phải đăng nhập lại."}
           </DialogDescription>
         </DialogHeader>
 

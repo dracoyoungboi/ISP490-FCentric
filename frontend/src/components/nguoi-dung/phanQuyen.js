@@ -667,7 +667,7 @@ export function dienGiaiLichSu(ls) {
 
 // ───────────────────────────── Hồ sơ của tôi ─────────────────────────────
 
-/** Mô tả quyền theo góc nhìn người được cấp (tab Quyền của tôi). Quyền mới chưa có ở đây dùng mô tả trong CSDL. */
+/** Mô tả quyền theo góc nhìn người được cấp (mục Quyền của tôi, hiện khi rê chuột). Quyền mới chưa có ở đây dùng mô tả trong CSDL. */
 export const MO_TA_CHO_NGUOI_DUNG = {
   xem_ton_kho: "Xem số lượng còn của từng sản phẩm trong kho",
   xem_chi_tiet_lo: "Xem lô, hạn dùng và vị trí kệ của hàng",
@@ -695,24 +695,90 @@ export const MO_TA_CHO_NGUOI_DUNG = {
 };
 
 /**
- * Nội dung tab Quyền của tôi từ QuyenCuaToiDto (GET /nguoi-dung/me/quyen).
+ * Nhóm việc ở mục Quyền của tôi (Hồ sơ, chốt 18/10/2026). Theo luồng việc như NHOM_QUYEN, riêng nhóm
+ * "Danh mục & nhân sự" của CSDL tách theo đối tượng: Sản phẩm, Đối tác (nhà cung cấp, khách hàng), Nhân sự kho.
+ * Quyền chưa có trong `thuTu` của nhóm nào thì theo nhom_quyen trong CSDL (`nhomGoc`); nhóm lạ gom vào "Khác".
+ * `bieuTuong` là khóa để giao diện chọn icon.
+ */
+export const NHOM_HO_SO = [
+  {
+    ma: "nhap",
+    ten: "Mua & nhập kho",
+    bieuTuong: "nhap",
+    nhomGoc: "nhap_kho",
+    thuTu: ["tao_don_mua_hang", "duyet_don_mua_hang", "tao_phieu_nhap", "duyet_phieu_nhap", "huy_phieu_nhap"],
+  },
+  {
+    ma: "ton",
+    ten: "Tồn kho",
+    bieuTuong: "ton",
+    nhomGoc: "quan_ly_kho",
+    thuTu: ["xem_ton_kho", "xem_chi_tiet_lo", "chuyen_kho", "dieu_chinh_ton_kho"],
+  },
+  {
+    ma: "xuat",
+    ten: "Bán & xuất kho",
+    bieuTuong: "xuat",
+    nhomGoc: "xuat_kho",
+    thuTu: ["tao_don_ban_hang", "duyet_don_ban_hang", "tao_phieu_xuat", "duyet_phieu_xuat", "huy_phieu_xuat"],
+  },
+  {
+    ma: "bao_cao",
+    ten: "Báo cáo",
+    bieuTuong: "bao_cao",
+    nhomGoc: "bao_cao",
+    thuTu: ["xem_bao_cao_ton_kho", "xem_bao_cao_nhap_xuat", "xem_bao_cao_doanh_thu", "xuat_bao_cao"],
+  },
+  { ma: "san_pham", ten: "Sản phẩm", bieuTuong: "san_pham", nhomGoc: null, thuTu: ["quan_ly_san_pham"] },
+  { ma: "doi_tac", ten: "Đối tác", bieuTuong: "doi_tac", nhomGoc: null, thuTu: ["quan_ly_nha_cung_cap", "quan_ly_khach_hang"] },
+  { ma: "nhan_su", ten: "Nhân sự kho", bieuTuong: "nhan_su", nhomGoc: null, thuTu: ["quan_ly_nhan_vien_kho", "cap_quyen_nhan_vien"] },
+];
+
+const NHOM_HO_SO_KHAC = { ma: "khac", ten: "Khác", bieuTuong: "khac", nhomGoc: null, thuTu: [] };
+
+/** Danh sách quyền → các nhóm ở mục Quyền của tôi, đúng thứ tự NHOM_HO_SO; nhóm không có quyền thì bỏ. */
+export function nhomHoSo(dsQuyen) {
+  const ds = Array.isArray(dsQuyen) ? dsQuyen.filter((q) => q && q.id != null) : [];
+  const nhom = [...NHOM_HO_SO, NHOM_HO_SO_KHAC].map((n) => ({ ...n, quyen: [] }));
+  for (const q of ds) {
+    const n =
+      nhom.find((x) => x.thuTu.includes(q.maQuyen)) ??
+      nhom.find((x) => x.nhomGoc && x.nhomGoc === q.nhomQuyen) ??
+      nhom[nhom.length - 1];
+    n.quyen.push(q);
+  }
+  for (const n of nhom) {
+    const viTri = (q) => {
+      const i = n.thuTu.indexOf(q.maQuyen);
+      return i < 0 ? n.thuTu.length : i;
+    };
+    n.quyen.sort((a, b) => viTri(a) - viTri(b) || a.id - b.id);
+  }
+  return nhom.filter((n) => n.quyen.length > 0);
+}
+
+/**
+ * Nội dung mục Quyền của tôi từ QuyenCuaToiDto (GET /nguoi-dung/me/quyen).
  * Liệt kê mọi quyền đang được cấp mà vai trò mở được màn dùng nó (cần `menu`). Quyền hệ thống chưa kiểm
  * (`quyenDaApDung`) vẫn liệt kê: chưa kiểm nghĩa là không bị chặn, người dùng vẫn làm được — nhãn "Chưa áp dụng"
  * chỉ có ở trang quản trị. Quyền vai trò không mở được màn thì tách sang `khongDungDuoc` (trang admin gắn
  * "Không có tác dụng").
- * Trả về { nhom: [{ ten, viec: [{ ma, ten, moTa, moi }] }], soViec, soDaCap, khongDungDuoc: [tên quyền],
- * canDuyet: [tên chứng từ], daThuHoi }.
+ * Trả về { nhom: [{ ma, ten, bieuTuong, viec: [{ ma, ten, moTa, moi }] }], soViec, soDaCap,
+ * khongDungDuoc: [tên quyền], daThuHoi: [tên quyền] }.
  */
 export function quyenCuaToiTheoNhom(quyenCuaToi, { menu = [] } = {}) {
   const vaiTro = quyenCuaToi?.vaiTro;
   const daCap = (Array.isArray(quyenCuaToi?.quyen) ? quyenCuaToi.quyen : []).filter((q) => q && q.id != null);
   const dungDuoc = (q) => !menu?.length || !vaiTro || quyenCoTacDung(q.maQuyen, vaiTro, menu);
   const ds = daCap.filter(dungDuoc);
-  const khongDungDuoc = thuTuQuyen(daCap.filter((q) => !dungDuoc(q))).map((q) => q.tenQuyen || q.maQuyen);
+  const khongDungDuoc = nhomHoSo(daCap.filter((q) => !dungDuoc(q)))
+    .flatMap((n) => n.quyen)
+    .map((q) => q.tenQuyen || q.maQuyen);
   const moi = new Set(Array.isArray(quyenCuaToi?.quyenMoi) ? quyenCuaToi.quyenMoi : []);
-  const nhom = nhomTheoLuong(ds).map((n) => ({
+  const nhom = nhomHoSo(ds).map((n) => ({
     ma: n.ma,
     ten: n.ten,
+    bieuTuong: n.bieuTuong,
     viec: n.quyen.map((q) => ({
       ma: q.maQuyen,
       ten: q.tenQuyen || q.maQuyen,
@@ -720,13 +786,69 @@ export function quyenCuaToiTheoNhom(quyenCuaToi, { menu = [] } = {}) {
       moi: moi.has(q.maQuyen),
     })),
   }));
-  const ma = new Set(ds.map((q) => q.maQuyen));
   return {
     nhom,
     soViec: ds.length,
     soDaCap: daCap.length,
     khongDungDuoc,
-    canDuyet: CAP_TAO_DUYET.filter((c) => ma.has(c.tao) && !ma.has(c.duyet)).map((c) => c.ten.toLowerCase()),
     daThuHoi: Array.isArray(quyenCuaToi?.quyenDaThuHoi) ? quyenCuaToi.quyenDaThuHoi : [],
   };
+}
+
+/**
+ * Số ngày trước ngày hết hiệu lực thì Hồ sơ nhắc gia hạn (thanh gợi ý + chữ cam). Chỉ là mốc nhắc trên giao diện,
+ * không chặn thao tác: hết hiệu lực thật do máy chủ quyết định theo ngày kết thúc của phân quyền.
+ */
+export const SO_NGAY_NHAC_HET_HIEU_LUC = 7;
+
+const MOT_NGAY = 24 * 60 * 60 * 1000;
+
+/**
+ * Hiệu lực phân quyền nhìn từ người được cấp.
+ * Trả về { moTa: "không thời hạn" | "đến 31/12/2026" | "hết hiệu lực 25/10/2026", denNgay, conNgay, sapHet }.
+ * `conNgay` làm tròn lên (còn 6 ngày 2 giờ → 7); `sapHet` khi chưa hết hạn và còn không quá `soNgayNhac` ngày.
+ */
+export function hieuLucCuaToi(ngayKetThuc, { now = new Date(), soNgayNhac = SO_NGAY_NHAC_HET_HIEU_LUC } = {}) {
+  const den = docNgay(ngayKetThuc);
+  if (!den) return { moTa: "không thời hạn", denNgay: "", conNgay: null, sapHet: false };
+  const conMs = den.getTime() - (docNgay(now) ?? new Date()).getTime();
+  const conNgay = Math.ceil(conMs / MOT_NGAY);
+  const sapHet = conMs > 0 && conNgay <= soNgayNhac;
+  const denNgay = ngayNgan(den);
+  return { moTa: sapHet ? `hết hiệu lực ${denNgay}` : `đến ${denNgay}`, denNgay, conNgay, sapHet };
+}
+
+/**
+ * Gợi ý ở đầu Hồ sơ: chỉ hiện khi có việc cần làm, mỗi lần một cái theo thứ tự ưu tiên
+ * mật khẩu tạm → quyền vừa đổi → hiệu lực sắp hết → chưa có số điện thoại.
+ * Trả về "mat_khau_tam" | "quyen_vua_doi" | "sap_het_hieu_luc" | "chua_co_sdt" | null.
+ */
+export function goiYHoSo({ hoSo, quyen, now = new Date() } = {}) {
+  if (!hoSo) return null;
+  if (hoSo.mustChangePassword) return "mat_khau_tam";
+  if (quyen?.canDangNhapLai) return "quyen_vua_doi";
+  if (quyen?.kho && !quyen.toanQuyen && hieuLucCuaToi(quyen.ngayKetThuc, { now }).sapHet) return "sap_het_hieu_luc";
+  if (!String(hoSo.soDienThoai ?? "").trim()) return "chua_co_sdt";
+  return null;
+}
+
+/** Kho ghi ở dòng phụ dưới tên (Hồ sơ): "Mọi kho", tên kho đang phụ trách, "Chưa có kho" hoặc "Không dùng kho". */
+export function khoCuaToiNgan({ vaiTro, quyen, khoTuHoSo } = {}) {
+  if (vaiTro === QUAN_TRI_VIEN || quyen?.toanQuyen) return "Mọi kho";
+  if (!canKho(vaiTro)) return "Không dùng kho";
+  const kho = quyen ? quyen.kho : khoTuHoSo;
+  if (kho) return kho.tenKho || kho.maKho || "Chưa có kho";
+  // Chưa tải xong quyền và hồ sơ cũng không có kho: chưa chắc là "chưa có kho" thì để trống
+  return quyen ? "Chưa có kho" : "";
+}
+
+/**
+ * Liên kết "Liên hệ quản trị viên" ở Hồ sơ: gửi email tới địa chỉ liên hệ của công ty (Cấu hình → Thông tin công ty),
+ * kèm sẵn tiêu đề thư. Không có email thì trả "" để giao diện chỉ hiện chữ, không hiện liên kết.
+ */
+export function mailtoLienHe(email, chuDe = "") {
+  const dc = String(email ?? "").trim();
+  if (!dc) return "";
+  const td = String(chuDe ?? "").trim();
+  return `mailto:${dc}${td ? `?subject=${encodeURIComponent(td)}` : ""}`;
 }
