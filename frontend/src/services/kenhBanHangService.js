@@ -1,6 +1,7 @@
 import apiClient from "./apiClient";
 import { CHANNEL_MOCK, mockDelay, mockError } from "@/mocks/mockHelpers";
 import { kenhBanHangMock } from "@/mocks/kenhBanHangMock";
+import { chuanHoaNhom, phanTrangTheoSanPham } from "@/components/channel/nhomLienKet";
 
 /**
  * Kênh bán hàng — gọi KenhBanHangController (/api/v1/kenh-ban-hang).
@@ -53,14 +54,18 @@ const realApi = {
   // ── Sản phẩm ──
   taiSanPham: (maKenh) => apiClient.post(`${BASE}/${ma(maKenh)}/tai-san-pham`).then(data),
   dayVaLienKetSanPham: (maKenh) => apiClient.post(`${BASE}/${ma(maKenh)}/tu-dong-lien-ket`).then(data),
-  filterLienKet: (maKenh, { page = 0, size = 20, search, trangThai } = {}) => {
+  /**
+   * Liên kết của kênh, phân trang theo sản phẩm: mỗi phần tử là một sản phẩm kèm đủ SKU khớp bộ lọc
+   * (không bị cắt sang trang khác). `size` là số sản phẩm mỗi trang, `totalElements` là số sản phẩm.
+   */
+  filterLienKetTheoSanPham: (maKenh, { page = 0, size = 20, search, trangThai } = {}) => {
     const params = { page, size };
     if (search?.trim()) params.search = search.trim();
     if (trangThai) params.trangThai = TRANG_THAI_DB[trangThai] ?? trangThai;
     return apiClient
-      .get(`${BASE}/${ma(maKenh)}/lien-ket`, { params })
+      .get(`${BASE}/${ma(maKenh)}/lien-ket/theo-san-pham`, { params })
       .then(data)
-      .then((page) => ({ ...page, content: (page?.content ?? []).map(chuanHoaLienKet) }));
+      .then((trang) => ({ ...trang, content: (trang?.content ?? []).map((nhom) => chuanHoaNhom(nhom, chuanHoaLienKet)) }));
   },
   capNhatLienKet: (lienKetId, payload) =>
     apiClient.put(`${BASE}/lien-ket/${lienKetId}`, payload).then(data).then(chuanHoaLienKet),
@@ -217,15 +222,17 @@ const mockApi = {
     const res = await kenhBanHangMock.tuDongLienKet(MOCK_KET_NOI_ID);
     return { soDaGhep: res.soDaGhep, soTaoMoiTrenShopify: 0, soCapNhatTrenShopify: 0, soTonKhoDaDay: res.soDaGhep, soAnhDaDay: 0, soThatBai: res.soKhongKhop };
   },
-  async filterLienKet(_maKenh, { page = 0, size = 20, search, trangThai } = {}) {
-    const res = await kenhBanHangMock.filterLienKet(MOCK_KET_NOI_ID, { page, size, search, trangThaiLienKet: trangThai || undefined });
+  async filterLienKetTheoSanPham(_maKenh, { page = 0, size = 20, search, trangThai } = {}) {
     // Dữ liệu mẫu không có tên sản phẩm FCentric: dùng tên trên sàn để gom nhóm như dữ liệu thật
-    return {
-      ...res,
-      content: (res.content ?? []).map((row) =>
+    const docDong = (res) =>
+      (res.content ?? []).map((row) =>
         chuanHoaLienKet({ ...row, tenSanPham: row.tenSanPham ?? row.tenSanPhamSan, tenBienThe: row.tenBienTheSan ?? row.tenBienThe }),
-      ),
-    };
+      );
+    const TAT_CA = { page: 0, size: 100000 };
+    const dongKhop = docDong(await kenhBanHangMock.filterLienKet(MOCK_KET_NOI_ID, { ...TAT_CA, search, trangThaiLienKet: trangThai || undefined }));
+    const tatCaDong = docDong(await kenhBanHangMock.filterLienKet(MOCK_KET_NOI_ID, TAT_CA));
+    const trang = phanTrangTheoSanPham(dongKhop, tatCaDong, { page, size });
+    return { ...trang, content: trang.content.map((nhom) => chuanHoaNhom(nhom)) };
   },
   capNhatLienKet: (lienKetId, payload) => kenhBanHangMock.capNhatLienKet(lienKetId, payload).then(chuanHoaLienKet),
   async thuLaiLienKet(lienKetId) {

@@ -42,6 +42,8 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import com.dev.backend.event.InventoryRestockedEvent;
 import org.springframework.transaction.event.TransactionPhase;
@@ -441,40 +443,129 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .map(SanPhamQuanAo::getId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet()));
+        Map<Integer, BigDecimal> khaDung = khaDungTheoBienThe(page.getContent());
 
-        return page.map(item -> {
+        return page.map(item -> toLienKetDto(item, khaDung, anhTheoSanPham));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<NhomLienKetDto> filterLienKetTheoSanPham(String maKenh, String search, String trangThai, Pageable pageable) {
+        KenhBanHang kenh = getKenhActive(maKenh);
+        String trangThaiLoc = (trangThai == null || trangThai.isBlank()) ? null : trangThai.trim();
+        String tuKhoa = (search == null || search.isBlank()) ? null : search.trim();
+        // Thứ tự sản phẩm đã cố định trong truy vấn (GROUP BY), nên chỉ giữ số trang và số dòng của yêu cầu
+        Pageable trangSanPham = pageable.isPaged()
+                ? PageRequest.of(pageable.getPageNumber(), pageable.getPageSize())
+                : Pageable.unpaged();
+
+        Page<Integer> trangId = trangThaiDongBoSanPhamRepository.pageSanPhamIdTheoKenh(
+                kenh.getId(), trangThaiLoc, tuKhoa, trangSanPham);
+        List<Integer> sanPhamIds = trangId.getContent();
+        if (sanPhamIds.isEmpty()) {
+            return new PageImpl<>(List.of(), trangSanPham, trangId.getTotalElements());
+        }
+
+        List<TrangThaiDongBoSanPham> dong = trangThaiDongBoSanPhamRepository.findTheoKenhVaSanPham(
+                kenh.getId(), sanPhamIds, trangThaiLoc, tuKhoa);
+        Map<Integer, BigDecimal> khaDung = khaDungTheoBienThe(dong);
+        Map<Integer, String> anhTheoSanPham = anhDaiDienTheoSanPham(sanPhamIds);
+        // Đang lọc thì nhóm chỉ còn các SKU khớp: đếm riêng tổng SKU để giao diện ghi "x/y phân loại"
+        Map<Integer, Integer> tongLienKet = (trangThaiLoc == null && tuKhoa == null)
+                ? Map.of()
+                : demLienKetTheoSanPham(kenh.getId(), sanPhamIds);
+
+        // Truy vấn đã xếp sẵn thứ tự phân loại, gom lại vẫn giữ thứ tự đó
+        Map<Integer, List<TrangThaiDongBoSanPham>> theoSanPham = new HashMap<>();
+        for (TrangThaiDongBoSanPham item : dong) {
             BienTheSanPham bt = item.getBienTheSanPham();
-            Integer sanPhamId = bt != null && bt.getSanPham() != null ? bt.getSanPham().getId() : null;
-            BigDecimal soLuongKhaDung = BigDecimal.ZERO;
-            if (bt != null) {
-                List<Object[]> stockList = tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(List.of(bt.getId()));
-                if (!stockList.isEmpty() && stockList.get(0)[1] != null) {
-                    soLuongKhaDung = (BigDecimal) stockList.get(0)[1];
-                }
-            }
+            if (bt == null || bt.getSanPham() == null || bt.getSanPham().getId() == null) continue;
+            theoSanPham.computeIfAbsent(bt.getSanPham().getId(), k -> new ArrayList<>()).add(item);
+        }
 
-            return LienKetSanPhamDto.builder()
-                    .id(item.getId())
-                    .skuSan(item.getMaSanPhamKenh())
-                    .tenSanPhamSan(bt != null && bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : null)
-                    .tenBienTheSan(bt != null ? buildVariantName(bt) : null)
-                    .giaBanSan(bt != null ? bt.getGiaBan() : null)
-                    .bienTheSanPhamId(bt != null ? bt.getId() : null)
+        List<NhomLienKetDto> nhom = new ArrayList<>(sanPhamIds.size());
+        for (Integer sanPhamId : sanPhamIds) {
+            List<TrangThaiDongBoSanPham> dsDong = theoSanPham.get(sanPhamId);
+            // Liên kết vừa bị xóa giữa hai truy vấn: bỏ qua thay vì trả nhóm rỗng
+            if (dsDong == null || dsDong.isEmpty()) continue;
+            List<LienKetSanPhamDto> bienThe = dsDong.stream()
+                    .map(item -> toLienKetDto(item, khaDung, anhTheoSanPham))
+                    .toList();
+            nhom.add(NhomLienKetDto.builder()
                     .sanPhamId(sanPhamId)
-                    .anhDaiDien(sanPhamId != null ? anhTheoSanPham.get(sanPhamId) : null)
-                    .maSku(bt != null ? bt.getMaSku() : null)
-                    .tenSanPham(bt != null && bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : null)
-                    .tenBienThe(bt != null ? buildVariantName(bt) : null)
-                    .giaBan(bt != null ? bt.getGiaBan() : null)
-                    .soLuongKhaDung(soLuongKhaDung)
-                    .soLuongDaDay(soDaDay(item))
-                    .ngayDayTonCuoi(item.getNgayDayTonCuoi())
-                    .choPhepDongBo(true)
-                    .trangThaiLienKet(mapStatusToFrontend(item.getTrangThaiDongBo()))
-                    .ngayDongBoCuoi(item.getNgayDongBoCuoi())
-                    .chiTietLoi(item.getChiTietLoi())
-                    .build();
-        });
+                    .tenSanPham(dsDong.get(0).getBienTheSanPham().getSanPham().getTenSanPham())
+                    .anhDaiDien(anhTheoSanPham.get(sanPhamId))
+                    .tongPhanLoai(Math.max(bienThe.size(), tongLienKet.getOrDefault(sanPhamId, 0)))
+                    .bienThe(bienThe)
+                    .build());
+        }
+        return new PageImpl<>(nhom, trangSanPham, trangId.getTotalElements());
+    }
+
+    /** Một dòng liên kết cho giao diện; số khả dụng và ảnh lấy từ bảng đã tra sẵn cho cả trang (không truy vấn thêm). */
+    private LienKetSanPhamDto toLienKetDto(TrangThaiDongBoSanPham item, Map<Integer, BigDecimal> khaDungTheoBienThe,
+                                           Map<Integer, String> anhTheoSanPham) {
+        BienTheSanPham bt = item.getBienTheSanPham();
+        Integer sanPhamId = bt != null && bt.getSanPham() != null ? bt.getSanPham().getId() : null;
+        String tenSanPham = bt != null && bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : null;
+        String tenBienThe = bt != null ? buildVariantName(bt) : null;
+        BigDecimal soLuongKhaDung = bt != null && bt.getId() != null
+                ? khaDungTheoBienThe.getOrDefault(bt.getId(), BigDecimal.ZERO)
+                : BigDecimal.ZERO;
+
+        return LienKetSanPhamDto.builder()
+                .id(item.getId())
+                .skuSan(item.getMaSanPhamKenh())
+                .tenSanPhamSan(tenSanPham)
+                .tenBienTheSan(tenBienThe)
+                .giaBanSan(bt != null ? bt.getGiaBan() : null)
+                .bienTheSanPhamId(bt != null ? bt.getId() : null)
+                .sanPhamId(sanPhamId)
+                .anhDaiDien(sanPhamId != null ? anhTheoSanPham.get(sanPhamId) : null)
+                .maSku(bt != null ? bt.getMaSku() : null)
+                .tenSanPham(tenSanPham)
+                .tenBienThe(tenBienThe)
+                .giaBan(bt != null ? bt.getGiaBan() : null)
+                .soLuongKhaDung(soLuongKhaDung)
+                .soLuongDaDay(soDaDay(item))
+                .ngayDayTonCuoi(item.getNgayDayTonCuoi())
+                .choPhepDongBo(true)
+                .trangThaiLienKet(mapStatusToFrontend(item.getTrangThaiDongBo()))
+                .ngayDongBoCuoi(item.getNgayDongBoCuoi())
+                .chiTietLoi(item.getChiTietLoi())
+                .build();
+    }
+
+    /**
+     * Tồn khả dụng toàn chuỗi của các biến thể trong danh sách, một truy vấn cho cả trang.
+     * Biến thể không có trong kết quả hiểu là khả dụng 0.
+     */
+    private Map<Integer, BigDecimal> khaDungTheoBienThe(Collection<TrangThaiDongBoSanPham> dong) {
+        List<Integer> bienTheIds = dong.stream()
+                .map(TrangThaiDongBoSanPham::getBienTheSanPham)
+                .filter(Objects::nonNull)
+                .map(BienTheSanPham::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (bienTheIds.isEmpty()) return Map.of();
+        Map<Integer, BigDecimal> ketQua = new HashMap<>();
+        for (Object[] row : tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(bienTheIds)) {
+            if (row == null || row.length < 2 || row[0] == null || row[1] == null) continue;
+            BigDecimal soLuong = row[1] instanceof BigDecimal bd ? bd : new BigDecimal(row[1].toString());
+            ketQua.put(((Number) row[0]).intValue(), soLuong);
+        }
+        return ketQua;
+    }
+
+    /** Số liên kết của từng sản phẩm với kênh (mọi trạng thái), để biết nhóm đang lọc còn bao nhiêu SKU khác. */
+    private Map<Integer, Integer> demLienKetTheoSanPham(Integer kenhId, Collection<Integer> sanPhamIds) {
+        Map<Integer, Integer> ketQua = new HashMap<>();
+        for (Object[] row : trangThaiDongBoSanPhamRepository.demLienKetTheoSanPham(kenhId, sanPhamIds)) {
+            if (row == null || row.length < 2 || row[0] == null || row[1] == null) continue;
+            ketQua.put(((Number) row[0]).intValue(), ((Number) row[1]).intValue());
+        }
+        return ketQua;
     }
 
     @Override

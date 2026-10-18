@@ -27,6 +27,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import { SWITCH_CLASS } from "@/components/channel/SettingsCard";
 import { NUT_CHINH, NUT_PHU } from "@/components/channel/BottomActionBar";
 import { daKetNoi } from "@/components/channel/ketNoiShopify";
+import { capNhatDongTrongTrang, dongCuaTrang, laMotPhanLoai, nhanSoPhanLoai } from "@/components/channel/nhomLienKet";
 import { quyTacTonKho } from "@/components/channel/cauHinhDongBo";
 import { ketQuaDayLenSan, ketQuaDayTon, ketQuaTaiSanPham } from "@/components/channel/ketQuaThaoTac";
 import { LIEN_KET_STATUS, LIEN_KET_TABS, SAN_BAN_HANG, tinhSoTonDayLenSan } from "@/constants/channel";
@@ -34,6 +35,7 @@ import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { isChannelMock, kenhBanHangService } from "@/services/kenhBanHangService";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { cn } from "@/lib/utils";
 
@@ -93,27 +95,11 @@ function DemTrangThai({ so, nhan, mau, className }) {
   );
 }
 
-/** Gom các SKU cùng sản phẩm trên trang đang xem, giữ thứ tự xuất hiện. */
-function gomTheoSanPham(rows) {
-  const nhom = [];
-  const theoKhoa = new Map();
-  rows.forEach((dong) => {
-    const khoa = dong.sanPhamId != null ? `sp-${dong.sanPhamId}` : `ten-${dong.tenSanPham || dong.tenSanPhamSan || dong.id}`;
-    if (!theoKhoa.has(khoa)) {
-      const moi = { khoa, ten: dong.tenSanPham || dong.tenSanPhamSan || "—", anh: dong.anhDaiDien ?? null, dong: [] };
-      theoKhoa.set(khoa, moi);
-      nhom.push(moi);
-    }
-    const g = theoKhoa.get(khoa);
-    if (!g.anh && dong.anhDaiDien) g.anh = dong.anhDaiDien;
-    g.dong.push(dong);
-  });
-  return nhom;
-}
-
 /**
  * Sản phẩm đã liên kết với gian hàng Shopify, gom theo sản phẩm: ảnh, SKU, tồn khả dụng, số hiện trên Shopify,
  * công tắc đồng bộ từng dòng, chọn nhiều dòng để bật/tắt, ghép biến thể khác ngay tại dòng.
+ * Phân trang theo sản phẩm (máy chủ trả mỗi sản phẩm kèm đủ SKU), nên đổi số dòng hay chuyển trang
+ * không cắt một sản phẩm ra hai nơi; số ở hàng sản phẩm luôn tính trên đủ các SKU khớp bộ lọc.
  */
 export default function ChannelMappingsPage() {
   const navigate = useNavigate();
@@ -128,7 +114,8 @@ export default function ChannelMappingsPage() {
   const ch = useTaiDuLieu(() => kenhBanHangService.getCauHinhDongBo(SAN.maKenh), "cau-hinh-dong-bo", { enabled: ketNoi });
   const tq = useTaiDuLieu(() => kenhBanHangService.getTongQuan(SAN.maKenh), "tong-quan", { enabled: ketNoi });
   const ds = useTaiDuLieu(
-    () => kenhBanHangService.filterLienKet(SAN.maKenh, { page: trang.page, size: trang.size, search: tuKhoa, trangThai: tabTrangThai }),
+    () =>
+      kenhBanHangService.filterLienKetTheoSanPham(SAN.maKenh, { page: trang.page, size: trang.size, search: tuKhoa, trangThai: tabTrangThai }),
     `${tab}|${tuKhoa}|${trang.page}|${trang.size}`,
     { enabled: ketNoi },
   );
@@ -154,15 +141,27 @@ export default function ChannelMappingsPage() {
     return () => window.clearTimeout(timer);
   }, [searchText, tuKhoa]);
 
+  // Lần tải gần nhất là tự tải ngầm khi quay lại tab: lỗi thì giữ bảng cũ, không thay bằng ô báo lỗi
+  const [tuTaiNgam, setTuTaiNgam] = useState(false);
+  const taiLai = (ngam) => {
+    setTuTaiNgam(ngam);
+    ds.reload();
+    tq.reload();
+  };
+  const taiLaiTatCa = () => taiLai(false);
+  // Quay lại tab thì tải lại ngầm (đồng bộ chạy nền ở máy chủ); không tải khi đang chạy thao tác
+  useTaiLaiKhiQuayLai(() => taiLai(true), { bat: ketNoi && !ds.loading && !dangChay, lanCuoi: ds.capNhatLuc });
+
   if (cfg.data && !ketNoi) return <Navigate to={`${SAN.duongDan}/setup`} replace />;
 
   const quyTac = ch.data ? quyTacTonKho(ch.data) : null;
-  const rows = ds.data?.content ?? [];
-  const tong = ds.data?.totalElements ?? 0;
+  const nhom = ds.data?.content ?? [];
+  const rows = dongCuaTrang(nhom);
+  const tongSanPham = ds.data?.totalElements ?? 0;
+  const loiTaiNgam = tuTaiNgam && ds.loiTaiLai;
   const tongQuan = tq.data;
   const chiTiet = rows.find((r) => r.id === chiTietId) ?? null;
   const dangLoc = Boolean(tuKhoa);
-  const nhom = gomTheoSanPham(rows);
   const daChon = rows.filter((r) => chon.has(r.id));
   const khoa = Boolean(dangChay);
 
@@ -178,35 +177,21 @@ export default function ChannelMappingsPage() {
     }
   };
 
-  const taiLaiTatCa = () => {
-    ds.reload();
-    tq.reload();
-  };
-
   const capNhatDong = (dongMoi) => {
     if (!dongMoi?.id) return;
     // Giữ số tồn khả dụng, ảnh và biến thể đang ghép của dòng cũ khi API không trả lại các giá trị này
     // (ngừng đồng bộ chỉ đổi trạng thái, vẫn giữ ghép để bật lại đúng biến thể cũ)
     ds.setData((cu) =>
-      cu
-        ? {
-            ...cu,
-            content: cu.content.map((r) =>
-              r.id === dongMoi.id
-                ? {
-                    ...r,
-                    ...dongMoi,
-                    soLuongKhaDung: r.soLuongKhaDung ?? dongMoi.soLuongKhaDung,
-                    anhDaiDien: dongMoi.anhDaiDien ?? r.anhDaiDien,
-                    bienTheSanPhamId: dongMoi.bienTheSanPhamId ?? r.bienTheSanPhamId,
-                    maSku: dongMoi.maSku ?? r.maSku,
-                    tenBienThe: dongMoi.tenBienThe ?? r.tenBienThe,
-                    tenSanPham: dongMoi.tenSanPham ?? r.tenSanPham,
-                  }
-                : r,
-            ),
-          }
-        : cu,
+      capNhatDongTrongTrang(cu, dongMoi.id, (r) => ({
+        ...r,
+        ...dongMoi,
+        soLuongKhaDung: r.soLuongKhaDung ?? dongMoi.soLuongKhaDung,
+        anhDaiDien: dongMoi.anhDaiDien ?? r.anhDaiDien,
+        bienTheSanPhamId: dongMoi.bienTheSanPhamId ?? r.bienTheSanPhamId,
+        maSku: dongMoi.maSku ?? r.maSku,
+        tenBienThe: dongMoi.tenBienThe ?? r.tenBienThe,
+        tenSanPham: dongMoi.tenSanPham ?? r.tenSanPham,
+      })),
     );
   };
 
@@ -344,6 +329,8 @@ export default function ChannelMappingsPage() {
             : tongQuan.loiDongBo
       : null,
   }));
+  // Chân bảng đếm theo sản phẩm; ghi kèm số SKU của tab đang xem (đang tìm kiếm thì số trên tab không còn khớp nên bỏ)
+  const soSkuTheoTab = dangLoc ? null : (statusTabs.find((t) => t.value === tab)?.count ?? null);
 
   const doiTab = (moi) => {
     setTab(moi);
@@ -506,7 +493,7 @@ export default function ChannelMappingsPage() {
     );
   };
 
-  /** Hàng sản phẩm (khi có từ 2 SKU trên trang): mở/đóng, chọn cả nhóm, tổng tồn. */
+  /** Hàng sản phẩm (sản phẩm nhiều phân loại): mở/đóng, chọn cả nhóm, tổng tồn; số liệu tính trên đủ SKU của nhóm. */
   const hangNhom = (g) => {
     const ids = g.dong.map((d) => d.id);
     const gon = dongGon.has(g.khoa);
@@ -534,7 +521,7 @@ export default function ChannelMappingsPage() {
             <AnhSanPham src={g.anh} />
             <div className="min-w-0">
               <p className="truncate font-medium text-bo-heading">{g.ten}</p>
-              <p className="text-[13px] text-bo-muted">{soVN(g.dong.length)} phân loại</p>
+              <p className="text-[13px] text-bo-muted">{nhanSoPhanLoai(g, soVN)}</p>
             </div>
           </div>
         </td>
@@ -659,11 +646,14 @@ export default function ChannelMappingsPage() {
           </>
         }
         footer={
-          !ds.error && tong > 0 ? (
+          (!ds.error || loiTaiNgam) && tongSanPham > 0 ? (
             <TablePagination
               page={trang.page}
               size={trang.size}
-              total={tong}
+              total={tongSanPham}
+              sizeLabel="sản phẩm"
+              totalLabel="sản phẩm"
+              totalNote={soSkuTheoTab != null ? `${soVN(soSkuTheoTab)} SKU` : null}
               onPageChange={(page) => {
                 if (page < 0) return;
                 setTrang((cu) => ({ ...cu, page }));
@@ -679,7 +669,7 @@ export default function ChannelMappingsPage() {
       >
         {cfg.initialLoading || ds.initialLoading ? (
           <LoadingState label="Đang tải sản phẩm" />
-        ) : ds.error || (cfg.error && !cfg.data) ? (
+        ) : (ds.error && !loiTaiNgam) || (cfg.error && !cfg.data) ? (
           <ErrorState description="Không tải được danh sách sản phẩm. Vui lòng thử lại." onRetry={taiLaiTatCa} />
         ) : rows.length === 0 ? (
           dangLoc ? (
@@ -738,7 +728,7 @@ export default function ChannelMappingsPage() {
             </thead>
             <tbody className="divide-y divide-[#eef1f5]">
               {nhom.map((g) =>
-                g.dong.length === 1 ? (
+                laMotPhanLoai(g) ? (
                   dongSku(g.dong[0], false)
                 ) : (
                   <Fragment key={g.khoa}>

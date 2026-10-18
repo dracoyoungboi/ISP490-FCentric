@@ -144,6 +144,23 @@ public class KenhBanHangController {
         );
     }
 
+    @GetMapping("/{maKenh}/lien-ket/theo-san-pham")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Danh sách liên kết của kênh phân trang theo sản phẩm (mỗi phần tử là một sản phẩm kèm đủ SKU)")
+    public ResponseEntity<ResponseData<Page<NhomLienKetDto>>> filterLienKetTheoSanPham(
+            @PathVariable String maKenh,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String trangThai,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(
+                ResponseData.<Page<NhomLienKetDto>>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhBanHangDongBoService.filterLienKetTheoSanPham(maKenh, search, trangThai, pageable))
+                        .message("Lấy danh sách liên kết thành công")
+                        .build()
+        );
+    }
+
     @PutMapping("/lien-ket/{id}")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
     @Operation(summary = "Cập nhật ghép nối thủ công hoặc hủy ghép nối cho 1 liên kết")

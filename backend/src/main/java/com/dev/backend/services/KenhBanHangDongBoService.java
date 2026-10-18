@@ -20,6 +20,13 @@ public interface KenhBanHangDongBoService {
 
     Page<LienKetSanPhamDto> filterLienKet(String maKenh, String search, String trangThai, Pageable pageable);
 
+    /**
+     * Liên kết của kênh, phân trang theo sản phẩm: mỗi phần tử là một sản phẩm kèm đủ các SKU khớp bộ lọc,
+     * nên một sản phẩm không bị cắt sang hai trang. {@code totalElements} là số sản phẩm.
+     * Bộ lọc {@code search}, {@code trangThai} giống {@link #filterLienKet}; phần sắp xếp của {@code pageable} bị bỏ qua.
+     */
+    Page<NhomLienKetDto> filterLienKetTheoSanPham(String maKenh, String search, String trangThai, Pageable pageable);
+
     LienKetSanPhamDto capNhatLienKet(Integer lienKetId, CapNhatLienKetRequest request);
 
     DayTonResultDto dayTonKhoLenKenh(String maKenh, DayTonKenhRequest request);
