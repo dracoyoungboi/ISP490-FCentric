@@ -98,6 +98,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             "Kênh đang có một đợt đẩy tồn khác (tự động hoặc người khác bấm), vui lòng thử lại sau ít phút";
     /** Khi chờ khóa đẩy tồn, cứ bấy lâu xem lại có yêu cầu dừng không */
     static final long CHU_KY_CHO_KHOA_MS = 500;
+    /**
+     * Số sản phẩm tối đa mỗi trang của danh sách liên kết theo sản phẩm (giao diện chọn 10/20/50/100); xin nhiều hơn
+     * thì hạ về số này. API luôn có phân trang (@PageableDefault); Pageable.unpaged() chỉ dành cho lời gọi nội bộ.
+     */
+    static final int SO_SAN_PHAM_TOI_DA_MOI_TRANG = 100;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -454,9 +459,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         KenhBanHang kenh = getKenhActive(maKenh);
         String trangThaiLoc = (trangThai == null || trangThai.isBlank()) ? null : trangThai.trim();
         String tuKhoa = (search == null || search.isBlank()) ? null : search.trim();
-        // Thứ tự sản phẩm đã cố định trong truy vấn (GROUP BY), nên chỉ giữ số trang và số dòng của yêu cầu
+        // Thứ tự sản phẩm đã cố định trong truy vấn (GROUP BY), nên chỉ giữ số trang và số dòng của yêu cầu.
+        // Mỗi sản phẩm kéo theo đủ SKU, ảnh và tồn: số sản phẩm mỗi trang không vượt SO_SAN_PHAM_TOI_DA_MOI_TRANG
         Pageable trangSanPham = pageable.isPaged()
-                ? PageRequest.of(pageable.getPageNumber(), pageable.getPageSize())
+                ? PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), SO_SAN_PHAM_TOI_DA_MOI_TRANG))
                 : Pageable.unpaged();
 
         Page<Integer> trangId = trangThaiDongBoSanPhamRepository.pageSanPhamIdTheoKenh(

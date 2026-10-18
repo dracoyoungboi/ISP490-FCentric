@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { ChevronDown, ChevronRight, CloudDownload, CloudUpload, ListRestart, Loader2, MoreHorizontal, PackageSearch, SearchX, Upload } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
+import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
@@ -151,6 +152,18 @@ export default function ChannelMappingsPage() {
   const taiLaiTatCa = () => taiLai(false);
   // Quay lại tab thì tải lại ngầm (đồng bộ chạy nền ở máy chủ); không tải khi đang chạy thao tác
   useTaiLaiKhiQuayLai(() => taiLai(true), { bat: ketNoi && !ds.loading && !dangChay, lanCuoi: ds.capNhatLuc });
+
+  // Trang đang xem vượt số trang thật sau khi tải lại (sản phẩm cuối vừa đổi trạng thái) → lùi về trang cuối còn dữ liệu
+  useEffect(() => {
+    if (ds.loading) return;
+    const trangCuoi = trangCuoiNeuVuot({
+      trang: trang.page,
+      kichThuoc: trang.size,
+      soDong: ds.data?.content?.length ?? 0,
+      tong: ds.data?.totalElements,
+    });
+    if (trangCuoi != null) queueMicrotask(() => setTrang((cu) => ({ ...cu, page: trangCuoi })));
+  }, [ds.loading, ds.data, trang.page, trang.size]);
 
   if (cfg.data && !ketNoi) return <Navigate to={`${SAN.duongDan}/setup`} replace />;
 
@@ -304,7 +317,14 @@ export default function ChannelMappingsPage() {
       async () => {
         try {
           const res = await kenhBanHangService.capNhatLienKet(dong.id, { bienTheSanPhamId: bienThe.id, choPhepDongBo: true });
+          const sanPhamCu = nhom.find((g) => g.dong.some((d) => d.id === dong.id))?.sanPhamId ?? null;
           capNhatDong(res);
+          // Biến thể của sản phẩm khác: dòng phải sang nhóm (có thể ở trang khác) của sản phẩm đó → tải lại trang
+          // (như tải ngầm: lỗi thì giữ bảng đang xem, chân bảng không thay bằng ô báo lỗi)
+          if (res?.sanPhamId != null && res.sanPhamId !== sanPhamCu) {
+            setTuTaiNgam(true);
+            ds.reload();
+          }
           tq.reload();
           setGhepId(null);
           toast.success(`Đã ghép với ${bienThe.maSku}`);
@@ -667,7 +687,8 @@ export default function ChannelMappingsPage() {
           ) : null
         }
       >
-        {cfg.initialLoading || ds.initialLoading ? (
+        {/* Đang lùi về trang cuối (trang vừa tải rỗng vì vượt số trang) thì hiện đang tải, không hiện ô trống */}
+        {cfg.initialLoading || ds.initialLoading || (ds.loading && rows.length === 0 && trang.page > 0) ? (
           <LoadingState label="Đang tải sản phẩm" />
         ) : (ds.error && !loiTaiNgam) || (cfg.error && !cfg.data) ? (
           <ErrorState description="Không tải được danh sách sản phẩm. Vui lòng thử lại." onRetry={taiLaiTatCa} />

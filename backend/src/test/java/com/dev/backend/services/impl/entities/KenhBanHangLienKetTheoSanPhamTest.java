@@ -181,6 +181,32 @@ class KenhBanHangLienKetTheoSanPhamTest {
     }
 
     @Test
+    void xinQuaNhieuSanPhamMotTrang_haVe100() {
+        trangSanPham(List.of(12), 1);
+        lienKetCuaTrang(muoiSauPhanLoai(aoKhoac));
+
+        Page<NhomLienKetDto> trang = service.filterLienKetTheoSanPham("SHOPIFY", null, null, PageRequest.of(1, 5000));
+
+        ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
+        verify(trangThaiDongBoSanPhamRepository).pageSanPhamIdTheoKenh(eq(KENH_ID), isNull(), isNull(), pageable.capture());
+        assertEquals(1, pageable.getValue().getPageNumber(), "giữ số trang của yêu cầu");
+        assertEquals(KenhBanHangDongBoServiceImpl.SO_SAN_PHAM_TOI_DA_MOI_TRANG, pageable.getValue().getPageSize());
+        assertEquals(100, trang.getSize());
+    }
+
+    @Test
+    void dungMoc100_khongDoi() {
+        trangSanPham(List.of(12), 1);
+        lienKetCuaTrang(muoiSauPhanLoai(aoKhoac));
+
+        service.filterLienKetTheoSanPham("SHOPIFY", null, null, PageRequest.of(0, 100));
+
+        ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
+        verify(trangThaiDongBoSanPhamRepository).pageSanPhamIdTheoKenh(eq(KENH_ID), isNull(), isNull(), pageable.capture());
+        assertEquals(100, pageable.getValue().getPageSize());
+    }
+
+    @Test
     void dangTimKiem_nhomChiCoSkuKhop_tongPhanLoaiLaCuaCaSanPham() {
         trangSanPham(List.of(12), 1);
         lienKetCuaTrang(List.of(lienKet(aoKhoac, "Nâu", "M", "thanh_cong")));
