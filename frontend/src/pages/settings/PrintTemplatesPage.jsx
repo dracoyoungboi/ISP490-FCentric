@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Building2, FileX, Lock, Pencil, Printer } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, FileX, Lock, Pencil, Printer, Store } from "lucide-react";
 import PageContainer from "@/components/backoffice/PageContainer";
-import PageHeader from "@/components/backoffice/PageHeader";
+import PageHeading from "@/components/backoffice/PageHeading";
+import { useClaimPageTitle } from "@/components/backoffice/pageTitle";
+import useQuayLai from "@/hooks/useQuayLai";
 import StatusBadge from "@/components/shared/StatusBadge";
 import SurfaceCard from "@/components/shared/SurfaceCard";
 import LoadingState from "@/components/shared/LoadingState";
@@ -33,14 +35,45 @@ import {
     resolveInUseTemplateId,
 } from "@/services/printTemplateConfigService";
 import { companyProfileService } from "@/services/companyProfileService";
-import CompanyProfileDialog from "./CompanyProfileDialog";
 
 // Padding màn hình của khung preview (p-3 sm:p-4 = 12-16px) — trừ khỏi kích
 // thước viewport khi tính zoom "Vừa trang" để tờ giấy không tràn/không thiếu.
 const PREVIEW_VIEWPORT_PADDING = 32;
 
+const OUTLINE_BUTTON = "border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle";
+
+/** Hàng tiêu đề: quay lại danh sách Mẫu in (Cấu hình) + liên kết Thông tin cửa hàng. */
+function PreviewHeader() {
+    useClaimPageTitle(true);
+    const quayLai = useQuayLai("/settings/print-templates");
+    return (
+        <div className="no-print mb-5 flex min-h-9 flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={quayLai}
+                    aria-label="Quay lại danh sách mẫu in"
+                    title="Quay lại"
+                    className={`shrink-0 ${OUTLINE_BUTTON}`}
+                >
+                    <ArrowLeft className="size-4" aria-hidden="true" />
+                </Button>
+                <PageHeading>Mẫu in</PageHeading>
+            </div>
+            <Button asChild variant="outline" className={OUTLINE_BUTTON}>
+                <Link to="/settings/store">
+                    <Store className="size-4" aria-hidden="true" />
+                    Thông tin cửa hàng
+                </Link>
+            </Button>
+        </div>
+    );
+}
+
 /**
- * Trang cấu hình mẫu in — MÔ HÌNH MỘT MẪU mỗi loại chứng từ:
+ * Trang xem trước mẫu in của một loại chứng từ (mở từ Cấu hình › Mẫu in) — MÔ HÌNH MỘT MẪU:
  * - trái: danh sách 7 loại chứng từ (dưới lg: select gọn phía trên preview)
  * - phải: toolbar (tên mẫu + nhãn KHỔ GIẤY CHỈ ĐỌC lấy từ cấu hình ĐÃ LƯU +
  *   cụm zoom 50/75/100/"Vừa trang" + In thử / Chỉnh sửa) + vùng preview nhúng
@@ -52,7 +85,6 @@ const PREVIEW_VIEWPORT_PADDING = 32;
 export default function PrintTemplatesPage() {
     const navigate = useNavigate();
     const { documentType: slugParam } = useParams();
-    const [searchParams, setSearchParams] = useSearchParams();
 
     const schema = slugParam ? getPrintSchema(slugParam) : null;
 
@@ -73,25 +105,7 @@ export default function PrintTemplatesPage() {
     const [zoomMode, setZoomMode] = useState("fit");
     const previewViewport = usePreviewViewportSize();
 
-    // Hộp thoại "Thông tin công ty" (hồ sơ dùng chung) — mở từ nút trên tiêu đề
-    // trang hoặc qua deep-link cũ /settings/company-profile (?action=company).
-    const [companyDialogOpen, setCompanyDialogOpen] = useState(false);
-
     const reload = useCallback(() => setReloadKey((key) => key + 1), []);
-
-    // Thiếu slug -> chuyển về loại chứng từ đầu tiên (giữ search params cho
-    // deep-link ?action=company).
-    useEffect(() => {
-        if (!slugParam) {
-            const search = searchParams.toString();
-            navigate(
-                `/settings/print-templates/${PRINT_DOCUMENT_TYPES[0].slug}${
-                    search ? `?${search}` : ""
-                }`,
-                { replace: true }
-            );
-        }
-    }, [slugParam, navigate, searchParams]);
 
     // Tải bundle: migrate legacy localStorage một lần rồi đọc config server
     useEffect(() => {
@@ -129,19 +143,6 @@ export default function PrintTemplatesPage() {
     const variantDef = schema
         ? schema.templates.find((template) => template.id === targetTemplateId) ?? null
         : null;
-
-    // Deep-link cũ /settings/company-profile -> ?action=company: mở hộp thoại
-    // thông tin công ty rồi xóa tham số dùng-một-lần khỏi URL. Khi chưa có
-    // slug thì bỏ qua việc dọn URL — effect thiếu-slug ở trên sẽ chuyển trang
-    // và giữ lại ?action=, effect này chạy lại và dọn sau.
-    useEffect(() => {
-        if (searchParams.get("action") !== "company") return;
-        setCompanyDialogOpen(true);
-        if (!slugParam) return;
-        const next = new URLSearchParams(searchParams);
-        next.delete("action");
-        setSearchParams(next, { replace: true });
-    }, [searchParams, setSearchParams, slugParam]);
 
     // Tải cấu hình của biến thể in thật + hồ sơ công ty
     useEffect(() => {
@@ -226,7 +227,7 @@ export default function PrintTemplatesPage() {
                             className="bg-bo-primary text-white hover:bg-bo-primary-hover"
                             onClick={() => navigate("/settings/print-templates")}
                         >
-                            Về trang cấu hình mẫu in
+                            Về danh sách mẫu in
                         </Button>
                     }
                 />
@@ -278,21 +279,7 @@ export default function PrintTemplatesPage() {
         <PageContainer className="print-template-preview-page flex flex-col space-y-4 pb-4 lg:h-full">
             <PreviewPrintStyleTag paper={paperObj} />
 
-            <PageHeader
-                className="no-print"
-                title="Cấu hình mẫu in"
-                description="Mỗi loại chứng từ có một mẫu in. Chỉnh sửa và lưu cấu hình để phiếu in thật áp dụng ngay."
-                actions={
-                    <Button
-                        variant="outline"
-                        className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                        onClick={() => setCompanyDialogOpen(true)}
-                    >
-                        <Building2 className="size-4" />
-                        Thông tin công ty
-                    </Button>
-                }
-            />
+            <PreviewHeader />
 
             <div className="grid items-stretch gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[260px_minmax(0,1fr)]">
                 {/* ── Trái: danh sách loại chứng từ (lg+) / select (dưới lg) ── */}
@@ -432,13 +419,6 @@ export default function PrintTemplatesPage() {
                     </SurfaceCard>
                 </div>
             </div>
-
-            {/* Hồ sơ công ty dùng chung — hộp thoại thay cho trang riêng */}
-            <CompanyProfileDialog
-                open={companyDialogOpen}
-                onOpenChange={setCompanyDialogOpen}
-                onSaved={setCompany}
-            />
 
             {/* Bản in thử qua PRINT MIRROR — chỉ tờ giấy, đúng cấu hình đã lưu */}
             {displayConfig ? (

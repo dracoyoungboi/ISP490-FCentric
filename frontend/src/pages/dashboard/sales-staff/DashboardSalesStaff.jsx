@@ -367,7 +367,7 @@ function TraTon({ className }) {
   };
 
   return (
-    <Card className={className} title="Còn hàng không?" scope="tra ở kho làm việc" scopeClassName="@max-[440px]:hidden" bodyClassName="flex flex-col">
+    <Card className={className} title="Còn hàng không?" scope="tra ở nơi làm việc" scopeClassName="@max-[440px]:hidden" bodyClassName="flex flex-col">
       <div className={cn(LE, "relative pt-4")}>
         <label htmlFor="tra-ton" className="sr-only">
           Tìm sản phẩm theo tên, mã sản phẩm hoặc mã SKU

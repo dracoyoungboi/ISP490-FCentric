@@ -73,8 +73,12 @@ import PurchaseOrderPrint from "./pages/order/PurchaseOrderPrint";
 import PrintTemplatesPage from "./pages/settings/PrintTemplatesPage";
 import PrintTemplateDetailPage from "./pages/settings/PrintTemplateDetailPage";
 import PrintTemplateEditorPage from "./pages/settings/PrintTemplateEditorPage";
-import InventorySystemSettingsPage from "./pages/settings/InventorySystemSettingsPage";
 import PaymentSettingsPage from "./pages/settings/PaymentSettingsPage";
+import SettingsLayout from "./pages/settings/SettingsLayout";
+import OperationsSettingsPage from "./pages/settings/OperationsSettingsPage";
+import StoreSettingsPage from "./pages/settings/StoreSettingsPage";
+import PrintTemplateListPage from "./pages/settings/PrintTemplateListPage";
+import { SETTINGS_ROLES } from "./components/settings/settings.config";
 import RequireRole from "./components/auth/RequireRole";
 import PosPage from "./pages/pos";
 import PosLayout from "./pages/pos/PosLayout";
@@ -244,34 +248,28 @@ export default function App() {
           {/* Legacy: URL tiếng Việt cũ chuyển hướng sang URL mới */}
           <Route path="/lich-su-giao-dich-kho" element={<Navigate to="/inventory-transactions" replace />} />
 
-          {/* Cấu hình mẫu in — mỗi loại chứng từ có schema + mẫu riêng.
-              Chỉ quan_tri_vien / quan_ly_kho được cấu hình (frontend guard là UX,
-              backend @RequireAuth là chốt chặn thật). Trang chính nhúng preview;
-              route /:documentType/:templateId giữ trang xem trước cũ cho deep-link. */}
-          {/* Cài đặt thanh toán payOS — chỉ quản trị viên (backend cũng chặn bằng @RequireAuth) */}
-          <Route element={<RequireRole roles={["quan_tri_vien"]} />}>
-            <Route path="/settings/payment" element={<PaymentSettingsPage />} />
+          {/* Trung tâm Cấu hình: menu trái + từng mục (SettingsLayout tự lọc mục theo vai trò, settings.config.js).
+              Frontend chặn chỉ là UX — backend @RequireAuth mới là chốt chặn thật. */}
+          <Route element={<RequireRole roles={SETTINGS_ROLES} />}>
+            <Route path="/settings" element={<SettingsLayout />}>
+              <Route path="stock" element={<OperationsSettingsPage key="stock" part="stock" />} />
+              <Route path="sync" element={<OperationsSettingsPage key="sync" part="sync" />} />
+              <Route path="customer" element={<OperationsSettingsPage key="customer" part="customer" />} />
+              <Route path="store" element={<StoreSettingsPage />} />
+              <Route path="payment" element={<PaymentSettingsPage />} />
+              <Route path="print-templates" element={<PrintTemplateListPage />} />
+            </Route>
+            {/* Đường dẫn cũ */}
+            <Route path="/settings/inventory" element={<Navigate to="/settings/stock" replace />} />
+            <Route path="/settings/company-profile" element={<Navigate to="/settings/store" replace />} />
           </Route>
-          <Route
-            element={
-              <RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />
-            }
-          >
-            <Route path="/settings/print-templates" element={<PrintTemplatesPage />} />
-            {/* Deep-link cũ của trang hồ sơ công ty — chuyển hướng về trang
-                cấu hình mẫu in và mở hộp thoại "Thông tin công ty" */}
-            <Route
-              path="/settings/company-profile"
-              element={<Navigate to="/settings/print-templates?action=company" replace />}
-            />
+
+          {/* Xem trước và chỉnh sửa từng mẫu in: toàn chiều rộng, ngoài khung Cấu hình */}
+          <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />}>
             <Route path="/settings/print-templates/:documentType" element={<PrintTemplatesPage />} />
             <Route path="/settings/print-templates/:documentType/:templateId" element={<PrintTemplateDetailPage />} />
             <Route path="/settings/print-templates/:documentType/edit" element={<PrintTemplateEditorPage />} />
             <Route path="/settings/print-templates/:documentType/:templateId/edit" element={<PrintTemplateEditorPage />} />
-          </Route>
-
-          <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />}>
-            <Route path="/settings/inventory" element={<InventorySystemSettingsPage />} />
           </Route>
 
           {/* Xuất kho theo Pick List (FO-045–047) — vai trò kho, khớp @RequireAuth của NhatHangController.

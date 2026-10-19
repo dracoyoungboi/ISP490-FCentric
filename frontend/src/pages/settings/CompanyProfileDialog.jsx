@@ -14,9 +14,12 @@ import { Input } from "@/components/ui/input";
 import LoadingState from "@/components/shared/LoadingState";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import { companyProfileService } from "@/services/companyProfileService";
-
-const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-const PHONE_RE = /^[0-9+\-\s()]{6,20}$/;
+import {
+    companyProfileForm,
+    companyProfilePayload,
+    isCompanyProfileChanged,
+    validateCompanyProfile,
+} from "@/validations/companyProfileSchema";
 
 function Field({ label, value, onChange, placeholder, type = "text", autoFocus = false }) {
     return (
@@ -40,9 +43,9 @@ function Field({ label, value, onChange, placeholder, type = "text", autoFocus =
 }
 
 /**
- * Hộp thoại "Thông tin công ty" — hồ sơ DÙNG CHUNG cho mọi mẫu in, mở
- * ngay tại trang đang đứng (không còn trang riêng /settings/company-profile;
- * route đó chuyển hướng về trang cấu hình mẫu in và mở hộp thoại này).
+ * Hộp thoại "Thông tin cửa hàng" — sửa nhanh ngay trong trình chỉnh sửa mẫu in.
+ * Trang đầy đủ: Cấu hình › Thông tin cửa hàng (/settings/store); kiểm tra dữ liệu dùng chung
+ * validations/companyProfileSchema.js.
  *
  * - Chỉnh sửa giữ cục bộ trong form; bấm "Lưu thông tin" mới ghi server
  *   (logo đợi đến lúc lưu mới tải lên MinIO).
@@ -79,14 +82,9 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
                 const profile = await companyProfileService.get();
                 if (cancelled) return;
                 setLoaded(profile);
-                setForm({
-                    name: profile?.name ?? "",
-                    email: profile?.email ?? "",
-                    phone: profile?.phone ?? "",
-                    address: profile?.address ?? "",
-                });
+                setForm(companyProfileForm(profile));
             } catch (error) {
-                console.error("Error loading company profile:", error);
+                console.error("Không tải được thông tin cửa hàng:", error);
                 if (!cancelled) setLoadError(true);
             } finally {
                 if (!cancelled) setLoading(false);
@@ -108,28 +106,12 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
         return () => URL.revokeObjectURL(url);
     }, [pendingLogoFile]);
 
-    const normalize = (value) => (value ?? "").trim();
-
     const isDirty =
         Boolean(loaded) &&
         Boolean(form) &&
-        (normalize(form.name) !== normalize(loaded.name) ||
-            normalize(form.email) !== normalize(loaded.email) ||
-            normalize(form.phone) !== normalize(loaded.phone) ||
-            normalize(form.address) !== normalize(loaded.address) ||
-            pendingLogoFile !== null);
+        (isCompanyProfileChanged(loaded, form) || pendingLogoFile !== null);
 
-    const collectIssues = () => {
-        const errors = [];
-        if (!normalize(form?.name)) errors.push("Tên công ty không được để trống");
-        if (form?.email?.trim() && !EMAIL_RE.test(normalize(form.email))) {
-            errors.push("Email công ty không hợp lệ");
-        }
-        if (form?.phone?.trim() && !PHONE_RE.test(normalize(form.phone))) {
-            errors.push("Số điện thoại công ty không hợp lệ");
-        }
-        return errors;
-    };
+    const collectIssues = () => Object.values(validateCompanyProfile(form));
 
     const issues = form ? collectIssues() : [];
 
@@ -164,17 +146,17 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
             if (pendingLogoFile) {
                 await companyProfileService.uploadLogo(pendingLogoFile);
             }
-            const updated = await companyProfileService.save(form);
+            const updated = await companyProfileService.save(companyProfilePayload(form));
             setLoaded(updated);
             setPendingLogoFile(null);
             if (fileInputRef.current) fileInputRef.current.value = "";
-            toast.success("Đã lưu thông tin công ty");
+            toast.success("Đã lưu thông tin cửa hàng.");
             onSaved?.(updated);
             onOpenChange(false);
         } catch (error) {
             // Lỗi -> giữ nguyên hộp thoại và dữ liệu đã nhập để người dùng thử lại
-            console.error("Error saving company profile:", error);
-            toast.error("Không thể lưu thông tin công ty");
+            console.error("Không lưu được thông tin cửa hàng:", error);
+            toast.error("Chưa lưu được thông tin cửa hàng. Vui lòng thử lại.");
         } finally {
             setSaving(false);
         }
@@ -191,19 +173,19 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
             <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-xl bg-white shadow-lg sm:max-w-[620px]">
                 <DialogHeader>
                     <DialogTitle className="text-lg font-semibold text-bo-foreground">
-                        Thông tin công ty
+                        Thông tin cửa hàng
                     </DialogTitle>
                     <DialogDescription className="pt-1 text-sm text-bo-muted">
-                        Thông tin này dùng chung cho tất cả mẫu in.
+                        Hiện ở đầu mọi phiếu in và hóa đơn bán hàng.
                     </DialogDescription>
                 </DialogHeader>
 
                 {loading ? (
-                    <LoadingState label="Đang tải thông tin công ty" className="min-h-40" />
+                    <LoadingState label="Đang tải thông tin cửa hàng" className="min-h-40" />
                 ) : loadError || !form ? (
                     <div className="flex flex-col items-center gap-3 rounded-md border border-bo-border bg-bo-surface-subtle px-4 py-6 text-center">
                         <p className="text-sm text-bo-muted">
-                            Không thể tải thông tin công ty từ máy chủ. Vui lòng thử lại.
+                            Không thể tải thông tin cửa hàng từ máy chủ. Vui lòng thử lại.
                         </p>
                         <Button
                             variant="outline"
@@ -217,13 +199,13 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
                     <div className="space-y-4">
                         <div className="space-y-1.5">
                             <span className="block text-xs font-semibold uppercase tracking-wide text-bo-muted">
-                                Logo công ty
+                                Logo cửa hàng
                             </span>
                             <div className="flex items-center gap-3">
                                 {logoShown ? (
                                     <img
                                         src={logoShown}
-                                        alt="Logo công ty"
+                                        alt="Logo cửa hàng"
                                         className="h-12 w-12 rounded-md border border-bo-border bg-white object-contain p-1"
                                     />
                                 ) : (
@@ -271,7 +253,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
                         </div>
 
                         <Field
-                            label="Tên công ty"
+                            label="Tên cửa hàng"
                             value={form.name}
                             onChange={(value) => setForm((prev) => ({ ...prev, name: value }))}
                             placeholder="Ví dụ: Công ty TNHH F Centric"
@@ -330,7 +312,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
                     onOpenChange(false);
                 }}
                 variant="warning"
-                title="Hủy thay đổi thông tin công ty?"
+                title="Hủy thay đổi thông tin cửa hàng?"
                 description="Các thay đổi chưa lưu (kể cả logo đã chọn) sẽ bị bỏ."
                 confirmText="Bỏ thay đổi"
                 cancelText="Ở lại"

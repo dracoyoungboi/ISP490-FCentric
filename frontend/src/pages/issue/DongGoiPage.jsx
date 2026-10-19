@@ -79,7 +79,7 @@ export default function DongGoiPage() {
         }
         if (!kho?.id || kho.id === getKhoLamViecId() || !laKhoLamViecHopLe(kho)) return false;
         setKhoLamViecId(kho.id);
-        toast.info(`Đã chuyển kho làm việc sang ${kho.tenKho}`);
+        toast.info(`Đã chuyển nơi làm việc sang ${kho.tenKho}`);
         return true;
     }, [donId]);
 

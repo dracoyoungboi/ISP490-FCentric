@@ -1,26 +1,37 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import PageContainer from "@/components/backoffice/PageContainer";
 import ErrorState from "@/components/shared/ErrorState";
 import KhoLamViecSelect from "@/components/shared/KhoLamViecSelect";
+import { hienKhoLamViecODaySidebar } from "@/components/backoffice/sidebar.config";
 import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/utils/apiError";
-import { getKhoLamViecId } from "@/utils/khoLamViec";
+import { KHO_LAM_VIEC_EVENT, getKhoLamViecId } from "@/utils/khoLamViec";
 import { ChanTrang } from "./khung";
 import { TEN_KHOI, gioPhut } from "./soLieuVaiTro";
 import { useTongQuanVaiTro } from "./useTongQuanVaiTro";
 
 /**
- * Khung chung của Tổng quan theo vai trò: tiêu đề ẩn (h1), ô "Kho làm việc" (vai trò làm theo kho), trạng thái
- * đang tải / lỗi / khối lỗi, chân trang giờ số liệu + tải lại. Nội dung do từng vai trò vẽ qua `children(ctx)`:
- * ctx = { data, loading, loi(khoi), reload }.
+ * Khung chung của Tổng quan theo vai trò: tiêu đề ẩn (h1), ô "Nơi làm việc" (chỉ quản lý kho — nhân viên đã thấy
+ * và đổi kho ở đáy sidebar), trạng thái đang tải / lỗi / khối lỗi, chân trang giờ số liệu + tải lại.
+ * Nội dung do từng vai trò vẽ qua `children(ctx)`: ctx = { data, loading, loi(khoi), reload }.
  */
 export default function TrangVaiTro({ vaiTro, theoKho = false, children }) {
   const [khoId, setKhoId] = useState(() => (theoKho ? getKhoLamViecId() : null));
+  const chonKhoTrongTrang = theoKho && !hienKhoLamViecODaySidebar(localStorage.getItem("role"));
+
+  // Đổi kho ở đáy sidebar (hoặc nơi khác): dựng lại nội dung theo kho mới
+  useEffect(() => {
+    if (!theoKho) return undefined;
+    const nghe = (event) => setKhoId(event.detail ?? null);
+    window.addEventListener(KHO_LAM_VIEC_EVENT, nghe);
+    return () => window.removeEventListener(KHO_LAM_VIEC_EVENT, nghe);
+  }, [theoKho]);
+
   return (
     <PageContainer className="@container/tq flex flex-col gap-4">
       <h1 className="sr-only">Tổng quan</h1>
-      {theoKho ? (
+      {chonKhoTrongTrang ? (
         <div className="flex min-h-9 flex-wrap items-center gap-2">
           <KhoLamViecSelect onChange={setKhoId} />
         </div>
@@ -41,7 +52,7 @@ function NoiDung({ vaiTro, theoKho, children }) {
       <div className="rounded-lg border border-bo-border bg-white">
         <ErrorState
           title="Không tải được trang Tổng quan"
-          description={getApiErrorMessage(error, theoKho ? "Kiểm tra kết nối và kho làm việc rồi thử lại." : "Kiểm tra kết nối tới máy chủ rồi thử lại.")}
+          description={getApiErrorMessage(error, theoKho ? "Kiểm tra kết nối và nơi làm việc rồi thử lại." : "Kiểm tra kết nối tới máy chủ rồi thử lại.")}
           onRetry={reload}
         />
       </div>

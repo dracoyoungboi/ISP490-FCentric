@@ -6,23 +6,33 @@ import {
   Warehouse,
   ShoppingCart,
   BarChart3,
-  Printer,
-  Settings2,
-  CreditCard,
+  Settings,
   Store,
 } from "lucide-react";
 import { ShopifyMenuIcon } from "@/components/channel/ChannelLogo";
+import { SETTINGS_PAGES, SETTINGS_ROLES } from "@/components/settings/settings.config";
+import { canKho } from "@/components/nguoi-dung/phanQuyen";
 
 // Nhóm hiển thị trên sidebar — thứ tự khai báo cũng là thứ tự render.
 // Label chỉ hiển thị khi sidebar mở rộng; khi thu gọn chỉ còn divider + khoảng cách.
 // label = null nghĩa là nhóm không có tiêu đề (vd: Tổng quan đứng độc lập).
+// Mục thuộc SIDEBAR_FOOTER_SECTION không nằm trong danh sách nhóm mà được ghim ở đáy sidebar.
+export const SIDEBAR_FOOTER_SECTION = "footer";
+
+/**
+ * Vai trò làm theo kho mà không có mục Cấu hình (nhân viên kho, bán hàng, mua hàng): đáy sidebar hiện ô
+ * "Kho làm việc" thay cho mục Cấu hình, nên các trang không cần vẽ thêm ô chọn kho riêng.
+ */
+export function hienKhoLamViecODaySidebar(role) {
+  return canKho(role) && !SETTINGS_ROLES.includes(role);
+}
+
 export const SIDEBAR_SECTIONS = [
   { key: "overview", label: null },
   { key: "management", label: "QUẢN TRỊ" },
   { key: "operations", label: "VẬN HÀNH" },
   { key: "channels", label: "KÊNH BÁN HÀNG" },
   { key: "reports", label: "GIÁM SÁT" },
-  { key: "settings", label: "HỆ THỐNG" },
 ];
 
 export const SIDEBAR_MENU = [
@@ -271,30 +281,16 @@ export const SIDEBAR_MENU = [
     ],
   },
 
+  // ================= CẤU HÌNH (ghim ở đáy sidebar) =================
+  // Mở trung tâm Cấu hình; các trang con (menu trái của SettingsLayout) khai báo ở settings.config.js
+  // và được liệt kê ở đây để phân quyền / tìm kiếm toàn hệ thống đếm đủ màn hình.
   {
-    label: "Cấu hình hệ thống kho",
-    icon: Settings2,
-    section: "settings",
-    to: "/settings/inventory",
-    roles: ["quan_tri_vien", "quan_ly_kho"],
-  },
-  // ================= CẤU HÌNH MẪU IN =================
-  // Hồ sơ công ty không còn là mục riêng trên sidebar — mở qua hộp thoại
-  // "Thông tin công ty" ngay trên trang Cấu hình mẫu in.
-  {
-    label: "Cấu hình mẫu in",
-    icon: Printer,
-    section: "settings",
-    to: "/settings/print-templates",
-    roles: ["quan_tri_vien", "quan_ly_kho"],
-  },
-
-  // ================= CÀI ĐẶT THANH TOÁN (payOS) =================
-  {
-    label: "Cài đặt thanh toán",
-    icon: CreditCard,
-    section: "settings",
-    to: "/settings/payment",
-    roles: ["quan_tri_vien"],
+    label: "Cấu hình",
+    icon: Settings,
+    section: SIDEBAR_FOOTER_SECTION,
+    to: "/settings",
+    roles: SETTINGS_ROLES,
+    match: (path) => path === "/settings" || path.startsWith("/settings/"),
+    children: SETTINGS_PAGES.map(({ label, to, roles }) => ({ label, to, roles })),
   },
 ];

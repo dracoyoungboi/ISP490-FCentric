@@ -108,7 +108,7 @@ export default function PurchaseOrderDetail() {
         lyDo: tienDo.daDu
             ? "Đã nhập đủ số lượng"
             : saiKho
-                ? `Chọn kho làm việc ${don?.khoNhap?.tenKho || "của đơn"} để nhập hàng cho đơn này`
+                ? `Đơn nhập vào ${don?.khoNhap?.tenKho || "kho khác"}, không phải nơi làm việc hiện tại của bạn`
                 : "",
     };
 

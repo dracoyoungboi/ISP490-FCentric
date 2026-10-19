@@ -106,7 +106,19 @@ const MENU = [
       { to: "/inventory-transactions", roles: [QTV, QLK, NVK] },
     ],
   },
-  { to: "/settings/inventory", roles: [QTV, QLK] },
+  {
+    // Cấu hình ghim ở đáy sidebar; mục con là các trang của settings.config.js
+    to: "/settings",
+    roles: [QTV, QLK],
+    children: [
+      { to: "/settings/stock", roles: [QTV, QLK] },
+      { to: "/settings/sync", roles: [QTV, QLK] },
+      { to: "/settings/customer", roles: [QTV, QLK] },
+      { to: "/settings/store", roles: [QTV, QLK] },
+      { to: "/settings/payment", roles: [QTV] },
+      { to: "/settings/print-templates", roles: [QTV, QLK] },
+    ],
+  },
 ];
 
 const MAU_NVK = [1, 2, 4, 7, 12, 15];
