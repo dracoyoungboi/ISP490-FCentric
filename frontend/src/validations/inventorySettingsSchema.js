@@ -1,10 +1,57 @@
 // Chỉ định nghĩa nhãn/đơn vị và mã, không có giá trị mặc định. Giá trị/kiểu lấy từ API.
-// min/max khớp validateBoundary của BE (DieuHanhHeThongServiceImpl); đổi một bên thì đổi cả bên kia.
+// min/max, pattern khớp validateBoundary của BE (DieuHanhHeThongServiceImpl); đổi một bên thì đổi cả bên kia.
+// `type`: kiểu dữ liệu mong đợi từ API (mặc định INT). `group`: mục trong trung tâm Cấu hình (settings.config.js).
 export const INVENTORY_SETTINGS = [
-  { code: "DEFAULT_MIN_STOCK_ALERT", label: "Ngưỡng cảnh báo tồn kho tối thiểu", unit: "Số lượng", description: "Ngưỡng cảnh báo mặc định khi sản phẩm chưa có thiết lập riêng.", group: "stock", min: 0, max: 100000 },
-  { code: "OMNI_SYNC_INTERVAL_MINS", label: "Chu kỳ đồng bộ đơn hàng đa kênh", unit: "Phút", description: "Khoảng thời gian giữa các lần đồng bộ đơn hàng định kỳ.", group: "sync", min: 1, max: 1440 },
-  { code: "REALTIME_SYNC_THRESHOLD", label: "Ngưỡng chuyển sang đồng bộ tức thời", unit: "Số lượng", description: "Ngưỡng số lượng dùng để kích hoạt đồng bộ theo thời gian thực.", group: "sync", min: 0, max: 100 },
+  { code: "DEFAULT_MIN_STOCK_ALERT", label: "Ngưỡng cảnh báo mặc định", unit: "cái", group: "stock", min: 0, max: 100000 },
+  { code: "OMNI_SYNC_INTERVAL_MINS", label: "Chu kỳ đồng bộ", unit: "phút", group: "sync", min: 1, max: 1440 },
+  { code: "REALTIME_SYNC_THRESHOLD", label: "Đẩy tồn ngay khi còn dưới", unit: "cái", group: "sync", min: 0, max: 100, rangeNote: "0 là tắt" },
+  {
+    code: "MA_KHACH_HANG_TIEN_TO",
+    label: "Tiền tố mã khách hàng",
+    unit: "",
+    group: "customer",
+    type: "STRING",
+    maxLength: 10,
+    pattern: /^[A-Z0-9._-]{1,10}$/,
+    patternMessage: "Gồm 1–10 ký tự: chữ in hoa không dấu, số hoặc . _ -",
+  },
 ];
+
+const soVi = (value) => Number(value).toLocaleString("vi-VN");
+
+/**
+ * Câu mô tả tác động của giá trị, đổi theo số đang nhập. Trả về [trước, phần in đậm, sau].
+ * Bám đúng cách backend dùng: OMNI_SYNC_INTERVAL_MINS cho cả job lấy đơn và job đẩy tồn;
+ * REALTIME_SYNC_THRESHOLD đẩy ngay khi tồn còn DƯỚI ngưỡng (0 = tắt).
+ */
+export function moTaTacDong(code, value) {
+  switch (code) {
+    case "DEFAULT_MIN_STOCK_ALERT":
+      return ["Báo thiếu hàng khi tồn khả dụng còn ", `${soVi(value)} cái`, " trở xuống."];
+    case "OMNI_SYNC_INTERVAL_MINS":
+      return ["Lấy đơn mới và đẩy tồn lên kênh bán ", `mỗi ${soVi(value)} phút`, `, khoảng ${soVi(Math.floor(1440 / Number(value)))} lần/ngày.`];
+    case "REALTIME_SYNC_THRESHOLD":
+      return Number(value) === 0
+        ? ["Đẩy tồn tức thời ", "đang tắt", "; tồn chỉ được đẩy theo chu kỳ."]
+        : ["Mã còn ", `dưới ${soVi(value)} cái`, " sau khi bán hoặc xuất kho được đẩy tồn ngay, không đợi chu kỳ."];
+    case "MA_KHACH_HANG_TIEN_TO":
+      return ["Mã mới có dạng ", maKhachHangMau(value), ". Mã đã cấp giữ nguyên."];
+    default:
+      return ["", "", ""];
+  }
+}
+
+/** Phạm vi cho phép, hiện dưới ô nhập. VD "0–100 · 0 là tắt". */
+export function phamViCauHinh(code) {
+  const field = INVENTORY_SETTINGS.find((item) => item.code === code);
+  if (!field) return "";
+  if (field.maxLength) return `Tối đa ${field.maxLength} ký tự`;
+  const range = `${soVi(field.min)}–${soVi(field.max)}`;
+  return field.rangeNote ? `${range} · ${field.rangeNote}` : range;
+}
+
+/** Mã mẫu cho tiền tố đang nhập, VD "KH" → "KH000124". */
+export const maKhachHangMau = (tienTo) => `${tienTo || ""}000124`;
 
 export function createEmptyInventoryValues() {
   return Object.fromEntries(INVENTORY_SETTINGS.map((item) => [item.code, ""]));
@@ -12,8 +59,12 @@ export function createEmptyInventoryValues() {
 
 export function readCompleteInventorySettings(data) {
   const settings = selectInventorySettings(data);
-  if (settings.length !== INVENTORY_SETTINGS.length || settings.some((item) => item.kieuDuLieu !== "INT")) {
-    throw new Error("Không thể tải đủ cài đặt số nguyên.");
+  const sai = settings.some((item) => {
+    const field = INVENTORY_SETTINGS.find(({ code }) => code === item.maCauHinh);
+    return item.kieuDuLieu !== (field?.type ?? "INT");
+  });
+  if (settings.length !== INVENTORY_SETTINGS.length || sai) {
+    throw new Error("Không thể tải đủ cài đặt.");
   }
   return settings;
 }
@@ -64,6 +115,7 @@ export function validateInventoryField(code, value, type) {
   const typeError = validateInventorySetting(value, type);
   if (typeError) return typeError;
   const field = INVENTORY_SETTINGS.find((item) => item.code === code);
+  if (field?.pattern) return field.pattern.test(value) ? "" : field.patternMessage;
   if (field?.min === undefined || field?.max === undefined) return "";
   const number = Number(value);
   return number < field.min || number > field.max

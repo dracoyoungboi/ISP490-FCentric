@@ -6,43 +6,33 @@ import {
   Warehouse,
   ShoppingCart,
   BarChart3,
-  Printer,
-  Settings2,
-  CreditCard,
+  Settings,
   Store,
 } from "lucide-react";
 import { ShopifyMenuIcon } from "@/components/channel/ChannelLogo";
-import { MA_VACH_NCC_DA_CO_MAY_CHU, MA_VACH_NCC_MAU } from "@/services/maVachNhaCungCapService";
-import { VI_TRI_KHO_DA_CO_MAY_CHU, VI_TRI_KHO_MAU } from "@/services/viTriKhoService";
-
-/**
- * Tag cho màn mới (`badge` của mục), tự đổi theo tình trạng máy chủ để cả nhóm biết màn đang ở mức nào:
- * - "Mới"     (vàng): máy chủ đã có API, màn chạy dữ liệu thật.
- * - "Chờ API" (xám):  máy chủ chưa có API; màn hiện bằng dữ liệu mẫu để nhóm xem trước
- *                     (hoặc chỉ một dòng thông báo nếu đã tắt dữ liệu mẫu).
- * Màn đã ổn định thì xóa dòng `badge` của mục để bỏ tag.
- */
-function nhanManMoi({ daCoMayChu = true, dangChayMau = false, moTa }) {
-  if (daCoMayChu) return { label: "Mới", tone: "moi", description: moTa };
-  return {
-    label: "Chờ API",
-    tone: "cho",
-    description: dangChayMau
-      ? `${moTa}. Máy chủ chưa có API, đang hiện dữ liệu mẫu.`
-      : `${moTa}. Máy chủ chưa có API.`,
-  };
-}
+import { SETTINGS_PAGES, SETTINGS_ROLES } from "@/components/settings/settings.config";
+import { canKho } from "@/components/nguoi-dung/phanQuyen";
 
 // Nhóm hiển thị trên sidebar — thứ tự khai báo cũng là thứ tự render.
 // Label chỉ hiển thị khi sidebar mở rộng; khi thu gọn chỉ còn divider + khoảng cách.
 // label = null nghĩa là nhóm không có tiêu đề (vd: Tổng quan đứng độc lập).
+// Mục thuộc SIDEBAR_FOOTER_SECTION không nằm trong danh sách nhóm mà được ghim ở đáy sidebar.
+export const SIDEBAR_FOOTER_SECTION = "footer";
+
+/**
+ * Vai trò làm theo kho mà không có mục Cấu hình (nhân viên kho, bán hàng, mua hàng): đáy sidebar hiện ô
+ * "Kho làm việc" thay cho mục Cấu hình, nên các trang không cần vẽ thêm ô chọn kho riêng.
+ */
+export function hienKhoLamViecODaySidebar(role) {
+  return canKho(role) && !SETTINGS_ROLES.includes(role);
+}
+
 export const SIDEBAR_SECTIONS = [
   { key: "overview", label: null },
   { key: "management", label: "QUẢN TRỊ" },
   { key: "operations", label: "VẬN HÀNH" },
   { key: "channels", label: "KÊNH BÁN HÀNG" },
   { key: "reports", label: "GIÁM SÁT" },
-  { key: "settings", label: "HỆ THỐNG" },
 ];
 
 export const SIDEBAR_MENU = [
@@ -113,15 +103,10 @@ export const SIDEBAR_MENU = [
       },
       // FO-095: tra mã vạch trên tem NCC ↔ biến thể (liên kết tạo khi kiểm đếm hàng nhập)
       {
-        // Nhãn ngắn để đủ chỗ cho tag "Mới"; tiêu đề trang vẫn ghi đầy đủ "Mã vạch nhà cung cấp"
+        // Nhãn ngắn cho vừa sidebar; tiêu đề trang vẫn ghi đầy đủ "Mã vạch nhà cung cấp"
         label: "Mã vạch NCC",
         to: "/supplier-barcodes",
         roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho", "nhan_vien_mua_hang"],
-        badge: nhanManMoi({
-          daCoMayChu: MA_VACH_NCC_DA_CO_MAY_CHU,
-          dangChayMau: MA_VACH_NCC_MAU,
-          moTa: "Tra mã vạch trên tem nhà cung cấp",
-        }),
       },
       {
         label: "Yêu cầu nhập hàng",
@@ -142,8 +127,6 @@ export const SIDEBAR_MENU = [
         label: "Phiếu nhập kho",
         to: "/goods-receipts",
         roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"],
-        // Chi tiết phiếu, kiểm đếm và khóa lô chạy API thật nên luôn là "Mới"
-        badge: nhanManMoi({ moTa: "Chi tiết phiếu nhập 3 bước, kiểm đếm và khóa lô (FO-096 → FO-100)" }),
       },
     ],
   },
@@ -167,11 +150,6 @@ export const SIDEBAR_MENU = [
         label: "Vị trí kệ",
         to: "/warehouse/locations",
         roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"],
-        badge: nhanManMoi({
-          daCoMayChu: VI_TRI_KHO_DA_CO_MAY_CHU,
-          dangChayMau: VI_TRI_KHO_MAU,
-          moTa: "Khu vực, vị trí kệ và mặt bằng kho",
-        }),
       },
       // Xuất kho theo Pick List (FO-045–047): Đơn chờ xuất → Pick List → Phiếu xuất kho
       { label: "Đơn chờ xuất", to: "/goods-issues/pending-orders" },
@@ -303,30 +281,16 @@ export const SIDEBAR_MENU = [
     ],
   },
 
+  // ================= CẤU HÌNH (ghim ở đáy sidebar) =================
+  // Mở trung tâm Cấu hình; các trang con (menu trái của SettingsLayout) khai báo ở settings.config.js
+  // và được liệt kê ở đây để phân quyền / tìm kiếm toàn hệ thống đếm đủ màn hình.
   {
-    label: "Cấu hình hệ thống kho",
-    icon: Settings2,
-    section: "settings",
-    to: "/settings/inventory",
-    roles: ["quan_tri_vien", "quan_ly_kho"],
-  },
-  // ================= CẤU HÌNH MẪU IN =================
-  // Hồ sơ công ty không còn là mục riêng trên sidebar — mở qua hộp thoại
-  // "Thông tin công ty" ngay trên trang Cấu hình mẫu in.
-  {
-    label: "Cấu hình mẫu in",
-    icon: Printer,
-    section: "settings",
-    to: "/settings/print-templates",
-    roles: ["quan_tri_vien", "quan_ly_kho"],
-  },
-
-  // ================= CÀI ĐẶT THANH TOÁN (payOS) =================
-  {
-    label: "Cài đặt thanh toán",
-    icon: CreditCard,
-    section: "settings",
-    to: "/settings/payment",
-    roles: ["quan_tri_vien"],
+    label: "Cấu hình",
+    icon: Settings,
+    section: SIDEBAR_FOOTER_SECTION,
+    to: "/settings",
+    roles: SETTINGS_ROLES,
+    match: (path) => path === "/settings" || path.startsWith("/settings/"),
+    children: SETTINGS_PAGES.map(({ label, to, roles }) => ({ label, to, roles })),
   },
 ];

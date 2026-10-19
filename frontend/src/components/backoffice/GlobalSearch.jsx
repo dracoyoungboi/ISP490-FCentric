@@ -4,7 +4,7 @@ import { History, LayoutGrid, Package, Search, ShoppingCart, UserRound, X } from
 
 import { cn } from "@/lib/utils";
 import StatusBadge from "@/components/shared/StatusBadge";
-import { SIDEBAR_MENU, SIDEBAR_SECTIONS } from "@/components/backoffice/sidebar.config";
+import { SIDEBAR_FOOTER_SECTION, SIDEBAR_MENU, SIDEBAR_SECTIONS } from "@/components/backoffice/sidebar.config";
 import apiClient from "@/services/apiClient";
 import { productService } from "@/services/productService";
 import { donBanHangKenhService } from "@/services/donBanHangKenhService";
@@ -86,6 +86,8 @@ function vaiTroCuaTrang(duongDan) {
 /** Danh sách màn hình người dùng được vào, lấy từ menu bên trái. */
 function danhSachManHinh(role) {
   const tenNhom = Object.fromEntries(SIDEBAR_SECTIONS.map((s) => [s.key, vietHoaChuDau(s.label)]));
+  // Mục ghim ở đáy sidebar (Cấu hình) không thuộc nhóm có tiêu đề
+  tenNhom[SIDEBAR_FOOTER_SECTION] = "Hệ thống";
   const ketQua = [];
   for (const muc of SIDEBAR_MENU) {
     if (!muc.roles?.includes(role)) continue;

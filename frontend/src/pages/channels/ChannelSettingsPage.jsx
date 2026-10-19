@@ -317,7 +317,7 @@ function SettingsForm({ config, cauHinh, khoSan, onConfigSaved, onCauHinhSaved }
             values={values}
             onChange={doi}
             cauHinh={cauHinh}
-            duongDanDoiChuKy="/settings/inventory"
+            duongDanDoiChuKy="/settings/sync"
             disabled={khoa}
           />
         </div>

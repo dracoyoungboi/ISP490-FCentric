@@ -152,17 +152,17 @@ export function DangMoNcc({ viec, nutCuaDon }) {
   );
 }
 
+/** Không bọc thêm khung cuộn: vùng tab (.ncc-bang) tự cuộn ngang và dọc, để tiêu đề cột dính được khi cuộn dọc. */
 function Bang({ minW = 820, children }) {
   return (
-    <div className="overflow-x-auto">
-      <table className={cn("w-full border-collapse text-sm", minW === 820 ? "min-w-[820px]" : "min-w-[880px]")}>{children}</table>
-    </div>
+    <table className={cn("w-full border-collapse text-sm", minW === 820 ? "min-w-[820px]" : "min-w-[880px]")}>{children}</table>
   );
 }
 
+/** Tiêu đề cột dính trên cùng khi thân bảng tự cuộn (màn rộng, xem index.css → .ncc-khoi). */
 function DauBang({ cot }) {
   return (
-    <thead>
+    <thead className="sticky top-0 z-[1]">
       <tr className="whitespace-nowrap border-b border-bo-border bg-bo-surface-subtle text-xs font-medium leading-4 text-bo-muted">
         {cot.map((c, i) => (
           <th

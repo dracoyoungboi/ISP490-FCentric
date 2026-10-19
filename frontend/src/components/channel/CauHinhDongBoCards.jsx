@@ -89,7 +89,7 @@ export function TheTonKho({ moTa, values, errors = {}, onChange, cheDo, onDoiChe
 /**
  * Thẻ "Đơn hàng": công tắc tự động lấy đơn, cách xử lý đơn hủy trên sàn và chu kỳ chạy.
  * `children`: dòng thêm của bước 3 Thiết lập (lấy đơn cũ), đặt ngay dưới công tắc.
- * `duongDanDoiChuKy`: có thì hiện liên kết "Đổi" cạnh chu kỳ (chu kỳ dùng chung cho mọi kênh, sửa ở Cấu hình hệ thống kho).
+ * `duongDanDoiChuKy`: có thì hiện liên kết "Đổi" cạnh chu kỳ (chu kỳ dùng chung cho mọi kênh, sửa ở Cấu hình › Đồng bộ kênh bán).
  */
 export function TheDonHang({ moTa, values, onChange, cauHinh, duongDanDoiChuKy, disabled = false, children }) {
   const chuKy = cauHinh?.chuKyPhut ?? 10;

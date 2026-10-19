@@ -5,6 +5,7 @@ import BackofficeHeader from "./BackofficeHeader";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
 import { PageTitleContext } from "./pageTitle";
+import { SETTINGS_PAGES } from "@/components/settings/settings.config";
 import "@/styles/print.css";
 
 const DEFAULT_DOCUMENT_TITLE =
@@ -331,22 +332,16 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             match: (path) => /^\/sales-quotations\/\d+$/.test(path),
             title: "Chi tiết báo giá",
         },
-        {
-            key: "INVENTORY_SYSTEM_SETTINGS",
-            match: (path) => path === "/settings/inventory",
-            title: "Cấu hình hệ thống kho",
-        },
+        // Trung tâm Cấu hình: SettingsLayout tự vẽ tiêu đề mục; đây chỉ đặt tên tab trình duyệt
+        ...SETTINGS_PAGES.map((page) => ({
+            key: `SETTINGS_${page.key.toUpperCase()}`,
+            match: (path) => path === page.to,
+            title: `${page.label} · Cấu hình`,
+        })),
         {
             key: "PRINT_TEMPLATES",
-            match: (path) =>
-                path === "/settings/print-templates" ||
-                /^\/settings\/print-templates\/[^/]+$/.test(path),
-            title: "Cấu hình mẫu in",
-        },
-        {
-            key: "PAYMENT_SETTINGS",
-            match: (path) => path === "/settings/payment",
-            title: "Cài đặt thanh toán",
+            match: (path) => /^\/settings\/print-templates\/[^/]+$/.test(path),
+            title: "Mẫu in",
         },
         {
             key: "PRINT_TEMPLATE_EDIT",

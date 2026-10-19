@@ -18,6 +18,7 @@ import DauTichDong from "./DauTichDong";
 import { Card, LE } from "./ui";
 import { formatSo } from "../tong-quan/tongQuanFormat";
 import { danhSachViec } from "../tong-quan/viecCanXuLy";
+import { setKhoLamViecId } from "@/utils/khoLamViec";
 
 const SO_DONG_GON = 7;
 
@@ -36,9 +37,9 @@ const BIEU_TUONG = {
   taiKhoanBiKhoa: Lock,
 };
 
-/** Đổi kho làm việc trước khi mở trang chỉ xem một kho. */
+/** Đổi kho đang xem (kho làm việc) trước khi mở trang chỉ xem một kho; phát sự kiện để ô chọn kho khớp theo. */
 function datKhoLamViec(kho) {
-  if (kho != null) window.localStorage.setItem("selected_kho_id", String(kho));
+  if (kho != null) setKhoLamViecId(kho);
 }
 
 /**

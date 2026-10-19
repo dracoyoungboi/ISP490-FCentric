@@ -685,18 +685,17 @@ export default function PrintTemplateEditorPage() {
                             </div>
                         </EditorSection>
 
-                        <EditorSection title="Hồ sơ công ty (dùng chung)">
+                        <EditorSection title="Thông tin cửa hàng (dùng chung)">
                             <p className="mb-3 rounded-md border border-bo-border bg-bo-surface-subtle px-3 py-2 text-xs leading-5 text-bo-muted">
-                                Hồ sơ công ty dùng chung cho mọi loại chứng từ — sửa
-                                bằng nút bên dưới, không sửa trực tiếp trong trình
-                                chỉnh sửa mẫu.
+                                Thông tin cửa hàng dùng chung cho mọi loại chứng từ — sửa
+                                bằng nút bên dưới hoặc ở Cấu hình › Thông tin cửa hàng.
                             </p>
                             <div className="space-y-3">
                                 <div className="flex items-center gap-3">
                                     {company.logoAsset ? (
                                         <img
                                             src={company.logoAsset}
-                                            alt="Logo công ty"
+                                            alt="Logo cửa hàng"
                                             className="h-10 w-10 rounded-md border border-bo-border bg-white object-contain p-1"
                                         />
                                     ) : null}
@@ -714,7 +713,7 @@ export default function PrintTemplateEditorPage() {
                                     className="w-full border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
                                     onClick={() => setCompanyDialogOpen(true)}
                                 >
-                                    Chỉnh sửa hồ sơ công ty
+                                    Sửa thông tin cửa hàng
                                 </Button>
                             </div>
                         </EditorSection>
@@ -727,7 +726,7 @@ export default function PrintTemplateEditorPage() {
                                     onChange={(value) => setField("branding.showLogo", value)}
                                 />
                                 <ToggleRow
-                                    label="Hiển thị tên công ty"
+                                    label="Hiển thị tên cửa hàng"
                                     checked={draft.branding.showCompanyName}
                                     onChange={(value) => setField("branding.showCompanyName", value)}
                                 />
@@ -934,7 +933,7 @@ export default function PrintTemplateEditorPage() {
                         <DialogDescription className="pt-2 text-sm text-gray-600">
                             Các thay đổi CHƯA LƯU của mẫu này sẽ bị bỏ và mẫu quay về
                             cấu hình mặc định. Thay đổi chỉ được áp dụng sau khi bạn
-                            bấm “Lưu cấu hình”. Hồ sơ công ty và cấu hình của loại
+                            bấm “Lưu cấu hình”. Thông tin cửa hàng và cấu hình của loại
                             chứng từ khác không bị ảnh hưởng.
                         </DialogDescription>
                     </DialogHeader>

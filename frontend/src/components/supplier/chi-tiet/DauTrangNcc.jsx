@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Check, CircleCheck, CirclePause, Copy, Ellipsis, Mail, Pencil, Phone, Trash2 } from "lucide-react";
+import { ArrowLeft, CircleCheck, CirclePause, Ellipsis, Mail, Pencil, Phone, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,21 +9,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import PageHeading from "@/components/backoffice/PageHeading";
 import { useClaimPageTitle } from "@/components/backoffice/pageTitle";
+import NutSaoChep from "@/components/shared/NutSaoChep";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { laHoatDong } from "@/components/supplier/quyTacNhaCungCap";
-import { CAU_HINH_THONG_BAO_NHANH } from "@/config/thongBaoNhanh";
-import useSaoChep from "@/hooks/useSaoChep";
-import { formatDate } from "@/utils/formatters";
 
 const NUT_VIEN = "border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle";
 const MUC_MENU = "cursor-pointer items-start gap-2 rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
 
 /**
  * Đầu khối của màn Chi tiết nhà cung cấp (bản một khối, chốt 17/10/2026):
- * nút quay lại, tên + trạng thái, dòng phụ (mã · người liên hệ · ngày tạo).
+ * nút quay lại, tên + trạng thái, dòng phụ là mã nhà cung cấp kèm nút sao chép.
+ * Mỗi thông tin chỉ ở một chỗ (chốt 19/10/2026): người liên hệ nằm ở mục Liên hệ, ngày tạo / cập nhật ở cột phải.
  *
  * Thao tác (chỉ vai trò quản lý nhà cung cấp): ⋯ và nút chính Chỉnh sửa. Menu ⋯ (vị trí 2 đã chốt):
- * Sao chép mã nhà cung cấp, Ngừng hoạt động / Cho phép hoạt động (kèm một dòng hệ quả), vạch ngăn, Xóa.
+ * Ngừng hoạt động / Cho phép hoạt động (kèm một dòng hệ quả), vạch ngăn, Xóa.
  * Xóa theo `trangThaiXoa` (trang cha hỏi máy chủ): "khong" (đã có giao dịch) và "dang-kiem-tra" thì ẩn,
  * "duoc" thì hiện, "chua-ro" (kiểm tra lỗi) vẫn hiện để hộp thoại xóa tự kiểm tra lại.
  * Điện thoại: hai nút lớn Gọi và Gửi email, Chỉnh sửa chuyển vào ⋯.
@@ -35,29 +33,6 @@ export default function DauTrangNcc({ ncc, coTheQuanLy, trangThaiXoa, onQuayLai,
 
   const dangHoatDong = laHoatDong(ncc);
   const hienXoa = trangThaiXoa === "duoc" || trangThaiXoa === "chua-ro";
-  const [moMenu, setMoMenu] = useState(false);
-  const { daChep, saoChep, quenDaChep, taiCho } = useSaoChep();
-  const henDongMenu = useRef(0);
-
-  useEffect(() => () => clearTimeout(henDongMenu.current), []);
-
-  const doiMenu = (mo) => {
-    clearTimeout(henDongMenu.current);
-    if (!mo) quenDaChep();
-    setMoMenu(mo);
-  };
-
-  const saoChepMa = async (suKien) => {
-    if (!taiCho) {
-      await saoChep(ncc.maNhaCungCap, { nhan: "Sao chép mã nhà cung cấp" });
-      return;
-    }
-    suKien.preventDefault(); // giữ menu mở để người dùng thấy "Đã sao chép"
-    if (await saoChep(ncc.maNhaCungCap)) {
-      clearTimeout(henDongMenu.current);
-      henDongMenu.current = setTimeout(() => doiMenu(false), CAU_HINH_THONG_BAO_NHANH.dongMenuSauSaoChep);
-    }
-  };
 
   const soDienThoai = ncc.soDienThoai?.trim();
   const email = ncc.email?.trim();
@@ -84,11 +59,12 @@ export default function DauTrangNcc({ ncc, coTheQuanLy, trangThaiXoa, onQuayLai,
             </PageHeading>
             <StatusBadge size="lg" label={dangHoatDong ? "Hoạt động" : "Ngừng hoạt động"} />
           </div>
-          <p className="mt-0.5 text-[13px] leading-5 text-bo-muted">
-            {ncc.maNhaCungCap ? <span className="font-mono font-semibold text-slate-700">{ncc.maNhaCungCap}</span> : null}
-            {ncc.nguoiLienHe ? `${ncc.maNhaCungCap ? " · " : ""}${ncc.nguoiLienHe}` : null}
-            {ncc.ngayTao ? ` · tạo ${formatDate(ncc.ngayTao)}` : null}
-          </p>
+          {ncc.maNhaCungCap ? (
+            <p className="mt-0.5 flex items-center gap-0.5 text-[13px] leading-5 text-bo-muted">
+              <span className="font-mono font-semibold text-slate-700">{ncc.maNhaCungCap}</span>
+              <NutSaoChep giaTri={ncc.maNhaCungCap} nhan="Sao chép mã nhà cung cấp" className="size-6" />
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -113,7 +89,7 @@ export default function DauTrangNcc({ ncc, coTheQuanLy, trangThaiXoa, onQuayLai,
 
         {coTheQuanLy ? (
           <>
-            <DropdownMenu modal={false} open={moMenu} onOpenChange={doiMenu}>
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <Button
                   type="button"
@@ -134,21 +110,6 @@ export default function DauTrangNcc({ ncc, coTheQuanLy, trangThaiXoa, onQuayLai,
                   <Pencil className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
                   Chỉnh sửa
                 </DropdownMenuItem>
-                {ncc.maNhaCungCap ? (
-                  <DropdownMenuItem onSelect={saoChepMa} className={MUC_MENU}>
-                    {daChep ? (
-                      <>
-                        <Check className="mt-0.5 size-4 text-bo-success" strokeWidth={2.5} aria-hidden="true" />
-                        <span className="text-bo-success">Đã sao chép</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
-                        Sao chép mã nhà cung cấp
-                      </>
-                    )}
-                  </DropdownMenuItem>
-                ) : null}
                 <DropdownMenuItem onClick={onDoiTrangThai} className={MUC_MENU}>
                   {dangHoatDong ? (
                     <CirclePause className="mt-0.5 size-4 text-bo-warning" aria-hidden="true" />
@@ -182,9 +143,6 @@ export default function DauTrangNcc({ ncc, coTheQuanLy, trangThaiXoa, onQuayLai,
                     </DropdownMenuItem>
                   </>
                 ) : null}
-                <span className="sr-only" aria-live="polite">
-                  {daChep ? "Đã sao chép mã nhà cung cấp" : ""}
-                </span>
               </DropdownMenuContent>
             </DropdownMenu>
 

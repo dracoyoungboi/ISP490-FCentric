@@ -52,14 +52,16 @@ class DieuHanhHeThongDynamicConfigTest {
     }
 
     @Test
-    void initDefaultConfigurations_khiDBThieu_seTuDongSeedDu3Keys() {
+    void initDefaultConfigurations_khiDBThieu_seTuDongSeedDu4Keys() {
         // Giả lập DB chưa có khóa nào
         when(cauHinhRepository.existsById(anyString())).thenReturn(false);
 
         service.initDefaultConfigurations();
 
-        // Phải save đúng 3 cấu hình chuẩn
-        verify(cauHinhRepository, times(3)).save(any(CauHinhHeThong.class));
+        // Phải save đúng 4 cấu hình chuẩn
+        verify(cauHinhRepository, times(4)).save(any(CauHinhHeThong.class));
+        verify(cauHinhRepository).save(argThat(c -> "MA_KHACH_HANG_TIEN_TO".equals(c.getMaCauHinh())
+                && "KH".equals(c.getGiaTri()) && c.getKieuDuLieu() == KieuDuLieuCauHinh.STRING));
         verify(cauHinhRepository).save(argThat(c -> "DEFAULT_MIN_STOCK_ALERT".equals(c.getMaCauHinh()) && "100".equals(c.getGiaTri())));
         verify(cauHinhRepository).save(argThat(c -> "OMNI_SYNC_INTERVAL_MINS".equals(c.getMaCauHinh()) && "10".equals(c.getGiaTri())));
         verify(cauHinhRepository).save(argThat(c -> "REALTIME_SYNC_THRESHOLD".equals(c.getMaCauHinh()) && "3".equals(c.getGiaTri())));
@@ -74,6 +76,30 @@ class DieuHanhHeThongDynamicConfigTest {
 
         // Không được gọi save để bảo toàn dữ liệu Quản trị viên đã chỉnh sửa
         verify(cauHinhRepository, never()).save(any(CauHinhHeThong.class));
+    }
+
+    @Test
+    void updateCauHinh_tienToMaKhachHang_chiNhanInHoaSoVaDauChamGachToiDa10KyTu() {
+        CauHinhHeThong entity = CauHinhHeThong.builder()
+                .maCauHinh("MA_KHACH_HANG_TIEN_TO")
+                .giaTri("KH")
+                .kieuDuLieu(KieuDuLieuCauHinh.STRING)
+                .build();
+        when(cauHinhRepository.findById("MA_KHACH_HANG_TIEN_TO")).thenReturn(Optional.of(entity));
+        when(cauHinhRepository.save(any(CauHinhHeThong.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        for (String sai : new String[] {"", "kh", "KH ", "KHÁCH", "KHACHHANG-01"}) {
+            CauHinhHeThongUpdateRequest req = new CauHinhHeThongUpdateRequest();
+            req.setGiaTri(sai);
+            CommonException ex = assertThrows(CommonException.class,
+                    () -> service.updateCauHinh("MA_KHACH_HANG_TIEN_TO", req, null), sai);
+            assertTrue(ex.getMessage().startsWith("Tiền tố mã khách hàng"));
+        }
+
+        CauHinhHeThongUpdateRequest dung = new CauHinhHeThongUpdateRequest();
+        dung.setGiaTri("KH-HN");
+        service.updateCauHinh("MA_KHACH_HANG_TIEN_TO", dung, null);
+        assertEquals("KH-HN", entity.getGiaTri());
     }
 
     @Test

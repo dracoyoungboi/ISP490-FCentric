@@ -262,7 +262,7 @@ export default function PickListList() {
                         <EmptyState
                             icon={PackageSearch}
                             title={`Không có phiếu nhặt hàng nào ở trạng thái "${emptyTabLabel}"`}
-                            description="Chọn tab Tất cả để xem mọi phiếu nhặt hàng của kho làm việc."
+                            description="Chọn tab Tất cả để xem mọi phiếu nhặt hàng của kho đang chọn."
                             action={
                                 <Button variant="outline" onClick={() => changeTab(TAB_MAC_DINH)} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
                                     Xem tất cả

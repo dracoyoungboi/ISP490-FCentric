@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, PackageCheck } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { NavLink, matchPath, useLocation } from "react-router-dom";
 
 import {
@@ -18,12 +18,8 @@ import {
   Collapsible,
   CollapsibleContent,
 } from "@/components/ui/collapsible";
-import { SIDEBAR_MENU, SIDEBAR_SECTIONS } from "./sidebar.config";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { SIDEBAR_FOOTER_SECTION, SIDEBAR_MENU, SIDEBAR_SECTIONS, hienKhoLamViecODaySidebar } from "./sidebar.config";
+import SidebarKhoLamViec from "./SidebarKhoLamViec";
 import { cn } from "@/lib/utils";
 
 // Mục menu có thể khai báo `match(pathname)` khi đường dẫn con thuộc mục khác
@@ -58,25 +54,15 @@ const HOVER_CLOSE_DELAY = 150;
 // .bo-sidebar-item trong index.css).
 // gap-3 đẩy chữ ra ngoài vùng nút 36px khi thu gọn nên chữ không bao giờ ló ra mép rail.
 const MENU_BUTTON_LAYOUT = "bo-sidebar-item h-10 gap-3 px-[11px]";
-
-// Nhãn nhỏ cạnh tên mục (vd "Mới"): khai báo `badge: { label, description, tone }` trong sidebar.config.js.
-// tone: "moi" (vàng, mặc định) | "cho" (xám, chờ máy chủ).
-const BADGE_TONE = {
-  moi: { nhan: "bg-amber-400/15 text-amber-300", cham: "bg-amber-300" },
-  cho: { nhan: "bg-slate-400/20 text-slate-300", cham: "bg-slate-400" },
-};
-const badgeTone = (badge) => BADGE_TONE[badge?.tone] ?? BADGE_TONE.moi;
-const badgeClass = (badge) =>
-  cn("shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none", badgeTone(badge).nhan);
-const badgeLabel = (badge) => (typeof badge === "string" ? badge : badge?.label);
-const badgeDescription = (badge) => (typeof badge === "string" ? badge : badge?.description ?? badge?.label);
+// Mục Cấu hình ghim ở đáy: thấp hơn 4px để khối đáy gọn
+const FOOTER_BUTTON_LAYOUT = "bo-sidebar-item h-9 gap-3 px-[11px]";
 
 // Chữ: thu gọn thì mờ nhanh trước khi bị mép rail cắt, mở rộng thì hiện trễ
 // một nhịp khi đã đủ chỗ. `invisible` đưa chữ ra khỏi Tab và trình đọc màn hình.
 const SIDEBAR_FADE =
   "transition-[opacity,visibility] duration-200 delay-100 ease-out motion-reduce:transition-none group-data-[collapsible=icon]:invisible group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:delay-0 group-data-[collapsible=icon]:duration-100";
 
-// Khối co chiều cao về 0 (tiêu đề nhóm, footer) cùng nhịp với độ rộng để các
+// Khối co chiều cao về 0 (tiêu đề nhóm) cùng nhịp với độ rộng để các
 // icon trượt lên/xuống thay vì nhảy. Phần tử con phải có min-h-0 overflow-hidden.
 const SIDEBAR_COLLAPSE_ROW =
   "grid grid-rows-[1fr] transition-[grid-template-rows,opacity,visibility] duration-250 ease-sidebar motion-reduce:transition-none group-data-[collapsible=icon]:invisible group-data-[collapsible=icon]:grid-rows-[0fr] group-data-[collapsible=icon]:opacity-0";
@@ -157,9 +143,16 @@ export default function BackofficeSidebar() {
   // Mobile uses a full drawer even when desktop sidebar state is collapsed.
   const isExpanded = open || isMobile;
 
+  // Mục ghim ở đáy sidebar (Cấu hình): luôn là link thẳng, không mở nhóm con.
+  const footerItem = filteredMenu.find((item) => item.section === SIDEBAR_FOOTER_SECTION) ?? null;
+  // Vai trò làm theo kho mà không có mục Cấu hình (nhân viên): đáy sidebar hiện kho làm việc
+  const showKhoLamViec = !footerItem && hienKhoLamViecODaySidebar(role);
+
   // Group whose children contain the current route, if any.
-  const activeGroup = filteredMenu.find((item) =>
-    item.children?.some((child) => location.pathname.startsWith(child.to)),
+  const activeGroup = filteredMenu.find(
+    (item) =>
+      item !== footerItem &&
+      item.children?.some((child) => location.pathname.startsWith(child.to)),
   );
 
   // Single-open accordion: one state tracks the currently opened group plus
@@ -623,78 +616,59 @@ export default function BackofficeSidebar() {
     };
   }, []);
 
-  const renderItem = (item) => {
+  // Mục điều hướng thẳng (không có menu con, hoặc mục ghim ở đáy): cả expanded lẫn collapsed.
+  // `layout`: lớp kích thước của nút (mục ghim ở đáy dùng bản thấp hơn).
+  const renderDirectLink = (item, layout = MENU_BUTTON_LAYOUT) => {
     const Icon = item.icon;
-    const visibleChildren = item.children
-      ? item.children.filter(
-          (child) => !child.roles || child.roles.includes(role),
-        )
-      : null;
-    const isParentActive = visibleChildren?.some((child) =>
+
+    // Collapsed: chỉ còn icon — nhãn hiển thị qua tooltip dùng chung
+    // (hover/focus); expanded hiển thị label trực tiếp nên không cần tooltip.
+    const directLinkTooltipProps = isExpanded
+      ? {}
+      : {
+          onPointerOver: (event) => showRailTooltip(event, item.label),
+          onPointerOut: hideRailTooltip,
+          onFocus: (event) => showRailTooltip(event, item.label),
+          onBlur: hideRailTooltip,
+        };
+
+    return (
+      <SidebarMenuItem key={item.to}>
+        <SidebarMenuButton
+          asChild
+          className={layout}
+          onPointerEnter={showFullLabelIfTruncated}
+          {...directLinkTooltipProps}
+        >
+          <NavLink
+            to={item.to}
+            end={item.to === "/dashboard"}
+            onClick={handleNavigate}
+            aria-label={item.label}
+            className={
+              isDirectLinkActive(item, location.pathname, item.to === "/dashboard")
+                ? "bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover hover:text-white"
+                : "text-bo-sidebar-muted hover:bg-bo-sidebar-hover hover:text-white"
+            }
+          >
+            <Icon className="size-[18px]" />
+            <span data-nhan className={cn("truncate", SIDEBAR_FADE)}>{item.label}</span>
+          </NavLink>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    );
+  };
+
+  const renderItem = (item) => {
+    if (!item.children) return renderDirectLink(item);
+
+    const Icon = item.icon;
+    const visibleChildren = item.children.filter(
+      (child) => !child.roles || child.roles.includes(role),
+    );
+    const isParentActive = visibleChildren.some((child) =>
       location.pathname.startsWith(child.to),
     );
-
-    // Mục không có menu con: luôn điều hướng trực tiếp, cả expanded lẫn collapsed.
-    if (!item.children) {
-      const tooltipDescription = item.badge
-        ? `${item.badge.label}: ${item.badge.description}`
-        : undefined;
-
-      // Collapsed: chỉ còn icon — nhãn hiển thị qua tooltip dùng chung
-      // (hover/focus); expanded hiển thị label trực tiếp nên không cần tooltip.
-      const directLinkTooltipProps = isExpanded
-        ? {}
-        : {
-            onPointerOver: (event) =>
-              showRailTooltip(event, item.label, tooltipDescription),
-            onPointerOut: hideRailTooltip,
-            onFocus: (event) =>
-              showRailTooltip(event, item.label, tooltipDescription),
-            onBlur: hideRailTooltip,
-          };
-
-      return (
-        <SidebarMenuItem key={item.to}>
-          <SidebarMenuButton
-            asChild
-            className={MENU_BUTTON_LAYOUT}
-            onPointerEnter={showFullLabelIfTruncated}
-            {...directLinkTooltipProps}
-          >
-            <NavLink
-              to={item.to}
-              end={item.to === "/dashboard"}
-              onClick={handleNavigate}
-              aria-label={item.label}
-              className={
-                isDirectLinkActive(item, location.pathname, item.to === "/dashboard")
-                  ? "bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover hover:text-white"
-                  : "text-bo-sidebar-muted hover:bg-bo-sidebar-hover hover:text-white"
-              }
-            >
-              <Icon className="size-[18px]" />
-              <span data-nhan className={cn("truncate", SIDEBAR_FADE)}>{item.label}</span>
-              {item.badge ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span
-                      tabIndex={0}
-                      aria-label={`${item.badge.label} — ${item.badge.description}`}
-                      className={cn("ml-auto", badgeClass(item.badge), SIDEBAR_FADE)}
-                    >
-                      {item.badge.label}
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">
-                    {item.badge.description}
-                  </TooltipContent>
-                </Tooltip>
-              ) : null}
-            </NavLink>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      );
-    }
 
     // Không còn đích đến nào cho role hiện tại -> ẩn luôn mục cha ở cả hai trạng
     // thái (mục không được xuất hiện/biến mất khi thu gọn, làm menu nhảy).
@@ -714,8 +688,6 @@ export default function BackofficeSidebar() {
     const isOnlyChildActive =
       onlyChild !== null && isDirectLinkActive(onlyChild, location.pathname);
     const opensFlyout = !isExpanded && onlyChild === null;
-    // Nhóm đang đóng mà có mục con gắn nhãn (vd "Mới"): chấm nhỏ cạnh mũi tên để người dùng mở ra xem
-    const childWithBadge = visibleChildren.find((child) => child.badge);
 
     // Link phủ nhận hover thay nút, nên nút đổi màu theo hover của cả mục.
     const buttonTone = isOnlyChildActive
@@ -766,12 +738,6 @@ export default function BackofficeSidebar() {
             <Icon className="size-[18px]" />
             <span data-nhan className={cn("truncate", SIDEBAR_FADE)}>{item.label}</span>
             <span aria-hidden="true" className={cn("ml-auto flex shrink-0 items-center gap-2", SIDEBAR_FADE)}>
-              {childWithBadge && !isOpen ? (
-                <span
-                  title={`${childWithBadge.label}: ${badgeLabel(childWithBadge.badge)}`}
-                  className={cn("size-1.5 rounded-full", badgeTone(childWithBadge.badge).cham)}
-                />
-              ) : null}
               <ChevronDown className="size-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
             </span>
           </SidebarMenuButton>
@@ -816,11 +782,6 @@ export default function BackofficeSidebar() {
                   }
                 >
                   <span data-nhan className="min-w-0 flex-1 truncate">{child.label}</span>
-                  {child.badge ? (
-                    <span title={badgeDescription(child.badge)} className={badgeClass(child.badge)}>
-                      {badgeLabel(child.badge)}
-                    </span>
-                  ) : null}
                 </NavLink>
               ))}
             </div>
@@ -918,7 +879,7 @@ export default function BackofficeSidebar() {
           ) : null}
         </SidebarHeader>
 
-        <SidebarContent className="bo-sidebar-scroll bo-sidebar-content bg-bo-sidebar px-3 py-3">
+        <SidebarContent className="bo-sidebar-scroll bo-sidebar-content bg-bo-sidebar px-3 pt-3 pb-1">
           {sections.map((section, index) => (
             <div key={section.key}>
               {index > 0 ? (
@@ -947,24 +908,29 @@ export default function BackofficeSidebar() {
           ))}
         </SidebarContent>
 
-        <SidebarFooter
-          className={cn(
-            "border-t border-bo-sidebar-border bg-bo-sidebar p-0",
-            SIDEBAR_COLLAPSE_ROW,
-          )}
-        >
-          <div className="min-h-0 overflow-hidden">
-            <div className="flex items-center gap-3 px-[23px] py-4 text-bo-sidebar-muted">
-              <PackageCheck className="size-[18px] shrink-0" />
-              <div className="min-w-0">
-                <p className="truncate text-xs font-semibold text-white">
-                  Fashion Warehouse
-                </p>
-                <p className="truncate text-[10px]">Internal management system</p>
-              </div>
-            </div>
-          </div>
-        </SidebarFooter>
+        {footerItem || showKhoLamViec ? (
+          // Kẻ ngăn thụt lề giống giữa các nhóm menu (không kẻ hết chiều rộng); đệm 4px trên/dưới để khối
+          // đáy gọn. Quản trị viên / quản lý kho: mục Cấu hình; nhân viên: kho làm việc.
+          <SidebarFooter className="bo-sidebar-content gap-0 bg-bo-sidebar px-3 pt-0 pb-1 [&:not(:has(li))]:hidden">
+            <div
+              aria-hidden="true"
+              className="bo-sidebar-divider mx-2 mb-1 border-t border-bo-sidebar-border/70"
+            />
+            <SidebarMenu>
+              {footerItem ? (
+                renderDirectLink(footerItem, FOOTER_BUTTON_LAYOUT)
+              ) : (
+                <SidebarKhoLamViec
+                  isExpanded={isExpanded}
+                  layoutClass={FOOTER_BUTTON_LAYOUT}
+                  fadeClass={SIDEBAR_FADE}
+                  onShowTooltip={showRailTooltip}
+                  onHideTooltip={hideRailTooltip}
+                />
+              )}
+            </SidebarMenu>
+          </SidebarFooter>
+        ) : null}
       </Sidebar>
 
       {flyout
@@ -1029,11 +995,6 @@ export default function BackofficeSidebar() {
                       <child.icon className="size-4 shrink-0 text-bo-sidebar-muted" />
                     ) : null}
                     <span className="min-w-0 flex-1 truncate">{child.label}</span>
-                    {child.badge ? (
-                      <span title={badgeDescription(child.badge)} className={badgeClass(child.badge)}>
-                        {badgeLabel(child.badge)}
-                      </span>
-                    ) : null}
                   </NavLink>
                 ))}
               </div>

@@ -1,7 +1,6 @@
 import { createElement } from "react";
 import { Info, Mail, Phone } from "lucide-react";
 import NutSaoChep from "@/components/shared/NutSaoChep";
-import { laHoatDong } from "@/components/supplier/quyTacNhaCungCap";
 import { formatDateTime } from "@/utils/formatters";
 
 const NUT_ICON =
@@ -38,19 +37,19 @@ function DongLienHe({ nhan, giaTri, href, nhanMo, icon, nhanSaoChep, kieu }) {
 }
 
 /**
- * Cột thông tin bên phải (cùng kiểu Chi tiết đơn mua hàng): liên hệ, mã, trạng thái kèm hệ quả, ngày tạo,
- * cập nhật, và một dòng nói rõ thanh toán cho nhà cung cấp do kế toán làm ngoài hệ thống
- * (thay cho thẻ "Thông tin thanh toán" cũ). Dưới 1280px: xuống dưới vùng giao dịch, xếp 2 cột khi khối rộng từ 576px.
+ * Cột thông tin bên phải (cùng kiểu Chi tiết đơn mua hàng): liên hệ, ngày tạo, cập nhật, và một dòng nói rõ
+ * thanh toán cho nhà cung cấp do kế toán làm ngoài hệ thống (thay cho thẻ "Thông tin thanh toán" cũ).
+ * Mã và trạng thái chỉ hiện ở đầu khối (bỏ trùng, chốt 19/10/2026); khi ngừng hoạt động, dải báo trong khối nói rõ hệ quả.
+ * Dưới 1280px: xuống dưới vùng giao dịch, xếp 2 cột khi khối rộng từ 576px. Màn rộng: tự cuộn khi dài (.ncc-cot-phai).
  */
 export default function ThuocTinhNcc({ ncc }) {
   const soDienThoai = ncc.soDienThoai?.trim() || "";
   const email = ncc.email?.trim() || "";
-  const dangHoatDong = laHoatDong(ncc);
 
   return (
     <aside
       aria-label="Thông tin nhà cung cấp"
-      className="grid min-w-0 content-start gap-x-8 border-t border-bo-border bg-bo-surface-subtle px-4 pb-5 sm:px-6 @xl:grid-cols-2 xl:block xl:border-l xl:border-t-0"
+      className="ncc-cot-phai grid min-w-0 content-start gap-x-8 border-t border-bo-border bg-bo-surface-subtle px-4 pb-5 sm:px-6 @xl:grid-cols-2 xl:block xl:border-l xl:border-t-0"
     >
       <section className="border-b border-slate-200/70 py-4">
         <NhanNhom>Liên hệ</NhanNhom>
@@ -81,12 +80,6 @@ export default function ThuocTinhNcc({ ncc }) {
 
       <div>
         <dl className="grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-2.5 border-b border-slate-200/70 py-4 text-[13px] leading-5">
-          <dt className="text-bo-muted">Mã</dt>
-          <dd className="m-0 min-w-0 font-mono font-semibold text-slate-700">{ncc.maNhaCungCap || "—"}</dd>
-          <dt className="text-bo-muted">Trạng thái</dt>
-          <dd className="m-0 min-w-0 text-bo-foreground">
-            {dangHoatDong ? "Được chọn khi gửi yêu cầu báo giá" : "Không được chọn khi gửi yêu cầu báo giá"}
-          </dd>
           <dt className="text-bo-muted">Ngày tạo</dt>
           <dd className="m-0 min-w-0 tabular-nums text-bo-foreground">{formatDateTime(ncc.ngayTao)}</dd>
           <dt className="text-bo-muted">Cập nhật</dt>

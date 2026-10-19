@@ -20,12 +20,16 @@ export function getKhoLamViecId() {
   }
 }
 
+/** Sự kiện phát ra mỗi lần đổi kho làm việc (detail = id kho), để ô chọn kho ở trang và ở sidebar luôn khớp nhau. */
+export const KHO_LAM_VIEC_EVENT = "fcentric:kho-lam-viec";
+
 export function setKhoLamViecId(id) {
   try {
     window.localStorage.setItem(KHO_LAM_VIEC_KEY, String(id));
   } catch {
     // localStorage bị chặn: màn vẫn chạy với kho truyền trực tiếp qua tham số
   }
+  window.dispatchEvent(new CustomEvent(KHO_LAM_VIEC_EVENT, { detail: Number(id) || null }));
 }
 
 const laQuanTriVien = () => hasAnyRole([ROLES.QUAN_TRI_VIEN]);

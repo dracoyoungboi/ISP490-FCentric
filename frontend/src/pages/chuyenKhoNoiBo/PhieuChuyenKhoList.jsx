@@ -327,7 +327,7 @@ export default function PhieuChuyenKhoList() {
                         <EmptyState
                             icon={ClipboardList}
                             title={`Không có phiếu chuyển kho nào ở trạng thái "${emptyTabLabel}"`}
-                            description="Chọn tab Tất cả để xem mọi phiếu chuyển đi và chuyển đến của kho làm việc."
+                            description="Chọn tab Tất cả để xem mọi phiếu chuyển đi và chuyển đến của kho đang chọn."
                             action={
                                 <Button
                                     variant="outline"
@@ -342,7 +342,7 @@ export default function PhieuChuyenKhoList() {
                         <EmptyState
                             icon={ClipboardList}
                             title="Chưa có phiếu chuyển kho"
-                            description="Kho làm việc chưa có phiếu chuyển đi hoặc chuyển đến."
+                            description="Kho đang chọn chưa có phiếu chuyển đi hoặc chuyển đến."
                         />
                     )
                 ) : (

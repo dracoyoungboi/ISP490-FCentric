@@ -45,10 +45,12 @@ function DongLienHe({ nhan, giaTri, trong, href, nhanMo, icon, kieu, onThem }) {
 /**
  * Cột thông tin bên phải (cùng kiểu Chi tiết nhà cung cấp): Liên hệ và Thông tin.
  * Thiếu số điện thoại / email / địa chỉ hay chưa phân loại: ghi rõ "Chưa có …", kèm "Thêm" / "Phân loại" khi có quyền sửa.
+ * `onChinhSua(o)` mở popup Sửa khách hàng, đặt con trỏ vào đúng ô `o` ("soDienThoai", "email", "diaChi", "loaiKhachHang").
  * `kenhMua`: các kênh khách đã mua qua (từ số tổng hợp); `undefined` khi chưa tải được.
  * Dưới 1280px: xuống dưới vùng giao dịch, xếp 2 cột khi khối rộng từ 576px.
  */
 export default function ThuocTinhKhachHang({ khachHang, kenhMua, onChinhSua }) {
+  const them = (o) => (onChinhSua ? () => onChinhSua(o) : undefined);
   const soDienThoai = khachHang.soDienThoai?.trim() || "";
   const email = khachHang.email?.trim() || "";
   const diaChi = khachHang.diaChi?.trim() || "";
@@ -80,7 +82,7 @@ export default function ThuocTinhKhachHang({ khachHang, kenhMua, onChinhSua }) {
           nhanMo={`Gọi ${soDienThoai}`}
           icon={Phone}
           kieu="tabular-nums"
-          onThem={onChinhSua}
+          onThem={them("soDienThoai")}
         />
         <DongLienHe
           nhan="Email"
@@ -89,9 +91,9 @@ export default function ThuocTinhKhachHang({ khachHang, kenhMua, onChinhSua }) {
           href={`mailto:${email}`}
           nhanMo={`Gửi email tới ${email}`}
           icon={Mail}
-          onThem={onChinhSua}
+          onThem={them("email")}
         />
-        <DongLienHe nhan={nhanDc} giaTri={diaChi} trong="Chưa có địa chỉ" onThem={onChinhSua} />
+        <DongLienHe nhan={nhanDc} giaTri={diaChi} trong="Chưa có địa chỉ" onThem={them("diaChi")} />
       </section>
 
       <section aria-labelledby="kh-thong-tin" className="py-4">
@@ -109,7 +111,7 @@ export default function ThuocTinhKhachHang({ khachHang, kenhMua, onChinhSua }) {
                 {onChinhSua ? (
                   <>
                     {" · "}
-                    <button type="button" onClick={onChinhSua} className={NUT_CHU}>
+                    <button type="button" onClick={them("loaiKhachHang")} className={NUT_CHU}>
                       Phân loại
                     </button>
                   </>

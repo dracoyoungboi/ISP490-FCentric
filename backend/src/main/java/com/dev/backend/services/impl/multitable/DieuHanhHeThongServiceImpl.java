@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 @Service
 @Slf4j
@@ -320,6 +321,11 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
     public static final String CAU_HINH_DEFAULT_MIN_STOCK_ALERT = "DEFAULT_MIN_STOCK_ALERT";
     public static final String CAU_HINH_OMNI_SYNC_INTERVAL_MINS = "OMNI_SYNC_INTERVAL_MINS";
     public static final String CAU_HINH_REALTIME_SYNC_THRESHOLD = "REALTIME_SYNC_THRESHOLD";
+    /** Tiền tố của mã khách hàng hệ thống tự tạo (thêm khách mà để trống mã): tiền tố + id 6 số, VD KH000124. */
+    public static final String CAU_HINH_MA_KHACH_HANG_TIEN_TO = "MA_KHACH_HANG_TIEN_TO";
+    public static final String MA_KHACH_HANG_TIEN_TO_MAC_DINH = "KH";
+    /** Tiền tố mã: 1–10 ký tự in hoa không dấu, số hoặc . _ - (mã đầy đủ vẫn nằm trong 50 ký tự của cột). */
+    public static final Pattern TIEN_TO_MA_PATTERN = Pattern.compile("^[A-Z0-9._-]{1,10}$");
 
     @EventListener(ApplicationReadyEvent.class)
     @Transactional(rollbackFor = Exception.class)
@@ -328,6 +334,7 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
         seedIfMissing(CAU_HINH_DEFAULT_MIN_STOCK_ALERT, "100", KieuDuLieuCauHinh.INT, "Ngưỡng cảnh báo tồn kho tối thiểu mặc định");
         seedIfMissing(CAU_HINH_OMNI_SYNC_INTERVAL_MINS, "10", KieuDuLieuCauHinh.INT, "Chu kỳ đồng bộ đơn hàng đa kênh (phút)");
         seedIfMissing(CAU_HINH_REALTIME_SYNC_THRESHOLD, "3", KieuDuLieuCauHinh.INT, "Ngưỡng chuyển sang đồng bộ tức thời (số lượng)");
+        seedIfMissing(CAU_HINH_MA_KHACH_HANG_TIEN_TO, MA_KHACH_HANG_TIEN_TO_MAC_DINH, KieuDuLieuCauHinh.STRING, "Tiền tố mã khách hàng tự tạo");
     }
 
     private void seedIfMissing(String maCauHinh, String defaultValue, KieuDuLieuCauHinh kieuDuLieu, String moTa) {
@@ -493,6 +500,10 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
             int val = Integer.parseInt(giaTri);
             if (val < 0 || val > 100) {
                 throw new CommonException("Ngưỡng chuyển sang đồng bộ tức thời phải từ 0 đến 100 đơn vị");
+            }
+        } else if (CAU_HINH_MA_KHACH_HANG_TIEN_TO.equals(maCauHinh)) {
+            if (giaTri == null || !TIEN_TO_MA_PATTERN.matcher(giaTri).matches()) {
+                throw new CommonException("Tiền tố mã khách hàng gồm 1–10 ký tự: chữ in hoa không dấu, số hoặc . _ -");
             }
         }
     }

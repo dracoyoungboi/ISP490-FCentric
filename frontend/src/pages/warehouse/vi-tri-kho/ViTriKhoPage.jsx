@@ -322,7 +322,7 @@ export default function ViTriKhoPage() {
   if (!hoTro) {
     noiDung = <DongThongBao>{THONG_BAO_CHUA_HO_TRO_VI_TRI}</DongThongBao>;
   } else if (!khoId) {
-    noiDung = <DongThongBao tone="warn">Chọn kho làm việc ở ô bên trên để xem vị trí kệ.</DongThongBao>;
+    noiDung = <DongThongBao tone="warn">Chọn kho ở ô bên trên để xem vị trí kệ.</DongThongBao>;
   } else if (initialLoading) {
     noiDung = (
       <section className="rounded-lg border border-bo-border bg-white shadow-sm">
