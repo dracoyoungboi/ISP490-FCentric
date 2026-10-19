@@ -1,139 +1,195 @@
-import { createElement, useCallback, useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import {
-  ArrowLeft, Edit, User, Phone, Mail, MapPin,
-} from "lucide-react";
+// src/pages/customer/KhachHangDetails.jsx — trang Chi tiết khách hàng (/customers/:id), bản "một khối" (chốt 18/10/2026)
+import { useCallback, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { CirclePause, SearchX } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/thongBaoNhanh";
-import { getKhachHangById } from "@/services/khachHangService";
 
 import PageContainer from "@/components/backoffice/PageContainer";
-import { ENTITY_NAME_TYPE } from "@/components/backoffice/pageTitle";
+import EmptyState from "@/components/shared/EmptyState";
+import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
-import StatusBadge from "@/components/shared/StatusBadge";
 import SurfaceCard from "@/components/shared/SurfaceCard";
-import { Button } from "@/components/ui/button";
-import CustomerPurchaseHistory from "./components/CustomerPurchaseHistory";
+import DauTrangKhachHang from "@/components/khach-hang/chi-tiet/DauTrangKhachHang";
+import GiaoDichKhachHang from "@/components/khach-hang/chi-tiet/GiaoDichKhachHang";
+import ThuocTinhKhachHang from "@/components/khach-hang/chi-tiet/ThuocTinhKhachHang";
+import TinhHinhMuaHang from "@/components/khach-hang/chi-tiet/TinhHinhMuaHang";
+import TrangThaiKhachHangDialog from "@/components/khach-hang/chi-tiet/TrangThaiKhachHangDialog";
+import { ghiChuPhamVi, laHoatDong, tinhKpi, tongSoDon } from "@/components/khach-hang/chi-tiet/tinhKhachHang";
+import useQuayLai from "@/hooks/useQuayLai";
+import useTabTrenUrl from "@/hooks/useTabTrenUrl";
+import useTaiDuLieu from "@/hooks/useTaiDuLieu";
+import { getKhachHangById, getTongQuanMuaHang } from "@/services/khachHangService";
+import { getApiErrorStatus, getApiErrorMessage } from "@/utils/apiError";
+import { ROLES, hasAnyRole } from "@/utils/roles";
 
-// Loại khách là phân loại: hiện chữ thường cạnh mã khách, không dùng thẻ màu.
-const LOAI_MAP = {
-  le:           { label: "Khách lẻ" },
-  si:           { label: "Khách sỉ" },
-  doanh_nghiep: { label: "Doanh nghiệp" },
-};
+// Khớp quyền ở backend (KhachHangController): sửa hồ sơ và đổi trạng thái.
+const QUYEN_SUA_KHACH = [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_BAN_HANG];
+// DonBanHangController: tạo báo giá / đơn bán (create, convert-to-order).
+const QUYEN_BAN_HANG = [ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_BAN_HANG];
+const VAI_TRO_KHO = [ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_KHO];
 
-function InfoField({ label, value, icon, className = "" }) {
-  return (
-    <div className={`flex min-w-0 items-start gap-3 ${className}`}>
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary">
-        {createElement(icon, { className: "size-4", "aria-hidden": true })}
-      </span>
-      <div className="min-w-0">
-        <dt className="mb-1 text-xs font-medium text-bo-muted">{label}</dt>
-        <dd className="break-words text-sm font-semibold leading-6 text-bo-foreground">{value?.trim() || "—"}</dd>
-      </div>
-    </div>
-  );
-}
-
-function normalizeName(value) {
-  return (value || "").normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase("vi-VN");
-}
+const TAB_HOP_LE = ["don-hang", "bao-gia"];
 
 export default function KhachHangDetails() {
-  const { id }   = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
-  const [loading,    setLoading]    = useState(true);
-  const [khachHang,  setKhachHang]  = useState(null);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await getKhachHangById(id);
-      setKhachHang(data);
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Không thể tải thông tin khách hàng");
-      navigate("/customers");
-    } finally {
-      setLoading(false);
-    }
-  }, [id, navigate]);
+  const coTheSua = hasAnyRole(QUYEN_SUA_KHACH);
+  const coTheBanHang = hasAnyRole(QUYEN_BAN_HANG);
+  const laQuanTriVien = hasAnyRole([ROLES.QUAN_TRI_VIEN]);
+  const laVaiTroKho = hasAnyRole(VAI_TRO_KHO);
+  const laBanHang = hasAnyRole([ROLES.NHAN_VIEN_BAN_HANG]);
+  // Vai trò kho chỉ thấy chứng từ của kho mình (máy chủ lọc theo kho xuất); báo giá chưa gắn kho nên không có gì để xem
+  const xemBaoGia = laQuanTriVien || (laBanHang && !laVaiTroKho);
+  const phamVi = ghiChuPhamVi({ laQuanTriVien, laVaiTroKho, laBanHang });
 
-  // Hoãn qua microtask để tránh setState đồng bộ trong effect
-  // (react-hooks/set-state-in-effect); dữ liệu vẫn được tải ngay khi mount.
-  useEffect(() => {
-    queueMicrotask(() => fetchData());
-  }, [fetchData]);
+  const [moTrangThai, setMoTrangThai] = useState(false);
 
-  if (loading) {
+  // ── Khách hàng ──────────────────────────────────────────────────────────
+  const taiKhach = useCallback(() => getKhachHangById(id), [id]);
+  const khachQ = useTaiDuLieu(taiKhach, `khach-hang-${id}`, { enabled: Boolean(id) });
+  // Chỉ dùng dữ liệu của đúng khách đang xem (chuyển sang khách khác thì dữ liệu cũ còn giữ trong lúc tải)
+  const khachHang = khachQ.data && String(khachQ.data.id) === String(id) ? khachQ.data : null;
+
+  // ── Số tổng hợp mua hàng (không chặn trang khi lỗi) ───────────────────────
+  const taiTongQuan = useCallback(() => getTongQuanMuaHang(id).then((tq) => ({ ...tq, khachHangId: id })), [id]);
+  const tongQuanQ = useTaiDuLieu(taiTongQuan, `tong-quan-kh-${id}`, { enabled: Boolean(id) });
+  const tongQuan = tongQuanQ.data?.khachHangId === id ? tongQuanQ.data : undefined;
+  const kpi = useMemo(() => tinhKpi(tongQuan), [tongQuan]);
+  const loiTongQuan = Boolean(tongQuanQ.error) && !tongQuanQ.loiTaiLai;
+
+  // ── Tab (lưu trên đường dẫn ?tab=) ──────────────────────────────────────
+  const [tab, setTab] = useTabTrenUrl(xemBaoGia ? TAB_HOP_LE : ["don-hang"], "don-hang", { ten: "tab" });
+
+  // Có trang trước trong ứng dụng thì lùi lại; mở thẳng bằng đường dẫn thì về danh sách khách hàng
+  const quayLai = useQuayLai("/customers");
+
+  // ── Đang tải / lỗi / không tìm thấy ────────────────────────────────────
+  if (!khachHang && (khachQ.loading || (!khachQ.error && khachQ.data === undefined))) {
     return (
       <PageContainer>
         <SurfaceCard>
-          <LoadingState rows={4} label="Đang tải thông tin khách hàng" />
+          <LoadingState label="Đang tải thông tin khách hàng" />
         </SurfaceCard>
       </PageContainer>
     );
   }
 
-  if (!khachHang) return null;
+  if (!khachHang) {
+    const status = getApiErrorStatus(khachQ.error);
+    const khongThay = !khachQ.error || status === 404 || status === 400;
+    return (
+      <PageContainer>
+        <SurfaceCard contentClassName="p-0 sm:p-0">
+          {khongThay ? (
+            <EmptyState
+              icon={SearchX}
+              title="Không tìm thấy khách hàng"
+              description="Khách hàng có thể đã bị xóa hoặc đường dẫn không đúng."
+              action={
+                <Button
+                  onClick={() => navigate("/customers")}
+                  className="bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover"
+                >
+                  Quay lại danh sách
+                </Button>
+              }
+            />
+          ) : (
+            <ErrorState
+              title="Không thể tải thông tin khách hàng"
+              description={getApiErrorMessage(khachQ.error, "Không thể tải thông tin khách hàng")}
+              onRetry={khachQ.reload}
+            />
+          )}
+        </SurfaceCard>
+      </PageContainer>
+    );
+  }
 
-  const loai = LOAI_MAP[khachHang.loaiKhachHang];
-  const contactName = khachHang.nguoiLienHe?.trim();
-  const contactIsCustomer = contactName && normalizeName(contactName) === normalizeName(khachHang.tenKhachHang);
+  const dangHoatDong = laHoatDong(khachHang);
+  const chinhSua = coTheSua ? () => navigate(`/customers/${id}/edit`) : undefined;
+  const taoBaoGia = () => navigate(`/sales-quotations/create?khachHangId=${id}`);
+
+  const handleTrangThaiDoi = (moi) => {
+    khachQ.setData((cu) => ({ ...cu, ...moi }));
+    toast.success(laHoatDong(moi) ? "Đã cho phép khách hàng hoạt động lại" : "Đã ngừng hoạt động khách hàng");
+  };
 
   return (
-    <PageContainer className="space-y-5">
-      {/* ── Header ── */}
-      <div className="space-y-2">
-        <button
-          type="button"
-          onClick={() => navigate("/customers")}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-bo-primary transition-colors hover:text-bo-primary-hover"
-        >
-          <ArrowLeft className="size-4" />
-          Quay lại danh sách
-        </button>
-      </div>
+    <PageContainer className="kh-trang flex min-h-full flex-col">
+      <article className="kh-khoi flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+        <DauTrangKhachHang
+          khachHang={khachHang}
+          coTheSua={coTheSua}
+          coTheTaoBaoGia={coTheBanHang}
+          onQuayLai={quayLai}
+          onChinhSua={() => navigate(`/customers/${id}/edit`)}
+          onDoiTrangThai={() => setMoTrangThai(true)}
+          onTaoBaoGia={taoBaoGia}
+        />
 
-      <section aria-label="Nhận diện khách hàng" className="relative min-w-0 overflow-hidden rounded-xl border border-[#315578] bg-linear-to-br from-[#122c4e] via-[#173e69] to-[#1c5488] p-5 text-white shadow-sm sm:min-h-56 sm:p-8">
-        <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-40 size-[420px] rounded-full border border-white/10">
-          <div className="absolute inset-10 rounded-full border border-white/10" />
-          <div className="absolute inset-20 rounded-full border border-white/10" />
-          <div className="absolute inset-30 rounded-full border border-white/10" />
-        </div>
-        <div className="relative">
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-100/80">HỒ SƠ KHÁCH HÀNG</p>
-            <Button
-              type="button"
-              onClick={() => navigate(`/customers/${id}/edit`)}
-              className="ml-auto h-10 shrink-0 gap-2 bg-white px-4 text-[#17365a] shadow-sm hover:bg-slate-100"
-            >
-              <Edit aria-hidden="true" className="size-4" />
-              Chỉnh sửa hồ sơ
-            </Button>
-          </div>
-          <h1 className={`max-w-5xl break-words text-2xl leading-tight sm:text-3xl lg:text-4xl ${ENTITY_NAME_TYPE}`}>{khachHang.tenKhachHang || "—"}</h1>
-          <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-blue-100/90">
-            <StatusBadge size="lg" label={khachHang.trangThai === 1 ? "Đang hoạt động" : "Ngừng hoạt động"} />
-            <span className="break-words">
-              Mã khách hàng: <span className="font-semibold text-white">{khachHang.maKhachHang || "—"}</span>
+        {!dangHoatDong ? (
+          <div
+            role="status"
+            className="flex flex-col gap-3 border-t border-bo-border bg-slate-100 px-4 py-3 text-[13px] leading-5 text-slate-700 sm:flex-row sm:items-center sm:justify-between sm:px-6"
+          >
+            <span className="flex items-start gap-2.5">
+              <CirclePause className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              <span>
+                <span className="font-semibold text-bo-foreground">Khách hàng đang ngừng hoạt động.</span>{" "}
+                Không chọn được khi tạo báo giá và bán tại quầy. Lịch sử mua hàng giữ nguyên.
+              </span>
             </span>
-            <span aria-hidden="true" className="text-blue-100/50">·</span>
-            <span>{loai?.label || "Chưa phân loại"}</span>
+            {coTheSua ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setMoTrangThai(true)}
+                className="shrink-0 border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle max-sm:h-11"
+              >
+                Cho phép hoạt động
+              </Button>
+            ) : null}
           </div>
-        </div>
-      </section>
+        ) : null}
 
-      <section aria-labelledby="customer-contact-title" className="min-w-0 rounded-xl border border-bo-border bg-white px-5 py-5 shadow-sm sm:px-8 sm:py-6">
-        <h2 id="customer-contact-title" className="text-base font-semibold text-bo-foreground sm:text-lg">Thông tin liên hệ</h2>
-        <dl className="mt-2 grid grid-cols-1 gap-x-10 sm:grid-cols-2 lg:gap-x-16">
-          <InfoField label="Người liên hệ" value={contactIsCustomer ? "Như tên khách hàng" : contactName} icon={User} className="border-b border-bo-border py-5" />
-          <InfoField label="Số điện thoại" value={khachHang.soDienThoai} icon={Phone} className="border-b border-bo-border py-5" />
-          <InfoField label="Email" value={khachHang.email} icon={Mail} className="border-b border-bo-border py-5 sm:border-b-0 sm:pb-0" />
-          <InfoField label={khachHang.loaiKhachHang === "doanh_nghiep" ? "Địa chỉ trụ sở" : "Địa chỉ"} value={khachHang.diaChi} icon={MapPin} className="pt-5" />
-        </dl>
-      </section>
-      <CustomerPurchaseHistory key={id} customerId={id} />
+        <TinhHinhMuaHang
+          kpi={kpi}
+          dangTai={tongQuan === undefined && !loiTongQuan}
+          loi={loiTongQuan}
+          onThuLai={tongQuanQ.reload}
+        />
+
+        <div className="kh-than @container grid flex-1 border-t border-bo-border xl:grid-cols-[minmax(0,1fr)_340px]">
+          <GiaoDichKhachHang
+            key={id}
+            khachHangId={id}
+            tab={tab}
+            onDoiTab={setTab}
+            tongDon={tongQuan ? tongSoDon(tongQuan) : undefined}
+            kenhMua={tongQuan?.kenhMua}
+            xemBaoGia={xemBaoGia}
+            coTheTaoBaoGia={coTheBanHang && dangHoatDong}
+            coTheTaoDon={coTheBanHang}
+            onTaoBaoGia={taoBaoGia}
+            ghiChuPhamVi={phamVi}
+          />
+          <ThuocTinhKhachHang khachHang={khachHang} kenhMua={tongQuan?.kenhMua} onChinhSua={chinhSua} />
+        </div>
+      </article>
+
+      {coTheSua ? (
+        <TrangThaiKhachHangDialog
+          khachHang={khachHang}
+          open={moTrangThai}
+          onOpenChange={setMoTrangThai}
+          onChanged={handleTrangThaiDoi}
+          soDonDangXuLy={tongQuan?.soDonDangXuLy}
+        />
+      ) : null}
     </PageContainer>
   );
 }

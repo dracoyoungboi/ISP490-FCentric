@@ -37,6 +37,15 @@ export const DON_BAN_HANG_TABS = [
     { ma: "da-huy-hoan-tra", label: "Đã hủy / hoàn trả", trangThai: [4, 6] },
 ];
 
+/** Trạng thái thanh toán của đơn bán (cột trang_thai_thanh_toan, enum ở CSDL). */
+export const DON_BAN_HANG_THANH_TOAN = {
+    chua_thanh_toan: { label: "Chưa thanh toán" },
+    da_thanh_toan: { label: "Đã thanh toán" },
+};
+
+/** Đơn đã hủy / bị hoàn trả: không còn phải thu tiền, nên "Chưa thanh toán" của các đơn này không tô màu nhắc. */
+export const DON_BAN_HANG_DA_KET_THUC_KHONG_THU = [4, 6];
+
 export function getDonBanHangStatus(trangThai) {
     return DON_BAN_HANG_STATUS[trangThai] ?? trangThaiLa(trangThai);
 }

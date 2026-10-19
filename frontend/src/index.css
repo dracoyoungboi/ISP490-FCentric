@@ -20,6 +20,8 @@
 @source "./components/order";
 /* Màn Danh mục (cây dạng bảng PA1): thư mục mới, khai báo rõ để dev server sinh đủ class */
 @source "./components/danh-muc";
+/* Chi tiết khách hàng (bản một khối): thư mục mới, khai báo rõ để dev server sinh đủ class */
+@source "./components/khach-hang";
 /* Giao diện luôn sáng, không theo chế độ tối của trình duyệt */
 @custom-variant dark (&:where(.dark, .dark *));
 /*
@@ -416,5 +418,36 @@
 @media (min-width: 1024px) and (min-height: 600px) {
 	.bo-page-fill > .bo-fill-grid {
 		grid-template-rows: minmax(360px, 1fr);
+	}
+}
+
+/*
+ * Chi tiết khách hàng (bản một khối, chốt 18/10/2026): màn rộng (cột thông tin nằm bên phải) và đủ cao thì
+ * khối vừa khung nội dung — khách nhiều đơn không làm trang dài ra: thân bảng tự cuộn (tiêu đề cột dính),
+ * phân trang luôn ở đáy khối, cột thông tin tự cuộn khi dài. Màn hẹp/thấp thì cả trang cuộn như thường.
+ * Viết bằng CSS thường để không phụ thuộc việc dev server quét file mới (giống .bo-page-fill).
+ */
+@media (min-width: 1280px) and (min-height: 640px) {
+	.kh-trang {
+		height: 100%;
+	}
+	.kh-khoi,
+	.kh-than,
+	.kh-giao-dich {
+		min-height: 0;
+	}
+	.kh-than {
+		grid-template-rows: minmax(0, 1fr);
+	}
+	.kh-bang {
+		min-height: 0;
+		overflow: auto;
+	}
+	.kh-bang > .kh-trong {
+		min-height: 100%;
+	}
+	.kh-cot-phai {
+		min-height: 0;
+		overflow-y: auto;
 	}
 }

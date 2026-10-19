@@ -43,6 +43,21 @@ export const getKhachHangPurchaseHistory = async (id, { signal } = {}) => {
   return { history, totalOrders };
 };
 
+/**
+ * Số tổng hợp đơn bán của khách cho trang chi tiết (tổng chi tiêu, số đơn, trung bình, đơn gần nhất, kênh mua).
+ * Cùng phạm vi vai trò với danh sách đơn bán ở máy chủ.
+ */
+export const getTongQuanMuaHang = async (id) => {
+  const response = await apiClient.get(`/api/v1/khach-hang/${id}/tong-quan-mua-hang`);
+  return response.data.data;
+};
+
+/** Ngừng hoạt động (0) / cho phép hoạt động lại (1); chỉ gửi trạng thái, các trường khác giữ nguyên. */
+export const capNhatTrangThaiKhachHang = async (id, trangThai) => {
+  const response = await apiClient.put(`/api/v1/khach-hang/${id}`, { trangThai });
+  return response.data.data;
+};
+
 export const updateKhachHang = async (id, values) => {
   const response = await apiClient.put(`/api/v1/khach-hang/${id}`, values);  // ← Thêm /api/
   return response.data.data;

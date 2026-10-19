@@ -1,6 +1,6 @@
 import { formatNumber } from "@/utils/formatters";
 import { BAO_GIA_STATUS } from "@/constants/baoGia";
-import { DON_BAN_HANG_STATUS } from "@/constants/donBanHang";
+import { DON_BAN_HANG_STATUS, DON_BAN_HANG_THANH_TOAN } from "@/constants/donBanHang";
 import { formatPrintDate } from "./printFormat";
 
 /**
@@ -16,10 +16,7 @@ export const SALES_QUOTATION_STATUS = BAO_GIA_STATUS;
 
 export const SALES_ORDER_STATUS = DON_BAN_HANG_STATUS;
 
-export const PAYMENT_STATUS = {
-    chua_thanh_toan: { label: "Chưa thanh toán" },
-    da_thanh_toan: { label: "Đã thanh toán" },
-};
+export const PAYMENT_STATUS = DON_BAN_HANG_THANH_TOAN;
 
 const dash = (value) => {
     if (value === null || value === undefined) return "—";

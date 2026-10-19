@@ -17,6 +17,7 @@ import com.dev.backend.dto.response.customize.DonBanHangDetailResponse;
 import com.dev.backend.dto.response.customize.DonBanHangKpiHomNayDto;
 import com.dev.backend.dto.response.customize.KhoKhaDungDto;
 import com.dev.backend.dto.response.customize.PhieuXuatKhoSummaryDto;
+import com.dev.backend.dto.response.customize.TongQuanMuaHangKhachDto;
 import com.dev.backend.dto.response.entities.ChiTietDonBanHangDto;
 import com.dev.backend.dto.response.entities.DonBanHangDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
@@ -28,9 +29,20 @@ import com.dev.backend.mapper.PhieuXuatKhoMapper;
 import com.dev.backend.repository.*;
 import com.dev.backend.services.impl.BaseServiceImpl;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.Tuple;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Expression;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Root;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +56,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -61,6 +74,9 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
 
     /** Trạng thái phiếu nhặt hàng còn hoạt động: đơn thuộc các phiếu này bị khóa, không được hủy. */
     private static final Set<String> PHIEU_NHAT_DANG_HOAT_DONG = Set.of("cho_nhat", "dang_nhat", "da_nhat");
+
+    /** Giá trị cột loai_chung_tu của đơn bán (báo giá là "bao_gia"). */
+    static final String LOAI_CHUNG_TU_DON_BAN = "don_ban_hang";
 
     @Autowired
     private EntityManager entityManager;
@@ -131,51 +147,190 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     @Override
     @Transactional(readOnly = true)
     public Page<DonBanHang> filter(BaseFilterRequest request) {
-        NguoiDungAuthInfo currentUser = SecurityContextHolder.getUser();
-        Set<String> roles = currentUser.getVaiTro();
-
-        // 1. Nếu là Admin thì không lọc gì thêm, để super.filter xử lý theo request từ FE
-        if (roles.contains(IRoleType.quan_tri_vien)) {
+        List<FilterCriteria> phamVi = dieuKienPhamViTheoVaiTro(SecurityContextHolder.getUser());
+        if (phamVi.isEmpty()) {
             return super.filter(request);
         }
 
         List<FilterCriteria> filters = request.getFilters() == null
                 ? new ArrayList<>()
                 : new ArrayList<>(request.getFilters());
+        filters.addAll(phamVi);
+        request.setFilters(filters);
+        return super.filter(request);
+    }
 
-        // 2. ƯU TIÊN: Nếu là nhân viên kho hoặc quản lý kho
+    /**
+     * Điều kiện phạm vi theo vai trò của người dùng hiện tại, thêm vào mọi truy vấn đơn bán / báo giá.
+     * Danh sách đơn và các số tổng hợp (vd. trang chi tiết khách hàng) dùng chung hàm này để số luôn khớp danh sách.
+     * <ul>
+     *   <li>Quản trị viên: không thêm điều kiện.</li>
+     *   <li>Nhân viên kho / quản lý kho: đơn xuất từ kho mình phụ trách; chưa được gán kho thì không thấy đơn nào.</li>
+     *   <li>Chỉ là nhân viên bán hàng: đơn do mình tạo.</li>
+     * </ul>
+     */
+    List<FilterCriteria> dieuKienPhamViTheoVaiTro(NguoiDungAuthInfo currentUser) {
+        Set<String> roles = currentUser.getVaiTro() == null ? Set.of() : currentUser.getVaiTro();
+        if (roles.contains(IRoleType.quan_tri_vien)) {
+            return List.of();
+        }
+
         if (roles.contains(IRoleType.nhan_vien_kho) || roles.contains(IRoleType.quan_ly_kho)) {
-            List<Integer> myWarehouseIds = currentUser.getPhanQuyenNguoiDungKhos()
+            List<Integer> myWarehouseIds = currentUser.getPhanQuyenNguoiDungKhos() == null
+                    ? List.of()
+                    : currentUser.getPhanQuyenNguoiDungKhos()
                     .stream()
                     .map(pq -> pq.getKho().getId())
                     .toList();
 
             if (!myWarehouseIds.isEmpty()) {
-                filters.add(FilterCriteria.builder()
+                return List.of(FilterCriteria.builder()
                         .fieldName("khoXuat.id")
                         .operation(FilterOperation.IN)
                         .value(myWarehouseIds)
                         .build());
-            } else {
-                // Nếu nhân viên kho chưa được gán kho nào, chặn không cho thấy đơn nào
-                filters.add(FilterCriteria.builder()
-                        .fieldName("id")
-                        .operation(FilterOperation.EQUALS)
-                        .value(-1)
-                        .build());
             }
+            // Chưa được gán kho nào: chặn không cho thấy đơn nào
+            return List.of(FilterCriteria.builder()
+                    .fieldName("id")
+                    .operation(FilterOperation.EQUALS)
+                    .value(-1)
+                    .build());
         }
-        // 3. Nếu CHỈ là nhân viên bán hàng (không có quyền kho)
-        else if (roles.contains(IRoleType.nhan_vien_ban_hang)) {
-            filters.add(FilterCriteria.builder()
+
+        if (roles.contains(IRoleType.nhan_vien_ban_hang)) {
+            return List.of(FilterCriteria.builder()
                     .fieldName("nguoiTao.id")
                     .operation(FilterOperation.EQUALS)
                     .value(currentUser.getId())
                     .build());
         }
+        return List.of();
+    }
 
-        request.setFilters(filters);
-        return super.filter(request);
+    /**
+     * Số tổng hợp đơn bán của một khách (trang chi tiết khách hàng): tổng chi tiêu, số đơn, trung bình, đơn gần nhất.
+     * Chỉ tính chứng từ đơn bán và cùng phạm vi vai trò với danh sách đơn ({@link #filter}).
+     */
+    @Transactional(readOnly = true)
+    public TongQuanMuaHangKhachDto tongQuanMuaHangCuaKhach(Integer khachHangId) {
+        List<FilterCriteria> filters = new ArrayList<>();
+        filters.add(FilterCriteria.builder()
+                .fieldName("khachHang.id").operation(FilterOperation.EQUALS).value(khachHangId).build());
+        filters.add(FilterCriteria.builder()
+                .fieldName("loaiChungTu").operation(FilterOperation.EQUALS).value(LOAI_CHUNG_TU_DON_BAN).build());
+        filters.addAll(dieuKienPhamViTheoVaiTro(SecurityContextHolder.getUser()));
+        Specification<DonBanHang> spec = createSpecification(filters);
+
+        // Một truy vấn gom theo trạng thái: số đơn và tổng tiền của từng trạng thái
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<Tuple> cq = cb.createTupleQuery();
+        Root<DonBanHang> root = cq.from(DonBanHang.class);
+        Path<Integer> trangThai = root.get("trangThai");
+        cq.multiselect(trangThai, cb.count(root), cb.sum(root.<BigDecimal>get("tongCong")))
+                .where(spec.toPredicate(root, cq, cb))
+                .groupBy(trangThai);
+
+        Map<Integer, SoLieuTrangThai> theoTrangThai = new HashMap<>();
+        for (Tuple row : entityManager.createQuery(cq).getResultList()) {
+            Integer tt = row.get(0, Integer.class);
+            Long soDon = row.get(1, Long.class);
+            BigDecimal tongTien = row.get(2, BigDecimal.class);
+            // trang_thai NULL coi như Nháp (DEFAULT của cột là 0)
+            theoTrangThai.merge(tt == null ? ITrangThaiDonBanHang.NHAP : tt,
+                    new SoLieuTrangThai(soDon == null ? 0 : soDon, tongTien == null ? BigDecimal.ZERO : tongTien),
+                    SoLieuTrangThai::cong);
+        }
+
+        // Đơn đã đặt gần nhất: bỏ đơn nháp (notEqual cũng loại trang_thai NULL, khớp cách coi NULL là Nháp ở trên)
+        Specification<DonBanHang> daDat = spec.and((r, q, c) -> c.notEqual(r.get("trangThai"), ITrangThaiDonBanHang.NHAP));
+        TongQuanMuaHangKhachDto.DonGanNhat donGanNhat = specificationExecutor
+                .findAll(daDat, PageRequest.of(0, 1, Sort.by(Sort.Order.desc("ngayDatHang"), Sort.Order.desc("id"))))
+                .stream()
+                .findFirst()
+                .map(d -> TongQuanMuaHangKhachDto.DonGanNhat.builder()
+                        .id(d.getId())
+                        .soDonHang(d.getSoDonHang())
+                        .ngayDatHang(d.getNgayDatHang())
+                        .build())
+                .orElse(null);
+
+        // Kênh khách đã mua qua (đơn đã đặt): nối trái để đếm cả đơn bán thường (không gắn kênh)
+        CriteriaQuery<Tuple> kq = cb.createTupleQuery();
+        Root<DonBanHang> rk = kq.from(DonBanHang.class);
+        Join<DonBanHang, KenhBanHang> kenh = rk.join("kenhBanHang", JoinType.LEFT);
+        Expression<Long> soDonKenh = cb.count(rk);
+        kq.multiselect(kenh.get("id"), kenh.get("maKenh"), kenh.get("tenKenh"), soDonKenh)
+                .where(daDat.toPredicate(rk, kq, cb))
+                .groupBy(kenh.get("id"), kenh.get("maKenh"), kenh.get("tenKenh"))
+                .orderBy(cb.desc(soDonKenh), cb.asc(kenh.get("id")));
+        List<TongQuanMuaHangKhachDto.KenhMua> kenhMua = entityManager.createQuery(kq).getResultList().stream()
+                .map(row -> TongQuanMuaHangKhachDto.KenhMua.builder()
+                        .id(row.get(0, Integer.class))
+                        .maKenh(row.get(1, String.class))
+                        .tenKenh(row.get(2, String.class))
+                        .soDon(row.get(3, Long.class))
+                        .build())
+                .toList();
+
+        TongQuanMuaHangKhachDto ketQua = tongHopMuaHang(theoTrangThai, donGanNhat);
+        ketQua.setKenhMua(kenhMua);
+        return ketQua;
+    }
+
+    /** Số đơn và tổng tiền của một trạng thái. */
+    record SoLieuTrangThai(long soDon, BigDecimal tongTien) {
+        SoLieuTrangThai cong(SoLieuTrangThai khac) {
+            return new SoLieuTrangThai(soDon + khac.soDon, tongTien.add(khac.tongTien));
+        }
+    }
+
+    /**
+     * Quy tắc tính (tách riêng để kiểm thử): đơn nháp không tính vào số đơn; đơn đã hủy và bị hoàn trả
+     * vẫn là đơn đã đặt nhưng không tính vào chi tiêu.
+     */
+    static TongQuanMuaHangKhachDto tongHopMuaHang(Map<Integer, SoLieuTrangThai> theoTrangThai,
+                                                 TongQuanMuaHangKhachDto.DonGanNhat donGanNhat) {
+        long soDonNhap = 0;
+        long soDonHuy = 0;
+        long soDonHoanTra = 0;
+        long soDonTinhChiTieu = 0;
+        long soDonDangXuLy = 0;
+        BigDecimal tongChiTieu = BigDecimal.ZERO;
+
+        for (Map.Entry<Integer, SoLieuTrangThai> e : theoTrangThai.entrySet()) {
+            int tt = e.getKey();
+            SoLieuTrangThai so = e.getValue();
+            if (tt != ITrangThaiDonBanHang.HOAN_THANH && tt != ITrangThaiDonBanHang.DA_HUY
+                    && tt != ITrangThaiDonBanHang.BI_HOAN_TRA) {
+                soDonDangXuLy += so.soDon();
+            }
+            if (tt == ITrangThaiDonBanHang.NHAP) {
+                soDonNhap += so.soDon();
+            } else if (tt == ITrangThaiDonBanHang.DA_HUY) {
+                soDonHuy += so.soDon();
+            } else if (tt == ITrangThaiDonBanHang.BI_HOAN_TRA) {
+                soDonHoanTra += so.soDon();
+            } else {
+                soDonTinhChiTieu += so.soDon();
+                tongChiTieu = tongChiTieu.add(so.tongTien());
+            }
+        }
+
+        return TongQuanMuaHangKhachDto.builder()
+                .soDonDat(soDonTinhChiTieu + soDonHuy + soDonHoanTra)
+                .soDonTinhChiTieu(soDonTinhChiTieu)
+                .soDonHuy(soDonHuy)
+                .soDonHoanTra(soDonHoanTra)
+                .soDonNhap(soDonNhap)
+                .soDonDangXuLy(soDonDangXuLy)
+                .tongChiTieu(tongChiTieu)
+                .trungBinhMoiDon(soDonTinhChiTieu == 0
+                        ? null
+                        : tongChiTieu.divide(BigDecimal.valueOf(soDonTinhChiTieu), 0, RoundingMode.HALF_UP))
+                .donGanNhat(donGanNhat)
+                .kenhMua(List.of())
+                .build();
     }
 
     @Transactional(readOnly = true)

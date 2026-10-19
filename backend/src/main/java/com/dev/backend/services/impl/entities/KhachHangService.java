@@ -36,6 +36,9 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
 
     private static final int MAX_POS_CUSTOMER_PAGE_SIZE = 50;
     private static final Set<String> LOAI_KHACH_HANG_HOP_LE = Set.of("le", "si", "doanh_nghiep");
+    /** trang_thai của khách hàng: 1 = đang hoạt động, 0 = ngừng hoạt động. */
+    private static final Set<Integer> TRANG_THAI_HOP_LE = Set.of(0, 1);
+    private static final String LOAI_CHUNG_TU_BAO_GIA = "bao_gia";
     // Cùng quy tắc với form khách hàng ở frontend
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
@@ -67,14 +70,17 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         KhachHang entity = repository.findById(id)
                 .orElseThrow(() -> new CommonException("Không tìm thấy khách hàng với ID: " + id));
 
-        // Lấy lịch sử mua hàng của khách
-        List<DonBanHang> donBanHangs = donBanHangRepository.findByKhachHangIdOrderByNgayDatHangDesc(id);
+        // Lịch sử mua hàng: chỉ chứng từ đơn bán — báo giá dùng chung bảng don_ban_hang nhưng chưa phải đơn mua
+        List<DonBanHang> donBanHangs = donBanHangRepository.findByKhachHangIdOrderByNgayDatHangDesc(id).stream()
+                .filter(don -> !LOAI_CHUNG_TU_BAO_GIA.equals(don.getLoaiChungTu()))
+                .toList();
 
-        // Map sang DTO hiển thị cho bảng Lịch sử
+        // Map sang DTO hiển thị cho bảng Lịch sử. Đơn không gắn kênh là đơn bán thường (kenh = null),
+        // không phải đơn POS — đơn POS luôn gắn kênh POS.
         List<LichSuMuaHangDto> history = donBanHangs.stream().map(don -> LichSuMuaHangDto.builder()
                 .maDonHang(don.getSoDonHang())
                 .ngay(don.getNgayDatHang())
-                .kenh(don.getKenhBanHang() != null ? don.getKenhBanHang().getMaKenh() : "POS") // Đã đổi getKenhBan() thành getKenhBanHang()
+                .kenh(don.getKenhBanHang() != null ? don.getKenhBanHang().getMaKenh() : null)
                 .giaTri(don.getTongCong())
                 .build()
         ).collect(Collectors.toList());
@@ -197,6 +203,11 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
 
         if (updating.getLoaiKhachHang() != null) {
             updating.setLoaiKhachHang(chuanHoaLoaiKhachHang(updating.getLoaiKhachHang()));
+        }
+        // Trạng thái: null = giữ nguyên; ngoài 0/1 thì báo lỗi thay vì lưu giá trị lạ
+        // (các màn khác chỉ coi 1 là đang hoạt động, giá trị lạ sẽ âm thầm thành "ngừng hoạt động").
+        if (updating.getTrangThai() != null && !TRANG_THAI_HOP_LE.contains(updating.getTrangThai())) {
+            throw new CommonException("Trạng thái khách hàng không hợp lệ");
         }
         mapper.partialUpdate(updating, entity);
         entity.setTenKhachHang(ten);

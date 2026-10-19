@@ -1,6 +1,6 @@
 import { formatCurrency } from "@/utils/formatters";
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/lib/thongBaoNhanh";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,9 @@ import SurfaceCard from "@/components/shared/SurfaceCard";
 
 export default function BaoGiaCreate() {
   const navigate = useNavigate();
+  // Mở từ trang Chi tiết khách hàng (?khachHangId=): chọn sẵn khách đó
+  const [searchParams] = useSearchParams();
+  const khachHangIdBanDau = searchParams.get("khachHangId");
 
   const [customers, setCustomers] = useState([]);
   const [variants, setVariants] = useState([]);
@@ -43,9 +46,20 @@ export default function BaoGiaCreate() {
         donBanHangService.getCustomersForCreate(),
       ]);
       setVariants(variantRes?.data?.data || []);
-      setCustomers(customerRes?.data?.data || []);
+      const dsKhach = customerRes?.data?.data || [];
+      setCustomers(dsKhach);
+      if (khachHangIdBanDau) {
+        // Danh sách chỉ gồm khách đang hoạt động
+        const khach = dsKhach.find((c) => String(c.id) === khachHangIdBanDau);
+        if (khach) {
+          setFormData((prev) => ({ ...prev, khachHangId: khach.id, diaChiGiaoHang: khach.diaChi || "" }));
+          setCustomerSearch(khach.tenKhachHang);
+        } else {
+          toast.warning("Khách hàng này đang ngừng hoạt động hoặc không còn trong hệ thống. Vui lòng chọn khách khác.");
+        }
+      }
     } catch { toast.error("Không thể tải dữ liệu hệ thống"); }
-  }, []);
+  }, [khachHangIdBanDau]);
 
   // Hoãn qua microtask để tránh setState đồng bộ trong effect
   // (react-hooks/set-state-in-effect); dữ liệu vẫn được tải ngay khi mount.

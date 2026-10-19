@@ -39,4 +39,8 @@ public class DonBanHangDto implements Serializable {
     NguoiDungDto nguoiDuyet;
     Instant ngayTao;
     Instant ngayCapNhat;
+    /** null = đơn bán thường (tạo trên hệ thống, không qua sàn/POS). */
+    KenhBanHangTomTatDto kenhBanHang;
+    /** Mã đơn bên sàn (vd. #1016 của Shopify); null với đơn không từ sàn. */
+    String maDonHangKenh;
 }

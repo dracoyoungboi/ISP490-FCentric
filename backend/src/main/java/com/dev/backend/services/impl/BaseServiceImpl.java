@@ -1,6 +1,7 @@
 package com.dev.backend.services.impl;
 
 import com.dev.backend.constant.enums.FilterLogicType;
+import com.dev.backend.constant.enums.FilterOperation;
 import com.dev.backend.constant.enums.SortDirection;
 import com.dev.backend.dto.request.BaseFilterRequest;
 import com.dev.backend.dto.request.FilterCriteria;
@@ -321,6 +322,10 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     protected Predicate createPredicate(CriteriaBuilder cb, Path<?> path, FilterCriteria filter) {
+        // Hai phép không cần giá trị: xét trước bước "value null thì bỏ qua điều kiện" bên dưới
+        if (filter.getOperation() == FilterOperation.IS_NULL) return cb.isNull(path);
+        if (filter.getOperation() == FilterOperation.IS_NOT_NULL) return cb.isNotNull(path);
+
         Object value = chuyenChuoiThoiGian(path.getJavaType(), filter.getValue(), filter.getFieldName());
         if (value == null) return null;
 

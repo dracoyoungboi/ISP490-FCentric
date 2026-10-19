@@ -9,5 +9,8 @@ public enum FilterOperation {
     LIKE,
     ILIKE,
     IN,
-    NOT_IN
+    NOT_IN,
+    /** Trường (hoặc liên kết) để trống, vd. đơn bán thường: kenhBanHang IS_NULL. Không cần value. */
+    IS_NULL,
+    IS_NOT_NULL
 }

@@ -6,10 +6,12 @@ import com.dev.backend.dto.request.BaseFilterRequest;
 import com.dev.backend.dto.request.KhachHangCreating;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.KhachHangDetailDto;
+import com.dev.backend.dto.response.customize.TongQuanMuaHangKhachDto;
 import com.dev.backend.dto.response.entities.KhachHangDto;
 import com.dev.backend.entities.KhachHang;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.KhachHangMapper;
+import com.dev.backend.services.impl.entities.DonBanHangService;
 import com.dev.backend.services.impl.entities.KhachHangService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -30,6 +32,9 @@ public class KhachHangController {
 
     @Autowired
     private KhachHangMapper khachHangMapper;
+
+    @Autowired
+    private DonBanHangService donBanHangService;
 
     @PostMapping("/filter")
     @RequireAuth(
@@ -65,7 +70,7 @@ public class KhachHangController {
     )
     public ResponseEntity<ResponseData<KhachHangDto>>getById(@PathVariable Integer id){
         KhachHang khachHang = khachHangService.getOne(id).orElseThrow(
-                () -> new CommonException("Không tìm thấy khách hàng id: " + id)
+                () -> new CommonException("Không tìm thấy khách hàng id: " + id, HttpStatus.NOT_FOUND, null)
         );
 
         return ResponseEntity.ok(
@@ -135,6 +140,34 @@ public class KhachHangController {
                         .status(200)
                         .data(result)
                         .message("Success")
+                        .build()
+        );
+    }
+
+    /**
+     * Số tổng hợp đơn bán của khách cho trang chi tiết (tổng chi tiêu, số đơn, trung bình, đơn gần nhất).
+     * Cùng phạm vi vai trò với danh sách đơn bán: NV bán hàng chỉ tính đơn mình tạo, vai trò kho chỉ tính đơn
+     * của kho phụ trách — để số trên đầu trang khớp danh sách đơn bên dưới.
+     */
+    @GetMapping("/{id}/tong-quan-mua-hang")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
+                    IRoleType.nhan_vien_ban_hang,
+                    IRoleType.nhan_vien_kho
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<ResponseData<TongQuanMuaHangKhachDto>> getTongQuanMuaHang(@PathVariable Integer id) {
+        if (!khachHangService.exists(id)) {
+            throw new CommonException("Không tìm thấy khách hàng id: " + id, HttpStatus.NOT_FOUND, null);
+        }
+        return ResponseEntity.ok(
+                ResponseData.<TongQuanMuaHangKhachDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .message("Success")
+                        .data(donBanHangService.tongQuanMuaHangCuaKhach(id))
                         .build()
         );
     }
