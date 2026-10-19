@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { getKhoLamViecId } from "@/utils/khoLamViec";
 import { toast } from "@/lib/thongBaoNhanh";
 import { Button } from "@/components/ui/button";
 import {
@@ -130,9 +131,10 @@ const khopTab = (item, tab) => {
 // ─── PAGE COMPONENT ───────────────────────────────────────────────────────────
 export default function TonKhoTongQuan() {
     const navigate = useNavigate();
-    // Kho mở sẵn từ đường dẫn (?kho=<id> hoặc ?kho=tat-ca), ví dụ khi bấm từ Tổng quan.
-    // Chỉ đọc một lần lúc vào trang; không đổi kho làm việc.
-    const [searchParams] = useSearchParams();
+    // Kho đang xem là BỘ LỌC của báo cáo, tách khỏi nơi làm việc (selected_kho_id, header kho_id):
+    // chọn kho ở đây chỉ ghi lên đường dẫn (?kho=<id> hoặc ?kho=tat-ca) để tải lại / chia sẻ vẫn giữ kho đang xem,
+    // không đổi nơi làm việc. Vào trang lần đầu: theo ?kho= (vd. bấm từ Tổng quan), không có thì mở ở nơi làm việc.
+    const [searchParams, setSearchParams] = useSearchParams();
     const khoTuDuongDan = useRef(searchParams.get("kho"));
 
     // ── Auth state ──────────────────────────────────────────────────────────
@@ -207,9 +209,8 @@ export default function TonKhoTongQuan() {
                     setSelectedKhoId(khoUrlId);
                 } else if (khos.length === 1) {
                     setSelectedKhoId(khos[0].id);
-                    localStorage.setItem("selected_kho_id", khos[0].id);
                 } else {
-                    const savedId = Number(localStorage.getItem("selected_kho_id"));
+                    const savedId = getKhoLamViecId();
                     if (savedId && khos.some(k => k.id === savedId)) {
                         setSelectedKhoId(savedId);
                     } else if (!xemMoiKho && khos.length > 0) {
@@ -277,9 +278,13 @@ export default function TonKhoTongQuan() {
     const handleSelectKho = (id) => {
         const numId = id ? Number(id) : null;
         setSelectedKhoId(numId);
-        // "Tất cả kho" chỉ là bộ lọc của báo cáo: giữ nguyên kho làm việc
-        // (Đơn chờ xuất, Phiếu nhặt hàng, Chuyển kho và các thao tác tạo chứng từ cần kho này).
-        if (numId) localStorage.setItem("selected_kho_id", numId);
+        // Chỉ là bộ lọc: ghi lên đường dẫn, KHÔNG đổi nơi làm việc (Đơn chờ xuất, Phiếu nhặt hàng, Chuyển kho
+        // và các thao tác tạo chứng từ vẫn theo nơi làm việc). API báo cáo nhận kho qua tham số khoId.
+        setSearchParams((truoc) => {
+            const tiep = new URLSearchParams(truoc);
+            tiep.set("kho", numId ? String(numId) : "tat-ca");
+            return tiep;
+        }, { replace: true });
 
         setHasLoaded(false);
         setPage(0);
@@ -413,7 +418,7 @@ export default function TonKhoTongQuan() {
                         hasFilter={hasFilter}
                         onClear={handleClearFilters}
                     >
-                        {/* Chọn kho bằng Shadcn DropdownMenu (đổi kho làm việc như cũ) */}
+                        {/* Bộ lọc kho của báo cáo (không đổi nơi làm việc) */}
                         <DropdownMenu modal={false}>
                             <DropdownMenuTrigger asChild>
                                 <Button
