@@ -69,9 +69,10 @@ export default function TrendCard({ data, ky, chon, loading, error, onRetry, cla
 
   const fmt = (v) => (v == null ? "Không có đơn" : cs.tien ? formatTienNgan(v) : `${formatSo(v)} đơn`);
   const moiKy = nhom === "thang" ? "tháng" : "ngày";
+  // Ô Giá trị đơn trung bình đã ghi số của cả kỳ ở đầu trang nên biểu đồ không nhắc lại (mỗi thông tin một chỗ)
   const tb =
     cs.key === "tbDon"
-      ? `${dt?.tongSoDon ? formatTienNgan(dt.tongDoanhThu / dt.tongSoDon) : "—"}/đơn`
+      ? null
       : cs.key === "soDon"
         ? `${n ? nf1.format(rows.reduce((s, r) => s + (r.nay ?? 0), 0) / n) : 0} đơn/${moiKy}`
         : `${n ? formatTienNgan(rows.reduce((s, r) => s + (r.nay ?? 0), 0) / n) : "—"}/${moiKy}`;
@@ -127,7 +128,6 @@ export default function TrendCard({ data, ky, chon, loading, error, onRetry, cla
           <span className="inline-flex items-center gap-2 whitespace-nowrap">
             {kieu === "cot" ? <i className="inline-block size-2.5 rounded-[2px] bg-bo-primary" aria-hidden="true" /> : <i className="inline-block w-4 border-t-2 border-bo-primary" aria-hidden="true" />}
             <b className="font-medium text-bo-foreground">Kỳ này</b>
-            {k.gon}
           </span>
           {coTruoc ? (
             <span className="inline-flex items-center gap-2 whitespace-nowrap">
@@ -138,9 +138,11 @@ export default function TrendCard({ data, ky, chon, loading, error, onRetry, cla
           ) : null}
           {/* Điện thoại: đơn vị ẩn khỏi đầu thẻ (chật) nên ghi ở đây */}
           {kieu !== "bang" ? <span className="hidden whitespace-nowrap @max-[440px]:inline">Đơn vị: {donVi.ten}</span> : null}
-          <span className="ml-auto whitespace-nowrap @max-[560px]:hidden">
-            {cs.key === "tbDon" ? "Cả kỳ" : "Trung bình"} <b className="font-medium text-bo-foreground">{tb}</b>
-          </span>
+          {tb ? (
+            <span className="ml-auto whitespace-nowrap @max-[560px]:hidden">
+              Trung bình <b className="font-medium text-bo-foreground">{tb}</b>
+            </span>
+          ) : null}
         </div>
       )}
 

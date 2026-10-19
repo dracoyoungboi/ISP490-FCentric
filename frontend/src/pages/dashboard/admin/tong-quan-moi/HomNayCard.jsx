@@ -2,7 +2,7 @@ import { Clock3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, Delta, LE } from "./ui";
 import { MAU2 } from "./mau";
-import { bienDong, docNgay, formatSo, formatTienNgan, gioPhut, tachTien, tenThuGiuaCau } from "../tong-quan/tongQuanFormat";
+import { bienDong, docNgay, formatSo, formatTienNgan, tachTien, tenThuGiuaCau } from "../tong-quan/tongQuanFormat";
 
 const hai = (n) => String(n).padStart(2, "0");
 /** Khung giờ của cột thứ i: "06:00–07:00". */
@@ -28,7 +28,6 @@ export default function HomNayCard({ data, loading, error, onRetry, className })
     <Card
       className={className}
       title="Hôm nay"
-      scope={data?.thoiDiem ? `đến ${gioPhut(data.thoiDiem)}` : null}
       loading={loading}
       error={error}
       onRetry={onRetry}

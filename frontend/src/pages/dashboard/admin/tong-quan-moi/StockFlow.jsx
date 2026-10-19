@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { duongDanKemThamSo } from "@/utils/thamSoDuongDan";
 import { Card, LE, MoreLink, StackBar } from "./ui";
 import { MAU2 } from "./mau";
-import { NHAN_KY, dsKhoDayDu } from "./boLoc";
+import { dsKhoDayDu } from "./boLoc";
 import { formatPhanTram, formatSo, formatTienNgan, tachTien, tyLe } from "../tong-quan/tongQuanFormat";
 
 const MUC = [
@@ -27,7 +27,7 @@ const O_CUOI = "pr-5 @max-[520px]:pr-4";
  * và một dòng nhập – xuất của kỳ. Phần không cần làm gì thì không chiếm chỗ: không có mã cần bổ sung thì bỏ hẳn
  * mục đó (chú thích Hết hàng 0 · Sắp hết hàng 0 đã nói), giải thích cách tính để ở chú thích khi rê chuột.
  */
-export default function StockFlow({ data, ky, khoId, loading, loiTonKho, loiBoSung, loiNhapXuat, onRetry, className }) {
+export default function StockFlow({ data, khoId, loading, loiTonKho, loiBoSung, loiNhapXuat, onRetry, className }) {
   const t = data?.tonKho;
   const io = data?.nhapXuat;
   const bs = data?.hangCanBoSung;
@@ -145,7 +145,7 @@ export default function StockFlow({ data, ky, khoId, loading, loiTonKho, loiBoSu
               <span role={loiNhapXuat ? "alert" : undefined}>{loiNhapXuat ? "Không tải được số liệu nhập – xuất." : ""}</span>
             ) : (
               <span title={io.boChuyenKhoNoiBo ? "Không tính chuyển kho nội bộ giữa các kho" : "Gồm hàng chuyển đến và chuyển đi của kho này"}>
-                {NHAN_KY[ky]}: nhập <b className="font-semibold tabular-nums text-bo-foreground">{formatSo(io.tongNhap)}</b> · xuất{" "}
+                Trong kỳ: nhập <b className="font-semibold tabular-nums text-bo-foreground">{formatSo(io.tongNhap)}</b> · xuất{" "}
                 <span className="whitespace-nowrap">
                   <b className="font-semibold tabular-nums text-bo-foreground">{formatSo(io.tongXuat)}</b> sản phẩm
                 </span>
