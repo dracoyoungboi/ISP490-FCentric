@@ -22,6 +22,8 @@
 @source "./components/danh-muc";
 /* Chi tiết khách hàng (bản một khối): thư mục mới, khai báo rõ để dev server sinh đủ class */
 @source "./components/khach-hang";
+/* Kênh bán hàng (cụm nút Đồng bộ ngay dùng chung, file mới): khai báo rõ để dev server sinh đủ class */
+@source "./components/channel";
 /* Giao diện luôn sáng, không theo chế độ tối của trình duyệt */
 @custom-variant dark (&:where(.dark, .dark *));
 /*
