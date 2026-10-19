@@ -8,18 +8,13 @@ import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { cn } from "@/lib/utils";
 import { dienGiaiLichSu, ngayGio } from "@/components/nguoi-dung/phanQuyen";
 
-const KIEU_THE = {
-  them: "border-green-200 bg-green-50 text-green-900",
-  bo: "border-red-200 bg-red-50 text-red-900",
-  "": "border-bo-border bg-bo-surface-subtle text-bo-foreground",
-};
-
 /** Vùng nội dung của tab; màn rộng thì tự cuộn (index.css › .nd-cuon), phân trang đứng yên ở đáy khối. */
 const VUNG_CUON = "nd-cuon flex flex-1 flex-col px-4 pb-3 pt-2 sm:px-6";
 
 /**
  * Tab Lịch sử phân quyền: ai, lúc nào, đổi gì (vai trò, kho, hạn hiệu lực, quyền thêm/bỏ).
- * Dòng vừa lưu trong phiên này tô xanh ở cột thời gian.
+ * Quyền thêm/bỏ là một dòng chữ xám ("+ Duyệt đơn mua hàng · − Xuất báo cáo · và N thay đổi khác"), không thẻ màu
+ * (chốt 19/10/2026: trang chỉ dùng màu cảnh báo ở khung Cần xem lại). Dòng vừa lưu có chữ "Vừa lưu" dưới giờ.
  * Phân trang ở máy khách (API trả cả danh sách) bằng TablePagination dùng chung, giống Chi tiết khách hàng.
  */
 export default function LichSuPhanQuyen({ lichSu, dangTai, loi, onThuLai, idVuaLuu }) {
@@ -96,15 +91,8 @@ export default function LichSuPhanQuyen({ lichSu, dangTai, loi, onThuLai, idVuaL
                     <b className="font-semibold">{ls.nguoiThucHien || "Hệ thống"}</b> {viec}
                   </div>
                   {the.length ? (
-                    <div className="mt-0.5 flex flex-wrap gap-1.5">
-                      {the.map((t) => (
-                        <span
-                          key={t.chu}
-                          className={cn("mt-1 inline-flex h-[22px] items-center rounded-full border px-2 text-xs", KIEU_THE[t.loai])}
-                        >
-                          {t.chu}
-                        </span>
-                      ))}
+                    <div className="mt-0.5 text-[12.5px] leading-[18px] text-bo-muted">
+                      {the.map((t) => t.chu).join(" · ")}
                     </div>
                   ) : null}
                 </div>

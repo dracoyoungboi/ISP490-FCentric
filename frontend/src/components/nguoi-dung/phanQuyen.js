@@ -106,15 +106,21 @@ export function thuTuQuyen(dsQuyen) {
 }
 
 /**
+ * Các loại chứng từ và mã quyền Tạo / Duyệt / Hủy của từng loại (null = loại đó không có quyền này).
+ * Trang Chi tiết người dùng vẽ thành ma trận chứng từ × Tạo / Duyệt / Hủy (Kiểu D, chốt 19/10/2026).
+ */
+export const CHUNG_TU = [
+  { ten: "Đơn mua hàng", tao: "tao_don_mua_hang", duyet: "duyet_don_mua_hang", huy: null },
+  { ten: "Phiếu nhập kho", tao: "tao_phieu_nhap", duyet: "duyet_phieu_nhap", huy: "huy_phieu_nhap" },
+  { ten: "Đơn bán hàng", tao: "tao_don_ban_hang", duyet: "duyet_don_ban_hang", huy: null },
+  { ten: "Phiếu xuất kho", tao: "tao_phieu_xuat", duyet: "duyet_phieu_xuat", huy: "huy_phieu_xuat" },
+];
+
+/**
  * Cặp tạo – duyệt cùng một loại chứng từ. Một người có cả hai thì tự lập và tự duyệt được:
  * nên để người khác duyệt (tách nhiệm vụ).
  */
-export const CAP_TAO_DUYET = [
-  { tao: "tao_don_mua_hang", duyet: "duyet_don_mua_hang", ten: "Đơn mua hàng" },
-  { tao: "tao_phieu_nhap", duyet: "duyet_phieu_nhap", ten: "Phiếu nhập kho" },
-  { tao: "tao_don_ban_hang", duyet: "duyet_don_ban_hang", ten: "Đơn bán hàng" },
-  { tao: "tao_phieu_xuat", duyet: "duyet_phieu_xuat", ten: "Phiếu xuất kho" },
-];
+export const CAP_TAO_DUYET = CHUNG_TU.map(({ tao, duyet, ten }) => ({ tao, duyet, ten }));
 
 // ───────────────────────────── Màn hình dùng quyền ─────────────────────────────
 
@@ -268,83 +274,75 @@ export function danhGiaQuyen({ vaiTro, quyenIds, dsQuyen, mau = [], nhayCam = []
 
 const vietHoaDau = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
-/** Các điểm cần xem lại trên trang chi tiết (dải tóm tắt, ô thứ tư). */
-export function diemCanXemLai({ vaiTro, coKho, danhGia }) {
-  const diem = [];
-  if (!canKho(vaiTro)) return diem;
-  if (!coKho) {
-    diem.push("chưa phụ trách kho nào");
-    return diem;
+/**
+ * Khung "Cần xem lại" trên trang chi tiết: chỗ duy nhất của trang dùng màu cảnh báo (chốt 19/10/2026).
+ * Chỉ tính khi người dùng làm việc theo kho và đã có nơi làm việc (các trường hợp khác đã có ô trống riêng ở tab).
+ * Mỗi điểm: { ma, chinh, phu, maQuyen } — `maQuyen` là các quyền được tô sáng khi bấm vào điểm đó.
+ * Xếp theo mức nặng; câu chữ không nhắc tên vai trò (tên vai trò đã ở đầu trang).
+ */
+export function vanDeCanXemLai({ vaiTro, coKho, danhGia }) {
+  if (!canKho(vaiTro) || !coKho || !danhGia) return [];
+  if (!danhGia.soCap) {
+    return [{ ma: "chuaCap", chinh: "Chưa cấp quyền nào", phu: "người này chưa làm được việc gì ở kho", maQuyen: [] }];
   }
-  if (danhGia.capTrung.length) diem.push(`${danhGia.capTrung.length} cặp tạo–duyệt`);
-  if (danhGia.ngoaiMau.length) diem.push(`${danhGia.ngoaiMau.length} quyền ngoài mẫu`);
-  if (danhGia.voHieu.length) diem.push(`${danhGia.voHieu.length} quyền không có tác dụng`);
-  if (danhGia.thieuMau.length) diem.push(`thiếu ${danhGia.thieuMau.length} quyền so với mẫu`);
-  return diem;
-}
-
-/** Dòng phụ của ô "Quyền tại kho". */
-export function moTaSoVoiMau({ vaiTro, coKho, danhGia }) {
-  if (!coKho) return "Chưa có quyền tại kho nào";
-  const ten = tenVaiTro(vaiTro);
-  if (danhGia.khongDocDuocMau) return "Chưa so được với mẫu";
-  if (!danhGia.soMau) return "Vai trò chưa có mẫu quyền";
-  const them = danhGia.ngoaiMau.length;
-  const thieu = danhGia.thieuMau.length;
-  if (!them && !thieu) return `Khớp mẫu ${ten}`;
-  if (!thieu) return `Mẫu ${ten} có ${danhGia.soMau} quyền · thêm ${them}`;
-  if (!them) return `Thiếu ${thieu} quyền so với mẫu ${ten}`;
-  return `Thêm ${them} · thiếu ${thieu} so với mẫu`;
+  const ds = [];
+  if (danhGia.capTrung.length) {
+    ds.push({
+      ma: "taoDuyet",
+      chinh: `Tự tạo và tự duyệt được ${danhGia.capTrung.length} loại chứng từ`,
+      phu: danhGia.capTrung.map((c) => c.ten).join(", "),
+      maQuyen: danhGia.capTrung.flatMap((c) => [c.tao, c.duyet]),
+    });
+  }
+  if (danhGia.ngoaiMau.length) {
+    ds.push({
+      ma: "ngoaiMau",
+      chinh: `${danhGia.ngoaiMau.length} quyền ngoài mẫu của vai trò`,
+      phu: `mẫu có ${danhGia.soMau} quyền`,
+      maQuyen: danhGia.ngoaiMau.map((d) => d.ma),
+    });
+  }
+  if (danhGia.voHieu.length) {
+    ds.push({
+      ma: "voHieu",
+      chinh: `${danhGia.voHieu.length} quyền không dùng được`,
+      phu: "vai trò này không mở màn hình dùng các quyền đó",
+      maQuyen: danhGia.voHieu.map((d) => d.ma),
+    });
+  }
+  if (danhGia.thieuMau.length) {
+    ds.push({
+      ma: "thieuMau",
+      chinh: `Thiếu ${danhGia.thieuMau.length} quyền so với mẫu`,
+      phu: danhGia.thieuMau.map((d) => d.ten).join(", "),
+      maQuyen: danhGia.thieuMau.map((d) => d.ma),
+    });
+  }
+  return ds;
 }
 
 /**
- * Bốn ô của dải tóm tắt trên trang chi tiết: vai trò, kho phụ trách, quyền tại kho, cần xem lại.
- * `muc` của ô cần xem lại: "cao" (cặp tạo–duyệt hoặc chưa có kho), "vua" (có điểm khác), "khong".
+ * Quyền tại kho xếp cho trang chi tiết (Kiểu D): ma trận chứng từ × Tạo / Duyệt / Hủy và các nhóm việc khác.
+ * Nhận `danhGia.nhom` (của danhGiaQuyen) nên mọi cờ của từng quyền (cap, trongMau, ngoaiMau…) giữ nguyên.
+ * Ô của quyền máy chủ không có (danh sách quyền thiếu mã đó) là null như ô "không áp dụng".
+ * Quyền lạ trong nhóm Mua & nhập / Bán & xuất (không thuộc ô nào) vẫn hiện ở phần việc khác, không bị mất.
  */
-export function tomTatTruyCap({ vaiTro, pq, danhGia, menu }) {
-  const ten = tenVaiTro(vaiTro);
-  if (vaiTro === QUAN_TRI_VIEN) {
-    return {
-      vaiTro: { giaTri: ten, phu: "Mở được mọi màn hình" },
-      kho: { giaTri: "Mọi kho", phu: "Không cần phân kho" },
-      quyen: { giaTri: "Toàn quyền", phu: "Không áp dụng quyền theo kho" },
-      canXemLai: { giaTri: "Không có", phu: "Không có điểm cần xem lại", muc: "khong" },
-    };
-  }
-  if (!canKho(vaiTro)) {
-    return {
-      vaiTro: { giaTri: ten, phu: "Không dùng màn nội bộ" },
-      kho: { giaTri: "—", phu: "Tài khoản bên ngoài" },
-      quyen: { giaTri: "Không áp dụng", phu: "Không có quyền theo kho" },
-      canXemLai: { giaTri: "Không có", phu: "Không có điểm cần xem lại", muc: "khong" },
-    };
-  }
-  const { duongDan, soNhom } = manHinhCuaVaiTro(menu, vaiTro);
-  const coKho = Boolean(pq?.kho);
-  const diem = diemCanXemLai({ vaiTro, coKho, danhGia });
-  const capCao = !coKho || danhGia.capTrung.length > 0;
-  return {
-    vaiTro: { giaTri: ten, phu: `Mở được ${duongDan.length} màn hình · ${soNhom} nhóm menu` },
-    kho: coKho
-      ? { giaTri: pq.kho.tenKho || pq.kho.maKho, phu: [pq.kho.maKho, moTaHieuLuc(pq)].filter(Boolean).join(" · ") }
-      : { giaTri: "Chưa phân kho", phu: "Cần 1 kho để làm việc", canhBao: true },
-    quyen: {
-      giaTri: coKho ? `${danhGia.soCap}/${danhGia.tong}` : `0/${danhGia.tong}`,
-      phu: moTaSoVoiMau({ vaiTro, coKho, danhGia }),
-    },
-    // Giá trị là điểm nặng nhất (đã xếp theo mức), dòng phụ là các điểm còn lại
-    canXemLai: diem.length
-      ? {
-          giaTri: vietHoaDau(diem[0]),
-          phu: diem.length > 1 ? vietHoaDau(diem.slice(1).join(" · ")) : "Không còn điểm khác",
-          muc: capCao ? "cao" : "vua",
-        }
-      : {
-          giaTri: "Không có",
-          phu: danhGia.soMau ? "Khớp mẫu, không có cặp tạo–duyệt" : "Không có cặp tạo–duyệt",
-          muc: "khong",
-        },
+export function maTranQuyen(danhGia) {
+  const tatCa = (danhGia?.nhom ?? []).flatMap((n) => n.dong);
+  const theoMa = new Map(tatCa.map((d) => [d.ma, d]));
+  const trongMaTran = new Set();
+  const o = (ma) => {
+    const d = ma ? theoMa.get(ma) : null;
+    if (d) trongMaTran.add(ma);
+    return d ?? null;
   };
+  const hang = CHUNG_TU.map((ct) => ({ ten: ct.ten, tao: o(ct.tao), duyet: o(ct.duyet), huy: o(ct.huy) })).filter(
+    (h) => h.tao || h.duyet || h.huy,
+  );
+  const viecKhac = (danhGia?.nhom ?? [])
+    .map((n) => ({ ma: n.ma, ten: n.ten, dong: n.dong.filter((d) => !trongMaTran.has(d.ma)) }))
+    .filter((n) => n.dong.length > 0);
+  return { hang, viecKhac };
 }
 
 // ───────────────────────────── Ngày giờ ─────────────────────────────
@@ -462,7 +460,10 @@ export function soSanhPhanQuyen(goc, nhap, { dsQuyen = [], tenKho = (id) => `kho
     if (b.khoId != null && b.khoId !== a.khoId) {
       ds.push({
         loai: "doi",
-        chu: a.khoId != null ? `Kho: ${tenKho(a.khoId)} → ${tenKho(b.khoId)}` : `Phân kho: ${tenKho(b.khoId)}`,
+        chu:
+          a.khoId != null
+            ? `Nơi làm việc: ${tenKho(a.khoId)} → ${tenKho(b.khoId)}`
+            : `Nơi làm việc: ${tenKho(b.khoId)}`,
       });
     }
     if (b.khoId != null && b.ngayKetThuc !== a.ngayKetThuc) {
@@ -532,7 +533,7 @@ export function kiemTraBanNhap(
       vaiTro === QUAN_TRI_VIEN ? "Quản trị viên có toàn quyền ở mọi kho." : "Tài khoản khách hàng không dùng kho.",
     );
   } else if (nhap?.khoId == null) {
-    them("canhBao", "Chưa chọn kho", "Mọi thao tác theo kho của người dùng bị chặn cho tới khi có kho.");
+    them("canhBao", "Chưa chọn nơi làm việc", "Mọi thao tác theo kho của người dùng bị chặn cho tới khi có nơi làm việc.");
   } else {
     if (nhap.hieuLuc === "den_ngay" && !nhap.ngayKetThuc) {
       chanLuu = true;
@@ -554,14 +555,14 @@ export function kiemTraBanNhap(
     if (dg.voHieu.length) {
       them(
         "luuY",
-        `${dg.voHieu.length} quyền không có tác dụng`,
-        `Vai trò ${tenVt} không mở được màn của: ${dg.voHieu.map((d) => d.ten).join(", ")}.`,
+        `${dg.voHieu.length} quyền không dùng được`,
+        `Vai trò ${tenVt} không mở màn hình dùng các quyền: ${dg.voHieu.map((d) => d.ten).join(", ")}.`,
       );
     }
     if (dg.ngoaiMau.length) {
       them(
         "luuY",
-        `Vượt mẫu ${tenVt}: thêm ${dg.ngoaiMau.length} quyền`,
+        `${dg.ngoaiMau.length} quyền ngoài mẫu ${tenVt}`,
         `Mẫu có ${dg.soMau} quyền. Bấm Áp dụng mẫu để về đúng mẫu.`,
       );
     }
@@ -583,6 +584,8 @@ export function kiemTraBanNhap(
         `${dg.chuaApDung.length} quyền chưa áp dụng`,
         `Hệ thống hiện kiểm ${soKiem}/${dg.tong} quyền. Các quyền này bật hay tắt đều chưa chặn thao tác.`,
       );
+      // Việc của hệ thống, không phải của người đang phân quyền: chỉ liệt kê ở phần Xem, không tính vào dòng tóm tắt
+      muc[muc.length - 1].phu = true;
     }
     // Duyệt, hủy, điều chỉnh tồn, cấp quyền, báo cáo tiền: nhắc người cấp xem lại, không chặn lưu. Quyền nhạy cảm
     // đều nằm trong mẫu thì chỉ liệt kê (`phu`), không tính vào dòng tóm tắt — vai trò đúng mẫu vẫn thấy "Khớp mẫu"
@@ -600,15 +603,20 @@ export function kiemTraBanNhap(
     }
   }
 
-  const soCanhBao = muc.filter((m) => m.loai === "canhBao").length;
-  const soLuuY = muc.filter((m) => m.loai === "luuY" && !m.phu).length;
+  const canhBao = muc.filter((m) => m.loai === "canhBao");
+  const luuY = muc.filter((m) => m.loai === "luuY" && !m.phu);
+  const soCanhBao = canhBao.length;
+  const soLuuY = luuY.length;
+  // Dòng tóm tắt nói thẳng vấn đề nặng nhất (vd. "Vừa tạo vừa duyệt 4 loại chứng từ · thêm 2 điểm"),
+  // không chỉ đếm "1 cảnh báo · 2 lưu ý"; chi tiết đủ ở phần Xem
   let tomTat;
   let loai;
   if (soCanhBao) {
-    tomTat = `${soCanhBao} cảnh báo${soLuuY ? ` · ${soLuuY} lưu ý` : ""}`;
+    const conLai = soCanhBao - 1 + soLuuY;
+    tomTat = `${canhBao[0].tieuDe}${conLai ? ` · thêm ${conLai} điểm` : ""}`;
     loai = "canhBao";
   } else if (soLuuY) {
-    tomTat = `${soLuuY} lưu ý trước khi lưu`;
+    tomTat = soLuuY <= 2 ? luuY.map((m) => m.tieuDe).join(" · ") : `${soLuuY} lưu ý trước khi lưu`;
     loai = "luuY";
   } else {
     tomTat = muc[0]?.tieuDe ?? "";
@@ -840,6 +848,17 @@ export function khoCuaToiNgan({ vaiTro, quyen, khoTuHoSo } = {}) {
   if (kho) return kho.tenKho || kho.maKho || "Chưa có kho";
   // Chưa tải xong quyền và hồ sơ cũng không có kho: chưa chắc là "chưa có kho" thì để trống
   return quyen ? "Chưa có kho" : "";
+}
+
+/**
+ * Chi tiết người dùng: cột Tài khoản có dòng "Tên đăng nhập" (kèm nút sao chép) chỉ khi họ tên có và khác tên đăng nhập.
+ * Họ tên trống thì tiêu đề trang đã là tên đăng nhập: dòng đó ẩn, chỉ menu ⋯ có "Sao chép tên đăng nhập".
+ * Dùng chung cho hai chỗ để một thao tác không hiện hai lần trên cùng màn.
+ */
+export function hienTenDangNhapRieng(nguoiDung) {
+  const ten = nguoiDung?.tenDangNhap || "";
+  const hoTen = nguoiDung?.hoTen?.trim() || "";
+  return Boolean(ten) && Boolean(hoTen) && hoTen !== ten;
 }
 
 /**

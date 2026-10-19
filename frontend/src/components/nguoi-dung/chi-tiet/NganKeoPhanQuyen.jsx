@@ -7,8 +7,8 @@ import {
   Info,
   Minus,
   RefreshCcw,
+  Shield,
   ShieldAlert,
-  Sparkles,
   Check,
   X,
 } from "lucide-react";
@@ -24,7 +24,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import StatusBadge from "@/components/shared/StatusBadge";
 import UserAvatar from "@/components/UserAvatar";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { toast } from "@/lib/thongBaoNhanh";
@@ -43,6 +42,7 @@ import {
   moTaVaiTro,
   noiDungLuu,
   phanQuyenHienCo,
+  quyenCoTacDung,
   quyenNhayCamCapThem,
   sangNgayNhap,
   soManHinh,
@@ -110,7 +110,7 @@ const ICON_KIEM_TRA = {
 const KIEU_DAI = {
   canhBao: "bg-orange-50 text-orange-900",
   luuY: "bg-bo-surface-subtle text-slate-700",
-  on: "bg-green-50 text-green-900",
+  on: "bg-white text-bo-foreground",
 };
 
 const KY_HIEU = {
@@ -119,10 +119,44 @@ const KY_HIEU = {
   bo: { k: "−", lop: "text-red-700" },
 };
 
+/** Một dòng quyền: ô chọn, tên, biểu tượng nhạy cảm (xám), nhãn "mẫu" (xám), mô tả, chữ "vừa thêm / vừa bỏ". */
+function DongQuyen({ d, doi, coMau, onDoi }) {
+  return (
+    <label className="flex cursor-pointer items-start gap-2.5 border-t border-slate-100 px-3 py-2 first:border-t-0 hover:bg-slate-50">
+      <input type="checkbox" checked={d.cap} onChange={onDoi} className="mt-0.5 size-4 shrink-0 accent-bo-primary" />
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-center gap-1.5 text-[13px] font-medium leading-5">
+          {d.ten}
+          {d.nhayCam ? (
+            <span className="inline-flex text-slate-400" title="Quyền nhạy cảm">
+              <Shield className="size-3.5" aria-label="Quyền nhạy cảm" />
+            </span>
+          ) : null}
+          {coMau && d.trongMau ? (
+            <span
+              className="inline-flex h-[18px] items-center rounded-[3px] border border-slate-200 px-1 text-[11.5px] font-normal leading-none text-bo-muted"
+              title="Có trong mẫu quyền của vai trò"
+            >
+              mẫu
+            </span>
+          ) : null}
+        </span>
+        {d.moTa ? <span className="block text-xs leading-4 text-bo-muted">{d.moTa}</span> : null}
+      </span>
+      {doi ? (
+        <span className="whitespace-nowrap text-xs font-medium leading-5 text-bo-primary">{d.cap ? "vừa thêm" : "vừa bỏ"}</span>
+      ) : null}
+    </label>
+  );
+}
+
 /**
- * Ngăn kéo Phân quyền (PB2, chốt 18/10/2026), mở bên phải trang chi tiết (toàn màn hình trên điện thoại).
- * Một lần lưu gồm vai trò, kho phụ trách (tối đa 1), hạn hiệu lực và tập quyền đầy đủ tại kho.
- * Có dải Kiểm tra (cặp tạo–duyệt, quyền không có tác dụng, lệch mẫu…), hỏi lại trước khi lưu và trước khi bỏ thay đổi.
+ * Ngăn kéo Phân quyền (PB2, chốt 18/10/2026; bản gọn chốt 19/10/2026), mở bên phải trang chi tiết (toàn màn hình
+ * trên điện thoại). Bản gọn: chỉ liệt kê quyền dùng được với vai trò đang chọn; quyền không dùng được gom vào một khung
+ * gập; không nhãn màu trên từng dòng (chỉ "mẫu" và biểu tượng nhạy cảm, đều xám); dòng Kiểm tra nói thẳng vấn đề.
+ * `dienMauKhiMo`: mở bằng "Sửa theo mẫu" ở khung Cần xem lại thì bản nháp bắt đầu với đúng mẫu của vai trò.
+ * Một lần lưu gồm vai trò, nơi làm việc (tối đa 1 kho), hạn hiệu lực và tập quyền đầy đủ tại kho.
+ * Có dải Kiểm tra (cặp tạo–duyệt, quyền không dùng được, lệch mẫu…), hỏi lại trước khi lưu và trước khi bỏ thay đổi.
  * Trang cha đặt `key` mới mỗi lần mở để bản nháp bắt đầu lại từ dữ liệu đang lưu.
  * Ngăn kéo bị đóng từ bên ngoài (nút Back của trình duyệt) khi còn thay đổi chưa lưu thì gọi `onMoLai`
  * để mở lại và hỏi "Bỏ thay đổi?", không mất bản nháp.
@@ -131,6 +165,7 @@ export default function NganKeoPhanQuyen({
   mo,
   nguoiDung,
   laChinhMinh,
+  dienMauKhiMo = false,
   dsQuyen,
   cauHinh,
   menu,
@@ -142,10 +177,20 @@ export default function NganKeoPhanQuyen({
 }) {
   const goc = useMemo(() => banNhapTuNguoiDung(nguoiDung), [nguoiDung]);
   const pqGoc = useMemo(() => phanQuyenHienCo(nguoiDung).pq, [nguoiDung]);
-  const [nhap, setNhap] = useState(goc);
+  // Trang cha đặt `key` mới mỗi lần mở, nên giá trị ban đầu chỉ tính một lần cho mỗi lần mở
+  const mauBanDau =
+    dienMauKhiMo && goc.khoId != null && canKho(goc.vaiTro) ? (cauHinh?.mauQuyen?.[goc.vaiTro] ?? []) : [];
+  const [nhap, setNhap] = useState(() =>
+    mauBanDau.length ? { ...goc, quyenIds: [...mauBanDau].sort((a, b) => a - b) } : goc,
+  );
   const [moNhom, setMoNhom] = useState({});
   const [moKiemTra, setMoKiemTra] = useState(false);
-  const [daDienMau, setDaDienMau] = useState(null); // { vaiTro, so } của mẫu đã điền khi chọn kho lần đầu
+  const [moVoHieu, setMoVoHieu] = useState(false);
+  const nutXemVoHieu = useRef(null);
+  // { vaiTro, so } của mẫu đã điền (chọn kho lần đầu, hoặc mở bằng "Sửa theo mẫu")
+  const [daDienMau, setDaDienMau] = useState(() =>
+    mauBanDau.length ? { vaiTro: goc.vaiTro, so: mauBanDau.length } : null,
+  );
   const [hop, setHop] = useState(null);
   const [dangLuu, setDangLuu] = useState(false);
 
@@ -208,6 +253,7 @@ export default function NganKeoPhanQuyen({
     setDaDienMau(null);
     setMoNhom({});
     setMoKiemTra(false);
+    setMoVoHieu(false);
   }, [goc]);
 
   // Back của trình duyệt bỏ `?phan-quyen=1` → ngăn kéo đóng mà không qua yeuCauDong: còn thay đổi thì mở lại và hỏi
@@ -272,6 +318,11 @@ export default function NganKeoPhanQuyen({
   };
 
   const soMan = (vaiTro) => soManHinh(menu, vaiTro);
+  // Quyền dùng được với vai trò đang chọn: hiện trong các nhóm. Quyền không dùng được: gom vào một khung gập
+  const dungDuoc = (d) => quyenCoTacDung(d.ma, nhap.vaiTro, menu);
+  const dongVoHieu = danhGia.nhom.flatMap((n) => n.dong).filter((d) => !dungDuoc(d));
+  const soVoHieuCap = dongVoHieu.filter((d) => d.cap).length;
+  const coMauSoSanh = Boolean(cauHinh) && mau.length > 0;
 
   return (
     <>
@@ -289,17 +340,20 @@ export default function NganKeoPhanQuyen({
         >
           {/* Đầu ngăn kéo */}
           <div className="flex shrink-0 items-center gap-3 border-b border-bo-border px-5 py-4">
-            <UserAvatar userId={nguoiDung.id} name={nguoiDung.hoTen} avatarUrl={nguoiDung.avatarUrl} className="size-10 shrink-0" />
+            <UserAvatar
+              userId={nguoiDung.id}
+              name={nguoiDung.hoTen || nguoiDung.tenDangNhap}
+              avatarUrl={nguoiDung.avatarUrl}
+              trungTinh
+              className="size-10 shrink-0"
+            />
             <div className="min-w-0 flex-1">
               <SheetTitle className="text-lg font-bold leading-[26px] text-bo-heading">Phân quyền</SheetTitle>
+              {/* Họ tên trống thì chỉ tên đăng nhập, không để dấu "·" đứng đầu */}
               <SheetDescription className="truncate text-[13px] text-bo-muted">
-                {nguoiDung.hoTen}
-                {nguoiDung.tenDangNhap ? (
-                  <>
-                    {" · "}
-                    <span className="font-mono">@{nguoiDung.tenDangNhap}</span>
-                  </>
-                ) : null}
+                {[nguoiDung.hoTen?.trim(), nguoiDung.tenDangNhap ? `@${nguoiDung.tenDangNhap}` : null]
+                  .filter(Boolean)
+                  .join(" · ")}
               </SheetDescription>
             </div>
             <Button type="button" variant="ghost" size="icon" aria-label="Đóng" onClick={yeuCauDong} className="text-slate-600">
@@ -358,15 +412,15 @@ export default function NganKeoPhanQuyen({
                   </div>
                   <div className="text-bo-muted">
                     {goc.khoId != null && canKho(goc.vaiTro)
-                      ? `Không cần phân kho hay chọn quyền. Khi lưu, phân quyền ${tenKho(goc.khoId)} hiện có (${goc.quyenIds.length} quyền) sẽ được thu hồi.`
-                      : "Không cần phân kho hay chọn quyền."}
+                      ? `Không cần nơi làm việc hay quyền tại kho. Khi lưu, phân quyền ${tenKho(goc.khoId)} hiện có (${goc.quyenIds.length} quyền) sẽ được thu hồi.`
+                      : "Không cần nơi làm việc hay quyền tại kho."}
                   </div>
                 </OThongTin>
               </section>
             ) : (
               <>
-                {/* Kho phụ trách */}
-                <Muc tieuDe="Kho phụ trách" moTa="Mỗi người tối đa 1 kho">
+                {/* Nơi làm việc (trước đây "Kho phụ trách"; đổi tên toàn hệ thống 19/10/2026) */}
+                <Muc tieuDe="Nơi làm việc" moTa="Mỗi người tối đa 1 kho">
                   {khoQ.initialLoading ? (
                     <div className="grid gap-2 sm:grid-cols-2" role="status" aria-label="Đang tải danh sách kho">
                       {[0, 1, 2, 3].map((i) => (
@@ -389,14 +443,14 @@ export default function NganKeoPhanQuyen({
                     <>
                     {khoQ.error ? (
                       <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-orange-800">
-                        Không tải được danh sách kho, đang hiện kho đang phụ trách.
+                        Không tải được danh sách kho, đang hiện nơi làm việc hiện tại.
                         <Button type="button" variant="outline" size="sm" onClick={khoQ.reload} className={NUT_VIEN}>
                           <RefreshCcw className="size-3.5" aria-hidden="true" />
                           Thử lại
                         </Button>
                       </div>
                     ) : null}
-                    <div role="radiogroup" aria-label="Kho phụ trách" className="grid gap-2 sm:grid-cols-2">
+                    <div role="radiogroup" aria-label="Nơi làm việc" className="grid gap-2 sm:grid-cols-2">
                       {dsKho.map((k) => {
                         const lyDo = k.id === goc.khoId ? "" : lyDoKhongChon(k);
                         const loai = nhanLoaiKho(k).label;
@@ -429,7 +483,7 @@ export default function NganKeoPhanQuyen({
                                   </span>
                                 </span>
                                 {k.id === goc.khoId && canKho(goc.vaiTro) ? (
-                                  <StatusBadge label="Đang phụ trách" nhom="xong" />
+                                  <span className="whitespace-nowrap text-xs text-bo-muted">Hiện tại</span>
                                 ) : null}
                               </>
                             )}
@@ -490,7 +544,10 @@ export default function NganKeoPhanQuyen({
                         variant="ghost"
                         size="sm"
                         disabled={!coKho || !nhap.quyenIds.length}
-                        onClick={() => datQuyen([])}
+                        onClick={() => {
+                          datQuyen([]);
+                          setDaDienMau(null);
+                        }}
                         className="h-8 text-slate-600"
                       >
                         Bỏ chọn
@@ -513,8 +570,7 @@ export default function NganKeoPhanQuyen({
                           onClick={() => datQuyen(mau)}
                           className={`h-8 ${NUT_VIEN}`}
                         >
-                          <Sparkles className="size-3.5" aria-hidden="true" />
-                          Áp dụng mẫu {tenVaiTro(nhap.vaiTro)}
+                          Áp dụng mẫu
                         </Button>
                       </span>
                     </span>
@@ -550,9 +606,10 @@ export default function NganKeoPhanQuyen({
                     </div>
                   ) : null}
 
-                  {daDienMau && coKho ? (
+                  {/* Chỉ còn đúng khi vẫn là vai trò đã điền mẫu (đổi vai trò, Bỏ chọn thì thôi nhắc) */}
+                  {daDienMau && coKho && daDienMau.vaiTro === nhap.vaiTro && nhap.quyenIds.length ? (
                     <div className="mb-3">
-                      <OThongTin icon={Sparkles}>
+                      <OThongTin>
                         Đã điền sẵn {daDienMau.so} quyền theo mẫu {tenVaiTro(daDienMau.vaiTro)}. Bỏ bớt hoặc thêm nếu cần.
                       </OThongTin>
                     </div>
@@ -560,17 +617,20 @@ export default function NganKeoPhanQuyen({
 
                   {!coKho ? (
                     <OThongTin netDut>
-                      <span className="text-bo-muted">Chọn kho phụ trách để cấp quyền. Quyền chỉ có hiệu lực tại kho đó.</span>
+                      <span className="text-bo-muted">Chọn nơi làm việc để cấp quyền. Quyền chỉ có hiệu lực tại kho đó.</span>
                     </OThongTin>
                   ) : (
                     <div className="space-y-2">
                       {danhGia.nhom.map((n) => {
-                        const soNgoai = n.dong.filter((d) => d.ngoaiMau).length;
-                        const coDoi = n.dong.some((d) => d.cap !== quyenGoc.has(d.id));
-                        const dangMo = moNhom[n.ma] ?? (soNgoai > 0 || coDoi);
-                        const tatCa = n.soCap === n.dong.length;
-                        const motPhan = n.soCap > 0 && !tatCa;
-                        const ids = n.dong.map((d) => d.id);
+                        const dong = n.dong.filter(dungDuoc);
+                        if (!dong.length) return null;
+                        const soCap = dong.filter((d) => d.cap).length;
+                        const coDoi = dong.some((d) => d.cap !== quyenGoc.has(d.id));
+                        // Nhóm có quyền ngoài mẫu hoặc vừa đổi thì tự mở (không còn nhãn "N ngoài mẫu" trên đầu nhóm)
+                        const dangMo = moNhom[n.ma] ?? (coDoi || dong.some((d) => d.ngoaiMau));
+                        const tatCa = soCap === dong.length;
+                        const motPhan = soCap > 0 && !tatCa;
+                        const ids = dong.map((d) => d.id);
                         return (
                           <div key={n.ma} className="overflow-hidden rounded-lg border border-bo-border">
                             <div className={cn("flex items-center gap-0 bg-bo-surface-subtle pl-3 pr-2", dangMo && "border-b border-bo-border")}>
@@ -601,65 +661,89 @@ export default function NganKeoPhanQuyen({
                                 className="flex h-11 min-w-0 flex-1 items-center gap-2 text-left text-[13.5px] font-semibold text-bo-foreground"
                               >
                                 <span className="min-w-0 flex-1">{n.ten}</span>
-                                {soNgoai ? <StatusBadge label={`${soNgoai} ngoài mẫu`} nhom="canChuY" /> : null}
                                 {coDoi ? <span className="size-[7px] shrink-0 rounded-full bg-bo-primary" title="Có thay đổi chưa lưu" /> : null}
                                 <span className="min-w-7 text-right text-xs font-semibold tabular-nums text-bo-muted">
-                                  {n.soCap}/{n.dong.length}
+                                  {soCap}/{dong.length}
                                 </span>
                                 <ChevronDown className={cn("size-4 text-slate-400 transition-transform", dangMo && "rotate-180")} aria-hidden="true" />
                               </button>
                             </div>
                             {dangMo ? (
                               <div>
-                                {n.dong.map((d) => {
-                                  const doi = d.cap !== quyenGoc.has(d.id);
-                                  return (
-                                    <label
-                                      key={d.id}
-                                      className="flex cursor-pointer items-start gap-2.5 border-t border-slate-100 px-3 py-2 first:border-t-0 hover:bg-blue-50/30"
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={d.cap}
-                                        onChange={() =>
-                                          datQuyen(d.cap ? nhap.quyenIds.filter((x) => x !== d.id) : [...nhap.quyenIds, d.id])
-                                        }
-                                        className="mt-0.5 size-4 shrink-0 accent-bo-primary"
-                                      />
-                                      <span className="min-w-0 flex-1">
-                                        <span className="flex flex-wrap items-center gap-1.5 text-[13px] font-medium leading-5">
-                                          {d.ten}
-                                          {d.nhayCam ? (
-                                            <ShieldAlert className="size-3.5 text-amber-700" aria-label="Quyền nhạy cảm" />
-                                          ) : null}
-                                          {d.ngoaiMau ? <StatusBadge label="Ngoài mẫu" nhom="canChuY" /> : null}
-                                          {!d.cap && d.trongMau ? <StatusBadge label="Có trong mẫu" nhom="dong" /> : null}
-                                          {d.voHieu ? (
-                                            <span title={`Vai trò ${tenVaiTro(nhap.vaiTro)} không mở được màn dùng quyền này`}>
-                                              <StatusBadge label="Không có tác dụng" nhom="dong" />
-                                            </span>
-                                          ) : null}
-                                          {d.chuaApDung ? (
-                                            <span title="Hệ thống chưa kiểm quyền này. Bật hay tắt đều chưa chặn thao tác.">
-                                              <StatusBadge label="Chưa áp dụng" nhom="cho" />
-                                            </span>
-                                          ) : null}
-                                        </span>
-                                        {d.moTa ? <span className="block text-xs leading-4 text-bo-muted">{d.moTa}</span> : null}
-                                      </span>
-                                      {doi ? (
-                                        <span className="whitespace-nowrap text-xs font-medium leading-5 text-bo-primary">
-                                          {d.cap ? "vừa thêm" : "vừa bỏ"}
-                                        </span>
-                                      ) : null}
-                                    </label>
-                                  );
-                                })}
+                                {dong.map((d) => (
+                                  <DongQuyen
+                                    key={d.id}
+                                    d={d}
+                                    doi={d.cap !== quyenGoc.has(d.id)}
+                                    coMau={coMauSoSanh}
+                                    onDoi={() =>
+                                      datQuyen(d.cap ? nhap.quyenIds.filter((x) => x !== d.id) : [...nhap.quyenIds, d.id])
+                                    }
+                                  />
+                                ))}
                               </div>
                             ) : null}
                           </div>
                         );
                       })}
+
+                      {dongVoHieu.length ? (
+                        <div className="rounded-lg border border-bo-border bg-bo-surface-subtle">
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2.5">
+                            <div className="min-w-0 flex-1 basis-56 text-[13px] leading-[19px]">
+                              <div className="font-medium text-bo-foreground">
+                                {soVoHieuCap
+                                  ? `${soVoHieuCap} quyền đang cấp nhưng không dùng được với ${tenVaiTro(nhap.vaiTro)}`
+                                  : `${dongVoHieu.length} quyền khác không dùng được với ${tenVaiTro(nhap.vaiTro)}`}
+                              </div>
+                              <div className="text-xs leading-4 text-bo-muted">Vai trò này không mở màn hình dùng các quyền đó.</div>
+                            </div>
+                            {soVoHieuCap ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                aria-label={`Bỏ cả ${soVoHieuCap} quyền không dùng được`}
+                                onClick={() => {
+                                  datQuyen(nhap.quyenIds.filter((id) => !dongVoHieu.some((d) => d.id === id)));
+                                  // Nút này biến mất sau khi bấm: chuyển tiêu điểm sang nút Xem bên cạnh, không rơi về đầu trang
+                                  nutXemVoHieu.current?.focus();
+                                }}
+                                className={`h-8 ${NUT_VIEN}`}
+                              >
+                                Bỏ cả {soVoHieuCap}
+                              </Button>
+                            ) : null}
+                            <button
+                              ref={nutXemVoHieu}
+                              type="button"
+                              aria-expanded={moVoHieu}
+                              aria-controls="quyen-khong-dung-duoc"
+                              aria-label={`${moVoHieu ? "Ẩn" : "Xem"} ${dongVoHieu.length} quyền không dùng được`}
+                              onClick={() => setMoVoHieu((m) => !m)}
+                              className="inline-flex h-8 items-center gap-1 px-1 text-[13px] font-medium text-bo-primary"
+                            >
+                              {moVoHieu ? "Ẩn" : "Xem"}
+                              <ChevronDown className={cn("size-3.5 transition-transform", moVoHieu && "rotate-180")} aria-hidden="true" />
+                            </button>
+                          </div>
+                          {moVoHieu ? (
+                            <div id="quyen-khong-dung-duoc" className="rounded-b-lg border-t border-bo-border bg-white">
+                              {dongVoHieu.map((d) => (
+                                <DongQuyen
+                                  key={d.id}
+                                  d={d}
+                                  doi={d.cap !== quyenGoc.has(d.id)}
+                                  coMau={coMauSoSanh}
+                                  onDoi={() =>
+                                    datQuyen(d.cap ? nhap.quyenIds.filter((x) => x !== d.id) : [...nhap.quyenIds, d.id])
+                                  }
+                                />
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </Muc>
@@ -689,6 +773,7 @@ export default function NganKeoPhanQuyen({
               onClick={() => setMoKiemTra((m) => !m)}
               aria-expanded={moKiemTra}
               aria-controls="kiem-tra-phan-quyen"
+              aria-label={moKiemTra ? "Ẩn chi tiết kiểm tra" : "Xem chi tiết kiểm tra"}
               className="inline-flex items-center gap-1 py-1 text-[13px] font-medium text-bo-primary"
             >
               {moKiemTra ? "Ẩn" : "Xem"}
@@ -697,7 +782,7 @@ export default function NganKeoPhanQuyen({
           </div>
 
           <div className="flex shrink-0 items-center gap-2 border-t border-bo-border bg-white px-5 py-3">
-            {coThayDoi ? <span className="size-2 shrink-0 rounded-full bg-orange-600" aria-hidden="true" /> : null}
+            {coThayDoi ? <span className="size-2 shrink-0 rounded-full bg-bo-primary" aria-hidden="true" /> : null}
             <span className="flex-1 text-[13.5px] font-medium">
               {coThayDoi ? `${thayDoi.length} thay đổi chưa lưu` : "Chưa có thay đổi"}
             </span>
@@ -789,7 +874,7 @@ export default function NganKeoPhanQuyen({
           <AlertDialogHeader>
             <AlertDialogTitle>Bỏ {thayDoi.length} thay đổi chưa lưu?</AlertDialogTitle>
             <AlertDialogDescription>
-              Vai trò, kho và quyền của {nguoiDung.hoTen || nguoiDung.tenDangNhap} giữ như trước khi mở ngăn kéo.
+              Vai trò, nơi làm việc và quyền của {nguoiDung.hoTen || nguoiDung.tenDangNhap} giữ như trước khi mở ngăn kéo.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 sm:justify-end">

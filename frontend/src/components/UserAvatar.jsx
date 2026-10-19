@@ -21,12 +21,17 @@ const FALLBACK_STYLES = [
   "bg-violet-100 text-violet-700",
 ];
 
+// Nền xám cho trang chỉ có một người là chủ thể (vd. Chi tiết người dùng): đầu trang đã có thẻ trạng thái
+// và nút chính mang màu, thêm một màu nhận diện chỉ làm rối. Danh sách vẫn dùng màu theo người.
+const FALLBACK_TRUNG_TINH = "bg-slate-100 text-slate-600";
+
 // Shared user avatar: ảnh từ avatarUrl (DTO/DB) → fallback initials với màu
 // nền ổn định. Ảnh lỗi tải tự rơi về initials (Radix AvatarFallback).
-export default function UserAvatar({ userId, name, avatarUrl, size = "sm", className = "" }) {
+export default function UserAvatar({ userId, name, avatarUrl, size = "sm", className = "", trungTinh = false }) {
   const sizeClasses = SIZE_MAP[size] || SIZE_MAP.sm;
-  const fallbackStyle =
-    FALLBACK_STYLES[hashUserId(userId) % FALLBACK_STYLES.length] || FALLBACK_STYLES[0];
+  const fallbackStyle = trungTinh
+    ? FALLBACK_TRUNG_TINH
+    : FALLBACK_STYLES[hashUserId(userId) % FALLBACK_STYLES.length] || FALLBACK_STYLES[0];
 
   return (
     <Avatar className={cn(sizeClasses.root, className)}>
