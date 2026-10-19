@@ -118,25 +118,24 @@ function ChuGiai({ coChuaApDung, coMau }) {
   );
 }
 
-function Trong({ icon, tieuDe, noiDung, vien = "solid", mau = "xanh", children }) {
+/**
+ * Trạng thái trống của tab: cùng kiểu EmptyState dùng chung (tab Lịch sử), không khung,
+ * giãn hết vùng tab và đặt hơi cao hơn tâm (index.css › .nd-trong). `mau="cam"` khi cần xử lý.
+ */
+function Trong({ icon, tieuDe, noiDung, mau = "xanh", children }) {
   return (
-    <div
-      className={cn(
-        "flex flex-col items-center gap-2 rounded-lg px-6 py-12 text-center",
-        vien === "dashed" ? "border border-dashed border-slate-300" : "border border-bo-border",
-      )}
-    >
+    <div className="nd-trong flex min-h-48 flex-col items-center px-5 py-10 text-center">
       <span
         className={cn(
-          "flex size-11 items-center justify-center rounded-full",
+          "mb-3 flex size-11 items-center justify-center rounded-full",
           mau === "cam" ? "bg-bo-warning-soft text-amber-700" : "bg-bo-primary-soft text-bo-primary",
         )}
       >
         {createElement(icon, { className: "size-5", "aria-hidden": true })}
       </span>
-      <div className="mt-1 text-base font-semibold text-bo-foreground">{tieuDe}</div>
-      <div className="max-w-[480px] text-sm text-bo-muted">{noiDung}</div>
-      {children}
+      <h3 className="text-sm font-semibold text-bo-foreground">{tieuDe}</h3>
+      <p className="mt-1 max-w-md text-sm leading-6 text-bo-muted">{noiDung}</p>
+      {children ? <div className="mt-4">{children}</div> : null}
     </div>
   );
 }
@@ -169,13 +168,12 @@ export default function QuyenTruyCap({ vaiTro, pq, danhGia, coThePhanQuyen, onPh
     return (
       <Trong
         icon={Warehouse}
-        vien="dashed"
         mau="cam"
         tieuDe="Chưa phụ trách kho nào"
         noiDung={`${tenVaiTro(vaiTro)} cần một kho để làm việc. Chưa có kho thì mọi thao tác theo kho đều bị chặn.`}
       >
         {coThePhanQuyen ? (
-          <Button type="button" onClick={onPhanQuyen} className="mt-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
+          <Button type="button" onClick={onPhanQuyen} className="bg-bo-primary text-white hover:bg-bo-primary-hover">
             Phân kho &amp; quyền
           </Button>
         ) : null}

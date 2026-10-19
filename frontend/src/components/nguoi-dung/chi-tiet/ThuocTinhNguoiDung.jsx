@@ -64,7 +64,7 @@ export default function ThuocTinhNguoiDung({ nguoiDung, pq }) {
   return (
     <aside
       aria-label="Thông tin người dùng"
-      className="grid min-w-0 content-start gap-x-8 border-t border-bo-border bg-bo-surface-subtle px-4 pb-5 sm:px-6 @xl:grid-cols-2 xl:block xl:border-l xl:border-t-0"
+      className="nd-cot-phai grid min-w-0 content-start gap-x-8 border-t border-bo-border bg-bo-surface-subtle px-4 pb-5 sm:px-6 @xl:grid-cols-2 xl:block xl:border-l xl:border-t-0"
     >
       <section className="border-b border-slate-200/70 py-4">
         <NhanNhom>Liên hệ</NhanNhom>

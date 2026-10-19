@@ -451,3 +451,51 @@
 		overflow-y: auto;
 	}
 }
+
+/*
+ * Chi tiết người dùng (bản một khối, cùng kiểu Chi tiết khách hàng): màn rộng và đủ cao thì khối vừa khung nội dung —
+ * lịch sử phân quyền dài không làm trang dài ra: vùng nội dung của tab tự cuộn, phân trang luôn ở đáy khối,
+ * cột thông tin tự cuộn khi dài. Màn hẹp/thấp thì cả trang cuộn như thường.
+ */
+@media (min-width: 1280px) and (min-height: 640px) {
+	.nd-trang {
+		height: 100%;
+	}
+	.nd-khoi,
+	.nd-than,
+	.nd-cot-trai,
+	.nd-vung-tab {
+		min-height: 0;
+	}
+	.nd-than {
+		grid-template-rows: minmax(0, 1fr);
+	}
+	.nd-cuon {
+		min-height: 0;
+		overflow: auto;
+	}
+	.nd-cot-phai {
+		min-height: 0;
+		overflow-y: auto;
+	}
+}
+
+/*
+ * Trống / đang tải / lỗi trong vùng tab của Chi tiết người dùng: không khung, giãn hết phần trống còn lại
+ * và đặt hơi cao hơn tâm (khoảng 40% từ trên xuống) để trên màn cao không trông như bị chìm xuống.
+ * Hai tab dùng chung nên chuyển tab không làm biểu tượng nhảy chỗ.
+ */
+.nd-trong {
+	flex: 1 1 auto;
+	flex-direction: column;
+}
+.nd-trong::before,
+.nd-trong::after {
+	content: "";
+}
+.nd-trong::before {
+	flex: 2 1 0;
+}
+.nd-trong::after {
+	flex: 3 1 0;
+}

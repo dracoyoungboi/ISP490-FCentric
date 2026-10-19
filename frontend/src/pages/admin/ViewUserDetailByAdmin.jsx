@@ -298,8 +298,8 @@ function ChiTietNguoiDung({ id }) {
     const tomTat = thamChieu ? tomTatTruyCap({ vaiTro: nguoiDung.vaiTro, pq, danhGia, menu: SIDEBAR_MENU }) : null;
 
     return (
-        <PageContainer className="flex min-h-full flex-col">
-            <article className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+        <PageContainer className="nd-trang flex min-h-full flex-col">
+            <article className="nd-khoi flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
                 <DauTrangNguoiDung
                     nguoiDung={nguoiDung}
                     pq={pq}
@@ -331,8 +331,8 @@ function ChiTietNguoiDung({ id }) {
                     </div>
                 )}
 
-                <div className="@container grid flex-1 border-t border-bo-border xl:grid-cols-[minmax(0,1fr)_340px]">
-                    <section aria-label="Quyền và lịch sử" className="flex min-w-0 flex-col">
+                <div className="nd-than @container grid flex-1 border-t border-bo-border xl:grid-cols-[minmax(0,1fr)_340px]">
+                    <section aria-label="Quyền và lịch sử" className="nd-cot-trai flex min-w-0 flex-col">
                         <div className="border-b border-bo-border px-4 sm:px-6">
                             <div role="tablist" aria-label="Nội dung" className="-mb-px flex gap-6 overflow-x-auto [scrollbar-width:none]">
                                 {[
@@ -377,41 +377,48 @@ function ChiTietNguoiDung({ id }) {
                             id="vung-tab-nguoi-dung"
                             role="tabpanel"
                             aria-labelledby={`tab-nguoi-dung-${tab}`}
-                            className={cn("px-4 sm:px-6", tab === "quyen" ? "pb-6 pt-5" : "pb-6 pt-2")}
+                            className="nd-vung-tab flex min-w-0 flex-1 flex-col"
                         >
                             {tab === "lich-su" ? (
                                 <LichSuPhanQuyen
+                                    // Lần lưu mới: dựng lại để về trang đầu, thấy ngay dòng "Vừa lưu"
+                                    key={idVuaLuu ?? "lich-su"}
                                     lichSu={lichSu}
                                     dangTai={lichSuQ.loading}
                                     loi={lichSuQ.error}
                                     onThuLai={lichSuQ.reload}
                                     idVuaLuu={idVuaLuu}
                                 />
-                            ) : thamChieuQ.error && !thamChieu ? (
-                                <ErrorState
-                                    className="min-h-48"
-                                    title="Không tải được danh sách quyền"
-                                    description={getApiErrorMessage(thamChieuQ.error, "Kiểm tra kết nối rồi thử lại.")}
-                                    onRetry={thamChieuQ.reload}
-                                />
-                            ) : !thamChieu ? (
-                                <LoadingState className="min-h-48" label="Đang tải quyền truy cập" />
                             ) : (
-                                <>
-                                    {!thamChieu.cauHinh ? (
-                                        <p className="mb-3 flex items-start gap-2 rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-[13px] text-orange-900">
-                                            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                                            Không đọc được mẫu quyền theo vai trò, nên chưa so được với mẫu.
-                                        </p>
-                                    ) : null}
-                                    <QuyenTruyCap
-                                        vaiTro={nguoiDung.vaiTro}
-                                        pq={pq}
-                                        danhGia={danhGia}
-                                        coThePhanQuyen={!laChinhMinh}
-                                        onPhanQuyen={moPhanQuyen}
-                                    />
-                                </>
+                                // Màn rộng: vùng này tự cuộn (index.css › .nd-cuon), khối giữ vừa khung nội dung
+                                <div className="nd-cuon flex flex-1 flex-col px-4 pb-6 pt-5 sm:px-6">
+                                    {thamChieuQ.error && !thamChieu ? (
+                                        <ErrorState
+                                            className="nd-trong min-h-48"
+                                            title="Không tải được danh sách quyền"
+                                            description={getApiErrorMessage(thamChieuQ.error, "Kiểm tra kết nối rồi thử lại.")}
+                                            onRetry={thamChieuQ.reload}
+                                        />
+                                    ) : !thamChieu ? (
+                                        <LoadingState className="nd-trong min-h-48" label="Đang tải quyền truy cập" />
+                                    ) : (
+                                        <>
+                                            {!thamChieu.cauHinh ? (
+                                                <p className="mb-3 flex items-start gap-2 rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-[13px] text-orange-900">
+                                                    <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                                                    Không đọc được mẫu quyền theo vai trò, nên chưa so được với mẫu.
+                                                </p>
+                                            ) : null}
+                                            <QuyenTruyCap
+                                                vaiTro={nguoiDung.vaiTro}
+                                                pq={pq}
+                                                danhGia={danhGia}
+                                                coThePhanQuyen={!laChinhMinh}
+                                                onPhanQuyen={moPhanQuyen}
+                                            />
+                                        </>
+                                    )}
+                                </div>
                             )}
                         </div>
                     </section>
