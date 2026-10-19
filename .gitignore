@@ -16,3 +16,14 @@ scratch/
 
 # UI Prototypes
 prototype/
+
+# Test Suites & Simulation Files (Tuyệt đối không đẩy file test lên Git)
+frontend/src/tests/
+src/tests/
+**/tests/
+*.test.js
+*.test.jsx
+*.spec.js
+*.spec.jsx
+backend/src/test/
+*Test.java
