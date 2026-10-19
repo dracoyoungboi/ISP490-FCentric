@@ -1,10 +1,25 @@
 // Chỉ định nghĩa nhãn/đơn vị và mã, không có giá trị mặc định. Giá trị/kiểu lấy từ API.
-// min/max khớp validateBoundary của BE (DieuHanhHeThongServiceImpl); đổi một bên thì đổi cả bên kia.
+// min/max, pattern khớp validateBoundary của BE (DieuHanhHeThongServiceImpl); đổi một bên thì đổi cả bên kia.
+// `type`: kiểu dữ liệu mong đợi từ API (mặc định INT).
 export const INVENTORY_SETTINGS = [
   { code: "DEFAULT_MIN_STOCK_ALERT", label: "Ngưỡng cảnh báo tồn kho tối thiểu", unit: "Số lượng", description: "Ngưỡng cảnh báo mặc định khi sản phẩm chưa có thiết lập riêng.", group: "stock", min: 0, max: 100000 },
   { code: "OMNI_SYNC_INTERVAL_MINS", label: "Chu kỳ đồng bộ đơn hàng đa kênh", unit: "Phút", description: "Khoảng thời gian giữa các lần đồng bộ đơn hàng định kỳ.", group: "sync", min: 1, max: 1440 },
   { code: "REALTIME_SYNC_THRESHOLD", label: "Ngưỡng chuyển sang đồng bộ tức thời", unit: "Số lượng", description: "Ngưỡng số lượng dùng để kích hoạt đồng bộ theo thời gian thực.", group: "sync", min: 0, max: 100 },
+  {
+    code: "MA_KHACH_HANG_TIEN_TO",
+    label: "Tiền tố mã khách hàng",
+    unit: "Tiền tố",
+    description: "Thêm khách hàng mà để trống mã thì hệ thống tạo mã bằng tiền tố này và 6 chữ số.",
+    group: "customer",
+    type: "STRING",
+    maxLength: 10,
+    pattern: /^[A-Z0-9._-]{1,10}$/,
+    patternMessage: "Gồm 1–10 ký tự: chữ in hoa không dấu, số hoặc . _ -",
+  },
 ];
+
+/** Mã mẫu cho tiền tố đang nhập, VD "KH" → "KH000124". */
+export const maKhachHangMau = (tienTo) => `${tienTo || ""}000124`;
 
 export function createEmptyInventoryValues() {
   return Object.fromEntries(INVENTORY_SETTINGS.map((item) => [item.code, ""]));
@@ -12,8 +27,12 @@ export function createEmptyInventoryValues() {
 
 export function readCompleteInventorySettings(data) {
   const settings = selectInventorySettings(data);
-  if (settings.length !== INVENTORY_SETTINGS.length || settings.some((item) => item.kieuDuLieu !== "INT")) {
-    throw new Error("Không thể tải đủ cài đặt số nguyên.");
+  const sai = settings.some((item) => {
+    const field = INVENTORY_SETTINGS.find(({ code }) => code === item.maCauHinh);
+    return item.kieuDuLieu !== (field?.type ?? "INT");
+  });
+  if (settings.length !== INVENTORY_SETTINGS.length || sai) {
+    throw new Error("Không thể tải đủ cài đặt.");
   }
   return settings;
 }
@@ -64,6 +83,7 @@ export function validateInventoryField(code, value, type) {
   const typeError = validateInventorySetting(value, type);
   if (typeError) return typeError;
   const field = INVENTORY_SETTINGS.find((item) => item.code === code);
+  if (field?.pattern) return field.pattern.test(value) ? "" : field.patternMessage;
   if (field?.min === undefined || field?.max === undefined) return "";
   const number = Number(value);
   return number < field.min || number > field.max

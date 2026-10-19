@@ -93,8 +93,14 @@ public class KhachHangController {
             },
             rolesLogic = RequireAuth.LogicType.OR
     )
-    public ResponseEntity<ResponseData<String>> create(@RequestBody KhachHangCreating creating) {
-        return khachHangService.create(creating);
+    public ResponseEntity<ResponseData<KhachHangDto>> create(@RequestBody KhachHangCreating creating) {
+        // Trả về khách vừa tạo (có id, mã tự tạo) để màn hình mở được khách ngay.
+        KhachHangDto dto = khachHangService.create(creating);
+        return ResponseEntity.ok(ResponseData.<KhachHangDto>builder()
+                .status(HttpStatus.OK.value())
+                .message("Đã thêm khách hàng")
+                .data(dto)
+                .build());
     }
 
     @DeleteMapping("/soft-delete/{id}")

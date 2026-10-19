@@ -7,7 +7,7 @@
   padding: 14px 16px;
 }
 
-.inventory-settings-group--sync {
+.inventory-settings-group + .inventory-settings-group {
   border-top: 1px solid var(--color-bo-border);
 }
 
@@ -17,7 +17,7 @@
   }
 
   .inventory-settings-rail {
-    grid-row: span 2;
+    grid-row: span 3;
     display: flex;
     align-items: center;
     padding: 24px;
@@ -50,22 +50,24 @@
     pointer-events: none;
   }
 
+  /* Đường nối giữa các mốc: nhóm đầu từ mốc xuống đáy, nhóm giữa nối suốt, nhóm cuối từ đỉnh tới mốc. */
   .inventory-settings-group::after {
     content: "";
     position: absolute;
     left: -23px;
+    top: -1px;
+    bottom: -1px;
     width: 2px;
     background: var(--color-bo-sidebar-border);
     pointer-events: none;
   }
 
-  .inventory-settings-group--stock::after {
+  .inventory-settings-group:first-of-type::after {
     top: 40px;
-    bottom: -1px;
   }
 
-  .inventory-settings-group--sync::after {
-    top: -1px;
+  .inventory-settings-group:last-of-type::after {
+    bottom: auto;
     height: 41px;
   }
 }

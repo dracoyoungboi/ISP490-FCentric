@@ -58,7 +58,33 @@ export const capNhatTrangThaiKhachHang = async (id, trangThai) => {
   return response.data.data;
 };
 
+/** Sửa khách hàng: chỉ gửi các ô đã đổi (null / không gửi = giữ nguyên, "" = xóa ô). Trả về khách sau khi sửa. */
 export const updateKhachHang = async (id, values) => {
-  const response = await apiClient.put(`/api/v1/khach-hang/${id}`, values);  // ← Thêm /api/
+  const response = await apiClient.put(`/api/v1/khach-hang/${id}`, values);
   return response.data.data;
+};
+
+/** Thêm khách hàng; trả về khách vừa tạo (có id; mã để trống thì máy chủ tự tạo). */
+export const themKhachHang = async (values) => {
+  const response = await apiClient.post("/api/v1/khach-hang/create", values);
+  return response.data.data;
+};
+
+/**
+ * Khách khác đang dùng số điện thoại / email này (kiểm tra khi rời ô, trước khi lưu); không có thì null.
+ * `truong`: "soDienThoai" | "email"; `boQuaId`: khách đang sửa.
+ */
+export const timKhachTrungLienHe = async (truong, giaTri, { boQuaId, signal } = {}) => {
+  const response = await apiClient.post(
+    "/api/v1/khach-hang/filter",
+    {
+      filters: [{ fieldName: truong, operation: "EQUALS", value: giaTri, logicType: "AND" }],
+      sorts: [],
+      page: 0,
+      size: 2,
+    },
+    { signal },
+  );
+  const ds = response.data?.data?.content ?? [];
+  return ds.find((kh) => String(kh.id) !== String(boQuaId)) ?? null;
 };

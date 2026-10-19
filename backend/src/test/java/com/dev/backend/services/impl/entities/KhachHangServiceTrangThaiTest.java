@@ -9,6 +9,7 @@ import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.KhachHangMapperImpl;
 import com.dev.backend.repository.DonBanHangRepository;
 import com.dev.backend.repository.KhachHangRepository;
+import com.dev.backend.services.multitable.DieuHanhHeThongService;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,13 +38,14 @@ class KhachHangServiceTrangThaiTest {
     @Mock private KhachHangRepository repository;
     @Mock private EntityManager entityManager;
     @Mock private DonBanHangRepository donBanHangRepository;
+    @Mock private DieuHanhHeThongService dieuHanhHeThongService;
 
     private KhachHangService service;
     private KhachHang khach;
 
     @BeforeEach
     void setUp() {
-        service = new KhachHangService(repository, new KhachHangMapperImpl(), entityManager, donBanHangRepository);
+        service = new KhachHangService(repository, new KhachHangMapperImpl(), entityManager, donBanHangRepository, dieuHanhHeThongService);
         khach = KhachHang.builder()
                 .id(16).maKhachHang("KH016").tenKhachHang("Công ty TNHH Thời trang Minh Khôi")
                 .soDienThoai("0912345678").email("muahang@minhkhoi.example.vn")
@@ -54,7 +56,7 @@ class KhachHangServiceTrangThaiTest {
     @Test
     void ngungHoatDong_chiGuiTrangThai_giuNguyenCacTruongKhac() {
         when(repository.findById(16)).thenReturn(Optional.of(khach));
-        when(repository.save(any(KhachHang.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(repository.saveAndFlush(any(KhachHang.class))).thenAnswer(inv -> inv.getArgument(0));
 
         var dto = service.update(16, KhachHangUpdating.builder().trangThai(0).build());
 
@@ -69,7 +71,7 @@ class KhachHangServiceTrangThaiTest {
     void choPhepHoatDongLai() {
         khach.setTrangThai(0);
         when(repository.findById(16)).thenReturn(Optional.of(khach));
-        when(repository.save(any(KhachHang.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(repository.saveAndFlush(any(KhachHang.class))).thenAnswer(inv -> inv.getArgument(0));
 
         var dto = service.update(16, KhachHangUpdating.builder().trangThai(1).build());
 
@@ -84,7 +86,7 @@ class KhachHangServiceTrangThaiTest {
                 () -> service.update(16, KhachHangUpdating.builder().trangThai(2).build()));
 
         assertEquals("Trạng thái khách hàng không hợp lệ", ex.getMessage());
-        verify(repository, never()).save(any());
+        verify(repository, never()).saveAndFlush(any());
     }
 
     @Test

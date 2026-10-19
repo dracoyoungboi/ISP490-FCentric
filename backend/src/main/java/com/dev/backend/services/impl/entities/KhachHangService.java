@@ -4,7 +4,6 @@ package com.dev.backend.services.impl.entities;
 import com.dev.backend.dto.request.KhachHangCreating;
 import com.dev.backend.dto.request.KhachHangUpdating;
 import com.dev.backend.dto.request.PosQuickCustomerCreating;
-import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.KhachHangDetailDto;
 import com.dev.backend.dto.response.customize.LichSuMuaHangDto;
 import com.dev.backend.dto.response.entities.KhachHangDto;
@@ -15,12 +14,13 @@ import com.dev.backend.mapper.KhachHangMapper;
 import com.dev.backend.repository.DonBanHangRepository;
 import com.dev.backend.repository.KhachHangRepository;
 import com.dev.backend.services.impl.BaseServiceImpl;
+import com.dev.backend.services.impl.multitable.DieuHanhHeThongServiceImpl;
+import com.dev.backend.services.multitable.DieuHanhHeThongService;
 import jakarta.persistence.EntityManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -39,24 +40,37 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
     /** trang_thai của khách hàng: 1 = đang hoạt động, 0 = ngừng hoạt động. */
     private static final Set<Integer> TRANG_THAI_HOP_LE = Set.of(0, 1);
     private static final String LOAI_CHUNG_TU_BAO_GIA = "bao_gia";
-    // Cùng quy tắc với form khách hàng ở frontend
+    // Cùng quy tắc với form khách hàng ở frontend (components/khach-hang/quyTacKhachHang.js)
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
+    /** Mã nhập tay: chữ không dấu, số và . _ - (như mã nhà cung cấp). */
+    private static final Pattern MA_KHACH_HANG_PATTERN = Pattern.compile("^[A-Za-z0-9._-]+$");
+    /**
+     * Như nhà cung cấp: di động 10 số (03/05/07/08/09), máy bàn 11 số (02…), tổng đài 1800/1900.
+     * Khách doanh nghiệp hay dùng số bàn, nên không chỉ nhận di động.
+     */
+    private static final Pattern SO_DIEN_THOAI_PATTERN = Pattern.compile("^(0[35789][0-9]{8}|02[0-9]{9}|1[89]00[0-9]{4,6})$");
+    private static final int MA_KHACH_HANG_TOI_DA = 50;
+    private static final int DIA_CHI_TOI_DA = 500;
+    static final String CAN_LIEN_HE = "Cần số điện thoại hoặc email để liên hệ khách hàng";
 
     private final KhachHangRepository repository;
     private final KhachHangMapper mapper;
     private final EntityManager entityManager;
     private final DonBanHangRepository donBanHangRepository; // Thêm repo đơn hàng để lấy lịch sử
+    private final DieuHanhHeThongService dieuHanhHeThongService; // đọc tiền tố mã khách hàng
 
     @Autowired
     public KhachHangService(KhachHangRepository repository,
                             KhachHangMapper mapper,
                             EntityManager entityManager,
-                            DonBanHangRepository donBanHangRepository) {
+                            DonBanHangRepository donBanHangRepository,
+                            DieuHanhHeThongService dieuHanhHeThongService) {
         super(repository);
         this.repository = repository;
         this.mapper = mapper;
         this.entityManager = entityManager;
         this.donBanHangRepository = donBanHangRepository;
+        this.dieuHanhHeThongService = dieuHanhHeThongService;
     }
 
     @Override
@@ -98,41 +112,82 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
                 .build();
     }
 
+    /**
+     * Thêm khách hàng từ popup Thêm khách hàng. Khách mới luôn Hoạt động.
+     * - Mã để trống: hệ thống tạo tiền tố (Cấu hình hệ thống, MA_KHACH_HANG_TIEN_TO) + id 6 số, VD KH000124.
+     *   Lấy theo id chứ không lấy "số lớn nhất + 1": mã POS dạng KH + số điện thoại sẽ làm số nhảy vọt.
+     * - Mã nhập tay (giữ mã từ sổ cũ): chữ không dấu, số, . _ -; không được trùng (409).
+     * - Cần ít nhất số điện thoại hoặc email; số điện thoại / email không trùng khách khác (409).
+     * Trả về khách vừa tạo (có id) để màn hình mở được ngay.
+     */
     @Transactional
-    public ResponseEntity<ResponseData<String>> create(KhachHangCreating creating) {
+    public KhachHangDto create(KhachHangCreating creating) {
         String ma = boTrong(creating.getMaKhachHang());
         String ten = boTrong(creating.getTenKhachHang());
         String nguoiLienHe = boTrong(creating.getNguoiLienHe());
-        String sdt = boTrong(creating.getSoDienThoai());
+        String sdt = chuanHoaSoDienThoai(boTrong(creating.getSoDienThoai()));
         String email = boTrong(creating.getEmail());
+        String diaChi = boTrong(creating.getDiaChi());
 
-        if (ma == null) {
-            throw new CommonException("Mã khách hàng là bắt buộc");
-        }
-        if (ma.length() > 50) {
-            throw new CommonException("Mã khách hàng tối đa 50 ký tự");
+        if (ma != null) {
+            if (ma.length() > MA_KHACH_HANG_TOI_DA) {
+                throw new CommonException("Mã khách hàng tối đa 50 ký tự");
+            }
+            if (!MA_KHACH_HANG_PATTERN.matcher(ma).matches()) {
+                throw new CommonException("Mã khách hàng chỉ gồm chữ không dấu, số và . _ -");
+            }
         }
         kiemTraThongTinChung(ten, nguoiLienHe);
+        kiemTraDiaChi(diaChi);
         kiemTraLienHe(sdt, email);
+        if (sdt == null && email == null) {
+            throw new CommonException(CAN_LIEN_HE);
+        }
+        String loai = chuanHoaLoaiKhachHang(creating.getLoaiKhachHang());
 
-        if (repository.existsByMaKhachHang(ma)) {
-            throw new CommonException("Mã khách hàng " + ma + " đã tồn tại", HttpStatus.CONFLICT, null);
+        if (ma != null && repository.existsByMaKhachHang(ma)) {
+            throw new CommonException("Mã khách hàng " + ma + " đã được dùng", HttpStatus.CONFLICT, null);
         }
         kiemTraTrungLienHe(sdt, email, null);
 
-        KhachHang newKhachHang = KhachHang.builder()
-                .maKhachHang(ma)
+        KhachHang saved = repository.save(KhachHang.builder()
+                // Chưa có id thì chưa có mã tự tạo: ghi tạm một mã không thể trùng, có id rồi đổi ngay trong cùng giao dịch.
+                .maKhachHang(ma != null ? ma : "TAM-" + UUID.randomUUID())
                 .tenKhachHang(ten)
                 .nguoiLienHe(nguoiLienHe)
                 .soDienThoai(sdt)
                 .email(email)
-                .diaChi(boTrong(creating.getDiaChi()))
-                .loaiKhachHang(chuanHoaLoaiKhachHang(creating.getLoaiKhachHang()))
+                .diaChi(diaChi)
+                .loaiKhachHang(loai)
                 .trangThai(1)
-                .build();
+                .build());
+        if (ma == null) {
+            saved.setMaKhachHang(maTuDong(saved.getId()));
+            saved = repository.save(saved);
+        }
+        return mapper.toDto(saved);
+    }
 
-        create(newKhachHang);
-        return ResponseEntity.ok(ResponseData.<String>builder().status(200).data("Success").message("Success").build());
+    /** Mã tự tạo: tiền tố + id 6 số; trùng với mã ai đó đã nhập tay thì thêm hậu tố -1, -2… */
+    private String maTuDong(Integer id) {
+        String goc = tienToMaKhachHang() + String.format("%06d", id);
+        String ma = goc;
+        int hauTo = 1;
+        while (repository.existsByMaKhachHang(ma)) {
+            ma = goc + "-" + hauTo++;
+        }
+        return ma;
+    }
+
+    /** Tiền tố trong Cấu hình hệ thống; giá trị hỏng (sửa tay trong CSDL) thì dùng tiền tố mặc định. */
+    private String tienToMaKhachHang() {
+        String giaTri = dieuHanhHeThongService.getCauHinhString(
+                DieuHanhHeThongServiceImpl.CAU_HINH_MA_KHACH_HANG_TIEN_TO,
+                DieuHanhHeThongServiceImpl.MA_KHACH_HANG_TIEN_TO_MAC_DINH);
+        String tienTo = giaTri == null ? "" : giaTri.trim().toUpperCase(Locale.ROOT);
+        return DieuHanhHeThongServiceImpl.TIEN_TO_MA_PATTERN.matcher(tienTo).matches()
+                ? tienTo
+                : DieuHanhHeThongServiceImpl.MA_KHACH_HANG_TIEN_TO_MAC_DINH;
     }
 
     /**
@@ -190,15 +245,27 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         String ten = updating.getTenKhachHang() != null ? boTrong(updating.getTenKhachHang()) : entity.getTenKhachHang();
         String nguoiLienHe = updating.getNguoiLienHe() != null ? boTrong(updating.getNguoiLienHe()) : entity.getNguoiLienHe();
         String sdt = updating.getSoDienThoai() != null ? boTrong(updating.getSoDienThoai()) : entity.getSoDienThoai();
+        // Gửi lại đúng số đang lưu thì giữ nguyên; số mới thì bỏ khoảng trắng, dấu chấm, gạch và đổi +84 về 0.
+        if (!Objects.equals(sdt, entity.getSoDienThoai())) {
+            sdt = chuanHoaSoDienThoai(sdt);
+        }
         String email = updating.getEmail() != null ? boTrong(updating.getEmail()) : entity.getEmail();
         String diaChi = updating.getDiaChi() != null ? boTrong(updating.getDiaChi()) : entity.getDiaChi();
 
         kiemTraThongTinChung(ten, nguoiLienHe);
+        if (!Objects.equals(diaChi, entity.getDiaChi())) {
+            kiemTraDiaChi(diaChi);
+        }
         // SĐT / email chỉ kiểm tra khi thực sự đổi: dữ liệu cũ (định dạng cũ, trùng sẵn) không chặn
         // việc sửa các trường khác của khách hàng.
         String sdtMoi = Objects.equals(sdt, entity.getSoDienThoai()) ? null : sdt;
         String emailMoi = Objects.equals(email, entity.getEmail()) ? null : email;
         kiemTraLienHe(sdtMoi, emailMoi);
+        // Không cho xóa cả số điện thoại lẫn email; khách cũ vốn không có cả hai thì vẫn sửa được các ô khác.
+        boolean truocCoLienHe = boTrong(entity.getSoDienThoai()) != null || boTrong(entity.getEmail()) != null;
+        if (sdt == null && email == null && truocCoLienHe) {
+            throw new CommonException(CAN_LIEN_HE);
+        }
         kiemTraTrungLienHe(sdtMoi, emailMoi, id);
 
         if (updating.getLoaiKhachHang() != null) {
@@ -215,7 +282,8 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         entity.setSoDienThoai(sdt);
         entity.setEmail(email);
         entity.setDiaChi(diaChi);
-        entity = repository.save(entity);
+        // Ghi ngay để trả về đúng giờ cập nhật (cột ngay_cap_nhat do CSDL tự đặt khi sửa).
+        entity = repository.saveAndFlush(entity);
         return mapper.toDto(entity);
     }
 
@@ -255,10 +323,28 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         }
     }
 
-    // Định dạng SĐT do frontend kiểm tra (quy tắc di động 10 số); backend chỉ chặn vượt độ dài cột.
+    /** Bỏ khoảng trắng, dấu chấm, gạch, ngoặc; "+84…" đổi về "0…". Rỗng -> null. */
+    static String chuanHoaSoDienThoai(String value) {
+        if (value == null) {
+            return null;
+        }
+        String gon = value.replaceAll("[\\s.()\\-]", "");
+        if (gon.startsWith("+84")) {
+            gon = "0" + gon.substring(3);
+        }
+        return gon.isEmpty() ? null : gon;
+    }
+
+    private static void kiemTraDiaChi(String diaChi) {
+        if (diaChi != null && diaChi.length() > DIA_CHI_TOI_DA) {
+            throw new CommonException("Địa chỉ tối đa 500 ký tự");
+        }
+    }
+
+    /** Chỉ gọi với giá trị mới (tạo mới hoặc vừa đổi): dữ liệu cũ không bị chặn khi sửa ô khác. */
     private static void kiemTraLienHe(String sdt, String email) {
-        if (sdt != null && sdt.length() > 20) {
-            throw new CommonException("Số điện thoại tối đa 20 ký tự");
+        if (sdt != null && !SO_DIEN_THOAI_PATTERN.matcher(sdt).matches()) {
+            throw new CommonException("Số điện thoại không hợp lệ: di động 10 số, máy bàn 11 số (02…) hoặc tổng đài 1800/1900");
         }
         if (email != null && (email.length() > 100 || !EMAIL_PATTERN.matcher(email).matches())) {
             throw new CommonException("Email không hợp lệ");

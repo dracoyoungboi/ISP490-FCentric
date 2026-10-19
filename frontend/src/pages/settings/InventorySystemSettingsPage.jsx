@@ -1,5 +1,5 @@
 import { createElement, useCallback, useEffect, useRef, useState } from "react";
-import { AlertCircle, Boxes, Info, Loader2, LockKeyhole, Pencil, RefreshCcw, Save } from "lucide-react";
+import { AlertCircle, Boxes, IdCard, Info, Loader2, LockKeyhole, Pencil, RefreshCcw, Save } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import PageContainer from "@/components/backoffice/PageContainer";
 import PageHeader from "@/components/backoffice/PageHeader";
@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getInventorySettings, bulkUpdateInventorySettings } from "@/services/inventorySettingsService";
-import { INVENTORY_SETTINGS, createEmptyInventoryValues, readCompleteInventorySettings, selectInventorySettings, validateInventorySetting, validateInventoryField, getInventoryChanges } from "@/validations/inventorySettingsSchema";
+import { INVENTORY_SETTINGS, createEmptyInventoryValues, readCompleteInventorySettings, selectInventorySettings, validateInventorySetting, validateInventoryField, getInventoryChanges, maKhachHangMau } from "@/validations/inventorySettingsSchema";
 import "./InventorySystemSettingsPage.css";
 
 function valuesFromSettings(settings) {
@@ -28,6 +28,7 @@ function formatReadOnlyValue(value) {
 const SETTING_GROUPS = [
   { key: "stock", title: "Cảnh báo tồn kho", description: "Ngưỡng cảnh báo mặc định cho hàng trong kho.", Icon: Boxes },
   { key: "sync", title: "Đồng bộ đơn hàng", description: "Chu kỳ đồng bộ định kỳ và ngưỡng chuyển sang đồng bộ tức thời.", Icon: RefreshCcw },
+  { key: "customer", title: "Mã khách hàng", description: "Cách hệ thống đặt mã cho khách hàng mới khi để trống ô mã.", Icon: IdCard },
 ];
 
 export default function InventorySystemSettingsPage() {
@@ -145,11 +146,16 @@ export default function InventorySystemSettingsPage() {
     setEditing(false);
   };
 
-  const renderField = (field) => (
-    <div key={field.code} className={field.group === "stock"
+  // Ô một mình trong nhóm (tồn kho, mã khách hàng): nhãn bên trái, giá trị bên phải; nhóm đồng bộ: hai ô cạnh nhau.
+  const renderField = (field) => {
+    const ngang = field.group !== "sync";
+    const laChu = field.type === "STRING";
+    return (
+    <div key={field.code} className={ngang
       ? "grid min-w-0 items-start gap-3 rounded-lg border border-bo-border bg-bo-surface-subtle p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,18rem)] lg:gap-6"
       : "grid min-w-0 content-start gap-3 rounded-lg border border-bo-border bg-bo-surface-subtle p-4"}>
-      <div className={`flex min-w-0 items-center gap-1.5 ${field.group === "stock" ? "lg:min-h-11" : ""}`}>
+      <div className={`min-w-0 ${ngang ? "lg:min-h-11" : ""}`}>
+      <div className="flex min-w-0 items-center gap-1.5 lg:min-h-11">
         <Label htmlFor={field.code} className="text-sm font-semibold leading-5 text-bo-foreground">{field.label}</Label>
         {field.code === "DEFAULT_MIN_STOCK_ALERT" && <Tooltip open={stockTooltipOpen} onOpenChange={setStockTooltipOpen}>
           <TooltipTrigger asChild>
@@ -158,30 +164,44 @@ export default function InventorySystemSettingsPage() {
           <TooltipContent side="top" align="start" sideOffset={8} collisionPadding={16} className="max-w-[min(18rem,calc(100vw-2rem))] bg-bo-foreground py-2 leading-5 text-white shadow-md [&>svg]:bg-bo-foreground [&>svg]:fill-bo-foreground">Áp dụng khi sản phẩm chưa có ngưỡng riêng.</TooltipContent>
         </Tooltip>}
       </div>
+      {laChu && <p className="text-xs leading-5 text-bo-muted">{field.description}</p>}
+      </div>
       {/* Chế độ xem (quản lý kho, hoặc quản trị viên chưa bấm "Chỉnh sửa"): giá trị dạng chữ. */}
-      {!isEditing ? <output id={field.code} className={`flex h-11 min-w-0 items-center gap-3 ${field.group === "stock" ? "lg:justify-end" : ""}`}>
-        {status === "loading"
-          ? <Skeleton className="h-6 w-16 bg-slate-100" aria-hidden="true" />
-          : <span className="text-lg font-semibold tabular-nums text-bo-foreground">{formatReadOnlyValue(values[field.code])}</span>}
-        <span className="border-l border-bo-border pl-3 text-xs text-bo-muted">{field.unit}</span>
-      </output> : <div className="min-w-0 space-y-1.5">
+      {!isEditing ? <div className="min-w-0">
+        <output id={field.code} className={`flex h-11 min-w-0 items-center gap-3 ${ngang ? "lg:justify-end" : ""}`}>
+          {status === "loading"
+            ? <Skeleton className="h-6 w-16 bg-slate-100" aria-hidden="true" />
+            : <span className={`text-lg font-semibold tabular-nums text-bo-foreground ${laChu ? "font-mono" : ""}`}>{formatReadOnlyValue(values[field.code])}</span>}
+          <span className="border-l border-bo-border pl-3 text-xs text-bo-muted">{field.unit}</span>
+        </output>
+        {laChu && status === "loaded" && <p className="text-xs leading-5 text-bo-muted lg:text-right">Mã mới dạng <span className="font-mono font-semibold text-slate-700">{maKhachHangMau(values[field.code])}</span></p>}
+      </div> : <div className="min-w-0 space-y-1.5">
         <div className="relative">
-          <Input id={field.code} type="number" inputMode="numeric" step="1" min={field.min} max={field.max} value={values[field.code]} disabled={inputsDisabled}
-            autoFocus={field.code === INVENTORY_SETTINGS[0].code}
-            onFocus={() => setStockTooltipOpen(false)} placeholder={status === "loading" ? "Đang tải..." : "Chưa có giá trị"}
-            aria-invalid={Boolean(errors[field.code])} aria-describedby={errors[field.code] ? `${field.code}-error` : undefined}
-            className="h-11 border-bo-border bg-white pr-24 font-semibold tabular-nums text-bo-foreground md:text-base focus-visible:border-bo-primary focus-visible:ring-bo-primary/15 aria-invalid:border-bo-danger aria-invalid:ring-bo-danger/20 disabled:bg-bo-surface-subtle"
-            onChange={(event) => { setValues((current) => ({ ...current, [field.code]: event.target.value })); setSaveError(""); }} />
+          {laChu
+            ? <Input id={field.code} type="text" maxLength={field.maxLength} value={values[field.code]} disabled={inputsDisabled}
+              spellCheck={false} autoCapitalize="characters" autoComplete="off"
+              placeholder={status === "loading" ? "Đang tải..." : "VD: KH"}
+              aria-invalid={Boolean(errors[field.code])} aria-describedby={`${field.code}-error ${field.code}-mau`}
+              className="h-11 border-bo-border bg-white pr-24 font-mono font-semibold text-bo-foreground md:text-base focus-visible:border-bo-primary focus-visible:ring-bo-primary/15 aria-invalid:border-bo-danger aria-invalid:ring-bo-danger/20 disabled:bg-bo-surface-subtle"
+              onChange={(event) => { const giaTri = event.target.value.toUpperCase().replace(/\s/g, ""); setValues((current) => ({ ...current, [field.code]: giaTri })); setSaveError(""); }} />
+            : <Input id={field.code} type="number" inputMode="numeric" step="1" min={field.min} max={field.max} value={values[field.code]} disabled={inputsDisabled}
+              autoFocus={field.code === INVENTORY_SETTINGS[0].code}
+              onFocus={() => setStockTooltipOpen(false)} placeholder={status === "loading" ? "Đang tải..." : "Chưa có giá trị"}
+              aria-invalid={Boolean(errors[field.code])} aria-describedby={errors[field.code] ? `${field.code}-error` : undefined}
+              className="h-11 border-bo-border bg-white pr-24 font-semibold tabular-nums text-bo-foreground md:text-base focus-visible:border-bo-primary focus-visible:ring-bo-primary/15 aria-invalid:border-bo-danger aria-invalid:ring-bo-danger/20 disabled:bg-bo-surface-subtle"
+              onChange={(event) => { setValues((current) => ({ ...current, [field.code]: event.target.value })); setSaveError(""); }} />}
           <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 border-l border-bo-border pl-3 text-xs text-bo-muted">{field.unit}</span>
         </div>
         {errors[field.code] && <p id={`${field.code}-error`} role="alert" className="text-xs leading-5 text-bo-danger">{errors[field.code]}</p>}
+        {laChu && !errors[field.code] && <p id={`${field.code}-mau`} className="text-xs leading-5 text-bo-muted">Mã mới dạng <span className="font-mono font-semibold text-slate-700">{maKhachHangMau(values[field.code])}</span></p>}
       </div>}
     </div>
-  );
+    );
+  };
 
   return (
     <PageContainer className="max-w-none space-y-5">
-      <PageHeader  title="Cấu hình hệ thống kho" description="Thiết lập cảnh báo tồn kho và các thông số đồng bộ đơn hàng."
+      <PageHeader  title="Cấu hình hệ thống kho" description="Thiết lập cảnh báo tồn kho, đồng bộ đơn hàng và cách đặt mã khách hàng."
         actions={hasPermission ? (isEditing ? <>
           {dirty && <span role="status" className="text-sm text-bo-muted">Có thay đổi chưa lưu</span>}
           <Button type="button" variant="outline" disabled={saving} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle hover:text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/15" onClick={cancelEditing}>Hủy</Button>

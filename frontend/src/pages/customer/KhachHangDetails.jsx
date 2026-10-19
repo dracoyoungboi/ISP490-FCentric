@@ -1,11 +1,12 @@
 // src/pages/customer/KhachHangDetails.jsx — trang Chi tiết khách hàng (/customers/:id), bản "một khối" (chốt 18/10/2026)
-import { useCallback, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { CirclePause, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/thongBaoNhanh";
 
 import PageContainer from "@/components/backoffice/PageContainer";
+import KhachHangFormDialog from "@/components/khach-hang/KhachHangFormDialog";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
@@ -34,6 +35,7 @@ const TAB_HOP_LE = ["don-hang", "bao-gia"];
 export default function KhachHangDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const coTheSua = hasAnyRole(QUYEN_SUA_KHACH);
   const coTheBanHang = hasAnyRole(QUYEN_BAN_HANG);
@@ -45,6 +47,19 @@ export default function KhachHangDetails() {
   const phamVi = ghiChuPhamVi({ laQuanTriVien, laVaiTroKho, laBanHang });
 
   const [moTrangThai, setMoTrangThai] = useState(false);
+  // Popup Sửa khách hàng; `oMoDau`: ô đặt con trỏ khi mở (bấm "Chưa có email · Thêm" thì vào ô Email).
+  // Đường dẫn cũ /customers/:id/edit chuyển về đây kèm state để mở sẵn popup.
+  const [formSua, setFormSua] = useState(() => ({
+    open: Boolean(location.state?.moSuaKhach) && coTheSua,
+    oMoDau: undefined,
+  }));
+  const moSua = (oMoDau) => setFormSua({ open: true, oMoDau });
+
+  // Đã mở sẵn popup từ đường dẫn cũ: xóa state để F5 / quay lại không tự mở lại.
+  useEffect(() => {
+    if (!location.state?.moSuaKhach) return;
+    navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: null });
+  }, [location, navigate]);
 
   // ── Khách hàng ──────────────────────────────────────────────────────────
   const taiKhach = useCallback(() => getKhachHangById(id), [id]);
@@ -109,8 +124,15 @@ export default function KhachHangDetails() {
   }
 
   const dangHoatDong = laHoatDong(khachHang);
-  const chinhSua = coTheSua ? () => navigate(`/customers/${id}/edit`) : undefined;
+  const chinhSua = coTheSua ? moSua : undefined;
   const taoBaoGia = () => navigate(`/sales-quotations/create?khachHangId=${id}`);
+
+  // Lưu xong cập nhật tại chỗ (không tải lại trang, không thêm bước vào lịch sử trình duyệt).
+  const handleDaSua = (moi) => {
+    if (moi) khachQ.setData((cu) => ({ ...cu, ...moi }));
+    else khachQ.reload();
+    toast.success("Đã lưu thông tin khách hàng");
+  };
 
   const handleTrangThaiDoi = (moi) => {
     khachQ.setData((cu) => ({ ...cu, ...moi }));
@@ -125,7 +147,7 @@ export default function KhachHangDetails() {
           coTheSua={coTheSua}
           coTheTaoBaoGia={coTheBanHang}
           onQuayLai={quayLai}
-          onChinhSua={() => navigate(`/customers/${id}/edit`)}
+          onChinhSua={() => moSua()}
           onDoiTrangThai={() => setMoTrangThai(true)}
           onTaoBaoGia={taoBaoGia}
         />
@@ -180,6 +202,16 @@ export default function KhachHangDetails() {
           <ThuocTinhKhachHang khachHang={khachHang} kenhMua={tongQuan?.kenhMua} onChinhSua={chinhSua} />
         </div>
       </article>
+
+      {coTheSua ? (
+        <KhachHangFormDialog
+          open={formSua.open}
+          onOpenChange={(open) => setFormSua((cu) => ({ ...cu, open }))}
+          khachHang={khachHang}
+          oMoDau={formSua.oMoDau}
+          onSaved={handleDaSua}
+        />
+      ) : null}
 
       {coTheSua ? (
         <TrangThaiKhachHangDialog

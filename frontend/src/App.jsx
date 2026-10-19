@@ -35,7 +35,6 @@ import KhachHangPage from "./pages/customer/KhachHangPage";
 import DanhMucQuanAoTree from "./pages/danh-muc-quan-ao/DanhMucQuanAoTree.jsx";
 import PhieuChuyenKhoList from "./pages/chuyenKhoNoiBo/PhieuChuyenKhoList";
 import KhachHangDetails from "./pages/customer/KhachHangDetails";
-import KhachHangEdit from "./pages/customer/KhachHangEdit";
 import ProductAttributeHub from "@/pages/attribute/ProductAttributeHub";
 import DonBanHangList from "./pages/sales-orders/DonBanHangList";
 import DonBanHangDetail from "./pages/sales-orders/DonBanHangDetail";
@@ -94,6 +93,12 @@ import ChannelSettingsPage from "./pages/channels/ChannelSettingsPage";
 function SupplierViewRedirect() {
   const { id } = useParams();
   return <Navigate to={`/supplier/${id}`} replace />;
+}
+
+/** Sửa khách hàng nay là popup trên trang chi tiết: đường dẫn cũ /customers/:id/edit mở trang chi tiết kèm popup. */
+function SuaKhachHangRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/customers/${id}`} replace state={{ moSuaKhach: true }} />;
 }
 
 export default function App() {
@@ -181,7 +186,7 @@ export default function App() {
           {/* Customer */}
           <Route path="/customers" element={<KhachHangPage />} />
           <Route path="/customers/:id" element={<KhachHangDetails />} />
-          <Route path="/customers/:id/edit" element={<KhachHangEdit />} />
+          <Route path="/customers/:id/edit" element={<SuaKhachHangRedirect />} />
 
           {/* Receipt*/}
           <Route path="/goods-receipts/create" element={<PhieuNhapKhoCreate />} />
@@ -321,4 +326,4 @@ export default function App() {
       </Routes>
     </BrowserRouter>
   );
-}
+}

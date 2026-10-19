@@ -2,42 +2,13 @@ import { getApiErrorMessage } from "@/utils/apiError";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter
-} from "@/components/ui/dialog";
 import apiClient from "@/services/apiClient";
-import {
-    Plus,
-    Eye,
-    Trash2,
-    User,
-    Mail,
-    Phone,
-    MapPin,
-    AlertCircle,
-    CheckCircle2,
-    Loader2,
-    ChevronDown,
-    Check,
-    Users,
-    UserPlus,
-    SearchX
-} from "lucide-react";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { CircleCheck, CirclePause, Eye, Pencil, Plus, User, Mail, Phone, Users, SearchX } from "lucide-react";
 
 import PageContainer from "@/components/backoffice/PageContainer";
-import ConfirmModal from "@/components/ui/confirm-modal";
+import KhachHangFormDialog from "@/components/khach-hang/KhachHangFormDialog";
+import TrangThaiKhachHangDialog from "@/components/khach-hang/chi-tiet/TrangThaiKhachHangDialog";
+import { laHoatDong } from "@/components/khach-hang/chi-tiet/tinhKhachHang";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import FilterSelect from "@/components/shared/FilterSelect";
@@ -54,12 +25,13 @@ import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
-import {
-    PHONE_ERROR_MESSAGE,
-    getPhoneError,
-    isPhoneValid,
-    sanitizePhoneInput
-} from "@/utils/phoneValidation";
+import { toast } from "@/lib/thongBaoNhanh";
+import { ROLES, hasAnyRole } from "@/utils/roles";
+
+// Khớp quyền ở backend (KhachHangController): thêm, sửa, đổi trạng thái khách hàng.
+const QUYEN_SUA_KHACH = [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_BAN_HANG];
+// Dòng khách vừa thêm được tô nền vài giây rồi trở lại bình thường.
+const TO_DONG_MOI_MS = 4000;
 
 // Gõ ô tìm kiếm: chờ người dùng ngừng gõ một chút rồi mới gọi API
 const SEARCH_DEBOUNCE_MS = 300;
@@ -82,7 +54,7 @@ const LOAI_TABS = [
 ];
 const LOAI_TAB_VALUES = LOAI_TABS.map((tab) => tab.value);
 
-// Trạng thái vẫn là ô chọn (SRS 1.5.1); một tên "Ngừng hoạt động" cho cả bộ lọc, bảng và hộp thoại xóa
+// Trạng thái vẫn là ô chọn (SRS 1.5.1); một tên "Ngừng hoạt động" cho cả bộ lọc, bảng và hộp thoại đổi trạng thái
 const TRANG_THAI_FILTER_OPTIONS = [
     { value: "all", label: "Tất cả trạng thái" },
     { value: "1", label: "Hoạt động" },
@@ -135,25 +107,6 @@ const khachHangService = {
         return response.data.data;
     },
 
-    getById: async (id) => {
-        const response = await apiClient.get(`/api/v1/khach-hang/get-by-id/${id}`);
-        return response.data.data;
-    },
-
-    create: async (data) => {
-        const response = await apiClient.post("/api/v1/khach-hang/create", data);
-        return response.data;
-    },
-
-    update: async (id, data) => {
-        const response = await apiClient.put(`/api/v1/khach-hang/${id}`, data);
-        return response.data;
-    },
-
-    softDelete: async (id) => {
-        const response = await apiClient.delete(`/api/v1/khach-hang/soft-delete/${id}`);
-        return response.data;
-    }
 };
 
 // Component chính
@@ -164,6 +117,7 @@ export default function KhachHangPage() {
     const [pageSize, setPageSize] = useState(SO_DONG_MAC_DINH);
     const [totalItems, setTotalItems] = useState(0);
     const navigate = useNavigate();
+    const coTheSua = hasAnyRole(QUYEN_SUA_KHACH);
     // Filter states
     const [searchQuery, setSearchQuery] = useState("");
     // Từ khóa thực sự gửi lên server (trễ SEARCH_DEBOUNCE_MS sau lần gõ cuối, hoặc ngay khi Enter)
@@ -175,35 +129,12 @@ export default function KhachHangPage() {
     // Đánh số mỗi lần tải danh sách: phản hồi về muộn của lần tải cũ bị bỏ qua
     const requestSeq = useRef(0);
 
-    // Dialog states
-    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-    const [showCreateDialog, setShowCreateDialog] = useState(false);
-    const [selectedKhachHang, setSelectedKhachHang] = useState(null);
-
-    // Form state for create
-    const [formData, setFormData] = useState({
-        maKhachHang: "",
-        tenKhachHang: "",
-        nguoiLienHe: "",
-        soDienThoai: "",
-        email: "",
-        diaChi: "",
-        loaiKhachHang: "le"
-    });
-
-    const [formErrors, setFormErrors] = useState({});
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    // Lỗi từ server khi bấm "Thêm khách hàng" (trùng mã/SĐT/email...) — hiện ngay trong dialog
-    const [submitError, setSubmitError] = useState("");
-
-    // Alert state
-    const [alert, setAlert] = useState({ show: false, message: "", type: "success" });
-
-    // Alert helper
-    const showAlert = useCallback((message, type = "success") => {
-        setAlert({ show: true, message, type });
-        setTimeout(() => setAlert({ show: false, message: "", type: "success" }), 3000);
-    }, []);
+    // Popup Thêm / Sửa khách hàng: giữ khách đang sửa sau khi đóng để nội dung không đổi giữa chừng
+    // khi hiệu ứng đóng còn chạy. Đường dẫn cũ /customers/:id/edit đã chuyển sang trang chi tiết.
+    const [formDialog, setFormDialog] = useState({ open: false, khachHang: null });
+    const moForm = (khachHang = null) => setFormDialog({ open: true, khachHang });
+    const [trangThaiDialog, setTrangThaiDialog] = useState({ open: false, khachHang: null });
+    const [highlightId, setHighlightId] = useState(null);
 
     // Load data
     // silent: tải lại ngầm khi quay lại tab — giữ bảng đang xem, lỗi chỉ ghi log
@@ -244,15 +175,15 @@ export default function KhachHangPage() {
                 console.error(error);
                 return;
             }
-            // Không giữ dòng + tổng số của lần tải trước (R9)
+            // Không giữ dòng + tổng số của lần tải trước (R9); bảng hiện thẻ lỗi kèm nút Thử lại
+            console.error(getApiErrorMessage(error, "Không tải được danh sách khách hàng"));
             setLoadError(true);
             setKhachHangs([]);
             setTotalItems(0);
-            showAlert(getApiErrorMessage(error, "Không tải được danh sách khách hàng"), "error");
         } finally {
             if (seq === requestSeq.current) setLoading(false);
         }
-    }, [currentPage, pageSize, debouncedSearch, loaiKhachHang, trangThai, showAlert]);
+    }, [currentPage, pageSize, debouncedSearch, loaiKhachHang, trangThai]);
 
     // Hoãn qua microtask để tránh setState đồng bộ trong effect
     // (react-hooks/set-state-in-effect); dữ liệu vẫn được tải ngay khi mount.
@@ -337,91 +268,48 @@ export default function KhachHangPage() {
         navigate(`/customers/${khachHang.id}`);
     };
 
-    const handleDeleteClick = (khachHang) => {
-        setSelectedKhachHang(khachHang);
-        setShowDeleteDialog(true);
-    };
+    // Bỏ tô nền dòng vừa thêm sau vài giây.
+    useEffect(() => {
+        if (highlightId == null) return undefined;
+        const timer = setTimeout(() => setHighlightId(null), TO_DONG_MOI_MS);
+        return () => clearTimeout(timer);
+    }, [highlightId]);
 
-    const handleDeleteConfirm = async () => {
-        try {
-            await khachHangService.softDelete(selectedKhachHang.id);
-            showAlert("Xóa khách hàng thành công");
-            setShowDeleteDialog(false);
-            loadKhachHangs();
+    const handleSaved = (saved, { laSua }) => {
+        if (laSua) {
+            setKhachHangs((prev) => prev.map((item) => (item.id === saved?.id ? { ...item, ...saved } : item)));
+            toast.success(`Đã lưu thông tin khách hàng "${saved?.tenKhachHang ?? ""}"`);
             tabCounts.reload();
-        } catch (error) {
-            showAlert(getApiErrorMessage(error, "Không xóa được khách hàng"), "error");
-        }
-    };
-
-    // Create dialog handlers
-    const handleOpenCreateDialog = () => {
-        setFormData({
-            maKhachHang: "",
-            tenKhachHang: "",
-            nguoiLienHe: "",
-            soDienThoai: "",
-            email: "",
-            diaChi: "",
-            loaiKhachHang: "le"
-        });
-        setFormErrors({});
-        setSubmitError("");
-        setShowCreateDialog(true);
-    };
-
-    const handleFormChange = (field, value) => {
-        setFormData(prev => ({ ...prev, [field]: value }));
-        setSubmitError("");
-        // Clear error for this field when user starts typing
-        if (formErrors[field]) {
-            setFormErrors(prev => ({ ...prev, [field]: "" }));
-        }
-    };
-
-    const validateForm = () => {
-        const errors = {};
-
-        if (!formData.maKhachHang.trim()) {
-            errors.maKhachHang = "Mã khách hàng là bắt buộc";
-        }
-
-        if (!formData.tenKhachHang.trim()) {
-            errors.tenKhachHang = "Tên khách hàng là bắt buộc";
-        }
-
-        if (!isPhoneValid(formData.soDienThoai)) {
-            errors.soDienThoai = PHONE_ERROR_MESSAGE;
-        }
-
-        if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
-            errors.email = "Email không hợp lệ";
-        }
-
-        setFormErrors(errors);
-        return Object.keys(errors).length === 0;
-    };
-
-    const handleCreateSubmit = async () => {
-        if (!validateForm()) {
-            showAlert("Vui lòng kiểm tra lại thông tin", "error");
             return;
         }
-
-        setIsSubmitting(true);
-        try {
-            await khachHangService.create(formData);
-            showAlert("Thêm khách hàng thành công");
-            setShowCreateDialog(false);
+        tabCounts.reload();
+        if (!saved?.id) {
+            // Máy chủ cũ chưa trả khách vừa tạo: tải lại danh sách.
+            toast.success("Đã thêm khách hàng");
+            setCurrentPage(0);
             loadKhachHangs();
-            tabCounts.reload();
-        } catch (error) {
-            // Hiện trong dialog (thông báo ngoài trang bị lớp phủ dialog che); ưu tiên message của backend,
-            // vd. "Số điện thoại đã thuộc khách hàng ..." thay vì "Request failed with status code 409"
-            setSubmitError(error.response?.data?.message || "Không thể thêm khách hàng. Vui lòng thử lại.");
-        } finally {
-            setIsSubmitting(false);
+            return;
         }
+        // Danh sách xếp mới nhất lên đầu: thêm vào đầu, về trang 1 và tô nền dòng mới.
+        setKhachHangs((prev) => [saved, ...prev.filter((item) => item.id !== saved.id)].slice(0, pageSize));
+        setTotalItems((n) => n + 1);
+        setLoadError(false);
+        setHighlightId(saved.id);
+        setCurrentPage(0);
+        const tabLoai = LOAI_TABS.find((tab) => tab.value === saved.loaiKhachHang);
+        const khacTab = loaiKhachHang !== LOAI_TAB_MAC_DINH && saved.loaiKhachHang !== loaiKhachHang;
+        toast.success(`Đã thêm khách hàng ${saved.maKhachHang}`, {
+            description: khacTab && tabLoai ? `Khách mới nằm ở tab ${tabLoai.label}.` : undefined,
+            action: { label: "Xem", onClick: () => navigate(`/customers/${saved.id}`) },
+        });
+    };
+
+    const handleTrangThaiDoi = (moi) => {
+        setKhachHangs((prev) => prev.map((item) => (item.id === moi.id ? { ...item, ...moi } : item)));
+        toast.success(laHoatDong(moi) ? "Đã cho phép khách hàng hoạt động lại" : "Đã ngừng hoạt động khách hàng");
+        tabCounts.reload();
+        // Đang lọc theo trạng thái thì dòng vừa đổi không còn thuộc bộ lọc: tải lại ngầm.
+        if (trangThai !== "all") loadKhachHangs({ silent: true });
     };
 
     // Render helpers
@@ -439,9 +327,6 @@ export default function KhachHangPage() {
             setCurrentPage(newPage);
         }
     };
-
-    // Hiện lỗi SĐT ngay khi đã gõ đủ 10 số mà sai định dạng, hoặc lỗi từ lần bấm "Thêm"
-    const phoneError = formErrors.soDienThoai || getPhoneError(formData.soDienThoai);
 
     const handlePageSizeChange = (newSize) => {
         setPageSize(newSize);
@@ -463,40 +348,17 @@ export default function KhachHangPage() {
             {/* ── Hàng tiêu đề: tên trang + nút chính ── */}
             <ListPageHeader
                 actions={
-                    <Button
-                        onClick={handleOpenCreateDialog}
-                        className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
-                    >
-                        <Plus className="size-4" />
-                        Thêm khách hàng
-                    </Button>
+                    coTheSua ? (
+                        <Button
+                            onClick={() => moForm()}
+                            className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
+                        >
+                            <Plus className="size-4" />
+                            Thêm khách hàng
+                        </Button>
+                    ) : null
                 }
             />
-
-            {/* ── Alert ── */}
-            {alert.show && (
-                <div
-                    role="status"
-                    className={`flex items-start gap-3 rounded-lg border p-3 ${alert.type === "error"
-                        ? "border-bo-danger/20 bg-bo-danger-soft"
-                        : "border-bo-success/20 bg-bo-success-soft"}`}
-                >
-                    <span
-                        className={`flex size-8 shrink-0 items-center justify-center rounded-md text-white ${alert.type === "error" ? "bg-bo-danger" : "bg-bo-success"}`}
-                    >
-                        {alert.type === "error" ? (
-                            <AlertCircle className="size-4" />
-                        ) : (
-                            <CheckCircle2 className="size-4" />
-                        )}
-                    </span>
-                    <p
-                        className={`pt-1 text-sm font-medium ${alert.type === "error" ? "text-bo-danger" : "text-bo-success"}`}
-                    >
-                        {alert.message}
-                    </p>
-                </div>
-            )}
 
             {/* ── Table ── */}
             <TableShell
@@ -588,6 +450,17 @@ export default function KhachHangPage() {
                             icon={Users}
                             title="Chưa có khách hàng"
                             description="Thêm khách hàng để lập đơn bán hàng và theo dõi lịch sử mua."
+                            action={
+                                coTheSua ? (
+                                    <Button
+                                        onClick={() => moForm()}
+                                        className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
+                                    >
+                                        <Plus className="size-4" />
+                                        Thêm khách hàng
+                                    </Button>
+                                ) : null
+                            }
                         />
                     )
                 ) : (
@@ -622,7 +495,7 @@ export default function KhachHangPage() {
                                 <tr
                                     key={khachHang.id}
                                     onClick={() => handleRowClick(khachHang)}
-                                    className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
+                                    className={`cursor-pointer transition-colors hover:bg-bo-surface-subtle ${khachHang.id === highlightId ? "bg-bo-primary-soft" : ""}`}
                                 >
                                     <td className="px-3 py-3 text-center text-xs text-bo-muted">
                                         {currentPage * pageSize + index + 1}
@@ -665,12 +538,20 @@ export default function KhachHangPage() {
                                                 label="Xem chi tiết"
                                                 onClick={() => navigate(`/customers/${khachHang.id}`)}
                                             />
-                                            <RowActionButton
-                                                icon={Trash2}
-                                                label="Xóa"
-                                                tone="danger"
-                                                onClick={() => handleDeleteClick(khachHang)}
-                                            />
+                                            {coTheSua ? (
+                                                <>
+                                                    <RowActionButton
+                                                        icon={Pencil}
+                                                        label="Chỉnh sửa"
+                                                        onClick={() => moForm(khachHang)}
+                                                    />
+                                                    <RowActionButton
+                                                        icon={laHoatDong(khachHang) ? CirclePause : CircleCheck}
+                                                        label={laHoatDong(khachHang) ? "Ngừng hoạt động" : "Cho phép hoạt động"}
+                                                        onClick={() => setTrangThaiDialog({ open: true, khachHang })}
+                                                    />
+                                                </>
+                                            ) : null}
                                         </RowActions>
                                     </td>
                                 </tr>
@@ -680,292 +561,23 @@ export default function KhachHangPage() {
                 )}
             </TableShell>
 
-            {/* ── Create Dialog ── */}
-            <Dialog
-                open={showCreateDialog}
-                onOpenChange={(open) => { if (!open) setShowCreateDialog(false); }}
-            >
-                <DialogContent className="max-h-[90vh] w-[95vw] overflow-hidden rounded-lg border border-bo-border bg-white p-0 text-bo-foreground shadow-lg sm:max-w-2xl">
-                    <div className="border-b border-bo-border px-5 py-4">
-                        <DialogHeader>
-                            <DialogTitle className="flex items-center gap-2 text-base font-semibold text-bo-foreground">
-                                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-bo-primary-soft">
-                                    <UserPlus className="size-4 text-bo-primary" />
-                                </span>
-                                Thêm khách hàng mới
-                            </DialogTitle>
-                        </DialogHeader>
-                        <p className="mt-1 text-sm text-bo-muted">
-                            Điền thông tin để tạo khách hàng mới
-                        </p>
-                    </div>
-
-                    <div className="max-h-[65vh] overflow-y-auto px-5 py-4">
-                        <div className="space-y-5">
-                            {/* Thông tin cơ bản */}
-                            <div className="space-y-3">
-                                <p className="text-xs font-bold uppercase tracking-wide text-bo-primary">
-                                    Thông tin cơ bản
-                                </p>
-
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                    {/* Mã khách hàng */}
-                                    <div className="space-y-1.5">
-                                        <Label
-                                            htmlFor="maKhachHang"
-                                            className="text-xs font-semibold uppercase tracking-wide text-bo-muted"
-                                        >
-                                            Mã khách hàng *
-                                        </Label>
-                                        <Input
-                                            id="maKhachHang"
-                                            placeholder="VD: KH001"
-                                            value={formData.maKhachHang}
-                                            onChange={(e) => handleFormChange("maKhachHang", e.target.value)}
-                                            aria-invalid={Boolean(formErrors.maKhachHang)}
-                                            className={`h-10 bg-white text-bo-foreground placeholder:text-bo-muted focus-visible:ring-bo-primary/15 ${formErrors.maKhachHang
-                                                ? "border-bo-danger focus-visible:border-bo-danger"
-                                                : "border-bo-border focus-visible:border-bo-primary"}`}
-                                        />
-                                        {formErrors.maKhachHang && (
-                                            <p className="flex items-center gap-1 text-xs text-bo-danger">
-                                                <AlertCircle className="size-3" />{formErrors.maKhachHang}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    {/* Tên khách hàng */}
-                                    <div className="space-y-1.5">
-                                        <Label
-                                            htmlFor="tenKhachHang"
-                                            className="text-xs font-semibold uppercase tracking-wide text-bo-muted"
-                                        >
-                                            Tên khách hàng *
-                                        </Label>
-                                        <Input
-                                            id="tenKhachHang"
-                                            placeholder="VD: Nguyễn Văn A"
-                                            value={formData.tenKhachHang}
-                                            onChange={(e) => handleFormChange("tenKhachHang", e.target.value)}
-                                            aria-invalid={Boolean(formErrors.tenKhachHang)}
-                                            className={`h-10 bg-white text-bo-foreground placeholder:text-bo-muted focus-visible:ring-bo-primary/15 ${formErrors.tenKhachHang
-                                                ? "border-bo-danger focus-visible:border-bo-danger"
-                                                : "border-bo-border focus-visible:border-bo-primary"}`}
-                                        />
-                                        {formErrors.tenKhachHang && (
-                                            <p className="flex items-center gap-1 text-xs text-bo-danger">
-                                                <AlertCircle className="size-3" />{formErrors.tenKhachHang}
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                    {/* Người liên hệ */}
-                                    <div className="space-y-1.5">
-                                        <Label
-                                            htmlFor="nguoiLienHe"
-                                            className="text-xs font-semibold uppercase tracking-wide text-bo-muted"
-                                        >
-                                            Người liên hệ
-                                        </Label>
-                                        <Input
-                                            id="nguoiLienHe"
-                                            placeholder="VD: Trần Thị B"
-                                            value={formData.nguoiLienHe}
-                                            onChange={(e) => handleFormChange("nguoiLienHe", e.target.value)}
-                                            className="h-10 border-bo-border bg-white text-bo-foreground placeholder:text-bo-muted focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
-                                        />
-                                    </div>
-
-                                    {/* Loại khách hàng */}
-                                    <div className="space-y-1.5">
-                                        <Label className="text-xs font-semibold uppercase tracking-wide text-bo-muted">
-                                            Loại khách hàng
-                                        </Label>
-                                        <DropdownMenu modal={false}>
-                                            <DropdownMenuTrigger asChild>
-                                                <button
-                                                    type="button"
-                                                    className="flex h-10 w-full items-center justify-between rounded-md border border-bo-border bg-white px-3 text-left text-sm text-bo-foreground transition-colors hover:bg-bo-surface-subtle"
-                                                >
-                                                    <span>
-                                                        {formData.loaiKhachHang === "le" && "Khách lẻ"}
-                                                        {formData.loaiKhachHang === "si" && "Khách sỉ"}
-                                                        {formData.loaiKhachHang === "doanh_nghiep" && "Doanh nghiệp"}
-                                                    </span>
-                                                    <ChevronDown className="size-4 shrink-0 text-bo-muted" />
-                                                </button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent
-                                                align="start"
-                                                className="z-50 w-[--radix-dropdown-menu-trigger-width] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
-                                            >
-                                                {[
-                                                    { value: "le", label: "Khách lẻ" },
-                                                    { value: "si", label: "Khách sỉ" },
-                                                    { value: "doanh_nghiep", label: "Doanh nghiệp" },
-                                                ].map(opt => (
-                                                    <DropdownMenuItem
-                                                        key={opt.value}
-                                                        onClick={() => handleFormChange("loaiKhachHang", opt.value)}
-                                                        className="flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900"
-                                                    >
-                                                        {opt.label}
-                                                        {formData.loaiKhachHang === opt.value && (
-                                                            <Check className="size-4 text-bo-primary" />
-                                                        )}
-                                                    </DropdownMenuItem>
-                                                ))}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="border-t border-bo-border" />
-
-                            {/* Thông tin liên hệ */}
-                            <div className="space-y-3">
-                                <p className="text-xs font-bold uppercase tracking-wide text-bo-primary">
-                                    Thông tin liên hệ
-                                </p>
-
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                    {/* Số điện thoại */}
-                                    <div className="space-y-1.5">
-                                        <Label
-                                            htmlFor="soDienThoai"
-                                            className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-bo-muted"
-                                        >
-                                            <Phone className="size-3.5" /> Số điện thoại
-                                        </Label>
-                                        <Input
-                                            id="soDienThoai"
-                                            value={formData.soDienThoai}
-                                            onChange={(e) => handleFormChange("soDienThoai", sanitizePhoneInput(e.target.value))}
-                                            maxLength={10}
-                                            inputMode="numeric"
-                                            aria-invalid={Boolean(phoneError)}
-                                            className={`h-10 bg-white text-bo-foreground placeholder:text-bo-muted focus-visible:ring-bo-primary/15 ${phoneError
-                                                ? "border-bo-danger focus-visible:border-bo-danger"
-                                                : "border-bo-border focus-visible:border-bo-primary"}`}
-                                        />
-                                        {phoneError && (
-                                            <p className="flex items-center gap-1 text-xs text-bo-danger">
-                                                <AlertCircle className="size-3" />{phoneError}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    {/* Email */}
-                                    <div className="space-y-1.5">
-                                        <Label
-                                            htmlFor="email"
-                                            className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-bo-muted"
-                                        >
-                                            <Mail className="size-3.5" /> Email
-                                        </Label>
-                                        <Input
-                                            id="email"
-                                            type="email"
-                                            placeholder="VD: example@email.com"
-                                            value={formData.email}
-                                            onChange={(e) => handleFormChange("email", e.target.value)}
-                                            aria-invalid={Boolean(formErrors.email)}
-                                            className={`h-10 bg-white text-bo-foreground placeholder:text-bo-muted focus-visible:ring-bo-primary/15 ${formErrors.email
-                                                ? "border-bo-danger focus-visible:border-bo-danger"
-                                                : "border-bo-border focus-visible:border-bo-primary"}`}
-                                        />
-                                        {formErrors.email && (
-                                            <p className="flex items-center gap-1 text-xs text-bo-danger">
-                                                <AlertCircle className="size-3" />{formErrors.email}
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Địa chỉ */}
-                                <div className="space-y-1.5">
-                                    <Label
-                                        htmlFor="diaChi"
-                                        className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-bo-muted"
-                                    >
-                                        <MapPin className="size-3.5" /> Địa chỉ
-                                    </Label>
-                                    <Input
-                                        id="diaChi"
-                                        placeholder="VD: 123 Đường ABC, Quận XYZ, TP. HCM"
-                                        value={formData.diaChi}
-                                        onChange={(e) => handleFormChange("diaChi", e.target.value)}
-                                        className="h-10 border-bo-border bg-white text-bo-foreground placeholder:text-bo-muted focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {submitError && (
-                        <div
-                            role="alert"
-                            className="mx-5 mb-3 flex items-start gap-2 rounded-md border border-bo-danger/20 bg-bo-danger-soft px-3 py-2 text-sm text-bo-danger"
-                        >
-                            <AlertCircle className="mt-0.5 size-4 shrink-0" />
-                            <span>{submitError}</span>
-                        </div>
-                    )}
-
-                    <DialogFooter className="flex flex-row justify-end gap-2 border-t border-bo-border bg-bo-surface-subtle px-5 py-3">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            disabled={isSubmitting}
-                            onClick={() => setShowCreateDialog(false)}
-                            className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                        >
-                            Hủy
-                        </Button>
-                        <Button
-                            type="button"
-                            disabled={isSubmitting}
-                            onClick={handleCreateSubmit}
-                            className="min-w-[160px] gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
-                        >
-                            {isSubmitting ? (
-                                <>
-                                    <Loader2 className="size-4 animate-spin" />
-                                    Đang xử lý...
-                                </>
-                            ) : (
-                                <>
-                                    <UserPlus className="size-4" />
-                                    Thêm khách hàng
-                                </>
-                            )}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* ── Delete Dialog ── */}
-            <ConfirmModal
-                isOpen={showDeleteDialog}
-                onClose={() => setShowDeleteDialog(false)}
-                onConfirm={handleDeleteConfirm}
-                title="Xác nhận xóa"
-                description={
-                    <>
-                        Bạn có chắc chắn muốn xóa khách hàng{" "}
-                        <span className="font-semibold text-bo-foreground">
-                            {selectedKhachHang?.tenKhachHang}
-                        </span>
-                        ? Khách hàng sẽ được chuyển sang trạng thái &quot;Ngừng hoạt động&quot;.
-                    </>
-                }
-                confirmText="Xóa"
-                cancelText="Hủy"
-                variant="danger"
-            />
+            {/* ── Thêm / Sửa khách hàng (popup dùng chung với trang chi tiết) ── */}
+            {coTheSua ? (
+                <>
+                    <KhachHangFormDialog
+                        open={formDialog.open}
+                        onOpenChange={(open) => setFormDialog((prev) => ({ ...prev, open }))}
+                        khachHang={formDialog.khachHang}
+                        onSaved={handleSaved}
+                    />
+                    <TrangThaiKhachHangDialog
+                        khachHang={trangThaiDialog.khachHang}
+                        open={trangThaiDialog.open}
+                        onOpenChange={(open) => setTrangThaiDialog((prev) => ({ ...prev, open }))}
+                        onChanged={handleTrangThaiDoi}
+                    />
+                </>
+            ) : null}
         </PageContainer>
     );
 }
