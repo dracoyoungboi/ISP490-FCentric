@@ -1,9 +1,18 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  boDau,
+  catTrang,
   demViecDangDo,
   dungHoatDong,
   giaoHangTheoDon,
+  locBaoGia,
+  locDonMua,
+  locHoatDong,
+  locLichSuGia,
+  locPhieuNhap,
+  luaChonGiaoHang,
+  luaChonTuDuLieu,
   ngayNhapCuoiTheoDon,
   phanLoaiDon,
   tinhChiSo,
@@ -184,4 +193,83 @@ test("dungHoatDong: gửi yêu cầu báo giá, nhập kho (phiếu đã nhập)
   // Không xem được phiếu nhập: chỉ còn sự kiện của đơn và nhà cung cấp
   assert.deepEqual(dungHoatDong({ ncc, dons, phieus: null }).map((s) => s.loai), ["guiYeuCau", "guiYeuCau", "taoNcc"]);
   assert.deepEqual(dungHoatDong({ ncc: {}, dons: [], phieus: [] }), []);
+});
+
+test("catTrang: cắt đúng trang, trang vượt thì lấy trang cuối, danh sách rỗng vẫn có 1 trang", () => {
+  const ds = Array.from({ length: 45 }, (_, i) => i);
+  assert.deepEqual(catTrang(ds, 0, 20).dong, ds.slice(0, 20));
+  const cuoi = catTrang(ds, 2, 20);
+  assert.deepEqual([cuoi.trang, cuoi.soTrang, cuoi.tong, cuoi.dong.length], [2, 3, 45, 5]);
+  assert.equal(catTrang(ds, 9, 20).trang, 2);
+  assert.equal(catTrang(ds, -1, 20).trang, 0);
+  assert.deepEqual(catTrang([], 3, 20), { dong: [], trang: 0, soTrang: 1, tong: 0 });
+});
+
+test("boDau: tìm không cần gõ dấu", () => {
+  assert.equal(boDau("  Áo Sơ Mi Đỏ "), "ao so mi do");
+  assert.equal(boDau(null), "");
+});
+
+test("locDonMua: mã đơn, nhóm giao hàng, kho nhận, thời gian đặt", () => {
+  const a = { ...don(1, 3, { dat: "2026-10-10", han: "2026-10-12" }), khoNhap: { id: 1, tenKho: "Kho tổng" } };
+  const b = { ...don(2, 3, { dat: "2026-10-14", han: "2026-10-20" }), khoNhap: { id: 2, tenKho: "Kho Hà Nội" } };
+  const c = { ...don(30, 5, { dat: "2026-05-01", han: "2026-05-03" }), khoNhap: { id: 2, tenKho: "Kho Hà Nội" } };
+  const giao = new Map([
+    [1, { loai: "quaHan", soNgay: 4 }],
+    [2, { loai: "conLai", soNgay: 4 }],
+    [30, { loai: "dungHan", soNgay: 0 }],
+  ]);
+  const ds = [b, a, c];
+  assert.deepEqual(locDonMua(ds, giao, {}).map((d) => d.id), [2, 1, 30]);
+  assert.deepEqual(locDonMua(ds, giao, { tuKhoa: "po3" }).map((d) => d.id), [30]);
+  assert.deepEqual(locDonMua(ds, giao, { giao: "cho" }).map((d) => d.id), [2]);
+  assert.deepEqual(locDonMua(ds, giao, { giao: "quaHan" }).map((d) => d.id), [1]);
+  assert.deepEqual(locDonMua(ds, giao, { kho: "2" }).map((d) => d.id), [2, 30]);
+  assert.deepEqual(locDonMua(ds, giao, { thoiGian: "30" }, HOM_NAY).map((d) => d.id), [2, 1]);
+  assert.deepEqual(locDonMua(ds, giao, { kho: "2", thoiGian: "90" }, HOM_NAY).map((d) => d.id), [2]);
+});
+
+test("luaChonGiaoHang: chỉ các nhóm có trong dữ liệu, theo thứ tự cố định", () => {
+  const giao = new Map([[1, { loai: "dungHan" }], [2, { loai: "homNay" }], [3, { loai: "khongCo" }], [4, { loai: "tre" }]]);
+  assert.deepEqual(luaChonGiaoHang(giao).map((o) => o.value), ["cho", "dungHan", "tre"]);
+  assert.deepEqual(luaChonGiaoHang(new Map([[1, { loai: "daDu" }]])), [{ value: "daDu", label: "Đã nhận đủ" }]);
+  assert.deepEqual(luaChonGiaoHang(null), []);
+});
+
+test("luaChonTuDuLieu: không trùng, bỏ giá trị rỗng, xếp theo nhãn", () => {
+  const ds = [{ k: "Kho tổng" }, { k: "Kho Hà Nội" }, { k: "Kho tổng" }, { k: "" }, {}];
+  assert.deepEqual(luaChonTuDuLieu(ds, (x) => x.k).map((o) => o.value), ["Kho Hà Nội", "Kho tổng"]);
+  assert.deepEqual(luaChonTuDuLieu([{ t: 3 }, { t: 0 }], (x) => x.t, (x) => `TT ${x.t}`), [
+    { value: "0", label: "TT 0" },
+    { value: "3", label: "TT 3" },
+  ]);
+});
+
+test("locBaoGia, locPhieuNhap, locLichSuGia, locHoatDong", () => {
+  const bgs = [don(1, 1, { dat: "2026-10-15" }), don(2, 2, { dat: "2026-10-01" }), don(3, 4, { dat: "2026-03-01" })];
+  assert.deepEqual(locBaoGia(bgs, { trangThai: "4" }).map((d) => d.id), [3]);
+  assert.deepEqual(locBaoGia(bgs, { thoiGian: "30" }, HOM_NAY).map((d) => d.id), [1, 2]);
+  assert.deepEqual(locBaoGia(bgs, { tuKhoa: "PO2" }).map((d) => d.id), [2]);
+
+  const phieus = [phieu(31, 1, 3, "2026-10-14"), { ...phieu(35, 7, 0, null), tenKho: "Kho Hà Nội" }];
+  assert.deepEqual(locPhieuNhap(phieus, { tuKhoa: "po7" }).map((p) => p.id), [35]);
+  assert.deepEqual(locPhieuNhap(phieus, { tuKhoa: "pnk-31" }).map((p) => p.id), [31]);
+  assert.deepEqual(locPhieuNhap(phieus, { kho: "Kho Hà Nội" }).map((p) => p.id), [35]);
+  assert.deepEqual(locPhieuNhap(phieus, { trangThai: "3" }).map((p) => p.id), [31]);
+
+  const sp = [
+    { bienTheId: 1, ten: "Áo sơ mi Oxford", moTa: "Trắng · M", sku: "SP012-TRG-M", soVoiTruoc: { loai: "tang" } },
+    { bienTheId: 2, ten: "Quần kaki", moTa: "Be · 30", sku: "SP018-BE-30", soVoiTruoc: { loai: "lanDau" } },
+  ];
+  assert.deepEqual(locLichSuGia(sp, { tuKhoa: "ao so mi" }).map((r) => r.bienTheId), [1]);
+  assert.deepEqual(locLichSuGia(sp, { tuKhoa: "be" }).map((r) => r.bienTheId), [2]);
+  assert.deepEqual(locLichSuGia(sp, { bienDong: "lanDau" }).map((r) => r.bienTheId), [2]);
+
+  const sk = dungHoatDong({
+    ncc: { maNhaCungCap: "SUP002", ngayTao: ngay("2026-01-15") },
+    dons: [don(1, 3, { dat: "2026-10-12" })],
+    phieus: [phieu(31, 1, 3, "2026-10-14")],
+  });
+  assert.deepEqual(locHoatDong(sk, { loai: "nhapKho" }).map((s) => s.khoa), ["phieu-31"]);
+  assert.deepEqual(locHoatDong(sk, { thoiGian: "30" }, HOM_NAY).map((s) => s.khoa), ["phieu-31", "don-1"]);
 });

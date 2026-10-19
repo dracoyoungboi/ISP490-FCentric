@@ -272,8 +272,8 @@ export default function SupplierDetailView() {
   };
 
   return (
-    <PageContainer className="flex min-h-full flex-col">
-      <article className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+    <PageContainer className="ncc-trang flex min-h-full flex-col">
+      <article className="ncc-khoi flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
         <DauTrangNcc
           ncc={ncc}
           coTheQuanLy={coTheQuanLy}
@@ -308,9 +308,10 @@ export default function SupplierDetailView() {
           <TinhHinhNcc chiSo={tinh.chiSo} dangTai={dangTaiDon || dangTaiPhieu} lyDoKhongTinhGiao={lyDoKhongTinhGiao} />
         ) : null}
 
-        <div className="@container grid flex-1 border-t border-bo-border xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="ncc-than @container grid flex-1 border-t border-bo-border xl:grid-cols-[minmax(0,1fr)_340px]">
           {xemGiaoDich ? (
             <GiaoDichNcc
+              key={id}
               tabs={tabs}
               tab={tab}
               onDoiTab={setTab}

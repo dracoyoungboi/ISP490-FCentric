@@ -453,6 +453,36 @@
 }
 
 /*
+ * Chi tiết nhà cung cấp (bản một khối, phân trang chốt 19/10/2026): cùng cách với Chi tiết khách hàng —
+ * màn rộng và đủ cao thì khối vừa khung nội dung, thân bảng của tab tự cuộn (tiêu đề cột dính),
+ * phân trang luôn ở đáy khối, cột thông tin tự cuộn khi dài. Màn hẹp/thấp thì cả trang cuộn như thường.
+ */
+@media (min-width: 1280px) and (min-height: 640px) {
+	.ncc-trang {
+		height: 100%;
+	}
+	.ncc-khoi,
+	.ncc-than,
+	.ncc-giao-dich {
+		min-height: 0;
+	}
+	.ncc-than {
+		grid-template-rows: minmax(0, 1fr);
+	}
+	.ncc-bang {
+		min-height: 0;
+		overflow: auto;
+	}
+	.ncc-bang > .ncc-trong {
+		min-height: 100%;
+	}
+	.ncc-cot-phai {
+		min-height: 0;
+		overflow-y: auto;
+	}
+}
+
+/*
  * Chi tiết người dùng (bản một khối, cùng kiểu Chi tiết khách hàng): màn rộng và đủ cao thì khối vừa khung nội dung —
  * lịch sử phân quyền dài không làm trang dài ra: vùng nội dung của tab tự cuộn, phân trang luôn ở đáy khối,
  * cột thông tin tự cuộn khi dài. Màn hẹp/thấp thì cả trang cuộn như thường.

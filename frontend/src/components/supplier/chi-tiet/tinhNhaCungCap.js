@@ -281,3 +281,129 @@ export function dungHoatDong({ ncc, dons, phieus }) {
   }
   return suKien.sort((a, b) => moc(b.ngay) - moc(a.ngay));
 }
+
+// ── Lọc và phân trang các tab (làm ở máy khách: trang đã tải sẵn đơn và phiếu nhập để tính số liệu đầu khối) ──
+
+/** Từ số dòng này trở lên tab mới hiện ô tìm và bộ lọc (ít dòng thì nhìn là thấy, như Chi tiết khách hàng). */
+export const SO_DONG_HIEN_LOC = 10;
+/** Tab Hoạt động hiện thêm mỗi lần bấm "Xem thêm". */
+export const SO_HOAT_DONG_MOI_LAN = 20;
+
+export const LUA_CHON_THOI_GIAN = [
+  { value: "", label: "Mọi thời gian" },
+  { value: "30", label: "30 ngày qua" },
+  { value: "90", label: "90 ngày qua" },
+  { value: "365", label: "12 tháng qua" },
+];
+
+/** Chữ thường, bỏ dấu tiếng Việt: gõ "ao so mi" vẫn tìm ra "Áo sơ mi". */
+export function boDau(chu) {
+  return String(chu ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase()
+    .trim();
+}
+
+function khop(tuKhoa, ...cacChu) {
+  const k = boDau(tuKhoa);
+  return !k || cacChu.some((c) => boDau(c).includes(k));
+}
+
+/** `thoiGian` là số ngày ("30", "90", "365"); rỗng là mọi thời gian. Tính từ đầu ngày, theo giờ máy. */
+function trongKhoang(ngay, thoiGian, homNay) {
+  if (!thoiGian) return true;
+  const d = docNgay(ngay);
+  if (!d) return false;
+  return d.getTime() >= dauNgay(homNay) - Number(thoiGian) * MS_MOT_NGAY;
+}
+
+/** Nhóm của bộ lọc "Giao hàng" → các loại của `tinhGiaoHang`. */
+const NHOM_GIAO = {
+  cho: { nhan: "Đang chờ giao", loai: ["conLai", "homNay", "khongCo"] },
+  quaHan: { nhan: "Quá hạn", loai: ["quaHan"] },
+  dungHan: { nhan: "Đúng hạn", loai: ["dungHan"] },
+  tre: { nhan: "Trễ hạn", loai: ["tre"] },
+  daDu: { nhan: "Đã nhận đủ", loai: ["daDu"] },
+};
+
+export function nhomGiao(loai) {
+  return Object.keys(NHOM_GIAO).find((k) => NHOM_GIAO[k].loai.includes(loai)) ?? null;
+}
+
+/** Lựa chọn "Giao hàng": chỉ các nhóm đang có trong dữ liệu (vai trò không xem phiếu nhập thì không có Đúng hạn / Trễ hạn). */
+export function luaChonGiaoHang(giaoTheoDon) {
+  const co = new Set();
+  for (const g of giaoTheoDon instanceof Map ? giaoTheoDon.values() : []) {
+    const nhom = nhomGiao(g?.loai);
+    if (nhom) co.add(nhom);
+  }
+  return Object.keys(NHOM_GIAO)
+    .filter((k) => co.has(k))
+    .map((k) => ({ value: k, label: NHOM_GIAO[k].nhan }));
+}
+
+/** Lựa chọn lấy từ chính dữ liệu (kho, trạng thái…): không trùng, xếp theo nhãn. */
+export function luaChonTuDuLieu(ds, layGiaTri, layNhan = layGiaTri) {
+  const map = new Map();
+  for (const x of Array.isArray(ds) ? ds : []) {
+    const v = layGiaTri(x);
+    if (v == null || v === "") continue;
+    const khoa = String(v);
+    if (!map.has(khoa)) map.set(khoa, { value: khoa, label: String(layNhan(x) ?? khoa) });
+  }
+  return [...map.values()].sort((a, b) => a.label.localeCompare(b.label, "vi"));
+}
+
+/** Tab Đơn mua hàng: mã đơn · nhóm giao hàng · kho nhận (id) · thời gian đặt. */
+export function locDonMua(chot, giaoTheoDon, { tuKhoa = "", giao = "", kho = "", thoiGian = "" } = {}, homNay = new Date()) {
+  return (chot ?? []).filter(
+    (d) =>
+      khop(tuKhoa, d?.soDonMua) &&
+      (!giao || nhomGiao(giaoTheoDon?.get?.(d.id)?.loai) === giao) &&
+      (!kho || String(d?.khoNhap?.id ?? "") === kho) &&
+      trongKhoang(ngayDat(d), thoiGian, homNay),
+  );
+}
+
+/** Tab Báo giá: mã · trạng thái (1, 2, 4) · thời gian gửi yêu cầu. */
+export function locBaoGia(baoGia, { tuKhoa = "", trangThai = "", thoiGian = "" } = {}, homNay = new Date()) {
+  return (baoGia ?? []).filter(
+    (d) =>
+      khop(tuKhoa, d?.soDonMua) &&
+      (!trangThai || String(Number(d?.trangThai)) === trangThai) &&
+      trongKhoang(ngayDat(d), thoiGian, homNay),
+  );
+}
+
+/** Tab Phiếu nhập kho: mã phiếu hoặc mã đơn · tên kho · trạng thái. */
+export function locPhieuNhap(phieus, { tuKhoa = "", kho = "", trangThai = "" } = {}) {
+  return (phieus ?? []).filter(
+    (p) =>
+      khop(tuKhoa, p?.soPhieuNhap, p?.soDonMua) &&
+      (!kho || (p?.tenKho ?? "") === kho) &&
+      (!trangThai || String(Number(p?.trangThai)) === trangThai),
+  );
+}
+
+/** Tab Sản phẩm & giá: tên, SKU, màu · cỡ · biến động so với lần trước (tang, giam, khongDoi, lanDau). */
+export function locLichSuGia(dong, { tuKhoa = "", bienDong = "" } = {}) {
+  return (dong ?? []).filter(
+    (r) => khop(tuKhoa, r?.ten, r?.sku, r?.moTa) && (!bienDong || r?.soVoiTruoc?.loai === bienDong),
+  );
+}
+
+/** Tab Hoạt động: loại sự kiện (guiYeuCau, nhapKho) · thời gian. */
+export function locHoatDong(suKien, { loai = "", thoiGian = "" } = {}, homNay = new Date()) {
+  return (suKien ?? []).filter((s) => (!loai || s?.loai === loai) && trongKhoang(s?.ngay, thoiGian, homNay));
+}
+
+/** Cắt một trang (`trang` tính từ 0). Trang vượt số trang thật (vd. vừa lọc bớt) thì lấy trang cuối. */
+export function catTrang(ds, trang, kichThuoc) {
+  const tong = Array.isArray(ds) ? ds.length : 0;
+  const soTrang = Math.max(1, Math.ceil(tong / kichThuoc));
+  const t = Math.min(Math.max(0, Number(trang) || 0), soTrang - 1);
+  return { dong: tong ? ds.slice(t * kichThuoc, (t + 1) * kichThuoc) : [], trang: t, soTrang, tong };
+}
