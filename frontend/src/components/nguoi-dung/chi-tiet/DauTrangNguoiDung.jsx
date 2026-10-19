@@ -22,7 +22,7 @@ const MUC_MENU =
 
 /**
  * Dòng phụ dưới tên: vai trò, kèm nơi làm việc khi có. Đây là chỗ duy nhất trên trang ghi vai trò và tên kho
- * (quy tắc mỗi thông tin một chỗ, 19/10/2026). Quản trị viên / khách hàng / chưa có nơi làm việc chỉ ghi vai trò:
+ * (quy tắc mỗi thông tin một chỗ, 19/10/2026). Quản trị viên / chưa có nơi làm việc chỉ ghi vai trò:
  * phần giải thích đã ở ô trống của tab Quyền truy cập.
  */
 function dongPhu(nguoiDung, pq) {

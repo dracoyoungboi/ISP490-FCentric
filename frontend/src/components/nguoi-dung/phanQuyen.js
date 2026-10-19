@@ -8,22 +8,19 @@
  * Ở đây chỉ giữ phần thuộc về giao diện: tên nhóm theo luồng việc, cặp tạo–duyệt, màn hình dùng từng quyền.
  */
 
+import { ROLES } from "../../constants/backend/role.js";
+
 // ───────────────────────────── Vai trò ─────────────────────────────
 
-export const VAI_TRO = [
-  { ma: "quan_tri_vien", ten: "Quản trị viên", moTa: "Chủ cửa hàng, người quản lý hệ thống. Toàn quyền ở mọi kho." },
-  { ma: "quan_ly_kho", ten: "Quản lý kho", moTa: "Phụ trách một kho: duyệt phiếu, phân việc, xem báo cáo kho." },
-  { ma: "nhan_vien_kho", ten: "Nhân viên kho", moTa: "Nhập, xuất, chuyển và kiểm hàng tại kho được phân." },
-  { ma: "nhan_vien_mua_hang", ten: "Nhân viên mua hàng", moTa: "Yêu cầu báo giá, đặt hàng và theo dõi nhà cung cấp." },
-  { ma: "nhan_vien_ban_hang", ten: "Nhân viên bán hàng", moTa: "Bán tại quầy, báo giá và đơn bán cho khách." },
-  { ma: "khach_hang", ten: "Khách hàng", moTa: "Tài khoản bên ngoài. Không dùng màn nội bộ, không có kho." },
-];
+/** Vai trò nhân sự theo thứ tự hiện trên màn hình (nguồn: constants/backend/role.js). */
+export const VAI_TRO = ROLES.map(({ value, label, moTa }) => ({ ma: value, ten: label, moTa }));
 
 export const QUAN_TRI_VIEN = "quan_tri_vien";
-export const KHACH_HANG = "khach_hang";
 
-/** Vai trò không dùng kho: quản trị viên (toàn quyền mọi kho) và khách hàng (không dùng màn nội bộ). */
-export const VAI_TRO_KHONG_DUNG_KHO = [QUAN_TRI_VIEN, KHACH_HANG];
+/** Vai trò có phải vai trò nhân sự không. Vai trò khác (dữ liệu lạ, chuỗi rỗng) không có màn hình, kho hay quyền. */
+export function laVaiTroNoiBo(ma) {
+  return VAI_TRO.some((v) => v.ma === ma);
+}
 
 export function tenVaiTro(ma) {
   const vt = VAI_TRO.find((v) => v.ma === ma);
@@ -35,9 +32,12 @@ export function moTaVaiTro(ma) {
   return VAI_TRO.find((v) => v.ma === ma)?.moTa ?? "";
 }
 
-/** Vai trò cần một kho để làm việc. */
+/**
+ * Vai trò cần một kho để làm việc: mọi vai trò nhân sự trừ quản trị viên (toàn quyền ở mọi kho).
+ * Cùng quy tắc với PhanQuyenNguoiDungServiceImpl.lamViecTheoKho ở backend.
+ */
 export function canKho(vaiTro) {
-  return Boolean(vaiTro) && !VAI_TRO_KHONG_DUNG_KHO.includes(vaiTro);
+  return laVaiTroNoiBo(vaiTro) && vaiTro !== QUAN_TRI_VIEN;
 }
 
 // ───────────────────────────── Nhóm quyền ─────────────────────────────
@@ -163,7 +163,7 @@ const thayDuoc = (muc, vaiTro) => !muc.roles || muc.roles.includes(vaiTro);
 export function manHinhCuaVaiTro(menu, vaiTro) {
   const duongDan = [];
   let soNhom = 0;
-  if (!vaiTro || vaiTro === KHACH_HANG) return { duongDan, soNhom };
+  if (!laVaiTroNoiBo(vaiTro)) return { duongDan, soNhom };
   for (const muc of Array.isArray(menu) ? menu : []) {
     if (!thayDuoc(muc, vaiTro)) continue;
     if (Array.isArray(muc.children) && muc.children.length) {
@@ -197,11 +197,11 @@ export function quyenCoTacDung(maQuyen, vaiTro, menu) {
 /**
  * Phân quyền kho đang hiệu lực của một người dùng (NguoiDungDto.khoPhuTrach từ GET /admin/users/{id}).
  * Mỗi người tối đa một kho; dữ liệu cũ có thể còn nhiều dòng thì lấy dòng đầu.
- * Vai trò không dùng kho (quản trị viên, khách hàng) luôn trả pq = null.
+ * Vai trò không làm việc theo kho (quản trị viên, xem canKho) luôn trả pq = null.
  * Trả về { pq, quyenIds } — quyenIds chỉ gồm quyền đang bật (trangThai = 1).
  */
 export function phanQuyenHienCo(nguoiDung) {
-  // Quản trị viên / khách hàng không làm việc theo kho: dữ liệu cũ còn dòng phân quyền kho thì bỏ qua
+  // Vai trò không làm việc theo kho: dữ liệu cũ còn dòng phân quyền kho thì bỏ qua
   if (nguoiDung?.vaiTro && !canKho(nguoiDung.vaiTro)) return { pq: null, quyenIds: [] };
   const ds = Array.isArray(nguoiDung?.khoPhuTrach) ? nguoiDung.khoPhuTrach : [];
   const pq = ds.find((p) => p && Number(p.trangThai) === 1 && p.kho) ?? null;
@@ -526,12 +526,12 @@ export function kiemTraBanNhap(
   const vaiTro = nhap?.vaiTro;
   const tenVt = tenVaiTro(vaiTro);
 
-  if (!canKho(vaiTro)) {
-    them(
-      "on",
-      "Không cần quyền theo kho",
-      vaiTro === QUAN_TRI_VIEN ? "Quản trị viên có toàn quyền ở mọi kho." : "Tài khoản khách hàng không dùng kho.",
-    );
+  if (vaiTro === QUAN_TRI_VIEN) {
+    them("on", "Không cần quyền theo kho", "Quản trị viên có toàn quyền ở mọi kho.");
+  } else if (!laVaiTroNoiBo(vaiTro)) {
+    // Chỉ gặp khi tài khoản mang vai trò lạ (dữ liệu cũ): máy chủ không nhận, phải chọn lại trước khi lưu
+    chanLuu = true;
+    them("canhBao", "Chưa chọn vai trò", "Chọn một vai trò cho người dùng trước khi lưu.");
   } else if (nhap?.khoId == null) {
     them("canhBao", "Chưa chọn nơi làm việc", "Mọi thao tác theo kho của người dùng bị chặn cho tới khi có nơi làm việc.");
   } else {
@@ -840,10 +840,9 @@ export function goiYHoSo({ hoSo, quyen, now = new Date() } = {}) {
   return null;
 }
 
-/** Kho ghi ở dòng phụ dưới tên (Hồ sơ): "Mọi kho", tên kho đang phụ trách, "Chưa có kho" hoặc "Không dùng kho". */
+/** Kho ghi ở dòng phụ dưới tên (Hồ sơ): "Mọi kho", tên kho đang phụ trách hoặc "Chưa có kho". */
 export function khoCuaToiNgan({ vaiTro, quyen, khoTuHoSo } = {}) {
   if (vaiTro === QUAN_TRI_VIEN || quyen?.toanQuyen) return "Mọi kho";
-  if (!canKho(vaiTro)) return "Không dùng kho";
   const kho = quyen ? quyen.kho : khoTuHoSo;
   if (kho) return kho.tenKho || kho.maKho || "Chưa có kho";
   // Chưa tải xong quyền và hồ sơ cũng không có kho: chưa chắc là "chưa có kho" thì để trống

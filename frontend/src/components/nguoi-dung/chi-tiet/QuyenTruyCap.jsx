@@ -1,8 +1,8 @@
 import { createElement } from "react";
-import { Check, Minus, RefreshCcw, ShieldCheck, UserRound, Warehouse } from "lucide-react";
+import { Check, Minus, RefreshCcw, ShieldCheck, Warehouse } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { QUAN_TRI_VIEN, canKho, maTranQuyen, moTaHieuLuc, vietHoaDau } from "@/components/nguoi-dung/phanQuyen";
+import { QUAN_TRI_VIEN, maTranQuyen, moTaHieuLuc, vietHoaDau } from "@/components/nguoi-dung/phanQuyen";
 
 const COT = [
   { khoa: "tao", nhan: "Tạo" },
@@ -155,15 +155,6 @@ export default function QuyenTruyCap({
         icon={ShieldCheck}
         tieuDe="Toàn quyền ở mọi kho"
         noiDung="Không cần nơi làm việc hay quyền tại kho. Mọi thao tác của tài khoản này vẫn được ghi vào lịch sử."
-      />
-    );
-  }
-  if (!canKho(vaiTro)) {
-    return (
-      <Trong
-        icon={UserRound}
-        tieuDe="Không dùng màn nội bộ"
-        noiDung="Tài khoản bên ngoài: không có nơi làm việc và không có quyền theo kho."
       />
     );
   }

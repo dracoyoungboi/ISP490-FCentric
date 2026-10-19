@@ -46,11 +46,11 @@ public class AuthInterceptor implements HandlerInterceptor {
             NguoiDungAuthInfo nguoiDungAuthInfo = jwtService.getNguoiDungAuthInfoFromToken(token);
             SecurityContextHolder.setUser(nguoiDungAuthInfo);
 
-            // Kiểm tra trangThai hiện tại từ DB — KHÔNG tin claim trong token (có thể đã cũ)
+            // Kiểm tra trangThai và vai trò hiện tại từ DB — KHÔNG tin claim trong token (có thể đã cũ).
+            // Tài khoản bị khóa hoặc không mang vai trò nhân sự thì phiên đang mở cũng dừng ngay.
             if (nguoiDungAuthInfo != null && nguoiDungAuthInfo.getId() != null) {
                 NguoiDung nguoiDung = nguoiDungRepository.findById(nguoiDungAuthInfo.getId()).orElse(null);
-                Integer trangThai = nguoiDung == null ? null : nguoiDung.getTrangThai();
-                if (trangThai == null || trangThai != 1) {
+                if (nguoiDung == null || !nguoiDung.duocDangNhap()) {
                     SecurityContextHolder.clear(); // preHandle throw → afterCompletion không chạy, phải tự clear
                     throw new AccountDisabledException();
                 }

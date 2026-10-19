@@ -34,6 +34,7 @@ import { getApiErrorMessage } from "@/utils/apiError";
 import { laKhoAo, laKhoHoatDong } from "@/utils/kho";
 import { nhanLoaiKho } from "@/pages/warehouse/loaiKho";
 import {
+  QUAN_TRI_VIEN,
   VAI_TRO,
   banNhapTuNguoiDung,
   canKho,
@@ -367,7 +368,6 @@ export default function NganKeoPhanQuyen({
               <div role="radiogroup" aria-label="Vai trò" className="grid gap-2 sm:grid-cols-2">
                 {VAI_TRO.map((vt) => {
                   const tat = laChinhMinh && vt.ma !== goc.vaiTro;
-                  const so = soMan(vt.ma);
                   return (
                     <MucChon
                       key={vt.ma}
@@ -387,7 +387,7 @@ export default function NganKeoPhanQuyen({
                             className="size-4 shrink-0 accent-bo-primary"
                           />
                           <span className="min-w-0 flex-1 font-medium">{vt.ten}</span>
-                          <span className="whitespace-nowrap text-xs text-bo-muted">{so ? `${so} màn hình` : "Không dùng"}</span>
+                          <span className="whitespace-nowrap text-xs text-bo-muted">{soMan(vt.ma)} màn hình</span>
                         </>
                       )}
                     </MucChon>
@@ -402,14 +402,10 @@ export default function NganKeoPhanQuyen({
               ) : null}
             </Muc>
 
-            {!dungKho ? (
+            {nhap.vaiTro === QUAN_TRI_VIEN ? (
               <section className="border-b border-slate-100 px-5 py-[18px]">
                 <OThongTin>
-                  <div className="font-semibold text-bo-foreground">
-                    {nhap.vaiTro === "quan_tri_vien"
-                      ? "Quản trị viên có toàn quyền ở mọi kho"
-                      : "Tài khoản khách hàng không có kho và quyền kho"}
-                  </div>
+                  <div className="font-semibold text-bo-foreground">Quản trị viên có toàn quyền ở mọi kho</div>
                   <div className="text-bo-muted">
                     {goc.khoId != null && canKho(goc.vaiTro)
                       ? `Không cần nơi làm việc hay quyền tại kho. Khi lưu, phân quyền ${tenKho(goc.khoId)} hiện có (${goc.quyenIds.length} quyền) sẽ được thu hồi.`
@@ -417,7 +413,9 @@ export default function NganKeoPhanQuyen({
                   </div>
                 </OThongTin>
               </section>
-            ) : (
+            ) : null}
+
+            {dungKho ? (
               <>
                 {/* Nơi làm việc (trước đây "Kho phụ trách"; đổi tên toàn hệ thống 19/10/2026) */}
                 <Muc tieuDe="Nơi làm việc" moTa="Mỗi người tối đa 1 kho">
@@ -748,7 +746,7 @@ export default function NganKeoPhanQuyen({
                   )}
                 </Muc>
               </>
-            )}
+            ) : null}
           </div>
 
           {/* Kiểm tra trước khi lưu */}

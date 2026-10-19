@@ -42,10 +42,8 @@ const USERNAME_MIN_LENGTH = 3;
 // Bằng độ dài cột trong bảng nguoi_dung; vượt quá thì backend báo lỗi chung chung.
 const MAX_LENGTH = { hoTen: 100, tenDangNhap: 50, email: 100 };
 
+// Trùng mặc định của backend khi không gửi vai trò. Danh sách chọn theo đúng thứ tự trong ROLES (Quản trị viên cuối).
 const DEFAULT_ROLE = "nhan_vien_kho";
-// Quản trị viên để cuối để khó chọn nhầm vai trò có toàn quyền.
-const ROLE_ORDER = ["nhan_vien_kho", "quan_ly_kho", "nhan_vien_ban_hang", "nhan_vien_mua_hang", "quan_tri_vien"];
-const ROLE_OPTIONS = ROLE_ORDER.map((value) => ROLES.find((role) => role.value === value)).filter(Boolean);
 
 const EMPTY_FORM = { hoTen: "", tenDangNhap: "", email: "", soDienThoai: "", vaiTro: DEFAULT_ROLE };
 // Thứ tự trên màn hình: lỗi đầu tiên theo thứ tự này được focus khi bấm Tạo tài khoản.
@@ -436,7 +434,7 @@ function AddUserForm({ onClose, onCreated }) {
                                     sideOffset={4}
                                     className="z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg"
                                 >
-                                    {ROLE_OPTIONS.map((role) => (
+                                    {ROLES.map((role) => (
                                         <SelectItem
                                             key={role.value}
                                             value={role.value}

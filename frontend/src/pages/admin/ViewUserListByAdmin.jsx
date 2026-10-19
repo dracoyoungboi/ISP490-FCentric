@@ -11,6 +11,7 @@ import { toast } from "@/lib/thongBaoNhanh";
 
 import AddUserDialog from "@/components/admin/AddUserDialog";
 import PageContainer from "@/components/backoffice/PageContainer";
+import { canKho } from "@/components/nguoi-dung/phanQuyen";
 import UserAvatar from "@/components/UserAvatar";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
@@ -44,13 +45,8 @@ import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { adminService } from "@/services/adminService";
 import { getCurrentUserId } from "@/utils/roles";
 
-// Chỉ lọc theo các vai trò nhân sự tạo được ở popup "Thêm người dùng".
-// Khách hàng quản lý ở module Khách hàng (bảng khach_hang), không nằm trong nguoi_dung,
-// nên lựa chọn "Khách hàng" ở đây luôn ra danh sách rỗng.
-const ROLE_OPTIONS = [
-    { value: "ALL", label: "Tất cả vai trò" },
-    ...ROLES.filter((role) => role.value !== "khach_hang"),
-];
+// Lọc theo vai trò nhân sự, cùng danh sách và thứ tự với popup "Thêm người dùng".
+const ROLE_OPTIONS = [{ value: "ALL", label: "Tất cả vai trò" }, ...ROLES];
 
 // Tab trạng thái (bố cục A+G). Giá trị giữ như tham số ?trangThai= cũ trên URL.
 // "Bị khóa" = mọi tài khoản trangThai ≠ 1: khớp badge trong bảng và điều kiện chặn đăng nhập ở backend.
@@ -331,7 +327,7 @@ export default function ViewUserListByAdmin() {
 
     const handleUserCreated = (user) => {
         // Vai trò dùng kho thường cần phân kho ngay sau khi tạo: mở thẳng ngăn kéo Phân quyền ở trang chi tiết.
-        const canAssignWarehouse = user.id != null && !["quan_tri_vien", "khach_hang"].includes(user.vaiTro);
+        const canAssignWarehouse = user.id != null && canKho(user.vaiTro);
         toast.success("Đã tạo tài khoản.", {
             description: `Mật khẩu tạm thời của ${user.tenDangNhap} sẽ được gửi tới ${user.email}.`,
             action: canAssignWarehouse

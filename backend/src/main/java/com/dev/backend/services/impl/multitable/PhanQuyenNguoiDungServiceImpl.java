@@ -75,14 +75,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService {
 
-    /** Vai trò được gán cho người dùng ("all" chỉ dùng trong @RequireAuth). */
-    static final Set<String> VAI_TRO_HOP_LE = Set.of(
-            IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho,
-            IRoleType.nhan_vien_mua_hang, IRoleType.nhan_vien_ban_hang, IRoleType.khach_hang);
-
-    /** Vai trò không làm việc theo kho: Quản trị viên có toàn quyền, Khách hàng không dùng màn nội bộ. */
-    static final Set<String> VAI_TRO_KHONG_DUNG_KHO = Set.of(IRoleType.quan_tri_vien, IRoleType.khach_hang);
-
     /** Vai trò nhân viên: quản lý kho chỉ phân quyền và thu hồi được cho những vai trò này. */
     static final Set<String> VAI_TRO_NHAN_VIEN = Set.of(
             IRoleType.nhan_vien_kho, IRoleType.nhan_vien_mua_hang, IRoleType.nhan_vien_ban_hang);
@@ -130,6 +122,14 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
         this.clock = clock;
     }
 
+    /**
+     * Vai trò làm việc theo kho (cần nơi làm việc và quyền tại kho): mọi vai trò nhân sự trừ Quản trị viên,
+     * người có toàn quyền ở mọi kho. Vai trò không thuộc {@link IRoleType#NOI_BO} thì không.
+     */
+    static boolean lamViecTheoKho(String vaiTro) {
+        return IRoleType.laNoiBo(vaiTro) && !IRoleType.quan_tri_vien.equals(vaiTro);
+    }
+
     // ───────────────────────────────── Lưu phân quyền ─────────────────────────────────
 
     @Override
@@ -143,7 +143,7 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
                 .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng"));
 
         String vaiTroMoi = request.getVaiTro() == null ? "" : request.getVaiTro().trim();
-        if (!VAI_TRO_HOP_LE.contains(vaiTroMoi)) {
+        if (!IRoleType.laNoiBo(vaiTroMoi)) {
             throw new CommonException("Vai trò không hợp lệ");
         }
         String vaiTroCu = nguoiDung.getVaiTro();
@@ -152,7 +152,7 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
         }
 
         Instant bayGio = clock.instant();
-        boolean dungKho = !VAI_TRO_KHONG_DUNG_KHO.contains(vaiTroMoi);
+        boolean dungKho = lamViecTheoKho(vaiTroMoi);
         Map<Integer, QuyenHan> quyenMoi = dungKho ? layQuyenHopLe(request.getQuyenHanIds()) : new LinkedHashMap<>();
 
         // Kể cả phân quyền hẹn ngày bắt đầu ở tương lai: đều tính vào quy tắc tối đa một kho
@@ -401,7 +401,7 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
 
     /**
      * PUT /vai-tro/gan-vai-tro: đổi vai trò nhưng giữ kho, hạn và quyền hiện có, đi qua cùng luồng lưu
-     * (vai trò không dùng kho thì thu hồi kho; có ghi lịch sử).
+     * (vai trò không làm việc theo kho thì thu hồi kho; có ghi lịch sử).
      */
     @Override
     @Transactional
@@ -414,7 +414,7 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
         String vaiTroMoi = vaiTro == null ? "" : vaiTro.trim();
         PhanQuyenNguoiDungKho pq = phanQuyenNguoiDungKhoRepository
                 .findGiuChoByNguoiDungId(nguoiDungId, clock.instant()).stream().findFirst().orElse(null);
-        if (pq == null || pq.getKho() == null || VAI_TRO_KHONG_DUNG_KHO.contains(vaiTroMoi)) {
+        if (pq == null || pq.getKho() == null || !lamViecTheoKho(vaiTroMoi)) {
             luuPhanQuyen(nguoiDungId, new LuuPhanQuyenRequest(vaiTroMoi, null, null, List.of()));
             return;
         }
@@ -427,7 +427,7 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
 
     /**
      * Chặn trước khi chạy POST /quyen-han/gan-quyen (luồng cũ, giao diện không còn dùng).
-     * Mọi người gọi: không phân kho cho quản trị viên/khách hàng, không phân vào kho ngừng hoạt động hay kho ảo,
+     * Mọi người gọi: chỉ phân kho cho quản lý kho và nhân viên, không phân vào kho ngừng hoạt động hay kho ảo,
      * hạn hiệu lực phải ở tương lai. Quản lý kho còn bị giới hạn: chỉ trong kho đang chọn, chỉ cho nhân viên
      * (không phải chính mình), không đặt quản lý kho, không cấp quyền mà chính mình không có.
      */
@@ -444,8 +444,8 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
                 .orElseThrow(() -> new CommonException("Không tìm thấy kho"));
         Instant bayGio = clock.instant();
 
-        if (VAI_TRO_KHONG_DUNG_KHO.contains(nguoiDung.getVaiTro())) {
-            throw new CommonException("Quản trị viên và khách hàng không được phân kho");
+        if (!lamViecTheoKho(nguoiDung.getVaiTro())) {
+            throw new CommonException("Chỉ phân kho cho quản lý kho và nhân viên");
         }
         List<PhanQuyenNguoiDungKho> giuCho = phanQuyenNguoiDungKhoRepository.findGiuChoByNguoiDungId(nguoiDung.getId(), bayGio);
         boolean daOKhoNay = giuCho.stream().anyMatch(p -> p.getKho() != null && kho.getId().equals(p.getKho().getId()));
@@ -819,8 +819,9 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
             return kq.toanQuyen(true).canDangNhapLai(doiVaiTro).build();
         }
 
-        PhanQuyenNguoiDungKho pq = VAI_TRO_KHONG_DUNG_KHO.contains(vaiTro) ? null
-                : phanQuyenNguoiDungKhoRepository.findHieuLucTai(toi.getId(), clock.instant()).stream().findFirst().orElse(null);
+        PhanQuyenNguoiDungKho pq = lamViecTheoKho(vaiTro)
+                ? phanQuyenNguoiDungKhoRepository.findHieuLucTai(toi.getId(), clock.instant()).stream().findFirst().orElse(null)
+                : null;
         List<QuyenHan> quyen = pq == null ? List.of()
                 : chiTietQuyenKhoRepository.findByPhanQuyenNguoiDungKhoId(pq.getId()).stream()
                 .filter(ct -> Integer.valueOf(1).equals(ct.getTrangThai()))
