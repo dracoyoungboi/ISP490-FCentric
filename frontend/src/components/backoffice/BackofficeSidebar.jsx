@@ -19,11 +19,6 @@ import {
   CollapsibleContent,
 } from "@/components/ui/collapsible";
 import { SIDEBAR_MENU, SIDEBAR_SECTIONS } from "./sidebar.config";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 // Mục menu có thể khai báo `match(pathname)` khi đường dẫn con thuộc mục khác
@@ -58,18 +53,6 @@ const HOVER_CLOSE_DELAY = 150;
 // .bo-sidebar-item trong index.css).
 // gap-3 đẩy chữ ra ngoài vùng nút 36px khi thu gọn nên chữ không bao giờ ló ra mép rail.
 const MENU_BUTTON_LAYOUT = "bo-sidebar-item h-10 gap-3 px-[11px]";
-
-// Nhãn nhỏ cạnh tên mục (vd "Mới"): khai báo `badge: { label, description, tone }` trong sidebar.config.js.
-// tone: "moi" (vàng, mặc định) | "cho" (xám, chờ máy chủ).
-const BADGE_TONE = {
-  moi: { nhan: "bg-amber-400/15 text-amber-300", cham: "bg-amber-300" },
-  cho: { nhan: "bg-slate-400/20 text-slate-300", cham: "bg-slate-400" },
-};
-const badgeTone = (badge) => BADGE_TONE[badge?.tone] ?? BADGE_TONE.moi;
-const badgeClass = (badge) =>
-  cn("shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none", badgeTone(badge).nhan);
-const badgeLabel = (badge) => (typeof badge === "string" ? badge : badge?.label);
-const badgeDescription = (badge) => (typeof badge === "string" ? badge : badge?.description ?? badge?.label);
 
 // Chữ: thu gọn thì mờ nhanh trước khi bị mép rail cắt, mở rộng thì hiện trễ
 // một nhịp khi đã đủ chỗ. `invisible` đưa chữ ra khỏi Tab và trình đọc màn hình.
@@ -636,20 +619,14 @@ export default function BackofficeSidebar() {
 
     // Mục không có menu con: luôn điều hướng trực tiếp, cả expanded lẫn collapsed.
     if (!item.children) {
-      const tooltipDescription = item.badge
-        ? `${item.badge.label}: ${item.badge.description}`
-        : undefined;
-
       // Collapsed: chỉ còn icon — nhãn hiển thị qua tooltip dùng chung
       // (hover/focus); expanded hiển thị label trực tiếp nên không cần tooltip.
       const directLinkTooltipProps = isExpanded
         ? {}
         : {
-            onPointerOver: (event) =>
-              showRailTooltip(event, item.label, tooltipDescription),
+            onPointerOver: (event) => showRailTooltip(event, item.label),
             onPointerOut: hideRailTooltip,
-            onFocus: (event) =>
-              showRailTooltip(event, item.label, tooltipDescription),
+            onFocus: (event) => showRailTooltip(event, item.label),
             onBlur: hideRailTooltip,
           };
 
@@ -674,22 +651,6 @@ export default function BackofficeSidebar() {
             >
               <Icon className="size-[18px]" />
               <span data-nhan className={cn("truncate", SIDEBAR_FADE)}>{item.label}</span>
-              {item.badge ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span
-                      tabIndex={0}
-                      aria-label={`${item.badge.label} — ${item.badge.description}`}
-                      className={cn("ml-auto", badgeClass(item.badge), SIDEBAR_FADE)}
-                    >
-                      {item.badge.label}
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">
-                    {item.badge.description}
-                  </TooltipContent>
-                </Tooltip>
-              ) : null}
             </NavLink>
           </SidebarMenuButton>
         </SidebarMenuItem>
@@ -714,8 +675,6 @@ export default function BackofficeSidebar() {
     const isOnlyChildActive =
       onlyChild !== null && isDirectLinkActive(onlyChild, location.pathname);
     const opensFlyout = !isExpanded && onlyChild === null;
-    // Nhóm đang đóng mà có mục con gắn nhãn (vd "Mới"): chấm nhỏ cạnh mũi tên để người dùng mở ra xem
-    const childWithBadge = visibleChildren.find((child) => child.badge);
 
     // Link phủ nhận hover thay nút, nên nút đổi màu theo hover của cả mục.
     const buttonTone = isOnlyChildActive
@@ -766,12 +725,6 @@ export default function BackofficeSidebar() {
             <Icon className="size-[18px]" />
             <span data-nhan className={cn("truncate", SIDEBAR_FADE)}>{item.label}</span>
             <span aria-hidden="true" className={cn("ml-auto flex shrink-0 items-center gap-2", SIDEBAR_FADE)}>
-              {childWithBadge && !isOpen ? (
-                <span
-                  title={`${childWithBadge.label}: ${badgeLabel(childWithBadge.badge)}`}
-                  className={cn("size-1.5 rounded-full", badgeTone(childWithBadge.badge).cham)}
-                />
-              ) : null}
               <ChevronDown className="size-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
             </span>
           </SidebarMenuButton>
@@ -816,11 +769,6 @@ export default function BackofficeSidebar() {
                   }
                 >
                   <span data-nhan className="min-w-0 flex-1 truncate">{child.label}</span>
-                  {child.badge ? (
-                    <span title={badgeDescription(child.badge)} className={badgeClass(child.badge)}>
-                      {badgeLabel(child.badge)}
-                    </span>
-                  ) : null}
                 </NavLink>
               ))}
             </div>
@@ -1029,11 +977,6 @@ export default function BackofficeSidebar() {
                       <child.icon className="size-4 shrink-0 text-bo-sidebar-muted" />
                     ) : null}
                     <span className="min-w-0 flex-1 truncate">{child.label}</span>
-                    {child.badge ? (
-                      <span title={badgeDescription(child.badge)} className={badgeClass(child.badge)}>
-                        {badgeLabel(child.badge)}
-                      </span>
-                    ) : null}
                   </NavLink>
                 ))}
               </div>
