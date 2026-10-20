@@ -1,6 +1,10 @@
 package com.dev.backend.repository;
 
 import com.dev.backend.entities.DonBanHang;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -14,6 +18,14 @@ import java.util.List;
 public interface DonBanHangRepository
         extends JpaRepository<DonBanHang, Integer>,
         JpaSpecificationExecutor<DonBanHang> {
+
+    /**
+     * Nạp sẵn các quan hệ To-One (khách hàng, kênh bán, kho xuất) trong 1 câu SQL JOIN duy nhất,
+     * bảo toàn tính phân trang ở tầng CSDL (tránh cạm bẫy HHH000104 In-Memory Pagination).
+     */
+    @Override
+    @EntityGraph(attributePaths = {"khachHang", "kenhBanHang", "khoXuat"})
+    Page<DonBanHang> findAll(Specification<DonBanHang> spec, Pageable pageable);
 
     @Query("""
         select function('date', d.ngayDatHang), sum(d.tongCong)

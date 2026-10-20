@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.Generated;
 import org.hibernate.generator.EventType;
@@ -119,6 +120,7 @@ public class DonBanHang {
     @JoinColumn(name = "danh_sach_nhat_hang_id")
     DanhSachNhatHang danhSachNhatHang;
 
+    @BatchSize(size = 50)
     @OneToMany(mappedBy = "donBanHang", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<ChiTietDonBanHang> chiTietDonBanHangs;
 }
