@@ -1,8 +1,8 @@
 import { getPaperPageCss, getPaperRulerCss } from "./paperStyles";
 
 /**
- * Style khi in từ các trang cấu hình mẫu in nằm TRONG BackofficeLayout
- * (trang xem mẫu / editor / trang xem trước riêng).
+ * Style khi in từ trình sửa mẫu in (Cấu hình › Mẫu in) nằm TRONG BackofficeLayout
+ * — nút "In thử".
  *
  * Các trang này render một "print mirror" — PrintOnlyDocument, tờ giấy
  * chỉ-in ẩn hoàn toàn trên màn hình. Khi in:
@@ -14,8 +14,7 @@ import { getPaperPageCss, getPaperRulerCss } from "./paperStyles";
  *   getPaperSheetClasses) và KHÔNG có zoom màn hình -> vùng nội dung in
  *   rộng đúng bằng vùng nội dung xem trước, lề không tính 2 lần.
  *
- * Dùng chung cho trang cấu hình mẫu in (preview nhúng), editor và trang
- * xem trước riêng (PrintTemplateDetailPage).
+ * Dùng cho trình sửa mẫu in (PrintTemplateEditorPage).
  */
 const PREVIEW_PRINT_STYLES = `
 @media print {
@@ -32,12 +31,13 @@ const PREVIEW_PRINT_STYLES = `
 `;
 
 /** Thẻ <style> cho các trang preview trong shell backoffice:
- *  quy tắc mirror khi in + @page theo khổ giấy + vạch ranh giới trang. */
-export function PreviewPrintStyleTag({ paper }) {
+ *  quy tắc mirror khi in + @page theo khổ giấy (kèm "Số … · Trang n/N" ở lề
+ *  dưới nếu có `footerText`) + vạch ranh giới trang. */
+export function PreviewPrintStyleTag({ paper, footerText = null }) {
     return (
         <style>
             {PREVIEW_PRINT_STYLES}
-            {getPaperPageCss(paper)}
+            {getPaperPageCss(paper, { footerText })}
             {getPaperRulerCss(paper)}
         </style>
     );

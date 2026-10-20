@@ -5,6 +5,7 @@ import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.ActiveTemplateRequest;
 import com.dev.backend.dto.request.MigratePrintConfigsRequest;
 import com.dev.backend.dto.request.PrintTemplateConfigRequest;
+import com.dev.backend.dto.response.LichSuMauInDto;
 import com.dev.backend.dto.response.PrintConfigBundleDto;
 import com.dev.backend.dto.response.PrintTemplateConfigDto;
 import com.dev.backend.dto.response.ResponseData;
@@ -23,6 +24,7 @@ import java.util.Map;
  * API cấu hình mẫu in + mẫu đang áp dụng (nguồn sự thật của luồng in thật).
  * - ĐỌC: mọi tài khoản nội bộ (là người in phiếu) đều đọc được.
  * - GHI: chỉ quan_tri_vien / quan_ly_kho (khớp vai trò cấu hình hiện tại).
+ * - LỊCH SỬ CHỈNH SỬA: chỉ quan_tri_vien / quan_ly_kho (người dùng trình sửa mẫu in).
  */
 @RestController
 @RequestMapping("/api/v1/cau-hinh-mau-in")
@@ -67,6 +69,19 @@ public class CauHinhMauInController {
                         .status(HttpStatus.OK.value())
                         .message("Success")
                         .data(data)
+                        .build()
+        );
+    }
+
+    /** Các phiên bản đã lưu của mẫu in một loại chứng từ, mới nhất trước (ngăn "Lịch sử chỉnh sửa"). */
+    @GetMapping("/{documentType}/lich-su")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    public ResponseEntity<ResponseData<List<LichSuMauInDto>>> getHistory(@PathVariable String documentType) {
+        return ResponseEntity.ok(
+                ResponseData.<List<LichSuMauInDto>>builder()
+                        .status(HttpStatus.OK.value())
+                        .message("Success")
+                        .data(cauHinhMauInService.getHistory(documentType))
                         .build()
         );
     }

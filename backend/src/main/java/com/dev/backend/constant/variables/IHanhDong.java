@@ -37,4 +37,8 @@ public interface IHanhDong {
             dong_bo_san_pham = "dong_bo_san_pham",
             dong_bo_ton_kho = "dong_bo_ton_kho",
             cap_nhat_cau_hinh = "cap_nhat_cau_hinh";
+    //Mẫu in: mỗi lần lưu một phiên bản (lich_su_thay_doi.loai_tham_chieu = cau_hinh_mau_in,
+    //id_tham_chieu = id dòng cau_hinh_mau_in; gia_tri_cu / gia_tri_moi = ảnh chụp JSON cấu hình)
+    String
+            cap_nhat_mau_in = "cap_nhat_mau_in";
 }

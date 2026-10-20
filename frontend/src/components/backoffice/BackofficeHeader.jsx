@@ -14,6 +14,7 @@ import NotificationBell from "@/components/backoffice/NotificationBell";
 import GlobalSearch from "@/components/backoffice/GlobalSearch";
 import { useCurrentUserAvatarUrl } from "@/utils/avatar";
 import { nguoiDungService } from "@/services/nguoiDungService";
+import { xinRoiTrang } from "@/lib/chanRoiTrang";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -72,11 +73,14 @@ export default function BackofficeHeader() {
   const [hoiLuot, setHoiLuot] = useState(false);
 
   const dangXuat = () => {
-    // Chỉ xóa phiên đăng nhập; bản nháp hóa đơn POS (gắn theo tài khoản, hết hạn sau 12 giờ)
-    // được giữ để đăng nhập lại vẫn còn hóa đơn và mã QR đang chờ.
-    nguoiDungService.logout();
-    sessionStorage.clear();
-    navigate("/login");
+    // Trang đang sửa dở (vd. trình sửa mẫu in) được hỏi trước khi đăng xuất
+    xinRoiTrang(() => {
+      // Chỉ xóa phiên đăng nhập; bản nháp hóa đơn POS (gắn theo tài khoản, hết hạn sau 12 giờ)
+      // được giữ để đăng nhập lại vẫn còn hóa đơn và mã QR đang chờ.
+      nguoiDungService.logout();
+      sessionStorage.clear();
+      navigate("/login");
+    });
   };
 
   const handleLogout = () => {

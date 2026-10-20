@@ -1,0 +1,43 @@
+/*
+ * Trình sửa mẫu in — các khối bấm được trên tờ giấy xem trước (data-pdoc-khoi do
+ * PrintTemplateDocument thêm khi `editable`). Chỉ áp trên màn hình, trong tờ giấy của trình sửa
+ * (.pe-giay); bản in thử / in thật không có thuộc tính này nên không bị ảnh hưởng.
+ * Khối đang chọn / đang trỏ ở cột phải được tô bằng thẻ <style> động của trang (theo khóa khối).
+ */
+@media screen {
+    .pe-giay [data-pdoc-khoi] {
+        position: relative;
+        cursor: pointer;
+        border-radius: 1mm;
+        outline: 2px solid transparent;
+        outline-offset: 1.5mm;
+        transition: outline-color 120ms ease, background-color 120ms ease;
+    }
+
+    .pe-giay [data-pdoc-khoi]:hover {
+        outline-color: var(--color-bo-primary, #1677ff);
+    }
+
+    /* Nhãn tên khối ở góc phải trên, bên trong viền — CHỈ khi đang trỏ chuột / bút (ở giấy, hoặc ở
+       nhóm tương ứng bên cột phải): trang bật `display: block` theo khóa khối từ sự kiện con trỏ, KHÔNG
+       dùng :hover (máy vừa cảm ứng vừa chuột giữ :hover sau khi chạm). Khối đang chọn chỉ giữ viền +
+       nền nhạt, vì nhãn nằm trong góc sẽ che chữ căn phải (số tiền, cột Thành tiền khổ nhiệt, mã QR).
+       Cỡ chữ không đổi theo mức thu phóng. */
+    .pe-giay [data-pdoc-khoi]::before {
+        content: attr(data-pdoc-nhan);
+        position: absolute;
+        top: calc(-1.5mm - 2px);
+        right: calc(-1.5mm - 2px);
+        z-index: 5;
+        display: none;
+        padding: 1px 6px;
+        border-radius: 0 1mm 0 4px;
+        background: var(--color-bo-primary, #1677ff);
+        color: #ffffff;
+        font: 600 calc(11px / var(--pe-zoom, 1)) / 1.5 Inter, ui-sans-serif, system-ui, sans-serif;
+        letter-spacing: 0;
+        text-transform: none;
+        white-space: nowrap;
+        pointer-events: none;
+    }
+}

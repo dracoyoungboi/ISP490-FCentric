@@ -1,38 +1,31 @@
-import { formatNumber } from "@/utils/formatters";
 import { YEU_CAU_NHAP_HANG_STATUS } from "@/constants/yeuCauNhapHang";
-import { formatPrintDate, formatPrintDateTime } from "./printFormat";
 import { trangThaiLa } from "@/constants/trangThaiChung";
+import {
+    dash,
+    formatPrintDate,
+    formatPrintLongDate,
+    formatPrintNumber,
+    textOrNull,
+    toNumeric,
+} from "./printFormat";
 
 /**
  * Trạng thái yêu cầu nhập hàng — dùng chung hằng số với PurchaseRequestList / PurchaseRequestDetail.
  */
 export const PURCHASE_REQUEST_STATUS = YEU_CAU_NHAP_HANG_STATUS;
 
-// Chuẩn hoá giá trị rỗng về "—" để layout bản in không bị vỡ
-const dash = (value) => {
-    if (value === null || value === undefined) return "—";
-    const text = String(value).trim();
-    return text === "" ? "—" : text;
-};
-
-const dashDate = (value) => (value ? formatPrintDate(value) : "—");
-const dashDateTime = (value) => (value ? formatPrintDateTime(value) : "—");
-
-/** "Họ tên — email" hoặc chỉ họ tên, "—" khi thiếu. */
-const personLine = (person) => {
-    if (!person) return "—";
-    const name = dash(person.hoTen);
-    const email = person.email ? dash(person.email) : null;
-    return email && email !== "—" ? `${name} — ${email}` : name;
-};
+/** Người ký: chỉ họ tên (email không in trên chứng từ giấy). */
+const signer = (person, label = null) =>
+    person ? { label, name: dash(person.hoTen) } : { label, name: "" };
 
 /**
  * Chuyển response thô của API `GET /api/v1/yeu-cau-mua-hang/get-by-id/{id}`
  * thành view model theo contract chung của schema purchase_request.
+ *
+ * Người lập / người duyệt chỉ in ở ô ký (không lặp lại thành mục riêng).
  */
 export function toPurchaseRequestPrintModel(raw) {
     const data = raw || {};
-
     const details = data.chiTietYeuCauMuaHangs || [];
 
     const items = details.map((item) => {
@@ -40,20 +33,14 @@ export function toPurchaseRequestPrintModel(raw) {
         return {
             name: dash(variant.tenSanPham || variant.maSku),
             sku: dash(variant.maSku),
-            color: dash(variant.mauSac?.tenMau),
-            size: dash(variant.size?.maSize),
-            material: dash(variant.chatLieu?.tenChatLieu),
-            quantity:
-                item?.soLuongDat === null || item?.soLuongDat === undefined
-                    ? "—"
-                    : formatNumber(item.soLuongDat),
+            color: textOrNull(variant.mauSac?.tenMau),
+            size: textOrNull(variant.size?.maSize),
+            material: textOrNull(variant.chatLieu?.tenChatLieu),
+            quantity: formatPrintNumber(item?.soLuongDat),
         };
     });
 
-    const totalQuantity = details.reduce(
-        (sum, item) => sum + (Number(item?.soLuongDat) || 0),
-        0
-    );
+    const totalQuantity = details.reduce((sum, item) => sum + (toNumeric(item?.soLuongDat) ?? 0), 0);
 
     const status = PURCHASE_REQUEST_STATUS[data.trangThai] || trangThaiLa(data.trangThai);
 
@@ -65,35 +52,24 @@ export function toPurchaseRequestPrintModel(raw) {
 
     return {
         documentNumber: dash(data.soYeuCauMuaHang || `#${data.id}`),
-        createdAt: dashDateTime(data.ngayTao),
-        expectedDate: dashDate(data.ngayGiaoDuKien),
+        documentDate: formatPrintLongDate(data.ngayTao),
+        // Bản nháp / bị từ chối in kèm chữ chìm để không bị dùng như phiếu đã duyệt
+        watermark: data.trangThai === 0 ? "BẢN NHÁP" : isRejected ? "ĐÃ TỪ CHỐI" : null,
+        expectedDate: formatPrintDate(data.ngayGiaoDuKien),
         status: { label: status.label },
         rejectionReason: isRejected ? dash(data.lyDoTuChoi) : null,
         warehouse: {
             name: dash(data.khoNhap?.tenKho),
             code: dash(data.khoNhap?.maKho),
             manager: dash(data.khoNhap?.quanLy?.hoTen),
-            address: dash(data.khoNhap?.diaChi),
+            address: textOrNull(data.khoNhap?.diaChi),
         },
-        users: {
-            creator: personLine(data.nguoiTao),
-            approver: data.nguoiDuyet ? personLine(data.nguoiDuyet) : "—",
-            approverLabel,
-        },
-        notes: dash(data.ghiChu),
+        notes: textOrNull(data.ghiChu),
         items,
-        totalQuantity: formatNumber(totalQuantity),
+        totalQuantity: formatPrintNumber(totalQuantity),
         signatures: {
-            creator: data.nguoiTao
-                ? { name: dash(data.nguoiTao.hoTen), email: dash(data.nguoiTao.email) }
-                : null,
-            approver: data.nguoiDuyet
-                ? {
-                      label: approverLabel,
-                      name: dash(data.nguoiDuyet.hoTen),
-                      email: dash(data.nguoiDuyet.email),
-                  }
-                : null,
+            creator: signer(data.nguoiTao),
+            approver: signer(data.nguoiDuyet, approverLabel),
         },
     };
 }

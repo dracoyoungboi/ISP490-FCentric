@@ -22,4 +22,9 @@ public interface LichSuThayDoiRepository extends JpaRepository<LichSuThayDoi, In
     @EntityGraph(attributePaths = {"nguoiThucHien", "kho"})
     List<LichSuThayDoi> findByLoaiThamChieuAndIdThamChieuAndHanhDongInOrderByNgayThucHienDescIdDesc(
             String loaiThamChieu, Integer idThamChieu, Collection<String> hanhDongs, Pageable pageable);
+
+    /** Lịch sử của nhiều đối tượng cùng loại (vd. các biến thể khổ giấy của một mẫu in), mới nhất trước. */
+    @EntityGraph(attributePaths = {"nguoiThucHien"})
+    List<LichSuThayDoi> findByLoaiThamChieuAndIdThamChieuInAndHanhDongOrderByNgayThucHienDescIdDesc(
+            String loaiThamChieu, Collection<Integer> idThamChieus, String hanhDong, Pageable pageable);
 }

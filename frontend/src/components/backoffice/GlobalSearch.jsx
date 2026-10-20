@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { History, LayoutGrid, Package, Search, ShoppingCart, UserRound, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { xinRoiTrang } from "@/lib/chanRoiTrang";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { SIDEBAR_FOOTER_SECTION, SIDEBAR_MENU, SIDEBAR_SECTIONS } from "@/components/backoffice/sidebar.config";
 import apiClient from "@/services/apiClient";
@@ -287,7 +288,8 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
       setTuKhoa("");
       setKetQua({});
       dong();
-      navigate(duongDan);
+      // Trang đang sửa dở (vd. trình sửa mẫu in) được hỏi trước khi rời
+      xinRoiTrang(() => navigate(duongDan));
     },
     [dong, luuTimGanDay, navigate, tk],
   );

@@ -417,10 +417,11 @@ export default function DonBanHangDetail() {
 
               {donBanHang.trangThai >= 0 && (
                 <Button
-                  onClick={() => navigate(`/sales-orders/${id}/invoice`)}
+                  // Đơn bán tại quầy in lại bằng mẫu khổ nhiệt như lúc thanh toán; đơn khác in mẫu A4/A5
+                  onClick={() => navigate(`/sales-orders/${id}/invoice${maKenh === "POS" ? "?mau=tai-quay" : ""}`)}
                   className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
                 >
-                  <Receipt className="size-4" /> Xem hóa đơn
+                  <Receipt className="size-4" /> In hóa đơn
                 </Button>
               )}
             </>

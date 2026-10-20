@@ -70,8 +70,6 @@ import QuotationDetail from "./pages/order/QuotationDetail";
 import PurchaseRequestPrint from "./pages/order/PurchaseRequestPrint";
 import QuotationRequestPrint from "./pages/order/QuotationRequestPrint";
 import PurchaseOrderPrint from "./pages/order/PurchaseOrderPrint";
-import PrintTemplatesPage from "./pages/settings/PrintTemplatesPage";
-import PrintTemplateDetailPage from "./pages/settings/PrintTemplateDetailPage";
 import PrintTemplateEditorPage from "./pages/settings/PrintTemplateEditorPage";
 import PaymentSettingsPage from "./pages/settings/PaymentSettingsPage";
 import SettingsLayout from "./pages/settings/SettingsLayout";
@@ -97,6 +95,12 @@ import ChannelSettingsPage from "./pages/channels/ChannelSettingsPage";
 function SupplierViewRedirect() {
   const { id } = useParams();
   return <Navigate to={`/supplier/${id}`} replace />;
+}
+
+/** Đường dẫn cũ của trang xem / sửa mẫu in -> trình sửa một màn của loại chứng từ. */
+function MauInRedirect() {
+  const { documentType } = useParams();
+  return <Navigate to={`/settings/print-templates/${documentType}`} replace />;
 }
 
 /** Sửa khách hàng nay là popup trên trang chi tiết: đường dẫn cũ /customers/:id/edit mở trang chi tiết kèm popup. */
@@ -265,12 +269,13 @@ export default function App() {
             <Route path="/settings/company-profile" element={<Navigate to="/settings/store" replace />} />
           </Route>
 
-          {/* Xem trước và chỉnh sửa từng mẫu in: toàn chiều rộng, ngoài khung Cấu hình */}
+          {/* Trình sửa mẫu in một màn (xem trước + chỉnh sửa): toàn chiều rộng, ngoài khung Cấu hình.
+              Đường dẫn cũ (trang xem mẫu, /edit, theo định danh mẫu) chuyển về trình sửa của loại chứng từ. */}
           <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />}>
-            <Route path="/settings/print-templates/:documentType" element={<PrintTemplatesPage />} />
-            <Route path="/settings/print-templates/:documentType/:templateId" element={<PrintTemplateDetailPage />} />
-            <Route path="/settings/print-templates/:documentType/edit" element={<PrintTemplateEditorPage />} />
-            <Route path="/settings/print-templates/:documentType/:templateId/edit" element={<PrintTemplateEditorPage />} />
+            <Route path="/settings/print-templates/:documentType" element={<PrintTemplateEditorPage />} />
+            <Route path="/settings/print-templates/:documentType/edit" element={<MauInRedirect />} />
+            <Route path="/settings/print-templates/:documentType/:templateId" element={<MauInRedirect />} />
+            <Route path="/settings/print-templates/:documentType/:templateId/edit" element={<MauInRedirect />} />
           </Route>
 
           {/* Xuất kho theo Pick List (FO-045–047) — vai trò kho, khớp @RequireAuth của NhatHangController.

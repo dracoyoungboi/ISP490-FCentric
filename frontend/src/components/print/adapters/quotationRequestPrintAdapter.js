@@ -1,27 +1,23 @@
-import { formatNumber } from "@/utils/formatters";
 import { BAO_GIA_NCC_STATUS } from "@/constants/donMuaHang";
 import { getYeuCauNhapHangStatus } from "@/constants/yeuCauNhapHang";
-import { formatPrintDate, formatPrintDateTime } from "./printFormat";
+import {
+    dash,
+    formatPrintDate,
+    formatPrintLongDate,
+    formatPrintNumber,
+    textOrNull,
+    toNumeric,
+} from "./printFormat";
 
 /**
  * Adapter cho YÊU CẦU BÁO GIÁ — dữ liệu từ API
  * `GET /api/v1/yeu-cau-mua-hang/get-by-id/{id}` (cùng endpoint với
  * yêu cầu nhập hàng; nhà cung cấp được mời nằm trong `donMuaHangs`).
+ *
+ * Tên trạng thái dùng chung với màn hình: yêu cầu lấy từ constants/yeuCauNhapHang,
+ * báo giá từng nhà cung cấp (donMuaHangs) lấy từ BAO_GIA_NCC_STATUS ở constants/donMuaHang.
  */
-
-// Tên trạng thái dùng chung với màn hình: yêu cầu lấy từ constants/yeuCauNhapHang,
-// báo giá từng nhà cung cấp (donMuaHangs) lấy từ BAO_GIA_NCC_STATUS ở constants/donMuaHang.
-
-const dash = (value) => {
-    if (value === null || value === undefined) return "—";
-    const text = String(value).trim();
-    return text === "" ? "—" : text;
-};
-
-const dashDate = (value) => (value ? formatPrintDate(value) : "—");
-const dashDateTime = (value) => (value ? formatPrintDateTime(value) : "—");
-const dashQuantity = (value) =>
-    value === null || value === undefined ? "—" : formatNumber(value);
+const signer = (person) => ({ name: person ? dash(person.hoTen) : "" });
 
 export function toQuotationRequestPrintModel(raw) {
     const data = raw || {};
@@ -40,48 +36,43 @@ export function toQuotationRequestPrintModel(raw) {
             };
         });
 
-    const products = (data.chiTietYeuCauMuaHangs || []).map((item) => {
+    const details = data.chiTietYeuCauMuaHangs || [];
+    const products = details.map((item) => {
         const variant = item?.bienTheSanPham || {};
         return {
             name: dash(variant.tenSanPham || variant.maSku),
             sku: dash(variant.maSku),
-            color: dash(variant.mauSac?.tenMau),
-            size: dash(variant.size?.maSize),
-            material: dash(variant.chatLieu?.tenChatLieu),
-            quantity: dashQuantity(item?.soLuongDat),
+            color: textOrNull(variant.mauSac?.tenMau),
+            size: textOrNull(variant.size?.maSize),
+            material: textOrNull(variant.chatLieu?.tenChatLieu),
+            quantity: formatPrintNumber(item?.soLuongDat),
         };
     });
 
-    const totalQuantity = (data.chiTietYeuCauMuaHangs || []).reduce(
-        (sum, item) => sum + (Number(item?.soLuongDat) || 0),
-        0
-    );
+    const totalQuantity = details.reduce((sum, item) => sum + (toNumeric(item?.soLuongDat) ?? 0), 0);
 
     const status = getYeuCauNhapHangStatus(data.trangThai);
 
     return {
         documentNumber: dash(data.soYeuCauMuaHang || `#${data.id}`),
-        createdAt: dashDateTime(data.ngayTao),
+        documentDate: formatPrintLongDate(data.ngayTao),
+        watermark: data.trangThai === 0 ? "BẢN NHÁP" : null,
         // Ngày giao dự kiến của yêu cầu (ngayGiaoDuKien) — KHÔNG phải hạn
         // nhà cung cấp phải gửi báo giá
-        expectedDate: dashDate(data.ngayGiaoDuKien),
+        expectedDate: formatPrintDate(data.ngayGiaoDuKien),
         status: { label: status.label },
         warehouse: {
             name: dash(data.khoNhap?.tenKho),
             manager: dash(data.khoNhap?.quanLy?.hoTen),
-            address: dash(data.khoNhap?.diaChi),
+            address: textOrNull(data.khoNhap?.diaChi),
         },
         suppliers,
         products,
-        totalQuantity: formatNumber(totalQuantity),
-        notes: dash(data.ghiChu),
+        totalQuantity: formatPrintNumber(totalQuantity),
+        notes: textOrNull(data.ghiChu),
         signatures: {
-            creator: data.nguoiTao
-                ? { name: dash(data.nguoiTao.hoTen), email: dash(data.nguoiTao.email) }
-                : null,
-            approver: data.nguoiDuyet
-                ? { name: dash(data.nguoiDuyet.hoTen), email: dash(data.nguoiDuyet.email) }
-                : null,
+            creator: signer(data.nguoiTao),
+            approver: signer(data.nguoiDuyet),
         },
     };
 }

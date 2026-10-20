@@ -8,7 +8,11 @@ import PrintTemplateDocument from "@/components/print/PrintTemplateDocument";
 import PreviewZoomControl from "@/components/print/PreviewZoomControl";
 import { PreviewPrintStyleTag } from "@/components/print/previewPrintStyles";
 import { usePreviewViewportSize } from "@/components/print/usePreviewViewportSize";
-import { computeFitScale, getPaperSheetClasses } from "@/components/print/paperStyles";
+import {
+    computeFitScale,
+    getPageFooterText,
+    getPaperSheetClasses,
+} from "@/components/print/paperStyles";
 import LoadingState from "@/components/shared/LoadingState";
 import ErrorState from "@/components/shared/ErrorState";
 import EmptyState from "@/components/shared/EmptyState";
@@ -18,6 +22,7 @@ import { getSamplePrintModel } from "./samplePrintData";
 import { printTemplateConfigService } from "@/services/printTemplateConfigService";
 import { companyProfileService } from "@/services/companyProfileService";
 import PrintOnlyDocument from "@/components/print/PrintOnlyDocument";
+import { isThermalPaper } from "@/components/print/paperStyles";
 
 /**
  * Trang xem trước riêng của một mẫu (route cũ, giữ lại cho deep-link).
@@ -144,7 +149,7 @@ export default function PrintTemplateDetailPage() {
     };
 
     const orientationLabel =
-        config.paperSize === "K80"
+        isThermalPaper(config.paperSize)
             ? "Khổ nhiệt"
             : config.orientation === "landscape"
                 ? "Ngang"
@@ -163,7 +168,7 @@ export default function PrintTemplateDetailPage() {
 
     return (
         <PageContainer className="print-template-preview-page space-y-5 pb-24">
-            <PreviewPrintStyleTag paper={paper} />
+            <PreviewPrintStyleTag paper={paper} footerText={getPageFooterText(sampleModel)} />
 
             <PageHeader
                 className="no-print"

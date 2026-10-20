@@ -5,19 +5,30 @@
  * Quy tắc: class màn hình KHÔNG dùng inline style để các class `print:*`
  * (được tạo sau trong stylesheet) có thể ghi đè khi in.
  *
- * K80 là khổ giấy nhiệt 80mm — có layout compact riêng, KHÔNG phải bản A4
- * thu nhỏ (xem PrintTemplateDocument).
+ * K80 / K57 là khổ giấy nhiệt cuộn 80mm / 58mm — có layout compact riêng,
+ * KHÔNG phải bản A4 thu nhỏ (xem PrintTemplateDocument).
  */
 const MM_TO_PX = 96 / 25.4;
+
+/** Khổ giấy nhiệt cuộn (máy in hóa đơn tại quầy). */
+export const THERMAL_PAPER_SIZES = ["K80", "K57"];
+
+/** Khổ nhiệt: bố cục một cột, chiều cao tự do, lề mỏng. */
+export const isThermalPaper = (size) => THERMAL_PAPER_SIZES.includes(size);
+
+/** Chiều rộng cuộn giấy nhiệt (mm): K57 là cuộn 57/58mm, tính 58mm như driver máy in. */
+const THERMAL_WIDTH_MM = { K80: 80, K57: 58 };
 
 export const SHEET_SIZE_CLASSES = {
     "A4-portrait": "w-[210mm] min-h-[297mm]",
     "A4-landscape": "w-[297mm] min-h-[210mm]",
     "A5-portrait": "w-[148mm] min-h-[210mm]",
     "A5-landscape": "w-[210mm] min-h-[148mm]",
-    // K80: chiều cao tự do (giấy cuộn nhiệt), không ép chiều cao A4
+    // K80 / K57: chiều cao tự do (giấy cuộn nhiệt), không ép chiều cao A4
     "K80-portrait": "w-[80mm] min-h-0",
     "K80-landscape": "w-[80mm] min-h-0",
+    "K57-portrait": "w-[58mm] min-h-0",
+    "K57-landscape": "w-[58mm] min-h-0",
 };
 
 /**
@@ -32,13 +43,13 @@ export const PAPER_MARGIN_MM = {
     narrow: 8,
     default: 12,
     wide: 20,
-    // K80: lề nhiệt mỏng để tận dụng khổ cuộn 80mm
+    // K80 / K57: lề nhiệt mỏng để tận dụng khổ cuộn
     thermal: 3,
 };
 
 /** Lề (mm) của một cấu hình giấy. */
 export function getPaperMarginMm(paper) {
-    if (paper.size === "K80") return PAPER_MARGIN_MM.thermal;
+    if (isThermalPaper(paper.size)) return PAPER_MARGIN_MM.thermal;
     return PAPER_MARGIN_MM[paper.margin] ?? PAPER_MARGIN_MM.default;
 }
 
@@ -47,7 +58,7 @@ export const SHEET_PADDING_CLASSES = {
     narrow: "p-[8mm]",
     default: "p-[12mm]",
     wide: "p-[20mm]",
-    // K80: lề nhiệt mỏng hơn để tận dụng khổ cuộn 80mm
+    // K80 / K57: lề nhiệt mỏng hơn để tận dụng khổ cuộn
     thermal: "p-[3mm]",
 };
 
@@ -56,14 +67,16 @@ const PAPER_WIDTH_MM = {
     A4: { portrait: 210, landscape: 297 },
     A5: { portrait: 148, landscape: 210 },
     K80: { portrait: 80, landscape: 80 },
+    K57: { portrait: 58, landscape: 58 },
 };
 
 // Chiều cao (mm) của từng khổ giấy tiêu chuẩn.
-// K80 là giấy nhiệt cuộn — KHÔNG có chiều cao cố định (null = không ràng buộc).
+// K80 / K57 là giấy nhiệt cuộn — KHÔNG có chiều cao cố định (null = không ràng buộc).
 const PAPER_HEIGHT_MM = {
     A4: { portrait: 297, landscape: 210 },
     A5: { portrait: 210, landscape: 148 },
     K80: { portrait: null, landscape: null },
+    K57: { portrait: null, landscape: null },
 };
 
 /**
@@ -73,10 +86,10 @@ const PAPER_HEIGHT_MM = {
  * vùng nội dung trên bản xem trước.
  */
 export function getPaperSheetClasses(paper) {
-    const sizeKey = `${paper.size}-${paper.size === "K80" ? "portrait" : paper.orientation}`;
+    const sizeKey = `${paper.size}-${isThermalPaper(paper.size) ? "portrait" : paper.orientation}`;
     const sizeClass = SHEET_SIZE_CLASSES[sizeKey] ?? SHEET_SIZE_CLASSES["A4-portrait"];
     const paddingClass =
-        paper.size === "K80"
+        isThermalPaper(paper.size)
             ? SHEET_PADDING_CLASSES.thermal
             : SHEET_PADDING_CLASSES[paper.margin] ?? SHEET_PADDING_CLASSES.default;
     return `${sizeClass} ${paddingClass} print:w-auto! print:p-0!`;
@@ -85,14 +98,14 @@ export function getPaperSheetClasses(paper) {
 /** Chiều rộng tờ giấy tính bằng px (96 dpi) — dùng cho zoom. */
 export function getPaperSheetWidthPx(paper) {
     const dims = PAPER_WIDTH_MM[paper.size] ?? PAPER_WIDTH_MM.A4;
-    const widthMm = paper.size === "K80" ? 80 : dims[paper.orientation] ?? dims.portrait;
+    const widthMm = isThermalPaper(paper.size) ? THERMAL_WIDTH_MM[paper.size] : dims[paper.orientation] ?? dims.portrait;
     return Math.round(widthMm * MM_TO_PX);
 }
 
-/** Chiều cao tờ giấy tính bằng px (96 dpi); K80 trả null (chiều cao tự nhiên). */
+/** Chiều cao tờ giấy tính bằng px (96 dpi); khổ nhiệt trả null (chiều cao tự nhiên). */
 export function getPaperSheetHeightPx(paper) {
     const dims = PAPER_HEIGHT_MM[paper.size] ?? PAPER_HEIGHT_MM.A4;
-    const heightMm = paper.size === "K80" ? null : dims[paper.orientation] ?? dims.portrait;
+    const heightMm = isThermalPaper(paper.size) ? null : dims[paper.orientation] ?? dims.portrait;
     return heightMm === null ? null : Math.round(heightMm * MM_TO_PX);
 }
 
@@ -118,6 +131,18 @@ export function computeFitScale(paper, availWidth, availHeight) {
 }
 
 /**
+ * Chuỗi in ở lề dưới MỖI trang (khổ tờ): "Số MẪU-PR-0001 · Trang 1/2" — phiếu
+ * nhiều trang không bị lẫn/đánh tráo trang. null khi không có số phiếu.
+ */
+export function getPageFooterText(model) {
+    const number = model?.documentNumber;
+    return number && number !== "—" ? `Số ${number}` : null;
+}
+
+/** Chuỗi an toàn trong `content: "…"` của CSS (bỏ xuống dòng, thoát \\ và "). */
+const cssString = (text) => String(text).replace(/[\r\n]+/g, " ").replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+
+/**
  * CSS @page động cho bản in theo cấu hình. Được chèn qua thẻ <style> nằm
  * sau print.css trong document order nên ghi đè @page mặc định.
  *
@@ -126,19 +151,25 @@ export function computeFitScale(paper, availWidth, availHeight) {
  * lề không cộng dồn hai lần. Lưu ý: hộp thoại in phải để Lề = "Mặc định"
  * (chọn "Không có" thì trình duyệt bỏ qua @page margin).
  *
- * K80: giấy nhiệt CUỘN — `size: 80mm auto` không phải cú pháp hợp lệ nên
+ * `footerText` (khổ tờ): in "… · Trang n/N" ở góc phải lề dưới mỗi trang bằng
+ * ô lề @page (Chrome/Edge 131+; trình duyệt chưa hỗ trợ thì bỏ qua, không lỗi).
+ *
+ * K80 / K57: giấy nhiệt CUỘN — `size: 80mm auto` không phải cú pháp hợp lệ nên
  * chiều cao trang = chiều cao THẬT của nội dung (`thermalHeightMm`, đo bởi
  * useThermalPageHeight) -> cả phiếu nằm trên MỘT trang, không bị cắt giữa
  * chừng và không đẩy ra giấy trắng thừa. Chưa đo được -> tạm 297mm.
- * Cần chọn khổ giấy cuộn 80mm ở driver máy in nhiệt.
+ * Cần chọn khổ giấy cuộn 80mm (hoặc 58mm với K57) ở driver máy in nhiệt.
  */
-export function getPaperPageCss(paper, { thermalHeightMm } = {}) {
+export function getPaperPageCss(paper, { thermalHeightMm, footerText } = {}) {
     const margin = getPaperMarginMm(paper);
-    if (paper.size === "K80") {
+    if (isThermalPaper(paper.size)) {
         const height = thermalHeightMm > 0 ? thermalHeightMm : 297;
-        return `@media print { @page { size: 80mm ${height}mm; margin: ${margin}mm; } }`;
+        return `@media print { @page { size: ${THERMAL_WIDTH_MM[paper.size]}mm ${height}mm; margin: ${margin}mm; } }`;
     }
-    return `@media print { @page { size: ${paper.size} ${paper.orientation}; margin: ${margin}mm; } }`;
+    const footer = footerText
+        ? ` @bottom-right { content: "${cssString(footerText)} · Trang " counter(page) "/" counter(pages); font-family: Inter, Arial, sans-serif; font-size: 7.5pt; color: #4b5563; vertical-align: middle; }`
+        : "";
+    return `@media print { @page { size: ${paper.size} ${paper.orientation}; margin: ${margin}mm;${footer} } }`;
 }
 
 /**
@@ -148,10 +179,10 @@ export function getPaperPageCss(paper, { thermalHeightMm } = {}) {
  * của chiều cao vùng nội dung, đo từ mép trên vùng nội dung (content-box).
  * Lớp vạch chỉ vẽ trong content-box (không lộ vạch ở lề); lớp nền trắng thứ
  * hai phủ cả tờ giấy. Chỉ lộ ra khi nội dung dài hơn một trang. KHÔNG áp cho
- * bản in và K80 (giấy nhiệt liên tục, không có ranh giới trang cố định).
+ * bản in và khổ nhiệt (giấy liên tục, không có ranh giới trang cố định).
  */
 export function getPaperRulerCss(paper) {
-    if (paper.size === "K80") return "";
+    if (isThermalPaper(paper.size)) return "";
     const dims = PAPER_HEIGHT_MM[paper.size] ?? PAPER_HEIGHT_MM.A4;
     const heightMm = dims[paper.orientation] ?? dims.portrait;
     if (!heightMm) return "";

@@ -10,6 +10,7 @@ import EmptyState from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { printTemplateConfigService } from "@/services/printTemplateConfigService";
 import { companyProfileService } from "@/services/companyProfileService";
+import { getPageFooterText } from "@/components/print/paperStyles";
 
 /**
  * Khung chung cho các trang in thật của mọi loại chứng từ:
@@ -159,6 +160,7 @@ export default function PrintRoutePage({
             onPrint={() => window.print()}
             disablePrint={disablePrint}
             paper={paper}
+            pageFooter={model ? getPageFooterText(model) : null}
         >
             {loading || configLoading || companyLoading ? (
                 <LoadingState rows={5} label={loadingLabel} className="mx-auto max-w-xl" />

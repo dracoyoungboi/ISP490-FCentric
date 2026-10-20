@@ -1,6 +1,6 @@
 import { ArrowLeft, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getPaperPageCss, getPaperSheetClasses } from "@/components/print/paperStyles";
+import { getPaperPageCss, getPaperSheetClasses, isThermalPaper } from "@/components/print/paperStyles";
 import { useThermalPageHeight } from "@/components/print/useThermalPageHeight";
 import "@/styles/print.css";
 
@@ -15,6 +15,7 @@ const DEFAULT_PAPER = { size: "A4", orientation: "portrait", margin: "default" }
  * Khi in: toolbar bị ẩn (.no-print + quy tắc `button` của print.css),
  * tờ giấy được bung hết cỡ nhờ .print-root/.print-container trong print.css
  * và các class `print:*!`; @page được ghi đè động theo cấu hình.
+ * `pageFooter`: chữ in ở lề dưới mỗi trang kèm "Trang n/N" (khổ tờ).
  */
 export default function PrintLayout({
     title,
@@ -22,15 +23,16 @@ export default function PrintLayout({
     onPrint,
     disablePrint = false,
     paper,
+    pageFooter = null,
     children,
 }) {
     const paperConfig = paper ?? DEFAULT_PAPER;
-    // K80 (giấy cuộn): chiều cao trang = chiều cao thật của phiếu
-    const { ref: thermalRef, heightMm: thermalHeightMm } = useThermalPageHeight(paperConfig.size === "K80");
+    // K80 / K57 (giấy cuộn): chiều cao trang = chiều cao thật của phiếu
+    const { ref: thermalRef, heightMm: thermalHeightMm } = useThermalPageHeight(isThermalPaper(paperConfig.size));
 
     return (
         <div className="print-root min-h-screen bg-bo-canvas">
-            <style>{getPaperPageCss(paperConfig, { thermalHeightMm })}</style>
+            <style>{getPaperPageCss(paperConfig, { thermalHeightMm, footerText: pageFooter })}</style>
 
             <div className="no-print sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-bo-border bg-white px-4 py-3 shadow-sm sm:px-6">
                 <div className="flex min-w-0 items-center gap-3">

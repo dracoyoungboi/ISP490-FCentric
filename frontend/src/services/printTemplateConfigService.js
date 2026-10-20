@@ -2,7 +2,7 @@
  * Cấu hình mẫu in — MỖI LOẠI CHỨNG TỪ MỘT BỘ CẤU HÌNH RIÊNG.
  *
  * Lưu trữ SERVER-SIDE (bảng cau_hinh_mau_in + mau_in_dang_ap_dung):
- * - Mỗi biến thể khổ giấy (A4/A5/K80) có định danh riêng; khổ giấy luôn
+ * - Mỗi biến thể khổ giấy (A4/A5/K80/K57) có định danh riêng; khổ giấy luôn
  *   khớp hậu tố của định danh nên A5 không thể lưu dưới id A4 (backend
  *   cũng chặn bằng validate).
  * - "Mẫu đang áp dụng" = active map từ server (đúng 1 mẫu/loại chứng từ) —
@@ -16,85 +16,26 @@
  */
 import apiClient from "./apiClient";
 import {
+    CONFIG_VERSION,
+    buildDefaultTemplateConfig,
+    buildVariantFromDraft,
+    configFromSaved,
+    deepMerge,
+    normalizeConfig,
+    resolveInUseTemplateId,
+    toServerConfig,
+} from "@/components/print/cauHinhMauIn";
+import {
     getPrintSchema,
     PRINT_SCHEMAS,
 } from "@/components/print/schemas/printSchemas";
 
-export const CONFIG_VERSION = 2;
+// Các hàm thuần nằm ở components/print/cauHinhMauIn.js (chạy được bằng node --test);
+// giữ lối import cũ từ service cho các trang đang dùng.
+export { CONFIG_VERSION, buildDefaultTemplateConfig, buildVariantFromDraft, resolveInUseTemplateId };
+
 const LEGACY_STORAGE_KEY = "fcentric.printTemplateConfigs.v2";
 const MIGRATED_FLAG_KEY = "fcentric.printTemplateConfigs.migrated";
-
-const DEFAULT_ACCENT_COLOR = "#0F2A43";
-
-/**
- * Sinh cấu hình mặc định đầy đủ cho một mẫu từ schema:
- * bật toàn bộ section / field / cột theo khai báo của loại chứng từ đó.
- */
-export function buildDefaultTemplateConfig(schema, templateDef) {
-    const sections = {};
-    for (const section of schema.sections) {
-        if (section.type === "info") {
-            sections[section.key] = Object.fromEntries(
-                section.fields.map((field) => [field.key, true])
-            );
-        } else if (section.type === "items") {
-            sections[section.key] = { show: true, showTotal: Boolean(section.total) };
-        } else if (section.type === "notes") {
-            sections[section.key] = { show: true };
-        } else if (section.type === "signatures") {
-            sections[section.key] = Object.fromEntries(
-                section.blocks.map((block) => [block.key, true])
-            );
-        }
-    }
-
-    const columns = {};
-    for (const section of schema.sections) {
-        if (section.type !== "items") continue;
-        for (const column of section.columns) {
-            columns[column.key] = true;
-        }
-    }
-
-    const config = {
-        version: CONFIG_VERSION,
-        documentType: schema.key,
-        id: templateDef.id,
-        name: templateDef.name,
-        paperSize: templateDef.paperSize,
-        orientation: templateDef.orientation,
-        margin: templateDef.margin,
-        accentColor: DEFAULT_ACCENT_COLOR,
-        branding: {
-            showLogo: true,
-            showCompanyName: true,
-            showEmail: true,
-            showPhone: true,
-            showAddress: true,
-        },
-        sections,
-        columns,
-    };
-    // Mặc định riêng của mẫu (vd. K80 gọn cho POS) ghi đè "bật tất cả"
-    return templateDef.defaults ? deepMerge(config, templateDef.defaults) : config;
-}
-
-// Merge đệ quy: giá trị đã lưu đè lên default, bù các trường mới được thêm
-// sau này để cấu hình cũ không bị vỡ
-const deepMerge = (base, over) => {
-    const result = { ...base };
-    if (!over || typeof over !== "object") return result;
-    for (const [key, value] of Object.entries(over)) {
-        if (value === undefined) continue;
-        const baseValue = base[key];
-        result[key] =
-            baseValue && typeof baseValue === "object" && !Array.isArray(baseValue) &&
-            value && typeof value === "object" && !Array.isArray(value)
-                ? deepMerge(baseValue, value)
-                : value;
-    }
-    return result;
-};
 
 // ── Cache bundle server ────────────────────────────────────────────────────
 
@@ -114,29 +55,6 @@ async function loadBundle({ force = false } = {}) {
     return bundlePromise;
 }
 
-/** Chỉ giữ các trường server chấp nhận khi lưu (bỏ documentType/id/version...). */
-const toServerConfig = (config) => ({
-    name: config.name,
-    paperSize: config.paperSize,
-    orientation: config.orientation,
-    margin: config.margin,
-    accentColor: config.accentColor,
-    branding: config.branding ?? {},
-    sections: config.sections ?? {},
-    columns: config.columns ?? {},
-});
-
-const fromServerConfig = (saved) => ({
-    name: saved.name,
-    paperSize: saved.paperSize,
-    orientation: saved.orientation,
-    margin: saved.margin,
-    accentColor: saved.accentColor,
-    branding: saved.branding ?? {},
-    sections: saved.sections ?? {},
-    columns: saved.columns ?? {},
-});
-
 /** Cấu hình mặc định của một mẫu từ registry — null nếu id không tồn tại. */
 const registryDefault = (documentType, templateId) => {
     const schema = getPrintSchema(documentType);
@@ -145,98 +63,11 @@ const registryDefault = (documentType, templateId) => {
     return def ? buildDefaultTemplateConfig(schema, def) : null;
 };
 
-/**
- * Ép các trường THIẾT YẾU (số phiếu, bảng hàng hóa, cột tên hàng/SKU/số
- * lượng/tiền) luôn hiển thị — ngăn cấu hình khiến chứng từ in ra không thể
- * nhận diện hoặc đối chiếu (kể cả cấu hình cũ đã lưu trước khi có ràng buộc).
- */
-const applyEssentials = (schema, config) => {
-    for (const section of schema.sections) {
-        // Chỉ section BẢNG mới có danh sách cột — section "info" dùng
-        // `columns` là SỐ cột của lưới (vd. 3), không phải mảng.
-        const tableColumns =
-            section.type === "items"
-                ? [...(section.columns ?? []), ...(section.compactColumns ?? [])]
-                : [];
-        for (const column of tableColumns) {
-            if (column.essential) {
-                config.columns = { ...config.columns, [column.key]: true };
-            }
-        }
-        if (section.essentialShow) {
-            config.sections[section.key] = { ...config.sections[section.key], show: true };
-        }
-        for (const field of section.fields ?? []) {
-            if (field.essential) {
-                config.sections[section.key] = {
-                    ...config.sections[section.key],
-                    [field.key]: true,
-                };
-            }
-        }
-    }
-    return config;
+/** Ảnh chụp cấu hình trong lịch sử -> cấu hình đầy đủ (null nếu không đọc được / mẫu không còn). */
+const configFromSnapshot = (schema, snapshot) => {
+    if (!snapshot || typeof snapshot !== "object") return null;
+    return configFromSaved(schema, snapshot.templateId, snapshot);
 };
-
-/**
- * Biến thể khổ giấy ĐANG DÙNG cho in thật của một loại chứng từ (mô hình
- * MỘT MẪU) — nguồn logic DUY NHẤT cho trang cấu hình, editor và trang in thật:
- * - có cấu hình đã lưu -> biến thể đang áp dụng theo bảng server nếu nó có
- *   cấu hình lưu, ngược lại biến thể đã lưu đầu tiên;
- * - chưa lưu gì -> mẫu mặc định của registry.
- * Chỉ xét các định danh có trong registry (bỏ qua dữ liệu lạ trên server).
- */
-export function resolveInUseTemplateId(bundle, schema) {
-    if (!schema) return null;
-    const registryIds = new Set(schema.templates.map((template) => template.id));
-    const savedIds = (bundle?.configs ?? [])
-        .filter(
-            (config) =>
-                config.documentType === schema.key && registryIds.has(config.templateId)
-        )
-        .map((config) => config.templateId);
-    const activeId = bundle?.active?.[schema.key];
-    if (savedIds.length > 0) {
-        return savedIds.includes(activeId) ? activeId : savedIds[0];
-    }
-    return (schema.templates.find((template) => template.isDefault) ?? schema.templates[0])?.id ?? null;
-}
-
-/**
- * Đổi khổ giấy trong editor = đổi BIẾN THỂ nhưng GIỮ tuỳ chỉnh của bản nháp
- * — mô hình một mẫu: người dùng chỉ đổi khổ giấy, không mất cấu hình đã chỉnh.
- * - Cùng nhóm khổ tờ (A4 <-> A5): giữ màu nhấn, thương hiệu, section/field,
- *   cột, lề, hướng giấy.
- * - Qua lại khổ nhiệt K80: bố cục khác hẳn (phiếu bán lẻ gọn vs. chứng từ
- *   đầy đủ) nên section/cột lấy theo MẶC ĐỊNH của khổ đích; chỉ giữ màu nhấn,
- *   thương hiệu và tên.
- * - Tên mẫu: nếu vẫn là tên mặc định của khổ cũ -> dùng tên mặc định của khổ
- *   mới; người dùng đã đặt tên riêng -> giữ nguyên.
- * - K80 luôn khổ dọc.
- * Trả null nếu loại chứng từ không hỗ trợ khổ giấy đích.
- */
-export function buildVariantFromDraft(schema, draft, targetPaper) {
-    const targetDef = schema.templates.find((template) => template.paperSize === targetPaper);
-    if (!targetDef || !draft) return null;
-    const sourceDef = schema.templates.find((template) => template.id === draft.id);
-    const customName = draft.name?.trim() && draft.name !== sourceDef?.name;
-    const crossesThermal = (draft.paperSize === "K80") !== (targetPaper === "K80");
-    const carried = {
-        name: customName ? draft.name : targetDef.name,
-        accentColor: draft.accentColor,
-        branding: draft.branding,
-    };
-    if (!crossesThermal) {
-        Object.assign(carried, {
-            orientation: targetPaper === "K80" ? "portrait" : draft.orientation,
-            margin: draft.margin,
-            sections: draft.sections,
-            columns: draft.columns,
-        });
-    }
-    const next = deepMerge(buildDefaultTemplateConfig(schema, targetDef), carried);
-    return applyEssentials(schema, structuredClone(next));
-}
 
 export const printTemplateConfigService = {
     /** Nạp bundle từ server (cache; force = refetch). */
@@ -268,7 +99,7 @@ export const printTemplateConfigService = {
                 config.documentType === documentType && config.templateId === templateId
         );
         if (!saved || saved.version !== CONFIG_VERSION) return fallback;
-        return applyEssentials(schema, deepMerge(fallback, fromServerConfig(saved)));
+        return configFromSaved(schema, templateId, saved) ?? fallback;
     },
 
     /** Toàn bộ mẫu của một loại chứng từ (thứ tự theo registry). */
@@ -315,15 +146,49 @@ export const printTemplateConfigService = {
         return schema.templates.find((template) => template.id === targetId)?.paperSize ?? null;
     },
 
-    /** Lưu cấu hình một biến thể — KHÔNG đổi mẫu đang áp dụng. */
+    /**
+     * Lưu cấu hình một biến thể. Mô hình một mẫu: backend ghi luôn biến thể này làm mẫu đang dùng
+     * cho in thật và ghi một phiên bản vào lịch sử chỉnh sửa. Tùy chỉnh được chuẩn hóa trước khi gửi
+     * (bỏ mục trùng mặc định) để "không tùy chỉnh gì" luôn lưu đúng cấu hình mặc định.
+     */
     async saveTemplate(config) {
         const { documentType, id } = config;
+        const schema = getPrintSchema(documentType);
         const response = await apiClient.put(
             `/api/v1/cau-hinh-mau-in/${documentType}/${id}`,
-            toServerConfig(config)
+            toServerConfig(normalizeConfig(schema, config))
         );
-        await loadBundle({ force: true });
+        // Đã lưu xong: nạp lại bundle chỉ để các màn khác thấy ngay — lỗi mạng ở bước này KHÔNG được
+        // biến lần lưu thành "không lưu được" (loadBundle tự bỏ cache lỗi, lần sau nạp lại).
+        try {
+            await loadBundle({ force: true });
+        } catch (error) {
+            console.warn("Đã lưu mẫu in nhưng chưa nạp lại được danh sách mẫu:", error);
+        }
         return response.data?.data ?? null;
+    },
+
+    /**
+     * Lịch sử chỉnh sửa mẫu in của một loại chứng từ, mới nhất trước. Mỗi phiên bản kèm cấu hình
+     * đầy đủ sau khi lưu (`config`) và cấu hình đang dùng ngay trước lần lưu đó (`previous`, null nếu
+     * trước đó chưa lưu lần nào). Phiên bản có mẫu không còn trong registry -> config null (không khôi phục được).
+     */
+    async getHistory(documentType) {
+        const schema = getPrintSchema(documentType);
+        if (!schema) return [];
+        const response = await apiClient.get(`/api/v1/cau-hinh-mau-in/${schema.key}/lich-su`);
+        const rows = Array.isArray(response.data?.data) ? response.data.data : [];
+        return rows.map((row) => ({
+            id: row.id,
+            at: row.luc ?? null,
+            actorName: row.nguoiThucHien ?? null,
+            actorRole: row.vaiTro ?? null,
+            templateId: row.templateId ?? null,
+            config: configFromSnapshot(schema, row.cauHinh),
+            previous: configFromSnapshot(schema, row.cauHinhTruoc),
+            // Có ảnh chụp trước nhưng không đọc được (mẫu không còn…) khác với "lưu lần đầu"
+            hasPrevious: row.cauHinhTruoc != null,
+        }));
     },
 
     /**
@@ -343,26 +208,26 @@ export const printTemplateConfigService = {
      * - Chỉ xóa localStorage legacy sau khi server trả 200.
      */
     async migrateLegacyLocalIfNeeded() {
-        if (window.localStorage.getItem(MIGRATED_FLAG_KEY)) {
+        if (storage.get(MIGRATED_FLAG_KEY)) {
             return { migrated: [], skipped: [] };
         }
         const raw = readLegacyStorage();
         if (!raw || Object.keys(raw).length === 0) {
-            window.localStorage.setItem(MIGRATED_FLAG_KEY, "true");
+            storage.set(MIGRATED_FLAG_KEY, "true");
             return { migrated: [], skipped: [] };
         }
 
         const payload = buildMigratePayload(raw);
         if (Object.keys(payload.configs).length === 0) {
-            window.localStorage.removeItem(LEGACY_STORAGE_KEY);
-            window.localStorage.setItem(MIGRATED_FLAG_KEY, "true");
+            storage.remove(LEGACY_STORAGE_KEY);
+            storage.set(MIGRATED_FLAG_KEY, "true");
             return { migrated: [], skipped: [] };
         }
 
         const response = await apiClient.post("/api/v1/cau-hinh-mau-in/migrate", payload);
         // Server đã nhận (200) — legacy hết giá trị, xóa để không gửi lại
-        window.localStorage.removeItem(LEGACY_STORAGE_KEY);
-        window.localStorage.setItem(MIGRATED_FLAG_KEY, "true");
+        storage.remove(LEGACY_STORAGE_KEY);
+        storage.set(MIGRATED_FLAG_KEY, "true");
         await loadBundle({ force: true });
         return response.data?.data ?? { migrated: [], skipped: [] };
     },
@@ -370,9 +235,34 @@ export const printTemplateConfigService = {
 
 // ── Legacy migration helpers ───────────────────────────────────────────────
 
+/** localStorage có thể bị chặn (cửa sổ ẩn danh, chính sách trình duyệt) — không để lỗi làm hỏng trang. */
+const storage = {
+    get(key) {
+        try {
+            return window.localStorage.getItem(key);
+        } catch {
+            return null;
+        }
+    },
+    set(key, value) {
+        try {
+            window.localStorage.setItem(key, value);
+        } catch {
+            // bỏ qua: lần sau thử migrate lại, server không bao giờ nhận đè dữ liệu đã có
+        }
+    },
+    remove(key) {
+        try {
+            window.localStorage.removeItem(key);
+        } catch {
+            // bỏ qua
+        }
+    },
+};
+
 const readLegacyStorage = () => {
     try {
-        const raw = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+        const raw = storage.get(LEGACY_STORAGE_KEY);
         return raw ? JSON.parse(raw) : null;
     } catch {
         return null;

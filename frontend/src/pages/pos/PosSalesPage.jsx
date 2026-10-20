@@ -1364,9 +1364,9 @@ export default function PosSalesPage({
       showToast('Không có thông tin hóa đơn để in.', 'error');
       return;
     }
-    // In từ đơn ĐÃ LƯU trên server (route dự án hiện hữu); lỗi in chỉ thử lại in,
+    // In từ đơn ĐÃ LƯU trên server bằng mẫu hóa đơn tại quầy (khổ nhiệt); lỗi in chỉ thử lại in,
     // không bao giờ chạy lại checkout.
-    window.open(`/sales-orders/${result.donBanHangId}/invoice`, '_blank', 'noopener');
+    window.open(`/sales-orders/${result.donBanHangId}/invoice?mau=tai-quay`, '_blank', 'noopener');
   };
 
   const closeReceipt = () => {
