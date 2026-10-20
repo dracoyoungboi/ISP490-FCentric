@@ -17,4 +17,6 @@ public class DonBanHangDetailResponse {
     private Integer phieuNhatHangId;
     private String maPickList;
     private String trangThaiPhieuNhat;
+    /** Lần thu tiền tại quầy (đơn POS); null với đơn bán thường / đơn sàn. */
+    private ThanhToanTaiQuayDto thanhToanTaiQuay;
 }

@@ -13,31 +13,39 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import LoadingState from "@/components/shared/LoadingState";
 import ConfirmModal from "@/components/ui/confirm-modal";
+import { SettingsFieldHint } from "@/components/settings/SettingsUI";
 import { companyProfileService } from "@/services/companyProfileService";
 import {
+    COMPANY_PROFILE_FIELDS,
     companyProfileForm,
     companyProfilePayload,
     isCompanyProfileChanged,
     validateCompanyProfile,
 } from "@/validations/companyProfileSchema";
 
-function Field({ label, value, onChange, placeholder, type = "text", autoFocus = false }) {
+function Field({ id, label, value, onChange, onBlur, error, placeholder, type = "text", autoFocus = false }) {
     return (
         <div className="space-y-1.5">
             <span className="block text-xs font-semibold uppercase tracking-wide text-bo-muted">
                 {label}
             </span>
             <Input
+                id={id}
                 type={type}
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
+                onBlur={onBlur}
                 placeholder={placeholder}
                 // Form render SAU khi tải xong profile nên autoFocus trên ô
                 // tên công ty mới đưa được focus vào đúng ô đầu tiên (focus
                 // ban đầu của Radix rơi vào nút đóng).
                 autoFocus={autoFocus}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? `${id}-loi` : undefined}
                 className="border-bo-border bg-white text-bo-foreground"
             />
+            {/* Như trang Thông tin cửa hàng: lỗi hiện dưới ô sau khi rời ô */}
+            {error ? <SettingsFieldHint id={`${id}-loi`} error={error} /> : null}
         </div>
     );
 }
@@ -56,6 +64,8 @@ function Field({ label, value, onChange, placeholder, type = "text", autoFocus =
 export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
     const [loaded, setLoaded] = useState(null);
     const [form, setForm] = useState(null);
+    // Ô đã rời (blur) — chỉ hiện lỗi dưới ô sau khi rời ô hoặc bấm Lưu, như trang Thông tin cửa hàng
+    const [touched, setTouched] = useState({});
     const [loading, setLoading] = useState(false);
     const [loadError, setLoadError] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
@@ -76,6 +86,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
             setLoadError(false);
             setLoaded(null);
             setForm(null);
+            setTouched({});
             setPendingLogoFile(null);
             if (fileInputRef.current) fileInputRef.current.value = "";
             try {
@@ -111,9 +122,16 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
         Boolean(form) &&
         (isCompanyProfileChanged(loaded, form) || pendingLogoFile !== null);
 
-    const collectIssues = () => Object.values(validateCompanyProfile(form));
-
-    const issues = form ? collectIssues() : [];
+    const fieldErrors = form ? validateCompanyProfile(form) : {};
+    const hasErrors = Object.keys(fieldErrors).length > 0;
+    // Props chung của một ô: giá trị, đổi giá trị, rời ô, lỗi (sau khi rời ô / bấm Lưu)
+    const fieldProps = (key) => ({
+        id: `ho-so-cua-hang-${key}`,
+        value: form[key],
+        onChange: (value) => setForm((prev) => ({ ...prev, [key]: value })),
+        onBlur: () => setTouched((prev) => ({ ...prev, [key]: true })),
+        error: touched[key] ? fieldErrors[key] : undefined,
+    });
 
     // Cảnh báo đóng tab khi hộp thoại đang mở và có thay đổi chưa lưu
     useEffect(() => {
@@ -137,9 +155,12 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
     };
 
     const handleSave = async () => {
-        const errors = collectIssues();
-        for (const error of errors) toast.error(error);
-        if (errors.length > 0) return;
+        // Như trang Thông tin cửa hàng: còn lỗi (kể cả giá trị sai có sẵn từ máy chủ ở ô chưa rời)
+        // -> đánh dấu mọi ô đã rời để lỗi hiện dưới ô, không gửi
+        if (hasErrors) {
+            setTouched(Object.fromEntries(COMPANY_PROFILE_FIELDS.map((key) => [key, true])));
+            return;
+        }
         setSaving(true);
         try {
             // Logo đợi đến khi lưu mới tải lên (MinIO) — Hủy trước đó thì không ghi gì
@@ -253,30 +274,31 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
                         </div>
 
                         <Field
+                            {...fieldProps("name")}
                             label="Tên cửa hàng"
-                            value={form.name}
-                            onChange={(value) => setForm((prev) => ({ ...prev, name: value }))}
-                            placeholder="Ví dụ: Công ty TNHH F Centric"
+                            placeholder="Ví dụ: Thời trang Mộc An"
                             autoFocus
+                        />
+                        <Field
+                            {...fieldProps("taxCode")}
+                            label="Mã số thuế"
+                            placeholder="Ví dụ: 0312345678"
                         />
                         <div className="grid gap-4 sm:grid-cols-2">
                             <Field
+                                {...fieldProps("email")}
                                 label="Email"
-                                value={form.email}
-                                onChange={(value) => setForm((prev) => ({ ...prev, email: value }))}
                                 placeholder="lienhe@congty.vn"
                             />
                             <Field
+                                {...fieldProps("phone")}
                                 label="Điện thoại"
-                                value={form.phone}
-                                onChange={(value) => setForm((prev) => ({ ...prev, phone: value }))}
                                 placeholder="028 7300 0000"
                             />
                         </div>
                         <Field
+                            {...fieldProps("address")}
                             label="Địa chỉ"
-                            value={form.address}
-                            onChange={(value) => setForm((prev) => ({ ...prev, address: value }))}
                             placeholder="Số nhà, đường, quận/huyện, tỉnh/thành phố"
                         />
                     </div>
@@ -296,8 +318,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
                         type="button"
                         className="bg-bo-primary text-white hover:bg-bo-primary-hover"
                         onClick={handleSave}
-                        disabled={saving || !isDirty || issues.length > 0}
-                        title={issues.length > 0 ? issues[0] : undefined}
+                        disabled={saving || !isDirty}
                     >
                         {saving ? "Đang lưu…" : "Lưu thông tin"}
                     </Button>

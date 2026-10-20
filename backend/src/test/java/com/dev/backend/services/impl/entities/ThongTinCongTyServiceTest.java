@@ -6,6 +6,7 @@ import com.dev.backend.dto.response.FileObjectInfo;
 import com.dev.backend.dto.response.ThongTinCongTyDto;
 import com.dev.backend.entities.TepTin;
 import com.dev.backend.entities.ThongTinCongTy;
+import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.ThongTinCongTyRepository;
 import com.dev.backend.services.MinioService;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,6 +21,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -98,7 +101,7 @@ class ThongTinCongTyServiceTest {
         when(repository.findById(1)).thenReturn(Optional.of(entity));
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        ThongTinCongTyDto dto = service.updateProfile(new ThongTinCongTyRequest("FCentric", null, null, null));
+        ThongTinCongTyDto dto = service.updateProfile(new ThongTinCongTyRequest("FCentric", null, null, null, null));
 
         assertEquals("https://minio.slmglobal.vn/fashion/company/logo.png", dto.getLogoAsset());
     }
@@ -126,5 +129,49 @@ class ThongTinCongTyServiceTest {
 
         assertEquals("https://minio.slmglobal.vn/fashion/company/logo-new.png", dto.getLogoAsset());
         verify(tepTinService).create(any(TepTin.class));
+    }
+
+    @Test
+    void updateProfile_maSoThueSaiDinhDang_baoLoiVaKhongLuu() {
+        assertThrows(CommonException.class,
+                () -> service.updateProfile(new ThongTinCongTyRequest("Thời trang Mộc An", "12345", null, null, null)));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void updateProfile_luuMaSoThueDaBoKhoangTrang_traVeTaxCode() {
+        when(repository.findById(1)).thenReturn(Optional.of(ThongTinCongTy.builder().id(1).tenCongTy("Cũ").build()));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        ThongTinCongTyDto dto = service.updateProfile(
+                new ThongTinCongTyRequest("Thời trang Mộc An", " 0312345678-001 ", null, null, null));
+
+        assertEquals("0312345678-001", dto.getTaxCode());
+    }
+
+    @Test
+    void updateProfile_khongGuiMaSoThue_giuNguyenMaDaLuu() {
+        // Tab còn giao diện cũ (chưa có ô Mã số thuế) gửi taxCode = null: không được xóa mã đã lưu
+        when(repository.findById(1)).thenReturn(Optional.of(
+                ThongTinCongTy.builder().id(1).tenCongTy("Cũ").maSoThue("0312345678").build()));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        ThongTinCongTyDto dto = service.updateProfile(
+                new ThongTinCongTyRequest("Thời trang Mộc An", null, null, null, null));
+
+        assertEquals("0312345678", dto.getTaxCode());
+        assertEquals("Thời trang Mộc An", dto.getName());
+    }
+
+    @Test
+    void updateProfile_maSoThueChuoiTrang_xoaMaDaLuu() {
+        when(repository.findById(1)).thenReturn(Optional.of(
+                ThongTinCongTy.builder().id(1).tenCongTy("Cũ").maSoThue("0312345678").build()));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        ThongTinCongTyDto dto = service.updateProfile(
+                new ThongTinCongTyRequest("Thời trang Mộc An", "  ", null, null, null));
+
+        assertNull(dto.getTaxCode());
     }
 }

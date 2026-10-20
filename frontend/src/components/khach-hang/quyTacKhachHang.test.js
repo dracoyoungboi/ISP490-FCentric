@@ -3,14 +3,17 @@ import assert from "node:assert/strict";
 import {
   CAN_LIEN_HE,
   FORM_THEM,
+  MA_SO_THUE_MESSAGE,
   SO_DIEN_THOAI_MESSAGE,
   cacOThayDoi,
   canKiemTrung,
   chuanHoaMaKhiNhap,
+  chuanHoaMaSoThueKhiNhap,
   chuanHoaSoDienThoaiKhiNhap,
   formThemCoNhap,
   formTuKhachHang,
   goiYTen,
+  hienMaSoThue,
   hienNguoiLienHe,
   kiemTraForm,
   nhanDiaChi,
@@ -163,6 +166,7 @@ test("payload thêm: ô trống gửi null, mã trống để máy chủ tự t�
     maKhachHang: null,
     tenKhachHang: "Shop Hoa Mai",
     loaiKhachHang: "si",
+    maSoThue: null,
     nguoiLienHe: null,
     soDienThoai: null,
     email: "hoamai@shop.vn",
@@ -212,4 +216,32 @@ test("chỉ kiểm trùng khi có giá trị hợp lệ và (khi sửa) đã đ�
   const dn = formTuKhachHang(DOANH_NGHIEP);
   assert.equal(canKiemTrung("soDienThoai", dn, { laSua: true, banDau: dn }), false);
   assert.equal(canKiemTrung("email", { ...dn, email: "moi@minhkhoi.vn" }, { laSua: true, banDau: dn }), true);
+});
+
+test("mã số thuế: hiện với khách sỉ / doanh nghiệp, nhận 10 số, 10-3 số hoặc 12 số như máy chủ", () => {
+  assert.equal(hienMaSoThue(them({ loaiKhachHang: "le" }), FORM_THEM), false);
+  assert.equal(hienMaSoThue(them({ loaiKhachHang: "si" }), FORM_THEM), true);
+  assert.equal(hienMaSoThue(them({ loaiKhachHang: "le" }), { ...FORM_THEM, maSoThue: "0312345678" }), true);
+  const dn = them({ tenKhachHang: "Công ty A", email: "a@congty.vn", loaiKhachHang: "doanh_nghiep" });
+  assert.deepEqual(kiemTraForm({ ...dn, maSoThue: "0312345678" }), {});
+  assert.deepEqual(kiemTraForm({ ...dn, maSoThue: "0312345678-001" }), {});
+  assert.deepEqual(kiemTraForm({ ...dn, maSoThue: "001203004567" }), {});
+  assert.equal(kiemTraForm({ ...dn, maSoThue: "03123" }).maSoThue, MA_SO_THUE_MESSAGE);
+  // Sửa: mã cũ sai định dạng không chặn việc sửa ô khác
+  const cu = formTuKhachHang({ ...DOANH_NGHIEP, maSoThue: "123" });
+  assert.deepEqual(kiemTraForm({ ...cu, tenKhachHang: "Tên mới" }, { laSua: true, banDau: cu }), {});
+  assert.equal(chuanHoaMaSoThueKhiNhap(" 0312.345.678-001 "), "0312345678-001");
+  assert.equal(oCuaThongBaoMayChu(MA_SO_THUE_MESSAGE), "maSoThue");
+  assert.equal(payloadThem({ ...dn, maSoThue: " 0312345678 " }).maSoThue, "0312345678");
+});
+
+test("mã số thuế dán vào: hàm chuẩn hóa tự giới hạn độ dài sau khi bỏ dấu (ô nhập không đặt maxLength)", () => {
+  // Ô nhập không đặt maxLength: trình duyệt cắt "0312.345.678-001" (16 ký tự) còn 14 trước khi bỏ dấu chấm
+  assert.equal(chuanHoaMaSoThueKhiNhap("0312.345.678-001"), "0312345678-001");
+  assert.equal(chuanHoaMaSoThueKhiNhap("MST: 0312 345 678-001"), "0312345678-001");
+  assert.equal(chuanHoaMaSoThueKhiNhap("0312345678-001999").length, 14);
+  assert.deepEqual(
+    kiemTraForm(them({ tenKhachHang: "Công ty A", email: "a@congty.vn", maSoThue: chuanHoaMaSoThueKhiNhap("0312.345.678-001") })),
+    {},
+  );
 });

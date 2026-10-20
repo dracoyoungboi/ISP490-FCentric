@@ -403,4 +403,78 @@ class KhachHangServiceTest {
                 KhachHangUpdating.builder().tenKhachHang("   ").build()));
         verify(repository, never()).saveAndFlush(any());
     }
+
+    // ── Mã số thuế (in ở mục Người mua của hóa đơn bán hàng) ──
+
+    @Test
+    void create_maSoThueSaiDinhDang_bao400KhongLuu() {
+        CommonException ex = assertThrows(CommonException.class, () -> service.create(KhachHangCreating.builder()
+                .maKhachHang("KH010").tenKhachHang("Công ty A").email("a@congty.vn").maSoThue("03123").build()));
+
+        assertEquals(KhachHangService.MA_SO_THUE_MESSAGE, ex.getMessage());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void create_maSoThueHopLe_luuDaBoKhoangTrang() {
+        when(repository.existsByMaKhachHang("KH011")).thenReturn(false);
+
+        service.create(KhachHangCreating.builder()
+                .maKhachHang("KH011").tenKhachHang("Công ty B").email("b@congty.vn")
+                .maSoThue(" 0312345678-001 ").loaiKhachHang("doanh_nghiep").build());
+
+        assertEquals("0312345678-001", savedEntity().getMaSoThue());
+    }
+
+    @Test
+    void update_maSoThueMoiSaiDinhDang_bao400KhongLuu() {
+        KhachHang entity = khachHang(20, "KH020", "Công ty N", "0901111111", null);
+        entity.setMaSoThue("0312345678");
+        when(repository.findById(20)).thenReturn(Optional.of(entity));
+
+        CommonException ex = assertThrows(CommonException.class, () -> service.update(20,
+                KhachHangUpdating.builder().maSoThue("0312345678-1").build()));
+
+        assertEquals(KhachHangService.MA_SO_THUE_MESSAGE, ex.getMessage());
+        verify(repository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void update_maSoThueCuSaiDinhDangKhongSua_vanSuaDuocOKhac() {
+        // Mã cũ sai định dạng (nhập thẳng vào CSDL): gửi lại đúng mã đang lưu hoặc không gửi thì không kiểm lại
+        KhachHang entity = khachHang(21, "KH021", "Công ty O", "0901111111", null);
+        entity.setMaSoThue("03123");
+        when(repository.findById(21)).thenReturn(Optional.of(entity));
+        when(repository.saveAndFlush(any(KhachHang.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.update(21, KhachHangUpdating.builder().tenKhachHang("Công ty O mới").maSoThue("03123").build());
+
+        KhachHang saved = updatedEntity();
+        assertEquals("Công ty O mới", saved.getTenKhachHang());
+        assertEquals("03123", saved.getMaSoThue());
+    }
+
+    @Test
+    void update_maSoThueChuoiRong_xoaVeNull() {
+        KhachHang entity = khachHang(22, "KH022", "Công ty P", "0901111111", null);
+        entity.setMaSoThue("0312345678");
+        when(repository.findById(22)).thenReturn(Optional.of(entity));
+        when(repository.saveAndFlush(any(KhachHang.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.update(22, KhachHangUpdating.builder().maSoThue("").build());
+
+        assertNull(updatedEntity().getMaSoThue());
+    }
+
+    @Test
+    void update_khongGuiMaSoThue_giuNguyen() {
+        KhachHang entity = khachHang(23, "KH023", "Công ty Q", "0901111111", null);
+        entity.setMaSoThue("0312345678-001");
+        when(repository.findById(23)).thenReturn(Optional.of(entity));
+        when(repository.saveAndFlush(any(KhachHang.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.update(23, KhachHangUpdating.builder().tenKhachHang("Công ty Q mới").build());
+
+        assertEquals("0312345678-001", updatedEntity().getMaSoThue());
+    }
 }

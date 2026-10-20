@@ -24,14 +24,15 @@ import {
 } from "@/validations/companyProfileSchema";
 
 const FIELDS = [
-  { key: "name", label: "Tên cửa hàng", type: "text", placeholder: "Ví dụ: FCentric", required: true },
+  { key: "name", label: "Tên cửa hàng", type: "text", placeholder: "Ví dụ: Thời trang Mộc An", required: true },
+  { key: "taxCode", label: "Mã số thuế", type: "text", placeholder: "Ví dụ: 0312345678" },
   { key: "phone", label: "Điện thoại", type: "tel", placeholder: "028 7300 0000" },
   { key: "email", label: "Email", type: "email", placeholder: "lienhe@congty.vn" },
   { key: "address", label: "Địa chỉ", type: "text", placeholder: "Số nhà, đường, phường/xã, tỉnh/thành phố", wide: true },
 ];
 
 /**
- * Cấu hình › Thông tin cửa hàng: tên, logo, liên hệ in ở đầu mọi phiếu và hóa đơn (GET/PUT /api/v1/thong-tin-cong-ty).
+ * Cấu hình › Thông tin cửa hàng: tên, mã số thuế, logo, liên hệ in ở đầu mọi phiếu và hóa đơn (GET/PUT /api/v1/thong-tin-cong-ty).
  * Logo chọn xong chỉ tải lên khi bấm Lưu; Hủy thì không ghi gì.
  */
 export default function StoreSettingsPage() {
@@ -246,7 +247,7 @@ export default function StoreSettingsPage() {
                   <dd
                     className={`mt-0.5 text-sm leading-5 break-words ${
                       profile[field.key] ? "text-bo-foreground" : "text-[#94a3b8]"
-                    } ${field.key === "name" ? "font-semibold" : ""} ${field.key === "phone" ? "tabular-nums" : ""}`}
+                    } ${field.key === "name" ? "font-semibold" : ""} ${field.key === "phone" || field.key === "taxCode" ? "tabular-nums" : ""}`}
                   >
                     {profile[field.key] || "Chưa nhập"}
                   </dd>

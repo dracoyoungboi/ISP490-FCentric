@@ -1,7 +1,7 @@
 /**
  * Hồ sơ công ty DÙNG CHUNG cho mọi mẫu in.
  *
- * Tên công ty, logo, email, điện thoại, địa chỉ nằm ở đây (một nơi duy nhất);
+ * Tên công ty, mã số thuế, logo, email, điện thoại, địa chỉ nằm ở đây (một nơi duy nhất);
  * từng mẫu in chỉ quyết định CÓ HIỂN THỊ từng trường hay không (cấu hình
  * `branding` của mẫu), không lưu trùng dữ liệu công ty.
  *
@@ -20,6 +20,7 @@ export const DEFAULT_COMPANY_PROFILE = {
     version: PROFILE_VERSION,
     name: "FCentric",
     logoAsset: "/branding/f-centric-icon.svg",
+    taxCode: "",
     email: "",
     phone: "",
     address: "",
@@ -50,6 +51,7 @@ const toProfile = (dto) => {
         version: dto.version ?? PROFILE_VERSION,
         name: dto.name ?? DEFAULT_COMPANY_PROFILE.name,
         logoAsset: dto.logoAsset ?? DEFAULT_COMPANY_PROFILE.logoAsset,
+        taxCode: dto.taxCode ?? "",
         email: dto.email ?? "",
         phone: dto.phone ?? "",
         address: dto.address ?? "",
@@ -73,6 +75,7 @@ export const companyProfileService = {
     async save(profile) {
         const response = await apiClient.put("/api/v1/thong-tin-cong-ty", {
             name: profile.name,
+            taxCode: profile.taxCode ?? "",
             email: profile.email ?? "",
             phone: profile.phone ?? "",
             address: profile.address ?? "",

@@ -15,6 +15,7 @@ import java.time.Instant;
 public class ThongTinCongTyDto {
     Integer id;
     String name;
+    String taxCode;
     String logoAsset;
     String email;
     String phone;

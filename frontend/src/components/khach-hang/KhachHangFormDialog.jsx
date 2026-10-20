@@ -28,10 +28,12 @@ import {
   cacOThayDoi,
   canKiemTrung,
   chuanHoaMaKhiNhap,
+  chuanHoaMaSoThueKhiNhap,
   chuanHoaSoDienThoaiKhiNhap,
   formThemCoNhap,
   formTuKhachHang,
   goiYTen,
+  hienMaSoThue,
   hienNguoiLienHe,
   kiemTraForm,
   nhanDiaChi,
@@ -159,6 +161,7 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
   const doiDs = laSua ? cacOThayDoi(form, banDau) : [];
   const isDirty = laSua ? doiDs.length > 0 : formThemCoNhap(form);
   const coNguoiLienHe = hienNguoiLienHe(form, banDau);
+  const coMaSoThue = hienMaSoThue(form, banDau);
   const oDau = oMoDau && THU_TU_O.includes(oMoDau) ? oMoDau : "tenKhachHang";
 
   const focusField = (name) => {
@@ -250,7 +253,12 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
       laSua ? "Không thể lưu thay đổi. Vui lòng thử lại." : "Không thể thêm khách hàng. Vui lòng thử lại.",
     );
     const field = oCuaThongBaoMayChu(message);
-    if (field && !(laSua && field === "maKhachHang") && !(field === "nguoiLienHe" && !coNguoiLienHe)) {
+    if (
+      field &&
+      !(laSua && field === "maKhachHang") &&
+      !(field === "nguoiLienHe" && !coNguoiLienHe) &&
+      !(field === "maSoThue" && !coMaSoThue)
+    ) {
       setFieldError(field, message);
       // Chờ render xong (ô hết readOnly) rồi mới focus vào ô cần sửa.
       setTimeout(() => focusField(field), 0);
@@ -474,6 +482,27 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
                   autoCapitalize="characters"
                   className={cn(CONTROL_CLASS, "font-mono placeholder:font-sans", errors.maKhachHang && CONTROL_ERROR_CLASS)}
                   onChange={(event) => changeField("maKhachHang", chuanHoaMaKhiNhap(event.target.value))}
+                />
+              </Field>
+            ) : null}
+            {coMaSoThue ? (
+              <Field
+                id={fieldId("maSoThue")}
+                label="Mã số thuế"
+                optional
+                error={errors.maSoThue}
+                hint="In ở mục Người mua trên hóa đơn bán hàng"
+              >
+                <Input
+                  {...textInputProps("maSoThue", true)}
+                  // Không đặt maxLength: dán "0312.345.678-001" thì trình duyệt cắt còn 14 ký tự trước khi bỏ dấu
+                  // chấm; chuanHoaMaSoThueKhiNhap đã giới hạn độ dài. Không dùng inputMode="numeric": bàn phím số
+                  // của iOS không có dấu "-" để gõ mã đơn vị phụ thuộc.
+                  maxLength={undefined}
+                  placeholder="VD: 0312345678"
+                  spellCheck={false}
+                  className={cn(CONTROL_CLASS, "tabular-nums", errors.maSoThue && CONTROL_ERROR_CLASS)}
+                  onChange={(event) => changeField("maSoThue", chuanHoaMaSoThueKhiNhap(event.target.value))}
                 />
               </Field>
             ) : null}

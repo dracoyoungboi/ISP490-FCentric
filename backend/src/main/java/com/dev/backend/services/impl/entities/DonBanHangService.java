@@ -17,6 +17,7 @@ import com.dev.backend.dto.response.customize.DonBanHangDetailResponse;
 import com.dev.backend.dto.response.customize.DonBanHangKpiHomNayDto;
 import com.dev.backend.dto.response.customize.KhoKhaDungDto;
 import com.dev.backend.dto.response.customize.PhieuXuatKhoSummaryDto;
+import com.dev.backend.dto.response.customize.ThanhToanTaiQuayDto;
 import com.dev.backend.dto.response.customize.TongQuanMuaHangKhachDto;
 import com.dev.backend.dto.response.entities.ChiTietDonBanHangDto;
 import com.dev.backend.dto.response.entities.DonBanHangDto;
@@ -127,6 +128,9 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
 
     @Autowired
     private KhoRepository khoRepository;
+
+    @Autowired
+    private PosPaymentRepository posPaymentRepository;
 
     @Autowired
     private LichSuThayDoiService lichSuThayDoiService;
@@ -358,6 +362,15 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                         .toList();
 
         DanhSachNhatHang phieuNhat = don.getDanhSachNhatHang();
+        // Hóa đơn tại quầy in tiền khách đưa / tiền thừa từ sổ thu POS
+        ThanhToanTaiQuayDto thanhToanTaiQuay = posPaymentRepository.findFirstByDonBanHangIdOrderByIdDesc(id)
+                .map(thu -> ThanhToanTaiQuayDto.builder()
+                        .phuongThuc(thu.getPhuongThuc())
+                        .soTienThu(thu.getSoTienThu())
+                        .soTienThua(thu.getSoTienThua())
+                        .ngayThu(thu.getNgayTao())
+                        .build())
+                .orElse(null);
         return DonBanHangDetailResponse.builder()
                 .donBanHang(donDto)
                 .chiTiet(chiTietDtos)
@@ -365,6 +378,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 .phieuNhatHangId(phieuNhat != null ? phieuNhat.getId() : null)
                 .maPickList(phieuNhat != null ? phieuNhat.getMaPickList() : null)
                 .trangThaiPhieuNhat(phieuNhat != null ? phieuNhat.getTrangThai() : null)
+                .thanhToanTaiQuay(thanhToanTaiQuay)
                 .build();
     }
 

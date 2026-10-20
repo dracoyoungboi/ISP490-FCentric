@@ -10,6 +10,7 @@ export { nhanDiaChi };
 export const MAX_LENGTH = {
   maKhachHang: 50,
   tenKhachHang: 200,
+  maSoThue: 14,
   nguoiLienHe: 100,
   soDienThoai: 11,
   email: 100,
@@ -26,12 +27,13 @@ const LOAI_HOP_LE = LOAI_KHACH_HANG.map((loai) => loai.value);
 export const LOAI_MAC_DINH_KHI_THEM = "le";
 
 /** Thứ tự ô trên màn hình: bấm Lưu mà có lỗi thì con trỏ nhảy tới ô sai đầu tiên theo thứ tự này. */
-export const THU_TU_O = ["loaiKhachHang", "tenKhachHang", "maKhachHang", "nguoiLienHe", "soDienThoai", "email", "diaChi"];
+export const THU_TU_O = ["loaiKhachHang", "tenKhachHang", "maKhachHang", "maSoThue", "nguoiLienHe", "soDienThoai", "email", "diaChi"];
 
 /** Tên ô trong dòng "Đã sửa: …" ở chân popup. */
 export const NHAN_O = {
   loaiKhachHang: "Loại khách",
   tenKhachHang: "Tên",
+  maSoThue: "Mã số thuế",
   nguoiLienHe: "Người liên hệ",
   soDienThoai: "Số điện thoại",
   email: "Email",
@@ -43,6 +45,9 @@ const MA_REGEX = /^[A-Za-z0-9._-]+$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Như nhà cung cấp: di động 10 số (03/05/07/08/09), máy bàn 11 số (02…), tổng đài 1800/1900.
 const SO_DIEN_THOAI_REGEX = /^(0[35789][0-9]{8}|02[0-9]{9}|1[89]00[0-9]{4,6})$/;
+// Trùng MA_SO_THUE_PATTERN của backend: doanh nghiệp 10 số, đơn vị phụ thuộc thêm "-3 số"; hộ/cá nhân kinh doanh 12 số.
+const MA_SO_THUE_REGEX = /^(\d{10}(-\d{3})?|\d{12})$/;
+export const MA_SO_THUE_MESSAGE = "Mã số thuế gồm 10 số (đơn vị phụ thuộc thêm -3 số) hoặc 12 số";
 
 export const CAN_LIEN_HE = "Cần số điện thoại hoặc email để liên hệ khách hàng";
 export const SO_DIEN_THOAI_MESSAGE =
@@ -57,6 +62,10 @@ export function chuanHoaSoDienThoaiKhiNhap(value) {
   return doi.replace(/\D/g, "").slice(0, MAX_LENGTH.soDienThoai);
 }
 
+/** Gõ / dán mã số thuế: chỉ giữ chữ số và dấu gạch (mã đơn vị phụ thuộc "0312345678-001"). */
+export const chuanHoaMaSoThueKhiNhap = (value) =>
+  String(value ?? "").replace(/[^\d-]/g, "").slice(0, MAX_LENGTH.maSoThue);
+
 /** Mã nhập tay: viết hoa, không có khoảng trắng. */
 export const chuanHoaMaKhiNhap = (value) =>
   String(value ?? "").toUpperCase().replace(/\s/g, "").slice(0, MAX_LENGTH.maKhachHang);
@@ -65,6 +74,7 @@ export const FORM_THEM = {
   loaiKhachHang: LOAI_MAC_DINH_KHI_THEM,
   tenKhachHang: "",
   maKhachHang: "",
+  maSoThue: "",
   nguoiLienHe: "",
   soDienThoai: "",
   email: "",
@@ -81,6 +91,7 @@ export function formTuKhachHang(khachHang) {
     loaiKhachHang: LOAI_HOP_LE.includes(khachHang.loaiKhachHang) ? khachHang.loaiKhachHang : "",
     tenKhachHang: khachHang.tenKhachHang ?? "",
     maKhachHang: khachHang.maKhachHang ?? "",
+    maSoThue: khachHang.maSoThue ?? "",
     nguoiLienHe: khachHang.nguoiLienHe ?? "",
     soDienThoai: khachHang.soDienThoai ?? "",
     email: khachHang.email ?? "",
@@ -102,6 +113,19 @@ export function hienNguoiLienHe(form, banDau) {
     form.loaiKhachHang === "doanh_nghiep" ||
     Boolean(gon(form.nguoiLienHe)) ||
     Boolean(gon(banDau?.nguoiLienHe))
+  );
+}
+
+/**
+ * Mã số thuế (in ở khối Người mua của hóa đơn): như Người liên hệ — hiện với khách sỉ, doanh nghiệp,
+ * hoặc khi khách đã có mã (đổi sang Khách lẻ không làm mất).
+ */
+export function hienMaSoThue(form, banDau) {
+  return (
+    form.loaiKhachHang === "si" ||
+    form.loaiKhachHang === "doanh_nghiep" ||
+    Boolean(gon(form.maSoThue)) ||
+    Boolean(gon(banDau?.maSoThue))
   );
 }
 
@@ -131,6 +155,9 @@ export function kiemTraForm(form, { laSua = false, banDau = FORM_THEM } = {}) {
     else if (ma && !MA_REGEX.test(ma)) loi.maKhachHang = "Mã chỉ gồm chữ không dấu, số và . _ -";
   }
 
+  const maSoThue = gon(form.maSoThue);
+  if (maSoThue && !giuNguyen("maSoThue") && !MA_SO_THUE_REGEX.test(maSoThue)) loi.maSoThue = MA_SO_THUE_MESSAGE;
+
   if (gon(form.nguoiLienHe).length > MAX_LENGTH.nguoiLienHe) loi.nguoiLienHe = "Người liên hệ tối đa 100 ký tự";
 
   const sdt = gon(form.soDienThoai);
@@ -155,6 +182,7 @@ export function payloadThem(form) {
     maKhachHang: tuyChon(form.maKhachHang),
     tenKhachHang: gon(form.tenKhachHang),
     loaiKhachHang: form.loaiKhachHang || LOAI_MAC_DINH_KHI_THEM,
+    maSoThue: tuyChon(form.maSoThue),
     nguoiLienHe: tuyChon(form.nguoiLienHe),
     soDienThoai: tuyChon(form.soDienThoai),
     email: tuyChon(form.email),
@@ -183,6 +211,7 @@ export function oCuaThongBaoMayChu(message) {
   const text = String(message ?? "").toLocaleLowerCase("vi-VN");
   if (text.includes("mã khách hàng")) return "maKhachHang";
   if (text.includes("tên khách hàng")) return "tenKhachHang";
+  if (text.includes("mã số thuế")) return "maSoThue";
   if (text.includes("người liên hệ")) return "nguoiLienHe";
   // "Cần số điện thoại hoặc email…" cũng thuộc ô số điện thoại (ô đầu của nhóm liên hệ)
   if (text.includes("số điện thoại")) return "soDienThoai";

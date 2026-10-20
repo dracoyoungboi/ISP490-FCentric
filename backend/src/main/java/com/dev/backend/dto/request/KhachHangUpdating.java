@@ -14,6 +14,10 @@ public class KhachHangUpdating {
     @Size(max = 200, message = "Tên khách hàng tối đa 200 ký tự")
     private String tenKhachHang;
 
+    // null = giữ nguyên, "" = xóa; service kiểm tra định dạng
+    @Size(max = 14, message = "Mã số thuế tối đa 14 ký tự")
+    private String maSoThue;
+
     @Size(max = 100, message = "Người liên hệ tối đa 100 ký tự")
     private String nguoiLienHe;
 

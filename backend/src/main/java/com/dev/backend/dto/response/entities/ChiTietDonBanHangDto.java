@@ -17,6 +17,8 @@ public class ChiTietDonBanHangDto implements Serializable {
     Integer bienTheSanPhamId;
     String sku;
     String tenSanPham;
+    /** Đơn vị tính của sản phẩm (in cột ĐVT trên hóa đơn). */
+    String donViTinh;
     BigDecimal soLuongDat;
     BigDecimal soLuongDaGiao;
     BigDecimal donGia;

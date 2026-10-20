@@ -38,6 +38,12 @@ public class SanPhamQuanAo {
     @Column(name = "ten_san_pham", nullable = false, length = 200)
     String tenSanPham;
 
+    /** Đơn vị tính in trên hóa đơn / phiếu kho (Cái, Bộ, Đôi…); CSDL mặc định "Cái". */
+    @Size(max = 20)
+    @ColumnDefault("'Cái'")
+    @Column(name = "don_vi_tinh", length = 20)
+    String donViTinh;
+
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "danh_muc_id", nullable = false)
@@ -94,5 +100,13 @@ public class SanPhamQuanAo {
     @OneToMany(mappedBy = "sanPham", fetch = FetchType.LAZY)
     List<BienTheSanPham> bienTheSanPhams;
 
+    public static final String DON_VI_TINH_MAC_DINH = "Cái";
 
+    /** Sản phẩm tạo mới chưa có đơn vị tính: ghi "Cái" (Hibernate ghi NULL tường minh nên mặc định của CSDL không áp dụng). */
+    @PrePersist
+    void ganDonViTinhMacDinh() {
+        if (donViTinh == null || donViTinh.isBlank()) {
+            donViTinh = DON_VI_TINH_MAC_DINH;
+        }
+    }
 }
