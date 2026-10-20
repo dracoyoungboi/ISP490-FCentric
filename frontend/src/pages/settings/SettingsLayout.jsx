@@ -14,7 +14,7 @@ import {
 
 /**
  * Khung trung tâm Cấu hình (/settings/*), kiểu trang Cấu hình của Sapo:
- * - trái: menu các mục theo nhóm Vận hành / Cửa hàng (chỉ mục vai trò được mở);
+ * - trái: menu các mục theo nhóm Cửa hàng / Kho / Bán hàng (chỉ mục vai trò được mở);
  * - phải: tiêu đề mục, nhãn "Chỉ xem" khi vai trò không được sửa, nút X quay về trang trước khi vào Cấu hình.
  * Trang con báo thay đổi chưa lưu qua useUnsavedChanges: chuyển mục / bấm X / đóng tab khi đó sẽ hỏi lại.
  */

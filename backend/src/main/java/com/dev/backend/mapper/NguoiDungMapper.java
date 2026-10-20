@@ -22,6 +22,7 @@ public interface NguoiDungMapper {
      */
     @Mapping(target = "avatarUrl", source = "avatarTepTin.duongDan", qualifiedByName = "publicAssetUrl")
     @Mapping(target = "khoPhuTrachActive", ignore = true) // NguoiDungService.fillKhoPhuTrachActive tự điền cho /me
+    @Mapping(target = "khoPhuTrachHieuLuc", ignore = true) // NguoiDungService.locChoQuanTri tự điền cho danh sách Người dùng
     NguoiDungDto toDto(NguoiDung entity);
     List<NguoiDungDto> toDtoList(List<NguoiDung> list);
 
