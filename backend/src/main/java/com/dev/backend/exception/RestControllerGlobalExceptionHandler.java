@@ -8,6 +8,7 @@ import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +18,9 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.ServletWebRequest;
@@ -125,6 +129,36 @@ public class RestControllerGlobalExceptionHandler {
         ResponseData<Void> body = ResponseData.<Void>builder()
                 .status(HttpStatus.BAD_REQUEST.value())
                 .message(MSG_BAD_FORMAT)
+                .error("Bad Request")
+                .path(getPath(request))
+                .build();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    /**
+     * Hai thao tác cùng sửa một chứng từ cùng lúc (deadlock, chờ khóa quá lâu, phiên bản dữ liệu đã đổi):
+     * dữ liệu không bị ghi sai (giao dịch đã quay lui), người dùng chỉ cần thao tác lại — không phải lỗi máy chủ.
+     */
+    @ExceptionHandler(ConcurrencyFailureException.class)
+    public ResponseEntity<ResponseData<?>> handleThaoTacDongThoi(ConcurrencyFailureException ex, WebRequest request) {
+        log.warn("Thao tác đồng thời trên cùng dữ liệu: {}", ex.getMessage());
+        ResponseData<Void> body = ResponseData.<Void>builder()
+                .status(HttpStatus.CONFLICT.value())
+                .message("Dữ liệu này đang được thao tác ở máy khác. Tải lại trang rồi thử lại.")
+                .error("Conflict")
+                .path(getPath(request))
+                .build();
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    /** Thiếu tham số, tham số sai kiểu (vd. ?nhaCungCapId=abc) hoặc sắp xếp theo trường không có: lỗi của request, không phải lỗi máy chủ. */
+    @ExceptionHandler({MissingServletRequestParameterException.class, MethodArgumentTypeMismatchException.class,
+            PropertyReferenceException.class})
+    public ResponseEntity<ResponseData<?>> handleThamSoSai(Exception ex, WebRequest request) {
+        log.debug("Tham số không hợp lệ: {}", ex.getMessage());
+        ResponseData<Void> body = ResponseData.<Void>builder()
+                .status(HttpStatus.BAD_REQUEST.value())
+                .message("Tham số gửi lên thiếu hoặc không hợp lệ. Tải lại trang rồi thử lại.")
                 .error("Bad Request")
                 .path(getPath(request))
                 .build();
