@@ -6,27 +6,31 @@ import { Boxes, CreditCard, IdCard, PackageCheck, Printer, RefreshCcw, Store } f
  *
  * - roles:     vai trò được mở trang (frontend chỉ là UX — backend @RequireAuth mới là chốt chặn thật).
  * - editRoles: vai trò được sửa; vai trò còn lại chỉ xem (tiêu đề hiện nhãn "Chỉ xem").
+ *
+ * Thứ tự theo luồng hàng, khớp sidebar chính: Cửa hàng (thiết lập chung) → Kho (nhập rồi tồn) → Bán hàng
+ * (tại quầy rồi kênh online). Mục đầu tiên vai trò được mở là trang /settings mở mặc định.
  */
 const QTV = "quan_tri_vien";
 const QLK = "quan_ly_kho";
 
 export const SETTINGS_GROUPS = [
-  { key: "van-hanh", label: "Vận hành" },
   { key: "cua-hang", label: "Cửa hàng" },
+  { key: "kho", label: "Kho" },
+  { key: "ban-hang", label: "Bán hàng" },
 ];
 
 export const SETTINGS_PAGES = [
-  // GET /dieu-hanh-he-thong/cau-hinh cho QTV và QLK; PUT chỉ QTV
-  { key: "stock", label: "Tồn kho", to: "/settings/stock", group: "van-hanh", icon: Boxes, roles: [QTV, QLK], editRoles: [QTV] },
-  { key: "sync", label: "Đồng bộ kênh bán", to: "/settings/sync", group: "van-hanh", icon: RefreshCcw, roles: [QTV, QLK], editRoles: [QTV] },
-  { key: "customer", label: "Khách hàng", to: "/settings/customer", group: "van-hanh", icon: IdCard, roles: [QTV, QLK], editRoles: [QTV] },
-  { key: "inbound", label: "Nhập kho", to: "/settings/inbound", group: "van-hanh", icon: PackageCheck, roles: [QTV, QLK], editRoles: [QTV] },
   // ThongTinCongTyController: GET/PUT/logo cho QTV và QLK
   { key: "store", label: "Thông tin cửa hàng", to: "/settings/store", group: "cua-hang", icon: Store, roles: [QTV, QLK], editRoles: [QTV, QLK] },
-  // CauHinhThanhToanController: chỉ QTV
-  { key: "payment", label: "Thanh toán", to: "/settings/payment", group: "cua-hang", icon: CreditCard, roles: [QTV], editRoles: [QTV] },
   // CauHinhMauInController: QTV và QLK
   { key: "print", label: "Mẫu in", to: "/settings/print-templates", group: "cua-hang", icon: Printer, roles: [QTV, QLK], editRoles: [QTV, QLK] },
+  // Nhập kho, Tồn kho, Khách hàng, Đồng bộ kênh bán: GET /dieu-hanh-he-thong/cau-hinh cho QTV và QLK; PUT chỉ QTV
+  { key: "inbound", label: "Nhập kho", to: "/settings/inbound", group: "kho", icon: PackageCheck, roles: [QTV, QLK], editRoles: [QTV] },
+  { key: "stock", label: "Tồn kho", to: "/settings/stock", group: "kho", icon: Boxes, roles: [QTV, QLK], editRoles: [QTV] },
+  { key: "customer", label: "Khách hàng", to: "/settings/customer", group: "ban-hang", icon: IdCard, roles: [QTV, QLK], editRoles: [QTV] },
+  // CauHinhThanhToanController: chỉ QTV
+  { key: "payment", label: "Thanh toán", to: "/settings/payment", group: "ban-hang", icon: CreditCard, roles: [QTV], editRoles: [QTV] },
+  { key: "sync", label: "Đồng bộ kênh bán", to: "/settings/sync", group: "ban-hang", icon: RefreshCcw, roles: [QTV, QLK], editRoles: [QTV] },
 ];
 
 /** Vai trò được mở ít nhất một trang cấu hình. */
