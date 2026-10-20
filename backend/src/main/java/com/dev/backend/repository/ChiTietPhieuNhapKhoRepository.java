@@ -2,6 +2,8 @@ package com.dev.backend.repository;
 
 import com.dev.backend.entities.ChiTietPhieuNhapKho;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -12,6 +14,25 @@ import java.util.Optional;
 
 @Repository
 public interface ChiTietPhieuNhapKhoRepository extends JpaRepository<ChiTietPhieuNhapKho, Integer>, JpaSpecificationExecutor<ChiTietPhieuNhapKho> {
+    /**
+     * Khóa dòng dự kiến của biến thể trong phiếu (SELECT ... FOR UPDATE): khóa lô cùng biến thể chạy tuần tự,
+     * nên hai người khóa lô cùng lúc không vượt được số cần nhập.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT ct FROM ChiTietPhieuNhapKho ct WHERE ct.phieuNhapKho.id = :phieuNhapKhoId AND ct.bienTheSanPham.id = :bienTheSanPhamId AND ct.loHang IS NULL ORDER BY ct.id")
+    List<ChiTietPhieuNhapKho> khoaDongDuKien(@Param("phieuNhapKhoId") Integer phieuNhapKhoId, @Param("bienTheSanPhamId") Integer bienTheSanPhamId);
+
+    /** Tổng số dự kiến nhập của biến thể ở các phiếu Nháp khác cùng đơn mua (chưa nhập kho nên chưa vào "đã nhận"). */
+    @Query("""
+    SELECT COALESCE(SUM(ct.soLuongNhap), 0)
+    FROM ChiTietPhieuNhapKho ct
+    WHERE ct.loHang IS NULL
+      AND ct.phieuNhapKho.donMuaHang.id = :donMuaHangId
+      AND ct.bienTheSanPham.id = :bienTheSanPhamId
+      AND ct.phieuNhapKho.trangThai = 0
+    """)
+    BigDecimal sumDuKienPhieuNhapCungDon(@Param("donMuaHangId") Integer donMuaHangId, @Param("bienTheSanPhamId") Integer bienTheSanPhamId);
+
     @Query("""
     SELECT COALESCE(SUM(ct.soLuongNhap), 0)
     FROM ChiTietPhieuNhapKho ct
@@ -74,6 +95,33 @@ public interface ChiTietPhieuNhapKhoRepository extends JpaRepository<ChiTietPhie
       ) < ctDraft.soLuongNhap
 """)
     long countBienTheChuaDuLo(@Param("phieuId") Integer phieuId);
+
+    /**
+     * Hàng đạt của các lô đã khóa nhưng phiếu chưa nhập kho (lô TAM_KHOA của phiếu Nháp) đang chờ lên một kệ.
+     * Cộng với tồn thực tế trên kệ để không cho khóa lô vượt sức chứa. {@code boQuaLoId}: lô đang được sửa.
+     */
+    @Query("""
+        select coalesce(sum(l.soLuongNhap), 0)
+        from ChiTietPhieuNhapKho ct
+        join ct.loHang l
+        where l.viTriKho.id = :viTriKhoId
+          and l.trangThai = 'TAM_KHOA'
+          and ct.phieuNhapKho.trangThai = 0
+          and (:boQuaLoId is null or l.id <> :boQuaLoId)
+    """)
+    Long sumChoNhapTheoViTri(@Param("viTriKhoId") Integer viTriKhoId, @Param("boQuaLoId") Integer boQuaLoId);
+
+    /** Như {@link #sumChoNhapTheoViTri} nhưng cho mọi kệ của một kho: mỗi dòng {viTriKhoId, soLuong}. */
+    @Query("""
+        select l.viTriKho.id, coalesce(sum(l.soLuongNhap), 0)
+        from ChiTietPhieuNhapKho ct
+        join ct.loHang l
+        where l.viTriKho.khuVucKho.kho.id = :khoId
+          and l.trangThai = 'TAM_KHOA'
+          and ct.phieuNhapKho.trangThai = 0
+        group by l.viTriKho.id
+    """)
+    List<Object[]> sumChoNhapTheoKho(@Param("khoId") Integer khoId);
 
 
 }

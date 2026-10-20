@@ -19,5 +19,9 @@ public interface BienBanTraHangNccRepository extends JpaRepository<BienBanTraHan
     Optional<BienBanTraHangNcc> findDetailByPhieuNhapKhoId(@Param("phieuNhapKhoId") Integer phieuNhapKhoId);
 
     List<BienBanTraHangNcc> findByNhaCungCap_IdOrderByNgayTaoDesc(Integer nhaCungCapId);
+
+    /** Số biên bản đã cấp có tiền tố (theo ngày), để cấp số tiếp theo. */
+    @Query("SELECT b.maBienBan FROM BienBanTraHangNcc b WHERE b.maBienBan LIKE CONCAT(:tienTo, '%')")
+    List<String> findMaBienBanTheoTienTo(@Param("tienTo") String tienTo);
 }
 

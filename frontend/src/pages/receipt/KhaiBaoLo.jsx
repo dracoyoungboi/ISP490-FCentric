@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { Navigate, useParams, useNavigate } from "react-router-dom";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
 import { toast } from "@/lib/thongBaoNhanh";
 import {
@@ -208,6 +208,13 @@ export default function KhaiBaoLo() {
                 </div>
             </PageContainer>
         );
+    }
+
+    // Phiếu từ đơn mua kiểm đếm ở màn Kiểm đếm & khóa lô (chọn kệ, ghi hàng lỗi và lý do). Màn này không gửi kệ / số lỗi:
+    // kho có kệ thì máy chủ từ chối, trùng mã lô thì ghi đè số lỗi của lô đã khóa. Cùng điều kiện với KiemDemLo (soDonMua)
+    // nên hai màn không chuyển qua lại
+    if (detail.phieu?.soDonMua) {
+        return <Navigate to={`/goods-receipts/${phieuNhapKhoId}/receive/${bienTheSanPhamId}`} replace />;
     }
 
     const { item } = detail;

@@ -5,6 +5,7 @@ import {
   PanelLeftOpen,
   UserRound,
 } from "lucide-react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 
@@ -22,6 +23,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useSidebar } from "@/components/ui/sidebar";
+import ConfirmModal from "@/components/ui/confirm-modal";
+import { demLuotChuaKhoa } from "@/utils/hangLoiTam";
 
 // Phím tắt mở ô tìm kiếm: ⌘ + K trên máy Mac, Ctrl + K trên Windows/Linux
 const PHIM_TAT =
@@ -63,12 +66,28 @@ export default function BackofficeHeader() {
   // ngay khi đổi ảnh mà không cần đăng nhập lại
   const avatarUrl = useCurrentUserAvatarUrl(userId);
 
-  const handleLogout = () => {
+  // Số lượt quét chưa khóa lô khi bấm Đăng xuất (> 0 thì hỏi lại trước khi xóa phiên). Đóng hộp chỉ tắt `hoiLuot`,
+  // giữ số: hộp còn hiện trong lúc chạy hiệu ứng đóng, không nháy "Có 0 lượt quét…"
+  const [luotChuaKhoa, setLuotChuaKhoa] = useState(0);
+  const [hoiLuot, setHoiLuot] = useState(false);
+
+  const dangXuat = () => {
     // Chỉ xóa phiên đăng nhập; bản nháp hóa đơn POS (gắn theo tài khoản, hết hạn sau 12 giờ)
     // được giữ để đăng nhập lại vẫn còn hóa đơn và mã QR đang chờ.
     nguoiDungService.logout();
     sessionStorage.clear();
     navigate("/login");
+  };
+
+  const handleLogout = () => {
+    // Lô đang kiểm (màn Kiểm đếm) chỉ nằm trong bộ nhớ phiên: đăng xuất là mất các lượt chưa khóa lô
+    const dem = demLuotChuaKhoa();
+    if (dem > 0) {
+      setLuotChuaKhoa(dem);
+      setHoiLuot(true);
+    } else {
+      dangXuat();
+    }
   };
 
   const sidebarOpen = isMobile ? openMobile : open;
@@ -170,6 +189,18 @@ export default function BackofficeHeader() {
           </DropdownMenu>
         </div>
       </div>
+      <ConfirmModal
+        isOpen={hoiLuot}
+        onClose={() => setHoiLuot(false)}
+        onConfirm={() => {
+          setHoiLuot(false);
+          dangXuat();
+        }}
+        title="Còn lượt quét chưa khóa lô"
+        description={`Có ${luotChuaKhoa} lượt quét ở màn Kiểm đếm chưa khóa lô. Đăng xuất bây giờ sẽ mất các lượt này, phải đếm lại thùng đó. Quay lại màn Kiểm đếm để khóa lô trước khi đăng xuất.`}
+        confirmText="Vẫn đăng xuất"
+        cancelText="Quay lại"
+      />
     </header>
   );
 }

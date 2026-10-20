@@ -24,6 +24,13 @@
 @source "./components/khach-hang";
 /* Kênh bán hàng (cụm nút Đồng bộ ngay dùng chung, file mới): khai báo rõ để dev server sinh đủ class */
 @source "./components/channel";
+/* Kiểm đếm & khóa lô: thẻ kết quả và các hộp (mã chưa có, khóa lô, in thẻ lệnh) là file mới. Dev server không quét
+   thì thiếu class: ô số lượng dựng dọc, thẻ kết quả nổi lên đầu trang thay vì ở đáy, hộp thoại giãn hết bề ngang. */
+@source "./components/nhap-kho";
+@source "./pages/receipt";
+/* Cấu hình › Nhập kho (lựa chọn dạng thẻ radio) */
+@source "./pages/settings";
+@source "./components/settings";
 /* Giao diện luôn sáng, không theo chế độ tối của trình duyệt */
 @custom-variant dark (&:where(.dark, .dark *));
 /*

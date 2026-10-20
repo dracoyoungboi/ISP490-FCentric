@@ -52,7 +52,9 @@ public class BienBanTraHangController {
         BienBanTraHangDto dto = bienBanTraHangService.phatHanh(phieuNhapKhoId, request, nguoiTaoId);
         return ResponseEntity.ok(ResponseData.<BienBanTraHangDto>builder()
                 .status(HttpStatus.OK.value())
-                .message("Phát hành biên bản trả hàng NCC thành công")
+                // Lập lại khi phiếu không còn hàng lỗi thì biên bản bị hủy (data null): câu báo nói đúng việc đã làm
+                .message(dto != null ? "Phát hành biên bản trả hàng NCC thành công"
+                        : "Đã hủy biên bản trả hàng vì phiếu không còn hàng không đạt")
                 .data(dto)
                 .build());
     }

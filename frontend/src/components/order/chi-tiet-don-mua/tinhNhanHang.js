@@ -7,9 +7,12 @@
  *   theo các dòng đã khai báo lô. Đây là số hệ thống ghi nhận nên "Còn thiếu" luôn tính từ số này.
  * - Chi tiết phiếu nhập (`/phieu-nhap-kho/{id}/detail`) trả `items[]` theo biến thể:
  *   `soLuongCanNhap` = số dự kiến nhập đợt này, `soLuongDaKhaiBao` = số đã khai báo lô.
- *   Phiếu hoàn tất: số đã nhập của đợt = `soLuongDaKhaiBao`. Phiếu chưa hoàn tất: chỉ là số dự kiến.
+ *   Phiếu hoàn tất: số đã nhập của đợt = `soLuongDaKhaiBao` (hàng đạt), cộng `soLuongLoiQc` khi phương án biên bản
+ *   (`phuongAnBienBan`) không phải Đổi hàng — máy chủ cộng cả hàng lỗi vào `soLuongDaNhan` với Trừ công nợ / Trả tài xế
+ *   (PhieuNhapKhoService.completePhieuNhap). Phiếu chưa hoàn tất: chỉ là số dự kiến.
  * - Phiếu đã hủy (4) không thành cột.
  */
+import { laDoiHang } from "../../../constants/nhapKho.js";
 
 const TRANG_THAI_PHIEU_HOAN_TAT = 3;
 const TRANG_THAI_PHIEU_HUY = 4;
@@ -87,10 +90,14 @@ export function dungBangDotNhan(chiTiets, phieus) {
     .filter((p) => p && docSo(p.trangThai) !== TRANG_THAI_PHIEU_HUY)
     .map((p) => {
       const choNhap = docSo(p.trangThai) !== TRANG_THAI_PHIEU_HOAN_TAT;
+      // Hàng lỗi Trừ công nợ / Trả tài xế không được giao bù: máy chủ tính là đã nhận của đơn
+      const tinhLoi = !choNhap && !laDoiHang(p.phuongAnBienBan);
       const soLuong = new Map();
       for (const it of Array.isArray(p.items) ? p.items : []) {
         if (it?.bienTheSanPhamId == null) continue;
-        const sl = choNhap ? docSo(it.soLuongCanNhap) : docSo(it.soLuongDaKhaiBao);
+        const sl = choNhap
+          ? docSo(it.soLuongCanNhap)
+          : docSo(it.soLuongDaKhaiBao) + (tinhLoi ? docSo(it.soLuongLoiQc) : 0);
         soLuong.set(it.bienTheSanPhamId, (soLuong.get(it.bienTheSanPhamId) ?? 0) + sl);
       }
       return {

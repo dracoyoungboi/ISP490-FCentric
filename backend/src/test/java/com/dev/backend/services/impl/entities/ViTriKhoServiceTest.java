@@ -40,6 +40,8 @@ class ViTriKhoServiceTest {
     @Mock
     private MatBangKhoRepository matBangKhoRepository;
     @Mock
+    private ChiTietPhieuNhapKhoRepository chiTietPhieuNhapKhoRepository;
+    @Mock
     private ObjectMapper objectMapper;
 
     private ViTriKhoServiceImpl service;
@@ -56,6 +58,7 @@ class ViTriKhoServiceTest {
                 viTriKhoRepository,
                 tonKhoViTriRepository,
                 matBangKhoRepository,
+                chiTietPhieuNhapKhoRepository,
                 objectMapper
         );
 
@@ -180,5 +183,24 @@ class ViTriKhoServiceTest {
         CommonException ex = assertThrows(CommonException.class, () -> service.xoaViTri(1, 100));
         assertEquals(HttpStatus.CONFLICT, ex.getStatus());
         assertTrue(ex.getMessage().contains("không thể xóa"));
+    }
+
+    @Test
+    @DisplayName("Danh sách kệ: choNhap = hàng đạt của lô đã khóa chưa nhập kho, tách riêng với dangChua")
+    void testDsViTri_CoChoNhap() {
+        Kho kho = Kho.builder().id(1).build();
+        KhuVucKho khu = KhuVucKho.builder().id(5).kho(kho).tenKhuVuc("Khu A").build();
+        ViTriKho ke = ViTriKho.builder().id(20).kho(kho).khuVucKho(khu).maViTri("A-01-02").sucChuaToiDa(60).trangThai("HOAT_DONG").build();
+        ViTriKho keTrong = ViTriKho.builder().id(21).kho(kho).khuVucKho(khu).maViTri("A-01-03").sucChuaToiDa(40).trangThai("HOAT_DONG").build();
+        when(viTriKhoRepository.findByKho_IdOrderByMaViTriAsc(1)).thenReturn(List.of(ke, keTrong));
+        when(tonKhoViTriRepository.sumDangChuaByKhoIdGroupByViTriId(1)).thenReturn(List.<Object[]>of(new Object[]{20, 32L}));
+        when(chiTietPhieuNhapKhoRepository.sumChoNhapTheoKho(1)).thenReturn(List.<Object[]>of(new Object[]{20, 12L}));
+
+        List<ViTriKhoDto> ds = service.dsViTri(1);
+
+        assertEquals(32, ds.get(0).getDangChua());
+        assertEquals(12, ds.get(0).getChoNhap());
+        assertEquals(0, ds.get(1).getDangChua());
+        assertEquals(0, ds.get(1).getChoNhap());
     }
 }

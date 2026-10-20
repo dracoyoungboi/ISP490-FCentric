@@ -19,6 +19,8 @@ public class ViTriKhoDto {
     String tang;
     Integer sucChua;
     Integer dangChua;
+    /** Hàng đạt của lô đã khóa nhưng phiếu nhập chưa xác nhận, sẽ lên kệ này (còn trống = sucChua - dangChua - choNhap). */
+    Integer choNhap;
     String trangThai;
 }
 

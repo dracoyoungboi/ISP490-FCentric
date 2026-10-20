@@ -52,6 +52,11 @@ public class MaVachNhaCungCap {
     @Column(name = "ghi_chu", length = 255)
     String ghiChu;
 
+    /** Người xác nhận liên kết lúc kiểm đếm (cột "Liên kết từ" ở trang Mã vạch nhà cung cấp). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "nguoi_lien_ket_id")
+    NguoiDung nguoiLienKet;
+
     @ColumnDefault("CURRENT_TIMESTAMP")
     @Generated(event = EventType.INSERT)
     @Column(name = "ngay_tao")

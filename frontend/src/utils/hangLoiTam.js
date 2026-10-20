@@ -1,11 +1,13 @@
 /**
- * Lưu tạm trong phiên trình duyệt (sessionStorage) những gì máy chủ chưa lưu được khi kiểm đếm:
- * - hàng lỗi theo lô (máy chủ chưa có API hàng lỗi, FO-098),
- * - thùng đang kiểm chưa khóa (để tải lại trang không mất số đã quét).
- * Đóng thẻ trình duyệt là mất. Khi backend có API hàng lỗi thì bỏ phần hàng lỗi ở đây.
+ * Lưu tạm trong phiên trình duyệt (sessionStorage) lô đang kiểm chưa khóa của màn Kiểm đếm & khóa lô:
+ * các lượt quét, kệ, mã lô, ngày sản xuất. Tải lại trang không mất số đã quét và vẫn hoàn tác được từng lượt.
+ * Đóng thẻ trình duyệt là mất (lô chưa khóa chưa được lưu máy chủ).
+ *
+ * Hàng không đạt của lô ĐÃ KHÓA không còn lưu ở đây: máy chủ lưu theo lô (chi_tiet_loi_lo_hang),
+ * màn chi tiết phiếu và biên bản trả hàng đọc từ máy chủ.
  */
-const KHOA_LOI = (phieuId) => `fcentric:hang-loi:${phieuId}`;
-const KHOA_THUNG = (phieuId, bienTheId) => `fcentric:thung-dang-kiem:${phieuId}:${bienTheId}`;
+const KHOA_LOI_CU = (phieuId) => `fcentric:hang-loi:${phieuId}`;
+const KHOA_LO_DANG_KIEM = (phieuId, bienTheId) => `fcentric:lo-dang-kiem:${phieuId}:${bienTheId}`;
 
 function doc(khoa, macDinh) {
   try {
@@ -25,37 +27,37 @@ function ghi(khoa, giaTri) {
   }
 }
 
-/** { [bienTheId]: [{ maLo, lyDo, soLuong }] } */
-export function docHangLoi(phieuId) {
-  return doc(KHOA_LOI(phieuId), {});
+/** Phiên kiểm của lô đang kiểm (xem pages/receipt/kiemDem.js) hoặc null. */
+export function docLoDangKiem(phieuId, bienTheId) {
+  return doc(KHOA_LO_DANG_KIEM(phieuId, bienTheId), null);
 }
 
-export function hangLoiCuaBienThe(phieuId, bienTheId) {
-  return docHangLoi(phieuId)[bienTheId] ?? [];
+/** Ghi lô đang kiểm; null để xóa (khóa lô xong hoặc phiếu không còn kiểm đếm). */
+export function ghiLoDangKiem(phieuId, bienTheId, phien) {
+  ghi(KHOA_LO_DANG_KIEM(phieuId, bienTheId), phien);
 }
 
-/** Thêm các dòng lỗi của một lô vừa khóa. */
-export function themHangLoi(phieuId, bienTheId, dong) {
-  const tatCa = docHangLoi(phieuId);
-  tatCa[bienTheId] = [...(tatCa[bienTheId] ?? []), ...dong.filter((d) => d.soLuong > 0)];
-  ghi(KHOA_LOI(phieuId), tatCa);
+/** Dọn bản hàng lỗi tạm của bản cũ (trước khi máy chủ lưu hàng lỗi theo lô). */
+export function xoaHangLoiTamCu(phieuId) {
+  ghi(KHOA_LOI_CU(phieuId), null);
 }
 
-/** Lô bị xóa thì bỏ luôn hàng lỗi của lô đó. */
-export function xoaHangLoiCuaLo(phieuId, bienTheId, maLo) {
-  const tatCa = docHangLoi(phieuId);
-  if (!tatCa[bienTheId]) return;
-  tatCa[bienTheId] = tatCa[bienTheId].filter((d) => d.maLo !== maLo);
-  ghi(KHOA_LOI(phieuId), tatCa);
-}
-
-export const tongSoLuong = (dong) => (dong ?? []).reduce((tong, d) => tong + (Number(d.soLuong) || 0), 0);
-
-/** Thùng đang kiểm: { dat, loi: [{ lyDo, soLuong }], maLo, ngaySanXuat, viTriId } hoặc null. */
-export function docThungDangKiem(phieuId, bienTheId) {
-  return doc(KHOA_THUNG(phieuId, bienTheId), null);
-}
-
-export function ghiThungDangKiem(phieuId, bienTheId, thung) {
-  ghi(KHOA_THUNG(phieuId, bienTheId), thung);
+/**
+ * Số lượt quét chưa khóa lô (chưa hoàn tác) của mọi lô đang kiểm trong phiên trình duyệt này.
+ * Đăng xuất xóa bộ nhớ phiên: còn lượt thì phải hỏi lại trước, không để mất số đã đếm lặng lẽ.
+ */
+export function demLuotChuaKhoa() {
+  try {
+    const kho = window.sessionStorage;
+    let dem = 0;
+    for (let i = 0; i < kho.length; i++) {
+      const khoa = kho.key(i);
+      if (!khoa || !khoa.startsWith("fcentric:lo-dang-kiem:")) continue;
+      const phien = doc(khoa, null);
+      dem += Array.isArray(phien?.log) ? phien.log.filter((e) => e && !e.huy).length : 0;
+    }
+    return dem;
+  } catch {
+    return 0;
+  }
 }

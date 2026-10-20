@@ -255,6 +255,7 @@ export default function App() {
               <Route path="stock" element={<OperationsSettingsPage key="stock" part="stock" />} />
               <Route path="sync" element={<OperationsSettingsPage key="sync" part="sync" />} />
               <Route path="customer" element={<OperationsSettingsPage key="customer" part="customer" />} />
+              <Route path="inbound" element={<OperationsSettingsPage key="inbound" part="inbound" />} />
               <Route path="store" element={<StoreSettingsPage />} />
               <Route path="payment" element={<PaymentSettingsPage />} />
               <Route path="print-templates" element={<PrintTemplateListPage />} />

@@ -70,6 +70,7 @@ export const NHAN_THEO_NHOM = {
     "Khách yêu cầu hủy",
     "Hoàn hàng",
     "Cần kiểm tra",
+    "Chờ khóa lô",
     "Hạn hôm nay",
     "Chưa có email",
   ],
@@ -126,7 +127,7 @@ export const NHAN_THEO_NHOM = {
     "Bỏ qua",
     "Đã nhả",
   ],
-  loi: ["Lỗi", "Bị khóa", "Hết hạn khóa", "Hết hàng", "Thiếu hàng", "Vượt mức", "Xung đột hủy"],
+  loi: ["Lỗi", "Bị khóa", "Hết hạn khóa", "Hết hàng", "Thiếu hàng", "Vượt mức", "Vượt số đặt", "Xung đột hủy"],
   thuong: ["Còn hàng", "Bình thường", "Chưa có hạn giao"],
 };
 

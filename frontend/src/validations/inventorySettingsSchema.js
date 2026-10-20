@@ -15,6 +15,38 @@ export const INVENTORY_SETTINGS = [
     pattern: /^[A-Z0-9._-]{1,10}$/,
     patternMessage: "Gồm 1–10 ký tự: chữ in hoa không dấu, số hoặc . _ -",
   },
+  {
+    // Màn Kiểm đếm & khóa lô (pages/receipt/kiemDem.js · CHE_DO_XAC_NHAN); BE chỉ nhận đúng hai giá trị này
+    code: "KIEM_DEM_XAC_NHAN",
+    label: "Cách xác nhận chất lượng",
+    unit: "",
+    group: "inbound",
+    type: "STRING",
+    options: [
+      {
+        value: "QUET_TIEP_LA_DAT",
+        label: "Quét tiếp là Đạt",
+        moTa: "Mỗi sản phẩm bóp máy quét 1 lần; quét cái kế tiếp là cái trước giữ Đạt. Hàng lỗi quét thêm thẻ KHÔNG ĐẠT. Đề xuất.",
+      },
+      {
+        value: "QUET_THE_TUNG_CAI",
+        label: "Quét thẻ cho từng cái",
+        moTa: "Mỗi sản phẩm phải quét thẻ ĐẠT hoặc KHÔNG ĐẠT mới quét tiếp được (2 lần bóp mỗi cái).",
+      },
+    ],
+  },
+  {
+    // Mã lô gợi ý ở hộp Khóa lô: <tiền tố>-<số phiếu>-NN (pages/receipt/kiemDem.js · goiYMaLo)
+    code: "MA_LO_TIEN_TO",
+    label: "Tiền tố mã lô gợi ý",
+    unit: "",
+    group: "inbound",
+    type: "STRING",
+    maxLength: 10,
+    // Mã lô gợi ý = tiền tố + "-" + …: không được chứa FC- (dạng thẻ lệnh kiểm đếm FC-KHOA-LO…), máy chủ cũng chặn
+    pattern: /^(?!.*FC-)(?!.*FC$)[A-Z0-9._-]{1,10}$/,
+    patternMessage: "Gồm 1–10 ký tự: chữ in hoa không dấu, số hoặc . _ -; không kết thúc bằng FC hay chứa FC- (dành cho thẻ lệnh)",
+  },
 ];
 
 const soVi = (value) => Number(value).toLocaleString("vi-VN");
@@ -36,6 +68,11 @@ export function moTaTacDong(code, value) {
         : ["Mã còn ", `dưới ${soVi(value)} cái`, " sau khi bán hoặc xuất kho được đẩy tồn ngay, không đợi chu kỳ."];
     case "MA_KHACH_HANG_TIEN_TO":
       return ["Mã mới có dạng ", maKhachHangMau(value), ". Mã đã cấp giữ nguyên."];
+    case "KIEM_DEM_XAC_NHAN":
+      // Mô tả từng cách đã nằm ở lựa chọn; ở đây chỉ nói lúc nào cách mới được áp dụng
+      return ["Màn kiểm đếm đang mở ", "áp dụng ở lần tải dữ liệu kế tiếp", " (khóa lô, quay lại thẻ hoặc tải lại trang); lô đã khóa không bị ảnh hưởng."];
+    case "MA_LO_TIEN_TO":
+      return ["Mã lô gợi ý có dạng ", `${value || ""}-PN202610201-01`, ". Người kiểm vẫn sửa được mã lô khi khóa."];
     default:
       return ["", "", ""];
   }
@@ -44,7 +81,7 @@ export function moTaTacDong(code, value) {
 /** Phạm vi cho phép, hiện dưới ô nhập. VD "0–100 · 0 là tắt". */
 export function phamViCauHinh(code) {
   const field = INVENTORY_SETTINGS.find((item) => item.code === code);
-  if (!field) return "";
+  if (!field || field.options) return "";
   if (field.maxLength) return `Tối đa ${field.maxLength} ký tự`;
   const range = `${soVi(field.min)}–${soVi(field.max)}`;
   return field.rangeNote ? `${range} · ${field.rangeNote}` : range;
@@ -57,13 +94,19 @@ export function createEmptyInventoryValues() {
   return Object.fromEntries(INVENTORY_SETTINGS.map((item) => [item.code, ""]));
 }
 
-export function readCompleteInventorySettings(data) {
+/**
+ * Cấu hình đọc từ API, kiểm đủ mã và đúng kiểu. `group`: chỉ bắt buộc đủ mã của mục đang mở
+ * (mục khác thiếu mã — VD frontend mới chạy trước backend chưa nạp mã mới — không làm hỏng mục này).
+ */
+export function readCompleteInventorySettings(data, group) {
   const settings = selectInventorySettings(data);
   const sai = settings.some((item) => {
     const field = INVENTORY_SETTINGS.find(({ code }) => code === item.maCauHinh);
     return item.kieuDuLieu !== (field?.type ?? "INT");
   });
-  if (settings.length !== INVENTORY_SETTINGS.length || sai) {
+  const canCo = INVENTORY_SETTINGS.filter((field) => !group || field.group === group);
+  const thieu = canCo.some((field) => !settings.some((item) => item.maCauHinh === field.code));
+  if (thieu || sai) {
     throw new Error("Không thể tải đủ cài đặt.");
   }
   return settings;
@@ -115,6 +158,7 @@ export function validateInventoryField(code, value, type) {
   const typeError = validateInventorySetting(value, type);
   if (typeError) return typeError;
   const field = INVENTORY_SETTINGS.find((item) => item.code === code);
+  if (field?.options) return field.options.some((o) => o.value === value) ? "" : "Chọn một trong các cách có sẵn.";
   if (field?.pattern) return field.pattern.test(value) ? "" : field.patternMessage;
   if (field?.min === undefined || field?.max === undefined) return "";
   const number = Number(value);

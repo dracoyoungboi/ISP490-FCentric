@@ -11,7 +11,9 @@ import com.dev.backend.entities.MatBangKho;
 import com.dev.backend.entities.TonKhoViTri;
 import com.dev.backend.entities.ViTriKho;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.repository.ChiTietPhieuNhapKhoRepository;
 import com.dev.backend.repository.KhoRepository;
+import com.dev.backend.utils.KhoDangChon;
 import com.dev.backend.repository.KhuVucKhoRepository;
 import com.dev.backend.repository.MatBangKhoRepository;
 import com.dev.backend.repository.TonKhoViTriRepository;
@@ -41,6 +43,7 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     ViTriKhoRepository viTriKhoRepository;
     TonKhoViTriRepository tonKhoViTriRepository;
     MatBangKhoRepository matBangKhoRepository;
+    ChiTietPhieuNhapKhoRepository chiTietPhieuNhapKhoRepository;
     ObjectMapper objectMapper;
 
     // ── Khu vực ──
@@ -149,6 +152,8 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     @Override
     @Transactional(readOnly = true)
     public List<ViTriKhoDto> dsViTri(Integer khoId) {
+        // Kệ (kèm số đang chứa / chờ nhập) chỉ cho người thuộc kho đó xem
+        khoRepository.findById(khoId).ifPresent(k -> KhoDangChon.kiemTraXem(k, "Kho " + k.getTenKho()));
         List<ViTriKho> list = viTriKhoRepository.findByKho_IdOrderByMaViTriAsc(khoId);
         if (list.isEmpty()) return List.of();
 
@@ -158,6 +163,16 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
         for (Object[] row : sumList) {
             if (row[0] != null && row[1] != null) {
                 dangChuaMap.put(((Number) row[0]).intValue(), ((Number) row[1]).intValue());
+            }
+        }
+        // Lô đã khóa của phiếu nhập chưa xác nhận: chưa vào tồn nhưng đã giữ chỗ trên kệ
+        Map<Integer, Integer> choNhapMap = new HashMap<>();
+        List<Object[]> choNhapList = chiTietPhieuNhapKhoRepository.sumChoNhapTheoKho(khoId);
+        if (choNhapList != null) {
+            for (Object[] row : choNhapList) {
+                if (row[0] != null && row[1] != null) {
+                    choNhapMap.put(((Number) row[0]).intValue(), ((Number) row[1]).intValue());
+                }
             }
         }
 
@@ -171,6 +186,7 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
                 .tang(v.getTangKe())
                 .sucChua(v.getSucChuaToiDa())
                 .dangChua(dangChuaMap.getOrDefault(v.getId(), 0))
+                .choNhap(choNhapMap.getOrDefault(v.getId(), 0))
                 .trangThai(v.getTrangThai())
                 .build()
         ).toList();
@@ -179,10 +195,12 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     @Override
     @Transactional(readOnly = true)
     public List<ViTriKhoDto> dsViTriKhaDung(Integer khoId) {
-        // Lấy danh sách vị trí HOAT_DONG và còn sức chứa để hiện ở dropdown khi khóa lô
+        // Vị trí HOAT_DONG còn chỗ sau khi trừ cả hàng đang chứa và hàng chờ nhập (lô đã khóa chưa nhập kho);
+        // kệ không ghi sức chứa coi như không giới hạn
         return dsViTri(khoId).stream()
                 .filter(v -> "HOAT_DONG".equalsIgnoreCase(v.getTrangThai()))
-                .filter(v -> v.getDangChua() < v.getSucChua())
+                .filter(v -> v.getSucChua() == null || v.getSucChua() <= 0
+                        || (v.getDangChua() != null ? v.getDangChua() : 0) + (v.getChoNhap() != null ? v.getChoNhap() : 0) < v.getSucChua())
                 .toList();
     }
 

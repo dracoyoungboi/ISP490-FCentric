@@ -151,6 +151,28 @@ public class InboundTableInitializer implements ApplicationRunner {
             themCotNeuChuaCo("chi_tiet_phieu_nhap_kho", "so_luong_loi_qc", "INT DEFAULT 0");
             themCotNeuChuaCo("chi_tiet_phieu_nhap_kho", "trang_thai_kiem_dem", "VARCHAR(30) DEFAULT 'CHO_KIEM_DEM'");
 
+            // 9b. Hàng không đạt theo lý do của từng lô (biên bản trả hàng đọc từ đây, không đọc từ trình duyệt)
+            // Bọc riêng: tạo bảng có khóa ngoại lỗi thì bước 9c, 10 vẫn chạy (không thì mã vạch NCC thiếu cột)
+            try {
+                jdbcTemplate.execute("""
+                    CREATE TABLE IF NOT EXISTS chi_tiet_loi_lo_hang (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        lo_hang_id INT NOT NULL,
+                        ly_do VARCHAR(50) NOT NULL,
+                        so_luong INT NOT NULL,
+                        ghi_chu VARCHAR(255) NULL,
+                        ngay_tao TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+                        INDEX idx_ctllh_lo (lo_hang_id),
+                        CONSTRAINT fk_ctllh_lo_hang FOREIGN KEY (lo_hang_id) REFERENCES lo_hang (id) ON DELETE CASCADE
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+                """);
+            } catch (Exception e) {
+                log.warn("[INBOUND-INIT] Không thể tự động tạo bảng `chi_tiet_loi_lo_hang`: {}", e.getMessage());
+            }
+
+            // 9c. Người xác nhận liên kết mã vạch NCC lúc kiểm đếm
+            themCotNeuChuaCo("ma_vach_nha_cung_cap", "nguoi_lien_ket_id", "INT NULL");
+
             // 10. Chuẩn hóa vị trí kệ theo từng Kho (uk_kho_vi_tri)
             chuanHoaViTriKhoTheoKho();
 

@@ -126,6 +126,41 @@ test("dungBangDotNhan: hai đợt hoàn tất xếp theo ngày nhập", () => {
   assert.equal(bang.dong[0].conThieu, 0);
 });
 
+test("dungBangDotNhan: hàng lỗi Trừ công nợ / Trả tài xế tính vào đợt đã nhập (khớp số đã nhận của máy chủ), Đổi hàng thì không", () => {
+  // Đơn đặt 80 mỗi dòng. Máy chủ: Đổi hàng chỉ cộng đạt; phương án khác cộng đạt + lỗi vào soLuongDaNhan
+  const chiTiets = [dongDon(1, 30, 80, 45 + 5 + 18, "30"), dongDon(2, 32, 80, 30, "32")];
+  const phieus = [
+    phieu(31, 3, [
+      { bienTheSanPhamId: 30, soLuongCanNhap: 50, soLuongDaKhaiBao: 45, soLuongLoiQc: 5 },
+      { bienTheSanPhamId: 32, soLuongCanNhap: 30, soLuongDaKhaiBao: 30, soLuongLoiQc: 0 },
+    ], { ngayNhap: "2026-10-14T08:40:00Z", phuongAnBienBan: "TRU_CONG_NO" }),
+    phieu(40, 3, [{ bienTheSanPhamId: 30, soLuongCanNhap: 20, soLuongDaKhaiBao: 18, soLuongLoiQc: 2 }], {
+      ngayNhap: "2026-10-18T03:00:00Z",
+      phuongAnBienBan: "DOI_HANG",
+    }),
+    // Phiếu chờ nhập vẫn chỉ hiện số dự kiến, không cộng lỗi
+    phieu(45, 0, [{ bienTheSanPhamId: 30, soLuongCanNhap: 10, soLuongDaKhaiBao: 3, soLuongLoiQc: 1 }], { phuongAnBienBan: "TRA_TAI_XE" }),
+  ];
+  const bang = dungBangDotNhan(chiTiets, phieus);
+  assert.deepEqual(bang.dong[0].theoDot, [50, 18, 10]);
+  assert.deepEqual(bang.dong[1].theoDot, [30, null, null]);
+  assert.deepEqual(bang.lechSo, []);
+});
+
+test("dungBangDotNhan: biên bản mã cũ DOI_HANG_MOI và phiếu không có biên bản chỉ tính hàng đạt", () => {
+  const chiTiets = [dongDon(1, 30, 80, 45 + 20, "30")];
+  const phieus = [
+    phieu(31, 3, [{ bienTheSanPhamId: 30, soLuongDaKhaiBao: 45, soLuongLoiQc: 5 }], {
+      ngayNhap: "2026-10-14T08:40:00Z",
+      phuongAnBienBan: "DOI_HANG_MOI",
+    }),
+    phieu(40, 3, [{ bienTheSanPhamId: 30, soLuongDaKhaiBao: 20, soLuongLoiQc: 0 }], { ngayNhap: "2026-10-18T03:00:00Z" }),
+  ];
+  const bang = dungBangDotNhan(chiTiets, phieus);
+  assert.deepEqual(bang.dong[0].theoDot, [45, 20]);
+  assert.deepEqual(bang.lechSo, []);
+});
+
 test("trangThaiGiao: quá hạn, hôm nay, còn lại, đã đủ, không có hạn", () => {
   const homNay = new Date(2026, 9, 16, 9, 0);
   assert.deepEqual(trangThaiGiao(new Date(2026, 9, 15, 0, 0), false, homNay), { loai: "quaHan", soNgay: 1 });

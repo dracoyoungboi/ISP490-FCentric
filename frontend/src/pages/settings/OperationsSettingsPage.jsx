@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link2, List, Package } from "lucide-react";
+import { ClipboardList, Link2, List, Package } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import { Input } from "@/components/ui/input";
 import LoadingState from "@/components/shared/LoadingState";
@@ -15,6 +15,7 @@ import {
 import { settingsInputClass } from "@/components/settings/settingsStyles";
 import { parseRoles } from "@/components/settings/settings.config";
 import { useSettingsPage, useUnsavedChanges } from "@/components/settings/useSettingsPage";
+import { cn } from "@/lib/utils";
 import { getInventorySettings, bulkUpdateInventorySettings } from "@/services/inventorySettingsService";
 import {
   INVENTORY_SETTINGS,
@@ -28,7 +29,7 @@ import {
 } from "@/validations/inventorySettingsSchema";
 
 /**
- * Ba mục Vận hành của trung tâm Cấu hình (Tồn kho, Đồng bộ kênh bán, Khách hàng) — cùng nguồn
+ * Các mục Vận hành của trung tâm Cấu hình (Tồn kho, Đồng bộ kênh bán, Khách hàng, Nhập kho) — cùng nguồn
  * GET/PUT /api/v1/dieu-hanh-he-thong/cau-hinh; mỗi mục một thẻ, sửa và lưu riêng phần của mình.
  * `footer.roles`: chỉ hiện liên kết khi vai trò mở được trang đích.
  */
@@ -65,6 +66,16 @@ const PARTS = {
       roles: ["quan_tri_vien", "nhan_vien_ban_hang"],
     },
   },
+  inbound: {
+    cardTitle: "Kiểm đếm hàng nhập",
+    scope: "màn Kiểm đếm & khóa lô của mọi kho",
+    footer: {
+      to: "/goods-receipts",
+      icon: ClipboardList,
+      title: "Phiếu nhập kho",
+      description: "Mở phiếu nhập từ đơn mua để kiểm đếm và khóa lô",
+    },
+  },
 };
 
 const valuesOf = (settings) => Object.fromEntries(settings.map((item) => [item.maCauHinh, item.giaTri]));
@@ -97,14 +108,14 @@ export default function OperationsSettingsPage({ part }) {
     setStatus("loading");
     setEditing(false);
     try {
-      const settings = readCompleteInventorySettings(await getInventorySettings({ signal: controller.signal }));
+      const settings = readCompleteInventorySettings(await getInventorySettings({ signal: controller.signal }), part);
       if (controller.signal.aborted) return;
       setLoaded(settings);
       setStatus("loaded");
     } catch {
       if (!controller.signal.aborted) setStatus("error");
     }
-  }, []);
+  }, [part]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -161,6 +172,7 @@ export default function OperationsSettingsPage({ part }) {
       }
       const merged = readCompleteInventorySettings(
         loaded.map((item) => updated.find((result) => result.maCauHinh === item.maCauHinh) ?? item),
+        part,
       );
       if (merged.some((item) => validateInventorySetting(item.giaTri, item.kieuDuLieu))) {
         throw new Error("Phản hồi lưu có giá trị cấu hình không hợp lệ.");
@@ -223,6 +235,52 @@ export default function OperationsSettingsPage({ part }) {
           const error = errors[field.code];
           const [truoc, dam, sau] = error ? ["Nhập giá trị hợp lệ để xem tác động.", "", ""] : moTaTacDong(field.code, value);
           const laChu = field.type === "STRING";
+          if (field.options) {
+            const dangChon = field.options.find((o) => o.value === value);
+            return (
+              <div key={field.code} className={`flex flex-col gap-3 py-3.5 ${index ? "border-t border-[#eef1f5]" : ""}`}>
+                <div className="min-w-0">
+                  <p id={`${id}-nhan`} className="text-sm leading-5 font-medium text-bo-foreground">{field.label}</p>
+                  <p className="mt-0.5 text-[13px] leading-5 text-[#5b6676]">
+                    {truoc}
+                    {dam ? <strong className="font-semibold text-bo-foreground">{dam}</strong> : null}
+                    {sau}
+                  </p>
+                </div>
+                {editing ? (
+                  <div role="radiogroup" aria-labelledby={`${id}-nhan`} className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                    {field.options.map((o, i) => {
+                      const chon = value === o.value;
+                      return (
+                        <button
+                          key={o.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={chon}
+                          autoFocus={index === 0 && (chon || (!dangChon && i === 0))}
+                          disabled={saving}
+                          onClick={() => setDraft((prev) => ({ ...prev, [field.code]: o.value }))}
+                          className={cn(
+                            "grid grid-cols-[16px_minmax(0,1fr)] gap-x-3 gap-y-0.5 rounded-md border bg-white p-3 text-left disabled:opacity-60",
+                            chon ? "border-bo-primary shadow-[inset_0_0_0_1px_var(--color-bo-primary)]" : "border-bo-border hover:border-slate-300",
+                          )}
+                        >
+                          <span className={cn("mt-0.5 grid size-4 place-items-center rounded-full border-[1.5px]", chon ? "border-bo-primary" : "border-slate-300")}>
+                            {chon ? <span className="size-2 rounded-full bg-bo-primary" /> : null}
+                          </span>
+                          <span className="text-sm font-medium text-bo-foreground">{o.label}</span>
+                          <span className="col-start-2 text-xs leading-5 text-bo-muted">{o.moTa}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-base font-semibold text-bo-foreground">{dangChon?.label ?? value}</p>
+                )}
+                {editing && error ? <SettingsFieldHint id={hintId} error={error} /> : null}
+              </div>
+            );
+          }
           return (
             <div
               key={field.code}

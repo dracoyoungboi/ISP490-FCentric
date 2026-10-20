@@ -63,6 +63,16 @@ class PhieuNhapKhoQcGuardTest {
     private LichSuThayDoiService lichSuThayDoiService;
     @Mock
     private ApplicationEventPublisher eventPublisher;
+    @Mock
+    private ChiTietLoiLoHangRepository chiTietLoiLoHangRepository;
+    @Mock
+    private ChiTietTraHangNccRepository chiTietTraHangNccRepository;
+    @Mock
+    private MaVachNhaCungCapRepository maVachNhaCungCapRepository;
+    @Mock
+    private CauHinhHeThongRepository cauHinhHeThongRepository;
+    @Mock
+    private com.dev.backend.services.BienBanTraHangService bienBanTraHangService;
 
     private PhieuNhapKhoService service;
 
@@ -96,6 +106,11 @@ class PhieuNhapKhoQcGuardTest {
         ReflectionTestUtils.setField(service, "bienBanTraHangNccRepository", bienBanTraHangNccRepository);
         ReflectionTestUtils.setField(service, "lichSuThayDoiService", lichSuThayDoiService);
         ReflectionTestUtils.setField(service, "eventPublisher", eventPublisher);
+        ReflectionTestUtils.setField(service, "chiTietLoiLoHangRepository", chiTietLoiLoHangRepository);
+        ReflectionTestUtils.setField(service, "chiTietTraHangNccRepository", chiTietTraHangNccRepository);
+        ReflectionTestUtils.setField(service, "maVachNhaCungCapRepository", maVachNhaCungCapRepository);
+        ReflectionTestUtils.setField(service, "cauHinhHeThongRepository", cauHinhHeThongRepository);
+        ReflectionTestUtils.setField(service, "bienBanTraHangService", bienBanTraHangService);
 
         kho = Kho.builder().id(1).maKho("KHO_HCM").tenKho("Kho HCM").build();
         sanPham = SanPhamQuanAo.builder().id(10).tenSanPham("Áo Thun FCentric").build();
@@ -164,9 +179,10 @@ class PhieuNhapKhoQcGuardTest {
                 .donGia(new BigDecimal("150000.00"))
                 .build();
 
-        when(repository.findById(1)).thenReturn(Optional.of(phieu));
+        lenient().when(repository.findById(1)).thenReturn(Optional.of(phieu));
+        lenient().when(repository.khoaTheoId(1)).thenReturn(Optional.of(phieu));
         when(chiTietPhieuNhapKhoRepository.findAllByPhieuNhapKhoIdAndCoLo(1)).thenReturn(List.of(ctLo));
-        when(bienBanTraHangNccRepository.existsByPhieuNhapKho_Id(1)).thenReturn(false); // Chưa có RTV!
+        when(bienBanTraHangNccRepository.findByPhieuNhapKho_Id(1)).thenReturn(Optional.empty()); // Chưa có RTV!
 
         CommonException ex = assertThrows(CommonException.class, () -> service.completePhieuNhap(1, 1));
         assertEquals(HttpStatus.CONFLICT, ex.getStatus());
@@ -195,9 +211,13 @@ class PhieuNhapKhoQcGuardTest {
                 .donGia(new BigDecimal("150000.00"))
                 .build();
 
-        when(repository.findById(1)).thenReturn(Optional.of(phieu));
+        lenient().when(repository.findById(1)).thenReturn(Optional.of(phieu));
+        lenient().when(repository.khoaTheoId(1)).thenReturn(Optional.of(phieu));
         when(chiTietPhieuNhapKhoRepository.findAllByPhieuNhapKhoIdAndCoLo(1)).thenReturn(List.of(ctLo));
-        when(bienBanTraHangNccRepository.existsByPhieuNhapKho_Id(1)).thenReturn(true); // ĐÃ CÓ RTV!
+        // ĐÃ CÓ RTV khớp số lỗi, phương án Trừ công nợ: đơn mua coi như đã xử lý cả phần lỗi
+        when(bienBanTraHangNccRepository.findByPhieuNhapKho_Id(1)).thenReturn(Optional.of(
+                BienBanTraHangNcc.builder().id(9).maBienBan("RTV-1").tongSoLuongLoi(10).phuongAnXuLy("TRU_CONG_NO").build()));
+        when(bienBanTraHangService.khopHangLoiHienTai(any())).thenReturn(true);
         when(nguoiDungRepository.findById(1)).thenReturn(Optional.of(nguoiNhap));
 
         when(tonKhoTheoLoRepository.findByKho_IdAndLoHang_Id(1, 60)).thenReturn(Optional.empty());
@@ -223,13 +243,16 @@ class PhieuNhapKhoQcGuardTest {
     @Test
     @DisplayName("Khai báo lô kiểm đếm: Tự động khóa lô TAM_KHOA và cập nhật tiến độ dòng draft")
     void testKhaiBaoLo_TamKhoaVaCapNhatDraft() {
-        when(repository.findById(1)).thenReturn(Optional.of(phieu));
-        when(chiTietPhieuNhapKhoRepository.findFirstByPhieuNhapKho_IdAndBienTheSanPham_IdAndLoHangIsNull(1, 100))
+        lenient().when(repository.findById(1)).thenReturn(Optional.of(phieu));
+        lenient().when(repository.khoaTheoId(1)).thenReturn(Optional.of(phieu));
+        lenient().when(chiTietPhieuNhapKhoRepository.findFirstByPhieuNhapKho_IdAndBienTheSanPham_IdAndLoHangIsNull(1, 100))
                 .thenReturn(Optional.of(draftItem));
+        lenient().when(chiTietPhieuNhapKhoRepository.khoaDongDuKien(1, 100)).thenReturn(List.of(draftItem));
         when(chiTietPhieuNhapKhoRepository.findDeclaredLots(1, 100)).thenReturn(Collections.emptyList());
         when(chiTietPhieuNhapKhoRepository.findByPhieuNhapKho_IdAndBienTheSanPham_IdAndLoHang_MaLo(1, 100, "LOT-01"))
                 .thenReturn(Optional.empty());
-        when(viTriKhoRepository.findById(20)).thenReturn(Optional.of(viTri));
+        lenient().when(viTriKhoRepository.findById(20)).thenReturn(Optional.of(viTri));
+        lenient().when(viTriKhoRepository.khoaTheoId(20)).thenReturn(Optional.of(viTri));
         when(tonKhoViTriRepository.sumDangChuaByViTriId(20)).thenReturn(10);
 
         when(loHangRepository.save(any(LoHang.class))).thenAnswer(inv -> {
@@ -246,6 +269,7 @@ class PhieuNhapKhoQcGuardTest {
                 .soLuongLoi(new BigDecimal("5.000"))
                 .viTriKhoId(20)
                 .ghiChu("Kiểm thùng 1")
+                .chiTietLoi(List.of(KhaiBaoLoRequest.ChiTietLoiRequest.builder().lyDo("Bung chỉ").soLuong(5).build()))
                 .build();
 
         service.khaiBaoLo(1, req);
@@ -267,9 +291,11 @@ class PhieuNhapKhoQcGuardTest {
         LoHang lo = LoHang.builder().id(88).soLuongNhap(95).soLuongLoi(5).build();
         ChiTietPhieuNhapKho ctLo = ChiTietPhieuNhapKho.builder().loHang(lo).soLuongNhap(new BigDecimal("95")).build();
 
-        when(repository.findById(1)).thenReturn(Optional.of(phieu));
-        when(chiTietPhieuNhapKhoRepository.findFirstByPhieuNhapKho_IdAndBienTheSanPham_IdAndLoHangIsNull(1, 100))
+        lenient().when(repository.findById(1)).thenReturn(Optional.of(phieu));
+        lenient().when(repository.khoaTheoId(1)).thenReturn(Optional.of(phieu));
+        lenient().when(chiTietPhieuNhapKhoRepository.findFirstByPhieuNhapKho_IdAndBienTheSanPham_IdAndLoHangIsNull(1, 100))
                 .thenReturn(Optional.of(draftItem));
+        lenient().when(chiTietPhieuNhapKhoRepository.khoaDongDuKien(1, 100)).thenReturn(List.of(draftItem));
         when(chiTietPhieuNhapKhoRepository.findDeclaredLots(1, 100)).thenReturn(List.of(ctLo));
 
         service.hoanTatKiemDemBienThe(1, 100);

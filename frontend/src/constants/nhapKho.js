@@ -3,7 +3,10 @@
  * Đây là danh mục hiển thị; khi backend có bảng cấu hình tương ứng thì lấy từ máy chủ thay cho danh sách này.
  */
 
-/** Lý do lỗi khi kiểm đếm (FO-098). */
+/**
+ * Lý do không đạt khi kiểm đếm (FO-098). Thứ tự là số trên thẻ lệnh: lý do thứ n có mã FC-LD-n
+ * (pages/receipt/kiemDem.js), nên chỉ thêm vào cuối, không đổi thứ tự khi thẻ đã in.
+ */
 export const LY_DO_LOI = ["Bung chỉ", "Rách vải", "Ố bẩn", "Sai màu / kích cỡ", "Lỗi phụ liệu", "Khác"];
 
 /** Phương án xử lý trong biên bản trả hàng nhà cung cấp (FO-099). */
@@ -12,6 +15,28 @@ export const PHUONG_AN_TRA_HANG = [
   { ma: "TRU_CONG_NO", ten: "Trừ công nợ", moTa: "Giảm số tiền phải trả theo giá nhập." },
   { ma: "TRA_TAI_XE", ten: "Trả cho tài xế", moTa: "Giao hàng lỗi lại cho tài xế tại kho." },
 ];
+
+/** Mã phương án Đổi hàng mới (nhà cung cấp giao bù): nhập kho chỉ tính hàng đạt là đã nhận. */
+export const PHUONG_AN_DOI_HANG = "DOI_HANG";
+/** Phương án mặc định khi lập biên bản. */
+export const PHUONG_AN_MAC_DINH = PHUONG_AN_DOI_HANG;
+
+/** Biên bản lập trước khi đổi tên phương án mang mã cũ DOI_HANG_MOI (cùng là Đổi hàng mới). */
+const MA_PHUONG_AN_CU = { DOI_HANG_MOI: PHUONG_AN_DOI_HANG };
+
+/** Mã phương án theo tên hiện hành (đổi mã cũ sang mã mới); trống thì null. */
+export function chuanHoaPhuongAn(ma) {
+  if (!ma) return null;
+  return MA_PHUONG_AN_CU[ma] ?? ma;
+}
+
+/**
+ * Đổi hàng: nhập kho chỉ cộng hàng đạt vào "đã nhận" của đơn mua (phần lỗi chờ giao bù).
+ * Chưa có biên bản (không có hàng lỗi) cũng tính như Đổi hàng: không có phần lỗi nào được trừ.
+ */
+export function laDoiHang(ma) {
+  return !ma || chuanHoaPhuongAn(ma) === PHUONG_AN_DOI_HANG;
+}
 
 /** Trạng thái kiểm đếm của một biến thể trong phiếu nhập, tính từ số đã kiểm so với số đặt. */
 export const TRANG_THAI_KIEM_DEM = {
@@ -97,12 +122,3 @@ export function khoangSo(tu, den) {
 
 /** Chuỗi hiển thị hàng / tầng 2 chữ số (dữ liệu có thể là số hoặc chuỗi). */
 export const soHang2 = (n) => haiChuSo(n);
-
-/** Mã lô gợi ý: <tiền tố>-<yyyyMMdd>-<số thứ tự 2 chữ số>, người dùng sửa được. */
-export const TIEN_TO_MA_LO = "LO";
-
-export function goiYMaLo(soThuTu, ngay = new Date()) {
-  const pad = (n) => String(n).padStart(2, "0");
-  const ymd = `${ngay.getFullYear()}${pad(ngay.getMonth() + 1)}${pad(ngay.getDate())}`;
-  return `${TIEN_TO_MA_LO}-${ymd}-${pad(soThuTu)}`;
-}
