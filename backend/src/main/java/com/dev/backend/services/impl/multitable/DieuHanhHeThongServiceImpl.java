@@ -327,6 +327,22 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
     /** Tiền tố mã: 1–10 ký tự in hoa không dấu, số hoặc . _ - (mã đầy đủ vẫn nằm trong 50 ký tự của cột). */
     public static final Pattern TIEN_TO_MA_PATTERN = Pattern.compile("^[A-Z0-9._-]{1,10}$");
 
+    /** Tiền tố mã lô sinh mã gợi ý (tiền tố + "-" + …) có chứa FC- — dạng thẻ lệnh kiểm đếm, khóa lô sẽ bị chặn. */
+    public static boolean laTienToMaLoTrungTheLenh(String tienTo) {
+        return tienTo != null && (tienTo + "-").toUpperCase().contains(com.dev.backend.utils.MaVachUtils.TIEN_TO_THE_LENH);
+    }
+    /**
+     * Cách xác nhận chất lượng khi kiểm đếm hàng nhập (màn Kiểm đếm & khóa lô):
+     * QUET_TIEP_LA_DAT  — quét sản phẩm kế tiếp là lượt trước giữ Đạt; hàng lỗi quét thẻ KHÔNG ĐẠT.
+     * QUET_THE_TUNG_CAI — mỗi lượt phải quét thẻ ĐẠT hoặc KHÔNG ĐẠT mới quét tiếp được.
+     */
+    public static final String CAU_HINH_KIEM_DEM_XAC_NHAN = "KIEM_DEM_XAC_NHAN";
+    public static final String KIEM_DEM_QUET_TIEP_LA_DAT = "QUET_TIEP_LA_DAT";
+    public static final String KIEM_DEM_QUET_THE_TUNG_CAI = "QUET_THE_TUNG_CAI";
+    /** Tiền tố mã lô gợi ý khi khóa lô ở màn kiểm đếm: tiền tố-số phiếu-thứ tự, VD LO-PN202610201-01. */
+    public static final String CAU_HINH_MA_LO_TIEN_TO = "MA_LO_TIEN_TO";
+    public static final String MA_LO_TIEN_TO_MAC_DINH = "LO";
+
     @EventListener(ApplicationReadyEvent.class)
     @Transactional(rollbackFor = Exception.class)
     public void initDefaultConfigurations() {
@@ -335,6 +351,8 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
         seedIfMissing(CAU_HINH_OMNI_SYNC_INTERVAL_MINS, "10", KieuDuLieuCauHinh.INT, "Chu kỳ đồng bộ đơn hàng đa kênh (phút)");
         seedIfMissing(CAU_HINH_REALTIME_SYNC_THRESHOLD, "3", KieuDuLieuCauHinh.INT, "Ngưỡng chuyển sang đồng bộ tức thời (số lượng)");
         seedIfMissing(CAU_HINH_MA_KHACH_HANG_TIEN_TO, MA_KHACH_HANG_TIEN_TO_MAC_DINH, KieuDuLieuCauHinh.STRING, "Tiền tố mã khách hàng tự tạo");
+        seedIfMissing(CAU_HINH_KIEM_DEM_XAC_NHAN, KIEM_DEM_QUET_TIEP_LA_DAT, KieuDuLieuCauHinh.STRING, "Cách xác nhận chất lượng khi kiểm đếm hàng nhập");
+        seedIfMissing(CAU_HINH_MA_LO_TIEN_TO, MA_LO_TIEN_TO_MAC_DINH, KieuDuLieuCauHinh.STRING, "Tiền tố mã lô gợi ý khi khóa lô");
     }
 
     private void seedIfMissing(String maCauHinh, String defaultValue, KieuDuLieuCauHinh kieuDuLieu, String moTa) {
@@ -504,6 +522,19 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
         } else if (CAU_HINH_MA_KHACH_HANG_TIEN_TO.equals(maCauHinh)) {
             if (giaTri == null || !TIEN_TO_MA_PATTERN.matcher(giaTri).matches()) {
                 throw new CommonException("Tiền tố mã khách hàng gồm 1–10 ký tự: chữ in hoa không dấu, số hoặc . _ -");
+            }
+        } else if (CAU_HINH_MA_LO_TIEN_TO.equals(maCauHinh)) {
+            if (giaTri == null || !TIEN_TO_MA_PATTERN.matcher(giaTri).matches()) {
+                throw new CommonException("Tiền tố mã lô gồm 1–10 ký tự: chữ in hoa không dấu, số hoặc . _ -");
+            }
+            // Mã lô gợi ý = tiền tố + "-" + số phiếu; mã lô chứa FC- bị chặn (dạng thẻ lệnh kiểm đếm): tiền tố kết thúc
+            // bằng FC hoặc có FC- sẽ làm mọi mã lô gợi ý bị từ chối
+            if (laTienToMaLoTrungTheLenh(giaTri)) {
+                throw new CommonException("Tiền tố mã lô không được kết thúc bằng FC hoặc chứa FC- (dạng thẻ lệnh kiểm đếm FC-…)");
+            }
+        } else if (CAU_HINH_KIEM_DEM_XAC_NHAN.equals(maCauHinh)) {
+            if (!KIEM_DEM_QUET_TIEP_LA_DAT.equals(giaTri) && !KIEM_DEM_QUET_THE_TUNG_CAI.equals(giaTri)) {
+                throw new CommonException("Cách xác nhận chất lượng khi kiểm đếm không hợp lệ. Chọn \"Quét tiếp là Đạt\" hoặc \"Quét thẻ cho từng cái\".");
             }
         }
     }

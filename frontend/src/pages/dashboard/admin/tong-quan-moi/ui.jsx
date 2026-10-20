@@ -6,8 +6,9 @@ import { cn } from "@/lib/utils";
 
 /*
  * Khung giao diện của màn Tổng quan (bản Kiểu 3).
- * Thẻ: viền 1px, bo 8px, bóng rất nhẹ; đầu thẻ cao 52px có vạch ngăn, tiêu đề 16px, cạnh tiêu đề là phạm vi số liệu
- * (Hiện tại, 30 ngày qua, đến 15:25) để mỗi khối tự nói số của nó thuộc khoảng thời gian nào.
+ * Thẻ: viền 1px, bo 8px, bóng rất nhẹ; đầu thẻ cao 52px có vạch ngăn, tiêu đề 16px.
+ * Phạm vi cạnh tiêu đề chỉ ghi khi khối khác kỳ ở đầu trang (Tồn kho "Hiện tại"). Khối không ghi phạm vi là số của kỳ đang xem:
+ * kỳ, khoảng ngày và giờ số liệu chỉ ghi một lần ở đầu trang (mỗi thông tin một chỗ, quyết định 19/10/2026).
  * Thẻ là container (@container) để bên trong tự xếp lại theo bề rộng thẻ, không theo bề rộng màn hình.
  */
 

@@ -17,5 +17,7 @@ public class TraCuuMaVachResponse {
     String tenBienThe;
     String barcode;
     Boolean canMapNhanh;
+    String mauSac;
+    String kichCo;
 }
 

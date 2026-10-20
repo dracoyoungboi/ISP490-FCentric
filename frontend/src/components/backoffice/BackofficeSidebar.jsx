@@ -57,6 +57,27 @@ const MENU_BUTTON_LAYOUT = "bo-sidebar-item h-10 gap-3 px-[11px]";
 // Mục Cấu hình ghim ở đáy: thấp hơn 4px để khối đáy gọn
 const FOOTER_BUTTON_LAYOUT = "bo-sidebar-item h-9 gap-3 px-[11px]";
 
+// ---- Màu mục menu ----
+// Đang chọn: nền sáng hơn sidebar một bậc, chữ trắng đậm, chỉ icon mang màu xanh
+// (không tô khối xanh đặc để không lấn át nội dung trang). Mỗi lúc chỉ một khối được tô.
+// Nhấn: nền sáng thêm một bậc và co nhẹ 2% (tắt co khi giảm chuyển động).
+const ITEM_IDLE = "text-bo-sidebar-muted hover:bg-bo-sidebar-hover hover:text-white";
+const ITEM_ACTIVE =
+  "bg-bo-sidebar-active font-semibold text-white hover:bg-bo-sidebar-active-hover hover:text-white";
+const ITEM_ICON_ACTIVE = "[&>svg]:text-bo-sidebar-icon-active";
+const ITEM_PRESS = "active:bg-bo-sidebar-press motion-safe:active:scale-98";
+// Mục rail có link phủ lên nút: hover/nhấn nhận ở link nên nút đổi theo cả mục.
+const ITEM_PRESS_GROUP =
+  "group-active/menu-item:bg-bo-sidebar-press motion-safe:group-active/menu-item:scale-98";
+// Mục menu con (sidebar mở rộng và flyout): cùng màu, chuyển cả độ co khi nhấn.
+const SUB_ITEM_TONE = (active) =>
+  cn(
+    "transition-[color,background-color,scale] active:bg-bo-sidebar-press motion-safe:active:scale-98",
+    active
+      ? "bg-bo-sidebar-active font-semibold text-white hover:bg-bo-sidebar-active-hover"
+      : ITEM_IDLE,
+  );
+
 // Chữ: thu gọn thì mờ nhanh trước khi bị mép rail cắt, mở rộng thì hiện trễ
 // một nhịp khi đã đủ chỗ. `invisible` đưa chữ ra khỏi Tab và trình đọc màn hình.
 const SIDEBAR_FADE =
@@ -645,11 +666,12 @@ export default function BackofficeSidebar() {
             end={item.to === "/dashboard"}
             onClick={handleNavigate}
             aria-label={item.label}
-            className={
+            className={cn(
               isDirectLinkActive(item, location.pathname, item.to === "/dashboard")
-                ? "bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover hover:text-white"
-                : "text-bo-sidebar-muted hover:bg-bo-sidebar-hover hover:text-white"
-            }
+                ? cn(ITEM_ACTIVE, ITEM_ICON_ACTIVE)
+                : ITEM_IDLE,
+              ITEM_PRESS,
+            )}
           >
             <Icon className="size-[18px]" />
             <span data-nhan className={cn("truncate", SIDEBAR_FADE)}>{item.label}</span>
@@ -689,16 +711,29 @@ export default function BackofficeSidebar() {
       onlyChild !== null && isDirectLinkActive(onlyChild, location.pathname);
     const opensFlyout = !isExpanded && onlyChild === null;
 
-    // Link phủ nhận hover thay nút, nên nút đổi màu theo hover của cả mục.
-    const buttonTone = isOnlyChildActive
-      ? "bg-bo-primary font-semibold text-white group-hover/menu-item:bg-bo-primary-hover"
-      : isParentActive
-        ? "bg-bo-sidebar-hover font-semibold text-white hover:bg-bo-sidebar-hover hover:text-white"
-        : cn(
-            "text-bo-sidebar-muted hover:bg-bo-sidebar-hover hover:text-white",
-            onlyChild &&
-              "group-hover/menu-item:bg-bo-sidebar-hover group-hover/menu-item:text-white",
-          );
+    // Mục cha chứa trang đang mở: khi nhóm đang bung (thấy mục con được tô) thì cha
+    // chỉ đổi chữ trắng + icon xanh; khi nhóm đóng hoặc sidebar thu gọn (không thấy
+    // mục con) thì cha được tô như mục đang chọn để vẫn biết mình đang ở đâu.
+    // Link phủ nhận hover/nhấn thay nút, nên nút đổi màu theo cả mục.
+    const showsActive = isOnlyChildActive || (isParentActive && !isOpen);
+    const buttonTone = cn(
+      showsActive
+        ? cn(
+            "bg-bo-sidebar-active font-semibold text-white",
+            onlyChild
+              ? "group-hover/menu-item:bg-bo-sidebar-active-hover"
+              : "hover:bg-bo-sidebar-active-hover hover:text-white",
+          )
+        : isParentActive
+          ? "font-semibold text-white hover:bg-bo-sidebar-hover hover:text-white"
+          : cn(
+              ITEM_IDLE,
+              onlyChild &&
+                "group-hover/menu-item:bg-bo-sidebar-hover group-hover/menu-item:text-white",
+            ),
+      isParentActive && ITEM_ICON_ACTIVE,
+      onlyChild ? ITEM_PRESS_GROUP : ITEM_PRESS,
+    );
 
     const handleGroupClick = (event) => {
       if (isExpanded) {
@@ -774,11 +809,10 @@ export default function BackofficeSidebar() {
                   onClick={handleNavigate}
                   onPointerEnter={showFullLabelIfTruncated}
                   className={({ isActive }) =>
-                    `flex items-center gap-2 rounded-md px-3 py-2 text-[13px] leading-5 transition-colors ${
-                      isNavItemActive(child, isActive, location.pathname)
-                        ? "bg-bo-primary/15 font-semibold text-blue-300"
-                        : "text-bo-sidebar-muted hover:bg-bo-sidebar-hover hover:text-white"
-                    }`
+                    cn(
+                      "flex items-center gap-2 rounded-md px-3 py-2 text-[13px] leading-5",
+                      SUB_ITEM_TONE(isNavItemActive(child, isActive, location.pathname)),
+                    )
                   }
                 >
                   <span data-nhan className="min-w-0 flex-1 truncate">{child.label}</span>
@@ -984,17 +1018,27 @@ export default function BackofficeSidebar() {
                     role="menuitem"
                     onClick={closeFlyout}
                     className={({ isActive }) =>
-                      `flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] leading-5 transition-colors ${
-                        isNavItemActive(child, isActive, location.pathname)
-                          ? "bg-bo-primary/15 font-semibold text-blue-300"
-                          : "text-bo-sidebar-muted hover:bg-bo-sidebar-hover hover:text-white"
-                      }`
+                      cn(
+                        "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] leading-5",
+                        SUB_ITEM_TONE(isNavItemActive(child, isActive, location.pathname)),
+                      )
                     }
                   >
-                    {child.icon ? (
-                      <child.icon className="size-4 shrink-0 text-bo-sidebar-muted" />
-                    ) : null}
-                    <span className="min-w-0 flex-1 truncate">{child.label}</span>
+                    {({ isActive }) => (
+                      <>
+                        {child.icon ? (
+                          <child.icon
+                            className={cn(
+                              "size-4 shrink-0",
+                              isNavItemActive(child, isActive, location.pathname)
+                                ? "text-bo-sidebar-icon-active"
+                                : "text-bo-sidebar-muted",
+                            )}
+                          />
+                        ) : null}
+                        <span className="min-w-0 flex-1 truncate">{child.label}</span>
+                      </>
+                    )}
                   </NavLink>
                 ))}
               </div>

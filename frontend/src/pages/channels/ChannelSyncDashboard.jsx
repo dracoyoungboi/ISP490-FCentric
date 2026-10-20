@@ -12,7 +12,6 @@ import MockModeNotice from "@/components/shared/MockModeNotice";
 import KhungBieuDo from "@/components/shared/KhungBieuDo";
 import ChannelLogo from "@/components/channel/ChannelLogo";
 import { TrangThaiCham } from "@/components/channel/HienThiKenh";
-import StatusBadge from "@/components/shared/StatusBadge";
 import { ChonPhuongAn, CotCaiDat } from "@/components/channel/KhuonCaiDat";
 import { NUT_CHINH } from "@/components/channel/BottomActionBar";
 import { ngayIso } from "@/components/channel/ngay";
@@ -23,12 +22,20 @@ import { BUOC_THIET_LAP, SAN_BAN_HANG } from "@/constants/channel";
 import { isChannelMock, kenhBanHangService } from "@/services/kenhBanHangService";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
-import { formatDateTime } from "@/utils/dateTime";
 import { cn } from "@/lib/utils";
 import { formatNhanTien, formatPhanTram, formatSo, formatTien, formatTienGon, nhanDayDu, nhanTruc } from "@/pages/dashboard/admin/tong-quan/tongQuanFormat";
 
 const SAN = SAN_BAN_HANG.find((s) => s.maKenh === "SHOPIFY");
 const TIEU_DE = `Tổng quan ${SAN.ten}`;
+
+/** Dấu "·" ngăn các mục trên dòng phụ dưới tên gian hàng. */
+function DauCach() {
+  return (
+    <span aria-hidden="true" className="w-4 shrink-0 text-center">
+      ·
+    </span>
+  );
+}
 const MAU_KHONG_HUY = "#1677ff";
 const MAU_HUY = "#c7d7ee";
 const MAU_LUOI = "#eef1f5";
@@ -42,15 +49,20 @@ const KY = [
 ];
 const KY_MAC_DINH = "30";
 
-/** Giờ của lần chạy gần nhất: "18:30" nếu là hôm nay, "14/10 · 18:30" nếu ngày khác. */
+/**
+ * Giờ của lần chạy gần nhất: "18:30" nếu là hôm nay, "18:30 ngày 14/10" nếu ngày khác (khác năm thì thêm năm).
+ * Không dùng dấu "·" vì dòng phụ đã dùng dấu này để ngăn các mục.
+ */
 function lanCuoiNgan(value) {
   if (!value) return null;
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return null;
   const pad = (n) => String(n).padStart(2, "0");
-  return d.toDateString() === new Date().toDateString()
-    ? `${pad(d.getHours())}:${pad(d.getMinutes())}`
-    : formatDateTime(value, { withYear: false });
+  const gio = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const nay = new Date();
+  if (d.toDateString() === nay.toDateString()) return gio;
+  const nam = d.getFullYear() === nay.getFullYear() ? "" : `/${d.getFullYear()}`;
+  return `${gio} ngày ${pad(d.getDate())}/${pad(d.getMonth() + 1)}${nam}`;
 }
 
 function moiHon(a, b) {
@@ -120,17 +132,16 @@ export default function ChannelSyncDashboard() {
   const donKhongHuy = thongKe ? Number(thongKe.tongDon || 0) - Number(thongKe.donHuy || 0) : 0;
   const lanCuoi = lanCuoiNgan(moiHon(tongQuan?.lanDayTonCuoi, tongQuan?.lanLayDonCuoi));
   const tuDongTat = cauHinh && !cauHinh.tuDongDayTon && !cauHinh.tuDongLayDon;
-  const tinhTrang =
+  // Chế độ tự động là một dòng chấm + chữ dưới tên gian hàng (không dùng thẻ trạng thái, không lặp chữ "Đang đồng bộ"
+  // của nút); sự cố đã có thanh chú ý ngay bên dưới
+  const tuDong =
     trangThai === "het_han"
-      ? { nhom: "loi", label: "Khóa truy cập đã hết hạn" }
+      ? { tone: "danger", label: "Khóa truy cập đã hết hạn" }
       : tamDung
-        ? { nhom: "cho", label: "Đang tạm dừng đồng bộ" }
+        ? { tone: "warning", label: "Đang tạm dừng đồng bộ" }
         : tuDongTat
-          ? { nhom: "cho", label: "Tự động đồng bộ đang tắt" }
-          : {
-              nhom: "xong",
-              label: lanCuoi ? `Đang đồng bộ · lần cuối ${lanCuoi}` : `Đang đồng bộ · mỗi ${cauHinh?.chuKyPhut ?? "—"} phút`,
-            };
+          ? { tone: "neutral", label: "Tự động đồng bộ đang tắt" }
+          : { tone: "success", label: cauHinh?.chuKyPhut ? `Tự động mỗi ${cauHinh.chuKyPhut} phút` : "Tự động đồng bộ" };
 
   return (
     <PageContainer>
@@ -140,11 +151,28 @@ export default function ChannelSyncDashboard() {
           <ChannelLogo maKenh={SAN.maKenh} size={32} />
           <div className="min-w-0 flex-1">
             <p className="truncate text-base font-semibold leading-[22px] text-bo-heading">Gian hàng {SAN.ten}</p>
-            <p className="truncate text-[13px] leading-[18px] text-bo-muted">{config.shopDomain}</p>
+            {/* Mỗi mục có dấu "·" phía trước; dòng nào bị xuống hàng thì dấu đầu dòng nằm ngoài lề âm và bị cắt */}
+            <div className="overflow-hidden">
+              <p className="-ml-4 flex flex-wrap items-center text-[13px] leading-5 text-bo-muted">
+                <span className="flex min-w-0 max-w-full items-center">
+                  <DauCach />
+                  <span className="truncate">{config.shopDomain}</span>
+                </span>
+                <span className="flex items-center">
+                  <DauCach />
+                  <TrangThaiCham label={tuDong.label} tone={tuDong.tone} />
+                </span>
+                {lanCuoi ? (
+                  <span className="flex items-center whitespace-nowrap tabular-nums">
+                    <DauCach />
+                    lần gần nhất {lanCuoi}
+                  </span>
+                ) : null}
+              </p>
+            </div>
           </div>
-          {/* max-w-full: màn hẹp thì nút xuống dòng dưới nhãn trạng thái, không lẹm ra ngoài */}
-          <div className="flex max-w-full shrink-0 flex-wrap items-center gap-x-4 gap-y-2">
-            <StatusBadge size="lg" nhom={tinhTrang.nhom} label={tinhTrang.label} />
+          {/* max-w-full: màn hẹp thì nút xuống dòng dưới tên gian hàng, không lẹm ra ngoài */}
+          <div className="flex max-w-full shrink-0 items-center">
             <NutDongBoNgay tienDo={dongBo} tenSan={SAN.ten} onDen={moTrang} />
           </div>
         </div>

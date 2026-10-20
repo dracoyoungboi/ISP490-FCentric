@@ -1,11 +1,10 @@
 import { createPortal } from "react-dom";
-import { getPaperPageCss, getPaperSheetClasses } from "./paperStyles";
+import { getPaperPageCss, getPaperSheetClasses, isThermalPaper } from "./paperStyles";
 import { useThermalPageHeight } from "./useThermalPageHeight";
 
 /**
- * "Print mirror" — tờ giấy CHỈ-IN dùng chung cho các trang cấu hình mẫu in
- * (trang xem mẫu / editor / trang xem trước riêng): không hiển thị trên màn
- * hình, chỉ hiện trong @media print.
+ * "Print mirror" — tờ giấy CHỈ-IN của trình sửa mẫu in (nút "In thử"): không
+ * hiển thị trên màn hình, chỉ hiện trong @media print.
  *
  * Render qua PORTAL ra ngoài `document.body` (ngoài shell backoffice) — nhờ
  * quy tắc `body:has(.print-template-mirror)` trong previewPrintStyles, toàn
@@ -27,7 +26,7 @@ import { useThermalPageHeight } from "./useThermalPageHeight";
  * PrintRoutePage) KHÔNG dùng component này.
  */
 export default function PrintOnlyDocument({ paper, children }) {
-    const isThermal = paper.size === "K80";
+    const isThermal = isThermalPaper(paper.size);
     const { ref: thermalRef, heightMm: thermalHeightMm } = useThermalPageHeight(isThermal);
     return createPortal(
         <div

@@ -141,8 +141,9 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             throw new CommonException(LOGIN_FAILED_MESSAGE);
         }
 
-        // Tài khoản bị khóa (trangThai != 1) không được đăng nhập — đọc trực tiếp từ DB
-        if (nguoiDung.getTrangThai() == null || nguoiDung.getTrangThai() != 1) {
+        // Tài khoản bị khóa, hoặc không mang vai trò nhân sự (khách hàng không phải người dùng hệ thống),
+        // không được đăng nhập — đọc trực tiếp từ DB
+        if (!nguoiDung.duocDangNhap()) {
             throw new AccountDisabledException();
         }
 
@@ -278,7 +279,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     }
 
     // Vai trò được hiển thị mục "Kho phụ trách" trên hồ sơ cá nhân.
-    // quan_tri_vien và khach_hang luôn ẩn — phân quyền kho thực tế (hoạt động + còn
+    // quan_tri_vien luôn ẩn (toàn quyền mọi kho) — phân quyền kho thực tế (hoạt động + còn
     // hiệu lực) mới là nguồn đúng.
     private static final Set<String> EMPLOYEE_ROLES = Set.of(
             IRoleType.quan_ly_kho,
@@ -537,8 +538,9 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     // Tài khoản không nhận được OTP thì chỉ ghi log, KHÔNG báo về client (không lộ
     // trạng thái tài khoản)
     private boolean canReceiveResetOtp(NguoiDung nguoiDung) {
-        if (nguoiDung.getTrangThai() == null || nguoiDung.getTrangThai() != 1) {
-            logger.warn("[forgotPassword] Tài khoản id={} đang bị khoá, không gửi OTP", nguoiDung.getId());
+        if (!nguoiDung.duocDangNhap()) {
+            logger.warn("[forgotPassword] Tài khoản id={} bị khoá hoặc không mang vai trò nhân sự, không gửi OTP",
+                    nguoiDung.getId());
             return false;
         }
         // không có email thì không gửi được OTP (và OTP email null làm hỏng các vòng so
@@ -676,11 +678,11 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         );
     }
 
-    // Không tìm thấy / bị khoá -> cùng lỗi "mã không tồn tại hoặc đã hết hạn"
+    // Không tìm thấy / bị khoá / không mang vai trò nhân sự -> cùng lỗi "mã không tồn tại hoặc đã hết hạn"
     // (không lộ tài khoản có tồn tại)
     private NguoiDung findUserForPasswordReset(String username) {
         return resolveAccount(username)
-                .filter(nd -> nd.getTrangThai() != null && nd.getTrangThai() == 1)
+                .filter(NguoiDung::duocDangNhap)
                 .orElseThrow(() -> resetOtpExpired(RESET_OTP_INVALID_MESSAGE));
     }
 
@@ -817,6 +819,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
     @Transactional
     public NguoiDung createInternalUserByAdmin(NguoiDungCreating request) {
+        String vaiTro = vaiTroTaiKhoanMoi(request.getVaiTro());
         if (request.getTenDangNhap() == null || request.getTenDangNhap().isBlank()) {
             throw new CommonException("Tên đăng nhập không được để trống");
         }
@@ -851,7 +854,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         nguoiDung.setEmail(email);
         nguoiDung.setHoTen(request.getHoTen() != null ? request.getHoTen().trim() : tenDangNhap);
         nguoiDung.setSoDienThoai(soDienThoai);
-        nguoiDung.setVaiTro(request.getVaiTro() != null ? request.getVaiTro().toString() : IRoleType.nhan_vien_kho);
+        nguoiDung.setVaiTro(vaiTro);
         nguoiDung.setTrangThai(1);
         nguoiDung.setMatKhauHash(passwordEncoder.encode(tempPassword));
         nguoiDung.setMustChangePassword(true);
@@ -875,6 +878,19 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         );
 
         return saved;
+    }
+
+    // Vai trò của tài khoản mới: để trống thì là Nhân viên kho (mặc định của popup Thêm người dùng).
+    // Chỉ nhận vai trò nhân sự; khách hàng không phải người dùng hệ thống, "all" chỉ dùng trong @RequireAuth.
+    private static String vaiTroTaiKhoanMoi(String vaiTro) {
+        if (vaiTro == null || vaiTro.isBlank()) {
+            return IRoleType.nhan_vien_kho;
+        }
+        String ma = vaiTro.trim();
+        if (!IRoleType.laNoiBo(ma)) {
+            throw new CommonException("Vai trò không hợp lệ");
+        }
+        return ma;
     }
 
     @Transactional

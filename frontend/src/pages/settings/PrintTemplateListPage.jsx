@@ -10,29 +10,21 @@ import {
   SettingsFooterLink,
   SettingsGroupLabel,
 } from "@/components/settings/SettingsUI";
-import { PRINT_DOCUMENT_TYPES } from "@/components/print/schemas/printSchemas";
+import { PRINT_DOCUMENT_GROUPS, PRINT_DOCUMENT_TYPES } from "@/components/print/schemas/printSchemas";
+import { isThermalPaper } from "@/components/print/paperStyles";
 import { printTemplateConfigService } from "@/services/printTemplateConfigService";
 
-// Nhóm chứng từ theo luồng việc; loại chứng từ mới chưa xếp nhóm thì vào "Khác"
-const GROUPS = [
-  { key: "mua-hang", label: "Mua hàng", types: ["purchase_request", "quotation_request", "purchase_order"] },
-  { key: "kho", label: "Kho", types: ["goods_receipt", "goods_issue"] },
-  { key: "ban-hang", label: "Bán hàng", types: ["sales_quotation", "sales_invoice"] },
-];
-
-/** "Khổ A4 · dọc", "Khổ K80 · máy in nhiệt"; loại có mẫu K80 mà đang dùng khổ tờ thì nhắc thêm. */
+/** "Khổ A4 · dọc", "Khổ K80 · máy in nhiệt". */
 function moTaKhoGiay(schema, config) {
   if (!config) return "";
-  if (config.paperSize === "K80") return "Khổ K80 · máy in nhiệt";
-  const text = `Khổ ${config.paperSize} · ${config.orientation === "landscape" ? "ngang" : "dọc"}`;
-  return schema.templates.some((template) => template.paperSize === "K80")
-    ? `${text} · có mẫu K80 cho máy in nhiệt tại quầy`
-    : text;
+  if (isThermalPaper(config.paperSize)) return `Khổ ${config.paperSize} · máy in nhiệt`;
+  return `Khổ ${config.paperSize} · ${config.orientation === "landscape" ? "ngang" : "dọc"}`;
 }
 
 /**
- * Cấu hình › Mẫu in: một thẻ liệt kê 7 loại chứng từ theo nhóm, mỗi loại một mẫu đang dùng
- * (khổ giấy lấy từ cấu hình đã lưu). "Sửa mẫu" mở trang xem trước / chỉnh sửa của loại đó.
+ * Cấu hình › Mẫu in (PA1 bước 1): một thẻ liệt kê các loại chứng từ theo nhóm, mỗi loại một mẫu
+ * đang dùng — tên, khi nào dùng và khổ giấy (từ cấu hình đã lưu). Bấm tên hoặc "Sửa mẫu" mở thẳng
+ * trình sửa một màn của loại đó; mẫu đã đổi gì, ai đổi, khi nào xem ở Lịch sử chỉnh sửa trong trình sửa.
  */
 export default function PrintTemplateListPage() {
   const [rows, setRows] = useState(null);
@@ -100,17 +92,17 @@ export default function PrintTemplateListPage() {
     );
   }
 
-  const groups = [
-    ...GROUPS.map((group) => ({ ...group, rows: rows.filter((row) => group.types.includes(row.schema.key)) })),
-    { key: "khac", label: "Khác", rows: rows.filter((row) => !GROUPS.some((group) => group.types.includes(row.schema.key))) },
-  ].filter((group) => group.rows.length > 0);
+  const groups = PRINT_DOCUMENT_GROUPS.map((group) => ({
+    ...group,
+    rows: rows.filter((row) => group.types.includes(row.schema.key)),
+  })).filter((group) => group.rows.length > 0);
 
   return (
     <SettingsCard aria-labelledby="mau-in-tieu-de">
       <SettingsCardHeader
         title="Mẫu chứng từ"
         titleId="mau-in-tieu-de"
-        note={`${rows.length} loại chứng từ, mỗi loại một mẫu đang dùng`}
+        note={`${rows.length} loại chứng từ, mỗi loại một mẫu đang dùng. Bấm tên để xem trước và sửa.`}
       />
 
       {groups.map((group, groupIndex) => (
@@ -125,13 +117,26 @@ export default function PrintTemplateListPage() {
             {group.rows.map(({ schema, paper }, index) => (
               <li
                 key={schema.key}
-                className={`flex items-center gap-x-6 gap-y-3 py-2.5 ${index ? "border-t border-[#eef1f5]" : ""}`}
+                // Nền nhạt khi trỏ chuột (rộng ra 8px mỗi bên); đường kẻ giữa các dòng vẫn thẳng với chữ
+                className={`relative -mx-2 flex items-center gap-x-4 gap-y-2 rounded-md px-2 py-2.5 transition-colors hover:bg-bo-surface-subtle sm:gap-x-6 ${
+                  index ? "before:absolute before:inset-x-2 before:top-0 before:h-px before:bg-[#eef1f5]" : ""
+                }`}
               >
                 <FileText className="size-[18px] shrink-0 text-[#7a8594]" aria-hidden="true" />
-                <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
-                  <span className="text-sm leading-5 font-medium text-bo-foreground">{schema.label}</span>
-                  <span className="text-[13px] leading-5 text-[#5b6676]">{paper}</span>
+                <div className="min-w-0 flex-1">
+                  <Link
+                    to={`/settings/print-templates/${schema.slug}`}
+                    className="text-sm leading-5 font-medium text-bo-foreground hover:text-bo-primary focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary"
+                  >
+                    {schema.label}
+                  </Link>
+                  {schema.description ? (
+                    <p className="mt-0.5 text-[13px] leading-5 text-bo-muted">{schema.description}</p>
+                  ) : null}
+                  {/* Màn hẹp: khổ giấy xuống dòng dưới mô tả (màn rộng có cột riêng bên phải) */}
+                  <p className="text-[13px] leading-5 text-[#5b6676] sm:hidden">{paper}</p>
                 </div>
+                <span className="hidden shrink-0 text-[13px] leading-5 whitespace-nowrap text-[#5b6676] sm:inline">{paper}</span>
                 <Link
                   to={`/settings/print-templates/${schema.slug}`}
                   aria-label={`Sửa mẫu ${schema.label.toLowerCase()}`}
@@ -151,7 +156,7 @@ export default function PrintTemplateListPage() {
         to="/settings/store"
         icon={Store}
         title="Thông tin cửa hàng"
-        description="Tên, logo và liên hệ in ở đầu mọi phiếu"
+        description="Tên, mã số thuế, logo và liên hệ in ở đầu mọi phiếu và hóa đơn"
       />
     </SettingsCard>
   );

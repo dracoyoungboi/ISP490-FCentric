@@ -260,6 +260,18 @@ class PhanQuyenNguoiDungServiceImplTest {
         return LuuPhanQuyenRequest.builder().vaiTro(vaiTro).khoId(khoId).quyenHanIds(quyenIds).build();
     }
 
+    @Test
+    @DisplayName("Làm việc theo kho: quản lý kho và 3 vai trò nhân viên; không gồm quản trị viên và vai trò lạ")
+    void lamViecTheoKho() {
+        for (String v : List.of(IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho,
+                IRoleType.nhan_vien_ban_hang, IRoleType.nhan_vien_mua_hang)) {
+            assertTrue(PhanQuyenNguoiDungServiceImpl.lamViecTheoKho(v), v);
+        }
+        for (String v : new String[]{IRoleType.quan_tri_vien, "khach_hang", IRoleType.all, "", null}) {
+            assertFalse(PhanQuyenNguoiDungServiceImpl.lamViecTheoKho(v), String.valueOf(v));
+        }
+    }
+
     // ───────── Lưu phân quyền ─────────
 
     @Nested
@@ -370,7 +382,12 @@ class PhanQuyenNguoiDungServiceImplTest {
         @Test
         @DisplayName("Vai trò không hợp lệ, quyền không tồn tại, kho ngừng hoạt động, kho ảo, hạn đã qua: báo lỗi")
         void kiemTraDauVao() {
-            assertThrows(CommonException.class, () -> service.luuPhanQuyen(52, yeuCau("all", null, null)));
+            assertEquals("Vai trò không hợp lệ", assertThrows(CommonException.class,
+                    () -> service.luuPhanQuyen(52, yeuCau("all", null, null))).getMessage());
+            // Khách hàng không phải người dùng hệ thống: không còn là vai trò gán được
+            assertEquals("Vai trò không hợp lệ", assertThrows(CommonException.class,
+                    () -> service.luuPhanQuyen(52, yeuCau("khach_hang", null, null))).getMessage());
+            assertEquals(IRoleType.nhan_vien_kho, nhanVien.getVaiTro());
             assertEquals("Quyền không tồn tại: 99", assertThrows(CommonException.class,
                     () -> service.luuPhanQuyen(52, yeuCau(IRoleType.nhan_vien_kho, 22, List.of(1, 99)))).getMessage());
             assertTrue(assertThrows(CommonException.class,
@@ -763,12 +780,15 @@ class PhanQuyenNguoiDungServiceImplTest {
         }
 
         @Test
-        @DisplayName("B2: admin gọi gan-quyen: vẫn chặn kho ảo, kho ngừng hoạt động, khách hàng")
+        @DisplayName("B2: admin gọi gan-quyen: vẫn chặn kho ảo, kho ngừng hoạt động, quản trị viên và vai trò không còn dùng")
         void ganQuyenCu_admin() {
             assertThrows(CommonException.class, () -> service.kiemTraGanQuyenCu(null, ganQuyen(52, 25, 1)), "kho ảo");
             assertThrows(CommonException.class, () -> service.kiemTraGanQuyenCu(null, ganQuyen(52, 24, 1)), "kho ngừng");
-            nhanVien.setVaiTro(IRoleType.khach_hang);
-            assertThrows(CommonException.class, () -> service.kiemTraGanQuyenCu(null, ganQuyen(52, 22, 1)), "khách hàng");
+            nhanVien.setVaiTro(IRoleType.quan_tri_vien);
+            assertEquals("Chỉ phân kho cho quản lý kho và nhân viên", assertThrows(CommonException.class,
+                    () -> service.kiemTraGanQuyenCu(null, ganQuyen(52, 22, 1)), "quản trị viên").getMessage());
+            nhanVien.setVaiTro("khach_hang"); // dữ liệu cũ trước khi bỏ vai trò khách hàng
+            assertThrows(CommonException.class, () -> service.kiemTraGanQuyenCu(null, ganQuyen(52, 22, 1)), "vai trò cũ");
             nhanVien.setVaiTro(IRoleType.nhan_vien_kho);
             assertDoesNotThrow(() -> service.kiemTraGanQuyenCu(null, ganQuyen(52, 23, 8)));
         }
@@ -790,17 +810,21 @@ class PhanQuyenNguoiDungServiceImplTest {
         }
 
         @Test
-        @DisplayName("B2: gan-vai-tro giữ kho và quyền; sang khách hàng thì thu hồi kho")
+        @DisplayName("B2: gan-vai-tro giữ kho và quyền; sang quản trị viên thì thu hồi kho; khách hàng không còn là vai trò")
         void ganVaiTroCu() {
             PhanQuyenNguoiDungKho p = phanKhoSan(nhanVien, khoTong, List.of(1, 7));
             service.doiVaiTro(52, IRoleType.nhan_vien_mua_hang);
             assertEquals(IRoleType.nhan_vien_mua_hang, nhanVien.getVaiTro());
             assertEquals(List.of(1, 7), quyenDangBat(p));
-            service.doiVaiTro(52, IRoleType.khach_hang);
+            assertEquals("Vai trò không hợp lệ", assertThrows(CommonException.class,
+                    () -> service.doiVaiTro(52, "khach_hang")).getMessage());
+            assertEquals(IRoleType.nhan_vien_mua_hang, nhanVien.getVaiTro(), "vai trò không hợp lệ thì không đổi gì");
+            assertEquals(List.of(1, 7), quyenDangBat(p));
+            service.doiVaiTro(52, IRoleType.quan_tri_vien);
             assertEquals(0, p.getTrangThai());
             assertEquals(2, lichSu.size());
             dangNhap(nhanVien);
-            assertThrows(CommonException.class, () -> service.doiVaiTro(52, IRoleType.quan_tri_vien), "tự đổi");
+            assertThrows(CommonException.class, () -> service.doiVaiTro(52, IRoleType.nhan_vien_kho), "tự đổi");
         }
 
         @Test

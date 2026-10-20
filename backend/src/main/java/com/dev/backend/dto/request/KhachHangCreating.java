@@ -13,6 +13,7 @@ import java.time.Instant;
 public class KhachHangCreating {
     String maKhachHang;
     String tenKhachHang;
+    String maSoThue;
     String nguoiLienHe;
     String soDienThoai;
     String email;

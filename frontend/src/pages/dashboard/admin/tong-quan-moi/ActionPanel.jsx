@@ -50,20 +50,12 @@ export default function ActionPanel({ data, khoId, loading, error, onRetry, clas
   const [moRong, setMoRong] = useState(false);
   const v = data?.viecCanXuLy;
   const viec = v ? danhSachViec(v, khoId) : [];
-  const tong = viec.reduce((s, d) => s + d.so, 0);
   const hien = moRong ? viec : viec.slice(0, SO_DONG_GON);
 
   return (
     <Card
       className={className}
       title="Cần xử lý"
-      scope={
-        v && tong > 0 ? (
-          <span className="inline-flex h-5 items-center rounded-[3px] bg-bo-tt-cho px-1.5 text-xs font-semibold tabular-nums text-bo-tt-cho-chu" aria-label={`${formatSo(tong)} việc`}>
-            {formatSo(tong)}
-          </span>
-        ) : null
-      }
       right={
         viec.length > SO_DONG_GON ? (
           <button

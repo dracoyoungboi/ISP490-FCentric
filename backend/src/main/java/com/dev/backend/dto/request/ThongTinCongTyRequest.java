@@ -12,6 +12,8 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class ThongTinCongTyRequest {
     String name;
+    /** Mã số thuế: trống = không có; 10 số, 10-3 số hoặc 12 số. */
+    String taxCode;
     String email;
     String phone;
     String address;

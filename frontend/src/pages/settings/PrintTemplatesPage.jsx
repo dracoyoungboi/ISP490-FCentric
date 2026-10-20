@@ -21,11 +21,13 @@ import {
 import { cn } from "@/lib/utils";
 import PrintTemplateDocument from "@/components/print/PrintTemplateDocument";
 import PrintOnlyDocument from "@/components/print/PrintOnlyDocument";
+import { isThermalPaper } from "@/components/print/paperStyles";
 import PreviewZoomControl from "@/components/print/PreviewZoomControl";
 import { PreviewPrintStyleTag } from "@/components/print/previewPrintStyles";
 import { usePreviewViewportSize } from "@/components/print/usePreviewViewportSize";
 import {
     computeFitScale,
+    getPageFooterText,
     getPaperSheetClasses,
 } from "@/components/print/paperStyles";
 import { PRINT_DOCUMENT_TYPES, getPrintSchema } from "@/components/print/schemas/printSchemas";
@@ -251,15 +253,15 @@ export default function PrintTemplatesPage() {
           };
 
     const orientationLabel =
-        displayConfig?.paperSize === "K80"
+        isThermalPaper(displayConfig?.paperSize)
             ? "Khổ nhiệt"
             : displayConfig?.orientation === "landscape"
                 ? "Ngang"
                 : "Dọc";
     // Nhãn khổ giấy CHỈ ĐỌC — phản ánh cấu hình đã lưu (không chọn tương tác)
     const formatLabel = displayConfig
-        ? displayConfig.paperSize === "K80"
-            ? "K80 · Khổ nhiệt"
+        ? isThermalPaper(displayConfig.paperSize)
+            ? `${displayConfig.paperSize} · Khổ nhiệt`
             : `${displayConfig.paperSize} · ${orientationLabel}`
         : null;
 
@@ -277,7 +279,7 @@ export default function PrintTemplatesPage() {
 
     return (
         <PageContainer className="print-template-preview-page flex flex-col space-y-4 pb-4 lg:h-full">
-            <PreviewPrintStyleTag paper={paperObj} />
+            <PreviewPrintStyleTag paper={paperObj} footerText={getPageFooterText(sampleModel)} />
 
             <PreviewHeader />
 

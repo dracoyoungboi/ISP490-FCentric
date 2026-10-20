@@ -22,6 +22,7 @@ public class KhachHangDto implements Serializable {
     Integer id;
     String maKhachHang;
     String tenKhachHang;
+    String maSoThue;
     String nguoiLienHe;
     String soDienThoai;
     String email;

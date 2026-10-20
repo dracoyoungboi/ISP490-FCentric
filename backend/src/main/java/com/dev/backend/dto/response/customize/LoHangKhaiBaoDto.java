@@ -4,6 +4,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -22,4 +23,6 @@ public class LoHangKhaiBaoDto {
     String maViTri;
     String trangThai;
     String ghiChu;
+    /** Hàng không đạt theo lý do, tổng = soLuongLoi (lô khai báo trước khi có bảng chi tiết thì rỗng). */
+    List<ChiTietLoiLoHangDto> chiTietLoi;
 }

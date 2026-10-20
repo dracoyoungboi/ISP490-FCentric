@@ -49,6 +49,15 @@ function khoTrongToken() {
   }
 }
 
+/**
+ * Danh sách nơi làm việc của nhân viên / quản lý kho, đọc từ token (đồng bộ, không gọi API): đúng các kho
+ * backend chấp nhận ở header kho_id, bỏ kho ảo và kho ngừng hoạt động. Dùng được cho mọi vai trò làm theo kho,
+ * kể cả nhân viên mua hàng (POST /kho/mine không mở cho vai trò này).
+ */
+export function dsKhoLamViecTrongToken() {
+  return khoTrongToken().filter(laKhoGiaoDich);
+}
+
 /** Kho dùng được làm kho làm việc (đồng bộ, không gọi API): kho giao dịch và nằm trong quyền của người dùng. */
 export function laKhoLamViecHopLe(kho) {
   if (!laKhoGiaoDich(kho)) return false;

@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  CHUNG_TU,
+  VAI_TRO,
   banNhapTuNguoiDung,
   canKho,
   cuoiNgay,
@@ -11,8 +13,12 @@ import {
   hieuLucCuaToi,
   khoCuaToiNgan,
   mailtoLienHe,
+  hienTenDangNhapRieng,
   kiemTraBanNhap,
+  laVaiTroNoiBo,
+  maTranQuyen,
   manHinhCuaVaiTro,
+  moTaVaiTro,
   nhomTheoLuong,
   nhomHoSo,
   noiDungLuu,
@@ -23,8 +29,9 @@ import {
   sangNgayNhap,
   soSanhPhanQuyen,
   tenVaiTro,
-  tomTatTruyCap,
+  vanDeCanXemLai,
 } from "./phanQuyen.js";
+import { ROLES } from "../../constants/backend/role.js";
 
 // Bảng quyen_han (23 dòng) như trong Database/MyDB.sql
 const QUYEN = [
@@ -55,6 +62,8 @@ const QUYEN = [
 
 // Cùng cấu trúc vai trò/đường dẫn với components/backoffice/sidebar.config.js (bỏ icon, nhãn)
 const QTV = "quan_tri_vien", QLK = "quan_ly_kho", NVK = "nhan_vien_kho", NVM = "nhan_vien_mua_hang", NVB = "nhan_vien_ban_hang";
+// Vai trò Khách hàng đã bỏ (19/10/2026): nay chỉ là một vai trò lạ, không có màn hình, kho hay quyền
+const VAI_TRO_DA_BO = "khach_hang";
 const MENU = [
   { to: "/dashboard", roles: [QTV, QLK, NVK, NVM, NVB] },
   { to: "/users", roles: [QTV] },
@@ -125,14 +134,33 @@ const MAU_NVK = [1, 2, 4, 7, 12, 15];
 const NHAY_CAM = [3, 6, 8, 9, 11, 13, 14, 17, 18, 19, 20];
 const TAT_CA = QUYEN.map((q) => q.id);
 
+test("vai trò: đúng năm vai trò nhân sự, theo thứ tự hiện trên màn hình, lấy từ constants/backend/role.js", () => {
+  assert.deepEqual(VAI_TRO.map((v) => v.ma), [NVK, QLK, NVB, NVM, QTV], "Quản trị viên để cuối");
+  assert.deepEqual(VAI_TRO.map((v) => v.ma), ROLES.map((r) => r.value), "một nguồn duy nhất");
+  assert.deepEqual(VAI_TRO.map((v) => v.ten), ROLES.map((r) => r.label));
+  for (const v of VAI_TRO) assert.ok(v.moTa, `${v.ma} có mô tả`);
+  assert.equal(moTaVaiTro(QTV), "Chủ cửa hàng, người quản lý hệ thống. Toàn quyền ở mọi kho.");
+  assert.equal(moTaVaiTro(VAI_TRO_DA_BO), "");
+});
+
+test("vai trò nhân sự: chỉ năm mã đúng, không nhận vai trò đã bỏ hay mã lạ", () => {
+  for (const ma of [NVK, QLK, NVB, NVM, QTV]) assert.equal(laVaiTroNoiBo(ma), true, ma);
+  for (const ma of [VAI_TRO_DA_BO, "all", "vai_tro_moi", "QUAN_TRI_VIEN", " quan_tri_vien", "", null, undefined]) {
+    assert.equal(laVaiTroNoiBo(ma), false, String(ma));
+  }
+});
+
 test("tên vai trò và vai trò cần kho", () => {
   assert.equal(tenVaiTro(NVK), "Nhân viên kho");
   assert.equal(tenVaiTro("vai_tro_moi"), "vai tro moi");
   assert.equal(tenVaiTro(null), "Không xác định");
-  assert.equal(canKho(NVK), true);
-  assert.equal(canKho(QTV), false);
-  assert.equal(canKho("khach_hang"), false);
+  for (const ma of [NVK, QLK, NVB, NVM]) assert.equal(canKho(ma), true, ma);
+  assert.equal(canKho(QTV), false, "quản trị viên toàn quyền ở mọi kho");
+  // Mã lạ không được coi là làm việc theo kho (trước đây mọi mã khác quản trị viên / khách hàng đều cần kho)
+  assert.equal(canKho(VAI_TRO_DA_BO), false);
+  assert.equal(canKho("vai_tro_moi"), false);
   assert.equal(canKho(""), false);
+  assert.equal(canKho(undefined), false);
 });
 
 test("nhóm theo luồng việc: đúng thứ tự nhóm và thứ tự trong nhóm, nhóm lạ vào Khác", () => {
@@ -150,7 +178,12 @@ test("màn hình theo vai trò khớp quy tắc lọc của sidebar", () => {
   assert.equal(nvk.soNhom, 6);
   assert.equal(manHinhCuaVaiTro(MENU, NVM).duongDan.length, 10);
   assert.equal(manHinhCuaVaiTro(MENU, NVB).duongDan.length, 9);
-  assert.deepEqual(manHinhCuaVaiTro(MENU, "khach_hang"), { duongDan: [], soNhom: 0 });
+  assert.deepEqual(manHinhCuaVaiTro(MENU, VAI_TRO_DA_BO), { duongDan: [], soNhom: 0 });
+  // Mục không khai báo roles mở cho mọi vai trò nhân sự, nhưng không mở cho mã lạ
+  const menuMo = [{ to: "/dashboard" }];
+  assert.deepEqual(manHinhCuaVaiTro(menuMo, NVK), { duongDan: ["/dashboard"], soNhom: 1 });
+  assert.deepEqual(manHinhCuaVaiTro(menuMo, "vai_tro_moi"), { duongDan: [], soNhom: 0 });
+  assert.deepEqual(manHinhCuaVaiTro(menuMo, undefined), { duongDan: [], soNhom: 0 });
   assert.ok(nvk.duongDan.includes("/goods-issues"), "mục con không khai báo roles thì theo mục cha");
 });
 
@@ -213,35 +246,60 @@ test("đánh giá quyền so với mẫu: ngoài mẫu, thiếu, cặp tạo–d
   assert.deepEqual(khongCauHinh.chuaApDung, [], "không đọc được cấu hình thì không gắn Chưa áp dụng");
 });
 
-test("dải tóm tắt: quản trị viên, chưa phân kho, lệch mẫu, khớp mẫu", () => {
+test("Cần xem lại: chỉ khi có nơi làm việc; xếp theo mức nặng; không nhắc tên vai trò", () => {
   const dgRong = danhGiaQuyen({ vaiTro: QTV, quyenIds: [], dsQuyen: QUYEN, menu: MENU });
-  assert.equal(tomTatTruyCap({ vaiTro: QTV, pq: null, danhGia: dgRong, menu: MENU }).quyen.giaTri, "Toàn quyền");
+  assert.deepEqual(vanDeCanXemLai({ vaiTro: QTV, coKho: false, danhGia: dgRong }), [], "quản trị viên: không có khung");
+  assert.deepEqual(vanDeCanXemLai({ vaiTro: VAI_TRO_DA_BO, coKho: true, danhGia: dgRong }), [], "vai trò lạ: không có khung");
+  const dgChuaKho = danhGiaQuyen({ vaiTro: NVK, quyenIds: [], dsQuyen: QUYEN, mau: MAU_NVK, menu: MENU });
+  assert.deepEqual(vanDeCanXemLai({ vaiTro: NVK, coKho: false, danhGia: dgChuaKho }), [], "chưa có nơi làm việc: ô trống của tab đã nói");
 
-  const chuaKho = tomTatTruyCap({ vaiTro: NVK, pq: null, danhGia: danhGiaQuyen({ vaiTro: NVK, quyenIds: [], dsQuyen: QUYEN, mau: MAU_NVK, menu: MENU }), menu: MENU });
-  assert.equal(chuaKho.kho.giaTri, "Chưa phân kho");
-  assert.equal(chuaKho.canXemLai.muc, "cao");
-  assert.equal(chuaKho.vaiTro.phu, "Mở được 17 màn hình · 6 nhóm menu");
+  const chuaCap = vanDeCanXemLai({ vaiTro: NVK, coKho: true, danhGia: dgChuaKho });
+  assert.deepEqual(chuaCap.map((v) => v.ma), ["chuaCap"], "chưa cấp quyền nào thì không kể thêm 'thiếu 6 quyền so với mẫu'");
 
-  const p = pq(TAT_CA.map((id) => [id, 1]));
   const dgLech = danhGiaQuyen({ vaiTro: NVK, quyenIds: TAT_CA, dsQuyen: QUYEN, mau: MAU_NVK, menu: MENU });
-  const lech = tomTatTruyCap({ vaiTro: NVK, pq: p, danhGia: dgLech, menu: MENU });
-  assert.equal(lech.quyen.giaTri, "23/23");
-  assert.equal(lech.quyen.phu, "Mẫu Nhân viên kho có 6 quyền · thêm 17");
-  assert.equal(lech.canXemLai.muc, "cao");
-  assert.equal(lech.canXemLai.giaTri, "4 cặp tạo–duyệt", "giá trị là điểm nặng nhất, không đếm 'N điểm'");
-  assert.match(lech.canXemLai.phu, /^17 quyền ngoài mẫu/);
-  assert.match(lech.kho.phu, /^KHO_TONG · từ \d{2}\/10\/2026, không thời hạn$/);
+  const lech = vanDeCanXemLai({ vaiTro: NVK, coKho: true, danhGia: dgLech });
+  assert.deepEqual(lech.map((v) => v.ma), ["taoDuyet", "ngoaiMau", "voHieu"]);
+  assert.equal(lech[0].chinh, "Tự tạo và tự duyệt được 4 loại chứng từ");
+  assert.equal(lech[0].phu, "Đơn mua hàng, Phiếu nhập kho, Đơn bán hàng, Phiếu xuất kho");
+  assert.deepEqual(lech[0].maQuyen.length, 8);
+  assert.equal(lech[1].chinh, "17 quyền ngoài mẫu của vai trò");
+  assert.equal(lech[1].phu, "mẫu có 6 quyền");
+  assert.equal(lech[2].chinh, "6 quyền không dùng được");
+  assert.ok(lech.every((v) => !v.chinh.includes("Nhân viên kho") && !v.phu.includes("Nhân viên kho")), "không lặp tên vai trò");
 
   const dgKhop = danhGiaQuyen({ vaiTro: NVK, quyenIds: MAU_NVK, dsQuyen: QUYEN, mau: MAU_NVK, menu: MENU });
-  const khop = tomTatTruyCap({ vaiTro: NVK, pq: p, danhGia: dgKhop, menu: MENU });
-  assert.equal(khop.quyen.phu, "Khớp mẫu Nhân viên kho");
-  assert.equal(khop.canXemLai.giaTri, "Không có");
-  assert.equal(khop.canXemLai.phu, "Khớp mẫu, không có cặp tạo–duyệt");
+  assert.deepEqual(vanDeCanXemLai({ vaiTro: NVK, coKho: true, danhGia: dgKhop }), [], "khớp mẫu: không có khung");
 
-  // Vai trò chưa có mẫu: không được ghi "Khớp mẫu"
-  const dgKhongMau = danhGiaQuyen({ vaiTro: NVK, quyenIds: [1], dsQuyen: QUYEN, mau: [], menu: MENU });
-  const khongMau = tomTatTruyCap({ vaiTro: NVK, pq: p, danhGia: dgKhongMau, menu: MENU });
-  assert.equal(khongMau.canXemLai.phu, "Không có cặp tạo–duyệt");
+  const dgThieu = danhGiaQuyen({ vaiTro: NVK, quyenIds: [1, 2, 4, 7], dsQuyen: QUYEN, mau: MAU_NVK, menu: MENU });
+  const thieu = vanDeCanXemLai({ vaiTro: NVK, coKho: true, danhGia: dgThieu });
+  assert.deepEqual(thieu.map((v) => v.ma), ["thieuMau"]);
+  assert.equal(thieu[0].chinh, "Thiếu 2 quyền so với mẫu");
+  assert.equal(thieu[0].phu, "Tạo phiếu xuất kho, Xem báo cáo tồn kho");
+  assert.deepEqual(thieu[0].maQuyen, ["tao_phieu_xuat", "xem_bao_cao_ton_kho"]);
+});
+
+test("ma trận chứng từ: 4 chứng từ × Tạo / Duyệt / Hủy, 13 quyền còn lại thành việc khác", () => {
+  const dg = danhGiaQuyen({ vaiTro: NVK, quyenIds: [5, 6, 7, 9, 1], dsQuyen: QUYEN, mau: MAU_NVK, menu: MENU });
+  const { hang, viecKhac } = maTranQuyen(dg);
+  assert.deepEqual(hang.map((h) => h.ten), CHUNG_TU.map((c) => c.ten));
+  const muaHang = hang[0];
+  assert.equal(muaHang.tao.cap, true);
+  assert.equal(muaHang.duyet.cap, true);
+  assert.equal(muaHang.huy, null, "đơn mua hàng không có quyền hủy");
+  assert.equal(hang[1].huy.cap, true);
+  assert.equal(hang[1].duyet.cap, false);
+  assert.equal(hang.reduce((t, h) => t + [h.tao, h.duyet, h.huy].filter(Boolean).length, 0), 10);
+  assert.deepEqual(viecKhac.map((n) => n.ten), ["Tồn kho", "Báo cáo", "Danh mục & nhân sự"]);
+  assert.equal(viecKhac.reduce((t, n) => t + n.dong.length, 0), 13);
+  assert.equal(viecKhac[0].dong.find((d) => d.ma === "xem_ton_kho").cap, true);
+
+  // Quyền lạ trong nhóm nhập kho (không thuộc ô nào) vẫn hiện ở việc khác; máy chủ thiếu một mã thì ô đó là null
+  const coQuyenLa = [...QUYEN.filter((q) => q.maQuyen !== "huy_phieu_xuat"), { id: 30, maQuyen: "tra_hang_ncc", tenQuyen: "Trả hàng nhà cung cấp", nhomQuyen: "nhap_kho" }];
+  const m2 = maTranQuyen(danhGiaQuyen({ vaiTro: NVK, quyenIds: [30], dsQuyen: coQuyenLa, menu: MENU }));
+  assert.equal(m2.hang[3].huy, null);
+  assert.deepEqual(m2.viecKhac[0].dong.map((d) => d.ma), ["tra_hang_ncc"]);
+  assert.equal(m2.viecKhac[0].ten, "Mua & nhập kho");
+  assert.deepEqual(maTranQuyen(null), { hang: [], viecKhac: [] });
 });
 
 test("máy chủ trả danh sách quyền đã áp dụng rỗng (quét lỗi): không gắn Chưa áp dụng, Kiểm tra không ghi 'kiểm 0/23'", () => {
@@ -261,11 +319,14 @@ test("không đọc được cấu hình (mẫu = null) khác vai trò chưa có
   assert.equal(khongDoc.soMau, 0);
   assert.deepEqual(khongDoc.ngoaiMau, []);
   assert.deepEqual(khongDoc.thieuMau, []);
-  assert.equal(tomTatTruyCap({ vaiTro: NVK, pq: p, danhGia: khongDoc, menu: MENU }).quyen.phu, "Chưa so được với mẫu");
+  assert.ok(p.kho);
+  const khongDocCoCap = danhGiaQuyen({ vaiTro: NVK, quyenIds: [1, 7, 8], dsQuyen: QUYEN, mau: null, menu: MENU });
+  assert.deepEqual(vanDeCanXemLai({ vaiTro: NVK, coKho: true, danhGia: khongDocCoCap }).map((v) => v.ma), ["taoDuyet"],
+    "không đọc được mẫu: vẫn báo cặp tạo–duyệt, không kể ngoài mẫu / thiếu mẫu");
 
   const chuaMau = danhGiaQuyen({ vaiTro: NVK, quyenIds: [1, 7], dsQuyen: QUYEN, mau: [], menu: MENU });
   assert.equal(chuaMau.khongDocDuocMau, false);
-  assert.equal(tomTatTruyCap({ vaiTro: NVK, pq: p, danhGia: chuaMau, menu: MENU }).quyen.phu, "Vai trò chưa có mẫu quyền");
+  assert.deepEqual(vanDeCanXemLai({ vaiTro: NVK, coKho: true, danhGia: chuaMau }), [], "vai trò chưa có mẫu: không có gì để so");
   assert.equal(danhGiaQuyen({ vaiTro: NVK, quyenIds: [1], dsQuyen: QUYEN, menu: MENU }).khongDocDuocMau, false,
     "không truyền mẫu = mẫu rỗng");
 
@@ -273,7 +334,7 @@ test("không đọc được cấu hình (mẫu = null) khác vai trò chưa có
   const kq = kiemTraBanNhap({ vaiTro: NVK, khoId: 22, hieuLuc: "vo_han", quyenIds: [1, 7] },
     { dsQuyen: QUYEN, mau: null, menu: MENU });
   assert.equal(kq.loai, "luuY");
-  assert.equal(kq.tomTat, "1 lưu ý trước khi lưu");
+  assert.equal(kq.tomTat, "Chưa so được với mẫu");
   assert.deepEqual(kq.muc.map((m) => m.tieuDe), ["Chưa so được với mẫu"]);
   assert.equal(kq.chanLuu, false, "chỉ nhắc, không chặn lưu");
 
@@ -282,11 +343,11 @@ test("không đọc được cấu hình (mẫu = null) khác vai trò chưa có
   assert.equal(chuaMauKt.tomTat, "Không có điểm cần xem lại", "vai trò chưa có mẫu thì vẫn như cũ");
 });
 
-test("phân quyền hiện có: quản trị viên / khách hàng còn dòng kho cũ thì bỏ qua", () => {
+test("phân quyền hiện có: quản trị viên / vai trò lạ còn dòng kho cũ thì bỏ qua", () => {
   const p = pq([[1, 1], [7, 1]]);
   assert.equal(phanQuyenHienCo(nguoiDung(NVK, [p])).pq, p);
   assert.deepEqual(phanQuyenHienCo(nguoiDung(QTV, [p])), { pq: null, quyenIds: [] });
-  assert.deepEqual(phanQuyenHienCo(nguoiDung("khach_hang", [p])), { pq: null, quyenIds: [] });
+  assert.deepEqual(phanQuyenHienCo(nguoiDung(VAI_TRO_DA_BO, [p])), { pq: null, quyenIds: [] });
   assert.equal(banNhapTuNguoiDung(nguoiDung(QTV, [p])).khoId, null);
 });
 
@@ -328,7 +389,7 @@ test("so sánh: vai trò, kho, hạn, thêm/bỏ quyền theo thứ tự hiển 
 
   const doi = soSanhPhanQuyen(goc, { ...goc, khoId: 23, hieuLuc: "den_ngay", ngayKetThuc: "2026-12-31", quyenIds: [1, 3, 5] }, { dsQuyen: QUYEN, tenKho });
   assert.deepEqual(doi.map((d) => d.loai), ["doi", "doi", "them", "them", "bo"]);
-  assert.equal(doi[0].chu, "Kho: Kho tổng → Kho Hà Nội");
+  assert.equal(doi[0].chu, "Nơi làm việc: Kho tổng → Kho Hà Nội");
   assert.equal(doi[1].chu, "Hiệu lực: đến 31/12/2026");
   assert.deepEqual(doi.slice(2).map((d) => d.chu), ["Tạo đơn mua hàng", "Điều chỉnh tồn kho", "Tạo phiếu nhập kho"]);
 
@@ -337,14 +398,14 @@ test("so sánh: vai trò, kho, hạn, thêm/bỏ quyền theo thứ tự hiển 
 
   const phanLanDau = soSanhPhanQuyen({ vaiTro: NVK, khoId: null, hieuLuc: "vo_han", ngayKetThuc: "", quyenIds: [] },
     { vaiTro: NVK, khoId: 22, hieuLuc: "vo_han", ngayKetThuc: "", quyenIds: [1] }, { dsQuyen: QUYEN, tenKho });
-  assert.deepEqual(phanLanDau.map((d) => d.chu), ["Phân kho: Kho tổng", "Xem tồn kho"]);
+  assert.deepEqual(phanLanDau.map((d) => d.chu), ["Nơi làm việc: Kho tổng", "Xem tồn kho"]);
 });
 
 test("kiểm tra trước khi lưu", () => {
   const ctx = { dsQuyen: QUYEN, mau: MAU_NVK, daApDung: null, menu: MENU };
   const chuaKho = kiemTraBanNhap({ vaiTro: NVK, khoId: null, hieuLuc: "vo_han", quyenIds: [] }, ctx);
   assert.equal(chuaKho.loai, "canhBao");
-  assert.equal(chuaKho.muc[0].tieuDe, "Chưa chọn kho");
+  assert.equal(chuaKho.muc[0].tieuDe, "Chưa chọn nơi làm việc");
   assert.equal(chuaKho.chanLuu, false);
 
   const khop = kiemTraBanNhap({ vaiTro: NVK, khoId: 22, hieuLuc: "vo_han", quyenIds: MAU_NVK }, ctx);
@@ -353,7 +414,8 @@ test("kiểm tra trước khi lưu", () => {
 
   const lech = kiemTraBanNhap({ vaiTro: NVK, khoId: 22, hieuLuc: "vo_han", quyenIds: TAT_CA }, ctx);
   assert.equal(lech.soCanhBao, 1);
-  assert.equal(lech.tomTat, "1 cảnh báo · 2 lưu ý");
+  assert.equal(lech.tomTat, "Vừa tạo vừa duyệt 4 loại chứng từ · thêm 2 điểm", "nói thẳng vấn đề nặng nhất");
+  assert.deepEqual(lech.muc.filter((m) => m.loai === "luuY").map((m) => m.tieuDe), ["6 quyền không dùng được", "17 quyền ngoài mẫu Nhân viên kho"]);
   assert.equal(lech.muc[0].tieuDe, "Vừa tạo vừa duyệt 4 loại chứng từ");
 
   const thieuNgay = kiemTraBanNhap({ vaiTro: NVK, khoId: 22, hieuLuc: "den_ngay", ngayKetThuc: "", quyenIds: MAU_NVK }, ctx);
@@ -373,8 +435,27 @@ test("kiểm tra trước khi lưu", () => {
   const muc = chuaApDung.muc.find((m) => m.tieuDe.endsWith("chưa áp dụng"));
   assert.equal(muc.tieuDe, "3 quyền chưa áp dụng");
   assert.match(muc.moTa, /kiểm 3\/23 quyền/);
+  assert.equal(muc.phu, true, "việc của hệ thống: chỉ liệt kê, không tính vào tóm tắt");
+  assert.equal(chuaApDung.tomTat, "Khớp mẫu Nhân viên kho");
 
   assert.equal(kiemTraBanNhap({ vaiTro: QTV }, ctx).tomTat, "Không cần quyền theo kho");
+});
+
+test("kiểm tra trước khi lưu: vai trò lạ (dữ liệu cũ) phải chọn lại vai trò, chặn lưu", () => {
+  const ctx = { dsQuyen: QUYEN, mau: MAU_NVK, nhayCam: NHAY_CAM, menu: MENU };
+  for (const vaiTro of [VAI_TRO_DA_BO, "", undefined]) {
+    const kq = kiemTraBanNhap({ vaiTro, khoId: 22, hieuLuc: "vo_han", quyenIds: [1] }, ctx);
+    assert.equal(kq.chanLuu, true, String(vaiTro));
+    assert.equal(kq.loai, "canhBao");
+    assert.equal(kq.tomTat, "Chưa chọn vai trò");
+    assert.deepEqual(kq.muc.map((m) => m.tieuDe), ["Chưa chọn vai trò"], "không đánh giá kho và quyền");
+  }
+  const qtv = kiemTraBanNhap({ vaiTro: QTV, khoId: 22, quyenIds: [1] }, ctx);
+  assert.equal(qtv.chanLuu, false);
+  assert.equal(qtv.loai, "on");
+  assert.equal(qtv.muc[0].moTa, "Quản trị viên có toàn quyền ở mọi kho.");
+  // Chọn lại một vai trò nhân sự thì kiểm như thường
+  assert.equal(kiemTraBanNhap({ vaiTro: NVK, khoId: 22, hieuLuc: "vo_han", quyenIds: MAU_NVK }, ctx).chanLuu, false);
 });
 
 test("kiểm tra trước khi lưu: quyền nhạy cảm trong mẫu chỉ liệt kê, vẫn tóm tắt Khớp mẫu", () => {
@@ -402,14 +483,14 @@ test("kiểm tra trước khi lưu: quyền nhạy cảm ngoài mẫu tính vào
   const nhay = kq.muc.find((m) => m.tieuDe === "1 quyền nhạy cảm");
   assert.equal(nhay.phu, undefined);
   assert.equal(kq.soLuuY, 2, "vượt mẫu + quyền nhạy cảm");
-  assert.equal(kq.tomTat, "2 lưu ý trước khi lưu");
+  assert.equal(kq.tomTat, "1 quyền ngoài mẫu Nhân viên kho · 1 quyền nhạy cảm");
 
   // Vai trò chưa có mẫu: không gọi là "trong mẫu" được, quyền nhạy cảm tính vào lưu ý
   const khongMau = kiemTraBanNhap({ vaiTro: NVK, khoId: 22, hieuLuc: "vo_han", quyenIds: [1, 3] }, { ...ctx, mau: [] });
   assert.equal(khongMau.muc.find((m) => m.tieuDe === "1 quyền nhạy cảm").phu, undefined);
   assert.equal(khongMau.muc.some((m) => m.loai === "on"), false, "không vừa báo lưu ý vừa ghi 'Không có điểm cần xem lại'");
   assert.equal(khongMau.loai, "luuY");
-  assert.equal(khongMau.tomTat, "1 lưu ý trước khi lưu");
+  assert.equal(khongMau.tomTat, "1 quyền nhạy cảm");
 });
 
 test("quyền nhạy cảm cấp thêm ở lần lưu này", () => {
@@ -580,7 +661,6 @@ test("gợi ý đầu Hồ sơ: đúng thứ tự ưu tiên, mỗi lần một c
 
 test("kho ở dòng phụ dưới tên Hồ sơ", () => {
   assert.equal(khoCuaToiNgan({ vaiTro: QTV }), "Mọi kho");
-  assert.equal(khoCuaToiNgan({ vaiTro: "khach_hang" }), "Không dùng kho");
   assert.equal(khoCuaToiNgan({ vaiTro: NVB, quyen: { kho: { tenKho: "Kho Hà Nội", maKho: "KHO_HN" } } }), "Kho Hà Nội");
   assert.equal(khoCuaToiNgan({ vaiTro: NVK, quyen: { kho: null } }), "Chưa có kho");
   assert.equal(khoCuaToiNgan({ vaiTro: NVK, quyen: undefined, khoTuHoSo: { maKho: "KHO_TONG" } }), "KHO_TONG");
@@ -592,4 +672,12 @@ test("liên kết liên hệ quản trị viên: có tiêu đề thư, không c�
   assert.equal(mailtoLienHe("lienhe@fcentric.net"), "mailto:lienhe@fcentric.net");
   assert.equal(mailtoLienHe("", "x"), "");
   assert.equal(mailtoLienHe(null), "");
+});
+
+test("cột Tài khoản chỉ có dòng Tên đăng nhập khi họ tên khác tên đăng nhập", () => {
+  assert.equal(hienTenDangNhapRieng({ tenDangNhap: "nvan", hoTen: "Nguyễn Văn An" }), true);
+  assert.equal(hienTenDangNhapRieng({ tenDangNhap: "nvan", hoTen: null }), false, "họ tên trống: tiêu đề đã là tên đăng nhập");
+  assert.equal(hienTenDangNhapRieng({ tenDangNhap: "nvan", hoTen: "  " }), false);
+  assert.equal(hienTenDangNhapRieng({ tenDangNhap: "nvan", hoTen: "nvan" }), false, "trùng tên đăng nhập");
+  assert.equal(hienTenDangNhapRieng({ tenDangNhap: "", hoTen: "An" }), false);
 });

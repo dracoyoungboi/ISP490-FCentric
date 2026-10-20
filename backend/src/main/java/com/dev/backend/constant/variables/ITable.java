@@ -33,5 +33,6 @@ public interface ITable {
             chi_tiet_nhat_hang = "chi_tiet_nhat_hang",
             kenh_ban_hang = "kenh_ban_hang",
             cau_hinh_he_thong = "cau_hinh_he_thong",
+            cau_hinh_mau_in = "cau_hinh_mau_in",
             lich_su_thay_doi = "lich_su_thay_doi";
 }

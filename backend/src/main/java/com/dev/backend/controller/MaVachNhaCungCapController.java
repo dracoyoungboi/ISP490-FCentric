@@ -6,6 +6,7 @@ import com.dev.backend.dto.request.inbound.MaVachLienKetRequest;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.inbound.MaVachNhaCungCapDto;
 import com.dev.backend.dto.response.inbound.TraCuuMaVachResponse;
+import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.services.MaVachNhaCungCapService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -28,9 +29,10 @@ public class MaVachNhaCungCapController {
 
     MaVachNhaCungCapService maVachNhaCungCapService;
 
+    // Nhân viên mua hàng có trang Mã vạch NCC trong menu (chỉ xem, không gỡ liên kết)
     @GetMapping
     @RequireAuth(
-            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho, IRoleType.nhan_vien_mua_hang},
             inWarehouse = true,
             rolesLogic = RequireAuth.LogicType.OR
     )
@@ -74,8 +76,26 @@ public class MaVachNhaCungCapController {
     public ResponseEntity<ResponseData<TraCuuMaVachResponse>> traCuuPost(
             @RequestBody Map<String, Object> body
     ) {
-        String maVach = (String) body.get("maVach");
-        Integer nhaCungCapId = body.get("nhaCungCapId") != null ? ((Number) body.get("nhaCungCapId")).intValue() : null;
+        // Mã vạch toàn số có thể được gửi dạng số JSON: đọc thành chuỗi; mã NCC phải là số
+        Object giaTriMa = body != null ? body.get("maVach") : null;
+        if (giaTriMa != null && !(giaTriMa instanceof String) && !(giaTriMa instanceof Number)) {
+            throw new CommonException(HttpStatus.BAD_REQUEST, "Mã vạch không hợp lệ");
+        }
+        String maVach = giaTriMa != null ? String.valueOf(giaTriMa) : null;
+        Object giaTriNcc = body != null ? body.get("nhaCungCapId") : null;
+        Integer nhaCungCapId;
+        if (giaTriNcc == null) {
+            nhaCungCapId = null;
+        } else if (giaTriNcc instanceof Integer so) {
+            nhaCungCapId = so;
+        } else {
+            // Chuỗi số ("5") hoặc số JSON lớn: đọc qua chuỗi; số lẻ (5.5), chữ, mảng đều là 400
+            try {
+                nhaCungCapId = Integer.valueOf(String.valueOf(giaTriNcc).trim());
+            } catch (NumberFormatException e) {
+                throw new CommonException(HttpStatus.BAD_REQUEST, "Mã nhà cung cấp không hợp lệ");
+            }
+        }
         TraCuuMaVachResponse res = maVachNhaCungCapService.traCuu(maVach, nhaCungCapId);
         return ResponseEntity.ok(ResponseData.<TraCuuMaVachResponse>builder()
                 .status(HttpStatus.OK.value())

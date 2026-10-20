@@ -81,6 +81,9 @@ public interface BienTheSanPhamRepository extends JpaRepository<BienTheSanPham, 
     List<BienTheSanPham> findByTrangThai(Integer trangThai);
     Optional<BienTheSanPham> findByMaSkuIgnoreCase(String maSku);
 
+    /** Biến thể có mã vạch tem FCentric này (mã vạch do người dùng nhập nên có thể trùng, lấy bản đầu). */
+    Optional<BienTheSanPham> findFirstByMaVachSkuIgnoreCase(String maVachSku);
+
     /**
      * Catalog POS phân trang: chỉ SKU hoạt động (trangThai=1) thuộc sản phẩm đang bán (trangThai=1),
      * tồn khả dụng SUM(ton - daDat) của ĐÚNG kho truy vấn (LEFT JOIN + GROUP BY — không N+1).

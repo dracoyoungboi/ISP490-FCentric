@@ -1,0 +1,590 @@
+/*
+ * Tờ chứng từ in — MỘT nguồn kiểu chữ, khoảng cách và đường kẻ cho bản xem
+ * trước, bản in trình duyệt và PDF (cùng một DOM, cùng file CSS nên ba nơi
+ * luôn khớp nhau).
+ *
+ * Nguyên tắc:
+ * - In trắng đen rõ: chữ đen, nhãn xám đậm, không nền màu, không khung bao.
+ * - Ít đường kẻ: bảng chỉ có kẻ ngang (đậm ở đầu/cuối, mảnh giữa các dòng).
+ * - Cỡ chữ theo pt (đơn vị in): A4 9,5pt · A5 8,5pt · K80 8,5pt · K57 7,5pt; nhỏ nhất 6,5pt.
+ *   Mẫu chọn cỡ chữ Nhỏ / Lớn (pdoc--co-nho / pdoc--co-lon) nhân cả bộ cỡ chữ với --pdoc-co;
+ *   chữ phụ không bao giờ dưới 6pt. Khoảng cách, đường kẻ, ô ký giữ nguyên.
+ * - Màu nhấn (accentColor của mẫu) chỉ dùng cho tên chứng từ và đường kẻ đầu phiếu.
+ * Viết bằng CSS thường (không phải class Tailwind) để không phụ thuộc việc
+ * Tailwind quét thư mục và để đọc được cả ngoài ứng dụng.
+ */
+.pdoc {
+    --pdoc-ink: #111827;
+    --pdoc-muted: #4b5563;
+    --pdoc-rule: #1f2937;
+    --pdoc-hair: #d1d5db;
+    --pdoc-accent: #0f2a43;
+    --pdoc-co: 1;
+    --pdoc-fs-goc: 9.5pt;
+    --pdoc-fs-sm-goc: 8.5pt;
+    --pdoc-fs-xs-goc: 7.5pt;
+    --pdoc-fs-title-goc: 15pt;
+    /* Cỡ chữ dùng thật = cỡ chuẩn của khổ giấy × hệ số cỡ chữ của mẫu */
+    --pdoc-fs: calc(var(--pdoc-fs-goc) * var(--pdoc-co));
+    --pdoc-fs-sm: calc(var(--pdoc-fs-sm-goc) * var(--pdoc-co));
+    --pdoc-fs-xs: max(6pt, calc(var(--pdoc-fs-xs-goc) * var(--pdoc-co)));
+    --pdoc-fs-title: calc(var(--pdoc-fs-title-goc) * var(--pdoc-co));
+    --pdoc-gap: 4.5mm;
+    --pdoc-cell-y: 1.5mm;
+    --pdoc-cell-x: 1.6mm;
+    --pdoc-sign-h: 20mm;
+    --pdoc-logo-h: 12mm;
+    position: relative;
+    color: var(--pdoc-ink);
+    font-family: Inter, Arial, "Helvetica Neue", Helvetica, sans-serif;
+    font-size: var(--pdoc-fs);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.4;
+    overflow-wrap: break-word;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+.pdoc--a5 {
+    --pdoc-fs-goc: 8.5pt;
+    --pdoc-fs-sm-goc: 7.5pt;
+    --pdoc-fs-xs-goc: 6.5pt;
+    --pdoc-fs-title-goc: 12.5pt;
+    --pdoc-gap: 3mm;
+    --pdoc-cell-y: 1mm;
+    --pdoc-cell-x: 1.2mm;
+    --pdoc-sign-h: 15mm;
+    --pdoc-logo-h: 9mm;
+}
+
+.pdoc--k80 {
+    --pdoc-fs-goc: 8.5pt;
+    --pdoc-fs-sm-goc: 7.5pt;
+    --pdoc-fs-xs-goc: 7pt;
+    --pdoc-fs-title-goc: 11pt;
+    --pdoc-gap: 2.5mm;
+    --pdoc-cell-y: 0.8mm;
+    --pdoc-cell-x: 0.6mm;
+    --pdoc-sign-h: 12mm;
+    --pdoc-logo-h: 10mm;
+}
+
+/* K57: cuộn 58mm (vùng in ~52mm) — dùng bố cục K80 (cùng class pdoc--k80), chữ nhỏ hơn một bậc */
+.pdoc--k80.pdoc--k57 {
+    --pdoc-fs-goc: 7.5pt;
+    --pdoc-fs-sm-goc: 7pt;
+    --pdoc-fs-xs-goc: 6.5pt;
+    --pdoc-fs-title-goc: 10pt;
+    --pdoc-gap: 2mm;
+    --pdoc-logo-h: 8mm;
+}
+
+/* Cỡ chữ của mẫu (Vừa = 1, không có class) */
+.pdoc.pdoc--co-nho {
+    --pdoc-co: 0.9;
+}
+
+.pdoc.pdoc--co-lon {
+    --pdoc-co: 1.12;
+}
+
+/* Bỏ lề mặc định của thẻ — :where() để không lấn quy tắc khoảng cách bên dưới */
+:where(.pdoc) :where(p, h1, h2) {
+    margin: 0;
+}
+
+/* ── Đầu phiếu ─────────────────────────────────────────────────────────── */
+.pdoc-head {
+    display: flex;
+    align-items: center;
+    gap: 3.5mm;
+    padding-bottom: 2.5mm;
+    border-bottom: 0.75pt solid var(--pdoc-accent);
+}
+
+.pdoc-logo {
+    display: block;
+    flex: none;
+    width: auto;
+    max-width: 32mm;
+    height: var(--pdoc-logo-h);
+    object-fit: contain;
+}
+
+.pdoc-company {
+    min-width: 0;
+}
+
+.pdoc-company-name {
+    font-size: calc(var(--pdoc-fs) * 1.2);
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.pdoc-company-line {
+    color: var(--pdoc-muted);
+    font-size: var(--pdoc-fs-sm);
+}
+
+/* Mã của số phiếu (mã vạch Code 128 / mã QR): góc phải đầu phiếu; khổ nhiệt in ở cuối hóa đơn.
+   Kích thước (mm) theo khổ giấy do PrintDocCode tính — mô-đun mã vạch tròn số chấm của máy in
+   nhiệt, số quá dài thì in mã QR thay vì ép vạch nhỏ tới mức không quét được. */
+.pdoc-docode {
+    flex: none;
+    max-width: 50%;
+    margin-left: auto;
+    line-height: 0;
+}
+
+.pdoc-docode-svg {
+    display: block;
+    max-width: 100%;
+}
+
+.pdoc-docode-end {
+    display: flex;
+    justify-content: center;
+    margin-top: var(--pdoc-gap);
+}
+
+.pdoc-docode-end .pdoc-docode {
+    max-width: 100%;
+    margin-left: 0;
+}
+
+.pdoc-titleblock {
+    margin: 4mm 0 0.5mm;
+    text-align: center;
+}
+
+.pdoc-title {
+    color: var(--pdoc-accent);
+    font-size: var(--pdoc-fs-title);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.25;
+    text-transform: uppercase;
+}
+
+.pdoc-meta {
+    margin-top: 1mm;
+    font-size: var(--pdoc-fs-sm);
+}
+
+.pdoc-meta-sep {
+    margin: 0 2mm;
+    color: var(--pdoc-hair);
+}
+
+/* ── Khối thông tin "Nhãn: giá trị" ────────────────────────────────────── */
+.pdoc-section {
+    margin-top: var(--pdoc-gap);
+}
+
+.pdoc-section-title {
+    margin-bottom: 1.2mm;
+    font-size: var(--pdoc-fs-sm);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.pdoc-fields {
+    display: grid;
+    grid-template-columns: repeat(var(--pdoc-cols, 2), minmax(0, 1fr));
+    column-gap: 6mm;
+    row-gap: 0.6mm;
+}
+
+.pdoc-field {
+    min-width: 0;
+}
+
+.pdoc-field--wide {
+    grid-column: 1 / -1;
+}
+
+.pdoc-label {
+    color: var(--pdoc-muted);
+}
+
+.pdoc-value {
+    font-weight: 500;
+}
+
+/* Hai khối đứng cạnh nhau (Nhà cung cấp | Giao hàng, Xuất từ | Giao đến…) */
+.pdoc-pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 8mm;
+    margin-top: var(--pdoc-gap);
+}
+
+.pdoc-pair > .pdoc-section {
+    margin-top: 0;
+}
+
+/* ── Bảng hàng ─────────────────────────────────────────────────────────── */
+.pdoc-table {
+    width: 100%;
+    border-collapse: collapse;
+    /* Đường kết bảng đậm: vẽ ở viền bảng (dòng cuối không kẻ mảnh) để không bị
+       đường mảnh "thắng" khi gộp viền với dòng tổng */
+    border-bottom: 0.75pt solid var(--pdoc-rule);
+}
+
+.pdoc-table th,
+.pdoc-table td {
+    padding: var(--pdoc-cell-y) var(--pdoc-cell-x);
+    text-align: left;
+    vertical-align: top;
+}
+
+.pdoc-table th {
+    border-top: 0.75pt solid var(--pdoc-rule);
+    border-bottom: 0.75pt solid var(--pdoc-rule);
+    font-size: var(--pdoc-fs-sm);
+    font-weight: 600;
+    line-height: 1.25;
+    vertical-align: bottom;
+}
+
+.pdoc-table tbody td {
+    border-bottom: 0.5pt solid var(--pdoc-hair);
+}
+
+.pdoc-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.pdoc-table tfoot td {
+    border-top: 0.75pt solid var(--pdoc-rule);
+    font-weight: 700;
+}
+
+.pdoc-table .pdoc-stt {
+    width: 1%;
+    color: var(--pdoc-muted);
+    text-align: center;
+    white-space: nowrap;
+}
+
+.pdoc-table .pdoc-num {
+    text-align: right;
+    white-space: nowrap;
+}
+
+/* Tiêu đề cột được xuống dòng ("SL theo / chứng từ", nhãn cột tự đặt dài) — dữ liệu (con số, mã)
+   không bẻ, để bảng nhiều cột vẫn nằm trong lề giấy (A5). Tiêu đề cột mã ("Mã SKU") giữ một dòng
+   như dữ liệu của nó, chỉ xuống dòng khi bảng tràn (pdoc-table--chat bên dưới). */
+.pdoc-table th,
+.pdoc-table th.pdoc-num {
+    white-space: normal;
+}
+
+/* Nhãn tự đặt có một "từ" rất dài (không có khoảng trắng): được ngắt giữa từ để bảng / khối tổng
+   không bị đẩy tràn lề. Chỉ gắn cho nhãn như vậy — nhãn thường ("SL") không bao giờ bị bẻ chữ. */
+.pdoc-break {
+    overflow-wrap: anywhere;
+}
+
+/* Mã SKU / mã lô / số điện thoại: không bẻ giữa mã (bẻ đôi mã gây đọc nhầm, quét sai) */
+.pdoc-table .pdoc-code {
+    font-size: var(--pdoc-fs-sm);
+    white-space: nowrap;
+}
+
+/* Tên hàng luôn đủ rộng để đọc khi bảng nhiều cột (cột lô, số lượng không ép tên xuống 3–4 dòng) */
+.pdoc-table .pdoc-name {
+    min-width: 38mm;
+}
+
+.pdoc--a5 .pdoc-table .pdoc-name {
+    min-width: 26mm;
+}
+
+.pdoc--k80 .pdoc-table .pdoc-name {
+    min-width: 0;
+}
+
+/* Bảng rộng hơn vùng in (PrintItemsTable đo sau khi dựng và gắn class theo bậc):
+   bậc 1 — tên hàng bỏ bề rộng tối thiểu, tiêu đề cột được ngắt giữa từ;
+   bậc 2 — mã SKU / mã lô được xuống dòng (sau dấu "-"). Bảng vừa khổ thì không có class nào. */
+.pdoc .pdoc-table.pdoc-table--chat .pdoc-name {
+    min-width: 0;
+}
+
+.pdoc-table.pdoc-table--chat th {
+    overflow-wrap: anywhere;
+}
+
+.pdoc-table.pdoc-table--chat th.pdoc-code {
+    white-space: normal;
+}
+
+.pdoc-table.pdoc-table--chat-ma .pdoc-code,
+.pdoc-table.pdoc-table--chat-ma .pdoc-nobr {
+    white-space: normal;
+}
+
+.pdoc-sub {
+    display: block;
+    margin-top: 0.3mm;
+    color: var(--pdoc-muted);
+    font-size: var(--pdoc-fs-sm);
+}
+
+.pdoc-lot {
+    display: block;
+}
+
+.pdoc-nobr {
+    white-space: nowrap;
+}
+
+.pdoc-lot-note {
+    color: var(--pdoc-muted);
+}
+
+.pdoc-table .pdoc-empty {
+    padding: 6mm 0;
+    color: var(--pdoc-muted);
+    font-style: italic;
+    text-align: center;
+}
+
+.pdoc-total-label {
+    text-align: right !important;
+}
+
+/* ── Tổng tiền, ghi chú, ô ký, chân phiếu ──────────────────────────────── */
+.pdoc-summary {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 2mm;
+}
+
+.pdoc-summary table {
+    width: 55%;
+    border-collapse: collapse;
+}
+
+.pdoc-summary td {
+    padding: 0.6mm var(--pdoc-cell-x);
+}
+
+.pdoc-summary td:last-child {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.pdoc-summary .pdoc-summary-main td {
+    padding-top: 1.4mm;
+    border-top: 0.75pt solid var(--pdoc-rule);
+    font-size: calc(var(--pdoc-fs) * 1.1);
+    font-weight: 700;
+}
+
+/* Chỉ có một dòng tổng: đường kết bảng ngay trên đã đủ, không kẻ đôi */
+.pdoc-summary tr:first-child.pdoc-summary-main td {
+    border-top: 0;
+}
+
+.pdoc-words {
+    margin-top: 1.5mm;
+}
+
+.pdoc-words-value {
+    font-style: italic;
+}
+
+.pdoc-notes {
+    margin-top: var(--pdoc-gap);
+}
+
+/* Giữ nguyên xuống dòng, thụt đầu dòng và khoảng trắng của ghi chú; break-spaces: khoảng trắng ở
+   chỗ tự xuống dòng không lòi ra lề phải */
+.pdoc-notes-text {
+    white-space: break-spaces;
+}
+
+.pdoc-notes-label {
+    font-weight: 600;
+}
+
+.pdoc-signs {
+    display: grid;
+    grid-template-columns: repeat(var(--pdoc-signs, 2), minmax(0, 1fr));
+    column-gap: 4mm;
+    margin-top: calc(var(--pdoc-gap) * 1.4);
+    text-align: center;
+}
+
+.pdoc-sign-title {
+    font-size: var(--pdoc-fs-sm);
+    font-weight: 700;
+}
+
+.pdoc-sign-hint {
+    color: var(--pdoc-muted);
+    font-size: var(--pdoc-fs-xs);
+    font-style: italic;
+}
+
+.pdoc-sign-space {
+    height: var(--pdoc-sign-h);
+}
+
+.pdoc-sign-name {
+    font-weight: 600;
+}
+
+.pdoc-legal,
+.pdoc-footnote {
+    margin-top: var(--pdoc-gap);
+    color: var(--pdoc-muted);
+    font-size: var(--pdoc-fs-xs);
+}
+
+.pdoc-footnote {
+    font-style: italic;
+    text-align: center;
+}
+
+/* Chỗ của lời chân khi chưa có — chỉ hiện trong trình sửa mẫu, không bao giờ in */
+.pdoc-footnote--trong {
+    color: #cbd5e1;
+    font-style: normal;
+}
+
+/* Chữ chìm BẢN NHÁP / ĐÃ HỦY: màn hình phủ vùng nội dung tờ giấy; khi in
+   lặp lại giữa MỌI trang (position: fixed). */
+.pdoc-watermark {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.pdoc-watermark span {
+    padding: 1mm 5mm;
+    border: 2.5pt solid rgb(17 24 39 / 0.12);
+    color: rgb(17 24 39 / 0.12);
+    font-size: 54pt;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    transform: rotate(-28deg);
+    white-space: nowrap;
+}
+
+.pdoc--a5 .pdoc-watermark span {
+    font-size: 38pt;
+}
+
+.pdoc--k80 .pdoc-watermark span {
+    font-size: 20pt;
+}
+
+.pdoc--k57 .pdoc-watermark span {
+    font-size: 15pt;
+}
+
+/* ── Khổ nhiệt K80 / K57: một cột, căn giữa đầu phiếu, kẻ nét đứt ──────── */
+.pdoc--k80 .pdoc-head {
+    flex-direction: column;
+    gap: 1mm;
+    border-bottom-style: dashed;
+    text-align: center;
+}
+
+.pdoc--k80 .pdoc-titleblock {
+    margin-top: 2.5mm;
+}
+
+.pdoc--k80 .pdoc-meta {
+    display: flex;
+    flex-direction: column;
+}
+
+.pdoc--k80 .pdoc-meta-sep {
+    display: none;
+}
+
+.pdoc--k80 .pdoc-pair {
+    display: block;
+}
+
+.pdoc--k80 .pdoc-pair > .pdoc-section + .pdoc-section {
+    margin-top: var(--pdoc-gap);
+}
+
+.pdoc--k80 .pdoc-section-title {
+    display: none;
+}
+
+.pdoc--k80 .pdoc-fields {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.pdoc--k80 .pdoc-table,
+.pdoc--k80 .pdoc-table th,
+.pdoc--k80 .pdoc-table tfoot td {
+    border-top-style: dashed;
+    border-bottom-style: dashed;
+}
+
+.pdoc--k80 .pdoc-table tbody td {
+    border-bottom-style: dashed;
+}
+
+.pdoc--k80 .pdoc-summary table {
+    width: 100%;
+}
+
+.pdoc--k80 .pdoc-summary .pdoc-summary-main td {
+    border-top-style: dashed;
+}
+
+.pdoc--k80 .pdoc-signs {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 3mm;
+}
+
+/* ── Ngắt trang ────────────────────────────────────────────────────────── */
+@media print {
+    .pdoc-watermark {
+        position: fixed;
+    }
+
+    .pdoc-table thead {
+        display: table-header-group;
+    }
+
+    .pdoc-table tfoot {
+        display: table-row-group;
+    }
+
+    .pdoc-table tr,
+    .pdoc-keep,
+    .pdoc-pair,
+    .pdoc-summary,
+    .pdoc-signs {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .pdoc-section-title {
+        break-after: avoid;
+        page-break-after: avoid;
+    }
+
+    /* Tổng tiền + ô ký không đứng một mình ở đầu trang mới: kéo theo dòng hàng cuối */
+    .pdoc-closing {
+        break-before: avoid;
+        page-break-before: avoid;
+    }
+}

@@ -39,6 +39,8 @@ public class ThongTinCongTyService {
     private static final int PROFILE_VERSION = 1;
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
     private static final Pattern PHONE = Pattern.compile("^[0-9+\\-\\s()]{6,20}$");
+    /** Doanh nghiệp 10 số, đơn vị phụ thuộc 10 số + "-3 số"; hộ/cá nhân kinh doanh dùng số định danh 12 số. */
+    private static final Pattern TAX_CODE = Pattern.compile("^(\\d{10}(-\\d{3})?|\\d{12})$");
 
     /** Đọc hồ sơ; chưa có dòng nào trong DB -> trả hồ sơ mặc định (không persist). */
     public ThongTinCongTyDto getProfile() {
@@ -70,10 +72,18 @@ public class ThongTinCongTyService {
         if (req.getPhone() != null && !req.getPhone().isBlank() && !PHONE.matcher(req.getPhone().trim()).matches()) {
             throw new CommonException("Số điện thoại công ty không hợp lệ");
         }
+        if (req.getTaxCode() != null && !req.getTaxCode().isBlank() && !TAX_CODE.matcher(req.getTaxCode().trim()).matches()) {
+            throw new CommonException("Mã số thuế gồm 10 số (đơn vị phụ thuộc thêm -3 số) hoặc 12 số");
+        }
 
         ThongTinCongTy entity = thongTinCongTyRepository.findById(PROFILE_ID)
                 .orElseGet(() -> ThongTinCongTy.builder().id(PROFILE_ID).build());
         entity.setTenCongTy(req.getName().trim());
+        // Mã số thuế: null = giữ nguyên (tab còn giao diện cũ chưa có ô này không được xóa mất mã đã lưu);
+        // chuỗi trắng = xóa. Giao diện mới luôn gửi chuỗi (companyProfilePayload).
+        if (req.getTaxCode() != null) {
+            entity.setMaSoThue(blankToNull(req.getTaxCode()));
+        }
         entity.setEmail(blankToNull(req.getEmail()));
         entity.setSoDienThoai(blankToNull(req.getPhone()));
         entity.setDiaChi(blankToNull(req.getAddress()));
@@ -151,6 +161,7 @@ public class ThongTinCongTyService {
         return ThongTinCongTyDto.builder()
                 .id(entity.getId())
                 .name(entity.getTenCongTy())
+                .taxCode(entity.getMaSoThue())
                 .logoAsset(logoAsset)
                 .email(entity.getEmail())
                 .phone(entity.getSoDienThoai())

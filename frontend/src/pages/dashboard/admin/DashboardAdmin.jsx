@@ -4,7 +4,7 @@ import PageContainer from "@/components/backoffice/PageContainer";
 import ErrorState from "@/components/shared/ErrorState";
 import { cn } from "@/lib/utils";
 import { useTongQuan } from "./tong-quan/useTongQuan";
-import { KY_MAC_DINH, gioPhut } from "./tong-quan/tongQuanFormat";
+import { KY_MAC_DINH } from "./tong-quan/tongQuanFormat";
 import { CHI_SO_MAC_DINH } from "./tong-quan/tongQuanSoLieu";
 import TongQuanHeader from "./tong-quan-moi/TongQuanHeader";
 import TrendCard from "./tong-quan-moi/TrendCard";
@@ -14,19 +14,6 @@ import HomNayCard from "./tong-quan-moi/HomNayCard";
 import ActionPanel from "./tong-quan-moi/ActionPanel";
 import ProductsCard from "./tong-quan-moi/ProductsCard";
 import HoatDongGanDay from "./tong-quan-moi/HoatDongGanDay";
-
-const TEN_KHOI = {
-  chiSo: "Hôm nay",
-  doanhThu: "Kết quả kinh doanh",
-  doanhThuTheoKho: "Doanh thu theo kho",
-  theoKenh: "Doanh thu theo kênh",
-  viecCanXuLy: "Cần xử lý",
-  tonKho: "Tồn kho",
-  nhapXuat: "Nhập – xuất kho",
-  sanPhamBanChay: "Bán chạy",
-  hangCanBoSung: "Cần bổ sung",
-  hoatDongGanDay: "Hoạt động gần đây",
-};
 
 /* Hai cột khi vùng nội dung rộng từ 968px (cột chính ≥ 600px, cột phải 352px); hẹp hơn thì một cột
    theo thứ tự đọc của điện thoại: Cần xử lý, Hôm nay, biểu đồ, Phân bổ, Tồn kho, Bán chạy, Hoạt động.
@@ -90,14 +77,8 @@ export default function DashboardAdmin() {
         loiDoanhThu={loi("doanhThu")}
       />
 
-      {loiCapNhat ? (
-        <Banner onRetry={reload}>Không cập nhật được số liệu mới. Đang hiển thị số liệu lúc {gioPhut(data?.thoiDiem)}.</Banner>
-      ) : khoiLoi.size ? (
-        <Banner onRetry={reload}>
-          Chưa tải được: {[...khoiLoi].map((k) => TEN_KHOI[k] ?? k).join(", ")}.
-          {khoiLoi.size < Object.keys(TEN_KHOI).length ? " Các khối khác vẫn hiển thị bình thường." : ""}
-        </Banner>
-      ) : null}
+      {/* Giờ số liệu đã ở đầu trang; khối nào lỗi thì tự báo lỗi và có nút Thử lại, nên dải này không liệt kê lại */}
+      {loiCapNhat ? <Banner onRetry={reload}>Không cập nhật được số liệu mới.</Banner> : null}
 
       <div
         className={cn(HANG, "transition-opacity", refreshing && !loading && "opacity-60")}

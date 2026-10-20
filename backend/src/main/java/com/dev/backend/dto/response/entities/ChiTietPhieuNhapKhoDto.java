@@ -35,4 +35,13 @@ public class ChiTietPhieuNhapKhoDto {
     String maBienBanRtv;
     Boolean safetyLock;
     Boolean coTheNhapKho;
+    /** Tổng lỗi ghi trên biên bản trả hàng đã phát hành (null nếu chưa có biên bản). */
+    Integer tongLoiBienBan;
+    /** Biên bản đã phát hành nhưng số lỗi không còn khớp kiểm đếm hiện tại: phải lập lại trước khi nhập kho. */
+    Boolean bienBanLech;
+    String phuongAnBienBan;
+    /** Cấu hình KIEM_DEM_XAC_NHAN: QUET_TIEP_LA_DAT | QUET_THE_TUNG_CAI. */
+    String cheDoXacNhanChatLuong;
+    /** Cấu hình MA_LO_TIEN_TO: tiền tố mã lô gợi ý (mặc định LO). */
+    String tienToMaLo;
 }

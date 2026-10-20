@@ -1,71 +1,21 @@
-import { cn } from "@/lib/utils";
-
 /**
- * Khối ký tên cho bản in — chỉ hiển thị họ tên/email từ dữ liệu thật,
- * chừa khoảng trống để ký tay (không có chữ ký giả).
- * Khối có `name` rỗng là ô ký TRỐNG (vd. "Người nhận", "Người giao" — người
- * ngoài hệ thống ký và ghi rõ họ tên khi nhận/giao hàng): giữ nguyên dòng
- * tên bằng khoảng trắng để chân ký thẳng hàng với khối bên cạnh.
- * `compact`: layout khổ nhiệt K80 — xếp dọc, thu gọn.
- * `dense`: khổ A5 — khối ký thấp hơn (vẫn chừa ~16mm để ký tay) để phiếu
- * ít dòng không bị đẩy riêng khối ký sang trang 2.
+ * Hàng ô ký (2–4 ô) theo cách trình bày chứng từ Việt Nam: chức danh in đậm,
+ * "(Ký, ghi rõ họ tên)" ngay dưới, chừa khoảng trống ký tay, cuối cùng là họ
+ * tên in sẵn (nếu hệ thống biết người ký). Không in email, không có chữ ký giả.
+ * Ô có `name` rỗng là ô ký TRỐNG (người ngoài hệ thống ký và ghi tên tay).
+ * Khổ nhiệt K80: các ô xếp dọc (printDocument.css).
+ * `blockProps`: thuộc tính khối bấm được của trình sửa mẫu (rỗng khi in thật).
  */
-export default function PrintSignatures({ left, right, compact = false, dense = false }) {
-    const blocks = [left, right].filter(Boolean);
-
-    if (blocks.length === 0) return null;
-
+export default function PrintSignatures({ blocks, blockProps }) {
+    if (!blocks || blocks.length === 0) return null;
     return (
-        <div
-            className={cn(
-                "print-signatures",
-                compact
-                    ? "mt-4 grid grid-cols-1 gap-4"
-                    : dense
-                      ? "mt-5 grid gap-8"
-                      : "mt-10 grid gap-16",
-                !compact && blocks.length === 1 ? "grid-cols-1" : !compact ? "grid-cols-2" : ""
-            )}
-        >
+        <div className="pdoc-signs" style={{ "--pdoc-signs": Math.min(blocks.length, 4) }} {...blockProps}>
             {blocks.map((block) => (
-                <div
-                    key={block.label}
-                    className={!compact && blocks.length === 1 ? "mx-auto w-48 text-center" : "text-center"}
-                >
-                    <p
-                        className={cn(
-                            "font-semibold uppercase tracking-wide text-bo-muted",
-                            compact ? "text-[9px]" : dense ? "text-[10px]" : "text-[11px]"
-                        )}
-                    >
-                        {block.label}
-                    </p>
-                    {/* Khoảng trống để ký tay */}
-                    <div
-                        className={
-                            compact
-                                ? "mx-auto mt-4 h-10 w-32"
-                                : dense
-                                  ? "mx-auto mt-3 h-12 w-40"
-                                  : "mx-auto mt-10 h-14 w-48"
-                        }
-                    />
-                    <p
-                        className={cn(
-                            "font-bold text-bo-foreground",
-                            compact ? "text-[11px]" : dense ? "text-[13px]" : "text-sm"
-                        )}
-                    >
-                        {block.name || "\u00A0"}
-                    </p>
-                    {block.email && block.email !== "—" ? (
-                        <p className={cn("mt-0.5 text-bo-muted", compact ? "text-[9px]" : "text-xs")}>
-                            {block.email}
-                        </p>
-                    ) : null}
-                    <p className={cn("mt-0.5 italic text-bo-muted", compact ? "text-[8px]" : "text-xs")}>
-                        (Ký, ghi rõ họ tên)
-                    </p>
+                <div key={block.key ?? block.label}>
+                    <p className="pdoc-sign-title">{block.label}</p>
+                    <p className="pdoc-sign-hint">(Ký, ghi rõ họ tên)</p>
+                    <div className="pdoc-sign-space" />
+                    <p className="pdoc-sign-name">{block.name || " "}</p>
                 </div>
             ))}
         </div>

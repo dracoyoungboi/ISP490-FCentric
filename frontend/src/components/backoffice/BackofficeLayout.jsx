@@ -339,19 +339,11 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             title: `${page.label} · Cấu hình`,
         })),
         {
-            key: "PRINT_TEMPLATES",
+            // Trình sửa mẫu in một màn (đường dẫn cũ /…/edit, /…/:templateId chuyển về đây)
+            key: "PRINT_TEMPLATE_EDITOR",
+            ownTitle: true,
             match: (path) => /^\/settings\/print-templates\/[^/]+$/.test(path),
-            title: "Mẫu in",
-        },
-        {
-            key: "PRINT_TEMPLATE_EDIT",
-            match: (path) => /^\/settings\/print-templates\/[^/]+\/([^/]+\/)?edit$/.test(path),
-            title: "Chỉnh sửa mẫu in",
-        },
-        {
-            key: "PRINT_TEMPLATE_DETAIL",
-            match: (path) => /^\/settings\/print-templates\/[^/]+\/[^/]+$/.test(path),
-            title: "Mẫu in",
+            title: "Sửa mẫu in",
         },
         {
             key: "PENDING_ORDERS",

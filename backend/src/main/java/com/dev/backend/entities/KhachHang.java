@@ -35,6 +35,11 @@ public class KhachHang {
     @Column(name = "ten_khach_hang", nullable = false, length = 200)
     String tenKhachHang;
 
+    /** Mã số thuế (khách sỉ / doanh nghiệp) — in ở khối Người mua của hóa đơn bán hàng. */
+    @Size(max = 14)
+    @Column(name = "ma_so_thue", length = 14)
+    String maSoThue;
+
     @Size(max = 100)
     @Column(name = "nguoi_lien_he", length = 100)
     String nguoiLienHe;

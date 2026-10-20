@@ -49,6 +49,9 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
      * Khách doanh nghiệp hay dùng số bàn, nên không chỉ nhận di động.
      */
     private static final Pattern SO_DIEN_THOAI_PATTERN = Pattern.compile("^(0[35789][0-9]{8}|02[0-9]{9}|1[89]00[0-9]{4,6})$");
+    /** Mã số thuế: doanh nghiệp 10 số, đơn vị phụ thuộc 10 số + "-3 số"; hộ/cá nhân kinh doanh dùng số định danh 12 số. */
+    static final Pattern MA_SO_THUE_PATTERN = Pattern.compile("^(\\d{10}(-\\d{3})?|\\d{12})$");
+    static final String MA_SO_THUE_MESSAGE = "Mã số thuế gồm 10 số (đơn vị phụ thuộc thêm -3 số) hoặc 12 số";
     private static final int MA_KHACH_HANG_TOI_DA = 50;
     private static final int DIA_CHI_TOI_DA = 500;
     static final String CAN_LIEN_HE = "Cần số điện thoại hoặc email để liên hệ khách hàng";
@@ -124,6 +127,7 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
     public KhachHangDto create(KhachHangCreating creating) {
         String ma = boTrong(creating.getMaKhachHang());
         String ten = boTrong(creating.getTenKhachHang());
+        String maSoThue = boTrong(creating.getMaSoThue());
         String nguoiLienHe = boTrong(creating.getNguoiLienHe());
         String sdt = chuanHoaSoDienThoai(boTrong(creating.getSoDienThoai()));
         String email = boTrong(creating.getEmail());
@@ -138,6 +142,7 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
             }
         }
         kiemTraThongTinChung(ten, nguoiLienHe);
+        kiemTraMaSoThue(maSoThue);
         kiemTraDiaChi(diaChi);
         kiemTraLienHe(sdt, email);
         if (sdt == null && email == null) {
@@ -154,6 +159,7 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
                 // Chưa có id thì chưa có mã tự tạo: ghi tạm một mã không thể trùng, có id rồi đổi ngay trong cùng giao dịch.
                 .maKhachHang(ma != null ? ma : "TAM-" + UUID.randomUUID())
                 .tenKhachHang(ten)
+                .maSoThue(maSoThue)
                 .nguoiLienHe(nguoiLienHe)
                 .soDienThoai(sdt)
                 .email(email)
@@ -244,6 +250,7 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         // Trường chuỗi: null = giữ nguyên; chuỗi trắng = xóa trường (lưu NULL thay vì "")
         String ten = updating.getTenKhachHang() != null ? boTrong(updating.getTenKhachHang()) : entity.getTenKhachHang();
         String nguoiLienHe = updating.getNguoiLienHe() != null ? boTrong(updating.getNguoiLienHe()) : entity.getNguoiLienHe();
+        String maSoThue = updating.getMaSoThue() != null ? boTrong(updating.getMaSoThue()) : entity.getMaSoThue();
         String sdt = updating.getSoDienThoai() != null ? boTrong(updating.getSoDienThoai()) : entity.getSoDienThoai();
         // Gửi lại đúng số đang lưu thì giữ nguyên; số mới thì bỏ khoảng trắng, dấu chấm, gạch và đổi +84 về 0.
         if (!Objects.equals(sdt, entity.getSoDienThoai())) {
@@ -253,6 +260,10 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         String diaChi = updating.getDiaChi() != null ? boTrong(updating.getDiaChi()) : entity.getDiaChi();
 
         kiemTraThongTinChung(ten, nguoiLienHe);
+        // Như SĐT / email: chỉ kiểm tra khi đổi, dữ liệu cũ không chặn việc sửa ô khác
+        if (!Objects.equals(maSoThue, entity.getMaSoThue())) {
+            kiemTraMaSoThue(maSoThue);
+        }
         if (!Objects.equals(diaChi, entity.getDiaChi())) {
             kiemTraDiaChi(diaChi);
         }
@@ -279,6 +290,7 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         mapper.partialUpdate(updating, entity);
         entity.setTenKhachHang(ten);
         entity.setNguoiLienHe(nguoiLienHe);
+        entity.setMaSoThue(maSoThue);
         entity.setSoDienThoai(sdt);
         entity.setEmail(email);
         entity.setDiaChi(diaChi);
@@ -333,6 +345,12 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
             gon = "0" + gon.substring(3);
         }
         return gon.isEmpty() ? null : gon;
+    }
+
+    private static void kiemTraMaSoThue(String maSoThue) {
+        if (maSoThue != null && !MA_SO_THUE_PATTERN.matcher(maSoThue).matches()) {
+            throw new CommonException(MA_SO_THUE_MESSAGE);
+        }
     }
 
     private static void kiemTraDiaChi(String diaChi) {

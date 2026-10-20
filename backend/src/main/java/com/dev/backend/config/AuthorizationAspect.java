@@ -1,6 +1,5 @@
 package com.dev.backend.config;
 
-import com.dev.backend.constant.enums.RoleType;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.response.entities.ChiTietQuyenKhoDto;
@@ -48,7 +47,7 @@ public class AuthorizationAspect {
         NguoiDungAuthInfo nguoiDungAuthInfo = jwtService.getNguoiDungAuthInfoFromToken(token);
 
         // Quản trị viên có tất cả các quyền
-        if (nguoiDungAuthInfo.getVaiTro().contains(RoleType.quan_tri_vien.toString())) {
+        if (nguoiDungAuthInfo.getVaiTro().contains(IRoleType.quan_tri_vien)) {
             return joinPoint.proceed();
         }
         // Nếu không là quản trị viên sẽ check quyền và quyền hạn

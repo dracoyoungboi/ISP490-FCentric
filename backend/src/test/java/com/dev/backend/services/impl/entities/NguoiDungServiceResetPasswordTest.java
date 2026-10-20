@@ -80,7 +80,7 @@ class NguoiDungServiceResetPasswordTest {
                 .thenReturn(PasswordResetRateLimiter.Decision.ALLOWED);
 
         user = NguoiDung.builder().id(7).tenDangNhap(USERNAME).hoTen("Nguyễn Đăng Khang")
-                .email(EMAIL).matKhauHash(OLD_HASH).trangThai(1).build();
+                .email(EMAIL).matKhauHash(OLD_HASH).vaiTro("nhan_vien_kho").trangThai(1).build();
         lenient().when(repository.findByTenDangNhap(USERNAME)).thenReturn(Optional.of(user));
     }
 

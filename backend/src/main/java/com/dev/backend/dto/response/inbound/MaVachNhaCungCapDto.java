@@ -23,5 +23,8 @@ public class MaVachNhaCungCapDto {
     Instant ngayLienKet;
     Integer phieuNhapKhoId;
     String soPhieuNhap;
+    String mauSac;
+    String kichCo;
+    String tenNguoiLienKet;
 }
 

@@ -8,7 +8,6 @@ import {
   Package,
   ShieldCheck,
   Tag,
-  UserRound,
   Users,
 } from "lucide-react";
 import ErrorState from "@/components/shared/ErrorState";
@@ -17,7 +16,6 @@ import { SIDEBAR_MENU } from "@/components/backoffice/sidebar.config";
 import HangCoBieuTuong from "@/components/nguoi-dung/ho-so/HangCoBieuTuong";
 import {
   QUAN_TRI_VIEN,
-  canKho,
   hieuLucCuaToi,
   mailtoLienHe,
   ngayGio,
@@ -109,18 +107,6 @@ export default function QuyenCuaToi({ vaiTro, quyen, dangTai, loi, onThuLai, ema
           tieuDeId={ID_TIEU_DE}
           tieuDe="Quyền của tôi"
           moTa="Toàn quyền trên mọi kho, gồm quản lý người dùng và cấp quyền."
-        />
-      </section>
-    );
-  }
-  if (vt && !canKho(vt)) {
-    return (
-      <section aria-labelledby={ID_TIEU_DE} className={KHUNG}>
-        <HangCoBieuTuong
-          icon={UserRound}
-          tieuDeId={ID_TIEU_DE}
-          tieuDe="Quyền của tôi"
-          moTa="Tài khoản khách hàng không dùng màn hình nội bộ, không có kho và quyền theo kho."
         />
       </section>
     );

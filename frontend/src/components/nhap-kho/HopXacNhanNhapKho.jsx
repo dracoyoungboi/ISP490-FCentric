@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { DaiO } from "@/components/nhap-kho/ThanhBuoc";
+import { laDoiHang } from "@/constants/nhapKho";
 import { thongKeHeThongService } from "@/services/thongKeHeThongService";
 
 const so = (n) => Number(n || 0).toLocaleString("vi-VN");
@@ -47,7 +48,12 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
     };
   }, [open, khoId, khoaBienThe]);
 
-  const tongDat = (dong ?? []).reduce((t, d) => t + d.dat, 0);
+  const tongDat = (dong ?? []).reduce((t, d) => t + Number(d.dat || 0), 0);
+  const tongLoi = (dong ?? []).reduce((t, d) => t + Number(d.loi || 0), 0);
+  // Incoming = phần đơn mua chưa nhận. Nhập kho cộng "đã nhận" của đơn: chỉ hàng đạt khi phương án là Đổi hàng
+  // (nhà cung cấp giao bù phần lỗi), cả đạt và lỗi với Trừ công nợ / Trả tài xế.
+  // Free to Use = On Hand + Incoming − Outgoing, nên chỉ giảm phần lỗi không được giao bù.
+  const giamIncoming = tongDat + (laDoiHang(phieu?.phuongAnBienBan) ? 0 : tongLoi);
   const oTon = (nhan, truoc, sau) => (
     <div key={nhan} className="flex min-w-0 flex-col gap-1 bg-white px-4 py-3">
       <span className="text-xs font-medium text-bo-muted">{nhan}</span>
@@ -61,42 +67,52 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
 
   return (
     <Dialog open={open} onOpenChange={(next) => !dangXuLy && onOpenChange(next)}>
-      <DialogContent className="max-h-[calc(100vh-4rem)] gap-0 overflow-y-auto rounded-xl border-bo-border p-0 sm:max-w-[800px]">
-        <DialogHeader className="border-b border-bo-border px-6 py-4 text-left">
+      {/* Đầu và chân hộp cố định, chỉ phần giữa cuộn: nút Xác nhận luôn thấy, điện thoại không tràn ngang */}
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden rounded-xl border-bo-border p-0 sm:max-w-[min(800px,calc(100%-2rem))]">
+        <DialogHeader className="shrink-0 border-b border-bo-border px-6 py-4 pr-12 text-left">
           <DialogTitle className="text-base text-bo-foreground">Xác nhận nhập kho chính thức</DialogTitle>
           <DialogDescription className="text-[13px] text-bo-muted">
             Tồn kho được cộng ngay và không hoàn tác được.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4 px-6 py-5">
-          <div className="overflow-x-auto rounded-lg border border-bo-border">
-            <table className="w-full min-w-[520px] text-sm">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-5 *:shrink-0 sm:px-6">
+          <div className="min-w-0 overflow-hidden rounded-lg border border-bo-border">
+            {/* Bảng co theo khung: trên điện thoại mã lô xuống dòng dưới tên biến thể, không cuộn ngang */}
+            <table className="w-full table-fixed text-sm">
               <thead>
                 <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                  <th className="h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Biến thể</th>
-                  <th className="h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Lô</th>
-                  <th className="h-10 w-32 px-4 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Nhập (đạt)</th>
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted sm:px-4">Biến thể</th>
+                  <th className="hidden h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted sm:table-cell">Lô</th>
+                  <th className="h-10 w-24 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted sm:w-32 sm:px-4">Nhập (đạt)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-bo-border">
-                {(dong ?? []).map((d) => (
-                  <tr key={d.bienTheSanPhamId}>
-                    <td className="h-14 px-4 py-2">
-                      <div className="font-semibold text-bo-foreground">{d.tenBienThe}</div>
-                      <div className="font-mono text-xs text-bo-muted">{d.sku}</div>
-                    </td>
-                    <td className="px-4 py-2 font-mono text-xs text-slate-600">
-                      {d.lots?.length ? d.lots.map((l) => l.maLo).join(", ") : "—"}
-                    </td>
-                    <td className="px-4 py-2 text-right font-medium tabular-nums">{so(d.dat)}</td>
-                  </tr>
-                ))}
+                {(dong ?? []).map((d) => {
+                  const lo = d.lots?.length ? d.lots.map((l) => l.maLo).join(", ") : "—";
+                  return (
+                    <tr key={d.bienTheSanPhamId}>
+                      <td className="h-14 px-3 py-2 sm:px-4">
+                        <div className="break-words font-semibold text-bo-foreground">{d.tenBienThe}</div>
+                        {/* Hai biến thể cùng tên sản phẩm: màu · kích cỡ để phân biệt */}
+                        <div className="break-words text-xs text-bo-muted">
+                          {[d.mauSac, d.kichCo].filter(Boolean).join(" · ")}
+                          {d.mauSac || d.kichCo ? " · " : ""}
+                          <span className="font-mono">{d.sku}</span>
+                        </div>
+                        <div className="mt-0.5 break-all font-mono text-xs text-slate-600 sm:hidden">Lô {lo}</div>
+                      </td>
+                      <td className="hidden break-all px-4 py-2 font-mono text-xs text-slate-600 sm:table-cell">{lo}</td>
+                      <td className="px-3 py-2 text-right font-medium tabular-nums sm:px-4">{so(d.dat)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
               <tfoot>
                 <tr className="border-t border-bo-border bg-bo-surface-subtle font-semibold">
-                  <td className="h-12 px-4" colSpan={2}>Tổng nhập vào kho</td>
-                  <td className="px-4 text-right tabular-nums">{so(tongDat)}</td>
+                  <td className="h-12 px-3 sm:px-4 sm:hidden">Tổng nhập vào kho</td>
+                  <td className="hidden h-12 px-4 sm:table-cell" colSpan={2}>Tổng nhập vào kho</td>
+                  <td className="px-3 text-right tabular-nums sm:px-4">{so(tongDat)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -109,8 +125,8 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
               {ton
                 ? [
                     oTon("On Hand", ton.onHand, ton.onHand + tongDat),
-                    oTon("Incoming", ton.incoming, Math.max(0, ton.incoming - tongDat)),
-                    oTon("Free to Use", ton.freeToUse, ton.freeToUse + tongDat),
+                    oTon("Incoming", ton.incoming, Math.max(0, ton.incoming - giamIncoming)),
+                    oTon("Free to Use", ton.freeToUse, ton.freeToUse + tongDat - Math.min(ton.incoming, giamIncoming)),
                   ]
                 : ["On Hand", "Incoming", "Free to Use"].map((nhan) => (
                     <div key={nhan} className="flex flex-col gap-1 bg-white px-4 py-3">
@@ -137,7 +153,7 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
           ) : null}
         </div>
 
-        <DialogFooter className="border-t border-bo-border bg-bo-surface-subtle px-6 py-3">
+        <DialogFooter className="shrink-0 border-t border-bo-border bg-bo-surface-subtle px-6 py-3">
           <Button
             variant="outline"
             disabled={dangXuLy}

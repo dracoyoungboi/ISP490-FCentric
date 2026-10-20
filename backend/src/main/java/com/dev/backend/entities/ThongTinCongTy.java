@@ -31,6 +31,11 @@ public class ThongTinCongTy {
     @Column(name = "ten_cong_ty", nullable = false, length = 255)
     String tenCongTy;
 
+    /** Mã số thuế của cửa hàng — in dưới tên ở đầu hóa đơn / phiếu. */
+    @Size(max = 14)
+    @Column(name = "ma_so_thue", length = 14)
+    String maSoThue;
+
     @Size(max = 500)
     @Column(name = "logo_duong_dan", length = 500)
     String logoDuongDan;

@@ -3,7 +3,6 @@ import { cn } from "@/lib/utils";
 import { Card, Delta, LE } from "./ui";
 import { MAU2 } from "./mau";
 import { bienDong, formatPhanTram, formatSo, formatTienNgan, tyLe } from "../tong-quan/tongQuanFormat";
-import { NHAN_KY } from "./boLoc";
 
 /* Mỗi dòng: tên trên nền trắng (nền xanh nhạt chỉ dành cho kho đang xem), Doanh thu, Tỷ trọng kèm thanh nhỏ, cột thứ tư.
    Lưới cột giống nhau ở cả hai danh sách để số thẳng hàng. Thẻ hẹp (≤ 520px) bỏ cột Tỷ trọng, thanh mảnh xuống dưới tên.
@@ -37,7 +36,6 @@ export default function Breakdowns({ data, ky, khoId, loading, loiKho, loiKenh, 
     <Card
       className={className}
       title="Phân bổ doanh thu"
-      scope={NHAN_KY[ky]}
       loading={loading}
       empty={trong}
       emptyIcon={Store}

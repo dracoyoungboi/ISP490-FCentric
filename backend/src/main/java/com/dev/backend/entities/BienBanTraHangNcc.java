@@ -21,6 +21,18 @@ import java.util.List;
 @Entity
 @Table(name = "bien_ban_tra_hang_ncc")
 public class BienBanTraHangNcc {
+    public static final String CHO_TRA_HANG = "CHO_TRA_HANG";
+    /**
+     * Biên bản bị hủy (phiếu nhập bị hủy, hoặc phiếu hết hàng lỗi). Không xóa dòng: số biên bản đã cấp (có thể đã in,
+     * đã giao tài xế / nhà cung cấp) không bao giờ được cấp lại cho biên bản khác.
+     */
+    public static final String DA_HUY = "DA_HUY";
+
+    /** Biên bản còn hiệu lực (chưa hủy). */
+    public boolean dangHieuLuc() {
+        return !DA_HUY.equals(trangThai);
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
@@ -59,7 +71,7 @@ public class BienBanTraHangNcc {
     @Size(max = 50)
     @Column(name = "trang_thai", length = 50)
     @Builder.Default
-    String trangThai = "CHO_TRA_HANG";
+    String trangThai = CHO_TRA_HANG;
 
     @Lob
     @Column(name = "ghi_chu")

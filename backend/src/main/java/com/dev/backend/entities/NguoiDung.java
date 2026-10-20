@@ -1,5 +1,6 @@
 package com.dev.backend.entities;
 
+import com.dev.backend.constant.variables.IRoleType;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -80,4 +81,11 @@ public class NguoiDung {
     @JoinColumn(name = "avatar_tep_tin_id")
     TepTin avatarTepTin;
 
+    /**
+     * Tài khoản được dùng hệ thống: đang hoạt động và mang vai trò nhân sự ({@link IRoleType#NOI_BO}).
+     * Một quy tắc chung cho đăng nhập, quên mật khẩu và kiểm tra phiên ở mỗi request (AuthInterceptor).
+     */
+    public boolean duocDangNhap() {
+        return Integer.valueOf(1).equals(trangThai) && IRoleType.laNoiBo(vaiTro);
+    }
 }

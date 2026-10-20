@@ -20,12 +20,12 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import DauTrangNguoiDung from "@/components/nguoi-dung/chi-tiet/DauTrangNguoiDung";
-import TomTatTruyCap from "@/components/nguoi-dung/chi-tiet/TomTatTruyCap";
+import CanXemLai from "@/components/nguoi-dung/chi-tiet/CanXemLai";
 import QuyenTruyCap from "@/components/nguoi-dung/chi-tiet/QuyenTruyCap";
 import LichSuPhanQuyen from "@/components/nguoi-dung/chi-tiet/LichSuPhanQuyen";
 import ThuocTinhNguoiDung from "@/components/nguoi-dung/chi-tiet/ThuocTinhNguoiDung";
 import NganKeoPhanQuyen from "@/components/nguoi-dung/chi-tiet/NganKeoPhanQuyen";
-import { canKho, danhGiaQuyen, phanQuyenHienCo, tomTatTruyCap } from "@/components/nguoi-dung/phanQuyen";
+import { danhGiaQuyen, phanQuyenHienCo, vanDeCanXemLai } from "@/components/nguoi-dung/phanQuyen";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { toast } from "@/lib/thongBaoNhanh";
@@ -93,8 +93,9 @@ function NganKeoCho({ mo, loi, onThuLai, onDong }) {
 }
 
 /**
- * Chi tiết người dùng (PA2 · một khối, chốt 18/10/2026): đầu khối, dải tóm tắt truy cập,
- * tab Quyền truy cập / Lịch sử phân quyền, cột thuộc tính bên phải.
+ * Chi tiết người dùng (một khối; tinh gọn theo Kiểu D · Ma trận chứng từ, chốt 19/10/2026): đầu khối, khung
+ * Cần xem lại (chỗ duy nhất dùng màu cảnh báo), tab Quyền truy cập / Lịch sử phân quyền, cột Tài khoản bên phải.
+ * Mỗi thông tin chỉ hiện một chỗ: vai trò và nơi làm việc ở dòng phụ đầu trang, hiệu lực / người cấp ở tab Quyền.
  * Phân quyền mở ngăn kéo ngay trên trang (PB2); đường dẫn `?phan-quyen=1` mở sẵn ngăn kéo.
  * Đổi `:id` (vd. bấm thông báo dẫn sang người khác) thì dựng lại cả trang, không giữ dữ liệu, hộp thoại
  * hay bản nháp của người trước.
@@ -136,6 +137,10 @@ function ChiTietNguoiDung({ id }) {
     const [mocLuu, setMocLuu] = useState(null);
     const [hop, setHop] = useState(null); // "khoa" | "mat-khau"
     const [dangXuLy, setDangXuLy] = useState(false);
+    // Điểm đang đánh dấu ở khung Cần xem lại (vd. "taoDuyet"): tab Quyền tô các ô liên quan
+    const [danhDau, setDanhDau] = useState(null);
+    // Mở ngăn kéo bằng "Sửa theo mẫu": bản nháp bắt đầu với đúng mẫu của vai trò (chưa lưu)
+    const [dienMau, setDienMau] = useState(false);
 
     const nguoiDung = nguoiDungQ.data;
     const thamChieu = thamChieuQ.data;
@@ -191,7 +196,8 @@ function ChiTietNguoiDung({ id }) {
         navigate(urlVoiNganKeo(false), { replace: true, state: stateGoc });
         navigate(urlVoiNganKeo(true), { state: { ...stateGoc, nganKeo: true } });
     }, [moTuDuongDan, location.state, navigate, urlVoiNganKeo]);
-    const moPhanQuyen = () => {
+    const moPhanQuyen = (theoMau = false) => {
+        setDienMau(theoMau === true);
         setLanMo((n) => n + 1);
         datNganKeo(true);
     };
@@ -203,6 +209,7 @@ function ChiTietNguoiDung({ id }) {
 
     const daLuuPhanQuyen = (moi, { catQuyen } = {}) => {
         setMocLuu({ idCu: lichSu?.[0]?.id ?? null });
+        setDanhDau(null);
         if (moi) nguoiDungQ.setData(moi);
         else nguoiDungQ.reload();
         lichSuQ.reload();
@@ -295,7 +302,12 @@ function ChiTietNguoiDung({ id }) {
 
     const dangHoatDong = Number(nguoiDung.trangThai) === 1;
     const tenHienThi = nguoiDung.hoTen || nguoiDung.tenDangNhap;
-    const tomTat = thamChieu ? tomTatTruyCap({ vaiTro: nguoiDung.vaiTro, pq, danhGia, menu: SIDEBAR_MENU }) : null;
+    const vanDe = thamChieu ? vanDeCanXemLai({ vaiTro: nguoiDung.vaiTro, coKho: Boolean(pq?.kho), danhGia }) : [];
+    // Điểm đã đánh dấu mà không còn (vd. vừa lưu xong) thì thôi đánh dấu
+    const diemDanhDau = vanDe.find((v) => v.ma === danhDau) ?? null;
+    // "Sửa theo mẫu" chỉ khi còn lệch mẫu (thừa/thiếu); chỉ có cặp tạo–duyệt nằm sẵn trong mẫu thì điền mẫu chẳng đổi gì
+    const coMau = Boolean(pq?.kho) && (thamChieu?.cauHinh?.mauQuyen?.[nguoiDung.vaiTro]?.length ?? 0) > 0;
+    const suaTheoMau = coMau && !laChinhMinh && Boolean(danhGia?.ngoaiMau.length || danhGia?.thieuMau.length);
 
     return (
         <PageContainer className="nd-trang flex min-h-full flex-col">
@@ -305,36 +317,42 @@ function ChiTietNguoiDung({ id }) {
                     pq={pq}
                     laChinhMinh={laChinhMinh}
                     onQuayLai={() => navigate(backTo)}
-                    onPhanQuyen={moPhanQuyen}
+                    onPhanQuyen={() => moPhanQuyen()}
                     onCapLaiMatKhau={() => setHop("mat-khau")}
                     onKhoaMoKhoa={() => setHop("khoa")}
                 />
 
                 {!dangHoatDong ? (
+                    // Thẻ "Bị khóa" ở đầu khối đã nói trạng thái: dải này chỉ ghi hệ quả và nút xử lý.
+                    // Đặt trước khung Cần xem lại: không đăng nhập được là việc nặng hơn
                     <DaiBao icon={Lock} nutNhan={laChinhMinh ? null : "Mở khóa tài khoản"} onNut={() => setHop("khoa")}>
-                        <span className="font-semibold text-bo-foreground">Tài khoản đang bị khóa.</span> Người dùng không
-                        đăng nhập được cho tới khi mở khóa.
+                        Người dùng không đăng nhập được cho tới khi mở khóa.
                     </DaiBao>
                 ) : null}
 
-                {tomTat ? (
-                    <TomTatTruyCap tomTat={tomTat} nhom={danhGia.nhom} coMaVach={canKho(nguoiDung.vaiTro)} />
-                ) : (
-                    <div className="grid grid-cols-2 border-t border-bo-border bg-bo-surface-subtle lg:grid-cols-4" aria-hidden="true">
-                        {[0, 1, 2, 3].map((i) => (
-                            <div key={i} className="border-r border-bo-border/70 px-6 py-4 last:border-r-0">
-                                <div className="h-3 w-24 animate-pulse rounded bg-slate-200" />
-                                <div className="mt-2.5 h-6 w-28 animate-pulse rounded bg-slate-200" />
-                                <div className="mt-2 h-3 w-36 animate-pulse rounded bg-slate-100" />
-                            </div>
-                        ))}
-                    </div>
-                )}
+                <CanXemLai
+                    vanDe={vanDe}
+                    danhDau={diemDanhDau?.ma ?? null}
+                    idVung="vung-tab-nguoi-dung"
+                    className={dangHoatDong ? undefined : "mt-4"}
+                    onChonDiem={(ma) => {
+                        // Đang ở tab Lịch sử: bấm điểm nào cũng chỉ mở lại tab Quyền với điểm đó (không tắt)
+                        if (tab !== "quyen") {
+                            setDanhDau(ma);
+                            setTab("quyen");
+                        } else {
+                            setDanhDau(diemDanhDau?.ma === ma ? null : ma);
+                        }
+                    }}
+                    onBoDanhDau={() => setDanhDau(null)}
+                    nhanNut={suaTheoMau ? "Sửa theo mẫu" : null}
+                    onNut={suaTheoMau ? () => moPhanQuyen(true) : null}
+                />
 
                 <div className="nd-than @container grid flex-1 border-t border-bo-border xl:grid-cols-[minmax(0,1fr)_340px]">
                     <section aria-label="Quyền và lịch sử" className="nd-cot-trai flex min-w-0 flex-col">
                         <div className="border-b border-bo-border px-4 sm:px-6">
-                            <div role="tablist" aria-label="Nội dung" className="-mb-px flex gap-6 overflow-x-auto [scrollbar-width:none]">
+                            <div role="tablist" aria-label="Nội dung" className="-mb-px flex gap-6 overflow-x-auto overflow-y-hidden [scrollbar-width:none]">
                                 {[
                                     { ma: "quyen", nhan: "Quyền truy cập" },
                                     { ma: "lich-su", nhan: "Lịch sử phân quyền", so: lichSu?.length },
@@ -402,28 +420,24 @@ function ChiTietNguoiDung({ id }) {
                                     ) : !thamChieu ? (
                                         <LoadingState className="nd-trong min-h-48" label="Đang tải quyền truy cập" />
                                     ) : (
-                                        <>
-                                            {!thamChieu.cauHinh ? (
-                                                <p className="mb-3 flex items-start gap-2 rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-[13px] text-orange-900">
-                                                    <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                                                    Không đọc được mẫu quyền theo vai trò, nên chưa so được với mẫu.
-                                                </p>
-                                            ) : null}
-                                            <QuyenTruyCap
-                                                vaiTro={nguoiDung.vaiTro}
-                                                pq={pq}
-                                                danhGia={danhGia}
-                                                coThePhanQuyen={!laChinhMinh}
-                                                onPhanQuyen={moPhanQuyen}
-                                            />
-                                        </>
+                                        <QuyenTruyCap
+                                            vaiTro={nguoiDung.vaiTro}
+                                            pq={pq}
+                                            danhGia={danhGia}
+                                            danhDau={diemDanhDau ? new Set(diemDanhDau.maQuyen) : null}
+                                            coThePhanQuyen={!laChinhMinh}
+                                            onPhanQuyen={() => moPhanQuyen()}
+                                            khongDocDuocCauHinh={!thamChieu.cauHinh}
+                                            onTaiLaiCauHinh={thamChieuQ.reload}
+                                            dangTaiCauHinh={thamChieuQ.loading}
+                                        />
                                     )}
                                 </div>
                             )}
                         </div>
                     </section>
 
-                    <ThuocTinhNguoiDung nguoiDung={nguoiDung} pq={pq} />
+                    <ThuocTinhNguoiDung nguoiDung={nguoiDung} />
                 </div>
             </article>
 
@@ -433,6 +447,7 @@ function ChiTietNguoiDung({ id }) {
                     mo={moNganKeo}
                     nguoiDung={nguoiDung}
                     laChinhMinh={laChinhMinh}
+                    dienMauKhiMo={dienMau}
                     dsQuyen={thamChieu.dsQuyen}
                     cauHinh={thamChieu.cauHinh}
                     menu={SIDEBAR_MENU}
@@ -461,7 +476,7 @@ function ChiTietNguoiDung({ id }) {
                         <AlertDialogDescription>
                             {dangHoatDong
                                 ? "Người dùng bị đăng xuất ở thao tác tiếp theo và không đăng nhập được cho tới khi mở khóa. Phiếu, đơn và lịch sử do người này tạo vẫn giữ nguyên."
-                                : "Người dùng đăng nhập lại được bằng mật khẩu hiện tại. Vai trò, kho và quyền giữ như trước khi khóa."}
+                                : "Người dùng đăng nhập lại được bằng mật khẩu hiện tại. Vai trò, nơi làm việc và quyền giữ như trước khi khóa."}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="gap-2 sm:justify-end">

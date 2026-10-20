@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { CalendarRange, Loader2, SearchX, ShoppingCart } from "lucide-react";
-import { toast } from "@/lib/thongBaoNhanh";
+import { CalendarRange, SearchX, ShoppingCart } from "lucide-react";
 import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import { Button } from "@/components/ui/button";
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -18,11 +17,12 @@ import LoadingState from "@/components/shared/LoadingState";
 import MockModeNotice from "@/components/shared/MockModeNotice";
 import OrderFlagBadges from "@/components/channel/OrderFlagBadges";
 import StatusBadge from "@/components/shared/StatusBadge";
-import { NUT_CHINH, NUT_PHU } from "@/components/channel/BottomActionBar";
+import { NUT_PHU } from "@/components/channel/BottomActionBar";
 import LayDonDialog from "@/components/channel/LayDonDialog";
 import { ngayIso } from "@/components/channel/ngay";
-import { ketQuaLayDon } from "@/components/channel/ketQuaThaoTac";
 import { daKetNoi } from "@/components/channel/ketNoiShopify";
+import ThaoTacDongBo from "@/components/channel/ThaoTacDongBo";
+import useDongBoNgay from "@/components/channel/useDongBoNgay";
 import { CHANNELS, SAN_BAN_HANG, locKhoDongBo } from "@/constants/channel";
 import { DON_BAN_HANG_TABS, getDonBanHangStatus } from "@/constants/donBanHang";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
@@ -33,7 +33,6 @@ import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
-import { getApiErrorMessage } from "@/utils/apiError";
 import { formatCurrency, formatDate } from "@/utils/formatters";
 
 const SAN = SAN_BAN_HANG.find((s) => s.maKenh === "SHOPIFY");
@@ -62,7 +61,11 @@ function boLoc({ kenhId, tuKhoa, khoId, soNgay }, trangThai) {
   return list;
 }
 
-/** Đơn bán hàng nhận từ gian hàng Shopify: cùng tab, cùng cột với Đơn bán hàng; bấm một dòng để mở đơn. */
+/**
+ * Đơn bán hàng nhận từ gian hàng Shopify: cùng tab, cùng cột với Đơn bán hàng; bấm một dòng để mở đơn.
+ * Đầu trang (PA1 chốt 19/10/2026): ⋯ (Lấy đơn theo khoảng ngày) và "Đồng bộ ngay" kèm tiến độ — đợt đồng bộ
+ * đã lấy đơn 24 giờ qua nên không còn nút "Lấy đơn mới" riêng; đợt xong thì bảng tự tải lại.
+ */
 export default function ChannelOrdersPage() {
   const navigate = useNavigate();
   const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);
@@ -108,10 +111,10 @@ export default function ChannelOrdersPage() {
   // Tải lại lỗi thì giữ bảng cũ (ds.loiTaiLai), chân bảng báo "Không tải lại được".
   const capNhat = { thoiDiem: ds.capNhatLuc, dangTai: ds.loading, loi: ds.loiTaiLai, taiLai };
   useTaiLaiKhiQuayLai(taiLai, { bat: Boolean(cfg.data) && !ds.loading, lanCuoi: ds.capNhatLuc });
+  // Đồng bộ ngay chạy nền ở máy chủ, chung cho cả gian hàng: xong (dù bấm ở trang nào) thì tải lại bảng
+  const dongBo = useDongBoNgay(SAN.maKenh, { enabled: ketNoi, onXong: taiLai });
 
   const [moLayDon, setMoLayDon] = useState(false);
-  const [dangLay, setDangLay] = useState(false);
-  const dangLayRef = useRef(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -159,25 +162,19 @@ export default function ChannelOrdersPage() {
     setSoNgay("");
     veTrangDau();
   };
-  // Lấy đơn mới trong 24 giờ qua (đơn đã có không tạo lại)
-  const layDonMoi = async () => {
-    if (dangLayRef.current) return;
-    dangLayRef.current = true;
-    setDangLay(true);
-    try {
-      const res = await kenhBanHangService.layDon(SAN.maKenh, {
-        tu: new Date(Date.now() - 86_400_000).toISOString(),
-        den: new Date().toISOString(),
-      });
-      const kq = ketQuaLayDon(res, SAN.ten);
-      toast.success(kq.title, kq.message ? { description: kq.message } : undefined);
-      taiLai();
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, "Không lấy được đơn hàng"));
-    } finally {
-      dangLayRef.current = false;
-      setDangLay(false);
+  /**
+   * Liên kết trong bảng tiến độ: tab của chính trang này thì bỏ lọc rồi đổi tab tại chỗ (giống mở từ Tổng quan),
+   * trang khác của gian hàng thì chuyển trang.
+   */
+  const den = (duongDan) => {
+    const [duong, thamSo = ""] = duongDan.split("?");
+    if (duong === "/orders") {
+      const moi = new URLSearchParams(thamSo).get("trangThai");
+      xoaLoc();
+      doiTab(TAB_MAS.includes(moi) ? moi : TAB_MAC_DINH);
+      return;
     }
+    navigate(`${SAN.duongDan}${duongDan}`);
   };
 
   return (
@@ -185,22 +182,21 @@ export default function ChannelOrdersPage() {
       <ListPageHeader
         title={`Đơn hàng ${SAN.ten}`}
         actions={
-          <>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setMoLayDon(true)}
-              disabled={!ketNoi || dangLay}
-              className="h-10 gap-2 rounded-lg px-3 text-bo-foreground hover:bg-slate-100"
-            >
-              <CalendarRange className="size-4" />
-              Lấy đơn theo ngày
-            </Button>
-            <Button type="button" onClick={layDonMoi} disabled={!ketNoi || dangLay} className={NUT_CHINH}>
-              {dangLay ? <Loader2 className="size-4 animate-spin" /> : null}
-              {dangLay ? "Đang lấy đơn…" : "Lấy đơn mới"}
-            </Button>
-          </>
+          <ThaoTacDongBo
+            tienDo={dongBo}
+            tenSan={SAN.ten}
+            onDen={den}
+            khoaThaoTac={!ketNoi ? "Chưa tải xong thông tin gian hàng." : false}
+            thaoTac={[
+              {
+                ma: "lay-don-theo-ngay",
+                nhan: "Lấy đơn theo khoảng ngày…",
+                moTa: "Đơn đã có trong FCentric không bị tạo lại",
+                Icon: CalendarRange,
+                onChon: () => setMoLayDon(true),
+              },
+            ]}
+          />
         }
       />
       <MockModeNotice show={isChannelMock || isChannelOrderMock} />
@@ -296,7 +292,7 @@ export default function ChannelOrdersPage() {
             <EmptyState
               icon={ShoppingCart}
               title={`Chưa có đơn từ ${SAN.ten}`}
-              description={`Đơn mới được lấy tự động theo Cấu hình, hoặc bấm "Lấy đơn mới".`}
+              description={`Đơn mới được lấy tự động theo Cấu hình, hoặc bấm "Đồng bộ ngay".`}
             />
           )
         ) : (

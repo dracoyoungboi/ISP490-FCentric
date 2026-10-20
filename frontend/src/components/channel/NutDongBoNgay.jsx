@@ -17,7 +17,7 @@ import {
 /** Ảnh chụp tạm trong lúc chờ máy chủ nhận lệnh bắt đầu */
 const PHIEN_DANG_BAT_DAU = { trangThai: "dang_chay", giaiDoan: "doc_san_pham", daXuLy: 0, soThanhCong: 0, soLoi: 0, daChayMs: 0 };
 const SO_LOI_HIEN = 3;
-const NUT = "h-9 gap-2 rounded-lg border-bo-border bg-white px-3.5 text-bo-foreground hover:bg-bo-surface-subtle";
+const NUT = "h-9 gap-2 rounded-lg border-bo-border bg-white px-3.5 text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11";
 const MAU_CHAM = { ok: "bg-bo-success", canh: "bg-amber-500", loi: "bg-bo-danger", dung: "bg-slate-400" };
 const NUT_NHO =
   "inline-flex h-7 items-center gap-1.5 rounded-md border border-bo-border bg-white px-2.5 text-[12.5px] font-medium text-bo-foreground transition-colors hover:bg-bo-surface-subtle disabled:cursor-default disabled:text-bo-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30";
@@ -34,18 +34,24 @@ function gioPhut(value) {
 }
 
 /**
- * Nút "Đồng bộ ngay" kèm bảng tiến độ thả xuống (phương án PA3), số liệu thật từ máy chủ.
+ * Nút "Đồng bộ ngay" kèm bảng tiến độ thả xuống, số liệu thật từ máy chủ. Có ở cả ba trang của gian hàng
+ * (Tổng quan, Sản phẩm, Đơn hàng — PA1 chốt 19/10/2026), cùng một đợt nên trang nào cũng thấy cùng tiến độ.
  * Rảnh: bấm là bắt đầu và mở bảng. Đang chạy: nút hiện phần trăm, bấm để mở hoặc ẩn bảng; ẩn bảng thì đồng bộ vẫn chạy.
  * Xong lúc bảng đang ẩn: nút đổi thành "Kết quả đồng bộ" có chấm màu, tới khi người dùng mở xem rồi đóng.
  * `onDen(duongDan)`: mở một trang con của gian hàng (SKU lỗi, đơn mới, cấu hình).
+ * `viecPhu`: chữ hiện trên nút khi trang đang chạy một việc khác với gian hàng (vd. "Đang tải sản phẩm…");
+ * lúc đó nút bị khóa để hai việc không chồng nhau.
  */
-export default function NutDongBoNgay({ tienDo, tenSan, onDen }) {
-  const { phien, dangChay, dangGui, conLaiMs, cuaTrangNay, batDau, dung } = tienDo;
+export default function NutDongBoNgay({ tienDo, tenSan, onDen, viecPhu = null }) {
+  const { phien, dangChay, dangGui, conLaiMs, cuaTrangNay, daXem, danhDauDaXem, sanSang = true, batDau, dung } = tienDo;
   const [mo, setMo] = useState(false);
-  const [daXem, setDaXem] = useState(null);
 
   const ketThucCuaTrang = cuaTrangNay && phien && !dangChay ? phien.maPhien : null;
   const choXem = ketThucCuaTrang != null && ketThucCuaTrang !== daXem;
+  // Việc khác của trang chỉ chạy được khi rảnh (menu ⋯ khóa lúc đang đồng bộ)
+  const banViecKhac = Boolean(viecPhu) && !dangChay && !dangGui;
+  // Chưa tải xong thông tin gian hàng: chưa cho bắt đầu đợt mới (kết quả chưa xem vẫn mở xem được)
+  const chuaSanSang = !sanSang && !dangChay && !dangGui && !choXem;
   const hien = dangGui && !dangChay ? PHIEN_DANG_BAT_DAU : phien;
   const pct = phanTramDongBo(hien);
 
@@ -57,6 +63,7 @@ export default function NutDongBoNgay({ tienDo, tenSan, onDen }) {
 
   const doiMo = (moMoi) => {
     if (moMoi) {
+      if (banViecKhac || chuaSanSang) return;
       if (!dangChay && !choXem && !dangGui) {
         void batDauVaMo();
         return;
@@ -65,7 +72,7 @@ export default function NutDongBoNgay({ tienDo, tenSan, onDen }) {
       return;
     }
     setMo(false);
-    if (ketThucCuaTrang) setDaXem(ketThucCuaTrang);
+    if (ketThucCuaTrang) danhDauDaXem(ketThucCuaTrang);
   };
 
   const den = (duongDan) => {
@@ -89,6 +96,13 @@ export default function NutDongBoNgay({ tienDo, tenSan, onDen }) {
           Đang đồng bộ · <span className="inline-block min-w-[3.5ch] tabular-nums">{pct}%</span>
         </span>
         {mo ? <ChevronUp className="size-3.5 text-bo-muted" /> : <ChevronDown className="size-3.5 text-bo-muted" />}
+      </>
+    );
+  } else if (banViecKhac) {
+    noiDungNut = (
+      <>
+        <Loader2 className="size-4 animate-spin text-bo-primary" />
+        {viecPhu}
       </>
     );
   } else if (choXem) {
@@ -116,7 +130,10 @@ export default function NutDongBoNgay({ tienDo, tenSan, onDen }) {
           variant="outline"
           aria-haspopup="dialog"
           aria-label={dangChay ? `Đang đồng bộ ${pct}%, ${mo ? "ẩn" : "xem"} tiến độ` : undefined}
-          className={cn(NUT, dangChay && "border-[#b9d5ff] text-[#0b4fb3] hover:bg-bo-primary-soft")}
+          aria-busy={banViecKhac || dangGui || undefined}
+          disabled={banViecKhac || chuaSanSang}
+          title={chuaSanSang ? "Chưa tải xong thông tin gian hàng" : undefined}
+          className={cn(NUT, dangChay && "border-[#b9d5ff] text-[#0b4fb3] hover:bg-bo-primary-soft", banViecKhac && "disabled:opacity-100 text-bo-muted")}
         >
           {noiDungNut}
         </Button>

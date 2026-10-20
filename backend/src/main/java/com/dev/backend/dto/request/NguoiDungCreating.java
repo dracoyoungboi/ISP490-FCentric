@@ -1,6 +1,5 @@
 package com.dev.backend.dto.request;
 
-import com.dev.backend.constant.enums.RoleType;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -15,6 +14,7 @@ public class NguoiDungCreating {
     String email;
     String hoTen;
     String soDienThoai;
-    RoleType vaiTro;
+    /** Mã vai trò, ví dụ nhan_vien_kho. Để trống thì là Nhân viên kho; chỉ nhận vai trò trong IRoleType.NOI_BO. */
+    String vaiTro;
     String matKhau;
 }

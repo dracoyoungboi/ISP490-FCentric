@@ -31,7 +31,7 @@ const realService = {
 
   /**
    * Trang kết quả: { content: [{ id, maVach, maHangNcc, nhaCungCapId, tenNhaCungCap, bienTheSanPhamId,
-   *   tenBienThe, sku, ngayLienKet, phieuNhapKhoId, soPhieuNhap }], totalElements }
+   *   tenBienThe, mauSac, kichCo, sku, ngayLienKet, tenNguoiLienKet, phieuNhapKhoId, soPhieuNhap }], totalElements }
    */
   async timKiem({ q, nhaCungCapId, page = 0, size = 20 } = {}) {
     if (!MA_VACH_NCC_DA_CO_MAY_CHU) return { content: [], totalElements: 0 };
@@ -41,13 +41,20 @@ const realService = {
     return (await apiClient.get(BASE, { params }).then(data)) ?? { content: [], totalElements: 0 };
   },
 
-  /** Tra một mã quét được: trả liên kết hoặc null. */
+  /**
+   * Tra một mã quét được. Máy chủ luôn trả object:
+   * { timThay, loaiMa: "FCENTRIC" (SKU / mã vạch tem FCentric) | "NCC" (mã NCC đã liên kết) | "LA" (chưa có),
+   *   bienTheSanPhamId, sku, tenBienThe, mauSac, kichCo }. Rẽ nhánh theo `timThay` / `loaiMa`, không theo "có object".
+   */
   async tra(maVach, nhaCungCapId) {
     if (!MA_VACH_NCC_DA_CO_MAY_CHU || !maVach) return null;
     return (await apiClient.get(`${BASE}/tra`, { params: { maVach, nhaCungCapId } }).then(data)) ?? null;
   },
 
-  /** { maVach, maHangNcc, nhaCungCapId, bienTheSanPhamId, phieuNhapKhoId } */
+  /**
+   * { maVach, maHangNcc, nhaCungCapId, bienTheSanPhamId, phieuNhapKhoId } — chỉ liên kết lúc kiểm đếm (bắt buộc phiếu Nháp).
+   * Mã đã liên kết biến thể khác: 409 (không ghi đè); mã sai số kiểm tra GS1, có dấu, bắt đầu FC- hoặc là mã FCentric: 400.
+   */
   lienKet(payload) {
     if (!MA_VACH_NCC_DA_CO_MAY_CHU) return Promise.reject(new Error(THONG_BAO_CHUA_HO_TRO_MA_VACH));
     return apiClient.post(BASE, payload).then(data);

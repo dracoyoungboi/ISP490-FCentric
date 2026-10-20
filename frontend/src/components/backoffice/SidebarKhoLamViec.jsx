@@ -9,9 +9,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
-import { getMineKhoList } from "@/services/khoService";
-import { laKhoGiaoDich, laKhoTong } from "@/utils/kho";
-import { KHO_LAM_VIEC_EVENT, getKhoLamViecId, setKhoLamViecId } from "@/utils/khoLamViec";
+import { laKhoTong } from "@/utils/kho";
+import { KHO_LAM_VIEC_EVENT, dsKhoLamViecTrongToken, getKhoLamViecId, setKhoLamViecId } from "@/utils/khoLamViec";
 
 /**
  * Ô "Nơi làm việc" (kho làm việc) ở đáy sidebar cho vai trò làm việc theo kho mà không có mục Cấu hình
@@ -23,22 +22,10 @@ import { KHO_LAM_VIEC_EVENT, getKhoLamViecId, setKhoLamViecId } from "@/utils/kh
  * Props từ BackofficeSidebar: isExpanded, layoutClass, fadeClass, onShowTooltip, onHideTooltip.
  */
 export default function SidebarKhoLamViec({ isExpanded, layoutClass, fadeClass, onShowTooltip, onHideTooltip }) {
-  const [dsKho, setDsKho] = useState([]);
+  // Lấy từ token thay vì POST /kho/mine: API đó không mở cho nhân viên mua hàng (403 → ô bị ẩn), còn token
+  // chính là danh sách backend dùng để kiểm tra header kho_id nên luôn đúng với mọi vai trò làm theo kho.
+  const [dsKho] = useState(dsKhoLamViecTrongToken);
   const [khoId, setKhoId] = useState(getKhoLamViecId);
-
-  useEffect(() => {
-    let huy = false;
-    getMineKhoList()
-      .then((ds) => {
-        if (!huy) setDsKho((ds ?? []).filter(laKhoGiaoDich));
-      })
-      .catch(() => {
-        if (!huy) setDsKho([]);
-      });
-    return () => {
-      huy = true;
-    };
-  }, []);
 
   useEffect(() => {
     const nghe = (event) => setKhoId(event.detail ?? null);
@@ -46,7 +33,7 @@ export default function SidebarKhoLamViec({ isExpanded, layoutClass, fadeClass, 
     return () => window.removeEventListener(KHO_LAM_VIEC_EVENT, nghe);
   }, []);
 
-  // Chưa tải xong hoặc không có kho nào: không hiện để tránh nhấp nháy
+  // Chưa được phân kho nào: không hiện
   if (dsKho.length === 0) return null;
 
   const khoHienTai = dsKho.find((kho) => kho.id === khoId) ?? null;

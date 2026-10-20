@@ -6,6 +6,7 @@ import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.dto.response.entities.PhanQuyenNguoiDungKhoDto;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.exception.customize.AccountDisabledException;
+import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.exception.customize.SessionRevokedException;
 import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.repository.PhanQuyenNguoiDungKhoRepository;
@@ -14,6 +15,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -34,6 +36,7 @@ public class AuthInterceptor implements HandlerInterceptor {
     @Autowired
     private PhanQuyenNguoiDungKhoRepository phanQuyenNguoiDungKhoRepository;
 
+    static final String LOI_PHIEN_KHONG_HOP_LE = "Phiên đăng nhập không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.";
     static final String LOI_QUYEN_DA_DOI = "Quyền của bạn vừa được quản trị viên thay đổi. Vui lòng đăng nhập lại.";
 
     @Override
@@ -43,14 +46,19 @@ public class AuthInterceptor implements HandlerInterceptor {
         SecurityContextHolder.setPath(request.getRequestURI());
         if (authHeader != null) {
             String token = jwtService.getTokenFromAuthHeader(authHeader);
+            // Header không theo dạng "Bearer <token>": phiên không hợp lệ (401), không để lỗi null thành 500
+            if (token == null || token.isBlank()) {
+                SecurityContextHolder.clear();
+                throw new CommonException(HttpStatus.UNAUTHORIZED, LOI_PHIEN_KHONG_HOP_LE);
+            }
             NguoiDungAuthInfo nguoiDungAuthInfo = jwtService.getNguoiDungAuthInfoFromToken(token);
             SecurityContextHolder.setUser(nguoiDungAuthInfo);
 
-            // Kiểm tra trangThai hiện tại từ DB — KHÔNG tin claim trong token (có thể đã cũ)
+            // Kiểm tra trangThai và vai trò hiện tại từ DB — KHÔNG tin claim trong token (có thể đã cũ).
+            // Tài khoản bị khóa hoặc không mang vai trò nhân sự thì phiên đang mở cũng dừng ngay.
             if (nguoiDungAuthInfo != null && nguoiDungAuthInfo.getId() != null) {
                 NguoiDung nguoiDung = nguoiDungRepository.findById(nguoiDungAuthInfo.getId()).orElse(null);
-                Integer trangThai = nguoiDung == null ? null : nguoiDung.getTrangThai();
-                if (trangThai == null || trangThai != 1) {
+                if (nguoiDung == null || !nguoiDung.duocDangNhap()) {
                     SecurityContextHolder.clear(); // preHandle throw → afterCompletion không chạy, phải tự clear
                     throw new AccountDisabledException();
                 }
@@ -73,8 +81,13 @@ public class AuthInterceptor implements HandlerInterceptor {
                 }
             }
         }
-        if (khoId != null) {
-            SecurityContextHolder.setKhoId(Integer.parseInt(khoId));
+        if (khoId != null && !khoId.isBlank()) {
+            try {
+                SecurityContextHolder.setKhoId(Integer.parseInt(khoId.trim()));
+            } catch (NumberFormatException e) {
+                SecurityContextHolder.clear();
+                throw new CommonException(HttpStatus.BAD_REQUEST, "Kho đang chọn không hợp lệ. Chọn lại kho rồi thử lại.");
+            }
         }
         return true;
     }

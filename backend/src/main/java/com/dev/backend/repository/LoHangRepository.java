@@ -11,6 +11,9 @@ public interface LoHangRepository extends JpaRepository<LoHang, Integer>, JpaSpe
 
     java.util.Optional<LoHang> findFirstByMaLo(String maLo);
 
+    /** Các lô cùng mã của một biến thể (khóa duy nhất của bảng là biến thể + mã lô + ngày sản xuất). */
+    java.util.List<LoHang> findByBienTheSanPham_IdAndMaLo(Integer bienTheSanPhamId, String maLo);
+
     /** Số lô hàng ghi nhận nhà cung cấp này — dùng khi kiểm tra xóa nhà cung cấp. */
     long countByNhaCungCap_Id(Integer nhaCungCapId);
 }

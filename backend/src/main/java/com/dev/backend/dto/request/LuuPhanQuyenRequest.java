@@ -27,7 +27,7 @@ import java.util.List;
 public class LuuPhanQuyenRequest {
     /** Mã vai trò, ví dụ nhan_vien_kho. */
     String vaiTro;
-    /** Kho phụ trách. Bỏ trống với Quản trị viên, Khách hàng, hoặc khi chưa phân kho. */
+    /** Kho phụ trách. Bỏ trống với Quản trị viên, hoặc khi chưa phân kho. */
     Integer khoId;
     /** Hết hiệu lực sau thời điểm này; null = không thời hạn. */
     Instant ngayKetThuc;

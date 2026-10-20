@@ -2,20 +2,18 @@ import { Link } from "react-router-dom";
 import { Shirt } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, LE, MoreLink } from "./ui";
-import { NHAN_KY } from "./boLoc";
 import { formatSo, formatTienNgan } from "../tong-quan/tongQuanFormat";
 
 /**
  * Bán chạy trong kỳ: 5 sản phẩm bán nhiều nhất (theo số lượng), mỗi dòng: hạng, tên, đã bán · còn khả dụng, doanh thu.
  * Còn khả dụng là 0 thì ghi đỏ "hết hàng" để thấy ngay mã bán chạy đang thiếu. Mã sản phẩm ở chú thích khi rê chuột.
  */
-export default function ProductsCard({ data, ky, loading, error, onRetry, className }) {
+export default function ProductsCard({ data, loading, error, onRetry, className }) {
   const rows = data?.sanPhamBanChay ?? [];
   return (
     <Card
       className={className}
       title="Bán chạy"
-      scope={NHAN_KY[ky]}
       right={<MoreLink to="/products">Xem tất cả</MoreLink>}
       loading={loading}
       error={error}

@@ -37,6 +37,8 @@ public class BienBanTraHangDto {
         Integer bienTheSanPhamId;
         String sku;
         String tenBienThe;
+        String mauSac;
+        String kichCo;
         String maLo;
         String lyDo;
         Integer soLuong;

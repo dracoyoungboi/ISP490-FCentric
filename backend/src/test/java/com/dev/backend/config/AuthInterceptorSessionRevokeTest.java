@@ -7,6 +7,7 @@ import com.dev.backend.exception.customize.AccountDisabledException;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.exception.customize.SessionRevokedException;
 import com.dev.backend.repository.NguoiDungRepository;
+import com.dev.backend.repository.PhanQuyenNguoiDungKhoRepository;
 import com.dev.backend.services.impl.utils.JwtServiceImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
@@ -135,6 +136,23 @@ class AuthInterceptorSessionRevokeTest {
         user.setTrangThai(0);
         CommonException ex = assertThrows(AccountDisabledException.class, () -> preHandle(token));
         assertEquals(HttpStatus.FORBIDDEN, ex.getHttpStatus());
+    }
+
+    @Test
+    void vaiTroKhongPhaiNhanSu_phienDangMoCungBi403() {
+        // Tài khoản cũ mang vai trò khach_hang (đã bỏ khỏi hệ thống), token còn hạn và khớp CSDL:
+        // vẫn bị chặn ngay ở request kế tiếp, không chờ hết hạn token
+        user.setVaiTro("khach_hang");
+        ReflectionTestUtils.setField(interceptor, "phanQuyenNguoiDungKhoRepository",
+                mock(PhanQuyenNguoiDungKhoRepository.class));
+        String token = jwtService.generateTokenWithPermissions(7, "khang", "Khang", "khang@example.com", null,
+                Set.of("khach_hang"), 1, null, null, List.of(), "Google",
+                jwtService.credentialVersion(user.getMatKhauHash()));
+
+        CommonException ex = assertThrows(AccountDisabledException.class, () -> preHandle(token));
+
+        assertEquals(HttpStatus.FORBIDDEN, ex.getHttpStatus());
+        assertNull(SecurityContextHolder.getUser(), "phải xoá context trước khi ném lỗi");
     }
 
     @Test

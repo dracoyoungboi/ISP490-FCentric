@@ -52,14 +52,16 @@ class DieuHanhHeThongDynamicConfigTest {
     }
 
     @Test
-    void initDefaultConfigurations_khiDBThieu_seTuDongSeedDu4Keys() {
+    void initDefaultConfigurations_khiDBThieu_seTuDongSeedDu6Keys() {
         // Giả lập DB chưa có khóa nào
         when(cauHinhRepository.existsById(anyString())).thenReturn(false);
 
         service.initDefaultConfigurations();
 
-        // Phải save đúng 4 cấu hình chuẩn
-        verify(cauHinhRepository, times(4)).save(any(CauHinhHeThong.class));
+        // Phải save đúng 5 cấu hình chuẩn
+        verify(cauHinhRepository, times(6)).save(any(CauHinhHeThong.class));
+        verify(cauHinhRepository).save(argThat(c -> "KIEM_DEM_XAC_NHAN".equals(c.getMaCauHinh())
+                && "QUET_TIEP_LA_DAT".equals(c.getGiaTri()) && c.getKieuDuLieu() == KieuDuLieuCauHinh.STRING));
         verify(cauHinhRepository).save(argThat(c -> "MA_KHACH_HANG_TIEN_TO".equals(c.getMaCauHinh())
                 && "KH".equals(c.getGiaTri()) && c.getKieuDuLieu() == KieuDuLieuCauHinh.STRING));
         verify(cauHinhRepository).save(argThat(c -> "DEFAULT_MIN_STOCK_ALERT".equals(c.getMaCauHinh()) && "100".equals(c.getGiaTri())));
@@ -76,6 +78,31 @@ class DieuHanhHeThongDynamicConfigTest {
 
         // Không được gọi save để bảo toàn dữ liệu Quản trị viên đã chỉnh sửa
         verify(cauHinhRepository, never()).save(any(CauHinhHeThong.class));
+    }
+
+    @Test
+    void updateCauHinh_tienToMaLo_khongDuocLaFcCuaTheLenh() {
+        CauHinhHeThong entity = CauHinhHeThong.builder()
+                .maCauHinh("MA_LO_TIEN_TO")
+                .giaTri("LO")
+                .kieuDuLieu(KieuDuLieuCauHinh.STRING)
+                .build();
+        when(cauHinhRepository.findById("MA_LO_TIEN_TO")).thenReturn(Optional.of(entity));
+        when(cauHinhRepository.save(any(CauHinhHeThong.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        for (String sai : new String[] {"FC", "FC-", "FC-LO", "AFC", "LOFC", "A_FC-", "AFC-"}) {
+            CauHinhHeThongUpdateRequest req = new CauHinhHeThongUpdateRequest();
+            req.setGiaTri(sai);
+            CommonException ex = assertThrows(CommonException.class,
+                    () -> service.updateCauHinh("MA_LO_TIEN_TO", req, null), sai);
+            assertTrue(ex.getMessage().contains("FC"), ex.getMessage());
+        }
+        assertEquals("LO", entity.getGiaTri());
+
+        CauHinhHeThongUpdateRequest dung = new CauHinhHeThongUpdateRequest();
+        dung.setGiaTri("FCL");
+        service.updateCauHinh("MA_LO_TIEN_TO", dung, null);
+        assertEquals("FCL", entity.getGiaTri(), "FCL-… không phải dạng thẻ lệnh FC-");
     }
 
     @Test
@@ -100,6 +127,31 @@ class DieuHanhHeThongDynamicConfigTest {
         dung.setGiaTri("KH-HN");
         service.updateCauHinh("MA_KHACH_HANG_TIEN_TO", dung, null);
         assertEquals("KH-HN", entity.getGiaTri());
+    }
+
+    @Test
+    void updateCauHinh_cheDoXacNhanKiemDem_chiNhanHaiGiaTri() {
+        CauHinhHeThong entity = CauHinhHeThong.builder()
+                .maCauHinh("KIEM_DEM_XAC_NHAN")
+                .giaTri("QUET_TIEP_LA_DAT")
+                .kieuDuLieu(KieuDuLieuCauHinh.STRING)
+                .build();
+        when(cauHinhRepository.findById("KIEM_DEM_XAC_NHAN")).thenReturn(Optional.of(entity));
+        when(cauHinhRepository.save(any(CauHinhHeThong.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        for (String sai : new String[] {"", "quet_tiep_la_dat", "DAT", "QUET_THE_TUNG_CAI "}) {
+            CauHinhHeThongUpdateRequest req = new CauHinhHeThongUpdateRequest();
+            req.setGiaTri(sai);
+            CommonException ex = assertThrows(CommonException.class,
+                    () -> service.updateCauHinh("KIEM_DEM_XAC_NHAN", req, null), sai);
+            assertTrue(ex.getMessage().startsWith("Cách xác nhận chất lượng"), ex.getMessage());
+        }
+        assertEquals("QUET_TIEP_LA_DAT", entity.getGiaTri());
+
+        CauHinhHeThongUpdateRequest dung = new CauHinhHeThongUpdateRequest();
+        dung.setGiaTri("QUET_THE_TUNG_CAI");
+        service.updateCauHinh("KIEM_DEM_XAC_NHAN", dung, null);
+        assertEquals("QUET_THE_TUNG_CAI", entity.getGiaTri());
     }
 
     @Test

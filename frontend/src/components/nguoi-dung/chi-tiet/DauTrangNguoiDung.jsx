@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Check, Copy, Ellipsis, KeyRound, Lock, LockOpen, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Check, Copy, Ellipsis, KeyRound, Lock, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,23 +14,30 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import UserAvatar from "@/components/UserAvatar";
 import { CAU_HINH_THONG_BAO_NHANH } from "@/config/thongBaoNhanh";
 import useSaoChep from "@/hooks/useSaoChep";
-import { QUAN_TRI_VIEN, canKho, tenVaiTro } from "@/components/nguoi-dung/phanQuyen";
+import { canKho, hienTenDangNhapRieng, tenVaiTro } from "@/components/nguoi-dung/phanQuyen";
 
 const NUT_VIEN = "border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle";
 const MUC_MENU =
   "cursor-pointer items-start gap-2 rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
 
-/** Phần kho trên dòng phụ dưới tên: "Kho tổng", "mọi kho", "chưa có kho"… */
-function khoNgan(nguoiDung, pq) {
-  if (nguoiDung.vaiTro === QUAN_TRI_VIEN) return "mọi kho";
-  if (!canKho(nguoiDung.vaiTro)) return "không dùng kho";
-  return pq?.kho ? pq.kho.tenKho || pq.kho.maKho : "chưa có kho";
+/**
+ * Dòng phụ dưới tên: vai trò, kèm nơi làm việc khi có. Đây là chỗ duy nhất trên trang ghi vai trò và tên kho
+ * (quy tắc mỗi thông tin một chỗ, 19/10/2026). Quản trị viên / chưa có nơi làm việc chỉ ghi vai trò:
+ * phần giải thích đã ở ô trống của tab Quyền truy cập.
+ */
+function dongPhu(nguoiDung, pq) {
+  const vaiTro = tenVaiTro(nguoiDung.vaiTro);
+  if (!canKho(nguoiDung.vaiTro) || !pq?.kho) return vaiTro;
+  return `${vaiTro} · ${pq.kho.tenKho || pq.kho.maKho}`;
 }
 
 /**
- * Đầu khối của Chi tiết người dùng (PA2, chốt 18/10/2026): nút quay lại, ảnh đại diện, tên + trạng thái,
- * dòng phụ (@tên đăng nhập · vai trò · kho). Thao tác: ⋯ (Cấp lại mật khẩu, Sao chép tên đăng nhập,
- * Khóa / Mở khóa) và nút chính Phân quyền. Tài khoản của chính mình: không tự khóa, không tự phân quyền.
+ * Đầu khối của Chi tiết người dùng (Kiểu D, chốt 19/10/2026): nút quay lại, ảnh đại diện (chữ viết tắt nền xám),
+ * tên + trạng thái, dòng phụ (vai trò · nơi làm việc). Tên đăng nhập nằm ở cột Tài khoản, không lặp ở đây.
+ * Thao tác: ⋯ (Cấp lại mật khẩu, Sao chép tên đăng nhập, Khóa tài khoản) và nút chính Phân quyền.
+ * Mỗi thao tác một chỗ: đang khóa thì "Mở khóa tài khoản" chỉ ở dải khóa ngay dưới đầu khối, không lặp trong ⋯;
+ * cột Tài khoản đã có nút sao chép tên đăng nhập thì ⋯ không có.
+ * Tài khoản của chính mình: không tự khóa, không tự phân quyền.
  */
 export default function DauTrangNguoiDung({ nguoiDung, pq, laChinhMinh, onQuayLai, onPhanQuyen, onCapLaiMatKhau, onKhoaMoKhoa }) {
   useClaimPageTitle(true);
@@ -77,9 +84,10 @@ export default function DauTrangNguoiDung({ nguoiDung, pq, laChinhMinh, onQuayLa
         </Button>
         <UserAvatar
           userId={nguoiDung.id}
-          name={nguoiDung.hoTen}
+          name={nguoiDung.hoTen || nguoiDung.tenDangNhap}
           avatarUrl={nguoiDung.avatarUrl}
           className="size-11 shrink-0 max-sm:hidden"
+          trungTinh
         />
         <div className="min-w-0">
           <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
@@ -88,12 +96,7 @@ export default function DauTrangNguoiDung({ nguoiDung, pq, laChinhMinh, onQuayLa
             </PageHeading>
             <StatusBadge size="lg" label={dangHoatDong ? "Hoạt động" : "Bị khóa"} />
           </div>
-          <p className="mt-0.5 break-words text-[13px] leading-5 text-bo-muted">
-            {nguoiDung.tenDangNhap ? (
-              <span className="font-mono font-semibold text-slate-700">@{nguoiDung.tenDangNhap}</span>
-            ) : null}
-            {` · ${tenVaiTro(nguoiDung.vaiTro)} · ${khoNgan(nguoiDung, pq)}`}
-          </p>
+          <p className="mt-0.5 break-words text-[13px] leading-5 text-bo-muted">{dongPhu(nguoiDung, pq)}</p>
         </div>
       </div>
 
@@ -121,7 +124,7 @@ export default function DauTrangNguoiDung({ nguoiDung, pq, laChinhMinh, onQuayLa
                 </span>
               </span>
             </DropdownMenuItem>
-            {nguoiDung.tenDangNhap ? (
+            {nguoiDung.tenDangNhap && !hienTenDangNhapRieng(nguoiDung) ? (
               <DropdownMenuItem onSelect={saoChepTen} className={MUC_MENU}>
                 {daChep ? (
                   <>
@@ -136,27 +139,14 @@ export default function DauTrangNguoiDung({ nguoiDung, pq, laChinhMinh, onQuayLa
                 )}
               </DropdownMenuItem>
             ) : null}
-            {!laChinhMinh ? (
+            {!laChinhMinh && dangHoatDong ? (
               <>
                 <DropdownMenuSeparator className="my-1 bg-bo-border" />
-                <DropdownMenuItem
-                  onClick={onKhoaMoKhoa}
-                  className={`${MUC_MENU} ${dangHoatDong ? "focus:bg-bo-danger-soft" : ""}`}
-                >
-                  {dangHoatDong ? (
-                    <Lock className="mt-0.5 size-4 text-bo-danger" aria-hidden="true" />
-                  ) : (
-                    <LockOpen className="mt-0.5 size-4 text-bo-success" aria-hidden="true" />
-                  )}
+                <DropdownMenuItem onClick={onKhoaMoKhoa} className={`${MUC_MENU} focus:bg-bo-danger-soft`}>
+                  <Lock className="mt-0.5 size-4 text-bo-danger" aria-hidden="true" />
                   <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className={`font-medium ${dangHoatDong ? "text-bo-danger" : "text-bo-foreground"}`}>
-                      {dangHoatDong ? "Khóa tài khoản" : "Mở khóa tài khoản"}
-                    </span>
-                    <span className="text-xs leading-4 text-bo-muted">
-                      {dangHoatDong
-                        ? "Không đăng nhập được · phiếu và lịch sử giữ nguyên"
-                        : "Người dùng đăng nhập lại được"}
-                    </span>
+                    <span className="font-medium text-bo-danger">Khóa tài khoản</span>
+                    <span className="text-xs leading-4 text-bo-muted">Không đăng nhập được · phiếu và lịch sử giữ nguyên</span>
                   </span>
                 </DropdownMenuItem>
               </>

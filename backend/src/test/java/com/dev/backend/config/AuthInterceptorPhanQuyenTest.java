@@ -152,6 +152,36 @@ class AuthInterceptorPhanQuyenTest {
         assertTrue(interceptor.preHandle(req, res, new Object()));
     }
 
+    @Test
+    @DisplayName("preHandle: header sai dạng (kho_id chữ / rỗng, Authorization thiếu Bearer) → 400 / 401, không phải 500")
+    void preHandleHeaderSai() throws Exception {
+        AuthInterceptor interceptor = new AuthInterceptor();
+        JwtService jwt = mock(JwtService.class);
+        dat(interceptor, "jwtService", jwt);
+        dat(interceptor, "nguoiDungRepository", mock(NguoiDungRepository.class));
+        dat(interceptor, "phanQuyenNguoiDungKhoRepository", mock(PhanQuyenNguoiDungKhoRepository.class));
+        HttpServletResponse res = mock(HttpServletResponse.class);
+
+        HttpServletRequest khoChu = mock(HttpServletRequest.class);
+        when(khoChu.getHeader("kho_id")).thenReturn("abc");
+        com.dev.backend.exception.customize.CommonException loi = assertThrows(com.dev.backend.exception.customize.CommonException.class,
+                () -> interceptor.preHandle(khoChu, res, new Object()));
+        assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, loi.getStatus());
+
+        HttpServletRequest khoRong = mock(HttpServletRequest.class);
+        when(khoRong.getHeader("kho_id")).thenReturn(" ");
+        assertTrue(interceptor.preHandle(khoRong, res, new Object()));
+        assertNull(SecurityContextHolder.getKhoId());
+
+        HttpServletRequest thieuBearer = mock(HttpServletRequest.class);
+        when(thieuBearer.getHeader("Authorization")).thenReturn("eyJhbGciOi.x.y");
+        when(jwt.getTokenFromAuthHeader("eyJhbGciOi.x.y")).thenReturn(null);
+        loi = assertThrows(com.dev.backend.exception.customize.CommonException.class,
+                () -> interceptor.preHandle(thieuBearer, res, new Object()));
+        assertEquals(org.springframework.http.HttpStatus.UNAUTHORIZED, loi.getStatus());
+        verify(jwt, never()).getNguoiDungAuthInfoFromToken(any());
+    }
+
     private static void dat(Object o, String ten, Object giaTri) throws Exception {
         Field f = o.getClass().getDeclaredField(ten);
         f.setAccessible(true);

@@ -1,8 +1,8 @@
 package com.dev.backend.services.impl.entities;
 
 import com.dev.backend.constant.GlobalCache;
-import com.dev.backend.constant.enums.RoleType;
 import com.dev.backend.constant.variables.ConstantVariables;
+import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.dto.request.ChangePasswordRequest;
 import com.dev.backend.dto.request.ForgotPasswordRequest;
 import com.dev.backend.dto.request.LoginRequest;
@@ -260,6 +260,30 @@ class NguoiDungServiceAuthHardeningTest {
         assertEquals(oldHash, user.getMatKhauHash());
     }
 
+    // ===== #7b: vai trò không phải nhân sự (khách hàng đã bỏ khỏi hệ thống) =====
+
+    @Test
+    void vaiTroKhongPhaiNhanSu_khongNhanOtp() {
+        user.setVaiTro("khach_hang");
+        assertEquals(NguoiDungService.FORGOT_PASSWORD_GENERIC_MESSAGE, forgot("khang", "1.1.1.1").getMessage());
+        assertEquals(0, emailsSent());
+        assertTrue(GlobalCache.OTP_SCHEDULE_OBJS.isEmpty());
+    }
+
+    @Test
+    void vaiTroDoiSangKhongPhaiNhanSuSauKhiNhanOtp_khongDatLaiDuoc() {
+        forgot("khang", "1.1.1.1");
+        String otp = (String) GlobalCache.OTP_SCHEDULE_OBJS.iterator().next().getOtp();
+        user.setVaiTro("khach_hang");
+        String oldHash = user.getMatKhauHash();
+
+        CommonException r = assertThrows(CommonException.class,
+                () -> service.resetPassword(new ResetPasswordRequest("khang", otp, "matkhaumoi")));
+
+        assertEquals("RESET_OTP_EXPIRED", data(r, "code"));
+        assertEquals(oldHash, user.getMatKhauHash());
+    }
+
     // ===== #8: SĐT trùng nhiều tài khoản =====
 
     @Test
@@ -331,6 +355,28 @@ class NguoiDungServiceAuthHardeningTest {
         assertThrows(AccountDisabledException.class, () -> service.login(new LoginRequest("khang", "matkhaucu")));
     }
 
+    @Test
+    void dangNhap_vaiTroKhongPhaiNhanSu_403NhuTaiKhoanBiKhoa() {
+        for (String vaiTro : new String[]{"khach_hang", "all", ""}) {
+            user.setVaiTro(vaiTro);
+            AccountDisabledException ex = assertThrows(AccountDisabledException.class,
+                    () -> service.login(new LoginRequest("khang", "matkhaucu")), vaiTro);
+            assertEquals(HttpStatus.FORBIDDEN, ex.getHttpStatus());
+        }
+        // Sai mật khẩu thì vẫn báo lỗi chung trước, không lộ tài khoản có vai trò gì
+        CommonException sai = assertThrows(CommonException.class,
+                () -> service.login(new LoginRequest("khang", "saimatkhau")));
+        assertEquals(NguoiDungService.LOGIN_FAILED_MESSAGE, sai.getMessage());
+    }
+
+    @Test
+    void dangNhap_moiVaiTroNhanSu_deuVaoDuoc() {
+        for (String vaiTro : IRoleType.NOI_BO) {
+            user.setVaiTro(vaiTro);
+            assertNotNull(service.login(new LoginRequest("khang", "matkhaucu")).getBody().getData().getToken(), vaiTro);
+        }
+    }
+
     // ===== #5: đổi mật khẩu -> token mới, token cũ bị thu hồi =====
 
     @Test
@@ -378,7 +424,7 @@ class NguoiDungServiceAuthHardeningTest {
                 .tenDangNhap("nhanvienmoi")
                 .email("nhanvien@example.com")
                 .hoTen("Nhân Viên Mới")
-                .vaiTro(RoleType.nhan_vien_kho)
+                .vaiTro(IRoleType.nhan_vien_kho)
                 .build();
 
         NguoiDung created = service.createInternalUserByAdmin(req);
@@ -399,6 +445,31 @@ class NguoiDungServiceAuthHardeningTest {
                         && params.containsKey("temporaryPassword")
                         && params.get("temporaryPassword") != null)
         );
+    }
+
+    @Test
+    void createInternalUserByAdmin_vaiTroKhongPhaiNhanSu_baoLoi_khongTaoKhongGuiMail() {
+        for (String vaiTro : new String[]{"khach_hang", "all", "admin"}) {
+            NguoiDungCreating req = NguoiDungCreating.builder()
+                    .tenDangNhap("khachmoi").email("khach@example.com").hoTen("Khách").vaiTro(vaiTro).build();
+            CommonException ex = assertThrows(CommonException.class, () -> service.createInternalUserByAdmin(req), vaiTro);
+            assertEquals("Vai trò không hợp lệ", ex.getMessage());
+        }
+        verify(repository, never()).save(any());
+        verifyNoInteractions(emailService);
+    }
+
+    @Test
+    void createInternalUserByAdmin_vaiTroTrong_laNhanVienKho_coKhoangTrangThiCatBo() {
+        when(repository.save(any(NguoiDung.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        NguoiDung macDinh = service.createInternalUserByAdmin(NguoiDungCreating.builder()
+                .tenDangNhap("nv1").email("nv1@example.com").vaiTro(" ").build());
+        NguoiDung quanLy = service.createInternalUserByAdmin(NguoiDungCreating.builder()
+                .tenDangNhap("ql1").email("ql1@example.com").vaiTro(" quan_ly_kho ").build());
+
+        assertEquals(IRoleType.nhan_vien_kho, macDinh.getVaiTro());
+        assertEquals(IRoleType.quan_ly_kho, quanLy.getVaiTro());
     }
 
     @Test

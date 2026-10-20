@@ -3,8 +3,10 @@
 
 export const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 export const PHONE_RE = /^[0-9+\-\s()]{6,20}$/;
+// Mã số thuế: doanh nghiệp 10 số, đơn vị phụ thuộc thêm "-3 số"; hộ/cá nhân kinh doanh dùng số định danh 12 số
+export const TAX_CODE_RE = /^(\d{10}(-\d{3})?|\d{12})$/;
 
-export const COMPANY_PROFILE_FIELDS = ["name", "phone", "email", "address"];
+export const COMPANY_PROFILE_FIELDS = ["name", "taxCode", "phone", "email", "address"];
 
 const chuan = (value) => (value ?? "").trim();
 
@@ -13,10 +15,12 @@ export function companyProfileForm(profile) {
   return Object.fromEntries(COMPANY_PROFILE_FIELDS.map((key) => [key, profile?.[key] ?? ""]));
 }
 
-/** Lỗi theo từng ô: { name?, email?, phone? }. Rỗng nghĩa là hợp lệ. */
+/** Lỗi theo từng ô: { name?, taxCode?, email?, phone? }. Rỗng nghĩa là hợp lệ. */
 export function validateCompanyProfile(form) {
   const errors = {};
   if (!chuan(form?.name)) errors.name = "Nhập tên cửa hàng.";
+  if (chuan(form?.taxCode) && !TAX_CODE_RE.test(chuan(form.taxCode)))
+    errors.taxCode = "Mã số thuế gồm 10 số (đơn vị phụ thuộc thêm -3 số) hoặc 12 số.";
   if (chuan(form?.email) && !EMAIL_RE.test(chuan(form.email))) errors.email = "Email không hợp lệ.";
   if (chuan(form?.phone) && !PHONE_RE.test(chuan(form.phone))) errors.phone = "Số điện thoại không hợp lệ.";
   return errors;
