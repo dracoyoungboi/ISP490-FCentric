@@ -48,11 +48,7 @@ public class AdminController {
         return ResponseEntity.ok(
                 ResponseData.<Page<NguoiDungDto>>builder()
                         .status(HttpStatus.OK.value())
-                        .data(
-                                nguoiDungMapper.toDtoPage(
-                                        nguoiDungService.filter(filter)
-                                )
-                        )
+                        .data(nguoiDungService.locChoQuanTri(filter))
                         .message("Success")
                         .build()
         );

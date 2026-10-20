@@ -9,6 +9,7 @@ import com.dev.backend.dto.OtpScheduleObj;
 import com.dev.backend.dto.request.*;
 import com.dev.backend.dto.response.LoginResponse;
 import com.dev.backend.dto.response.ResponseData;
+import com.dev.backend.dto.response.entities.KhoPhuTrachHieuLucDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.dto.response.entities.NguoiDungDto;
 import com.dev.backend.entities.NguoiDung;
@@ -286,6 +287,38 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             IRoleType.nhan_vien_kho,
             IRoleType.nhan_vien_ban_hang,
             IRoleType.nhan_vien_mua_hang);
+
+    /**
+     * Danh sách Người dùng của quản trị viên (POST /api/v1/admin/filter): lọc như {@link #filter} rồi gắn kho phụ
+     * trách đang hiệu lực cho từng người trong trang bằng một truy vấn (không truy vấn lặp theo từng dòng).
+     */
+    public Page<NguoiDungDto> locChoQuanTri(BaseFilterRequest request) {
+        Page<NguoiDungDto> trang = nguoiDungMapper.toDtoPage(filter(request));
+        ganKhoPhuTrachHieuLuc(trang.getContent());
+        return trang;
+    }
+
+    // Quản trị viên toàn quyền ở mọi kho nên không gắn; người chưa có kho hiệu lực giữ null
+    void ganKhoPhuTrachHieuLuc(List<NguoiDungDto> danhSach) {
+        List<Integer> ids = danhSach.stream()
+                .filter(NguoiDungService::lamViecTheoKho)
+                .map(NguoiDungDto::getId)
+                .toList();
+        if (ids.isEmpty()) {
+            return;
+        }
+        Map<Integer, KhoPhuTrachHieuLucDto> khoTheoNguoi = phanQuyenNguoiDungKhoService.layKhoPhuTrachHieuLucTheoNguoiDung(ids);
+        for (NguoiDungDto dto : danhSach) {
+            if (lamViecTheoKho(dto)) {
+                dto.setKhoPhuTrachHieuLuc(khoTheoNguoi.get(dto.getId()));
+            }
+        }
+    }
+
+    // Set.of(...).contains(null) ném NPE nên kiểm vai trò null trước
+    private static boolean lamViecTheoKho(NguoiDungDto dto) {
+        return dto.getId() != null && dto.getVaiTro() != null && EMPLOYEE_ROLES.contains(dto.getVaiTro());
+    }
 
     // Điền danh sách kho phụ trách (chỉ mã + tên, đã lọc hoạt động/hiệu lực/ngày
     // bắt đầu) vào DTO hồ sơ

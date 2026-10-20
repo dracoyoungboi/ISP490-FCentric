@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,6 +21,7 @@ public interface PhanQuyenNguoiDungKhoRepository extends JpaRepository<PhanQuyen
      * Phân quyền kho đang có hiệu lực tại thời điểm {@code now}: đang hoạt động, đã tới ngày bắt đầu (nếu có)
      * và chưa hết hạn. So với giờ của máy chủ ứng dụng (tham số), không dùng CURRENT_TIMESTAMP của CSDL,
      * để không lệch khi phiên MySQL đặt múi giờ khác với múi giờ driver dùng khi ghi Instant.
+     * Xếp theo id để dữ liệu cũ còn nhiều kho luôn cho cùng "dòng đầu" (khớp danh sách Người dùng).
      */
     @Query("""
             SELECT pqndk FROM PhanQuyenNguoiDungKho pqndk
@@ -27,6 +29,7 @@ public interface PhanQuyenNguoiDungKhoRepository extends JpaRepository<PhanQuyen
               AND pqndk.trangThai = 1
               AND (pqndk.ngayBatDau IS NULL OR pqndk.ngayBatDau <= :now)
               AND (pqndk.ngayKetThuc IS NULL OR pqndk.ngayKetThuc > :now)
+            ORDER BY pqndk.id
             """)
     List<PhanQuyenNguoiDungKho> findHieuLucTai(@Param("nguoiDungId") Integer nguoiDungId, @Param("now") Instant now);
 
@@ -85,4 +88,22 @@ public interface PhanQuyenNguoiDungKhoRepository extends JpaRepository<PhanQuyen
     default List<KhoPhuTrachInfoDto> findActiveKhoInfoByNguoiDungId(Integer nguoiDungId) {
         return findActiveKhoInfoTai(nguoiDungId, Instant.now());
     }
+
+    /**
+     * Kho đang hiệu lực của nhiều người dùng trong một truy vấn (danh sách Người dùng): mỗi dòng
+     * {nguoiDungId, maKho, tenKho, ngayKetThuc}, cùng điều kiện với {@link #findHieuLucTai}.
+     * Xếp theo id phân quyền để dữ liệu cũ còn nhiều kho thì lấy dòng đầu, như trang chi tiết.
+     */
+    @Query("""
+            SELECT pqndk.nguoiDung.id, k.maKho, k.tenKho, pqndk.ngayKetThuc
+            FROM PhanQuyenNguoiDungKho pqndk
+            JOIN pqndk.kho k
+            WHERE pqndk.nguoiDung.id IN :nguoiDungIds
+              AND pqndk.trangThai = 1
+              AND (pqndk.ngayBatDau IS NULL OR pqndk.ngayBatDau <= :now)
+              AND (pqndk.ngayKetThuc IS NULL OR pqndk.ngayKetThuc > :now)
+            ORDER BY pqndk.id
+            """)
+    List<Object[]> layKhoHieuLucTheoNguoiDung(@Param("nguoiDungIds") Collection<Integer> nguoiDungIds,
+                                              @Param("now") Instant now);
 }

@@ -73,6 +73,7 @@ export const NHAN_THEO_NHOM = {
     "Chờ khóa lô",
     "Hạn hôm nay",
     "Chưa có email",
+    "Chưa có kho",
   ],
   dang: [
     "Đã duyệt",

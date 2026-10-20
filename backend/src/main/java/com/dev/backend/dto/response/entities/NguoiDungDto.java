@@ -42,4 +42,7 @@ public class NguoiDungDto implements Serializable {
     private List<PhanQuyenNguoiDungKhoDto> khoPhuTrach;
     // Kho đang phụ trách (đang hoạt động, còn hiệu lực) cho hồ sơ cá nhân — chỉ gồm mã kho + tên kho
     private List<KhoPhuTrachInfoDto> khoPhuTrachActive;
+    // Kho phụ trách đang hiệu lực cho danh sách Người dùng của quản trị viên (chỉ POST /admin/filter điền);
+    // null = chưa có kho hiệu lực, hoặc vai trò không làm việc theo kho (quản trị viên)
+    private KhoPhuTrachHieuLucDto khoPhuTrachHieuLuc;
 }
