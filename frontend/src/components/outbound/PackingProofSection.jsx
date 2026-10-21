@@ -105,7 +105,7 @@ export default function PackingProofSection({
       title={
         <div className="flex items-center gap-2">
           <ShieldCheck className="size-5 text-bo-primary" />
-          <span>Bằng chứng đóng gói (Proof of Packaging)</span>
+          <span>Bằng chứng đóng gói</span>
         </div>
       }
       description={
@@ -113,7 +113,7 @@ export default function PackingProofSection({
           Giá trị đơn: <strong className="font-semibold text-bo-foreground">{formattedTongTien}</strong>
           {" · "}
           {yeuCauVideo ? (
-            <span className="text-amber-700 font-medium">Đơn ≥ 1.000.000 đ → Bắt buộc 1 video quay niêm phong (15-30s)</span>
+            <span className="text-amber-700 font-medium">Đơn ≥ 1.000.000 đ → Bắt buộc 1 video quay niêm phong (15–30 giây)</span>
           ) : (
             <span className="text-emerald-700 font-medium">Đơn &lt; 1.000.000 đ → Bắt buộc 2 ảnh đóng gói</span>
           )}
@@ -150,7 +150,7 @@ export default function PackingProofSection({
                 : "Cần tải lên đầy đủ bằng chứng quy định để mở khóa nút 'Hoàn tất đóng gói'."}
             </p>
             <p className="text-slate-600">
-              * Tệp bằng chứng được lưu trữ trên MinIO và tự động xóa vĩnh viễn sau 30 ngày kể từ thời điểm tạo.
+              Tệp bằng chứng tự xóa vĩnh viễn sau 30 ngày kể từ lúc tạo.
             </p>
           </div>
         </div>
@@ -218,7 +218,7 @@ export default function PackingProofSection({
               {previewMedia.type === "video" ? (
                 <video src={resolveProofMediaUrl(previewMedia.url)} controls autoPlay className="max-h-[70vh] max-w-full rounded" />
               ) : (
-                <img src={resolveProofMediaUrl(previewMedia.url)} alt="Preview" className="max-h-[70vh] max-w-full object-contain rounded" />
+                <img src={resolveProofMediaUrl(previewMedia.url)} alt="Xem trước bằng chứng" className="max-h-[70vh] max-w-full object-contain rounded" />
               )}
             </div>
           </div>
@@ -279,13 +279,9 @@ function PhotoUploadSlot({
           <p className="text-xs text-slate-500 mt-0.5">{description}</p>
         </div>
         {isUploaded ? (
-          <span className="rounded bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 shrink-0">
-            Đã có ảnh
-          </span>
+          <StatusBadge label="Đã có ảnh" />
         ) : (
-          <span className="rounded bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800 shrink-0">
-            Chưa có
-          </span>
+          <StatusBadge label="Chưa có ảnh" />
         )}
       </div>
 
@@ -295,7 +291,7 @@ function PhotoUploadSlot({
             {hasImageError ? (
               <div className="flex flex-col items-center justify-center p-4 text-center text-slate-500">
                 <AlertCircle className="size-6 text-amber-500 mb-1" />
-                <span className="text-xs font-medium">Không thể tải ảnh từ MinIO</span>
+                <span className="text-xs font-medium">Không tải được ảnh</span>
                 <button
                   type="button"
                   onClick={() => setHasImageError(false)}
@@ -411,6 +407,24 @@ function PhotoUploadSlot({
   );
 }
 
+/** Câu báo khi không mở được camera hoặc không bắt đầu quay được, theo loại lỗi của trình duyệt. */
+function cauLoiCamera(err) {
+  switch (err?.name) {
+    case "NotAllowedError":
+    case "SecurityError":
+      return "Trình duyệt chưa được phép dùng camera. Hãy cho phép dùng camera rồi thử lại.";
+    case "NotFoundError":
+    case "OverconstrainedError":
+      return "Không tìm thấy camera hoặc micro trên thiết bị này.";
+    case "NotReadableError":
+      return "Camera đang được ứng dụng khác dùng. Hãy tắt ứng dụng đó rồi thử lại.";
+    case "NotSupportedError":
+      return "Trình duyệt này không quay được video. Hãy dùng Chrome hoặc Edge, hoặc tải tệp video từ thiết bị.";
+    default:
+      return "Không mở được camera để quay video. Vui lòng thử lại.";
+  }
+}
+
 /** Khung hiển thị và quay/upload video 15-30s */
 function VideoUploadSection({
   proof,
@@ -425,6 +439,12 @@ function VideoUploadSection({
   const liveVideoRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const timerIntervalRef = useRef(null);
+  // Bấm "Hủy" khi đang quay: onstop của MediaRecorder vẫn chạy, cờ này để không tải video đã hủy lên
+  const huyQuayRef = useRef(false);
+  // Mốc bắt đầu quay: thời lượng gửi lên tính theo đồng hồ, không đọc state `seconds` (onstop giữ giá trị lúc bắt đầu)
+  const batDauQuayRef = useRef(0);
+  // Đã rời màn / đóng hộp: camera mở xong sau lúc đó (đang chờ getUserMedia) thì tắt ngay, không quay
+  const daRoiManRef = useRef(false);
 
   const [isRecording, setIsRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
@@ -435,23 +455,41 @@ function VideoUploadSection({
   const isUploaded = Boolean(rawUrl);
   const mediaUrl = resolveProofMediaUrl(rawUrl);
 
-  // Dọn dẹp stream camera khi unmount
+  // Dọn dẹp stream camera khi đổi stream hoặc unmount. Không dừng bộ đếm ở đây: effect này dọn dẹp ngay khi `stream` đổi
+  // lúc bắt đầu quay, sẽ xóa luôn bộ đếm vừa tạo.
   useEffect(() => {
     return () => {
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
   }, [stream]);
 
+  // Rời màn / đóng hộp khi đang quay: dừng bộ đếm và không tải video dở lên (tắt camera thì MediaRecorder tự dừng, onstop
+  // vẫn chạy).
+  // Đặt lại cờ khi dựng: StrictMode (dev) giả lập gỡ rồi dựng lại, ref vẫn giữ giá trị của lần gỡ giả.
+  useEffect(() => {
+    daRoiManRef.current = false;
+    return () => {
+      daRoiManRef.current = true;
+      huyQuayRef.current = true;
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    };
+  }, []);
+
   // Bắt đầu quay camera trực tiếp
   const startRecording = async () => {
+    let mediaStream = null;
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
+      mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment" },
         audio: true,
       });
+      // Đóng hộp / rời màn trong lúc chờ trình duyệt mở camera: tắt camera vừa mở, không quay
+      if (daRoiManRef.current) {
+        mediaStream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       setStream(mediaStream);
       if (liveVideoRef.current) {
         liveVideoRef.current.srcObject = mediaStream;
@@ -464,16 +502,28 @@ function VideoUploadSection({
       };
 
       recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: "video/webm" });
-        const file = new File([blob], `video_dong_goi_${Date.now()}.webm`, { type: "video/webm" });
-        // Tải lên
-        onUpload(file, LOAI_BANG_CHUNG.VIDEO_DONG_GOI, Math.max(15, Math.min(30, seconds)));
+        if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+        setIsRecording(false);
+        if (!huyQuayRef.current) {
+          const thoiLuong = Math.round((Date.now() - batDauQuayRef.current) / 1000);
+          if (thoiLuong < 15) {
+            // Máy tự dừng sớm (camera bị ngắt, bị thu quyền…): không lưu video ngắn hơn quy định
+            toast.error("Video quay chưa đủ 15 giây nên chưa được lưu. Vui lòng quay lại.");
+          } else {
+            const blob = new Blob(chunks, { type: "video/webm" });
+            const file = new File([blob], `video_dong_goi_${Date.now()}.webm`, { type: "video/webm" });
+            // Tải lên
+            onUpload(file, LOAI_BANG_CHUNG.VIDEO_DONG_GOI, Math.min(30, thoiLuong));
+          }
+        }
         mediaStream.getTracks().forEach((track) => track.stop());
         setStream(null);
       };
 
       mediaRecorderRef.current = recorder;
+      huyQuayRef.current = false;
       recorder.start();
+      batDauQuayRef.current = Date.now();
       setIsRecording(true);
       setSeconds(0);
 
@@ -489,7 +539,10 @@ function VideoUploadSection({
         });
       }, 1000);
     } catch (err) {
-      toast.error("Không thể mở Camera để quay video: " + err.message);
+      // Camera đã mở mà không bắt đầu quay được (vd. trình duyệt không hỗ trợ video/webm): tắt camera
+      mediaStream?.getTracks().forEach((track) => track.stop());
+      setStream(null);
+      toast.error(cauLoiCamera(err));
     }
   };
 
@@ -502,6 +555,7 @@ function VideoUploadSection({
   };
 
   const cancelRecording = () => {
+    huyQuayRef.current = true;
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.stop();
@@ -536,7 +590,7 @@ function VideoUploadSection({
       URL.revokeObjectURL(tempVideo.src);
       const duration = Math.round(tempVideo.duration);
       if (duration < 15 || duration > 30) {
-        toast.error(`Thời lượng video không hợp lệ: Yêu cầu từ 15 đến 30 giây (Hiện tại: ${duration}s)`);
+        toast.error(`Thời lượng video không hợp lệ: Yêu cầu từ 15 đến 30 giây (hiện tại: ${duration} giây)`);
         return;
       }
       onUpload(file, LOAI_BANG_CHUNG.VIDEO_DONG_GOI, duration);
@@ -564,13 +618,9 @@ function VideoUploadSection({
           </p>
         </div>
         {isUploaded ? (
-          <span className="rounded bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800 shrink-0">
-            Đã có video ({proof.thoiLuongGiay || 20}s)
-          </span>
+          <StatusBadge label={`Đã có video (${proof.thoiLuongGiay || 20}s)`} />
         ) : (
-          <span className="rounded bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800 shrink-0">
-            Chưa có video
-          </span>
+          <StatusBadge label="Chưa có video" />
         )}
       </div>
 
@@ -610,7 +660,7 @@ function VideoUploadSection({
               </div>
             ) : (
               <div className="absolute bottom-2 inset-x-2 text-center bg-emerald-950/80 text-[11px] text-emerald-300 py-1 rounded font-medium">
-                ✓ Thời lượng hợp lệ! Bạn có thể bấm 'Dừng & Lưu' bất kỳ lúc nào (tối đa 30s)
+                Thời lượng hợp lệ. Bấm “Dừng và lưu” bất kỳ lúc nào (tối đa 30 giây).
               </div>
             )}
           </div>
@@ -623,7 +673,7 @@ function VideoUploadSection({
               disabled={seconds < 15}
               className="gap-1.5 text-xs font-semibold disabled:opacity-40"
             >
-              <Square className="size-3.5 fill-current" /> Dừng & Lưu ({seconds}s)
+              <Square className="size-3.5 fill-current" /> Dừng và lưu ({seconds} giây)
             </Button>
             <Button
               type="button"
