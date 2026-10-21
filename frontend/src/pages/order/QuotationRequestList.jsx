@@ -148,7 +148,7 @@ function DonMuaHangRows({ donMuaHangs = [], navigate }) {
                 </td>
 
                 <td className="whitespace-nowrap px-3 py-3">
-                    <StatusBadge label={cfg.label} />
+                    <StatusBadge quyTrinh="yeuCauBaoGia" label={cfg.label} />
                 </td>
 
                 <td className="max-w-[120px] truncate px-3 py-3 text-[13px] font-medium text-bo-muted">
@@ -636,7 +636,7 @@ export default function QuotationRequestList() {
                                             </td>
 
                                             <td className="whitespace-nowrap px-3 py-3">
-                                                <StatusBadge label={prCfg.label} />
+                                                <StatusBadge quyTrinh="yeuCauNhap" label={prCfg.label} />
                                             </td>
 
                                             <td className="px-3 py-3 text-[13px] font-medium text-bo-muted">

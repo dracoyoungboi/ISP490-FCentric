@@ -203,7 +203,7 @@ export default function BaoGiaDetail() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <h1 className={PAGE_HEADING_TYPE}>Báo giá {donBanHang.soDonHang}</h1>
-            <StatusBadge size="lg" label={st.label} />
+            <StatusBadge quyTrinh="baoGiaBan" size="lg" label={st.label} />
           </div>
 
           {/* Các role thường mới thấy các nút này */}

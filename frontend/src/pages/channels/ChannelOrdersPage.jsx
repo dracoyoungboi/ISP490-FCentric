@@ -330,7 +330,7 @@ export default function ChannelOrdersPage() {
                     <td className="whitespace-nowrap px-3 py-3 tabular-nums text-bo-muted">{formatDate(don.ngayDatHang)}</td>
                     <td className="whitespace-nowrap px-3 py-3 text-right font-semibold tabular-nums text-bo-heading">{formatCurrency(don.tongCong)}</td>
                     <td className="px-3 py-3">
-                      <StatusBadge label={st.label} />
+                      <StatusBadge quyTrinh="donBan" label={st.label} />
                       {don.canXuLy ? (
                         <div className="mt-1">
                           <OrderFlagBadges value={don.canXuLy} />

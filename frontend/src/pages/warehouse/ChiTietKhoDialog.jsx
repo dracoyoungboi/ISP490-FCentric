@@ -241,7 +241,7 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                             >
                                 {kho.tenKho || kho.maKho || "—"}
                             </DialogTitle>
-                            <StatusBadge size="lg" label={hoatDong ? "Hoạt động" : "Ngừng hoạt động"} />
+                            <StatusBadge doiTuong="kho" size="lg" label={hoatDong ? "Hoạt động" : "Ngừng hoạt động"} />
                         </div>
                         <DialogDescription asChild>
                             <div className="mt-0.5 flex flex-wrap items-center gap-x-1 text-[13px] leading-5 text-bo-muted">

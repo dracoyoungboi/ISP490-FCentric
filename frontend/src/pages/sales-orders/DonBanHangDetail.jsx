@@ -364,7 +364,7 @@ export default function DonBanHangDetail() {
           title={`Đơn bán ${donBanHang.soDonHang}`}
           description="Chi tiết đơn bán hàng, sản phẩm và lịch sử xuất kho"
           actions={
-            <StatusBadge size="lg" label={st.label} />
+            <StatusBadge quyTrinh="donBan" size="lg" label={st.label} />
           }
         />
 
@@ -481,7 +481,7 @@ export default function DonBanHangDetail() {
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-bo-muted">
                   Trạng thái hiện tại
                 </p>
-                <StatusBadge label={st.label} />
+                <StatusBadge quyTrinh="donBan" label={st.label} />
               </div>
 
               {/* Info rows */}
@@ -625,7 +625,7 @@ export default function DonBanHangDetail() {
                           </td>
                           <td className="px-3 py-3">
                             {pxSt && (
-                              <StatusBadge label={pxSt.label} />
+                              <StatusBadge quyTrinh="phieuXuat" label={pxSt.label} />
                             )}
                           </td>
                           <td className="px-3 py-3 text-xs italic text-bo-muted">
@@ -803,7 +803,7 @@ export default function DonBanHangDetail() {
                             {isDuHang ? (
                               <StatusBadge nhom="xong" label={`Đủ hàng (${kho.soLuongMatHangDu ?? kho.tongSoMatHang}/${kho.tongSoMatHang ?? 0})`} />
                             ) : (
-                              <StatusBadge nhom="loi" label={`Thiếu hàng (${kho.soLuongMatHangDu ?? 0}/${kho.tongSoMatHang ?? 0})`} />
+                              <StatusBadge nhom="loi" label={`Thiếu hàng (${Math.max(0, (Number(kho.tongSoMatHang) || 0) - (Number(kho.soLuongMatHangDu) || 0))}/${kho.tongSoMatHang ?? 0})`} />
                             )}
                           </div>
                           {kho.diaChi && (
@@ -855,9 +855,9 @@ export default function DonBanHangDetail() {
                               </div>
                               <div>
                                 {item.duHang ? (
-                                  <span className="text-[10px] text-emerald-600 font-medium">✓ Đủ hàng</span>
+                                  <StatusBadge label="Đủ hàng" />
                                 ) : (
-                                  <span className="text-[10px] text-rose-600 font-medium">✕ Thiếu {(Number(item.soLuongDat) - Number(item.tonKhaDung)) > 0 ? (Number(item.soLuongDat) - Number(item.tonKhaDung)) : 0}</span>
+                                  <StatusBadge label={`Thiếu hàng (${Math.max(0, (Number(item.soLuongDat) || 0) - (Number(item.tonKhaDung) || 0))})`} />
                                 )}
                               </div>
                             </div>

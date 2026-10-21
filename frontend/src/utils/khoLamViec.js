@@ -34,8 +34,11 @@ export function setKhoLamViecId(id) {
 
 const laQuanTriVien = () => hasAnyRole([ROLES.QUAN_TRI_VIEN]);
 
-/** Kho được phân công trong token — đúng danh sách backend dùng để kiểm tra header kho_id. */
-function khoTrongToken() {
+/**
+ * Kho được phân công trong token — đúng danh sách backend dùng để kiểm tra header kho_id (mọi phân quyền đang hiệu lực,
+ * kể cả kho ngừng hoạt động / kho ảo). Dùng cho kiểm tra quyền theo kho phụ trách (vd. phê duyệt yêu cầu nhập hàng).
+ */
+export function khoTrongToken() {
   try {
     const token = window.localStorage.getItem("access_token");
     if (!token) return [];

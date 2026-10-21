@@ -57,7 +57,7 @@ export default function DauTrangNcc({ ncc, coTheQuanLy, trangThaiXoa, onQuayLai,
             <PageHeading className="max-sm:line-clamp-2 max-sm:whitespace-normal">
               <span title={ncc.tenNhaCungCap || undefined}>{ncc.tenNhaCungCap || ncc.maNhaCungCap || "—"}</span>
             </PageHeading>
-            <StatusBadge size="lg" label={dangHoatDong ? "Hoạt động" : "Ngừng hoạt động"} />
+            <StatusBadge doiTuong="nguoi" size="lg" label={dangHoatDong ? "Hoạt động" : "Ngừng hoạt động"} />
           </div>
           {ncc.maNhaCungCap ? (
             <p className="mt-0.5 flex items-center gap-0.5 text-[13px] leading-5 text-bo-muted">

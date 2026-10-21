@@ -295,7 +295,7 @@ function DonCuaBan({ don, baoGia, tom, thoiDiem, className, loading, loiDon, loi
                     </span>
                     <span className="hidden shrink-0 text-sm tabular-nums text-bo-foreground @min-[520px]:block">{formatTien(o.giaTri)}</span>
                     <span className="flex w-[112px] shrink-0 justify-end">
-                      <StatusBadge label={nhan} />
+                      <StatusBadge quyTrinh={laBaoGia ? "baoGiaBan" : "donBan"} label={nhan} />
                     </span>
                   </Link>
                 </li>

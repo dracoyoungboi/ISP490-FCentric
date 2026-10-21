@@ -17,6 +17,7 @@ import SurfaceCard from "@/components/shared/SurfaceCard";
 import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
 import LoadingState from "@/components/shared/LoadingState";
+import { trangThaiLa } from "@/constants/trangThaiChung";
 
 export default function ProductDetail() {
     const { id } = useParams();
@@ -103,7 +104,7 @@ export default function ProductDetail() {
             0: { label: "Hết hàng" },
             2: { label: "Ngừng hoạt động" }
         };
-        return configs[product?.trangThai] || configs[2];
+        return configs[product?.trangThai] ?? trangThaiLa(product?.trangThai);
     }, [product?.trangThai]);
 
     const variantCount = product?.bienTheSanPhams?.length || 0;

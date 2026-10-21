@@ -28,6 +28,7 @@ import {
   tenDiaDiemNhanTon,
 } from "@/components/channel/cauHinhDongBo";
 import { CONNECTION_STATUS, SAN_BAN_HANG } from "@/constants/channel";
+import { trangThaiLa } from "@/constants/trangThaiChung";
 import { isChannelMock, kenhBanHangService } from "@/services/kenhBanHangService";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { getApiErrorMessage } from "@/utils/apiError";
@@ -201,7 +202,7 @@ function SettingsForm({ config, cauHinh, khoSan, onConfigSaved, onCauHinhSaved }
 
   const khoa = Boolean(dangChay);
 
-  const tinhTrang = CONNECTION_STATUS[trangThaiKetNoi(config)] ?? CONNECTION_STATUS.dang_hoat_dong;
+  const tinhTrang = CONNECTION_STATUS[trangThaiKetNoi(config)] ?? trangThaiLa(trangThaiKetNoi(config));
   const nutMenu = "cursor-pointer gap-2 rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
 
   // Bố cục B (lưới thẻ): cùng khung với Sản phẩm, Đơn hàng; thẻ Gian hàng một hàng ngang;

@@ -294,7 +294,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
       <div className="flex min-h-9 flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <h1 className={cn("min-w-0 truncate", PAGE_HEADING_TYPE)}>{data.soPhieuNhap}</h1>
-          <StatusBadge size="lg" label={trangThaiPhieu.label} />
+          <StatusBadge quyTrinh="phieuNhap" size="lg" label={trangThaiPhieu.label} />
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {!daHuy ? (
@@ -433,7 +433,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
                       <span className="text-bo-muted">Chưa có lô</span>
                     )}
                   </td>
-                  <td className="px-4 py-2"><StatusBadge label={d.trangThai.label} /></td>
+                  <td className="px-4 py-2"><StatusBadge quyTrinh="kiemDem" label={d.trangThai.label} /></td>
                   <td className="px-4 py-2 text-right">
                     <Button
                       variant="outline"

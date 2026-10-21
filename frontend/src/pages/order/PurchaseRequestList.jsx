@@ -534,7 +534,7 @@ export default function PurchaseRequestList() {
                                             </div>
                                         </td>
                                         <td className="whitespace-nowrap px-3 py-3">
-                                            <StatusBadge label={cfg.label} />
+                                            <StatusBadge quyTrinh="yeuCauNhap" label={cfg.label} />
                                         </td>
                                     </tr>
                                 );

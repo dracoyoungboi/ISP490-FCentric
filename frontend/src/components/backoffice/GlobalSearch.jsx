@@ -403,7 +403,7 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
           {item.tongCong != null ? (
             <span className="text-xs font-medium text-bo-foreground">{formatCurrency(item.tongCong)}</span>
           ) : null}
-          {tt?.label ? <StatusBadge label={tt.label} /> : null}
+          {tt?.label ? <StatusBadge quyTrinh="donBan" label={tt.label} /> : null}
         </span>
       );
     } else if (d.loai === "khachHang") {

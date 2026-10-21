@@ -529,7 +529,7 @@ export default function KhachHangPage() {
                                         </div>
                                     </td>
                                     <td className="px-3 py-3">
-                                        <StatusBadge label={khachHang.trangThai === 1 ? "Hoạt động" : "Ngừng hoạt động"} />
+                                        <StatusBadge doiTuong="nguoi" label={khachHang.trangThai === 1 ? "Hoạt động" : "Ngừng hoạt động"} />
                                     </td>
                                     <td className="px-3 py-3">
                                         <RowActions>

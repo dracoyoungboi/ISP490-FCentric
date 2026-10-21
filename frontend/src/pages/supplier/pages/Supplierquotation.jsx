@@ -169,7 +169,7 @@ function TrangBaoGia({ orderData, daGuiLuc }) {
                             Báo giá đơn {orderData.soDonMua}
                         </h1>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                            <StatusBadge label={nhan.label} />
+                            <StatusBadge quyTrinh={chiXem && !daGui ? "donMua" : "yeuCauBaoGia"} label={nhan.label} />
                             <CanGiaoTruoc ngay={orderData.ngayGiaoDuKien} className="text-[13px] leading-5 text-slate-600 md:hidden" />
                         </div>
                     </div>

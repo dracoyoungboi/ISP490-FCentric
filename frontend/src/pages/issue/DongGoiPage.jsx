@@ -204,10 +204,10 @@ export default function DongGoiPage() {
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <BackLink onClick={backToOrder} />
                 <div className="flex flex-wrap items-center gap-2">
-                    <StatusBadge size="lg" label={donStatus.label} />
+                    <StatusBadge quyTrinh="donBan" size="lg" label={donStatus.label} />
                     <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] text-bo-muted">
                         Phiếu xuất
-                        <StatusBadge size="lg" label={phieuStatus.label} />
+                        <StatusBadge quyTrinh="phieuXuat" size="lg" label={phieuStatus.label} />
                     </span>
                     {dangDongGoi ? (
                         <span title={dto.coTheHoanTat ? undefined : !dto.daDuBangChung ? "Cần tải lên đầy đủ bằng chứng đóng gói để hoàn tất" : `Còn ${formatQuantity(conLai)} sản phẩm chưa quét`}>

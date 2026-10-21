@@ -1,499 +1,384 @@
-import { createElement, useCallback, useEffect, useRef, useState } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { Ban, PackageCheck, Printer, Truck } from "lucide-react";
 import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
-import { phieuChuyenKhoService } from "@/services/phieuChuyenKhoService";
-import { PHIEU_XUAT_CHUA_XUAT, TRANG_THAI_PHIEU_XUAT } from "@/constants/trangThaiXuatBan";
+import { getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
+import { TRANG_THAI_PHIEU_XUAT } from "@/constants/trangThaiXuatBan";
 import { toast } from "@/lib/thongBaoNhanh";
 import PageContainer from "@/components/backoffice/PageContainer";
-import SurfaceCard from "@/components/shared/SurfaceCard";
-import TableShell from "@/components/shared/TableShell";
-import StatusBadge from "@/components/shared/StatusBadge";
-import LoadingState from "@/components/shared/LoadingState";
-import EmptyState from "@/components/shared/EmptyState";
-import ErrorState from "@/components/shared/ErrorState";
-import ConfirmModal from "@/components/ui/confirm-modal";
+import KhungChungTu from "@/components/chung-tu/KhungChungTu";
+import DauChungTu from "@/components/chung-tu/DauChungTu";
+import TienTrinhChungTu from "@/components/chung-tu/TienTrinhChungTu";
+import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
+import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
+import { KhungDangTai, KhungLoiChungTu } from "@/components/chung-tu/KhungTaiChungTu";
+import useBangChungTu from "@/components/chung-tu/useBangChungTu";
+import { docSo, soVN } from "@/components/chung-tu/bangChungTu";
 import DispatchDialog from "@/components/outbound/DispatchDialog";
-import { Button } from "@/components/ui/button";
+import BangSanPhamXuat from "@/components/outbound/phieu-xuat/BangSanPhamXuat";
+import ThuocTinhPhieuXuat from "@/components/outbound/phieu-xuat/ThuocTinhPhieuXuat";
+import useLoTheoDong from "@/components/outbound/phieu-xuat/useLoTheoDong";
 import {
-    Loader2, Printer, Check, X,
-    ClipboardList, Package, Warehouse,
-    Calendar, User, AlertCircle, Info as InfoIcon,
-    ArrowRight, ArrowLeft, MapPin, SearchX, PackageCheck
-} from "lucide-react";
-import { PHIEU_XUAT_KHO_STATUS, getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
+  BO_LOC_DONG_XUAT,
+  LOAI_XUAT,
+  cauThieuLo,
+  laPhieuPos,
+  lyDoKhoaXuat,
+  quyenPhieuXuat,
+  tachGhiChuPhieuXuat,
+  tinhBuocPhieuXuat,
+} from "@/components/outbound/phieu-xuat/phieuXuat";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
-import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
-import { formatDate } from "@/utils/formatters";
+import { getApiErrorMessage } from "@/utils/apiError";
 import { hasAnyRole, ROLES } from "@/utils/roles";
 
-// Trạng thái phiếu xuất — dùng chung tên với danh sách và bản in (constants/phieuXuatKho)
-const STATUS_UI = PHIEU_XUAT_KHO_STATUS;
+const DANH_SACH = "/goods-issues";
+const KHONG_CO_DONG = [];
+// Backend ném RuntimeException "Không tìm thấy phiếu xuất kho" (500) khi không có phiếu
+const TUY_CHON_LOI = Object.freeze({ coi500LaKhongThay: true });
+// Câu máy chủ "Không tìm thấy …" trùng ý tiêu đề "Không tìm thấy phiếu xuất kho" → không hiện thêm
+const locCauMayChu = (cau) => (/^\s*không tìm thấy/i.test(cau) ? null : cau);
 
-const TH_CLASS =
-    "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted";
-
+/**
+ * Chi tiết phiếu xuất kho (`/goods-issues/:id`) · bản "một khối" (21/10/2026): đầu khối (mã, trạng thái, In, ⋯, một nút
+ * chính), tiến trình 3 bước (bán hàng: Nhặt → Đóng gói → Xuất kho; chuyển kho: Tạo → Chọn lô → Xác nhận vận chuyển;
+ * phiếu POS không có), dòng thông báo thiếu lô / đã hủy, bảng sản phẩm có lô ngay trên từng dòng, cột thuộc tính.
+ * Sau xuất kho / xác nhận vận chuyển / hủy: ở lại trang, tải lại ngầm, thông báo nhanh.
+ * Đổi id cùng đường dẫn (lùi / tiến lịch sử) thì dựng lại màn (`key`): không giữ từ khóa, bộ lọc, hộp đang mở của phiếu trước.
+ */
 export default function PhieuXuatKhoDetail() {
-    const { id } = useParams();
-    const navigate = useNavigate();
-
-    const [data, setData] = useState(null);
-    const [loading, setLoading] = useState(false);
-    // null: không lỗi; { khongTimThay, moTa }: lần tải gần nhất lỗi
-    const [loadError, setLoadError] = useState(null);
-    const [showConfirm, setShowConfirm] = useState(false);
-    const [showDispatch, setShowDispatch] = useState(false);
-    const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-    const [isProcessing, setIsProcessing] = useState(false);
-
-    // Chỉ nhận kết quả của lần tải mới nhất: lần tải ngầm về chậm không đè dữ liệu của lần tải sau (Thử lại, đổi phiếu)
-    const requestIdRef = useRef(0);
-    // silent: tải lại ngầm khi quay lại tab — giữ màn đang xem, chỉ thay khi tải được dữ liệu mới
-    const fetchDetail = useCallback(async ({ silent = false } = {}) => {
-        const requestId = ++requestIdRef.current;
-        if (!silent) {
-            setLoading(true);
-            setLoadError(null);
-        }
-        try {
-            const res = await phieuXuatKhoService.getDetail(id);
-            if (requestId !== requestIdRef.current) return;
-            const payload = res?.data || res;
-            if (payload?.phieu) {
-                setData(payload);
-                setLoadError(null);
-            } else if (!silent) {
-                // Máy chủ trả về rỗng: coi như không có phiếu này
-                setData(null);
-                setLoadError({ khongTimThay: true });
-            }
-        } catch (e) {
-            if (requestId !== requestIdRef.current) return;
-            if (silent) {
-                console.error(e);
-                return;
-            }
-            setData(null);
-            setLoadError({
-                khongTimThay: getApiErrorStatus(e) === 404,
-                moTa: getApiErrorMessage(e, "Đã xảy ra lỗi khi tải phiếu xuất kho. Vui lòng thử lại."),
-            });
-        } finally {
-            if (!silent && requestId === requestIdRef.current) setLoading(false);
-        }
-    }, [id]);
-
-
-    // Hoãn qua microtask để tránh setState đồng bộ trong effect
-    // (react-hooks/set-state-in-effect); vẫn tải lại chi tiết mỗi khi id đổi.
-    useEffect(() => {
-        queueMicrotask(() => fetchDetail());
-    }, [fetchDetail]);
-
-    // Quay lại tab thì tải lại ngầm (trạng thái phiếu do kho cập nhật); không tải khi đang thao tác
-    useTaiLaiKhiQuayLai(() => fetchDetail({ silent: true }), { bat: Boolean(data) && !loading && !isProcessing });
-
-    // Hàm xử lý khi xác nhận Hoàn thành/Vận chuyển
-    const handleConfirmComplete = async () => {
-        setIsProcessing(true);
-        try {
-            await phieuXuatKhoService.complete(data.phieu.id);
-
-            if (isChuyenKho) {
-                toast.success("Xác nhận xuất kho và bắt đầu vận chuyển thành công");
-            } else {
-                toast.success("Hoàn thành phiếu xuất bán hàng thành công");
-            }
-            navigate("/goods-issues");
-        } catch (e) {
-            toast.error(e?.response?.data?.message || "Không thể thực hiện thao tác");
-        } finally {
-            setIsProcessing(false);
-            setShowConfirm(false);
-        }
-    };
-
-    // Xuất bán hàng: xác nhận xuất kho kèm thông tin giao vận (POST /{id}/xac-nhan-xuat-kho, SRS 6.3.2).
-    // Lỗi thì giữ hộp thoại để người dùng sửa và thử lại.
-    const handleDispatch = async (payload) => {
-        setIsProcessing(true);
-        try {
-            const res = await phieuXuatKhoService.xacNhanXuatKho(data.phieu.id, payload);
-            toast.success(res?.message || "Xác nhận xuất kho thành công");
-            setShowDispatch(false);
-            navigate("/goods-issues");
-        } catch (e) {
-            toast.error(e?.response?.data?.message || "Không thể xác nhận xuất kho");
-        } finally {
-            setIsProcessing(false);
-        }
-    };
-
-    const handleCancelExport = async () => {
-        setIsProcessing(true);
-        try {
-            if (isChuyenKho) {
-                await phieuChuyenKhoService.cancel(data.phieu.id);
-            } else {
-                await phieuXuatKhoService.cancel(data.phieu.id);
-            }
-            toast.success("Đã hủy phiếu xuất thành công");
-            navigate("/goods-issues");
-        } catch (e) {
-            toast.error(e?.response?.data?.message || "Không thể hủy phiếu");
-        } finally {
-            setIsProcessing(false);
-            setShowCancelConfirm(false);
-        }
-    };
-
-    // Đang tải, lỗi tải hoặc không có phiếu: vẫn giữ nút quay lại danh sách
-    if (loading || !data) {
-        return (
-            <PageContainer className="space-y-5">
-                <button
-                    type="button"
-                    onClick={() => navigate("/goods-issues")}
-                    className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-bo-muted transition-colors hover:text-bo-primary"
-                >
-                    <ArrowLeft className="size-4" />
-                    Quay lại danh sách
-                </button>
-                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                    {loading || !loadError ? (
-                        <LoadingState rows={5} label="Đang tải dữ liệu phiếu xuất kho" />
-                    ) : loadError.khongTimThay ? (
-                        <EmptyState
-                            icon={SearchX}
-                            title="Không tìm thấy phiếu xuất kho"
-                            description="Phiếu xuất kho không tồn tại hoặc đã bị xóa khỏi hệ thống."
-                            action={
-                                <Button
-                                    onClick={() => navigate("/goods-issues")}
-                                    className="bg-bo-primary text-white hover:bg-bo-primary-hover"
-                                >
-                                    Về danh sách phiếu xuất
-                                </Button>
-                            }
-                        />
-                    ) : (
-                        <ErrorState
-                            title="Không tải được phiếu xuất kho"
-                            description={loadError.moTa}
-                            onRetry={() => fetchDetail()}
-                        />
-                    )}
-                </div>
-            </PageContainer>
-        );
-    }
-
-    const { phieu, chiTiet } = data;
-    const isChuyenKho = phieu.loaiXuat === "chuyen_kho";
-    // Phiếu bán hàng phải đóng gói (Scan-to-Pack) xong mới xuất kho; phiếu chuyển kho xuất từ Nháp.
-    const trangThaiDuocXuat = isChuyenKho ? TRANG_THAI_PHIEU_XUAT.NHAP : TRANG_THAI_PHIEU_XUAT.CHO_XUAT;
-    const choDongGoi = !isChuyenKho && phieu.trangThai === TRANG_THAI_PHIEU_XUAT.NHAP && phieu.donBanHang?.id;
-
-    // Kiểm tra xem tất cả mặt hàng đã bốc đủ lô chưa
-    const isAllPicked = Array.isArray(chiTiet)
-        && chiTiet.length > 0
-        && chiTiet.every(ct => ct.duSoLuong === true);
-
-    // Lô của phiếu bán hàng lấy từ phân bổ ở phiếu nhặt: nhân viên chỉ xem; quản lý kho / quản trị viên sửa lô
-    // (lấy nhầm lô, lô cũ không còn khi tạo lại phiếu) khi phiếu chưa xuất. Phiếu chuyển kho chọn lô ở Nháp như cũ.
-    const laQuanLy = hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO]);
-    const phieuChuaXuat = phieu.trangThai === TRANG_THAI_PHIEU_XUAT.NHAP || phieu.trangThai === TRANG_THAI_PHIEU_XUAT.CHO_XUAT;
-    const canEditLot = isChuyenKho
-        ? phieu.trangThai === TRANG_THAI_PHIEU_XUAT.NHAP
-        : laQuanLy && phieuChuaXuat;
-    const nhanNutLo = !canEditLot ? "Xem lô" : isChuyenKho ? "Chọn lô" : "Sửa lô";
-    const banHangThieuLo = !isChuyenKho && phieuChuaXuat && !isAllPicked;
-
-    const statusInfo = getPhieuXuatKhoStatus(phieu.trangThai);
-
-    return (
-        <PageContainer className="space-y-5">
-
-            {/* ── Header actions only (title moved to global top header) ── */}
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <button
-                    type="button"
-                    onClick={() => navigate("/goods-issues")}
-                    className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-bo-muted transition-colors hover:text-bo-primary"
-                >
-                    <ArrowLeft className="size-4" />
-                    Quay lại danh sách
-                </button>
-
-                <div className="flex flex-wrap items-center gap-2">
-                    <StatusBadge size="lg" label={statusInfo.label} />
-
-                    {/* Nút Hủy: Hiện cho các trạng thái chưa xuất / chưa hủy */}
-                    {PHIEU_XUAT_CHUA_XUAT.includes(phieu.trangThai) && (
-                        <Button
-                            disabled={isProcessing}
-                            variant="outline"
-                            onClick={() => setShowCancelConfirm(true)}
-                            className="gap-2 border-bo-danger/30 bg-bo-danger-soft text-bo-danger hover:bg-bo-danger-soft/70 hover:text-bo-danger"
-                        >
-                            <X className="size-4" /> Hủy phiếu
-                        </Button>
-                    )}
-
-                    {/* NÚT IN PHIẾU */}
-                    {phieu.trangThai !== 4 && (
-                        <Button
-                            variant="outline"
-                            onClick={() => navigate(`/goods-issues/${phieu.id}/print`)}
-                            className="gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                        >
-                            <Printer className="size-4" /> In phiếu
-                        </Button>
-                    )}
-
-                    {/* Phiếu bán hàng còn Nháp: đóng gói trước khi xuất kho */}
-                    {choDongGoi && (
-                        <Button
-                            onClick={() => navigate(`/goods-issues/packing/${phieu.donBanHang.id}`)}
-                            className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
-                        >
-                            <PackageCheck className="size-4" /> Đóng gói
-                        </Button>
-                    )}
-
-                    {/* Nút Hoàn thành/Vận chuyển: phiếu bán hàng đã đóng gói (Chờ xuất), phiếu chuyển kho ở Nháp */}
-                    {phieu.trangThai === trangThaiDuocXuat && (
-                        <Button
-                            disabled={isProcessing || !isAllPicked}
-                            onClick={() => (isChuyenKho ? setShowConfirm(true) : setShowDispatch(true))}
-                            className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
-                        >
-                            {isProcessing ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-                            {isChuyenKho ? "Xác nhận vận chuyển" : "Hoàn thành xuất kho"}
-                        </Button>
-                    )}
-                </div>
-            </div>
-
-            {/* ── Info Section ── */}
-            <SurfaceCard title="Thông tin nghiệp vụ">
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                    <InfoItem icon={Package} label="Số phiếu xuất" value={phieu.soPhieuXuat} highlight />
-
-                    <InfoItem
-                        icon={InfoIcon}
-                        label="Loại xuất"
-                        value={isChuyenKho ? "Chuyển kho nội bộ" : "Xuất bán hàng"}
-                    />
-
-                    {isChuyenKho ? (
-                        <InfoItem icon={Warehouse} label="Kho chuyển đến" value={phieu.khoChuyenDen?.tenKho} />
-                    ) : (
-                        <InfoItem
-                            icon={ClipboardList}
-                            label="Đơn bán hàng"
-                            value={phieu.donBanHang?.id ? (
-                                <Link to={`/sales-orders/${phieu.donBanHang.id}`} className="text-bo-primary hover:underline">
-                                    {phieu.donBanHang.soDonHang}
-                                </Link>
-                            ) : phieu.donBanHang?.soDonHang}
-                        />
-                    )}
-
-                    <InfoItem icon={Warehouse} label="Kho xuất hàng" value={phieu.kho?.tenKho} />
-
-                    <InfoItem
-                        icon={Calendar}
-                        label="Ngày tạo phiếu"
-                        value={formatDate(phieu.ngayTao)}
-                    />
-
-                    <InfoItem
-                        icon={Calendar}
-                        label="Ngày xuất"
-                        value={phieu.ngayXuat ? formatDate(phieu.ngayXuat) : "Chưa xuất kho"}
-                    />
-
-                    <InfoItem
-                        icon={User}
-                        label="Người xuất"
-                        value={phieu.nguoiXuat?.hoTen || "---"}
-                    />
-                </div>
-
-                {!isChuyenKho && phieu.donBanHang?.diaChiGiaoHang && (
-                    <div className="mt-5 border-t border-bo-border pt-4">
-                        <InfoItem icon={MapPin} label="Địa chỉ giao hàng" value={phieu.donBanHang.diaChiGiaoHang} />
-                    </div>
-                )}
-
-                {phieu.ghiChu && (
-                    <div className="mt-5 border-t border-bo-border pt-4">
-                        <InfoItem icon={InfoIcon} label="Ghi chú" value={phieu.ghiChu} />
-                    </div>
-                )}
-
-                {isChuyenKho && phieu.trangThai === 0 && !isAllPicked && (
-                    <div className="mt-5 flex items-center gap-3 rounded-lg border border-bo-warning/20 bg-bo-warning-soft p-3">
-                        <AlertCircle className="size-4 shrink-0 text-bo-warning" />
-                        <p className="text-xs font-medium text-bo-warning">
-                            CẦN BỐC LÔ TRƯỚC KHI XUẤT HÀNG. Hệ thống yêu cầu xác định lô sản phẩm trước khi đưa vào kho Trung chuyển.
-                        </p>
-                    </div>
-                )}
-
-                {banHangThieuLo && (
-                    <div role="status" className="mt-5 flex items-center gap-3 rounded-lg border border-bo-warning/20 bg-bo-warning-soft p-3">
-                        <AlertCircle className="size-4 shrink-0 text-bo-warning" />
-                        <p className="text-xs font-medium text-bo-warning">
-                            Phiếu còn dòng chưa đủ lô nên chưa xuất kho được.{" "}
-                            {laQuanLy
-                                ? "Bấm Sửa lô ở dòng thiếu để chọn lô còn hàng."
-                                : "Báo quản lý kho sửa lô cho các dòng thiếu."}
-                        </p>
-                    </div>
-                )}
-            </SurfaceCard>
-
-            {/* ── Product List ── */}
-            <TableShell
-                title="Danh sách sản phẩm"
-                description={`${chiTiet.length} mặt hàng cần xuất kho`}
-            >
-                {chiTiet.length === 0 ? (
-                    <EmptyState
-                        icon={Package}
-                        title="Phiếu chưa có sản phẩm"
-                        description="Phiếu xuất kho này chưa có dòng sản phẩm nào."
-                    />
-                ) : (
-                <table className="w-full min-w-[900px] text-sm">
-                    <thead>
-                        <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                            <th className={`${TH_CLASS} text-left`}>SKU / Biến thể</th>
-                            <th className={`${TH_CLASS} text-center`}>SL yêu cầu</th>
-                            <th className={`${TH_CLASS} text-center`}>SL đã lấy</th>
-                            <th className={`${TH_CLASS} text-left`}>Trạng thái</th>
-                            <th className={`${TH_CLASS} text-right`}>Thao tác</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-bo-border">
-                        {chiTiet.map((ct) => {
-                            return (
-                                <tr key={ct.id} className="transition-colors hover:bg-bo-surface-subtle">
-                                    <td className="px-4 py-3.5">
-                                        <div className="flex flex-col gap-1">
-                                            <span className="w-fit rounded-md bg-bo-primary-soft px-2 py-0.5 font-mono text-xs font-semibold text-bo-primary">
-                                                {ct.sku}
-                                            </span>
-                                            <span className="line-clamp-1 font-semibold text-bo-foreground">{ct.tenBienThe}</span>
-                                        </div>
-                                    </td>
-
-                                    <td className="px-4 py-3.5 text-center font-semibold text-bo-foreground">
-                                        {ct.soLuongCanXuat}
-                                    </td>
-
-                                    <td className="px-4 py-3.5 text-center">
-                                        <span className={`font-mono font-semibold ${ct.duSoLuong ? "text-bo-success" : "text-bo-warning"}`}>
-                                            {ct.soLuongDaPick}
-                                            <span className="mx-1 font-normal text-bo-muted">/</span>
-                                            {ct.soLuongCanXuat}
-                                        </span>
-                                    </td>
-
-                                    <td className="px-4 py-3.5">
-                                        {ct.duSoLuong ? (
-                                            <StatusBadge label="Đủ hàng" />
-                                        ) : (
-                                            <StatusBadge label="Chưa đủ" />
-                                        )}
-                                    </td>
-
-                                    <td className="px-4 py-3.5 text-right">
-                                        <Button
-                                            variant="outline"
-                                            onClick={() =>
-                                                navigate(
-                                                    `/goods-issues/${phieu.id}/pick-lot/${ct.id}`,
-                                                    {
-                                                        state: {
-                                                            bienTheSanPhamId: ct.bienTheSanPhamId,
-                                                            sku: ct.sku,
-                                                            tenBienThe: ct.tenBienThe,
-                                                            soLuongXuat: ct.soLuongCanXuat,
-                                                            soLuongDaPick: ct.soLuongDaPick,
-                                                            phieuTrangThai: phieu.trangThai,
-                                                            loaiXuat: phieu.loaiXuat
-                                                        },
-                                                    }
-                                                )
-                                            }
-                                            className={`h-8 gap-1.5 px-3 text-xs font-semibold ${canEditLot
-                                                ? "border-bo-primary/30 bg-bo-primary-soft text-bo-primary hover:bg-bo-primary-soft/70 hover:text-bo-primary"
-                                                : "border-bo-border bg-white text-slate-600 hover:bg-bo-surface-subtle hover:text-slate-700"}`}
-                                        >
-                                            {nhanNutLo} <ArrowRight className="size-3" />
-                                        </Button>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-                )}
-            </TableShell>
-
-            {/* ── Modals ── */}
-            <ConfirmModal
-                isOpen={showConfirm}
-                onClose={() => setShowConfirm(false)}
-                onConfirm={handleConfirmComplete}
-                variant="danger"
-                title={isChuyenKho ? "Xác nhận vận chuyển" : "Xác nhận xuất kho"}
-                description={isChuyenKho
-                    ? `Hàng hóa trong phiếu ${phieu.soPhieuXuat} sẽ được trừ tồn tại kho hiện tại và đưa vào kho Trung Chuyển để bắt đầu vận chuyển.`
-                    : `Phiếu xuất kho ${phieu.soPhieuXuat} sẽ được hoàn thành và không thể chỉnh sửa.`}
-                cancelText="Hủy"
-                confirmText="Xác nhận thực hiện"
-                isLoading={isProcessing}
-            />
-
-            {showDispatch ? (
-                <DispatchDialog
-                    open
-                    onOpenChange={setShowDispatch}
-                    soPhieuXuat={phieu.soPhieuXuat}
-                    onConfirm={handleDispatch}
-                />
-            ) : null}
-
-            <ConfirmModal
-                isOpen={showCancelConfirm}
-                onClose={() => setShowCancelConfirm(false)}
-                onConfirm={handleCancelExport}
-                variant="danger"
-                title="Hủy phiếu xuất kho"
-                description={`Bạn chắc chắn muốn hủy phiếu ${phieu.soPhieuXuat}? Mọi số lượng đã bốc (giữ hàng) sẽ được hoàn tồn. Thao tác này không thể hoàn tác.`}
-                cancelText="Quay lại"
-                confirmText="Xác nhận hủy"
-                isLoading={isProcessing}
-            />
-        </PageContainer>
-    );
+  const { id } = useParams();
+  return <ManPhieuXuatKho key={id} id={id} />;
 }
 
-function InfoItem({ icon, label, value, highlight }) {
+function ManPhieuXuatKho({ id }) {
+  const navigate = useNavigate();
+
+  const [data, setData] = useState(null);
+  const [dangTai, setDangTai] = useState(true);
+  // null: không lỗi; { loi }: lần tải gần nhất không có phiếu (loi = null: máy chủ trả rỗng) hoặc lỗi (axios)
+  const [loiTai, setLoiTai] = useState(null);
+  // Mốc dữ liệu trên màn được tải (cho useTaiLaiKhiQuayLai, không tải lại ngay sau thao tác)
+  const [capNhatLuc, setCapNhatLuc] = useState(null);
+  // Hộp đang mở: "xuat" (xuất kho bán hàng) | "vanChuyen" (chuyển kho) | "huy"
+  const [hop, setHop] = useState(null);
+  const [dangXuLy, setDangXuLy] = useState(false);
+
+  // Chỉ nhận kết quả của lần tải mới nhất: lần tải ngầm về chậm không đè dữ liệu của lần tải sau (Thử lại, đổi phiếu)
+  const requestIdRef = useRef(0);
+  // ngam: tải lại ngầm (quay lại tab, sau thao tác) — giữ màn đang xem, chỉ thay khi tải được dữ liệu mới
+  const taiPhieu = useCallback(async ({ ngam = false } = {}) => {
+    const requestId = ++requestIdRef.current;
+    if (!ngam) {
+      setDangTai(true);
+      setLoiTai(null);
+    }
+    try {
+      const res = await phieuXuatKhoService.getDetail(id);
+      if (requestId !== requestIdRef.current) return;
+      const payload = res?.data || res;
+      if (payload?.phieu) {
+        setData(payload);
+        setLoiTai(null);
+        setCapNhatLuc(new Date());
+      } else if (!ngam) {
+        // Máy chủ trả về rỗng: coi như không có phiếu này
+        setData(null);
+        setLoiTai({ loi: null });
+      }
+    } catch (e) {
+      if (requestId !== requestIdRef.current) return;
+      // Tải ngầm lỗi: im lặng, giữ dữ liệu đang hiện (như useTaiDuLieu)
+      if (ngam) return;
+      setData(null);
+      setLoiTai({ loi: e });
+    } finally {
+      if (!ngam && requestId === requestIdRef.current) setDangTai(false);
+    }
+  }, [id]);
+
+  // Hoãn qua microtask để tránh setState đồng bộ trong effect
+  // (react-hooks/set-state-in-effect); vẫn tải lại chi tiết mỗi khi id đổi.
+  useEffect(() => {
+    queueMicrotask(() => taiPhieu());
+  }, [taiPhieu]);
+
+  // Quay lại tab thì tải lại ngầm (trạng thái phiếu do kho cập nhật); không tải khi đang thao tác
+  useTaiLaiKhiQuayLai(() => taiPhieu({ ngam: true }), {
+    bat: Boolean(data) && !dangTai && !dangXuLy,
+    lanCuoi: capNhatLuc,
+  });
+
+  const phieu = data?.phieu ?? null;
+  const chiTiet = Array.isArray(data?.chiTiet) ? data.chiTiet : KHONG_CO_DONG;
+  const lo = useLoTheoDong(phieu?.id ?? null, phieu?.trangThai, phieu ? chiTiet : null);
+
+  const dong = useMemo(
+    () =>
+      chiTiet.map((ct) => {
+        const muc = lo.theoDong[ct.id];
+        return {
+          id: ct.id,
+          tenSanPham: ct.tenBienThe || "",
+          sku: ct.sku || "",
+          can: docSo(ct.soLuongCanXuat),
+          da: docSo(ct.soLuongDaPick),
+          du: ct.duSoLuong === true,
+          soLuong: docSo(ct.soLuongCanXuat),
+          lo: muc?.lo?.map((l) => ({ maLo: l.maLo, soLuong: l.soLuong })) ?? [],
+          trangThaiLo: muc?.trangThai,
+          ct,
+        };
+      }),
+    [chiTiet, lo.theoDong],
+  );
+  const bang = useBangChungTu(dong, { theo: "dong", donVi: "dòng", boLoc: BO_LOC_DONG_XUAT });
+
+  // ── Đang tải / không thấy / lỗi ─────────────────────────────────────────
+  if (dangTai || !phieu) {
     return (
-        <div className="flex flex-col gap-1.5">
-            <div className="flex items-center gap-1.5">
-                {createElement(icon, { className: "size-3.5 text-bo-primary" })}
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                    {label}
-                </span>
-            </div>
-            <div className={`text-sm font-semibold ${highlight ? "text-bo-primary" : "text-bo-foreground"}`}>
-                {value || "---"}
-            </div>
-        </div>
+      <PageContainer className="flex min-h-full flex-col">
+        {dangTai || !loiTai ? (
+          <KhungDangTai nhan="Đang tải phiếu xuất kho" />
+        ) : (
+          <KhungLoiChungTu
+            loi={loiTai.loi}
+            tenChungTu="phiếu xuất kho"
+            tuyChonLoi={TUY_CHON_LOI}
+            locCauMayChu={locCauMayChu}
+            moTaKhongThay="Phiếu xuất kho không tồn tại, đã bị xóa hoặc thuộc kho khác với nơi làm việc đang chọn."
+            onVeDanhSach={() => navigate(DANH_SACH)}
+            onThuLai={() => taiPhieu()}
+          />
+        )}
+      </PageContainer>
     );
+  }
+
+  // ── Tính toán ───────────────────────────────────────────────────────────
+  const laCk = phieu.loaiXuat === LOAI_XUAT.CHUYEN_KHO;
+  const laPos = laPhieuPos(phieu);
+  const laQuanLy = hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO]);
+  const quyen = quyenPhieuXuat({ phieu, laQuanLy, laPos });
+  const tt = Number(phieu.trangThai);
+  const chuaXuat = tt === TRANG_THAI_PHIEU_XUAT.NHAP || tt === TRANG_THAI_PHIEU_XUAT.CHO_XUAT;
+  const daHuy = tt === TRANG_THAI_PHIEU_XUAT.DA_HUY;
+  const ghiChu = tachGhiChuPhieuXuat(phieu.ghiChu);
+  const soDong = bang.tong.soDong;
+  const soThieu = dong.filter((d) => !d.du).length;
+  const tongSl = bang.tong.soLuong;
+  const buoc = tinhBuocPhieuXuat({ phieu, laPos, soDong, soDongDuLo: soDong - soThieu });
+  const lyDoKhoa = lyDoKhoaXuat({ laCk, soDong, soThieu });
+  const statusInfo = getPhieuXuatKhoStatus(phieu.trangThai);
+  const loaiNhan = laCk ? "Chuyển kho nội bộ" : laPos ? "Xuất bán tại quầy" : "Xuất bán hàng";
+  const moTaBang = laCk ? "Lô chọn ở từng dòng" : laPos ? "Lô theo nhập trước lấy trước" : "Lô lấy từ phiếu nhặt hàng";
+
+  // ── Thao tác ────────────────────────────────────────────────────────────
+  const dongHop = (mo) => {
+    if (!mo && !dangXuLy) setHop(null);
+  };
+
+  // Chuyển kho: xác nhận vận chuyển (PUT /{id}/complete) — trừ tồn kho nguồn, đưa hàng vào kho Trung chuyển
+  const xacNhanVanChuyen = async () => {
+    setDangXuLy(true);
+    try {
+      await phieuXuatKhoService.complete(phieu.id);
+      toast.success(`Đã xác nhận vận chuyển ${phieu.soPhieuXuat}`, {
+        description: ghiChu.maPhieuChuyen ? `Phiếu chuyển ${ghiChu.maPhieuChuyen} chuyển sang Đang vận chuyển` : undefined,
+      });
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, "Không thể thực hiện thao tác"));
+    } finally {
+      // Thành công hay lỗi đều đóng hộp (như bản cũ) và tải lại ngầm: lỗi thường do phiếu vừa đổi ở nơi khác
+      setHop(null);
+      setDangXuLy(false);
+      taiPhieu({ ngam: true });
+    }
+  };
+
+  // Bán hàng: xác nhận xuất kho kèm thông tin giao vận (POST /{id}/xac-nhan-xuat-kho, SRS 6.3.2).
+  // Lỗi thì giữ hộp thoại để người dùng sửa và thử lại.
+  const xacNhanXuatKho = async (payload) => {
+    setDangXuLy(true);
+    try {
+      const res = await phieuXuatKhoService.xacNhanXuatKho(phieu.id, payload);
+      toast.success(res?.message || "Xác nhận xuất kho thành công");
+      setHop(null);
+      await taiPhieu({ ngam: true });
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, "Không thể xác nhận xuất kho"));
+    } finally {
+      setDangXuLy(false);
+    }
+  };
+
+  // Hủy phiếu (cả bán hàng và chuyển kho): PUT /phieu-xuat-kho/{id}/cancel. Bản cũ gọi nhầm
+  // PUT /phieu-chuyen-kho/{id}/cancel cho phiếu chuyển kho (API của phiếu chuyển gốc) nên luôn lỗi.
+  const huyPhieu = async () => {
+    setDangXuLy(true);
+    try {
+      await phieuXuatKhoService.cancel(phieu.id);
+      toast.success(`Đã hủy phiếu xuất ${phieu.soPhieuXuat}`, { description: "Số lượng đang giữ đã trả lại tồn kho" });
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, "Không thể hủy phiếu"));
+    } finally {
+      setHop(null);
+      setDangXuLy(false);
+      taiPhieu({ ngam: true });
+    }
+  };
+
+  // Mở Chọn lô / Sửa lô của một dòng. Màn Chọn lô luôn tự đọc lại phiếu từ máy chủ (không nhận router state).
+  const moChonLo = (ct) => navigate(`/goods-issues/${phieu.id}/pick-lot/${ct.id}`);
+
+  const xemDongThieu = () => {
+    bang.xoaTuKhoa();
+    bang.datLoc("thieuLo");
+  };
+
+  const nutChinh =
+    quyen.nutChinh === "dongGoi"
+      ? {
+        ma: "dongGoi",
+        nhan: "Đóng gói",
+        icon: PackageCheck,
+        onClick: () => navigate(`/goods-issues/packing/${phieu.donBanHang.id}`),
+      }
+      : quyen.nutChinh
+        ? {
+          ma: quyen.nutChinh,
+          nhan: quyen.nutChinh === "vanChuyen" ? "Xác nhận vận chuyển" : "Xác nhận xuất kho",
+          icon: Truck,
+          onClick: () => setHop(quyen.nutChinh === "vanChuyen" ? "vanChuyen" : "xuat"),
+          khoa: Boolean(lyDoKhoa),
+          lyDo: lyDoKhoa ?? undefined,
+          dangChay: dangXuLy,
+        }
+        : null;
+
+  const soDon = phieu.donBanHang?.soDonHang;
+  const moTaHuy = laCk
+    ? `Hủy phiếu ${phieu.soPhieuXuat}? Số lượng đang giữ ở ${phieu.kho?.tenKho || "kho xuất"} được trả lại. Không hoàn tác được.`
+    : `Hủy phiếu ${phieu.soPhieuXuat}? Số lượng đang giữ được trả lại tồn kho${
+      soDon ? `; đơn ${soDon} quay về Chờ nhặt hàng (Đã xuất một phần nếu đơn đã xuất một phần trước đó)` : ""
+    }. Không hoàn tác được.`;
+  const moTaVanChuyen = `Hàng trong phiếu ${phieu.soPhieuXuat} (tổng số lượng ${soVN(tongSl)}) được trừ tồn tại ${
+    phieu.kho?.tenKho || "kho xuất"
+  } và chuyển sang kho Trung chuyển để bắt đầu vận chuyển. ${
+    ghiChu.maPhieuChuyen ? `Phiếu chuyển ${ghiChu.maPhieuChuyen}` : "Phiếu chuyển kho"
+  } chuyển sang Đang vận chuyển.`;
+
+  const thongBao = [];
+  if (chuaXuat && !laPos && soThieu > 0) {
+    thongBao.push(
+      <DongThongBao
+        key="thieu"
+        tone="warn"
+        actions={
+          bang.coCongCu && bang.locNhanh !== "thieuLo" ? <NutChu onClick={xemDongThieu}>Xem các dòng thiếu lô</NutChu> : null
+        }
+      >
+        {cauThieuLo({ laCk, laQuanLy, soThieu })}
+      </DongThongBao>,
+    );
+  }
+  if (lo.soLoi > 0) {
+    thongBao.push(
+      <DongThongBao key="loiLo" tone="warn" actions={<NutChu onClick={lo.taiLai}>Thử lại</NutChu>}>
+        Không tải được lô của {soVN(lo.soLoi)} dòng.
+      </DongThongBao>,
+    );
+  }
+  if (daHuy) {
+    thongBao.push(
+      <DongThongBao key="huy" tone="neutral">
+        Phiếu đã hủy. Số lượng đang giữ đã trả lại tồn kho.
+      </DongThongBao>,
+    );
+  }
+
+  return (
+    <PageContainer className="flex min-h-full flex-col">
+      <KhungChungTu
+        aria-label={`Phiếu xuất kho ${phieu.soPhieuXuat || ""}`.trim()}
+        dau={
+          <DauChungTu
+            ma={phieu.soPhieuXuat}
+            trangThai={{ label: statusInfo.label, quyTrinh: "phieuXuat" }}
+            dongPhu={[
+              loaiNhan,
+              <b key="dong" className="font-semibold text-bo-foreground">{soVN(soDong)} biến thể</b>,
+              <span key="sl">
+                tổng số lượng <b className="font-semibold text-bo-foreground">{soVN(tongSl)}</b>
+              </span>,
+            ]}
+            onQuayLai={() => navigate(DANH_SACH)}
+            nhanQuayLai="Về danh sách phiếu xuất kho"
+            nutPhu={quyen.coIn ? { ma: "in", nhan: "In phiếu", icon: Printer, onClick: () => navigate(`/goods-issues/${phieu.id}/print`) } : null}
+            saoChepMa={{ giaTri: phieu.soPhieuXuat, nhan: "Sao chép mã phiếu" }}
+            menu={
+              quyen.coHuy
+                ? [{
+                  ma: "huy",
+                  nhan: "Hủy phiếu",
+                  icon: Ban,
+                  nguyHiem: true,
+                  moTa: "Trả lại số lượng đang giữ cho tồn kho",
+                  khoa: dangXuLy,
+                  onSelect: () => setHop("huy"),
+                }]
+                : []
+            }
+            nutChinh={nutChinh}
+          />
+        }
+        tienTrinh={buoc.length ? <TienTrinhChungTu nhan="Tiến trình phiếu xuất kho" buoc={buoc} /> : null}
+        thongBao={thongBao.length ? thongBao : null}
+        chinh={
+          <BangSanPhamXuat
+            bang={bang}
+            moTa={moTaBang}
+            soThieu={soThieu}
+            suaLo={quyen.suaLo}
+            nhanNutLo={quyen.nhanNutLo}
+            onMoLo={moChonLo}
+          />
+        }
+        cotPhai={<ThuocTinhPhieuXuat phieu={phieu} laCk={laCk} laPos={laPos} ghiChu={ghiChu} />}
+      />
+
+      {hop === "xuat" ? (
+        <DispatchDialog
+          open
+          onOpenChange={dongHop}
+          soPhieuXuat={phieu.soPhieuXuat}
+          tongSoLuong={tongSl}
+          onConfirm={xacNhanXuatKho}
+        />
+      ) : null}
+
+      <HopXacNhanChungTu
+        mo={hop === "vanChuyen"}
+        onDoiMo={dongHop}
+        tieuDe="Xác nhận vận chuyển"
+        moTa={moTaVanChuyen}
+        nhanXacNhan="Xác nhận vận chuyển"
+        iconXacNhan={Truck}
+        dangChay={dangXuLy}
+        onXacNhan={xacNhanVanChuyen}
+      />
+
+      <HopXacNhanChungTu
+        mo={hop === "huy"}
+        onDoiMo={dongHop}
+        tieuDe="Hủy phiếu xuất kho"
+        moTa={moTaHuy}
+        nhanXacNhan="Hủy phiếu"
+        iconXacNhan={Ban}
+        kieu="nguyHiem"
+        dangChay={dangXuLy}
+        onXacNhan={huyPhieu}
+      />
+    </PageContainer>
+  );
 }

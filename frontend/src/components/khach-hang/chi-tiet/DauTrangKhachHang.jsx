@@ -93,7 +93,7 @@ export default function DauTrangKhachHang({
             <PageHeading className="max-sm:line-clamp-2 max-sm:whitespace-normal">
               <span title={khachHang.tenKhachHang || undefined}>{khachHang.tenKhachHang || khachHang.maKhachHang || "—"}</span>
             </PageHeading>
-            <StatusBadge size="lg" label={dangHoatDong ? "Hoạt động" : "Ngừng hoạt động"} />
+            <StatusBadge doiTuong="nguoi" size="lg" label={dangHoatDong ? "Hoạt động" : "Ngừng hoạt động"} />
           </div>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[13px] leading-6 text-bo-muted">
             {khachHang.maKhachHang ? (

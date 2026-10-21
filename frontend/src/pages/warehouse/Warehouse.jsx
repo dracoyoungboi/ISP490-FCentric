@@ -467,7 +467,7 @@ export default function WarehouseManagement() {
                                         {wh.quanLy?.hoTen || '—'}
                                     </td>
                                     <td className="px-3 py-3">
-                                        <StatusBadge label={wh.trangThai === 1 ? 'Hoạt động' : 'Ngừng hoạt động'} />
+                                        <StatusBadge doiTuong="kho" label={wh.trangThai === 1 ? 'Hoạt động' : 'Ngừng hoạt động'} />
                                     </td>
                                     <td className="px-3 py-3 text-right tabular-nums">
                                         {wh.soLuongTon == null ? (

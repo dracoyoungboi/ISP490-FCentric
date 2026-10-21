@@ -94,7 +94,7 @@ export default function DauTrangNguoiDung({ nguoiDung, pq, laChinhMinh, onQuayLa
             <PageHeading className="max-sm:line-clamp-2 max-sm:whitespace-normal">
               <span title={nguoiDung.hoTen || undefined}>{nguoiDung.hoTen || nguoiDung.tenDangNhap || "—"}</span>
             </PageHeading>
-            <StatusBadge size="lg" label={dangHoatDong ? "Hoạt động" : "Bị khóa"} />
+            <StatusBadge doiTuong="nguoi" size="lg" label={dangHoatDong ? "Hoạt động" : "Bị khóa"} />
           </div>
           <p className="mt-0.5 break-words text-[13px] leading-5 text-bo-muted">{dongPhu(nguoiDung, pq)}</p>
         </div>
