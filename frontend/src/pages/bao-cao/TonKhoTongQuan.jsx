@@ -102,7 +102,7 @@ function trangThaiTon(item) {
     return "du_hang";
 }
 
-// Tên tình trạng tồn; màu thẻ tra theo tên ở constants/trangThai ("Bình thường" là chữ thường, không thẻ).
+// Tên tình trạng tồn; màu thẻ tra theo tên ở constants/trangThai ("Bình thường": biểu tượng xanh lá + chữ, không khung).
 // "Sắp hết hàng" (trước là "Thiếu hàng") để không trùng tên cờ "Thiếu hàng" của đơn kênh (đơn không giao được).
 const STATUS_CFG = {
     het_hang: { label: "Hết hàng" },

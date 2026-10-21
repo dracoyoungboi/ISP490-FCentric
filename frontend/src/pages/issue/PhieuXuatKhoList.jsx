@@ -464,7 +464,7 @@ export default function PhieuXuatKhoList() {
                                         </td>
                                         <td className="px-3 py-3">
                                             {status ? (
-                                                <StatusBadge label={status.label} />
+                                                <StatusBadge quyTrinh="phieuXuat" label={status.label} />
                                             ) : (
                                                 <span className="text-xs text-bo-muted">—</span>
                                             )}

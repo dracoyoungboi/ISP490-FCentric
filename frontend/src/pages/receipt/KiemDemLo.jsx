@@ -1071,7 +1071,7 @@ function KiemDemLoNoiDung() {
           <div className="min-w-0 flex-[1_1_420px]">
             <div className="flex flex-wrap items-center gap-3">
               <h1 title={item.tenBienThe} className={cn("min-w-0 line-clamp-2 break-words", PAGE_HEADING_TYPE)}>{item.tenBienThe}</h1>
-              <StatusBadge size="lg" label={trangThai} />
+              <StatusBadge quyTrinh="kiemDem" size="lg" label={trangThai} />
             </div>
             <p className="mt-1 text-[13px] leading-5 text-bo-muted">
               {[item.mauSac, item.kichCo ? `Kích cỡ ${item.kichCo}` : null].filter(Boolean).join(" · ")}

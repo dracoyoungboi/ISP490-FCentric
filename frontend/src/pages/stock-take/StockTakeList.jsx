@@ -22,6 +22,7 @@ import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { getStockTakes } from "@/services/stockTakeService";
 import { hasAnyRole, ROLES } from "@/utils/roles";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
+import { trangThaiLa } from "@/constants/trangThaiChung";
 import { formatDate } from "@/utils/formatters";
 
 // ── Trạng thái (màu thẻ tra theo tên ở constants/trangThai) ──────────────
@@ -297,7 +298,7 @@ export default function StockTakeList() {
             </thead>
             <tbody className="divide-y divide-bo-border">
               {pageItems.map((item, index) => {
-                const tt        = TRANG_THAI[item.trangThai] ?? TRANG_THAI[0];
+                const tt        = TRANG_THAI[item.trangThai] ?? trangThaiLa(item.trangThai);
                 const isOngoing = item.trangThai === 0;
                 return (
                   <tr key={item.id} className="transition-colors hover:bg-bo-surface-subtle">
@@ -343,7 +344,7 @@ export default function StockTakeList() {
 
                     {/* Trạng thái */}
                     <td className="px-4 py-3.5 align-middle">
-                      <StatusBadge label={tt.label} />
+                      <StatusBadge quyTrinh="kiemKe" label={tt.label} />
                     </td>
 
                     {/* Thao tác */}

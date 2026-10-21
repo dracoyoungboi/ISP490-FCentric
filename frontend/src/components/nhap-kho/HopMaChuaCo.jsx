@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { cn } from "@/lib/utils";
 import { THE_LENH, tenDayDu } from "@/pages/receipt/kiemDem";
 import { TIEN_TO_THE_LENH, ganGiong, moTaDangMa, phanDauCua } from "@/utils/maVach";
+import StatusBadge from "@/components/shared/StatusBadge";
 
 const O_NHAP =
   "h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-bo-foreground placeholder:text-slate-400 focus:border-bo-primary focus:outline-none focus:ring-[3px] focus:ring-bo-primary/20";
@@ -326,7 +327,7 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
                         </span>
                       </span>
                       {it.bienTheSanPhamId === bienTheDangKiemId ? (
-                        <span className="shrink-0 rounded-[3px] bg-blue-50 px-1.5 py-0.5 text-[11px] font-semibold text-bo-primary">Đang kiểm</span>
+                        <StatusBadge label="Đang kiểm đếm" />
                       ) : null}
                     </button>
                   );

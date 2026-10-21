@@ -346,7 +346,7 @@ export default function PickListList() {
                                             {formatDateTime(row.ngayTao)}
                                         </td>
                                         <td className="px-3 py-3">
-                                            <StatusBadge label={status.label} />
+                                            <StatusBadge quyTrinh="phieuNhat" label={status.label} />
                                         </td>
                                         <td className="px-3 py-3 text-center">
                                             <RowActions>

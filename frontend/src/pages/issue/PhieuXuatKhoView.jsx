@@ -71,7 +71,7 @@ export default function PhieuXuatKhoView() {
                 </button>
 
                 <div className="flex flex-wrap items-center gap-2">
-                    <StatusBadge size="lg" label={statusInfo.label} />
+                    <StatusBadge quyTrinh="phieuXuat" size="lg" label={statusInfo.label} />
                 </div>
             </div>
 

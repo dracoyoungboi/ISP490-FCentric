@@ -409,7 +409,7 @@ export default function PhieuNhapKhoList() {
                     {item.ngayNhap ? formatDate(item.ngayNhap) : "Chưa nhập kho"}
                   </td>
                   <td className="px-4 py-3 align-middle">
-                    <StatusBadge label={getGoodsReceiptStatus(item.trangThai).label} />
+                    <StatusBadge quyTrinh="phieuNhap" label={getGoodsReceiptStatus(item.trangThai).label} />
                   </td>
                 </tr>
               ))}
