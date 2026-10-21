@@ -17,6 +17,11 @@ import ChiTietNhapTuDonMua from "./ChiTietNhapTuDonMua";
  */
 export default function PhieuNhapKhoDetail() {
     const { id } = useParams();
+    // Đổi phiếu (cùng route) thì dựng lại màn: không mang từ khóa, lọc, trang của bảng phiếu trước (useBangChungTu)
+    return <ManPhieuNhapKho key={id} id={id} />;
+}
+
+function ManPhieuNhapKho({ id }) {
     const navigate = useNavigate();
 
     const [data, setData] = useState(null);

@@ -26,6 +26,11 @@ public class MailConfig {
         props.put("mail.debug", "false");
         props.put("mail.smtp.ssl.trust", "smtp.gmail.com"); // Rất quan trọng
         props.put("mail.smtp.ssl.protocols", "TLSv1.2");
+        // Thời gian chờ SMTP (ms): mặc định JavaMail chờ vô hạn, SMTP treo sẽ treo luôn request (vd. chốt báo giá đang giữ
+        // khóa dòng khi gửi email). Quá hạn thì ném lỗi, giao dịch hoàn tác như khi gửi email lỗi.
+        props.put("mail.smtp.connectiontimeout", "15000");
+        props.put("mail.smtp.timeout", "15000");
+        props.put("mail.smtp.writetimeout", "15000");
 
         return mailSender;
     }

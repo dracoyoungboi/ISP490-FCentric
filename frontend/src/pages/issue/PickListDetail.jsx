@@ -10,6 +10,15 @@ import DauChungTu from "@/components/chung-tu/DauChungTu";
 import TienTrinhChungTu from "@/components/chung-tu/TienTrinhChungTu";
 import { KhungDangTai, KhungLoiChungTu } from "@/components/chung-tu/KhungTaiChungTu";
 import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
+import {
+    CAU_HET_THOI_HAN,
+    LY_DO_CHO_GOC,
+    MO_TA_HET_THOI_HAN,
+    chayCoThoiHan,
+    khiGocKetThuc,
+    khoaKhiChoGoc,
+    laLoiHetThoiHan,
+} from "@/components/chung-tu/thoiHanThaoTac";
 import useBangChungTu from "@/components/chung-tu/useBangChungTu";
 import AssignPickerDialog from "@/components/outbound/AssignPickerDialog";
 import LotAllocationDialog from "@/components/outbound/LotAllocationDialog";
@@ -37,14 +46,18 @@ import {
     demDon,
     dongBangNhat,
     dsDonTrongPhieu,
+    gopCanhBaoHuy,
     hangTraKe,
     idDongDaQuet,
     ketQuaHoanTatNhat,
+    loiQuetCanTaiLai,
     lyDoKhoaHoanTat,
+    themCanhBaoHuy,
     tinhBuoc,
     tinhQuyen,
     tinhTienDo,
 } from "@/components/outbound/phieu-nhat/tinhPhieuNhat";
+import useQuayLai from "@/hooks/useQuayLai";
 import useScanQueue from "@/hooks/useScanQueue";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { nhatHangService, isPickListMock } from "@/services/nhatHangService";
@@ -58,6 +71,10 @@ const MO_TA_KHONG_THAY = "Phiếu nhặt hàng không tồn tại hoặc thuộc
 
 /** Câu lỗi của máy chủ (đã lọc chữ "Pick List"…), không có thì câu dự phòng. */
 const cauLoi = (error, duPhong) => cauMayChuPhieuNhat(getApiErrorMessage(error, duPhong));
+// Thao tác bấm tay (nhận việc, hoàn tất) lỗi do phiếu vừa đổi ở máy khác thì tải lại ngầm: 409 (đổi người nhặt, chưa
+// phân công…), 400 (phiếu đã hoàn tất / đã xuất / đã hủy — NhatHangServiceImpl ném CommonException 400).
+// Quét dùng loiQuetCanTaiLai: lỗi quét thường gặp cũng là 400.
+const canTaiLaiSauLoi = (error) => [400, 409].includes(getApiErrorStatus(error));
 // Tải lại ngầm mà dữ liệu trên màn vừa đổi (quét, phân công, phân bổ lô) thì tải lại tối đa ngần này lần
 const SO_LAN_TAI_LAI_KHI_DOI = 3;
 
@@ -78,6 +95,8 @@ export default function PickListDetail() {
 
 function ManNhatHang({ id }) {
     const navigate = useNavigate();
+    // Có trang trước trong ứng dụng (danh sách đang lọc theo tab ?trangThai=) thì lùi lại; mở thẳng thì mở danh sách
+    const veDanhSach = useQuayLai(DS_PHIEU_NHAT);
     const scanBarRef = useRef(null);
 
     const [phieu, setPhieu] = useState(null);
@@ -89,10 +108,26 @@ function ManNhatHang({ id }) {
     const [canDen, setCanDen] = useState(null);
     const [moPhanCong, setMoPhanCong] = useState(false);
     const [moHoanTat, setMoHoanTat] = useState(false);
+    const [loiHoanTat, setLoiHoanTat] = useState(null);
     const [dangHoanTat, setDangHoanTat] = useState(false);
     const [dangNhanViec, setDangNhanViec] = useState(false);
     const [ketQuaHoanTat, setKetQuaHoanTat] = useState(null);
-    const [canhBaoHuy, setCanhBaoHuy] = useState(null);
+    // Hoàn tất hết thời hạn mà máy chủ có thể vẫn đang làm: khóa nút thao tác tới khi lời gọi gốc kết thúc (khiGocKetThuc)
+    const [choGoc, setChoGoc] = useState(false);
+    const huyChoGocRef = useRef(null);
+    // Màn đã gỡ (rời trang trong lúc chờ): nhánh hết thời hạn bỏ qua báo lỗi, khóa nút, tải lại; gỡ thì hủy chờ
+    const daGoRef = useRef(false);
+    useEffect(() => {
+        daGoRef.current = false;
+        return () => {
+            daGoRef.current = true;
+            huyChoGocRef.current?.();
+        };
+    }, []);
+    // Cảnh báo hủy nhận qua WebSocket: mỗi đơn một mục (themCanhBaoHuy), hiện gộp theo loại (gopCanhBaoHuy)
+    const [canhBaoHuy, setCanhBaoHuy] = useState([]);
+    // Tải lại ngầm bị bỏ vì quét liên tục: tải lại khi hàng đợi quét gửi xong
+    const [henTaiLai, setHenTaiLai] = useState(false);
     const [donBangChung, setDonBangChung] = useState(null);
     const [dongPhanBo, setDongPhanBo] = useState(null);
 
@@ -118,9 +153,13 @@ function ManNhatHang({ id }) {
                     setPhieu(res ?? null);
                     setLoiTai(null);
                     setCapNhatLuc(new Date());
+                    setHenTaiLai(false);
                     return;
                 }
             }
+            // Lần thử nào cũng có lần quét chen vào: hẹn tải lại khi hàng đợi quét về 0, không để số cần nhặt
+            // (vd. đơn vừa hủy) giữ giá trị cũ
+            setHenTaiLai(true);
         } catch (error) {
             if (lan !== lanTaiRef.current) return;
             if (ngam) toast.error(cauLoi(error, "Không tải lại được phiếu nhặt hàng"));
@@ -135,15 +174,28 @@ function ManNhatHang({ id }) {
     }, [taiPhieu]);
 
     // ── Sự kiện tức thời: đơn bị hủy (đang nhặt / sau khi nhặt xong), hủy cả phiếu ──
-    // Mỗi sự kiện chỉ báo ở MỘT chỗ: dòng cảnh báo dưới tiến trình (không thêm thông báo nhanh trùng ý).
+    // Chi tiết ở dòng cảnh báo dưới tiến trình (giữ mọi đơn đã hủy, gộp hàng cần trả kệ), kèm một thông báo nhanh ngắn
+    // cho người đang cuộn bảng / dùng điện thoại không thấy đầu khối.
     useSuKienPhieuNhat(id, (loai, data) => {
+        const don = data?.soDonHangBiHuy ? `Đơn ${data.soDonHangBiHuy}` : "Một đơn";
         if (loai === "ORDER_CANCELLED_IN_PICK_LIST") {
-            setCanhBaoHuy({ loai: "donNhat", soDonHang: data.soDonHangBiHuy, hangCanTraKe: data.hangCanTraKe || [] });
+            setCanhBaoHuy((ds) => themCanhBaoHuy(ds, {
+                loai: "donNhat",
+                soDonHang: data.soDonHangBiHuy,
+                hangCanTraKe: data.hangCanTraKe || [],
+            }));
+            toast.warning(`${don} đã hủy trên sàn`, {
+                description: data.hangCanTraKe?.length
+                    ? "Số cần nhặt đã tự giảm. Xem hàng cần trả kệ ở đầu phiếu."
+                    : "Số cần nhặt đã tự giảm.",
+            });
             playScanBeep(false); // cảnh báo đơn bị hủy: máy quét không báo được việc này
         } else if (loai === "ORDER_CANCELLED_IN_PACKING") {
-            setCanhBaoHuy({ loai: "donDongGoi", soDonHang: data.soDonHangBiHuy });
+            setCanhBaoHuy((ds) => themCanhBaoHuy(ds, { loai: "donDongGoi", soDonHang: data.soDonHangBiHuy }));
+            toast.warning(`${don} đã hủy sau khi nhặt xong`);
         } else if (loai === "PICK_LIST_CANCELLED") {
-            setCanhBaoHuy({ loai: "caPhieu", message: cauMayChuPhieuNhat(data.message) });
+            setCanhBaoHuy((ds) => themCanhBaoHuy(ds, { loai: "caPhieu", message: cauMayChuPhieuNhat(data.message) }));
+            toast.error("Phiếu nhặt hàng đã hủy vì mọi đơn đã hủy");
             playScanBeep(false);
         } else {
             return;
@@ -166,11 +218,21 @@ function ManNhatHang({ id }) {
             // Chỉ kêu khi KHÔNG cộng được: máy quét đã tự kêu "bíp" khi đọc được mã, nhưng không biết mã có
             // thuộc phiếu nhặt này / còn cần nhặt hay không.
             playScanBeep(false);
-            if (getApiErrorStatus(error) === 409) taiPhieu({ ngam: true });
+            // Chỉ tải lại khi phiếu vừa đổi ở máy khác, không tải lại vì mã sai / đã nhặt đủ / quét vượt
+            if (loiQuetCanTaiLai(getApiErrorStatus(error), getApiErrorMessage(error, ""))) taiPhieu({ ngam: true });
         }
     }, [id, taiPhieu]);
 
     const { enqueue, pending } = useScanQueue(xuLyQuet);
+
+    // Tải lại đã hẹn (taiPhieu bỏ giữa chừng vì quét liên tục): hàng đợi quét gửi xong thì tải lại ngầm
+    useEffect(() => {
+        if (!henTaiLai || pending > 0) return;
+        queueMicrotask(() => {
+            setHenTaiLai(false);
+            taiPhieu({ ngam: true });
+        });
+    }, [henTaiLai, pending, taiPhieu]);
 
     // ── Bảng dòng nhặt ──
     const chiTiet = phieu?.chiTietNhatHangs;
@@ -185,6 +247,14 @@ function ManNhatHang({ id }) {
     useEffect(() => {
         if (canDen) denDongRef.current(canDen.id);
     }, [canDen]);
+
+    // Hết chờ lời gọi gốc: ô quét (bị tắt trong lúc chờ nên đã mất tiêu điểm) nhận lại tiêu điểm cho máy quét, nếu
+    // tiêu điểm không đang ở chỗ khác
+    const choGocTruocRef = useRef(false);
+    useEffect(() => {
+        if (choGocTruocRef.current && !choGoc && document.activeElement === document.body) scanBarRef.current?.focus();
+        choGocTruocRef.current = choGoc;
+    }, [choGoc]);
 
     // Quay lại tab thì tải lại ngầm (người khác có thể vừa phân công lại, đơn vừa đóng gói / xuất kho)
     useTaiLaiKhiQuayLai(() => taiPhieu({ ngam: true }), {
@@ -225,9 +295,10 @@ function ManNhatHang({ id }) {
     const idToi = getCurrentUserId();
     const quyen = tinhQuyen(phieu, { laQuanLy, idToi });
     const tienDo = tinhTienDo(phieu.tongSoLuongDaQuet, phieu.tongSoLuongCanNhat, phieu.phanTramHoanThanh);
+    const huyCaPhieu = canhBaoHuy.some((c) => c.loai === "caPhieu");
     const dsDon = dsDonTrongPhieu(phieu, {
-        huySo: canhBaoHuy?.loai === "caPhieu" ? null : canhBaoHuy?.soDonHang ?? null,
-        huyHet: canhBaoHuy?.loai === "caPhieu",
+        huySo: canhBaoHuy.map((c) => c.soDonHang).filter(Boolean),
+        huyHet: huyCaPhieu,
     });
     const buoc = tinhBuoc(phieu, { quyen, dsDon, tienDo });
     const soDon = phieu.tongDonHang ?? (phieu.danhSachMaDonHang ?? []).length;
@@ -256,36 +327,84 @@ function ManNhatHang({ id }) {
             coPhieuMoi(res);
         } catch (error) {
             toast.error(cauLoi(error, "Không thể phân công người nhặt"));
-            if (getApiErrorStatus(error) === 409) taiPhieu({ ngam: true });
+            if (canTaiLaiSauLoi(error)) taiPhieu({ ngam: true });
         } finally {
             banRef.current = false;
             setDangNhanViec(false);
         }
     };
 
+    // Khóa nút thao tác tới khi lời gọi gốc kết thúc (tối đa THOI_HAN_CHO_GOC_MS) rồi tải lại; màn gỡ thì hủy chờ
+    const khoaToiKhiGocXong = (loi) => {
+        huyChoGocRef.current?.();
+        setChoGoc(true);
+        huyChoGocRef.current = khiGocKetThuc(loi, () => {
+            huyChoGocRef.current = null;
+            setChoGoc(false);
+            taiPhieu({ ngam: true });
+        });
+    };
+
+    // Trong lúc chờ lời gọi gốc: phân bổ lô ở dòng và "Phân công lại" ở dòng thông báo không có nút khóa riêng → báo lý
+    // do thay vì mở hộp
+    const chanKhiChoGoc = (lam) => (...thamSo) => {
+        if (choGoc) {
+            toast.info(LY_DO_CHO_GOC, { description: "Chờ máy chủ trả lời rồi thử lại." });
+            return;
+        }
+        lam(...thamSo);
+    };
+
+    // Mở / đóng hộp Hoàn tất: xóa câu lỗi của lần trước
+    const doiMoHoanTat = (mo) => {
+        setMoHoanTat(mo);
+        setLoiHoanTat(null);
+    };
+
     const hoanTat = async () => {
         if (banRef.current) return;
         banRef.current = true;
         setDangHoanTat(true);
+        setLoiHoanTat(null);
+        let dongHop = true;
         try {
-            const res = await nhatHangService.hoanTat(id);
+            const res = await chayCoThoiHan(() => nhatHangService.hoanTat(id));
             const kq = ketQuaHoanTatNhat(res, phieu);
             coPhieuMoi(res, true);
             setKetQuaHoanTat(kq.boQua.length ? kq : null);
             setKetQuaQuet(null);
             setDongSang(null);
-            if (canhBaoHuy?.loai === "donNhat") setCanhBaoHuy(null);
-            toast.success(
-                `Đã hoàn tất nhặt ${res?.maPickList ?? ""}`.trim(),
-                kq.daTao.length ? { description: `Đã tạo phiếu xuất kho nháp cho ${kq.daTao.length} đơn` } : undefined,
-            );
+            setCanhBaoHuy((ds) => ds.filter((c) => c.loai !== "donNhat"));
+            if (res?.trangThai === "da_huy") {
+                // Mọi đơn đã hủy: máy chủ hủy luôn phiếu nhặt, không tạo phiếu xuất nào (dòng "Phiếu nhặt hàng đã hủy…")
+                toast.warning("Phiếu nhặt hàng đã hủy vì mọi đơn đã hủy", { description: "Không tạo phiếu xuất kho nào." });
+            } else {
+                toast.success(
+                    `Đã hoàn tất nhặt ${res?.maPickList ?? ""}`.trim(),
+                    kq.daTao.length ? { description: `Đã tạo phiếu xuất kho nháp cho ${kq.daTao.length} đơn` } : undefined,
+                );
+            }
         } catch (error) {
-            toast.error(cauLoi(error, "Không thể hoàn tất nhặt hàng"));
-            if (getApiErrorStatus(error) === 409) taiPhieu({ ngam: true });
+            if (laLoiHetThoiHan(error)) {
+                if (daGoRef.current) return;
+                // Máy chủ chưa trả lời sau thời hạn: đóng hộp, báo lỗi, tải lại ngầm; máy chủ có thể vẫn đang hoàn tất
+                // nên khóa nút tới khi lời gọi gốc kết thúc rồi tải lại lần nữa
+                toast.error(CAU_HET_THOI_HAN, { description: MO_TA_HET_THOI_HAN });
+                taiPhieu({ ngam: true });
+                khoaToiKhiGocXong(error);
+            } else if (canTaiLaiSauLoi(error)) {
+                // Phiếu vừa đổi ở máy khác: báo nhanh, đóng hộp, tải lại
+                toast.error(cauLoi(error, "Không thể hoàn tất nhặt hàng"));
+                taiPhieu({ ngam: true });
+            } else {
+                // Lỗi khác (mạng, máy chủ): giữ hộp mở, câu lỗi hiện trong hộp để thử lại
+                dongHop = false;
+                setLoiHoanTat(cauLoi(error, "Không thể hoàn tất nhặt hàng"));
+            }
         } finally {
             banRef.current = false;
             setDangHoanTat(false);
-            setMoHoanTat(false);
+            if (dongHop) setMoHoanTat(false);
         }
     };
 
@@ -294,14 +413,14 @@ function ManNhatHang({ id }) {
     const { tong: soDonHopLe, soXuat } = demDon(dsDon);
     const thongBao = [
         isPickListMock ? <MockModeNotice key="mau" show /> : null,
-        canhBaoHuy ? (
+        ...gopCanhBaoHuy(canhBaoHuy).map((cb) => (
             <CanhBaoHuy
-                key="huy"
-                canhBao={canhBaoHuy}
-                traKe={hangTraKe(canhBaoHuy.hangCanTraKe, chiTiet)}
-                onDaHieu={() => setCanhBaoHuy(null)}
+                key={`huy-${cb.loai}`}
+                canhBao={cb}
+                traKe={hangTraKe(cb.hangCanTraKe, chiTiet)}
+                onDaHieu={() => setCanhBaoHuy((ds) => ds.filter((c) => c.loai !== cb.loai))}
             />
-        ) : null,
+        )),
         ketQuaHoanTat ? <KetQuaBoQua key="boQua" ketQua={ketQuaHoanTat} onDaHieu={() => setKetQuaHoanTat(null)} /> : null,
         quyen.duocQuet ? (
             <VungQuet
@@ -311,6 +430,8 @@ function ManNhatHang({ id }) {
                 dangGui={pending}
                 ketQua={ketQuaQuet}
                 tienDo={tienDo}
+                khoa={choGoc}
+                lyDoKhoa={`${LY_DO_CHO_GOC}. Tạm dừng quét tới khi máy chủ trả lời.`}
             />
         ) : null,
         quyen.dangMo && !quyen.daPhanCong ? (
@@ -324,7 +445,7 @@ function ManNhatHang({ id }) {
             />
         ) : null,
         quyen.dangMo && quyen.daPhanCong && !quyen.laNguoiNhat ? (
-            <DongGiaoKhac key="giaoKhac" laQuanLy={quyen.laQuanLy} onPhanCong={() => setMoPhanCong(true)} />
+            <DongGiaoKhac key="giaoKhac" laQuanLy={quyen.laQuanLy} onPhanCong={chanKhiChoGoc(() => setMoPhanCong(true))} />
         ) : null,
         quyen.daXongNhat ? (
             <DongDaNhat
@@ -336,12 +457,19 @@ function ManNhatHang({ id }) {
                 onMoDsXuat={() => navigate("/goods-issues")}
             />
         ) : null,
-        quyen.daHuy && canhBaoHuy?.loai !== "caPhieu" ? <DongDaHuy key="daHuy" /> : null,
+        quyen.daHuy && !huyCaPhieu ? <DongDaHuy key="daHuy" /> : null,
     ].filter(Boolean);
 
     const menu = [
         quyen.dangMo && quyen.laQuanLy && quyen.daPhanCong
-            ? { ma: "phanCong", nhan: "Phân công lại", icon: UserPlus, moTa: "Đổi người nhặt phiếu này", onSelect: () => setMoPhanCong(true) }
+            ? {
+                ma: "phanCong",
+                nhan: "Phân công lại",
+                icon: UserPlus,
+                moTa: choGoc ? LY_DO_CHO_GOC : "Đổi người nhặt phiếu này",
+                khoa: choGoc,
+                onSelect: () => setMoPhanCong(true),
+            }
             : null,
         daNhat ? { ma: "dsXuat", nhan: "Mở danh sách phiếu xuất", icon: FileText, onSelect: () => navigate("/goods-issues") } : null,
     ];
@@ -358,24 +486,25 @@ function ManNhatHang({ id }) {
                             <b key="don" className="font-semibold text-bo-foreground">{formatQuantity(soDon)} đơn</b>,
                             <b key="dong" className="font-semibold text-bo-foreground">{formatQuantity(soSku)} {DON_VI_DONG}</b>,
                         ]}
-                        onQuayLai={() => navigate(DS_PHIEU_NHAT)}
+                        onQuayLai={veDanhSach}
                         nhanQuayLai="Về danh sách phiếu nhặt hàng"
                         saoChepMa={{ giaTri: phieu.maPickList, nhan: "Sao chép mã phiếu" }}
                         menu={menu}
-                        nutChinh={
+                        nutChinh={khoaKhiChoGoc(
                             quyen.duocHoanTat
                                 ? {
                                     ma: "hoanTat",
                                     nhan: "Hoàn tất nhặt",
                                     icon: CheckCheck,
-                                    onClick: () => setMoHoanTat(true),
+                                    onClick: () => doiMoHoanTat(true),
                                     khoa: !phieu.coTheHoanTat || pending > 0,
                                     lyDo: lyDoKhoa,
                                     hienLyDo: true,
                                     dangChay: dangHoanTat,
                                 }
-                                : null
-                        }
+                                : null,
+                            choGoc,
+                        )}
                     />
                 }
                 tienTrinh={<TienTrinhChungTu buoc={buoc} nhan="Tiến trình phiếu nhặt hàng" />}
@@ -385,7 +514,7 @@ function ManNhatHang({ id }) {
                         bang={bang}
                         duocPhanBoLo={quyen.duocPhanBoLo}
                         dongSang={quyen.dangMo ? dongSang : null}
-                        onPhanBoLo={setDongPhanBo}
+                        onPhanBoLo={chanKhiChoGoc(setDongPhanBo)}
                     />
                 }
                 cotPhai={
@@ -415,13 +544,14 @@ function ManNhatHang({ id }) {
 
             <HopXacNhanChungTu
                 mo={moHoanTat}
-                onDoiMo={setMoHoanTat}
+                onDoiMo={doiMoHoanTat}
                 tieuDe="Hoàn tất nhặt hàng"
                 moTa={`Phiếu nhặt hàng ${phieu.maPickList} sẽ chuyển sang Đã nhặt và khóa phân bổ lô. Hệ thống tạo phiếu xuất kho nháp có sẵn lô cho từng đơn (đơn đặt sớm nhận lô cũ trước), các đơn chuyển sang Chờ đóng gói.`}
                 nhanXacNhan="Hoàn tất nhặt"
                 iconXacNhan={CheckCheck}
                 tieuDiemQuayLai
                 dangChay={dangHoanTat}
+                loi={loiHoanTat}
                 onXacNhan={hoanTat}
             />
 

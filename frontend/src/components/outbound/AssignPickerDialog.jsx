@@ -47,7 +47,9 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
   const [staffError, setStaffError] = useState("");
   const [keyword, setKeyword] = useState("");
   const [selectedId, setSelectedId] = useState(null);
-  const [saving, setSaving] = useState(false);
+  // Thao tác đang chạy: "nhanViec" (Nhận việc cho tôi) | "phanCong" (Phân công) | null — vòng quay hiện đúng nút đã bấm
+  const [dangChay, setDangChay] = useState(null);
+  const saving = dangChay != null;
   const savingRef = useRef(false);
 
   useEffect(() => {
@@ -80,10 +82,10 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
     return staff.filter((person) => !key || normalizeText(`${person.hoTen} ${person.tenDangNhap ?? ""}`).includes(key));
   }, [staff, keyword]);
 
-  const assign = async (nguoiNhatId) => {
+  const assign = async (nguoiNhatId, thaoTac) => {
     if (!pickList || !nguoiNhatId || savingRef.current) return;
     savingRef.current = true;
-    setSaving(true);
+    setDangChay(thaoTac);
     try {
       const dto = await nhatHangService.phanCong(pickList.id, { nguoiNhatId });
       toast.success(`Đã phân công ${pickList.maPickList} cho ${dto?.tenNguoiNhat || "nhân viên"}`);
@@ -93,7 +95,7 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
       toast.error(cauMayChuPhieuNhat(getApiErrorMessage(error, "Không thể phân công người nhặt")));
     } finally {
       savingRef.current = false;
-      setSaving(false);
+      setDangChay(null);
     }
   };
 
@@ -179,20 +181,20 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
             type="button"
             variant={canAssignOthers ? "outline" : "default"}
             disabled={saving || !currentUserId || daLaCuaToi || (!canAssignOthers && daGiaoNguoiKhac)}
-            onClick={() => assign(currentUserId)}
+            onClick={() => assign(currentUserId, "nhanViec")}
             className={canAssignOthers ? cn("gap-1.5", NUT_QUAY_LAI) : NUT_CHINH}
           >
-            {saving && !canAssignOthers ? <Loader2 className="size-4 animate-spin" /> : <UserCheck className="size-4" />}
+            {dangChay === "nhanViec" ? <Loader2 className="size-4 animate-spin" /> : <UserCheck className="size-4" />}
             Nhận việc cho tôi
           </Button>
           {canAssignOthers ? (
             <Button
               type="button"
               disabled={saving || !selectedId || selectedId === pickList?.nguoiNhatId}
-              onClick={() => assign(selectedId)}
+              onClick={() => assign(selectedId, "phanCong")}
               className={NUT_CHINH}
             >
-              {saving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+              {dangChay === "phanCong" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
               Phân công
             </Button>
           ) : null}

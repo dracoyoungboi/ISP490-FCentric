@@ -22,15 +22,19 @@ export const NUT_QUAY_LAI = "border-bo-border bg-white text-bo-foreground shadow
 export const NUT_CHINH =
   "gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:cursor-not-allowed disabled:opacity-60";
 export const NUT_NGUY_HIEM =
-  "gap-1.5 bg-bo-danger text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60";
+  "gap-1.5 bg-bo-danger text-white hover:bg-bo-danger-strong disabled:cursor-not-allowed disabled:opacity-60";
+
+/** Câu lỗi trong hộp, ngay trên chân hộp (HopXacNhanChungTu → `loi`): nền đỏ nhạt, chữ đỏ đậm (≥ 4,5:1). */
+export const LOI_HOP =
+  "mx-5 mt-4 shrink-0 rounded-lg border border-bo-danger/25 bg-bo-danger-soft px-3 py-2.5 text-[13px] leading-5 text-bo-danger-strong sm:mx-6";
 
 /** Nhãn ô nhập trong hộp; dấu * bắt buộc: <span className="text-bo-danger">*</span>. */
 export const NHAN_O = "text-[13px] font-medium leading-5 text-bo-foreground";
 export const O_NHAP =
-  "h-9 w-full rounded-md border border-[#cfd8e3] bg-white px-2.5 text-sm text-bo-foreground outline-none placeholder:text-slate-500 focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle";
+  "h-9 w-full rounded-md border border-bo-input-border bg-white px-2.5 text-sm text-bo-foreground outline-none placeholder:text-slate-500 focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle";
 /** Ô nhập nhiều dòng (lý do từ chối, ghi chú): cùng viền / tiêu điểm với O_NHAP, kéo giãn theo chiều dọc. */
 export const O_NHAP_NHIEU_DONG =
-  "min-h-[84px] w-full resize-y rounded-md border border-[#cfd8e3] bg-white px-2.5 py-2 text-sm leading-5 text-bo-foreground outline-none placeholder:text-slate-500 focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle";
+  "min-h-[84px] w-full resize-y rounded-md border border-bo-input-border bg-white px-2.5 py-2 text-sm leading-5 text-bo-foreground outline-none placeholder:text-slate-500 focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle";
 /** Dòng phụ dưới ô nhập (vd. "Bắt buộc" · "12/500"). */
 export const GOI_Y_O = "flex justify-between gap-3 text-xs leading-4 text-bo-muted tabular-nums";
 

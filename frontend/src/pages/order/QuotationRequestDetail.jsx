@@ -14,9 +14,11 @@ import ThuocTinhYeuCau from "@/components/order/chi-tiet-yeu-cau/ThuocTinhYeuCau
 import { demGuiGia, dungSoSanhGia, soSanhTong } from "@/components/order/chi-tiet-yeu-cau/soSanhGia";
 import {
     TRANG_THAI_YEU_CAU,
+    VAI_TRO_XEM_DON_MUA,
     baoGiaDaChot,
+    chuDemBaoGia,
     locCauMayChuMuaHang,
-    ngayGuiBaoGia,
+    tomTatBaoGia,
 } from "@/components/order/chi-tiet-yeu-cau/tinhYeuCau";
 import { getBaoGiaNccStatus, getDonMuaHangStatus } from "@/constants/donMuaHang";
 import { getYeuCauNhapHangStatus } from "@/constants/yeuCauNhapHang";
@@ -24,7 +26,6 @@ import useQuayLai from "@/hooks/useQuayLai";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import purchaseRequestService from "@/services/purchaseRequestService";
-import { formatDateTime } from "@/utils/formatters";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 
 // Ai chấp nhận / không chấp nhận báo giá ở Chi tiết báo giá (giữ như màn đó): quản trị viên, nhân viên mua hàng
@@ -35,6 +36,9 @@ const VAI_TRO_CHOT_BAO_GIA = [ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_MUA_HANG];
  * với Chi tiết yêu cầu nhập hàng (GET /api/v1/yeu-cau-mua-hang/get-by-id/{id}); phần duyệt, người tạo, tiến trình nằm ở màn đó.
  * Màn này chỉ để so giá: nhà cung cấp × biến thể từ `donMuaHangs[].chiTietDonMuaHangs[].donGia`, giá thấp nhất tô xanh,
  * tổng tiền cả yêu cầu. Chấp nhận / không chấp nhận làm ở Chi tiết báo giá (bấm tên nhà cung cấp).
+ * Dòng phụ đầu khối đếm đã gửi / đã báo giá / đã chốt; cột phải có nhóm "Báo giá" (giá trị đã chốt, lúc gửi yêu cầu);
+ * đầu cột mỗi nhà cung cấp có ngày gửi và người chốt. Không có cột "Hạn chót" theo nhà cung cấp: backend chép ngày giao
+ * dự kiến của yêu cầu sang mọi báo giá nên trùng "Giao dự kiến" ở cột phải.
  * Bỏ cột thanh toán (thanh toán nhà cung cấp đã bỏ khỏi luồng 16/10) và lời gọi lấy vai trò không dùng.
  */
 export default function QuotationRequestDetail() {
@@ -99,8 +103,11 @@ function SoSanhBaoGia({ id }) {
             dem.thieuDong ? `${soVN(dem.thieuDong)} nhà cung cấp còn thiếu giá` : "",
         ].filter(Boolean).join(" · ")
         : "";
-    const ngayGui = ngayGuiBaoGia(yc);
+    // Đã gửi / đã báo giá / đã chốt (dòng phụ đầu khối), giá trị đã chốt và lúc gửi yêu cầu (nhóm "Báo giá" cột phải)
+    const tongQuan = tomTatBaoGia(yc);
     const duocChot = hasAnyRole(VAI_TRO_CHOT_BAO_GIA);
+    // Nhân viên bán hàng xem được yêu cầu nhưng máy chủ chặn (403) báo giá, đơn mua: hiện chữ thường, không link
+    const xemDonMua = hasAnyRole(VAI_TRO_XEM_DON_MUA);
 
     const lienQuan = [
         { khoa: "yeu-cau-nhap", loai: "Yêu cầu nhập hàng", ma: "Xem phần duyệt yêu cầu", to: `/purchase-requests/${yc.id}` },
@@ -108,7 +115,7 @@ function SoSanhBaoGia({ id }) {
             khoa: `don-mua-${don.id}`,
             loai: "Đơn mua hàng",
             ma: don.soDonMua,
-            to: `/purchase-orders/${don.id}`,
+            to: xemDonMua ? `/purchase-orders/${don.id}` : undefined,
             trangThai: getDonMuaHangStatus(don.trangThai).label,
             quyTrinh: "donMua",
         })),
@@ -127,7 +134,7 @@ function SoSanhBaoGia({ id }) {
                                 ? "chưa có sản phẩm"
                                 : <b key="sp" className="font-semibold text-bo-foreground">{`${soVN(bang.tong.soSanPham)} sản phẩm, ${soVN(bang.tong.soDong)} biến thể`}</b>,
                             bang.rong ? null : <span key="sl">tổng số lượng <b className="font-semibold text-bo-foreground">{soVN(bang.tong.soLuong)}</b></span>,
-                            soNcc ? `gửi ${soVN(soNcc)} nhà cung cấp${ngayGui ? ` lúc ${formatDateTime(ngayGui)}` : ""}` : "chưa gửi nhà cung cấp nào",
+                            ...chuDemBaoGia(tongQuan),
                         ]}
                         onQuayLai={quayLai}
                         nhanQuayLai="Về danh sách yêu cầu báo giá"
@@ -155,11 +162,14 @@ function SoSanhBaoGia({ id }) {
                         xem={xem}
                         onDoiXem={setXem}
                         tomTatGui={tomTatGui}
+                        xemBaoGia={xemDonMua}
                         chuThich={
                             soNcc
                                 ? duocChot
                                     ? "Giá do nhà cung cấp nhập qua cổng báo giá. Bấm tên nhà cung cấp để xem chi tiết và chấp nhận báo giá."
-                                    : "Giá do nhà cung cấp nhập qua cổng báo giá. Bấm tên nhà cung cấp để xem chi tiết báo giá."
+                                    : xemDonMua
+                                        ? "Giá do nhà cung cấp nhập qua cổng báo giá. Bấm tên nhà cung cấp để xem chi tiết báo giá."
+                                        : "Giá do nhà cung cấp nhập qua cổng báo giá."
                                 : ""
                         }
                     />
@@ -169,6 +179,7 @@ function SoSanhBaoGia({ id }) {
                         yc={yc}
                         nhan="Thông tin yêu cầu báo giá"
                         conHieuLuc={tt === TRANG_THAI_YEU_CAU.DA_GUI_BAO_GIA}
+                        baoGia={tongQuan}
                         lienQuan={lienQuan}
                     />
                 }

@@ -19,6 +19,8 @@ export const DON_VI_DONG = "biến thể";
  * đã chốt, phần còn lại giữ nguyên văn.
  * - "đợt nhặt hàng Pick List ID: 9" → "phiếu nhặt hàng mã số 9"; "(Pick List ID)" bỏ; "Pick List" → "phiếu nhặt hàng";
  * - "đợt nhặt hàng" → "phiếu nhặt hàng"; " (Self-assignment)" bỏ;
+ * - "trong đợt nhặt PL-001" → "trong phiếu nhặt hàng PL-001"; "của đợt này" / "trong đợt đã bị hủy" → "của phiếu nhặt hàng
+ *   này" / "trong phiếu nhặt hàng đã bị hủy";
  * - "Đã quét 1x Áo…" → "Đã quét 1 × Áo…";
  * - "trạng thái: da_nhat" → "trạng thái: Đã nhặt" (mã thô của phiếu nhặt).
  * Không phải chuỗi hoặc rỗng: trả nguyên.
@@ -31,9 +33,24 @@ export function cauMayChuPhieuNhat(cau) {
     .replace(/Pick\s*List\s*ID\s*:?\s*/gi, "phiếu nhặt hàng mã số ")
     .replace(/Pick\s*List/gi, "phiếu nhặt hàng")
     .replace(/(đ|Đ)ợt nhặt hàng/g, (_, d) => `${d === "Đ" ? "P" : "p"}hiếu nhặt hàng`)
+    .replace(/(đ|Đ)ợt nhặt(?!\s*hàng)/g, (_, d) => `${d === "Đ" ? "P" : "p"}hiếu nhặt hàng`)
+    .replace(/(của|trong)\s+đợt/g, "$1 phiếu nhặt hàng")
     .replace(/\s*\(\s*Self-assignment\s*\)/gi, "")
     .replace(/(\d+(?:[.,]\d+)?)x(?=\s)/g, "$1 ×")
     .replace(/(trạng thái:\s*)([a-z_]+)/g, (goc, dau, ma) => (PICK_LIST_STATUS[ma] ? `${dau}${PICK_LIST_STATUS[ma].label}` : goc));
+}
+
+// Câu gốc (chưa lọc chữ) của lỗi quét 400 khi phiếu vừa đổi ở máy khác (NhatHangServiceImpl.quetBarcode)
+const MAU_PHIEU_DA_DOI = /đã hoàn tất|đã được xuất kho|đã bị hủy|không có mặt hàng nào cần nhặt/;
+
+/**
+ * Lỗi quét có cần tải lại phiếu không: 409 (đổi người nhặt, chưa phân công…), hoặc 400 mà câu gốc của máy chủ báo
+ * phiếu đã hoàn tất / đã xuất kho / đã hủy / không còn mặt hàng cần nhặt. Lỗi quét thường gặp (mã không thuộc phiếu,
+ * đã nhặt đủ, quét vượt) cũng là 400 nhưng không cần tải lại cả phiếu.
+ */
+export function loiQuetCanTaiLai(trangThai, cauGoc) {
+  if (trangThai === 409) return true;
+  return trangThai === 400 && typeof cauGoc === "string" && MAU_PHIEU_DA_DOI.test(cauGoc);
 }
 
 /**
@@ -212,8 +229,8 @@ const hangDon = (don) => (don.huy ? 3 : HANG_DON[don.trangThai] ?? 0);
 
 /**
  * Các đơn trong phiếu cho cột phải, theo `danhSachMaDonHang` (thiếu thì theo `danhSachDonHang`), thông tin ghép theo
- * `soDonHang`. Đơn bị hủy: `biHuy` của máy chủ, hoặc vừa nhận cảnh báo hủy qua WebSocket (`huySo`, `huyHet`) mà
- * chưa tải lại xong. Sắp xếp: việc cần làm trước, đơn hủy cuối; cùng hạng giữ thứ tự gốc.
+ * `soDonHang`. Đơn bị hủy: `biHuy` của máy chủ, hoặc vừa nhận cảnh báo hủy qua WebSocket (`huySo`: một số đơn hoặc
+ * mảng số đơn, `huyHet`) mà chưa tải lại xong. Sắp xếp: việc cần làm trước, đơn hủy cuối; cùng hạng giữ thứ tự gốc.
  * @returns `[{ so, info, huy, trangThai, viTri }]` — `trangThai` là mã đơn bán (đơn hủy: 4), `info` có thể null,
  *   `viTri` là thứ tự gốc.
  */
@@ -223,11 +240,12 @@ export function dsDonTrongPhieu(phieu, { huySo = null, huyHet = false } = {}) {
   const ma = Array.isArray(phieu?.danhSachMaDonHang) && phieu.danhSachMaDonHang.length
     ? phieu.danhSachMaDonHang
     : thongTin.map((o) => o.soDonHang);
+  const dsHuy = Array.isArray(huySo) ? huySo : huySo != null ? [huySo] : [];
   return ma
     .filter(Boolean)
     .map((so, viTri) => {
       const info = theoSo.get(so) ?? null;
-      const huy = Boolean(info?.biHuy) || huyHet || (huySo != null && huySo === so);
+      const huy = Boolean(info?.biHuy) || huyHet || dsHuy.includes(so);
       const trangThai = huy ? TRANG_THAI_DON.DA_HUY : info?.trangThai ?? null;
       return { so, info, huy, trangThai, viTri };
     })
@@ -345,5 +363,49 @@ export function hangTraKe(ds, chiTiet) {
       sku: muc.sku || "",
       soLuong: toNumber(muc.soLuong),
     };
+  });
+}
+
+/**
+ * Thêm một cảnh báo hủy (WebSocket) vào danh sách đang hiện, không ghi đè cảnh báo của đơn khác: cùng loại và cùng số
+ * đơn thì thay bản cũ (sự kiện gửi lại); "caPhieu" chỉ giữ một.
+ * `moi`: `{ loai: "donNhat" | "donDongGoi" | "caPhieu", soDonHang?, hangCanTraKe?, message? }`.
+ */
+export function themCanhBaoHuy(ds, moi) {
+  const cu = Array.isArray(ds) ? ds : [];
+  if (!moi?.loai) return cu;
+  const trung = (c) => c.loai === moi.loai && (moi.loai === "caPhieu" || c.soDonHang === moi.soDonHang);
+  return [...cu.filter((c) => !trung(c)), moi];
+}
+
+const THU_TU_CANH_BAO = ["caPhieu", "donNhat", "donDongGoi"];
+
+/**
+ * Gộp danh sách cảnh báo hủy thành các dòng để hiện (CanhBaoHuy): mỗi loại một dòng, thứ tự cả phiếu → đơn hủy khi
+ * đang nhặt → đơn hủy sau khi nhặt xong. Dòng đơn: `soDonHang` nối các số đơn theo thứ tự nhận, `soDon` số đơn,
+ * `hangCanTraKe` của mọi đơn (cùng SKU thì cộng số lượng).
+ */
+export function gopCanhBaoHuy(ds) {
+  const cu = Array.isArray(ds) ? ds : [];
+  return THU_TU_CANH_BAO.flatMap((loai) => {
+    const nhom = cu.filter((c) => c?.loai === loai);
+    if (!nhom.length) return [];
+    if (loai === "caPhieu") return [nhom[nhom.length - 1]];
+    const dsSo = nhom.map((c) => c.soDonHang).filter(Boolean);
+    const theoSku = new Map();
+    const hang = [];
+    nhom.forEach((c) => {
+      (Array.isArray(c.hangCanTraKe) ? c.hangCanTraKe : []).filter(Boolean).forEach((muc) => {
+        const daCo = muc.sku ? theoSku.get(muc.sku) : null;
+        if (daCo) {
+          daCo.soLuong = toNumber(daCo.soLuong) + toNumber(muc.soLuong);
+          return;
+        }
+        const ban = { ...muc };
+        if (muc.sku) theoSku.set(muc.sku, ban);
+        hang.push(ban);
+      });
+    });
+    return [{ loai, soDonHang: dsSo.join(", "), soDon: dsSo.length, hangCanTraKe: hang }];
   });
 }

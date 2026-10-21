@@ -14,6 +14,15 @@ import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
 import { KhungDangTai, KhungLoiChungTu } from "@/components/chung-tu/KhungTaiChungTu";
 import useBangChungTu from "@/components/chung-tu/useBangChungTu";
 import { docSo, soVN } from "@/components/chung-tu/bangChungTu";
+import {
+  CAU_HET_THOI_HAN,
+  LY_DO_CHO_GOC,
+  MO_TA_HET_THOI_HAN,
+  chayCoThoiHan,
+  khiGocKetThuc,
+  khoaKhiChoGoc,
+  laLoiHetThoiHan,
+} from "@/components/chung-tu/thoiHanThaoTac";
 import DispatchDialog from "@/components/outbound/DispatchDialog";
 import BangSanPhamXuat from "@/components/outbound/phieu-xuat/BangSanPhamXuat";
 import ThuocTinhPhieuXuat from "@/components/outbound/phieu-xuat/ThuocTinhPhieuXuat";
@@ -63,6 +72,18 @@ function ManPhieuXuatKho({ id }) {
   // Hộp đang mở: "xuat" (xuất kho bán hàng) | "vanChuyen" (chuyển kho) | "huy"
   const [hop, setHop] = useState(null);
   const [dangXuLy, setDangXuLy] = useState(false);
+  // Hết thời hạn mà máy chủ có thể vẫn đang làm: khóa nút thao tác tới khi lời gọi gốc kết thúc (khiGocKetThuc)
+  const [choGoc, setChoGoc] = useState(false);
+  const huyChoGocRef = useRef(null);
+  // Màn đã gỡ (rời trang trong lúc chờ): nhánh hết thời hạn bỏ qua báo lỗi, khóa nút, tải lại; gỡ thì hủy chờ
+  const daGoRef = useRef(false);
+  useEffect(() => {
+    daGoRef.current = false;
+    return () => {
+      daGoRef.current = true;
+      huyChoGocRef.current?.();
+    };
+  }, []);
 
   // Chỉ nhận kết quả của lần tải mới nhất: lần tải ngầm về chậm không đè dữ liệu của lần tải sau (Thử lại, đổi phiếu)
   const requestIdRef = useRef(0);
@@ -178,21 +199,37 @@ function ManPhieuXuatKho({ id }) {
     if (!mo && !dangXuLy) setHop(null);
   };
 
+  // Hết thời hạn: báo lỗi và khóa nút thao tác tới khi lời gọi gốc kết thúc (tối đa THOI_HAN_CHO_GOC_MS) rồi tải lại lần
+  // nữa; màn gỡ thì hủy chờ. Nơi gọi tự đóng hộp và tải lại ngay (màn đã gỡ thì không tải lại).
+  const baoHetThoiHan = (loi) => {
+    if (daGoRef.current) return;
+    toast.error(CAU_HET_THOI_HAN, { description: MO_TA_HET_THOI_HAN });
+    huyChoGocRef.current?.();
+    setChoGoc(true);
+    huyChoGocRef.current = khiGocKetThuc(loi, () => {
+      huyChoGocRef.current = null;
+      setChoGoc(false);
+      taiPhieu({ ngam: true });
+    });
+  };
+
   // Chuyển kho: xác nhận vận chuyển (PUT /{id}/complete) — trừ tồn kho nguồn, đưa hàng vào kho Trung chuyển
   const xacNhanVanChuyen = async () => {
     setDangXuLy(true);
     try {
-      await phieuXuatKhoService.complete(phieu.id);
+      await chayCoThoiHan(() => phieuXuatKhoService.complete(phieu.id));
       toast.success(`Đã xác nhận vận chuyển ${phieu.soPhieuXuat}`, {
         description: ghiChu.maPhieuChuyen ? `Phiếu chuyển ${ghiChu.maPhieuChuyen} chuyển sang Đang vận chuyển` : undefined,
       });
     } catch (e) {
-      toast.error(getApiErrorMessage(e, "Không thể thực hiện thao tác"));
+      if (laLoiHetThoiHan(e)) baoHetThoiHan(e);
+      else toast.error(getApiErrorMessage(e, "Không thể thực hiện thao tác"));
     } finally {
-      // Thành công hay lỗi đều đóng hộp (như bản cũ) và tải lại ngầm: lỗi thường do phiếu vừa đổi ở nơi khác
+      // Thành công hay lỗi (kể cả hết thời hạn) đều đóng hộp (như bản cũ) và tải lại ngầm: lỗi thường do phiếu vừa đổi
+      // ở nơi khác; hết thời hạn thì có thể máy chủ vẫn đã làm xong. Màn đã gỡ thì không tải lại.
       setHop(null);
       setDangXuLy(false);
-      taiPhieu({ ngam: true });
+      if (!daGoRef.current) taiPhieu({ ngam: true });
     }
   };
 
@@ -201,11 +238,20 @@ function ManPhieuXuatKho({ id }) {
   const xacNhanXuatKho = async (payload) => {
     setDangXuLy(true);
     try {
-      const res = await phieuXuatKhoService.xacNhanXuatKho(phieu.id, payload);
+      const res = await chayCoThoiHan(() => phieuXuatKhoService.xacNhanXuatKho(phieu.id, payload));
       toast.success(res?.message || "Xác nhận xuất kho thành công");
       setHop(null);
       await taiPhieu({ ngam: true });
     } catch (e) {
+      if (laLoiHetThoiHan(e)) {
+        if (daGoRef.current) return;
+        // Máy chủ chưa trả lời sau thời hạn: đóng hộp, tải lại ngầm, khóa nút tới khi lời gọi gốc kết thúc (có thể máy
+        // chủ vẫn đang xuất kho)
+        setHop(null);
+        baoHetThoiHan(e);
+        taiPhieu({ ngam: true });
+        return;
+      }
       toast.error(getApiErrorMessage(e, "Không thể xác nhận xuất kho"));
     } finally {
       setDangXuLy(false);
@@ -217,14 +263,16 @@ function ManPhieuXuatKho({ id }) {
   const huyPhieu = async () => {
     setDangXuLy(true);
     try {
-      await phieuXuatKhoService.cancel(phieu.id);
+      await chayCoThoiHan(() => phieuXuatKhoService.cancel(phieu.id));
       toast.success(`Đã hủy phiếu xuất ${phieu.soPhieuXuat}`, { description: "Số lượng đang giữ đã trả lại tồn kho" });
     } catch (e) {
-      toast.error(getApiErrorMessage(e, "Không thể hủy phiếu"));
+      if (laLoiHetThoiHan(e)) baoHetThoiHan(e);
+      else toast.error(getApiErrorMessage(e, "Không thể hủy phiếu"));
     } finally {
+      // Thành công hay lỗi (kể cả hết thời hạn) đều đóng hộp và tải lại ngầm; màn đã gỡ thì không tải lại
       setHop(null);
       setDangXuLy(false);
-      taiPhieu({ ngam: true });
+      if (!daGoRef.current) taiPhieu({ ngam: true });
     }
   };
 
@@ -236,12 +284,13 @@ function ManPhieuXuatKho({ id }) {
     bang.datLoc("thieuLo");
   };
 
-  const nutChinh =
+  const nutChinh = khoaKhiChoGoc(
     quyen.nutChinh === "dongGoi"
       ? {
         ma: "dongGoi",
         nhan: "Đóng gói",
         icon: PackageCheck,
+        dieuHuong: true,
         onClick: () => navigate(`/goods-issues/packing/${phieu.donBanHang.id}`),
       }
       : quyen.nutChinh
@@ -254,7 +303,9 @@ function ManPhieuXuatKho({ id }) {
           lyDo: lyDoKhoa ?? undefined,
           dangChay: dangXuLy,
         }
-        : null;
+        : null,
+    choGoc,
+  );
 
   const soDon = phieu.donBanHang?.soDonHang;
   const moTaHuy = laCk
@@ -323,8 +374,8 @@ function ManPhieuXuatKho({ id }) {
                   nhan: "Hủy phiếu",
                   icon: Ban,
                   nguyHiem: true,
-                  moTa: "Trả lại số lượng đang giữ cho tồn kho",
-                  khoa: dangXuLy,
+                  moTa: choGoc ? LY_DO_CHO_GOC : "Trả lại số lượng đang giữ cho tồn kho",
+                  khoa: dangXuLy || choGoc,
                   onSelect: () => setHop("huy"),
                 }]
                 : []

@@ -19,6 +19,15 @@ import TuyenChuyen from "@/components/chung-tu/TuyenChuyen";
 import useBangChungTu from "@/components/chung-tu/useBangChungTu";
 import { soVN } from "@/components/chung-tu/bangChungTu";
 import { GHI_CHU_HOP } from "@/components/chung-tu/kieuHopThoai";
+import {
+    CAU_HET_THOI_HAN,
+    LY_DO_CHO_GOC,
+    MO_TA_HET_THOI_HAN,
+    chayCoThoiHan,
+    khiGocKetThuc,
+    khoaKhiChoGoc,
+    laLoiHetThoiHan,
+} from "@/components/chung-tu/thoiHanThaoTac";
 import BangHangChuyen from "@/components/chuyen-kho/BangHangChuyen";
 import {
     TT_CHUYEN,
@@ -79,6 +88,18 @@ function ManPhieuChuyenKho({ id }) {
     // Mốc tải được phiếu gần nhất: vừa tải (sau thao tác) thì quay lại tab chưa tải lại ngay
     const [capNhatLuc, setCapNhatLuc] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
+    // Hết thời hạn mà máy chủ có thể vẫn đang làm: khóa nút thao tác tới khi lời gọi gốc kết thúc (khiGocKetThuc)
+    const [choGoc, setChoGoc] = useState(false);
+    const huyChoGocRef = useRef(null);
+    // Màn đã gỡ (rời trang trong lúc chờ): nhánh hết thời hạn bỏ qua báo lỗi, khóa nút, tải lại; gỡ thì hủy chờ
+    const daGoRef = useRef(false);
+    useEffect(() => {
+        daGoRef.current = false;
+        return () => {
+            daGoRef.current = true;
+            huyChoGocRef.current?.();
+        };
+    }, []);
     // Hộp thoại đang mở: "guiDuyet" | "pheDuyet" | "huy" | null
     const [hop, setHop] = useState(null);
     const [myWarehouseIds, setMyWarehouseIds] = useState([]);
@@ -220,14 +241,35 @@ function ManPhieuChuyenKho({ id }) {
         tongTheo: { soLuong: "soLuong", daLay: "daLay" },
     });
 
+    // Khóa nút thao tác tới khi lời gọi gốc kết thúc (tối đa THOI_HAN_CHO_GOC_MS) rồi tải lại; màn gỡ thì hủy chờ
+    function khoaToiKhiGocXong(loi) {
+        huyChoGocRef.current?.();
+        setChoGoc(true);
+        huyChoGocRef.current = khiGocKetThuc(loi, () => {
+            huyChoGocRef.current = null;
+            setChoGoc(false);
+            fetchDetail({ silent: true, baoLoi: true });
+        });
+    }
+
     async function chayThaoTac(thaoTac, cauThanhCong, cauLoi) {
         setIsProcessing(true);
         try {
-            await thaoTac(id);
+            await chayCoThoiHan(() => thaoTac(id));
             toast.success(cauThanhCong);
             setHop(null);
             fetchDetail({ silent: true, baoLoi: true });
         } catch (e) {
+            if (laLoiHetThoiHan(e)) {
+                if (daGoRef.current) return;
+                // Máy chủ chưa trả lời sau thời hạn: đóng hộp, báo lỗi, tải lại ngầm; máy chủ có thể vẫn đang ghi nhận
+                // nên khóa nút tới khi lời gọi gốc kết thúc rồi tải lại lần nữa
+                setHop(null);
+                toast.error(CAU_HET_THOI_HAN, { description: MO_TA_HET_THOI_HAN });
+                fetchDetail({ silent: true, baoLoi: true });
+                khoaToiKhiGocXong(e);
+                return;
+            }
             // Lỗi thì giữ hộp thoại mở, câu của máy chủ hiện nguyên văn
             toast.error(getApiErrorMessage(e, cauLoi));
         } finally {
@@ -276,7 +318,7 @@ function ManPhieuChuyenKho({ id }) {
     if (nut.taoPhieuXuat) {
         nutChinh.push({ ma: "taoPhieuXuat", nhan: "Tạo phiếu xuất kho", icon: Truck, onClick: () => navigate(`/goods-issues/create?transferId=${id}`) });
     }
-    if (nut.moPhieuXuat) nutChinh.push({ ma: "moPhieuXuat", nhan: "Mở phiếu xuất", kieu: "vien", onClick: () => navigate(`/goods-issues/${nut.moPhieuXuat.id}`) });
+    if (nut.moPhieuXuat) nutChinh.push({ ma: "moPhieuXuat", nhan: "Mở phiếu xuất", kieu: "vien", dieuHuong: true, onClick: () => navigate(`/goods-issues/${nut.moPhieuXuat.id}`) });
     if (nut.nhapKho) {
         nutChinh.push({ ma: "nhapKho", nhan: "Nhập kho", icon: ArrowDownToLine, onClick: () => navigate(`/goods-receipts/create?transferId=${id}`) });
     }
@@ -290,7 +332,7 @@ function ManPhieuChuyenKho({ id }) {
             lyDo: nut.nhapHoanTra.lyDo,
         });
     }
-    if (nut.moPhieuNhap) nutChinh.push({ ma: "moPhieuNhap", nhan: "Mở phiếu nhập", kieu: "vien", onClick: () => navigate(`/goods-receipts/${nut.moPhieuNhap.id}`) });
+    if (nut.moPhieuNhap) nutChinh.push({ ma: "moPhieuNhap", nhan: "Mở phiếu nhập", kieu: "vien", dieuHuong: true, onClick: () => navigate(`/goods-receipts/${nut.moPhieuNhap.id}`) });
 
     const dongThongBao = [
         thongBao.dangDuong ? (
@@ -356,11 +398,11 @@ function ManPhieuChuyenKho({ id }) {
                             nhan: "Hủy phiếu",
                             icon: Ban,
                             nguyHiem: true,
-                            moTa: "Phiếu xuất, phiếu nhập đã tạo không tự hủy theo",
-                            khoa: isProcessing,
+                            moTa: choGoc ? LY_DO_CHO_GOC : "Phiếu xuất, phiếu nhập đã tạo không tự hủy theo",
+                            khoa: isProcessing || choGoc,
                             onSelect: () => setHop("huy"),
                         }] : []}
-                        nutChinh={nutChinh}
+                        nutChinh={khoaKhiChoGoc(nutChinh, choGoc)}
                     />
                 }
                 tienTrinh={<TienTrinhChungTu nhan="Tiến trình phiếu chuyển kho" buoc={buoc} />}

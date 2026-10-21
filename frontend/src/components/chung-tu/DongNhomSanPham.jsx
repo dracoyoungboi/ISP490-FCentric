@@ -5,8 +5,8 @@ import AnhBienThe from "./AnhBienThe";
 import { AN_DIEN_THOAI, CHI_DIEN_THOAI, COT_DINH } from "./kieuBang";
 
 const coNoiDung = (x) => x != null && x !== false && x !== "";
-const NEN = "bg-[#fbfcfd]";
-const NEN_RE = "group-hover/nhom:bg-[#f4f7fa]";
+const NEN = "bg-bo-row-group";
+const NEN_RE = "group-hover/nhom:bg-bo-row-group-hover";
 
 /**
  * Dòng nhóm sản phẩm trong bảng chứng từ (một <tr>): mũi tên, ảnh, tên sản phẩm 2 dòng rồi "…" (rê chuột thấy đủ),
@@ -106,7 +106,7 @@ export default function DongNhomSanPham({
       className={cn(
         "group/nhom border-b border-slate-100 tabular-nums",
         NEN,
-        thuGonDuoc && "cursor-pointer hover:bg-[#f4f7fa]",
+        thuGonDuoc && "cursor-pointer hover:bg-bo-row-group-hover",
         className,
       )}
     >

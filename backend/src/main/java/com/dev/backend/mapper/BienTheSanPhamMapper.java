@@ -11,6 +11,7 @@ import java.util.List;
 @Mapper(componentModel = MappingConstants.ComponentModel.SPRING, uses = {AnhBienTheMapper.class})
 public interface BienTheSanPhamMapper {
     @Mapping(source = "sanPham.tenSanPham", target = "tenSanPham")
+    @Mapping(source = "sanPham.id", target = "sanPhamId")
     @Mapping(target = "tenBienThe", expression = "java(buildTenBienThe(entity))")
     @Mapping(target = "daPhatSinhGiaoDich", ignore = true)
     @Mapping(target = "conTonKho", ignore = true)

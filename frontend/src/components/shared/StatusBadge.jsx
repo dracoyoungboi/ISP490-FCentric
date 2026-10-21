@@ -95,6 +95,8 @@ const DA_CANH_BAO = new Set();
 /** Đọc thêm bước cho trình đọc màn hình (vòng tiến trình chỉ là hình). */
 function chuBuoc(viTri) {
   if (!viTri || viTri.kieu !== "vong" || viTri.buoc == null) return null;
+  // Bước 0 ("Chờ nhặt", "Chờ nhập kho", "Chờ kiểm đếm"): đọc "chưa bắt đầu", không đọc "bước 0 trên 2"
+  if (viTri.buoc === 0) return <span className="sr-only">{", chưa bắt đầu"}</span>;
   const buoc = Number.isInteger(viTri.buoc) ? `bước ${viTri.buoc}` : `giữa bước ${Math.floor(viTri.buoc)} và ${Math.ceil(viTri.buoc)}`;
   return <span className="sr-only">{`, ${buoc} trên ${viTri.tong}`}</span>;
 }

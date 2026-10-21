@@ -174,7 +174,7 @@ export default function PackingProofSection({
 
             {/* Ảnh 2: Niêm phong kèm tem ĐVVC */}
             <PhotoUploadSlot
-              title="Ảnh 2: Hộp niêm phong + Tem ĐVVC"
+              title="Ảnh 2: Hộp đã niêm phong và tem vận chuyển"
               description="Hộp đã dán kín băng keo niêm phong, dán tem vận chuyển rõ mã vận đơn."
               proof={anhNiemPhong}
               loaiBangChung={LOAI_BANG_CHUNG.ANH_NIEM_PHONG_TEM_VC}
@@ -323,7 +323,8 @@ function PhotoUploadSlot({
                 <button
                   type="button"
                   onClick={() => onDelete(proof.id, title)}
-                  disabled={deleting}
+                  // Đang tải ảnh thay thế thì không xóa được (xóa chen giữa lúc tải lên)
+                  disabled={deleting || uploading}
                   className="bg-rose-600 hover:bg-rose-700 text-white p-2 rounded-full shadow disabled:opacity-50"
                   title="Xóa và chụp lại"
                 >
@@ -336,10 +337,12 @@ function PhotoUploadSlot({
             <span>Người chụp: {proof.tenNguoiTao || "Nhân viên"}</span>
             {!readOnly && (
               <div className="flex items-center gap-2">
+                {/* Khóa khi đang tải lên: bấm lúc này sẽ tải hai lần */}
                 <button
                   type="button"
                   onClick={() => setIsCameraOpen(true)}
-                  className="text-emerald-700 hover:underline font-medium"
+                  disabled={uploading}
+                  className="text-emerald-700 hover:underline font-medium disabled:pointer-events-none disabled:opacity-50"
                 >
                   Chụp lại
                 </button>
@@ -347,7 +350,8 @@ function PhotoUploadSlot({
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="text-bo-primary hover:underline font-medium"
+                  disabled={uploading}
+                  className="text-bo-primary hover:underline font-medium disabled:pointer-events-none disabled:opacity-50"
                 >
                   Chọn tệp khác
                 </button>
@@ -590,7 +594,7 @@ function VideoUploadSection({
       URL.revokeObjectURL(tempVideo.src);
       const duration = Math.round(tempVideo.duration);
       if (duration < 15 || duration > 30) {
-        toast.error(`Thời lượng video không hợp lệ: Yêu cầu từ 15 đến 30 giây (hiện tại: ${duration} giây)`);
+        toast.error(`Thời lượng video phải từ 15 đến 30 giây (video này dài ${duration} giây).`);
         return;
       }
       onUpload(file, LOAI_BANG_CHUNG.VIDEO_DONG_GOI, duration);
@@ -611,14 +615,15 @@ function VideoUploadSection({
         <div>
           <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
             {isUploaded ? <CheckCircle2 className="size-4 text-emerald-600" /> : <Video className="size-4 text-slate-500" />}
-            Video đóng gói niêm phong (Thời lượng: 15–30s)
+            Video đóng gói niêm phong (15–30 giây)
           </h4>
           <p className="text-xs text-slate-500 mt-0.5">
             Quay liền mạch từ lúc cho sản phẩm vào hộp/túi đến khi dán kín niêm phong kèm tem vận chuyển.
           </p>
         </div>
         {isUploaded ? (
-          <StatusBadge label={`Đã có video (${proof.thoiLuongGiay || 20}s)`} />
+          // Thiếu thời lượng (dữ liệu cũ) thì không ghi số giây, không đoán
+          <StatusBadge label={proof.thoiLuongGiay ? `Đã có video (${proof.thoiLuongGiay} giây)` : "Đã có video"} />
         ) : (
           <StatusBadge label="Chưa có video" />
         )}
@@ -630,7 +635,14 @@ function VideoUploadSection({
             <video src={mediaUrl} controls className="w-full h-full max-h-64" />
           </div>
           <div className="flex items-center justify-between text-xs text-slate-600 px-1 pt-1">
-            <span>Thời lượng: <strong className="font-semibold">{proof.thoiLuongGiay || "15-30"}s</strong> · Người quay: {proof.tenNguoiTao || "Nhân viên"}</span>
+            <span>
+              {proof.thoiLuongGiay ? (
+                <>
+                  Thời lượng: <strong className="font-semibold">{proof.thoiLuongGiay} giây</strong> ·{" "}
+                </>
+              ) : null}
+              Người quay: {proof.tenNguoiTao || "Nhân viên"}
+            </span>
             {!readOnly && (
               <Button
                 type="button"
@@ -640,7 +652,7 @@ function VideoUploadSection({
                 disabled={deleting}
                 className="gap-1.5 h-7 text-xs"
               >
-                {deleting ? <Loader2 className="size-3 animate-spin" /> : <Trash2 className="size-3" />} Xóa & quay lại
+                {deleting ? <Loader2 className="size-3 animate-spin" /> : <Trash2 className="size-3" />} Xóa và quay lại
               </Button>
             )}
           </div>
@@ -652,11 +664,11 @@ function VideoUploadSection({
             <video ref={liveVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
             <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-black/70 px-2 py-0.5 rounded text-xs font-mono font-bold text-red-400">
               <span className="size-2 rounded-full bg-red-500 animate-ping" />
-              ĐANG QUAY: {seconds}s / 30s
+              Đang quay: {seconds}/30 giây
             </div>
             {seconds < 15 ? (
               <div className="absolute bottom-2 inset-x-2 text-center bg-black/70 text-[11px] text-amber-300 py-1 rounded">
-                Cần quay tối thiểu 15 giây (còn {15 - seconds}s nữa mới được dừng)
+                Cần quay tối thiểu 15 giây (còn {15 - seconds} giây nữa mới được dừng)
               </div>
             ) : (
               <div className="absolute bottom-2 inset-x-2 text-center bg-emerald-950/80 text-[11px] text-emerald-300 py-1 rounded font-medium">
@@ -690,7 +702,7 @@ function VideoUploadSection({
         /* Giao diện nút bắt đầu quay hoặc tải tệp */
         <div className="mt-3 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-lg p-6 bg-slate-50/50 hover:bg-slate-50 transition-colors">
           <Video className="size-10 text-slate-400 mb-2" />
-          <p className="text-xs text-slate-600 font-medium mb-1">Quay video ngắn (15-30 giây) hoặc tải tệp từ thiết bị</p>
+          <p className="text-xs text-slate-600 font-medium mb-1">Quay video ngắn (15–30 giây) hoặc tải tệp từ thiết bị</p>
           <p className="text-[11px] text-slate-400 mb-4">Hỗ trợ MP4, WebM, MOV · Tối đa 100MB</p>
           <div className="flex flex-wrap items-center justify-center gap-2">
             <Button

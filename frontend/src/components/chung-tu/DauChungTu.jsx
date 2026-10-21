@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 const NUT_VIEN = "border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle";
 const KIEU_NUT = {
   chinh: "bg-bo-primary text-white hover:bg-bo-primary-hover",
-  nguyHiem: "bg-bo-danger text-white hover:bg-red-700",
+  nguyHiem: "bg-bo-danger text-white hover:bg-bo-danger-strong",
   vien: NUT_VIEN,
 };
 const MUC_MENU =

@@ -12,13 +12,14 @@
  * nhóm (sản phẩm hoặc cả yêu cầu) thì không đem so tổng của nhóm đó.
  */
 import { docSo } from "../../chung-tu/bangChungTu.js";
-import { coGiaDong, laDaChot, thanhTienDong } from "../chi-tiet-bao-gia/tinhBaoGia.js";
+import { coGiaDong, laDaChot, nguoiChotBaoGia, thanhTienDong } from "../chi-tiet-bao-gia/tinhBaoGia.js";
 import { baoGiaHieuLuc, dongYeuCau } from "./tinhYeuCau.js";
 
 /**
  * Dựng dữ liệu so sánh.
  * @returns `{ ncc, dong }`
- *   - `ncc[i]`: báo giá còn hiệu lực `{ id, soDonMua, nhaCungCap, trangThai, chot, don }` (giữ thứ tự của máy chủ)
+ *   - `ncc[i]`: báo giá còn hiệu lực `{ id, soDonMua, nhaCungCap, trangThai, chot, ngayGui, nguoiChot, don }` (giữ thứ
+ *     tự của máy chủ); `ngayGui`: `ngayDatHang` (lúc gửi yêu cầu), `nguoiChot`: tinhBaoGia.nguoiChotBaoGia (null: ẩn)
  *   - `dong[j]`: dòng yêu cầu (dongYeuCau) kèm `gia[i]` = `{ donGia, thanhTien }` của nhà cung cấp i, `null` nếu chưa có giá
  */
 export function dungSoSanhGia(yc) {
@@ -48,6 +49,9 @@ export function dungSoSanhGia(yc) {
     nhaCungCap: don.nhaCungCap ?? null,
     trangThai: docSo(don.trangThai),
     chot: laDaChot(don.trangThai),
+    ngayGui: don.ngayDatHang ?? null,
+    // Báo giá trong `donMuaHangs` của yêu cầu luôn có yêu cầu gốc là chính yêu cầu này
+    nguoiChot: nguoiChotBaoGia(don, { coYeuCauGoc: true }),
     don,
   }));
 
