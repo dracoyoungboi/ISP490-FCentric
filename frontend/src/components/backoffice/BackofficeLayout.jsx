@@ -395,6 +395,50 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             match: (path) => path === "/channels/shopify/settings",
             title: "Cấu hình Shopify",
         },
+        // Mã gõ tay không phải số (/quotation/abc): các mục chi tiết ở trên chỉ nhận mã số nên trang mất tiêu đề và tên tab,
+        // trong khi màn chi tiết chứng từ vẫn vẽ khung "Không tìm thấy …". Đặt cùng tiêu đề như mã số. Để cuối danh sách:
+        // trang cố định cùng nhánh (create, pending-orders, pick-lists) đã khớp mục riêng ở trên trước.
+        {
+            key: "GOODS_RECEIPTS_DETAIL_MA_SAI",
+            match: (path) => /^\/goods-receipts\/[^/]+$/.test(path),
+            title: "Chi tiết phiếu nhập kho",
+        },
+        {
+            key: "GOODS_ISSUES_DETAIL_MA_SAI",
+            match: (path) => /^\/goods-issues\/[^/]+$/.test(path),
+            title: "Chi tiết phiếu xuất kho",
+        },
+        {
+            key: "PICK_LOT_MA_SAI",
+            match: (path) => /^\/goods-issues\/[^/]+\/pick-lot\/[^/]+$/.test(path),
+            title: "Chọn lô hàng",
+        },
+        {
+            key: "PICK_LIST_DETAIL_MA_SAI",
+            // Trừ "view": /goods-issues/pick-lists/view là route /goods-issues/:id/view (khai báo trước), không phải phiếu nhặt
+            match: (path) => /^\/goods-issues\/pick-lists\/(?!view$)[^/]+$/.test(path),
+            title: "Thực hiện nhặt hàng",
+        },
+        {
+            key: "TRANSFER_TICKET_DETAIL_MA_SAI",
+            match: (path) => /^\/transfer-tickets\/[^/]+$/.test(path),
+            title: "Chi tiết phiếu chuyển kho nội bộ",
+        },
+        {
+            key: "PURCHASE_REQUEST_DETAIL_MA_SAI",
+            match: (path) => /^\/purchase-requests\/[^/]+$/.test(path),
+            title: "Chi tiết yêu cầu nhập hàng",
+        },
+        {
+            key: "QUOTATION_REQUEST_DETAIL_MA_SAI",
+            match: (path) => /^\/quotation-requests\/[^/]+$/.test(path),
+            title: "Chi tiết yêu cầu báo giá",
+        },
+        {
+            key: "QUOTATION_DETAIL_MA_SAI",
+            match: (path) => /^\/quotation\/[^/]+$/.test(path),
+            title: "Chi tiết báo giá",
+        },
     ];
 
     const pageMeta = metaCoDinh ?? PAGE_META_CONFIG.find((item) =>
