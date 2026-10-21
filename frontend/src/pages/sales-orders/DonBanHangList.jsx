@@ -533,7 +533,7 @@ export default function DonBanHangList() {
                       </span>
                     </td>
                     <td className="px-3 py-3">
-                      <StatusBadge label={st.label} />
+                      <StatusBadge quyTrinh="donBan" label={st.label} />
                       {item.canXuLy ? (
                         <div className="mt-1 flex">
                           <OrderFlagBadges value={item.canXuLy} />

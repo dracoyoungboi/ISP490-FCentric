@@ -412,7 +412,7 @@ export default function BaoGiaList() {
                       </span>
                     </td>
                     <td className="px-3 py-3">
-                      <StatusBadge label={st.label} />
+                      <StatusBadge quyTrinh="baoGiaBan" label={st.label} />
                     </td>
                     <td className="px-3 py-3">
                       <RowActions>

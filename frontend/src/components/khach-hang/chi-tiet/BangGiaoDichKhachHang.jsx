@@ -50,13 +50,13 @@ function DauBang({ cot }) {
 }
 
 /** Một dòng của danh sách trên điện thoại: mã · thẻ trạng thái · tiền, dòng dưới là thông tin phụ. Bấm cả dòng để mở. */
-function DongDienThoai({ to, ma, trangThai, tien, phu, sau }) {
+function DongDienThoai({ to, ma, trangThai, quyTrinh, tien, phu, sau }) {
   return (
     <li className="border-b border-slate-100">
       <Link to={to} className="block px-4 py-3 active:bg-bo-surface-subtle">
         <span className="flex items-center gap-2">
           <span className="font-mono text-[13px] font-semibold text-bo-primary">{ma}</span>
-          <StatusBadge label={trangThai} />
+          <StatusBadge quyTrinh={quyTrinh} label={trangThai} />
           <span className="ml-auto whitespace-nowrap font-semibold tabular-nums text-bo-foreground">{tien}</span>
         </span>
         <span className="mt-1 block text-xs leading-4 text-bo-muted">{phu}</span>
@@ -82,6 +82,7 @@ export function BangDonKhachHang({ dons }) {
             to={`/sales-orders/${d.id}`}
             ma={d.soDonHang || `#${d.id}`}
             trangThai={getDonBanHangStatus(d.trangThai).label}
+            quyTrinh="donBan"
             tien={formatCurrency(d.tongCong)}
             phu={[
               `${formatDate(d.ngayDatHang)} ${gio(d.ngayDatHang)}`.trim(),
@@ -135,7 +136,7 @@ function BangDonDayDu({ dons }) {
                 ) : null}
               </td>
               <td className={O}>
-                <StatusBadge label={tt.label} />
+                <StatusBadge quyTrinh="donBan" label={tt.label} />
               </td>
               <td className={cn(O, "whitespace-nowrap", canThu ? "font-medium text-bo-warning" : "text-slate-700")}>
                 {thanhToan}
@@ -163,6 +164,7 @@ export function BangBaoGiaKhachHang({ baoGias, coTheTaoDon }) {
             to={`/sales-quotations/${b.id}`}
             ma={b.soDonHang || `#${b.id}`}
             trangThai={getBaoGiaStatus(b.trangThai).label}
+            quyTrinh="baoGiaBan"
             tien={formatCurrency(b.tongCong)}
             phu={[formatDate(b.ngayTao ?? b.ngayDatHang), ghiChuBaoGia(b)].filter(Boolean).join(" · ")}
             sau={
@@ -207,7 +209,7 @@ function BangBaoGiaDayDu({ baoGias, coTheTaoDon }) {
               </th>
               <td className={cn(O, "whitespace-nowrap text-slate-700")}>{formatDate(b.ngayTao ?? b.ngayDatHang)}</td>
               <td className={O}>
-                <StatusBadge label={tt.label} />
+                <StatusBadge quyTrinh="baoGiaBan" label={tt.label} />
               </td>
               <td className={cn(O, "max-w-[320px] text-[13px] text-bo-muted")}>
                 {ghiChu ? (
