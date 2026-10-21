@@ -5,12 +5,23 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import SearchInput from "@/components/shared/SearchInput";
+import {
+  CHAN_HOP,
+  DAU_HOP,
+  GHI_CHU_HOP,
+  HOP,
+  MO_TA_HOP,
+  NUT_CHINH,
+  NUT_QUAY_LAI,
+  THAN_HOP,
+  TIEU_DE_HOP,
+} from "@/components/chung-tu/kieuHopThoai";
+import { cauMayChuPhieuNhat } from "@/components/outbound/phieu-nhat/tinhPhieuNhat";
 import { nhatHangService } from "@/services/nhatHangService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { getCurrentUserId, hasAnyRole, ROLES } from "@/utils/roles";
@@ -18,7 +29,8 @@ import { normalizeText } from "@/mocks/mockHelpers";
 import { cn } from "@/lib/utils";
 
 /**
- * Phân công người nhặt cho Pick List.
+ * Phân công người nhặt cho phiếu nhặt hàng (màn chi tiết và danh sách phiếu nhặt). Kiểu hộp chung của các màn chứng từ
+ * (chung-tu/kieuHopThoai: không nút ×, đóng bằng "Quay lại").
  * - Quản trị viên / quản lý kho: chọn người trong danh sách nhân viên kho.
  * - Mọi vai trò kho: "Nhận việc" (tự phân công cho mình) — bắt buộc phân công trước khi nhặt, kể cả quản lý.
  * - Nhân viên kho chỉ nhận phiếu chưa có người nhặt (backend từ chối phiếu đã giao cho người khác).
@@ -78,7 +90,7 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
       onAssigned?.(dto);
       onOpenChange(false);
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Không thể phân công người nhặt"));
+      toast.error(cauMayChuPhieuNhat(getApiErrorMessage(error, "Không thể phân công người nhặt")));
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -87,78 +99,90 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
 
   return (
     <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
-      <DialogContent className="rounded-xl border-bo-border sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-bo-foreground">Phân công người nhặt</DialogTitle>
-          <DialogDescription className="text-slate-600">
+      <DialogContent showCloseButton={false} className={HOP}>
+        <DialogHeader className={DAU_HOP}>
+          <DialogTitle className={TIEU_DE_HOP}>Phân công người nhặt</DialogTitle>
+          <DialogDescription className={MO_TA_HOP}>
             {pickList ? `Phiếu nhặt hàng ${pickList.maPickList}` : ""}
             {pickList?.tenNguoiNhat ? ` · đang giao cho ${pickList.tenNguoiNhat}` : " · chưa có người nhặt"}
           </DialogDescription>
         </DialogHeader>
 
-        {canAssignOthers ? (
-          <div className="space-y-3">
-            <SearchInput
-              className="sm:max-w-none"
-              placeholder="Tìm theo tên hoặc tài khoản"
-              value={keyword}
-              onChange={(event) => setKeyword(event.target.value)}
-              onClear={() => setKeyword("")}
-            />
-            <div className="max-h-64 overflow-y-auto rounded-lg border border-bo-border">
-              {loadingStaff ? (
-                <div className="flex items-center justify-center gap-2 px-3 py-8 text-sm text-bo-muted">
-                  <Loader2 className="size-4 animate-spin" /> Đang tải nhân viên kho
-                </div>
-              ) : staffError ? (
-                <p className="px-3 py-6 text-center text-sm text-bo-muted">{staffError}</p>
-              ) : filteredStaff.length === 0 ? (
-                <p className="px-3 py-6 text-center text-sm text-bo-muted">Không có nhân viên phù hợp.</p>
-              ) : (
-                <ul className="divide-y divide-bo-border">
-                  {filteredStaff.map((person) => {
-                    const active = selectedId === person.id;
-                    return (
-                      <li key={person.id}>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedId(person.id)}
-                          className={cn(
-                            "flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors",
-                            active ? "bg-bo-primary-soft" : "hover:bg-bo-surface-subtle",
-                          )}
-                        >
-                          <span className="min-w-0">
-                            <span className="block truncate text-sm font-semibold text-bo-foreground">{person.hoTen}</span>
-                            <span className="block truncate text-xs text-bo-muted">
-                              {person.tenDangNhap || "—"} · {person.vaiTro === ROLES.QUAN_LY_KHO ? "Quản lý kho" : "Nhân viên kho"}
+        <div className={THAN_HOP}>
+          {canAssignOthers ? (
+            <div className="space-y-3">
+              <SearchInput
+                className="sm:max-w-none"
+                placeholder="Tìm theo tên hoặc tài khoản"
+                value={keyword}
+                onChange={(event) => setKeyword(event.target.value)}
+                onClear={() => setKeyword("")}
+              />
+              <div className="max-h-64 overflow-y-auto rounded-lg border border-bo-border">
+                {loadingStaff ? (
+                  <div className="flex items-center justify-center gap-2 px-3 py-8 text-sm text-bo-muted">
+                    <Loader2 className="size-4 animate-spin" /> Đang tải nhân viên kho
+                  </div>
+                ) : staffError ? (
+                  <p className="px-3 py-6 text-center text-sm text-bo-muted">{staffError}</p>
+                ) : filteredStaff.length === 0 ? (
+                  <p className="px-3 py-6 text-center text-sm text-bo-muted">Không có nhân viên phù hợp.</p>
+                ) : (
+                  <ul className="divide-y divide-bo-border">
+                    {filteredStaff.map((person) => {
+                      const active = selectedId === person.id;
+                      return (
+                        <li key={person.id}>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedId(person.id)}
+                            className={cn(
+                              "flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors",
+                              active ? "bg-bo-primary-soft" : "hover:bg-bo-surface-subtle",
+                            )}
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-semibold text-bo-foreground">{person.hoTen}</span>
+                              <span className="block truncate text-xs text-bo-muted">
+                                {person.tenDangNhap || "—"} · {person.vaiTro === ROLES.QUAN_LY_KHO ? "Quản lý kho" : "Nhân viên kho"}
+                              </span>
                             </span>
-                          </span>
-                          {active ? <Check className="size-4 shrink-0 text-bo-primary" /> : null}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+                            {active ? <Check className="size-4 shrink-0 text-bo-primary" /> : null}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="flex items-start gap-3 rounded-lg border border-bo-border bg-bo-surface-subtle p-3 text-sm text-slate-700">
-            <Users className="mt-0.5 size-4 shrink-0 text-bo-muted" />
-            <p>Bạn có thể nhận phiếu nhặt hàng này để bắt đầu nhặt hàng. Quản lý kho có thể phân công lại sau.</p>
-          </div>
-        )}
+          ) : (
+            <div className={cn("flex items-start gap-3", GHI_CHU_HOP)}>
+              <Users className="mt-0.5 size-4 shrink-0 text-bo-muted" />
+              <p>Bạn có thể nhận phiếu nhặt hàng này để bắt đầu nhặt hàng. Quản lý kho có thể phân công lại sau.</p>
+            </div>
+          )}
+        </div>
 
-        <DialogFooter className="gap-2 sm:justify-between">
+        <div className={CHAN_HOP}>
           <Button
             type="button"
             variant="outline"
+            disabled={saving}
+            onClick={() => onOpenChange(false)}
+            className={NUT_QUAY_LAI}
+          >
+            Quay lại
+          </Button>
+          {/* Nhân viên kho chỉ có việc này: nút chính; quản lý còn nút Phân công nên đây là nút viền */}
+          <Button
+            type="button"
+            variant={canAssignOthers ? "outline" : "default"}
             disabled={saving || !currentUserId || daLaCuaToi || (!canAssignOthers && daGiaoNguoiKhac)}
             onClick={() => assign(currentUserId)}
-            className="gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+            className={canAssignOthers ? cn("gap-1.5", NUT_QUAY_LAI) : NUT_CHINH}
           >
-            <UserCheck className="size-4" />
+            {saving && !canAssignOthers ? <Loader2 className="size-4 animate-spin" /> : <UserCheck className="size-4" />}
             Nhận việc cho tôi
           </Button>
           {canAssignOthers ? (
@@ -166,13 +190,13 @@ export default function AssignPickerDialog({ open, onOpenChange, pickList, onAss
               type="button"
               disabled={saving || !selectedId || selectedId === pickList?.nguoiNhatId}
               onClick={() => assign(selectedId)}
-              className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
+              className={NUT_CHINH}
             >
               {saving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
               Phân công
             </Button>
           ) : null}
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );
