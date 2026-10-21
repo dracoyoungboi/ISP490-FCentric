@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Check, FileText, Printer, Send } from "lucide-react";
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -11,6 +11,14 @@ import { KhungDangTai, KhungLoiChungTu } from "@/components/chung-tu/KhungTaiChu
 import useBangChungTu from "@/components/chung-tu/useBangChungTu";
 import { cauChungTuRong, soVN } from "@/components/chung-tu/bangChungTu";
 import { GOI_Y_O, NHAN_O, O_NHAP_NHIEU_DONG } from "@/components/chung-tu/kieuHopThoai";
+import {
+    CAU_HET_THOI_HAN,
+    MO_TA_HET_THOI_HAN,
+    chayCoThoiHan,
+    khiGocKetThuc,
+    khoaKhiChoGoc,
+    laLoiHetThoiHan,
+} from "@/components/chung-tu/thoiHanThaoTac";
 import BangYeuCau from "@/components/order/chi-tiet-yeu-cau/BangYeuCau";
 import ThuocTinhYeuCau from "@/components/order/chi-tiet-yeu-cau/ThuocTinhYeuCau";
 import {
@@ -70,6 +78,18 @@ function ChiTietYeuCauNhapHang({ id }) {
     const [lyDo, setLyDo] = useState("");
     const [dangChay, setDangChay] = useState(false);
     const [loiHop, setLoiHop] = useState(null); // câu lỗi hiện trong hộp (lỗi mạng, lỗi máy chủ)
+    // Hết thời hạn mà máy chủ có thể vẫn đang làm: khóa nút thao tác tới khi lời gọi gốc kết thúc (khiGocKetThuc)
+    const [choGoc, setChoGoc] = useState(false);
+    const huyChoGocRef = useRef(null);
+    // Màn đã gỡ (rời trang trong lúc chờ): nhánh hết thời hạn bỏ qua báo lỗi, khóa nút, tải lại; gỡ thì hủy chờ
+    const daGoRef = useRef(false);
+    useEffect(() => {
+        daGoRef.current = false;
+        return () => {
+            daGoRef.current = true;
+            huyChoGocRef.current?.();
+        };
+    }, []);
 
     // Quay lại tab thì tải lại ngầm (yêu cầu có thể vừa được duyệt / gửi báo giá); không tải khi đang thao tác
     useTaiLaiKhiQuayLai(() => q.reload(), { bat: Boolean(id) && !q.loading && !dangChay, lanCuoi: q.capNhatLuc });
@@ -162,6 +182,17 @@ function ChiTietYeuCauNhapHang({ id }) {
         setLyDo("");
     };
 
+    // Khóa nút thao tác tới khi lời gọi gốc kết thúc (tối đa THOI_HAN_CHO_GOC_MS) rồi tải lại; màn gỡ thì hủy chờ
+    const khoaToiKhiGocXong = (loi) => {
+        huyChoGocRef.current?.();
+        setChoGoc(true);
+        huyChoGocRef.current = khiGocKetThuc(loi, () => {
+            huyChoGocRef.current = null;
+            setChoGoc(false);
+            q.reload();
+        });
+    };
+
     const thucHien = async (trangThai) => {
         const lyDoGui = lyDo.trim();
         if (trangThai === TRANG_THAI_YEU_CAU.TU_CHOI && !lyDoGui) {
@@ -171,7 +202,7 @@ function ChiTietYeuCauNhapHang({ id }) {
         setLoiHop(null);
         setDangChay(true);
         try {
-            await purchaseRequestService.approve(id, trangThai, lyDoGui);
+            await chayCoThoiHan(() => purchaseRequestService.approve(id, trangThai, lyDoGui));
             toast.success(trangThai === TRANG_THAI_YEU_CAU.DA_DUYET ? `Đã phê duyệt yêu cầu ${ma}.` : `Đã từ chối yêu cầu ${ma}.`);
             setHop("");
             setLyDo("");
@@ -179,6 +210,17 @@ function ChiTietYeuCauNhapHang({ id }) {
             q.setData((cu) => (cu ? { ...cu, trangThai, ...(trangThai === TRANG_THAI_YEU_CAU.TU_CHOI ? { lyDoTuChoi: lyDoGui } : {}) } : cu));
             q.reload();
         } catch (error) {
+            if (laLoiHetThoiHan(error)) {
+                if (daGoRef.current) return;
+                // Máy chủ chưa trả lời sau thời hạn: đóng hộp, báo lỗi, tải lại ngầm; máy chủ có thể vẫn đang ghi nhận
+                // nên khóa nút tới khi lời gọi gốc kết thúc rồi tải lại lần nữa
+                setHop("");
+                setLyDo("");
+                toast.error(CAU_HET_THOI_HAN, { description: MO_TA_HET_THOI_HAN });
+                q.reload();
+                khoaToiKhiGocXong(error);
+                return;
+            }
             // Câu dự phòng không có dấu chấm: mất mạng thì getApiErrorMessage nối thêm ": không nhận được phản hồi…"
             const cau = getApiErrorMessage(error, "Không thực hiện được thao tác");
             if (LOI_DA_DOI_NOI_KHAC.includes(getApiErrorStatus(error))) {
@@ -196,7 +238,7 @@ function ChiTietYeuCauNhapHang({ id }) {
 
     const demSp = `${soVN(bang.tong.soSanPham)} sản phẩm, ${soVN(bang.tong.soDong)} biến thể`;
     const tongSl = soVN(bang.tong.soLuong);
-    const nutChinh = hienDuyet
+    const nutChinh = khoaKhiChoGoc(hienDuyet
         ? [
             { ma: "tuChoi", nhan: "Từ chối", kieu: "vien", onClick: () => moHop("tuChoi") },
             { ma: "duyet", nhan: "Phê duyệt", icon: Check, onClick: () => moHop("duyet"), khoa: bang.rong, lyDo: LY_DO_RONG },
@@ -210,7 +252,7 @@ function ChiTietYeuCauNhapHang({ id }) {
                 khoa: bang.rong,
                 lyDo: LY_DO_RONG,
             }
-            : null;
+            : null, choGoc);
 
     const thongBao = [
         tt === TRANG_THAI_YEU_CAU.TU_CHOI && yc.lyDoTuChoi ? (

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { BarChart3, Check, FileText } from "lucide-react";
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -11,6 +11,14 @@ import { KhungDangTai, KhungLoiChungTu } from "@/components/chung-tu/KhungTaiChu
 import useBangChungTu from "@/components/chung-tu/useBangChungTu";
 import { docSo, soVN } from "@/components/chung-tu/bangChungTu";
 import { GHI_CHU_HOP } from "@/components/chung-tu/kieuHopThoai";
+import {
+    CAU_HET_THOI_HAN,
+    MO_TA_HET_THOI_HAN,
+    chayCoThoiHan,
+    khiGocKetThuc,
+    khoaKhiChoGoc,
+    laLoiHetThoiHan,
+} from "@/components/chung-tu/thoiHanThaoTac";
 import BangBaoGia from "@/components/order/chi-tiet-bao-gia/BangBaoGia";
 import ThuocTinhBaoGia from "@/components/order/chi-tiet-bao-gia/ThuocTinhBaoGia";
 import {
@@ -39,9 +47,10 @@ import { ROLES, hasAnyRole } from "@/utils/roles";
 
 // Chỉ quản trị viên và nhân viên mua hàng chốt báo giá (giữ như màn cũ; backend còn cho quản lý kho)
 const VAI_TRO_CHOT_BAO_GIA = [ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_MUA_HANG];
-// Máy chủ từ chối thao tác: thường gặp 403 (không còn quyền) hoặc 400 "Không tìm thấy đơn mua hàng" (báo giá đã bị
-// xóa hẳn); duyet-don không kiểm trạng thái hiện tại nên người khác vừa chốt KHÔNG bị chặn. Khi đó đóng hộp, báo lỗi,
-// tải lại; lỗi khác (mạng, 500) giữ hộp, hiện câu lỗi trong hộp để bấm lại
+// Máy chủ từ chối thao tác: 409 khi báo giá không còn chờ chốt (duyet-don khóa dòng và chỉ chốt báo giá trạng thái 2,
+// nên người khác vừa chấp nhận / không chấp nhận thì lần bấm sau bị chặn), 403 (không còn quyền) hoặc 400 "Không tìm
+// thấy đơn mua hàng" (báo giá đã bị xóa hẳn). Khi đó đóng hộp, báo lỗi, tải lại; lỗi khác (mạng, 500) giữ hộp, hiện câu
+// lỗi trong hộp để bấm lại
 const LOI_DA_DOI_NOI_KHAC = [400, 403, 409];
 
 /**
@@ -73,6 +82,19 @@ function ChiTietBaoGia({ id }) {
     const [hop, setHop] = useState(""); // "" | "chapNhan" | "tuChoi"
     const [dangChay, setDangChay] = useState(false);
     const [loiHop, setLoiHop] = useState(null); // câu lỗi hiện trong hộp (lỗi mạng, lỗi máy chủ)
+    // Hết thời hạn mà máy chủ có thể vẫn đang làm (vd. đang gửi email cho nhà cung cấp): khóa nút thao tác tới khi lời
+    // gọi gốc kết thúc (khiGocKetThuc), tránh bấm lại gửi hai email
+    const [choGoc, setChoGoc] = useState(false);
+    const huyChoGocRef = useRef(null);
+    // Màn đã gỡ (rời trang trong lúc chờ): nhánh hết thời hạn bỏ qua báo lỗi, khóa nút, tải lại; gỡ thì hủy chờ
+    const daGoRef = useRef(false);
+    useEffect(() => {
+        daGoRef.current = false;
+        return () => {
+            daGoRef.current = true;
+            huyChoGocRef.current?.();
+        };
+    }, []);
 
     // Quay lại tab thì tải lại ngầm (nhà cung cấp có thể vừa gửi giá); không tải khi đang thao tác
     useTaiLaiKhiQuayLai(() => q.reload(), { bat: Boolean(id) && !q.loading && !dangChay, lanCuoi: q.capNhatLuc });
@@ -136,20 +158,31 @@ function ChiTietBaoGia({ id }) {
     const doiMoHop = (mo) => {
         if (!mo) setHop("");
     };
-    const nutChinh = hienChot
+    const nutChinh = khoaKhiChoGoc(hienChot
         ? [
             { ma: "tuChoi", nhan: "Không chấp nhận", kieu: "vien", onClick: () => moHop("tuChoi") },
             { ma: "chapNhan", nhan: "Chấp nhận báo giá", icon: Check, onClick: () => moHop("chapNhan"), khoa: Boolean(lyDoKhoa), lyDo: lyDoKhoa },
         ]
         : daChot
-            ? { ma: "donMua", nhan: "Mở đơn mua hàng", icon: FileText, kieu: "vien", onClick: () => navigate(`/purchase-orders/${don.id}`) }
-            : null;
+            ? { ma: "donMua", nhan: "Mở đơn mua hàng", icon: FileText, kieu: "vien", dieuHuong: true, onClick: () => navigate(`/purchase-orders/${don.id}`) }
+            : null, choGoc);
+
+    // Khóa nút thao tác tới khi lời gọi gốc kết thúc (tối đa THOI_HAN_CHO_GOC_MS) rồi tải lại; màn gỡ thì hủy chờ
+    const khoaToiKhiGocXong = (loi) => {
+        huyChoGocRef.current?.();
+        setChoGoc(true);
+        huyChoGocRef.current = khiGocKetThuc(loi, () => {
+            huyChoGocRef.current = null;
+            setChoGoc(false);
+            q.reload();
+        });
+    };
 
     const thucHien = async (trangThai) => {
         setLoiHop(null);
         setDangChay(true);
         try {
-            await purchaseOrderService.duyetDon(id, trangThai);
+            await chayCoThoiHan(() => purchaseOrderService.duyetDon(id, trangThai));
             if (trangThai === TRANG_THAI_BAO_GIA.DA_CHOT) toast.success(`Đã chấp nhận báo giá ${ma}`);
             else toast.success("Đã gửi email báo không chấp nhận cho nhà cung cấp", { description: tenNcc });
             setHop("");
@@ -157,6 +190,16 @@ function ChiTietBaoGia({ id }) {
             q.setData((cu) => (cu ? { ...cu, trangThai } : cu));
             q.reload();
         } catch (error) {
+            if (laLoiHetThoiHan(error)) {
+                if (daGoRef.current) return;
+                // Máy chủ chưa trả lời sau thời hạn: đóng hộp, báo lỗi, tải lại ngầm; máy chủ có thể vẫn đang làm (gửi
+                // email trước rồi mới đổi trạng thái) nên khóa nút tới khi lời gọi gốc kết thúc rồi tải lại lần nữa
+                setHop("");
+                toast.error(CAU_HET_THOI_HAN, { description: MO_TA_HET_THOI_HAN });
+                q.reload();
+                khoaToiKhiGocXong(error);
+                return;
+            }
             // Câu dự phòng không có dấu chấm: mất mạng thì getApiErrorMessage nối thêm ": không nhận được phản hồi…"
             const cau = getApiErrorMessage(error, "Không thực hiện được thao tác");
             if (LOI_DA_DOI_NOI_KHAC.includes(getApiErrorStatus(error))) {
