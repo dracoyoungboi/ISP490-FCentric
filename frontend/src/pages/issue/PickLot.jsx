@@ -1,296 +1,315 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams, useLocation, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Check, RotateCcw } from "lucide-react";
 import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
+import { getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
 import { toast } from "@/lib/thongBaoNhanh";
 import PageContainer from "@/components/backoffice/PageContainer";
-import TableShell from "@/components/shared/TableShell";
 import StatusBadge from "@/components/shared/StatusBadge";
-import EmptyState from "@/components/shared/EmptyState";
-import ErrorState from "@/components/shared/ErrorState";
-import LoadingState from "@/components/shared/LoadingState";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, Package, CheckCircle2, ClipboardList } from "lucide-react";
+import KhungChungTu from "@/components/chung-tu/KhungChungTu";
+import DauChungTu from "@/components/chung-tu/DauChungTu";
+import CotThuocTinh, { BangThuocTinh, NhomThuocTinh } from "@/components/chung-tu/CotThuocTinh";
+import DongThongBao from "@/components/chung-tu/DongThongBao";
+import { KhungDangTai, KhungKhongThay, KhungLoiChungTu, KhungLoiTai } from "@/components/chung-tu/KhungTaiChungTu";
+import { phanLoaiLoiTai } from "@/components/chung-tu/loiTai";
+import { docSo, soVN } from "@/components/chung-tu/bangChungTu";
+import BangLoChonLo from "@/components/outbound/phieu-xuat/BangLoChonLo";
+import DaiTongChonLo from "@/components/outbound/phieu-xuat/DaiTongChonLo";
+import {
+  banDoDaLay,
+  datLaiTheoFifo,
+  kiemTraLuuLo,
+  loDauFifo,
+  loaiKhongThayChonLo,
+  quyenChonLo,
+  sapXepLo,
+  tongChon,
+  trangThaiChonLo,
+} from "@/components/outbound/phieu-xuat/chonLo";
+import useQuayLai from "@/hooks/useQuayLai";
 import { getApiErrorMessage } from "@/utils/apiError";
-import { formatDate } from "@/utils/formatters";
-import { TRANG_THAI_PHIEU_XUAT } from "@/constants/trangThaiXuatBan";
 import { hasAnyRole, ROLES } from "@/utils/roles";
 
-const TH_CLASS =
-    "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
-
-// Thẻ trạng thái lô (lấy hết lô là việc xong, không phải lỗi nên gọi "Đã lấy hết lô")
-function LotStatusBadge({ numValue, tonKhaDung }) {
-    if (numValue <= 0) return <span className="text-xs text-bo-muted">Không dùng</span>;
-    if (numValue > tonKhaDung) return <StatusBadge label="Vượt mức" />;
-    if (numValue === tonKhaDung) return <StatusBadge label="Đã lấy hết lô" />;
-    return <StatusBadge label="Một phần" />;
+/** Dòng phiếu xuất đọc từ GET /api/v1/phieu-xuat-kho/{id}. */
+function dongTuChiTiet(phieu, ct) {
+  return {
+    bienTheSanPhamId: ct.bienTheSanPhamId,
+    sku: ct.sku || "",
+    tenBienThe: ct.tenBienThe || "",
+    soLuongXuat: Number(ct.soLuongCanXuat ?? 0),
+    phieuTrangThai: phieu.trangThai,
+    loaiXuat: phieu.loaiXuat,
+    soPhieuXuat: phieu.soPhieuXuat,
+    tenKho: phieu.kho?.tenKho ?? null,
+  };
 }
 
-function PickStatTile({ icon, iconClass, label, value, valueClass, sub }) {
-    return (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-            <div className="min-w-0">
-                <p className="text-xs font-medium text-bo-muted">{label}</p>
-                <p className={`mt-1 truncate text-lg font-bold tracking-tight ${valueClass || "text-bo-foreground"}`}>
-                    {value}
-                    {sub}
-                </p>
-            </div>
-            <span className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${iconClass}`}>
-                {icon}
-            </span>
-        </div>
-    );
-}
-
+/**
+ * Chọn lô hàng của một dòng phiếu xuất (`/goods-issues/:id/pick-lot/:ctId`) · bản "một khối" (21/10/2026).
+ * Dòng luôn đọc lại từ GET /phieu-xuat-kho/{id} (tìm `chiTiet` theo ctId), không dùng router state: React Router giữ
+ * state qua F5 và lùi / tiến lịch sử nên state có thể đã cũ (trạng thái phiếu, số cần xuất). Một dải tổng "Đã chọn x / y cần xuất" + kiểm tra trực tiếp; chỉ xem thì mặc định chỉ hiện lô đã lấy.
+ * Lưu: giữ 4 kiểm tra và payload POST …/pick-lo của bản cũ; lưu xong (và nút ←) cùng một đường về chi tiết phiếu.
+ * Đổi phiếu / dòng cùng đường dẫn (lùi / tiến lịch sử) thì dựng lại màn (`key`), không giữ số đang nhập của dòng trước.
+ */
 export default function PickLot() {
-    const navigate = useNavigate();
-    const { phieuXuatKhoId, chiTietPhieuXuatKhoId } = useParams();
-    const { state } = useLocation();
+  const { phieuXuatKhoId, chiTietPhieuXuatKhoId } = useParams();
+  return (
+    <ManChonLo
+      key={`${phieuXuatKhoId}-${chiTietPhieuXuatKhoId}`}
+      phieuXuatKhoId={phieuXuatKhoId}
+      chiTietPhieuXuatKhoId={chiTietPhieuXuatKhoId}
+    />
+  );
+}
 
-    const bienTheSanPhamId = state?.bienTheSanPhamId;
-    const sku              = state?.sku || "-";
-    const tenBienThe       = state?.tenBienThe || "-";
-    const soLuongCanXuat   = Number(state?.soLuongXuat ?? 0);
-    const phieuTrangThai   = state?.phieuTrangThai;
-    const isBanHang        = state?.loaiXuat === "ban_hang";
-    // Khớp PhieuXuatKhoService.pickLoHang: phiếu chuyển kho chọn lô khi còn Nháp; lô phiếu bán hàng lấy từ phiếu nhặt,
-    // chỉ quản lý kho / quản trị viên sửa lô (đủ số lượng của dòng) khi phiếu còn Nháp / Chờ xuất.
-    const isReadOnly       = isBanHang
-        ? !(hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO])
-            && (phieuTrangThai === TRANG_THAI_PHIEU_XUAT.NHAP || phieuTrangThai === TRANG_THAI_PHIEU_XUAT.CHO_XUAT))
-        : phieuTrangThai !== TRANG_THAI_PHIEU_XUAT.NHAP;
+// Backend: chi tiết phiếu / available-lots ném RuntimeException "Không tìm thấy …" (500)
+const TUY_CHON_LOI = Object.freeze({ coi500LaKhongThay: true });
+const locCauMayChu = (cau) => (/^\s*không tìm thấy/i.test(cau) ? null : cau);
 
-    // Trang tự tải ngay khi mở nên bắt đầu ở trạng thái đang tải (không hiện "Không có lô" trước khi có kết quả)
-    const [loading,  setLoading]  = useState(true);
-    const [lots,     setLots]     = useState([]);
-    const [pickMap,  setPickMap]  = useState({});
-    // null: không lỗi; chuỗi: mô tả lỗi tải danh sách lô (không hiện nhầm "Không có lô khả dụng")
-    const [loadError, setLoadError] = useState(null);
+function ManChonLo({ phieuXuatKhoId, chiTietPhieuXuatKhoId }) {
+  const navigate = useNavigate();
+  // Có trang trước trong ứng dụng (luôn là chi tiết phiếu) thì lùi lại; mở thẳng thì mở chi tiết phiếu
+  const veChiTiet = useQuayLai(`/goods-issues/${phieuXuatKhoId}`);
+  const laQuanLy = hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO]);
 
-    const loadInitialData = useCallback(async () => {
-        setLoading(true);
-        setLoadError(null);
-        try {
-            const [lotsRes, pickedRes] = await Promise.all([
-                phieuXuatKhoService.getAvailableLots(phieuXuatKhoId, bienTheSanPhamId),
-                phieuXuatKhoService.getPickedLots(phieuXuatKhoId, chiTietPhieuXuatKhoId).catch(() => []),
-            ]);
-            setLots(Array.isArray(lotsRes) ? lotsRes : []);
-            if (Array.isArray(pickedRes)) {
-                const map = {};
-                pickedRes.forEach(item => { map[item.loHangId] = String(item.soLuongDaPick); });
-                setPickMap(map);
-            }
-        } catch (e) {
-            setLots([]);
-            setLoadError(getApiErrorMessage(e, "Đã xảy ra lỗi khi tải danh sách lô. Vui lòng thử lại."));
-        }
-        finally { setLoading(false); }
-    }, [phieuXuatKhoId, bienTheSanPhamId, chiTietPhieuXuatKhoId]);
+  // { dong, lots, daLuu } khi tải xong. khongThay: "phieu" | "dong"; loi: lỗi tải (axios) hoặc null
+  const [duLieu, setDuLieu] = useState(null);
+  const [dangTai, setDangTai] = useState(true);
+  const [loi, setLoi] = useState(null);
+  const [khongThay, setKhongThay] = useState(null);
+  const [chon, setChon] = useState({});
+  const [dangLuu, setDangLuu] = useState(false);
+  const requestIdRef = useRef(0);
 
-    useEffect(() => {
-        if (!bienTheSanPhamId || !phieuXuatKhoId) {
-            toast.error("Thiếu thông tin biến thể");
-            navigate(-1);
-            return;
-        }
-        // Hoãn qua microtask để tránh setState đồng bộ trong effect
-        // (react-hooks/set-state-in-effect); dữ liệu lô vẫn tải ngay khi mount.
-        queueMicrotask(() => loadInitialData());
-    }, [phieuXuatKhoId, bienTheSanPhamId, navigate, loadInitialData]);
-
-    const tongPickMoi = useMemo(() =>
-        Object.values(pickMap).reduce((sum, v) => sum + (Number(v) || 0), 0),
-    [pickMap]);
-
-    function handleChange(loHangId, rawValue) {
-        if (isReadOnly) return;
-        if (rawValue === "") { setPickMap(prev => ({ ...prev, [loHangId]: "" })); return; }
-        if (!/^\d+$/.test(rawValue)) return;
-        setPickMap(prev => ({ ...prev, [loHangId]: rawValue }));
+  const tai = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+    setDangTai(true);
+    setLoi(null);
+    setKhongThay(null);
+    try {
+      const res = await phieuXuatKhoService.getDetail(phieuXuatKhoId);
+      if (requestId !== requestIdRef.current) return;
+      const payload = res?.data || res;
+      const ct = Array.isArray(payload?.chiTiet)
+        ? payload.chiTiet.find((c) => String(c.id) === String(chiTietPhieuXuatKhoId))
+        : null;
+      if (!payload?.phieu || !ct) {
+        setKhongThay(payload?.phieu ? "dong" : "phieu");
+        return;
+      }
+      const dong = dongTuChiTiet(payload.phieu, ct);
+      // Lô chọn được (đã sắp nhập trước lấy trước) và lô dòng đã lấy: lỗi một trong hai thì báo lỗi, không hiện
+      // nhầm "chưa lấy lô nào" (lưu khi đó sẽ ghi đè lô thật của dòng)
+      const [lotsRes, daLay] = await Promise.all([
+        phieuXuatKhoService.getAvailableLots(phieuXuatKhoId, dong.bienTheSanPhamId),
+        phieuXuatKhoService.getPickedLots(phieuXuatKhoId, chiTietPhieuXuatKhoId),
+      ]);
+      if (requestId !== requestIdRef.current) return;
+      const daLuu = banDoDaLay(daLay);
+      setDuLieu({ dong, lots: Array.isArray(lotsRes) ? lotsRes : [], daLuu });
+      setChon(daLuu);
+    } catch (e) {
+      if (requestId !== requestIdRef.current) return;
+      const loai = phanLoaiLoiTai(e, TUY_CHON_LOI);
+      setLoi(e);
+      if (loai.khongThay) setKhongThay(loaiKhongThayChonLo(loai.cauMayChu));
+    } finally {
+      if (requestId === requestIdRef.current) setDangTai(false);
     }
+  }, [phieuXuatKhoId, chiTietPhieuXuatKhoId]);
 
-    async function handleSave() {
-        if (isReadOnly) return;
-        const entries = Object.entries(pickMap).filter(([, v]) => Number(v) > 0);
-        if (entries.length === 0) { toast.error("Vui lòng nhập số lượng cần lấy"); return; }
-        for (const [id, val] of entries) {
-            const lot = lots.find(l => l.loHangId === Number(id));
-            if (Number(val) > (lot?.soLuongKhaDung || 0)) { toast.error(`Lô ${lot?.maLo} không đủ tồn kho`); return; }
-        }
-        if (tongPickMoi > soLuongCanXuat) { toast.error("Tổng số lượng lấy vượt quá số lượng cần xuất"); return; }
-        if (isBanHang && tongPickMoi !== soLuongCanXuat) {
-            toast.error(`Sửa lô phải đủ ${soLuongCanXuat} (không đổi số lượng phiếu)`);
-            return;
-        }
+  // Hoãn qua microtask để tránh setState đồng bộ trong effect (react-hooks/set-state-in-effect); dữ liệu vẫn tải ngay khi mở.
+  useEffect(() => {
+    queueMicrotask(() => tai());
+  }, [tai]);
 
-        setLoading(true);
-        try {
-            await phieuXuatKhoService.pickLo(phieuXuatKhoId, {
-                chiTietPhieuXuatKhoId: Number(chiTietPhieuXuatKhoId),
-                loHangPicks: entries.map(([loHangId, soLuongXuat]) => ({ loHangId: Number(loHangId), soLuongXuat: Number(soLuongXuat) })),
-            });
-            toast.success("Chọn lô thành công");
-            navigate(-1);
-        } catch (e) { toast.error(e?.response?.data?.message || "Chọn lô thất bại"); }
-        finally { setLoading(false); }
-    }
-
-    const daDu = tongPickMoi >= soLuongCanXuat;
-    // Chưa tải xong lần đầu hoặc tải lỗi: chưa biết số đã lấy, hiện "—" thay vì 0
-    const coSoDaLay = !loadError && !(loading && lots.length === 0);
-
+  if (dangTai && !duLieu) {
     return (
-        <PageContainer className="space-y-5">
-
-            {/* ── Header ── */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <button
-                    type="button"
-                    onClick={() => navigate(`/goods-issues/${phieuXuatKhoId}`)}
-                    className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-bo-muted transition-colors hover:text-bo-primary"
-                >
-                    <ArrowLeft className="size-4" />
-                    Quay lại chi tiết phiếu
-                </button>
-
-                {isReadOnly && (
-                    <StatusBadge label="Chế độ xem" tone="neutral" />
-                )}
-            </div>
-
-            {/* ── Stats cards ── */}
-            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <PickStatTile
-                    icon={<Package className="size-5" />}
-                    iconClass="bg-bo-primary-soft text-bo-primary"
-                    label="SKU"
-                    value={<span className="font-mono text-sm">{sku}</span>}
-                />
-                <PickStatTile
-                    icon={<ClipboardList className="size-5" />}
-                    iconClass="bg-indigo-50 text-indigo-600"
-                    label="Biến thể"
-                    value={<span className="text-sm">{tenBienThe}</span>}
-                />
-                <PickStatTile
-                    icon={<Package className="size-5" />}
-                    iconClass="bg-bo-warning-soft text-bo-warning"
-                    label="Cần xuất"
-                    value={soLuongCanXuat}
-                />
-                <PickStatTile
-                    icon={<CheckCircle2 className="size-5" />}
-                    iconClass={coSoDaLay && daDu ? "bg-bo-success-soft text-bo-success" : "bg-slate-100 text-slate-400"}
-                    label="Đã lấy"
-                    value={coSoDaLay ? tongPickMoi : "—"}
-                    valueClass={coSoDaLay && daDu ? "text-bo-success" : "text-bo-foreground"}
-                    sub={coSoDaLay ? <span className="text-sm font-normal text-bo-muted">/{soLuongCanXuat}</span> : null}
-                />
-            </section>
-
-            {/* ── Bảng lô hàng ── */}
-            <TableShell
-                title="Danh sách lô khả dụng"
-                description={isReadOnly ? "Xem số lượng đã lấy ở từng lô" : "Nhập số lượng cần xuất cho từng lô"}
-                footer={lots.length > 0 ? (
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-sm text-bo-muted">
-                            Tổng <span className="font-semibold text-bo-primary">{lots.length}</span> lô — Đã pick{" "}
-                            <span className={`font-semibold ${tongPickMoi >= soLuongCanXuat ? "text-bo-success" : "text-bo-warning"}`}>{tongPickMoi}</span>
-                            /{soLuongCanXuat}
-                        </p>
-                        {!isReadOnly && (
-                            <Button
-                                disabled={loading || tongPickMoi <= 0}
-                                onClick={handleSave}
-                                className="min-w-[140px] gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
-                            >
-                                {loading
-                                    ? <><Loader2 className="size-4 animate-spin" />Đang lưu...</>
-                                    : <><CheckCircle2 className="size-4" />Xác nhận Lô</>
-                                }
-                            </Button>
-                        )}
-                    </div>
-                ) : null}
-            >
-                {loading ? (
-                    <LoadingState rows={4} label="Đang tải danh sách lô" />
-                ) : loadError ? (
-                    <ErrorState
-                        title="Không tải được danh sách lô"
-                        description={loadError}
-                        onRetry={loadInitialData}
-                    />
-                ) : lots.length === 0 ? (
-                    <EmptyState
-                        icon={Package}
-                        title="Không có lô khả dụng"
-                        description="Sản phẩm này hiện không có lô hàng nào khả dụng."
-                    />
-                ) : (
-                    <table className="w-full min-w-[760px] text-sm">
-                        <thead>
-                            <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                <th className={`${TH_CLASS} text-left`}>Mã lô</th>
-                                <th className={`${TH_CLASS} text-center`}>Ngày nhập</th>
-                                {!isReadOnly && <th className={`${TH_CLASS} text-center`}>Tồn khả dụng</th>}
-                                <th className={`${TH_CLASS} text-center`}>Số lượng xuất</th>
-                                {!isReadOnly && <th className={`${TH_CLASS} text-left`}>Trạng thái</th>}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-bo-border">
-                            {lots.map((lot) => {
-                                const displayValue = pickMap[lot.loHangId] ?? "";
-                                const numValue     = Number(displayValue) || 0;
-                                const tonKhaDung   = Number(lot.soLuongKhaDung) || 0;
-                                return (
-                                    <tr key={lot.loHangId} className="transition-colors hover:bg-bo-surface-subtle">
-                                        <td className="px-4 py-3.5 align-middle">
-                                            <span className="rounded-md bg-bo-primary-soft px-2 py-0.5 font-mono text-xs font-semibold tracking-wide text-bo-primary">
-                                                {lot.maLo}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3.5 text-center align-middle">
-                                            <span className="text-sm text-bo-muted">
-                                                {lot.ngayNhapGanNhat ? formatDate(lot.ngayNhapGanNhat) : "—"}
-                                            </span>
-                                        </td>
-                                        {!isReadOnly && (
-                                            <td className="px-4 py-3.5 text-center align-middle">
-                                                <span className="inline-flex items-center justify-center rounded-md bg-bo-surface-subtle px-2.5 py-1">
-                                                    <span className="text-xs font-semibold text-slate-800">{tonKhaDung}</span>
-                                                </span>
-                                            </td>
-                                        )}
-                                        <td className="px-4 py-3.5 text-center align-middle">
-                                            <input
-                                                type="text"
-                                                inputMode="numeric"
-                                                readOnly={isReadOnly}
-                                                value={displayValue}
-                                                onChange={(e) => handleChange(lot.loHangId, e.target.value)}
-                                                placeholder="0"
-                                                className={`h-9 w-24 rounded-md border text-center font-semibold transition-colors focus:outline-none ${isReadOnly
-                                                    ? "cursor-not-allowed border-bo-border bg-bo-surface-subtle text-bo-muted"
-                                                    : "border-bo-border bg-white text-bo-foreground focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15"
-                                                    }`}
-                                            />
-                                        </td>
-                                        {!isReadOnly && (
-                                            <td className="px-4 py-3.5 align-middle">
-                                                <LotStatusBadge numValue={numValue} tonKhaDung={tonKhaDung} />
-                                            </td>
-                                        )}
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                )}
-            </TableShell>
-        </PageContainer>
+      <PageContainer className="flex min-h-full flex-col">
+        <KhungDangTai nhan="Đang tải danh sách lô" />
+      </PageContainer>
     );
+  }
+  if (khongThay) {
+    return (
+      <PageContainer className="flex min-h-full flex-col">
+        {khongThay === "dong" ? (
+          <KhungKhongThay
+            tieuDe="Không tìm thấy dòng phiếu xuất"
+            moTa="Dòng này không còn trên phiếu xuất hoặc phiếu đã bị xóa. Mở lại từ chi tiết phiếu xuất."
+            nhanNut="Về phiếu xuất kho"
+            onNut={veChiTiet}
+          />
+        ) : (
+          <KhungLoiChungTu
+            loi={loi}
+            tenChungTu="phiếu xuất kho"
+            tuyChonLoi={TUY_CHON_LOI}
+            locCauMayChu={locCauMayChu}
+            moTaKhongThay="Phiếu xuất kho không tồn tại, đã bị xóa hoặc thuộc kho khác với nơi làm việc đang chọn."
+            onVeDanhSach={() => navigate("/goods-issues")}
+          />
+        )}
+      </PageContainer>
+    );
+  }
+  if (loi || !duLieu) {
+    return (
+      <PageContainer className="flex min-h-full flex-col">
+        <KhungLoiTai tieuDe="Không tải được danh sách lô" moTa={phanLoaiLoiTai(loi, TUY_CHON_LOI).moTaLoi} onThuLai={tai} />
+      </PageContainer>
+    );
+  }
+
+  const { dong, lots, daLuu } = duLieu;
+  const can = docSo(dong.soLuongXuat);
+  const quyen = quyenChonLo({ loaiXuat: dong.loaiXuat, trangThai: dong.phieuTrangThai, laQuanLy });
+  const chiXem = !quyen.duocSua;
+  const kiemTra = chiXem ? null : trangThaiChonLo({ chon, lots, can, laBanHang: quyen.laBanHang });
+  const tongLuu = tongChon(daLuu);
+  const dsLo = sapXepLo(lots, daLuu);
+  const ttPhieu = getPhieuXuatKhoStatus(dong.phieuTrangThai);
+
+  const doiSoLuong = (loHangId, chu) => {
+    if (chiXem || dangLuu) return;
+    if (chu === "") {
+      setChon((cu) => ({ ...cu, [loHangId]: "" }));
+      return;
+    }
+    if (!/^\d+$/.test(chu)) return;
+    setChon((cu) => ({ ...cu, [loHangId]: chu }));
+  };
+
+  const datLai = () => {
+    const moi = datLaiTheoFifo(lots, can);
+    setChon(moi);
+    toast.info("Đã điền lại theo nhập trước lấy trước", {
+      description: `${soVN(Object.keys(moi).length)} lô · kiểm tra rồi bấm Lưu lô`,
+    });
+  };
+
+  const luu = async () => {
+    if (chiXem || dangLuu) return;
+    const { loi: loiLuu, loHangPicks } = kiemTraLuuLo({ chon, lots, can, laBanHang: quyen.laBanHang });
+    if (loiLuu) {
+      toast.error(loiLuu);
+      return;
+    }
+    setDangLuu(true);
+    try {
+      await phieuXuatKhoService.pickLo(phieuXuatKhoId, {
+        chiTietPhieuXuatKhoId: Number(chiTietPhieuXuatKhoId),
+        loHangPicks,
+      });
+      toast.success(`Đã lưu lô cho ${dong.sku || dong.tenBienThe}`, { description: `Phiếu ${dong.soPhieuXuat}` });
+      veChiTiet();
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, "Chọn lô thất bại"));
+      setDangLuu(false);
+    }
+  };
+
+  const quyTac = quyen.laBanHang
+    ? "Lô của phiếu bán hàng lấy từ phiếu nhặt. Chỉ quản lý kho sửa khi lấy nhầm lô hoặc lô cũ hết hàng; tổng phải đủ số cần xuất."
+    : "Chọn lô trước khi xác nhận vận chuyển; lưu được một phần. Số lấy ở mỗi lô không vượt số còn lấy được.";
+
+  return (
+    <PageContainer className="flex min-h-full flex-col">
+      <KhungChungTu
+        aria-label={`Chọn lô ${dong.sku}`.trim()}
+        dau={
+          <DauChungTu
+            // Tên biến thể dài: chữ 20px, tối đa 2 dòng
+            ma={dong.tenBienThe || dong.sku}
+            kepTieuDe={2}
+            coTieuDe="md"
+            trangThai={{ label: tongLuu >= can && can > 0 ? "Đủ hàng" : "Chưa đủ" }}
+            dongPhu={
+              <>
+                SKU <span className="font-mono text-bo-foreground">{dong.sku || "—"}</span>
+              </>
+            }
+            onQuayLai={veChiTiet}
+            nhanQuayLai={`Về phiếu xuất kho ${dong.soPhieuXuat}`}
+            nutPhu={
+              chiXem
+                ? null
+                : {
+                  ma: "datLai",
+                  nhan: "Đặt lại theo nhập trước lấy trước",
+                  icon: RotateCcw,
+                  onClick: datLai,
+                  khoa: dangLuu || lots.length === 0,
+                }
+            }
+            nutChinh={
+              chiXem
+                ? null
+                : {
+                  ma: "luu",
+                  nhan: "Lưu lô",
+                  icon: Check,
+                  onClick: luu,
+                  khoa: !kiemTra.hopLe,
+                  lyDo: kiemTra.hopLe ? undefined : kiemTra.chu,
+                  dangChay: dangLuu,
+                }
+            }
+          />
+        }
+        tienTrinh={
+          <DaiTongChonLo
+            nhan={chiXem ? "Đã lấy" : "Đã chọn"}
+            tong={chiXem ? tongLuu : kiemTra.tong}
+            can={can}
+            kiemTra={kiemTra}
+          />
+        }
+        thongBao={chiXem ? <DongThongBao tone="neutral">{quyen.lyDoXem}</DongThongBao> : null}
+        chinh={
+          <BangLoChonLo
+            key={chiXem ? "xem" : "sua"}
+            lots={dsLo}
+            chon={chon}
+            daLuu={daLuu}
+            chiXem={chiXem}
+            dang={dangLuu}
+            dauFifo={loDauFifo(lots)}
+            onDoi={doiSoLuong}
+          />
+        }
+        cotPhai={
+          <CotThuocTinh nhan="Thông tin dòng phiếu xuất">
+            <NhomThuocTinh>
+              <BangThuocTinh
+                rongNhan={120}
+                muc={[
+                  {
+                    nhan: "Phiếu xuất",
+                    giaTri: (
+                      <Link
+                        to={`/goods-issues/${phieuXuatKhoId}`}
+                        className="rounded font-semibold tabular-nums text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
+                      >
+                        {dong.soPhieuXuat}
+                      </Link>
+                    ),
+                  },
+                  {
+                    nhan: "Trạng thái phiếu",
+                    giaTri: ttPhieu.label ? <StatusBadge label={ttPhieu.label} quyTrinh="phieuXuat" /> : null,
+                  },
+                  { nhan: "Loại xuất", giaTri: dong.loaiXuat === "chuyen_kho" ? "Chuyển kho nội bộ" : "Xuất bán hàng" },
+                  { nhan: "Kho xuất", giaTri: dong.tenKho },
+                ]}
+              />
+            </NhomThuocTinh>
+            <NhomThuocTinh nhan="Quy tắc chọn lô">
+              <p className="text-[13px] leading-5 text-slate-700">{quyTac}</p>
+            </NhomThuocTinh>
+          </CotThuocTinh>
+        }
+      />
+    </PageContainer>
+  );
 }
