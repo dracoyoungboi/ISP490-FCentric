@@ -76,21 +76,32 @@
 	--color-bo-danger: #dc2626;
 	--color-bo-danger-soft: #fef2f2;
 
-	/* Thẻ trạng thái R8: 6 nhóm theo giai đoạn của việc (bảng nhãn ở src/constants/trangThai.js).
-	   Mọi cặp nền / chữ tương phản từ 6,9:1 trở lên. Đang làm nền vàng nhạt, Cần chú ý nền cam:
-	   hai nền khác nhau ΔE2000 13,3 để nhìn riêng một thẻ vẫn không lẫn. */
-	--color-bo-tt-cho: #e2e8f0;
-	--color-bo-tt-cho-chu: #1e293b;
-	--color-bo-tt-dang: #fef9c3;
-	--color-bo-tt-dang-chu: #713f12;
-	--color-bo-tt-chu-y: #fed7aa;
-	--color-bo-tt-chu-y-chu: #7c2d12;
-	--color-bo-tt-xong: #dcfce7;
-	--color-bo-tt-xong-chu: #14532d;
+	/* Thẻ trạng thái (chốt 21/10/2026: "chỉ bọc khi cần"). Bảng nhãn ở src/constants/trangThai.js.
+	   - *-chu: chữ trong khung và màu biểu tượng nghiệp vụ (tông đậm).
+	   - *-hinh: vòng tiến trình / chấm cạnh chữ (tông vừa).
+	   - nền + *-chu: ô có khung, chỉ dùng cho Cần chú ý và Có vấn đề (chữ trên nền ≥ 4,5:1).
+	   - Các nhóm khác vẫn có nền + chữ để tô khung lớn ở đầu trang chi tiết. */
+	--color-bo-tt-cho: #f1f5f9;
+	--color-bo-tt-cho-chu: #334155;
+	--color-bo-tt-cho-hinh: #64748b;
+	--color-bo-tt-dang: #eff6ff;
+	--color-bo-tt-dang-chu: #1d4ed8;
+	--color-bo-tt-dang-hinh: #2563eb;
+	--color-bo-tt-chu-y: #fff7ed;
+	--color-bo-tt-chu-y-chu: #c2410c;
+	--color-bo-tt-chu-y-hinh: #ea580c;
+	--color-bo-tt-xong: #f0fdf4;
+	--color-bo-tt-xong-chu: #15803d;
+	--color-bo-tt-xong-hinh: #16a34a;
 	--color-bo-tt-dong: #f1f5f9;
 	--color-bo-tt-dong-chu: #475569;
-	--color-bo-tt-loi: #fee2e2;
-	--color-bo-tt-loi-chu: #7f1d1d;
+	--color-bo-tt-dong-hinh: #94a3b8;
+	--color-bo-tt-loi: #fef2f2;
+	--color-bo-tt-loi-chu: #b91c1c;
+	--color-bo-tt-loi-hinh: #dc2626;
+	--color-bo-tt-thuong-chu: #15803d;
+	--color-bo-tt-thuong-hinh: #16a34a;
+	--color-bo-tt-thuong-vien: #bbf7d0;
 
 	/* Nhịp thu gọn / mở rộng sidebar: dùng chung cho độ rộng, chữ, logo và nhóm menu. */
 	--ease-sidebar: cubic-bezier(0.4, 0, 0.2, 1);
@@ -545,4 +556,23 @@
 }
 .nd-trong::after {
 	flex: 3 1 0;
+}
+
+/* Thẻ trạng thái: chấm nhịp cho việc đang chạy thật (Đang xử lý, Đang kiểm tra...). Tắt khi giảm chuyển động. */
+@keyframes bo-tt-nhip {
+	0% { opacity: 0.5; transform: scale(0.55); }
+	100% { opacity: 0; transform: scale(1.25); }
+}
+.bo-tt-nhip {
+	transform-box: fill-box;
+	transform-origin: center;
+	animation: bo-tt-nhip 1.8s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+	.bo-tt-nhip { animation: none; opacity: 0.2; }
+}
+/* Chế độ tương phản cao (Windows): dấu tích trên vòng "xong" theo màu nền, khung Cần chú ý / Có vấn đề / Bình thường giữ viền. */
+@media (forced-colors: active) {
+	.bo-tt-tick { stroke: Canvas; }
+	[data-nhom="canChuY"], [data-nhom="loi"], [data-nhom="thuong"] { outline: 1px solid CanvasText; }
 }
