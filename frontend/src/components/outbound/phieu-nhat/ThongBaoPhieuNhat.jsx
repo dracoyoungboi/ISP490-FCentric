@@ -14,11 +14,11 @@ const NUT_CHINH = "h-8 gap-1.5 bg-bo-primary px-3 text-[13px] font-semibold text
  */
 
 /**
- * Cảnh báo hủy nhận qua WebSocket (chỉ sống trong phiên). `canhBao.loai`:
+ * Cảnh báo hủy nhận qua WebSocket (chỉ sống trong phiên), một dòng của gopCanhBaoHuy. `canhBao.loai`:
  * - "donNhat": đơn hủy khi đang nhặt (ORDER_CANCELLED_IN_PICK_LIST) — số cần nhặt tự giảm, kèm hàng cần để vào khay trả kệ;
  * - "donDongGoi": đơn hủy sau khi nhặt xong (ORDER_CANCELLED_IN_PACKING) — phiếu xuất nháp của đơn đã thu hồi;
  * - "caPhieu": mọi đơn đã hủy (PICK_LIST_CANCELLED) — câu của máy chủ (tiếng Việt) hiện nguyên văn.
- * `traKe`: kết quả hangTraKe.
+ * `canhBao.soDonHang`: các số đơn đã nối, `canhBao.soDon`: số đơn (nhiều đơn thì "Các đơn …"). `traKe`: kết quả hangTraKe.
  */
 export function CanhBaoHuy({ canhBao, traKe = [], onDaHieu }) {
   const nutDaHieu = (
@@ -36,18 +36,19 @@ export function CanhBaoHuy({ canhBao, traKe = [], onDaHieu }) {
   }
 
   const so = canhBao.soDonHang || "";
+  const don = canhBao.soDon > 1 ? "các đơn" : "đơn";
   if (canhBao.loai === "donDongGoi") {
     return (
       <DongThongBao tone="warn" actions={nutDaHieu}>
-        <b className="font-semibold">Đơn {so} đã hủy sau khi nhặt xong.</b> Phiếu xuất nháp của đơn đã thu hồi. Chuyển
-        hàng của đơn vào thùng gom hàng trả kệ.
+        <b className="font-semibold">{canhBao.soDon > 1 ? "Các đơn" : "Đơn"} {so} đã hủy sau khi nhặt xong.</b> Phiếu xuất
+        nháp của {don} đã thu hồi. Chuyển hàng của {don} vào thùng gom hàng trả kệ.
       </DongThongBao>
     );
   }
 
   return (
     <DongThongBao tone="warn" actions={nutDaHieu}>
-      <b className="font-semibold">Đơn {so} đã hủy trên sàn.</b> Số cần nhặt đã tự giảm.
+      <b className="font-semibold">{canhBao.soDon > 1 ? "Các đơn" : "Đơn"} {so} đã hủy trên sàn.</b> Số cần nhặt đã tự giảm.
       {traKe.length ? (
         <>
           <div className="mt-1.5">Hàng cần để vào khay trả kệ:</div>
