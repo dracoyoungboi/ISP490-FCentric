@@ -24,6 +24,7 @@ import {
 import { OUTLINE_BUTTON, PRIMARY_BUTTON, settingsInputClass } from "@/components/settings/settingsStyles";
 import { useUnsavedChanges } from "@/components/settings/useSettingsPage";
 import { cn } from "@/lib/utils";
+import StatusBadge from "@/components/shared/StatusBadge";
 import { paymentConfigService } from "@/services/paymentConfigService";
 
 const PAYOS_DASHBOARD_URL = "https://my.payos.vn";
@@ -497,7 +498,7 @@ export default function PaymentSettingsPage() {
               <div className="min-w-0 flex-[1_1_300px]">
                 <p className="flex flex-wrap items-center gap-2 text-sm leading-5 font-medium text-bo-foreground">
                   <span id="payos-bat-tai-pos">Chuyển khoản QR qua payOS</span>
-                  {hasKeys ? <SettingsPill tone="ok">Đã kết nối</SettingsPill> : <SettingsPill>Chưa kết nối</SettingsPill>}
+                  <StatusBadge label={hasKeys ? "Đã kết nối" : "Chưa kết nối"} />
                 </p>
                 <p className="mt-0.5 text-[13px] leading-5 text-[#5b6676]">{qrDescription}</p>
               </div>
@@ -722,7 +723,7 @@ export default function PaymentSettingsPage() {
                     {copied ? <Check className="text-bo-success" size={15} /> : <Copy size={15} />}
                   </button>
                   {!webhookEditing ? (
-                    webhookConfirmed ? <SettingsPill tone="ok">Đã đăng ký</SettingsPill> : <SettingsPill tone="warn">Chưa đăng ký</SettingsPill>
+                    <StatusBadge label={webhookConfirmed ? "Đã đăng ký" : "Chưa đăng ký"} />
                   ) : null}
                 </div>
                 <span className="flex items-center gap-1">

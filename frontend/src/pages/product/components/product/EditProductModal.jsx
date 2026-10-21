@@ -1,4 +1,5 @@
 import { getApiErrorMessage } from "@/utils/apiError";
+import StatusBadge from "@/components/shared/StatusBadge";
 import { useState, useEffect, useCallback, useMemo, useReducer, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -23,7 +24,6 @@ import * as yup from "yup";
 import FormSection from "@/components/shared/FormSection";
 import { flattenCategoryTree } from "@/utils/danhMucTree";
 import { formatCurrency } from "@/utils/formatters";
-import { cn } from "@/lib/utils";
 import TrinhTaoBienThe from "./TrinhTaoBienThe";
 import KhuAnhSanPham from "./KhuAnhSanPham";
 import HopHoiBoThayDoi from "./HopHoiBoThayDoi";
@@ -101,9 +101,9 @@ const GIA_TRI_TRONG = {
 };
 
 const TRANG_THAI_SAN_PHAM = {
-    1: { nhan: "Còn hàng", lop: "bg-bo-success-soft text-bo-success" },
-    0: { nhan: "Hết hàng", lop: "bg-bo-warning-soft text-bo-warning" },
-    2: { nhan: "Ngừng hoạt động", lop: "bg-bo-surface-subtle text-bo-muted" },
+    1: { nhan: "Còn hàng" },
+    0: { nhan: "Hết hàng" },
+    2: { nhan: "Ngừng hoạt động" },
 };
 
 /** Ảnh đang lưu trên máy chủ; id dạng "cu-…" để không trùng ảnh mới ("moi-…"). */
@@ -471,9 +471,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                                 <>
                                     <span className="inline-flex items-center gap-1.5">
                                         Trạng thái:
-                                        <span className={cn("rounded-full px-2 py-px text-xs font-semibold", trangThai?.lop)}>
-                                            {trangThai?.nhan ?? "Không rõ"}
-                                        </span>
+                                        {trangThai ? <StatusBadge label={trangThai.nhan} /> : <span>Không rõ</span>}
                                     </span>
                                     <span aria-hidden="true" className="hidden sm:inline">·</span>
                                     <span>

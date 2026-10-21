@@ -754,7 +754,7 @@ export default function ViewUserListByAdmin() {
                                         </td>
 
                                         <td className="px-4 py-2.5">
-                                            <StatusBadge label={isActive ? "Hoạt động" : "Bị khóa"} />
+                                            <StatusBadge doiTuong="nguoi" label={isActive ? "Hoạt động" : "Bị khóa"} />
                                             {u.mustChangePassword ? (
                                                 <div className="mt-1 whitespace-nowrap text-xs leading-4 text-bo-muted">
                                                     Chưa đổi mật khẩu tạm thời
