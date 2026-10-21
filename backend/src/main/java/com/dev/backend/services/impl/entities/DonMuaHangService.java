@@ -246,6 +246,65 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         throw new CommonException("Otp hoặc email nhà cung cấp không hợp lệ");
     }
 
+    /**
+     * Chốt báo giá của nhà cung cấp: chấp nhận (3, yêu cầu mua hàng chuyển sang 5) hoặc không chấp nhận (4, gửi email báo
+     * hủy cho nhà cung cấp). Chỉ chốt được báo giá đang chờ duyệt (2): đọc có khóa dòng nên hai lần bấm cùng lúc không cùng
+     * chốt, không gửi hai email; báo giá đã chốt / đã đổi ở nơi khác thì 409. Ghi người bấm vào nguoiDuyet (người chốt).
+     */
+    @Transactional
+    public void chotBaoGia(Integer id, Integer trangThai) {
+        if (!Objects.equals(trangThai, 3) && !Objects.equals(trangThai, 4)) {
+            throw new CommonException("Trạng thái chốt báo giá không hợp lệ: " + trangThai);
+        }
+        DonMuaHang donMuaHang = donMuaHangRepository.findByIdForUpdate(id).orElseThrow(
+                () -> new CommonException("Không tìm thấy đơn mua hàng id: " + id)
+        );
+        if (!Objects.equals(donMuaHang.getTrangThai(), 2)) {
+            throw new CommonException(HttpStatus.CONFLICT, "Báo giá " + donMuaHang.getSoDonMua()
+                    + " không còn ở bước chốt: đã được chấp nhận, không chấp nhận hoặc đã thay đổi ở nơi khác.");
+        }
+        NguoiDungAuthInfo authInfo = SecurityContextHolder.getUser();
+        NguoiDung nguoiChot = nguoiDungService.getOne(authInfo.getId()).orElseThrow(
+                () -> new CommonException("Không tìm thấy người dùng id :" + authInfo.getId())
+        );
+
+        if (trangThai == 3) {
+            YeuCauMuaHang yeuCauMuaHang = donMuaHang.getYeuCauMuaHang();
+            yeuCauMuaHangService.changeStatus(yeuCauMuaHang.getId(), 5);
+        }
+        if (trangThai == 4) {
+            Date now = new Date();
+            // LocalDate thay cho Date.getDate()/getMonth()/getYear() (deprecated). Giá trị gửi vào template giữ nguyên.
+            LocalDate today = LocalDate.now();
+            HashMap<String, Object> params = new HashMap<>();
+            params.put("ngay", today.getDayOfMonth());
+            params.put("thang", today.getMonthValue());
+            params.put("year", today.getYear());
+            params.put("soDonHang", donMuaHang.getSoDonMua());
+            params.put("tenNhaCungCap", donMuaHang.getNhaCungCap().getTenNhaCungCap());
+            params.put("ngayGui", now);
+            params.put("nguoiPhuTrach", donMuaHang.getNguoiTao().getHoTen());
+            params.put("ngayDatHang", donMuaHang.getNgayDatHang());
+            params.put("lyDoHuy", "Giá cả chưa phù hợp");
+            try {
+                emailService.sendHtmlEmailFromTemplate(
+                        donMuaHang.getNhaCungCap().getEmail(),
+                        "Phiếu huỷ hàng",
+                        "don_huy_mua.html",
+                        params
+                );
+            } catch (CommonException e) {
+                // Gửi email lỗi (kể cả quá thời gian chờ SMTP): giao dịch hoàn tác, báo giá giữ nguyên; câu cũ là tiếng Anh
+                throw new CommonException("Không gửi được email báo không chấp nhận cho nhà cung cấp nên báo giá chưa đổi."
+                        + " Vui lòng thử lại sau.", e);
+            }
+        }
+
+        donMuaHang.setTrangThai(trangThai);
+        donMuaHang.setNguoiDuyet(nguoiChot);
+        update(donMuaHang.getId(), donMuaHang);
+    }
+
     @Transactional
     public ResponseEntity<ResponseData<String>> baoGiaDonMuaHang(DonMuaHangBaoGia baoGia) {
         //tìm xem đơn hàng có tồn tại hay ko
