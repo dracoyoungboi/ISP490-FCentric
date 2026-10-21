@@ -36,7 +36,7 @@ const VAI_TRO_CHOT_BAO_GIA = [ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_MUA_HANG];
  * với Chi tiết yêu cầu nhập hàng (GET /api/v1/yeu-cau-mua-hang/get-by-id/{id}); phần duyệt, người tạo, tiến trình nằm ở màn đó.
  * Màn này chỉ để so giá: nhà cung cấp × biến thể từ `donMuaHangs[].chiTietDonMuaHangs[].donGia`, giá thấp nhất tô xanh,
  * tổng tiền cả yêu cầu. Chấp nhận / không chấp nhận làm ở Chi tiết báo giá (bấm tên nhà cung cấp).
- * Dòng phụ đầu khối đếm đã gửi / đã báo giá / đã chốt; cột phải có nhóm "Báo giá" (giá trị đã chốt, lúc gửi yêu cầu);
+ * Dòng phụ đầu khối đếm đã gửi / đã báo giá / đã chốt / không chấp nhận; cột phải có nhóm "Báo giá" (giá trị đã chốt, lúc gửi yêu cầu);
  * đầu cột mỗi nhà cung cấp có ngày gửi và người chốt. Không có cột "Hạn chót" theo nhà cung cấp: backend chép ngày giao
  * dự kiến của yêu cầu sang mọi báo giá nên trùng "Giao dự kiến" ở cột phải.
  * Bỏ cột thanh toán (thanh toán nhà cung cấp đã bỏ khỏi luồng 16/10) và lời gọi lấy vai trò không dùng.
@@ -103,9 +103,11 @@ function SoSanhBaoGia({ id }) {
             dem.thieuDong ? `${soVN(dem.thieuDong)} nhà cung cấp còn thiếu giá` : "",
         ].filter(Boolean).join(" · ")
         : "";
-    // Đã gửi / đã báo giá / đã chốt (dòng phụ đầu khối), giá trị đã chốt và lúc gửi yêu cầu (nhóm "Báo giá" cột phải)
+    // Đã gửi / đã báo giá / đã chốt / không chấp nhận (dòng phụ đầu khối), giá trị đã chốt và lúc gửi yêu cầu (nhóm "Báo giá" cột phải)
     const tongQuan = tomTatBaoGia(yc);
     const duocChot = hasAnyRole(VAI_TRO_CHOT_BAO_GIA);
+    // Còn báo giá chờ (chưa chốt, chưa không chấp nhận) mới mời "chấp nhận"; hết rồi thì chỉ mời xem chi tiết
+    const moiChapNhan = duocChot && tongQuan.conCho > 0;
     // Nhân viên bán hàng xem được yêu cầu nhưng máy chủ chặn (403) báo giá, đơn mua: hiện chữ thường, không link
     const xemDonMua = hasAnyRole(VAI_TRO_XEM_DON_MUA);
 
@@ -165,7 +167,7 @@ function SoSanhBaoGia({ id }) {
                         xemBaoGia={xemDonMua}
                         chuThich={
                             soNcc
-                                ? duocChot
+                                ? moiChapNhan
                                     ? "Giá do nhà cung cấp nhập qua cổng báo giá. Bấm tên nhà cung cấp để xem chi tiết và chấp nhận báo giá."
                                     : xemDonMua
                                         ? "Giá do nhà cung cấp nhập qua cổng báo giá. Bấm tên nhà cung cấp để xem chi tiết báo giá."

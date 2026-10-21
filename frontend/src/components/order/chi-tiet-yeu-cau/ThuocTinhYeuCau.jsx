@@ -6,7 +6,7 @@ import CotThuocTinh, {
 } from "@/components/chung-tu/CotThuocTinh";
 import { trangThaiGiao } from "@/components/order/chi-tiet-don-mua/tinhNhanHang";
 import { formatCurrency, formatDate, formatDateTime } from "@/utils/formatters";
-import { chuDsNcc } from "./tinhYeuCau";
+import { chuDsNcc, daKhongChapNhanHet } from "./tinhYeuCau";
 
 /**
  * Hạn giao: ngày (không bẻ giữa chừng) và dòng dưới "Quá hạn n ngày" / "Hôm nay" / "Còn n ngày" như Chi tiết đơn mua hàng.
@@ -49,6 +49,7 @@ export function NhomKhoNhan({ kho, coQuanLy = true }) {
 /**
  * Nhóm "Báo giá" (chỉ màn Yêu cầu báo giá — màn này không có tiến trình): giá trị đã chốt kèm nhà cung cấp, lúc gửi yêu cầu.
  * Chưa gửi nhà cung cấp nào thì không vẽ (dòng phụ đầu khối đã nói "chưa gửi nhà cung cấp nào"); thiếu ngày gửi thì bỏ dòng đó.
+ * Mọi báo giá đã không chấp nhận thì ghi "Không chấp nhận báo giá nào" thay cho "Chưa chốt" (không còn gì để chốt).
  * `tomTat`: tinhYeuCau.tomTatBaoGia.
  */
 function NhomBaoGia({ tomTat }) {
@@ -67,7 +68,7 @@ function NhomBaoGia({ tomTat }) {
                 {tomTat.nccChot.length ? <div className="text-bo-muted">{chuDsNcc(tomTat.nccChot)}</div> : null}
               </>
             ) : (
-              <span className="text-bo-muted">Chưa chốt</span>
+              <span className="text-bo-muted">{daKhongChapNhanHet(tomTat) ? "Không chấp nhận báo giá nào" : "Chưa chốt"}</span>
             ),
           },
           {
