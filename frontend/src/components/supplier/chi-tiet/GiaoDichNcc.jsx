@@ -30,6 +30,7 @@ import {
   luaChonGiaoHang,
   luaChonTuDuLieu,
 } from "@/components/supplier/chi-tiet/tinhNhaCungCap";
+import { getBaoGiaNccStatus } from "@/constants/donMuaHang";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { getGoodsReceiptStatus } from "@/constants/goodsReceipt";
 
@@ -88,10 +89,11 @@ const GHI_CHU_TAB = {
   "hoat-dong": "Mới nhất ở trên",
 };
 
+// Tên trạng thái lấy từ bảng báo giá nhà cung cấp, cùng tên với thẻ trên bảng (BangGiaoDichNcc → TrangThaiBaoGia)
 const TRANG_THAI_BAO_GIA = [
-  { value: "1", label: "Đã gửi · chờ nhà cung cấp" },
-  { value: "2", label: "Đã báo giá · chờ duyệt" },
-  { value: "4", label: "Không chấp nhận báo giá" },
+  { value: "1", label: `${getBaoGiaNccStatus(1).label} · chờ nhà cung cấp` },
+  { value: "2", label: `${getBaoGiaNccStatus(2).label} · chờ duyệt` },
+  { value: "4", label: getBaoGiaNccStatus(4).label },
 ];
 
 const BIEN_DONG_GIA = [

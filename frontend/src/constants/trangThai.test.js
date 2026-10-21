@@ -306,11 +306,22 @@ test("quy trình: bước và hủy không trùng, luôn có nhãn đạt tổng
   const badge = doc("components/shared/StatusBadge.jsx");
   assert.match(badge, /sr-only/);
   assert.match(badge, /if \(label == null \|\| label === ""\) return null;/);
+  // Bước 0 vẽ vòng (chưa lấp) nhưng trình đọc màn hình đọc "chưa bắt đầu", không đọc "bước 0 trên N"
+  for (const [qt, nhan] of [["phieuNhat", "Chờ nhặt"], ["phieuNhap", "Chờ nhập kho"], ["kiemDem", "Chờ kiểm đếm"]]) {
+    const viTri = layCachVe(nhan, { quyTrinh: qt }).quyTrinh;
+    assert.equal(viTri?.kieu, "vong", `${qt}: "${nhan}"`);
+    assert.equal(viTri.buoc, 0, `${qt}: "${nhan}"`);
+  }
+  assert.match(badge, /viTri\.buoc === 0\) return <span className="sr-only">\{", chưa bắt đầu"\}<\/span>/, "bước 0 đọc \"chưa bắt đầu\"");
 });
 
 test("nhãn không phải chuỗi không làm hỏng cách vẽ", () => {
   for (const nhan of [undefined, null, 12, { type: "span" }]) assert.ok(layCachVe(nhan).kieu, String(nhan));
-  assert.equal(layCachVe("Đã có video (20s)").nhom, "xong");
+  // Thẻ video đóng gói: có thời lượng thì kèm số giây, thiếu thì chỉ "Đã có video" (PackingProofSection)
+  for (const nhan of ["Đã có video (25 giây)", "Đã có video"]) {
+    assert.equal(layCachVe(nhan).nhom, "xong", nhan);
+    assert.equal(bieuTuongCuaNhan(nhan), "Video", nhan);
+  }
   assert.equal(nhomCuaNhan("Đủ hàng (3/3)"), "xong");
   assert.equal(nhomCuaNhan("Thiếu hàng (1/3)"), "loi");
 });

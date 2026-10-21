@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Clock, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import StatusBadge from "@/components/shared/StatusBadge";
-import { getBaoGiaNccStatus, getDonMuaHangStatus } from "@/constants/donMuaHang";
+import { getBaoGiaNccStatus } from "@/constants/donMuaHang";
 import { getGoodsReceiptStatus } from "@/constants/goodsReceipt";
 import { tinhTienDoNhan } from "@/components/order/chi-tiet-don-mua/tinhNhanHang";
 import { ngayDat } from "@/components/supplier/chi-tiet/tinhNhaCungCap";
@@ -225,13 +225,16 @@ export function BangDonMuaNcc({ chot, giaoTheoDon }) {
   );
 }
 
-/** Thẻ trạng thái của báo giá kèm chú thích việc đang chờ ai (chữ xám sau thẻ). */
+/**
+ * Thẻ trạng thái của báo giá kèm chú thích việc đang chờ ai (chữ xám sau thẻ).
+ * Cùng tên và quy trình với tab "Đang mở" (bảng báo giá nhà cung cấp), để một báo giá chỉ có một tên trên màn này.
+ */
 function TrangThaiBaoGia({ trangThai }) {
-  const tt = getDonMuaHangStatus(trangThai);
+  const tt = getBaoGiaNccStatus(trangThai);
   const chuThich = Number(trangThai) === 1 ? "chờ nhà cung cấp" : Number(trangThai) === 2 ? "chờ duyệt" : null;
   return (
     <span className="inline-flex items-center gap-1.5">
-      <StatusBadge quyTrinh="donMua" label={tt.label} />
+      <StatusBadge quyTrinh="yeuCauBaoGia" label={tt.label} />
       {chuThich ? <span className="text-xs text-bo-muted">{chuThich}</span> : null}
     </span>
   );
