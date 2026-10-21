@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Clock, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import StatusBadge from "@/components/shared/StatusBadge";
-import { getDonMuaHangStatus } from "@/constants/donMuaHang";
+import { getBaoGiaNccStatus, getDonMuaHangStatus } from "@/constants/donMuaHang";
 import { getGoodsReceiptStatus } from "@/constants/goodsReceipt";
 import { tinhTienDoNhan } from "@/components/order/chi-tiet-don-mua/tinhNhanHang";
 import { ngayDat } from "@/components/supplier/chi-tiet/tinhNhaCungCap";
@@ -22,24 +22,18 @@ function chuHanGiao(giao) {
   return "Chưa có hạn giao";
 }
 
-/** Chữ cột "Giao hàng" của bảng đơn mua. */
+/** Cột "Giao hàng" của bảng đơn mua: thẻ trạng thái như mọi cột trạng thái khác. */
 function GiaoHang({ giao }) {
   if (!giao) return <span className="text-bo-muted">—</span>;
   switch (giao.loai) {
-    case "quaHan":
-      return <span className="font-medium text-bo-danger">Quá hạn {giao.soNgay} ngày</span>;
-    case "homNay":
-      return <span className="font-medium text-bo-warning">Hạn hôm nay</span>;
-    case "conLai":
-      return <span className="text-bo-muted">Còn {giao.soNgay} ngày</span>;
     case "dungHan":
-      return <span className="font-medium text-bo-success">Đúng hạn</span>;
+      return <StatusBadge label="Đúng hạn" />;
     case "tre":
-      return <span className="font-medium text-amber-700">Trễ {giao.soNgay} ngày</span>;
+      return <StatusBadge label={`Trễ ${giao.soNgay} ngày`} />;
     case "daDu":
-      return <span className="font-medium text-bo-success">Đã nhận đủ</span>;
+      return <StatusBadge label="Đã nhận đủ" />;
     default:
-      return <span className="text-bo-muted">Chưa có hạn giao</span>;
+      return <StatusBadge label={chuHanGiao(giao)} />;
   }
 }
 
@@ -86,7 +80,7 @@ export function DangMoNcc({ viec, nutCuaDon }) {
                   <Link to={`/purchase-orders/${d.id}`} className={LIEN_KET}>
                     {d.soDonMua || `#${d.id}`}
                   </Link>
-                  {/* Quá hạn: Đỏ · Hạn hôm nay: Cam đậm · Còn N ngày, chưa có hạn: chữ xám (constants/trangThai) */}
+                  {/* Quá hạn: Đỏ · Hạn hôm nay: Cam · Còn N ngày: lịch xanh lá · Chưa có hạn giao: lịch xám (constants/trangThai) */}
                   <StatusBadge label={chuHanGiao(v.giao)} />
                 </div>
                 <div className="mt-0.5 text-[13px] text-bo-muted">
@@ -130,7 +124,7 @@ export function DangMoNcc({ viec, nutCuaDon }) {
                 <Link to={`/quotation/${d.id}`} className={LIEN_KET}>
                   {d.soDonMua || `#${d.id}`}
                 </Link>
-                <StatusBadge label="Chờ duyệt" />
+                <StatusBadge quyTrinh="yeuCauBaoGia" label={getBaoGiaNccStatus(d.trangThai).label} />
               </div>
               <div className="mt-0.5 text-[13px] text-bo-muted">
                 Báo giá · gửi yêu cầu {formatDate(ngayDat(d))}
@@ -237,7 +231,7 @@ function TrangThaiBaoGia({ trangThai }) {
   const chuThich = Number(trangThai) === 1 ? "chờ nhà cung cấp" : Number(trangThai) === 2 ? "chờ duyệt" : null;
   return (
     <span className="inline-flex items-center gap-1.5">
-      <StatusBadge label={tt.label} />
+      <StatusBadge quyTrinh="donMua" label={tt.label} />
       {chuThich ? <span className="text-xs text-bo-muted">{chuThich}</span> : null}
     </span>
   );
@@ -321,7 +315,7 @@ export function BangPhieuNhapNcc({ phieus }) {
               </td>
               <td className={cn(O, "text-slate-700")}>{p.tenKho || "—"}</td>
               <td className="whitespace-nowrap py-3 pl-3 pr-4 sm:pr-6">
-                <StatusBadge label={tt.label} />
+                <StatusBadge quyTrinh="phieuNhap" label={tt.label} />
               </td>
             </tr>
           );

@@ -547,7 +547,7 @@ export default function PurchaseOrderList() {
                                         </td>
 
                                         <td className="whitespace-nowrap px-3 py-3">
-                                            <StatusBadge label={cfg.label} />
+                                            <StatusBadge quyTrinh="donMua" label={cfg.label} />
                                         </td>
 
                                         <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums font-semibold text-bo-foreground">

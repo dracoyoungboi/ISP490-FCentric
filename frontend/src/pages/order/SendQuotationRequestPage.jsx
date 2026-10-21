@@ -101,7 +101,7 @@ function SupplierListItem({ supplier, isSelected, onToggle }) {
 
             {/* Status */}
             <div className="hidden w-36 shrink-0 text-right md:block">
-                <StatusBadge label={!hoatDong ? 'Ngừng hoạt động' : active ? 'Hoạt động' : 'Chưa có email'} />
+                <StatusBadge doiTuong="nguoi" label={!hoatDong ? 'Ngừng hoạt động' : active ? 'Hoạt động' : 'Chưa có email'} />
             </div>
         </button>
     );
