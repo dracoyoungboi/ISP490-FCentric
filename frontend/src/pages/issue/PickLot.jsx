@@ -21,13 +21,15 @@ import {
   kiemTraLuuLo,
   loDauFifo,
   loaiKhongThayChonLo,
+  loiLuuCanTaiLai,
   quyenChonLo,
   sapXepLo,
   tongChon,
   trangThaiChonLo,
 } from "@/components/outbound/phieu-xuat/chonLo";
 import useQuayLai from "@/hooks/useQuayLai";
-import { getApiErrorMessage } from "@/utils/apiError";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
+import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { hasAnyRole, ROLES } from "@/utils/roles";
 
 /** Dòng phiếu xuất đọc từ GET /api/v1/phieu-xuat-kho/{id}. */
@@ -62,6 +64,13 @@ export default function PickLot() {
   );
 }
 
+// Nhãn loại phiếu xuất ("khac": phiếu yêu cầu chuyển kho)
+const NHAN_LOAI_XUAT = Object.freeze({
+  ban_hang: "Xuất bán hàng",
+  chuyen_kho: "Chuyển kho nội bộ",
+  khac: "Yêu cầu chuyển kho",
+});
+
 // Backend: chi tiết phiếu / available-lots ném RuntimeException "Không tìm thấy …" (500)
 const TUY_CHON_LOI = Object.freeze({ coi500LaKhongThay: true });
 const locCauMayChu = (cau) => (/^\s*không tìm thấy/i.test(cau) ? null : cau);
@@ -79,13 +88,21 @@ function ManChonLo({ phieuXuatKhoId, chiTietPhieuXuatKhoId }) {
   const [khongThay, setKhongThay] = useState(null);
   const [chon, setChon] = useState({});
   const [dangLuu, setDangLuu] = useState(false);
+  // Mốc dữ liệu trên màn được tải (cho useTaiLaiKhiQuayLai)
+  const [capNhatLuc, setCapNhatLuc] = useState(null);
   const requestIdRef = useRef(0);
+  // Người dùng đã sửa số lấy (ô nhập, Đặt lại): tải lại ngầm giữ nguyên số đang nhập
+  const daSuaRef = useRef(false);
 
-  const tai = useCallback(async () => {
+  // ngam: tải lại ngầm (lưu bị từ chối, quay lại tab) — giữ màn đang xem và số đang nhập, chỉ thay số còn lấy được.
+  // baoLoi: tải ngầm sau khi lưu bị từ chối mà lỗi thì báo (số còn lấy được vẫn cũ, lưu lại sẽ bị từ chối tiếp)
+  const tai = useCallback(async ({ ngam = false, baoLoi = false } = {}) => {
     const requestId = ++requestIdRef.current;
-    setDangTai(true);
-    setLoi(null);
-    setKhongThay(null);
+    if (!ngam) {
+      setDangTai(true);
+      setLoi(null);
+      setKhongThay(null);
+    }
     try {
       const res = await phieuXuatKhoService.getDetail(phieuXuatKhoId);
       if (requestId !== requestIdRef.current) return;
@@ -107,12 +124,23 @@ function ManChonLo({ phieuXuatKhoId, chiTietPhieuXuatKhoId }) {
       if (requestId !== requestIdRef.current) return;
       const daLuu = banDoDaLay(daLay);
       setDuLieu({ dong, lots: Array.isArray(lotsRes) ? lotsRes : [], daLuu });
-      setChon(daLuu);
+      setCapNhatLuc(new Date());
+      if (!ngam || !daSuaRef.current) {
+        setChon(daLuu);
+        daSuaRef.current = false;
+      }
     } catch (e) {
       if (requestId !== requestIdRef.current) return;
+      // Tải ngầm lỗi: giữ dữ liệu và số đang nhập; chỉ báo khi tải lại sau lần lưu bị từ chối
+      if (ngam) {
+        if (baoLoi) toast.error("Không tải lại được danh sách lô", { description: "Số còn lấy được có thể đã cũ." });
+        return;
+      }
       const loai = phanLoaiLoiTai(e, TUY_CHON_LOI);
       setLoi(e);
-      if (loai.khongThay) setKhongThay(loaiKhongThayChonLo(loai.cauMayChu));
+      // Thuộc kho khác / không có quyền: để khung lỗi chung của chứng từ (KhungLoiChungTu) nói đúng việc
+      if (loai.khoKhac || loai.khongQuyen) setKhongThay("phieu");
+      else if (loai.khongThay) setKhongThay(loaiKhongThayChonLo(loai.cauMayChu));
     } finally {
       if (requestId === requestIdRef.current) setDangTai(false);
     }
@@ -122,6 +150,12 @@ function ManChonLo({ phieuXuatKhoId, chiTietPhieuXuatKhoId }) {
   useEffect(() => {
     queueMicrotask(() => tai());
   }, [tai]);
+
+  // Quay lại tab thì tải lại ngầm số còn lấy được (phiếu khác có thể vừa giữ lô); không tải khi đang lưu
+  useTaiLaiKhiQuayLai(() => tai({ ngam: true }), {
+    bat: Boolean(duLieu) && !dangTai && !dangLuu,
+    lanCuoi: capNhatLuc,
+  });
 
   if (dangTai && !duLieu) {
     return (
@@ -148,6 +182,7 @@ function ManChonLo({ phieuXuatKhoId, chiTietPhieuXuatKhoId }) {
             locCauMayChu={locCauMayChu}
             moTaKhongThay="Phiếu xuất kho không tồn tại, đã bị xóa hoặc thuộc kho khác với nơi làm việc đang chọn."
             onVeDanhSach={() => navigate("/goods-issues")}
+            onThuLai={() => tai()}
           />
         )}
       </PageContainer>
@@ -156,7 +191,7 @@ function ManChonLo({ phieuXuatKhoId, chiTietPhieuXuatKhoId }) {
   if (loi || !duLieu) {
     return (
       <PageContainer className="flex min-h-full flex-col">
-        <KhungLoiTai tieuDe="Không tải được danh sách lô" moTa={phanLoaiLoiTai(loi, TUY_CHON_LOI).moTaLoi} onThuLai={tai} />
+        <KhungLoiTai tieuDe="Không tải được danh sách lô" moTa={phanLoaiLoiTai(loi, TUY_CHON_LOI).moTaLoi} onThuLai={() => tai()} />
       </PageContainer>
     );
   }
@@ -173,15 +208,18 @@ function ManChonLo({ phieuXuatKhoId, chiTietPhieuXuatKhoId }) {
   const doiSoLuong = (loHangId, chu) => {
     if (chiXem || dangLuu) return;
     if (chu === "") {
+      daSuaRef.current = true;
       setChon((cu) => ({ ...cu, [loHangId]: "" }));
       return;
     }
     if (!/^\d+$/.test(chu)) return;
+    daSuaRef.current = true;
     setChon((cu) => ({ ...cu, [loHangId]: chu }));
   };
 
   const datLai = () => {
     const moi = datLaiTheoFifo(lots, can);
+    daSuaRef.current = true;
     setChon(moi);
     toast.info("Đã điền lại theo nhập trước lấy trước", {
       description: `${soVN(Object.keys(moi).length)} lô · kiểm tra rồi bấm Lưu lô`,
@@ -206,6 +244,9 @@ function ManChonLo({ phieuXuatKhoId, chiTietPhieuXuatKhoId }) {
     } catch (e) {
       toast.error(getApiErrorMessage(e, "Chọn lô thất bại"));
       setDangLuu(false);
+      // 409 "Lô X chỉ còn N có thể lấy" (phiếu khác vừa giữ lô) hoặc phiếu vừa rời trạng thái cho sửa ở máy khác:
+      // tải lại ngầm, giữ số đang nhập
+      if (loiLuuCanTaiLai(getApiErrorStatus(e), getApiErrorMessage(e, ""))) tai({ ngam: true, baoLoi: true });
     }
   };
 
@@ -299,7 +340,7 @@ function ManChonLo({ phieuXuatKhoId, chiTietPhieuXuatKhoId }) {
                     nhan: "Trạng thái phiếu",
                     giaTri: ttPhieu.label ? <StatusBadge label={ttPhieu.label} quyTrinh="phieuXuat" /> : null,
                   },
-                  { nhan: "Loại xuất", giaTri: dong.loaiXuat === "chuyen_kho" ? "Chuyển kho nội bộ" : "Xuất bán hàng" },
+                  { nhan: "Loại xuất", giaTri: NHAN_LOAI_XUAT[dong.loaiXuat] ?? null },
                   { nhan: "Kho xuất", giaTri: dong.tenKho },
                 ]}
               />

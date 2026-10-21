@@ -13,22 +13,38 @@ const soCua = (value) => Number(value) || 0;
 
 /**
  * Được sửa lô không (khớp backend PhieuXuatKhoService.pickLoHang) và lý do chỉ xem:
- * phiếu bán hàng chỉ quản trị viên / quản lý kho sửa khi Nháp hoặc Chờ xuất; phiếu khác (chuyển kho) chọn lô khi Nháp.
+ * phiếu bán hàng chỉ quản trị viên / quản lý kho sửa khi Nháp hoặc Chờ xuất; phiếu xuất chuyển kho chọn lô khi Nháp;
+ * loại khác ("khac" — phiếu yêu cầu chuyển kho) máy chủ luôn từ chối nên chỉ xem.
  */
 export function quyenChonLo({ loaiXuat, trangThai, laQuanLy = false } = {}) {
   const tt = Number(trangThai);
   const laBanHang = loaiXuat === "ban_hang";
+  const laChuyenKho = loaiXuat === "chuyen_kho";
   const duocSua = laBanHang
     ? Boolean(laQuanLy) && (tt === TRANG_THAI_PHIEU_XUAT.NHAP || tt === TRANG_THAI_PHIEU_XUAT.CHO_XUAT)
-    : tt === TRANG_THAI_PHIEU_XUAT.NHAP;
+    : laChuyenKho && tt === TRANG_THAI_PHIEU_XUAT.NHAP;
   let lyDoXem = null;
   if (!duocSua) {
     if (tt === TRANG_THAI_PHIEU_XUAT.DA_XUAT || tt === 5) lyDoXem = "Phiếu đã xuất kho nên chỉ xem được lô đã lấy.";
     else if (tt === TRANG_THAI_PHIEU_XUAT.DA_HUY) lyDoXem = "Phiếu đã hủy nên chỉ xem được lô.";
     else if (laBanHang) lyDoXem = "Chỉ quản lý kho hoặc quản trị viên sửa được lô của phiếu bán hàng.";
+    else if (!laChuyenKho) lyDoXem = "Phiếu yêu cầu chuyển kho không chọn lô trực tiếp. Chọn lô ở phiếu xuất chuyển kho.";
     else lyDoXem = "Phiếu không còn ở trạng thái Nháp nên chỉ xem được lô.";
   }
   return { duocSua, laBanHang, lyDoXem };
+}
+
+// Câu của máy chủ khi lưu lô bị từ chối vì phiếu đã rời trạng thái cho sửa (PhieuXuatKhoService.pickLoHang: "… ở trạng
+// thái Nháp (0)", "… chưa xuất kho (Nháp hoặc Chờ xuất)"; RuntimeException nên có thể ra 500)
+const MAU_LOI_TRANG_THAI = /trạng thái|nháp/i;
+
+/**
+ * Lưu lô lỗi thì có cần tải lại ngầm (giữ số đang nhập) không: 409 ("Lô X chỉ còn N có thể lấy" — phiếu khác vừa giữ
+ * lô) hoặc câu máy chủ nói về trạng thái phiếu (phiếu vừa đổi trạng thái ở máy khác).
+ */
+export function loiLuuCanTaiLai(trangThai, cau) {
+  if (trangThai === 409) return true;
+  return typeof cau === "string" && MAU_LOI_TRANG_THAI.test(cau);
 }
 
 /** Bản đồ số lượng theo lô từ GET …/picked-lots (`[{ loHangId, soLuongDaPick }]`), như bản cũ. */
