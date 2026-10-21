@@ -6,7 +6,8 @@ import { SO_VIEC_DONG_THOI } from "../../config/bangChungTu.js";
 
 /**
  * Chạy `viec[i]()` (trả Promise) với tối đa `gioiHan` việc cùng lúc (mặc định SO_VIEC_DONG_THOI), giữ thứ tự kết quả.
- * Một việc lỗi không dừng các việc khác. `khiXong(i, kq)` gọi ngay khi từng việc xong (để hiện dần).
+ * Một việc lỗi không dừng các việc khác. `khiXong(i, kq)` gọi ngay khi từng việc xong (để hiện dần); nó ném lỗi thì
+ * chỉ ghi console, không dừng các việc còn lại.
  * @returns {Promise<{ ok: boolean, giaTri?: any, loi?: any }[]>}
  */
 export async function chayGioiHan(viec, gioiHan = SO_VIEC_DONG_THOI, khiXong) {
@@ -22,7 +23,12 @@ export async function chayGioiHan(viec, gioiHan = SO_VIEC_DONG_THOI, khiXong) {
       } catch (loi) {
         kq[i] = { ok: false, loi };
       }
-      khiXong?.(i, kq[i]);
+      try {
+        khiXong?.(i, kq[i]);
+      } catch (loi) {
+        // Lỗi của hàm báo từng việc không được dừng luồng: các việc còn lại vẫn chạy, kết quả vẫn trả đủ
+        console.error(loi);
+      }
     }
   };
   const soLuong = Math.min(Math.max(1, Math.floor(Number(gioiHan)) || 1), ds.length);

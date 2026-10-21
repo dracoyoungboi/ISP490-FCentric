@@ -58,10 +58,17 @@
 	--color-bo-heading: #0b1320;
 	--color-bo-muted: #64748b;
 	--color-bo-border: #e1e6ec;
+	/* Viền ô nhập (ô trong hộp thoại, ô số lượng lô): đậm hơn bo-border một bậc để thấy rõ ô */
+	--color-bo-input-border: #cfd8e3;
+	/* Dòng nhóm sản phẩm trong bảng chứng từ (DongNhomSanPham): nền nhạt hơn bo-surface-subtle, và khi rê chuột */
+	--color-bo-row-group: #fbfcfd;
+	--color-bo-row-group-hover: #f4f7fa;
 
 	--color-bo-primary: #1677ff;
 	--color-bo-primary-hover: #095fcc;
 	--color-bo-primary-soft: #eaf3ff;
+	/* Xanh đậm: chữ trên nền bo-primary-soft (lựa chọn đang chọn, thẻ mã lô), ≥ 4,5:1 */
+	--color-bo-primary-strong: #0b4fb3;
 
 	--color-bo-sidebar: #182537;
 	/* Hover / đang chọn / nhấn: nền sidebar phủ trắng 5% / 10% (13% khi rê) / 16%, đổi sẵn ra màu đặc.
@@ -81,6 +88,9 @@
 	--color-bo-warning-soft: #fff7ed;
 	--color-bo-danger: #dc2626;
 	--color-bo-danger-soft: #fef2f2;
+	/* Đỏ đậm: đúng red-700 của Tailwind 4 (≈ #c10007, màu cũ của nút nguy hiểm khi rê chuột). Dùng cho nền nút nguy hiểm
+	   khi rê chuột và chữ lỗi trên nền bo-danger-soft (5,9:1; chữ trắng trên nền này 6,4:1) */
+	--color-bo-danger-strong: oklch(50.5% 0.213 27.518);
 
 	/* Thẻ trạng thái (chốt 21/10/2026: "chỉ bọc khi cần"). Bảng nhãn ở src/constants/trangThai.js.
 	   - *-chu: chữ trong khung và màu biểu tượng nghiệp vụ (tông đậm).

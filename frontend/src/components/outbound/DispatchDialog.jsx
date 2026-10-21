@@ -87,7 +87,7 @@ export default function DispatchDialog({ open, onOpenChange, soPhieuXuat, tongSo
               className={cn(
                 "h-7 rounded-full border px-2.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:cursor-not-allowed disabled:opacity-60",
                 dangChon
-                  ? "border-bo-primary bg-bo-primary-soft font-semibold text-[#0b4fb3]"
+                  ? "border-bo-primary bg-bo-primary-soft font-semibold text-bo-primary-strong"
                   : "border-bo-border bg-white text-slate-700 hover:border-bo-primary/40 hover:text-bo-primary",
               )}
             >

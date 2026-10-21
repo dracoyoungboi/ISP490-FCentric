@@ -14,7 +14,8 @@
  *     chuTimThem?,         // chữ khác cũng được tìm (vd. chất liệu), chuỗi hoặc mảng
  *     soLuong?,            // số mặc định để cộng tổng
  *   }
- * `tuBienThe(bienTheSanPham)` đọc sẵn các trường trên từ biến thể sản phẩm của backend.
+ * `tuBienThe(bienTheSanPham)` đọc sẵn các trường trên từ biến thể sản phẩm của backend (kể cả maVach; khoaNhom thường
+ * null vì DTO thiếu id sản phẩm → gom theo tên).
  */
 import {
   CO_TRANG_DONG,
@@ -51,13 +52,19 @@ const thanhMang = (x) => (Array.isArray(x) ? x : x == null ? [] : [x]);
 const coChu = (x) => x != null && String(x).trim() !== "";
 const giongId = (a, b) => a != null && b != null && String(a) === String(b);
 
-/** Đọc các trường chung từ `bienTheSanPham` của backend (ảnh: `anhBienThe.tepTin.duongDan`, như màn cũ). */
+/**
+ * Đọc các trường chung từ `bienTheSanPham` của backend (ảnh: `anhBienThe.tepTin.duongDan`, như màn cũ; mã vạch:
+ * `maVachSku`, để quét / gõ mã vạch ở ô tìm ra dòng).
+ * BienTheSanPhamDto hiện không có `sanPham` (chỉ `tenSanPham`) nên `khoaNhom` thường là null và bảng đang gom theo TÊN
+ * sản phẩm: hai sản phẩm trùng tên bị gộp một nhóm — cần backend trả id sản phẩm mới gom theo id được.
+ */
 export function tuBienThe(bienThe) {
   const bt = bienThe ?? {};
   return {
     khoaNhom: bt.sanPham?.id ?? null,
     tenSanPham: bt.tenSanPham || bt.sanPham?.tenSanPham || bt.tenBienThe || bt.maSku || "",
     sku: bt.maSku || "",
+    maVach: bt.maVachSku || "",
     tenMau: bt.mauSac?.tenMau || "",
     maMauHex: bt.mauSac?.maMauHex || "",
     kichCo: bt.size?.tenSize || bt.size?.maSize || "",
