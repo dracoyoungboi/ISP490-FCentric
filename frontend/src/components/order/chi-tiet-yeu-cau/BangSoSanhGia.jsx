@@ -11,7 +11,7 @@ import { soVN } from "@/components/chung-tu/bangChungTu";
 import { BANG, COT_DINH, DONG, DONG_TIEU_DE, KHUNG_CUON, O, O_CUOI, O_DAU, O_DAU_DONG_CON, O_TIEU_DE } from "@/components/chung-tu/kieuBang";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { cn } from "@/lib/utils";
-import { formatCurrency } from "@/utils/formatters";
+import { formatCurrency, formatDate } from "@/utils/formatters";
 import { soSanhDong, soSanhTong } from "./soSanhGia";
 import { chuSoBienThe } from "./tinhYeuCau";
 
@@ -56,7 +56,8 @@ function oTong(x, chuKhiChuaCo) {
  * Dòng nhóm có tổng tiền theo sản phẩm của từng nhà cung cấp; dòng cuối "Tổng tiền cả yêu cầu" tính MỌI dòng (không theo trang).
  *
  * - `bang`: useBangChungTu của các dòng (soSanhGia.dungSoSanhGia → dong, mỗi dòng có `gia[i]`)
- * - `ncc`: các báo giá còn hiệu lực `{ id, soDonMua, nhaCungCap, chot, nhan }` (`nhan`: nhãn trạng thái đã suy diễn)
+ * - `ncc`: các báo giá còn hiệu lực `{ id, soDonMua, nhaCungCap, chot, ngayGui, nguoiChot, nhan }` (`nhan`: nhãn trạng
+ *   thái đã suy diễn). Đầu cột: tên, số báo giá, "Gửi dd/mm/yyyy", thẻ trạng thái, "Chốt bởi …" / "Không chấp nhận bởi …"
  * - `tongCaYeuCau`: soSanhTong của mọi dòng · `xem` / `onDoiXem`: "donGia" | "thanhTien"
  * - `tomTatGui`: chữ "n nhà cung cấp đã gửi giá · …" · `chuThich`: câu cuối khối
  * - `xemBaoGia`: người đang xem mở được Chi tiết báo giá (tinhYeuCau.VAI_TRO_XEM_DON_MUA); không thì tên nhà cung cấp
@@ -141,8 +142,16 @@ export default function BangSoSanhGia({ bang, ncc, tongCaYeuCau, xem, onDoiXem, 
                         </span>
                       )}
                       {n.soDonMua ? <span className="font-mono text-xs font-normal text-bo-muted">{n.soDonMua}</span> : null}
+                      {n.ngayGui ? (
+                        <span className="text-xs font-normal tabular-nums text-bo-muted">Gửi {formatDate(n.ngayGui)}</span>
+                      ) : null}
                       {/* Cột hẹp: nhãn dài ("Đã chuyển thành đơn mua hàng") xuống dòng trong cột thay vì tràn sang cột bên */}
                       <StatusBadge label={n.nhan} quyTrinh="yeuCauBaoGia" className="max-w-full whitespace-normal text-left" />
+                      {n.nguoiChot ? (
+                        <span className="text-xs font-normal leading-4 text-bo-muted" title={n.nguoiChot.email || undefined}>
+                          {n.nguoiChot.chu}
+                        </span>
+                      ) : null}
                     </span>
                   </th>
                 ))}

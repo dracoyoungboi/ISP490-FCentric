@@ -1,6 +1,7 @@
 /*
  * Hàm thuần cho màn Chi tiết báo giá (bản "một khối") và phần đọc giá dùng chung với So sánh báo giá:
- * dòng đã có giá, thành tiền, tổng cả báo giá, nhãn suy diễn "Chờ báo giá", 4 bước tiến trình, lý do khóa "Chấp nhận".
+ * dòng đã có giá, thành tiền, tổng cả báo giá, nhãn suy diễn "Chờ báo giá", 4 bước tiến trình, lý do khóa "Chấp nhận",
+ * người chốt báo giá.
  * Không gọi API, không phụ thuộc React, chạy được bằng `node --test`.
  *
  * Quy ước dữ liệu (backend nhánh Khang, DonMuaHangService):
@@ -9,6 +10,8 @@
  *   Vì vậy "nhà cung cấp đã gửi giá" chỉ đọc được từ `donGia > 0` (cùng cách supplier-portal/baoGiaUtils).
  * - 3: chấp nhận (thành đơn mua hàng cùng mã) · 4: không chấp nhận (máy chủ gửi email lý do mặc định) ·
  *   5: đã nhận đủ hàng · 0: đã xóa · 1: chỉ đơn tạo tay (đã gửi, chờ giá).
+ * - Chốt (PUT duyet-don/{id}/3 hoặc /4, DonMuaHangService.chotBaoGia): chỉ báo giá đang 2, khóa dòng; báo giá đã đổi ở
+ *   nơi khác thì 409. Máy chủ ghi người bấm vào `nguoiDuyet`; không có ngày chốt riêng.
  */
 import { docSo, soVN, tuBienThe } from "../../chung-tu/bangChungTu.js";
 
@@ -80,6 +83,42 @@ export function congGia(cacGia) {
   };
 }
 
+/**
+ * Tổng tiền một báo giá: `tongTien` của máy chủ; thiếu (0 / trống) thì cộng các dòng đã có giá (congGia).
+ */
+export function tongTienBaoGia(don) {
+  const tong = docSo(don?.tongTien);
+  return tong > 0 ? tong : congGia(don?.chiTietDonMuaHangs).tongTien;
+}
+
+/**
+ * Người chốt báo giá: `nguoiDuyet` (máy chủ ghi người bấm Chấp nhận / Không chấp nhận). Chỉ khi là báo giá của một
+ * yêu cầu mua hàng (`yeuCauMuaHang` gốc) đã chốt (3, 5) hoặc không chấp nhận (4) và có tên; dữ liệu cũ không có người
+ * chốt → null (màn ẩn). Đơn mua tạo tay không có yêu cầu gốc: `nguoiDuyet` là người tạo (quản trị viên tạo đơn tự
+ * được ghi là người duyệt), không phải người chốt báo giá → null.
+ * @param tuyChon `coYeuCauGoc`: nơi gọi đã biết báo giá thuộc một yêu cầu (vd. `donMuaHangs` của yêu cầu); mặc định đọc
+ *   `don.yeuCauMuaHang`
+ * @returns `{ hoTen, email, khongChapNhan, nhan, chu }` | null — `nhan`: nhãn cột thuộc tính, luôn "Người chốt" (thẻ
+ *   trạng thái đã nói chấp nhận hay không; nhãn ngắn để không xuống dòng), `chu`: câu ngắn dưới tên nhà cung cấp
+ *   ("Chốt bởi A" / "Không chấp nhận bởi A").
+ */
+export function nguoiChotBaoGia(don, { coYeuCauGoc = don?.yeuCauMuaHang != null } = {}) {
+  if (!coYeuCauGoc) return null;
+  const tt = docSo(don?.trangThai);
+  const khongChapNhan = tt === TRANG_THAI_BAO_GIA.TU_CHOI;
+  if (!khongChapNhan && !laDaChot(tt)) return null;
+  const email = String(don?.nguoiDuyet?.email ?? "").trim();
+  const hoTen = String(don?.nguoiDuyet?.hoTen ?? "").trim() || email;
+  if (!hoTen) return null;
+  return {
+    hoTen,
+    email,
+    khongChapNhan,
+    nhan: "Người chốt",
+    chu: khongChapNhan ? `Không chấp nhận bởi ${hoTen}` : `Chốt bởi ${hoTen}`,
+  };
+}
+
 /** Báo giá trạng thái 2 mà chưa dòng nào có giá → hiện "Chờ báo giá" thay cho "Đã nhận báo giá". */
 export function laChoBaoGia(don) {
   return docSo(don?.trangThai) === TRANG_THAI_BAO_GIA.CHO_CHOT && congGia(don?.chiTietDonMuaHangs).chuaCoGia;
@@ -112,7 +151,7 @@ export function cauCanhBaoChapNhan(tomTat) {
 /**
  * 4 bước của báo giá: Gửi yêu cầu → Nhà cung cấp gửi giá → Chốt báo giá → Thành đơn mua hàng.
  * Mỗi bước `{ ma, nhan, trangThai: "xong" | "dangLam" | "chua" | "dung", phu, ngay, coGio }` (TienTrinhChungTu).
- * Backend không lưu ngày chốt (duyet-don không ghi người / ngày) nên bước Chốt không có mốc giờ.
+ * Máy chủ ghi người chốt (`nguoiDuyet`, xem nguoiChotBaoGia) nhưng không lưu ngày chốt nên bước Chốt không có mốc giờ.
  * @param tomTat  `congGia(don.chiTietDonMuaHangs)`
  * @param nhanDonMua  tên trạng thái đơn mua hàng của mã 3 / 5 (DON_MUA_HANG_STATUS), hiện dưới bước cuối
  */

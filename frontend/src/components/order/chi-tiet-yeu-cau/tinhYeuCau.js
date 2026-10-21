@@ -1,14 +1,15 @@
 /*
  * Hàm thuần cho màn Chi tiết yêu cầu nhập hàng và Chi tiết yêu cầu báo giá (cùng bản ghi yeu_cau_mua_hang,
- * cùng API GET /api/v1/yeu-cau-mua-hang/get-by-id/{id}): dòng bảng, các báo giá còn hiệu lực, 5 bước tiến trình,
- * quyền Phê duyệt / Từ chối theo kho nhận. Không gọi API, không phụ thuộc React, chạy được bằng `node --test`.
+ * cùng API GET /api/v1/yeu-cau-mua-hang/get-by-id/{id}): dòng bảng, các báo giá còn hiệu lực, tóm tắt báo giá
+ * (đã gửi / đã báo giá / đã chốt, giá trị đã chốt), 5 bước tiến trình, quyền Phê duyệt / Từ chối theo kho nhận.
+ * Không gọi API, không phụ thuộc React, chạy được bằng `node --test`.
  *
  * Trạng thái yêu cầu (constants/yeuCauNhapHang.js): 0 Nháp (dữ liệu cũ) · 1 Chờ duyệt · 2 Đã duyệt ·
  * 3 Đã gửi yêu cầu báo giá · 4 Từ chối · 5 Đã chuyển thành đơn mua hàng.
  * `donMuaHangs[]`: mỗi nhà cung cấp được gửi yêu cầu là một báo giá (don_mua_hang), xem chi-tiet-bao-gia/tinhBaoGia.js.
  */
 import { docSo, soVN, tuBienThe } from "../../chung-tu/bangChungTu.js";
-import { congGia, laDaChot, TRANG_THAI_BAO_GIA } from "../chi-tiet-bao-gia/tinhBaoGia.js";
+import { congGia, laDaChot, tongTienBaoGia, TRANG_THAI_BAO_GIA } from "../chi-tiet-bao-gia/tinhBaoGia.js";
 import { ROLES } from "../../../utils/roles.js";
 
 export const TRANG_THAI_YEU_CAU = Object.freeze({
@@ -114,6 +115,54 @@ export function demNccDaGuiGia(yc) {
   return { daGui: ds.filter((don) => congGia(don.chiTietDonMuaHangs).coMotPhan).length, tong: ds.length };
 }
 
+/** Tên nhà cung cấp của một báo giá (thiếu thì mã nhà cung cấp, rồi số báo giá). */
+const tenNccCua = (don) => don?.nhaCungCap?.tenNhaCungCap || don?.nhaCungCap?.maNhaCungCap || don?.soDonMua || "";
+
+/**
+ * Tóm tắt báo giá của yêu cầu cho màn Yêu cầu báo giá (dòng phụ đầu khối, nhóm "Báo giá" ở cột phải), tính trên các
+ * báo giá còn hiệu lực (bỏ báo giá đã xóa).
+ * @returns `{ daGui, daBaoGia, daChot, tongDaChot, nccChot, ngayGui }`
+ *   - `daGui`: số nhà cung cấp được gửi yêu cầu · `daBaoGia`: đã gửi giá ít nhất một dòng · `daChot`: đã chấp nhận (3, 5)
+ *   - `tongDaChot`: cộng tổng tiền các báo giá đã chấp nhận (tinhBaoGia.tongTienBaoGia) · `nccChot`: tên nhà cung cấp của chúng
+ *   - `ngayGui`: lúc gửi yêu cầu sớm nhất (ngayGuiBaoGia), chưa gửi thì null
+ */
+export function tomTatBaoGia(yc) {
+  const ds = baoGiaHieuLuc(yc);
+  const chot = ds.filter((don) => laDaChot(don.trangThai));
+  return {
+    daGui: ds.length,
+    daBaoGia: ds.filter((don) => congGia(don.chiTietDonMuaHangs).coMotPhan).length,
+    daChot: chot.length,
+    tongDaChot: chot.reduce((tong, don) => tong + tongTienBaoGia(don), 0),
+    nccChot: chot.map(tenNccCua).filter(Boolean),
+    ngayGui: ngayGuiBaoGia(yc),
+  };
+}
+
+/**
+ * Các phần của dòng phụ đầu khối (nối bằng " · "): "đã gửi 3 nhà cung cấp", "2 đã báo giá", "1 đã chốt".
+ * Chưa ai báo giá thì "chưa có báo giá"; chưa chốt thì bỏ phần chốt; chưa gửi thì chỉ "chưa gửi nhà cung cấp nào".
+ * `tomTat`: tomTatBaoGia.
+ */
+export function chuDemBaoGia(tomTat) {
+  const daGui = docSo(tomTat?.daGui);
+  if (!daGui) return ["chưa gửi nhà cung cấp nào"];
+  const daBaoGia = docSo(tomTat?.daBaoGia);
+  const daChot = docSo(tomTat?.daChot);
+  return [
+    `đã gửi ${soVN(daGui)} nhà cung cấp`,
+    daBaoGia ? `${soVN(daBaoGia)} đã báo giá` : "chưa có báo giá",
+    daChot ? `${soVN(daChot)} đã chốt` : null,
+  ].filter(Boolean);
+}
+
+/** Danh sách tên nhà cung cấp ngắn gọn: tối đa `toiDa` tên, còn lại "và n nhà cung cấp khác". */
+export function chuDsNcc(ten, toiDa = 2) {
+  const ds = (Array.isArray(ten) ? ten : []).filter(Boolean);
+  if (ds.length <= toiDa) return ds.join(", ");
+  return `${ds.slice(0, toiDa).join(", ")} và ${soVN(ds.length - toiDa)} nhà cung cấp khác`;
+}
+
 /**
  * 5 bước: Tạo yêu cầu → Quản lý kho duyệt → Gửi yêu cầu báo giá → Nhận báo giá (n/N nhà cung cấp) → Chốt đơn mua hàng.
  * Mỗi bước `{ ma, nhan, trangThai: "xong" | "dangLam" | "chua" | "dung", phu, ngay, coGio }` (TienTrinhChungTu).
@@ -126,9 +175,7 @@ export function tinhBuocYeuCau(yc) {
   const daGui = tt === TRANG_THAI_YEU_CAU.DA_GUI_BAO_GIA || tt === TRANG_THAI_YEU_CAU.DA_CHUYEN_DON_MUA;
   const daChuyen = tt === TRANG_THAI_YEU_CAU.DA_CHUYEN_DON_MUA;
   const { daGui: soDaGuiGia, tong: soNcc } = demNccDaGuiGia(yc);
-  const nccChot = baoGiaDaChot(yc)
-    .map((don) => don.nhaCungCap?.tenNhaCungCap || don.nhaCungCap?.maNhaCungCap || don.soDonMua)
-    .filter(Boolean);
+  const nccChot = baoGiaDaChot(yc).map(tenNccCua).filter(Boolean);
 
   const tao = coTrangThai && tt === TRANG_THAI_YEU_CAU.NHAP
     ? { trangThai: "dangLam", phu: "Nháp" }

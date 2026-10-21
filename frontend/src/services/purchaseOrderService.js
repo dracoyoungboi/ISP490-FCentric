@@ -142,16 +142,14 @@ const purchaseOrderService = {
     },
 
     /**
-     * Cập nhật trạng thái đơn mua hàng
-     * PUT /api/v1/nghiep-vu/don-mua-hang/duyet-don/{id}/{trangThai}
+     * Chốt báo giá của nhà cung cấp
+     * PUT /api/v1/nghiep-vu/don-mua-hang/duyet-don/{id}/{trangThai} (DonMuaHangService.chotBaoGia)
      *
-     * trangThai theo DonMuaHang.java:
-     *   0  = Đã xóa / hủy
-     *   1  = Đã gửi yêu cầu báo giá đến NCC
-     *   2  = Nhà cung cấp đã báo giá
-     *   3  = Chấp nhận báo giá — chờ vận chuyển
-     *   4  = Không chấp nhận báo giá
-     *   5  = Đã thanh toán
+     * trangThai chỉ nhận:
+     *   3  = Chấp nhận báo giá (thành đơn mua hàng, yêu cầu mua hàng chuyển sang 5)
+     *   4  = Không chấp nhận báo giá (máy chủ gửi email lý do mặc định cho nhà cung cấp)
+     * Giá trị khác → 400. Chỉ chốt được báo giá đang ở trạng thái 2 (chờ chốt); báo giá đã chốt / đã đổi ở nơi khác → 409.
+     * Máy chủ ghi người bấm vào nguoiDuyet (người chốt).
      */
     duyetDon: async (id, trangThai) => {
         const response = await apiClient.put(
@@ -165,9 +163,6 @@ const purchaseOrderService = {
 
     /** Từ chối báo giá → trạng thái 4 */
     tuChoiBaoGia: async (id) => purchaseOrderService.duyetDon(id, 4),
-
-    /** Hủy đơn mua hàng → trạng thái 0 */
-    huyDon: async (id) => purchaseOrderService.duyetDon(id, 0),
 
     /**
      * Lấy thông tin giao dịch thanh toán

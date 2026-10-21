@@ -7,14 +7,17 @@ import CotThuocTinh, {
 } from "@/components/chung-tu/CotThuocTinh";
 import { NhomKhoNhan } from "@/components/order/chi-tiet-yeu-cau/ThuocTinhYeuCau";
 import { formatDate } from "@/utils/formatters";
+import { nguoiChotBaoGia } from "./tinhBaoGia";
 
 /**
  * Cột phải của Chi tiết báo giá: nhà cung cấp (mở Chi tiết nhà cung cấp; số điện thoại, email sao chép được),
- * kho nhận, giao dự kiến, người gửi yêu cầu và chứng từ liên quan (yêu cầu nhập hàng, so sánh báo giá).
+ * kho nhận, giao dự kiến, người gửi yêu cầu, người chốt (báo giá đã chấp nhận / không chấp nhận, có ghi người) và
+ * chứng từ liên quan (yêu cầu nhập hàng, so sánh báo giá). Lúc gửi yêu cầu ở bước đầu của tiến trình.
  * `lienQuan`: các mục của ChungTuLienQuan.
  */
 export default function ThuocTinhBaoGia({ don, lienQuan }) {
   const ncc = don?.nhaCungCap;
+  const nguoiChot = nguoiChotBaoGia(don);
 
   return (
     <CotThuocTinh nhan="Thông tin báo giá">
@@ -51,6 +54,19 @@ export default function ThuocTinhBaoGia({ don, lienQuan }) {
           muc={[
             { ma: "giao", nhan: "Giao dự kiến", giaTri: don?.ngayGiaoDuKien ? <span className="whitespace-nowrap tabular-nums">{formatDate(don.ngayGiaoDuKien)}</span> : null },
             { ma: "nguoiTao", nhan: "Người gửi yêu cầu", giaTri: don?.nguoiTao?.hoTen },
+            {
+              ma: "nguoiChot",
+              nhan: nguoiChot?.nhan,
+              an: !nguoiChot,
+              giaTri: (
+                <>
+                  <div>{nguoiChot?.hoTen}</div>
+                  {nguoiChot?.email && nguoiChot.email !== nguoiChot.hoTen ? (
+                    <div className="truncate text-bo-muted" title={nguoiChot.email}>{nguoiChot.email}</div>
+                  ) : null}
+                </>
+              ),
+            },
           ]}
         />
       </NhomThuocTinh>

@@ -5,7 +5,8 @@ import CotThuocTinh, {
   NhomThuocTinh,
 } from "@/components/chung-tu/CotThuocTinh";
 import { trangThaiGiao } from "@/components/order/chi-tiet-don-mua/tinhNhanHang";
-import { formatDate } from "@/utils/formatters";
+import { formatCurrency, formatDate, formatDateTime } from "@/utils/formatters";
+import { chuDsNcc } from "./tinhYeuCau";
 
 /**
  * Hạn giao: ngày (không bẻ giữa chừng) và dòng dưới "Quá hạn n ngày" / "Hôm nay" / "Còn n ngày" như Chi tiết đơn mua hàng.
@@ -46,21 +47,60 @@ export function NhomKhoNhan({ kho, coQuanLy = true }) {
 }
 
 /**
- * Cột phải của yêu cầu nhập hàng / yêu cầu báo giá: kho nhận, giao dự kiến, người tạo, (người duyệt), ghi chú,
+ * Nhóm "Báo giá" (chỉ màn Yêu cầu báo giá — màn này không có tiến trình): giá trị đã chốt kèm nhà cung cấp, lúc gửi yêu cầu.
+ * Chưa gửi nhà cung cấp nào thì không vẽ (dòng phụ đầu khối đã nói "chưa gửi nhà cung cấp nào"); thiếu ngày gửi thì bỏ dòng đó.
+ * `tomTat`: tinhYeuCau.tomTatBaoGia.
+ */
+function NhomBaoGia({ tomTat }) {
+  if (!tomTat?.daGui) return null;
+  return (
+    <NhomThuocTinh nhan="Báo giá">
+      <BangThuocTinh
+        rongNhan={116}
+        muc={[
+          {
+            ma: "daChot",
+            nhan: "Giá trị đã chốt",
+            giaTri: tomTat.daChot ? (
+              <>
+                <div className="font-semibold tabular-nums">{formatCurrency(tomTat.tongDaChot)}</div>
+                {tomTat.nccChot.length ? <div className="text-bo-muted">{chuDsNcc(tomTat.nccChot)}</div> : null}
+              </>
+            ) : (
+              <span className="text-bo-muted">Chưa chốt</span>
+            ),
+          },
+          {
+            ma: "daGui",
+            nhan: "Đã gửi yêu cầu",
+            an: !tomTat.ngayGui,
+            giaTri: <span className="whitespace-nowrap tabular-nums">{formatDateTime(tomTat.ngayGui)}</span>,
+          },
+        ]}
+      />
+    </NhomThuocTinh>
+  );
+}
+
+/**
+ * Cột phải của yêu cầu nhập hàng / yêu cầu báo giá: (báo giá), kho nhận, giao dự kiến, người tạo, (người duyệt), ghi chú,
  * chứng từ liên quan. Người và nơi chỉ ở đây; mốc giờ ở tiến trình.
  *
  * - `nhan`: tên vùng cho trình đọc màn hình.
  * - `conHieuLuc`: còn so hạn giao (hiện quá hạn / còn n ngày).
  * - `coNguoiDuyet`: hiện email người tạo (sao chép được) và người duyệt / người từ chối (màn yêu cầu nhập hàng).
+ * - `baoGia`: tinhYeuCau.tomTatBaoGia → thêm nhóm "Báo giá" đầu cột khi đã gửi nhà cung cấp (màn Yêu cầu báo giá);
+ *   mặc định không có.
  * - `lienQuan`: các mục của ChungTuLienQuan.
  */
-export default function ThuocTinhYeuCau({ yc, nhan, conHieuLuc, coNguoiDuyet = false, lienQuan }) {
+export default function ThuocTinhYeuCau({ yc, nhan, conHieuLuc, coNguoiDuyet = false, baoGia = null, lienQuan }) {
   const tuChoi = Number(yc?.trangThai) === 4;
   const nguoiTao = yc?.nguoiTao;
   const nguoiDuyet = yc?.nguoiDuyet;
 
   return (
     <CotThuocTinh nhan={nhan}>
+      {baoGia ? <NhomBaoGia tomTat={baoGia} /> : null}
       <NhomKhoNhan kho={yc?.khoNhap} />
       <NhomThuocTinh>
         <BangThuocTinh
