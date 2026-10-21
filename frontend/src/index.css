@@ -18,6 +18,12 @@
 @source "./components/supplier";
 /* Chi tiết đơn mua hàng (bản một khối): thư mục mới, khai báo rõ để dev server sinh đủ class */
 @source "./components/order";
+/* Thành phần dùng chung của các màn chi tiết chứng từ (khung một khối, tiến trình, cột thuộc tính, bảng nhiều dòng):
+   thư mục mới, khai báo rõ để dev server sinh đủ class */
+@source "./components/chung-tu";
+/* Màn chi tiết chứng từ (21/10/2026): thư mục con mới của xuất kho, chuyển kho; khai báo rõ để dev server sinh đủ class */
+@source "./components/outbound";
+@source "./components/chuyen-kho";
 /* Màn Danh mục (cây dạng bảng PA1): thư mục mới, khai báo rõ để dev server sinh đủ class */
 @source "./components/danh-muc";
 /* Chi tiết khách hàng (bản một khối): thư mục mới, khai báo rõ để dev server sinh đủ class */
