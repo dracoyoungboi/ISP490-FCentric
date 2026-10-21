@@ -294,7 +294,10 @@ function DonCuaBan({ don, baoGia, tom, thoiDiem, className, loading, loiDon, loi
                       <span className="block text-xs text-bo-muted @min-[520px]:hidden">{formatTien(o.giaTri)}</span>
                     </span>
                     <span className="hidden shrink-0 text-sm tabular-nums text-bo-foreground @min-[520px]:block">{formatTien(o.giaTri)}</span>
-                    <span className="flex w-[112px] shrink-0 justify-end">
+                    {/* Rộng tối thiểu đủ nhãn dài nhất ("Đã xuất một phần" kèm vòng tiến trình) để các dòng thẳng cột và thẻ
+                        không lấn sang cột giá trị; nhãn lạ dài hơn thì nới cột. Hẹp (< 520px) không còn cột giá trị nên bỏ bề
+                        rộng tối thiểu để nhường chỗ cho mã · khách. */}
+                    <span className="flex min-w-[144px] shrink-0 justify-end @max-[520px]:min-w-0">
                       <StatusBadge quyTrinh={laBaoGia ? "baoGiaBan" : "donBan"} label={nhan} />
                     </span>
                   </Link>
