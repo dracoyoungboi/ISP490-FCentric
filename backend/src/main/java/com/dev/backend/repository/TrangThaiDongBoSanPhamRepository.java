@@ -81,6 +81,26 @@ public interface TrangThaiDongBoSanPhamRepository extends JpaRepository<TrangTha
     );
 
     /**
+     * Tổng số liên kết (SKU) khớp bộ lọc trên mọi trang, cùng điều kiện với {@link #pageSanPhamIdTheoKenh}.
+     * Chân bảng màn Sản phẩm theo sàn ghi "N sản phẩm · M SKU", kể cả khi đang tìm kiếm.
+     */
+    @Query("""
+        SELECT COUNT(t.id) FROM TrangThaiDongBoSanPham t
+        JOIN t.bienTheSanPham bt
+        JOIN bt.sanPham sp
+        WHERE t.kenhBanHang.id = :kenhBanId
+        AND (:trangThai IS NULL OR t.trangThaiDongBo = :trangThai)
+        AND (:search IS NULL OR LOWER(bt.maSku) LIKE LOWER(CONCAT('%', :search, '%'))
+             OR LOWER(sp.tenSanPham) LIKE LOWER(CONCAT('%', :search, '%'))
+             OR LOWER(t.maSanPhamKenh) LIKE LOWER(CONCAT('%', :search, '%')))
+    """)
+    long demLienKetKhopLoc(
+            @Param("kenhBanId") Integer kenhBanId,
+            @Param("trangThai") String trangThai,
+            @Param("search") String search
+    );
+
+    /**
      * Mọi liên kết khớp bộ lọc của các sản phẩm đã chọn (một trang của {@link #pageSanPhamIdTheoKenh}),
      * nạp sẵn màu, kích cỡ, chất liệu để dựng tên phân loại không cần truy vấn thêm.
      * Trong mỗi sản phẩm xếp theo màu, chất liệu, thứ tự kích cỡ (như các màn tồn kho).

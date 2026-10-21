@@ -8,6 +8,9 @@ import {
   laMotPhanLoai,
   nhanSoPhanLoai,
   phanTrangTheoSanPham,
+  gioChungCuaNhom,
+  laChoDay,
+  nhomDangMo,
 } from "./nhomLienKet.js";
 
 // Chạy: node --test src/components/channel/nhomLienKet.test.js
@@ -117,4 +120,51 @@ test("phanTrangTheoSanPham: trang vượt quá thì rỗng, tham số lỗi về
   assert.equal(macDinh.number, 0);
   assert.equal(macDinh.size, 20);
   assert.deepEqual(phanTrangTheoSanPham([], [], {}).content, []);
+});
+
+test("phanTrangTheoSanPham: tongSku là tổng SKU khớp lọc trên mọi trang, không chỉ trang đang xem", () => {
+  const ds = duLieu49();
+  assert.equal(phanTrangTheoSanPham(ds, ds, { page: 0, size: 1 }).tongSku, 49);
+  const khop = ds.filter((d) => d.id === 3 || d.id === 40);
+  assert.equal(phanTrangTheoSanPham(khop, ds, { page: 0, size: 20 }).tongSku, 2);
+  assert.equal(phanTrangTheoSanPham([], ds, { page: 0, size: 20 }).tongSku, 0);
+});
+
+test("laChoDay: lệch số, vừa bật lại; dòng ngừng và dòng lỗi không tính", () => {
+  const dang = { trangThaiLienKet: "da_lien_ket", soLuongDaDay: 5 };
+  assert.equal(laChoDay(dang, 5), false);
+  assert.equal(laChoDay(dang, 6), true);
+  assert.equal(laChoDay(dang, null), false, "chưa tải quy tắc thì không đoán");
+  assert.equal(laChoDay(dang, 5, true), true, "vừa bật lại: chờ đẩy dù số trùng");
+  assert.equal(laChoDay({ trangThaiLienKet: "da_lien_ket", soLuongDaDay: null }, 0), true, "chưa đẩy lần nào");
+  assert.equal(laChoDay({ trangThaiLienKet: "chua_lien_ket", soLuongDaDay: 5 }, 9, true), false);
+  assert.equal(laChoDay({ trangThaiLienKet: "loi", soLuongDaDay: 5 }, 9), false);
+});
+
+test("gioChungCuaNhom: giờ gặp nhiều nhất, bỏ dòng ngừng và dòng chưa đẩy", () => {
+  const gio = (iso) => iso.slice(11, 16);
+  const d = (tt, iso, so = 1) => ({ trangThaiLienKet: tt, ngayDayTonCuoi: iso, soLuongDaDay: so });
+  const nhom = [
+    d("da_lien_ket", "2026-10-21T23:03:00"),
+    d("da_lien_ket", "2026-10-21T23:04:00"),
+    d("loi", "2026-10-21T23:03:10"),
+    d("chua_lien_ket", "2026-10-21T22:00:00"),
+    d("chua_lien_ket", "2026-10-21T22:00:00"),
+    d("chua_lien_ket", "2026-10-21T22:00:00"),
+    d("da_lien_ket", null),
+    d("da_lien_ket", "2026-10-21T21:00:00", null),
+  ];
+  assert.equal(gioChungCuaNhom(nhom, gio), "23:03");
+  assert.equal(gioChungCuaNhom([], gio), null);
+  assert.equal(gioChungCuaNhom([d("chua_lien_ket", "2026-10-21T22:00:00")], gio), null);
+});
+
+test("nhomDangMo: mặc định thu gọn, chế độ Mở tất cả, tự mở và Thu gọn tất cả, ngoại lệ", () => {
+  assert.equal(nhomDangMo({}), false);
+  assert.equal(nhomDangMo({ moTatCa: true }), true);
+  assert.equal(nhomDangMo({ tuMo: true }), true, "tab Lỗi / tìm khớp một phần tự mở");
+  assert.equal(nhomDangMo({ tuMo: true, boTuMo: true }), false, "đã bấm Thu gọn tất cả");
+  assert.equal(nhomDangMo({ moTatCa: true, laNgoaiLe: true }), false, "tự gập một nhóm khi đang Mở tất cả");
+  assert.equal(nhomDangMo({ laNgoaiLe: true }), true, "tự mở một nhóm khi đang thu gọn");
+  assert.equal(nhomDangMo({ tuMo: true, boTuMo: true, laNgoaiLe: true }), true);
 });

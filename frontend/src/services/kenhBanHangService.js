@@ -56,7 +56,8 @@ const realApi = {
   dayVaLienKetSanPham: (maKenh) => apiClient.post(`${BASE}/${ma(maKenh)}/tu-dong-lien-ket`).then(data),
   /**
    * Liên kết của kênh, phân trang theo sản phẩm: mỗi phần tử là một sản phẩm kèm đủ SKU khớp bộ lọc
-   * (không bị cắt sang trang khác). `size` là số sản phẩm mỗi trang, `totalElements` là số sản phẩm.
+   * (không bị cắt sang trang khác). `size` là số sản phẩm mỗi trang, `totalElements` là số sản phẩm,
+   * `tongSku` là tổng SKU khớp bộ lọc trên mọi trang.
    */
   filterLienKetTheoSanPham: (maKenh, { page = 0, size = 20, search, trangThai } = {}) => {
     const params = { page, size };
