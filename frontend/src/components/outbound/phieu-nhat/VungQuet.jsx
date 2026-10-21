@@ -12,14 +12,24 @@ const GOI_Y_QUET =
  * Thẻ tiến độ đứng cạnh ô quét khi KHỐI chứng từ ≥ 672px (`@2xl/khoi`); hẹp hơn (điện thoại, 768px có thanh bên) thì
  * xuống dưới để ô quét luôn đủ rộng.
  * `tienDo`: kết quả tinhTienDo (đã, cần, pct, xong).
+ * `khoa` + `lyDoKhoa`: tạm tắt ô quét (vd. chờ máy chủ trả lời Hoàn tất nhặt đã quá thời hạn), câu lý do thay cho gợi ý
+ * và kết quả lần quét trước.
  */
-export default function VungQuet({ scanRef, onQuet, dangGui = 0, ketQua, tienDo }) {
+export default function VungQuet({ scanRef, onQuet, dangGui = 0, ketQua, tienDo, khoa = false, lyDoKhoa }) {
   return (
     <section
       aria-label="Quét mã vạch"
       className="grid gap-x-6 gap-y-3 rounded-lg border border-bo-border bg-white px-4 py-3.5 @2xl/khoi:grid-cols-[minmax(0,1fr)_240px] @2xl/khoi:items-start"
     >
-      <ScanBar ref={scanRef} gon goiY={GOI_Y_QUET} onScan={onQuet} pending={dangGui} lastResult={ketQua} />
+      <ScanBar
+        ref={scanRef}
+        gon
+        goiY={khoa && lyDoKhoa ? lyDoKhoa : GOI_Y_QUET}
+        onScan={onQuet}
+        pending={dangGui}
+        lastResult={khoa ? null : ketQua}
+        disabled={khoa}
+      />
       <div className="grid gap-2 rounded-lg border border-slate-100 bg-bo-surface-subtle p-3">
         <div className="text-xs font-medium leading-4 text-bo-muted">Tiến độ nhặt</div>
         <div className="text-[22px] font-semibold leading-7 text-bo-heading tabular-nums">
