@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Ban, Check, Printer } from "lucide-react";
 import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
@@ -10,6 +10,15 @@ import useBangChungTu from "@/components/chung-tu/useBangChungTu";
 import { cauChungTuRong, soVN } from "@/components/chung-tu/bangChungTu";
 import { chayGioiHan } from "@/components/chung-tu/chayGioiHan";
 import { GHI_CHU_HOP } from "@/components/chung-tu/kieuHopThoai";
+import {
+  CAU_HET_THOI_HAN,
+  LY_DO_CHO_GOC,
+  MO_TA_HET_THOI_HAN,
+  chayCoThoiHan,
+  khiGocKetThuc,
+  khoaKhiChoGoc,
+  laLoiHetThoiHan,
+} from "@/components/chung-tu/thoiHanThaoTac";
 import { getGoodsReceiptStatus, getGoodsReceiptTypeLabel } from "@/constants/goodsReceipt";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import useQuayLai from "@/hooks/useQuayLai";
@@ -41,6 +50,18 @@ export default function ChiTietNhapChuyenKho({ data, onReload }) {
   // Hộp thoại đang mở: "nhap" | "huy" | null
   const [hop, setHop] = useState(null);
   const [dangXuLy, setDangXuLy] = useState(false);
+  // Hết thời hạn mà máy chủ có thể vẫn đang làm: khóa nút thao tác tới khi lời gọi gốc kết thúc (khiGocKetThuc)
+  const [choGoc, setChoGoc] = useState(false);
+  const huyChoGocRef = useRef(null);
+  // Màn đã gỡ (rời trang trong lúc chờ): nhánh hết thời hạn bỏ qua báo lỗi, khóa nút, tải lại; gỡ thì hủy chờ
+  const daGoRef = useRef(false);
+  useEffect(() => {
+    daGoRef.current = false;
+    return () => {
+      daGoRef.current = true;
+      huyChoGocRef.current?.();
+    };
+  }, []);
 
   // Lô kế thừa của từng biến thể: cùng API màn nhập từ đơn mua đang dùng (một yêu cầu mỗi biến thể, tối đa
   // SO_VIEC_DONG_THOI yêu cầu cùng lúc). Biến thể tải lỗi → null ("Không tải được lô"), không chặn các biến thể khác.
@@ -57,14 +78,35 @@ export default function ChiTietNhapChuyenKho({ data, onReload }) {
   const bang = useBangChungTu(dong, { theo: "nhom" });
   const soLo = demLo(dong);
 
+  // Khóa nút thao tác tới khi lời gọi gốc kết thúc (tối đa THOI_HAN_CHO_GOC_MS) rồi tải lại; màn gỡ thì hủy chờ
+  function khoaToiKhiGocXong(loi) {
+    huyChoGocRef.current?.();
+    setChoGoc(true);
+    huyChoGocRef.current = khiGocKetThuc(loi, () => {
+      huyChoGocRef.current = null;
+      setChoGoc(false);
+      onReload?.();
+    });
+  }
+
   async function chay(thaoTac, cauThanhCong, cauLoi) {
     setDangXuLy(true);
     try {
-      await thaoTac(id);
+      await chayCoThoiHan(() => thaoTac(id));
       toast.success(cauThanhCong);
       setHop(null);
       onReload?.();
     } catch (e) {
+      if (laLoiHetThoiHan(e)) {
+        if (daGoRef.current) return;
+        // Máy chủ chưa trả lời sau thời hạn: đóng hộp, báo lỗi, tải lại ngầm; máy chủ có thể vẫn đang ghi nhận nên khóa
+        // nút tới khi lời gọi gốc kết thúc rồi tải lại lần nữa
+        setHop(null);
+        toast.error(CAU_HET_THOI_HAN, { description: MO_TA_HET_THOI_HAN });
+        onReload?.();
+        khoaToiKhiGocXong(e);
+        return;
+      }
       // Lỗi thì giữ hộp thoại mở, câu của máy chủ hiện nguyên văn
       toast.error(getApiErrorMessage(e, cauLoi));
     } finally {
@@ -109,11 +151,11 @@ export default function ChiTietNhapChuyenKho({ data, onReload }) {
               nhan: "Hủy phiếu",
               icon: Ban,
               nguyHiem: true,
-              moTa: "Hàng chưa vào tồn kho đích",
-              khoa: dangXuLy,
+              moTa: choGoc ? LY_DO_CHO_GOC : "Hàng chưa vào tồn kho đích",
+              khoa: dangXuLy || choGoc,
               onSelect: () => setHop("huy"),
             }] : []}
-            nutChinh={quyTac.choNhap ? {
+            nutChinh={khoaKhiChoGoc(quyTac.choNhap ? {
               ma: "nhap",
               nhan: quyTac.nhanNut,
               icon: Check,
@@ -121,7 +163,7 @@ export default function ChiTietNhapChuyenKho({ data, onReload }) {
               khoa: bang.rong,
               lyDo: bang.rong ? cauChungTuRong("phiếu nhập kho", { dauCham: false }) : "",
               hienLyDo: true,
-            } : null}
+            } : null, choGoc)}
           />
         }
         thongBao={thongBao}
