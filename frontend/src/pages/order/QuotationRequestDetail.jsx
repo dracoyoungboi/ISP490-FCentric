@@ -14,6 +14,7 @@ import ThuocTinhYeuCau from "@/components/order/chi-tiet-yeu-cau/ThuocTinhYeuCau
 import { demGuiGia, dungSoSanhGia, soSanhTong } from "@/components/order/chi-tiet-yeu-cau/soSanhGia";
 import {
     TRANG_THAI_YEU_CAU,
+    VAI_TRO_XEM_DON_MUA,
     baoGiaDaChot,
     locCauMayChuMuaHang,
     ngayGuiBaoGia,
@@ -101,6 +102,8 @@ function SoSanhBaoGia({ id }) {
         : "";
     const ngayGui = ngayGuiBaoGia(yc);
     const duocChot = hasAnyRole(VAI_TRO_CHOT_BAO_GIA);
+    // Nhân viên bán hàng xem được yêu cầu nhưng máy chủ chặn (403) báo giá, đơn mua: hiện chữ thường, không link
+    const xemDonMua = hasAnyRole(VAI_TRO_XEM_DON_MUA);
 
     const lienQuan = [
         { khoa: "yeu-cau-nhap", loai: "Yêu cầu nhập hàng", ma: "Xem phần duyệt yêu cầu", to: `/purchase-requests/${yc.id}` },
@@ -108,7 +111,7 @@ function SoSanhBaoGia({ id }) {
             khoa: `don-mua-${don.id}`,
             loai: "Đơn mua hàng",
             ma: don.soDonMua,
-            to: `/purchase-orders/${don.id}`,
+            to: xemDonMua ? `/purchase-orders/${don.id}` : undefined,
             trangThai: getDonMuaHangStatus(don.trangThai).label,
             quyTrinh: "donMua",
         })),
@@ -155,11 +158,14 @@ function SoSanhBaoGia({ id }) {
                         xem={xem}
                         onDoiXem={setXem}
                         tomTatGui={tomTatGui}
+                        xemBaoGia={xemDonMua}
                         chuThich={
                             soNcc
                                 ? duocChot
                                     ? "Giá do nhà cung cấp nhập qua cổng báo giá. Bấm tên nhà cung cấp để xem chi tiết và chấp nhận báo giá."
-                                    : "Giá do nhà cung cấp nhập qua cổng báo giá. Bấm tên nhà cung cấp để xem chi tiết báo giá."
+                                    : xemDonMua
+                                        ? "Giá do nhà cung cấp nhập qua cổng báo giá. Bấm tên nhà cung cấp để xem chi tiết báo giá."
+                                        : "Giá do nhà cung cấp nhập qua cổng báo giá."
                                 : ""
                         }
                     />

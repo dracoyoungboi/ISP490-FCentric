@@ -19,6 +19,7 @@ import {
     cauCanhBaoChapNhan,
     congGia,
     dongBaoGia,
+    laConChoGia,
     laDaChot,
     lyDoKhoaChapNhan,
     nhanTrangThaiBaoGia,
@@ -32,12 +33,16 @@ import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { toast } from "@/lib/thongBaoNhanh";
 import purchaseOrderService from "@/services/purchaseOrderService";
-import { getApiErrorMessage } from "@/utils/apiError";
+import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { formatCurrency } from "@/utils/formatters";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 
 // Chỉ quản trị viên và nhân viên mua hàng chốt báo giá (giữ như màn cũ; backend còn cho quản lý kho)
 const VAI_TRO_CHOT_BAO_GIA = [ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_MUA_HANG];
+// Máy chủ từ chối thao tác: thường gặp 403 (không còn quyền) hoặc 400 "Không tìm thấy đơn mua hàng" (báo giá đã bị
+// xóa hẳn); duyet-don không kiểm trạng thái hiện tại nên người khác vừa chốt KHÔNG bị chặn. Khi đó đóng hộp, báo lỗi,
+// tải lại; lỗi khác (mạng, 500) giữ hộp, hiện câu lỗi trong hộp để bấm lại
+const LOI_DA_DOI_NOI_KHAC = [400, 403, 409];
 
 /**
  * Chi tiết báo giá · bản "một khối" (21/10/2026, artboard BaoGia.dc.html): đầu khối (mã, trạng thái, tổng tiền),
@@ -67,6 +72,7 @@ function ChiTietBaoGia({ id }) {
 
     const [hop, setHop] = useState(""); // "" | "chapNhan" | "tuChoi"
     const [dangChay, setDangChay] = useState(false);
+    const [loiHop, setLoiHop] = useState(null); // câu lỗi hiện trong hộp (lỗi mạng, lỗi máy chủ)
 
     // Quay lại tab thì tải lại ngầm (nhà cung cấp có thể vừa gửi giá); không tải khi đang thao tác
     useTaiLaiKhiQuayLai(() => q.reload(), { bat: Boolean(id) && !q.loading && !dangChay, lanCuoi: q.capNhatLuc });
@@ -78,8 +84,9 @@ function ChiTietBaoGia({ id }) {
     const quayLai = useQuayLai(ycId != null ? `/quotation-requests/${ycId}` : "/quotation-requests");
 
     const tongMayChu = docSo(don?.tongTien);
+    // Chỉ để gỡ lỗi khi phát triển: bản chạy thật không ghi console mỗi lần tải ngầm
     useEffect(() => {
-        if (don && tomTat.coMotPhan && Math.abs(tongMayChu - tomTat.tongTien) > 0.5) {
+        if (import.meta.env.DEV && don && tomTat.coMotPhan && Math.abs(tongMayChu - tomTat.tongTien) > 0.5) {
             console.warn("[Chi tiết báo giá] Tổng tiền của máy chủ khác tổng các dòng:", { tongTien: tongMayChu, tongCacDong: tomTat.tongTien });
         }
     }, [don, tongMayChu, tomTat]);
@@ -94,7 +101,8 @@ function ChiTietBaoGia({ id }) {
 
     if (!don) {
         // Máy chủ trả 400 "Không tìm thấy đơn mua hàng id: …" khi mã không tồn tại → "Không tìm thấy";
-        // nhân viên bán hàng nhận 403 → "Không tải được" kèm câu máy chủ. Báo giá không có danh sách riêng: về Yêu cầu báo giá
+        // nhân viên bán hàng nhận 403 → khung "Bạn không có quyền xem báo giá" kèm nút về danh sách (không "Thử lại").
+        // Báo giá không có danh sách riêng: về Yêu cầu báo giá
         return (
             <PageContainer className="flex min-h-full flex-col">
                 <KhungLoiChungTu
@@ -102,6 +110,7 @@ function ChiTietBaoGia({ id }) {
                     tenChungTu="báo giá"
                     locCauMayChu={locCauMayChuMuaHang}
                     onVeDanhSach={() => navigate("/quotation-requests")}
+                    nhanVeDanhSach="Về danh sách yêu cầu báo giá"
                     onThuLai={q.reload}
                 />
             </PageContainer>
@@ -119,16 +128,25 @@ function ChiTietBaoGia({ id }) {
     // ── Quyền và nút ────────────────────────────────────────────────────────
     const hienChot = tt === TRANG_THAI_BAO_GIA.CHO_CHOT && hasAnyRole(VAI_TRO_CHOT_BAO_GIA);
     const lyDoKhoa = lyDoKhoaChapNhan(tomTat);
+    const moHop = (loai) => {
+        setLoiHop(null);
+        setHop(loai);
+    };
+    // Đóng hộp: giữ câu lỗi tới hết hiệu ứng đóng (mở hộp và bấm lại đã xóa), tránh hộp co giật khi đang mờ dần
+    const doiMoHop = (mo) => {
+        if (!mo) setHop("");
+    };
     const nutChinh = hienChot
         ? [
-            { ma: "tuChoi", nhan: "Không chấp nhận", kieu: "vien", onClick: () => setHop("tuChoi") },
-            { ma: "chapNhan", nhan: "Chấp nhận báo giá", icon: Check, onClick: () => setHop("chapNhan"), khoa: Boolean(lyDoKhoa), lyDo: lyDoKhoa },
+            { ma: "tuChoi", nhan: "Không chấp nhận", kieu: "vien", onClick: () => moHop("tuChoi") },
+            { ma: "chapNhan", nhan: "Chấp nhận báo giá", icon: Check, onClick: () => moHop("chapNhan"), khoa: Boolean(lyDoKhoa), lyDo: lyDoKhoa },
         ]
         : daChot
             ? { ma: "donMua", nhan: "Mở đơn mua hàng", icon: FileText, kieu: "vien", onClick: () => navigate(`/purchase-orders/${don.id}`) }
             : null;
 
     const thucHien = async (trangThai) => {
+        setLoiHop(null);
         setDangChay(true);
         try {
             await purchaseOrderService.duyetDon(id, trangThai);
@@ -139,7 +157,15 @@ function ChiTietBaoGia({ id }) {
             q.setData((cu) => (cu ? { ...cu, trangThai } : cu));
             q.reload();
         } catch (error) {
-            toast.error(getApiErrorMessage(error, "Không thể thực hiện thao tác. Vui lòng thử lại."));
+            // Câu dự phòng không có dấu chấm: mất mạng thì getApiErrorMessage nối thêm ": không nhận được phản hồi…"
+            const cau = getApiErrorMessage(error, "Không thực hiện được thao tác");
+            if (LOI_DA_DOI_NOI_KHAC.includes(getApiErrorStatus(error))) {
+                setHop("");
+                toast.error(cau);
+                q.reload();
+            } else {
+                setLoiHop(cau);
+            }
         } finally {
             setDangChay(false);
         }
@@ -209,30 +235,37 @@ function ChiTietBaoGia({ id }) {
                 }
                 tienTrinh={<TienTrinhChungTu buoc={buoc} nhan="Tiến trình báo giá" />}
                 thongBao={thongBao}
-                chinh={<BangBaoGia bang={bang} />}
+                chinh={<BangBaoGia bang={bang} choGia={laConChoGia(tt)} />}
                 cotPhai={<ThuocTinhBaoGia don={don} lienQuan={lienQuan} />}
             />
 
             <HopXacNhanChungTu
                 mo={hop === "chapNhan"}
-                onDoiMo={(mo) => !mo && setHop("")}
+                onDoiMo={doiMoHop}
                 tieuDe="Chấp nhận báo giá"
                 moTa={`Chốt giá ${tongChu} với ${tenNcc}. Báo giá trở thành đơn mua hàng và yêu cầu ${yeuCau?.soYeuCauMuaHang || "gốc"} chuyển sang ${YEU_CAU_NHAP_HANG_STATUS[5].label}.`}
                 nhanXacNhan="Chấp nhận báo giá"
                 iconXacNhan={Check}
                 dangChay={dangChay}
+                loi={loiHop}
                 onXacNhan={() => thucHien(TRANG_THAI_BAO_GIA.DA_CHOT)}
             >
                 <p className={GHI_CHU_HOP}>Các báo giá khác của yêu cầu này không tự đóng.</p>
             </HopXacNhanChungTu>
             <HopXacNhanChungTu
                 mo={hop === "tuChoi"}
-                onDoiMo={(mo) => !mo && setHop("")}
+                onDoiMo={doiMoHop}
                 tieuDe="Không chấp nhận báo giá"
-                moTa={`Hệ thống gửi email báo nhà cung cấp với lý do mặc định: ${LY_DO_TU_CHOI_MAC_DINH}. Không hoàn tác được.`}
+                moTa={
+                    // Máy chủ luôn ghi lý do cố định trong email, kể cả khi nhà cung cấp chưa gửi giá dòng nào
+                    tomTat.chuaCoGia
+                        ? `Nhà cung cấp chưa gửi giá dòng nào. Hệ thống vẫn gửi email báo không chấp nhận, kèm lý do mặc định: ${LY_DO_TU_CHOI_MAC_DINH}. Không hoàn tác được.`
+                        : `Hệ thống gửi email báo nhà cung cấp với lý do mặc định: ${LY_DO_TU_CHOI_MAC_DINH}. Không hoàn tác được.`
+                }
                 nhanXacNhan="Không chấp nhận"
                 kieu="nguyHiem"
                 dangChay={dangChay}
+                loi={loiHop}
                 onXacNhan={() => thucHien(TRANG_THAI_BAO_GIA.TU_CHOI)}
             />
         </PageContainer>

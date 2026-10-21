@@ -20,7 +20,7 @@ import {
   O_TIEU_DE,
 } from "@/components/chung-tu/kieuBang";
 import { cn } from "@/lib/utils";
-import { chuSoBienThe } from "./tinhYeuCau";
+import { chuChatLieu, chuSoBienThe } from "./tinhYeuCau";
 
 const MA_HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 const CACH_XEM = [
@@ -147,7 +147,7 @@ export default function BangYeuCau({ bang }) {
                     thuGonDuoc={n.thuGonDuoc}
                     onDoi={() => bang.doiNhom(n.khoa)}
                     idVung={idNhom}
-                    dongPhu={[n.dong[0]?.chatLieu, chuSoBienThe(n, bang.dangTim)]}
+                    dongPhu={[chuChatLieu(n.dong), chuSoBienThe(n, bang.dangTim)]}
                     tomTat={n.tomTat}
                   >
                     {n.thuGonDuoc ? (

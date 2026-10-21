@@ -16,6 +16,7 @@ import ThuocTinhYeuCau from "@/components/order/chi-tiet-yeu-cau/ThuocTinhYeuCau
 import {
     LY_DO_TU_CHOI_TOI_DA,
     TRANG_THAI_YEU_CAU,
+    VAI_TRO_XEM_DON_MUA,
     baoGiaDaChot,
     baoGiaHieuLuc,
     dongYeuCau,
@@ -30,7 +31,7 @@ import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { toast } from "@/lib/thongBaoNhanh";
 import purchaseRequestService from "@/services/purchaseRequestService";
-import { getApiErrorMessage } from "@/utils/apiError";
+import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { khoTrongToken } from "@/utils/khoLamViec";
 import { ROLES, getCurrentUserId, hasAnyRole } from "@/utils/roles";
 
@@ -38,6 +39,9 @@ import { ROLES, getCurrentUserId, hasAnyRole } from "@/utils/roles";
 const VAI_TRO_GUI_BAO_GIA = [ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_MUA_HANG];
 const TEN_CHUNG_TU = "yêu cầu nhập hàng";
 const LY_DO_RONG = cauChungTuRong(TEN_CHUNG_TU, { dauCham: false });
+// Máy chủ từ chối vì yêu cầu đã đổi ở nơi khác (vd. 400 "Chỉ duyệt hoặc từ chối được yêu cầu đang ở trạng thái Chờ
+// duyệt" khi người khác vừa duyệt) hoặc không còn quyền: đóng hộp, báo lỗi, tải lại; lỗi khác giữ hộp để bấm lại
+const LOI_DA_DOI_NOI_KHAC = [400, 403, 409];
 
 /**
  * Chi tiết yêu cầu nhập hàng · bản "một khối" (21/10/2026, artboard Main.dc.html): đầu khối (mã, trạng thái, tổng),
@@ -65,6 +69,7 @@ function ChiTietYeuCauNhapHang({ id }) {
     const [hop, setHop] = useState(""); // "" | "duyet" | "tuChoi"
     const [lyDo, setLyDo] = useState("");
     const [dangChay, setDangChay] = useState(false);
+    const [loiHop, setLoiHop] = useState(null); // câu lỗi hiện trong hộp (lỗi mạng, lỗi máy chủ)
 
     // Quay lại tab thì tải lại ngầm (yêu cầu có thể vừa được duyệt / gửi báo giá); không tải khi đang thao tác
     useTaiLaiKhiQuayLai(() => q.reload(), { bat: Boolean(id) && !q.loading && !dangChay, lanCuoi: q.capNhatLuc });
@@ -123,6 +128,8 @@ function ChiTietYeuCauNhapHang({ id }) {
     const coYeuCauBaoGia = baoGia.length > 0
         || tt === TRANG_THAI_YEU_CAU.DA_GUI_BAO_GIA
         || tt === TRANG_THAI_YEU_CAU.DA_CHUYEN_DON_MUA;
+    // Nhân viên bán hàng xem được yêu cầu nhưng máy chủ chặn (403) đơn mua: hiện chữ thường, không link
+    const xemDonMua = hasAnyRole(VAI_TRO_XEM_DON_MUA);
     const lienQuan = [
         coYeuCauBaoGia
             ? {
@@ -136,7 +143,7 @@ function ChiTietYeuCauNhapHang({ id }) {
             khoa: `don-mua-${don.id}`,
             loai: "Đơn mua hàng",
             ma: don.soDonMua,
-            to: `/purchase-orders/${don.id}`,
+            to: xemDonMua ? `/purchase-orders/${don.id}` : undefined,
             trangThai: getDonMuaHangStatus(don.trangThai).label,
             quyTrinh: "donMua",
         })),
@@ -145,8 +152,10 @@ function ChiTietYeuCauNhapHang({ id }) {
     // ── Thao tác ────────────────────────────────────────────────────────────
     const moHop = (loai) => {
         setLyDo("");
+        setLoiHop(null);
         setHop(loai);
     };
+    // Đóng hộp: giữ câu lỗi tới hết hiệu ứng đóng (mở hộp và bấm lại đã xóa), tránh hộp co giật khi đang mờ dần
     const doiMoHop = (mo) => {
         if (mo) return;
         setHop("");
@@ -159,6 +168,7 @@ function ChiTietYeuCauNhapHang({ id }) {
             toast.error("Vui lòng nhập lý do từ chối");
             return;
         }
+        setLoiHop(null);
         setDangChay(true);
         try {
             await purchaseRequestService.approve(id, trangThai, lyDoGui);
@@ -169,7 +179,16 @@ function ChiTietYeuCauNhapHang({ id }) {
             q.setData((cu) => (cu ? { ...cu, trangThai, ...(trangThai === TRANG_THAI_YEU_CAU.TU_CHOI ? { lyDoTuChoi: lyDoGui } : {}) } : cu));
             q.reload();
         } catch (error) {
-            toast.error(getApiErrorMessage(error, "Không thể thực hiện thao tác. Vui lòng thử lại."));
+            // Câu dự phòng không có dấu chấm: mất mạng thì getApiErrorMessage nối thêm ": không nhận được phản hồi…"
+            const cau = getApiErrorMessage(error, "Không thực hiện được thao tác");
+            if (LOI_DA_DOI_NOI_KHAC.includes(getApiErrorStatus(error))) {
+                setHop("");
+                setLyDo("");
+                toast.error(cau);
+                q.reload();
+            } else {
+                setLoiHop(cau);
+            }
         } finally {
             setDangChay(false);
         }
@@ -259,6 +278,7 @@ function ChiTietYeuCauNhapHang({ id }) {
                 nhanXacNhan="Phê duyệt"
                 iconXacNhan={Check}
                 dangChay={dangChay}
+                loi={loiHop}
                 onXacNhan={() => thucHien(TRANG_THAI_YEU_CAU.DA_DUYET)}
             />
             <HopXacNhanChungTu
@@ -271,6 +291,7 @@ function ChiTietYeuCauNhapHang({ id }) {
                 dangChay={dangChay}
                 khoaXacNhan={!lyDo.trim()}
                 lyDoKhoa="Nhập lý do từ chối"
+                loi={loiHop}
                 onXacNhan={() => thucHien(TRANG_THAI_YEU_CAU.TU_CHOI)}
             >
                 <div className="grid gap-1.5">

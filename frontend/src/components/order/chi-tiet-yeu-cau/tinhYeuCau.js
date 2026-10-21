@@ -9,6 +9,7 @@
  */
 import { docSo, soVN, tuBienThe } from "../../chung-tu/bangChungTu.js";
 import { congGia, laDaChot, TRANG_THAI_BAO_GIA } from "../chi-tiet-bao-gia/tinhBaoGia.js";
+import { ROLES } from "../../../utils/roles.js";
 
 export const TRANG_THAI_YEU_CAU = Object.freeze({
   NHAP: 0,
@@ -21,6 +22,17 @@ export const TRANG_THAI_YEU_CAU = Object.freeze({
 
 /** Số ký tự tối đa của lý do từ chối (backend YeuCauMuaHangService.LY_DO_TU_CHOI_MAX). */
 export const LY_DO_TU_CHOI_TOI_DA = 500;
+
+/**
+ * Vai trò mở được Chi tiết báo giá / Chi tiết đơn mua hàng (khớp @RequireAuth của GET /don-mua-hang/get-by-id).
+ * Nhân viên bán hàng xem được yêu cầu nhưng không xem được báo giá, đơn mua: tên / mã hiện chữ thường, không phải link.
+ */
+export const VAI_TRO_XEM_DON_MUA = Object.freeze([
+  ROLES.QUAN_TRI_VIEN,
+  ROLES.QUAN_LY_KHO,
+  ROLES.NHAN_VIEN_MUA_HANG,
+  ROLES.NHAN_VIEN_KHO,
+]);
 
 function docNgay(value) {
   if (!value) return null;
@@ -54,6 +66,15 @@ export function chuSoBienThe(nhom, dangTim = false) {
   const so = docSo(nhom?.soBienThe);
   const caNhom = docSo(nhom?.soBienTheCaNhom) || so;
   return dangTim && so < caNhom ? `${soVN(so)}/${soVN(caNhom)} biến thể` : `${soVN(so)} biến thể`;
+}
+
+/**
+ * Chất liệu trên dòng nhóm sản phẩm: các chất liệu khác nhau của các dòng trong nhóm (bỏ rỗng, bỏ trùng, giữ thứ tự),
+ * nối bằng ", ". Biến thể cùng sản phẩm có thể khác chất liệu nên không lấy riêng dòng đầu. `dongs`: `nhom.dong`.
+ */
+export function chuChatLieu(dongs) {
+  const ds = (Array.isArray(dongs) ? dongs : []).map((d) => String(d?.chatLieu ?? "").trim()).filter(Boolean);
+  return [...new Set(ds)].join(", ");
 }
 
 /**
@@ -126,7 +147,7 @@ export function tinhBuocYeuCau(yc) {
   }
 
   let gui;
-  if (tt === TRANG_THAI_YEU_CAU.DA_DUYET) gui = { trangThai: "dangLam", phu: "Chờ mua hàng gửi" };
+  if (tt === TRANG_THAI_YEU_CAU.DA_DUYET) gui = { trangThai: "dangLam", phu: "Chờ nhân viên mua hàng gửi" };
   else if (daGui) {
     gui = { trangThai: "xong", phu: soNcc ? `${soVN(soNcc)} nhà cung cấp` : "", ngay: ngayGuiBaoGia(yc), coGio: true };
   } else gui = { trangThai: "chua" };

@@ -32,7 +32,7 @@ function OGia({ chu, kieu, thapNhat, chot }) {
         className={cn(
           "block whitespace-nowrap tabular-nums",
           kieu === "chua" && "text-bo-muted",
-          kieu === "thieu" && "text-[13px] font-semibold text-amber-700",
+          kieu === "thieu" && "text-[13px] font-semibold text-bo-warning",
           thapNhat && "font-semibold text-bo-success",
         )}
       >
@@ -59,8 +59,10 @@ function oTong(x, chuKhiChuaCo) {
  * - `ncc`: các báo giá còn hiệu lực `{ id, soDonMua, nhaCungCap, chot, nhan }` (`nhan`: nhãn trạng thái đã suy diễn)
  * - `tongCaYeuCau`: soSanhTong của mọi dòng · `xem` / `onDoiXem`: "donGia" | "thanhTien"
  * - `tomTatGui`: chữ "n nhà cung cấp đã gửi giá · …" · `chuThich`: câu cuối khối
+ * - `xemBaoGia`: người đang xem mở được Chi tiết báo giá (tinhYeuCau.VAI_TRO_XEM_DON_MUA); không thì tên nhà cung cấp
+ *   là chữ thường, không phải link (máy chủ trả 403)
  */
-export default function BangSoSanhGia({ bang, ncc, tongCaYeuCau, xem, onDoiXem, tomTatGui, chuThich }) {
+export default function BangSoSanhGia({ bang, ncc, tongCaYeuCau, xem, onDoiXem, tomTatGui, chuThich, xemBaoGia = true }) {
   const idBang = useId();
   const soNcc = ncc.length;
   const coDong = bang.nhom.length > 0;
@@ -126,12 +128,18 @@ export default function BangSoSanhGia({ bang, ncc, tongCaYeuCau, xem, onDoiXem, 
                     className={cn(O_TIEU_DE, "border-l border-slate-100 text-right align-bottom", i === soNcc - 1 && O_CUOI, n.chot && NEN_CHOT)}
                   >
                     <span className="flex flex-col items-end gap-1">
-                      <Link
-                        to={`/quotation/${n.id}`}
-                        className="text-sm font-semibold leading-5 text-bo-primary hover:text-bo-primary-hover hover:underline"
-                      >
-                        {n.nhaCungCap?.tenNhaCungCap || n.nhaCungCap?.maNhaCungCap || n.soDonMua || "—"}
-                      </Link>
+                      {xemBaoGia ? (
+                        <Link
+                          to={`/quotation/${n.id}`}
+                          className="text-sm font-semibold leading-5 text-bo-primary hover:text-bo-primary-hover hover:underline"
+                        >
+                          {n.nhaCungCap?.tenNhaCungCap || n.nhaCungCap?.maNhaCungCap || n.soDonMua || "—"}
+                        </Link>
+                      ) : (
+                        <span className="text-sm font-semibold leading-5 text-bo-foreground">
+                          {n.nhaCungCap?.tenNhaCungCap || n.nhaCungCap?.maNhaCungCap || n.soDonMua || "—"}
+                        </span>
+                      )}
                       {n.soDonMua ? <span className="font-mono text-xs font-normal text-bo-muted">{n.soDonMua}</span> : null}
                       {/* Cột hẹp: nhãn dài ("Đã chuyển thành đơn mua hàng") xuống dòng trong cột thay vì tràn sang cột bên */}
                       <StatusBadge label={n.nhan} quyTrinh="yeuCauBaoGia" className="max-w-full whitespace-normal text-left" />

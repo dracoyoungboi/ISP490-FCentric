@@ -33,6 +33,15 @@ export const laDaChot = (trangThai) => {
   return tt === TRANG_THAI_BAO_GIA.DA_CHOT || tt === TRANG_THAI_BAO_GIA.DA_NHAN_DU;
 };
 
+/**
+ * Báo giá còn chờ giá: đã gửi nhà cung cấp (1) hoặc chờ chốt (2). Chỉ lúc này dòng chưa có giá mới là "Chờ báo giá";
+ * báo giá đã không chấp nhận, đã xóa, đã chốt thì dòng chưa có giá hiện "—".
+ */
+export const laConChoGia = (trangThai) => {
+  const tt = docSo(trangThai);
+  return tt === TRANG_THAI_BAO_GIA.DA_GUI || tt === TRANG_THAI_BAO_GIA.CHO_CHOT;
+};
+
 /** Dòng đã có đơn giá (nhà cung cấp đã gửi giá cho dòng này). */
 export const coGiaDong = (ct) => docSo(ct?.donGia) > 0;
 
@@ -110,7 +119,7 @@ export function cauCanhBaoChapNhan(tomTat) {
 export function tinhBuocBaoGia(don, tomTat = congGia(don?.chiTietDonMuaHangs), { nhanDonMua = "" } = {}) {
   const tt = docSo(don?.trangThai);
   const daChot = laDaChot(tt);
-  const choGia = tt === TRANG_THAI_BAO_GIA.DA_GUI || tt === TRANG_THAI_BAO_GIA.CHO_CHOT;
+  const choGia = laConChoGia(tt);
   const dongCoGia = `${soVN(tomTat.soCoGia)}/${soVN(tomTat.soDong)} dòng có giá`;
 
   let guiGia;
@@ -126,7 +135,7 @@ export function tinhBuocBaoGia(don, tomTat = congGia(don?.chiTietDonMuaHangs), {
   if (daChot) chot = { trangThai: "xong", phu: "Đã chấp nhận" };
   else if (tt === TRANG_THAI_BAO_GIA.TU_CHOI) chot = { trangThai: "dung", phu: "Không chấp nhận" };
   else if (tt === TRANG_THAI_BAO_GIA.DA_XOA) chot = { trangThai: "dung", phu: "Đã xóa" };
-  else if (tt === TRANG_THAI_BAO_GIA.CHO_CHOT && tomTat.coGia) chot = { trangThai: "dangLam", phu: "Chờ mua hàng chốt" };
+  else if (tt === TRANG_THAI_BAO_GIA.CHO_CHOT && tomTat.coGia) chot = { trangThai: "dangLam", phu: "Chờ nhân viên mua hàng chốt" };
   else chot = { trangThai: "chua", phu: "" };
 
   return [

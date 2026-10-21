@@ -18,28 +18,32 @@ import {
   O_DAU_DONG_CON,
   O_TIEU_DE,
 } from "@/components/chung-tu/kieuBang";
-import { chuSoBienThe } from "@/components/order/chi-tiet-yeu-cau/tinhYeuCau";
+import { chuChatLieu, chuSoBienThe } from "@/components/order/chi-tiet-yeu-cau/tinhYeuCau";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/utils/formatters";
 import { congGia, NHAN_CHO_BAO_GIA } from "./tinhBaoGia";
 
-/** Tổng phụ của một sản phẩm: chưa dòng nào có giá → thẻ "Chờ báo giá"; thiếu dòng → "Thiếu giá n dòng" (không cộng thiếu). */
-function TongNhom({ dong }) {
+/**
+ * Tổng phụ của một sản phẩm: chưa dòng nào có giá → thẻ "Chờ báo giá" khi báo giá còn chờ giá, không thì "—";
+ * thiếu dòng → "Thiếu giá n dòng" (không cộng thiếu).
+ */
+function TongNhom({ dong, choGia }) {
   const g = congGia(dong);
-  if (g.chuaCoGia) return <StatusBadge label={NHAN_CHO_BAO_GIA} />;
-  if (g.thieu > 0) return <span className="text-[13px] text-amber-700">Thiếu giá {soVN(g.thieu)} dòng</span>;
+  if (g.chuaCoGia) return choGia ? <StatusBadge label={NHAN_CHO_BAO_GIA} /> : <span className="text-bo-muted">—</span>;
+  if (g.thieu > 0) return <span className="text-[13px] text-bo-warning">Thiếu giá {soVN(g.thieu)} dòng</span>;
   return formatCurrency(g.tongTien);
 }
 
 /**
  * Bảng "Giá nhà cung cấp báo" của báo giá: biến thể gom theo sản phẩm, Số lượng · Đơn giá · Thành tiền.
- * Dòng chưa có giá: ô đơn giá là thẻ "Chờ báo giá" (giữ như màn cũ; màu theo constants/trangThai.js), thành tiền "—".
+ * Dòng chưa có giá: ô đơn giá là thẻ "Chờ báo giá" (giữ như màn cũ; màu theo constants/trangThai.js) khi báo giá còn
+ * chờ giá (`choGia`, tinhBaoGia.laConChoGia), báo giá đã không chấp nhận / đã xóa thì "—"; thành tiền "—".
  * Tổng cả báo giá nằm ở dòng phụ đầu khối nên bảng không có dòng Tổng cộng.
  * Khối hẹp (< 672px): cột Số lượng ẩn, số lượng xuống dòng phụ dưới mã SKU (Đơn giá, Thành tiền luôn trong khung).
  * `bang`: useBangChungTu của các dòng (tinhBaoGia.dongBaoGia).
  */
-export default function BangBaoGia({ bang }) {
+export default function BangBaoGia({ bang, choGia = true }) {
   const idBang = useId();
   const coDong = bang.nhom.length > 0;
 
@@ -89,7 +93,7 @@ export default function BangBaoGia({ bang }) {
                     thuGonDuoc={n.thuGonDuoc}
                     onDoi={() => bang.doiNhom(n.khoa)}
                     idVung={idNhom}
-                    dongPhu={[n.dong[0]?.chatLieu, chuSoBienThe(n, bang.dangTim)]}
+                    dongPhu={[chuChatLieu(n.dong), chuSoBienThe(n, bang.dangTim)]}
                     tomTat={n.tomTat}
                   >
                     {n.thuGonDuoc ? (
@@ -97,7 +101,7 @@ export default function BangBaoGia({ bang }) {
                         <td className={cn(O, "text-right font-semibold", AN_DIEN_THOAI)}>{soVN(n.tong.soLuong)}</td>
                         <td className={O} />
                         <td className={cn(O, O_CUOI, "whitespace-nowrap text-right font-semibold")}>
-                          <TongNhom dong={n.dong} />
+                          <TongNhom dong={n.dong} choGia={choGia} />
                         </td>
                       </>
                     ) : null}
@@ -114,8 +118,8 @@ export default function BangBaoGia({ bang }) {
                           </span>
                         </td>
                         <td className={cn(O, "text-right", AN_DIEN_THOAI)}>{soVN(d.soLuong)}</td>
-                        <td className={cn(O, "whitespace-nowrap text-right")}>
-                          {d.coGia ? formatCurrency(d.donGia) : <StatusBadge label={NHAN_CHO_BAO_GIA} />}
+                        <td className={cn(O, "whitespace-nowrap text-right", !d.coGia && !choGia && "text-bo-muted")}>
+                          {d.coGia ? formatCurrency(d.donGia) : choGia ? <StatusBadge label={NHAN_CHO_BAO_GIA} /> : "—"}
                         </td>
                         <td className={cn(O, O_CUOI, "whitespace-nowrap text-right", !d.coGia && "text-bo-muted")}>
                           {d.coGia ? formatCurrency(d.thanhTien) : "—"}
