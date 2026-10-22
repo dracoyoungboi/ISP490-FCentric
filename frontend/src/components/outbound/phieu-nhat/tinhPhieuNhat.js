@@ -7,6 +7,7 @@
 import { PICK_LIST_EDITABLE, PICK_LIST_STATUS, formatQuantity, toNumber } from "../../../constants/outbound.js";
 import { TRANG_THAI_DON } from "../../../constants/trangThaiXuatBan.js";
 import { boDau, cauChungTuRong } from "../../chung-tu/bangChungTu.js";
+import { khoangVideoNgan } from "../dong-goi/tinhDongGoi.js";
 
 /** Tên chứng từ của màn (chữ của khung lỗi, câu rỗng): viết thường, đầy đủ. */
 export const TEN_CHUNG_TU = "phiếu nhặt hàng";
@@ -338,7 +339,7 @@ export function nhanBangChung(don) {
   const tt = don?.trangThai;
   if (tt !== TRANG_THAI_DON.CHO_DONG_GOI && tt !== TRANG_THAI_DON.DA_DONG_GOI) return null;
   if (don.daDuBangChung) return { du: true, nhan: "Đủ bằng chứng" };
-  return { du: false, nhan: don.yeuCauVideo ? "Cần video 15–30 giây" : "Cần 2 ảnh" };
+  return { du: false, nhan: don.yeuCauVideo ? `Cần video ${khoangVideoNgan()}` : "Cần 2 ảnh" };
 }
 
 /** Kết quả "Hoàn tất nhặt": đơn được tạo phiếu xuất nháp và đơn bị bỏ qua (đã hủy / đã xuất trước đó). */

@@ -45,11 +45,23 @@ export const SO_MAT_HANG_THIEU_HIEN = 5;
 export const SO_PHIEU_XUAT_HIEN = 3;
 
 /**
- * Thời lượng video bằng chứng đóng gói (giây): khớp loaiYeuCau "VIDEO_15_30S" của máy chủ (BangChungDongGoiServiceImpl
- * từ chối video ngoài khoảng này). Màn Đóng gói khóa nút Dừng quay dưới `toiThieu`, tự dừng ở `toiDa`, kiểm tệp chọn từ máy.
- * Máy chủ đổi khoảng thì sửa ở đây.
+ * Thời lượng video bằng chứng đóng gói (giây, gồm cả hai đầu). Máy chủ gửi khoảng thật (`thoiLuongVideoToiThieu`,
+ * `thoiLuongVideoToiDa`, BangChungDongGoiServiceImpl); số ở đây chỉ dùng khi máy chủ không gửi. Màn Đóng gói khóa nút
+ * Dừng quay dưới `toiThieu`, tự dừng ở `toiDa`, kiểm tệp chọn từ máy.
  */
-export const THOI_LUONG_VIDEO_DONG_GOI = Object.freeze({ toiThieu: 15, toiDa: 30 });
+export const THOI_LUONG_VIDEO_DONG_GOI = Object.freeze({ toiThieu: 15, toiDa: 180 });
+
+/** Quay video đóng gói: số giây cuối trước khi tự dừng thì nhãn đổi thành "Tự dừng sau n giây". */
+export const CANH_BAO_TU_DUNG_VIDEO_GIAY = 15;
+
+/**
+ * Chất lượng quay video đóng gói trên trang: khung mong muốn 1280×720, 1,5 Mbit/s. Đo thử trên Chrome (22/10/2026, VP9):
+ * video 3 phút khoảng 26 MB, để trình duyệt tự chọn thì khoảng 43 MB. Đủ rõ để nhìn hàng và tem.
+ */
+export const CHAT_LUONG_QUAY_VIDEO = Object.freeze({ rong: 1280, cao: 720, bitGiay: 1_500_000 });
+
+/** Dung lượng tối đa một video đóng gói (MB) — trùng MAX_VIDEO_SIZE của máy chủ; tệp lớn hơn bị chặn trước khi tải. */
+export const DUNG_LUONG_VIDEO_TOI_DA_MB = 100;
 
 /** Số ký tự tối đa của lý do khách từ chối báo giá bán (ô lý do ở Chi tiết báo giá; máy chủ lưu cột không giới hạn). */
 export const LY_DO_KHACH_TU_CHOI_TOI_DA = 500;

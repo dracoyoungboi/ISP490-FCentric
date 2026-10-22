@@ -5,9 +5,10 @@
  * Phiên (PhienDongGoiDto, GET /dong-goi/don/{id}): đơn, phiếu xuất (`trangThaiPhieu` 0 Nháp = đang đóng gói, 6 Chờ xuất,
  * 3 Đã xuất, 4 Đã hủy), `items` (mỗi dòng đơn một dòng phiếu), `biHuy` (đơn hủy HOẶC phiếu xuất hủy), bằng chứng gắn
  * theo ĐƠN (`danhSachBangChung`, tự xóa sau `ngayHetHan`). Yêu cầu bằng chứng: GET /dong-goi/don/{id}/bang-chung
- * (`yeuCauVideo`, `huongDan`, `soLuongHienCo`, `soLuongYeuCau`) — giao diện không tự đặt ngưỡng tiền.
+ * (`yeuCauVideo`, `huongDan`, `soLuongHienCo`, `soLuongYeuCau`, `thoiLuongVideoToiThieu`, `thoiLuongVideoToiDa`) — giao
+ * diện không tự đặt ngưỡng tiền.
  */
-import { THOI_LUONG_VIDEO_DONG_GOI } from "../../../config/bangChungTu.js";
+import { CANH_BAO_TU_DUNG_VIDEO_GIAY, DUNG_LUONG_VIDEO_TOI_DA_MB, THOI_LUONG_VIDEO_DONG_GOI } from "../../../config/bangChungTu.js";
 import { TRANG_THAI_DON, TRANG_THAI_PHIEU_XUAT } from "../../../constants/trangThaiXuatBan.js";
 import { docSo, nhanMauKichCo, soVN } from "../../chung-tu/bangChungTu.js";
 import { laDaXuat } from "../phieu-xuat/phieuXuat.js";
@@ -117,14 +118,72 @@ export function bangChungHetHan(tinhHuong, danhSach, items = []) {
 /** Không đọc được thời lượng của tệp video chọn từ máy. */
 export const CAU_KHONG_DOC_THOI_LUONG = "Không đọc được thời lượng video. Chọn tệp video khác.";
 
-/** Câu lỗi thời lượng video — trùng câu máy chủ ("Thời lượng video đóng gói phải từ 15 đến 30 giây (Nhận được: 9s)!"). */
+/**
+ * Khoảng thời lượng video `{ toiThieu, toiDa }` (giây) theo máy chủ (`thoiLuongVideoToiThieu`, `thoiLuongVideoToiDa` của
+ * phiên hoặc thông tin bằng chứng). Thiếu hoặc vô lý (không phải số nguyên dương, tối thiểu lớn hơn tối đa) → số trong config.
+ */
+export function gioiHanVideo(nguon) {
+  const toiThieu = Number(nguon?.thoiLuongVideoToiThieu);
+  const toiDa = Number(nguon?.thoiLuongVideoToiDa);
+  const hopLe = Number.isInteger(toiThieu) && Number.isInteger(toiDa) && toiThieu > 0 && toiThieu <= toiDa;
+  return hopLe ? { toiThieu, toiDa } : THOI_LUONG_VIDEO_DONG_GOI;
+}
+
+/** 15 → "15 giây", 180 → "3 phút", 150 → "2 phút 30 giây" (trùng cách viết của máy chủ). */
+export function chuThoiLuong(giay) {
+  const phut = Math.floor(giay / 60);
+  const du = giay % 60;
+  if (phut === 0) return `${giay} giây`;
+  return du === 0 ? `${phut} phút` : `${phut} phút ${du} giây`;
+}
+
+/** "15 giây – 3 phút" (nhãn ngắn). */
+export const khoangVideoNgan = (gioiHan = THOI_LUONG_VIDEO_DONG_GOI) =>
+  `${chuThoiLuong(gioiHan.toiThieu)} – ${chuThoiLuong(gioiHan.toiDa)}`;
+
+/** Câu lỗi thời lượng video — trùng câu máy chủ ("Thời lượng video đóng gói phải từ 15 giây đến 3 phút (Nhận được: 9 giây)!"). */
 export function cauThoiLuongVideo(giay, gioiHan = THOI_LUONG_VIDEO_DONG_GOI) {
-  return `Thời lượng video đóng gói phải từ ${gioiHan.toiThieu} đến ${gioiHan.toiDa} giây (Nhận được: ${giay}s)!`;
+  const khoang = `từ ${chuThoiLuong(gioiHan.toiThieu)} đến ${chuThoiLuong(gioiHan.toiDa)}`;
+  return `Thời lượng video đóng gói phải ${khoang} (Nhận được: ${giay} giây)!`;
+}
+
+/**
+ * Thời lượng gửi máy chủ (giây nguyên) của video dài `giay` (số thực): vượt mốc tối đa dưới 1 giây thì tính bằng mốc
+ * (clip điện thoại hiện "3:00" thật ra 180,6 giây; bộ đếm tự dừng trễ vài trăm mili giây); còn lại làm tròn. Không kẹp
+ * video dài hơn hẳn — máy chủ tin số này. Không đọc được → null.
+ */
+export function thoiLuongGuiLen(giay, gioiHan = THOI_LUONG_VIDEO_DONG_GOI) {
+  if (!Number.isFinite(giay) || giay < 0) return null;
+  return giay > gioiHan.toiDa && giay < gioiHan.toiDa + 1 ? gioiHan.toiDa : Math.round(giay);
 }
 
 /** Thời lượng (giây, làm tròn) có nằm trong khoảng cho phép không. */
 export const thoiLuongHopLe = (giay, gioiHan = THOI_LUONG_VIDEO_DONG_GOI) =>
   Number.isFinite(giay) && giay >= gioiHan.toiThieu && giay <= gioiHan.toiDa;
+
+/** Đang quay: còn ≤ `canhBao` giây là tới mốc tự dừng thì trả số giây còn lại ("Tự dừng sau n giây"), chưa tới → null. */
+export function giayTuDung(giay, gioiHan = THOI_LUONG_VIDEO_DONG_GOI, canhBao = CANH_BAO_TU_DUNG_VIDEO_GIAY) {
+  const conLai = gioiHan.toiDa - giay;
+  return conLai <= canhBao ? Math.max(0, conLai) : null;
+}
+
+/** Tệp video vượt dung lượng máy chủ nhận (MB, tính theo 1 MB = 1024 × 1024 byte như máy chủ). */
+export const videoQuaLon = (bytes, toiDaMb = DUNG_LUONG_VIDEO_TOI_DA_MB) => Number(bytes) > toiDaMb * 1024 * 1024;
+
+/** Câu báo video quá lớn, chặn trước khi tải: tệp chọn từ máy gợi ý quay ngay trên trang; video vừa quay gợi ý quay ngắn hơn. */
+export function cauVideoQuaLon(bytes, { daQuay = false, toiDaMb = DUNG_LUONG_VIDEO_TOI_DA_MB } = {}) {
+  const mb = soVN(Math.ceil(Number(bytes) / (1024 * 1024)));
+  return daQuay
+    ? `Video vừa quay ${mb} MB, vượt ${soVN(toiDaMb)} MB. Hãy quay lại ngắn hơn.`
+    : `Tệp ${mb} MB, vượt ${soVN(toiDaMb)} MB. Hãy bấm Quay video để quay ngay trên trang, hoặc chọn video ngắn hơn.`;
+}
+
+/** Phần trăm đã gửi lên (sự kiện tiến độ của axios); không biết tổng → null. */
+export function phanTramTaiLen(suKien) {
+  const tong = Number(suKien?.total);
+  if (!(tong > 0)) return null;
+  return Math.min(100, Math.max(0, Math.floor((Number(suKien.loaded) * 100) / tong)));
+}
 
 /**
  * Lý do khóa "Hoàn tất đóng gói" (khớp coTheHoanTat của máy chủ: quét đủ + đủ bằng chứng + phiếu Nháp + không hủy) và

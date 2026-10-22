@@ -1,7 +1,8 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { X, ShieldCheck, Loader2 } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import PackingProofSection from "@/components/outbound/PackingProofSection";
+import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
 import { dongGoiService } from "@/services/dongGoiService";
 import { getApiErrorMessage } from "@/utils/apiError";
 
@@ -17,27 +18,39 @@ export default function PackingProofModal({
 }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
+  // Đang quay / tải tệp trong phần bằng chứng: đóng hộp phải xác nhận (đóng là dừng quay, dừng tải)
+  const [ban, setBan] = useState(false);
+  const [hoiDong, setHoiDong] = useState(false);
+  const dong = () => (ban ? setHoiDong(true) : onClose());
+  // Đơn đang mở trong hộp (null khi đóng). Lời gọi tải của đơn khác — vd. video tải xong sau khi đã đóng hộp gọi
+  // onRefresh cũ — không được ghi dữ liệu của đơn đó vào hộp đang mở đơn khác (bấm Xóa sẽ xóa nhầm đơn).
+  const donDangMoRef = useRef(null);
 
   const fetchProofs = useCallback(async () => {
-    if (!donId || !isOpen) return;
+    if (!donId || !isOpen || donDangMoRef.current !== donId) return;
     setLoading(true);
     try {
       const res = await dongGoiService.layBangChung(donId);
-      setData(res);
+      if (donDangMoRef.current === donId) setData(res);
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Không tải được bằng chứng đóng gói"));
+      if (donDangMoRef.current === donId) toast.error(getApiErrorMessage(err, "Không tải được bằng chứng đóng gói"));
     } finally {
-      setLoading(false);
+      if (donDangMoRef.current === donId) setLoading(false);
     }
   }, [donId, isOpen]);
 
   useEffect(() => {
+    donDangMoRef.current = isOpen ? donId : null;
     if (isOpen) {
+      // Mở hộp / đổi đơn: bỏ dữ liệu đơn trước, hiện "Đang tải" tới khi có dữ liệu đơn này
+      setData(null);
       fetchProofs();
     } else {
       setData(null);
+      setBan(false);
+      setHoiDong(false);
     }
-  }, [isOpen, fetchProofs]);
+  }, [isOpen, donId, fetchProofs]);
 
   if (!isOpen) return null;
 
@@ -54,7 +67,7 @@ export default function PackingProofModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={dong}
             className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors"
           >
             <X className="size-5" />
@@ -75,6 +88,8 @@ export default function PackingProofModal({
               tongTienDonHang={tongTienDonHang != null ? tongTienDonHang : data?.tongTienDonHang}
               yeuCauVideo={data?.yeuCauVideo}
               huongDan={data?.huongDan}
+              thoiLuongVideoToiThieu={data?.thoiLuongVideoToiThieu}
+              thoiLuongVideoToiDa={data?.thoiLuongVideoToiDa}
               danhSachBangChung={data?.danhSachBangChung || []}
               daDuBangChung={data?.daDuBangChung}
               coTieuDe={false}
@@ -85,6 +100,7 @@ export default function PackingProofModal({
               }}
               readOnly={readOnly}
               lyDoKhoaXoa={lyDoKhoaXoa}
+              onBanDoi={setBan}
             />
           )}
         </div>
@@ -93,13 +109,28 @@ export default function PackingProofModal({
         <div className="border-t border-bo-border px-5 py-3 bg-slate-50 flex justify-end">
           <button
             type="button"
-            onClick={onClose}
+            onClick={dong}
             className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
           >
             Đóng
           </button>
         </div>
       </div>
+
+      <HopXacNhanChungTu
+        mo={hoiDong}
+        onDoiMo={(mo) => {
+          if (!mo) setHoiDong(false);
+        }}
+        tieuDe="Đóng khi bằng chứng chưa lưu xong?"
+        moTa="Video đang quay hoặc tệp đang tải lên sẽ bị bỏ, phải chụp, quay hoặc chọn tệp lại."
+        nhanXacNhan="Đóng"
+        kieu="nguyHiem"
+        onXacNhan={() => {
+          setHoiDong(false);
+          onClose();
+        }}
+      />
     </div>
   );
 }

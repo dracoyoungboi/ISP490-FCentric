@@ -23,9 +23,15 @@ export const dongGoiService = {
     const res = await apiClient.get(`${BASE}/don/${donBanHangId}/bang-chung`);
     return res.data?.data;
   },
-  async uploadBangChung(donBanHangId, formData) {
+  /**
+   * `onUploadProgress(suKien)`: tiến độ gửi tệp của axios (`loaded`, `total`), để hiện phần trăm khi tải video.
+   * `signal`: AbortSignal để dừng tải khi rời màn.
+   */
+  async uploadBangChung(donBanHangId, formData, { onUploadProgress, signal } = {}) {
     const res = await apiClient.post(`${BASE}/don/${donBanHangId}/bang-chung`, formData, {
       headers: { "Content-Type": "multipart/form-data" },
+      onUploadProgress,
+      signal,
     });
     return res.data?.data;
   },

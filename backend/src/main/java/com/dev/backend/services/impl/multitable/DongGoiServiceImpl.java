@@ -156,7 +156,8 @@ public class DongGoiServiceImpl implements DongGoiService {
             BigDecimal tongTien = don.getTongCong() != null ? don.getTongCong() : BigDecimal.ZERO;
             boolean yeuCauVideo = tongTien.compareTo(BangChungDongGoiServiceImpl.NGUONG_TIEN_VIDEO) >= 0;
             String thieuMsg = yeuCauVideo
-                    ? "Đơn hàng " + don.getSoDonHang() + " (≥ 1.000.000đ) chưa có video đóng gói (15-30s) hợp lệ!"
+                    ? "Đơn hàng " + don.getSoDonHang() + " (≥ 1.000.000đ) chưa có video đóng gói hợp lệ (dài "
+                            + BangChungDongGoiServiceImpl.moTaKhoangVideo() + ")!"
                     : "Đơn hàng " + don.getSoDonHang() + " (< 1.000.000đ) chưa có đủ 2 ảnh đóng gói theo quy định!";
             throw new CommonException(thieuMsg, HttpStatus.BAD_REQUEST, null);
         }
@@ -316,6 +317,8 @@ public class DongGoiServiceImpl implements DongGoiService {
                 .tongTienDonHang(tongTien)
                 .yeuCauVideo(yeuCauVideo)
                 .loaiYeuCau(yeuCauVideo ? "VIDEO_15_30S" : "ANH_2_BUOC")
+                .thoiLuongVideoToiThieu(BangChungDongGoiServiceImpl.THOI_LUONG_VIDEO_TOI_THIEU)
+                .thoiLuongVideoToiDa(BangChungDongGoiServiceImpl.THOI_LUONG_VIDEO_TOI_DA)
                 .daDuBangChung(daDuBangChung)
                 .danhSachBangChung(thongTinBc != null ? thongTinBc.getDanhSachBangChung() : java.util.Collections.emptyList())
                 .items(items)

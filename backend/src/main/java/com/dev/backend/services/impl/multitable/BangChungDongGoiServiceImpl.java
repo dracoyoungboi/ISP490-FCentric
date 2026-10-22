@@ -37,8 +37,12 @@ import java.util.stream.Collectors;
 public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
 
     public static final BigDecimal NGUONG_TIEN_VIDEO = new BigDecimal("1000000.00");
+    /** Thời lượng video đóng gói cho phép (giây, gồm cả hai đầu). Frontend nhận qua ThongTinBangChungDonDto / PhienDongGoiDto. */
+    public static final int THOI_LUONG_VIDEO_TOI_THIEU = 15;
+    public static final int THOI_LUONG_VIDEO_TOI_DA = 180;
     private static final long MAX_IMAGE_SIZE = 10L * 1024 * 1024; // 10MB
-    private static final long MAX_VIDEO_SIZE = 100L * 1024 * 1024; // 100MB
+    /** 100MB — GioiHanTaiBangChungFilter dùng mốc này để chặn sớm yêu cầu quá lớn trước khi đọc multipart. */
+    public static final long MAX_VIDEO_SIZE = 100L * 1024 * 1024;
 
     @Autowired
     private BangChungDongGoiRepository bangChungDongGoiRepository;
@@ -73,7 +77,7 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
         List<BangChungDongGoiDto> dtoList = list.stream().map(this::toDto).collect(Collectors.toList());
 
         String huongDan = yeuCauVideo
-                ? "Đơn hàng giá trị từ 1.000.000đ trở lên: Bắt buộc quay 1 video ngắn (15-30 giây) từ lúc cho đồ vào đến khi niêm phong."
+                ? "Đơn hàng giá trị từ 1.000.000đ trở lên: Bắt buộc quay 1 video dài " + khoangVideoNgan() + ", từ lúc cho đồ vào đến khi niêm phong."
                 : "Đơn hàng giá trị dưới 1.000.000đ: Bắt buộc tải lên 2 ảnh (Ảnh 1: Hàng đã cho vào hộp/túi; Ảnh 2: Hộp đã dán băng keo niêm phong kèm tem ĐVVC).";
 
         return ThongTinBangChungDonDto.builder()
@@ -82,6 +86,8 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
                 .tongTienDonHang(tongTien)
                 .yeuCauVideo(yeuCauVideo)
                 .loaiYeuCau(yeuCauVideo ? "VIDEO_15_30S" : "ANH_2_BUOC")
+                .thoiLuongVideoToiThieu(THOI_LUONG_VIDEO_TOI_THIEU)
+                .thoiLuongVideoToiDa(THOI_LUONG_VIDEO_TOI_DA)
                 .huongDan(huongDan)
                 .daDuBangChung(daDu)
                 .soLuongHienCo(list.size())
@@ -123,7 +129,7 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
 
         if (donYeuCauVideo) {
             if (!LoaiBangChungDongGoi.VIDEO_DONG_GOI.name().equals(loaiBangChung)) {
-                throw new CommonException("Đơn hàng từ 1.000.000đ trở lên bắt buộc phải quay Video đóng gói (15-30s)!", HttpStatus.BAD_REQUEST, null);
+                throw new CommonException("Đơn hàng từ 1.000.000đ trở lên bắt buộc phải quay video đóng gói (" + moTaKhoangVideo() + ")!", HttpStatus.BAD_REQUEST, null);
             }
             if (!contentType.startsWith("video/") && !isAllowedVideoExtension(file.getOriginalFilename())) {
                 throw new CommonException("Định dạng tệp không phải video hợp lệ (MP4, WebM, MOV)!", HttpStatus.BAD_REQUEST, null);
@@ -131,9 +137,9 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
             if (file.getSize() > MAX_VIDEO_SIZE) {
                 throw new CommonException("Dung lượng video vượt quá 100MB cho phép!", HttpStatus.BAD_REQUEST, null);
             }
-            if (thoiLuongGiay == null || thoiLuongGiay < 15 || thoiLuongGiay > 30) {
-                throw new CommonException("Thời lượng video đóng gói phải từ 15 đến 30 giây (Nhận được: "
-                        + (thoiLuongGiay != null ? thoiLuongGiay + "s" : "chưa xác định") + ")!", HttpStatus.BAD_REQUEST, null);
+            if (!thoiLuongVideoHopLe(thoiLuongGiay)) {
+                throw new CommonException("Thời lượng video đóng gói phải " + moTaKhoangVideo() + " (Nhận được: "
+                        + (thoiLuongGiay != null ? thoiLuongGiay + " giây" : "chưa xác định") + ")!", HttpStatus.BAD_REQUEST, null);
             }
             loaiTep = FileType.VIDEO.toString();
         } else {
@@ -314,12 +320,34 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
         if (list == null || list.isEmpty()) return false;
         if (yeuCauVideo) {
             return list.stream().anyMatch(b -> LoaiBangChungDongGoi.VIDEO_DONG_GOI.name().equals(b.getLoaiBangChung())
-                    && b.getThoiLuongGiay() != null && b.getThoiLuongGiay() >= 15 && b.getThoiLuongGiay() <= 30);
+                    && thoiLuongVideoHopLe(b.getThoiLuongGiay()));
         } else {
             boolean coAnhHang = list.stream().anyMatch(b -> LoaiBangChungDongGoi.ANH_HANG_TRONG_HOP.name().equals(b.getLoaiBangChung()));
             boolean coAnhNiemPhong = list.stream().anyMatch(b -> LoaiBangChungDongGoi.ANH_NIEM_PHONG_TEM_VC.name().equals(b.getLoaiBangChung()));
             return coAnhHang && coAnhNiemPhong;
         }
+    }
+
+    public static boolean thoiLuongVideoHopLe(Integer giay) {
+        return giay != null && giay >= THOI_LUONG_VIDEO_TOI_THIEU && giay <= THOI_LUONG_VIDEO_TOI_DA;
+    }
+
+    /** "từ 15 giây đến 3 phút": dựng từ hai hằng để câu hướng dẫn / câu lỗi luôn khớp điều kiện kiểm. */
+    public static String moTaKhoangVideo() {
+        return "từ " + chuThoiLuong(THOI_LUONG_VIDEO_TOI_THIEU) + " đến " + chuThoiLuong(THOI_LUONG_VIDEO_TOI_DA);
+    }
+
+    /** "15 giây – 3 phút" (dạng ngắn, dùng trong câu hướng dẫn). */
+    public static String khoangVideoNgan() {
+        return chuThoiLuong(THOI_LUONG_VIDEO_TOI_THIEU) + " – " + chuThoiLuong(THOI_LUONG_VIDEO_TOI_DA);
+    }
+
+    /** 15 → "15 giây", 180 → "3 phút", 150 → "2 phút 30 giây". */
+    static String chuThoiLuong(int giay) {
+        int phut = giay / 60;
+        int du = giay % 60;
+        if (phut == 0) return giay + " giây";
+        return du == 0 ? phut + " phút" : phut + " phút " + du + " giây";
     }
 
     private void kiemTraKho(Kho kho) {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { xinRoiTrang } from "@/lib/chanRoiTrang";
 import { ArrowRight, FileText, PackageCheck, PackageX, Printer, Truck, Warehouse } from "lucide-react";
 import PageContainer from "@/components/backoffice/PageContainer";
 import KhungChungTu from "@/components/chung-tu/KhungChungTu";
@@ -74,7 +75,8 @@ export default function DongGoiPage() {
 function ManDongGoi({ donId }) {
   const navigate = useNavigate();
   const laQtv = hasAnyRole([ROLES.QUAN_TRI_VIEN]);
-  const veDon = useCallback(() => navigate(`/sales-orders/${donId}`), [navigate, donId]);
+  // Rời màn qua lớp chặn: đang quay / đang tải bằng chứng thì PackingProofSection hỏi trước (useHoiKhiRoiTrang)
+  const veDon = useCallback(() => xinRoiTrang(() => navigate(`/sales-orders/${donId}`)), [navigate, donId]);
 
   // ── Phiên đóng gói (tự chuyển nơi làm việc khi đơn thuộc kho khác) ──────────
   const taiPhien = useCallback(async () => {
@@ -323,7 +325,7 @@ function ManDongGoi({ donId }) {
   };
 
   // ── Đầu khối ────────────────────────────────────────────────────────────
-  const moPx = () => pxId && navigate(`/goods-issues/${pxId}`);
+  const moPx = () => pxId && xinRoiTrang(() => navigate(`/goods-issues/${pxId}`));
   const nutChinh = khoaKhiChoGoc(
     [
       th.suaDuoc
@@ -346,7 +348,7 @@ function ManDongGoi({ donId }) {
           kieu: "vien",
           icon: ArrowRight,
           dieuHuong: true,
-          onClick: () => navigate(`/goods-issues/packing/${cung.tiep.id}`),
+          onClick: () => xinRoiTrang(() => navigate(`/goods-issues/packing/${cung.tiep.id}`)),
         }
         : null,
       th.xong && !th.daXuat
@@ -402,7 +404,7 @@ function ManDongGoi({ donId }) {
               pxId
                 ? [
                   { ma: "moPx", nhan: `Mở phiếu xuất ${px}`, icon: FileText, onSelect: moPx },
-                  { ma: "inPx", nhan: "In phiếu xuất", icon: Printer, onSelect: () => navigate(`/goods-issues/${pxId}/print`) },
+                  { ma: "inPx", nhan: "In phiếu xuất", icon: Printer, onSelect: () => xinRoiTrang(() => navigate(`/goods-issues/${pxId}/print`)) },
                 ]
                 : []
             }
@@ -427,6 +429,8 @@ function ManDongGoi({ donId }) {
               donId={phien.donBanHangId}
               yeuCauVideo={yeuCauVideo}
               huongDan={qBc.data?.huongDan}
+              thoiLuongVideoToiThieu={qBc.data?.thoiLuongVideoToiThieu ?? phien.thoiLuongVideoToiThieu}
+              thoiLuongVideoToiDa={qBc.data?.thoiLuongVideoToiDa ?? phien.thoiLuongVideoToiDa}
               danhSachBangChung={dsBangChung}
               daDuBangChung={duBangChung}
               readOnly={!th.suaDuoc}
@@ -436,6 +440,7 @@ function ManDongGoi({ donId }) {
               loiYeuCau={qBc.error && !qBc.loading ? getApiErrorMessage(qBc.error, "lỗi kết nối") : null}
               onThuLaiYeuCau={qBc.reload}
               traTieuDiem={() => oQuetRef.current?.focus()}
+              traTieuDiemVe={oQuetRef}
               className="mt-2"
             />
           </>

@@ -108,7 +108,7 @@ public class BangChungDongGoiServiceTest {
     }
 
     @Test
-    @DisplayName("TC-02: Đơn >= 1tr yêu cầu 1 video 15-30s")
+    @DisplayName("TC-02: Đơn >= 1tr yêu cầu 1 video 15 giây – 3 phút, trả kèm khoảng thời lượng")
     void testLayThongTinBangChung_DonTu1Trieu_YeuCauVideo() {
         when(donBanHangRepository.findById(102)).thenReturn(Optional.of(donTu1Tr));
         when(bangChungDongGoiRepository.findByDonBanHangIdAndTrangThaiOrderByNgayTaoAsc(102, 1))
@@ -119,8 +119,22 @@ public class BangChungDongGoiServiceTest {
         assertNotNull(res);
         assertTrue(res.getYeuCauVideo());
         assertEquals("VIDEO_15_30S", res.getLoaiYeuCau());
+        assertEquals(15, res.getThoiLuongVideoToiThieu());
+        assertEquals(180, res.getThoiLuongVideoToiDa());
+        assertEquals("Đơn hàng giá trị từ 1.000.000đ trở lên: Bắt buộc quay 1 video dài 15 giây – 3 phút, "
+                + "từ lúc cho đồ vào đến khi niêm phong.", res.getHuongDan());
         assertEquals(1, res.getSoLuongYeuCau());
         assertFalse(res.getDaDuBangChung());
+    }
+
+    @Test
+    @DisplayName("Câu khoảng thời lượng dựng từ hằng: giây / phút / phút lẻ giây")
+    void testMoTaKhoangVideo() {
+        assertEquals("từ 15 giây đến 3 phút", BangChungDongGoiServiceImpl.moTaKhoangVideo());
+        assertEquals("15 giây – 3 phút", BangChungDongGoiServiceImpl.khoangVideoNgan());
+        assertEquals("59 giây", BangChungDongGoiServiceImpl.chuThoiLuong(59));
+        assertEquals("1 phút", BangChungDongGoiServiceImpl.chuThoiLuong(60));
+        assertEquals("2 phút 30 giây", BangChungDongGoiServiceImpl.chuThoiLuong(150));
     }
 
     @Test
@@ -140,25 +154,32 @@ public class BangChungDongGoiServiceTest {
     }
 
     @Test
-    @DisplayName("TC-05 & TC-06: Video 15s và 30s hợp lệ; TC-07 & TC-08: Video <15s hoặc >30s bị chặn")
+    @DisplayName("TC-05 & TC-06: Video 15s, 35s, 180s hợp lệ; TC-07 & TC-08: Video <15s hoặc >180s bị chặn")
     void testKiemTraVideoThoiLuong() {
-        // Video 10s: thiếu thời lượng
-        BangChungDongGoi video10s = BangChungDongGoi.builder()
-                .loaiBangChung(LoaiBangChungDongGoi.VIDEO_DONG_GOI.name())
-                .thoiLuongGiay(10)
-                .build();
-        when(bangChungDongGoiRepository.findByDonBanHangIdAndTrangThaiOrderByNgayTaoAsc(102, 1))
-                .thenReturn(List.of(video10s));
-        assertFalse(bangChungDongGoiService.kiemTraDaDuBangChung(donTu1Tr), "Video 10s chưa đủ điều kiện");
+        Map<Integer, Boolean> mongDoi = new LinkedHashMap<>();
+        mongDoi.put(10, false);
+        mongDoi.put(14, false);
+        mongDoi.put(15, true);
+        mongDoi.put(35, true); // quy tắc cũ (15–30 giây) chặn, quy tắc mới cho qua
+        mongDoi.put(180, true);
+        mongDoi.put(181, false);
+        mongDoi.forEach((giay, hopLe) -> {
+            BangChungDongGoi video = BangChungDongGoi.builder()
+                    .loaiBangChung(LoaiBangChungDongGoi.VIDEO_DONG_GOI.name())
+                    .thoiLuongGiay(giay)
+                    .build();
+            when(bangChungDongGoiRepository.findByDonBanHangIdAndTrangThaiOrderByNgayTaoAsc(102, 1))
+                    .thenReturn(List.of(video));
+            assertEquals(hopLe, bangChungDongGoiService.kiemTraDaDuBangChung(donTu1Tr), "Video " + giay + "s");
+        });
 
-        // Video 20s: hợp lệ
-        BangChungDongGoi video20s = BangChungDongGoi.builder()
+        // Video không có thời lượng: chưa đủ
+        BangChungDongGoi videoKhongRo = BangChungDongGoi.builder()
                 .loaiBangChung(LoaiBangChungDongGoi.VIDEO_DONG_GOI.name())
-                .thoiLuongGiay(20)
                 .build();
         when(bangChungDongGoiRepository.findByDonBanHangIdAndTrangThaiOrderByNgayTaoAsc(102, 1))
-                .thenReturn(List.of(video20s));
-        assertTrue(bangChungDongGoiService.kiemTraDaDuBangChung(donTu1Tr), "Video 20s hợp lệ");
+                .thenReturn(List.of(videoKhongRo));
+        assertFalse(bangChungDongGoiService.kiemTraDaDuBangChung(donTu1Tr), "Video không rõ thời lượng");
     }
 
     @Test
@@ -193,19 +214,45 @@ public class BangChungDongGoiServiceTest {
     }
 
     @Test
-    @DisplayName("TC-12: Video sai thời lượng (< 15s hoặc > 30s) khi upload bị từ chối")
+    @DisplayName("TC-12: Video sai thời lượng (< 15s hoặc > 180s) khi upload bị từ chối")
     void testUploadBangChung_VideoSaiThoiLuong_NemNgoaiLe() {
         when(donBanHangRepository.findById(102)).thenReturn(Optional.of(donTu1Tr));
 
         MockMultipartFile fileVideo = new MockMultipartFile("file", "test.mp4", "video/mp4", new byte[1000]);
 
-        // Video 10s
+        // Video 10s, 14s (sát mốc dưới)
         assertThrows(CommonException.class, () ->
                 bangChungDongGoiService.uploadBangChung(102, fileVideo, LoaiBangChungDongGoi.VIDEO_DONG_GOI.name(), 10));
-
-        // Video 35s
         assertThrows(CommonException.class, () ->
-                bangChungDongGoiService.uploadBangChung(102, fileVideo, LoaiBangChungDongGoi.VIDEO_DONG_GOI.name(), 35));
+                bangChungDongGoiService.uploadBangChung(102, fileVideo, LoaiBangChungDongGoi.VIDEO_DONG_GOI.name(), 14));
+
+        // Video 181s
+        CommonException loi = assertThrows(CommonException.class, () ->
+                bangChungDongGoiService.uploadBangChung(102, fileVideo, LoaiBangChungDongGoi.VIDEO_DONG_GOI.name(), 181));
+        assertEquals("Thời lượng video đóng gói phải từ 15 giây đến 3 phút (Nhận được: 181 giây)!", loi.getMessage());
+
+        // Không gửi thời lượng
+        assertThrows(CommonException.class, () ->
+                bangChungDongGoiService.uploadBangChung(102, fileVideo, LoaiBangChungDongGoi.VIDEO_DONG_GOI.name(), null));
+        verifyNoInteractions(minioService);
+    }
+
+    @Test
+    @DisplayName("Upload video 15s, 35s và 180s (trong khoảng 15 giây – 3 phút) được nhận")
+    void testUploadBangChung_VideoTrongKhoang_ThanhCong() throws Exception {
+        when(donBanHangRepository.findById(102)).thenReturn(Optional.of(donTu1Tr));
+        when(bangChungDongGoiRepository.findByDonBanHangIdAndLoaiBangChungAndTrangThai(eq(102), anyString(), eq(1)))
+                .thenReturn(Optional.empty());
+        when(minioService.upload(any(), anyString())).thenReturn("packing-proofs/102/uuid.webm");
+        when(minioService.getPublicUrl(anyString())).thenReturn("http://171.244.142.43:9000/fashion/packing-proofs/102/uuid.webm");
+        when(tepTinService.create(any(TepTin.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(bangChungDongGoiRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        MockMultipartFile fileVideo = new MockMultipartFile("file", "video.webm", "video/webm", new byte[1000]);
+        for (int giay : new int[]{15, 35, 180}) {
+            var dto = bangChungDongGoiService.uploadBangChung(102, fileVideo, LoaiBangChungDongGoi.VIDEO_DONG_GOI.name(), giay);
+            assertEquals(giay, dto.getThoiLuongGiay());
+        }
     }
 
     @Test
