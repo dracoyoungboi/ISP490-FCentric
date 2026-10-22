@@ -46,7 +46,7 @@ export default function CameraCaptureModal({
     setError(null);
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setError("Trình duyệt của bạn không hỗ trợ tính năng mở Camera trực tiếp. Vui lòng sử dụng tính năng Chọn tệp ảnh.");
+      setError("Trình duyệt của bạn không hỗ trợ tính năng mở Camera trực tiếp. Hãy đóng hộp này và dùng nút Chọn tệp.");
       setLoading(false);
       return;
     }
@@ -84,7 +84,8 @@ export default function CameraCaptureModal({
       } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
         setError("NO_CAMERA_FOUND");
       } else {
-        setError(err.message || "Không thể khởi động thiết bị Camera");
+        // Câu của trình duyệt (err.message) là tiếng Anh: dùng câu chung tiếng Việt
+        setError("Không mở được camera. Hãy đóng các ứng dụng đang dùng camera rồi thử lại.");
       }
     }
   }, [facingMode, stopStream]);
@@ -255,14 +256,14 @@ export default function CameraCaptureModal({
                     <div className="max-w-md space-y-2">
                       <h4 className="text-sm font-semibold text-white">Trình duyệt chưa được cấp quyền Camera</h4>
                       <p className="text-xs text-slate-400 leading-relaxed">
-                        Vui lòng bấm vào biểu tượng <strong className="text-white">Ổ khóa</strong> hoặc <strong className="text-white">Máy ảnh</strong> trên thanh địa chỉ URL trình duyệt, chọn <strong className="text-emerald-400">Cho phép (Allow)</strong> Camera, sau đó bấm nút Thử lại bên dưới.
+                        Vui lòng bấm vào biểu tượng <strong className="text-white">Ổ khóa</strong> hoặc <strong className="text-white">Máy ảnh</strong> trên thanh địa chỉ của trình duyệt, chọn <strong className="text-emerald-400">Cho phép</strong> dùng camera, sau đó bấm nút Thử lại bên dưới.
                       </p>
                     </div>
                   ) : error === "NO_CAMERA_FOUND" ? (
                     <div className="max-w-md space-y-2">
-                      <h4 className="text-sm font-semibold text-white">Không tìm thấy thiết bị Camera (Webcam)</h4>
+                      <h4 className="text-sm font-semibold text-white">Không tìm thấy camera</h4>
                       <p className="text-xs text-slate-400 leading-relaxed">
-                        Không phát hiện webcam trên máy tính của bạn. Vui lòng kiểm tra cáp cắm webcam hoặc sử dụng nút <strong className="text-white">&quot;Chọn tệp ảnh&quot;</strong> từ máy tính.
+                        Không phát hiện camera trên thiết bị này. Kiểm tra dây cắm camera, hoặc đóng hộp này và dùng nút <strong className="text-white">&quot;Chọn tệp&quot;</strong> để chọn ảnh có sẵn.
                       </p>
                     </div>
                   ) : (
@@ -375,9 +376,7 @@ export default function CameraCaptureModal({
                 <span className="size-10 rounded-full bg-white transition-transform group-hover:scale-90" />
               </button>
 
-              <div className="w-12 text-right">
-                <span className="text-[11px] text-slate-500 font-mono">LIVE</span>
-              </div>
+              <div className="w-12" aria-hidden="true" />
             </div>
           )}
         </div>

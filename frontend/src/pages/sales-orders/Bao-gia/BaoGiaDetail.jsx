@@ -1,379 +1,374 @@
-import { formatCurrency, formatDate } from "@/utils/formatters";
-import { createElement, useCallback, useEffect, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { donBanHangService } from "@/services/donBanHangService";
-import apiClient from "@/services/apiClient";
-import { toast } from "@/lib/thongBaoNhanh";
-import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
-import {
-  ArrowLeft, Loader2, User, Calculator,
-  CheckCircle2, Calendar, XCircle,
-  Receipt, Hash, MapPin, SearchX
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { CircleCheckBig, Printer, XCircle } from "lucide-react";
 import PageContainer from "@/components/backoffice/PageContainer";
-import { PAGE_HEADING_TYPE } from "@/components/backoffice/pageTitle";
-import LoadingState from "@/components/shared/LoadingState";
-import ErrorState from "@/components/shared/ErrorState";
-import EmptyState from "@/components/shared/EmptyState";
-import StatusBadge from "@/components/shared/StatusBadge";
-import SurfaceCard from "@/components/shared/SurfaceCard";
-import { BAO_GIA_STATUS, getBaoGiaStatus } from "@/constants/baoGia";
+import KhungChungTu from "@/components/chung-tu/KhungChungTu";
+import DauChungTu from "@/components/chung-tu/DauChungTu";
+import TienTrinhChungTu from "@/components/chung-tu/TienTrinhChungTu";
+import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
+import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
+import { KhungDangTai, KhungLoiChungTu } from "@/components/chung-tu/KhungTaiChungTu";
+import useBangChungTu from "@/components/chung-tu/useBangChungTu";
+import { soVN } from "@/components/chung-tu/bangChungTu";
+import { GOI_Y_O, NHAN_O, O_NHAP_NHIEU_DONG } from "@/components/chung-tu/kieuHopThoai";
+import {
+  CAU_HET_THOI_HAN,
+  MO_TA_HET_THOI_HAN,
+  chayCoThoiHan,
+  khiGocKetThuc,
+  khoaKhiChoGoc,
+  laLoiHetThoiHan,
+} from "@/components/chung-tu/thoiHanThaoTac";
+import BangHangBan from "@/components/ban-hang/BangHangBan";
+import TongTienBan from "@/components/ban-hang/TongTienBan";
+import { dongHangBan } from "@/components/ban-hang/chi-tiet-don-ban/tinhDonBan";
+import ThuocTinhBaoGiaBan from "@/components/ban-hang/chi-tiet-bao-gia/ThuocTinhBaoGiaBan";
+import {
+  LY_DO_TU_CHOI_GOI_Y,
+  TT_BAO_GIA,
+  buocBaoGia,
+  locDonLienQuan,
+  maDonTuBaoGia,
+  thongBaoBaoGia,
+} from "@/components/ban-hang/chi-tiet-bao-gia/tinhBaoGiaBan";
+import { LY_DO_KHACH_TU_CHOI_TOI_DA as LY_DO_TOI_DA, SO_DON_TU_BAO_GIA_TOI_DA } from "@/config/bangChungTu";
+import { getBaoGiaStatus } from "@/constants/baoGia";
+import useQuayLai from "@/hooks/useQuayLai";
+import useTaiDuLieu from "@/hooks/useTaiDuLieu";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
+import { toast } from "@/lib/thongBaoNhanh";
+import { cn } from "@/lib/utils";
+import { donBanHangService } from "@/services/donBanHangService";
+import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
+import { formatCurrency } from "@/utils/formatters";
+import { ROLES, hasAnyRole } from "@/utils/roles";
 
-// ── Constants & Helpers ──────────────────────────────────────────────────
-const ROLE = {
-    QUAN_TRI_VIEN: "quan_tri_vien",
-    QUAN_LY_KHO: "quan_ly_kho",
-    NHAN_VIEN_KHO: "nhan_vien_kho",
-    NHAN_VIEN_MUA_HANG: "nhan_vien_mua_hang",
-    NHAN_VIEN_BAN_HANG: "nhan_vien_ban_hang",
-};
+const TEN_CHUNG_TU = "báo giá";
+const TONG_THEO = Object.freeze({ soLuong: "soLuong", thanhTien: "thanhTien" });
+const LOI_DA_DOI_NOI_KHAC = [400, 403, 409];
+// Máy chủ ném RuntimeException "Không tìm thấy …" (HTTP 500) khi mã không có
+const TUY_CHON_LOI = Object.freeze({ coi500LaKhongThay: true });
+// Kết quả khi bỏ lệnh từ chối (đã hết thời hạn hoặc đã rời màn trước khi gửi)
+const BO_QUA = "boQua";
 
-function parseJwt(token) {
-    try {
-        const b64 = token.split(".")[1];
-        return JSON.parse(atob(b64.replace(/-/g, "+").replace(/_/g, "/")));
-    } catch { return null; }
-}
-
-function parseRoles(vaiTro) {
-    if (!vaiTro) return [];
-    return vaiTro.includes(" ") ? vaiTro.split(" ") : [vaiTro];
-}
-
-// ── Trạng thái Báo Giá: dùng chung tên với danh sách và bản in (constants/baoGia) ──
-const QUOTE_STATUS_MAP = BAO_GIA_STATUS;
-
+/**
+ * Chi tiết báo giá bán · bản "một khối" (21/10/2026, artboard BaoGiaBan của canvas "Màn bán hàng & kho cấp 2–3"):
+ * đầu khối, tiến trình Lập báo giá → Khách phản hồi → Chốt thành đơn, bảng hàng gom theo sản phẩm + tổng tiền,
+ * cột phải (khách, giao hàng, người lập, đơn bán sinh từ báo giá). Quản trị viên / nhân viên bán hàng: "Chốt thành đơn"
+ * (mở trang tạo đơn như màn cũ — hộp thoại chốt chờ chốt Q7) và "Khách từ chối" (⋯); quản lý kho, nhân viên kho chỉ xem.
+ */
 export default function BaoGiaDetail() {
   const { id } = useParams();
+  return <ChiTietBaoGiaBan key={id} id={id} />;
+}
+
+function ChiTietBaoGiaBan({ id }) {
   const navigate = useNavigate();
+  const quayLai = useQuayLai("/sales-quotations");
+  const laBan = hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_BAN_HANG]);
 
-  const [data, setData] = useState(null);
-  const [loadError, setLoadError] = useState(null);
-  const coDuLieuRef = useRef(false);
-  const [userRoles, setUserRoles] = useState([]);
+  // ── Báo giá ──────────────────────────────────────────────────────────────
+  const taiBaoGia = useCallback(async () => {
+    const res = await donBanHangService.getDetail(id);
+    return res?.data ?? null;
+  }, [id]);
+  const q = useTaiDuLieu(taiBaoGia, `bao-gia-ban-${id}`, { enabled: Boolean(id) });
+  const ct = q.data?.donBanHang && String(q.data.donBanHang.id) === String(id) ? q.data : null;
+  const don = ct?.donBanHang ?? null;
+  const laDonBan = Boolean(don) && don.loaiChungTu !== "bao_gia";
 
-  // State cho Modal Từ chối
-  const [showRejectModal, setShowRejectModal] = useState(false);
-  const [rejectReason, setRejectReason] = useState("");
-  const [rejectLoading, setRejectLoading] = useState(false);
-
-  // Fetch roles
+  // Mở mã của đơn bán ở màn báo giá: chuyển sang chi tiết đơn bán
   useEffect(() => {
-    const fetchUserInfo = async () => {
-        try {
-            const token = localStorage.getItem('access_token');
-            if (!token) return;
-            const payload = parseJwt(token);
-            if (!payload || !payload.id) return;
+    if (laDonBan) navigate(`/sales-orders/${id}`, { replace: true });
+  }, [laDonBan, id, navigate]);
 
-            const userResponse = await apiClient.get(`/api/v1/nguoi-dung/get-by-id/${payload.id}`);
-            const userData = userResponse.data?.data;
-            if (userData && userData.vaiTro) {
-                setUserRoles(parseRoles(userData.vaiTro));
-            }
-        } catch (error) {
-            console.error('Lỗi khi lấy thông tin user:', error);
-        }
+  // ── Đơn sinh từ báo giá: /filter (mã đúng SO… hoặc SO…-n) rồi lọc lại đúng mẫu ^SO…(-n)?$ ở giao diện; chỉ bán hàng tra.
+  //    Không dùng LIKE "SO…" trơn: khớp cả SO…0, SO…1x và đơn tại quầy cùng ngày, có thể đẩy đơn thật ra khỏi trang kết quả ──
+  const maSO = don && !laDonBan ? maDonTuBaoGia(don.soDonHang) : null;
+  const khachId = don?.khachHang?.id ?? null;
+  const taiDonLienQuan = useCallback(async () => {
+    const page = await donBanHangService.filter({
+      page: 0,
+      size: SO_DON_TU_BAO_GIA_TOI_DA,
+      filters: [
+        { fieldName: "loaiChungTu", operation: "EQUALS", value: "don_ban_hang" },
+        // Hai điều kiện OR được máy chủ gom thành một nhóm rồi AND với các điều kiện còn lại (BaseServiceImpl)
+        { fieldName: "soDonHang", operation: "EQUALS", value: maSO, logicType: "OR" },
+        { fieldName: "soDonHang", operation: "LIKE", value: `${maSO}-`, logicType: "OR" },
+        ...(khachId != null ? [{ fieldName: "khachHang.id", operation: "EQUALS", value: khachId }] : []),
+      ],
+      sorts: [{ fieldName: "id", direction: "DESC" }],
+    });
+    return page?.content ?? [];
+  }, [maSO, khachId]);
+  const qDon = useTaiDuLieu(taiDonLienQuan, `don-tu-bao-gia-${maSO}-${don?.trangThai}`, { enabled: Boolean(maSO && laBan) });
+
+  const [hop, setHop] = useState(false);
+  const [lyDo, setLyDo] = useState("");
+  const [dangChay, setDangChay] = useState(false);
+  const [loiHop, setLoiHop] = useState(null);
+  const [choGoc, setChoGoc] = useState(false);
+  const huyChoGocRef = useRef(null);
+  const daGoRef = useRef(false);
+  useEffect(() => {
+    daGoRef.current = false;
+    return () => {
+      daGoRef.current = true;
+      huyChoGocRef.current?.();
     };
-    fetchUserInfo();
   }, []);
 
-  const isKhoRole = userRoles.includes(ROLE.QUAN_LY_KHO) || userRoles.includes(ROLE.NHAN_VIEN_KHO);
+  useTaiLaiKhiQuayLai(() => {
+    q.reload();
+    if (maSO && laBan) qDon.reload();
+  }, { bat: Boolean(ct) && !q.loading && !dangChay && !hop, lanCuoi: q.capNhatLuc });
 
-  const fetchDetail = useCallback(async () => {
-    setLoadError(null);
-    try {
-      const res = await donBanHangService.getDetail(id);
-      setData(res.data);
-      coDuLieuRef.current = true;
-    }
-    catch (error) {
-      setLoadError(error);
-      // Đang xem báo giá mà tải lại lỗi (sau khi từ chối): giữ nguyên màn, chỉ báo lỗi
-      if (coDuLieuRef.current) toast.error(getApiErrorMessage(error, "Không tải được chi tiết báo giá"));
-    }
-  }, [id]);
+  const dong = useMemo(() => dongHangBan(ct?.chiTiet), [ct]);
+  const bang = useBangChungTu(dong, { tongTheo: TONG_THEO });
 
-  // Hoãn qua microtask để tránh setState đồng bộ trong effect
-  // (react-hooks/set-state-in-effect); dữ liệu vẫn được tải ngay khi mount.
-  useEffect(() => {
-    queueMicrotask(() => fetchDetail());
-  }, [fetchDetail]);
-
-  // ── Handlers ──
-  const handleReject = async () => {
-    if (!rejectReason.trim()) {
-        toast.error("Vui lòng nhập lý do từ chối");
-        return;
-    }
-    try {
-      setRejectLoading(true);
-      await donBanHangService.rejectQuote(id, { reason: rejectReason });
-      toast.success("Đã từ chối báo giá");
-      setShowRejectModal(false);
-      fetchDetail();
-    } catch {
-      toast.error("Không thể từ chối báo giá");
-    } finally {
-      setRejectLoading(false);
-    }
-  };
-
-  const handleApprove = () => {
-      toast.success("Đang chuyển sang màn hình chốt đơn...");
-      navigate(`/sales-orders/create?quoteId=${id}`);
-  };
-
-  if (!data) {
-    if (!loadError) {
+  if (!ct || laDonBan) {
+    if (laDonBan || q.loading || (!q.error && q.data === undefined)) {
       return (
-        <PageContainer>
-          <SurfaceCard>
-            <LoadingState rows={4} label="Đang tải chi tiết báo giá" />
-          </SurfaceCard>
+        <PageContainer className="flex min-h-full flex-col">
+          <KhungDangTai nhan="Đang tải báo giá" />
         </PageContainer>
       );
     }
-
-    // Không tìm thấy báo giá (404) thì mời quay lại danh sách; lỗi khác cho phép thử lại
-    const khongTimThay = getApiErrorStatus(loadError) === 404;
     return (
-      <PageContainer className="space-y-3">
-        <button
-          type="button"
-          onClick={() => navigate("/sales-quotations")}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-bo-primary transition-colors hover:text-bo-primary-hover"
-        >
-          <ArrowLeft className="size-4" />
-          Quay lại danh sách báo giá
-        </button>
-        <SurfaceCard contentClassName="p-0 sm:p-0">
-          {khongTimThay ? (
-            <EmptyState
-              icon={SearchX}
-              title="Không tìm thấy báo giá"
-              description="Báo giá không tồn tại hoặc đã bị xóa khỏi hệ thống."
-              action={
-                <Button
-                  onClick={() => navigate("/sales-quotations")}
-                  className="bg-bo-primary text-white hover:bg-bo-primary-hover"
-                >
-                  Về danh sách báo giá
-                </Button>
-              }
-            />
-          ) : (
-            <ErrorState
-              title="Không tải được chi tiết báo giá"
-              description={getApiErrorMessage(loadError, "Đã xảy ra lỗi khi tải báo giá. Vui lòng thử lại.")}
-              onRetry={fetchDetail}
-            />
-          )}
-        </SurfaceCard>
+      <PageContainer className="flex min-h-full flex-col">
+        <KhungLoiChungTu
+          loi={q.error}
+          tenChungTu={TEN_CHUNG_TU}
+          tuyChonLoi={TUY_CHON_LOI}
+          onVeDanhSach={() => navigate("/sales-quotations")}
+          onThuLai={q.reload}
+        />
       </PageContainer>
     );
   }
 
-  const { donBanHang, chiTiet } = data;
-  const st = getBaoGiaStatus(donBanHang.trangThai);
+  const tt = Number(don.trangThai);
+  const so = don.soDonHang || `#${don.id}`;
+  const choPhanHoi = tt === TT_BAO_GIA.CHO_PHAN_HOI;
+  const donLienQuan = laBan && qDon.data !== undefined && !qDon.error
+    ? locDonLienQuan(qDon.data, { soBaoGia: don.soDonHang, khachHangId: khachId })
+    : null;
 
-  const infoRows = [
-    { icon: User,     label: "Khách hàng",     value: donBanHang.khachHang?.tenKhachHang },
-    { icon: Calendar, label: "Ngày lập",       value: formatDate(donBanHang.ngayDatHang) },
-    { icon: MapPin,   label: "Địa chỉ dự kiến", value: donBanHang.diaChiGiaoHang || "—" },
-  ];
+  // ── Khách từ chối ───────────────────────────────────────────────────────
+  const moTuChoi = () => {
+    setLyDo("");
+    setLoiHop(null);
+    setHop(true);
+  };
+  const doiMoHop = (mo) => {
+    if (!mo) setHop(false);
+  };
+  const khoaToiKhiGocXong = (loi) => {
+    huyChoGocRef.current?.();
+    setChoGoc(true);
+    huyChoGocRef.current = khiGocKetThuc(loi, () => {
+      huyChoGocRef.current = null;
+      setChoGoc(false);
+      q.reload();
+    });
+  };
+
+  const ghiNhanTuChoi = async () => {
+    const lyDoGui = lyDo.trim();
+    if (!lyDoGui) return;
+    const luot = { hetHan: false };
+    setLoiHop(null);
+    setDangChay(true);
+    try {
+      // reject-quote không kiểm trạng thái: tải lại báo giá ngay trước khi gửi, dừng nếu không còn Chờ phản hồi.
+      // Hết thời hạn ngay ở bước tải lại thì KHÔNG gửi lệnh từ chối nữa (lệnh đến muộn có thể ghi đè báo giá vừa chốt)
+      const daDoi = await chayCoThoiHan(async () => {
+        const moi = (await donBanHangService.getDetail(id))?.data?.donBanHang;
+        const ttMoi = Number(moi?.trangThai);
+        if (ttMoi !== TT_BAO_GIA.CHO_PHAN_HOI) return ttMoi;
+        if (luot.hetHan || daGoRef.current) return BO_QUA;
+        await donBanHangService.rejectQuote(id, { reason: lyDoGui });
+        return null;
+      });
+      if (daDoi === BO_QUA) return;
+      setHop(false);
+      if (daDoi != null) {
+        toast.error("Không ghi nhận được từ chối", {
+          description: daDoi === TT_BAO_GIA.DA_CHOT
+            ? "Báo giá vừa được chốt thành đơn ở nơi khác. Đã tải lại."
+            : "Báo giá vừa đổi trạng thái ở nơi khác. Đã tải lại.",
+        });
+      } else {
+        toast.success("Đã ghi nhận khách từ chối", { description: so });
+      }
+      q.reload();
+    } catch (error) {
+      if (laLoiHetThoiHan(error)) {
+        luot.hetHan = true;
+        if (daGoRef.current) return;
+        setHop(false);
+        toast.error(CAU_HET_THOI_HAN, { description: MO_TA_HET_THOI_HAN });
+        q.reload();
+        khoaToiKhiGocXong(error);
+        return;
+      }
+      const cau = getApiErrorMessage(error, "Không ghi nhận được từ chối");
+      if (LOI_DA_DOI_NOI_KHAC.includes(getApiErrorStatus(error))) {
+        setHop(false);
+        toast.error(cau);
+      } else {
+        setLoiHop(cau);
+      }
+      q.reload();
+    } finally {
+      setDangChay(false);
+    }
+  };
+
+  const nutChinh = khoaKhiChoGoc(
+    choPhanHoi && laBan
+      ? {
+        ma: "chot",
+        nhan: "Chốt thành đơn",
+        icon: CircleCheckBig,
+        // Như màn cũ: sang trang tạo đơn từ báo giá (hộp thoại chốt ngay tại màn chờ chốt Q7)
+        onClick: () => navigate(`/sales-orders/create?quoteId=${id}`),
+      }
+      : null,
+    choGoc,
+  );
+  const menu = choPhanHoi && laBan
+    ? [{
+      ma: "tuChoi",
+      nhan: "Khách từ chối",
+      moTa: "Ghi lý do, báo giá không chốt được nữa",
+      icon: XCircle,
+      nguyHiem: true,
+      khoa: choGoc,
+      onSelect: moTuChoi,
+    }]
+    : [];
+
+  const thongBao = [
+    ...thongBaoBaoGia(don, donLienQuan ?? []).map((n) => (
+      <DongThongBao key={n.ma} tone={n.tone}>
+        <span className="whitespace-pre-wrap">{n.chu}</span>
+      </DongThongBao>
+    )),
+    // Tải lại (sau thao tác, khi quay lại tab) lỗi: màn đang hiện dữ liệu cũ
+    q.loiTaiLai ? (
+      <DongThongBao key="loi-tai-lai" tone="bad" actions={<NutChu onClick={q.reload}>Thử lại</NutChu>}>
+        Không tải lại được báo giá: {getApiErrorMessage(q.error, "lỗi kết nối")}. Thông tin đang hiện có thể đã cũ.
+      </DongThongBao>
+    ) : null,
+  ].filter(Boolean);
+  const buoc = buocBaoGia(don);
 
   return (
-    <PageContainer className="space-y-5">
-      {/* ── Header ── */}
-      <div className="space-y-3">
-        <button
-          type="button"
-          onClick={() => navigate("/sales-quotations")}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-bo-primary transition-colors hover:text-bo-primary-hover"
-        >
-          <ArrowLeft className="size-4" />
-          Quay lại danh sách báo giá
-        </button>
+    <PageContainer className="flex min-h-full flex-col">
+      <KhungChungTu
+        dau={
+          <DauChungTu
+            ma={so}
+            trangThai={{ label: getBaoGiaStatus(don.trangThai).label, quyTrinh: "baoGiaBan" }}
+            dongPhu={[
+              "Báo giá bán hàng",
+              bang.rong ? "chưa có sản phẩm" : <b key="bt" className="font-semibold text-bo-foreground">{soVN(bang.tong.soDong)} biến thể</b>,
+              bang.rong ? null : <b key="sl" className="font-semibold text-bo-foreground">tổng số lượng {soVN(bang.tong.soLuong)}</b>,
+            ]}
+            onQuayLai={quayLai}
+            nhanQuayLai="Về danh sách báo giá"
+            nutPhu={{ ma: "in", nhan: "In báo giá", icon: Printer, onClick: () => navigate(`/sales-quotations/${id}/print`) }}
+            saoChepMa={{ giaTri: don.soDonHang, nhan: "Sao chép mã báo giá" }}
+            menu={menu}
+            nutChinh={nutChinh}
+          />
+        }
+        tienTrinh={buoc.length ? <TienTrinhChungTu buoc={buoc} nhan="Tiến trình báo giá" /> : null}
+        thongBao={thongBao.length ? thongBao : null}
+        chinh={
+          <BangHangBan bang={bang} tenChungTu={TEN_CHUNG_TU} nhanTim="Tìm trong báo giá">
+            <TongTienBan
+              trai="Giá theo báo giá: khi chốt, đơn bán hàng giữ nguyên đơn giá từng dòng; chỉ phí vận chuyển, địa chỉ và ghi chú sửa được."
+              muc={[
+                { ma: "hang", nhan: "Tiền hàng", giaTri: formatCurrency(don.tienHang) },
+                { ma: "phi", nhan: "Phí vận chuyển", giaTri: formatCurrency(don.phiVanChuyen) },
+                { ma: "tong", nhan: "Tổng cộng", giaTri: formatCurrency(don.tongCong), tong: true },
+              ]}
+            />
+          </BangHangBan>
+        }
+        cotPhai={
+          <ThuocTinhBaoGiaBan
+            don={don}
+            laBan={laBan}
+            donLienQuan={donLienQuan}
+            loiDonLienQuan={laBan && maSO && qDon.error && !qDon.loading ? getApiErrorMessage(qDon.error, "lỗi kết nối") : null}
+            onThuLaiDonLienQuan={qDon.reload}
+          />
+        }
+      />
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <h1 className={PAGE_HEADING_TYPE}>Báo giá {donBanHang.soDonHang}</h1>
-            <StatusBadge quyTrinh="baoGiaBan" size="lg" label={st.label} />
-          </div>
-
-          {/* Các role thường mới thấy các nút này */}
-          {!isKhoRole && (
-            <div className="flex flex-wrap items-center gap-2">
-              {donBanHang.trangThai === 0 && (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowRejectModal(true)}
-                    className="gap-1.5 border-bo-danger/40 bg-white text-bo-danger hover:bg-bo-danger-soft hover:text-bo-danger"
-                  >
-                    <XCircle className="size-4" /> Từ chối
-                  </Button>
-                  <Button
-                    onClick={handleApprove}
-                    className="gap-1.5 bg-bo-success text-white hover:bg-bo-success/90"
-                  >
-                    <CheckCircle2 className="size-4" /> Chấp nhận (Chốt đơn)
-                  </Button>
-                </>
+      <HopXacNhanChungTu
+        mo={hop}
+        onDoiMo={doiMoHop}
+        tieuDe={`Khách từ chối báo giá ${so}?`}
+        moTa="Báo giá chuyển sang Bị từ chối và không chốt thành đơn được nữa."
+        nhanXacNhan="Ghi nhận từ chối"
+        kieu="nguyHiem"
+        dangChay={dangChay}
+        khoaXacNhan={!lyDo.trim()}
+        lyDoKhoa="Nhập lý do khách từ chối"
+        loi={loiHop}
+        onXacNhan={ghiNhanTuChoi}
+      >
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Lý do thường gặp">
+          {LY_DO_TU_CHOI_GOI_Y.map((chu) => (
+            <button
+              key={chu}
+              type="button"
+              aria-pressed={lyDo === chu}
+              disabled={dangChay}
+              onClick={() => {
+                setLyDo(chu);
+                setLoiHop(null);
+              }}
+              className={cn(
+                "h-7 rounded-full border px-2.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:opacity-50",
+                lyDo === chu
+                  ? "border-bo-primary bg-bo-primary-soft text-bo-primary"
+                  : "border-bo-border bg-white text-slate-700 hover:bg-bo-surface-subtle",
               )}
-
-              <Button
-                onClick={() => navigate(`/sales-quotations/${id}/print`)}
-                className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover"
-              >
-                <Receipt className="size-4" /> In / PDF Báo giá
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {/* ── LEFT: Thông tin chung ── */}
-        <div className="lg:col-span-1">
-          <SurfaceCard title="Chi tiết báo giá" description={donBanHang.soDonHang}>
-            <div className="space-y-4">
-              {/* Info rows */}
-              {infoRows.map(({ icon, label, value }) => (
-                <div key={label} className="flex items-start gap-3">
-                  <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-bo-surface-subtle text-bo-muted">
-                    {createElement(icon, { className: "size-3.5" })}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-bo-muted">{label}</p>
-                    <p className="mt-0.5 text-sm font-semibold leading-snug text-bo-foreground">{value}</p>
-                  </div>
-                </div>
-              ))}
-
-              {/* Hiển thị lý do từ chối nếu có */}
-              {donBanHang.trangThai === 4 && donBanHang.lyDoTuChoi && (
-                <div className="mt-4 rounded-md border border-bo-danger/30 bg-bo-danger-soft p-3">
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-bo-danger">Lý do từ chối:</p>
-                  <p className="text-sm italic text-bo-danger">{donBanHang.lyDoTuChoi}</p>
-                </div>
-              )}
-
-              {/* Tổng tiền */}
-              <div className="space-y-2 border-t border-bo-border pt-4">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs font-semibold uppercase text-bo-muted">Tiền hàng</span>
-                  <span className="text-sm font-semibold text-bo-foreground">{formatCurrency(donBanHang.tienHang)}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs font-semibold uppercase text-bo-muted">Dự kiến phí VC</span>
-                  <span className="text-sm font-semibold text-bo-foreground">{formatCurrency(donBanHang.phiVanChuyen)}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3 border-t border-bo-border pt-2">
-                  <span className="flex items-center gap-1 text-xs font-bold uppercase text-bo-foreground">
-                    <Calculator className="size-3.5" />Tổng báo giá
-                  </span>
-                  <span className="text-xl font-bold text-bo-foreground">{formatCurrency(donBanHang.tongCong)}</span>
-                </div>
-              </div>
-            </div>
-          </SurfaceCard>
-        </div>
-
-        {/* ── RIGHT: Tables ── */}
-        <div className="lg:col-span-2">
-          {/* Danh mục sản phẩm */}
-          <SurfaceCard
-            title="Sản phẩm báo giá"
-            description={`${chiTiet.length} mặt hàng trong báo giá`}
-            contentClassName="p-0"
-          >
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-sm">
-                <thead>
-                  <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                    <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Mặt hàng</th>
-                    <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Số lượng</th>
-                    <th className="h-10 whitespace-nowrap px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Đơn giá</th>
-                    <th className="h-10 whitespace-nowrap px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thành tiền</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-bo-border">
-                  {chiTiet.map((item) => (
-                    <tr key={item.id} className="transition-colors hover:bg-bo-surface-subtle">
-                      <td className="px-3 py-3">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-bo-foreground">{item.tenSanPham}</span>
-                        <span className="mt-0.5 flex items-center gap-1 font-mono text-xs text-bo-muted">
-                          <Hash className="size-3" />{item.sku}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-center">
-                        <span className="inline-flex h-7 min-w-[32px] items-center justify-center rounded-md bg-bo-surface-subtle px-2 text-xs font-bold text-bo-foreground">
-                          {item.soLuongDat}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-right text-sm italic text-bo-muted">
-                        {formatCurrency(item.donGia)}
-                      </td>
-                      <td className="px-3 py-3 text-right">
-                        <span className="font-bold text-bo-foreground">{formatCurrency(item.thanhTien)}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </SurfaceCard>
-        </div>
-      </div>
-
-      {/* Modal Nhập lý do từ chối */}
-      <Dialog open={showRejectModal} onOpenChange={setShowRejectModal}>
-        <DialogContent className="border-bo-border bg-white sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-bo-danger">
-                <XCircle className="size-5" /> Từ chối báo giá
-            </DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-                <p className="text-sm text-bo-muted">Vui lòng ghi rõ lý do khách hàng không chấp nhận báo giá này để lưu trữ lịch sử.</p>
-                <Textarea
-                    placeholder="Khách hàng chê giá đắt / Hàng không đúng yêu cầu..."
-                    value={rejectReason}
-                    onChange={(e) => setRejectReason(e.target.value)}
-                    rows={4}
-                    className="resize-none border-bo-border bg-white text-bo-foreground placeholder:text-bo-muted focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
-                />
-            </div>
-          </div>
-          <DialogFooter className="mt-2 flex items-center justify-end gap-3 border-t border-bo-border pt-4">
-            <Button
-              variant="outline"
-              onClick={() => setShowRejectModal(false)}
-              className="h-10 border-bo-border bg-white px-4 font-semibold text-bo-foreground hover:bg-bo-surface-subtle"
             >
-              Hủy bỏ
-            </Button>
-            <Button
-              onClick={handleReject}
-              disabled={rejectLoading}
-              className="flex h-10 items-center bg-bo-danger px-4 font-semibold text-white hover:bg-bo-danger/90 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {rejectLoading ? (
-                <><Loader2 className="mr-2 size-4 animate-spin" /> Đang xử lý...</>
-              ) : (
-                "Xác nhận từ chối"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              {chu}
+            </button>
+          ))}
+        </div>
+        <div className="grid gap-1.5">
+          <label htmlFor="ly-do-khach-tu-choi" className={NHAN_O}>
+            Lý do <span className="text-bo-danger">*</span>
+          </label>
+          <textarea
+            id="ly-do-khach-tu-choi"
+            value={lyDo}
+            onChange={(suKien) => {
+              setLyDo(suKien.target.value.slice(0, LY_DO_TOI_DA));
+              setLoiHop(null);
+            }}
+            placeholder="Ví dụ: Khách chọn nhà cung cấp khác giá thấp hơn 8%"
+            rows={3}
+            maxLength={LY_DO_TOI_DA}
+            aria-describedby="ly-do-khach-tu-choi-goi-y"
+            aria-required="true"
+            disabled={dangChay}
+            className={O_NHAP_NHIEU_DONG}
+          />
+          <p id="ly-do-khach-tu-choi-goi-y" className={GOI_Y_O}>
+            <span>Hiện ở chi tiết báo giá và tab Báo giá của khách hàng</span>
+            <span>{lyDo.length}/{LY_DO_TOI_DA}</span>
+          </p>
+        </div>
+      </HopXacNhanChungTu>
     </PageContainer>
   );
 }

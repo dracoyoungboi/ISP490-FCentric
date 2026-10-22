@@ -274,7 +274,7 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
         {
             key: "PURCHASE_REQUEST_QUOTATION",
             match: (path) => /^\/purchase-requests\/\d+\/send-quotation$/.test(path),
-            title: "Tạo yêu cầu báo giá",
+            title: "Gửi yêu cầu báo giá",
         },
         {
             key: "QUOTATION_REQUEST",

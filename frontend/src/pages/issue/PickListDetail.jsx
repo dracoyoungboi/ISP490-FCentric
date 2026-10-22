@@ -62,6 +62,7 @@ import useScanQueue from "@/hooks/useScanQueue";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { nhatHangService, isPickListMock } from "@/services/nhatHangService";
 import { formatQuantity, getPickListStatus } from "@/constants/outbound";
+import { TRANG_THAI_DON } from "@/constants/trangThaiXuatBan";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { playScanBeep } from "@/utils/scanBeep";
 import { getCurrentUserId, hasAnyRole, ROLES } from "@/utils/roles";
@@ -562,6 +563,10 @@ function ManNhatHang({ id }) {
                 donId={donBangChung?.id}
                 soDonHang={donBangChung?.soDonHang}
                 tongTienDonHang={donBangChung?.tongCong}
+                // Chỉ đơn còn trước bước hoàn tất đóng gói (Chờ nhặt hàng, Chờ đóng gói) mới thêm / xóa bằng chứng: bằng
+                // chứng gắn theo đơn, xóa sau khi đã đóng gói làm phiếu đã hoàn tất mất bằng chứng
+                readOnly={![TRANG_THAI_DON.CHO_NHAT_HANG, TRANG_THAI_DON.CHO_DONG_GOI].includes(Number(donBangChung?.trangThai))}
+                lyDoKhoaXoa="Đơn đã qua bước đóng gói, không thể xóa bằng chứng"
                 onProofChanged={() => taiPhieu({ ngam: true })}
             />
         </PageContainer>

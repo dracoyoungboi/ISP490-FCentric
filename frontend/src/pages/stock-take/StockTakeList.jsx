@@ -20,6 +20,7 @@ import { toast } from "@/lib/thongBaoNhanh";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { getStockTakes } from "@/services/stockTakeService";
+import { donBanTam, layKhoLuu } from "@/components/kiem-ke/banTamKiemKe";
 import { hasAnyRole, ROLES } from "@/utils/roles";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { trangThaiLa } from "@/constants/trangThaiChung";
@@ -85,6 +86,8 @@ export default function StockTakeList() {
     try {
       const data = await getStockTakes();
       if (requestId !== requestIdRef.current) return;
+      // Dọn bản đếm tạm trên máy của đợt không còn / rỗng (giữ bản của đợt đã hoàn thành còn số: màn chi tiết báo số bị bỏ)
+      donBanTam(layKhoLuu(), data);
       setStockTakes(data);
       setLoadError(false);
     } catch (error) {

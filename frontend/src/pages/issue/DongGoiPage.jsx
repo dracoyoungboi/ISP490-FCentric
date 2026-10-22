@@ -1,419 +1,471 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import {
-    ArrowLeft, ArrowRight, CheckCheck, ClipboardList, FileText, Hash,
-    Info as InfoIcon, Loader2, MapPin, Package, PackageX, Phone, Store, User, Warehouse,
-} from "lucide-react";
-import { toast } from "@/lib/thongBaoNhanh";
-
+import { useNavigate, useParams } from "react-router-dom";
+import { ArrowRight, FileText, PackageCheck, PackageX, Printer, Truck, Warehouse } from "lucide-react";
 import PageContainer from "@/components/backoffice/PageContainer";
-import SurfaceCard from "@/components/shared/SurfaceCard";
-import TableShell from "@/components/shared/TableShell";
-import StatusBadge from "@/components/shared/StatusBadge";
-import EmptyState from "@/components/shared/EmptyState";
-import ErrorState from "@/components/shared/ErrorState";
-import LoadingState from "@/components/shared/LoadingState";
-import InfoItem from "@/components/shared/InfoItem";
-import PickProgress from "@/components/outbound/PickProgress";
-import ScanBar from "@/components/outbound/ScanBar";
-import ConfirmModal from "@/components/ui/confirm-modal";
-import { Button } from "@/components/ui/button";
+import KhungChungTu from "@/components/chung-tu/KhungChungTu";
+import DauChungTu from "@/components/chung-tu/DauChungTu";
+import TienTrinhChungTu from "@/components/chung-tu/TienTrinhChungTu";
+import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
+import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
+import { KhungDangTai, KhungKhongThay, KhungLoiChungTu } from "@/components/chung-tu/KhungTaiChungTu";
+import { soVN } from "@/components/chung-tu/bangChungTu";
+import { GHI_CHU_HOP } from "@/components/chung-tu/kieuHopThoai";
+import {
+  CAU_HET_THOI_HAN,
+  MO_TA_HET_THOI_HAN,
+  chayCoThoiHan,
+  khiGocKetThuc,
+  khoaKhiChoGoc,
+  laLoiHetThoiHan,
+} from "@/components/chung-tu/thoiHanThaoTac";
 import PackingProofSection from "@/components/outbound/PackingProofSection";
-import useScanQueue from "@/hooks/useScanQueue";
-import { dongGoiService } from "@/services/dongGoiService";
-import { donBanHangService } from "@/services/donBanHangService";
-import { formatQuantity, toNumber } from "@/constants/outbound";
+import BangDongGoi from "@/components/outbound/dong-goi/BangDongGoi";
+import ThuocTinhDongGoi from "@/components/outbound/dong-goi/ThuocTinhDongGoi";
+import TramQuet from "@/components/outbound/dong-goi/TramQuet";
+import {
+  bangChungHetHan,
+  buocDongGoi,
+  cauDaQuet,
+  cauPhuPhanHoi,
+  chuSoBangChung,
+  donCungPhieuNhat,
+  dongDongGoi,
+  lyDoKhoaHoanTat,
+  oBangChung,
+  thongBaoDongGoi,
+  tienDoDongGoi,
+  tinhHuongPhien,
+  xepDongDongGoi,
+} from "@/components/outbound/dong-goi/tinhDongGoi";
 import { getDonBanHangStatus } from "@/constants/donBanHang";
-import { getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
-import { TRANG_THAI_DON, TRANG_THAI_PHIEU_XUAT } from "@/constants/trangThaiXuatBan";
+import useScanQueue from "@/hooks/useScanQueue";
+import useTaiDuLieu from "@/hooks/useTaiDuLieu";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
+import { toast } from "@/lib/thongBaoNhanh";
+import { donBanHangService } from "@/services/donBanHangService";
+import { dongGoiService } from "@/services/dongGoiService";
+import { nhatHangService } from "@/services/nhatHangService";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
-import { getKhoLamViecId, laKhoLamViecHopLe, setKhoLamViecId } from "@/utils/khoLamViec";
+import { KHO_LAM_VIEC_EVENT, getKhoLamViecId, laKhoLamViecHopLe, setKhoLamViecId } from "@/utils/khoLamViec";
+import { ROLES, hasAnyRole } from "@/utils/roles";
 import { playScanBeep } from "@/utils/scanBeep";
 
-const TH_CLASS = "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
+// Phiếu xuất thuộc kho khác kho đang làm việc (DongGoiServiceImpl.kiemTraKho)
+const MAU_KHO_KHAC = /thuộc kho khác/i;
 
-// Backend không cho quét quá số cần đóng gói, nên mỗi dòng chỉ có hai trạng thái.
-function lineState(line) {
-    const can = toNumber(line.soLuongCan);
-    const quet = toNumber(line.soLuongDaQuet);
-    if (can > 0 && quet >= can) return { label: "Đủ", tone: "success", order: 1 };
-    return { label: "Còn thiếu", tone: "warning", order: 0 };
-}
-
-/** Phiên đóng gói gửi kèm lỗi 409 khi đơn đã bị hủy (danh sách hàng cần cất về kệ). */
+/** Phiên đóng gói gửi kèm lỗi 409 khi đơn / phiếu xuất đã bị hủy (khóa đóng gói). */
 function phienTuLoi(error) {
-    const data = error?.response?.data?.data;
-    return data && data.phieuXuatKhoId ? data : null;
+  const data = error?.response?.data?.data;
+  return data && data.phieuXuatKhoId ? data : null;
 }
 
 /**
- * Đóng gói đơn bán (Scan-to-Pack): sau khi nhặt xong, quét từng sản phẩm của đơn để đối chiếu.
- * Đủ thì hoàn tất → phiếu xuất "Chờ xuất", đơn "Chờ xuất kho"; xuất kho ở màn phiếu xuất.
+ * Đóng gói đơn hàng (Scan-to-Pack) · bản "một khối" (21/10/2026, artboard DongGoi của canvas "Màn bán hàng & kho cấp 2–3"):
+ * 3 bước Quét đủ hàng → Bằng chứng → Hoàn tất; trạm quét có hàng đợi; bảng dòng có tiến độ; bằng chứng theo yêu cầu
+ * của máy chủ; cột phải (khách, tổng cộng, kho, chứng từ, đơn cùng phiếu nhặt). Xong thì phiếu xuất sang Chờ xuất.
+ * Quyền: quản trị viên, quản lý kho, nhân viên kho (route). Mở đơn của kho khác: tự chuyển nơi làm việc nếu kho đó có trong
+ * token, không thì màn "Đơn thuộc kho khác"; quản trị viên không bị chặn theo kho (máy chủ bỏ qua).
  */
 export default function DongGoiPage() {
-    const { donId } = useParams();
-    const navigate = useNavigate();
-    const scanBarRef = useRef(null);
-
-    const [dto, setDto] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [loadError, setLoadError] = useState(null); // { kind: "notfound" | "error" | "message", message }
-    const [lastResult, setLastResult] = useState(null);
-    const [highlightId, setHighlightId] = useState(null);
-    const [completeOpen, setCompleteOpen] = useState(false);
-    const [completing, setCompleting] = useState(false);
-    const busyRef = useRef(false);
-
-    /**
-     * Đơn thuộc kho khác kho làm việc (nhân viên nhiều kho): chuyển kho làm việc sang kho của đơn nếu được phép,
-     * để header kho_id khớp phiếu xuất. Trả về true nếu đã chuyển.
-     */
-    const chuyenSangKhoCuaDon = useCallback(async () => {
-        let kho;
-        try {
-            // getDetail trả về ResponseData ({ status, data, message })
-            const res = await donBanHangService.getDetail(donId);
-            kho = res?.data?.donBanHang?.khoXuat;
-        } catch {
-            return false; // không đọc được đơn: giữ lỗi 403 ban đầu
-        }
-        if (!kho?.id || kho.id === getKhoLamViecId() || !laKhoLamViecHopLe(kho)) return false;
-        setKhoLamViecId(kho.id);
-        toast.info(`Đã chuyển nơi làm việc sang ${kho.tenKho}`);
-        return true;
-    }, [donId]);
-
-    const fetchPhien = useCallback(async ({ silent = false } = {}) => {
-        if (!silent) setLoading(true);
-        setLoadError(null);
-        try {
-            let res;
-            try {
-                res = await dongGoiService.layPhien(donId);
-            } catch (error) {
-                if (getApiErrorStatus(error) === 403 && await chuyenSangKhoCuaDon()) {
-                    res = await dongGoiService.layPhien(donId);
-                } else {
-                    throw error;
-                }
-            }
-            setDto(res);
-        } catch (error) {
-            const status = getApiErrorStatus(error);
-            setLoadError(status === 404
-                ? { kind: "notfound" }
-                : status === 409 || status === 403 || status === 400
-                    ? { kind: "message", message: getApiErrorMessage(error, "Không mở được phiên đóng gói") }
-                    : { kind: "error" });
-            if (silent) toast.error(getApiErrorMessage(error, "Không tải lại được phiên đóng gói"));
-        } finally {
-            if (!silent) setLoading(false);
-        }
-    }, [donId, chuyenSangKhoCuaDon]);
-
-    useEffect(() => {
-        queueMicrotask(() => fetchPhien());
-    }, [fetchPhien]);
-
-    // Gửi từng mã một (backend khóa phiếu xuất khi quét)
-    const processScan = useCallback(async ({ barcode, soLuong }) => {
-        if (!dto?.phieuXuatKhoId) return;
-        try {
-            const res = await dongGoiService.quet(dto.phieuXuatKhoId, { barcode, soLuong });
-            setDto(res);
-            setHighlightId(res?.chiTietVuaQuetId ?? null);
-            setLastResult({ ok: true, message: res?.thongBao || `${barcode} +${soLuong}` });
-        } catch (error) {
-            const phienHuy = phienTuLoi(error);
-            if (phienHuy) setDto(phienHuy);
-            setLastResult({ ok: false, message: getApiErrorMessage(error, `Không quét được mã ${barcode}`) });
-            // Chỉ kêu khi KHÔNG cộng được: máy quét đã tự kêu "bíp" khi đọc được mã, nhưng không biết mã có
-            // thuộc đơn này / còn cần đóng gói hay không.
-            playScanBeep(false);
-            if (getApiErrorStatus(error) === 409 && !phienHuy) fetchPhien({ silent: true });
-        }
-    }, [dto?.phieuXuatKhoId, fetchPhien]);
-
-    const { enqueue, pending } = useScanQueue(processScan);
-
-    const lines = useMemo(() => {
-        const list = [...(dto?.items ?? [])];
-        return list.sort((a, b) => lineState(a).order - lineState(b).order);
-    }, [dto]);
-
-    const handleComplete = async () => {
-        if (busyRef.current || !dto?.phieuXuatKhoId) return;
-        busyRef.current = true;
-        setCompleting(true);
-        try {
-            const res = await dongGoiService.hoanTat(dto.phieuXuatKhoId);
-            setDto(res);
-            toast.success(res?.thongBao || "Đã đóng gói xong");
-        } catch (error) {
-            const phienHuy = phienTuLoi(error);
-            if (phienHuy) setDto(phienHuy);
-            toast.error(getApiErrorMessage(error, "Không thể hoàn tất đóng gói"));
-            if (getApiErrorStatus(error) === 409 && !phienHuy) fetchPhien({ silent: true });
-        } finally {
-            busyRef.current = false;
-            setCompleting(false);
-            setCompleteOpen(false);
-        }
-    };
-
-    const backToOrder = () => navigate(`/sales-orders/${donId}`);
-
-    if (loading && !dto) {
-        return (
-            <PageContainer>
-                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                    <LoadingState label="Đang tải phiên đóng gói" />
-                </div>
-            </PageContainer>
-        );
-    }
-
-    if (!dto) {
-        return (
-            <PageContainer className="space-y-5">
-                <BackLink onClick={backToOrder} />
-                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                    {loadError?.kind === "notfound" ? (
-                        <EmptyState icon={PackageX} title="Không tìm thấy đơn bán hàng" description="Đơn không tồn tại hoặc đã bị xóa." />
-                    ) : loadError?.kind === "message" ? (
-                        <EmptyState icon={PackageX} title="Chưa đóng gói được đơn này" description={loadError.message} />
-                    ) : (
-                        <ErrorState onRetry={() => fetchPhien()} />
-                    )}
-                </div>
-            </PageContainer>
-        );
-    }
-
-    const donStatus = getDonBanHangStatus(dto.trangThaiDon);
-    const phieuStatus = getPhieuXuatKhoStatus(dto.trangThaiPhieu);
-    const dangDongGoi = dto.trangThaiPhieu === TRANG_THAI_PHIEU_XUAT.NHAP && !dto.biHuy;
-    const daDongGoi = dto.trangThaiPhieu === TRANG_THAI_PHIEU_XUAT.CHO_XUAT && !dto.biHuy;
-    const conLai = Math.max(0, toNumber(dto.tongSoLuongCan) - toNumber(dto.tongSoLuongDaQuet));
-    // biHuy = đơn hủy HOẶC chỉ phiếu xuất bị hủy; chỉ đơn hủy mới phải chuyển hàng về khu hoàn kệ
-    const donDaHuy = dto.trangThaiDon === TRANG_THAI_DON.DA_HUY;
-
-    return (
-        <PageContainer className="space-y-5">
-            {/* ── Thanh thao tác ── */}
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <BackLink onClick={backToOrder} />
-                <div className="flex flex-wrap items-center gap-2">
-                    <StatusBadge quyTrinh="donBan" size="lg" label={donStatus.label} />
-                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] text-bo-muted">
-                        Phiếu xuất
-                        <StatusBadge quyTrinh="phieuXuat" size="lg" label={phieuStatus.label} />
-                    </span>
-                    {dangDongGoi ? (
-                        <span title={dto.coTheHoanTat ? undefined : !dto.daDuBangChung ? "Cần tải lên đầy đủ bằng chứng đóng gói để hoàn tất" : `Còn ${formatQuantity(conLai)} sản phẩm chưa quét`}>
-                            <Button
-                                disabled={!dto.coTheHoanTat || completing || pending > 0}
-                                onClick={() => setCompleteOpen(true)}
-                                className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
-                            >
-                                {completing ? <Loader2 className="size-4 animate-spin" /> : <CheckCheck className="size-4" />}
-                                Hoàn tất đóng gói
-                            </Button>
-                        </span>
-                    ) : null}
-                    {daDongGoi ? (
-                        <Button
-                            onClick={() => navigate(`/goods-issues/${dto.phieuXuatKhoId}`)}
-                            className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
-                        >
-                            <ArrowRight className="size-4" /> Mở phiếu xuất để xuất kho
-                        </Button>
-                    ) : null}
-                </div>
-            </div>
-
-            {/* ── Đơn bị hủy trong lúc đóng gói ── */}
-            {dto.biHuy && donDaHuy ? (
-                <div role="alert" className="rounded-lg border border-rose-300 bg-rose-50 p-4 shadow-sm">
-                    <h4 className="text-sm font-semibold text-rose-900">Đơn {dto.soDonHang} đã bị hủy — đã khóa đóng gói</h4>
-                    <p className="mt-1 text-xs text-rose-800">
-                        Không đóng gói / xuất kho đơn này. Chuyển toàn bộ hàng của đơn về khu hoàn kệ:
-                    </p>
-                    <ul className="mt-2 list-disc space-y-0.5 pl-5 text-xs text-rose-800">
-                        {(dto.items ?? []).map((item) => (
-                            <li key={item.chiTietId}>
-                                <span className="font-medium">{item.tenSanPham}</span> ({item.maSku}): <span className="font-bold">{formatQuantity(item.soLuongCan)}</span>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            ) : null}
-
-            {/* ── Chỉ phiếu xuất bị hủy: đơn vẫn còn hiệu lực ── */}
-            {dto.biHuy && !donDaHuy ? (
-                <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-4 shadow-sm">
-                    <h4 className="text-sm font-semibold text-amber-900">Phiếu xuất {dto.soPhieuXuat} đã bị hủy — đã khóa đóng gói</h4>
-                    <p className="mt-1 text-xs text-amber-800">
-                        Đơn {dto.soDonHang} vẫn còn hiệu lực. Bấm Tạo lại phiếu xuất ở màn đơn bán hàng để đóng gói lại.
-                    </p>
-                </div>
-            ) : null}
-
-            {/* ── Thông tin đơn & phiếu xuất ── */}
-            <SurfaceCard title="Thông tin đóng gói">
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                    <InfoItem
-                        icon={Hash}
-                        label="Đơn bán"
-                        value={<Link to={`/sales-orders/${dto.donBanHangId}`} className="text-bo-primary hover:underline">{dto.soDonHang}</Link>}
-                        highlight
-                    />
-                    <InfoItem icon={User} label="Khách hàng" value={dto.tenKhachHang || "Khách lẻ"} />
-                    <InfoItem icon={Phone} label="Số điện thoại" value={dto.soDienThoai || "—"} />
-                    <InfoItem
-                        icon={FileText}
-                        label="Phiếu xuất"
-                        value={<Link to={`/goods-issues/${dto.phieuXuatKhoId}`} className="text-bo-primary hover:underline">{dto.soPhieuXuat}</Link>}
-                    />
-                    <InfoItem icon={Warehouse} label="Kho xuất" value={dto.tenKho} />
-                    <InfoItem icon={ClipboardList} label="Phiếu nhặt hàng" value={dto.maPickList || "Không qua phiếu nhặt"} />
-                    {dto.tenKenh ? (
-                        <InfoItem icon={Store} label="Kênh bán" value={`${dto.tenKenh}${dto.maDonHangKenh ? ` · #${dto.maDonHangKenh}` : ""}`} />
-                    ) : null}
-                    <InfoItem icon={MapPin} label="Địa chỉ giao" value={dto.diaChiGiaoHang || "—"} />
-                </div>
-                <div className="mt-5 border-t border-bo-border pt-4">
-                    <PickProgress
-                        label="Tiến độ đóng gói"
-                        daQuet={dto.tongSoLuongDaQuet}
-                        canNhat={dto.tongSoLuongCan}
-                        percent={dto.phanTramHoanThanh}
-                    />
-                </div>
-            </SurfaceCard>
-
-            {/* ── Trạng thái chỉ xem ── */}
-            {!dangDongGoi && !dto.biHuy ? (
-                <div className="flex items-center gap-3 rounded-lg border border-bo-border bg-bo-surface-subtle p-3 text-sm text-slate-700">
-                    <InfoIcon className="size-4 shrink-0 text-bo-muted" />
-                    <p className="min-w-0 flex-1">
-                        {daDongGoi
-                            ? `Đã đóng gói xong. Phiếu xuất ${dto.soPhieuXuat} chờ xác nhận xuất kho (lô đã có sẵn từ phiếu nhặt).`
-                            : dto.trangThaiPhieu === TRANG_THAI_PHIEU_XUAT.DA_XUAT
-                                ? `Phiếu xuất ${dto.soPhieuXuat} đã xuất kho.`
-                                : `Phiếu xuất ${dto.soPhieuXuat} không còn ở bước đóng gói.`}
-                    </p>
-                </div>
-            ) : null}
-
-            {/* ── Quét mã ── */}
-            {dangDongGoi ? (
-                <SurfaceCard
-                    title="Quét mã vạch đóng gói"
-                    description="Quét từng sản phẩm bỏ vào thùng. Mã không thuộc đơn hoặc quét quá số lượng sẽ báo lỗi ngay."
-                >
-                    <ScanBar
-                        ref={scanBarRef}
-                        onScan={(barcode, soLuong) => enqueue({ barcode, soLuong })}
-                        pending={pending}
-                        lastResult={lastResult}
-                    />
-                </SurfaceCard>
-            ) : null}
-
-            {/* ── Bằng chứng đóng gói (SRS 6.3.1 - 6.3.2) ── */}
-            <PackingProofSection
-                donId={dto.donBanHangId}
-                soDonHang={dto.soDonHang}
-                tongTienDonHang={dto.tongTienDonHang}
-                yeuCauVideo={dto.yeuCauVideo}
-                danhSachBangChung={dto.danhSachBangChung || []}
-                daDuBangChung={dto.daDuBangChung}
-                onRefresh={() => fetchPhien({ silent: true })}
-                readOnly={!dangDongGoi}
-            />
-
-            {/* ── Sản phẩm cần đóng gói ── */}
-            <TableShell title="Sản phẩm cần đóng gói" description={`${lines.length} dòng · dòng chưa đủ lên trước`}>
-                {lines.length === 0 ? (
-                    <EmptyState icon={Package} title="Phiếu xuất không có sản phẩm" description="Phiếu xuất của đơn chưa có dòng sản phẩm nào." />
-                ) : (
-                    <table className="w-full min-w-[720px] text-sm">
-                        <thead>
-                            <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                <th className={`${TH_CLASS} text-left`}>Sản phẩm</th>
-                                <th className={`${TH_CLASS} text-center`}>Cần đóng gói</th>
-                                <th className={`${TH_CLASS} text-center`}>Đã quét</th>
-                                <th className={`${TH_CLASS} text-center`}>Còn lại</th>
-                                <th className={`${TH_CLASS} text-left`}>Trạng thái</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-bo-border">
-                            {lines.map((line) => {
-                                // Đơn đã hủy: mọi dòng là hàng cần cất về kệ, không còn "thiếu"
-                                const state = dto.biHuy && donDaHuy ? { label: "Cất về kệ", tone: "danger" } : lineState(line);
-                                const conLaiDong = Math.max(0, toNumber(line.soLuongCan) - toNumber(line.soLuongDaQuet));
-                                const variantName = [line.tenMau, line.tenSize].filter(Boolean).join(" / ");
-                                return (
-                                    <tr
-                                        key={line.chiTietId}
-                                        className={`transition-colors ${highlightId === line.chiTietId ? "bg-bo-primary-soft" : "hover:bg-bo-surface-subtle"}`}
-                                    >
-                                        <td className="px-4 py-3">
-                                            <div className="flex flex-col gap-1">
-                                                <span className="line-clamp-1 font-semibold text-bo-foreground">
-                                                    {line.tenSanPham}{variantName ? ` · ${variantName}` : ""}
-                                                </span>
-                                                <span className="flex flex-wrap items-center gap-1.5">
-                                                    <span className="w-fit rounded-md bg-bo-primary-soft px-2 py-0.5 font-mono text-xs font-semibold text-bo-primary">
-                                                        {line.maSku}
-                                                    </span>
-                                                    {line.maVachSku ? <span className="font-mono text-xs text-bo-muted">{line.maVachSku}</span> : null}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-center font-semibold text-bo-foreground">{formatQuantity(line.soLuongCan)}</td>
-                                        <td className="px-4 py-3 text-center">
-                                            <span className={`font-mono font-semibold ${state.tone === "success" ? "text-bo-success" : "text-bo-foreground"}`}>
-                                                {formatQuantity(line.soLuongDaQuet)}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-center font-semibold text-bo-muted">{formatQuantity(conLaiDong)}</td>
-                                        <td className="px-4 py-3">
-                                            <StatusBadge label={state.label} />
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                )}
-            </TableShell>
-
-            <ConfirmModal
-                isOpen={completeOpen}
-                onClose={() => !completing && setCompleteOpen(false)}
-                onConfirm={handleComplete}
-                variant="info"
-                title="Hoàn tất đóng gói"
-                description={`Đơn ${dto.soDonHang} sẽ chuyển sang Chờ xuất kho và phiếu xuất ${dto.soPhieuXuat} sang Chờ xuất. Bước tiếp theo: xác nhận xuất kho (lô đã có sẵn từ phiếu nhặt).`}
-                confirmText="Hoàn tất đóng gói"
-                cancelText="Quay lại"
-                isLoading={completing}
-            />
-        </PageContainer>
-    );
+  const { donId } = useParams();
+  return <ManDongGoi key={donId} donId={donId} />;
 }
 
-function BackLink({ onClick }) {
+function ManDongGoi({ donId }) {
+  const navigate = useNavigate();
+  const laQtv = hasAnyRole([ROLES.QUAN_TRI_VIEN]);
+  const veDon = useCallback(() => navigate(`/sales-orders/${donId}`), [navigate, donId]);
+
+  // ── Phiên đóng gói (tự chuyển nơi làm việc khi đơn thuộc kho khác) ──────────
+  const taiPhien = useCallback(async () => {
+    try {
+      return { phien: await dongGoiService.layPhien(donId), doiKho: null };
+    } catch (error) {
+      // Mọi 403 (phiếu thuộc kho khác; nơi làm việc đang chọn đã cũ hoặc trống) với người không phải quản trị viên:
+      // thử chuyển nơi làm việc sang kho của đơn nếu kho đó có trong token
+      if (getApiErrorStatus(error) !== 403 || laQtv) throw error;
+      const ct = await donBanHangService.getDetail(donId).catch(() => null);
+      const kho = ct?.data?.donBanHang?.khoXuat ?? null;
+      if (kho?.id && kho.id !== getKhoLamViecId() && laKhoLamViecHopLe(kho)) {
+        setKhoLamViecId(kho.id);
+        return { phien: await dongGoiService.layPhien(donId), doiKho: kho.tenKho || "kho của đơn" };
+      }
+      error.khoCuaDon = kho;
+      throw error;
+    }
+  }, [donId, laQtv]);
+  const q = useTaiDuLieu(taiPhien, `dong-goi-${donId}`, { enabled: Boolean(donId) });
+  const phien = q.data?.phien ?? null;
+  const doiKho = q.data?.doiKho ?? null;
+  const pxId = phien?.phieuXuatKhoId ?? null;
+
+  // ── Yêu cầu bằng chứng của máy chủ (huongDan, soLuongYeuCau) ─────────────
+  const taiBangChung = useCallback(() => dongGoiService.layBangChung(donId), [donId]);
+  const qBc = useTaiDuLieu(taiBangChung, `bang-chung-${donId}`, { enabled: Boolean(phien) });
+
+  // ── Đơn cùng phiếu nhặt: phiên chỉ có maPickList → id phiếu nhặt lấy ở chi tiết đơn ──
+  const coPhieuNhat = Boolean(phien?.maPickList);
+  const taiPhieuNhat = useCallback(async () => {
+    const ct = await donBanHangService.getDetail(donId);
+    const idPl = ct?.data?.phieuNhatHangId;
+    if (!idPl) return [];
+    const pl = await nhatHangService.getPickList(idPl);
+    return Array.isArray(pl?.danhSachDonHang) ? pl.danhSachDonHang : [];
+  }, [donId]);
+  const qPl = useTaiDuLieu(taiPhieuNhat, `phieu-nhat-dong-goi-${donId}`, { enabled: coPhieuNhat });
+
+  const [phanHoi, setPhanHoi] = useState(null);
+  const [dongSang, setDongSang] = useState(null);
+  const [lanQuet, setLanQuet] = useState(0);
+  // Ô quét mã: sau thao tác bằng chứng / hộp thoại trả tiêu điểm về đây để máy quét gõ tiếp (Enter không bấm nhầm nút)
+  const oQuetRef = useRef(null);
+  const [hop, setHop] = useState(false);
+  const [dangChay, setDangChay] = useState(false);
+  const [loiHop, setLoiHop] = useState(null);
+  const [choGoc, setChoGoc] = useState(false);
+  const huyChoGocRef = useRef(null);
+  const daGoRef = useRef(false);
+  useEffect(() => {
+    daGoRef.current = false;
+    return () => {
+      daGoRef.current = true;
+      huyChoGocRef.current?.();
+    };
+  }, []);
+
+  const datPhien = q.setData;
+  const taiLaiTatCa = useCallback(() => {
+    q.reload();
+    qBc.reload();
+    if (coPhieuNhat) qPl.reload();
+  }, [q, qBc, qPl, coPhieuNhat]);
+
+  // Đổi nơi làm việc (thanh bên, tab khác) thì tải lại phiên: header kho_id đã đổi
+  const taiLaiRef = useRef(taiLaiTatCa);
+  useEffect(() => {
+    taiLaiRef.current = taiLaiTatCa;
+  });
+  useEffect(() => {
+    const nghe = () => taiLaiRef.current?.();
+    window.addEventListener(KHO_LAM_VIEC_EVENT, nghe);
+    return () => window.removeEventListener(KHO_LAM_VIEC_EVENT, nghe);
+  }, []);
+
+  // ── Quét: gửi lần lượt từng mã (máy chủ khóa phiếu xuất khi quét) ─────────
+  const xuLyQuet = useCallback(async ({ ma, soLuong }) => {
+    if (!pxId) return;
+    try {
+      const res = await dongGoiService.quet(pxId, { barcode: ma, soLuong });
+      if (daGoRef.current) return;
+      datPhien((cu) => (cu ? { ...cu, phien: res } : cu));
+      const dongVua = (res?.items ?? []).find((x) => String(x.chiTietId) === String(res?.chiTietVuaQuetId));
+      const duDong = dongVua && Number(dongVua.soLuongDaQuet) >= Number(dongVua.soLuongCan);
+      setDongSang(res?.chiTietVuaQuetId ?? null);
+      setLanQuet((n) => n + 1);
+      setPhanHoi({ ok: true, chu: res?.thongBao || cauDaQuet(soLuong, dongVua, ma), phu: duDong ? "Đủ dòng này" : "" });
+    } catch (error) {
+      if (daGoRef.current) return;
+      const phienHuy = phienTuLoi(error);
+      if (phienHuy) datPhien((cu) => (cu ? { ...cu, phien: phienHuy } : cu));
+      const cau = getApiErrorMessage(error, `Không ghi nhận được mã ${ma}`);
+      setPhanHoi({ ok: false, chu: cau, phu: cauPhuPhanHoi(cau) });
+      // Chỉ kêu khi KHÔNG cộng được: máy quét đã tự kêu khi đọc được mã
+      playScanBeep(false);
+      if (getApiErrorStatus(error) === 409) {
+        // Phiên đã khóa (đơn / phiếu bị hủy, đã đóng gói ở nơi khác): bỏ các mã còn chờ, không gửi tiếp
+        boHangDoiRef.current?.();
+        if (!phienHuy) q.reload();
+      }
+    }
+  }, [pxId, datPhien, q]);
+  const { enqueue, pending, clear } = useScanQueue(xuLyQuet);
+  const boHangDoiRef = useRef(clear);
+  useEffect(() => {
+    boHangDoiRef.current = clear;
+  });
+
+  useTaiLaiKhiQuayLai(taiLaiTatCa, { bat: Boolean(phien) && !q.loading && !dangChay && !hop && pending === 0, lanCuoi: q.capNhatLuc });
+
+  // ── Tính toán ───────────────────────────────────────────────────────────
+  const th = useMemo(() => tinhHuongPhien(phien), [phien]);
+  const dong = useMemo(() => xepDongDongGoi(dongDongGoi(phien?.items)), [phien]);
+
+  // ── Đang tải / lỗi ─────────────────────────────────────────────────────
+  if (!phien) {
+    if (q.loading || (!q.error && q.data === undefined)) {
+      return (
+        <PageContainer className="flex min-h-full flex-col">
+          <KhungDangTai nhan="Đang tải phiên đóng gói" />
+        </PageContainer>
+      );
+    }
+    const loi = q.error;
+    const trangThaiLoi = getApiErrorStatus(loi);
+    // Kho của đơn không có trong nơi làm việc được phân (đã thử tự chuyển mà không được)
+    const khoKhac = trangThaiLoi === 403 && (MAU_KHO_KHAC.test(getApiErrorMessage(loi, "")) || Boolean(loi?.khoCuaDon));
+    if (khoKhac) {
+      const tenKho = loi?.khoCuaDon?.tenKho;
+      return (
+        <PageContainer className="flex min-h-full flex-col">
+          <KhungKhongThay
+            icon={Warehouse}
+            tieuDe="Đơn thuộc kho khác"
+            moTa={
+              tenKho
+                ? `Phiếu xuất của đơn này thuộc ${tenKho}, bạn không làm việc ở kho đó. Nhờ nhân viên ${tenKho.replace(/^Kho\s/, "kho ")} đóng gói, hoặc nhờ quản lý thêm kho này vào nơi làm việc của bạn.`
+                : "Phiếu xuất của đơn này thuộc kho bạn không làm việc. Nhờ nhân viên kho đó đóng gói, hoặc nhờ quản lý thêm kho này vào nơi làm việc của bạn."
+            }
+            nhanNut="Về đơn bán hàng"
+            onNut={veDon}
+          />
+        </PageContainer>
+      );
+    }
+    if (trangThaiLoi === 409) {
+      // Đơn chưa nhặt xong nên chưa có phiếu xuất để đóng gói: câu máy chủ nguyên văn
+      return (
+        <PageContainer className="flex min-h-full flex-col">
+          <KhungKhongThay
+            icon={PackageX}
+            tieuDe="Chưa đóng gói được đơn này"
+            moTa={getApiErrorMessage(loi, "Đơn chưa có phiếu xuất kho để đóng gói.")}
+            nhanNut="Về đơn bán hàng"
+            onNut={veDon}
+          />
+        </PageContainer>
+      );
+    }
     return (
-        <button
-            type="button"
-            onClick={onClick}
-            className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-bo-muted transition-colors hover:text-bo-primary"
-        >
-            <ArrowLeft className="size-4" />
-            Quay lại đơn bán hàng
-        </button>
+      <PageContainer className="flex min-h-full flex-col">
+        <KhungLoiChungTu
+          loi={loi}
+          tenChungTu="đơn bán hàng"
+          onVeDanhSach={() => navigate("/sales-orders")}
+          onThuLai={q.reload}
+        />
+      </PageContainer>
     );
+  }
+
+  const so = phien.soDonHang || `#${phien.donBanHangId}`;
+  const px = phien.soPhieuXuat || "";
+  const tienDo = tienDoDongGoi(dong, { xong: th.xong });
+  const yeuCauVideo = qBc.data?.yeuCauVideo ?? Boolean(phien.yeuCauVideo);
+  const dsBangChung = qBc.data?.danhSachBangChung ?? phien.danhSachBangChung ?? [];
+  const duBangChung = qBc.data?.daDuBangChung ?? Boolean(phien.daDuBangChung);
+  const oBc = oBangChung({ yeuCauVideo, danhSach: dsBangChung });
+  const hetHan = bangChungHetHan(th, dsBangChung, phien.items);
+  const chuBc = chuSoBangChung(oBc, { yeuCauVideo, soLuongYeuCau: qBc.data?.soLuongYeuCau });
+  const lyDoKhoa = th.suaDuoc
+    ? lyDoKhoaHoanTat({
+      conLai: tienDo.conLai,
+      duBangChung,
+      yeuCauVideo,
+      soThieu: oBc.filter((o) => !o.bangChung).length,
+      dangCho: pending,
+    })
+    : "";
+  const cung = donCungPhieuNhat(qPl.data, phien.donBanHangId);
+
+  // ── Thao tác ────────────────────────────────────────────────────────────
+  const quet = (ma, soLuong) => {
+    if (!ma) {
+      setPhanHoi({ ok: false, chu: "Chưa có mã để ghi nhận", phu: "Quét mã vạch trên tem sản phẩm hoặc gõ SKU." });
+      return;
+    }
+    enqueue({ ma, soLuong });
+  };
+
+  const khoaToiKhiGocXong = (loi) => {
+    huyChoGocRef.current?.();
+    setChoGoc(true);
+    huyChoGocRef.current = khiGocKetThuc(loi, () => {
+      huyChoGocRef.current = null;
+      setChoGoc(false);
+      taiLaiTatCa();
+    });
+  };
+
+  const hoanTat = async () => {
+    if (!pxId) return;
+    setLoiHop(null);
+    setDangChay(true);
+    try {
+      const res = await chayCoThoiHan(() => dongGoiService.hoanTat(pxId));
+      setHop(false);
+      datPhien((cu) => (cu ? { ...cu, phien: res } : cu));
+      setPhanHoi(null);
+      toast.success(`Đã đóng gói xong đơn ${so}`, { description: `Phiếu xuất ${px} chờ xác nhận xuất kho` });
+      qPl.reload();
+    } catch (error) {
+      if (laLoiHetThoiHan(error)) {
+        if (daGoRef.current) return;
+        setHop(false);
+        toast.error(CAU_HET_THOI_HAN, { description: MO_TA_HET_THOI_HAN });
+        taiLaiTatCa();
+        khoaToiKhiGocXong(error);
+        return;
+      }
+      const phienHuy = phienTuLoi(error);
+      const cau = getApiErrorMessage(error, "Không hoàn tất được đóng gói");
+      if (phienHuy || getApiErrorStatus(error) === 409) {
+        // Đơn / phiếu xuất vừa bị hủy hoặc đổi ở nơi khác: đóng hộp, hiện tình huống mới
+        if (phienHuy) datPhien((cu) => (cu ? { ...cu, phien: phienHuy } : cu));
+        setHop(false);
+        toast.error(cau);
+      } else {
+        setLoiHop(cau);
+      }
+      taiLaiTatCa();
+    } finally {
+      setDangChay(false);
+    }
+  };
+
+  // ── Đầu khối ────────────────────────────────────────────────────────────
+  const moPx = () => pxId && navigate(`/goods-issues/${pxId}`);
+  const nutChinh = khoaKhiChoGoc(
+    [
+      th.suaDuoc
+        ? {
+          ma: "hoanTat",
+          nhan: "Hoàn tất đóng gói",
+          icon: PackageCheck,
+          khoa: Boolean(lyDoKhoa) || dangChay,
+          lyDo: lyDoKhoa ? `Chưa hoàn tất được: ${lyDoKhoa}` : undefined,
+          onClick: () => {
+            setLoiHop(null);
+            setHop(true);
+          },
+        }
+        : null,
+      th.xong && cung.tiep
+        ? {
+          ma: "tiep",
+          nhan: "Đơn tiếp theo",
+          kieu: "vien",
+          icon: ArrowRight,
+          dieuHuong: true,
+          onClick: () => navigate(`/goods-issues/packing/${cung.tiep.id}`),
+        }
+        : null,
+      th.xong && !th.daXuat
+        ? { ma: "xuat", nhan: "Mở phiếu xuất để xuất kho", icon: Truck, dieuHuong: true, onClick: moPx }
+        : null,
+    ].filter(Boolean),
+    choGoc,
+  );
+
+  const thongBao = [
+    ...thongBaoDongGoi(phien, {
+      tinhHuong: th,
+      hetHan,
+      doiKho,
+      nhanTrangThaiDon: getDonBanHangStatus(phien.trangThaiDon).label,
+    }).map((n) => (
+      <DongThongBao key={n.ma} tone={n.tone} actions={n.moDon ? <NutChu onClick={veDon}>Mở đơn bán hàng</NutChu> : null}>
+        {n.chu}
+      </DongThongBao>
+    )),
+    q.loiTaiLai ? (
+      <DongThongBao key="loi-tai-lai" tone="bad" actions={<NutChu onClick={taiLaiTatCa}>Thử lại</NutChu>}>
+        Không tải lại được phiên đóng gói: {getApiErrorMessage(q.error, "lỗi kết nối")}. Thông tin đang hiện có thể đã cũ.
+      </DongThongBao>
+    ) : null,
+  ].filter(Boolean);
+
+  const buoc = buocDongGoi({ tinhHuong: th, tienDo, duBangChung, chuBangChung: chuBc, hetHan });
+  const lyDoKhoaXoa = th.xong
+    ? "Phiếu xuất đã hoàn tất đóng gói, không thể xóa bằng chứng"
+    : th.donHuy
+      ? "Đơn đã hủy, không thể xóa bằng chứng"
+      : th.pxHuy
+        ? "Phiếu xuất đã hủy, không thể xóa bằng chứng"
+        : "";
+
+  return (
+    <PageContainer className="flex min-h-full flex-col">
+      <KhungChungTu
+        dau={
+          <DauChungTu
+            ma={so}
+            trangThai={{ label: getDonBanHangStatus(phien.trangThaiDon).label, quyTrinh: "donBan" }}
+            dongPhu={[
+              "Đóng gói",
+              px ? <span key="px">phiếu xuất <span className="tabular-nums">{px}</span></span> : null,
+              <b key="dong" className="font-semibold text-bo-foreground">{soVN(dong.length)} dòng</b>,
+              <b key="sl" className="font-semibold text-bo-foreground">tổng số lượng {soVN(tienDo.can)}</b>,
+            ]}
+            onQuayLai={veDon}
+            nhanQuayLai="Về đơn bán hàng"
+            menu={
+              pxId
+                ? [
+                  { ma: "moPx", nhan: `Mở phiếu xuất ${px}`, icon: FileText, onSelect: moPx },
+                  { ma: "inPx", nhan: "In phiếu xuất", icon: Printer, onSelect: () => navigate(`/goods-issues/${pxId}/print`) },
+                ]
+                : []
+            }
+            nutChinh={nutChinh}
+          />
+        }
+        tienTrinh={<TienTrinhChungTu buoc={buoc} nhan="Các bước đóng gói" />}
+        thongBao={thongBao.length ? thongBao : null}
+        chinh={
+          <>
+            {th.suaDuoc ? <TramQuet ref={oQuetRef} onQuet={quet} dangCho={pending} phanHoi={phanHoi} /> : null}
+            <BangDongGoi
+              dong={dong}
+              tienDo={tienDo}
+              lyDoKhoa={lyDoKhoa}
+              dongSang={dongSang}
+              lanQuet={lanQuet}
+              xong={th.xong}
+              hoanKe={th.donHuy}
+            />
+            <PackingProofSection
+              donId={phien.donBanHangId}
+              yeuCauVideo={yeuCauVideo}
+              huongDan={qBc.data?.huongDan}
+              danhSachBangChung={dsBangChung}
+              daDuBangChung={duBangChung}
+              readOnly={!th.suaDuoc}
+              lyDoKhoaXoa={lyDoKhoaXoa}
+              hetHan={hetHan}
+              onRefresh={taiLaiTatCa}
+              loiYeuCau={qBc.error && !qBc.loading ? getApiErrorMessage(qBc.error, "lỗi kết nối") : null}
+              onThuLaiYeuCau={qBc.reload}
+              traTieuDiem={() => oQuetRef.current?.focus()}
+              className="mt-2"
+            />
+          </>
+        }
+        cotPhai={
+          <ThuocTinhDongGoi
+            phien={phien}
+            phieuNhat={{ dang: qPl.loading && qPl.data === undefined, loi: Boolean(qPl.error), ds: qPl.data }}
+          />
+        }
+      />
+
+      <HopXacNhanChungTu
+        mo={hop}
+        onDoiMo={(mo) => !mo && setHop(false)}
+        tieuDe={`Hoàn tất đóng gói ${so}?`}
+        moTa={`Phiếu xuất ${px} chuyển sang Chờ xuất. Sau bước này không quét thêm và không xóa bằng chứng được nữa.`}
+        nhanXacNhan="Hoàn tất đóng gói"
+        iconXacNhan={PackageCheck}
+        dangChay={dangChay}
+        // Máy quét gửi Enter sau mỗi mã: tiêu điểm ở "Quay lại" để không bấm nhầm Hoàn tất; đóng hộp thì về ô quét
+        tieuDiemQuayLai
+        traTieuDiemVe={oQuetRef}
+        loi={loiHop}
+        onXacNhan={hoanTat}
+      >
+        <div className={GHI_CHU_HOP}>
+          Đã quét {soVN(tienDo.da)}/{soVN(tienDo.can)} sản phẩm · {chuBc}
+        </div>
+      </HopXacNhanChungTu>
+    </PageContainer>
+  );
 }

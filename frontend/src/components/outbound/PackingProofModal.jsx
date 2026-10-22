@@ -12,6 +12,7 @@ export default function PackingProofModal({
   soDonHang,
   tongTienDonHang,
   readOnly = false,
+  lyDoKhoaXoa = "",
   onProofChanged,
 }) {
   const [data, setData] = useState(null);
@@ -73,13 +74,17 @@ export default function PackingProofModal({
               soDonHang={soDonHang || data?.soDonHang}
               tongTienDonHang={tongTienDonHang != null ? tongTienDonHang : data?.tongTienDonHang}
               yeuCauVideo={data?.yeuCauVideo}
+              huongDan={data?.huongDan}
               danhSachBangChung={data?.danhSachBangChung || []}
               daDuBangChung={data?.daDuBangChung}
+              coTieuDe={false}
+              className="-mx-5 -mt-5 border-t-0"
               onRefresh={() => {
                 fetchProofs();
                 if (onProofChanged) onProofChanged();
               }}
               readOnly={readOnly}
+              lyDoKhoaXoa={lyDoKhoaXoa}
             />
           )}
         </div>
