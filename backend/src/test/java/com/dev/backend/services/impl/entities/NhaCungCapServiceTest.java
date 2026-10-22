@@ -12,6 +12,7 @@ import com.dev.backend.repository.LoHangRepository;
 import com.dev.backend.repository.MaVachNhaCungCapRepository;
 import com.dev.backend.repository.NhaCungCapRepository;
 import com.dev.backend.repository.PhieuNhapKhoRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +22,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 
 import java.util.Optional;
 
@@ -137,22 +139,60 @@ class NhaCungCapServiceTest {
     // ── Sửa ──
 
     @Test
-    void update_xoaDuocTruongTuyChon_khongDoiMaVaTrangThai() {
+    void update_xoaDuocTruongTuyChon_khongDoiMaTrangThaiVaNganHang() {
         NhaCungCap hienTai = nhaCungCap(5, NhaCungCapService.TRANG_THAI_NGUNG_HOAT_DONG);
         when(repository.findById(5)).thenReturn(Optional.of(hienTai));
         when(repository.save(any(NhaCungCap.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        service.update(5, suaHopLe().nguoiLienHe("").diaChi(null).nganHang("").soNganHang("").build());
+        service.update(5, suaHopLe().nguoiLienHe("").diaChi(null).build());
 
         NhaCungCap saved = savedEntity();
         assertEquals("SUP005", saved.getMaNhaCungCap());
         assertEquals("Công ty mới", saved.getTenNhaCungCap());
         assertNull(saved.getNguoiLienHe());
         assertNull(saved.getDiaChi());
-        assertNull(saved.getNganHang());
-        assertNull(saved.getSoNganHang());
+        // Ngân hàng không sửa qua API này: giữ nguyên giá trị đang lưu
+        assertEquals("970415", saved.getNganHang());
+        assertEquals("123456789", saved.getSoNganHang());
         assertEquals(NhaCungCapService.TRANG_THAI_NGUNG_HOAT_DONG, saved.getTrangThai());
         assertNotNull(saved.getNgayCapNhat());
+    }
+
+    @Test
+    void update_duLieuNganHangCuSaiDinhDang_vanSuaDuocTruongKhac() {
+        // Dữ liệu cũ chỉ có ngân hàng, số tài khoản có khoảng trắng: trước đây chặn mọi lần sửa
+        NhaCungCap hienTai = nhaCungCap(6, NhaCungCapService.TRANG_THAI_HOAT_DONG);
+        hienTai.setNganHang("MB Bank");
+        hienTai.setSoNganHang(null);
+        when(repository.findById(6)).thenReturn(Optional.of(hienTai));
+        when(repository.save(any(NhaCungCap.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.update(6, suaHopLe().email("doi@gmail.com").build());
+
+        NhaCungCap saved = savedEntity();
+        assertEquals("doi@gmail.com", saved.getEmail());
+        assertEquals("MB Bank", saved.getNganHang());
+        assertNull(saved.getSoNganHang());
+    }
+
+    @Test
+    void update_jsonCuGuiKemNganHang_biBoQua() throws Exception {
+        // Frontend cũ gửi kèm nganHang / soNganHang (kể cả giá trị sai định dạng): Jackson bỏ qua, không lỗi.
+        // Jackson2ObjectMapperBuilder là cấu hình gốc Spring Boot dùng cho ObjectMapper của ứng dụng (tắt
+        // FAIL_ON_UNKNOWN_PROPERTIES); repo không ghi đè cấu hình này.
+        ObjectMapper om = Jackson2ObjectMapperBuilder.json().build();
+        NhaCungCapUpdating dto = om.readValue("""
+                {"tenNhaCungCap":"Công ty mới","soDienThoai":"0987654321","email":"moi@gmail.com",
+                 "nganHang":"MB Bank","soNganHang":"12 34"}""", NhaCungCapUpdating.class);
+        NhaCungCap hienTai = nhaCungCap(7, NhaCungCapService.TRANG_THAI_HOAT_DONG);
+        when(repository.findById(7)).thenReturn(Optional.of(hienTai));
+        when(repository.save(any(NhaCungCap.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.update(7, dto);
+
+        NhaCungCap saved = savedEntity();
+        assertEquals("970415", saved.getNganHang());
+        assertEquals("123456789", saved.getSoNganHang());
     }
 
     @Test

@@ -8,6 +8,9 @@ import lombok.*;
 /**
  * Sửa thông tin nhà cung cấp: gửi đủ toàn bộ form (trường tùy chọn để trống = xóa giá trị cũ).
  * Không có mã (mã cố định sau khi tạo) và không có trạng thái (đổi bằng PUT /{id}/trang-thai).
+ * Không có ngân hàng / số tài khoản: không quản lý thanh toán nhà cung cấp (bỏ khỏi API sửa 22/10/2026). Client cũ gửi
+ * kèm hai trường này thì bị bỏ qua (Jackson không báo lỗi trường lạ), dữ liệu ngân hàng đang lưu giữ nguyên — kể cả
+ * dữ liệu cũ sai định dạng không còn chặn việc sửa các trường khác.
  */
 @Getter
 @Setter
@@ -33,10 +36,4 @@ public class NhaCungCapUpdating {
 
     @Size(max = 500, message = "Địa chỉ tối đa 500 ký tự")
     private String diaChi;
-
-    @Pattern(regexp = NhaCungCapCreating.NGAN_HANG_PATTERN, message = "Ngân hàng không hợp lệ")
-    private String nganHang;
-
-    @Pattern(regexp = NhaCungCapCreating.SO_TAI_KHOAN_PATTERN, message = "Số tài khoản chỉ gồm chữ và số (4–30 ký tự)")
-    private String soNganHang;
 }
