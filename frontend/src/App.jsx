@@ -296,6 +296,13 @@ export default function App() {
             <Route path="/channels/shopify/orders" element={<ChannelOrdersPage />} />
             <Route path="/channels/shopify/tools" element={<Navigate to="/channels/shopify/products" replace />} />
             <Route path="/channels/shopify/settings" element={<ChannelSettingsPage />} />
+
+            <Route path="/channels/lazada" element={<ChannelSyncDashboard />} />
+            <Route path="/channels/lazada/setup" element={<ChannelSetupWizard />} />
+            <Route path="/channels/lazada/products" element={<ChannelMappingsPage />} />
+            <Route path="/channels/lazada/orders" element={<ChannelOrdersPage />} />
+            <Route path="/channels/lazada/tools" element={<Navigate to="/channels/lazada/products" replace />} />
+            <Route path="/channels/lazada/settings" element={<ChannelSettingsPage />} />
             {/* Đường dẫn cũ trước khi tách trang theo sàn */}
             <Route path="/channels/sync" element={<Navigate to="/channels/shopify" replace />} />
             <Route path="/channels/:id/setup" element={<Navigate to="/channels/shopify/settings" replace />} />

@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowRight, BarChart3, ChevronRight } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { ChonPhuongAn, CotCaiDat } from "@/components/channel/KhuonCaiDat";
 import { NUT_CHINH } from "@/components/channel/BottomActionBar";
 import { ngayIso } from "@/components/channel/ngay";
 import { daKetNoi, trangThaiKetNoi } from "@/components/channel/ketNoiShopify";
+import { daKetNoiLazada, trangThaiKetNoiLazada } from "@/components/channel/ketNoiLazada";
 import NutDongBoNgay from "@/components/channel/NutDongBoNgay";
 import useDongBoNgay from "@/components/channel/useDongBoNgay";
 import { BUOC_THIET_LAP, SAN_BAN_HANG } from "@/constants/channel";
@@ -75,11 +76,19 @@ function moiHon(a, b) {
 export default function ChannelSyncDashboard() {
   useClaimPageTitle(true);
   const navigate = useNavigate();
-  const cfg = useTaiDuLieu(() => kenhBanHangService.getShopifyConfig(), "cau-hinh-shopify");
+  const location = useLocation();
+  const isLazada = location.pathname.includes("/channels/lazada");
+  const SAN = SAN_BAN_HANG.find((s) => s.maKenh === (isLazada ? "LAZADA" : "SHOPIFY")) ?? SAN_BAN_HANG[0];
+  const TIEU_DE = `Tổng quan ${SAN.ten}`;
+
+  const cfg = useTaiDuLieu(
+    () => (isLazada ? kenhBanHangService.getLazadaConfig() : kenhBanHangService.getShopifyConfig()),
+    isLazada ? "cau-hinh-lazada" : "cau-hinh-shopify",
+  );
   const config = cfg.data;
-  const ketNoi = daKetNoi(config);
-  const ch = useTaiDuLieu(() => kenhBanHangService.getCauHinhDongBo(SAN.maKenh), "cau-hinh-dong-bo", { enabled: ketNoi });
-  const tq = useTaiDuLieu(() => kenhBanHangService.getTongQuan(SAN.maKenh), "tong-quan", { enabled: ketNoi });
+  const ketNoi = isLazada ? daKetNoiLazada(config) : daKetNoi(config);
+  const ch = useTaiDuLieu(() => kenhBanHangService.getCauHinhDongBo(SAN.maKenh), `cau-hinh-dong-bo-${SAN.maKenh}`, { enabled: ketNoi });
+  const tq = useTaiDuLieu(() => kenhBanHangService.getTongQuan(SAN.maKenh), `tong-quan-${SAN.maKenh}`, { enabled: ketNoi });
 
   const [kyMa, setKyMa] = useTabTrenUrl(
     KY.map((k) => k.value),
@@ -89,7 +98,7 @@ export default function ChannelSyncDashboard() {
   const ky = KY.find((k) => k.value === kyMa) ?? KY[1];
   const den = ngayIso(0);
   const tu = ngayIso(ky.soNgay - 1);
-  const tk = useTaiDuLieu(() => kenhBanHangService.getThongKeDon(SAN.maKenh, { tu, den }), `thong-ke|${tu}|${den}`, {
+  const tk = useTaiDuLieu(() => kenhBanHangService.getThongKeDon(SAN.maKenh, { tu, den }), `thong-ke|${SAN.maKenh}|${tu}|${den}`, {
     enabled: ketNoi,
   });
 
@@ -118,12 +127,12 @@ export default function ChannelSyncDashboard() {
       </PageContainer>
     );
   }
-  if (!ketNoi) return <ManGioiThieu />;
+  if (!ketNoi) return <ManGioiThieu san={SAN} tieuDe={TIEU_DE} />;
 
   const cauHinh = ch.data;
   const tongQuan = tq.data;
   const thongKe = tk.data;
-  const trangThai = trangThaiKetNoi(config);
+  const trangThai = isLazada ? trangThaiKetNoiLazada(config) : trangThaiKetNoi(config);
   const tamDung = trangThai === "tam_dung";
 
   const moTrang = (duongDan) => navigate(`${SAN.duongDan}${duongDan}`);
@@ -156,7 +165,7 @@ export default function ChannelSyncDashboard() {
               <p className="-ml-4 flex flex-wrap items-center text-[13px] leading-5 text-bo-muted">
                 <span className="flex min-w-0 max-w-full items-center">
                   <DauCach />
-                  <span className="truncate">{config.shopDomain}</span>
+                  <span className="truncate">{isLazada ? (config.shopName || config.sellerId || "Lazada Store") : config.shopDomain}</span>
                 </span>
                 <span className="flex items-center">
                   <DauCach />
@@ -427,17 +436,18 @@ function TheSanPham({ tongQuan, loi }) {
 }
 
 /** Gian hàng chưa kết nối: giới thiệu 4 bước và nút bắt đầu. */
-function ManGioiThieu() {
+function ManGioiThieu({ san, tieuDe }) {
+  const currentSan = san || SAN_BAN_HANG[0];
   return (
     <PageContainer>
-      <h1 className="sr-only">{TIEU_DE}</h1>
+      <h1 className="sr-only">{tieuDe || `Tổng quan ${currentSan.ten}`}</h1>
       <CotCaiDat className="pt-2">
         <section className={cn(THE, "p-5 sm:p-6")}>
           <div className="flex items-center gap-3.5">
-            <ChannelLogo maKenh={SAN.maKenh} size={40} />
+            <ChannelLogo maKenh={currentSan.maKenh} size={40} />
             <div className="min-w-0">
-              <h2 className="text-base font-semibold text-bo-heading">Kết nối gian hàng {SAN.ten}</h2>
-              <p className="text-[13px] text-bo-muted">Đẩy tồn kho lên {SAN.ten} và nhận đơn về để kho xử lý.</p>
+              <h2 className="text-base font-semibold text-bo-heading">Kết nối gian hàng {currentSan.ten}</h2>
+              <p className="text-[13px] text-bo-muted">Đẩy tồn kho lên {currentSan.ten} và nhận đơn về để kho xử lý.</p>
             </div>
           </div>
           {/* Màn rộng: 4 bước nằm một hàng cho cân ngang; màn hẹp: xếp dọc */}
@@ -456,7 +466,7 @@ function ManGioiThieu() {
           </ol>
           <div className="mt-5 flex items-center gap-3">
             <Button asChild className={NUT_CHINH}>
-              <Link to={`${SAN.duongDan}/setup`}>
+              <Link to={`${currentSan.duongDan}/setup`}>
                 Bắt đầu thiết lập
                 <ArrowRight className="size-4" />
               </Link>

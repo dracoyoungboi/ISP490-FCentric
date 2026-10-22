@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { CalendarRange, SearchX, ShoppingCart } from "lucide-react";
 import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import { NUT_PHU } from "@/components/channel/BottomActionBar";
 import LayDonDialog from "@/components/channel/LayDonDialog";
 import { ngayIso } from "@/components/channel/ngay";
 import { daKetNoi } from "@/components/channel/ketNoiShopify";
+import { daKetNoiLazada } from "@/components/channel/ketNoiLazada";
 import ThaoTacDongBo from "@/components/channel/ThaoTacDongBo";
 import useDongBoNgay from "@/components/channel/useDongBoNgay";
 import { CHANNELS, SAN_BAN_HANG, locKhoDongBo } from "@/constants/channel";
@@ -68,6 +69,10 @@ function boLoc({ kenhId, tuKhoa, khoId, soNgay }, trangThai) {
  */
 export default function ChannelOrdersPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isLazada = location.pathname.includes("/channels/lazada");
+  const SAN = SAN_BAN_HANG.find((s) => s.maKenh === (isLazada ? "LAZADA" : "SHOPIFY")) ?? SAN_BAN_HANG[0];
+
   const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);
   const tabTrangThai = DON_BAN_HANG_TABS.find((t) => t.ma === tab)?.trangThai ?? null;
   const [searchText, setSearchText] = useState("");
@@ -76,9 +81,12 @@ export default function ChannelOrdersPage() {
   const [soNgay, setSoNgay] = useState("");
   const [trang, setTrang] = useState({ page: 0, size: SO_DONG_MAC_DINH });
 
-  const cfg = useTaiDuLieu(() => kenhBanHangService.getShopifyConfig(), "cau-hinh-shopify");
-  const ketNoi = daKetNoi(cfg.data);
-  const kenhId = cfg.data?.id ?? CHANNELS.SHOPIFY.id;
+  const cfg = useTaiDuLieu(
+    () => (isLazada ? kenhBanHangService.getLazadaConfig() : kenhBanHangService.getShopifyConfig()),
+    isLazada ? "cau-hinh-lazada" : "cau-hinh-shopify",
+  );
+  const ketNoi = isLazada ? daKetNoiLazada(cfg.data) : daKetNoi(cfg.data);
+  const kenhId = cfg.data?.id ?? (isLazada ? CHANNELS.LAZADA.id : CHANNELS.SHOPIFY.id);
   const dsKho = useTaiDuLieu(() => getKhoList().catch(() => []), "kho-xuat");
   const loc = { kenhId, tuKhoa, khoId, soNgay };
   const khoaLoc = `${kenhId}|${tuKhoa}|${khoId}|${soNgay}`;

@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ChevronRight, ChevronsDownUp, ChevronsUpDown, CloudDownload, CloudUpload, Loader2, MoreHorizontal, PackageSearch, RefreshCw, SearchX } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
@@ -28,6 +28,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import { SWITCH_CLASS } from "@/components/channel/SettingsCard";
 import { NUT_CHINH, NUT_PHU } from "@/components/channel/BottomActionBar";
 import { daKetNoi } from "@/components/channel/ketNoiShopify";
+import { daKetNoiLazada } from "@/components/channel/ketNoiLazada";
 import ThaoTacDongBo from "@/components/channel/ThaoTacDongBo";
 import useDongBoNgay from "@/components/channel/useDongBoNgay";
 import {
@@ -160,20 +161,27 @@ function DemTrangThai({ so, nhan, mau, className, truoc }) {
  */
 export default function ChannelMappingsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isLazada = location.pathname.includes("/channels/lazada");
+  const SAN = SAN_BAN_HANG.find((s) => s.maKenh === (isLazada ? "LAZADA" : "SHOPIFY")) ?? SAN_BAN_HANG[0];
+
   const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);
   const tabTrangThai = LIEN_KET_TABS.find((t) => t.ma === tab)?.trangThai ?? null;
   const [searchText, setSearchText] = useState("");
   const [tuKhoa, setTuKhoa] = useState("");
   const [trang, setTrang] = useState(() => ({ page: 0, size: soDongDaNho() }));
 
-  const cfg = useTaiDuLieu(() => kenhBanHangService.getShopifyConfig(), "cau-hinh-shopify");
-  const ketNoi = daKetNoi(cfg.data);
-  const ch = useTaiDuLieu(() => kenhBanHangService.getCauHinhDongBo(SAN.maKenh), "cau-hinh-dong-bo", { enabled: ketNoi });
-  const tq = useTaiDuLieu(() => kenhBanHangService.getTongQuan(SAN.maKenh), "tong-quan", { enabled: ketNoi });
+  const cfg = useTaiDuLieu(
+    () => (isLazada ? kenhBanHangService.getLazadaConfig() : kenhBanHangService.getShopifyConfig()),
+    isLazada ? "cau-hinh-lazada" : "cau-hinh-shopify",
+  );
+  const ketNoi = isLazada ? daKetNoiLazada(cfg.data) : daKetNoi(cfg.data);
+  const ch = useTaiDuLieu(() => kenhBanHangService.getCauHinhDongBo(SAN.maKenh), `cau-hinh-dong-bo-${SAN.maKenh}`, { enabled: ketNoi });
+  const tq = useTaiDuLieu(() => kenhBanHangService.getTongQuan(SAN.maKenh), `tong-quan-${SAN.maKenh}`, { enabled: ketNoi });
   const ds = useTaiDuLieu(
     () =>
       kenhBanHangService.filterLienKetTheoSanPham(SAN.maKenh, { page: trang.page, size: trang.size, search: tuKhoa, trangThai: tabTrangThai }),
-    `${tab}|${tuKhoa}|${trang.page}|${trang.size}`,
+    `${SAN.maKenh}|${tab}|${tuKhoa}|${trang.page}|${trang.size}`,
     { enabled: ketNoi },
   );
 

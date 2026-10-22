@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import LoadingState from "@/components/shared/LoadingState";
 import MockModeNotice from "@/components/shared/MockModeNotice";
 import SetupStepper from "@/components/channel/SetupStepper";
 import KetNoiShopifyForm from "@/components/channel/KetNoiShopifyForm";
+import KetNoiLazadaForm from "@/components/channel/KetNoiLazadaForm";
 import { TrangThaiCham } from "@/components/channel/HienThiKenh";
 import { ChonPhuongAn, CotCaiDat, DongCaiDat, TheCaiDat } from "@/components/channel/KhuonCaiDat";
 import { TheDonHang, TheTonKho } from "@/components/channel/CauHinhDongBoCards";
@@ -22,6 +23,13 @@ import {
   taoGiaTriKetNoi,
   taoPayloadKetNoi,
 } from "@/components/channel/ketNoiShopify";
+import {
+  coThayDoiKetNoiLazada,
+  daKetNoiLazada,
+  kiemTraGiaTriKetNoiLazada,
+  taoGiaTriKetNoiLazada,
+  taoPayloadKetNoiLazada,
+} from "@/components/channel/ketNoiLazada";
 import {
   QUY_TAC_MAC_DINH,
   cheDoTheoGiaTri,
@@ -66,16 +74,45 @@ function useDangChay() {
  */
 export default function ChannelSetupWizard() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isLazada = location.pathname.includes("/channels/lazada");
+  const SAN = SAN_BAN_HANG.find((s) => s.maKenh === (isLazada ? "LAZADA" : "SHOPIFY")) ?? SAN_BAN_HANG[0];
+  const TIEU_DE = `Thiết lập gian hàng ${SAN.ten}`;
+
   const [searchParams, setSearchParams] = useSearchParams();
   const [xongTrongPhien, setXongTrongPhien] = useState(() => new Set());
 
-  const cfg = useTaiDuLieu(() => kenhBanHangService.getShopifyConfig(), "cau-hinh-shopify");
+  const cfg = useTaiDuLieu(
+    () => (isLazada ? kenhBanHangService.getLazadaConfig() : kenhBanHangService.getShopifyConfig()),
+    isLazada ? "cau-hinh-lazada" : "cau-hinh-shopify",
+  );
   const config = cfg.data;
-  const ketNoi = daKetNoi(config);
-  const ch = useTaiDuLieu(() => kenhBanHangService.getCauHinhDongBo(SAN.maKenh), "cau-hinh-dong-bo");
-  const tq = useTaiDuLieu(() => kenhBanHangService.getTongQuan(SAN.maKenh), "tong-quan", { enabled: ketNoi });
-  const kho = useTaiDuLieu(() => kenhBanHangService.getKhoSan(SAN.maKenh).catch(() => []), "kho-san", { enabled: ketNoi });
+  const ketNoi = isLazada ? daKetNoiLazada(config) : daKetNoi(config);
+  const ch = useTaiDuLieu(() => kenhBanHangService.getCauHinhDongBo(SAN.maKenh), `cau-hinh-dong-bo-${SAN.maKenh}`);
+  const tq = useTaiDuLieu(() => kenhBanHangService.getTongQuan(SAN.maKenh), `tong-quan-${SAN.maKenh}`, { enabled: ketNoi });
+  const kho = useTaiDuLieu(() => kenhBanHangService.getKhoSan(SAN.maKenh).catch(() => []), `kho-san-${SAN.maKenh}`, { enabled: ketNoi });
   const khoSan = tenDiaDiemNhanTon(kho);
+
+  // Bắt callback code OAuth từ Lazada
+  useEffect(() => {
+    const code = searchParams.get("code");
+    if (code && isLazada) {
+      (async () => {
+        try {
+          const res = await kenhBanHangService.exchangeLazadaToken({ code });
+          if (res?.success) {
+            toast.success(res.message || "Xác thực OAuth Lazada thành công!");
+            cfg.reload();
+          }
+        } catch (err) {
+          toast.error(getApiErrorMessage(err, "Không đổi được mã xác thực Lazada"));
+        } finally {
+          searchParams.delete("code");
+          setSearchParams(searchParams, { replace: true });
+        }
+      })();
+    }
+  }, [searchParams, isLazada]);
 
   const daXong = (so) => {
     if (so === 1) return ketNoi;
@@ -131,6 +168,7 @@ export default function ChannelSetupWizard() {
             {buoc === 1 ? (
               <BuocKetNoi
                 key={`ket-noi-${config?.ngayCapNhat ?? "moi"}`}
+                isLazada={isLazada}
                 config={config}
                 onHuy={huyBo}
                 onXong={(dto) => {
@@ -141,6 +179,7 @@ export default function ChannelSetupWizard() {
             ) : buoc === 2 ? (
               <BuocTonKho
                 key="ton-kho"
+                san={SAN}
                 cauHinh={ch.data}
                 khoSan={khoSan}
                 onHuy={huyBo}
@@ -153,6 +192,7 @@ export default function ChannelSetupWizard() {
             ) : buoc === 3 ? (
               <BuocDonHang
                 key="don-hang"
+                san={SAN}
                 cauHinh={ch.data}
                 onHuy={huyBo}
                 onQuayLai={() => denBuoc(2)}
@@ -163,6 +203,7 @@ export default function ChannelSetupWizard() {
               />
             ) : (
               <BuocLienKet
+                san={SAN}
                 tongQuan={tq.data}
                 dangTaiTongQuan={tq.loading}
                 onTaiLai={tq.reload}
@@ -224,12 +265,12 @@ function HangNut({ onHuy, onQuayLai, onTiep, nhanTiep = "Tiếp theo", khoa = fa
 
 // ─────────────────────────── Bước 1: Gian hàng ───────────────────────────
 
-function BuocKetNoi({ config, onHuy, onXong }) {
-  const [values, setValues] = useState(() => taoGiaTriKetNoi(config));
+function BuocKetNoi({ isLazada, config, onHuy, onXong }) {
+  const [values, setValues] = useState(() => (isLazada ? taoGiaTriKetNoiLazada(config) : taoGiaTriKetNoi(config)));
   const [errors, setErrors] = useState({});
   const [result, setResult] = useState(null);
   const [dangChay, chay] = useDangChay();
-  const daCo = daKetNoi(config);
+  const daCo = isLazada ? daKetNoiLazada(config) : daKetNoi(config);
 
   const doi = (name, value) => {
     setValues((cu) => ({ ...cu, [name]: value }));
@@ -238,50 +279,95 @@ function BuocKetNoi({ config, onHuy, onXong }) {
 
   const tiepTheo = () =>
     chay("luu", async () => {
-      if (daCo && !coThayDoiKetNoi(values, config)) {
-        onXong(null);
-        return;
-      }
-      const loi = kiemTraGiaTriKetNoi(values, config);
-      setErrors(loi);
-      if (Object.keys(loi).length) return;
-      setResult(null);
-      const payload = taoPayloadKetNoi(values, config);
-      try {
-        // Kiểm tra khóa với Shopify trước, tránh lưu khóa sai
-        const kiemTra = await kenhBanHangService.testShopifyConnection({
-          shopDomain: payload.shopDomain,
-          accessToken: payload.accessToken,
-        });
-        if (!kiemTra?.connected) {
-          setResult({ ok: false, title: "Chưa kết nối được", message: kiemTra?.message || "Shopify không chấp nhận khóa này." });
+      if (isLazada) {
+        if (daCo && !coThayDoiKetNoiLazada(values, config)) {
+          onXong(null);
           return;
         }
-        const dto = await kenhBanHangService.updateShopifyConfig(payload);
-        toast.success(`Đã kết nối ${kiemTra.shopName || payload.shopDomain}`);
-        onXong(dto);
-      } catch (error) {
-        setValues((cu) => ({ ...cu, accessToken: "", apiSecret: "", refreshToken: "" }));
-        setResult({ ok: false, title: "Chưa lưu được kết nối", message: getApiErrorMessage(error, "Không lưu được kết nối Shopify") });
+        const loi = kiemTraGiaTriKetNoiLazada(values, config);
+        setErrors(loi);
+        if (Object.keys(loi).length) return;
+        setResult(null);
+        const payload = taoPayloadKetNoiLazada(values, config);
+        try {
+          const kiemTra = await kenhBanHangService.testLazadaConnection({
+            appKey: payload.appKey,
+            appSecret: payload.appSecret,
+            accessToken: payload.accessToken,
+          });
+          if (!kiemTra?.connected) {
+            setResult({ ok: false, title: "Chưa kết nối được", message: kiemTra?.message || "Lazada không chấp nhận thông tin này." });
+            return;
+          }
+          const dto = await kenhBanHangService.updateLazadaConfig(payload);
+          toast.success(`Đã kết nối gian hàng Lazada ${kiemTra.shopName || payload.appKey}`);
+          onXong(dto);
+        } catch (error) {
+          setValues((cu) => ({ ...cu, appSecret: "", accessToken: "", refreshToken: "" }));
+          setResult({ ok: false, title: "Chưa lưu được kết nối", message: getApiErrorMessage(error, "Không lưu được kết nối Lazada") });
+        }
+      } else {
+        if (daCo && !coThayDoiKetNoi(values, config)) {
+          onXong(null);
+          return;
+        }
+        const loi = kiemTraGiaTriKetNoi(values, config);
+        setErrors(loi);
+        if (Object.keys(loi).length) return;
+        setResult(null);
+        const payload = taoPayloadKetNoi(values, config);
+        try {
+          const kiemTra = await kenhBanHangService.testShopifyConnection({
+            shopDomain: payload.shopDomain,
+            accessToken: payload.accessToken,
+          });
+          if (!kiemTra?.connected) {
+            setResult({ ok: false, title: "Chưa kết nối được", message: kiemTra?.message || "Shopify không chấp nhận khóa này." });
+            return;
+          }
+          const dto = await kenhBanHangService.updateShopifyConfig(payload);
+          toast.success(`Đã kết nối ${kiemTra.shopName || payload.shopDomain}`);
+          onXong(dto);
+        } catch (error) {
+          setValues((cu) => ({ ...cu, accessToken: "", apiSecret: "", refreshToken: "" }));
+          setResult({ ok: false, title: "Chưa lưu được kết nối", message: getApiErrorMessage(error, "Không lưu được kết nối Shopify") });
+        }
       }
     });
 
   return (
     <>
       <TheCaiDat
-        title="Kết nối gian hàng"
-        description="Dùng khóa của ứng dụng đã cài trong cửa hàng, có quyền đọc sản phẩm, đơn hàng và đọc, ghi tồn kho."
+        title={isLazada ? "Kết nối gian hàng Lazada" : "Kết nối gian hàng"}
+        description={
+          isLazada
+            ? "Dùng App Key và App Secret từ Lazada Open Platform để đồng bộ đơn và tồn kho."
+            : "Dùng khóa của ứng dụng đã cài trong cửa hàng, có quyền đọc sản phẩm, đơn hàng và đọc, ghi tồn kho."
+        }
       >
         <div className="px-6 pb-6 pt-3">
-          <KetNoiShopifyForm
-            values={values}
-            errors={errors}
-            onChange={doi}
-            config={config}
-            disabled={Boolean(dangChay)}
-            result={result}
-            onResult={setResult}
-          />
+          {isLazada ? (
+            <KetNoiLazadaForm
+              values={values}
+              errors={errors}
+              onChange={doi}
+              config={config}
+              disabled={Boolean(dangChay)}
+              result={result}
+              onResult={setResult}
+              onRefreshSuccess={() => onXong(config)}
+            />
+          ) : (
+            <KetNoiShopifyForm
+              values={values}
+              errors={errors}
+              onChange={doi}
+              config={config}
+              disabled={Boolean(dangChay)}
+              result={result}
+              onResult={setResult}
+            />
+          )}
         </div>
       </TheCaiDat>
       <HangNut onHuy={onHuy} onTiep={tiepTheo} khoa={Boolean(dangChay)} dangLuu={Boolean(dangChay)} />
@@ -291,7 +377,8 @@ function BuocKetNoi({ config, onHuy, onXong }) {
 
 // ─────────────────────────── Bước 2: Tồn kho ───────────────────────────
 
-function BuocTonKho({ cauHinh, khoSan, onHuy, onQuayLai, onXong }) {
+function BuocTonKho({ san, cauHinh, khoSan, onHuy, onQuayLai, onXong }) {
+  const currentSan = san || SAN_BAN_HANG[0];
   const [values, setValues] = useState(() => taoGiaTriCauHinh(cauHinh));
   const [cheDo, setCheDo] = useState(() => cheDoTheoGiaTri(taoGiaTriCauHinh(cauHinh)));
   const [errors, setErrors] = useState({});
@@ -318,7 +405,7 @@ function BuocTonKho({ cauHinh, khoSan, onHuy, onQuayLai, onXong }) {
         return;
       }
       try {
-        const dto = await kenhBanHangService.luuCauHinhDongBo(SAN.maKenh, taoPayloadCauHinh(values, "ton-kho"));
+        const dto = await kenhBanHangService.luuCauHinhDongBo(currentSan.maKenh, taoPayloadCauHinh(values, "ton-kho"));
         onXong(dto);
       } catch (error) {
         toast.error(getApiErrorMessage(error, "Không lưu được cấu hình tồn kho"));
@@ -328,7 +415,7 @@ function BuocTonKho({ cauHinh, khoSan, onHuy, onQuayLai, onXong }) {
   return (
     <>
       <TheTonKho
-        moTa={`Số FCentric gửi lên ${SAN.ten}. Sửa lại được ở Cấu hình.`}
+        moTa={`Số FCentric gửi lên ${currentSan.ten}. Sửa lại được ở Cấu hình.`}
         values={values}
         errors={errors}
         onChange={doi}
@@ -351,7 +438,8 @@ const LAY_DON_CU = [
   { value: "30", label: "30 ngày qua" },
 ];
 
-function BuocDonHang({ cauHinh, onHuy, onQuayLai, onXong }) {
+function BuocDonHang({ san, cauHinh, onHuy, onQuayLai, onXong }) {
+  const currentSan = san || SAN_BAN_HANG[0];
   const [values, setValues] = useState(() => taoGiaTriCauHinh(cauHinh));
   const [layDonCu, setLayDonCu] = useState("0");
   const [dangChay, chay] = useDangChay();
@@ -360,7 +448,7 @@ function BuocDonHang({ cauHinh, onHuy, onQuayLai, onXong }) {
     chay("luu", async () => {
       let dto;
       try {
-        dto = await kenhBanHangService.luuCauHinhDongBo(SAN.maKenh, taoPayloadCauHinh(values, "don-hang"));
+        dto = await kenhBanHangService.luuCauHinhDongBo(currentSan.maKenh, taoPayloadCauHinh(values, "don-hang"));
       } catch (error) {
         toast.error(getApiErrorMessage(error, "Không lưu được cấu hình đơn hàng"));
         return;
@@ -368,11 +456,11 @@ function BuocDonHang({ cauHinh, onHuy, onQuayLai, onXong }) {
       const soNgay = Number(layDonCu);
       if (soNgay > 0) {
         try {
-          const res = await kenhBanHangService.layDon(SAN.maKenh, {
+          const res = await kenhBanHangService.layDon(currentSan.maKenh, {
             tu: new Date(`${ngayIso(soNgay - 1)}T00:00:00`).toISOString(),
             den: new Date().toISOString(),
           });
-          toast.success(`Đã lấy ${soVN(res?.soDonMoi)} đơn mới từ ${SAN.ten}`);
+          toast.success(`Đã lấy ${soVN(res?.soDonMoi)} đơn mới từ ${currentSan.ten}`);
         } catch (error) {
           // Cấu hình đã lưu; báo lỗi lấy đơn nhưng vẫn cho đi tiếp
           toast.error(getApiErrorMessage(error, "Chưa lấy được đơn cũ, có thể lấy lại ở trang Đơn hàng"));
@@ -384,7 +472,7 @@ function BuocDonHang({ cauHinh, onHuy, onQuayLai, onXong }) {
   return (
     <>
       <TheDonHang
-        moTa={`Đơn ${SAN.ten} thành đơn bán hàng để kho xử lý.`}
+        moTa={`Đơn ${currentSan.ten} thành đơn bán hàng để kho xử lý.`}
         values={values}
         onChange={(name, value) => setValues((cu) => ({ ...cu, [name]: value }))}
         cauHinh={cauHinh}
@@ -427,7 +515,8 @@ function SoTomTat({ nhan, giaTri, loi = false }) {
   );
 }
 
-function BuocLienKet({ tongQuan, dangTaiTongQuan, onTaiLai, onHuy, onQuayLai, onHoanTat }) {
+function BuocLienKet({ san, tongQuan, dangTaiTongQuan, onTaiLai, onHuy, onQuayLai, onHoanTat }) {
+  const currentSan = san || SAN_BAN_HANG[0];
   const [ketQuaTai, setKetQuaTai] = useState(null);
   const [ketQuaDay, setKetQuaDay] = useState(null);
   const [hoiDay, setHoiDay] = useState(false);
@@ -439,12 +528,12 @@ function BuocLienKet({ tongQuan, dangTaiTongQuan, onTaiLai, onHuy, onQuayLai, on
     chay("tai", async () => {
       setKetQuaTai(null);
       try {
-        const res = await kenhBanHangService.taiSanPham(SAN.maKenh);
-        const kq = ketQuaTaiSanPham(res, SAN.ten);
+        const res = await kenhBanHangService.taiSanPham(currentSan.maKenh);
+        const kq = ketQuaTaiSanPham(res, currentSan.ten);
         setKetQuaTai({ ok: true, title: kq.title });
         onTaiLai();
       } catch (error) {
-        setKetQuaTai({ ok: false, title: "Chưa tải được sản phẩm", message: getApiErrorMessage(error, "Không tải được sản phẩm từ Shopify") });
+        setKetQuaTai({ ok: false, title: "Chưa tải được sản phẩm", message: getApiErrorMessage(error, `Không tải được sản phẩm từ ${currentSan.ten}`) });
       }
     });
 
@@ -452,13 +541,13 @@ function BuocLienKet({ tongQuan, dangTaiTongQuan, onTaiLai, onHuy, onQuayLai, on
     chay("day", async () => {
       setKetQuaDay(null);
       try {
-        const res = await kenhBanHangService.dayVaLienKetSanPham(SAN.maKenh);
+        const res = await kenhBanHangService.dayVaLienKetSanPham(currentSan.maKenh);
         setHoiDay(false);
-        setKetQuaDay(ketQuaDayLenSan(res, SAN.ten));
+        setKetQuaDay(ketQuaDayLenSan(res, currentSan.ten));
         onTaiLai();
       } catch (error) {
         setHoiDay(false);
-        setKetQuaDay({ ok: false, title: "Chưa đưa được sản phẩm lên", message: getApiErrorMessage(error, "Không đưa được sản phẩm lên Shopify") });
+        setKetQuaDay({ ok: false, title: "Chưa đưa được sản phẩm lên", message: getApiErrorMessage(error, `Không đưa được sản phẩm lên ${currentSan.ten}`) });
       }
     });
 
@@ -472,14 +561,14 @@ function BuocLienKet({ tongQuan, dangTaiTongQuan, onTaiLai, onHuy, onQuayLai, on
           <SoTomTat nhan="Đang đồng bộ" giaTri={chuaCo ? "…" : soVN(tongQuan?.daLienKet)} />
           <SoTomTat nhan="Lỗi" giaTri={chuaCo ? "…" : soVN(tongQuan?.loiDongBo)} loi={Number(tongQuan?.loiDongBo) > 0} />
           <Link
-            to={`${SAN.duongDan}/products`}
+            to={`${currentSan.duongDan}/products`}
             className="ml-auto text-sm font-medium text-bo-primary hover:text-bo-primary-hover hover:underline"
           >
             Xem danh sách
           </Link>
         </div>
         <DongCaiDat
-          title={`Ghép với sản phẩm đang có trên ${SAN.ten}`}
+          title={`Ghép với sản phẩm đang có trên ${currentSan.ten}`}
           description={`Không thay đổi gì trên ${SAN.ten}.`}
           control={
             <Button type="button" variant="outline" disabled={Boolean(dangChay)} onClick={taiVaGhep} className={nutPhu}>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import { KeyRound, ListRestart, Loader2, MoreHorizontal, RefreshCw } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import { Button } from "@/components/ui/button";
@@ -12,12 +12,14 @@ import LoadingState from "@/components/shared/LoadingState";
 import MockModeNotice from "@/components/shared/MockModeNotice";
 import ChannelLogo from "@/components/channel/ChannelLogo";
 import ShopifyConfigDialog from "@/components/channel/ShopifyConfigDialog";
+import LazadaConfigDialog from "@/components/channel/LazadaConfigDialog";
 import { TrangThaiCham } from "@/components/channel/HienThiKenh";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { TheCaiDat, ThanhLuuTrenCung } from "@/components/channel/KhuonCaiDat";
 import { SWITCH_CLASS } from "@/components/channel/SettingsCard";
 import { TheDonHang, TheTonKho } from "@/components/channel/CauHinhDongBoCards";
 import { daKetNoi, trangThaiKetNoi } from "@/components/channel/ketNoiShopify";
+import { daKetNoiLazada, trangThaiKetNoiLazada } from "@/components/channel/ketNoiLazada";
 import {
   QUY_TAC_MAC_DINH,
   cheDoTheoGiaTri,
@@ -33,19 +35,24 @@ import { isChannelMock, kenhBanHangService } from "@/services/kenhBanHangService
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { getApiErrorMessage } from "@/utils/apiError";
 
-const SAN = SAN_BAN_HANG.find((s) => s.maKenh === "SHOPIFY");
-const TIEU_DE = `Cấu hình ${SAN.ten}`;
-
 /**
- * Cấu hình gian hàng Shopify, bố cục lưới thẻ: thẻ Gian hàng một hàng ngang ở trên,
+ * Cấu hình gian hàng (Shopify / Lazada), bố cục lưới thẻ: thẻ Gian hàng một hàng ngang ở trên,
  * Tồn kho và Đơn hàng cạnh nhau bên dưới.
  * Có thay đổi thì thanh "Có thay đổi chưa lưu" hiện ở trên cùng; lưu một lần cho cả trang.
  */
 export default function ChannelSettingsPage() {
-  const cfg = useTaiDuLieu(() => kenhBanHangService.getShopifyConfig(), "cau-hinh-shopify");
-  const ch = useTaiDuLieu(() => kenhBanHangService.getCauHinhDongBo(SAN.maKenh), "cau-hinh-dong-bo");
-  const ketNoi = daKetNoi(cfg.data);
-  const kho = useTaiDuLieu(() => kenhBanHangService.getKhoSan(SAN.maKenh).catch(() => []), "kho-san", { enabled: ketNoi });
+  const location = useLocation();
+  const isLazada = location.pathname.includes("/channels/lazada");
+  const SAN = SAN_BAN_HANG.find((s) => s.maKenh === (isLazada ? "LAZADA" : "SHOPIFY")) ?? SAN_BAN_HANG[0];
+  const TIEU_DE = `Cấu hình ${SAN.ten}`;
+
+  const cfg = useTaiDuLieu(
+    () => (isLazada ? kenhBanHangService.getLazadaConfig() : kenhBanHangService.getShopifyConfig()),
+    isLazada ? "cau-hinh-lazada" : "cau-hinh-shopify",
+  );
+  const ch = useTaiDuLieu(() => kenhBanHangService.getCauHinhDongBo(SAN.maKenh), `cau-hinh-dong-bo-${SAN.maKenh}`);
+  const ketNoi = isLazada ? daKetNoiLazada(cfg.data) : daKetNoi(cfg.data);
+  const kho = useTaiDuLieu(() => kenhBanHangService.getKhoSan(SAN.maKenh).catch(() => []), `kho-san-${SAN.maKenh}`, { enabled: ketNoi });
   const khoSan = tenDiaDiemNhanTon(kho);
 
   if (cfg.initialLoading || ch.initialLoading) {
@@ -78,6 +85,9 @@ export default function ChannelSettingsPage() {
 
   return (
     <SettingsForm
+      san={SAN}
+      isLazada={isLazada}
+      tieuDe={TIEU_DE}
       config={cfg.data}
       cauHinh={ch.data}
       khoSan={khoSan}
@@ -87,7 +97,7 @@ export default function ChannelSettingsPage() {
   );
 }
 
-function SettingsForm({ config, cauHinh, khoSan, onConfigSaved, onCauHinhSaved }) {
+function SettingsForm({ san, isLazada, tieuDe, config, cauHinh, khoSan, onConfigSaved, onCauHinhSaved }) {
   const [values, setValues] = useState(() => taoGiaTriCauHinh(cauHinh));
   const [cheDo, setCheDo] = useState(() => cheDoTheoGiaTri(taoGiaTriCauHinh(cauHinh)));
   const [errors, setErrors] = useState({});
@@ -129,7 +139,6 @@ function SettingsForm({ config, cauHinh, khoSan, onConfigSaved, onCauHinhSaved }
     setErrors((cu) => ({ ...cu, [name]: undefined }));
   };
 
-  // "Bằng số khả dụng" = 100%, không giữ lại, không ngưỡng; chọn lại "Tùy chỉnh" thì sửa từ các số đó
   const doiCheDo = (moi) => {
     setCheDo(moi);
     if (moi === "bang") {
@@ -157,16 +166,22 @@ function SettingsForm({ config, cauHinh, khoSan, onConfigSaved, onCauHinhSaved }
       }
       try {
         if (doiCauHinh) {
-          const dto = await kenhBanHangService.luuCauHinhDongBo(SAN.maKenh, taoPayloadCauHinh(values));
+          const dto = await kenhBanHangService.luuCauHinhDongBo(san.maKenh, taoPayloadCauHinh(values));
           onCauHinhSaved(dto);
           const moi = taoGiaTriCauHinh(dto);
           setValues(moi);
           setCheDo(cheDoTheoGiaTri(moi));
         }
         if (doiGianHang) {
-          onConfigSaved(
-            await kenhBanHangService.updateShopifyConfig({ shopDomain: config.shopDomain, trangThai: dongBoGianHang ? 1 : 0 }),
-          );
+          if (isLazada) {
+            onConfigSaved(
+              await kenhBanHangService.updateLazadaConfig({ appKey: config.appKey, trangThai: dongBoGianHang ? 1 : 0 }),
+            );
+          } else {
+            onConfigSaved(
+              await kenhBanHangService.updateShopifyConfig({ shopDomain: config.shopDomain, trangThai: dongBoGianHang ? 1 : 0 }),
+            );
+          }
         }
         toast.success("Đã lưu cấu hình");
       } catch (error) {
@@ -178,12 +193,21 @@ function SettingsForm({ config, cauHinh, khoSan, onConfigSaved, onCauHinhSaved }
     chay("kiem-tra", async () => {
       setKetQuaKetNoi(null);
       try {
-        const res = await kenhBanHangService.testShopifyConnection({ shopDomain: config.shopDomain, accessToken: null });
-        setKetQuaKetNoi(
-          res?.connected
-            ? { ok: true, text: ["Kết nối tốt", res.shopName].filter(Boolean).join(" · ") }
-            : { ok: false, text: res?.message || "Kết nối thất bại" },
-        );
+        if (isLazada) {
+          const res = await kenhBanHangService.testLazadaConnection({ appKey: config.appKey, accessToken: null });
+          setKetQuaKetNoi(
+            res?.connected
+              ? { ok: true, text: ["Kết nối tốt", res.shopName].filter(Boolean).join(" · ") }
+              : { ok: false, text: res?.message || "Kết nối thất bại" },
+          );
+        } else {
+          const res = await kenhBanHangService.testShopifyConnection({ shopDomain: config.shopDomain, accessToken: null });
+          setKetQuaKetNoi(
+            res?.connected
+              ? { ok: true, text: ["Kết nối tốt", res.shopName].filter(Boolean).join(" · ") }
+              : { ok: false, text: res?.message || "Kết nối thất bại" },
+          );
+        }
       } catch (error) {
         setKetQuaKetNoi({ ok: false, text: getApiErrorMessage(error, "Không kiểm tra được kết nối") });
       }
@@ -192,7 +216,9 @@ function SettingsForm({ config, cauHinh, khoSan, onConfigSaved, onCauHinhSaved }
   const capLaiKhoa = () =>
     chay("cap-lai-khoa", async () => {
       try {
-        const dto = await kenhBanHangService.refreshShopifyToken();
+        const dto = isLazada
+          ? await kenhBanHangService.refreshLazadaToken()
+          : await kenhBanHangService.refreshShopifyToken();
         if (dto && typeof dto === "object") onConfigSaved(dto);
         toast.success("Đã cấp lại khóa truy cập");
       } catch (error) {
@@ -202,27 +228,32 @@ function SettingsForm({ config, cauHinh, khoSan, onConfigSaved, onCauHinhSaved }
 
   const khoa = Boolean(dangChay);
 
-  const tinhTrang = CONNECTION_STATUS[trangThaiKetNoi(config)] ?? trangThaiLa(trangThaiKetNoi(config));
+  const rawTrangThai = isLazada ? trangThaiKetNoiLazada(config) : trangThaiKetNoi(config);
+  const tinhTrang = CONNECTION_STATUS[rawTrangThai] ?? trangThaiLa(rawTrangThai);
   const nutMenu = "cursor-pointer gap-2 rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
 
-  // Bố cục B (lưới thẻ): cùng khung với Sản phẩm, Đơn hàng; thẻ Gian hàng một hàng ngang;
-  // Tồn kho và Đơn hàng cạnh nhau, cao bằng nhau (dưới 1280 px xếp chồng)
+  const tenHienThiGianHang = isLazada
+    ? (config?.shopName || config?.sellerId ? `${config?.shopName || "Lazada Store"} (${config?.sellerId || ""})` : "Gian hàng Lazada")
+    : (config?.shopDomain || "Chưa kết nối");
+
   return (
     <PageContainer>
       <div className="flex flex-col gap-4">
-        <ListPageHeader title={TIEU_DE} />
+        <ListPageHeader title={tieuDe} />
         <MockModeNotice show={isChannelMock} />
 
         <TheCaiDat aria-label="Gian hàng">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3 px-6 py-5">
             <div className="flex min-w-0 items-center gap-4">
-              <ChannelLogo maKenh={SAN.maKenh} size={40} />
+              <ChannelLogo maKenh={san.maKenh} size={40} />
               <div className="min-w-0">
-                <p className="text-[15px] font-semibold leading-5 text-bo-heading">Gian hàng {SAN.ten}</p>
+                <p className="text-[15px] font-semibold leading-5 text-bo-heading">Gian hàng {san.ten}</p>
                 <p className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 text-[13px] leading-5 text-bo-muted">
-                  <span className="truncate">{config.shopDomain}</span>
+                  <span className="truncate">{tenHienThiGianHang}</span>
                   <span aria-hidden="true">·</span>
-                  <span className="tabular-nums">Khóa {config.accessTokenMasked || "đã lưu"}</span>
+                  <span className="tabular-nums">
+                    {isLazada ? (config?.accessTokenMasked ? `Token ${config.accessTokenMasked}` : "Chưa có token") : `Khóa ${config?.accessTokenMasked || "đã lưu"}`}
+                  </span>
                 </p>
                 {ketQuaKetNoi ? (
                   <p role="status" className="mt-1">
@@ -280,16 +311,16 @@ function SettingsForm({ config, cauHinh, khoSan, onConfigSaved, onCauHinhSaved }
                   <DropdownMenuContent align="end" className="w-60 z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg">
                     <DropdownMenuItem onClick={() => setMoDoiKhoa(true)} className={nutMenu}>
                       <KeyRound className="size-4 text-bo-muted" />
-                      Cập nhật khóa truy cập
+                      Cập nhật thông tin kết nối
                     </DropdownMenuItem>
-                    {config.hasRefreshToken ? (
+                    {config?.hasRefreshToken ? (
                       <DropdownMenuItem onClick={capLaiKhoa} className={nutMenu}>
                         <RefreshCw className="size-4 text-bo-muted" />
                         Cấp lại khóa
                       </DropdownMenuItem>
                     ) : null}
                     <DropdownMenuItem asChild className={nutMenu}>
-                      <Link to={`${SAN.duongDan}/setup?buoc=1`}>
+                      <Link to={`${san.duongDan}/setup?buoc=1`}>
                         <ListRestart className="size-4 text-bo-muted" />
                         Chạy lại trình thiết lập
                       </Link>
@@ -303,7 +334,7 @@ function SettingsForm({ config, cauHinh, khoSan, onConfigSaved, onCauHinhSaved }
 
         <div className="grid gap-4 xl:grid-cols-2">
           <TheTonKho
-            moTa={`Số FCentric gửi lên ${SAN.ten}.`}
+            moTa={`Số FCentric gửi lên ${san.ten}.`}
             values={values}
             errors={errors}
             onChange={doi}
@@ -314,7 +345,7 @@ function SettingsForm({ config, cauHinh, khoSan, onConfigSaved, onCauHinhSaved }
             disabled={khoa}
           />
           <TheDonHang
-            moTa={`Đơn ${SAN.ten} thành đơn bán hàng để kho xử lý.`}
+            moTa={`Đơn ${san.ten} thành đơn bán hàng để kho xử lý.`}
             values={values}
             onChange={doi}
             cauHinh={cauHinh}
@@ -326,7 +357,19 @@ function SettingsForm({ config, cauHinh, khoSan, onConfigSaved, onCauHinhSaved }
 
       <ThanhLuuTrenCung hien={coThayDoi} dangLuu={dangChay === "luu"} khoa={khoa} onHuy={huyThayDoi} onLuu={luu} />
 
-      {moDoiKhoa ? (
+      {moDoiKhoa && isLazada ? (
+        <LazadaConfigDialog
+          open
+          onOpenChange={setMoDoiKhoa}
+          config={config}
+          onSaved={(dto) => {
+            onConfigSaved(dto);
+            setMoDoiKhoa(false);
+            setKetQuaKetNoi(null);
+            toast.success("Đã cập nhật thông tin kết nối Lazada");
+          }}
+        />
+      ) : moDoiKhoa ? (
         <ShopifyConfigDialog
           open
           onOpenChange={setMoDoiKhoa}

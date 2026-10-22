@@ -40,6 +40,13 @@ const realApi = {
   testShopifyConnection: (payload) => apiClient.post(`${BASE}/shopify/test-connection`, payload).then(data),
   refreshShopifyToken: () => apiClient.post(`${BASE}/shopify/refresh-token`).then(data),
 
+  getLazadaConfig: () => apiClient.get(`${BASE}/lazada`).then(data),
+  updateLazadaConfig: (payload) => apiClient.put(`${BASE}/lazada`, payload).then(data),
+  testLazadaConnection: (payload) => apiClient.post(`${BASE}/lazada/test-connection`, payload).then(data),
+  getLazadaAuthUrl: (redirectUri) => apiClient.get(`${BASE}/lazada/auth-url`, { params: { redirectUri } }).then(data),
+  exchangeLazadaToken: (payload) => apiClient.post(`${BASE}/lazada/exchange-token`, payload).then(data),
+  refreshLazadaToken: () => apiClient.post(`${BASE}/lazada/refresh-token`).then(data),
+
   // ── Cấu hình đồng bộ theo kênh ──
   getCauHinhDongBo: (maKenh) => apiClient.get(`${BASE}/${ma(maKenh)}/cau-hinh-dong-bo`).then(data),
   luuCauHinhDongBo: (maKenh, payload) => apiClient.put(`${BASE}/${ma(maKenh)}/cau-hinh-dong-bo`, payload).then(data),
@@ -175,6 +182,74 @@ const mockApi = {
   updateShopifyConfig: kenhBanHangMock.updateShopifyConfig,
   testShopifyConnection: kenhBanHangMock.testShopifyConnection,
   refreshShopifyToken: kenhBanHangMock.refreshShopifyToken,
+
+  async getLazadaConfig() {
+    await mockDelay();
+    return {
+      appKey: "104829",
+      appSecretMasked: "************************",
+      accessTokenMasked: "5000************************",
+      hasAppSecret: true,
+      hasAccessToken: true,
+      hasRefreshToken: true,
+      tokenExpiresAt: new Date(Date.now() + 25 * 86400000).toISOString(),
+      sellerId: "VN104829",
+      shopName: "FCentric Lazada Flagship Store",
+      country: "VN",
+      trangThai: 1,
+    };
+  },
+  async updateLazadaConfig(payload) {
+    await mockDelay(200, 400);
+    return {
+      appKey: payload.appKey || "104829",
+      appSecretMasked: "************************",
+      accessTokenMasked: "5000************************",
+      hasAppSecret: true,
+      hasAccessToken: true,
+      hasRefreshToken: true,
+      tokenExpiresAt: new Date(Date.now() + 25 * 86400000).toISOString(),
+      sellerId: "VN104829",
+      shopName: "FCentric Lazada Flagship Store",
+      country: "VN",
+      trangThai: payload.trangThai ?? 1,
+    };
+  },
+  async testLazadaConnection() {
+    await mockDelay(300, 600);
+    return {
+      connected: true,
+      sellerId: "VN104829",
+      shopName: "FCentric Lazada Flagship Store",
+      shortCode: "VN104",
+      country: "VN",
+      message: "Kết nối thành công tới gian hàng Lazada (Mô phỏng)",
+    };
+  },
+  async getLazadaAuthUrl() {
+    await mockDelay();
+    return {
+      authUrl: "https://auth.lazada.com/oauth/authorize?response_type=code&client_id=104829",
+    };
+  },
+  async exchangeLazadaToken() {
+    await mockDelay(300, 600);
+    return {
+      success: true,
+      sellerId: "VN104829",
+      shopName: "FCentric Lazada Flagship Store",
+      expiresIn: 2592000,
+      message: "Ủy quyền OAuth Lazada thành công (Mô phỏng)",
+    };
+  },
+  async refreshLazadaToken() {
+    await mockDelay(300, 600);
+    return {
+      success: true,
+      expiresIn: 2592000,
+      message: "Làm mới Access Token Lazada thành công (Mô phỏng)",
+    };
+  },
 
   async getCauHinhDongBo(maKenh) {
     await mockDelay();

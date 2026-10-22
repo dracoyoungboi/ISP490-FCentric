@@ -206,19 +206,19 @@ export function locKhoDongBo(list) {
 
 // ── Màn Kênh bán hàng theo từng sàn (bố cục học từ trang quản lý kênh của Sapo) ──
 
-/** Các sàn hiển thị ở trang Kênh bán hàng. Hiện chỉ Shopify có tích hợp thật. */
+/** Các sàn hiển thị ở trang Kênh bán hàng. */
 export const SAN_BAN_HANG = [
   { maKenh: "SHOPIFY", ten: "Shopify", duongDan: "/channels/shopify", hoTro: true },
-  { maKenh: "LAZADA", ten: "Lazada", duongDan: null, hoTro: false },
+  { maKenh: "LAZADA", ten: "Lazada", duongDan: "/channels/lazada", hoTro: true },
   { maKenh: "TIKTOK", ten: "TikTok Shop", duongDan: null, hoTro: false },
 ];
 
 /** Bốn bước thiết lập gian hàng (tên ngắn trùng tên thẻ ở trang Cấu hình). */
 export const BUOC_THIET_LAP = [
-  { so: 1, ten: "Gian hàng", moTa: "Nhập tên miền và khóa truy cập của ứng dụng Shopify." },
-  { so: 2, ten: "Tồn kho", moTa: "Chọn cách cập nhật số tồn lên Shopify." },
-  { so: 3, ten: "Đơn hàng", moTa: "Bật nhận đơn mới từ Shopify về FCentric." },
-  { so: 4, ten: "Liên kết sản phẩm", moTa: "Ghép sản phẩm trên Shopify với biến thể FCentric." },
+  { so: 1, ten: "Gian hàng", moTa: "Nhập thông tin xác thực ứng dụng và kết nối gian hàng." },
+  { so: 2, ten: "Tồn kho", moTa: "Chọn cách cập nhật số tồn lên sàn thương mại điện tử." },
+  { so: 3, ten: "Đơn hàng", moTa: "Bật nhận đơn mới từ sàn về FCentric." },
+  { so: 4, ten: "Liên kết sản phẩm", moTa: "Ghép sản phẩm trên sàn với biến thể FCentric." },
 ];
 
 /**
