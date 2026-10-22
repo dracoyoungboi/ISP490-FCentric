@@ -8,6 +8,11 @@ import com.dev.backend.dto.request.KenhBanHangCaiDatRequest;
 import com.dev.backend.dto.request.KenhCauHinhDongBoRequest;
 import com.dev.backend.dto.request.LayDonHangKenhRequest;
 import com.dev.backend.dto.request.ShopifyConfigUpdating;
+import com.dev.backend.dto.request.LazadaConfigUpdating;
+import com.dev.backend.dto.request.LazadaOAuthCallbackRequest;
+import com.dev.backend.dto.request.LazadaTestConnectionRequest;
+import com.dev.backend.dto.response.customize.LazadaTestConnectionResponse;
+import com.dev.backend.dto.response.entities.LazadaConfigResponse;
 import com.dev.backend.dto.request.ShopifyTestConnectionRequest;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.*;
@@ -97,6 +102,91 @@ public class KenhBanHangController {
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangService.getShopifyConfig())
                         .message(success ? "Làm mới Access Token OAuth 2.0 thành công" : "Không thể làm mới token")
+                        .build()
+        );
+    }
+
+    // ── Lazada Open Platform Endpoints ──
+
+    @GetMapping("/lazada")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    @Operation(summary = "Lấy thông tin cấu hình kênh bán Lazada (Token đã mask an toàn)")
+    public ResponseEntity<ResponseData<LazadaConfigResponse>> getLazadaConfig() {
+        return ResponseEntity.ok(
+                ResponseData.<LazadaConfigResponse>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhBanHangService.getLazadaConfig())
+                        .message("Lấy cấu hình kênh bán Lazada thành công")
+                        .build()
+        );
+    }
+
+    @PutMapping("/lazada")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    @Operation(summary = "Cập nhật cấu hình kênh bán Lazada (Mã hóa AES-256-GCM credential trước khi lưu DB)")
+    public ResponseEntity<ResponseData<LazadaConfigResponse>> updateLazadaConfig(
+            @Valid @RequestBody LazadaConfigUpdating request) {
+        return ResponseEntity.ok(
+                ResponseData.<LazadaConfigResponse>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhBanHangService.updateLazadaConfig(request))
+                        .message("Cập nhật cấu hình Lazada thành công")
+                        .build()
+        );
+    }
+
+    @PostMapping("/lazada/test-connection")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    @Operation(summary = "Kiểm tra kết nối tới Lazada Open Platform API")
+    public ResponseEntity<ResponseData<LazadaTestConnectionResponse>> testLazadaConnection(
+            @RequestBody LazadaTestConnectionRequest request) {
+        LazadaTestConnectionResponse res = kenhBanHangService.testLazadaConnection(request);
+        return ResponseEntity.ok(
+                ResponseData.<LazadaTestConnectionResponse>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(res)
+                        .message(res.isConnected() ? "Kết nối Lazada thành công" : "Kiểm tra kết nối thất bại")
+                        .build()
+        );
+    }
+
+    @GetMapping("/lazada/auth-url")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    @Operation(summary = "Sinh URL ủy quyền Seller Authorization để đăng nhập Lazada Seller Center")
+    public ResponseEntity<ResponseData<String>> getLazadaAuthUrl(@RequestParam(required = false) String redirectUri) {
+        return ResponseEntity.ok(
+                ResponseData.<String>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhBanHangService.getLazadaAuthUrl(redirectUri))
+                        .message("Sinh URL ủy quyền Lazada thành công")
+                        .build()
+        );
+    }
+
+    @PostMapping("/lazada/exchange-token")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    @Operation(summary = "Đổi mã authorization code lấy Access Token và Refresh Token từ Lazada")
+    public ResponseEntity<ResponseData<LazadaConfigResponse>> exchangeLazadaToken(
+            @Valid @RequestBody LazadaOAuthCallbackRequest request) {
+        return ResponseEntity.ok(
+                ResponseData.<LazadaConfigResponse>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhBanHangService.exchangeLazadaToken(request))
+                        .message("Ủy quyền gian hàng Lazada thành công")
+                        .build()
+        );
+    }
+
+    @PostMapping("/lazada/refresh-token")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    @Operation(summary = "Chủ động làm mới Access Token OAuth 2.0 của Lazada bằng Refresh Token")
+    public ResponseEntity<ResponseData<LazadaConfigResponse>> refreshLazadaOAuthToken() {
+        boolean success = kenhBanHangService.refreshLazadaAccessToken();
+        return ResponseEntity.ok(
+                ResponseData.<LazadaConfigResponse>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhBanHangService.getLazadaConfig())
+                        .message(success ? "Làm mới Access Token Lazada thành công" : "Không thể làm mới token")
                         .build()
         );
     }
