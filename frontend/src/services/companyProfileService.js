@@ -1,30 +1,36 @@
 /**
- * Hồ sơ công ty DÙNG CHUNG cho mọi mẫu in.
+ * Thông tin cửa hàng DÙNG CHUNG cho mọi mẫu in và email.
  *
- * Tên công ty, mã số thuế, logo, email, điện thoại, địa chỉ nằm ở đây (một nơi duy nhất);
- * từng mẫu in chỉ quyết định CÓ HIỂN THỊ từng trường hay không (cấu hình
- * `branding` của mẫu), không lưu trùng dữ liệu công ty.
+ * Tên cửa hàng, tên đăng ký kinh doanh, mã số thuế, logo, email, điện thoại, địa chỉ đăng ký nằm ở đây
+ * (một nơi duy nhất); từng mẫu in chỉ quyết định CÓ HIỂN THỊ từng trường hay không (cấu hình
+ * `branding` của mẫu), không lưu trùng dữ liệu cửa hàng.
  *
  * Lưu trữ SERVER-SIDE (bảng thong_tin_cong_ty, một dòng duy nhất) để mọi
  * nhân viên in phiếu dùng chung một hồ sơ. Dữ liệu localStorage cũ
  * (fcentric.companyProfile.v1) được migrate một lần — chỉ khi server chưa
  * có dòng nào, không bao giờ ghi đè dữ liệu server bằng dữ liệu local.
+ *
+ * Không có giá trị mặc định: cửa hàng chưa nhập thì các ô rỗng, logo null (không dùng tên, logo phần mềm).
  */
 import apiClient from "./apiClient";
+import { EMAIL_RE, EMAIL_TOI_DA, PHONE_RE } from "@/validations/companyProfileSchema";
 
 const LEGACY_STORAGE_KEY = "fcentric.companyProfile.v1";
 const MIGRATED_FLAG_KEY = "fcentric.companyProfile.migrated";
 const PROFILE_VERSION = 1;
 
-export const DEFAULT_COMPANY_PROFILE = {
+/** Hồ sơ trống (cửa hàng mới chưa nhập gì). */
+export const HO_SO_TRONG = Object.freeze({
     version: PROFILE_VERSION,
-    name: "FCentric",
-    logoAsset: "/branding/f-centric-icon.svg",
+    name: "",
+    legalName: "",
+    logoAsset: null,
     taxCode: "",
     email: "",
     phone: "",
     address: "",
-};
+    ngayCapNhat: null,
+});
 
 // ── Cache server ───────────────────────────────────────────────────────────
 
@@ -45,12 +51,14 @@ async function loadProfile({ force = false } = {}) {
     return profilePromise;
 }
 
+// Máy chủ trả đối tượng (các trường null) khi chưa có hồ sơ: luôn trả đối tượng để trang in vẫn in được
 const toProfile = (dto) => {
-    if (!dto) return null;
+    if (!dto) return { ...HO_SO_TRONG };
     return {
         version: dto.version ?? PROFILE_VERSION,
-        name: dto.name ?? DEFAULT_COMPANY_PROFILE.name,
-        logoAsset: dto.logoAsset ?? DEFAULT_COMPANY_PROFILE.logoAsset,
+        name: dto.name ?? "",
+        legalName: dto.legalName ?? "",
+        logoAsset: dto.logoAsset || null,
         taxCode: dto.taxCode ?? "",
         email: dto.email ?? "",
         phone: dto.phone ?? "",
@@ -66,20 +74,21 @@ const applyProfileCache = (dto) => {
 };
 
 export const companyProfileService = {
-    /** Hồ sơ công ty từ server (cache). Lỗi -> reject để UI hiện trạng thái lỗi. */
-    get() {
-        return loadProfile();
+    /**
+     * Hồ sơ cửa hàng từ server (cache). `force: true` đọc lại máy chủ — trang Thông tin cửa hàng và
+     * trang Gửi yêu cầu báo giá cần bản mới nhất (người khác có thể vừa sửa). Lỗi -> reject để UI hiện trạng thái lỗi.
+     */
+    get({ force = false } = {}) {
+        return loadProfile({ force });
     },
 
-    /** Cập nhật hồ sơ (không đổi logo). */
-    async save(profile) {
-        const response = await apiClient.put("/api/v1/thong-tin-cong-ty", {
-            name: profile.name,
-            taxCode: profile.taxCode ?? "",
-            email: profile.email ?? "",
-            phone: profile.phone ?? "",
-            address: profile.address ?? "",
-        });
+    /**
+     * Cập nhật hồ sơ (không đổi logo). Chỉ gửi các khóa có trong `payload` (đã chuẩn hóa ở companyProfileSchema):
+     * máy chủ coi khóa không gửi là giữ nguyên, nên lưu một thẻ không xóa dữ liệu của thẻ kia.
+     */
+    async save(payload) {
+        const body = Object.fromEntries(Object.entries(payload ?? {}).filter(([, value]) => value !== undefined));
+        const response = await apiClient.put("/api/v1/thong-tin-cong-ty", body);
         return applyProfileCache(response.data?.data);
     },
 
@@ -97,6 +106,8 @@ export const companyProfileService = {
      * Migrate hồ sơ localStorage cũ lên server (một lần).
      * Chỉ upload khi server CHƯA có dòng nào (ngayCapNhat == null);
      * nếu server đã có dữ liệu thì bỏ dữ liệu local.
+     * Chuyển tên cửa hàng (bắt buộc, không có thì bỏ qua) cùng email, điện thoại, địa chỉ còn đúng dạng; máy chủ coi
+     * khóa không gửi là giữ nguyên. Bản cũ không có tên đăng ký kinh doanh: người dùng nhập ở Thông tin cửa hàng.
      */
     async migrateLegacyLocalIfNeeded() {
         if (window.localStorage.getItem(MIGRATED_FLAG_KEY)) return false;
@@ -113,20 +124,26 @@ export const companyProfileService = {
         }
 
         const current = await loadProfile();
-        if (!current || current.ngayCapNhat) {
+        if (!current || current.ngayCapNhat || current.name) {
             // Server đã có dòng (đã được cấu hình) — không ghi đè bằng dữ liệu local
             window.localStorage.removeItem(LEGACY_STORAGE_KEY);
             window.localStorage.setItem(MIGRATED_FLAG_KEY, "true");
             return false;
         }
-        await this.save({
-            name: legacy.name ?? DEFAULT_COMPANY_PROFILE.name,
-            email: legacy.email ?? "",
-            phone: legacy.phone ?? "",
-            address: legacy.address ?? "",
-        });
+        const cu = (key) => (typeof legacy[key] === "string" ? legacy[key].trim() : "");
+        const tenCu = cu("name");
+        if (tenCu) {
+            const email = cu("email");
+            const dienThoai = cu("phone");
+            await this.save({
+                name: tenCu,
+                email: email && email.length <= EMAIL_TOI_DA && EMAIL_RE.test(email) ? email : undefined,
+                phone: dienThoai && PHONE_RE.test(dienThoai) ? dienThoai : undefined,
+                address: cu("address") || undefined,
+            });
+        }
         window.localStorage.removeItem(LEGACY_STORAGE_KEY);
         window.localStorage.setItem(MIGRATED_FLAG_KEY, "true");
-        return true;
+        return Boolean(tenCu);
     },
 };

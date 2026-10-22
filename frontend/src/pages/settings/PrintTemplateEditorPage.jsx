@@ -64,7 +64,7 @@ import {
 } from "@/components/print/cauHinhMauIn";
 import { chanQuayLaiTrinhDuyet, datChanRoiTrang } from "@/lib/chanRoiTrang";
 import { printTemplateConfigService } from "@/services/printTemplateConfigService";
-import { DEFAULT_COMPANY_PROFILE, companyProfileService } from "@/services/companyProfileService";
+import { HO_SO_TRONG, companyProfileService } from "@/services/companyProfileService";
 import { ROLES } from "@/constants/backend/role";
 import { formatDateTime } from "@/utils/dateTime";
 import { getApiErrorMessage } from "@/utils/apiError";
@@ -365,8 +365,8 @@ export default function PrintTemplateEditorPage() {
                 }
                 setDraft(config);
                 setSaved(config);
-                // Máy chủ chưa có dòng thông tin cửa hàng -> đầu phiếu dùng mặc định (sửa ở Thông tin cửa hàng)
-                setCompany(profile ?? DEFAULT_COMPANY_PROFILE);
+                // Máy chủ chưa có dòng thông tin cửa hàng -> đầu phiếu trống (sửa ở Thông tin cửa hàng)
+                setCompany(profile ?? HO_SO_TRONG);
                 setStatus("ready");
             } catch (error) {
                 console.error("Không tải được trình sửa mẫu in:", error);
@@ -989,7 +989,7 @@ export default function PrintTemplateEditorPage() {
                     <div className="flex items-start gap-2.5 rounded-md bg-bo-surface-subtle px-3 py-2.5">
                         <Store className="mt-0.5 size-4 shrink-0 text-bo-muted" aria-hidden="true" />
                         <div className="min-w-0 text-xs leading-5 text-bo-muted">
-                            Logo, tên, mã số thuế, địa chỉ và liên hệ lấy từ Thông tin cửa hàng (dùng chung cho mọi mẫu in).{" "}
+                            Đầu phiếu lấy từ Thông tin cửa hàng, dùng chung cho mọi mẫu in và email.{" "}
                             <button
                                 type="button"
                                 disabled={disabled}

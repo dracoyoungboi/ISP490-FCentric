@@ -29,7 +29,13 @@ export const GROUP_FOOTER = "chan";
 const BRANDING_ROWS = [
     { key: "showLogo", label: "Logo" },
     { key: "showCompanyName", label: "Tên cửa hàng" },
-    { key: "showTaxCode", label: "Mã số thuế", hint: "Chỉ in khi Thông tin cửa hàng có mã số thuế" },
+    // Cùng một dòng trên đầu phiếu "{tên đăng ký kinh doanh} · MST: …" (PrintHeader); giữ khóa showTaxCode cho mẫu đã lưu
+    {
+        key: "showTaxCode",
+        // Không dùng dấu phẩy: câu tóm tắt lịch sử ghép các mục bằng ", … và …"
+        label: "Tên đăng ký kinh doanh · Mã số thuế",
+        hint: "In khi Thông tin cửa hàng có tên đăng ký kinh doanh hoặc mã số thuế",
+    },
     { key: "showAddress", label: "Địa chỉ" },
     { key: "showPhone", label: "Điện thoại" },
     { key: "showEmail", label: "Email" },

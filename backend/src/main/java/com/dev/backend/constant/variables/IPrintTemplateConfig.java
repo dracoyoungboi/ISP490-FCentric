@@ -35,8 +35,6 @@ public interface IPrintTemplateConfig {
     Set<String> ORIENTATIONS = Set.of("portrait", "landscape");
     Set<String> MARGINS = Set.of("narrow", "default", "wide");
 
-    String DEFAULT_LOGO_PATH = "/branding/f-centric-icon.svg";
-
     /**
      * Tùy chỉnh không thuộc section nào nằm ở sections._tuyChinh (khớp printSchemas.js / cauHinhMauIn.js
      * ở frontend): loiChanPhieu (lời chân), tieuDe (tên chứng từ tự đặt), coChu (cỡ chữ), maSoPhieu
