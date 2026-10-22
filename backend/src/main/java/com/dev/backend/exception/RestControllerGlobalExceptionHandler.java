@@ -4,6 +4,7 @@ import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.exception.customize.AccountDisabledException;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.exception.customize.InvalidFieldException;
+import com.dev.backend.exception.customize.LoiCoMaException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -75,6 +76,20 @@ public class RestControllerGlobalExceptionHandler {
                         .data(e.getData())
                         .path(getPath(request))
                         .error("ACCOUNT_DISABLED")
+                        .build());
+    }
+
+    /** Lỗi nghiệp vụ có mã: error = mã, data = {code: mã, ...dữ liệu thêm}; message hiện nguyên văn ở giao diện. */
+    @ExceptionHandler(LoiCoMaException.class)
+    public ResponseEntity<ResponseData<?>> handleLoiCoMa(LoiCoMaException e, WebRequest request) {
+        log.debug("Lỗi nghiệp vụ {} ({}) tại {}", e.getMa(), e.getStatus().value(), getPath(request));
+        return ResponseEntity.status(e.getStatus())
+                .body(ResponseData.builder()
+                        .status(e.getStatus().value())
+                        .message(e.getMessage())
+                        .data(e.getData())
+                        .path(getPath(request))
+                        .error(e.getMa())
                         .build());
     }
 

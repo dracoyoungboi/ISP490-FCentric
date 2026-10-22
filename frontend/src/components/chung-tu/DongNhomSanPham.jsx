@@ -73,7 +73,8 @@ export default function DongNhomSanPham({
   const oSanPham = (span, lopThem) => (
     <td
       colSpan={span}
-      className={cn("min-w-[220px] p-0", dinhTrai && cn(COT_DINH, NEN, thuGonDuoc && NEN_RE), lopThem)}
+      // Bề rộng tối thiểu chỉ khi khối rộng: khối hẹp (điện thoại) để ô co lại, các cột số không bị đẩy ra ngoài khung
+      className={cn("p-0 @2xl/khoi:min-w-[220px]", dinhTrai && cn(COT_DINH, NEN, thuGonDuoc && NEN_RE), lopThem)}
     >
       {thuGonDuoc ? (
         <button

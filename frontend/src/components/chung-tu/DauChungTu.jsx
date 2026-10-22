@@ -275,10 +275,16 @@ export default function DauChungTu({
                   return (
                     <Fragment key={muc.ma ?? muc.nhan ?? i}>
                       {muc.nguyHiem && truocDo ? <DropdownMenuSeparator className="my-1 bg-bo-border" /> : null}
+                      {/* Mục khóa vẫn tới được bằng phím (aria-disabled, không dùng disabled của Radix) để trình đọc
+                          màn hình đọc được lý do khóa ở dòng mô tả; chọn thì không làm gì, menu giữ nguyên */}
                       <DropdownMenuItem
-                        onSelect={muc.onSelect}
-                        disabled={Boolean(muc.khoa)}
-                        className={cn(MUC_MENU, muc.nguyHiem && "focus:bg-bo-danger-soft")}
+                        onSelect={muc.khoa ? (suKien) => suKien.preventDefault() : muc.onSelect}
+                        aria-disabled={muc.khoa ? true : undefined}
+                        className={cn(
+                          MUC_MENU,
+                          muc.nguyHiem && "focus:bg-bo-danger-soft",
+                          muc.khoa && "cursor-not-allowed opacity-60",
+                        )}
                       >
                         {muc.icon
                           ? createElement(muc.icon, {
