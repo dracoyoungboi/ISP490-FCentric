@@ -33,6 +33,7 @@ import com.dev.backend.services.KenhBanHangDongBoService;
 import com.dev.backend.services.KenhBanHangService;
 import com.dev.backend.services.MinioService;
 import com.dev.backend.services.multitable.DieuHanhHeThongService;
+import com.dev.backend.services.lazada.LazadaClient;
 import com.dev.backend.utils.KenhCauHinhDongBo;
 import com.dev.backend.utils.PublicAssetUrl;
 import com.dev.backend.workers.OmnichannelOrderSyncJob;
@@ -88,6 +89,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     OmnichannelOrderSyncJob omnichannelOrderSyncJob;
     // Đọc quy tắc đẩy tồn đã lưu theo kênh (màn Cấu hình kênh)
     DieuHanhHeThongService dieuHanhHeThongService;
+    LazadaClient lazadaClient;
     ObjectMapper objectMapper = new ObjectMapper();
     // Lần đẩy tồn lên sàn gần nhất (đã kết nối được Shopify), theo id kênh (màn Theo dõi đồng bộ)
     Map<Integer, Instant> lanDayTonCuoi = new java.util.concurrent.ConcurrentHashMap<>();
@@ -108,6 +110,19 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     @Transactional(rollbackFor = Exception.class)
     public TaiSanPhamResultDto taiSanPhamTuKenh(String maKenh) {
         KenhBanHang kenh = getKenhActive(maKenh);
+        if (OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(kenh.getMaKenh())) {
+            String appKey = kenhBanHangService.getLazadaAppKey();
+            String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
+            String token = kenhBanHangService.getDecryptedLazadaAccessToken();
+            if (appKey == null || appSecret == null || token == null) {
+                throw new CommonException("Chưa có App Key, App Secret hoặc Access Token cho kênh " + maKenh, HttpStatus.BAD_REQUEST, null);
+            }
+            return TaiSanPhamResultDto.builder()
+                    .soSku(0)
+                    .soMoi(0)
+                    .soCapNhat(0)
+                    .build();
+        }
         String token = kenhBanHangService.getDecryptedShopifyAccessToken();
         if (token == null || token.isBlank()) {
             throw new CommonException("Chưa có Access Token cho kênh " + maKenh, HttpStatus.BAD_REQUEST, null);
@@ -842,6 +857,16 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     @Transactional(readOnly = true)
     public List<ShopifyLocationDto> getLocations(String maKenh) {
         KenhBanHang kenh = getKenhActive(maKenh);
+        if (OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(kenh.getMaKenh())) {
+            return List.of(
+                    ShopifyLocationDto.builder()
+                            .maKhoSan("lazada-default-warehouse")
+                            .tenKhoSan("Kho mặc định Lazada")
+                            .loai("fulfillment")
+                            .macDinh(true)
+                            .build()
+            );
+        }
         String token = kenhBanHangService.getDecryptedShopifyAccessToken();
         String domain = extractDomainFromApiUrl(kenh.getApiUrl());
         if (token == null || token.isBlank() || domain.isBlank()) {
@@ -941,7 +966,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
         }
 
-        int synced = omnichannelOrderSyncJob.syncShopifyOrders(kenh, tu, den);
+        int synced = 0;
+        if (OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(kenh.getMaKenh())) {
+            synced = omnichannelOrderSyncJob.syncLazadaOrders(kenh, tu, den);
+        } else {
+            synced = omnichannelOrderSyncJob.syncShopifyOrders(kenh, tu, den);
+        }
         ghiNhatKy(kenh.getId(), IHanhDong.cap_nhat_kenh_ban, "Lấy đơn hàng từ sàn " + maKenh + ": thành công " + synced + " đơn");
 
         return LayDonResultDto.builder()
@@ -963,6 +993,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     totalSku += dayTonRes.getSoDong();
                 }
                 omnichannelOrderSyncJob.syncShopifyOrders(kenh);
+            } else if (OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(kenh.getMaKenh())) {
+                DayTonResultDto dayTonRes = dayTonKhoLenKenh(kenh.getMaKenh(), quyTacDaLuu(kenh.getMaKenh()));
+                if (dayTonRes != null) {
+                    totalSku += dayTonRes.getSoDong();
+                }
+                omnichannelOrderSyncJob.syncLazadaOrders(kenh);
             }
         }
         return DayTonResultDto.builder()
@@ -1710,8 +1746,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
     }
 
-    /** Lấy khóa, địa điểm mặc định và danh sách SKU trên Shopify của kênh; thiếu bước nào thì trả lý do lỗi cả gian hàng. */
+    /** Lấy khóa, địa điểm mặc định và danh sách SKU trên sàn của kênh; thiếu bước nào thì trả lý do lỗi cả gian hàng. */
     KetNoiDayTon moKetNoiDayTon(KenhBanHang kenh) {
+        if (kenh != null && OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(kenh.getMaKenh())) {
+            String appKey = kenhBanHangService.getLazadaAppKey();
+            String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
+            String token = kenhBanHangService.getDecryptedLazadaAccessToken();
+            if (appKey == null || appSecret == null || token == null) {
+                return KetNoiDayTon.loi("Chưa có App Key, App Secret hoặc Access Token cho kênh Lazada");
+            }
+            return new KetNoiDayTon("api.lazada.vn", token, 0L, "Gian hàng Lazada", Map.of(), null);
+        }
         String token = kenhBanHangService.getDecryptedShopifyAccessToken();
         String domain = kenh != null ? extractDomainFromApiUrl(kenh.getApiUrl()) : "";
         if (token == null || token.isBlank() || domain.isBlank()) {
@@ -1742,12 +1787,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
      * Lỗi SKU: dòng sang "that_bai" kèm lý do. Lỗi cả gian hàng: không đổi dòng.
      */
     KetQuaGuiTon dayTonChoDong(TrangThaiDongBoSanPham dong, KetNoiDayTon ketNoi, int soDay) {
-        BienTheSanPham bt = dong.getBienTheSanPham();
-        String maSku = bt != null ? bt.getMaSku() : null;
-        ShopifyVariantInfo vInfo = maSku == null ? null : ketNoi.skuMap().get(maSku.trim().toLowerCase());
-        KetQuaGuiTon kq = (vInfo == null || vInfo.getInventoryItemId() == null || vInfo.getInventoryItemId() <= 0)
-                ? KetQuaGuiTon.loiSku("Không tìm thấy SKU " + maSku + " trên Shopify")
-                : guiTonLenShopify(ketNoi.domain(), ketNoi.token(), ketNoi.locationId(), vInfo.getInventoryItemId(), soDay);
+        KetQuaGuiTon kq;
+        if (dong.getKenhBanHang() != null && OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(dong.getKenhBanHang().getMaKenh())) {
+            kq = guiTonLenLazada(dong, soDay);
+        } else {
+            BienTheSanPham bt = dong.getBienTheSanPham();
+            String maSku = bt != null ? bt.getMaSku() : null;
+            ShopifyVariantInfo vInfo = maSku == null ? null : ketNoi.skuMap().get(maSku.trim().toLowerCase());
+            kq = (vInfo == null || vInfo.getInventoryItemId() == null || vInfo.getInventoryItemId() <= 0)
+                    ? KetQuaGuiTon.loiSku("Không tìm thấy SKU " + maSku + " trên Shopify")
+                    : guiTonLenShopify(ketNoi.domain(), ketNoi.token(), ketNoi.locationId(), vInfo.getInventoryItemId(), soDay);
+        }
         Instant now = Instant.now();
         if (kq.thanhCong()) {
             dong.setTrangThaiDongBo("thanh_cong");
@@ -1761,6 +1811,45 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             dong.setNgayDongBoCuoi(now);
         }
         return kq;
+    }
+
+    KetQuaGuiTon guiTonLenLazada(TrangThaiDongBoSanPham dong, int soDay) {
+        BienTheSanPham bt = dong.getBienTheSanPham();
+        String maSku = bt != null ? bt.getMaSku() : null;
+        if (maSku == null || maSku.isBlank()) {
+            return KetQuaGuiTon.loiSku("Biến thể chưa có mã SKU");
+        }
+        String appKey = kenhBanHangService.getLazadaAppKey();
+        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
+        String token = kenhBanHangService.getDecryptedLazadaAccessToken();
+        if (appKey == null || appSecret == null || token == null) {
+            return KetQuaGuiTon.loiCaKenh("Chưa có cấu hình hoặc Access Token cho kênh Lazada");
+        }
+
+        String payloadXml = "<Request><Product><Skus><Sku><SellerSku>" + escapeXml(maSku.trim())
+                + "</SellerSku><Quantity>" + Math.max(0, soDay) + "</Quantity></Sku></Skus></Product></Request>";
+        try {
+            JsonNode res = lazadaClient.updatePriceQuantity(appKey, appSecret, token, payloadXml);
+            String code = res.path("code").asText("");
+            if ("0".equals(code)) {
+                return KetQuaGuiTon.THANH_CONG;
+            } else {
+                String msg = res.path("message").asText(res.path("sub_message").asText("Lỗi từ Lazada"));
+                return KetQuaGuiTon.loiSku("Lazada từ chối: " + msg);
+            }
+        } catch (Exception ex) {
+            log.warn("Lỗi khi đẩy tồn Lazada cho SKU [{}]: {}", maSku, ex.getMessage());
+            return KetQuaGuiTon.loiCaKenh("Lỗi kết nối tới Lazada: " + ex.getMessage());
+        }
+    }
+
+    private static String escapeXml(String input) {
+        if (input == null) return "";
+        return input.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&apos;");
     }
 
     /**

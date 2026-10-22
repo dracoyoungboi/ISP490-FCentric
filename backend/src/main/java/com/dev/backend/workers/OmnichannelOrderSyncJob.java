@@ -3,6 +3,7 @@ package com.dev.backend.workers;
 import com.dev.backend.entities.*;
 import com.dev.backend.repository.*;
 import com.dev.backend.services.KenhBanHangService;
+import com.dev.backend.services.lazada.LazadaClient;
 import com.dev.backend.services.multitable.DieuHanhHeThongService;
 import com.dev.backend.services.multitable.NhatHangService;
 import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
@@ -46,6 +47,7 @@ public class OmnichannelOrderSyncJob {
 
     public static final String MA_KENH_SHOPIFY = "SHOPIFY";
     public static final String DEFAULT_API_VERSION = "2024-01";
+    public static final String MA_KENH_LAZADA = "LAZADA";
 
     KenhBanHangRepository kenhBanHangRepository;
     DonBanHangRepository donBanHangRepository;
@@ -59,6 +61,7 @@ public class OmnichannelOrderSyncJob {
     PhieuXuatKhoRepository phieuXuatKhoRepository;
     DieuHanhHeThongService dieuHanhHeThongService;
     DonBanHangService donBanHangService;
+    LazadaClient lazadaClient;
     ObjectMapper objectMapper = new ObjectMapper();
     AtomicReference<Instant> lastSyncTime = new AtomicReference<>(Instant.EPOCH);
     // Lần gọi API đơn hàng của sàn thành công gần nhất, theo id kênh (màn Theo dõi đồng bộ)
@@ -103,6 +106,12 @@ public class OmnichannelOrderSyncJob {
                     continue;
                 }
                 syncShopifyOrders(kenh, intervalMins);
+            } else if (MA_KENH_LAZADA.equalsIgnoreCase(kenh.getMaKenh())) {
+                if (!KenhCauHinhDongBo.tuDongLayDon(dieuHanhHeThongService, kenh.getMaKenh())) {
+                    log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", kenh.getMaKenh());
+                    continue;
+                }
+                syncLazadaOrders(kenh, intervalMins);
             }
         }
     }
@@ -343,6 +352,192 @@ public class OmnichannelOrderSyncJob {
                 shipNode.path("province").asText(""),
                 shipNode.path("country").asText("")
         ).replaceAll("^, |, $", "").trim();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // LAZADA ORDER SYNCING
+    // ═══════════════════════════════════════════════════════════════════
+
+    public int syncLazadaOrders(KenhBanHang kenh) {
+        return syncLazadaOrders(kenh, getChuKyPhut());
+    }
+
+    public int syncLazadaOrders(KenhBanHang kenh, int intervalMins) {
+        int bufferMinutes = Math.max(intervalMins + 5, 10);
+        return syncLazadaOrders(kenh, Instant.now().minus(Duration.ofMinutes(bufferMinutes)), null);
+    }
+
+    public int syncLazadaOrders(KenhBanHang kenh, Instant tuNgay, Instant denNgay) {
+        String appKey = kenhBanHangService.getLazadaAppKey();
+        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
+        String accessToken = kenhBanHangService.getDecryptedLazadaAccessToken();
+
+        if (appKey == null || appSecret == null || accessToken == null) {
+            log.warn("[JOB-01] Kênh {} chưa có credential đầy đủ (AppKey/Secret/Token), bỏ qua đợt sync", kenh.getMaKenh());
+            return 0;
+        }
+
+        int syncedCount = 0;
+        try {
+            JsonNode root = lazadaClient.getOrders(appKey, appSecret, accessToken, tuNgay, 50, 0);
+            if (kenh.getId() != null) {
+                lanLayDonCuoi.put(kenh.getId(), Instant.now());
+            }
+
+            String code = root.path("code").asText("");
+            if ("0".equals(code)) {
+                JsonNode orders = root.path("data").path("orders");
+                if (orders.isArray()) {
+                    for (JsonNode orderNode : orders) {
+                        try {
+                            if (processSingleLazadaOrder(orderNode, kenh, appKey, appSecret, accessToken)) {
+                                syncedCount++;
+                            }
+                        } catch (Exception ex) {
+                            log.error("[JOB-01] Lỗi xử lý đơn hàng Lazada ID {}: {}", orderNode.path("order_id").asText(), ex.getMessage());
+                        }
+                    }
+                    if (syncedCount > 0) {
+                        log.info("[JOB-01] Đã đồng bộ thành công {} đơn hàng mới từ Lazada", syncedCount);
+                    }
+                }
+            } else {
+                log.warn("[JOB-01] Lazada trả mã lỗi khi lấy đơn: {} - {}", code, root.path("message").asText());
+            }
+        } catch (Exception e) {
+            log.warn("[JOB-01 Error] Lỗi kết nối API đơn hàng Lazada: {}", e.getMessage());
+        }
+        return syncedCount;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public boolean processSingleLazadaOrder(JsonNode orderNode, KenhBanHang kenh, String appKey, String appSecret, String accessToken) {
+        String orderId = orderNode.path("order_id").asText();
+        String orderNumber = orderNode.path("order_number").asText(orderId);
+        String soDonHang = "LZD-" + orderNumber;
+
+        Optional<DonBanHang> existingOpt = donBanHangRepository.findBySoDonHang(soDonHang);
+        if (existingOpt.isEmpty()) {
+            existingOpt = donBanHangRepository.findByMaDonHangKenh(orderId);
+        }
+
+        if (existingOpt.isPresent()) {
+            DonBanHang existing = existingOpt.get();
+            String statuses = orderNode.path("statuses").toString().toLowerCase();
+            if (statuses.contains("canceled") || statuses.contains("cancelled")) {
+                if (existing.getTrangThai() != null && existing.getTrangThai() != ITrangThaiDonBanHang.DA_HUY) {
+                    try {
+                        donBanHangService.huyDonTuSan(existing.getId(), "Hủy từ sàn Lazada");
+                        log.info("[JOB-01] Đơn {} đã bị hủy trên Lazada -> Cập nhật trạng thái FCentric = 4", soDonHang);
+                    } catch (Exception ex) {
+                        log.error("[JOB-01] Lỗi khi hủy đơn {} theo sàn Lazada: {}", soDonHang, ex.getMessage());
+                    }
+                }
+            }
+            return false;
+        }
+
+        String customerName = orderNode.path("customer_first_name").asText("") + " " + orderNode.path("customer_last_name").asText("");
+        if (customerName.trim().isBlank()) {
+            customerName = "Khách hàng Lazada";
+        }
+        String phone = orderNode.path("address_shipping").path("phone").asText("");
+        KhachHang khachHang = null;
+        if (!phone.isBlank()) {
+            khachHang = khachHangRepository.findFirstBySoDienThoai(phone.trim()).orElse(null);
+        }
+        if (khachHang == null) {
+            khachHang = khachHangRepository.findById(1).orElse(null);
+        }
+
+        BigDecimal price = new BigDecimal(orderNode.path("price").asText("0.00"));
+        BigDecimal shippingFee = new BigDecimal(orderNode.path("shipping_fee").asText("0.00"));
+        String address = extractLazadaAddress(orderNode.path("address_shipping"));
+
+        List<Kho> khoHoatDong = khoRepository.findByTrangThai(1);
+        Kho defaultKho = khoHoatDong.stream().filter(KhoService::laKhoTong).findFirst()
+                .orElse(khoHoatDong.stream().filter(k -> !KhoService.laKhoAo(k)).findFirst().orElse(null));
+
+        DonBanHang don = DonBanHang.builder()
+                .soDonHang(soDonHang)
+                .maDonHangKenh(orderId)
+                .kenhBanHang(kenh)
+                .khachHang(khachHang)
+                .khoXuat(defaultKho)
+                .loaiChungTu("don_ban_hang")
+                .ngayDatHang(Instant.now())
+                .trangThai(0)
+                .tienHang(price)
+                .phiVanChuyen(shippingFee)
+                .tongCong(price.add(shippingFee))
+                .trangThaiThanhToan("paid".equalsIgnoreCase(orderNode.path("payment_method").asText()) ? "da_thanh_toan" : "chua_thanh_toan")
+                .diaChiGiaoHang(address)
+                .ghiChu("Đơn hàng đồng bộ tự động từ Lazada #" + orderNumber)
+                .build();
+
+        DonBanHang savedOrder = donBanHangRepository.save(don);
+
+        try {
+            JsonNode itemsRes = lazadaClient.getOrderItems(appKey, appSecret, accessToken, orderId);
+            if ("0".equals(itemsRes.path("code").asText(""))) {
+                JsonNode items = itemsRes.path("data");
+                if (items.isArray()) {
+                    for (JsonNode it : items) {
+                        String sku = it.path("sku").asText("");
+                        String shopSku = it.path("shop_sku").asText(sku);
+                        BigDecimal itemPrice = new BigDecimal(it.path("item_price").asText("0.00"));
+
+                        BienTheSanPham bt = null;
+                        if (!shopSku.isBlank()) {
+                            bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(shopSku.trim()).orElse(null);
+                        }
+                        if (bt == null && !sku.isBlank()) {
+                            bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(sku.trim()).orElse(null);
+                        }
+                        if (bt == null) {
+                            var mapping = trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndMaSanPhamKenh(kenh.getId(), shopSku);
+                            if (mapping.isPresent()) {
+                                bt = mapping.get().getBienTheSanPham();
+                            }
+                        }
+
+                        if (bt != null) {
+                            ChiTietDonBanHang chiTiet = ChiTietDonBanHang.builder()
+                                    .donBanHang(savedOrder)
+                                    .bienTheSanPham(bt)
+                                    .soLuongDat(BigDecimal.ONE)
+                                    .soLuongDaGiao(BigDecimal.ZERO)
+                                    .donGia(itemPrice)
+                                    .ghiChu(it.path("name").asText(""))
+                                    .build();
+                            chiTietDonBanHangRepository.save(chiTiet);
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.error("[JOB-01] Lỗi lấy line items cho đơn Lazada {}: {}", orderId, ex.getMessage());
+        }
+
+        return true;
+    }
+
+    private String extractLazadaAddress(JsonNode shipping) {
+        if (shipping == null || shipping.isMissingNode() || shipping.isNull()) return "";
+        StringBuilder sb = new StringBuilder();
+        String addr1 = shipping.path("address1").asText("");
+        String city = shipping.path("city").asText("");
+        String country = shipping.path("country").asText("");
+        if (!addr1.isBlank()) sb.append(addr1);
+        if (!city.isBlank()) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(city);
+        }
+        if (!country.isBlank()) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(country);
+        }
+        return sb.toString();
     }
 
     private String extractDomainFromApiUrl(String apiUrl) {
