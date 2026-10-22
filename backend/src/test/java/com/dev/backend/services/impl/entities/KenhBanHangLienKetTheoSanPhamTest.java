@@ -351,4 +351,27 @@ class KenhBanHangLienKetTheoSanPhamTest {
         assertEquals(BigDecimal.ZERO, dong.get(0).getSoLuongKhaDung());
         assertEquals(BigDecimal.valueOf(4), dong.get(1).getSoLuongKhaDung());
     }
+
+    @Test
+    void tongSku_laSoSkuKhopLocTrenMoiTrang_cungDieuKienLoc() {
+        trangSanPham(List.of(12), 23);
+        lienKetCuaTrang(muoiSauPhanLoai(aoKhoac));
+        when(trangThaiDongBoSanPhamRepository.demLienKetKhopLoc(KENH_ID, "loi", "polo")).thenReturn(57L);
+
+        Page<NhomLienKetDto> trang = service.filterLienKetTheoSanPham("SHOPIFY", "  polo ", "loi", PageRequest.of(0, 1));
+
+        assertInstanceOf(com.dev.backend.dto.response.customize.TrangNhomLienKet.class, trang);
+        assertEquals(57L, ((com.dev.backend.dto.response.customize.TrangNhomLienKet) trang).getTongSku());
+        assertEquals(23, trang.getTotalElements());
+    }
+
+    @Test
+    void tongSku_khongCoSanPhamNao_khongDemThem() {
+        trangSanPham(List.of(), 0);
+
+        Page<NhomLienKetDto> trang = service.filterLienKetTheoSanPham("SHOPIFY", null, null, PageRequest.of(0, 20));
+
+        assertEquals(0L, ((com.dev.backend.dto.response.customize.TrangNhomLienKet) trang).getTongSku());
+        verify(trangThaiDongBoSanPhamRepository, never()).demLienKetKhopLoc(any(), any(), any());
+    }
 }

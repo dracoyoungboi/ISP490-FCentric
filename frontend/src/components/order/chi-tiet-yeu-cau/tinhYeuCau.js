@@ -1,7 +1,8 @@
 /*
  * Hàm thuần cho màn Chi tiết yêu cầu nhập hàng và Chi tiết yêu cầu báo giá (cùng bản ghi yeu_cau_mua_hang,
  * cùng API GET /api/v1/yeu-cau-mua-hang/get-by-id/{id}): dòng bảng, các báo giá còn hiệu lực, tóm tắt báo giá
- * (đã gửi / đã báo giá / đã chốt, giá trị đã chốt), 5 bước tiến trình, quyền Phê duyệt / Từ chối theo kho nhận.
+ * (đã gửi / đã báo giá / đã chốt / không chấp nhận, giá trị đã chốt), 5 bước tiến trình, quyền Phê duyệt / Từ chối
+ * theo kho nhận.
  * Không gọi API, không phụ thuộc React, chạy được bằng `node --test`.
  *
  * Trạng thái yêu cầu (constants/yeuCauNhapHang.js): 0 Nháp (dữ liệu cũ) · 1 Chờ duyệt · 2 Đã duyệt ·
@@ -9,7 +10,7 @@
  * `donMuaHangs[]`: mỗi nhà cung cấp được gửi yêu cầu là một báo giá (don_mua_hang), xem chi-tiet-bao-gia/tinhBaoGia.js.
  */
 import { docSo, soVN, tuBienThe } from "../../chung-tu/bangChungTu.js";
-import { congGia, laDaChot, tongTienBaoGia, TRANG_THAI_BAO_GIA } from "../chi-tiet-bao-gia/tinhBaoGia.js";
+import { congGia, laConChoGia, laDaChot, tongTienBaoGia, TRANG_THAI_BAO_GIA } from "../chi-tiet-bao-gia/tinhBaoGia.js";
 import { ROLES } from "../../../utils/roles.js";
 
 export const TRANG_THAI_YEU_CAU = Object.freeze({
@@ -121,8 +122,9 @@ const tenNccCua = (don) => don?.nhaCungCap?.tenNhaCungCap || don?.nhaCungCap?.ma
 /**
  * Tóm tắt báo giá của yêu cầu cho màn Yêu cầu báo giá (dòng phụ đầu khối, nhóm "Báo giá" ở cột phải), tính trên các
  * báo giá còn hiệu lực (bỏ báo giá đã xóa).
- * @returns `{ daGui, daBaoGia, daChot, tongDaChot, nccChot, ngayGui }`
+ * @returns `{ daGui, daBaoGia, daChot, khongChapNhan, conCho, tongDaChot, nccChot, ngayGui }`
  *   - `daGui`: số nhà cung cấp được gửi yêu cầu · `daBaoGia`: đã gửi giá ít nhất một dòng · `daChot`: đã chấp nhận (3, 5)
+ *   - `khongChapNhan`: đã không chấp nhận (4) · `conCho`: còn chờ giá / chờ chốt (1, 2 — còn chấp nhận được)
  *   - `tongDaChot`: cộng tổng tiền các báo giá đã chấp nhận (tinhBaoGia.tongTienBaoGia) · `nccChot`: tên nhà cung cấp của chúng
  *   - `ngayGui`: lúc gửi yêu cầu sớm nhất (ngayGuiBaoGia), chưa gửi thì null
  */
@@ -133,6 +135,8 @@ export function tomTatBaoGia(yc) {
     daGui: ds.length,
     daBaoGia: ds.filter((don) => congGia(don.chiTietDonMuaHangs).coMotPhan).length,
     daChot: chot.length,
+    khongChapNhan: ds.filter((don) => docSo(don.trangThai) === TRANG_THAI_BAO_GIA.TU_CHOI).length,
+    conCho: ds.filter((don) => laConChoGia(don.trangThai)).length,
     tongDaChot: chot.reduce((tong, don) => tong + tongTienBaoGia(don), 0),
     nccChot: chot.map(tenNccCua).filter(Boolean),
     ngayGui: ngayGuiBaoGia(yc),
@@ -140,8 +144,20 @@ export function tomTatBaoGia(yc) {
 }
 
 /**
- * Các phần của dòng phụ đầu khối (nối bằng " · "): "đã gửi 3 nhà cung cấp", "2 đã báo giá", "1 đã chốt".
- * Chưa ai báo giá thì "chưa có báo giá"; chưa chốt thì bỏ phần chốt; chưa gửi thì chỉ "chưa gửi nhà cung cấp nào".
+ * Đã gửi yêu cầu và mọi báo giá đều đã không chấp nhận: không còn báo giá nào để chờ hay chốt (yêu cầu dừng ở
+ * "Đã gửi yêu cầu báo giá"). `tomTat`: tomTatBaoGia.
+ */
+export function daKhongChapNhanHet(tomTat) {
+  const daGui = docSo(tomTat?.daGui);
+  return daGui > 0 && docSo(tomTat?.khongChapNhan) >= daGui;
+}
+
+/**
+ * Các phần của dòng phụ đầu khối (nối bằng " · "): "đã gửi 3 nhà cung cấp", "2 đã báo giá", "1 đã chốt",
+ * "không chấp nhận 1". Phần không chấp nhận để động từ trước (cùng chữ với nút và tiến trình) để đọc là việc của bên
+ * mình nối tiếp "đã gửi …", không hiểu nhầm thành nhà cung cấp từ chối; mọi báo giá (từ 2) đều không chấp nhận thì
+ * "không chấp nhận cả n". Chưa ai báo giá thì "chưa có báo giá" (trừ khi mọi báo giá đã không chấp nhận: không còn gì
+ * để chờ); chưa chốt / chưa không chấp nhận thì bỏ phần đó; chưa gửi thì chỉ "chưa gửi nhà cung cấp nào".
  * `tomTat`: tomTatBaoGia.
  */
 export function chuDemBaoGia(tomTat) {
@@ -149,10 +165,13 @@ export function chuDemBaoGia(tomTat) {
   if (!daGui) return ["chưa gửi nhà cung cấp nào"];
   const daBaoGia = docSo(tomTat?.daBaoGia);
   const daChot = docSo(tomTat?.daChot);
+  const khongChapNhan = docSo(tomTat?.khongChapNhan);
+  const het = daKhongChapNhanHet(tomTat);
   return [
     `đã gửi ${soVN(daGui)} nhà cung cấp`,
-    daBaoGia ? `${soVN(daBaoGia)} đã báo giá` : "chưa có báo giá",
+    daBaoGia ? `${soVN(daBaoGia)} đã báo giá` : het ? null : "chưa có báo giá",
     daChot ? `${soVN(daChot)} đã chốt` : null,
+    khongChapNhan ? `không chấp nhận ${het && khongChapNhan > 1 ? "cả " : ""}${soVN(khongChapNhan)}` : null,
   ].filter(Boolean);
 }
 
@@ -165,6 +184,7 @@ export function chuDsNcc(ten, toiDa = 2) {
 
 /**
  * 5 bước: Tạo yêu cầu → Quản lý kho duyệt → Gửi yêu cầu báo giá → Nhận báo giá (n/N nhà cung cấp) → Chốt đơn mua hàng.
+ * Mọi báo giá đã không chấp nhận thì "Nhận báo giá" dừng ("Không chấp nhận cả n báo giá").
  * Mỗi bước `{ ma, nhan, trangThai: "xong" | "dangLam" | "chua" | "dung", phu, ngay, coGio }` (TienTrinhChungTu).
  * Mốc giờ: `ngayTao`, `ngayDuyet` (lần duyệt / từ chối gần nhất), ngày gửi báo giá sớm nhất. Ngày chốt không có ở backend.
  */
@@ -200,11 +220,14 @@ export function tinhBuocYeuCau(yc) {
   } else gui = { trangThai: "chua" };
 
   const chuNhan = soNcc ? `${soVN(soDaGuiGia)}/${soVN(soNcc)} nhà cung cấp đã gửi giá` : "";
-  const nhanGia = daChuyen
-    ? { trangThai: "xong", phu: chuNhan }
-    : tt === TRANG_THAI_YEU_CAU.DA_GUI_BAO_GIA
-      ? { trangThai: "dangLam", phu: chuNhan }
-      : { trangThai: "chua" };
+  // Mọi báo giá đã không chấp nhận: không còn chờ nhận giá nữa nên bước dừng, không "đang làm" mãi
+  const khongChapNhanHet = daKhongChapNhanHet(tomTatBaoGia(yc));
+  let nhanGia;
+  if (daChuyen) nhanGia = { trangThai: "xong", phu: chuNhan };
+  else if (tt === TRANG_THAI_YEU_CAU.DA_GUI_BAO_GIA && khongChapNhanHet) {
+    nhanGia = { trangThai: "dung", phu: soNcc > 1 ? `Không chấp nhận cả ${soVN(soNcc)} báo giá` : "Không chấp nhận báo giá" };
+  } else if (tt === TRANG_THAI_YEU_CAU.DA_GUI_BAO_GIA) nhanGia = { trangThai: "dangLam", phu: chuNhan };
+  else nhanGia = { trangThai: "chua" };
 
   return [
     { ma: "tao", nhan: "Tạo yêu cầu", ngay: yc?.ngayTao ?? null, coGio: true, ...tao },

@@ -92,8 +92,53 @@ export function phanTrangTheoSanPham(dongKhop, tatCaDong, { page = 0, size = 20 
   return {
     content: nhoms.slice(trang * soDong, (trang + 1) * soDong),
     totalElements: nhoms.length,
+    // Tổng SKU khớp bộ lọc trên mọi trang (cùng tên trường máy chủ trả) để chân bảng ghi "· N SKU"
+    tongSku: (dongKhop ?? []).length,
     totalPages: Math.max(1, Math.ceil(nhoms.length / soDong)),
     number: trang,
     size: soDong,
   };
+}
+
+/** Dòng còn đẩy tồn (Đang đồng bộ hoặc Lỗi); "chua_lien_ket" là Ngừng đồng bộ. */
+export const conDongBo = (dong) => dong?.trangThaiLienKet !== "chua_lien_ket";
+
+/**
+ * Dòng đang chờ đẩy: lần đẩy tới sẽ đổi số trên sàn (`seDay` khác số đã đẩy), hoặc vừa bật lại mà chưa có lần đẩy nào
+ * sau đó (`vuaBat`). Dòng ngừng không chờ; dòng lỗi đã có nhãn Lỗi + Thử lại nên không ghi thêm.
+ */
+export function laChoDay(dong, seDay, vuaBat = false) {
+  if (!conDongBo(dong) || dong.trangThaiLienKet === "loi") return false;
+  if (vuaBat) return true;
+  const coSo = (n) => n !== null && n !== undefined;
+  const daDay = dong.soLuongDaDay;
+  return coSo(seDay) && (!coSo(daDay) || Number(seDay) !== Number(daDay));
+}
+
+/**
+ * Giờ đẩy chung của một nhóm (giờ xuất hiện nhiều nhất trong các dòng còn đồng bộ đã từng đẩy), ghi một lần ở hàng
+ * sản phẩm; dòng con chỉ ghi giờ khi khác giờ này. `dinhDangGio(iso)` → chuỗi giờ hoặc null. Hòa thì lấy giờ gặp trước.
+ */
+export function gioChungCuaNhom(dsDong, dinhDangGio) {
+  const dem = new Map();
+  (dsDong ?? []).forEach((dong) => {
+    if (!conDongBo(dong) || dong.soLuongDaDay == null || !dong.ngayDayTonCuoi) return;
+    const gio = dinhDangGio(dong.ngayDayTonCuoi);
+    if (gio) dem.set(gio, (dem.get(gio) ?? 0) + 1);
+  });
+  let tot = null;
+  dem.forEach((so, gio) => {
+    if (tot === null || so > dem.get(tot)) tot = gio;
+  });
+  return tot;
+}
+
+/**
+ * Nhóm đang mở hay thu gọn (chốt 21/10): mặc định thu gọn; `moTatCa` là chế độ chung cho mọi trang; nhóm `tuMo`
+ * (tab Lỗi / Ngừng, tìm kiếm khớp một phần) tự mở trừ khi đã bấm Thu gọn tất cả (`boTuMo`); `laNgoaiLe`: người dùng
+ * tự lật nhóm này ngược với cách trên.
+ */
+export function nhomDangMo({ moTatCa = false, tuMo = false, boTuMo = false, laNgoaiLe = false }) {
+  const goc = moTatCa || (tuMo && !boTuMo);
+  return laNgoaiLe ? !goc : goc;
 }

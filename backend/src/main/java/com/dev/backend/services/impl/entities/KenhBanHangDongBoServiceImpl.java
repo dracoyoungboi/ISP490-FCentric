@@ -468,8 +468,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         Page<Integer> trangId = trangThaiDongBoSanPhamRepository.pageSanPhamIdTheoKenh(
                 kenh.getId(), trangThaiLoc, tuKhoa, trangSanPham);
         List<Integer> sanPhamIds = trangId.getContent();
+        // Tổng SKU khớp lọc trên mọi trang (chân bảng "N sản phẩm · M SKU"); không có sản phẩm nào thì khỏi đếm
+        long tongSku = trangId.getTotalElements() == 0
+                ? 0
+                : trangThaiDongBoSanPhamRepository.demLienKetKhopLoc(kenh.getId(), trangThaiLoc, tuKhoa);
         if (sanPhamIds.isEmpty()) {
-            return new PageImpl<>(List.of(), trangSanPham, trangId.getTotalElements());
+            return new TrangNhomLienKet(List.of(), trangSanPham, trangId.getTotalElements(), tongSku);
         }
 
         List<TrangThaiDongBoSanPham> dong = trangThaiDongBoSanPhamRepository.findTheoKenhVaSanPham(
@@ -505,7 +509,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     .bienThe(bienThe)
                     .build());
         }
-        return new PageImpl<>(nhom, trangSanPham, trangId.getTotalElements());
+        return new TrangNhomLienKet(nhom, trangSanPham, trangId.getTotalElements(), tongSku);
     }
 
     /** Một dòng liên kết cho giao diện; số khả dụng và ảnh lấy từ bảng đã tra sẵn cho cả trang (không truy vấn thêm). */

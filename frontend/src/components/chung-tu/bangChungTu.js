@@ -76,11 +76,12 @@ export function tuBienThe(bienThe) {
 const CHU_TIM = new WeakMap();
 // Ký tự ngăn từ trong chữ tìm: khoảng trắng và dấu nối hay gặp trong SKU, mã lô ("QJ-26-M", "Đen / M")
 const NGAN_TU = /[\s\-_/.,·×|()]+/;
-// Từ khóa ngắn (1–2 ký tự, như kích cỡ "M", "XL") phải khớp ĐẦU một từ: gõ "m" không ra mọi dòng chứa "phẩm"
+// Từ khóa ngắn (1–2 ký tự, như kích cỡ "M", "XL") phải TRÙNG NGUYÊN một từ: gõ "m" không ra mọi dòng chứa "phẩm",
+// cũng không khớp mảnh "MS" của SKU ("AK2610051-CL005-43-MS-2691"); đổi lại gõ dở "x" chưa ra "XL"
 const DO_DAI_TU_NGAN = 2;
 
 function boTimCua(dong) {
-  if (!dong || typeof dong !== "object") return { chu: "", tu: [] };
+  if (!dong || typeof dong !== "object") return { chu: "", tu: new Set() };
   if (CHU_TIM.has(dong)) return CHU_TIM.get(dong);
   const phan = [
     dong.tenSanPham,
@@ -93,7 +94,7 @@ function boTimCua(dong) {
     ...thanhMang(dong.chuTimThem),
   ].filter(coChu);
   const chu = boDau(phan.join(" "));
-  const bo = { chu, tu: chu.split(NGAN_TU).filter(Boolean) };
+  const bo = { chu, tu: new Set(chu.split(NGAN_TU).filter(Boolean)) };
   CHU_TIM.set(dong, bo);
   return bo;
 }
@@ -118,13 +119,14 @@ export function tachTuKhoa(tuKhoa) {
 
 /**
  * Dòng có khớp từ khóa không: mọi từ của từ khóa đều phải có (không dấu, không phân biệt hoa thường, thứ tự tùy ý).
- * Từ dài từ 3 ký tự khớp ở bất kỳ đâu ("cl005" trong SKU); từ 1–2 ký tự phải khớp đầu một từ ("m" là kích cỡ M).
+ * Từ dài từ 3 ký tự khớp ở bất kỳ đâu ("cl005" trong SKU); từ 1–2 ký tự phải trùng nguyên một từ ("m" là kích cỡ M,
+ * không khớp "MS" trong SKU, "xl" không khớp "XXL").
  */
 export function khopTuKhoa(dong, tuKhoa) {
   const tuTim = Array.isArray(tuKhoa) ? tuKhoa : tachTuKhoa(tuKhoa);
   if (!tuTim.length) return true;
   const { chu, tu } = boTimCua(dong);
-  return tuTim.every((t) => (t.length > DO_DAI_TU_NGAN ? chu.includes(t) : tu.some((w) => w.startsWith(t))));
+  return tuTim.every((t) => (t.length > DO_DAI_TU_NGAN ? chu.includes(t) : tu.has(t)));
 }
 
 /** Lọc theo từ khóa và (nếu có) bộ lọc nhanh `loc(dong) → boolean`. Giữ nguyên thứ tự dòng. */

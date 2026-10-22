@@ -16,6 +16,7 @@ const soVN = (n) => Number(n || 0).toLocaleString("vi-VN");
  * Truyền vào `footer` của TableShell; khi không có dòng nào thì trang tự ẩn (không truyền footer).
  * Bảng phân trang theo đơn vị khác dòng (vd. theo sản phẩm) thì đổi `sizeLabel`, `totalLabel`;
  * `totalNote` ghi thêm sau tổng số (vd. "49 SKU").
+ * `sizeMenuTitle` / `sizeMenuNote` (tùy chọn): tiêu đề và một dòng giải thích trong menu số dòng, khi đơn vị dễ hiểu nhầm.
  *
  * `capNhat` (kết quả của useTaiLaiDanhSach): thêm "Cập nhật lúc HH:mm" + nút ⟳ cạnh dòng tổng số (PA1).
  * Khi có `capNhat`, trang truyền footer cả lúc danh sách trống: chân bảng chỉ còn phần cập nhật,
@@ -31,6 +32,8 @@ export default function TablePagination({
   sizeLabel = "dòng",
   totalLabel = "kết quả",
   totalNote,
+  sizeMenuTitle,
+  sizeMenuNote,
   extra,
   capNhat,
 }) {
@@ -71,6 +74,9 @@ export default function TablePagination({
               align="start"
               className="z-50 w-max min-w-[8rem] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
             >
+              {sizeMenuTitle ? (
+                <p className="px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{sizeMenuTitle}</p>
+              ) : null}
               {sizeOptions.map((option) => (
                 <DropdownMenuItem
                   key={option}
@@ -80,6 +86,11 @@ export default function TablePagination({
                   {option} {sizeLabel}
                 </DropdownMenuItem>
               ))}
+              {sizeMenuNote ? (
+                <p className="mt-1 max-w-[15rem] border-t border-bo-border px-2.5 pb-1 pt-2 text-[11.5px] leading-4 text-bo-muted">
+                  {sizeMenuNote}
+                </p>
+              ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
         ) : null}
