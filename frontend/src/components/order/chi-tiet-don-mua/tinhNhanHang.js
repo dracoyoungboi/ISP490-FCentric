@@ -227,7 +227,8 @@ export function tinhBuocDonMua(don, tienDo, cotDot, homNay = new Date()) {
       nhan: "Gửi yêu cầu báo giá",
       trangThai: "xong",
       phu: "",
-      ngay: don?.ngayDatHang ?? don?.ngayTao ?? null,
+      // Lúc email yêu cầu báo giá gửi được (ngayGuiYeuCau); dữ liệu cũ thì ngày tạo đơn
+      ngay: don?.ngayGuiYeuCau ?? don?.ngayDatHang ?? don?.ngayTao ?? null,
       canhBao: "",
     },
     { ma: "bao-gia", nhan: "Nhà cung cấp báo giá", ngay: null, canhBao: "", ...buocBaoGia },

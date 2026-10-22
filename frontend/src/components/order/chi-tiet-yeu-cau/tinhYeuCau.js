@@ -10,7 +10,14 @@
  * `donMuaHangs[]`: mỗi nhà cung cấp được gửi yêu cầu là một báo giá (don_mua_hang), xem chi-tiet-bao-gia/tinhBaoGia.js.
  */
 import { docSo, soVN, tuBienThe } from "../../chung-tu/bangChungTu.js";
-import { congGia, laConChoGia, laDaChot, tongTienBaoGia, TRANG_THAI_BAO_GIA } from "../chi-tiet-bao-gia/tinhBaoGia.js";
+import {
+  daCoBaoGia,
+  laConChoGia,
+  laDaChot,
+  ngayGuiYeuCau,
+  tongTienBaoGia,
+  TRANG_THAI_BAO_GIA,
+} from "../chi-tiet-bao-gia/tinhBaoGia.js";
 import { ROLES } from "../../../utils/roles.js";
 
 export const TRANG_THAI_YEU_CAU = Object.freeze({
@@ -101,19 +108,22 @@ export function baoGiaDaChot(yc) {
   return baoGiaHieuLuc(yc).filter((don) => laDaChot(don.trangThai));
 }
 
-/** Lúc gửi yêu cầu báo giá: ngày gửi sớm nhất trong các báo giá (backend ghi `ngayDatHang` lúc gửi). */
+/**
+ * Lúc gửi yêu cầu báo giá: ngày gửi sớm nhất trong các báo giá — lúc email gửi được (`ngayGuiYeuCau`), dữ liệu cũ
+ * thì ngày tạo đơn (`ngayDatHang`).
+ */
 export function ngayGuiBaoGia(yc) {
   const ngays = baoGiaHieuLuc(yc)
-    .map((don) => docNgay(don.ngayDatHang))
+    .map((don) => docNgay(ngayGuiYeuCau(don)))
     .filter(Boolean)
     .map((d) => d.getTime());
   return ngays.length ? new Date(Math.min(...ngays)) : null;
 }
 
-/** Số nhà cung cấp đã gửi giá (ít nhất một dòng có giá) trên tổng số nhà cung cấp được gửi yêu cầu. */
+/** Số nhà cung cấp đã gửi báo giá (có `ngayBaoGia`) trên tổng số nhà cung cấp được gửi yêu cầu. */
 export function demNccDaGuiGia(yc) {
   const ds = baoGiaHieuLuc(yc);
-  return { daGui: ds.filter((don) => congGia(don.chiTietDonMuaHangs).coMotPhan).length, tong: ds.length };
+  return { daGui: ds.filter(daCoBaoGia).length, tong: ds.length };
 }
 
 /** Tên nhà cung cấp của một báo giá (thiếu thì mã nhà cung cấp, rồi số báo giá). */
@@ -123,8 +133,9 @@ const tenNccCua = (don) => don?.nhaCungCap?.tenNhaCungCap || don?.nhaCungCap?.ma
  * Tóm tắt báo giá của yêu cầu cho màn Yêu cầu báo giá (dòng phụ đầu khối, nhóm "Báo giá" ở cột phải), tính trên các
  * báo giá còn hiệu lực (bỏ báo giá đã xóa).
  * @returns `{ daGui, daBaoGia, daChot, khongChapNhan, conCho, tongDaChot, nccChot, ngayGui }`
- *   - `daGui`: số nhà cung cấp được gửi yêu cầu · `daBaoGia`: đã gửi giá ít nhất một dòng · `daChot`: đã chấp nhận (3, 5)
- *   - `khongChapNhan`: đã không chấp nhận (4) · `conCho`: còn chờ giá / chờ chốt (1, 2 — còn chấp nhận được)
+ *   - `daGui`: số nhà cung cấp được gửi yêu cầu · `daBaoGia`: đã gửi báo giá (`ngayBaoGia`) · `daChot`: đã chấp nhận (3, 5)
+ *   - `khongChapNhan`: đã không chấp nhận (4, kể cả báo giá tự chuyển 4 khi chấp nhận báo giá khác — K1)
+ *   - `conCho`: còn chờ giá / chờ chốt (1, 2 — còn chấp nhận được)
  *   - `tongDaChot`: cộng tổng tiền các báo giá đã chấp nhận (tinhBaoGia.tongTienBaoGia) · `nccChot`: tên nhà cung cấp của chúng
  *   - `ngayGui`: lúc gửi yêu cầu sớm nhất (ngayGuiBaoGia), chưa gửi thì null
  */
@@ -133,7 +144,7 @@ export function tomTatBaoGia(yc) {
   const chot = ds.filter((don) => laDaChot(don.trangThai));
   return {
     daGui: ds.length,
-    daBaoGia: ds.filter((don) => congGia(don.chiTietDonMuaHangs).coMotPhan).length,
+    daBaoGia: ds.filter(daCoBaoGia).length,
     daChot: chot.length,
     khongChapNhan: ds.filter((don) => docSo(don.trangThai) === TRANG_THAI_BAO_GIA.TU_CHOI).length,
     conCho: ds.filter((don) => laConChoGia(don.trangThai)).length,

@@ -8,12 +8,11 @@ import com.dev.backend.exception.RestControllerGlobalExceptionHandler;
 import com.dev.backend.mapper.NguoiDungMapperImpl;
 import com.dev.backend.mapper.PhanQuyenNguoiDungKhoMapper;
 import com.dev.backend.repository.NguoiDungRepository;
-import com.dev.backend.services.EmailService;
+import com.dev.backend.services.email.EmailNghiepVuService;
 import com.dev.backend.services.impl.entities.NguoiDungService;
 import com.dev.backend.services.impl.entities.PhanQuyenNguoiDungKhoService;
 import com.dev.backend.services.impl.utils.CalcServiceImpl;
 import com.dev.backend.services.impl.utils.JwtServiceImpl;
-import com.dev.backend.services.impl.utils.OtpMailDispatcher;
 import com.dev.backend.services.impl.utils.PasswordResetRateLimiter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
@@ -57,7 +56,7 @@ class NguoiDungSessionRevokeFlowTest {
     @Mock
     private NguoiDungRepository repository;
     @Mock
-    private EmailService emailService;
+    private EmailNghiepVuService emailService;
     @Mock
     private PhanQuyenNguoiDungKhoService phanQuyenNguoiDungKhoService;
     @Mock
@@ -84,8 +83,7 @@ class NguoiDungSessionRevokeFlowTest {
         NguoiDungService service = new NguoiDungService(repository);
         ReflectionTestUtils.setField(service, "passwordEncoder", encoder);
         ReflectionTestUtils.setField(service, "calcService", new CalcServiceImpl());
-        ReflectionTestUtils.setField(service, "emailService", emailService);
-        ReflectionTestUtils.setField(service, "otpMailDispatcher", new OtpMailDispatcher(emailService, Runnable::run));
+        ReflectionTestUtils.setField(service, "emailNghiepVuService", emailService);
         ReflectionTestUtils.setField(service, "passwordResetRateLimiter", new PasswordResetRateLimiter());
         ReflectionTestUtils.setField(service, "jwtService", jwtService);
         ReflectionTestUtils.setField(service, "nguoiDungMapper", mapper);
@@ -134,9 +132,9 @@ class NguoiDungSessionRevokeFlowTest {
 
     @SuppressWarnings("unchecked")
     private String lastOtp() {
-        ArgumentCaptor<Map<String, Object>> params = ArgumentCaptor.forClass(Map.class);
-        verify(emailService, atLeastOnce()).sendHtmlEmailFromTemplate(anyString(), anyString(), anyString(), params.capture());
-        return (String) params.getValue().get("otp");
+        ArgumentCaptor<String> ma = ArgumentCaptor.forClass(String.class);
+        verify(emailService, atLeastOnce()).guiMaDatLaiMatKhau(any(), ma.capture(), any(), any());
+        return ma.getValue();
     }
 
     @Test

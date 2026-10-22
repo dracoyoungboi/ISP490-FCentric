@@ -7,6 +7,15 @@ services:
     restart: always
     environment:
       - SPRING_PROFILES_ACTIVE=prod
+      # Email: giá trị đặt trong tệp .env cạnh tệp này trên máy chủ (KHÔNG commit .env).
+      # Thiếu MAIL_USERNAME / MAIL_PASSWORD / MAIL_FROM thì máy chủ vẫn chạy nhưng mọi email không gửi được (log ERROR).
+      # MAIL_HOST, MAIL_PORT, APP_FRONTEND_URL có giá trị mặc định: biến rỗng sẽ đè giá trị mặc định của Spring.
+      - MAIL_HOST=${MAIL_HOST:-smtp.gmail.com}
+      - MAIL_PORT=${MAIL_PORT:-587}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - MAIL_FROM=${MAIL_FROM}
+      - APP_FRONTEND_URL=${APP_FRONTEND_URL:-https://fcentric.net}
     expose:
       - "8080"
     networks:

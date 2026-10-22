@@ -33,6 +33,7 @@ import {
     tinhBuocYeuCau,
 } from "@/components/order/chi-tiet-yeu-cau/tinhYeuCau";
 import { getDonMuaHangStatus } from "@/constants/donMuaHang";
+import { VAI_TRO_GUI_YEU_CAU_BAO_GIA } from "@/constants/vaiTroGuiYeuCauBaoGia";
 import { getYeuCauNhapHangStatus } from "@/constants/yeuCauNhapHang";
 import useQuayLai from "@/hooks/useQuayLai";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
@@ -43,8 +44,6 @@ import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { khoTrongToken } from "@/utils/khoLamViec";
 import { ROLES, getCurrentUserId, hasAnyRole } from "@/utils/roles";
 
-// Gửi yêu cầu báo giá: quản trị viên và nhân viên mua hàng (giữ như màn cũ; backend còn cho quản lý kho, nhân viên kho)
-const VAI_TRO_GUI_BAO_GIA = [ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_MUA_HANG];
 const TEN_CHUNG_TU = "yêu cầu nhập hàng";
 const LY_DO_RONG = cauChungTuRong(TEN_CHUNG_TU, { dauCham: false });
 // Máy chủ từ chối vì yêu cầu đã đổi ở nơi khác (vd. 400 "Chỉ duyệt hoặc từ chối được yêu cầu đang ở trạng thái Chờ
@@ -141,7 +140,8 @@ function ChiTietYeuCauNhapHang({ id }) {
     });
     const choDuyet = tt === TRANG_THAI_YEU_CAU.CHO_DUYET;
     const hienDuyet = choDuyet && quyen.duocDuyet;
-    const hienGui = tt === TRANG_THAI_YEU_CAU.DA_DUYET && hasAnyRole(VAI_TRO_GUI_BAO_GIA);
+    // Gửi yêu cầu báo giá: đúng 4 vai trò máy chủ cho gửi (IRoleType.GUI_YEU_CAU_BAO_GIA)
+    const hienGui = tt === TRANG_THAI_YEU_CAU.DA_DUYET && hasAnyRole(VAI_TRO_GUI_YEU_CAU_BAO_GIA);
 
     // ── Chứng từ liên quan ──────────────────────────────────────────────────
     const baoGia = baoGiaHieuLuc(yc);

@@ -21,11 +21,12 @@ import com.dev.backend.mapper.NguoiDungMapper;
 import com.dev.backend.mapper.PhanQuyenNguoiDungKhoMapper;
 import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.services.CalcService;
-import com.dev.backend.services.EmailService;
 import com.dev.backend.services.JwtService;
 import com.dev.backend.services.MinioService;
+import com.dev.backend.services.email.CachDoiMatKhau;
+import com.dev.backend.services.email.DinhDangEmail;
+import com.dev.backend.services.email.EmailNghiepVuService;
 import com.dev.backend.services.impl.BaseServiceImpl;
-import com.dev.backend.services.impl.utils.OtpMailDispatcher;
 import com.dev.backend.services.impl.utils.PasswordResetRateLimiter;
 import com.dev.backend.utils.AvatarImageValidator;
 import jakarta.persistence.EntityManager;
@@ -71,9 +72,6 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     private CalcService calcService;
 
     @Autowired
-    private EmailService emailService;
-
-    @Autowired
     private PhanQuyenNguoiDungKhoMapper pqndkMapper;
 
     @Autowired
@@ -85,8 +83,9 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     @Autowired
     private PasswordResetRateLimiter passwordResetRateLimiter;
 
+    // Mọi email nhân sự (E1, E2, E3, M4) đi qua đây: dựng dữ liệu trong transaction, gửi sau commit, không ném lỗi
     @Autowired
-    private OtpMailDispatcher otpMailDispatcher;
+    private EmailNghiepVuService emailNghiepVuService;
 
     private static final Logger logger = LoggerFactory.getLogger(NguoiDungService.class);
 
@@ -517,6 +516,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
     // OTP đặt lại mật khẩu: hiệu lực 5 phút, tối đa 5 lần nhập sai
     static final long RESET_OTP_TTL_SECONDS = 300;
+    // Mật khẩu quản trị viên tự gõ khi tạo tài khoản: cùng quy tắc với đổi mật khẩu
+    static final int MAT_KHAU_TOI_THIEU = 6;
     static final int RESET_OTP_MAX_FAILED_ATTEMPTS = 5;
     private static final String RESET_OTP_INVALID_MESSAGE = "Mã xác nhận không tồn tại hoặc đã hết hạn";
     private static final int BCRYPT_MAX_PASSWORD_BYTES = 72;
@@ -532,7 +533,9 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
     // Phản hồi chung cho mọi yêu cầu hợp lệ: không cho biết tài khoản có tồn tại /
     // bị khoá / có email hay không
-    static final String FORGOT_PASSWORD_GENERIC_MESSAGE = "Nếu thông tin tài khoản hợp lệ, mã OTP đã được gửi tới email đã đăng ký. Mã có hiệu lực 5 phút.";
+    // Thời hạn trong câu dựng từ RESET_OTP_TTL_SECONDS (không viết cứng "5 phút"); "mã xác nhận" thay cho "OTP".
+    static final String FORGOT_PASSWORD_GENERIC_MESSAGE = "Nếu thông tin tài khoản hợp lệ, mã xác nhận đã được gửi tới "
+            + "email đã đăng ký. Mã có hiệu lực " + DinhDangEmail.phut(java.time.Duration.ofSeconds(RESET_OTP_TTL_SECONDS)) + ".";
 
     public ResponseEntity<ResponseData<String>> forgotPassword(ForgotPasswordRequest fpRequest, String clientIp) {
         String identifier = fpRequest.getUsername() == null ? "" : fpRequest.getUsername().trim();
@@ -589,10 +592,11 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     private void sendResetOtp(NguoiDung nguoiDung) {
         // Tạo OTP
         String otp = calcService.getRandomActiveCode(6L);
+        Instant taoLuc = Instant.now();
         OtpScheduleObj resetOtp = OtpScheduleObj.builder()
                 .email(nguoiDung.getEmail())
                 .otp(otp)
-                .createdAt(Instant.now())
+                .createdAt(taoLuc)
                 .type(OtpType.RESET_PASSWORD)
                 .build();
         // gửi lại OTP: xoá mã RESET_PASSWORD cũ của email này rồi mới thêm mã mới, để
@@ -604,16 +608,9 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             GlobalCache.OTP_SCHEDULE_OBJS.add(resetOtp);
         }
 
-        // truyền dữ liệu qua email
-        Map<String, Object> params = new HashMap<>();
-
-        params.put("userName", nguoiDung.getHoTen());
-        params.put("otp", otp);
-        params.put("expiryTime", "5 phút");
-
-        // gửi email ở luồng riêng: lỗi SMTP chỉ ghi log server, không trả về client
-        otpMailDispatcher.dispatch(nguoiDung.getId(), nguoiDung.getEmail(), "Lấy lại mật khẩu", "activation.html",
-                params);
+        // E1: gửi sau commit ở luồng riêng, không truy vấn CSDL thêm (phản hồi mất cùng thời gian dù tài khoản có hay
+        // không); lỗi SMTP chỉ ghi log server, không trả về client. Hết hạn = lúc tạo + TTL (không viết cứng).
+        emailNghiepVuService.guiMaDatLaiMatKhau(nguoiDung, otp, taoLuc, taoLuc.plusSeconds(RESET_OTP_TTL_SECONDS));
     }
 
     private static void throwIfRateLimited(PasswordResetRateLimiter.Decision decision) {
@@ -700,6 +697,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
         // sau khi thoả mãn các dk trên thì cho phép đặt lại MK
         nguoiDung.setMatKhauHash(passwordEncoder.encode(rpRequest.getPassword()));
+        // M4 (gửi sau commit, không chứa mật khẩu)
+        emailNghiepVuService.guiDaDoiMatKhau(nguoiDung, CachDoiMatKhau.DAT_LAI_BANG_MA, Instant.now());
 
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
@@ -835,22 +834,6 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     }
 
     @Transactional
-    public void updateUserByAdmin(Integer userId, AdminUpdateRequest request) {
-
-        NguoiDung nguoiDung = nguoiDungRepository.findById(userId)
-                .orElseThrow(() -> new CommonException("Không tìm thấy người dùng"));
-
-        // reset password
-        if (request.getNewPassword() != null && !request.getNewPassword().isBlank()) {
-            nguoiDung.setMatKhauHash(
-                    passwordEncoder.encode(request.getNewPassword()));
-        }
-
-        nguoiDung.setNgayCapNhat(Instant.now());
-        nguoiDungRepository.save(nguoiDung);
-    }
-
-    @Transactional
     public NguoiDung createInternalUserByAdmin(NguoiDungCreating request) {
         String vaiTro = vaiTroTaiKhoanMoi(request.getVaiTro());
         if (request.getTenDangNhap() == null || request.getTenDangNhap().isBlank()) {
@@ -877,15 +860,25 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             throw new CommonException("Số điện thoại đã tồn tại");
         }
 
-        // Tự động sinh mật khẩu tạm ngẫu nhiên
-        String tempPassword = (request.getMatKhau() != null && !request.getMatKhau().isBlank())
-                ? request.getMatKhau().trim()
-                : generateTemporaryPassword();
+        // Quản trị viên tự gõ mật khẩu thì kiểm như đổi mật khẩu (tối thiểu 6 ký tự, tối đa 72 byte của BCrypt);
+        // để trống thì tự sinh mật khẩu tạm ngẫu nhiên. Cả hai đều gửi trong E2 như mật khẩu tạm.
+        String tempPassword;
+        if (request.getMatKhau() != null && !request.getMatKhau().isBlank()) {
+            tempPassword = request.getMatKhau().trim();
+            if (tempPassword.length() < MAT_KHAU_TOI_THIEU) {
+                throw new CommonException("Mật khẩu phải có ít nhất " + MAT_KHAU_TOI_THIEU + " ký tự");
+            }
+            assertPasswordFitsBcrypt(tempPassword);
+        } else {
+            tempPassword = generateTemporaryPassword();
+        }
 
         NguoiDung nguoiDung = new NguoiDung();
         nguoiDung.setTenDangNhap(tenDangNhap);
         nguoiDung.setEmail(email);
-        nguoiDung.setHoTen(request.getHoTen() != null ? request.getHoTen().trim() : tenDangNhap);
+        // họ tên trống thì dùng tên đăng nhập (email không ra "Xin chào ,")
+        nguoiDung.setHoTen(request.getHoTen() != null && !request.getHoTen().isBlank()
+                ? request.getHoTen().trim() : tenDangNhap);
         nguoiDung.setSoDienThoai(soDienThoai);
         nguoiDung.setVaiTro(vaiTro);
         nguoiDung.setTrangThai(1);
@@ -894,21 +887,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
         NguoiDung saved = create(nguoiDung);
 
-        // Gửi email chào mừng kèm Tên đăng nhập và Mật khẩu tạm qua luồng bất đồng bộ OtpMailDispatcher (hạ tầng của Khang)
-        Map<String, Object> emailParams = new HashMap<>();
-        emailParams.put("userName", saved.getHoTen() != null && !saved.getHoTen().isBlank()
-                ? saved.getHoTen()
-                : saved.getTenDangNhap());
-        emailParams.put("loginName", saved.getTenDangNhap());
-        emailParams.put("temporaryPassword", tempPassword);
-
-        otpMailDispatcher.dispatch(
-                saved.getId(),
-                saved.getEmail(),
-                "Thông báo cấp tài khoản mới - FCentric",
-                "new_user_welcome.html",
-                emailParams
-        );
+        // E2: gửi sau commit (lỗi trùng khóa lúc commit thì không gửi cho tài khoản không tồn tại)
+        emailNghiepVuService.guiTaiKhoanMoi(saved, tempPassword);
 
         return saved;
     }
@@ -954,6 +934,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         nguoiDung.setMustChangePassword(false);
 
         update(nguoiDung.getId(), nguoiDung);
+        // M4 (gửi sau commit, không chứa mật khẩu)
+        emailNghiepVuService.guiDaDoiMatKhau(nguoiDung, CachDoiMatKhau.DOI_KHI_DA_DANG_NHAP, Instant.now());
 
         // đổi mật khẩu thu hồi mọi token cũ (kể cả token đang dùng) -> cấp token mới
         // cho phiên hiện tại,
@@ -987,20 +969,13 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
         String tempPassword = generateTemporaryPassword();
 
+        Instant luc = Instant.now();
         nguoiDung.setMatKhauHash(passwordEncoder.encode(tempPassword));
         nguoiDung.setMustChangePassword(true);
-        nguoiDung.setNgayCapNhat(Instant.now());
+        nguoiDung.setNgayCapNhat(luc);
         nguoiDungRepository.save(nguoiDung);
 
-        Map<String, Object> emailParams = new HashMap<>();
-        emailParams.put("userName", nguoiDung.getHoTen() != null && !nguoiDung.getHoTen().isBlank()
-                ? nguoiDung.getHoTen()
-                : nguoiDung.getTenDangNhap());
-        otpMailDispatcher.dispatch(
-                nguoiDung.getId(),
-                nguoiDung.getEmail(),
-                "Cấp lại mật khẩu tài khoản - FCentric",
-                "admin_reset_password.html",
-                emailParams);
+        // E3 (sửa L9: thư có mật khẩu tạm), gửi sau commit; không gửi M4 (đã có E3)
+        emailNghiepVuService.guiCapLaiMatKhau(nguoiDung, tempPassword, luc);
     }
 }

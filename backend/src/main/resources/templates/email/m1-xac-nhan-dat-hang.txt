@@ -1,0 +1,34 @@
+[# th:insert="~{khung-dau.txt}" /]Xác nhận đặt hàng [(${e.maDon})]
+
+Kính gửi [(${e.tenNhaCungCap})],
+
+Chúng tôi chấp nhận báo giá Quý công ty gửi lúc [(${e.thoiDiemBaoGia})] và đặt mua các sản phẩm dưới đây theo điều kiện đã nêu trong yêu cầu báo giá. Email này có giá trị như đơn đặt hàng bằng văn bản.
+
+Giao tại: [(${e.tenKho})][# th:if="${e.diaChiKho != null}"], [(${e.diaChiKho})][/]
+[# th:if="${e.ngayCanGiao != null}"]Ngày cần giao: [(${e.ngayCanGiao})]
+[/]
+Sản phẩm đặt mua
+[# th:each="d : ${e.dong}"][(${d.stt})]. [(${d.tenSanPham})][# th:if="${d.moTa() != null}"] ([(${d.moTa()})])[/]: [(${d.soLuong})] × [(${d.donGia})] = [(${d.thanhTien})]
+[/]Tổng cộng: [# th:if="${e.tongSoLuong != null}"][(${e.tongSoLuong})], [/][(${e.tongTien})]
+[# th:if="${e.tongTienBangChu != null}"]Bằng chữ: [(${e.tongTienBangChu})].
+[/]Đơn giá theo báo giá của Quý công ty, đã gồm thuế GTGT (nếu có) và chi phí giao đến kho nhận.
+[# th:if="${e.ghiChuNhaCungCap != null}"]
+Ghi chú trong báo giá của Quý công ty: [(${e.ghiChuNhaCungCap})]
+[/]
+Điều khoản đặt hàng
+1. Giao hàng. Ghi mã đơn [(${e.maDon})] trên phiếu giao hàng. Muốn giao làm nhiều đợt, vui lòng báo trước cho người phụ trách.
+2. Nhận hàng. Hàng được kiểm đếm và kiểm tra chất lượng khi nhận tại kho. Hàng thiếu, sai hoặc không đạt được lập biên bản và trả lại Quý công ty.
+3. Hóa đơn. Vui lòng xuất hóa đơn điện tử theo thông tin xuất hóa đơn dưới đây.
+4. Thanh toán. Bộ phận kế toán của chúng tôi sẽ liên hệ trực tiếp với Quý công ty.
+5. Thông tin chưa khớp với báo giá. Vui lòng trả lời email này trước khi giao hàng.
+
+Thông tin xuất hóa đơn
+[# th:if="${cuaHang.tenDangKy != null}"]Tên đơn vị: [(${cuaHang.tenDangKy})]
+[/][# th:if="${cuaHang.maSoThue != null}"]Mã số thuế: [(${cuaHang.maSoThue})]
+[/][# th:if="${cuaHang.diaChiDangKy != null}"]Địa chỉ: [(${cuaHang.diaChiDangKy})]
+[/][# th:with="emailHoaDon=${cuaHang.email != null ? cuaHang.email : (nguoiPhuTrach != null ? nguoiPhuTrach.email : null)}"][# th:if="${emailHoaDon != null}"]Email nhận hóa đơn: [(${emailHoaDon})]
+[/][/]
+[# th:insert="~{khung-chu-ky.txt}" /]
+--
+[# th:if="${cuaHang.dienThoai != null}"]Điện thoại [(${cuaHang.dienThoai})]
+[/]Email gửi tự động qua phần mềm FCentric.[# th:if="${coTraLoi}"] Trả lời email này để liên hệ trực tiếp người phụ trách đơn.[/]

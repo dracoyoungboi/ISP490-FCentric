@@ -234,6 +234,13 @@ test("tinhBuocDonMua: đơn chưa chốt hoặc bị từ chối", () => {
   assert.equal(tuChoi[5].phu, "");
 });
 
+test("tinhBuocDonMua: bước Gửi yêu cầu báo giá lấy lúc email gửi được (ngayGuiYeuCau), trống thì ngày tạo đơn", () => {
+  const coNgayGui = tinhBuocDonMua(donMau({ ngayGuiYeuCau: "2026-10-12T02:16:30Z" }), undefined, [], new Date(2026, 9, 16));
+  assert.equal(coNgayGui[1].ngay, "2026-10-12T02:16:30Z");
+  const trong = tinhBuocDonMua(donMau({ ngayGuiYeuCau: null }), undefined, [], new Date(2026, 9, 16));
+  assert.equal(trong[1].ngay, "2026-10-12T02:15:00Z");
+});
+
 test("tinhBuocDonMua: thiếu yêu cầu gốc vẫn chạy (backend cũ chưa trả trường này)", () => {
   const buoc = tinhBuocDonMua(donMau({ yeuCauMuaHang: undefined }), undefined, [], new Date(2026, 9, 16));
   assert.equal(buoc[0].phu, "");

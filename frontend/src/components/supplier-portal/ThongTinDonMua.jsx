@@ -56,12 +56,16 @@ export function DongThongTinDon({ orderData }) {
     );
 }
 
+/** "Ghi chú từ {tên cửa hàng}:" — chưa biết tên cửa hàng thì "Ghi chú:". */
+const nhanGhiChu = (tenCuaHang) => (tenCuaHang ? `Ghi chú từ ${tenCuaHang}:` : 'Ghi chú:');
+
 /**
  * Phần thông tin đơn dưới tiêu đề:
- * - từ 768px: chỉ còn khung "Ghi chú từ FCentric" (nếu có); các thông tin khác nằm ở DongThongTinDon;
- * - dưới 768px: một thẻ gọn gồm kho nhận, người phụ trách (Gọi · Email), ngày đặt và ghi chú từ FCentric.
+ * - từ 768px: chỉ còn khung ghi chú của cửa hàng (nếu có); các thông tin khác nằm ở DongThongTinDon;
+ * - dưới 768px: một thẻ gọn gồm kho nhận, người phụ trách (Gọi · Email), ngày đặt và ghi chú của cửa hàng.
+ * `tenCuaHang`: `cuaHang.ten` máy chủ trả ở bước xác nhận mã (có thể rỗng).
  */
-export default function ThongTinDonMua({ orderData }) {
+export default function ThongTinDonMua({ orderData, tenCuaHang }) {
     const tt = thongTin(orderData);
     const ghiChu = orderData?.ghiChu;
 
@@ -71,7 +75,7 @@ export default function ThongTinDonMua({ orderData }) {
                 <div role="note" className="hidden items-start gap-2 rounded-lg border border-bo-border bg-white px-3.5 py-2.5 text-sm leading-5 text-slate-700 md:flex">
                     <Info className="mt-0.5 size-4 shrink-0 text-bo-muted" aria-hidden="true" />
                     <span className="min-w-0 whitespace-pre-line break-words">
-                        <strong className="font-semibold">Ghi chú từ FCentric:</strong> {ghiChu}
+                        <strong className="font-semibold">{nhanGhiChu(tenCuaHang)}</strong> {ghiChu}
                     </span>
                 </div>
             )}
@@ -101,7 +105,7 @@ export default function ThongTinDonMua({ orderData }) {
                 </div>
                 {ghiChu && (
                     <div className="mt-1 border-t border-bo-border pt-2 whitespace-pre-line break-words">
-                        <strong className="font-semibold">Ghi chú từ FCentric:</strong> {ghiChu}
+                        <strong className="font-semibold">{nhanGhiChu(tenCuaHang)}</strong> {ghiChu}
                     </div>
                 )}
             </section>

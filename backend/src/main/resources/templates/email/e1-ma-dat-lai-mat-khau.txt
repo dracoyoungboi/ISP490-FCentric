@@ -1,0 +1,13 @@
+[# th:insert="~{khung-dau.txt}" /]Mã đặt lại mật khẩu
+
+Xin chào [(${e.hoTen})],
+
+Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản [(${e.tenDangNhap})] lúc [(${e.thoiDiemYeuCau})]. Nhập mã dưới đây ở bước 2 của trang Quên mật khẩu.
+
+Mã xác nhận: [(${e.ma})]
+Hiệu lực đến [(${e.hetHanLuc})] · Chỉ dùng được một lần
+
+Không phải bạn yêu cầu?
+Bỏ qua email này, mật khẩu hiện tại của bạn vẫn giữ nguyên. Không đưa mã cho bất kỳ ai, kể cả quản trị viên: chúng tôi không bao giờ hỏi mã qua điện thoại hay tin nhắn.
+
+[# th:insert="~{khung-chan-nhan-su.txt}" /]

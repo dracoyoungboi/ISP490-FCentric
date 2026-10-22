@@ -1,570 +1,492 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { toast } from '@/lib/thongBaoNhanh';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Plus, Send } from "lucide-react";
+import PageContainer from "@/components/backoffice/PageContainer";
+import KhungChungTu from "@/components/chung-tu/KhungChungTu";
+import DauChungTu from "@/components/chung-tu/DauChungTu";
+import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
+import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
+import { KhungDangTai, KhungLoiChungTu } from "@/components/chung-tu/KhungTaiChungTu";
+import { soVN } from "@/components/chung-tu/bangChungTu";
+import { GHI_CHU_HOP } from "@/components/chung-tu/kieuHopThoai";
+import BangNhaCungCap from "@/components/order/gui-bao-gia/BangNhaCungCap";
+import ThuocTinhGuiBaoGia from "@/components/order/gui-bao-gia/ThuocTinhGuiBaoGia";
 import {
-    ArrowLeft, Send, Loader2, Building2,
-    Mail, User, Package, AlertCircle,
-    X, Sparkles, Check, ShoppingBag, Warehouse, Calendar, ListChecks, Plus
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
+  chanGuiBaoGia,
+  dongNhaCungCap,
+  maYeuCau,
+  phanLoaiLoiGui,
+  tongSoLuongDat,
+} from "@/components/order/gui-bao-gia/tinhGuiBaoGia";
+import { VAI_TRO_XEM_DON_MUA, locCauMayChuMuaHang } from "@/components/order/chi-tiet-yeu-cau/tinhYeuCau";
+import EmptyState from "@/components/shared/EmptyState";
+import SupplierFormDialog from "@/components/supplier/SupplierFormDialog";
+import { coTheGuiYeuCauBaoGia } from "@/components/supplier/quyTacNhaCungCap";
+import { Button } from "@/components/ui/button";
+import { CHO_GUI_LAI_MS, CO_TRANG_DONG } from "@/config/bangChungTu";
+import useTaiDuLieu from "@/hooks/useTaiDuLieu";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
+import { toast } from "@/lib/thongBaoNhanh";
+import purchaseRequestService from "@/services/purchaseRequestService";
+import { getAllSupplier } from "@/services/supplierService";
+import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
+import { ROLES, hasAnyRole } from "@/utils/roles";
+import { companyProfileService } from "@/services/companyProfileService";
+import { SETTINGS_PAGES, canEditSettingsPage } from "@/components/settings/settings.config";
 import {
-    Dialog, DialogContent, DialogTitle, DialogDescription,
-} from '@/components/ui/dialog';
-import apiClient from '@/services/apiClient';
-import purchaseRequestService from '@/services/purchaseRequestService';
+  CAU_BAO_NGUOI_CO_QUYEN,
+  CAU_LY_DO_KHUNG_CHAN,
+  LIEN_KET_NHAP_THONG_TIN,
+  TIEU_DE_KHUNG_CHAN,
+  cauDaGui,
+  doanNhanThieu,
+  loiGuiTheoMayChuMoi,
+  oThieuHienTai,
+  xuLyLoiGui,
+} from "./chanGuiYeuCauBaoGia";
 
-import PageContainer from '@/components/backoffice/PageContainer';
-import PageHeader from '@/components/backoffice/PageHeader';
-import EmptyState from '@/components/shared/EmptyState';
-import ErrorState from '@/components/shared/ErrorState';
-import LoadingState from '@/components/shared/LoadingState';
-import SearchInput from '@/components/shared/SearchInput';
-import StatusBadge from '@/components/shared/StatusBadge';
-import SurfaceCard from '@/components/shared/SurfaceCard';
-import SupplierFormDialog from '@/components/supplier/SupplierFormDialog';
-import { coTheGuiYeuCauBaoGia, laHoatDong } from '@/components/supplier/quyTacNhaCungCap';
-import { ROLES, hasAnyRole } from '@/utils/roles';
-import { getApiErrorMessage, getApiErrorStatus } from '@/utils/apiError';
-import { formatDate as dinhDangNgay } from "@/utils/formatters";
+const taiNhaCungCap = () => getAllSupplier();
 
-/* ─── Helpers ────────────────────────────────────────────────────────────────── */
-// Định dạng chung toàn hệ thống: 05/10/2026 · 08:03; trống → "—"
-const formatDate = (d) => dinhDangNgay(d);
-
-const getInitials = (name = '') =>
-    name.split(' ').filter(Boolean).slice(-2).map(w => w[0].toUpperCase()).join('');
-
-const AVATAR_PALETTES = [
-    'bg-bo-primary',
-    'bg-violet-500',
-    'bg-bo-success',
-    'bg-bo-danger',
-    'bg-bo-warning',
-    'bg-slate-600',
-];
-const avatarColor = (name = '') => AVATAR_PALETTES[(name.charCodeAt(0) || 0) % AVATAR_PALETTES.length];
-
-/* ─── SupplierListItem ───────────────────────────────────────────────────────── */
-function SupplierListItem({ supplier, isSelected, onToggle }) {
-    // Chọn được khi đang hoạt động và có email (yêu cầu báo giá gửi qua email).
-    const active = coTheGuiYeuCauBaoGia(supplier);
-    const hoatDong = laHoatDong(supplier);
-    return (
-        <button
-            type="button"
-            onClick={() => active && onToggle(supplier.id)}
-            disabled={!active}
-            className={`
-                flex w-full items-center gap-4 px-5 py-4 text-left transition-colors focus:outline-none
-                ${isSelected
-                    ? 'bg-bo-primary-soft'
-                    : active
-                        ? 'bg-white hover:bg-bo-surface-subtle'
-                        : 'cursor-not-allowed bg-bo-surface-subtle opacity-60'
-                }
-            `}
-        >
-            {/* Checkbox */}
-            <div className="flex shrink-0 items-center justify-center">
-                <div className={`
-                    flex size-5 items-center justify-center rounded border transition-colors
-                    ${isSelected ? 'border-bo-primary bg-bo-primary' : 'border-slate-300 bg-white'}
-                `}>
-                    {isSelected && <Check className="size-3.5 text-white" strokeWidth={3} />}
-                </div>
-            </div>
-
-            {/* Avatar */}
-            <div className={`flex size-11 shrink-0 items-center justify-center rounded-full text-[14px] font-bold text-white ${avatarColor(supplier.tenNhaCungCap)}`}>
-                {getInitials(supplier.tenNhaCungCap)}
-            </div>
-
-            {/* Info Col 1: Name & Code */}
-            <div className="min-w-0 flex-1 pr-4">
-                <p className="truncate text-[15px] font-semibold text-bo-foreground">{supplier.tenNhaCungCap}</p>
-                <div className="mt-0.5 flex items-center gap-2">
-                    <span className="font-mono text-[12px] font-medium uppercase tracking-wide text-bo-muted">{supplier.maNhaCungCap}</span>
-                </div>
-            </div>
-
-            {/* Info Col 2: Contact */}
-            <div className="hidden w-56 shrink-0 flex-col space-y-1.5 border-l border-bo-border pl-4 pr-4 sm:flex">
-                <div className="flex items-center gap-2 text-[13px] text-slate-600">
-                    <User className="size-3.5 shrink-0 text-slate-400" />
-                    <span className="truncate">{supplier.nguoiLienHe || '—'}</span>
-                </div>
-                <div className="flex items-center gap-2 text-[13px] text-slate-600">
-                    <Mail className="size-3.5 shrink-0 text-slate-400" />
-                    <span className="truncate text-bo-primary">{supplier.email || '—'}</span>
-                </div>
-            </div>
-
-            {/* Status */}
-            <div className="hidden w-36 shrink-0 text-right md:block">
-                <StatusBadge doiTuong="nguoi" label={!hoatDong ? 'Ngừng hoạt động' : active ? 'Hoạt động' : 'Chưa có email'} />
-            </div>
-        </button>
-    );
-}
-
-/* ─── RequestInfoPanel ──────────────────────────────────────────────────────── */
-function RequestInfoPanel({ request, loading, error, onRetry, onBack, id }) {
-    if (loading) {
-        return (
-            <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                <LoadingState rows={4} label="Đang tải thông tin yêu cầu" />
-            </div>
-        );
-    }
-    if (!request) {
-        return (
-            <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                {error && !error.notFound ? (
-                    <ErrorState
-                        title="Không thể tải thông tin yêu cầu"
-                        description={error.message}
-                        onRetry={onRetry}
-                    />
-                ) : (
-                    <EmptyState
-                        icon={AlertCircle}
-                        title="Không tìm thấy yêu cầu nhập hàng"
-                        description="Yêu cầu nhập hàng có thể đã bị xóa hoặc không còn khả dụng."
-                        action={
-                            <Button
-                                type="button"
-                                onClick={onBack}
-                                className="bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover"
-                            >
-                                Quay lại danh sách
-                            </Button>
-                        }
-                    />
-                )}
-            </div>
-        );
-    }
-
-    return (
-        <SurfaceCard
-            title={<span>Thông tin yêu cầu <span className="text-bo-primary">#{id}</span></span>}
-            description="Xác nhận thông tin trước khi gửi báo giá đến nhà cung cấp."
-        >
-            <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-                {/* Meta Info (Left) */}
-                <div className="space-y-4 lg:col-span-5">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-bo-muted"><Warehouse className="size-3.5" /> Kho nhập</p>
-                            <p className="text-sm font-semibold text-bo-foreground">{request.khoNhap?.tenKho || '—'}</p>
-                            <p className="font-mono text-[12px] text-bo-muted">{request.khoNhap?.maKho}</p>
-                        </div>
-                        <div className="space-y-1.5">
-                            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-bo-muted"><Calendar className="size-3.5" /> Ngày giao dự kiến</p>
-                            <p className="text-sm font-semibold text-bo-foreground">{formatDate(request.ngayGiaoDuKien)}</p>
-                        </div>
-                    </div>
-
-                    <div className="space-y-1.5 border-t border-bo-border pt-4">
-                        <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-bo-muted"><User className="size-3.5" /> Người tạo</p>
-                        <p className="text-sm font-semibold text-bo-foreground">{request.nguoiTao?.hoTen || '—'}</p>
-                    </div>
-
-                    {request.ghiChu && (
-                        <div className="mt-2 rounded-lg border border-bo-warning/30 bg-bo-warning-soft p-4">
-                            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-bo-warning">Ghi chú từ kho</p>
-                            <p className="text-[13px] leading-relaxed text-slate-700">{request.ghiChu}</p>
-                        </div>
-                    )}
-                </div>
-
-                {/* Product List (Right) */}
-                <div className="lg:col-span-7">
-                    <div className="mb-3 flex items-center justify-between">
-                        <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
-                            <ShoppingBag className="size-3.5" /> Sản phẩm yêu cầu
-                        </p>
-                        <span className="rounded-md border border-bo-primary/30 bg-bo-primary-soft px-2 py-0.5 text-[12px] font-semibold text-bo-primary">
-                            {request.chiTietYeuCauMuaHangs?.length || 0} biến thể
-                        </span>
-                    </div>
-                    <div className="max-h-[220px] space-y-2.5 overflow-y-auto pr-2">
-                        {(request.chiTietYeuCauMuaHangs || []).map((item, i) => {
-                            const img = item.bienTheSanPham?.anhBienThe?.tepTin?.duongDan;
-                            return (
-                                <div key={i} className="flex items-center gap-3 rounded-lg border border-bo-border bg-bo-surface-subtle px-3 py-2.5 transition-colors hover:bg-white">
-                                    {img ? (
-                                        <div className="size-10 shrink-0 overflow-hidden rounded-md border border-bo-border">
-                                            <img src={img} alt="" className="h-full w-full object-cover" />
-                                        </div>
-                                    ) : (
-                                        <div className="flex size-10 shrink-0 items-center justify-center rounded-md border border-bo-border bg-bo-surface-subtle">
-                                            <Package className="size-5 text-slate-300" />
-                                        </div>
-                                    )}
-                                    <div className="min-w-0 flex-1">
-                                        <p className="truncate text-[13px] font-semibold text-bo-foreground" title={item.bienTheSanPham?.tenSanPham}>
-                                            {item.bienTheSanPham?.tenSanPham || item.bienTheSanPham?.tenBienThe || item.bienTheSanPham?.maSku}
-                                        </p>
-                                        <div className="mt-0.5 flex flex-wrap items-center gap-2">
-                                            <span className="font-mono text-[10px] text-bo-muted">{item.bienTheSanPham?.maSku}</span>
-                                            {item.bienTheSanPham?.mauSac?.tenMau && (
-                                                <span className="flex items-center gap-1 text-[10px] text-bo-muted">
-                                                    <span className="size-1.5 rounded-full" style={{ backgroundColor: item.bienTheSanPham.mauSac.maMauHex }}></span>
-                                                    {item.bienTheSanPham.mauSac.tenMau}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="shrink-0 rounded-md bg-bo-primary-soft px-2.5 py-1 text-[13px] font-semibold text-bo-primary">
-                                        SL: {item.soLuongDat}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            </div>
-        </SurfaceCard>
-    );
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════════
-   MAIN PAGE
-═══════════════════════════════════════════════════════════════════════════════ */
+/**
+ * Gửi yêu cầu báo giá (/purchase-requests/:id/send-quotation) · bản "một khối" 21/10/2026 (artboard GuiYeuCauBaoGia của
+ * canvas "Màn bán hàng & kho cấp 2–3"): bảng nhà cung cấp (lọc Gửi được, tìm, chọn tất cả), cột phải Gửi đến / Yêu cầu
+ * nhập hàng / Sản phẩm, hộp xác nhận gửi.
+ * - Chỉ gửi được khi yêu cầu Đã duyệt và có sản phẩm; trạng thái khác → màn chặn có câu riêng (Đã gửi: "Mở so sánh báo
+ *   giá"; Đã chuyển thành đơn mua: "Mở đơn mua hàng").
+ * - Q12, Q14 chưa chốt nên giữ như màn cũ: gửi xong về danh sách yêu cầu nhập hàng; route không chặn theo vai trò (máy
+ *   chủ cho QTV, QLK, NVMH, NVK gửi). Thêm nhà cung cấp / Cập nhật email: QTV + NVMH (như màn cũ).
+ * - Thông tin cửa hàng thiếu tên đăng ký kinh doanh / địa chỉ đăng ký: khóa nút Gửi và hiện dòng chặn (demo-email
+ *   TT-ChanGuiBaoGia); máy chủ vẫn chặn bằng 409 THIEU_THONG_TIN_CUA_HANG. 409 YEU_CAU_DA_GUI → tải lại, hiện màn chặn.
+ * - Lỗi khi gửi: xem tinhGuiBaoGia.phanLoaiLoiGui (400 chưa gửi cho ai; 500 lỗi máy chủ, đã hoàn tác và chưa email nào
+ *   đi vì email gửi sau khi lưu — câu ở chanGuiYeuCauBaoGia.loiGuiTheoMayChuMoi; yêu cầu đã đổi trạng thái → tải lại,
+ *   hiện màn chặn; không rõ kết quả → khóa nút Gửi CHO_GUI_LAI_MS rồi mới tải lại).
+ */
+// Trả lời lỗi có thân JSON của máy chủ (không phải trang lỗi HTML của proxy khi hết giờ chờ)
+const laLoiJson = (error) => Boolean(error?.response?.data) && typeof error.response.data === "object";
 export default function SendQuotationRequestPage() {
-    const navigate = useNavigate();
-    const { id } = useParams();
+  const { id } = useParams();
+  return <ManGuiBaoGia key={id} id={id} />;
+}
 
-    // State
-    const [suppliers, setSuppliers] = useState([]);
-    const [loadingSuppliers, setLoadingSuppliers] = useState(true);
-    const [suppliersError, setSuppliersError] = useState(null);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [request, setRequest] = useState(null);
-    const [loadingRequest, setLoadingRequest] = useState(true);
-    // null | { notFound: true } | { notFound: false, message }
-    const [requestError, setRequestError] = useState(null);
-    const [selectedIds, setSelectedIds] = useState(new Set());
-    const [submitting, setSubmitting] = useState(false);
-    const [showConfirm, setShowConfirm] = useState(false);
-    // Thêm nhanh nhà cung cấp ngay tại đây (không phải rời màn sang trang Nhà cung cấp).
-    const [addSupplierOpen, setAddSupplierOpen] = useState(false);
-    const coTheThemNhaCungCap = hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_MUA_HANG]);
+function ManGuiBaoGia({ id }) {
+  const navigate = useNavigate();
+  const veYeuCau = useCallback(() => navigate(`/purchase-requests/${id}`), [navigate, id]);
+  const suaNcc = hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_MUA_HANG]);
+  const suaThongTinCuaHang = canEditSettingsPage(
+    SETTINGS_PAGES.find((page) => page.key === "store"),
+    window.localStorage.getItem("role"),
+  );
+  const xemDonMua = hasAnyRole(VAI_TRO_XEM_DON_MUA);
 
-    /* ── Load Data: yêu cầu và nhà cung cấp tải riêng, lỗi bên nào báo bên đó ── */
-    const loadRequest = useCallback(async () => {
-        if (!id) return;
-        setLoadingRequest(true);
-        setRequestError(null);
-        try {
-            const resReq = await apiClient.get(`/api/v1/yeu-cau-mua-hang/get-by-id/${id}`);
-            const data = resReq.data?.data || null;
-            setRequest(data);
-            if (!data) setRequestError({ notFound: true });
-        } catch (error) {
-            setRequest(null);
-            // Máy chủ trả 400 "Không tìm thấy yêu cầu mua hàng id: …" khi mã không tồn tại
-            const status = getApiErrorStatus(error);
-            setRequestError(status === 404 || status === 400
-                ? { notFound: true }
-                : { notFound: false, message: getApiErrorMessage(error, 'Không thể tải thông tin yêu cầu nhập hàng') });
-        } finally {
-            setLoadingRequest(false);
-        }
-    }, [id]);
+  // ── Dữ liệu: yêu cầu và nhà cung cấp tải riêng, lỗi bên nào báo bên đó ─────────────────────────────
+  const taiYeuCau = useCallback(async () => (await purchaseRequestService.getById(id)).data?.data ?? null, [id]);
+  const qYc = useTaiDuLieu(taiYeuCau, `gui-bao-gia-${id}`, { enabled: Boolean(id) });
+  const qNcc = useTaiDuLieu(taiNhaCungCap, "nha-cung-cap-gui-bao-gia");
+  const yc = qYc.data ?? null;
+  const chan = chanGuiBaoGia(yc, { xemDonMua });
+  const dong = useMemo(() => dongNhaCungCap(qNcc.data), [qNcc.data]);
+  const coDanhSach = qNcc.data !== undefined;
 
-    const loadSuppliers = useCallback(async () => {
-        setLoadingSuppliers(true);
-        setSuppliersError(null);
-        try {
-            const resSup = await apiClient.get('/api/supplier');
-            setSuppliers(resSup.data?.data || []);
-        } catch (error) {
-            setSuppliers([]);
-            setSuppliersError(getApiErrorMessage(error, 'Không thể tải danh sách nhà cung cấp'));
-        } finally {
-            setLoadingSuppliers(false);
-        }
-    }, []);
+  // ── Thông tin cửa hàng: email gửi nhà cung cấp phải có tên đăng ký kinh doanh và địa chỉ đăng ký ──────
+  // null khi chưa tải hoặc tải lỗi (lỗi mạng thì không chặn ở giao diện; máy chủ vẫn chặn)
+  const [hoSo, setHoSo] = useState(null);
+  const [dangTaiHoSo, setDangTaiHoSo] = useState(true);
+  // Ô thiếu máy chủ vừa trả kèm 409 THIEU_THONG_TIN_CUA_HANG
+  const [thieuTuMayChu, setThieuTuMayChu] = useState(null);
+  // Đọc lại máy chủ (không dùng bộ nhớ đệm): quản trị viên có thể vừa nhập ở máy khác
+  const taiHoSo = useCallback(async () => {
+    try {
+      setHoSo(await companyProfileService.get({ force: true }));
+      setThieuTuMayChu(null);
+    } catch {
+      setHoSo(null);
+    } finally {
+      setDangTaiHoSo(false);
+    }
+  }, []);
+  useEffect(() => {
+    queueMicrotask(() => taiHoSo());
+  }, [taiHoSo]);
+  const thieu = oThieuHienTai({ hoSo, thieuTuMayChu });
 
-    // Hoãn qua microtask để tránh setState đồng bộ trong effect
-    // (react-hooks/set-state-in-effect); vẫn fetch ngay khi mount / khi id đổi.
-    useEffect(() => { queueMicrotask(() => loadRequest()); }, [loadRequest]);
-    useEffect(() => { queueMicrotask(() => loadSuppliers()); }, [loadSuppliers]);
+  // ── Chọn: chỉ giữ nhà cung cấp còn gửi được (danh sách tải lại sau lỗi → tự bỏ nhà cung cấp hết gửi được) ──
+  const [chon, setChon] = useState(() => new Set());
+  const theoId = useMemo(() => new Map(dong.map((d) => [d.id, d])), [dong]);
+  const daChon = [...chon].map((ma) => theoId.get(ma)).filter((d) => d?.guiDuoc);
+  const chonHopLe = new Set(daChon.map((d) => d.id));
+  // Danh sách mới về: bỏ hẳn id không còn gửi được khỏi lựa chọn (không tự chọn lại khi nhà cung cấp hoạt động lại)
+  const [dongDaDon, setDongDaDon] = useState(dong);
+  if (dongDaDon !== dong) {
+    setDongDaDon(dong);
+    if (coDanhSach && chonHopLe.size !== chon.size) setChon(chonHopLe);
+  }
 
-    /* ── Derived State ── */
-    const filteredSuppliers = useMemo(() => {
-        const term = searchTerm.trim().toLowerCase();
-        if (!term) return suppliers;
-        return suppliers.filter(s =>
-            s.tenNhaCungCap?.toLowerCase().includes(term) ||
-            s.maNhaCungCap?.toLowerCase().includes(term) ||
-            s.email?.toLowerCase().includes(term) ||
-            s.nguoiLienHe?.toLowerCase().includes(term)
-        );
-    }, [suppliers, searchTerm]);
+  const [tuKhoa, setTuKhoa] = useState("");
+  const [loc, setLoc] = useState("duoc");
+  const [trang, setTrang] = useState(0);
+  const [coTrang, setCoTrang] = useState(CO_TRANG_DONG[0]);
 
-    const activeSuppliers = useMemo(() => suppliers.filter(coTheGuiYeuCauBaoGia), [suppliers]);
-    const selectedSuppliersList = useMemo(() => suppliers.filter(s => selectedIds.has(s.id)), [suppliers, selectedIds]);
-    const selectedCount = selectedIds.size;
+  // ── Thêm / sửa nhà cung cấp ──────────────────────────────────────────────────────────────────────
+  // { mo, supplier: null | ncc, oDauTien }; đóng thì giữ supplier để hộp không đổi chữ lúc đang mờ dần
+  const [hopNcc, setHopNcc] = useState({ mo: false, supplier: null, oDauTien: null });
+  const moHopNcc = (supplier, oDauTien = null) => setHopNcc({ mo: true, supplier, oDauTien });
+  const daLuuNcc = (luu, { laSua }) => {
+    if (!luu?.id) {
+      qNcc.reload();
+      return;
+    }
+    qNcc.setData((cu) => {
+      const ds = Array.isArray(cu) ? cu : [];
+      return laSua ? ds.map((n) => (n.id === luu.id ? { ...n, ...luu } : n)) : [luu, ...ds.filter((n) => n.id !== luu.id)];
+    });
+    const ten = luu.tenNhaCungCap || "nhà cung cấp";
+    const guiDuoc = coTheGuiYeuCauBaoGia(luu);
+    if (guiDuoc) setChon((cu) => new Set(cu).add(luu.id));
+    if (!laSua) {
+      // Thêm mới: dòng mới nằm đầu danh sách → bỏ từ khóa, về trang đầu để thấy ngay
+      setTuKhoa("");
+      setTrang(0);
+    } else {
+      // Sửa email: giữ từ khóa và trang; nút "Cập nhật email" đã mất nên đưa tiêu điểm về ô chọn của dòng đó (sau khi
+      // hộp đóng hẳn — lúc còn mở, hộp giữ tiêu điểm bên trong)
+      setTimeout(() => document.querySelector(`input[data-ncc-id="${luu.id}"]`)?.focus(), 350);
+    }
+    if (guiDuoc) {
+      toast.success(laSua ? `Đã cập nhật email của ${ten} và chọn vào danh sách gửi` : `Đã thêm nhà cung cấp "${ten}" và chọn vào danh sách gửi`);
+    } else {
+      toast.success(laSua ? `Đã lưu nhà cung cấp ${ten}` : `Đã thêm nhà cung cấp "${ten}"`);
+    }
+  };
 
-    /* ── Handlers ── */
-    const handleSupplierCreated = (created) => {
-        setSuppliers(prev => [created, ...prev.filter(s => s.id !== created.id)]);
-        if (coTheGuiYeuCauBaoGia(created)) {
-            setSelectedIds(prev => new Set(prev).add(created.id));
-        }
-        // Đang lọc mà nhà cung cấp mới không khớp từ khóa thì xóa lọc để thấy dòng vừa thêm.
-        setSearchTerm('');
-        toast.success(`Đã thêm nhà cung cấp "${created.tenNhaCungCap}" và chọn vào danh sách gửi.`);
+  // ── Gửi ──────────────────────────────────────────────────────────────────────────────────────────
+  const [hop, setHop] = useState(false);
+  const [dangGui, setDangGui] = useState(false);
+  const [loiGui, setLoiGui] = useState(null);
+  // Lần gửi không rõ kết quả: khóa nút Gửi tới lúc tự tải lại yêu cầu (máy chủ có thể vẫn đang gửi email)
+  const [choGuiLai, setChoGuiLai] = useState(false);
+  const henChoRef = useRef(null);
+  const daGoRef = useRef(false);
+  useEffect(() => {
+    daGoRef.current = false;
+    return () => {
+      daGoRef.current = true;
+      clearTimeout(henChoRef.current);
     };
+  }, []);
 
-    const toggleSupplier = (supplierId) => {
-        setSelectedIds(prev => {
-            const next = new Set(prev);
-            next.has(supplierId) ? next.delete(supplierId) : next.add(supplierId);
-            return next;
-        });
-    };
+  useTaiLaiKhiQuayLai(
+    () => {
+      qYc.reload();
+      qNcc.reload();
+      taiHoSo();
+    },
+    { bat: Boolean(yc) && !qYc.loading && !dangGui && !hop && !hopNcc.mo && !choGuiLai, lanCuoi: qYc.capNhatLuc },
+  );
 
-    const selectAll = () => {
-        setSelectedIds(new Set(activeSuppliers.filter(s => {
-            const term = searchTerm.trim().toLowerCase();
-            if (!term) return true;
-            return s.tenNhaCungCap?.toLowerCase().includes(term) || s.maNhaCungCap?.toLowerCase().includes(term);
-        }).map(s => s.id)));
-    };
+  const ma = maYeuCau(yc, id);
+  const soBienThe = Array.isArray(yc?.chiTietYeuCauMuaHangs) ? yc.chiTietYeuCauMuaHangs.length : 0;
 
-    const handleSend = async () => {
-        setSubmitting(true);
-        try {
-            await purchaseRequestService.sendQuotationRequest({
-                yeuCauMuaHangId: parseInt(id),
-                nhaCungCapIds: Array.from(selectedIds),
-                ghiChu: '',
-            });
-            toast.success(`Đã gửi yêu cầu báo giá đến ${selectedCount} nhà cung cấp.`);
-            setShowConfirm(false);
-            setTimeout(() => navigate('/purchase-requests'), 1200);
-        } catch (err) {
-            toast.error(err.response?.data?.message || 'Gửi yêu cầu thất bại. Vui lòng thử lại.');
-        } finally {
-            setSubmitting(false);
+  const gui = async () => {
+    if (!yc || !daChon.length) return;
+    const soNcc = daChon.length;
+    setDangGui(true);
+    try {
+      // Không gửi ghiChu: máy chủ bỏ qua trường này
+      await purchaseRequestService.sendQuotationRequest({ yeuCauMuaHangId: Number(yc.id ?? id), nhaCungCapIds: daChon.map((d) => d.id) });
+      // Thông báo nhanh là chung toàn ứng dụng: vẫn báo kết quả dù người dùng đã rời màn trong lúc gửi.
+      // Email gửi sau khi lưu đơn nên không khẳng định email đã đi (HOP-DONG 6.11).
+      toast.success(cauDaGui(soVN(soNcc)), { description: `Theo dõi báo giá ở ${ma}` });
+      if (daGoRef.current) return;
+      setHop(false);
+      // Q12 chưa chốt: về danh sách yêu cầu nhập hàng như màn cũ
+      navigate("/purchase-requests");
+    } catch (error) {
+      // Lỗi có mã của máy chủ mới (LoiCoMaException) xét trước
+      const coMa = xuLyLoiGui(error);
+      if (coMa.loai === "thieu" || coMa.loai === "daGui") {
+        if (daGoRef.current) {
+          toast.error(`Gửi yêu cầu báo giá ${ma} chưa xong`, { description: coMa.message ?? CAU_LY_DO_KHUNG_CHAN });
+          return;
         }
-    };
+        setHop(false);
+        if (coMa.loai === "thieu") {
+          // Dòng chặn hiện ngay (câu trong dòng đã nói lý do, không báo trùng)
+          if (coMa.thieu) setThieuTuMayChu(coMa.thieu);
+          else taiHoSo();
+        } else {
+          // Yêu cầu đã được gửi (bấm 2 lần hoặc người khác vừa gửi): tải lại, màn chặn "Đã gửi" hiện ra
+          toast.info(coMa.message);
+          qYc.reload();
+        }
+        return;
+      }
+      // 500 JSON: máy chủ mới gửi email sau khi lưu nên chưa email nào đi (thay câu "lỗi email giữa chừng" của máy chủ cũ)
+      const loi = loiGuiTheoMayChuMoi(
+        phanLoaiLoiGui(getApiErrorStatus(error), getApiErrorMessage(error, ""), { laJson: laLoiJson(error) }),
+      );
+      if (daGoRef.current) {
+        if (loi.chu) toast.error(`Gửi yêu cầu báo giá ${ma} chưa xong`, { description: loi.chu });
+        return;
+      }
+      setHop(false);
+      if (loi.loai === "doiTrangThai") {
+        toast.info("Yêu cầu đã đổi trạng thái ở nơi khác", { description: "Đã tải lại yêu cầu" });
+        qYc.reload();
+        return;
+      }
+      setLoiGui(loi.chu);
+      if (loi.loai === "chuaRo") {
+        clearTimeout(henChoRef.current);
+        setChoGuiLai(true);
+        henChoRef.current = setTimeout(() => {
+          setChoGuiLai(false);
+          qYc.reload();
+        }, CHO_GUI_LAI_MS);
+        return;
+      }
+      if (loi.loai === "ncc" || loi.loai === "khac") qNcc.reload();
+      if (loi.loai !== "ncc" && loi.loai !== "quyen") qYc.reload();
+    } finally {
+      if (!daGoRef.current) setDangGui(false);
+    }
+  };
 
-    return (
-        <PageContainer className="space-y-5 pb-24">
-
-            {/* ── Header ── */}
-            <PageHeader
-                title="Gửi yêu cầu báo giá"
-                description="Chọn các nhà cung cấp phù hợp để gửi yêu cầu báo giá cho yêu cầu nhập hàng này"
-                actions={
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => navigate('/purchase-requests')}
-                        className="gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                    >
-                        <ArrowLeft className="size-4" /> Quay lại
-                    </Button>
-                }
-            />
-
-            {/* ── Main Layout: 2 Columns ── */}
-            <div className="flex flex-col items-start gap-5 xl:flex-row">
-
-                {/* ════ LEFT COLUMN (Main Content) ════ */}
-                <div className="w-full min-w-0 flex-1 space-y-5">
-                    {/* 1. Request Info */}
-                    <RequestInfoPanel
-                        request={request}
-                        loading={loadingRequest}
-                        error={requestError}
-                        onRetry={() => loadRequest()}
-                        onBack={() => navigate('/purchase-requests')}
-                        id={id}
-                    />
-
-                    {/* 2. Supplier Selection */}
-                    <SurfaceCard
-                        title={
-                            <span className="flex items-center gap-2">
-                                <ListChecks className="size-4 text-bo-primary" />Chọn nhà cung cấp
-                            </span>
-                        }
-                        action={
-                            <div className="flex items-center gap-3">
-                                <div className="w-full sm:w-56">
-                                    <SearchInput
-                                        placeholder="Tìm tên, mã, email..."
-                                        label="Tìm nhà cung cấp"
-                                        value={searchTerm}
-                                        onChange={e => setSearchTerm(e.target.value)}
-                                        onClear={() => setSearchTerm('')}
-                                        className="sm:max-w-none"
-                                    />
-                                </div>
-                                <Button variant="outline" onClick={selectAll} className="hidden h-9 shrink-0 border-bo-border bg-white text-[13px] font-semibold text-bo-foreground hover:bg-bo-surface-subtle sm:flex">
-                                    Chọn tất cả
-                                </Button>
-                                {coTheThemNhaCungCap ? (
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => setAddSupplierOpen(true)}
-                                        aria-label="Thêm nhà cung cấp"
-                                        title="Thêm nhà cung cấp mới"
-                                        className="h-9 shrink-0 gap-1.5 border-bo-border bg-white text-[13px] font-semibold text-bo-primary hover:bg-bo-primary-soft hover:text-bo-primary"
-                                    >
-                                        <Plus className="size-4" />
-                                        Thêm mới
-                                    </Button>
-                                ) : null}
-                            </div>
-                        }
-                    >
-                        {loadingSuppliers ? (
-                            <LoadingState rows={4} label="Đang tải danh sách nhà cung cấp" />
-                        ) : suppliersError ? (
-                            <ErrorState
-                                title="Không thể tải danh sách nhà cung cấp"
-                                description={suppliersError}
-                                onRetry={() => loadSuppliers()}
-                            />
-                        ) : filteredSuppliers.length === 0 ? (
-                            <EmptyState
-                                icon={Building2}
-                                title="Không tìm thấy nhà cung cấp phù hợp"
-                                description="Thử từ khóa khác hoặc xóa bộ lọc tìm kiếm."
-                            />
-                        ) : (
-                            <div className="max-h-[500px] divide-y divide-bo-border overflow-y-auto overflow-hidden rounded-lg border border-bo-border">
-                                {filteredSuppliers.map(supplier => (
-                                    <SupplierListItem
-                                        key={supplier.id}
-                                        supplier={supplier}
-                                        isSelected={selectedIds.has(supplier.id)}
-                                        onToggle={toggleSupplier}
-                                    />
-                                ))}
-                            </div>
-                        )}
-                        <p className="mt-3 text-[12px] font-medium text-bo-muted">
-                            Hiển thị {filteredSuppliers.length} đối tác. Nhấn vào từng dòng để chọn/bỏ chọn.
-                        </p>
-                    </SurfaceCard>
-                </div>
-
-                {/* ════ RIGHT COLUMN (Sticky Cart) ════ */}
-                <div className="sticky top-6 w-full shrink-0 xl:w-[380px]">
-                    <div className="flex max-h-[calc(100vh-100px)] flex-col rounded-lg border border-bo-border bg-white shadow-sm">
-                        <div className="flex shrink-0 items-center justify-between border-b border-bo-border px-5 py-4">
-                            <div className="flex items-center gap-2">
-                                <Sparkles className="size-5 text-bo-primary" />
-                                <p className="text-base font-semibold text-bo-foreground">Danh sách sẽ gửi</p>
-                            </div>
-                            <span className="rounded-md bg-bo-primary-soft px-3 py-1 text-[13px] font-semibold text-bo-primary">
-                                {selectedCount} NCC
-                            </span>
-                        </div>
-
-                        <div className="min-h-[250px] flex-1 overflow-y-auto p-4">
-                            {selectedCount === 0 ? (
-                                <div className="flex h-full flex-col items-center justify-center gap-3 py-10 text-bo-muted">
-                                    <div className="flex size-16 items-center justify-center rounded-full bg-bo-surface-subtle">
-                                        <Send className="size-6 opacity-30" />
-                                    </div>
-                                    <p className="px-4 text-center text-[13px] leading-relaxed">Bạn chưa chọn đối tác nào.<br />Tích chọn ở danh sách bên trái để thêm vào đây.</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-2">
-                                    <div className="mb-3 flex items-center justify-between px-1">
-                                        <p className="text-[12px] font-semibold uppercase tracking-wide text-bo-muted">Đã chọn</p>
-                                        <button onClick={() => setSelectedIds(new Set())} className="text-[12px] font-semibold text-bo-danger transition-colors hover:text-bo-danger/80">Bỏ chọn tất cả</button>
-                                    </div>
-                                    {selectedSuppliersList.map(s => (
-                                        <div key={s.id} className="flex items-center gap-3 rounded-lg border border-bo-border bg-white px-3 py-3">
-                                            <div className={`flex size-9 shrink-0 items-center justify-center rounded-full text-[12px] font-bold text-white ${avatarColor(s.tenNhaCungCap)}`}>
-                                                {getInitials(s.tenNhaCungCap)}
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <p className="truncate text-[13px] font-semibold text-bo-foreground">{s.tenNhaCungCap}</p>
-                                                <p className="truncate text-[11px] text-bo-muted">{s.email || 'Không có email'}</p>
-                                            </div>
-                                            <button type="button" onClick={() => toggleSupplier(s.id)} className="group flex size-7 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-bo-danger-soft hover:text-bo-danger">
-                                                <X className="size-3.5 group-hover:text-bo-danger" />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="shrink-0 border-t border-bo-border bg-white p-4">
-                            <Button
-                                onClick={() => setShowConfirm(true)}
-                                disabled={selectedCount === 0 || loadingRequest || !request}
-                                className="h-12 w-full gap-2 rounded-md bg-bo-primary text-[15px] font-semibold text-white hover:bg-bo-primary-hover disabled:opacity-50"
-                            >
-                                <Send className="size-4" /> Gửi báo giá {selectedCount > 0 ? `(${selectedCount})` : ''}
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* ── Confirm Dialog ── */}
-            <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
-                <DialogContent className="overflow-hidden rounded-lg border border-bo-border bg-white p-0 text-bo-foreground shadow-lg sm:max-w-md">
-                    <div className="flex items-center gap-4 border-b border-bo-border bg-bo-primary-soft p-5">
-                        <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-white text-bo-primary">
-                            <Send className="size-6" />
-                        </div>
-                        <div>
-                            <DialogTitle className="m-0 text-base font-semibold text-bo-foreground">Xác nhận gửi báo giá</DialogTitle>
-                            <DialogDescription className="mt-1 text-[13px] text-bo-muted">Hệ thống sẽ tự động tạo đơn và gửi email</DialogDescription>
-                        </div>
-                    </div>
-
-                    <div className="space-y-5 p-5">
-                        <div className="space-y-3 rounded-lg border border-bo-border bg-bo-surface-subtle p-4 text-sm">
-                            <div className="flex items-center justify-between"><span className="font-medium text-bo-muted">Yêu cầu nhập hàng:</span><span className="text-[15px] font-semibold text-bo-foreground">#{id}</span></div>
-                            <div className="flex items-center justify-between"><span className="font-medium text-bo-muted">Kho nhập:</span><span className="font-semibold text-bo-foreground">{request?.khoNhap?.tenKho || '—'}</span></div>
-                            <div className="h-px bg-bo-border" />
-                            <div className="flex items-center justify-between"><span className="font-medium text-bo-muted">Số đối tác nhận:</span><span className="rounded-md bg-bo-primary-soft px-2 py-0.5 text-[18px] font-bold text-bo-primary">{selectedCount}</span></div>
-                        </div>
-
-                        <div className="overflow-hidden rounded-lg border border-bo-border">
-                            <div className="border-b border-bo-border bg-bo-surface-subtle px-3.5 py-2.5"><p className="text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Gửi đến ({selectedCount})</p></div>
-                            <div className="max-h-[160px] divide-y divide-bo-border overflow-y-auto">
-                                {selectedSuppliersList.map(s => (
-                                    <div key={s.id} className="flex items-center gap-3 px-3.5 py-2.5">
-                                        <div className={`flex size-6 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white ${avatarColor(s.tenNhaCungCap)}`}>{getInitials(s.tenNhaCungCap)}</div>
-                                        <p className="flex-1 truncate text-[13px] font-semibold text-bo-foreground">{s.tenNhaCungCap}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex gap-3 px-5 pb-5">
-                        <Button variant="outline" onClick={() => setShowConfirm(false)} disabled={submitting} className="h-12 flex-1 rounded-md border-bo-border bg-white font-semibold text-bo-foreground hover:bg-bo-surface-subtle">Hủy bỏ</Button>
-                        <Button onClick={handleSend} disabled={submitting} className="h-12 flex-1 gap-2 rounded-md bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover">
-                            {submitting ? <><Loader2 className="size-5 animate-spin" />Đang gửi...</> : <><Send className="size-4" />Tiến hành gửi</>}
-                        </Button>
-                    </div>
-                </DialogContent>
-            </Dialog>
-
-            {coTheThemNhaCungCap ? (
-                <SupplierFormDialog
-                    open={addSupplierOpen}
-                    onOpenChange={setAddSupplierOpen}
-                    onSaved={handleSupplierCreated}
-                />
-            ) : null}
+  // ── Đang tải / lỗi / màn chặn ────────────────────────────────────────────────────────────────────
+  if (!yc) {
+    if (qYc.loading || (!qYc.error && qYc.data === undefined)) {
+      return (
+        <PageContainer className="flex min-h-full flex-col">
+          <KhungDangTai nhan="Đang tải yêu cầu nhập hàng" coTienTrinh={false} />
         </PageContainer>
+      );
+    }
+    return (
+      <PageContainer className="flex min-h-full flex-col">
+        <KhungLoiChungTu
+          loi={qYc.error}
+          tenChungTu="yêu cầu nhập hàng"
+          onVeDanhSach={() => navigate("/purchase-requests")}
+          onThuLai={qYc.reload}
+          locCauMayChu={locCauMayChuMuaHang}
+        />
+      </PageContainer>
     );
+  }
+
+  if (chan) {
+    return (
+      <PageContainer className="flex min-h-full flex-col">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+          <EmptyState
+            icon={Send}
+            className="flex-1"
+            title={chan.tieuDe}
+            description={chan.moTa}
+            action={
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {chan.nut.map((n) => (
+                  <Button
+                    key={n.ma}
+                    type="button"
+                    onClick={() => navigate(n.to)}
+                    className="bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover"
+                  >
+                    {n.nhan}
+                  </Button>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={veYeuCau}
+                  className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                >
+                  Về yêu cầu nhập hàng {ma}
+                </Button>
+              </div>
+            }
+          />
+        </div>
+      </PageContainer>
+    );
+  }
+
+  const lyDoKhoa = choGuiLai
+    ? "Đang chờ máy chủ xử lý xong lần gửi trước"
+    : thieu.length
+      ? "Thông tin cửa hàng còn thiếu"
+      : dangTaiHoSo
+        ? "Đang kiểm tra thông tin cửa hàng"
+        : !daChon.length
+      ? "Chọn ít nhất một nhà cung cấp"
+      : "";
+  const thongBao = [
+    <DongThongBao key="mot-lan" tone="info">
+      Mỗi nhà cung cấp nhận một email có đường dẫn vào cổng báo giá. <b className="font-semibold">Chỉ gửi một lần:</b> sau khi gửi,
+      yêu cầu chuyển sang Đã gửi yêu cầu báo giá và không thêm nhà cung cấp được nữa.
+    </DongThongBao>,
+    thieu.length ? (
+      <DongThongBao
+        key="thieu-thong-tin-cua-hang"
+        tone="warn"
+        actions={
+          suaThongTinCuaHang ? (
+            <Link to="/settings/store" className="font-semibold text-bo-primary-hover no-underline hover:text-[#0b4ea6]">
+              {LIEN_KET_NHAP_THONG_TIN}
+            </Link>
+          ) : null
+        }
+      >
+        <b className="font-semibold">{TIEU_DE_KHUNG_CHAN}.</b> Thông tin cửa hàng còn thiếu{" "}
+        {doanNhanThieu(thieu).map((doan, i) => (i % 2 === 0 ? <b key={i} className="font-semibold">{doan}</b> : <span key={i}>{doan}</span>))}
+        . {CAU_LY_DO_KHUNG_CHAN}
+        {suaThongTinCuaHang ? null : <> {CAU_BAO_NGUOI_CO_QUYEN}</>}
+      </DongThongBao>
+    ) : null,
+    loiGui ? (
+      <DongThongBao key="loi-gui" tone="bad" actions={<NutChu onClick={() => setLoiGui(null)}>Đã hiểu</NutChu>}>
+        {loiGui}
+      </DongThongBao>
+    ) : null,
+    qYc.loiTaiLai ? (
+      <DongThongBao key="loi-tai-lai" tone="bad" actions={<NutChu onClick={qYc.reload}>Thử lại</NutChu>}>
+        Không tải lại được yêu cầu: {getApiErrorMessage(qYc.error, "lỗi kết nối")}. Thông tin đang hiện có thể đã cũ.
+      </DongThongBao>
+    ) : null,
+    // Danh sách nhà cung cấp đã có mà tải lại lỗi: giữ bảng đang xem, báo ở đây
+    qNcc.loiTaiLai ? (
+      <DongThongBao key="loi-tai-lai-ncc" tone="bad" actions={<NutChu onClick={qNcc.reload}>Thử lại</NutChu>}>
+        Không tải lại được danh sách nhà cung cấp: {getApiErrorMessage(qNcc.error, "lỗi kết nối")}. Danh sách đang hiện có thể đã cũ.
+      </DongThongBao>
+    ) : null,
+  ].filter(Boolean);
+
+  return (
+    <PageContainer className="flex min-h-full flex-col">
+      <KhungChungTu
+        dau={
+          <DauChungTu
+            ma="Gửi yêu cầu báo giá"
+            dongPhu={[
+              <span key="yc">
+                Cho yêu cầu nhập hàng{" "}
+                <Link to={`/purchase-requests/${id}`} className="font-medium tabular-nums text-bo-primary hover:underline">
+                  {ma}
+                </Link>
+              </span>,
+              <b key="bt" className="font-semibold text-bo-foreground">{soVN(soBienThe)} biến thể</b>,
+              <b key="sl" className="font-semibold text-bo-foreground">tổng số lượng {soVN(tongSoLuongDat(yc))}</b>,
+            ]}
+            onQuayLai={veYeuCau}
+            nhanQuayLai="Về yêu cầu nhập hàng"
+            nutPhu={
+              suaNcc
+                ? {
+                  ma: "them",
+                  nhan: "Thêm nhà cung cấp",
+                  icon: Plus,
+                  // Chờ danh sách tải xong: lần tải đầu về sau sẽ đè mất nhà cung cấp vừa thêm
+                  khoa: !coDanhSach,
+                  lyDo: !coDanhSach ? "Đang tải danh sách nhà cung cấp" : undefined,
+                  onClick: () => moHopNcc(null),
+                }
+                : null
+            }
+            nutChinh={{
+              ma: "gui",
+              nhan: daChon.length ? `Gửi yêu cầu (${soVN(daChon.length)})` : "Gửi yêu cầu",
+              icon: Send,
+              khoa: Boolean(lyDoKhoa) || dangGui,
+              lyDo: lyDoKhoa || undefined,
+              hienLyDo: true,
+              onClick: () => {
+                setLoiGui(null);
+                setHop(true);
+              },
+            }}
+          />
+        }
+        thongBao={thongBao}
+        chinh={
+          <BangNhaCungCap
+            dong={dong}
+            chon={chonHopLe}
+            onDoiChon={setChon}
+            tuKhoa={tuKhoa}
+            onDoiTuKhoa={setTuKhoa}
+            loc={loc}
+            onDoiLoc={setLoc}
+            trang={trang}
+            coTrang={coTrang}
+            onDoiTrang={setTrang}
+            onDoiCoTrang={(n) => {
+              setCoTrang(n);
+              setTrang(0);
+            }}
+            suaDuoc={suaNcc}
+            onSuaEmail={(ncc) => moHopNcc(ncc, "email")}
+            onThem={suaNcc && coDanhSach ? () => moHopNcc(null) : undefined}
+            loi={qNcc.error && !qNcc.loading && !coDanhSach ? getApiErrorMessage(qNcc.error, "lỗi kết nối") : null}
+            dangTai={qNcc.loading && qNcc.data === undefined}
+            onThuLai={qNcc.reload}
+          />
+        }
+        cotPhai={
+          <ThuocTinhGuiBaoGia
+            yc={yc}
+            id={id}
+            daChon={daChon}
+            onBo={(ma) =>
+              setChon((cu) => {
+                const moi = new Set(cu);
+                moi.delete(ma);
+                return moi;
+              })
+            }
+          />
+        }
+      />
+
+      <HopXacNhanChungTu
+        mo={hop}
+        onDoiMo={(mo) => !mo && setHop(false)}
+        tieuDe={`Gửi yêu cầu báo giá đến ${soVN(daChon.length)} nhà cung cấp?`}
+        moTa={`Mỗi nhà cung cấp nhận một yêu cầu báo giá cho ${soVN(soBienThe)} biến thể của ${ma}. Sau khi gửi không thêm hay bỏ nhà cung cấp được nữa.`}
+        nhanXacNhan="Gửi yêu cầu"
+        iconXacNhan={Send}
+        rong
+        dangChay={dangGui}
+        // Danh sách vừa tải lại bỏ hết nhà cung cấp đã chọn trong lúc hộp đang mở
+        khoaXacNhan={!daChon.length || choGuiLai || thieu.length > 0}
+        lyDoKhoa={
+          !daChon.length
+            ? "Không còn nhà cung cấp nào được chọn"
+            : choGuiLai
+              ? "Đang chờ máy chủ xử lý xong lần gửi trước"
+              : thieu.length
+                ? "Thông tin cửa hàng còn thiếu"
+                : undefined
+        }
+        onXacNhan={gui}
+      >
+        <ul className={`${GHI_CHU_HOP} m-0 grid max-h-56 list-none gap-1 overflow-y-auto`}>
+          {daChon.map((d) => (
+            <li key={d.id} className="flex min-w-0 justify-between gap-3">
+              <span className="min-w-0 truncate font-semibold text-bo-foreground">{d.ten}</span>
+              <span className="min-w-0 truncate text-bo-muted">{d.email}</span>
+            </li>
+          ))}
+        </ul>
+      </HopXacNhanChungTu>
+
+      {suaNcc ? (
+        <SupplierFormDialog
+          open={hopNcc.mo}
+          onOpenChange={(mo) => !mo && setHopNcc((cu) => ({ ...cu, mo: false }))}
+          supplier={hopNcc.supplier}
+          oDauTien={hopNcc.oDauTien}
+          onSaved={daLuuNcc}
+        />
+      ) : null}
+    </PageContainer>
+  );
 }

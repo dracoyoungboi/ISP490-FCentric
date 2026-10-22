@@ -142,44 +142,35 @@ const purchaseOrderService = {
     },
 
     /**
-     * Chốt báo giá của nhà cung cấp
-     * PUT /api/v1/nghiep-vu/don-mua-hang/duyet-don/{id}/{trangThai} (DonMuaHangService.chotBaoGia)
+     * Xét báo giá của nhà cung cấp
+     * PUT /api/v1/nghiep-vu/don-mua-hang/duyet-don/{id}/{trangThai} (DonMuaHangService.xetBaoGia)
      *
      * trangThai chỉ nhận:
-     *   3  = Chấp nhận báo giá (thành đơn mua hàng, yêu cầu mua hàng chuyển sang 5)
-     *   4  = Không chấp nhận báo giá (máy chủ gửi email lý do mặc định cho nhà cung cấp)
-     * Giá trị khác → 400. Chỉ chốt được báo giá đang ở trạng thái 2 (chờ chốt); báo giá đã chốt / đã đổi ở nơi khác → 409.
-     * Máy chủ ghi người bấm vào nguoiDuyet (người chốt).
+     *   3  = Chấp nhận báo giá (thành đơn mua hàng, yêu cầu mua hàng chuyển sang 5; các báo giá còn chờ cùng yêu cầu
+     *        tự chuyển sang 4 và nhận email kết quả)
+     *   4  = Không chấp nhận báo giá (email kết quả gửi nhà cung cấp, kèm lý do nếu có)
+     * body = { lyDo: string | null (≤ 500), ngayBaoGiaDaXem: chuỗi ngayBaoGia màn đang hiện }
+     *   (dựng bằng chi-tiet-bao-gia/tinhBaoGia.taoBodyXetBaoGia).
+     * Lỗi: 400 (trạng thái sai, lý do quá dài), 409 DON_DA_CO_KET_QUA / CHUA_CO_BAO_GIA / BAO_GIA_DA_DOI /
+     * YEU_CAU_KHONG_CON_MO, 409 không mã (đang chờ khóa) — `message` hiện nguyên văn (cách xử lý:
+     * tinhBaoGia.cachXuLyLoiXetBaoGia). Máy chủ ghi người bấm vào nguoiDuyet (người chốt).
      */
-    duyetDon: async (id, trangThai) => {
+    duyetDon: async (id, trangThai, body) => {
         const response = await apiClient.put(
-            `/api/v1/nghiep-vu/don-mua-hang/duyet-don/${id}/${trangThai}`
+            `/api/v1/nghiep-vu/don-mua-hang/duyet-don/${id}/${trangThai}`,
+            body
         );
         return response.data;
     },
 
-    /** Chấp nhận báo giá → trạng thái 3 */
-    chapNhanBaoGia: async (id) => purchaseOrderService.duyetDon(id, 3),
-
-    /** Từ chối báo giá → trạng thái 4 */
-    tuChoiBaoGia: async (id) => purchaseOrderService.duyetDon(id, 4),
-
     /**
-     * Lấy thông tin giao dịch thanh toán
-     * GET /api/v1/nghiep-vu/don-mua-hang/thanh-toan/{id}
+     * Gửi lại email yêu cầu báo giá cho một nhà cung cấp (K11), cùng mã đơn cũ.
+     * POST /api/v1/nghiep-vu/don-mua-hang/{id}/gui-lai-yeu-cau (không body) → data = { daDuaVaoHangDoi: true }
+     * 409 KHONG_GUI_LAI_DUOC (hết điều kiện / bấm lại trong thời gian chờ), THIEU_THONG_TIN_CUA_HANG, YEU_CAU_KHONG_CON_MO.
      */
-    layGiaoDich: async (id) => {
-        const response = await apiClient.get(`/api/v1/nghiep-vu/don-mua-hang/thanh-toan/${id}`);
-        return response.data.data;
-    },
-
-    /**
-     * Kiểm tra trạng thái thanh toán của đơn mua hàng
-     * GET /api/v1/nghiep-vu/don-mua-hang/kiem-tra-thanh-toan/id
-     */
-    kiemTraThanhToan: async (id) => {
-        const response = await apiClient.get(`/api/v1/nghiep-vu/don-mua-hang/kiem-tra-thanh-toan/${id}`);
-        return response.data?.status === 200;
+    guiLaiYeuCau: async (id) => {
+        const response = await apiClient.post(`/api/v1/nghiep-vu/don-mua-hang/${id}/gui-lai-yeu-cau`);
+        return response.data;
     },
 };
 

@@ -22,8 +22,7 @@ import MaVachNhaCungCapPage from "./pages/supplier/MaVachNhaCungCapPage.jsx";
 import PhieuXuatKhoList from "./pages/issue/PhieuXuatKhoList.jsx";
 import PurchaseOrderDetail from "./pages/order/PurchaseOrderDetail.jsx";
 import PurchaseOrder from "./pages/order/PurchaseOrder.jsx";
-import PurchaseOrderPayment from "./pages/order/PurchaseOrderPayment.jsx";
-import SendQuotationRequest from "./pages/order/SendQuotationRequest.jsx";
+import GuiBaoGiaCuRedirect from "./pages/order/GuiBaoGiaCuRedirect.jsx";
 import SkuBuilder from "./pages/product/SkuBuilder";
 import PhieuXuatKhoCreate from "./pages/issue/PhieuXuatKhoCreate.jsx";
 import PhieuXuatKhoDetail from "./pages/issue/PhieuXuatKhoDetail.jsx";
@@ -45,6 +44,7 @@ import PhieuChuyenKhoDetail from "./pages/chuyenKhoNoiBo/PhieuChuyenKhoDetail";
 import PhieuChuyenKhoCreate from "./pages/chuyenKhoNoiBo/PhieuChuyenKhoCreate";
 import StockTakeList from "./pages/stock-take/StockTakeList";
 import StockTakeCreate from "./pages/stock-take/StockTakeCreate";
+import StockTakeDetail from "./pages/stock-take/StockTakeDetail";
 import BaoCaoDoanhThu from "./pages/bao-cao/BaoCaoDoanhThu";
 import KhachHangReport from "./pages/bao-cao/KhachHangReport";
 import NhatKyNhapXuat from "./pages/bao-cao/NhatKyNhapXuat";
@@ -170,8 +170,7 @@ export default function App() {
           <Route path="/purchase-requests/create" element={<CreatePurchaseRequestPage />} />
           <Route path="/purchase-requests/:id/send-quotation" element={<SendQuotationRequestPage />} />
           <Route path="/purchase-orders/:id" element={<PurchaseOrderDetail />} />
-          <Route path="/purchase-orders/:id/payment" element={<PurchaseOrderPayment />} />
-          <Route path="/purchase-requests/:id/gui-bao-gia" element={<SendQuotationRequest />} />
+          <Route path="/purchase-requests/:id/gui-bao-gia" element={<GuiBaoGiaCuRedirect />} />
           <Route path="/quotation-requests" element={<QuotationRequestList />} />
           <Route path="/quotation-requests/create" element={<QuotationRequestCreate />} />
           <Route path="/quotation-requests/:id" element={<QuotationRequestDetail />} />
@@ -218,7 +217,11 @@ export default function App() {
           <Route path="/sales-orders/create" element={<DonBanHangCreate />} />
           <Route path="/sales-quotations" element={<BaoGiaList />} />
           <Route path="/sales-quotations/create" element={<BaoGiaCreate />} />
-          <Route path="/sales-quotations/:id" element={<BaoGiaDetail />} />
+          {/* Chi tiết báo giá: quản trị viên, nhân viên bán hàng thao tác; quản lý kho, nhân viên kho chỉ xem
+              (khớp @RequireAuth của GET /don-ban-hang/{id}/detail) — nhân viên mua hàng bị chặn ở đây */}
+          <Route element={<RequireRole roles={["quan_tri_vien", "nhan_vien_ban_hang", "quan_ly_kho", "nhan_vien_kho"]} />}>
+            <Route path="/sales-quotations/:id" element={<BaoGiaDetail />} />
+          </Route>
 
           {/* Chuyen kho noi bo */}
           <Route path="/transfer-tickets" element={<PhieuChuyenKhoList />} />
@@ -228,7 +231,7 @@ export default function App() {
           {/* Kiểm kê kho hàng*/}
           <Route path="/stock-take" element={<StockTakeList />} />
           <Route path="/stock-take/new" element={<StockTakeCreate />} />
-          <Route path="/stock-take/:id" element={<StockTakeCreate />} /> {/* Để hoàn thành kiểm kê */}
+          <Route path="/stock-take/:id" element={<StockTakeDetail />} />
 
           {/* Báo cáo. Doanh thu, khách hàng, nhập xuất: API chỉ cho quản trị viên và
               quản lý kho (@RequireAuth ở backend), menu cũng chỉ hiện cho hai vai trò này. */}

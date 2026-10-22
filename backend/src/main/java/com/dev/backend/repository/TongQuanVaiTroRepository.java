@@ -87,10 +87,8 @@ public class TongQuanVaiTroRepository {
               OR (dm.trang_thai = 4 AND EXISTS (SELECT 1 FROM chi_tiet_don_mua_hang ctn
                                                  WHERE ctn.don_mua_hang_id = dm.id AND ctn.so_luong_da_nhan > 0)))""";
 
-    /** Nhà cung cấp đã báo giá cho đơn (có dòng mang đơn giá > 0). */
-    private static final String DA_BAO_GIA = """
-            EXISTS (SELECT 1 FROM chi_tiet_don_mua_hang ctb
-                     WHERE ctb.don_mua_hang_id = dm.id AND ctb.don_gia > 0)""";
+    /** Nhà cung cấp đã báo giá cho đơn: có ngay_bao_gia (ghi mỗi lần nhà cung cấp gửi báo giá trên cổng). */
+    private static final String DA_BAO_GIA = "dm.ngay_bao_gia IS NOT NULL";
 
     /** Yêu cầu báo giá đã gửi một nhà cung cấp, chưa có báo giá. */
     private static final String CHO_BAO_GIA = "dm.trang_thai IN (1, 2) AND NOT " + DA_BAO_GIA;

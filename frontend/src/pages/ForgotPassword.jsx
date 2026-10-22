@@ -38,7 +38,7 @@ const STEP_SUBS = {
 const OTP_ERROR_CODES = ['RESET_OTP_WRONG', 'RESET_OTP_EXPIRED'];
 // khớp PasswordResetRateLimiter.COOLDOWN phía BE (60 giây giữa 2 lần gửi mã)
 const RESEND_COOLDOWN_SECONDS = 60;
-const SENT_FALLBACK_MESSAGE = 'Nếu thông tin tài khoản hợp lệ, mã OTP đã được gửi tới email đã đăng ký.';
+const SENT_FALLBACK_MESSAGE = 'Nếu thông tin tài khoản hợp lệ, mã xác nhận đã được gửi tới email đã đăng ký.';
 
 export default function ForgotPasswordPage() {
     const navigate = useNavigate();

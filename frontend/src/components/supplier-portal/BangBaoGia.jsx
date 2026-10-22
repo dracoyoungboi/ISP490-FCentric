@@ -38,10 +38,6 @@ const TH_NHAP = 'font-semibold text-bo-foreground';
 const O_NHAP_BANG =
     'w-full rounded-none border-0 bg-transparent px-2.5 scroll-mb-28 focus-visible:border-0 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bo-primary';
 const O_NHAP_BANG_LOI = 'bg-red-50 ring-2 ring-inset ring-bo-danger/60 focus-visible:ring-bo-danger';
-const O_GHI_CHU_BANG =
-    'block h-[37px] w-full border-0 bg-transparent px-2.5 text-[13px] text-bo-foreground placeholder:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bo-primary';
-const O_GHI_CHU_THE =
-    'h-11 w-full rounded-md border border-bo-border bg-white px-3 text-base text-bo-foreground placeholder:text-bo-muted/70 focus-visible:border-bo-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/15';
 const O_GIA_LOI_THE = 'border-bo-danger focus-visible:border-bo-danger focus-visible:ring-bo-danger/15';
 const NUT_PHU = 'border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle';
 
@@ -141,8 +137,9 @@ function BoLoc({ dangLoc, tongDong, soThieu, onTatCa, onThieu, nutClassName }) {
  * Bảng đơn giá (PA3): lưới kiểu Excel gom theo sản phẩm, công tắc "Một giá cho cả nhóm", tìm kiếm,
  * lọc "Chưa có giá", Enter xuống ô kế tiếp, dán nhiều giá từ Excel. Dưới 768px: mỗi sản phẩm một thẻ.
  *
- * - `dong` giữ nguyên thứ tự orderData.chiTietDonMuaHangs (BE ghép đơn giá theo vị trí). Gom nhóm chỉ để hiển thị;
+ * - `dong` giữ nguyên thứ tự orderData.chiTietDonMuaHangs (máy chủ ghép đơn giá theo id dòng). Gom nhóm chỉ để hiển thị;
  *   bật công tắc nghĩa là điền cùng một số vào donGia của từng dòng trong nhóm.
+ * - Không có ghi chú theo dòng: nhà cung cấp ghi một ghi chú chung cho cả báo giá (ô ở trang, HOP-DONG 2.2).
  * - `nhom`: kết quả nhomTheoSanPham(dong), cố định suốt phiên (chỉ phụ thuộc sản phẩm, không phụ thuộc giá).
  * - `dongLoi`: vị trí các dòng bị báo thiếu giá sau khi bấm Gửi.
  * - `ref.denDongThieuGia(viTri)`: bỏ lọc, mở nhóm cần thiết rồi đặt con trỏ vào ô thiếu giá đầu tiên.
@@ -161,8 +158,6 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
     // { noiDung, khoa?: nhóm hiện thông báo ngay bên dưới, hoanTac?: { cu, motGia }, loi?: boolean }
     const [thongBao, setThongBao] = useState(null);
     const [hopDan, setHopDan] = useState(false);
-    const [moGhiChu, setMoGhiChu] = useState(() => new Set());
-    const [vuaMoGhiChu, setVuaMoGhiChu] = useState(null);
 
     const dangBat = (n) => n.viTri.length > 1 && Boolean(motGia[n.khoa]);
     const nhomThieuGia = (n) => n.viTri.some((i) => coLoi(dong[i]));
@@ -184,7 +179,7 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
     const nhomNhieuDong = nhom.filter((n) => n.viTri.length > 1);
     const moHet = nhomNhieuDong.length > 0 && nhomNhieuDong.every((n) => moNhom.has(n.khoa));
 
-    // ── Cập nhật giá / ghi chú ──
+    // ── Cập nhật giá ──
     const doiGiaDong = (i, gia) => {
         setThongBao(null);
         onCapNhatDong((cu) => cu.map((d, j) => (j === i ? { ...d, donGia: gia } : d)));
@@ -193,7 +188,6 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
         setThongBao(null);
         onCapNhatDong((cu) => apGiaNhom(cu, n.viTri, gia));
     };
-    const doiGhiChu = (i, ghiChu) => onCapNhatDong((cu) => cu.map((d, j) => (j === i ? { ...d, ghiChu } : d)));
 
     const moThemNhom = (khoa) => setMoNhom((s) => new Set([...s, ...khoa]));
     const doiMoNhom = (khoa) =>
@@ -368,11 +362,6 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
         setTuKhoa('');
     };
 
-    const moOGhiChu = (i) => {
-        setMoGhiChu((cu) => new Set(cu).add(i));
-        setVuaMoGhiChu(i);
-    };
-
     useImperativeHandle(
         ref,
         () => ({
@@ -413,7 +402,6 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
     const tongNhom = (n) => ({
         soLuong: n.viTri.reduce((s, i) => s + dong[i].soLuongDat, 0),
         tien: n.viTri.reduce((s, i) => s + thanhTienDong(dong[i]), 0),
-        soGhiChu: n.viTri.filter((i) => dong[i].ghiChu).length,
     });
 
     // Đã gửi (chỉ xem) thì bỏ thông báo thao tác cũ, kể cả nút Hoàn tác
@@ -433,20 +421,7 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
     // ── Từ 768px: bảng ──
     const coCotMo = coNhieuDong;
     const coCotCongTac = coNhieuDong && !chiXem;
-    const soCot = 6 + (coCotMo ? 1 : 0) + (coCotCongTac ? 1 : 0);
-
-    const oGhiChuBang = (i, nhan) =>
-        chiXem ? (
-            <span className="block px-2.5 py-2 break-words">{dong[i].ghiChu || <span className="text-slate-400">—</span>}</span>
-        ) : (
-            <input
-                aria-label={`Ghi chú ${nhan}`}
-                placeholder="Thêm ghi chú"
-                value={dong[i].ghiChu}
-                onChange={(e) => doiGhiChu(i, e.target.value)}
-                className={O_GHI_CHU_BANG}
-            />
-        );
+    const soCot = 5 + (coCotMo ? 1 : 0) + (coCotCongTac ? 1 : 0);
 
     const bang = (
         <section aria-labelledby="bg-bang-tieu-de" data-khung-gia onBlur={roiKhung} className="hidden overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm md:block">
@@ -497,15 +472,15 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
                             Bật <strong className="font-semibold">Một giá cho cả nhóm</strong> để nhập một lần cho mọi phân loại của sản phẩm.{' '}
                         </>
                     )}
-                    Ô trắng nhập được, ô xám chỉ xem. <strong className="font-semibold">Enter</strong> xuống ô kế tiếp,{' '}
-                    <strong className="font-semibold">Tab</strong> sang ô ghi chú. Dán được cả cột giá chép từ Excel.
+                    Ô trắng nhập được, ô xám chỉ xem. <strong className="font-semibold">Enter</strong> xuống ô kế tiếp. Dán được cả
+                    cột giá chép từ Excel.
                 </p>
             )}
             <ThongBaoThieuGia soDong={soDongLoi} donVi={donVi} tenNhom={tenNhomLoi} className="border-b" />
             {thongBaoTren && <ThongBaoThaoTac tb={thongBaoHien} {...nutDongThongBao} className="border-b" />}
 
             <div className="w-full overflow-x-auto">
-                <table className="w-full min-w-[1180px] border-collapse text-[13px] leading-[18px]">
+                <table className="w-full min-w-[970px] border-collapse text-[13px] leading-[18px]">
                     <thead>
                         <tr className="bg-bo-surface-subtle">
                             {coCotMo && (
@@ -518,8 +493,7 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
                             <th scope="col" className={cn(TH, 'w-[76px] text-right')}>SL</th>
                             {coCotCongTac && <th scope="col" className={cn(TH, TH_NHAP, 'w-32 text-center')}>Một giá cho cả nhóm</th>}
                             <th scope="col" className={cn(TH, !chiXem && TH_NHAP, 'w-[150px] text-right')}>Đơn giá (₫)</th>
-                            <th scope="col" className={cn(TH, 'w-[140px] text-right')}>Thành tiền</th>
-                            <th scope="col" className={cn(TH, !chiXem && TH_NHAP, 'w-[210px] border-r-0 text-left')}>Ghi chú</th>
+                            <th scope="col" className={cn(TH, 'w-[140px] border-r-0 text-right')}>Thành tiền</th>
                         </tr>
                     </thead>
 
@@ -560,21 +534,6 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
                                         className={cn(O_NHAP_BANG, 'h-[43px] text-sm font-semibold', loiO && O_NHAP_BANG_LOI)}
                                     />
                                     <LoiGia id={`${idO}-loi`} className="px-2.5 pt-0.5 pb-1.5 text-right">{loiO}</LoiGia>
-                                </td>
-                            );
-                        }
-
-                        let oGhiChuDau;
-                        if (!nhieu) {
-                            oGhiChuDau = <td className={cn(O, 'border-r-0 p-0', !chiXem && 'bg-white')}>{oGhiChuBang(i0, n.tenSanPham)}</td>;
-                        } else if (mo) {
-                            oGhiChuDau = <td className={cn(O, 'border-r-0')} />;
-                        } else {
-                            oGhiChuDau = (
-                                <td className={cn(O, 'border-r-0 px-2.5')}>
-                                    <button type="button" onClick={() => doiMoNhom(n.khoa)} className="text-left text-bo-muted hover:text-bo-primary hover:underline">
-                                        {t.soGhiChu > 0 ? `${t.soGhiChu} ghi chú · mở nhóm để xem` : chiXem ? 'Mở nhóm để xem' : 'Mở nhóm để ghi chú'}
-                                    </button>
                                 </td>
                             );
                         }
@@ -627,10 +586,9 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
                                         </td>
                                     )}
                                     {oGiaDau}
-                                    <td className={cn(O, 'px-2.5 text-right font-semibold tabular-nums')}>
+                                    <td className={cn(O, 'border-r-0 px-2.5 text-right font-semibold tabular-nums')}>
                                         {t.tien > 0 ? formatCurrency(t.tien) : <span className="font-normal text-slate-400">—</span>}
                                     </td>
-                                    {oGhiChuDau}
                                 </tr>
 
                                 {mo &&
@@ -663,10 +621,9 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
                                                         <LoiGia id={`${idOGia(i)}-loi`} className="px-2.5 pt-0.5 pb-1.5 text-right">{loi}</LoiGia>
                                                     </td>
                                                 )}
-                                                <td className={cn(O, O_XAM, 'px-2.5 text-right tabular-nums')}>
+                                                <td className={cn(O, O_XAM, 'border-r-0 px-2.5 text-right tabular-nums')}>
                                                     {thanhTienDong(d) > 0 ? formatCurrency(thanhTienDong(d)) : <span className="text-slate-400">—</span>}
                                                 </td>
-                                                <td className={cn(O, 'border-r-0 p-0', !chiXem && 'bg-white')}>{oGhiChuBang(i, `${n.tenSanPham} ${n.nhan[i]}`)}</td>
                                             </tr>
                                         );
                                     })}
@@ -699,7 +656,6 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
                             {coCotCongTac && <td className="border-t border-bo-border" />}
                             <td className="border-t border-bo-border" />
                             <td className="border-t border-bo-border px-2.5 text-right text-sm font-bold tabular-nums">{tienHoacGach(tong.tongTien)}</td>
-                            <td className="border-t border-bo-border" />
                         </tr>
                     </tfoot>
                 </table>
@@ -708,42 +664,6 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
     );
 
     // ── Dưới 768px: mỗi sản phẩm một thẻ ──
-    const ghiChuThe = (i, ten, nhan) => {
-        const d = dong[i];
-        if (chiXem) {
-            return d.ghiChu ? (
-                <p className="m-0 text-[13px] leading-5 break-words text-slate-700">
-                    <span className="text-bo-muted">Ghi chú: </span>
-                    {d.ghiChu}
-                </p>
-            ) : null;
-        }
-        if (d.ghiChu || moGhiChu.has(i)) {
-            return (
-                <div className="flex flex-col gap-1">
-                    <label htmlFor={`bg-ghichu-the-${i}`} className="text-xs leading-[18px] text-bo-muted">
-                        Ghi chú{nhan ? ` · ${nhan}` : ''}
-                        <span className="sr-only"> {ten}</span>
-                    </label>
-                    <input
-                        id={`bg-ghichu-the-${i}`}
-                        autoFocus={vuaMoGhiChu === i}
-                        onBlur={() => setVuaMoGhiChu(null)}
-                        placeholder="Không bắt buộc"
-                        value={d.ghiChu}
-                        onChange={(e) => doiGhiChu(i, e.target.value)}
-                        className={O_GHI_CHU_THE}
-                    />
-                </div>
-            );
-        }
-        return (
-            <button type="button" onClick={() => moOGhiChu(i)} className="h-9 self-start text-sm font-medium text-bo-primary hover:underline">
-                Thêm ghi chú
-            </button>
-        );
-    };
-
     const theNhom = ({ n, g }) => {
         const nhieu = n.viTri.length > 1;
         const bat = dangBat(n);
@@ -846,15 +766,12 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
                                                     <span className="shrink-0 text-bo-muted tabular-nums">{giaHoacGach(dong[i].donGia)}</span>
                                                 </div>
                                                 {dong[i].maSku && <span className="text-xs leading-4 break-all text-bo-muted">{dong[i].maSku}</span>}
-                                                {ghiChuThe(i, n.tenSanPham, n.nhan[i])}
                                             </li>
                                         ))}
                                     </ul>
                                 )}
                             </>
-                        ) : (
-                            ghiChuThe(i0, n.tenSanPham)
-                        )}
+                        ) : null}
                     </>
                 ) : (
                     <>
@@ -888,7 +805,6 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
                                             )}
                                         </div>
                                         <LoiGia id={`${idOGiaThe(i)}-loi`} className="text-right">{loi}</LoiGia>
-                                        {ghiChuThe(i, n.tenSanPham, n.nhan[i])}
                                     </li>
                                 );
                             })}

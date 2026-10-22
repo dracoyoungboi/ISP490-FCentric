@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     Calendar, ChevronDown, ChevronUp,
-    CreditCard, Eye, Package, Plus,
+    Eye, Package, Plus,
     SearchX, ShoppingCart, Warehouse,
 } from 'lucide-react';
 import apiClient from "@/services/apiClient";
@@ -26,6 +26,7 @@ import TablePagination from "@/components/shared/TablePagination";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { YEU_CAU_BAO_GIA_TABS, getYeuCauNhapHangStatus } from "@/constants/yeuCauNhapHang";
 import { getBaoGiaNccStatus } from "@/constants/donMuaHang";
+import { ngayGuiYeuCau, nhanTrangThaiBaoGia } from "@/components/order/chi-tiet-bao-gia/tinhBaoGia";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
@@ -84,18 +85,6 @@ async function countRequests(filters) {
     return res?.data?.data?.totalElements ?? 0;
 }
 
-function getPaymentTooltip(trangThai) {
-    switch (trangThai) {
-        case 0: return 'Đơn đã bị xóa, không thể thanh toán';
-        case 1: return 'Chưa nhận báo giá từ NCC, không thể thanh toán';
-        case 2: return 'Chưa duyệt báo giá, không thể thanh toán';
-        case 3: return 'Thanh toán đơn mua hàng';
-        case 4: return 'Báo giá đã bị từ chối, không thể thanh toán';
-        case 5: return 'Đơn đã được thanh toán rồi';
-        default: return 'Không thể thanh toán';
-    }
-}
-
 // ─── Sub-component: PO rows inside expandable panel ───────────────────────────
 // Ghi chú: UI duyệt/từ chối báo giá chưa từng được render (dead UI từ bản cũ).
 function DonMuaHangRows({ donMuaHangs = [], navigate }) {
@@ -115,9 +104,9 @@ function DonMuaHangRows({ donMuaHangs = [], navigate }) {
     }
 
     return donMuaHangs.map((po) => {
-        const cfg = getBaoGiaNccStatus(po.trangThai);
+        // Nhãn suy diễn như màn So sánh / Chi tiết báo giá: "Chờ báo giá" khi chưa có ngayBaoGia
+        const cfg = { label: nhanTrangThaiBaoGia(po, getBaoGiaNccStatus(po.trangThai).label) };
         const isAccepted = po.trangThai === 3 || po.trangThai === 5;
-        const canPay = po.trangThai === 3;
 
         return (
             <tr
@@ -140,7 +129,7 @@ function DonMuaHangRows({ donMuaHangs = [], navigate }) {
                 </td>
 
                 <td className="whitespace-nowrap px-3 py-3 text-[12px] font-medium text-bo-muted">
-                    {formatDate(po.ngayDatHang)}
+                    {formatDate(ngayGuiYeuCau(po))}
                 </td>
 
                 <td className="whitespace-nowrap px-3 py-3 text-[12px] font-medium text-bo-muted">
@@ -164,7 +153,7 @@ function DonMuaHangRows({ donMuaHangs = [], navigate }) {
                     {isAccepted && <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-bo-success">Đã chốt</p>}
                 </td>
 
-                {/* Chặn bấm lan ra dòng: nút Thanh toán đang khóa không nhận chuột nên cú bấm rơi vào ô */}
+                {/* Chặn bấm lan ra dòng: nút Xem đã tự điều hướng, không để cú bấm điều hướng lần hai */}
                 <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
                     <RowActions>
                         <RowActionButton
@@ -172,15 +161,6 @@ function DonMuaHangRows({ donMuaHangs = [], navigate }) {
                             label="Xem chi tiết báo giá"
                             onClick={() => navigate(`/quotation/${po.id}`)}
                         />
-                        {/* Nút khóa không hiện chú thích khi rê chuột: lý do đặt ở lớp bọc */}
-                        <span className="inline-flex" title={getPaymentTooltip(po.trangThai)}>
-                            <RowActionButton
-                                icon={CreditCard}
-                                label={getPaymentTooltip(po.trangThai)}
-                                disabled={!canPay}
-                                onClick={() => navigate(`/purchase-orders/${po.id}/payment`)}
-                            />
-                        </span>
                     </RowActions>
                 </td>
             </tr>

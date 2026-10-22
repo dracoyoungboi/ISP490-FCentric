@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 
 import apiClient from "@/services/apiClient";
+import purchaseOrderService from "@/services/purchaseOrderService";
+import { cachXuLyLoiXetBaoGia, taoBodyXetBaoGia } from "@/components/order/chi-tiet-bao-gia/tinhBaoGia";
 
 import PageContainer from "@/components/backoffice/PageContainer";
 import PageHeader from "@/components/backoffice/PageHeader";
@@ -109,7 +111,12 @@ export default function PurchaseOrderCreateManual() {
     const confirmCreate = async () => {
         setSubmitting(true);
         try {
-            await apiClient.put(`/api/v1/nghiep-vu/don-mua-hang/duyet-don/${form.quotationId}/3`);
+            // Máy chủ chỉ chấp nhận khi ngayBaoGiaDaXem trùng báo giá hiện có (nhà cung cấp có thể vừa gửi lại)
+            await purchaseOrderService.duyetDon(
+                form.quotationId,
+                3,
+                taoBodyXetBaoGia({ ngayBaoGiaDaXem: selectedQuotation?.ngayBaoGia }),
+            );
 
             toast.success('Đã chấp nhận báo giá và tạo đơn mua hàng.');
             setShowConfirmDialog(false);
@@ -117,6 +124,14 @@ export default function PurchaseOrderCreateManual() {
         } catch (err) {
             console.error('Error creating PO:', err);
             toast.error(err.response?.data?.message || 'Không thể tạo đơn mua hàng. Vui lòng thử lại.');
+            // 409 / 404: báo giá vừa đổi, đã có kết quả hoặc không còn — bỏ chọn và tải lại danh sách báo giá đang chờ,
+            // lần bấm sau dùng dữ liệu mới nhất (như màn Chi tiết báo giá)
+            if (cachXuLyLoiXetBaoGia(err.response?.status) === "dongVaTaiLai") {
+                setShowConfirmDialog(false);
+                setSelectedQuotation(null);
+                setForm(prev => ({ ...prev, quotationId: "" }));
+                fetchInitialData();
+            }
         } finally {
             setSubmitting(false);
         }

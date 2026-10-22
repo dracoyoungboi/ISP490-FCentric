@@ -5,6 +5,14 @@ import AuthShell from '@/components/auth/AuthShell';
 import AuthProgress from '@/components/auth/AuthProgress';
 import OtpInputs from '@/components/auth/OtpInputs';
 import supplierQuotationService from '@/services/supplierQuotationService';
+import {
+    boThongBaoVaoTrang,
+    cauDaGuiMa,
+    dinhDangDemNguoc,
+    docThoiHanMa,
+    xuLyLoiNhanMa,
+    xuLyLoiXacNhan,
+} from '@/components/supplier-portal/loiCong';
 
 /* ── Class dùng chung với Đăng nhập / Quên mật khẩu (khung AuthShell) ── */
 const INPUT_BASE =
@@ -42,36 +50,10 @@ const ANH_NEN_NCC = [
     },
 ];
 
-const CAC_BUOC = ['Thông tin đơn', 'Mã OTP'];
+const CAC_BUOC = ['Thông tin đơn', 'Mã xác nhận'];
 const OTP_TRONG = ['', '', '', '', '', ''];
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-// Khớp SchedulingJob.cleanOutOfDateOtp phía BE: mã OTP bị xóa sau 300 giây (5 phút).
-// Trong thời gian đó BE từ chối gửi mã mới ("Otp chưa hết hạn chờ 5p để gửi lại otp").
-const OTP_HIEU_LUC_GIAY = 300;
-
-const TB_DA_GUI = `Đã gửi mã OTP. Mã có hiệu lực trong ${OTP_HIEU_LUC_GIAY / 60} phút. Nếu không thấy email, hãy kiểm tra thư mục Thư rác.`;
-const TB_DA_GUI_LAI = 'Đã gửi lại mã OTP. Vui lòng kiểm tra email.';
-const TB_MA_CU_CON_HIEU_LUC = 'Mã OTP gửi trước đó vẫn còn hiệu lực. Hãy dùng mã trong email gần nhất.';
-const LOI_OTP = 'Mã OTP không đúng hoặc đã hết hạn. Vui lòng nhập lại hoặc gửi lại mã.';
-const LOI_MAT_KET_NOI = 'Không kết nối được máy chủ. Vui lòng kiểm tra mạng và thử lại.';
-const LOI_DON_KHONG_CON_NHAN = 'Đơn mua hàng này không còn nhận báo giá. Vui lòng liên hệ nhân viên mua hàng của FCentric.';
-
-const thongDiepMayChu = (err) => err?.response?.data?.message || '';
-
-/** Câu hiển thị cho lỗi từ máy chủ; không khớp mẫu nào thì giữ nguyên câu của máy chủ. */
-const dichLoi = (err, macDinh) => {
-    if (!err?.response) return LOI_MAT_KET_NOI;
-    const msg = thongDiepMayChu(err);
-    // getOtpForSupplier: đơn không ở trạng thái chờ báo giá -> "Đơn mua hàng không tồn tại id: …"
-    if (msg.startsWith('Đơn mua hàng không tồn tại')) return LOI_DON_KHONG_CON_NHAN;
-    return msg || macDinh;
-};
-
-// BE trả 400 kèm câu có chữ "otp" khi mã gửi trước đó còn hiệu lực: vẫn cho sang bước nhập mã
-const laMaCuConHieuLuc = (err) =>
-    err?.response?.status === 400 && thongDiepMayChu(err).toLowerCase().includes('otp');
-
-const dinhDangDemNguoc = (giay) => `${Math.floor(giay / 60)}:${String(giay % 60).padStart(2, '0')}`;
+// Thời hạn mã và thời gian chờ gửi lại lấy từ máy chủ (hetHanGiay, guiLaiSauGiay), không viết cứng ở trang
 
 function Banner({ loai, children }) {
     const Icon = BANNER_ICON[loai];
@@ -131,7 +113,7 @@ export default function SupplierLoginPage() {
     }, [guiLaiLuc]);
 
     // Ô nhận con trỏ khi hết xử lý (các ô bị khóa lúc gọi API nên con trỏ rơi ra ngoài):
-    // sai mã / gửi lại mã -> ô OTP đầu (các ô đã bị xóa); lỗi ở bước 1 -> ô email
+    // sai mã / gửi lại mã -> ô đầu của mã xác nhận (các ô đã bị xóa); lỗi ở bước 1 -> ô email
     const tieuDiemSauRef = useRef(null);
     useEffect(() => {
         if (dangXuLy || !tieuDiemSauRef.current) return;
@@ -142,7 +124,7 @@ export default function SupplierLoginPage() {
     /*
      * Đơn cần đăng nhập: theo id nếu mở từ liên kết có ?id=, ngược lại theo mã đơn nhà cung cấp tự nhập.
      * Không tra mã đơn qua /don-mua-hang/filter: API đó chỉ dành cho nhân viên đã đăng nhập (trả 403 cho nhà cung cấp);
-     * backend tự tìm đơn theo mã ở API OTP và chỉ nhận khi email khớp nhà cung cấp của đơn.
+     * backend tự tìm đơn theo mã ở API nhận mã và chỉ nhận khi email khớp nhà cung cấp của đơn.
      */
     const thamChieuDon = () => {
         if (orderId) return { donMuaHangId: Number(orderId) };
@@ -150,19 +132,42 @@ export default function SupplierLoginPage() {
         return maDon ? { soDonMua: maDon } : null;
     };
 
-    const batDauDemNguoc = () => {
+    /** Đếm ngược nút "Gửi lại mã" theo số giây máy chủ trả (guiLaiSauGiay); 0 hoặc không có thì gửi lại được ngay. */
+    const datDemNguoc = (giay) => {
         const t = Date.now();
         setBayGio(t);
-        setGuiLaiLuc(t + OTP_HIEU_LUC_GIAY * 1000);
+        setGuiLaiLuc(giay > 0 ? t + giay * 1000 : 0);
     };
-    // Mã vẫn còn hiệu lực nhưng không rõ gửi lúc nào: giữ đếm ngược đang chạy (nếu có), không đặt mới
-    const giuDemNguocNeuCon = () => setGuiLaiLuc((cu) => (cu > Date.now() ? cu : 0));
+
+    // Chặn gọi trùng khi bấm / Enter liên tiếp trước khi nút kịp khóa
+    const dangGoiRef = useRef(false);
+    const chayMotLan = async (loai, viec) => {
+        if (dangGoiRef.current) return;
+        dangGoiRef.current = true;
+        setDangXuLy(loai);
+        try {
+            await viec();
+        } finally {
+            dangGoiRef.current = false;
+            setDangXuLy(false);
+        }
+    };
+
+    /** Về bước 1 kèm câu báo (đơn không còn nhận báo giá, hoặc phải chờ mới nhận được mã mới). */
+    const veBuocDau = (cau) => {
+        setBuoc('thong-tin');
+        setOtp(OTP_TRONG);
+        setThongBao(null);
+        setLoi({ chung: cau });
+        tieuDiemSauRef.current = 'ncc-email';
+    };
 
     const handleSendOtp = async (e) => {
         e?.preventDefault?.();
         const loiMoi = {};
-        if (!email) loiMoi.email = 'Vui lòng nhập email';
-        else if (!EMAIL_REGEX.test(email)) loiMoi.email = 'Email không hợp lệ';
+        const emailGon = email.trim();
+        if (!emailGon) loiMoi.email = 'Vui lòng nhập email';
+        else if (!EMAIL_REGEX.test(emailGon)) loiMoi.email = 'Email không hợp lệ';
         const don = thamChieuDon();
         if (!don) loiMoi.maDon = 'Vui lòng nhập mã đơn mua hàng';
         if (loiMoi.email || loiMoi.maDon) {
@@ -172,56 +177,70 @@ export default function SupplierLoginPage() {
         }
 
         setLoi({});
-        setDangXuLy('gui-ma');
-        try {
-            await supplierQuotationService.requestOtp({ email, ...don });
-            setThongBao({ loai: 'thanh-cong', noiDung: TB_DA_GUI });
-            batDauDemNguoc();
-            setOtp(OTP_TRONG);
-            setBuoc('otp');
-        } catch (err) {
-            if (laMaCuConHieuLuc(err)) {
-                setThongBao({ loai: 'thong-tin', noiDung: TB_MA_CU_CON_HIEU_LUC });
-                giuDemNguocNeuCon();
+        await chayMotLan('gui-ma', async () => {
+            try {
+                const res = await supplierQuotationService.requestOtp({ email: emailGon, ...don });
+                const { hetHanGiay, guiLaiSauGiay } = docThoiHanMa(res?.data);
+                setThongBao({ loai: 'thanh-cong', noiDung: cauDaGuiMa(hetHanGiay) });
+                datDemNguoc(guiLaiSauGiay);
                 setOtp(OTP_TRONG);
                 setBuoc('otp');
-                return;
+                tieuDiemSauRef.current = 'ncc-otp-0';
+                // Đã nhận mã mới: câu báo lúc vào trang (vd. phiên báo giá hết hạn) không còn đúng, bỏ khỏi lịch sử
+                const boCauVao = boThongBaoVaoTrang(location);
+                if (boCauVao) navigate(...boCauVao);
+            } catch (err) {
+                const kq = xuLyLoiNhanMa(err);
+                if (kq.loai === 'cho-gui-lai') {
+                    // Mã gửi trước đó còn dùng được (hoặc phải chờ mới xin mã mới): sang bước nhập mã, đếm ngược theo máy chủ
+                    setThongBao({ loai: 'thong-tin', noiDung: kq.cau });
+                    datDemNguoc(kq.guiLaiSauGiay);
+                    setOtp(OTP_TRONG);
+                    setBuoc('otp');
+                    tieuDiemSauRef.current = 'ncc-otp-0';
+                    return;
+                }
+                // 'phai-cho': mã cũ đã hết hạn và chưa được nhận mã mới -> không có mã để nhập, ở lại bước 1 (R10)
+                if (kq.loai === 'chua-gui-duoc') datDemNguoc(0);
+                setLoi({ chung: kq.cau });
+                tieuDiemSauRef.current = 'ncc-email';
             }
-            setLoi({ chung: dichLoi(err, 'Có lỗi xảy ra khi gửi OTP.') });
-            tieuDiemSauRef.current = 'ncc-email';
-        } finally {
-            setDangXuLy(false);
-        }
+        });
     };
 
     const handleResendOtp = async () => {
         const don = thamChieuDon();
         if (!don) return;
         setLoi({});
-        setDangXuLy('gui-lai');
         tieuDiemSauRef.current = 'ncc-otp-0';
-        try {
-            await supplierQuotationService.requestOtp({ email, ...don });
-            setThongBao({ loai: 'thanh-cong', noiDung: TB_DA_GUI_LAI });
-            batDauDemNguoc();
-            setOtp(OTP_TRONG);
-        } catch (err) {
-            if (laMaCuConHieuLuc(err)) {
-                setThongBao({ loai: 'thong-tin', noiDung: TB_MA_CU_CON_HIEU_LUC });
-                giuDemNguocNeuCon();
-                return;
+        await chayMotLan('gui-lai', async () => {
+            try {
+                const res = await supplierQuotationService.requestOtp({ email: email.trim(), ...don });
+                const { hetHanGiay, guiLaiSauGiay } = docThoiHanMa(res?.data);
+                setThongBao({ loai: 'thanh-cong', noiDung: cauDaGuiMa(hetHanGiay, { guiLai: true }) });
+                datDemNguoc(guiLaiSauGiay);
+                setOtp(OTP_TRONG);
+            } catch (err) {
+                const kq = xuLyLoiNhanMa(err);
+                if (kq.loai === 'cho-gui-lai') {
+                    setThongBao({ loai: 'thong-tin', noiDung: kq.cau });
+                    datDemNguoc(kq.guiLaiSauGiay);
+                } else if (kq.loai === 'khong-con-nhan' || kq.loai === 'phai-cho') {
+                    // 'phai-cho': mã cũ đã hết hạn, chưa nhận được mã mới -> không còn mã để nhập, về bước 1 (R10)
+                    veBuocDau(kq.cau);
+                } else {
+                    if (kq.loai === 'chua-gui-duoc') datDemNguoc(0);
+                    setLoi({ chung: kq.cau });
+                }
             }
-            setLoi({ chung: dichLoi(err, 'Có lỗi xảy ra khi gửi OTP.') });
-        } finally {
-            setDangXuLy(false);
-        }
+        });
     };
 
     const handleVerifyOtp = async (e) => {
         e?.preventDefault?.();
         const maOtp = otp.join('');
         if (maOtp.length !== OTP_TRONG.length) {
-            setLoi({ otp: 'Vui lòng nhập đủ 6 số OTP' });
+            setLoi({ otp: 'Vui lòng nhập đủ 6 số của mã xác nhận' });
             return;
         }
         const don = thamChieuDon();
@@ -231,28 +250,43 @@ export default function SupplierLoginPage() {
         }
 
         setLoi({});
-        setDangXuLy('xac-thuc');
         tieuDiemSauRef.current = 'ncc-otp-0';
-        try {
-            const res = await supplierQuotationService.verifyOtp({ email, otp: maOtp, ...don });
-            if (res?.data) {
-                const activeId = res.data.id ?? don.donMuaHangId;
-                navigate('/supplier/quotation', { state: { orderData: res.data, supplierEmail: email, orderId: activeId } });
-                return;
+        await chayMotLan('xac-thuc', async () => {
+            try {
+                const res = await supplierQuotationService.verifyOtp({ email: email.trim(), otp: maOtp, ...don });
+                const kq = res?.data;
+                if (kq?.donMua && kq.phienBaoGia) {
+                    tieuDiemSauRef.current = null;
+                    // Phiên báo giá chỉ nằm trong state của lịch sử trình duyệt (không lưu localStorage)
+                    navigate('/supplier/quotation', {
+                        state: {
+                            orderData: kq.donMua,
+                            supplierEmail: email.trim(),
+                            orderId: kq.donMua.id ?? don.donMuaHangId,
+                            phienBaoGia: kq.phienBaoGia,
+                            hetHanPhien: kq.hetHanPhien ?? null,
+                            cuaHang: kq.cuaHang ?? null,
+                        },
+                    });
+                    return;
+                }
+                setLoi({ chung: 'Không lấy được thông tin đơn mua hàng. Vui lòng thử lại.' });
+            } catch (err) {
+                const kq = xuLyLoiXacNhan(err);
+                if (kq.loai === 'khong-con-nhan') {
+                    veBuocDau(kq.cau);
+                    return;
+                }
+                if (kq.loai === 'ma-sai' || kq.loai === 'ma-het-han') {
+                    setOtp(OTP_TRONG);
+                    setLoi({ otp: kq.cau });
+                    // Mã đã hết hạn / bị xóa: cho xin mã mới ngay
+                    if (kq.loai === 'ma-het-han') datDemNguoc(0);
+                    return;
+                }
+                setLoi({ chung: kq.cau });
             }
-            setLoi({ chung: 'Không lấy được thông tin đơn mua hàng. Vui lòng thử lại.' });
-        } catch (err) {
-            const msg = thongDiepMayChu(err);
-            // confirmOtpForSupplier: "Otp hoặc email nhà cung cấp không hợp lệ" -> nhập lại mã
-            if (err?.response && (!msg || msg.toLowerCase().includes('otp'))) {
-                setOtp(OTP_TRONG);
-                setLoi({ otp: LOI_OTP });
-            } else {
-                setLoi({ chung: dichLoi(err, LOI_OTP) });
-            }
-        } finally {
-            setDangXuLy(false);
-        }
+        });
     };
 
     const handleBack = () => {
@@ -279,7 +313,7 @@ export default function SupplierLoginPage() {
 
             <div className="mb-8 text-center lg:text-left">
                 <h1 className="mb-3 text-3xl font-bold tracking-tight text-gray-900 fade-in-up delay-1">
-                    {buoc === 'otp' ? 'Nhập mã OTP' : 'Cổng nhà cung cấp'}
+                    {buoc === 'otp' ? 'Nhập mã xác nhận' : 'Cổng nhà cung cấp'}
                 </h1>
                 <p className="text-base text-gray-500 fade-in-up delay-2">
                     {buoc === 'otp' ? (
@@ -288,9 +322,9 @@ export default function SupplierLoginPage() {
                             <strong className="font-semibold break-words text-gray-900">{email}</strong>.
                         </>
                     ) : orderId ? (
-                        'Nhập email nhận yêu cầu báo giá để nhận mã OTP.'
+                        'Nhập email nhận yêu cầu báo giá để nhận mã xác nhận.'
                     ) : (
-                        'Nhập email và mã đơn mua hàng để nhận mã OTP.'
+                        'Nhập email và mã đơn mua hàng để nhận mã xác nhận.'
                     )}
                 </p>
             </div>
@@ -367,18 +401,18 @@ export default function SupplierLoginPage() {
                             {dangXuLy === 'gui-ma' ? (
                                 <><Loader2 size={16} className="animate-spin" aria-hidden="true" /> Đang gửi mã...</>
                             ) : (
-                                'Nhận mã OTP'
+                                'Nhận mã xác nhận'
                             )}
                         </button>
                     </form>
 
                     <p className="mt-8 text-sm text-gray-500 fade-in-up delay-5">
-                        Chưa nhận được email yêu cầu báo giá? Hãy liên hệ nhân viên mua hàng của FCentric.
+                        Chưa nhận được email yêu cầu báo giá? Hãy liên hệ nhân viên mua hàng đã mời Quý công ty báo giá.
                     </p>
                 </>
             )}
 
-            {/* ── BƯỚC 2: MÃ OTP ── */}
+            {/* ── BƯỚC 2: MÃ XÁC NHẬN ── */}
             {buoc === 'otp' && (
                 <>
                     <form className="space-y-5 fade-in-up delay-4" onSubmit={handleVerifyOtp} noValidate>
@@ -391,7 +425,7 @@ export default function SupplierLoginPage() {
                         ) : null}
 
                         <div className="space-y-2">
-                            <label htmlFor="ncc-otp-0" className={LABEL}>Mã OTP 6 số</label>
+                            <label htmlFor="ncc-otp-0" className={LABEL}>Mã xác nhận 6 số</label>
                             <OtpInputs
                                 value={otp}
                                 onChange={(next) => {
@@ -409,7 +443,7 @@ export default function SupplierLoginPage() {
                                     <span className="font-medium text-gray-400">Đang gửi lại...</span>
                                 ) : conLaiGiay > 0 ? (
                                     <span className="font-medium whitespace-nowrap text-gray-400">
-                                        Gửi lại OTP sau <span className="tabular-nums">{dinhDangDemNguoc(conLaiGiay)}</span>
+                                        Gửi lại mã sau <span className="tabular-nums">{dinhDangDemNguoc(conLaiGiay)}</span>
                                     </span>
                                 ) : (
                                     <button
@@ -418,7 +452,7 @@ export default function SupplierLoginPage() {
                                         onClick={handleResendOtp}
                                         disabled={Boolean(dangXuLy)}
                                     >
-                                        Gửi lại OTP
+                                        Gửi lại mã
                                     </button>
                                 )}
                             </p>

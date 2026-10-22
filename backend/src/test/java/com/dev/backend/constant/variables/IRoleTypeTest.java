@@ -22,6 +22,26 @@ class IRoleTypeTest {
     }
 
     @Test
+    @DisplayName("Gửi yêu cầu báo giá và gửi lại email (K11): @RequireAuth trùng đúng IRoleType.GUI_YEU_CAU_BAO_GIA")
+    void guiYeuCauBaoGia_vaGuiLai_dungTapVaiTroChung() throws Exception {
+        assertEquals(Set.of(IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_mua_hang,
+                IRoleType.nhan_vien_kho), IRoleType.GUI_YEU_CAU_BAO_GIA);
+        Class<?> c = com.dev.backend.controller.NghiepVuSanPhamController.class;
+        java.lang.reflect.Method[] api = {
+                c.getMethod("guiYeuCauDenNhaCungCap", com.dev.backend.dto.request.YeuCauDenNhaCungCapCreating.class),
+                c.getMethod("guiLaiYeuCauBaoGia", Integer.class)
+        };
+        for (java.lang.reflect.Method m : api) {
+            com.dev.backend.customizeanotation.RequireAuth quyen =
+                    m.getAnnotation(com.dev.backend.customizeanotation.RequireAuth.class);
+            assertTrue(quyen != null, m.getName() + " phải có @RequireAuth");
+            assertEquals(IRoleType.GUI_YEU_CAU_BAO_GIA, Set.of(quyen.roles()), m.getName());
+            assertEquals(quyen.roles().length, Set.of(quyen.roles()).size(), "không lặp vai trò: " + m.getName());
+            assertEquals(com.dev.backend.customizeanotation.RequireAuth.LogicType.OR, quyen.rolesLogic(), m.getName());
+        }
+    }
+
+    @Test
     @DisplayName("laNoiBo: null, chuỗi rỗng, vai trò cũ, sai chữ hoa hay thừa khoảng trắng đều là không")
     void laNoiBo() {
         IRoleType.NOI_BO.forEach(v -> assertTrue(IRoleType.laNoiBo(v), v));

@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
     ChevronDown, Calendar,
-    Eye, Warehouse, CreditCard,
+    Eye, Warehouse,
     ShoppingCart, PackagePlus, Plus, SearchX,
 } from 'lucide-react';
 import apiClient from '@/services/apiClient';
@@ -29,7 +29,7 @@ import TablePagination from '@/components/shared/TablePagination';
 import { SO_DONG_MAC_DINH } from '@/constants/phanTrang';
 import { formatCurrency, formatDate } from '@/utils/formatters';
 
-import { DON_MUA_HANG_TABS, getDonMuaHangStatus } from '@/constants/donMuaHang';
+import { DON_MUA_HANG_TABS, DON_MUA_HANG_TAB_CU, getDonMuaHangStatus } from '@/constants/donMuaHang';
 import useDemTheoTrangThai from '@/hooks/useDemTheoTrangThai';
 import useTabTrenUrl from '@/hooks/useTabTrenUrl';
 import useTaiLaiDanhSach from '@/hooks/useTaiLaiDanhSach';
@@ -94,6 +94,12 @@ export default function PurchaseOrderList() {
     // Filters: tab trạng thái + kho đọc từ URL (F5 / quay lại từ chi tiết vẫn đúng tab); mã đơn + ngày giữ trong state.
     // Ô tìm kiếm: searchText là chữ đang gõ, keyword là từ khóa đang lọc (áp dụng khi ngừng gõ hoặc nhấn Enter).
     const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);
+    // Đường dẫn cũ ?trangThai=da-thanh-toan (trạng thái 5 nay là "Đã nhận đủ"): chuyển sang mã tab mới
+    const giaTriTab = searchParams.get('trangThai');
+    const maTabCu = giaTriTab && Object.hasOwn(DON_MUA_HANG_TAB_CU, giaTriTab) ? DON_MUA_HANG_TAB_CU[giaTriTab] : null;
+    useEffect(() => {
+        if (maTabCu) setTab(maTabCu);
+    }, [maTabCu, setTab]);
     const tabTrangThai = DON_MUA_HANG_TABS.find((t) => t.ma === tab)?.trangThai;
     const khoParam = searchParams.get('kho') ?? '';
     const khoId = warehouses.some((w) => String(w.id) === khoParam) ? khoParam : '';
@@ -495,7 +501,7 @@ export default function PurchaseOrderList() {
                         <EmptyState
                             icon={ShoppingCart}
                             title="Chưa có đơn mua hàng"
-                            description="Đơn mua hàng đang vận chuyển và đã thanh toán sẽ hiển thị tại đây."
+                            description="Đơn mua hàng đang vận chuyển và đã nhận đủ sẽ hiển thị tại đây."
                         />
                     )
                 ) : (
@@ -561,14 +567,6 @@ export default function PurchaseOrderList() {
                                                     label="Xem chi tiết đơn"
                                                     onClick={() => navigate(`/purchase-orders/${order.id}`)}
                                                 />
-                                                {/* Thanh toán (Chỉ trạng thái 3) */}
-                                                {isStatus3 && (
-                                                    <RowActionButton
-                                                        icon={CreditCard}
-                                                        label="Thanh toán đơn hàng"
-                                                        onClick={() => navigate(`/purchase-orders/${order.id}/payment`)}
-                                                    />
-                                                )}
                                                 {/* Nhập kho (Chỉ trạng thái 3 hoặc 5, và có quyền) */}
                                                 {canCreateReceipt && (isStatus3 || isStatus5) && (
                                                     <RowActionButton
