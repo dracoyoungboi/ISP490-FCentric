@@ -103,6 +103,17 @@ export const DUNG_SAI_GIO_KIEM_KE_MS = 120000;
 /** Ghi chú khi tạo đợt kiểm kê: số ký tự tối đa. */
 export const GHI_CHU_KIEM_KE_TOI_DA = 500;
 
+/**
+ * Màn Tạo báo giá bán: đơn giá mỗi dòng trong khoảng [TOI_THIEU, TOI_DA] × giá niêm yết của biến thể (máy chủ chặn cùng
+ * khoảng: DonBanHangService.kiemTraGiaThoaThuan). Ghi chú / địa chỉ giao: số ký tự tối đa (máy chủ lưu cột không giới
+ * hạn). Ô tìm sản phẩm / khách hàng: số gợi ý hiện tối đa (gõ thêm để lọc).
+ */
+export const TI_LE_GIA_BAO_GIA = Object.freeze({ toiThieu: 0.9, toiDa: 1.1 });
+export const GHI_CHU_BAO_GIA_TOI_DA = 500;
+export const DIA_CHI_GIAO_TOI_DA = 500;
+export const SO_GOI_Y_SAN_PHAM = 20;
+export const SO_GOI_Y_KHACH = 8;
+
 /** Màn Gửi yêu cầu báo giá, cột "Gửi đến": số nhà cung cấp đã chọn hiện trước; còn lại gom "và n nhà cung cấp khác". */
 export const SO_NCC_GUI_HIEN = 6;
 

@@ -224,7 +224,10 @@ export default function App() {
           <Route path="/sales-orders/:id" element={<DonBanHangDetail />} />
           <Route path="/sales-orders/create" element={<DonBanHangCreate />} />
           <Route path="/sales-quotations" element={<BaoGiaList />} />
-          <Route path="/sales-quotations/create" element={<BaoGiaCreate />} />
+          {/* Tạo báo giá: khớp @RequireAuth của POST /don-ban-hang/create (quản trị viên, nhân viên bán hàng) */}
+          <Route element={<RequireRole roles={["quan_tri_vien", "nhan_vien_ban_hang"]} />}>
+            <Route path="/sales-quotations/create" element={<BaoGiaCreate />} />
+          </Route>
           {/* Chi tiết báo giá: quản trị viên, nhân viên bán hàng thao tác; quản lý kho, nhân viên kho chỉ xem
               (khớp @RequireAuth của GET /don-ban-hang/{id}/detail) — nhân viên mua hàng bị chặn ở đây */}
           <Route element={<RequireRole roles={["quan_tri_vien", "nhan_vien_ban_hang", "quan_ly_kho", "nhan_vien_kho"]} />}>
