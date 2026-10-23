@@ -4,7 +4,10 @@ import com.dev.backend.dto.request.PayosConfigUpdating;
 import com.dev.backend.dto.response.customize.PayosTestResult;
 import com.dev.backend.entities.CauHinhThanhToan;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.constant.variables.IHanhDong;
+import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.repository.CauHinhThanhToanRepository;
+import com.dev.backend.services.impl.utils.NhatKyBaoMatService;
 import com.dev.backend.utils.PaymentSecretCipher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +24,8 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 /**
@@ -52,6 +57,8 @@ class PaymentConfigServicePayosTest {
     private PayosClient payosClient;
     @Mock
     private PayosCredentialVerifier verifier;
+    @Mock
+    private NhatKyBaoMatService nhatKyBaoMatService;
 
     private final PaymentSecretCipher cipher = new PaymentSecretCipher("unit-test-secret");
     private PaymentConfigService service;
@@ -59,7 +66,8 @@ class PaymentConfigServicePayosTest {
 
     @BeforeEach
     void setUp() {
-        service = new PaymentConfigService(repository, cipher, payosClient, verifier, "https://fcentric.net");
+        service = new PaymentConfigService(repository, cipher, payosClient, verifier, nhatKyBaoMatService,
+                "https://fcentric.net");
         when(repository.save(any(CauHinhThanhToan.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
@@ -320,5 +328,63 @@ class PaymentConfigServicePayosTest {
 
         assertThrows(CommonException.class, () -> service.testConnection());
         verifyNoInteractions(verifier);
+    }
+
+    // ---------- Nhật ký bảo mật ----------
+
+    @Test
+    void nhatKy_doiKhoa_ghiTenTruongKhongGhiGiaTri() {
+        daCoKhoa();
+        when(verifier.verify(any())).thenReturn(DAT);
+        com.dev.backend.config.SecurityContextHolder.setUser(
+                com.dev.backend.dto.response.entities.NguoiDungAuthInfo.builder().id(7).build());
+        try {
+            service.updatePayos(khoa(null, API_MOI, CHECKSUM_MOI));
+        } finally {
+            com.dev.backend.config.SecurityContextHolder.clear();
+        }
+
+        ArgumentCaptor<String> ghiChu = ArgumentCaptor.forClass(String.class);
+        verify(nhatKyBaoMatService).ghiSauCommit(eq(IHanhDong.cap_nhat_khoa_thanh_toan),
+                eq(ITable.cau_hinh_thanh_toan), eq(1), eq(7), ghiChu.capture());
+        assertEquals("Đổi API Key, Checksum Key", ghiChu.getValue());
+        assertFalse(ghiChu.getValue().contains(API_MOI));
+        assertFalse(ghiChu.getValue().contains(CHECKSUM_MOI));
+    }
+
+    @Test
+    void nhatKy_tatPayos_ghi_doiThoiGianHetHan_khongGhi() {
+        daCoKhoa();
+
+        service.updatePayos(PayosConfigUpdating.builder().thoiGianHetHanPhut(5).build());
+        verifyNoInteractions(nhatKyBaoMatService);
+
+        service.updatePayos(PayosConfigUpdating.builder().kichHoat(false).build());
+        verify(nhatKyBaoMatService).ghiSauCommit(eq(IHanhDong.cap_nhat_khoa_thanh_toan),
+                eq(ITable.cau_hinh_thanh_toan), eq(1), isNull(), eq("Tắt payOS"));
+    }
+
+    @Test
+    void nhatKy_nhapLaiCungKhoa_khongGhi_xacNhanWebhook_ghi() {
+        daCoKhoa();
+        when(verifier.verify(any())).thenReturn(DAT);
+
+        service.updatePayos(khoa(CLIENT_CU, API_CU, CHECKSUM_CU));
+        verifyNoInteractions(nhatKyBaoMatService);
+
+        when(payosClient.confirmWebhook(any(), org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(new PayosClient.PayosResult(200, "00", "success", null));
+        service.confirmWebhook("https://fcentric.net/api/v1/payos/webhook");
+        verify(nhatKyBaoMatService).ghiSauCommit(eq(IHanhDong.cap_nhat_khoa_thanh_toan),
+                eq(ITable.cau_hinh_thanh_toan), eq(1), isNull(), eq("Xác nhận Webhook URL với payOS"));
+    }
+
+    @Test
+    void nhatKy_xacMinhKhongDat_khongGhi() {
+        daCoKhoa();
+        when(verifier.verify(any())).thenReturn(KHONG_DAT);
+
+        assertThrows(CommonException.class, () -> service.updatePayos(khoa(CLIENT_MOI, API_MOI, CHECKSUM_MOI)));
+        verifyNoInteractions(nhatKyBaoMatService);
     }
 }

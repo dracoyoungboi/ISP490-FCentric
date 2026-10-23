@@ -11,13 +11,16 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * JOB-04 (SRS 12.4): Clean Up Old Audit Log Entries.
  * Trigger: Hằng ngày lúc 3:00 AM (0 0 3 * * ?).
  * Retention period: 90 ngày.
- * Không xóa lịch sử phiên bản mẫu in (hanh_dong = cap_nhat_mau_in): đó là các phiên bản cấu hình để
- * xem lại / khôi phục, không phải nhật ký thao tác — mỗi lần lưu mẫu một dòng nên không phình bảng.
+ * Không xóa các hành động trong {@link IHanhDong#KHONG_TU_DON}: lịch sử phiên bản mẫu in (các phiên bản cấu hình để
+ * xem lại / khôi phục, mỗi lần lưu mẫu một dòng nên không phình bảng) và nhật ký bảo mật (đăng nhập, khóa tài khoản,
+ * mật khẩu, đổi quyền, đổi khóa thanh toán) cần giữ để truy vết sự cố.
  * Xóa theo batch tối đa 5,000 dòng để tránh lock bảng DB trong thời gian dài.
  */
 @Component
@@ -37,16 +40,19 @@ public class AuditLogCleanupJob {
         int batchCount = 0;
         int batchSize = 5000;
 
+        List<String> giuLai = IHanhDong.KHONG_TU_DON;
+        String sql = "DELETE FROM lich_su_thay_doi WHERE ngay_thuc_hien < ?"
+                + " AND (hanh_dong IS NULL OR hanh_dong NOT IN ("
+                + String.join(", ", Collections.nCopies(giuLai.size(), "?")) + ")) LIMIT ?";
+        Object[] thamSo = new Object[giuLai.size() + 2];
+        thamSo[0] = threshold;
+        for (int i = 0; i < giuLai.size(); i++) thamSo[i + 1] = giuLai.get(i);
+        thamSo[thamSo.length - 1] = batchSize;
+
         try {
             while (true) {
-                // Xóa từng đợt 5,000 dòng có thời gian cũ hơn 90 ngày (trừ phiên bản mẫu in)
-                int deleted = jdbcTemplate.update(
-                        "DELETE FROM lich_su_thay_doi WHERE ngay_thuc_hien < ?"
-                                + " AND (hanh_dong IS NULL OR hanh_dong <> ?) LIMIT ?",
-                        threshold,
-                        IHanhDong.cap_nhat_mau_in,
-                        batchSize
-                );
+                // Xóa từng đợt 5,000 dòng có thời gian cũ hơn 90 ngày (trừ phiên bản mẫu in và nhật ký bảo mật)
+                int deleted = jdbcTemplate.update(sql, thamSo);
                 totalDeleted += deleted;
                 batchCount++;
 
