@@ -90,20 +90,26 @@ export function tachTenDong(ten) {
 }
 
 /**
- * Dòng chứng từ (bangChungTu.js) từ `chiTiet` của đơn bán / báo giá: gom theo tên sản phẩm (dòng không có id sản
- * phẩm), `nhanBienThe` "Màu / Cỡ", số lượng đặt, đơn giá và thành tiền của máy chủ.
+ * Dòng chứng từ (bangChungTu.js) từ `chiTiet` của đơn bán / báo giá: gom theo id sản phẩm khi máy chủ trả `sanPhamId`
+ * (máy chủ cũ: theo tên), màu / mã màu / cỡ / ảnh, `nhanBienThe` "Màu / Cỡ", số lượng đặt, đơn giá và thành tiền.
  */
 export function dongHangBan(chiTiet) {
   return (Array.isArray(chiTiet) ? chiTiet : []).filter(Boolean).map((ct, i) => {
-    const ten = tachTenDong(ct.tenSanPham);
+    // Máy chủ mới trả sẵn tên gốc, màu, mã màu, cỡ, ảnh; máy chủ cũ chỉ có "Tên / Màu / Cỡ" → tách như trước
+    const coTruong = Boolean(ct.tenSanPhamGoc || ct.tenMau || ct.kichCo);
+    const ten = coTruong
+      ? { tenSanPham: ct.tenSanPhamGoc || tachTenDong(ct.tenSanPham).tenSanPham, tenMau: ct.tenMau || "", kichCo: ct.kichCo || "" }
+      : tachTenDong(ct.tenSanPham);
     const soLuong = docSo(ct.soLuongDat);
     const donGia = docSo(ct.donGia);
     return {
       id: ct.id ?? `dong-${i}`,
-      khoaNhom: null,
+      khoaNhom: ct.sanPhamId ?? null,
       tenSanPham: ten.tenSanPham || ct.sku || "",
       tenMau: ten.tenMau,
+      maMauHex: ct.maMauHex || "",
       kichCo: ten.kichCo,
+      anh: ct.anh || null,
       nhanBienThe: nhanMauKichCo(ten),
       sku: ct.sku || "",
       soLuong,
