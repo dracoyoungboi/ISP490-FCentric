@@ -53,8 +53,13 @@ import { cn } from "@/lib/utils";
 
 const soVN = (n) => Number(n || 0).toLocaleString("vi-VN");
 
-/** Mã lỗi máy chủ trả khi gian hàng không còn gọi được sàn: đọc lại kết nối để trang chuyển về bước ủy quyền. */
-const MA_MAT_KET_NOI = new Set(["UY_QUYEN_HET_HAN", "KENH_CHUA_KET_NOI"]);
+/** Mã lỗi máy chủ trả khi gian hàng không còn gọi được sàn: đọc lại kết nối để trang hiện đúng tình trạng. */
+const MA_MAT_KET_NOI = new Set(["UY_QUYEN_HET_HAN", "KENH_CHUA_KET_NOI", "LAM_MOI_KHOA_LOI"]);
+/**
+ * Trong số đó, mã làm trình thiết lập về bước 1 (chưa kết nối, hết hạn ủy quyền). Shopify bị từ chối khóa làm mới thì
+ * vẫn ở bước đang làm (thẻ "Hết hạn khóa"), kết quả hiện tại chỗ như lỗi thường.
+ */
+const MA_VE_BUOC_1 = new Set(["UY_QUYEN_HET_HAN", "KENH_CHUA_KET_NOI"]);
 
 /** Chặn bấm hai lần khi một thao tác đang chạy. */
 function useDangChay() {
@@ -138,7 +143,7 @@ export default function ChannelSetupWizard() {
 
   const huyBo = () => navigate(ketNoi ? SAN.duongDan : "/channels");
 
-  // Máy chủ báo hết hạn / mất kết nối giữa chừng: đọc lại kết nối, trang tự về bước 1
+  // Máy chủ báo hết hạn / mất kết nối giữa chừng: đọc lại kết nối (chưa kết nối, hết hạn ủy quyền thì trang tự về bước 1)
   const khiLoi = (error) => {
     if (!MA_MAT_KET_NOI.has(getApiErrorCode(error))) return;
     cfg.reload();
@@ -163,7 +168,8 @@ export default function ChannelSetupWizard() {
           }
         }
         xoaLuaChonThietLap(SAN.maKenh);
-        if (soNgayDonCu) await layDonCu(SAN, soNgayDonCu, khiLoi);
+        // Mất kết nối giữa chừng: trang tự về bước 1 (khiLoi), không báo xong
+        if (soNgayDonCu && !(await layDonCu(SAN, soNgayDonCu, khiLoi))) return;
       }
       toast.success(`Đã thiết lập xong gian hàng ${SAN.ten}`);
       navigate(SAN.duongDan);
@@ -216,7 +222,7 @@ export default function ChannelSetupWizard() {
               />
             ) : buoc === 1 ? (
               <BuocKetNoi
-                key={`ket-noi-${config?.ngayCapNhat ?? "moi"}`}
+                key={`ket-noi-${config?.ngayCapNhat ?? "moi"}-${config?.shopDomain ?? ""}-${config?.trangThaiKetNoi ?? ""}`}
                 config={config}
                 onHuy={huyBo}
                 onXong={(dto) => {
@@ -224,6 +230,12 @@ export default function ChannelSetupWizard() {
                   // Lần đầu kết nối: menu bên trái hiện mục Shopify ngay
                   taiLaiKenhDaKetNoi();
                   xongBuoc(1);
+                }}
+                onDoiKetNoi={() => {
+                  cfg.reload();
+                  taiLaiKenhDaKetNoi();
+                  // Ở lại bước 1 để thấy cửa hàng đang kết nối (không có ?buoc= thì trang tự sang bước còn dở)
+                  denBuoc(1);
                 }}
               />
             ) : buoc === 2 ? (
@@ -287,7 +299,10 @@ export default function ChannelSetupWizard() {
   );
 }
 
-/** Lấy đơn cũ một lần (Thiết lập bước 3 của Shopify, Hoàn tất của sàn ủy quyền). Lỗi không chặn đi tiếp. */
+/**
+ * Lấy đơn cũ một lần (Thiết lập bước 3 của Shopify, Hoàn tất của sàn ủy quyền). Lỗi không chặn đi tiếp, trừ khi gian
+ * hàng không còn gọi được (MA_MAT_KET_NOI): trả false để nơi gọi dừng, không báo "đã thiết lập xong".
+ */
 async function layDonCu(SAN, soNgay, onLoi) {
   try {
     const res = await kenhBanHangService.layDon(SAN.maKenh, {
@@ -298,7 +313,9 @@ async function layDonCu(SAN, soNgay, onLoi) {
   } catch (error) {
     onLoi?.(error);
     toast.error(getApiErrorMessage(error, "Chưa lấy được đơn cũ, có thể lấy lại ở trang Đơn hàng"));
+    if (MA_MAT_KET_NOI.has(getApiErrorCode(error))) return false;
   }
+  return true;
 }
 
 /**
@@ -391,7 +408,11 @@ function BuocUyQuyen({ ketNoi, hetHan, quayVeThietLap, onHuy, onKetNoi, onTiep }
   );
 }
 
-function BuocKetNoi({ config, onHuy, onXong }) {
+/** Mã lỗi khi lưu khóa cho thấy tình trạng kết nối vừa đổi ở nơi khác (tab khác kết nối cửa hàng khác / vừa ngắt). */
+const MA_DOI_KET_NOI = new Set(["GIAN_HANG_KHAC", "KENH_CHUA_KET_NOI"]);
+
+/** `onDoiKetNoi()`: máy chủ báo tình trạng kết nối vừa đổi ở nơi khác, trang đọc lại kết nối. */
+function BuocKetNoi({ config, onHuy, onXong, onDoiKetNoi }) {
   const [values, setValues] = useState(() => taoGiaTriKetNoi(config));
   const [errors, setErrors] = useState({});
   const [result, setResult] = useState(null);
@@ -429,7 +450,14 @@ function BuocKetNoi({ config, onHuy, onXong }) {
         onXong(dto);
       } catch (error) {
         setValues((cu) => ({ ...cu, accessToken: "", apiSecret: "", refreshToken: "" }));
-        setResult({ ok: false, title: "Chưa lưu được kết nối", message: getApiErrorMessage(error, "Không lưu được kết nối Shopify") });
+        const cau = getApiErrorMessage(error, "Không lưu được kết nối Shopify");
+        // Đọc lại để ô tên miền khóa / mở đúng tình trạng mới; thẻ dựng lại theo kết nối mới nên báo bằng toast (một chỗ)
+        if (MA_DOI_KET_NOI.has(getApiErrorCode(error))) {
+          toast.error(cau);
+          onDoiKetNoi?.();
+        } else {
+          setResult({ ok: false, title: "Chưa lưu được kết nối", message: cau });
+        }
       }
     });
 
@@ -693,7 +721,7 @@ function SoTomTat({ nhan, giaTri, loi = false }) {
 }
 
 /**
- * Sàn ủy quyền không có "Đưa sản phẩm FCentric lên" (máy chủ trả 400 SAN_KHONG_HO_TRO, KH mục C.1).
+ * Sàn ủy quyền không có "Đưa sản phẩm FCentric lên" (KH mục C.1).
  * Khi đợt Đồng bộ ngay đang chạy thì chưa cho tải / đưa lên (hai việc cùng ghi bảng liên kết).
  */
 function BuocLienKet({
@@ -719,6 +747,15 @@ function BuocLienKet({
   const chuaCo = dangTaiTongQuan && !tongQuan;
   const khoaThaoTac = Boolean(dangChay) || dangHoanTat || dongBo.dangChay;
 
+  // Mất kết nối: trình thiết lập đọc lại kết nối rồi về bước 1, thẻ này mất theo nên báo bằng toast (một chỗ).
+  // Trả true khi đã báo, nơi gọi khỏi ghi kết quả vào thẻ
+  const baoMatKetNoi = (error, cau) => {
+    onLoi(error);
+    if (!MA_VE_BUOC_1.has(getApiErrorCode(error))) return false;
+    toast.error(cau);
+    return true;
+  };
+
   const taiVaGhep = () =>
     chay("tai", async () => {
       setKetQuaTai(null);
@@ -728,8 +765,8 @@ function BuocLienKet({
         setKetQuaTai({ ok: true, title: kq.title });
         onTaiLai();
       } catch (error) {
-        onLoi(error);
-        setKetQuaTai({ ok: false, title: "Chưa tải được sản phẩm", message: getApiErrorMessage(error, `Không tải được sản phẩm từ ${SAN.ten}`) });
+        const cau = getApiErrorMessage(error, `Không tải được sản phẩm từ ${SAN.ten}`);
+        if (!baoMatKetNoi(error, cau)) setKetQuaTai({ ok: false, title: "Chưa tải được sản phẩm", message: cau });
       }
     });
 
@@ -743,8 +780,8 @@ function BuocLienKet({
         onTaiLai();
       } catch (error) {
         setHoiDay(false);
-        onLoi(error);
-        setKetQuaDay({ ok: false, title: "Chưa đưa được sản phẩm lên", message: getApiErrorMessage(error, "Không đưa được sản phẩm lên Shopify") });
+        const cau = getApiErrorMessage(error, "Không đưa được sản phẩm lên Shopify");
+        if (!baoMatKetNoi(error, cau)) setKetQuaDay({ ok: false, title: "Chưa đưa được sản phẩm lên", message: cau });
       }
     });
 

@@ -242,9 +242,10 @@ export default function ChannelMappingsPage() {
     },
   });
   const idLyDoHetHan = useId();
-  // Thao tác gọi sàn mà máy chủ báo hết hạn ủy quyền / chưa kết nối: đọc lại kết nối như khi Đồng bộ ngay gặp lỗi đó
+  // Thao tác gọi sàn mà máy chủ báo hết hạn ủy quyền / chưa kết nối / Shopify từ chối khóa làm mới: đọc lại kết nối
+  // như khi Đồng bộ ngay gặp lỗi đó
   const khiMatKetNoi = (error) => {
-    if (!["UY_QUYEN_HET_HAN", "KENH_CHUA_KET_NOI"].includes(getApiErrorCode(error))) return;
+    if (!["UY_QUYEN_HET_HAN", "KENH_CHUA_KET_NOI", "LAM_MOI_KHOA_LOI"].includes(getApiErrorCode(error))) return;
     cfg.reload();
     void taiLaiKenhDaKetNoi();
   };
@@ -349,6 +350,7 @@ export default function ChannelMappingsPage() {
         taiLaiTatCa();
       } catch (error) {
         setHoiDayLen(false);
+        khiMatKetNoi(error);
         toast.error(getApiErrorMessage(error, "Không đưa được sản phẩm lên Shopify"));
       }
     });

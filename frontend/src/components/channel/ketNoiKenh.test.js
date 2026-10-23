@@ -5,12 +5,15 @@ import {
   coThayDoiKhoaUngDung,
   conLaiUyQuyen,
   daKetNoi,
+  giuTenMienDangHien,
   hanUyQuyen,
   hoTroNgatKetNoi,
   khoaTenMien,
+  kiemTraGiaTriKetNoi,
   kiemTraKhoaUngDung,
   moTaNgatKetNoi,
   nhanTrangThaiKetNoi,
+  seBoKhoaLamMoi,
   taoPayloadKetNoi,
   taoPayloadKhoaUngDung,
   trangThaiKetNoi,
@@ -118,9 +121,29 @@ test("ô tên miền Shopify chỉ đọc khi đã kết nối và máy chủ ng
   assert.equal(hoTroNgatKetNoi(null), false);
 });
 
+test("kiểm tên miền: tên miền máy chủ đang giữ thì không bắt dạng *.myshopify.com, tên miền mới thì vẫn bắt", () => {
+  const values = { shopDomain: "shop.fcentric.vn", accessToken: "", apiSecret: "", clientId: "", refreshToken: "" };
+  // Gian hàng cũ lưu tên miền riêng, đang kết nối: ô khóa, lưu khóa mới được
+  const daKetNoiTenMienRieng = { hasAccessToken: true, shopDomain: "shop.fcentric.vn", trangThai: 1, trangThaiKetNoi: "dang_hoat_dong" };
+  assert.deepEqual(kiemTraGiaTriKetNoi(values, daKetNoiTenMienRieng), {});
+  // Đã ngắt, ô mở và điền sẵn tên miền riêng cũ: kết nối lại cùng cửa hàng được (không bị ép đổi tên miền rồi ghép lại)
+  const daNgatTenMienRieng = { hasAccessToken: false, shopDomain: "shop.fcentric.vn", trangThai: 0, trangThaiKetNoi: "chua_ket_noi" };
+  assert.deepEqual(kiemTraGiaTriKetNoi({ ...values, accessToken: "shpat_x" }, daNgatTenMienRieng), {});
+  assert.ok(kiemTraGiaTriKetNoi({ ...values, shopDomain: "shop-khac.vn", accessToken: "shpat_x" }, daNgatTenMienRieng).shopDomain);
+  // Tên miền mới gõ vào ô mở (chưa kết nối, hoặc máy chủ cũ chưa ngắt được) vẫn bắt dạng chuẩn
+  const chuaKetNoi = { hasAccessToken: false, shopDomain: "", trangThaiKetNoi: "chua_ket_noi" };
+  assert.ok(kiemTraGiaTriKetNoi({ ...values, accessToken: "shpat_x" }, chuaKetNoi).shopDomain);
+  const mayChuCu = { hasAccessToken: true, shopDomain: "shop.fcentric.vn", trangThai: 1 };
+  assert.deepEqual(kiemTraGiaTriKetNoi(values, mayChuCu), {});
+  assert.ok(kiemTraGiaTriKetNoi({ ...values, shopDomain: "shop-khac.vn" }, mayChuCu).shopDomain);
+  // Trống thì luôn báo
+  assert.equal(kiemTraGiaTriKetNoi({ ...values, shopDomain: " " }, daKetNoiTenMienRieng).shopDomain, "Nhập tên miền cửa hàng.");
+  assert.deepEqual(kiemTraGiaTriKetNoi({ ...values, shopDomain: "fcentric-dev" }, chuaKetNoi), { accessToken: "Nhập khóa truy cập." });
+});
+
 test("câu xác nhận ngắt kết nối: nói rõ tồn và đơn trên sàn; Shopify nhắc gỡ ứng dụng", () => {
   const shopify = moTaNgatKetNoi(timSan("SHOPIFY"), { shopDomain: "fcentric-dev.myshopify.com" });
-  assert.match(shopify, /^Hệ thống sẽ xóa khóa truy cập đã lưu và dừng đồng bộ với fcentric-dev\.myshopify\.com\. /);
+  assert.match(shopify, /^Hệ thống sẽ xóa mọi khóa đã lưu và dừng đồng bộ với fcentric-dev\.myshopify\.com\. /);
   assert.match(shopify, /Số tồn trên Shopify giữ nguyên như lần đẩy cuối, đơn mới sẽ không về FCentric\./);
   assert.match(shopify, /kết nối lại bằng cửa hàng khác thì phải ghép sản phẩm lại\./);
   assert.match(shopify, /hãy gỡ ứng dụng trong trang quản trị Shopify\.$/);
@@ -136,6 +159,20 @@ test("câu xác nhận ngắt kết nối: nói rõ tồn và đơn trên sàn; 
   assert.match(moTaNgatKetNoi(timSan("SHOPIFY"), {}), /dừng đồng bộ với cửa hàng Shopify\./);
 });
 
+test("bỏ khóa làm mới khi chỉ dán khóa truy cập: khi Shopify đã từ chối hoặc khóa truy cập quá hạn", () => {
+  const oauth = { hasAccessToken: true, shopDomain: "fcentric-dev.myshopify.com", trangThai: 1, hasRefreshToken: true };
+  // Máy chủ báo Hết hạn khóa (đã từ chối khóa làm mới)
+  assert.equal(seBoKhoaLamMoi({ ...oauth, trangThaiKetNoi: "het_han" }), true);
+  // Khóa truy cập quá hạn, khóa làm mới chưa bị từ chối (thẻ vẫn Đang hoạt động)
+  assert.equal(seBoKhoaLamMoi({ ...oauth, trangThaiKetNoi: "dang_hoat_dong", tokenExpired: true }), true);
+  assert.equal(seBoKhoaLamMoi({ ...oauth, trangThaiKetNoi: "dang_hoat_dong", isTokenExpired: true }), true);
+  // Còn hạn, chưa bị từ chối: giữ khóa làm mới như cũ
+  assert.equal(seBoKhoaLamMoi({ ...oauth, trangThaiKetNoi: "dang_hoat_dong", tokenExpired: false }), false);
+  // Khóa tĩnh (không có khóa làm mới) thì không có gì để bỏ
+  assert.equal(seBoKhoaLamMoi({ ...oauth, hasRefreshToken: false, trangThaiKetNoi: "het_han" }), false);
+  assert.equal(seBoKhoaLamMoi(null), false);
+});
+
 test("trạng thái đơn trên sàn → chữ tiếng Việt (KH mục F); mã lạ giữ nguyên", () => {
   assert.equal(nhanTrangThaiSan("LAZADA", "ready_to_ship"), "Chờ lấy hàng");
   assert.equal(nhanTrangThaiSan("LAZADA", "shipped_back_success"), "Hoàn hàng");
@@ -144,4 +181,12 @@ test("trạng thái đơn trên sàn → chữ tiếng Việt (KH mục F); mã 
   assert.equal(nhanTrangThaiSan("TIKTOK", "LA_LAM"), "Trạng thái khác (LA_LAM)");
   assert.equal(nhanTrangThaiSan("SHOPIFY", "paid"), "paid");
   assert.equal(nhanTrangThaiSan("TIKTOK", null), null);
+});
+test("GIAN_HANG_KHAC: giữ đúng tên miền đang hiện thì là đổi ở nơi khác, tự gõ tên miền khác thì không", () => {
+  const config = { shopDomain: "cua-hang-a.myshopify.com", trangThaiKetNoi: "loi" };
+  assert.equal(giuTenMienDangHien({ shopDomain: "cua-hang-a.myshopify.com" }, config), true);
+  assert.equal(giuTenMienDangHien({ shopDomain: "https://Cua-Hang-A.myshopify.com/" }, config), true);
+  assert.equal(giuTenMienDangHien({ shopDomain: "cua-hang-b.myshopify.com" }, config), false);
+  assert.equal(giuTenMienDangHien({ shopDomain: "" }, { shopDomain: "" }), false);
+  assert.equal(giuTenMienDangHien(null, config), false);
 });

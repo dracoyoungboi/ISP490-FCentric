@@ -1,6 +1,6 @@
 import apiClient from "./apiClient";
 import { CHANNEL_MOCK, mockDelay, mockError } from "@/mocks/mockHelpers";
-import { kenhBanHangMock } from "@/mocks/kenhBanHangMock";
+import { kenhBanHangMock, loiCoMa } from "@/mocks/kenhBanHangMock";
 import { kenhSanMock } from "@/mocks/kenhSanMock";
 import { demYeuCauHuy } from "@/mocks/donBanHangKenhMock";
 import { chuanHoaNhom, phanTrangTheoSanPham } from "@/components/channel/nhomLienKet";
@@ -313,10 +313,32 @@ function mockChupDongBo(maKenh) {
   };
 }
 
-/** Cấu hình Shopify mẫu theo hình dạng KetNoiKenhDto của máy chủ đã có KH Phần 2 (có trangThaiKetNoi). */
+/**
+ * Cấu hình Shopify mẫu theo hình dạng KetNoiKenhDto của máy chủ đã có KH Phần 2 (có trangThaiKetNoi). Như máy chủ: có
+ * khóa làm mới thì khóa quá hạn vẫn đang hoạt động (máy chủ tự làm mới khi dùng), trừ khi Shopify đã từ chối khóa làm
+ * mới và khóa truy cập còn dưới 5 phút.
+ */
 function ketNoiShopifyMau(cfg) {
-  const trangThaiKetNoi = !(cfg?.hasAccessToken && cfg?.shopDomain) ? "chua_ket_noi" : cfg.tokenExpired ? "het_han" : "dang_hoat_dong";
+  const sapHet = cfg?.secondsUntilExpiration != null && cfg.secondsUntilExpiration < 300;
+  const trangThaiKetNoi = !(cfg?.hasAccessToken && cfg?.shopDomain)
+    ? "chua_ket_noi"
+    : (cfg.tokenExpired && !cfg.hasRefreshToken) || (cfg._khoaLamMoiBiTuChoi && cfg.hasRefreshToken && sapHet)
+      ? "het_han"
+      : "dang_hoat_dong";
   return { ...cfg, maKenh: "SHOPIFY", kieuKetNoi: "khoa", trangThaiKetNoi };
+}
+
+/**
+ * Như máy chủ (KenhBanHangDongBoServiceImpl.kiemTraDaKetNoi): việc cần khóa truy cập (tải sản phẩm, ghép, đẩy tồn,
+ * lấy đơn, thử lại, đồng bộ ngay) mà kênh đã ngắt ở thẻ khác thì báo 409 KENH_CHUA_KET_NOI.
+ */
+async function mockKiemTraDaKetNoi(maKenh) {
+  const dto = await mockApi.getKetNoi(maKenh);
+  if (dto?.trangThaiKetNoi === "chua_ket_noi") {
+    throw loiCoMa(409, "KENH_CHUA_KET_NOI", `${timSan(maKenh)?.ten ?? "Sàn này"} chưa kết nối. Kết nối lại ở trình thiết lập rồi thử lại.`);
+  }
+  // Shopify: đọc khóa như máy chủ (tự làm mới; khóa làm mới đã bị từ chối và khóa truy cập quá hạn thì 424)
+  if (laShopify(maKenh)) kenhBanHangMock.docKhoaShopify();
 }
 
 async function mockTatCaLienKet(maKenh) {
@@ -328,7 +350,7 @@ const mockApi = {
   getShopifyConfig: kenhBanHangMock.getShopifyConfig,
   updateShopifyConfig: (payload) => kenhBanHangMock.updateShopifyConfig(payload).then(ketNoiShopifyMau),
   testShopifyConnection: kenhBanHangMock.testShopifyConnection,
-  refreshShopifyToken: kenhBanHangMock.refreshShopifyToken,
+  refreshShopifyToken: () => kenhBanHangMock.refreshShopifyToken().then(ketNoiShopifyMau),
 
   async getDanhSachKetNoi() {
     const ds = await Promise.all(SAN_BAN_HANG.filter((s) => s.hoTro).map((s) => mockApi.getKetNoi(s.maKenh)));
@@ -341,15 +363,13 @@ const mockApi = {
   kiemTraKetNoi: (maKenh) => kenhSanMock.kiemTraKetNoi(maKenh),
   lamMoiToken: (maKenh) => kenhSanMock.lamMoiToken(maKenh),
   async ngatKetNoi(maKenh) {
-    // Như máy chủ (KH mục C.1): đang đồng bộ thì không ngắt; ngắt xong tắt tự động đẩy tồn, lấy đơn
+    // Như máy chủ (NgatKetNoiKenhService): đang đồng bộ thì không ngắt; ngắt xong đặt trạng thái 0 (job bỏ qua kênh),
+    // không đụng công tắc tự động đẩy tồn, lấy đơn của người dùng
     if (mockChupDongBo(maKenh)?.trangThai === "dang_chay") {
       await mockDelay(150, 300);
-      throw mockError(409, `Đang đồng bộ với ${timSan(maKenh)?.ten ?? "sàn này"}. Đợi lượt này xong rồi ngắt kết nối.`);
+      throw loiCoMa(409, "DANG_DONG_BO", `Đang đồng bộ với ${timSan(maKenh)?.ten ?? "sàn này"}. Đợi lượt này xong rồi ngắt kết nối.`);
     }
-    const dto = laShopify(maKenh) ? ketNoiShopifyMau(await kenhBanHangMock.ngatKetNoiShopify()) : await kenhSanMock.ngatKetNoi(maKenh);
-    Object.assign(cauHinhCua(maKenh), { tuDongDayTon: false, tuDongLayDon: false });
-    luuCauHinhMau();
-    return dto;
+    return laShopify(maKenh) ? ketNoiShopifyMau(await kenhBanHangMock.ngatKetNoiShopify()) : kenhSanMock.ngatKetNoi(maKenh);
   },
   luuCaiDatKenh: (maKenh, payload) => kenhSanMock.luuCaiDat(maKenh, payload),
 
@@ -397,6 +417,7 @@ const mockApi = {
   },
 
   async taiSanPham(maKenh) {
+    await mockKiemTraDaKetNoi(maKenh);
     const res = await kenhBanHangMock.taiSanPham(idKetNoi(maKenh));
     const chung = { soSku: res.soSku, soMoi: res.soMoi, soCapNhat: res.soCapNhat };
     if (laShopify(maKenh)) return chung;
@@ -407,6 +428,7 @@ const mockApi = {
       await mockDelay();
       throw mockError(400, "Sàn không hỗ trợ đưa sản phẩm lên từ FCentric");
     }
+    await mockKiemTraDaKetNoi(maKenh);
     const res = await kenhBanHangMock.tuDongLienKet(idKetNoi(maKenh));
     return { soDaGhep: res.soDaGhep, soTaoMoiTrenShopify: 0, soCapNhatTrenShopify: 0, soTonKhoDaDay: res.soDaGhep, soAnhDaDay: 0, soThatBai: res.soKhongKhop };
   },
@@ -427,16 +449,19 @@ const mockApi = {
   async thuLaiLienKet(lienKetId) {
     await mockDelay();
     const maKenh = Object.keys(MOCK_KET_NOI_ID).find((k) => Math.floor(Number(lienKetId) / 1000) === MOCK_KET_NOI_ID[k]) ?? "SHOPIFY";
+    await mockKiemTraDaKetNoi(maKenh);
     const links = await mockTatCaLienKet(maKenh);
     return chuanHoaLienKet(links.find((l) => l.id === Number(lienKetId)));
   },
   timBienThe: kenhBanHangMock.timBienThe,
 
   async dayTon(maKenh, quyTac) {
+    await mockKiemTraDaKetNoi(maKenh);
     const res = await kenhBanHangMock.dayTon(idKetNoi(maKenh), quyTac);
     return { soDong: res.soDong, soLoi: 0, soChuaDay: 0, loiKenh: null };
   },
   async layDon(maKenh, range) {
+    await mockKiemTraDaKetNoi(maKenh);
     const res = await kenhBanHangMock.layDon(idKetNoi(maKenh), range);
     return { soDonMoi: res.soSuKien ?? 0, soDonCapNhat: 0, thongDiep: `Nhận ${res.soSuKien ?? 0} đơn hàng mới` };
   },
@@ -444,6 +469,7 @@ const mockApi = {
   async batDauDongBoNgay(maKenh) {
     await mockDelay(150, 300);
     if (mockChupDongBo(maKenh)?.trangThai !== "dang_chay") {
+      await mockKiemTraDaKetNoi(maKenh);
       mockPhienDongBo[maMau(maKenh)] = { maPhien: `mau-${Date.now()}`, batDauLuc: Date.now(), dungLuc: null };
     }
     return mockChupDongBo(maKenh);
