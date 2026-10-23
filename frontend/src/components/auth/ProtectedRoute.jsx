@@ -47,15 +47,10 @@ export default function ProtectedRoute() {
                 }
 
                 const errorCode = err?.response?.data?.error;
-                const errorMessage = err?.response?.data?.message;
                 const httpStatus = err?.response?.status;
 
-                // apiClient đã xóa phiên và chuyển về login khi tài khoản bị khóa.
-                if (
-                    errorCode === "ACCOUNT_DISABLED" ||
-                    (typeof errorMessage === "string" &&
-                        errorMessage.includes("bị khóa"))
-                ) {
+                // apiClient đã xóa phiên và chuyển về login khi tài khoản bị khóa (theo mã lỗi, không dò chữ).
+                if (errorCode === "ACCOUNT_DISABLED") {
                     return;
                 }
 

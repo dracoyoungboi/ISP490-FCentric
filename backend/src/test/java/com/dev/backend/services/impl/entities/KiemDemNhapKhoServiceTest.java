@@ -411,7 +411,9 @@ class KiemDemNhapKhoServiceTest {
             cu.setViTriKho(ke);
             CommonException ex = loi(() -> service.khaiBaoLo(1, manCu.soLuongNhap(BigDecimal.valueOf(5)).build()));
             assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
-            assertTrue(ex.getMessage().contains("bị khóa hoặc ngừng hoạt động"), ex.getMessage());
+            assertTrue(ex.getMessage().contains("tạm khóa hoặc ngừng hoạt động"), ex.getMessage());
+            // Không viết "bị khóa": giao diện coi là tài khoản bị khóa và đăng xuất
+            assertFalse(ex.getMessage().contains("bị khóa"), ex.getMessage());
         }
 
         @Test

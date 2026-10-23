@@ -679,7 +679,8 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                 throw new CommonException(HttpStatus.FORBIDDEN, "Vị trí kệ không thuộc kho của phiếu nhập");
             }
             if (viTri.getTrangThai() != null && !"HOAT_DONG".equalsIgnoreCase(viTri.getTrangThai())) {
-                throw new CommonException(HttpStatus.BAD_REQUEST, "Vị trí kệ đang bị khóa hoặc ngừng hoạt động");
+                // Không viết "bị khóa": giao diện coi câu có cụm đó là tài khoản bị khóa và đăng xuất
+                throw new CommonException(HttpStatus.BAD_REQUEST, "Vị trí kệ đang tạm khóa hoặc ngừng hoạt động");
             }
             if (viTri.getSucChuaToiDa() != null && viTri.getSucChuaToiDa() > 0 && soLuongNhap.compareTo(BigDecimal.ZERO) > 0) {
                 Integer tonTrenKe = tonKhoViTriRepository.sumDangChuaByViTriId(viTri.getId());

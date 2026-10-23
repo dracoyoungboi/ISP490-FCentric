@@ -18,6 +18,7 @@ import org.springframework.http.HttpStatus;
  *   <li>{@link #kiemTraXem}: chỉ xem, chứng từ thuộc một kho bất kỳ người dùng được phân quyền (VD trang đơn mua liệt kê
  *   phiếu nhập của kho nhận khác kho đang chọn).</li>
  * </ul>
+ * Câu báo lỗi không được chứa "bị khóa": frontend coi lỗi có cụm đó là tài khoản bị khoá và đăng xuất.
  */
 public final class KhoDangChon {
 

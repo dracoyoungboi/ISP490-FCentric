@@ -55,9 +55,9 @@ apiClient.interceptors.response.use(
         // KHÔNG ảnh hưởng các lỗi 403 thông thường (thiếu quyền) — chỉ xử lý ACCOUNT_DISABLED.
         const data = error.response?.data;
         const status = error.response?.status;
-        const isAccountDisabled =
-            data?.error === "ACCOUNT_DISABLED" ||
-            (typeof data?.message === "string" && data.message.includes("bị khóa"));
+        // Chỉ dựa vào mã lỗi máy chủ gắn (AccountDisabledException), không dò chữ "bị khóa" trong câu báo:
+        // câu báo có thể chứa tên kho / sản phẩm do người dùng đặt, dò chữ thì đăng xuất nhầm.
+        const isAccountDisabled = data?.error === "ACCOUNT_DISABLED";
         if (
             isAccountDisabled &&
             error.config?.skipAccountDisabledHandling !== true &&
