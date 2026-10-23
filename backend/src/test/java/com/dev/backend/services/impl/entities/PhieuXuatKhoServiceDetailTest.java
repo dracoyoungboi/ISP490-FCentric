@@ -84,6 +84,7 @@ class PhieuXuatKhoServiceDetailTest {
 
     private static void dangNhap(String vaiTro) {
         SecurityContextHolder.setUser(NguoiDungAuthInfo.builder().id(7).vaiTro(Set.of(vaiTro)).build());
+        SecurityContextHolder.setKhoId(1); // đang chọn đúng kho của phiếu mẫu (phieuCoKho): thao tác ghi kiểm kho đang chọn
     }
 
     // ── Dữ liệu mẫu ──
@@ -263,7 +264,7 @@ class PhieuXuatKhoServiceDetailTest {
     @Test
     void kb9_pickLoBangIdDongTheoLo_trenPhieuNhap_biChan() {
         dangNhap(IRoleType.quan_ly_kho);
-        PhieuXuatKho p = phieu("ban_hang", 0);
+        PhieuXuatKho p = phieuCoKho("ban_hang", 0);
         BienTheSanPham a = bienThe(1, "SKU-A");
         when(repository.findById(PHIEU_ID)).thenReturn(Optional.of(p));
         when(chiTietRepo.findById(200)).thenReturn(Optional.of(dongPick(200, p, a, 7, "2")));
@@ -409,6 +410,7 @@ class PhieuXuatKhoServiceDetailTest {
     void kb10_xemLoBangIdDongGop_traTheoBienThe() {
         PhieuXuatKho p = phieu("ban_hang", 3);
         BienTheSanPham a = bienThe(1, "SKU-A");
+        when(repository.findById(PHIEU_ID)).thenReturn(Optional.of(p)); // nạp phiếu để kiểm kho trước khi xem lô
         when(chiTietRepo.findById(201)).thenReturn(Optional.of(dongPick(201, p, a, 7, "3")));
 
         service.getPickedLots(PHIEU_ID, 201);

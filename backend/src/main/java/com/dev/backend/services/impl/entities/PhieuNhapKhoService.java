@@ -1187,6 +1187,8 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         //Tìm phiếu nhập
         PhieuNhapKho phieu = repository.findById(phieuNhapId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy phiếu nhập"));
+        // Cộng tồn vào kho của phiếu nhập (kho đích, hoặc kho nguồn khi nhập hoàn trả): phải thao tác từ đúng kho đó
+        KhoDangChon.kiemTra(phieu.getKho(), "Phiếu nhập " + phieu.getSoPhieuNhap());
 
         if (phieu.getTrangThai() != TrangThaiPhieuNhap.DRAFT.getValue()) {
             throw new RuntimeException("Chỉ phiếu Nháp mới có thể hoàn tất nhập kho");
@@ -1285,6 +1287,8 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         // Tìm phiếu yêu cầu chuyển kho gốc
         PhieuXuatKho pck = phieuXuatKhoRepository.findById(pckId)
                 .orElseThrow(() -> new CommonException("Không tìm thấy yêu cầu chuyển kho"));
+        // kho không phải hai bên của phiếu: chặn trước mọi câu báo loại / trạng thái phiếu
+        KhoDangChon.kiemTraXemMotTrong(pck.getKho(), pck.getKhoChuyenDen(), "Phiếu chuyển " + pck.getSoPhieuXuat());
 
         if (!"khac".equals(pck.getLoaiXuat()) || pck.getPhieuChuyenKhoGoc() != null) {
             throw new CommonException("Đây không phải là phiếu yêu cầu chuyển kho gốc");
@@ -1306,6 +1310,8 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         } else {
             throw new CommonException("Trạng thái phiếu chuyển không hợp lệ để tạo phiếu nhập");
         }
+        // Phiếu nhập vào kho đích của luồng (kho nhận, hoặc kho nguồn khi hoàn trả): phải thao tác từ đúng kho đó
+        KhoDangChon.kiemTra(khoDich, "Phiếu chuyển " + pck.getSoPhieuXuat());
 
         // Tìm Phiếu Xuất Con đã thực xuất (Trạng thái = 3) để lấy thông tin hàng trong Transit
         List<PhieuXuatKho> dsPhieuXuatCon = entityManager.createQuery(

@@ -328,9 +328,7 @@ public class PhieuXuatKhoController {
                 ResponseData.<PhieuXuatKhoDto>builder()
                         .status(HttpStatus.OK.value())
                         .data(
-                                phieuXuatKhoMapper.toDto(phieuXuatKhoService.getOne(id).orElseThrow(
-                                        () -> new CommonException("Không tìm thấy phiếu xuất kho id: " + id)
-                                ))
+                                phieuXuatKhoMapper.toDto(phieuXuatKhoService.layPhieuDuocXem(id))
                         )
                         .build()
         );

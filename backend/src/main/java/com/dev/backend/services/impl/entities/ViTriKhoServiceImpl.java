@@ -46,11 +46,22 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     ChiTietPhieuNhapKhoRepository chiTietPhieuNhapKhoRepository;
     ObjectMapper objectMapper;
 
+    // Sửa sơ đồ kho: kho trên đường dẫn phải là kho đang chọn (không chỉ người dùng thuộc kho trong header)
+    private void kiemTraGhiKho(Integer khoId) {
+        khoRepository.findById(khoId).ifPresent(k -> KhoDangChon.kiemTra(k, "Sơ đồ kho " + k.getTenKho()));
+    }
+
+    // Xem sơ đồ kho: người dùng được phân quyền ở kho đó (màn kiểm đếm lô đọc kệ của kho phiếu nhập khi đang chọn kho khác)
+    private void kiemTraXemKho(Integer khoId) {
+        khoRepository.findById(khoId).ifPresent(k -> KhoDangChon.kiemTraXem(k, "Sơ đồ kho " + k.getTenKho()));
+    }
+
     // ── Khu vực ──
 
     @Override
     @Transactional(readOnly = true)
     public List<KhuVucKhoDto> dsKhuVuc(Integer khoId) {
+        kiemTraXemKho(khoId);
         List<KhuVucKho> list = khuVucKhoRepository.findByKho_IdOrderByMaKhuVucAsc(khoId);
         return list.stream().map(k -> {
             long count = viTriKhoRepository.countByKhuVucKho_Id(k.getId());
@@ -70,6 +81,7 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     public KhuVucKhoDto taoKhuVuc(Integer khoId, KhuVucKhoRequest request) {
         Kho kho = khoRepository.findById(khoId)
                 .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy kho ID: " + khoId));
+        KhoDangChon.kiemTra(kho, "Sơ đồ kho " + kho.getTenKho());
 
         String ma = request.getMaKhuVuc() != null ? request.getMaKhuVuc().trim().toUpperCase() : "";
         if (ma.isBlank()) {
@@ -102,6 +114,7 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public KhuVucKhoDto suaKhuVuc(Integer khoId, Integer khuVucId, KhuVucKhoRequest request) {
+        kiemTraGhiKho(khoId);
         KhuVucKho khuVuc = khuVucKhoRepository.findById(khuVucId)
                 .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy khu vực ID: " + khuVucId));
 
@@ -132,6 +145,7 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void xoaKhuVuc(Integer khoId, Integer khuVucId) {
+        kiemTraGhiKho(khoId);
         KhuVucKho khuVuc = khuVucKhoRepository.findById(khuVucId)
                 .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy khu vực ID: " + khuVucId));
 
@@ -207,6 +221,7 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public List<ViTriKhoDto> taoViTri(Integer khoId, ViTriKhoRequest request) {
+        kiemTraGhiKho(khoId);
         if (request.getKhuVucId() == null) {
             throw new CommonException(HttpStatus.BAD_REQUEST, "Vui lòng chọn khu vực kho");
         }
@@ -292,6 +307,7 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ViTriKhoDto suaViTri(Integer khoId, Integer viTriId, ViTriKhoRequest request) {
+        kiemTraGhiKho(khoId);
         ViTriKho viTri = viTriKhoRepository.findById(viTriId)
                 .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy vị trí ID: " + viTriId));
 
@@ -335,6 +351,7 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void xoaViTri(Integer khoId, Integer viTriId) {
+        kiemTraGhiKho(khoId);
         ViTriKho viTri = viTriKhoRepository.findById(viTriId)
                 .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy vị trí ID: " + viTriId));
 
@@ -353,6 +370,14 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     @Override
     @Transactional(readOnly = true)
     public List<LoTrenKeDto> loTrenKe(Integer khoId, Integer viTriId) {
+        kiemTraXemKho(khoId);
+        // kệ phải thuộc kho trên đường dẫn (không thì xem được lô trên kệ của kho khác)
+        viTriKhoRepository.findById(viTriId).ifPresent(viTri -> {
+            if (viTri.getKhuVucKho() == null || viTri.getKhuVucKho().getKho() == null
+                    || !viTri.getKhuVucKho().getKho().getId().equals(khoId)) {
+                throw new CommonException(HttpStatus.BAD_REQUEST, "Vị trí không thuộc kho chỉ định");
+            }
+        });
         List<TonKhoViTri> activeLots = tonKhoViTriRepository.findActiveLotsByViTriId(viTriId);
         return activeLots.stream().map(t -> LoTrenKeDto.builder()
                 .maLo(t.getLoHang() != null ? t.getLoHang().getMaLo() : "—")
@@ -369,6 +394,7 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     @Override
     @Transactional(readOnly = true)
     public Map<String, Object> layMatBang(Integer khoId) {
+        kiemTraXemKho(khoId);
         Optional<MatBangKho> opt = matBangKhoRepository.findByKho_Id(khoId);
         if (opt.isEmpty()) return null;
 
@@ -385,6 +411,7 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     public Map<String, Object> luuMatBang(Integer khoId, Map<String, Object> matBang) {
         Kho kho = khoRepository.findById(khoId)
                 .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy kho ID: " + khoId));
+        KhoDangChon.kiemTra(kho, "Sơ đồ kho " + kho.getTenKho());
 
         MatBangKho entity = matBangKhoRepository.findByKho_Id(khoId)
                 .orElse(MatBangKho.builder().kho(kho).build());
