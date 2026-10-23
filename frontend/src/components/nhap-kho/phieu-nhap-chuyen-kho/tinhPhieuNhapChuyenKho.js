@@ -91,9 +91,12 @@ export function dongPhieuNhap(items, loTheoBienThe) {
     return {
       id: `${it?.bienTheSanPhamId ?? "dong"}-${i}`,
       bienTheSanPhamId: it?.bienTheSanPhamId ?? null,
+      khoaNhom: it?.sanPhamId ?? null,
       tenSanPham: it?.tenBienThe || it?.sku || "",
       tenMau: it?.mauSac || "",
+      maMauHex: it?.maMauHex || "",
       kichCo: it?.kichCo || "",
+      anh: it?.anh || null,
       sku: it?.sku || "",
       maVach: it?.maVachSku || undefined,
       soLuong,

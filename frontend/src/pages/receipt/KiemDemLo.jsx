@@ -4,6 +4,8 @@ import { toast } from "@/lib/thongBaoNhanh";
 import { ArrowLeft, Lock, Package, Printer, ScanLine, SearchX, Trash2 } from "lucide-react";
 
 import PageContainer from "@/components/backoffice/PageContainer";
+import AnhBienThe from "@/components/chung-tu/AnhBienThe";
+import MauKichCo from "@/components/chung-tu/MauKichCo";
 import { PAGE_HEADING_TYPE, useClaimPageTitle } from "@/components/backoffice/pageTitle";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
@@ -1070,12 +1072,18 @@ function KiemDemLoNoiDung() {
         <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4 p-5">
           <div className="min-w-0 flex-[1_1_420px]">
             <div className="flex flex-wrap items-center gap-3">
+              <AnhBienThe src={item.anh} />
               <h1 title={item.tenBienThe} className={cn("min-w-0 line-clamp-2 break-words", PAGE_HEADING_TYPE)}>{item.tenBienThe}</h1>
               <StatusBadge quyTrinh="kiemDem" size="lg" label={trangThai} />
             </div>
             <p className="mt-1 text-[13px] leading-5 text-bo-muted">
-              {[item.mauSac, item.kichCo ? `Kích cỡ ${item.kichCo}` : null].filter(Boolean).join(" · ")}
-              {item.mauSac || item.kichCo ? " · " : ""}SKU <span className="font-mono">{item.sku}</span>
+              {item.mauSac || item.kichCo ? (
+                <>
+                  <MauKichCo tenMau={item.mauSac} maMauHex={item.maMauHex} kichCo={item.kichCo} className="max-w-full align-bottom text-slate-700" />
+                  {" · "}
+                </>
+              ) : null}
+              SKU <span className="font-mono">{item.sku}</span>
               {phieu.tenNhaCungCap ? ` · ${phieu.tenNhaCungCap}` : ""}
               {phieu.tenKho ? ` · ${phieu.tenKho}` : ""}
             </p>

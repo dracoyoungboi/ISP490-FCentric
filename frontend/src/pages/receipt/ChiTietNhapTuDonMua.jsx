@@ -15,6 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import MauKichCo from "@/components/chung-tu/MauKichCo";
 import DongThongBao from "@/components/nhap-kho/DongThongBao";
 import HopBienBanTraHang from "@/components/nhap-kho/HopBienBanTraHang";
 import HopXacNhanNhapKho from "@/components/nhap-kho/HopXacNhanNhapKho";
@@ -408,8 +409,12 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
                   <td className="h-14 px-4 py-2">
                     <div className="font-semibold text-bo-foreground">{d.tenBienThe}</div>
                     <div className="text-xs text-bo-muted">
-                      {[d.mauSac, d.kichCo].filter(Boolean).join(" · ")}
-                      {d.mauSac || d.kichCo ? " · " : ""}
+                      {d.mauSac || d.kichCo ? (
+                        <>
+                          <MauKichCo tenMau={d.mauSac} maMauHex={d.maMauHex} kichCo={d.kichCo} className="max-w-full align-bottom" />
+                          {" · "}
+                        </>
+                      ) : null}
                       <span className="font-mono">{d.sku}</span>
                     </div>
                   </td>
