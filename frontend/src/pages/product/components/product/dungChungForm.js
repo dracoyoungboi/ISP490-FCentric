@@ -4,10 +4,28 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "@/lib/thongBaoNhanh";
+import { getApiErrorCode, getApiErrorMessage } from "@/utils/apiError";
 import { cuonToiLoi } from "./kieuForm";
 import { kiemTraTepAnh } from "./logicBienThe";
 
 let soAnhDaTao = 0;
+
+/** Mã lỗi máy chủ (409) khi tên sản phẩm đã có ở sản phẩm khác. */
+export const MA_LOI_TEN_SAN_PHAM_TRUNG = "TEN_SAN_PHAM_TRUNG";
+
+/**
+ * Máy chủ báo trùng tên: ghi lỗi dưới ô Tên sản phẩm, hẹn đưa con trỏ về ô đó khi lưu xong và hiện thông báo.
+ * Lỗi tự mất khi người dùng sửa ô Tên (react-hook-form kiểm tra lại theo schema).
+ * @returns {boolean} true nếu đúng là lỗi trùng tên (đã xử lý).
+ */
+export function xuLyLoiTenTrung(error, { setError, henCuonToiLoi }) {
+    if (getApiErrorCode(error) !== MA_LOI_TEN_SAN_PHAM_TRUNG) return false;
+    const thongBao = getApiErrorMessage(error, "Đã có sản phẩm cùng tên. Vui lòng đặt tên khác.");
+    setError("tenSanPham", { type: "server", message: thongBao });
+    henCuonToiLoi({ id: "khu-thong-tin", oFocus: "#tenSanPham" });
+    toast.error(thongBao);
+    return true;
+}
 
 /**
  * Tạo URL xem trước cho tệp ảnh và tự thu hồi URL khi không còn ảnh nào dùng

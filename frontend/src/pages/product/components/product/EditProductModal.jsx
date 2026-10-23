@@ -58,6 +58,7 @@ import {
     useChanThaTepNgoaiKhung,
     useCuonToiLoiSauKhiLuu,
     useHoiTruocKhiBo,
+    xuLyLoiTenTrung,
 } from "./dungChungForm";
 import { SO_BIEN_THE_TOI_DA, kiemTraTepAnh, sapXepKichCo } from "./logicBienThe";
 import {
@@ -138,6 +139,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
         control,
         handleSubmit,
         reset,
+        setError,
         formState: { errors, isSubmitting, isDirty },
     } = useForm({
         resolver: yupResolver(editProductSchema),
@@ -432,6 +434,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
             onSuccess();
             onClose();
         } catch (error) {
+            if (xuLyLoiTenTrung(error, { setError, henCuonToiLoi })) return;
             console.error("Lỗi khi cập nhật sản phẩm:", error);
             toast.error(getApiErrorMessage(error, "Có lỗi xảy ra khi cập nhật sản phẩm"));
         }

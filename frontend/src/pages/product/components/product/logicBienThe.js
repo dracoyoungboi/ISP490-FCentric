@@ -264,6 +264,17 @@ export function thongKeBienThe(nhom, anhMau) {
 }
 
 /**
+ * Số dòng vừa nhận giá chung, để báo cho người dùng: chỉ đếm dòng sẽ được lưu (biến thể đã lưu ở form Chỉnh sửa
+ * và tổ hợp đang tích). Dòng bỏ tích vẫn nhận giá (tích lại thấy đúng giá) nhưng không đếm.
+ * @returns {{soApDung:number, soKhoaGia:number}} soKhoaGia: biến thể còn tồn kho, giữ nguyên giá.
+ */
+export function demDongApGiaChung(nhom) {
+    const dongSeLuu = nhom.flatMap((n) => n.dong).filter((d) => d.loai === "cu" || d.tao);
+    const soKhoaGia = dongSeLuu.filter((d) => d.khoaGia).length;
+    return { soApDung: dongSeLuu.length - soKhoaGia, soKhoaGia };
+}
+
+/**
  * Danh sách biến thể gửi backend + các tệp ảnh khác nhau (mỗi màu một tệp; hai màu chọn cùng
  * một tệp thì chỉ gửi một lần). Biến thể trỏ tới tệp qua viTriAnh = chỉ số trong anhBienThes.
  */
