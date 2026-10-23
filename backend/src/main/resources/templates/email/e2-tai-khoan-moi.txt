@@ -1,17 +1,21 @@
-[# th:insert="~{khung-dau.txt}" /]Tài khoản FCentric của bạn đã sẵn sàng
+[# th:insert="~{khung-dau.txt}" /]Tài khoản FCentric của bạn đã được tạo
 
 Xin chào [(${e.hoTen})],
 
+Quản trị viên đã tạo tài khoản cho bạn với thông tin dưới đây.
+
 Tên đăng nhập: [(${e.tenDangNhap})]
-Mật khẩu tạm thời: [(${e.matKhauTam})]
-Lần đầu đăng nhập, hệ thống sẽ yêu cầu bạn đổi sang mật khẩu riêng.
 [# th:if="${e.tenVaiTro != null}"]Vai trò: [(${e.tenVaiTro})]
-[/]
+[/]Mật khẩu tạm thời: [(${e.matKhauTam})]
+Lần đầu đăng nhập, hệ thống sẽ yêu cầu bạn đổi sang mật khẩu riêng. Đổi xong, bạn nên xóa email này.
+
 Đăng nhập FCentric: [(${e.duongDanDangNhap})]
 
 Trước khi bắt đầu
 [# th:if="${e.coDongNoiLamViec}"]- Nơi làm việc và quyền của bạn do quản trị viên phân công; xem ở Hồ sơ của tôi sau khi đăng nhập.
 [/]- Tài khoản chỉ dành cho bạn, không đưa cho người khác dùng. Các thay đổi bạn thực hiện trên FCentric được ghi lại theo tài khoản.
-[# th:if="${e.coDongGuiNhaCungCap}"]- Khi bạn gửi yêu cầu báo giá, họ tên, điện thoại và email của bạn hiện trên các email gửi nhà cung cấp của đơn đó để họ liên hệ.
+[# th:if="${e.coDongGuiNhaCungCap}"]
+Thông tin của bạn trên email gửi nhà cung cấp
+Khi bạn gửi yêu cầu báo giá, họ tên, số điện thoại và email của bạn hiện trong các email gửi nhà cung cấp của đơn đó, chỉ để họ liên hệ với bạn về đơn. Họ tên và số điện thoại sửa được ở Hồ sơ của tôi; cần đổi email, hãy báo quản trị viên.
 [/]
 [# th:insert="~{khung-chan-nhan-su.txt}" /]

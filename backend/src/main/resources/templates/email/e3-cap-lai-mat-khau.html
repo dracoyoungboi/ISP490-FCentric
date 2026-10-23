@@ -1,36 +1,43 @@
 <!DOCTYPE html>
-<!--/* E3 · Cấp lại mật khẩu (demo-email/E3-CapLaiMatKhau.dc.html). Không nêu tên quản trị viên. */-->
+<!--/* E3 · Cấp lại mật khẩu (demo "Bộ email FCentric mới"). Không nêu tên quản trị viên. Tiêu đề trong thân trùng tiêu đề thư. */-->
 <html xmlns:th="http://www.thymeleaf.org"
-      th:replace="~{khung :: thu(xemTruoc=~{::xem-truoc}, noiDung=~{::noi-dung}, chan=~{khung :: chan-nhan-su})}">
+      th:replace="~{khung :: thu(xemTruoc=~{::xem-truoc}, noiDung=~{::noi-dung}, chan=~{khung :: chan-nhan-su}, nhom='Bảo mật tài khoản')}">
 <body>
-<th:block th:fragment="xem-truoc">Quản trị viên đã cấp lại mật khẩu cho tài khoản <th:block th:text="${e.tenDangNhap}">tên</th:block>.</th:block>
+<th:block th:fragment="xem-truoc">Quản trị viên đã cấp lại mật khẩu cho tài khoản <th:block th:text="${e.tenDangNhap}">tên</th:block>. Mật khẩu cũ không còn dùng được.</th:block>
 <th:block th:fragment="noi-dung">
-<tr><td style="padding:0 0 20px;"><h1 style="margin:0;font-size:22px;line-height:30px;font-weight:700;letter-spacing:-0.01em;color:#182537;">Mật khẩu của bạn đã được cấp lại</h1></td></tr>
-<tr><td style="padding:0 0 20px;"><p style="margin:0;font-size:15px;line-height:24px;" th:text="|Xin chào ${e.hoTen},|">Xin chào,</p></td></tr>
-<tr><td style="padding:0 0 20px;"><p style="margin:0;font-size:15px;line-height:24px;" th:text="|Quản trị viên đã cấp lại lúc ${e.thoiDiem}; mật khẩu cũ không còn dùng được.|">Quản trị viên đã cấp lại.</p></td></tr>
-<tr><td style="padding:0 0 20px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;font-size:14px;line-height:20px;border-bottom:1px solid #e1e6ec;">
+<tr th:replace="~{khung :: tieu-de('Mật khẩu tạm thời mới cho tài khoản FCentric')}"></tr>
+<tr><td style="padding:0 0 14px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;" th:text="|Xin chào ${e.hoTen},|">Xin chào,</p></td></tr>
+<tr><td style="padding:0 0 22px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;" th:text="|Quản trị viên đã cấp lại mật khẩu cho bạn lúc ${e.thoiDiem}. Mật khẩu cũ không còn dùng được.|">Quản trị viên đã cấp lại.</p></td></tr>
+<tr><td style="padding:0 0 22px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="luoi nen-nhat vien" style="width:100%;background-color:#f7f9fb;border:1px solid #e3e8ef;border-radius:8px;border-collapse:separate;border-spacing:0;">
 <tr>
-<td width="160" style="width:160px;padding:11px 0;border-top:1px solid #e1e6ec;color:#64748b;vertical-align:top;">Tên đăng nhập</td>
-<td style="padding:11px 0;border-top:1px solid #e1e6ec;font-weight:600;" th:text="${e.tenDangNhap}">tên đăng nhập</td>
+<td width="50%" valign="top" class="o-luoi vien" style="width:50%;padding:12px 16px;vertical-align:top;"><p class="chu-mo" style="margin:0;font-size:12px;line-height:17px;color:#5b6b80;">Tên đăng nhập</p><p class="chu" style="margin:3px 0 0;font-size:15px;line-height:22px;font-weight:600;color:#172233;" th:text="${e.tenDangNhap}">tên đăng nhập</p></td>
+<td width="50%" valign="top" class="o-luoi o-luoi-2 vien" style="width:50%;padding:12px 16px;border-left:1px solid #e3e8ef;vertical-align:top;"><p class="chu-mo" style="margin:0;font-size:12px;line-height:17px;color:#5b6b80;">Mật khẩu tạm thời</p><p class="chu ma-tam" style="margin:3px 0 0;font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-size:18px;line-height:26px;font-weight:700;letter-spacing:1px;color:#172233;" th:text="${e.matKhauTam}">mật khẩu</p></td>
 </tr>
 <tr>
-<td width="160" style="width:160px;padding:11px 0;border-top:1px solid #e1e6ec;color:#64748b;vertical-align:top;">Mật khẩu tạm thời</td>
-<td style="padding:11px 0;border-top:1px solid #e1e6ec;"><div style="font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-size:17px;font-weight:700;letter-spacing:1px;" th:text="${e.matKhauTam}">mật khẩu</div><div style="margin-top:2px;font-size:13px;line-height:20px;color:#64748b;">Ngay khi đăng nhập, hệ thống sẽ yêu cầu bạn đổi sang mật khẩu riêng.</div></td>
+<td colspan="2" class="o-luoi chu-mo vien" style="padding:10px 16px 12px;border-top:1px solid #e3e8ef;font-size:13px;line-height:19px;color:#5b6b80;">Ngay khi đăng nhập, hệ thống sẽ yêu cầu bạn đổi sang mật khẩu riêng. Đổi xong, bạn nên xóa email này.</td>
 </tr>
 </table>
 </td></tr>
-<tr th:if="${e.dangKhoa}"><td style="padding:0 0 20px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;background-color:#fff7ed;border:1px solid #fed7aa;border-radius:8px;border-collapse:separate;">
-<tr><td style="padding:14px 20px;">
-<div style="padding:0 0 4px;font-size:14px;line-height:20px;font-weight:600;color:#b45309;">Tài khoản đang tạm khóa</div>
-<div style="font-size:14px;line-height:22px;color:#182537;">Bạn đăng nhập được bằng mật khẩu này sau khi quản trị viên mở khóa tài khoản.</div>
+<tr th:if="${e.dangKhoa}"><td style="padding:0 0 22px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="hop-canh" style="width:100%;background-color:#fff7ea;border:1px solid #f1d6a6;border-radius:8px;border-collapse:separate;">
+<tr><td style="padding:14px 18px;">
+<p class="hop-canh-chu" style="margin:0 0 4px;font-size:14px;line-height:20px;font-weight:600;color:#8a4b00;">Tài khoản đang tạm khóa</p>
+<p class="chu" style="margin:0;font-size:14px;line-height:22px;color:#172233;">Bạn đăng nhập được bằng mật khẩu này sau khi quản trị viên mở khóa tài khoản.</p>
 </td></tr>
 </table>
 </td></tr>
-<tr><td style="padding:0 0 20px;">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#095fcc" style="background-color:#095fcc;border-radius:6px;"><a th:href="${e.duongDanDangNhap}" style="display:inline-block;padding:12px 24px;font-size:16px;line-height:24px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:6px;">Đăng nhập FCentric</a></td></tr></table>
-<div style="padding-top:10px;font-size:13px;line-height:20px;color:#64748b;">Hoặc mở <a th:href="${e.duongDanDangNhap}" style="color:#095fcc;" th:text="${e.nhanDuongDan}">địa chỉ đăng nhập</a></div>
+<tr><td style="padding:0 0 22px;">
+<table th:replace="~{khung :: nut(${e.duongDanDangNhap}, 'Đăng nhập FCentric')}"></table>
+<p class="chu-mo" style="margin:10px 0 0;font-size:13px;line-height:20px;color:#5b6b80;">Hoặc mở <a th:href="${e.duongDanDangNhap}" class="lien-ket" style="color:#095fcc;" th:text="${e.nhanDuongDan}">địa chỉ đăng nhập</a></p>
+</td></tr>
+<tr><td style="padding:0 0 22px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="hop-trang vien" style="width:100%;background-color:#ffffff;border:1px solid #e3e8ef;border-radius:8px;border-collapse:separate;">
+<tr><td style="padding:16px 18px;">
+<p class="chu" style="margin:0 0 6px;font-size:14px;line-height:20px;font-weight:600;color:#172233;">Bạn không nhờ cấp lại mật khẩu?</p>
+<p class="chu" style="margin:0;font-size:14px;line-height:22px;color:#172233;">Báo ngay cho quản trị viên để kiểm tra tài khoản.</p>
+</td></tr>
+</table>
 </td></tr>
 </th:block>
 </body>

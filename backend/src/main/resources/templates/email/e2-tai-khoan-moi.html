@@ -1,41 +1,50 @@
 <!DOCTYPE html>
-<!--/* E2 · Tài khoản mới (demo-email/E2-TaiKhoanMoi.dc.html). Dòng trong "Trước khi bắt đầu" theo vai trò. */-->
+<!--/*
+  E2 · Tài khoản mới (demo "Bộ email FCentric mới"). Tiêu đề trong thân trùng tiêu đề thư. Dòng "Nơi làm việc…" và khối
+  thông tin gửi nhà cung cấp theo vai trò (coDongNoiLamViec, coDongGuiNhaCungCap).
+*/-->
 <html xmlns:th="http://www.thymeleaf.org"
-      th:replace="~{khung :: thu(xemTruoc=~{::xem-truoc}, noiDung=~{::noi-dung}, chan=~{khung :: chan-nhan-su})}">
+      th:replace="~{khung :: thu(xemTruoc=~{::xem-truoc}, noiDung=~{::noi-dung}, chan=~{khung :: chan-nhan-su}, nhom=null)}">
 <body>
 <th:block th:fragment="xem-truoc">Tên đăng nhập <th:block th:text="${e.tenDangNhap}">tên</th:block>. Đổi sang mật khẩu riêng ở lần đăng nhập đầu tiên.</th:block>
 <th:block th:fragment="noi-dung">
-<tr><td style="padding:0 0 20px;"><h1 style="margin:0;font-size:22px;line-height:30px;font-weight:700;letter-spacing:-0.01em;color:#182537;">Tài khoản FCentric của bạn đã sẵn sàng</h1></td></tr>
-<tr><td style="padding:0 0 20px;"><p style="margin:0;font-size:15px;line-height:24px;" th:text="|Xin chào ${e.hoTen},|">Xin chào,</p></td></tr>
-<tr><td style="padding:0 0 20px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;font-size:14px;line-height:20px;border-bottom:1px solid #e1e6ec;">
-<tr>
-<td width="160" style="width:160px;padding:11px 0;border-top:1px solid #e1e6ec;color:#64748b;vertical-align:top;">Tên đăng nhập</td>
-<td style="padding:11px 0;border-top:1px solid #e1e6ec;font-weight:600;" th:text="${e.tenDangNhap}">tên đăng nhập</td>
-</tr>
-<tr>
-<td width="160" style="width:160px;padding:11px 0;border-top:1px solid #e1e6ec;color:#64748b;vertical-align:top;">Mật khẩu tạm thời</td>
-<td style="padding:11px 0;border-top:1px solid #e1e6ec;"><div style="font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-size:17px;font-weight:700;letter-spacing:1px;" th:text="${e.matKhauTam}">mật khẩu</div><div style="margin-top:2px;font-size:13px;line-height:20px;color:#64748b;">Lần đầu đăng nhập, hệ thống sẽ yêu cầu bạn đổi sang mật khẩu riêng.</div></td>
-</tr>
+<tr th:replace="~{khung :: tieu-de('Tài khoản FCentric của bạn đã được tạo')}"></tr>
+<tr><td style="padding:0 0 14px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;" th:text="|Xin chào ${e.hoTen},|">Xin chào,</p></td></tr>
+<tr><td style="padding:0 0 22px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;">Quản trị viên đã tạo tài khoản cho bạn với thông tin dưới đây.</p></td></tr>
+<tr><td style="padding:0 0 22px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="luoi nen-nhat vien" style="width:100%;background-color:#f7f9fb;border:1px solid #e3e8ef;border-radius:8px;border-collapse:separate;border-spacing:0;">
 <tr th:if="${e.tenVaiTro != null}">
-<td width="160" style="width:160px;padding:11px 0;border-top:1px solid #e1e6ec;color:#64748b;vertical-align:top;">Vai trò</td>
-<td style="padding:11px 0;border-top:1px solid #e1e6ec;" th:text="${e.tenVaiTro}">vai trò</td>
+<td width="50%" valign="top" class="o-luoi vien" style="width:50%;padding:12px 16px;vertical-align:top;"><p class="chu-mo" style="margin:0;font-size:12px;line-height:17px;color:#5b6b80;">Tên đăng nhập</p><p class="chu" style="margin:3px 0 0;font-size:15px;line-height:22px;font-weight:600;color:#172233;" th:text="${e.tenDangNhap}">tên đăng nhập</p></td>
+<td width="50%" valign="top" class="o-luoi o-luoi-2 vien" style="width:50%;padding:12px 16px;border-left:1px solid #e3e8ef;vertical-align:top;"><p class="chu-mo" style="margin:0;font-size:12px;line-height:17px;color:#5b6b80;">Vai trò</p><p class="chu" style="margin:3px 0 0;font-size:15px;line-height:22px;font-weight:600;color:#172233;" th:text="${e.tenVaiTro}">vai trò</p></td>
+</tr>
+<tr th:unless="${e.tenVaiTro != null}">
+<td colspan="2" valign="top" class="o-luoi vien" style="padding:12px 16px;vertical-align:top;"><p class="chu-mo" style="margin:0;font-size:12px;line-height:17px;color:#5b6b80;">Tên đăng nhập</p><p class="chu" style="margin:3px 0 0;font-size:15px;line-height:22px;font-weight:600;color:#172233;" th:text="${e.tenDangNhap}">tên đăng nhập</p></td>
+</tr>
+<tr>
+<td colspan="2" valign="top" class="o-luoi vien" style="padding:12px 16px;border-top:1px solid #e3e8ef;vertical-align:top;"><p class="chu-mo" style="margin:0;font-size:12px;line-height:17px;color:#5b6b80;">Mật khẩu tạm thời</p><p class="chu ma-tam" style="margin:3px 0 0;font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-size:18px;line-height:26px;font-weight:700;letter-spacing:1px;color:#172233;" th:text="${e.matKhauTam}">mật khẩu</p><p class="chu-mo" style="margin:2px 0 0;font-size:13px;line-height:19px;color:#5b6b80;">Lần đầu đăng nhập, hệ thống sẽ yêu cầu bạn đổi sang mật khẩu riêng. Đổi xong, bạn nên xóa email này.</p></td>
 </tr>
 </table>
 </td></tr>
-<tr><td style="padding:0 0 20px;">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#095fcc" style="background-color:#095fcc;border-radius:6px;"><a th:href="${e.duongDanDangNhap}" style="display:inline-block;padding:12px 24px;font-size:16px;line-height:24px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:6px;">Đăng nhập FCentric</a></td></tr></table>
-<div style="padding-top:10px;font-size:13px;line-height:20px;color:#64748b;">Hoặc mở <a th:href="${e.duongDanDangNhap}" style="color:#095fcc;" th:text="${e.nhanDuongDan}">địa chỉ đăng nhập</a></div>
+<tr><td style="padding:0 0 22px;">
+<table th:replace="~{khung :: nut(${e.duongDanDangNhap}, 'Đăng nhập FCentric')}"></table>
+<p class="chu-mo" style="margin:10px 0 0;font-size:13px;line-height:20px;color:#5b6b80;">Hoặc mở <a th:href="${e.duongDanDangNhap}" class="lien-ket" style="color:#095fcc;" th:text="${e.nhanDuongDan}">địa chỉ đăng nhập</a></p>
 </td></tr>
-<tr><td style="padding:0 0 20px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border:1px solid #e1e6ec;border-radius:8px;border-collapse:separate;">
-<tr><td style="padding:16px 20px;">
-<div style="padding:0 0 8px;font-size:14px;line-height:20px;font-weight:600;">Trước khi bắt đầu</div>
-<ul style="margin:0;padding-left:18px;font-size:14px;line-height:22px;">
+<tr><td style="padding:0 0 22px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="nen-nhat vien" style="width:100%;background-color:#f7f9fb;border:1px solid #e3e8ef;border-radius:8px;border-collapse:separate;">
+<tr><td class="chu" style="padding:16px 18px;font-size:14px;line-height:22px;color:#172233;">
+<p class="chu" style="margin:0 0 6px;font-size:14px;line-height:20px;font-weight:600;color:#172233;">Trước khi bắt đầu</p>
+<ul style="margin:0 0 0 22px;padding:0;">
 <li th:if="${e.coDongNoiLamViec}" style="margin:0 0 6px;">Nơi làm việc và quyền của bạn do quản trị viên phân công; xem ở Hồ sơ của tôi sau khi đăng nhập.</li>
-<li th:attr="style=${e.coDongGuiNhaCungCap} ? 'margin:0 0 6px;' : 'margin:0;'">Tài khoản chỉ dành cho bạn, không đưa cho người khác dùng. Các thay đổi bạn thực hiện trên FCentric được ghi lại theo tài khoản.</li>
-<li th:if="${e.coDongGuiNhaCungCap}" style="margin:0;">Khi bạn gửi yêu cầu báo giá, họ tên, điện thoại và email của bạn hiện trên các email gửi nhà cung cấp của đơn đó để họ liên hệ.</li>
+<li style="margin:0;">Tài khoản chỉ dành cho bạn, không đưa cho người khác dùng. Các thay đổi bạn thực hiện trên FCentric được ghi lại theo tài khoản.</li>
 </ul>
+</td></tr>
+</table>
+</td></tr>
+<tr th:if="${e.coDongGuiNhaCungCap}"><td style="padding:0 0 22px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="hop-trang vien" style="width:100%;background-color:#ffffff;border:1px solid #e3e8ef;border-radius:8px;border-collapse:separate;">
+<tr><td style="padding:16px 18px;">
+<p class="chu" style="margin:0 0 6px;font-size:14px;line-height:20px;font-weight:600;color:#172233;">Thông tin của bạn trên email gửi nhà cung cấp</p>
+<p class="chu" style="margin:0;font-size:14px;line-height:22px;color:#172233;">Khi bạn gửi yêu cầu báo giá, họ tên, số điện thoại và email của bạn hiện trong các email gửi nhà cung cấp của đơn đó, chỉ để họ liên hệ với bạn về đơn. Họ tên và số điện thoại sửa được ở Hồ sơ của tôi; cần đổi email, hãy báo quản trị viên.</p>
 </td></tr>
 </table>
 </td></tr>

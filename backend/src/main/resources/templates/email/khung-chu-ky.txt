@@ -1,6 +1,7 @@
-[# th:if="${nguoiPhuTrach != null}"]Trân trọng,
-[(${nguoiPhuTrach.hoTen})]
+[# th:if="${nguoiPhuTrach != null or thayMat == true}"]Trân trọng,
+[# th:if="${thayMat == true}"]Thay mặt bên mua
+[/][# th:if="${nguoiPhuTrach != null}"][(${nguoiPhuTrach.hoTen})]
 [# th:if="${nguoiPhuTrach.chucDanh != null}"][(${nguoiPhuTrach.chucDanh})]
 [/][# th:if="${nguoiPhuTrach.dienThoai != null or nguoiPhuTrach.email != null}"][# th:if="${nguoiPhuTrach.dienThoai != null}"][(${nguoiPhuTrach.dienThoai})][/][# th:if="${nguoiPhuTrach.dienThoai != null and nguoiPhuTrach.email != null}"] · [/][# th:if="${nguoiPhuTrach.email != null}"][(${nguoiPhuTrach.email})][/]
-[/]
+[/][/]
 [/]

@@ -1,32 +1,29 @@
 <!DOCTYPE html>
 <!--/*
-  M2 · Kết quả báo giá (demo-email/M2-KetQuaBaoGia.dc.html). Hai bản: đã báo giá (không được chọn) / chưa báo giá
-  (yêu cầu đã kết thúc). Trả lời không chấp nhận làm chấm dứt đề nghị (BLDS 2015, Điều 391 khoản 2).
+  M2 · Kết quả báo giá (demo "Bộ email FCentric mới"). Hai bản: đã báo giá (không được chọn) / chưa báo giá (yêu cầu đã
+  kết thúc). Trả lời không chấp nhận làm chấm dứt đề nghị (BLDS 2015, Điều 391 khoản 2). Lý do giữ xuống dòng như đã gõ.
 */-->
 <html xmlns:th="http://www.thymeleaf.org"
-      th:replace="~{khung :: thu(xemTruoc=~{::xem-truoc}, noiDung=~{::noi-dung}, chan=~{khung :: chan-nha-cung-cap(false)})}">
+      th:replace="~{khung :: thu(xemTruoc=~{::xem-truoc}, noiDung=~{::noi-dung}, chan=~{khung :: chan-nha-cung-cap(false, true)}, nhom=null)}">
 <body>
 <th:block th:fragment="xem-truoc"><th:block th:if="${e.daBaoGia}">Cảm ơn Quý công ty đã gửi báo giá. Lần này chúng tôi chưa chọn báo giá của Quý công ty.</th:block><th:block th:unless="${e.daBaoGia}" th:text="|Quý công ty không cần gửi báo giá cho đơn ${e.maDon} nữa.|">Không cần gửi báo giá nữa.</th:block></th:block>
 <th:block th:fragment="noi-dung">
-<tr><td style="padding:0 0 20px;"><h1 style="margin:0;font-size:22px;line-height:30px;font-weight:700;letter-spacing:-0.01em;color:#182537;" th:text="${e.daBaoGia} ? |Kết quả báo giá đơn ${e.maDon}| : |Yêu cầu báo giá đơn ${e.maDon} đã kết thúc|">Kết quả báo giá</h1></td></tr>
-<tr><td style="padding:0 0 20px;"><p style="margin:0;font-size:15px;line-height:24px;" th:text="|Kính gửi ${e.tenNhaCungCap},|">Kính gửi,</p></td></tr>
-<tr th:if="${e.daBaoGia}"><td style="padding:0 0 20px;"><p style="margin:0;font-size:15px;line-height:24px;" th:text="|Cảm ơn Quý công ty đã gửi báo giá ngày ${e.ngayThamChieu}. Sau khi xem xét, lần này chúng tôi chưa chọn báo giá của Quý công ty.|">Cảm ơn Quý công ty đã gửi báo giá.</p></td></tr>
-<tr th:unless="${e.daBaoGia}"><td style="padding:0 0 20px;"><p style="margin:0;font-size:15px;line-height:24px;" th:text="|Chúng tôi đã chọn được nhà cung cấp cho yêu cầu gửi ngày ${e.ngayThamChieu}. Quý công ty không cần gửi báo giá cho đơn này nữa.|">Chúng tôi đã chọn được nhà cung cấp.</p></td></tr>
-<tr th:if="${e.daBaoGia and e.lyDo != null}"><td style="padding:0 0 20px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;font-size:14px;line-height:20px;">
-<tr>
-<td width="150" style="width:150px;padding:10px 0;border-top:1px solid #e1e6ec;border-bottom:1px solid #e1e6ec;color:#64748b;vertical-align:top;">Lý do</td>
-<td style="padding:10px 0;border-top:1px solid #e1e6ec;border-bottom:1px solid #e1e6ec;white-space:pre-line;" th:text="${e.lyDo}">Lý do</td>
-</tr>
+<tr th:replace="~{khung :: tieu-de(${e.daBaoGia} ? |Kết quả báo giá đơn ${e.maDon}| : |Yêu cầu báo giá đơn ${e.maDon} đã kết thúc|)}"></tr>
+<tr><td style="padding:0 0 14px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;" th:text="|Kính gửi ${e.tenNhaCungCap},|">Kính gửi,</p></td></tr>
+<tr th:if="${e.daBaoGia}"><td style="padding:0 0 22px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;" th:text="|Cảm ơn Quý công ty đã gửi báo giá ngày ${e.ngayThamChieu}. Sau khi xem xét, lần này chúng tôi chưa chọn báo giá của Quý công ty.|">Cảm ơn Quý công ty đã gửi báo giá.</p></td></tr>
+<tr th:unless="${e.daBaoGia}"><td style="padding:0 0 22px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;" th:text="|Chúng tôi đã chọn được nhà cung cấp cho yêu cầu gửi ngày ${e.ngayThamChieu}. Quý công ty không cần gửi báo giá cho đơn này nữa.|">Chúng tôi đã chọn được nhà cung cấp.</p></td></tr>
+<tr th:if="${e.daBaoGia and e.lyDo != null}"><td style="padding:0 0 22px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="luoi nen-nhat vien" style="width:100%;background-color:#f7f9fb;border:1px solid #e3e8ef;border-radius:8px;border-collapse:separate;border-spacing:0;">
+<tr><td valign="top" class="o-luoi vien" style="padding:12px 16px;vertical-align:top;"><p class="chu-mo" style="margin:0;font-size:12px;line-height:17px;color:#5b6b80;">Lý do</p><p class="chu" style="margin:3px 0 0;font-size:15px;line-height:22px;color:#172233;white-space:pre-line;" th:text="${e.lyDo}">Lý do</p></td></tr>
 </table>
 </td></tr>
-<tr><td style="padding:0 0 20px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;background-color:#f8fafc;border:1px solid #e1e6ec;border-radius:8px;border-collapse:separate;">
-<tr><td style="padding:16px 20px;font-size:14px;line-height:22px;"><th:block th:if="${e.daBaoGia}">Yêu cầu báo giá này đã kết thúc. </th:block>Hai bên không phát sinh nghĩa vụ đặt hàng hay giao hàng đối với đơn này.</td></tr>
+<tr><td style="padding:0 0 22px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="nen-nhat vien" style="width:100%;background-color:#f7f9fb;border:1px solid #e3e8ef;border-radius:8px;border-collapse:separate;">
+<tr><td class="chu" style="padding:16px 18px;font-size:14px;line-height:22px;color:#172233;"><th:block th:if="${e.daBaoGia}">Yêu cầu báo giá này đã kết thúc. </th:block>Hai bên không phát sinh nghĩa vụ đặt hàng hay giao hàng đối với đơn này.</td></tr>
 </table>
 </td></tr>
-<tr><td style="padding:0 0 20px;"><p style="margin:0;font-size:15px;line-height:24px;">Chúng tôi mong tiếp tục mời Quý công ty báo giá cho các đơn hàng sau.</p></td></tr>
-<th:block th:replace="~{khung :: chu-ky}"></th:block>
+<tr><td style="padding:0 0 22px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;">Chúng tôi mong tiếp tục mời Quý công ty báo giá cho các đơn hàng sau.</p></td></tr>
+<th:block th:replace="~{khung :: chu-ky(false)}"></th:block>
 </th:block>
 </body>
 </html>
