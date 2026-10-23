@@ -20,6 +20,7 @@ import com.dev.backend.repository.DotKiemKeRepository;
 import com.dev.backend.repository.KhoRepository;
 import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.repository.TonKhoTheoLoRepository;
+import com.dev.backend.utils.HienThiBienThe;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -279,6 +280,12 @@ public class PhieuKiemKeService {
                 .soLuongThucTe(ct.getSoLuongThucTe())
                 .chenhLechSoLuong(ct.getChenhLechSoLuong())
                 .loaiChenhLech(ct.getLoaiChenhLech() != null ? ct.getLoaiChenhLech().name() : null)
+                .tenSanPham(HienThiBienThe.tenSanPham(ct.getBienTheSanPham()))
+                .sanPhamId(HienThiBienThe.sanPhamId(ct.getBienTheSanPham()))
+                .tenMau(HienThiBienThe.tenMau(ct.getBienTheSanPham()))
+                .maMauHex(HienThiBienThe.maMauHex(ct.getBienTheSanPham()))
+                .kichCo(HienThiBienThe.kichCo(ct.getBienTheSanPham()))
+                .anh(HienThiBienThe.anh(ct.getBienTheSanPham()))
                 .build();
     }
 
