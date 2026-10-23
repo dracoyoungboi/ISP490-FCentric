@@ -15,12 +15,14 @@ import com.dev.backend.entities.DotKiemKe;
 import com.dev.backend.entities.LichSuGiaoDichKho;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.entities.TonKhoTheoLo;
+import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.ChiTietKiemKeRepository;
 import com.dev.backend.repository.DotKiemKeRepository;
 import com.dev.backend.repository.KhoRepository;
 import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.repository.TonKhoTheoLoRepository;
 import com.dev.backend.utils.HienThiBienThe;
+import com.dev.backend.utils.KhoDangChon;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -29,7 +31,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -63,8 +67,10 @@ public class PhieuKiemKeService {
     // ─────────────────────────────────────────────────────────────
 
     public List<DotKiemKeDto> getList() {
+        // Chỉ đợt của kho người dùng được phân quyền (quản trị viên thấy hết)
         return dotKiemKeRepository.findAllWithDetails()
                 .stream()
+                .filter(dot -> KhoDangChon.duocXem(dot.getKho()))
                 .map(this::toDotKiemKeDto)
                 .collect(Collectors.toList());
     }
@@ -72,6 +78,7 @@ public class PhieuKiemKeService {
     public DotKiemKeDto getById(Integer id) {
         DotKiemKe dot = dotKiemKeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đợt kiểm kê ID: " + id));
+        KhoDangChon.kiemTraXem(dot.getKho(), "Đợt kiểm kê " + dot.getMaDotKiemKe());
         return toDotKiemKeDto(dot);
     }
 
@@ -86,6 +93,8 @@ public class PhieuKiemKeService {
 
         var kho = khoRepository.findById(create.getKhoId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy kho ID: " + create.getKhoId()));
+        // Chỉ mở đợt kiểm kê cho kho đang chọn
+        KhoDangChon.kiemTra(kho, "Đợt kiểm kê kho " + kho.getTenKho());
 
         // Tạo dot_kiem_ke với đầy đủ thông tin
         DotKiemKe dot = DotKiemKe.builder()
@@ -129,10 +138,12 @@ public class PhieuKiemKeService {
     // CHI TIẾT
     // ─────────────────────────────────────────────────────────────
 
+    @Transactional(readOnly = true)
     public List<ChiTietKiemKeDto> getChiTiet(Integer dotKiemKeId) {
-        // Validate đợt kiểm kê tồn tại
-        dotKiemKeRepository.findById(dotKiemKeId)
+        // Validate đợt kiểm kê tồn tại; số lượng hệ thống theo lô chỉ cho người thuộc kho của đợt
+        DotKiemKe dot = dotKiemKeRepository.findById(dotKiemKeId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đợt kiểm kê ID: " + dotKiemKeId));
+        KhoDangChon.kiemTraXem(dot.getKho(), "Đợt kiểm kê " + dot.getMaDotKiemKe());
 
         return chiTietRepository.findByDotKiemKeId(dotKiemKeId)
                 .stream()
@@ -146,11 +157,35 @@ public class PhieuKiemKeService {
 
     @Transactional
     public void complete(Integer dotKiemKeId, Integer khoId, List<ChiTietKiemKeUpdate> updates) {
-        DotKiemKe dot = dotKiemKeRepository.findById(dotKiemKeId)
+        // Khóa dòng đợt trước khi xét trạng thái: hai người bấm Hoàn thành cùng lúc thì người sau thấy đợt đã hoàn thành
+        // (không ghi đè tồn và ghi lịch sử điều chỉnh hai lần)
+        DotKiemKe dot = dotKiemKeRepository.khoaTheoId(dotKiemKeId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đợt kiểm kê ID: " + dotKiemKeId));
+        if (dot.getKho() == null) {
+            throw new CommonException("Đợt kiểm kê chưa gắn kho");
+        }
+        // Ghi tồn vào kho của đợt, phải thao tác từ đúng kho đó; không tin khoId client gửi
+        KhoDangChon.kiemTra(dot.getKho(), "Đợt kiểm kê " + dot.getMaDotKiemKe());
+        if (khoId != null && !khoId.equals(dot.getKho().getId())) {
+            throw new CommonException("Kho không khớp với kho của đợt kiểm kê");
+        }
+        Integer khoCuaDot = dot.getKho().getId();
 
         if (dot.getTrangThai() == 1) {
             throw new RuntimeException("Đợt kiểm kê này đã hoàn thành");
+        }
+        // Mỗi dòng gửi một lần; số lượng thực tế bắt buộc và không âm (số âm sẽ ghi tồn âm)
+        Set<Integer> dongDaGui = new HashSet<>();
+        for (ChiTietKiemKeUpdate update : updates) {
+            if (update == null || update.getChiTietId() == null) {
+                throw new CommonException("Thiếu dòng kiểm kê");
+            }
+            if (!dongDaGui.add(update.getChiTietId())) {
+                throw new CommonException("Dòng kiểm kê " + update.getChiTietId() + " bị gửi trùng");
+            }
+            if (update.getSoLuongThucTe() == null || update.getSoLuongThucTe() < 0) {
+                throw new CommonException("Số lượng thực tế phải từ 0 trở lên");
+            }
         }
 
         NguoiDung nguoiKiemDem = getCurrentUser();
@@ -160,6 +195,10 @@ public class PhieuKiemKeService {
         for (ChiTietKiemKeUpdate update : updates) {
             ChiTietKiemKe chiTietTmp = chiTietRepository.findById(update.getChiTietId())
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy chi tiết ID: " + update.getChiTietId()));
+            // dòng chi tiết phải thuộc đúng đợt này (không ghi được tồn của lô ở đợt / kho khác)
+            if (!dotKiemKeId.equals(chiTietTmp.getDotKiemKeId())) {
+                throw new CommonException("Dòng kiểm kê " + update.getChiTietId() + " không thuộc đợt kiểm kê này");
+            }
             lotIdsToLock.add(chiTietTmp.getLoHang().getId());
         }
         tonKhoRepository.lockLotsForUpdateByLotIds(lotIdsToLock.stream().distinct().toList());
@@ -188,7 +227,7 @@ public class PhieuKiemKeService {
 
             // Cập nhật tồn kho
             TonKhoTheoLo tonKho = tonKhoRepository
-                    .findByKho_IdAndLoHang_Id(khoId, chiTiet.getLoHang().getId())
+                    .findByKho_IdAndLoHang_Id(khoCuaDot, chiTiet.getLoHang().getId())
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy tồn kho cho lô: " + chiTiet.getLoHang().getId()));
             tonKho.setSoLuongTon(soLuongThucTe);
             tonKhoRepository.save(tonKho);

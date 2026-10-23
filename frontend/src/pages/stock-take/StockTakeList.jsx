@@ -21,7 +21,7 @@ import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { getStockTakes } from "@/services/stockTakeService";
 import { donBanTam, layKhoLuu } from "@/components/kiem-ke/banTamKiemKe";
-import { hasAnyRole, ROLES } from "@/utils/roles";
+import { getCurrentUserId, hasAnyRole, ROLES } from "@/utils/roles";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { trangThaiLa } from "@/constants/trangThaiChung";
 import { formatDate } from "@/utils/formatters";
@@ -87,7 +87,9 @@ export default function StockTakeList() {
       const data = await getStockTakes();
       if (requestId !== requestIdRef.current) return;
       // Dọn bản đếm tạm trên máy của đợt không còn / rỗng (giữ bản của đợt đã hoàn thành còn số: màn chi tiết báo số bị bỏ)
-      donBanTam(layKhoLuu(), data);
+      // Chỉ dọn bản của chính mình; không đọc được id (token hỏng) thì không dọn, kẻo xóa bản đếm dở của người khác
+      const nguoiDungId = getCurrentUserId();
+      if (nguoiDungId != null) donBanTam(layKhoLuu(), data, nguoiDungId);
       setStockTakes(data);
       setLoadError(false);
     } catch (error) {
