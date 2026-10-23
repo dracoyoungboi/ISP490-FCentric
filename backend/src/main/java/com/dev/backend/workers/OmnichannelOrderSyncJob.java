@@ -78,6 +78,13 @@ public class OmnichannelOrderSyncJob {
         return kenhId == null ? null : lanLayDonCuoi.get(kenhId);
     }
 
+    /** Quên mốc lấy đơn của kênh (sau khi ngắt kết nối), để Tổng quan không hiện giờ của cửa hàng cũ. */
+    public void xoaLanLayDonCuoi(Integer kenhId) {
+        if (kenhId != null) {
+            lanLayDonCuoi.remove(kenhId);
+        }
+    }
+
     @Scheduled(fixedDelay = 60_000, initialDelay = 30_000)
     public void scheduledOrderSync() {
         int intervalMins = getChuKyPhut();

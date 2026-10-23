@@ -39,5 +39,29 @@ public interface KenhBanHangService {
      * @return true nếu làm mới thành công, false nếu không thành công hoặc không phải OAuth token
      */
     boolean refreshShopifyAccessToken();
+
+    /**
+     * Kết nối của kênh cho giao diện (GET /{maKenh}/ket-noi). SHOPIFY: như {@link #getShopifyConfig()};
+     * LAZADA, TIKTOK: chưa kết nối (máy chủ chưa hỗ trợ ủy quyền); mã khác: lỗi SAN_KHONG_HO_TRO.
+     */
+    ShopifyConfigResponse getKetNoi(String maKenh);
+
+    /** Chỉ Shopify kết nối được bằng khóa; sàn khác ném lỗi SAN_KHONG_HO_TRO (400). */
+    void kiemTraSanShopify(String maKenh);
+
+    /**
+     * Cấp lại khóa truy cập bằng khóa làm mới; không được thì ném lỗi LAM_MOI_KHOA_LOI (424), kênh đã ngắt thì
+     * KENH_CHUA_KET_NOI (409).
+     */
+    ShopifyConfigResponse lamMoiKhoaShopify();
+
+    /** Shopify đang có khóa truy cập (đọc cột mới nhất, không giải mã). */
+    boolean coKhoaShopify();
+
+    /**
+     * Ngắt kết nối Shopify phía FCentric: xóa mọi khóa, đặt trạng thái 0, giữ tên miền. Chạy trong khóa làm mới khóa
+     * và commit trước khi trả về; nơi gọi tự giữ khóa đẩy tồn. Kênh chưa kết nối thì không làm gì.
+     */
+    void xoaKhoaShopify();
 }
 

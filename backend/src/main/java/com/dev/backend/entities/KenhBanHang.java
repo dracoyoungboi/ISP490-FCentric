@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.Generated;
 import org.hibernate.generator.EventType;
 
@@ -19,6 +20,8 @@ import java.time.Instant;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Entity
 @Table(name = "kenh_ban_hang")
+// Chỉ ghi cột đã đổi: lưu cấu hình kênh từ một entity nạp trước lúc ngắt kết nối không được ghi lại khóa vừa xóa
+@DynamicUpdate
 public class KenhBanHang {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -7,6 +7,7 @@ import com.dev.backend.dto.response.customize.DongBoNgayDto;
 import com.dev.backend.dto.response.customize.LayDonResultDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.exception.customize.LoiCoMaException;
 import com.dev.backend.services.KenhBanHangDongBoService;
 import jakarta.annotation.PreDestroy;
 import jakarta.persistence.EntityManager;
@@ -89,6 +90,8 @@ public class DongBoNgayService {
         if (!dongBoService.coKenh(ma)) {
             throw new CommonException("Không tìm thấy kênh bán hàng: " + ma, HttpStatus.NOT_FOUND, null);
         }
+        // Kênh chưa kết nối (hoặc vừa ngắt) thì báo ngay, không mở đợt chỉ để thất bại ở bước đầu
+        dongBoService.kiemTraDaKetNoi(ma);
         NguoiDungAuthInfo nguoi = SecurityContextHolder.getUser();
         Integer khoId = SecurityContextHolder.getKhoId();
         Phien moi = new Phien(ma, nguoi != null ? nguoi.getHoTen() : null, dongHo);
@@ -163,7 +166,9 @@ public class DongBoNgayService {
     }
 
     private static String thongDiepLoi(Exception e) {
-        if (e instanceof CommonException && e.getMessage() != null && !e.getMessage().isBlank()) {
+        // Lỗi nghiệp vụ (kể cả lỗi có mã, vd. không cấp lại được khóa) có câu viết cho người dùng
+        boolean loiNghiepVu = e instanceof CommonException || e instanceof LoiCoMaException;
+        if (loiNghiepVu && e.getMessage() != null && !e.getMessage().isBlank()) {
             return e.getMessage();
         }
         return LOI_MAY_CHU;

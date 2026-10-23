@@ -66,6 +66,18 @@ public interface KenhBanHangDongBoService {
     /** Có kênh bán hàng với mã (hoặc id) này không, cùng cách tìm kênh với các thao tác đồng bộ. */
     boolean coKenh(String maKenh);
 
+    /** Kênh chưa có khóa truy cập (chưa kết nối hoặc đã ngắt) thì ném lỗi KENH_CHUA_KET_NOI (409). */
+    void kiemTraDaKetNoi(String maKenh);
+
+    /**
+     * Chạy {@code viec} khi đang giữ khóa đẩy tồn của kênh, không chờ: kênh đang có đợt đẩy tồn thì trả false và
+     * không chạy. Dùng cho ngắt kết nối, để không lượt đẩy nào chen vào giữa lúc xóa khóa.
+     */
+    boolean chayKhiKenhRanh(String maKenh, Runnable viec);
+
+    /** Quên mốc "lần đẩy tồn / lấy đơn gần nhất" của kênh (sau khi ngắt kết nối). */
+    void xoaMocLanChay(String maKenh);
+
     void dayTonKhoKhanCap(Integer bienTheSanPhamId);
 
     DongBoTongQuanDto getTongQuan(String maKenh);
