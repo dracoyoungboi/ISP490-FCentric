@@ -12,6 +12,7 @@ import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.services.CalcService;
 import com.dev.backend.services.email.EmailNghiepVuService;
+import com.dev.backend.services.impl.utils.LoginRateLimiter;
 import com.dev.backend.services.impl.utils.PasswordResetRateLimiter;
 import com.dev.backend.workers.SchedulingJob;
 import jakarta.persistence.EntityManager;
@@ -74,6 +75,9 @@ class NguoiDungServiceResetPasswordTest {
         ReflectionTestUtils.setField(service, "emailNghiepVuService", emailService);
         // bộ giới hạn mặc định cho qua (test riêng ở PasswordResetRateLimiterTest)
         ReflectionTestUtils.setField(service, "passwordResetRateLimiter", rateLimiter);
+        ReflectionTestUtils.setField(service, "loginRateLimiter", new LoginRateLimiter());
+        ReflectionTestUtils.setField(service, "nhatKyBaoMatService",
+                org.mockito.Mockito.mock(com.dev.backend.services.impl.utils.NhatKyBaoMatService.class));
         lenient().when(rateLimiter.tryAcquire(anyString(), anyString(), any()))
                 .thenReturn(PasswordResetRateLimiter.Decision.ALLOWED);
 

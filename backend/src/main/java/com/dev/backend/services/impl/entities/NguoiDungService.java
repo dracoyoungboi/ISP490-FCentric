@@ -4,7 +4,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import com.dev.backend.constant.GlobalCache;
 import com.dev.backend.constant.enums.FileType;
 import com.dev.backend.constant.enums.OtpType;
+import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.IRoleType;
+import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.dto.OtpScheduleObj;
 import com.dev.backend.dto.request.*;
 import com.dev.backend.dto.response.LoginResponse;
@@ -27,6 +29,8 @@ import com.dev.backend.services.email.CachDoiMatKhau;
 import com.dev.backend.services.email.DinhDangEmail;
 import com.dev.backend.services.email.EmailNghiepVuService;
 import com.dev.backend.services.impl.BaseServiceImpl;
+import com.dev.backend.services.impl.utils.LoginRateLimiter;
+import com.dev.backend.services.impl.utils.NhatKyBaoMatService;
 import com.dev.backend.services.impl.utils.PasswordResetRateLimiter;
 import com.dev.backend.utils.AvatarImageValidator;
 import jakarta.persistence.EntityManager;
@@ -83,6 +87,13 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     @Autowired
     private PasswordResetRateLimiter passwordResetRateLimiter;
 
+    @Autowired
+    private LoginRateLimiter loginRateLimiter;
+
+    // Nhật ký bảo mật (đăng nhập, khóa tài khoản, mật khẩu): lỗi ghi không làm hỏng thao tác chính
+    @Autowired
+    private NhatKyBaoMatService nhatKyBaoMatService;
+
     // Mọi email nhân sự (E1, E2, E3, M4) đi qua đây: dựng dữ liệu trong transaction, gửi sau commit, không ném lỗi
     @Autowired
     private EmailNghiepVuService emailNghiepVuService;
@@ -126,26 +137,47 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     }
 
     @Transactional
-    public ResponseEntity<ResponseData<LoginResponse>> login(LoginRequest loginRequest) {
+    public ResponseEntity<ResponseData<LoginResponse>> login(LoginRequest loginRequest, String clientIp) {
+        String username = loginRequest.getUsername();
         String rawPassword = loginRequest.getPassword() == null ? "" : loginRequest.getPassword();
         // check thông tin user đã có trong hệ thống hay chưa
-        Optional<NguoiDung> findingNguoiDung = resolveAccount(loginRequest.getUsername());
+        Optional<NguoiDung> findingNguoiDung = resolveAccount(username);
+        Integer accountId = findingNguoiDung.map(NguoiDung::getId).orElse(null);
+        // Kiểm khoá + ghi nhận lần thử TRƯỚC BCrypt, đếm theo tài khoản (tên đăng nhập / email / SĐT và mọi biến
+        // thể dấu, hoa thường chung một bộ đếm) và theo cặp (tài khoản, IP): người khác dò từ một IP không khoá được
+        // chủ tài khoản. Đang khoá thì từ chối, không chạy BCrypt.
+        throwIfPasswordLocked(loginRateLimiter.tryAcquire(username, accountId, clientIp), LOGIN_LOCKED_MESSAGE);
+
         if (findingNguoiDung.isEmpty()) {
             // vẫn chạy BCrypt để thời gian phản hồi giống trường hợp sai mật khẩu (không lộ
             // tài khoản có tồn tại)
             passwordEncoder.matches(rawPassword, dummyPasswordHash());
+            loginRateLimiter.recordFailureFromIp(clientIp);
             throw new CommonException(LOGIN_FAILED_MESSAGE);
         }
         NguoiDung nguoiDung = findingNguoiDung.get();
         if (!passwordEncoder.matches(rawPassword, nguoiDung.getMatKhauHash())) {
+            loginRateLimiter.recordFailureFromIp(clientIp);
+            // Ghi ngay (không theo giao dịch): ngay sau đây ném lỗi, giao dịch đăng nhập rollback
+            ghiNhatKyDangNhap(IHanhDong.dang_nhap_that_bai, nguoiDung.getId(), "Sai mật khẩu", clientIp);
             throw new CommonException(LOGIN_FAILED_MESSAGE);
         }
+        // Đúng mật khẩu: xoá bộ đếm sai của tài khoản
+        loginRateLimiter.recordSuccess(username, accountId);
 
         // Tài khoản bị khóa, hoặc không mang vai trò nhân sự (khách hàng không phải người dùng hệ thống),
-        // không được đăng nhập — đọc trực tiếp từ DB
+        // không được đăng nhập — đọc trực tiếp từ DB. Không tính là lần sai (luôn thấy đúng thông báo bị khóa, mở
+        // lại thì vào được ngay), nên nhật ký giới hạn một dòng mỗi tài khoản mỗi 10 phút: biết mật khẩu và thử lặp
+        // cũng không làm phình bảng (bản ghi bảo mật không bị job dọn)
         if (!nguoiDung.duocDangNhap()) {
+            String ip = NhatKyBaoMatService.ip(clientIp);
+            String moTa = "Đúng mật khẩu nhưng tài khoản không được phép đăng nhập";
+            nhatKyBaoMatService.ghiNgayGioiHan(IHanhDong.dang_nhap_that_bai, ITable.nguoi_dung, nguoiDung.getId(),
+                    nguoiDung.getId(), ip == null ? moTa : moTa + ", " + ip, KHOANG_GHI_TAI_KHOAN_BI_KHOA);
             throw new AccountDisabledException();
         }
+        nhatKyBaoMatService.ghiSauCommit(IHanhDong.dang_nhap, ITable.nguoi_dung, nguoiDung.getId(), nguoiDung.getId(),
+                NhatKyBaoMatService.ip(clientIp));
 
         return ResponseEntity.ok(
                 ResponseData.<LoginResponse>builder()
@@ -158,6 +190,29 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                         .message("Success")
                         .error(null)
                         .build());
+    }
+
+    static final java.time.Duration KHOANG_GHI_TAI_KHOAN_BI_KHOA = java.time.Duration.ofMinutes(10);
+
+    private void ghiNhatKyDangNhap(String hanhDong, Integer nguoiDungId, String moTa, String clientIp) {
+        String ip = NhatKyBaoMatService.ip(clientIp);
+        nhatKyBaoMatService.ghiNgay(hanhDong, ITable.nguoi_dung, nguoiDungId, nguoiDungId,
+                ip == null ? moTa : moTa + ", " + ip);
+    }
+
+    static final String LOGIN_LOCKED_MESSAGE = "Bạn đã đăng nhập sai quá nhiều lần";
+    static final String CHANGE_PASSWORD_LOCKED_MESSAGE = "Bạn đã nhập sai mật khẩu hiện tại quá nhiều lần";
+
+    // 429 khi tài khoản (hoặc chuỗi nhập) đang bị khoá do sai mật khẩu nhiều lần; cùng một thông báo dù tài khoản
+    // có tồn tại hay không
+    private static void throwIfPasswordLocked(LoginRateLimiter.Decision decision, String loi) {
+        if (decision.allowed())
+            return;
+        long seconds = decision.retryAfterSeconds();
+        String thoiGian = seconds < 60 ? seconds + " giây" : ((seconds + 59) / 60) + " phút";
+        throw new CommonException(loi + ". Vui lòng thử lại sau " + thoiGian,
+                HttpStatus.TOO_MANY_REQUESTS,
+                Map.of("code", "LOGIN_RATE_LIMITED", "retryAfterSeconds", seconds));
     }
 
     // Sai tên đăng nhập hay sai mật khẩu đều trả cùng thông báo (không lộ tài khoản
@@ -697,8 +752,12 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
         // sau khi thoả mãn các dk trên thì cho phép đặt lại MK
         nguoiDung.setMatKhauHash(passwordEncoder.encode(rpRequest.getPassword()));
+        // đã chứng minh quyền sở hữu qua mã gửi email: gỡ khoá do nhập sai mật khẩu cũ
+        loginRateLimiter.recordSuccess(null, nguoiDung.getId());
         // M4 (gửi sau commit, không chứa mật khẩu)
         emailNghiepVuService.guiDaDoiMatKhau(nguoiDung, CachDoiMatKhau.DAT_LAI_BANG_MA, Instant.now());
+        nhatKyBaoMatService.ghiSauCommit(IHanhDong.dat_lai_mat_khau, ITable.nguoi_dung, nguoiDung.getId(),
+                nguoiDung.getId(), "Đặt lại bằng mã gửi qua email");
 
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
@@ -830,7 +889,11 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
         nguoiDung.setNgayCapNhat(Instant.now());
 
-        return nguoiDungRepository.save(nguoiDung);
+        NguoiDung daLuu = nguoiDungRepository.save(nguoiDung);
+        nhatKyBaoMatService.ghiSauCommit(
+                daLuu.getTrangThai() == 1 ? IHanhDong.mo_khoa_tai_khoan : IHanhDong.khoa_tai_khoan,
+                ITable.nguoi_dung, daLuu.getId(), currentUserId, null);
+        return daLuu;
     }
 
     @Transactional
@@ -889,6 +952,9 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
         // E2: gửi sau commit (lỗi trùng khóa lúc commit thì không gửi cho tài khoản không tồn tại)
         emailNghiepVuService.guiTaiKhoanMoi(saved, tempPassword);
+        NguoiDungAuthInfo quanTri = com.dev.backend.config.SecurityContextHolder.getUser();
+        nhatKyBaoMatService.ghiSauCommit(IHanhDong.tao_tai_khoan, ITable.nguoi_dung, saved.getId(),
+                quanTri == null ? null : quanTri.getId(), "Vai trò " + vaiTro);
 
         return saved;
     }
@@ -917,17 +983,20 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                 || changePass.getNewPassword().trim().length() < 6) {
             throw new CommonException("Mật khẩu mới phải có ít nhất 6 ký tự");
         }
+        // kiểm mật khẩu mới TRƯỚC khi so mật khẩu hiện tại: không để lỗi này xác nhận ngầm mật khẩu hiện tại đúng
+        assertPasswordFitsBcrypt(changePass.getNewPassword().trim());
 
         // lấy user từ context đăng nhập (token), không tin tưởng id từ frontend;
         // dùng id trong token thay vì email (email có thể đã bị thay đổi -> stale)
         NguoiDung nguoiDung = getCurrentUserFromContext();
 
+        // Dùng chung bộ đếm sai với đăng nhập (cùng một mật khẩu bị dò): token bị lộ cũng không đoán mãi được
+        throwIfPasswordLocked(loginRateLimiter.tryAcquire(null, nguoiDung.getId()), CHANGE_PASSWORD_LOCKED_MESSAGE);
         // so khớp mật khẩu hiện tại với hash trong DB (so sánh chính xác, không trim)
         if (!passwordEncoder.matches(changePass.getCurrentPassword(), nguoiDung.getMatKhauHash())) {
             throw new CommonException("Mật khẩu hiện tại không đúng");
         }
-
-        assertPasswordFitsBcrypt(changePass.getNewPassword().trim());
+        loginRateLimiter.recordSuccess(null, nguoiDung.getId());
 
         // chỉ encode mật khẩu mới sau khi đã validate
         nguoiDung.setMatKhauHash(passwordEncoder.encode(changePass.getNewPassword().trim()));
@@ -936,6 +1005,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         update(nguoiDung.getId(), nguoiDung);
         // M4 (gửi sau commit, không chứa mật khẩu)
         emailNghiepVuService.guiDaDoiMatKhau(nguoiDung, CachDoiMatKhau.DOI_KHI_DA_DANG_NHAP, Instant.now());
+        nhatKyBaoMatService.ghiSauCommit(IHanhDong.doi_mat_khau, ITable.nguoi_dung, nguoiDung.getId(),
+                nguoiDung.getId(), null);
 
         // đổi mật khẩu thu hồi mọi token cũ (kể cả token đang dùng) -> cấp token mới
         // cho phiên hiện tại,
@@ -974,8 +1045,13 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         nguoiDung.setMustChangePassword(true);
         nguoiDung.setNgayCapNhat(luc);
         nguoiDungRepository.save(nguoiDung);
+        // quản trị viên cấp lại mật khẩu: gỡ khoá do nhập sai (cách duy nhất để gỡ khoá mà không chờ hết hạn)
+        loginRateLimiter.recordSuccess(null, nguoiDung.getId());
 
         // E3 (sửa L9: thư có mật khẩu tạm), gửi sau commit; không gửi M4 (đã có E3)
         emailNghiepVuService.guiCapLaiMatKhau(nguoiDung, tempPassword, luc);
+        NguoiDungAuthInfo quanTri = com.dev.backend.config.SecurityContextHolder.getUser();
+        nhatKyBaoMatService.ghiSauCommit(IHanhDong.dat_lai_mat_khau, ITable.nguoi_dung, nguoiDung.getId(),
+                quanTri == null ? null : quanTri.getId(), "Quản trị viên cấp mật khẩu tạm qua email");
     }
 }

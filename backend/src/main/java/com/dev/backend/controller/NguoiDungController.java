@@ -57,8 +57,10 @@ public class NguoiDungController {
 
     //đăng nhập hệ thống
     @PostMapping("/login")
-    public ResponseEntity<ResponseData<LoginResponse>> login(@Valid @RequestBody LoginRequest loginRequest) {
-        return nguoiDungService.login(loginRequest);
+    public ResponseEntity<ResponseData<LoginResponse>> login(@Valid @RequestBody LoginRequest loginRequest,
+                                                             HttpServletRequest request) {
+        // IP thật của client (sau reverse proxy) để giới hạn số lần đăng nhập sai theo IP
+        return nguoiDungService.login(loginRequest, ClientIpResolver.resolve(request));
     }
 
     // cập nhật thông tin người dùng: email không đổi được; tên đăng nhập chỉ quản trị viên đổi

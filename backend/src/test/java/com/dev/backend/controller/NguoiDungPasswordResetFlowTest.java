@@ -8,6 +8,7 @@ import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.services.email.EmailNghiepVuService;
 import com.dev.backend.services.impl.entities.NguoiDungService;
 import com.dev.backend.services.impl.utils.CalcServiceImpl;
+import com.dev.backend.services.impl.utils.LoginRateLimiter;
 import com.dev.backend.services.impl.utils.PasswordResetRateLimiter;
 import com.dev.backend.testsupport.MutableClock;
 import org.junit.jupiter.api.AfterEach;
@@ -69,6 +70,9 @@ class NguoiDungPasswordResetFlowTest {
         ReflectionTestUtils.setField(service, "calcService", new CalcServiceImpl());
         ReflectionTestUtils.setField(service, "emailNghiepVuService", emailService);
         ReflectionTestUtils.setField(service, "passwordResetRateLimiter", new PasswordResetRateLimiter(clock));
+        ReflectionTestUtils.setField(service, "loginRateLimiter", new LoginRateLimiter(clock));
+        ReflectionTestUtils.setField(service, "nhatKyBaoMatService",
+                org.mockito.Mockito.mock(com.dev.backend.services.impl.utils.NhatKyBaoMatService.class));
 
         NguoiDungController controller = new NguoiDungController();
         ReflectionTestUtils.setField(controller, "nguoiDungService", service);
