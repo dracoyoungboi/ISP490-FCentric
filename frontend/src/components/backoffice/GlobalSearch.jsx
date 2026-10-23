@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { xinRoiTrang } from "@/lib/chanRoiTrang";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { SIDEBAR_FOOTER_SECTION, SIDEBAR_MENU, SIDEBAR_SECTIONS } from "@/components/backoffice/sidebar.config";
+import { useKenhDaKetNoi } from "@/components/channel/kenhDaKetNoi";
 import apiClient from "@/services/apiClient";
 import { productService } from "@/services/productService";
 import { donBanHangKenhService } from "@/services/donBanHangKenhService";
@@ -84,14 +85,18 @@ function vaiTroCuaTrang(duongDan) {
   return [];
 }
 
-/** Danh sách màn hình người dùng được vào, lấy từ menu bên trái. */
-function danhSachManHinh(role) {
+/**
+ * Danh sách màn hình người dùng được vào, lấy từ menu bên trái. Mục của từng sàn (khai báo `maKenh`) chỉ có khi
+ * gian hàng đã kết nối, giống menu bên trái; "Tất cả kênh" luôn có.
+ */
+function danhSachManHinh(role, kenhDaKetNoi) {
   const tenNhom = Object.fromEntries(SIDEBAR_SECTIONS.map((s) => [s.key, vietHoaChuDau(s.label)]));
   // Mục ghim ở đáy sidebar (Cấu hình) không thuộc nhóm có tiêu đề
   tenNhom[SIDEBAR_FOOTER_SECTION] = "Hệ thống";
   const ketQua = [];
   for (const muc of SIDEBAR_MENU) {
     if (!muc.roles?.includes(role)) continue;
+    if (muc.maKenh && !kenhDaKetNoi.includes(muc.maKenh)) continue;
     const nhom = tenNhom[muc.section] || "Trang chính";
     if (muc.to) ketQua.push({ id: muc.to, label: muc.label, to: muc.to, viTri: nhom });
     for (const con of muc.children ?? []) {
@@ -181,7 +186,8 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
   const khoaGanDay = `fc_tim_gan_day_${userId ?? "khach"}`;
   const [timGanDay, setTimGanDay] = useState(() => docTimGanDay(khoaGanDay));
 
-  const manHinh = useMemo(() => danhSachManHinh(role), [role]);
+  const kenhDaKetNoi = useKenhDaKetNoi();
+  const manHinh = useMemo(() => danhSachManHinh(role, kenhDaKetNoi), [role, kenhDaKetNoi]);
   const nhomDuocXem = useMemo(
     () => NHOM.filter((n) => !n.trangDanhSach || vaiTroCuaTrang(n.trangDanhSach).includes(role)),
     [role],

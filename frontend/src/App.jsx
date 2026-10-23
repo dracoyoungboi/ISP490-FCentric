@@ -90,6 +90,8 @@ import ChannelMappingsPage from "./pages/channels/ChannelMappingsPage";
 import ChannelSyncDashboard from "./pages/channels/ChannelSyncDashboard";
 import ChannelOrdersPage from "./pages/channels/ChannelOrdersPage";
 import ChannelSettingsPage from "./pages/channels/ChannelSettingsPage";
+import OAuthCallbackPage from "./pages/channels/OAuthCallbackPage";
+import KenhHopLe from "./pages/channels/KenhHopLe";
 
 /** Đường dẫn cũ /supplier/view/:id → trang chi tiết /supplier/:id (giống /customers/:id, /users/:id). */
 function SupplierViewRedirect() {
@@ -101,6 +103,12 @@ function SupplierViewRedirect() {
 function MauInRedirect() {
   const { documentType } = useParams();
   return <Navigate to={`/settings/print-templates/${documentType}`} replace />;
+}
+
+/** Trang Công cụ cũ của gian hàng đã gộp vào trang Sản phẩm của sàn. */
+function ChuyenSangSanPham() {
+  const { maKenh } = useParams();
+  return <Navigate to={`/channels/${maKenh}/products`} replace />;
 }
 
 /** Sửa khách hàng nay là popup trên trang chi tiết: đường dẫn cũ /customers/:id/edit mở trang chi tiết kèm popup. */
@@ -293,16 +301,17 @@ export default function App() {
           {/* Kênh bán hàng (FO-073–077) — chỉ quản trị viên (backend cũng chặn bằng @RequireAuth) */}
           <Route element={<RequireRole roles={["quan_tri_vien"]} />}>
             <Route path="/channels" element={<ChannelsPage />} />
-            <Route path="/channels/shopify" element={<ChannelSyncDashboard />} />
-            <Route path="/channels/shopify/setup" element={<ChannelSetupWizard />} />
-            <Route path="/channels/shopify/products" element={<ChannelMappingsPage />} />
-            <Route path="/channels/shopify/orders" element={<ChannelOrdersPage />} />
-            <Route path="/channels/shopify/tools" element={<Navigate to="/channels/shopify/products" replace />} />
-            <Route path="/channels/shopify/settings" element={<ChannelSettingsPage />} />
-            {/* Đường dẫn cũ trước khi tách trang theo sàn */}
-            <Route path="/channels/sync" element={<Navigate to="/channels/shopify" replace />} />
-            <Route path="/channels/:id/setup" element={<Navigate to="/channels/shopify/settings" replace />} />
-            <Route path="/channels/:id/mappings" element={<Navigate to="/channels/shopify/products" replace />} />
+            {/* Mỗi sàn (shopify, lazada, tiktok) cùng bộ trang; mã sàn lạ thì KenhHopLe hiện "Không tìm thấy trang" */}
+            <Route element={<KenhHopLe />}>
+              {/* Trang quay về sau khi người bán đồng ý trên trang của sàn (redirect_uri của ứng dụng) */}
+              <Route path="/channels/oauth/callback/:maKenh" element={<OAuthCallbackPage />} />
+              <Route path="/channels/:maKenh" element={<ChannelSyncDashboard />} />
+              <Route path="/channels/:maKenh/setup" element={<ChannelSetupWizard />} />
+              <Route path="/channels/:maKenh/products" element={<ChannelMappingsPage />} />
+              <Route path="/channels/:maKenh/orders" element={<ChannelOrdersPage />} />
+              <Route path="/channels/:maKenh/tools" element={<ChuyenSangSanPham />} />
+              <Route path="/channels/:maKenh/settings" element={<ChannelSettingsPage />} />
+            </Route>
           </Route>
           </Route>
 

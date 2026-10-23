@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { ChevronRight, ChevronsDownUp, ChevronsUpDown, CloudDownload, CloudUpload, Loader2, MoreHorizontal, PackageSearch, RefreshCw, SearchX } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
@@ -27,9 +27,13 @@ import { AnhSanPham } from "@/components/channel/HienThiKenh";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { SWITCH_CLASS } from "@/components/channel/SettingsCard";
 import { NUT_CHINH, NUT_PHU } from "@/components/channel/BottomActionBar";
-import { daKetNoi } from "@/components/channel/ketNoiShopify";
+import { daKetNoi, trangThaiKetNoi } from "@/components/channel/ketNoiKenh";
+import { taiLaiKenhDaKetNoi } from "@/components/channel/kenhDaKetNoi";
+import { VUNG_CHAM_CONG_TAC } from "@/components/channel/KhuonCaiDat";
 import ThaoTacDongBo from "@/components/channel/ThaoTacDongBo";
+import ThanhNhacUyQuyen from "@/components/channel/ThanhNhacUyQuyen";
 import useDongBoNgay from "@/components/channel/useDongBoNgay";
+import useSanHienTai from "@/components/channel/useSanHienTai";
 import {
   capNhatDongTrongTrang,
   dongCuaTrang,
@@ -41,16 +45,15 @@ import {
 } from "@/components/channel/nhomLienKet";
 import { quyTacTonKho } from "@/components/channel/cauHinhDongBo";
 import { ketQuaDayLenSan, ketQuaTaiSanPham } from "@/components/channel/ketQuaThaoTac";
-import { LIEN_KET_STATUS, LIEN_KET_TABS, SAN_BAN_HANG, tinhSoTonDayLenSan } from "@/constants/channel";
+import { LIEN_KET_STATUS, LIEN_KET_TABS, tinhSoTonDayLenSan } from "@/constants/channel";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
-import { isChannelMock, kenhBanHangService } from "@/services/kenhBanHangService";
+import { GHI_CHU_DU_LIEU_MAU_KENH, isChannelMock, kenhBanHangService } from "@/services/kenhBanHangService";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
-import { getApiErrorMessage } from "@/utils/apiError";
+import { getApiErrorCode, getApiErrorMessage } from "@/utils/apiError";
 import { cn } from "@/lib/utils";
 
-const SAN = SAN_BAN_HANG.find((s) => s.maKenh === "SHOPIFY");
 const TAB_MAS = LIEN_KET_TABS.map((tab) => tab.ma);
 const TAB_MAC_DINH = "tat-ca";
 const SEARCH_DEBOUNCE_MS = 350;
@@ -66,8 +69,8 @@ const coSo = (n) => n !== null && n !== undefined;
  * Lựa chọn số dòng và chế độ "Mở tất cả" được nhớ trong trình duyệt, theo từng sàn.
  */
 const SO_SAN_PHAM_MOI_TRANG = [10, 20, 50];
-const NHO_SO_DONG = `fc:san-pham-kenh:${SAN.maKenh}:so-dong`;
-const NHO_MO_TAT_CA = `fc:san-pham-kenh:${SAN.maKenh}:mo-tat-ca`;
+const nhoSoDong = (maKenh) => `fc:san-pham-kenh:${maKenh}:so-dong`;
+const nhoMoTatCa = (maKenh) => `fc:san-pham-kenh:${maKenh}:mo-tat-ca`;
 function docNho(khoa) {
   try {
     return window.localStorage.getItem(khoa);
@@ -82,8 +85,8 @@ function ghiNho(khoa, giaTri) {
     // Trình duyệt chặn lưu (cửa sổ riêng tư…): vẫn dùng được, chỉ không nhớ cho lần sau
   }
 }
-function soDongDaNho() {
-  const so = Number(docNho(NHO_SO_DONG));
+function soDongDaNho(maKenh) {
+  const so = Number(docNho(nhoSoDong(maKenh)));
   return SO_SAN_PHAM_MOI_TRANG.includes(so) ? so : SO_DONG_MAC_DINH;
 }
 
@@ -100,6 +103,7 @@ function gioDayTon(iso) {
  * nếu không thì giờ đẩy — trong nhóm chỉ ghi khi khác giờ chung đã ghi ở hàng sản phẩm (`gioNhom`).
  */
 function OTonDaDay({ dong, seDay, vuaBat = false, gioNhom = null }) {
+  const SAN = useSanHienTai();
   if (!dangDongBo(dong)) return <span className="text-bo-muted">—</span>;
   const daDay = dong.soLuongDaDay;
   const choDay = laChoDay(dong, seDay, vuaBat);
@@ -160,20 +164,26 @@ function DemTrangThai({ so, nhan, mau, className, truoc }) {
  */
 export default function ChannelMappingsPage() {
   const navigate = useNavigate();
+  const SAN = useSanHienTai();
+  // Sàn ủy quyền (Lazada, TikTok Shop) không đưa sản phẩm FCentric lên được (KH mục B.6)
+  const coDuaLen = SAN.kieuKetNoi === "khoa";
+  const NHO_SO_DONG = nhoSoDong(SAN.maKenh);
+  const NHO_MO_TAT_CA = nhoMoTatCa(SAN.maKenh);
   const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);
   const tabTrangThai = LIEN_KET_TABS.find((t) => t.ma === tab)?.trangThai ?? null;
   const [searchText, setSearchText] = useState("");
   const [tuKhoa, setTuKhoa] = useState("");
-  const [trang, setTrang] = useState(() => ({ page: 0, size: soDongDaNho() }));
+  const [trang, setTrang] = useState(() => ({ page: 0, size: soDongDaNho(SAN.maKenh) }));
 
-  const cfg = useTaiDuLieu(() => kenhBanHangService.getShopifyConfig(), "cau-hinh-shopify");
+  const cfg = useTaiDuLieu(() => kenhBanHangService.getKetNoi(SAN.maKenh), `ket-noi|${SAN.maKenh}`);
   const ketNoi = daKetNoi(cfg.data);
-  const ch = useTaiDuLieu(() => kenhBanHangService.getCauHinhDongBo(SAN.maKenh), "cau-hinh-dong-bo", { enabled: ketNoi });
-  const tq = useTaiDuLieu(() => kenhBanHangService.getTongQuan(SAN.maKenh), "tong-quan", { enabled: ketNoi });
+  const hetHanUyQuyen = !coDuaLen && trangThaiKetNoi(cfg.data) === "het_han";
+  const ch = useTaiDuLieu(() => kenhBanHangService.getCauHinhDongBo(SAN.maKenh), `cau-hinh-dong-bo|${SAN.maKenh}`, { enabled: ketNoi });
+  const tq = useTaiDuLieu(() => kenhBanHangService.getTongQuan(SAN.maKenh), `tong-quan|${SAN.maKenh}`, { enabled: ketNoi });
   const ds = useTaiDuLieu(
     () =>
       kenhBanHangService.filterLienKetTheoSanPham(SAN.maKenh, { page: trang.page, size: trang.size, search: tuKhoa, trangThai: tabTrangThai }),
-    `${tab}|${tuKhoa}|${trang.page}|${trang.size}`,
+    `${SAN.maKenh}|${tab}|${tuKhoa}|${trang.page}|${trang.size}`,
     { enabled: ketNoi },
   );
 
@@ -221,7 +231,23 @@ export default function ChannelMappingsPage() {
   // Quay lại tab thì tải lại ngầm (đồng bộ chạy nền ở máy chủ); không tải khi đang chạy thao tác
   useTaiLaiKhiQuayLai(() => taiLai(true), { bat: ketNoi && !ds.loading && !dangChay, lanCuoi: ds.capNhatLuc });
   // Đồng bộ ngay chạy nền ở máy chủ, chung cho cả gian hàng: xong (dù bấm ở trang nào) thì tải lại bảng ngầm
-  const dongBo = useDongBoNgay(SAN.maKenh, { enabled: ketNoi, onXong: () => taiLai(true) });
+  const dongBo = useDongBoNgay(SAN.maKenh, {
+    enabled: ketNoi,
+    onXong: () => taiLai(true),
+    // Bấm Đồng bộ ngay mà máy chủ báo hết hạn ủy quyền / chưa kết nối: đọc lại kết nối (khóa nút và hiện thanh nhắc,
+    // hoặc về màn chưa kết nối) và tải lại danh sách sàn của menu bên trái
+    onMatKetNoi: () => {
+      cfg.reload();
+      void taiLaiKenhDaKetNoi();
+    },
+  });
+  const idLyDoHetHan = useId();
+  // Thao tác gọi sàn mà máy chủ báo hết hạn ủy quyền / chưa kết nối: đọc lại kết nối như khi Đồng bộ ngay gặp lỗi đó
+  const khiMatKetNoi = (error) => {
+    if (!["UY_QUYEN_HET_HAN", "KENH_CHUA_KET_NOI"].includes(getApiErrorCode(error))) return;
+    cfg.reload();
+    void taiLaiKenhDaKetNoi();
+  };
 
   // Trang đang xem vượt số trang thật sau khi tải lại (sản phẩm cuối vừa đổi trạng thái) → lùi về trang cuối còn dữ liệu
   useEffect(() => {
@@ -235,7 +261,8 @@ export default function ChannelMappingsPage() {
     if (trangCuoi != null) queueMicrotask(() => setTrang((cu) => ({ ...cu, page: trangCuoi })));
   }, [ds.loading, ds.data, trang.page, trang.size]);
 
-  if (cfg.data && !ketNoi) return <Navigate to={`${SAN.duongDan}/setup`} replace />;
+  // Chưa kết nối: Shopify vào thẳng Thiết lập như trước; sàn ủy quyền về màn giới thiệu 4 bước (KH mục B.5)
+  if (cfg.data && !ketNoi) return <Navigate to={coDuaLen ? `${SAN.duongDan}/setup` : SAN.duongDan} replace />;
 
   const quyTac = ch.data ? quyTacTonKho(ch.data) : null;
   const nhom = ds.data?.content ?? [];
@@ -249,12 +276,17 @@ export default function ChannelMappingsPage() {
   const khoa = Boolean(dangChay);
   const dongBoDangChay = dongBo.dangChay || dongBo.dangGui;
   // Việc gọi tới gian hàng (tải, đưa lên): không chạy chồng lên nhau, không chạy khi đang đồng bộ
-  const khoaViecGianHang = khoa || !ketNoi || dongBoDangChay;
+  const khoaViecGianHang = khoa || !ketNoi || dongBoDangChay || hetHanUyQuyen;
   // Công tắc, Thử lại, thao tác hàng loạt: khóa khi đang lưu một thao tác trên bảng hoặc khi đợt Đồng bộ ngay đang chạy
   // (đợt đang đẩy tồn, đổi trạng thái giữa chừng thì kết quả đợt và bảng lệch nhau)
   const khoaBang = khoa || dongBoDangChay;
   const viecPhu = dangChay?.ten === "tai" ? "Đang tải sản phẩm…" : dangChay?.ten === "day-len" ? "Đang đưa sản phẩm lên…" : null;
   const baoDangDongBo = () => toast.warning(`Đang đồng bộ với ${SAN.ten}, chờ đợt này xong rồi chạy`);
+  // Ủy quyền hết hạn: khóa mọi việc gọi tới sàn (tải sản phẩm, Đồng bộ ngay, đẩy tồn lại, Thử lại). Thanh nhắc ở đầu trang
+  // đã ghi hết hạn nên lý do không lặp thành chữ: hiện ở chú thích của nút và đọc qua aria-describedby
+  const lyDoHetHan = hetHanUyQuyen ? `Ủy quyền ${SAN.ten} đã hết hạn, ủy quyền lại trước khi chạy.` : null;
+  const moTaHetHan = lyDoHetHan ? idLyDoHetHan : undefined;
+  const baoHetHan = () => toast.warning(`Ủy quyền ${SAN.ten} đã hết hạn, ủy quyền lại trước khi chạy`);
 
   const chay = async (ten, viec, id) => {
     if (dangChayRef.current) return undefined;
@@ -287,15 +319,17 @@ export default function ChannelMappingsPage() {
   };
 
   const taiTuSan = () => {
+    if (hetHanUyQuyen) return baoHetHan();
     if (dongBoDangChay) return baoDangDongBo();
     return chay("tai", async () => {
       try {
         const res = await kenhBanHangService.taiSanPham(SAN.maKenh);
         const kq = ketQuaTaiSanPham(res, SAN.ten);
-        toast.success(kq.title, { description: kq.message });
+        toast.success(kq.title, kq.message ? { description: kq.message } : undefined);
         taiLaiTatCa();
       } catch (error) {
-        toast.error(getApiErrorMessage(error, "Không tải được sản phẩm từ Shopify"));
+        khiMatKetNoi(error);
+        toast.error(getApiErrorMessage(error, `Không tải được sản phẩm từ ${SAN.ten}`));
       }
     });
   };
@@ -432,6 +466,7 @@ export default function ChannelMappingsPage() {
 
   /** Đẩy tồn lại các SKU đã chọn ngay (từng SKU, như Thử lại); SKU đang ngừng được bỏ qua và báo rõ. */
   const dayTonLai = () => {
+    if (hetHanUyQuyen) return baoHetHan();
     if (dongBoDangChay) return baoDangDongBo();
     const canDay = daChon.filter(dangDongBo);
     const boQua = daChon.length - canDay.length;
@@ -448,6 +483,7 @@ export default function ChannelMappingsPage() {
           else ok += 1;
         } catch (error) {
           // Lỗi cả gian hàng (mất kết nối, hết hạn mức…): các SKU sau cũng sẽ lỗi y vậy → dừng
+          khiMatKetNoi(error);
           loiKenh = getApiErrorMessage(error, `Không đẩy được tồn lên ${SAN.ten}`);
           break;
         }
@@ -465,6 +501,7 @@ export default function ChannelMappingsPage() {
   };
 
   const thuLai = (dong) => {
+    if (hetHanUyQuyen) return baoHetHan();
     if (dongBoDangChay) return baoDangDongBo();
     return chay(
       "thu-lai",
@@ -477,6 +514,7 @@ export default function ChannelMappingsPage() {
           if (res?.trangThaiLienKet === "loi") toast.error(`Vẫn lỗi: ${res.chiTietLoi || "không đẩy được tồn kho"}`);
           else toast.success(`Đã đẩy lại tồn ${dong.maSku}`);
         } catch (error) {
+          khiMatKetNoi(error);
           toast.error(getApiErrorMessage(error, "Không thử lại được"));
         }
       },
@@ -665,7 +703,9 @@ export default function ChannelMappingsPage() {
               ) : null}
               <button
                 type="button"
-                disabled={khoaBang}
+                disabled={khoaBang || hetHanUyQuyen}
+                title={lyDoHetHan ?? undefined}
+                aria-describedby={moTaHetHan}
                 onClick={(event) => {
                   event.stopPropagation();
                   thuLai(dong);
@@ -684,7 +724,7 @@ export default function ChannelMappingsPage() {
             onCheckedChange={() => batTat(dong)}
             aria-label={`Đồng bộ ${dong.maSku || dong.skuSan}`}
             title={choPhepBat ? undefined : "Chưa ghép biến thể FCentric"}
-            className={SWITCH_CLASS}
+            className={cn(SWITCH_CLASS, VUNG_CHAM_CONG_TAC)}
           />
         </td>
         <td className="w-12 px-2 py-2.5 text-right" onClick={(event) => event.stopPropagation()}>
@@ -698,7 +738,7 @@ export default function ChannelMappingsPage() {
                       variant="ghost"
                       disabled={khoa}
                       aria-label={`Thao tác khác cho ${dong.maSku || dong.skuSan}`}
-                      className="size-8 rounded-md p-0 text-bo-muted hover:bg-slate-100 hover:text-bo-foreground"
+                      className="size-8 rounded-md p-0 text-bo-muted hover:bg-slate-100 hover:text-bo-foreground max-sm:size-11"
                     >
                       {dangXuLyDong && dangChay?.ten !== "bat-tat" ? <Loader2 className="size-4 animate-spin" /> : <MoreHorizontal className="size-4" />}
                     </Button>
@@ -728,7 +768,7 @@ export default function ChannelMappingsPage() {
                     {dong.trangThaiLienKet === "loi" ? (
                       <>
                         <DropdownMenuSeparator className="bg-bo-border" />
-                        <DropdownMenuItem disabled={khoaBang} onSelect={() => thuLai(dong)} className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">
+                        <DropdownMenuItem disabled={khoaBang || hetHanUyQuyen} onSelect={() => thuLai(dong)} className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">
                           Thử lại
                         </DropdownMenuItem>
                       </>
@@ -841,7 +881,7 @@ export default function ChannelMappingsPage() {
                   ? `Ngừng đồng bộ cả ${g.ten}`
                   : `Bật đồng bộ cả ${g.ten} (đang bật ${soBat}/${g.dong.length})`
               }
-              className={SWITCH_CLASS}
+              className={cn(SWITCH_CLASS, VUNG_CHAM_CONG_TAC)}
             />
             {soBat > 0 && soBat < g.dong.length ? (
               <span className="text-xs tabular-nums text-bo-muted" title={`${soBat} trên ${g.dong.length} phân loại đang đồng bộ`}>
@@ -868,29 +908,44 @@ export default function ChannelMappingsPage() {
             onDen={den}
             viecPhu={viecPhu}
             khoaThaoTac={
-              !ketNoi ? "Chưa tải xong thông tin gian hàng." : khoa ? "Đang lưu thay đổi trên bảng, chờ xong rồi chạy." : false
+              !ketNoi
+                ? "Chưa tải xong thông tin gian hàng."
+                : lyDoHetHan || (khoa ? "Đang lưu thay đổi trên bảng, chờ xong rồi chạy." : false)
             }
+            lyDoKhoaDongBo={hetHanUyQuyen ? "Ủy quyền lại trước khi đồng bộ" : null}
             thaoTac={[
               {
                 ma: "tai-san-pham",
                 nhan: `Tải sản phẩm từ ${SAN.ten}`,
-                moTa: `Ghép SKU trùng với FCentric, không đổi gì trên ${SAN.ten}`,
+                // Mô tả mục menu là một câu, có dấu chấm cuối (như menu ⋯ của thẻ Gian hàng)
+                moTa: coDuaLen ? `Ghép SKU trùng với FCentric, không đổi gì trên ${SAN.ten}.` : `Ghép SKU trùng mã, không đổi gì trên ${SAN.ten}.`,
                 Icon: CloudDownload,
                 onChon: taiTuSan,
               },
-              {
-                ma: "dua-len",
-                nhan: `Đưa sản phẩm FCentric lên ${SAN.ten}…`,
-                moTa: "Tạo sản phẩm thật trên gian hàng, có hỏi lại trước",
-                Icon: CloudUpload,
-                onChon: () => setHoiDayLen(true),
-              },
+              ...(coDuaLen
+                ? [
+                    {
+                      ma: "dua-len",
+                      nhan: `Đưa sản phẩm FCentric lên ${SAN.ten}…`,
+                      moTa: "Tạo sản phẩm thật trên gian hàng, có hỏi lại trước.",
+                      Icon: CloudUpload,
+                      onChon: () => setHoiDayLen(true),
+                    },
+                  ]
+                : []),
             ]}
           />
         }
       />
 
-      <MockModeNotice show={isChannelMock} />
+      <MockModeNotice show={isChannelMock} note={GHI_CHU_DU_LIEU_MAU_KENH} />
+      <ThanhNhacUyQuyen san={SAN} ketNoi={cfg.data} />
+      {/* Lý do khóa các nút gọi sàn cho trình đọc màn hình (aria-describedby); người dùng chuột đọc ở chú thích của nút */}
+      {lyDoHetHan ? (
+        <span id={idLyDoHetHan} className="sr-only">
+          {lyDoHetHan}
+        </span>
+      ) : null}
 
       {tab !== "loi" ? (
         <AttentionBar count={tongQuan?.loiDongBo} tone="danger" actionLabel="Xem SKU lỗi" onAction={() => doiTab("loi")}>
@@ -913,14 +968,14 @@ export default function ChannelMappingsPage() {
                 onClick={doiMoTatCa}
                 disabled={nhomNhieu.length === 0}
                 title={nhomNhieu.length === 0 && rows.length > 0 ? "Trang này không có sản phẩm nhiều phân loại" : undefined}
-                className="h-9 gap-1.5 px-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-bo-foreground"
+                className="h-9 gap-1.5 px-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-bo-foreground max-sm:h-11"
               >
                 {tatCaDangMo ? <ChevronsDownUp className="size-4" aria-hidden="true" /> : <ChevronsUpDown className="size-4" aria-hidden="true" />}
                 {tatCaDangMo ? "Thu gọn tất cả" : "Mở tất cả"}
               </Button>
               <SearchInput
                 label="Tìm sản phẩm"
-                placeholder="Tìm theo tên sản phẩm, SKU hoặc mã Shopify"
+                placeholder={`Tìm theo tên sản phẩm, SKU hoặc mã ${SAN.ten}`}
                 value={searchText}
                 onChange={(event) => setSearchText(event.target.value)}
                 onClear={xoaLoc}
@@ -938,20 +993,30 @@ export default function ChannelMappingsPage() {
                 <span className="mr-1">
                   <strong className="font-semibold tabular-nums">{soVN(daChon.length)}</strong> SKU đã chọn trên trang này
                 </span>
-                <Button type="button" variant="outline" disabled={khoaBang} onClick={() => batTatNhieu(true)} className="h-8 rounded-lg border-bo-border bg-white px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle">
+                <Button type="button" variant="outline" disabled={khoaBang} onClick={() => batTatNhieu(true)} className="h-8 rounded-lg border-bo-border bg-white px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11">
                   Bật đồng bộ
                 </Button>
-                <Button type="button" variant="outline" disabled={khoaBang} onClick={() => batTatNhieu(false)} className="h-8 rounded-lg border-bo-border bg-white px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle">
+                <Button type="button" variant="outline" disabled={khoaBang} onClick={() => batTatNhieu(false)} className="h-8 rounded-lg border-bo-border bg-white px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11">
                   Ngừng đồng bộ
                 </Button>
-                <Button type="button" variant="outline" disabled={khoaBang} onClick={dayTonLai} className="h-8 gap-1.5 rounded-lg border-bo-border bg-white px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle">
-                  <RefreshCw className="size-3.5" aria-hidden="true" />
-                  Đẩy tồn lại
-                </Button>
+                {/* Đẩy tồn gọi tới sàn: khóa khi hết hạn ủy quyền; nút bị khóa bỏ qua chuột nên chú thích đặt ở phần tử bọc */}
+                <span title={lyDoHetHan ?? undefined} className="inline-flex">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={khoaBang || hetHanUyQuyen}
+                    aria-describedby={moTaHetHan}
+                    onClick={dayTonLai}
+                    className="h-8 gap-1.5 rounded-lg border-bo-border bg-white px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11"
+                  >
+                    <RefreshCw className="size-3.5" aria-hidden="true" />
+                    Đẩy tồn lại
+                  </Button>
+                </span>
                 {dangChay?.ten === "nhieu" || dangChay?.ten === "day-ton" ? (
                   <Loader2 className="size-4 animate-spin text-bo-muted" aria-label="Đang cập nhật" />
                 ) : null}
-                <Button type="button" variant="ghost" disabled={khoa} onClick={() => setChon(new Set())} className="ml-auto h-8 rounded-lg px-3 text-[13px] text-bo-foreground hover:bg-white/70">
+                <Button type="button" variant="ghost" disabled={khoa} onClick={() => setChon(new Set())} className="ml-auto h-8 rounded-lg px-3 text-[13px] text-bo-foreground hover:bg-white/70 max-sm:h-11">
                   Bỏ chọn
                 </Button>
               </div>
@@ -1021,17 +1086,26 @@ export default function ChannelMappingsPage() {
             <EmptyState
               icon={PackageSearch}
               title="Chưa có sản phẩm nào được liên kết"
-              description={`Tải sản phẩm từ ${SAN.ten} để ghép theo SKU trùng với FCentric, hoặc đưa sản phẩm FCentric lên ${SAN.ten}.`}
+              description={
+                coDuaLen
+                  ? `Tải sản phẩm từ ${SAN.ten} để ghép theo SKU trùng với FCentric, hoặc đưa sản phẩm FCentric lên ${SAN.ten}.`
+                  : `Tải sản phẩm từ ${SAN.ten} để ghép theo SKU trùng với FCentric.`
+              }
               action={
                 <div className="flex flex-wrap justify-center gap-2">
-                  <Button type="button" onClick={taiTuSan} disabled={khoaViecGianHang} className={NUT_CHINH}>
-                    {dangChay?.ten === "tai" ? <Loader2 className="size-4 animate-spin" /> : <CloudDownload className="size-4" />}
-                    Tải sản phẩm từ {SAN.ten}
-                  </Button>
-                  <Button type="button" variant="outline" onClick={() => setHoiDayLen(true)} disabled={khoaViecGianHang} className={NUT_PHU}>
-                    <CloudUpload className="size-4" />
-                    Đưa sản phẩm FCentric lên {SAN.ten}
-                  </Button>
+                  {/* Nút bị khóa bỏ qua chuột: chú thích lý do (hết hạn ủy quyền) đặt ở phần tử bọc */}
+                  <span title={lyDoHetHan ?? undefined} className="inline-flex">
+                    <Button type="button" onClick={taiTuSan} disabled={khoaViecGianHang} aria-describedby={moTaHetHan} className={NUT_CHINH}>
+                      {dangChay?.ten === "tai" ? <Loader2 className="size-4 animate-spin" /> : <CloudDownload className="size-4" />}
+                      Tải sản phẩm từ {SAN.ten}
+                    </Button>
+                  </span>
+                  {coDuaLen ? (
+                    <Button type="button" variant="outline" onClick={() => setHoiDayLen(true)} disabled={khoaViecGianHang} className={NUT_PHU}>
+                      <CloudUpload className="size-4" />
+                      Đưa sản phẩm FCentric lên {SAN.ten}
+                    </Button>
+                  ) : null}
                 </div>
               }
             />

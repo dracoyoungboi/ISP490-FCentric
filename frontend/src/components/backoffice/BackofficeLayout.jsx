@@ -6,6 +6,8 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
 import { PageTitleContext } from "./pageTitle";
 import { SETTINGS_PAGES } from "@/components/settings/settings.config";
+import { taiLaiKenhDaKetNoi } from "@/components/channel/kenhDaKetNoi";
+import { SAN_BAN_HANG } from "@/constants/channel";
 import "@/styles/print.css";
 
 const DEFAULT_DOCUMENT_TITLE =
@@ -370,30 +372,44 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             match: (path) => path === "/channels",
             title: "Kênh bán hàng",
         },
+        // Trang của từng sàn (Shopify, Lazada, TikTok Shop) và trang quay về sau ủy quyền
+        ...SAN_BAN_HANG.filter((san) => san.hoTro).flatMap((san) => [
+            { key: `CHANNEL_${san.maKenh}`, match: (path) => path === san.duongDan, title: `Tổng quan ${san.ten}` },
+            {
+                key: `CHANNEL_${san.maKenh}_SETUP`,
+                match: (path) => path === `${san.duongDan}/setup`,
+                title: `Thiết lập gian hàng ${san.ten}`,
+            },
+            {
+                key: `CHANNEL_${san.maKenh}_PRODUCTS`,
+                match: (path) => path === `${san.duongDan}/products`,
+                title: `Sản phẩm ${san.ten}`,
+            },
+            {
+                key: `CHANNEL_${san.maKenh}_ORDERS`,
+                match: (path) => path === `${san.duongDan}/orders`,
+                title: `Đơn hàng ${san.ten}`,
+            },
+            {
+                key: `CHANNEL_${san.maKenh}_SETTINGS`,
+                match: (path) => path === `${san.duongDan}/settings`,
+                title: `Cấu hình ${san.ten}`,
+            },
+            {
+                key: `CHANNEL_${san.maKenh}_OAUTH`,
+                // Trang tự vẽ tiêu đề ẩn (thẻ kết quả ở giữa trang)
+                ownTitle: true,
+                // Chỉ sàn ủy quyền có trang quay về; Shopify (dán khóa) rơi xuống "Không tìm thấy trang"
+                match: (path) => san.kieuKetNoi === "uy_quyen" && path === `/channels/oauth/callback/${san.duongDan.split("/").pop()}`,
+                title: `Ủy quyền ${san.ten}`,
+            },
+        ]),
         {
-            key: "CHANNEL_SHOPIFY",
-            match: (path) => path === "/channels/shopify",
-            title: "Tổng quan Shopify",
-        },
-        {
-            key: "CHANNEL_SHOPIFY_SETUP",
-            match: (path) => path === "/channels/shopify/setup",
-            title: "Thiết lập gian hàng Shopify",
-        },
-        {
-            key: "CHANNEL_SHOPIFY_PRODUCTS",
-            match: (path) => path === "/channels/shopify/products",
-            title: "Sản phẩm Shopify",
-        },
-        {
-            key: "CHANNEL_SHOPIFY_ORDERS",
-            match: (path) => path === "/channels/shopify/orders",
-            title: "Đơn hàng Shopify",
-        },
-        {
-            key: "CHANNEL_SHOPIFY_SETTINGS",
-            match: (path) => path === "/channels/shopify/settings",
-            title: "Cấu hình Shopify",
+            // Mã sàn gõ tay không có (/channels/abc/...): route của sàn hiện khối "Không tìm thấy trang" trong khung
+            key: "CHANNEL_KHONG_TIM_THAY",
+            ownTitle: true,
+            match: (path) => /^\/channels\/[^/]+(\/.*)?$/.test(path),
+            title: "Không tìm thấy trang",
         },
         // Mã gõ tay không phải số (/quotation/abc): các mục chi tiết ở trên chỉ nhận mã số nên trang mất tiêu đề và tên tab,
         // trong khi màn chi tiết chứng từ vẫn vẽ khung "Không tìm thấy …". Đặt cùng tiêu đề như mã số. Để cuối danh sách:
@@ -471,6 +487,11 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
         return () => {
             document.title = DEFAULT_DOCUMENT_TITLE;
         };
+    }, []);
+
+    // Mục sàn trên menu bên trái chỉ hiện gian hàng đã kết nối; chỉ quản trị viên thấy và gọi được API kênh
+    useEffect(() => {
+        if (localStorage.getItem("role") === "quan_tri_vien") taiLaiKenhDaKetNoi();
     }, []);
 
     return (
