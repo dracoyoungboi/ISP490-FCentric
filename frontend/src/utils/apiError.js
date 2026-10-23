@@ -16,12 +16,13 @@ export function getApiErrorStatus(error) {
 const MA_LOI_HOP_LE = /^[A-Z][A-Z0-9_]+$/;
 
 /**
- * Mã lỗi có cấu trúc của máy chủ (LoiCoMaException): `data.data.code` trước, rồi `data.error`.
+ * Mã lỗi có cấu trúc của máy chủ (LoiCoMaException): `data.data.code` trước, rồi `data.error`, rồi `data.code`
+ * (KH kênh bán hàng mục C.4 ghi mã ở "`code` trong ResponseData").
  * Chỉ nhận chuỗi dạng MÃ_CHỮ_HOA (`error` của lỗi thường là câu lý do HTTP như "Conflict"). Không có mã thì null.
  */
 export function getApiErrorCode(error) {
   const body = error?.response?.data;
-  for (const ma of [body?.data?.code, body?.error]) {
+  for (const ma of [body?.data?.code, body?.error, body?.code]) {
     if (typeof ma === "string" && MA_LOI_HOP_LE.test(ma)) return ma;
   }
   return null;

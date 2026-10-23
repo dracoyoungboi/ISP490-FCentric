@@ -150,7 +150,7 @@ export const NHAN_THEO_NHOM = {
     "Đã nhả",
     "Đã bỏ",
   ],
-  loi: ["Lỗi", "Bị khóa", "Hết hạn khóa", "Hết hàng", "Thiếu hàng", "Vượt mức", "Vượt số đặt", "Xung đột hủy"],
+  loi: ["Lỗi", "Bị khóa", "Hết hạn khóa", "Hết hạn ủy quyền", "Hết hàng", "Thiếu hàng", "Vượt mức", "Vượt số đặt", "Xung đột hủy"],
   thuong: ["Còn hàng", "Bình thường"],
 };
 
@@ -250,6 +250,7 @@ export const BIEU_TUONG_THEO_NHAN = {
   "Chưa kết nối": "Unlink",
   "Tạm dừng": "CirclePause",
   "Hết hạn khóa": "KeyRound",
+  "Hết hạn ủy quyền": "KeyRound",
   "Lỗi": "OctagonAlert",
   "Đang xử lý": "RefreshCw",
   "Thành công": "CircleCheckBig",

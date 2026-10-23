@@ -100,5 +100,7 @@ test("máy chủ cũ chưa có lỗi đồng bộ và đơn mua quá hạn: khô
   assert.equal(loiDongBo.length + donMuaQuaHan > 0, true);
   const ds = danhSachViec(cu, null);
   assert.ok(!ds.some((d) => d.loai === "loiDongBo" || d.loai === "donMuaQuaHan"));
-  assert.equal(duongDanLoiDongBo("LAZADA"), "/channels");
+  // Sàn chưa có trang riêng (Shopee) mở danh sách kênh; Lazada đã có trang Sản phẩm riêng (KH Lazada/TikTok mục B.1)
+  assert.equal(duongDanLoiDongBo("SHOPEE"), "/channels");
+  assert.equal(duongDanLoiDongBo("LAZADA"), "/channels/lazada/products?trangThai=loi");
 });
