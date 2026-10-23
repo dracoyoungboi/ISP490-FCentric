@@ -41,6 +41,18 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull Object handler) {
+        // Luồng Tomcat được dùng lại cho request sau: không để request không gửi token thừa hưởng người dùng còn sót
+        SecurityContextHolder.clear();
+        try {
+            return napNguCanh(request);
+        } catch (RuntimeException e) {
+            // preHandle ném lỗi (kể cả lỗi CSDL sau khi đã setUser) → afterCompletion không chạy, phải tự xóa
+            SecurityContextHolder.clear();
+            throw e;
+        }
+    }
+
+    private boolean napNguCanh(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");
         String khoId = request.getHeader("kho_id");
         SecurityContextHolder.setPath(request.getRequestURI());
