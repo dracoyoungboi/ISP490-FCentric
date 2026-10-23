@@ -193,10 +193,12 @@ public class DonBanHangController {
     }
     @GetMapping("/variants-for-create")
     @RequireAuth(
+            // nhan_vien_kho: màn Tạo phiếu chuyển kho (POST /phieu-chuyen-kho/create mở cho nhân viên kho) cần danh sách này
             roles = {
                     IRoleType.quan_tri_vien,
                     IRoleType.quan_ly_kho,
-                    IRoleType.nhan_vien_ban_hang
+                    IRoleType.nhan_vien_ban_hang,
+                    IRoleType.nhan_vien_kho
             },
             rolesLogic = RequireAuth.LogicType.OR
     )
