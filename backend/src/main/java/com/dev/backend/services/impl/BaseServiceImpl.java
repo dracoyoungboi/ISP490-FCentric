@@ -238,11 +238,29 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
         return validFields;
     }
 
+    /**
+     * Cột bí mật: không bao giờ được lọc / sắp xếp, kể cả qua quan hệ (vd. "quanLy.matKhauHash" ở bộ lọc kho) — đếm số
+     * dòng khớp từng tiền tố là dò ra được giá trị.
+     */
+    static final Set<String> TRUONG_BI_MAT = Set.of(
+            "matKhauHash", "apiKey", "apiSecret", "refreshToken", "clientId",
+            "apiKeyMaHoa", "checksumKeyMaHoa", "clientIdMaHoa");
+    // So không phân biệt hoa thường: sắp xếp qua Spring Data hạ chữ đầu ("quanLy.MatKhauHash" → matKhauHash)
+    private static final Set<String> TRUONG_BI_MAT_THUONG = TRUONG_BI_MAT.stream()
+            .map(t -> t.toLowerCase(Locale.ROOT)).collect(Collectors.toUnmodifiableSet());
+
     protected void validateFieldName(String fieldName) {
         Set<String> validFields = getValidColumnFields();
 
+        String[] parts = fieldName.split("\\.");
+        for (String part : parts) {
+            if (TRUONG_BI_MAT_THUONG.contains(part.trim().toLowerCase(Locale.ROOT))) {
+                throw new InvalidFieldException("Không được lọc hoặc sắp xếp theo trường này");
+            }
+        }
+
         // Nếu là nested field (vd: "user.name"), chỉ validate phần đầu tiên
-        String firstPart = fieldName.split("\\.")[0];
+        String firstPart = parts[0];
 
         if (!validFields.contains(firstPart)) {
             throw new InvalidFieldException(
