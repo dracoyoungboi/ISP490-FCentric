@@ -63,4 +63,12 @@ public final class MaLoi {
     public static final String KENH_CHUA_KET_NOI = "KENH_CHUA_KET_NOI";
     /** 424 · Cấp lại khóa truy cập (khóa làm mới OAuth) không thành công. Không dùng 502: Cloudflare thay trang lỗi 502. */
     public static final String LAM_MOI_KHOA_LOI = "LAM_MOI_KHOA_LOI";
+
+    // ---------------- Sản phẩm ----------------
+
+    /**
+     * 409 · Tạo/sửa sản phẩm với tên đã có (không phân biệt hoa thường, có phân biệt dấu, tính mọi trạng thái kể cả
+     * Ngừng hoạt động). data: sanPhamId, maSanPham của sản phẩm đã có.
+     */
+    public static final String TEN_SAN_PHAM_TRUNG = "TEN_SAN_PHAM_TRUNG";
 }

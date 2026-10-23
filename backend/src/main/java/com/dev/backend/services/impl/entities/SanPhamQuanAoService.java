@@ -15,6 +15,8 @@ import com.dev.backend.dto.response.entities.SanPhamQuanAoDto;
 import com.dev.backend.entities.*;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.exception.customize.InvalidFieldException;
+import com.dev.backend.exception.customize.LoiCoMaException;
+import com.dev.backend.exception.customize.MaLoi;
 import com.dev.backend.mapper.SanPhamQuanAoMapper;
 import com.dev.backend.repository.AnhBienTheRepository;
 import com.dev.backend.repository.AnhQuanAoRepository;
@@ -209,6 +211,8 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 kiemTraTepAnh(anhSanPhams);
                 kiemTraTepAnh(anhBienThes);
                 kiemTraBienTheTaoMoi(creating.getBienTheSanPhams(), anhBienThes);
+                creating.setTenSanPham(chuanHoaTenSanPham(creating.getTenSanPham()));
+                kiemTraTenKhongTrung(creating.getTenSanPham(), null);
 
                 Instant instantNow = Instant.now();
                 Date now = new Date();
@@ -546,9 +550,14 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 List<AnhSanPhamSapXep> sapXepAnh = updating.isImageUpdated()
                         ? kiemTraAnhSanPhamCapNhat(sanPhamQuanAo, updating.getAnhSanPhamSapXep(), anhSanPhams)
                         : List.of();
+                // Chỉ kiểm tra khi tên thật sự đổi, để sản phẩm đang trùng tên từ trước vẫn sửa được các ô khác.
+                String tenMoi = chuanHoaTenSanPham(updating.getTenSanPham());
+                if (!cungTenSanPham(tenMoi, sanPhamQuanAo.getTenSanPham())) {
+                        kiemTraTenKhongTrung(tenMoi, sanPhamQuanAo.getId());
+                }
 
                 // ===================== GHI DỮ LIỆU =====================
-                sanPhamQuanAo.setTenSanPham(updating.getTenSanPham());
+                sanPhamQuanAo.setTenSanPham(tenMoi);
                 sanPhamQuanAo.setDanhMuc(danhMucQuanAo);
                 // Giống PATCH /basic-info: ô để trống lưu null.
                 sanPhamQuanAo.setMoTa(blankToNull(updating.getMoTa()));
@@ -1014,8 +1023,9 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 Map<String, Object> giaTriMoi = new LinkedHashMap<>();
 
                 if (dto.getTenSanPham() != null && !dto.getTenSanPham().isBlank()) {
-                        String ten = dto.getTenSanPham().trim();
+                        String ten = chuanHoaTenSanPham(dto.getTenSanPham());
                         if (!ten.equals(sp.getTenSanPham())) {
+                                if (!cungTenSanPham(ten, sp.getTenSanPham())) kiemTraTenKhongTrung(ten, sp.getId());
                                 giaTriCu.put("tenSanPham", sp.getTenSanPham());
                                 giaTriMoi.put("tenSanPham", ten);
                                 sp.setTenSanPham(ten);
@@ -1126,6 +1136,51 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
 
         private String blankToNull(String value) {
                 return value == null || value.isBlank() ? null : value.trim();
+        }
+
+        // ---------- Tên sản phẩm không trùng ----------
+
+        /** Tên lưu xuống: dạng NFC, bỏ khoảng trắng hai đầu, gộp khoảng trắng liên tiếp (kể cả NBSP) thành một dấu cách. */
+        static String chuanHoaTenSanPham(String ten) {
+                if (ten == null) return null;
+                return Normalizer.normalize(ten, Normalizer.Form.NFC).replaceAll("(?U)\\s+", " ").trim();
+        }
+
+        /** Khóa so trùng tên: không phân biệt hoa thường, có phân biệt dấu ("Áo bò" khác "Ao bo"). */
+        static String khoaSoTenSanPham(String ten) {
+                String chuan = chuanHoaTenSanPham(ten);
+                return chuan == null ? "" : chuan.toLowerCase(Locale.ROOT);
+        }
+
+        /** Hai tên được coi là một (đổi hoa thường hoặc khoảng trắng không tính là đổi tên). */
+        static boolean cungTenSanPham(String a, String b) {
+                return khoaSoTenSanPham(a).equals(khoaSoTenSanPham(b));
+        }
+
+        /**
+         * Chặn tên đã có ở sản phẩm khác, tính mọi trạng thái (kể cả 2 = Ngừng hoạt động). {@code boQuaId}: sản phẩm đang sửa.
+         * Truy vấn theo collation của cột (bỏ qua dấu) lấy ứng viên rồi lọc lại để giữ phân biệt dấu.
+         * Không có khóa duy nhất ở CSDL (dữ liệu cũ có thể đang trùng) nên hai yêu cầu cùng lúc vẫn có thể lọt.
+         */
+        private void kiemTraTenKhongTrung(String ten, Integer boQuaId) {
+                if (ten == null || ten.isEmpty()) {
+                        throw new CommonException("Vui lòng nhập tên sản phẩm.");
+                }
+                String khoa = khoaSoTenSanPham(ten);
+                for (Object[] dong : repository.findUngVienTrungTen(ten)) {
+                        Integer id = ((Number) dong[0]).intValue();
+                        if (Objects.equals(id, boQuaId) || !khoa.equals(khoaSoTenSanPham((String) dong[2]))) continue;
+                        String maSanPham = (String) dong[1];
+                        boolean ngungHoatDong = dong[3] instanceof Number trangThai && trangThai.intValue() == 2;
+                        Map<String, Object> duLieu = new LinkedHashMap<>();
+                        duLieu.put("sanPhamId", id);
+                        duLieu.put("maSanPham", maSanPham);
+                        throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.TEN_SAN_PHAM_TRUNG,
+                                "Đã có sản phẩm cùng tên «" + dong[2] + "» (mã " + maSanPham
+                                        + (ngungHoatDong ? ", đang ngừng hoạt động" : "")
+                                        + "). Vui lòng đặt tên khác.",
+                                duLieu);
+                }
         }
 
         @Transactional(readOnly = true)
