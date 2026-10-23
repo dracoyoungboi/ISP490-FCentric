@@ -5,6 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import SecretInput from "@/components/shared/SecretInput";
 import { TrangThaiCham } from "@/components/channel/HienThiKenh";
 import { INPUT_CLASS } from "@/components/channel/SettingsCard";
+import { khoaTenMien } from "@/components/channel/ketNoiKenh";
 import { kenhBanHangService } from "@/services/kenhBanHangService";
 import { normalizeShopDomain } from "@/constants/channel";
 import { getApiErrorMessage } from "@/utils/apiError";
@@ -14,12 +15,14 @@ import { cn } from "@/lib/utils";
  * Form khóa kết nối Shopify (điều khiển từ trang cha): tên miền, khóa truy cập và khóa OAuth (không bắt buộc, gập sẵn).
  * Nút "Kiểm tra kết nối" gọi POST /shopify/test-connection; trang cha quyết định khi nào lưu.
  * `result` / `onResult`: kết quả kiểm tra { ok, title, message } hiển thị tại chỗ (trang cha cũng đặt khi lưu lỗi).
+ * Đã kết nối thì ô tên miền chỉ đọc: đổi sang cửa hàng khác phải ngắt kết nối rồi kết nối lại (KH mục B.3).
  */
 export default function KetNoiShopifyForm({ values, errors = {}, onChange, config, disabled = false, result, onResult }) {
   const id = useId();
   const [dangKiemTra, setDangKiemTra] = useState(false);
   const dangKiemTraRef = useRef(false);
   const daCoKhoa = Boolean(config?.hasAccessToken);
+  const giuTenMien = khoaTenMien(config);
 
   const kiemTra = async () => {
     if (dangKiemTraRef.current) return;
@@ -68,18 +71,30 @@ export default function KetNoiShopifyForm({ values, errors = {}, onChange, confi
             id={`${id}-domain`}
             value={values.shopDomain}
             disabled={khoa}
+            readOnly={giuTenMien}
             onChange={(event) => onChange("shopDomain", event.target.value)}
-            onBlur={() => values.shopDomain && onChange("shopDomain", normalizeShopDomain(values.shopDomain))}
+            onBlur={() => !giuTenMien && values.shopDomain && onChange("shopDomain", normalizeShopDomain(values.shopDomain))}
             placeholder="ten-cua-hang.myshopify.com"
             spellCheck={false}
             autoComplete="off"
             aria-invalid={Boolean(errors.shopDomain)}
-            className={cn(INPUT_CLASS, errors.shopDomain && "border-bo-danger focus:border-bo-danger focus:ring-bo-danger/15")}
+            aria-describedby={`${id}-domain-goi-y`}
+            className={cn(
+              INPUT_CLASS,
+              giuTenMien && "cursor-default bg-bo-surface-subtle text-bo-muted",
+              errors.shopDomain && "border-bo-danger focus:border-bo-danger focus:ring-bo-danger/15",
+            )}
           />
           {errors.shopDomain ? (
-            <p className="mt-1 text-xs text-bo-danger">{errors.shopDomain}</p>
+            <p id={`${id}-domain-goi-y`} className="mt-1 text-xs text-bo-danger">
+              {errors.shopDomain}
+            </p>
           ) : (
-            <p className="mt-1 text-xs text-bo-muted">Nhập phần tên cũng được, hệ thống tự thêm .myshopify.com.</p>
+            <p id={`${id}-domain-goi-y`} className="mt-1 text-xs text-bo-muted">
+              {giuTenMien
+                ? "Muốn đổi sang cửa hàng khác, hãy ngắt kết nối ở trang Cấu hình rồi kết nối lại."
+                : "Nhập phần tên cũng được, hệ thống tự thêm .myshopify.com."}
+            </p>
           )}
         </div>
 

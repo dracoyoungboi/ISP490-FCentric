@@ -37,7 +37,7 @@ export default function SyncLogDetailSheet({ lienKet, open, onOpenChange, quyTac
   const dangDongBo = trangThai !== "chua_lien_ket";
   const meta = LIEN_KET_STATUS[trangThai] ?? { label: trangThai ? `Không xác định (mã ${trangThai})` : "Chưa có trạng thái" };
   const khoa = Boolean(dangXuLy);
-  const nutPhu = "h-9 gap-2 rounded-lg border-bo-border bg-white px-3.5 text-bo-foreground hover:bg-bo-surface-subtle";
+  const nutPhu = "h-9 gap-2 rounded-lg border-bo-border bg-white px-3.5 text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

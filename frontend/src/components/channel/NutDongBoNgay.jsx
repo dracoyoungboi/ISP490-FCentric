@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Check, ChevronDown, ChevronUp, CircleAlert, CircleCheck, CircleStop, Loader2, Minus, RefreshCw, Square, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
 import {
   cacBuocDongBo,
@@ -19,10 +20,12 @@ const PHIEN_DANG_BAT_DAU = { trangThai: "dang_chay", giaiDoan: "doc_san_pham", d
 const SO_LOI_HIEN = 3;
 const NUT = "h-9 gap-2 rounded-lg border-bo-border bg-white px-3.5 text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11";
 const MAU_CHAM = { ok: "bg-bo-success", canh: "bg-amber-500", loi: "bg-bo-danger", dung: "bg-slate-400" };
+// Điện thoại (dưới 640 px): nút và liên kết trong bảng cao 44 px cho dễ chạm
 const NUT_NHO =
-  "inline-flex h-7 items-center gap-1.5 rounded-md border border-bo-border bg-white px-2.5 text-[12.5px] font-medium text-bo-foreground transition-colors hover:bg-bo-surface-subtle disabled:cursor-default disabled:text-bo-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30";
+  "inline-flex h-7 items-center gap-1.5 rounded-md border border-bo-border bg-white px-2.5 text-[12.5px] font-medium text-bo-foreground transition-colors hover:bg-bo-surface-subtle disabled:cursor-default disabled:text-bo-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 max-sm:h-11 max-sm:px-3.5";
 const LIEN_KET =
-  "text-[13px] font-medium text-bo-primary hover:text-bo-primary-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 rounded-sm";
+  "text-[13px] font-medium text-bo-primary hover:text-bo-primary-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 rounded-sm max-sm:inline-flex max-sm:min-h-11 max-sm:items-center";
+const CHUA_SAN_SANG = "Chưa tải xong thông tin gian hàng, bấm lại sau giây lát.";
 
 const so = (n) => Number(n || 0).toLocaleString("vi-VN");
 
@@ -41,17 +44,26 @@ function gioPhut(value) {
  * `onDen(duongDan)`: mở một trang con của gian hàng (SKU lỗi, đơn mới, cấu hình).
  * `viecPhu`: chữ hiện trên nút khi trang đang chạy một việc khác với gian hàng (vd. "Đang tải sản phẩm…");
  * lúc đó nút bị khóa để hai việc không chồng nhau.
+ * `lyDoKhoa`: không cho bắt đầu đợt mới vì gian hàng chưa gọi được (vd. "Ủy quyền lại trước khi đồng bộ"). Nút mờ nhưng
+ * vẫn nhận tiêu điểm và di chuột (aria-disabled, không dùng disabled vì nút shadcn bị khóa thì bỏ qua chuột): lý do hiện ở
+ * chú thích khi di chuột và được đọc qua aria-describedby; "Đồng bộ lại" trong bảng kết quả cũng nhường chỗ cho lý do.
  */
-export default function NutDongBoNgay({ tienDo, tenSan, onDen, viecPhu = null }) {
+export default function NutDongBoNgay({ tienDo, tenSan, onDen, viecPhu = null, lyDoKhoa = null }) {
   const { phien, dangChay, dangGui, conLaiMs, cuaTrangNay, daXem, danhDauDaXem, sanSang = true, batDau, dung } = tienDo;
   const [mo, setMo] = useState(false);
+  const idLyDo = useId();
 
   const ketThucCuaTrang = cuaTrangNay && phien && !dangChay ? phien.maPhien : null;
   const choXem = ketThucCuaTrang != null && ketThucCuaTrang !== daXem;
   // Việc khác của trang chỉ chạy được khi rảnh (menu ⋯ khóa lúc đang đồng bộ)
   const banViecKhac = Boolean(viecPhu) && !dangChay && !dangGui;
-  // Chưa tải xong thông tin gian hàng: chưa cho bắt đầu đợt mới (kết quả chưa xem vẫn mở xem được)
-  const chuaSanSang = !sanSang && !dangChay && !dangGui && !choXem;
+  // Bấm nút lúc rảnh là bắt đầu đợt mới (kết quả chưa xem thì bấm để mở xem)
+  const ranh = !dangChay && !dangGui && !choXem;
+  // Gian hàng đang bị khóa: không cho bắt đầu đợt mới
+  const khoaBatDau = Boolean(lyDoKhoa) && ranh;
+  // Chưa tải xong thông tin gian hàng (1–2 giây đầu mỗi lần mở trang): giữ kiểu nút bình thường để không nhấp nháy
+  // trạng thái khóa; bấm lúc này thì báo chờ, không bắt đầu
+  const choTai = !sanSang && !lyDoKhoa && ranh;
   const hien = dangGui && !dangChay ? PHIEN_DANG_BAT_DAU : phien;
   const pct = phanTramDongBo(hien);
 
@@ -61,10 +73,29 @@ export default function NutDongBoNgay({ tienDo, tenSan, onDen, viecPhu = null })
     if (!p) setMo(false);
   };
 
+  // "Đồng bộ lại" trong bảng kết quả: cùng điều kiện với nút chính
+  const batDauLai = () => {
+    if (lyDoKhoa) return;
+    if (!sanSang) {
+      toast.info(CHUA_SAN_SANG);
+      return;
+    }
+    void batDau();
+  };
+
   const doiMo = (moMoi) => {
     if (moMoi) {
-      if (banViecKhac || chuaSanSang) return;
-      if (!dangChay && !choXem && !dangGui) {
+      if (banViecKhac) return;
+      // Màn chạm không hiện title: bấm vào nút đang khóa thì nói lý do
+      if (khoaBatDau) {
+        toast.info(lyDoKhoa);
+        return;
+      }
+      if (choTai) {
+        toast.info(CHUA_SAN_SANG);
+        return;
+      }
+      if (ranh) {
         void batDauVaMo();
         return;
       }
@@ -123,43 +154,59 @@ export default function NutDongBoNgay({ tienDo, tenSan, onDen, viecPhu = null })
   }
 
   return (
-    <Popover open={mo} onOpenChange={doiMo}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          aria-haspopup="dialog"
-          aria-label={dangChay ? `Đang đồng bộ ${pct}%, ${mo ? "ẩn" : "xem"} tiến độ` : undefined}
-          aria-busy={banViecKhac || dangGui || undefined}
-          disabled={banViecKhac || chuaSanSang}
-          title={chuaSanSang ? "Chưa tải xong thông tin gian hàng" : undefined}
-          className={cn(NUT, dangChay && "border-[#b9d5ff] text-[#0b4fb3] hover:bg-bo-primary-soft", banViecKhac && "disabled:opacity-100 text-bo-muted")}
+    <>
+      <Popover open={mo} onOpenChange={doiMo}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            aria-haspopup="dialog"
+            aria-label={dangChay ? `Đang đồng bộ ${pct}%, ${mo ? "ẩn" : "xem"} tiến độ` : undefined}
+            aria-busy={banViecKhac || dangGui || choTai || undefined}
+            aria-disabled={khoaBatDau || undefined}
+            aria-describedby={khoaBatDau ? idLyDo : undefined}
+            disabled={banViecKhac}
+            title={khoaBatDau ? lyDoKhoa : undefined}
+            className={cn(
+              NUT,
+              dangChay && "border-[#b9d5ff] text-[#0b4fb3] hover:bg-bo-primary-soft",
+              banViecKhac && "disabled:opacity-100 text-bo-muted",
+              khoaBatDau && "cursor-not-allowed opacity-50 hover:bg-white",
+            )}
+          >
+            {noiDungNut}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="end"
+          sideOffset={8}
+          aria-label="Tiến độ đồng bộ"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          className="w-[376px] max-w-[calc(100vw-32px)] rounded-[10px] border-bo-border bg-white p-0 text-bo-foreground shadow-[0_16px_40px_-12px_rgba(16,24,40,0.28),0_2px_6px_rgba(16,24,40,0.06)]"
         >
-          {noiDungNut}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        sideOffset={8}
-        aria-label="Tiến độ đồng bộ"
-        onOpenAutoFocus={(e) => e.preventDefault()}
-        className="w-[376px] max-w-[calc(100vw-32px)] rounded-[10px] border-bo-border bg-white p-0 text-bo-foreground shadow-[0_16px_40px_-12px_rgba(16,24,40,0.28),0_2px_6px_rgba(16,24,40,0.06)]"
-      >
-        {hien ? (
-          <BangTienDo
-            phien={hien}
-            pct={pct}
-            conLaiMs={conLaiMs}
-            tenSan={tenSan}
-            onDong={() => doiMo(false)}
-            onDung={dung}
-            onBatDauLai={batDau}
-            dangGui={dangGui}
-            onDen={den}
-          />
-        ) : null}
-      </PopoverContent>
-    </Popover>
+          {hien ? (
+            <BangTienDo
+              phien={hien}
+              pct={pct}
+              conLaiMs={conLaiMs}
+              tenSan={tenSan}
+              onDong={() => doiMo(false)}
+              onDung={dung}
+              onBatDauLai={batDauLai}
+              lyDoKhoa={lyDoKhoa}
+              dangGui={dangGui}
+              onDen={den}
+            />
+          ) : null}
+        </PopoverContent>
+      </Popover>
+      {/* Lý do khóa cho trình đọc màn hình; người dùng chuột đọc ở chú thích (title) của nút */}
+      {khoaBatDau ? (
+        <span id={idLyDo} className="sr-only">
+          {lyDoKhoa}
+        </span>
+      ) : null}
+    </>
   );
 }
 
@@ -177,7 +224,7 @@ function VongTienDo({ pct }) {
   );
 }
 
-function BangTienDo({ phien: p, pct, conLaiMs, tenSan, onDong, onDung, onBatDauLai, dangGui, onDen }) {
+function BangTienDo({ phien: p, pct, conLaiMs, tenSan, onDong, onDung, onBatDauLai, lyDoKhoa, dangGui, onDen }) {
   const chay = dangChayDongBo(p);
   const kq = chay ? null : ketQuaDongBo(p);
   const buoc = cacBuocDongBo(p, tenSan);
@@ -204,7 +251,7 @@ function BangTienDo({ phien: p, pct, conLaiMs, tenSan, onDong, onDung, onBatDauL
           onClick={onDong}
           aria-label={chay ? "Ẩn bảng, đồng bộ vẫn chạy" : "Đóng"}
           title={chay ? "Ẩn, đồng bộ vẫn chạy tiếp" : "Đóng"}
-          className="grid size-7 shrink-0 place-items-center rounded-md text-bo-muted transition-colors hover:bg-[#eef1f5] hover:text-bo-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
+          className="grid size-7 shrink-0 place-items-center rounded-md text-bo-muted transition-colors hover:bg-[#eef1f5] hover:text-bo-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 max-sm:size-11"
         >
           {chay ? <Minus className="size-4" /> : <X className="size-4" />}
         </button>
@@ -288,10 +335,15 @@ function BangTienDo({ phien: p, pct, conLaiMs, tenSan, onDong, onDung, onBatDauL
                 Mở cấu hình
               </button>
             ) : null}
-            <button type="button" onClick={onBatDauLai} disabled={dangGui} className={NUT_NHO}>
-              <RefreshCw className={cn("size-3", dangGui && "animate-spin")} />
-              Đồng bộ lại
-            </button>
+            {/* Gian hàng đang bị khóa (vd. hết hạn ủy quyền): ghi lý do thay cho nút, không để nút bấm vào chỉ để báo lỗi */}
+            {lyDoKhoa ? (
+              <span className="text-[12.5px] font-medium text-bo-warning">{lyDoKhoa}</span>
+            ) : (
+              <button type="button" onClick={onBatDauLai} disabled={dangGui} className={NUT_NHO}>
+                <RefreshCw className={cn("size-3", dangGui && "animate-spin")} />
+                Đồng bộ lại
+              </button>
+            )}
           </>
         )}
       </div>

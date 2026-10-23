@@ -21,7 +21,8 @@ export default function BottomActionBar({ note, children, className }) {
 }
 
 /** Kiểu nút dùng trên thanh đáy và trong trang kênh: chính (xanh đặc) và phụ (viền xám). */
+// Điện thoại (dưới 640 px): cao 44 px cho dễ chạm
 export const NUT_CHINH =
-  "h-10 gap-2 rounded-lg bg-bo-primary px-4 text-white hover:bg-bo-primary-hover disabled:bg-slate-200 disabled:text-slate-600 disabled:opacity-100";
+  "h-10 gap-2 rounded-lg bg-bo-primary px-4 text-white hover:bg-bo-primary-hover disabled:bg-slate-200 disabled:text-slate-600 disabled:opacity-100 max-sm:h-11";
 export const NUT_PHU =
-  "h-10 gap-2 rounded-lg border-bo-border bg-white px-4 text-bo-foreground hover:bg-bo-surface-subtle";
+  "h-10 gap-2 rounded-lg border-bo-border bg-white px-4 text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11";

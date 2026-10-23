@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button";
 import KetNoiShopifyForm from "@/components/channel/KetNoiShopifyForm";
 import { NUT_CHINH, NUT_PHU } from "@/components/channel/BottomActionBar";
-import { kiemTraGiaTriKetNoi, taoGiaTriKetNoi, taoPayloadKetNoi } from "@/components/channel/ketNoiShopify";
+import { kiemTraGiaTriKetNoi, taoGiaTriKetNoi, taoPayloadKetNoi } from "@/components/channel/ketNoiKenh";
 import { kenhBanHangService } from "@/services/kenhBanHangService";
 import { getApiErrorMessage } from "@/utils/apiError";
 

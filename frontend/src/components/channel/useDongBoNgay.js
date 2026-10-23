@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "@/lib/thongBaoNhanh";
 import { kenhBanHangService } from "@/services/kenhBanHangService";
-import { getApiErrorMessage } from "@/utils/apiError";
+import { getApiErrorCode, getApiErrorMessage } from "@/utils/apiError";
 import { getCurrentUserId } from "@/utils/roles";
 import { DB_TRANG_THAI, dangChayDongBo, uocTinhConLaiMs } from "./tienDoDongBo";
 import { docBoNho, ghiBoNho, ngheBoNho, trangThaiDau } from "./boNhoDongBo";
@@ -10,6 +10,8 @@ const CHU_KY_HOI_MS = 1000;
 const CHU_KY_HOI_LAI_KHI_LOI_MS = 3000;
 const LY_DO_MAT_THEO_DOI =
   "Không còn theo dõi được đợt này vì máy chủ vừa khởi động lại. SKU đã đẩy vẫn được lưu, bấm Đồng bộ lại để chạy tiếp.";
+/** Mã lỗi (KH mục C.4) cho biết gian hàng không còn gọi được: trang cần đọc lại kết nối. */
+const MA_LOI_MAT_KET_NOI = new Set(["UY_QUYEN_HET_HAN", "KENH_CHUA_KET_NOI"]);
 
 /**
  * "Đồng bộ ngay" của một kênh: máy chủ chạy nền, trang hỏi tiến độ mỗi giây trong lúc chạy.
@@ -23,8 +25,10 @@ const LY_DO_MAT_THEO_DOI =
  * - `conLaiMs`: thời gian còn lại ước tính, không nhảy ngược lên vì dao động nhỏ giữa hai lần hỏi.
  * - `daXem` / `danhDauDaXem(maPhien)`: đợt đã mở xem kết quả rồi đóng, nhớ chung cho các trang.
  * - `sanSang`: = `enabled`; chưa sẵn sàng (chưa tải xong thông tin gian hàng) thì không bắt đầu đợt mới.
+ * - `onMatKetNoi(error)`: bấm bắt đầu mà máy chủ trả `UY_QUYEN_HET_HAN` / `KENH_CHUA_KET_NOI` (sau toast lỗi như mọi lỗi
+ *   khác): trang đọc lại kết nối để khóa nút và hiện thanh nhắc, menu bên trái tải lại danh sách sàn.
  */
-export default function useDongBoNgay(maKenh, { enabled = true, onXong } = {}) {
+export default function useDongBoNgay(maKenh, { enabled = true, onXong, onMatKetNoi } = {}) {
   // Bộ nhớ theo kênh và người đăng nhập: đăng xuất rồi người khác vào cùng tab không thấy đợt của người trước
   const maBoNho = useMemo(() => `${maKenh}@${getCurrentUserId() ?? ""}`, [maKenh]);
   // Đọc bộ nhớ một lần lúc mở trang (useState chỉ dùng giá trị đầu)
@@ -41,8 +45,10 @@ export default function useDongBoNgay(maKenh, { enabled = true, onXong } = {}) {
   const daBaoXong = useRef(new Set(dau.daBaoXong));
   const conLaiTruoc = useRef({ maPhien: null, ms: null });
   const onXongRef = useRef(onXong);
+  const onMatKetNoiRef = useRef(onMatKetNoi);
   useEffect(() => {
     onXongRef.current = onXong;
+    onMatKetNoiRef.current = onMatKetNoi;
   });
 
   const daNhanRef = useRef(false);
@@ -150,6 +156,7 @@ export default function useDongBoNgay(maKenh, { enabled = true, onXong } = {}) {
       return p;
     } catch (error) {
       toast.error(getApiErrorMessage(error, "Không bắt đầu được đồng bộ"));
+      if (MA_LOI_MAT_KET_NOI.has(getApiErrorCode(error))) onMatKetNoiRef.current?.(error);
       return null;
     } finally {
       dangGuiRef.current = false;

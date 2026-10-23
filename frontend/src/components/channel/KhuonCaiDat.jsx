@@ -13,6 +13,12 @@ import { cn } from "@/lib/utils";
  */
 
 /**
+ * Vùng chạm của công tắc (Switch 32×18) trên điện thoại (dưới 640 px): lớp ::after trong suốt nới ra 44×44 quanh công tắc,
+ * hình và chỗ của công tắc không đổi (cùng cách nút của components/ui/sidebar). Màn rộng giữ nguyên.
+ */
+export const VUNG_CHAM_CONG_TAC = "max-sm:relative max-sm:after:absolute max-sm:after:-inset-x-1.5 max-sm:after:-inset-y-[13px]";
+
+/**
  * Cột nội dung của Thiết lập và màn giới thiệu: rộng hết vùng nội dung như Sản phẩm, Đơn hàng, Cấu hình,
  * hai mép thẳng với thanh trên cùng ở mọi khổ màn (không chừa khoảng trống một bên).
  */
@@ -46,12 +52,15 @@ export function TheCaiDat({ title, description, children, className, ...props })
  * Một dòng tùy chọn: tên (+ một câu) bên trái, điều khiển bên phải.
  * `children`: phần mở rộng bên dưới dòng (vd. các ô của "Tùy chỉnh").
  * `htmlFor`: id của điều khiển để bấm vào tên cũng chọn được.
+ * `giaTriChu`: điều khiển chỉ là chữ (dòng khóa–giá trị như "Đơn hủy", "Chu kỳ chạy"): trên điện thoại giá trị luôn
+ * nằm dưới tên, để các dòng trong thẻ thẳng nhau dù giá trị dài hay ngắn.
  */
-export function DongCaiDat({ title, description, control, htmlFor, children, className, motaId }) {
+export function DongCaiDat({ title, description, control, htmlFor, children, className, motaId, giaTriChu = false }) {
   return (
     <div className={cn("px-6 py-4", className)}>
-      <div className="flex items-center gap-4">
-        <div className="min-w-0 flex-1">
+      {/* Thiếu chỗ (điện thoại) thì điều khiển xuống hàng dưới tên, không ép tên thành cột hẹp */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="min-w-0 flex-1 basis-44">
           {htmlFor ? (
             <label htmlFor={htmlFor} className="cursor-pointer text-sm font-medium text-bo-heading">
               {title}
@@ -65,7 +74,7 @@ export function DongCaiDat({ title, description, control, htmlFor, children, cla
             </p>
           ) : null}
         </div>
-        {control ? <div className="flex shrink-0 items-center gap-2">{control}</div> : null}
+        {control ? <div className={cn("flex shrink-0 items-center gap-2", giaTriChu && "max-sm:basis-full")}>{control}</div> : null}
       </div>
       {children ? <div className="mt-3">{children}</div> : null}
     </div>
@@ -88,18 +97,44 @@ export function DongCongTac({ title, description, checked, onCheckedChange, disa
           onCheckedChange={onCheckedChange}
           disabled={disabled}
           aria-describedby={description ? `${id}-mo-ta` : undefined}
-          className={SWITCH_CLASS}
+          className={cn(SWITCH_CLASS, VUNG_CHAM_CONG_TAC)}
         />
       }
     />
   );
 }
 
-/** Nút chọn 2–3 phương án dạng phân đoạn (vd. "Bằng số khả dụng | Tùy chỉnh"). */
+const PHIM_DI_CHUYEN = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
+
+/**
+ * Nút chọn 2–3 phương án dạng phân đoạn (vd. "Bằng số khả dụng | Tùy chỉnh"), theo mẫu radiogroup: Tab vào nhóm dừng ở
+ * lựa chọn đang chọn (roving tabindex), mũi tên trái/phải (hoặc lên/xuống) đổi lựa chọn và chuyển tiêu điểm theo,
+ * Home/End về lựa chọn đầu/cuối. Khóa (`disabled`) thì không nhận phím.
+ */
 export function ChonPhuongAn({ value, options, onChange, label, disabled = false, className }) {
+  const viTriChon = options.findIndex((option) => option.value === value);
+  const viTriTab = viTriChon >= 0 ? viTriChon : 0;
+
+  const doiBangPhim = (event, viTri) => {
+    if (disabled || !options.length) return;
+    let moi;
+    if (PHIM_DI_CHUYEN[event.key]) moi = (viTri + PHIM_DI_CHUYEN[event.key] + options.length) % options.length;
+    else if (event.key === "Home") moi = 0;
+    else if (event.key === "End") moi = options.length - 1;
+    else return;
+    event.preventDefault();
+    event.currentTarget.parentElement?.querySelectorAll('[role="radio"]')[moi]?.focus();
+    if (options[moi].value !== value) onChange(options[moi].value);
+  };
+
   return (
-    <div role="radiogroup" aria-label={label} className={cn("inline-flex shrink-0 gap-0.5 rounded-lg bg-slate-100 p-0.5", className)}>
-      {options.map((option) => {
+    <div
+      role="radiogroup"
+      aria-label={label}
+      aria-disabled={disabled || undefined}
+      className={cn("inline-flex shrink-0 gap-0.5 rounded-lg bg-slate-100 p-0.5", className)}
+    >
+      {options.map((option, viTri) => {
         const chon = option.value === value;
         return (
           <button
@@ -107,10 +142,12 @@ export function ChonPhuongAn({ value, options, onChange, label, disabled = false
             type="button"
             role="radio"
             aria-checked={chon}
+            tabIndex={viTri === viTriTab ? 0 : -1}
             disabled={disabled}
             onClick={() => onChange(option.value)}
+            onKeyDown={(event) => doiBangPhim(event, viTri)}
             className={cn(
-              "h-7 whitespace-nowrap rounded-md px-3 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:cursor-not-allowed",
+              "h-7 whitespace-nowrap rounded-md px-3 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:cursor-not-allowed max-sm:h-11",
               chon ? "bg-white text-bo-heading shadow-[0_1px_2px_rgba(15,23,42,0.14)]" : "text-bo-muted hover:text-bo-foreground",
             )}
           >
@@ -132,7 +169,7 @@ export function OSoNho({ label, unit, value, onChange, error, disabled = false, 
       </label>
       <div
         className={cn(
-          "inline-flex h-8 items-center rounded-lg border bg-white focus-within:ring-2",
+          "inline-flex h-8 items-center rounded-lg border bg-white focus-within:ring-2 max-sm:h-11",
           error ? "border-bo-danger focus-within:ring-bo-danger/15" : "border-bo-border focus-within:border-bo-primary focus-within:ring-bo-primary/15",
         )}
       >
@@ -187,7 +224,7 @@ export function ThanhLuuTrenCung({ hien, dangLuu = false, khoa = false, onHuy, o
           variant="outline"
           disabled={khoa || dangLuu}
           onClick={onHuy}
-          className="h-8 rounded-lg border-white/30 bg-transparent px-3 text-white hover:bg-white/10 hover:text-white"
+          className="h-8 rounded-lg border-white/30 bg-transparent px-3 text-white hover:bg-white/10 hover:text-white max-sm:h-11"
         >
           Hủy bỏ
         </Button>
@@ -195,7 +232,7 @@ export function ThanhLuuTrenCung({ hien, dangLuu = false, khoa = false, onHuy, o
           type="button"
           disabled={khoa || dangLuu}
           onClick={onLuu}
-          className="h-8 gap-2 rounded-lg bg-bo-primary px-4 text-white hover:bg-bo-primary-hover"
+          className="h-8 gap-2 rounded-lg bg-bo-primary px-4 text-white hover:bg-bo-primary-hover max-sm:h-11"
         >
           {dangLuu ? <Loader2 className="size-4 animate-spin" /> : null}
           {dangLuu ? "Đang lưu…" : nhanLuu}

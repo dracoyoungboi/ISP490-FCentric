@@ -38,7 +38,7 @@ export default function GhepBienThe({ dong, tenSan, dangGhep = false, onHuy, onG
       <p className="px-3.5 pb-1 pt-3 text-[13px] text-bo-muted">
         Ghép <span className="font-semibold tabular-nums text-bo-heading">{dong.skuSan || "—"}</span> trên {tenSan} với
       </p>
-      <label className="mx-3 my-2 flex h-9 items-center gap-2 rounded-lg border border-bo-border px-2.5 focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15">
+      <label className="mx-3 my-2 flex h-9 items-center gap-2 rounded-lg border border-bo-border px-2.5 focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 max-sm:h-11">
         <Search className="size-4 shrink-0 text-slate-400" aria-hidden="true" />
         <input
           autoFocus
@@ -87,7 +87,7 @@ export default function GhepBienThe({ dong, tenSan, dangGhep = false, onHuy, onG
           variant="outline"
           disabled={dangGhep}
           onClick={onHuy}
-          className="h-8 rounded-lg border-bo-border bg-white px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle"
+          className="h-8 rounded-lg border-bo-border bg-white px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11"
         >
           Hủy bỏ
         </Button>
@@ -95,7 +95,7 @@ export default function GhepBienThe({ dong, tenSan, dangGhep = false, onHuy, onG
           type="button"
           disabled={!chon || dangGhep || chon.id === dong.bienTheSanPhamId}
           onClick={() => chon && onGhep(chon)}
-          className="h-8 gap-2 rounded-lg bg-bo-primary px-3 text-[13px] text-white hover:bg-bo-primary-hover"
+          className="h-8 gap-2 rounded-lg bg-bo-primary px-3 text-[13px] text-white hover:bg-bo-primary-hover max-sm:h-11"
         >
           {dangGhep ? <Loader2 className="size-4 animate-spin" /> : null}
           Ghép
