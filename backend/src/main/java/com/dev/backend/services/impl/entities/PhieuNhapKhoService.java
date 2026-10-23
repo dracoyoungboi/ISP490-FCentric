@@ -1123,8 +1123,17 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
             boolean isReturn = phieu.getPhieuChuyenKhoGoc() != null && phieu.getKho().getId().equals(phieu.getPhieuChuyenKhoGoc().getKho().getId());
             builder.loaiNhap(isReturn ? "Nhập hoàn trả (Hủy chuyển kho)" : "Chuyển kho nội bộ");
 
-            List<String> tenKhoNguonList = lichSuGiaoDichKhoRepository.findTenKhoNguonByPhieuNhap(id);
-            if (!tenKhoNguonList.isEmpty()) builder.tenKhoChuyenTu(tenKhoNguonList.get(0));
+            // Phiếu nhập chuyển kho: kho hàng đi ra lấy từ phiếu chuyển gốc nên có ngay cả khi chưa nhận hàng (sổ kho chỉ có
+            // sau khi nhập). Phiếu hoàn trả (hủy chuyển): hàng quay về từ hàng đi đường, chưa từng tới kho đích → giữ cách
+            // cũ (sổ kho), không ghi tên kho đích để khỏi hiểu nhầm kho đích gửi trả.
+            PhieuXuatKho goc = phieu.getPhieuChuyenKhoGoc();
+            if (goc != null) builder.soPhieuChuyenKhoGoc(goc.getSoPhieuXuat());
+            if (goc != null && !isReturn && goc.getKho() != null) {
+                builder.tenKhoChuyenTu(goc.getKho().getTenKho());
+            } else {
+                List<String> tenKhoNguonList = lichSuGiaoDichKhoRepository.findTenKhoNguonByPhieuNhap(id);
+                if (!tenKhoNguonList.isEmpty()) builder.tenKhoChuyenTu(tenKhoNguonList.get(0));
+            }
         } else {
             builder.loaiNhap("Nhập từ đơn mua hàng");
             builder.donMuaHangId(phieu.getDonMuaHang().getId()).soDonMua(phieu.getDonMuaHang().getSoDonMua());

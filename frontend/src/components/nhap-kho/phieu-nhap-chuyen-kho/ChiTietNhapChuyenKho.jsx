@@ -185,7 +185,7 @@ export default function ChiTietNhapChuyenKho({ data, onReload }) {
               ds={data.phieuXuatGocId ? [{
                 khoa: "phieu-chuyen",
                 loai: "Phiếu chuyển kho nội bộ",
-                ma: "Mở phiếu chuyển kho",
+                ma: data.soPhieuChuyenKhoGoc || "Mở phiếu chuyển kho",
                 to: `/transfer-tickets/${data.phieuXuatGocId}`,
               }] : []}
             />

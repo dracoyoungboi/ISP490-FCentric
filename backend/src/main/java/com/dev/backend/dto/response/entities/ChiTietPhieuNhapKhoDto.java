@@ -28,6 +28,8 @@ public class ChiTietPhieuNhapKhoDto {
     private String tenNguoiDuyet;
     List<PhieuNhapKhoItemDto> items;
     private Integer phieuXuatGocId;
+    // Số phiếu chuyển kho gốc (hiện ở "Chứng từ liên quan" thay cho chữ chung chung)
+    private String soPhieuChuyenKhoGoc;
     Double tienDoKiemDem;
     Integer tongSoLuongLoi;
     Integer tongSoLuongDat;
