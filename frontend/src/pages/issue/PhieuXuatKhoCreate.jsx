@@ -1,34 +1,54 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { ArrowRight, ChevronDown, Package } from "lucide-react";
 import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
 import { phieuChuyenKhoService } from "@/services/phieuChuyenKhoService";
 import { getMineKhoList } from "@/services/khoService";
 import { toast } from "@/lib/thongBaoNhanh";
+import { cn } from "@/lib/utils";
 import PageContainer from "@/components/backoffice/PageContainer";
-import SurfaceCard from "@/components/shared/SurfaceCard";
-import TableShell from "@/components/shared/TableShell";
 import EmptyState from "@/components/shared/EmptyState";
-import { Button } from "@/components/ui/button";
-import {
-    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-    ChevronDown, Warehouse, ArrowRightLeft, Package,
-    ArrowLeft, Loader2, Info as InfoIcon,
-} from "lucide-react";
+import LoadingState from "@/components/shared/LoadingState";
+import KhungChungTu from "@/components/chung-tu/KhungChungTu";
+import DauChungTu from "@/components/chung-tu/DauChungTu";
+import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
+import CotThuocTinh, { BangThuocTinh, NhomThuocTinh } from "@/components/chung-tu/CotThuocTinh";
+import TuyenChuyen from "@/components/chung-tu/TuyenChuyen";
+import BangHangTaoPhieu from "@/components/chung-tu/BangHangTaoPhieu";
+import useBangChungTu from "@/components/chung-tu/useBangChungTu";
+import { soVN } from "@/components/chung-tu/bangChungTu";
+import { NHAN_O, O_NHAP } from "@/components/chung-tu/kieuHopThoai";
+import { dongChuyenKho } from "@/components/chuyen-kho/tinhChuyenKho";
+import { getKhoLamViecId, laKhoLamViecHopLe, setKhoLamViecId } from "@/utils/khoLamViec";
+import { ROLES, hasAnyRole } from "@/utils/roles";
 
-const FIELD_LABEL_CLASS =
-    "text-xs font-semibold uppercase tracking-wide text-bo-muted";
-const DROPDOWN_CONTENT_CLASS =
-    "z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg";
-const DROPDOWN_ITEM_CLASS =
-    "cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
-const TH_CLASS =
-    "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
+// Ô chọn gốc của trình duyệt nhưng bỏ mũi tên mặc định (Windows vẽ thành ô vuông), thay bằng ChevronDown
+const O_CHON = cn(O_NHAP, "cursor-pointer appearance-none pr-9");
+
+/** Ngày giờ ngắn "15:37 · 23/10/2026" theo giờ máy người dùng. */
+function ngayGio(giaTri) {
+    if (!giaTri) return "";
+    const d = new Date(giaTri);
+    if (Number.isNaN(d.getTime())) return "";
+    const p = (n) => String(n).padStart(2, "0");
+    return `${p(d.getHours())}:${p(d.getMinutes())} · ${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+
+/** Nhân viên / quản lý kho: máy chủ kiểm header kho_id là kho của phiếu → làm việc luôn ở kho xuất trước khi tạo. */
+function lamViecTaiKho(khoId) {
+    if (!khoId || hasAnyRole([ROLES.QUAN_TRI_VIEN])) return;
+    if (getKhoLamViecId() === Number(khoId)) return;
+    if (laKhoLamViecHopLe({ id: Number(khoId), trangThai: 1 })) setKhoLamViecId(Number(khoId));
+}
 
 /**
- * Tạo phiếu xuất CHUYỂN KHO từ yêu cầu chuyển kho đã duyệt. Phiếu xuất bán hàng không tạo ở đây: hệ thống sinh khi
- * hoàn tất nhặt hàng (có sẵn lô của phiếu nhặt); phiếu bị hủy sau khi nhặt thì "Tạo lại phiếu xuất" ở màn đơn bán.
+ * Tạo phiếu xuất CHUYỂN KHO từ yêu cầu chuyển kho đã duyệt (/goods-issues/create?transferId=). Phiếu xuất bán hàng không
+ * tạo ở đây: hệ thống sinh khi hoàn tất nhặt hàng (có sẵn lô của phiếu nhặt); phiếu bị hủy sau khi nhặt thì "Tạo lại
+ * phiếu xuất" ở màn đơn bán. Khối chứng từ "một khối" như các màn tạo / chi tiết khác.
+ *
+ * Nghiệp vụ giữ như cũ: danh sách = phiếu chuyển trạng thái 2 (đã duyệt) của kho mình, chưa có phiếu xuất còn hiệu lực;
+ * POST /phieu-chuyen-kho/{id}/create-export. "Tạo phiếu" tạo rồi ở lại, "Tiếp tục bốc lô" tạo (nếu chưa) rồi mở phiếu.
+ * Phiếu đã tạo gắn với đúng yêu cầu đã chọn: đổi yêu cầu khác thì không mở nhầm phiếu cũ, cũng không tạo lần 2.
  */
 export default function PhieuXuatKhoCreate() {
     const navigate = useNavigate();
@@ -38,7 +58,12 @@ export default function PhieuXuatKhoCreate() {
     const [warehouses, setWarehouses] = useState([]);
     const [selectedTransfer, setSelectedTransfer] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [createdId, setCreatedId] = useState(null);
+    const [dangTai, setDangTai] = useState(true);
+    const [dangTaiPhieu, setDangTaiPhieu] = useState(false);
+    const [loiTai, setLoiTai] = useState(false);
+    // Phiếu xuất đã tạo theo từng yêu cầu chuyển: { [transferId]: phieuXuatId }
+    const [daTao, setDaTao] = useState({});
+    const dangTaoRef = useRef(false);
     const [form, setForm] = useState({ transferId: "", khoId: "" });
 
     const handleSelectTransfer = useCallback(async (transferId) => {
@@ -47,16 +72,22 @@ export default function PhieuXuatKhoCreate() {
             setForm((prev) => ({ ...prev, transferId: "" }));
             return;
         }
+        setDangTaiPhieu(true);
         try {
             const res = await phieuChuyenKhoService.getDetail(transferId);
             const data = res.data || res;
             setSelectedTransfer(data);
             setForm(prev => ({ ...prev, transferId: data.id, khoId: data.khoXuatId }));
-        } catch { toast.error("Không thể tải chi tiết yêu cầu chuyển kho"); }
+        } catch {
+            toast.error("Không thể tải chi tiết yêu cầu chuyển kho");
+        } finally {
+            setDangTaiPhieu(false);
+        }
     }, []);
 
     const fetchInitialData = useCallback(async () => {
-        setLoading(true);
+        setDangTai(true);
+        setLoiTai(false);
         try {
             const myWarehousesRes = await getMineKhoList();
             const warehouseList = myWarehousesRes.data || myWarehousesRes;
@@ -123,8 +154,9 @@ export default function PhieuXuatKhoCreate() {
 
         } catch {
             toast.error("Không thể tải dữ liệu khởi tạo");
+            setLoiTai(true);
         } finally {
-            setLoading(false);
+            setDangTai(false);
         }
     }, [searchParams, handleSelectTransfer]);
 
@@ -134,187 +166,179 @@ export default function PhieuXuatKhoCreate() {
         queueMicrotask(() => fetchInitialData());
     }, [fetchInitialData]);
 
+    const idDaTao = form.transferId ? daTao[String(form.transferId)] ?? null : null;
+
+    // Trả về id phiếu xuất của yêu cầu đang chọn (đã có hoặc vừa tạo); null nếu chưa tạo được / đang tạo dở
     async function createPhieu() {
         if (!form.transferId) return toast.error("Vui lòng chọn yêu cầu chuyển kho"), null;
+        if (idDaTao) return idDaTao;
+        if (dangTaoRef.current) return null;
+        dangTaoRef.current = true;
         try {
             setLoading(true);
+            lamViecTaiKho(selectedTransfer?.khoXuatId || form.khoId);
             const res = await phieuChuyenKhoService.createExport(form.transferId);
-            const newId = res.data?.id || res.id;
-            setCreatedId(newId);
+            const newId = res.data?.data?.id || res.data?.id || res.id;
+            if (newId) setDaTao(prev => ({ ...prev, [String(form.transferId)]: newId }));
             toast.success("Khởi tạo phiếu xuất chuyển kho thành công");
-            return newId;
-        } catch (e) { toast.error(e?.response?.data?.message || "Không thể tạo phiếu xuất chuyển kho"); return null; }
-        finally { setLoading(false); }
+            return newId || null;
+        } catch (e) {
+            toast.error(e?.response?.data?.message || "Không thể tạo phiếu xuất chuyển kho");
+            return null;
+        } finally {
+            setLoading(false);
+            dangTaoRef.current = false;
+        }
     }
 
     async function handleSaveDraft() { await createPhieu(); }
     async function handleContinue() {
-        const id = createdId || await createPhieu();
+        const id = await createPhieu();
         if (id) navigate(`/goods-issues/${id}`);
     }
 
-    const transferLabel = form.transferId ? transferList.find(t => t.id === parseInt(form.transferId))?.soPhieuXuat : "Chọn yêu cầu chuyển kho";
-    const khoLabel = form.khoId ? warehouses.find(k => k.id === parseInt(form.khoId))?.tenKho : "Tự động trích xuất";
-    const canSubmit = !loading && Boolean(form.transferId);
+    // ── Bảng hàng: dùng chung cách đọc dòng của Chi tiết phiếu chuyển (màu, kích cỡ, ảnh khi máy chủ có) ──
+    const dongBang = useMemo(() => dongChuyenKho(selectedTransfer?.items), [selectedTransfer]);
+    const bangHang = useBangChungTu(dongBang);
+
+    if (dangTai) {
+        return (
+            <PageContainer>
+                <LoadingState rows={4} label="Đang tải dữ liệu khởi tạo" />
+            </PageContainer>
+        );
+    }
+
+    const khoXuatTen = selectedTransfer?.khoXuatTen
+        || warehouses.find(k => String(k.id) === String(form.khoId))?.tenKho
+        || "";
+
+    const lyDoKhoa = dangTaiPhieu
+        ? "Đang tải yêu cầu chuyển kho"
+        : !form.transferId || !selectedTransfer
+            ? "Chọn yêu cầu chuyển kho"
+            : "";
+    const khoa = Boolean(lyDoKhoa) || loading;
+
+    const dongPhu = selectedTransfer
+        ? [
+            "Xuất chuyển kho nội bộ",
+            `${soVN(bangHang.tong.soSanPham)} sản phẩm · ${soVN(bangHang.tong.soDong)} biến thể`,
+            `Tổng xuất ${soVN(bangHang.tong.soLuong)}`,
+        ]
+        : khoXuatTen ? ["Xuất chuyển kho nội bộ", `Từ ${khoXuatTen}`] : "Xuất chuyển kho nội bộ";
+
+    const thongBao = [
+        loiTai ? (
+            <DongThongBao key="loi-tai" tone="bad" actions={<NutChu onClick={fetchInitialData}>Thử lại</NutChu>}>
+                Không tải được danh sách yêu cầu chuyển kho chờ xuất.
+            </DongThongBao>
+        ) : null,
+        idDaTao ? (
+            <DongThongBao
+                key="da-tao"
+                tone="ok"
+                actions={<NutChu onClick={() => navigate(`/goods-issues/${idDaTao}`)}>Mở phiếu xuất</NutChu>}
+            >
+                Đã tạo phiếu xuất cho yêu cầu này. Bấm Tiếp tục bốc lô để chọn lô xuất hàng.
+            </DongThongBao>
+        ) : null,
+        <DongThongBao key="ban-hang" tone="neutral">
+            Phiếu xuất bán hàng được tạo tự động khi hoàn tất nhặt hàng, có sẵn lô của phiếu nhặt. Gom đơn vào phiếu nhặt ở màn{" "}
+            <Link to="/goods-issues/pending-orders" className="font-semibold text-bo-primary hover:underline">Đơn chờ xuất</Link>.
+        </DongThongBao>,
+    ].filter(Boolean);
+
+    const chonYeuCau = (
+        <div className="flex flex-wrap items-end gap-x-6 gap-y-3 border-t border-bo-border px-4 py-4 sm:px-6">
+            <label className="relative grid w-full min-w-0 gap-1.5 sm:w-[480px]">
+                <span className={NHAN_O}>
+                    Yêu cầu chuyển kho <span className="text-bo-danger">*</span>
+                </span>
+                <select
+                    className={O_CHON}
+                    value={form.transferId}
+                    disabled={loading || dangTaiPhieu}
+                    onChange={(e) => { bangHang.xoaTuKhoa(); handleSelectTransfer(e.target.value); }}
+                >
+                    <option value="">{transferList.length ? "Chọn yêu cầu đã duyệt, chờ xuất hàng" : loiTai ? "Chưa tải được danh sách yêu cầu" : "Không có yêu cầu nào chờ xuất"}</option>
+                    {transferList.map(t => (
+                        <option key={t.id} value={t.id}>
+                            {t.soPhieuXuat} · {t.kho?.tenKho} → {t.khoChuyenDen?.tenKho}
+                        </option>
+                    ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute bottom-2.5 right-3 size-4 text-bo-muted" aria-hidden="true" />
+            </label>
+        </div>
+    );
+
+    const bang = !selectedTransfer ? (
+        <EmptyState
+            icon={Package}
+            title={dangTaiPhieu ? "Đang tải yêu cầu chuyển kho…" : "Chưa chọn yêu cầu chuyển kho"}
+            description="Chỉ hiện yêu cầu đã duyệt xuất ở kho của bạn và chưa có phiếu xuất."
+            className="min-h-[280px] flex-1"
+        />
+    ) : (
+        <BangHangTaoPhieu
+            bang={bangHang}
+            cot={[{ ma: "sl", nhan: "Yêu cầu", lop: "w-28 text-right", nhom: (n) => soVN(n.tong.soLuong), dong: (d) => soVN(d.soLuong) }]}
+            tenChungTu="Yêu cầu chuyển kho"
+            nhan="Hàng trong yêu cầu chuyển kho"
+            rongToiThieu="@2xl/khoi:min-w-[420px]"
+        />
+    );
+
+    const cotPhai = selectedTransfer ? (
+        <CotThuocTinh nhan="Thông tin yêu cầu chuyển kho">
+            <NhomThuocTinh nhan="Tuyến chuyển">
+                <TuyenChuyen khoNguon={selectedTransfer.khoXuatTen} khoDich={selectedTransfer.khoNhapTen} />
+            </NhomThuocTinh>
+            <NhomThuocTinh>
+                <BangThuocTinh
+                    muc={[
+                        { nhan: "Ngày tạo", giaTri: ngayGio(selectedTransfer.ngayTao) },
+                        { nhan: "Người duyệt", giaTri: selectedTransfer.nguoiDuyetTen, an: !selectedTransfer.nguoiDuyetTen || selectedTransfer.nguoiDuyetTen === "Chưa duyệt" },
+                        { nhan: "Ghi chú", giaTri: selectedTransfer.ghiChu },
+                    ]}
+                />
+            </NhomThuocTinh>
+        </CotThuocTinh>
+    ) : null;
 
     return (
-        <PageContainer className="space-y-5">
-
-            {/* ── Header ── */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <button
-                    type="button"
-                    onClick={() => navigate("/goods-issues")}
-                    className="inline-flex items-center gap-1.5 text-sm font-medium text-bo-muted transition-colors hover:text-bo-primary"
-                >
-                    <ArrowLeft className="size-4" />
-                    Quay lại danh sách
-                </button>
-
-                <span className="inline-flex w-fit items-center gap-2 rounded-lg border border-bo-border bg-bo-surface-subtle px-3.5 py-2 text-sm font-semibold text-bo-foreground">
-                    <ArrowRightLeft className="size-4 text-bo-primary" />
-                    Xuất chuyển kho nội bộ
-                </span>
-            </div>
-
-            <div role="note" className="flex items-start gap-3 rounded-lg border border-bo-border bg-bo-surface-subtle p-3 text-sm text-slate-700">
-                <InfoIcon className="mt-0.5 size-4 shrink-0 text-bo-muted" />
-                <p>
-                    Phiếu xuất bán hàng được tạo tự động khi hoàn tất nhặt hàng, có sẵn lô của phiếu nhặt. Gom đơn vào phiếu nhặt ở màn{" "}
-                    <Link to="/goods-issues/pending-orders" className="font-semibold text-bo-primary hover:underline">Đơn chờ xuất</Link>.
-                </p>
-            </div>
-
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-
-                {/* ── LEFT: Thông tin phiếu xuất ── */}
-                <SurfaceCard
-                    className="lg:col-span-1"
-                    title="Thông tin phiếu xuất"
-                    description="Chọn yêu cầu chuyển kho"
-                    contentClassName="space-y-5"
-                >
-                    {/* Nguồn */}
-                    <div className="space-y-1.5">
-                        <label className={FIELD_LABEL_CLASS}>Yêu cầu chuyển kho</label>
-                        <DropdownMenu modal={false}>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" className="h-10 w-full justify-between border-bo-border bg-white font-normal text-bo-foreground hover:bg-bo-surface-subtle">
-                                    <div className="flex min-w-0 items-center">
-                                        <Package className="mr-2 size-4 shrink-0 text-bo-muted" />
-                                        <span className="truncate text-sm">{transferLabel}</span>
-                                    </div>
-                                    <ChevronDown className="ml-2 size-4 shrink-0 opacity-50" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent
-                                align="start"
-                                className={`${DROPDOWN_CONTENT_CLASS} max-h-[300px] w-[280px] overflow-y-auto`}
-                            >
-                                {transferList.length === 0 ? (
-                                    <DropdownMenuItem disabled className="px-2.5 py-1.5 text-sm italic text-bo-muted">Không có yêu cầu nào khả dụng</DropdownMenuItem>
-                                ) : transferList.map(t => (
-                                    <DropdownMenuItem key={t.id} onClick={() => handleSelectTransfer(t.id)} className={`${DROPDOWN_ITEM_CLASS} flex flex-col items-start py-2`}>
-                                        <span className="font-medium text-slate-900">{t.soPhieuXuat}</span>
-                                        <span className="text-xs text-bo-muted">Đến: {t.khoChuyenDen?.tenKho}</span>
-                                    </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-
-                    {/* Kho xuất */}
-                    <div className="space-y-1.5">
-                        <label className={FIELD_LABEL_CLASS}>Kho xuất hàng</label>
-                        <Button variant="outline" disabled className="h-10 w-full justify-between border-bo-border bg-bo-surface-subtle font-semibold text-bo-foreground disabled:opacity-80">
-                            <div className="flex min-w-0 items-center">
-                                <Warehouse className="mr-2 size-4 shrink-0 text-bo-muted" />
-                                <span className="truncate text-sm">{khoLabel}</span>
-                            </div>
-                        </Button>
-                    </div>
-                </SurfaceCard>
-
-                {/* ── RIGHT: Bảng sản phẩm ── */}
-                <div className="lg:col-span-2">
-                    {!selectedTransfer ? (
-                        <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
-                            <EmptyState
-                                icon={Package}
-                                title="Chưa có dữ liệu"
-                                description="Vui lòng chọn yêu cầu chuyển kho để xem danh sách sản phẩm."
-                            />
-                        </div>
-                    ) : (
-                        <TableShell
-                            title="Chi tiết yêu cầu điều chuyển"
-                            description="Danh sách hàng hóa cần xuất kho"
-                            toolbar={
-                                selectedTransfer.soPhieuXuat ? (
-                                    <div className="flex justify-end px-4 pt-3 sm:px-5">
-                                        <span className="inline-flex items-center gap-1.5 rounded-full border border-bo-border bg-bo-surface-subtle px-2.5 py-1 text-xs font-semibold text-slate-600">
-                                            {selectedTransfer.soPhieuXuat}
-                                        </span>
-                                    </div>
-                                ) : null
-                            }
-                            footer={
-                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                    <p className="text-sm text-bo-muted">
-                                        <span className="font-semibold text-bo-foreground">
-                                            Kho đích: {selectedTransfer.khoNhapTen}
-                                        </span>
-                                    </p>
-                                    <div className="flex flex-wrap gap-2">
-                                        <Button
-                                            variant="outline"
-                                            onClick={handleSaveDraft}
-                                            disabled={!canSubmit}
-                                            className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
-                                        >
-                                            Tạo phiếu
-                                        </Button>
-                                        <Button
-                                            onClick={handleContinue}
-                                            disabled={!canSubmit}
-                                            className="min-w-[160px] gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:opacity-50"
-                                        >
-                                            {loading
-                                                ? <><Loader2 className="size-4 animate-spin" />Đang xử lý...</>
-                                                : "Tiếp tục bốc Lô →"
-                                            }
-                                        </Button>
-                                    </div>
-                                </div>
-                            }
-                        >
-                            <table className="w-full min-w-[520px] text-sm">
-                                <thead>
-                                    <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                        <th className={`${TH_CLASS} text-left`}>Mặt hàng</th>
-                                        <th className={`${TH_CLASS} text-right`}>SL Yêu cầu</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-bo-border">
-                                    {selectedTransfer.items?.map((item) => (
-                                        <tr key={item.bienTheId} className="transition-colors hover:bg-bo-surface-subtle">
-                                            <td className="px-4 py-3.5 align-middle">
-                                                <span className="font-semibold text-bo-foreground">{item.tenSanPham}</span>
-                                                <span className="mt-0.5 block font-mono text-xs text-bo-muted">{item.sku}</span>
-                                            </td>
-                                            <td className="px-4 py-3.5 text-right align-middle">
-                                                <span className="inline-flex items-center justify-end rounded-md bg-bo-surface-subtle px-2.5 py-1">
-                                                    <span className="text-xs font-semibold text-slate-800">{item.soLuongYeuCau}</span>
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </TableShell>
-                    )}
-                </div>
-            </div>
+        <PageContainer className="flex min-h-full flex-col">
+            <KhungChungTu
+                dau={
+                    <DauChungTu
+                        ma="Tạo phiếu xuất kho"
+                        dongPhu={dongPhu}
+                        onQuayLai={() => navigate("/goods-issues")}
+                        nhanQuayLai="Quay lại danh sách"
+                        nutPhu={{
+                            ma: "tao",
+                            nhan: "Tạo phiếu",
+                            onClick: handleSaveDraft,
+                            khoa: khoa || Boolean(idDaTao),
+                        }}
+                        nutChinh={{
+                            ma: "tiep",
+                            nhan: "Tiếp tục bốc lô",
+                            icon: ArrowRight,
+                            onClick: handleContinue,
+                            khoa,
+                            lyDo: lyDoKhoa || undefined,
+                            hienLyDo: true,
+                            dangChay: loading,
+                        }}
+                    />
+                }
+                tienTrinh={chonYeuCau}
+                thongBao={thongBao}
+                chinh={bang}
+                cotPhai={cotPhai}
+            />
         </PageContainer>
     );
 }
