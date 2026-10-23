@@ -17,6 +17,11 @@ public class BienTheSanPhamSelectDto {
     private String tenSanPham;
     private BigDecimal giaBan;
     String tenMau;
+    // Mã màu hex (#RRGGBB) để màn tạo chứng từ vẽ chấm màu như bảng chi tiết
+    String maMauHex;
     String tenSize;
     String tenChatLieu;
+    // Mã vạch in trên tem (quét ở màn tạo phiếu) và id sản phẩm (gom biến thể theo sản phẩm)
+    String maVachSku;
+    Integer sanPhamId;
 }

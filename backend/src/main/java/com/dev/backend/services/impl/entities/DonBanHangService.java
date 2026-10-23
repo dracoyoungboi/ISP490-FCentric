@@ -971,9 +971,12 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                         .tenSanPham(v.getSanPham().getTenSanPham())
                         .giaBan(v.getGiaBan())
                         .tenMau(v.getMauSac() != null ? v.getMauSac().getTenMau() : null)
+                        .maMauHex(v.getMauSac() != null ? v.getMauSac().getMaMauHex() : null)
                         .tenSize(v.getSize() != null ? v.getSize().getTenSize() : null)
                         .tenChatLieu(v.getChatLieu() != null ?
                                 v.getChatLieu().getTenChatLieu() : null)
+                        .maVachSku(v.getMaVachSku())
+                        .sanPhamId(v.getSanPham().getId())
                         .build())
                 .toList();
     }
