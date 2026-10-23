@@ -165,7 +165,8 @@ export function tinhQuyen(vaiTro, khoCuaToi, phieu) {
  * khóa, phiếu nhập đã hủy không còn khóa nút, "Nhập kho hoàn trả" chỉ khi hàng đã rời kho nguồn.
  *
  * @returns `{ guiDuyet: { khoa, lyDo } | null, pheDuyet, taoPhieuXuat, moPhieuXuat, nhapKho, moPhieuNhap,
- *   nhapHoanTra: { khoa, lyDo } | null, huy }` (`moPhieuXuat` / `moPhieuNhap`: phiếu cần mở hoặc null)
+ *   nhapHoanTra: { khoa, lyDo } | null, huy, lyDoKhongHuy }` (`moPhieuXuat` / `moPhieuNhap`: phiếu cần mở hoặc null;
+ *   `lyDoKhongHuy`: khác rỗng thì mục Hủy hiện nhưng khóa — đang chuyển mà kho đích đã lập phiếu nhập, máy chủ cũng chặn)
  */
 export function tinhNut({ phieu, quyen, phieuXuat = null, phieuNhap = null, coPhieuNhap = Boolean(phieuNhap), rong = false }) {
   const tt = phieu?.trangThai;
@@ -179,7 +180,13 @@ export function tinhNut({ phieu, quyen, phieuXuat = null, phieuNhap = null, coPh
     moPhieuNhap: null,
     nhapHoanTra: null,
     huy: !q.laNhanVienKho && [TT_CHUYEN.NHAP, TT_CHUYEN.CHO_DUYET, TT_CHUYEN.CHO_XUAT, TT_CHUYEN.DANG_CHUYEN].includes(tt),
+    lyDoKhongHuy: "",
   };
+  // Hàng đang đi đường mà kho đích đã lập phiếu nhập (chưa hủy): không hủy được, kẻo kho nguồn nhập hoàn trả trong khi
+  // kho đích vẫn nhận — kho đích hủy phiếu nhập của mình trước
+  if (kq.huy && tt === TT_CHUYEN.DANG_CHUYEN && phieuNhap && phieuNhap.trangThai !== TT_PHIEU_NHAP.DA_HUY) {
+    kq.lyDoKhongHuy = `Kho đích đã lập phiếu nhập ${phieuNhap.soPhieuNhap || ""}, cần hủy phiếu nhập đó trước`.replace(/\s+/g, " ");
+  }
   if (tt === TT_CHUYEN.NHAP && q.laQuanLyDich) {
     kq.guiDuyet = { khoa: rong, lyDo: rong ? cauChungTuRong("phiếu chuyển kho", { dauCham: false }) : "" };
   }

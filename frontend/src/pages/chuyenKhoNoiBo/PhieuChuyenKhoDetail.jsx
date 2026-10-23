@@ -398,8 +398,8 @@ function ManPhieuChuyenKho({ id }) {
                             nhan: "Hủy phiếu",
                             icon: Ban,
                             nguyHiem: true,
-                            moTa: choGoc ? LY_DO_CHO_GOC : "Phiếu xuất, phiếu nhập đã tạo không tự hủy theo",
-                            khoa: isProcessing || choGoc,
+                            moTa: choGoc ? LY_DO_CHO_GOC : (nut.lyDoKhongHuy || "Phiếu xuất, phiếu nhập đã tạo không tự hủy theo"),
+                            khoa: isProcessing || choGoc || Boolean(nut.lyDoKhongHuy),
                             onSelect: () => setHop("huy"),
                         }] : []}
                         nutChinh={khoaKhiChoGoc(nutChinh, choGoc)}

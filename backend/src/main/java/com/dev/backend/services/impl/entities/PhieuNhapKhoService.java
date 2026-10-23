@@ -17,6 +17,7 @@ import com.dev.backend.services.impl.BaseServiceImpl;
 import com.dev.backend.services.impl.multitable.DieuHanhHeThongServiceImpl;
 import com.dev.backend.utils.KhoDangChon;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
@@ -268,6 +269,11 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                 .orElseThrow(() -> new CommonException("Không tìm thấy phiếu nhập"));
 
         KhoDangChon.kiemTra(phieu.getKho(), "Phiếu nhập " + phieu.getSoPhieuNhap());
+        // Phiếu nhập của luồng chuyển kho phải đi qua hoàn tất nhận chuyển kho: bước đó trừ kho trung chuyển và chốt
+        // phiếu chuyển. Hoàn tất ở đây sẽ cộng hàng mà không trừ trung chuyển, phiếu chuyển còn nhận được lần nữa.
+        if (phieu.getPhieuChuyenKhoGoc() != null) {
+            throw new CommonException("Phiếu nhập chuyển kho hoàn tất bằng nút Nhận hàng của phiếu nhập chuyển kho");
+        }
 
         if (phieu.getTrangThai() != 0) {
             throw new CommonException("Phiếu không ở trạng thái có thể nhập kho");
@@ -1193,8 +1199,9 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
     }
     @Transactional
     public void completeTransferReceipt(Integer phieuNhapId, Integer nguoiNhapId) {
-        //Tìm phiếu nhập
-        PhieuNhapKho phieu = repository.findById(phieuNhapId)
+        // Khóa dòng phiếu nhập trước tiên (thứ tự khóa: phiếu nhập → phiếu chuyển): hai người bấm nhận cùng lúc thì
+        // người sau thấy phiếu đã hoàn tất
+        PhieuNhapKho phieu = ((PhieuNhapKhoRepository) repository).khoaTheoId(phieuNhapId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy phiếu nhập"));
         // Cộng tồn vào kho của phiếu nhập (kho đích, hoặc kho nguồn khi nhập hoàn trả): phải thao tác từ đúng kho đó
         KhoDangChon.kiemTra(phieu.getKho(), "Phiếu nhập " + phieu.getSoPhieuNhap());
@@ -1206,6 +1213,17 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         PhieuXuatKho pck = phieu.getPhieuChuyenKhoGoc();
         if (pck == null) {
             throw new RuntimeException("Phiếu nhập này không thuộc luồng luân chuyển kho");
+        }
+        // Khóa phiếu chuyển rồi kiểm đúng trạng thái: nhận thường ⇔ phiếu chuyển "Đang chuyển" (3) và phiếu nhập ở kho
+        // đích; nhập hoàn trả ⇔ phiếu chuyển "Đã hủy" (4) và phiếu nhập ở kho nguồn. Phiếu nhập lập lúc đang chuyển
+        // không hoàn tất được sau khi phiếu chuyển đã hủy (kho nguồn đã / sẽ nhập hoàn trả số hàng đó).
+        entityManager.refresh(pck, LockModeType.PESSIMISTIC_WRITE);
+        boolean vaoKhoDich = pck.getKhoChuyenDen() != null && phieu.getKho().getId().equals(pck.getKhoChuyenDen().getId());
+        boolean veKhoNguon = pck.getKho() != null && phieu.getKho().getId().equals(pck.getKho().getId());
+        if (!(vaoKhoDich && Integer.valueOf(3).equals(pck.getTrangThai()))
+                && !(veKhoNguon && Integer.valueOf(4).equals(pck.getTrangThai()))) {
+            throw new CommonException(HttpStatus.CONFLICT, "Phiếu chuyển " + pck.getSoPhieuXuat()
+                    + " không ở trạng thái nhận hàng vào kho này (đã hủy, đã hoàn tất hoặc chưa xuất hàng)");
         }
 
         NguoiDung nguoiNhap = nguoiDungRepository.findById(nguoiNhapId).orElseThrow();
@@ -1238,6 +1256,12 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy hàng trong kho trung chuyển cho lô: " + lo.getMaLo()));
 
             BigDecimal tonTruocTransit = tonTransit.getSoLuongTon();
+            // Trung chuyển không được âm: âm là đang lấy vào hàng đi đường của phiếu chuyển khác cùng lô
+            if (tonTruocTransit == null || tonTruocTransit.compareTo(qty) < 0) {
+                throw new CommonException(HttpStatus.CONFLICT, "Kho trung chuyển không đủ lô " + lo.getMaLo()
+                        + " (còn " + (tonTruocTransit == null ? BigDecimal.ZERO : tonTruocTransit.stripTrailingZeros().toPlainString())
+                        + ", cần " + qty.stripTrailingZeros().toPlainString() + ")");
+            }
             tonTransit.setSoLuongTon(tonTruocTransit.subtract(qty));
             tonKhoTheoLoRepository.save(tonTransit);
 
@@ -1293,8 +1317,8 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
     }
     @Transactional
     public PhieuNhapKho createImportFromTransfer(Integer pckId) {
-        // Tìm phiếu yêu cầu chuyển kho gốc
-        PhieuXuatKho pck = phieuXuatKhoRepository.findById(pckId)
+        // Tìm và khóa phiếu yêu cầu chuyển kho gốc: lập phiếu nhập, hủy phiếu chuyển cùng lúc chạy tuần tự
+        PhieuXuatKho pck = phieuXuatKhoRepository.findByIdForUpdate(pckId)
                 .orElseThrow(() -> new CommonException("Không tìm thấy yêu cầu chuyển kho"));
         // kho không phải hai bên của phiếu: chặn trước mọi câu báo loại / trạng thái phiếu
         KhoDangChon.kiemTraXemMotTrong(pck.getKho(), pck.getKhoChuyenDen(), "Phiếu chuyển " + pck.getSoPhieuXuat());
@@ -1321,6 +1345,14 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         }
         // Phiếu nhập vào kho đích của luồng (kho nhận, hoặc kho nguồn khi hoàn trả): phải thao tác từ đúng kho đó
         KhoDangChon.kiemTra(khoDich, "Phiếu chuyển " + pck.getSoPhieuXuat());
+        // Mỗi phiếu chuyển tối đa một phiếu nhập chưa hủy (đang chờ nhận hoặc đã nhận): không nhận hai lần, không để
+        // kho nguồn nhập hoàn trả khi phiếu nhập của kho đích chưa hủy
+        ((PhieuNhapKhoRepository) repository)
+                .findFirstByPhieuChuyenKhoGoc_IdAndTrangThaiNot(pckId, TrangThaiPhieuNhap.CANCELLED.getValue())
+                .ifPresent(pn -> {
+                    throw new CommonException(HttpStatus.CONFLICT, "Phiếu chuyển " + pck.getSoPhieuXuat()
+                            + " đã có phiếu nhập " + pn.getSoPhieuNhap() + ". Mở phiếu đó, hoặc hủy nó trước khi lập phiếu mới.");
+                });
 
         // Tìm Phiếu Xuất Con đã thực xuất (Trạng thái = 3) để lấy thông tin hàng trong Transit
         List<PhieuXuatKho> dsPhieuXuatCon = entityManager.createQuery(

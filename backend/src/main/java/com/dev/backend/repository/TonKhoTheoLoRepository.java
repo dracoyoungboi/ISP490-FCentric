@@ -232,6 +232,18 @@ public interface TonKhoTheoLoRepository extends JpaRepository<TonKhoTheoLo, Inte
             @Param("variantIds") java.util.Collection<Integer> variantIds
     );
 
+    /** Id các dòng tồn của một kho theo lô (vd. dòng trung chuyển của các lô đã nhặt), PK tăng dần. */
+    @Query("""
+        select t.id from TonKhoTheoLo t
+        where t.kho.id = :khoId
+          and t.loHang.id in :lotIds
+        order by t.id
+    """)
+    List<Integer> findIdsByKhoAndLots(
+            @Param("khoId") Integer khoId,
+            @Param("lotIds") java.util.Collection<Integer> lotIds
+    );
+
     /** Khóa đúng các dòng tồn theo PK, chỉ một bảng, PK tăng dần. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
@@ -246,14 +258,22 @@ public interface TonKhoTheoLoRepository extends JpaRepository<TonKhoTheoLo, Inte
     /**
      * Khóa các dòng tồn theo lô (dùng cho luồng nhập/kiểm kê ghi cùng các dòng này),
      * sắp theo PK (t.id) — cùng thứ tự khóa toàn cục.
+     *
+     * Hai bước như {@link #lockLotsForUpdateByKhoAndVariants}: FOR UPDATE lọc theo lô đi qua chỉ mục
+     * (lo_hang_id, kho_id) nên khóa theo thứ tự (lô, kho) chứ không theo ORDER BY, ngược thứ tự với xuất chuyển kho
+     * (khóa theo PK) → deadlock. Lấy id (không khóa) rồi khóa theo PK.
      */
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    default List<TonKhoTheoLo> lockLotsForUpdateByLotIds(java.util.Collection<Integer> lotIds) {
+        List<Integer> ids = findIdsByLots(lotIds);
+        return ids.isEmpty() ? List.of() : lockLotsForUpdateByIds(ids);
+    }
+
     @Query("""
-        select t from TonKhoTheoLo t
+        select t.id from TonKhoTheoLo t
         where t.loHang.id in :lotIds
         order by t.id
     """)
-    List<TonKhoTheoLo> lockLotsForUpdateByLotIds(
+    List<Integer> findIdsByLots(
             @Param("lotIds") java.util.Collection<Integer> lotIds
     );
 
