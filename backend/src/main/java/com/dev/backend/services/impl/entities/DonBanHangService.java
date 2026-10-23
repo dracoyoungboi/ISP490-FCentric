@@ -58,6 +58,8 @@ import org.springframework.context.annotation.Lazy;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -65,6 +67,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -238,6 +241,40 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         if (phi != null && phi.signum() < 0) {
             throw new CommonException("Phí vận chuyển không được âm");
         }
+    }
+
+    private static final BigDecimal TI_LE_GIA_TOI_THIEU = new BigDecimal("0.9");
+    private static final BigDecimal TI_LE_GIA_TOI_DA = new BigDecimal("1.1");
+
+    /**
+     * Đơn giá trên báo giá chỉ được lệch tối đa 10% so với giá niêm yết của biến thể (90%–110%), cùng quy tắc màn Tạo
+     * báo giá. Mức hiện trong câu lỗi làm tròn vào trong khoảng (tối thiểu làm tròn lên, tối đa làm tròn xuống) như màn.
+     * Biến thể chưa có giá niêm yết (null hoặc 0 — cột gia_ban mặc định 0) thì không có khoảng để so: chặn, báo cập nhật giá.
+     */
+    static void kiemTraGiaThoaThuan(String sku, BigDecimal giaNiemYet, BigDecimal giaThoaThuan) {
+        if (giaNiemYet == null || giaNiemYet.signum() <= 0) {
+            throw new CommonException("Sản phẩm " + sku + " chưa có giá niêm yết, cập nhật giá bán trước khi báo giá");
+        }
+        if (giaThoaThuan == null) {
+            return; // create() lấy giá niêm yết khi dòng không gửi đơn giá
+        }
+        BigDecimal toiThieu = giaNiemYet.multiply(TI_LE_GIA_TOI_THIEU);
+        if (giaThoaThuan.compareTo(toiThieu) < 0) {
+            throw new CommonException("Giá bán của sản phẩm " + sku + " không được thấp hơn 10% so với giá niêm yết (tối thiểu "
+                    + dinhDangTien(toiThieu.setScale(0, RoundingMode.CEILING)) + ")");
+        }
+        BigDecimal toiDa = giaNiemYet.multiply(TI_LE_GIA_TOI_DA);
+        if (giaThoaThuan.compareTo(toiDa) > 0) {
+            throw new CommonException("Giá bán của sản phẩm " + sku + " không được cao hơn 10% so với giá niêm yết (tối đa "
+                    + dinhDangTien(toiDa.setScale(0, RoundingMode.FLOOR)) + ")");
+        }
+    }
+
+    /** "108.000 ₫" — đặt cứng dấu chấm ngăn nghìn: JRE thiếu dữ liệu locale vi-VN (ảnh alpine) sẽ in "108,000". */
+    private static String dinhDangTien(BigDecimal so) {
+        DecimalFormatSymbols kyHieu = DecimalFormatSymbols.getInstance(Locale.ROOT);
+        kyHieu.setGroupingSeparator('.');
+        return new DecimalFormat("#,##0", kyHieu).format(so) + " ₫";
     }
 
     private static void kiemTraPhamVi(DonBanHang don) {
@@ -860,11 +897,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
 
                     BigDecimal giaNiemYet = bienThe.getGiaBan();
                     BigDecimal giaThoaThuan = item.getDonGia() != null ? item.getDonGia() : giaNiemYet;
-                    BigDecimal mucGiamToiDa = giaNiemYet.multiply(new BigDecimal("0.9")); // 90% giá gốc
-                    if (giaThoaThuan.compareTo(mucGiamToiDa) < 0) {
-                        throw new RuntimeException("Giá bán của sản phẩm " + bienThe.getMaSku() +
-                                " không được thấp hơn 10% so với giá niêm yết (" + mucGiamToiDa + ")");
-                    }
+                    kiemTraGiaThoaThuan(bienThe.getMaSku(), giaNiemYet, giaThoaThuan);
 
                     BigDecimal thanhTien = giaThoaThuan.multiply(qtyDat);
 
