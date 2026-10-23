@@ -11,6 +11,7 @@ import com.dev.backend.dto.response.entities.SanPhamQuanAoDto;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.SanPhamQuanAoMapper;
 import com.dev.backend.services.impl.entities.SanPhamQuanAoService;
+import com.dev.backend.utils.GioiHanSoThapPhan;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -146,6 +147,9 @@ public class SanPhamQuanAoController {
                 @RequestParam(required = false) java.math.BigDecimal price,
                 @RequestParam(required = false) java.math.BigDecimal cost) {
                 // API cập nhật giá theo SKU (biến thể), dùng trong luồng quản lý giá.
+                // Tham số query không đi qua bộ đọc BigDecimal của Jackson: kiểm giới hạn tay
+                GioiHanSoThapPhan.kiemTra(price, "Giá bán");
+                GioiHanSoThapPhan.kiemTra(cost, "Giá vốn");
                 sanPhamQuanAoService.updateSkuPrice(id, price, cost);
                 return ResponseEntity.ok(ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())

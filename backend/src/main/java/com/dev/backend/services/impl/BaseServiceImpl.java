@@ -8,6 +8,7 @@ import com.dev.backend.dto.request.FilterCriteria;
 import com.dev.backend.dto.request.SortCriteria;
 import com.dev.backend.exception.customize.InvalidFieldException;
 import com.dev.backend.services.BaseService;
+import com.dev.backend.utils.GioiHanSoThapPhan;
 import jakarta.persistence.Column;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.JoinColumn;
@@ -25,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -328,6 +330,9 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
 
         Object value = chuyenChuoiThoiGian(path.getJavaType(), filter.getValue(), filter.getFieldName());
         if (value == null) return null;
+        if (BigDecimal.class.equals(path.getJavaType())) {
+            value = soThapPhanCoGioiHan(value, filter.getFieldName());
+        }
 
         switch (filter.getOperation()) {
             case EQUALS:
@@ -386,6 +391,29 @@ public abstract class BaseServiceImpl<T, ID> implements BaseService<T, ID> {
         }
     }
 
+
+    /**
+     * Cột BigDecimal: chuỗi / số client gửi được Hibernate đổi thành BigDecimal rồi driver MySQL ghi bằng
+     * toPlainString — "1e900000000" thành chuỗi gần 1 tỷ chữ số (hết bộ nhớ). Đổi sang BigDecimal và kiểm giới hạn
+     * ở đây; danh sách (IN) thì kiểm từng phần tử. Lỗi là InvalidFieldException để filter() trả 400, không bọc 500.
+     */
+    static Object soThapPhanCoGioiHan(Object value, String tenTruong) {
+        if (value instanceof Collection<?> ds) {
+            List<Object> kq = new ArrayList<>(ds.size());
+            for (Object x : ds) kq.add(x == null ? null : soThapPhanCoGioiHan(x, tenTruong));
+            return kq;
+        }
+        BigDecimal so;
+        try {
+            so = value instanceof BigDecimal bd ? bd : new BigDecimal(String.valueOf(value).trim());
+        } catch (NumberFormatException e) {
+            throw new InvalidFieldException("Giá trị lọc của trường '" + tenTruong + "' không phải số");
+        }
+        if (!GioiHanSoThapPhan.hopLe(so)) {
+            throw new InvalidFieldException("Giá trị lọc của trường '" + tenTruong + "' vượt giới hạn cho phép");
+        }
+        return so;
+    }
 
     /** Múi giờ nghiệp vụ: ngày/giờ gửi lên không kèm múi giờ được hiểu theo giờ Việt Nam. */
     private static final ZoneId MUI_GIO_NGHIEP_VU = ZoneId.of("Asia/Ho_Chi_Minh");

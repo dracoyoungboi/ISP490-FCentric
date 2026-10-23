@@ -14,6 +14,7 @@ import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.entities.SanPhamQuanAoDto;
 import com.dev.backend.entities.*;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.exception.customize.InvalidFieldException;
 import com.dev.backend.mapper.SanPhamQuanAoMapper;
 import com.dev.backend.repository.AnhBienTheRepository;
 import com.dev.backend.repository.AnhQuanAoRepository;
@@ -21,6 +22,7 @@ import com.dev.backend.repository.BienTheSanPhamRepository;
 import com.dev.backend.repository.SanPhamQuanAoRepository;
 import com.dev.backend.services.MinioService;
 import com.dev.backend.services.impl.BaseServiceImpl;
+import com.dev.backend.utils.GioiHanSoThapPhan;
 import com.dev.backend.utils.KiemTraTepTai;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -1214,7 +1216,12 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 try {
                                         giaTri = new BigDecimal(String.valueOf(f.getValue()).trim());
                                 } catch (NumberFormatException e) {
-                                        throw new CommonException("Giá lọc không hợp lệ: " + f.getValue());
+                                        // InvalidFieldException: filter() trả 400, lỗi khác bị bọc thành 500
+                                        throw new InvalidFieldException("Giá lọc không hợp lệ: " + f.getValue());
+                                }
+                                // Số mũ khổng lồ ("1e900000000"): driver ghi toPlainString → gần 1 tỷ chữ số, hết bộ nhớ
+                                if (!GioiHanSoThapPhan.hopLe(giaTri)) {
+                                        throw new InvalidFieldException("Giá lọc vượt giới hạn cho phép");
                                 }
                                 jakarta.persistence.criteria.Path<BigDecimal> gia = bt.get("giaBan");
                                 switch (f.getOperation()) {
