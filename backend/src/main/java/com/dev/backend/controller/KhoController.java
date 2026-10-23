@@ -149,6 +149,8 @@ public class KhoController {
     }
 
     @GetMapping("/all")
+    // phải đăng nhập: trả kèm quản lý kho (tên đăng nhập, email, SĐT) — giao diện chỉ gọi sau khi đăng nhập
+    @RequireAuth(roles = {IRoleType.all})
     public ResponseEntity<ResponseData<List<KhoDto>>> all() {
         return ResponseEntity.ok(
                 ResponseData.<List<KhoDto>>builder()
