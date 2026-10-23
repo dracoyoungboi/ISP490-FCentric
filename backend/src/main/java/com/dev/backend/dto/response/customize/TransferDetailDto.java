@@ -34,5 +34,12 @@ public class TransferDetailDto {
         private String tenSanPham;
         private BigDecimal soLuongYeuCau;
         private BigDecimal soLuongDaPick; // Để theo dõi tiến độ khi ở trạng thái 2
+        // Thông tin biến thể để bảng hàng vẽ giống các chứng từ khác (gom theo sản phẩm, chấm màu, kích cỡ, ảnh).
+        // tenSanPham vẫn giữ dạng cũ "<Tên sản phẩm> - <Tên màu>" cho các nơi đang đọc trường này.
+        private Integer sanPhamId;
+        private String tenMau;
+        private String maMauHex;
+        private String kichCo;
+        private String anh;
     }
 }

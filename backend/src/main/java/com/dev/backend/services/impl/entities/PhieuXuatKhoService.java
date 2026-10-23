@@ -976,13 +976,19 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
         List<TransferDetailDto.TransferItemDto> itemDtos = itemsGoc.stream().map(ct -> {
             // Tính tổng số lượng đã pick lô cho biến thể này (nếu có)
             BigDecimal daPick = chiTietPhieuXuatKhoRepository.sumSoLuongDaPick(id, ct.getBienTheSanPham().getId());
+            BienTheSanPham bt = ct.getBienTheSanPham();
 
             return TransferDetailDto.TransferItemDto.builder()
-                    .bienTheId(ct.getBienTheSanPham().getId())
-                    .sku(ct.getBienTheSanPham().getMaSku())
-                    .tenSanPham(ct.getBienTheSanPham().getSanPham().getTenSanPham() + " - " + ct.getBienTheSanPham().getMauSac().getTenMau())
+                    .bienTheId(bt.getId())
+                    .sku(bt.getMaSku())
+                    .tenSanPham(bt.getSanPham().getTenSanPham() + " - " + bt.getMauSac().getTenMau())
                     .soLuongYeuCau(ct.getSoLuongXuat())
                     .soLuongDaPick(daPick != null ? daPick : BigDecimal.ZERO)
+                    .sanPhamId(bt.getSanPham().getId())
+                    .tenMau(bt.getMauSac().getTenMau())
+                    .maMauHex(bt.getMauSac().getMaMauHex())
+                    .kichCo(bt.getSize() != null ? bt.getSize().getTenSize() : null)
+                    .anh(HienThiBienThe.anh(bt))
                     .build();
         }).toList();
 
