@@ -21,6 +21,7 @@ import com.dev.backend.repository.BienTheSanPhamRepository;
 import com.dev.backend.repository.SanPhamQuanAoRepository;
 import com.dev.backend.services.MinioService;
 import com.dev.backend.services.impl.BaseServiceImpl;
+import com.dev.backend.utils.KiemTraTepTai;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -56,6 +57,8 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         // - Tính lại giá và trạng thái theo tồn kho thực tế.
         // - Trả DTO cho controller.
         // ==========================================================
+
+        static final long ANH_TOI_DA_BYTE = 20L * 1024 * 1024;
 
         //Core bussiness logic
         @Autowired
@@ -201,6 +204,8 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 List<MultipartFile> anhBienThes) {
 
                 // Bước 1: Validate nghiệp vụ trước khi ghi (số biến thể, trùng tổ hợp, giá, tệp ảnh biến thể).
+                kiemTraTepAnh(anhSanPhams);
+                kiemTraTepAnh(anhBienThes);
                 kiemTraBienTheTaoMoi(creating.getBienTheSanPhams(), anhBienThes);
 
                 Instant instantNow = Instant.now();
@@ -383,6 +388,21 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 }
         }
 
+        /**
+         * Mọi tệp ảnh gửi lên (bỏ qua tệp rỗng giữ chỗ) phải là ảnh thật theo byte đầu tệp: SVG / HTML đổi đuôi thành
+         * .png bị từ chối trước khi ghi gì.
+         */
+        static void kiemTraTepAnh(List<MultipartFile> dsTep) {
+                if (dsTep == null) return;
+                for (MultipartFile tep : dsTep) {
+                        if (tep == null || tep.isEmpty()) continue;
+                        String ten = tep.getOriginalFilename();
+                        KiemTraTepTai.batBuoc(tep, KiemTraTepTai.ANH_WEB, ANH_TOI_DA_BYTE,
+                                ten == null || ten.isBlank() ? "Ảnh tải lên" : "Ảnh \"" + ten + "\"",
+                                KiemTraTepTai.MO_TA_ANH_WEB);
+                }
+        }
+
         /** Tệp ở vị trí viTri trong anhBienThes; null nếu không có hoặc là tệp rỗng giữ chỗ. */
         private static MultipartFile layTepAnh(List<MultipartFile> anhBienThes, int viTri) {
                 if (anhBienThes == null || viTri < 0 || viTri >= anhBienThes.size()) {
@@ -499,6 +519,8 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 // Luồng cập nhật: kiểm tra toàn bộ (sản phẩm + biến thể) -> cập nhật thông tin chính -> ảnh sản phẩm
                 // -> cập nhật/thêm biến thể (+ ảnh) -> ghi lịch sử -> tính lại giá/trạng thái.
                 // Mọi kiểm tra nghiệp vụ chạy TRƯỚC khi ghi, nên lỗi không để lại dữ liệu lưu dở.
+                kiemTraTepAnh(anhSanPhams);
+                kiemTraTepAnh(anhBienThes);
 
                 SanPhamQuanAo sanPhamQuanAo = getOne(updating.getId()).orElseThrow(
                         () -> new CommonException("Không tìm thấy sản phẩm id: " + updating.getId())

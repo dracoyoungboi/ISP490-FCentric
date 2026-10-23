@@ -62,22 +62,58 @@ public final class AvatarImageValidator {
             throw new CommonException("Định dạng ảnh không được hỗ trợ. Chỉ chấp nhận ảnh JPEG, PNG hoặc WebP");
         }
 
+        // Kiểm kích thước từ header TRƯỚC khi decode: ảnh 2 MB nén cao có thể khai 50000×50000 px
+        // → decode cấp vài GB bộ nhớ (OOM) trước khi kịp so với giới hạn
+        int[] dimensions = readDimensions(bytes);
+        if (dimensions == null) {
+            throw new CommonException("Tệp không phải ảnh hợp lệ hoặc ảnh đã bị hỏng");
+        }
+        checkDimensions(dimensions[0], dimensions[1]);
+
         // Decode toàn bộ để chắc chắn tệp là ảnh thật, không phải nội dung giả mạo
         BufferedImage image;
         try {
             image = ImageIO.read(new ByteArrayInputStream(bytes));
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
+            // Bộ giải mã có thể ném lỗi runtime với tệp hỏng cố ý: báo 400, không để thành 500
             throw new CommonException("Tệp không phải ảnh hợp lệ hoặc ảnh đã bị hỏng");
         }
         if (image == null) {
             throw new CommonException("Tệp không phải ảnh hợp lệ hoặc ảnh đã bị hỏng");
         }
-        if (image.getWidth() <= 0 || image.getHeight() <= 0
-                || image.getWidth() > MAX_DIMENSION || image.getHeight() > MAX_DIMENSION) {
-            throw new CommonException("Kích thước ảnh không hợp lệ (tối đa " + MAX_DIMENSION + "×" + MAX_DIMENSION + " px)");
-        }
+        checkDimensions(image.getWidth(), image.getHeight());
 
         return format;
+    }
+
+    private static void checkDimensions(int width, int height) {
+        if (width <= 0 || height <= 0 || width > MAX_DIMENSION || height > MAX_DIMENSION) {
+            throw new CommonException("Kích thước ảnh không hợp lệ (tối đa " + MAX_DIMENSION + "×" + MAX_DIMENSION + " px)");
+        }
+    }
+
+    /**
+     * Đọc rộng × cao từ header (không decode điểm ảnh); null nếu không đọc được.
+     */
+    static int[] readDimensions(byte[] bytes) {
+        try (ImageInputStream iis = ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))) {
+            if (iis == null) {
+                return null;
+            }
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
+            if (!readers.hasNext()) {
+                return null;
+            }
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(iis, true, true);
+                return new int[]{reader.getWidth(0), reader.getHeight(0)};
+            } finally {
+                reader.dispose();
+            }
+        } catch (IOException | RuntimeException e) {
+            return null;
+        }
     }
 
     /**

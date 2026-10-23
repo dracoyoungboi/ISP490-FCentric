@@ -11,6 +11,7 @@ import com.dev.backend.mapper.ThuongHieuMapper;
 import com.dev.backend.repository.ThuongHieuRepository;
 import com.dev.backend.services.MinioService;
 import com.dev.backend.services.impl.BaseServiceImpl;
+import com.dev.backend.utils.KiemTraTepTai;
 import jakarta.persistence.EntityManager;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,8 @@ import java.util.List;
 @Service
 @Slf4j
 public class ThuongHieuService extends BaseServiceImpl<ThuongHieu, Integer> {
+
+    static final long LOGO_TOI_DA_BYTE = 5L * 1024 * 1024;
 
     private final ThuongHieuRepository repository;
     private final ThuongHieuMapper mapper;
@@ -109,10 +112,8 @@ public class ThuongHieuService extends BaseServiceImpl<ThuongHieu, Integer> {
         if (file == null || file.isEmpty()) {
             throw new CommonException("Không tìm thấy tệp logo");
         }
-        String contentType = file.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            throw new CommonException("Tệp logo phải là ảnh");
-        }
+        // Kiểm byte đầu tệp, không tin Content-Type client khai (SVG / HTML đổi tên thành ảnh)
+        KiemTraTepTai.batBuoc(file, KiemTraTepTai.ANH_WEB, LOGO_TOI_DA_BYTE, "Tệp logo", KiemTraTepTai.MO_TA_ANH_WEB);
         try {
             ThuongHieu entity = repository.findById(id)
                     .orElseThrow(() -> new CommonException("Không tìm thấy thương hiệu với ID: " + id));

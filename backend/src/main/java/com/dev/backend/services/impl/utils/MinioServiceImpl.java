@@ -3,6 +3,7 @@ package com.dev.backend.services.impl.utils;
 
 import com.dev.backend.dto.response.FileObjectInfo;
 import com.dev.backend.services.MinioService;
+import com.dev.backend.utils.KiemTraTepTai;
 import io.minio.*;
 import io.minio.errors.ErrorResponseException;
 import io.minio.http.Method;
@@ -17,9 +18,10 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class MinioServiceImpl implements MinioService {
@@ -35,27 +37,35 @@ public class MinioServiceImpl implements MinioService {
 
     @Override
     public String upload(MultipartFile file) throws Exception {
-        String objectName = file.getOriginalFilename() + new Date().getTime();
+        // Tên do máy chủ sinh: tên tệp client gửi có thể chứa "/", "..", ký tự lạ; không nhận dạng được thì ".bin"
+        // (không lấy đuôi client khai, kẻo có object "….html" dù Content-Type đã là nhị phân)
+        String duoi = KiemTraTepTai.nhanDang(file).map(loai -> loai.duoi).orElse("bin");
+        String objectName = UUID.randomUUID() + "." + duoi;
         return upload(file, objectName);
     }
 
     @Override
     public String upload(MultipartFile file, String objectName) throws Exception {
+        // Content-Type theo nội dung thật, không theo client khai: tệp HTML / SVG không được phục vụ lại như trang web
+        Optional<KiemTraTepTai.LoaiTep> loai = KiemTraTepTai.nhanDang(file);
+        String contentType = loai.map(l -> l.contentType)
+                .orElseGet(() -> KiemTraTepTai.contentTypeAnToan(file.getContentType()));
         try (InputStream is = file.getInputStream()) {
             // Lấy đuôi tệp gốc (null-safe: Map.of không chấp nhận giá trị null)
             String originalFilename = file.getOriginalFilename() != null
                     ? file.getOriginalFilename()
                     : objectName;
-            String fileExtension = originalFilename != null && originalFilename.contains(".")
-                    ? originalFilename.substring(originalFilename.lastIndexOf("."))
-                    : "";
+            String fileExtension = loai.map(l -> "." + l.duoi).orElseGet(() -> {
+                String duoi = KiemTraTepTai.duoiAnToan(originalFilename);
+                return duoi.isEmpty() ? "" : "." + duoi;
+            });
 
             ObjectWriteResponse res = minioClient.putObject(
                     PutObjectArgs.builder()
                             .bucket(minioBucketName)
                             .object(objectName)
                             .stream(is, file.getSize(), -1)
-                            .contentType(file.getContentType())
+                            .contentType(contentType)
                             .userMetadata(Map.of(
                                     "original-filename", originalFilename,
                                     "file-extension", fileExtension

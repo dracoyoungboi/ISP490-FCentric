@@ -393,6 +393,8 @@ class SanPhamQuanAoServiceCapNhatTest {
     }
 
     private static MultipartFile anh(String ten) {
-        return new MockMultipartFile("anh", ten, "image/png", new byte[]{1, 2, 3});
+        // Chữ ký PNG: máy chủ nhận dạng ảnh theo byte đầu tệp
+        return new MockMultipartFile("anh", ten, "image/png",
+                new byte[]{(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3});
     }
 }

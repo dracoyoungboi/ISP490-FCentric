@@ -54,6 +54,17 @@ public class BangChungDongGoiServiceTest {
     @InjectMocks
     private BangChungDongGoiServiceImpl bangChungDongGoiService;
 
+    // Máy chủ nhận dạng ảnh / video theo byte đầu tệp, không theo tên tệp hay Content-Type
+    private static final byte[] JPEG = coDau(100, 0xFF, 0xD8, 0xFF, 0xE0);
+    private static final byte[] MP4 = coDau(1000, 0, 0, 0, 0x18, 'f', 't', 'y', 'p', 'i', 's', 'o', 'm');
+    private static final byte[] WEBM = coDau(1000, 0x1A, 0x45, 0xDF, 0xA3);
+
+    private static byte[] coDau(int doDai, int... dau) {
+        byte[] b = new byte[doDai];
+        for (int i = 0; i < dau.length; i++) b[i] = (byte) dau[i];
+        return b;
+    }
+
     private Kho kho1;
     private DonBanHang donDuoi1Tr;
     private DonBanHang donTu1Tr;
@@ -207,7 +218,7 @@ public class BangChungDongGoiServiceTest {
     void testUploadBangChung_DonTu1TrieuUploadAnh_NemNgoaiLe() {
         when(donBanHangRepository.findById(102)).thenReturn(Optional.of(donTu1Tr));
 
-        MockMultipartFile fileAnh = new MockMultipartFile("file", "test.jpg", "image/jpeg", new byte[100]);
+        MockMultipartFile fileAnh = new MockMultipartFile("file", "test.jpg", "image/jpeg", JPEG);
 
         assertThrows(CommonException.class, () ->
                 bangChungDongGoiService.uploadBangChung(102, fileAnh, LoaiBangChungDongGoi.ANH_HANG_TRONG_HOP.name(), null));
@@ -218,7 +229,7 @@ public class BangChungDongGoiServiceTest {
     void testUploadBangChung_VideoSaiThoiLuong_NemNgoaiLe() {
         when(donBanHangRepository.findById(102)).thenReturn(Optional.of(donTu1Tr));
 
-        MockMultipartFile fileVideo = new MockMultipartFile("file", "test.mp4", "video/mp4", new byte[1000]);
+        MockMultipartFile fileVideo = new MockMultipartFile("file", "test.mp4", "video/mp4", MP4);
 
         // Video 10s, 14s (sát mốc dưới)
         assertThrows(CommonException.class, () ->
@@ -248,7 +259,7 @@ public class BangChungDongGoiServiceTest {
         when(tepTinService.create(any(TepTin.class))).thenAnswer(inv -> inv.getArgument(0));
         when(bangChungDongGoiRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        MockMultipartFile fileVideo = new MockMultipartFile("file", "video.webm", "video/webm", new byte[1000]);
+        MockMultipartFile fileVideo = new MockMultipartFile("file", "video.webm", "video/webm", WEBM);
         for (int giay : new int[]{15, 35, 180}) {
             var dto = bangChungDongGoiService.uploadBangChung(102, fileVideo, LoaiBangChungDongGoi.VIDEO_DONG_GOI.name(), giay);
             assertEquals(giay, dto.getThoiLuongGiay());
@@ -281,13 +292,56 @@ public class BangChungDongGoiServiceTest {
         when(tepTinService.create(any(TepTin.class))).thenAnswer(inv -> inv.getArgument(0));
         when(bangChungDongGoiRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        MockMultipartFile fileAnh = new MockMultipartFile("file", "test.jpg", "image/jpeg", new byte[100]);
+        MockMultipartFile fileAnh = new MockMultipartFile("file", "test.jpg", "image/jpeg", JPEG);
         var dto = bangChungDongGoiService.uploadBangChung(101, fileAnh, LoaiBangChungDongGoi.ANH_HANG_TRONG_HOP.name(), null);
 
         assertNotNull(dto);
         assertEquals("https://minio.slmglobal.vn/fashion/packing-proofs/101/uuid.jpg", dto.getUrlPublic());
         assertEquals("https://minio.slmglobal.vn/fashion/packing-proofs/101/uuid.jpg", dto.getDuongDanMinio());
         verify(minioService, times(1)).getPublicUrl(anyString());
+    }
+
+    @Test
+    @DisplayName("Tệp HTML đặt tên .webm, khai video/webm bị từ chối, không tải lên MinIO")
+    void testUploadBangChung_HtmlGiaVideo_BiTuChoi() {
+        when(donBanHangRepository.findById(102)).thenReturn(Optional.of(donTu1Tr));
+        MockMultipartFile html = new MockMultipartFile("file", "video.webm", "video/webm",
+                "<html><script>alert(1)</script></html>".getBytes());
+
+        CommonException loi = assertThrows(CommonException.class, () ->
+                bangChungDongGoiService.uploadBangChung(102, html, LoaiBangChungDongGoi.VIDEO_DONG_GOI.name(), 30));
+        assertTrue(loi.getMessage().contains("không phải video hợp lệ"), loi.getMessage());
+        verifyNoInteractions(minioService);
+    }
+
+    @Test
+    @DisplayName("Tệp SVG khai image/jpeg (đuôi .jpg) bị từ chối — trước đây lọt vì điều kiện HOẶC")
+    void testUploadBangChung_SvgGiaAnh_BiTuChoi() {
+        when(donBanHangRepository.findById(101)).thenReturn(Optional.of(donDuoi1Tr));
+        MockMultipartFile svg = new MockMultipartFile("file", "anh.jpg", "image/jpeg",
+                "<svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(1)</script></svg>".getBytes());
+
+        CommonException loi = assertThrows(CommonException.class, () ->
+                bangChungDongGoiService.uploadBangChung(101, svg, LoaiBangChungDongGoi.ANH_HANG_TRONG_HOP.name(), null));
+        assertTrue(loi.getMessage().contains("không phải hình ảnh hợp lệ"), loi.getMessage());
+        verifyNoInteractions(minioService);
+    }
+
+    @Test
+    @DisplayName("Đuôi tên object lấy theo nội dung, không theo tên tệp client gửi")
+    void testUploadBangChung_DuoiTheoNoiDung() throws Exception {
+        when(donBanHangRepository.findById(102)).thenReturn(Optional.of(donTu1Tr));
+        when(bangChungDongGoiRepository.findByDonBanHangIdAndLoaiBangChungAndTrangThai(eq(102), anyString(), eq(1)))
+                .thenReturn(Optional.empty());
+        when(minioService.upload(any(), anyString())).thenAnswer(inv -> inv.getArgument(1));
+        when(minioService.getPublicUrl(anyString())).thenAnswer(inv -> "http://minio/fashion/" + inv.getArgument(0));
+        when(tepTinService.create(any(TepTin.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(bangChungDongGoiRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        MockMultipartFile tep = new MockMultipartFile("file", "../../x.html", "text/html", WEBM);
+        bangChungDongGoiService.uploadBangChung(102, tep, LoaiBangChungDongGoi.VIDEO_DONG_GOI.name(), 30);
+
+        verify(minioService).upload(eq(tep), matches("packing-proofs/102/[0-9a-f-]{36}\\.webm"));
     }
 
     @Test
