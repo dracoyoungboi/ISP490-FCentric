@@ -68,6 +68,10 @@ public class PhienDongGoiDto {
         String tenSanPham;
         String tenMau;
         String tenSize;
+        // Mã màu hex, ảnh, id sản phẩm (HienThiBienThe): chấm màu và ảnh như các bảng chứng từ khác
+        String maMauHex;
+        String anh;
+        Integer sanPhamId;
         BigDecimal soLuongCan;
         BigDecimal soLuongDaQuet;
     }

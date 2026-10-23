@@ -270,6 +270,9 @@ public class DongGoiServiceImpl implements DongGoiService {
                     .tenSanPham(bt != null && bt.getSanPham() != null ? bt.getSanPham().getTenSanPham() : (bt != null ? bt.getMaSku() : null))
                     .tenMau(bt != null && bt.getMauSac() != null ? bt.getMauSac().getTenMau() : "")
                     .tenSize(bt != null && bt.getSize() != null ? bt.getSize().getTenSize() : "")
+                    .maMauHex(com.dev.backend.utils.HienThiBienThe.maMauHex(bt))
+                    .anh(com.dev.backend.utils.HienThiBienThe.anh(bt))
+                    .sanPhamId(com.dev.backend.utils.HienThiBienThe.sanPhamId(bt))
                     .soLuongCan(can)
                     .soLuongDaQuet(daQuet)
                     .build());
