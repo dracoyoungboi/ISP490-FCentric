@@ -96,6 +96,9 @@ public interface DonBanHangRepository
     java.util.Optional<DonBanHang> findBySoDonHang(String soDonHang);
     java.util.Optional<DonBanHang> findByMaDonHangKenh(String maDonHangKenh);
 
+    /** Đơn của kênh theo mã đơn trên sàn (id đơn Shopify là duy nhất trên toàn Shopify). */
+    java.util.Optional<DonBanHang> findByKenhBanHangIdAndMaDonHangKenh(Integer kenhBanHangId, String maDonHangKenh);
+
     List<DonBanHang> findByKhoXuat_IdAndTrangThaiAndDanhSachNhatHangIsNull(Integer khoId, Integer trangThai);
 
     List<DonBanHang> findByIdInAndKhoXuat_Id(List<Integer> ids, Integer khoId);
