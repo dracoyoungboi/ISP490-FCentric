@@ -55,14 +55,34 @@ public class DonMuaHang {
     @ColumnDefault("0")
     @Column(name = "trang_thai")
     Integer trangThai;
-    // 0 là xoá, 1 là đã gửi, 2 là đã báo giá, 3 là chấp nhận báo giá và chờ vận chuyển, 4 là không chấp nhận báo giá,
-    // 5 là đã thanh toán
+    // 1 là đã gửi (cũ), 2 là chờ / đã báo giá (đã báo giá ⇔ ngayBaoGia != null), 3 là chấp nhận báo giá, đang vận
+    // chuyển, 4 là không chấp nhận báo giá (kể cả khi đã chọn nhà cung cấp khác cùng yêu cầu), 5 là đã nhận đủ hàng
     @ColumnDefault("0.00")
     @Column(name = "tong_tien", precision = 15, scale = 2)
     BigDecimal tongTien;
 
     @Column(name = "ghi_chu")
     String ghiChu;
+
+    /**
+     * Lần cuối nhà cung cấp gửi báo giá trên cổng. null = chưa báo giá.
+     * Không dùng ngay_cap_nhat thay được: cột đó tự đổi (ON UPDATE) mỗi lần sửa đơn.
+     */
+    @Column(name = "ngay_bao_gia")
+    Instant ngayBaoGia;
+
+    /** Lúc email Yêu cầu báo giá gửi được tới nhà cung cấp. null = chưa gửi được. */
+    @Column(name = "ngay_gui_yeu_cau")
+    Instant ngayGuiYeuCau;
+
+    /** Ghi chú nhà cung cấp gửi kèm báo giá (là một phần của báo giá). Khác ghi_chu là ghi chú của bên mua. */
+    @Column(name = "ghi_chu_nha_cung_cap", columnDefinition = "TEXT")
+    String ghiChuNhaCungCap;
+
+    /** Lý do không chấp nhận báo giá; không bắt buộc. */
+    @Size(max = 500)
+    @Column(name = "ly_do_tu_choi", length = 500)
+    String lyDoTuChoi;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "nguoi_tao_id")
@@ -85,6 +105,7 @@ public class DonMuaHang {
 
     // Danh sách chi tiết đơn mua hàng
     @OneToMany(mappedBy = "donMuaHang", fetch = FetchType.LAZY)
+    @OrderBy("id ASC")
     List<ChiTietDonMuaHang> chiTietDonMuaHangs;
 
 

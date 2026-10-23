@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<!--/* M4 · Mật khẩu vừa được thay đổi (demo-email/M4-DaDoiMatKhau.dc.html). Không chứa mật khẩu. */-->
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{khung :: thu(xemTruoc=~{::xem-truoc}, noiDung=~{::noi-dung}, chan=~{khung :: chan-nhan-su})}">
+<body>
+<th:block th:fragment="xem-truoc">Thay đổi lúc <th:block th:text="${e.thoiDiem}">giờ</th:block>. Báo quản trị viên ngay nếu không phải bạn.</th:block>
+<th:block th:fragment="noi-dung">
+<tr><td style="padding:0 0 20px;"><h1 style="margin:0;font-size:22px;line-height:30px;font-weight:700;letter-spacing:-0.01em;color:#182537;">Mật khẩu của bạn vừa được thay đổi</h1></td></tr>
+<tr><td style="padding:0 0 20px;"><p style="margin:0;font-size:15px;line-height:24px;" th:text="|Xin chào ${e.hoTen},|">Xin chào,</p></td></tr>
+<tr><td style="padding:0 0 20px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;font-size:14px;line-height:20px;border-bottom:1px solid #e1e6ec;">
+<tr>
+<td width="160" style="width:160px;padding:11px 0;border-top:1px solid #e1e6ec;color:#64748b;vertical-align:top;">Tài khoản</td>
+<td style="padding:11px 0;border-top:1px solid #e1e6ec;font-weight:600;" th:text="${e.tenDangNhap}">tên đăng nhập</td>
+</tr>
+<tr>
+<td width="160" style="width:160px;padding:11px 0;border-top:1px solid #e1e6ec;color:#64748b;vertical-align:top;">Thời gian</td>
+<td style="padding:11px 0;border-top:1px solid #e1e6ec;" th:text="${e.thoiDiem}">thời gian</td>
+</tr>
+<tr>
+<td width="160" style="width:160px;padding:11px 0;border-top:1px solid #e1e6ec;color:#64748b;vertical-align:top;">Cách thay đổi</td>
+<td style="padding:11px 0;border-top:1px solid #e1e6ec;" th:text="${e.cachThayDoi}">cách thay đổi</td>
+</tr>
+</table>
+</td></tr>
+<tr><td style="padding:0 0 20px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;background-color:#fff7ed;border:1px solid #fed7aa;border-radius:8px;border-collapse:separate;">
+<tr><td style="padding:16px 20px;">
+<div style="padding:0 0 6px;font-size:14px;line-height:20px;font-weight:600;color:#b45309;">Không phải bạn đổi mật khẩu?</div>
+<div style="font-size:14px;line-height:22px;color:#182537;">Báo ngay cho quản trị viên để khóa tài khoản và cấp lại mật khẩu. Nếu chính bạn vừa đổi, không cần làm gì thêm.</div>
+</td></tr>
+</table>
+</td></tr>
+</th:block>
+</body>
+</html>

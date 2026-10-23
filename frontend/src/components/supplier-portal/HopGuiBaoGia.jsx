@@ -45,8 +45,10 @@ function Dong({ nhan, children, noiBat = false }) {
  * - 'dang-gui': khóa nút, KHÔNG đóng được bằng Esc / bấm ra ngoài / nút X (như confirm-modal);
  * - 'thanh-cong': hộp đổi sang "Đã gửi báo giá", nút Đóng.
  * `trangThai = null` là hộp đóng.
+ * `tenCuaHang`: `cuaHang.ten` (có thể rỗng). `emailXacNhan`: địa chỉ máy chủ trả khi email Đã nhận báo giá (M3) được
+ * gửi; null thì không nói gì về email (đặc tả 6.2). `guiLuc`: giờ máy chủ nhận báo giá (`ngayBaoGia`).
  */
-export default function HopGuiBaoGia({ trangThai, tomTat, guiLuc, loiGui, onGui, onDong }) {
+export default function HopGuiBaoGia({ trangThai, tomTat, guiLuc, loiGui, tenCuaHang, emailXacNhan, onGui, onDong }) {
     // Lúc đóng, hộp còn hiện ~200ms (hiệu ứng mờ dần): vẽ theo trạng thái cuối cùng để nội dung không nhảy
     // về bước xác nhận, và khóa các nút trong khoảng đó để không bấm nhầm "Gửi báo giá" lần nữa.
     const [hienThi, setHienThi] = useState(trangThai);
@@ -76,9 +78,14 @@ export default function HopGuiBaoGia({ trangThai, tomTat, guiLuc, loiGui, onGui,
                         <div className="flex flex-col gap-1">
                             <DialogTitle className="text-lg leading-7 font-semibold text-bo-heading">Đã gửi báo giá</DialogTitle>
                             <DialogDescription className="text-sm leading-[22px] text-slate-600">
-                                FCentric đã nhận báo giá cho đơn{' '}
-                                <strong className="font-semibold text-bo-foreground">{tomTat.soDonMua}</strong>. Nhân viên mua hàng sẽ liên hệ
-                                nếu cần trao đổi thêm.
+                                {tenCuaHang ? `${tenCuaHang} đã nhận báo giá cho đơn ` : 'Đã nhận báo giá cho đơn '}
+                                <strong className="font-semibold text-bo-foreground">{tomTat.soDonMua}</strong>.
+                                {emailXacNhan ? (
+                                    <>
+                                        {' '}Email xác nhận đã gửi tới{' '}
+                                        <strong className="font-semibold break-words text-bo-foreground">{emailXacNhan}</strong>.
+                                    </>
+                                ) : null}
                             </DialogDescription>
                         </div>
                         <dl className="m-0 w-full overflow-hidden rounded-lg border border-bo-border text-left text-sm leading-5 [&>div:last-child]:border-b-0">
@@ -93,7 +100,7 @@ export default function HopGuiBaoGia({ trangThai, tomTat, guiLuc, loiGui, onGui,
                 ) : (
                     <>
                         <div className="flex flex-col gap-1 pr-8">
-                            <DialogTitle className="text-lg leading-7 font-semibold text-bo-heading">Gửi báo giá cho FCentric?</DialogTitle>
+                            <DialogTitle className="text-lg leading-7 font-semibold text-bo-heading">{tenCuaHang ? `Gửi báo giá cho ${tenCuaHang}?` : 'Gửi báo giá?'}</DialogTitle>
                             <DialogDescription className="text-sm leading-[22px] text-bo-muted">
                                 {dangGui ? 'Đang gửi, vui lòng không đóng trang.' : 'Kiểm tra lại các thông tin dưới đây trước khi gửi.'}
                             </DialogDescription>
@@ -114,7 +121,7 @@ export default function HopGuiBaoGia({ trangThai, tomTat, guiLuc, loiGui, onGui,
                             </div>
                         ) : (
                             <p className="m-0 text-[13px] leading-5 text-slate-600">
-                                Sau khi gửi, nếu cần điều chỉnh đơn giá, vui lòng liên hệ người phụ trách đơn.
+                                Cần sửa đơn giá: gửi lại trên Cổng nhà cung cấp trước khi có kết quả. Báo giá gửi sau sẽ thay báo giá này.
                             </p>
                         )}
 

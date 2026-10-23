@@ -2,7 +2,6 @@ package com.dev.backend.controller;
 
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
-import com.dev.backend.dto.request.AdminUpdateRequest;
 import com.dev.backend.dto.request.BaseFilterRequest;
 import com.dev.backend.dto.request.LuuPhanQuyenRequest;
 import com.dev.backend.dto.request.NguoiDungCreating;
@@ -115,27 +114,6 @@ public class AdminController {
                                 )
                         )
                         .message("Tạo tài khoản người dùng thành công")
-                        .build()
-        );
-    }
-
-    @PostMapping("/users/{id}/reset-password")
-    @RequireAuth(
-            roles = {IRoleType.quan_tri_vien}
-    )
-    public ResponseEntity<ResponseData<Void>> resetUserPasswordByAdmin(
-            @RequestHeader("Authorization") String authHeader,
-            @PathVariable Integer id,
-            @RequestBody AdminUpdateRequest request
-    ) {
-
-        nguoiDungService.updateUserByAdmin(id, request);
-
-        return ResponseEntity.ok(
-                ResponseData.<Void>builder()
-                        .status(HttpStatus.OK.value())
-                        .message("Đặt lại mật khẩu cho người dùng thành công")
-                        .error(null)
                         .build()
         );
     }

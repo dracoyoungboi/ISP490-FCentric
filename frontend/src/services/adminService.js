@@ -28,9 +28,6 @@ export const adminService = {
     createUserByAdmin(data) {
         return apiClient.post("/api/v1/admin/add-user", data);
     },
-    resetUserPasswordByAdmin(userId, payload) {
-        return apiClient.post(`/api/v1/admin/users/${userId}/reset-password`, payload);
-    },
     resetUserPasswordRandomByAdmin(userId) {
         return apiClient.post(`/api/v1/admin/users/${userId}/reset-password-random`);
     },

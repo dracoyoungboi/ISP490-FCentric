@@ -31,6 +31,8 @@ const O_DAU_TIEN = "textarea:not([disabled]), input:not([disabled]):not([type=hi
  *   gỡ khi menu đóng) thì về nút ⋯.
  * - `tieuDiemQuayLai`: luôn đặt tiêu điểm vào "Quay lại" — cho màn có máy quét, vì phím Enter máy quét gửi sau mỗi mã
  *   sẽ bấm nút đang có tiêu điểm.
+ * - `traTieuDiemVe` (ref): đóng hộp thì đưa tiêu điểm về phần tử này thay cho phần tử đã mở hộp (vd. ô quét mã, để mã
+ *   quét tiếp không rơi vào nút vừa mở hộp).
  * - `rong`: 560px cho hộp có biểu mẫu (mặc định 460px).
  * - `loi` (chuỗi | null | undefined): câu lỗi của lần xác nhận vừa rồi (vd. máy chủ từ chối), vẽ NGAY TRONG hộp, ngay
  *   trên chân hộp, trong vùng role="alert" để trình đọc màn hình đọc (toast ngoài hộp bị Radix ẩn khỏi cây trợ năng).
@@ -50,6 +52,7 @@ export default function HopXacNhanChungTu({
   lyDoKhoa,
   rong = false,
   tieuDiemQuayLai = false,
+  traTieuDiemVe,
   loi,
   onXacNhan,
 }) {
@@ -88,7 +91,7 @@ export default function HopXacNhanChungTu({
     // bắn sự kiện này): bỏ qua, giữ phần tử đã nhớ cho lần đóng thật. Hộp bị gỡ hẳn khi `mo` vẫn true (nơi gọi chỉ vẽ hộp
     // lúc mở, vd. DispatchDialog) thì khung đã rời trang trước khi sự kiện tới (Radix bắn trong setTimeout) → vẫn trả tiêu điểm.
     if (mo && suKien.target?.isConnected) return;
-    const dich = [moTuRef.current, nutMenuRef.current].find((el) => el?.isConnected && !el.disabled);
+    const dich = [traTieuDiemVe?.current, moTuRef.current, nutMenuRef.current].find((el) => el?.isConnected && !el.disabled);
     moTuRef.current = null;
     nutMenuRef.current = null;
     dich?.focus();

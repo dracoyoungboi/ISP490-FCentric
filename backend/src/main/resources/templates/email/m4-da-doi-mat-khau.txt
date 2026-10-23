@@ -1,0 +1,12 @@
+[# th:insert="~{khung-dau.txt}" /]Mật khẩu của bạn vừa được thay đổi
+
+Xin chào [(${e.hoTen})],
+
+Tài khoản: [(${e.tenDangNhap})]
+Thời gian: [(${e.thoiDiem})]
+Cách thay đổi: [(${e.cachThayDoi})]
+
+Không phải bạn đổi mật khẩu?
+Báo ngay cho quản trị viên để khóa tài khoản và cấp lại mật khẩu. Nếu chính bạn vừa đổi, không cần làm gì thêm.
+
+[# th:insert="~{khung-chan-nhan-su.txt}" /]

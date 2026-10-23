@@ -6,16 +6,19 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { NUT_CHINH, NUT_PHU } from "@/components/channel/BottomActionBar";
 import { INPUT_CLASS } from "@/components/channel/SettingsCard";
 import { kenhBanHangService } from "@/services/kenhBanHangService";
-import { getApiErrorMessage } from "@/utils/apiError";
+import { getApiErrorCode, getApiErrorMessage } from "@/utils/apiError";
 import { ngayIso } from "./ngay";
 
 const soVN = (n) => Number(n || 0).toLocaleString("vi-VN");
+// Mã lỗi máy chủ (KH mục C.4) cho biết gian hàng không còn gọi được: trang cần đọc lại kết nối
+const MA_MAT_KET_NOI = ["UY_QUYEN_HET_HAN", "KENH_CHUA_KET_NOI"];
 
 /**
  * Lấy đơn thủ công từ sàn theo khoảng ngày (tối đa 50 đơn mỗi lần, đơn đã có không tạo lại).
  * `onXong(ketQua)` được gọi khi lấy xong; `baoToast = false` khi trang tự hiện kết quả.
+ * `onMatKetNoi(error)`: lỗi vì ủy quyền hết hạn hoặc kênh chưa kết nối (lỗi vẫn hiện trong hộp thoại).
  */
-export default function LayDonDialog({ maKenh, tenSan, onClose, onXong, baoToast = true }) {
+export default function LayDonDialog({ maKenh, tenSan, onClose, onXong, onMatKetNoi, baoToast = true }) {
   const [tu, setTu] = useState(() => ngayIso(1));
   const [den, setDen] = useState(() => ngayIso(0));
   const [loi, setLoi] = useState("");
@@ -42,6 +45,7 @@ export default function LayDonDialog({ maKenh, tenSan, onClose, onXong, baoToast
       onXong(res);
     } catch (error) {
       setLoi(getApiErrorMessage(error, "Không lấy được đơn hàng"));
+      if (MA_MAT_KET_NOI.includes(getApiErrorCode(error))) onMatKetNoi?.(error);
     } finally {
       dangLayRef.current = false;
       setDangLay(false);

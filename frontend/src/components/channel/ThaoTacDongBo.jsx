@@ -15,10 +15,11 @@ const MUC_MENU = "cursor-pointer items-start gap-2 rounded-md px-2.5 py-2 text-s
  * - `thaoTac`: [{ ma, nhan, moTa, Icon, onChon }] — mục của menu ⋯ (mỗi mục một dòng giải thích ngắn).
  * - `viecPhu`: chữ trên nút đồng bộ khi một mục ⋯ đang chạy (vd. "Đang tải sản phẩm…").
  * - `khoaThaoTac`: lý do khóa các mục ⋯ vì trang chưa sẵn sàng hay đang làm việc khác (chuỗi), không khóa thì false.
+ * - `lyDoKhoaDongBo`: lý do không cho bắt đầu "Đồng bộ ngay" (vd. ủy quyền đã hết hạn), chuyển cho NutDongBoNgay.
  * Mục ⋯ bị khóa thì menu ghi lý do (đọc được cả bằng trình đọc màn hình qua aria-describedby): đang đồng bộ thì vì
  * cùng gọi tới gian hàng, chồng nhau dễ chạm giới hạn của sàn.
  */
-export default function ThaoTacDongBo({ tienDo, tenSan, onDen, thaoTac = [], viecPhu = null, khoaThaoTac = false }) {
+export default function ThaoTacDongBo({ tienDo, tenSan, onDen, thaoTac = [], viecPhu = null, khoaThaoTac = false, lyDoKhoaDongBo = null }) {
   const idLyDo = useId();
   const dangDongBo = tienDo.dangChay || tienDo.dangGui;
   const lyDoKhoa = dangDongBo
@@ -59,7 +60,7 @@ export default function ThaoTacDongBo({ tienDo, tenSan, onDen, thaoTac = [], vie
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}
-      <NutDongBoNgay tienDo={tienDo} tenSan={tenSan} onDen={onDen} viecPhu={viecPhu} />
+      <NutDongBoNgay tienDo={tienDo} tenSan={tenSan} onDen={onDen} viecPhu={viecPhu} lyDoKhoa={lyDoKhoaDongBo} />
     </div>
   );
 }

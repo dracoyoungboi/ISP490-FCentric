@@ -2,8 +2,21 @@
 
 const soVN = (n) => Number(n || 0).toLocaleString("vi-VN");
 
-/** POST tai-san-pham: đọc sản phẩm trên sàn, ghép theo SKU, không đổi gì trên sàn. */
+/**
+ * POST tai-san-pham: đọc sản phẩm trên sàn, ghép theo SKU, không đổi gì trên sàn.
+ * Máy chủ trả `soKhongKhop` (sàn ủy quyền, KH mục C.1) thì báo theo câu của trang Sản phẩm (KH mục B.6).
+ */
 export function ketQuaTaiSanPham(res, tenSan) {
+  if (res?.soKhongKhop != null) {
+    const soSku = Number(res.soSku || 0);
+    const khongKhop = Number(res.soKhongKhop || 0);
+    const ngung = Number(res.soNgung || 0);
+    return {
+      ok: true,
+      title: `Đã tải ${soVN(soSku)} SKU từ ${tenSan}: ${soVN(Math.max(0, soSku - khongKhop - ngung))} ghép tự động, ${soVN(khongKhop)} chưa có mã trùng${ngung ? `, ${soVN(ngung)} ngừng` : ""}`,
+      message: null,
+    };
+  }
   return {
     ok: true,
     title: `Đã đọc ${soVN(res?.soSku)} SKU trên ${tenSan}`,

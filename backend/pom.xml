@@ -151,6 +151,12 @@
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
 
+        <!-- Thymeleaf chỉ để dựng email (spring.thymeleaf.enabled=false: không dùng cho trang web) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
+
         <!-- MinIO Client - Alternative object storage, S3-compatible -->
         <dependency>
             <groupId>io.minio</groupId>

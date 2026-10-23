@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "@/lib/thongBaoNhanh";
-import { Building2, ImagePlus, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Store, X } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -13,53 +14,88 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import LoadingState from "@/components/shared/LoadingState";
 import ConfirmModal from "@/components/ui/confirm-modal";
-import { SettingsFieldHint } from "@/components/settings/SettingsUI";
+import { SettingsFieldHint, SettingsGroupLabel } from "@/components/settings/SettingsUI";
+import { OUTLINE_BUTTON, PRIMARY_BUTTON, settingsInputClass } from "@/components/settings/settingsStyles";
 import { companyProfileService } from "@/services/companyProfileService";
 import {
     COMPANY_PROFILE_FIELDS,
+    EMAIL_TOI_DA,
+    LOGO_ACCEPT,
+    TEN_TOI_DA,
     companyProfileForm,
     companyProfilePayload,
     isCompanyProfileChanged,
+    kiemTepLogo,
     validateCompanyProfile,
 } from "@/validations/companyProfileSchema";
+import {
+    CHU_THICH_HOP_SUA_NHANH,
+    GOI_Y_LOGO_HOP,
+    O_HOP_SUA_NHANH,
+    THU_TU_PHAP_LY_HOP,
+    TOAST_CHUA_LUU,
+    TOAST_DA_LUU,
+    chiTietLoi,
+    goiYKhiSua,
+    thongBaoLogoLoi,
+} from "./thongTinCuaHang";
 
-function Field({ id, label, value, onChange, onBlur, error, placeholder, type = "text", autoFocus = false }) {
+const MAX_LENGTH = { name: TEN_TOI_DA, legalName: TEN_TOI_DA, email: EMAIL_TOI_DA };
+// Màu gợi ý dưới ô (khớp demo: xám, xanh nhận dạng mã số thuế, cam lệch loại)
+const TONE_GOI_Y = { muted: "text-bo-muted", ok: "text-bo-success", warn: "text-bo-warning" };
+
+function Field({ fieldKey, form, error, onChange, onBlur, disabled, autoFocus = false }) {
+    const o = O_HOP_SUA_NHANH[fieldKey];
+    const id = `ho-so-cua-hang-${fieldKey}`;
+    const goiY = goiYKhiSua(fieldKey, form, { noi: "hop" });
+    const moTaId = error || goiY.text ? `${id}-goi-y` : undefined;
     return (
-        <div className="space-y-1.5">
-            <span className="block text-xs font-semibold uppercase tracking-wide text-bo-muted">
-                {label}
-            </span>
+        <div className={cn("flex min-w-0 flex-col gap-1.5", o.wide && "sm:col-span-2")}>
+            <label htmlFor={id} className="text-sm leading-5 font-medium text-bo-foreground">
+                {o.label}
+                {o.required ? <span className="text-bo-danger"> *</span> : null}
+            </label>
             <Input
                 id={id}
-                type={type}
-                value={value}
-                onChange={(event) => onChange(event.target.value)}
-                onBlur={onBlur}
-                placeholder={placeholder}
-                // Form render SAU khi tải xong profile nên autoFocus trên ô
-                // tên công ty mới đưa được focus vào đúng ô đầu tiên (focus
-                // ban đầu của Radix rơi vào nút đóng).
+                type={o.type}
+                autoComplete="off"
+                value={form[fieldKey]}
+                onChange={(event) => onChange(fieldKey, event.target.value)}
+                onBlur={() => onBlur(fieldKey)}
+                placeholder={o.placeholder}
+                maxLength={MAX_LENGTH[fieldKey]}
+                // Form render SAU khi tải xong hồ sơ nên autoFocus trên ô tên cửa hàng mới đưa được
+                // focus vào đúng ô đầu tiên (focus ban đầu của Radix rơi vào nút đóng).
                 autoFocus={autoFocus}
+                disabled={disabled}
                 aria-invalid={error ? true : undefined}
-                aria-describedby={error ? `${id}-loi` : undefined}
-                className="border-bo-border bg-white text-bo-foreground"
+                aria-required={o.required || undefined}
+                aria-describedby={moTaId}
+                className={settingsInputClass({ error: Boolean(error) })}
             />
-            {/* Như trang Thông tin cửa hàng: lỗi hiện dưới ô sau khi rời ô */}
-            {error ? <SettingsFieldHint id={`${id}-loi`} error={error} /> : null}
+            {/* Như trang Thông tin cửa hàng: lỗi hiện dưới ô sau khi rời ô, thay cho gợi ý */}
+            {error ? (
+                <SettingsFieldHint id={moTaId} error={error} />
+            ) : goiY.text ? (
+                <SettingsFieldHint id={moTaId} className={TONE_GOI_Y[goiY.tone]}>
+                    {goiY.text}
+                </SettingsFieldHint>
+            ) : null}
         </div>
     );
 }
 
 /**
- * Hộp thoại "Thông tin cửa hàng" — sửa nhanh ngay trong trình chỉnh sửa mẫu in.
- * Trang đầy đủ: Cấu hình › Thông tin cửa hàng (/settings/store); kiểm tra dữ liệu dùng chung
- * validations/companyProfileSchema.js.
+ * Hộp thoại "Thông tin cửa hàng" — sửa nhanh ngay trong trình sửa mẫu in, cùng quy tắc với trang
+ * Cấu hình › Thông tin cửa hàng (/settings/store) qua validations/companyProfileSchema.js.
  *
- * - Chỉnh sửa giữ cục bộ trong form; bấm "Lưu thông tin" mới ghi server
- *   (logo đợi đến lúc lưu mới tải lên MinIO).
+ * - Hai nhóm "Tên và logo" · "Pháp lý và liên hệ"; hộp lưu cả hai phần nên tên đăng ký kinh doanh và
+ *   địa chỉ đăng ký bắt buộc.
+ * - Chỉnh sửa giữ cục bộ trong form; bấm "Lưu thông tin" mới ghi server: lưu hồ sơ TRƯỚC rồi mới tải logo
+ *   (cửa hàng mới chọn logo ngay lần đầu vẫn lưu được). Logo lỗi thì báo riêng, giữ hộp mở và giữ ảnh để thử lại.
  * - Lưu lỗi -> hộp thoại vẫn mở, dữ liệu nhập (kể cả logo đã chọn) giữ nguyên.
  * - Hủy / đóng khi đang có thay đổi -> hỏi xác nhận bỏ thay đổi.
- * - onSaved(profile) để trang cha cập nhật ngay bản xem (preview/tiêu đề).
+ * - onSaved(profile) để trang cha cập nhật ngay bản xem (đầu phiếu).
  */
 export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
     const [loaded, setLoaded] = useState(null);
@@ -70,11 +106,13 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
     const [loadError, setLoadError] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
     const [saving, setSaving] = useState(false);
+    const savingRef = useRef(false);
     const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
 
-    // Logo đang chờ lưu (File + object URL để xem trước)
+    // Logo đang chờ lưu (File + object URL để xem trước) và lỗi chọn tệp
     const [pendingLogoFile, setPendingLogoFile] = useState(null);
     const [pendingLogoUrl, setPendingLogoUrl] = useState(null);
+    const [logoError, setLogoError] = useState("");
     const fileInputRef = useRef(null);
 
     // Mở hộp thoại -> nạp hồ sơ mới nhất từ server, bỏ trạng thái của lần trước
@@ -88,9 +126,10 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
             setForm(null);
             setTouched({});
             setPendingLogoFile(null);
+            setLogoError("");
             if (fileInputRef.current) fileInputRef.current.value = "";
             try {
-                const profile = await companyProfileService.get();
+                const profile = await companyProfileService.get({ force: true });
                 if (cancelled) return;
                 setLoaded(profile);
                 setForm(companyProfileForm(profile));
@@ -117,20 +156,20 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
         return () => URL.revokeObjectURL(url);
     }, [pendingLogoFile]);
 
-    const isDirty =
-        Boolean(loaded) &&
-        Boolean(form) &&
-        (isCompanyProfileChanged(loaded, form) || pendingLogoFile !== null);
+    const thongTinThayDoi = Boolean(loaded) && Boolean(form) && isCompanyProfileChanged(loaded, form);
+    const isDirty = thongTinThayDoi || (Boolean(form) && pendingLogoFile !== null);
 
     const fieldErrors = form ? validateCompanyProfile(form) : {};
     const hasErrors = Object.keys(fieldErrors).length > 0;
-    // Props chung của một ô: giá trị, đổi giá trị, rời ô, lỗi (sau khi rời ô / bấm Lưu)
+    const doiO = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+    const roiO = (key) => setTouched((prev) => ({ ...prev, [key]: true }));
     const fieldProps = (key) => ({
-        id: `ho-so-cua-hang-${key}`,
-        value: form[key],
-        onChange: (value) => setForm((prev) => ({ ...prev, [key]: value })),
-        onBlur: () => setTouched((prev) => ({ ...prev, [key]: true })),
+        fieldKey: key,
+        form,
         error: touched[key] ? fieldErrors[key] : undefined,
+        onChange: doiO,
+        onBlur: roiO,
+        disabled: saving,
     });
 
     // Cảnh báo đóng tab khi hộp thoại đang mở và có thay đổi chưa lưu
@@ -146,7 +185,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
 
     // Yêu cầu đóng (Hủy / X / Escape / click nền): đang dirty thì hỏi trước
     const requestClose = () => {
-        if (saving) return;
+        if (savingRef.current) return;
         if (isDirty) {
             setConfirmDiscardOpen(true);
             return;
@@ -154,31 +193,70 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
         onOpenChange(false);
     };
 
-    const handleSave = async () => {
-        // Như trang Thông tin cửa hàng: còn lỗi (kể cả giá trị sai có sẵn từ máy chủ ở ô chưa rời)
-        // -> đánh dấu mọi ô đã rời để lỗi hiện dưới ô, không gửi
+    const boLogoDaChon = () => {
+        setPendingLogoFile(null);
+        setLogoError("");
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    // Kiểm loại và dung lượng ngay lúc chọn: sai thì báo dưới nút, không giữ tệp
+    const chonTepLogo = (file) => {
+        if (!file) return;
+        const loi = kiemTepLogo(file);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        if (loi) {
+            setLogoError(loi);
+            return;
+        }
+        setLogoError("");
+        setPendingLogoFile(file);
+    };
+
+    const handleSave = async (event) => {
+        event?.preventDefault();
+        if (!form || savingRef.current) return;
+        // Còn lỗi (kể cả ô bắt buộc đang trống từ máy chủ ở ô chưa rời) -> đánh dấu mọi ô đã rời để lỗi
+        // hiện dưới ô, không gửi
         if (hasErrors) {
             setTouched(Object.fromEntries(COMPANY_PROFILE_FIELDS.map((key) => [key, true])));
             return;
         }
+        if (!isDirty) return;
+        savingRef.current = true;
         setSaving(true);
         try {
-            // Logo đợi đến khi lưu mới tải lên (MinIO) — Hủy trước đó thì không ghi gì
-            if (pendingLogoFile) {
-                await companyProfileService.uploadLogo(pendingLogoFile);
+            let hoSo = loaded;
+            // 1. Lưu hồ sơ trước (máy chủ chỉ nhận logo khi đã có tên cửa hàng)
+            if (thongTinThayDoi) {
+                try {
+                    hoSo = await companyProfileService.save(companyProfilePayload(form));
+                } catch (error) {
+                    console.error("Không lưu được thông tin cửa hàng:", error);
+                    toast.error(TOAST_CHUA_LUU, { description: chiTietLoi(error) });
+                    return;
+                }
+                setLoaded(hoSo);
+                onSaved?.(hoSo);
             }
-            const updated = await companyProfileService.save(companyProfilePayload(form));
-            setLoaded(updated);
-            setPendingLogoFile(null);
-            if (fileInputRef.current) fileInputRef.current.value = "";
-            toast.success("Đã lưu thông tin cửa hàng.");
-            onSaved?.(updated);
+            // 2. Rồi mới tải logo (Hủy trước đó thì không ghi gì)
+            if (pendingLogoFile) {
+                try {
+                    hoSo = await companyProfileService.uploadLogo(pendingLogoFile);
+                } catch (error) {
+                    console.error("Không tải được logo:", error);
+                    toast.error(thongBaoLogoLoi({ daLuuThongTin: thongTinThayDoi, noi: "hop" }), {
+                        description: chiTietLoi(error),
+                    });
+                    return;
+                }
+                setLoaded(hoSo);
+                onSaved?.(hoSo);
+            }
+            boLogoDaChon();
+            toast.success(TOAST_DA_LUU);
             onOpenChange(false);
-        } catch (error) {
-            // Lỗi -> giữ nguyên hộp thoại và dữ liệu đã nhập để người dùng thử lại
-            console.error("Không lưu được thông tin cửa hàng:", error);
-            toast.error("Chưa lưu được thông tin cửa hàng. Vui lòng thử lại.");
         } finally {
+            savingRef.current = false;
             setSaving(false);
         }
     };
@@ -189,7 +267,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
         <Dialog open={open} onOpenChange={(nextOpen) => {
             if (!nextOpen) requestClose();
         }}>
-            {/* 600-640px trên desktop; responsive dưới sm (max-w calc 100%-2rem);
+            {/* 620px trên desktop; responsive dưới sm (max-w calc 100%-2rem);
                 giới hạn chiều cao theo viewport và cuộn bên trong khi cần. */}
             <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-xl bg-white shadow-lg sm:max-w-[620px]">
                 <DialogHeader>
@@ -197,7 +275,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
                         Thông tin cửa hàng
                     </DialogTitle>
                     <DialogDescription className="pt-1 text-sm text-bo-muted">
-                        Hiện ở đầu mọi phiếu in và hóa đơn bán hàng.
+                        {CHU_THICH_HOP_SUA_NHANH}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -210,115 +288,92 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
                         </p>
                         <Button
                             variant="outline"
-                            className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                            className={OUTLINE_BUTTON}
                             onClick={() => setReloadKey((key) => key + 1)}
                         >
                             Thử lại
                         </Button>
                     </div>
                 ) : (
-                    <div className="space-y-4">
-                        <div className="space-y-1.5">
-                            <span className="block text-xs font-semibold uppercase tracking-wide text-bo-muted">
-                                Logo cửa hàng
-                            </span>
-                            <div className="flex items-center gap-3">
+                    <form id="ho-so-cua-hang-form" noValidate onSubmit={handleSave} className="flex flex-col gap-4">
+                        <SettingsGroupLabel className="pt-1 pb-0 text-bo-muted">Tên và logo</SettingsGroupLabel>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md border border-bo-border bg-white p-1">
                                 {logoShown ? (
-                                    <img
-                                        src={logoShown}
-                                        alt="Logo cửa hàng"
-                                        className="h-12 w-12 rounded-md border border-bo-border bg-white object-contain p-1"
-                                    />
+                                    <img src={logoShown} alt="Logo cửa hàng" className="max-h-full max-w-full object-contain" />
                                 ) : (
-                                    <span className="flex h-12 w-12 items-center justify-center rounded-md border border-dashed border-bo-border bg-bo-surface-subtle text-bo-muted">
-                                        <Building2 className="size-5" />
-                                    </span>
+                                    <Store className="size-5 text-[#94a3b8]" aria-hidden="true" />
                                 )}
+                            </span>
+                            <div className="flex flex-col gap-1">
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <label className="cursor-pointer rounded-md border border-bo-border bg-white px-3 py-1.5 text-sm text-bo-foreground hover:bg-bo-surface-subtle focus-within:outline-none focus-within:ring-2 focus-within:ring-bo-primary">
-                                        <ImagePlus className="mr-1.5 inline size-4" />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className={cn(OUTLINE_BUTTON, "h-8 px-3 text-[13px]")}
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={saving}
+                                        aria-describedby="ho-so-cua-hang-logo-goi-y"
+                                    >
                                         Chọn ảnh logo
-                                        <input
-                                            ref={fileInputRef}
-                                            type="file"
-                                            accept="image/*"
-                                            className="hidden"
-                                            onChange={(event) => {
-                                                const file = event.target.files?.[0] ?? null;
-                                                setPendingLogoFile(file);
-                                            }}
-                                        />
-                                    </label>
+                                    </Button>
                                     {pendingLogoFile ? (
                                         <Button
+                                            type="button"
                                             variant="outline"
-                                            className="border-bo-border bg-white text-bo-muted hover:bg-bo-surface-subtle hover:text-bo-foreground"
-                                            onClick={() => {
-                                                setPendingLogoFile(null);
-                                                if (fileInputRef.current) {
-                                                    fileInputRef.current.value = "";
-                                                }
-                                            }}
+                                            className={cn(OUTLINE_BUTTON, "h-8 px-3 text-[13px]")}
+                                            onClick={boLogoDaChon}
+                                            disabled={saving}
                                         >
-                                            <X className="size-4" />
-                                            Bỏ logo đã chọn
+                                            <X className="size-4" aria-hidden="true" />
+                                            Bỏ ảnh vừa chọn
                                         </Button>
                                     ) : null}
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept={LOGO_ACCEPT}
+                                        className="hidden"
+                                        tabIndex={-1}
+                                        aria-hidden="true"
+                                        onChange={(event) => chonTepLogo(event.target.files?.[0] ?? null)}
+                                    />
                                 </div>
+                                {logoError ? (
+                                    <SettingsFieldHint id="ho-so-cua-hang-logo-goi-y" error={logoError} />
+                                ) : (
+                                    <SettingsFieldHint id="ho-so-cua-hang-logo-goi-y" className="text-bo-muted">
+                                        {GOI_Y_LOGO_HOP}
+                                    </SettingsFieldHint>
+                                )}
                             </div>
-                            {pendingLogoFile ? (
-                                <p className="text-xs text-bo-muted">
-                                    Logo mới chỉ được tải lên khi bạn bấm “Lưu thông tin”.
-                                </p>
-                            ) : null}
                         </div>
+                        <Field {...fieldProps("name")} autoFocus />
 
-                        <Field
-                            {...fieldProps("name")}
-                            label="Tên cửa hàng"
-                            placeholder="Ví dụ: Thời trang Mộc An"
-                            autoFocus
-                        />
-                        <Field
-                            {...fieldProps("taxCode")}
-                            label="Mã số thuế"
-                            placeholder="Ví dụ: 0312345678"
-                        />
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            <Field
-                                {...fieldProps("email")}
-                                label="Email"
-                                placeholder="lienhe@congty.vn"
-                            />
-                            <Field
-                                {...fieldProps("phone")}
-                                label="Điện thoại"
-                                placeholder="028 7300 0000"
-                            />
+                        <SettingsGroupLabel className="pt-1 pb-0 text-bo-muted">Pháp lý và liên hệ</SettingsGroupLabel>
+                        <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-2">
+                            {THU_TU_PHAP_LY_HOP.map((key) => (
+                                <Field key={key} {...fieldProps(key)} />
+                            ))}
                         </div>
-                        <Field
-                            {...fieldProps("address")}
-                            label="Địa chỉ"
-                            placeholder="Số nhà, đường, quận/huyện, tỉnh/thành phố"
-                        />
-                    </div>
+                    </form>
                 )}
 
-                <DialogFooter className="gap-2 sm:gap-3">
+                <DialogFooter className="gap-2 pt-2 sm:gap-2.5">
                     <Button
                         type="button"
                         variant="outline"
-                        className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                        className={OUTLINE_BUTTON}
                         onClick={requestClose}
                         disabled={saving}
                     >
                         Hủy
                     </Button>
                     <Button
-                        type="button"
-                        className="bg-bo-primary text-white hover:bg-bo-primary-hover"
-                        onClick={handleSave}
-                        disabled={saving || !isDirty}
+                        type="submit"
+                        form="ho-so-cua-hang-form"
+                        className={PRIMARY_BUTTON}
+                        disabled={saving || !isDirty || !form}
                     >
                         {saving ? "Đang lưu…" : "Lưu thông tin"}
                     </Button>

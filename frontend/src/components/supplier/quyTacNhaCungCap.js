@@ -19,7 +19,6 @@ export const MAX_LENGTH = {
     soDienThoai: 11,
     email: 100,
     diaChi: 500,
-    soNganHang: 30,
 };
 
 const MA_REGEX = /^[A-Za-z0-9._-]+$/;
@@ -28,7 +27,6 @@ const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 // Doanh nghiệp hay dùng số bàn hoặc tổng đài, không chỉ di động:
 // di động 10 số (03/05/07/08/09), cố định 11 số (02…), tổng đài 1800/1900 (8–10 số).
 const SO_DIEN_THOAI_REGEX = /^(0[35789][0-9]{8}|02[0-9]{9}|1[89]00[0-9]{4,6})$/;
-const SO_TAI_KHOAN_REGEX = /^[A-Za-z0-9]{4,30}$/;
 
 export const SO_DIEN_THOAI_MESSAGE =
     "Số điện thoại không hợp lệ (di động 10 số, số bàn 11 số bắt đầu bằng 02, hoặc tổng đài 1800/1900)";
@@ -71,7 +69,7 @@ export const formTuNhaCungCap = (supplier) =>
           }
         : FORM_TRONG;
 
-/** Kiểm tra từng ô; trả "" khi hợp lệ. `form` dùng cho quy tắc liên quan hai ô (ngân hàng ↔ số tài khoản). */
+/** Kiểm tra từng ô; trả "" khi hợp lệ. */
 export const VALIDATORS = {
     maNhaCungCap: (value) => {
         const ma = value.trim();
@@ -91,16 +89,13 @@ export const VALIDATORS = {
         return EMAIL_REGEX.test(email) ? "" : "Vui lòng nhập đúng định dạng email";
     },
     diaChi: () => "",
-    nganHang: (value, form) =>
-        !value.trim() && form.soNganHang.trim() ? "Vui lòng chọn ngân hàng cho số tài khoản đã nhập" : "",
-    soNganHang: (value, form) => {
-        const soTaiKhoan = value.trim();
-        if (!soTaiKhoan) return form.nganHang.trim() ? "Vui lòng nhập số tài khoản" : "";
-        return SO_TAI_KHOAN_REGEX.test(soTaiKhoan) ? "" : "Số tài khoản chỉ gồm chữ và số (4–30 ký tự)";
-    },
 };
 
-/** Nội dung gửi lên API: bỏ khoảng trắng hai đầu, ô tùy chọn để trống gửi null. */
+/**
+ * Nội dung gửi lên API: bỏ khoảng trắng hai đầu, ô tùy chọn để trống gửi null. Ngân hàng / số tài khoản không còn ô nhập
+ * (không quản lý thanh toán nhà cung cấp): thêm mới gửi null; sửa thì gửi lại nguyên giá trị đang có của nhà cung cấp
+ * (formTuNhaCungCap) vì PUT ghi đè mọi trường.
+ */
 export function payloadTuForm(form, { laSua }) {
     const tuyChon = (value) => value.trim() || null;
     const payload = {

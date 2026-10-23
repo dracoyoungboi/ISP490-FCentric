@@ -1,0 +1,4 @@
+--
+[# th:if="${cuaHang.tenDangKy != null}"][(${cuaHang.tenDangKy})]
+[/][# th:if="${cuaHang.diaChiDangKy != null}"][(${cuaHang.diaChiDangKy})]
+[/]Email gửi tự động qua phần mềm FCentric, vui lòng không trả lời. Cần hỗ trợ, hãy liên hệ quản trị viên.

@@ -11,8 +11,7 @@ import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.services.CalcService;
-import com.dev.backend.services.EmailService;
-import com.dev.backend.services.impl.utils.OtpMailDispatcher;
+import com.dev.backend.services.email.EmailNghiepVuService;
 import com.dev.backend.services.impl.utils.PasswordResetRateLimiter;
 import com.dev.backend.workers.SchedulingJob;
 import jakarta.persistence.EntityManager;
@@ -57,7 +56,7 @@ class NguoiDungServiceResetPasswordTest {
     @Mock
     private CalcService calcService;
     @Mock
-    private EmailService emailService;
+    private EmailNghiepVuService emailService;
     @Mock
     private PasswordResetRateLimiter rateLimiter;
 
@@ -72,9 +71,8 @@ class NguoiDungServiceResetPasswordTest {
         service = new NguoiDungService(repository);
         ReflectionTestUtils.setField(service, "passwordEncoder", passwordEncoder);
         ReflectionTestUtils.setField(service, "calcService", calcService);
-        ReflectionTestUtils.setField(service, "emailService", emailService);
-        // gửi mail đồng bộ trong test để kiểm tra ngay; bộ giới hạn mặc định cho qua (test riêng ở PasswordResetRateLimiterTest)
-        ReflectionTestUtils.setField(service, "otpMailDispatcher", new OtpMailDispatcher(emailService, Runnable::run));
+        ReflectionTestUtils.setField(service, "emailNghiepVuService", emailService);
+        // bộ giới hạn mặc định cho qua (test riêng ở PasswordResetRateLimiterTest)
         ReflectionTestUtils.setField(service, "passwordResetRateLimiter", rateLimiter);
         lenient().when(rateLimiter.tryAcquire(anyString(), anyString(), any()))
                 .thenReturn(PasswordResetRateLimiter.Decision.ALLOWED);
@@ -115,8 +113,8 @@ class NguoiDungServiceResetPasswordTest {
         List<OtpScheduleObj> otps = resetOtpsInCache();
         assertEquals(1, otps.size(), "chỉ được còn 1 mã RESET_PASSWORD cho email");
         assertEquals("222222", otps.get(0).getOtp(), "mã còn hiệu lực phải là mã trong email mới nhất");
-        verify(emailService, times(2)).sendHtmlEmailFromTemplate(eq(EMAIL), anyString(), eq("activation.html"),
-                argThat(p -> p.get("otp") != null));
+        verify(emailService).guiMaDatLaiMatKhau(same(user), eq("111111"), any(Instant.class), any(Instant.class));
+        verify(emailService).guiMaDatLaiMatKhau(same(user), eq("222222"), any(Instant.class), any(Instant.class));
 
         CommonException oldCode = assertThrows(CommonException.class, () -> reset("111111", "matkhaumoi"));
         assertEquals(HttpStatus.BAD_REQUEST, oldCode.getHttpStatus());
@@ -175,6 +173,36 @@ class NguoiDungServiceResetPasswordTest {
         ResponseData<String> res = forgot();
         assertEquals(200, res.getStatus());
         assertEquals(NguoiDungService.FORGOT_PASSWORD_GENERIC_MESSAGE, res.getMessage());
+    }
+
+    @Test
+    void guiMa_hetHan_bangLucTaoCongTTL_khopMaTrongBoNho() {
+        when(calcService.getRandomActiveCode(6L)).thenReturn("333333");
+
+        forgot();
+
+        OtpScheduleObj otp = resetOtpsInCache().get(0);
+        org.mockito.ArgumentCaptor<Instant> taoLuc = org.mockito.ArgumentCaptor.forClass(Instant.class);
+        org.mockito.ArgumentCaptor<Instant> hetHan = org.mockito.ArgumentCaptor.forClass(Instant.class);
+        verify(emailService).guiMaDatLaiMatKhau(same(user), eq("333333"), taoLuc.capture(), hetHan.capture());
+        assertEquals(otp.getCreatedAt(), taoLuc.getValue(), "E1 kiểm mã còn hiệu lực theo createdAt");
+        assertEquals(otp.getCreatedAt().plusSeconds(NguoiDungService.RESET_OTP_TTL_SECONDS), hetHan.getValue());
+        // câu phản hồi dựng từ hằng thời hạn, không còn chữ OTP
+        assertTrue(NguoiDungService.FORGOT_PASSWORD_GENERIC_MESSAGE.contains("5 phút"));
+        assertFalse(NguoiDungService.FORGOT_PASSWORD_GENERIC_MESSAGE.contains("OTP"));
+    }
+
+    @Test
+    void datLaiThanhCong_guiM4DatLaiBangMa_saiMaThiKhongGui() {
+        when(calcService.getRandomActiveCode(6L)).thenReturn("444444");
+        forgot();
+
+        assertThrows(CommonException.class, () -> reset("000000", "matkhaumoi"));
+        verify(emailService, never()).guiDaDoiMatKhau(any(), any(), any());
+
+        reset("444444", "matkhaumoi");
+        verify(emailService).guiDaDoiMatKhau(same(user),
+                eq(com.dev.backend.services.email.CachDoiMatKhau.DAT_LAI_BANG_MA), any(Instant.class));
     }
 
     @Test

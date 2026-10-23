@@ -1,7 +1,7 @@
 // Dữ liệu mẫu cho phần Kênh bán hàng, bám đúng hợp đồng docs/omnichannel/API-KENH-BAN-HANG.md
 // (KenhTichHopDto, KetNoiKenhDto, LienKetDto, NhatKyDto, TongQuanDto, ThongTinKenhDto).
 // Trạng thái giữ trong bộ nhớ: kết nối → thiết lập → liên kết chạy liền mạch trong một lần tải trang.
-import { locKhoDongBo } from "@/constants/channel";
+import { locKhoDongBo, tinhSoTonDayLenSan } from "@/constants/channel";
 import { clone, isoMinutesAgo, mockDelay, mockError, normalizeText, paginate } from "./mockHelpers";
 
 const KHO_FCENTRIC = [
@@ -43,12 +43,8 @@ const BIEN_THE = [
 
 const bienTheById = (id) => BIEN_THE.find((bt) => bt.id === id);
 
-/** BR-OC-10: số đẩy = (kd < ngưỡng về 0) ? 0 : max(0, ⌊kd × tỷ lệ / 100⌋ − tồn đệm) */
-export function tinhSoDay(kd, { tyLeDayTon = 100, tonDem = 0, nguongVe0 = 0 } = {}) {
-  const khaDung = Math.max(0, Number(kd) || 0);
-  if (khaDung < Number(nguongVe0 || 0)) return 0;
-  return Math.max(0, Math.floor((khaDung * Number(tyLeDayTon || 0)) / 100) - Number(tonDem || 0));
-}
+/** BR-OC-10: cùng công thức với máy chủ (tinhSoTonDayLenSan) để số mẫu khớp câu ví dụ ở thẻ Tồn kho. */
+export const tinhSoDay = tinhSoTonDayLenSan;
 
 // [sku sàn, tên SP sàn, biến thể sàn, id biến thể FCentric | null, trạng thái, lỗi, số đã đẩy]
 const SHOPIFY_SKUS = [
@@ -70,18 +66,47 @@ const SHOPIFY_SKUS = [
   ["MU-LUOI-TRAI-DEN", "Mũ lưỡi trai", "Đen", null, "chua_lien_ket", null, null],
 ];
 
+// Lazada / TikTok Shop: 4 sản phẩm, 11 SKU như bản demo (Lazada có 1 SKU lỗi, mỗi sàn 1 SKU ngừng đồng bộ)
+const SAN_UY_QUYEN_SKUS = (loiKhoacXl) => [
+  ["AO-THUN-DEN-M", "Áo thun cotton basic", "Đen / M", 77, "da_lien_ket", null, 15],
+  ["AO-THUN-DEN-L", "Áo thun cotton basic", "Đen / L", 78, "da_lien_ket", null, 9],
+  ["AO-THUN-DEN-XL", "Áo thun cotton basic", "Đen / XL", 79, "da_lien_ket", null, 2],
+  ["AO-THUN-TRANG-M", "Áo thun cotton basic", "Trắng / M", 81, "da_lien_ket", null, 22],
+  ["AO-THUN-TRANG-L", "Áo thun cotton basic", "Trắng / L", 82, "da_lien_ket", null, 0],
+  ["QUAN-JEAN-XANH-30", "Quần jean slim", "Xanh đậm / 30", 93, "da_lien_ket", null, 5],
+  ["QUAN-JEAN-XANH-32", "Quần jean slim", "Xanh đậm / 32", 94, "da_lien_ket", null, 11],
+  ["QUAN-JEAN-XANH-34", "Quần jean slim", "Xanh đậm / 34", 95, "da_lien_ket", null, 1],
+  ["AO-KHOAC-GIO-DEN-L", "Áo khoác gió", "Đen / L", 120, "da_lien_ket", null, 3],
+  loiKhoacXl
+    ? ["AO-KHOAC-GIO-DEN-XL", "Áo khoác gió", "Đen / XL", 121, "loi", "Không tìm thấy SKU trên sàn.", null]
+    : ["AO-KHOAC-GIO-DEN-XL", "Áo khoác gió", "Đen / XL", 121, "da_lien_ket", null, 12],
+  ["VAY-MIDI-BE-S", "Váy midi xếp ly", "Be / S", 112, "chua_lien_ket", null, 4],
+];
+
+/** SKU mẫu và cách đặt mã sàn theo kết nối: 10 Shopify, 20 Lazada, 30 TikTok Shop. */
+const SKU_THEO_KET_NOI = {
+  20: { skus: SAN_UY_QUYEN_SKUS(true), maSanPham: (i) => `41098${String(23300 + Math.floor(i / 4)).padStart(5, "0")}`, maSku: (i) => `52${String(81000 + i)}` },
+  30: { skus: SAN_UY_QUYEN_SKUS(false), maSanPham: (i) => `17296${String(40100 + Math.floor(i / 4))}`, maSku: (i) => `17296${String(55000 + i)}` },
+};
+const SKU_SHOPIFY = {
+  skus: SHOPIFY_SKUS,
+  maSanPham: (i) => `gid://shopify/Product/${8100 + Math.floor(i / 3)}`,
+  maSku: (i) => `gid://shopify/ProductVariant/${45000 + i}`,
+};
+
 function seedLinks(ketNoiKenhId) {
-  return SHOPIFY_SKUS.map(([skuSan, tenSanPhamSan, tenBienTheSan, bienTheId, trangThai, loi, daDay], index) => ({
+  const { skus, maSanPham, maSku } = SKU_THEO_KET_NOI[ketNoiKenhId] ?? SKU_SHOPIFY;
+  return skus.map(([skuSan, tenSanPhamSan, tenBienTheSan, bienTheId, trangThai, loi, daDay], index) => ({
     id: ketNoiKenhId * 1000 + index + 1,
     ketNoiKenhId,
-    maSanPhamKenh: `gid://shopify/Product/${8100 + Math.floor(index / 3)}`,
-    maBienTheSan: `gid://shopify/ProductVariant/${45000 + index}`,
+    maSanPhamKenh: maSanPham(index),
+    maBienTheSan: maSku(index),
     skuSan,
     tenSanPhamSan,
     tenBienTheSan,
     bienTheSanPhamId: bienTheId,
     trangThaiLienKet: trangThai,
-    choPhepDongBo: trangThai !== "chua_lien_ket" && index !== 2,
+    choPhepDongBo: trangThai !== "chua_lien_ket" && (index !== 2 || Boolean(SKU_THEO_KET_NOI[ketNoiKenhId])),
     soLuongDaDay: daDay,
     ngayDayCuoi: daDay !== null ? isoMinutesAgo(4 + index) : null,
     chiTietLoi: loi,
@@ -124,8 +149,26 @@ const state = {
       loiGanNhat: "Không xin được token: Client Secret đã bị thu hồi trên Dev Dashboard (401).",
       ngayTao: "2026-10-08T02:00:00Z",
     },
+    // Lazada, TikTok Shop: trạng thái kết nối (ủy quyền, hạn) ở kenhSanMock.js; ở đây chỉ phục vụ liên kết sản phẩm
+    ...[
+      [20, 3, "LAZADA", "Lazada"],
+      [30, 5, "TIKTOK", "TikTok Shop"],
+    ].map(([id, kenhBanId, maKenh, tenKenh]) => ({
+      id, kenhBanId, maKenh, tenKenh,
+      tenHienThi: "Fashion House VN", shopIdSan: null,
+      tenShopSan: "Fashion House VN", tenMienShop: "Fashion House VN",
+      trangThai: "dang_hoat_dong",
+      khoId: 1, tenKho: "Kho tổng Hà Nội", maKhoSan: null, tenKhoSan: null,
+      khachHangMacDinhId: maKenh === "LAZADA" ? 6 : 7, tenKhachHangMacDinh: maKenh === "LAZADA" ? "Khách Lazada" : "Khách TikTok Shop",
+      tyLeDayTon: 100, tonDem: 0, nguongVe0: 0, layDonTu: "2026-10-20T00:00:00Z",
+      tuDongDayTon: true, tuDongLayDon: true,
+      appKeyMasked: null, appSecretMasked: null, accessTokenMasked: null,
+      hetHanAccess: null, hetHanRefresh: null,
+      lanDayTonCuoi: isoMinutesAgo(4), lanLayDonCuoi: isoMinutesAgo(5), loiGanNhat: null,
+      ngayTao: "2026-10-20T09:10:00Z",
+    })),
   ],
-  links: { 10: seedLinks(10), 11: [] },
+  links: { 10: seedLinks(10), 11: [], 20: seedLinks(20), 30: seedLinks(30) },
   logs: [],
   seq: { ketNoi: 12, log: 9100 },
 };
@@ -312,6 +355,27 @@ export const kenhBanHangMock = {
     return true;
   },
 
+  /**
+   * Ngắt kết nối (KH mục C.1): xóa khóa truy cập, khóa làm mới và khóa của ứng dụng; giữ tên miền để điền sẵn khi
+   * kết nối lại. Liên kết sản phẩm và đơn đã nhận giữ nguyên.
+   */
+  async ngatKetNoiShopify() {
+    await mockDelay(400, 700);
+    Object.assign(shopifyState, {
+      accessTokenMasked: null,
+      hasAccessToken: false,
+      hasApiSecret: false,
+      clientId: null,
+      hasRefreshToken: false,
+      refreshTokenMasked: null,
+      tokenExpiresAt: null,
+      tokenExpired: false,
+      secondsUntilExpiration: null,
+      ngayCapNhat: new Date().toISOString(),
+    });
+    return clone(shopifyState);
+  },
+
 
   async getKetNoi(id) {
     await mockDelay();
@@ -362,8 +426,18 @@ export const kenhBanHangMock = {
     const existing = state.links[kn.id] ?? [];
     if (existing.length === 0) state.links[kn.id] = seedLinks(kn.id).map((l) => ({ ...l, bienTheSanPhamId: null, trangThaiLienKet: "chua_lien_ket", choPhepDongBo: false, soLuongDaDay: null, ngayDayCuoi: null, chiTietLoi: null }));
     const links = state.links[kn.id];
-    addLog(kn, { loai: "SAN_PHAM", nguon: "MANUAL", trangThai: "THANH_CONG", maThamChieu: kn.tenMienShop, thongDiep: `Tải ${links.length} SKU từ Shopify` });
-    return { soSanPham: new Set(links.map((l) => l.maSanPhamKenh)).size, soSku: links.length, soMoi: existing.length ? 0 : links.length, soCapNhat: existing.length };
+    addLog(kn, { loai: "SAN_PHAM", nguon: "MANUAL", trangThai: "THANH_CONG", maThamChieu: kn.tenMienShop, thongDiep: `Tải ${links.length} SKU từ ${kn.tenKenh}` });
+    const khongKhop = links.filter((l) => !l.bienTheSanPhamId);
+    return {
+      soSanPham: new Set(links.map((l) => l.maSanPhamKenh)).size,
+      soSku: links.length,
+      soMoi: existing.length ? 0 : links.length,
+      soCapNhat: existing.length,
+      // Sàn ủy quyền (KH mục C.1): SKU sàn không trùng mã FCentric và dòng đang ngừng đồng bộ
+      soKhongKhop: khongKhop.length,
+      skuKhongKhop: khongKhop.map((l) => l.skuSan),
+      soNgung: links.filter((l) => l.bienTheSanPhamId && l.trangThaiLienKet === "chua_lien_ket").length,
+    };
   },
 
   async tuDongLienKet(id) {

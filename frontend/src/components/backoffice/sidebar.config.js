@@ -9,7 +9,10 @@ import {
   Settings,
   Store,
 } from "lucide-react";
-import { ShopifyMenuIcon } from "@/components/channel/ChannelLogo";
+import { LazadaMenuIcon, ShopifyMenuIcon, TiktokMenuIcon } from "@/components/channel/ChannelLogo";
+import { SAN_BAN_HANG } from "@/constants/channel";
+
+const ICON_MENU_SAN = { SHOPIFY: ShopifyMenuIcon, LAZADA: LazadaMenuIcon, TIKTOK: TiktokMenuIcon };
 import { SETTINGS_PAGES, SETTINGS_ROLES } from "@/components/settings/settings.config";
 import { canKho } from "@/components/nguoi-dung/phanQuyen";
 
@@ -213,26 +216,36 @@ export const SIDEBAR_MENU = [
     section: "channels",
     to: "/channels",
     roles: ["quan_tri_vien"],
-    match: (path) => path === "/channels",
+    // Trang quay về sau ủy quyền tính vào Tất cả kênh
+    match: (path) => path === "/channels" || path.startsWith("/channels/oauth/"),
+    // Trang của sàn chưa kết nối (giới thiệu, thiết lập) cũng tính vào Tất cả kênh vì sàn đó chưa có mục riêng;
+    // BackofficeSidebar truyền danh sách sàn đã kết nối
+    matchKenh: (path, kenhDaKetNoi) =>
+      path === "/channels" ||
+      path.startsWith("/channels/oauth/") ||
+      SAN_BAN_HANG.some((san) => !kenhDaKetNoi.includes(san.maKenh) && (path === san.duongDan || path.startsWith(`${san.duongDan}/`))),
   },
-  {
-    label: "Shopify",
-    icon: ShopifyMenuIcon,
+  // Sinh từ SAN_BAN_HANG; `maKenh`: BackofficeSidebar chỉ hiện sàn đã kết nối (danh sách tải ở BackofficeLayout)
+  ...SAN_BAN_HANG.filter((san) => san.hoTro).map((san) => ({
+    label: san.ten,
+    icon: ICON_MENU_SAN[san.maKenh] ?? Store,
     section: "channels",
     roles: ["quan_tri_vien"],
+    maKenh: san.maKenh,
     children: [
       {
         label: "Tổng quan",
-        to: "/channels/shopify",
+        to: san.duongDan,
         roles: ["quan_tri_vien"],
-        // Màn Thiết lập (/channels/shopify/setup) tính vào Tổng quan
-        match: (path) => path === "/channels/shopify" || path === "/channels/shopify/setup",
+        // Chỉ đúng trang Tổng quan. Thiết lập (/channels/<sàn>/setup) không có mục riêng: nhóm sàn vẫn mở,
+        // không mục con nào sáng (nhóm đang đóng hoặc menu thu gọn thì cả nhóm được tô như mọi nhóm khác)
+        match: (path) => path === san.duongDan,
       },
-      { label: "Sản phẩm", to: "/channels/shopify/products", roles: ["quan_tri_vien"] },
-      { label: "Đơn hàng", to: "/channels/shopify/orders", roles: ["quan_tri_vien"] },
-      { label: "Cấu hình", to: "/channels/shopify/settings", roles: ["quan_tri_vien"] },
+      { label: "Sản phẩm", to: `${san.duongDan}/products`, roles: ["quan_tri_vien"] },
+      { label: "Đơn hàng", to: `${san.duongDan}/orders`, roles: ["quan_tri_vien"] },
+      { label: "Cấu hình", to: `${san.duongDan}/settings`, roles: ["quan_tri_vien"] },
     ],
-  },
+  })),
 
   // ================= BÁO CÁO & CẢNH BÁO =================
   {

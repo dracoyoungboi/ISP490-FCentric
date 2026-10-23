@@ -25,7 +25,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { createSupplier, updateSupplier } from "@/services/supplierService";
 import { getApiErrorMessage } from "@/utils/apiError";
-import NganHangPicker from "./NganHangPicker";
 import {
     MAX_LENGTH,
     VALIDATORS,
@@ -36,18 +35,9 @@ import {
 } from "./quyTacNhaCungCap";
 
 // Thứ tự trên màn hình: lỗi đầu tiên theo thứ tự này được focus khi bấm Lưu.
-const FIELDS = [
-    "maNhaCungCap",
-    "tenNhaCungCap",
-    "nguoiLienHe",
-    "soDienThoai",
-    "email",
-    "diaChi",
-    "nganHang",
-    "soNganHang",
-];
-// Ô có quy tắc liên quan nhau: sửa ô này thì kiểm tra lại cả ô kia.
-const LIEN_QUAN = { nganHang: ["soNganHang"], soNganHang: ["nganHang"] };
+// Không có ô Ngân hàng / Số tài khoản: không quản lý thanh toán nhà cung cấp (chốt 16/10, gỡ ô 22/10/2026). Khi sửa,
+// payloadTuForm gửi lại nguyên giá trị đang có (PUT /api/supplier/{id} ghi đè mọi trường, bỏ trống là xóa mất).
+const FIELDS = ["maNhaCungCap", "tenNhaCungCap", "nguoiLienHe", "soDienThoai", "email", "diaChi"];
 
 const CONTROL_CLASS =
     "h-10 border-bo-border bg-white text-bo-foreground shadow-none placeholder:text-slate-400 focus-visible:border-bo-primary focus-visible:ring-[3px] focus-visible:ring-bo-primary/15";
@@ -97,8 +87,10 @@ function Field({ id, label, required = false, hint, error, className, children }
  * - Lỗi hiện ngay dưới từng ô (không dùng toast: lớp phủ của popup che mất toast).
  * - Đang nhập dở mà đóng (Esc, nút X, Hủy) thì hỏi lại; bấm ra ngoài không làm mất dữ liệu.
  * - `onSaved(supplier, { laSua })` nhận dữ liệu nhà cung cấp máy chủ trả về.
+ * - `oDauTien`: tên ô có tiêu điểm khi mở (vd. "email" khi mở để cập nhật email ở màn Gửi yêu cầu báo giá); mặc định ô
+ *   đầu tiên sửa được.
  */
-export default function SupplierFormDialog({ open, onOpenChange, supplier = null, onSaved }) {
+export default function SupplierFormDialog({ open, onOpenChange, supplier = null, onSaved, oDauTien = null }) {
     // Mỗi lần mở là một phiên nhập mới: đổi key lúc chuyển đóng → mở.
     // Không xóa form lúc đóng để nội dung không bị trắng khi hiệu ứng đóng còn đang chạy.
     const [session, setSession] = useState(0);
@@ -120,12 +112,13 @@ export default function SupplierFormDialog({ open, onOpenChange, supplier = null
                 supplier={supplier}
                 onClose={() => onOpenChange(false)}
                 onSaved={onSaved}
+                oDauTien={oDauTien}
             />
         </Dialog>
     );
 }
 
-function SupplierForm({ supplier, onClose, onSaved }) {
+function SupplierForm({ supplier, onClose, onSaved, oDauTien }) {
     const laSua = Boolean(supplier?.id);
     const idPrefix = useId();
     const fieldId = (name) => `${idPrefix}-${name}`;
@@ -143,7 +136,9 @@ function SupplierForm({ supplier, onClose, onSaved }) {
     const confirmReturnFocusRef = useRef(null);
     const discardingRef = useRef(false);
 
-    const firstField = laSua ? "tenNhaCungCap" : "maNhaCungCap";
+    const firstField = FIELDS.includes(oDauTien) && !(laSua && oDauTien === "maNhaCungCap")
+        ? oDauTien
+        : laSua ? "tenNhaCungCap" : "maNhaCungCap";
     const isDirty = FIELDS.some((name) => form[name].trim() !== initial[name].trim());
 
     const focusField = (name) => {
@@ -163,9 +158,7 @@ function SupplierForm({ supplier, onClose, onSaved }) {
         setForm(next);
         setSubmitError("");
         // Ô đã báo lỗi: kiểm tra lại ngay (lỗi từ máy chủ cũng mất khi giá trị đổi).
-        [name, ...(LIEN_QUAN[name] ?? [])].forEach((field) => {
-            if (errors[field]) setFieldError(field, VALIDATORS[field](next[field], next));
-        });
+        if (errors[name]) setFieldError(name, VALIDATORS[name](next[name], next));
     };
 
     const handleBlur = (name) => {
@@ -202,11 +195,16 @@ function SupplierForm({ supplier, onClose, onSaved }) {
             setTimeout(() => focusField(fromMap[0]), 0);
             return;
         }
+        // Chỉ gắn vào ô đang có trên hộp. Câu về ngân hàng / số tài khoản là dữ liệu cũ không hợp lệ mà hộp không còn ô để sửa.
         const field = error?.response ? oCuaThongBaoMayChu(message) : null;
-        if (field && !(laSua && field === "maNhaCungCap")) {
+        if (field && FIELDS.includes(field) && !(laSua && field === "maNhaCungCap")) {
             setFieldError(field, message);
             // Chờ render xong (ô hết readOnly) rồi mới focus vào ô cần sửa.
             setTimeout(() => focusField(field), 0);
+        } else if (field === "nganHang" || field === "soNganHang") {
+            setSubmitError(
+                `Chưa lưu được vì thông tin ngân hàng đã lưu của nhà cung cấp này không hợp lệ (${message.replace(/\.$/, "")}). Hãy báo quản trị hệ thống.`,
+            );
         } else {
             setSubmitError(message);
         }
@@ -388,8 +386,7 @@ function SupplierForm({ supplier, onClose, onSaved }) {
                                 type="tel"
                                 inputMode="numeric"
                                 // Không đặt maxLength: dán "024-3825-1234" thì trình duyệt cắt theo số ký tự
-                                // trước khi bỏ dấu "-"; chiGiuChuSo đã giới hạn số chữ số.
-                                placeholder="VD: 0912345678 hoặc 02438251234"
+                                // trước khi bỏ dấu "-"; chiGiuChuSo đã giới hạn số chữ số. Không đặt số mẫu làm gợi ý.
                                 onChange={(event) =>
                                     changeField("soDienThoai", chiGiuChuSo(event.target.value, MAX_LENGTH.soDienThoai))}
                             />
@@ -430,51 +427,6 @@ function SupplierForm({ supplier, onClose, onSaved }) {
                             />
                         </Field>
                     </div>
-
-                    <fieldset className="mt-5 border-t border-bo-border pt-4">
-                        <legend className="sr-only">Thông tin thanh toán</legend>
-                        <p className="text-sm font-semibold text-bo-foreground">
-                            Thông tin thanh toán <span className="font-normal text-bo-muted">(không bắt buộc)</span>
-                        </p>
-                        <p className="mt-0.5 text-xs leading-5 text-bo-muted">
-                            Dùng để tạo mã QR chuyển khoản khi thanh toán đơn mua cho nhà cung cấp.
-                        </p>
-                        <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
-                            <Field id={fieldId("nganHang")} label="Ngân hàng" error={errors.nganHang}>
-                                <div
-                                    ref={(element) => {
-                                        // Focus khi báo lỗi: nút mở danh sách (hoặc ô nhập tay khi không tải được danh sách).
-                                        inputRefs.current.nganHang = element?.querySelector("button, input") ?? null;
-                                    }}
-                                >
-                                    <NganHangPicker
-                                        id={fieldId("nganHang")}
-                                        value={form.nganHang}
-                                        onChange={(value) => changeField("nganHang", value)}
-                                        disabled={submitting}
-                                        invalid={Boolean(errors.nganHang)}
-                                        describedBy={describedBy("nganHang")}
-                                        className={cn(CONTROL_CLASS, errors.nganHang && CONTROL_ERROR_CLASS)}
-                                    />
-                                </div>
-                            </Field>
-
-                            <Field id={fieldId("soNganHang")} label="Số tài khoản" error={errors.soNganHang}>
-                                <Input
-                                    {...textInputProps("soNganHang")}
-                                    inputMode="numeric"
-                                    placeholder="VD: 0123456789"
-                                    spellCheck={false}
-                                    className={cn(CONTROL_CLASS, "font-mono", errors.soNganHang && CONTROL_ERROR_CLASS)}
-                                    onChange={(event) =>
-                                        changeField(
-                                            "soNganHang",
-                                            event.target.value.replace(/[\s.-]/g, "").slice(0, MAX_LENGTH.soNganHang),
-                                        )}
-                                />
-                            </Field>
-                        </div>
-                    </fieldset>
                 </form>
 
                 <div className="flex flex-col-reverse gap-2 border-t border-bo-border bg-bo-surface-subtle px-5 py-3 sm:flex-row sm:justify-end">

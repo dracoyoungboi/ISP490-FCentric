@@ -5,7 +5,10 @@ import lombok.experimental.FieldDefaults;
 
 import java.time.Instant;
 
-/** Hồ sơ công ty dùng chung (logoAsset = đường dẫn công khai của logo). */
+/**
+ * Thông tin cửa hàng dùng chung (logoAsset = đường dẫn công khai của logo, null khi chưa có).
+ * Chưa có hồ sơ thì mọi trường null.
+ */
 @AllArgsConstructor
 @Getter
 @Setter
@@ -15,6 +18,8 @@ import java.time.Instant;
 public class ThongTinCongTyDto {
     Integer id;
     String name;
+    /** Tên đăng ký kinh doanh (cột ten_dang_ky_kinh_doanh). */
+    String legalName;
     String taxCode;
     String logoAsset;
     String email;

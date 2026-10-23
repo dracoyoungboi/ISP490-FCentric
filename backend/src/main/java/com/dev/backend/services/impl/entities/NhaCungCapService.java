@@ -148,8 +148,9 @@ public class NhaCungCapService extends BaseServiceImpl<NhaCungCap, Integer> {
     }
 
     /**
-     * Cập nhật thông tin nhà cung cấp theo ID (thay toàn bộ form, trừ mã và trạng thái).
-     * Trường tùy chọn gửi rỗng là xóa giá trị cũ (ví dụ bỏ thông tin ngân hàng).
+     * Cập nhật thông tin nhà cung cấp theo ID (thay toàn bộ form, trừ mã, trạng thái và thông tin ngân hàng).
+     * Trường tùy chọn gửi rỗng là xóa giá trị cũ. Ngân hàng / số tài khoản không sửa qua đây (không quản lý thanh toán
+     * nhà cung cấp): giữ nguyên giá trị đang lưu.
      */
     @Transactional
     public NhaCungCapDto update(Integer id, NhaCungCapUpdating updating) {
@@ -157,17 +158,11 @@ public class NhaCungCapService extends BaseServiceImpl<NhaCungCap, Integer> {
         // Lấy entity hiện tại
         NhaCungCap entity = timTheoId(id);
 
-        String nganHang = chuanHoa(updating.getNganHang());
-        String soNganHang = chuanHoa(updating.getSoNganHang());
-        kiemTraThongTinNganHang(nganHang, soNganHang);
-
         entity.setTenNhaCungCap(updating.getTenNhaCungCap().trim());
         entity.setNguoiLienHe(chuanHoa(updating.getNguoiLienHe()));
         entity.setSoDienThoai(updating.getSoDienThoai().trim());
         entity.setEmail(updating.getEmail().trim());
         entity.setDiaChi(chuanHoa(updating.getDiaChi()));
-        entity.setNganHang(nganHang);
-        entity.setSoNganHang(soNganHang);
         entity.setNgayCapNhat(Instant.now());
 
         // Lưu lại entity sau khi update

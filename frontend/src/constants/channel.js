@@ -206,19 +206,83 @@ export function locKhoDongBo(list) {
 
 // ── Màn Kênh bán hàng theo từng sàn (bố cục học từ trang quản lý kênh của Sapo) ──
 
-/** Các sàn hiển thị ở trang Kênh bán hàng. */
+/**
+ * Các sàn hiển thị ở trang Kênh bán hàng (docs/omnichannel/KE-HOACH-LAZADA-TIKTOK.md mục B.1).
+ * `kieuKetNoi`: "khoa" = dán khóa truy cập (Shopify), "uy_quyen" = người bán đồng ý trên trang của sàn (OAuth).
+ * `tienToDon`: tiền tố số đơn bán hàng tạo từ đơn sàn. `maThuCong`: cho nhập tay mã ủy quyền (tài khoản thử của sàn).
+ */
 export const SAN_BAN_HANG = [
-  { maKenh: "SHOPIFY", ten: "Shopify", duongDan: "/channels/shopify", hoTro: true },
-  { maKenh: "LAZADA", ten: "Lazada", duongDan: "/channels/lazada", hoTro: true },
-  { maKenh: "TIKTOK", ten: "TikTok Shop", duongDan: null, hoTro: false },
+  { maKenh: "SHOPIFY", ten: "Shopify", duongDan: "/channels/shopify", hoTro: true, kieuKetNoi: "khoa", tienToDon: "SHP" },
+  { maKenh: "LAZADA", ten: "Lazada", duongDan: "/channels/lazada", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "LZD", hanUyQuyenNgay: 50 },
+  { maKenh: "TIKTOK", ten: "TikTok Shop", duongDan: "/channels/tiktok", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "TTS", maThuCong: true },
 ];
+
+/** Sàn theo mã kênh ("LAZADA") hoặc đoạn cuối đường dẫn ("lazada"), không phân biệt hoa thường; không có thì null. */
+export function timSan(maKenh) {
+  const ma = String(maKenh ?? "").trim().toLowerCase();
+  if (!ma) return null;
+  return SAN_BAN_HANG.find((san) => san.maKenh.toLowerCase() === ma || san.duongDan?.split("/").pop() === ma) ?? null;
+}
+
+/**
+ * Trạng thái gốc của đơn trên sàn → chữ tiếng Việt (KH mục F). Lazada ghi trạng thái theo từng dòng hàng (chữ thường),
+ * TikTok theo cả đơn (chữ hoa). Mã lạ thì trả nguyên mã.
+ */
+const TRANG_THAI_SAN = {
+  LAZADA: {
+    unpaid: "Chờ thanh toán",
+    pending: "Chờ xử lý",
+    topack: "Chờ xử lý",
+    packed: "Chờ xử lý",
+    ready_to_ship: "Chờ lấy hàng",
+    toship: "Chờ lấy hàng",
+    shipping: "Đang giao",
+    shipped: "Đang giao",
+    delivered: "Đã giao",
+    canceled: "Đã hủy",
+    returned: "Hoàn hàng",
+    failed: "Hoàn hàng",
+    failed_delivery: "Hoàn hàng",
+    lost_by_3pl: "Hoàn hàng",
+    damaged_by_3pl: "Hoàn hàng",
+    // Hai mã còn lại trong danh sách trạng thái dòng hợp lệ của Lazada (KH Phụ lục I), cùng nhóm giao thất bại
+    lost: "Hoàn hàng",
+    package_scrapped: "Hoàn hàng",
+  },
+  TIKTOK: {
+    UNPAID: "Chờ thanh toán",
+    ON_HOLD: "Đang giữ",
+    AWAITING_SHIPMENT: "Chờ xử lý",
+    PARTIALLY_SHIPPING: "Chờ xử lý",
+    AWAITING_COLLECTION: "Chờ lấy hàng",
+    IN_TRANSIT: "Đang giao",
+    DELIVERED: "Đã giao",
+    COMPLETED: "Hoàn thành",
+    CANCELLED: "Đã hủy",
+    // Webhook TikTok ghi trạng thái hủy là CANCEL (KH Phụ lục J)
+    CANCEL: "Đã hủy",
+  },
+};
+
+export function nhanTrangThaiSan(maKenh, trangThaiSan) {
+  if (!trangThaiSan) return null;
+  const bang = TRANG_THAI_SAN[String(maKenh ?? "").toUpperCase()];
+  const ma = String(trangThaiSan).trim();
+  // Sàn không có bảng nhãn (Shopify) giữ nguyên như trước
+  if (!bang) return ma;
+  if (bang[ma]) return bang[ma];
+  // Lazada trả lại hàng có nhiều mã shipped_back*
+  if (/^shipped_back/i.test(ma)) return "Hoàn hàng";
+  // Mã sàn mới thêm: vẫn có chữ tiếng Việt, kèm mã để tra
+  return `Trạng thái khác (${ma})`;
+}
 
 /** Bốn bước thiết lập gian hàng (tên ngắn trùng tên thẻ ở trang Cấu hình). */
 export const BUOC_THIET_LAP = [
-  { so: 1, ten: "Gian hàng", moTa: "Nhập thông tin xác thực ứng dụng và kết nối gian hàng." },
-  { so: 2, ten: "Tồn kho", moTa: "Chọn cách cập nhật số tồn lên sàn thương mại điện tử." },
-  { so: 3, ten: "Đơn hàng", moTa: "Bật nhận đơn mới từ sàn về FCentric." },
-  { so: 4, ten: "Liên kết sản phẩm", moTa: "Ghép sản phẩm trên sàn với biến thể FCentric." },
+  { so: 1, ten: "Gian hàng", moTa: "Nhập tên miền và khóa truy cập của ứng dụng Shopify." },
+  { so: 2, ten: "Tồn kho", moTa: "Chọn cách cập nhật số tồn lên Shopify." },
+  { so: 3, ten: "Đơn hàng", moTa: "Bật nhận đơn mới từ Shopify về FCentric." },
+  { so: 4, ten: "Liên kết sản phẩm", moTa: "Ghép sản phẩm trên Shopify với biến thể FCentric." },
 ];
 
 /**

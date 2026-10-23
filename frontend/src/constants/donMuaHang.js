@@ -27,8 +27,11 @@ export const DON_MUA_HANG_STATUS = {
 export const DON_MUA_HANG_TABS = [
     { ma: "tat-ca", label: "Tất cả", trangThai: [3, 5] },
     { ma: "dang-van-chuyen", label: DON_MUA_HANG_STATUS[3].label, trangThai: [3] },
-    { ma: "da-thanh-toan", label: DON_MUA_HANG_STATUS[5].label, trangThai: [5] },
+    { ma: "da-nhan-du", label: DON_MUA_HANG_STATUS[5].label, trangThai: [5] },
 ];
+
+/** Mã tab cũ trên đường dẫn (trước khi bỏ thanh toán đơn mua, K8) → mã mới: đường dẫn đã lưu vẫn mở đúng tab. */
+export const DON_MUA_HANG_TAB_CU = { "da-thanh-toan": "da-nhan-du" };
 
 export function getDonMuaHangStatus(trangThai) {
     return DON_MUA_HANG_STATUS[trangThai] ?? trangThaiLa(trangThai);
@@ -36,15 +39,17 @@ export function getDonMuaHangStatus(trangThai) {
 
 /**
  * Cùng bảng don_mua_hang nhưng xem như BÁO GIÁ NHÀ CUNG CẤP (màn Yêu cầu báo giá, chi tiết báo giá,
- * bản in yêu cầu báo giá): các màn này gọi mã 1–4 theo bước báo giá. Trước đây mỗi màn tự khai báo một bảng
- * riêng; nay dùng chung bảng này. Mã 5 dùng cùng tên với DON_MUA_HANG_STATUS.
+ * bản in yêu cầu báo giá): các màn này gọi mã 1–3 theo bước báo giá. Trước đây mỗi màn tự khai báo một bảng
+ * riêng; nay dùng chung bảng này. Mã 4, 5 dùng cùng tên với DON_MUA_HANG_STATUS.
  */
 export const BAO_GIA_NCC_STATUS = {
     0: { label: "Đã xóa" },
     1: { label: "Đã gửi YC báo giá" },
     2: { label: "Đã nhận báo giá" },
     3: { label: "Đã chuyển thành đơn mua hàng" },
-    4: { label: "Từ chối báo giá" },
+    // K1: báo giá không được chọn (không ai từ chối) cũng ở 4 nên dùng chung nhãn "Không chấp nhận báo giá", không gọi
+    // là "Từ chối" (đặc tả K1, TICH-HOP 1)
+    4: { label: DON_MUA_HANG_STATUS[4].label },
     5: { label: DON_MUA_HANG_STATUS[5].label },
 };
 

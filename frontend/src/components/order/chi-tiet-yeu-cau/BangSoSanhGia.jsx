@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, useState } from "react";
 import { Link } from "react-router-dom";
 import { Info } from "lucide-react";
 import DongNhomSanPham from "@/components/chung-tu/DongNhomSanPham";
@@ -43,6 +43,38 @@ function OGia({ chu, kieu, thapNhat, chot }) {
   );
 }
 
+// Ghi chú dài hơn ngần này ký tự thì thu gọn 4 dòng, kèm nút "Xem thêm"
+const GHI_CHU_THU_GON_KHI = 160;
+
+/** Ô ghi chú nhà cung cấp gửi kèm báo giá (hàng cuối bảng, dưới tổng tiền): dài thì thu gọn, bấm để xem đủ. */
+function OGhiChu({ ghiChu, chot, cuoi }) {
+  const [mo, setMo] = useState(false);
+  const dai = ghiChu.length > GHI_CHU_THU_GON_KHI;
+  return (
+    <td className={cn(O, "border-l border-slate-100 align-top text-left", cuoi && O_CUOI, chot && NEN_CHOT)}>
+      {ghiChu ? (
+        <>
+          <span className={cn("block whitespace-pre-line break-words text-[13px] font-normal leading-5 text-bo-foreground", dai && !mo && "line-clamp-4")}>
+            {ghiChu}
+          </span>
+          {dai ? (
+            <button
+              type="button"
+              aria-expanded={mo}
+              onClick={() => setMo((x) => !x)}
+              className="mt-1 text-xs font-semibold text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
+            >
+              {mo ? "Thu gọn" : "Xem thêm"}
+            </button>
+          ) : null}
+        </>
+      ) : (
+        <span className="block text-right font-normal text-bo-muted">—</span>
+      )}
+    </td>
+  );
+}
+
 /** Đổi tổng theo nhà cung cấp (soSanhTong) sang ô: thiếu dòng nào thì báo thiếu thay vì cộng thiếu. */
 function oTong(x, chuKhiChuaCo) {
   if (x.khongCo) return { chu: chuKhiChuaCo, kieu: "chua", thapNhat: false };
@@ -56,8 +88,10 @@ function oTong(x, chuKhiChuaCo) {
  * Dòng nhóm có tổng tiền theo sản phẩm của từng nhà cung cấp; dòng cuối "Tổng tiền cả yêu cầu" tính MỌI dòng (không theo trang).
  *
  * - `bang`: useBangChungTu của các dòng (soSanhGia.dungSoSanhGia → dong, mỗi dòng có `gia[i]`)
- * - `ncc`: các báo giá còn hiệu lực `{ id, soDonMua, nhaCungCap, chot, ngayGui, nguoiChot, nhan }` (`nhan`: nhãn trạng
- *   thái đã suy diễn). Đầu cột: tên, số báo giá, "Gửi dd/mm/yyyy", thẻ trạng thái, "Chốt bởi …" / "Không chấp nhận bởi …"
+ * - `ncc`: các báo giá còn hiệu lực `{ id, soDonMua, nhaCungCap, chot, ngayGui, ghiChu, nguoiChot, nhan }` (`nhan`: nhãn
+ *   trạng thái đã suy diễn). Đầu cột: tên, số báo giá, "Gửi dd/mm/yyyy", thẻ trạng thái, "Chốt bởi …" / "Không chấp
+ *   nhận bởi …". Có nhà cung cấp gửi ghi chú kèm báo giá thì thêm hàng "Ghi chú của nhà cung cấp" ngay dưới tổng tiền
+ *   (đặc tả 6.3: chấp nhận báo giá là chấp nhận cả ghi chú).
  * - `tongCaYeuCau`: soSanhTong của mọi dòng · `xem` / `onDoiXem`: "donGia" | "thanhTien"
  * - `tomTatGui`: chữ "n nhà cung cấp đã gửi giá · …" · `chuThich`: câu cuối khối
  * - `xemBaoGia`: người đang xem mở được Chi tiết báo giá (tinhYeuCau.VAI_TRO_XEM_DON_MUA); không thì tên nhà cung cấp
@@ -70,6 +104,7 @@ export default function BangSoSanhGia({ bang, ncc, tongCaYeuCau, xem, onDoiXem, 
   const xemTien = xem === "thanhTien";
   const rongNcc = RONG_COT.ncc;
   const soCot = 2 + soNcc;
+  const coGhiChu = ncc.some((n) => n.ghiChu);
 
   return (
     <section aria-labelledby={`${idBang}-tieu-de`} className="flex min-w-0 flex-1 flex-col">
@@ -222,6 +257,18 @@ export default function BangSoSanhGia({ bang, ncc, tongCaYeuCau, xem, onDoiXem, 
                     return <OGia key={ncc[j].id} {...o} chu={<span className={o.kieu ? "" : "text-[15px]"}>{o.chu}</span>} chot={ncc[j].chot} />;
                   })}
                 </tr>
+                {/* Chấp nhận báo giá là chấp nhận cả ghi chú của nhà cung cấp: hiện ngay dưới tổng tiền để so cùng giá */}
+                {coGhiChu ? (
+                  <tr className="border-t border-bo-border">
+                    <th scope="row" className={cn(O, O_DAU, COT_DINH, "bg-white align-top text-left font-semibold text-bo-foreground")}>
+                      Ghi chú của nhà cung cấp
+                    </th>
+                    <td className={O} />
+                    {ncc.map((n, j) => (
+                      <OGhiChu key={n.id} ghiChu={n.ghiChu} chot={n.chot} cuoi={j === soNcc - 1} />
+                    ))}
+                  </tr>
+                ) : null}
               </tfoot>
             ) : null}
           </table>

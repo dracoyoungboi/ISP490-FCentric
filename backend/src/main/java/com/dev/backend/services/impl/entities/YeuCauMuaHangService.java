@@ -41,6 +41,8 @@ public class YeuCauMuaHangService extends BaseServiceImpl<YeuCauMuaHang, Integer
     public static final int TRANG_THAI_DA_DUYET = 2;
     public static final int TRANG_THAI_DA_GUI_BAO_GIA = 3;
     public static final int TRANG_THAI_TU_CHOI = 4;
+    /** Đã chấp nhận báo giá của một nhà cung cấp (DonMuaHangService.xetBaoGia); FE gọi "Đã chuyển thành đơn mua hàng". */
+    public static final int TRANG_THAI_DA_CHON_NCC = 5;
 
     /** loai_tham_chieu của yêu cầu nhập hàng trong bảng lich_su_thay_doi. */
     public static final String LOAI_THAM_CHIEU = "yeu_cau_mua_hang";

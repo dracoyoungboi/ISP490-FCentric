@@ -18,10 +18,9 @@ import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.NguoiDungMapperImpl;
 import com.dev.backend.mapper.PhanQuyenNguoiDungKhoMapper;
 import com.dev.backend.repository.NguoiDungRepository;
-import com.dev.backend.services.EmailService;
+import com.dev.backend.services.email.EmailNghiepVuService;
 import com.dev.backend.services.impl.utils.CalcServiceImpl;
 import com.dev.backend.services.impl.utils.JwtServiceImpl;
-import com.dev.backend.services.impl.utils.OtpMailDispatcher;
 import com.dev.backend.services.impl.utils.PasswordResetRateLimiter;
 import com.dev.backend.testsupport.MutableClock;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -62,7 +61,7 @@ class NguoiDungServiceAuthHardeningTest {
     @Mock
     private EntityManager entityManager;
     @Mock
-    private EmailService emailService;
+    private EmailNghiepVuService emailService;
     @Mock
     private PhanQuyenNguoiDungKhoService phanQuyenNguoiDungKhoService;
     @Mock
@@ -90,8 +89,7 @@ class NguoiDungServiceAuthHardeningTest {
         service = new NguoiDungService(repository);
         ReflectionTestUtils.setField(service, "passwordEncoder", encoder);
         ReflectionTestUtils.setField(service, "calcService", new CalcServiceImpl());
-        ReflectionTestUtils.setField(service, "emailService", emailService);
-        ReflectionTestUtils.setField(service, "otpMailDispatcher", new OtpMailDispatcher(emailService, Runnable::run));
+        ReflectionTestUtils.setField(service, "emailNghiepVuService", emailService);
         ReflectionTestUtils.setField(service, "passwordResetRateLimiter", new PasswordResetRateLimiter(clock));
         ReflectionTestUtils.setField(service, "jwtService", jwtService);
         ReflectionTestUtils.setField(service, "nguoiDungMapper", mapper);
@@ -120,7 +118,9 @@ class NguoiDungServiceAuthHardeningTest {
     }
 
     private int emailsSent() {
-        return mockingDetails(emailService).getInvocations().size();
+        // chỉ đếm email mã đặt lại mật khẩu (E1); đổi mật khẩu thành công còn gửi M4
+        return (int) mockingDetails(emailService).getInvocations().stream()
+                .filter(i -> i.getMethod().getName().equals("guiMaDatLaiMatKhau")).count();
     }
 
     @SuppressWarnings("unchecked")
@@ -222,11 +222,11 @@ class NguoiDungServiceAuthHardeningTest {
     // ===== #4: lỗi gửi email không lộ ra client =====
 
     @Test
-    void loiSmtp_vanTra200ThongBaoChung_khongLoEmail() {
-        doThrow(new CommonException("Error sending email from template activation.html to: " + EMAIL, new RuntimeException("smtp")))
-                .when(emailService).sendHtmlEmailFromTemplate(anyString(), anyString(), anyString(), anyMap());
-
+    void guiMaQuaLopEmail_tra200ThongBaoChung_khongLoEmail() {
+        // Lỗi SMTP xảy ra ở luồng gửi sau commit (EmailDispatcherTest), không bao giờ tới được request này
         ResponseData<String> res = forgot("khang", "1.1.1.1");
+
+        assertEquals(1, emailsSent());
 
         assertEquals(200, res.getStatus());
         assertFalse(res.getMessage().contains(EMAIL));
@@ -392,6 +392,8 @@ class NguoiDungServiceAuthHardeningTest {
         String newCv = jwtService.getNguoiDungAuthInfoFromToken(res.getData()).getCredentialVersion();
         assertEquals(jwtService.credentialVersion(user.getMatKhauHash()), newCv);
         assertNotEquals(oldCv, newCv, "token cũ (cv cũ) sẽ bị AuthInterceptor từ chối");
+        verify(emailService).guiDaDoiMatKhau(same(user),
+                eq(com.dev.backend.services.email.CachDoiMatKhau.DOI_KHI_DA_DANG_NHAP), any());
     }
 
     @Test
@@ -435,16 +437,30 @@ class NguoiDungServiceAuthHardeningTest {
         assertTrue(created.getMustChangePassword(), "Tài khoản mới bắt buộc có mustChangePassword = true");
         assertNotNull(created.getMatKhauHash(), "Phải có mật khẩu tạm được mã hóa BCrypt");
 
-        // Xác thực email chào mừng gửi qua OtpMailDispatcher với template new_user_welcome.html
-        verify(emailService).sendHtmlEmailFromTemplate(
-                eq("nhanvien@example.com"),
-                eq("Thông báo cấp tài khoản mới - FCentric"),
-                eq("new_user_welcome.html"),
-                argThat(params -> params.containsKey("loginName")
-                        && "nhanvienmoi".equals(params.get("loginName"))
-                        && params.containsKey("temporaryPassword")
-                        && params.get("temporaryPassword") != null)
-        );
+        // E2 nhận đúng mật khẩu tạm đã băm vào tài khoản (gửi sau commit ở lớp email)
+        verify(emailService).guiTaiKhoanMoi(same(created),
+                argThat(matKhau -> matKhau != null && encoder.matches(matKhau, created.getMatKhauHash())));
+    }
+
+    @Test
+    void createInternalUserByAdmin_matKhauTuGo_kiemDoDai_vaGuiNguyenMatKhau() {
+        when(repository.save(any(NguoiDung.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        CommonException ngan = assertThrows(CommonException.class, () -> service.createInternalUserByAdmin(
+                NguoiDungCreating.builder().tenDangNhap("nv2").email("nv2@example.com").matKhau(" 12345 ").build()));
+        assertEquals(HttpStatus.BAD_REQUEST, ngan.getHttpStatus());
+        assertEquals("Mật khẩu phải có ít nhất 6 ký tự", ngan.getMessage());
+        CommonException dai = assertThrows(CommonException.class, () -> service.createInternalUserByAdmin(
+                NguoiDungCreating.builder().tenDangNhap("nv2").email("nv2@example.com").matKhau("ệ".repeat(30)).build()));
+        assertTrue(dai.getMessage().startsWith("Mật khẩu quá dài"));
+        verify(repository, never()).save(any());
+        verifyNoInteractions(emailService);
+
+        NguoiDung nd = service.createInternalUserByAdmin(NguoiDungCreating.builder()
+                .tenDangNhap("nv2").email("nv2@example.com").hoTen("   ").matKhau(" matkhau1 ").build());
+        assertEquals("nv2", nd.getHoTen(), "họ tên trống thì dùng tên đăng nhập");
+        assertTrue(encoder.matches("matkhau1", nd.getMatKhauHash()));
+        verify(emailService).guiTaiKhoanMoi(same(nd), eq("matkhau1"));
     }
 
     @Test

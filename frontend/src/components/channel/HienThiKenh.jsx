@@ -17,7 +17,8 @@ export function TrangThaiCham({ label, tone = "neutral", className }) {
     <span
       className={cn(
         "inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] leading-5",
-        loi ? "rounded-md bg-bo-danger-soft px-2 text-bo-danger" : tone === "neutral" ? "text-bo-muted" : "text-bo-foreground",
+        // Đỏ đậm: chữ đỏ thường trên nền đỏ nhạt chưa đủ tương phản 4,5:1
+        loi ? "rounded-md bg-bo-danger-soft px-2 text-bo-danger-strong" : tone === "neutral" ? "text-bo-muted" : "text-bo-foreground",
         className,
       )}
     >

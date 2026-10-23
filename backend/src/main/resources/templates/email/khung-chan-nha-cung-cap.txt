@@ -1,0 +1,5 @@
+--
+[# th:if="${cuaHang.tenDangKy != null}"][(${cuaHang.tenDangKy})]
+[/][# th:if="${cuaHang.maSoThue != null or cuaHang.diaChiDangKy != null}"][# th:if="${cuaHang.maSoThue != null}"]MST [(${cuaHang.maSoThue})][/][# th:if="${cuaHang.maSoThue != null and cuaHang.diaChiDangKy != null}"] · [/][# th:if="${cuaHang.diaChiDangKy != null}"][(${cuaHang.diaChiDangKy})][/]
+[/][# th:if="${cuaHang.dienThoai != null or cuaHang.email != null}"][# th:if="${cuaHang.dienThoai != null}"]Điện thoại [(${cuaHang.dienThoai})][/][# th:if="${cuaHang.dienThoai != null and cuaHang.email != null}"] · [/][# th:if="${cuaHang.email != null}"][(${cuaHang.email})][/]
+[/]Email gửi tự động qua phần mềm FCentric.[# th:if="${coTraLoi}"] Trả lời email này để liên hệ trực tiếp người phụ trách đơn.[/]

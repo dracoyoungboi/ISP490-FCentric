@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
-import { NavLink, matchPath, useLocation } from "react-router-dom";
+import { Link, matchPath, useLocation } from "react-router-dom";
 
 import {
   Sidebar,
@@ -20,19 +20,23 @@ import {
 } from "@/components/ui/collapsible";
 import { SIDEBAR_FOOTER_SECTION, SIDEBAR_MENU, SIDEBAR_SECTIONS, hienKhoLamViecODaySidebar } from "./sidebar.config";
 import SidebarKhoLamViec from "./SidebarKhoLamViec";
+import { useKenhDaKetNoi } from "@/components/channel/kenhDaKetNoi";
 import { cn } from "@/lib/utils";
 
-// Mục menu có thể khai báo `match(pathname)` khi đường dẫn con thuộc mục khác
-// (vd. /goods-issues/pick-lists không tính là "Phiếu xuất kho"); mặc định theo NavLink.
-const isNavItemActive = (item, isActive, pathname) =>
-  typeof item.match === "function" ? item.match(pathname) : isActive;
+// Một đích điều hướng (mục thẳng hoặc mục con) khớp đường dẫn: theo `match(pathname)` nếu mục khai báo
+// (vd. /goods-issues/pick-lists không tính là "Phiếu xuất kho"), không thì khớp từ đầu theo từng đoạn;
+// riêng Tổng quan (/dashboard) khớp đúng đường dẫn.
+const khopDich = (dich, pathname) =>
+  typeof dich.match === "function"
+    ? dich.match(pathname)
+    : Boolean(matchPath({ path: dich.to, end: dich.to === "/dashboard" }, pathname));
 
-// SidebarMenuButton asChild (Radix Slot) nối className thành chuỗi, nên NavLink
-// không nhận được className dạng hàm -> tự tính trạng thái active theo pathname.
-const isDirectLinkActive = (item, pathname, end = false) =>
-  typeof item.match === "function"
-    ? item.match(pathname)
-    : Boolean(matchPath({ path: item.to, end }, pathname));
+// Đường dẫn nằm trong một mục (chính mục đó hoặc trang con), so theo từng đoạn: nhóm mở theo trang đang xem.
+// Không so chuỗi thuần để /channels/shopifyx (trang "Không tìm thấy") không mở nhóm Shopify.
+const namTrongMuc = (to, pathname) => Boolean(matchPath({ path: to, end: false }, pathname));
+
+// Lề giữ lại khi cuộn mục đang chọn vào tầm nhìn của menu (px).
+const LE_CUON_MUC = 8;
 
 // Khoảng cách flyout tới mép sidebar và tới mép viewport (px).
 const FLYOUT_GAP = 8;
@@ -141,13 +145,19 @@ export default function BackofficeSidebar() {
   const location = useLocation();
   const role = localStorage.getItem("role");
   const { open, isMobile, setOpenMobile, toggleSidebar } = useSidebar();
+  // Mục của từng sàn (khai báo `maKenh`) chỉ hiện khi gian hàng đã kết nối
+  const kenhDaKetNoi = useKenhDaKetNoi();
 
   const filteredMenu = useMemo(
     () =>
       SIDEBAR_MENU.filter(
-        (item) => !item.roles || item.roles.includes(role),
+        (item) =>
+          (!item.roles || item.roles.includes(role)) &&
+          (!item.maKenh || kenhDaKetNoi.includes(item.maKenh)),
+      ).map((item) =>
+        item.matchKenh ? { ...item, match: (path) => item.matchKenh(path, kenhDaKetNoi) } : item,
       ),
-    [role],
+    [role, kenhDaKetNoi],
   );
 
   // Nhóm menu đã lọc theo section khai báo trong sidebar.config
@@ -173,27 +183,107 @@ export default function BackofficeSidebar() {
   const activeGroup = filteredMenu.find(
     (item) =>
       item !== footerItem &&
-      item.children?.some((child) => location.pathname.startsWith(child.to)),
+      item.children?.some((child) => namTrongMuc(child.to, location.pathname)),
   );
+  const activeGroupLabel = activeGroup?.label ?? null;
+
+  // Trang đang mở: mỗi lúc chỉ MỘT đích được tô nổi bật và mang aria-current="page", là đích khớp cụ thể
+  // nhất (đường dẫn dài nhất). NavLink tự đánh dấu mọi link khớp tiền tố (ở /channels/lazada/orders cả
+  // /channels lẫn /channels/lazada đều thành "trang hiện tại"), nên menu dùng Link và tự gắn aria-current.
+  // Mục ghim ở đáy (Cấu hình) là link thẳng: mục con của nó không vẽ trên menu nên không xét.
+  const dichHienTai = useMemo(() => {
+    let tot = null;
+    for (const item of filteredMenu) {
+      const dsDich =
+        item.children && item.section !== SIDEBAR_FOOTER_SECTION
+          ? item.children.filter((child) => !child.roles || child.roles.includes(role))
+          : [item];
+      for (const dich of dsDich) {
+        if (dich.to && khopDich(dich, location.pathname) && (tot === null || dich.to.length > tot.length)) {
+          tot = dich.to;
+        }
+      }
+    }
+    return tot;
+  }, [filteredMenu, role, location.pathname]);
+  const laHienTai = (dich) => dich.to === dichHienTai;
 
   // Single-open accordion: one state tracks the currently opened group plus
-  // the pathname it was last synced for. The accordion re-syncs during render
+  // the pathname and active group it was last synced for. The accordion re-syncs during render
   // (React's "adjust state when a prop changes" pattern) so navigating to a
   // child route opens its parent group, and a route outside every group
-  // closes them all.
+  // closes them all. Nhóm chứa trang đổi mà đường dẫn giữ nguyên (vừa kết nối sàn ngay trên trang Thiết lập:
+  // danh sách sàn đã kết nối đổi, nhóm của sàn hiện ra) cũng đồng bộ lại để nhóm đó tự mở, không phải tải lại trang.
   const [menuState, setMenuState] = useState(() => ({
     pathname: location.pathname,
-    openMenu: activeGroup?.label ?? null,
+    activeGroup: activeGroupLabel,
+    openMenu: activeGroupLabel,
   }));
 
-  if (menuState.pathname !== location.pathname) {
+  if (menuState.pathname !== location.pathname || menuState.activeGroup !== activeGroupLabel) {
     setMenuState({
       pathname: location.pathname,
-      openMenu: activeGroup?.label ?? null,
+      activeGroup: activeGroupLabel,
+      openMenu: activeGroupLabel,
     });
   }
 
   const openMenu = menuState.openMenu;
+
+  // ---- Giữ mục đang chọn trong tầm nhìn của vùng cuộn menu ----
+  // Mở thẳng một trang ở cuối menu (vd. Cấu hình của TikTok Shop trên màn 1366×800) thì mục đang chọn nằm
+  // dưới mép vùng cuộn. Khi vào trang, đổi trang hoặc nhóm chứa trang đổi, cuộn riêng vùng menu vừa đủ để
+  // mục đó lọt vào tầm nhìn (như scrollIntoView block "nearest"); tự đặt scrollTop để không bao giờ cuộn trang chính.
+  const vungCuonRef = useRef(null);
+  const choCuonSauHieuUngRef = useRef(false);
+
+  const cuonToiMucHienTai = useCallback(() => {
+    const vung = vungCuonRef.current;
+    if (!vung) return;
+    // Link của trang đang mở; nhóm đang đóng, menu thu gọn hay trang không có mục riêng (Thiết lập) thì nút của nhóm.
+    const muc =
+      vung.querySelector('[aria-current="page"]') ?? vung.querySelector("[data-nhom-hien-tai]");
+    if (!muc) return;
+    const khung = vung.getBoundingClientRect();
+    const viTri = muc.getBoundingClientRect();
+    if (viTri.top < khung.top + LE_CUON_MUC) {
+      vung.scrollTop -= khung.top + LE_CUON_MUC - viTri.top;
+    } else if (viTri.bottom > khung.bottom - LE_CUON_MUC) {
+      vung.scrollTop += viTri.bottom - (khung.bottom - LE_CUON_MUC);
+    }
+  }, []);
+
+  // Ngăn kéo menu trên điện thoại dựng lại vùng cuộn mỗi lần mở: cuộn ngay khi vùng cuộn gắn vào trang.
+  const ganVungCuon = useCallback(
+    (node) => {
+      vungCuonRef.current = node;
+      if (node) cuonToiMucHienTai();
+    },
+    [cuonToiMucHienTai],
+  );
+
+  useEffect(() => {
+    cuonToiMucHienTai();
+    // Nhóm vừa mở / đóng còn đang co giãn (.bo-submenu, 250 ms) nên vị trí chưa cuối cùng:
+    // cuộn lại khi hiệu ứng xong (khiHetHieuUngMenu). Quá hạn thì thôi, để người dùng tự mở nhóm khác không bị kéo về.
+    choCuonSauHieuUngRef.current = true;
+    const hen = setTimeout(() => {
+      choCuonSauHieuUngRef.current = false;
+    }, 500);
+    return () => {
+      clearTimeout(hen);
+      choCuonSauHieuUngRef.current = false;
+    };
+  }, [location.pathname, dichHienTai, activeGroupLabel, cuonToiMucHienTai]);
+
+  const khiHetHieuUngMenu = useCallback(
+    (event) => {
+      if (choCuonSauHieuUngRef.current && event.target.classList?.contains("bo-submenu")) {
+        cuonToiMucHienTai();
+      }
+    },
+    [cuonToiMucHienTai],
+  );
 
   // ---- Flyout khi sidebar thu gọn (chỉ desktop) ----
   // flyout = { label, Icon, children, left, anchorCenterY, top }
@@ -625,7 +715,7 @@ export default function BackofficeSidebar() {
 
   // Mục cha chỉ còn một đích đến: khi thu gọn, link phủ thay chỗ nút (và ngược
   // lại khi mở rộng) — chuyển focus theo để Ctrl+B không làm mất focus bàn phím.
-  // Gắn vào span bọc ngoài (không phải NavLink: NavLink gộp ref thành hàm mới mỗi
+  // Gắn vào span bọc ngoài (không phải Link: Link gộp ref thành hàm mới mỗi
   // lần render và bỏ cleanup); callback ổn định nên React 19 chỉ gọi cleanup khi
   // link thật sự bị gỡ, lúc phần tử vẫn còn trong DOM.
   const railLinkRef = useCallback((wrapper) => {
@@ -641,6 +731,7 @@ export default function BackofficeSidebar() {
   // `layout`: lớp kích thước của nút (mục ghim ở đáy dùng bản thấp hơn).
   const renderDirectLink = (item, layout = MENU_BUTTON_LAYOUT) => {
     const Icon = item.icon;
+    const hienTai = laHienTai(item);
 
     // Collapsed: chỉ còn icon — nhãn hiển thị qua tooltip dùng chung
     // (hover/focus); expanded hiển thị label trực tiếp nên không cần tooltip.
@@ -661,21 +752,16 @@ export default function BackofficeSidebar() {
           onPointerEnter={showFullLabelIfTruncated}
           {...directLinkTooltipProps}
         >
-          <NavLink
+          <Link
             to={item.to}
-            end={item.to === "/dashboard"}
             onClick={handleNavigate}
             aria-label={item.label}
-            className={cn(
-              isDirectLinkActive(item, location.pathname, item.to === "/dashboard")
-                ? cn(ITEM_ACTIVE, ITEM_ICON_ACTIVE)
-                : ITEM_IDLE,
-              ITEM_PRESS,
-            )}
+            aria-current={hienTai ? "page" : undefined}
+            className={cn(hienTai ? cn(ITEM_ACTIVE, ITEM_ICON_ACTIVE) : ITEM_IDLE, ITEM_PRESS)}
           >
             <Icon className="size-[18px]" />
             <span data-nhan className={cn("truncate", SIDEBAR_FADE)}>{item.label}</span>
-          </NavLink>
+          </Link>
         </SidebarMenuButton>
       </SidebarMenuItem>
     );
@@ -689,7 +775,7 @@ export default function BackofficeSidebar() {
       (child) => !child.roles || child.roles.includes(role),
     );
     const isParentActive = visibleChildren.some((child) =>
-      location.pathname.startsWith(child.to),
+      namTrongMuc(child.to, location.pathname),
     );
 
     // Không còn đích đến nào cho role hiện tại -> ẩn luôn mục cha ở cả hai trạng
@@ -707,8 +793,7 @@ export default function BackofficeSidebar() {
     const contentId = `backoffice-nav-group-${filteredMenu.indexOf(item)}`;
     const onlyChild =
       !isExpanded && visibleChildren.length === 1 ? visibleChildren[0] : null;
-    const isOnlyChildActive =
-      onlyChild !== null && isDirectLinkActive(onlyChild, location.pathname);
+    const isOnlyChildActive = onlyChild !== null && laHienTai(onlyChild);
     const opensFlyout = !isExpanded && onlyChild === null;
 
     // Mục cha chứa trang đang mở: khi nhóm đang bung (thấy mục con được tô) thì cha
@@ -737,10 +822,10 @@ export default function BackofficeSidebar() {
 
     const handleGroupClick = (event) => {
       if (isExpanded) {
-        setMenuState({
-          pathname: location.pathname,
+        setMenuState((current) => ({
+          ...current,
           openMenu: isOpen ? null : item.label,
-        });
+        }));
         return;
       }
       toggleFlyout(item, visibleChildren, event);
@@ -759,6 +844,8 @@ export default function BackofficeSidebar() {
             aria-haspopup={opensFlyout ? "menu" : undefined}
             aria-hidden={onlyChild ? true : undefined}
             tabIndex={onlyChild ? -1 : undefined}
+            // Đích cuộn của cuonToiMucHienTai khi không thấy link của trang đang mở
+            data-nhom-hien-tai={isParentActive ? "" : undefined}
             onPointerOver={
               opensFlyout && canHover
                 ? (event) =>
@@ -779,10 +866,11 @@ export default function BackofficeSidebar() {
 
           {onlyChild ? (
             <span ref={railLinkRef} className="contents">
-              <NavLink
+              <Link
                 to={onlyChild.to}
                 onClick={handleNavigate}
                 aria-label={item.label}
+                aria-current={isOnlyChildActive ? "page" : undefined}
                 className="absolute inset-x-0 top-0 h-10 rounded-md outline-hidden ring-sidebar-ring focus-visible:ring-2"
                 onPointerOver={(event) => showRailTooltip(event, item.label)}
                 onPointerOut={hideRailTooltip}
@@ -803,20 +891,19 @@ export default function BackofficeSidebar() {
               )}
             >
               {visibleChildren.map((child) => (
-                <NavLink
+                <Link
                   key={child.to}
                   to={child.to}
                   onClick={handleNavigate}
                   onPointerEnter={showFullLabelIfTruncated}
-                  className={({ isActive }) =>
-                    cn(
-                      "flex items-center gap-2 rounded-md px-3 py-2 text-[13px] leading-5",
-                      SUB_ITEM_TONE(isNavItemActive(child, isActive, location.pathname)),
-                    )
-                  }
+                  aria-current={laHienTai(child) ? "page" : undefined}
+                  className={cn(
+                    "flex items-center gap-2 rounded-md px-3 py-2 text-[13px] leading-5",
+                    SUB_ITEM_TONE(laHienTai(child)),
+                  )}
                 >
                   <span data-nhan className="min-w-0 flex-1 truncate">{child.label}</span>
-                </NavLink>
+                </Link>
               ))}
             </div>
           </CollapsibleContent>
@@ -846,8 +933,9 @@ export default function BackofficeSidebar() {
           {/* Logo đầy đủ (cao 36px) + icon F chồng lên nhau, biến hình qua lại bằng CSS
               (.bo-sidebar-logo / .bo-sidebar-mark trong index.css). Khi thu gọn, chữ F
               cao 28px, tâm ở x = 24px — giữa rail 48px, thẳng cột biểu tượng menu. Lúc
-              đó logo chỉ để nhìn: nút mở rộng hiện chồng lên chữ F khi rê chuột / Tab tới. */}
-          <NavLink
+              đó logo chỉ để nhìn: nút mở rộng hiện chồng lên chữ F khi rê chuột / Tab tới.
+              Link thường: logo không mang aria-current (mục "Tổng quan" của menu đã mang). */}
+          <Link
             to="/dashboard"
             onClick={handleNavigate}
             aria-label="FCentric — Trang tổng quan"
@@ -872,7 +960,7 @@ export default function BackofficeSidebar() {
               className="bo-sidebar-mark absolute left-0.5 top-0.5 h-8 w-auto max-w-none"
               draggable={false}
             />
-          </NavLink>
+          </Link>
 
           {/* Nút thu gọn / mở rộng menu (mẫu "Khung mảnh"). Khi mở rộng neo cách mép phải
               17px (12px lề + 5px): tâm trùng cột mũi tên của menu (x = 208px). Khi thu gọn neo
@@ -913,7 +1001,11 @@ export default function BackofficeSidebar() {
           ) : null}
         </SidebarHeader>
 
-        <SidebarContent className="bo-sidebar-scroll bo-sidebar-content bg-bo-sidebar px-3 pt-3 pb-1">
+        <SidebarContent
+          ref={ganVungCuon}
+          onAnimationEnd={khiHetHieuUngMenu}
+          className="bo-sidebar-scroll bo-sidebar-content bg-bo-sidebar px-3 pt-3 pb-1"
+        >
           {sections.map((section, index) => (
             <div key={section.key}>
               {index > 0 ? (
@@ -1012,34 +1104,27 @@ export default function BackofficeSidebar() {
 
               <div className="flex min-h-0 flex-col gap-0.5 overflow-y-auto rounded-b-[7px] p-1.5">
                 {flyout.children.map((child) => (
-                  <NavLink
+                  <Link
                     key={child.to}
                     to={child.to}
                     role="menuitem"
                     onClick={closeFlyout}
-                    className={({ isActive }) =>
-                      cn(
-                        "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] leading-5",
-                        SUB_ITEM_TONE(isNavItemActive(child, isActive, location.pathname)),
-                      )
-                    }
-                  >
-                    {({ isActive }) => (
-                      <>
-                        {child.icon ? (
-                          <child.icon
-                            className={cn(
-                              "size-4 shrink-0",
-                              isNavItemActive(child, isActive, location.pathname)
-                                ? "text-bo-sidebar-icon-active"
-                                : "text-bo-sidebar-muted",
-                            )}
-                          />
-                        ) : null}
-                        <span className="min-w-0 flex-1 truncate">{child.label}</span>
-                      </>
+                    aria-current={laHienTai(child) ? "page" : undefined}
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] leading-5",
+                      SUB_ITEM_TONE(laHienTai(child)),
                     )}
-                  </NavLink>
+                  >
+                    {child.icon ? (
+                      <child.icon
+                        className={cn(
+                          "size-4 shrink-0",
+                          laHienTai(child) ? "text-bo-sidebar-icon-active" : "text-bo-sidebar-muted",
+                        )}
+                      />
+                    ) : null}
+                    <span className="min-w-0 flex-1 truncate">{child.label}</span>
+                  </Link>
                 ))}
               </div>
             </div>,

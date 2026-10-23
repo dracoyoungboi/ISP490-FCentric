@@ -1,0 +1,14 @@
+[# th:insert="~{khung-dau.txt}" /][# th:if="${e.daBaoGia}"]Kết quả báo giá đơn [(${e.maDon})][/][# th:unless="${e.daBaoGia}"]Yêu cầu báo giá đơn [(${e.maDon})] đã kết thúc[/]
+
+Kính gửi [(${e.tenNhaCungCap})],
+
+[# th:if="${e.daBaoGia}"]Cảm ơn Quý công ty đã gửi báo giá ngày [(${e.ngayThamChieu})]. Sau khi xem xét, lần này chúng tôi chưa chọn báo giá của Quý công ty.[/][# th:unless="${e.daBaoGia}"]Chúng tôi đã chọn được nhà cung cấp cho yêu cầu gửi ngày [(${e.ngayThamChieu})]. Quý công ty không cần gửi báo giá cho đơn này nữa.[/]
+[# th:if="${e.daBaoGia and e.lyDo != null}"]
+Lý do: [(${e.lyDo})]
+[/]
+[# th:if="${e.daBaoGia}"]Yêu cầu báo giá này đã kết thúc. [/]Hai bên không phát sinh nghĩa vụ đặt hàng hay giao hàng đối với đơn này.
+
+Chúng tôi mong tiếp tục mời Quý công ty báo giá cho các đơn hàng sau.
+
+[# th:insert="~{khung-chu-ky.txt}" /]
+[# th:insert="~{khung-chan-nha-cung-cap.txt}" /]

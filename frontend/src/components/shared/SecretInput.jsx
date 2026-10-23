@@ -18,7 +18,7 @@ export default function SecretInput({ id, label, value, onChange, error, hint, d
       </label>
       <div className="relative">
         <input
-          aria-describedby={error ? `${id}-error` : undefined}
+          aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
           aria-invalid={Boolean(error)}
           autoComplete="off"
           autoFocus={autoFocus}
@@ -49,7 +49,9 @@ export default function SecretInput({ id, label, value, onChange, error, hint, d
           {error}
         </p>
       ) : hint ? (
-        <p className="mt-1 text-xs text-bo-muted">{hint}</p>
+        <p className="mt-1 text-xs text-bo-muted" id={`${id}-hint`}>
+          {hint}
+        </p>
       ) : null}
     </div>
   );

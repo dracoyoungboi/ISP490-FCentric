@@ -25,4 +25,7 @@ public class OtpScheduleObj {
     // số lần nhập sai mã (dùng cho giới hạn thử lại khi đặt lại mật khẩu)
     @Builder.Default
     AtomicInteger failedAttempts = new AtomicInteger();
+    // Mã xác nhận báo giá (SUPPLIER_MAIL_SIGN_KEY) gắn với một đơn mua: mã của đơn A không mở được đơn B.
+    // Loại mã khác để null.
+    Integer donMuaHangId;
 }

@@ -1,0 +1,25 @@
+[# th:insert="~{khung-dau.txt}" /]Yêu cầu báo giá đơn [(${e.maDon})]
+
+Kính gửi [(${e.tenNhaCungCap})],
+
+Chúng tôi đề nghị Quý công ty báo giá các sản phẩm dưới đây.
+
+Giao tại: [(${e.tenKho})][# th:if="${e.diaChiKho != null}"], [(${e.diaChiKho})][/]
+[# th:if="${e.ngayCanGiao != null}"]Ngày cần giao: [(${e.ngayCanGiao})]
+[/]
+Sản phẩm cần báo giá
+[# th:each="d : ${e.dong}"][(${d.stt})]. [(${d.tenSanPham})][# th:if="${d.moTa() != null}"] ([(${d.moTa()})])[/]: [(${d.soLuong})]
+[/][# th:if="${e.tongSoLuong != null}"]Tổng số lượng: [(${e.tongSoLuong})]
+[/]
+Đơn giá báo là giá đã gồm thuế GTGT (nếu có) và chi phí giao đến kho nhận, có xuất hóa đơn điện tử.
+
+Gửi báo giá: [(${e.duongDanCong})]
+Bấm vào liên kết, nhận mã xác nhận 6 số qua email, rồi nhập đơn giá cho từng sản phẩm. Hoặc mở [(${e.duongDanCongGoc})] và nhập mã đơn [(${e.maDon})].
+
+Điều kiện báo giá
+- Đây là yêu cầu báo giá, chưa phải đơn đặt hàng. Đơn hàng chỉ được xác lập khi Quý công ty nhận được email Xác nhận đặt hàng của chúng tôi.
+- Báo giá gửi trên Cổng nhà cung cấp là đề nghị bán hàng của Quý công ty theo đúng sản phẩm, số lượng, địa điểm và ngày giao nêu trên.
+- Khi giao hàng: ghi mã đơn trên phiếu giao hàng; muốn giao nhiều đợt, báo trước cho người phụ trách. Hàng được kiểm đếm và kiểm tra chất lượng khi nhận; hàng thiếu, sai hoặc không đạt được lập biên bản và trả lại.
+
+[# th:insert="~{khung-chu-ky.txt}" /]
+[# th:insert="~{khung-chan-nha-cung-cap.txt}" /]

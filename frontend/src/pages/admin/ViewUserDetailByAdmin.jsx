@@ -247,7 +247,8 @@ function ChiTietNguoiDung({ id }) {
         try {
             await adminService.resetUserPasswordRandomByAdmin(id);
             setHop(null);
-            toast.success(`Đã gửi mật khẩu tạm thời mới tới ${nguoiDung.email}.`);
+            // Email đi sau khi lưu, qua hàng đợi (có thể thử lại): "sẽ được gửi", như hộp Thêm người dùng
+            toast.success(`Mật khẩu tạm thời mới sẽ được gửi tới ${nguoiDung.email}.`);
             nguoiDungQ.reload();
         } catch (err) {
             toast.error(getApiErrorMessage(err, "Không thể cấp lại mật khẩu cho người dùng"));

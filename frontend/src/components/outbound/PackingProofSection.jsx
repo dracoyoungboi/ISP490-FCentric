@@ -1,415 +1,43 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import {
-  Camera, Video, Upload, Trash2, CheckCircle2, AlertCircle, Play,
-  Square, RefreshCw, Eye, X, Loader2, Sparkles, ShieldCheck
-} from "lucide-react";
-import { toast } from "@/lib/thongBaoNhanh";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Camera, Info, Loader2, Play, Video, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import SurfaceCard from "@/components/shared/SurfaceCard";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
 import StatusBadge from "@/components/shared/StatusBadge";
 import CameraCaptureModal from "./CameraCaptureModal";
+import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
+import {
+  CAU_KHONG_DOC_THOI_LUONG,
+  LOAI_BANG_CHUNG as LOAI,
+  cauThoiLuongVideo,
+  cauVideoQuaLon,
+  giayTuDung,
+  gioiHanVideo,
+  phanTramTaiLen,
+  resolveProofMediaUrl,
+  chuThongTinTep,
+  oBangChung,
+  thoiLuongGuiLen,
+  thoiLuongHopLe,
+  videoQuaLon,
+} from "./dong-goi/tinhDongGoi";
+import { ghiThoiLuongWebm } from "./dong-goi/thoiLuongWebm";
+import { CHAT_LUONG_QUAY_VIDEO } from "@/config/bangChungTu";
+import useHoiKhiRoiTrang from "@/hooks/useHoiKhiRoiTrang";
+import { toast } from "@/lib/thongBaoNhanh";
+import { cn } from "@/lib/utils";
 import { dongGoiService } from "@/services/dongGoiService";
-import { formatCurrency } from "@/utils/formatters";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { formatDate } from "@/utils/formatters";
 
-export const LOAI_BANG_CHUNG = {
-  ANH_HANG_TRONG_HOP: "ANH_HANG_TRONG_HOP",
-  ANH_NIEM_PHONG_TEM_VC: "ANH_NIEM_PHONG_TEM_VC",
-  VIDEO_DONG_GOI: "VIDEO_DONG_GOI",
+const pad2 = (n) => String(n).padStart(2, "0");
+const dinhGio = (value) => {
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? "" : `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 };
-
-/**
- * Chuẩn hóa URL hiển thị bằng chứng đóng gói:
- * - Nếu URL đầy đủ (HTTP/HTTPS/blob/data): giữ nguyên.
- * - Nếu URL là đường dẫn tương đối MinIO (legacy data "packing-proofs/..."): tự động ghép origin MinIO công khai HTTPS.
- */
-export function resolveProofMediaUrl(url) {
-  if (!url) return "";
-  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("blob:") || url.startsWith("data:")) {
-    return url;
-  }
-  if (url.startsWith("packing-proofs/")) {
-    return `https://minio.slmglobal.vn/fashion/${url}`;
-  }
-  return url;
-}
-
-/**
- * Section Bằng chứng đóng gói bắt buộc theo giá trị đơn hàng (SRS 6.3.1 - 6.3.2)
- * - Đơn < 1.000.000đ: 2 ảnh (Hàng trong hộp + Niêm phong kèm tem ĐVVC)
- * - Đơn >= 1.000.000đ: 1 video (15-30s từ lúc cho đồ vào đến khi niêm phong)
- * - Tự động xóa vĩnh viễn trên MinIO sau 30 ngày
- */
-export default function PackingProofSection({
-  donId,
-  soDonHang,
-  tongTienDonHang = 0,
-  yeuCauVideo = false,
-  danhSachBangChung = [],
-  daDuBangChung = false,
-  onRefresh,
-  readOnly = false,
-}) {
-  const [uploading, setUploading] = useState(false);
-  const [deletingId, setDeletingId] = useState(null);
-  const [previewMedia, setPreviewMedia] = useState(null); // { type: 'image' | 'video', url, title }
-
-  // ── Tìm bằng chứng theo loại ──
-  const anhHang = danhSachBangChung.find((b) => b.loaiBangChung === LOAI_BANG_CHUNG.ANH_HANG_TRONG_HOP);
-  const anhNiemPhong = danhSachBangChung.find((b) => b.loaiBangChung === LOAI_BANG_CHUNG.ANH_NIEM_PHONG_TEM_VC);
-  const videoDongGoi = danhSachBangChung.find((b) => b.loaiBangChung === LOAI_BANG_CHUNG.VIDEO_DONG_GOI);
-
-  // ── Upload handler chung ──
-  const handleUploadFile = async (file, loaiBangChung, thoiLuongGiay = null) => {
-    if (!file || !donId) return;
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("loaiBangChung", loaiBangChung);
-      if (thoiLuongGiay != null) {
-        formData.append("thoiLuongGiay", thoiLuongGiay);
-      }
-
-      await dongGoiService.uploadBangChung(donId, formData);
-      toast.success("Tải lên bằng chứng đóng gói thành công");
-      if (onRefresh) onRefresh();
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, "Không thể tải lên bằng chứng"));
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  // ── Xóa bằng chứng ──
-  const handleDeleteProof = async (id, title) => {
-    if (readOnly || !id) return;
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${title || "bằng chứng này"} để tải lại không?`)) return;
-
-    setDeletingId(id);
-    try {
-      await dongGoiService.xoaBangChung(id);
-      toast.success("Đã xóa bằng chứng đóng gói");
-      if (onRefresh) onRefresh();
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, "Không thể xóa bằng chứng"));
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  const formattedTongTien = formatCurrency(tongTienDonHang || 0);
-
-  return (
-    <SurfaceCard
-      title={
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="size-5 text-bo-primary" />
-          <span>Bằng chứng đóng gói</span>
-        </div>
-      }
-      description={
-        <span>
-          Giá trị đơn: <strong className="font-semibold text-bo-foreground">{formattedTongTien}</strong>
-          {" · "}
-          {yeuCauVideo ? (
-            <span className="text-amber-700 font-medium">Đơn ≥ 1.000.000 đ → Bắt buộc 1 video quay niêm phong (15–30 giây)</span>
-          ) : (
-            <span className="text-emerald-700 font-medium">Đơn &lt; 1.000.000 đ → Bắt buộc 2 ảnh đóng gói</span>
-          )}
-        </span>
-      }
-      action={
-        <div className="flex items-center gap-2">
-          {daDuBangChung ? (
-            <StatusBadge label="Đã đủ bằng chứng" />
-          ) : (
-            <StatusBadge label="Chưa đủ bằng chứng" />
-          )}
-        </div>
-      }
-    >
-      <div className="space-y-4">
-        {/* Banner hướng dẫn */}
-        <div
-          className={`flex items-start gap-3 rounded-lg border p-3.5 text-xs ${
-            daDuBangChung
-              ? "border-emerald-200 bg-emerald-50/70 text-emerald-900"
-              : "border-amber-200 bg-amber-50/70 text-amber-900"
-          }`}
-        >
-          {daDuBangChung ? (
-            <CheckCircle2 className="size-4 shrink-0 text-emerald-600 mt-0.5" />
-          ) : (
-            <AlertCircle className="size-4 shrink-0 text-amber-600 mt-0.5" />
-          )}
-          <div className="flex-1 space-y-1">
-            <p className="font-semibold">
-              {daDuBangChung
-                ? "Bằng chứng đóng gói đã hợp lệ! Bạn có thể bấm 'Hoàn tất đóng gói' sau khi quét đủ sản phẩm."
-                : "Cần tải lên đầy đủ bằng chứng quy định để mở khóa nút 'Hoàn tất đóng gói'."}
-            </p>
-            <p className="text-slate-600">
-              Tệp bằng chứng tự xóa vĩnh viễn sau 30 ngày kể từ lúc tạo.
-            </p>
-          </div>
-        </div>
-
-        {/* ── GIAO DIỆN 1: ĐƠN < 1 TRIỆU (2 ẢNH) ── */}
-        {!yeuCauVideo ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Ảnh 1: Hàng trong hộp */}
-            <PhotoUploadSlot
-              title="Ảnh 1: Hàng đã cho vào hộp/túi"
-              description="Chụp rõ các sản phẩm của đơn hàng đã xếp gọn trong hộp hoặc túi đóng gói."
-              proof={anhHang}
-              loaiBangChung={LOAI_BANG_CHUNG.ANH_HANG_TRONG_HOP}
-              onUpload={handleUploadFile}
-              onDelete={handleDeleteProof}
-              onPreview={setPreviewMedia}
-              uploading={uploading}
-              deleting={deletingId === anhHang?.id}
-              readOnly={readOnly}
-            />
-
-            {/* Ảnh 2: Niêm phong kèm tem ĐVVC */}
-            <PhotoUploadSlot
-              title="Ảnh 2: Hộp đã niêm phong và tem vận chuyển"
-              description="Hộp đã dán kín băng keo niêm phong, dán tem vận chuyển rõ mã vận đơn."
-              proof={anhNiemPhong}
-              loaiBangChung={LOAI_BANG_CHUNG.ANH_NIEM_PHONG_TEM_VC}
-              onUpload={handleUploadFile}
-              onDelete={handleDeleteProof}
-              onPreview={setPreviewMedia}
-              uploading={uploading}
-              deleting={deletingId === anhNiemPhong?.id}
-              readOnly={readOnly}
-            />
-          </div>
-        ) : (
-          /* ── GIAO DIỆN 2: ĐƠN >= 1 TRIỆU (VIDEO 15-30S) ── */
-          <VideoUploadSection
-            proof={videoDongGoi}
-            onUpload={handleUploadFile}
-            onDelete={handleDeleteProof}
-            onPreview={setPreviewMedia}
-            uploading={uploading}
-            deleting={deletingId === videoDongGoi?.id}
-            readOnly={readOnly}
-          />
-        )}
-      </div>
-
-      {/* ── Lightbox Preview Modal ── */}
-      {previewMedia && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-in fade-in">
-          <div className="relative max-h-[90vh] max-w-4xl w-full bg-slate-900 rounded-lg overflow-hidden shadow-2xl flex flex-col">
-            <div className="flex items-center justify-between p-3 border-b border-slate-700 bg-slate-950 text-white">
-              <span className="font-semibold text-sm">{previewMedia.title || "Xem bằng chứng đóng gói"}</span>
-              <button
-                type="button"
-                onClick={() => setPreviewMedia(null)}
-                className="text-slate-400 hover:text-white rounded p-1"
-              >
-                <X className="size-5" />
-              </button>
-            </div>
-            <div className="p-4 flex items-center justify-center bg-black min-h-[300px] max-h-[75vh] overflow-auto">
-              {previewMedia.type === "video" ? (
-                <video src={resolveProofMediaUrl(previewMedia.url)} controls autoPlay className="max-h-[70vh] max-w-full rounded" />
-              ) : (
-                <img src={resolveProofMediaUrl(previewMedia.url)} alt="Xem trước bằng chứng" className="max-h-[70vh] max-w-full object-contain rounded" />
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </SurfaceCard>
-  );
-}
-
-/** Khung hiển thị và upload 1 ảnh */
-function PhotoUploadSlot({
-  title,
-  description,
-  proof,
-  loaiBangChung,
-  onUpload,
-  onDelete,
-  onPreview,
-  uploading,
-  deleting,
-  readOnly,
-}) {
-  const fileInputRef = useRef(null);
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [hasImageError, setHasImageError] = useState(false);
-
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (!file.type.startsWith("image/")) {
-        toast.error("Vui lòng chọn tệp hình ảnh (JPEG, PNG, WebP)");
-        return;
-      }
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error("Dung lượng ảnh tối đa là 10MB");
-        return;
-      }
-      setHasImageError(false);
-      onUpload(file, loaiBangChung);
-    }
-    e.target.value = "";
-  };
-
-  const rawUrl = proof?.urlPublic || proof?.duongDanMinio;
-  const isUploaded = Boolean(rawUrl);
-  const mediaUrl = resolveProofMediaUrl(rawUrl);
-
-  return (
-    <div className={`rounded-lg border p-4 transition-all ${
-      isUploaded ? "border-emerald-300 bg-emerald-50/20" : "border-slate-200 bg-white"
-    }`}>
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div>
-          <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
-            {isUploaded ? <CheckCircle2 className="size-4 text-emerald-600" /> : <Camera className="size-4 text-slate-500" />}
-            {title}
-          </h4>
-          <p className="text-xs text-slate-500 mt-0.5">{description}</p>
-        </div>
-        {isUploaded ? (
-          <StatusBadge label="Đã có ảnh" />
-        ) : (
-          <StatusBadge label="Chưa có ảnh" />
-        )}
-      </div>
-
-      {isUploaded ? (
-        <div className="mt-3 space-y-2">
-          <div className="relative group rounded-md overflow-hidden border border-slate-200 bg-slate-100 aspect-video max-h-48 flex items-center justify-center">
-            {hasImageError ? (
-              <div className="flex flex-col items-center justify-center p-4 text-center text-slate-500">
-                <AlertCircle className="size-6 text-amber-500 mb-1" />
-                <span className="text-xs font-medium">Không tải được ảnh</span>
-                <button
-                  type="button"
-                  onClick={() => setHasImageError(false)}
-                  className="mt-1 text-[11px] text-bo-primary underline font-medium"
-                >
-                  Thử tải lại
-                </button>
-              </div>
-            ) : (
-              <img
-                src={mediaUrl}
-                alt={title}
-                onError={() => setHasImageError(true)}
-                className="w-full h-full object-cover transition-transform group-hover:scale-105"
-              />
-            )}
-            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-              {!hasImageError && (
-                <button
-                  type="button"
-                  onClick={() => onPreview({ type: "image", url: mediaUrl, title })}
-                  className="bg-white/90 hover:bg-white text-slate-800 p-2 rounded-full shadow"
-                  title="Xem ảnh lớn"
-                >
-                  <Eye className="size-4" />
-                </button>
-              )}
-              {!readOnly && (
-                <button
-                  type="button"
-                  onClick={() => onDelete(proof.id, title)}
-                  // Đang tải ảnh thay thế thì không xóa được (xóa chen giữa lúc tải lên)
-                  disabled={deleting || uploading}
-                  className="bg-rose-600 hover:bg-rose-700 text-white p-2 rounded-full shadow disabled:opacity-50"
-                  title="Xóa và chụp lại"
-                >
-                  {deleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-500 px-1">
-            <span>Người chụp: {proof.tenNguoiTao || "Nhân viên"}</span>
-            {!readOnly && (
-              <div className="flex items-center gap-2">
-                {/* Khóa khi đang tải lên: bấm lúc này sẽ tải hai lần */}
-                <button
-                  type="button"
-                  onClick={() => setIsCameraOpen(true)}
-                  disabled={uploading}
-                  className="text-emerald-700 hover:underline font-medium disabled:pointer-events-none disabled:opacity-50"
-                >
-                  Chụp lại
-                </button>
-                <span>·</span>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className="text-bo-primary hover:underline font-medium disabled:pointer-events-none disabled:opacity-50"
-                >
-                  Chọn tệp khác
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="mt-3 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-lg p-5 bg-slate-50/50 hover:bg-slate-50 transition-colors">
-          <Camera className="size-8 text-slate-400 mb-2" />
-          <p className="text-xs text-slate-600 font-medium mb-3">Chụp trực tiếp từ camera hoặc tải ảnh từ máy tính</p>
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => setIsCameraOpen(true)}
-              disabled={uploading || readOnly}
-              className="gap-1.5 text-xs h-8 border-emerald-600 text-emerald-700 hover:bg-emerald-50 font-medium"
-            >
-              <Camera className="size-3.5" /> Chụp ảnh
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading || readOnly}
-              className="gap-1.5 text-xs h-8 bg-bo-primary text-white hover:bg-bo-primary-hover"
-            >
-              {uploading ? <Loader2 className="size-3.5 animate-spin" /> : <Upload className="size-3.5" />} Chọn tệp ảnh
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Hidden File Input */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-      />
-
-      {/* Camera Capture Modal (WebRTC) */}
-      <CameraCaptureModal
-        isOpen={isCameraOpen}
-        onClose={() => setIsCameraOpen(false)}
-        onCapture={(file) => {
-          setHasImageError(false);
-          onUpload(file, loaiBangChung);
-        }}
-        title={`Chụp ảnh: ${title}`}
-        description={description}
-      />
-    </div>
-  );
-}
+const dinhNgay = (value) => formatDate(value).slice(0, 5); // "20/11"
+const dongHo = (giay) => `${pad2(Math.floor(giay / 60))}:${pad2(giay % 60)}`;
+const urlCua = (bc) => resolveProofMediaUrl(bc?.urlPublic || bc?.duongDanMinio);
 
 /** Câu báo khi không mở được camera hoặc không bắt đầu quay được, theo loại lỗi của trình duyệt. */
 function cauLoiCamera(err) {
@@ -423,319 +51,690 @@ function cauLoiCamera(err) {
     case "NotReadableError":
       return "Camera đang được ứng dụng khác dùng. Hãy tắt ứng dụng đó rồi thử lại.";
     case "NotSupportedError":
-      return "Trình duyệt này không quay được video. Hãy dùng Chrome hoặc Edge, hoặc tải tệp video từ thiết bị.";
+      return "Trình duyệt này không quay được video. Hãy dùng Chrome hoặc Edge, hoặc chọn tệp video từ thiết bị.";
     default:
       return "Không mở được camera để quay video. Vui lòng thử lại.";
   }
 }
 
-/** Khung hiển thị và quay/upload video 15-30s */
-function VideoUploadSection({
-  proof,
-  onUpload,
-  onDelete,
-  onPreview,
-  uploading,
-  deleting,
-  readOnly,
-}) {
-  const fileInputRef = useRef(null);
-  const liveVideoRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
-  const timerIntervalRef = useRef(null);
-  // Bấm "Hủy" khi đang quay: onstop của MediaRecorder vẫn chạy, cờ này để không tải video đã hủy lên
-  const huyQuayRef = useRef(false);
-  // Mốc bắt đầu quay: thời lượng gửi lên tính theo đồng hồ, không đọc state `seconds` (onstop giữ giá trị lúc bắt đầu)
-  const batDauQuayRef = useRef(0);
-  // Đã rời màn / đóng hộp: camera mở xong sau lúc đó (đang chờ getUserMedia) thì tắt ngay, không quay
-  const daRoiManRef = useRef(false);
+// Chờ trình duyệt đọc thời lượng tệp tối đa ngần này (ms) rồi coi là không đọc được (tệp lỗi, định dạng lạ)
+const CHO_DOC_THOI_LUONG_MS = 10000;
 
-  const [isRecording, setIsRecording] = useState(false);
-  const [seconds, setSeconds] = useState(0);
-  const [stream, setStream] = useState(null);
-  const [recordedChunks, setRecordedChunks] = useState([]);
-
-  const rawUrl = proof?.urlPublic || proof?.duongDanMinio;
-  const isUploaded = Boolean(rawUrl);
-  const mediaUrl = resolveProofMediaUrl(rawUrl);
-
-  // Dọn dẹp stream camera khi đổi stream hoặc unmount. Không dừng bộ đếm ở đây: effect này dọn dẹp ngay khi `stream` đổi
-  // lúc bắt đầu quay, sẽ xóa luôn bộ đếm vừa tạo.
-  useEffect(() => {
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
+/**
+ * Đọc thời lượng (giây, số thực — nơi gọi quy ra số gửi máy chủ bằng thoiLuongGuiLen) của tệp video bằng thẻ <video>;
+ * không đọc được thì null. Tệp webm do trình duyệt quay thường báo thời lượng Infinity: tua tới cuối để trình duyệt tính
+ * lại rồi mới đọc.
+ */
+function docThoiLuong(file) {
+  return new Promise((xong) => {
+    const v = document.createElement("video");
+    v.preload = "metadata";
+    v.muted = true;
+    const url = URL.createObjectURL(file);
+    let daXong = false;
+    const ket = (giay) => {
+      if (daXong) return;
+      daXong = true;
+      clearTimeout(henGio);
+      URL.revokeObjectURL(url);
+      xong(giay);
     };
-  }, [stream]);
+    const henGio = setTimeout(() => ket(null), CHO_DOC_THOI_LUONG_MS);
+    const doc = () => (Number.isFinite(v.duration) && v.duration > 0 ? v.duration : null);
+    v.onloadedmetadata = () => {
+      if (doc() != null) {
+        ket(doc());
+        return;
+      }
+      v.ondurationchange = () => {
+        if (doc() != null) ket(doc());
+      };
+      v.currentTime = Number.MAX_SAFE_INTEGER;
+    };
+    v.onerror = () => ket(null);
+    v.src = url;
+  });
+}
 
-  // Rời màn / đóng hộp khi đang quay: dừng bộ đếm và không tải video dở lên (tắt camera thì MediaRecorder tự dừng, onstop
-  // vẫn chạy).
-  // Đặt lại cờ khi dựng: StrictMode (dev) giả lập gỡ rồi dựng lại, ref vẫn giữ giá trị của lần gỡ giả.
+// Phần đầu tệp WebM đủ chứa EBML, Segment và Info (vài trăm byte); chỉ đọc phần này để không chép cả video trong bộ nhớ
+const DAU_TEP_WEBM = 64 * 1024;
+
+/**
+ * Tệp video gửi lên: ghi thời lượng (ms) vào phần đầu WebM để xem lại tua được (trình duyệt cũ quay ra tệp không có
+ * thời lượng); không ghi được (Chrome mới đã tự ghi, cấu trúc lạ…) thì gửi nguyên tệp gốc.
+ */
+async function taoTepVideo(goc, thoiLuongMs) {
+  const ten = `video_dong_goi_${Date.now()}.webm`;
+  try {
+    const dau = new Uint8Array(await goc.slice(0, DAU_TEP_WEBM).arrayBuffer());
+    const daSua = ghiThoiLuongWebm(dau, thoiLuongMs);
+    if (daSua) return new File([daSua, goc.slice(DAU_TEP_WEBM)], ten, { type: "video/webm" });
+  } catch {
+    // Dùng tệp gốc
+  }
+  return new File([goc], ten, { type: "video/webm" });
+}
+
+/**
+ * Xem video bằng chứng. Video quay trước khi có bước ghi thời lượng báo thời lượng Infinity (thanh tua không dùng
+ * được): tua tới cuối để trình duyệt tính thời lượng rồi quay về đầu, một lần.
+ */
+function XemVideo({ src }) {
+  const daSuaRef = useRef(false);
+  const khiCoThongTin = (suKien) => {
+    const v = suKien.currentTarget;
+    if (Number.isFinite(v.duration) || daSuaRef.current) return;
+    daSuaRef.current = true;
+    const veDau = () => {
+      if (!Number.isFinite(v.duration)) return;
+      v.removeEventListener("durationchange", veDau);
+      v.currentTime = 0;
+      // Tua tới cuối có thể làm video dừng (ended): phát lại như autoPlay
+      v.play().catch(() => {});
+    };
+    v.addEventListener("durationchange", veDau);
+    v.currentTime = Number.MAX_SAFE_INTEGER;
+  };
+  return <video src={src} controls autoPlay onLoadedMetadata={khiCoThongTin} className="max-h-[70vh] max-w-full" />;
+}
+
+/**
+ * Quay video bằng camera (MediaRecorder, video/webm, chất lượng theo CHAT_LUONG_QUAY_VIDEO): đếm giây, tự dừng ở
+ * `gioiHan.toiDa`. Dừng tay dưới `gioiHan.toiThieu` bị khóa ở nút; máy tự dừng sớm (mất camera) thì báo lỗi thời lượng.
+ * Rời màn khi đang quay: tắt camera, không tải video dở.
+ */
+function useQuayVideo({ gioiHan, onXong, onLoi }) {
+  const [giay, setGiay] = useState(null); // null = không quay
+  const [dangMo, setDangMo] = useState(false); // đang chờ trình duyệt mở camera
+  const [stream, setStream] = useState(null);
+  const recRef = useRef(null);
+  const henRef = useRef(null);
+  const batDauRef = useRef(0);
+  // Lúc bấm dừng / tự dừng: thời lượng tính tới đây, không tính độ trễ của onstop
+  const dungLucRef = useRef(0);
+  const huyRef = useRef(false);
+  const xongRef = useRef(onXong);
+  const loiRef = useRef(onLoi);
+  const gioiHanRef = useRef(gioiHan);
   useEffect(() => {
-    daRoiManRef.current = false;
+    xongRef.current = onXong;
+    loiRef.current = onLoi;
+    gioiHanRef.current = gioiHan;
+  });
+
+  const dung = useCallback(() => {
+    clearInterval(henRef.current);
+    if (recRef.current?.state === "recording") {
+      dungLucRef.current = Date.now();
+      recRef.current.stop();
+    }
+  }, []);
+
+  // Đặt lại cờ khi gắn: StrictMode (dev) giả lập gỡ rồi gắn lại, ref vẫn giữ giá trị của lần gỡ giả
+  useEffect(() => {
+    huyRef.current = false;
     return () => {
-      daRoiManRef.current = true;
-      huyQuayRef.current = true;
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      huyRef.current = true;
+      clearInterval(henRef.current);
+      if (recRef.current?.state === "recording") recRef.current.stop();
     };
   }, []);
 
-  // Bắt đầu quay camera trực tiếp
-  const startRecording = async () => {
-    let mediaStream = null;
+  const dangMoRef = useRef(false);
+  const batDau = useCallback(async () => {
+    // Bấm hai lần lúc đang mở camera / đang quay: bỏ qua (không mở luồng camera thứ hai)
+    if (dangMoRef.current || recRef.current?.state === "recording") return;
+    dangMoRef.current = true;
+    setDangMo(true);
+    let s = null;
     try {
-      mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
+      s = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: CHAT_LUONG_QUAY_VIDEO.rong }, height: { ideal: CHAT_LUONG_QUAY_VIDEO.cao } },
         audio: true,
       });
-      // Đóng hộp / rời màn trong lúc chờ trình duyệt mở camera: tắt camera vừa mở, không quay
-      if (daRoiManRef.current) {
-        mediaStream.getTracks().forEach((track) => track.stop());
+      if (huyRef.current) {
+        s.getTracks().forEach((t) => t.stop());
         return;
       }
-      setStream(mediaStream);
-      if (liveVideoRef.current) {
-        liveVideoRef.current.srcObject = mediaStream;
-      }
-
-      const recorder = new MediaRecorder(mediaStream, { mimeType: "video/webm" });
-      const chunks = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) chunks.push(e.data);
+      const rec = new MediaRecorder(s, { mimeType: "video/webm", videoBitsPerSecond: CHAT_LUONG_QUAY_VIDEO.bitGiay });
+      const manh = [];
+      rec.ondataavailable = (e) => {
+        if (e.data?.size > 0) manh.push(e.data);
       };
-
-      recorder.onstop = () => {
-        if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-        setIsRecording(false);
-        if (!huyQuayRef.current) {
-          const thoiLuong = Math.round((Date.now() - batDauQuayRef.current) / 1000);
-          if (thoiLuong < 15) {
-            // Máy tự dừng sớm (camera bị ngắt, bị thu quyền…): không lưu video ngắn hơn quy định
-            toast.error("Video quay chưa đủ 15 giây nên chưa được lưu. Vui lòng quay lại.");
-          } else {
-            const blob = new Blob(chunks, { type: "video/webm" });
-            const file = new File([blob], `video_dong_goi_${Date.now()}.webm`, { type: "video/webm" });
-            // Tải lên
-            onUpload(file, LOAI_BANG_CHUNG.VIDEO_DONG_GOI, Math.min(30, thoiLuong));
-          }
-        }
-        mediaStream.getTracks().forEach((track) => track.stop());
+      rec.onstop = () => {
+        clearInterval(henRef.current);
+        s.getTracks().forEach((t) => t.stop());
         setStream(null);
+        setGiay(null);
+        if (huyRef.current) return;
+        const gh = gioiHanRef.current;
+        // Máy tự dừng (mất camera) thì không có lúc bấm dừng. Bộ đếm bị trình duyệt hãm (khóa màn, chuyển ứng dụng)
+        // làm video dài hơn hẳn mốc tối đa thì báo lỗi, không kẹp số — máy chủ tin số này.
+        const thoiLuong = thoiLuongGuiLen(((dungLucRef.current || Date.now()) - batDauRef.current) / 1000, gh);
+        if (!thoiLuongHopLe(thoiLuong, gh)) {
+          loiRef.current?.(cauThoiLuongVideo(thoiLuong, gh));
+          return;
+        }
+        const goc = new Blob(manh, { type: "video/webm" });
+        if (videoQuaLon(goc.size)) {
+          loiRef.current?.(cauVideoQuaLon(goc.size, { daQuay: true }));
+          return;
+        }
+        // Gửi lời hứa của tệp: nơi nhận đặt "đang tải" ngay (không hở khoảng không có trạng thái lúc đang tạo tệp)
+        xongRef.current?.(taoTepVideo(goc, (dungLucRef.current || Date.now()) - batDauRef.current), thoiLuong);
       };
-
-      mediaRecorderRef.current = recorder;
-      huyQuayRef.current = false;
-      recorder.start();
-      batDauQuayRef.current = Date.now();
-      setIsRecording(true);
-      setSeconds(0);
-
-      // Đếm giây 0 -> 30s
-      timerIntervalRef.current = setInterval(() => {
-        setSeconds((prev) => {
-          if (prev >= 29) {
-            // Tự động dừng khi đủ 30 giây
-            stopRecording();
-            return 30;
-          }
-          return prev + 1;
-        });
-      }, 1000);
+      recRef.current = rec;
+      setStream(s);
+      rec.start();
+      batDauRef.current = Date.now();
+      dungLucRef.current = 0;
+      setGiay(0);
+      henRef.current = setInterval(() => {
+        const daQua = Math.floor((Date.now() - batDauRef.current) / 1000);
+        setGiay(daQua);
+        if (daQua >= gioiHanRef.current.toiDa) dung();
+      }, 250);
     } catch (err) {
-      // Camera đã mở mà không bắt đầu quay được (vd. trình duyệt không hỗ trợ video/webm): tắt camera
-      mediaStream?.getTracks().forEach((track) => track.stop());
+      s?.getTracks().forEach((t) => t.stop());
       setStream(null);
-      toast.error(cauLoiCamera(err));
+      setGiay(null);
+      loiRef.current?.(cauLoiCamera(err));
+    } finally {
+      dangMoRef.current = false;
+      if (!huyRef.current) setDangMo(false);
     }
-  };
+  }, [dung]);
 
-  const stopRecording = () => {
-    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-      mediaRecorderRef.current.stop();
-    }
-    setIsRecording(false);
-  };
+  return { dangQuay: giay != null, dangMo, giay: giay ?? 0, gioiHan, stream, batDau, dung };
+}
 
-  const cancelRecording = () => {
-    huyQuayRef.current = true;
-    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-      mediaRecorderRef.current.stop();
-    }
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
-      setStream(null);
-    }
-    setIsRecording(false);
-    setSeconds(0);
-  };
+function XemTruocTrucTiep({ stream }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (ref.current) ref.current.srcObject = stream ?? null;
+  }, [stream]);
+  return <video ref={ref} autoPlay muted playsInline className="absolute inset-0 size-full object-cover" />;
+}
 
-  // Chọn tệp video từ máy tính và validate duration
-  const handleVideoFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+/** Ảnh thu nhỏ của tệp đã lưu (ảnh hoặc khung đầu của video); tải hỏng thì biểu tượng. */
+function AnhThuNho({ bc, laVideo, ten }) {
+  const [hong, setHong] = useState(false);
+  const url = urlCua(bc);
+  if (hong || !url) {
+    return (
+      <span className="grid size-full place-items-center bg-slate-100 text-slate-400">
+        {laVideo ? <Video className="size-8" aria-hidden="true" /> : <Camera className="size-8" aria-hidden="true" />}
+      </span>
+    );
+  }
+  return laVideo ? (
+    <video src={url} preload="metadata" muted playsInline onError={() => setHong(true)} className="size-full object-cover" aria-label={ten} />
+  ) : (
+    <img src={url} alt={ten} loading="lazy" onError={() => setHong(true)} className="size-full object-cover" />
+  );
+}
 
-    if (!file.type.startsWith("video/") && !file.name.match(/\.(mp4|webm|mov)$/i)) {
-      toast.error("Vui lòng chọn tệp video hợp lệ (MP4, WebM, MOV)");
-      return;
-    }
-    if (file.size > 100 * 1024 * 1024) {
-      toast.error("Dung lượng video tối đa là 100MB");
-      return;
-    }
-
-    // Kiểm tra thời lượng bằng HTML5 Video Element
-    const tempVideo = document.createElement("video");
-    tempVideo.preload = "metadata";
-    tempVideo.src = URL.createObjectURL(file);
-    tempVideo.onloadedmetadata = () => {
-      URL.revokeObjectURL(tempVideo.src);
-      const duration = Math.round(tempVideo.duration);
-      if (duration < 15 || duration > 30) {
-        toast.error(`Thời lượng video phải từ 15 đến 30 giây (video này dài ${duration} giây).`);
-        return;
-      }
-      onUpload(file, LOAI_BANG_CHUNG.VIDEO_DONG_GOI, duration);
-    };
-    tempVideo.onerror = () => {
-      URL.revokeObjectURL(tempVideo.src);
-      toast.error("Không thể đọc thông tin tệp video này");
-    };
-
-    e.target.value = "";
-  };
+/**
+ * Một ô bằng chứng: khung xem (trống · đang quay · đang tải · đã có · lỗi) và chân ô (tên, thông tin tệp, nút).
+ */
+function OBangChung({ o, suaDuoc, khoaThem, lyDoKhoaXoa, hetHan, trangThai, quay, onChup, onChonTep, onXem, onXoa }) {
+  const bc = o.bangChung;
+  const dangQuay = o.laVideo && quay.dangQuay;
+  const dangTai = Boolean(trangThai?.dangTai);
+  const loi = !bc && !dangQuay && !dangTai ? trangThai?.loi || "" : "";
+  const trong = !bc && !dangQuay && !dangTai && !loi;
+  const khoaDung = dangQuay && quay.giay < quay.gioiHan.toiThieu;
+  const tuDungSau = dangQuay ? giayTuDung(quay.giay, quay.gioiHan) : null;
+  const phanTram = dangTai ? trangThai?.phanTram ?? null : null;
+  const chuTai = phanTram != null && phanTram >= 100 ? "Đang lưu…" : "Đang tải lên…";
+  // Vùng thông báo luôn có sẵn trong DOM (gắn cùng lúc với nội dung thì trình đọc màn hình hay bỏ qua); câu sắp tự dừng
+  // giữ nguyên suốt khoảng báo trước để chỉ đọc một lần
+  const thongBaoDoc = dangTai ? chuTai : tuDungSau != null ? `Sắp tự dừng quay ở ${dongHo(quay.gioiHan.toiDa)}` : "";
+  const meta = bc
+    ? chuThongTinTep(bc, { dinhGio, dinhNgay })
+    : hetHan
+      ? "Tệp đã tự xóa sau hạn lưu"
+      : loi
+        ? "Chưa lưu"
+        : o.laVideo ? "Chưa có video" : "Chưa có ảnh";
 
   return (
-    <div className={`rounded-lg border p-4 transition-all ${
-      isUploaded ? "border-emerald-300 bg-emerald-50/20" : "border-slate-200 bg-white"
-    }`}>
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div>
-          <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
-            {isUploaded ? <CheckCircle2 className="size-4 text-emerald-600" /> : <Video className="size-4 text-slate-500" />}
-            Video đóng gói niêm phong (15–30 giây)
-          </h4>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Quay liền mạch từ lúc cho sản phẩm vào hộp/túi đến khi dán kín niêm phong kèm tem vận chuyển.
-          </p>
-        </div>
-        {isUploaded ? (
-          // Thiếu thời lượng (dữ liệu cũ) thì không ghi số giây, không đoán
-          <StatusBadge label={proof.thoiLuongGiay ? `Đã có video (${proof.thoiLuongGiay} giây)` : "Đã có video"} />
-        ) : (
-          <StatusBadge label="Chưa có video" />
-        )}
-      </div>
-
-      {isUploaded ? (
-        <div className="mt-3 space-y-2">
-          <div className="rounded-lg overflow-hidden border border-slate-200 bg-black aspect-video max-h-64 flex items-center justify-center">
-            <video src={mediaUrl} controls className="w-full h-full max-h-64" />
-          </div>
-          <div className="flex items-center justify-between text-xs text-slate-600 px-1 pt-1">
-            <span>
-              {proof.thoiLuongGiay ? (
-                <>
-                  Thời lượng: <strong className="font-semibold">{proof.thoiLuongGiay} giây</strong> ·{" "}
-                </>
-              ) : null}
-              Người quay: {proof.tenNguoiTao || "Nhân viên"}
+    <div className={cn("overflow-hidden rounded-lg border bg-white", o.laVideo && "md:col-span-2", loi ? "border-bo-danger/40" : "border-bo-border")}>
+      <div className={cn("relative grid aspect-video place-items-center bg-bo-surface-subtle", o.laVideo && "max-h-72 w-full")}>
+        {trong ? (
+          <span className="grid justify-items-center gap-2 px-4 text-center">
+            <span className="grid size-12 place-items-center rounded-full border border-bo-border bg-white text-slate-400">
+              {o.laVideo ? <Video className="size-6" aria-hidden="true" /> : <Camera className="size-6" aria-hidden="true" />}
             </span>
-            {!readOnly && (
+            <span className="max-w-[280px] text-[13px] leading-5 text-bo-muted">{o.goiY}</span>
+          </span>
+        ) : null}
+        {dangQuay ? (
+          <>
+            <XemTruocTrucTiep stream={quay.stream} />
+            <span className="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded bg-black/70 px-2 py-0.5 font-mono text-xs font-semibold text-red-300">
+              <span className="size-2 animate-pulse rounded-full bg-red-500 motion-reduce:animate-none" aria-hidden="true" />
+              Đang quay {dongHo(quay.giay)} / {dongHo(quay.gioiHan.toiDa)}
+            </span>
+            <span
+              className={cn(
+                "absolute inset-x-2 bottom-2 rounded px-2 py-1 text-center text-xs text-white",
+                tuDungSau == null ? "bg-black/60" : "bg-bo-warning font-semibold",
+              )}
+            >
+              {tuDungSau == null
+                ? "Quay từ lúc cho hàng vào hộp đến khi dán niêm phong"
+                : tuDungSau > 0 ? `Tự dừng sau ${tuDungSau} giây` : "Đang dừng quay…"}
+            </span>
+          </>
+        ) : null}
+        {dangTai ? (
+          <span className="grid w-full max-w-[240px] justify-items-center gap-2 px-4 text-[13px] text-bo-muted">
+            <Loader2 className="size-6 animate-spin" aria-hidden="true" />
+            <span aria-hidden="true">{chuTai}</span>
+            {phanTram != null && phanTram < 100 ? (
+              <span
+                role="progressbar"
+                aria-label={`Tải lên: ${o.ten}`}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={phanTram}
+                className="grid w-full gap-1"
+              >
+                <span className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                  <span className="block h-full rounded-full bg-bo-primary transition-[width]" style={{ width: `${phanTram}%` }} />
+                </span>
+                <span className="text-center font-mono text-xs tabular-nums text-bo-foreground">{phanTram}%</span>
+              </span>
+            ) : null}
+          </span>
+        ) : null}
+        {bc && !dangQuay && !dangTai ? (
+          <>
+            <AnhThuNho bc={bc} laVideo={o.laVideo} ten={o.ten} />
+            {o.laVideo ? (
+              <>
+                <span className="absolute grid size-11 place-items-center rounded-full bg-black/55 text-white" aria-hidden="true">
+                  <Play className="size-5 fill-current" />
+                </span>
+                {bc.thoiLuongGiay ? (
+                  <span className="absolute bottom-2 right-2 rounded bg-black/70 px-1.5 py-0.5 font-mono text-xs text-white">
+                    {dongHo(Number(bc.thoiLuongGiay))}
+                  </span>
+                ) : null}
+              </>
+            ) : null}
+          </>
+        ) : null}
+        {loi ? (
+          <span role="alert" className="grid justify-items-center gap-2 px-4 text-center">
+            <XCircle className="size-8 text-bo-danger" aria-hidden="true" />
+            <span className="max-w-[300px] text-[13px] leading-5 text-bo-danger-strong">{loi}</span>
+          </span>
+        ) : null}
+        <span role="status" className="sr-only">{thongBaoDoc}</span>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-bo-border px-3 py-2.5">
+        <span className="min-w-0">
+          <span className="block text-[13px] font-semibold leading-5 text-bo-foreground">{o.ten}</span>
+          <span className="block text-xs leading-4 text-bo-muted">{meta}</span>
+        </span>
+        <span className="flex flex-wrap items-center gap-1.5">
+          {(trong || loi) && suaDuoc ? (
+            <>
+              {/* Giữ "Quay video" cả khi ô đang báo lỗi: câu báo tệp quá lớn nhắc đúng tên nút này */}
+              <Button type="button" size="sm" disabled={khoaThem} onClick={onChup} aria-label={`${o.laVideo ? "Quay video" : "Chụp ảnh"}: ${o.ten}`} className="h-8 bg-bo-primary px-2.5 text-[13px] text-white hover:bg-bo-primary-hover">
+                {o.laVideo ? "Quay video" : "Chụp ảnh"}
+              </Button>
+              <Button type="button" size="sm" variant="outline" disabled={khoaThem} onClick={onChonTep} aria-label={`Chọn tệp: ${o.ten}`} className="h-8 border-bo-border bg-white px-2.5 text-[13px] shadow-none hover:bg-bo-surface-subtle">
+                Chọn tệp
+              </Button>
+            </>
+          ) : null}
+          {dangQuay ? (
+            <Button type="button" size="sm" disabled={khoaDung} onClick={quay.dung} className="h-8 bg-bo-danger px-2.5 text-[13px] text-white hover:bg-bo-danger-strong disabled:opacity-60">
+              {khoaDung ? `Dừng được sau ${quay.gioiHan.toiThieu - quay.giay} giây` : "Dừng quay"}
+            </Button>
+          ) : null}
+          {bc && !dangQuay && !dangTai ? (
+            <>
+              <Button type="button" size="sm" variant="outline" onClick={onXem} aria-label={`Xem: ${o.ten}`} className="h-8 border-bo-border bg-white px-2.5 text-[13px] shadow-none hover:bg-bo-surface-subtle">
+                Xem
+              </Button>
               <Button
                 type="button"
-                variant="destructive"
                 size="sm"
-                onClick={() => onDelete(proof.id, "video đóng gói")}
-                disabled={deleting}
-                className="gap-1.5 h-7 text-xs"
+                variant="ghost"
+                disabled={!suaDuoc}
+                title={!suaDuoc ? lyDoKhoaXoa : undefined}
+                aria-label={`Xóa: ${o.ten}`}
+                onClick={onXoa}
+                className="h-8 px-2.5 text-[13px] text-bo-foreground"
               >
-                {deleting ? <Loader2 className="size-3 animate-spin" /> : <Trash2 className="size-3" />} Xóa và quay lại
+                Xóa
               </Button>
-            )}
-          </div>
-        </div>
-      ) : isRecording ? (
-        /* Giao diện đang quay trực tiếp */
-        <div className="mt-3 flex flex-col items-center justify-center rounded-lg border border-red-300 bg-black p-4 text-white">
-          <div className="relative w-full max-w-md aspect-video bg-slate-900 rounded-lg overflow-hidden mb-3">
-            <video ref={liveVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
-            <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-black/70 px-2 py-0.5 rounded text-xs font-mono font-bold text-red-400">
-              <span className="size-2 rounded-full bg-red-500 animate-ping" />
-              Đang quay: {seconds}/30 giây
-            </div>
-            {seconds < 15 ? (
-              <div className="absolute bottom-2 inset-x-2 text-center bg-black/70 text-[11px] text-amber-300 py-1 rounded">
-                Cần quay tối thiểu 15 giây (còn {15 - seconds} giây nữa mới được dừng)
-              </div>
-            ) : (
-              <div className="absolute bottom-2 inset-x-2 text-center bg-emerald-950/80 text-[11px] text-emerald-300 py-1 rounded font-medium">
-                Thời lượng hợp lệ. Bấm “Dừng và lưu” bất kỳ lúc nào (tối đa 30 giây).
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              onClick={stopRecording}
-              disabled={seconds < 15}
-              className="gap-1.5 text-xs font-semibold disabled:opacity-40"
-            >
-              <Square className="size-3.5 fill-current" /> Dừng và lưu ({seconds} giây)
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={cancelRecording}
-              className="text-xs text-slate-300 hover:text-white hover:bg-slate-800"
-            >
-              Hủy
-            </Button>
-          </div>
-        </div>
-      ) : (
-        /* Giao diện nút bắt đầu quay hoặc tải tệp */
-        <div className="mt-3 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-lg p-6 bg-slate-50/50 hover:bg-slate-50 transition-colors">
-          <Video className="size-10 text-slate-400 mb-2" />
-          <p className="text-xs text-slate-600 font-medium mb-1">Quay video ngắn (15–30 giây) hoặc tải tệp từ thiết bị</p>
-          <p className="text-[11px] text-slate-400 mb-4">Hỗ trợ MP4, WebM, MOV · Tối đa 100MB</p>
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              onClick={startRecording}
-              disabled={uploading || readOnly}
-              className="gap-1.5 text-xs bg-red-600 hover:bg-red-700 text-white shadow-sm"
-            >
-              <Camera className="size-3.5" /> Bắt đầu quay video
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading || readOnly}
-              className="gap-1.5 text-xs border-slate-300"
-            >
-              {uploading ? <Loader2 className="size-3.5 animate-spin" /> : <Upload className="size-3.5" />} Tải video từ máy
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Hidden file input */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleVideoFileChange}
-        accept="video/mp4,video/webm,video/quicktime"
-        className="hidden"
-      />
+            </>
+          ) : null}
+        </span>
+      </div>
     </div>
+  );
+}
+
+/**
+ * Phần "Bằng chứng đóng gói" (dùng ở màn Đóng gói và hộp bằng chứng của màn Phiếu nhặt hàng): yêu cầu lấy từ máy chủ
+ * (`yeuCauVideo`, `huongDan` hiện nguyên văn), mỗi loại bằng chứng một ô; chụp ảnh (CameraCaptureModal), quay video
+ * (khóa Dừng dưới thời lượng tối thiểu, báo trước rồi tự dừng ở tối đa) hoặc chọn tệp; video quá dung lượng bị chặn
+ * trước khi tải; tải video hiện phần trăm; câu lỗi tải lên của máy chủ hiện nguyên văn trong ô. Bằng chứng gắn theo ĐƠN
+ * (`donId`); máy chủ thay tệp cũ khi tải lại cùng loại.
+ *
+ * - `thoiLuongVideoToiThieu`, `thoiLuongVideoToiDa`: khoảng thời lượng video (giây) máy chủ gửi; thiếu thì dùng config.
+ * - `readOnly`: không thêm / xóa (phiếu đã hoàn tất, đơn hoặc phiếu bị hủy); `lyDoKhoaXoa`: lý do khi rê vào nút Xóa.
+ * - `hetHan`: phiếu đã đóng gói xong mà không còn tệp → ô ghi "Tệp đã tự xóa sau hạn lưu", không báo "Chưa đủ".
+ * - `coTieuDe = false`: không vẽ tiêu đề (nơi gọi đã có tiêu đề, vd. hộp bằng chứng của màn Phiếu nhặt hàng).
+ * - `loiYeuCau` + `onThuLaiYeuCau`: không tải được yêu cầu bằng chứng (GET …/bang-chung) → dòng lỗi có "Thử lại".
+ * - `traTieuDiem()`: gọi sau khi lưu / xóa / đóng camera, hộp xem, hộp xóa — nơi gọi trả tiêu điểm về chỗ cần (ô quét).
+ * - `traTieuDiemVe` (ref, vd. ô quét): đóng hộp hỏi rời trang thì tiêu điểm về đây, không về link đã mở hộp (Enter của
+ *   máy quét sẽ bấm lại link đó).
+ * - `onRefresh()`: tải lại sau khi lưu / xóa. `soDonHang`, `tongTienDonHang`: giữ cho nơi gọi cũ, không dùng.
+ * - Đang mở camera / quay / tệp chưa gửi hết: rời trang (link, Back, đóng thẻ…) phải xác nhận (useHoiKhiRoiTrang); gỡ
+ *   phần này thì dừng tải. `onBanDoi(true | false)`: báo nơi gọi để hỏi trước khi đóng hộp chứa phần này.
+ */
+export default function PackingProofSection({
+  donId,
+  yeuCauVideo = false,
+  huongDan,
+  thoiLuongVideoToiThieu,
+  thoiLuongVideoToiDa,
+  danhSachBangChung = [],
+  daDuBangChung = false,
+  onRefresh,
+  readOnly = false,
+  lyDoKhoaXoa = "",
+  hetHan = false,
+  coTieuDe = true,
+  loiYeuCau = null,
+  onThuLaiYeuCau,
+  traTieuDiem,
+  traTieuDiemVe,
+  onBanDoi,
+  className,
+}) {
+  const o = oBangChung({ yeuCauVideo, danhSach: danhSachBangChung });
+  const [trangThai, setTrangThai] = useState({}); // loai → { dangTai, loi }
+  const [chupLoai, setChupLoai] = useState(null);
+  const [xem, setXem] = useState(null); // ô đang xem lớn
+  const [xoa, setXoa] = useState(null); // ô đang hỏi xóa
+  const [dangXoa, setDangXoa] = useState(false);
+  const [loiXoa, setLoiXoa] = useState(null);
+  const inputRef = useRef(null);
+  const chonChoRef = useRef(null);
+  const daGoRef = useRef(false);
+  // loai → { dieuKhien: AbortController, daGuiHet } của lần tải đang chạy: rời màn / đóng hộp thì dừng tải (đã hỏi
+  // trước khi rời) — trừ lần đã gửi hết tệp (máy chủ đang lưu: dừng lúc này chỉ có thể làm mất tệp)
+  const huyTaiRef = useRef({});
+  useEffect(() => {
+    daGoRef.current = false;
+    const dangTai = huyTaiRef.current;
+    return () => {
+      daGoRef.current = true;
+      Object.values(dangTai).forEach((t) => {
+        if (!t.daGuiHet) t.dieuKhien.abort();
+      });
+    };
+  }, []);
+
+  const gioiHan = useMemo(
+    () => gioiHanVideo({ thoiLuongVideoToiThieu, thoiLuongVideoToiDa }),
+    [thoiLuongVideoToiThieu, thoiLuongVideoToiDa],
+  );
+
+  const datO = (loai, giaTri) => setTrangThai((cu) => ({ ...cu, [loai]: giaTri }));
+
+  /** `file`: tệp, hoặc lời hứa trả tệp (video vừa quay đang được ghi thời lượng) — "đang tải" được đặt ngay. */
+  const taiLen = async (loai, file, thoiLuongGiay = null) => {
+    if (!file || !donId) return;
+    datO(loai, { dangTai: true, loi: "" });
+    const dieuKhien = new AbortController();
+    const lanTai = { dieuKhien, daGuiHet: false };
+    huyTaiRef.current[loai]?.dieuKhien.abort();
+    huyTaiRef.current[loai] = lanTai;
+    // Phần trăm chỉ cập nhật khi đổi số (axios báo tiến độ rất dày)
+    const khiTienDo = (suKien) => {
+      const phanTram = phanTramTaiLen(suKien);
+      if (phanTram == null || daGoRef.current) return;
+      if (phanTram >= 100) lanTai.daGuiHet = true;
+      setTrangThai((cu) => (!cu[loai]?.dangTai || cu[loai].phanTram === phanTram ? cu : { ...cu, [loai]: { ...cu[loai], phanTram } }));
+    };
+    try {
+      const tep = await file;
+      if (daGoRef.current || dieuKhien.signal.aborted) return;
+      const fd = new FormData();
+      fd.append("file", tep);
+      fd.append("loaiBangChung", loai);
+      if (thoiLuongGiay != null) fd.append("thoiLuongGiay", thoiLuongGiay);
+      const bc = await dongGoiService.uploadBangChung(donId, fd, {
+        onUploadProgress: loai === LOAI.VIDEO_DONG_GOI ? khiTienDo : undefined,
+        signal: dieuKhien.signal,
+      });
+      if (daGoRef.current) {
+        // Đã rời màn / đóng hộp lúc máy chủ đang lưu: vẫn báo nơi gọi tải lại (vd. phiếu nhặt cập nhật bằng chứng)
+        onRefresh?.();
+        return;
+      }
+      datO(loai, null);
+      toast.success(loai === LOAI.VIDEO_DONG_GOI ? "Đã lưu video đóng gói" : "Đã lưu ảnh đóng gói", {
+        description: bc?.ngayHetHan ? `Lưu đến ${dinhNgay(bc.ngayHetHan)} rồi tự xóa` : undefined,
+      });
+      onRefresh?.();
+    } catch (error) {
+      // Rời màn, hoặc lần tải này bị lần tải mới cùng loại thay: không ghi đè trạng thái của lần mới
+      if (daGoRef.current || dieuKhien.signal.aborted) return;
+      // Câu của máy chủ (định dạng, dung lượng, thời lượng, đơn đã hủy…) hiện nguyên văn trong ô
+      datO(loai, { dangTai: false, loi: getApiErrorMessage(error, "Không tải được tệp lên") });
+    }
+    if (huyTaiRef.current[loai] === lanTai) delete huyTaiRef.current[loai];
+    // Nút vừa bấm có thể đã bị gỡ (ô đổi trạng thái): trả tiêu điểm cho nơi gọi (vd. ô quét mã)
+    traTieuDiem?.();
+  };
+
+  const quay = useQuayVideo({
+    gioiHan,
+    onXong: (file, giay) => taiLen(LOAI.VIDEO_DONG_GOI, file, giay),
+    onLoi: (cau) => datO(LOAI.VIDEO_DONG_GOI, { dangTai: false, loi: cau }),
+  });
+  const ban = quay.dangQuay || quay.dangMo || Object.values(trangThai).some((t) => t?.dangTai);
+  // Hỏi trước khi rời trang / đóng hộp: đang mở camera, đang quay, hoặc tệp chưa gửi hết (gửi xong 100% thì máy chủ
+  // vẫn lưu dù rời trang)
+  const canHoi =
+    quay.dangQuay || quay.dangMo || Object.values(trangThai).some((t) => t?.dangTai && !(t.phanTram >= 100));
+  const [hoiRoi, setHoiRoi] = useState(null); // hàm đi tiếp khi người dùng đồng ý rời
+  useHoiKhiRoiTrang(canHoi, (tiepTuc) => setHoiRoi(() => tiepTuc));
+  useEffect(() => {
+    onBanDoi?.(canHoi);
+  }, [canHoi, onBanDoi]);
+
+  const chonTep = (oChon) => {
+    chonChoRef.current = oChon;
+    if (inputRef.current) {
+      inputRef.current.accept = oChon.laVideo ? "video/*" : "image/*";
+      inputRef.current.value = "";
+      inputRef.current.click();
+    }
+  };
+  const khiChonTep = async (suKien) => {
+    const file = suKien.target.files?.[0];
+    const oChon = chonChoRef.current;
+    suKien.target.value = "";
+    if (!file || !oChon) return;
+    if (!oChon.laVideo) {
+      taiLen(oChon.loai, file);
+      return;
+    }
+    // Quá dung lượng máy chủ nhận: báo ngay, không tải hết tệp rồi mới bị từ chối
+    if (videoQuaLon(file.size)) {
+      datO(oChon.loai, { dangTai: false, loi: cauVideoQuaLon(file.size) });
+      return;
+    }
+    const giay = thoiLuongGuiLen(await docThoiLuong(file), gioiHan);
+    if (daGoRef.current) return;
+    if (giay == null || !thoiLuongHopLe(giay, gioiHan)) {
+      datO(oChon.loai, { dangTai: false, loi: giay == null ? CAU_KHONG_DOC_THOI_LUONG : cauThoiLuongVideo(giay, gioiHan) });
+      return;
+    }
+    taiLen(oChon.loai, file, giay);
+  };
+
+  const xacNhanXoa = async () => {
+    const bc = xoa?.bangChung;
+    if (!bc) return;
+    setLoiXoa(null);
+    setDangXoa(true);
+    try {
+      await dongGoiService.xoaBangChung(bc.id);
+      if (daGoRef.current) return;
+      setXoa(null);
+      toast.success("Đã xóa bằng chứng", { description: "Chụp hoặc quay lại để hoàn tất" });
+      traTieuDiem?.();
+      onRefresh?.();
+    } catch (error) {
+      if (!daGoRef.current) setLoiXoa(getApiErrorMessage(error, "Không xóa được bằng chứng"));
+    } finally {
+      if (!daGoRef.current) setDangXoa(false);
+    }
+  };
+
+  const tenXoa = xoa?.laVideo ? "video đóng gói" : xoa?.loai === LOAI.ANH_NIEM_PHONG_TEM_VC ? "ảnh niêm phong" : "ảnh hàng trong hộp";
+
+  return (
+    <section aria-labelledby={coTieuDe ? "bang-chung-dong-goi" : undefined} aria-label={coTieuDe ? undefined : "Bằng chứng đóng gói"} className={cn("border-t border-bo-border", className)}>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 pb-3 pt-4 sm:px-6">
+        {coTieuDe ? (
+          <h2 id="bang-chung-dong-goi" className="text-base font-semibold leading-6 text-bo-foreground">Bằng chứng đóng gói</h2>
+        ) : null}
+        {hetHan ? null : <StatusBadge label={daDuBangChung ? "Đã đủ bằng chứng" : "Chưa đủ bằng chứng"} />}
+      </div>
+      {loiYeuCau ? (
+        <div className="mx-4 mb-3 sm:mx-6">
+          <DongThongBao tone="bad" actions={onThuLaiYeuCau ? <NutChu onClick={onThuLaiYeuCau}>Thử lại</NutChu> : null}>
+            Không tải được yêu cầu bằng chứng của đơn: {loiYeuCau}.
+          </DongThongBao>
+        </div>
+      ) : null}
+      {huongDan ? (
+        <p className="mx-4 mb-3 flex items-start gap-2 rounded-md border border-bo-border bg-bo-surface-subtle px-3 py-2 text-[13px] leading-5 text-slate-700 sm:mx-6">
+          <Info className="mt-0.5 size-4 shrink-0 text-bo-primary" aria-hidden="true" />
+          <span>{huongDan}</span>
+        </p>
+      ) : null}
+      <div className="grid gap-3 px-4 pb-5 sm:px-6 md:grid-cols-2">
+        {o.map((x) => (
+          <OBangChung
+            key={x.loai}
+            o={x}
+            suaDuoc={!readOnly}
+            khoaThem={ban}
+            lyDoKhoaXoa={lyDoKhoaXoa}
+            hetHan={hetHan}
+            trangThai={trangThai[x.loai]}
+            quay={quay}
+            onChup={() => {
+              datO(x.loai, null);
+              if (x.laVideo) quay.batDau();
+              else setChupLoai(x.loai);
+            }}
+            onChonTep={() => chonTep(x)}
+            onXem={() => setXem(x)}
+            onXoa={() => {
+              setLoiXoa(null);
+              setXoa(x);
+            }}
+          />
+        ))}
+      </div>
+      <input ref={inputRef} type="file" className="hidden" onChange={khiChonTep} tabIndex={-1} aria-hidden="true" />
+
+      <CameraCaptureModal
+        isOpen={Boolean(chupLoai)}
+        onClose={() => {
+          setChupLoai(null);
+          traTieuDiem?.();
+        }}
+        onCapture={(file) => {
+          const loai = chupLoai;
+          setChupLoai(null);
+          taiLen(loai, file);
+        }}
+        title={`Chụp: ${o.find((x) => x.loai === chupLoai)?.ten ?? ""}`}
+        description={o.find((x) => x.loai === chupLoai)?.goiY}
+      />
+
+      <Dialog open={Boolean(xem)} onOpenChange={(mo) => !mo && setXem(null)}>
+        <DialogContent
+          className="max-w-[calc(100vw-2rem)] border-bo-border bg-white p-4 sm:max-w-3xl"
+          onCloseAutoFocus={(suKien) => {
+            if (!traTieuDiem) return;
+            suKien.preventDefault();
+            traTieuDiem();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle className="pr-6 text-base font-semibold text-bo-heading">{xem?.ten}</DialogTitle>
+            <DialogDescription className="sr-only">{xem?.bangChung ? chuThongTinTep(xem.bangChung, { dinhGio, dinhNgay }) : ""}</DialogDescription>
+          </DialogHeader>
+          {xem?.bangChung ? (
+            <div className="grid place-items-center overflow-hidden rounded-md bg-black">
+              {xem.laVideo ? (
+                <XemVideo src={urlCua(xem.bangChung)} />
+              ) : (
+                <img src={urlCua(xem.bangChung)} alt={xem.ten} className="max-h-[70vh] max-w-full object-contain" />
+              )}
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <HopXacNhanChungTu
+        mo={Boolean(xoa)}
+        onDoiMo={(mo) => {
+          if (mo) return;
+          setXoa(null);
+          traTieuDiem?.();
+        }}
+        tieuDe={`Xóa ${tenXoa}?`}
+        moTa="Xóa để chụp hoặc quay lại. Tệp đã xóa không khôi phục được."
+        nhanXacNhan="Xóa"
+        kieu="nguyHiem"
+        dangChay={dangXoa}
+        loi={loiXoa}
+        onXacNhan={xacNhanXoa}
+      />
+
+      <HopXacNhanChungTu
+        mo={Boolean(hoiRoi)}
+        traTieuDiemVe={traTieuDiemVe}
+        onDoiMo={(mo) => {
+          if (mo) return;
+          setHoiRoi(null);
+          // Ở lại: tiêu điểm về ô quét (không để trên link vừa bấm — Enter của máy quét sẽ bấm lại link)
+          traTieuDiem?.();
+        }}
+        tieuDe="Rời trang khi bằng chứng chưa lưu xong?"
+        moTa={
+          quay.dangQuay
+            ? "Video đang quay sẽ bị bỏ, phải quay lại từ đầu."
+            : quay.dangMo
+              ? "Camera đang mở để quay sẽ bị tắt."
+              : "Tệp đang tải lên sẽ bị dừng, phải chụp, quay hoặc chọn tệp lại."
+        }
+        nhanXacNhan="Rời trang"
+        kieu="nguyHiem"
+        onXacNhan={() => {
+          const tiepTuc = hoiRoi;
+          setHoiRoi(null);
+          tiepTuc?.();
+        }}
+      />
+    </section>
   );
 }

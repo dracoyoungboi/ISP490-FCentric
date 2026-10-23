@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<!--/*
+  Khung dùng chung cho 9 email (đặc tả 6.4): đầu email · nội dung · chân email, rộng 600px, style inline, bảng.
+  Biến: cuaHang (CuaHangEmail), nguoiPhuTrach (NguoiPhuTrachEmail, có thể null), tieuDe, coTraLoi, e (dữ liệu).
+  Chỉ dùng th:text / th:href / th:attr / th:if / th:each (tự escape). CẤM th:utext và [(…)].
+  Mỗi email: <html th:replace="~{khung :: thu(xemTruoc=~{::xem-truoc}, noiDung=~{::noi-dung}, chan=~{khung :: chan-…})}">,
+  dòng xem trước (ẩn) là fragment "xem-truoc" của email,
+  nội dung là các dòng <tr><td style="padding:0 0 20px;">…</td></tr> (khoảng cách 20px giữa các khối).
+*/-->
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" th:fragment="thu(xemTruoc, noiDung, chan)">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title th:text="${tieuDe}">Tiêu đề</title>
+<!--/* Màn hẹp (điện thoại), theo demo M1-DienThoai: khối style chỉ tăng cường, nhắm theo lớp, có !important. Style
+  inline vẫn là bản mặc định cho trình đọc không đọc khối style (Outlook trên máy tính, một số ứng dụng): ngoại lệ có
+  chủ đích so với "chỉ style inline" của đặc tả 6.4. Lớp: khung-* (lề 20px), bang-nhan (nhãn trên giá trị), bang-sp
+  (mỗi dòng sản phẩm một khối, ẩn cột STT/SL/Đơn giá riêng), chi-hep (chữ chỉ hiện ở màn hẹp, mặc định ẩn kể cả
+  Outlook), o-ma (ô mã xác nhận). */-->
+<style>
+@media only screen and (max-width:480px) {
+.khung-ngoai{padding:12px 0 24px !important;}
+.the{border-radius:0 !important;border-left:0 !important;border-right:0 !important;}
+.khung-dau{padding:20px 20px 16px !important;}
+.khung-le{padding:24px 20px 4px !important;}
+.khung-chan{padding:18px 20px 22px !important;border-radius:0 !important;}
+.tieu-de{font-size:20px !important;line-height:28px !important;}
+.chu-chinh{font-size:16px !important;line-height:24px !important;}
+.o-ma{font-size:30px !important;line-height:40px !important;letter-spacing:6px !important;padding-left:6px !important;}
+.bang-nhan,.bang-nhan tbody,.bang-nhan tr,.bang-nhan td{display:block !important;width:auto !important;}
+.bang-nhan .o-nhan{padding:10px 0 2px !important;font-size:13px !important;line-height:18px !important;}
+.bang-nhan .o-gt{padding:0 0 10px !important;border-top:0 !important;font-size:15px !important;line-height:22px !important;}
+.bang-sp,.bang-sp tbody,.bang-sp tr{display:block !important;width:auto !important;}
+.bang-sp{border-radius:8px !important;}
+.bang-sp .dong-dau,.bang-sp .o-an{display:none !important;}
+.bang-sp .dong-sp{padding:12px 14px !important;border-bottom:1px solid #e1e6ec !important;overflow:hidden !important;}
+.bang-sp .dong-tong{padding:12px 14px !important;background-color:#f8fafc !important;overflow:hidden !important;font-size:15px !important;line-height:22px !important;}
+.bang-sp td{padding:0 !important;border:0 !important;text-align:left !important;}
+.bang-sp .o-khoi{display:block !important;padding:0 0 4px !important;}
+.bang-sp .o-dong{display:inline !important;}
+.bang-sp .o-phu{color:#64748b !important;}
+.bang-sp .o-phai{float:right !important;text-align:right !important;padding-left:12px !important;}
+.bang-sp .o-dam{font-weight:600 !important;}
+.ten-sp{font-size:15px !important;line-height:22px !important;}
+.chi-hep{display:inline !important;}
+.hop-phu{padding:14px 16px !important;}
+.ds-hep{font-size:15px !important;line-height:23px !important;}
+.chu-ky{font-size:15px !important;line-height:23px !important;}
+}
+</style>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f6f8;">
+<div style="display:none;max-height:0;max-width:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#f4f6f8;opacity:0;"><th:block th:replace="${xemTruoc}">Xem trước</th:block></div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;background-color:#f4f6f8;">
+<tr>
+<td align="center" class="khung-ngoai" style="padding:24px 12px 40px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="the" style="width:100%;max-width:600px;background-color:#ffffff;border:1px solid #e1e6ec;border-radius:8px;border-collapse:separate;font-family:Inter,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#182537;">
+<tr th:if="${cuaHang.coDau()}">
+<td class="khung-dau" style="padding:28px 40px 20px;border-bottom:1px solid #e1e6ec;">
+<img th:if="${cuaHang.coLogo()}" th:src="${cuaHang.logoUrl}" th:alt="${cuaHang.tenHienThi != null ? cuaHang.tenHienThi : ''}" height="40" style="display:block;height:40px;width:auto;max-width:240px;border:0;outline:none;text-decoration:none;">
+<div th:unless="${cuaHang.coLogo()}" style="font-size:18px;line-height:28px;font-weight:700;letter-spacing:-0.01em;color:#182537;" th:text="${cuaHang.tenHienThi}">Tên cửa hàng</div>
+</td>
+</tr>
+<tr>
+<td class="khung-le" style="padding:32px 40px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+<th:block th:replace="${noiDung}"></th:block>
+</table>
+</td>
+</tr>
+<tr>
+<td class="khung-chan" style="padding:20px 40px 24px;background-color:#f8fafc;border-top:1px solid #e1e6ec;border-radius:0 0 8px 8px;font-size:12px;line-height:20px;color:#64748b;">
+<th:block th:replace="${chan}"></th:block>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</table>
+</body>
+</html>
+
+<!--/* ===== Chân email nhân sự (E1, E2, E3, M4): tên đăng ký, địa chỉ đăng ký, câu không trả lời ===== */-->
+<th:block th:fragment="chan-nhan-su">
+<div th:if="${cuaHang.tenDangKy != null}" style="padding:0 0 4px;font-weight:600;color:#182537;" th:text="${cuaHang.tenDangKy}">Tên đăng ký kinh doanh</div>
+<div th:if="${cuaHang.diaChiDangKy != null}" style="padding:0 0 4px;" th:text="${cuaHang.diaChiDangKy}">Địa chỉ đăng ký</div>
+<div>Email gửi tự động qua phần mềm FCentric, vui lòng không trả lời. Cần hỗ trợ, hãy liên hệ quản trị viên.</div>
+</th:block>
+
+<!--/* ===== Chân email nhà cung cấp. coKhoiHoaDon (M1): tên, MST, địa chỉ, email đã ở khối Thông tin xuất hóa đơn, chân chỉ còn điện thoại ===== */-->
+<th:block th:fragment="chan-nha-cung-cap(coKhoiHoaDon)">
+<th:block th:unless="${coKhoiHoaDon}">
+<div th:if="${cuaHang.tenDangKy != null}" style="padding:0 0 4px;font-weight:600;color:#182537;" th:text="${cuaHang.tenDangKy}">Tên đăng ký kinh doanh</div>
+<div th:if="${cuaHang.maSoThue != null or cuaHang.diaChiDangKy != null}" style="padding:0 0 4px;"><th:block th:if="${cuaHang.maSoThue != null}" th:text="|MST ${cuaHang.maSoThue}|">MST</th:block><th:block th:if="${cuaHang.maSoThue != null and cuaHang.diaChiDangKy != null}"> · </th:block><th:block th:if="${cuaHang.diaChiDangKy != null}" th:text="${cuaHang.diaChiDangKy}">Địa chỉ</th:block></div>
+</th:block>
+<div th:if="${cuaHang.dienThoai != null or (!coKhoiHoaDon and cuaHang.email != null)}" style="padding:0 0 4px;"><th:block th:if="${cuaHang.dienThoai != null}" th:text="|Điện thoại ${cuaHang.dienThoai}|">Điện thoại</th:block><th:block th:if="${!coKhoiHoaDon and cuaHang.dienThoai != null and cuaHang.email != null}"> · </th:block><th:block th:if="${!coKhoiHoaDon and cuaHang.email != null}" th:text="${cuaHang.email}">Email</th:block></div>
+<div th:attr="style=${coKhoiHoaDon} ? 'padding:0;' : 'padding-top:8px;'">Email gửi tự động qua phần mềm FCentric.<th:block th:if="${coTraLoi}"> Trả lời email này để liên hệ trực tiếp người phụ trách đơn.</th:block></div>
+</th:block>
+
+<!--/* ===== Phần ký người phụ trách đơn (E4, M3, M1, M2). Không có người phụ trách thì bỏ cả phần ký ===== */-->
+<th:block th:fragment="chu-ky">
+<tr th:if="${nguoiPhuTrach != null}">
+<td class="chu-ky" style="padding:0 0 20px;font-size:14px;line-height:22px;color:#182537;">
+<p class="chu-chinh" style="margin:0 0 6px;font-size:15px;line-height:24px;">Trân trọng,</p>
+<p style="margin:0;font-weight:600;" th:text="${nguoiPhuTrach.hoTen}">Họ tên</p>
+<p th:if="${nguoiPhuTrach.chucDanh != null}" style="margin:0;color:#64748b;" th:text="${nguoiPhuTrach.chucDanh}">Chức danh</p>
+<p th:if="${nguoiPhuTrach.dienThoai != null or nguoiPhuTrach.email != null}" style="margin:0;"><a th:if="${nguoiPhuTrach.dienThoai != null}" th:href="${nguoiPhuTrach.dienThoaiLienKet != null ? 'tel:' + nguoiPhuTrach.dienThoaiLienKet : null}" style="color:#095fcc;" th:text="${nguoiPhuTrach.dienThoai}">Điện thoại</a><th:block th:if="${nguoiPhuTrach.dienThoai != null and nguoiPhuTrach.email != null}"> · </th:block><a th:if="${nguoiPhuTrach.email != null}" th:href="|mailto:${nguoiPhuTrach.email}|" style="color:#095fcc;" th:text="${nguoiPhuTrach.email}">Email</a></p>
+</td>
+</tr>
+</th:block>
+
+<!--/* ===== Thông tin xuất hóa đơn (M1). Email nhận hóa đơn = email cửa hàng, không có thì email người phụ trách ===== */-->
+<th:block th:fragment="thong-tin-hoa-don">
+<tr th:with="emailHoaDon=${cuaHang.email != null ? cuaHang.email : (nguoiPhuTrach != null ? nguoiPhuTrach.email : null)}">
+<td style="padding:0 0 20px;">
+<div style="padding:0 0 8px;font-size:16px;line-height:24px;font-weight:600;">Thông tin xuất hóa đơn</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bang-nhan" style="width:100%;border-collapse:collapse;font-size:14px;line-height:20px;border-bottom:1px solid #e1e6ec;">
+<tr th:if="${cuaHang.tenDangKy != null}">
+<td width="150" class="o-nhan" style="width:150px;padding:10px 0;border-top:1px solid #e1e6ec;color:#64748b;vertical-align:top;">Tên đơn vị</td>
+<td class="o-gt" style="padding:10px 0;border-top:1px solid #e1e6ec;" th:text="${cuaHang.tenDangKy}">Tên đăng ký kinh doanh</td>
+</tr>
+<tr th:if="${cuaHang.maSoThue != null}">
+<td width="150" class="o-nhan" style="width:150px;padding:10px 0;border-top:1px solid #e1e6ec;color:#64748b;vertical-align:top;">Mã số thuế</td>
+<td class="o-gt" style="padding:10px 0;border-top:1px solid #e1e6ec;" th:text="${cuaHang.maSoThue}">Mã số thuế</td>
+</tr>
+<tr th:if="${cuaHang.diaChiDangKy != null}">
+<td width="150" class="o-nhan" style="width:150px;padding:10px 0;border-top:1px solid #e1e6ec;color:#64748b;vertical-align:top;">Địa chỉ</td>
+<td class="o-gt" style="padding:10px 0;border-top:1px solid #e1e6ec;" th:text="${cuaHang.diaChiDangKy}">Địa chỉ đăng ký</td>
+</tr>
+<tr th:if="${emailHoaDon != null}">
+<td width="150" class="o-nhan" style="width:150px;padding:10px 0;border-top:1px solid #e1e6ec;color:#64748b;vertical-align:top;">Email nhận hóa đơn</td>
+<td class="o-gt" style="padding:10px 0;border-top:1px solid #e1e6ec;"><a th:href="|mailto:${emailHoaDon}|" style="color:#095fcc;" th:text="${emailHoaDon}">Email</a></td>
+</tr>
+</table>
+</td>
+</tr>
+</th:block>

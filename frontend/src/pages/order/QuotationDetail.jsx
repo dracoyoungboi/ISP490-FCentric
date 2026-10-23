@@ -5,12 +5,12 @@ import PageContainer from "@/components/backoffice/PageContainer";
 import KhungChungTu from "@/components/chung-tu/KhungChungTu";
 import DauChungTu from "@/components/chung-tu/DauChungTu";
 import TienTrinhChungTu from "@/components/chung-tu/TienTrinhChungTu";
-import DongThongBao from "@/components/chung-tu/DongThongBao";
+import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
 import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
 import { KhungDangTai, KhungLoiChungTu } from "@/components/chung-tu/KhungTaiChungTu";
 import useBangChungTu from "@/components/chung-tu/useBangChungTu";
 import { docSo, soVN } from "@/components/chung-tu/bangChungTu";
-import { GHI_CHU_HOP } from "@/components/chung-tu/kieuHopThoai";
+import { GHI_CHU_HOP, GOI_Y_O, NHAN_O, O_NHAP_NHIEU_DONG } from "@/components/chung-tu/kieuHopThoai";
 import {
     CAU_HET_THOI_HAN,
     MO_TA_HET_THOI_HAN,
@@ -22,19 +22,25 @@ import {
 import BangBaoGia from "@/components/order/chi-tiet-bao-gia/BangBaoGia";
 import ThuocTinhBaoGia from "@/components/order/chi-tiet-bao-gia/ThuocTinhBaoGia";
 import {
-    LY_DO_TU_CHOI_MAC_DINH,
+    LY_DO_KHONG_CHAP_NHAN_TOI_DA,
     TRANG_THAI_BAO_GIA,
+    cachXuLyLoiXetBaoGia,
     cauCanhBaoChapNhan,
     congGia,
+    coTheXetBaoGia,
     dongBaoGia,
+    ghiChuNhaCungCap,
     laConChoGia,
     laDaChot,
     lyDoKhoaChapNhan,
     nhanTrangThaiBaoGia,
+    taoBodyXetBaoGia,
     tinhBuocBaoGia,
+    trangThaiGuiLaiYeuCau,
 } from "@/components/order/chi-tiet-bao-gia/tinhBaoGia";
 import { locCauMayChuMuaHang } from "@/components/order/chi-tiet-yeu-cau/tinhYeuCau";
 import { getBaoGiaNccStatus, getDonMuaHangStatus } from "@/constants/donMuaHang";
+import { VAI_TRO_GUI_YEU_CAU_BAO_GIA } from "@/constants/vaiTroGuiYeuCauBaoGia";
 import { YEU_CAU_NHAP_HANG_STATUS } from "@/constants/yeuCauNhapHang";
 import useQuayLai from "@/hooks/useQuayLai";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
@@ -47,21 +53,19 @@ import { ROLES, hasAnyRole } from "@/utils/roles";
 
 // Chỉ quản trị viên và nhân viên mua hàng chốt báo giá (giữ như màn cũ; backend còn cho quản lý kho)
 const VAI_TRO_CHOT_BAO_GIA = [ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_MUA_HANG];
-// Máy chủ từ chối thao tác: 409 khi báo giá không còn chờ chốt (duyet-don khóa dòng và chỉ chốt báo giá trạng thái 2,
-// nên người khác vừa chấp nhận / không chấp nhận thì lần bấm sau bị chặn), 403 (không còn quyền) hoặc 400 "Không tìm
-// thấy đơn mua hàng" (báo giá đã bị xóa hẳn). Khi đó đóng hộp, báo lỗi, tải lại; lỗi khác (mạng, 500) giữ hộp, hiện câu
-// lỗi trong hộp để bấm lại
-const LOI_DA_DOI_NOI_KHAC = [400, 403, 409];
+// Lỗi máy chủ khi xét báo giá: xem tinhBaoGia.cachXuLyLoiXetBaoGia (409, 404 đóng hộp và tải lại; còn lại giữ hộp)
+const ID_LY_DO = "ly-do-khong-chap-nhan";
 
 /**
  * Chi tiết báo giá · bản "một khối" (21/10/2026, artboard BaoGia.dc.html): đầu khối (mã, trạng thái, tổng tiền),
- * tiến trình 4 bước, bảng giá gom theo sản phẩm, cột phải (nhà cung cấp, kho nhận, chứng từ liên quan).
- * - Backend tạo báo giá ở trạng thái 2 với giá 0: chưa dòng nào có giá thì hiện "Chờ báo giá"; "Chấp nhận báo giá"
- *   khóa tới khi mọi dòng có giá ("Còn n dòng chưa có giá").
- * - Không chấp nhận: không có ô lý do vì máy chủ luôn gửi email với lý do mặc định. Nút đầu khối, nút trong hộp và
- *   thông báo cùng một chữ "Không chấp nhận" (cùng việc cùng chữ, rà soát N10).
- * - Bỏ "Thanh toán ngay" (thanh toán nhà cung cấp đã bỏ khỏi luồng 16/10) và nút in trang bằng trình duyệt;
- *   báo giá đã chấp nhận mở Chi tiết đơn mua hàng (cùng mã, có bản in).
+ * tiến trình 4 bước, các dòng thông báo, bảng giá gom theo sản phẩm, cột phải (nhà cung cấp, kho nhận, chứng từ liên quan).
+ * - "Đã báo giá" ⇔ `ngayBaoGia` (HOP-DONG 2.3). Nút Chấp nhận / Không chấp nhận chỉ hiện khi nhà cung cấp đã gửi báo giá
+ *   và yêu cầu gốc đang ở 3; cả hai gửi `ngayBaoGiaDaXem` = `ngayBaoGia` lúc mở hộp (nhà cung cấp gửi lại giá trong lúc
+ *   hộp mở thì máy chủ trả 409, màn hiện câu máy chủ rồi tải lại).
+ * - Không chấp nhận: ô Lý do không bắt buộc (≤ 500 ký tự), nhà cung cấp thấy trong email kết quả.
+ * - Ghi chú nhà cung cấp gửi kèm báo giá hiện một lần ở dòng thông báo (chấp nhận báo giá là chấp nhận cả ghi chú).
+ * - K11: email yêu cầu báo giá chưa gửi được (cờ `chuaGuiDuocYeuCau`) thì báo, vai trò gửi được thấy nút Gửi lại.
+ * - Báo giá đã chấp nhận mở Chi tiết đơn mua hàng (cùng mã, có bản in).
  */
 export default function QuotationDetail() {
     const { id } = useParams();
@@ -80,12 +84,21 @@ function ChiTietBaoGia({ id }) {
     const don = q.data && String(q.data.id) === String(id) ? q.data : null;
 
     const [hop, setHop] = useState(""); // "" | "chapNhan" | "tuChoi"
+    const [lyDo, setLyDo] = useState("");
     const [dangChay, setDangChay] = useState(false);
     const [loiHop, setLoiHop] = useState(null); // câu lỗi hiện trong hộp (lỗi mạng, lỗi máy chủ)
-    // Hết thời hạn mà máy chủ có thể vẫn đang làm (vd. đang gửi email cho nhà cung cấp): khóa nút thao tác tới khi lời
-    // gọi gốc kết thúc (khiGocKetThuc), tránh bấm lại gửi hai email
+    // ngayBaoGia đúng như máy chủ trả, chụp lúc mở hộp: gửi kèm để máy chủ chặn khi nhà cung cấp vừa gửi lại giá
+    const ngayBaoGiaDaXemRef = useRef(null);
+    // Chặn bấm xác nhận 2 lần trước khi nút kịp khóa
+    const dangGoiRef = useRef(false);
+    // Hết thời hạn mà máy chủ có thể vẫn đang làm: khóa nút thao tác tới khi lời gọi gốc kết thúc (khiGocKetThuc),
+    // tránh bấm lại gửi hai email
     const [choGoc, setChoGoc] = useState(false);
     const huyChoGocRef = useRef(null);
+    // K11: đang gửi lại / đã gửi lại email yêu cầu báo giá trong phiên màn này (không hiện lại nút tới khi dựng lại màn)
+    const [dangGuiLai, setDangGuiLai] = useState(false);
+    const [daGuiLai, setDaGuiLai] = useState(false);
+    const dangGuiLaiRef = useRef(false);
     // Màn đã gỡ (rời trang trong lúc chờ): nhánh hết thời hạn bỏ qua báo lỗi, khóa nút, tải lại; gỡ thì hủy chờ
     const daGoRef = useRef(false);
     useEffect(() => {
@@ -96,8 +109,9 @@ function ChiTietBaoGia({ id }) {
         };
     }, []);
 
-    // Quay lại tab thì tải lại ngầm (nhà cung cấp có thể vừa gửi giá); không tải khi đang thao tác
-    useTaiLaiKhiQuayLai(() => q.reload(), { bat: Boolean(id) && !q.loading && !dangChay, lanCuoi: q.capNhatLuc });
+    // Quay lại tab thì tải lại ngầm (nhà cung cấp có thể vừa gửi giá); không tải khi đang thao tác hay đang mở hộp
+    // (giá trên màn phải đúng là giá người dùng đang xét)
+    useTaiLaiKhiQuayLai(() => q.reload(), { bat: Boolean(id) && !q.loading && !dangChay && !hop, lanCuoi: q.capNhatLuc });
 
     const tomTat = useMemo(() => congGia(don?.chiTietDonMuaHangs), [don]);
     const dong = useMemo(() => dongBaoGia(don?.chiTietDonMuaHangs), [don]);
@@ -146,17 +160,24 @@ function ChiTietBaoGia({ id }) {
     const yeuCau = don.yeuCauMuaHang;
     const tongChu = formatCurrency(tomTat.tongTien);
     const buoc = tinhBuocBaoGia(don, tomTat, { nhanDonMua: daChot ? getDonMuaHangStatus(tt).label : "" });
+    const ghiChuNcc = ghiChuNhaCungCap(don);
+    // Số báo giá khác cùng yêu cầu còn chờ: chấp nhận báo giá này thì chúng tự đóng và nhận email kết quả (K1)
+    const soBaoGiaDangCho = docSo(yeuCau?.soBaoGiaDangCho);
 
     // ── Quyền và nút ────────────────────────────────────────────────────────
-    const hienChot = tt === TRANG_THAI_BAO_GIA.CHO_CHOT && hasAnyRole(VAI_TRO_CHOT_BAO_GIA);
-    const lyDoKhoa = lyDoKhoaChapNhan(tomTat);
+    const hienChot = coTheXetBaoGia(don) && hasAnyRole(VAI_TRO_CHOT_BAO_GIA);
+    const lyDoKhoa = lyDoKhoaChapNhan(tomTat, don);
     const moHop = (loai) => {
+        ngayBaoGiaDaXemRef.current = don.ngayBaoGia ?? null;
+        setLyDo("");
         setLoiHop(null);
         setHop(loai);
     };
     // Đóng hộp: giữ câu lỗi tới hết hiệu ứng đóng (mở hộp và bấm lại đã xóa), tránh hộp co giật khi đang mờ dần
     const doiMoHop = (mo) => {
-        if (!mo) setHop("");
+        if (mo) return;
+        setHop("");
+        setLyDo("");
     };
     const nutChinh = khoaKhiChoGoc(hienChot
         ? [
@@ -179,22 +200,28 @@ function ChiTietBaoGia({ id }) {
     };
 
     const thucHien = async (trangThai) => {
+        if (dangGoiRef.current) return;
+        dangGoiRef.current = true;
+        const khongChapNhan = trangThai === TRANG_THAI_BAO_GIA.TU_CHOI;
+        const body = taoBodyXetBaoGia({ lyDo: khongChapNhan ? lyDo : null, ngayBaoGiaDaXem: ngayBaoGiaDaXemRef.current });
         setLoiHop(null);
         setDangChay(true);
         try {
-            await chayCoThoiHan(() => purchaseOrderService.duyetDon(id, trangThai));
-            if (trangThai === TRANG_THAI_BAO_GIA.DA_CHOT) toast.success(`Đã chấp nhận báo giá ${ma}`);
-            else toast.success("Đã gửi email báo không chấp nhận cho nhà cung cấp", { description: tenNcc });
+            await chayCoThoiHan(() => purchaseOrderService.duyetDon(id, trangThai, body));
+            if (khongChapNhan) toast.success(`Đã không chấp nhận báo giá ${ma}`, { description: `Email kết quả sẽ gửi tới ${tenNcc}.` });
+            else toast.success(`Đã chấp nhận báo giá ${ma}`);
             setHop("");
-            // Ở lại trang: đổi trạng thái tại chỗ (nút chốt ẩn ngay) rồi tải lại ngầm
-            q.setData((cu) => (cu ? { ...cu, trangThai } : cu));
+            setLyDo("");
+            // Ở lại trang: đổi trạng thái tại chỗ (nút chốt ẩn ngay) rồi tải lại ngầm lấy người chốt, đơn tự đóng (K1)
+            q.setData((cu) => (cu ? { ...cu, trangThai, ...(khongChapNhan ? { lyDoTuChoi: body.lyDo } : {}) } : cu));
             q.reload();
         } catch (error) {
             if (laLoiHetThoiHan(error)) {
                 if (daGoRef.current) return;
-                // Máy chủ chưa trả lời sau thời hạn: đóng hộp, báo lỗi, tải lại ngầm; máy chủ có thể vẫn đang làm (gửi
-                // email trước rồi mới đổi trạng thái) nên khóa nút tới khi lời gọi gốc kết thúc rồi tải lại lần nữa
+                // Máy chủ chưa trả lời sau thời hạn: đóng hộp, báo lỗi, tải lại ngầm; máy chủ có thể vẫn đang làm
+                // nên khóa nút tới khi lời gọi gốc kết thúc rồi tải lại lần nữa
                 setHop("");
+                setLyDo("");
                 toast.error(CAU_HET_THOI_HAN, { description: MO_TA_HET_THOI_HAN });
                 q.reload();
                 khoaToiKhiGocXong(error);
@@ -202,35 +229,86 @@ function ChiTietBaoGia({ id }) {
             }
             // Câu dự phòng không có dấu chấm: mất mạng thì getApiErrorMessage nối thêm ": không nhận được phản hồi…"
             const cau = getApiErrorMessage(error, "Không thực hiện được thao tác");
-            if (LOI_DA_DOI_NOI_KHAC.includes(getApiErrorStatus(error))) {
+            if (cachXuLyLoiXetBaoGia(getApiErrorStatus(error)) === "dongVaTaiLai") {
+                // 409, 404: báo giá đã đổi ở nơi khác (đã có kết quả, nhà cung cấp vừa gửi lại giá, yêu cầu không còn mở,
+                // đang có thao tác khác, đơn không còn) -> hiện câu máy chủ rồi tải lại đơn (đặc tả 6.3)
                 setHop("");
+                setLyDo("");
                 toast.error(cau);
                 q.reload();
             } else {
+                // 400, 403, mạng, 500: giữ hộp và lý do vừa gõ, hiện câu lỗi để sửa hoặc bấm lại
                 setLoiHop(cau);
             }
         } finally {
+            dangGoiRef.current = false;
             setDangChay(false);
         }
     };
 
-    // ── Dòng thông báo ──────────────────────────────────────────────────────
-    let thongBao = null;
-    if (hienChot && lyDoKhoa) thongBao = <DongThongBao tone="warn">{cauCanhBaoChapNhan(tomTat)}</DongThongBao>;
-    else if (daChot) {
-        thongBao = (
-            <DongThongBao tone="ok">
-                Báo giá đã chấp nhận và trở thành đơn mua hàng cùng mã. Theo dõi nhận hàng ở đơn mua hàng.
-            </DongThongBao>
+    // ── K11 · Gửi lại email yêu cầu báo giá ────────────────────────────────
+    const guiLai = trangThaiGuiLaiYeuCau(don, { duocGui: hasAnyRole(VAI_TRO_GUI_YEU_CAU_BAO_GIA), daGuiLai });
+    const guiLaiYeuCau = async () => {
+        if (dangGuiLaiRef.current) return;
+        dangGuiLaiRef.current = true;
+        setDangGuiLai(true);
+        try {
+            await purchaseOrderService.guiLaiYeuCau(don.id);
+            if (daGoRef.current) return;
+            setDaGuiLai(true);
+            toast.success("Email yêu cầu báo giá đang được gửi.", { description: tenNcc });
+            q.reload();
+        } catch (error) {
+            if (daGoRef.current) return;
+            toast.error(getApiErrorMessage(error, "Chưa gửi lại được email yêu cầu báo giá"));
+            if (getApiErrorStatus(error) === 409) q.reload();
+        } finally {
+            dangGuiLaiRef.current = false;
+            setDangGuiLai(false);
+        }
+    };
+
+    // ── Dòng thông báo (mỗi thông tin một lần) ─────────────────────────────
+    const thongBao = [];
+    if (guiLai) {
+        thongBao.push(
+            <DongThongBao
+                key="gui-lai"
+                tone="warn"
+                actions={guiLai.coNut ? (
+                    <NutChu onClick={guiLaiYeuCau} disabled={dangGuiLai} aria-busy={dangGuiLai || undefined}>
+                        {dangGuiLai ? "Đang gửi lại…" : "Gửi lại email yêu cầu báo giá"}
+                    </NutChu>
+                ) : null}
+            >
+                Chưa gửi được email yêu cầu báo giá cho nhà cung cấp này.
+            </DongThongBao>,
         );
-    } else if (tt === TRANG_THAI_BAO_GIA.TU_CHOI) {
-        thongBao = (
-            <DongThongBao>
-                Đã gửi email báo nhà cung cấp không chấp nhận báo giá (lý do mặc định: {LY_DO_TU_CHOI_MAC_DINH}).
-            </DongThongBao>
+    }
+    if (hienChot && lyDoKhoa) thongBao.push(<DongThongBao key="khoa" tone="warn">{cauCanhBaoChapNhan(tomTat, don)}</DongThongBao>);
+    if (ghiChuNcc) {
+        thongBao.push(
+            <DongThongBao key="ghi-chu">
+                <b className="font-semibold">Ghi chú của nhà cung cấp:</b>{" "}
+                <span className="whitespace-pre-line break-words">{ghiChuNcc}</span>
+            </DongThongBao>,
+        );
+    }
+    if (daChot) {
+        thongBao.push(
+            <DongThongBao key="ket-qua" tone="ok">
+                Báo giá đã chấp nhận và trở thành đơn mua hàng cùng mã. Theo dõi nhận hàng ở đơn mua hàng.
+            </DongThongBao>,
+        );
+    } else if (tt === TRANG_THAI_BAO_GIA.TU_CHOI && String(don.lyDoTuChoi ?? "").trim()) {
+        thongBao.push(
+            <DongThongBao key="ket-qua">
+                <b className="font-semibold">Lý do không chấp nhận:</b>{" "}
+                <span className="whitespace-pre-line break-words">{String(don.lyDoTuChoi).trim()}</span>
+            </DongThongBao>,
         );
     } else if (tt === TRANG_THAI_BAO_GIA.DA_XOA) {
-        thongBao = <DongThongBao>Báo giá này đã bị xóa khỏi hệ thống.</DongThongBao>;
+        thongBao.push(<DongThongBao key="ket-qua">Báo giá này đã bị xóa khỏi hệ thống.</DongThongBao>);
     }
 
     const lienQuan = ycId != null
@@ -245,6 +323,11 @@ function ChiTietBaoGia({ id }) {
         : tomTat.coMotPhan
             ? <span key="tong"><b className="font-semibold text-bo-foreground">{tongChu}</b> (thiếu giá {soVN(tomTat.thieu)} dòng)</span>
             : "chưa có giá";
+
+    const moTaChapNhan = [
+        `Chốt giá ${tongChu}. Email Xác nhận đặt hàng sẽ gửi tới ${tenNcc}.`,
+        soBaoGiaDangCho > 0 ? "Các nhà cung cấp còn lại nhận email kết quả." : "",
+    ].filter(Boolean).join(" ");
 
     return (
         <PageContainer className="flex min-h-full flex-col">
@@ -277,7 +360,7 @@ function ChiTietBaoGia({ id }) {
                     />
                 }
                 tienTrinh={<TienTrinhChungTu buoc={buoc} nhan="Tiến trình báo giá" />}
-                thongBao={thongBao}
+                thongBao={thongBao.length ? thongBao : null}
                 chinh={<BangBaoGia bang={bang} choGia={laConChoGia(tt)} />}
                 cotPhai={<ThuocTinhBaoGia don={don} lienQuan={lienQuan} />}
             />
@@ -286,31 +369,49 @@ function ChiTietBaoGia({ id }) {
                 mo={hop === "chapNhan"}
                 onDoiMo={doiMoHop}
                 tieuDe="Chấp nhận báo giá"
-                moTa={`Chốt giá ${tongChu} với ${tenNcc}. Báo giá trở thành đơn mua hàng và yêu cầu ${yeuCau?.soYeuCauMuaHang || "gốc"} chuyển sang ${YEU_CAU_NHAP_HANG_STATUS[5].label}.`}
+                moTa={moTaChapNhan}
                 nhanXacNhan="Chấp nhận báo giá"
                 iconXacNhan={Check}
                 dangChay={dangChay}
                 loi={loiHop}
                 onXacNhan={() => thucHien(TRANG_THAI_BAO_GIA.DA_CHOT)}
             >
-                <p className={GHI_CHU_HOP}>Các báo giá khác của yêu cầu này không tự đóng.</p>
+                <p className={GHI_CHU_HOP}>
+                    Báo giá trở thành đơn mua hàng, yêu cầu {yeuCau?.soYeuCauMuaHang || "gốc"} chuyển sang {YEU_CAU_NHAP_HANG_STATUS[5].label}.
+                </p>
             </HopXacNhanChungTu>
             <HopXacNhanChungTu
                 mo={hop === "tuChoi"}
                 onDoiMo={doiMoHop}
                 tieuDe="Không chấp nhận báo giá"
-                moTa={
-                    // Máy chủ luôn ghi lý do cố định trong email, kể cả khi nhà cung cấp chưa gửi giá dòng nào
-                    tomTat.chuaCoGia
-                        ? `Nhà cung cấp chưa gửi giá dòng nào. Hệ thống vẫn gửi email báo không chấp nhận, kèm lý do mặc định: ${LY_DO_TU_CHOI_MAC_DINH}. Không hoàn tác được.`
-                        : `Hệ thống gửi email báo nhà cung cấp với lý do mặc định: ${LY_DO_TU_CHOI_MAC_DINH}. Không hoàn tác được.`
-                }
+                moTa={`Hệ thống gửi email kết quả cho ${tenNcc}. Không hoàn tác được.`}
                 nhanXacNhan="Không chấp nhận"
                 kieu="nguyHiem"
                 dangChay={dangChay}
                 loi={loiHop}
                 onXacNhan={() => thucHien(TRANG_THAI_BAO_GIA.TU_CHOI)}
-            />
+            >
+                <div className="grid gap-1.5">
+                    <label htmlFor={ID_LY_DO} className={NHAN_O}>
+                        Lý do
+                    </label>
+                    <textarea
+                        id={ID_LY_DO}
+                        value={lyDo}
+                        onChange={(suKien) => setLyDo(suKien.target.value.slice(0, LY_DO_KHONG_CHAP_NHAN_TOI_DA))}
+                        placeholder="Ví dụ: Đơn giá cao hơn báo giá khác"
+                        rows={3}
+                        maxLength={LY_DO_KHONG_CHAP_NHAN_TOI_DA}
+                        aria-describedby={`${ID_LY_DO}-goi-y`}
+                        disabled={dangChay}
+                        className={O_NHAP_NHIEU_DONG}
+                    />
+                    <p id={`${ID_LY_DO}-goi-y`} className={GOI_Y_O}>
+                        <span>Không bắt buộc. Nhà cung cấp thấy lý do này trong email.</span>
+                        <span>{lyDo.length}/{LY_DO_KHONG_CHAP_NHAN_TOI_DA}</span>
+                    </p>
+                </div>
+            </HopXacNhanChungTu>
         </PageContainer>
     );
 }

@@ -36,7 +36,7 @@ public class YeuCauMuaHang {
 
     @ColumnDefault("0")
     @Column(name = "trang_thai")
-    private Integer trangThai; //0: Nháp, 1: Đã gửi, 2: Đã duyệt, 3: Đã tạo đơn yêu cầu báo giá cho nhà cung cấp, 4: Từ chối, 5: Đã vận chuyển
+    private Integer trangThai; //1: Chờ duyệt, 2: Đã duyệt, 3: Đã gửi yêu cầu báo giá cho nhà cung cấp, 4: Từ chối, 5: Đã chọn nhà cung cấp (chấp nhận một báo giá)
 
     @Column(name = "ghi_chu")
     private String ghiChu;

@@ -31,6 +31,14 @@ public class ThongTinCongTy {
     @Column(name = "ten_cong_ty", nullable = false, length = 255)
     String tenCongTy;
 
+    /**
+     * Tên đăng ký kinh doanh, ghi đúng giấy chứng nhận đăng ký ("Công ty TNHH …", "Hộ kinh doanh …").
+     * Khác tên cửa hàng (tenCongTy là tên trên biển hiệu). In trên hóa đơn, email gửi nhà cung cấp.
+     */
+    @Size(max = 255)
+    @Column(name = "ten_dang_ky_kinh_doanh", length = 255)
+    String tenDangKyKinhDoanh;
+
     /** Mã số thuế của cửa hàng — in dưới tên ở đầu hóa đơn / phiếu. */
     @Size(max = 14)
     @Column(name = "ma_so_thue", length = 14)

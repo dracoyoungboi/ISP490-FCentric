@@ -85,10 +85,12 @@ const THE_BAM =
  * Nhóm "Chứng từ liên quan": mỗi mục một thẻ `{ loai, ma, to | onClick, trangThai, quyTrinh, nhomTrangThai }`.
  * `to` → liên kết trong ứng dụng, `onClick` → nút, không có cả hai → chỉ hiện. Có `trangThai` thì hiện thẻ trạng thái
  * (StatusBadge, truyền `quyTrinh` của loại chứng từ đó), không thì mũi tên. Danh sách rỗng: không vẽ gì.
+ * `chan`: nội dung dưới danh sách (vd. nút "Xem thêm n phiếu xuất", câu giải thích khi không tìm thấy chứng từ);
+ * có `chan` thì nhóm vẫn vẽ dù danh sách rỗng.
  */
-export function ChungTuLienQuan({ ds, nhan = "Chứng từ liên quan", rong = false }) {
+export function ChungTuLienQuan({ ds, nhan = "Chứng từ liên quan", rong = false, chan }) {
   const muc = (Array.isArray(ds) ? ds : []).filter(Boolean);
-  if (!muc.length) return null;
+  if (!muc.length && !chan) return null;
   return (
     <NhomThuocTinh nhan={nhan} rong={rong}>
       <ul className="m-0 grid list-none gap-2 p-0">
@@ -123,6 +125,7 @@ export function ChungTuLienQuan({ ds, nhan = "Chứng từ liên quan", rong = f
           );
         })}
       </ul>
+      {chan ? <div className={muc.length ? "mt-2" : undefined}>{chan}</div> : null}
     </NhomThuocTinh>
   );
 }

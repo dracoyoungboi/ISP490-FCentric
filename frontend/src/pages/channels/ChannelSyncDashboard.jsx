@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, BarChart3, ChevronRight } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
@@ -14,20 +14,22 @@ import ChannelLogo from "@/components/channel/ChannelLogo";
 import { TrangThaiCham } from "@/components/channel/HienThiKenh";
 import { ChonPhuongAn, CotCaiDat } from "@/components/channel/KhuonCaiDat";
 import { NUT_CHINH } from "@/components/channel/BottomActionBar";
-import { ngayIso } from "@/components/channel/ngay";
-import { daKetNoi, trangThaiKetNoi } from "@/components/channel/ketNoiShopify";
-import { daKetNoiLazada, trangThaiKetNoiLazada } from "@/components/channel/ketNoiLazada";
+import { ngayIso, ngayThang } from "@/components/channel/ngay";
+import { daKetNoi, hanUyQuyen, trangThaiKetNoi } from "@/components/channel/ketNoiKenh";
+import { taiLaiKenhDaKetNoi } from "@/components/channel/kenhDaKetNoi";
+import { buocGioiThieu } from "@/components/channel/noiDungSan";
+import { cheDoTheoGiaTri } from "@/components/channel/cauHinhDongBo";
+import useSanHienTai from "@/components/channel/useSanHienTai";
+import ThanhNhacUyQuyen from "@/components/channel/ThanhNhacUyQuyen";
 import NutDongBoNgay from "@/components/channel/NutDongBoNgay";
 import useDongBoNgay from "@/components/channel/useDongBoNgay";
-import { BUOC_THIET_LAP, SAN_BAN_HANG } from "@/constants/channel";
-import { isChannelMock, kenhBanHangService } from "@/services/kenhBanHangService";
+import { BUOC_THIET_LAP } from "@/constants/channel";
+import { GHI_CHU_DU_LIEU_MAU_KENH, isChannelMock, kenhBanHangService } from "@/services/kenhBanHangService";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
+import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import { cn } from "@/lib/utils";
 import { formatNhanTien, formatPhanTram, formatSo, formatTien, formatTienGon, nhanDayDu, nhanTruc } from "@/pages/dashboard/admin/tong-quan/tongQuanFormat";
-
-const SAN = SAN_BAN_HANG.find((s) => s.maKenh === "SHOPIFY");
-const TIEU_DE = `Tổng quan ${SAN.ten}`;
 
 /** Dấu "·" ngăn các mục trên dòng phụ dưới tên gian hàng. */
 function DauCach() {
@@ -72,23 +74,21 @@ function moiHon(a, b) {
   return new Date(a) > new Date(b) ? a : b;
 }
 
-/** Tổng quan gian hàng Shopify (không có tiêu đề trang: đầu trang là gian hàng); chưa kết nối thì hiện màn giới thiệu. */
+/**
+ * Tổng quan gian hàng của sàn đang mở (không có tiêu đề trang: đầu trang là gian hàng); chưa kết nối thì hiện màn giới thiệu.
+ * Sàn ủy quyền (Lazada, TikTok Shop) thêm hạn ủy quyền ở dòng phụ và thanh nhắc khi sắp hết / đã hết hạn (KH mục B.5).
+ */
 export default function ChannelSyncDashboard() {
   useClaimPageTitle(true);
   const navigate = useNavigate();
-  const location = useLocation();
-  const isLazada = location.pathname.includes("/channels/lazada");
-  const SAN = SAN_BAN_HANG.find((s) => s.maKenh === (isLazada ? "LAZADA" : "SHOPIFY")) ?? SAN_BAN_HANG[0];
+  const SAN = useSanHienTai();
   const TIEU_DE = `Tổng quan ${SAN.ten}`;
-
-  const cfg = useTaiDuLieu(
-    () => (isLazada ? kenhBanHangService.getLazadaConfig() : kenhBanHangService.getShopifyConfig()),
-    isLazada ? "cau-hinh-lazada" : "cau-hinh-shopify",
-  );
+  const uyQuyen = SAN.kieuKetNoi === "uy_quyen";
+  const cfg = useTaiDuLieu(() => kenhBanHangService.getKetNoi(SAN.maKenh), `ket-noi|${SAN.maKenh}`);
   const config = cfg.data;
-  const ketNoi = isLazada ? daKetNoiLazada(config) : daKetNoi(config);
-  const ch = useTaiDuLieu(() => kenhBanHangService.getCauHinhDongBo(SAN.maKenh), `cau-hinh-dong-bo-${SAN.maKenh}`, { enabled: ketNoi });
-  const tq = useTaiDuLieu(() => kenhBanHangService.getTongQuan(SAN.maKenh), `tong-quan-${SAN.maKenh}`, { enabled: ketNoi });
+  const ketNoi = daKetNoi(config);
+  const ch = useTaiDuLieu(() => kenhBanHangService.getCauHinhDongBo(SAN.maKenh), `cau-hinh-dong-bo|${SAN.maKenh}`, { enabled: ketNoi });
+  const tq = useTaiDuLieu(() => kenhBanHangService.getTongQuan(SAN.maKenh), `tong-quan|${SAN.maKenh}`, { enabled: ketNoi });
 
   const [kyMa, setKyMa] = useTabTrenUrl(
     KY.map((k) => k.value),
@@ -102,14 +102,32 @@ export default function ChannelSyncDashboard() {
     enabled: ketNoi,
   });
 
-  // Đồng bộ tay chạy nền ở máy chủ; xong thì tải lại số liệu của trang
+  // Đồng bộ tay chạy nền ở máy chủ; xong thì tải lại số liệu của trang. Bấm mà máy chủ báo hết hạn ủy quyền hoặc
+  // gian hàng đã bị ngắt (ở tab khác, người khác) thì đọc lại kết nối để trang và menu bên trái đổi theo
   const dongBo = useDongBoNgay(SAN.maKenh, {
     enabled: ketNoi,
     onXong: () => {
       tq.reload();
       tk.reload();
     },
+    onMatKetNoi: () => {
+      cfg.reload();
+      tq.reload();
+      taiLaiKenhDaKetNoi();
+    },
   });
+
+  // Quay lại tab thì tải lại ngầm kết nối, chế độ tự động và số liệu sản phẩm (ủy quyền có thể vừa hết hạn hay vừa được làm lại)
+  useTaiLaiKhiQuayLai(
+    () => {
+      cfg.reload();
+      if (ketNoi) {
+        ch.reload();
+        tq.reload();
+      }
+    },
+    { bat: !cfg.loading, lanCuoi: cfg.capNhatLuc },
+  );
 
   if (cfg.initialLoading) {
     return (
@@ -127,13 +145,16 @@ export default function ChannelSyncDashboard() {
       </PageContainer>
     );
   }
-  if (!ketNoi) return <ManGioiThieu san={SAN} tieuDe={TIEU_DE} />;
+  if (!ketNoi) return <ManGioiThieu />;
 
   const cauHinh = ch.data;
   const tongQuan = tq.data;
   const thongKe = tk.data;
-  const trangThai = isLazada ? trangThaiKetNoiLazada(config) : trangThaiKetNoi(config);
+  const trangThai = trangThaiKetNoi(config);
   const tamDung = trangThai === "tam_dung";
+  // Hạn ủy quyền của sàn ủy quyền; Shopify không có hạn
+  const han = uyQuyen ? hanUyQuyen(config) : null;
+  const hetHanUyQuyen = uyQuyen && trangThai === "het_han";
 
   const moTrang = (duongDan) => navigate(`${SAN.duongDan}${duongDan}`);
   const theoNgay = thongKe?.theoNgay ?? [];
@@ -142,15 +163,19 @@ export default function ChannelSyncDashboard() {
   const lanCuoi = lanCuoiNgan(moiHon(tongQuan?.lanDayTonCuoi, tongQuan?.lanLayDonCuoi));
   const tuDongTat = cauHinh && !cauHinh.tuDongDayTon && !cauHinh.tuDongLayDon;
   // Chế độ tự động là một dòng chấm + chữ dưới tên gian hàng (không dùng thẻ trạng thái, không lặp chữ "Đang đồng bộ"
-  // của nút); sự cố đã có thanh chú ý ngay bên dưới
+  // của nút); sự cố đã có thanh chú ý ngay bên dưới. Chưa có cấu hình (đang tải, lỗi) thì không đoán là đang bật
   const tuDong =
     trangThai === "het_han"
-      ? { tone: "danger", label: "Khóa truy cập đã hết hạn" }
+      ? { tone: "danger", label: uyQuyen ? "Ủy quyền đã hết hạn" : "Khóa truy cập đã hết hạn" }
       : tamDung
         ? { tone: "warning", label: "Đang tạm dừng đồng bộ" }
-        : tuDongTat
-          ? { tone: "neutral", label: "Tự động đồng bộ đang tắt" }
-          : { tone: "success", label: cauHinh?.chuKyPhut ? `Tự động mỗi ${cauHinh.chuKyPhut} phút` : "Tự động đồng bộ" };
+        : !cauHinh
+          ? ch.error
+            ? { tone: "neutral", label: "Không tải được chế độ tự động", thuLai: true }
+            : { tone: "neutral", label: "Đang tải…" }
+          : tuDongTat
+            ? { tone: "neutral", label: "Tự động đồng bộ đang tắt" }
+            : { tone: "success", label: cauHinh.chuKyPhut ? `Tự động mỗi ${cauHinh.chuKyPhut} phút` : "Tự động đồng bộ" };
 
   return (
     <PageContainer>
@@ -158,18 +183,31 @@ export default function ChannelSyncDashboard() {
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-3">
           <ChannelLogo maKenh={SAN.maKenh} size={32} />
-          <div className="min-w-0 flex-1">
+          {/* basis-56: màn hẹp không đủ chỗ cho tên đầy đủ cạnh nút thì nút xuống hàng dưới, tên không bị cắt */}
+          <div className="min-w-0 flex-1 basis-56">
             <p className="truncate text-base font-semibold leading-[22px] text-bo-heading">Gian hàng {SAN.ten}</p>
             {/* Mỗi mục có dấu "·" phía trước; dòng nào bị xuống hàng thì dấu đầu dòng nằm ngoài lề âm và bị cắt */}
             <div className="overflow-hidden">
               <p className="-ml-4 flex flex-wrap items-center text-[13px] leading-5 text-bo-muted">
-                <span className="flex min-w-0 max-w-full items-center">
-                  <DauCach />
-                  <span className="truncate">{isLazada ? (config.shopName || config.sellerId || "Lazada Store") : config.shopDomain}</span>
-                </span>
+                {/* Chưa có tên gian hàng thì bỏ mục này ("Gian hàng <sàn>" đã là tiêu đề ngay trên) */}
+                {(uyQuyen ? config.tenGianHang : config.shopDomain) ? (
+                  <span className="flex min-w-0 max-w-full items-center">
+                    <DauCach />
+                    <span className="truncate">{uyQuyen ? config.tenGianHang : config.shopDomain}</span>
+                  </span>
+                ) : null}
                 <span className="flex items-center">
                   <DauCach />
                   <TrangThaiCham label={tuDong.label} tone={tuDong.tone} />
+                  {tuDong.thuLai ? (
+                    <button
+                      type="button"
+                      onClick={ch.reload}
+                      className="ml-1.5 rounded-sm font-medium text-bo-primary hover:text-bo-primary-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 max-sm:-my-3 max-sm:py-3"
+                    >
+                      Thử lại
+                    </button>
+                  ) : null}
                 </span>
                 {lanCuoi ? (
                   <span className="flex items-center whitespace-nowrap tabular-nums">
@@ -177,19 +215,35 @@ export default function ChannelSyncDashboard() {
                     lần gần nhất {lanCuoi}
                   </span>
                 ) : null}
+                {/* Sắp hết hoặc đã hết hạn thì thanh nhắc ngay dưới đã ghi ngày, không ghi lại ở đây */}
+                {han && !han.hetHan && !han.sapHet ? (
+                  <span className="flex items-center whitespace-nowrap tabular-nums">
+                    <DauCach />
+                    ủy quyền đến {ngayThang(han.han, { coNam: true })}
+                  </span>
+                ) : null}
               </p>
             </div>
           </div>
-          {/* max-w-full: màn hẹp thì nút xuống dòng dưới tên gian hàng, không lẹm ra ngoài */}
-          <div className="flex max-w-full shrink-0 items-center">
-            <NutDongBoNgay tienDo={dongBo} tenSan={SAN.ten} onDen={moTrang} />
+          {/* max-w-full: màn hẹp thì nút xuống dòng dưới tên gian hàng (ml-auto giữ bên phải), không lẹm ra ngoài */}
+          <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2">
+            <NutDongBoNgay
+              tienDo={dongBo}
+              tenSan={SAN.ten}
+              onDen={moTrang}
+              lyDoKhoa={hetHanUyQuyen ? "Ủy quyền lại trước khi đồng bộ" : null}
+            />
           </div>
         </div>
 
-        <MockModeNotice show={isChannelMock} />
-        <AttentionBar count={trangThai === "het_han" ? 1 : 0} tone="danger" actionLabel="Cập nhật khóa" onAction={() => moTrang("/settings")}>
-          Khóa truy cập đã hết hạn: hệ thống không gọi được {SAN.ten}.
-        </AttentionBar>
+        <MockModeNotice show={isChannelMock} note={GHI_CHU_DU_LIEU_MAU_KENH} />
+        {uyQuyen ? (
+          <ThanhNhacUyQuyen san={SAN} ketNoi={config} />
+        ) : (
+          <AttentionBar count={trangThai === "het_han" ? 1 : 0} tone="danger" actionLabel="Cập nhật khóa" onAction={() => moTrang("/settings")}>
+            Khóa truy cập đã hết hạn: hệ thống không gọi được {SAN.ten}.
+          </AttentionBar>
+        )}
         <AttentionBar count={tamDung ? 1 : 0} actionLabel="Mở cấu hình" onAction={() => moTrang("/settings")}>
           Đồng bộ tự động với gian hàng đang tạm dừng.
         </AttentionBar>
@@ -238,7 +292,7 @@ export default function ChannelSyncDashboard() {
 
           <div className="flex flex-col gap-4 [&>*:last-child]:flex-1">
             <ViecCanXuLy theoTrangThai={thongKe?.theoTrangThai} tongQuan={tongQuan} dangTai={tk.initialLoading || tq.initialLoading} onDen={moTrang} />
-            <TheSanPham tongQuan={tongQuan} loi={tq.error && !tongQuan} />
+            <TheSanPham tongQuan={tongQuan} loi={tq.error && !tongQuan} onThuLai={tq.reload} cauHinh={uyQuyen ? cauHinh : undefined} />
           </div>
         </div>
       </div>
@@ -272,6 +326,7 @@ function ONhanSo({ nhan, giaTri, phu, onClick, loi = false }) {
 
 /** Số đơn theo ngày, tách đơn không hủy và đơn hủy. */
 function BieuDoDon({ data, loading, error, onRetry, tenKy }) {
+  const SAN = useSanHienTai();
   const n = data.length;
   const diem = data.map((d, i) => ({
     ...d,
@@ -288,7 +343,11 @@ function BieuDoDon({ data, loading, error, onRetry, tenKy }) {
       ) : error ? (
         <div role="alert" className="flex min-h-[240px] flex-1 flex-col items-center justify-center gap-2 text-center text-sm text-bo-muted">
           Không tải được số liệu đơn hàng.
-          <button type="button" onClick={onRetry} className="font-medium text-bo-primary hover:underline">
+          <button
+            type="button"
+            onClick={onRetry}
+            className="rounded-sm font-medium text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 max-sm:min-h-11 max-sm:px-3"
+          >
             Thử lại
           </button>
         </div>
@@ -314,11 +373,11 @@ function BieuDoDon({ data, loading, error, onRetry, tenKy }) {
           </div>
           <div className="flex gap-4 px-2 pt-1 text-[12.5px] text-bo-muted">
             <span className="inline-flex items-center gap-1.5">
-              <span className="size-2.5 rounded-sm" style={{ background: MAU_KHONG_HUY }} aria-hidden="true" />
+              <span className="size-2.5 rounded-sm bg-[#1677ff]" aria-hidden="true" />
               Đơn không hủy
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="size-2.5 rounded-sm" style={{ background: MAU_HUY }} aria-hidden="true" />
+              <span className="size-2.5 rounded-sm bg-[#c7d7ee]" aria-hidden="true" />
               Đơn hủy
             </span>
           </div>
@@ -354,12 +413,15 @@ function DongGoiY({ nhan, giaTri }) {
 
 /** Việc đang chờ ở gian hàng; chỉ dòng có việc mới nổi bật. Bấm để mở đúng tab. */
 function ViecCanXuLy({ theoTrangThai, tongQuan, dangTai, onDen }) {
+  const SAN = useSanHienTai();
   const don = (trangThai) => (theoTrangThai ? Number(theoTrangThai[trangThai] ?? 0) : undefined);
   const viec = [
     { ten: "Đơn nháp chờ gửi kho", so: don(0), den: "/orders?trangThai=nhap" },
     { ten: "Chờ nhặt hàng", so: don(1), den: "/orders?trangThai=cho-nhat-hang" },
     { ten: "Chờ đóng gói", so: don(7), den: "/orders?trangThai=cho-dong-goi" },
     { ten: "Chờ xuất kho", so: don(8), den: "/orders?trangThai=cho-xuat-kho" },
+    // Chỉ TikTok Shop gửi yêu cầu hủy của khách (KH mục B.5); đơn được giữ lại chờ người bán duyệt trên sàn
+    ...(SAN.maKenh === "TIKTOK" ? [{ ten: "Khách yêu cầu hủy", so: tongQuan?.soYeuCauHuy, den: "/orders?yeuCauHuy=1", loi: true }] : []),
     { ten: "SKU đồng bộ lỗi", so: tongQuan?.loiDongBo, den: "/products?trangThai=loi", loi: true },
     { ten: "SKU ngừng đồng bộ", so: tongQuan?.chuaLienKet, den: "/products?trangThai=ngung-dong-bo" },
   ];
@@ -400,9 +462,14 @@ function ViecCanXuLy({ theoTrangThai, tongQuan, dangTai, onDen }) {
   );
 }
 
-function TheSanPham({ tongQuan, loi }) {
+/**
+ * Số SKU theo tình trạng đồng bộ (mọi dòng đều ghi đơn vị SKU). Không tải được thì báo lỗi kèm nút Thử lại.
+ * `cauHinh`: có (sàn ủy quyền) thì thêm dòng "Số hiện trên <sàn>" theo cách tính đã chọn ở Cấu hình (KH mục B.5).
+ */
+function TheSanPham({ tongQuan, loi, onThuLai, cauHinh }) {
+  const SAN = useSanHienTai();
   const dong = [
-    { nhan: "Đang đồng bộ", so: tongQuan?.daLienKet, tone: "success", donVi: " SKU" },
+    { nhan: "Đang đồng bộ", so: tongQuan?.daLienKet, tone: "success" },
     { nhan: "Ngừng đồng bộ", so: tongQuan?.chuaLienKet, tone: "warning" },
     { nhan: "Lỗi", so: tongQuan?.loiDongBo, tone: "danger" },
   ];
@@ -412,47 +479,81 @@ function TheSanPham({ tongQuan, loi }) {
         <h2 id="the-san-pham" className="text-[15px] font-semibold text-bo-heading">
           Sản phẩm
         </h2>
-        <Link to={`${SAN.duongDan}/products`} className="ml-auto text-sm font-medium text-bo-primary hover:text-bo-primary-hover hover:underline">
+        {/* Điện thoại: vùng chạm 44 px bằng đệm + lề âm, chữ không xê dịch */}
+        <Link
+          to={`${SAN.duongDan}/products`}
+          className="ml-auto text-sm font-medium text-bo-primary hover:text-bo-primary-hover hover:underline max-sm:-my-3 max-sm:inline-flex max-sm:min-h-11 max-sm:items-center"
+        >
           Xem tất cả
         </Link>
       </div>
-      <dl className="space-y-2 px-4 py-3.5 text-sm sm:px-5">
-        {dong.map((d) => {
-          const co = Number(d.so) > 0;
-          return (
-            <div key={d.nhan} className="flex items-center justify-between gap-3">
-              <dt>
-                <TrangThaiCham label={d.nhan} tone={co ? (d.tone === "danger" ? "neutral" : d.tone) : "neutral"} />
-              </dt>
-              <dd className={cn("tabular-nums", co ? (d.tone === "danger" ? "font-semibold text-bo-danger" : "font-semibold text-bo-heading") : "text-bo-muted")}>
-                {loi ? "—" : d.so === undefined ? "…" : `${formatSo(d.so)}${co && d.donVi ? d.donVi : ""}`}
-              </dd>
-            </div>
-          );
-        })}
+      {loi ? (
+        <p role="alert" className="flex flex-wrap items-baseline gap-x-2 px-4 pt-3.5 text-sm text-bo-muted sm:px-5">
+          Không tải được số liệu sản phẩm.
+          <button
+            type="button"
+            onClick={onThuLai}
+            className="rounded-sm font-medium text-bo-primary hover:text-bo-primary-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 max-sm:-my-3 max-sm:py-3"
+          >
+            Thử lại
+          </button>
+        </p>
+      ) : null}
+      <dl className={cn("space-y-2 px-4 py-3.5 text-sm sm:px-5", loi && !cauHinh && "hidden")}>
+        {loi
+          ? null
+          : dong.map((d) => {
+              const co = Number(d.so) > 0;
+              return (
+                <div key={d.nhan} className="flex items-center justify-between gap-3">
+                  <dt>
+                    <TrangThaiCham label={d.nhan} tone={co ? (d.tone === "danger" ? "neutral" : d.tone) : "neutral"} />
+                  </dt>
+                  <dd className={cn("tabular-nums", co ? (d.tone === "danger" ? "font-semibold text-bo-danger" : "font-semibold text-bo-heading") : "text-bo-muted")}>
+                    {d.so === undefined ? "…" : `${formatSo(d.so)} SKU`}
+                  </dd>
+                </div>
+              );
+            })}
+        {cauHinh ? (
+          <div className="flex items-center justify-between gap-3 border-t border-[#eef1f5] pt-2">
+            <dt className="text-[13px] text-bo-muted">Số hiện trên {SAN.ten}</dt>
+            <dd className="text-[13px] text-bo-foreground">{cheDoTheoGiaTri(cauHinh) === "bang" ? "Bằng số khả dụng" : "Tùy chỉnh"}</dd>
+          </div>
+        ) : null}
       </dl>
     </section>
   );
 }
 
-/** Gian hàng chưa kết nối: giới thiệu 4 bước và nút bắt đầu. */
-function ManGioiThieu({ san, tieuDe }) {
-  const currentSan = san || SAN_BAN_HANG[0];
+/**
+ * Gian hàng chưa kết nối: giới thiệu 4 bước và nút bắt đầu. Sàn ủy quyền dùng câu của KH mục B.5
+ * ("Kết nối <sàn> trong 4 bước", bước 1 là ủy quyền gian hàng).
+ */
+function ManGioiThieu() {
+  const SAN = useSanHienTai();
+  const uyQuyen = SAN.kieuKetNoi === "uy_quyen";
+  const dsBuoc = uyQuyen ? buocGioiThieu(SAN.ten) : BUOC_THIET_LAP;
   return (
     <PageContainer>
-      <h1 className="sr-only">{tieuDe || `Tổng quan ${currentSan.ten}`}</h1>
+      <h1 className="sr-only">Tổng quan {SAN.ten}</h1>
       <CotCaiDat className="pt-2">
+        <MockModeNotice show={isChannelMock} note={GHI_CHU_DU_LIEU_MAU_KENH} />
         <section className={cn(THE, "p-5 sm:p-6")}>
           <div className="flex items-center gap-3.5">
-            <ChannelLogo maKenh={currentSan.maKenh} size={40} />
+            <ChannelLogo maKenh={SAN.maKenh} size={40} />
             <div className="min-w-0">
-              <h2 className="text-base font-semibold text-bo-heading">Kết nối gian hàng {currentSan.ten}</h2>
-              <p className="text-[13px] text-bo-muted">Đẩy tồn kho lên {currentSan.ten} và nhận đơn về để kho xử lý.</p>
+              <h2 className="text-base font-semibold text-bo-heading">{uyQuyen ? `Kết nối ${SAN.ten} trong 4 bước` : `Kết nối gian hàng ${SAN.ten}`}</h2>
+              <p className="text-[13px] text-bo-muted">
+                {uyQuyen
+                  ? `Tồn kho FCentric sẽ tự cập nhật lên gian hàng, đơn đặt trên ${SAN.ten} sẽ về kho để nhặt hàng, đóng gói và xuất kho.`
+                  : `Đẩy tồn kho lên ${SAN.ten} và nhận đơn về để kho xử lý.`}
+              </p>
             </div>
           </div>
           {/* Màn rộng: 4 bước nằm một hàng cho cân ngang; màn hẹp: xếp dọc */}
           <ol className="mt-5 grid divide-y divide-[#eef1f5] rounded-lg border border-bo-border lg:grid-cols-4 lg:divide-x lg:divide-y-0">
-            {BUOC_THIET_LAP.map((buoc) => (
+            {dsBuoc.map((buoc) => (
               <li key={buoc.so} className="flex items-center gap-3 px-4 py-3">
                 <span className="grid size-[26px] shrink-0 place-items-center rounded-full border border-slate-300 text-[13px] font-semibold tabular-nums text-slate-500">
                   {buoc.so}
@@ -464,10 +565,10 @@ function ManGioiThieu({ san, tieuDe }) {
               </li>
             ))}
           </ol>
-          <div className="mt-5 flex items-center gap-3">
+          <div className="mt-5 flex flex-wrap items-center gap-3">
             <Button asChild className={NUT_CHINH}>
-              <Link to={`${currentSan.duongDan}/setup`}>
-                Bắt đầu thiết lập
+              <Link to={`${SAN.duongDan}/setup`}>
+                {uyQuyen ? "Bắt đầu kết nối" : "Bắt đầu thiết lập"}
                 <ArrowRight className="size-4" />
               </Link>
             </Button>

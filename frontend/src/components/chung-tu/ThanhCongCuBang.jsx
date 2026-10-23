@@ -49,8 +49,9 @@ export default function ThanhCongCuBang({
         {ketQua || ""}
       </span>
       {coNhomPhai ? (
-        // Nhóm bên phải: hết chỗ thì cả nhóm xuống hàng dưới, vẫn canh phải (điện thoại: canh trái)
-        <div className="flex flex-wrap items-center gap-2 sm:ml-auto sm:justify-end">
+        // Nhóm bên phải: hết chỗ thì cả nhóm xuống hàng dưới, vẫn canh phải (điện thoại: canh trái). Không rộng quá khối
+        // (min-w-0 max-w-full) để ô lọc nhiều lựa chọn (vd. Kiểm kê) cuộn ngang được thay vì bị khối cắt mất
+        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 sm:ml-auto sm:justify-end">
           {boLoc}
           {nutXem}
           {onDoiMoHet ? (

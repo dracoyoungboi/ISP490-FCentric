@@ -5,10 +5,9 @@ import com.dev.backend.dto.OtpScheduleObj;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.exception.RestControllerGlobalExceptionHandler;
 import com.dev.backend.repository.NguoiDungRepository;
-import com.dev.backend.services.EmailService;
+import com.dev.backend.services.email.EmailNghiepVuService;
 import com.dev.backend.services.impl.entities.NguoiDungService;
 import com.dev.backend.services.impl.utils.CalcServiceImpl;
-import com.dev.backend.services.impl.utils.OtpMailDispatcher;
 import com.dev.backend.services.impl.utils.PasswordResetRateLimiter;
 import com.dev.backend.testsupport.MutableClock;
 import org.junit.jupiter.api.AfterEach;
@@ -41,7 +40,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Test toàn luồng quên mật khẩu qua HTTP đúng như màn ForgotPassword gọi:
  * forgot-password -> verify-reset-otp (bước "Xác thực OTP") -> reset-password.
  * Controller + service + exception handler thật, sinh OTP thật (CalcServiceImpl);
- * chỉ mock repository và EmailService (OTP lấy từ nội dung email bị chặn lại).
+ * chỉ mock repository và EmailNghiepVuService (OTP lấy từ tham số của email E1 bị chặn lại).
  */
 @ExtendWith(MockitoExtension.class)
 class NguoiDungPasswordResetFlowTest {
@@ -54,7 +53,7 @@ class NguoiDungPasswordResetFlowTest {
     @Mock
     private NguoiDungRepository repository;
     @Mock
-    private EmailService emailService;
+    private EmailNghiepVuService emailService;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder(4);
     // bộ giới hạn gửi OTP thật, tua thời gian để gửi lại mã mà không phải chờ 60 giây
@@ -68,8 +67,7 @@ class NguoiDungPasswordResetFlowTest {
         NguoiDungService service = new NguoiDungService(repository);
         ReflectionTestUtils.setField(service, "passwordEncoder", passwordEncoder);
         ReflectionTestUtils.setField(service, "calcService", new CalcServiceImpl());
-        ReflectionTestUtils.setField(service, "emailService", emailService);
-        ReflectionTestUtils.setField(service, "otpMailDispatcher", new OtpMailDispatcher(emailService, Runnable::run));
+        ReflectionTestUtils.setField(service, "emailNghiepVuService", emailService);
         ReflectionTestUtils.setField(service, "passwordResetRateLimiter", new PasswordResetRateLimiter(clock));
 
         NguoiDungController controller = new NguoiDungController();
@@ -99,9 +97,10 @@ class NguoiDungPasswordResetFlowTest {
     private String requestOtp() throws Exception {
         clock.advance(Duration.ofSeconds(61)); // qua cooldown gửi lại 60 giây
         postJson("/forgot-password", "{\"username\":\"" + USERNAME + "\"}").andExpect(status().isOk());
-        ArgumentCaptor<Map<String, Object>> params = ArgumentCaptor.forClass(Map.class);
-        verify(emailService, atLeastOnce()).sendHtmlEmailFromTemplate(eq(EMAIL), anyString(), anyString(), params.capture());
-        return (String) params.getValue().get("otp");
+        ArgumentCaptor<String> ma = ArgumentCaptor.forClass(String.class);
+        verify(emailService, atLeastOnce()).guiMaDatLaiMatKhau(argThat(nd -> EMAIL.equals(nd.getEmail())), ma.capture(),
+                any(), any());
+        return ma.getValue();
     }
 
     private ResultActions verifyOtp(String otp) throws Exception {
@@ -227,7 +226,7 @@ class NguoiDungPasswordResetFlowTest {
                 .andExpect(jsonPath("$.message").value("Vui lòng đợi 50 giây trước khi yêu cầu mã mới"))
                 .andExpect(jsonPath("$.data.code").value("OTP_RATE_LIMITED"))
                 .andExpect(jsonPath("$.data.retryAfterSeconds").value(50));
-        verify(emailService, times(1)).sendHtmlEmailFromTemplate(anyString(), anyString(), anyString(), anyMap());
+        verify(emailService, times(1)).guiMaDatLaiMatKhau(any(), anyString(), any(), any());
     }
 
     @Test

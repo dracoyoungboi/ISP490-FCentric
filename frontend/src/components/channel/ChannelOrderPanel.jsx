@@ -15,7 +15,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { donBanHangKenhService } from "@/services/donBanHangKenhService";
-import { FLAG_META, HOLD_STATUS } from "@/constants/channel";
+import { FLAG_META, HOLD_STATUS, nhanTrangThaiSan, parseFlags } from "@/constants/channel";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { hasAnyRole, ROLES } from "@/utils/roles";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,15 @@ const TH_CLASS = "h-10 whitespace-nowrap px-3 text-[11px] font-semibold uppercas
 const textareaClass =
   "resize-none border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/15";
 
+/**
+ * Cờ cần xử lý của đơn: TikTok Shop báo khách yêu cầu hủy bằng `yeuCauHuy` của DonBanHangDto (KH mục C.2),
+ * gộp vào cùng danh sách cờ dưới mã YEU_CAU_HUY, đứng đầu và chỉ một lần dù máy chủ đã gắn cờ đó hay chưa.
+ */
+function gopCo(canXuLy, yeuCauHuy) {
+  const co = parseFlags(canXuLy);
+  const khac = co.filter((ma) => ma !== "YEU_CAU_HUY");
+  return yeuCauHuy || khac.length !== co.length ? ["YEU_CAU_HUY", ...khac] : khac;
+}
 
 /**
  * Khối "Thông tin kênh" trên chi tiết đơn sàn (S-OC-06): mã đơn sàn, trạng thái sàn, cờ, giữ chỗ theo lô
@@ -121,12 +130,15 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
   const xuLyCo = Array.isArray(hanhDong.xuLyCo) ? hanhDong.xuLyCo : [];
   const hasActions = canAct && (hanhDong.xacNhanHuy || hanhDong.apDungThayDoi || hanhDong.giuBu || xuLyCo.length > 0);
   const giuCho = info?.giuCho ?? [];
+  const maKenh = info?.maKenh ?? donBanHang?.kenhBanHang?.maKenh;
+  const dsCo = gopCo(info?.canXuLy, donBanHang?.yeuCauHuy);
 
+  // Tên sàn đã ở thẻ kênh bên phải: dòng phụ chỉ ghi tên gian hàng
   return (
     <SurfaceCard
       title="Thông tin kênh bán"
-      description={info ? `${info.tenKenh ?? ""}${info.tenHienThi ? ` · ${info.tenHienThi}` : ""}` : "Đơn nhập về từ sàn thương mại điện tử"}
-      action={<ChannelBadge maKenh={info?.maKenh ?? donBanHang?.kenhBanHang?.maKenh} label={info?.tenKenh} />}
+      description={info ? info.tenHienThi || null : "Đơn nhập về từ sàn thương mại điện tử"}
+      action={<ChannelBadge maKenh={maKenh} label={info?.tenKenh} />}
     >
       {loading && !info ? (
         <div className="flex items-center justify-center gap-2 py-8 text-sm text-bo-muted">
@@ -138,7 +150,8 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
         <div className="space-y-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <InfoItem icon={Hash} label="Mã đơn trên sàn" value={info.maDonHangKenh ? <span className="font-mono">{info.maDonHangKenh}</span> : null} />
-            <InfoItem icon={BadgeCheck} label="Trạng thái trên sàn" value={info.trangThaiSan} />
+            {/* Chữ tiếng Việt theo bảng KH mục F; mã lạ (vd. Shopify) giữ nguyên */}
+            <InfoItem icon={BadgeCheck} label="Trạng thái trên sàn" value={nhanTrangThaiSan(maKenh, info.trangThaiSan)} />
             <InfoItem icon={Calendar} label="Cập nhật từ sàn" value={formatDateTime(info.ngayCapNhatSan)} />
             <InfoItem
               icon={User}
@@ -152,10 +165,10 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
             />
           </div>
 
-          {info.canXuLy?.length ? (
+          {dsCo.length ? (
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-bo-muted">Cần xử lý</p>
-              <FlagList value={info.canXuLy} />
+              <FlagList value={dsCo} />
             </div>
           ) : (
             <p className="flex items-center gap-2 text-sm text-bo-success">

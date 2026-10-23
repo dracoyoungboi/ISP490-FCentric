@@ -7,8 +7,9 @@ import org.springframework.data.domain.Page;
 
 import java.util.List;
 
+// DonMuaHangMapper: đơn mua trong donMuaHangs map giống API đơn mua (cờ khongDuocChon, chuaGuiDuocYeuCau, yêu cầu rút gọn).
 @Mapper(componentModel = MappingConstants.ComponentModel.SPRING,
-        uses = {BienTheSanPhamMapper.class, NguoiDungMapper.class})
+        uses = {BienTheSanPhamMapper.class, NguoiDungMapper.class, DonMuaHangMapper.class})
 public interface YeuCauMuaHangMapper {
     @Mapping(target = "lyDoTuChoi", ignore = true)
     @Mapping(target = "ngayDuyet", ignore = true)

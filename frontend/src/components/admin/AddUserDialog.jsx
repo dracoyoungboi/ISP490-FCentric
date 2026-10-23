@@ -454,7 +454,7 @@ function AddUserForm({ onClose, onCreated }) {
                                 type="text"
                                 inputMode="email"
                                 maxLength={MAX_LENGTH.email}
-                                placeholder="VD: an.nguyen@fcentric.net"
+                                placeholder="Ví dụ: an.nguyen@tencuahang.vn"
                                 spellCheck={false}
                                 autoCapitalize="none"
                                 onChange={(event) => changeField("email", event.target.value)}

@@ -456,7 +456,8 @@ export default function ViewUserListByAdmin() {
         setResettingUser(true);
         try {
             await adminService.resetUserPasswordRandomByAdmin(user.id);
-            toast.success(`Đã gửi mật khẩu tạm thời mới tới ${user.email}.`);
+            // Email đi sau khi lưu, qua hàng đợi (có thể thử lại): "sẽ được gửi", như hộp Thêm người dùng
+            toast.success(`Mật khẩu tạm thời mới sẽ được gửi tới ${user.email}.`);
             setResetDialog((d) => ({ ...d, open: false }));
             // Dòng phụ "Chưa đổi mật khẩu tạm thời" hiện ngay, không cần tải lại trang
             fetchUsers({ silent: true });

@@ -1,0 +1,3 @@
+[# th:if="${cuaHang.tenHienThi != null}"][(${cuaHang.tenHienThi})]
+
+[/]

@@ -10,10 +10,11 @@ const KENH = {
   TIKTOK: { id: 5, maKenh: "TIKTOK", tenKenh: "TikTok Shop", loaiKenh: "online" },
   POS: { id: 1, maKenh: "POS", tenKenh: "POS", loaiKenh: "offline" },
 };
+// Tên gian hàng trùng kenhBanHangMock.js (Shopify) và kenhSanMock.js (Lazada, TikTok Shop: "Fashion House VN")
 const KET_NOI = {
   SHOPIFY: { id: 10, tenHienThi: "FCentric Official" },
-  LAZADA: { id: 20, tenHienThi: "FCentric Lazada Mall" },
-  TIKTOK: { id: 30, tenHienThi: "FCentric TikTok" },
+  LAZADA: { id: 20, tenHienThi: "Fashion House VN" },
+  TIKTOK: { id: 30, tenHienThi: "Fashion House VN" },
 };
 const KHO = { id: 1, maKho: "KHO_HN", tenKho: "Kho tổng Hà Nội" };
 const KHACH = {
@@ -102,7 +103,55 @@ function seedOrder([id, soDonHang, kenh, maDonHangKenh, trangThai, trangThaiSan,
   };
 }
 
-const state = { orders: SEED.map(seedOrder) };
+// Lazada / TikTok Shop: 9 đơn mỗi sàn như bản demo (KH mục B.7) — khách mặc định của sàn, người nhận do sàn che.
+// [phút trước, trạng thái, trạng thái Lazada, trạng thái TikTok, người nhận, khách yêu cầu hủy (TikTok), dòng [sku, tên, sl, đơn giá]]
+const DON_SAN_UY_QUYEN = [
+  [35, 0, "pending", "AWAITING_SHIPMENT", "N*n T. · 09***382", true, [["AO-THUN-DEN-M", "Áo thun cotton basic / Đen / M", 1, 459000]]],
+  [68, 0, "pending", "AWAITING_SHIPMENT", "L*h P. · 03***116", false, [["QUAN-JEAN-XANH-32", "Quần jean slim / Xanh đậm / 32", 2, 614000]]],
+  [190, 1, "topack", "AWAITING_SHIPMENT", "T*n V. · 09***904", true, [["AO-THUN-TRANG-M", "Áo thun cotton basic / Trắng / M", 1, 299000]]],
+  [320, 1, "topack", "AWAITING_SHIPMENT", "H*g M. · 08***771", false, [["AO-KHOAC-GIO-DEN-L", "Áo khoác gió / Đen / L", 1, 849000]]],
+  [1240, 7, "topack", "AWAITING_SHIPMENT", "P*g A. · 09***233", false, [["VAY-MIDI-BE-S", "Váy midi xếp ly / Be / S", 1, 629000]]],
+  [1350, 8, "ready_to_ship", "AWAITING_COLLECTION", "D*c H. · 03***640", false, [["QUAN-JEAN-XANH-30", "Quần jean slim / Xanh đậm / 30", 2, 534500]]],
+  [1910, 3, "shipped", "IN_TRANSIT", "V*n K. · 09***518", false, [["AO-THUN-DEN-L", "Áo thun cotton basic / Đen / L", 1, 429000]]],
+  [2715, 5, "delivered", "COMPLETED", "B*o N. · 07***305", false, [["AO-KHOAC-GIO-DEN-XL", "Áo khoác gió / Đen / XL", 1, 699000]]],
+  [2980, 4, "canceled", "CANCELLED", "Q*h L. · 09***092", false, [["AO-THUN-DEN-XL", "Áo thun cotton basic / Đen / XL", 1, 259000]]],
+];
+
+function seedDonSan(kenh, batDauId, tienTo) {
+  return DON_SAN_UY_QUYEN.map(([phut, trangThai, ttLazada, ttTiktok, nguoiNhan, yeuCauHuy, dong], i) => {
+    const maDon = String(2610200913 - i * 7);
+    const daGiao = trangThai === 3 || trangThai === 5 ? 1 : 0;
+    const don = seedOrder([
+      batDauId + i, `${tienTo}-${maDon}`, kenh, maDon, trangThai, kenh === "LAZADA" ? ttLazada : ttTiktok, null, phut,
+      [nguoiNhan, "Q. Cầu Giấy, Hà Nội"].filter(Boolean).join(" · "),
+      dong.map(([sku, ten, sl, gia]) => [sku, sku, ten, sl, gia, daGiao]),
+    ]);
+    don.donBanHang.nguoiNhan = nguoiNhan || null;
+    don.donBanHang.yeuCauHuy = kenh === "TIKTOK" && yeuCauHuy;
+    return don;
+  });
+}
+
+const state = { orders: [...SEED.map(seedOrder), ...seedDonSan("LAZADA", 9101, "LZD"), ...seedDonSan("TIKTOK", 9201, "TTS")] };
+// Đơn sàn ủy quyền: người nhận (đã che) là hai phần đầu của địa chỉ giao; cờ YEU_CAU_HUY ứng với yeuCauHuy (KH mục C.2)
+state.orders.forEach(({ donBanHang: don }) => {
+  if (don.kenhBanHang?.maKenh !== "LAZADA" && don.kenhBanHang?.maKenh !== "TIKTOK") return;
+  if (don.nguoiNhan === undefined) don.nguoiNhan = String(don.diaChiGiaoHang ?? "").split(" · ").slice(0, 2).join(" · ") || null;
+  if (parseFlags(don.canXuLy).includes("YEU_CAU_HUY")) don.yeuCauHuy = true;
+  don.yeuCauHuy = Boolean(don.yeuCauHuy);
+});
+
+// "Khách yêu cầu hủy" chỉ tính đơn chưa xuất kho, chưa hủy: Nháp, Chờ nhặt hàng, Chờ đóng gói, Chờ xuất kho.
+// Cùng định nghĩa với thanh nhắc và bộ lọc ?yeuCauHuy=1 của trang Đơn hàng (TRANG_THAI_CHUA_XUAT_KHO ở ChannelOrdersPage.jsx).
+const TRANG_THAI_CHUA_XUAT_KHO = [0, 1, 7, 8];
+
+/** Số đơn khách đang yêu cầu hủy của một kênh (Tổng quan gian hàng TikTok Shop, soYeuCauHuy). */
+export function demYeuCauHuy(kenhBanId) {
+  return state.orders.filter(
+    ({ donBanHang: don }) =>
+      don.kenhBanHang?.id === Number(kenhBanId) && don.yeuCauHuy && TRANG_THAI_CHUA_XUAT_KHO.includes(don.trangThai),
+  ).length;
+}
 
 function findOrder(id) {
   const order = state.orders.find((item) => item.donBanHang.id === Number(id));
@@ -125,20 +174,80 @@ function hanhDong(order) {
   };
 }
 
+/** Ngày gửi lên không kèm múi giờ hiểu theo giờ Việt Nam, như BaseServiceImpl.chuyenChuoiThoiGian của máy chủ. */
+function thoiDiem(value) {
+  const chuoi = String(value ?? "").trim().replace(" ", "T");
+  if (chuoi.length === 10) return Date.parse(`${chuoi}T00:00:00+07:00`);
+  return Date.parse(/(Z|[+-]\d{2}:?\d{2})$/i.test(chuoi) ? chuoi : `${chuoi}+07:00`);
+}
+
+/** Phép so của bộ lọc (FilterOperation); IN nhận mảng. */
+function soSanh(operation, giaTri, mau) {
+  switch (operation) {
+    case "IN":
+      return Array.isArray(mau) && mau.includes(giaTri);
+    case "GREATER_THAN":
+      return giaTri > mau;
+    case "GREATER_THAN_OR_EQUAL":
+      return giaTri >= mau;
+    case "LESS_THAN":
+      return giaTri < mau;
+    case "LESS_THAN_OR_EQUAL":
+      return giaTri <= mau;
+    default:
+      return giaTri === mau;
+  }
+}
+
 function matchFilter(order, filter) {
   const value = filter.value;
+  const don = order.donBanHang;
+  const moiGiaTri = (doi) => (Array.isArray(value) ? value.map(doi) : doi(value));
   switch (filter.fieldName) {
     case "loaiChungTu":
-      return order.donBanHang.loaiChungTu === value;
+      return don.loaiChungTu === value;
     case "soDonHang":
-      return normalizeText(order.donBanHang.soDonHang).includes(normalizeText(value));
+      return normalizeText(don.soDonHang).includes(normalizeText(value));
     case "trangThai":
-      return order.donBanHang.trangThai === Number(value);
+      // Tab nhiều trạng thái (Đã hủy / hoàn trả) gửi IN với mảng
+      return Array.isArray(value) ? value.map(Number).includes(don.trangThai) : don.trangThai === Number(value);
     case "kenhBanHang.id":
-      return order.donBanHang.kenhBanHang?.id === Number(value);
+      return soSanh(filter.operation, don.kenhBanHang?.id, moiGiaTri(Number));
+    case "kenhBanHang.maKenh":
+      return soSanh(filter.operation, String(don.kenhBanHang?.maKenh ?? "").toUpperCase(), moiGiaTri((v) => String(v).toUpperCase()));
+    case "khoXuat.id":
+      return soSanh(filter.operation, don.khoXuat?.id, moiGiaTri(Number));
+    case "ngayDatHang":
+      return soSanh(filter.operation, Date.parse(don.ngayDatHang), moiGiaTri(thoiDiem));
+    case "yeuCauHuy":
+      return Boolean(don.yeuCauHuy) === (value === true || value === "true");
     default:
       return true;
   }
+}
+
+// Như API thật: không gửi thứ tự thì đơn đặt mới nhất trước
+const THU_TU_MAC_DINH = [
+  { fieldName: "ngayDatHang", direction: "DESC" },
+  { fieldName: "id", direction: "DESC" },
+];
+
+/** Xếp theo `sorts` của yêu cầu (trường lồng "a.b" được), giá trị trống xếp cuối. */
+function xepTheo(sorts) {
+  const ds = sorts?.length ? sorts : THU_TU_MAC_DINH;
+  const lay = (don, truong) => truong.split(".").reduce((v, k) => v?.[k], don);
+  return (a, b) => {
+    for (const { fieldName, direction } of ds) {
+      const x = lay(a.donBanHang, fieldName);
+      const y = lay(b.donBanHang, fieldName);
+      if (x === y) continue;
+      if (x == null) return 1;
+      if (y == null) return -1;
+      const ss = x < y ? -1 : 1;
+      return String(direction).toUpperCase() === "DESC" ? -ss : ss;
+    }
+    return 0;
+  };
 }
 
 export const donBanHangKenhMock = {
@@ -147,7 +256,7 @@ export const donBanHangKenhMock = {
     const filters = payload.filters ?? [];
     const list = state.orders
       .filter((order) => filters.every((filter) => matchFilter(order, filter)))
-      .sort((a, b) => b.donBanHang.id - a.donBanHang.id)
+      .sort(xepTheo(payload.sorts))
       .map((order) => clone(order.donBanHang));
     return paginate(list, payload.page, payload.size);
   },

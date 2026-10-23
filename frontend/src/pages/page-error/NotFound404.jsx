@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Link, Route, Routes } from "react-router-dom";
+import { Link, Route, Routes, useLocation } from "react-router-dom";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import BackofficeLayout from "@/components/backoffice/BackofficeLayout";
 import BrandLogo from "@/components/brand/BrandLogo";
@@ -21,6 +21,7 @@ const TIEU_DE = "Không tìm thấy trang";
 const META_KHONG_TIM_THAY = { title: TIEU_DE, ownTitle: true };
 
 const NUT_CHINH = "bg-bo-primary text-white hover:bg-bo-primary-hover";
+const NUT_PHU = "border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle";
 
 /** Đưa tiêu điểm vào tiêu đề khi trang hiện, để trình đọc màn hình đọc ngay nội dung lỗi. */
 function useTieuDiemTieuDe() {
@@ -31,9 +32,13 @@ function useTieuDiemTieuDe() {
     return ref;
 }
 
-/** C: trong khung quản trị. */
-function KhongTimThayTrongKhung() {
+/** C: trong khung quản trị. Route có tham số tự kiểm giá trị (vd. mã sàn ở /channels/:maKenh) dùng lại khối này. */
+export function KhongTimThayTrongKhung() {
     const tieuDeRef = useTieuDiemTieuDe();
+    const { pathname } = useLocation();
+    // Đường dẫn trong Kênh bán hàng (vd. mã sàn gõ sai /channels/abc): thêm lối về trang Kênh bán hàng.
+    // Trang có hai nút thì trên điện thoại cao 44 px cho dễ chạm (quy tắc màn kênh); trang khác giữ nguyên.
+    const trongKenh = pathname === "/channels" || pathname.startsWith("/channels/");
 
     return (
         <div className="flex min-h-full items-center justify-center px-4 py-10 sm:px-6">
@@ -59,9 +64,20 @@ function KhongTimThayTrongKhung() {
                 <p className="mt-1.5 text-sm leading-6 text-slate-600">
                     Trang bạn mở không tồn tại hoặc đã được chuyển sang địa chỉ khác.
                 </p>
-                <Button asChild className={`mt-5 ${NUT_CHINH}`}>
-                    <Link to="/dashboard">Về Tổng quan</Link>
-                </Button>
+                {trongKenh ? (
+                    <div className="mt-5 flex flex-wrap justify-center gap-2">
+                        <Button asChild className={`max-sm:h-11 ${NUT_CHINH}`}>
+                            <Link to="/dashboard">Về Tổng quan</Link>
+                        </Button>
+                        <Button asChild variant="outline" className={`max-sm:h-11 ${NUT_PHU}`}>
+                            <Link to="/channels">Về Kênh bán hàng</Link>
+                        </Button>
+                    </div>
+                ) : (
+                    <Button asChild className={`mt-5 ${NUT_CHINH}`}>
+                        <Link to="/dashboard">Về Tổng quan</Link>
+                    </Button>
+                )}
             </section>
         </div>
     );

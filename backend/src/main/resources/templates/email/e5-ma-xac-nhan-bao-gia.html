@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<!--/* E5 · Mã xác nhận báo giá (demo-email/E5-MaXacNhanBaoGia.dc.html). Không có nút: email chứa mã. */-->
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{khung :: thu(xemTruoc=~{::xem-truoc}, noiDung=~{::noi-dung}, chan=~{khung :: chan-nha-cung-cap(false)})}">
+<body>
+<th:block th:fragment="xem-truoc">Mã có hiệu lực <th:block th:text="${e.thoiHan}">5 phút</th:block>. Không đưa mã này cho người khác.</th:block>
+<th:block th:fragment="noi-dung">
+<tr><td style="padding:0 0 20px;"><h1 style="margin:0;font-size:22px;line-height:30px;font-weight:700;letter-spacing:-0.01em;color:#182537;">Mã xác nhận báo giá</h1></td></tr>
+<tr><td style="padding:0 0 20px;"><p style="margin:0;font-size:15px;line-height:24px;" th:text="|Kính gửi ${e.tenNhaCungCap},|">Kính gửi,</p></td></tr>
+<tr><td style="padding:0 0 20px;"><p style="margin:0;font-size:15px;line-height:24px;">Dùng mã dưới đây để mở đơn <strong th:text="${e.maDon}">mã đơn</strong> trên Cổng nhà cung cấp.</p></td></tr>
+<tr><td style="padding:0 0 20px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;background-color:#f8fafc;border:1px solid #e1e6ec;border-radius:8px;border-collapse:separate;">
+<tr><td align="center" style="padding:24px 20px;text-align:center;">
+<div style="font-size:13px;line-height:20px;color:#64748b;">Mã xác nhận</div>
+<div class="o-ma" style="padding:6px 0 6px 10px;font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-size:34px;line-height:44px;font-weight:700;letter-spacing:10px;color:#182537;" th:text="${e.ma}">000000</div>
+<div style="font-size:13px;line-height:20px;color:#64748b;" th:text="|Hiệu lực đến ${e.hetHanLuc} · Chỉ dùng được một lần|">Hiệu lực đến</div>
+</td></tr>
+</table>
+</td></tr>
+<tr><td style="padding:0 0 20px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border:1px solid #e1e6ec;border-radius:8px;border-collapse:separate;">
+<tr><td style="padding:16px 20px;">
+<div style="padding:0 0 6px;font-size:14px;line-height:20px;font-weight:600;">Quý công ty không yêu cầu mã này?</div>
+<div style="font-size:14px;line-height:22px;color:#182537;">Bỏ qua email này: đơn không mở được nếu không có mã. Nhân viên của chúng tôi không bao giờ hỏi mã qua điện thoại hay tin nhắn.</div>
+</td></tr>
+</table>
+</td></tr>
+</th:block>
+</body>
+</html>

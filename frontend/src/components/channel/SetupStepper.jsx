@@ -48,7 +48,7 @@ export default function SetupStepper({ buoc, hienTai, daXong, onChon, className 
                   type="button"
                   onClick={() => onChon(b.so)}
                   aria-current={dangLam ? "step" : undefined}
-                  className="flex items-center gap-2.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
+                  className="flex items-center gap-2.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 max-sm:min-h-11 max-sm:min-w-11 max-sm:justify-center"
                 >
                   {noiDung}
                 </button>
