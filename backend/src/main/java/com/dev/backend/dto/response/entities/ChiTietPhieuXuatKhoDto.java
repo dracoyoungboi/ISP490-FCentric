@@ -18,5 +18,12 @@ public class ChiTietPhieuXuatKhoDto {
     BigDecimal soLuongCanXuat;   // SL trên phiếu
     BigDecimal soLuongDaPick;    // tổng SL đã pick theo lô
     Boolean duSoLuong;           // dùng để hiển thị badge
+    // Thông tin biến thể cho bảng hàng (HienThiBienThe): gom theo sản phẩm, chấm màu, kích cỡ, ảnh
+    String tenSanPham;
+    Integer sanPhamId;
+    String tenMau;
+    String maMauHex;
+    String kichCo;
+    String anh;
 }
 

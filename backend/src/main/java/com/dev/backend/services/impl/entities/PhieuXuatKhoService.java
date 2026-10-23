@@ -18,6 +18,7 @@ import com.dev.backend.services.impl.BaseServiceImpl;
 import com.dev.backend.services.impl.multitable.KhaDungChuyenKhoService;
 import com.dev.backend.services.impl.multitable.KhaDungChuyenKhoService.KhaDungChuyen;
 import com.dev.backend.services.impl.multitable.LoDangGiuService;
+import com.dev.backend.utils.HienThiBienThe;
 import com.dev.backend.utils.SauCommit;
 import jakarta.persistence.EntityManager;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -869,6 +870,12 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 .soLuongCanXuat(soLuongCanXuat)
                 .soLuongDaPick(soLuongDaPick)
                 .duSoLuong(soLuongDaPick.compareTo(soLuongCanXuat) >= 0)
+                .tenSanPham(HienThiBienThe.tenSanPham(ct.getBienTheSanPham()))
+                .sanPhamId(HienThiBienThe.sanPhamId(ct.getBienTheSanPham()))
+                .tenMau(HienThiBienThe.tenMau(ct.getBienTheSanPham()))
+                .maMauHex(HienThiBienThe.maMauHex(ct.getBienTheSanPham()))
+                .kichCo(HienThiBienThe.kichCo(ct.getBienTheSanPham()))
+                .anh(HienThiBienThe.anh(ct.getBienTheSanPham()))
                 .build();
     }
 
