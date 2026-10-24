@@ -53,6 +53,7 @@ import com.dev.backend.services.KenhBanHangDongBoService;
 import com.dev.backend.services.multitable.NhatHangService;
 import lombok.extern.slf4j.Slf4j;
 import com.dev.backend.utils.SauCommit;
+import com.dev.backend.utils.SoChungTu;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 
@@ -1039,8 +1040,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     private String generateMaChungTu(String type) {
         String dateStr = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
         String prefix = "bao_gia".equals(type) ? "BG" + dateStr : "SO" + dateStr;
-        long countToday = ((DonBanHangRepository) repository).countBySoDonHangStartingWith(prefix);
-        return prefix + (countToday + 1);
+        return SoChungTu.tiepTheo(prefix, ((DonBanHangRepository) repository).soDuoiLonNhat(prefix));
     }
 
     @Transactional(readOnly = true)
@@ -1067,8 +1067,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     private String generateSoDonHang() {
         String dateStr = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
         String prefix = "SO" + dateStr;
-        long countToday = ((DonBanHangRepository) repository).countBySoDonHangStartingWith(prefix);
-        return prefix + (countToday + 1);
+        return SoChungTu.tiepTheo(prefix, ((DonBanHangRepository) repository).soDuoiLonNhat(prefix));
     }
 
     private boolean isDuplicateSoDonHang(Exception ex) {

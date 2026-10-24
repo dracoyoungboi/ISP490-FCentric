@@ -82,6 +82,7 @@ const PAYOS_STATUS_TEXT = {
   EXPIRED: 'Mã QR đã hết hạn — hàng giữ chỗ đã được trả lại kho.',
   FAILED: 'Không tạo được mã QR.',
   PAID_ERROR: 'Đã nhận tiền nhưng chưa tạo được đơn hàng.',
+  REFUNDED: 'Quản lý đã hoàn tiền chuyển khoản cho khách.',
 };
 
 const formatCountdown = (ms) => {
@@ -120,13 +121,19 @@ function PayosQrDialog({ state, actions, onClose }) {
           <div className="rounded-lg border border-bo-border bg-slate-50 p-3">
             <p className="text-xs text-bo-muted">Số tiền</p>
             <p className="text-2xl font-bold text-bo-primary">{formatMoney(link.soTien)}</p>
+            {link.trangThai === 'PAID_ERROR' && link.soTienDaNhan != null ? (
+              <p className="mt-1 text-xs text-bo-muted">Đã nhận: <strong className="text-bo-foreground">{formatMoney(link.soTienDaNhan)}</strong></p>
+            ) : null}
           </div>
           <dl className="space-y-1.5 text-xs">
             <div className="flex justify-between gap-3"><dt className="text-bo-muted">Chủ tài khoản</dt><dd className="truncate text-right font-medium text-bo-foreground">{link.tenTaiKhoan || '—'}</dd></div>
-            <div className="flex justify-between gap-3"><dt className="text-bo-muted">Số tài khoản</dt><dd className="font-mono font-medium text-bo-foreground">{link.soTaiKhoan || '—'}</dd></div>
-            <div className="flex justify-between gap-3"><dt className="text-bo-muted">Nội dung CK</dt><dd className="font-mono font-medium text-bo-foreground">{link.noiDungCk || '—'}</dd></div>
+            {/* Không hiện số tài khoản / nội dung CK: chỉ cho quét mã. Chuyển tay dễ sai số tiền hoặc thiếu mã nhận
+                diện payOS ("CS…") -> payOS không ghi nhận, tiền vào tài khoản mà hệ thống không biết. */}
             <div className="flex justify-between gap-3"><dt className="text-bo-muted">Mã giao dịch</dt><dd className="font-mono text-bo-muted">{link.orderCode}</dd></div>
           </dl>
+          {pending ? (
+            <p className="text-[11px] leading-4 text-bo-muted">Khách <strong className="text-bo-foreground">chỉ quét mã</strong> bằng app ngân hàng, không chuyển tay theo số tài khoản — chuyển tay hệ thống không nhận ra.</p>
+          ) : null}
           {pending && state.online === false ? (
             <OfflineNotice>
               <strong>Máy đang mất mạng.</strong> Khách vẫn chuyển khoản được bình thường; màn hình sẽ tự cập nhật khi có mạng lại.
@@ -140,7 +147,14 @@ function PayosQrDialog({ state, actions, onClose }) {
           ) : terminalText ? (
             <div aria-live="polite" className={`flex items-start gap-2 rounded-lg border p-3 text-xs ${link.trangThai === 'PAID_ERROR' ? 'border-red-200 bg-red-50 text-red-700' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
               <AlertCircle aria-hidden="true" className="mt-0.5 shrink-0" size={14} />
-              <span>{terminalText}{link.errorMessage ? ` ${link.errorMessage}` : ''}{link.trangThai === 'PAID_ERROR' ? ' Liên hệ quản lý để xử lý — không thu tiền lại của khách.' : ''}</span>
+              {link.trangThai === 'PAID_ERROR' ? (
+                <span>
+                  <strong>Khách đã chuyển khoản — không thu tiền lại.</strong> Hóa đơn đã khóa và chuyển cho quản lý xử lý (bán cho khách hoặc trả lại tiền) ở màn Đối soát chuyển khoản; xử lý xong màn này tự cập nhật.
+                  {link.errorMessage ? <span className="mt-1 block opacity-80">{link.errorMessage}</span> : null}
+                </span>
+              ) : (
+                <span>{terminalText}{link.errorMessage ? ` ${link.errorMessage}` : ''}</span>
+              )}
             </div>
           ) : null}
           {link.checkoutUrl && pending ? (
@@ -343,6 +357,15 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
       <PosModal description="Hóa đơn đang có nội dung chưa thanh toán." onClose={onClose} title={`Đóng hóa đơn ${state.closingInvoice?.number}?`} size="sm">
         <p className="text-sm leading-6 text-bo-muted">Sản phẩm, khách hàng và ghi chú của hóa đơn này sẽ bị bỏ. Các hóa đơn khác được giữ lại.</p>
         <div className="mt-5"><FooterButtons cancelText="Hủy" confirmText="Đóng hóa đơn" destructive onClose={onClose} onConfirm={actions.onCloseInvoice} /></div>
+      </PosModal>
+    );
+  }
+
+  if (dialog === 'close-paid-error') {
+    return (
+      <PosModal description="Khách đã chuyển khoản nhưng chưa tạo được đơn." onClose={onClose} title={`Đóng hóa đơn ${state.closingInvoice?.number}?`} size="sm">
+        <p className="text-sm leading-6 text-bo-muted">Giao dịch đã chuyển cho quản lý xử lý ở màn Đối soát chuyển khoản (bán cho khách hoặc trả lại tiền) và vẫn nằm ở đó sau khi đóng tab. Không thu tiền lại của khách cho các món này.</p>
+        <div className="mt-5"><FooterButtons cancelText="Giữ tab" confirmText="Đóng hóa đơn" destructive onClose={onClose} onConfirm={actions.onCloseInvoice} /></div>
       </PosModal>
     );
   }

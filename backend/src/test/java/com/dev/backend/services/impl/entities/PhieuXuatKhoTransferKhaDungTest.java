@@ -111,7 +111,7 @@ class PhieuXuatKhoTransferKhaDungTest {
     }
 
     private void choPhepLuuPhieu() {
-        when(repository.countBySoPhieuXuatStartingWith(anyString())).thenReturn(0L);
+        when(repository.soDuoiLonNhat(anyString())).thenReturn(null);
         when(repository.save(any(PhieuXuatKho.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 

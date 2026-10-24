@@ -205,7 +205,7 @@ public interface DoanhThuReportRepository extends JpaRepository<DonBanHang, Inte
             WHERE pxk.trang_thai = 3
             GROUP BY pxk.don_ban_hang_id
         ) gv ON gv.don_ban_hang_id = dbh.id
-        WHERE dbh.trang_thai = 3
+        WHERE dbh.trang_thai IN (3, 5)
           AND (
               (YEAR(dbh.ngay_giao_hang) = :nam      AND MONTH(dbh.ngay_giao_hang) = :thang)
            OR (YEAR(dbh.ngay_giao_hang) = :namTruoc AND MONTH(dbh.ngay_giao_hang) = :thangTruoc)

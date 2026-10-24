@@ -39,6 +39,7 @@ import DonBanHangList from "./pages/sales-orders/DonBanHangList";
 import DonBanHangDetail from "./pages/sales-orders/DonBanHangDetail";
 import DonBanHangInvoice from "./pages/sales-orders/DonBanHangInvoice";
 import DonBanHangCreate from "./pages/sales-orders/DonBanHangCreate";
+import DoiSoatChuyenKhoan from "./pages/pos-transfers/DoiSoatChuyenKhoan";
 import ProductDetail from "./pages/product/components/product/ProductDetail";
 import PhieuChuyenKhoDetail from "./pages/chuyenKhoNoiBo/PhieuChuyenKhoDetail";
 import PhieuChuyenKhoCreate from "./pages/chuyenKhoNoiBo/PhieuChuyenKhoCreate";
@@ -299,6 +300,11 @@ export default function App() {
             <Route path="/goods-issues/pick-lists" element={<PickListList />} />
             <Route path="/goods-issues/pick-lists/:id" element={<PickListDetail />} />
             <Route path="/goods-issues/packing/:donId" element={<DongGoiPage />} />
+          </Route>
+
+          {/* Đối soát chuyển khoản: xử lý giao dịch đã nhận tiền nhưng chưa có đơn — chỉ quản trị viên (khớp @RequireAuth) */}
+          <Route element={<RequireRole roles={["quan_tri_vien"]} />}>
+            <Route path="/pos-transfers" element={<DoiSoatChuyenKhoan />} />
           </Route>
 
           {/* Kênh bán hàng (FO-073–077) — chỉ quản trị viên (backend cũng chặn bằng @RequireAuth) */}

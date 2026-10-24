@@ -89,6 +89,7 @@ export default function PosCartPanel({
   total,
   note,
   frozen = false,
+  frozenMessage = '',
   isSubmitting = false,
   overStockMessage = '',
   offline = false,
@@ -118,7 +119,7 @@ export default function PosCartPanel({
       {frozen ? (
         <div className="flex shrink-0 items-center gap-2 border-b border-bo-border bg-amber-50 px-4 py-2.5 text-xs text-amber-900">
           <Lock aria-hidden="true" className="shrink-0" size={14} />
-          <span>Giao dịch thanh toán đang được xử lý — hóa đơn đã khóa để giữ nguyên nội dung đã gửi. Mở nút Thanh toán để kiểm tra kết quả.</span>
+          <span>{frozenMessage || 'Giao dịch thanh toán đang được xử lý — hóa đơn đã khóa để giữ nguyên nội dung đã gửi. Mở nút Thanh toán để kiểm tra kết quả.'}</span>
         </div>
       ) : null}
 

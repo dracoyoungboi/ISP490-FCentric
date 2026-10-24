@@ -25,6 +25,8 @@ public class PosPayosPayment {
     public static final String EXPIRED = "EXPIRED";
     public static final String FAILED = "FAILED";
     public static final String PAID_ERROR = "PAID_ERROR";
+    /** Từ PAID_ERROR: quản lý đã tự hoàn tiền cho khách qua ngân hàng, không có đơn bán. */
+    public static final String REFUNDED = "REFUNDED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -45,6 +47,10 @@ public class PosPayosPayment {
 
     @Column(name = "so_tien", nullable = false, precision = 15, scale = 2)
     BigDecimal soTien;
+
+    /** Số tiền payOS báo đã nhận (có thể khác soTien khi khách chuyển thiếu/dư). */
+    @Column(name = "so_tien_da_nhan", precision = 15, scale = 2)
+    BigDecimal soTienDaNhan;
 
     @Column(name = "trang_thai", nullable = false, length = 20)
     String trangThai;
@@ -76,6 +82,14 @@ public class PosPayosPayment {
     @Column(name = "giu_cho_json", columnDefinition = "LONGTEXT")
     String giuChoJson;
 
+    /** Hàng trong giuChoJson còn đang giữ chỗ — mọi đường trả chỗ đọc cờ này để không trả 2 lần. */
+    @Column(name = "dang_giu_cho", nullable = false)
+    boolean dangGiuCho;
+
+    /** Tiền về khi mã QR đã bị hủy/hết hạn (chốt lúc thành PAID_ERROR) — có thể món hàng đã bán bằng cách khác. */
+    @Column(name = "tien_ve_sau_huy", nullable = false)
+    boolean tienVeSauHuy;
+
     @Column(name = "don_ban_hang_id")
     Integer donBanHangId;
 
@@ -85,8 +99,27 @@ public class PosPayosPayment {
     @Column(name = "ma_giao_dich_ngan_hang", length = 100)
     String maGiaoDichNganHang;
 
+    /** Tài khoản khách đã chuyển (payOS gửi kèm thông báo tiền về) — để trả lại tiền đúng chỗ. */
+    @Column(name = "ten_nguoi_chuyen", length = 200)
+    String tenNguoiChuyen;
+
+    @Column(name = "ngan_hang_nguoi_chuyen", length = 100)
+    String nganHangNguoiChuyen;
+
+    @Column(name = "so_tk_nguoi_chuyen", length = 50)
+    String soTkNguoiChuyen;
+
     @Column(name = "error_message", length = 500)
     String errorMessage;
+
+    @Column(name = "nguoi_xu_ly_id")
+    Integer nguoiXuLyId;
+
+    @Column(name = "xu_ly_luc")
+    Instant xuLyLuc;
+
+    @Column(name = "ghi_chu_xu_ly", length = 500)
+    String ghiChuXuLy;
 
     @Column(name = "het_han_luc", nullable = false)
     Instant hetHanLuc;

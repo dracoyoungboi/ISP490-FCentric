@@ -124,6 +124,7 @@ export const NHAN_THEO_NHOM = {
     "Đã chốt đơn",
     "Đã gửi báo giá",
     "Đã thanh toán",
+    "Đã bán cho khách",
     "Khớp SKU",
     "Hoạt động",
     "Đang hoạt động",
@@ -149,8 +150,10 @@ export const NHAN_THEO_NHOM = {
     "Bỏ qua",
     "Đã nhả",
     "Đã bỏ",
+    "Đã trả lại tiền",
+    "Hết hạn",
   ],
-  loi: ["Lỗi", "Bị khóa", "Hết hạn khóa", "Hết hạn ủy quyền", "Hết hàng", "Thiếu hàng", "Vượt mức", "Vượt số đặt", "Xung đột hủy"],
+  loi: ["Lỗi", "Bị khóa", "Hết hạn khóa", "Hết hạn ủy quyền", "Hết hàng", "Thiếu hàng", "Vượt mức", "Vượt số đặt", "Xung đột hủy", "Chờ xử lý"],
   thuong: ["Còn hàng", "Bình thường"],
 };
 
@@ -236,6 +239,11 @@ export const BIEU_TUONG_THEO_NHAN = {
   "Chưa thanh toán": "Banknote",
   "Chờ thanh toán": "Banknote",
   "Đã thanh toán": "Banknote",
+  // Đối soát chuyển khoản: đã nhận tiền nhưng chưa tạo được đơn / quản lý đã hoàn tiền / mã QR hết hạn
+  "Chờ xử lý": "OctagonAlert",
+  "Đã bán cho khách": "CircleCheckBig",
+  "Đã trả lại tiền": "Undo2",
+  "Hết hạn": "Clock",
   "Đủ hàng": "PackageCheck",
   "Thiếu hàng": "PackageMinus",
   "Khớp SKU": "CheckCheck",

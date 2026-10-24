@@ -21,6 +21,7 @@ import {
 import { SIDEBAR_FOOTER_SECTION, SIDEBAR_MENU, SIDEBAR_SECTIONS, hienKhoLamViecODaySidebar } from "./sidebar.config";
 import SidebarKhoLamViec from "./SidebarKhoLamViec";
 import { useKenhDaKetNoi } from "@/components/channel/kenhDaKetNoi";
+import { useSoChuyenKhoanCanXuLy } from "@/components/pos/payosCanXuLy";
 import { cn } from "@/lib/utils";
 
 // Một đích điều hướng (mục thẳng hoặc mục con) khớp đường dẫn: theo `match(pathname)` nếu mục khai báo
@@ -141,12 +142,26 @@ function BieuTuongKhungMenu({ thuGon }) {
   );
 }
 
+/** Số đếm việc cần xử lý cạnh mục con (vd. giao dịch chuyển khoản lỗi); 0 thì không vẽ. */
+function SoDemMenu({ so }) {
+  if (!so) return null;
+  return (
+    <span className="ml-auto inline-flex min-w-5 shrink-0 items-center justify-center rounded-full bg-bo-danger px-1.5 text-[11px] font-semibold leading-5 text-white tabular-nums">
+      <span aria-hidden="true">{so > 99 ? "99+" : so}</span>
+      <span className="sr-only">({so} cần xử lý)</span>
+    </span>
+  );
+}
+
 export default function BackofficeSidebar() {
   const location = useLocation();
   const role = localStorage.getItem("role");
   const { open, isMobile, setOpenMobile, toggleSidebar } = useSidebar();
   // Mục của từng sàn (khai báo `maKenh`) chỉ hiện khi gian hàng đã kết nối
   const kenhDaKetNoi = useKenhDaKetNoi();
+  // Số đếm cạnh mục con khai báo `badge`
+  const soChuyenKhoanCanXuLy = useSoChuyenKhoanCanXuLy();
+  const soDem = (child) => (child.badge === "payosCanXuLy" ? soChuyenKhoanCanXuLy : 0);
 
   const filteredMenu = useMemo(
     () =>
@@ -903,6 +918,7 @@ export default function BackofficeSidebar() {
                   )}
                 >
                   <span data-nhan className="min-w-0 flex-1 truncate">{child.label}</span>
+                  <SoDemMenu so={soDem(child)} />
                 </Link>
               ))}
             </div>
@@ -1124,6 +1140,7 @@ export default function BackofficeSidebar() {
                       />
                     ) : null}
                     <span className="min-w-0 flex-1 truncate">{child.label}</span>
+                    <SoDemMenu so={soDem(child)} />
                   </Link>
                 ))}
               </div>

@@ -7,6 +7,7 @@ import ChangePasswordModal from "@/components/ChangePasswordModal";
 import { PageTitleContext } from "./pageTitle";
 import { SETTINGS_PAGES } from "@/components/settings/settings.config";
 import { taiLaiKenhDaKetNoi } from "@/components/channel/kenhDaKetNoi";
+import { taiLaiSoChuyenKhoanCanXuLy } from "@/components/pos/payosCanXuLy";
 import { SAN_BAN_HANG } from "@/constants/channel";
 import "@/styles/print.css";
 
@@ -199,6 +200,11 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             key: "SALES_ORDERS",
             match: (path) => path === "/sales-orders",
             title: "Đơn bán hàng",
+        },
+        {
+            key: "POS_TRANSFERS",
+            match: (path) => path === "/pos-transfers",
+            title: "Đối soát chuyển khoản",
         },
         {
             key: "SALES_ORDER_DETAIL",
@@ -492,6 +498,14 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
     // Mục sàn trên menu bên trái chỉ hiện gian hàng đã kết nối; chỉ quản trị viên thấy và gọi được API kênh
     useEffect(() => {
         if (localStorage.getItem("role") === "quan_tri_vien") taiLaiKenhDaKetNoi();
+    }, []);
+
+    // Số giao dịch chuyển khoản tại quầy cần xử lý (số đếm trên menu): khi vào khung quản trị và mỗi 2 phút
+    useEffect(() => {
+        if (localStorage.getItem("role") !== "quan_tri_vien") return undefined;
+        taiLaiSoChuyenKhoanCanXuLy();
+        const id = window.setInterval(taiLaiSoChuyenKhoanCanXuLy, 120000);
+        return () => window.clearInterval(id);
     }, []);
 
     return (

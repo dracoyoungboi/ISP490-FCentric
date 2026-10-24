@@ -205,6 +205,14 @@ export const SIDEBAR_MENU = [
         to: "/pos",
         roles: ["quan_tri_vien", "nhan_vien_ban_hang"],
       },
+      {
+        // Giao dịch chuyển khoản tại quầy; quản trị viên xử lý giao dịch đã nhận tiền nhưng chưa có đơn.
+        // badge: số giao dịch cần xử lý (BackofficeSidebar đọc từ components/pos/payosCanXuLy)
+        label: "Đối soát chuyển khoản",
+        to: "/pos-transfers",
+        roles: ["quan_tri_vien"],
+        badge: "payosCanXuLy",
+      },
     ],
   },
 

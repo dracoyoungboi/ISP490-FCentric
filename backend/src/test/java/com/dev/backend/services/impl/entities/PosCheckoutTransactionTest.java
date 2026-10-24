@@ -146,14 +146,14 @@ class PosCheckoutTransactionTest {
         when(entityManager.find(Kho.class, 1)).thenReturn(kho);
         when(entityManager.find(NguoiDung.class, 7))
                 .thenReturn(NguoiDung.builder().id(7).hoTen("Thu ngân").build());
-        when(donBanHangRepository.countBySoDonHangStartingWith(anyString())).thenReturn(0L);
+        when(donBanHangRepository.soDuoiLonNhat(anyString())).thenReturn(null);
         when(donBanHangRepository.save(any(DonBanHang.class))).thenAnswer(inv -> {
             DonBanHang d = inv.getArgument(0);
             d.setId(501);
             return d;
         });
         when(chiTietDonBanHangRepository.save(any(ChiTietDonBanHang.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(phieuXuatKhoRepository.countBySoPhieuXuatStartingWith(anyString())).thenReturn(0L);
+        when(phieuXuatKhoRepository.soDuoiLonNhat(anyString())).thenReturn(null);
         when(phieuXuatKhoRepository.save(any(PhieuXuatKho.class))).thenAnswer(inv -> {
             PhieuXuatKho p = inv.getArgument(0);
             p.setId(601);
