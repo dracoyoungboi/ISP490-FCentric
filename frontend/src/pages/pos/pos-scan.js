@@ -31,6 +31,9 @@ export function isTextEntry(element) {
   return element.tagName === 'INPUT' && TEXT_INPUT_TYPES.has(element.type);
 }
 
+/** Sự kiện trả ô số lượng trong giỏ về số cũ khi máy quét lỡ gõ mã vào ô đó. */
+export const QTY_REVERT_EVENT = 'pos-qty-revert';
+
 /** Phím sinh ra một ký tự (không kèm Ctrl/Alt/Meta — đó là phím tắt). */
 export const isPrintableKey = (event) =>
   typeof event.key === 'string' && event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey;

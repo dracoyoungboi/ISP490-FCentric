@@ -12,7 +12,7 @@ import PosInvoiceTabs from './components/PosInvoiceTabs';
 import PosDialogs from './components/PosDialogs';
 import PosProductCatalog from './components/PosProductCatalog';
 import { formatMoney } from './pos-format';
-import { createScanBurstTracker, hasNonAscii, isPrintableKey, isTextEntry, readFlag, writeFlag } from './pos-scan';
+import { createScanBurstTracker, hasNonAscii, isPrintableKey, isTextEntry, QTY_REVERT_EVENT, readFlag, writeFlag } from './pos-scan';
 import useOnlineStatus, { useOnReconnect, isNetworkError } from '@/hooks/useOnlineStatus';
 import useScanQueue from '@/hooks/useScanQueue';
 import { playScanBeep } from '@/utils/scanBeep';
@@ -153,6 +153,8 @@ const isFrozenInvoice = (invoice) =>
   // Đang chờ khách quét QR: hàng đã giữ chỗ theo đúng giỏ này -> khóa sửa giỏ.
   || invoice?.payos?.trangThai === 'PENDING';
 
+/** Tồn khả dụng đã biết (số) hoặc null = chưa biết — không coi null/'' là hết hàng như Number(null) = 0. */
+const knownStock = (stock) => (stock === null || stock === undefined || stock === '' || !Number.isFinite(Number(stock)) ? null : Number(stock));
 /** Dòng giỏ có số lượng vượt tồn khả dụng đã biết (tồn chưa biết = không chặn, server vẫn kiểm). */
 const isOverStock = (line) => Number.isFinite(line.product.stock) && line.quantity > line.product.stock;
 const OVER_STOCK_MESSAGE = 'Có sản phẩm vượt tồn khả dụng — giảm số lượng hoặc xóa dòng đó trước khi thanh toán.';
@@ -679,14 +681,31 @@ export default function PosSalesPage({
   addProductRef.current = addProduct;
   const addFromCatalog = useCallback((product) => addProductRef.current(product), []);
 
+  const removeLine = (variantId) => {
+    if (frozen) return;
+    setCart((current) => current.filter((item) => item.product.id !== variantId));
+    clearFailedAttemptAfterEdit();
+  };
+
+  // Giảm luôn được (kể cả dòng đang vượt tồn). Tăng quá tồn khả dụng -> GIỮ số cũ và báo, không tự hạ
+  // về mức tối đa: số quá tồn thường là gõ nhầm / mã quét lọt vào ô, hạ về tối đa sẽ bán nhầm cả kho.
+  // Chỉ xóa dòng khi bấm − ở 1 hoặc nút thùng rác.
   const setQuantity = (variantId, quantity) => {
     if (frozen) return;
     const line = cart.find((item) => item.product.id === variantId);
-    const stock = line ? Number(line.product.stock) : NaN;
-    const nextQuantity = Number.isFinite(stock) ? Math.min(quantity, stock) : quantity;
-    setCart((current) => nextQuantity <= 0
-      ? current.filter((item) => item.product.id !== variantId)
-      : current.map((item) => item.product.id === variantId ? { ...item, quantity: nextQuantity } : item));
+    if (!line || quantity === line.quantity) return;
+    if (quantity <= 0) {
+      removeLine(variantId);
+      return;
+    }
+    const stock = knownStock(line.product.stock);
+    if (stock !== null && quantity > stock && quantity > line.quantity) {
+      showToast(stock > 0
+        ? `Chỉ còn ${stock} sản phẩm khả dụng tại kho này — số lượng giữ nguyên ${line.quantity}.`
+        : `${line.product.name} đã hết hàng tại kho này — số lượng giữ nguyên ${line.quantity}.`, 'warning');
+      return;
+    }
+    setCart((current) => current.map((item) => item.product.id === variantId ? { ...item, quantity } : item));
     clearFailedAttemptAfterEdit();
   };
 
@@ -1475,6 +1494,8 @@ export default function PosSalesPage({
     // Mã gõ vào ô tìm kiếm / ô ghi chú: trả nội dung ô về như trước khi quét.
     if (target === searchRef.current) setSearch(scan.snapshot?.search ?? '');
     if (target?.dataset && 'posNote' in target.dataset) setNoteForInvoice(scan.snapshot?.note ?? '');
+    // Ô số lượng: trả về số cũ ngay (trước khi rời ô), để mã quét không bị chốt thành số lượng.
+    if (target?.dataset && 'posQty' in target.dataset) target.dispatchEvent(new Event(QTY_REVERT_EVENT));
     const warn = (message) => {
       playScanBeep(false);
       showToast(message, 'warning');
@@ -1580,22 +1601,36 @@ export default function PosSalesPage({
         return;
       }
       event.preventDefault();
+      const active = document.activeElement;
+      if (active?.dataset && 'posQty' in active.dataset) {
+        // Đang gõ dở số lượng: rời ô để chốt số trước, phím tắt chạy sau khi giỏ đã cập nhật
+        // (không thì F9 mở thanh toán với tổng tiền cũ).
+        active.blur();
+        const { key } = event;
+        setTimeout(() => runShortcut(key), 0);
+        return;
+      }
+      runShortcut(event.key);
+    };
+    const runShortcut = (key) => {
+      const context = keyboardContext.current;
+      if (!context || context.isSubmitting) return;
       if (context.dialog) {
         // Đang mở hộp thoại: chỉ F9 trong màn thanh toán (= xác nhận); các phím khác bỏ qua,
         // tránh F9 lần hai đặt lại số tiền đã nhập hoặc F4 đè mất hộp thoại đang dở.
-        if (event.key === 'F9' && context.dialog === 'payment') context.confirmPaymentShortcut();
+        if (key === 'F9' && context.dialog === 'payment') context.confirmPaymentShortcut();
         return;
       }
-      if (event.key === 'F1') context.setDialog('shortcuts');
-      else if (event.key === 'F2') context.requestNewInvoice();
-      else if (event.key === 'F3') {
+      if (key === 'F1') context.setDialog('shortcuts');
+      else if (key === 'F2') context.requestNewInvoice();
+      else if (key === 'F3') {
         context.searchRef.current?.focus();
         context.searchRef.current?.select();
-      } else if (event.key === 'F8') context.toggleScanMode();
-      else if (event.key === 'F4') {
+      } else if (key === 'F8') context.toggleScanMode();
+      else if (key === 'F4') {
         // Phím tắt KHÔNG được vượt guard giao dịch đang treo (frozen).
         if (!context.frozen) context.setDialog('customer');
-      } else if (event.key === 'F9') context.openPayment();
+      } else if (key === 'F9') context.openPayment();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -1604,6 +1639,7 @@ export default function PosSalesPage({
   const renderCartPanel = () => (
     <PosCartPanel
       cart={cart}
+      invoiceKey={activeInvoice}
       customer={customer}
       frozen={frozen}
       isSubmitting={isSubmitting}
@@ -1613,7 +1649,7 @@ export default function PosSalesPage({
       onNote={setNoteForInvoice}
       onPayment={openPayment}
       onQuantity={setQuantity}
-      onRemove={(variantId) => setQuantity(variantId, 0)}
+      onRemove={removeLine}
       offline={!online}
       overStockMessage={overStock ? OVER_STOCK_MESSAGE : ''}
       subtotal={subtotal}

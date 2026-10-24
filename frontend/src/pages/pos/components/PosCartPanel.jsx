@@ -10,9 +10,69 @@ import {
   ImageOff,
   WifiOff,
 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { formatMoney } from '../pos-format';
+import { QTY_REVERT_EVENT } from '../pos-scan';
 
 const iconButton = 'grid size-7 place-items-center rounded-md text-bo-muted transition hover:bg-slate-100 hover:text-bo-foreground disabled:cursor-not-allowed disabled:opacity-40';
+
+/**
+ * Ô số lượng gõ trực tiếp: chỉ nhận chữ số, chốt khi rời ô hoặc Enter, Esc trả về số cũ.
+ * Để trống / 0 -> giữ số cũ (xóa dòng bằng nút thùng rác). Vượt tồn: trang POS giữ số cũ và báo.
+ * Máy quét lỡ gõ mã vào ô: trang phát QTY_REVERT_EVENT để trả ô về số cũ TRƯỚC khi rời ô,
+ * vì lúc rời ô giá trị được đọc thẳng từ ô (không chờ React vẽ lại).
+ */
+function QuantityInput({ quantity, name, disabled, onCommit }) {
+  const [draft, setDraft] = useState(null);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    const node = inputRef.current;
+    if (!node) return undefined;
+    // Số đang có trong giỏ nằm ở data-pos-qty (luôn theo lần vẽ mới nhất).
+    const revert = () => {
+      node.value = node.dataset.posQty;
+      setDraft(node.dataset.posQty);
+    };
+    node.addEventListener(QTY_REVERT_EVENT, revert);
+    return () => node.removeEventListener(QTY_REVERT_EVENT, revert);
+  }, []);
+
+  const commit = (raw) => {
+    setDraft(null);
+    const next = Number.parseInt(raw, 10);
+    if (Number.isFinite(next) && next > 0 && next !== quantity) onCommit(next);
+  };
+
+  return (
+    <input
+      aria-label={`Số lượng ${name}`}
+      autoComplete="off"
+      className="h-7 w-10 bg-transparent text-center text-xs font-semibold text-bo-foreground outline-none focus:rounded focus:bg-bo-primary-soft focus:ring-1 focus:ring-bo-primary disabled:cursor-not-allowed"
+      data-pos-qty={quantity}
+      disabled={disabled}
+      inputMode="numeric"
+      onBlur={(event) => commit(event.target.value)}
+      // Lọc chữ số TRƯỚC rồi mới cắt (dán "12.000" không thành 1200); NFKC đổi chữ số toàn khổ "１２".
+      onChange={(event) => setDraft(event.target.value.normalize('NFKC').replace(/\D/g, '').slice(0, 5))}
+      onFocus={(event) => event.target.select()}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          event.currentTarget.blur();
+        } else if (event.key === 'Escape') {
+          // Chặn Esc lan ra phím tắt chung (đóng giỏ trên điện thoại).
+          event.preventDefault();
+          event.currentTarget.value = String(quantity);
+          event.currentTarget.blur();
+        }
+      }}
+      ref={inputRef}
+      type="text"
+      value={draft ?? String(quantity)}
+    />
+  );
+}
 
 /**
  * Giỏ hàng hóa đơn hiện tại. `frozen=true` khi giao dịch thanh toán đang treo
@@ -23,6 +83,7 @@ const iconButton = 'grid size-7 place-items-center rounded-md text-bo-muted tran
  */
 export default function PosCartPanel({
   cart,
+  invoiceKey,
   customer,
   subtotal,
   total,
@@ -98,7 +159,9 @@ export default function PosCartPanel({
                   <div className="mt-2 flex items-center justify-between gap-2">
                     <div className="flex items-center rounded-md border border-bo-border">
                       <button aria-label={`Giảm số lượng ${product.name}`} className={iconButton} disabled={frozen} onClick={() => onQuantity(product.id, quantity - 1)} type="button"><Minus aria-hidden="true" size={13} /></button>
-                      <span aria-live="polite" className="min-w-7 text-center text-xs font-semibold text-bo-foreground">{quantity}</span>
+                      {/* key theo hóa đơn: đổi hóa đơn (kể cả tự chuyển khi payOS báo đã trả) thì bỏ số đang gõ dở,
+                          không để lúc rời ô ghi số đó sang hóa đơn khác có cùng sản phẩm. */}
+                      <QuantityInput disabled={frozen} key={`${invoiceKey}-${product.id}`} name={product.name} onCommit={(value) => onQuantity(product.id, value)} quantity={quantity} />
                       <button aria-label={`Tăng số lượng ${product.name}`} className={iconButton} disabled={frozen || (Number.isFinite(product.stock) && quantity >= product.stock)} onClick={() => onQuantity(product.id, quantity + 1)} title={Number.isFinite(product.stock) && quantity >= product.stock ? `Tối đa ${product.stock} (tồn khả dụng)` : undefined} type="button"><Plus aria-hidden="true" size={13} /></button>
                     </div>
                     <span className="text-sm font-semibold text-bo-foreground">{formatMoney(product.price * quantity)}</span>
