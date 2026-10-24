@@ -24,6 +24,7 @@ const NHAN_NHOM_KICH_CO = { chu: "Chữ", so: "Số", khac: "Khác" };
 const KHONG_KHOA = [];
 const KHONG_CO_ANH_CU = {};
 const GIA_KHOA = "Tính theo lô nhập";
+const GIA_BAN_KHOA = "Đổi ở màn Giá bán & tem mã vạch";
 
 // Vòng focus theo màu chung (Button/Checkbox dựng sẵn mặc định lấy màu chữ làm vòng focus, trông đậm và lệch tông).
 const CHECKBOX_CLASS =
@@ -121,15 +122,18 @@ function OTien({ value, onChange, onEnter, cot, className, ...props }) {
     );
 }
 
-/** Giá của biến thể còn tồn kho: hệ thống tính theo lô nhập nên chỉ xem (vẫn chọn và sao chép được). */
-function GiaKhoa({ value, nhan }) {
+/**
+ * Giá chỉ xem (vẫn chọn và sao chép được): giá vốn biến thể còn tồn do hệ thống tính theo lô nhập; giá bán biến thể đã
+ * lưu không sửa ở đây khi còn tồn hoặc người dùng không phải quản trị viên (`ghiChu` nói chỗ đổi).
+ */
+function GiaKhoa({ value, nhan, ghiChu = GIA_KHOA }) {
     return (
-        <div className="relative" title={GIA_KHOA}>
+        <div className="relative" title={ghiChu}>
             <Lock className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-bo-muted" aria-hidden="true" />
             <input
                 readOnly
                 value={hienTien(value)}
-                aria-label={`${nhan} (${GIA_KHOA.toLowerCase()})`}
+                aria-label={`${nhan} (${ghiChu.toLowerCase()})`}
                 className={cn(O_GIA_CLASS, "cursor-default bg-bo-surface-subtle pl-6 text-bo-muted")}
             />
         </div>
@@ -902,8 +906,8 @@ const NhomMau = memo(function NhomMau({
                                 )}
                             </td>
                             <td className="px-3 py-1.5">
-                                {d.khoaGia ? (
-                                    <GiaKhoa value={d.giaBan} nhan={`Giá bán ${ten}`} />
+                                {d.khoaGiaBan ?? d.khoaGia ? (
+                                    <GiaKhoa value={d.giaBan} nhan={`Giá bán ${ten}`} ghiChu={GIA_BAN_KHOA} />
                                 ) : (
                                     <OTien
                                         cot="giaBan"

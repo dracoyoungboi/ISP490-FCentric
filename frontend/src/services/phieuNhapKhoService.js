@@ -14,6 +14,19 @@ export const phieuNhapKhoService = {
         return res.data;
     },
     /**
+     * Số tem theo phiếu đã hoàn tất: số lượng thực nhận của từng biến thể, kèm thông tin in tem
+     * (tên, màu, kích cỡ, mã vạch, giá, tồn). Phiếu chưa hoàn tất: máy chủ báo lỗi.
+     */
+    async soLuongInTem(id) {
+        const res = await apiClient.get(`/api/v1/phieu-nhap-kho/${id}/so-luong-in-tem`);
+        return res.data?.data ?? [];
+    },
+    /** Phiếu nhập đã hoàn tất mới nhất (hộp "In tem theo phiếu nhập"): mã, ngày, kho, nhà cung cấp, số SKU, số sản phẩm. */
+    async phieuDaHoanTatInTem({ size = 20, signal } = {}) {
+        const res = await apiClient.get("/api/v1/phieu-nhap-kho/in-tem/da-hoan-tat", { params: { size }, signal });
+        return res.data?.data ?? [];
+    },
+    /**
      * Các phiếu nhập (chưa hủy) của một đơn mua hàng, kèm chi tiết từng phiếu để dựng bảng "các đợt nhận"
      * ở màn Chi tiết đơn mua hàng. Mỗi phiếu gọi `/detail` một lần (đơn thường chỉ có vài phiếu).
      * Kết quả: chi tiết phiếu + `ngayTao` lấy từ danh sách (chi tiết không trả trường này).

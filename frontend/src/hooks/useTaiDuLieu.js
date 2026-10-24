@@ -15,6 +15,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * - `capNhatLuc`: thời điểm (Date) của lần tải thành công gần nhất.
  * - `loiTaiLai`: lần tải gần nhất lỗi nhưng `data` đang giữ vẫn đúng `khoa` hiện tại (lỗi khi tải lại,
  *   không phải khi đổi bộ lọc) — trang có thể giữ bảng cũ thay vì thay bằng ô báo lỗi.
+ * - `dungKhoa`: `data` đang giữ là của đúng `khoa` hiện tại — đang `loading` mà `dungKhoa` là tải lại ngầm
+ *   (cùng bộ lọc), trang không cần thay bảng / ô trống bằng ô "Đang tải".
  */
 // Khóa của dữ liệu khi chưa tải được lần nào: không trùng với bất kỳ `khoa` nào trang truyền vào (kể cả null)
 const CHUA_CO_DU_LIEU = Symbol("chuaCoDuLieu");
@@ -105,6 +107,7 @@ export default function useTaiDuLieu(tai, khoa = "", { enabled: batVao = true } 
     initialLoading: loading && ketQua.data === undefined,
     capNhatLuc: ketQua.luc,
     loiTaiLai: !loading && Boolean(ketQua.error) && ketQua.khoaDuLieu === khoa,
+    dungKhoa: ketQua.khoaDuLieu === khoa,
     reload,
     setData,
   };

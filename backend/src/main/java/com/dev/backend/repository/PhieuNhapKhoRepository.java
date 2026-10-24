@@ -38,4 +38,24 @@ FROM PhieuNhapKho p
 WHERE DATE(p.ngayNhap) = CURRENT_DATE
 """)
     Long countImportToday();
+
+    /**
+     * Phiếu nhập ở trạng thái {@code trangThai} (hoàn tất) mới nhất, cho hộp "In tem theo phiếu nhập":
+     * [id, số phiếu, ngày nhập, tên kho, tên nhà cung cấp, số SKU thực nhận, tổng số lượng thực nhận].
+     * Số thực nhận lấy ở các dòng có lô còn số (số đạt kiểm đếm đã vào tồn); phiếu không có lô (dữ liệu cũ) ra 0, service tính
+     * lại từ dòng dự kiến. {@code khoIds} không được rỗng (truyền [-1]).
+     */
+    @Query("""
+            SELECT p.id, p.soPhieuNhap, p.ngayNhap, k.tenKho, ncc.tenNhaCungCap,
+                   COUNT(DISTINCT ct.bienTheSanPham.id), COALESCE(SUM(ct.soLuongNhap), 0)
+            FROM PhieuNhapKho p JOIN p.kho k LEFT JOIN p.nhaCungCap ncc
+            LEFT JOIN ChiTietPhieuNhapKho ct ON ct.phieuNhapKho = p AND ct.loHang IS NOT NULL AND ct.soLuongNhap > 0
+            WHERE p.trangThai = :trangThai AND (:tatCaKho = true OR k.id IN :khoIds)
+            GROUP BY p.id, p.soPhieuNhap, p.ngayNhap, k.tenKho, ncc.tenNhaCungCap
+            ORDER BY p.ngayNhap DESC, p.id DESC
+            """)
+    java.util.List<Object[]> phieuDaHoanTatInTem(@Param("trangThai") Integer trangThai,
+                                                 @Param("tatCaKho") boolean tatCaKho,
+                                                 @Param("khoIds") java.util.Collection<Integer> khoIds,
+                                                 org.springframework.data.domain.Pageable pageable);
 }

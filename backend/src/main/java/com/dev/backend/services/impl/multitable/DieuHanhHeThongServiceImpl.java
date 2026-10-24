@@ -29,6 +29,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.dev.backend.utils.MaVachSku;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -342,6 +343,21 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
     /** Tiền tố mã lô gợi ý khi khóa lô ở màn kiểm đếm: tiền tố-số phiếu-thứ tự, VD LO-PN202610201-01. */
     public static final String CAU_HINH_MA_LO_TIEN_TO = "MA_LO_TIEN_TO";
     public static final String MA_LO_TIEN_TO_MAC_DINH = "LO";
+    /**
+     * Tiền tố mã vạch SKU tự tạo (biến thể mới để trống mã vạch): tiền tố + id biến thể đệm 0 đủ 10 chữ số, VD 2000000150
+     * (utils/MaVachSku). 2 chữ số; vùng 20–29 là vùng GS1 dành cho dùng nội bộ. Đổi tiền tố chỉ áp dụng cho mã sinh sau đó.
+     */
+    public static final String CAU_HINH_MA_VACH_TIEN_TO = "MA_VACH_TIEN_TO";
+    /** Khổ tem sản phẩm đang dùng; khớp danh sách khổ dựng sẵn ở frontend (components/print/paperStyles.js · KHO_TEM). */
+    public static final String CAU_HINH_TEM_KHO_MAC_DINH = "TEM_KHO_MAC_DINH";
+    public static final String TEM_KHO_MAC_DINH = "35x22";
+    public static final java.util.Set<String> TEM_KHO_HOP_LE = java.util.Set.of("35x22", "50x30");
+    public static final String CAU_HINH_TEM_IN_TEN_CUA_HANG = "TEM_IN_TEN_CUA_HANG";
+    public static final String CAU_HINH_TEM_IN_SKU = "TEM_IN_SKU";
+    /** Số tem tối đa của một lần in không cần bấm xác nhận lần nữa. */
+    public static final String CAU_HINH_TEM_NGUONG_XAC_NHAN = "TEM_NGUONG_XAC_NHAN";
+    public static final int TEM_NGUONG_XAC_NHAN_MAC_DINH = 200;
+    public static final int TEM_NGUONG_XAC_NHAN_TOI_DA = 9999;
 
     @EventListener(ApplicationReadyEvent.class)
     @Transactional(rollbackFor = Exception.class)
@@ -353,6 +369,12 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
         seedIfMissing(CAU_HINH_MA_KHACH_HANG_TIEN_TO, MA_KHACH_HANG_TIEN_TO_MAC_DINH, KieuDuLieuCauHinh.STRING, "Tiền tố mã khách hàng tự tạo");
         seedIfMissing(CAU_HINH_KIEM_DEM_XAC_NHAN, KIEM_DEM_QUET_TIEP_LA_DAT, KieuDuLieuCauHinh.STRING, "Cách xác nhận chất lượng khi kiểm đếm hàng nhập");
         seedIfMissing(CAU_HINH_MA_LO_TIEN_TO, MA_LO_TIEN_TO_MAC_DINH, KieuDuLieuCauHinh.STRING, "Tiền tố mã lô gợi ý khi khóa lô");
+        seedIfMissing(CAU_HINH_MA_VACH_TIEN_TO, MaVachSku.TIEN_TO_MAC_DINH, KieuDuLieuCauHinh.STRING, MaVachSku.MO_TA_TIEN_TO);
+        seedIfMissing(CAU_HINH_TEM_KHO_MAC_DINH, TEM_KHO_MAC_DINH, KieuDuLieuCauHinh.STRING, "Khổ tem sản phẩm đang dùng");
+        seedIfMissing(CAU_HINH_TEM_IN_TEN_CUA_HANG, "false", KieuDuLieuCauHinh.BOOLEAN, "In tên cửa hàng trên tem sản phẩm");
+        seedIfMissing(CAU_HINH_TEM_IN_SKU, "false", KieuDuLieuCauHinh.BOOLEAN, "In mã SKU trên tem sản phẩm");
+        seedIfMissing(CAU_HINH_TEM_NGUONG_XAC_NHAN, String.valueOf(TEM_NGUONG_XAC_NHAN_MAC_DINH), KieuDuLieuCauHinh.INT,
+                "Số tem tối đa in không cần xác nhận");
     }
 
     private void seedIfMissing(String maCauHinh, String defaultValue, KieuDuLieuCauHinh kieuDuLieu, String moTa) {
@@ -535,6 +557,19 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
         } else if (CAU_HINH_KIEM_DEM_XAC_NHAN.equals(maCauHinh)) {
             if (!KIEM_DEM_QUET_TIEP_LA_DAT.equals(giaTri) && !KIEM_DEM_QUET_THE_TUNG_CAI.equals(giaTri)) {
                 throw new CommonException("Cách xác nhận chất lượng khi kiểm đếm không hợp lệ. Chọn \"Quét tiếp là Đạt\" hoặc \"Quét thẻ cho từng cái\".");
+            }
+        } else if (CAU_HINH_MA_VACH_TIEN_TO.equals(maCauHinh)) {
+            if (!MaVachSku.laTienToHopLe(giaTri)) {
+                throw new CommonException("Tiền tố mã vạch gồm đúng 2 chữ số (nên dùng 20–29, vùng dành cho mã nội bộ)");
+            }
+        } else if (CAU_HINH_TEM_KHO_MAC_DINH.equals(maCauHinh)) {
+            if (giaTri == null || !TEM_KHO_HOP_LE.contains(giaTri)) {
+                throw new CommonException("Khổ tem không hợp lệ. Chọn tem 35 × 22 mm hoặc 50 × 30 mm.");
+            }
+        } else if (CAU_HINH_TEM_NGUONG_XAC_NHAN.equals(maCauHinh)) {
+            int val = Integer.parseInt(giaTri);
+            if (val < 1 || val > TEM_NGUONG_XAC_NHAN_TOI_DA) {
+                throw new CommonException("Ngưỡng hỏi xác nhận khi in tem phải từ 1 đến 9.999 tem");
             }
         }
     }

@@ -24,6 +24,7 @@ import * as yup from "yup";
 import FormSection from "@/components/shared/FormSection";
 import { flattenCategoryTree } from "@/utils/danhMucTree";
 import { formatCurrency } from "@/utils/formatters";
+import { ROLES, hasAnyRole } from "@/utils/roles";
 import TrinhTaoBienThe from "./TrinhTaoBienThe";
 import KhuAnhSanPham from "./KhuAnhSanPham";
 import HopHoiBoThayDoi from "./HopHoiBoThayDoi";
@@ -220,7 +221,8 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                     .map(anhTuMayChu);
                 setAnhSanPhams(anhs);
                 setChuKyAnhGoc(chuKyAnh(anhs));
-                dispatchBienThe({ type: "khoiTaoSua", dsBienThe: sp.bienTheSanPhams || [] });
+                // Chỉ quản trị viên đổi giá bán biến thể đã lưu (máy chủ chặn người khác bằng 403)
+                dispatchBienThe({ type: "khoiTaoSua", dsBienThe: sp.bienTheSanPhams || [], duocDoiGiaBan: hasAnyRole([ROLES.QUAN_TRI_VIEN]) });
                 setSanPham(sp);
             } catch (error) {
                 if (lan !== lanTaiRef.current) return;

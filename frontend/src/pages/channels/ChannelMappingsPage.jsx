@@ -25,6 +25,7 @@ import SyncLogDetailSheet from "@/components/channel/SyncLogDetailSheet";
 import GhepBienThe from "@/components/channel/GhepBienThe";
 import { AnhSanPham } from "@/components/channel/HienThiKenh";
 import StatusBadge from "@/components/shared/StatusBadge";
+import ToKhop from "@/components/shared/ToKhop";
 import { SWITCH_CLASS } from "@/components/channel/SettingsCard";
 import { NUT_CHINH, NUT_PHU } from "@/components/channel/BottomActionBar";
 import { daKetNoi, trangThaiKetNoi } from "@/components/channel/ketNoiKenh";
@@ -124,20 +125,6 @@ function OTonDaDay({ dong, seDay, vuaBat = false, gioNhom = null }) {
         <span className="text-[12px] tabular-nums text-slate-400">{gio}</span>
       ) : null}
     </div>
-  );
-}
-
-/** Tô phần khớp từ khóa tìm kiếm (không phân biệt hoa thường); không khớp thì trả nguyên chữ. */
-function ToKhop({ text, tu }) {
-  const chu = text ?? "";
-  const vt = tu ? chu.toLocaleLowerCase("vi").indexOf(tu.toLocaleLowerCase("vi")) : -1;
-  if (vt < 0) return chu;
-  return (
-    <>
-      {chu.slice(0, vt)}
-      <mark className="rounded-sm bg-amber-100 px-px text-inherit">{chu.slice(vt, vt + tu.length)}</mark>
-      {chu.slice(vt + tu.length)}
-    </>
   );
 }
 

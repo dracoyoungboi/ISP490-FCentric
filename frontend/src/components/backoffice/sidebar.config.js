@@ -78,10 +78,15 @@ export const SIDEBAR_MENU = [
     children: [
       { label: "Danh mục", to: "/categories" },
       { label: "Thuộc tính", to: "/attributes" },
-      { label: "Sản phẩm", to: "/products" },
       {
-        label: "Biến thể SKU & giá",
-        to: "/sku-builder",
+        label: "Sản phẩm",
+        to: "/products",
+        // /products/gia-ban-tem thuộc mục "Giá bán & tem mã vạch"
+        match: (path) => path === "/products" || (path.startsWith("/products/") && !path.startsWith("/products/gia-ban-tem")),
+      },
+      {
+        label: "Giá bán & tem mã vạch",
+        to: "/products/gia-ban-tem",
         roles: ["quan_tri_vien", "quan_ly_kho"],
       },
     ],

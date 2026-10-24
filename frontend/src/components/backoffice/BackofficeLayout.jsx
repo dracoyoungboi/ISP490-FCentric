@@ -71,9 +71,9 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             title: "Sản phẩm",
         },
         {
-            key: "SKU_BUILDER",
-            match: (path) => path === "/sku-builder",
-            title: "Biến thể SKU & giá",
+            key: "GIA_BAN_TEM",
+            match: (path) => path === "/products/gia-ban-tem",
+            title: "Giá bán & tem mã vạch",
         },
         {
             key: "SUPPLIERS",

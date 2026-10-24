@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.Generated;
 import org.hibernate.generator.EventType;
 
@@ -20,6 +21,9 @@ import java.time.Instant;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Entity
 @Table(name = "bien_the_san_pham")
+// UPDATE chỉ ghi cột đã đổi: giao dịch hoàn tất phiếu nhập/xuất (tính lại giá vốn) chạy song song với lần đổi giá bán
+// không ghi đè gia_ban vừa lưu bằng giá cũ đã nạp từ đầu giao dịch
+@DynamicUpdate
 public class BienTheSanPham {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

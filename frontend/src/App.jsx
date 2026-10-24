@@ -23,7 +23,7 @@ import PhieuXuatKhoList from "./pages/issue/PhieuXuatKhoList.jsx";
 import PurchaseOrderDetail from "./pages/order/PurchaseOrderDetail.jsx";
 import PurchaseOrder from "./pages/order/PurchaseOrder.jsx";
 import GuiBaoGiaCuRedirect from "./pages/order/GuiBaoGiaCuRedirect.jsx";
-import SkuBuilder from "./pages/product/SkuBuilder";
+import GiaBanTemPage from "./pages/product/GiaBanTemPage";
 import PhieuXuatKhoCreate from "./pages/issue/PhieuXuatKhoCreate.jsx";
 import PhieuXuatKhoDetail from "./pages/issue/PhieuXuatKhoDetail.jsx";
 import PhieuXuatKhoView from "./pages/issue/PhieuXuatKhoView.jsx";
@@ -162,7 +162,12 @@ export default function App() {
 
           {/* Product */}
           <Route path="/products" element={<ProductList />} />
-          <Route path="/sku-builder" element={<SkuBuilder />} />
+          {/* Giá bán & tem mã vạch: API danh sách cho quản trị viên và quản lý kho (đổi giá chỉ quản trị viên) */}
+          <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />}>
+            <Route path="/products/gia-ban-tem" element={<GiaBanTemPage />} />
+          </Route>
+          {/* Legacy: màn "Biến thể SKU & giá" cũ */}
+          <Route path="/sku-builder" element={<Navigate to="/products/gia-ban-tem" replace />} />
           <Route path="/categories" element={<DanhMucQuanAoTree />} />
           {/* Legacy: URL tiếng Việt cũ chuyển hướng sang URL mới, giữ bookmark không bị hỏng */}
           <Route path="/danh-muc-quan-ao" element={<Navigate to="/categories" replace />} />
@@ -271,6 +276,7 @@ export default function App() {
               Frontend chặn chỉ là UX — backend @RequireAuth mới là chốt chặn thật. */}
           <Route element={<RequireRole roles={SETTINGS_ROLES} />}>
             <Route path="/settings" element={<SettingsLayout />}>
+              <Route path="product" element={<OperationsSettingsPage key="product" part="product" />} />
               <Route path="stock" element={<OperationsSettingsPage key="stock" part="stock" />} />
               <Route path="sync" element={<OperationsSettingsPage key="sync" part="sync" />} />
               <Route path="customer" element={<OperationsSettingsPage key="customer" part="customer" />} />

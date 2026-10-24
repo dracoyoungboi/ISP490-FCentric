@@ -74,6 +74,8 @@ class SanPhamQuanAoServiceCapNhatTest {
     @Mock private TepTinService tepTinService;
     @Mock private MinioService minioService;
     @Mock private SanPhamQuanAoMapper sanPhamQuanAoMapper;
+    @Mock private GiaBanBienTheService giaBanBienTheService;
+    @Mock private com.dev.backend.services.multitable.DieuHanhHeThongService dieuHanhHeThongService;
 
     private SanPhamQuanAoService service;
     private SanPhamQuanAo sanPham;
@@ -103,9 +105,12 @@ class SanPhamQuanAoServiceCapNhatTest {
         phuThuoc.put("tepTinService", tepTinService);
         phuThuoc.put("minioService", minioService);
         phuThuoc.put("sanPhamQuanAoMapper", sanPhamQuanAoMapper);
+        phuThuoc.put("giaBanBienTheService", giaBanBienTheService);
+        phuThuoc.put("dieuHanhHeThongService", dieuHanhHeThongService);
         phuThuoc.forEach((ten, giaTri) -> ReflectionTestUtils.setField(service, ten, giaTri));
 
-        SecurityContextHolder.setUser(NguoiDungAuthInfo.builder().id(7).build());
+        // Quản trị viên: form Sửa chỉ cho quản trị viên đổi giá bán (quản lý kho đổi giá → 403)
+        SecurityContextHolder.setUser(NguoiDungAuthInfo.builder().id(7).vaiTro(Set.of(com.dev.backend.constant.variables.IRoleType.quan_tri_vien)).build());
         when(nguoiDungService.getOne(7)).thenReturn(Optional.of(NguoiDung.builder().id(7).build()));
         when(danhMucQuanAoService.getOne(28)).thenReturn(Optional.of(DanhMucQuanAo.builder().id(28).build()));
         when(mauSacService.getOne(MAU_DEN)).thenReturn(Optional.of(den));

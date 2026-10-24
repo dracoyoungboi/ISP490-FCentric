@@ -4,7 +4,10 @@
  * Trạng thái là bản mở rộng của trạng thái chế độ thêm (logicBienThe.js) nên dùng chung giao diện:
  * - Biến thể đã lưu nằm trong `bienTheCu` (tra theo id). Màu và kích cỡ của chúng bị khóa: không bỏ chọn được.
  * - Chọn thêm màu hoặc kích cỡ thì chỉ sinh tổ hợp còn thiếu (dòng "mới"), giống chế độ thêm.
- * - Biến thể còn tồn kho: giá do hệ thống tính theo lô nhập nên không sửa được (`conTonKho`).
+ * - Biến thể còn tồn kho: giá vốn do hệ thống tính theo lô nhập nên không sửa được (`conTonKho`); giá bán của chúng
+ *   đổi ở màn Giá bán & tem mã vạch.
+ * - Người không phải quản trị viên không đổi được giá bán biến thể đã lưu (`khoaGiaBanCu`, máy chủ trả 403).
+ * - Chỉ gửi giá người dùng đã sửa: form mở lâu không ghi đè giá vừa đổi ở màn Giá bán / giá vốn vừa tính lại.
  * - Biến thể chưa phát sinh giao dịch đổi được màu/kích cỡ (backend kiểm tra lại khi lưu).
  *
  * File này không phụ thuộc React để dễ kiểm thử.
@@ -23,8 +26,8 @@ const themNeuChuaCo = (ds, id) => (ds.includes(id) ? ds : [...ds, id]);
  * Ô trống trong lưới (màu × kích cỡ đang có nhưng chưa có biến thể) mặc định KHÔNG tạo,
  * để mở form rồi lưu không vô tình sinh thêm biến thể.
  */
-export function khoiTaoSuaBienThe(dsBienThe = []) {
-    const state = { ...trangThaiBanDau(), cheDo: "sua", bienTheCu: {}, thuTuCu: [], anhMauCu: {} };
+export function khoiTaoSuaBienThe(dsBienThe = [], { duocDoiGiaBan = true } = {}) {
+    const state = { ...trangThaiBanDau(), cheDo: "sua", bienTheCu: {}, thuTuCu: [], anhMauCu: {}, khoaGiaBanCu: !duocDoiGiaBan };
     const daDung = new Set();
     for (const bt of dsBienThe) {
         const mauSacId = bt.mauSac?.id ?? null;
@@ -69,7 +72,10 @@ const dsCu = (state) => state.thuTuCu.map((id) => state.bienTheCu[id]).filter(Bo
 export const mauBiKhoa = (state) => [...new Set(dsCu(state).map((b) => b.mauSacId))];
 export const kichCoBiKhoa = (state) => [...new Set(dsCu(state).map((b) => b.sizeId))];
 
-/** Ghi giá vào các biến thể đã lưu (bỏ qua biến thể còn tồn kho); ô giá để trống thì giữ giá cũ. */
+/**
+ * Ghi giá vào các biến thể đã lưu (bỏ qua biến thể còn tồn kho); ô giá để trống thì giữ giá cũ. Không được đổi giá
+ * bán (`khoaGiaBanCu`) thì chỉ ghi giá vốn.
+ */
 function ganGiaCu(state, chon, { giaVon, giaBan }) {
     let bienTheCu = state.bienTheCu;
     for (const b of dsCu(state)) {
@@ -77,7 +83,7 @@ function ganGiaCu(state, chon, { giaVon, giaBan }) {
         const moi = {
             ...b,
             ...(giaVon !== "" && giaVon != null ? { giaVon } : {}),
-            ...(giaBan !== "" && giaBan != null ? { giaBan } : {}),
+            ...(giaBan !== "" && giaBan != null && !state.khoaGiaBanCu ? { giaBan } : {}),
         };
         if (moi.giaVon === b.giaVon && moi.giaBan === b.giaBan) continue;
         if (bienTheCu === state.bienTheCu) bienTheCu = { ...bienTheCu };
@@ -132,9 +138,9 @@ function chanTuSinhDong(state, mauMoi, kichCoMoi) {
 export function suaBienTheReducer(state, action) {
     switch (action.type) {
         case "khoiTaoSua":
-            return khoiTaoSuaBienThe(action.dsBienThe);
+            return khoiTaoSuaBienThe(action.dsBienThe, { duocDoiGiaBan: action.duocDoiGiaBan !== false });
         case "datLai":
-            return khoiTaoSuaBienThe([]);
+            return khoiTaoSuaBienThe([], { duocDoiGiaBan: !state.khoaGiaBanCu });
         case "batTatMau":
             return mauBiKhoa(state).includes(action.mauSacId) ? state : bienTheReducer(state, action);
         case "boChonTatCaMau": {
@@ -148,7 +154,7 @@ export function suaBienTheReducer(state, action) {
         case "suaGia": {
             if (!laKhoaCu(action.khoa)) return bienTheReducer(state, action);
             const b = state.bienTheCu[idTuKhoa(action.khoa)];
-            if (!b || b.conTonKho) return state;
+            if (!b || b.conTonKho || (action.truong === "giaBan" && state.khoaGiaBanCu)) return state;
             return { ...state, bienTheCu: { ...state.bienTheCu, [b.id]: { ...b, [action.truong]: action.giaTri } } };
         }
         case "apDungGiaMau": {
@@ -188,7 +194,7 @@ export function suaBienTheReducer(state, action) {
 
 /**
  * Bảng biến thể nhóm theo màu: dòng đã lưu + dòng mới cho tổ hợp còn trống, sắp theo thứ tự kích cỡ.
- * Dòng đã lưu: { khoa: "id:12", loai: "cu", id, trangThai, khoaGia, maSku, doiDuoc, daDoi, ... }.
+ * Dòng đã lưu: { khoa: "id:12", loai: "cu", id, trangThai, khoaGia, khoaGiaBan, maSku, doiDuoc, daDoi, ... }.
  * Dòng mới: { khoa: "25-18", loai: "moi", tao, ... } giống chế độ thêm.
  */
 export function tinhNhomSua(state, kichCoTheoThuTu) {
@@ -209,6 +215,7 @@ export function tinhNhomSua(state, kichCoTheoThuTu) {
                 giaVon: b.giaVon,
                 giaBan: b.giaBan,
                 khoaGia: b.conTonKho,
+                khoaGiaBan: b.conTonKho || Boolean(state.khoaGiaBanCu),
                 maSku: b.maSku,
                 doiDuoc: !b.daPhatSinhGiaoDich,
                 daDoi: b.mauSacId !== b.goc.mauSacId || b.sizeId !== b.goc.sizeId,
@@ -291,12 +298,15 @@ export function taoDuLieuGuiSua(state, nhom, chatLieuMoiId) {
         return viTri;
     };
     const so = (giaTri) => (giaTri === "" ? 0 : giaTri);
+    // Biến thể đã lưu: giá không sửa trong form thì gửi null (máy chủ giữ giá đang lưu), để form mở từ trước không
+    // đưa giá bán vừa đổi ở màn Giá bán / giá vốn vừa tính lại theo lô về số cũ lúc mở form
+    const giaNeuDaSua = (giaTri, goc) => (giaTri === goc ? null : so(giaTri));
     const bienTheSanPhams = dsCu(state).map((b) => ({
         id: b.id,
         mauSacId: b.mauSacId,
         sizeId: b.sizeId,
-        giaVon: so(b.giaVon),
-        giaBan: so(b.giaBan),
+        giaVon: giaNeuDaSua(b.giaVon, b.goc.giaVon),
+        giaBan: giaNeuDaSua(b.giaBan, b.goc.giaBan),
         trangThai: b.trangThai,
         viTriAnh: viTriAnhCuaMau(b.mauSacId),
     }));

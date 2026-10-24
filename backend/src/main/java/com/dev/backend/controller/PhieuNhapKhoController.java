@@ -8,7 +8,9 @@ import com.dev.backend.dto.request.BaseFilterRequest;
 import com.dev.backend.dto.request.KhaiBaoLoRequest;
 import com.dev.backend.dto.request.PhieuNhapKhoCreating;
 import com.dev.backend.dto.response.ResponseData;
+import com.dev.backend.dto.response.customize.DongInTemDto;
 import com.dev.backend.dto.response.customize.LoHangKhaiBaoDto;
+import com.dev.backend.dto.response.customize.PhieuNhapInTemDto;
 import com.dev.backend.dto.response.entities.ChiTietPhieuNhapKhoDto;
 import com.dev.backend.dto.response.entities.PhieuNhapKhoDto;
 import com.dev.backend.entities.PhieuNhapKho;
@@ -63,6 +65,40 @@ public class PhieuNhapKhoController {
     )
     public ChiTietPhieuNhapKhoDto getDetail(@PathVariable Integer id) {
         return phieuNhapKhoService.getDetail(id);
+    }
+
+    /**
+     * Số tem theo phiếu đã hoàn tất: số lượng thực nhận (đạt kiểm đếm) của từng biến thể, kèm thông tin in tem
+     * (tên, màu, kích cỡ, mã vạch, giá bán, tồn). Phiếu chưa hoàn tất trả lỗi.
+     */
+    @GetMapping("/{id}/so-luong-in-tem")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
+            inWarehouse = true,
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<ResponseData<List<DongInTemDto>>> soLuongInTem(@PathVariable Integer id) {
+        return ResponseEntity.ok(ResponseData.<List<DongInTemDto>>builder()
+                .status(HttpStatus.OK.value())
+                .data(phieuNhapKhoService.soLuongInTem(id))
+                .message("Success")
+                .build());
+    }
+
+    /** Phiếu nhập đã hoàn tất mới nhất cho hộp "In tem theo phiếu nhập" (kho người dùng xem được). */
+    @GetMapping("/in-tem/da-hoan-tat")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
+            inWarehouse = true,
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<ResponseData<List<PhieuNhapInTemDto>>> phieuDaHoanTatInTem(
+            @RequestParam(value = "size", required = false) Integer size) {
+        return ResponseEntity.ok(ResponseData.<List<PhieuNhapInTemDto>>builder()
+                .status(HttpStatus.OK.value())
+                .data(phieuNhapKhoService.phieuDaHoanTatInTem(size))
+                .message("Success")
+                .build());
     }
 
     @PutMapping("/{id}/complete")
