@@ -54,9 +54,13 @@ public class LazadaClient {
         if (appKey == null || appKey.isBlank()) {
             throw new IllegalArgumentException("App Key không được để trống");
         }
-        String encodedUri = redirectUri != null ? URLEncoder.encode(redirectUri, StandardCharsets.UTF_8) : "";
-        return String.format("%s?response_type=code&force_auth=true&redirect_uri=%s&client_id=%s",
-                OAUTH_AUTHORIZE_URL, encodedUri, appKey.trim());
+        if (redirectUri != null && !redirectUri.isBlank()) {
+            String encodedUri = URLEncoder.encode(redirectUri, StandardCharsets.UTF_8);
+            return String.format("%s?response_type=code&force_auth=true&redirect_uri=%s&client_id=%s",
+                    OAUTH_AUTHORIZE_URL, encodedUri, appKey.trim());
+        }
+        return String.format("%s?response_type=code&force_auth=true&client_id=%s",
+                OAUTH_AUTHORIZE_URL, appKey.trim());
     }
 
     /**
@@ -273,3 +277,4 @@ public class LazadaClient {
         }
     }
 }
+

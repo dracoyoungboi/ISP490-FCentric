@@ -42,7 +42,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 @Component
 @Slf4j
-@RequiredArgsConstructor
+
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class OmnichannelOrderSyncJob {
 
@@ -67,6 +67,55 @@ public class OmnichannelOrderSyncJob {
     AtomicReference<Instant> lastSyncTime = new AtomicReference<>(Instant.EPOCH);
     // Lần gọi API đơn hàng của sàn thành công gần nhất, theo id kênh (màn Theo dõi đồng bộ)
     Map<Integer, Instant> lanLayDonCuoi = new ConcurrentHashMap<>();
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public OmnichannelOrderSyncJob(
+            KenhBanHangRepository kenhBanHangRepository,
+            DonBanHangRepository donBanHangRepository,
+            ChiTietDonBanHangRepository chiTietDonBanHangRepository,
+            KhachHangRepository khachHangRepository,
+            BienTheSanPhamRepository bienTheSanPhamRepository,
+            TrangThaiDongBoSanPhamRepository trangThaiDongBoSanPhamRepository,
+            KenhBanHangService kenhBanHangService,
+            KhoRepository khoRepository,
+            NhatHangService nhatHangService,
+            PhieuXuatKhoRepository phieuXuatKhoRepository,
+            DieuHanhHeThongService dieuHanhHeThongService,
+            DonBanHangService donBanHangService,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) LazadaClient lazadaClient) {
+        this.kenhBanHangRepository = kenhBanHangRepository;
+        this.donBanHangRepository = donBanHangRepository;
+        this.chiTietDonBanHangRepository = chiTietDonBanHangRepository;
+        this.khachHangRepository = khachHangRepository;
+        this.bienTheSanPhamRepository = bienTheSanPhamRepository;
+        this.trangThaiDongBoSanPhamRepository = trangThaiDongBoSanPhamRepository;
+        this.kenhBanHangService = kenhBanHangService;
+        this.khoRepository = khoRepository;
+        this.nhatHangService = nhatHangService;
+        this.phieuXuatKhoRepository = phieuXuatKhoRepository;
+        this.dieuHanhHeThongService = dieuHanhHeThongService;
+        this.donBanHangService = donBanHangService;
+        this.lazadaClient = lazadaClient != null ? lazadaClient : new LazadaClient();
+    }
+
+    public OmnichannelOrderSyncJob(
+            KenhBanHangRepository kenhBanHangRepository,
+            DonBanHangRepository donBanHangRepository,
+            ChiTietDonBanHangRepository chiTietDonBanHangRepository,
+            KhachHangRepository khachHangRepository,
+            BienTheSanPhamRepository bienTheSanPhamRepository,
+            TrangThaiDongBoSanPhamRepository trangThaiDongBoSanPhamRepository,
+            KenhBanHangService kenhBanHangService,
+            KhoRepository khoRepository,
+            NhatHangService nhatHangService,
+            PhieuXuatKhoRepository phieuXuatKhoRepository,
+            DieuHanhHeThongService dieuHanhHeThongService,
+            DonBanHangService donBanHangService) {
+        this(kenhBanHangRepository, donBanHangRepository, chiTietDonBanHangRepository,
+                khachHangRepository, bienTheSanPhamRepository, trangThaiDongBoSanPhamRepository,
+                kenhBanHangService, khoRepository, nhatHangService, phieuXuatKhoRepository,
+                dieuHanhHeThongService, donBanHangService, null);
+    }
 
     /** Chu kỳ quét đơn (phút) theo cấu hình OMNI_SYNC_INTERVAL_MINS, giới hạn 1..1440. */
     public int getChuKyPhut() {

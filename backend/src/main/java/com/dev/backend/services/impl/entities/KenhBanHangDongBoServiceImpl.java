@@ -69,7 +69,7 @@ import java.util.stream.Collectors;
 
 @Service
 @Slf4j
-@RequiredArgsConstructor
+
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
@@ -97,6 +97,61 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     Map<Integer, Instant> lanDayTonCuoi = new java.util.concurrent.ConcurrentHashMap<>();
     // Khóa đẩy tồn theo id kênh: một kênh chỉ một đợt đẩy tồn cùng lúc (trong một máy chủ)
     Map<Integer, ReentrantLock> khoaDayTon = new java.util.concurrent.ConcurrentHashMap<>();
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public KenhBanHangDongBoServiceImpl(
+            KenhBanHangRepository kenhBanHangRepository,
+            TrangThaiDongBoSanPhamRepository trangThaiDongBoSanPhamRepository,
+            BienTheSanPhamRepository bienTheSanPhamRepository,
+            TonKhoTheoLoRepository tonKhoTheoLoRepository,
+            KenhBanHangService kenhBanHangService,
+            LichSuThayDoiService lichSuThayDoiService,
+            NguoiDungRepository nguoiDungRepository,
+            AnhQuanAoRepository anhQuanAoRepository,
+            AnhBienTheRepository anhBienTheRepository,
+            MinioService minioService,
+            KhoRepository khoRepository,
+            TonKhoTongHopRepository tonKhoTongHopRepository,
+            OmnichannelOrderSyncJob omnichannelOrderSyncJob,
+            DieuHanhHeThongService dieuHanhHeThongService,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) LazadaClient lazadaClient) {
+        this.kenhBanHangRepository = kenhBanHangRepository;
+        this.trangThaiDongBoSanPhamRepository = trangThaiDongBoSanPhamRepository;
+        this.bienTheSanPhamRepository = bienTheSanPhamRepository;
+        this.tonKhoTheoLoRepository = tonKhoTheoLoRepository;
+        this.kenhBanHangService = kenhBanHangService;
+        this.lichSuThayDoiService = lichSuThayDoiService;
+        this.nguoiDungRepository = nguoiDungRepository;
+        this.anhQuanAoRepository = anhQuanAoRepository;
+        this.anhBienTheRepository = anhBienTheRepository;
+        this.minioService = minioService;
+        this.khoRepository = khoRepository;
+        this.tonKhoTongHopRepository = tonKhoTongHopRepository;
+        this.omnichannelOrderSyncJob = omnichannelOrderSyncJob;
+        this.dieuHanhHeThongService = dieuHanhHeThongService;
+        this.lazadaClient = lazadaClient != null ? lazadaClient : new LazadaClient();
+    }
+
+    public KenhBanHangDongBoServiceImpl(
+            KenhBanHangRepository kenhBanHangRepository,
+            TrangThaiDongBoSanPhamRepository trangThaiDongBoSanPhamRepository,
+            BienTheSanPhamRepository bienTheSanPhamRepository,
+            TonKhoTheoLoRepository tonKhoTheoLoRepository,
+            KenhBanHangService kenhBanHangService,
+            LichSuThayDoiService lichSuThayDoiService,
+            NguoiDungRepository nguoiDungRepository,
+            AnhQuanAoRepository anhQuanAoRepository,
+            AnhBienTheRepository anhBienTheRepository,
+            MinioService minioService,
+            KhoRepository khoRepository,
+            TonKhoTongHopRepository tonKhoTongHopRepository,
+            OmnichannelOrderSyncJob omnichannelOrderSyncJob,
+            DieuHanhHeThongService dieuHanhHeThongService) {
+        this(kenhBanHangRepository, trangThaiDongBoSanPhamRepository, bienTheSanPhamRepository,
+                tonKhoTheoLoRepository, kenhBanHangService, lichSuThayDoiService, nguoiDungRepository,
+                anhQuanAoRepository, anhBienTheRepository, minioService, khoRepository,
+                tonKhoTongHopRepository, omnichannelOrderSyncJob, dieuHanhHeThongService, null);
+    }
 
     static final String LOI_KENH_DANG_DAY_TON =
             "Kênh đang có một đợt đẩy tồn khác (tự động hoặc người khác bấm), vui lòng thử lại sau ít phút";

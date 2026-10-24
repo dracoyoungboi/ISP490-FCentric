@@ -104,6 +104,11 @@ public interface KenhBanHangService {
     boolean refreshLazadaAccessToken();
 
     /**
+     * Ngắt kết nối Lazada: xóa Access Token, Refresh Token và tắt trạng thái hoạt động.
+     */
+    void xoaKhoaLazada();
+
+    /**
      * Lấy Access Token Lazada đã giải mã phục vụ đồng bộ đơn và tồn kho.
      */
     String getDecryptedLazadaAccessToken();

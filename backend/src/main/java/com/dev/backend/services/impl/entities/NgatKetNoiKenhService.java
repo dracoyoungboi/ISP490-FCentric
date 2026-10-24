@@ -59,8 +59,11 @@ public class NgatKetNoiKenhService {
         return dot != null && DongBoNgayService.DANG_CHAY.equals(dot.getTrangThai());
     }
 
-    private static LoiCoMaException dangDongBo() {
-        return new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.DANG_DONG_BO,
-                "Đang đồng bộ với Shopify. Đợi lượt này xong rồi ngắt kết nối.");
+    private LoiCoMaException dangDongBo() {
+        return new LoiCoMaException(
+                HttpStatus.CONFLICT,
+                MaLoi.DANG_DONG_BO,
+                "Gian hàng đang đồng bộ, không thể ngắt kết nối. Vui lòng thử lại sau ít phút."
+        );
     }
 }

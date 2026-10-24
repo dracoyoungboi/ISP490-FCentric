@@ -44,12 +44,13 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 
 @Service
 @Slf4j
-@RequiredArgsConstructor
+
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class KenhBanHangServiceImpl implements KenhBanHangService {
 
@@ -93,6 +94,11 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     LazadaClient lazadaClient;
+    private LazadaClient getLazadaClient() {
+        if (lazadaClient == null) lazadaClient = new LazadaClient();
+        return lazadaClient;
+    }
+
     @lombok.experimental.NonFinal
     java.util.concurrent.locks.ReentrantLock lazadaTokenRefreshLock = new java.util.concurrent.locks.ReentrantLock();
     ObjectMapper objectMapper = new ObjectMapper();
@@ -194,6 +200,27 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             case "TIKTOK" -> "TikTok Shop";
             default -> maKenh == null || maKenh.isBlank() ? "sàn này" : maKenh.trim();
         };
+    }
+
+            public KenhBanHangServiceImpl(
+            KenhBanHangRepository kenhBanHangRepository,
+            PaymentSecretCipher paymentSecretCipher,
+            LichSuThayDoiService lichSuThayDoiService,
+            NguoiDungRepository nguoiDungRepository,
+            TrangThaiDongBoSanPhamRepository trangThaiDongBoSanPhamRepository) {
+        this.kenhBanHangRepository = kenhBanHangRepository;
+        this.paymentSecretCipher = paymentSecretCipher;
+        this.lichSuThayDoiService = lichSuThayDoiService;
+        this.nguoiDungRepository = nguoiDungRepository;
+        this.trangThaiDongBoSanPhamRepository = trangThaiDongBoSanPhamRepository;
+    }
+
+    public KenhBanHangServiceImpl(
+            KenhBanHangRepository kenhBanHangRepository,
+            PaymentSecretCipher paymentSecretCipher,
+            LichSuThayDoiService lichSuThayDoiService,
+            NguoiDungRepository nguoiDungRepository) {
+        this(kenhBanHangRepository, paymentSecretCipher, lichSuThayDoiService, nguoiDungRepository, null);
     }
 
     @Override
@@ -659,10 +686,55 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         if (MA_KENH_SHOPIFY.equals(ma)) {
             return getShopifyConfig();
         }
-        if (!"LAZADA".equals(ma) && !"TIKTOK".equals(ma)) {
+        if ("LAZADA".equals(ma)) {
+            KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_LAZADA).orElse(null);
+            if (kenh == null) {
+                return ShopifyConfigResponse.builder()
+                        .maKenh(ma)
+                        .tenKenh("Lazada")
+                        .loaiKenh("online")
+                        .kieuKetNoi(KIEU_UY_QUYEN)
+                        .trangThaiKetNoi(CHUA_KET_NOI)
+                        .trangThai(1)
+                        .build();
+            }
+            boolean hasSecret = kenh.getApiSecret() != null && !kenh.getApiSecret().isBlank();
+            boolean hasToken = kenh.getApiKey() != null && !kenh.getApiKey().isBlank();
+            boolean isExpired = hasToken && kenh.getTokenExpiresAt() != null && Instant.now().isAfter(kenh.getTokenExpiresAt());
+            String trangThaiKetNoi = CHUA_KET_NOI;
+            if (hasToken) {
+                trangThaiKetNoi = isExpired ? HET_HAN : (Integer.valueOf(1).equals(kenh.getTrangThai()) ? DANG_HOAT_DONG : "tam_dung");
+            }
+            Long soNgayCon = null;
+            if (kenh.getTokenExpiresAt() != null) {
+                long seconds = Duration.between(Instant.now(), kenh.getTokenExpiresAt()).getSeconds();
+                soNgayCon = Math.max(0L, seconds / 86400L);
+            }
+            String maskedToken = hasToken ? cheKhoa(kenh.getApiKey(), this::maskToken) : null;
+            return ShopifyConfigResponse.builder()
+                    .id(kenh.getId())
+                    .maKenh(ma)
+                    .tenKenh(kenh.getTenKenh() != null ? kenh.getTenKenh() : "Gian hàng Lazada")
+                    .loaiKenh("online")
+                    .appKey(kenh.getClientId())
+                    .hasAppSecret(hasSecret)
+                    .hasAccessToken(hasToken)
+                    .accessTokenMasked(maskedToken)
+                    .tokenExpiresAt(kenh.getTokenExpiresAt())
+                    .hanUyQuyen(kenh.getTokenExpiresAt())
+                    .soNgayConUyQuyen(soNgayCon)
+                    .ngayUyQuyen(kenh.getNgayCapNhat())
+                    .tenGianHang(kenh.getTenKenh())
+                    .shopIdSan(kenh.getApiUrl())
+                    .trangThai(kenh.getTrangThai() != null ? kenh.getTrangThai() : 1)
+                    .kieuKetNoi(KIEU_UY_QUYEN)
+                    .trangThaiKetNoi(trangThaiKetNoi)
+                    .ngayCapNhat(kenh.getNgayCapNhat())
+                    .build();
+        }
+        if (!"TIKTOK".equals(ma)) {
             throw sanKhongHoTro(ma);
         }
-        // Máy chủ chưa hỗ trợ ủy quyền Lazada / TikTok Shop: luôn "chưa kết nối", như giao diện tự dựng khi API chưa có
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
         return ShopifyConfigResponse.builder()
                 .id(kenh != null ? kenh.getId() : null)
@@ -848,6 +920,12 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         }
     }
 
+    private void ghiLichSuThayDoi(KenhBanHang kenh, String giaTriMoi) {
+        if (kenh != null) {
+            ghiLichSuThayDoi(kenh.getId(), giaTriMoi, GHI_CHU_MA_HOA);
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════════════
     // LAZADA OPEN PLATFORM INTEGRATION
     // ═══════════════════════════════════════════════════════════════════
@@ -973,7 +1051,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 ? request.getAccessToken().trim()
                 : getDecryptedLazadaAccessToken();
 
-        return lazadaClient.testConnection(appKey, appSecret, accessToken);
+        return getLazadaClient().testConnection(appKey, appSecret, accessToken);
     }
 
     @Override
@@ -982,7 +1060,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         if (appKey == null || appKey.isBlank()) {
             throw new CommonException("Chưa cấu hình App Key cho kênh Lazada", HttpStatus.BAD_REQUEST, null);
         }
-        return lazadaClient.generateAuthUrl(appKey, redirectUri);
+        return getLazadaClient().generateAuthUrl(appKey, redirectUri);
     }
 
     @Override
@@ -1008,7 +1086,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         }
 
         try {
-            JsonNode res = lazadaClient.exchangeToken(appKey, appSecret, request.getCode());
+            JsonNode res = getLazadaClient().exchangeToken(appKey, appSecret, request.getCode());
             String accessToken = res.path("access_token").asText(null);
             String refreshToken = res.path("refresh_token").asText(null);
             long expiresIn = res.path("expires_in").asLong(2592000L); // 30 ngày mặc định
@@ -1018,6 +1096,16 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 throw new CommonException("Lỗi xác thực OAuth2 Lazada: " + errorMsg, HttpStatus.BAD_REQUEST, null);
             }
 
+            String account = res.path("account").asText(null);
+            String sellerId = res.path("country_user_info").path(0).path("seller_id").asText(null);
+            if (sellerId == null || sellerId.isBlank()) {
+                sellerId = res.path("seller_id").asText(null);
+            }
+            if (sellerId != null && !sellerId.isBlank()) {
+                kenh.setApiUrl(sellerId);
+            } else if (account != null && !account.isBlank()) {
+                kenh.setApiUrl(account);
+            }
             kenh.setApiKey(paymentSecretCipher.encrypt(accessToken));
             if (refreshToken != null && !refreshToken.isBlank()) {
                 kenh.setRefreshToken(paymentSecretCipher.encrypt(refreshToken));
@@ -1034,6 +1122,21 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         } catch (Exception e) {
             log.error("Lỗi khi trao đổi token OAuth Lazada: {}", e.getMessage());
             throw new CommonException("Không thể hoàn tất ủy quyền Lazada: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, null);
+        }
+    }
+
+    @Override
+        @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void xoaKhoaLazada() {
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_LAZADA).orElse(null);
+        if (kenh != null) {
+            kenh.setApiKey(null);
+            kenh.setRefreshToken(null);
+            kenh.setTokenExpiresAt(null);
+            kenh.setTrangThai(0);
+            kenhBanHangRepository.save(kenh);
+            ghiLichSuThayDoi(kenh, "Ngắt kết nối gian hàng Lazada (xóa Access Token)");
         }
     }
 
@@ -1056,7 +1159,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 return false;
             }
 
-            JsonNode res = lazadaClient.refreshToken(appKey, appSecret, decryptedRefresh);
+            JsonNode res = getLazadaClient().refreshToken(appKey, appSecret, decryptedRefresh);
             String newAccessToken = res.path("access_token").asText(null);
             String newRefreshToken = res.path("refresh_token").asText(null);
             long expiresIn = res.path("expires_in").asLong(2592000L);
