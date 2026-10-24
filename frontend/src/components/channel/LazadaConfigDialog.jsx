@@ -88,3 +88,4 @@ export default function LazadaConfigDialog({ open, onOpenChange, config, onSaved
     </Dialog>
   );
 }
+

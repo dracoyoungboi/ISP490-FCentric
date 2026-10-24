@@ -122,40 +122,154 @@ public class KenhBanHangController {
 
     @PutMapping("/{maKenh}/ket-noi/khoa")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
-    @Operation(summary = "Lưu khóa kết nối (hiện chỉ Shopify, như PUT /shopify); đang kết nối mà đổi tên miền thì 409 GIAN_HANG_KHAC")
+    @Operation(summary = "Lưu khóa kết nối (Shopify hoặc sàn ủy quyền như Lazada)")
     public ResponseEntity<ResponseData<ShopifyConfigResponse>> luuKhoaKetNoi(
             @PathVariable String maKenh,
             @RequestBody ShopifyConfigUpdating request) {
-        // Không @Valid: body của sàn ủy quyền (appKey…) không có shopDomain, phải báo "chưa hỗ trợ sàn" trước;
-        // tên miền trống của Shopify do updateShopifyConfig báo
+        String ma = maKenh != null ? maKenh.trim().toUpperCase() : "";
+        if ("SHOPIFY".equals(ma)) {
+            kenhBanHangService.kiemTraSanShopify(maKenh);
+            return ResponseEntity.ok(
+                    ResponseData.<ShopifyConfigResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(kenhBanHangService.updateShopifyConfig(request))
+                            .message("Cập nhật cấu hình Shopify thành công")
+                            .build()
+            );
+        }
+        if ("LAZADA".equals(ma)) {
+            LazadaConfigUpdating lazadaReq = LazadaConfigUpdating.builder()
+                    .appKey(request.getAppKey() != null ? request.getAppKey() : request.getClientId())
+                    .appSecret(request.getAppSecret() != null ? request.getAppSecret() : request.getApiSecret())
+                    .trangThai(request.getTrangThai())
+                    .build();
+            kenhBanHangService.updateLazadaConfig(lazadaReq);
+            return ResponseEntity.ok(
+                    ResponseData.<ShopifyConfigResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(kenhBanHangService.getKetNoi("LAZADA"))
+                            .message("Cập nhật cấu hình Lazada thành công")
+                            .build()
+            );
+        }
         kenhBanHangService.kiemTraSanShopify(maKenh);
-        return ResponseEntity.ok(
-                ResponseData.<ShopifyConfigResponse>builder()
-                        .status(HttpStatus.OK.value())
-                        .data(kenhBanHangService.updateShopifyConfig(request))
-                        .message("Cập nhật cấu hình Shopify thành công")
-                        .build()
-        );
+        return null;
+    }
+
+    @PostMapping("/{maKenh}/uy-quyen")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    @Operation(summary = "Lấy đường dẫn ủy quyền gian hàng của sàn ủy quyền (Lazada, TikTok Shop)")
+    public ResponseEntity<ResponseData<Map<String, String>>> batDauUyQuyen(
+            @PathVariable String maKenh,
+            @RequestParam(required = false) String redirectUri) {
+        String ma = maKenh != null ? maKenh.trim().toUpperCase() : "";
+        if ("LAZADA".equals(ma)) {
+            String authUrl = kenhBanHangService.getLazadaAuthUrl(redirectUri);
+            return ResponseEntity.ok(
+                    ResponseData.<Map<String, String>>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(Map.of("authUrl", authUrl))
+                            .message("Sinh URL ủy quyền Lazada thành công")
+                            .build()
+            );
+        }
+        throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.SAN_KHONG_HO_TRO, "Máy chủ chưa hỗ trợ sàn " + maKenh);
+    }
+
+    @PostMapping("/{maKenh}/uy-quyen/hoan-tat")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    @Operation(summary = "Hoàn tất ủy quyền gian hàng với mã authorization code nhận từ sàn")
+    public ResponseEntity<ResponseData<ShopifyConfigResponse>> hoanTatUyQuyen(
+            @PathVariable String maKenh,
+            @RequestBody LazadaOAuthCallbackRequest request) {
+        String ma = maKenh != null ? maKenh.trim().toUpperCase() : "";
+        if ("LAZADA".equals(ma)) {
+            kenhBanHangService.exchangeLazadaToken(request);
+            return ResponseEntity.ok(
+                    ResponseData.<ShopifyConfigResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(kenhBanHangService.getKetNoi("LAZADA"))
+                            .message("Ủy quyền gian hàng Lazada thành công")
+                            .build()
+            );
+        }
+        throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.SAN_KHONG_HO_TRO, "Máy chủ chưa hỗ trợ sàn " + maKenh);
+    }
+
+    @PostMapping("/{maKenh}/kiem-tra-ket-noi")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    @Operation(summary = "Kiểm tra kết nối tới sàn bán hàng")
+    public ResponseEntity<ResponseData<?>> kiemTraKetNoi(@PathVariable String maKenh) {
+        String ma = maKenh != null ? maKenh.trim().toUpperCase() : "";
+        if ("LAZADA".equals(ma)) {
+            LazadaTestConnectionResponse res = kenhBanHangService.testLazadaConnection(new LazadaTestConnectionRequest());
+            return ResponseEntity.ok(
+                    ResponseData.<LazadaTestConnectionResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(res)
+                            .message(res.isConnected() ? "Kết nối Lazada thành công" : "Kiểm tra kết nối Lazada thất bại")
+                            .build()
+            );
+        }
+        if ("SHOPIFY".equals(ma)) {
+            kenhBanHangService.kiemTraSanShopify(maKenh);
+            return ResponseEntity.ok(
+                    ResponseData.<ShopifyConfigResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(kenhBanHangService.getKetNoi("SHOPIFY"))
+                            .message("Kết nối Shopify đang hoạt động")
+                            .build()
+            );
+        }
+        throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.SAN_KHONG_HO_TRO, "Máy chủ chưa hỗ trợ sàn " + maKenh);
     }
 
     @PostMapping("/{maKenh}/lam-moi-token")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
-    @Operation(summary = "Cấp lại khóa truy cập bằng khóa làm mới (hiện chỉ Shopify); không được thì 424 LAM_MOI_KHOA_LOI")
+    @Operation(summary = "Cấp lại khóa truy cập bằng khóa làm mới; không được thì 424 LAM_MOI_KHOA_LOI")
     public ResponseEntity<ResponseData<ShopifyConfigResponse>> lamMoiKhoa(@PathVariable String maKenh) {
+        String ma = maKenh != null ? maKenh.trim().toUpperCase() : "";
+        if ("SHOPIFY".equals(ma)) {
+            return ResponseEntity.ok(
+                    ResponseData.<ShopifyConfigResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(kenhBanHangService.lamMoiKhoaShopify())
+                            .message("Làm mới Access Token OAuth 2.0 thành công")
+                            .build()
+            );
+        }
+        if ("LAZADA".equals(ma)) {
+            boolean success = kenhBanHangService.refreshLazadaAccessToken();
+            if (!success) {
+                throw new LoiCoMaException(HttpStatus.FAILED_DEPENDENCY, MaLoi.LAM_MOI_KHOA_LOI, "Không thể làm mới token Lazada");
+            }
+            return ResponseEntity.ok(
+                    ResponseData.<ShopifyConfigResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(kenhBanHangService.getKetNoi("LAZADA"))
+                            .message("Làm mới Access Token Lazada thành công")
+                            .build()
+            );
+        }
         kenhBanHangService.kiemTraSanShopify(maKenh);
-        return ResponseEntity.ok(
-                ResponseData.<ShopifyConfigResponse>builder()
-                        .status(HttpStatus.OK.value())
-                        .data(kenhBanHangService.lamMoiKhoaShopify())
-                        .message("Làm mới Access Token OAuth 2.0 thành công")
-                        .build()
-        );
+        return null;
     }
 
     @DeleteMapping("/{maKenh}/ket-noi")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Ngắt kết nối (hiện chỉ Shopify): xóa khóa, dừng job, giữ tên miền, liên kết và đơn; đang đồng bộ thì 409 DANG_DONG_BO")
     public ResponseEntity<ResponseData<ShopifyConfigResponse>> ngatKetNoi(@PathVariable String maKenh) {
+        String ma = maKenh != null ? maKenh.trim().toUpperCase() : "";
+        if ("LAZADA".equals(ma)) {
+            kenhBanHangService.xoaKhoaLazada();
+            return ResponseEntity.ok(
+                    ResponseData.<ShopifyConfigResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(kenhBanHangService.getKetNoi("LAZADA"))
+                            .message("Đã ngắt kết nối kênh bán hàng")
+                            .build()
+            );
+        }
         return ResponseEntity.ok(
                 ResponseData.<ShopifyConfigResponse>builder()
                         .status(HttpStatus.OK.value())

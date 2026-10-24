@@ -52,3 +52,4 @@ export function trangThaiKetNoiLazada(config) {
   if (config.tokenExpiresAt && new Date(config.tokenExpiresAt) < new Date()) return "het_han";
   return "dang_hoat_dong";
 }
+
