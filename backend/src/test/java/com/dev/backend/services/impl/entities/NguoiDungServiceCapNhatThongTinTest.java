@@ -39,6 +39,8 @@ class NguoiDungServiceCapNhatThongTinTest {
         repository = mock(NguoiDungRepository.class);
         service = new NguoiDungService(repository);
         ReflectionTestUtils.setField(service, "nguoiDungMapper", mock(NguoiDungMapper.class));
+        ReflectionTestUtils.setField(service, "nhatKyBaoMatService",
+                mock(com.dev.backend.services.impl.utils.NhatKyBaoMatService.class));
         nhanVien = NguoiDung.builder().id(52).tenDangNhap("nhanvienkhotong").hoTen("Trần Văn Bình")
                 .email("b@fcentric.net").vaiTro(IRoleType.nhan_vien_kho).trangThai(1).build();
         admin = NguoiDung.builder().id(1).tenDangNhap("admin").hoTen("Nguyễn Quản Trị")

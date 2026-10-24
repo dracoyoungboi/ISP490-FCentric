@@ -2,6 +2,7 @@ import { useId } from "react";
 import AnhBienThe from "@/components/chung-tu/AnhBienThe";
 import DongNhomSanPham from "@/components/chung-tu/DongNhomSanPham";
 import KhongKetQua from "@/components/chung-tu/KhongKetQua";
+import MauKichCo from "@/components/chung-tu/MauKichCo";
 import PhanTrangBang from "@/components/chung-tu/PhanTrangBang";
 import ThanhCongCuBang from "@/components/chung-tu/ThanhCongCuBang";
 import { soVN } from "@/components/chung-tu/bangChungTu";
@@ -33,7 +34,7 @@ function DongPhuBienThe({ d }) {
   return (
     <>
       <span className="mt-0.5 block text-xs leading-4 text-bo-muted">
-        <span className="text-slate-700">{d.nhanBienThe}</span>
+        <MauKichCo dong={d} className="max-w-full align-bottom text-slate-700" />
         {" · "}
         <span className="break-all font-mono">{d.sku || "—"}</span>
       </span>
@@ -51,7 +52,7 @@ function DongPhuBienThe({ d }) {
  * - Nhiều biến thể: dòng nhóm (đơn giá chung nếu cùng giá, tổng SL, tổng tiền) + từng biến thể.
  * - Quá NGUONG_CONG_CU dòng: ô tìm, "Mở tất cả / Thu gọn tất cả", phân trang theo sản phẩm; quá NGUONG_THU_GON: thu gọn.
  * - Khối hẹp (< 672px): ẩn cột Đơn giá, đơn giá xuống dòng phụ.
- * Không vẽ chấm màu: dòng hàng của máy chủ không có mã màu.
+ * Chấm màu và ảnh khi máy chủ trả mã màu / ảnh (máy chủ cũ không có: chấm xám, ảnh mặc định).
  * `bang`: useBangChungTu của các dòng. `tenChungTu`: "đơn bán hàng" | "báo giá" (câu khi chưa có dòng, ô tìm).
  * `children`: phần dưới bảng (tổng tiền).
  */
@@ -108,7 +109,7 @@ export default function BangHangBan({ bang, tenChungTu = "đơn bán hàng", nha
                     <tr className={DONG}>
                       <td className={cn(O, O_DAU, "@2xl/khoi:min-w-[200px]")}>
                         <span className="flex min-w-0 items-center gap-3">
-                          <AnhBienThe />
+                          <AnhBienThe src={d.anh} />
                           <span className="block min-w-0">
                             <span className="line-clamp-2 font-medium leading-5 text-bo-foreground" title={d.tenSanPham}>
                               {d.tenSanPham || "—"}
@@ -128,6 +129,7 @@ export default function BangHangBan({ bang, tenChungTu = "đơn bán hàng", nha
                 <tbody key={n.khoa} id={idNhom}>
                   <DongNhomSanPham
                     ten={n.tenSanPham}
+                    anh={n.anh}
                     mo={n.mo}
                     thuGonDuoc={n.thuGonDuoc}
                     onDoi={() => bang.doiNhom(n.khoa)}
@@ -144,7 +146,7 @@ export default function BangHangBan({ bang, tenChungTu = "đơn bán hàng", nha
                       <tr key={d.id} className={DONG}>
                         {/* Khối hẹp: bỏ thụt lề dòng con để các cột số vừa khung điện thoại */}
                         <td className={cn(O, O_DAU_DONG_CON, "@max-2xl/khoi:pl-4")}>
-                          <span className="block text-[13px] leading-5 text-slate-700">{d.nhanBienThe}</span>
+                          <MauKichCo dong={d} className="max-w-full text-[13px] leading-5 text-slate-700" />
                           <span className="block break-all font-mono text-xs leading-4 text-bo-muted">{d.sku || "—"}</span>
                           <span className={cn("block text-xs leading-4 text-bo-muted", CHI_DIEN_THOAI)}>
                             Đơn giá <b className="font-semibold text-bo-foreground">{formatCurrency(d.donGia)}</b>

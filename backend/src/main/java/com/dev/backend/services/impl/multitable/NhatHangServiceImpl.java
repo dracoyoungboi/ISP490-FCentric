@@ -57,6 +57,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public class NhatHangServiceImpl implements NhatHangService {
 
+    static final String LOI_NGUOI_NHAT_NGUNG_HOAT_DONG = "Tài khoản nhân viên nhặt hàng đang tạm khóa hoặc ngưng hoạt động";
+
     @Autowired
     private DonBanHangRepository donBanHangRepository;
 
@@ -340,7 +342,8 @@ public class NhatHangServiceImpl implements NhatHangService {
                     .orElseThrow(() -> new CommonException("Không tìm thấy nhân viên nhặt hàng ID: " + request.getNguoiNhatId()));
             // Cùng quy tắc với phanCongNguoiNhat: tài khoản còn hoạt động; nhân viên kho chỉ giao cho chính mình
             if (nguoiNhat.getTrangThai() == null || nguoiNhat.getTrangThai() != 1) {
-                throw new CommonException("Tài khoản nhân viên nhặt hàng đang bị khóa hoặc ngưng hoạt động");
+                // Không viết "bị khóa": giao diện coi câu có cụm đó là chính người đang thao tác bị khóa và đăng xuất
+                throw new CommonException(LOI_NGUOI_NHAT_NGUNG_HOAT_DONG);
             }
             boolean laQuanLy = authUser.getVaiTro() != null && (authUser.getVaiTro().contains(IRoleType.quan_tri_vien)
                     || authUser.getVaiTro().contains(IRoleType.quan_ly_kho));
@@ -1078,7 +1081,7 @@ public class NhatHangServiceImpl implements NhatHangService {
                 .orElseThrow(() -> new CommonException("Không tìm thấy nhân viên nhặt hàng ID: " + request.getNguoiNhatId()));
 
         if (assignee.getTrangThai() == null || assignee.getTrangThai() != 1) {
-            throw new CommonException("Tài khoản nhân viên nhặt hàng đang bị khóa hoặc ngưng hoạt động");
+            throw new CommonException(LOI_NGUOI_NHAT_NGUNG_HOAT_DONG);
         }
 
         // Kiểm tra quyền: nếu là nhân viên kho thì chỉ được tự nhận việc (self-assign)

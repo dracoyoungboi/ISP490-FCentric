@@ -34,15 +34,21 @@ export function tachTenMau(ten) {
 }
 
 /**
- * Dòng chứng từ (bangChungTu.js) từ `items[]` của GET /phieu-chuyen-kho/{id}. Gom nhóm theo tên sản phẩm đã tách
- * (DTO không có id sản phẩm; SKU cũ không theo một mẫu nên không tách được mã sản phẩm từ SKU).
+ * Dòng chứng từ (bangChungTu.js) từ `items[]` của GET /phieu-chuyen-kho/{id}. Máy chủ mới trả thêm `sanPhamId`,
+ * `tenMau`, `maMauHex`, `kichCo`, `anh` → gom theo id sản phẩm, có chấm màu, kích cỡ và ảnh như các chứng từ khác.
+ * Máy chủ cũ chỉ có `tenSanPham` dạng "<Tên> - <Màu>" → tách tên / màu và gom theo tên như trước.
  *
  * @param soDaLay `{ [bienTheId]: number }` số đã lấy của từng biến thể (từ phiếu xuất con), hoặc `null` khi không
  *   hiện cột; `"theoYeuCau"`: hàng đã xuất (backend chỉ cho xuất khi đã lấy đủ) nên số đã xuất = số yêu cầu.
  */
 export function dongChuyenKho(items, soDaLay = null) {
   return (Array.isArray(items) ? items : []).map((it, i) => {
-    const { tenSanPham, tenMau } = tachTenMau(it?.tenSanPham);
+    // Máy chủ mới có tenMau: chỉ cắt đúng hậu tố " - <tenMau>" (tên màu có " - " vẫn đúng); máy chủ cũ: tách ở " - " cuối
+    const mauMoi = coChu(it?.tenMau) ? String(it.tenMau).trim() : "";
+    const tenDu = String(it?.tenSanPham ?? "").trim();
+    const { tenSanPham, tenMau } = mauMoi && tenDu.endsWith(`${NOI_TEN_MAU}${mauMoi}`)
+      ? { tenSanPham: tenDu.slice(0, -(NOI_TEN_MAU.length + mauMoi.length)).trim(), tenMau: mauMoi }
+      : tachTenMau(it?.tenSanPham);
     const soLuong = docSo(it?.soLuongYeuCau);
     let daLay = null;
     if (soDaLay === "theoYeuCau") daLay = soLuong;
@@ -50,8 +56,12 @@ export function dongChuyenKho(items, soDaLay = null) {
     return {
       id: `${it?.bienTheId ?? "dong"}-${i}`,
       bienTheId: it?.bienTheId ?? null,
+      khoaNhom: it?.sanPhamId ?? null,
       tenSanPham: tenSanPham || it?.sku || "",
-      tenMau,
+      tenMau: mauMoi || tenMau,
+      maMauHex: it?.maMauHex || "",
+      kichCo: it?.kichCo || "",
+      anh: it?.anh || null,
       sku: it?.sku || "",
       soLuong,
       daLay,
@@ -155,7 +165,8 @@ export function tinhQuyen(vaiTro, khoCuaToi, phieu) {
  * khóa, phiếu nhập đã hủy không còn khóa nút, "Nhập kho hoàn trả" chỉ khi hàng đã rời kho nguồn.
  *
  * @returns `{ guiDuyet: { khoa, lyDo } | null, pheDuyet, taoPhieuXuat, moPhieuXuat, nhapKho, moPhieuNhap,
- *   nhapHoanTra: { khoa, lyDo } | null, huy }` (`moPhieuXuat` / `moPhieuNhap`: phiếu cần mở hoặc null)
+ *   nhapHoanTra: { khoa, lyDo } | null, huy, lyDoKhongHuy }` (`moPhieuXuat` / `moPhieuNhap`: phiếu cần mở hoặc null;
+ *   `lyDoKhongHuy`: khác rỗng thì mục Hủy hiện nhưng khóa — đang chuyển mà kho đích đã lập phiếu nhập, máy chủ cũng chặn)
  */
 export function tinhNut({ phieu, quyen, phieuXuat = null, phieuNhap = null, coPhieuNhap = Boolean(phieuNhap), rong = false }) {
   const tt = phieu?.trangThai;
@@ -169,7 +180,13 @@ export function tinhNut({ phieu, quyen, phieuXuat = null, phieuNhap = null, coPh
     moPhieuNhap: null,
     nhapHoanTra: null,
     huy: !q.laNhanVienKho && [TT_CHUYEN.NHAP, TT_CHUYEN.CHO_DUYET, TT_CHUYEN.CHO_XUAT, TT_CHUYEN.DANG_CHUYEN].includes(tt),
+    lyDoKhongHuy: "",
   };
+  // Hàng đang đi đường mà kho đích đã lập phiếu nhập (chưa hủy): không hủy được, kẻo kho nguồn nhập hoàn trả trong khi
+  // kho đích vẫn nhận — kho đích hủy phiếu nhập của mình trước
+  if (kq.huy && tt === TT_CHUYEN.DANG_CHUYEN && phieuNhap && phieuNhap.trangThai !== TT_PHIEU_NHAP.DA_HUY) {
+    kq.lyDoKhongHuy = `Kho đích đã lập phiếu nhập ${phieuNhap.soPhieuNhap || ""}, cần hủy phiếu nhập đó trước`.replace(/\s+/g, " ");
+  }
   if (tt === TT_CHUYEN.NHAP && q.laQuanLyDich) {
     kq.guiDuyet = { khoa: rong, lyDo: rong ? cauChungTuRong("phiếu chuyển kho", { dauCham: false }) : "" };
   }

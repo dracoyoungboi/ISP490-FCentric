@@ -4,7 +4,6 @@ import com.dev.backend.dto.request.CapNhatLienKetRequest;
 import com.dev.backend.dto.request.DayTonKenhRequest;
 import com.dev.backend.dto.response.customize.DayTonResultDto;
 import com.dev.backend.dto.response.customize.DongBoTongQuanDto;
-import com.dev.backend.dto.response.customize.TuDongLienKetResultDto;
 import com.dev.backend.dto.response.entities.LienKetSanPhamDto;
 import com.dev.backend.entities.AnhQuanAo;
 import com.dev.backend.entities.BienTheSanPham;
@@ -152,15 +151,17 @@ class KenhBanHangDongBoServiceTest {
     }
 
     @Test
-    void tuDongLienKet_thanhCong() {
+    void tuDongLienKet_khongGiaiMaDuocKhoa_bao409KhongTaoLienKetNoiBo() {
+        // Trước đây nhánh thiếu khóa tạo dòng "thanh_cong" cho mọi biến thể đang bán mà không hỏi Shopify (liên kết giả)
+        when(kenhBanHangService.getDecryptedShopifyAccessToken()).thenReturn(null);
         when(bienTheSanPhamRepository.findByTrangThai(1)).thenReturn(List.of(bienThe1));
         when(trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndBienTheSanPhamId(1, 101)).thenReturn(Optional.empty());
 
-        TuDongLienKetResultDto result = service.tuDongLienKet("SHOPIFY");
+        com.dev.backend.exception.customize.LoiCoMaException loi = assertThrows(
+                com.dev.backend.exception.customize.LoiCoMaException.class, () -> service.tuDongLienKet("SHOPIFY"));
 
-        assertNotNull(result);
-        assertEquals(1, result.getSoDaGhep());
-        verify(trangThaiDongBoSanPhamRepository).save(any(TrangThaiDongBoSanPham.class));
+        assertEquals(com.dev.backend.exception.customize.MaLoi.KENH_CHUA_KET_NOI, loi.getMa());
+        verify(trangThaiDongBoSanPhamRepository, never()).save(any(TrangThaiDongBoSanPham.class));
     }
 
     @Test
@@ -1113,5 +1114,113 @@ class KenhBanHangDongBoServiceTest {
         assertFalse(service.coKenh("ABC"));
         assertFalse(service.coKenh(" "));
         assertFalse(service.coKenh(null));
+    }
+
+    // ---------------- Ngắt kết nối: khóa đẩy tồn, chặn thao tác khi chưa kết nối ----------------
+
+    @Test
+    void chayKhiKenhRanh_kenhDangGiuKhoa_traFalseKhongChay() throws Exception {
+        CountDownLatch dangGiu = new CountDownLatch(1);
+        CountDownLatch tha = new CountDownLatch(1);
+        ExecutorService luong = Executors.newSingleThreadExecutor();
+        try {
+            Future<Boolean> giuKhoa = luong.submit(() -> service.chayKhiKenhRanh("SHOPIFY", () -> {
+                dangGiu.countDown();
+                try {
+                    tha.await(5, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }));
+            assertTrue(dangGiu.await(5, TimeUnit.SECONDS));
+            AtomicInteger soLanChay = new AtomicInteger();
+            assertFalse(service.chayKhiKenhRanh("SHOPIFY", soLanChay::incrementAndGet));
+            assertEquals(0, soLanChay.get());
+            tha.countDown();
+            assertTrue(giuKhoa.get(5, TimeUnit.SECONDS));
+        } finally {
+            luong.shutdownNow();
+        }
+        AtomicInteger sau = new AtomicInteger();
+        assertTrue(service.chayKhiKenhRanh("SHOPIFY", sau::incrementAndGet));
+        assertEquals(1, sau.get());
+    }
+
+    @Test
+    void chayKhiKenhRanh_dungChungKhoaVoiDayTon_vaThaKhoaKhiLoi() {
+        ExecutorService luong = Executors.newSingleThreadExecutor();
+        DayTonResultDto[] trongLucGiu = new DayTonResultDto[1];
+        try {
+            assertThrows(IllegalStateException.class, () -> service.chayKhiKenhRanh("SHOPIFY", () -> {
+                try {
+                    // Luồng khác đẩy tồn (JOB-03, nút Đẩy tồn) trong lúc đang ngắt kết nối: thấy kênh bận
+                    trongLucGiu[0] = luong.submit(() -> service.dayTonKhoLenKenh("SHOPIFY", new DayTonKenhRequest()))
+                            .get(5, TimeUnit.SECONDS);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+                throw new IllegalStateException("lỗi giữa chừng");
+            }));
+        } finally {
+            luong.shutdownNow();
+        }
+        assertEquals(KenhBanHangDongBoServiceImpl.LOI_KENH_DANG_DAY_TON, trongLucGiu[0].getLoiKenh());
+        // Lỗi trong lúc giữ khóa vẫn thả khóa
+        assertTrue(service.chayKhiKenhRanh("SHOPIFY", () -> {}));
+    }
+
+    private KenhBanHang shopifyDaNgat() {
+        return KenhBanHang.builder()
+                .id(1)
+                .maKenh("SHOPIFY")
+                .tenKenh("Cửa hàng Shopify")
+                .apiUrl("https://fcentric-store.myshopify.com/admin/api/2024-01")
+                .apiKey(null)
+                .trangThai(0)
+                .build();
+    }
+
+    @Test
+    void kiemTraDaKetNoi_kenhChuaCoKhoa_bao409() {
+        when(kenhBanHangRepository.findByMaKenh("SHOPIFY")).thenReturn(Optional.of(shopifyDaNgat()));
+
+        com.dev.backend.exception.customize.LoiCoMaException loi = assertThrows(
+                com.dev.backend.exception.customize.LoiCoMaException.class, () -> service.kiemTraDaKetNoi("SHOPIFY"));
+        assertEquals(com.dev.backend.exception.customize.MaLoi.KENH_CHUA_KET_NOI, loi.getMa());
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT, loi.getStatus());
+        assertTrue(loi.getMessage().startsWith("Shopify chưa kết nối"));
+        assertFalse(loi.getMessage().contains("bị khóa"));
+
+        when(kenhBanHangRepository.findByMaKenh("SHOPIFY")).thenReturn(Optional.of(shopifyKenh));
+        assertDoesNotThrow(() -> service.kiemTraDaKetNoi("SHOPIFY"));
+    }
+
+    @Test
+    void thaoTacCanKhoa_khiDaNgat_bao409KhongGhiLienKetNao() {
+        KenhBanHang daNgat = shopifyDaNgat();
+        when(kenhBanHangRepository.findByMaKenh("SHOPIFY")).thenReturn(Optional.of(daNgat));
+        when(bienTheSanPhamRepository.findActiveVariantsWithDetails()).thenReturn(List.of(bienThe1));
+        mapping1.setKenhBanHang(daNgat);
+        when(trangThaiDongBoSanPhamRepository.findById(mapping1.getId())).thenReturn(Optional.of(mapping1));
+        String ma = com.dev.backend.exception.customize.MaLoi.KENH_CHUA_KET_NOI;
+
+        assertEquals(ma, assertThrows(com.dev.backend.exception.customize.LoiCoMaException.class,
+                () -> service.tuDongLienKet("SHOPIFY")).getMa());
+        assertEquals(ma, assertThrows(com.dev.backend.exception.customize.LoiCoMaException.class,
+                () -> service.taiSanPhamTuKenh("SHOPIFY")).getMa());
+        assertEquals(ma, assertThrows(com.dev.backend.exception.customize.LoiCoMaException.class,
+                () -> service.layDonHang("SHOPIFY", null)).getMa());
+        assertEquals(ma, assertThrows(com.dev.backend.exception.customize.LoiCoMaException.class,
+                () -> service.thuLai(mapping1.getId())).getMa());
+
+        verify(trangThaiDongBoSanPhamRepository, never()).save(any());
+        verify(omnichannelOrderSyncJob, never()).syncShopifyOrders(any(), any(), any());
+        verifyNoInteractions(kenhBanHangService);
+    }
+
+    @Test
+    void xoaMocLanChay_quenMocLayDonCuaKenh() {
+        service.xoaMocLanChay("SHOPIFY");
+        verify(omnichannelOrderSyncJob).xoaLanLayDonCuoi(1);
     }
 }

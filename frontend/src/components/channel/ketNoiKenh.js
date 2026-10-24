@@ -95,7 +95,11 @@ export function kiemTraGiaTriKetNoi(values, config) {
   const errors = {};
   const domain = normalizeShopDomain(values.shopDomain);
   if (!domain) errors.shopDomain = "Nhập tên miền cửa hàng.";
-  else if (!DOMAIN_PATTERN.test(domain)) errors.shopDomain = "Tên miền phải có dạng ten-cua-hang.myshopify.com.";
+  // Tên miền máy chủ đang giữ (ô khóa khi đã kết nối, hoặc điền sẵn sau khi ngắt) thì không bắt dạng *.myshopify.com:
+  // gian hàng cũ dùng tên miền riêng vẫn lưu được khóa mới, kết nối lại cùng cửa hàng không phải ghép lại từ đầu
+  else if (!khoaTenMien(config) && domain !== normalizeShopDomain(config?.shopDomain) && !DOMAIN_PATTERN.test(domain)) {
+    errors.shopDomain = "Tên miền phải có dạng ten-cua-hang.myshopify.com.";
+  }
   if (!config?.hasAccessToken && !values.accessToken.trim()) errors.accessToken = "Nhập khóa truy cập.";
   return errors;
 }
@@ -112,6 +116,15 @@ export function coThayDoiKetNoi(values, config) {
 }
 
 /** Ô khóa để trống gửi null = giữ khóa đã lưu. Lần đầu kết nối thì bật đồng bộ. */
+/**
+ * Lần lưu vừa gửi giữ đúng tên miền trang đang hiện (người dùng không tự đổi cửa hàng). Máy chủ vẫn báo GIAN_HANG_KHAC
+ * thì cửa hàng vừa được đổi ở nơi khác (tab khác), câu "muốn đổi cửa hàng thì ngắt kết nối" của máy chủ không đúng việc.
+ */
+export function giuTenMienDangHien(payload, config) {
+  const gui = normalizeShopDomain(payload?.shopDomain);
+  return Boolean(gui) && gui === normalizeShopDomain(config?.shopDomain);
+}
+
 export function taoPayloadKetNoi(values, config) {
   return {
     shopDomain: normalizeShopDomain(values.shopDomain),
@@ -121,6 +134,16 @@ export function taoPayloadKetNoi(values, config) {
     refreshToken: values.refreshToken.trim() || null,
     trangThai: daKetNoi(config) ? config?.trangThai ?? 1 : 1,
   };
+}
+
+/**
+ * Lưu khóa truy cập mới mà để trống khóa làm mới thì máy chủ có bỏ khóa làm mới đang lưu không: có khi Shopify đã
+ * từ chối khóa làm mới (thẻ "Hết hạn khóa") hoặc khóa truy cập đã quá hạn. Giữ lại thì lần đọc khóa sau sẽ làm mới
+ * và bị từ chối lại, hoặc ghi đè mất khóa vừa dán.
+ */
+export function seBoKhoaLamMoi(config) {
+  if (!config?.hasRefreshToken) return false;
+  return trangThaiKetNoi(config) === "het_han" || Boolean(config.tokenExpired || config.isTokenExpired);
 }
 
 // ── Form khóa ứng dụng của sàn ủy quyền (Lazada, TikTok Shop) ──
@@ -175,7 +198,7 @@ export function moTaNgatKetNoi(san, ketNoi) {
   const giuLai = "Liên kết sản phẩm và các đơn đã về FCentric vẫn được giữ;";
   if (san?.kieuKetNoi === "khoa") {
     return [
-      `Hệ thống sẽ xóa khóa truy cập đã lưu và dừng đồng bộ với ${ketNoi?.shopDomain || `cửa hàng ${tenSan}`}.`,
+      `Hệ thống sẽ xóa mọi khóa đã lưu và dừng đồng bộ với ${ketNoi?.shopDomain || `cửa hàng ${tenSan}`}.`,
       tonVaDon,
       `${giuLai} kết nối lại bằng cửa hàng khác thì phải ghép sản phẩm lại.`,
       `Ứng dụng vẫn còn trong cửa hàng; muốn thu hồi hẳn khóa, hãy gỡ ứng dụng trong trang quản trị ${tenSan}.`,

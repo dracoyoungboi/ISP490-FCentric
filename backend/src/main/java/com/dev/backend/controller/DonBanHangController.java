@@ -13,6 +13,7 @@ import com.dev.backend.dto.response.entities.DonBanHangDto;
 import com.dev.backend.entities.DonBanHang;
 import com.dev.backend.mapper.DonBanHangMapper;
 import com.dev.backend.services.impl.entities.DonBanHangService;
+import com.dev.backend.utils.GioiHanSoThapPhan;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -193,10 +194,12 @@ public class DonBanHangController {
     }
     @GetMapping("/variants-for-create")
     @RequireAuth(
+            // nhan_vien_kho: màn Tạo phiếu chuyển kho (POST /phieu-chuyen-kho/create mở cho nhân viên kho) cần danh sách này
             roles = {
                     IRoleType.quan_tri_vien,
                     IRoleType.quan_ly_kho,
-                    IRoleType.nhan_vien_ban_hang
+                    IRoleType.nhan_vien_ban_hang,
+                    IRoleType.nhan_vien_kho
             },
             rolesLogic = RequireAuth.LogicType.OR
     )
@@ -248,7 +251,10 @@ public class DonBanHangController {
         Integer khoXuatId = body.get("khoXuatId") != null ? Integer.valueOf(body.get("khoXuatId").toString()) : null;
         String ghiChu = body.get("ghiChu") != null ? body.get("ghiChu").toString() : null;
         String diaChi = body.get("diaChiGiaoHang") != null ? body.get("diaChiGiaoHang").toString() : null;
-        java.math.BigDecimal phiVanChuyen = body.get("phiVanChuyen") != null ? new java.math.BigDecimal(body.get("phiVanChuyen").toString()) : null;
+        // Map<String, Object> không đi qua bộ đọc BigDecimal của Jackson: kiểm giới hạn tay (số mũ khổng lồ làm treo máy chủ)
+        java.math.BigDecimal phiVanChuyen = body.get("phiVanChuyen") != null
+                ? GioiHanSoThapPhan.kiemTra(new java.math.BigDecimal(body.get("phiVanChuyen").toString()), "Phí vận chuyển")
+                : null;
 
         donBanHangService.convertToOrder(id, khoXuatId, ghiChu, diaChi, phiVanChuyen);
 

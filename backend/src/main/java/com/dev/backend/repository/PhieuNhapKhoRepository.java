@@ -18,6 +18,9 @@ public interface PhieuNhapKhoRepository extends JpaRepository<PhieuNhapKho, Inte
     @Query("SELECT p FROM PhieuNhapKho p WHERE p.id = :id")
     Optional<PhieuNhapKho> khoaTheoId(@Param("id") Integer id);
 
+    /** Một phiếu nhập của phiếu chuyển kho gốc có trạng thái khác {@code trangThai} (dùng để tìm phiếu chưa hủy). */
+    Optional<PhieuNhapKho> findFirstByPhieuChuyenKhoGoc_IdAndTrangThaiNot(Integer phieuChuyenKhoGocId, Integer trangThai);
+
     @Query("SELECT COUNT(p) FROM PhieuNhapKho p WHERE p.soPhieuNhap LIKE :prefix%")
     long countBySoPhieuPrefix(@Param("prefix") String prefix);
     Optional<PhieuNhapKho> findByGhiChuContaining(String ghiChu);

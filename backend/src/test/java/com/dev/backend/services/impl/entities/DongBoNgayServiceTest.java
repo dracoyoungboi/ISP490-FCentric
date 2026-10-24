@@ -328,6 +328,18 @@ class DongBoNgayServiceTest {
     }
 
     @Test
+    void loiCoMa_hienCauCuaLoi() {
+        when(dongBo.dayTonTheoQuyTacDaLuu(eq("SHOPIFY"), any()))
+                .thenThrow(new com.dev.backend.exception.customize.LoiCoMaException(HttpStatus.FAILED_DEPENDENCY,
+                        com.dev.backend.exception.customize.MaLoi.LAM_MOI_KHOA_LOI, "Chưa cấp lại được khóa truy cập."));
+        service.batDau("SHOPIFY");
+        luong.chayHet();
+
+        assertEquals("Chưa cấp lại được khóa truy cập.", service.hienTai("SHOPIFY").getLoi());
+        assertEquals(DongBoNgayService.LOI, service.hienTai("SHOPIFY").getTrangThai());
+    }
+
+    @Test
     void batDau_maKenhKhongCo_bao404_khongLapPhieuTheoDoi() {
         when(dongBo.coKenh("ABC")).thenReturn(false);
 
@@ -337,6 +349,20 @@ class DongBoNgayServiceTest {
         assertNull(service.hienTai("ABC"));
         assertTrue(luong.viec.isEmpty());
         verify(dongBo, never()).dayTonTheoQuyTacDaLuu(any(), any());
+    }
+
+    @Test
+    void batDau_kenhChuaKetNoi_baoNgay_khongLapPhieuTheoDoi() {
+        doThrow(new com.dev.backend.exception.customize.LoiCoMaException(HttpStatus.CONFLICT,
+                com.dev.backend.exception.customize.MaLoi.KENH_CHUA_KET_NOI, "Shopify chưa kết nối."))
+                .when(dongBo).kiemTraDaKetNoi("SHOPIFY");
+
+        com.dev.backend.exception.customize.LoiCoMaException loi = assertThrows(
+                com.dev.backend.exception.customize.LoiCoMaException.class, () -> service.batDau("shopify"));
+
+        assertEquals(com.dev.backend.exception.customize.MaLoi.KENH_CHUA_KET_NOI, loi.getMa());
+        assertNull(service.hienTai("SHOPIFY"));
+        assertTrue(luong.viec.isEmpty());
     }
 
     @Test

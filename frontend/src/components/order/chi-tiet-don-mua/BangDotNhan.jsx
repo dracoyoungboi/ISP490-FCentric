@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { AlertCircle, Info, Loader2 } from "lucide-react";
+import MauKichCo from "@/components/chung-tu/MauKichCo";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/utils/formatters";
 
@@ -111,12 +112,13 @@ export default function BangDotNhan({ bang, tongTien, xemDot = true, dangTaiDot,
                 <th scope="row" className={cn(COT_DINH, "bg-white py-3 pl-4 pr-3 text-left font-normal group-hover:bg-bo-surface-subtle sm:pl-6")}>
                   <div className="font-medium text-bo-foreground">{d.ten}</div>
                   <div className="mt-0.5 text-xs leading-4 text-bo-muted">
-                    {[d.bienThe, d.sku].filter(Boolean).map((phan, i) => (
-                      <span key={phan}>
-                        {i > 0 ? " · " : null}
-                        <span className={phan === d.sku ? "whitespace-nowrap font-mono" : "whitespace-nowrap"}>{phan}</span>
-                      </span>
-                    ))}
+                    {d.tenMau || d.kichCo ? (
+                      <>
+                        <MauKichCo dong={d} className="max-w-full align-bottom" />
+                        {d.sku ? " · " : null}
+                      </>
+                    ) : null}
+                    {d.sku ? <span className="whitespace-nowrap font-mono">{d.sku}</span> : null}
                   </div>
                 </th>
                 <td className="px-3 py-3 text-right text-slate-600">{d.donGia != null ? formatCurrency(d.donGia) : "—"}</td>

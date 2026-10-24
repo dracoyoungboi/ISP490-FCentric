@@ -6,6 +6,7 @@ import com.dev.backend.dto.OtpScheduleObj;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.services.impl.entities.DonMuaHangService;
 import com.dev.backend.services.impl.entities.NguoiDungService;
+import com.dev.backend.services.impl.utils.LoginRateLimiter;
 import com.dev.backend.services.impl.utils.PasswordResetRateLimiter;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -73,6 +74,15 @@ public class SchedulingJob {
 
     @Autowired
     private PasswordResetRateLimiter passwordResetRateLimiter;
+
+    @Autowired
+    private LoginRateLimiter loginRateLimiter;
+
+    // dọn bộ đếm đăng nhập sai đã hết hạn (tránh phình bộ nhớ)
+    @Scheduled(fixedDelay = 60000 * 10)
+    public void cleanLoginRateLimiter() {
+        loginRateLimiter.purgeExpired();
+    }
 
     // dọn mốc thời gian đã quá hạn của bộ giới hạn gửi OTP quên mật khẩu (tránh phình bộ nhớ)
     @Scheduled(fixedDelay = 60000 * 10)

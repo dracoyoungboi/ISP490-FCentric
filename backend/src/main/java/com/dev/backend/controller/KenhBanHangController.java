@@ -23,6 +23,7 @@ import com.dev.backend.services.KenhBanHangService;
 import com.dev.backend.services.impl.entities.DongBoNgayService;
 import com.dev.backend.services.impl.entities.KenhCauHinhDongBoService;
 import com.dev.backend.services.impl.entities.KenhThongKeDonService;
+import com.dev.backend.services.impl.entities.NgatKetNoiKenhService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 
@@ -49,6 +50,7 @@ public class KenhBanHangController {
     KenhCauHinhDongBoService kenhCauHinhDongBoService;
     KenhThongKeDonService kenhThongKeDonService;
     DongBoNgayService dongBoNgayService;
+    NgatKetNoiKenhService ngatKetNoiKenhService;
 
     @GetMapping("/shopify")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
@@ -94,14 +96,71 @@ public class KenhBanHangController {
 
     @PostMapping("/shopify/refresh-token")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
-    @Operation(summary = "Chủ động làm mới Access Token OAuth 2.0 của Shopify bằng Refresh Token")
+    @Operation(summary = "Chủ động làm mới Access Token OAuth 2.0 của Shopify bằng Refresh Token; không được thì 424 LAM_MOI_KHOA_LOI")
     public ResponseEntity<ResponseData<ShopifyConfigResponse>> refreshShopifyOAuthToken() {
-        boolean success = kenhBanHangService.refreshShopifyAccessToken();
         return ResponseEntity.ok(
                 ResponseData.<ShopifyConfigResponse>builder()
                         .status(HttpStatus.OK.value())
-                        .data(kenhBanHangService.getShopifyConfig())
-                        .message(success ? "Làm mới Access Token OAuth 2.0 thành công" : "Không thể làm mới token")
+                        .data(kenhBanHangService.lamMoiKhoaShopify())
+                        .message("Làm mới Access Token OAuth 2.0 thành công")
+                        .build()
+        );
+    }
+
+    @GetMapping("/{maKenh}/ket-noi")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    @Operation(summary = "Kết nối của kênh: Shopify như GET /shopify (có trangThaiKetNoi); Lazada, TikTok Shop luôn chưa kết nối")
+    public ResponseEntity<ResponseData<ShopifyConfigResponse>> getKetNoi(@PathVariable String maKenh) {
+        return ResponseEntity.ok(
+                ResponseData.<ShopifyConfigResponse>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhBanHangService.getKetNoi(maKenh))
+                        .message("Lấy kết nối kênh bán hàng thành công")
+                        .build()
+        );
+    }
+
+    @PutMapping("/{maKenh}/ket-noi/khoa")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    @Operation(summary = "Lưu khóa kết nối (hiện chỉ Shopify, như PUT /shopify); đang kết nối mà đổi tên miền thì 409 GIAN_HANG_KHAC")
+    public ResponseEntity<ResponseData<ShopifyConfigResponse>> luuKhoaKetNoi(
+            @PathVariable String maKenh,
+            @RequestBody ShopifyConfigUpdating request) {
+        // Không @Valid: body của sàn ủy quyền (appKey…) không có shopDomain, phải báo "chưa hỗ trợ sàn" trước;
+        // tên miền trống của Shopify do updateShopifyConfig báo
+        kenhBanHangService.kiemTraSanShopify(maKenh);
+        return ResponseEntity.ok(
+                ResponseData.<ShopifyConfigResponse>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhBanHangService.updateShopifyConfig(request))
+                        .message("Cập nhật cấu hình Shopify thành công")
+                        .build()
+        );
+    }
+
+    @PostMapping("/{maKenh}/lam-moi-token")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    @Operation(summary = "Cấp lại khóa truy cập bằng khóa làm mới (hiện chỉ Shopify); không được thì 424 LAM_MOI_KHOA_LOI")
+    public ResponseEntity<ResponseData<ShopifyConfigResponse>> lamMoiKhoa(@PathVariable String maKenh) {
+        kenhBanHangService.kiemTraSanShopify(maKenh);
+        return ResponseEntity.ok(
+                ResponseData.<ShopifyConfigResponse>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhBanHangService.lamMoiKhoaShopify())
+                        .message("Làm mới Access Token OAuth 2.0 thành công")
+                        .build()
+        );
+    }
+
+    @DeleteMapping("/{maKenh}/ket-noi")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    @Operation(summary = "Ngắt kết nối (hiện chỉ Shopify): xóa khóa, dừng job, giữ tên miền, liên kết và đơn; đang đồng bộ thì 409 DANG_DONG_BO")
+    public ResponseEntity<ResponseData<ShopifyConfigResponse>> ngatKetNoi(@PathVariable String maKenh) {
+        return ResponseEntity.ok(
+                ResponseData.<ShopifyConfigResponse>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(ngatKetNoiKenhService.ngatKetNoi(maKenh))
+                        .message("Đã ngắt kết nối kênh bán hàng")
                         .build()
         );
     }
@@ -275,6 +334,8 @@ public class KenhBanHangController {
         if (request == null) {
             request = new DayTonKenhRequest();
         }
+        // Chặn ở đây, không trong dayTonKhoLenKenh: hàm đó dùng chung với JOB-03
+        kenhBanHangDongBoService.kiemTraDaKetNoi(maKenh);
         return ResponseEntity.ok(
                 ResponseData.<DayTonResultDto>builder()
                         .status(HttpStatus.OK.value())

@@ -246,3 +246,13 @@ test("tinhBuocDonMua: thiếu yêu cầu gốc vẫn chạy (backend cũ chưa t
   assert.equal(buoc[0].phu, "");
   assert.equal(buoc[0].ngay, null);
 });
+
+test("dungBangDotNhan: dòng có màu, mã màu, kích cỡ để vẽ chấm màu", () => {
+  const ct = { id: 1, bienTheSanPham: { ...bienThe(30, "Be", "30"), mauSac: { tenMau: "Be", maMauHex: "#e8d8b8" } }, soLuongDat: 2, soLuongDaNhan: 0 };
+  const [d] = dungBangDotNhan([ct], []).dong;
+  assert.equal(d.tenMau, "Be");
+  assert.equal(d.maMauHex, "#e8d8b8");
+  assert.equal(d.kichCo, "30");
+  const [khong] = dungBangDotNhan([dongDon(2, 31, 1, 0, "32")], []).dong;
+  assert.equal(khong.maMauHex, "");
+});

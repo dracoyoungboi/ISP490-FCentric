@@ -24,6 +24,10 @@ public class PhieuNhapKhoItemDto {
     Boolean daDuLo;
     String mauSac;
     String kichCo;
+    /** Mã màu hex, ảnh biến thể và id sản phẩm: bảng hàng vẽ chấm màu, ảnh và gom theo sản phẩm như các chứng từ khác. */
+    String maMauHex;
+    String anh;
+    Integer sanPhamId;
     /** Mã vạch in trên tem FCentric của biến thể (có thể trống). */
     String maVachSku;
     /** Mã vạch NCC đã liên kết với biến thể này, theo nhà cung cấp của phiếu (để quét không phải gọi máy chủ). */

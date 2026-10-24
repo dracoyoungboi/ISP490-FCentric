@@ -50,4 +50,25 @@ public final class MaLoi {
     public static final String YEU_CAU_DA_GUI = "YEU_CAU_DA_GUI";
     /** 409 · Gửi lại email yêu cầu báo giá khi không đủ điều kiện / bấm lại trong thời gian chờ. */
     public static final String KHONG_GUI_LAI_DUOC = "KHONG_GUI_LAI_DUOC";
+
+    // ---------------- Kết nối kênh bán hàng ----------------
+
+    /** 409 · Ngắt kết nối khi kênh đang đẩy tồn hoặc đang "Đồng bộ ngay". */
+    public static final String DANG_DONG_BO = "DANG_DONG_BO";
+    /** 409 · Đang kết nối mà lưu khóa với tên miền cửa hàng khác: phải ngắt kết nối trước. */
+    public static final String GIAN_HANG_KHAC = "GIAN_HANG_KHAC";
+    /** 400 · Máy chủ chưa hỗ trợ kết nối / ngắt kết nối với sàn này (hiện chỉ Shopify). */
+    public static final String SAN_KHONG_HO_TRO = "SAN_KHONG_HO_TRO";
+    /** 409 · Thao tác cần khóa truy cập (tải sản phẩm, lấy đơn, đẩy tồn…) khi kênh chưa kết nối. Giao diện đọc lại kết nối. */
+    public static final String KENH_CHUA_KET_NOI = "KENH_CHUA_KET_NOI";
+    /** 424 · Cấp lại khóa truy cập (khóa làm mới OAuth) không thành công. Không dùng 502: Cloudflare thay trang lỗi 502. */
+    public static final String LAM_MOI_KHOA_LOI = "LAM_MOI_KHOA_LOI";
+
+    // ---------------- Sản phẩm ----------------
+
+    /**
+     * 409 · Tạo/sửa sản phẩm với tên đã có (không phân biệt hoa thường, có phân biệt dấu, tính mọi trạng thái kể cả
+     * Ngừng hoạt động). data: sanPhamId, maSanPham của sản phẩm đã có.
+     */
+    public static final String TEN_SAN_PHAM_TRUNG = "TEN_SAN_PHAM_TRUNG";
 }

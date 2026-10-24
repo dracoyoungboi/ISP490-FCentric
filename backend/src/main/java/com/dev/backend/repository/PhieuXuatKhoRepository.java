@@ -33,6 +33,9 @@ public interface PhieuXuatKhoRepository extends JpaRepository<PhieuXuatKho, Inte
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM PhieuXuatKho p WHERE p.id = :id")
     Optional<PhieuXuatKho> findByIdForUpdate(@Param("id") Integer id);
+
+    /** Một phiếu xuất con của phiếu chuyển kho gốc có trạng thái khác {@code trangThai} (dùng để tìm phiếu chưa hủy). */
+    Optional<PhieuXuatKho> findFirstByPhieuChuyenKhoGoc_IdAndTrangThaiNot(Integer phieuChuyenKhoGocId, Integer trangThai);
     Optional<PhieuXuatKho> findBySoPhieuXuat(String soPhieuXuat);
     @Query("""
 SELECT COUNT(p)

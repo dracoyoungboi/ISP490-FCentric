@@ -140,7 +140,12 @@ function ManPhieuXuatKho({ id }) {
         const muc = lo.theoDong[ct.id];
         return {
           id: ct.id,
-          tenSanPham: ct.tenBienThe || "",
+          // Máy chủ mới trả tên gốc, màu, mã màu, kích cỡ, ảnh; máy chủ cũ chỉ có tenBienThe "Tên / Màu"
+          tenSanPham: ct.tenSanPham || ct.tenBienThe || "",
+          tenMau: ct.tenMau || "",
+          maMauHex: ct.maMauHex || "",
+          kichCo: ct.kichCo || "",
+          anh: ct.anh || null,
           sku: ct.sku || "",
           can: docSo(ct.soLuongCanXuat),
           da: docSo(ct.soLuongDaPick),

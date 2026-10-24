@@ -200,7 +200,9 @@ export const kenhSanMock = {
       }
       phien.daDung = true;
     }
-    state[ma] = { ...daUyQuyen(ma, SAN[ma].hanUyQuyenNgay, dto), ngayUyQuyen: iso(Date.now()) };
+    // Kết nối lại sau khi ngắt (ngắt đặt trạng thái 0): bật lại đồng bộ, như Shopify ở máy chủ
+    const ketNoiLai = dto.trangThaiKetNoi === "chua_ket_noi" ? { trangThai: 1 } : {};
+    state[ma] = { ...daUyQuyen(ma, SAN[ma].hanUyQuyenNgay, dto), ngayUyQuyen: iso(Date.now()), ...ketNoiLai };
     luu();
     return clone(state[ma]);
   },
@@ -232,9 +234,9 @@ export const kenhSanMock = {
   async ngatKetNoi(maKenh) {
     await mockDelay(400, 700);
     const { ma, dto } = ketNoi(maKenh);
-    // Như máy chủ (KH TC-LT-25): công tắc "Đồng bộ với gian hàng này" (trangThai) giữ nguyên
-    const { appKey, serviceId, hasAppSecret, maKhoSan, tenKhoSan, trangThai } = dto;
-    state[ma] = { ...chuaKetNoi(ma), appKey, serviceId, hasAppSecret, maKhoSan, tenKhoSan, trangThai };
+    // Như máy chủ Shopify (NgatKetNoiKenhService): đặt trạng thái 0 để job bỏ qua kênh; ủy quyền lại thì bật lại
+    const { appKey, serviceId, hasAppSecret, maKhoSan, tenKhoSan } = dto;
+    state[ma] = { ...chuaKetNoi(ma), appKey, serviceId, hasAppSecret, maKhoSan, tenKhoSan, trangThai: 0 };
     luu();
     return clone(state[ma]);
   },

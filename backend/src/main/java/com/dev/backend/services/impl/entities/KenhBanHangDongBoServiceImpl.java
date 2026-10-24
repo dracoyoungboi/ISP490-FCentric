@@ -20,6 +20,8 @@ import com.dev.backend.entities.SanPhamQuanAo;
 import com.dev.backend.entities.TepTin;
 import com.dev.backend.entities.TrangThaiDongBoSanPham;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.exception.customize.LoiCoMaException;
+import com.dev.backend.exception.customize.MaLoi;
 import com.dev.backend.repository.AnhBienTheRepository;
 import com.dev.backend.repository.AnhQuanAoRepository;
 import com.dev.backend.repository.BienTheSanPhamRepository;
@@ -123,9 +125,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     .soCapNhat(0)
                     .build();
         }
+        kiemTraDaKetNoi(kenh);
         String token = kenhBanHangService.getDecryptedShopifyAccessToken();
         if (token == null || token.isBlank()) {
-            throw new CommonException("Chưa có Access Token cho kênh " + maKenh, HttpStatus.BAD_REQUEST, null);
+            throw kenhChuaKetNoi(kenh.getMaKenh());
         }
 
         String domain = extractDomainFromApiUrl(kenh.getApiUrl());
@@ -221,8 +224,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     @Transactional(rollbackFor = Exception.class)
     public TuDongLienKetResultDto tuDongLienKet(String maKenh) {
         KenhBanHang kenh = getKenhActive(maKenh);
+        kiemTraDaKetNoi(kenh);
         String token = kenhBanHangService.getDecryptedShopifyAccessToken();
         String domain = extractDomainFromApiUrl(kenh.getApiUrl());
+        // Không còn ghép "nội bộ" khi thiếu khóa: nhánh đó tạo dòng đã đồng bộ cho mọi biến thể mà không hỏi Shopify
+        if (token == null || token.isBlank() || domain.isBlank()) {
+            throw kenhChuaKetNoi(kenh.getMaKenh());
+        }
 
         // Sử dụng query tối ưu JOIN FETCH chống N+1 queries (hunt-springboot)
         List<BienTheSanPham> activeVariants = bienTheSanPhamRepository.findActiveVariantsWithDetails();
@@ -407,23 +415,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         trangThaiDongBoSanPhamRepository.save(record);
                         soDaGhep++;
                     }
-                }
-            }
-        } else {
-            // Không có cấu hình token: fallback tạo mapping nội bộ
-            for (BienTheSanPham bt : activeVariants) {
-                Optional<TrangThaiDongBoSanPham> mappingOpt =
-                        trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndBienTheSanPhamId(kenh.getId(), bt.getId());
-                if (mappingOpt.isEmpty()) {
-                    TrangThaiDongBoSanPham record = TrangThaiDongBoSanPham.builder()
-                            .bienTheSanPham(bt)
-                            .kenhBanHang(kenh)
-                            .maSanPhamKenh(bt.getMaSku())
-                            .trangThaiDongBo("thanh_cong")
-                            .ngayDongBoCuoi(Instant.now())
-                            .build();
-                    trangThaiDongBoSanPhamRepository.save(record);
-                    soDaGhep++;
                 }
             }
         }
@@ -951,6 +942,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     @Transactional(rollbackFor = Exception.class)
     public LayDonResultDto layDonHang(String maKenh, LayDonHangKenhRequest request) {
         KenhBanHang kenh = getKenhActive(maKenh);
+        kiemTraDaKetNoi(kenh);
         Instant tu = Instant.now().minusSeconds(86400);
         Instant den = Instant.now();
         if (request != null) {
@@ -1011,6 +1003,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     public LienKetSanPhamDto thuLai(Integer lienKetId) {
         TrangThaiDongBoSanPham tt = trangThaiDongBoSanPhamRepository.findById(lienKetId)
                 .orElseThrow(() -> new CommonException("Không tìm thấy liên kết với ID " + lienKetId, HttpStatus.NOT_FOUND, null));
+        kiemTraDaKetNoi(tt.getKenhBanHang());
 
         BienTheSanPham bt = tt.getBienTheSanPham();
         BigDecimal soLuongKhaDung = BigDecimal.ZERO;
@@ -1157,6 +1150,47 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     @Override
     public boolean coKenh(String maKenh) {
         return maKenh != null && !maKenh.isBlank() && timKenh(maKenh.trim()).isPresent();
+    }
+
+    @Override
+    public void kiemTraDaKetNoi(String maKenh) {
+        kiemTraDaKetNoi(getKenhActive(maKenh));
+    }
+
+    /** Thao tác cần khóa truy cập: kênh chưa có khóa (chưa kết nối hoặc đã ngắt) thì báo để giao diện đọc lại kết nối. */
+    private void kiemTraDaKetNoi(KenhBanHang kenh) {
+        if (kenh == null || kenh.getApiKey() == null || kenh.getApiKey().isBlank()) {
+            throw kenhChuaKetNoi(kenh != null ? kenh.getMaKenh() : null);
+        }
+    }
+
+    private static LoiCoMaException kenhChuaKetNoi(String maKenh) {
+        String ten = KenhBanHangServiceImpl.tenSan(maKenh);
+        return new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.KENH_CHUA_KET_NOI,
+                ten + " chưa kết nối. Kết nối lại ở trình thiết lập rồi thử lại.");
+    }
+
+    @Override
+    public boolean chayKhiKenhRanh(String maKenh, Runnable viec) {
+        KenhBanHang kenh = getKenhActive(maKenh);
+        ReentrantLock khoa = khoaDayTon.computeIfAbsent(kenh.getId(), id -> new ReentrantLock());
+        if (!khoa.tryLock()) {
+            return false;
+        }
+        try {
+            viec.run();
+            return true;
+        } finally {
+            khoa.unlock();
+        }
+    }
+
+    @Override
+    public void xoaMocLanChay(String maKenh) {
+        timKenh(maKenh == null ? "" : maKenh.trim()).ifPresent(kenh -> {
+            lanDayTonCuoi.remove(kenh.getId());
+            omnichannelOrderSyncJob.xoaLanLayDonCuoi(kenh.getId());
+        });
     }
 
     private KenhBanHang getKenhActive(String maKenh) {

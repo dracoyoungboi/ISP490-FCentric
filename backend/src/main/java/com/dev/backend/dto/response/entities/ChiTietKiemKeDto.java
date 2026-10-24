@@ -18,4 +18,11 @@ public class ChiTietKiemKeDto {
     private BigDecimal soLuongThucTe;
     private BigDecimal chenhLechSoLuong;
     private String loaiChenhLech;
+    // Thông tin biến thể cho bảng kiểm kê (HienThiBienThe): tên sản phẩm gốc, chấm màu, kích cỡ, ảnh
+    private String tenSanPham;
+    private Integer sanPhamId;
+    private String tenMau;
+    private String maMauHex;
+    private String kichCo;
+    private String anh;
 }

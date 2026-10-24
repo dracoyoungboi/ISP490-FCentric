@@ -296,34 +296,125 @@ const shopifyState = {
 
 const maskShort = (value) => (value.length > 8 ? `${value.slice(0, 4)}****${value.slice(-4)}` : "****");
 
+/** Lỗi giả cùng hình dạng LoiCoMaException của máy chủ: mã ở `data.code` (đọc bằng getApiErrorCode). */
+export function loiCoMa(status, code, message) {
+  const error = new Error(message);
+  error.response = { status, data: { status, message, error: code, data: { code } } };
+  return error;
+}
+
+/**
+ * Kết nối lại sang cửa hàng khác (như máy chủ: xoaDuLieuCuaHangCu + danhDauChuaGhep): bỏ số đã đẩy của cửa hàng cũ,
+ * dòng đang đồng bộ chuyển sang Lỗi chờ ghép lại theo mã SKU; dòng đang ngừng đồng bộ giữ nguyên.
+ */
+function choGhepLaiShopify() {
+  (state.links[10] ?? []).forEach((link) => {
+    link.soLuongDaDay = null;
+    link.ngayDayCuoi = null;
+    if (link.trangThaiLienKet === "chua_lien_ket") return;
+    link.trangThaiLienKet = "loi";
+    link.chiTietLoi = "Chưa ghép với cửa hàng mới. Bấm Tải sản phẩm từ Shopify để ghép lại theo mã SKU.";
+  });
+}
+
+const NAM_PHUT_MS = 5 * 60_000;
+/** Khóa truy cập còn dưới 5 phút hoặc đã quá hạn: lúc máy chủ tự làm mới (isOAuthTokenExpiringSoon). */
+const sapHetKhoa = () => Boolean(shopifyState.tokenExpiresAt) && Date.parse(shopifyState.tokenExpiresAt) - Date.now() < NAM_PHUT_MS;
+const daQuaHanKhoa = () => Boolean(shopifyState.tokenExpiresAt) && Date.parse(shopifyState.tokenExpiresAt) <= Date.now();
+/** Câu của máy chủ khi Shopify từ chối khóa làm mới (dữ liệu mẫu coi như HTTP 401). */
+const loiTuChoiLamMoi = () =>
+  loiCoMa(424, "LAM_MOI_KHOA_LOI", "Shopify đã từ chối khóa làm mới (HTTP 401). Cập nhật khóa truy cập ở Cấu hình Shopify rồi thử lại.");
+
+/** Cấu hình gửi ra: hạn khóa tính lại theo giờ hiện tại như máy chủ. */
+function chupShopify() {
+  const het = shopifyState.tokenExpiresAt ? Date.parse(shopifyState.tokenExpiresAt) : null;
+  return clone({
+    ...shopifyState,
+    tokenExpired: het !== null && het <= Date.now(),
+    secondsUntilExpiration: het === null ? null : Math.round((het - Date.now()) / 1000),
+  });
+}
+
+/**
+ * Làm mới khóa mẫu. Khóa làm mới có chữ "sai" coi như bị Shopify từ chối: như máy chủ, ghi dấu "bị từ chối"
+ * (`_khoaLamMoiBiTuChoi`, hết hiệu lực khi lưu khóa bất kỳ) rồi báo 424.
+ */
+function lamMoiKhoaShopifyMau() {
+  if (shopifyState._khoaLamMoiSai) {
+    shopifyState._khoaLamMoiBiTuChoi = true;
+    throw loiTuChoiLamMoi();
+  }
+  shopifyState._khoaLamMoiBiTuChoi = false;
+  shopifyState.tokenExpiresAt = new Date(Date.now() + 3_600_000).toISOString();
+}
+
 // ── API mục 2 ──────────────────────────────────────────────────────────────
 export const kenhBanHangMock = {
   async getShopifyConfig() {
     await mockDelay();
-    return clone(shopifyState);
+    return chupShopify();
+  },
+
+  /**
+   * Như getDecryptedShopifyAccessToken của máy chủ: khóa sắp hết thì tự làm mới; đã bị từ chối thì thôi gọi Shopify,
+   * khóa truy cập quá hạn thì báo 424 ngay. Dùng trước các thao tác cần khóa của dữ liệu mẫu.
+   */
+  docKhoaShopify() {
+    if (!shopifyState.hasAccessToken || !shopifyState.hasRefreshToken || !sapHetKhoa()) return;
+    if (!shopifyState._khoaLamMoiBiTuChoi) {
+      lamMoiKhoaShopifyMau();
+      return;
+    }
+    if (daQuaHanKhoa()) throw loiTuChoiLamMoi();
   },
 
   async updateShopifyConfig({ shopDomain, accessToken, apiSecret, clientId, refreshToken, trangThai } = {}) {
     await mockDelay(350, 600);
     const domain = String(shopDomain ?? "").trim().toLowerCase();
     if (!domain) throw mockError(400, "Shopify Store Domain không được để trống");
+    // Như máy chủ (KenhBanHangServiceImpl.updateShopifyConfig): đổi cửa hàng phải ngắt trước; kênh đã ngắt thì phải
+    // gửi khóa mới; kết nối lại thì bật lại đồng bộ
+    const dangKetNoi = shopifyState.hasAccessToken;
+    if (dangKetNoi && shopifyState.shopDomain && domain !== shopifyState.shopDomain) {
+      throw loiCoMa(409, "GIAN_HANG_KHAC",
+        `FCentric đang kết nối với ${shopifyState.shopDomain}. Muốn đổi sang cửa hàng khác, hãy ngắt kết nối ở Cấu hình rồi kết nối lại.`);
+    }
+    if (!dangKetNoi && !accessToken) {
+      throw loiCoMa(409, "KENH_CHUA_KET_NOI", "Shopify chưa kết nối. Nhập khóa truy cập ở trình thiết lập để kết nối lại.");
+    }
+    if (!dangKetNoi && (trangThai === undefined || trangThai === null)) shopifyState.trangThai = 1;
+    const doiCuaHang = Boolean(shopifyState.shopDomain) && domain !== shopifyState.shopDomain;
+    if (doiCuaHang) choGhepLaiShopify();
+    // Như máy chủ: dán khóa truy cập mới, để trống khóa làm mới, khi khóa làm mới đã bị từ chối (thẻ "Hết hạn khóa")
+    // hoặc khóa truy cập đã quá hạn thì bỏ khóa làm mới, dùng như khóa tĩnh
+    const boKhoaLamMoi =
+      Boolean(accessToken) && !refreshToken && shopifyState.hasRefreshToken
+      && ((shopifyState._khoaLamMoiBiTuChoi && sapHetKhoa()) || daQuaHanKhoa());
+    // Lưu khóa bất kỳ thì bộ khóa đổi, dấu "bị từ chối" hết hiệu lực (Client ID so theo giá trị: giao diện luôn gửi)
+    const doiKhoa = Boolean(accessToken || apiSecret || refreshToken) || (clientId != null && (clientId || null) !== shopifyState.clientId);
     shopifyState.shopDomain = domain;
     shopifyState.apiUrl = `https://${domain}/admin/api/2024-01`;
     if (accessToken) {
       shopifyState.accessTokenMasked = maskShort(accessToken);
       shopifyState.hasAccessToken = true;
     }
+    if (boKhoaLamMoi) Object.assign(shopifyState, { hasRefreshToken: false, refreshTokenMasked: null, _khoaLamMoiSai: false });
     if (apiSecret) shopifyState.hasApiSecret = true;
     if (clientId !== undefined && clientId !== null) shopifyState.clientId = clientId || null;
     if (refreshToken) {
       shopifyState.hasRefreshToken = true;
       shopifyState.refreshTokenMasked = maskShort(refreshToken);
-      shopifyState.tokenExpiresAt = new Date(Date.now() + 24 * 3_600_000).toISOString();
-      shopifyState.secondsUntilExpiration = 24 * 3600;
+      // Khóa làm mới mẫu có chữ "sai": khóa truy cập coi như còn 1 phút, lần dùng khóa tới sẽ làm mới và bị từ chối
+      shopifyState._khoaLamMoiSai = refreshToken.includes("sai");
+      shopifyState.tokenExpiresAt = new Date(Date.now() + (shopifyState._khoaLamMoiSai ? 60_000 : 24 * 3_600_000)).toISOString();
+    } else if (accessToken && !shopifyState.hasRefreshToken) {
+      // Khóa tĩnh mới: bỏ hạn của khóa cũ, như máy chủ
+      shopifyState.tokenExpiresAt = null;
     }
+    if (doiKhoa) shopifyState._khoaLamMoiBiTuChoi = false;
     if (trangThai !== undefined && trangThai !== null) shopifyState.trangThai = Number(trangThai);
     shopifyState.ngayCapNhat = new Date().toISOString();
-    return clone(shopifyState);
+    return chupShopify();
   },
 
   async testShopifyConnection({ shopDomain, accessToken } = {}) {
@@ -332,6 +423,8 @@ export const kenhBanHangMock = {
     if (!accessToken && !shopifyState.hasAccessToken) {
       return { connected: false, message: "Chưa có Admin Access Token để kiểm tra kết nối" };
     }
+    // Kiểm tra bằng khóa đã lưu thì máy chủ đọc khóa (có thể làm mới, hoặc báo 424 khi khóa làm mới đã bị từ chối)
+    if (!accessToken) kenhBanHangMock.docKhoaShopify();
     if (domain.includes("sai-khoa") || String(accessToken ?? "").includes("sai")) {
       return { connected: false, message: "Access Token không hợp lệ hoặc không có quyền truy cập Shopify Admin API" };
     }
@@ -346,22 +439,26 @@ export const kenhBanHangMock = {
 
   async refreshShopifyToken() {
     await mockDelay(500, 800);
+    if (!shopifyState.hasAccessToken) {
+      throw loiCoMa(409, "KENH_CHUA_KET_NOI", "Shopify chưa kết nối. Kết nối lại ở trình thiết lập rồi thử lại.");
+    }
     if (!shopifyState.hasRefreshToken) {
       throw mockError(400, "Kênh Shopify đang sử dụng Static Token hoặc chưa cấu hình Refresh Token OAuth 2.0");
     }
-    shopifyState.tokenExpiresAt = new Date(Date.now() + 24 * 3_600_000).toISOString();
-    shopifyState.secondsUntilExpiration = 24 * 3600;
-    shopifyState.tokenExpired = false;
-    return true;
+    // "Cấp lại khóa" luôn gọi Shopify, kể cả khi đã có dấu bị từ chối
+    lamMoiKhoaShopifyMau();
+    // Như POST /{maKenh}/lam-moi-token: trả kết nối sau khi làm mới
+    return chupShopify();
   },
 
   /**
-   * Ngắt kết nối (KH mục C.1): xóa khóa truy cập, khóa làm mới và khóa của ứng dụng; giữ tên miền để điền sẵn khi
-   * kết nối lại. Liên kết sản phẩm và đơn đã nhận giữ nguyên.
+   * Ngắt kết nối (như NgatKetNoiKenhService ở máy chủ): xóa khóa truy cập, khóa làm mới và khóa của ứng dụng, đặt
+   * trạng thái 0; giữ tên miền để điền sẵn khi kết nối lại. Liên kết sản phẩm và đơn đã nhận giữ nguyên.
    */
   async ngatKetNoiShopify() {
     await mockDelay(400, 700);
     Object.assign(shopifyState, {
+      trangThai: 0,
       accessTokenMasked: null,
       hasAccessToken: false,
       hasApiSecret: false,
@@ -371,9 +468,11 @@ export const kenhBanHangMock = {
       tokenExpiresAt: null,
       tokenExpired: false,
       secondsUntilExpiration: null,
+      _khoaLamMoiSai: false,
+      _khoaLamMoiBiTuChoi: false,
       ngayCapNhat: new Date().toISOString(),
     });
-    return clone(shopifyState);
+    return chupShopify();
   },
 
 

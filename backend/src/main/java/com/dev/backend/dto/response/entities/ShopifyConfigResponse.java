@@ -31,5 +31,9 @@ public class ShopifyConfigResponse implements Serializable {
     Long secondsUntilExpiration;
     Integer trangThai;
     Instant ngayCapNhat;
+    /** "khoa" với Shopify (dán khóa truy cập); "uy_quyen" với sàn ủy quyền (Lazada, TikTok Shop). */
+    String kieuKetNoi;
+    /** chua_ket_noi | het_han | dang_hoat_dong, suy từ khóa đã lưu. Có trường này = máy chủ ngắt kết nối được. */
+    String trangThaiKetNoi;
 }
 

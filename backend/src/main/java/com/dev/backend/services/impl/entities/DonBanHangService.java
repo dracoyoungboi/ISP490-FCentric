@@ -58,6 +58,8 @@ import org.springframework.context.annotation.Lazy;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -65,6 +67,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -213,6 +216,75 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     }
 
     /**
+     * Một đơn có nằm trong phạm vi vai trò của người dùng không — cùng quy tắc với {@link #dieuKienPhamViTheoVaiTro}, để
+     * mở đơn theo id không xem / thao tác được đơn mà màn danh sách không cho thấy (đổi số trên đường dẫn).
+     */
+    static boolean trongPhamVi(DonBanHang don, NguoiDungAuthInfo currentUser) {
+        if (currentUser == null) return true; // gọi nội bộ (job đồng bộ sàn)
+        Set<String> roles = currentUser.getVaiTro() == null ? Set.of() : currentUser.getVaiTro();
+        if (roles.contains(IRoleType.quan_tri_vien)) return true;
+        if (roles.contains(IRoleType.nhan_vien_kho) || roles.contains(IRoleType.quan_ly_kho)) {
+            Integer khoXuatId = don.getKhoXuat() == null ? null : don.getKhoXuat().getId();
+            return khoXuatId != null && currentUser.getPhanQuyenNguoiDungKhos() != null
+                    && currentUser.getPhanQuyenNguoiDungKhos().stream()
+                    .anyMatch(pq -> pq.getKho() != null && khoXuatId.equals(pq.getKho().getId()));
+        }
+        if (roles.contains(IRoleType.nhan_vien_ban_hang)) {
+            return don.getNguoiTao() != null && currentUser.getId() != null
+                    && currentUser.getId().equals(don.getNguoiTao().getId());
+        }
+        return true;
+    }
+
+    // Phí vận chuyển không âm: phí âm kéo tổng đơn xuống, lách được chốt giá sàn 90%
+    private static void kiemTraPhiVanChuyen(BigDecimal phi) {
+        if (phi != null && phi.signum() < 0) {
+            throw new CommonException("Phí vận chuyển không được âm");
+        }
+    }
+
+    private static final BigDecimal TI_LE_GIA_TOI_THIEU = new BigDecimal("0.9");
+    private static final BigDecimal TI_LE_GIA_TOI_DA = new BigDecimal("1.1");
+
+    /**
+     * Đơn giá trên báo giá chỉ được lệch tối đa 10% so với giá niêm yết của biến thể (90%–110%), cùng quy tắc màn Tạo
+     * báo giá. Mức hiện trong câu lỗi làm tròn vào trong khoảng (tối thiểu làm tròn lên, tối đa làm tròn xuống) như màn.
+     * Biến thể chưa có giá niêm yết (null hoặc 0 — cột gia_ban mặc định 0) thì không có khoảng để so: chặn, báo cập nhật giá.
+     */
+    static void kiemTraGiaThoaThuan(String sku, BigDecimal giaNiemYet, BigDecimal giaThoaThuan) {
+        if (giaNiemYet == null || giaNiemYet.signum() <= 0) {
+            throw new CommonException("Sản phẩm " + sku + " chưa có giá niêm yết, cập nhật giá bán trước khi báo giá");
+        }
+        if (giaThoaThuan == null) {
+            return; // create() lấy giá niêm yết khi dòng không gửi đơn giá
+        }
+        BigDecimal toiThieu = giaNiemYet.multiply(TI_LE_GIA_TOI_THIEU);
+        if (giaThoaThuan.compareTo(toiThieu) < 0) {
+            throw new CommonException("Giá bán của sản phẩm " + sku + " không được thấp hơn 10% so với giá niêm yết (tối thiểu "
+                    + dinhDangTien(toiThieu.setScale(0, RoundingMode.CEILING)) + ")");
+        }
+        BigDecimal toiDa = giaNiemYet.multiply(TI_LE_GIA_TOI_DA);
+        if (giaThoaThuan.compareTo(toiDa) > 0) {
+            throw new CommonException("Giá bán của sản phẩm " + sku + " không được cao hơn 10% so với giá niêm yết (tối đa "
+                    + dinhDangTien(toiDa.setScale(0, RoundingMode.FLOOR)) + ")");
+        }
+    }
+
+    /** "108.000 ₫" — đặt cứng dấu chấm ngăn nghìn: JRE thiếu dữ liệu locale vi-VN (ảnh alpine) sẽ in "108,000". */
+    private static String dinhDangTien(BigDecimal so) {
+        DecimalFormatSymbols kyHieu = DecimalFormatSymbols.getInstance(Locale.ROOT);
+        kyHieu.setGroupingSeparator('.');
+        return new DecimalFormat("#,##0", kyHieu).format(so) + " ₫";
+    }
+
+    private static void kiemTraPhamVi(DonBanHang don) {
+        if (!trongPhamVi(don, SecurityContextHolder.getUser())) {
+            throw new CommonException(HttpStatus.FORBIDDEN, ("bao_gia".equals(don.getLoaiChungTu()) ? "Báo giá " : "Đơn ")
+                    + don.getSoDonHang() + " không thuộc phạm vi của bạn.");
+        }
+    }
+
+    /**
      * Số tổng hợp đơn bán của một khách (trang chi tiết khách hàng): tổng chi tiêu, số đơn, trung bình, đơn gần nhất.
      * Chỉ tính chứng từ đơn bán và cùng phạm vi vai trò với danh sách đơn ({@link #filter}).
      */
@@ -341,6 +413,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     public DonBanHangDetailResponse getDetail(Integer id) {
         DonBanHang don = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn bán"));
+        kiemTraPhamVi(don);
 
         // Map đơn bán
         DonBanHangDto donDto = donBanHangMapper.toDto(don);
@@ -391,6 +464,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     public void sendToWarehouse(Integer id, Integer khoId) {
         DonBanHang don = repository.findById(id)
                 .orElseThrow(() -> new CommonException("Không tìm thấy đơn bán với ID: " + id, HttpStatus.NOT_FOUND, null));
+        kiemTraPhamVi(don);
 
         if ("bao_gia".equals(don.getLoaiChungTu())) {
             throw new CommonException("Báo giá không thể gửi sang kho. Vui lòng chuyển thành đơn hàng trước!", HttpStatus.BAD_REQUEST, null);
@@ -453,6 +527,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     public List<KhoKhaDungDto> getKhoKhaDungChoDonHang(Integer donHangId) {
         DonBanHang don = repository.findById(donHangId)
                 .orElseThrow(() -> new CommonException("Không tìm thấy đơn hàng với ID: " + donHangId, HttpStatus.NOT_FOUND, null));
+        kiemTraPhamVi(don);
 
         List<ChiTietDonBanHang> chiTiets = chiTietDonBanHangRepository.findByDonBanHangId(donHangId);
         // Chỉ gợi ý kho nhận được đơn bán: bỏ Kho Trung Chuyển (kho ảo chứa hàng đang chuyển giữa các kho)
@@ -595,6 +670,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     public void cancel(Integer id) {
         DonBanHang don = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy chứng từ"));
+        kiemTraPhamVi(don);
 
         if ("bao_gia".equals(don.getLoaiChungTu())) {
             throw new RuntimeException("Đây là báo giá, vui lòng sử dụng chức năng Từ chối báo giá để có thể ghi nhận lý do!");
@@ -744,6 +820,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         if (request.getChiTiet() == null || request.getChiTiet().isEmpty()) {
             throw new RuntimeException("Danh sách sản phẩm không được rỗng");
         }
+        kiemTraPhiVanChuyen(request.getPhiVanChuyen());
 
         Integer userId = SecurityContextHolder.getUser().getId();
         NguoiDung nguoiTao = entityManager.find(NguoiDung.class, userId);
@@ -820,11 +897,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
 
                     BigDecimal giaNiemYet = bienThe.getGiaBan();
                     BigDecimal giaThoaThuan = item.getDonGia() != null ? item.getDonGia() : giaNiemYet;
-                    BigDecimal mucGiamToiDa = giaNiemYet.multiply(new BigDecimal("0.9")); // 90% giá gốc
-                    if (giaThoaThuan.compareTo(mucGiamToiDa) < 0) {
-                        throw new RuntimeException("Giá bán của sản phẩm " + bienThe.getMaSku() +
-                                " không được thấp hơn 10% so với giá niêm yết (" + mucGiamToiDa + ")");
-                    }
+                    kiemTraGiaThoaThuan(bienThe.getMaSku(), giaNiemYet, giaThoaThuan);
 
                     BigDecimal thanhTien = giaThoaThuan.multiply(qtyDat);
 
@@ -862,6 +935,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     public void convertToOrder(Integer id, Integer khoXuatId, String ghiChu, String diaChi, BigDecimal phiVanChuyen) {
         DonBanHang baoGia = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy báo giá"));
+        kiemTraPhamVi(baoGia);
 
         if (!"bao_gia".equals(baoGia.getLoaiChungTu())) {
             throw new RuntimeException("Chỉ chứng từ loại báo giá mới được chuyển đổi thành đơn");
@@ -872,6 +946,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         if (baoGia.getTrangThai() == 2) {
             throw new RuntimeException("Báo giá này đã được chuyển thành đơn hàng trước đó");
         }
+        kiemTraPhiVanChuyen(phiVanChuyen);
 
         Kho kho = null;
         if (khoXuatId != null) {
@@ -944,8 +1019,16 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     public void rejectQuote(Integer id, String reason) {
         DonBanHang don = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy báo giá"));
+        kiemTraPhamVi(don);
         if (!"bao_gia".equals(don.getLoaiChungTu())) {
             throw new RuntimeException("Chỉ áp dụng từ chối cho loại chứng từ báo giá");
+        }
+        // Báo giá đã chuyển thành đơn (2) hoặc đã từ chối (4) thì không từ chối lại (cùng quy tắc với chuyển thành đơn)
+        if (Integer.valueOf(2).equals(don.getTrangThai())) {
+            throw new CommonException("Báo giá này đã được chuyển thành đơn hàng, không thể từ chối");
+        }
+        if (Integer.valueOf(4).equals(don.getTrangThai())) {
+            throw new CommonException("Báo giá này đã bị từ chối trước đó");
         }
 
         don.setTrangThai(4); // 4 = Hủy / Từ chối
@@ -971,9 +1054,12 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                         .tenSanPham(v.getSanPham().getTenSanPham())
                         .giaBan(v.getGiaBan())
                         .tenMau(v.getMauSac() != null ? v.getMauSac().getTenMau() : null)
+                        .maMauHex(v.getMauSac() != null ? v.getMauSac().getMaMauHex() : null)
                         .tenSize(v.getSize() != null ? v.getSize().getTenSize() : null)
                         .tenChatLieu(v.getChatLieu() != null ?
                                 v.getChatLieu().getTenChatLieu() : null)
+                        .maVachSku(v.getMaVachSku())
+                        .sanPhamId(v.getSanPham().getId())
                         .build())
                 .toList();
     }
@@ -997,6 +1083,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     public void markAsDelivered(Integer id) {
         DonBanHang don = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn bán"));
+        kiemTraPhamVi(don);
         // Chỉ cho phép xác nhận Giao thành công khi toàn bộ hàng đã được kho xuất đi
         if (don.getTrangThai() != 3) {
             throw new RuntimeException("Đơn hàng chưa được xuất kho đầy đủ, không thể đánh dấu hoàn thành");
@@ -1019,6 +1106,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     public void returnOrder(Integer id) {
         DonBanHang don = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn bán"));
+        kiemTraPhamVi(don);
 
         // Chỉ cho phép hoàn trả khi đơn đang ở trạng thái đã xuất kho (2, 3)
         if (don.getTrangThai() != 2 && don.getTrangThai() != 3) {

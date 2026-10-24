@@ -1,5 +1,6 @@
 import { useEffect, useId } from "react";
 import AnhBienThe from "@/components/chung-tu/AnhBienThe";
+import MauKichCo from "@/components/chung-tu/MauKichCo";
 import KhongKetQua from "@/components/chung-tu/KhongKetQua";
 import NutPhanDoan from "@/components/chung-tu/NutPhanDoan";
 import PhanTrangBang from "@/components/chung-tu/PhanTrangBang";
@@ -137,11 +138,11 @@ export default function BangDongGoi({ dong, tienDo, lyDoKhoa = "", idLyDo, dongS
                   <tr key={d.id} className={cn(DONG, String(dongSang) === String(d.id) && DONG_SANG)}>
                     <td className={cn(O, O_DAU)}>
                       <span className="flex min-w-0 items-center gap-3">
-                        <AnhBienThe />
+                        <AnhBienThe src={d.anh} />
                         <span className="block min-w-0">
                           <span className="line-clamp-2 font-medium leading-5 text-bo-foreground" title={d.tenSanPham}>{d.tenSanPham || "—"}</span>
                           <span className="mt-0.5 block text-xs leading-4 text-bo-muted">
-                            <span className="text-slate-700">{d.nhanBienThe}</span>
+                            <MauKichCo dong={d} className="max-w-full align-bottom text-slate-700" />
                             {" · "}
                             <span className="break-all font-mono">{d.sku || "—"}</span>
                             {d.maVach ? (

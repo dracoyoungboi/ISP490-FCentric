@@ -29,8 +29,14 @@ export function dongKiemKe(chiTiet) {
       loHangId: ct.loHang?.id ?? null,
       maLo: ct.loHang?.maLo || "",
       bienTheId: bt.id ?? null,
-      // Tên hiện nguyên "Tên - Màu / Kích cỡ" của máy chủ, không tách; tenSanPham để ô tìm dùng chung khớp theo tên
+      // tenSanPham giữ nguyên "Tên - Màu / Kích cỡ" của máy chủ (ô tìm, tệp CSV); bảng hiện tenHien + chấm màu / kích cỡ
+      // khi máy chủ có trả các trường riêng (máy chủ cũ không có → bảng hiện tenSanPham như trước)
       tenSanPham: bt.tenBienThe || bt.maSku || "",
+      tenHien: ct.tenSanPham || "",
+      tenMau: ct.tenMau || "",
+      maMauHex: ct.maMauHex || "",
+      kichCo: ct.kichCo || "",
+      anh: ct.anh || null,
       sku: bt.maSku || "",
       heThong: docSo(ct.soLuongHeThong),
       thucTeMayChu: daGhi ? docSo(ct.soLuongThucTe) : null,

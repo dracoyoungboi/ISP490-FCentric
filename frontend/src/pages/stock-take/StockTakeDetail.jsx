@@ -101,9 +101,9 @@ function taiTep(ten, noiDung) {
  * cấp 2–3"), đã chốt Q16: bỏ "coi là khớp" (lô chưa đếm không gửi, tồn giữ nguyên) · cảnh báo giao dịch xen giữa (lô có
  * nhập / xuất / bán tại quầy sau lúc đếm → "Đếm lại", không gửi) · "Đóng đợt, không đổi tồn" (gửi danh sách rỗng).
  *
- * - Quyền theo kho là quy tắc của màn (máy chủ chỉ kiểm header kho_id có trong kho của người dùng): kho của đợt nằm trong
- *   kho được phân → tự chuyển nơi làm việc sang kho đó; không → chỉ xem; quản trị viên không bị chặn. Hoàn thành luôn gửi
- *   `khoId` = kho của đợt (máy chủ ghi tồn vào kho trên tham số, không so với kho của đợt).
+ * - Quyền theo kho: kho của đợt nằm trong kho được phân → tự chuyển nơi làm việc sang kho đó; không → máy chủ chặn xem
+ *   (403, khung lỗi), "chỉ xem" chỉ còn khi phân quyền trong phiên đã cũ; quản trị viên không bị chặn. Hoàn thành luôn gửi `khoId` = kho của đợt; máy chủ ghi tồn vào kho của đợt, chặn khi kho đang chọn
+ *   khác kho của đợt (403) hoặc `khoId` lệch kho của đợt (400).
  * - Số đếm dở lưu trên máy theo tài khoản (banTamKiemKe.js), tự lưu mỗi lần nhập, khôi phục khi mở lại; tab khác đổi thì
  *   nạp theo (sự kiện storage).
  * - Đếm mù nhớ theo tài khoản; "Xem tất cả lô lệch" trong hộp Hoàn thành chỉ tắt trong phiên này.

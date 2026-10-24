@@ -4,6 +4,8 @@ import com.dev.backend.entities.BienTheSanPham;
 import com.dev.backend.entities.DonBanHang;
 import com.dev.backend.entities.KenhBanHang;
 import com.dev.backend.entities.KhachHang;
+import com.dev.backend.exception.customize.LoiCoMaException;
+import com.dev.backend.exception.customize.MaLoi;
 import com.dev.backend.repository.*;
 import com.dev.backend.services.KenhBanHangService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,12 +17,16 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -181,5 +187,115 @@ class OmnichannelOrderSyncJobTest {
         assertFalse(job.processSingleOrder(mapper.readTree(json), KenhBanHang.builder().id(1).maKenh("SHOPIFY").build()));
 
         verifyNoInteractions(donBanHangService);
+    }
+
+    // ---------------- Đổi sang cửa hàng Shopify khác: số đơn hiển thị trùng với đơn của cửa hàng cũ ----------------
+
+    private static final String DON_CUA_HANG_MOI = """
+        {
+            "id": 6600000004321,
+            "order_number": 1001,
+            "financial_status": "paid",
+            "current_subtotal_price": "200000.00",
+            "total_price": "200000.00",
+            "total_shipping_price_set": { "shop_money": { "amount": "0.00" } },
+            "customer": { "first_name": "Trần", "last_name": "B", "phone": "0987654321" },
+            "line_items": []
+        }
+        """;
+
+    private DonBanHang donCuaHangCu() {
+        return DonBanHang.builder().id(55).soDonHang("SHP-1001").maDonHangKenh("5500000001111").trangThai(1).build();
+    }
+
+    @Test
+    void processSingleOrder_cuaHangMoiTrungSoVoiDonCu_taoDonMoiCoDuoiId() throws Exception {
+        KenhBanHang kenh = KenhBanHang.builder().id(1).maKenh("SHOPIFY").build();
+        when(donBanHangRepository.findBySoDonHang("SHP-1001")).thenReturn(Optional.of(donCuaHangCu()));
+        when(donBanHangRepository.findBySoDonHang("SHP-1001-4321")).thenReturn(Optional.empty());
+        when(khachHangRepository.findFirstBySoDienThoai("0987654321")).thenReturn(Optional.of(KhachHang.builder().id(6).build()));
+
+        assertTrue(job.processSingleOrder(mapper.readTree(DON_CUA_HANG_MOI), kenh));
+
+        ArgumentCaptor<DonBanHang> captor = ArgumentCaptor.forClass(DonBanHang.class);
+        verify(donBanHangRepository).save(captor.capture());
+        assertEquals("SHP-1001-4321", captor.getValue().getSoDonHang());
+        assertEquals("6600000004321", captor.getValue().getMaDonHangKenh());
+        verifyNoInteractions(donBanHangService);
+    }
+
+    @Test
+    void processSingleOrder_duoiCungTrung_dungCaId() throws Exception {
+        KenhBanHang kenh = KenhBanHang.builder().id(1).maKenh("SHOPIFY").build();
+        when(donBanHangRepository.findBySoDonHang("SHP-1001")).thenReturn(Optional.of(donCuaHangCu()));
+        when(donBanHangRepository.findBySoDonHang("SHP-1001-4321")).thenReturn(Optional.of(DonBanHang.builder().id(56).build()));
+        when(khachHangRepository.findFirstBySoDienThoai("0987654321")).thenReturn(Optional.of(KhachHang.builder().id(6).build()));
+
+        assertTrue(job.processSingleOrder(mapper.readTree(DON_CUA_HANG_MOI), kenh));
+
+        ArgumentCaptor<DonBanHang> captor = ArgumentCaptor.forClass(DonBanHang.class);
+        verify(donBanHangRepository).save(captor.capture());
+        assertEquals("SHP-1001-6600000004321", captor.getValue().getSoDonHang());
+        assertTrue(captor.getValue().getSoDonHang().length() <= 50);
+    }
+
+    @Test
+    void processSingleOrder_donCuaHangMoiBiHuy_khongHuyNhamDonCu() throws Exception {
+        String json = """
+        { "id": 6600000004321, "order_number": 1001, "cancelled_at": "2026-10-23T08:00:00Z",
+          "cancel_reason": "customer", "financial_status": "voided", "line_items": [] }
+        """;
+        when(donBanHangRepository.findBySoDonHang("SHP-1001")).thenReturn(Optional.of(donCuaHangCu()));
+        when(donBanHangRepository.findBySoDonHang("SHP-1001-4321")).thenReturn(Optional.empty());
+
+        job.processSingleOrder(mapper.readTree(json), KenhBanHang.builder().id(1).maKenh("SHOPIFY").build());
+
+        verify(donBanHangService, never()).huyDonTuSan(eq(55), any());
+    }
+
+    @Test
+    void processSingleOrder_timTheoIdDonTrongKenhTruoc_huyDungDon() throws Exception {
+        String json = """
+        { "id": 6600000004321, "order_number": 1001, "cancelled_at": "2026-10-23T08:00:00Z",
+          "cancel_reason": "customer", "financial_status": "voided" }
+        """;
+        DonBanHang donMoi = DonBanHang.builder().id(77).soDonHang("SHP-1001-4321").maDonHangKenh("6600000004321").trangThai(0).build();
+        when(donBanHangRepository.findByKenhBanHangIdAndMaDonHangKenh(1, "6600000004321")).thenReturn(Optional.of(donMoi));
+        when(donBanHangRepository.findBySoDonHang("SHP-1001")).thenReturn(Optional.of(donCuaHangCu()));
+
+        assertFalse(job.processSingleOrder(mapper.readTree(json), KenhBanHang.builder().id(1).maKenh("SHOPIFY").build()));
+
+        verify(donBanHangService).huyDonTuSan(77, "Hủy từ sàn Shopify: customer");
+        verify(donBanHangService, never()).huyDonTuSan(eq(55), any());
+    }
+
+    // ---------- Shopify từ chối khóa làm mới ----------
+
+    private KenhBanHang kenhShopify() {
+        return KenhBanHang.builder().id(2).maKenh("SHOPIFY")
+                .apiUrl("https://fcentric-dev.myshopify.com/admin/api/2024-01").trangThai(1).build();
+    }
+
+    private static LoiCoMaException tuChoiLamMoi() {
+        return new LoiCoMaException(HttpStatus.FAILED_DEPENDENCY, MaLoi.LAM_MOI_KHOA_LOI,
+                "Shopify đã từ chối khóa làm mới (HTTP 401). Cập nhật khóa truy cập ở Cấu hình Shopify rồi thử lại.");
+    }
+
+    @Test
+    void scheduledOrderSync_shopifyTuChoiKhoaLamMoi_jobKhongNemLoiRaNgoai() {
+        when(kenhBanHangRepository.findByTrangThai(1)).thenReturn(List.of(kenhShopify()));
+        when(kenhBanHangService.getDecryptedShopifyAccessToken()).thenThrow(tuChoiLamMoi());
+
+        assertDoesNotThrow(job::scheduledOrderSync);
+        verify(kenhBanHangService).getDecryptedShopifyAccessToken();
+    }
+
+    @Test
+    void syncShopifyOrders_nutLayDonDungChung_vanNhanLoi424KhongBaoKhongDon() {
+        when(kenhBanHangService.getDecryptedShopifyAccessToken()).thenThrow(tuChoiLamMoi());
+
+        LoiCoMaException loi = assertThrows(LoiCoMaException.class,
+                () -> job.syncShopifyOrders(kenhShopify(), Instant.now().minusSeconds(86_400), Instant.now()));
+        assertEquals(MaLoi.LAM_MOI_KHOA_LOI, loi.getMa());
     }
 }

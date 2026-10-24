@@ -166,7 +166,8 @@ export default function ChannelSyncDashboard() {
   // của nút); sự cố đã có thanh chú ý ngay bên dưới. Chưa có cấu hình (đang tải, lỗi) thì không đoán là đang bật
   const tuDong =
     trangThai === "het_han"
-      ? { tone: "danger", label: uyQuyen ? "Ủy quyền đã hết hạn" : "Khóa truy cập đã hết hạn" }
+      ? // Shopify: thanh nhắc ngay dưới đã ghi "Khóa truy cập đã hết hạn", dòng này chỉ nói tự động đang dừng
+        { tone: "danger", label: uyQuyen ? "Ủy quyền đã hết hạn" : "Tự động đang dừng" }
       : tamDung
         ? { tone: "warning", label: "Đang tạm dừng đồng bộ" }
         : !cauHinh

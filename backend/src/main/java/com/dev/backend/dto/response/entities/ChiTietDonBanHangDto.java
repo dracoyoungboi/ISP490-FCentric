@@ -24,4 +24,11 @@ public class ChiTietDonBanHangDto implements Serializable {
     BigDecimal donGia;
     BigDecimal thanhTien;
     String ghiChu;
+    // tenSanPham giữ dạng "Tên / Màu / Cỡ" cho hóa đơn; các trường dưới cho bảng hàng (gom, chấm màu, ảnh)
+    String tenSanPhamGoc;
+    Integer sanPhamId;
+    String tenMau;
+    String maMauHex;
+    String kichCo;
+    String anh;
 }

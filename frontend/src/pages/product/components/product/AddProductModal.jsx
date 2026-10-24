@@ -53,6 +53,7 @@ import {
     useChanThaTepNgoaiKhung,
     useCuonToiLoiSauKhiLuu,
     useHoiTruocKhiBo,
+    xuLyLoiTenTrung,
 } from "./dungChungForm";
 import {
     SO_BIEN_THE_TOI_DA,
@@ -119,6 +120,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
         control,
         handleSubmit,
         reset,
+        setError,
         formState: { errors, isSubmitting, isDirty },
     } = useForm({
         resolver: yupResolver(addProductSchema),
@@ -323,6 +325,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
             onSuccess();
             onClose();
         } catch (error) {
+            if (xuLyLoiTenTrung(error, { setError, henCuonToiLoi })) return;
             console.error("Lỗi khi tạo sản phẩm:", error);
             toast.error(getApiErrorMessage(error, "Có lỗi xảy ra khi tạo sản phẩm"));
         }

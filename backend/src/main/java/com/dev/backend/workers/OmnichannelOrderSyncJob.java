@@ -1,6 +1,7 @@
 package com.dev.backend.workers;
 
 import com.dev.backend.entities.*;
+import com.dev.backend.exception.customize.LoiCoMaException;
 import com.dev.backend.repository.*;
 import com.dev.backend.services.KenhBanHangService;
 import com.dev.backend.services.lazada.LazadaClient;
@@ -81,6 +82,13 @@ public class OmnichannelOrderSyncJob {
         return kenhId == null ? null : lanLayDonCuoi.get(kenhId);
     }
 
+    /** Quên mốc lấy đơn của kênh (sau khi ngắt kết nối), để Tổng quan không hiện giờ của cửa hàng cũ. */
+    public void xoaLanLayDonCuoi(Integer kenhId) {
+        if (kenhId != null) {
+            lanLayDonCuoi.remove(kenhId);
+        }
+    }
+
     @Scheduled(fixedDelay = 60_000, initialDelay = 30_000)
     public void scheduledOrderSync() {
         int intervalMins = getChuKyPhut();
@@ -105,7 +113,11 @@ public class OmnichannelOrderSyncJob {
                     log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", kenh.getMaKenh());
                     continue;
                 }
-                syncShopifyOrders(kenh, intervalMins);
+                try {
+                    syncShopifyOrders(kenh, intervalMins);
+                } catch (LoiCoMaException e) {
+                    log.warn("[JOB-01] Kênh {} bỏ qua đợt lấy đơn: {}", kenh.getMaKenh(), e.getMessage());
+                }
             } else if (MA_KENH_LAZADA.equalsIgnoreCase(kenh.getMaKenh())) {
                 if (!KenhCauHinhDongBo.tuDongLayDon(dieuHanhHeThongService, kenh.getMaKenh())) {
                     log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", kenh.getMaKenh());
@@ -203,10 +215,26 @@ public class OmnichannelOrderSyncJob {
         String orderNumber = orderNode.path("order_number").asText(orderId);
         String soDonHang = "SHP-" + orderNumber;
 
-        // Kiểm tra xem đơn đã tồn tại trong DB chưa
-        Optional<DonBanHang> existingOpt = donBanHangRepository.findBySoDonHang(soDonHang);
+        // Đơn đã có: tìm theo id đơn Shopify trước (duy nhất trên toàn Shopify). Số đơn hiển thị thì mỗi cửa hàng
+        // đánh số riêng (từ #1001), nên sau khi đổi sang cửa hàng khác, SHP-<số> có thể là đơn của cửa hàng cũ
+        Optional<DonBanHang> existingOpt = kenh.getId() != null
+                ? donBanHangRepository.findByKenhBanHangIdAndMaDonHangKenh(kenh.getId(), orderId)
+                : Optional.empty();
         if (existingOpt.isEmpty()) {
             existingOpt = donBanHangRepository.findByMaDonHangKenh(orderId);
+        }
+        if (existingOpt.isEmpty()) {
+            Optional<DonBanHang> trungSo = donBanHangRepository.findBySoDonHang(soDonHang);
+            if (trungSo.isPresent()) {
+                String maCu = trungSo.get().getMaDonHangKenh();
+                if (maCu == null || maCu.isBlank() || maCu.equals(orderId)) {
+                    // Đơn cũ chưa lưu id trên sàn: coi là cùng đơn như trước, không sinh đơn trùng
+                    existingOpt = trungSo;
+                } else {
+                    soDonHang = soDonHangKhongTrung(soDonHang, orderId);
+                    log.info("[JOB-01] {} đã thuộc đơn Shopify khác (cửa hàng cũ), đơn {} lấy số {}", "SHP-" + orderNumber, orderId, soDonHang);
+                }
+            }
         }
 
         if (existingOpt.isPresent()) {
@@ -301,6 +329,16 @@ public class OmnichannelOrderSyncJob {
             }
         }
         return true;
+    }
+
+    /** Số đơn khi SHP-&lt;số&gt; đã thuộc đơn khác: thêm 4 số cuối id đơn Shopify, vẫn trùng thì thêm cả id (cột UNIQUE, 50 ký tự). */
+    String soDonHangKhongTrung(String soDonHang, String orderId) {
+        String duoi = orderId.length() > 4 ? orderId.substring(orderId.length() - 4) : orderId;
+        String ung = soDonHang + "-" + duoi;
+        if (donBanHangRepository.findBySoDonHang(ung).isEmpty()) {
+            return ung;
+        }
+        return soDonHang + "-" + orderId;
     }
 
     private KhachHang resolveCustomer(JsonNode customerNode, JsonNode shippingNode) {

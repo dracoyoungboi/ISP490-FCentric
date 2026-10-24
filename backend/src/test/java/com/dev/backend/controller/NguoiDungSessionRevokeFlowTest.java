@@ -13,6 +13,7 @@ import com.dev.backend.services.impl.entities.NguoiDungService;
 import com.dev.backend.services.impl.entities.PhanQuyenNguoiDungKhoService;
 import com.dev.backend.services.impl.utils.CalcServiceImpl;
 import com.dev.backend.services.impl.utils.JwtServiceImpl;
+import com.dev.backend.services.impl.utils.LoginRateLimiter;
 import com.dev.backend.services.impl.utils.PasswordResetRateLimiter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
@@ -85,6 +86,9 @@ class NguoiDungSessionRevokeFlowTest {
         ReflectionTestUtils.setField(service, "calcService", new CalcServiceImpl());
         ReflectionTestUtils.setField(service, "emailNghiepVuService", emailService);
         ReflectionTestUtils.setField(service, "passwordResetRateLimiter", new PasswordResetRateLimiter());
+        ReflectionTestUtils.setField(service, "loginRateLimiter", new LoginRateLimiter());
+        ReflectionTestUtils.setField(service, "nhatKyBaoMatService",
+                org.mockito.Mockito.mock(com.dev.backend.services.impl.utils.NhatKyBaoMatService.class));
         ReflectionTestUtils.setField(service, "jwtService", jwtService);
         ReflectionTestUtils.setField(service, "nguoiDungMapper", mapper);
         ReflectionTestUtils.setField(service, "pqndkMapper", pqndkMapper);
@@ -181,5 +185,17 @@ class NguoiDungSessionRevokeFlowTest {
         String b = postJson("/login", "{\"username\":\"khang\",\"password\":\"x\"}", null)
                 .andExpect(status().isBadRequest()).andReturn().getResponse().getContentAsString();
         assertEquals(a.replaceAll("\"timestamp\":(\"[^\"]*\"|[0-9]+)", ""), b.replaceAll("\"timestamp\":(\"[^\"]*\"|[0-9]+)", ""));
+    }
+
+    @Test
+    void dangNhapSaiNamLan_lanSauTra429CoMaLoi_duMatKhauDung() throws Exception {
+        for (int i = 0; i < LoginRateLimiter.MAX_FAILS; i++) {
+            postJson("/login", "{\"username\":\"khang\",\"password\":\"x\"}", null)
+                    .andExpect(status().isBadRequest());
+        }
+        postJson("/login", "{\"username\":\"khang\",\"password\":\"matkhaucu\"}", null)
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.data.code").value("LOGIN_RATE_LIMITED"))
+                .andExpect(jsonPath("$.data.retryAfterSeconds").value(60));
     }
 }

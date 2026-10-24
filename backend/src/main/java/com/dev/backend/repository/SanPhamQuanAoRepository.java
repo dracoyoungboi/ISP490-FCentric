@@ -22,6 +22,18 @@ public interface SanPhamQuanAoRepository extends JpaRepository<SanPhamQuanAo, In
     Optional<SanPhamQuanAo> findDetailById(@Param("id") Integer id);
     long countByMaSanPhamStartingWith(String prefix);
 
+    /**
+     * Sản phẩm có tên (đã gộp khoảng trắng như {@code chuanHoaTenSanPham}, để bắt cả tên cũ lưu chưa chuẩn hóa) bằng
+     * :ten theo collation của cột (utf8mb4_unicode_ci: bỏ qua hoa thường và dấu), nên là tập ứng viên rộng; nơi gọi
+     * tự lọc lại theo quy tắc trùng tên. Mỗi dòng: [id, ma_san_pham, ten_san_pham, trang_thai] (số đọc qua Number).
+     */
+    @Query(value = """
+            SELECT id, ma_san_pham, ten_san_pham, CAST(trang_thai AS SIGNED)
+            FROM san_pham_quan_ao
+            WHERE TRIM(REGEXP_REPLACE(ten_san_pham, '[[:space:]]+', ' ')) = :ten
+            """, nativeQuery = true)
+    List<Object[]> findUngVienTrungTen(@Param("ten") String ten);
+
     @Query("""
             SELECT DISTINCT sp FROM SanPhamQuanAo sp
             JOIN FETCH sp.danhMuc dm

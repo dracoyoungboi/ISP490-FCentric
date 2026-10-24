@@ -21,7 +21,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import { TheCaiDat, ThanhLuuTrenCung, VUNG_CHAM_CONG_TAC } from "@/components/channel/KhuonCaiDat";
 import { SWITCH_CLASS } from "@/components/channel/SettingsCard";
 import { TheDonHang, TheTonKho } from "@/components/channel/CauHinhDongBoCards";
-import { daKetNoi, hoTroNgatKetNoi, moTaNgatKetNoi, trangThaiKetNoi } from "@/components/channel/ketNoiKenh";
+import { daKetNoi, giuTenMienDangHien, hoTroNgatKetNoi, moTaNgatKetNoi, trangThaiKetNoi } from "@/components/channel/ketNoiKenh";
 import { khoDaLuuKhongCon, khoSanDangChon, noiDungSan } from "@/components/channel/noiDungSan";
 import { xoaLuaChonThietLap } from "@/components/channel/luaChonThietLap";
 import { taiLaiKenhDaKetNoi } from "@/components/channel/kenhDaKetNoi";
@@ -44,8 +44,11 @@ import useHoiKhiRoiTrang from "@/hooks/useHoiKhiRoiTrang";
 import { getApiErrorCode, getApiErrorMessage } from "@/utils/apiError";
 import { cn } from "@/lib/utils";
 
-/** Mã lỗi máy chủ trả khi gian hàng không còn gọi được sàn: đọc lại kết nối để trang hiện đúng tình trạng. */
-const MA_MAT_KET_NOI = new Set(["UY_QUYEN_HET_HAN", "KENH_CHUA_KET_NOI"]);
+/**
+ * Mã lỗi máy chủ trả khi gian hàng không còn gọi được sàn: đọc lại kết nối để trang hiện đúng tình trạng.
+ * LAM_MOI_KHOA_LOI: Shopify từ chối khóa làm mới, thẻ chuyển sang "Hết hạn khóa".
+ */
+const MA_MAT_KET_NOI = new Set(["UY_QUYEN_HET_HAN", "KENH_CHUA_KET_NOI", "LAM_MOI_KHOA_LOI"]);
 
 /**
  * Cấu hình gian hàng của sàn đang mở, bố cục lưới thẻ: thẻ Gian hàng một hàng ngang ở trên,
@@ -99,6 +102,8 @@ export default function ChannelSettingsPage() {
 
   return (
     <SettingsForm
+      // Thẻ khác vừa kết nối cửa hàng khác: dựng lại form, công tắc và kết quả kiểm tra không còn là của cửa hàng cũ
+      key={cfg.data?.shopDomain || SAN.maKenh}
       config={cfg.data}
       cauHinh={ch.data}
       khoSan={khoSan}
@@ -238,12 +243,34 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, onConfigSaved, onCauH
         }
         toast.success("Đã lưu cấu hình");
       } catch (error) {
-        toast.error(getApiErrorMessage(error, "Không lưu được cấu hình"));
+        // Chỉ gạt công tắc mà máy chủ báo đang nối cửa hàng khác: thẻ khác vừa đổi cửa hàng, câu "muốn đổi cửa hàng…"
+        // của máy chủ không đúng việc người dùng đang làm
+        const doiNoiKhac = getApiErrorCode(error) === "GIAN_HANG_KHAC";
+        toast.error(
+          doiNoiKhac
+            ? `Gian hàng ${SAN.ten} vừa được đổi ở nơi khác. Trang đã tải lại, kiểm tra rồi lưu lại.`
+            : getApiErrorMessage(error, "Không lưu được cấu hình"),
+        );
         // Lưu dở (vd. cấu hình xong, kho lỗi): đọc lại kết nối để công tắc và kho hiện đúng giá trị trên máy chủ
         if (doiKho || doiGianHang) onTaiLaiKetNoi();
+        if (doiNoiKhac) taiLaiKenhDaKetNoi();
         khiMatKetNoi(error);
       }
     });
+
+  /**
+   * Kiểm tra không qua có thể do ủy quyền vừa hết hạn hoặc kênh vừa bị ngắt ở thẻ khác: đọc lại kết nối để thẻ và thanh
+   * nhắc hiện đúng. Đã ngắt thì trang chuyển đi, câu kết quả mất theo, nên báo bằng toast và đọc lại menu bên trái.
+   */
+  const docLaiSauKiemTra = async () => {
+    const moi = await kenhBanHangService.getKetNoi(SAN.maKenh).catch(() => null);
+    if (!moi) return;
+    if (!daKetNoi(moi)) {
+      toast.error(`${SAN.ten} chưa kết nối. Kết nối lại ở trình thiết lập rồi thử lại.`);
+      taiLaiKenhDaKetNoi();
+    }
+    onConfigSaved(moi);
+  };
 
   const kiemTraKetNoi = () =>
     chay("kiem-tra", async () => {
@@ -253,8 +280,7 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, onConfigSaved, onCauH
           const res = await kenhBanHangService.kiemTraKetNoi(SAN.maKenh);
           // Không ghi hạn của khóa truy cập: hệ thống tự làm mới, người dùng chỉ cần biết hạn ủy quyền (đã có ở dòng trên)
           setKetQuaKetNoi(res?.connected ? { ok: true, text: "Kết nối tốt" } : { ok: false, text: res?.message || "Kết nối thất bại" });
-          // Kiểm tra không qua có thể do ủy quyền vừa hết hạn: đọc lại để thẻ và thanh nhắc hiện đúng
-          if (!res?.connected) onTaiLaiKetNoi();
+          if (!res?.connected) await docLaiSauKiemTra();
           return;
         }
         const res = await kenhBanHangService.testShopifyConnection({ shopDomain: config.shopDomain, accessToken: null });
@@ -263,6 +289,7 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, onConfigSaved, onCauH
             ? { ok: true, text: ["Kết nối tốt", res.shopName].filter(Boolean).join(" · ") }
             : { ok: false, text: res?.message || "Kết nối thất bại" },
         );
+        if (!res?.connected) await docLaiSauKiemTra();
       } catch (error) {
         setKetQuaKetNoi({ ok: false, text: getApiErrorMessage(error, "Không kiểm tra được kết nối") });
         khiMatKetNoi(error);
@@ -277,6 +304,8 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, onConfigSaved, onCauH
         toast.success("Đã cấp lại khóa truy cập");
       } catch (error) {
         toast.error(getApiErrorMessage(error, "Không cấp lại được khóa truy cập"));
+        // Tab khác vừa ngắt kết nối: đọc lại để trang về Thiết lập
+        khiMatKetNoi(error);
       }
     });
 
@@ -517,6 +546,21 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, onConfigSaved, onCauH
             setMoDoiKhoa(false);
             setKetQuaKetNoi(null);
             toast.success("Đã cập nhật khóa truy cập");
+          }}
+          // Tab khác vừa ngắt / kết nối cửa hàng khác: đóng hộp, báo bằng toast (trang có thể chuyển sang Thiết lập)
+          // rồi đọc lại kết nối và menu bên trái
+          onDoiKetNoi={(error, payload) => {
+            setMoDoiKhoa(false);
+            // GIAN_HANG_KHAC mà tên miền gửi đi vẫn là tên miền đang hiện (người dùng không đổi cửa hàng): câu của máy
+            // chủ ("muốn đổi cửa hàng thì ngắt kết nối…") không đúng việc đang làm, báo như khi lưu cấu hình. Người
+            // dùng tự gõ tên miền khác thì câu của máy chủ là đúng
+            toast.error(
+              getApiErrorCode(error) === "GIAN_HANG_KHAC" && giuTenMienDangHien(payload, config)
+                ? `Gian hàng ${SAN.ten} vừa được đổi ở nơi khác. Trang đã tải lại, kiểm tra rồi cập nhật khóa lại.`
+                : getApiErrorMessage(error, "Không lưu được khóa truy cập"),
+            );
+            onTaiLaiKetNoi();
+            taiLaiKenhDaKetNoi();
           }}
         />
       ) : null}

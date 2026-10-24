@@ -1,6 +1,7 @@
 import { useId, useRef } from "react";
 import { Minus, Plus } from "lucide-react";
 import AnhBienThe from "@/components/chung-tu/AnhBienThe";
+import MauKichCo from "@/components/chung-tu/MauKichCo";
 import KhongKetQua from "@/components/chung-tu/KhongKetQua";
 import NutPhanDoan from "@/components/chung-tu/NutPhanDoan";
 import PhanTrangBang from "@/components/chung-tu/PhanTrangBang";
@@ -277,10 +278,16 @@ export default function BangKiemKe({
                 <tr key={d.id} className={cn(DONG, dongSang === d.id && DONG_SANG)}>
                   <td className={cn(O, O_DAU)}>
                     <span className="flex min-w-0 items-center gap-3">
-                      <AnhBienThe />
+                      <AnhBienThe src={d.anh} />
                       <span className="block min-w-0">
-                        <span className="line-clamp-2 font-medium leading-5 text-bo-foreground" title={d.tenSanPham}>{d.tenSanPham || "—"}</span>
+                        <span className="line-clamp-2 font-medium leading-5 text-bo-foreground" title={d.tenSanPham}>{d.tenHien || d.tenSanPham || "—"}</span>
                         <span className="mt-0.5 block text-xs leading-4 text-bo-muted">
+                          {d.tenHien && (d.tenMau || d.kichCo) ? (
+                            <>
+                              <MauKichCo dong={d} className="max-w-full align-bottom text-slate-700" />
+                              {" · "}
+                            </>
+                          ) : null}
                           <span className="break-all font-mono">{d.sku || "—"}</span>
                           <span className={CHI_DIEN_THOAI}>
                             {" · lô "}

@@ -127,6 +127,28 @@ public interface TrangThaiDongBoSanPhamRepository extends JpaRepository<TrangTha
             @Param("search") String search
     );
 
+    /**
+     * Kênh vừa kết nối sang cửa hàng khác: xóa dữ liệu của cửa hàng cũ trên mọi dòng liên kết (mã trên sàn, số đã đẩy,
+     * giờ đẩy cuối). Đẩy tồn ghép theo mã SKU nên giữ được dòng; dòng đang ngừng vẫn ngừng.
+     * Gán lại ngay_dong_bo_cuoi bằng chính nó: cột có ON UPDATE CURRENT_TIMESTAMP, không gán thì MySQL đặt "bây giờ".
+     */
+    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+        UPDATE TrangThaiDongBoSanPham t SET t.maSanPhamKenh = NULL, t.soLuongDaDay = NULL, t.ngayDayTonCuoi = NULL,
+               t.ngayDongBoCuoi = t.ngayDongBoCuoi
+        WHERE t.kenhBanHang.id = :kenhBanId
+    """)
+    int xoaDuLieuCuaHangCu(@Param("kenhBanId") Integer kenhBanId);
+
+    /** Dòng chưa ngừng đồng bộ của kênh chuyển sang lỗi kèm lý do (vd. "Chưa ghép với cửa hàng mới"). */
+    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+        UPDATE TrangThaiDongBoSanPham t SET t.trangThaiDongBo = 'that_bai', t.chiTietLoi = :lyDo,
+               t.ngayDongBoCuoi = t.ngayDongBoCuoi
+        WHERE t.kenhBanHang.id = :kenhBanId AND t.trangThaiDongBo <> 'chua_dong_bo'
+    """)
+    int danhDauChuaGhep(@Param("kenhBanId") Integer kenhBanId, @Param("lyDo") String lyDo);
+
     /** [id sản phẩm, số liên kết với kênh] của các sản phẩm đã chọn, không theo bộ lọc. */
     @Query("""
         SELECT bt.sanPham.id, COUNT(t.id) FROM TrangThaiDongBoSanPham t

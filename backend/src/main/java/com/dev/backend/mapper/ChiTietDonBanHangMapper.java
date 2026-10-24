@@ -12,6 +12,12 @@ public interface ChiTietDonBanHangMapper {
     @Mapping(source = "bienTheSanPham.maSku", target = "sku")
     @Mapping(expression = "java(tenHienThi(entity))", target = "tenSanPham")
     @Mapping(source = "bienTheSanPham.sanPham.donViTinh", target = "donViTinh")
+    @Mapping(expression = "java(com.dev.backend.utils.HienThiBienThe.tenSanPham(entity.getBienTheSanPham()))", target = "tenSanPhamGoc")
+    @Mapping(expression = "java(com.dev.backend.utils.HienThiBienThe.sanPhamId(entity.getBienTheSanPham()))", target = "sanPhamId")
+    @Mapping(expression = "java(com.dev.backend.utils.HienThiBienThe.tenMau(entity.getBienTheSanPham()))", target = "tenMau")
+    @Mapping(expression = "java(com.dev.backend.utils.HienThiBienThe.maMauHex(entity.getBienTheSanPham()))", target = "maMauHex")
+    @Mapping(expression = "java(com.dev.backend.utils.HienThiBienThe.kichCo(entity.getBienTheSanPham()))", target = "kichCo")
+    @Mapping(expression = "java(com.dev.backend.utils.HienThiBienThe.anh(entity.getBienTheSanPham()))", target = "anh")
     ChiTietDonBanHangDto toDto(ChiTietDonBanHang entity);
 
     /**

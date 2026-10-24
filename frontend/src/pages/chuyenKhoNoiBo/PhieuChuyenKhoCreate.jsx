@@ -1,51 +1,56 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, useId } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { ArrowDown, ArrowUpDown, ChevronDown, Package, ScanBarcode, Store, Trash2, Truck, Warehouse } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
+import { cn } from "@/lib/utils";
 import PageContainer from "@/components/backoffice/PageContainer";
-import SurfaceCard from "@/components/shared/SurfaceCard";
-import TableShell from "@/components/shared/TableShell";
 import EmptyState from "@/components/shared/EmptyState";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import KhungChungTu from "@/components/chung-tu/KhungChungTu";
+import DauChungTu from "@/components/chung-tu/DauChungTu";
+import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
+import TienTrinhChungTu from "@/components/chung-tu/TienTrinhChungTu";
+import CotThuocTinh, { NhomThuocTinh } from "@/components/chung-tu/CotThuocTinh";
+import MauKichCo from "@/components/chung-tu/MauKichCo";
+import BangHangTaoPhieu from "@/components/chung-tu/BangHangTaoPhieu";
+import useBangChungTu from "@/components/chung-tu/useBangChungTu";
+import { soVN } from "@/components/chung-tu/bangChungTu";
+import { GOI_Y_O, NHAN_O, O_NHAP, O_NHAP_NHIEU_DONG } from "@/components/chung-tu/kieuHopThoai";
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-    Plus, Trash2, Search, Package, ArrowDown, ChevronDown,
-    Building2, Loader2, ArrowLeft, ClipboardList,
-} from "lucide-react";
 
 import { phieuChuyenKhoService } from "@/services/phieuChuyenKhoService";
 import { donBanHangService } from "@/services/donBanHangService";
 import { khoService } from "@/services/khoService";
 import { laKhoGiaoDich, laKhoTong } from "@/utils/kho";
+import { dsKhoLamViecTrongToken, getKhoLamViecId, setKhoLamViecId } from "@/utils/khoLamViec";
+import { ROLES, hasAnyRole } from "@/utils/roles";
 import { soNguyenDuong } from "@/utils/thamSoDuongDan";
+import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
+import { NGUONG_CONG_CU } from "@/config/bangChungTu";
 
-const FIELD_LABEL_CLASS =
-    "text-xs font-semibold uppercase tracking-wide text-bo-muted";
-const DROPDOWN_CONTENT_CLASS =
-    "z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg";
-const DROPDOWN_ITEM_CLASS =
-    "cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
-const TH_CLASS =
-    "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
+/**
+ * Tạo phiếu chuyển kho nội bộ (/transfer-tickets/create): khối chứng từ "một khối" như Chi tiết phiếu chuyển.
+ * Nghiệp vụ giữ như cũ: POST /phieu-chuyen-kho/create { khoXuatId, khoNhapId, ghiChu, chiTietXuat } → phiếu Nháp,
+ * mở chi tiết để Gửi duyệt. Điền sẵn từ đường dẫn ?khoXuatId=&khoNhapId=&bienTheId=&soLuong= như cũ.
+ *
+ * Theo đúng kiểm tra của máy chủ (PhieuXuatKhoService.createTransfer):
+ * - Không phải quản trị viên chỉ tạo yêu cầu NHẬP về kho mình được phân → kho đích chỉ liệt kê kho trong quyền;
+ *   trước khi gửi, làm việc luôn ở kho đích (header kho_id).
+ * - Máy chủ kiểm số có thể chuyển ở kho nguồn khi tạo; màn chưa có API tồn theo kho nên không hiện cột tồn.
+ */
 
-function InfoTile({ icon, iconClass, label, value, valueClass }) {
-    return (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
-            <div className="min-w-0">
-                <p className="text-xs font-medium text-bo-muted">{label}</p>
-                <p className={`mt-1 truncate text-base font-bold tracking-tight ${valueClass || "text-bo-foreground"}`}>
-                    {value}
-                </p>
-            </div>
-            <span className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${iconClass}`}>
-                {icon}
-            </span>
-        </div>
-    );
-}
+const DROPDOWN_CONTENT_CLASS = "z-50 max-h-[300px] w-[var(--radix-dropdown-menu-trigger-width)] min-w-[240px] overflow-y-auto rounded-lg border border-bo-border bg-white p-1 shadow-lg";
+const DROPDOWN_ITEM_CLASS = "flex cursor-pointer flex-col items-start rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
+const SO_KET_QUA_TOI_DA = 20;
+const GHI_CHU_TOI_DA = 500;
+
+const BUOC = [
+    { ma: "tao", nhan: "Tạo yêu cầu", ai: "Kho đích", trangThai: "dangLam", phu: "Đang lập" },
+    { ma: "duyet", nhan: "Duyệt xuất", ai: "Kho nguồn", trangThai: "chua" },
+    { ma: "xuat", nhan: "Xuất kho", ai: "Kho nguồn", trangThai: "chua" },
+    { ma: "nhan", nhan: "Nhận hàng", ai: "Kho đích", trangThai: "chua" },
+];
 
 /** Một dòng hàng điều chuyển từ biến thể (dữ liệu /don-ban-hang/variants-for-create). */
 function taoDongHang(bienThe, soLuong = 1) {
@@ -54,6 +59,8 @@ function taoDongHang(bienThe, soLuong = 1) {
         sku: bienThe.maBienThe,
         name: bienThe.tenSanPham,
         color: bienThe.tenMau,
+        colorHex: bienThe.maMauHex,
+        productId: bienThe.sanPhamId,
         size: bienThe.tenSize,
         material: bienThe.tenChatLieu,
         quantity: soLuong,
@@ -67,15 +74,15 @@ function taoDongHang(bienThe, soLuong = 1) {
  * - Kho xuất thiếu, sai hoặc trùng kho nhận thì dùng Kho tổng (kho bán hàng nhận hàng từ Kho tổng).
  * - Mã hàng phải nằm trong danh sách đang kinh doanh; số lượng sai thì về 1.
  */
-function docDeXuatTuDuongDan(thamSo, dsKho, dsBienThe) {
+function docDeXuatTuDuongDan(thamSo, dsKho, dsKhoNhan, dsBienThe) {
     const khoXuatIdUrl = thamSo.get("khoXuatId");
     const khoNhapIdUrl = thamSo.get("khoNhapId");
     const bienTheIdUrl = thamSo.get("bienTheId");
     if (!khoXuatIdUrl && !khoNhapIdUrl && !bienTheIdUrl) return null;
 
-    const timKho = (id) => (id ? dsKho.find((k) => String(k.id) === String(id)) : undefined);
-    const khoNhap = timKho(khoNhapIdUrl);
-    let khoXuat = timKho(khoXuatIdUrl);
+    const timKho = (ds, id) => (id ? ds.find((k) => String(k.id) === String(id)) : undefined);
+    const khoNhap = timKho(dsKhoNhan, khoNhapIdUrl);
+    let khoXuat = timKho(dsKho, khoXuatIdUrl);
     if ((khoXuatIdUrl || khoNhapIdUrl) && (!khoXuat || khoXuat.id === khoNhap?.id)) {
         const khoTong = dsKho.find(laKhoTong);
         khoXuat = khoTong && khoTong.id !== khoNhap?.id ? khoTong : undefined;
@@ -83,8 +90,8 @@ function docDeXuatTuDuongDan(thamSo, dsKho, dsBienThe) {
     const bienThe = bienTheIdUrl ? dsBienThe.find((v) => String(v.id) === String(bienTheIdUrl)) : undefined;
 
     const canhBao = [];
-    if (khoNhapIdUrl && !khoNhap) canhBao.push("Kho nhận trong đề xuất không còn chọn được (đã ngừng hoạt động hoặc không tồn tại), hãy chọn lại kho nhận.");
-    if (bienTheIdUrl && !bienThe) canhBao.push("Không tìm thấy sản phẩm trong đề xuất (có thể đã ngừng kinh doanh), hãy chọn bằng nút \"Thêm sản phẩm\".");
+    if (khoNhapIdUrl && !khoNhap) canhBao.push("Kho nhận trong đề xuất không còn chọn được (đã ngừng hoạt động, không tồn tại hoặc không thuộc kho bạn phụ trách), hãy chọn lại kho nhận.");
+    if (bienTheIdUrl && !bienThe) canhBao.push("Không tìm thấy sản phẩm trong đề xuất (có thể đã ngừng kinh doanh), hãy tìm và thêm lại.");
     return {
         khoXuatId: khoXuat ? String(khoXuat.id) : "",
         khoNhapId: khoNhap ? String(khoNhap.id) : "",
@@ -93,37 +100,131 @@ function docDeXuatTuDuongDan(thamSo, dsKho, dsBienThe) {
     };
 }
 
+/** Câu lỗi tải danh sách sản phẩm: 403 → thiếu quyền (Thử lại vô ích); còn lại câu của máy chủ, bỏ dấu chấm cuối. */
+function moTaLoiBienThe(e) {
+    if (getApiErrorStatus(e) === 403) {
+        return { chu: "tài khoản chưa có quyền xem danh sách sản phẩm. Nhờ quản trị viên cấp quyền hoặc nhờ quản lý kho tạo phiếu", khongQuyen: true };
+    }
+    return { chu: getApiErrorMessage(e, "máy chủ không phản hồi").trim().replace(/[.。]+$/, ""), khongQuyen: false };
+}
+
+/** Ô chọn kho trong cột "Tuyến chuyển" (cùng dáng thẻ kho của TuyenChuyen ở Chi tiết phiếu chuyển). */
+function ChonKho({ vaiTro, icon, mau, kho, dsKho, khoKhac, onChon, goiYTrong }) {
+    const Icon = icon;
+    return (
+        <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+                <button
+                    type="button"
+                    className="flex w-full min-w-0 items-center gap-2.5 rounded-md border border-bo-border bg-white px-2.5 py-2 text-left transition-colors hover:border-slate-300 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary"
+                >
+                    <span className={cn("inline-flex size-7 shrink-0 items-center justify-center rounded-md", mau)}>
+                        <Icon className="size-4" aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                        <span className={cn("block truncate text-sm leading-5", kho ? "font-semibold text-bo-foreground" : "font-medium text-bo-muted")}>
+                            {kho ? kho.tenKho : `Chọn ${vaiTro.toLowerCase()}`}
+                        </span>
+                        <span className="block text-xs leading-4 text-bo-muted">{vaiTro === "Kho nguồn" ? "Kho nguồn · xuất hàng" : "Kho đích · nhận hàng"}</span>
+                    </span>
+                    <ChevronDown className="size-4 shrink-0 text-bo-muted" aria-hidden="true" />
+                </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className={DROPDOWN_CONTENT_CLASS}>
+                {dsKho.length ? dsKho.map((k) => {
+                    const trung = String(k.id) === String(khoKhac);
+                    return (
+                        <DropdownMenuItem key={k.id} disabled={trung} onSelect={() => onChon(String(k.id))} className={DROPDOWN_ITEM_CLASS}>
+                            <span className="font-medium text-slate-900">{k.tenKho}</span>
+                            <span className="text-xs text-bo-muted">
+                                {laKhoTong(k) ? "Kho tổng" : "Kho bán hàng"}{trung ? ` · đang là ${vaiTro === "Kho nguồn" ? "kho đích" : "kho nguồn"}` : ""}
+                            </span>
+                        </DropdownMenuItem>
+                    );
+                }) : (
+                    <p className="px-2.5 py-2 text-sm text-bo-muted">{goiYTrong}</p>
+                )}
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+}
+
 export default function PhieuChuyenKhoCreate() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+    const idDs = useId();
+    const laQtv = hasAnyRole([ROLES.QUAN_TRI_VIEN]);
     // Chỉ điền sẵn một lần (StrictMode gọi tải dữ liệu 2 lần; không ghi đè khi người dùng đã sửa).
     const daDienSanRef = useRef(false);
+    const oTimRef = useRef(null);
+    const henSangRef = useRef(0);
 
     const [warehouses, setWarehouses] = useState([]);
     const [variants, setVariants] = useState([]);
-    const [showProductDialog, setShowProductDialog] = useState(false);
+    const [loiBienThe, setLoiBienThe] = useState(null); // { chu, khongQuyen } khi không tải được danh sách sản phẩm
+    const [loiKho, setLoiKho] = useState(""); // câu lỗi khi không tải được danh sách kho
+    const [dangTai, setDangTai] = useState(true);
+    const dangTaoRef = useRef(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [moKetQua, setMoKetQua] = useState(false);
+    const [dongSang, setDongSang] = useState(null);
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({ khoXuatId: "", khoNhapId: "", ghiChu: "" });
     const [transferItems, setTransferItems] = useState([]);
 
+    useEffect(() => () => clearTimeout(henSangRef.current), []);
+
+    // Kho đích: quản trị viên mọi kho giao dịch; người khác chỉ kho mình được phân (máy chủ chặn kho khác)
+    const khoNhanDuoc = useMemo(() => {
+        if (laQtv) return warehouses;
+        const idQuyen = new Set(dsKhoLamViecTrongToken().map((k) => String(k.id)));
+        return warehouses.filter((k) => idQuyen.has(String(k.id)));
+    }, [warehouses, laQtv]);
+
+    // Kho và sản phẩm tải độc lập: một bên lỗi thì bên kia vẫn dùng được, mỗi bên có dòng báo lỗi riêng
+    const taiKho = useCallback(async () => {
+        const khoRes = await khoService.filter({ page: 0, size: 100, filters: [] });
+        const listKho = khoRes.data?.data?.content || khoRes.data?.content || [];
+        // Bỏ Kho Trung Chuyển (kho ảo chứa hàng đang chuyển) và kho ngừng hoạt động
+        return listKho.filter(laKhoGiaoDich);
+    }, []);
+
     const loadInitialData = useCallback(async () => {
+        setDangTai(true);
         try {
-            const [variantRes, khoRes] = await Promise.all([
+            const [kqBienThe, kqKho] = await Promise.allSettled([
                 donBanHangService.getVariantsForCreate(),
-                khoService.filter({ page: 0, size: 100, filters: [] }),
+                taiKho(),
             ]);
-            const dsBienThe = variantRes?.data?.data || variantRes?.data || [];
+            let dsBienThe = [];
+            if (kqBienThe.status === "fulfilled") {
+                dsBienThe = kqBienThe.value?.data?.data || kqBienThe.value?.data || [];
+                setLoiBienThe(null);
+            } else {
+                setLoiBienThe(moTaLoiBienThe(kqBienThe.reason));
+            }
             setVariants(dsBienThe);
-            const listKho = khoRes.data?.data?.content || khoRes.data?.content || [];
-            // Bỏ Kho Trung Chuyển (kho ảo chứa hàng đang chuyển) và kho ngừng hoạt động
-            const dsKho = listKho.filter(laKhoGiaoDich);
+            if (kqKho.status === "rejected") {
+                setLoiKho(getApiErrorMessage(kqKho.reason, "máy chủ không phản hồi").trim().replace(/[.。]+$/, ""));
+                return;
+            }
+            setLoiKho("");
+            const dsKho = kqKho.value;
             setWarehouses(dsKho);
 
             if (daDienSanRef.current) return;
-            const deXuat = docDeXuatTuDuongDan(searchParams, dsKho, dsBienThe);
-            if (!deXuat) return;
+            const idQuyen = new Set(dsKhoLamViecTrongToken().map((k) => String(k.id)));
+            const dsKhoNhan = laQtv ? dsKho : dsKho.filter((k) => idQuyen.has(String(k.id)));
+            const deXuat = docDeXuatTuDuongDan(searchParams, dsKho, dsKhoNhan, dsBienThe);
             daDienSanRef.current = true;
+            if (!deXuat) {
+                // Không có đề xuất: người không phải quản trị viên mặc định nhận về nơi đang làm việc
+                if (!laQtv) {
+                    const noiLamViec = dsKhoNhan.find((k) => Number(k.id) === getKhoLamViecId()) ?? (dsKhoNhan.length === 1 ? dsKhoNhan[0] : null);
+                    if (noiLamViec) setFormData(prev => ({ ...prev, khoNhapId: prev.khoNhapId || String(noiLamViec.id) }));
+                }
+                return;
+            }
             setFormData(prev => ({
                 ...prev,
                 khoXuatId: deXuat.khoXuatId || prev.khoXuatId,
@@ -139,8 +240,10 @@ export default function PhieuChuyenKhoCreate() {
             }
         } catch {
             toast.error("Không thể tải dữ liệu khởi tạo");
+        } finally {
+            setDangTai(false);
         }
-    }, [searchParams]);
+    }, [searchParams, laQtv, taiKho]);
 
     // Hoãn qua microtask để tránh setState đồng bộ trong effect
     // (react-hooks/set-state-in-effect); dữ liệu vẫn tải ngay khi mount.
@@ -150,421 +253,376 @@ export default function PhieuChuyenKhoCreate() {
 
     const filteredProducts = useMemo(() => {
         const lower = searchTerm.toLowerCase().trim();
-        if (!lower) return variants.slice(0, 10);
+        if (!lower) return variants.slice(0, SO_KET_QUA_TOI_DA);
         return variants.filter(v =>
             v.tenSanPham?.toLowerCase().includes(lower) ||
-            v.maBienThe?.toLowerCase().includes(lower)
-        );
+            v.maBienThe?.toLowerCase().includes(lower) ||
+            v.maVachSku?.toLowerCase().includes(lower)
+        ).slice(0, SO_KET_QUA_TOI_DA);
     }, [searchTerm, variants]);
 
+    // Dòng bảng hàng dạng dòng chứng từ: gom theo sản phẩm, tìm và phân trang như màn chi tiết phiếu chuyển
+    const dongBang = useMemo(() => transferItems.map(it => ({
+        id: it.variantId,
+        khoaNhom: it.productId ?? null,
+        tenSanPham: it.name || it.sku || "",
+        tenMau: it.color || "",
+        maMauHex: it.colorHex || "",
+        kichCo: it.size || "",
+        sku: it.sku || "",
+        chuTimThem: it.material || "",
+        soLuong: Number(it.quantity) || 0,
+        oNhap: it.quantity,
+    })), [transferItems]);
+    const bangHang = useBangChungTu(dongBang);
+    const { denDong } = bangHang;
+
+    // Vừa thêm / quét một mã: đưa bảng tới trang và nhóm có mã đó (hoãn qua microtask như lần tải dữ liệu)
+    useEffect(() => {
+        if (dongSang == null) return;
+        queueMicrotask(() => denDong(dongSang));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dongSang]);
+
+    const toSangDong = (variantId) => {
+        setDongSang(variantId);
+        clearTimeout(henSangRef.current);
+        henSangRef.current = setTimeout(() => setDongSang(null), 1200);
+    };
+
+    // Chọn lại mã đã có (vd. quét lần nữa): cộng 1 thay vì báo trùng
     const handleAddProduct = (product) => {
-        if (transferItems.some(i => i.variantId === product.id)) {
-            toast.warning("Sản phẩm này đã có trong danh sách");
-            return;
-        }
-        setTransferItems(prev => [...prev, taoDongHang(product)]);
-        setShowProductDialog(false);
+        setTransferItems(prev => prev.some(i => i.variantId === product.id)
+            ? prev.map(i => i.variantId === product.id ? { ...i, quantity: (Number(i.quantity) || 0) + 1 } : i)
+            : [...prev, taoDongHang(product)]);
+        toSangDong(product.id);
         setSearchTerm("");
+        oTimRef.current?.focus();
+    };
+
+    // Enter: trùng đúng mã SKU (máy quét) thì lấy mã đó; không thì chỉ lấy khi còn đúng một kết quả, kẻo quét mã lạ
+    // (chuỗi con của SKU / mã vạch khác) cộng nhầm sản phẩm
+    const handleEnter = () => {
+        const tuKhoa = searchTerm.trim().toLowerCase();
+        if (!tuKhoa) return;
+        // Máy quét gửi SKU hoặc mã vạch in trên tem
+        const trungMa = variants.find(v => v.maBienThe?.toLowerCase() === tuKhoa || v.maVachSku?.toLowerCase() === tuKhoa);
+        const chon = trungMa || (filteredProducts.length === 1 ? filteredProducts[0] : null);
+        if (chon) handleAddProduct(chon);
+        else if (filteredProducts.length > 1) toast.warning(`Nhiều sản phẩm khớp "${searchTerm.trim()}", chọn trong danh sách`);
+        else if (loiBienThe) toast.error("Chưa tải được danh sách sản phẩm, xem dòng báo lỗi phía trên.");
+        else toast.warning(`Không tìm thấy sản phẩm "${searchTerm.trim()}"`);
     };
 
     async function handleCreate() {
+        if (dangTaoRef.current) return; // chặn bấm đúp (state chỉ cập nhật ở lần render sau)
         if (!formData.khoXuatId || !formData.khoNhapId)
             return toast.error("Vui lòng chọn đầy đủ kho gửi và kho nhận");
         if (formData.khoXuatId === formData.khoNhapId)
             return toast.error("Kho gửi và kho nhận không được trùng nhau");
         if (transferItems.length === 0)
             return toast.error("Vui lòng chọn ít nhất 1 sản phẩm để điều chuyển");
+        dangTaoRef.current = true;
         try {
             setLoading(true);
+            // Máy chủ kiểm header kho_id là kho của người dùng: làm việc luôn ở kho nhận (kho mình được phân)
+            if (!laQtv && getKhoLamViecId() !== Number(formData.khoNhapId)) setKhoLamViecId(Number(formData.khoNhapId));
             const payload = {
                 khoXuatId: parseInt(formData.khoXuatId),
                 khoNhapId: parseInt(formData.khoNhapId),
                 ghiChu: formData.ghiChu?.trim() || "",
                 chiTietXuat: transferItems.map(item => ({
                     bienTheSanPhamId: item.variantId,
-                    soLuongXuat: item.quantity,
+                    soLuongXuat: Number(item.quantity) || 1,
                 })),
             };
             const res = await phieuChuyenKhoService.create(payload);
-            toast.success("Tạo yêu cầu điều chuyển thành công");
+            toast.success("Tạo yêu cầu điều chuyển thành công", { description: "Phiếu đang là nháp, bấm Gửi duyệt để kho nguồn duyệt xuất." });
             navigate(`/transfer-tickets/${res.id}`);
         } catch (e) {
             toast.error(e?.response?.data?.message || "Lỗi khi tạo phiếu");
         } finally {
             setLoading(false);
+            dangTaoRef.current = false;
         }
     }
 
     // Ô số lượng có thể tạm trống khi đang gõ, không cộng chuỗi
     const totalQty = transferItems.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
+    const khoXuat = warehouses.find(k => String(k.id) === String(formData.khoXuatId)) || null;
+    const khoNhap = warehouses.find(k => String(k.id) === String(formData.khoNhapId)) || null;
 
-    // ── Warehouse dropdown label helper ──
-    const khoXuatLabel = formData.khoXuatId
-        ? warehouses.find(k => k.id === parseInt(formData.khoXuatId))?.tenKho
-        : "Chọn kho gửi";
-    const khoNhapLabel = formData.khoNhapId
-        ? warehouses.find(k => k.id === parseInt(formData.khoNhapId))?.tenKho
-        : "Chọn kho nhận";
+    const lyDoKhoa = dangTai
+        ? "Đang tải dữ liệu"
+        : !formData.khoXuatId
+        ? "Chọn kho nguồn"
+        : !formData.khoNhapId
+            ? "Chọn kho đích"
+            : transferItems.length === 0
+                ? "Thêm ít nhất một sản phẩm"
+                : "";
 
-    return (
-        <PageContainer className="space-y-5">
+    const doiChieu = () => setFormData(prev => {
+        // Không phải quản trị viên: kho nguồn mới (kho đích cũ) phải là kho chọn được làm kho đích
+        const nhanMoi = prev.khoXuatId;
+        if (!laQtv && nhanMoi && !khoNhanDuoc.some(k => String(k.id) === String(nhanMoi))) {
+            toast.warning("Không đổi chiều được: bạn chỉ tạo yêu cầu nhận hàng về kho mình phụ trách.");
+            return prev;
+        }
+        return { ...prev, khoXuatId: prev.khoNhapId, khoNhapId: prev.khoXuatId };
+    });
 
-            {/* ── Header ── */}
-            <div className="flex items-center justify-between">
+    // Tải lại riêng danh sách sản phẩm / kho (không đụng kho, hàng đã chọn)
+    const taiLaiBienThe = async () => {
+        try {
+            const res = await donBanHangService.getVariantsForCreate();
+            setVariants(res?.data?.data || res?.data || []);
+            setLoiBienThe(null);
+        } catch (e) {
+            setLoiBienThe(moTaLoiBienThe(e));
+        }
+    };
+    const taiLaiKho = async () => {
+        try {
+            setWarehouses(await taiKho());
+            setLoiKho("");
+        } catch (e) {
+            setLoiKho(getApiErrorMessage(e, "máy chủ không phản hồi").trim().replace(/[.。]+$/, ""));
+        }
+    };
+
+    const thongBao = [
+        <DongThongBao key="nhap" tone="info">
+            Phiếu tạo ở trạng thái nháp. Mở phiếu và bấm <b className="font-semibold">Gửi duyệt</b> để quản lý kho nguồn duyệt xuất; hàng chỉ rời kho khi kho nguồn xuất kho.
+        </DongThongBao>,
+        loiKho ? (
+            <DongThongBao key="loi-kho" tone="bad" actions={<NutChu onClick={taiLaiKho}>Thử lại</NutChu>}>
+                Không tải được danh sách kho: {loiKho}.
+            </DongThongBao>
+        ) : null,
+        loiBienThe ? (
+            <DongThongBao
+                key="loi-bt"
+                tone="bad"
+                actions={loiBienThe.khongQuyen ? undefined : <NutChu onClick={taiLaiBienThe}>Thử lại</NutChu>}
+            >
+                Không tải được danh sách sản phẩm: {loiBienThe.chu}.
+            </DongThongBao>
+        ) : null,
+    ].filter(Boolean);
+
+    const timSanPham = (
+        <div className="relative px-4 pb-3 pt-4 sm:px-6">
+            <label htmlFor={`${idDs}-tim`} className="sr-only">Tìm hoặc quét sản phẩm</label>
+            <ScanBarcode className="pointer-events-none absolute left-7 top-[26px] size-4 text-bo-muted sm:left-9" aria-hidden="true" />
+            <input
+                id={`${idDs}-tim`}
+                ref={oTimRef}
+                value={searchTerm}
+                autoComplete="off"
+                role="combobox"
+                aria-expanded={moKetQua}
+                aria-controls={`${idDs}-ds`}
+                placeholder="Tìm tên, mã SKU hoặc quét mã vạch rồi Enter"
+                onChange={(e) => { setSearchTerm(e.target.value); setMoKetQua(true); }}
+                onFocus={() => setMoKetQua(true)}
+                onBlur={() => setTimeout(() => setMoKetQua(false), 150)}
+                onKeyDown={(e) => {
+                    if (e.key === "Enter") { e.preventDefault(); handleEnter(); }
+                    else if (e.key === "Escape") setMoKetQua(false);
+                }}
+                className={cn(O_NHAP, "pl-9")}
+            />
+            {moKetQua ? (
+                <div
+                    id={`${idDs}-ds`}
+                    role="listbox"
+                    className="absolute inset-x-4 top-[calc(100%-6px)] z-30 max-h-[320px] overflow-y-auto rounded-lg border border-bo-border bg-white p-1 shadow-lg sm:inset-x-6"
+                >
+                    {filteredProducts.length ? filteredProducts.map((p) => {
+                        const daCo = transferItems.find(i => i.variantId === p.id);
+                        return (
+                            <button
+                                key={p.id}
+                                type="button"
+                                role="option"
+                                aria-selected={false}
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => handleAddProduct(p)}
+                                className="flex w-full items-center justify-between gap-3 rounded-md px-2.5 py-2 text-left hover:bg-slate-100"
+                            >
+                                <span className="min-w-0">
+                                    <span className="block truncate text-sm font-medium text-bo-foreground">{p.tenSanPham}</span>
+                                    <span className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-bo-muted">
+                                        <MauKichCo tenMau={p.tenMau} maMauHex={p.maMauHex} kichCo={p.tenSize} />
+                                        <span className="font-mono">{p.maBienThe}</span>
+                                    </span>
+                                </span>
+                                <span className="shrink-0 text-xs text-bo-muted">{daCo ? `Đang có ${soVN(daCo.quantity)} · +1` : "Thêm"}</span>
+                            </button>
+                        );
+                    }) : (
+                        <p className="px-2.5 py-2 text-sm text-bo-muted">
+                            {dangTai ? "Đang tải danh sách sản phẩm…" : loiBienThe ? "Chưa tải được danh sách sản phẩm." : variants.length ? "Không tìm thấy sản phẩm, thử tên hoặc mã khác." : "Chưa có sản phẩm đang kinh doanh nào."}
+                        </p>
+                    )}
+                </div>
+            ) : null}
+        </div>
+    );
+
+    const doiSoLuong = (variantId, val) =>
+        setTransferItems(prev => prev.map(it => it.variantId === variantId ? { ...it, quantity: val } : it));
+
+    const cotBang = [
+        {
+            ma: "sl", nhan: "Số lượng", lop: "w-32 text-right",
+            nhom: (n) => soVN(n.tong.soLuong),
+            dong: (d) => (
+                <input
+                    type="number"
+                    min={1}
+                    inputMode="numeric"
+                    aria-label={`Số lượng chuyển: ${d.tenSanPham} ${d.tenMau || ""} ${d.kichCo || ""}`.trim()}
+                    value={d.oNhap}
+                    onChange={(e) => {
+                        let val = e.target.value;
+                        // Chỉ parse khi có dữ liệu, nếu không để chuỗi rỗng để người dùng có thể xóa
+                        if (val !== "") {
+                            val = parseInt(val);
+                            if (isNaN(val) || val < 1) val = 1;
+                        }
+                        doiSoLuong(d.id, val);
+                    }}
+                    onBlur={(e) => {
+                        // Khi click chuột ra ngoài, nếu để trống thì reset về 1
+                        if (e.target.value === "") doiSoLuong(d.id, 1);
+                    }}
+                    className={cn(O_NHAP, "ml-auto h-8 w-24 text-right font-semibold tabular-nums")}
+                />
+            ),
+        },
+        {
+            ma: "bo", nhan: <span className="sr-only">Bỏ dòng</span>, lop: "w-14 text-right",
+            dong: (d) => (
                 <button
                     type="button"
-                    onClick={() => navigate("/transfer-tickets")}
-                    className="inline-flex items-center gap-1.5 text-sm font-medium text-bo-muted transition-colors hover:text-bo-primary"
+                    onClick={() => {
+                        // Còn ít dòng thì ô tìm trong bảng ẩn đi: bỏ từ khóa để không giấu dòng mà không có cách bỏ lọc
+                        if (transferItems.length - 1 <= NGUONG_CONG_CU) bangHang.xoaTuKhoa();
+                        setTransferItems(prev => prev.filter(it => it.variantId !== d.id));
+                    }}
+                    aria-label={`Bỏ ${d.tenSanPham} ${d.tenMau || ""} ${d.kichCo || ""}`.trim()}
+                    title="Bỏ dòng"
+                    className="inline-flex size-8 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-bo-danger-soft hover:text-bo-danger"
                 >
-                    <ArrowLeft className="size-4" />
-                    Quay lại danh sách
+                    <Trash2 className="size-4" aria-hidden="true" />
                 </button>
-            </div>
+            ),
+        },
+    ];
 
-            {/* ── Stats cards ── */}
-            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                <InfoTile
-                    icon={<Building2 className="size-5" />}
-                    iconClass="bg-bo-primary-soft text-bo-primary"
-                    label="Kho nguồn"
-                    value={khoXuatLabel === "Chọn kho gửi"
-                        ? <span className="text-sm font-normal text-bo-muted">Chưa chọn</span>
-                        : khoXuatLabel}
+    const bang = transferItems.length === 0 ? (
+        <EmptyState
+            icon={Package}
+            title="Chưa có sản phẩm nào"
+            description="Gõ tên hoặc quét mã vạch ở ô phía trên. Quét lại cùng mã sẽ cộng thêm 1."
+            className="min-h-[260px] flex-1"
+        />
+    ) : (
+        <BangHangTaoPhieu bang={bangHang} cot={cotBang} dongSang={dongSang} tenChungTu="Phiếu chuyển kho" nhan="Hàng điều chuyển" rongToiThieu="@2xl/khoi:min-w-[480px]" />
+    );
+
+    const cotPhai = (
+        <CotThuocTinh nhan="Thông tin phiếu chuyển">
+            <NhomThuocTinh nhan="Tuyến chuyển">
+                <ChonKho
+                    vaiTro="Kho nguồn"
+                    icon={Warehouse}
+                    mau="bg-bo-primary-soft text-bo-primary"
+                    kho={khoXuat}
+                    dsKho={warehouses}
+                    khoKhac={formData.khoNhapId}
+                    onChon={(id) => setFormData(prev => ({ ...prev, khoXuatId: id }))}
+                    goiYTrong={dangTai ? "Đang tải danh sách kho…" : loiKho ? "Chưa tải được danh sách kho." : "Không có kho nào đang hoạt động."}
                 />
-                <InfoTile
-                    icon={<Building2 className="size-5" />}
-                    iconClass="bg-purple-50 text-purple-600"
-                    label="Kho đích"
-                    value={khoNhapLabel === "Chọn kho nhận"
-                        ? <span className="text-sm font-normal text-bo-muted">Chưa chọn</span>
-                        : khoNhapLabel}
-                />
-                <InfoTile
-                    icon={<Package className="size-5" />}
-                    iconClass="bg-bo-warning-soft text-bo-warning"
-                    label="Tổng số lượng"
-                    value={totalQty}
-                />
-            </section>
-
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-4">
-
-                {/* ── LEFT: Thông tin lộ trình ── */}
-                <SurfaceCard
-                    className="lg:col-span-1"
-                    title="Thông tin lộ trình"
-                    description="Chọn kho xuất và kho nhập"
-                    contentClassName="space-y-5"
-                >
-                    {/* Kho xuất */}
-                    <div className="space-y-1.5">
-                        <label className={FIELD_LABEL_CLASS}>
-                            Kho xuất (Nguồn)
-                        </label>
-                        <DropdownMenu modal={false}>
-                            <DropdownMenuTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    className="h-10 w-full justify-between border-bo-border bg-white font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                                >
-                                    <div className="flex min-w-0 items-center">
-                                        <Building2 className="mr-2 size-4 shrink-0 text-bo-muted" />
-                                        <span className="truncate text-sm">{khoXuatLabel}</span>
-                                    </div>
-                                    <ChevronDown className="ml-2 size-4 shrink-0 opacity-50" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent className={`${DROPDOWN_CONTENT_CLASS} max-h-[300px] w-[260px] overflow-y-auto`}>
-                                {warehouses.map((k) => (
-                                    <DropdownMenuItem
-                                        key={k.id}
-                                        disabled={Number(formData.khoNhapId) === k.id}
-                                        onClick={() => setFormData({ ...formData, khoXuatId: k.id.toString() })}
-                                        className={`${DROPDOWN_ITEM_CLASS} flex flex-col items-start py-2`}
-                                    >
-                                        <span className="font-medium text-slate-900">{k.tenKho}</span>
-                                        <span className="text-xs text-bo-muted">Mã: {k.maKho}</span>
-                                    </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-
-                    {/* Arrow */}
-                    <div className="flex justify-center">
-                        <div className="flex size-8 items-center justify-center rounded-full bg-bo-surface-subtle">
-                            <ArrowDown className="size-4 text-bo-muted" />
-                        </div>
-                    </div>
-
-                    {/* Kho nhập */}
-                    <div className="space-y-1.5">
-                        <label className={FIELD_LABEL_CLASS}>
-                            Kho nhập (Đích)
-                        </label>
-                        <DropdownMenu modal={false}>
-                            <DropdownMenuTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    className="h-10 w-full justify-between border-bo-border bg-white font-normal text-bo-foreground hover:bg-bo-surface-subtle"
-                                >
-                                    <div className="flex min-w-0 items-center">
-                                        <Building2 className="mr-2 size-4 shrink-0 text-bo-muted" />
-                                        <span className="truncate text-sm">{khoNhapLabel}</span>
-                                    </div>
-                                    <ChevronDown className="ml-2 size-4 shrink-0 opacity-50" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent className={`${DROPDOWN_CONTENT_CLASS} max-h-[300px] w-[260px] overflow-y-auto`}>
-                                {warehouses.map((k) => (
-                                    <DropdownMenuItem
-                                        key={k.id}
-                                        disabled={Number(formData.khoXuatId) === k.id}
-                                        onClick={() => setFormData({ ...formData, khoNhapId: k.id.toString() })}
-                                        className={`${DROPDOWN_ITEM_CLASS} flex flex-col items-start py-2`}
-                                    >
-                                        <span className="font-medium text-slate-900">{k.tenKho}</span>
-                                        <span className="text-xs text-bo-muted">Mã: {k.maKho}</span>
-                                    </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-
-                    {/* Ghi chú */}
-                    <div className="space-y-1.5 border-t border-bo-border pt-4">
-                        <label htmlFor="ghiChu" className={FIELD_LABEL_CLASS}>
-                            Ghi chú
-                        </label>
-                        <textarea
-                            id="ghiChu"
-                            value={formData.ghiChu}
-                            onChange={(e) => setFormData({ ...formData, ghiChu: e.target.value })}
-                            rows={3}
-                            placeholder="Lý do điều phối hàng..."
-                            className="w-full resize-none rounded-md border border-bo-border bg-white px-3 py-2 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15"
-                        />
-                    </div>
-                </SurfaceCard>
-
-                {/* ── RIGHT: Danh sách hàng điều chuyển ── */}
-                <div className="lg:col-span-3">
-                    <TableShell
-                        title="Danh mục hàng điều chuyển"
-                        description="Chọn sản phẩm và số lượng cần chuyển"
-                        toolbar={
-                            <div className="flex justify-end px-4 pt-3 sm:px-5">
-                                <Button
-                                    onClick={() => setShowProductDialog(true)}
-                                    className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
-                                >
-                                    <Plus className="size-4" />
-                                    Thêm sản phẩm
-                                </Button>
-                            </div>
-                        }
-                        footer={transferItems.length > 0 ? (
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <p className="text-sm text-bo-muted">
-                                    Tổng{" "}
-                                    <span className="font-semibold text-bo-primary">{transferItems.length}</span>{" "}
-                                    sản phẩm —{" "}
-                                    <span className="font-semibold text-bo-primary">{totalQty}</span>{" "}
-                                    đơn vị
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                    <Button
-                                        variant="outline"
-                                        className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                                        onClick={() => navigate("/transfer-tickets")}
-                                    >
-                                        Hủy
-                                    </Button>
-                                    <Button
-                                        onClick={handleCreate}
-                                        disabled={loading}
-                                        className="min-w-[180px] gap-2 bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover disabled:opacity-50"
-                                    >
-                                        {loading
-                                            ? <><Loader2 className="size-4 animate-spin" />Đang xử lý...</>
-                                            : <>Tạo phiếu điều chuyển</>
-                                        }
-                                    </Button>
-                                </div>
-                            </div>
-                        ) : null}
-                    >
-                        {/* Table */}
-                        {transferItems.length === 0 ? (
-                            <EmptyState
-                                icon={Package}
-                                title="Chưa có sản phẩm nào"
-                                description={'Nhấn "Thêm sản phẩm" để chọn hàng hóa cần điều chuyển.'}
-                            />
-                        ) : (
-                            <table className="w-full min-w-[720px] text-sm">
-                                <thead>
-                                    <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                        <th className={`${TH_CLASS} text-left`}>
-                                            Thông tin sản phẩm
-                                        </th>
-                                        <th className={`${TH_CLASS} w-36 text-center`}>
-                                            Số lượng
-                                        </th>
-                                        <th className="h-10 w-14 px-4" />
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-bo-border">
-                                    {transferItems.map((item, index) => (
-                                        <tr key={item.variantId} className="transition-colors hover:bg-bo-surface-subtle">
-                                            <td className="px-4 py-3.5 align-middle">
-                                                <span className="font-semibold leading-snug text-bo-foreground">
-                                                    {item.name}
-                                                </span>
-                                                <span className="mt-0.5 block font-mono text-xs text-bo-primary">
-                                                    {item.sku}
-                                                </span>
-                                                <span className="mt-0.5 block text-xs italic text-bo-muted">
-                                                    {item.color || "—"} / {item.size || "—"} / {item.material || "—"}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3.5 text-center align-middle">
-                                                <input
-                                                    type="number"
-                                                    min={1}
-                                                    value={item.quantity}
-                                                    onChange={(e) => {
-                                                        let val = e.target.value;
-                                                        // Chỉ parse khi có dữ liệu, nếu không để chuỗi rỗng để người dùng có thể xóa
-                                                        if (val !== "") {
-                                                            val = parseInt(val);
-                                                            if (isNaN(val) || val < 1) val = 1;
-                                                        }
-                                                        setTransferItems(prev => prev.map((it, i) => i === index ? { ...it, quantity: val } : it));
-                                                    }}
-                                                    onBlur={(e) => {
-                                                        // Khi click chuột ra ngoài, nếu để trống thì reset về 1
-                                                        if (e.target.value === "") {
-                                                            setTransferItems(prev => prev.map((it, i) => i === index ? { ...it, quantity: 1 } : it));
-                                                        }
-                                                    }}
-                                                    className="h-9 w-24 rounded-md border border-bo-border bg-white text-center font-semibold text-bo-foreground focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15"
-                                                />
-                                            </td>
-                                            <td className="px-4 py-3.5 text-center align-middle">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setTransferItems(prev => prev.filter((_, i) => i !== index))}
-                                                    aria-label="Xóa sản phẩm"
-                                                    className="inline-flex size-8 items-center justify-center rounded-md border border-transparent text-bo-danger transition-colors hover:border-bo-danger/20 hover:bg-bo-danger-soft"
-                                                >
-                                                    <Trash2 className="size-4" />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
-                    </TableShell>
-                </div>
-            </div>
-
-            {/* ── PRODUCT SELECTOR DIALOG ── */}
-            <Dialog open={showProductDialog} onOpenChange={setShowProductDialog}>
-                <DialogContent className="max-h-[90vh] w-[95vw] max-w-2xl gap-0 overflow-y-auto rounded-lg border border-bo-border bg-white p-0 text-bo-foreground shadow-lg outline-none">
-                    {/* Panel header */}
-                    <div className="flex items-center gap-3 border-b border-bo-border px-5 pb-4 pt-5">
-                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-bo-warning-soft">
-                            <Search className="size-4 text-bo-warning" />
-                        </div>
-                        <div>
-                            <p className="font-semibold leading-snug text-bo-foreground">Tìm kiếm sản phẩm</p>
-                            <p className="mt-0.5 text-xs text-bo-muted">Chọn biến thể sản phẩm từ danh mục hệ thống</p>
-                        </div>
-                    </div>
-
-                    {/* Search bar */}
-                    <div className="px-5 py-4">
-                        <div className="relative">
-                            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-bo-muted" />
-                            <Input
-                                placeholder="Nhập tên sản phẩm hoặc mã SKU..."
-                                className="h-10 border-bo-border bg-white pl-9 text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-2 focus-visible:ring-bo-primary/15"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                autoFocus
-                            />
-                        </div>
-                    </div>
-
-                    {/* Danh sách sản phẩm */}
-                    <div className="max-h-[400px] overflow-y-auto">
-                        {filteredProducts.length === 0 ? (
-                            <EmptyState
-                                icon={Search}
-                                title="Không tìm thấy sản phẩm"
-                                description="Thử tìm với từ khóa khác"
-                            />
-                        ) : (
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                        <th className={`${TH_CLASS} text-left`}>
-                                            Sản phẩm
-                                        </th>
-                                        <th className="h-10 w-24 px-4" />
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-bo-border">
-                                    {filteredProducts.map((product) => (
-                                        <tr
-                                            key={product.id}
-                                            onClick={() => handleAddProduct(product)}
-                                            className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
-                                        >
-                                            <td className="px-5 py-3.5 align-middle">
-                                                <span className="font-semibold leading-snug text-bo-foreground">
-                                                    {product.tenSanPham}
-                                                </span>
-                                                <span className="mt-0.5 block font-mono text-xs text-bo-primary">
-                                                    {product.maBienThe}
-                                                </span>
-                                                <span className="mt-0.5 block text-xs italic text-bo-muted">
-                                                    {product.tenMau || "—"} / {product.tenSize || "—"} / {product.tenChatLieu || "—"}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3.5 text-right align-middle">
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => { e.stopPropagation(); handleAddProduct(product); }}
-                                                    className="inline-flex h-8 items-center justify-center rounded-md bg-bo-primary px-3 text-xs font-semibold text-white transition-colors hover:bg-bo-primary-hover"
-                                                >
-                                                    Chọn
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
-                    </div>
-
-                    {/* Panel footer */}
-                    <div className="flex items-center justify-between border-t border-bo-border bg-bo-surface-subtle px-5 py-4">
-                        <p className="text-sm text-bo-muted">
-                            <span className="font-semibold text-bo-primary">{filteredProducts.length}</span> kết quả
-                        </p>
+                <div className="flex h-[30px] items-center justify-between pl-4 text-slate-400">
+                    <ArrowDown className="size-4" aria-hidden="true" />
+                    {formData.khoXuatId && formData.khoNhapId ? (
                         <button
                             type="button"
-                            onClick={() => { setShowProductDialog(false); setSearchTerm(""); }}
-                            className="inline-flex h-8 items-center justify-center rounded-md border border-bo-border bg-white px-4 text-sm font-medium text-bo-foreground transition-colors hover:bg-bo-surface-subtle"
+                            onClick={doiChieu}
+                            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium text-bo-primary hover:bg-bo-primary-soft"
                         >
-                            Đóng
+                            <ArrowUpDown className="size-3.5" aria-hidden="true" />
+                            Đổi chiều
                         </button>
-                    </div>
-                </DialogContent>
-            </Dialog>
+                    ) : null}
+                </div>
+                <ChonKho
+                    vaiTro="Kho đích"
+                    icon={Store}
+                    mau="bg-bo-success-soft text-bo-success"
+                    kho={khoNhap}
+                    dsKho={khoNhanDuoc}
+                    khoKhac={formData.khoXuatId}
+                    onChon={(id) => setFormData(prev => ({ ...prev, khoNhapId: id }))}
+                    goiYTrong={dangTai ? "Đang tải danh sách kho…" : loiKho ? "Chưa tải được danh sách kho." : "Bạn chưa được phân kho nào để nhận hàng."}
+                />
+                {!laQtv ? (
+                    <p className="mt-2 text-xs leading-[18px] text-bo-muted">Bạn tạo yêu cầu nhận hàng về kho mình phụ trách.</p>
+                ) : null}
+            </NhomThuocTinh>
+            <NhomThuocTinh>
+                <label className="grid gap-1.5">
+                    <span className={NHAN_O}>Ghi chú</span>
+                    <textarea
+                        value={formData.ghiChu}
+                        maxLength={GHI_CHU_TOI_DA}
+                        onChange={(e) => setFormData(prev => ({ ...prev, ghiChu: e.target.value.slice(0, GHI_CHU_TOI_DA) }))}
+                        placeholder="Lý do điều phối hàng, vd. bổ sung hàng cho đợt khuyến mãi"
+                        className={O_NHAP_NHIEU_DONG}
+                    />
+                    <span className={GOI_Y_O}>
+                        <span>Không bắt buộc</span>
+                        <span>{formData.ghiChu.length}/{GHI_CHU_TOI_DA}</span>
+                    </span>
+                </label>
+            </NhomThuocTinh>
+        </CotThuocTinh>
+    );
+
+    return (
+        <PageContainer className="flex min-h-full flex-col">
+            <KhungChungTu
+                dau={
+                    <DauChungTu
+                        ma="Tạo phiếu chuyển kho nội bộ"
+                        dongPhu={[
+                            // Tên hai kho đã ở cột Tuyến chuyển: không lặp ở dòng phụ
+                            transferItems.length ? "" : "Chọn kho nguồn, kho đích và hàng cần chuyển",
+                            transferItems.length ? `${soVN(bangHang.tong.soSanPham)} sản phẩm · ${soVN(bangHang.tong.soDong)} biến thể` : "",
+                            transferItems.length ? `Tổng chuyển ${soVN(totalQty)}` : "",
+                        ]}
+                        onQuayLai={() => navigate("/transfer-tickets")}
+                        nhanQuayLai="Quay lại danh sách"
+                        nutChinh={{
+                            ma: "tao",
+                            nhan: "Tạo phiếu điều chuyển",
+                            icon: Truck,
+                            onClick: handleCreate,
+                            khoa: Boolean(lyDoKhoa) || loading,
+                            lyDo: lyDoKhoa || undefined,
+                            hienLyDo: true,
+                            dangChay: loading,
+                        }}
+                    />
+                }
+                tienTrinh={<TienTrinhChungTu buoc={BUOC} nhan="Các bước của phiếu chuyển kho" />}
+                thongBao={thongBao}
+                chinh={<>{timSanPham}{bang}</>}
+                cotPhai={cotPhai}
+            />
         </PageContainer>
     );
 }

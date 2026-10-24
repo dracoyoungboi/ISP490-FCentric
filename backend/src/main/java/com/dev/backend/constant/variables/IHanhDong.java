@@ -41,4 +41,28 @@ public interface IHanhDong {
     //id_tham_chieu = id dòng cau_hinh_mau_in; gia_tri_cu / gia_tri_moi = ảnh chụp JSON cấu hình)
     String
             cap_nhat_mau_in = "cap_nhat_mau_in";
+    //Bảo mật (NhatKyBaoMatService): loai_tham_chieu = nguoi_dung / cau_hinh_thanh_toan; không bao giờ ghi mật khẩu,
+    //mã hay khóa, chỉ ghi việc gì đã xảy ra
+    String
+            dang_nhap = "dang_nhap",
+            dang_nhap_that_bai = "dang_nhap_that_bai",
+            tao_tai_khoan = "tao_tai_khoan",
+            khoa_tai_khoan = "khoa_tai_khoan",
+            mo_khoa_tai_khoan = "mo_khoa_tai_khoan",
+            doi_mat_khau = "doi_mat_khau",
+            dat_lai_mat_khau = "dat_lai_mat_khau",
+            cap_nhat_khoa_thanh_toan = "cap_nhat_khoa_thanh_toan";
+
+    /**
+     * Nhật ký job dọn 90 ngày (AuditLogCleanupJob) KHÔNG xóa: phiên bản mẫu in (để khôi phục) và bản ghi bảo mật
+     * (đăng nhập, khóa tài khoản, mật khẩu, đổi quyền / vai trò, đổi khóa thanh toán). Không đưa cap_nhat_kenh_ban
+     * vào đây: hành động này còn ghi kết quả mỗi lần đồng bộ đơn từ sàn, giữ mãi thì bảng phình.
+     */
+    java.util.List<String> KHONG_TU_DON = java.util.List.of(
+            cap_nhat_mau_in,
+            dang_nhap, dang_nhap_that_bai, tao_tai_khoan, khoa_tai_khoan, mo_khoa_tai_khoan, doi_mat_khau,
+            dat_lai_mat_khau,
+            cap_nhat_khoa_thanh_toan,
+            cap_quyen, thu_hoi_quyen, cap_nhat_quyen, them_kho, xoa_kho, nang_cap_chuc_vu,
+            cap_nhat_phan_quyen, cap_nhat_mau_quyen);
 }

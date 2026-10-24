@@ -6,13 +6,18 @@ import KetNoiShopifyForm from "@/components/channel/KetNoiShopifyForm";
 import { NUT_CHINH, NUT_PHU } from "@/components/channel/BottomActionBar";
 import { kiemTraGiaTriKetNoi, taoGiaTriKetNoi, taoPayloadKetNoi } from "@/components/channel/ketNoiKenh";
 import { kenhBanHangService } from "@/services/kenhBanHangService";
-import { getApiErrorMessage } from "@/utils/apiError";
+import { getApiErrorCode, getApiErrorMessage } from "@/utils/apiError";
+
+/** Mã lỗi cho thấy kết nối vừa đổi ở nơi khác (tab khác vừa ngắt / kết nối cửa hàng khác): trang phải đọc lại. */
+const MA_DOI_KET_NOI = new Set(["KENH_CHUA_KET_NOI", "GIAN_HANG_KHAC"]);
 
 /**
- * Hộp thoại "Cập nhật khóa truy cập" của trang Cấu hình (PUT /shopify).
+ * Hộp thoại "Cập nhật khóa truy cập" của trang Cấu hình (PUT /{maKenh}/ket-noi/khoa, máy chủ cũ PUT /shopify).
  * Ô khóa để trống = giữ khóa đã lưu. Trang cha chỉ gắn hộp thoại khi mở, nên mỗi lần mở là form mới.
+ * `onDoiKetNoi(error, payload)`: máy chủ báo kết nối vừa đổi ở nơi khác; trang cha đóng hộp thoại và báo lỗi bằng toast
+ * (`payload`: dữ liệu vừa gửi, để biết người dùng có tự đổi tên miền không).
  */
-export default function ShopifyConfigDialog({ open, onOpenChange, config, onSaved }) {
+export default function ShopifyConfigDialog({ open, onOpenChange, config, onSaved, onDoiKetNoi }) {
   const [values, setValues] = useState(() => taoGiaTriKetNoi(config));
   const [errors, setErrors] = useState({});
   const [result, setResult] = useState(null);
@@ -38,12 +43,14 @@ export default function ShopifyConfigDialog({ open, onOpenChange, config, onSave
     dangLuuRef.current = true;
     setDangLuu(true);
     setResult(null);
+    const payload = taoPayloadKetNoi(values, config);
     try {
-      const dto = await kenhBanHangService.updateShopifyConfig(taoPayloadKetNoi(values, config));
+      const dto = await kenhBanHangService.updateShopifyConfig(payload);
       onSaved?.(dto);
     } catch (error) {
       setValues((cu) => ({ ...cu, accessToken: "", apiSecret: "", refreshToken: "" }));
-      setResult({ ok: false, title: "Chưa lưu được", message: getApiErrorMessage(error, "Không lưu được khóa truy cập") });
+      if (MA_DOI_KET_NOI.has(getApiErrorCode(error)) && onDoiKetNoi) onDoiKetNoi(error, payload);
+      else setResult({ ok: false, title: "Chưa lưu được", message: getApiErrorMessage(error, "Không lưu được khóa truy cập") });
     } finally {
       dangLuuRef.current = false;
       setDangLuu(false);

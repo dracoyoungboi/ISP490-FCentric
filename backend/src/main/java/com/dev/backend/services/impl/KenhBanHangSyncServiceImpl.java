@@ -1,6 +1,7 @@
 package com.dev.backend.services.impl;
 
 import com.dev.backend.entities.DonBanHang;
+import com.dev.backend.exception.customize.LoiCoMaException;
 import com.dev.backend.repository.DonBanHangRepository;
 import com.dev.backend.services.KenhBanHangSyncService;
 import lombok.AccessLevel;
@@ -49,6 +50,9 @@ public class KenhBanHangSyncServiceImpl implements KenhBanHangSyncService {
 
             // Ghi nhận trạng thái push thành công vào log
             log.info("KenhBanHangSync: Đã hoàn tất push trạng thái đơn hàng {} sang kênh {}", don.getSoDonHang(), tenKenh);
+        } catch (LoiCoMaException e) {
+            // Lỗi đã biết (vd. Shopify từ chối khóa làm mới): một dòng cảnh báo, không in stack trace sau mỗi lần xuất kho
+            log.warn("KenhBanHangSync: Không đồng bộ trạng thái đơn hàng ID {} sang kênh bán: {}", donBanHangId, e.getMessage());
         } catch (Exception e) {
             log.error("KenhBanHangSync: Lỗi khi đồng bộ trạng thái đơn hàng ID {} sang kênh bán: {}",
                     donBanHangId, e.getMessage(), e);

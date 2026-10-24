@@ -4,6 +4,7 @@ Kính gửi [(${e.tenNhaCungCap})],
 
 Cảm ơn Quý công ty đã gửi báo giá. Chúng tôi nhận được lúc [(${e.thoiDiemBaoGia})] với nội dung dưới đây.
 
+Báo giá đã nhận
 [# th:each="d : ${e.dong}"][(${d.stt})]. [(${d.tenSanPham})][# th:if="${d.moTa() != null}"] ([(${d.moTa()})])[/]: [(${d.soLuong})] × [(${d.donGia})] = [(${d.thanhTien})]
 [/]Tổng cộng: [# th:if="${e.tongSoLuong != null}"][(${e.tongSoLuong})], [/][(${e.tongTien})]
 Đơn giá đã gồm thuế GTGT (nếu có) và chi phí giao đến kho nhận.
@@ -12,7 +13,7 @@ Ghi chú trong báo giá của Quý công ty: [(${e.ghiChuNhaCungCap})]
 [/]
 Bước tiếp theo
 - Báo giá này chưa phải đơn đặt hàng. Chúng tôi sẽ gửi kết quả qua email.
-- Cần sửa đơn giá: gửi lại trên Cổng nhà cung cấp trước khi có kết quả. Báo giá gửi sau sẽ thay báo giá này.
+- Cần sửa đơn giá: Quý công ty gửi lại trên Cổng nhà cung cấp trước khi có kết quả. Báo giá gửi sau sẽ thay báo giá này.
 
 Sửa báo giá: [(${e.duongDanCong})]
 

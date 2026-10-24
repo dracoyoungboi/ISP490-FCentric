@@ -211,6 +211,26 @@ class SanPhamQuanAoServiceAnhBienTheTest {
     }
 
     @Test
+    void taoSanPham_anhLaSvgHoacHtml_baoLoiTruocKhiGhi() {
+        // Tên .png, khai image/png nhưng nội dung là SVG / HTML có script → không được lưu lên MinIO
+        MultipartFile svg = new MockMultipartFile("anh", "mau-den.png", "image/png",
+                "<svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(1)</script></svg>".getBytes());
+        MultipartFile html = new MockMultipartFile("anh", "anh-chinh.png", "image/png",
+                "<!doctype html><script>alert(1)</script>".getBytes());
+
+        CommonException loiBienThe = assertThrows(CommonException.class, () -> service.create(
+                sanPham(List.of(bienThe(MAU_DEN, SIZE_S, 0))), List.of(anh("anh-chinh.png")), List.of(svg)));
+        assertEquals("Ảnh \"mau-den.png\" phải là ảnh JPEG, PNG, WebP, GIF hoặc AVIF", loiBienThe.getMessage());
+
+        CommonException loiSanPham = assertThrows(CommonException.class, () -> service.create(
+                sanPham(List.of(bienThe(MAU_DEN, SIZE_S, null))), List.of(html), List.of()));
+        assertEquals("Ảnh \"anh-chinh.png\" phải là ảnh JPEG, PNG, WebP, GIF hoặc AVIF", loiSanPham.getMessage());
+
+        verify(repository, never()).save(any());
+        verifyNoInteractions(minioService);
+    }
+
+    @Test
     void taoSanPham_quaGioiHanBienThe_baoLoi() {
         List<BienTheSanPhamCreating> dsBienThe = IntStream.range(0, 101)
                 .mapToObj(i -> BienTheSanPhamCreating.builder().mauSacId(1000 + i).sizeId(SIZE_S).chatLieuId(CHAT_LIEU).build())
@@ -292,7 +312,9 @@ class SanPhamQuanAoServiceAnhBienTheTest {
     }
 
     private static MultipartFile anh(String ten) {
-        return new MockMultipartFile("anh", ten, "image/png", new byte[]{1, 2, 3});
+        // Chữ ký PNG: máy chủ nhận dạng ảnh theo byte đầu tệp
+        return new MockMultipartFile("anh", ten, "image/png",
+                new byte[]{(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3});
     }
 
     private static BienTheSanPhamCreating bienThe(int mauSacId, int sizeId, Integer viTriAnh) {

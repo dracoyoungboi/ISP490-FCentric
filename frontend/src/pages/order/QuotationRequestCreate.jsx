@@ -1,416 +1,291 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { toast } from "@/lib/thongBaoNhanh";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { ArrowRight, ClipboardList } from "lucide-react";
+import { cn } from "@/lib/utils";
 import purchaseRequestService from "@/services/purchaseRequestService";
-import apiClient from "@/services/apiClient";
-import { Input } from "@/components/ui/input";
-import {
-    Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import {
-    FileText, ArrowLeft, Loader2, ClipboardList, Truck,
-    CheckCircle2, Send, RotateCw, Check, Users
-} from "lucide-react";
+import { getMineKhoList } from "@/services/khoService";
+import { ROLES, hasAnyRole } from "@/utils/roles";
+import { formatDate } from "@/utils/formatters";
+import { getApiErrorMessage } from "@/utils/apiError";
 
 import PageContainer from "@/components/backoffice/PageContainer";
-import PageHeader from "@/components/backoffice/PageHeader";
-import SurfaceCard from "@/components/shared/SurfaceCard";
-import TableShell from "@/components/shared/TableShell";
 import EmptyState from "@/components/shared/EmptyState";
 import LoadingState from "@/components/shared/LoadingState";
-import FormSection from "@/components/shared/FormSection";
-import FormActions from "@/components/shared/FormActions";
+import KhungChungTu from "@/components/chung-tu/KhungChungTu";
+import DauChungTu from "@/components/chung-tu/DauChungTu";
+import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
+import CotThuocTinh, { BangThuocTinh, NhomThuocTinh } from "@/components/chung-tu/CotThuocTinh";
+import KhongKetQua from "@/components/chung-tu/KhongKetQua";
+import PhanTrangBang from "@/components/chung-tu/PhanTrangBang";
+import ThanhCongCuBang from "@/components/chung-tu/ThanhCongCuBang";
+import useBangChungTu from "@/components/chung-tu/useBangChungTu";
+import { soVN } from "@/components/chung-tu/bangChungTu";
+import {
+    AN_DIEN_THOAI, BANG, CHI_DIEN_THOAI, DONG, DONG_SANG, DONG_TIEU_DE, KHUNG_CUON, O, O_CUOI, O_DAU, O_TIEU_DE,
+} from "@/components/chung-tu/kieuBang";
+import { TRANG_THAI_YEU_CAU, VAI_TRO_XEM_DON_MUA } from "@/components/order/chi-tiet-yeu-cau/tinhYeuCau";
+import { chanGuiBaoGia, maYeuCau, tongSoLuongDat } from "@/components/order/gui-bao-gia/tinhGuiBaoGia";
 
+/**
+ * Vai trò gửi được yêu cầu báo giá: trùng @RequireAuth của POST /nghiep-vu/don-mua-hang/gui-yeu-cau-bao-gia
+ * (IRoleType.GUI_YEU_CAU_BAO_GIA) — cùng bộ vai trò xem đơn mua. Nhân viên bán hàng xem được yêu cầu nhưng không gửi được.
+ */
+const VAI_TRO_GUI = VAI_TRO_XEM_DON_MUA;
+const duongGui = (id) => `/purchase-requests/${id}/send-quotation`;
+
+/**
+ * Tạo yêu cầu báo giá (/quotation-requests/create) — bước 1: chọn yêu cầu nhập hàng đã duyệt. Bước 2 (chọn nhà cung
+ * cấp, kiểm email, kiểm thông tin cửa hàng, chỉ gửi một lần, xử lý lỗi gửi) dùng ĐÚNG màn Gửi yêu cầu báo giá
+ * (/purchase-requests/:id/send-quotation) để hai lối vào không lệch quy tắc.
+ *
+ * Màn cũ ở đây tự dựng lại việc gửi nhưng sai nghiệp vụ: ô "Tiền tố mã báo giá" không được gửi lên máy chủ (mã do máy
+ * chủ cấp), ghi chú gửi kèm bị máy chủ bỏ qua, chọn được nhà cung cấp chưa có email, không chặn khi thông tin cửa hàng
+ * còn thiếu. Liên kết cũ "?prId=" chuyển thẳng sang bước 2.
+ */
 export default function QuotationRequestCreate() {
-    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+    const prId = searchParams.get("prId");
+    if (prId) return <Navigate to={duongGui(prId)} replace />;
+    return <ChonYeuCauNhapHang />;
+}
 
-    // --- States ---
-    const [prList, setPrList] = useState([]);
-    const [suppliers, setSuppliers] = useState([]);
-    const [selectedPR, setSelectedPR] = useState(null);
+function ChonYeuCauNhapHang() {
+    const navigate = useNavigate();
+    const idBang = useId();
+    const duocGui = hasAnyRole(VAI_TRO_GUI);
+    // Như danh sách Yêu cầu nhập hàng: người chỉ có vai trò kho chỉ thấy yêu cầu của kho mình phụ trách
+    const gioiHanKho = !hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_MUA_HANG])
+        && hasAnyRole([ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_KHO]);
 
-    const [loading, setLoading] = useState(false);
-    const [actionLoading, setActionLoading] = useState(false);
-    const [sending, setSending] = useState(false);
-    const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+    const [dsYeuCau, setDsYeuCau] = useState([]);
+    const [dangTai, setDangTai] = useState(true);
+    const [loiTai, setLoiTai] = useState("");
+    const [chonId, setChonId] = useState(null);
 
-    const [form, setForm] = useState({
-        prId: "",
-        soDonMua: "",
-        ghiChu: "",
-    });
-
-    const [selectedSupplierIds, setSelectedSupplierIds] = useState([]);
-
-    const generateOrderNumber = useCallback(() => {
-        const now = new Date();
-        const y = now.getFullYear();
-        const m = String(now.getMonth() + 1).padStart(2, '0');
-        const d = String(now.getDate()).padStart(2, '0');
-        const r = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-        setForm(prev => ({ ...prev, soDonMua: `RFQ${y}${m}${d}${r}` }));
-    }, []);
-
-    const loadPRDetails = useCallback(async (id) => {
-        setActionLoading(true);
+    const taiDanhSach = useCallback(async () => {
+        setDangTai(true);
+        setLoiTai("");
         try {
-            const res = await apiClient.get(`/api/v1/yeu-cau-mua-hang/get-by-id/${id}`);
-            const data = res.data?.data;
-
-            setSelectedPR(data);
-            setForm(prev => ({
-                ...prev,
-                prId: data.id,
-                ghiChu: `Tạo yêu cầu báo giá từ yêu cầu mua hàng #${data.id}`
-            }));
-            generateOrderNumber();
-        } catch {
-            toast.error("Không thể tải chi tiết yêu cầu mua hàng");
-            setSelectedPR(null);
-            setForm(prev => ({ ...prev, prId: "" }));
-        } finally {
-            setActionLoading(false);
-        }
-    }, [generateOrderNumber]);
-
-    const fetchInitialData = useCallback(async () => {
-        setLoading(true);
-        try {
-            // Lấy danh sách PR (Đã duyệt) từ API filter mới
-            const prRes = await apiClient.post('/api/v1/yeu-cau-mua-hang/filter', {
-                filters: [{ fieldName: "trangThai", operation: "EQUALS", value: 2, logicType: "AND" }],
-                sorts: [{ fieldName: "ngayTao", direction: "DESC" }],
-                page: 0, size: 1000
-            });
-            setPrList(prRes.data?.data?.content || prRes.data?.content || []);
-
-            // Lấy danh sách nhà cung cấp (chỉ hiển thị những NCC đang hoạt động: trangThai = 1)
-            const suppRes = await apiClient.get('/api/supplier');
-            const allSuppliers = suppRes.data?.data || [];
-            setSuppliers(allSuppliers.filter(s => s.trangThai === 1));
-
-            // Xử lý auto-fill nếu đi từ màn detail sang
-            const initialPrId = searchParams.get("prId");
-            if (initialPrId) {
-                await loadPRDetails(initialPrId);
+            const filters = [{ fieldName: "trangThai", operation: "EQUALS", value: TRANG_THAI_YEU_CAU.DA_DUYET, logicType: "AND" }];
+            if (gioiHanKho) {
+                const khoIds = (await getMineKhoList()).map((k) => k.id).filter((id) => id != null);
+                // Chưa được gán kho nào thì không có yêu cầu nào thuộc phạm vi
+                if (!khoIds.length) {
+                    setDsYeuCau([]);
+                    return;
+                }
+                filters.push({ fieldName: "khoNhap.id", operation: "IN", value: khoIds, logicType: "AND" });
             }
-        } catch {
-            toast.error("Không thể tải dữ liệu khởi tạo");
+            const res = await purchaseRequestService.filter({
+                filters,
+                sorts: [{ fieldName: "ngayTao", direction: "DESC" }],
+                page: 0, size: 1000,
+            });
+            setDsYeuCau(res.data?.data?.content || res.data?.content || []);
+        } catch (e) {
+            setLoiTai(getApiErrorMessage(e, "máy chủ không phản hồi").trim().replace(/[.。]+$/, ""));
         } finally {
-            setLoading(false);
+            setDangTai(false);
         }
-    }, [loadPRDetails, searchParams]);
+    }, [gioiHanKho]);
 
     // Hoãn qua microtask để tránh setState đồng bộ trong effect
     useEffect(() => {
-        queueMicrotask(() => fetchInitialData());
-    }, [fetchInitialData]);
+        queueMicrotask(() => taiDanhSach());
+    }, [taiDanhSach]);
 
-    const handleSelectPR = (id) => {
-        if (!id) {
-            setSelectedPR(null);
-            setForm(prev => ({ ...prev, prId: "", soDonMua: "" }));
-            return;
-        }
-        loadPRDetails(id);
-    };
+    // Dòng bảng (phân trang theo dòng, tìm theo mã, kho, người tạo, ghi chú)
+    const dong = useMemo(() => dsYeuCau.filter((yc) => yc?.id != null).map((yc) => {
+        const coChiTiet = Array.isArray(yc.chiTietYeuCauMuaHangs);
+        return {
+            id: yc.id,
+            tenSanPham: maYeuCau(yc),
+            chuTimThem: [yc.khoNhap?.tenKho, yc.nguoiTao?.hoTen, yc.ghiChu].filter(Boolean),
+            soBienThe: coChiTiet ? yc.chiTietYeuCauMuaHangs.length : null,
+            soLuong: coChiTiet ? tongSoLuongDat(yc) : null,
+            // Cùng quy tắc chặn với bước 2 (vd. yêu cầu chưa có dòng sản phẩm)
+            chan: chanGuiBaoGia(yc),
+            yc,
+        };
+    }), [dsYeuCau]);
+    const bang = useBangChungTu(dong, { theo: "dong", donVi: "yêu cầu" });
 
-    const toggleSupplier = (id) => {
-        setSelectedSupplierIds(prev =>
-            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-        );
-    };
-
-    const handleCreate = () => {
-        if (!form.prId) return toast.error("Vui lòng chọn yêu cầu mua hàng");
-        if (selectedSupplierIds.length === 0) return toast.error("Vui lòng chọn ít nhất một nhà cung cấp");
-        setShowConfirmDialog(true);
-    };
-
-    const confirmSend = async () => {
-        setSending(true);
-        try {
-            await purchaseRequestService.sendQuotationRequest({
-                yeuCauMuaHangId: parseInt(form.prId),
-                nhaCungCapIds: selectedSupplierIds,
-                ghiChu: form.ghiChu,
-            });
-
-            toast.success(`Đã gửi yêu cầu báo giá đến ${selectedSupplierIds.length} NCC thành công.`);
-            setShowConfirmDialog(false);
-            setTimeout(() => navigate('/quotation-requests'), 1500);
-        } catch (err) {
-            console.error('Error sending quotation request:', err);
-            toast.error(err.response?.data?.message || 'Không thể gửi yêu cầu báo giá. Vui lòng thử lại.');
-        } finally {
-            setSending(false);
-        }
-    };
-
-    if (loading) {
+    if (dangTai && !dsYeuCau.length) {
         return (
             <PageContainer>
-                <SurfaceCard title="Tạo yêu cầu báo giá" description="Đang chuẩn bị dữ liệu">
-                    <LoadingState rows={4} label="Đang tải dữ liệu khởi tạo" />
-                </SurfaceCard>
+                <LoadingState label="Đang tải yêu cầu nhập hàng đã duyệt" />
             </PageContainer>
         );
     }
 
-    return (
-        <PageContainer className="space-y-5">
-            <PageHeader
-                eyebrow="Mua hàng"
-                title="Tạo yêu cầu báo giá"
-                description="Chọn yêu cầu mua hàng đã duyệt và gửi yêu cầu báo giá tới các nhà cung cấp."
-                actions={
-                    <Link
-                        to="/quotation-requests"
-                        className="inline-flex h-9 items-center gap-1.5 rounded-md border border-bo-border bg-white px-3 text-sm font-medium text-bo-foreground transition-colors hover:bg-bo-surface-subtle"
-                    >
-                        <ArrowLeft className="size-4" />
-                        Quay lại danh sách
-                    </Link>
-                }
-            />
+    const chon = dong.find((d) => String(d.id) === String(chonId)) ?? null;
+    const yc = chon?.yc ?? null;
+    const lyDoKhoa = !duocGui
+        ? "Vai trò của bạn không gửi được yêu cầu báo giá"
+        : !chon ? "Chọn một yêu cầu nhập hàng" : chon.chan?.tieuDe ?? "";
+    const diTiep = (d) => {
+        if (duocGui && d && !d.chan) navigate(duongGui(d.id));
+    };
 
-            <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
-                {/* ── Settings (Left Column) ── */}
-                <aside className="flex flex-col gap-5 lg:col-span-1">
-                    <FormSection
-                        title="Thông tin gửi báo giá"
-                        description="Yêu cầu mua hàng, mã báo giá và nhà cung cấp nhận yêu cầu."
-                    >
-                        <div className="space-y-5">
-                            <div className="space-y-1.5">
-                                <label htmlFor="prId" className="text-xs font-semibold uppercase tracking-wide text-bo-muted">
-                                    Yêu cầu mua hàng (PR) <span className="text-bo-danger">*</span>
-                                </label>
-                                <select
-                                    id="prId"
-                                    className="h-10 w-full rounded-md border border-bo-border bg-white px-3 text-sm font-semibold text-bo-foreground transition-colors focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
-                                    value={form.prId}
-                                    onChange={(e) => handleSelectPR(e.target.value)}
-                                    disabled={actionLoading}
-                                >
-                                    <option value="">-- Chọn yêu cầu mua hàng đã duyệt --</option>
-                                    {prList.map(pr => (
-                                        <option key={pr.id} value={pr.id}>
-                                            {pr.soYeuCauMuaHang || `PR-${pr.id}`}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+    const thongBao = [
+        <DongThongBao key="mot-lan" tone="info">
+            Chỉ hiện yêu cầu nhập hàng <b className="font-semibold">đã duyệt và chưa gửi</b>
+            {gioiHanKho ? " của kho bạn phụ trách" : ""}. Bước sau chọn nhà cung cấp; mỗi yêu cầu chỉ gửi yêu cầu báo giá một
+            lần, tới nhiều nhà cung cấp cùng lúc.
+        </DongThongBao>,
+        !duocGui ? (
+            <DongThongBao key="vai-tro" tone="warn">
+                Vai trò của bạn xem được yêu cầu nhập hàng nhưng không gửi được yêu cầu báo giá. Hãy báo nhân viên mua hàng
+                hoặc quản lý kho.
+            </DongThongBao>
+        ) : null,
+        loiTai ? (
+            <DongThongBao key="loi-tai" tone="bad" actions={<NutChu onClick={taiDanhSach}>Thử lại</NutChu>}>
+                Không tải được danh sách yêu cầu nhập hàng: {loiTai}.
+            </DongThongBao>
+        ) : null,
+    ].filter(Boolean);
 
-                            <div className="space-y-1.5">
-                                <label htmlFor="soDonMua" className="text-xs font-semibold uppercase tracking-wide text-bo-muted">
-                                    Tiền tố mã báo giá (Tùy chọn)
-                                </label>
-                                <div className="flex gap-2">
-                                    <Input
-                                        id="soDonMua"
-                                        value={form.soDonMua}
-                                        onChange={(e) => setForm(prev => ({ ...prev, soDonMua: e.target.value }))}
-                                        placeholder="VD: RFQ2024..."
-                                        className="h-10 flex-1 border-bo-border bg-white font-mono text-sm font-semibold text-bo-primary"
-                                    />
-                                    <Button
-                                        type="button" variant="outline" onClick={generateOrderNumber}
-                                        className="size-10 shrink-0 border-bo-border bg-white p-0 text-bo-primary hover:bg-bo-primary-soft"
-                                        title="Tự sinh mã"
-                                        aria-label="Tự sinh mã báo giá"
+    const chinh = !dong.length ? (
+        <EmptyState
+            icon={ClipboardList}
+            title={loiTai ? "Chưa tải được danh sách" : "Không có yêu cầu nhập hàng nào chờ gửi yêu cầu báo giá"}
+            description={loiTai ? "Bấm Thử lại ở dòng báo lỗi phía trên." : "Yêu cầu nhập hàng cần được duyệt trước khi gửi yêu cầu báo giá cho nhà cung cấp."}
+            action={loiTai ? null : (
+                <Link to="/purchase-requests" className="text-sm font-semibold text-bo-primary hover:underline">
+                    Mở danh sách yêu cầu nhập hàng
+                </Link>
+            )}
+            className="min-h-[280px] flex-1"
+        />
+    ) : (
+        <section aria-labelledby={`${idBang}-tieu-de`} className="flex min-w-0 flex-1 flex-col">
+            <h2 id={`${idBang}-tieu-de`} className="sr-only">Yêu cầu nhập hàng đã duyệt</h2>
+            {bang.coCongCu ? (
+                <ThanhCongCuBang
+                    className="pt-3"
+                    tuKhoa={bang.tuKhoa}
+                    onDoiTuKhoa={bang.datTuKhoa}
+                    onXoaTuKhoa={bang.xoaTuKhoa}
+                    goiYTim="Tìm theo mã yêu cầu, kho nhập, người tạo"
+                    nhanTim="Tìm yêu cầu nhập hàng"
+                    ketQua={bang.chuKetQua}
+                    khongKetQua={bang.khongKetQua}
+                />
+            ) : null}
+            {bang.dong.length ? (
+                <div className={KHUNG_CUON}>
+                    <table className={cn(BANG, "@2xl/khoi:min-w-[640px]")}>
+                        <thead>
+                            <tr className={DONG_TIEU_DE}>
+                                <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>Yêu cầu nhập hàng</th>
+                                <th scope="col" className={cn(O_TIEU_DE, AN_DIEN_THOAI)}>Kho nhập</th>
+                                <th scope="col" className={cn(O_TIEU_DE, "w-36", AN_DIEN_THOAI)}>Giao dự kiến</th>
+                                <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right")}>Biến thể</th>
+                                <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "w-28 text-right")}>Tổng số lượng</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {bang.dong.map((d) => {
+                                const dangChon = String(d.id) === String(chonId);
+                                return (
+                                    <tr
+                                        key={d.id}
+                                        onClick={() => setChonId(d.id)}
+                                        onDoubleClick={() => diTiep(d)}
+                                        className={cn(DONG, "cursor-pointer", dangChon && DONG_SANG)}
                                     >
-                                        <RotateCw className="size-4" />
-                                    </Button>
-                                </div>
-                            </div>
-
-                            {/* ── Multi-select Nhà Cung Cấp ── */}
-                            <div className="space-y-1.5">
-                                <div className="flex items-center justify-between gap-2">
-                                    <span className="text-xs font-semibold uppercase tracking-wide text-bo-muted">
-                                        Nhà Cung Cấp <span className="text-bo-danger">*</span>
-                                    </span>
-                                    {selectedSupplierIds.length > 0 && (
-                                        <span className="rounded-full bg-bo-primary-soft px-2 py-0.5 text-[10px] font-semibold text-bo-primary">
-                                            {selectedSupplierIds.length} đã chọn
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="max-h-[240px] space-y-1 overflow-y-auto rounded-md border border-bo-border bg-bo-surface-subtle p-1.5">
-                                    {suppliers.length === 0 ? (
-                                        <p className="py-6 text-center text-xs italic text-bo-muted">Không có dữ liệu NCC</p>
-                                    ) : suppliers.map(s => {
-                                        const isSelected = selectedSupplierIds.includes(s.id);
-                                        return (
-                                            <button
-                                                key={s.id} type="button" onClick={() => toggleSupplier(s.id)}
-                                                className={`flex w-full items-center justify-between rounded-md border p-2.5 text-left transition-colors ${isSelected ? 'border-bo-primary/40 bg-white shadow-sm' : 'border-transparent hover:bg-white'}`}
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`flex size-4 items-center justify-center rounded border transition-colors ${isSelected ? 'border-bo-primary bg-bo-primary' : 'border-bo-border bg-white'}`}>
-                                                        {isSelected && <Check className="size-3 text-white" strokeWidth={3} />}
-                                                    </div>
-                                                    <div>
-                                                        <p className={`text-[13px] leading-tight ${isSelected ? 'font-semibold text-bo-foreground' : 'font-medium text-bo-muted'}`}>{s.tenNhaCungCap}</p>
-                                                        <p className="mt-0.5 font-mono text-[10px] text-bo-muted">{s.maNhaCungCap}</p>
-                                                    </div>
-                                                </div>
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                            </div>
-                        </div>
-                    </FormSection>
-                </aside>
-
-                {/* ── Content Preview (Right Column) ── */}
-                <div className="lg:col-span-2">
-                    <TableShell
-                        title="Danh sách sản phẩm"
-                        description="Sản phẩm thuộc yêu cầu mua hàng đã chọn."
-                        toolbar={
-                            selectedPR ? (
-                                <div className="flex items-center gap-2 border-b border-bo-border px-4 py-2.5 sm:px-5">
-                                    <span className="text-xs font-medium text-bo-muted">Yêu cầu gốc:</span>
-                                    <span className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-bo-primary-soft px-2 py-0.5 font-mono text-xs font-semibold text-blue-700">
-                                        <FileText className="size-3.5" />
-                                        #{selectedPR.soYeuCauMuaHang || selectedPR.id}
-                                    </span>
-                                </div>
-                            ) : null
-                        }
-                    >
-                        {!selectedPR ? (
-                            <EmptyState
-                                icon={Truck}
-                                title="Vui lòng chọn yêu cầu mua hàng"
-                                description="Danh sách sản phẩm của yêu cầu mua hàng sẽ hiển thị tại đây sau khi bạn chọn yêu cầu mua hàng."
-                            />
-                        ) : (
-                            <table className="w-full min-w-[640px] text-sm">
-                                <thead>
-                                    <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                        <th className="h-10 px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Sản phẩm</th>
-                                        <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Số lượng yêu cầu</th>
-                                        <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-bo-border">
-                                    {selectedPR.chiTietYeuCauMuaHangs?.map((ct, idx) => (
-                                        <tr key={ct.id || idx} className="transition-colors hover:bg-bo-surface-subtle">
-                                            <td className="px-3 py-3">
-                                                <div className="flex items-center gap-3">
-                                                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary">
-                                                        <ClipboardList className="size-4" />
-                                                    </span>
-                                                    <div className="min-w-0">
-                                                        <div className="font-semibold text-bo-foreground">
-                                                            {ct.bienTheSanPham?.tenSanPham || ct.bienTheSanPham?.tenBienThe || 'Tên sản phẩm'}
-                                                        </div>
-                                                        <div className="mt-0.5 flex gap-2 font-mono text-[11px] text-bo-muted">
-                                                            <span>{ct.bienTheSanPham?.maSku}</span>
-                                                            <span className="text-slate-300">|</span>
-                                                            <span>{ct.bienTheSanPham?.mauSac?.tenMau} - {ct.bienTheSanPham?.size?.maSize}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-3 py-3 text-center">
-                                                <span className="rounded-md bg-slate-100 px-2 py-1 text-base font-bold text-bo-foreground">
-                                                    {ct.soLuongDat || 0}
-                                                </span>
-                                            </td>
-                                            <td className="px-3 py-3 text-right">
-                                                <span className="ml-auto inline-flex w-max items-center gap-1 rounded-md border border-green-200 bg-bo-success-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-bo-success">
-                                                    <CheckCircle2 className="size-3" /> Ready
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {(!selectedPR.chiTietYeuCauMuaHangs || selectedPR.chiTietYeuCauMuaHangs.length === 0) && (
-                                        <tr>
-                                            <td colSpan={3}>
-                                                <EmptyState
-                                                    title="Yêu cầu này không có sản phẩm nào"
-                                                    description="Yêu cầu mua hàng gốc chưa có chi tiết sản phẩm."
-                                                    className="min-h-0 py-10"
+                                        <td className={cn(O, O_DAU)}>
+                                            <label className="flex min-w-0 cursor-pointer items-center gap-3">
+                                                <input
+                                                    type="radio"
+                                                    name={`${idBang}-yeu-cau`}
+                                                    checked={dangChon}
+                                                    onChange={() => setChonId(d.id)}
+                                                    className="size-4 shrink-0 accent-bo-primary"
                                                 />
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        )}
-                    </TableShell>
+                                                <span className="min-w-0">
+                                                    <span className="block font-medium tabular-nums text-bo-foreground">{d.tenSanPham}</span>
+                                                    <span className="block text-xs text-bo-muted">
+                                                        {d.yc.nguoiTao?.hoTen ? `${d.yc.nguoiTao.hoTen} · ` : ""}tạo {formatDate(d.yc.ngayTao) || "—"}
+                                                    </span>
+                                                    <span className={cn("block text-xs text-bo-muted", CHI_DIEN_THOAI)}>
+                                                        {d.yc.khoNhap?.tenKho || "—"} · giao {formatDate(d.yc.ngayGiaoDuKien) || "—"}
+                                                    </span>
+                                                </span>
+                                            </label>
+                                        </td>
+                                        <td className={cn(O, AN_DIEN_THOAI)}>{d.yc.khoNhap?.tenKho || "—"}</td>
+                                        <td className={cn(O, AN_DIEN_THOAI)}>{formatDate(d.yc.ngayGiaoDuKien) || "—"}</td>
+                                        <td className={cn(O, "text-right", d.soBienThe === 0 && "text-bo-muted")}>
+                                            {d.soBienThe == null ? "—" : d.soBienThe === 0 ? "Chưa có" : soVN(d.soBienThe)}
+                                        </td>
+                                        <td className={cn(O, O_CUOI, "text-right font-semibold")}>{d.soLuong == null ? "—" : soVN(d.soLuong)}</td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
                 </div>
-            </div>
+            ) : null}
+            <KhongKetQua bang={bang} tenChungTu="Danh sách" donVi="yêu cầu" />
+            {/* Giữ thanh phân trang khi người dùng đã tăng cỡ trang (một trang) để còn đổi lại được */}
+            {bang.phanTrang && (bang.soTrang > 1 || bang.tongMuc > Math.min(...(bang.luaChonCoTrang?.length ? bang.luaChonCoTrang : [Infinity])))
+                ? <PhanTrangBang {...bang.phanTrang} />
+                : null}
+        </section>
+    );
 
-            {/* ── Footer Actions ── */}
-            <FormActions>
-                <Button
-                    onClick={handleCreate}
-                    disabled={actionLoading || !form.prId || selectedSupplierIds.length === 0}
-                    className="h-10 gap-2 bg-bo-primary px-6 font-semibold text-white hover:bg-bo-primary-hover disabled:opacity-50"
-                >
-                    {actionLoading ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-                    Tạo & Gửi {selectedSupplierIds.length > 0 ? `(${selectedSupplierIds.length})` : ''} báo giá
-                </Button>
-            </FormActions>
+    const cotPhai = yc ? (
+        <CotThuocTinh nhan="Yêu cầu nhập hàng đã chọn">
+            <NhomThuocTinh nhan="Yêu cầu đã chọn">
+                {/* Mã đã hiện ở dòng đang chọn của bảng: ở đây chỉ là lối mở chi tiết */}
+                <Link to={`/purchase-requests/${yc.id}`} className="text-sm font-semibold text-bo-primary hover:underline">
+                    Mở chi tiết yêu cầu nhập hàng
+                </Link>
+            </NhomThuocTinh>
+            <NhomThuocTinh>
+                <BangThuocTinh
+                    muc={[
+                        { nhan: "Người duyệt", giaTri: yc.nguoiDuyet?.hoTen },
+                        { nhan: "Ghi chú", giaTri: yc.ghiChu, an: !yc.ghiChu },
+                    ]}
+                />
+            </NhomThuocTinh>
+            <NhomThuocTinh nhan="Bước tiếp theo">
+                <p className="m-0 text-[13px] leading-5 text-slate-700">
+                    {chon?.chan
+                        ? chon.chan.moTa
+                        : "Chọn nhà cung cấp nhận yêu cầu báo giá. Nhà cung cấp chưa có email hoặc đang ngừng hoạt động không chọn được."}
+                </p>
+            </NhomThuocTinh>
+        </CotThuocTinh>
+    ) : null;
 
-            {/* ── Confirm Dialog ── */}
-            <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-                <DialogContent className="overflow-hidden rounded-lg border border-bo-border bg-white p-0 shadow-lg sm:max-w-md">
-                    <div className="flex items-center gap-3 border-b border-bo-border bg-white p-5">
-                        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-bo-primary-soft text-bo-primary">
-                            <Send className="size-5" />
-                        </div>
-                        <DialogTitle className="m-0 text-lg font-semibold text-bo-foreground">
-                            Xác nhận gửi yêu cầu
-                        </DialogTitle>
-                    </div>
-                    <div className="bg-white p-5">
-                        <DialogDescription className="mb-5 text-sm leading-6 text-slate-600">
-                            Hệ thống sẽ tạo <strong>{selectedSupplierIds.length} đơn báo giá</strong> và gửi email thông báo đồng loạt đến các nhà cung cấp đã chọn.
-                        </DialogDescription>
-
-                        <div className="mb-5 space-y-3 rounded-lg border border-bo-border bg-bo-surface-subtle p-4 text-sm">
-                            <div className="flex items-center justify-between border-b border-bo-border pb-2">
-                                <span className="font-medium text-bo-muted">Mã yêu cầu gốc:</span>
-                                <span className="font-semibold text-bo-foreground">{selectedPR?.soYeuCauMuaHang || `#${selectedPR?.id}`}</span>
-                            </div>
-                            <div className="flex items-center justify-between pt-1">
-                                <span className="flex items-center gap-1.5 font-medium text-bo-muted"><Users className="size-4" /> Số lượng gửi:</span>
-                                <span className="rounded-md bg-bo-primary-soft px-2 py-0.5 text-base font-bold text-bo-primary">{selectedSupplierIds.length} NCC</span>
-                            </div>
-                        </div>
-
-                        <DialogFooter className="gap-2">
-                            <Button
-                                variant="outline"
-                                onClick={() => setShowConfirmDialog(false)}
-                                disabled={sending}
-                                className="h-10 w-full border-bo-border bg-white font-medium text-bo-foreground hover:bg-bo-surface-subtle sm:w-auto"
-                            >
-                                Hủy bỏ
-                            </Button>
-                            <Button
-                                onClick={confirmSend}
-                                disabled={sending}
-                                className="h-10 w-full gap-2 bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover disabled:opacity-50 sm:w-auto"
-                            >
-                                {sending
-                                    ? <><Loader2 className="size-4 animate-spin" />Đang gửi...</>
-                                    : <><Send className="size-4" />Tiến hành gửi</>
-                                }
-                            </Button>
-                        </DialogFooter>
-                    </div>
-                </DialogContent>
-            </Dialog>
+    return (
+        <PageContainer className="flex min-h-full flex-col">
+            <KhungChungTu
+                dau={
+                    <DauChungTu
+                        ma="Tạo yêu cầu báo giá"
+                        dongPhu={["Bước 1: chọn yêu cầu nhập hàng đã duyệt", "Bước 2: chọn nhà cung cấp và gửi"]}
+                        onQuayLai={() => navigate("/quotation-requests")}
+                        nhanQuayLai="Quay lại danh sách"
+                        nutChinh={{
+                            ma: "tiep",
+                            nhan: "Chọn nhà cung cấp",
+                            icon: ArrowRight,
+                            onClick: () => diTiep(chon),
+                            khoa: Boolean(lyDoKhoa),
+                            lyDo: lyDoKhoa || undefined,
+                            hienLyDo: true,
+                        }}
+                    />
+                }
+                thongBao={thongBao}
+                chinh={chinh}
+                cotPhai={cotPhai}
+            />
         </PageContainer>
     );
 }

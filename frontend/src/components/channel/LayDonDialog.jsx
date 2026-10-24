@@ -11,12 +11,14 @@ import { ngayIso } from "./ngay";
 
 const soVN = (n) => Number(n || 0).toLocaleString("vi-VN");
 // Mã lỗi máy chủ (KH mục C.4) cho biết gian hàng không còn gọi được: trang cần đọc lại kết nối
-const MA_MAT_KET_NOI = ["UY_QUYEN_HET_HAN", "KENH_CHUA_KET_NOI"];
+// (LAM_MOI_KHOA_LOI: Shopify từ chối khóa làm mới, thẻ chuyển sang "Hết hạn khóa")
+const MA_MAT_KET_NOI = ["UY_QUYEN_HET_HAN", "KENH_CHUA_KET_NOI", "LAM_MOI_KHOA_LOI"];
 
 /**
  * Lấy đơn thủ công từ sàn theo khoảng ngày (tối đa 50 đơn mỗi lần, đơn đã có không tạo lại).
  * `onXong(ketQua)` được gọi khi lấy xong; `baoToast = false` khi trang tự hiện kết quả.
- * `onMatKetNoi(error)`: lỗi vì ủy quyền hết hạn hoặc kênh chưa kết nối (lỗi vẫn hiện trong hộp thoại).
+ * `onMatKetNoi(error)`: lỗi vì ủy quyền hết hạn (lỗi hiện trong hộp thoại) hoặc kênh chưa kết nối (hộp thoại đóng, báo
+ * bằng toast vì trang sẽ chuyển đi).
  */
 export default function LayDonDialog({ maKenh, tenSan, onClose, onXong, onMatKetNoi, baoToast = true }) {
   const [tu, setTu] = useState(() => ngayIso(1));
@@ -44,8 +46,17 @@ export default function LayDonDialog({ maKenh, tenSan, onClose, onXong, onMatKet
       if (baoToast) toast.success(`Đã lấy ${soVN(res?.soDonMoi)} đơn mới từ ${tenSan}`);
       onXong(res);
     } catch (error) {
-      setLoi(getApiErrorMessage(error, "Không lấy được đơn hàng"));
-      if (MA_MAT_KET_NOI.includes(getApiErrorCode(error))) onMatKetNoi?.(error);
+      const cau = getApiErrorMessage(error, "Không lấy được đơn hàng");
+      const ma = getApiErrorCode(error);
+      if (MA_MAT_KET_NOI.includes(ma)) onMatKetNoi?.(error);
+      // Kênh chưa kết nối: trang đọc lại kết nối rồi chuyển sang Thiết lập, nên đóng hộp thoại và báo bằng toast (một
+      // chỗ). Hết hạn ủy quyền thì trang ở lại, câu hiện trong hộp thoại
+      if (ma === "KENH_CHUA_KET_NOI") {
+        toast.error(cau);
+        onClose();
+      } else {
+        setLoi(cau);
+      }
     } finally {
       dangLayRef.current = false;
       setDangLay(false);

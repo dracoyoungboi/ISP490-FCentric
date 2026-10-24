@@ -1,32 +1,39 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { CheckCircle, ChevronDown, FileText } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
-import { Input } from "@/components/ui/input";
-import {
-    Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import {
-    FileText, ArrowLeft, Loader2, ClipboardList, Truck,
-    Building2, Package, CheckCircle, DollarSign
-} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 import apiClient from "@/services/apiClient";
 import purchaseOrderService from "@/services/purchaseOrderService";
 import { cachXuLyLoiXetBaoGia, taoBodyXetBaoGia } from "@/components/order/chi-tiet-bao-gia/tinhBaoGia";
 
 import PageContainer from "@/components/backoffice/PageContainer";
-import PageHeader from "@/components/backoffice/PageHeader";
-import SurfaceCard from "@/components/shared/SurfaceCard";
-import TableShell from "@/components/shared/TableShell";
 import EmptyState from "@/components/shared/EmptyState";
 import LoadingState from "@/components/shared/LoadingState";
-import FormSection from "@/components/shared/FormSection";
-import FormActions from "@/components/shared/FormActions";
+import KhungChungTu from "@/components/chung-tu/KhungChungTu";
+import DauChungTu from "@/components/chung-tu/DauChungTu";
+import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
+import CotThuocTinh, { ChungTuLienQuan, NhomThuocTinh } from "@/components/chung-tu/CotThuocTinh";
+import BangHangTaoPhieu from "@/components/chung-tu/BangHangTaoPhieu";
+import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
+import useBangChungTu from "@/components/chung-tu/useBangChungTu";
+import { soVN, tuBienThe } from "@/components/chung-tu/bangChungTu";
+import { NHAN_O, O_NHAP } from "@/components/chung-tu/kieuHopThoai";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const formatCurrency = (v) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v || 0);
+// Ô chọn gốc của trình duyệt nhưng bỏ mũi tên mặc định (Windows vẽ thành ô vuông), thay bằng ChevronDown
+const O_CHON = cn(O_NHAP, "cursor-pointer appearance-none pr-9");
+const TONG_BANG = Object.freeze({ soLuong: "soLuong", thanhTien: "thanhTien" });
+const so = (x) => Number(x) || 0;
 
+/**
+ * Tạo đơn mua hàng (/purchase-orders/create?id=): chọn một báo giá đã nhận (đơn mua trạng thái 2) để chốt giá với nhà
+ * cung cấp. Khối chứng từ "một khối" như các màn tạo / chi tiết khác.
+ * Nghiệp vụ giữ như cũ: PUT duyệt đơn sang 3 kèm ngayBaoGiaDaXem (taoBodyXetBaoGia); 409 / 404 (báo giá vừa đổi, đã có
+ * kết quả, không còn) thì đóng hộp, bỏ chọn và tải lại danh sách (cachXuLyLoiXetBaoGia). Nút giữ tên "Chấp nhận & Tạo Đơn".
+ */
 export default function PurchaseOrderCreateManual() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -35,10 +42,12 @@ export default function PurchaseOrderCreateManual() {
     const [quotationList, setQuotationList] = useState([]);
     const [selectedQuotation, setSelectedQuotation] = useState(null);
 
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [loiTai, setLoiTai] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+    const [loiXacNhan, setLoiXacNhan] = useState(null);
 
     const [form, setForm] = useState({
         quotationId: "",
@@ -67,6 +76,7 @@ export default function PurchaseOrderCreateManual() {
 
     const fetchInitialData = useCallback(async () => {
         setLoading(true);
+        setLoiTai(false);
         try {
             // Lấy trực tiếp danh sách Đơn mua hàng (Báo giá) có trạng thái = 2 (Đã nhận báo giá)
             const res = await apiClient.post('/api/v1/don-mua-hang/filter', {
@@ -84,6 +94,7 @@ export default function PurchaseOrderCreateManual() {
             }
         } catch {
             toast.error("Không thể tải danh sách báo giá");
+            setLoiTai(true);
         } finally {
             setLoading(false);
         }
@@ -94,7 +105,18 @@ export default function PurchaseOrderCreateManual() {
         queueMicrotask(() => fetchInitialData());
     }, [fetchInitialData]);
 
+    // ── Bảng hàng: dòng chứng từ (gom theo sản phẩm, màu / cỡ / ảnh) ──
+    const dongBang = useMemo(() => (selectedQuotation?.chiTietDonMuaHangs || []).map((ct, i) => ({
+        ...tuBienThe(ct.bienTheSanPham),
+        id: ct.id ?? `dong-${i}`,
+        soLuong: so(ct.soLuongDat),
+        donGia: so(ct.donGia),
+        thanhTien: ct.thanhTien != null ? so(ct.thanhTien) : so(ct.soLuongDat) * so(ct.donGia),
+    })), [selectedQuotation]);
+    const bangHang = useBangChungTu(dongBang, { tongTheo: TONG_BANG });
+
     const handleSelectQuotation = (id) => {
+        bangHang.xoaTuKhoa();
         if (!id) {
             setSelectedQuotation(null);
             setForm(prev => ({ ...prev, quotationId: "" }));
@@ -105,11 +127,13 @@ export default function PurchaseOrderCreateManual() {
 
     const handleCreate = () => {
         if (!form.quotationId) return toast.error("Vui lòng chọn một báo giá từ danh sách");
+        setLoiXacNhan(null);
         setShowConfirmDialog(true);
     };
 
     const confirmCreate = async () => {
         setSubmitting(true);
+        setLoiXacNhan(null);
         try {
             // Máy chủ chỉ chấp nhận khi ngayBaoGiaDaXem trùng báo giá hiện có (nhà cung cấp có thể vừa gửi lại)
             await purchaseOrderService.duyetDon(
@@ -122,15 +146,18 @@ export default function PurchaseOrderCreateManual() {
             setShowConfirmDialog(false);
             setTimeout(() => navigate(`/purchase-orders/${form.quotationId}`), 1000);
         } catch (err) {
-            console.error('Error creating PO:', err);
-            toast.error(err.response?.data?.message || 'Không thể tạo đơn mua hàng. Vui lòng thử lại.');
+            const cau = err.response?.data?.message || 'Không thể tạo đơn mua hàng. Vui lòng thử lại.';
             // 409 / 404: báo giá vừa đổi, đã có kết quả hoặc không còn — bỏ chọn và tải lại danh sách báo giá đang chờ,
             // lần bấm sau dùng dữ liệu mới nhất (như màn Chi tiết báo giá)
             if (cachXuLyLoiXetBaoGia(err.response?.status) === "dongVaTaiLai") {
+                toast.error(cau);
                 setShowConfirmDialog(false);
                 setSelectedQuotation(null);
                 setForm(prev => ({ ...prev, quotationId: "" }));
                 fetchInitialData();
+            } else {
+                // Lỗi khác: báo ngay trong hộp để người dùng thử lại
+                setLoiXacNhan(cau);
             }
         } finally {
             setSubmitting(false);
@@ -140,258 +167,152 @@ export default function PurchaseOrderCreateManual() {
     if (loading) {
         return (
             <PageContainer>
-                <SurfaceCard title="Tạo đơn mua hàng" description="Đang chuẩn bị dữ liệu">
-                    <LoadingState rows={4} label="Đang tải dữ liệu khởi tạo" />
-                </SurfaceCard>
+                <LoadingState rows={4} label="Đang tải dữ liệu khởi tạo" />
             </PageContainer>
         );
     }
 
+    const ncc = selectedQuotation?.nhaCungCap;
+    const yeuCau = selectedQuotation?.yeuCauMuaHang;
+    const lyDoKhoa = actionLoading
+        ? "Đang tải báo giá"
+        : !form.quotationId || !selectedQuotation
+            ? "Chọn báo giá"
+            : dongBang.length === 0
+                ? "Báo giá chưa có sản phẩm"
+                : "";
+
+    const dongPhu = selectedQuotation
+        ? [
+            "Chốt báo giá đã nhận với nhà cung cấp",
+            `${soVN(bangHang.tong.soSanPham)} sản phẩm · ${soVN(bangHang.tong.soDong)} biến thể`,
+            `Tổng số lượng ${soVN(bangHang.tong.soLuong)}`,
+        ]
+        : "Chọn một báo giá đã nhận để chốt giá và tạo đơn mua hàng";
+
+    const thongBao = loiTai ? [
+        <DongThongBao key="loi-tai" tone="bad" actions={<NutChu onClick={fetchInitialData}>Thử lại</NutChu>}>
+            Không tải được danh sách báo giá đã nhận.
+        </DongThongBao>,
+    ] : null;
+
+    const chonBaoGia = (
+        <div className="flex flex-wrap items-end gap-x-6 gap-y-3 border-t border-bo-border px-4 py-4 sm:px-6">
+            <label className="relative grid w-full min-w-0 gap-1.5 sm:w-[480px]">
+                <span className={NHAN_O}>
+                    Báo giá đã nhận <span className="text-bo-danger">*</span>
+                </span>
+                <select
+                    className={O_CHON}
+                    value={form.quotationId}
+                    onChange={(e) => handleSelectQuotation(e.target.value)}
+                    disabled={actionLoading}
+                >
+                    <option value="">{quotationList.length ? "Chọn báo giá cần chốt" : loiTai ? "Chưa tải được danh sách báo giá" : "Không có báo giá nào đang chờ chốt"}</option>
+                    {quotationList.map(q => (
+                        <option key={q.id} value={q.id}>
+                            {q.soDonMua} · {q.nhaCungCap?.tenNhaCungCap || "Chưa rõ nhà cung cấp"}
+                        </option>
+                    ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute bottom-2.5 right-3 size-4 text-bo-muted" aria-hidden="true" />
+            </label>
+        </div>
+    );
+
+    const bang = !selectedQuotation ? (
+        <EmptyState
+            icon={FileText}
+            title={actionLoading ? "Đang tải báo giá…" : "Chưa chọn báo giá"}
+            description="Chỉ hiện báo giá nhà cung cấp đã gửi và đang chờ chốt."
+            className="min-h-[280px] flex-1"
+        />
+    ) : (
+        <BangHangTaoPhieu
+            bang={bangHang}
+            nhan="Hàng trong báo giá"
+            tenChungTu="Báo giá"
+            rongToiThieu="@2xl/khoi:min-w-[620px]"
+            cot={[
+                {
+                    ma: "sl", nhan: "SL duyệt", lop: "w-24 text-right",
+                    nhom: (n) => soVN(n.tong.soLuong), dong: (d) => soVN(d.soLuong),
+                },
+                {
+                    ma: "gia", nhan: "Đơn giá", lop: "w-36 text-right whitespace-nowrap", anHep: true,
+                    nhom: () => null, dong: (d) => formatCurrency(d.donGia),
+                    phuHep: (d) => `Đơn giá ${formatCurrency(d.donGia)}`,
+                },
+                {
+                    ma: "tien", nhan: "Thành tiền", lop: "w-40 text-right whitespace-nowrap",
+                    nhom: (n) => formatCurrency(n.tong.thanhTien), dong: (d) => formatCurrency(d.thanhTien),
+                },
+            ]}
+        />
+    );
+
+    const cotPhai = selectedQuotation ? (
+        <CotThuocTinh nhan="Thông tin báo giá">
+            <NhomThuocTinh nhan="Nhà cung cấp">
+                <div className="text-sm font-semibold text-bo-foreground">{ncc?.tenNhaCungCap || "—"}</div>
+                {ncc?.maNhaCungCap ? <div className="mt-0.5 font-mono text-xs text-bo-muted">{ncc.maNhaCungCap}</div> : null}
+            </NhomThuocTinh>
+            <NhomThuocTinh nhan="Tổng tiền báo giá">
+                <div className="text-xl font-semibold tabular-nums tracking-tight text-bo-foreground">
+                    {formatCurrency(selectedQuotation.tongTien)}
+                </div>
+            </NhomThuocTinh>
+            <ChungTuLienQuan
+                ds={yeuCau ? [{
+                    khoa: "yeu-cau",
+                    loai: "Yêu cầu mua hàng gốc",
+                    ma: yeuCau.soYeuCauMuaHang || `#${yeuCau.id}`,
+                    to: yeuCau.id ? `/purchase-requests/${yeuCau.id}` : undefined,
+                }] : []}
+            />
+        </CotThuocTinh>
+    ) : null;
+
     return (
-        <PageContainer className="space-y-5">
-            <PageHeader
-                eyebrow="Mua hàng"
-                title="Tạo đơn mua hàng"
-                description="Chọn một báo giá đã nhận để chốt giá với nhà cung cấp và khởi tạo đơn mua hàng."
-                actions={
-                    <Link
-                        to="/purchase-orders"
-                        className="inline-flex h-9 items-center gap-1.5 rounded-md border border-bo-border bg-white px-3 text-sm font-medium text-bo-foreground transition-colors hover:bg-bo-surface-subtle"
-                    >
-                        <ArrowLeft className="size-4" />
-                        Quay lại danh sách
-                    </Link>
+        <PageContainer className="flex min-h-full flex-col">
+            <KhungChungTu
+                dau={
+                    <DauChungTu
+                        ma="Tạo đơn mua hàng"
+                        dongPhu={dongPhu}
+                        onQuayLai={() => navigate("/purchase-orders")}
+                        nhanQuayLai="Quay lại danh sách"
+                        nutChinh={{
+                            ma: "tao",
+                            nhan: "Chấp nhận & Tạo Đơn",
+                            icon: CheckCircle,
+                            onClick: handleCreate,
+                            khoa: Boolean(lyDoKhoa) || submitting,
+                            lyDo: lyDoKhoa || undefined,
+                            hienLyDo: true,
+                            dangChay: actionLoading || submitting,
+                        }}
+                    />
                 }
+                tienTrinh={chonBaoGia}
+                thongBao={thongBao}
+                chinh={bang}
+                cotPhai={cotPhai}
             />
 
-            {/* ── Main Layout: 2 Columns ── */}
-            <div className="flex flex-col items-start gap-5 lg:flex-row">
-
-                {/* ════ LEFT COLUMN (Settings) ════ */}
-                <aside className="w-full shrink-0 lg:w-[400px]">
-                    <FormSection
-                        title="Thông tin báo giá"
-                        description="Chọn báo giá cần chốt để tạo đơn mua hàng."
-                    >
-                        <div className="space-y-5">
-                            {/* Chọn Báo Giá */}
-                            <div className="space-y-1.5">
-                                <label htmlFor="quotationId" className="text-xs font-semibold uppercase tracking-wide text-bo-muted">
-                                    Chọn Báo giá (PO) <span className="text-bo-danger">*</span>
-                                </label>
-                                <select
-                                    id="quotationId"
-                                    className="h-10 w-full cursor-pointer rounded-md border border-bo-border bg-white px-3 text-sm font-semibold text-bo-foreground transition-colors focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
-                                    value={form.quotationId}
-                                    onChange={(e) => handleSelectQuotation(e.target.value)}
-                                    disabled={actionLoading}
-                                >
-                                    <option value="">-- Vui lòng chọn --</option>
-                                    {quotationList.map(q => (
-                                        <option key={q.id} value={q.id}>
-                                            {q.soDonMua} - {q.nhaCungCap?.tenNhaCungCap || "Chưa rõ"}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Mã đơn */}
-                            <div className="space-y-1.5">
-                                <label htmlFor="soDonMua" className="text-xs font-semibold uppercase tracking-wide text-bo-muted">
-                                    Mã đơn mua hàng
-                                </label>
-                                <Input
-                                    id="soDonMua"
-                                    value={selectedQuotation ? selectedQuotation.soDonMua : ''}
-                                    readOnly
-                                    placeholder="Sẽ tự động điền khi chọn báo giá"
-                                    className="h-10 border-bo-border bg-bo-surface-subtle font-mono text-sm font-semibold text-bo-primary"
-                                />
-                            </div>
-
-                            {/* Info NCC rút gọn */}
-                            {selectedQuotation && (
-                                <div className="rounded-lg border border-bo-border bg-bo-surface-subtle p-4">
-                                    <div className="mb-2 flex items-center gap-2">
-                                        <Building2 className="size-4 text-bo-muted" />
-                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Nhà cung cấp</p>
-                                    </div>
-                                    <p className="text-sm font-semibold text-bo-foreground">{selectedQuotation.nhaCungCap?.tenNhaCungCap}</p>
-                                    <p className="mt-0.5 font-mono text-xs text-bo-muted">{selectedQuotation.nhaCungCap?.maNhaCungCap}</p>
-
-                                    <div className="mt-3 border-t border-bo-border pt-3">
-                                        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền báo giá</p>
-                                        <p className="text-xl font-bold tracking-tight text-bo-primary">
-                                            {formatCurrency(selectedQuotation.tongTien)}
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </FormSection>
-                </aside>
-
-                {/* ════ RIGHT COLUMN (Preview) ════ */}
-                <div className="min-w-0 flex-1">
-                    <TableShell
-                        title="Chi tiết sản phẩm"
-                        description="Sản phẩm thuộc báo giá đã chọn."
-                        toolbar={
-                            selectedQuotation ? (
-                                <div className="flex items-center gap-2 border-b border-bo-border px-4 py-2.5 sm:px-5">
-                                    <span className="text-xs font-medium text-bo-muted">Từ yêu cầu gốc:</span>
-                                    <span className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-bo-primary-soft px-2 py-0.5 font-mono text-xs font-semibold text-blue-700">
-                                        <FileText className="size-3.5" />
-                                        #{selectedQuotation.yeuCauMuaHang?.soYeuCauMuaHang || selectedQuotation.yeuCauMuaHang?.id}
-                                    </span>
-                                </div>
-                            ) : null
-                        }
-                    >
-                        {!selectedQuotation ? (
-                            <EmptyState
-                                icon={Truck}
-                                title="Vui lòng chọn báo giá bên trái"
-                                description="Danh sách sản phẩm của báo giá sẽ hiển thị tại đây sau khi bạn chọn."
-                            />
-                        ) : (
-                            <table className="w-full min-w-[720px] text-sm">
-                                <thead>
-                                    <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                        <th className="h-10 w-[350px] px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Sản phẩm</th>
-                                        <th className="h-10 px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">SL duyệt</th>
-                                        <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Đơn giá</th>
-                                        <th className="h-10 px-3 text-right text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thành tiền</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-bo-border">
-                                    {selectedQuotation.chiTietDonMuaHangs?.map((ct, idx) => (
-                                        <tr key={ct.id || idx} className="transition-colors hover:bg-bo-surface-subtle">
-                                            <td className="px-3 py-3">
-                                                <div className="flex items-center gap-3">
-                                                    {ct.bienTheSanPham?.anhBienThe?.tepTin?.duongDan ? (
-                                                        <div className="size-11 shrink-0 overflow-hidden rounded-lg border border-bo-border bg-slate-100">
-                                                            <img src={ct.bienTheSanPham.anhBienThe.tepTin.duongDan} alt="Ảnh sản phẩm" className="size-full object-cover" />
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-bo-border bg-slate-100">
-                                                            <Package className="size-5 text-slate-300" />
-                                                        </div>
-                                                    )}
-                                                    <div className="min-w-0">
-                                                        <p className="text-sm font-semibold leading-tight text-bo-foreground">
-                                                            {ct.bienTheSanPham?.tenSanPham || ct.bienTheSanPham?.tenBienThe || 'Sản phẩm'}
-                                                        </p>
-                                                        <div className="mt-1 flex items-center gap-2 font-mono text-[11px] text-bo-muted">
-                                                            <span>{ct.bienTheSanPham?.maSku}</span>
-                                                            <span className="text-slate-300">|</span>
-                                                            <span>{ct.bienTheSanPham?.mauSac?.tenMau} - {ct.bienTheSanPham?.size?.maSize}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-3 py-3 text-center">
-                                                <span className="inline-flex items-center rounded-md border border-blue-200 bg-bo-primary-soft px-3 py-1 text-sm font-bold text-bo-primary">
-                                                    {ct.soLuongDat || 0}
-                                                </span>
-                                            </td>
-                                            <td className="px-3 py-3 text-right">
-                                                <span className="text-sm font-semibold text-bo-foreground">
-                                                    {formatCurrency(ct.donGia)}
-                                                </span>
-                                            </td>
-                                            <td className="px-3 py-3 text-right">
-                                                <span className="text-[15px] font-bold tracking-tight text-bo-success">
-                                                    {formatCurrency(ct.thanhTien)}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {(!selectedQuotation.chiTietDonMuaHangs || selectedQuotation.chiTietDonMuaHangs.length === 0) && (
-                                        <tr>
-                                            <td colSpan={4}>
-                                                <EmptyState
-                                                    icon={Package}
-                                                    title="Báo giá này chưa có sản phẩm chi tiết"
-                                                    description="Nhà cung cấp chưa cập nhật chi tiết sản phẩm cho báo giá."
-                                                    className="min-h-0 py-10"
-                                                />
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        )}
-                    </TableShell>
-                </div>
-            </div>
-
-            {/* ── Footer Actions ── */}
-            <FormActions>
-                <Button
-                    onClick={handleCreate}
-                    disabled={actionLoading || !form.quotationId}
-                    className="h-10 gap-2 bg-bo-primary px-6 font-semibold text-white hover:bg-bo-primary-hover disabled:opacity-50"
-                >
-                    {actionLoading ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle className="size-4" />}
-                    Chấp nhận &amp; Tạo Đơn
-                </Button>
-            </FormActions>
-
-            {/* ── Confirm Dialog ── */}
-            <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-                <DialogContent className="overflow-hidden rounded-lg border border-bo-border bg-white p-0 shadow-lg sm:max-w-md">
-                    <div className="flex items-center gap-3 border-b border-bo-border bg-white p-5">
-                        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-bo-success-soft text-bo-success">
-                            <CheckCircle className="size-5" />
-                        </div>
-                        <div>
-                            <DialogTitle className="m-0 text-lg font-semibold text-bo-foreground">Xác nhận tạo đơn hàng</DialogTitle>
-                            <DialogDescription className="mt-1 text-[13px] text-slate-500">
-                                Hành động này sẽ chốt báo giá với nhà cung cấp.
-                            </DialogDescription>
-                        </div>
-                    </div>
-
-                    <div className="space-y-5 bg-white p-5">
-                        <div className="space-y-3 rounded-lg border border-bo-border bg-bo-surface-subtle p-4 text-sm">
-                            <div className="flex items-center justify-between">
-                                <span className="font-medium text-bo-muted">Mã đơn mua:</span>
-                                <span className="font-mono text-[15px] font-semibold text-bo-primary">{selectedQuotation?.soDonMua}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="font-medium text-bo-muted">Nhà cung cấp:</span>
-                                <span className="font-semibold text-bo-foreground">{selectedQuotation?.nhaCungCap?.tenNhaCungCap}</span>
-                            </div>
-                            <div className="h-px bg-bo-border" />
-                            <div className="flex items-center justify-between">
-                                <span className="flex items-center gap-1.5 font-medium text-bo-muted">
-                                    <DollarSign className="size-4" /> Tổng tiền chốt:
-                                </span>
-                                <span className="text-lg font-bold text-bo-success">{formatCurrency(selectedQuotation?.tongTien)}</span>
-                            </div>
-                        </div>
-
-                        <DialogFooter className="gap-3">
-                            <Button
-                                variant="outline"
-                                onClick={() => setShowConfirmDialog(false)}
-                                disabled={submitting}
-                                className="h-10 flex-1 border-bo-border bg-white font-medium text-bo-foreground hover:bg-bo-surface-subtle"
-                            >
-                                Hủy bỏ
-                            </Button>
-                            <Button
-                                onClick={confirmCreate}
-                                disabled={submitting}
-                                className="h-10 flex-1 gap-2 bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover disabled:opacity-50"
-                            >
-                                {submitting ? <><Loader2 className="size-4 animate-spin" />Đang xử lý...</> : <><CheckCircle className="size-4" />Xác nhận</>}
-                            </Button>
-                        </DialogFooter>
-                    </div>
-                </DialogContent>
-            </Dialog>
+            <HopXacNhanChungTu
+                mo={showConfirmDialog}
+                onDoiMo={(mo) => { if (!mo) { setShowConfirmDialog(false); setLoiXacNhan(null); } }}
+                tieuDe="Xác nhận tạo đơn hàng"
+                moTa={selectedQuotation
+                    ? `Chốt báo giá ${selectedQuotation.soDonMua} của ${ncc?.tenNhaCungCap || "nhà cung cấp"}, tổng ${formatCurrency(selectedQuotation.tongTien)}. Đơn mua hàng được tạo theo đúng giá và số lượng trong báo giá.`
+                    : ""}
+                nhanXacNhan="Xác nhận"
+                iconXacNhan={CheckCircle}
+                dangChay={submitting}
+                loi={loiXacNhan}
+                onXacNhan={confirmCreate}
+            />
         </PageContainer>
     );
 }

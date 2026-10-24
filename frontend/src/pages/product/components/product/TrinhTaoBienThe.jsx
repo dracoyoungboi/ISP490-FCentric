@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import ChonMauSac, { ChamMau } from "./ChonMauSac";
 import DoiThuocTinhBienThe from "./DoiThuocTinhBienThe";
 import { VIEN_FOCUS } from "./kieuForm";
-import { SO_BIEN_THE_TOI_DA, hienTien, viTriSauChuSo, xemTruocSku, xuLyNhapTien } from "./logicBienThe";
+import { SO_BIEN_THE_TOI_DA, demDongApGiaChung, hienTien, viTriSauChuSo, xemTruocSku, xuLyNhapTien } from "./logicBienThe";
 
 const NHAN_NHOM_KICH_CO = { chu: "Chữ", so: "Số", khac: "Khác" };
 const KHONG_KHOA = [];
@@ -332,17 +332,16 @@ export default function TrinhTaoBienThe({
             return;
         }
         dispatch({ type: "apDungGiaChung", giaVon: giaVonChung, giaBan: giaBanChung });
-        if (!laSua) {
-            setThongBaoApDung({ loi: false, noiDung: `Đã áp dụng cho ${thongKe.soToHop} dòng.` });
-            return;
-        }
-        const tatCaDong = nhom.flatMap((n) => n.dong);
-        const soKhoaGia = tatCaDong.filter((d) => d.khoaGia).length;
+        const { soApDung, soKhoaGia } = demDongApGiaChung(nhom);
+        const ketQua =
+            soApDung > 0
+                ? `Đã áp dụng cho ${soApDung} dòng.`
+                : soKhoaGia > 0
+                  ? "Không có dòng nào đổi giá."
+                  : "Chưa có dòng nào đang chọn. Giá sẽ dùng khi bạn tích lại.";
         setThongBaoApDung({
             loi: false,
-            noiDung:
-                `Đã áp dụng cho ${tatCaDong.length - soKhoaGia} dòng.` +
-                (soKhoaGia > 0 ? ` Giữ nguyên giá ${soKhoaGia} biến thể còn tồn kho.` : ""),
+            noiDung: ketQua + (soKhoaGia > 0 ? ` Giữ nguyên giá ${soKhoaGia} biến thể còn tồn kho.` : ""),
         });
     };
 

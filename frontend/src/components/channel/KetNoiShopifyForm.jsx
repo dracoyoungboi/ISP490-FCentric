@@ -5,7 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import SecretInput from "@/components/shared/SecretInput";
 import { TrangThaiCham } from "@/components/channel/HienThiKenh";
 import { INPUT_CLASS } from "@/components/channel/SettingsCard";
-import { khoaTenMien } from "@/components/channel/ketNoiKenh";
+import { khoaTenMien, seBoKhoaLamMoi } from "@/components/channel/ketNoiKenh";
 import { kenhBanHangService } from "@/services/kenhBanHangService";
 import { normalizeShopDomain } from "@/constants/channel";
 import { getApiErrorMessage } from "@/utils/apiError";
@@ -145,7 +145,12 @@ export default function KetNoiShopifyForm({ values, errors = {}, onChange, confi
               label="Khóa làm mới"
               value={values.refreshToken}
               onChange={(value) => onChange("refreshToken", value)}
-              hint={giuKhoa(config?.hasRefreshToken, config?.refreshTokenMasked)}
+              // Khóa làm mới đã bị từ chối / khóa truy cập quá hạn: máy chủ bỏ khóa làm mới khi chỉ dán khóa truy cập
+              hint={
+                seBoKhoaLamMoi(config)
+                  ? "Lưu khóa truy cập mới mà để trống ô này thì hệ thống bỏ khóa làm mới đang lưu và dùng khóa truy cập mới như khóa tĩnh."
+                  : giuKhoa(config?.hasRefreshToken, config?.refreshTokenMasked)
+              }
               disabled={khoa}
             />
           </div>

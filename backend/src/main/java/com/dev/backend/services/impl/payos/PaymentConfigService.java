@@ -1,12 +1,15 @@
 package com.dev.backend.services.impl.payos;
 
 import com.dev.backend.config.SecurityContextHolder;
+import com.dev.backend.constant.variables.IHanhDong;
+import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.dto.request.PayosConfigUpdating;
 import com.dev.backend.dto.response.customize.PayosConfigDto;
 import com.dev.backend.dto.response.customize.PayosTestResult;
 import com.dev.backend.entities.CauHinhThanhToan;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.CauHinhThanhToanRepository;
+import com.dev.backend.services.impl.utils.NhatKyBaoMatService;
 import com.dev.backend.utils.PaymentSecretCipher;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -14,6 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Pattern;
 
 /** Đọc / ghi cấu hình payOS. Chỉ service này được giải mã khóa. */
@@ -28,15 +33,17 @@ public class PaymentConfigService {
     private final PaymentSecretCipher cipher;
     private final PayosClient payosClient;
     private final PayosCredentialVerifier verifier;
+    private final NhatKyBaoMatService nhatKyBaoMatService;
     private final String backendPublicUrl;
 
     public PaymentConfigService(CauHinhThanhToanRepository repository, PaymentSecretCipher cipher,
-            PayosClient payosClient, PayosCredentialVerifier verifier,
+            PayosClient payosClient, PayosCredentialVerifier verifier, NhatKyBaoMatService nhatKyBaoMatService,
             @Value("${app.backend-public-url:}") String backendPublicUrl) {
         this.repository = repository;
         this.cipher = cipher;
         this.payosClient = payosClient;
         this.verifier = verifier;
+        this.nhatKyBaoMatService = nhatKyBaoMatService;
         this.backendPublicUrl = backendPublicUrl == null ? "" : backendPublicUrl.trim();
     }
 
@@ -70,6 +77,7 @@ public class PaymentConfigService {
         boolean keysChanged = newClientId != null || newApiKey != null || newChecksum != null;
 
         // 2. Xác minh bộ khóa sau khi ghép với khóa đang lưu
+        List<String> khoaDoi = new ArrayList<>(); // cho nhật ký: chỉ khóa thực sự đổi giá trị
         if (keysChanged) {
             if (!cipher.isConfigured()) {
                 throw new CommonException(
@@ -98,6 +106,11 @@ public class PaymentConfigService {
             if (channelChanged) {
                 cfg.setWebhookXacNhanLuc(null);
             }
+            if (channelChanged) khoaDoi.add("Client ID");
+            if (newApiKey != null && !newApiKey.equals(decryptOrNull(cfg.getApiKeyMaHoa()))) khoaDoi.add("API Key");
+            if (newChecksum != null && !newChecksum.equals(decryptOrNull(cfg.getChecksumKeyMaHoa()))) {
+                khoaDoi.add("Checksum Key");
+            }
             if (newClientId != null) cfg.setClientIdMaHoa(cipher.encrypt(newClientId));
             if (newApiKey != null) cfg.setApiKeyMaHoa(cipher.encrypt(newApiKey));
             if (newChecksum != null) cfg.setChecksumKeyMaHoa(cipher.encrypt(newChecksum));
@@ -107,21 +120,39 @@ public class PaymentConfigService {
         if (req.getThoiGianHetHanPhut() != null) {
             cfg.setThoiGianHetHanPhut(req.getThoiGianHetHanPhut());
         }
+        boolean doiWebhook = false;
         if (newWebhookUrl != null) {
             if (!newWebhookUrl.equals(cfg.getWebhookUrl() == null ? "" : cfg.getWebhookUrl())) {
                 cfg.setWebhookXacNhanLuc(null);
+                doiWebhook = true;
             }
             cfg.setWebhookUrl(newWebhookUrl.isEmpty() ? null : newWebhookUrl);
         }
+        Boolean kichHoatCu = cfg.getKichHoat();
         if (req.getKichHoat() != null) {
             if (req.getKichHoat() && !isComplete(cfg)) {
                 throw new CommonException("Cần nhập đủ Client ID, API Key và Checksum Key trước khi bật payOS");
             }
             cfg.setKichHoat(req.getKichHoat());
         }
-        cfg.setNguoiCapNhatId(SecurityContextHolder.getUser() == null ? null : SecurityContextHolder.getUser().getId());
+        Integer nguoiCapNhatId = SecurityContextHolder.getUser() == null ? null : SecurityContextHolder.getUser().getId();
+        cfg.setNguoiCapNhatId(nguoiCapNhatId);
         cfg.setNgayCapNhat(Instant.now());
-        return toDto(repository.save(cfg));
+        CauHinhThanhToan daLuu = repository.save(cfg);
+
+        // Nhật ký bảo mật: chỉ ghi phần nào đã đổi, không bao giờ ghi giá trị khóa
+        List<String> truongDoi = new ArrayList<>(khoaDoi);
+        if (doiWebhook) truongDoi.add("Webhook URL");
+        List<String> moTa = new ArrayList<>();
+        if (!truongDoi.isEmpty()) moTa.add("Đổi " + String.join(", ", truongDoi));
+        if (req.getKichHoat() != null && !req.getKichHoat().equals(kichHoatCu)) {
+            moTa.add(req.getKichHoat() ? "Bật payOS" : "Tắt payOS");
+        }
+        if (!moTa.isEmpty()) {
+            nhatKyBaoMatService.ghiSauCommit(IHanhDong.cap_nhat_khoa_thanh_toan, ITable.cau_hinh_thanh_toan,
+                    daLuu.getId(), nguoiCapNhatId, String.join("; ", moTa));
+        }
+        return toDto(daLuu);
     }
 
     /**
@@ -153,10 +184,15 @@ public class PaymentConfigService {
                             + ". Hãy chắc chắn backend đang chạy và URL truy cập được từ Internet.",
                     HttpStatus.BAD_GATEWAY, null);
         }
+        boolean doiUrl = !url.equals(cfg.getWebhookUrl());
         cfg.setWebhookUrl(url);
         cfg.setWebhookXacNhanLuc(Instant.now());
         cfg.setNgayCapNhat(Instant.now());
-        return toDto(repository.save(cfg));
+        CauHinhThanhToan daLuu = repository.save(cfg);
+        Integer nguoiId = SecurityContextHolder.getUser() == null ? null : SecurityContextHolder.getUser().getId();
+        nhatKyBaoMatService.ghiSauCommit(IHanhDong.cap_nhat_khoa_thanh_toan, ITable.cau_hinh_thanh_toan,
+                daLuu.getId(), nguoiId, doiUrl ? "Đổi và xác nhận Webhook URL với payOS" : "Xác nhận Webhook URL với payOS");
+        return toDto(daLuu);
     }
 
     /**

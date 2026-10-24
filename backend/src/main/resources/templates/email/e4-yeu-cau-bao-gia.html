@@ -1,63 +1,45 @@
 <!DOCTYPE html>
-<!--/* E4 · Yêu cầu báo giá (demo-email/E4-YeuCauBaoGia.dc.html). Chưa phải đơn đặt hàng (BLDS 2015, Điều 386, 400). */-->
+<!--/*
+  E4 · Yêu cầu báo giá (demo "Bộ email FCentric mới"). Chưa phải đơn đặt hàng (BLDS 2015, Điều 386, 400). Nút Gửi báo giá
+  đặt trước bảng sản phẩm (đơn dài vẫn thấy việc cần làm ngay).
+*/-->
 <html xmlns:th="http://www.thymeleaf.org"
-      th:replace="~{khung :: thu(xemTruoc=~{::xem-truoc}, noiDung=~{::noi-dung}, chan=~{khung :: chan-nha-cung-cap(false)})}">
+      th:replace="~{khung :: thu(xemTruoc=~{::xem-truoc}, noiDung=~{::noi-dung}, chan=~{khung :: chan-nha-cung-cap(false, true)}, nhom=null)}">
 <body>
 <th:block th:fragment="xem-truoc"><th:block th:text="${e.soMatHang}">0</th:block> mặt hàng, giao tại <th:block th:text="${e.tenKho}">kho</th:block><th:block th:if="${e.ngayCanGiao != null}"> ngày <th:block th:text="${e.ngayCanGiao}">ngày</th:block></th:block>. Gửi báo giá trên Cổng nhà cung cấp.</th:block>
 <th:block th:fragment="noi-dung">
-<tr><td style="padding:0 0 20px;"><h1 class="tieu-de" style="margin:0;font-size:22px;line-height:30px;font-weight:700;letter-spacing:-0.01em;color:#182537;" th:text="|Yêu cầu báo giá đơn ${e.maDon}|">Yêu cầu báo giá đơn</h1></td></tr>
-<tr><td style="padding:0 0 20px;"><p class="chu-chinh" style="margin:0;font-size:15px;line-height:24px;" th:text="|Kính gửi ${e.tenNhaCungCap},|">Kính gửi,</p></td></tr>
-<tr><td style="padding:0 0 20px;"><p class="chu-chinh" style="margin:0;font-size:15px;line-height:24px;">Chúng tôi đề nghị Quý công ty báo giá các sản phẩm dưới đây.</p></td></tr>
-<tr><td style="padding:0 0 20px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bang-nhan" style="width:100%;border-collapse:collapse;font-size:14px;line-height:20px;border-bottom:1px solid #e1e6ec;">
+<tr th:replace="~{khung :: tieu-de(|Yêu cầu báo giá đơn ${e.maDon}|)}"></tr>
+<tr><td style="padding:0 0 14px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;" th:text="|Kính gửi ${e.tenNhaCungCap},|">Kính gửi,</p></td></tr>
+<tr><td style="padding:0 0 22px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;" th:text="|Chúng tôi đề nghị Quý công ty báo giá ${e.soMatHang} mặt hàng dưới đây.|">Chúng tôi đề nghị Quý công ty báo giá các sản phẩm dưới đây.</p></td></tr>
+<tr><td style="padding:0 0 22px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="luoi nen-nhat vien" style="width:100%;background-color:#f7f9fb;border:1px solid #e3e8ef;border-radius:8px;border-collapse:separate;border-spacing:0;">
 <tr>
-<td width="150" class="o-nhan" style="width:150px;padding:10px 0;border-top:1px solid #e1e6ec;color:#64748b;vertical-align:top;">Giao tại</td>
-<td class="o-gt" style="padding:10px 0;border-top:1px solid #e1e6ec;"><strong th:text="${e.tenKho}">Kho</strong><th:block th:if="${e.diaChiKho != null}"><br><th:block th:text="${e.diaChiKho}">Địa chỉ kho</th:block></th:block></td>
-</tr>
-<tr th:if="${e.ngayCanGiao != null}">
-<td width="150" class="o-nhan" style="width:150px;padding:10px 0;border-top:1px solid #e1e6ec;color:#64748b;vertical-align:top;">Ngày cần giao</td>
-<td class="o-gt" style="padding:10px 0;border-top:1px solid #e1e6ec;" th:text="${e.ngayCanGiao}">Ngày cần giao</td>
+<td th:attr="colspan=${e.ngayCanGiao == null} ? 2 : 1,width=${e.ngayCanGiao == null} ? null : '50%'" valign="top" class="o-luoi vien" style="padding:12px 16px;vertical-align:top;"><p class="chu-mo" style="margin:0;font-size:12px;line-height:17px;color:#5b6b80;">Giao tại</p><p class="chu" style="margin:3px 0 0;font-size:15px;line-height:22px;font-weight:600;color:#172233;" th:text="${e.tenKho}">Kho</p><p th:if="${e.diaChiKho != null}" class="chu-mo" style="margin:1px 0 0;font-size:13px;line-height:19px;color:#5b6b80;" th:text="${e.diaChiKho}">Địa chỉ kho</p></td>
+<td th:if="${e.ngayCanGiao != null}" width="50%" valign="top" class="o-luoi o-luoi-2 vien" style="width:50%;padding:12px 16px;border-left:1px solid #e3e8ef;vertical-align:top;"><p class="chu-mo" style="margin:0;font-size:12px;line-height:17px;color:#5b6b80;">Ngày cần giao</p><p class="chu" style="margin:3px 0 0;font-size:15px;line-height:22px;font-weight:600;color:#172233;" th:text="${e.ngayCanGiao}">Ngày cần giao</p></td>
 </tr>
 </table>
 </td></tr>
-<tr><td style="padding:0 0 20px;">
-<div style="padding:0 0 8px;font-size:16px;line-height:24px;font-weight:600;">Sản phẩm cần báo giá</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bang-sp" style="width:100%;border-collapse:collapse;font-size:14px;line-height:20px;border:1px solid #e1e6ec;">
-<tr class="dong-dau" style="background-color:#f8fafc;">
-<th width="40" align="left" style="width:40px;padding:10px 12px;text-align:left;font-size:12px;line-height:16px;font-weight:600;color:#64748b;border-bottom:1px solid #e1e6ec;">STT</th>
-<th align="left" style="padding:10px 12px;text-align:left;font-size:12px;line-height:16px;font-weight:600;color:#64748b;border-bottom:1px solid #e1e6ec;">Sản phẩm</th>
-<th width="90" align="right" style="width:90px;padding:10px 12px;text-align:right;font-size:12px;line-height:16px;font-weight:600;color:#64748b;border-bottom:1px solid #e1e6ec;">Số lượng</th>
-</tr>
-<tr class="dong-sp" th:each="d : ${e.dong}">
-<td class="o-an" style="padding:12px;vertical-align:top;color:#64748b;border-bottom:1px solid #e1e6ec;" th:text="${d.stt}">1</td>
-<td class="o-khoi" style="padding:12px;border-bottom:1px solid #e1e6ec;"><div class="ten-sp" style="font-weight:600;"><span class="chi-hep" style="display:none;mso-hide:all;" th:text="|${d.stt}. |">1. </span><th:block th:text="${d.tenSanPham}">Sản phẩm</th:block></div><div th:if="${d.thuocTinh != null or d.maSku != null}" style="font-size:13px;color:#64748b;"><th:block th:if="${d.thuocTinh != null}" th:text="${d.thuocTinh}">Màu · Cỡ</th:block><th:block th:if="${d.thuocTinh != null and d.maSku != null}"> · </th:block><span th:if="${d.maSku != null}" style="white-space:nowrap;" th:text="${d.maSku}">SKU</span></div></td>
-<td class="o-dong o-phu" style="padding:12px;vertical-align:top;text-align:right;border-bottom:1px solid #e1e6ec;white-space:nowrap;" th:text="${d.soLuong}">0 cái</td>
-</tr>
-<tr class="dong-tong" th:if="${e.tongSoLuong != null}" style="background-color:#f8fafc;">
-<td class="o-an" style="padding:12px;"></td>
-<td class="o-dong" style="padding:12px;font-weight:600;">Tổng số lượng</td>
-<td class="o-phai" style="padding:12px;text-align:right;font-weight:700;white-space:nowrap;" th:text="${e.tongSoLuong}">0 cái</td>
-</tr>
-</table>
+<tr><td style="padding:0 0 22px;">
+<table th:replace="~{khung :: nut(${e.duongDanCong}, 'Gửi báo giá')}"></table>
+<p class="chu-mo" style="margin:10px 0 0;font-size:13px;line-height:20px;color:#5b6b80;">Bấm nút, nhận mã xác nhận 6 số qua email, rồi nhập đơn giá cho từng sản phẩm. Hoặc mở <a th:href="${e.duongDanCongGoc}" class="lien-ket" style="color:#095fcc;" th:text="${e.nhanDuongDanCong}">địa chỉ cổng</a>, nhập email nhận thư này và mã đơn mua hàng <th:block th:text="${e.maDon}">mã đơn</th:block>.</p>
 </td></tr>
-<tr><td style="padding:0 0 20px;">
-<p style="margin:0 0 12px;font-size:15px;line-height:24px;"><strong>Đơn giá báo</strong> là giá đã gồm thuế GTGT (nếu có) và chi phí giao đến kho nhận, có xuất hóa đơn điện tử.</p>
-<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#095fcc" style="background-color:#095fcc;border-radius:6px;"><a th:href="${e.duongDanCong}" style="display:inline-block;padding:12px 24px;font-size:16px;line-height:24px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:6px;">Gửi báo giá</a></td></tr></table>
-<div style="padding-top:12px;font-size:13px;line-height:20px;color:#64748b;">Bấm nút, nhận mã xác nhận 6 số qua email, rồi nhập đơn giá cho từng sản phẩm. Hoặc mở <a th:href="${e.duongDanCongGoc}" style="color:#095fcc;" th:text="${e.nhanDuongDanCong}">địa chỉ cổng</a> và nhập mã đơn <th:block th:text="${e.maDon}">mã đơn</th:block>.</div>
+<tr><td style="padding:0 0 22px;">
+<h2 class="chu" style="margin:0 0 10px;font-size:16px;line-height:24px;font-weight:600;color:#172233;">Sản phẩm cần báo giá</h2>
+<table th:replace="~{khung :: bang-sp(false, ${e.tongSoLuong}, null, null)}"></table>
 </td></tr>
-<tr><td style="padding:0 0 20px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;background-color:#f8fafc;border:1px solid #e1e6ec;border-radius:8px;border-collapse:separate;">
-<tr><td class="hop-phu" style="padding:16px 20px;">
-<div style="padding:0 0 8px;font-size:14px;line-height:20px;font-weight:600;">Điều kiện báo giá</div>
-<ul class="ds-hep" style="margin:0;padding-left:18px;font-size:14px;line-height:22px;">
-<li style="margin:0 0 6px;">Đây là yêu cầu báo giá, chưa phải đơn đặt hàng. Đơn hàng chỉ được xác lập khi Quý công ty nhận được email Xác nhận đặt hàng của chúng tôi.</li>
-<li style="margin:0 0 6px;">Báo giá gửi trên Cổng nhà cung cấp là đề nghị bán hàng của Quý công ty theo đúng sản phẩm, số lượng, địa điểm và ngày giao nêu trên.</li>
-<li style="margin:0;">Khi giao hàng: ghi mã đơn trên phiếu giao hàng; muốn giao nhiều đợt, báo trước cho người phụ trách. Hàng được kiểm đếm và kiểm tra chất lượng khi nhận; hàng thiếu, sai hoặc không đạt được lập biên bản và trả lại.</li>
-</ul>
+<tr><td style="padding:0 0 22px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="nen-nhat vien" style="width:100%;background-color:#f7f9fb;border:1px solid #e3e8ef;border-radius:8px;border-collapse:separate;">
+<tr><td class="chu" style="padding:16px 18px;font-size:14px;line-height:22px;color:#172233;">
+<p class="chu" style="margin:0 0 6px;font-size:14px;line-height:20px;font-weight:600;color:#172233;">Điều kiện báo giá</p>
+<ol style="margin:0 0 0 22px;padding:0;">
+<li style="margin:0 0 8px;"><strong>Tính chất.</strong> Đây là yêu cầu báo giá, chưa phải đơn đặt hàng. Báo giá gửi trên Cổng nhà cung cấp là đề nghị bán hàng của Quý công ty theo đúng sản phẩm, số lượng, địa điểm và ngày giao nêu trên; đơn hàng chỉ được xác lập khi Quý công ty nhận được email Xác nhận đặt hàng của chúng tôi.</li>
+<li style="margin:0 0 8px;"><strong>Giá.</strong> Đơn giá đã gồm thuế GTGT (nếu có) và chi phí giao đến kho nhận, có xuất hóa đơn điện tử.</li>
+<li style="margin:0;"><strong>Giao và nhận hàng.</strong> Quý công ty vui lòng ghi mã đơn trên phiếu giao hàng; muốn giao nhiều đợt, vui lòng báo trước cho <th:block th:text="${nguoiPhuTrach != null} ? 'người phụ trách' : 'chúng tôi'">người phụ trách</th:block>. Hàng được kiểm đếm và kiểm tra chất lượng khi nhận; hàng thiếu, sai hoặc không đạt được lập biên bản và trả lại.</li>
+</ol>
 </td></tr>
 </table>
 </td></tr>
-<th:block th:replace="~{khung :: chu-ky}"></th:block>
+<th:block th:replace="~{khung :: chu-ky(false)}"></th:block>
 </th:block>
 </body>
 </html>

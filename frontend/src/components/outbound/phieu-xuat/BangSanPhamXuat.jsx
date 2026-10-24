@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button";
+import AnhBienThe from "@/components/chung-tu/AnhBienThe";
 import ChipLo from "@/components/chung-tu/ChipLo";
 import KhongKetQua from "@/components/chung-tu/KhongKetQua";
+import MauKichCo from "@/components/chung-tu/MauKichCo";
 import NutPhanDoan from "@/components/chung-tu/NutPhanDoan";
 import OTienDo from "@/components/chung-tu/OTienDo";
 import PhanTrangBang from "@/components/chung-tu/PhanTrangBang";
@@ -123,10 +125,23 @@ export default function BangSanPhamXuat({ bang, moTa, soThieu, suaLo, nhanNutLo,
               {bang.dong.map((d) => (
                 <tr key={d.id} className={DONG}>
                   <td className={cn(O, O_DAU, "@2xl/khoi:min-w-[240px]")}>
-                    <div className="line-clamp-2 break-words font-medium text-bo-foreground" title={d.tenSanPham}>
-                      {d.tenSanPham || "—"}
+                    <div className="flex min-w-0 items-center gap-3">
+                      <AnhBienThe src={d.anh} />
+                      <div className="min-w-0">
+                        <div className="line-clamp-2 break-words font-medium text-bo-foreground" title={d.tenSanPham}>
+                          {d.tenSanPham || "—"}
+                        </div>
+                        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs leading-4 text-bo-muted">
+                          {d.tenMau || d.kichCo ? (
+                            <>
+                              <MauKichCo dong={d} className="max-w-full text-slate-700" />
+                              <span aria-hidden="true">·</span>
+                            </>
+                          ) : null}
+                          <span className="break-all font-mono">{d.sku || "—"}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="mt-0.5 break-all font-mono text-xs leading-4 text-bo-muted">{d.sku || "—"}</div>
                     <div className={cn("mt-2 grid justify-items-start gap-2", CHI_DIEN_THOAI)}>
                       <OLo d={d} />
                       {suaLo ? <NutLo d={d} nhan={nhanNutLo} onMoLo={onMoLo} /> : null}

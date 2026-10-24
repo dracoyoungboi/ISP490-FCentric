@@ -92,6 +92,37 @@ class AvatarImageValidatorTest {
     }
 
     @Test
+    void anhKhaiKichThuocKhongLo_biTuChoiTruocKhiGiaiNen() {
+        // PNG vài chục byte nhưng header khai 20000×20000 px: decode sẽ cấp ~1,2 GB bộ nhớ trước khi kịp so giới hạn
+        assertRejected(file("bom.png", "image/png", pngChiCoHeader(20000, 20000)),
+                "Kích thước ảnh không hợp lệ");
+        assertRejected(file("hep.png", "image/png", pngChiCoHeader(5000, 10)),
+                "Kích thước ảnh không hợp lệ");
+    }
+
+    @Test
+    void headerHopLeNhungThanRac_bao400KhongPhai500() {
+        // Kích thước 4×4 hợp lệ ở header, sau đó là rác: lỗi giải mã (kể cả lỗi runtime) → 400
+        byte[] dau = pngChiCoHeader(4, 4);
+        byte[] rac = java.util.Arrays.copyOf(dau, dau.length + 64);
+        java.util.Arrays.fill(rac, dau.length, rac.length, (byte) 0x7F);
+        assertRejected(file("rac.png", "image/png", rac), "không phải ảnh hợp lệ");
+    }
+
+    /** Chữ ký PNG + khối IHDR (CRC đúng), không có dữ liệu điểm ảnh. */
+    private static byte[] pngChiCoHeader(int rong, int cao) {
+        byte[] ihdr = java.nio.ByteBuffer.allocate(17).put("IHDR".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1))
+                .putInt(rong).putInt(cao).put((byte) 8).put((byte) 2).put((byte) 0).put((byte) 0).put((byte) 0)
+                .array();
+        java.util.zip.CRC32 crc = new java.util.zip.CRC32();
+        crc.update(ihdr);
+        return java.nio.ByteBuffer.allocate(8 + 4 + 17 + 4)
+                .put(new byte[]{(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A})
+                .putInt(13).put(ihdr).putInt((int) crc.getValue())
+                .array();
+    }
+
+    @Test
     void doiTenKhongAnhHuong_nhanDienTheoNoiDung() throws Exception {
         // Nội dung PNG thật nhưng đặt tên .jpg — phải nhận diện theo nội dung
         assertEquals("png", AvatarImageValidator.validate(

@@ -1,36 +1,32 @@
 <!DOCTYPE html>
-<!--/* M4 · Mật khẩu vừa được thay đổi (demo-email/M4-DaDoiMatKhau.dc.html). Không chứa mật khẩu. */-->
+<!--/* M4 · Mật khẩu vừa được thay đổi (demo "Bộ email FCentric mới"). Không chứa mật khẩu. */-->
 <html xmlns:th="http://www.thymeleaf.org"
-      th:replace="~{khung :: thu(xemTruoc=~{::xem-truoc}, noiDung=~{::noi-dung}, chan=~{khung :: chan-nhan-su})}">
+      th:replace="~{khung :: thu(xemTruoc=~{::xem-truoc}, noiDung=~{::noi-dung}, chan=~{khung :: chan-nhan-su}, nhom='Bảo mật tài khoản')}">
 <body>
 <th:block th:fragment="xem-truoc">Thay đổi lúc <th:block th:text="${e.thoiDiem}">giờ</th:block>. Báo quản trị viên ngay nếu không phải bạn.</th:block>
 <th:block th:fragment="noi-dung">
-<tr><td style="padding:0 0 20px;"><h1 style="margin:0;font-size:22px;line-height:30px;font-weight:700;letter-spacing:-0.01em;color:#182537;">Mật khẩu của bạn vừa được thay đổi</h1></td></tr>
-<tr><td style="padding:0 0 20px;"><p style="margin:0;font-size:15px;line-height:24px;" th:text="|Xin chào ${e.hoTen},|">Xin chào,</p></td></tr>
-<tr><td style="padding:0 0 20px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;font-size:14px;line-height:20px;border-bottom:1px solid #e1e6ec;">
+<tr th:replace="~{khung :: tieu-de('Mật khẩu của bạn vừa được thay đổi')}"></tr>
+<tr><td style="padding:0 0 14px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;" th:text="|Xin chào ${e.hoTen},|">Xin chào,</p></td></tr>
+<tr><td style="padding:0 0 22px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="luoi nen-nhat vien" style="width:100%;background-color:#f7f9fb;border:1px solid #e3e8ef;border-radius:8px;border-collapse:separate;border-spacing:0;">
 <tr>
-<td width="160" style="width:160px;padding:11px 0;border-top:1px solid #e1e6ec;color:#64748b;vertical-align:top;">Tài khoản</td>
-<td style="padding:11px 0;border-top:1px solid #e1e6ec;font-weight:600;" th:text="${e.tenDangNhap}">tên đăng nhập</td>
+<td width="50%" valign="top" class="o-luoi vien" style="width:50%;padding:12px 16px;vertical-align:top;"><p class="chu-mo" style="margin:0;font-size:12px;line-height:17px;color:#5b6b80;">Tài khoản</p><p class="chu" style="margin:3px 0 0;font-size:15px;line-height:22px;font-weight:600;color:#172233;" th:text="${e.tenDangNhap}">tên đăng nhập</p></td>
+<td width="50%" valign="top" class="o-luoi o-luoi-2 vien" style="width:50%;padding:12px 16px;border-left:1px solid #e3e8ef;vertical-align:top;"><p class="chu-mo" style="margin:0;font-size:12px;line-height:17px;color:#5b6b80;">Thời gian</p><p class="chu" style="margin:3px 0 0;font-size:15px;line-height:22px;font-weight:600;color:#172233;" th:text="${e.thoiDiem}">thời gian</p></td>
 </tr>
 <tr>
-<td width="160" style="width:160px;padding:11px 0;border-top:1px solid #e1e6ec;color:#64748b;vertical-align:top;">Thời gian</td>
-<td style="padding:11px 0;border-top:1px solid #e1e6ec;" th:text="${e.thoiDiem}">thời gian</td>
-</tr>
-<tr>
-<td width="160" style="width:160px;padding:11px 0;border-top:1px solid #e1e6ec;color:#64748b;vertical-align:top;">Cách thay đổi</td>
-<td style="padding:11px 0;border-top:1px solid #e1e6ec;" th:text="${e.cachThayDoi}">cách thay đổi</td>
+<td colspan="2" valign="top" class="o-luoi vien" style="padding:12px 16px;border-top:1px solid #e3e8ef;vertical-align:top;"><p class="chu-mo" style="margin:0;font-size:12px;line-height:17px;color:#5b6b80;">Cách thay đổi</p><p class="chu" style="margin:3px 0 0;font-size:15px;line-height:22px;font-weight:600;color:#172233;" th:text="${e.cachThayDoi}">cách thay đổi</p></td>
 </tr>
 </table>
 </td></tr>
-<tr><td style="padding:0 0 20px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;background-color:#fff7ed;border:1px solid #fed7aa;border-radius:8px;border-collapse:separate;">
-<tr><td style="padding:16px 20px;">
-<div style="padding:0 0 6px;font-size:14px;line-height:20px;font-weight:600;color:#b45309;">Không phải bạn đổi mật khẩu?</div>
-<div style="font-size:14px;line-height:22px;color:#182537;">Báo ngay cho quản trị viên để khóa tài khoản và cấp lại mật khẩu. Nếu chính bạn vừa đổi, không cần làm gì thêm.</div>
+<tr><td style="padding:0 0 22px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="hop-canh" style="width:100%;background-color:#fff7ea;border:1px solid #f1d6a6;border-radius:8px;border-collapse:separate;">
+<tr><td style="padding:16px 18px;">
+<p class="hop-canh-chu" style="margin:0 0 6px;font-size:14px;line-height:20px;font-weight:600;color:#8a4b00;">Không phải bạn đổi mật khẩu?</p>
+<p class="chu" style="margin:0;font-size:14px;line-height:22px;color:#172233;">Báo ngay cho quản trị viên để khóa tài khoản và cấp lại mật khẩu.</p>
 </td></tr>
 </table>
 </td></tr>
+<tr><td style="padding:0 0 22px;"><p class="chu-mo" style="margin:0;font-size:14px;line-height:22px;color:#5b6b80;">Nếu chính bạn vừa đổi, không cần làm gì thêm.</p></td></tr>
 </th:block>
 </body>
 </html>

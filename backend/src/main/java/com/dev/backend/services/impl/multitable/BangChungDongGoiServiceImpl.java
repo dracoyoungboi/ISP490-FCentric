@@ -18,6 +18,7 @@ import com.dev.backend.repository.PhieuXuatKhoRepository;
 import com.dev.backend.services.MinioService;
 import com.dev.backend.services.impl.entities.TepTinService;
 import com.dev.backend.services.multitable.BangChungDongGoiService;
+import com.dev.backend.utils.KiemTraTepTai;
 import com.dev.backend.utils.PublicAssetUrl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -123,15 +124,15 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
         BigDecimal tongTien = don.getTongCong() != null ? don.getTongCong() : BigDecimal.ZERO;
         boolean donYeuCauVideo = tongTien.compareTo(NGUONG_TIEN_VIDEO) >= 0;
 
-        // Phân định quy chuẩn ảnh vs video
-        String contentType = file.getContentType() != null ? file.getContentType().toLowerCase() : "";
+        // Phân định quy chuẩn ảnh vs video — theo byte đầu tệp, không theo Content-Type / tên tệp client gửi
+        Optional<KiemTraTepTai.LoaiTep> loaiNoiDung = KiemTraTepTai.nhanDang(file);
         String loaiTep;
 
         if (donYeuCauVideo) {
             if (!LoaiBangChungDongGoi.VIDEO_DONG_GOI.name().equals(loaiBangChung)) {
                 throw new CommonException("Đơn hàng từ 1.000.000đ trở lên bắt buộc phải quay video đóng gói (" + moTaKhoangVideo() + ")!", HttpStatus.BAD_REQUEST, null);
             }
-            if (!contentType.startsWith("video/") && !isAllowedVideoExtension(file.getOriginalFilename())) {
+            if (loaiNoiDung.filter(KiemTraTepTai.VIDEO::contains).isEmpty()) {
                 throw new CommonException("Định dạng tệp không phải video hợp lệ (MP4, WebM, MOV)!", HttpStatus.BAD_REQUEST, null);
             }
             if (file.getSize() > MAX_VIDEO_SIZE) {
@@ -146,7 +147,7 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
             if (LoaiBangChungDongGoi.VIDEO_DONG_GOI.name().equals(loaiBangChung)) {
                 throw new CommonException("Đơn hàng dưới 1.000.000đ chỉ yêu cầu tải 2 ảnh đóng gói!", HttpStatus.BAD_REQUEST, null);
             }
-            if (!contentType.startsWith("image/") && !isAllowedImageExtension(file.getOriginalFilename())) {
+            if (loaiNoiDung.filter(KiemTraTepTai.ANH_CHUP::contains).isEmpty()) {
                 throw new CommonException("Định dạng tệp không phải hình ảnh hợp lệ (JPEG, PNG, WebP)!", HttpStatus.BAD_REQUEST, null);
             }
             if (file.getSize() > MAX_IMAGE_SIZE) {
@@ -156,9 +157,9 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
         }
 
         // 1. Tách biệt I/O MinIO ngoài transaction DB (chống nghẽn connection pool theo hunt-springboot)
-        String originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "proof";
-        String ext = getFileExtension(originalFilename);
-        String objectName = "packing-proofs/" + donBanHangId + "/" + UUID.randomUUID() + (ext.isEmpty() ? "" : "." + ext);
+        // Đuôi lấy từ loại nội dung thật (đã kiểm ở trên), không từ tên tệp
+        String ext = loaiNoiDung.get().duoi;
+        String objectName = "packing-proofs/" + donBanHangId + "/" + UUID.randomUUID() + "." + ext;
         String minioUrl;
         try {
             minioService.upload(file, objectName);
@@ -398,21 +399,5 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
                 .trangThai(b.getTrangThai())
                 .ghiChu(b.getGhiChu())
                 .build();
-    }
-
-    private static String getFileExtension(String filename) {
-        if (filename == null) return "";
-        int dot = filename.lastIndexOf('.');
-        return (dot >= 0 && dot < filename.length() - 1) ? filename.substring(dot + 1).toLowerCase() : "";
-    }
-
-    private static boolean isAllowedImageExtension(String filename) {
-        String ext = getFileExtension(filename);
-        return ext.equals("jpg") || ext.equals("jpeg") || ext.equals("png") || ext.equals("webp");
-    }
-
-    private static boolean isAllowedVideoExtension(String filename) {
-        String ext = getFileExtension(filename);
-        return ext.equals("mp4") || ext.equals("webm") || ext.equals("mov");
     }
 }

@@ -150,8 +150,10 @@ export function demBanTamNguoiKhac(kho, dotId, nguoiDungId) {
  * Dọn bản tạm khi mở danh sách kiểm kê (`dsDot`: danh sách đợt vừa tải): xóa bản của đợt không còn, bản không khớp đợt
  * (mã / ngày tạo khác — id bị dùng lại), bản rỗng hoặc hỏng. GIỮ bản của đợt đã hoàn thành còn số: màn chi tiết cần nó để
  * báo "n lô bạn đã đếm không có trong lần hoàn thành đó" và cho tải CSV trước khi xóa. Trả số bản đã xóa.
+ * Có `nguoiDungId` thì chỉ dọn bản của tài khoản đó: danh sách chỉ có đợt của kho mình được phân, đợt của người khác
+ * (kho khác) không có trong danh sách mà vẫn còn — dọn hết thì máy dùng chung mất số đếm dở của người khác.
  */
-export function donBanTam(kho, dsDot) {
+export function donBanTam(kho, dsDot, nguoiDungId = null) {
   if (!kho || !Array.isArray(dsDot)) return 0;
   const theoId = new Map(dsDot.filter((d) => d?.id != null).map((d) => [String(d.id), d]));
   let n = 0;
@@ -159,6 +161,7 @@ export function donBanTam(kho, dsDot) {
     for (const k of cacKhoa(kho)) {
       const m = MAU_KHOA.exec(k);
       if (!m) continue;
+      if (nguoiDungId != null && m[2] !== String(nguoiDungId)) continue;
       let gt = null;
       try {
         gt = docJson(kho, k);
