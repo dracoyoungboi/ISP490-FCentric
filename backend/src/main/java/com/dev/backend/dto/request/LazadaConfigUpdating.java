@@ -43,3 +43,4 @@ public class LazadaConfigUpdating implements Serializable {
      */
     Integer trangThai;
 }
+

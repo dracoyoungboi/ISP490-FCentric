@@ -19,4 +19,9 @@ public class LazadaTestConnectionResponse implements Serializable {
     String shortCode;
     String country;
     String message;
+
+    // Các trường tương thích chuẩn hiển thị giao diện đa kênh
+    String tenGianHang;
+    String shopIdSan;
+    String hanKhoa;
 }

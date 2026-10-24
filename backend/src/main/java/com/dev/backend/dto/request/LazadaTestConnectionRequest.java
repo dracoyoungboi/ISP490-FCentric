@@ -17,3 +17,4 @@ public class LazadaTestConnectionRequest implements Serializable {
     String appSecret;
     String accessToken;
 }
+

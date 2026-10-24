@@ -31,3 +31,4 @@ public class LazadaConfigResponse implements Serializable {
     Integer trangThai;
     Instant ngayCapNhat;
 }
+

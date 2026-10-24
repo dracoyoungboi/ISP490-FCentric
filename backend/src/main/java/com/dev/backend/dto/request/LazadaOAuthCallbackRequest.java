@@ -18,6 +18,11 @@ public class LazadaOAuthCallbackRequest implements Serializable {
     String code;
 
     /**
+     * Mã phiên bảo mật OAuth2 (state param).
+     */
+    String state;
+
+    /**
      * App Key dùng để đối soát. Nếu để trống, hệ thống sẽ lấy App Key đã lưu trong cấu hình.
      */
     String appKey;
