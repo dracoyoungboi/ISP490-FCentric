@@ -6,6 +6,7 @@ import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.*;
 import com.dev.backend.dto.response.GuiLaiYeuCauDto;
+import com.dev.backend.dto.response.HangNhapKhoTongResponse;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.congncc.BaoGiaDaNhanDto;
 import com.dev.backend.dto.response.congncc.MaXacNhanNccDto;
@@ -13,6 +14,7 @@ import com.dev.backend.dto.response.congncc.XacNhanMaNccDto;
 import com.dev.backend.dto.response.entities.YeuCauMuaHangDto;
 import com.dev.backend.services.impl.entities.DonMuaHangService;
 import com.dev.backend.services.impl.entities.YeuCauMuaHangService;
+import com.dev.backend.services.impl.multitable.HangNhapKhoTongService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,6 +30,9 @@ public class NghiepVuSanPhamController {
 
     @Autowired
     private YeuCauMuaHangService yeuCauMuaHangService;
+
+    @Autowired
+    private HangNhapKhoTongService hangNhapKhoTongService;
 
     // Tạo yêu cầu nhập hàng để cho quản lý duyệt
     @PostMapping("/yeu-cau-mua-hang/create")
@@ -48,6 +53,35 @@ public class NghiepVuSanPhamController {
     )
     public ResponseEntity<ResponseData<YeuCauMuaHangDto>> createYeuCauMuaHang(@RequestBody YeuCauMuaHangCreating creating) {
         return yeuCauMuaHangService.create(creating);
+    }
+
+    // Màn Tạo yêu cầu nhập hàng: mọi mã nhập được kèm khả dụng, đang về, số đề xuất, cờ còn dư và yêu cầu đang mở
+    // ở Kho tổng (khoId trống: Kho tổng đầu tiên). Cùng quyền với tạo yêu cầu.
+    @GetMapping("/yeu-cau-mua-hang/hang-kho-tong")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.nhan_vien_ban_hang,
+                    IRoleType.nhan_vien_mua_hang,
+                    IRoleType.nhan_vien_kho
+            },
+            permissions = {
+                    IPermissionType.tao_don_mua_hang
+            },
+            inWarehouse = true,
+            rolesLogic = RequireAuth.LogicType.OR,
+            permissionsLogic = RequireAuth.LogicType.AND
+    )
+    public ResponseEntity<ResponseData<HangNhapKhoTongResponse>> hangKhoTong(
+            @RequestParam(required = false) Integer khoId) {
+        return ResponseEntity.ok(
+                ResponseData.<HangNhapKhoTongResponse>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(hangNhapKhoTongService.hangKhoTong(khoId))
+                        .message("Success")
+                        .error(null)
+                        .build()
+        );
     }
 
     // Duyệt (trangThai = 2) / từ chối (trangThai = 4) yêu cầu nhập hàng đang Chờ duyệt.
