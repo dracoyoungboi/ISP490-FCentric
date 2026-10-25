@@ -1,8 +1,18 @@
 // Tiện ích đọc một dòng danh mục POS (mẫu + màu + chất liệu) và các kích cỡ của nó (không phụ thuộc React).
-import { formatPriceRange } from './pos-format.js';
+import { formatPriceRange, formatPriceRangeShort } from './pos-format.js';
 
 /** Chữ giá của dòng theo priceSummary (pos-size-layout): một giá, khoảng giá, hoặc "Chưa có giá". */
 export const priceLabelOf = (summary) => (summary.none ? 'Chưa có giá' : formatPriceRange(summary.min, summary.max));
+
+/**
+ * Chữ giá ở thẻ Lưới: khoảng giá rộng hơn chỗ một dòng (`room` px, đo bằng `measure`) thì ghi gọn như ô kích
+ * cỡ ("133,2k – 2,6tr"), để dòng giá không xuống dòng làm ô cỡ lệch so với thẻ bên cạnh. Một giá và
+ * "Chưa có giá" giữ nguyên.
+ */
+export const gridPriceLabelOf = (summary, measure, room) => {
+  const full = priceLabelOf(summary);
+  return summary.multi && measure(full) > room ? formatPriceRangeShort(summary.min, summary.max) : full;
+};
 
 /** Tồn đã biết của một kích cỡ (null = chưa có dữ liệu, không coi là hết). */
 export const knownStock = (variant) => (Number.isFinite(variant.stock) ? variant.stock : null);

@@ -15,7 +15,8 @@ import {
   priceSummary,
   slotSpan,
 } from "./pos-size-layout.js";
-import { formatCount, formatPriceShort } from "./pos-format.js";
+import { formatCount, formatPriceRangeShort, formatPriceShort } from "./pos-format.js";
+import { gridPriceLabelOf } from "./pos-group.js";
 
 // Bề rộng nội dung vùng danh mục ở cửa sổ trình duyệt thật (cửa sổ − lề 16×2 − cột giỏ 390 − khe 12
 // − viền 2 − đệm 12×2 − thanh cuộn 15; dưới 1280px không có cột giỏ).
@@ -139,7 +140,19 @@ test("Giá gọn và số đếm", () => {
   assert.equal(formatPriceShort(900), "900đ");
   assert.equal(formatPriceShort(0), "—");
   assert.equal(formatPriceShort(null), "—");
+  assert.equal(formatPriceRangeShort(133200, 2600000), "133,2k – 2,6tr");
+  assert.equal(formatPriceRangeShort(120000, 120000), "120k");
   assert.equal(formatCount(2400), "2.400");
   assert.equal(formatCount(135790), "135.790");
   assert.equal(formatCount(null), "0");
+});
+
+test("Giá ở thẻ Lưới: khoảng giá không vừa một dòng thì ghi gọn, một giá giữ nguyên", () => {
+  const measure = (text) => text.length * 7; // "133.200 – 2.600.000 ₫" = 21 ký tự -> 147px
+  const khoang = priceSummary([co("S", 5, 133200), co("XL", 3, 2600000)]);
+  assert.equal(gridPriceLabelOf(khoang, measure, 147), "133.200 – 2.600.000 ₫", "vừa khít thì giữ nguyên");
+  assert.equal(gridPriceLabelOf(khoang, measure, 146), "133,2k – 2,6tr");
+  const motGia = priceSummary([co("S", 5, 12500000), co("M", 2, 12500000)]);
+  assert.equal(gridPriceLabelOf(motGia, measure, 10), "12.500.000 ₫", "một giá không bao giờ ghi gọn");
+  assert.equal(gridPriceLabelOf(priceSummary([co("S", 3, 0)]), measure, 10), "Chưa có giá");
 });

@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { formatCount } from '../pos-format';
-import { groupTitle, isKnownOut, knownStock, matchesCode, priceLabelOf } from '../pos-group';
+import { gridPriceLabelOf, groupTitle, isKnownOut, knownStock, matchesCode, priceLabelOf } from '../pos-group';
 import { GRID_MAX_ROWS, LIST_SLOT, fitSizes, priceSummary } from '../pos-size-layout';
 import PosProductImage from './PosProductImage';
 import { MoreSizesChip, SizeChip } from './PosSizeChip';
@@ -8,6 +8,9 @@ import PosSizeTray from './PosSizeTray';
 
 // Thời gian ô kích cỡ sáng xanh sau khi thêm vào hóa đơn.
 const ADDED_FLASH_MS = 1200;
+// Chỗ cho dòng giá ở thẻ Lưới = bề rộng thẻ trừ viền 2, p-1.5 hai bên 12, mx-1 hai bên 8; chừa thêm 2px vì
+// bề rộng vùng danh mục đo được làm tròn xuống.
+const GRID_PRICE_INSET = 24;
 
 function ColorSwatch({ hex }) {
   if (!hex || !/^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(hex)) return null;
@@ -184,6 +187,10 @@ function PosProductCard({
     );
   }
 
+  // Khoảng giá không vừa một dòng của thẻ thì ghi gọn như ô cỡ: dòng giá luôn 1 dòng nên ô cỡ thẳng hàng với
+  // thẻ bên cạnh. Giá đầy đủ vẫn ở chú thích, khay chọn cỡ, chế độ Danh sách và cho trình đọc màn hình.
+  const gridPriceLabel = gridPriceLabelOf(summary, (text) => layout.textWidth(text, 'price'), layout.grid.cardWidth - GRID_PRICE_INSET);
+  const priceShortened = gridPriceLabel !== priceLabel;
   return (
     <div aria-label={groupLabel} className="relative flex min-w-0 flex-col rounded-lg border border-bo-border bg-bo-surface p-1.5" data-pos-group={group.key} role="group">
       <span className="relative block h-[132px] w-full shrink-0 cursor-pointer overflow-hidden rounded-md" data-pos-image="" onClick={openTrayFromImage}>
@@ -198,9 +205,19 @@ function PosProductCard({
         <button className="mx-1 min-w-0 rounded text-left focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary" ref={nameRef} {...nameButtonProps}>
           <span className="line-clamp-2 min-h-9 text-[13px] font-medium leading-[18px] text-bo-foreground">{group.name}</span>
         </button>
-        <span className="mx-1 mt-0.5 block truncate text-[11px] leading-4 text-bo-muted"><ColorText group={group} /></span>
-        <span className={`mx-1 mt-1 text-[13px] font-semibold leading-5 tabular-nums ${priceTone}`}>{priceLabel}</span>
-        <div className="mt-auto pt-2">{chips}</div>
+        {/* min-h-4: thiếu cả màu lẫn chất liệu thì dòng vẫn giữ chỗ, ô cỡ không lệch lên so với thẻ bên cạnh. */}
+        <span className="mx-1 mt-0.5 block min-h-4 truncate text-[11px] leading-4 text-bo-muted"><ColorText group={group} /></span>
+        <span className={`mx-1 mt-1 truncate text-[13px] font-semibold leading-5 tabular-nums ${priceTone}`} title={priceShortened ? priceLabel : undefined}>
+          {priceShortened ? (
+            <>
+              <span aria-hidden="true">{gridPriceLabel}</span>
+              <span className="sr-only">{priceLabel}</span>
+            </>
+          ) : priceLabel}
+        </span>
+        {/* Ô cỡ ngay dưới giá, không dính đáy thẻ: phần trên cao cố định nên hàng ô đầu thẳng hàng cả dãy;
+            thẻ ít dòng ô hơn thẻ bên cạnh thì trống ở cuối thẻ, không hở giữa giá và ô cỡ. */}
+        <div className="pt-2">{chips}</div>
       </div>
       {tray}
     </div>

@@ -24,6 +24,11 @@ export const formatPriceShort = (value) => {
   return `${Math.round(amount)}đ`;
 };
 
+/** Khoảng giá gọn cho chỗ hẹp, cùng cách ghi với ô kích cỡ ("133,2k – 2,6tr"); một giá thì như formatPriceShort. */
+export const formatPriceRangeShort = (min, max) => (
+  !Number.isFinite(max) || max <= min ? formatPriceShort(min) : `${formatPriceShort(min)} – ${formatPriceShort(max)}`
+);
+
 export const clampMoney = (value, ceiling) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return 0;
