@@ -481,6 +481,9 @@ export default function PosSalesPage({
             ...prev,
             groups,
             items,
+            // Lượt tải ngầm tải đúng trang đang xin (catalogPage): ghi cả số trang, để sau một lần đổi trang
+            // bị lỗi thì chân trang không còn ghi trang cũ trong khi danh sách đã là trang mới.
+            page: pageData?.number ?? prev.page,
             totalElements: pageData?.totalElements ?? prev.totalElements,
             pageCount: pageData?.totalPages ?? prev.pageCount,
             error: null,
@@ -595,6 +598,15 @@ export default function PosSalesPage({
 
   // Trang danh mục về 1 khi từ khóa (đã debounce) đổi — xem effect debounce ở trên.
   const onSearch = (value) => setSearch(value);
+
+  // Nút trang tính từ trang ĐANG HIỆN. Sau một lần đổi trang bị lỗi, trang đang hiện (cũ) và trang đang xin
+  // (catalogPage) lệch nhau: bấm lại đúng trang đang xin thì tải lại trang đó (đặt lại cùng giá trị thì React
+  // bỏ qua, nút sẽ không làm gì).
+  const changeCatalogPage = (nextPage) => {
+    const target = Math.max(0, nextPage);
+    if (target === catalogPage) setRefreshKey((key) => key + 1);
+    else setCatalogPage(target);
+  };
 
   // Đổi bộ lọc -> quay về trang 1 (trang cũ có thể không còn tồn tại sau khi lọc).
   const onStockFilterChange = (value) => {
@@ -1767,7 +1779,7 @@ export default function PosSalesPage({
           onEnterAdd={handleEnterAdd}
           onShowScanMatches={showScanMatches}
           onToggleScanMode={toggleScanMode}
-          onPageChange={(nextPage) => setCatalogPage(Math.max(0, nextPage))}
+          onPageChange={changeCatalogPage}
           onRetry={() => setRefreshKey((key) => key + 1)}
           onSearch={onSearch}
           onStockFilterChange={onStockFilterChange}
