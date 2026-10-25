@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import PageContainer from "@/components/backoffice/PageContainer";
 import ListPageHeader from "@/components/shared/ListPageHeader";
 import MockModeNotice from "@/components/shared/MockModeNotice";
-import ChannelLogo from "@/components/channel/ChannelLogo";
+import ChannelLogo, { BieuTuongTaiQuay } from "@/components/channel/ChannelLogo";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { ngayThang } from "@/components/channel/ngay";
 import { conLaiUyQuyen, daKetNoi, hanUyQuyen, nhanTrangThaiKetNoi, trangThaiKetNoi } from "@/components/channel/ketNoiKenh";
@@ -76,6 +76,7 @@ export default function ChannelsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-bo-border max-sm:block">
+                <DongTaiQuay />
                 {SAN_BAN_HANG.filter((san) => san.hoTro).map((san) => (
                   <DongSan key={san.maKenh} san={san} />
                 ))}
@@ -277,6 +278,44 @@ function DongSan({ san }) {
             </Link>
           </Button>
         )}
+      </td>
+    </tr>
+  );
+}
+
+/**
+ * Dòng "Bán hàng tại quầy": kênh bán nội bộ luôn có sẵn, không cần kết nối hay đồng bộ, nên chỉ có trạng thái và
+ * nút mở màn bán tại quầy. Các cột đồng bộ để "—" (dưới sm thì bỏ hẳn các dòng đó trên thẻ).
+ */
+function DongTaiQuay() {
+  const navigate = useNavigate();
+  return (
+    <tr
+      onClick={() => navigate("/pos")}
+      className="cursor-pointer transition-colors hover:bg-bo-surface-subtle max-sm:flex max-sm:flex-col max-sm:gap-2.5 max-sm:p-4"
+    >
+      <td className={TD}>
+        <div className="flex items-center gap-3">
+          <BieuTuongTaiQuay size={28} />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-bo-heading">Bán hàng tại quầy</p>
+            <p className="truncate text-[13px] text-bo-muted">Bán trực tiếp tại kho bán hàng</p>
+          </div>
+        </div>
+      </td>
+      <td className={cn(TD, DONG_THE, "max-sm:items-center max-sm:border-t max-sm:border-[#eef1f5] max-sm:pt-3")}>
+        <span className={NHAN_THE}>Trạng thái</span>
+        <StatusBadge label="Đang hoạt động" />
+      </td>
+      <td className={cn(TD, DONG_THE, "text-bo-foreground max-sm:hidden")}>—</td>
+      <td className={cn(TD, DONG_THE, "text-right tabular-nums text-bo-foreground max-sm:hidden")}>—</td>
+      <td className={cn(TD, DONG_THE, "tabular-nums text-bo-muted max-sm:hidden")}>—</td>
+      <td className={cn(TD, "whitespace-nowrap text-right max-sm:pt-1")}>
+        <Button asChild variant="outline" className={NUT_PHU}>
+          <Link to="/pos" onClick={(event) => event.stopPropagation()}>
+            Mở
+          </Link>
+        </Button>
       </td>
     </tr>
   );

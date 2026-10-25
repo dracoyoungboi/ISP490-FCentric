@@ -9,7 +9,7 @@ import {
   Settings,
   Store,
 } from "lucide-react";
-import { LazadaMenuIcon, ShopifyMenuIcon, TiktokMenuIcon } from "@/components/channel/ChannelLogo";
+import { LazadaMenuIcon, ShopifyMenuIcon, TaiQuayMenuIcon, TiktokMenuIcon } from "@/components/channel/ChannelLogo";
 import { SAN_BAN_HANG } from "@/constants/channel";
 
 const ICON_MENU_SAN = { SHOPIFY: ShopifyMenuIcon, LAZADA: LazadaMenuIcon, TIKTOK: TiktokMenuIcon };
@@ -18,7 +18,8 @@ import { canKho } from "@/components/nguoi-dung/phanQuyen";
 
 // Nhóm hiển thị trên sidebar — thứ tự khai báo cũng là thứ tự render.
 // Label chỉ hiển thị khi sidebar mở rộng; khi thu gọn chỉ còn divider + khoảng cách.
-// label = null nghĩa là nhóm không có tiêu đề (vd: Tổng quan đứng độc lập).
+// label = null nghĩa là nhóm không có tiêu đề: các nhóm nghiệp vụ một chữ (Sản phẩm, Mua hàng…) tự giải thích nên
+// không cần tiêu đề; chỉ khu kênh bán hàng có tiêu đề.
 // Mục thuộc SIDEBAR_FOOTER_SECTION không nằm trong danh sách nhóm mà được ghim ở đáy sidebar.
 export const SIDEBAR_FOOTER_SECTION = "footer";
 
@@ -30,56 +31,70 @@ export function hienKhoLamViecODaySidebar(role) {
   return canKho(role) && !SETTINGS_ROLES.includes(role);
 }
 
+/**
+ * `anTieuDeKhiMotMuc`: vai trò chỉ thấy đúng một mục trong nhóm (vd. nhân viên bán hàng chỉ có "Bán hàng tại quầy")
+ * thì ẩn tiêu đề nhóm, chỉ giữ đường kẻ — một tiêu đề cho một dòng là thừa.
+ */
 export const SIDEBAR_SECTIONS = [
   { key: "overview", label: null },
-  { key: "management", label: "QUẢN TRỊ" },
-  { key: "operations", label: "VẬN HÀNH" },
-  { key: "channels", label: "KÊNH BÁN HÀNG" },
-  { key: "reports", label: "GIÁM SÁT" },
+  { key: "main", label: null },
+  { key: "channels", label: "KÊNH BÁN HÀNG", anTieuDeKhiMotMuc: true },
 ];
 
+/**
+ * Nhóm mở sẵn khi vào Tổng quan (chưa đứng ở trang nào thuộc nhóm), theo nhãn nhóm: mỗi vai trò thấy ngay việc chính
+ * của mình. Đứng ở một trang thì nhóm chứa trang đó mở như cũ.
+ */
+export const NHOM_MO_SAN_THEO_VAI_TRO = {
+  quan_ly_kho: "Kho hàng",
+  nhan_vien_kho: "Kho hàng",
+  nhan_vien_mua_hang: "Mua hàng",
+  nhan_vien_ban_hang: "Bán hàng",
+};
+
+const TAT_CA_VAI_TRO = [
+  "quan_tri_vien",
+  "quan_ly_kho",
+  "nhan_vien_kho",
+  "nhan_vien_mua_hang",
+  "nhan_vien_ban_hang",
+];
+const VAI_TRO_KHO = ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"];
+
+// Mục con khai báo `nhom` ("chung-tu" | "du-lieu"): BackofficeSidebar kẻ một đường mảnh giữa chứng từ và dữ liệu gốc
+// (nhà cung cấp, khách hàng, kho, vị trí kệ). Mỗi nhóm tối đa một đường kẻ.
+const CHUNG_TU = "chung-tu";
+const DU_LIEU = "du-lieu";
+
 export const SIDEBAR_MENU = [
-  // ================= DASHBOARD =================
+  // ================= TỔNG QUAN =================
   {
     label: "Tổng quan",
     icon: LayoutDashboard,
     section: "overview",
     to: "/dashboard",
-    roles: [
-      "quan_tri_vien",
-      "quan_ly_kho",
-      "nhan_vien_kho",
-      "nhan_vien_mua_hang",
-      "nhan_vien_ban_hang",
-    ],
+    roles: TAT_CA_VAI_TRO,
   },
 
-  // ================= QUẢN TRỊ HỆ THỐNG =================
+  // ================= NGƯỜI DÙNG (chỉ quản trị viên, ngay dưới Tổng quan) =================
   {
     label: "Người dùng",
     icon: User,
-    section: "management",
+    section: "overview",
     to: "/users",
     roles: ["quan_tri_vien"],
   },
 
-  // ================= DANH MỤC & SẢN PHẨM =================
+  // ================= SẢN PHẨM =================
   {
-    label: "Danh mục & sản phẩm",
+    label: "Sản phẩm",
     icon: Package,
-    section: "management",
-    roles: [
-      "quan_tri_vien",
-      "quan_ly_kho",
-      "nhan_vien_kho",
-      "nhan_vien_mua_hang",
-      "nhan_vien_ban_hang",
-    ],
+    section: "main",
+    roles: TAT_CA_VAI_TRO,
     children: [
-      { label: "Danh mục", to: "/categories" },
-      { label: "Thuộc tính", to: "/attributes" },
       {
-        label: "Sản phẩm",
+        // Khác tên nhóm "Sản phẩm"; tiêu đề trang vẫn là "Sản phẩm"
+        label: "Danh sách sản phẩm",
         to: "/products",
         // /products/gia-ban-tem thuộc mục "Giá bán & tem mã vạch"
         match: (path) => path === "/products" || (path.startsWith("/products/") && !path.startsWith("/products/gia-ban-tem")),
@@ -89,14 +104,16 @@ export const SIDEBAR_MENU = [
         to: "/products/gia-ban-tem",
         roles: ["quan_tri_vien", "quan_ly_kho"],
       },
+      { label: "Danh mục", to: "/categories" },
+      { label: "Thuộc tính", to: "/attributes" },
     ],
   },
 
-  // ================= MUA HÀNG & NHẬP KHO =================
+  // ================= MUA HÀNG =================
   {
-    label: "Mua hàng & nhập kho",
+    label: "Mua hàng",
     icon: ArrowDownToLine,
-    section: "operations",
+    section: "main",
     roles: [
       "quan_tri_vien",
       "quan_ly_kho",
@@ -105,8 +122,27 @@ export const SIDEBAR_MENU = [
     ],
     children: [
       {
+        label: "Yêu cầu nhập hàng",
+        to: "/purchase-requests",
+        nhom: CHUNG_TU,
+        roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho", "nhan_vien_mua_hang"],
+      },
+      {
+        label: "Yêu cầu báo giá",
+        to: "/quotation-requests",
+        nhom: CHUNG_TU,
+        roles: ["quan_tri_vien", "nhan_vien_mua_hang"],
+      },
+      {
+        label: "Đơn mua hàng",
+        to: "/purchase-orders",
+        nhom: CHUNG_TU,
+        roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_mua_hang", "nhan_vien_kho"],
+      },
+      {
         label: "Nhà cung cấp",
         to: "/supplier",
+        nhom: DU_LIEU,
         roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_mua_hang"],
       },
       // FO-095: tra mã vạch trên tem NCC ↔ biến thể (liên kết tạo khi kiểm đếm hàng nhập)
@@ -114,119 +150,131 @@ export const SIDEBAR_MENU = [
         // Nhãn ngắn cho vừa sidebar; tiêu đề trang vẫn ghi đầy đủ "Mã vạch nhà cung cấp"
         label: "Mã vạch NCC",
         to: "/supplier-barcodes",
+        nhom: DU_LIEU,
         roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho", "nhan_vien_mua_hang"],
-      },
-      {
-        label: "Yêu cầu nhập hàng",
-        to: "/purchase-requests",
-        roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho", "nhan_vien_mua_hang"],
-      },
-      {
-        label: "Yêu cầu báo giá",
-        to: "/quotation-requests",
-        roles: ["quan_tri_vien", "nhan_vien_mua_hang"],
-      },
-      {
-        label: "Đơn mua hàng",
-        to: "/purchase-orders",
-        roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_mua_hang", "nhan_vien_kho"],
-      },
-      {
-        label: "Phiếu nhập kho",
-        to: "/goods-receipts",
-        roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"],
       },
     ],
   },
 
-  // ================= KHO & XUẤT KHO =================
+  // ================= KHO HÀNG (nhập, xuất, nội bộ, thiết lập kho) =================
   {
-    label: "Kho & xuất kho",
+    label: "Kho hàng",
     icon: Warehouse,
-    section: "operations",
-    roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"],
+    section: "main",
+    roles: VAI_TRO_KHO,
     children: [
-      {
-        label: "Kho",
-        to: "/warehouse",
-        // /warehouse/locations thuộc mục "Vị trí kệ"
-        match: (path) => path === "/warehouse",
-        roles: ["quan_tri_vien", "quan_ly_kho"],
-      },
-      // FO-094: khu vực, vị trí kệ và mặt bằng kho
-      {
-        label: "Vị trí kệ",
-        to: "/warehouse/locations",
-        roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"],
-      },
+      { label: "Phiếu nhập kho", to: "/goods-receipts", nhom: CHUNG_TU, roles: VAI_TRO_KHO },
       // Xuất kho theo Pick List (FO-045–047): Đơn chờ xuất → Pick List → Phiếu xuất kho
-      { label: "Đơn chờ xuất", to: "/goods-issues/pending-orders" },
-      { label: "Phiếu nhặt hàng", to: "/goods-issues/pick-lists" },
+      { label: "Đơn chờ xuất", to: "/goods-issues/pending-orders", nhom: CHUNG_TU },
+      { label: "Phiếu nhặt hàng", to: "/goods-issues/pick-lists", nhom: CHUNG_TU },
       {
         label: "Phiếu xuất kho",
         to: "/goods-issues",
+        nhom: CHUNG_TU,
         match: (path) =>
           path.startsWith("/goods-issues") &&
           !path.startsWith("/goods-issues/pending-orders") &&
           !path.startsWith("/goods-issues/pick-lists"),
       },
+      { label: "Chuyển kho nội bộ", to: "/transfer-tickets", nhom: CHUNG_TU, roles: VAI_TRO_KHO },
+      { label: "Kiểm kê", to: "/stock-take", nhom: CHUNG_TU },
       {
-        label: "Chuyển kho nội bộ",
-        to: "/transfer-tickets",
-        roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"],
+        label: "Danh sách kho",
+        to: "/warehouse",
+        nhom: DU_LIEU,
+        // /warehouse/locations thuộc mục "Vị trí kệ"
+        match: (path) => path === "/warehouse",
+        roles: ["quan_tri_vien", "quan_ly_kho"],
       },
-      { label: "Kiểm kê", to: "/stock-take" },
+      // FO-094: khu vực, vị trí kệ và mặt bằng kho
+      { label: "Vị trí kệ", to: "/warehouse/locations", nhom: DU_LIEU, roles: VAI_TRO_KHO },
     ],
   },
 
-  // ================= BÁN HÀNG & KHÁCH HÀNG =================
+  // ================= BÁN HÀNG =================
   {
     label: "Bán hàng",
     icon: ShoppingCart,
-    section: "operations",
+    section: "main",
     roles: [
       "quan_tri_vien",
       "nhan_vien_ban_hang", "nhan_vien_kho", "quan_ly_kho"
     ],
     children: [
       {
-        label: "Khách hàng",
-        to: "/customers",
-        roles: ["quan_tri_vien", "nhan_vien_ban_hang"],
-      },
-      {
         label: "Báo giá",
         to: "/sales-quotations",
+        nhom: CHUNG_TU,
         roles: ["quan_tri_vien", "nhan_vien_ban_hang"],
       },
       {
         label: "Đơn bán hàng",
         to: "/sales-orders",
+        nhom: CHUNG_TU,
         roles: ["quan_tri_vien", "nhan_vien_ban_hang", "nhan_vien_kho", "quan_ly_kho"],
-      },
-      {
-        // POS V1: chỉ admin + nhân viên bán hàng (quyết định mở rộng role ở Phase 03+)
-        label: "Bán hàng tại quầy",
-        to: "/pos",
-        roles: ["quan_tri_vien", "nhan_vien_ban_hang"],
       },
       {
         // Giao dịch chuyển khoản tại quầy; quản trị viên xử lý giao dịch đã nhận tiền nhưng chưa có đơn.
         // badge: số giao dịch cần xử lý (BackofficeSidebar đọc từ components/pos/payosCanXuLy)
         label: "Đối soát chuyển khoản",
         to: "/pos-transfers",
+        nhom: CHUNG_TU,
         roles: ["quan_tri_vien"],
         badge: "payosCanXuLy",
+      },
+      {
+        label: "Khách hàng",
+        to: "/customers",
+        nhom: DU_LIEU,
+        roles: ["quan_tri_vien", "nhan_vien_ban_hang"],
+      },
+    ],
+  },
+
+  // ================= BÁO CÁO =================
+  {
+    label: "Báo cáo",
+    icon: BarChart3,
+    section: "main",
+    roles: TAT_CA_VAI_TRO,
+    children: [
+      {
+        label: "Báo cáo doanh thu",
+        to: "/reports/revenue",
+        roles: ["quan_tri_vien", "quan_ly_kho"],
+      },
+      {
+        label: "Báo cáo tồn kho",
+        to: "/reports/inventory",
+        roles: TAT_CA_VAI_TRO,
+      },
+      {
+        label: "Báo cáo nhập xuất",
+        to: "/reports/stock-movements",
+        roles: ["quan_tri_vien", "quan_ly_kho"],
+      },
+      {
+        label: "Báo cáo khách hàng",
+        to: "/reports/customers",
+        roles: ["quan_tri_vien", "quan_ly_kho"],
+      },
+      {
+        label: "Lịch sử giao dịch kho",
+        to: "/inventory-transactions",
+        roles: VAI_TRO_KHO,
       },
     ],
   },
 
   // ================= KÊNH BÁN HÀNG (omnichannel, FO-073–077) =================
-  // Mỗi sàn đã kết nối là một mục riêng có menu con; "Tất cả kênh" để kết nối thêm sàn.
+  // "Tất cả kênh" không vẽ thành dòng menu mà thành nút "+" cạnh tiêu đề KÊNH BÁN HÀNG (`hienThi: "nut-them"`).
+  // Mục vẫn khai báo ở đây để phân quyền, "Quyền của tôi" và tìm kiếm toàn hệ thống đếm đủ màn hình.
   {
     label: "Tất cả kênh",
     icon: Store,
     section: "channels",
+    hienThi: "nut-them",
+    nhanNut: "Kết nối kênh bán hàng",
     to: "/channels",
     roles: ["quan_tri_vien"],
     // Trang quay về sau ủy quyền tính vào Tất cả kênh
@@ -237,6 +285,15 @@ export const SIDEBAR_MENU = [
       path === "/channels" ||
       path.startsWith("/channels/oauth/") ||
       SAN_BAN_HANG.some((san) => !kenhDaKetNoi.includes(san.maKenh) && (path === san.duongDan || path.startsWith(`${san.duongDan}/`))),
+  },
+  // Bán tại quầy là một kênh bán (như các sàn), luôn có sẵn nên đứng đầu; link thẳng mở màn POS toàn màn hình.
+  // POS V1: chỉ admin + nhân viên bán hàng (quyết định mở rộng role ở Phase 03+)
+  {
+    label: "Bán hàng tại quầy",
+    icon: TaiQuayMenuIcon,
+    section: "channels",
+    to: "/pos",
+    roles: ["quan_tri_vien", "nhan_vien_ban_hang"],
   },
   // Sinh từ SAN_BAN_HANG; `maKenh`: BackofficeSidebar chỉ hiện sàn đã kết nối (danh sách tải ở BackofficeLayout)
   ...SAN_BAN_HANG.filter((san) => san.hoTro).map((san) => ({
@@ -259,53 +316,6 @@ export const SIDEBAR_MENU = [
       { label: "Cấu hình", to: `${san.duongDan}/settings`, roles: ["quan_tri_vien"] },
     ],
   })),
-
-  // ================= BÁO CÁO & CẢNH BÁO =================
-  {
-    label: "Báo cáo & cảnh báo",
-    icon: BarChart3,
-    section: "reports",
-    roles: [
-      "quan_tri_vien",
-      "quan_ly_kho",
-      "nhan_vien_kho",
-      "nhan_vien_mua_hang",
-      "nhan_vien_ban_hang",
-    ],
-    children: [
-      {
-        label: "Báo cáo doanh thu",
-        to: "/reports/revenue",
-        roles: ["quan_tri_vien", "quan_ly_kho"],
-      },
-      {
-        label: "Báo cáo tồn kho",
-        to: "/reports/inventory",
-        roles: [
-          "quan_tri_vien",
-          "quan_ly_kho",
-          "nhan_vien_kho",
-          "nhan_vien_mua_hang",
-          "nhan_vien_ban_hang",
-        ],
-      },
-      {
-        label: "Báo cáo nhập xuất",
-        to: "/reports/stock-movements",
-        roles: ["quan_tri_vien", "quan_ly_kho"],
-      },
-      {
-        label: "Báo cáo khách hàng",
-        to: "/reports/customers",
-        roles: ["quan_tri_vien", "quan_ly_kho"],
-      },
-      {
-        label: "Lịch sử giao dịch kho",
-        to: "/inventory-transactions",
-        roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"],
-      },
-    ],
-  },
 
   // ================= CẤU HÌNH (ghim ở đáy sidebar) =================
   // Mở trung tâm Cấu hình; các trang con (menu trái của SettingsLayout) khai báo ở settings.config.js

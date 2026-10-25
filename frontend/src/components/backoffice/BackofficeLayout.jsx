@@ -83,7 +83,7 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
         {
             key: "WAREHOUSE",
             match: (path) => path === "/warehouse",
-            title: "Kho",
+            title: "Danh sách kho",
         },
         {
             key: "WAREHOUSE_LOCATIONS",

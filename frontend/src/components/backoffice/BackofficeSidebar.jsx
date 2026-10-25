@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 import { Link, matchPath, useLocation } from "react-router-dom";
 
 import {
@@ -18,7 +18,13 @@ import {
   Collapsible,
   CollapsibleContent,
 } from "@/components/ui/collapsible";
-import { SIDEBAR_FOOTER_SECTION, SIDEBAR_MENU, SIDEBAR_SECTIONS, hienKhoLamViecODaySidebar } from "./sidebar.config";
+import {
+  NHOM_MO_SAN_THEO_VAI_TRO,
+  SIDEBAR_FOOTER_SECTION,
+  SIDEBAR_MENU,
+  SIDEBAR_SECTIONS,
+  hienKhoLamViecODaySidebar,
+} from "./sidebar.config";
 import SidebarKhoLamViec from "./SidebarKhoLamViec";
 import { useKenhDaKetNoi } from "@/components/channel/kenhDaKetNoi";
 import { useSoChuyenKhoanCanXuLy } from "@/components/pos/payosCanXuLy";
@@ -71,9 +77,6 @@ const ITEM_ACTIVE =
   "bg-bo-sidebar-active font-semibold text-white hover:bg-bo-sidebar-active-hover hover:text-white";
 const ITEM_ICON_ACTIVE = "[&>svg]:text-bo-sidebar-icon-active";
 const ITEM_PRESS = "active:bg-bo-sidebar-press motion-safe:active:scale-98";
-// Mục rail có link phủ lên nút: hover/nhấn nhận ở link nên nút đổi theo cả mục.
-const ITEM_PRESS_GROUP =
-  "group-active/menu-item:bg-bo-sidebar-press motion-safe:group-active/menu-item:scale-98";
 // Mục menu con (sidebar mở rộng và flyout): cùng màu, chuyển cả độ co khi nhấn.
 const SUB_ITEM_TONE = (active) =>
   cn(
@@ -142,13 +145,17 @@ function BieuTuongKhungMenu({ thuGon }) {
   );
 }
 
-/** Số đếm việc cần xử lý cạnh mục con (vd. giao dịch chuyển khoản lỗi); 0 thì không vẽ. */
-function SoDemMenu({ so }) {
+/**
+ * Số đếm việc cần xử lý (vd. giao dịch chuyển khoản lỗi): chữ số trơn màu đỏ, không viền, không nền — gọn trên nền
+ * menu tối, chỉ việc "có vấn đề" mới được tô đỏ. 0 thì không vẽ.
+ * `anChuDoc`: nơi đặt đã đọc số qua aria-label (nút nhóm) thì không lặp lại cho trình đọc màn hình.
+ */
+function SoDemMenu({ so, anChuDoc = false }) {
   if (!so) return null;
   return (
-    <span className="ml-auto inline-flex min-w-5 shrink-0 items-center justify-center rounded-full bg-bo-danger px-1.5 text-[11px] font-semibold leading-5 text-white tabular-nums">
+    <span className="ml-auto shrink-0 text-xs font-semibold leading-5 text-red-400 tabular-nums">
       <span aria-hidden="true">{so > 99 ? "99+" : so}</span>
-      <span className="sr-only">({so} cần xử lý)</span>
+      {anChuDoc ? null : <span className="sr-only">({so} cần xử lý)</span>}
     </span>
   );
 }
@@ -177,12 +184,17 @@ export default function BackofficeSidebar() {
 
   // Nhóm menu đã lọc theo section khai báo trong sidebar.config
   // (giữ đúng thứ tự của SIDEBAR_SECTIONS; bỏ nhóm không còn item nào).
+  // Mục khai báo `hienThi: "nut-them"` (Tất cả kênh) không là một dòng menu mà là nút "+" trên tiêu đề nhóm.
   const sections = useMemo(
     () =>
-      SIDEBAR_SECTIONS.map((section) => ({
-        ...section,
-        items: filteredMenu.filter((item) => item.section === section.key),
-      })).filter((section) => section.items.length > 0),
+      SIDEBAR_SECTIONS.map((section) => {
+        const cuaNhom = filteredMenu.filter((item) => item.section === section.key);
+        const items = cuaNhom.filter((item) => item.hienThi !== "nut-them");
+        const nutThem = cuaNhom.find((item) => item.hienThi === "nut-them") ?? null;
+        // Vai trò chỉ thấy đúng một mục và không có nút "+": ẩn tiêu đề, giữ đường kẻ
+        const hienTieuDe = Boolean(section.label) && !(section.anTieuDeKhiMotMuc && items.length === 1 && !nutThem);
+        return { ...section, items, nutThem, hienTieuDe };
+      }).filter((section) => section.items.length > 0 || section.nutThem),
     [filteredMenu],
   );
 
@@ -229,17 +241,21 @@ export default function BackofficeSidebar() {
   // child route opens its parent group, and a route outside every group
   // closes them all. Nhóm chứa trang đổi mà đường dẫn giữ nguyên (vừa kết nối sàn ngay trên trang Thiết lập:
   // danh sách sàn đã kết nối đổi, nhóm của sàn hiện ra) cũng đồng bộ lại để nhóm đó tự mở, không phải tải lại trang.
+  // Vào Tổng quan (chưa thuộc nhóm nào) thì mở sẵn nhóm việc chính của vai trò (NHOM_MO_SAN_THEO_VAI_TRO).
+  const nhomMoSan = (pathname) =>
+    activeGroupLabel ?? (pathname === "/dashboard" ? (NHOM_MO_SAN_THEO_VAI_TRO[role] ?? null) : null);
+
   const [menuState, setMenuState] = useState(() => ({
     pathname: location.pathname,
     activeGroup: activeGroupLabel,
-    openMenu: activeGroupLabel,
+    openMenu: nhomMoSan(location.pathname),
   }));
 
   if (menuState.pathname !== location.pathname || menuState.activeGroup !== activeGroupLabel) {
     setMenuState({
       pathname: location.pathname,
       activeGroup: activeGroupLabel,
-      openMenu: activeGroupLabel,
+      openMenu: nhomMoSan(location.pathname),
     });
   }
 
@@ -482,13 +498,13 @@ export default function BackofficeSidebar() {
     [isExpanded],
   );
 
-  // Thu gọn (Ctrl + B) khi logo đang được focus bằng bàn phím: logo thành ảnh (không focus
-  // được nữa), nên chuyển focus sang nút mở rộng ở đúng chỗ đó để không mất focus.
+  // Thu gọn (Ctrl + B) khi logo hoặc nút "+" trên tiêu đề nhóm đang được focus bằng bàn phím: hai phần tử đó
+  // ẩn đi khi thu gọn (không focus được nữa), nên chuyển focus sang nút mở rộng để không mất focus.
   useEffect(() => {
     if (isExpanded) return;
     const button = toggleButtonRef.current;
     const active = document.activeElement;
-    if (button && active !== button && active?.closest(".bo-sidebar-head")) button.focus();
+    if (button && active !== button && active?.closest(".bo-sidebar-head, [data-nut-them]")) button.focus();
   }, [isExpanded]);
 
   // Đóng flyout khi sidebar mở rộng trở lại hoặc khi route thay đổi —
@@ -728,20 +744,6 @@ export default function BackofficeSidebar() {
     toggleSidebar();
   };
 
-  // Mục cha chỉ còn một đích đến: khi thu gọn, link phủ thay chỗ nút (và ngược
-  // lại khi mở rộng) — chuyển focus theo để Ctrl+B không làm mất focus bàn phím.
-  // Gắn vào span bọc ngoài (không phải Link: Link gộp ref thành hàm mới mỗi
-  // lần render và bỏ cleanup); callback ổn định nên React 19 chỉ gọi cleanup khi
-  // link thật sự bị gỡ, lúc phần tử vẫn còn trong DOM.
-  const railLinkRef = useCallback((wrapper) => {
-    const button = wrapper.previousElementSibling;
-    const link = wrapper.firstElementChild;
-    if (document.activeElement === button) link?.focus();
-    return () => {
-      if (document.activeElement === link) button?.focus();
-    };
-  }, []);
-
   // Mục điều hướng thẳng (không có menu con, hoặc mục ghim ở đáy): cả expanded lẫn collapsed.
   // `layout`: lớp kích thước của nút (mục ghim ở đáy dùng bản thấp hơn).
   const renderDirectLink = (item, layout = MENU_BUTTON_LAYOUT) => {
@@ -776,11 +778,28 @@ export default function BackofficeSidebar() {
           >
             <Icon className="size-[18px]" />
             <span data-nhan className={cn("truncate", SIDEBAR_FADE)}>{item.label}</span>
+            {item.badge ? (
+              <span className={cn("ml-auto flex shrink-0", SIDEBAR_FADE)}>
+                <SoDemMenu so={soDem(item)} />
+              </span>
+            ) : null}
           </Link>
         </SidebarMenuButton>
+        {/* Menu thu gọn: số bị ẩn cùng nhãn, thay bằng chấm đỏ như nút nhóm */}
+        {item.badge && soDem(item) > 0 ? (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute left-[21px] top-[10px] hidden size-2 rounded-full bg-red-500 ring-2 ring-bo-sidebar group-data-[collapsible=icon]:block"
+          />
+        ) : null}
       </SidebarMenuItem>
     );
   };
+
+  // Đường kẻ mảnh giữa chứng từ và dữ liệu gốc trong cùng một nhóm (mục con khai báo `nhom` khác mục liền trước).
+  // Tính trên danh sách mục con đã lọc theo vai trò, nên vai trò không thấy mục nào phía trước thì không có đường kẻ.
+  const keTruoc = (dsCon, viTri) =>
+    viTri > 0 && Boolean(dsCon[viTri].nhom) && Boolean(dsCon[viTri - 1].nhom) && dsCon[viTri].nhom !== dsCon[viTri - 1].nhom;
 
   const renderItem = (item) => {
     if (!item.children) return renderDirectLink(item);
@@ -789,50 +808,48 @@ export default function BackofficeSidebar() {
     const visibleChildren = item.children.filter(
       (child) => !child.roles || child.roles.includes(role),
     );
-    const isParentActive = visibleChildren.some((child) =>
-      namTrongMuc(child.to, location.pathname),
-    );
 
     // Không còn đích đến nào cho role hiện tại -> ẩn luôn mục cha ở cả hai trạng
     // thái (mục không được xuất hiện/biến mất khi thu gọn, làm menu nhảy).
     if (visibleChildren.length === 0) return null;
 
+    // Vai trò chỉ thấy đúng một mục con (vd. quản lý kho chỉ có "Đơn bán hàng" trong nhóm Bán hàng): hiện thẳng mục đó
+    // thành link cấp 1 mang icon của nhóm, ở cả hai trạng thái — không bắt bấm mở một nhóm chỉ có một dòng.
+    if (visibleChildren.length === 1) {
+      const [conDuyNhat] = visibleChildren;
+      return renderDirectLink({ ...conDuyNhat, icon: item.icon });
+    }
+
+    const isParentActive = visibleChildren.some((child) =>
+      namTrongMuc(child.to, location.pathname),
+    );
+
     // Mục có menu con giữ cùng một cây DOM ở cả hai trạng thái, chỉ đổi hành vi:
     // - Expanded: accordion một nhóm mở; thu gọn sidebar thì nhóm đang mở co lại
     //   cùng nhịp, mở rộng lại thì bung ra đúng nhóm trước đó.
-    // - Collapsed, chỉ còn đúng một đích đến -> điều hướng thẳng qua link phủ lên
-    //   nút; tooltip dùng chung hiển thị tên mục cha.
-    // - Collapsed, nhiều đích đến -> hover mở flyout cạnh icon (click/Enter/Space toggle).
+    // - Collapsed -> hover mở flyout cạnh icon (click/Enter/Space toggle).
     const isOpen = isExpanded && openMenu === item.label;
     const isFlyoutOpen = flyout?.label === item.label;
     const contentId = `backoffice-nav-group-${filteredMenu.indexOf(item)}`;
-    const onlyChild =
-      !isExpanded && visibleChildren.length === 1 ? visibleChildren[0] : null;
-    const isOnlyChildActive = onlyChild !== null && laHienTai(onlyChild);
-    const opensFlyout = !isExpanded && onlyChild === null;
+    const opensFlyout = !isExpanded;
+    // Số việc cần xử lý của cả nhóm: nhóm đóng thì hiện cạnh tên nhóm, menu thu gọn thì thành chấm đỏ trên icon,
+    // để không bị giấu khi không thấy mục con. Nhóm mở thì số chỉ nằm ở mục con, không đếm hai lần.
+    const tongSoDem = visibleChildren.reduce((tong, child) => tong + soDem(child), 0);
+    const hienSoNhom = isExpanded && !isOpen && tongSoDem > 0;
+    const nhanNhom = tongSoDem > 0 ? `${item.label}, ${tongSoDem} việc cần xử lý` : item.label;
 
     // Mục cha chứa trang đang mở: khi nhóm đang bung (thấy mục con được tô) thì cha
     // chỉ đổi chữ trắng + icon xanh; khi nhóm đóng hoặc sidebar thu gọn (không thấy
     // mục con) thì cha được tô như mục đang chọn để vẫn biết mình đang ở đâu.
-    // Link phủ nhận hover/nhấn thay nút, nên nút đổi màu theo cả mục.
-    const showsActive = isOnlyChildActive || (isParentActive && !isOpen);
+    const showsActive = isParentActive && !isOpen;
     const buttonTone = cn(
       showsActive
-        ? cn(
-            "bg-bo-sidebar-active font-semibold text-white",
-            onlyChild
-              ? "group-hover/menu-item:bg-bo-sidebar-active-hover"
-              : "hover:bg-bo-sidebar-active-hover hover:text-white",
-          )
+        ? "bg-bo-sidebar-active font-semibold text-white hover:bg-bo-sidebar-active-hover hover:text-white"
         : isParentActive
           ? "font-semibold text-white hover:bg-bo-sidebar-hover hover:text-white"
-          : cn(
-              ITEM_IDLE,
-              onlyChild &&
-                "group-hover/menu-item:bg-bo-sidebar-hover group-hover/menu-item:text-white",
-            ),
+          : ITEM_IDLE,
       isParentActive && ITEM_ICON_ACTIVE,
-      onlyChild ? ITEM_PRESS_GROUP : ITEM_PRESS,
+      ITEM_PRESS,
     );
 
     const handleGroupClick = (event) => {
@@ -851,14 +868,10 @@ export default function BackofficeSidebar() {
         <SidebarMenuItem className="group/collapsible">
           <SidebarMenuButton
             type="button"
-            aria-label={isExpanded ? undefined : item.label}
+            aria-label={isExpanded ? (tongSoDem > 0 ? nhanNhom : undefined) : nhanNhom}
             aria-controls={isExpanded ? contentId : undefined}
-            aria-expanded={
-              isExpanded ? isOpen : opensFlyout ? isFlyoutOpen : undefined
-            }
+            aria-expanded={isExpanded ? isOpen : isFlyoutOpen}
             aria-haspopup={opensFlyout ? "menu" : undefined}
-            aria-hidden={onlyChild ? true : undefined}
-            tabIndex={onlyChild ? -1 : undefined}
             // Đích cuộn của cuonToiMucHienTai khi không thấy link của trang đang mở
             data-nhom-hien-tai={isParentActive ? "" : undefined}
             onPointerOver={
@@ -875,24 +888,17 @@ export default function BackofficeSidebar() {
             <Icon className="size-[18px]" />
             <span data-nhan className={cn("truncate", SIDEBAR_FADE)}>{item.label}</span>
             <span aria-hidden="true" className={cn("ml-auto flex shrink-0 items-center gap-2", SIDEBAR_FADE)}>
+              {hienSoNhom ? <SoDemMenu so={tongSoDem} anChuDoc /> : null}
               <ChevronDown className="size-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
             </span>
           </SidebarMenuButton>
 
-          {onlyChild ? (
-            <span ref={railLinkRef} className="contents">
-              <Link
-                to={onlyChild.to}
-                onClick={handleNavigate}
-                aria-label={item.label}
-                aria-current={isOnlyChildActive ? "page" : undefined}
-                className="absolute inset-x-0 top-0 h-10 rounded-md outline-hidden ring-sidebar-ring focus-visible:ring-2"
-                onPointerOver={(event) => showRailTooltip(event, item.label)}
-                onPointerOut={hideRailTooltip}
-                onFocus={(event) => showRailTooltip(event, item.label)}
-                onBlur={hideRailTooltip}
-              />
-            </span>
+          {/* Menu thu gọn: chấm đỏ góc trên phải icon nhóm khi trong nhóm có việc cần xử lý (số nằm trong aria-label) */}
+          {tongSoDem > 0 ? (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute left-[21px] top-[10px] hidden size-2 rounded-full bg-red-500 ring-2 ring-bo-sidebar group-data-[collapsible=icon]:block"
+            />
           ) : null}
 
           <CollapsibleContent
@@ -905,21 +911,25 @@ export default function BackofficeSidebar() {
                 SIDEBAR_FADE,
               )}
             >
-              {visibleChildren.map((child) => (
-                <Link
-                  key={child.to}
-                  to={child.to}
-                  onClick={handleNavigate}
-                  onPointerEnter={showFullLabelIfTruncated}
-                  aria-current={laHienTai(child) ? "page" : undefined}
-                  className={cn(
-                    "flex items-center gap-2 rounded-md px-3 py-2 text-[13px] leading-5",
-                    SUB_ITEM_TONE(laHienTai(child)),
-                  )}
-                >
-                  <span data-nhan className="min-w-0 flex-1 truncate">{child.label}</span>
-                  <SoDemMenu so={soDem(child)} />
-                </Link>
+              {visibleChildren.map((child, viTri) => (
+                <Fragment key={child.to}>
+                  {keTruoc(visibleChildren, viTri) ? (
+                    <div aria-hidden="true" className="mx-1 border-t border-bo-sidebar-border" />
+                  ) : null}
+                  <Link
+                    to={child.to}
+                    onClick={handleNavigate}
+                    onPointerEnter={showFullLabelIfTruncated}
+                    aria-current={laHienTai(child) ? "page" : undefined}
+                    className={cn(
+                      "flex items-center gap-2 rounded-md px-3 py-2 text-[13px] leading-5",
+                      SUB_ITEM_TONE(laHienTai(child)),
+                    )}
+                  >
+                    <span data-nhan className="min-w-0 flex-1 truncate">{child.label}</span>
+                    <SoDemMenu so={soDem(child)} />
+                  </Link>
+                </Fragment>
               ))}
             </div>
           </CollapsibleContent>
@@ -1031,11 +1041,32 @@ export default function BackofficeSidebar() {
                 />
               ) : null}
 
-              {section.label ? (
+              {section.hienTieuDe ? (
                 <div className={SIDEBAR_COLLAPSE_ROW}>
                   <div className="min-h-0 overflow-hidden">
-                    <div className="truncate px-[11px] pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-bo-sidebar-muted/80">
-                      {section.label}
+                    <div className="flex items-center justify-between gap-2 pr-1.5 pb-1.5 pl-[11px]">
+                      <span className="truncate text-[11px] font-semibold uppercase tracking-wider text-bo-sidebar-muted/80">
+                        {section.label}
+                      </span>
+                      {section.nutThem ? (
+                        // "Tất cả kênh": nút "+" mở trang kết nối kênh; sáng lên khi đang ở trang đó (như mục đang chọn)
+                        <Link
+                          data-nut-them=""
+                          to={section.nutThem.to}
+                          onClick={handleNavigate}
+                          aria-label={section.nutThem.nhanNut ?? section.nutThem.label}
+                          title={section.nutThem.nhanNut ?? section.nutThem.label}
+                          aria-current={laHienTai(section.nutThem) ? "page" : undefined}
+                          className={cn(
+                            "grid size-[22px] shrink-0 place-items-center rounded-md outline-hidden transition-colors focus-visible:ring-2 focus-visible:ring-blue-300",
+                            laHienTai(section.nutThem)
+                              ? "bg-bo-sidebar-active text-white"
+                              : "text-bo-sidebar-muted hover:bg-bo-sidebar-hover hover:text-white",
+                          )}
+                        >
+                          <Plus className="size-3.5" strokeWidth={2.4} aria-hidden="true" />
+                        </Link>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -1119,29 +1150,33 @@ export default function BackofficeSidebar() {
               </div>
 
               <div className="flex min-h-0 flex-col gap-0.5 overflow-y-auto rounded-b-[7px] p-1.5">
-                {flyout.children.map((child) => (
-                  <Link
-                    key={child.to}
-                    to={child.to}
-                    role="menuitem"
-                    onClick={closeFlyout}
-                    aria-current={laHienTai(child) ? "page" : undefined}
-                    className={cn(
-                      "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] leading-5",
-                      SUB_ITEM_TONE(laHienTai(child)),
-                    )}
-                  >
-                    {child.icon ? (
-                      <child.icon
-                        className={cn(
-                          "size-4 shrink-0",
-                          laHienTai(child) ? "text-bo-sidebar-icon-active" : "text-bo-sidebar-muted",
-                        )}
-                      />
+                {flyout.children.map((child, viTri) => (
+                  <Fragment key={child.to}>
+                    {keTruoc(flyout.children, viTri) ? (
+                      <div aria-hidden="true" className="mx-2 my-0.5 border-t border-bo-sidebar-border" />
                     ) : null}
-                    <span className="min-w-0 flex-1 truncate">{child.label}</span>
-                    <SoDemMenu so={soDem(child)} />
-                  </Link>
+                    <Link
+                      to={child.to}
+                      role="menuitem"
+                      onClick={closeFlyout}
+                      aria-current={laHienTai(child) ? "page" : undefined}
+                      className={cn(
+                        "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] leading-5",
+                        SUB_ITEM_TONE(laHienTai(child)),
+                      )}
+                    >
+                      {child.icon ? (
+                        <child.icon
+                          className={cn(
+                            "size-4 shrink-0",
+                            laHienTai(child) ? "text-bo-sidebar-icon-active" : "text-bo-sidebar-muted",
+                          )}
+                        />
+                      ) : null}
+                      <span className="min-w-0 flex-1 truncate">{child.label}</span>
+                      <SoDemMenu so={soDem(child)} />
+                    </Link>
+                  </Fragment>
                 ))}
               </div>
             </div>,
