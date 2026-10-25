@@ -313,8 +313,8 @@ export const toPosProduct = (item) => ({
   id: item.bienTheSanPhamId,
   variantId: item.bienTheSanPhamId,
   sanPhamId: item.sanPhamId,
-  // Hiển thị màu + size để hai biến thể không nhìn giống hệt nhau
-  name: `${item.tenSanPham} · ${item.tenMau} · ${item.tenSize}`,
+  // Hiển thị màu + size để hai biến thể không nhìn giống hệt nhau (thiếu phần nào thì bỏ, không ghi "null")
+  name: [item.tenSanPham, item.tenMau, item.tenSize].filter(Boolean).join(' · '),
   sku: item.maSku,
   barcode: item.maVachSku || null,
   price: Number(item.giaBan ?? 0),

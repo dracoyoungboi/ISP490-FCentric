@@ -1768,7 +1768,8 @@ export default function PosSalesPage({
       {/* Màn hẹp hơn 1280px: thanh trên cùng không đủ chỗ -> dải hóa đơn giữ hàng riêng như cũ. */}
       {wideScreen ? null : renderInvoiceTabs('strip')}
 
-      <main aria-labelledby={`pos-invoice-tab-${ticketNumber}`} id="pos-invoice-panel" role="tabpanel" className="grid min-h-0 flex-1 gap-3 overflow-hidden bg-bo-surface px-3 pb-24 pt-3 sm:px-4 xl:grid-cols-[minmax(0,1fr)_390px] xl:pb-3">
+      {/* overflow-clip (không phải hidden): khung không là vùng cuộn, focus/scrollIntoView không đẩy lệch được. */}
+      <main aria-labelledby={`pos-invoice-tab-${ticketNumber}`} id="pos-invoice-panel" role="tabpanel" className="grid min-h-0 flex-1 gap-3 overflow-clip bg-bo-surface px-3 pb-24 pt-3 sm:px-4 xl:grid-cols-[minmax(0,1fr)_390px] xl:pb-3">
         <PosProductCatalog
           error={catalog.error}
           loading={catalog.loading}

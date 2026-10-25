@@ -23,7 +23,8 @@ export default function PosLayout() {
   return (
     <>
       <div
-        className="flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-bo-canvas font-backoffice text-bo-foreground"
+        // overflow-clip (không phải hidden): khung không là vùng cuộn, focus/scrollIntoView không đẩy lệch được.
+        className="flex h-dvh min-h-0 w-full flex-col overflow-clip bg-bo-canvas font-backoffice text-bo-foreground"
         data-pos-shell
       >
         <Outlet />

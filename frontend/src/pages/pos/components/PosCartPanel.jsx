@@ -7,12 +7,12 @@ import {
   UserRound,
   ChevronDown,
   Lock,
-  ImageOff,
   WifiOff,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { formatMoney } from '../pos-format';
 import { QTY_REVERT_EVENT } from '../pos-scan';
+import PosProductImage from './PosProductImage';
 
 const iconButton = 'grid size-7 place-items-center rounded-md text-bo-muted transition hover:bg-slate-100 hover:text-bo-foreground disabled:cursor-not-allowed disabled:opacity-40';
 
@@ -103,7 +103,7 @@ export default function PosCartPanel({
   const totalQuantity = cart.reduce((sum, row) => sum + row.quantity, 0);
   const blockedByNetwork = offline && !frozen;
   return (
-    <section aria-label="Hóa đơn hiện tại" className="flex min-h-0 w-full flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface">
+    <section aria-label="Hóa đơn hiện tại" className="flex min-h-0 w-full flex-col overflow-clip rounded-lg border border-bo-border bg-bo-surface">
       <header className="flex shrink-0 items-center justify-between border-b border-bo-border px-4 py-3">
         <div className="flex items-center gap-2.5">
           <span className="grid size-8 place-items-center rounded-lg bg-bo-primary-soft text-bo-primary"><ShoppingBag aria-hidden="true" size={17} /></span>
@@ -139,11 +139,7 @@ export default function PosCartPanel({
           <ul className="divide-y divide-bo-border">
             {cart.map(({ product, quantity }) => (
               <li className="flex gap-2.5 py-3" key={product.id}>
-                {product.image ? (
-                  <img alt="" className="size-12 shrink-0 rounded-md border border-bo-border bg-slate-50 object-cover" loading="lazy" src={product.image} />
-                ) : (
-                  <span aria-hidden="true" className="grid size-12 shrink-0 place-items-center rounded-md border border-bo-border bg-slate-50 text-slate-400"><ImageOff size={16} /></span>
-                )}
+                <PosProductImage className="size-12 shrink-0 rounded-md border border-bo-border" src={product.image} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
