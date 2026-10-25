@@ -1781,6 +1781,7 @@ export default function PosSalesPage({
           searchRef={searchRef}
           stockFilter={stockFilter}
           totalElements={catalog.totalElements}
+          warehouseId={warehouseId}
         />
 
         <div className="hidden min-h-0 xl:flex">{renderCartPanel()}</div>
