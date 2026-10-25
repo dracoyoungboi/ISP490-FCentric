@@ -38,8 +38,8 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.*;
 
 /**
- * Yêu cầu nhập hàng: sinh mã phiếu, lưu ghi chú, duyệt / từ chối (trạng thái,
- * quyền theo kho, lý do từ chối, ghi lịch sử) và đọc lại lý do từ chối.
+ * Yêu cầu nhập hàng: sinh mã phiếu, lưu ghi chú, kiểm tra khi tạo (ngày giao, ghi chú, dòng hàng, mã còn kinh doanh),
+ * duyệt / từ chối (trạng thái, quyền theo kho, lý do từ chối, ghi lịch sử) và đọc lại lý do từ chối.
  */
 @ExtendWith(MockitoExtension.class)
 class YeuCauMuaHangServiceTest {
@@ -136,12 +136,34 @@ class YeuCauMuaHangServiceTest {
         assertEquals("PR2026100812345", YeuCauMuaHangService.taoMaYeuCau(12345, Instant.parse("2026-10-08T01:00:00Z")));
     }
 
+    /** Ngày mai (giờ Việt Nam): ngày giao hợp lệ. */
+    private static Instant ngayMai() {
+        return Instant.now().plus(java.time.Duration.ofDays(1));
+    }
+
+    private static BienTheSanPham bienThe(int id, Integer trangThai, Integer trangThaiSanPham) {
+        return BienTheSanPham.builder().id(id).maSku("SKU-" + id).trangThai(trangThai)
+                .sanPham(SanPhamQuanAo.builder().id(100 + id).trangThai(trangThaiSanPham).build())
+                .build();
+    }
+
+    private static ChiTietYeuCauMuaHangCreating dong(Integer bienTheId, String soLuong) {
+        return ChiTietYeuCauMuaHangCreating.builder().bienTheSanPhamId(bienTheId)
+                .soLuongDat(soLuong == null ? null : new BigDecimal(soLuong)).build();
+    }
+
+    private void nguoiTaoHopLe() {
+        SecurityContextHolder.setUser(nguoiDung(3, "nhan_vien_mua_hang", 1));
+        when(khoService.getOne(1)).thenReturn(Optional.of(khoTong));
+        when(nguoiDungService.getOne(3)).thenReturn(Optional.of(NguoiDung.builder().id(3).build()));
+    }
+
     @Test
     void create_sinhMaPhieu_vaLuuGhiChu() {
         SecurityContextHolder.setUser(nguoiDung(3, "nhan_vien_kho", 1));
         when(khoService.getOne(1)).thenReturn(Optional.of(khoTong));
         when(nguoiDungService.getOne(3)).thenReturn(Optional.of(NguoiDung.builder().id(3).build()));
-        when(bienTheSanPhamService.getOne(5)).thenReturn(Optional.of(BienTheSanPham.builder().id(5).build()));
+        when(bienTheSanPhamService.getOne(5)).thenReturn(Optional.of(bienThe(5, 1, 1)));
         when(chiTietYeuCauMuaHangService.create(anyList())).thenAnswer(inv -> inv.getArgument(0));
         when(repository.save(any(YeuCauMuaHang.class))).thenAnswer(inv -> {
             YeuCauMuaHang yc = inv.getArgument(0);
@@ -151,6 +173,7 @@ class YeuCauMuaHangServiceTest {
 
         service.create(YeuCauMuaHangCreating.builder()
                 .khoNhapId(1)
+                .ngayGiaoDuKien(ngayMai())
                 .ghiChu("  Ưu tiên nhập trước 20/10  ")
                 .chiTietYeuCauMuaHangs(List.of(ChiTietYeuCauMuaHangCreating.builder()
                         .bienTheSanPhamId(5).soLuongDat(BigDecimal.TEN).build()))
@@ -178,6 +201,105 @@ class YeuCauMuaHangServiceTest {
                 .build()));
         assertEquals("Số lượng yêu cầu phải lớn hơn 0", ex.getMessage());
         verify(repository, never()).save(any());
+    }
+
+    // ── kiểm tra khi tạo (màn Tạo yêu cầu nhập hàng) ─────────────────────
+
+    @Test
+    void create_chanNgayGiaoTrong_vaGhiChuQuaDai_truocKhiLuu() {
+        nguoiTaoHopLe();
+        CommonException trong = assertThrows(CommonException.class, () -> service.create(YeuCauMuaHangCreating.builder()
+                .khoNhapId(1).chiTietYeuCauMuaHangs(List.of(dong(5, "10"))).build()));
+        assertEquals("Vui lòng chọn ngày giao dự kiến", trong.getMessage());
+
+        CommonException dai = assertThrows(CommonException.class, () -> service.create(YeuCauMuaHangCreating.builder()
+                .khoNhapId(1).ngayGiaoDuKien(ngayMai()).ghiChu("x".repeat(501))
+                .chiTietYeuCauMuaHangs(List.of(dong(5, "10"))).build()));
+        assertEquals("Ghi chú tối đa 500 ký tự", dai.getMessage());
+        verify(repository, never()).save(any());
+        verifyNoInteractions(bienTheSanPhamService);
+    }
+
+    @Test
+    void create_ghiChuDung500KyTu_sauKhiBoKhoangTrang_vanNhan() {
+        nguoiTaoHopLe();
+        when(bienTheSanPhamService.getOne(5)).thenReturn(Optional.of(bienThe(5, 1, 1)));
+        when(chiTietYeuCauMuaHangService.create(anyList())).thenAnswer(inv -> inv.getArgument(0));
+        when(repository.save(any(YeuCauMuaHang.class))).thenAnswer(inv -> {
+            YeuCauMuaHang yc = inv.getArgument(0);
+            if (yc.getId() == null) yc.setId(12);
+            return yc;
+        });
+        assertDoesNotThrow(() -> service.create(YeuCauMuaHangCreating.builder()
+                .khoNhapId(1).ngayGiaoDuKien(ngayMai()).ghiChu("  " + "x".repeat(500) + "  ")
+                .chiTietYeuCauMuaHangs(List.of(dong(5, "10"))).build()));
+    }
+
+    @Test
+    void create_maNgungKinhDoanh_biChan_khongLuuGi() {
+        nguoiTaoHopLe();
+        when(bienTheSanPhamService.getOne(5)).thenReturn(Optional.of(bienThe(5, 1, 1)));
+        when(bienTheSanPhamService.getOne(6)).thenReturn(Optional.of(bienThe(6, 1, 2)));
+
+        CommonException ex = assertThrows(CommonException.class, () -> service.create(YeuCauMuaHangCreating.builder()
+                .khoNhapId(1).ngayGiaoDuKien(ngayMai())
+                .chiTietYeuCauMuaHangs(List.of(dong(5, "10"), dong(6, "5"))).build()));
+        assertEquals("Mã SKU-6 đã ngừng kinh doanh, không nhập được", ex.getMessage());
+        verify(repository, never()).save(any());
+        verifyNoInteractions(chiTietYeuCauMuaHangService);
+    }
+
+    @Test
+    void kiemTraNgayGiao_theoNgayVietNam() {
+        // 17:30 UTC ngày 24 = 00:30 ngày 25 giờ Việt Nam
+        Instant bayGio = Instant.parse("2026-10-24T17:30:00Z");
+        assertDoesNotThrow(() -> YeuCauMuaHangService.kiemTraNgayGiao(Instant.parse("2026-10-24T17:00:00Z"), bayGio),
+                "00:00 ngày 25 giờ Việt Nam là hôm nay");
+        assertDoesNotThrow(() -> YeuCauMuaHangService.kiemTraNgayGiao(Instant.parse("2026-11-03T00:00:00Z"), bayGio));
+        CommonException ex = assertThrows(CommonException.class,
+                () -> YeuCauMuaHangService.kiemTraNgayGiao(Instant.parse("2026-10-24T16:59:00Z"), bayGio));
+        assertEquals("Ngày giao dự kiến không được trước hôm nay", ex.getMessage());
+    }
+
+    @Test
+    void kiemTraDongHang_chanSoLe_quaToiDa_maLap_thieuMa_vaQuaNghinDong() {
+        assertDoesNotThrow(() -> YeuCauMuaHangService.kiemTraDongHang(List.of(dong(1, "99999"), dong(2, "10.00"))));
+        assertEquals("Số lượng yêu cầu phải là số nguyên", assertThrows(CommonException.class,
+                () -> YeuCauMuaHangService.kiemTraDongHang(List.of(dong(1, "2.5")))).getMessage());
+        assertEquals("Số lượng mỗi dòng tối đa 99.999", assertThrows(CommonException.class,
+                () -> YeuCauMuaHangService.kiemTraDongHang(List.of(dong(1, "100000")))).getMessage());
+        assertEquals("Mỗi mã hàng chỉ được một dòng trong yêu cầu: dòng 3 trùng mã với dòng 1", assertThrows(CommonException.class,
+                () -> YeuCauMuaHangService.kiemTraDongHang(List.of(dong(1, "3"), dong(2, "1"), dong(1, "4")))).getMessage());
+        assertEquals("Có dòng hàng chưa chọn sản phẩm", assertThrows(CommonException.class,
+                () -> YeuCauMuaHangService.kiemTraDongHang(List.of(dong(null, "3")))).getMessage());
+
+        List<ChiTietYeuCauMuaHangCreating> nghin = new java.util.ArrayList<>();
+        for (int i = 1; i <= 1000; i++) nghin.add(dong(i, "1"));
+        assertDoesNotThrow(() -> YeuCauMuaHangService.kiemTraDongHang(nghin));
+        nghin.add(dong(1001, "1"));
+        assertEquals("Một yêu cầu nhập hàng tối đa 1.000 dòng, hãy tách thành nhiều yêu cầu",
+                assertThrows(CommonException.class, () -> YeuCauMuaHangService.kiemTraDongHang(nghin)).getMessage());
+    }
+
+    @Test
+    void kiemTraConKinhDoanh_sanPhamHetHangVanNhapDuoc() {
+        assertDoesNotThrow(() -> YeuCauMuaHangService.kiemTraConKinhDoanh(bienThe(1, 1, 1)));
+        assertDoesNotThrow(() -> YeuCauMuaHangService.kiemTraConKinhDoanh(bienThe(1, 1, 0)), "Hết hàng (0) vẫn nhập");
+        assertThrows(CommonException.class, () -> YeuCauMuaHangService.kiemTraConKinhDoanh(bienThe(1, 1, 2)));
+        assertThrows(CommonException.class, () -> YeuCauMuaHangService.kiemTraConKinhDoanh(bienThe(1, 0, 1)));
+        assertThrows(CommonException.class, () -> YeuCauMuaHangService.kiemTraConKinhDoanh(bienThe(1, null, 1)));
+        assertThrows(CommonException.class, () -> YeuCauMuaHangService.kiemTraConKinhDoanh(bienThe(1, 1, null)),
+                "sản phẩm chưa rõ trạng thái: không nằm trong danh mục màn tạo nên cũng chặn");
+        assertThrows(CommonException.class, () -> YeuCauMuaHangService.kiemTraConKinhDoanh(bienThe(1, 1, 3)));
+    }
+
+    @Test
+    void create_thieuKhoNhan_bao400() {
+        SecurityContextHolder.setUser(nguoiDung(3, "nhan_vien_mua_hang", 1));
+        CommonException ex = assertThrows(CommonException.class, () -> service.create(YeuCauMuaHangCreating.builder()
+                .ngayGiaoDuKien(ngayMai()).chiTietYeuCauMuaHangs(List.of(dong(5, "1"))).build()));
+        assertEquals("Vui lòng chọn kho nhận hàng", ex.getMessage());
+        verifyNoInteractions(khoService);
     }
 
     // ── duyệt / từ chối ───────────────────────────────────────────────────
