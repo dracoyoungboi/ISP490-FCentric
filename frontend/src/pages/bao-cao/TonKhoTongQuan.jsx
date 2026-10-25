@@ -42,6 +42,7 @@ import { thongKeHeThongService } from "@/services/thongKeHeThongService";
 import { laKhoGiaoDich } from "@/utils/kho";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { formatCurrency, formatNumber } from "@/utils/formatters";
+import { VAI_TRO_TAO_YEU_CAU_NHAP } from "@/constants/vaiTroTaoYeuCauNhap";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROLE = {
@@ -86,11 +87,9 @@ function canSeeAllKho(roles) {
     return roles.some(r => ROLES_ALL_KHO.includes(r));
 }
 
+// Nút "Nhập kho" mở màn Tạo yêu cầu nhập hàng: cùng danh sách vai trò với màn đó (quản lý kho chỉ duyệt, không lập)
 function canNhapKho(roles) {
-    return roles.some(r => [
-        ROLE.QUAN_TRI_VIEN, ROLE.QUAN_LY_KHO,
-        ROLE.NHAN_VIEN_KHO, ROLE.NHAN_VIEN_MUA_HANG,
-    ].includes(r));
+    return roles.some(r => VAI_TRO_TAO_YEU_CAU_NHAP.includes(r));
 }
 
 function trangThaiTon(item) {

@@ -8,6 +8,14 @@ const purchaseRequestService = {
     create: (data) => apiClient.post("/api/v1/nghiep-vu/yeu-cau-mua-hang/create", data),
 
     /**
+     * Màn Tạo yêu cầu nhập hàng: Kho tổng nhận hàng và mọi mã nhập được kèm khả dụng, đang về, số đề xuất, cờ còn dư,
+     * yêu cầu nhập đang mở. `khoId` trống: Kho tổng đầu tiên.
+     * GET /api/v1/nghiep-vu/yeu-cau-mua-hang/hang-kho-tong?khoId=
+     */
+    hangKhoTong: (khoId) =>
+        apiClient.get("/api/v1/nghiep-vu/yeu-cau-mua-hang/hang-kho-tong", { params: khoId ? { khoId } : undefined }),
+
+    /**
      * Lấy chi tiết yêu cầu mua hàng theo id
      * GET /api/v1/yeu-cau-mua-hang/get-by-id/:id
      */

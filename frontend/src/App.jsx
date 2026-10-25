@@ -79,6 +79,7 @@ import StoreSettingsPage from "./pages/settings/StoreSettingsPage";
 import PrintTemplateListPage from "./pages/settings/PrintTemplateListPage";
 import { SETTINGS_ROLES } from "./components/settings/settings.config";
 import RequireRole from "./components/auth/RequireRole";
+import { VAI_TRO_TAO_YEU_CAU_NHAP } from "./constants/vaiTroTaoYeuCauNhap";
 import PosPage from "./pages/pos";
 import PosLayout from "./pages/pos/PosLayout";
 import DonChoXuatPage from "./pages/issue/DonChoXuatPage";
@@ -181,7 +182,10 @@ export default function App() {
           {/* Purchase Order */}
           <Route path="/purchase-requests" element={<PurchaseRequestList />} />
           <Route path="/purchase-orders" element={<PurchaseOrder />} />
-          <Route path="/purchase-requests/create" element={<CreatePurchaseRequestPage />} />
+          {/* Tạo yêu cầu nhập hàng: đúng 4 vai trò máy chủ cho lập (quản lý kho chỉ duyệt) */}
+          <Route element={<RequireRole roles={VAI_TRO_TAO_YEU_CAU_NHAP} />}>
+            <Route path="/purchase-requests/create" element={<CreatePurchaseRequestPage />} />
+          </Route>
           <Route path="/purchase-requests/:id/send-quotation" element={<SendQuotationRequestPage />} />
           <Route path="/purchase-orders/:id" element={<PurchaseOrderDetail />} />
           <Route path="/purchase-requests/:id/gui-bao-gia" element={<GuiBaoGiaCuRedirect />} />
