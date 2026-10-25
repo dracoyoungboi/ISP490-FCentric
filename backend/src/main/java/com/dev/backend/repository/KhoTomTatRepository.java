@@ -14,7 +14,8 @@ import java.util.List;
  * Quy tắc phân loại giống khối Tồn kho của Tổng quan (TongQuanAdminRepository.CTE_TON_THEO_CAP):
  * - gộp tồn theo biến thể của kho; biến thể đã từng có lô ở kho mới được đếm, nên kho chưa bao giờ nhập
  *   một mã không bị báo "hết hàng" mã đó;
- * - chỉ biến thể và sản phẩm đang kinh doanh (trạng thái 1) được đếm vào mã hàng / hết / sắp hết;
+ * - chỉ biến thể đang bán (trạng thái 1) của sản phẩm đang kinh doanh (Còn hàng 1, hoặc Hết hàng 0 do hệ thống tự
+ *   đặt khi mọi biến thể hết hàng) được đếm vào mã hàng / hết / sắp hết;
  *   tồn và giá trị vẫn cộng mọi lô.
  * Khác Tổng quan: không lọc trạng thái kho và không bỏ Kho Trung Chuyển, vì popup xem cả kho ngừng hoạt động
  * (tồn vẫn còn) và kho ảo (hàng đang chuyển).
@@ -41,7 +42,7 @@ public class KhoTomTatRepository {
             loai AS (
                 SELECT cap.*,
                        COALESCE(NULLIF(sp.muc_ton_toi_thieu, 0), :nguongMacDinh)                 AS nguong,
-                       CASE WHEN bt.trang_thai = 1 AND sp.trang_thai = 1 THEN 1 ELSE 0 END        AS dang_ban
+                       CASE WHEN bt.trang_thai = 1 AND sp.trang_thai IN (0, 1) THEN 1 ELSE 0 END  AS dang_ban
                 FROM cap
                 JOIN bien_the_san_pham bt ON bt.id = cap.bien_the_id
                 JOIN san_pham_quan_ao sp  ON sp.id = bt.san_pham_id
