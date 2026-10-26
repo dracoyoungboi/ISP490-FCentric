@@ -291,6 +291,27 @@ public class LazadaClient {
     }
 
     /**
+     * Lấy danh sách thuộc tính của danh mục sản phẩm (/category/attributes/get).
+     */
+    public JsonNode getCategoryAttributes(String appKey, String appSecret, String accessToken, long categoryId, String languageCode) {
+        String apiPath = "/category/attributes/get";
+        Map<String, String> params = new HashMap<>();
+        params.put("app_key", appKey.trim());
+        params.put("access_token", accessToken.trim());
+        params.put("primary_category_id", String.valueOf(categoryId));
+        params.put("timestamp", String.valueOf(System.currentTimeMillis()));
+        params.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
+        if (languageCode != null && !languageCode.isBlank()) {
+            params.put("language_code", languageCode.trim());
+        }
+
+        String sign = LazadaSignatureHelper.calculateSignature(apiPath, params, appSecret);
+        params.put("sign", sign);
+
+        return executeGet(API_GATEWAY_VN + apiPath, params);
+    }
+
+    /**
      * Upload ảnh nhị phân lên CDN Lazada (/image/upload) để nhận URL .slatic.net.
      */
     public JsonNode uploadImage(String appKey, String appSecret, String accessToken, byte[] imageBytes, String fileName) {
