@@ -1057,11 +1057,16 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
 
     @Override
     public String getLazadaAuthUrl(String redirectUri) {
+        return getLazadaAuthUrl(redirectUri, null);
+    }
+
+    @Override
+    public String getLazadaAuthUrl(String redirectUri, String state) {
         String appKey = getLazadaAppKey();
         if (appKey == null || appKey.isBlank()) {
             throw new CommonException("Chưa cấu hình App Key cho kênh Lazada", HttpStatus.BAD_REQUEST, null);
         }
-        return getLazadaClient().generateAuthUrl(appKey, redirectUri);
+        return getLazadaClient().generateAuthUrl(appKey, redirectUri, state);
     }
 
     @Override

@@ -54,6 +54,10 @@ public class LazadaClient {
      * để tránh lỗi "Thiếu Tham số" khi người bán bấm [Use Seller Login].
      */
     public String generateAuthUrl(String appKey, String redirectUri) {
+        return generateAuthUrl(appKey, redirectUri, java.util.UUID.randomUUID().toString());
+    }
+
+    public String generateAuthUrl(String appKey, String redirectUri, String state) {
         if (appKey == null || appKey.isBlank()) {
             throw new IllegalArgumentException("App Key không được để trống");
         }
@@ -61,8 +65,11 @@ public class LazadaClient {
                 ? redirectUri.trim()
                 : DEFAULT_CALLBACK_URL;
         String encodedUri = URLEncoder.encode(targetUri, StandardCharsets.UTF_8);
-        return String.format("%s?response_type=code&force_auth=true&redirect_uri=%s&client_id=%s",
-                OAUTH_AUTHORIZE_URL, encodedUri, appKey.trim());
+        String stateParam = (state != null && !state.isBlank())
+                ? "&state=" + URLEncoder.encode(state.trim(), StandardCharsets.UTF_8)
+                : "";
+        return String.format("%s?response_type=code&force_auth=true&redirect_uri=%s&client_id=%s%s",
+                OAUTH_AUTHORIZE_URL, encodedUri, appKey.trim(), stateParam);
     }
 
     /**

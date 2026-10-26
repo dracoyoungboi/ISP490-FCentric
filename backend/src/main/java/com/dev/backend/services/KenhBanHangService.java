@@ -94,6 +94,11 @@ public interface KenhBanHangService {
     String getLazadaAuthUrl(String redirectUri);
 
     /**
+     * Sinh URL ủy quyền Seller Authorization có kèm mã phiên bảo mật (state).
+     */
+    String getLazadaAuthUrl(String redirectUri, String state);
+
+    /**
      * Đổi mã code nhận được từ callback OAuth2 lấy Access Token và Refresh Token.
      */
     LazadaConfigResponse exchangeLazadaToken(LazadaOAuthCallbackRequest request);

@@ -164,10 +164,11 @@ public class KenhBanHangController {
     @Operation(summary = "Lấy đường dẫn ủy quyền gian hàng của sàn ủy quyền (Lazada, TikTok Shop)")
     public ResponseEntity<ResponseData<Map<String, String>>> batDauUyQuyen(
             @PathVariable String maKenh,
-            @RequestParam(required = false) String redirectUri) {
+            @RequestParam(required = false) String redirectUri,
+            @RequestParam(required = false) String state) {
         String ma = maKenh != null ? maKenh.trim().toUpperCase() : "";
         if ("LAZADA".equals(ma)) {
-            String authUrl = kenhBanHangService.getLazadaAuthUrl(redirectUri);
+            String authUrl = kenhBanHangService.getLazadaAuthUrl(redirectUri, state);
             return ResponseEntity.ok(
                     ResponseData.<Map<String, String>>builder()
                             .status(HttpStatus.OK.value())
