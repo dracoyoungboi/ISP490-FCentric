@@ -207,6 +207,29 @@ public class LazadaClient {
     }
 
     /**
+     * Lấy danh sách sản phẩm từ Lazada Open Platform (/products/get).
+     * @param filter "all" hoặc "live"
+     * @param limit Số sản phẩm mỗi trang (tối đa 50)
+     * @param offset Vị trí bắt đầu
+     */
+    public JsonNode getProducts(String appKey, String appSecret, String accessToken, String filter, Integer limit, Integer offset) {
+        String apiPath = "/products/get";
+        Map<String, String> params = new HashMap<>();
+        params.put("app_key", appKey.trim());
+        params.put("access_token", accessToken.trim());
+        params.put("timestamp", String.valueOf(System.currentTimeMillis()));
+        params.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
+        params.put("filter", (filter != null && !filter.isBlank()) ? filter.trim() : "all");
+        params.put("limit", String.valueOf(limit != null ? limit : 50));
+        params.put("offset", String.valueOf(offset != null ? offset : 0));
+
+        String sign = LazadaSignatureHelper.calculateSignature(apiPath, params, appSecret);
+        params.put("sign", sign);
+
+        return executeGet(API_GATEWAY_VN + apiPath, params);
+    }
+
+    /**
      * Cập nhật số lượng tồn kho lên Lazada (/product/price_quantity/update).
      * @param payload Chuỗi XML theo chuẩn Lazada:
      *                &lt;Request&gt;&lt;Product&gt;&lt;Skus&gt;&lt;Sku&gt;&lt;SellerSku&gt;...&lt;/SellerSku&gt;&lt;Quantity&gt;...&lt;/Quantity&gt;&lt;/Sku&gt;&lt;/Skus&gt;&lt;/Product&gt;&lt;/Request&gt;
