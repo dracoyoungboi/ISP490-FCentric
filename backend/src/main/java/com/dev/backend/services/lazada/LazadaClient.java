@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -247,6 +248,102 @@ public class LazadaClient {
         params.put("sign", sign);
 
         return executePostForm(API_GATEWAY_VN + apiPath, params);
+    }
+
+    /**
+     * Tạo mới sản phẩm trên Lazada Open Platform (/product/create).
+     * @param payload Chuỗi XML theo chuẩn LazOP:
+     *                &lt;Request&gt;&lt;Product&gt;&lt;PrimaryCategory&gt;...&lt;/PrimaryCategory&gt;&lt;Attributes&gt;...&lt;/Attributes&gt;&lt;Skus&gt;...&lt;/Skus&gt;&lt;/Product&gt;&lt;/Request&gt;
+     */
+    public JsonNode createProduct(String appKey, String appSecret, String accessToken, String payload) {
+        String apiPath = "/product/create";
+        Map<String, String> params = new HashMap<>();
+        params.put("app_key", appKey.trim());
+        params.put("access_token", accessToken.trim());
+        params.put("payload", payload);
+        params.put("timestamp", String.valueOf(System.currentTimeMillis()));
+        params.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
+
+        String sign = LazadaSignatureHelper.calculateSignature(apiPath, params, appSecret);
+        params.put("sign", sign);
+
+        return executePostForm(API_GATEWAY_VN + apiPath, params);
+    }
+
+    /**
+     * Lấy toàn bộ cây danh mục sản phẩm từ Lazada (/category/tree/get).
+     */
+    public JsonNode getCategoryTree(String appKey, String appSecret, String accessToken, String languageCode) {
+        String apiPath = "/category/tree/get";
+        Map<String, String> params = new HashMap<>();
+        params.put("app_key", appKey.trim());
+        params.put("access_token", accessToken.trim());
+        params.put("timestamp", String.valueOf(System.currentTimeMillis()));
+        params.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
+        if (languageCode != null && !languageCode.isBlank()) {
+            params.put("language_code", languageCode.trim());
+        }
+
+        String sign = LazadaSignatureHelper.calculateSignature(apiPath, params, appSecret);
+        params.put("sign", sign);
+
+        return executeGet(API_GATEWAY_VN + apiPath, params);
+    }
+
+    /**
+     * Upload ảnh nhị phân lên CDN Lazada (/image/upload) để nhận URL .slatic.net.
+     */
+    public JsonNode uploadImage(String appKey, String appSecret, String accessToken, byte[] imageBytes, String fileName) {
+        String apiPath = "/image/upload";
+        Map<String, String> queryParams = new HashMap<>();
+        queryParams.put("app_key", appKey.trim());
+        queryParams.put("access_token", accessToken.trim());
+        queryParams.put("timestamp", String.valueOf(System.currentTimeMillis()));
+        queryParams.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
+
+        // Tham số binary byte[] loại trừ khỏi chuỗi tính chữ ký số theo tài liệu LazOP
+        String sign = LazadaSignatureHelper.calculateSignature(apiPath, queryParams, appSecret);
+        queryParams.put("sign", sign);
+
+        StringBuilder urlBuilder = new StringBuilder(API_GATEWAY_VN).append(apiPath).append("?");
+        boolean first = true;
+        for (Map.Entry<String, String> entry : queryParams.entrySet()) {
+            if (!first) {
+                urlBuilder.append("&");
+            }
+            urlBuilder.append(URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8))
+                    .append("=")
+                    .append(URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8));
+            first = false;
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+        MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
+        ByteArrayResource resource = new ByteArrayResource(imageBytes) {
+            @Override
+            public String getFilename() {
+                return (fileName != null && !fileName.isBlank()) ? fileName : "product_image.jpg";
+            }
+        };
+        form.add("image", resource);
+
+        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(form, headers);
+        try {
+            ResponseEntity<String> response = restTemplate.postForEntity(urlBuilder.toString(), requestEntity, String.class);
+            return objectMapper.readTree(response.getBody());
+        } catch (HttpStatusCodeException e) {
+            log.error("Lazada uploadImage HTTP Error: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString());
+            try {
+                return objectMapper.readTree(e.getResponseBodyAsString());
+            } catch (Exception parseEx) {
+                throw new IllegalStateException("Lỗi gọi Lazada uploadImage: " + e.getStatusCode(), e);
+            }
+        } catch (Exception e) {
+            log.error("Lỗi khi upload ảnh sang Lazada: {}", e.getMessage());
+            throw new IllegalStateException("Không thể upload ảnh sang Lazada: " + e.getMessage(), e);
+        }
     }
 
     private JsonNode executeGet(String url, Map<String, String> params) {
