@@ -21,6 +21,8 @@ public class ViTriKhoDto {
     Integer dangChua;
     /** Hàng đạt của lô đã khóa nhưng phiếu nhập chưa xác nhận, sẽ lên kệ này (còn trống = sucChua - dangChua - choNhap). */
     Integer choNhap;
+    /** Số lô đã khóa của phiếu nhập chưa xác nhận đang gắn kệ này, kể cả lô chỉ có hàng không đạt (choNhap = 0). */
+    Integer soLoChoNhap;
     String trangThai;
 }
 

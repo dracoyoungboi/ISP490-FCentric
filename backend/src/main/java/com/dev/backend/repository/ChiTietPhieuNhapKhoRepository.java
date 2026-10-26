@@ -111,9 +111,28 @@ public interface ChiTietPhieuNhapKhoRepository extends JpaRepository<ChiTietPhie
     """)
     Long sumChoNhapTheoViTri(@Param("viTriKhoId") Integer viTriKhoId, @Param("boQuaLoId") Integer boQuaLoId);
 
-    /** Như {@link #sumChoNhapTheoViTri} nhưng cho mọi kệ của một kho: mỗi dòng {viTriKhoId, soLuong}. */
+    /**
+     * Lô đã khóa của các phiếu Nháp đang gắn một kệ, gom theo phiếu: mỗi dòng {soPhieuNhap, soLo, soLuongDat}.
+     * Đếm cả lô chỉ có hàng không đạt (số đạt 0) vì lô đó vẫn trỏ tới kệ.
+     */
     @Query("""
-        select l.viTriKho.id, coalesce(sum(l.soLuongNhap), 0)
+        select ct.phieuNhapKho.soPhieuNhap, count(l.id), coalesce(sum(l.soLuongNhap), 0)
+        from ChiTietPhieuNhapKho ct
+        join ct.loHang l
+        where l.viTriKho.id = :viTriKhoId
+          and l.trangThai = 'TAM_KHOA'
+          and ct.phieuNhapKho.trangThai = 0
+        group by ct.phieuNhapKho.soPhieuNhap
+        order by min(ct.phieuNhapKho.id)
+    """)
+    List<Object[]> loChoNhapTheoViTri(@Param("viTriKhoId") Integer viTriKhoId);
+
+    /**
+     * Như {@link #sumChoNhapTheoViTri} nhưng cho mọi kệ của một kho: mỗi dòng {viTriKhoId, soLuong, soLo}.
+     * {@code soLo} đếm cả lô chỉ có hàng không đạt (số đạt 0) vẫn gắn kệ.
+     */
+    @Query("""
+        select l.viTriKho.id, coalesce(sum(l.soLuongNhap), 0), count(l.id)
         from ChiTietPhieuNhapKho ct
         join ct.loHang l
         where l.viTriKho.khuVucKho.kho.id = :khoId

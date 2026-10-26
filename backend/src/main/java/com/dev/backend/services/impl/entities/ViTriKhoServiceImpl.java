@@ -15,6 +15,7 @@ import com.dev.backend.repository.ChiTietPhieuNhapKhoRepository;
 import com.dev.backend.repository.KhoRepository;
 import com.dev.backend.utils.KhoDangChon;
 import com.dev.backend.repository.KhuVucKhoRepository;
+import com.dev.backend.repository.LoHangRepository;
 import com.dev.backend.repository.MatBangKhoRepository;
 import com.dev.backend.repository.TonKhoViTriRepository;
 import com.dev.backend.repository.ViTriKhoRepository;
@@ -44,6 +45,7 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     TonKhoViTriRepository tonKhoViTriRepository;
     MatBangKhoRepository matBangKhoRepository;
     ChiTietPhieuNhapKhoRepository chiTietPhieuNhapKhoRepository;
+    LoHangRepository loHangRepository;
     ObjectMapper objectMapper;
 
     // Sửa sơ đồ kho: kho trên đường dẫn phải là kho đang chọn (không chỉ người dùng thuộc kho trong header)
@@ -181,11 +183,15 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
         }
         // Lô đã khóa của phiếu nhập chưa xác nhận: chưa vào tồn nhưng đã giữ chỗ trên kệ
         Map<Integer, Integer> choNhapMap = new HashMap<>();
+        Map<Integer, Integer> soLoChoNhapMap = new HashMap<>();
         List<Object[]> choNhapList = chiTietPhieuNhapKhoRepository.sumChoNhapTheoKho(khoId);
         if (choNhapList != null) {
             for (Object[] row : choNhapList) {
                 if (row[0] != null && row[1] != null) {
                     choNhapMap.put(((Number) row[0]).intValue(), ((Number) row[1]).intValue());
+                }
+                if (row[0] != null && row.length > 2 && row[2] != null) {
+                    soLoChoNhapMap.put(((Number) row[0]).intValue(), ((Number) row[2]).intValue());
                 }
             }
         }
@@ -201,6 +207,7 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
                 .sucChua(v.getSucChuaToiDa())
                 .dangChua(dangChuaMap.getOrDefault(v.getId(), 0))
                 .choNhap(choNhapMap.getOrDefault(v.getId(), 0))
+                .soLoChoNhap(soLoChoNhapMap.getOrDefault(v.getId(), 0))
                 .trangThai(v.getTrangThai())
                 .build()
         ).toList();
@@ -333,6 +340,14 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
 
         ViTriKho saved = viTriKhoRepository.save(viTri);
         int dangChua = tonKhoViTriRepository.sumDangChuaByViTriId(saved.getId());
+        // Giao diện thay cả dòng kệ bằng kết quả này: thiếu "chờ nhập" thì nút xóa kệ mở lại dù kệ còn lô chờ nhập
+        long choNhap = 0;
+        long soLoChoNhap = 0;
+        List<Object[]> loCho = chiTietPhieuNhapKhoRepository.loChoNhapTheoViTri(saved.getId());
+        for (Object[] dong : loCho != null ? loCho : List.<Object[]>of()) {
+            soLoChoNhap += ((Number) dong[1]).longValue();
+            choNhap += ((Number) dong[2]).longValue();
+        }
 
         return ViTriKhoDto.builder()
                 .id(saved.getId())
@@ -344,6 +359,8 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
                 .tang(saved.getTangKe())
                 .sucChua(saved.getSucChuaToiDa())
                 .dangChua(dangChua)
+                .choNhap((int) choNhap)
+                .soLoChoNhap((int) soLoChoNhap)
                 .trangThai(saved.getTrangThai())
                 .build();
     }
@@ -351,8 +368,12 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void xoaViTri(Integer khoId, Integer viTriId) {
+        // Khóa dòng kệ như lúc khóa lô: lô đang được khóa lên kệ này cùng lúc phải xong trước, rồi mới kiểm "chờ nhập".
+        // Khóa TRƯỚC mọi lệnh đọc thường: ở REPEATABLE READ (mặc định của MySQL), lệnh đọc thường đầu tiên chốt ảnh dữ liệu
+        // cho cả giao dịch, đọc trước khi có khóa thì không thấy lô vừa khóa lên kệ. Quyền kho vẫn kiểm trước khi báo 404.
+        Optional<ViTriKho> keDaKhoa = viTriKhoRepository.khoaTheoId(viTriId);
         kiemTraGhiKho(khoId);
-        ViTriKho viTri = viTriKhoRepository.findById(viTriId)
+        ViTriKho viTri = keDaKhoa
                 .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy vị trí ID: " + viTriId));
 
         if (!viTri.getKhuVucKho().getKho().getId().equals(khoId)) {
@@ -363,7 +384,38 @@ public class ViTriKhoServiceImpl implements ViTriKhoService {
         if (dangChua > 0) {
             throw new CommonException(HttpStatus.CONFLICT, "Kệ đang chứa " + dangChua + " sản phẩm, không thể xóa!");
         }
+        // Tổng có thể về 0 khi có dòng âm bù dòng dương: dòng dương còn lại sẽ trỏ tới kệ đã xóa
+        if (tonKhoViTriRepository.existsByViTriKho_IdAndSoLuongGreaterThan(viTriId, 0)) {
+            throw new CommonException(HttpStatus.CONFLICT,
+                    "Kệ " + viTri.getMaViTri() + " còn lô có tồn trên kệ (tổng tồn kệ đang lệch), không thể xóa. Kiểm lại tồn theo kệ trước.");
+        }
 
+        // Lô đã khóa của phiếu Nháp còn chờ lên kệ: xóa kệ thì lô trỏ tới kệ không còn, phiếu không nhập kho được
+        List<Object[]> choNhap = chiTietPhieuNhapKhoRepository.loChoNhapTheoViTri(viTriId);
+        if (choNhap != null && !choNhap.isEmpty()) {
+            long soLo = 0;
+            long soHang = 0;
+            List<String> dsPhieu = new ArrayList<>();
+            for (Object[] dong : choNhap) {
+                dsPhieu.add(String.valueOf(dong[0]));
+                soLo += ((Number) dong[1]).longValue();
+                soHang += ((Number) dong[2]).longValue();
+            }
+            String dangGiu = soHang > 0 ? "đang chờ nhập " + soHang + " sản phẩm" : "đang gắn " + soLo + " lô đã khóa";
+            throw new CommonException(HttpStatus.CONFLICT,
+                    "Kệ " + viTri.getMaViTri() + " " + dangGiu + " của phiếu " + String.join(", ", dsPhieu)
+                            + ". Sửa kệ của các lô đó ở màn kiểm đếm hoặc hủy phiếu trước khi xóa kệ.");
+        }
+
+        // Lô đã nhập kho từng nằm trên kệ (kệ nay trống): gỡ kệ khỏi lô và bỏ các dòng tồn số 0 của kệ, để không còn gì
+        // trỏ tới kệ đã xóa. Lịch sử giao dịch vẫn giữ mã kệ trong ghi chú.
+        // Lấy id lô trước rồi gỡ theo khóa chính: cột kệ của lô không có chỉ mục, UPDATE theo cột đó sẽ quét và khóa cả bảng
+        // lô tới hết giao dịch (chặn bán hàng, xuất kho). Đang giữ khóa kệ nên không có lô mới gắn vào kệ giữa hai lệnh.
+        List<Integer> loTrenKe = loHangRepository.idLoTheoViTri(viTriId);
+        if (loTrenKe != null && !loTrenKe.isEmpty()) {
+            loHangRepository.goViTriKho(loTrenKe);
+        }
+        tonKhoViTriRepository.xoaDongSoKhongTheoViTri(viTriId);
         viTriKhoRepository.delete(viTri);
     }
 
