@@ -119,7 +119,7 @@ export default function DanhSachViTri({
       }
       return moi;
     });
-  const soTrongChon = dsChon.filter((v) => !Number(v.dangChua)).length;
+  const soTrongChon = dsChon.filter((v) => !Number(v.dangChua) && !Number(v.choNhap) && !Number(v.soLoChoNhap)).length;
 
   const doiTab = (t) => {
     onDoiTab(t);
@@ -256,7 +256,7 @@ export default function DanhSachViTri({
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-bo-border bg-bo-primary-soft px-4 py-2.5">
                 <p className="text-sm text-blue-800">
                   Đã chọn <b className="font-semibold">{dsChon.length}</b> vị trí
-                  {coTheSua && soTrongChon < dsChon.length ? ` · ${dsChon.length - soTrongChon} kệ còn hàng` : ""}
+                  {coTheSua && soTrongChon < dsChon.length ? ` · ${dsChon.length - soTrongChon} kệ còn hàng hoặc đang chờ nhập` : ""}
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <button
@@ -281,7 +281,7 @@ export default function DanhSachViTri({
                         variant="outline"
                         onClick={() => chayHangLoat(onXoaNhieu)}
                         disabled={!soTrongChon}
-                        title={soTrongChon ? undefined : "Các kệ đã chọn đều còn hàng"}
+                        title={soTrongChon ? undefined : "Các kệ đã chọn đều còn hàng hoặc đang chờ nhập"}
                         className="h-8 gap-1.5 border-bo-border bg-white text-bo-danger hover:bg-bo-danger-soft hover:text-bo-danger"
                       >
                         <Trash2 className="size-4" />
@@ -341,6 +341,7 @@ export default function DanhSachViTri({
                 const muc = mucDay(v.dangChua, v.sucChua);
                 const dangChon = chonIds.has(v.id);
                 const conHang = Number(v.dangChua) > 0;
+                const choNhap = Number(v.choNhap) > 0 || Number(v.soLoChoNhap) > 0;
                 return (
                   <tr
                     key={v.id}
@@ -379,8 +380,16 @@ export default function DanhSachViTri({
                             <RowActionButton
                               icon={Trash2}
                               tone="danger"
-                              label={conHang ? `Kệ còn ${v.dangChua} sản phẩm, không xóa được` : "Xóa vị trí"}
-                              disabled={conHang}
+                              label={
+                                conHang
+                                  ? `Kệ còn ${v.dangChua} sản phẩm, không xóa được`
+                                  : choNhap
+                                    ? Number(v.choNhap) > 0
+                                      ? `Kệ đang chờ nhập ${v.choNhap} sản phẩm, không xóa được`
+                                      : `Kệ đang gắn ${v.soLoChoNhap} lô đã khóa của phiếu nhập, không xóa được`
+                                    : "Xóa vị trí"
+                              }
+                              disabled={conHang || choNhap}
                               onClick={() => onXoaViTri(v)}
                             />
                           </>
