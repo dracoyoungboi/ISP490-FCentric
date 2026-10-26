@@ -95,8 +95,9 @@ const realApi = {
   // ── Kết nối theo sàn (KH mục C.1). Máy chủ chưa có API kết nối chung thì Shopify đọc GET /shopify như trước ──
   /**
    * Gian hàng đã kết nối, cho menu bên trái. Mỗi phần tử có ít nhất { maKenh, trangThaiKetNoi, trangThai }.
-   * Máy chủ chưa có GET gốc (trước KH Phần 2) thì cũng chưa có API kết nối Lazada / TikTok Shop: chỉ đọc Shopify.
-   * Lỗi thật (mạng, 5xx) ném ra để menu giữ danh sách cũ.
+   * Máy chủ chưa có GET gốc thì đọc từng sàn bằng GET /{maKenh}/ket-noi như trang Kênh bán hàng (máy chủ hiện tại đã
+   * trả kết nối Lazada ở đó; máy chủ cũ hơn nữa thì getKetNoi tự lùi về GET /shopify).
+   * Lỗi thật (mạng, 5xx) của bất kỳ sàn nào ném ra để menu giữ danh sách cũ.
    */
   getDanhSachKetNoi: () =>
     apiClient
@@ -104,8 +105,8 @@ const realApi = {
       .then(data)
       .catch(async (error) => {
         if (!laApiChuaCo(error)) throw error;
-        const shopify = await realApi.getKetNoi("SHOPIFY");
-        return daKetNoi(shopify) ? [shopify] : [];
+        const ds = await Promise.all(SAN_BAN_HANG.filter((s) => s.hoTro).map((s) => realApi.getKetNoi(s.maKenh)));
+        return ds.filter((dto) => daKetNoi(dto));
       })
       .then((ds) => (Array.isArray(ds) ? ds : [])),
   /**
