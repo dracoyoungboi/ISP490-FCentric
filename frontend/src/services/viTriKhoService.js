@@ -51,7 +51,7 @@ const realService = {
   },
 
   // ── Vị trí kệ ──
-  /** [{ id, maViTri, khuVucId, day, hang, tang, sucChua, dangChua, trangThai: HOAT_DONG | BAO_TRI }] */
+  /** [{ id, maViTri, khuVucId, day, hang, tang, sucChua, dangChua, choNhap, soLoChoNhap, trangThai: HOAT_DONG | BAO_TRI }] */
   async dsViTri(khoId) {
     if (!VI_TRI_KHO_DA_CO_MAY_CHU || !khoId) return [];
     return (await apiClient.get(`${KHO(khoId)}/vi-tri`).then(data)) ?? [];
@@ -70,7 +70,7 @@ const realService = {
     if (!VI_TRI_KHO_DA_CO_MAY_CHU) return chuaHoTro();
     return apiClient.put(`${KHO(khoId)}/vi-tri/${viTriId}`, payload).then(data);
   },
-  /** Chỉ xóa được vị trí đang trống (dangChua = 0); máy chủ trả 409 nếu kệ còn hàng. */
+  /** Chỉ xóa được vị trí đang trống (dangChua = 0, choNhap = 0); máy chủ trả 409 nếu kệ còn hàng hoặc lô chờ nhập. */
   xoaViTri(khoId, viTriId) {
     if (!VI_TRI_KHO_DA_CO_MAY_CHU) return chuaHoTro();
     return apiClient.delete(`${KHO(khoId)}/vi-tri/${viTriId}`).then(data);

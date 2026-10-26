@@ -25,8 +25,9 @@ const NUT_VIEN =
  * (tổng tiền · nhà cung cấp · kho · ngày tạo) và các nút In đơn hàng, ⋯, Tạo phiếu nhập kho.
  * Màn tự vẽ tiêu đề nên phải "nhận" tiêu đề để layout không vẽ thêm tiêu đề dự phòng.
  *
- * `taoPhieu`: `{ hien, khoa, lyDo }` — ẩn khi không có quyền; khóa kèm lý do khi đã đủ hàng
- * hoặc kho làm việc khác kho nhận của đơn.
+ * `taoPhieu`: `{ hien, khoa, lyDo, nhan, moPhieu }` — ẩn khi không có quyền; khóa kèm lý do khi đã đủ hàng
+ * hoặc kho làm việc khác kho nhận của đơn. `moPhieu`: phần còn lại đã nằm ở phiếu nhập nháp, nút mở phiếu đó
+ * (chữ theo `nhan`) thay vì tạo phiếu mới.
  *
  * "Sao chép mã đơn" trong menu ⋯ theo config/thongBaoNhanh.js → nutSaoChep: "thong-bao" thì menu đóng
  * và bật thông báo "Đã sao chép mã đơn"; "tai-cho" thì mục đổi thành "Đã sao chép" rồi menu tự đóng.
@@ -71,8 +72,8 @@ export default function DauTrangDonMua({ don, taoPhieu, onQuayLai, onIn, onTaoPh
       aria-describedby={taoPhieu.khoa ? "ly-do-khoa-tao-phieu" : undefined}
       className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover disabled:cursor-not-allowed disabled:opacity-50 max-sm:w-full"
     >
-      <PackagePlus className="size-4" aria-hidden="true" />
-      Tạo phiếu nhập kho
+      {taoPhieu.moPhieu ? <FileText className="size-4" aria-hidden="true" /> : <PackagePlus className="size-4" aria-hidden="true" />}
+      {taoPhieu.nhan || "Tạo phiếu nhập kho"}
     </Button>
   );
 

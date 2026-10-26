@@ -130,7 +130,13 @@ export default function ViTriKhoPage() {
       trangThai: viTri.trangThai,
       ...thayDoi,
     });
-    setData((d) => ({ ...d, viTris: d.viTris.map((v) => (v.id === viTri.id ? { ...v, ...thayDoi, ...(daLuu ?? {}) } : v)) }));
+    // Máy chủ cũ không trả "chờ nhập" khi sửa kệ: giữ số đang có để nút xóa vẫn khóa đúng
+    setData((d) => ({
+      ...d,
+      viTris: d.viTris.map((v) => (v.id === viTri.id
+        ? { ...v, ...thayDoi, ...(daLuu ?? {}), choNhap: daLuu?.choNhap ?? v.choNhap, soLoChoNhap: daLuu?.soLoChoNhap ?? v.soLoChoNhap }
+        : v)),
+    }));
   };
 
   // ── Khu vực: sửa / xóa ──
@@ -186,6 +192,15 @@ export default function ViTriKhoPage() {
       });
       return;
     }
+    // Lô đã khóa của phiếu nhập chưa nhập kho đang chờ lên kệ (kể cả lô chỉ có hàng không đạt): xóa kệ thì phiếu đó
+    // không nhập kho được
+    if (Number(v.choNhap) > 0 || Number(v.soLoChoNhap) > 0) {
+      const lyDo = Number(v.choNhap) > 0 ? `đang chờ nhập ${v.choNhap} sản phẩm` : `đang gắn ${v.soLoChoNhap} lô đã khóa của phiếu nhập`;
+      toast.warning(`Không xóa được ${v.maViTri}: kệ ${lyDo}`, {
+        description: "Sửa kệ của các lô đó ở màn kiểm đếm, hoặc hủy phiếu nhập trước khi xóa kệ.",
+      });
+      return;
+    }
     setXacNhan({
       loai: "viTri",
       doiTuong: v,
@@ -208,13 +223,13 @@ export default function ViTriKhoPage() {
     setChoHangLoat(null);
   };
   const yeuCauXoaNhieu = (ds) => {
-    const trong = ds.filter((v) => !Number(v.dangChua));
+    const trong = ds.filter((v) => !Number(v.dangChua) && !Number(v.choNhap) && !Number(v.soLoChoNhap));
     const conHang = ds.length - trong.length;
     setXacNhan({
       loai: "nhieu",
       ds: trong,
       tieuDe: `Xóa ${trong.length} vị trí kệ trống?`,
-      moTa: `${trong.map((v) => v.maViTri).slice(0, 6).join(", ")}${trong.length > 6 ? "…" : ""}.${conHang ? ` ${conHang} kệ còn hàng được giữ lại.` : ""} Không hoàn tác được.`,
+      moTa: `${trong.map((v) => v.maViTri).slice(0, 6).join(", ")}${trong.length > 6 ? "…" : ""}.${conHang ? ` ${conHang} kệ còn hàng hoặc đang chờ nhập được giữ lại.` : ""} Không hoàn tác được.`,
       nutXoa: `Xóa ${trong.length} vị trí`,
     });
     return choKetQua();
@@ -269,7 +284,12 @@ export default function ViTriKhoPage() {
     setHopViTri((h) => ({ ...h, open: false }));
     if (laSua) {
       const moi = ds[0];
-      setData((d) => ({ ...d, viTris: d.viTris.map((v) => (moi && v.id === moi.id ? { ...v, ...moi } : v)) }));
+      setData((d) => ({
+        ...d,
+        viTris: d.viTris.map((v) => (moi && v.id === moi.id
+          ? { ...v, ...moi, choNhap: moi.choNhap ?? v.choNhap, soLoChoNhap: moi.soLoChoNhap ?? v.soLoChoNhap }
+          : v)),
+      }));
       toast.success(`Đã lưu vị trí ${moi?.maViTri ?? ""}`.trim());
       if (!moi) reload();
       return;

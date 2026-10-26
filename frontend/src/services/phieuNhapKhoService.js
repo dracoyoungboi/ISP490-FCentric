@@ -51,6 +51,34 @@ export const phieuNhapKhoService = {
         );
     },
     /**
+     * Chi tiết các phiếu nhập Nháp của một đơn mua (phần hàng đang giữ, máy chủ trừ khi tạo phiếu mới).
+     * Màn Tạo phiếu nhập dùng để tính "Còn lại" đúng như máy chủ và chỉ ra phiếu nháp cần mở.
+     * Trả `{ phieu, soLoi }`: phiếu nào tải chi tiết lỗi thì bỏ qua và đếm vào `soLoi` (màn hình báo số có thể chưa trừ hết).
+     */
+    async layPhieuGiuHangCuaDon(donMuaHangId, { signal } = {}) {
+        const res = await apiClient.post("/api/v1/phieu-nhap-kho/filter", {
+            page: 0,
+            size: 50,
+            filters: [
+                { fieldName: "donMuaHang.id", operation: "EQUALS", value: Number(donMuaHangId) },
+                { fieldName: "trangThai", operation: "EQUALS", value: 0 },
+            ],
+            sorts: [{ fieldName: "id", direction: "ASC" }],
+        }, { signal });
+        const danhSach = res.data?.content || [];
+        const ketQua = await Promise.allSettled(
+            danhSach.map(async (p) => {
+                const ct = await apiClient.get(`/api/v1/phieu-nhap-kho/${p.id}/detail`, { signal });
+                const detail = ct.data?.data || ct.data || {};
+                return { ...detail, trangThai: detail.trangThai ?? p.trangThai };
+            }),
+        );
+        return {
+            phieu: ketQua.filter((k) => k.status === "fulfilled").map((k) => k.value),
+            soLoi: ketQua.filter((k) => k.status === "rejected").length,
+        };
+    },
+    /**
      * Phiếu nhập (chưa hủy) của một nhà cung cấp cho màn Chi tiết nhà cung cấp, mới nhất trước.
      * `khoIds`: chỉ lấy phiếu của các kho này (quản lý kho / nhân viên kho). Trả `{ nhaCungCapId, phieus, tong }`.
      */

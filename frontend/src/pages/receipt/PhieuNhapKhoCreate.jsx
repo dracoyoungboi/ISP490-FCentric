@@ -15,7 +15,7 @@ import LoadingState from "@/components/shared/LoadingState";
 import EmptyState from "@/components/shared/EmptyState";
 import KhungChungTu from "@/components/chung-tu/KhungChungTu";
 import DauChungTu from "@/components/chung-tu/DauChungTu";
-import DongThongBao from "@/components/chung-tu/DongThongBao";
+import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
 import NutPhanDoan from "@/components/chung-tu/NutPhanDoan";
 import CotThuocTinh, { BangThuocTinh, NhomThuocTinh } from "@/components/chung-tu/CotThuocTinh";
 import TuyenChuyen from "@/components/chung-tu/TuyenChuyen";
@@ -23,6 +23,7 @@ import BangHangTaoPhieu from "@/components/chung-tu/BangHangTaoPhieu";
 import useBangChungTu from "@/components/chung-tu/useBangChungTu";
 import { soVN, tuBienThe } from "@/components/chung-tu/bangChungTu";
 import { dongChuyenKho } from "@/components/chuyen-kho/tinhChuyenKho";
+import { dongDonKemPhanGiu, donMuaCoPhieuNhap, noiSoPhieu, tinhPhanGiu } from "@/components/nhap-kho/phanGiuPhieuNhap";
 import { GOI_Y_O, NHAN_O, O_NHAP, O_NHAP_NHIEU_DONG } from "@/components/chung-tu/kieuHopThoai";
 import { getKhoLamViecId, laKhoLamViecHopLe, setKhoLamViecId } from "@/utils/khoLamViec";
 import { ROLES, hasAnyRole } from "@/utils/roles";
@@ -46,7 +47,7 @@ const GHI_CHU_TOI_DA = 500;
 const so = (x) => Number(x) || 0;
 // Ô chọn gốc của trình duyệt nhưng bỏ mũi tên mặc định (Windows vẽ thành ô vuông), thay bằng ChevronDown như ô chọn khác
 const O_CHON = cn(O_NHAP, "cursor-pointer appearance-none pr-9");
-const TONG_BANG = Object.freeze({ soLuong: "soLuong", dat: "dat", daNhan: "daNhan", con: "con", nhap: "nhap" });
+const TONG_BANG = Object.freeze({ soLuong: "soLuong", dat: "dat", daNhan: "daNhan", giu: "giu", con: "con", nhap: "nhap" });
 
 /** Câu căn cứ ghi vào ghi chú phiếu (giữ đúng câu cũ). */
 function cauCanCu(nguon, { po, transfer, px }) {
@@ -81,6 +82,11 @@ export default function PhieuNhapKhoCreate() {
     const [warehouses, setWarehouses] = useState([]);
 
     const [selectedPO, setSelectedPO] = useState(null);
+    // Phần các phiếu nhập Nháp của đơn đang chọn đang giữ (tinhPhanGiu); null khi chưa chọn đơn hoặc tải lỗi
+    const [phanGiu, setPhanGiu] = useState(null);
+    // Không tải được (một phần) phiếu nhập Nháp của đơn: "Còn lại" có thể chưa trừ hết phần đang giữ
+    const [loiPhanGiu, setLoiPhanGiu] = useState(false);
+    const [poCoPhieuNhap, setPoCoPhieuNhap] = useState(() => new Set());
     const [selectedTransfer, setSelectedTransfer] = useState(null);
     const [selectedReturn, setSelectedReturn] = useState(null);
 
@@ -104,22 +110,29 @@ export default function PhieuNhapKhoCreate() {
     const handleSelectPO = useCallback(async (id) => {
         if (!id) {
             setSelectedPO(null);
+            setPhanGiu(null);
+            setLoiPhanGiu(false);
             setForm(prev => ({ ...prev, donMuaHangId: "" }));
             return;
         }
         setActionLoading(true);
         try {
-            const res = await purchaseOrderService.getById(id);
+            // Máy chủ trừ phần các phiếu nhập Nháp của đơn đang giữ khi tạo phiếu, nên "Còn lại" ở đây trừ đúng như vậy.
+            // Không tải được phiếu nháp thì giữ cách tính cũ (Đặt − Đã nhận), máy chủ vẫn chặn nhập vượt.
+            const [res, phieuGiu] = await Promise.all([
+                purchaseOrderService.getById(id),
+                phieuNhapKhoService.layPhieuGiuHangCuaDon(id).catch(() => null),
+            ]);
             const data = res.data;
-            data.chiTietDonMuaHangs = (data.chiTietDonMuaHangs || []).map(item => {
-                const maxQuantity = Math.max(0, so(item.soLuongDat) - so(item.soLuongDaNhan));
-                return {
-                    ...item,
-                    maxSoLuong: maxQuantity,
-                    soLuongNhapTay: maxQuantity
-                };
-            });
+            const giu = phieuGiu ? tinhPhanGiu(phieuGiu.phieu) : null;
+            data.chiTietDonMuaHangs = dongDonKemPhanGiu(data.chiTietDonMuaHangs, giu?.theoBienThe).map(item => ({
+                ...item,
+                maxSoLuong: item.conLai,
+                soLuongNhapTay: item.conLai,
+            }));
             setSelectedPO(data);
+            setPhanGiu(giu);
+            setLoiPhanGiu(!phieuGiu || phieuGiu.soLoi > 0);
             setForm(prev => ({
                 ...prev,
                 donMuaHangId: data.id,
@@ -178,7 +191,8 @@ export default function PhieuNhapKhoCreate() {
                     sorts: [{ fieldName: "ngayCapNhat", direction: "DESC" }]
                 }).catch(() => ({ content: [] })),
 
-                phieuNhapKhoService.filter({ page: 0, size: 2000 }).catch(() => ({ content: [] })),
+                // Mới nhất trước: quá 2000 phiếu thì phần bị cắt là phiếu cũ (phiếu nháp và phiếu chuyển đang chờ là phiếu mới)
+                phieuNhapKhoService.filter({ page: 0, size: 2000, sorts: [{ fieldName: "id", direction: "DESC" }] }).catch(() => ({ content: [] })),
 
                 phieuXuatKhoService.filter({ page: 0, size: 2000 }).catch(() => ({ content: [] })),
 
@@ -209,6 +223,7 @@ export default function PhieuNhapKhoCreate() {
 
             // === 2. XỬ LÝ TRANSFER (Logic nguyên gốc) ===
             const allReceipts = allReceiptsRes.content || allReceiptsRes.data?.content || [];
+            setPoCoPhieuNhap(donMuaCoPhieuNhap(allReceipts));
             const usedTransferIds = new Set(
                 allReceipts
                     .filter(r => r.trangThai === 3)
@@ -468,8 +483,11 @@ export default function PhieuNhapKhoCreate() {
             return (selectedPO?.chiTietDonMuaHangs || []).map(ct => ({
                 ...tuBienThe(ct.bienTheSanPham),
                 id: ct.id,
+                bienTheId: ct.bienTheSanPham?.id ?? null,
                 dat: so(ct.soLuongDat),
                 daNhan: so(ct.soLuongDaNhan),
+                giu: so(ct.dangGiu),
+                thieu: so(ct.thieu),
                 con: so(ct.maxSoLuong),
                 nhap: so(ct.soLuongNhapTay),
                 oNhap: ct.soLuongNhapTay,
@@ -497,6 +515,9 @@ export default function PhieuNhapKhoCreate() {
     const bangHang = useBangChungTu(dongBang, { tongTheo: TONG_BANG });
     const tongNhapPO = bangHang.tong.nhap;
     const tongConPO = bangHang.tong.con;
+    // Các phiếu nhập Nháp đang giữ hàng của đơn đang chọn
+    const dsPhieuGiu = importSource === "PO" && selectedPO ? (phanGiu?.phieu ?? []) : [];
+    const coPhieuGiu = dsPhieuGiu.length > 0;
 
     if (loading) {
         return (
@@ -525,9 +546,11 @@ export default function PhieuNhapKhoCreate() {
             ? (importSource === "PO" ? "Chọn đơn mua hàng" : importSource === "TRANSFER" ? "Chọn phiếu chuyển kho" : "Chọn phiếu xuất cần nhập trả")
             : !khoNhanId
                 ? "Chưa xác định được kho nhận"
-                : importSource === "PO" && tongNhapPO === 0
-                    ? "Nhập số lượng cho ít nhất một mặt hàng"
-                    : "";
+                : importSource === "PO" && tongConPO === 0 && coPhieuGiu
+                    ? `Phần còn lại đã nằm ở phiếu nháp ${noiSoPhieu(dsPhieuGiu)}`
+                    : importSource === "PO" && tongNhapPO === 0
+                        ? "Nhập số lượng cho ít nhất một mặt hàng"
+                        : "";
     const khoaTao = Boolean(lyDoKhoa) || actionLoading;
 
     const nhanNutChinh = importSource === "PO" ? "Tiếp tục khai lô" : (importSource === "RETURN" ? "Xác nhận nhập kho" : "Nhập kho ngay");
@@ -547,6 +570,52 @@ export default function PhieuNhapKhoCreate() {
 
     // ── Thông báo ──
     const thongBao = [];
+    if (importSource === "PO" && selectedPO && loiPhanGiu) {
+        thongBao.push(
+            <DongThongBao key="loi-phieu-giu" tone="warn">
+                Chưa tải được đủ phiếu nhập nháp của đơn này nên "Còn lại" có thể chưa trừ phần các phiếu đó đang giữ. Máy chủ vẫn kiểm lại khi tạo phiếu.
+            </DongThongBao>
+        );
+    }
+    if (coPhieuGiu) {
+        const nhieuPhieu = dsPhieuGiu.length > 1;
+        // Phiếu tạo trước khi máy chủ trừ phần giữ có thể giữ trùng nhau: xét từng biến thể (tổng cả đơn có thể vẫn nhỏ
+        // hơn số còn thiếu dù một biến thể đã bị giữ quá số, phiếu đó sẽ bị chặn khi nhập kho)
+        const dongGiuThua = dongBang.filter(d => d.giu > d.thieu);
+        const giuThua = dongGiuThua.length > 0;
+        const viDuGiuThua = dongGiuThua.slice(0, 2).map(d => d.sku).filter(Boolean).join(", ")
+            + (dongGiuThua.length > 2 ? ` và ${soVN(dongGiuThua.length - 2)} biến thể khác` : "");
+        // Chỉ ra đúng các phiếu đang giữ biến thể bị giữ thừa (phiếu khác có thể đang giữ hợp lệ)
+        const idGiuThua = new Set(dongGiuThua.map(d => Number(d.bienTheId)));
+        const phieuGiuThua = dsPhieuGiu.filter(p => (p.bienThe ?? []).some(id => idGiuThua.has(id)));
+        thongBao.push(
+            <DongThongBao
+                key="phieu-giu"
+                tone="warn"
+                actions={dsPhieuGiu.slice(0, 3).map(p => (
+                    <NutChu
+                        key={p.id}
+                        onClick={() => {
+                            // Kiểm đếm trên phiếu cần làm việc ở kho nhận của đơn, như lúc tạo phiếu
+                            lamViecTaiKho(khoNhanId);
+                            navigate(`/goods-receipts/${p.id}`);
+                        }}
+                    >
+                        Mở {p.soPhieuNhap}
+                    </NutChu>
+                ))}
+            >
+                Đơn này đang có phiếu nhập nháp <b className="font-semibold">{noiSoPhieu(dsPhieuGiu)}</b> giữ số lượng {soVN(bangHang.tong.giu)}.
+                {giuThua
+                    ? phieuGiuThua.length > 1
+                        ? ` Phiếu ${noiSoPhieu(phieuGiuThua)} cùng giữ nhiều hơn số đơn còn thiếu ở ${soVN(dongGiuThua.length)} biến thể (${viDuGiuThua}): kiểm đếm trên một phiếu, hủy phiếu thừa.`
+                        : ` Phiếu ${noiSoPhieu(phieuGiuThua)} giữ nhiều hơn số đơn còn thiếu ở ${soVN(dongGiuThua.length)} biến thể (${viDuGiuThua}) nên sẽ bị chặn khi nhập kho: hủy phiếu đó rồi tạo lại theo số còn thiếu.`
+                    : tongConPO > 0
+                        ? ` Kiểm đếm tiếp trên ${nhieuPhieu ? "các phiếu" : "phiếu"} đó. Phiếu mới chỉ nhận phần chưa có phiếu nào giữ.`
+                        : ` Kiểm đếm tiếp trên ${nhieuPhieu ? "các phiếu" : "phiếu"} đó, không cần tạo phiếu mới.`}
+            </DongThongBao>
+        );
+    }
     if (importSource === "PO" && selectedPO && tongNhapPO > 0 && tongNhapPO < tongConPO) {
         thongBao.push(
             <DongThongBao key="mot-phan" tone="info">
@@ -593,7 +662,11 @@ export default function PhieuNhapKhoCreate() {
                 {importSource === "PO" && (
                     <select className={O_CHON} value={form.donMuaHangId} disabled={actionLoading} onChange={(e) => { bangHang.xoaTuKhoa(); handleSelectPO(e.target.value); }}>
                         <option value="">{poList.length ? "Chọn đơn mua đang chờ nhận hàng" : "Không có đơn mua nào chờ nhận hàng"}</option>
-                        {poList.map(po => <option key={po.id} value={po.id}>{po.soDonMua} · {po.nhaCungCap?.tenNhaCungCap}</option>)}
+                        {poList.map(po => (
+                            <option key={po.id} value={po.id}>
+                                {po.soDonMua} · {po.nhaCungCap?.tenNhaCungCap}{poCoPhieuNhap.has(Number(po.id)) ? " · có phiếu nháp" : ""}
+                            </option>
+                        ))}
                     </select>
                 )}
                 {importSource === "TRANSFER" && (
@@ -626,14 +699,23 @@ export default function PhieuNhapKhoCreate() {
         ? [
             {
                 ma: "dat", nhan: "Đặt", lop: "w-20 text-right", anHep: true, nhom: (n) => soVN(n.tong.dat), dong: (d) => soVN(d.dat),
-                // Khối hẹp: hai cột Đặt / Đã nhận ẩn → ghi dưới tên biến thể
-                phuHep: (d) => `Đặt ${soVN(d.dat)} · đã nhận ${soVN(d.daNhan)}`,
+                // Khối hẹp: các cột Đặt / Đã nhận / Phiếu nháp giữ ẩn → ghi dưới tên biến thể
+                phuHep: (d) => `Đặt ${soVN(d.dat)} · đã nhận ${soVN(d.daNhan)}${d.giu > 0 ? ` · phiếu nháp giữ ${soVN(d.giu)}` : ""}`,
             },
             { ma: "daNhan", nhan: "Đã nhận", lop: "w-20 text-right", anHep: true, nhom: (n) => soVN(n.tong.daNhan), dong: (d) => soVN(d.daNhan) },
+            // Chỉ khi đơn có phiếu nhập Nháp giữ hàng
+            ...(coPhieuGiu ? [{
+                ma: "giu", nhan: "Phiếu nháp giữ", lop: "w-28 text-right", anHep: true,
+                nhom: (n) => soVN(n.tong.giu),
+                dong: (d) => (d.giu > 0 ? soVN(d.giu) : <span className="text-bo-muted">0</span>),
+            }] : []),
             {
                 ma: "con", nhan: "Còn lại", lop: "w-20 text-right",
                 nhom: (n) => soVN(n.tong.con),
-                dong: (d) => (d.con > 0 ? soVN(d.con) : <span className="text-bo-success">Đủ</span>),
+                // Hết phần còn lại vì phiếu nháp đang giữ: ghi 0, không ghi "Đủ" (đơn chưa nhận đủ)
+                dong: (d) => (d.con > 0
+                    ? soVN(d.con)
+                    : d.thieu > 0 ? <span className="text-bo-muted">0</span> : <span className="text-bo-success">Đủ</span>),
             },
             {
                 ma: "nhap", nhan: "Nhập lần này", lop: "w-32 text-right",
@@ -673,7 +755,7 @@ export default function PhieuNhapKhoCreate() {
             cot={cotBang}
             tenChungTu={importSource === "PO" ? "Đơn mua hàng" : importSource === "TRANSFER" ? "Phiếu chuyển kho" : "Phiếu xuất"}
             nhan={importSource === "PO" ? "Hàng trong đơn mua" : importSource === "TRANSFER" ? "Hàng trong phiếu chuyển kho" : "Hàng khách trả"}
-            rongToiThieu={importSource === "PO" ? "@2xl/khoi:min-w-[620px]" : "@2xl/khoi:min-w-[460px]"}
+            rongToiThieu={importSource === "PO" ? (coPhieuGiu ? "@2xl/khoi:min-w-[730px]" : "@2xl/khoi:min-w-[620px]") : "@2xl/khoi:min-w-[460px]"}
         />
     );
 

@@ -66,6 +66,7 @@ class ChungTuThuocKhoTest {
     @Mock private TonKhoViTriRepository tkvtRepo;
     @Mock private MatBangKhoRepository mbRepo;
     @Mock private ChiTietPhieuNhapKhoRepository ctPnRepo;
+    @Mock private LoHangRepository loRepo;
 
     private PhieuXuatKhoService px;
     private PhieuNhapKhoService pn;
@@ -84,7 +85,7 @@ class ChungTuThuocKhoTest {
         ReflectionTestUtils.setField(pn, "nguoiDungRepository", ndRepo);
 
         kk = new PhieuKiemKeService(dotRepo, ctKkRepo, tonRepo, khoRepo, ndRepo, lichSuService);
-        vt = new ViTriKhoServiceImpl(khoRepo, kvRepo, vtRepo, tkvtRepo, mbRepo, ctPnRepo, new ObjectMapper());
+        vt = new ViTriKhoServiceImpl(khoRepo, kvRepo, vtRepo, tkvtRepo, mbRepo, ctPnRepo, loRepo, new ObjectMapper());
 
         for (int id : new int[]{A, B, C}) {
             when(khoRepo.findById(id)).thenReturn(Optional.of(kho(id)));

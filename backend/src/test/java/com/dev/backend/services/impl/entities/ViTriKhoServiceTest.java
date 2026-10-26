@@ -42,6 +42,8 @@ class ViTriKhoServiceTest {
     @Mock
     private ChiTietPhieuNhapKhoRepository chiTietPhieuNhapKhoRepository;
     @Mock
+    private LoHangRepository loHangRepository;
+    @Mock
     private ObjectMapper objectMapper;
 
     private ViTriKhoServiceImpl service;
@@ -59,6 +61,7 @@ class ViTriKhoServiceTest {
                 tonKhoViTriRepository,
                 matBangKhoRepository,
                 chiTietPhieuNhapKhoRepository,
+                loHangRepository,
                 objectMapper
         );
 
@@ -177,12 +180,120 @@ class ViTriKhoServiceTest {
     @Test
     @DisplayName("Xóa vị trí kệ bị chặn nếu kệ còn tồn hàng")
     void testXoaViTri_ConHang_ChanConflict() {
-        when(viTriKhoRepository.findById(100)).thenReturn(Optional.of(viTri));
+        when(viTriKhoRepository.khoaTheoId(100)).thenReturn(Optional.of(viTri));
         when(tonKhoViTriRepository.sumDangChuaByViTriId(100)).thenReturn(25);
 
         CommonException ex = assertThrows(CommonException.class, () -> service.xoaViTri(1, 100));
         assertEquals(HttpStatus.CONFLICT, ex.getStatus());
         assertTrue(ex.getMessage().contains("không thể xóa"));
+        verify(viTriKhoRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("Xóa vị trí kệ bị chặn khi kệ còn lô đã khóa của phiếu nhập Nháp chờ lên kệ, câu báo nêu số phiếu")
+    void testXoaViTri_ConLoChoNhap_ChanConflict() {
+        when(viTriKhoRepository.khoaTheoId(100)).thenReturn(Optional.of(viTri));
+        when(tonKhoViTriRepository.sumDangChuaByViTriId(100)).thenReturn(0);
+        when(chiTietPhieuNhapKhoRepository.loChoNhapTheoViTri(100)).thenReturn(List.<Object[]>of(
+                new Object[]{"PN202610171", 1L, 1L},
+                new Object[]{"PN202610172", 2L, 2L}));
+
+        CommonException ex = assertThrows(CommonException.class, () -> service.xoaViTri(1, 100));
+        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+        assertEquals("Kệ A-01-01 đang chờ nhập 3 sản phẩm của phiếu PN202610171, PN202610172. "
+                + "Sửa kệ của các lô đó ở màn kiểm đếm hoặc hủy phiếu trước khi xóa kệ.", ex.getMessage());
+        verify(loHangRepository, never()).goViTriKho(any());
+        verify(tonKhoViTriRepository, never()).xoaDongSoKhongTheoViTri(any());
+        verify(viTriKhoRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("Lô chỉ có hàng không đạt vẫn trỏ tới kệ: chặn xóa, câu báo đếm số lô")
+    void testXoaViTri_LoChiHangKhongDat_ChanConflict() {
+        when(viTriKhoRepository.khoaTheoId(100)).thenReturn(Optional.of(viTri));
+        when(tonKhoViTriRepository.sumDangChuaByViTriId(100)).thenReturn(0);
+        when(chiTietPhieuNhapKhoRepository.loChoNhapTheoViTri(100)).thenReturn(List.<Object[]>of(
+                new Object[]{"PN202610172", 1L, 0L}));
+
+        CommonException ex = assertThrows(CommonException.class, () -> service.xoaViTri(1, 100));
+        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+        assertTrue(ex.getMessage().startsWith("Kệ A-01-01 đang gắn 1 lô đã khóa của phiếu PN202610172."), ex.getMessage());
+        verify(viTriKhoRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("Xóa kệ trống: khóa kệ trước mọi lệnh đọc, gỡ kệ khỏi lô đã nhập theo id, bỏ dòng tồn số 0 rồi mới xóa kệ")
+    void testXoaViTri_KeTrong_GoLienKetRoiXoa() {
+        when(viTriKhoRepository.khoaTheoId(100)).thenReturn(Optional.of(viTri));
+        when(tonKhoViTriRepository.sumDangChuaByViTriId(100)).thenReturn(0);
+        when(chiTietPhieuNhapKhoRepository.loChoNhapTheoViTri(100)).thenReturn(Collections.emptyList());
+        when(loHangRepository.idLoTheoViTri(100)).thenReturn(List.of(5, 6));
+
+        service.xoaViTri(1, 100);
+
+        var thuTu = inOrder(viTriKhoRepository, khoRepository, tonKhoViTriRepository, chiTietPhieuNhapKhoRepository, loHangRepository);
+        // Khóa kệ là lệnh đầu tiên: ở REPEATABLE READ lệnh đọc thường đầu tiên chốt ảnh dữ liệu của giao dịch
+        thuTu.verify(viTriKhoRepository).khoaTheoId(100);
+        thuTu.verify(khoRepository).findById(1);
+        thuTu.verify(tonKhoViTriRepository).sumDangChuaByViTriId(100);
+        thuTu.verify(chiTietPhieuNhapKhoRepository).loChoNhapTheoViTri(100);
+        thuTu.verify(loHangRepository).goViTriKho(List.of(5, 6));
+        thuTu.verify(tonKhoViTriRepository).xoaDongSoKhongTheoViTri(100);
+        thuTu.verify(viTriKhoRepository).delete(viTri);
+    }
+
+    @Test
+    @DisplayName("Tổng tồn kệ về 0 nhưng còn dòng tồn dương (có dòng âm bù): chặn xóa, không gỡ lô")
+    void testXoaViTri_ConDongTonDuong_ChanConflict() {
+        when(viTriKhoRepository.khoaTheoId(100)).thenReturn(Optional.of(viTri));
+        when(tonKhoViTriRepository.sumDangChuaByViTriId(100)).thenReturn(0);
+        when(tonKhoViTriRepository.existsByViTriKho_IdAndSoLuongGreaterThan(100, 0)).thenReturn(true);
+
+        CommonException ex = assertThrows(CommonException.class, () -> service.xoaViTri(1, 100));
+        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+        verifyNoInteractions(loHangRepository);
+        verify(viTriKhoRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("Sửa kệ trả cả số chờ nhập và số lô chờ nhập (giao diện thay cả dòng kệ bằng kết quả này)")
+    void testSuaViTri_TraChoNhap() {
+        when(viTriKhoRepository.findById(100)).thenReturn(Optional.of(viTri));
+        when(viTriKhoRepository.save(viTri)).thenReturn(viTri);
+        when(tonKhoViTriRepository.sumDangChuaByViTriId(100)).thenReturn(0);
+        when(chiTietPhieuNhapKhoRepository.loChoNhapTheoViTri(100)).thenReturn(List.<Object[]>of(
+                new Object[]{"PN1", 1L, 3L}, new Object[]{"PN2", 2L, 0L}));
+
+        ViTriKhoDto dto = service.suaViTri(1, 100, ViTriKhoRequest.builder().trangThai("BAO_TRI").build());
+
+        assertEquals(3, dto.getChoNhap());
+        assertEquals(3, dto.getSoLoChoNhap());
+        assertEquals("BAO_TRI", dto.getTrangThai());
+    }
+
+    @Test
+    @DisplayName("Xóa kệ chưa từng có lô: không chạy lệnh gỡ kệ khỏi lô")
+    void testXoaViTri_KhongCoLo_KhongGoLienKet() {
+        when(viTriKhoRepository.khoaTheoId(100)).thenReturn(Optional.of(viTri));
+        when(tonKhoViTriRepository.sumDangChuaByViTriId(100)).thenReturn(0);
+        when(chiTietPhieuNhapKhoRepository.loChoNhapTheoViTri(100)).thenReturn(Collections.emptyList());
+        when(loHangRepository.idLoTheoViTri(100)).thenReturn(Collections.emptyList());
+
+        service.xoaViTri(1, 100);
+
+        verify(loHangRepository, never()).goViTriKho(any());
+        verify(viTriKhoRepository).delete(viTri);
+    }
+
+    @Test
+    @DisplayName("Xóa kệ của kho khác bị chặn trước khi đụng tới lô")
+    void testXoaViTri_KhacKho_ChanTruocKhiGoLienKet() {
+        when(viTriKhoRepository.khoaTheoId(100)).thenReturn(Optional.of(viTri));
+
+        CommonException ex = assertThrows(CommonException.class, () -> service.xoaViTri(2, 100));
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
+        verifyNoInteractions(loHangRepository);
+        verify(viTriKhoRepository, never()).delete(any());
     }
 
     @Test
@@ -194,13 +305,15 @@ class ViTriKhoServiceTest {
         ViTriKho keTrong = ViTriKho.builder().id(21).kho(kho).khuVucKho(khu).maViTri("A-01-03").sucChuaToiDa(40).trangThai("HOAT_DONG").build();
         when(viTriKhoRepository.findByKho_IdOrderByMaViTriAsc(1)).thenReturn(List.of(ke, keTrong));
         when(tonKhoViTriRepository.sumDangChuaByKhoIdGroupByViTriId(1)).thenReturn(List.<Object[]>of(new Object[]{20, 32L}));
-        when(chiTietPhieuNhapKhoRepository.sumChoNhapTheoKho(1)).thenReturn(List.<Object[]>of(new Object[]{20, 12L}));
+        when(chiTietPhieuNhapKhoRepository.sumChoNhapTheoKho(1)).thenReturn(List.<Object[]>of(new Object[]{20, 12L, 2L}));
 
         List<ViTriKhoDto> ds = service.dsViTri(1);
 
         assertEquals(32, ds.get(0).getDangChua());
         assertEquals(12, ds.get(0).getChoNhap());
+        assertEquals(2, ds.get(0).getSoLoChoNhap());
         assertEquals(0, ds.get(1).getDangChua());
         assertEquals(0, ds.get(1).getChoNhap());
+        assertEquals(0, ds.get(1).getSoLoChoNhap());
     }
 }

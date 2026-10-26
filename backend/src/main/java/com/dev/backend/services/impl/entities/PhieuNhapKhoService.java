@@ -120,6 +120,16 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
     /** Đơn mua đã nhận đủ (constants/donMuaHang.js: 5 = "Đã nhận đủ"; 4 là "Không chấp nhận báo giá"). */
     private static final int DON_MUA_DA_NHAN_DU = 5;
 
+    /** Số phiếu Nháp đang giữ nêu tối đa trong câu báo tạo phiếu vượt phần còn lại. */
+    private static final int SO_PHIEU_GIU_TOI_DA_TRONG_CAU = 5;
+
+    /** Tên trạng thái lô trong câu báo. */
+    private static String tenTrangThaiLo(String trangThai) {
+        if ("HOAT_DONG".equals(trangThai)) return "Hoạt động";
+        if ("TAM_KHOA".equals(trangThai)) return "Tạm khóa";
+        return trangThai == null || trangThai.isBlank() ? "không xác định" : trangThai;
+    }
+
     @Override
     protected EntityManager getEntityManager() {
         return entityManager;
@@ -230,14 +240,23 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                     BigDecimal soLuongConLai =
                             soLuongDat.subtract(soLuongDaNhan).subtract(daGiu);
                     if (soLuongNhap.compareTo(soLuongConLai) > 0) {
+                        // Nêu số phiếu Nháp đang giữ để người dùng mở phiếu đó kiểm đếm tiếp thay vì tạo phiếu mới
+                        String phieuGiu = "";
+                        if (daGiu.signum() > 0) {
+                            List<String> dsPhieu = chiTietPhieuNhapKhoRepository.soPhieuNhapGiuCungDon(
+                                    donMuaHang.getId(), ctPo.getBienTheSanPham().getId());
+                            String tenPhieu = dsPhieu == null || dsPhieu.isEmpty() ? "khác"
+                                    : dsPhieu.size() <= SO_PHIEU_GIU_TOI_DA_TRONG_CAU ? String.join(", ", dsPhieu)
+                                    : String.join(", ", dsPhieu.subList(0, SO_PHIEU_GIU_TOI_DA_TRONG_CAU)) + "…";
+                            phieuGiu = ". Phiếu nhập nháp " + tenPhieu
+                                    + " của đơn này đã giữ " + daGiu.stripTrailingZeros().toPlainString() + ".";
+                        }
                         throw new CommonException(HttpStatus.BAD_REQUEST,
                                 "Sản phẩm "
                                         + ctPo.getBienTheSanPham().getMaSku()
                                         + " nhập vượt quá số lượng còn lại ("
                                         + soLuongConLai.max(BigDecimal.ZERO).stripTrailingZeros().toPlainString() + ")"
-                                        + (daGiu.signum() > 0
-                                        ? ". Phiếu nhập đang kiểm đếm khác của đơn này đã giữ " + daGiu.stripTrailingZeros().toPlainString()
-                                        : "")
+                                        + phieuGiu
                         );
                     }
                     ChiTietPhieuNhapKho ct = ChiTietPhieuNhapKho.builder()
@@ -287,6 +306,38 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         }
 
         List<ChiTietPhieuNhapKho> danhSachNhapTheoLo = chiTietPhieuNhapKhoRepository.findAllByPhieuNhapKhoIdAndCoLo(phieuNhapKhoId);
+
+        // 0. Phiếu từ đơn mua: tồn kho cộng theo số trên dòng phiếu, còn kiểm đủ và "đã nhận" của đơn tính theo số trên lô.
+        // Khóa lô luôn ghi hai số bằng nhau; lô tạo trước khi có kiểm đếm có thể lệch hoặc đã Hoạt động khi phiếu còn nháp,
+        // nhập tiếp sẽ cộng tồn khác số đơn mua ghi nhận. Phiếu hoàn trả dùng lô thật đã xuất (số trên lô là số nhập ban đầu)
+        // nên không kiểm ở đây.
+        if (phieu.getDonMuaHang() != null) {
+            // Báo mọi lô sai trong một lần (theo thứ tự dòng), để người dùng không phải xóa lô rồi bấm nhập kho nhiều lần
+            List<String> loSai = new ArrayList<>();
+            boolean coLoKhongTamKhoa = false;
+            for (ChiTietPhieuNhapKho ct : danhSachNhapTheoLo.stream()
+                    .sorted(Comparator.comparing(ChiTietPhieuNhapKho::getId, Comparator.nullsLast(Comparator.naturalOrder())))
+                    .toList()) {
+                LoHang lo = ct.getLoHang();
+                BigDecimal soTrenDong = ct.getSoLuongNhap() != null ? ct.getSoLuongNhap() : BigDecimal.ZERO;
+                if (!"TAM_KHOA".equals(lo.getTrangThai())) {
+                    coLoKhongTamKhoa = true;
+                    loSai.add("Lô " + lo.getMaLo() + " của " + ct.getBienTheSanPham().getMaSku()
+                            + " đang ở trạng thái " + tenTrangThaiLo(lo.getTrangThai()) + " dù phiếu chưa nhập kho");
+                } else if (lo.getSoLuongNhap() != null && soTrenDong.compareTo(BigDecimal.valueOf(lo.getSoLuongNhap())) != 0) {
+                    loSai.add("Lô " + lo.getMaLo() + " của " + ct.getBienTheSanPham().getMaSku()
+                            + " lệch số (dòng phiếu " + soTrenDong.stripTrailingZeros().toPlainString()
+                            + ", lô " + lo.getSoLuongNhap() + ")");
+                }
+            }
+            if (!loSai.isEmpty()) {
+                // Lô không ở Tạm khóa không xóa được ở phiếu nháp (xoaLo chặn): chỉ còn cách hủy phiếu
+                String cachSua = coLoKhongTamKhoa
+                        ? ". Hủy phiếu này rồi tạo phiếu mới để kiểm đếm lại."
+                        : (loSai.size() == 1 ? ". Xóa lô này" : ". Xóa các lô này") + " rồi khóa lại trước khi nhập kho.";
+                throw new CommonException(HttpStatus.CONFLICT, String.join("; ", loSai) + cachSua);
+            }
+        }
 
         // 1. CHỐT CHẶN AN TOÀN (SAFETY LOCK): Kiểm tra hàng lỗi QC và biên bản RTV
         int tongLoi = danhSachNhapTheoLo.stream()
@@ -957,6 +1008,13 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         }
         Integer bienTheId = ct.getBienTheSanPham().getId();
         LoHang lo = ct.getLoHang();
+        // Lô kiểm đếm của phiếu đơn mua luôn ở Tạm khóa. Lô đã Hoạt động (dữ liệu cũ) có thể đã có tồn, lịch sử, phiếu xuất
+        // trỏ tới: xóa ở đây vướng ràng buộc hoặc mất dấu vết, nên chỉ cho hủy cả phiếu (hủy phiếu bỏ qua lô Hoạt động).
+        if (lo != null && !"TAM_KHOA".equals(lo.getTrangThai())) {
+            throw new CommonException(HttpStatus.CONFLICT,
+                    "Lô " + lo.getMaLo() + " đang ở trạng thái " + tenTrangThaiLo(lo.getTrangThai())
+                            + ", không xóa được ở phiếu nháp. Hủy phiếu này rồi tạo phiếu mới để kiểm đếm lại.");
+        }
         if (lo != null) {
             // Chi tiết lỗi đi theo lô; dòng biên bản trả hàng (nếu đã lập) chỉ còn giữ mã lô và biên bản bị đánh dấu lệch
             chiTietLoiLoHangRepository.deleteByLoHangId(lo.getId());
@@ -1026,7 +1084,9 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                     .build());
 
             if (ct.getLoHang() == null) {
-                dto.setSoLuongCanNhap(ct.getSoLuongNhap());
+                // Cộng dồn như máy chủ tính phần giữ (sumDuKienPhieuNhapCungDon): phiếu cũ có thể có hai dòng dự kiến
+                // cùng biến thể (trước khi chặn mỗi biến thể một dòng)
+                dto.setSoLuongCanNhap(dto.getSoLuongCanNhap().add(ct.getSoLuongNhap() != null ? ct.getSoLuongNhap() : BigDecimal.ZERO));
                 if (ct.getTrangThaiKiemDem() != null) {
                     dto.setTrangThaiKiemDem(ct.getTrangThaiKiemDem());
                 }

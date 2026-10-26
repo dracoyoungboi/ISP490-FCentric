@@ -80,6 +80,8 @@ function NoiDung({ khoId, khuVucs, viTris, viTriSua, khuMacDinh, onDong, onDaLuu
 
   const sc = soNguyen(sucChua);
   const dangChua = Number(viTriSua?.dangChua || 0);
+  const choNhap = Number(viTriSua?.choNhap || 0);
+  const soLoChoNhap = Number(viTriSua?.soLoChoNhap || 0);
   const loi = {};
   if (!khuVucId) loi.khu = "Chọn khu vực.";
   if (!sua) {
@@ -160,8 +162,16 @@ function NoiDung({ khoId, khuVucs, viTris, viTriSua, khuMacDinh, onDong, onDaLuu
             type="button"
             variant="ghost"
             onClick={() => onXoa(viTriSua)}
-            disabled={dangLuu || dangChua > 0}
-            title={dangChua > 0 ? `Kệ còn ${dinhDangSo(dangChua)} sản phẩm, chuyển hàng đi trước khi xóa` : undefined}
+            disabled={dangLuu || dangChua > 0 || choNhap > 0 || soLoChoNhap > 0}
+            title={
+              dangChua > 0
+                ? `Kệ còn ${dinhDangSo(dangChua)} sản phẩm, chuyển hàng đi trước khi xóa`
+                : choNhap > 0
+                  ? `Kệ đang chờ nhập ${dinhDangSo(choNhap)} sản phẩm của phiếu nhập chưa nhập kho`
+                  : soLoChoNhap > 0
+                    ? `Kệ đang gắn ${dinhDangSo(soLoChoNhap)} lô đã khóa của phiếu nhập chưa nhập kho`
+                    : undefined
+            }
             className="h-9 gap-1.5 px-2 text-bo-danger hover:bg-bo-danger-soft hover:text-bo-danger"
           >
             <Trash2 className="size-4" />

@@ -242,8 +242,14 @@ function ChiTietViTri({ khoId, khu, viTri, coTheSua, onCapNhatViTri, onSuaViTri,
             <Button
               variant="outline"
               onClick={() => onXoaViTri(viTri)}
-              disabled={Number(viTri.dangChua) > 0}
-              title={Number(viTri.dangChua) > 0 ? "Kệ còn hàng, chuyển hàng đi trước khi xóa" : undefined}
+              disabled={Number(viTri.dangChua) > 0 || Number(viTri.choNhap) > 0 || Number(viTri.soLoChoNhap) > 0}
+              title={
+                Number(viTri.dangChua) > 0
+                  ? "Kệ còn hàng, chuyển hàng đi trước khi xóa"
+                  : Number(viTri.choNhap) > 0 || Number(viTri.soLoChoNhap) > 0
+                    ? "Kệ đang gắn lô đã khóa của phiếu nhập chưa nhập kho"
+                    : undefined
+              }
               className="h-9 gap-1.5 border-bo-border bg-white text-bo-danger hover:bg-bo-danger-soft hover:text-bo-danger"
             >
               <Trash2 className="size-4" />

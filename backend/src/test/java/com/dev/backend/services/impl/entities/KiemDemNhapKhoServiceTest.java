@@ -625,6 +625,23 @@ class KiemDemNhapKhoServiceTest {
     }
 
     @Test
+    @DisplayName("Xóa lô đã Hoạt động trong phiếu nháp (dữ liệu cũ): 409 bảo hủy phiếu, không xóa gì")
+    void xoaLoDaHoatDong() {
+        LoHang loCu = loDaKhoa(93, "LO-20261017-01", 0, 0);
+        loCu.setTrangThai("HOAT_DONG");
+        when(chiTietPhieuNhapKhoRepository.findByIdAndPhieuNhapKho_Id(1093, 1)).thenReturn(Optional.of(ctLo(loCu)));
+
+        CommonException ex = loi(() -> service.xoaLo(1, 1093));
+
+        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+        assertEquals("Lô LO-20261017-01 đang ở trạng thái Hoạt động, không xóa được ở phiếu nháp. "
+                + "Hủy phiếu này rồi tạo phiếu mới để kiểm đếm lại.", ex.getMessage());
+        verify(loHangRepository, never()).delete(any(LoHang.class));
+        verify(chiTietPhieuNhapKhoRepository, never()).delete(any(ChiTietPhieuNhapKho.class));
+        verify(chiTietLoiLoHangRepository, never()).deleteByLoHangId(anyInt());
+    }
+
+    @Test
     @DisplayName("Xóa lô của phiếu chuyển kho (lô thật của kho gửi): 400 câu rõ, không đụng lô, chi tiết lỗi, biên bản")
     void xoaLoPhieuChuyenKho() {
         phieu.setDonMuaHang(null);
@@ -649,6 +666,7 @@ class KiemDemNhapKhoServiceTest {
         dangNhap("quan_ly_kho", 1, 1);
         when(donMuaHangRepository.findById(50)).thenReturn(Optional.of(po));
         when(chiTietPhieuNhapKhoRepository.sumDuKienPhieuNhapCungDon(50, 100)).thenReturn(new BigDecimal("35"));
+        when(chiTietPhieuNhapKhoRepository.soPhieuNhapGiuCungDon(50, 100)).thenReturn(List.of("PN202610171", "PN202610172"));
         when(repository.save(any(PhieuNhapKho.class))).thenAnswer(inv -> inv.getArgument(0));
         com.dev.backend.dto.request.PhieuNhapKhoCreating yc = com.dev.backend.dto.request.PhieuNhapKhoCreating.builder()
                 .donMuaHangId(50)
@@ -657,11 +675,36 @@ class KiemDemNhapKhoServiceTest {
                 .build();
         CommonException ex = loi(() -> service.createDraft(yc));
         assertTrue(ex.getMessage().contains("còn lại (5)") && ex.getMessage().contains("đã giữ 35"), ex.getMessage());
+        assertTrue(ex.getMessage().endsWith(". Phiếu nhập nháp PN202610171, PN202610172 của đơn này đã giữ 35."), ex.getMessage());
         verify(chiTietDonMuaHangRepository).khoaTheoDonMua(50);
 
         yc.getChiTietPhieuNhapKhos().get(0).setSoLuongDuKienNhap(new BigDecimal("5"));
         service.createDraft(yc);
         verify(chiTietPhieuNhapKhoRepository).save(argThat(ct -> ct.getSoLuongNhap().compareTo(new BigDecimal("5")) == 0));
+    }
+
+    @Test
+    @DisplayName("Tạo phiếu vượt phần còn lại: câu báo nêu tối đa 5 số phiếu nháp, không lấy được số phiếu thì ghi \"khác\"")
+    void taoPhieuCauBaoSoPhieuGiu() {
+        dangNhap("quan_ly_kho", 1, 1);
+        when(donMuaHangRepository.findById(50)).thenReturn(Optional.of(po));
+        when(chiTietPhieuNhapKhoRepository.sumDuKienPhieuNhapCungDon(50, 100)).thenReturn(new BigDecimal("40.000"));
+        when(chiTietPhieuNhapKhoRepository.soPhieuNhapGiuCungDon(50, 100))
+                .thenReturn(List.of("PN1", "PN2", "PN3", "PN4", "PN5", "PN6"))
+                .thenReturn(List.of());
+        when(repository.save(any(PhieuNhapKho.class))).thenAnswer(inv -> inv.getArgument(0));
+        com.dev.backend.dto.request.PhieuNhapKhoCreating yc = com.dev.backend.dto.request.PhieuNhapKhoCreating.builder()
+                .donMuaHangId(50)
+                .chiTietPhieuNhapKhos(List.of(com.dev.backend.dto.request.ChiTietPhieuNhapKhoCreating.builder()
+                        .bienTheSanPhamId(100).soLuongDuKienNhap(new BigDecimal("1")).build()))
+                .build();
+
+        CommonException nhieu = loi(() -> service.createDraft(yc));
+        assertTrue(nhieu.getMessage().endsWith("còn lại (0). Phiếu nhập nháp PN1, PN2, PN3, PN4, PN5… của đơn này đã giữ 40."),
+                nhieu.getMessage());
+
+        CommonException rong = loi(() -> service.createDraft(yc));
+        assertTrue(rong.getMessage().endsWith(". Phiếu nhập nháp khác của đơn này đã giữ 40."), rong.getMessage());
     }
 
     @Test
@@ -838,6 +881,17 @@ class KiemDemNhapKhoServiceTest {
             when(cauHinhHeThongRepository.findById("KIEM_DEM_XAC_NHAN"))
                     .thenReturn(Optional.of(CauHinhHeThong.builder().giaTri("abc").build()));
             assertEquals("QUET_TIEP_LA_DAT", service.getDetail(1).getCheDoXacNhanChatLuong());
+        }
+
+        @Test
+        @DisplayName("Phiếu cũ có hai dòng dự kiến cùng biến thể: số cần nhập cộng dồn như máy chủ tính phần giữ")
+        void haiDongDuKienCungBienThe() {
+            ChiTietPhieuNhapKho dongCu = ChiTietPhieuNhapKho.builder().id(501).phieuNhapKho(phieu).bienTheSanPham(bienThe)
+                    .soLuongNhap(new BigDecimal("5")).build();
+            phieu.setChiTietPhieuNhapKhos(new ArrayList<>(List.of(dongDraft, dongCu)));
+
+            BigDecimal mongDoi = dongDraft.getSoLuongNhap().add(new BigDecimal("5"));
+            assertEquals(0, service.getDetail(1).getItems().get(0).getSoLuongCanNhap().compareTo(mongDoi));
         }
 
         @Test
