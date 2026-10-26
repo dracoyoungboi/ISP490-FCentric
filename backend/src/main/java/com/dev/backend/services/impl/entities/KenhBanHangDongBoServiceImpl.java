@@ -326,10 +326,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                 soMoi++;
                             }
                             soSku++;
-                            tt.setTenSanPhamKenh(productName);
-                            if (price != null && price.compareTo(BigDecimal.ZERO) > 0) {
-                                tt.setGiaBanKenh(price);
-                            }
 
                             if (tt.getBienTheSanPham() == null) {
                                 BienTheSanPham bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(sellerSku).orElse(null);
@@ -340,6 +336,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                     tt.setTrangThaiDongBo("chua_dong_bo");
                                 }
                             }
+                            tt.setNgayDongBoCuoi(Instant.now());
                             trangThaiDongBoSanPhamRepository.save(tt);
                         }
                     }
@@ -369,8 +366,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         tt.setKenhBanHang(kenh);
                         tt.setBienTheSanPham(bt);
                         tt.setMaSanPhamKenh(bt.getMaSku().trim());
-                        tt.setTenSanPhamKenh(bt.getSanPham() != null ? bt.getSanPham().getTen() : bt.getMaSku());
                         tt.setTrangThaiDongBo("thanh_cong");
+                        tt.setNgayDongBoCuoi(Instant.now());
                         trangThaiDongBoSanPhamRepository.save(tt);
                         soMoi++;
                         soSku++;
@@ -450,8 +447,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 newMapping.setKenhBanHang(kenh);
                 newMapping.setBienTheSanPham(bt);
                 newMapping.setMaSanPhamKenh(bt.getMaSku().trim());
-                newMapping.setTenSanPhamKenh(bt.getSanPham() != null ? bt.getSanPham().getTen() : bt.getMaSku());
                 newMapping.setTrangThaiDongBo("thanh_cong");
+                newMapping.setNgayDongBoCuoi(Instant.now());
                 trangThaiDongBoSanPhamRepository.save(newMapping);
                 mappedSkus.add(normSku);
                 soDaGhep++;
