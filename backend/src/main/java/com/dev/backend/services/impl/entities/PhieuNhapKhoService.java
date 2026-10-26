@@ -120,6 +120,9 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
     /** Đơn mua đã nhận đủ (constants/donMuaHang.js: 5 = "Đã nhận đủ"; 4 là "Không chấp nhận báo giá"). */
     private static final int DON_MUA_DA_NHAN_DU = 5;
 
+    /** Số phiếu Nháp đang giữ nêu tối đa trong câu báo tạo phiếu vượt phần còn lại. */
+    private static final int SO_PHIEU_GIU_TOI_DA_TRONG_CAU = 5;
+
     @Override
     protected EntityManager getEntityManager() {
         return entityManager;
@@ -230,14 +233,23 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                     BigDecimal soLuongConLai =
                             soLuongDat.subtract(soLuongDaNhan).subtract(daGiu);
                     if (soLuongNhap.compareTo(soLuongConLai) > 0) {
+                        // Nêu số phiếu Nháp đang giữ để người dùng mở phiếu đó kiểm đếm tiếp thay vì tạo phiếu mới
+                        String phieuGiu = "";
+                        if (daGiu.signum() > 0) {
+                            List<String> dsPhieu = chiTietPhieuNhapKhoRepository.soPhieuNhapGiuCungDon(
+                                    donMuaHang.getId(), ctPo.getBienTheSanPham().getId());
+                            String tenPhieu = dsPhieu == null || dsPhieu.isEmpty() ? "khác"
+                                    : dsPhieu.size() <= SO_PHIEU_GIU_TOI_DA_TRONG_CAU ? String.join(", ", dsPhieu)
+                                    : String.join(", ", dsPhieu.subList(0, SO_PHIEU_GIU_TOI_DA_TRONG_CAU)) + "…";
+                            phieuGiu = ". Phiếu nhập nháp " + tenPhieu
+                                    + " của đơn này đã giữ " + daGiu.stripTrailingZeros().toPlainString() + ".";
+                        }
                         throw new CommonException(HttpStatus.BAD_REQUEST,
                                 "Sản phẩm "
                                         + ctPo.getBienTheSanPham().getMaSku()
                                         + " nhập vượt quá số lượng còn lại ("
                                         + soLuongConLai.max(BigDecimal.ZERO).stripTrailingZeros().toPlainString() + ")"
-                                        + (daGiu.signum() > 0
-                                        ? ". Phiếu nhập đang kiểm đếm khác của đơn này đã giữ " + daGiu.stripTrailingZeros().toPlainString()
-                                        : "")
+                                        + phieuGiu
                         );
                     }
                     ChiTietPhieuNhapKho ct = ChiTietPhieuNhapKho.builder()
@@ -1026,7 +1038,9 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                     .build());
 
             if (ct.getLoHang() == null) {
-                dto.setSoLuongCanNhap(ct.getSoLuongNhap());
+                // Cộng dồn như máy chủ tính phần giữ (sumDuKienPhieuNhapCungDon): phiếu cũ có thể có hai dòng dự kiến
+                // cùng biến thể (trước khi chặn mỗi biến thể một dòng)
+                dto.setSoLuongCanNhap(dto.getSoLuongCanNhap().add(ct.getSoLuongNhap() != null ? ct.getSoLuongNhap() : BigDecimal.ZERO));
                 if (ct.getTrangThaiKiemDem() != null) {
                     dto.setTrangThaiKiemDem(ct.getTrangThaiKiemDem());
                 }

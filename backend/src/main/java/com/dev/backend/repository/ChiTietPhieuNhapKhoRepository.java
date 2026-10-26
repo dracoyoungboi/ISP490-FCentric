@@ -33,6 +33,23 @@ public interface ChiTietPhieuNhapKhoRepository extends JpaRepository<ChiTietPhie
     """)
     BigDecimal sumDuKienPhieuNhapCungDon(@Param("donMuaHangId") Integer donMuaHangId, @Param("bienTheSanPhamId") Integer bienTheSanPhamId);
 
+    /**
+     * Số phiếu của các phiếu Nháp cùng đơn mua đang giữ biến thể (như {@link #sumDuKienPhieuNhapCungDon}), để câu báo chỉ ra
+     * phiếu. Phiếu tạo trước đứng trước (số phiếu không đệm số 0 nên không xếp theo chữ được).
+     */
+    @Query("""
+    SELECT p.soPhieuNhap
+    FROM ChiTietPhieuNhapKho ct
+    JOIN ct.phieuNhapKho p
+    WHERE ct.loHang IS NULL
+      AND p.donMuaHang.id = :donMuaHangId
+      AND ct.bienTheSanPham.id = :bienTheSanPhamId
+      AND p.trangThai = 0
+    GROUP BY p.soPhieuNhap
+    ORDER BY MIN(p.id)
+    """)
+    List<String> soPhieuNhapGiuCungDon(@Param("donMuaHangId") Integer donMuaHangId, @Param("bienTheSanPhamId") Integer bienTheSanPhamId);
+
     @Query("""
     SELECT COALESCE(SUM(ct.soLuongNhap), 0)
     FROM ChiTietPhieuNhapKho ct
