@@ -21,6 +21,7 @@ import com.dev.backend.services.impl.multitable.LoDangGiuService;
 import com.dev.backend.utils.HienThiBienThe;
 import com.dev.backend.utils.KhoDangChon;
 import com.dev.backend.utils.SauCommit;
+import com.dev.backend.utils.SoChungTu;
 import com.dev.backend.constant.enums.TrangThaiPhieuNhap;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
@@ -1030,7 +1031,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
 
     private String generateSoPhieu() {
         String prefix = "PX" + java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
-        return prefix + (((PhieuXuatKhoRepository) repository).countBySoPhieuXuatStartingWith(prefix) + 1);
+        return SoChungTu.tiepTheo(prefix, ((PhieuXuatKhoRepository) repository).soDuoiLonNhat(prefix));
     }
 
     private boolean isDuplicateSoPhieu(Exception ex) {
@@ -1199,8 +1200,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
     private String generateSoPhieuTransfer() {
         String dateStr = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
         String prefix = "PX-TRF-" + dateStr;
-        long countToday = ((PhieuXuatKhoRepository) repository).countBySoPhieuXuatStartingWith(prefix);
-        return prefix + (countToday + 1);
+        return SoChungTu.tiepTheo(prefix, ((PhieuXuatKhoRepository) repository).soDuoiLonNhat(prefix));
     }
 
     @Transactional

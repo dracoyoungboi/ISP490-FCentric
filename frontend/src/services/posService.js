@@ -249,6 +249,34 @@ export const posService = {
     return res.data?.data ?? null;
   },
 
+  // ===== Màn quản lý "Đối soát chuyển khoản" (quản trị viên) =====
+
+  /** Danh sách giao dịch payOS (Page). trangThai = PAID_ERROR: đã nhận tiền nhưng chưa có đơn. */
+  async listPayosTransactions({ trangThai, daXuLy, khoId, tuNgay, denNgay, page = 0, size = 20 } = {}, { signal } = {}) {
+    const res = await apiClient.get("/api/v1/pos/payos/payment-links", {
+      params: { trangThai: trangThai || undefined, daXuLy: daXuLy || undefined, khoId: khoId || undefined, tuNgay: tuNgay || undefined, denNgay: denNgay || undefined, page, size },
+      signal,
+    });
+    return res.data?.data ?? null;
+  },
+
+  async countPayosNeedsAttention() {
+    const res = await apiClient.get("/api/v1/pos/payos/payment-links/needs-attention-count");
+    return Number(res.data?.data ?? 0);
+  },
+
+  /** Giao dịch lỗi -> tạo đơn bán (đã nhận đủ tiền, còn hàng). */
+  async createOrderFromPayosError(orderCode, ghiChu) {
+    const res = await apiClient.post(`/api/v1/pos/payos/payment-links/${orderCode}/create-order`, { ghiChu: ghiChu || null });
+    return res.data?.data ?? null;
+  },
+
+  /** Giao dịch lỗi -> đã hoàn tiền cho khách (ghi chú bắt buộc). */
+  async markPayosRefunded(orderCode, ghiChu) {
+    const res = await apiClient.post(`/api/v1/pos/payos/payment-links/${orderCode}/refunded`, { ghiChu });
+    return res.data?.data ?? null;
+  },
+
   /**
    * Thêm nhanh khách hàng tại quầy (tên + SĐT). Trả về KhachHangDto vừa tạo.
    * SĐT trùng -> lỗi 409, response.data.data = khách hàng đã có.
@@ -285,8 +313,8 @@ export const toPosProduct = (item) => ({
   id: item.bienTheSanPhamId,
   variantId: item.bienTheSanPhamId,
   sanPhamId: item.sanPhamId,
-  // Hiển thị màu + size để hai biến thể không nhìn giống hệt nhau
-  name: `${item.tenSanPham} · ${item.tenMau} · ${item.tenSize}`,
+  // Hiển thị màu + size để hai biến thể không nhìn giống hệt nhau (thiếu phần nào thì bỏ, không ghi "null")
+  name: [item.tenSanPham, item.tenMau, item.tenSize].filter(Boolean).join(' · '),
   sku: item.maSku,
   barcode: item.maVachSku || null,
   price: Number(item.giaBan ?? 0),

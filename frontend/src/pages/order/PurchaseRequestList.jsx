@@ -37,6 +37,8 @@ import { trangCuoiNeuVuot } from '@/lib/tinhTaiLai';
 import purchaseRequestService from '@/services/purchaseRequestService';
 import apiClient from '@/services/apiClient';
 import { getMineKhoList } from '@/services/khoService';
+import { VAI_TRO_TAO_YEU_CAU_NHAP } from '@/constants/vaiTroTaoYeuCauNhap';
+import { hasAnyRole } from '@/utils/roles';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function parseJwt(token) {
@@ -336,12 +338,15 @@ export default function PurchaseRequestList() {
             <ListPageHeader
                 scope={scopeNote}
                 actions={
-                    <Button
-                        className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
-                        onClick={() => navigate('/purchase-requests/create')}
-                    >
-                        <Plus className="size-4" />Tạo yêu cầu nhập hàng
-                    </Button>
+                    // Quản lý kho chỉ duyệt, không lập yêu cầu (máy chủ chặn): không hiện nút tạo
+                    hasAnyRole(VAI_TRO_TAO_YEU_CAU_NHAP) ? (
+                        <Button
+                            className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover"
+                            onClick={() => navigate('/purchase-requests/create')}
+                        >
+                            <Plus className="size-4" />Tạo yêu cầu nhập hàng
+                        </Button>
+                    ) : null
                 }
             />
 

@@ -29,7 +29,9 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -47,6 +49,10 @@ public class YeuCauMuaHangService extends BaseServiceImpl<YeuCauMuaHang, Integer
     /** loai_tham_chieu của yêu cầu nhập hàng trong bảng lich_su_thay_doi. */
     public static final String LOAI_THAM_CHIEU = "yeu_cau_mua_hang";
     private static final int LY_DO_TU_CHOI_MAX = 500;
+    /** Tạo yêu cầu: ghi chú tối đa, số dòng tối đa, số lượng tối đa mỗi dòng (khớp màn Tạo yêu cầu nhập hàng). */
+    static final int GHI_CHU_MAX = 500;
+    static final int SO_DONG_MAX = 1000;
+    static final int SO_LUONG_MAX = 99999;
     private static final ZoneId MUI_GIO_VN = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final DateTimeFormatter MA_NGAY = DateTimeFormatter.ofPattern("yyyyMMdd");
 
@@ -82,6 +88,7 @@ public class YeuCauMuaHangService extends BaseServiceImpl<YeuCauMuaHang, Integer
     @Transactional
     public ResponseEntity<ResponseData<YeuCauMuaHangDto>> create(YeuCauMuaHangCreating creating) {
         // kiểm tra xem NVK có quyền hạn kho này ko
+        if (creating.getKhoNhapId() == null) throw new CommonException("Vui lòng chọn kho nhận hàng");
         Kho khoNhap = khoService.getOne(creating.getKhoNhapId()).orElseThrow(
                 () -> new CommonException("Không tìm thấy kho id: " + creating.getKhoNhapId())
         );
@@ -101,10 +108,21 @@ public class YeuCauMuaHangService extends BaseServiceImpl<YeuCauMuaHang, Integer
         if (creating.getChiTietYeuCauMuaHangs() == null || creating.getChiTietYeuCauMuaHangs().isEmpty()) {
             throw new CommonException("Yêu cầu nhập hàng phải có ít nhất một sản phẩm");
         }
+        kiemTraDongHang(creating.getChiTietYeuCauMuaHangs());
+        kiemTraNgayGiao(creating.getNgayGiaoDuKien(), Instant.now());
+        String ghiChu = chuanHoaGhiChu(creating.getGhiChu());
+        if (ghiChu != null && ghiChu.length() > GHI_CHU_MAX) {
+            throw new CommonException("Ghi chú tối đa " + GHI_CHU_MAX + " ký tự");
+        }
+
+        // Kiểm mọi mã trước khi lưu: còn tồn tại và còn kinh doanh
+        List<BienTheSanPham> bienThes = new ArrayList<>();
         for (ChiTietYeuCauMuaHangCreating item : creating.getChiTietYeuCauMuaHangs()) {
-            if (item.getSoLuongDat() == null || item.getSoLuongDat().compareTo(BigDecimal.ZERO) <= 0) {
-                throw new CommonException("Số lượng yêu cầu phải lớn hơn 0");
-            }
+            BienTheSanPham bienThe = bienTheSanPhamService.getOne(item.getBienTheSanPhamId()).orElseThrow(
+                    () -> new CommonException("Không tìm thấy biến thể sản phẩm id: " + item.getBienTheSanPhamId())
+            );
+            kiemTraConKinhDoanh(bienThe);
+            bienThes.add(bienThe);
         }
 
         Instant now = Instant.now();
@@ -113,7 +131,7 @@ public class YeuCauMuaHangService extends BaseServiceImpl<YeuCauMuaHang, Integer
         YeuCauMuaHang yeuCauMuaHang = YeuCauMuaHang.builder()
                 .khoNhap(khoNhap)
                 .ngayGiaoDuKien(creating.getNgayGiaoDuKien())
-                .ghiChu(chuanHoaGhiChu(creating.getGhiChu()))
+                .ghiChu(ghiChu)
                 .nguoiTao(nguoiTao)
                 .trangThai(TRANG_THAI_CHO_DUYET)
                 .ngayTao(now)
@@ -130,17 +148,13 @@ public class YeuCauMuaHangService extends BaseServiceImpl<YeuCauMuaHang, Integer
         //khởi tạo danh sách chi tiết YCMH
         List<ChiTietYeuCauMuaHang> chiTietYeuCauMuaHangs = new ArrayList<>();
 
-        //duyệt qua danh sách mặt hàng để kiểm tra xem biến thể có tổn tại hay ko
-        for (ChiTietYeuCauMuaHangCreating ycmhCreating : creating.getChiTietYeuCauMuaHangs()) {
-            //với mỗi mặt hàng, kiểm tra xem "Biến thể sản phẩm" có tồn tại không.
-            BienTheSanPham bienTheSanPham = bienTheSanPhamService.getOne(ycmhCreating.getBienTheSanPhamId()).orElseThrow(
-                    () -> new CommonException("Không tìm thấy biến thể sản phẩm id: " + ycmhCreating.getBienTheSanPhamId())
-            );
+        //duyệt qua danh sách mặt hàng (biến thể đã kiểm ở trên, cùng thứ tự)
+        for (int i = 0; i < bienThes.size(); i++) {
             //tạo chi tiết yêu cầu mua hàng của biến thể, liên kết nó với phiếu tổng (yeuCauMuaHang)
             ChiTietYeuCauMuaHang chiTietYeuCauMuaHang = ChiTietYeuCauMuaHang.builder()
                     .yeuCauMuaHang(yeuCauMuaHang)
-                    .bienTheSanPham(bienTheSanPham)
-                    .soLuongDat(ycmhCreating.getSoLuongDat())
+                    .bienTheSanPham(bienThes.get(i))
+                    .soLuongDat(creating.getChiTietYeuCauMuaHangs().get(i).getSoLuongDat())
                     .build();
             //thêm vào danh sách
             chiTietYeuCauMuaHangs.add(chiTietYeuCauMuaHang);
@@ -179,6 +193,67 @@ public class YeuCauMuaHangService extends BaseServiceImpl<YeuCauMuaHang, Integer
     private static String chuanHoaGhiChu(String ghiChu) {
         if (ghiChu == null || ghiChu.isBlank()) return null;
         return ghiChu.trim();
+    }
+
+    /**
+     * Các dòng hàng: tối đa SO_DONG_MAX dòng, mỗi mã một dòng, số lượng là số nguyên từ 1 tới SO_LUONG_MAX.
+     * Mã đang nằm trong yêu cầu khác chưa xong không chặn (màn tạo chỉ cảnh báo).
+     */
+    static void kiemTraDongHang(List<ChiTietYeuCauMuaHangCreating> dongs) {
+        if (dongs.size() > SO_DONG_MAX) {
+            throw new CommonException("Một yêu cầu nhập hàng tối đa " + soVN(SO_DONG_MAX)
+                    + " dòng, hãy tách thành nhiều yêu cầu");
+        }
+        Map<Integer, Integer> dongDauCua = new HashMap<>();
+        for (int i = 0; i < dongs.size(); i++) {
+            ChiTietYeuCauMuaHangCreating item = dongs.get(i);
+            if (item == null || item.getBienTheSanPhamId() == null) {
+                throw new CommonException("Có dòng hàng chưa chọn sản phẩm");
+            }
+            BigDecimal soLuong = item.getSoLuongDat();
+            if (soLuong == null || soLuong.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new CommonException("Số lượng yêu cầu phải lớn hơn 0");
+            }
+            if (soLuong.stripTrailingZeros().scale() > 0) {
+                throw new CommonException("Số lượng yêu cầu phải là số nguyên");
+            }
+            if (soLuong.compareTo(BigDecimal.valueOf(SO_LUONG_MAX)) > 0) {
+                throw new CommonException("Số lượng mỗi dòng tối đa " + soVN(SO_LUONG_MAX));
+            }
+            Integer dongDau = dongDauCua.putIfAbsent(item.getBienTheSanPhamId(), i + 1);
+            if (dongDau != null) {
+                throw new CommonException("Mỗi mã hàng chỉ được một dòng trong yêu cầu: dòng " + (i + 1)
+                        + " trùng mã với dòng " + dongDau);
+            }
+        }
+    }
+
+    /** Số nguyên kiểu Việt Nam: 1000 → "1.000". */
+    private static String soVN(long n) {
+        return String.valueOf(n).replaceAll("\\B(?=(\\d{3})+(?!\\d))", ".");
+    }
+
+    /** Ngày giao dự kiến bắt buộc và không trước hôm nay (theo giờ Việt Nam). */
+    static void kiemTraNgayGiao(Instant ngayGiao, Instant bayGio) {
+        if (ngayGiao == null) throw new CommonException("Vui lòng chọn ngày giao dự kiến");
+        if (ngayGiao.atZone(MUI_GIO_VN).toLocalDate().isBefore(bayGio.atZone(MUI_GIO_VN).toLocalDate())) {
+            throw new CommonException("Ngày giao dự kiến không được trước hôm nay");
+        }
+    }
+
+    /**
+     * Chỉ nhập mã đang bán (1) của sản phẩm Còn hàng (1) hoặc Hết hàng (0, hệ thống tự đặt) — cùng điều kiện danh mục
+     * của màn tạo (HangNhapKhoTongRepository); sản phẩm Ngừng hoạt động (2) hay trạng thái khác thì chặn.
+     */
+    static void kiemTraConKinhDoanh(BienTheSanPham bienThe) {
+        SanPhamQuanAo sanPham = bienThe.getSanPham();
+        boolean bienTheDangBan = Integer.valueOf(1).equals(bienThe.getTrangThai());
+        Integer ttSanPham = sanPham != null ? sanPham.getTrangThai() : null;
+        boolean sanPhamKinhDoanh = Integer.valueOf(0).equals(ttSanPham) || Integer.valueOf(1).equals(ttSanPham);
+        if (!bienTheDangBan || !sanPhamKinhDoanh) {
+            String ma = bienThe.getMaSku() != null ? bienThe.getMaSku() : "id " + bienThe.getId();
+            throw new CommonException("Mã " + ma + " đã ngừng kinh doanh, không nhập được");
+        }
     }
 
     // ── Duyệt / từ chối ────────────────────────────────────────────────────

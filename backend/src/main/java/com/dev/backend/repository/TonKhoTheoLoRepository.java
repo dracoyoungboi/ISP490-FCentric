@@ -104,15 +104,15 @@ public interface TonKhoTheoLoRepository extends JpaRepository<TonKhoTheoLo, Inte
                 INNER JOIN tk.kho k
                 WHERE k.id = :khoId AND bt.trangThai = 1
                 AND (:danhMucId IS NULL OR dm.id = :danhMucId)
-                AND (:searchText IS NULL OR 
+                AND (:searchText IS NULL OR
                      LOWER(sp.tenSanPham) LIKE LOWER(CONCAT('%', :searchText, '%')) OR
                      LOWER(bt.maSku) LIKE LOWER(CONCAT('%', :searchText, '%')) OR
                      LOWER(sp.maSanPham) LIKE LOWER(CONCAT('%', :searchText, '%')))
-                AND (:coTonKho IS NULL OR 
-                     (:coTonKho = true AND SUM(tk.soLuongTon) > 0) OR
-                     (:coTonKho = false AND SUM(tk.soLuongTon) = 0))
                 GROUP BY bt.id, bt.maSku, sp.tenSanPham, sp.maSanPham, dm.tenDanhMuc,
                          ms.tenMau, ms.maMauHex, s.tenSize, cl.tenChatLieu, k.id, k.tenKho, bt.giaVon, bt.giaBan
+                HAVING (:coTonKho IS NULL OR
+                     (:coTonKho = true AND SUM(tk.soLuongTon) > 0) OR
+                     (:coTonKho = false AND SUM(tk.soLuongTon) = 0))
                 ORDER BY sp.tenSanPham, ms.tenMau, s.thuTuSapXep
             """)
     List<TonKhoChiTietDTO> findTonKhoChiTietByKhoWithFilter(

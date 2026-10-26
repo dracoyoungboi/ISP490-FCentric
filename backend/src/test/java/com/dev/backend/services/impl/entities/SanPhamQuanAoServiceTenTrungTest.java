@@ -62,6 +62,8 @@ class SanPhamQuanAoServiceTenTrungTest {
     @Mock private NguoiDungService nguoiDungService;
     @Mock private LichSuThayDoiService lichSuThayDoiService;
     @Mock private SanPhamQuanAoMapper sanPhamQuanAoMapper;
+    @Mock private GiaBanBienTheService giaBanBienTheService;
+    @Mock private com.dev.backend.services.multitable.DieuHanhHeThongService dieuHanhHeThongService;
 
     private SanPhamQuanAoService service;
     private SanPhamQuanAo sanPham;
@@ -76,6 +78,8 @@ class SanPhamQuanAoServiceTenTrungTest {
         ReflectionTestUtils.setField(service, "nguoiDungService", nguoiDungService);
         ReflectionTestUtils.setField(service, "lichSuThayDoiService", lichSuThayDoiService);
         ReflectionTestUtils.setField(service, "sanPhamQuanAoMapper", sanPhamQuanAoMapper);
+        ReflectionTestUtils.setField(service, "giaBanBienTheService", giaBanBienTheService);
+        ReflectionTestUtils.setField(service, "dieuHanhHeThongService", dieuHanhHeThongService);
         SecurityContextHolder.setUser(NguoiDungAuthInfo.builder().id(7).build());
 
         sanPham = SanPhamQuanAo.builder().id(SP_ID).maSanPham("AK2610051").tenSanPham("áo khoác gió").trangThai(1).build();

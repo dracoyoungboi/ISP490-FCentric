@@ -69,7 +69,7 @@ const MENU = [
   { to: "/users", roles: [QTV] },
   {
     roles: [QTV, QLK, NVK, NVM, NVB],
-    children: [{ to: "/categories" }, { to: "/attributes" }, { to: "/products" }, { to: "/sku-builder", roles: [QTV, QLK] }],
+    children: [{ to: "/categories" }, { to: "/attributes" }, { to: "/products" }, { to: "/products/gia-ban-tem", roles: [QTV, QLK] }],
   },
   {
     roles: [QTV, QLK, NVM, NVK],

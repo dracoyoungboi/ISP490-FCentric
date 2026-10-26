@@ -70,6 +70,9 @@ class SanPhamQuanAoServiceAnhBienTheTest {
     @Mock private TepTinService tepTinService;
     @Mock private MinioService minioService;
     @Mock private SanPhamQuanAoMapper sanPhamQuanAoMapper;
+    @Mock private com.dev.backend.repository.BienTheSanPhamRepository bienTheSanPhamRepository;
+    @Mock private GiaBanBienTheService giaBanBienTheService;
+    @Mock private com.dev.backend.services.multitable.DieuHanhHeThongService dieuHanhHeThongService;
 
     private SanPhamQuanAoService service;
     private SanPhamQuanAo sanPhamDaLuu;
@@ -94,6 +97,9 @@ class SanPhamQuanAoServiceAnhBienTheTest {
         ReflectionTestUtils.setField(service, "tepTinService", tepTinService);
         ReflectionTestUtils.setField(service, "minioService", minioService);
         ReflectionTestUtils.setField(service, "sanPhamQuanAoMapper", sanPhamQuanAoMapper);
+        ReflectionTestUtils.setField(service, "bienTheSanPhamRepository", bienTheSanPhamRepository);
+        ReflectionTestUtils.setField(service, "giaBanBienTheService", giaBanBienTheService);
+        ReflectionTestUtils.setField(service, "dieuHanhHeThongService", dieuHanhHeThongService);
 
         SecurityContextHolder.setUser(NguoiDungAuthInfo.builder().id(7).build());
         when(nguoiDungService.getOne(7)).thenReturn(Optional.of(NguoiDung.builder().id(7).build()));

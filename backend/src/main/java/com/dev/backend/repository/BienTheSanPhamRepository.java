@@ -50,7 +50,7 @@ public interface BienTheSanPhamRepository extends JpaRepository<BienTheSanPham, 
 
     /**
      * Biến thể còn tồn kho của một sản phẩm (tổng so_luong_ton theo lô > 0). Cùng điều kiện với
-     * recalculatePriceAndStatus: các biến thể này được tính lại giá theo lô nhập mỗi lần lưu/nhập kho.
+     * recalculatePriceAndStatus: các biến thể này được tính lại giá vốn theo lô nhập mỗi lần lưu/nhập kho.
      */
     @Query(value = """
             SELECT l.bien_the_san_pham_id FROM ton_kho_theo_lo t

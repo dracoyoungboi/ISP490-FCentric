@@ -97,11 +97,13 @@ function danhSachManHinh(role, kenhDaKetNoi) {
   for (const muc of SIDEBAR_MENU) {
     if (!muc.roles?.includes(role)) continue;
     if (muc.maKenh && !kenhDaKetNoi.includes(muc.maKenh)) continue;
-    const nhom = tenNhom[muc.section] || "Trang chính";
-    if (muc.to) ketQua.push({ id: muc.to, label: muc.label, to: muc.to, viTri: nhom });
+    // Nhóm không có tiêu đề (Tổng quan, các nhóm nghiệp vụ Sản phẩm, Mua hàng…): mục con chỉ ghi tên nhóm cha,
+    // không thêm chữ "Trang chính" phía trước
+    const nhom = tenNhom[muc.section] || "";
+    if (muc.to) ketQua.push({ id: muc.to, label: muc.label, to: muc.to, viTri: nhom || "Trang chính" });
     for (const con of muc.children ?? []) {
       if ((con.roles ?? muc.roles).includes(role)) {
-        ketQua.push({ id: con.to, label: con.label, to: con.to, viTri: `${nhom} › ${muc.label}` });
+        ketQua.push({ id: con.to, label: con.label, to: con.to, viTri: nhom ? `${nhom} › ${muc.label}` : muc.label });
       }
     }
   }

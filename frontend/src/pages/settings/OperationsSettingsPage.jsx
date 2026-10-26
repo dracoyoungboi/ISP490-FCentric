@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ClipboardList, Link2, List, Package } from "lucide-react";
+import { ClipboardList, Link2, List, Package, Tags } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import { Input } from "@/components/ui/input";
 import LoadingState from "@/components/shared/LoadingState";
@@ -29,11 +29,22 @@ import {
 } from "@/validations/inventorySettingsSchema";
 
 /**
- * Các mục Vận hành của trung tâm Cấu hình (Tồn kho, Đồng bộ kênh bán, Khách hàng, Nhập kho) — cùng nguồn
+ * Các mục Vận hành của trung tâm Cấu hình (Sản phẩm, Tồn kho, Đồng bộ kênh bán, Khách hàng, Nhập kho) — cùng nguồn
  * GET/PUT /api/v1/dieu-hanh-he-thong/cau-hinh; mỗi mục một thẻ, sửa và lưu riêng phần của mình.
  * `footer.roles`: chỉ hiện liên kết khi vai trò mở được trang đích.
  */
 const PARTS = {
+  product: {
+    cardTitle: "Mã vạch sản phẩm",
+    scope: "biến thể mới để trống mã vạch",
+    footer: {
+      to: "/products/gia-ban-tem",
+      icon: Tags,
+      title: "Giá bán & tem mã vạch",
+      description: "Mã đã cấp giữ nguyên khi đổi tiền tố; in tem theo mã của từng SKU",
+      roles: ["quan_tri_vien", "quan_ly_kho"],
+    },
+  },
   stock: {
     cardTitle: "Cảnh báo tồn kho",
     scope: "sản phẩm chưa đặt ngưỡng riêng",
@@ -80,8 +91,8 @@ const PARTS = {
 
 const valuesOf = (settings) => Object.fromEntries(settings.map((item) => [item.maCauHinh, item.giaTri]));
 
-// Chế độ xem: số nguyên có phân cách hàng nghìn
-const hienGiaTri = (value) => (/^[+-]?\d+$/.test(value) ? Number(value).toLocaleString("vi-VN") : value);
+// Chế độ xem: số nguyên có phân cách hàng nghìn; khóa chữ (vd. tiền tố mã vạch "05") giữ nguyên
+const hienGiaTri = (value, laChu) => (!laChu && /^[+-]?\d+$/.test(value) ? Number(value).toLocaleString("vi-VN") : value);
 
 export default function OperationsSettingsPage({ part }) {
   const config = PARTS[part];
@@ -308,7 +319,7 @@ export default function OperationsSettingsPage({ part }) {
                       <Input
                         id={id}
                         type="text"
-                        inputMode={laChu ? "text" : "numeric"}
+                        inputMode={field.inputMode ?? (laChu ? "text" : "numeric")}
                         autoComplete="off"
                         spellCheck={false}
                         maxLength={field.maxLength ?? 7}
@@ -347,7 +358,7 @@ export default function OperationsSettingsPage({ part }) {
                           : "text-xl font-semibold tracking-[-0.01em] text-bo-foreground tabular-nums"
                       }
                     >
-                      {hienGiaTri(value)}
+                      {hienGiaTri(value, laChu)}
                     </span>
                     {field.unit ? <span className="text-sm text-bo-muted">{field.unit}</span> : null}
                   </p>

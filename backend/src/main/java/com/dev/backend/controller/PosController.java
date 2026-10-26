@@ -11,6 +11,7 @@ import com.dev.backend.dto.response.customize.PosCheckoutRecoveryResponse;
 import com.dev.backend.dto.response.customize.PosCheckoutResponse;
 import com.dev.backend.dto.response.entities.KhachHangDto;
 import com.dev.backend.dto.response.customize.PayosPaymentLinkDto;
+import com.dev.backend.dto.response.customize.PosPayosGiaoDichDto;
 import com.dev.backend.services.impl.payos.PosPayosService;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.services.impl.entities.PosCatalogService;
@@ -19,11 +20,13 @@ import com.dev.backend.services.impl.entities.KhachHangService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -285,6 +288,56 @@ public class PosController {
     public ResponseEntity<ResponseData<PayosPaymentLinkDto>> cancelPayosLink(@PathVariable Long orderCode) {
         return ResponseEntity.ok(ResponseData.<PayosPaymentLinkDto>builder()
                 .status(200).data(posPayosService.cancel(orderCode)).message("Đã hủy mã QR").error(null).build());
+    }
+
+    /**
+     * Màn quản lý "Đối soát chuyển khoản": danh sách giao dịch payOS (mới nhất trước), kèm tài khoản người chuyển
+     * (thông tin cá nhân — chỉ quản trị viên). trangThai = PAID_ERROR: đã nhận tiền nhưng chưa có đơn, cần xử lý;
+     * daXuLy = true: chỉ giao dịch quản lý đã xử lý.
+     */
+    @GetMapping("/payos/payment-links")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    public ResponseEntity<ResponseData<Page<PosPayosGiaoDichDto>>> listPayosTransactions(
+            @RequestParam(required = false) String trangThai,
+            @RequestParam(defaultValue = "false") boolean daXuLy,
+            @RequestParam(required = false) Integer khoId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate tuNgay,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate denNgay,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(ResponseData.<Page<PosPayosGiaoDichDto>>builder()
+                .status(200).data(posPayosService.listTransactions(trangThai, daXuLy, khoId, tuNgay, denNgay, page, size))
+                .message("Success").error(null).build());
+    }
+
+    /** Số giao dịch đã nhận tiền nhưng chưa có đơn (số đếm trên menu). */
+    @GetMapping("/payos/payment-links/needs-attention-count")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    public ResponseEntity<ResponseData<Long>> countPayosNeedsAttention() {
+        return ResponseEntity.ok(ResponseData.<Long>builder()
+                .status(200).data(posPayosService.countNeedsAttention()).message("Success").error(null).build());
+    }
+
+    /** Giao dịch lỗi -> tạo đơn bán (đã nhận đủ tiền, còn hàng). Body: {"ghiChu": "..."} (không bắt buộc). */
+    @PostMapping("/payos/payment-links/{orderCode}/create-order")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    public ResponseEntity<ResponseData<PosPayosGiaoDichDto>> createOrderFromPaidError(
+            @PathVariable Long orderCode, @RequestBody(required = false) Map<String, String> body) {
+        String ghiChu = body == null ? null : body.get("ghiChu");
+        return ResponseEntity.ok(ResponseData.<PosPayosGiaoDichDto>builder()
+                .status(200).data(posPayosService.createOrderFromPaidError(orderCode, ghiChu))
+                .message("Đã tạo đơn bán").error(null).build());
+    }
+
+    /** Giao dịch lỗi -> đã hoàn tiền cho khách (trả hàng giữ chỗ). Body: {"ghiChu": "..."} (bắt buộc). */
+    @PostMapping("/payos/payment-links/{orderCode}/refunded")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    public ResponseEntity<ResponseData<PosPayosGiaoDichDto>> markPayosRefunded(
+            @PathVariable Long orderCode, @RequestBody(required = false) Map<String, String> body) {
+        String ghiChu = body == null ? null : body.get("ghiChu");
+        return ResponseEntity.ok(ResponseData.<PosPayosGiaoDichDto>builder()
+                .status(200).data(posPayosService.markRefunded(orderCode, ghiChu))
+                .message("Đã ghi nhận hoàn tiền").error(null).build());
     }
 
     /**

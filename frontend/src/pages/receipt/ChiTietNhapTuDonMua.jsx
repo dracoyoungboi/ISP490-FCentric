@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "@/lib/thongBaoNhanh";
-import { ArrowLeft, Check, FileCheck2, MoreHorizontal, Printer, ScanLine, X } from "lucide-react";
+import { ArrowLeft, Check, FileCheck2, Loader2, MoreHorizontal, Printer, ScanLine, X } from "lucide-react";
 
 import PageContainer from "@/components/backoffice/PageContainer";
 import { useClaimPageTitle, PAGE_HEADING_TYPE } from "@/components/backoffice/pageTitle";
@@ -32,6 +32,8 @@ import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { formatDate } from "@/utils/formatters";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import { chuanHoaDongInTem } from "@/components/print/tinhTem";
+import HopInTem from "@/pages/product/components/product/HopInTem";
 
 const so = (n) => Number(n || 0).toLocaleString("vi-VN");
 const TH = "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
@@ -139,6 +141,22 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
   const xuLyLoiXong = !data.safetyLock;
   const coTheXacNhan = nhap && kiemXong && xuLyLoiXong;
   const coTheDayTon = hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO]);
+  // In tem theo phiếu đã nhập kho: số tem = số lượng thực nhận (đạt kiểm đếm) của từng biến thể
+  const coTheInTem = daNhap && hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_KHO]);
+  const [dongInTem, setDongInTem] = useState(null);
+  const [dangLayTem, setDangLayTem] = useState(false);
+  const moInTem = async () => {
+    if (dangLayTem) return;
+    setDangLayTem(true);
+    try {
+      const ds = await phieuNhapKhoService.soLuongInTem(id);
+      setDongInTem(ds.map(chuanHoaDongInTem));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Không lấy được số lượng in tem của phiếu"));
+    } finally {
+      setDangLayTem(false);
+    }
+  };
 
   const moKiemDem = (bienTheId) => navigate(`/goods-receipts/${id}/receive/${bienTheId}`);
   const bienTheTiepTheo = dong.find((d) => d.kiem < d.canNhap) ?? dong[0];
@@ -298,6 +316,11 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
           <StatusBadge quyTrinh="phieuNhap" size="lg" label={trangThaiPhieu.label} />
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {coTheInTem ? (
+            <Button variant="outline" disabled={dangLayTem} onClick={moInTem} className="gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
+              {dangLayTem ? <Loader2 className="size-4 animate-spin" /> : <Printer className="size-4" />} In tem
+            </Button>
+          ) : null}
           {!daHuy ? (
             <Button variant="outline" onClick={() => navigate(`/goods-receipts/${id}/print`)} className="gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
               <Printer className="size-4" /> In phiếu
@@ -507,6 +530,18 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
         confirmText="Hủy phiếu"
         cancelText="Quay lại"
         isLoading={dangXuLy}
+      />
+      <HopInTem
+        open={Boolean(dongInTem)}
+        onOpenChange={(mo) => !mo && setDongInTem(null)}
+        nguon="phieu"
+        dong={dongInTem ?? []}
+        maPhieu={data.soPhieuNhap}
+        onDatGia={
+          hasAnyRole([ROLES.QUAN_TRI_VIEN])
+            ? (d) => navigate("/products/gia-ban-tem", { state: { datGiaMa: d.maSku || d.maVachSku } })
+            : undefined
+        }
       />
     </PageContainer>
   );

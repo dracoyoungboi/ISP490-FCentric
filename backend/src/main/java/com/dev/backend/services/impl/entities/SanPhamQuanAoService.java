@@ -24,8 +24,11 @@ import com.dev.backend.repository.BienTheSanPhamRepository;
 import com.dev.backend.repository.SanPhamQuanAoRepository;
 import com.dev.backend.services.MinioService;
 import com.dev.backend.services.impl.BaseServiceImpl;
+import com.dev.backend.services.impl.multitable.DieuHanhHeThongServiceImpl;
+import com.dev.backend.services.multitable.DieuHanhHeThongService;
 import com.dev.backend.utils.GioiHanSoThapPhan;
 import com.dev.backend.utils.KiemTraTepTai;
+import com.dev.backend.utils.MaVachSku;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -85,6 +88,10 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         private NguoiDungService nguoiDungService;
         @Autowired
         private LichSuThayDoiService lichSuThayDoiService;
+        @Autowired
+        private GiaBanBienTheService giaBanBienTheService;
+        @Autowired
+        private DieuHanhHeThongService dieuHanhHeThongService;
 
         //Image
         @Autowired
@@ -165,10 +172,14 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                         BigDecimal giaVonTongVariant = tongGiaTriTon.divide(tongSoLuongTon, 2, RoundingMode.HALF_UP);
                                         bienThe.setGiaVon(giaVonTongVariant);
 
-                                        // Công thức 3: Giá bán biến thể = Giá vốn * 1.2
-                                        BigDecimal giaBanVariant = giaVonTongVariant.multiply(new BigDecimal("1.2"))
-                                                .setScale(0, RoundingMode.CEILING);
-                                        bienThe.setGiaBan(giaBanVariant);
+                                        // Công thức 3: biến thể CHƯA có giá bán thì gợi ý Giá vốn * 1.2. Giá bán đã đặt
+                                        // (màn Giá bán & tem mã vạch, form Sửa) giữ nguyên: tính lại mỗi lần nhập / xuất
+                                        // kho sẽ xóa giá người dùng vừa đổi và làm tem đã in sai giá.
+                                        if (bienThe.getGiaBan() == null || bienThe.getGiaBan().signum() <= 0) {
+                                                bienThe.setGiaBan(giaVonTongVariant.multiply(new BigDecimal("1.2"))
+                                                        .setScale(0, RoundingMode.CEILING));
+                                        }
+                                        BigDecimal giaBanVariant = bienThe.getGiaBan();
 
                                         // Tích lũy để tính trung bình cộng cho sản phẩm cha
                                         tongGiaVonBienThe = tongGiaVonBienThe.add(giaVonTongVariant);
@@ -211,6 +222,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 kiemTraTepAnh(anhSanPhams);
                 kiemTraTepAnh(anhBienThes);
                 kiemTraBienTheTaoMoi(creating.getBienTheSanPhams(), anhBienThes);
+                kiemTraMaVachNhapTay(creating.getBienTheSanPhams());
                 creating.setTenSanPham(chuanHoaTenSanPham(creating.getTenSanPham()));
                 kiemTraTenKhongTrung(creating.getTenSanPham(), null);
 
@@ -295,6 +307,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 // các biến thể có cùng viTriAnh (cùng màu) dùng chung một tệp.
                 List<BienTheSanPhamCreating> dsBienThe = creating.getBienTheSanPhams();
                 Map<Integer, TepTin> tepAnhTheoViTri = new HashMap<>();
+                String tienToMaVach = tienToMaVach();
                 for (int i = 0; i < dsBienThe.size(); i++) {
                         BienTheSanPhamCreating btspCreating = dsBienThe.get(i);
 
@@ -322,8 +335,13 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                         bienTheSanPham.setChatLieu(chatLieu);
                         bienTheSanPham.setTrangThai(1);
                         bienTheSanPham.setNgayTao(instantNow);
+                        // Mã vạch nhập tay đã kiểm không trùng (kiemTraMaVachNhapTay); để trống thì cấp mã sau khi có id
+                        bienTheSanPham.setMaVachSku(btspCreating.getMaVachSku());
 
                         bienTheSanPhamService.create(bienTheSanPham);
+                        if (bienTheSanPham.getMaVachSku() == null) {
+                                ganMaVachTuSinh(bienTheSanPham, tienToMaVach);
+                        }
 
                         // viTriAnh = null là cách gửi cũ: tệp thứ i ứng với biến thể thứ i.
                         int viTriAnh = btspCreating.getViTriAnh() != null ? btspCreating.getViTriAnh() : i;
@@ -392,6 +410,47 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 throw new CommonException("Thiếu tệp ảnh cho biến thể #" + stt + ".");
                         }
                 }
+        }
+
+        // ---------- Mã vạch biến thể (utils/MaVachSku) ----------
+
+        /** Tiền tố mã vạch tự sinh đang cấu hình (đọc một lần cho mỗi lần lưu sản phẩm). */
+        private String tienToMaVach() {
+                return MaVachSku.tienToDung(dieuHanhHeThongService.getCauHinhString(
+                        DieuHanhHeThongServiceImpl.CAU_HINH_MA_VACH_TIEN_TO, MaVachSku.TIEN_TO_MAC_DINH));
+        }
+
+        /**
+         * Mã vạch nhập tay khi tạo sản phẩm (chưa ghi gì): chuỗi trống lưu null, không trùng giữa các biến thể gửi lên
+         * và không trùng mã đã có (CSDL cũng có khóa duy nhất uq_bien_the_ma_vach).
+         */
+        private void kiemTraMaVachNhapTay(List<BienTheSanPhamCreating> dsBienThe) {
+                Set<String> daGap = new HashSet<>();
+                for (BienTheSanPhamCreating bt : dsBienThe) {
+                        String ma = MaVachSku.chuanHoa(bt.getMaVachSku());
+                        bt.setMaVachSku(ma);
+                        if (ma == null) continue;
+                        if (ma.length() > 100) {
+                                throw new CommonException("Mã vạch " + ma + " dài quá 100 ký tự");
+                        }
+                        if (!daGap.add(ma.toLowerCase(Locale.ROOT))) {
+                                throw new CommonException("Mã vạch " + ma + " bị trùng giữa các biến thể");
+                        }
+                        bienTheSanPhamRepository.findFirstByMaVachSkuIgnoreCase(ma).ifPresent(cu -> {
+                                throw new CommonException("Mã vạch " + ma + " đã dùng cho SKU " + cu.getMaSku());
+                        });
+                }
+        }
+
+        /** Biến thể vừa lưu (đã có id) để trống mã vạch: cấp mã tiền tố + id đệm 0, ghi trong cùng giao dịch. */
+        private void ganMaVachTuSinh(BienTheSanPham bienThe, String tienTo) {
+                String ma = MaVachSku.sinh(tienTo, bienThe.getId());
+                bienTheSanPhamRepository.findFirstByMaVachSkuIgnoreCase(ma).ifPresent(cu -> {
+                        throw new CommonException("Mã vạch tự sinh " + ma + " trùng mã nhập tay của SKU " + cu.getMaSku()
+                                + ". Bấm lưu lại để cấp mã khác.");
+                });
+                bienThe.setMaVachSku(ma);
+                bienTheSanPhamService.update(bienThe.getId(), bienThe);
         }
 
         /**
@@ -585,6 +644,8 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 List<Map<String, Object>> thuocTinhCu = new ArrayList<>();
                 List<Map<String, Object>> thuocTinhMoi = new ArrayList<>();
                 List<Map<String, Object>> bienTheThemMoi = new ArrayList<>();
+                String tienToMaVach = keHoachBienThes.stream().anyMatch(k -> k.bienThe == null) ? tienToMaVach() : null;
+                NguoiDung nguoiDoiGia = null;
                 for (KeHoachBienThe keHoach : keHoachBienThes) {
                         BienTheSanPhamUpdating duLieu = keHoach.duLieu;
                         BienTheSanPham bienThe;
@@ -597,10 +658,21 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                         bienThe.setMaSku(keHoach.maSkuMoi);
                                         thuocTinhMoi.add(moTaBienThe(bienThe));
                                 }
-                                bienThe.setGiaVon(duLieu.getGiaVon());
-                                bienThe.setGiaBan(duLieu.getGiaBan());
+                                // Form chỉ gửi giá đã sửa; trống (null) là giữ giá vốn đang lưu (vd. vừa tính lại theo lô)
+                                if (duLieu.getGiaVon() != null) {
+                                        bienThe.setGiaVon(duLieu.getGiaVon());
+                                }
+                                // Giá bán gửi trống hoặc như cũ thì giữ nguyên; đổi giá đã qua kiểm tra ở lapKeHoachBienThe
+                                if (keHoach.doiGiaBan) {
+                                        bienThe.setGiaBan(keHoach.giaBanMoi);
+                                }
                                 bienThe.setTrangThai(duLieu.getTrangThai());
                                 bienThe = bienTheSanPhamService.update(bienThe.getId(), bienThe);
+                                if (keHoach.doiGiaBan) {
+                                        if (nguoiDoiGia == null) nguoiDoiGia = giaBanBienTheService.nguoiDangThucHien();
+                                        giaBanBienTheService.ghiLichSuDoiGia(bienThe.getId(), keHoach.giaBanCu, keHoach.giaBanMoi,
+                                                GiaBanBienTheService.LY_DO_SUA_SAN_PHAM, nguoiDoiGia, bayGio);
+                                }
                         } else {
                                 bienThe = bienTheSanPhamService.create(
                                         BienTheSanPham.builder()
@@ -615,6 +687,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                                 .ngayTao(bayGio)
                                                 .build()
                                 );
+                                ganMaVachTuSinh(bienThe, tienToMaVach);
                                 // Giữ danh sách biến thể trong bộ nhớ khớp DB để bước tính giá phía sau thấy biến thể mới.
                                 if (sanPhamQuanAo.getBienTheSanPhams() != null
                                         && Hibernate.isInitialized(sanPhamQuanAo.getBienTheSanPhams())) {
@@ -682,6 +755,10 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 ChatLieu chatLieu;
                 boolean doiThuocTinh;
                 String maSkuMoi;
+                // Biến thể đã có đổi giá bán: giá cũ / giá mới (đã làm tròn) để ghi lịch sử doi_gia_ban
+                boolean doiGiaBan;
+                BigDecimal giaBanCu;
+                BigDecimal giaBanMoi;
 
                 KeHoachBienThe(int viTri, BienTheSanPhamUpdating duLieu, BienTheSanPham bienThe) {
                         this.viTri = viTri;
@@ -762,6 +839,26 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                                 keHoach.mauSac = doiMau ? timMauSac(duLieu.getMauSacId()) : bienThe.getMauSac();
                                 keHoach.size = doiSize ? timSize(duLieu.getSizeId()) : bienThe.getSize();
                                 keHoach.chatLieu = bienThe.getChatLieu();
+                                // Đổi giá bán ở form Sửa: cùng kiểm tra với màn Giá bán (giá > 0, trong giới hạn) và cùng ghi
+                                // lịch sử (lý do "Sửa sản phẩm"); gửi trống hoặc như cũ là không đổi. Biến thể đang chưa có giá
+                                // (null / 0) mà form gửi 0 cũng là không đổi (form hiện ô trống thành 0), không chặn cả lần lưu.
+                                boolean chuaCoGia = bienThe.getGiaBan() == null || bienThe.getGiaBan().signum() <= 0;
+                                boolean guiGiaTrong = duLieu.getGiaBan() == null || (chuaCoGia && duLieu.getGiaBan().signum() <= 0);
+                                if (!guiGiaTrong && GiaBanBienTheService.laGiaDoi(bienThe.getGiaBan(), duLieu.getGiaBan())) {
+                                        if (!GiaBanBienTheService.duocDoiGiaBan()) {
+                                                throw new CommonException(HttpStatus.FORBIDDEN, "Biến thể " + bienThe.getMaSku()
+                                                        + ": chỉ quản trị viên được đổi giá bán");
+                                        }
+                                        BigDecimal giaMoi;
+                                        try {
+                                                giaMoi = GiaBanBienTheService.kiemTraGiaBan(duLieu.getGiaBan());
+                                        } catch (CommonException e) {
+                                                throw new CommonException("Biến thể " + bienThe.getMaSku() + ": " + e.getMessage());
+                                        }
+                                        keHoach.doiGiaBan = GiaBanBienTheService.laGiaDoi(bienThe.getGiaBan(), giaMoi);
+                                        keHoach.giaBanCu = bienThe.getGiaBan();
+                                        keHoach.giaBanMoi = giaMoi;
+                                }
                         } else {
                                 // ----- Biến thể mới -----
                                 if (duLieu.getMauSacId() == null || duLieu.getSizeId() == null) {
@@ -1193,7 +1290,8 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 // Đánh dấu biến thể đã phát sinh giao dịch để form Sửa khóa màu/size đúng như backend kiểm tra.
                 if (dto.getBienTheSanPhams() != null && !dto.getBienTheSanPhams().isEmpty()) {
                         Set<Integer> idDaPhatSinhGiaoDich = new HashSet<>(bienTheSanPhamRepository.findIdDaPhatSinhGiaoDich(id));
-                        // Biến thể còn tồn kho: giá do hệ thống tính lại theo lô nhập -> form Sửa chỉ cho xem giá.
+                        // Biến thể còn tồn kho: giá vốn do hệ thống tính lại theo lô nhập -> form Sửa chỉ cho xem giá
+                        // (giá bán đổi ở màn Giá bán & tem mã vạch).
                         Set<Integer> idConTonKho = new HashSet<>(bienTheSanPhamRepository.findIdConTonKho(id));
                         dto.getBienTheSanPhams().forEach(bt -> {
                                 bt.setDaPhatSinhGiaoDich(idDaPhatSinhGiaoDich.contains(bt.getId()));
@@ -1210,18 +1308,6 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                         () -> new CommonException("Không tìm thấy sản phẩm id: " + id));
                 sanPhamQuanAo.setTrangThai(status);
                 return repository.save(sanPhamQuanAo);
-        }
-
-        @Transactional
-        public void updateSkuPrice(Integer skuId, BigDecimal newPrice, BigDecimal newCost) {
-                // Cập nhật giá theo SKU ở mức biến thể.
-                BienTheSanPham bienThe = bienTheSanPhamService.getOne(skuId).orElseThrow(
-                        () -> new CommonException("Không tìm thấy biến thể id: " + skuId));
-                if (newPrice != null)
-                        bienThe.setGiaBan(newPrice);
-                if (newCost != null)
-                        bienThe.setGiaVon(newCost);
-                bienTheSanPhamService.update(skuId, bienThe);
         }
 
         public ResponseEntity<ResponseData<List<SanPhamQuanAoDto>>> getAllByKho(Integer khoId) {

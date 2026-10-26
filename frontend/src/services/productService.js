@@ -44,11 +44,23 @@ export const productService = {
         return apiClient.patch(`/api/v1/san-pham-quan-ao/status/${id}?status=${status}`);
     },
 
-    updateSkuPrice: (skuId, giaBan, giaVon) => {
-        let query = `/api/v1/san-pham-quan-ao/sku/${skuId}/price?`;
-        if (giaBan !== undefined) query += `price=${giaBan}&`;
-        if (giaVon !== undefined) query += `cost=${giaVon}`;
-        return apiClient.patch(query);
+    /**
+     * Màn "Giá bán & tem mã vạch": sản phẩm (phân trang theo sản phẩm) kèm biến thể khớp bộ lọc, số đếm theo tab và số
+     * SKU cần xử lý giá. `size` là số SẢN PHẨM mỗi trang. Trả phần `data` của phản hồi.
+     */
+    locGiaBan: async ({ page = 0, size = 20, tuKhoa = "", trangThai = "tat-ca", canXuLyGia = false } = {}) => {
+        const res = await apiClient.post(
+            "/api/v1/san-pham-quan-ao/gia-ban/filter",
+            { page, size, tuKhoa, trangThai, canXuLyGia },
+            { needKho: false },
+        );
+        return res.data?.data;
+    },
+
+    /** Đổi giá bán (chỉ quản trị viên): `items` = [{ bienTheId, giaBan }], `lyDo` bắt buộc. Trả { daDoi, boQua }. */
+    doiGiaBan: async ({ items, lyDo }) => {
+        const res = await apiClient.patch("/api/v1/san-pham-quan-ao/sku/gia-ban", { items, lyDo }, { needKho: false });
+        return res.data?.data;
     },
 
     toggleProductStatus: (id) => {

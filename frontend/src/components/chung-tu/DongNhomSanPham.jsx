@@ -19,6 +19,7 @@ const NEN_RE = "group-hover/nhom:bg-bo-row-group-hover";
  * - `dongPhu`: nội dung dòng phụ; mảng thì bỏ phần trống và nối bằng " · ".
  * - `idVung`: id phần tử chứa các dòng biến thể (vd. <tbody> của nhóm) cho aria-controls.
  * - `dinhTrai`: ô sản phẩm dính trái khi bảng cuộn ngang (dùng với `colSpan={1}`).
+ * - `oDau`: ô <td> đứng TRƯỚC ô sản phẩm (vd. ô chọn của màn Tạo yêu cầu nhập hàng); không truyền thì như cũ.
  */
 export default function DongNhomSanPham({
   ten,
@@ -33,6 +34,7 @@ export default function DongNhomSanPham({
   colSpanHep,
   dinhTrai = false,
   idVung,
+  oDau,
   children,
   className,
 }) {
@@ -111,6 +113,7 @@ export default function DongNhomSanPham({
         className,
       )}
     >
+      {oDau}
       {haiCo ? (
         <>
           {oSanPham(colSpan, AN_DIEN_THOAI)}

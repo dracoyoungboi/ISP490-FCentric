@@ -8,6 +8,7 @@ import com.dev.backend.repository.PosPayosPaymentRepository;
 import com.dev.backend.services.impl.entities.PosCheckoutTransaction;
 import com.dev.backend.services.impl.entities.PosCheckoutTransaction.CheckoutContext;
 import com.dev.backend.services.impl.entities.PosCheckoutTransaction.ReservedLot;
+import com.dev.backend.utils.NoiDungVietQr;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -93,6 +94,7 @@ public class PosPayosTransaction {
                 .noiDungCk(description(orderCode))
                 .payloadJson(write(Map.of("payload", locked, "productNames", reservation.productNames())))
                 .giuChoJson(write(reservation.reserved()))
+                .dangGiuCho(true)
                 .hetHanLuc(now.plusSeconds(expiryMinutes * 60L))
                 .ngayTao(now)
                 .ngayCapNhat(now)
@@ -109,6 +111,12 @@ public class PosPayosTransaction {
         row.setBin(text(data, "bin"));
         row.setSoTaiKhoan(text(data, "accountNumber"));
         row.setTenTaiKhoan(text(data, "accountName"));
+        // Nội dung CK thật payOS dùng để nhận diện khoản chuyển ("CS… FC…"), lấy từ chính mã QR; không đọc được
+        // thì dùng description payOS trả về, cuối cùng mới giữ nội dung ngắn mình gửi đi.
+        String noiDung = NoiDungVietQr.tuMaQr(row.getQrCode());
+        if (noiDung == null) noiDung = text(data, "description");
+        // Dài quá cột thì giữ nội dung ngắn cũ: nội dung bị cắt còn tệ hơn (khách chuyển theo đó không được ghi nhận)
+        if (noiDung != null && !noiDung.isBlank() && noiDung.trim().length() <= 50) row.setNoiDungCk(noiDung.trim());
         row.setNgayCapNhat(Instant.now());
         return repository.save(row);
     }
@@ -123,7 +131,7 @@ public class PosPayosTransaction {
         if (!PosPayosPayment.PENDING.equals(row.getTrangThai())) {
             return row;
         }
-        checkoutTransaction.releaseReservation(row.getKhoId(), reserved(row));
+        releaseIfHeld(row);
         row.setTrangThai(newStatus);
         row.setErrorMessage(truncate(message));
         row.setNgayCapNhat(Instant.now());
@@ -133,7 +141,8 @@ public class PosPayosTransaction {
     /**
      * Tiền đã về: tạo đơn + trừ kho bằng đúng luồng checkout POS (giá đã chốt), idempotent.
      * PAID rồi -> trả kết quả đã lưu. PENDING -> trả giữ chỗ rồi trừ kho trong CÙNG transaction.
-     * EXPIRED/CANCELLED (khách vẫn kịp trả) -> vẫn tạo đơn nếu còn đủ hàng.
+     * Đã hủy / hết hạn mà tiền vẫn về -> KHÔNG tự tạo đơn (lúc đó thu ngân có thể đã bán món này bằng
+     * tiền mặt): ném lỗi để nơi gọi đánh PAID_ERROR, quản lý kiểm tra rồi tạo đơn hoặc hoàn tiền.
      */
     @Transactional
     public PosCheckoutResponse finalizePaid(Long orderCode, BigDecimal paidAmount, String bankReference) {
@@ -144,22 +153,25 @@ public class PosPayosTransaction {
         if (PosPayosPayment.PAID_ERROR.equals(row.getTrangThai())) {
             throw new CommonException(row.getErrorMessage(), HttpStatus.CONFLICT, null);
         }
+        if (!PosPayosPayment.PENDING.equals(row.getTrangThai())) {
+            throw new CommonException("khách chuyển khoản sau khi mã QR đã bị hủy hoặc hết hạn — "
+                    + "kiểm tra hàng đã giao chưa rồi tạo đơn hoặc hoàn tiền", HttpStatus.CONFLICT, null);
+        }
         if (paidAmount == null || paidAmount.compareTo(row.getSoTien()) != 0) {
             throw new CommonException("Số tiền nhận được (" + (paidAmount == null ? "?" : plain(paidAmount))
                     + "đ) khác số tiền hóa đơn (" + plain(row.getSoTien()) + "đ)");
         }
-        boolean stillReserved = PosPayosPayment.PENDING.equals(row.getTrangThai());
-        PosCheckoutCreating payload = payload(row);
-        Map<Integer, BigDecimal> lockedPrices = new HashMap<>();
-        payload.getItems().forEach(i -> lockedPrices.put(i.getBienTheSanPhamId(), i.getUnitPriceClient()));
-
-        PosCheckoutResponse result = checkoutTransaction.executeWith(payload, CheckoutContext.payos(
-                row.getNguoiThuNganId(), paidAmount, lockedPrices, stillReserved ? reserved(row) : null));
+        PosCheckoutResponse result = createOrder(row, payload(row), paidAmount, null);
 
         row.setTrangThai(PosPayosPayment.PAID);
         row.setDonBanHangId(result.getDonBanHangId());
         row.setResultJson(write(result));
+        row.setSoTienDaNhan(paidAmount);
         row.setMaGiaoDichNganHang(bankReference);
+        // Bán bình thường: không cần giữ tài khoản cá nhân của khách (chỉ giữ để trả lại tiền khi có sự cố)
+        row.setTenNguoiChuyen(null);
+        row.setNganHangNguoiChuyen(null);
+        row.setSoTkNguoiChuyen(null);
         row.setThanhToanLuc(Instant.now());
         row.setErrorMessage(null);
         row.setNgayCapNhat(Instant.now());
@@ -167,17 +179,156 @@ public class PosPayosTransaction {
         return result;
     }
 
-    /** Đã nhận tiền nhưng không tạo được đơn: giữ nguyên hàng giữ chỗ, đánh dấu để quản lý xử lý tay. */
+    /**
+     * Đã nhận tiền nhưng không tạo được đơn: giữ nguyên hàng giữ chỗ (nếu còn), đánh dấu để quản lý xử lý.
+     * Lần báo sau cho giao dịch đã PAID_ERROR (webhook gửi lại, job hỏi lại) không lồng thêm tiền tố vào lỗi.
+     * Số tiền: `laTongDaNhan` = payOS báo TỔNG đã nhận (hỏi trạng thái) -> ghi đúng số đó; ngược lại là số của
+     * MỘT lần chuyển (webhook) -> cộng dồn khi là mã giao dịch ngân hàng mới (khách chuyển thiếu rồi chuyển
+     * thêm), bỏ qua khi webhook gửi lại cùng mã.
+     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void markPaidError(Long orderCode, String message, String bankReference) {
+    public void markPaidError(Long orderCode, String message, String bankReference, BigDecimal paidAmount,
+                              boolean laTongDaNhan) {
         PosPayosPayment row = lock(orderCode);
-        if (PosPayosPayment.PAID.equals(row.getTrangThai())) return;
+        if (!canBecomePaidError(row.getTrangThai())) return;
+        boolean daLoi = PosPayosPayment.PAID_ERROR.equals(row.getTrangThai());
+        if (!daLoi) {
+            row.setErrorMessage(truncate("Đã nhận tiền nhưng chưa tạo được đơn: " + message));
+            row.setThanhToanLuc(Instant.now());
+            // Mã QR đã đóng (hủy/hết hạn/lỗi tạo) trước khi tiền về
+            row.setTienVeSauHuy(!PosPayosPayment.PENDING.equals(row.getTrangThai()));
+        }
         row.setTrangThai(PosPayosPayment.PAID_ERROR);
-        row.setErrorMessage(truncate("Đã nhận tiền nhưng chưa tạo được đơn: " + message));
-        if (bankReference != null) row.setMaGiaoDichNganHang(bankReference);
-        row.setThanhToanLuc(Instant.now());
+        String cacMa = row.getMaGiaoDichNganHang();
+        boolean maMoi = bankReference != null && (cacMa == null || !List.of(cacMa.split(",")).contains(bankReference));
+        if (paidAmount != null) {
+            boolean congDon = !laTongDaNhan && daLoi && maMoi && cacMa != null && row.getSoTienDaNhan() != null;
+            if (laTongDaNhan || !daLoi || congDon) {
+                row.setSoTienDaNhan(congDon ? row.getSoTienDaNhan().add(paidAmount) : paidAmount);
+            }
+        }
+        if (maMoi) {
+            String ds = cacMa == null ? bankReference : cacMa + "," + bankReference;
+            row.setMaGiaoDichNganHang(ds.length() > 100 ? ds.substring(ds.length() - 100) : ds);
+        }
         row.setNgayCapNhat(Instant.now());
         repository.save(row);
+    }
+
+    /**
+     * Ghi tài khoản khách đã chuyển (counterAccount* trong thông báo payOS) — chỉ ghi lần đầu, để quản lý trả lại
+     * tiền đúng chỗ. Transaction riêng, chạy trước bước tạo đơn: tạo đơn lỗi (rollback) vẫn còn thông tin này.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void ghiNguoiChuyen(Long orderCode, JsonNode giaoDich) {
+        if (giaoDich == null || giaoDich.isMissingNode()) return;
+        String ten = text(giaoDich, "counterAccountName");
+        String soTk = text(giaoDich, "counterAccountNumber");
+        if (isBlank(ten) && isBlank(soTk)) return;
+        String nganHang = text(giaoDich, "counterAccountBankName");
+        if (isBlank(nganHang)) nganHang = text(giaoDich, "counterAccountBankId");
+        PosPayosPayment row = lock(orderCode);
+        if (!isBlank(row.getTenNguoiChuyen()) || !isBlank(row.getSoTkNguoiChuyen())) return;
+        row.setTenNguoiChuyen(cat(ten, 200));
+        row.setNganHangNguoiChuyen(cat(nganHang, 100));
+        row.setSoTkNguoiChuyen(cat(soTk, 50));
+        repository.save(row);
+    }
+
+    private static boolean isBlank(String s) {
+        return s == null || s.isBlank();
+    }
+
+    private static String cat(String s, int max) {
+        if (isBlank(s)) return null;
+        String t = s.trim();
+        return t.length() > max ? t.substring(0, max) : t;
+    }
+
+    /** PAID / REFUNDED đã xong — không bao giờ quay lại PAID_ERROR. */
+    private static boolean canBecomePaidError(String status) {
+        return !PosPayosPayment.PAID.equals(status) && !PosPayosPayment.REFUNDED.equals(status);
+    }
+
+    /**
+     * Quản lý xử lý giao dịch lỗi bằng "Tạo đơn bán": giá đã chốt lúc tạo QR, trả giữ chỗ (nếu còn)
+     * rồi trừ kho trong cùng transaction. Chỉ khi đã nhận ĐỦ tiền; chuyển dư thì đơn vẫn đúng tổng
+     * hóa đơn và ghi chú số cần hoàn. Thiếu hàng / lỗi khác -> ném lỗi, giao dịch giữ nguyên PAID_ERROR.
+     */
+    @Transactional
+    public PosCheckoutResponse createOrderFromPaidError(Long orderCode, Integer managerId, String note) {
+        PosPayosPayment row = lockPaidError(orderCode);
+        BigDecimal received = row.getSoTienDaNhan();
+        if (received == null) {
+            throw new CommonException("Chưa rõ số tiền đã nhận của giao dịch này — kiểm tra sao kê ngân hàng; "
+                    + "nếu đã hoàn tiền cho khách thì chọn Đã hoàn tiền.", HttpStatus.CONFLICT, null);
+        }
+        if (received.compareTo(row.getSoTien()) < 0) {
+            throw new CommonException("Khách mới chuyển " + plain(received) + "đ / " + plain(row.getSoTien())
+                    + "đ — không tạo đơn được. Hoàn tiền cho khách rồi bán lại bằng hóa đơn mới.", HttpStatus.CONFLICT, null);
+        }
+        BigDecimal overpaid = received.subtract(row.getSoTien());
+        PosCheckoutCreating payload = payload(row);
+        if (overpaid.signum() > 0) {
+            String extra = "Khách chuyển dư " + plain(overpaid) + "đ qua payOS — cần hoàn lại.";
+            payload.setNote(payload.getNote() == null || payload.getNote().isBlank() ? extra : payload.getNote() + " " + extra);
+        }
+
+        // requestId riêng: requestId gốc có thể đã gắn với đơn khác (QR tạo lại cùng requestId được trả trước,
+        // hay lần thử tiền mặt) -> khóa duy nhất pos_checkout_request chặn mãi. Đơn mang ngày tiền về.
+        payload.setRequestId("PAYOS-XU-LY-" + row.getOrderCode());
+        PosCheckoutResponse result = createOrder(row, payload, row.getSoTien(), row.getThanhToanLuc());
+
+        row.setTrangThai(PosPayosPayment.PAID);
+        row.setDonBanHangId(result.getDonBanHangId());
+        row.setResultJson(write(result));
+        markHandled(row, managerId, note);
+        repository.save(row);
+        return result;
+    }
+
+    /** Quản lý đã tự hoàn tiền cho khách qua ngân hàng: trả hàng giữ chỗ (nếu còn), không tạo chứng từ tiền. */
+    @Transactional
+    public PosPayosPayment markRefunded(Long orderCode, Integer managerId, String note) {
+        PosPayosPayment row = lockPaidError(orderCode);
+        releaseIfHeld(row);
+        row.setTrangThai(PosPayosPayment.REFUNDED);
+        markHandled(row, managerId, note);
+        return repository.save(row);
+    }
+
+    private PosPayosPayment lockPaidError(Long orderCode) {
+        PosPayosPayment row = lock(orderCode);
+        if (!PosPayosPayment.PAID_ERROR.equals(row.getTrangThai())) {
+            throw new CommonException("Giao dịch này không còn chờ xử lý (trạng thái " + row.getTrangThai()
+                    + ") — tải lại danh sách.", HttpStatus.CONFLICT, null);
+        }
+        return row;
+    }
+
+    private void markHandled(PosPayosPayment row, Integer managerId, String note) {
+        row.setNguoiXuLyId(managerId);
+        row.setXuLyLuc(Instant.now());
+        row.setGhiChuXuLy(truncate(note == null || note.isBlank() ? null : note.trim()));
+        row.setNgayCapNhat(Instant.now());
+    }
+
+    /** Tạo đơn + trừ kho theo giá đã chốt; trả phần giữ chỗ trong CÙNG transaction (nếu còn giữ). */
+    private PosCheckoutResponse createOrder(PosPayosPayment row, PosCheckoutCreating payload, BigDecimal paidAmount,
+                                           Instant thoiDiemBan) {
+        Map<Integer, BigDecimal> lockedPrices = new HashMap<>();
+        payload.getItems().forEach(i -> lockedPrices.put(i.getBienTheSanPhamId(), i.getUnitPriceClient()));
+        PosCheckoutResponse result = checkoutTransaction.executeWith(payload, CheckoutContext.payos(
+                row.getNguoiThuNganId(), paidAmount, lockedPrices, row.isDangGiuCho() ? reserved(row) : null)
+                .withThoiDiemBan(thoiDiemBan));
+        row.setDangGiuCho(false);
+        return result;
+    }
+
+    private void releaseIfHeld(PosPayosPayment row) {
+        if (!row.isDangGiuCho()) return;
+        checkoutTransaction.releaseReservation(row.getKhoId(), reserved(row));
+        row.setDangGiuCho(false);
     }
 
     // ================= helpers =================

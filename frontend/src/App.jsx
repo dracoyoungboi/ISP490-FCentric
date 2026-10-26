@@ -23,7 +23,7 @@ import PhieuXuatKhoList from "./pages/issue/PhieuXuatKhoList.jsx";
 import PurchaseOrderDetail from "./pages/order/PurchaseOrderDetail.jsx";
 import PurchaseOrder from "./pages/order/PurchaseOrder.jsx";
 import GuiBaoGiaCuRedirect from "./pages/order/GuiBaoGiaCuRedirect.jsx";
-import SkuBuilder from "./pages/product/SkuBuilder";
+import GiaBanTemPage from "./pages/product/GiaBanTemPage";
 import PhieuXuatKhoCreate from "./pages/issue/PhieuXuatKhoCreate.jsx";
 import PhieuXuatKhoDetail from "./pages/issue/PhieuXuatKhoDetail.jsx";
 import PhieuXuatKhoView from "./pages/issue/PhieuXuatKhoView.jsx";
@@ -39,6 +39,7 @@ import DonBanHangList from "./pages/sales-orders/DonBanHangList";
 import DonBanHangDetail from "./pages/sales-orders/DonBanHangDetail";
 import DonBanHangInvoice from "./pages/sales-orders/DonBanHangInvoice";
 import DonBanHangCreate from "./pages/sales-orders/DonBanHangCreate";
+import DoiSoatChuyenKhoan from "./pages/pos-transfers/DoiSoatChuyenKhoan";
 import ProductDetail from "./pages/product/components/product/ProductDetail";
 import PhieuChuyenKhoDetail from "./pages/chuyenKhoNoiBo/PhieuChuyenKhoDetail";
 import PhieuChuyenKhoCreate from "./pages/chuyenKhoNoiBo/PhieuChuyenKhoCreate";
@@ -78,6 +79,7 @@ import StoreSettingsPage from "./pages/settings/StoreSettingsPage";
 import PrintTemplateListPage from "./pages/settings/PrintTemplateListPage";
 import { SETTINGS_ROLES } from "./components/settings/settings.config";
 import RequireRole from "./components/auth/RequireRole";
+import { VAI_TRO_TAO_YEU_CAU_NHAP } from "./constants/vaiTroTaoYeuCauNhap";
 import PosPage from "./pages/pos";
 import PosLayout from "./pages/pos/PosLayout";
 import DonChoXuatPage from "./pages/issue/DonChoXuatPage";
@@ -161,7 +163,12 @@ export default function App() {
 
           {/* Product */}
           <Route path="/products" element={<ProductList />} />
-          <Route path="/sku-builder" element={<SkuBuilder />} />
+          {/* Giá bán & tem mã vạch: API danh sách cho quản trị viên và quản lý kho (đổi giá chỉ quản trị viên) */}
+          <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />}>
+            <Route path="/products/gia-ban-tem" element={<GiaBanTemPage />} />
+          </Route>
+          {/* Legacy: màn "Biến thể SKU & giá" cũ */}
+          <Route path="/sku-builder" element={<Navigate to="/products/gia-ban-tem" replace />} />
           <Route path="/categories" element={<DanhMucQuanAoTree />} />
           {/* Legacy: URL tiếng Việt cũ chuyển hướng sang URL mới, giữ bookmark không bị hỏng */}
           <Route path="/danh-muc-quan-ao" element={<Navigate to="/categories" replace />} />
@@ -175,7 +182,10 @@ export default function App() {
           {/* Purchase Order */}
           <Route path="/purchase-requests" element={<PurchaseRequestList />} />
           <Route path="/purchase-orders" element={<PurchaseOrder />} />
-          <Route path="/purchase-requests/create" element={<CreatePurchaseRequestPage />} />
+          {/* Tạo yêu cầu nhập hàng: đúng 4 vai trò máy chủ cho lập (quản lý kho chỉ duyệt) */}
+          <Route element={<RequireRole roles={VAI_TRO_TAO_YEU_CAU_NHAP} />}>
+            <Route path="/purchase-requests/create" element={<CreatePurchaseRequestPage />} />
+          </Route>
           <Route path="/purchase-requests/:id/send-quotation" element={<SendQuotationRequestPage />} />
           <Route path="/purchase-orders/:id" element={<PurchaseOrderDetail />} />
           <Route path="/purchase-requests/:id/gui-bao-gia" element={<GuiBaoGiaCuRedirect />} />
@@ -270,6 +280,7 @@ export default function App() {
               Frontend chặn chỉ là UX — backend @RequireAuth mới là chốt chặn thật. */}
           <Route element={<RequireRole roles={SETTINGS_ROLES} />}>
             <Route path="/settings" element={<SettingsLayout />}>
+              <Route path="product" element={<OperationsSettingsPage key="product" part="product" />} />
               <Route path="stock" element={<OperationsSettingsPage key="stock" part="stock" />} />
               <Route path="sync" element={<OperationsSettingsPage key="sync" part="sync" />} />
               <Route path="customer" element={<OperationsSettingsPage key="customer" part="customer" />} />
@@ -299,6 +310,11 @@ export default function App() {
             <Route path="/goods-issues/pick-lists" element={<PickListList />} />
             <Route path="/goods-issues/pick-lists/:id" element={<PickListDetail />} />
             <Route path="/goods-issues/packing/:donId" element={<DongGoiPage />} />
+          </Route>
+
+          {/* Đối soát chuyển khoản: xử lý giao dịch đã nhận tiền nhưng chưa có đơn — chỉ quản trị viên (khớp @RequireAuth) */}
+          <Route element={<RequireRole roles={["quan_tri_vien"]} />}>
+            <Route path="/pos-transfers" element={<DoiSoatChuyenKhoan />} />
           </Route>
 
           {/* Kênh bán hàng (FO-073–077) — chỉ quản trị viên (backend cũng chặn bằng @RequireAuth) */}

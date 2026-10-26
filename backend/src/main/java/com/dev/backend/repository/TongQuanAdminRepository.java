@@ -413,7 +413,9 @@ public class TongQuanAdminRepository {
     /**
      * Gộp tồn theo cặp (kho, biến thể); mỗi cặp đã từng có lô mới được tính, nên cửa hàng
      * chưa bao giờ nhập một mã sẽ không bị báo "hết hàng" mã đó.
-     * dang_ban = biến thể và sản phẩm đang kinh doanh: chỉ những cặp này được phân loại tình trạng.
+     * dang_ban = biến thể và sản phẩm đang kinh doanh: chỉ những cặp này được phân loại tình trạng. Sản phẩm
+     * "Hết hàng" (trạng thái 0, hệ thống tự đặt khi mọi biến thể hết hàng) vẫn đang kinh doanh; chỉ bỏ
+     * "Ngừng hoạt động" (2).
      */
     static final String CTE_TON_THEO_CAP = """
             WITH cap AS (
@@ -430,7 +432,7 @@ public class TongQuanAdminRepository {
             loai AS (
                 SELECT cap.*,
                        COALESCE(NULLIF(sp.muc_ton_toi_thieu, 0), :nguongMacDinh)                 AS nguong,
-                       CASE WHEN bt.trang_thai = 1 AND sp.trang_thai = 1 THEN 1 ELSE 0 END        AS dang_ban
+                       CASE WHEN bt.trang_thai = 1 AND sp.trang_thai IN (0, 1) THEN 1 ELSE 0 END  AS dang_ban
                 FROM cap
                 JOIN bien_the_san_pham bt ON bt.id = cap.bien_the_id
                 JOIN san_pham_quan_ao sp  ON sp.id = bt.san_pham_id

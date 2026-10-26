@@ -12,6 +12,7 @@ import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.*;
 import com.dev.backend.services.impl.multitable.LoDangGiuService;
 import com.dev.backend.utils.PosCheckoutPayloadHash;
+import com.dev.backend.utils.SoChungTu;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
@@ -168,7 +169,8 @@ public class PosCheckoutTransaction {
         //    vẫn đếm ra đúng số đó.
         Kho kho = entityManager.find(Kho.class, request.getKhoId());
         NguoiDung nguoiDung = entityManager.find(NguoiDung.class, userId);
-        DonBanHang don = createOrderWithDetails(request, khachHang, kho, nguoiDung, items, variants, unitPrices, tongTienHang);
+        DonBanHang don = createOrderWithDetails(request, khachHang, kho, nguoiDung, items, variants, unitPrices, tongTienHang,
+                ctx.thoiDiemBan() == null ? Instant.now() : ctx.thoiDiemBan());
         PhieuXuatKho phieuXuat = createIssueWithPicks(don, kho, nguoiDung, allocationByVariant);
 
         // 8. Trừ tồn + nhật ký kho (một lần duy nhất cho mỗi dòng tồn).
@@ -349,20 +351,28 @@ public class PosCheckoutTransaction {
         }
     }
 
-    /** Ngữ cảnh checkout: ai thu tiền, phương thức, giá chốt và phần giữ chỗ cần trả. */
+    /**
+     * Ngữ cảnh checkout: ai thu tiền, phương thức, giá chốt và phần giữ chỗ cần trả.
+     * thoiDiemBan: ngày đặt/giao của đơn (null = bây giờ). Quản lý tạo đơn cho giao dịch chuyển khoản lỗi
+     * về sau thì đơn mang ngày tiền về, để doanh thu không rơi sang ngày/tháng xử lý.
+     */
     public record CheckoutContext(Integer userId, String method, BigDecimal paidAmount,
                                   Map<Integer, BigDecimal> lockedPrices, List<ReservedLot> reservationToRelease,
-                                  boolean skipWarehouseAuth) {
+                                  boolean skipWarehouseAuth, Instant thoiDiemBan) {
         public static final String METHOD_CASH = "CASH";
         public static final String METHOD_PAYOS = "PAYOS";
 
         public static CheckoutContext cash(Integer userId) {
-            return new CheckoutContext(userId, METHOD_CASH, null, null, null, false);
+            return new CheckoutContext(userId, METHOD_CASH, null, null, null, false, null);
         }
 
         public static CheckoutContext payos(Integer cashierId, BigDecimal paidAmount,
                                             Map<Integer, BigDecimal> lockedPrices, List<ReservedLot> reservationToRelease) {
-            return new CheckoutContext(cashierId, METHOD_PAYOS, paidAmount, lockedPrices, reservationToRelease, true);
+            return new CheckoutContext(cashierId, METHOD_PAYOS, paidAmount, lockedPrices, reservationToRelease, true, null);
+        }
+
+        public CheckoutContext withThoiDiemBan(Instant thoiDiem) {
+            return new CheckoutContext(userId, method, paidAmount, lockedPrices, reservationToRelease, skipWarehouseAuth, thoiDiem);
         }
     }
 
@@ -582,14 +592,15 @@ public class PosCheckoutTransaction {
     private DonBanHang createOrderWithDetails(
             PosCheckoutCreating request, KhachHang khachHang, Kho kho, NguoiDung nguoiDung,
             List<PosCheckoutCreating.PosCheckoutItemCreating> items,
-            Map<Integer, BienTheSanPham> variants, Map<Integer, BigDecimal> unitPrices, BigDecimal tongTienHang) {
+            Map<Integer, BienTheSanPham> variants, Map<Integer, BigDecimal> unitPrices, BigDecimal tongTienHang,
+            Instant thoiDiemBan) {
         DonBanHang don = DonBanHang.builder()
                 .soDonHang(generateSoDonHang())
                 .loaiChungTu("don_ban_hang") // giữ enum hiện hữu, KHÔNG thêm giá trị mới
                 .khachHang(khachHang)
                 .khoXuat(kho)
-                .ngayDatHang(Instant.now())
-                .ngayGiaoHang(Instant.now()) // POS: giao ngay tại quầy
+                .ngayDatHang(thoiDiemBan)
+                .ngayGiaoHang(thoiDiemBan) // POS: giao ngay tại quầy
                 .trangThai(ITrangThaiDonBanHang.HOAN_THANH)
                 .tienHang(tongTienHang)
                 .phiVanChuyen(BigDecimal.ZERO)
@@ -681,14 +692,12 @@ public class PosCheckoutTransaction {
 
     private String generateSoDonHang() {
         String prefix = "SO" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
-        long countToday = donBanHangRepository.countBySoDonHangStartingWith(prefix);
-        return prefix + (countToday + 1);
+        return SoChungTu.tiepTheo(prefix, donBanHangRepository.soDuoiLonNhat(prefix));
     }
 
     private String generateSoPhieuXuat() {
         String prefix = "PX" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
-        long countToday = phieuXuatKhoRepository.countBySoPhieuXuatStartingWith(prefix);
-        return prefix + (countToday + 1);
+        return SoChungTu.tiepTheo(prefix, phieuXuatKhoRepository.soDuoiLonNhat(prefix));
     }
 
     /** Số cho thông báo: cột DECIMAL(15,3)/(15,2) mang số 0 thừa ("81.000") -> "81". */

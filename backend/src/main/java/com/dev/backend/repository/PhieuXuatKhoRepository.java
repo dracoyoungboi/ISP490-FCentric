@@ -18,6 +18,15 @@ import java.util.Optional;
 @Repository
 public interface PhieuXuatKhoRepository extends JpaRepository<PhieuXuatKho, Integer>, JpaSpecificationExecutor<PhieuXuatKho> {
     long countBySoPhieuXuatStartingWith(String prefix);
+
+    /** Số đuôi lớn nhất của các số dạng `tienTo + chữ số`; null khi chưa có. Xem SoChungTu. */
+    @Query(value = """
+        SELECT MAX(CAST(SUBSTRING(so_phieu_xuat, CHAR_LENGTH(:tienTo) + 1) AS UNSIGNED))
+        FROM phieu_xuat_kho
+        WHERE so_phieu_xuat LIKE CONCAT(:tienTo, '%')
+          AND SUBSTRING(so_phieu_xuat, CHAR_LENGTH(:tienTo) + 1) REGEXP '^[0-9]+$'
+    """, nativeQuery = true)
+    Number soDuoiLonNhat(@Param("tienTo") String tienTo);
     List<PhieuXuatKho> findByDonBanHangId(Integer donBanHangId);
     boolean existsByDonBanHangIdAndTrangThai(Integer donBanHangId, Integer trangThai);
 

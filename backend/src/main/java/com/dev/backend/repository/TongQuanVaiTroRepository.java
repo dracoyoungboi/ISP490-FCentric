@@ -845,7 +845,7 @@ public class TongQuanVaiTroRepository {
     static final String SQL_TIM_SAN_PHAM = """
             SELECT sp.id, sp.ma_san_pham, sp.ten_san_pham
             FROM san_pham_quan_ao sp
-            WHERE sp.trang_thai = 1
+            WHERE sp.trang_thai IN (0, 1)
               AND EXISTS (SELECT 1 FROM bien_the_san_pham bt0 WHERE bt0.san_pham_id = sp.id AND bt0.trang_thai = 1)
               AND (REPLACE(LOWER(sp.ten_san_pham), :dd, 'd') LIKE :mau
                    OR LOWER(sp.ma_san_pham) LIKE :mau
@@ -856,7 +856,8 @@ public class TongQuanVaiTroRepository {
             """;
 
     /**
-     * Sản phẩm đang bán khớp tên, mã sản phẩm hoặc mã SKU. Không phân biệt hoa thường và dấu (theo collation
+     * Sản phẩm đang kinh doanh (kể cả đang "Hết hàng", để tra ra được là hết) khớp tên, mã sản phẩm hoặc mã SKU.
+     * Không phân biệt hoa thường và dấu (theo collation
      * utf8mb4_unicode_ci; riêng "đ" được đổi thành "d" ở cả hai phía).
      *
      * @param tuKhoa đã chuẩn hóa: chữ thường, "đ" → "d", đã thoát ký tự đặc biệt của LIKE

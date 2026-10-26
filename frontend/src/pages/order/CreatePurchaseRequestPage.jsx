@@ -1,643 +1,732 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { toast } from '@/lib/thongBaoNhanh';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { ClipboardList, PackagePlus, Send, Sparkles, Trash2 } from "lucide-react";
+import { toast } from "@/lib/thongBaoNhanh";
+import { Button } from "@/components/ui/button";
+import PageContainer from "@/components/backoffice/PageContainer";
+import EmptyState from "@/components/shared/EmptyState";
+import KhungChungTu from "@/components/chung-tu/KhungChungTu";
+import DauChungTu from "@/components/chung-tu/DauChungTu";
+import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
+import TienTrinhChungTu from "@/components/chung-tu/TienTrinhChungTu";
+import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
+import NutPhanDoan from "@/components/chung-tu/NutPhanDoan";
+import useBangChungTu from "@/components/chung-tu/useBangChungTu";
+import { phanTrang, soVN } from "@/components/chung-tu/bangChungTu";
+import { GHI_CHU_HOP } from "@/components/chung-tu/kieuHopThoai";
+import BangHangYeuCauTao from "@/components/order/tao-yeu-cau/BangHangYeuCauTao";
+import CotThongTinYeuCau from "@/components/order/tao-yeu-cau/CotThongTinYeuCau";
+import HopDanExcel from "@/components/order/tao-yeu-cau/HopDanExcel";
+import HopGoiYCanNhap from "@/components/order/tao-yeu-cau/HopGoiYCanNhap";
+import LuoiNhapSoLuong from "@/components/order/tao-yeu-cau/LuoiNhapSoLuong";
+import OTimThemHang from "@/components/order/tao-yeu-cau/OTimThemHang";
 import {
-    Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import {
-    ArrowLeft, Package, Send, Loader2,
-    X, Check, ShoppingBag, Layers,
-    ChevronRight, Minus, Plus, Trash2,
-} from 'lucide-react';
+  BO_LOC_BANG,
+  boDong,
+  canhBao,
+  cauCanhBao,
+  chenLaiDong,
+  datSoLuong,
+  demTheoDeXuat,
+  docDeXuatDuongDan,
+  doiOLuoi,
+  doiSoLuongDong,
+  dongBang as taoDongBang,
+  homNayVN,
+  idYeuCauMoi,
+  khoaSanPham,
+  laGoiY,
+  lyDoKhoaGui,
+  moTaNgayGiao,
+  noiThuTuSanPham,
+  roiOSoLuong,
+  taoBodyYeuCau,
+  taoChiMuc,
+  themDong,
+  themNhieu,
+  theoNhomHang,
+  theoSoDeXuat,
+} from "@/components/order/tao-yeu-cau/tinhTaoYeuCau";
+import { CO_TRANG_NHOM, NGUONG_CONG_CU } from "@/config/bangChungTu";
+import useHoiKhiRoiTrang from "@/hooks/useHoiKhiRoiTrang";
+import useQuayLai from "@/hooks/useQuayLai";
+import useTaiDuLieu from "@/hooks/useTaiDuLieu";
+import { khoService } from "@/services/khoService";
+import purchaseRequestService from "@/services/purchaseRequestService";
+import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 
-import PageContainer from '@/components/backoffice/PageContainer';
-import PageHeader from '@/components/backoffice/PageHeader';
-import EmptyState from '@/components/shared/EmptyState';
-import FormActions from '@/components/shared/FormActions';
-import LoadingState from '@/components/shared/LoadingState';
-import SearchInput from '@/components/shared/SearchInput';
-import SurfaceCard from '@/components/shared/SurfaceCard';
+const TONG_THEO = Object.freeze({ soLuong: "soLuong", khaDung: "khaDung", dangVe: "dangVe", deXuat: "deXuat" });
 
-import apiClient from '@/services/apiClient';
-import { productService } from '@/services/productService';
-import purchaseRequestService from '@/services/purchaseRequestService';
-import { laKhoNhapNcc } from '@/utils/kho';
-import { soNguyenDuong } from '@/utils/thamSoDuongDan';
+// Cùng 5 bước với Chi tiết yêu cầu nhập hàng (tinhYeuCau.tinhBuocYeuCau), thêm dòng "ai làm"
+const BUOC = [
+  { ma: "tao", nhan: "Tạo yêu cầu", ai: "Bạn", trangThai: "dangLam", phu: "Đang lập" },
+  { ma: "duyet", nhan: "Quản lý kho duyệt", ai: "Quản lý Kho tổng", trangThai: "chua" },
+  { ma: "gui", nhan: "Gửi yêu cầu báo giá", ai: "Nhân viên mua hàng", trangThai: "chua" },
+  { ma: "nhan", nhan: "Nhận báo giá", ai: "Nhà cung cấp", trangThai: "chua" },
+  { ma: "chot", nhan: "Chốt đơn mua hàng", ai: "Nhân viên mua hàng", trangThai: "chua" },
+];
 
-const PRODUCT_PAGE_SIZE = 8;
+const CACH_XEM = [
+  { value: "danhSach", label: "Danh sách" },
+  { value: "luoi", label: "Lưới màu × kích cỡ" },
+];
 
-const CONTROL_CLASS =
-    'h-11 w-full rounded-md border border-bo-border bg-white px-3 text-sm text-bo-foreground shadow-none placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle';
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-const formatDate = (d) => {
-    if (!d) return '—';
-    return new Date(d).toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' });
-};
-
-// ─── VariantRow ───────────────────────────────────────────────────────────────
-function VariantRow({ variant, selectedEntry, onToggle, onQtyChange }) {
-    const img = variant.anhBienThe?.tepTin?.duongDan;
-    const isSelected = !!selectedEntry;
-
-    return (
-        <div className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors ${isSelected ? 'border-bo-primary/50 bg-bo-primary-soft/50' : 'border-transparent bg-bo-surface-subtle hover:bg-slate-100'}`}>
-            <button type="button" onClick={() => onToggle(variant)} className="shrink-0">
-                <div className={`flex size-4 items-center justify-center rounded border transition-colors ${isSelected ? 'border-bo-primary bg-bo-primary' : 'border-slate-300 bg-white'}`}>
-                    {isSelected && <Check className="size-3 text-white" strokeWidth={3} />}
-                </div>
-            </button>
-
-            {img
-                ? <img src={img} alt="" className="size-9 shrink-0 rounded-md border border-bo-border object-cover" />
-                : <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-bo-border bg-white"><Package className="size-4 text-slate-400" /></div>
-            }
-
-            <div className="min-w-0 flex-1 cursor-pointer" onClick={() => onToggle(variant)}>
-                <p className={`truncate text-[13px] leading-tight ${isSelected ? 'font-semibold text-bo-foreground' : 'font-medium text-slate-700'}`}>
-                    {[variant.mauSac?.tenMau, variant.size?.maSize, variant.chatLieu?.tenChatLieu].filter(Boolean).join(' / ') || variant.maSku}
-                </p>
-                <p className="mt-0.5 font-mono text-[10px] text-bo-muted">{variant.maSku}</p>
-            </div>
-
-            {isSelected && (
-                <div className="flex shrink-0 items-center gap-1" onClick={e => e.stopPropagation()}>
-                    <button type="button" onClick={() => onQtyChange(variant.id, Math.max(1, (selectedEntry.soLuong || 1) - 1))}
-                        className="flex size-7 items-center justify-center rounded-md bg-bo-primary-soft text-bo-primary transition-colors hover:bg-bo-primary/15">
-                        <Minus className="size-3" />
-                    </button>
-                    <input
-                        type="number"
-                        min={1}
-                        value={selectedEntry.soLuong || 1}
-                        onChange={e => onQtyChange(variant.id, Math.max(1, parseInt(e.target.value) || 1))}
-                        className="h-7 w-12 rounded-md border border-bo-border bg-white text-center text-[13px] font-semibold text-bo-foreground focus:border-bo-primary focus:outline-none focus:ring-1 focus:ring-bo-primary/30"
-                    />
-                    <button type="button" onClick={() => onQtyChange(variant.id, (selectedEntry.soLuong || 1) + 1)}
-                        className="flex size-7 items-center justify-center rounded-md bg-bo-primary-soft text-bo-primary transition-colors hover:bg-bo-primary/15">
-                        <Plus className="size-3" />
-                    </button>
-                </div>
-            )}
-        </div>
-    );
+/** Câu lỗi tải danh mục: 403 → thiếu quyền (Thử lại vô ích); mất kết nối; còn lại câu của máy chủ, bỏ dấu chấm cuối. */
+function moTaLoiTai(e) {
+  if (getApiErrorStatus(e) === 403) {
+    return { chu: "tài khoản chưa có quyền lập yêu cầu nhập hàng ở kho đang làm việc (quyền “Lập yêu cầu và đơn mua hàng”)", khongQuyen: true };
+  }
+  if (!e?.response) return { chu: "không nhận được phản hồi từ máy chủ", khongQuyen: false };
+  return { chu: getApiErrorMessage(e, "máy chủ báo lỗi").trim().replace(/[.。]+$/, ""), khongQuyen: false };
 }
 
-// ─── ProductCard ──────────────────────────────────────────────────────────────
-function ProductCard({ product, selectedMap, onToggle, onQtyChange }) {
-    const [expanded, setExpanded] = useState(false);
-    const variants = (product.bienTheSanPhams || []).filter(v => v.trangThai !== 0);
-    const selectedCount = variants.filter(v => selectedMap.has(v.id)).length;
-    const allSelected = variants.length > 0 && variants.every(v => selectedMap.has(v.id));
-
-    const mainImg =
-        product.anhQuanAos?.find(a => a.anhChinh === 1)?.tepTin?.duongDan ||
-        product.anhQuanAos?.[0]?.tepTin?.duongDan ||
-        variants[0]?.anhBienThe?.tepTin?.duongDan;
-
-    const handleSelectAll = (e) => {
-        e.stopPropagation();
-        variants.forEach(v => onToggle(v, product.tenSanPham, !allSelected));
-    };
-
-    return (
-        <div className={`overflow-hidden rounded-lg border bg-white transition-colors ${selectedCount > 0 ? 'border-bo-primary/50 shadow-sm' : 'border-bo-border'}`}>
-            <button type="button" onClick={() => setExpanded(p => !p)}
-                className="flex w-full items-center gap-3 p-3.5 text-left transition-colors hover:bg-bo-surface-subtle">
-                {mainImg
-                    ? <img src={mainImg} alt="" className="size-12 shrink-0 rounded-md border border-bo-border object-cover" />
-                    : <div className="flex size-12 shrink-0 items-center justify-center rounded-md border border-bo-border bg-bo-surface-subtle"><ShoppingBag className="size-5 text-slate-400" /></div>
-                }
-                <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-bo-foreground">{product.tenSanPham}</p>
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
-                        {product.danhMuc?.tenDanhMuc && <span className="rounded bg-bo-primary-soft px-1.5 py-0.5 text-[10px] font-semibold uppercase text-bo-primary">{product.danhMuc.tenDanhMuc}</span>}
-                        <span className="font-mono text-[10px] font-semibold text-bo-muted">{product.maSanPham}</span>
-                        <span className="flex items-center gap-0.5 text-[10px] font-medium text-slate-400"><Layers className="size-3" />{variants.length} biến thể</span>
-                    </div>
-                </div>
-                {selectedCount > 0 && (
-                    <span className="flex h-6 min-w-[24px] shrink-0 items-center justify-center rounded-full bg-bo-primary px-2 text-[11px] font-bold text-white">{selectedCount}</span>
-                )}
-                <ChevronRight className={`size-4 shrink-0 text-bo-muted transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`} />
-            </button>
-
-            {expanded && (
-                <div className="space-y-2 border-t border-bo-border bg-bo-surface-subtle/60 px-3.5 py-3">
-                    {variants.length === 0
-                        ? <p className="py-5 text-center text-[13px] italic text-slate-400">Sản phẩm này chưa có biến thể</p>
-                        : (
-                            <>
-                                <div className="flex items-center justify-between">
-                                    <p className="text-[10px] font-semibold uppercase tracking-widest text-bo-muted">{variants.length} biến thể</p>
-                                    <button type="button" onClick={handleSelectAll} className="text-[11px] font-semibold text-bo-primary transition-colors hover:text-bo-primary-hover">
-                                        {allSelected ? '− Bỏ chọn tất cả' : '+ Chọn tất cả'}
-                                    </button>
-                                </div>
-                                <div className="space-y-1.5">
-                                    {variants.map(v => (
-                                        <VariantRow
-                                            key={v.id}
-                                            variant={v}
-                                            selectedEntry={selectedMap.get(v.id)}
-                                            onToggle={(variant) => onToggle(variant, product.tenSanPham, !selectedMap.has(variant.id))}
-                                            onQtyChange={onQtyChange}
-                                        />
-                                    ))}
-                                </div>
-                            </>
-                        )
-                    }
-                </div>
-            )}
-        </div>
-    );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// MAIN PAGE
-// ═══════════════════════════════════════════════════════════════════════════════
+/**
+ * Tạo yêu cầu nhập hàng (/purchase-requests/create) · khối chứng từ "một khối" như các màn tạo chứng từ khác (bản 2,
+ * chốt 25/10/2026, canvas "Tạo yêu cầu nhập hàng – thiết kế lại").
+ *
+ * - Danh mục: GET /nghiep-vu/yeu-cau-mua-hang/hang-kho-tong — mọi mã nhập được kèm khả dụng, đang về, số đề xuất (quy tắc
+ *   Cần mua ở Tổng quan), cờ còn dư, yêu cầu nhập đang mở. Một danh sách dùng cho ô tìm, Gợi ý cần nhập, Dán từ Excel.
+ * - Thêm hàng: tìm / quét từng mã (quét lại cộng 1), "Thêm cả n biến thể", Gợi ý cần nhập (cả loạt theo số đề xuất),
+ *   Dán từ Excel. Bảng gom theo sản phẩm (tìm, lọc Cần chú ý, thu gọn, phân trang theo config/bangChungTu.js), chọn nhiều
+ *   để đặt số lượng / theo đề xuất / bỏ; hoặc nhập theo lưới màu × kích cỡ.
+ * - Mã đang trong yêu cầu khác hay Kho tổng còn dư: chỉ cảnh báo, không chặn gửi.
+ * - Gửi duyệt: POST /nghiep-vu/yeu-cau-mua-hang/create (máy chủ kiểm ngày giao, ghi chú, dòng hàng) → mở Chi tiết yêu cầu
+ *   vừa tạo. Đang nhập dở mà rời trang thì hỏi trước. Điền sẵn từ Tổng quan: ?khoId=&bienTheId=&soLuong=&ten=
+ */
 export default function CreatePurchaseRequestPage() {
-    const navigate = useNavigate();
-    const [searchParams] = useSearchParams(); // Đọc query params
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const quayLai = useQuayLai("/purchase-requests");
+  const oTimRef = useRef(null);
+  const henSangRef = useRef(0);
+  const dangGuiRef = useRef(false);
+  const daDienSanRef = useRef(false);
+  // Mỗi lần bỏ hàng loạt một thông báo Hoàn tác riêng; lần bỏ mới đóng thông báo cũ (chỉ hoàn tác được lần gần nhất)
+  const hoanTacRef = useRef({ lan: 0, id: null });
+  const dongRef = useRef([]);
 
-    // Form state
-    const [khoId, setKhoId] = useState('');
-    const [ngayGiaoDuKien, setNgayGiaoDuKien] = useState('');
-    const [ghiChu, setGhiChu] = useState('');
+  const [khoId, setKhoId] = useState(null);
+  const [dong, setDong] = useState([]);
+  const [ghimLuoi, setGhimLuoi] = useState([]); // sản phẩm giữ lại trên lưới dù chưa có số lượng nào
+  const [thuTuSp, setThuTuSp] = useState([]); // thứ tự sản phẩm theo lần thêm đầu tiên (noiThuTuSanPham)
+  const [cheDo, setCheDo] = useState("danhSach");
+  const [trangLuoi, setTrangLuoi] = useState(0);
+  const [coTrangLuoi, setCoTrangLuoi] = useState(CO_TRANG_NHOM[0]);
+  const [chon, setChon] = useState(() => new Set());
+  const [ngayGiao, setNgayGiao] = useState("");
+  const [ghiChu, setGhiChu] = useState("");
+  const [hop, setHop] = useState(""); // "" | "goiY" | "dan" | "gui"
+  const [hoiRoi, setHoiRoi] = useState(null);
+  const [dangGui, setDangGui] = useState(false);
+  const [loiGui, setLoiGui] = useState(null);
+  const [daGui, setDaGui] = useState(false);
+  const [dongSang, setDongSang] = useState(null);
+  const [lanSang, setLanSang] = useState(0); // quét lại cùng mã trong lúc còn tô sáng vẫn đưa bảng tới dòng đó
+  const [dienSan, setDienSan] = useState(null); // { soMa, coSoLuong, khongThay, ten, khoDeXuat, khoDeXuatTen }
 
-    // Warehouses
-    const [warehouses, setWarehouses] = useState([]);
-    const [loadingWarehouses, setLoadingWarehouses] = useState(true);
-
-    // Products
-    const [products, setProducts] = useState([]);
-    const [loadingProducts, setLoadingProducts] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [productPage, setProductPage] = useState(0);
-    const [productTotalPages, setProductTotalPages] = useState(0);
-
-    // Selected: Map<variantId, { variant, productName, soLuong }>
-    const [selected, setSelected] = useState(new Map());
-
-    // Submit
-    const [submitting, setSubmitting] = useState(false);
-    const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-
-    // Chỉ điền sẵn từ đường dẫn một lần (StrictMode chạy effect 2 lần).
-    const daDienSanRef = useRef(false);
-
-    /**
-     * Tìm biến thể từ đường dẫn rồi thêm vào danh sách đã chọn.
-     * 1. Theo tên sản phẩm (tham số `ten`, từ Tổng quan): không phụ thuộc tồn kho, tìm được cả mã đã hết hàng.
-     * 2. Theo kho (cách cũ, cho đường dẫn chỉ có khoId + bienTheId): API theo kho chỉ trả sản phẩm còn hàng ở kho đó.
-     */
-    const findVariantInWarehouse = useCallback(async (warehouseId, variantIdToFind, tenSanPham, soLuong) => {
-        const timTrong = (dsSanPham) => {
-            for (const product of dsSanPham) {
-                const match = (product.bienTheSanPhams || []).find(v => String(v.id) === String(variantIdToFind));
-                if (match) return { variant: match, productName: product.tenSanPham };
-            }
-            return null;
-        };
-        try {
-            let ketQua = null;
-            if (tenSanPham) {
-                const res = await productService.filterProducts({
-                    page: 0, size: 50,
-                    filters: [{ fieldName: 'tenSanPham', operation: 'LIKE', value: tenSanPham, logicType: 'AND' }],
-                    sorts: [{ fieldName: 'ngayTao', direction: 'DESC' }],
-                });
-                const data = res?.data?.data || res?.data || {};
-                ketQua = timTrong(data.content || []);
-            }
-            if (!ketQua && warehouseId) {
-                const res = await apiClient.get(`/api/v1/san-pham-quan-ao/theo-kho/${warehouseId}`);
-                ketQua = timTrong(res.data?.data || res.data || []);
-            }
-
-            if (ketQua) {
-                setSelected(prev => {
-                    const next = new Map(prev);
-                    if (!next.has(ketQua.variant.id)) {
-                        next.set(ketQua.variant.id, { variant: ketQua.variant, productName: ketQua.productName, soLuong });
-                    }
-                    return next;
-                });
-                toast.success('Đã điền sẵn sản phẩm theo đề xuất. Kiểm tra lại số lượng và chọn ngày giao dự kiến trước khi gửi.');
-            } else {
-                toast.error('Không tìm thấy sản phẩm trong đề xuất (có thể đã ngừng kinh doanh). Hãy tìm và chọn sản phẩm trong danh sách sản phẩm.');
-            }
-        } catch (error) {
-            console.error('Lỗi khi tìm biến thể từ đường dẫn:', error);
-            toast.error('Không thể tự tải sản phẩm từ đường dẫn');
-        }
-    }, []);
-
-    // Đọc tham số đường dẫn: khoId, bienTheId, soLuong (mặc định 1), ten (tên sản phẩm để tìm).
-    const applyUrlParams = useCallback(() => {
-        if (daDienSanRef.current) return;
-        const urlKhoId = searchParams.get('khoId');
-        const urlBienTheId = searchParams.get('bienTheId');
-        if (!urlKhoId && !urlBienTheId) return;
-        daDienSanRef.current = true;
-
-        if (urlKhoId) {
-            setKhoId(urlKhoId); // Kho bán hàng sẽ tự chuyển sang Kho tổng và hiện giải thích bên dưới ô chọn
-        }
-        if (urlBienTheId) {
-            findVariantInWarehouse(
-                urlKhoId,
-                urlBienTheId,
-                searchParams.get('ten')?.trim() || '',
-                soNguyenDuong(searchParams.get('soLuong')),
-            );
-        }
-    }, [searchParams, findVariantInWarehouse]);
-
-    // Hoãn qua microtask để tránh setState đồng bộ trong effect
-    // (react-hooks/set-state-in-effect); vẫn chạy ngay khi mount.
-    useEffect(() => { queueMicrotask(() => applyUrlParams()); }, [applyUrlParams]);
-
-    // ── Load warehouses ──
-    const loadWarehouses = useCallback(async () => {
-        setLoadingWarehouses(true);
-        try {
-            const res = await apiClient.post('/api/v1/kho/filter', {
-                filters: [], sorts: [{ fieldName: 'tenKho', direction: 'ASC' }], page: 0, size: 100,
-            });
-            setWarehouses(res.data?.data?.content || res.data?.content || []);
-        } catch {
-            toast.error('Không thể tải danh sách kho');
-        } finally {
-            setLoadingWarehouses(false);
-        }
-    }, []);
-
-    // Hoãn qua microtask để tránh setState đồng bộ trong effect; vẫn chạy khi mount.
-    useEffect(() => { queueMicrotask(() => loadWarehouses()); }, [loadWarehouses]);
-
-    // ── Fetch products ──
-    const fetchProducts = useCallback(async (pg = 0, term = '') => {
-        setLoadingProducts(true);
-        try {
-            const res = await productService.filterProducts({
-                page: pg, size: PRODUCT_PAGE_SIZE,
-                filters: term.trim()
-                    ? [{ fieldName: 'tenSanPham', operation: 'LIKE', value: term.trim(), logicType: 'AND' }]
-                    : [],
-                sorts: [{ fieldName: 'ngayTao', direction: 'DESC' }],
-            });
-            const data = res?.data?.data || res?.data || {};
-            setProducts(data.content || []);
-            setProductTotalPages(data.totalPages || 0);
-            setProductPage(pg);
-        } catch {
-            toast.error('Không thể tải danh sách sản phẩm');
-        } finally {
-            setLoadingProducts(false);
-        }
-    }, []);
-
-    // Hoãn qua microtask để tránh setState đồng bộ trong effect; vẫn chạy khi mount.
-    useEffect(() => { queueMicrotask(() => fetchProducts(0, '')); }, [fetchProducts]);
-
-    useEffect(() => {
-        const t = setTimeout(() => fetchProducts(0, searchTerm), 350);
-        return () => clearTimeout(t);
-    }, [searchTerm, fetchProducts]);
-
-    // ── Selected handlers ──
-    const handleToggle = (variant, productName, select) => {
-        setSelected(prev => {
-            const next = new Map(prev);
-            if (select) next.set(variant.id, { variant, productName, soLuong: 1 });
-            else next.delete(variant.id);
-            return next;
-        });
+  useEffect(() => {
+    const henSang = henSangRef;
+    const hoanTac = hoanTacRef;
+    return () => {
+      clearTimeout(henSang.current);
+      // Rời trang thì Hoàn tác không còn tác dụng: đóng luôn thông báo
+      if (hoanTac.current.id) toast.dismiss(hoanTac.current.id);
     };
+  }, []);
+  // Dòng mới nhất cho nút Hoàn tác (bấm sau nhiều lần render): biết mã nào thật sự được chèn lại
+  useEffect(() => { dongRef.current = dong; }, [dong]);
 
-    const handleQtyChange = (variantId, qty) => {
-        setSelected(prev => {
-            const next = new Map(prev);
-            const entry = next.get(variantId);
-            if (entry) next.set(variantId, { ...entry, soLuong: qty });
-            return next;
-        });
-    };
+  // ── Danh mục hàng Kho tổng ──
+  const taiHang = useCallback(async () => {
+    const res = await purchaseRequestService.hangKhoTong(khoId);
+    return res?.data?.data ?? null;
+  }, [khoId]);
+  const q = useTaiDuLieu(taiHang, `hang-kho-tong-${khoId ?? "mac-dinh"}`);
+  const duLieu = q.data ?? null;
+  const dsHang = useMemo(() => duLieu?.bienThe ?? [], [duLieu]);
+  const chiMuc = useMemo(() => taoChiMuc(dsHang), [dsHang]);
+  const kho = duLieu?.kho ?? null;
+  // Dữ liệu đang giữ là của kho khác kho vừa chọn (đổi Kho tổng mà chưa tải xong hoặc tải lỗi): khả dụng, đề xuất đang
+  // là số của kho cũ → khóa gửi và các thao tác lấy số đề xuất; lỗi thì báo kèm Thử lại. So theo kho trong dữ liệu (không
+  // theo khóa tải) nên quay về đúng kho đang hiện thì không khóa oan.
+  const duLieuCu = Boolean(duLieu) && khoId != null && String(duLieu.kho?.id) !== String(khoId);
+  // Kể cả khoảnh khắc trước khi lượt tải mới bắt đầu (loading chưa bật): chưa có lỗi thì coi như đang tải
+  const dangTaiKho = duLieuCu && !q.error;
+  const loiTai = q.error && (!duLieu || duLieuCu) ? moTaLoiTai(q.error) : null;
 
-    // Chỉ Kho tổng nhận hàng từ nhà cung cấp; kho bán hàng được bổ sung bằng phiếu chuyển kho.
-    const khoNhapNcc = useMemo(() => warehouses.filter(laKhoNhapNcc), [warehouses]);
-    const khoIdHieuLuc = khoNhapNcc.some(w => String(w.id) === String(khoId))
-        ? String(khoId)
-        : (khoNhapNcc[0] ? String(khoNhapNcc[0].id) : '');
-    const khoIdDuongDan = searchParams.get('khoId');
-    const khoTuDuongDan = warehouses.find(w => String(w.id) === khoIdDuongDan);
+  // ── Điền sẵn từ đường dẫn (một lần, khi danh mục tải xong) ──
+  useEffect(() => {
+    if (!duLieu || daDienSanRef.current) return;
+    daDienSanRef.current = true;
+    const deXuat = docDeXuatDuongDan(searchParams, chiMuc, duLieu.dsKhoTong);
+    if (!deXuat) return;
+    queueMicrotask(() => {
+      if (deXuat.dong) setDong((cu) => themNhieu(cu, [deXuat.dong], "giu").dong);
+      // Đề xuất cho một Kho tổng khác Kho tổng mặc định: chọn đúng kho đó (danh mục tải lại theo kho)
+      if (deXuat.khoTong && deXuat.khoTong !== String(duLieu.kho?.id)) setKhoId(Number(deXuat.khoTong));
+      setDienSan({
+        soMa: deXuat.dong ? 1 : 0, coSoLuong: deXuat.coSoLuong, khongThay: deXuat.khongThay,
+        ten: deXuat.ten || (deXuat.dong ? chiMuc.theoId.get(String(deXuat.dong.bienTheId))?.tenSanPham : null) || null,
+        khoDeXuat: deXuat.khoDeXuat, khoDeXuatTen: null,
+      });
+    });
+    // Kho bán hàng trong đề xuất: lấy tên để giải thích (không lấy được thì ghi chung "kho bán hàng")
+    if (deXuat.khoDeXuat) {
+      khoService.getById(deXuat.khoDeXuat)
+        .then((res) => {
+          const ten = res?.data?.data?.tenKho || res?.data?.tenKho;
+          if (ten) setDienSan((cu) => (cu ? { ...cu, khoDeXuatTen: ten } : cu));
+        })
+        .catch(() => {});
+    }
+  }, [duLieu, chiMuc, searchParams]);
 
-    // ── Validate ──
-    const validate = () => {
-        if (!khoIdHieuLuc) { toast.error('Chưa có Kho tổng đang hoạt động để nhận hàng từ nhà cung cấp'); return false; }
-        if (!ngayGiaoDuKien) { toast.error('Vui lòng chọn ngày giao dự kiến'); return false; }
-        if (selected.size === 0) { toast.error('Vui lòng chọn ít nhất một biến thể sản phẩm'); return false; }
-        return true;
-    };
+  // ── Bảng hàng ──
+  // Thứ tự sản phẩm theo lần thêm đầu tiên, chỉ nối thêm: bỏ dòng đầu của một sản phẩm (hay xóa ô trên lưới) thì
+  // sản phẩm đó không nhảy chỗ; sản phẩm mới chưa kịp ghi thì dongBang cũng xếp cuối nên không bị nháy thứ tự
+  useEffect(() => {
+    if (noiThuTuSanPham(thuTuSp, dong.map((d) => d.bienTheId), chiMuc) === thuTuSp) return;
+    queueMicrotask(() => setThuTuSp((cu) => noiThuTuSanPham(cu, dong.map((d) => d.bienTheId), chiMuc)));
+  }, [dong, chiMuc, thuTuSp]);
+  const dongB = useMemo(() => taoDongBang(dong, chiMuc, thuTuSp), [dong, chiMuc, thuTuSp]);
+  const bang = useBangChungTu(dongB, { boLoc: BO_LOC_BANG, tongTheo: TONG_THEO });
+  const { denDong } = bang;
 
-    // ── Submit ──
-    const handleSubmit = () => {
-        if (!validate()) return;
-        setShowConfirmDialog(true);
-    };
+  // Vừa thêm / quét một mã: đưa bảng tới trang và nhóm có mã đó
+  useEffect(() => {
+    if (dongSang == null || cheDo !== "danhSach") return;
+    queueMicrotask(() => denDong(dongSang));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dongSang, lanSang]);
 
-    const confirmCreate = async () => {
-        setSubmitting(true);
-        try {
-            const payload = {
-                khoNhapId: parseInt(khoIdHieuLuc),
-                ngayGiaoDuKien: new Date(ngayGiaoDuKien).toISOString(),
-                ghiChu: ghiChu.trim() || null,
-                chiTietYeuCauMuaHangs: Array.from(selected.values()).map(({ variant, soLuong }) => ({
-                    bienTheSanPhamId: variant.id,
-                    soLuongDat: soLuong,
-                })),
-            };
-            await purchaseRequestService.create(payload);
-            toast.success('Tạo yêu cầu mua hàng thành công! Chờ quản lý duyệt.');
-            setShowConfirmDialog(false);
-            setTimeout(() => navigate('/purchase-requests'), 1200);
-        } catch (err) {
-            toast.error(err.response?.data?.message || 'Không thể tạo yêu cầu. Vui lòng thử lại.');
-        } finally {
-            setSubmitting(false);
+  const toSang = (bienTheId) => {
+    setDongSang(bienTheId);
+    setLanSang((n) => n + 1);
+    clearTimeout(henSangRef.current);
+    henSangRef.current = setTimeout(() => setDongSang(null), 1200);
+  };
+
+  // Lưới: sản phẩm có hàng hoặc được giữ lại dù chưa có số lượng, cùng thứ tự với bảng
+  const spLuoi = useMemo(() => {
+    const coHang = new Set();
+    const theoBang = [];
+    dongB.forEach((d) => {
+      const bt = chiMuc.theoId.get(String(d.id));
+      if (!bt) return;
+      coHang.add(khoaSanPham(bt));
+      theoBang.push(khoaSanPham(bt));
+    });
+    return [...new Set([...thuTuSp, ...theoBang, ...ghimLuoi])]
+      .filter((k) => (coHang.has(k) || ghimLuoi.includes(k)) && chiMuc.theoSanPham.has(k));
+  }, [dongB, ghimLuoi, thuTuSp, chiMuc]);
+  const catLuoi = phanTrang(spLuoi, trangLuoi, spLuoi.length > NGUONG_CONG_CU ? coTrangLuoi : Infinity);
+  const sanPhamLuoi = catLuoi.muc.map((k) => ({ khoa: k, bienThe: chiMuc.theoSanPham.get(k) ?? [] }));
+  // Đưa lưới tới trang có sản phẩm vừa thêm: vị trí theo thứ tự sản phẩm SAU khi thêm (sản phẩm đã từng có thì về
+  // chỗ cũ, không phải cuối)
+  const denTrangLuoi = (bienTheId) => {
+    const bt = chiMuc.theoId.get(String(bienTheId));
+    if (!bt) return;
+    const khoa = khoaSanPham(bt);
+    const thuTuMoi = noiThuTuSanPham(thuTuSp, [bienTheId], chiMuc);
+    const sauKhiThem = [...new Set([...thuTuMoi, ...spLuoi])].filter((k) => k === khoa || spLuoi.includes(k));
+    const viTri = sauKhiThem.indexOf(khoa);
+    if (viTri >= 0 && sauKhiThem.length > NGUONG_CONG_CU) setTrangLuoi(Math.floor(viTri / coTrangLuoi));
+  };
+
+  // ── Thêm, sửa, bỏ ──
+  const themMot = (bt) => {
+    setDong((cu) => themDong(cu, bt.bienTheId, 1));
+    toSang(bt.bienTheId);
+    if (cheDo === "luoi") denTrangLuoi(bt.bienTheId);
+  };
+
+  const themCaSanPham = (khoa) => {
+    const caSp = chiMuc.theoSanPham.get(khoa) ?? [];
+    const co = new Set(dong.map((d) => String(d.bienTheId)));
+    const ds = caSp.filter((bt) => !co.has(String(bt.bienTheId)));
+    if (!ds.length) {
+      if (caSp[0]) toast.info(`Đã có đủ ${soVN(caSp.length)} biến thể của ${caSp[0].tenSanPham} trong yêu cầu`);
+      return;
+    }
+    // Mã sắp hết lấy theo số đề xuất, mã còn hàng để 1 cho người lập sửa (số đề xuất đang là của kho cũ thì để 1 cả)
+    const theoDeXuat = (bt) => !duLieuCu && bt.soLuongDeXuat > 0;
+    setDong((cu) => themNhieu(cu, ds.map((bt) => ({ bienTheId: bt.bienTheId, soLuong: theoDeXuat(bt) ? bt.soLuongDeXuat : 1 })), "giu").dong);
+    toSang(ds[0].bienTheId);
+    if (cheDo === "luoi") denTrangLuoi(ds[0].bienTheId);
+    toast.success(`Đã thêm ${soVN(ds.length)} biến thể của ${ds[0].tenSanPham}`, {
+      description: duLieuCu ? "Mỗi mã 1 (đang tải số liệu của kho vừa chọn)." : "Mã sắp hết lấy theo số đề xuất, còn lại mỗi mã 1.",
+      ...(cheDo === "luoi" ? {} : { action: { label: "Nhập theo lưới", onClick: () => doiCheDo("luoi") } }),
+    });
+  };
+
+  const themGoiY = (ids) => {
+    const ds = ids.map((id) => chiMuc.theoId.get(String(id))).filter(Boolean);
+    const kq = themNhieu(dong, ds.map((bt) => ({ bienTheId: bt.bienTheId, soLuong: bt.soLuongDeXuat })), "giu");
+    setDong(kq.dong);
+    setHop("");
+    if (cheDo !== "danhSach") doiCheDo("danhSach");
+    if (ds[0]) toSang(ds[0].bienTheId);
+    toast.success(`Đã thêm ${soVN(kq.moi)} mã theo số đề xuất`, {
+      description: `Tổng ${soVN(ds.reduce((s, bt) => s + Number(bt.soLuongDeXuat || 0), 0))}. Sửa từng dòng, hoặc chọn nhiều dòng để đặt số lượng một lần.`,
+    });
+  };
+
+  const themDan = (dsDan, cach, soLoi) => {
+    const kq = themNhieu(dong, dsDan, cach);
+    setDong(kq.dong);
+    setHop("");
+    if (dsDan[0]) toSang(dsDan[0].bienTheId);
+    const chu = [
+      kq.moi ? `${soVN(kq.moi)} mã mới` : "",
+      kq.capNhat ? `${cach === "thay" ? "thay số lượng" : "cộng thêm"} ${soVN(kq.capNhat)} mã đã có` : "",
+    ].filter(Boolean).join(", ");
+    const cau = `Đã thêm từ danh sách dán: ${chu || "không có mã mới"}`;
+    if (soLoi) toast.warning(cau, { description: `Bỏ qua ${soVN(soLoi)} dòng lỗi.` });
+    else toast.success(cau);
+  };
+
+  /**
+   * Bỏ các mã `ids`. `hoanTac`: hiện thông báo có nút Hoàn tác (bỏ hàng loạt). Hoàn tác chỉ chèn lại đúng các dòng vừa bỏ
+   * (chenLaiDong) — số đã sửa và mã thêm sau lần bỏ vẫn giữ; lần bỏ mới đóng thông báo cũ, mỗi lần một id riêng nên
+   * hai lần bỏ không bị gộp thành một thông báo.
+   */
+  const boNhieu = (ids, { hoanTac = true } = {}) => {
+    if (!ids.length) return;
+    const xoa = new Set(ids.map(String));
+    const daBo = dong.filter((d) => xoa.has(String(d.bienTheId)));
+    if (!daBo.length) return;
+    const daChonTruoc = daBo.map((d) => String(d.bienTheId)).filter((id) => chon.has(id));
+    const conLai = boDong(dong, ids);
+    // Còn ít dòng thì ô tìm trong bảng ẩn đi: bỏ từ khóa để không giấu dòng mà không có cách bỏ lọc
+    if (conLai.length <= NGUONG_CONG_CU) { bang.xoaTuKhoa(); bang.xoaLoc(); }
+    setDong(conLai);
+    setChon((s) => { const moi = new Set(s); xoa.forEach((id) => moi.delete(id)); return moi; });
+    // Nút vừa bấm (thùng rác, Bỏ khỏi yêu cầu…) biến mất cùng dòng: đưa tiêu điểm về ô tìm, không cuộn trang
+    setTimeout(() => {
+      const el = document.activeElement;
+      if (!el || el === document.body || !el.isConnected) oTimRef.current?.focus({ preventScroll: true });
+    }, 0);
+    if (!hoanTac) return;
+    if (hoanTacRef.current.id) toast.dismiss(hoanTacRef.current.id);
+    const lan = hoanTacRef.current.lan + 1;
+    const id = `hoan-tac-bo-${lan}`;
+    hoanTacRef.current = { lan, id };
+    toast.success(`Đã bỏ ${soVN(daBo.length)} biến thể khỏi yêu cầu`, {
+      id,
+      action: {
+        label: "Hoàn tác",
+        onClick: () => {
+          const coSan = new Set(dongRef.current.map((d) => String(d.bienTheId)));
+          const chenLai = new Set(daBo.map((d) => String(d.bienTheId)).filter((id) => !coSan.has(id)));
+          setDong((cu) => chenLaiDong(cu, daBo));
+          // Mã người dùng đã tự thêm lại sau lần bỏ thì giữ nguyên, không tích chọn theo
+          setChon((s) => new Set([...s, ...daChonTruoc.filter((id) => chenLai.has(id))]));
+        },
+      },
+    });
+  };
+
+  const doiChon = (ids, co) => setChon((s) => {
+    const moi = new Set(s);
+    ids.forEach((id) => (co ? moi.add(String(id)) : moi.delete(String(id))));
+    return moi;
+  });
+
+  const datSoLuongChon = (ids, sl) => {
+    setDong((cu) => datSoLuong(cu, ids, sl));
+    toast.success(`Đã đặt số lượng ${soVN(sl)} cho ${soVN(ids.length)} dòng`);
+  };
+
+  const theoDeXuatChon = (ids) => {
+    const kq = theoSoDeXuat(dong, ids, chiMuc.theoId);
+    setDong(kq.dong);
+    toast.success(`Đã đưa ${soVN(kq.dat)} dòng về số đề xuất`, {
+      description: kq.khong ? `Giữ nguyên ${soVN(kq.khong)} dòng chưa có số đề xuất (Kho tổng chưa dưới ngưỡng).` : undefined,
+    });
+  };
+
+  const doiOLuoiCua = (bienTheId, chu) => {
+    const moi = doiOLuoi(dong, bienTheId, chu);
+    if (moi === dong) return;
+    // Xóa hết số của một sản phẩm trên lưới: vẫn giữ sản phẩm đó trên lưới để gõ lại
+    const bt = chiMuc.theoId.get(String(bienTheId));
+    if (bt) setGhimLuoi((cu) => (cu.includes(khoaSanPham(bt)) ? cu : [...cu, khoaSanPham(bt)]));
+    setDong(moi);
+  };
+
+  const boSanPhamLuoi = (khoa) => {
+    const ids = (chiMuc.theoSanPham.get(khoa) ?? []).map((bt) => bt.bienTheId)
+      .filter((id) => dong.some((d) => String(d.bienTheId) === String(id)));
+    setGhimLuoi((cu) => cu.filter((k) => k !== khoa));
+    boNhieu(ids);
+  };
+
+  function doiCheDo(moi) {
+    setCheDo(moi);
+    setChon(new Set());
+    if (moi === "danhSach") setGhimLuoi([]);
+    else setTrangLuoi(0);
+  }
+
+  const doiKho = (id) => {
+    setKhoId(id ? Number(id) : null);
+    setChon(new Set());
+  };
+
+  // ── Tính toán hiển thị ──
+  const homNay = homNayVN();
+  const cb = useMemo(() => canhBao(dong, chiMuc), [dong, chiMuc]);
+  const lyDo = daGui
+    ? ""
+    : loiTai
+      ? "Chưa tải được danh sách hàng"
+      : lyDoKhoaGui({ dangTai: q.initialLoading || dangTaiKho, coKho: Boolean(kho), dong, chiMuc, ngayGiao, homNay });
+  const soGoiYMoi = useMemo(() => {
+    const co = new Set(dong.map((d) => String(d.bienTheId)));
+    return dsHang.filter((bt) => laGoiY(bt) && !bt.yeuCauMo && !co.has(String(bt.bienTheId))).length;
+  }, [dsHang, dong]);
+  // Dòng không còn trong danh mục (mã vừa ngừng kinh doanh): chỉ bỏ được, không gửi được
+  const maNgung = useMemo(
+    () => dong.filter((d) => !chiMuc.theoId.has(String(d.bienTheId))).map((d) => d.bienTheId),
+    [dong, chiMuc],
+  );
+  const tomTat = {
+    soSp: bang.tong.soSanPham,
+    soDong: bang.tong.soDong,
+    tongSl: bang.tong.soLuong,
+    theoDeXuat: demTheoDeXuat(dong, chiMuc),
+    soChuY: cb.soChuY,
+    theoNhom: theoNhomHang(dong, chiMuc),
+  };
+  const khoa = dangGui || daGui;
+
+  // ── Rời trang ──
+  const coThayDoi = !daGui && (dong.length > 0 || ghiChu.trim() !== "" || ngayGiao !== "");
+  useHoiKhiRoiTrang(coThayDoi && !dangGui, (tiepTuc) => setHoiRoi(() => tiepTuc));
+  const veDanhSach = () => {
+    // Đang nhập dở: hỏi rồi mở danh sách (không lùi lịch sử, vì lùi sẽ bị bộ chặn nút Back hỏi thêm lần nữa)
+    if (coThayDoi) setHoiRoi(() => () => navigate("/purchase-requests"));
+    else quayLai();
+  };
+
+  // ── Gửi duyệt ──
+  const moGui = () => {
+    if (lyDo || dangGui) return;
+    setLoiGui(null);
+    setHop("gui");
+  };
+
+  async function gui() {
+    if (dangGuiRef.current || lyDo) return; // chặn bấm đúp (state chỉ cập nhật ở lần render sau)
+    dangGuiRef.current = true;
+    setDangGui(true);
+    setLoiGui(null);
+    try {
+      const res = await purchaseRequestService.create(taoBodyYeuCau({ khoNhapId: kho.id, ngayGiao, ghiChu }, dong));
+      const id = idYeuCauMoi(res?.data);
+      setDaGui(true);
+      setHop("");
+      toast.success("Đã gửi yêu cầu nhập hàng chờ duyệt", { description: res?.data?.data?.soYeuCauMuaHang || undefined });
+      // Thay mục lịch sử: Quay lại ở chi tiết về danh sách, không về biểu mẫu đã gửi
+      navigate(id != null ? `/purchase-requests/${id}` : "/purchase-requests", { replace: true });
+    } catch (e) {
+      setLoiGui(e?.response
+        ? getApiErrorMessage(e, "Máy chủ không xử lý được yêu cầu, vui lòng thử lại")
+        : "Không nhận được phản hồi từ máy chủ. Kiểm tra kết nối rồi thử lại.");
+    } finally {
+      dangGuiRef.current = false;
+      setDangGui(false);
+    }
+  }
+
+  // ── Dòng thông báo ──
+  const thongBao = [
+    loiTai ? (
+      <DongThongBao key="loi-tai" tone="bad" actions={loiTai.khongQuyen ? undefined : <NutChu onClick={q.reload}>Thử lại</NutChu>}>
+        Không tải được danh sách hàng: {loiTai.chu}.
+      </DongThongBao>
+    ) : null,
+    duLieu && !kho ? (
+      <DongThongBao key="khong-kho" tone="bad">
+        Chưa có Kho tổng đang hoạt động để nhận hàng từ nhà cung cấp. Vào Quản lý kho để đặt một kho làm Kho tổng.
+      </DongThongBao>
+    ) : null,
+    dienSan?.soMa ? (
+      <DongThongBao key="dien-san" tone="info">
+        Đã điền sẵn <b className="font-semibold">1 mã</b>{dienSan.ten ? <> của <b className="font-semibold">{dienSan.ten}</b></> : null}
+        {dienSan.coSoLuong
+          ? <> theo đề xuất <b className="font-semibold">Cần bổ sung</b> ở Tổng quan, kèm số lượng đề xuất.</>
+          : ", số lượng tạm để 1."}{" "}
+        Kiểm tra lại, chọn ngày giao dự kiến rồi gửi duyệt.
+        {soGoiYMoi ? <> Còn {soVN(soGoiYMoi)} mã sắp hết khác ở <NutChu onClick={() => setHop("goiY")}>Gợi ý cần nhập</NutChu>.</> : null}
+      </DongThongBao>
+    ) : null,
+    dienSan?.khongThay ? (
+      <DongThongBao key="khong-thay" tone="warn">
+        Không tìm thấy {dienSan.ten ? <b className="font-semibold">{dienSan.ten}</b> : "sản phẩm trong đề xuất"} trong danh sách
+        hàng nhập được (có thể đã ngừng kinh doanh). Tìm và thêm sản phẩm ở ô phía dưới.
+      </DongThongBao>
+    ) : null,
+    maNgung.length && !daGui ? (
+      <DongThongBao
+        key="ma-ngung"
+        tone="bad"
+        actions={<NutChu onClick={() => boNhieu(maNgung)}>Bỏ {soVN(maNgung.length)} mã</NutChu>}
+      >
+        {soVN(maNgung.length)} mã không còn trong danh sách hàng nhập được (vừa ngừng kinh doanh). Bỏ các mã này rồi mới gửi
+        duyệt được.
+      </DongThongBao>
+    ) : null,
+    cb.soChuY && !daGui ? (
+      <DongThongBao
+        key="canh-bao"
+        tone="warn"
+        actions={(
+          <>
+            {bang.coCongCu ? (
+              <NutChu onClick={() => { doiCheDo("danhSach"); bang.datLoc("chuY"); }}>Xem {soVN(cb.soChuY)} mã</NutChu>
+            ) : null}
+            {cb.trung.length ? <NutChu onClick={() => boNhieu(cb.trung)}>Bỏ {soVN(cb.trung.length)} mã trùng</NutChu> : null}
+          </>
+        )}
+      >
+        {cauCanhBao(cb)}
+      </DongThongBao>
+    ) : null,
+  ].filter(Boolean);
+
+  // ── Thân ──
+  const nutXem = (
+    <NutPhanDoan nhan="Cách nhập số lượng" value={cheDo} luaChon={CACH_XEM} onChange={doiCheDo} />
+  );
+  // Lưới vẫn hiện (kèm nút đổi cách xem) khi còn dòng mà mọi dòng đều là mã vừa ngừng, để người dùng quay về Danh sách
+  const coBang = dong.length > 0 || (cheDo === "luoi" && spLuoi.length > 0);
+
+  const chinh = (
+    <>
+      <div className="flex flex-wrap items-start gap-2 px-4 pb-3 pt-4 sm:px-6">
+        <OTimThemHang
+          dsHang={dsHang}
+          chiMuc={chiMuc}
+          dong={dong}
+          khoa={khoa || !kho}
+          onThem={themMot}
+          onThemCa={themCaSanPham}
+          oRef={oTimRef}
+          chuTrong={q.initialLoading ? "Đang tải danh sách hàng…" : loiTai ? "Chưa tải được danh sách hàng." : undefined}
+          className="basis-80"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          disabled={khoa || !kho || duLieuCu}
+          onClick={() => setHop("goiY")}
+          className="gap-1.5 border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
+        >
+          <Sparkles className="size-4 text-bo-primary" aria-hidden="true" />
+          Gợi ý cần nhập
+          {soGoiYMoi ? (
+            <span className="min-w-5 rounded-full bg-bo-primary px-1.5 text-[11px] font-semibold leading-5 text-white tabular-nums">
+              {soVN(soGoiYMoi)}
+            </span>
+          ) : null}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={khoa || !kho}
+          onClick={() => setHop("dan")}
+          className="gap-1.5 border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
+        >
+          <ClipboardList className="size-4" aria-hidden="true" />
+          Dán từ Excel
+        </Button>
+      </div>
+
+      {!coBang ? (
+        <EmptyState
+          icon={PackagePlus}
+          title="Chưa có sản phẩm nào"
+          description={soGoiYMoi
+            ? `${kho?.tenKho || "Kho tổng"} đang có ${soVN(soGoiYMoi)} mã hết hoặc sắp hết. Lấy cả loạt theo số đề xuất, dán danh sách từ Excel, hoặc tìm / quét từng mã ở ô phía trên.`
+            : "Tìm hoặc quét từng mã ở ô phía trên (quét lại cùng mã cộng thêm 1), hoặc dán danh sách SKU – số lượng từ Excel."}
+          action={soGoiYMoi && !khoa && !duLieuCu ? (
+            <Button type="button" onClick={() => setHop("goiY")} className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover">
+              <Sparkles className="size-4" aria-hidden="true" />
+              Xem {soVN(soGoiYMoi)} mã cần nhập
+            </Button>
+          ) : null}
+          className="min-h-[300px] flex-1"
+        />
+      ) : cheDo === "danhSach" ? (
+        <BangHangYeuCauTao
+          bang={bang}
+          dongTatCa={dongB}
+          chon={chon}
+          onDoiChon={doiChon}
+          onDoiSoLuong={(id, chu) => setDong((cu) => doiSoLuongDong(cu, id, chu))}
+          onRoiSoLuong={(id) => setDong((cu) => roiOSoLuong(cu, id))}
+          onBo={(id) => boNhieu([id], { hoanTac: false })}
+          onDatSoLuong={datSoLuongChon}
+          onTheoDeXuat={theoDeXuatChon}
+          soLieuCu={duLieuCu}
+          onBoNhieu={boNhieu}
+          dongSang={dongSang}
+          khoa={khoa}
+          nutXem={nutXem}
+        />
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-3 sm:px-6">
+            {nutXem}
+            <span className="text-xs leading-4 text-bo-muted">Nhập nhanh cả dải màu, cỡ của từng sản phẩm</span>
+          </div>
+          <LuoiNhapSoLuong
+            sanPham={sanPhamLuoi}
+            dong={dong}
+            onDoiO={doiOLuoiCua}
+            onBoSanPham={boSanPhamLuoi}
+            khoa={khoa}
+            phanTrang={catLuoi.soTrang > 1 || spLuoi.length > NGUONG_CONG_CU ? {
+              page: catLuoi.trang,
+              size: coTrangLuoi,
+              total: catLuoi.tong,
+              onPageChange: setTrangLuoi,
+              onSizeChange: (n) => { setCoTrangLuoi(n); setTrangLuoi(0); },
+              sizeOptions: CO_TRANG_NHOM,
+              sizeLabel: "sản phẩm",
+              totalLabel: "sản phẩm",
+            } : null}
+          />
+        </>
+      )}
+    </>
+  );
+
+  const moTaNgay = moTaNgayGiao(ngayGiao, homNay);
+
+  return (
+    <PageContainer className="flex min-h-full flex-col">
+      <KhungChungTu
+        className="overflow-visible"
+        dau={
+          <DauChungTu
+            ma="Tạo yêu cầu nhập hàng"
+            // Dính khi cuộn từ 768px (điện thoại: đầu khối cao gần nửa màn, dính sẽ che bảng)
+            className="rounded-t-lg bg-white shadow-[0_1px_0_var(--color-bo-border)] md:sticky md:top-0 md:z-20"
+            dongPhu={dong.length
+              ? [
+                <b key="sp" className="font-semibold text-bo-foreground">
+                  {soVN(bang.tong.soSanPham)} sản phẩm · {soVN(bang.tong.soDong)} biến thể
+                </b>,
+                <span key="sl">tổng số lượng <b className="font-semibold text-bo-foreground">{soVN(bang.tong.soLuong)}</b></span>,
+              ]
+              : "Chọn hàng cần nhập về Kho tổng và ngày giao dự kiến, rồi gửi quản lý kho duyệt"}
+            onQuayLai={veDanhSach}
+            nhanQuayLai="Quay lại danh sách yêu cầu nhập hàng"
+            menu={[{
+              ma: "bo-het",
+              nhan: "Bỏ tất cả hàng trong yêu cầu",
+              moTa: dong.length ? `Bỏ ${soVN(dong.length)} biến thể, hoàn tác được ngay sau đó` : "Chưa có hàng nào",
+              icon: Trash2,
+              nguyHiem: true,
+              khoa: !dong.length || khoa,
+              onSelect: () => { setGhimLuoi([]); boNhieu(dong.map((d) => d.bienTheId)); },
+            }]}
+            nutChinh={{
+              ma: "gui",
+              nhan: "Gửi duyệt",
+              icon: Send,
+              onClick: moGui,
+              khoa: Boolean(lyDo) || khoa,
+              lyDo: lyDo || undefined,
+              hienLyDo: true,
+              dangChay: dangGui,
+            }}
+          />
         }
-    };
+        tienTrinh={<TienTrinhChungTu buoc={BUOC} nhan="Các bước của yêu cầu nhập hàng" className="border-t-0" />}
+        thongBao={thongBao.length ? thongBao : null}
+        chinh={chinh}
+        cotPhai={(
+          <CotThongTinYeuCau
+            kho={kho}
+            khoChon={khoId}
+            dangTaiKho={dangTaiKho}
+            dsKhoTong={duLieu?.dsKhoTong ?? []}
+            onDoiKho={doiKho}
+            khoDeXuatTen={dienSan?.khoDeXuat ? (dienSan.khoDeXuatTen || "kho bán hàng đã chọn") : null}
+            ngayGiao={ngayGiao}
+            onDoiNgay={setNgayGiao}
+            ghiChu={ghiChu}
+            onDoiGhiChu={setGhiChu}
+            khoa={khoa}
+            tomTat={tomTat}
+            homNay={homNay}
+          />
+        )}
+      />
 
-    const selectedWarehouse = warehouses.find(w => w.id === parseInt(khoIdHieuLuc));
-    const totalItems = Array.from(selected.values()).reduce((s, e) => s + (e.soLuong || 1), 0);
-
-    return (
-        <PageContainer className="space-y-5">
-            {/* ── Header ── */}
-            <PageHeader
-                title="Tạo yêu cầu mua hàng"
-                description="Điền thông tin và chọn sản phẩm cần nhập · Quản lý sẽ xét duyệt trước khi gửi báo giá"
-                actions={
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => navigate('/purchase-requests')}
-                        className="gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                    >
-                        <ArrowLeft className="size-4" />
-                        Quay lại danh sách yêu cầu
-                    </Button>
-                }
-            />
-
-            <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
-
-                {/* ── Card trái: Thông tin yêu cầu ── */}
-                <aside className="flex flex-col gap-5 lg:col-span-5">
-                    <SurfaceCard title="Thông tin yêu cầu">
-
-                        {/* Kho nhập */}
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-bo-foreground">
-                                Kho nhập <span className="text-bo-danger">*</span>
-                            </label>
-                            <select
-                                className={`${CONTROL_CLASS} font-semibold`}
-                                value={khoIdHieuLuc}
-                                onChange={e => setKhoId(e.target.value)}
-                                disabled={loadingWarehouses || khoNhapNcc.length === 0}
-                            >
-                                {khoNhapNcc.length === 0 ? <option value="">-- Chưa có Kho tổng --</option> : null}
-                                {khoNhapNcc.map(kho => (
-                                    <option key={kho.id} value={kho.id}>
-                                        {kho.tenKho} {kho.maKho ? `(${kho.maKho})` : ''}
-                                    </option>
-                                ))}
-                            </select>
-                            {!loadingWarehouses && khoNhapNcc.length === 0 ? (
-                                <p className="text-xs text-bo-danger">
-                                    Chưa có Kho tổng đang hoạt động. Vào Quản lý kho để đặt một kho làm Kho tổng.
-                                </p>
-                            ) : khoTuDuongDan && !laKhoNhapNcc(khoTuDuongDan) && selectedWarehouse ? (
-                                <p className="text-xs leading-5 text-bo-muted">
-                                    {khoTuDuongDan.tenKho} là kho bán hàng, không nhập trực tiếp từ nhà cung cấp. Hàng sẽ nhập về {selectedWarehouse.tenKho}, sau đó chuyển cho {khoTuDuongDan.tenKho} bằng phiếu chuyển kho.
-                                </p>
-                            ) : (
-                                <p className="text-xs text-bo-muted">Chỉ Kho tổng nhận hàng từ nhà cung cấp.</p>
-                            )}
-                        </div>
-
-                        {/* Ngày giao dự kiến */}
-                        <div className="mt-5 flex flex-col gap-2">
-                            <label className="text-sm font-medium text-bo-foreground">
-                                Ngày giao dự kiến <span className="text-bo-danger">*</span>
-                            </label>
-                            <input
-                                type="date"
-                                value={ngayGiaoDuKien}
-                                onChange={e => setNgayGiaoDuKien(e.target.value)}
-                                min={new Date().toISOString().split('T')[0]}
-                                className={`${CONTROL_CLASS} font-semibold`}
-                            />
-                        </div>
-
-                        {/* Ghi chú */}
-                        <div className="mt-5 flex flex-col gap-2">
-                            <label className="text-sm font-medium text-bo-foreground">Ghi chú</label>
-                            <textarea
-                                placeholder="Lý do yêu cầu, ghi chú cho quản lý..."
-                                value={ghiChu}
-                                onChange={e => setGhiChu(e.target.value)}
-                                rows={3}
-                                className="min-h-[100px] w-full resize-none rounded-md border border-bo-border bg-white px-3 py-2.5 text-sm font-medium text-bo-foreground shadow-none placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15"
-                            />
-                        </div>
-
-                        {/* Summary đã chọn */}
-                        {selected.size > 0 && (
-                            <div className="mt-5 space-y-3 rounded-lg border border-bo-border bg-bo-surface-subtle px-4 py-4">
-                                <div className="flex items-center justify-between border-b border-bo-border pb-2">
-                                    <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-bo-primary">
-                                        <Check className="size-4" /> Đã chọn {selected.size} biến thể
-                                    </span>
-                                    <button type="button" onClick={() => setSelected(new Map())}
-                                        className="flex items-center gap-1 text-[11px] font-semibold text-bo-danger transition-colors hover:text-bo-danger/80">
-                                        <Trash2 className="size-3.5" /> Xóa tất cả
-                                    </button>
-                                </div>
-                                <div className="max-h-[200px] space-y-2 overflow-y-auto pr-1">
-                                    {Array.from(selected.entries()).map(([id, { variant, productName, soLuong }]) => {
-                                        const img = variant.anhBienThe?.tepTin?.duongDan;
-                                        return (
-                                            <div key={id} className="flex items-center gap-2.5 rounded-md border border-bo-border bg-white p-2">
-                                                {img
-                                                    ? <img src={img} alt="" className="size-8 shrink-0 rounded-md border border-bo-border object-cover" />
-                                                    : <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-bo-surface-subtle"><Package className="size-4 text-slate-400" /></div>
-                                                }
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="truncate text-[12px] font-semibold text-bo-foreground">{productName}</p>
-                                                    <p className="mt-0.5 font-mono text-[10px] text-bo-muted">{variant.maSku}</p>
-                                                </div>
-                                                <div className="flex shrink-0 items-center gap-1 rounded-md border border-bo-border bg-bo-surface-subtle p-0.5">
-                                                    <button type="button" onClick={() => handleQtyChange(id, Math.max(1, soLuong - 1))}
-                                                        className="flex size-6 items-center justify-center rounded bg-white text-bo-primary shadow-sm hover:bg-bo-primary-soft">
-                                                        <Minus className="size-3" />
-                                                    </button>
-                                                    <span className="w-6 text-center text-[12px] font-bold text-bo-foreground">{soLuong}</span>
-                                                    <button type="button" onClick={() => handleQtyChange(id, soLuong + 1)}
-                                                        className="flex size-6 items-center justify-center rounded bg-white text-bo-primary shadow-sm hover:bg-bo-primary-soft">
-                                                        <Plus className="size-3" />
-                                                    </button>
-                                                </div>
-                                                <button type="button" onClick={() => { setSelected(prev => { const n = new Map(prev); n.delete(id); return n; }); }}
-                                                    className="ml-1 flex size-6 shrink-0 items-center justify-center rounded-full bg-bo-danger-soft text-bo-danger transition-colors hover:bg-bo-danger/15">
-                                                    <X className="size-3" />
-                                                </button>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
-                    </SurfaceCard>
-                </aside>
-
-                {/* ── Card phải: Chọn sản phẩm ── */}
-                <div className="flex flex-col gap-5 lg:col-span-7">
-                    <SurfaceCard
-                        title="Chọn sản phẩm & biến thể"
-                        action={
-                            <div className="hidden w-64 sm:block">
-                                <SearchInput
-                                    placeholder="Tìm tên sản phẩm..."
-                                    label="Tìm sản phẩm"
-                                    value={searchTerm}
-                                    onChange={e => setSearchTerm(e.target.value)}
-                                    onClear={() => setSearchTerm('')}
-                                    className="sm:max-w-none"
-                                />
-                            </div>
-                        }
-                    >
-                        {/* Mobile Search */}
-                        <div className="mb-3 sm:hidden">
-                            <SearchInput
-                                placeholder="Tìm tên sản phẩm..."
-                                label="Tìm sản phẩm"
-                                value={searchTerm}
-                                onChange={e => setSearchTerm(e.target.value)}
-                                onClear={() => setSearchTerm('')}
-                            />
-                        </div>
-
-                        {/* Product list */}
-                        <div className="max-h-[580px] space-y-3 overflow-y-auto pr-2">
-                            {loadingProducts ? (
-                                <LoadingState rows={5} label="Đang tải sản phẩm" />
-                            ) : products.length === 0 ? (
-                                <EmptyState
-                                    icon={ShoppingBag}
-                                    title="Không tìm thấy sản phẩm"
-                                    description="Thử từ khóa khác hoặc chọn kho nhập khác để xem biến thể."
-                                />
-                            ) : products.map(product => (
-                                <ProductCard
-                                    key={product.id}
-                                    product={product}
-                                    selectedMap={selected}
-                                    onToggle={handleToggle}
-                                    onQtyChange={handleQtyChange}
-                                />
-                            ))}
-                        </div>
-
-                        {/* Pagination */}
-                        {productTotalPages > 1 && (
-                            <div className="mt-4 flex items-center justify-center gap-3 border-t border-bo-border pt-4">
-                                <Button type="button" variant="outline" size="sm"
-                                    disabled={productPage === 0 || loadingProducts}
-                                    onClick={() => fetchProducts(productPage - 1, searchTerm)}
-                                    className="h-9 gap-1 border-bo-border bg-white text-xs font-semibold text-bo-foreground hover:bg-bo-surface-subtle">← Trước</Button>
-                                <span className="rounded-md border border-bo-border bg-bo-surface-subtle px-4 py-1.5 text-xs font-semibold text-bo-foreground">
-                                    {productPage + 1} / {productTotalPages}
-                                </span>
-                                <Button type="button" variant="outline" size="sm"
-                                    disabled={productPage >= productTotalPages - 1 || loadingProducts}
-                                    onClick={() => fetchProducts(productPage + 1, searchTerm)}
-                                    className="h-9 gap-1 border-bo-border bg-white text-xs font-semibold text-bo-foreground hover:bg-bo-surface-subtle">Sau →</Button>
-                            </div>
-                        )}
-                    </SurfaceCard>
-                </div>
-            </div>
-
-            {/* ── Action Buttons ── */}
-            <FormActions className="rounded-lg border border-bo-border shadow-sm">
-                <span className="mr-auto text-xs text-bo-muted">
-                    Đã chọn <span className="font-semibold text-bo-foreground">{selected.size}</span> biến thể ·{' '}
-                    <span className="font-semibold text-bo-foreground">{totalItems}</span> sản phẩm
-                </span>
-                <Button
-                    onClick={handleSubmit}
-                    disabled={submitting || selected.size === 0}
-                    className="flex h-11 items-center justify-center gap-2 rounded-md bg-bo-primary px-8 font-semibold text-white hover:bg-bo-primary-hover disabled:opacity-50"
-                >
-                    {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                    Gửi yêu cầu mua hàng
-                </Button>
-            </FormActions>
-
-            {/* ── Confirm Dialog ── */}
-            <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-                <DialogContent className="overflow-hidden rounded-lg border border-bo-border bg-white p-0 text-bo-foreground shadow-lg sm:max-w-md">
-                    <div className="flex items-center gap-3 border-b border-bo-border bg-bo-primary-soft px-5 py-4">
-                        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-bo-primary">
-                            <Send className="size-5" />
-                        </div>
-                        <DialogTitle className="m-0 text-base font-semibold text-bo-foreground">
-                            Xác nhận tạo yêu cầu
-                        </DialogTitle>
-                    </div>
-                    <div className="bg-white p-5">
-                        <DialogDescription className="mb-5 text-sm leading-relaxed text-bo-muted">
-                            Yêu cầu sẽ được gửi đến quản lý để xét duyệt. Sau khi duyệt, hệ thống sẽ tạo đơn báo giá gửi đến nhà cung cấp.
-                        </DialogDescription>
-
-                        <div className="mb-5 space-y-3 rounded-lg border border-bo-border bg-bo-surface-subtle p-4 text-sm">
-                            <div className="flex items-center justify-between border-b border-bo-border pb-2">
-                                <span className="font-medium text-bo-muted">Kho nhập:</span>
-                                <span className="text-[15px] font-semibold text-bo-foreground">{selectedWarehouse?.tenKho || '—'}</span>
-                            </div>
-                            <div className="flex items-center justify-between border-b border-bo-border pb-2">
-                                <span className="font-medium text-bo-muted">Ngày giao:</span>
-                                <span className="text-[15px] font-semibold text-bo-foreground">{formatDate(ngayGiaoDuKien)}</span>
-                            </div>
-                            <div className="flex items-center justify-between pt-1">
-                                <span className="flex items-center gap-1.5 font-medium text-bo-muted"><Layers className="size-4" /> Tổng sản phẩm:</span>
-                                <span className="rounded-md bg-bo-primary-soft px-2 py-0.5 text-[16px] font-bold text-bo-primary">{totalItems} SP ({selected.size} biến thể)</span>
-                            </div>
-                        </div>
-
-                        <DialogFooter className="gap-2">
-                            <Button variant="outline" onClick={() => setShowConfirmDialog(false)} disabled={submitting}
-                                className="h-11 w-full rounded-md border-bo-border bg-white font-medium text-bo-foreground hover:bg-bo-surface-subtle sm:w-auto">
-                                Hủy bỏ
-                            </Button>
-                            <Button onClick={confirmCreate} disabled={submitting}
-                                className="h-11 w-full rounded-md bg-bo-primary font-semibold text-white hover:bg-bo-primary-hover sm:w-auto">
-                                {submitting
-                                    ? <><Loader2 className="mr-2 size-5 animate-spin" />Đang tạo...</>
-                                    : <><Check className="mr-2 size-4" />Xác nhận tạo</>
-                                }
-                            </Button>
-                        </DialogFooter>
-                    </div>
-                </DialogContent>
-            </Dialog>
-        </PageContainer>
-    );
+      <HopGoiYCanNhap
+        mo={hop === "goiY"}
+        onDoiMo={(mo) => { if (!mo) setHop(""); }}
+        dsHang={dsHang}
+        dong={dong}
+        tenKho={kho?.tenKho}
+        nguong={duLieu?.nguongMacDinh}
+        onThem={themGoiY}
+        traTieuDiemVe={oTimRef}
+      />
+      <HopDanExcel
+        mo={hop === "dan"}
+        onDoiMo={(mo) => { if (!mo) setHop(""); }}
+        chiMuc={chiMuc}
+        dong={dong}
+        onThem={themDan}
+        traTieuDiemVe={oTimRef}
+      />
+      <HopXacNhanChungTu
+        mo={hop === "gui"}
+        onDoiMo={(mo) => { if (!mo && !dangGui) { setHop(""); setLoiGui(null); } }}
+        tieuDe="Gửi yêu cầu nhập hàng"
+        moTa={`${soVN(bang.tong.soSanPham)} sản phẩm, ${soVN(bang.tong.soDong)} biến thể, tổng số lượng ${soVN(bang.tong.soLuong)} nhập về ${kho?.tenKho || "Kho tổng"}, giao dự kiến ${moTaNgay.trai}.`}
+        nhanXacNhan="Gửi duyệt"
+        iconXacNhan={Send}
+        dangChay={dangGui}
+        khoaXacNhan={Boolean(lyDo)}
+        lyDoKhoa={lyDo || undefined}
+        loi={loiGui}
+        // Máy quét gửi Enter sau mỗi mã: tiêu điểm đầu ở "Quay lại" để một lần quét không bấm nhầm Gửi duyệt; đóng hộp
+        // thì về ô tìm để quét tiếp
+        tieuDiemQuayLai
+        traTieuDiemVe={oTimRef}
+        onXacNhan={gui}
+      >
+        <div className={GHI_CHU_HOP}>
+          Yêu cầu chuyển sang <b className="font-semibold">Chờ duyệt</b>. Quản lý Kho tổng duyệt xong thì nhân viên mua hàng
+          mới gửi được yêu cầu báo giá cho nhà cung cấp.
+        </div>
+        {cb.soChuY ? (
+          <div className="rounded-lg border border-orange-200 bg-bo-warning-soft px-3 py-2.5 text-[13px] leading-5 text-orange-900">
+            Lưu ý: {cauCanhBao(cb)}
+          </div>
+        ) : null}
+      </HopXacNhanChungTu>
+      <HopXacNhanChungTu
+        mo={Boolean(hoiRoi)}
+        onDoiMo={(mo) => { if (!mo) setHoiRoi(null); }}
+        tieuDe="Rời trang tạo yêu cầu?"
+        moTa={dong.length
+          ? `${soVN(dong.length)} biến thể đã chọn, ngày giao và ghi chú đang nhập chưa được gửi sẽ mất.`
+          : "Ngày giao và ghi chú đang nhập chưa được gửi sẽ mất."}
+        nhanXacNhan="Rời trang"
+        kieu="nguyHiem"
+        onXacNhan={() => {
+          const tiepTuc = hoiRoi;
+          setHoiRoi(null);
+          tiepTuc?.();
+        }}
+      />
+    </PageContainer>
+  );
 }

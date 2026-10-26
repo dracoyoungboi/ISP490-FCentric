@@ -173,6 +173,57 @@ export function getPaperPageCss(paper, { thermalHeightMm, footerText } = {}) {
 }
 
 /**
+ * KHỔ TEM SẢN PHẨM dựng sẵn (cùng kiểu A4 / K80): tem dán quần áo in trên máy in tem nhiệt, giấy cuộn.
+ * Khổ đang dùng nằm ở cấu hình hệ thống TEM_KHO_MAC_DINH (máy chủ chỉ nhận đúng các mã ở đây).
+ *
+ * Mỗi trang in là MỘT HÀNG tem: trang rộng bằng cuộn giấy, cao bằng tem (getLabelPageCss), máy in tự kéo giấy
+ * theo khe giữa các hàng. Mọi số đo tính bằng mm.
+ * - rongTem × caoTem: một tem; soCot tem mỗi hàng, cách nhau `khe`; rongCuon: bề rộng cuộn giấy (gồm lề hai bên).
+ * - leNgang / leDoc: vùng chừa trong tem cho chữ; leAnToan: mép tem không in vạch (giấy lệch khi cắt bế).
+ * - caoVach: chiều cao vạch; coChu / dongCao: cỡ chữ và chiều cao dòng của từng phần trên tem.
+ */
+export const KHO_TEM = Object.freeze({
+    "35x22": Object.freeze({
+        ma: "35x22", ten: "Tem 35 × 22 mm", rongTem: 35, caoTem: 22, soCot: 2, rongCuon: 74, khe: 2,
+        leNgang: 2, leDoc: 1.1, leAnToan: 1, caoVach: 8,
+        coChu: Object.freeze({ cuaHang: 1.5, ten: 2.2, bienThe: 1.9, so: 1.75, gia: 2.6, sku: 1.45 }),
+        dongCao: Object.freeze({ cuaHang: 1.8, ten: 2.5, bienThe: 2.2, gia: 2.8, sku: 1.7 }),
+    }),
+    "50x30": Object.freeze({
+        ma: "50x30", ten: "Tem 50 × 30 mm", rongTem: 50, caoTem: 30, soCot: 1, rongCuon: 52, khe: 2,
+        leNgang: 2.5, leDoc: 1.8, leAnToan: 1, caoVach: 11,
+        coChu: Object.freeze({ cuaHang: 1.9, ten: 2.8, bienThe: 2.4, so: 2.1, gia: 3.4, sku: 1.9 }),
+        dongCao: Object.freeze({ cuaHang: 2.3, ten: 3.3, bienThe: 2.9, gia: 3.8, sku: 2.3 }),
+    }),
+});
+
+export const KHO_TEM_MAC_DINH = "35x22";
+
+/** Khổ tem theo mã; mã lạ (cấu hình hỏng, dữ liệu cũ) thì về khổ mặc định. */
+export function layKhoTem(ma) {
+    return KHO_TEM[ma] ?? KHO_TEM[KHO_TEM_MAC_DINH];
+}
+
+/** Lề hai bên cuộn giấy (mm): phần cuộn còn lại sau các tem và khe, chia đôi. */
+export function leCuonTem(kho) {
+    return Math.max(0, (kho.rongCuon - kho.soCot * kho.rongTem - (kho.soCot - 1) * kho.khe) / 2);
+}
+
+/**
+ * CSS trang in tem: mỗi trang là một hàng tem, không lề — hộp thoại in phải chọn máy in tem, Lề: Không và Tỷ lệ: 100%.
+ * `!important`: react-to-print chép print.css (`@page { size: A4 }`, nạp sẵn ở BackofficeLayout) vào khung in SAU
+ * `pageStyle`; hai @page cùng độ ưu tiên thì cái sau thắng, không có !important là ra trang A4. ToTem còn đặt CSS
+ * này ngay trong tờ in (nằm sau mọi thẻ style ở head) cho chắc.
+ */
+export function getLabelPageCss(kho) {
+    return `@page { size: ${kho.rongCuon}mm ${kho.caoTem}mm !important; margin: 0 !important; }
+@media print {
+  html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}`;
+}
+
+/**
  * Vạch ngắt trang cho BẢN XEM TRƯỚC (chỉ screen): mỗi trang in chứa
  * (chiều cao trang − 2 × lề) nội dung, nên vạch thứ k nằm ở
  * lề + k × (chiều cao trang − 2 × lề) tính từ mép trên tờ giấy — tức bội số

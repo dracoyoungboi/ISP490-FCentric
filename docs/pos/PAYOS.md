@@ -36,10 +36,22 @@ Khách quét mã QR ở màn **Bán hàng tại quầy**. Khi tiền về, hệ 
 |---|---|---|
 | PENDING | Đang chờ khách quét QR | Đang giữ |
 | PAID | Đã nhận tiền, đã tạo đơn và trừ kho | Đã chuyển thành xuất kho |
-| CANCELLED | Thu ngân đã hủy | Đã trả lại |
+| CANCELLED | Thu ngân đã hủy, payOS đã xác nhận hủy | Đã trả lại |
 | EXPIRED | Hết hạn | Đã trả lại |
 | FAILED | payOS không tạo được QR | Đã trả lại |
-| PAID_ERROR | Đã nhận tiền nhưng không tạo được đơn (vd. sai số tiền) | **Vẫn giữ.** Quản lý xử lý tay, không thu tiền lại của khách |
+| PAID_ERROR | Đã nhận tiền nhưng không tạo được đơn (vd. sai số tiền, hoặc tiền về sau khi mã đã hủy/hết hạn) | Giữ nếu chưa trả lại trước đó (cột `dang_giu_cho`). Quản lý xử lý ở màn Đối soát chuyển khoản, không thu tiền lại của khách |
+| REFUNDED | Từ PAID_ERROR: quản lý đã tự hoàn tiền cho khách qua ngân hàng | Đã trả lại |
+
+Quản trị viên xử lý PAID_ERROR bằng một trong hai cách:
+
+- **Bán cho khách (tạo đơn)**: chỉ khi số tiền đã nhận ≥ tổng hóa đơn. Đơn dùng giá đã chốt lúc tạo QR, người bán là thu ngân đã tạo QR. Chuyển dư thì đơn vẫn đúng tổng, ghi chú đơn ghi số cần hoàn.
+- **Trả lại tiền cho khách**: quản lý tự chuyển trả qua ngân hàng rồi ghi nhận (bắt buộc ghi chú). Hàng giữ chỗ được trả lại kho.
+
+Cần chạy `Database/payos_xu_ly_loi_v1.sql` trước khi lên backend có tính năng này.
+
+Hủy QR chỉ thành công khi payOS xác nhận link đã hủy. Không liên lạc được payOS hoặc payOS từ chối hủy thì API trả 409, giao dịch vẫn PENDING và hóa đơn vẫn khóa: link còn sống thì khách vẫn chuyển khoản được.
+
+Tiền về cho giao dịch đã CANCELLED/EXPIRED không tự tạo đơn mà chuyển thành PAID_ERROR, vì lúc đó thu ngân có thể đã bán món này bằng tiền mặt.
 
 ## 5. API
 
@@ -52,4 +64,8 @@ Khách quét mã QR ở màn **Bán hàng tại quầy**. Khi tiền về, hệ 
 | POST | `/api/v1/pos/payos/payment-links` | Thu ngân (tạo QR + giữ chỗ) |
 | GET | `/api/v1/pos/payos/payment-links/{orderCode}` | Thu ngân (hỏi trạng thái) |
 | POST | `/api/v1/pos/payos/payment-links/{orderCode}/cancel` | Thu ngân |
+| GET | `/api/v1/pos/payos/payment-links?trangThai=&khoId=&tuNgay=&denNgay=` | Admin (màn Đối soát chuyển khoản) |
+| GET | `/api/v1/pos/payos/payment-links/needs-attention-count` | Admin (số PAID_ERROR trên menu) |
+| POST | `/api/v1/pos/payos/payment-links/{orderCode}/create-order` | Admin |
+| POST | `/api/v1/pos/payos/payment-links/{orderCode}/refunded` | Admin |
 | POST | `/api/v1/payos/webhook` | payOS (công khai, kiểm chữ ký) |

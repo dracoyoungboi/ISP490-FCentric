@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ShoppingBag, Store } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -89,4 +89,32 @@ export function LazadaMenuIcon({ className }) {
 
 export function TiktokMenuIcon({ className }) {
   return <MenuIconKenh maKenh="TIKTOK" className={className} />;
+}
+
+/**
+ * Biểu tượng kênh "Bán hàng tại quầy" (mẫu A đã duyệt): ô vuông bo góc nền xanh chuyển màu theo chữ F của logo
+ * FCentric, hình quầy thu ngân (màn hình + quầy) màu trắng. Kênh nội bộ nên tự vẽ, không phải logo của bên thứ ba.
+ * Cỡ do nơi dùng đặt qua `className` (menu ép 16px) hoặc `size`.
+ */
+export function BieuTuongTaiQuay({ size, className }) {
+  const idGradient = `tai-quay-${useId().replace(/:/g, "")}`;
+  const kichCo = size ? { width: size, height: size } : undefined;
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" style={kichCo} className={cn("shrink-0", className)}>
+      <defs>
+        <linearGradient id={idGradient} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#38bdf8" />
+          <stop offset="1" stopColor="#1677ff" />
+        </linearGradient>
+      </defs>
+      <rect width="16" height="16" rx="4" fill={`url(#${idGradient})`} />
+      <rect x="4" y="3.1" width="8" height="4.8" rx="1" fill="none" stroke="#ffffff" strokeWidth="1.3" />
+      <path d="M8 7.9v1.7" stroke="#ffffff" strokeWidth="1.3" />
+      <rect x="3" y="9.7" width="10" height="3.3" rx="1" fill="#ffffff" />
+    </svg>
+  );
+}
+
+export function TaiQuayMenuIcon({ className }) {
+  return <BieuTuongTaiQuay className={className} />;
 }

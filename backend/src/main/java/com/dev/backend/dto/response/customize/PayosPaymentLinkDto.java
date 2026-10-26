@@ -18,6 +18,8 @@ public class PayosPaymentLinkDto {
     String requestId;
     String trangThai;
     BigDecimal soTien;
+    /** Số tiền payOS báo đã nhận (PAID / PAID_ERROR). */
+    BigDecimal soTienDaNhan;
     String qrCode;
     String checkoutUrl;
     String bin;

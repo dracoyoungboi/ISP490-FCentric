@@ -1,4 +1,4 @@
-import { Boxes, CreditCard, IdCard, PackageCheck, Printer, RefreshCcw, Store } from "lucide-react";
+import { Barcode, Boxes, CreditCard, IdCard, PackageCheck, Printer, RefreshCcw, Store } from "lucide-react";
 
 /**
  * Trung tâm Cấu hình (/settings/*): menu trái của SettingsLayout, mục "Cấu hình" ghim ở đáy sidebar
@@ -24,7 +24,8 @@ export const SETTINGS_PAGES = [
   { key: "store", label: "Thông tin cửa hàng", to: "/settings/store", group: "cua-hang", icon: Store, roles: [QTV, QLK], editRoles: [QTV, QLK] },
   // CauHinhMauInController: QTV và QLK
   { key: "print", label: "Mẫu in", to: "/settings/print-templates", group: "cua-hang", icon: Printer, roles: [QTV, QLK], editRoles: [QTV, QLK] },
-  // Nhập kho, Tồn kho, Khách hàng, Đồng bộ kênh bán: GET /dieu-hanh-he-thong/cau-hinh cho QTV và QLK; PUT chỉ QTV
+  // Sản phẩm, Nhập kho, Tồn kho, Khách hàng, Đồng bộ kênh bán: GET /dieu-hanh-he-thong/cau-hinh cho QTV và QLK; PUT chỉ QTV
+  { key: "product", label: "Sản phẩm", to: "/settings/product", group: "kho", icon: Barcode, roles: [QTV, QLK], editRoles: [QTV] },
   { key: "inbound", label: "Nhập kho", to: "/settings/inbound", group: "kho", icon: PackageCheck, roles: [QTV, QLK], editRoles: [QTV] },
   { key: "stock", label: "Tồn kho", to: "/settings/stock", group: "kho", icon: Boxes, roles: [QTV, QLK], editRoles: [QTV] },
   { key: "customer", label: "Khách hàng", to: "/settings/customer", group: "ban-hang", icon: IdCard, roles: [QTV, QLK], editRoles: [QTV] },

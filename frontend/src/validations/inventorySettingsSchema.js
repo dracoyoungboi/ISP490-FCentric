@@ -47,6 +47,34 @@ export const INVENTORY_SETTINGS = [
     pattern: /^(?!.*FC-)(?!.*FC$)[A-Z0-9._-]{1,10}$/,
     patternMessage: "Gồm 1–10 ký tự: chữ in hoa không dấu, số hoặc . _ -; không kết thúc bằng FC hay chứa FC- (dành cho thẻ lệnh)",
   },
+  {
+    // Mã vạch SKU tự sinh khi tạo biến thể để trống mã vạch: tiền tố + id đệm 0 đủ 10 chữ số (backend utils/MaVachSku)
+    code: "MA_VACH_TIEN_TO",
+    label: "Tiền tố mã vạch tự sinh",
+    unit: "",
+    group: "product",
+    type: "STRING",
+    maxLength: 2,
+    inputMode: "numeric",
+    pattern: /^[0-9]{2}$/,
+    patternMessage: "Gồm đúng 2 chữ số, nên dùng 20–29 (vùng mã nội bộ).",
+    goiY: "Đúng 2 chữ số",
+  },
+  {
+    // Tem sản phẩm (thẻ "Tem sản phẩm" ở Cấu hình › Mẫu in); khổ khớp components/print/paperStyles.js · KHO_TEM
+    code: "TEM_KHO_MAC_DINH",
+    label: "Khổ tem",
+    unit: "",
+    group: "label",
+    type: "STRING",
+    options: [
+      { value: "35x22", label: "Tem 35 × 22 mm · 2 tem/hàng", moTa: "Cuộn 74 mm, khe 2 mm giữa hai tem." },
+      { value: "50x30", label: "Tem 50 × 30 mm · 1 tem/hàng", moTa: "Cuộn 52 mm, chữ và vạch to hơn." },
+    ],
+  },
+  { code: "TEM_IN_TEN_CUA_HANG", label: "In tên cửa hàng", unit: "", group: "label", type: "BOOLEAN" },
+  { code: "TEM_IN_SKU", label: "In SKU", unit: "", group: "label", type: "BOOLEAN" },
+  { code: "TEM_NGUONG_XAC_NHAN", label: "Ngưỡng hỏi xác nhận", unit: "tem", group: "label", min: 1, max: 9999 },
 ];
 
 const soVi = (value) => Number(value).toLocaleString("vi-VN");
@@ -73,6 +101,10 @@ export function moTaTacDong(code, value) {
       return ["Màn kiểm đếm đang mở ", "áp dụng ở lần tải dữ liệu kế tiếp", " (khóa lô, quay lại thẻ hoặc tải lại trang); lô đã khóa không bị ảnh hưởng."];
     case "MA_LO_TIEN_TO":
       return ["Mã lô gợi ý có dạng ", `${value || ""}-PN202610201-01`, ". Người kiểm vẫn sửa được mã lô khi khóa."];
+    case "MA_VACH_TIEN_TO":
+      return ["Biến thể mới để trống mã vạch nhận mã dạng ", maVachMau(value), ". Mã đã cấp giữ nguyên khi đổi tiền tố."];
+    case "TEM_NGUONG_XAC_NHAN":
+      return ["Lần in có hơn ", `${soVi(value)} tem`, " phải bấm in lần nữa để xác nhận."];
     default:
       return ["", "", ""];
   }
@@ -82,6 +114,7 @@ export function moTaTacDong(code, value) {
 export function phamViCauHinh(code) {
   const field = INVENTORY_SETTINGS.find((item) => item.code === code);
   if (!field || field.options) return "";
+  if (field.goiY) return field.goiY;
   if (field.maxLength) return `Tối đa ${field.maxLength} ký tự`;
   const range = `${soVi(field.min)}–${soVi(field.max)}`;
   return field.rangeNote ? `${range} · ${field.rangeNote}` : range;
@@ -89,6 +122,9 @@ export function phamViCauHinh(code) {
 
 /** Mã mẫu cho tiền tố đang nhập, VD "KH" → "KH000124". */
 export const maKhachHangMau = (tienTo) => `${tienTo || ""}000124`;
+
+/** Mã vạch mẫu của biến thể id 150 với tiền tố đang nhập: tiền tố + id đệm 0 đủ 10 chữ số, VD "20" → "2000000150". */
+export const maVachMau = (tienTo) => `${tienTo || ""}${"150".padStart(Math.max(3, 10 - String(tienTo || "").length), "0")}`;
 
 export function createEmptyInventoryValues() {
   return Object.fromEntries(INVENTORY_SETTINGS.map((item) => [item.code, ""]));

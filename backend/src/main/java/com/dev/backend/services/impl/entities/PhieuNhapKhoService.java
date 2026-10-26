@@ -102,6 +102,9 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
     @Autowired
     private com.dev.backend.services.BienBanTraHangService bienBanTraHangService;
 
+    @Autowired
+    private TemSanPhamService temSanPhamService;
+
     /** Ngày sản xuất so theo lịch Việt Nam (FE gửi nửa đêm UTC của ngày được chọn). */
     private static final ZoneId MUI_GIO_VN = ZoneId.of("Asia/Ho_Chi_Minh");
 
@@ -1464,5 +1467,96 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
 
         pn.setTongTien(tongTienNhap);
         return repository.save(pn);
+    }
+
+    // ==================== In tem theo phiếu nhập ====================
+
+    /** Số phiếu tối đa trong hộp "In tem theo phiếu nhập". */
+    private static final int SO_PHIEU_IN_TEM_TOI_DA = 50;
+
+    /**
+     * Phiếu nhập đã hoàn tất mới nhất (hộp "In tem theo phiếu nhập" ở màn Giá bán & tem mã vạch), chỉ của các kho người
+     * dùng xem được (quản trị viên: mọi kho), cùng quy tắc {@link KhoDangChon#duocXem}.
+     */
+    @Transactional(readOnly = true)
+    public List<com.dev.backend.dto.response.customize.PhieuNhapInTemDto> phieuDaHoanTatInTem(Integer soPhieu) {
+        int soDong = soPhieu == null ? 20 : Math.max(1, Math.min(soPhieu, SO_PHIEU_IN_TEM_TOI_DA));
+        com.dev.backend.dto.response.entities.NguoiDungAuthInfo nguoiDung = SecurityContextHolder.getUser();
+        boolean tatCaKho = nguoiDung == null
+                || (nguoiDung.getVaiTro() != null && nguoiDung.getVaiTro().contains(IRoleType.quan_tri_vien));
+        List<Integer> khoIds = new ArrayList<>();
+        if (!tatCaKho && nguoiDung.getPhanQuyenNguoiDungKhos() != null) {
+            nguoiDung.getPhanQuyenNguoiDungKhos().forEach(pq -> {
+                if (pq != null && pq.getKho() != null && pq.getKho().getId() != null) khoIds.add(pq.getKho().getId());
+            });
+        }
+        if (khoIds.isEmpty()) khoIds.add(-1);
+        return ((PhieuNhapKhoRepository) repository).phieuDaHoanTatInTem(TrangThaiPhieuNhap.COMPLETED.getValue(), tatCaKho, khoIds,
+                        org.springframework.data.domain.PageRequest.of(0, soDong))
+                .stream()
+                .map(dong -> {
+                    Integer phieuId = ((Number) dong[0]).intValue();
+                    long soSku = dong[5] instanceof Number n ? n.longValue() : 0L;
+                    BigDecimal tong = dong[6] instanceof BigDecimal bd ? bd : new BigDecimal(String.valueOf(dong[6]));
+                    if (soSku == 0) {
+                        // Phiếu không có dòng lô nào (dữ liệu cũ): đếm như soLuongInTem (dòng dự kiến), hiếm nên đọc riêng
+                        Map<Integer, Integer> soLuong = repository.findById(phieuId)
+                                .map(p -> soLuongThucNhan(p.getChiTietPhieuNhapKhos())).orElse(Map.of());
+                        soSku = soLuong.size();
+                        tong = BigDecimal.valueOf(soLuong.values().stream().mapToLong(Integer::longValue).sum());
+                    }
+                    return com.dev.backend.dto.response.customize.PhieuNhapInTemDto.builder()
+                            .id(phieuId)
+                            .soPhieuNhap((String) dong[1])
+                            .ngayNhap((Instant) dong[2])
+                            .tenKho((String) dong[3])
+                            .tenNhaCungCap((String) dong[4])
+                            .soSku(soSku)
+                            .tongSoLuong(tong)
+                            .build();
+                })
+                .toList();
+    }
+
+    /**
+     * Số tem theo phiếu nhập đã hoàn tất: số lượng THỰC NHẬN của từng biến thể (soLuongThucNhan), kèm thông tin để in tem.
+     */
+    @Transactional(readOnly = true)
+    public List<com.dev.backend.dto.response.customize.DongInTemDto> soLuongInTem(Integer id) {
+        PhieuNhapKho phieu = repository.findById(id)
+                .orElseThrow(() -> new CommonException("Không tìm thấy phiếu nhập id: " + id));
+        KhoDangChon.kiemTraXem(phieu.getKho(), "Phiếu nhập " + phieu.getSoPhieuNhap());
+        if (!Objects.equals(phieu.getTrangThai(), TrangThaiPhieuNhap.COMPLETED.getValue())) {
+            throw new CommonException("Phiếu nhập " + phieu.getSoPhieuNhap() + " chưa hoàn tất nhập kho nên chưa in tem theo phiếu được");
+        }
+        Map<Integer, Integer> soLuong = soLuongThucNhan(phieu.getChiTietPhieuNhapKhos());
+        return temSanPhamService.dongTheoIds(new ArrayList<>(soLuong.keySet()), soLuong);
+    }
+
+    /**
+     * Số lượng thực nhận theo biến thể, giữ thứ tự dòng. Phiếu có dòng lô: chỉ cộng các dòng lô — số đạt kiểm đếm đã vào
+     * tồn (phiếu từ đơn mua: số đạt; chuyển kho, hoàn trả: số nhập); biến thể chỉ có dòng dự kiến là không nhận được gì
+     * nên không có mặt. Phiếu không có dòng lô nào (dữ liệu cũ): lấy dòng dự kiến — số đạt kiểm đếm nếu có, chưa có thì
+     * số nhập. Biến thể cộng lại ra 0 (vd. lô chỉ có hàng lỗi) cũng không có mặt: không có hàng để dán tem.
+     */
+    static Map<Integer, Integer> soLuongThucNhan(List<ChiTietPhieuNhapKho> dsDong) {
+        List<ChiTietPhieuNhapKho> ds = dsDong == null ? List.of()
+                : dsDong.stream().filter(ct -> ct.getBienTheSanPham() != null).toList();
+        boolean coLo = ds.stream().anyMatch(ct -> ct.getLoHang() != null);
+        Map<Integer, BigDecimal> tong = new LinkedHashMap<>();
+        for (ChiTietPhieuNhapKho ct : ds) {
+            if (coLo != (ct.getLoHang() != null)) continue;
+            BigDecimal soNhap = ct.getSoLuongNhap() != null ? ct.getSoLuongNhap() : BigDecimal.ZERO;
+            BigDecimal so = !coLo && ct.getSoLuongDatQc() != null && ct.getSoLuongDatQc() > 0
+                    ? BigDecimal.valueOf(ct.getSoLuongDatQc())
+                    : soNhap;
+            tong.merge(ct.getBienTheSanPham().getId(), so, BigDecimal::add);
+        }
+        Map<Integer, Integer> kq = new LinkedHashMap<>();
+        tong.forEach((btId, so) -> {
+            int soNguyen = so.setScale(0, java.math.RoundingMode.FLOOR).intValue();
+            if (soNguyen > 0) kq.put(btId, soNguyen);
+        });
+        return kq;
     }
 }

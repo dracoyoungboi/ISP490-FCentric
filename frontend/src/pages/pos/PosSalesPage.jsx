@@ -12,7 +12,7 @@ import PosInvoiceTabs from './components/PosInvoiceTabs';
 import PosDialogs from './components/PosDialogs';
 import PosProductCatalog from './components/PosProductCatalog';
 import { formatMoney } from './pos-format';
-import { createScanBurstTracker, hasNonAscii, isPrintableKey, isTextEntry, readFlag, writeFlag } from './pos-scan';
+import { createScanBurstTracker, hasNonAscii, isPrintableKey, isTextEntry, QTY_REVERT_EVENT, readFlag, writeFlag } from './pos-scan';
 import useOnlineStatus, { useOnReconnect, isNetworkError } from '@/hooks/useOnlineStatus';
 import useScanQueue from '@/hooks/useScanQueue';
 import { playScanBeep } from '@/utils/scanBeep';
@@ -36,6 +36,9 @@ const PAGE_SIZE = 60;
 const WIDE_SCREEN_QUERY = '(min-width: 1280px)';
 const SEARCH_DEBOUNCE_MS = 250;
 const PAYOS_POLL_MS = 3000;
+// Giao dịch lỗi chờ quản lý: hỏi thưa hơn (quản lý xử lý tính bằng phút), WebSocket vẫn báo ngay.
+const PAYOS_PAID_ERROR_POLL_MS = 15000;
+const PAYOS_LOCKING_STATUSES = ['PENDING', 'PAID_ERROR'];
 // Tồn đổi do quầy khác bán: tải ngầm lại trang catalog đang xem theo chu kỳ (khi tab đang hiển thị).
 const CATALOG_REFRESH_MS = 30000;
 // Bộ lọc tồn kho khi mở POS: chỉ hiện hàng còn bán được (con_hang | het_hang | tat_ca).
@@ -126,7 +129,8 @@ const toDraft = (invoice) => {
     paymentAmount: invoice.paymentAmount,
     // Giao dịch tiền mặt đã gửi mà chưa rõ kết quả: giữ để bắt buộc kiểm tra lại, không cho gửi trùng.
     attempt: keepAttempt ? { ...invoice.attempt, status: 'unknown', result: null } : null,
-    payos: invoice.payos?.trangThai === 'PENDING' ? invoice.payos : null,
+    // Chờ quét QR hoặc đã nhận tiền nhưng lỗi (chờ quản lý): giữ để hóa đơn vẫn khóa sau F5, không thu tiền lại.
+    payos: PAYOS_LOCKING_STATUSES.includes(invoice.payos?.trangThai) ? invoice.payos : null,
   };
 };
 
@@ -150,9 +154,15 @@ const restoreDrafts = (drafts, warehouses, defaultWarehouseId) => {
 
 const isFrozenInvoice = (invoice) =>
   Boolean(invoice?.attempt && (invoice.attempt.status === 'pending' || invoice.attempt.status === 'unknown'))
-  // Đang chờ khách quét QR: hàng đã giữ chỗ theo đúng giỏ này -> khóa sửa giỏ.
-  || invoice?.payos?.trangThai === 'PENDING';
+  // Đang chờ khách quét QR (hàng đã giữ chỗ theo đúng giỏ này), hoặc khách ĐÃ chuyển tiền nhưng chưa tạo
+  // được đơn (PAID_ERROR, chờ quản lý xử lý) -> khóa sửa giỏ, F9 không mở thu tiền mặt.
+  || PAYOS_LOCKING_STATUSES.includes(invoice?.payos?.trangThai);
 
+/** Khách đã chuyển khoản nhưng chưa có đơn: quản lý xử lý ở màn Đối soát chuyển khoản. */
+const isPayosPaidError = (invoice) => invoice?.payos?.trangThai === 'PAID_ERROR';
+
+/** Tồn khả dụng đã biết (số) hoặc null = chưa biết — không coi null/'' là hết hàng như Number(null) = 0. */
+const knownStock = (stock) => (stock === null || stock === undefined || stock === '' || !Number.isFinite(Number(stock)) ? null : Number(stock));
 /** Dòng giỏ có số lượng vượt tồn khả dụng đã biết (tồn chưa biết = không chặn, server vẫn kiểm). */
 const isOverStock = (line) => Number.isFinite(line.product.stock) && line.quantity > line.product.stock;
 const OVER_STOCK_MESSAGE = 'Có sản phẩm vượt tồn khả dụng — giảm số lượng hoặc xóa dòng đó trước khi thanh toán.';
@@ -341,7 +351,9 @@ export default function PosSalesPage({
   // Mất mạng (navigator.onLine=false) -> chặn gửi thanh toán MỚI; hóa đơn đang treo vẫn xem được.
   const online = useOnlineStatus();
   const wideScreen = useMediaQuery(WIDE_SCREEN_QUERY);
-  const uiRef = useRef({ dialog: null, isSubmitting: false, activeInvoice: null });
+  const uiRef = useRef({ dialog: null, isSubmitting: false, activeInvoice: null, invoices: [] });
+  // "orderCode:trạng thái" đã áp vào hóa đơn — WebSocket và lượt hỏi định kỳ báo cùng kết quả thì chỉ xử lý một lần
+  const appliedPayosRef = useRef(new Set());
 
   // Kết quả thanh toán chính thức (dữ liệu server) cho dialog receipt + kết quả phục hồi sau refresh.
   const [receiptResult, setReceiptResult] = useState(null);
@@ -469,6 +481,9 @@ export default function PosSalesPage({
             ...prev,
             groups,
             items,
+            // Lượt tải ngầm tải đúng trang đang xin (catalogPage): ghi cả số trang, để sau một lần đổi trang
+            // bị lỗi thì chân trang không còn ghi trang cũ trong khi danh sách đã là trang mới.
+            page: pageData?.number ?? prev.page,
             totalElements: pageData?.totalElements ?? prev.totalElements,
             pageCount: pageData?.totalPages ?? prev.pageCount,
             error: null,
@@ -494,8 +509,9 @@ export default function PosSalesPage({
   }, [warehouseId, debouncedSearch, stockFilter, catalogPage]);
 
   // ===== Sau F5: hỏi lại trạng thái các mã QR payOS đang chờ (tiền có thể đã về trong lúc tải lại) =====
+  // và các giao dịch lỗi chờ quản lý (có thể đã được tạo đơn / hoàn tiền trong lúc tải lại).
   useEffect(() => {
-    const pending = (restoredDrafts?.invoices || []).filter((invoice) => invoice.payos?.trangThai === 'PENDING');
+    const pending = (restoredDrafts?.invoices || []).filter((invoice) => PAYOS_LOCKING_STATUSES.includes(invoice.payos?.trangThai));
     if (!pending.length) return undefined;
     let cancelled = false;
     (async () => {
@@ -503,9 +519,9 @@ export default function PosSalesPage({
         try {
           const link = await posService.getPayosStatus(invoice.payos.orderCode);
           if (cancelled || !link) continue;
-          if (link.trangThai === 'PENDING' || link.trangThai === 'PAID') {
-            applyPayosUpdate(invoice.number, link);
-            if (link.trangThai === 'PENDING' && invoice.number === restoredDrafts.activeInvoice) setDialog('payos-qr');
+          if (['PENDING', 'PAID', 'PAID_ERROR', 'REFUNDED'].includes(link.trangThai)) {
+            applyPayosUpdate(invoice.number, link, { quiet: invoice.number === restoredDrafts.activeInvoice });
+            if (PAYOS_LOCKING_STATUSES.includes(link.trangThai) && invoice.number === restoredDrafts.activeInvoice) setDialog('payos-qr');
           } else {
             // Mã đã hết hạn/bị hủy: mở khóa giỏ để thanh toán lại (hàng giữ chỗ đã được server trả về kho).
             patchInvoice(invoice.number, { payos: null });
@@ -582,6 +598,15 @@ export default function PosSalesPage({
 
   // Trang danh mục về 1 khi từ khóa (đã debounce) đổi — xem effect debounce ở trên.
   const onSearch = (value) => setSearch(value);
+
+  // Nút trang tính từ trang ĐANG HIỆN. Sau một lần đổi trang bị lỗi, trang đang hiện (cũ) và trang đang xin
+  // (catalogPage) lệch nhau: bấm lại đúng trang đang xin thì tải lại trang đó (đặt lại cùng giá trị thì React
+  // bỏ qua, nút sẽ không làm gì).
+  const changeCatalogPage = (nextPage) => {
+    const target = Math.max(0, nextPage);
+    if (target === catalogPage) setRefreshKey((key) => key + 1);
+    else setCatalogPage(target);
+  };
 
   // Đổi bộ lọc -> quay về trang 1 (trang cũ có thể không còn tồn tại sau khi lọc).
   const onStockFilterChange = (value) => {
@@ -679,14 +704,31 @@ export default function PosSalesPage({
   addProductRef.current = addProduct;
   const addFromCatalog = useCallback((product) => addProductRef.current(product), []);
 
+  const removeLine = (variantId) => {
+    if (frozen) return;
+    setCart((current) => current.filter((item) => item.product.id !== variantId));
+    clearFailedAttemptAfterEdit();
+  };
+
+  // Giảm luôn được (kể cả dòng đang vượt tồn). Tăng quá tồn khả dụng -> GIỮ số cũ và báo, không tự hạ
+  // về mức tối đa: số quá tồn thường là gõ nhầm / mã quét lọt vào ô, hạ về tối đa sẽ bán nhầm cả kho.
+  // Chỉ xóa dòng khi bấm − ở 1 hoặc nút thùng rác.
   const setQuantity = (variantId, quantity) => {
     if (frozen) return;
     const line = cart.find((item) => item.product.id === variantId);
-    const stock = line ? Number(line.product.stock) : NaN;
-    const nextQuantity = Number.isFinite(stock) ? Math.min(quantity, stock) : quantity;
-    setCart((current) => nextQuantity <= 0
-      ? current.filter((item) => item.product.id !== variantId)
-      : current.map((item) => item.product.id === variantId ? { ...item, quantity: nextQuantity } : item));
+    if (!line || quantity === line.quantity) return;
+    if (quantity <= 0) {
+      removeLine(variantId);
+      return;
+    }
+    const stock = knownStock(line.product.stock);
+    if (stock !== null && quantity > stock && quantity > line.quantity) {
+      showToast(stock > 0
+        ? `Chỉ còn ${stock} sản phẩm khả dụng tại kho này — số lượng giữ nguyên ${line.quantity}.`
+        : `${line.product.name} đã hết hàng tại kho này — số lượng giữ nguyên ${line.quantity}.`, 'warning');
+      return;
+    }
+    setCart((current) => current.map((item) => item.product.id === variantId ? { ...item, quantity } : item));
     clearFailedAttemptAfterEdit();
   };
 
@@ -777,6 +819,12 @@ export default function PosSalesPage({
     if (isSubmitting || dialog) return;
     const target = invoices.find((invoice) => invoice.number === number);
     if (!target) return;
+    // Giao dịch lỗi đã chuyển cho quản lý (còn nằm ở màn Đối soát chuyển khoản): cho đóng tab sau khi hỏi lại.
+    if (isPayosPaidError(target)) {
+      setClosingInvoiceNumber(number);
+      setDialog('close-paid-error');
+      return;
+    }
     if (isFrozenInvoice(target)) {
       showToast('Hóa đơn đang trong giao dịch thanh toán — không thể đóng.', 'warning');
       return;
@@ -1118,8 +1166,10 @@ export default function PosSalesPage({
       showToast('Thêm ít nhất một sản phẩm trước khi thanh toán.', 'warning');
       return;
     }
-    if (currentInvoice.payos?.trangThai === 'PENDING') {
-      setDialog('payos-qr'); // đang chờ khách quét QR -> mở lại đúng mã QR (xem được cả khi mất mạng)
+    if (PAYOS_LOCKING_STATUSES.includes(currentInvoice.payos?.trangThai)) {
+      // Đang chờ khách quét QR -> mở lại đúng mã QR (xem được cả khi mất mạng).
+      // Đã nhận tiền nhưng lỗi -> hiện tình trạng chờ quản lý, KHÔNG mở thu tiền mặt.
+      setDialog('payos-qr');
       return;
     }
     if (checkoutEnabled && attempt?.status === 'unknown') {
@@ -1180,22 +1230,46 @@ export default function PosSalesPage({
     setPaymentError('');
   };
 
-  const applyPayosUpdate = (invoiceNumber, link) => {
+  /**
+   * Áp trạng thái chuyển khoản mới về hóa đơn. Chỉ áp khi hóa đơn còn đúng giao dịch đó (đã đóng tab rồi
+   * F2 lấy lại cùng số thì kết quả cũ không được ghi vào hóa đơn mới) và trạng thái thật sự đổi
+   * (WebSocket và lượt hỏi định kỳ có thể cùng báo một kết quả). `quiet`: không báo lỗi PAID_ERROR vì
+   * nơi gọi sẽ mở ngay hộp thoại mã QR của hóa đơn đó.
+   */
+  const applyPayosUpdate = (invoiceNumber, link, { quiet = false } = {}) => {
     if (!link) return;
-    patchInvoice(invoiceNumber, { payos: link });
     const ui = uiRef.current;
+    const target = ui.invoices.find((invoice) => invoice.number === invoiceNumber);
+    if (!target?.payos || String(target.payos.orderCode) !== String(link.orderCode)) return;
+    const appliedKey = `${link.orderCode}:${link.trangThai}`;
+    if (appliedPayosRef.current.has(appliedKey)) return;
+    appliedPayosRef.current.add(appliedKey);
+    const previousStatus = target.payos.trangThai;
+    patchInvoice(invoiceNumber, { payos: link });
     const isActive = invoiceNumber === ui.activeInvoice;
     if (link.trangThai === 'PAID' && link.result) {
       // Tiền đã về, server đã tạo đơn + trừ kho -> hiện hóa đơn như thanh toán tiền mặt.
       finishAttempt(invoiceNumber, { status: 'succeeded', result: link.result, error: null });
       setRefreshKey((key) => key + 1);
-      if (isActive || (!ui.dialog && !ui.isSubmitting)) {
+      // Quản lý xử lý giao dịch lỗi sau vài phút/giờ: không kéo thu ngân khỏi hóa đơn đang bán dở.
+      const mayTakeScreen = !ui.dialog && !ui.isSubmitting && previousStatus !== 'PAID_ERROR';
+      if (isActive || mayTakeScreen) {
         setActiveInvoice(invoiceNumber);
         openReceipt(invoiceNumber, link.result);
       } else {
         // Thu ngân đang thao tác hóa đơn khác: không cướp màn hình, chỉ báo; mở tab đó sẽ hiện receipt.
         showToast(`Hóa đơn ${invoiceNumber} đã nhận đủ tiền chuyển khoản. Mở tab hóa đơn đó để in và hoàn tất.`, 'success');
       }
+    } else if (link.trangThai === 'PAID_ERROR') {
+      // Đang mở đúng mã QR của hóa đơn này thì hộp thoại đã hiện lỗi; còn lại báo để thu ngân không thu tiền lại.
+      if (!(isActive && (quiet || ui.dialog === 'payos-qr'))) {
+        showToast(`Hóa đơn ${invoiceNumber}: khách đã chuyển khoản nhưng chưa tạo được đơn — hóa đơn đã khóa, chờ quản lý xử lý. Không thu tiền lại của khách.`, 'error');
+      }
+    } else if (link.trangThai === 'REFUNDED') {
+      // Quản lý đã hoàn tiền chuyển khoản, hàng giữ chỗ đã trả kho -> mở lại giỏ để bán lại nếu khách muốn.
+      patchInvoice(invoiceNumber, { payos: null });
+      if (isActive && ui.dialog === 'payos-qr') setDialog(null);
+      showToast(`Hóa đơn ${invoiceNumber}: quản lý đã hoàn tiền chuyển khoản cho khách — hóa đơn đã mở lại.`, 'warning');
     } else if (!isActive && ['EXPIRED', 'CANCELLED', 'FAILED'].includes(link.trangThai)) {
       showToast(`Mã QR của hóa đơn ${invoiceNumber} đã hết hạn hoặc bị hủy — hóa đơn đã được mở khóa.`, 'warning');
     }
@@ -1251,8 +1325,11 @@ export default function PosSalesPage({
     setIsSubmitting(true);
     try {
       const link = await posService.cancelPayos(invoice.payos.orderCode);
-      if (link?.trangThai === 'PAID') {
+      if (['PAID', 'PAID_ERROR', 'REFUNDED'].includes(link?.trangThai)) {
+        // Khách đã kịp chuyển tiền (đơn đã tạo, hoặc lỗi chờ quản lý): KHÔNG mở thu tiền mặt.
         applyPayosUpdate(invoice.number, link);
+      } else if (link?.trangThai === 'PENDING') {
+        showToast('Mã QR vẫn đang chờ khách chuyển khoản — chưa hủy được, thử lại sau ít phút.', 'warning');
       } else {
         patchInvoice(invoice.number, { payos: null });
         setDialog('payment');
@@ -1270,15 +1347,13 @@ export default function PosSalesPage({
     setDialog('payment');
   };
 
-  // Mọi hóa đơn đang chờ quét QR -> hỏi trạng thái mỗi 3 giây (server tự hỏi payOS nếu webhook
-  // chưa về). Chạy cả khi đã ẩn mã QR hoặc đang ở tab khác, để tiền về là biết ngay.
-  const pendingPayosKey = invoices
-    .filter((invoice) => invoice.payos?.trangThai === 'PENDING' && invoice.payos.orderCode)
-    .map((invoice) => `${invoice.number}:${invoice.payos.orderCode}`)
-    .join(',');
-  useEffect(() => {
-    if (!pendingPayosKey) return undefined;
-    const targets = pendingPayosKey.split(',').map((entry) => {
+  /**
+   * Theo dõi các hóa đơn đang ở trạng thái chuyển khoản `waitingStatus` (key = "số HĐ:orderCode,..."):
+   * WebSocket báo ngay + hỏi trạng thái định kỳ dự phòng. Trạng thái đổi khác -> applyPayosUpdate.
+   * Trả về hàm dọn dẹp cho useEffect.
+   */
+  const watchPayos = (key, waitingStatus, intervalMs) => {
+    const targets = key.split(',').map((entry) => {
       const [number, orderCode] = entry.split(':');
       return { number: Number(number), orderCode };
     });
@@ -1299,7 +1374,7 @@ export default function PosSalesPage({
           if (stopped) return;
           try {
             const link = JSON.parse(event.data);
-            if (link && link.trangThai !== 'PENDING') {
+            if (link && link.trangThai !== waitingStatus) {
               applyPayosUpdate(target.number, link);
             }
           } catch (err) {
@@ -1321,7 +1396,7 @@ export default function PosSalesPage({
           try {
             const link = await posService.getPayosStatus(target.orderCode, { signal: controller.signal });
             if (stopped) return;
-            if (link && link.trangThai !== 'PENDING') applyPayosUpdate(target.number, link);
+            if (link && link.trangThai !== waitingStatus) applyPayosUpdate(target.number, link);
           } catch {
             /* mất mạng tạm thời: lần hỏi sau sẽ thử lại */
           }
@@ -1330,7 +1405,7 @@ export default function PosSalesPage({
         inFlight = false;
       }
     };
-    const id = window.setInterval(tick, PAYOS_POLL_MS);
+    const id = window.setInterval(tick, intervalMs);
     return () => {
       stopped = true;
       controller.abort();
@@ -1339,9 +1414,25 @@ export default function PosSalesPage({
         try { s.close(); } catch (_) {}
       });
     };
-    // applyPayosUpdate chỉ dùng setter ổn định + uiRef
+  };
+  const payosWatchKey = (status) => invoices
+    .filter((invoice) => invoice.payos?.trangThai === status && invoice.payos.orderCode)
+    .map((invoice) => `${invoice.number}:${invoice.payos.orderCode}`)
+    .join(',');
+
+  // Mọi hóa đơn đang chờ quét QR -> hỏi trạng thái mỗi 3 giây (server tự hỏi payOS nếu webhook
+  // chưa về). Chạy cả khi đã ẩn mã QR hoặc đang ở tab khác, để tiền về là biết ngay.
+  const pendingPayosKey = payosWatchKey('PENDING');
+  useEffect(() => (pendingPayosKey ? watchPayos(pendingPayosKey, 'PENDING', PAYOS_POLL_MS) : undefined),
+    // watchPayos/applyPayosUpdate chỉ dùng setter ổn định + uiRef
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingPayosKey]);
+    [pendingPayosKey]);
+
+  // Đã nhận tiền nhưng lỗi, chờ quản lý: quản lý tạo đơn -> hiện hóa đơn để in; hoàn tiền -> mở lại giỏ.
+  const paidErrorPayosKey = payosWatchKey('PAID_ERROR');
+  useEffect(() => (paidErrorPayosKey ? watchPayos(paidErrorPayosKey, 'PAID_ERROR', PAYOS_PAID_ERROR_POLL_MS) : undefined),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [paidErrorPayosKey]);
 
   // Mở lại một hóa đơn đã thanh toán xong (vd. tiền CK về khi đang ở tab khác) -> hiện receipt để hoàn tất.
   useEffect(() => {
@@ -1475,6 +1566,8 @@ export default function PosSalesPage({
     // Mã gõ vào ô tìm kiếm / ô ghi chú: trả nội dung ô về như trước khi quét.
     if (target === searchRef.current) setSearch(scan.snapshot?.search ?? '');
     if (target?.dataset && 'posNote' in target.dataset) setNoteForInvoice(scan.snapshot?.note ?? '');
+    // Ô số lượng: trả về số cũ ngay (trước khi rời ô), để mã quét không bị chốt thành số lượng.
+    if (target?.dataset && 'posQty' in target.dataset) target.dispatchEvent(new Event(QTY_REVERT_EVENT));
     const warn = (message) => {
       playScanBeep(false);
       showToast(message, 'warning');
@@ -1493,7 +1586,7 @@ export default function PosSalesPage({
   };
 
   // Trạng thái/handler mới nhất cho callback chạy nền (polling payOS, phím tắt) — tránh closure cũ.
-  uiRef.current = { dialog, isSubmitting, activeInvoice };
+  uiRef.current = { dialog, isSubmitting, activeInvoice, invoices };
   keyboardContext.current = {
     isSubmitting,
     frozen,
@@ -1580,22 +1673,36 @@ export default function PosSalesPage({
         return;
       }
       event.preventDefault();
+      const active = document.activeElement;
+      if (active?.dataset && 'posQty' in active.dataset) {
+        // Đang gõ dở số lượng: rời ô để chốt số trước, phím tắt chạy sau khi giỏ đã cập nhật
+        // (không thì F9 mở thanh toán với tổng tiền cũ).
+        active.blur();
+        const { key } = event;
+        setTimeout(() => runShortcut(key), 0);
+        return;
+      }
+      runShortcut(event.key);
+    };
+    const runShortcut = (key) => {
+      const context = keyboardContext.current;
+      if (!context || context.isSubmitting) return;
       if (context.dialog) {
         // Đang mở hộp thoại: chỉ F9 trong màn thanh toán (= xác nhận); các phím khác bỏ qua,
         // tránh F9 lần hai đặt lại số tiền đã nhập hoặc F4 đè mất hộp thoại đang dở.
-        if (event.key === 'F9' && context.dialog === 'payment') context.confirmPaymentShortcut();
+        if (key === 'F9' && context.dialog === 'payment') context.confirmPaymentShortcut();
         return;
       }
-      if (event.key === 'F1') context.setDialog('shortcuts');
-      else if (event.key === 'F2') context.requestNewInvoice();
-      else if (event.key === 'F3') {
+      if (key === 'F1') context.setDialog('shortcuts');
+      else if (key === 'F2') context.requestNewInvoice();
+      else if (key === 'F3') {
         context.searchRef.current?.focus();
         context.searchRef.current?.select();
-      } else if (event.key === 'F8') context.toggleScanMode();
-      else if (event.key === 'F4') {
+      } else if (key === 'F8') context.toggleScanMode();
+      else if (key === 'F4') {
         // Phím tắt KHÔNG được vượt guard giao dịch đang treo (frozen).
         if (!context.frozen) context.setDialog('customer');
-      } else if (event.key === 'F9') context.openPayment();
+      } else if (key === 'F9') context.openPayment();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -1604,8 +1711,12 @@ export default function PosSalesPage({
   const renderCartPanel = () => (
     <PosCartPanel
       cart={cart}
+      invoiceKey={activeInvoice}
       customer={customer}
       frozen={frozen}
+      frozenMessage={isPayosPaidError(currentInvoice)
+        ? 'Khách đã chuyển khoản nhưng chưa tạo được đơn — không thu tiền lại. Hóa đơn chờ quản lý xử lý ở màn Đối soát chuyển khoản.'
+        : ''}
       isSubmitting={isSubmitting}
       note={note}
       onClear={() => setDialog('clear')}
@@ -1613,7 +1724,7 @@ export default function PosSalesPage({
       onNote={setNoteForInvoice}
       onPayment={openPayment}
       onQuantity={setQuantity}
-      onRemove={(variantId) => setQuantity(variantId, 0)}
+      onRemove={removeLine}
       offline={!online}
       overStockMessage={overStock ? OVER_STOCK_MESSAGE : ''}
       subtotal={subtotal}
@@ -1657,7 +1768,8 @@ export default function PosSalesPage({
       {/* Màn hẹp hơn 1280px: thanh trên cùng không đủ chỗ -> dải hóa đơn giữ hàng riêng như cũ. */}
       {wideScreen ? null : renderInvoiceTabs('strip')}
 
-      <main aria-labelledby={`pos-invoice-tab-${ticketNumber}`} id="pos-invoice-panel" role="tabpanel" className="grid min-h-0 flex-1 gap-3 overflow-hidden bg-bo-surface px-3 pb-24 pt-3 sm:px-4 xl:grid-cols-[minmax(0,1fr)_390px] xl:pb-3">
+      {/* overflow-clip (không phải hidden): khung không là vùng cuộn, focus/scrollIntoView không đẩy lệch được. */}
+      <main aria-labelledby={`pos-invoice-tab-${ticketNumber}`} id="pos-invoice-panel" role="tabpanel" className="grid min-h-0 flex-1 gap-3 overflow-clip bg-bo-surface px-3 pb-24 pt-3 sm:px-4 xl:grid-cols-[minmax(0,1fr)_390px] xl:pb-3">
         <PosProductCatalog
           error={catalog.error}
           loading={catalog.loading}
@@ -1668,7 +1780,7 @@ export default function PosSalesPage({
           onEnterAdd={handleEnterAdd}
           onShowScanMatches={showScanMatches}
           onToggleScanMode={toggleScanMode}
-          onPageChange={(nextPage) => setCatalogPage(Math.max(0, nextPage))}
+          onPageChange={changeCatalogPage}
           onRetry={() => setRefreshKey((key) => key + 1)}
           onSearch={onSearch}
           onStockFilterChange={onStockFilterChange}
@@ -1682,6 +1794,7 @@ export default function PosSalesPage({
           searchRef={searchRef}
           stockFilter={stockFilter}
           totalElements={catalog.totalElements}
+          warehouseId={warehouseId}
         />
 
         <div className="hidden min-h-0 xl:flex">{renderCartPanel()}</div>

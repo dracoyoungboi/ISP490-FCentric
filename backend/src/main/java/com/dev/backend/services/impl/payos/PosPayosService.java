@@ -5,9 +5,12 @@ import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.dto.request.PosCheckoutCreating;
 import com.dev.backend.dto.response.customize.PayosPaymentLinkDto;
 import com.dev.backend.dto.response.customize.PosCheckoutResponse;
+import com.dev.backend.dto.response.customize.PosPayosGiaoDichDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.entities.PosPayosPayment;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.repository.KhoRepository;
+import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.repository.PosPayosPaymentRepository;
 import com.dev.backend.services.impl.entities.PosCatalogService;
 import com.dev.backend.services.impl.entities.PosConcurrencyRetry;
@@ -15,15 +18,22 @@ import com.dev.backend.websocket.PosWebSocketHandler;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Điều phối thanh toán chuyển khoản payOS tại quầy (KHÔNG transactional — gọi API payOS
@@ -38,6 +48,9 @@ import java.util.Map;
 public class PosPayosService {
 
     private static final long GRACE_SECONDS_WHEN_PAYOS_UNREACHABLE = 30 * 60;
+    private static final ZoneId VN = ZoneId.of("Asia/Ho_Chi_Minh");
+    static final String CANCEL_UNCONFIRMED_MESSAGE = "Chưa hủy được mã QR vì payOS chưa xác nhận — khách vẫn có thể "
+            + "đang chuyển khoản. Hóa đơn vẫn khóa: thử hủy lại sau ít phút hoặc chờ mã hết hạn.";
 
     private final PaymentConfigService configService;
     private final PayosClient payosClient;
@@ -45,11 +58,14 @@ public class PosPayosService {
     private final PosPayosPaymentRepository repository;
     private final PosCatalogService posCatalogService;
     private final PosWebSocketHandler posWebSocketHandler;
+    private final KhoRepository khoRepository;
+    private final NguoiDungRepository nguoiDungRepository;
     private final String frontendUrl;
 
     public PosPayosService(PaymentConfigService configService, PayosClient payosClient, PosPayosTransaction tx,
                            PosPayosPaymentRepository repository, PosCatalogService posCatalogService,
-                           PosWebSocketHandler posWebSocketHandler,
+                           PosWebSocketHandler posWebSocketHandler, KhoRepository khoRepository,
+                           NguoiDungRepository nguoiDungRepository,
                            @Value("${app.frontend-url:http://localhost:5173}") String frontendUrl) {
         this.configService = configService;
         this.payosClient = payosClient;
@@ -57,6 +73,8 @@ public class PosPayosService {
         this.repository = repository;
         this.posCatalogService = posCatalogService;
         this.posWebSocketHandler = posWebSocketHandler;
+        this.khoRepository = khoRepository;
+        this.nguoiDungRepository = nguoiDungRepository;
         this.frontendUrl = frontendUrl.endsWith("/") ? frontendUrl.substring(0, frontendUrl.length() - 1) : frontendUrl;
     }
 
@@ -123,7 +141,12 @@ public class PosPayosService {
         return toDto(row);
     }
 
-    /** Thu ngân hủy QR. Nếu khách đã kịp trả thì không hủy mà hoàn tất đơn. */
+    /**
+     * Thu ngân hủy QR. Nếu khách đã kịp trả thì không hủy mà hoàn tất đơn.
+     * Chỉ đánh dấu đã hủy (và trả hàng giữ chỗ) khi payOS XÁC NHẬN link đã chết: link còn sống thì
+     * khách vẫn chuyển khoản được trong lúc thu ngân đã thu tiền mặt bằng hóa đơn khác -> bán 2 lần.
+     * 409 (không phải 5xx: Cloudflare thay nội dung lỗi 5xx) để màn POS hiện đúng câu báo.
+     */
     public PayosPaymentLinkDto cancel(Long orderCode) {
         PosPayosPayment row = find(orderCode);
         authorize(row);
@@ -131,15 +154,22 @@ public class PosPayosService {
             return toDto(row);
         }
         PayosCredentials cred = configService.credentialsForBackgroundJob();
-        if (cred != null) {
-            String status = syncWithPayos(orderCode, cred);
+        String status = syncWithPayos(orderCode, cred);
+        if (!PosPayosPayment.PENDING.equals(find(orderCode).getTrangThai())) {
+            return toDto(find(orderCode));
+        }
+        if (status == null) {
+            throw new CommonException(CANCEL_UNCONFIRMED_MESSAGE, HttpStatus.CONFLICT, null);
+        }
+        PayosClient.PayosResult r = payosClient.cancelPaymentLink(cred, orderCode, "Thu ngan huy tai quay");
+        if (!r.ok()) {
+            log.warn("payOS chưa hủy được link {}: {}", orderCode, r.desc());
+            // Hủy hỏng có thể vì khách vừa trả xong: hỏi lại để hoàn tất đơn thay vì báo lỗi.
+            syncWithPayos(orderCode, cred);
             if (!PosPayosPayment.PENDING.equals(find(orderCode).getTrangThai())) {
                 return toDto(find(orderCode));
             }
-            if (status != null) {
-                PayosClient.PayosResult r = payosClient.cancelPaymentLink(cred, orderCode, "Thu ngan huy tai quay");
-                if (!r.ok()) log.warn("payOS chưa hủy được link {}: {}", orderCode, r.desc());
-            }
+            throw new CommonException(CANCEL_UNCONFIRMED_MESSAGE, HttpStatus.CONFLICT, null);
         }
         return toDto(tx.closeUnpaid(orderCode, PosPayosPayment.CANCELLED, "Thu ngân đã hủy mã QR"));
     }
@@ -171,7 +201,136 @@ public class PosPayosService {
             return;
         }
         BigDecimal amount = new BigDecimal(data.path("amount").asText("0"));
-        finalizeSafely(orderCode, amount, data.path("reference").asText(null));
+        ghiNguoiChuyenAnToan(orderCode, data);
+        finalizeSafely(orderCode, amount, data.path("reference").asText(null), false);
+    }
+
+    // ================= Quản lý xử lý giao dịch lỗi (PAID_ERROR) =================
+
+    /** Danh sách giao dịch cho màn "Đối soát chuyển khoản"; ngày lọc theo giờ Việt Nam, đến hết ngày denNgay. */
+    public Page<PosPayosGiaoDichDto> listTransactions(String trangThai, boolean chiQuanLyDaXuLy, Integer khoId,
+                                                      LocalDate tuNgay, LocalDate denNgay, int page, int size) {
+        Instant tu = tuNgay == null ? null : tuNgay.atStartOfDay(VN).toInstant();
+        Instant den = denNgay == null ? null : denNgay.plusDays(1).atStartOfDay(VN).toInstant();
+        String status = trangThai == null || trangThai.isBlank() ? null : trangThai.trim();
+        Page<PosPayosPayment> rows = repository.timKiem(status, chiQuanLyDaXuLy, khoId, tu, den,
+                PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100)));
+        Set<Integer> khoIds = new HashSet<>();
+        Set<Integer> userIds = new HashSet<>();
+        rows.forEach(r -> {
+            khoIds.add(r.getKhoId());
+            userIds.add(r.getNguoiThuNganId());
+            if (r.getNguoiXuLyId() != null) userIds.add(r.getNguoiXuLyId());
+        });
+        Map<Integer, String> tenKho = new HashMap<>();
+        khoRepository.findAllById(khoIds).forEach(k -> tenKho.put(k.getId(), k.getTenKho()));
+        Map<Integer, String> tenNguoi = new HashMap<>();
+        nguoiDungRepository.findAllById(userIds).forEach(u -> tenNguoi.put(u.getId(), u.getHoTen()));
+        return rows.map(r -> toGiaoDichDto(r, tenKho, tenNguoi));
+    }
+
+    /** Số giao dịch đã nhận tiền nhưng chưa có đơn — số đếm trên menu. */
+    public long countNeedsAttention() {
+        return repository.countByTrangThai(PosPayosPayment.PAID_ERROR);
+    }
+
+    public PosPayosGiaoDichDto createOrderFromPaidError(Long orderCode, String note) {
+        Integer managerId = SecurityContextHolder.getUser().getId();
+        // Deadlock / trùng số chứng từ với quầy khác -> thử lại transaction mới.
+        PosConcurrencyRetry.call(() -> tx.createOrderFromPaidError(orderCode, managerId, note));
+        pushPaymentNotification(orderCode);
+        return giaoDich(orderCode);
+    }
+
+    public PosPayosGiaoDichDto markRefunded(Long orderCode, String note) {
+        if (note == null || note.isBlank()) {
+            throw new CommonException("Nhập ghi chú hoàn tiền (mã giao dịch hoàn hoặc lý do).");
+        }
+        Integer managerId = SecurityContextHolder.getUser().getId();
+        PosConcurrencyRetry.call(() -> tx.markRefunded(orderCode, managerId, note));
+        pushPaymentNotification(orderCode);
+        return giaoDich(orderCode);
+    }
+
+    private PosPayosGiaoDichDto giaoDich(Long orderCode) {
+        PosPayosPayment row = find(orderCode);
+        Map<Integer, String> tenKho = new HashMap<>();
+        khoRepository.findById(row.getKhoId()).ifPresent(k -> tenKho.put(k.getId(), k.getTenKho()));
+        Map<Integer, String> tenNguoi = new HashMap<>();
+        nguoiDungRepository.findAllById(row.getNguoiXuLyId() == null ? List.of(row.getNguoiThuNganId())
+                        : List.of(row.getNguoiThuNganId(), row.getNguoiXuLyId()))
+                .forEach(u -> tenNguoi.put(u.getId(), u.getHoTen()));
+        return toGiaoDichDto(row, tenKho, tenNguoi);
+    }
+
+    /**
+     * Lý do giao dịch cần quản lý xử lý (đang hoặc đã từng là PAID_ERROR), xét theo thứ tự: chưa rõ số tiền, sai số
+     * tiền, tiền về khi mã QR đã hủy/hết hạn (cờ chốt lúc thành PAID_ERROR, không suy ngược), còn lại là lỗi tạo đơn.
+     * Cờ tienVeSauHuy trả riêng: khoản vừa chuyển dư vừa về muộn vẫn phải bắt quản lý hỏi quầy trước khi bán.
+     */
+    static String lyDo(PosPayosPayment row) {
+        boolean tungLoi = PosPayosPayment.PAID_ERROR.equals(row.getTrangThai())
+                || PosPayosPayment.REFUNDED.equals(row.getTrangThai())
+                || (PosPayosPayment.PAID.equals(row.getTrangThai()) && row.getNguoiXuLyId() != null);
+        if (!tungLoi) return null;
+        if (row.getSoTienDaNhan() == null) return "CHUA_RO_SO_TIEN";
+        int ss = row.getSoTien() == null ? 0 : row.getSoTienDaNhan().compareTo(row.getSoTien());
+        if (ss < 0) return "CHUYEN_THIEU";
+        if (ss > 0) return "CHUYEN_DU";
+        return row.isTienVeSauHuy() ? "TIEN_VE_MUON" : "LOI_TAO_DON";
+    }
+
+    private PosPayosGiaoDichDto toGiaoDichDto(PosPayosPayment row, Map<Integer, String> tenKho, Map<Integer, String> tenNguoi) {
+        List<PosPayosGiaoDichDto.Dong> items = new ArrayList<>();
+        try {
+            Map<Integer, String> names = tx.productNames(row);
+            for (PosCheckoutCreating.PosCheckoutItemCreating i : tx.payload(row).getItems()) {
+                items.add(PosPayosGiaoDichDto.Dong.builder()
+                        .bienTheSanPhamId(i.getBienTheSanPhamId())
+                        .tenSanPham(names.get(i.getBienTheSanPhamId()))
+                        .soLuong(i.getQuantity())
+                        .donGia(i.getUnitPriceClient())
+                        .build());
+            }
+        } catch (RuntimeException e) {
+            log.warn("Không đọc được giỏ hàng của giao dịch payOS {}: {}", row.getOrderCode(), e.getMessage());
+        }
+        PosCheckoutResponse result = null;
+        try {
+            result = PosPayosPayment.PAID.equals(row.getTrangThai())
+                    ? tx.read(row.getResultJson(), PosCheckoutResponse.class) : null;
+        } catch (RuntimeException e) {
+            // Một dòng dữ liệu hỏng không được làm hỏng cả danh sách
+            log.warn("Không đọc được kết quả đơn của giao dịch payOS {}: {}", row.getOrderCode(), e.getMessage());
+        }
+        return PosPayosGiaoDichDto.builder()
+                .orderCode(row.getOrderCode())
+                .trangThai(row.getTrangThai())
+                .khoId(row.getKhoId())
+                .tenKho(tenKho.get(row.getKhoId()))
+                .nguoiThuNganId(row.getNguoiThuNganId())
+                .tenThuNgan(tenNguoi.get(row.getNguoiThuNganId()))
+                .soTien(row.getSoTien())
+                .soTienDaNhan(row.getSoTienDaNhan())
+                .noiDungCk(row.getNoiDungCk())
+                .maGiaoDichNganHang(row.getMaGiaoDichNganHang())
+                .errorMessage(row.getErrorMessage())
+                .lyDo(lyDo(row))
+                .tienVeSauHuy(row.isTienVeSauHuy())
+                .tenNguoiChuyen(row.getTenNguoiChuyen())
+                .nganHangNguoiChuyen(row.getNganHangNguoiChuyen())
+                .soTkNguoiChuyen(row.getSoTkNguoiChuyen())
+                .dangGiuCho(row.isDangGiuCho())
+                .ngayTao(row.getNgayTao())
+                .hetHanLuc(row.getHetHanLuc())
+                .thanhToanLuc(row.getThanhToanLuc())
+                .donBanHangId(row.getDonBanHangId())
+                .soDonHang(result == null ? null : result.getSoDonHang())
+                .tenNguoiXuLy(row.getNguoiXuLyId() == null ? null : tenNguoi.get(row.getNguoiXuLyId()))
+                .xuLyLuc(row.getXuLyLuc())
+                .ghiChuXuLy(row.getGhiChuXuLy())
+                .items(items)
+                .build();
     }
 
     /** Job mỗi phút: QR quá hạn -> hỏi payOS lần cuối, chưa trả thì hủy + trả hàng giữ chỗ. */
@@ -223,12 +382,23 @@ public class PosPayosService {
         String status = r.data().path("status").asText("");
         long amountPaid = r.data().path("amountPaid").asLong(0);
         long amount = r.data().path("amount").asLong(0);
+        JsonNode giaoDichDau = r.data().path("transactions").path(0);
+        if (amountPaid > 0) ghiNguoiChuyenAnToan(orderCode, giaoDichDau);
         if ("PAID".equals(status) || (amount > 0 && amountPaid >= amount)) {
             String reference = null;
-            JsonNode tx0 = r.data().path("transactions").path(0);
+            JsonNode tx0 = giaoDichDau;
             if (!tx0.isMissingNode()) reference = tx0.path("reference").asText(null);
-            finalizeSafely(orderCode, BigDecimal.valueOf(amountPaid > 0 ? amountPaid : amount), reference);
+            finalizeSafely(orderCode, BigDecimal.valueOf(amountPaid > 0 ? amountPaid : amount), reference, true);
             return "PAID";
+        }
+        if (amountPaid > 0) {
+            // Khách mới chuyển một phần (payOS báo UNDERPAID): KHÔNG hủy/hết hạn (tiền một phần sẽ không được ghi
+            // ở đâu) mà chuyển cho quản lý xử lý; hàng vẫn giữ chỗ.
+            JsonNode tx0 = giaoDichDau;
+            tx.markPaidError(orderCode, "khách mới chuyển " + amountPaid + "đ / " + amount + "đ",
+                    tx0.isMissingNode() ? null : tx0.path("reference").asText(null), BigDecimal.valueOf(amountPaid), true);
+            pushPaymentNotification(orderCode);
+            return "PARTIAL";
         }
         if ("CANCELLED".equals(status) || "EXPIRED".equals(status) || "FAILED".equals(status)) {
             tx.closeUnpaid(orderCode, "CANCELLED".equals(status) ? PosPayosPayment.CANCELLED : PosPayosPayment.EXPIRED,
@@ -237,7 +407,17 @@ public class PosPayosService {
         return status;
     }
 
-    private void finalizeSafely(Long orderCode, BigDecimal amount, String reference) {
+    /** Ghi tài khoản người chuyển; lỗi ở bước phụ này không được chặn việc tạo đơn. */
+    private void ghiNguoiChuyenAnToan(Long orderCode, JsonNode giaoDich) {
+        try {
+            tx.ghiNguoiChuyen(orderCode, giaoDich);
+        } catch (RuntimeException e) {
+            log.warn("payOS: không ghi được tài khoản người chuyển của đơn {}: {}", orderCode, e.getMessage());
+        }
+    }
+
+    /** @param laTongDaNhan amount là TỔNG payOS đã nhận (hỏi trạng thái), không phải một lần chuyển (webhook). */
+    private void finalizeSafely(Long orderCode, BigDecimal amount, String reference, boolean laTongDaNhan) {
         try {
             // Deadlock / trùng số chứng từ với quầy khác -> thử lại transaction mới, không đánh PAID_ERROR oan.
             PosCheckoutResponse result = PosConcurrencyRetry.call(() -> tx.finalizePaid(orderCode, amount, reference));
@@ -249,11 +429,16 @@ public class PosPayosService {
                 pushPaymentNotification(orderCode);
                 return;
             }
+            if (row != null && PosPayosPayment.REFUNDED.equals(row.getTrangThai())) {
+                // Quản lý đã hoàn tiền rồi mà payOS gửi lại webhook: không phải lỗi mới.
+                log.warn("payOS: webhook cho đơn {} đã hoàn tiền — bỏ qua (kiểm tra nếu là lần chuyển mới của khách)", orderCode);
+                return;
+            }
             log.error("payOS: đã nhận tiền đơn {} nhưng không tạo được đơn hàng", orderCode, e);
             String reason = PosConcurrencyRetry.isRetryable(e)
                     ? "nhiều giao dịch chạy cùng lúc, đã thử lại nhưng chưa được"
                     : (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
-            tx.markPaidError(orderCode, reason, reference);
+            tx.markPaidError(orderCode, reason, reference, amount, laTongDaNhan);
             pushPaymentNotification(orderCode);
         }
     }
@@ -292,6 +477,7 @@ public class PosPayosService {
                 .requestId(row.getRequestId())
                 .trangThai(row.getTrangThai())
                 .soTien(row.getSoTien())
+                .soTienDaNhan(row.getSoTienDaNhan())
                 .qrCode(row.getQrCode())
                 .checkoutUrl(row.getCheckoutUrl())
                 .bin(row.getBin())

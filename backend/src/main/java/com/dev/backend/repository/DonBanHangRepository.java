@@ -90,7 +90,14 @@ public interface DonBanHangRepository
         group by d.trangThai
     """)
     List<Object[]> demDonKenhTheoTrangThai(@Param("kenhId") Integer kenhId);
-    long countBySoDonHangStartingWith(String prefix);
+    /** Số đuôi lớn nhất của các số dạng `tienTo + chữ số` (bỏ qua số có hậu tố như "-1"); null khi chưa có. */
+    @Query(value = """
+        SELECT MAX(CAST(SUBSTRING(so_don_hang, CHAR_LENGTH(:tienTo) + 1) AS UNSIGNED))
+        FROM don_ban_hang
+        WHERE so_don_hang LIKE CONCAT(:tienTo, '%')
+          AND SUBSTRING(so_don_hang, CHAR_LENGTH(:tienTo) + 1) REGEXP '^[0-9]+$'
+    """, nativeQuery = true)
+    Number soDuoiLonNhat(@Param("tienTo") String tienTo);
 
     // Dùng để tìm kiếm khôi phục chứng từ khi Hủy đơn
     java.util.Optional<DonBanHang> findBySoDonHang(String soDonHang);
