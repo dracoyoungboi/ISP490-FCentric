@@ -17,6 +17,7 @@ import {
     tinhTienDoNhan,
     trangThaiGiao,
 } from "@/components/order/chi-tiet-don-mua/tinhNhanHang";
+import { dongDonKemPhanGiu, phieuNenMo, tinhPhanGiu } from "@/components/nhap-kho/phanGiuPhieuNhap";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import purchaseOrderService from "@/services/purchaseOrderService";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
@@ -89,6 +90,14 @@ export default function PurchaseOrderDetail() {
     const tienDo = useMemo(() => tinhTienDoNhan(don?.chiTietDonMuaHangs), [don]);
     const bang = useMemo(() => dungBangDotNhan(don?.chiTietDonMuaHangs, phieus), [don, phieus]);
     const buoc = useMemo(() => tinhBuocDonMua(don, tienDo, bang.cot), [don, tienDo, bang.cot]);
+    // Phần các phiếu nhập Nháp đang giữ và số còn tạo phiếu được (máy chủ trừ phần giữ khi tạo phiếu mới). Chỉ lấy phiếu
+    // của đúng đơn này: đổi sang đơn khác trong cùng trang thì danh sách phiếu cũ còn giữ tới khi tải xong.
+    const phanGiu = useMemo(
+        () => tinhPhanGiu((Array.isArray(phieus) ? phieus : []).filter((p) => don && String(p?.donMuaHangId) === String(don.id))),
+        [phieus, don],
+    );
+    const dongGiu = useMemo(() => dongDonKemPhanGiu(don?.chiTietDonMuaHangs, phanGiu.theoBienThe), [don, phanGiu]);
+    const conTaoDuoc = dongGiu.reduce((tong, d) => tong + d.conLai, 0);
     const giao = trangThaiGiao(don?.ngayGiaoDuKien, tienDo.daDu);
 
     useEffect(() => {
@@ -102,6 +111,9 @@ export default function PurchaseOrderDetail() {
     const khoNhanId = don?.khoNhap?.id ?? null;
     const khoLamViecId = getKhoLamViecId();
     const saiKho = !laQuanTriVien && khoNhanId != null && khoLamViecId !== khoNhanId;
+    // Phần còn lại đã nằm hết ở phiếu nhập Nháp: nút mở phiếu đó (phiếu tạo trước còn giữ hàng đơn chưa nhận đủ),
+    // tạo phiếu mới sẽ bị máy chủ từ chối
+    const phieuNhapCanMo = !tienDo.daDu && conTaoDuoc === 0 ? phieuNenMo(phanGiu.phieu, dongGiu) : null;
     const taoPhieu = {
         hien: Boolean(don) && hasAnyRole(VAI_TRO_TAO_PHIEU_NHAP) && TRANG_THAI_TAO_PHIEU_NHAP.includes(Number(don?.trangThai)),
         khoa: tienDo.daDu || saiKho,
@@ -110,6 +122,8 @@ export default function PurchaseOrderDetail() {
             : saiKho
                 ? `Đơn nhập vào ${don?.khoNhap?.tenKho || "kho khác"}, không phải nơi làm việc hiện tại của bạn`
                 : "",
+        nhan: phieuNhapCanMo ? `Mở phiếu nháp ${phieuNhapCanMo.soPhieuNhap}` : undefined,
+        moPhieu: Boolean(phieuNhapCanMo),
     };
 
     // Có trang trước trong ứng dụng thì lùi lại; mở thẳng bằng đường dẫn thì về danh sách đơn mua
@@ -167,7 +181,7 @@ export default function PurchaseOrderDetail() {
                     taoPhieu={taoPhieu}
                     onQuayLai={quayLai}
                     onIn={() => navigate(`/purchase-orders/${don.id}/print`)}
-                    onTaoPhieu={() => navigate(`/goods-receipts/create?poId=${don.id}`)}
+                    onTaoPhieu={() => navigate(phieuNhapCanMo ? `/goods-receipts/${phieuNhapCanMo.id}` : `/goods-receipts/create?poId=${don.id}`)}
                     onMoYeuCau={() => navigate(`/purchase-requests/${don.yeuCauMuaHang?.id}`)}
                 />
                 <TienTrinhDonMua buoc={buoc} />
