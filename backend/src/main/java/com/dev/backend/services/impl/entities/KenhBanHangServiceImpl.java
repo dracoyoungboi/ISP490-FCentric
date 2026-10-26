@@ -202,7 +202,8 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         };
     }
 
-            public KenhBanHangServiceImpl(
+    @Autowired
+    public KenhBanHangServiceImpl(
             KenhBanHangRepository kenhBanHangRepository,
             PaymentSecretCipher paymentSecretCipher,
             LichSuThayDoiService lichSuThayDoiService,

@@ -55,8 +55,9 @@ export default function KetNoiLazadaForm({ values, errors = {}, onChange, config
     try {
       const redirectUri = window.location.href.split("?")[0];
       const res = await kenhBanHangService.getLazadaAuthUrl(redirectUri);
-      if (res?.authUrl) {
-        window.location.href = res.authUrl;
+      const url = res?.authUrl || (typeof res === "string" ? res : null);
+      if (url) {
+        window.location.href = url;
       } else {
         toast.error("Không tạo được liên kết ủy quyền OAuth Lazada.");
       }

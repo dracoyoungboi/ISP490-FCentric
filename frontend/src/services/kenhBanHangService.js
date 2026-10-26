@@ -125,7 +125,15 @@ const realApi = {
   /** Sàn ủy quyền: { appKey?, appSecret?, serviceId?, trangThai? } — khóa rỗng = giữ khóa cũ. */
   luuKhoaUngDung: (maKenh, payload) => apiClient.put(`${BASE}/${ma(maKenh)}/ket-noi/khoa`, payload).then(data).catch(baoApiChuaCo(maKenh)),
   /** { authUrl }: trang đồng ý của sàn; lỗi 400 THIEU_KHOA_UNG_DUNG khi chưa có khóa ứng dụng. */
-  batDauUyQuyen: (maKenh) => apiClient.post(`${BASE}/${ma(maKenh)}/uy-quyen`).then(data).catch(baoApiChuaCo(maKenh)),
+  batDauUyQuyen: (maKenh, redirectUri) =>
+    apiClient.post(`${BASE}/${ma(maKenh)}/uy-quyen`, null, { params: redirectUri ? { redirectUri } : {} })
+      .then(data)
+      .catch(baoApiChuaCo(maKenh)),
+  /** { authUrl }: đường dẫn ủy quyền riêng của Lazada Open Platform */
+  getLazadaAuthUrl: (redirectUri) =>
+    apiClient.get(`${BASE}/lazada/auth-url`, { params: redirectUri ? { redirectUri } : {} })
+      .then(data)
+      .catch(() => apiClient.post(`${BASE}/LAZADA/uy-quyen`, null, { params: redirectUri ? { redirectUri } : {} }).then(data)),
   /** { code, state } từ trang quay về; state null = mã nhập tay của tài khoản thử. */
   hoanTatUyQuyen: (maKenh, { code, state } = {}) =>
     apiClient.post(`${BASE}/${ma(maKenh)}/uy-quyen/hoan-tat`, { code, state: state ?? null }).then(data).catch(baoApiChuaCo(maKenh)),

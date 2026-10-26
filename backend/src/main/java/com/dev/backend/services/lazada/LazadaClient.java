@@ -35,6 +35,7 @@ public class LazadaClient {
     public static final String AUTH_GATEWAY = "https://auth.lazada.com/rest";
     public static final String API_GATEWAY_VN = "https://api.lazada.vn/rest";
     public static final String OAUTH_AUTHORIZE_URL = "https://auth.lazada.com/oauth/authorize";
+    public static final String DEFAULT_CALLBACK_URL = "https://fcentric.net";
 
     RestTemplate restTemplate;
     ObjectMapper objectMapper;
@@ -49,18 +50,19 @@ public class LazadaClient {
 
     /**
      * Tạo đường dẫn ủy quyền Seller Authorization để chuyển hướng người dùng sang Lazada Seller Center.
+     * Luôn đảm bảo có tham số redirect_uri (mặc định lấy Callback URL đã cấu hình trên Lazada Developer Console)
+     * để tránh lỗi "Thiếu Tham số" khi người bán bấm [Use Seller Login].
      */
     public String generateAuthUrl(String appKey, String redirectUri) {
         if (appKey == null || appKey.isBlank()) {
             throw new IllegalArgumentException("App Key không được để trống");
         }
-        if (redirectUri != null && !redirectUri.isBlank()) {
-            String encodedUri = URLEncoder.encode(redirectUri, StandardCharsets.UTF_8);
-            return String.format("%s?response_type=code&force_auth=true&redirect_uri=%s&client_id=%s",
-                    OAUTH_AUTHORIZE_URL, encodedUri, appKey.trim());
-        }
-        return String.format("%s?response_type=code&force_auth=true&client_id=%s",
-                OAUTH_AUTHORIZE_URL, appKey.trim());
+        String targetUri = (redirectUri != null && !redirectUri.isBlank() && !redirectUri.contains("localhost"))
+                ? redirectUri.trim()
+                : DEFAULT_CALLBACK_URL;
+        String encodedUri = URLEncoder.encode(targetUri, StandardCharsets.UTF_8);
+        return String.format("%s?response_type=code&force_auth=true&redirect_uri=%s&client_id=%s",
+                OAUTH_AUTHORIZE_URL, encodedUri, appKey.trim());
     }
 
     /**
