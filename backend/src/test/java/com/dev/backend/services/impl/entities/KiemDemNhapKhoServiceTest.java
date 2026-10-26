@@ -625,6 +625,23 @@ class KiemDemNhapKhoServiceTest {
     }
 
     @Test
+    @DisplayName("Xóa lô đã Hoạt động trong phiếu nháp (dữ liệu cũ): 409 bảo hủy phiếu, không xóa gì")
+    void xoaLoDaHoatDong() {
+        LoHang loCu = loDaKhoa(93, "LO-20261017-01", 0, 0);
+        loCu.setTrangThai("HOAT_DONG");
+        when(chiTietPhieuNhapKhoRepository.findByIdAndPhieuNhapKho_Id(1093, 1)).thenReturn(Optional.of(ctLo(loCu)));
+
+        CommonException ex = loi(() -> service.xoaLo(1, 1093));
+
+        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+        assertEquals("Lô LO-20261017-01 đang ở trạng thái Hoạt động, không xóa được ở phiếu nháp. "
+                + "Hủy phiếu này rồi tạo phiếu mới để kiểm đếm lại.", ex.getMessage());
+        verify(loHangRepository, never()).delete(any(LoHang.class));
+        verify(chiTietPhieuNhapKhoRepository, never()).delete(any(ChiTietPhieuNhapKho.class));
+        verify(chiTietLoiLoHangRepository, never()).deleteByLoHangId(anyInt());
+    }
+
+    @Test
     @DisplayName("Xóa lô của phiếu chuyển kho (lô thật của kho gửi): 400 câu rõ, không đụng lô, chi tiết lỗi, biên bản")
     void xoaLoPhieuChuyenKho() {
         phieu.setDonMuaHang(null);

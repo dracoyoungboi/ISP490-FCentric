@@ -241,6 +241,120 @@ class PhieuNhapKhoQcGuardTest {
     }
 
     @Test
+    @DisplayName("Nhập kho phiếu từ đơn mua: lô lệch số giữa dòng phiếu và lô thì chặn 409, không ghi tồn")
+    void testCompletePhieuNhap_LoLechSo_ChanConflict() {
+        draftItem.setSoLuongNhap(new BigDecimal("1.000"));
+        LoHang loCu = LoHang.builder().id(93).maLo("LO-20261017-01").bienTheSanPham(bienThe)
+                .soLuongNhap(0).soLuongLoi(0).trangThai("TAM_KHOA").build();
+        ChiTietPhieuNhapKho ctLo = ChiTietPhieuNhapKho.builder().id(211).phieuNhapKho(phieu).bienTheSanPham(bienThe)
+                .loHang(loCu).soLuongNhap(new BigDecimal("1.000")).donGia(new BigDecimal("150000.00")).build();
+
+        when(repository.khoaTheoId(1)).thenReturn(Optional.of(phieu));
+        when(chiTietPhieuNhapKhoRepository.findAllByPhieuNhapKhoIdAndCoLo(1)).thenReturn(List.of(ctLo));
+
+        CommonException ex = assertThrows(CommonException.class, () -> service.completePhieuNhap(1, 1));
+        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+        assertEquals("Lô LO-20261017-01 của FCT-TSHIRT-01 lệch số (dòng phiếu 1, lô 0). Xóa lô này rồi khóa lại trước khi nhập kho.",
+                ex.getMessage());
+        verify(tonKhoTheoLoRepository, never()).save(any());
+        verify(loHangRepository, never()).save(any());
+        assertEquals(0, phieu.getTrangThai());
+    }
+
+    @Test
+    @DisplayName("Nhập kho phiếu từ đơn mua: lô đã Hoạt động khi phiếu còn nháp thì chặn 409")
+    void testCompletePhieuNhap_LoDaHoatDongTrongPhieuNhap_ChanConflict() {
+        LoHang loCu = LoHang.builder().id(93).maLo("LO-20261017-01").bienTheSanPham(bienThe)
+                .soLuongNhap(100).soLuongLoi(0).trangThai("HOAT_DONG").build();
+        ChiTietPhieuNhapKho ctLo = ChiTietPhieuNhapKho.builder().id(211).phieuNhapKho(phieu).bienTheSanPham(bienThe)
+                .loHang(loCu).soLuongNhap(new BigDecimal("100.000")).donGia(new BigDecimal("150000.00")).build();
+
+        when(repository.khoaTheoId(1)).thenReturn(Optional.of(phieu));
+        when(chiTietPhieuNhapKhoRepository.findAllByPhieuNhapKhoIdAndCoLo(1)).thenReturn(List.of(ctLo));
+
+        CommonException ex = assertThrows(CommonException.class, () -> service.completePhieuNhap(1, 1));
+        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+        assertEquals("Lô LO-20261017-01 của FCT-TSHIRT-01 đang ở trạng thái Hoạt động dù phiếu chưa nhập kho. "
+                + "Hủy phiếu này rồi tạo phiếu mới để kiểm đếm lại.", ex.getMessage());
+        verify(tonKhoTheoLoRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Nhập kho: một lô đúng đứng trước hai lô sai thì báo cả hai lô sai trong một câu, không ghi gì")
+    void testCompletePhieuNhap_NhieuLoSai_BaoMotLanKhongGhi() {
+        LoHang loDung = LoHang.builder().id(61).maLo("LO-A").bienTheSanPham(bienThe)
+                .soLuongNhap(60).soLuongLoi(0).trangThai("TAM_KHOA").build();
+        LoHang loLech = LoHang.builder().id(62).maLo("LO-B").bienTheSanPham(bienThe)
+                .soLuongNhap(0).soLuongLoi(0).trangThai("TAM_KHOA").build();
+        LoHang loLa = LoHang.builder().id(63).maLo("LO-C").bienTheSanPham(bienThe)
+                .soLuongNhap(10).soLuongLoi(0).trangThai(null).build();
+        ChiTietPhieuNhapKho ctDung = ChiTietPhieuNhapKho.builder().id(501).phieuNhapKho(phieu).bienTheSanPham(bienThe)
+                .loHang(loDung).soLuongNhap(new BigDecimal("60.000")).donGia(new BigDecimal("150000.00")).build();
+        ChiTietPhieuNhapKho ctLech = ChiTietPhieuNhapKho.builder().id(502).phieuNhapKho(phieu).bienTheSanPham(bienThe)
+                .loHang(loLech).soLuongNhap(new BigDecimal("30.000")).donGia(new BigDecimal("150000.00")).build();
+        ChiTietPhieuNhapKho ctLa = ChiTietPhieuNhapKho.builder().id(503).phieuNhapKho(phieu).bienTheSanPham(bienThe)
+                .loHang(loLa).soLuongNhap(new BigDecimal("10.000")).donGia(new BigDecimal("150000.00")).build();
+
+        when(repository.khoaTheoId(1)).thenReturn(Optional.of(phieu));
+        // Máy chủ trả lô không theo thứ tự: câu báo vẫn theo thứ tự dòng
+        when(chiTietPhieuNhapKhoRepository.findAllByPhieuNhapKhoIdAndCoLo(1)).thenReturn(List.of(ctLa, ctDung, ctLech));
+
+        CommonException ex = assertThrows(CommonException.class, () -> service.completePhieuNhap(1, 1));
+        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+        // Có lô không ở Tạm khóa (không xóa lô được): câu báo bảo hủy phiếu
+        assertEquals("Lô LO-B của FCT-TSHIRT-01 lệch số (dòng phiếu 30, lô 0); "
+                + "Lô LO-C của FCT-TSHIRT-01 đang ở trạng thái không xác định dù phiếu chưa nhập kho. "
+                + "Hủy phiếu này rồi tạo phiếu mới để kiểm đếm lại.", ex.getMessage());
+        verify(loHangRepository, never()).save(any());
+        verify(tonKhoTheoLoRepository, never()).save(any());
+        verify(lichSuGiaoDichKhoRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Nhập kho phiếu đơn mua: lô chưa có số trên lô (dữ liệu trước khi thêm cột) dùng số trên dòng, không bị chặn")
+    void testCompletePhieuNhap_LoChuaCoSo_DungSoTrenDong() {
+        LoHang loCu = LoHang.builder().id(64).maLo("LO-CU").bienTheSanPham(bienThe)
+                .soLuongNhap(null).soLuongLoi(0).trangThai("TAM_KHOA").build();
+        ChiTietPhieuNhapKho ctLo = ChiTietPhieuNhapKho.builder().id(504).phieuNhapKho(phieu).bienTheSanPham(bienThe)
+                .loHang(loCu).soLuongNhap(new BigDecimal("100.000")).donGia(new BigDecimal("150000.00")).build();
+
+        when(repository.khoaTheoId(1)).thenReturn(Optional.of(phieu));
+        when(chiTietPhieuNhapKhoRepository.findAllByPhieuNhapKhoIdAndCoLo(1)).thenReturn(List.of(ctLo));
+        when(bienBanTraHangNccRepository.findByPhieuNhapKho_Id(1)).thenReturn(Optional.empty());
+        when(nguoiDungRepository.findById(1)).thenReturn(Optional.of(nguoiNhap));
+        when(tonKhoTheoLoRepository.findByKho_IdAndLoHang_Id(1, 64)).thenReturn(Optional.empty());
+
+        service.completePhieuNhap(1, 1);
+
+        verify(tonKhoTheoLoRepository).save(argThat(t -> t.getSoLuongTon().compareTo(new BigDecimal("100.000")) == 0));
+        assertEquals(0, poItem.getSoLuongDaNhan().compareTo(new BigDecimal("100.000")));
+        assertEquals(3, phieu.getTrangThai());
+    }
+
+    @Test
+    @DisplayName("Phiếu nhập hoàn trả: dòng phiếu khác số nhập ban đầu của lô thật là đúng, không bị chặn")
+    void testCompletePhieuNhap_HoanTra_KhongKiemLechSo() {
+        LoHang loThat = LoHang.builder().id(70).maLo("LO-BAN-01").bienTheSanPham(bienThe)
+                .soLuongNhap(50).soLuongLoi(0).trangThai("HOAT_DONG").build();
+        ChiTietPhieuNhapKho ctTra = ChiTietPhieuNhapKho.builder().id(600).bienTheSanPham(bienThe)
+                .loHang(loThat).soLuongNhap(new BigDecimal("2.000")).donGia(new BigDecimal("150000.00")).build();
+        PhieuNhapKho phieuTra = PhieuNhapKho.builder().id(2).soPhieuNhap("PN-RET-202610261").kho(kho).trangThai(0)
+                .chiTietPhieuNhapKhos(List.of(ctTra)).build();
+        ctTra.setPhieuNhapKho(phieuTra);
+
+        when(repository.khoaTheoId(2)).thenReturn(Optional.of(phieuTra));
+        when(chiTietPhieuNhapKhoRepository.findAllByPhieuNhapKhoIdAndCoLo(2)).thenReturn(List.of(ctTra));
+        when(bienBanTraHangNccRepository.findByPhieuNhapKho_Id(2)).thenReturn(Optional.empty());
+        when(nguoiDungRepository.findById(1)).thenReturn(Optional.of(nguoiNhap));
+        when(tonKhoTheoLoRepository.findByKho_IdAndLoHang_Id(1, 70)).thenReturn(Optional.empty());
+
+        service.completePhieuNhap(2, 1);
+
+        verify(tonKhoTheoLoRepository).save(argThat(t -> t.getSoLuongTon().compareTo(new BigDecimal("2.000")) == 0));
+        assertEquals(3, phieuTra.getTrangThai());
+    }
+
+    @Test
     @DisplayName("Khai báo lô kiểm đếm: Tự động khóa lô TAM_KHOA và cập nhật tiến độ dòng draft")
     void testKhaiBaoLo_TamKhoaVaCapNhatDraft() {
         lenient().when(repository.findById(1)).thenReturn(Optional.of(phieu));
