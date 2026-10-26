@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams, useSearchParams } from "react-router-dom";
 import BackofficeLayout from "@/components/backoffice/BackofficeLayout";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { Toaster } from "@/components/ui/sonner";
@@ -119,6 +119,28 @@ function SuaKhachHangRedirect() {
   return <Navigate to={`/customers/${id}`} replace state={{ moSuaKhach: true }} />;
 }
 
+/**
+ * Điều hướng thông minh ở Trang chủ (/):
+ * - Nếu nhận được query ?code= từ sàn TMĐT (đặc biệt Lazada redirect về domain gốc):
+ *   Tự động giữ nguyên query params và chuyển hướng tới /channels/oauth/callback/lazada.
+ * - Nếu không có OAuth callback, chuyển về /dashboard (đã đăng nhập) hoặc /login (chưa đăng nhập).
+ */
+function RootOAuthRedirect() {
+  const [searchParams] = useSearchParams();
+  const code = searchParams.get("code");
+  const token = localStorage.getItem("access_token");
+
+  if (code) {
+    const target = `/channels/oauth/callback/lazada${window.location.search}`;
+    if (!token) {
+      return <Navigate to={`/login?returnUrl=${encodeURIComponent(target)}`} replace />;
+    }
+    return <Navigate to={target} replace />;
+  }
+
+  return <Navigate to={token ? "/dashboard" : "/login"} replace />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -127,7 +149,7 @@ export default function App() {
       <Toaster />
       <Routes>
         {/* ========== PUBLIC ROUTES ========== */}
-        <Route path="/" element={<Navigate to={localStorage.getItem("access_token") ? "/dashboard" : "/login"} replace />} />
+        <Route path="/" element={<RootOAuthRedirect />} />
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/supplier/quotation" element={<SupplierQuotation />} />

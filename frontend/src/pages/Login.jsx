@@ -30,7 +30,8 @@ export default function AuthPage() {
         if (!token) return;
         if (!ensureTokenUsable(token)) return;
 
-        navigate('/dashboard', { replace: true });
+        const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
+        navigate(returnUrl || '/dashboard', { replace: true });
     }, [navigate]);
 
     // Thông báo "tài khoản bị khóa" từ lần logout cưỡng bức (apiClient) — đọc 1 lần rồi xóa
@@ -114,7 +115,8 @@ export default function AuthPage() {
                 console.warn('Không thể tải danh sách kho.');
             }
 
-            navigate('/dashboard');
+            const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
+            navigate(returnUrl || '/dashboard');
         } catch (error) {
             setErrors({ general: error.response?.data?.message || 'Có lỗi xảy ra khi đăng nhập' });
         } finally {

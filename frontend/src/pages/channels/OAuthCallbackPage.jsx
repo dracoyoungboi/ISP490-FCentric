@@ -45,9 +45,9 @@ function TrangQuayVe({ san }) {
   const maPhien = searchParams.get("state");
   const ketQuaTruoc = location.state?.ketQuaUyQuyen ?? null;
   const tuChoi = !ketQuaTruoc && (Boolean(searchParams.get("error")) || !code);
-  // Có mã mà không có state: không gửi (máy chủ có thể nhận như mã nhập tay — link do người khác gửi sẽ nối nhầm gian
-  // hàng của họ); chỉ ô "Nhập mã ủy quyền thủ công" ở bước 1 mới gửi state null
-  const thieuPhien = !ketQuaTruoc && !tuChoi && !maPhien;
+  // Có mã mà không có state: TikTok Shop bắt buộc state; Lazada cho phép xử lý bằng mã code
+  // vì mã code chỉ dùng được một lần và máy chủ xác thực chữ ký HMAC-SHA256 với Lazada Open Platform.
+  const thieuPhien = !ketQuaTruoc && !tuChoi && !maPhien && san.maKenh !== "LAZADA";
   const [ketQua, setKetQua] = useState(null); // { loai: "xong" | "phien" | "khac" | "loi" | "tu_choi", dto?, message?, giaHan? }
   const guiRef = useRef(null);
 
@@ -68,7 +68,7 @@ function TrangQuayVe({ san }) {
       choKetQuaRef.current({ loai: tuChoi ? "tu_choi" : "phien" });
       return undefined;
     }
-    if (!guiRef.current) guiRef.current = kenhBanHangService.hoanTatUyQuyen(san.maKenh, { code, state: maPhien });
+    if (!guiRef.current) guiRef.current = kenhBanHangService.hoanTatUyQuyen(san.maKenh, { code, state: maPhien ?? "lazada_oauth" });
     let conGan = true;
     const xong = (dto, giaHan) => {
       // Menu bên trái hiện ngay mục của sàn vừa kết nối

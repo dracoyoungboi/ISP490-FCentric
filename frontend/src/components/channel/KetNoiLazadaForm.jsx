@@ -15,11 +15,34 @@ export default function KetNoiLazadaForm({ values, errors = {}, onChange, config
   const [dangKiemTra, setDangKiemTra] = useState(false);
   const [dangLayAuthUrl, setDangLayAuthUrl] = useState(false);
   const [dangLamMoiToken, setDangLamMoiToken] = useState(false);
+  const [maThuCong, setMaThuCong] = useState("");
+  const [dangKetNoiMa, setDangKetNoiMa] = useState(false);
   const dangKiemTraRef = useRef(false);
 
   const daCoSecret = Boolean(config?.hasAppSecret);
   const daCoToken = Boolean(config?.hasAccessToken);
   const daCoRefreshToken = Boolean(config?.hasRefreshToken);
+
+  const ketNoiBangMaThuCong = async () => {
+    if (!maThuCong.trim()) {
+      toast.error("Vui lòng dán mã ủy quyền trước khi kết nối.");
+      return;
+    }
+    setDangKetNoiMa(true);
+    try {
+      const res = await kenhBanHangService.hoanTatUyQuyen("LAZADA", {
+        code: maThuCong.trim(),
+        state: null,
+      });
+      toast.success(res?.tenGianHang ? `Đã kết nối gian hàng ${res.tenGianHang}` : "Ủy quyền Lazada thành công!");
+      setMaThuCong("");
+      onRefreshSuccess?.();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Lỗi khi kết nối bằng mã ủy quyền"));
+    } finally {
+      setDangKetNoiMa(false);
+    }
+  };
 
   const kiemTra = async () => {
     if (dangKiemTraRef.current) return;
@@ -163,6 +186,39 @@ export default function KetNoiLazadaForm({ values, errors = {}, onChange, config
           </p>
         ) : null}
       </div>
+
+      <Collapsible>
+        <CollapsibleTrigger className="inline-flex items-center gap-1 text-[13px] font-medium text-bo-primary hover:text-bo-primary-hover">
+          Nhập mã ủy quyền thủ công (Authorization Code)
+          <ChevronDown className="h-4 w-4" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-2 space-y-2 rounded-lg border border-bo-border bg-bo-surface-subtle p-3">
+          <label htmlFor={`${id}-ma-thu-cong`} className="text-xs font-medium text-bo-foreground">
+            Mã authorization code (lấy từ query ?code=... khi Lazada chuyển hướng)
+          </label>
+          <div className="flex gap-2">
+            <input
+              id={`${id}-ma-thu-cong`}
+              type="text"
+              value={maThuCong}
+              onChange={(e) => setMaThuCong(e.target.value)}
+              disabled={khoa || dangKetNoiMa}
+              placeholder="Dán mã code (ví dụ: 0_47s...)"
+              className={cn(INPUT_CLASS, "font-mono text-xs")}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              disabled={khoa || dangKetNoiMa || !maThuCong.trim()}
+              onClick={ketNoiBangMaThuCong}
+              className="shrink-0 h-9 px-3 text-xs"
+            >
+              {dangKetNoiMa ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              Xác nhận mã
+            </Button>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       {result ? (
         <div
