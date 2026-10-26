@@ -1126,7 +1126,6 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     }
 
     @Override
-        @Override
     @Transactional(rollbackFor = Exception.class)
     public void xoaKhoaLazada() {
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_LAZADA).orElse(null);
