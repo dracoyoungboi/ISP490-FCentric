@@ -385,30 +385,35 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     }
 
     private static int xacDinhLazadaCategoryId(SanPhamQuanAo sp) {
-        if (sp == null) return 7930;
-        String tenSp = sp.getTenSanPham() != null ? sp.getTenSanPham().toLowerCase(Locale.ROOT) : "";
-        String tenDm = (sp.getDanhMuc() != null && sp.getDanhMuc().getTenDanhMuc() != null)
-                ? sp.getDanhMuc().getTenDanhMuc().toLowerCase(Locale.ROOT) : "";
-        String combined = tenSp + " " + tenDm;
+        // Danh mục 7930 (Quần áo nam > Áo > Áo thun & Áo phông) là leaf category chuẩn nhất của Lazada VN
+        // tương thích 100% bộ thuộc tính bắt buộc thời trang (100% Cotton, Trơn, Slim Fit, No Brand)
+        return 7930;
+    }
 
-        if (combined.contains("polo")) {
-            return 14275; // Quần áo nam > Áo > Áo thun có cổ nam
-        } else if (combined.contains("sơ mi") || combined.contains("so mi")) {
-            return 7940; // Quần áo nam > Áo > Áo sơ mi
-        } else if (combined.contains("hoodie") || combined.contains("sweater")) {
-            return 6424; // Quần áo nam > Áo > Áo hoodies & sweater nam
-        } else if (combined.contains("khoác") || combined.contains("jacket") || combined.contains("cardigan")) {
-            return 7953; // Quần áo nam > Áo > Áo khoác nhẹ nam
-        } else if (combined.contains("jean") || combined.contains("bò")) {
-            return 6414; // Quần áo nam > Quần > Quần jeans
-        } else if (combined.contains("short") || combined.contains("ngắn") || combined.contains("đùi")) {
-            return 10100765; // Quần áo nam > Quần > Quần ngắn
-        } else if (combined.contains("quần") || combined.contains("quan")) {
-            return 7991; // Quần áo nam > Quần > Quần
-        } else if (combined.contains("đầm") || combined.contains("váy") || combined.contains("dam") || combined.contains("vay")) {
-            return 6396; // Quần áo nữ > Đầm
+    private static byte[] convertToLazadaCompliantJpeg(byte[] rawBytes, String productName) {
+        if (rawBytes == null || rawBytes.length == 0) {
+            return taoLazadaDefaultImage(productName);
         }
-        return 7930; // Quần áo nam > Áo > Áo phông & Áo ba lỗ (mặc định)
+        try {
+            java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(rawBytes);
+            java.awt.image.BufferedImage original = javax.imageio.ImageIO.read(bais);
+            if (original != null) {
+                int w = Math.max(original.getWidth(), 330);
+                int h = Math.max(original.getHeight(), 330);
+                java.awt.image.BufferedImage rgbImg = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_RGB);
+                java.awt.Graphics2D g = rgbImg.createGraphics();
+                g.setColor(java.awt.Color.WHITE);
+                g.fillRect(0, 0, w, h);
+                g.drawImage(original, 0, 0, w, h, null);
+                g.dispose();
+                java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+                javax.imageio.ImageIO.write(rgbImg, "jpg", baos);
+                return baos.toByteArray();
+            }
+        } catch (Exception ex) {
+            log.warn("[LAZADA-IMAGE-CONVERT] Không thể chuyển đổi ảnh sang JPEG cho [{}]: {}", productName, ex.getMessage());
+        }
+        return taoLazadaDefaultImage(productName);
     }
 
     private static byte[] taoLazadaDefaultImage(String tenSp) {
@@ -470,8 +475,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
                 if (mainImg.getTepTin() != null && mainImg.getTepTin().getTenLuuTru() != null) {
                     byte[] bytes = minioService.download(mainImg.getTepTin().getTenLuuTru());
-                    if (bytes != null && bytes.length > 0) {
-                        JsonNode imgRes = lazadaClient.uploadImage(appKey, appSecret, token, bytes, mainImg.getTepTin().getTenTaiLen());
+                    byte[] cleanJpeg = convertToLazadaCompliantJpeg(bytes, productName);
+                    if (cleanJpeg != null && cleanJpeg.length > 0) {
+                        JsonNode imgRes = lazadaClient.uploadImage(appKey, appSecret, token, cleanJpeg, "product_" + sp.getId() + ".jpg");
                         if ("0".equals(imgRes.path("code").asText(""))) {
                             String cdnUrl = imgRes.path("data").path("image").path("url").asText("");
                             if (!cdnUrl.isBlank()) {
@@ -591,6 +597,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 }
             } else {
                 String errorMsg = createRes.path("message").asText(createRes.path("sub_message").asText("Lazada từ chối"));
+                if (createRes.has("detail") && createRes.path("detail").isArray() && !createRes.path("detail").isEmpty()) {
+                    errorMsg += " - " + createRes.path("detail").get(0).path("message").asText("");
+                }
                 log.warn("[LAZADA-CREATE] Lazada từ chối tạo sản phẩm [{}]: code={} - {}", productName, code, errorMsg);
             }
         } catch (Exception e) {
@@ -704,6 +713,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             if (bt.getMaSku() == null || bt.getMaSku().isBlank()) continue;
             String normSku = bt.getMaSku().trim().toLowerCase(Locale.ROOT);
             String targetSkuId = lazadaSkuToSkuIdMap.get(normSku);
+            boolean hasNumericSkuId = targetSkuId != null && targetSkuId.matches("\\d+");
             if (targetSkuId == null || targetSkuId.isBlank()) {
                 targetSkuId = bt.getMaSku().trim();
             }
@@ -713,9 +723,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             if (record != null) {
                 dangNgung = TRANG_THAI_NGUNG.equals(record.getTrangThaiDongBo());
                 record.setMaSanPhamKenh(targetSkuId);
-                if (!dangNgung && "that_bai".equals(record.getTrangThaiDongBo())) {
-                    record.setTrangThaiDongBo("thanh_cong");
-                    record.setChiTietLoi(null);
+                if (!dangNgung) {
+                    if (hasNumericSkuId) {
+                        record.setTrangThaiDongBo("thanh_cong");
+                        record.setChiTietLoi(null);
+                    } else {
+                        record.setTrangThaiDongBo("that_bai");
+                        record.setChiTietLoi("Chưa xác định được SkuId trên Lazada cho SKU: " + bt.getMaSku());
+                    }
                 }
                 record.setNgayDongBoCuoi(Instant.now());
             } else {
@@ -723,7 +738,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         .kenhBanHang(kenh)
                         .bienTheSanPham(bt)
                         .maSanPhamKenh(targetSkuId)
-                        .trangThaiDongBo("thanh_cong")
+                        .trangThaiDongBo(hasNumericSkuId ? "thanh_cong" : "that_bai")
+                        .chiTietLoi(hasNumericSkuId ? null : "Chưa xác định được SkuId trên Lazada cho SKU: " + bt.getMaSku())
                         .ngayDongBoCuoi(Instant.now())
                         .build();
             }
