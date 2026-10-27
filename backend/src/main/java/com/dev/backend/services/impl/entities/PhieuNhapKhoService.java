@@ -340,7 +340,10 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         }
 
         // 1. CHỐT CHẶN AN TOÀN (SAFETY LOCK): Kiểm tra hàng lỗi QC và biên bản RTV
-        int tongLoi = danhSachNhapTheoLo.stream()
+        // Chỉ phiếu từ đơn mua có hàng không đạt: lô của phiếu do chính lần kiểm đếm của phiếu tạo. Phiếu khách trả dùng lô
+        // thật đã xuất, số không đạt trên lô là của lần nhập từ nhà cung cấp trước kia (phiếu không có NCC nên không lập
+        // được biên bản, không hủy được: tính số đó vào thì phiếu kẹt Nháp mãi)
+        int tongLoi = phieu.getDonMuaHang() == null ? 0 : danhSachNhapTheoLo.stream()
                 .mapToInt(ct -> ct.getLoHang().getSoLuongLoi() != null ? ct.getLoHang().getSoLuongLoi() : 0)
                 .sum();
         BienBanTraHangNcc bienBanRtv = bienBanTraHangNccRepository.findByPhieuNhapKho_Id(phieuNhapKhoId)
@@ -1099,7 +1102,10 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
             }
         }
 
-        // Tính toán các chỉ số QC chi tiết theo từng biến thể từ các lô đã khai báo
+        // Tính toán các chỉ số QC chi tiết theo từng biến thể từ các lô đã khai báo.
+        // Như completePhieuNhap: số trên lô chỉ là số kiểm đếm của phiếu từ đơn mua. Phiếu khách trả, chuyển kho dùng lô thật
+        // đã xuất (số trên lô là số nhập ban đầu từ nhà cung cấp): số nhận lấy trên dòng phiếu, không có hàng không đạt.
+        boolean tuDonMua = phieu.getDonMuaHang() != null;
         for (PhieuNhapKhoItemDto dto : itemsMap.values()) {
             Integer btId = dto.getBienTheSanPhamId();
             List<ChiTietPhieuNhapKho> lotsForBt = danhSachNhapTheoLo.stream()
@@ -1107,9 +1113,10 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                     .toList();
 
             int dat = lotsForBt.stream()
-                    .mapToInt(ct -> ct.getLoHang().getSoLuongNhap() != null ? ct.getLoHang().getSoLuongNhap() : ct.getSoLuongNhap().intValue())
+                    .mapToInt(ct -> tuDonMua && ct.getLoHang().getSoLuongNhap() != null ? ct.getLoHang().getSoLuongNhap()
+                            : ct.getSoLuongNhap() != null ? ct.getSoLuongNhap().intValue() : 0)
                     .sum();
-            int loi = lotsForBt.stream()
+            int loi = !tuDonMua ? 0 : lotsForBt.stream()
                     .mapToInt(ct -> ct.getLoHang().getSoLuongLoi() != null ? ct.getLoHang().getSoLuongLoi() : 0)
                     .sum();
 
