@@ -92,6 +92,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     OmnichannelOrderSyncJob omnichannelOrderSyncJob;
     // Đọc quy tắc đẩy tồn đã lưu theo kênh (màn Cấu hình kênh)
     DieuHanhHeThongService dieuHanhHeThongService;
+    @lombok.experimental.NonFinal
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    TepTinRepository tepTinRepository;
     LazadaClient lazadaClient;
     ObjectMapper objectMapper = new ObjectMapper();
     // Lần đẩy tồn lên sàn gần nhất (đã kết nối được Shopify), theo id kênh (màn Theo dõi đồng bộ)
