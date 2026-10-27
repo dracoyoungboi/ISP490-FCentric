@@ -398,19 +398,50 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(rawBytes);
             java.awt.image.BufferedImage original = javax.imageio.ImageIO.read(bais);
             if (original != null) {
-                int w = Math.max(original.getWidth(), 330);
-                int h = Math.max(original.getHeight(), 330);
+                int maxDim = 1200;
+                int w = original.getWidth();
+                int h = original.getHeight();
+                if (w > maxDim || h > maxDim) {
+                    if (w >= h) {
+                        h = (int) Math.round(((double) h * maxDim) / w);
+                        w = maxDim;
+                    } else {
+                        w = (int) Math.round(((double) w * maxDim) / h);
+                        h = maxDim;
+                    }
+                }
+                w = Math.max(w, 330);
+                h = Math.max(h, 330);
+
                 java.awt.image.BufferedImage rgbImg = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_RGB);
                 java.awt.Graphics2D g = rgbImg.createGraphics();
+                g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g.setRenderingHint(java.awt.RenderingHints.KEY_RENDERING, java.awt.RenderingHints.VALUE_RENDER_QUALITY);
+                g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
                 g.setColor(java.awt.Color.WHITE);
                 g.fillRect(0, 0, w, h);
                 g.drawImage(original, 0, 0, w, h, null);
                 g.dispose();
+
                 java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
-                javax.imageio.ImageIO.write(rgbImg, "jpg", baos);
+                java.util.Iterator<javax.imageio.ImageWriter> writers = javax.imageio.ImageIO.getImageWritersByFormatName("jpg");
+                if (writers.hasNext()) {
+                    javax.imageio.ImageWriter writer = writers.next();
+                    javax.imageio.ImageWriteParam param = writer.getDefaultWriteParam();
+                    param.setCompressionMode(javax.imageio.ImageWriteParam.MODE_EXPLICIT);
+                    param.setCompressionQuality(0.85f);
+                    try (javax.imageio.stream.ImageOutputStream ios = javax.imageio.ImageIO.createImageOutputStream(baos)) {
+                        writer.setOutput(ios);
+                        writer.write(null, new javax.imageio.IIOImage(rgbImg, null, null), param);
+                    } finally {
+                        writer.dispose();
+                    }
+                } else {
+                    javax.imageio.ImageIO.write(rgbImg, "jpg", baos);
+                }
                 return baos.toByteArray();
             }
-        } catch (Exception ex) {
+        } catch (Throwable ex) {
             log.warn("[LAZADA-IMAGE-CONVERT] Không thể chuyển đổi ảnh sang JPEG cho [{}]: {}", productName, ex.getMessage());
         }
         return taoLazadaDefaultImage(productName);
@@ -468,21 +499,33 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         try {
             List<AnhQuanAo> prodImages = anhQuanAoRepository.findActiveByQuanAoIds(List.of(sp.getId()));
             if (prodImages != null && !prodImages.isEmpty()) {
-                AnhQuanAo mainImg = prodImages.stream()
-                        .filter(a -> Integer.valueOf(1).equals(a.getAnhChinh()))
-                        .findFirst()
-                        .orElse(prodImages.get(0));
+                // Sắp xếp đưa ảnh chính (anhChinh == 1) lên đầu tiên
+                List<AnhQuanAo> sortedImages = new ArrayList<>(prodImages);
+                sortedImages.sort((a, b) -> {
+                    int aMain = Integer.valueOf(1).equals(a.getAnhChinh()) ? 1 : 0;
+                    int bMain = Integer.valueOf(1).equals(b.getAnhChinh()) ? 1 : 0;
+                    return Integer.compare(bMain, aMain);
+                });
 
-                if (mainImg.getTepTin() != null && mainImg.getTepTin().getTenLuuTru() != null) {
-                    byte[] bytes = minioService.download(mainImg.getTepTin().getTenLuuTru());
-                    byte[] cleanJpeg = convertToLazadaCompliantJpeg(bytes, productName);
-                    if (cleanJpeg != null && cleanJpeg.length > 0) {
-                        JsonNode imgRes = lazadaClient.uploadImage(appKey, appSecret, token, cleanJpeg, "product_" + sp.getId() + ".jpg");
-                        if ("0".equals(imgRes.path("code").asText(""))) {
-                            String cdnUrl = imgRes.path("data").path("image").path("url").asText("");
-                            if (!cdnUrl.isBlank()) {
-                                uploadedImageUrls.add(cdnUrl);
+                int imgLimit = Math.min(sortedImages.size(), 8); // Lazada tối đa 8 ảnh sản phẩm
+                for (int i = 0; i < imgLimit; i++) {
+                    AnhQuanAo curImg = sortedImages.get(i);
+                    if (curImg.getTepTin() != null && curImg.getTepTin().getTenLuuTru() != null) {
+                        String fileKey = curImg.getTepTin().getTenLuuTru();
+                        try {
+                            byte[] bytes = minioService.download(fileKey);
+                            byte[] cleanJpeg = convertToLazadaCompliantJpeg(bytes, productName);
+                            if (cleanJpeg != null && cleanJpeg.length > 0) {
+                                JsonNode imgRes = lazadaClient.uploadImage(appKey, appSecret, token, cleanJpeg, "sp_" + sp.getId() + "_" + i + ".jpg");
+                                if ("0".equals(imgRes.path("code").asText(""))) {
+                                    String cdnUrl = imgRes.path("data").path("image").path("url").asText("");
+                                    if (!cdnUrl.isBlank()) {
+                                        uploadedImageUrls.add(cdnUrl);
+                                    }
+                                }
                             }
+                        } catch (Exception downEx) {
+                            log.warn("[LAZADA-UPLOAD-IMAGE] Lỗi tải/upload ảnh thứ {} của sản phẩm {}: {}", i, productName, downEx.getMessage());
                         }
                     }
                 }
