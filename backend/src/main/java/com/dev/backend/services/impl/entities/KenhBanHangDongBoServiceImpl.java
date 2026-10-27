@@ -496,6 +496,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 ? sp.getMoTa().trim() : productName;
 
         List<String> uploadedImageUrls = new ArrayList<>();
+        Map<String, String> cdnCache = new HashMap<>(); // key: tenLuuTru, value: cdnUrl
         try {
             List<AnhQuanAo> prodImages = anhQuanAoRepository.findActiveByQuanAoIds(List.of(sp.getId()));
             if (prodImages != null && !prodImages.isEmpty()) {
@@ -513,14 +514,19 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     if (curImg.getTepTin() != null && curImg.getTepTin().getTenLuuTru() != null) {
                         String fileKey = curImg.getTepTin().getTenLuuTru();
                         try {
-                            byte[] bytes = minioService.download(fileKey);
-                            byte[] cleanJpeg = convertToLazadaCompliantJpeg(bytes, productName);
-                            if (cleanJpeg != null && cleanJpeg.length > 0) {
-                                JsonNode imgRes = lazadaClient.uploadImage(appKey, appSecret, token, cleanJpeg, "sp_" + sp.getId() + "_" + i + ".jpg");
-                                if ("0".equals(imgRes.path("code").asText(""))) {
-                                    String cdnUrl = imgRes.path("data").path("image").path("url").asText("");
-                                    if (!cdnUrl.isBlank()) {
-                                        uploadedImageUrls.add(cdnUrl);
+                            if (cdnCache.containsKey(fileKey)) {
+                                uploadedImageUrls.add(cdnCache.get(fileKey));
+                            } else {
+                                byte[] bytes = minioService.download(fileKey);
+                                byte[] cleanJpeg = convertToLazadaCompliantJpeg(bytes, productName);
+                                if (cleanJpeg != null && cleanJpeg.length > 0) {
+                                    JsonNode imgRes = lazadaClient.uploadImage(appKey, appSecret, token, cleanJpeg, "sp_" + sp.getId() + "_" + i + ".jpg");
+                                    if ("0".equals(imgRes.path("code").asText(""))) {
+                                        String cdnUrl = imgRes.path("data").path("image").path("url").asText("");
+                                        if (!cdnUrl.isBlank()) {
+                                            cdnCache.put(fileKey, cdnUrl);
+                                            uploadedImageUrls.add(cdnUrl);
+                                        }
                                     }
                                 }
                             }
@@ -532,6 +538,46 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
         } catch (Exception ex) {
             log.warn("[LAZADA-UPLOAD-IMAGE] Không thể tải/upload ảnh cho sản phẩm {}: {}", productName, ex.getMessage());
+        }
+
+        // Tải ảnh riêng của từng biến thể (AnhBienThe) và cache theo fileKey tránh upload trùng lặp
+        Map<Integer, String> variantImageUrlMap = new HashMap<>();
+        List<Integer> btIds = variants.stream()
+                .map(BienTheSanPham::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        if (!btIds.isEmpty()) {
+            try {
+                List<AnhBienThe> anhBienTheList = anhBienTheRepository.findActiveByBienTheIds(btIds);
+                for (AnhBienThe ab : anhBienTheList) {
+                    if (ab.getBienThe() != null && ab.getTepTin() != null && ab.getTepTin().getTenLuuTru() != null) {
+                        String vFileKey = ab.getTepTin().getTenLuuTru();
+                        Integer btId = ab.getBienThe().getId();
+                        if (cdnCache.containsKey(vFileKey)) {
+                            variantImageUrlMap.put(btId, cdnCache.get(vFileKey));
+                        } else {
+                            try {
+                                byte[] vBytes = minioService.download(vFileKey);
+                                byte[] vJpeg = convertToLazadaCompliantJpeg(vBytes, productName);
+                                if (vJpeg != null && vJpeg.length > 0) {
+                                    JsonNode vImgRes = lazadaClient.uploadImage(appKey, appSecret, token, vJpeg, "var_" + btId + ".jpg");
+                                    if ("0".equals(vImgRes.path("code").asText(""))) {
+                                        String vCdnUrl = vImgRes.path("data").path("image").path("url").asText("");
+                                        if (!vCdnUrl.isBlank()) {
+                                            cdnCache.put(vFileKey, vCdnUrl);
+                                            variantImageUrlMap.put(btId, vCdnUrl);
+                                        }
+                                    }
+                                }
+                            } catch (Exception vEx) {
+                                log.warn("[LAZADA-UPLOAD-IMAGE] Lỗi upload ảnh biến thể {} của sản phẩm {}: {}", btId, productName, vEx.getMessage());
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("[LAZADA-UPLOAD-IMAGE] Lỗi đọc danh sách ảnh biến thể cho sản phẩm {}: {}", productName, ex.getMessage());
+            }
         }
 
         // Nếu sản phẩm chưa có ảnh tải lên được, dùng ảnh thương hiệu mặc định đảm bảo Lazada không từ chối BIZ_CHECK_MAIN_IMAGE_REQUIRE
@@ -594,9 +640,22 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             xml.append("<package_height>5</package_height>");
             xml.append("<package_weight>0.3</package_weight>");
 
-            if (!uploadedImageUrls.isEmpty()) {
+            List<String> skuImages = new ArrayList<>();
+            String varImgUrl = variantImageUrlMap.get(bt.getId());
+            if (varImgUrl != null && !varImgUrl.isBlank()) {
+                skuImages.add(varImgUrl);
+                for (String pUrl : uploadedImageUrls) {
+                    if (!skuImages.contains(pUrl) && skuImages.size() < 8) {
+                        skuImages.add(pUrl);
+                    }
+                }
+            } else if (!uploadedImageUrls.isEmpty()) {
+                skuImages.addAll(uploadedImageUrls);
+            }
+
+            if (!skuImages.isEmpty()) {
                 xml.append("<Images>");
-                for (String url : uploadedImageUrls) {
+                for (String url : skuImages) {
                     xml.append("<Image>").append(escapeXml(url)).append("</Image>");
                 }
                 xml.append("</Images>");
@@ -2498,16 +2557,27 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
         }
 
-        String payloadXml = "<Request><Product><Skus><Sku><SkuId>" + escapeXml(maKenh)
-                + "</SkuId><Quantity>" + Math.max(0, soDay) + "</Quantity></Sku></Skus></Product></Request>";
+        StringBuilder skuXml = new StringBuilder();
+        skuXml.append("<Request><Product><Skus><Sku>");
+        skuXml.append("<SkuId>").append(escapeXml(maKenh)).append("</SkuId>");
+        skuXml.append("<SellerSku>").append(escapeXml(maSku)).append("</SellerSku>");
+        skuXml.append("<Quantity>").append(Math.max(0, soDay)).append("</Quantity>");
+        if (bt.getGiaBan() != null && bt.getGiaBan().compareTo(BigDecimal.ZERO) > 0) {
+            skuXml.append("<Price>").append(bt.getGiaBan().setScale(2, RoundingMode.HALF_UP)).append("</Price>");
+        }
+        skuXml.append("</Sku></Skus></Product></Request>");
+
         try {
-            JsonNode res = lazadaClient.updatePriceQuantity(appKey, appSecret, token, payloadXml);
+            JsonNode res = lazadaClient.updatePriceQuantity(appKey, appSecret, token, skuXml.toString());
             String code = res.path("code").asText("");
             if ("0".equals(code)) {
                 return KetQuaGuiTon.THANH_CONG;
             } else {
                 String msg = res.path("message").asText(res.path("sub_message").asText("Lỗi từ Lazada"));
-                return KetQuaGuiTon.loiSku("Lazada từ chối: " + msg);
+                if (res.has("detail") && res.path("detail").isArray() && !res.path("detail").isEmpty()) {
+                    msg += " - " + res.path("detail").get(0).path("message").asText("");
+                }
+                return KetQuaGuiTon.loiSku("Lazada từ chối (" + code + "): " + msg);
             }
         } catch (Exception ex) {
             log.warn("Lỗi khi đẩy tồn Lazada cho SkuId [{}]: {}", maKenh, ex.getMessage());
