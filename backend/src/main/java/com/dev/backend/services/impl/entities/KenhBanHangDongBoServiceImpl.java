@@ -474,33 +474,25 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
     }
 
-    private Map<String, String> taoSanPhamLenLazada(
-            KenhBanHang kenh,
+    private record LazadaImagePreparationResult(
+            List<String> productImages,
+            Map<Integer, String> variantImages
+    ) {}
+
+    private LazadaImagePreparationResult chuanBiVaUploadAnhLazada(
             SanPhamQuanAo sp,
             List<BienTheSanPham> variants,
             String appKey,
             String appSecret,
-            String token) {
-        Map<String, String> createdSkuMap = new HashMap<>();
-        if (sp == null || variants == null || variants.isEmpty()) {
-            return createdSkuMap;
-        }
-
-        int categoryId = xacDinhLazadaCategoryId(sp);
+            String token,
+            Map<String, String> cdnCache) {
         String productName = sp.getTenSanPham() != null && !sp.getTenSanPham().isBlank()
                 ? sp.getTenSanPham().trim() : "Sản phẩm thời trang FCentric";
-        String brandName = (sp.getThuongHieu() != null && sp.getThuongHieu().getTenThuongHieu() != null
-                && !sp.getThuongHieu().getTenThuongHieu().isBlank())
-                ? sp.getThuongHieu().getTenThuongHieu().trim() : "No Brand";
-        String desc = (sp.getMoTa() != null && !sp.getMoTa().isBlank())
-                ? sp.getMoTa().trim() : productName;
-
         List<String> uploadedImageUrls = new ArrayList<>();
-        Map<String, String> cdnCache = new HashMap<>(); // key: tenLuuTru, value: cdnUrl
+
         try {
             List<AnhQuanAo> prodImages = anhQuanAoRepository.findActiveByQuanAoIds(List.of(sp.getId()));
             if (prodImages != null && !prodImages.isEmpty()) {
-                // Sắp xếp đưa ảnh chính (anhChinh == 1) lên đầu tiên
                 List<AnhQuanAo> sortedImages = new ArrayList<>(prodImages);
                 sortedImages.sort((a, b) -> {
                     int aMain = Integer.valueOf(1).equals(a.getAnhChinh()) ? 1 : 0;
@@ -508,7 +500,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     return Integer.compare(bMain, aMain);
                 });
 
-                int imgLimit = Math.min(sortedImages.size(), 8); // Lazada tối đa 8 ảnh sản phẩm
+                int imgLimit = Math.min(sortedImages.size(), 8);
                 for (int i = 0; i < imgLimit; i++) {
                     AnhQuanAo curImg = sortedImages.get(i);
                     if (curImg.getTepTin() != null && curImg.getTepTin().getTenLuuTru() != null) {
@@ -540,7 +532,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             log.warn("[LAZADA-UPLOAD-IMAGE] Không thể tải/upload ảnh cho sản phẩm {}: {}", productName, ex.getMessage());
         }
 
-        // Tải ảnh riêng của từng biến thể (AnhBienThe) và cache theo fileKey tránh upload trùng lặp
         Map<Integer, String> variantImageUrlMap = new HashMap<>();
         List<Integer> btIds = variants.stream()
                 .map(BienTheSanPham::getId)
@@ -580,7 +571,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
         }
 
-        // Nếu sản phẩm chưa có ảnh tải lên được, dùng ảnh thương hiệu mặc định đảm bảo Lazada không từ chối BIZ_CHECK_MAIN_IMAGE_REQUIRE
         if (uploadedImageUrls.isEmpty()) {
             try {
                 byte[] defaultImg = taoLazadaDefaultImage(productName);
@@ -598,14 +588,41 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
         }
 
+        return new LazadaImagePreparationResult(uploadedImageUrls, variantImageUrlMap);
+    }
+
+    private Map<String, String> taoSanPhamLenLazada(
+            KenhBanHang kenh,
+            SanPhamQuanAo sp,
+            List<BienTheSanPham> variants,
+            String appKey,
+            String appSecret,
+            String token,
+            Map<String, String> cdnCache) {
+        Map<String, String> createdSkuMap = new HashMap<>();
+        if (sp == null || variants == null || variants.isEmpty()) {
+            return createdSkuMap;
+        }
+
+        int categoryId = xacDinhLazadaCategoryId(sp);
+        String productName = sp.getTenSanPham() != null && !sp.getTenSanPham().isBlank()
+                ? sp.getTenSanPham().trim() : "Sản phẩm thời trang FCentric";
+        String brandName = (sp.getThuongHieu() != null && sp.getThuongHieu().getTenThuongHieu() != null
+                && !sp.getThuongHieu().getTenThuongHieu().isBlank())
+                ? sp.getThuongHieu().getTenThuongHieu().trim() : "No Brand";
+        String desc = (sp.getMoTa() != null && !sp.getMoTa().isBlank())
+                ? sp.getMoTa().trim() : productName;
+
+        LazadaImagePreparationResult imgResult = chuanBiVaUploadAnhLazada(sp, variants, appKey, appSecret, token, cdnCache);
+
         StringBuilder xml = new StringBuilder();
         xml.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
         xml.append("<Request><Product>");
         xml.append("<PrimaryCategory>").append(categoryId).append("</PrimaryCategory>");
 
-        if (!uploadedImageUrls.isEmpty()) {
+        if (!imgResult.productImages().isEmpty()) {
             xml.append("<Images>");
-            for (String url : uploadedImageUrls) {
+            for (String url : imgResult.productImages()) {
                 xml.append("<Image>").append(escapeXml(url)).append("</Image>");
             }
             xml.append("</Images>");
@@ -641,16 +658,16 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             xml.append("<package_weight>0.3</package_weight>");
 
             List<String> skuImages = new ArrayList<>();
-            String varImgUrl = variantImageUrlMap.get(bt.getId());
+            String varImgUrl = imgResult.variantImages().get(bt.getId());
             if (varImgUrl != null && !varImgUrl.isBlank()) {
                 skuImages.add(varImgUrl);
-                for (String pUrl : uploadedImageUrls) {
+                for (String pUrl : imgResult.productImages()) {
                     if (!skuImages.contains(pUrl) && skuImages.size() < 8) {
                         skuImages.add(pUrl);
                     }
                 }
-            } else if (!uploadedImageUrls.isEmpty()) {
-                skuImages.addAll(uploadedImageUrls);
+            } else if (!imgResult.productImages().isEmpty()) {
+                skuImages.addAll(imgResult.productImages());
             }
 
             if (!skuImages.isEmpty()) {
@@ -711,6 +728,102 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return createdSkuMap;
     }
 
+    private boolean capNhatSanPhamLenLazada(
+            KenhBanHang kenh,
+            SanPhamQuanAo sp,
+            List<BienTheSanPham> variants,
+            String itemId,
+            Map<String, String> lazadaSkuToSkuIdMap,
+            String appKey,
+            String appSecret,
+            String token,
+            Map<String, String> cdnCache) {
+        if (sp == null || variants == null || variants.isEmpty() || itemId == null || itemId.isBlank()) {
+            return false;
+        }
+
+        String productName = sp.getTenSanPham() != null && !sp.getTenSanPham().isBlank()
+                ? sp.getTenSanPham().trim() : "Sản phẩm thời trang FCentric";
+
+        LazadaImagePreparationResult imgResult = chuanBiVaUploadAnhLazada(sp, variants, appKey, appSecret, token, cdnCache);
+
+        StringBuilder xml = new StringBuilder();
+        xml.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+        xml.append("<Request><Product>");
+        xml.append("<ItemId>").append(escapeXml(itemId)).append("</ItemId>");
+
+        if (!imgResult.productImages().isEmpty()) {
+            xml.append("<Images>");
+            for (String url : imgResult.productImages()) {
+                xml.append("<Image>").append(escapeXml(url)).append("</Image>");
+            }
+            xml.append("</Images>");
+        }
+
+        xml.append("<Attributes>");
+        xml.append("<name>").append(escapeXml(productName)).append("</name>");
+        xml.append("</Attributes>");
+
+        xml.append("<Skus>");
+        for (BienTheSanPham bt : variants) {
+            String sku = bt.getMaSku() != null ? bt.getMaSku().trim() : "";
+            if (sku.isBlank()) continue;
+
+            String skuId = lazadaSkuToSkuIdMap.get(sku.toLowerCase(Locale.ROOT));
+
+            xml.append("<Sku>");
+            if (skuId != null && !skuId.isBlank() && skuId.matches("\\d+")) {
+                xml.append("<SkuId>").append(escapeXml(skuId)).append("</SkuId>");
+            }
+            xml.append("<SellerSku>").append(escapeXml(sku)).append("</SellerSku>");
+
+            List<String> skuImages = new ArrayList<>();
+            String varImgUrl = imgResult.variantImages().get(bt.getId());
+            if (varImgUrl != null && !varImgUrl.isBlank()) {
+                skuImages.add(varImgUrl);
+                for (String pUrl : imgResult.productImages()) {
+                    if (!skuImages.contains(pUrl) && skuImages.size() < 8) {
+                        skuImages.add(pUrl);
+                    }
+                }
+            } else if (!imgResult.productImages().isEmpty()) {
+                skuImages.addAll(imgResult.productImages());
+            }
+
+            if (!skuImages.isEmpty()) {
+                xml.append("<Images>");
+                for (String url : skuImages) {
+                    xml.append("<Image>").append(escapeXml(url)).append("</Image>");
+                }
+                xml.append("</Images>");
+            }
+
+            xml.append("</Sku>");
+        }
+        xml.append("</Skus>");
+        xml.append("</Product></Request>");
+
+        try {
+            log.info("[LAZADA-UPDATE] Đang cập nhật ảnh và thông tin sản phẩm [{}] (ItemId: {}) lên Lazada...", productName, itemId);
+            JsonNode updateRes = lazadaClient.updateProduct(appKey, appSecret, token, xml.toString());
+            String code = updateRes.path("code").asText("");
+            if ("0".equals(code)) {
+                log.info("[LAZADA-UPDATE] Cập nhật sản phẩm [{}] (ItemId: {}) lên Lazada thành công!", productName, itemId);
+                return true;
+            } else {
+                String errorMsg = updateRes.path("message").asText(updateRes.path("sub_message").asText("Lazada từ chối"));
+                if (updateRes.has("detail") && updateRes.path("detail").isArray() && !updateRes.path("detail").isEmpty()) {
+                    errorMsg += " - " + updateRes.path("detail").get(0).path("message").asText("");
+                }
+                log.warn("[LAZADA-UPDATE] Lazada từ chối cập nhật sản phẩm [{}] (ItemId: {}): code={} - {}", productName, itemId, code, errorMsg);
+                return false;
+            }
+        } catch (Exception e) {
+            log.error("[LAZADA-UPDATE] Lỗi khi cập nhật sản phẩm [{}] lên Lazada: {}", productName, e.getMessage());
+            return false;
+        }
+    }
+
     private TuDongLienKetResultDto tuDongLienKetLazada(KenhBanHang kenh) {
         String appKey = kenhBanHangService.getLazadaAppKey();
         String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
@@ -729,6 +842,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     .soKhongKhop(0)
                     .soNhieuKhop(0)
                     .soTaoMoiTrenShopify(0)
+                    .soCapNhatTrenShopify(0)
                     .soTonKhoDaDay(0)
                     .soThatBai(0)
                     .build();
@@ -741,17 +855,22 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
         }
 
-        // Lấy danh sách SKU hiện có trên Lazada và map seller_sku -> sku_id
+        // 2. Tải danh sách sản phẩm hiện có từ Lazada để xây dựng ánh xạ SellerSku -> SkuId và SellerSku -> ItemId
+        int offset = 0;
+        int limit = 50;
         Map<String, String> lazadaSkuToSkuIdMap = new HashMap<>();
+        Map<String, String> lazadaSkuToItemIdMap = new HashMap<>();
         try {
-            int offset = 0;
-            int limit = 50;
-            while (offset < 500) {
+            while (true) {
                 JsonNode res = lazadaClient.getProducts(appKey, appSecret, token, "all", limit, offset);
                 if (!"0".equals(res.path("code").asText(""))) break;
                 JsonNode products = res.path("data").path("products");
                 if (!products.isArray() || products.isEmpty()) break;
                 for (JsonNode prodNode : products) {
+                    String itemId = prodNode.path("item_id").asText("").trim();
+                    if (itemId.isBlank()) itemId = prodNode.path("ItemId").asText("").trim();
+                    if (itemId.isBlank()) itemId = prodNode.path("itemId").asText("").trim();
+
                     JsonNode skus = prodNode.path("skus");
                     if (skus.isArray()) {
                         for (JsonNode skuNode : skus) {
@@ -759,8 +878,16 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             if (sSku.isBlank()) sSku = skuNode.path("ShopSku").asText("").trim();
                             String sId = skuNode.path("SkuId").asText("").trim();
                             if (sId.isBlank()) sId = skuNode.path("sku_id").asText("").trim();
+                            String skuItemId = skuNode.path("item_id").asText("").trim();
+                            if (skuItemId.isBlank()) skuItemId = skuNode.path("ItemId").asText("").trim();
+                            String effectiveItemId = !itemId.isBlank() ? itemId : skuItemId;
+
                             if (!sSku.isBlank() && !sId.isBlank()) {
-                                lazadaSkuToSkuIdMap.put(sSku.toLowerCase(Locale.ROOT), sId);
+                                String normSku = sSku.toLowerCase(Locale.ROOT);
+                                lazadaSkuToSkuIdMap.put(normSku, sId);
+                                if (!effectiveItemId.isBlank()) {
+                                    lazadaSkuToItemIdMap.put(normSku, effectiveItemId);
+                                }
                             }
                         }
                     }
@@ -772,30 +899,48 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             log.warn("[LAZADA-AUTOLINK] Không thể lấy danh sách sản phẩm hiện có từ Lazada: {}", e.getMessage());
         }
 
-        // Gom nhóm biến thể theo sản phẩm cha SanPhamQuanAo để tạo sản phẩm mới trên Lazada
+        // Gom nhóm biến thể theo sản phẩm cha SanPhamQuanAo để tạo sản phẩm mới hoặc cập nhật ảnh trên Lazada
         Map<SanPhamQuanAo, List<BienTheSanPham>> spGroupMap = activeVariants.stream()
                 .filter(bt -> bt.getSanPham() != null)
                 .collect(Collectors.groupingBy(BienTheSanPham::getSanPham));
 
         int soTaoMoiTrenLazada = 0;
+        int soCapNhatTrenLazada = 0;
+        Map<String, String> cdnCache = new HashMap<>();
+
         for (Map.Entry<SanPhamQuanAo, List<BienTheSanPham>> entry : spGroupMap.entrySet()) {
             SanPhamQuanAo sp = entry.getKey();
             List<BienTheSanPham> spVariants = entry.getValue();
 
             List<BienTheSanPham> variantsCanTao = new ArrayList<>();
+            List<BienTheSanPham> variantsDaCo = new ArrayList<>();
+            String lazadaItemId = null;
+
             for (BienTheSanPham bt : spVariants) {
                 if (bt.getMaSku() != null && !bt.getMaSku().isBlank()) {
                     String norm = bt.getMaSku().trim().toLowerCase(Locale.ROOT);
                     if (!lazadaSkuToSkuIdMap.containsKey(norm)) {
                         variantsCanTao.add(bt);
+                    } else {
+                        variantsDaCo.add(bt);
+                        if (lazadaItemId == null && lazadaSkuToItemIdMap.containsKey(norm)) {
+                            lazadaItemId = lazadaSkuToItemIdMap.get(norm);
+                        }
                     }
                 }
             }
 
             if (!variantsCanTao.isEmpty()) {
-                Map<String, String> createdMap = taoSanPhamLenLazada(kenh, sp, variantsCanTao, appKey, appSecret, token);
+                Map<String, String> createdMap = taoSanPhamLenLazada(kenh, sp, variantsCanTao, appKey, appSecret, token, cdnCache);
                 soTaoMoiTrenLazada += createdMap.size();
                 lazadaSkuToSkuIdMap.putAll(createdMap);
+            }
+
+            if (!variantsDaCo.isEmpty() && lazadaItemId != null) {
+                boolean updated = capNhatSanPhamLenLazada(kenh, sp, variantsDaCo, lazadaItemId, lazadaSkuToSkuIdMap, appKey, appSecret, token, cdnCache);
+                if (updated) {
+                    soCapNhatTrenLazada += variantsDaCo.size();
+                }
             }
         }
 
@@ -867,12 +1012,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
         }
 
-        ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_san_pham, "Tự động liên kết Lazada: đã ghép " + soDaGhep + " SKU, tạo mới trên Lazada " + soTaoMoiTrenLazada + " SKU, đã đẩy tồn " + soTonKhoDaDay + " SKU");
+        ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_san_pham, "Tự động liên kết Lazada: đã ghép " + soDaGhep + " SKU, tạo mới trên Lazada " + soTaoMoiTrenLazada + " SKU, cập nhật ảnh " + soCapNhatTrenLazada + " SKU, đã đẩy tồn " + soTonKhoDaDay + " SKU");
         return TuDongLienKetResultDto.builder()
                 .soDaGhep(soDaGhep)
                 .soKhongKhop(soKhongKhop)
                 .soNhieuKhop(0)
                 .soTaoMoiTrenShopify(soTaoMoiTrenLazada)
+                .soCapNhatTrenShopify(soCapNhatTrenLazada)
                 .soTonKhoDaDay(soTonKhoDaDay)
                 .soThatBai(0)
                 .build();

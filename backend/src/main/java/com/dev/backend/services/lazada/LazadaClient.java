@@ -271,6 +271,26 @@ public class LazadaClient {
     }
 
     /**
+     * Cập nhật thông tin và hình ảnh sản phẩm trên Lazada Open Platform (/product/update).
+     * @param payload Chuỗi XML theo chuẩn LazOP:
+     *                &lt;Request&gt;&lt;Product&gt;&lt;ItemId&gt;...&lt;/ItemId&gt;&lt;Images&gt;...&lt;/Images&gt;&lt;Skus&gt;...&lt;/Skus&gt;&lt;/Product&gt;&lt;/Request&gt;
+     */
+    public JsonNode updateProduct(String appKey, String appSecret, String accessToken, String payload) {
+        String apiPath = "/product/update";
+        Map<String, String> params = new HashMap<>();
+        params.put("app_key", appKey.trim());
+        params.put("access_token", accessToken.trim());
+        params.put("payload", payload);
+        params.put("timestamp", String.valueOf(System.currentTimeMillis()));
+        params.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
+
+        String sign = LazadaSignatureHelper.calculateSignature(apiPath, params, appSecret);
+        params.put("sign", sign);
+
+        return executePostForm(API_GATEWAY_VN + apiPath, params);
+    }
+
+    /**
      * Lấy toàn bộ cây danh mục sản phẩm từ Lazada (/category/tree/get).
      */
     public JsonNode getCategoryTree(String appKey, String appSecret, String accessToken, String languageCode) {
