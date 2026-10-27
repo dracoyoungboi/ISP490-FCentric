@@ -27,6 +27,7 @@ import com.dev.backend.repository.AnhQuanAoRepository;
 import com.dev.backend.repository.BienTheSanPhamRepository;
 import com.dev.backend.repository.KenhBanHangRepository;
 import com.dev.backend.repository.KhoRepository;
+import com.dev.backend.repository.TepTinRepository;
 import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.repository.TonKhoTheoLoRepository;
 import com.dev.backend.repository.TonKhoTongHopRepository;
@@ -504,10 +505,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 for (int i = 0; i < imgLimit; i++) {
                     AnhQuanAo curImg = sortedImages.get(i);
                     if (curImg.getTepTin() != null && curImg.getTepTin().getTenLuuTru() != null) {
-                        String fileKey = curImg.getTepTin().getTenLuuTru();
+                        TepTin tep = curImg.getTepTin();
+                        String fileKey = tep.getTenLuuTru();
                         try {
                             if (cdnCache.containsKey(fileKey)) {
                                 uploadedImageUrls.add(cdnCache.get(fileKey));
+                            } else if (tep.getMoTa() != null && tep.getMoTa().startsWith("LZD_CDN:")) {
+                                String cachedUrl = tep.getMoTa().substring("LZD_CDN:".length()).trim();
+                                if (!cachedUrl.isBlank()) {
+                                    cdnCache.put(fileKey, cachedUrl);
+                                    uploadedImageUrls.add(cachedUrl);
+                                }
                             } else {
                                 byte[] bytes = minioService.download(fileKey);
                                 byte[] cleanJpeg = convertToLazadaCompliantJpeg(bytes, productName);
@@ -518,6 +526,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                         if (!cdnUrl.isBlank()) {
                                             cdnCache.put(fileKey, cdnUrl);
                                             uploadedImageUrls.add(cdnUrl);
+                                            if (tepTinRepository != null) {
+                                                try {
+                                                    tep.setMoTa("LZD_CDN:" + cdnUrl);
+                                                    tepTinRepository.save(tep);
+                                                } catch (Exception saveEx) {
+                                                    log.warn("[LAZADA-CDN-CACHE] Không thể lưu cache CDN cho tệp {}: {}", tep.getId(), saveEx.getMessage());
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -542,10 +558,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 List<AnhBienThe> anhBienTheList = anhBienTheRepository.findActiveByBienTheIds(btIds);
                 for (AnhBienThe ab : anhBienTheList) {
                     if (ab.getBienThe() != null && ab.getTepTin() != null && ab.getTepTin().getTenLuuTru() != null) {
-                        String vFileKey = ab.getTepTin().getTenLuuTru();
+                        TepTin vTep = ab.getTepTin();
+                        String vFileKey = vTep.getTenLuuTru();
                         Integer btId = ab.getBienThe().getId();
                         if (cdnCache.containsKey(vFileKey)) {
                             variantImageUrlMap.put(btId, cdnCache.get(vFileKey));
+                        } else if (vTep.getMoTa() != null && vTep.getMoTa().startsWith("LZD_CDN:")) {
+                            String cachedUrl = vTep.getMoTa().substring("LZD_CDN:".length()).trim();
+                            if (!cachedUrl.isBlank()) {
+                                cdnCache.put(vFileKey, cachedUrl);
+                                variantImageUrlMap.put(btId, cachedUrl);
+                            }
                         } else {
                             try {
                                 byte[] vBytes = minioService.download(vFileKey);
@@ -557,6 +580,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                         if (!vCdnUrl.isBlank()) {
                                             cdnCache.put(vFileKey, vCdnUrl);
                                             variantImageUrlMap.put(btId, vCdnUrl);
+                                            if (tepTinRepository != null) {
+                                                try {
+                                                    vTep.setMoTa("LZD_CDN:" + vCdnUrl);
+                                                    tepTinRepository.save(vTep);
+                                                } catch (Exception saveEx) {
+                                                    log.warn("[LAZADA-CDN-CACHE] Không thể lưu cache CDN biến thể cho tệp {}: {}", vTep.getId(), saveEx.getMessage());
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -1490,6 +1521,166 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
     }
 
+
+    private DayTonResultDto dayTonLazadaToiUu(
+            KenhBanHang kenh,
+            String maKenh,
+            List<TrangThaiDongBoSanPham> dongCanDay,
+            BigDecimal tyLe,
+            int tonDem,
+            int nguongVe0,
+            TheoDoiDayTon theoDoi) {
+        String appKey = kenhBanHangService.getLazadaAppKey();
+        String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
+        String token = kenhBanHangService.getDecryptedLazadaAccessToken();
+        if (appKey == null || appSecret == null || token == null) {
+            String msg = "Chưa có cấu hình hoặc Access Token cho kênh Lazada";
+            ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_ton_kho, "Lazada: " + msg);
+            return DayTonResultDto.builder().soDong(0).soLoi(dongCanDay.size()).soChuaDay(0).loiKenh(msg).build();
+        }
+
+        record DongCanCapNhat(TrangThaiDongBoSanPham dong, int soDay, String skuId, String sellerSku) {}
+        List<DongCanCapNhat> dirtyList = new ArrayList<>();
+        int soBoQuaKhongDoi = 0;
+
+        for (TrangThaiDongBoSanPham dong : dongCanDay) {
+            BienTheSanPham bt = dong.getBienTheSanPham();
+            if (bt == null || bt.getMaSku() == null || bt.getMaSku().isBlank()) continue;
+            int soDay = tinhSoTonDay(khaDungToanChuoi(bt.getId()), tyLe, tonDem, nguongVe0);
+
+            boolean daThanhCong = "thanh_cong".equalsIgnoreCase(dong.getTrangThaiDongBo());
+            boolean soTonKhongDoi = dong.getSoLuongDaDay() != null && dong.getSoLuongDaDay().equals(soDay);
+            if (daThanhCong && soTonKhongDoi) {
+                soBoQuaKhongDoi++;
+                continue;
+            }
+
+            String skuId = dong.getMaSanPhamKenh() != null ? dong.getMaSanPhamKenh().trim() : "";
+            dirtyList.add(new DongCanCapNhat(dong, soDay, skuId, bt.getMaSku().trim()));
+        }
+
+        log.info("[LAZADA-SYNC-DELTA] Tổng số SKU: {}, Bỏ qua không đổi: {}, Cần đẩy (dirty): {}",
+                dongCanDay.size(), soBoQuaKhongDoi, dirtyList.size());
+
+        if (dirtyList.isEmpty()) {
+            theoDoi.batDauDay(0);
+            lanDayTonCuoi.put(kenh.getId(), Instant.now());
+            String moTa = "Lazada: Tất cả " + dongCanDay.size() + " SKU tồn kho không đổi, bỏ qua đẩy tồn (tiết kiệm 100% quota API)";
+            ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_ton_kho, moTa);
+            return DayTonResultDto.builder()
+                    .soDong(0)
+                    .soLoi(0)
+                    .soChuaDay(0)
+                    .loiKenh(null)
+                    .build();
+        }
+
+        final int BATCH_SIZE = 25;
+        int soThanhCong = 0;
+        int soLoi = 0;
+        String loiKenh = null;
+        boolean dungTheoYeuCau = false;
+        Instant now = Instant.now();
+
+        theoDoi.batDauDay(dirtyList.size());
+
+        for (int i = 0; i < dirtyList.size(); i += BATCH_SIZE) {
+            if (theoDoi.canDung()) {
+                dungTheoYeuCau = true;
+                break;
+            }
+
+            int end = Math.min(i + BATCH_SIZE, dirtyList.size());
+            List<DongCanCapNhat> batch = dirtyList.subList(i, end);
+
+            for (DongCanCapNhat item : batch) {
+                theoDoi.dangDay(item.sellerSku());
+            }
+
+            StringBuilder batchXml = new StringBuilder();
+            batchXml.append("<Request><Product><Skus>");
+            for (DongCanCapNhat item : batch) {
+                batchXml.append("<Sku>");
+                if (item.skuId() != null && item.skuId().matches("\\d+")) {
+                    batchXml.append("<SkuId>").append(escapeXml(item.skuId())).append("</SkuId>");
+                }
+                batchXml.append("<SellerSku>").append(escapeXml(item.sellerSku())).append("</SellerSku>");
+                batchXml.append("<Quantity>").append(Math.max(0, item.soDay())).append("</Quantity>");
+                BienTheSanPham bt = item.dong().getBienTheSanPham();
+                if (bt != null && bt.getGiaBan() != null && bt.getGiaBan().compareTo(BigDecimal.ZERO) > 0) {
+                    batchXml.append("<Price>").append(bt.getGiaBan().setScale(2, RoundingMode.HALF_UP)).append("</Price>");
+                }
+                batchXml.append("</Sku>");
+            }
+            batchXml.append("</Skus></Product></Request>");
+
+            try {
+                JsonNode res = lazadaClient.updatePriceQuantity(appKey, appSecret, token, batchXml.toString());
+                String code = res.path("code").asText("");
+                if ("0".equals(code)) {
+                    for (DongCanCapNhat item : batch) {
+                        item.dong().setTrangThaiDongBo("thanh_cong");
+                        item.dong().setChiTietLoi(null);
+                        item.dong().setSoLuongDaDay(item.soDay());
+                        item.dong().setNgayDayTonCuoi(now);
+                        soThanhCong++;
+                        theoDoi.daDay(item.sellerSku(), null, true, null);
+                    }
+                } else {
+                    String msg = res.path("message").asText(res.path("sub_message").asText("Lỗi từ Lazada"));
+                    if (res.has("detail") && res.path("detail").isArray() && !res.path("detail").isEmpty()) {
+                        msg += " - " + res.path("detail").get(0).path("message").asText("");
+                    }
+                    if (code.contains("AppCallLimit") || msg.contains("exceeds the limit")) {
+                        loiKenh = "Lazada giới hạn tần suất gọi API: " + msg;
+                    }
+                    for (DongCanCapNhat item : batch) {
+                        item.dong().setTrangThaiDongBo("that_bai");
+                        item.dong().setChiTietLoi("Lazada từ chối (" + code + "): " + msg);
+                        soLoi++;
+                        theoDoi.daDay(item.sellerSku(), tenHienThi(item.dong().getBienTheSanPham()), false, msg);
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("[LAZADA-SYNC-BATCH] Lỗi mạng khi gọi updatePriceQuantity cho batch {}: {}", i / BATCH_SIZE, ex.getMessage());
+                loiKenh = "Lỗi kết nối tới Lazada: " + ex.getMessage();
+                for (DongCanCapNhat item : batch) {
+                    item.dong().setTrangThaiDongBo("that_bai");
+                    item.dong().setChiTietLoi("Lỗi kết nối: " + ex.getMessage());
+                    soLoi++;
+                    theoDoi.daDay(item.sellerSku(), tenHienThi(item.dong().getBienTheSanPham()), false, ex.getMessage());
+                }
+            }
+
+            List<TrangThaiDongBoSanPham> batchEntities = batch.stream().map(DongCanCapNhat::dong).toList();
+            trangThaiDongBoSanPhamRepository.saveAll(batchEntities);
+
+            if (loiKenh != null && (loiKenh.contains("giới hạn tần suất") || loiKenh.contains("AppCallLimit"))) {
+                break;
+            }
+        }
+
+        int soChuaDay = dirtyList.size() - (soThanhCong + soLoi);
+        if (soThanhCong > 0) {
+            lanDayTonCuoi.put(kenh.getId(), Instant.now());
+        }
+
+        String moTa = "Lazada: Đẩy tồn theo batch (" + dirtyList.size() + " SKU dirty, bỏ qua " + soBoQuaKhongDoi + " SKU không đổi): "
+                + soThanhCong + " thành công, " + soLoi + " lỗi, " + soChuaDay + " chưa đẩy"
+                + (loiKenh != null ? " (" + loiKenh + ")" : "");
+        if (dungTheoYeuCau) {
+            moTa += "; dừng theo yêu cầu";
+        }
+        ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_ton_kho, moTa);
+
+        return DayTonResultDto.builder()
+                .soDong(soThanhCong)
+                .soLoi(soLoi)
+                .soChuaDay(soChuaDay)
+                .loiKenh(loiKenh)
+                .build();
+    }
+
     private DayTonResultDto dayTonKhiDaGiuKhoa(KenhBanHang kenh, String maKenh, DayTonKenhRequest request, TheoDoiDayTon theoDoi) {
         BigDecimal tyLe = request.getTyLeDayTon() != null ? request.getTyLeDayTon() : BigDecimal.valueOf(100);
         int tonDem = request.getTonDem() != null ? request.getTonDem() : 0;
@@ -1509,8 +1700,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             .stream().filter(KenhBanHangDongBoServiceImpl::duocDayTon).toList();
                 } catch (Exception ex) {
                     log.warn("[LAZADA-SYNC] Tự động liên kết Lazada trước khi đẩy tồn gặp lỗi: {}", ex.getMessage());
-                }
+                
+}
             }
+            return dayTonLazadaToiUu(kenh, maKenh, dongCanDay, tyLe, tonDem, nguongVe0, theoDoi);
         } else if (dongCanDay.isEmpty() && trangThaiDongBoSanPhamRepository.countByKenhBanHangId(kenh.getId()) == 0) {
             log.info("Kênh {} chưa có SKU liên kết nào, tự động kích hoạt liên kết & tạo sản phẩm trước khi đẩy tồn...", kenh.getMaKenh());
             try {
