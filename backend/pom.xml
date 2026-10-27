@@ -208,6 +208,13 @@
             <version>3.12.0</version>
         </dependency>
 
+        <!-- AVIF ImageIO Native Reader - Giải mã ảnh AVIF trên Java 17+ -->
+        <dependency>
+            <groupId>io.github.nemanjastokuca</groupId>
+            <artifactId>avif-imageio-native-reader</artifactId>
+            <version>0.1.0</version>
+        </dependency>
+
         <!-- Gson -->
         <dependency>
             <groupId>com.google.code.gson</groupId>
