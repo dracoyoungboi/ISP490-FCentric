@@ -14,7 +14,7 @@ import java.util.List;
 public interface AnhBienTheRepository extends JpaRepository<AnhBienThe, Integer>, JpaSpecificationExecutor<AnhBienThe> {
 
     /** Ảnh biến thể đang hoạt động cho một trang catalog — 1 query batch, không N+1. */
-    @Query("select ab from AnhBienThe ab join fetch ab.tepTin " +
+    @Query("select ab from AnhBienThe ab join fetch ab.tepTin join fetch ab.bienThe " +
             "where ab.bienThe.id in :bienTheIds and ab.trangThai = 1 " +
             "order by ab.bienThe.id, ab.id")
     List<AnhBienThe> findActiveByBienTheIds(@Param("bienTheIds") Collection<Integer> bienTheIds);

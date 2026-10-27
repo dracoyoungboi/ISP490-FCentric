@@ -882,9 +882,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             if (skuItemId.isBlank()) skuItemId = skuNode.path("ItemId").asText("").trim();
                             String effectiveItemId = !itemId.isBlank() ? itemId : skuItemId;
 
-                            if (!sSku.isBlank() && !sId.isBlank()) {
+                            if (!sSku.isBlank()) {
                                 String normSku = sSku.toLowerCase(Locale.ROOT);
-                                lazadaSkuToSkuIdMap.put(normSku, sId);
+                                if (!sId.isBlank()) {
+                                    lazadaSkuToSkuIdMap.put(normSku, sId);
+                                }
                                 if (!effectiveItemId.isBlank()) {
                                     lazadaSkuToItemIdMap.put(normSku, effectiveItemId);
                                 }
