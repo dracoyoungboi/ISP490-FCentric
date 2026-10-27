@@ -154,6 +154,7 @@ export default function ChannelMappingsPage() {
   const SAN = useSanHienTai();
   // Sàn ủy quyền (Lazada, TikTok Shop) không đưa sản phẩm FCentric lên được (KH mục B.6)
   const coDuaLen = SAN.kieuKetNoi === "khoa";
+  const hoTroDuaLen = SAN.kieuKetNoi === "khoa" || SAN.maKenh === "LAZADA";
   const NHO_SO_DONG = nhoSoDong(SAN.maKenh);
   const NHO_MO_TAT_CA = nhoMoTatCa(SAN.maKenh);
   const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);
@@ -338,7 +339,7 @@ export default function ChannelMappingsPage() {
       } catch (error) {
         setHoiDayLen(false);
         khiMatKetNoi(error);
-        toast.error(getApiErrorMessage(error, "Không đưa được sản phẩm lên Shopify"));
+        toast.error(getApiErrorMessage(error, `Không đưa được sản phẩm lên ${SAN.ten}`));
       }
     });
   };
@@ -911,7 +912,7 @@ export default function ChannelMappingsPage() {
                 Icon: CloudDownload,
                 onChon: taiTuSan,
               },
-              ...(coDuaLen
+              ...(hoTroDuaLen
                 ? [
                     {
                       ma: "dua-len",
@@ -1076,7 +1077,7 @@ export default function ChannelMappingsPage() {
               icon={PackageSearch}
               title="Chưa có sản phẩm nào được liên kết"
               description={
-                coDuaLen
+                hoTroDuaLen
                   ? `Tải sản phẩm từ ${SAN.ten} để ghép theo SKU trùng với FCentric, hoặc đưa sản phẩm FCentric lên ${SAN.ten}.`
                   : `Tải sản phẩm từ ${SAN.ten} để ghép theo SKU trùng với FCentric.`
               }
@@ -1089,7 +1090,7 @@ export default function ChannelMappingsPage() {
                       Tải sản phẩm từ {SAN.ten}
                     </Button>
                   </span>
-                  {coDuaLen ? (
+                  {hoTroDuaLen ? (
                     <Button type="button" variant="outline" onClick={() => setHoiDayLen(true)} disabled={khoaViecGianHang} className={NUT_PHU}>
                       <CloudUpload className="size-4" />
                       Đưa sản phẩm FCentric lên {SAN.ten}
