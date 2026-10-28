@@ -16,6 +16,7 @@ import { createScanBurstTracker, hasNonAscii, isPrintableKey, isTextEntry, QTY_R
 import useOnlineStatus, { useOnReconnect, isNetworkError } from '@/hooks/useOnlineStatus';
 import useScanQueue from '@/hooks/useScanQueue';
 import { playScanBeep } from '@/utils/scanBeep';
+import { hienTien } from '@/pages/product/components/product/logicBienThe';
 import {
   posService,
   toPosGroup,
@@ -818,7 +819,7 @@ export default function PosSalesPage({
   };
 
   /**
-   * Ô "Khách đưa trước tiền mặt" (chuyển khoản QR, trả kết hợp): giữ đúng chữ đang gõ — trống = mã QR trọn hóa đơn;
+   * Ô "Khách đưa trước tiền mặt" (chuyển khoản QR, trả kết hợp): ô tiền chỉ nhận chữ số, hiện dạng 100.000 — trống = mã QR trọn hóa đơn;
    * số sai được báo ngay trong màn thanh toán (kiemTienMatTruocQr), máy chủ vẫn kiểm lại khi tạo mã.
    */
   const setTienMatTruocForInvoice = (value) => {
@@ -1783,7 +1784,7 @@ export default function PosSalesPage({
       const amount = Number(scan.snapshot?.paymentAmount) || 0;
       setPaymentAmountForInvoice(amount);
       // Ô số có thể còn hiện chữ dở dang của mã (state không đổi thì React không vẽ lại) -> ghi lại số tiền.
-      target.value = String(amount);
+      target.value = amount ? hienTien(amount) : '';
       setPaymentError('Vừa quét mã khi đang ở màn thanh toán — CHƯA xác nhận thanh toán, số tiền khách đưa đã trả về như trước. Cần thêm hàng: đóng màn thanh toán (Esc) rồi quét.');
       playScanBeep(false);
       return;
@@ -1792,7 +1793,7 @@ export default function PosSalesPage({
     if (dialog === 'payment' && target?.id === 'payment-cash-before-qr') {
       const previous = scan.snapshot?.tienMatTruoc ?? '';
       setTienMatTruocForInvoice(previous);
-      target.value = String(previous);
+      target.value = hienTien(previous);
       setPaymentError('Vừa quét mã khi đang ở màn thanh toán — CHƯA tạo mã QR, số tiền mặt khách đưa trước đã trả về như trước. Cần thêm hàng: đóng màn thanh toán (Esc) rồi quét.');
       playScanBeep(false);
       return;

@@ -16,6 +16,7 @@ import {
   Landmark,
   WifiOff,
 } from 'lucide-react';
+import MoneyInput from '@/components/shared/MoneyInput';
 import PayosLogo from '@/components/shared/PayosLogo';
 import PosModal from './PosModal';
 import { posService, toPosCustomer } from '@/services/posService';
@@ -524,7 +525,7 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
                   </label>
                   {/* Form để Enter trong ô số tiền = tạo mã QR (thao tác quầy nhanh hơn) */}
                   <form className="relative mt-1.5" noValidate onSubmit={(event) => { event.preventDefault(); if (canCreateQr) actions.onCreatePayosQr(); }}>
-                    <input aria-describedby="payment-cash-before-qr-hint" aria-invalid={Boolean(qr?.loi)} className={`${fieldClass} mt-0 pr-10 text-right font-semibold tabular-nums disabled:bg-slate-50 disabled:opacity-60`} disabled={state.frozen} id="payment-cash-before-qr" inputMode="numeric" min="0" onChange={(event) => actions.onTienMatTruoc(event.target.value)} onFocus={(event) => event.target.select()} placeholder="0" step="1000" type="number" value={state.tienMatTruoc ?? ''} />
+                    <MoneyInput aria-describedby="payment-cash-before-qr-hint" aria-invalid={Boolean(qr?.loi)} className={`${fieldClass} mt-0 h-auto pr-10 text-right font-semibold tabular-nums disabled:bg-slate-50 disabled:opacity-60`} disabled={state.frozen} id="payment-cash-before-qr" onChange={actions.onTienMatTruoc} onFocus={(event) => event.target.select()} placeholder="0" value={state.tienMatTruoc ?? ''} />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-bo-muted">₫</span>
                   </form>
                   <p className="mt-1 text-[11px] leading-4 text-bo-muted" id="payment-cash-before-qr-hint">Khách trả một phần bằng tiền mặt thì nhập số đã nhận; mã QR chỉ mang phần còn lại. Bỏ trống nếu khách quét QR cả hóa đơn.</p>
@@ -552,7 +553,8 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
               </div>
               {/* Form để Enter trong ô số tiền = xác nhận thanh toán (thao tác quầy nhanh hơn) */}
               <form className="relative mt-1.5" onSubmit={(event) => { event.preventDefault(); if (checkoutEnabled && !offline && !pending && !amountInvalid && !state.isSubmitting) actions.onConfirmPayment(); }}>
-                <input autoFocus className={`${fieldClass} pr-12 text-right text-lg font-semibold disabled:bg-slate-50 disabled:opacity-60`} disabled={state.frozen} id="payment-amount" inputMode="numeric" min="0" onChange={(event) => actions.onPaymentAmount(event.target.value)} onFocus={(event) => event.target.select()} placeholder="0" step="1000" type="number" value={state.paymentAmount} />
+                {/* 0 hiện ô trống (chữ mờ "0"): xóa hết rồi gõ không bị dính số 0 đầu */}
+                <MoneyInput autoFocus className={`${fieldClass} h-auto pr-12 text-right text-lg font-semibold disabled:bg-slate-50 disabled:opacity-60`} disabled={state.frozen} id="payment-amount" onChange={actions.onPaymentAmount} onFocus={(event) => event.target.select()} placeholder="0" value={state.paymentAmount || ''} />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-bo-muted">₫</span>
               </form>
               <div className="mt-2 flex flex-wrap gap-2">
