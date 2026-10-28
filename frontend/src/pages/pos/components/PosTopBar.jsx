@@ -164,16 +164,16 @@ export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymen
           </span>
 
           {coManHinhKhach && onMoManHinhKhach ? (
+            // Cùng dáng hai nút bên cạnh; biểu tượng xanh dương + chấm ở góc báo màn khách đang mở
             <button
               aria-label="Màn hình khách đang mở — đưa cửa sổ lên trước"
-              className="hidden h-9 shrink-0 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 text-xs font-medium text-emerald-800 transition hover:bg-emerald-100 focus-visible:outline-2 focus-visible:outline-bo-primary sm:inline-flex"
+              className="relative hidden size-9 shrink-0 place-items-center rounded-lg border border-bo-border text-bo-primary transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-bo-primary sm:grid"
               onClick={onMoManHinhKhach}
-              title="Màn hình khách đang hiện hóa đơn này"
+              title="Màn hình khách đang mở"
               type="button"
             >
-              <span aria-hidden="true" className="size-2 rounded-full bg-emerald-500" />
-              <ScreenShare aria-hidden="true" size={15} />
-              <span className="hidden xl:inline">Màn hình khách</span>
+              <ScreenShare aria-hidden="true" size={16} />
+              <span aria-hidden="true" className="absolute -right-[3px] -top-[3px] size-2.5 rounded-full border-2 border-bo-surface bg-bo-primary" />
             </button>
           ) : null}
 
