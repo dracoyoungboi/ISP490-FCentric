@@ -12,6 +12,8 @@ import PosInvoiceTabs from './components/PosInvoiceTabs';
 import PosDialogs from './components/PosDialogs';
 import PosProductCatalog from './components/PosProductCatalog';
 import { formatMoney } from './pos-format';
+import { noiDungManKhach } from './pos-man-khach';
+import { DUONG_DAN_MAN_HINH_PHU, TEN_CUA_SO_MAN_HINH_PHU, useGuiManKhach } from './man-hinh-phu';
 import { createScanBurstTracker, hasNonAscii, isPrintableKey, isTextEntry, QTY_REVERT_EVENT, readFlag, writeFlag } from './pos-scan';
 import useOnlineStatus, { useOnReconnect, isNetworkError } from '@/hooks/useOnlineStatus';
 import useScanQueue from '@/hooks/useScanQueue';
@@ -22,6 +24,7 @@ import {
   toPosGroup,
   toPosProduct,
   toPosCustomer,
+  currentUserKey,
   WALKIN_CUSTOMER_CODE,
   newCheckoutRequestId,
   getPendingCheckoutIds,
@@ -1715,6 +1718,40 @@ export default function PosSalesPage({
     else submitCheckout();
   };
 
+  // ===== Màn hình phụ quay về phía khách =====
+  // Chỉ dữ liệu khách được thấy (pos-man-khach.js), gửi sang cửa sổ /pos/customer-display cùng máy.
+  const noiDungKhach = useMemo(
+    () => noiDungManKhach(currentInvoice, { dialog, payosEnabled, maKhachLe: WALKIN_CUSTOMER_CODE, tenCuaHang: activeWarehouse?.tenKho }),
+    [currentInvoice, dialog, payosEnabled, activeWarehouse?.tenKho]
+  );
+  const [userKeyKhach] = useState(currentUserKey);
+  const coManHinhPhu = useGuiManKhach(userKeyKhach, noiDungKhach);
+  const cuaSoManHinhPhuRef = useRef(null);
+  const moManHinhPhu = () => {
+    // Đang mở thì chỉ đưa lên trước: mở lại cùng đường dẫn sẽ tải lại cửa sổ (mất toàn màn hình trên màn thứ hai).
+    // Không noopener: cần biết trình duyệt có chặn cửa sổ bật lên hay không. Cùng tên -> dùng lại cửa sổ đã mở.
+    const dangMo = cuaSoManHinhPhuRef.current;
+    if (dangMo && !dangMo.closed) {
+      dangMo.focus();
+      return;
+    }
+    const cuaSo = window.open('', TEN_CUA_SO_MAN_HINH_PHU, 'popup=yes,width=1280,height=800');
+    if (!cuaSo || cuaSo.closed) {
+      showToast('Trình duyệt đã chặn cửa sổ màn hình khách. Cho phép cửa sổ bật lên (pop-up) của trang này rồi thử lại.', 'warning');
+      return;
+    }
+    cuaSoManHinhPhuRef.current = cuaSo;
+    let daMoSan = false;
+    try { daMoSan = cuaSo.location.pathname === DUONG_DAN_MAN_HINH_PHU; } catch { /* chưa đọc được địa chỉ: mở như mới */ }
+    if (daMoSan) {
+      cuaSo.focus();
+      return;
+    }
+    cuaSo.location.replace(DUONG_DAN_MAN_HINH_PHU);
+    // Cửa sổ mới giữ con trỏ: mã quét lúc đó không tới màn bán hàng
+    showToast('Đã mở màn hình khách: kéo cửa sổ sang màn thứ hai, bấm Toàn màn hình, rồi bấm lại vào màn bán hàng để quét tiếp.', 'info');
+  };
+
   const actions = {
     onSelectCustomer: selectCustomerForInvoice,
     onPaymentMethod: setPaymentMethodForInvoice,
@@ -1983,6 +2020,8 @@ export default function PosSalesPage({
   return (
     <div className="relative flex min-h-0 flex-1 flex-col bg-bo-canvas text-bo-foreground">
       <PosTopBar
+        coManHinhKhach={coManHinhPhu}
+        onMoManHinhKhach={moManHinhPhu}
         onHelp={() => { if (!dialog && !isSubmitting) setDialog('shortcuts'); }}
         pendingPaymentCount={invoices.filter(isFrozenInvoice).length}
         tabs={wideScreen ? renderInvoiceTabs('bar') : null}

@@ -10,6 +10,7 @@ import {
   LogOut,
   Maximize2,
   Minimize2,
+  ScreenShare,
   WifiOff,
 } from 'lucide-react';
 import UserAvatar from '@/components/UserAvatar';
@@ -85,8 +86,9 @@ function useFullscreen() {
  * thẻ h1 ẩn cho trình đọc màn hình.
  * Trạng thái mạng chỉ hiện khi CÓ VẤN ĐỀ: mất mạng -> dải cảnh báo đỏ ngay dưới thanh này;
  * có mạng lại -> thông báo ngắn rồi tự tắt. Lúc bình thường không hiện gì để đỡ rối mắt.
+ * Màn hình phụ cho khách (cần màn thứ hai): mở từ menu tài khoản; dấu "Màn hình khách" chỉ hiện khi đang có màn đó mở.
  */
-export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymentCount = 0 }) {
+export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymentCount = 0, onMoManHinhKhach, coManHinhKhach = false }) {
   const navigate = useNavigate();
   const online = useOnlineStatus();
   useOnReconnect(showReconnectedToast);
@@ -161,6 +163,20 @@ export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymen
             <span className="block text-[11px] capitalize text-bo-muted">{dateLabel}</span>
           </span>
 
+          {coManHinhKhach && onMoManHinhKhach ? (
+            <button
+              aria-label="Màn hình khách đang mở — đưa cửa sổ lên trước"
+              className="hidden h-9 shrink-0 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 text-xs font-medium text-emerald-800 transition hover:bg-emerald-100 focus-visible:outline-2 focus-visible:outline-bo-primary sm:inline-flex"
+              onClick={onMoManHinhKhach}
+              title="Màn hình khách đang hiện hóa đơn này"
+              type="button"
+            >
+              <span aria-hidden="true" className="size-2 rounded-full bg-emerald-500" />
+              <ScreenShare aria-hidden="true" size={15} />
+              <span className="hidden xl:inline">Màn hình khách</span>
+            </button>
+          ) : null}
+
           {fullscreenSupported ? (
             <button
               aria-label={isFullscreen ? 'Thoát toàn màn hình' : 'Toàn màn hình'}
@@ -206,6 +222,15 @@ export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymen
                   Về trang quản trị
                 </Link>
               </DropdownMenuItem>
+              {onMoManHinhKhach ? (
+                <DropdownMenuItem className="cursor-pointer items-start rounded-md px-2.5 py-2 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-950" onClick={onMoManHinhKhach}>
+                  <ScreenShare className="mt-0.5 size-4 text-slate-500" />
+                  <span>
+                    <span className="block">Mở màn hình khách</span>
+                    <span className="block text-xs text-bo-muted">Cho màn thứ hai quay về phía khách</span>
+                  </span>
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuSeparator className="bg-bo-border" />
               <DropdownMenuItem className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-bo-danger focus:bg-bo-danger-soft focus:text-bo-danger" onClick={handleLogout}>
                 <LogOut className="size-4" />
