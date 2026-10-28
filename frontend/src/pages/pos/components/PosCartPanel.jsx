@@ -92,6 +92,8 @@ export default function PosCartPanel({
   frozenMessage = '',
   isSubmitting = false,
   overStockMessage = '',
+  // Mã QR hủy / hết hạn còn tiền mặt khách đưa trước chưa trả lại: nút Thanh toán mở hộp xác nhận trả lại (kể cả giỏ trống)
+  canTraLai = false,
   offline = false,
   onCustomer,
   onQuantity,
@@ -193,7 +195,7 @@ export default function PosCartPanel({
             <AlertTriangle aria-hidden="true" className="mt-0.5 shrink-0" size={14} />{overStockMessage}
           </p>
         ) : null}
-        <button className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-bo-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-bo-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary disabled:cursor-not-allowed disabled:bg-slate-300" disabled={!cart.length || isSubmitting || Boolean(overStockMessage) || blockedByNetwork} onClick={onPayment} title={blockedByNetwork ? 'Mất kết nối mạng — chưa thể thanh toán' : undefined} type="button">
+        <button className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-bo-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-bo-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary disabled:cursor-not-allowed disabled:bg-slate-300" disabled={canTraLai ? isSubmitting : (!cart.length || isSubmitting || Boolean(overStockMessage) || blockedByNetwork)} onClick={onPayment} title={blockedByNetwork ? 'Mất kết nối mạng — chưa thể thanh toán' : undefined} type="button">
           {blockedByNetwork ? (
             <><WifiOff aria-hidden="true" size={16} /><span>Mất kết nối mạng</span></>
           ) : (

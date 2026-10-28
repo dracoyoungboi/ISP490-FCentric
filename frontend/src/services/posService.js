@@ -231,6 +231,8 @@ export const posService = {
   /**
    * Chuyển khoản payOS: giữ chỗ hàng + tạo mã QR. Body giống checkout (requestId, khoId,
    * khachHangId, items, note). Gọi lại cùng requestId khi QR còn hạn -> trả lại đúng QR cũ.
+   * Trả kết hợp: thêm tienMatTruoc (tiền mặt khách đã đưa, số đồng nguyên) -> mã QR chỉ mang phần còn lại
+   * (soTien = tổng − tienMatTruoc). Không có tiền mặt thì KHÔNG gửi trường này (mã QR trọn hóa đơn như cũ).
    */
   async createPayosLink(payload) {
     const res = await apiClient.post("/api/v1/pos/payos/payment-links", payload, { timeout: 30000 });
@@ -246,6 +248,16 @@ export const posService = {
   /** Hủy mã QR, trả lại hàng giữ chỗ (nếu khách đã kịp trả thì server trả về PAID). */
   async cancelPayos(orderCode) {
     const res = await apiClient.post(`/api/v1/pos/payos/payment-links/${orderCode}/cancel`);
+    return res.data?.data ?? null;
+  },
+
+  /**
+   * Mã QR không thành (hủy / hết hạn / lỗi / quản lý đã hoàn khoản chuyển khoản): xác nhận đã trả lại khách tiền mặt
+   * đưa trước. Bấm lại trả nguyên kết quả cũ; mã còn chờ / đơn đã tạo / đang chờ quản lý xử lý -> 409 kèm câu báo.
+   * Trả trạng thái mã QR mới (tienMatTraLaiLuc đã có).
+   */
+  async returnPayosCash(orderCode) {
+    const res = await apiClient.post(`/api/v1/pos/payos/payment-links/${orderCode}/tra-lai-tien-mat`);
     return res.data?.data ?? null;
   },
 
