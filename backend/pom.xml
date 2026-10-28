@@ -223,11 +223,29 @@
             <scope>compile</scope>
         </dependency>
 
-        <!-- Apache Commons IO - Utilities cho file I/O operations -->
+        <!-- Apache Commons IO - Utilities cho file I/O operations.
+             2.16.1: Apache POI 5.2.5 cần UnsynchronizedByteArrayOutputStream.builder() (có từ 2.12), commons-compress 1.26.2
+             cần 2.16.1; để thấp hơn thì ghi xlsx lỗi NoSuchMethodError -->
         <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
-            <version>2.11.0</version>
+            <version>2.16.1</version>
+        </dependency>
+
+        <!-- Apache POI - ghi tệp Excel (.xlsx): xuất Báo cáo doanh thu -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.2.5</version>
+        </dependency>
+
+        <!-- Apache Commons Compress: ghim bản. Không ghim thì Maven lấy 1.24.0 theo minio (khai báo trước POI), POI 5.2.5
+             ghi xlsx lỗi NoSuchMethodError ZipArchiveOutputStream.putArchiveEntry(ZipArchiveEntry) (cần từ 1.25).
+             1.26.2 thay vì 1.25.0 để có bản vá CVE-2024-25710, CVE-2024-26308. -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
+            <version>1.26.2</version>
         </dependency>
 
         <!-- ============================================== -->
