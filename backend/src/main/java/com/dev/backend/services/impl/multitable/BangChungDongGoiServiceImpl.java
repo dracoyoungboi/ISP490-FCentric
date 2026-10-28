@@ -45,8 +45,23 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
     private static final long MAX_IMAGE_SIZE = 10L * 1024 * 1024; // 10MB
     /** 100MB — GioiHanTaiBangChungFilter dùng mốc này để chặn sớm yêu cầu quá lớn trước khi đọc multipart. */
     public static final long MAX_VIDEO_SIZE = 100L * 1024 * 1024;
-    /** Số ngày lưu tệp bằng chứng (PackingProofCleanupJob dọn theo cùng mốc). */
-    private static final int SO_NGAY_LUU = 30;
+    /**
+     * Số ngày lưu tệp bằng chứng, tính từ ngày xuất kho (lúc tải lên tạm tính từ hôm đó). Phủ khiếu nại trên sàn (15 ngày
+     * sau khi nhận + tranh chấp), hàng hư hỏng với hãng vận chuyển (1 tháng sau khi phát, Luật Bưu chính Điều 38) và thiếu
+     * hàng của khách doanh nghiệp (3 tháng sau khi giao, Luật Thương mại Điều 318). Hạn thật xem {@link #hanLuuThucTe}.
+     */
+    public static final int SO_NGAY_LUU = 90;
+
+    /**
+     * Hạn lưu thật của một tệp: muộn hơn trong hai mốc ngay_het_han (đã kéo theo xuất kho / giao / hoàn trả) và ngày tạo +
+     * SO_NGAY_LUU. Tệp tải lên trước khi đổi sang 90 ngày còn ghi hạn + 30 trong CSDL; nhờ mốc thứ hai chúng được giữ đủ
+     * 90 ngày mà không phải chạy script sửa dữ liệu. PackingProofCleanupJob chỉ dọn khi đã qua cả hai mốc.
+     */
+    public static Instant hanLuuThucTe(BangChungDongGoi b) {
+        Instant theoNgayTao = b.getNgayTao() != null ? b.getNgayTao().plus(SO_NGAY_LUU, ChronoUnit.DAYS) : null;
+        if (b.getNgayHetHan() == null) return theoNgayTao;
+        return theoNgayTao == null || b.getNgayHetHan().isAfter(theoNgayTao) ? b.getNgayHetHan() : theoNgayTao;
+    }
 
     @Autowired
     private BangChungDongGoiRepository bangChungDongGoiRepository;
@@ -106,14 +121,15 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
 
     /**
      * Ngày hết hạn muộn nhất của các tệp đã gắn với phiếu xuất đóng gói xong (Chờ xuất / Đã xuất) mà nay không còn lưu và
-     * đã quá hạn — tức việc dọn sau hạn lưu đã xóa. Tệp bị thay hoặc xóa tay lúc đang đóng gói có hạn sớm hơn tệp cuối
-     * nên không làm sai ngày. Không có thì null (đơn chưa từng có bằng chứng).
+     * đã quá hạn — tức việc dọn sau hạn lưu đã xóa (lúc dọn, PackingProofCleanupJob ghi hạn thật vào ngay_het_han). Tệp bị
+     * thay hoặc xóa tay lúc đang đóng gói có hạn sớm hơn tệp cuối nên không làm sai ngày. Không có thì null (đơn chưa từng
+     * có bằng chứng).
      */
     private Instant ngayTuXoa(Integer donBanHangId) {
         Instant now = Instant.now();
         return bangChungDongGoiRepository.findByDonBanHangIdAndTrangThai(donBanHangId, 0).stream()
                 .filter(b -> b.getPhieuXuatKho() != null && phieuDaDongGoiXong(b.getPhieuXuatKho()))
-                // Bản ghi cũ thiếu hạn: việc dọn chọn theo ngày tạo + 30 ngày, tính cùng cách
+                // Bản ghi cũ thiếu hạn: tính ngày tạo + số ngày lưu
                 .map(b -> b.getNgayHetHan() != null ? b.getNgayHetHan()
                         : b.getNgayTao() != null ? b.getNgayTao().plus(SO_NGAY_LUU, ChronoUnit.DAYS) : null)
                 .filter(h -> h != null && !h.isAfter(now))
@@ -398,6 +414,14 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
         return result;
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void giaHanLuuTu(Integer donBanHangId, Instant moc) {
+        if (donBanHangId == null) return;
+        Instant han = (moc != null ? moc : Instant.now()).plus(SO_NGAY_LUU, ChronoUnit.DAYS);
+        bangChungDongGoiRepository.keoDaiHanLuu(donBanHangId, han);
+    }
+
     private boolean kiemTraDaDuBangChungInternal(boolean yeuCauVideo, List<BangChungDongGoi> list) {
         if (list == null || list.isEmpty()) return false;
         if (yeuCauVideo) {
@@ -476,7 +500,7 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
                 .nguoiTaoId(b.getNguoiTao() != null ? b.getNguoiTao().getId() : null)
                 .tenNguoiTao(b.getNguoiTao() != null ? b.getNguoiTao().getHoTen() : null)
                 .ngayTao(b.getNgayTao())
-                .ngayHetHan(b.getNgayHetHan())
+                .ngayHetHan(hanLuuThucTe(b))
                 .trangThai(b.getTrangThai())
                 .ghiChu(b.getGhiChu())
                 .build();

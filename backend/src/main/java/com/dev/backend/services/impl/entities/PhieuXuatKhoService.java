@@ -18,6 +18,7 @@ import com.dev.backend.services.impl.BaseServiceImpl;
 import com.dev.backend.services.impl.multitable.KhaDungChuyenKhoService;
 import com.dev.backend.services.impl.multitable.KhaDungChuyenKhoService.KhaDungChuyen;
 import com.dev.backend.services.impl.multitable.LoDangGiuService;
+import com.dev.backend.services.multitable.BangChungDongGoiService;
 import com.dev.backend.utils.HienThiBienThe;
 import com.dev.backend.utils.KhoDangChon;
 import com.dev.backend.utils.SauCommit;
@@ -98,6 +99,9 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
 
     @Autowired
     private DonBanHangRepository donBanHangRepository;
+
+    @Autowired
+    private BangChungDongGoiService bangChungDongGoiService;
 
     @Override
     protected EntityManager getEntityManager() {
@@ -544,6 +548,9 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
 
             updateTrangThaiDonBanHang(don.getId());
             trangThaiDonHang = don.getTrangThai();
+
+            // Hạn lưu bằng chứng đóng gói tính từ ngày xuất kho (khiếu nại tính từ lúc khách nhận hàng)
+            bangChungDongGoiService.giaHanLuuTu(don.getId(), phieu.getNgayXuat());
 
             // Phát sự kiện Push Trạng thái sang Sàn TMĐT (Shopify, Shopee...) chạy ngầm sau commit
             applicationEventPublisher.publishEvent(

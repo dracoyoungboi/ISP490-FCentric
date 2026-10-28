@@ -31,6 +31,8 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
@@ -152,6 +154,37 @@ class DonBanHangPhamViTest {
             // đã qua bước phạm vi
         }
         assertNotNull(d);
+    }
+
+    // ===== hạn lưu bằng chứng đóng gói =====
+
+    @Test
+    void daGiao_vaHoanTra_giaHanLuuBangChungDongGoi() {
+        var bangChung = mock(com.dev.backend.services.multitable.BangChungDongGoiService.class);
+        var pxRepo = mock(com.dev.backend.repository.PhieuXuatKhoRepository.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "bangChungDongGoiService", bangChung);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "chiTietDonBanHangRepository",
+                mock(com.dev.backend.repository.ChiTietDonBanHangRepository.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "phieuXuatKhoRepository", pxRepo);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "thanhToanDonBanService",
+                mock(ThanhToanDonBanService.class));
+        dangNhap(NGUOI_TAO, IRoleType.nhan_vien_ban_hang);
+
+        // Đã giao: hạn tính từ ngày giao (khiếu nại số lượng / chất lượng tính từ đây)
+        DonBanHang d = don("don_hang", 3, KHO_A);
+        java.time.Instant giao = java.time.Instant.now().minusSeconds(3L * 86400);
+        d.setNgayGiaoHang(giao);
+        service.markAsDelivered(DON_ID);
+        assertEquals(5, d.getTrangThai());
+        verify(bangChung).giaHanLuuTu(DON_ID, giao);
+
+        // Bị hoàn trả: hạn tính từ hôm hoàn trả
+        DonBanHang tra = don("don_hang", 3, KHO_A);
+        when(pxRepo.existsByDonBanHangIdAndTrangThai(DON_ID, 3)).thenReturn(true);
+        java.time.Instant truoc = java.time.Instant.now();
+        service.returnOrder(DON_ID);
+        assertEquals(6, tra.getTrangThai());
+        verify(bangChung).giaHanLuuTu(eq(DON_ID), argThat(t -> t != null && !t.isBefore(truoc)));
     }
 
     // ===== báo giá đã chốt / đã từ chối =====

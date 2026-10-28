@@ -573,14 +573,56 @@ public class BangChungDongGoiServiceTest {
     }
 
     @Test
-    @DisplayName("ngayTuXoa: bản ghi cũ thiếu hạn thì tính ngày tạo + 30 ngày như việc dọn")
+    @DisplayName("ngayTuXoa: bản ghi cũ thiếu hạn thì tính ngày tạo + 90 ngày")
     void xem_HetHan_ThieuNgayHetHan_TinhTheoNgayTao() {
-        Instant tao = Instant.now().minusSeconds(40L * 86400);
+        Instant tao = Instant.now().minusSeconds(100L * 86400);
         when(donBanHangRepository.findById(101)).thenReturn(Optional.of(donDuoi1Tr));
         when(bangChungDongGoiRepository.findByDonBanHangIdAndTrangThai(101, 0)).thenReturn(List.of(
                 BangChungDongGoi.builder().phieuXuatKho(phieu(51, PX_DA_XUAT)).ngayTao(tao).build()));
 
-        assertEquals(tao.plusSeconds(30L * 86400), bangChungDongGoiService.layThongTinBangChung(101).getNgayTuXoa());
+        assertEquals(tao.plusSeconds(90L * 86400), bangChungDongGoiService.layThongTinBangChung(101).getNgayTuXoa());
+    }
+
+    @Test
+    @DisplayName("Hạn lưu thật = muộn hơn trong hạn đã ghi và ngày tạo + 90: tệp cũ hạn 30 ngày được giữ đủ 90 không cần sửa CSDL")
+    void hanLuuThucTe_tepCuVaTepDaGiaHan() {
+        Instant tao = Instant.parse("2026-10-20T03:00:00Z");
+        BangChungDongGoi cu = BangChungDongGoi.builder().ngayTao(tao).ngayHetHan(tao.plusSeconds(30L * 86400)).build();
+        assertEquals(tao.plusSeconds(90L * 86400), BangChungDongGoiServiceImpl.hanLuuThucTe(cu));
+
+        BangChungDongGoi daGiaHan = BangChungDongGoi.builder().ngayTao(tao).ngayHetHan(tao.plusSeconds(120L * 86400)).build();
+        assertEquals(tao.plusSeconds(120L * 86400), BangChungDongGoiServiceImpl.hanLuuThucTe(daGiaHan));
+
+        assertEquals(tao.plusSeconds(90L * 86400), BangChungDongGoiServiceImpl.hanLuuThucTe(BangChungDongGoi.builder().ngayTao(tao).build()));
+
+        // Màn hình nhận hạn thật, không phải hạn + 30 còn ghi trong CSDL
+        cu.setId(5);
+        cu.setLoaiBangChung(LoaiBangChungDongGoi.ANH_HANG_TRONG_HOP.name());
+        cu.setTrangThai(1);
+        when(donBanHangRepository.findById(101)).thenReturn(Optional.of(donDuoi1Tr));
+        when(bangChungDongGoiRepository.findByDonBanHangIdAndTrangThaiOrderByNgayTaoAsc(101, 1)).thenReturn(List.of(cu));
+        assertEquals(tao.plusSeconds(90L * 86400), bangChungDongGoiService.layThongTinBangChung(101).getDanhSachBangChung().get(0).getNgayHetHan());
+    }
+
+    @Test
+    @DisplayName("Hạn lưu: tải lên = hôm nay + 90 ngày; gia hạn = mốc (ngày xuất kho / hoàn trả) + 90 ngày")
+    void hanLuu_90NgayVaGiaHanTheoMoc() throws Exception {
+        when(donBanHangRepository.findById(101)).thenReturn(Optional.of(donDuoi1Tr));
+        when(minioService.getPublicUrl(anyString())).thenReturn("http://minio/fashion/x.jpg");
+        when(tepTinService.create(any(TepTin.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(bangChungDongGoiRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        Instant truoc = Instant.now();
+        var dto = bangChungDongGoiService.uploadBangChung(101,
+                new MockMultipartFile("file", "a.jpg", "image/jpeg", JPEG), LoaiBangChungDongGoi.ANH_HANG_TRONG_HOP.name(), null);
+        long ngay = java.time.Duration.between(truoc, dto.getNgayHetHan()).toDays();
+        assertTrue(ngay >= 89 && ngay <= 90, "hạn lúc tải lên ≈ 90 ngày, thực tế " + ngay);
+
+        Instant xuat = Instant.parse("2026-10-28T03:00:00Z");
+        bangChungDongGoiService.giaHanLuuTu(101, xuat);
+        verify(bangChungDongGoiRepository).keoDaiHanLuu(101, xuat.plusSeconds(90L * 86400));
+
+        bangChungDongGoiService.giaHanLuuTu(null, xuat);
+        verify(bangChungDongGoiRepository, times(1)).keoDaiHanLuu(anyInt(), any());
     }
 
     @Test

@@ -51,6 +51,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.dev.backend.event.InventoryRestockedEvent;
 import com.dev.backend.services.KenhBanHangDongBoService;
+import com.dev.backend.services.multitable.BangChungDongGoiService;
 import com.dev.backend.services.multitable.NhatHangService;
 import lombok.extern.slf4j.Slf4j;
 import com.dev.backend.utils.SauCommit;
@@ -139,6 +140,9 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
 
     @Autowired
     private ThanhToanDonBanService thanhToanDonBanService;
+
+    @Autowired
+    private BangChungDongGoiService bangChungDongGoiService;
 
     @Autowired
     private ThueGtgtService thueGtgtService;
@@ -1167,6 +1171,9 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             don.setNgayGiaoHang(Instant.now());
         }
         repository.save(don);
+        // Khiếu nại số lượng / chất lượng tính từ ngày giao (Luật Thương mại Điều 318): giữ bằng chứng đóng gói tới
+        // ngày giao + hạn lưu (ngày xuất kho + hạn lưu có thể sớm hơn nếu giao chậm)
+        bangChungDongGoiService.giaHanLuuTu(don.getId(), don.getNgayGiaoHang());
     }
     @Transactional
     public void returnOrder(Integer id) {
@@ -1190,6 +1197,8 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         repository.save(don);
         // Phải thu về 0: tiền đã thu thành Cần hoàn tiền
         thanhToanDonBanService.tinhLaiSauDoiDon(don);
+        // Đơn bị hoàn trả là lúc cần đối chứng: giữ bằng chứng đóng gói thêm một hạn lưu tính từ hôm nay
+        bangChungDongGoiService.giaHanLuuTu(don.getId(), Instant.now());
     }
 
     @Transactional(readOnly = true)
