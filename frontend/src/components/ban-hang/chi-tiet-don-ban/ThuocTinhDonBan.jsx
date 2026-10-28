@@ -13,12 +13,15 @@ import { PICK_LIST_STATUS } from "@/constants/outbound";
 import { getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
 import { WALKIN_CUSTOMER_CODE } from "@/services/posService";
 import { dsPhieuXuat, ghiChuKhiXuat, laDonSan, laDonTaiQuay, laGhiChuTuSinh, phieuDaXuatCuoi, tenKenhCua } from "./tinhDonBan";
+import { coKhoiBangChung } from "./bangChungDon";
+import KhoiBangChungDongGoi from "./KhoiBangChungDongGoi";
 
 const MO = "text-bo-muted";
 
 /**
  * Cột phải của Chi tiết đơn bán hàng: Khách hàng · Giao hàng (kho xuất; vận chuyển, mã vận đơn, ghi chú khi xuất tách từ
- * ghi chú của phiếu đã xuất) · kênh bán (ID đơn trên sàn) · Người tạo, Ghi chú · Chứng từ liên quan (báo giá gốc,
+ * ghi chú của phiếu đã xuất) · Bằng chứng đóng gói (chỉ xem, từ bước đóng gói trở đi) · kênh bán (ID đơn trên sàn) ·
+ * Người tạo, Ghi chú · Chứng từ liên quan (báo giá gốc,
  * phiếu nhặt, các phiếu xuất — quá SO_PHIEU_XUAT_HIEN thì gom "Xem thêm").
  *
  * - `ct`: DonBanHangDetailResponse. `laBan`, `laKho`: vai trò (tên khách là liên kết với bán hàng; phiếu nhặt, phiếu xuất
@@ -144,6 +147,10 @@ export default function ThuocTinhDonBan({ ct, laBan = false, laKho = false, baoG
           ]}
         />
       </NhomThuocTinh>
+
+      {coKhoiBangChung({ trangThai: don.trangThai, laPos, laBaoGia: don.loaiChungTu === "bao_gia", laBan, laKho }) ? (
+        <KhoiBangChungDongGoi donId={don.id} trangThai={don.trangThai} />
+      ) : null}
 
       {laSan ? (
         <NhomThuocTinh nhan={tenKenh}>
