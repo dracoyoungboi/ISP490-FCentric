@@ -118,9 +118,11 @@ export function tongSoDon(tongQuan) {
 }
 
 /**
- * Bốn ô "Tình hình mua hàng" từ GET /khach-hang/{id}/tong-quan-mua-hang.
+ * Năm ô "Tình hình mua hàng" từ GET /khach-hang/{id}/tong-quan-mua-hang.
  * Mỗi ô: { ma, nhan, giaTri, coGiaTri, phu, donGanNhat? }. Đơn nháp không tính là đã đặt;
  * đơn đã hủy / bị hoàn trả vẫn là đơn đã đặt nhưng không tính vào chi tiêu.
+ * Còn phải thu: phần chưa thu đủ của đơn bán thường theo phiếu thu (đơn sàn thanh toán theo sàn, đơn tại quầy đã thu đủ,
+ * đơn cũ chưa theo dõi không tính), kèm số cần hoàn lại khách nếu có; máy chủ cũ không trả thì ô trống.
  */
 export function tinhKpi(tongQuan, homNay = new Date()) {
   const soDonDat = Number(tongQuan?.soDonDat) || 0;
@@ -137,6 +139,13 @@ export function tinhKpi(tongQuan, homNay = new Date()) {
 
   const gan = tongQuan?.donGanNhat ?? null;
   const coTrungBinh = coDon && soDonTinh > 0 && tongQuan?.trungBinhMoiDon != null;
+  const coCongNo = coDon && tongQuan?.conPhaiThu != null;
+  const soDonNo = Number(tongQuan?.soDonConPhaiThu) || 0;
+  const canHoan = Number(tongQuan?.canHoan) || 0;
+  const phuCongNo = [
+    soDonNo ? `${soDonNo} đơn chưa thu đủ` : "Không còn đơn chưa thu đủ",
+    canHoan > 0 ? `cần hoàn khách ${formatCurrency(canHoan)}` : "",
+  ].filter(Boolean).join(" · ");
 
   return [
     {
@@ -167,6 +176,13 @@ export function tinhKpi(tongQuan, homNay = new Date()) {
       giaTri: gan ? formatDate(gan.ngayDatHang) : "—",
       phu: gan ? cachDay(gan.ngayDatHang, homNay) : trong,
       donGanNhat: gan,
+    },
+    {
+      ma: "con-phai-thu",
+      nhan: "Còn phải thu",
+      coGiaTri: coCongNo,
+      giaTri: coCongNo ? formatCurrency(tongQuan.conPhaiThu) : "—",
+      phu: coCongNo ? phuCongNo : trong,
     },
   ];
 }
