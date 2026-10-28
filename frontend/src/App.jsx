@@ -73,6 +73,7 @@ import QuotationRequestPrint from "./pages/order/QuotationRequestPrint";
 import PurchaseOrderPrint from "./pages/order/PurchaseOrderPrint";
 import PrintTemplateEditorPage from "./pages/settings/PrintTemplateEditorPage";
 import PaymentSettingsPage from "./pages/settings/PaymentSettingsPage";
+import VatSettingsPage from "./pages/settings/VatSettingsPage";
 import SettingsLayout from "./pages/settings/SettingsLayout";
 import OperationsSettingsPage from "./pages/settings/OperationsSettingsPage";
 import StoreSettingsPage from "./pages/settings/StoreSettingsPage";
@@ -309,6 +310,7 @@ export default function App() {
               <Route path="inbound" element={<OperationsSettingsPage key="inbound" part="inbound" />} />
               <Route path="store" element={<StoreSettingsPage />} />
               <Route path="payment" element={<PaymentSettingsPage />} />
+              <Route path="vat" element={<VatSettingsPage />} />
               <Route path="print-templates" element={<PrintTemplateListPage />} />
             </Route>
             {/* Đường dẫn cũ */}
