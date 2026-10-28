@@ -587,6 +587,42 @@
 @media (prefers-reduced-motion: reduce) {
 	.bo-tt-nhip { animation: none; opacity: 0.2; }
 }
+/* Màn cho khách (POS): mã QR tự mờ hẳn đúng giờ hết hạn bằng hoạt ảnh độ mờ (chạy cả khi luồng chính của trang bị treo,
+   vd. hộp "Rời trang?" của màn bán hàng làm đứng cửa sổ màn hình phụ) — lớp chặn thứ hai sau việc thôi vẽ mã. */
+@keyframes pos-an-ma-qr {
+	to { opacity: 0; }
+}
+/* Màn cho khách: dấu tích "Đã nhận đủ" chạy một lần — vòng chờ quay rồi khép kín (1,6 giây), dấu tích vẽ bên trong,
+   vòng giữ thêm khoảng một giây rồi tan; lúc đứng yên chỉ còn dấu tích. */
+.mk-tich-vong {
+	transform-box: fill-box;
+	transform-origin: center;
+	stroke-dasharray: 40 124;
+	animation: mk-tich-quay 1.6s cubic-bezier(0.4, 0, 0.2, 1) forwards, mk-tich-khep 4s ease-in-out forwards;
+}
+@keyframes mk-tich-quay {
+	0% { transform: rotate(0deg); }
+	70% { transform: rotate(540deg); }
+	100% { transform: rotate(720deg); }
+}
+@keyframes mk-tich-khep {
+	0%, 24% { stroke-dasharray: 40 124; opacity: 1; }
+	40%, 78% { stroke-dasharray: 164 0; opacity: 1; }
+	92%, 100% { stroke-dasharray: 164 0; opacity: 0; }
+}
+.mk-tich-net {
+	stroke-dasharray: 46;
+	stroke-dashoffset: 46;
+	animation: mk-tich-ve 4s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+@keyframes mk-tich-ve {
+	0%, 40% { stroke-dashoffset: 46; }
+	54%, 100% { stroke-dashoffset: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+	.mk-tich-vong { animation: none; opacity: 0; }
+	.mk-tich-net { animation: none; stroke-dashoffset: 0; }
+}
 /* Chế độ tương phản cao (Windows): dấu tích trên vòng "xong" theo màu nền, khung Cần chú ý / Có vấn đề / Bình thường giữ viền. */
 @media (forced-colors: active) {
 	.bo-tt-tick { stroke: Canvas; }

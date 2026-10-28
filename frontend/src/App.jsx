@@ -83,6 +83,7 @@ import RequireRole from "./components/auth/RequireRole";
 import { VAI_TRO_TAO_YEU_CAU_NHAP } from "./constants/vaiTroTaoYeuCauNhap";
 import PosPage from "./pages/pos";
 import PosLayout from "./pages/pos/PosLayout";
+import ManHinhKhachPage from "./pages/pos/ManHinhKhachPage";
 import DonChoXuatPage from "./pages/issue/DonChoXuatPage";
 import PickListList from "./pages/issue/PickListList";
 import PickListDetail from "./pages/issue/PickListDetail";
@@ -157,6 +158,10 @@ export default function App() {
         {/* Trang cũ sau khi gửi báo giá: nay báo thành công ngay trên trang báo giá; giữ đường dẫn để link cũ không hỏng */}
         <Route path="/quote-success" element={<Navigate to="/supplier/login" replace />} />
         <Route path="/supplier/login" element={<SupplierLogin />} />
+        {/* Màn hình phụ quay về phía khách (cửa sổ riêng mở từ menu tài khoản của POS): chỉ hiện nội dung màn bán hàng
+            cùng máy, cùng tài khoản gửi sang qua BroadcastChannel; không gọi API, không có thao tác. Để ngoài kiểm tra
+            phiên đăng nhập để tải lại lúc phiên hết hạn không hiện màn đăng nhập / báo lỗi trước mặt khách. */}
+        <Route path="/pos/customer-display" element={<ManHinhKhachPage />} />
 
         {/* ========== BACKOFFICE ROUTES (CÓ SIDEBAR + HEADER) ========== */}
         <Route element={<ProtectedRoute />}>
