@@ -40,7 +40,10 @@ export const DON_BAN_HANG_TABS = [
 /** Trạng thái thanh toán của đơn bán (cột trang_thai_thanh_toan, enum ở CSDL). */
 export const DON_BAN_HANG_THANH_TOAN = {
     chua_thanh_toan: { label: "Chưa thanh toán" },
+    thanh_toan_mot_phan: { label: "Thanh toán một phần" },
     da_thanh_toan: { label: "Đã thanh toán" },
+    // Đã thu nhiều hơn phải thu (khách chuyển dư, đơn đã thu tiền rồi bị hủy / hoàn trả)
+    can_hoan_tien: { label: "Cần hoàn tiền" },
 };
 
 /** Đơn đã hủy / bị hoàn trả: không còn phải thu tiền, nên "Chưa thanh toán" của các đơn này không tô màu nhắc. */
