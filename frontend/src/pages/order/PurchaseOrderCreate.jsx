@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from '@/lib/thongBaoNhanh';
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,8 @@ import apiClient from '@/services/apiClient';
 import { khoService } from "@/services/khoService";
 
 /* ─── Shared layout components ──────────────────────────────────── */
-function SectionCard({ icon: Icon, iconBg, iconColor, title, children }) {
+function SectionCard({ icon, iconBg, iconColor, title, children }) {
+    const Icon = icon;
     return (
         <div className="rounded-2xl bg-white shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-200/80 overflow-hidden flex flex-col h-full items-stretch">
             <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100 bg-slate-50 shrink-0">
@@ -85,7 +86,7 @@ export default function PurchaseOrderCreate() {
     const [prefillDone, setPrefillDone] = useState(false);
 
     /* ── Form State ── */
-    const [loading, setLoading] = useState(false);
+    const [loading] = useState(false);
     const [showSendDialog, setShowSendDialog] = useState(false);
     const [showProductDialog, setShowProductDialog] = useState(false);
     const [sendingEmail, setSendingEmail] = useState(false);
@@ -101,10 +102,6 @@ export default function PurchaseOrderCreate() {
     const [orderItems, setOrderItems] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [filteredProducts, setFilteredProducts] = useState([]);
-
-    /* ── Helpers ── */
-    const formatCurrency = (amount) =>
-        new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
 
     /* ── Load master data ── */
     useEffect(() => {
