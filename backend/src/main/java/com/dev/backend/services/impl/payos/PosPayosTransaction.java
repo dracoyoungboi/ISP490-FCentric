@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,10 +61,18 @@ public class PosPayosTransaction {
         return row;
     }
 
-    /** Giữ chỗ hàng + tạo giao dịch PENDING (chưa gọi payOS). */
+    /** Phần mã QR nhỏ nhất khi khách trả trước một phần bằng tiền mặt (mức máy chủ dùng khi thử kết nối payOS). */
+    static final BigDecimal MIN_QR = new BigDecimal("2000");
+
+    /**
+     * Giữ chỗ hàng + tạo giao dịch PENDING (chưa gọi payOS). Khách trả trước một phần bằng tiền mặt (tienMatTruoc) thì mã
+     * QR chỉ mang phần còn lại; không có thì QR trọn hóa đơn.
+     */
     @Transactional
     public PosPayosPayment createPending(PosCheckoutCreating request, Integer cashierId, int expiryMinutes) {
         PosCheckoutTransaction.ReservationResult reservation = checkoutTransaction.reserveForTransfer(request);
+        BigDecimal tienMat = tienMatTruocQr(request.getTienMatTruoc(), reservation.total());
+        BigDecimal soTienQr = tienMat == null ? reservation.total() : reservation.total().subtract(tienMat);
 
         // Chốt giá + phương thức vào payload: lúc tiền về sẽ tạo đơn đúng số tiền khách đã trả.
         PosCheckoutCreating locked = PosCheckoutCreating.builder()
@@ -78,8 +87,9 @@ public class PosPayosTransaction {
                         .build()).toList())
                 .payment(PosCheckoutCreating.PosCheckoutPaymentCreating.builder()
                         .method(CheckoutContext.METHOD_PAYOS)
-                        .tenderedAmount(reservation.total())
+                        .tenderedAmount(soTienQr)
                         .build())
+                .tienMatTruoc(tienMat)
                 .build();
 
         long orderCode = newOrderCode();
@@ -89,7 +99,8 @@ public class PosPayosTransaction {
                 .requestId(locked.getRequestId())
                 .khoId(request.getKhoId())
                 .nguoiThuNganId(cashierId)
-                .soTien(reservation.total())
+                .soTien(soTienQr)
+                .tienMatTruoc(tienMat)
                 .trangThai(PosPayosPayment.PENDING)
                 .noiDungCk(description(orderCode))
                 .payloadJson(write(Map.of("payload", locked, "productNames", reservation.productNames())))
@@ -134,6 +145,9 @@ public class PosPayosTransaction {
         releaseIfHeld(row);
         row.setTrangThai(newStatus);
         row.setErrorMessage(truncate(message));
+        // Không tạo được mã QR: khách chưa thấy mã nào, tiền mặt khách đưa vẫn ở quầy cho lần tạo mã sau — giao dịch hỏng
+        // này không mang tiền mặt (Đối soát không nhắc trả lại một khoản không có thật)
+        if (PosPayosPayment.FAILED.equals(newStatus) && row.getQrCode() == null) row.setTienMatTruoc(null);
         row.setNgayCapNhat(Instant.now());
         return repository.save(row);
     }
@@ -159,7 +173,7 @@ public class PosPayosTransaction {
         }
         if (paidAmount == null || paidAmount.compareTo(row.getSoTien()) != 0) {
             throw new CommonException("Số tiền nhận được (" + (paidAmount == null ? "?" : plain(paidAmount))
-                    + "đ) khác số tiền hóa đơn (" + plain(row.getSoTien()) + "đ)");
+                    + "đ) khác số tiền " + (coTienMat(row) ? "mã QR" : "hóa đơn") + " (" + plain(row.getSoTien()) + "đ)");
         }
         PosCheckoutResponse result = createOrder(row, payload(row), paidAmount, null);
 
@@ -258,6 +272,12 @@ public class PosPayosTransaction {
     @Transactional
     public PosCheckoutResponse createOrderFromPaidError(Long orderCode, Integer managerId, String note) {
         PosPayosPayment row = lockPaidError(orderCode);
+        if (row.isTienVeSauHuy() && coTienMat(row)) {
+            // Lúc hủy mã, quầy đã / sẽ trả lại khách phần tiền mặt: tiền payOS một mình không đủ trả hóa đơn
+            throw new CommonException("Tiền payOS về sau khi mã QR đã hủy, phần tiền mặt " + plain(row.getTienMatTruoc())
+                    + "đ đã trả lại khách — không tạo đơn được. Hoàn khoản payOS cho khách rồi chọn Đã hoàn tiền.",
+                    HttpStatus.CONFLICT, null);
+        }
         BigDecimal received = row.getSoTienDaNhan();
         if (received == null) {
             throw new CommonException("Chưa rõ số tiền đã nhận của giao dịch này — kiểm tra sao kê ngân hàng; "
@@ -287,7 +307,10 @@ public class PosPayosTransaction {
         return result;
     }
 
-    /** Quản lý đã tự hoàn tiền cho khách qua ngân hàng: trả hàng giữ chỗ (nếu còn), không tạo chứng từ tiền. */
+    /**
+     * Quản lý đã tự hoàn tiền cho khách qua ngân hàng: trả hàng giữ chỗ (nếu còn), không tạo chứng từ tiền. Tiền mặt khách
+     * trả trước (nếu có) vẫn ở quầy: thu ngân trả khách rồi tự xác nhận (traLaiTienMat).
+     */
     @Transactional
     public PosPayosPayment markRefunded(Long orderCode, Integer managerId, String note) {
         PosPayosPayment row = lockPaidError(orderCode);
@@ -295,6 +318,61 @@ public class PosPayosTransaction {
         row.setTrangThai(PosPayosPayment.REFUNDED);
         markHandled(row, managerId, note);
         return repository.save(row);
+    }
+
+    /**
+     * Thu ngân xác nhận đã trả lại khách phần tiền mặt trả trước khi mã QR không thành (hủy / hết hạn / không tạo được,
+     * tiền payOS về sau khi đã hủy, hoặc quản lý đã hoàn khoản payOS). Gọi lặp lại trả nguyên kết quả cũ. Mã còn chờ, đơn
+     * đã tạo hay giao dịch đang chờ quản lý xử lý thì không trả lại ở đây.
+     */
+    @Transactional
+    public PosPayosPayment traLaiTienMat(Long orderCode, Integer userId) {
+        PosPayosPayment row = lock(orderCode);
+        if (!coTienMat(row)) {
+            throw new CommonException("Giao dịch này không có tiền mặt khách trả trước.", HttpStatus.CONFLICT, null);
+        }
+        if (row.getTienMatTraLaiLuc() != null) return row;
+        String trangThai = row.getTrangThai();
+        if (PosPayosPayment.PENDING.equals(trangThai)) {
+            throw new CommonException("Mã QR còn đang chờ khách chuyển — hủy mã trước rồi mới trả lại tiền mặt.",
+                    HttpStatus.CONFLICT, null);
+        }
+        if (PosPayosPayment.PAID.equals(trangThai)) {
+            throw new CommonException("Đơn đã hoàn tất, tiền mặt đã ghi vào đơn — không trả lại ở đây.",
+                    HttpStatus.CONFLICT, null);
+        }
+        if (PosPayosPayment.PAID_ERROR.equals(trangThai) && !row.isTienVeSauHuy()) {
+            throw new CommonException("Giao dịch đang chờ quản lý xử lý ở Đối soát chuyển khoản (tạo đơn hoặc hoàn tiền).",
+                    HttpStatus.CONFLICT, null);
+        }
+        // Cột lưu tới giây: cắt sẵn để lần bấm lại trả đúng giờ đã trả về lần đầu
+        row.setTienMatTraLaiLuc(Instant.now().truncatedTo(ChronoUnit.SECONDS));
+        row.setNguoiTraLaiTienMatId(userId);
+        row.setNgayCapNhat(Instant.now());
+        return repository.save(row);
+    }
+
+    /**
+     * Tiền mặt khách trả trước khi tạo mã QR: trống / 0 = không có (trả null). Phải là số nguyên đồng, nhỏ hơn hóa đơn và
+     * để lại cho mã QR ít nhất {@link #MIN_QR}.
+     */
+    static BigDecimal tienMatTruocQr(BigDecimal tienMat, BigDecimal tongHoaDon) {
+        if (tienMat == null || tienMat.signum() == 0) return null;
+        if (tienMat.signum() < 0) throw new CommonException("Tiền mặt khách trả trước không được âm");
+        if (tienMat.stripTrailingZeros().scale() > 0) {
+            throw new CommonException("Tiền mặt khách trả trước phải là số nguyên đồng");
+        }
+        if (tienMat.compareTo(tongHoaDon) >= 0) {
+            throw new CommonException("Khách trả đủ bằng tiền mặt — chọn cách trả Tiền mặt thay vì tạo mã QR");
+        }
+        if (tongHoaDon.subtract(tienMat).compareTo(MIN_QR) < 0) {
+            throw new CommonException("Phần quét mã QR phải từ " + plain(MIN_QR) + "đ trở lên");
+        }
+        return tienMat.setScale(2);
+    }
+
+    static boolean coTienMat(PosPayosPayment row) {
+        return row.getTienMatTruoc() != null && row.getTienMatTruoc().signum() > 0;
     }
 
     private PosPayosPayment lockPaidError(Long orderCode) {
@@ -320,7 +398,8 @@ public class PosPayosTransaction {
         payload.getItems().forEach(i -> lockedPrices.put(i.getBienTheSanPhamId(), i.getUnitPriceClient()));
         PosCheckoutResponse result = checkoutTransaction.executeWith(payload, CheckoutContext.payos(
                 row.getNguoiThuNganId(), paidAmount, lockedPrices, row.isDangGiuCho() ? reserved(row) : null)
-                .withThoiDiemBan(thoiDiemBan));
+                .withThoiDiemBan(thoiDiemBan)
+                .withTienMatTruoc(coTienMat(row) ? row.getTienMatTruoc() : null));
         row.setDangGiuCho(false);
         return result;
     }

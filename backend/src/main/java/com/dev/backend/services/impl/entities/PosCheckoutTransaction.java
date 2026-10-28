@@ -73,6 +73,8 @@ public class PosCheckoutTransaction {
     private PosCheckoutRequestRepository posCheckoutRequestRepository;
     @Autowired
     private PosPaymentRepository posPaymentRepository;
+    @Autowired
+    private ThueGtgtService thueGtgtService;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -112,13 +114,17 @@ public class PosCheckoutTransaction {
         BigDecimal tongTienHang = totalOf(items, unitPrices);
 
         // 3. Thanh toán: tiền mặt phải đủ (tiền thừa không phải doanh thu);
-        //    chuyển khoản phải bằng đúng tổng đã chốt.
+        //    chuyển khoản (cộng tiền mặt khách trả trước, nếu có) phải bằng đúng tổng đã chốt.
         BigDecimal tendered;
+        BigDecimal tienMatTruoc = null;
         if (CheckoutContext.METHOD_PAYOS.equals(ctx.method())) {
-            tendered = ctx.paidAmount();
+            BigDecimal paid = ctx.paidAmount();
+            tienMatTruoc = ctx.tienMatTruoc() != null && ctx.tienMatTruoc().signum() > 0 ? ctx.tienMatTruoc() : null;
+            tendered = paid == null ? null : (tienMatTruoc == null ? paid : paid.add(tienMatTruoc));
             if (tendered == null || tendered.compareTo(tongTienHang) != 0) {
-                throw new CommonException("Số tiền chuyển khoản (" + (tendered == null ? "?" : plain(tendered))
-                        + ") không khớp tổng hóa đơn (" + plain(tongTienHang) + ")");
+                throw new CommonException("Số tiền chuyển khoản (" + (paid == null ? "?" : plain(paid)) + ")"
+                        + (tienMatTruoc != null ? " cộng tiền mặt (" + plain(tienMatTruoc) + ")" : "")
+                        + " không khớp tổng hóa đơn (" + plain(tongTienHang) + ")");
             }
         } else {
             tendered = validatePayment(request.getPayment());
@@ -225,6 +231,7 @@ public class PosCheckoutTransaction {
                 .soTienHang(tongTienHang)
                 .soTienThu(tendered)
                 .soTienThua(tienThua)
+                .tienMatTruoc(tienMatTruoc)
                 .nguoiThuId(userId)
                 .ngayTao(Instant.now())
                 .build());
@@ -232,6 +239,7 @@ public class PosCheckoutTransaction {
         // 10. Hoàn tất neo idempotency với kết quả đã lưu (cùng transaction).
         PosCheckoutResponse response = buildResponse(don, phieuXuat, items, variants, unitPrices, tongTienHang, tendered, tienThua, khaDungSauByVariant);
         response.setPhuongThuc(ctx.method());
+        response.setTienMatTruoc(tienMatTruoc);
         try {
             requestRow.setTrangThai(PosCheckoutRequest.TRANG_THAI_SUCCESS);
             requestRow.setDonBanHangId(don.getId());
@@ -355,12 +363,20 @@ public class PosCheckoutTransaction {
      * Ngữ cảnh checkout: ai thu tiền, phương thức, giá chốt và phần giữ chỗ cần trả.
      * thoiDiemBan: ngày đặt/giao của đơn (null = bây giờ). Quản lý tạo đơn cho giao dịch chuyển khoản lỗi
      * về sau thì đơn mang ngày tiền về, để doanh thu không rơi sang ngày/tháng xử lý.
+     * payOS trả kết hợp: paidAmount là phần mã QR (= tổng hóa đơn − tienMatTruoc), tienMatTruoc là tiền mặt khách trả
+     * trước tại quầy (null = không có); sổ thu ghi một dòng PAYOS kèm phần tiền mặt.
      */
     public record CheckoutContext(Integer userId, String method, BigDecimal paidAmount,
                                   Map<Integer, BigDecimal> lockedPrices, List<ReservedLot> reservationToRelease,
-                                  boolean skipWarehouseAuth, Instant thoiDiemBan) {
+                                  boolean skipWarehouseAuth, Instant thoiDiemBan, BigDecimal tienMatTruoc) {
         public static final String METHOD_CASH = "CASH";
         public static final String METHOD_PAYOS = "PAYOS";
+
+        public CheckoutContext(Integer userId, String method, BigDecimal paidAmount,
+                               Map<Integer, BigDecimal> lockedPrices, List<ReservedLot> reservationToRelease,
+                               boolean skipWarehouseAuth, Instant thoiDiemBan) {
+            this(userId, method, paidAmount, lockedPrices, reservationToRelease, skipWarehouseAuth, thoiDiemBan, null);
+        }
 
         public static CheckoutContext cash(Integer userId) {
             return new CheckoutContext(userId, METHOD_CASH, null, null, null, false, null);
@@ -372,7 +388,13 @@ public class PosCheckoutTransaction {
         }
 
         public CheckoutContext withThoiDiemBan(Instant thoiDiem) {
-            return new CheckoutContext(userId, method, paidAmount, lockedPrices, reservationToRelease, skipWarehouseAuth, thoiDiem);
+            return new CheckoutContext(userId, method, paidAmount, lockedPrices, reservationToRelease, skipWarehouseAuth, thoiDiem,
+                    tienMatTruoc);
+        }
+
+        public CheckoutContext withTienMatTruoc(BigDecimal tienMat) {
+            return new CheckoutContext(userId, method, paidAmount, lockedPrices, reservationToRelease, skipWarehouseAuth,
+                    thoiDiemBan, tienMat);
         }
     }
 
@@ -609,6 +631,8 @@ public class PosCheckoutTransaction {
                 .ghiChu(request.getNote() == null || request.getNote().isBlank() ? null : request.getNote().trim())
                 .nguoiTao(nguoiDung)
                 .build();
+        // Thuế GTGT theo ngày bán (giao dịch chuyển khoản lỗi xử lý về sau: ngày tiền về)
+        thueGtgtService.chup(don, thoiDiemBan);
         donBanHangRepository.save(don);
 
         for (PosCheckoutCreating.PosCheckoutItemCreating item : items) {
