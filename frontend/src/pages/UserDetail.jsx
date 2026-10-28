@@ -139,7 +139,7 @@ export default function UserDetail() {
   if (hoSoQ.error && !hoSo) {
     return (
       <PageContainer>
-        <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+        <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
           <ErrorState
             title="Không tải được hồ sơ"
             description={getApiErrorMessage(hoSoQ.error, "Kiểm tra kết nối rồi thử lại.")}
@@ -282,7 +282,7 @@ export default function UserDetail() {
 
   return (
     <PageContainer>
-      <article className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+      <article className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
         {/* Đầu khối: vai trò và kho chỉ ghi một lần ở đây */}
         <header className="flex items-center gap-4 px-4 py-4 sm:px-6 sm:py-5">
           <div className="relative shrink-0">

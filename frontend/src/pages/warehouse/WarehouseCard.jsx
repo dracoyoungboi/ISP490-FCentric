@@ -84,7 +84,7 @@ export default function WarehouseCard({ warehouse, onView, onEdit, onDelete }) {
                     <Button
                         variant="outline"
                         size="sm"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="text-red-600 hover:text-bo-danger-strong hover:bg-bo-danger-soft"
                         onClick={() => onDelete(warehouse)}
                     >
                         <Trash2 className="w-4 h-4" />

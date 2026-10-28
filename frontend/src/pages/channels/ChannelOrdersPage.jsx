@@ -430,7 +430,7 @@ export default function ChannelOrdersPage() {
                 aria-label={`Bỏ lọc ${NHAN_LOC_YEU_CAU_HUY.toLocaleLowerCase("vi-VN")}`}
                 title="Bỏ lọc này"
                 className={cn(
-                  "inline-flex h-9 min-w-0 max-w-full items-center justify-between gap-2 rounded-md border border-bo-border bg-white pl-3 pr-2 text-sm text-bo-foreground max-sm:h-11",
+                  "inline-flex h-9 min-w-0 max-w-full items-center justify-between gap-2 rounded-md border border-bo-border bg-bo-surface pl-3 pr-2 text-sm text-bo-foreground max-sm:h-11",
                   "transition-colors hover:bg-bo-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary max-sm:w-full",
                 )}
               >

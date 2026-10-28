@@ -103,7 +103,7 @@ export default function ChatLieuDetail() {
         return (
             <div className="p-6 min-h-screen flex items-center justify-center"
                 style={{ background: "linear-gradient(135deg, #ca8a04 0%, #b45309 100%)" }}>
-                <div className="flex items-center gap-2 bg-white/95 rounded-2xl px-6 py-4 shadow-lg ring-1 ring-white/60">
+                <div className="flex items-center gap-2 bg-bo-surface/95 rounded-2xl px-6 py-4 shadow-lg ring-1 ring-white/60">
                     <Loader2 className="h-5 w-5 animate-spin text-yellow-600" />
                     <span className="text-sm font-medium text-gray-700">Đang tải...</span>
                 </div>
@@ -140,7 +140,7 @@ export default function ChatLieuDetail() {
                     </div>
 
                     {/* ── Thông tin chất liệu ── */}
-                    <div className="rounded-2xl bg-white/95 shadow-lg ring-1 ring-white/60 overflow-hidden">
+                    <div className="rounded-2xl bg-bo-surface/95 shadow-lg ring-1 ring-white/60 overflow-hidden">
                         <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100">
                             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-yellow-100">
                                 <Layers className="h-4 w-4 text-yellow-600" />
@@ -216,7 +216,7 @@ export default function ChatLieuDetail() {
                     </div>
 
                     {/* ── Trạng thái ── */}
-                    <div className="rounded-2xl bg-white/95 shadow-lg ring-1 ring-white/60 overflow-hidden">
+                    <div className="rounded-2xl bg-bo-surface/95 shadow-lg ring-1 ring-white/60 overflow-hidden">
                         <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100">
                             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100">
                                 <CheckCircle2 className="h-4 w-4 text-emerald-600" />

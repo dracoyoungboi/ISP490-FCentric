@@ -175,7 +175,7 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
       {buoc === 1 ? (
         <>
           <div className="flex items-start gap-3 border-b border-bo-border px-6 py-4">
-            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-orange-50 text-amber-700">
+            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-bo-warning-soft text-amber-700">
               <ScanSearch className="size-[18px]" />
             </span>
             <div className="min-w-0">
@@ -188,7 +188,7 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
           <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5 *:shrink-0">
             <div className="flex flex-col gap-1">
               <span className="break-all font-mono text-lg font-semibold leading-[26px] tracking-[0.02em] text-bo-heading">{ma}</span>
-              <span className={cn("flex items-center gap-1.5 text-[12.5px] leading-[18px]", dang.tone === "ok" ? "text-green-700" : dang.tone === "bad" ? "text-red-700" : "text-bo-muted")}>
+              <span className={cn("flex items-center gap-1.5 text-[12.5px] leading-[18px]", dang.tone === "ok" ? "text-green-700" : dang.tone === "bad" ? "text-bo-danger-strong" : "text-bo-muted")}>
                 {dang.tone === "ok" ? <Check className="size-3.5" /> : dang.tone === "bad" ? <AlertCircle className="size-3.5" /> : null}
                 {dang.chu}
                 {quet.sl > 1 ? ` · lượt ${quet.sl} cái` : ""}
@@ -196,7 +196,7 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
             </div>
 
             {goiY.length ? (
-              <div className="shrink-0 overflow-hidden rounded-lg border border-orange-200 bg-orange-50/40">
+              <div className="shrink-0 overflow-hidden rounded-lg border border-orange-200 bg-bo-warning-soft/40">
                 <p className="border-b border-orange-200 px-3 py-2 text-[13px] font-semibold text-orange-900">
                   {ganDung.length ? "Gần giống mã đã có, có thể máy quét đọc lệch" : "Là phần đầu của mã đã có, có thể máy quét đọc thiếu"}
                 </p>
@@ -211,7 +211,7 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
                       <span className="text-xs text-bo-muted">{g.nhan}</span>
                     </div>
                     <span className="whitespace-nowrap text-xs font-medium text-orange-800">{g.lech ? `lệch ${g.lech} ký tự` : `thiếu ${g.thieu} ký tự cuối`}</span>
-                    <Button type="button" variant="outline" size="sm" onClick={() => onDungMa(g.ma, `sửa từ mã quét lệch ${ma}`)} className="border-bo-border bg-white text-xs">
+                    <Button type="button" variant="outline" size="sm" onClick={() => onDungMa(g.ma, `sửa từ mã quét lệch ${ma}`)} className="border-bo-border bg-bo-surface text-xs">
                       Dùng mã này
                     </Button>
                   </div>
@@ -249,10 +249,10 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
                     className={cn(O_NHAP, "pl-10 font-mono")}
                   />
                 </label>
-                <Button type="submit" variant="outline" className="h-10 border-bo-border bg-white">Nhận</Button>
+                <Button type="submit" variant="outline" className="h-10 border-bo-border bg-bo-surface">Nhận</Button>
               </form>
               {ketQua ? (
-                <p role="alert" className="flex items-start gap-1.5 text-[13px] leading-5 text-red-700">
+                <p role="alert" className="flex items-start gap-1.5 text-[13px] leading-5 text-bo-danger-strong">
                   <AlertCircle className="mt-0.5 size-4 shrink-0" /> {ketQua}
                 </p>
               ) : null}
@@ -260,7 +260,7 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
           </div>
           <div className="flex items-center gap-2 border-t border-bo-border bg-bo-surface-subtle px-6 py-3">
             <span className="mr-auto text-xs text-bo-muted">Bước 1/2</span>
-            <Button type="button" variant="outline" onClick={() => onBoQua("Đã bỏ qua")} className="min-w-24 border-bo-border bg-white">Bỏ qua</Button>
+            <Button type="button" variant="outline" onClick={() => onBoQua("Đã bỏ qua")} className="min-w-24 border-bo-border bg-bo-surface">Bỏ qua</Button>
           </div>
         </>
       ) : (
@@ -313,7 +313,7 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
                       aria-checked={dangChon}
                       onClick={() => setChon(it.bienTheSanPhamId)}
                       className={cn(
-                        "flex min-h-[52px] w-full items-center gap-2.5 rounded-md border bg-white px-3 py-2 text-left text-sm",
+                        "flex min-h-[52px] w-full items-center gap-2.5 rounded-md border bg-bo-surface px-3 py-2 text-left text-sm",
                         dangChon ? "border-bo-primary bg-[#f5f9ff] shadow-[inset_0_0_0_1px_var(--color-bo-primary)]" : "border-bo-border hover:border-slate-300",
                       )}
                     >
@@ -353,7 +353,7 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
               </p>
             ) : null}
             {loiLuu ? (
-              <p role="alert" className="flex items-start gap-1.5 text-[13px] leading-5 text-red-700">
+              <p role="alert" className="flex items-start gap-1.5 text-[13px] leading-5 text-bo-danger-strong">
                 <AlertCircle className="mt-0.5 size-4 shrink-0" /> {loiLuu}
               </p>
             ) : null}
@@ -361,7 +361,7 @@ function NoiDung({ quet, dieuKhienRef, phieu, items, bienTheDangKiemId, ungVienG
           <div className="flex flex-wrap items-center gap-2 border-t border-bo-border bg-bo-surface-subtle px-6 py-3">
             <span className="w-full text-xs text-bo-muted sm:mr-auto sm:w-auto">Bước 2/2</span>
             <div className="flex w-full gap-2 sm:w-auto">
-              <Button type="button" variant="outline" disabled={dangLuu} onClick={() => onBoQua("Chưa liên kết")} className="min-w-24 border-bo-border bg-white">Bỏ qua</Button>
+              <Button type="button" variant="outline" disabled={dangLuu} onClick={() => onBoQua("Chưa liên kết")} className="min-w-24 border-bo-border bg-bo-surface">Bỏ qua</Button>
               <Button type="button" disabled={chon == null || dangLuu} onClick={lienKet} className="min-w-28 flex-1 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover sm:flex-none">
                 {dangLuu ? <Loader2 className="size-4 animate-spin" /> : null}
                 {chonKhac ? "Liên kết" : "Liên kết và tính lượt quét"}

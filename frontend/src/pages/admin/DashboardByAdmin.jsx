@@ -128,7 +128,7 @@ export default function DashboardByAdmin() {
 
                 {/* CHART */}
 
-                <div className="bg-white border-0 shadow-md rounded-xl p-5 lg:col-span-2">
+                <div className="bg-bo-surface border-0 shadow-md rounded-xl p-5 lg:col-span-2">
 
                     <div className="flex items-center justify-between">
 
@@ -148,7 +148,7 @@ export default function DashboardByAdmin() {
 
                     </div>
 
-                    <div className="mt-4 h-48 flex items-end justify-between gap-3 p-4 bg-slate-50 rounded-lg">
+                    <div className="mt-4 h-48 flex items-end justify-between gap-3 p-4 bg-bo-surface-subtle rounded-lg">
 
                         {(() => {
 
@@ -193,7 +193,7 @@ export default function DashboardByAdmin() {
 
                 {/* ALERT */}
 
-                <div className="bg-white border-0 shadow-md rounded-xl p-5">
+                <div className="bg-bo-surface border-0 shadow-md rounded-xl p-5">
 
                     <div className="text-sm font-semibold text-gray-900">
                         Cảnh báo nhanh
@@ -232,7 +232,7 @@ export default function DashboardByAdmin() {
 
             {/* ===== LATEST USERS ===== */}
 
-            <section className="bg-white border-0 shadow-md rounded-xl p-5">
+            <section className="bg-bo-surface border-0 shadow-md rounded-xl p-5">
 
                 <div className="flex items-start justify-between">
 
@@ -318,7 +318,7 @@ export default function DashboardByAdmin() {
 
                 {/* ===== PAGINATION ===== */}
 
-                <Card className="border-none bg-white mt-4">
+                <Card className="border-none bg-bo-surface mt-4">
 
                     <CardContent className="p-4">
 
@@ -330,12 +330,12 @@ export default function DashboardByAdmin() {
                                 <Label className="text-sm text-gray-600 whitespace-nowrap">Hiển thị:</Label>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" className="w-[120px] justify-between font-normal bg-white border-gray-200">
+                                        <Button variant="outline" className="w-[120px] justify-between font-normal bg-bo-surface border-gray-200">
                                             {pagination.pageSize} dòng
                                             <ChevronDown className="h-4 w-4 opacity-50" />
                                         </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent className="w-[120px] bg-white shadow-lg border border-gray-100 z-50">
+                                    <DropdownMenuContent className="w-[120px] bg-bo-surface shadow-lg border border-gray-100 z-50">
                                         {[5, 10, 20, 50, 100].map(size => (
                                             <DropdownMenuItem
                                                 key={size}
@@ -455,7 +455,7 @@ export default function DashboardByAdmin() {
 
         return (
 
-            <div className="bg-white border-0 shadow-md rounded-xl p-4">
+            <div className="bg-bo-surface border-0 shadow-md rounded-xl p-4">
 
                 <div className="flex items-center justify-between">
 
@@ -515,7 +515,7 @@ export default function DashboardByAdmin() {
 
         ) : (
 
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-bo-danger-soft px-2.5 py-1 text-xs font-semibold text-red-600">
 
                 <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
 

@@ -39,7 +39,7 @@ export default function SyncLogDetailSheet({ lienKet, open, onOpenChange, quyTac
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col gap-0 border-bo-border bg-white p-0 sm:max-w-[420px]">
+      <SheetContent side="right" className="flex w-full flex-col gap-0 border-bo-border bg-bo-surface p-0 sm:max-w-[420px]">
         {lienKet ? (
           <>
             <SheetHeader className="flex-row items-start gap-3 space-y-0 border-b border-bo-border px-5 py-4 text-left">

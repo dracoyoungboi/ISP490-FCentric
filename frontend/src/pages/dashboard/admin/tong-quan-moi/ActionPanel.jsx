@@ -91,7 +91,7 @@ export default function ActionPanel({ data, khoId, loading, error, onRetry, clas
                 onClick={() => datKhoLamViec(d.kho)}
                 className={cn(LE, "group flex items-center gap-3 py-2.5 hover:bg-bo-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bo-primary/30")}
               >
-                <span className={cn("grid size-7 shrink-0 place-items-center rounded-md", d.muc === "bad" ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500")}>
+                <span className={cn("grid size-7 shrink-0 place-items-center rounded-md", d.muc === "bad" ? "bg-bo-danger-soft text-red-600" : "bg-slate-100 text-slate-500")}>
                   {createElement(BIEU_TUONG[d.loai] ?? ClipboardCheck, { className: "size-4", "aria-hidden": true })}
                 </span>
                 <span className="min-w-0 flex-1">

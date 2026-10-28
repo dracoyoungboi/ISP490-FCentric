@@ -35,7 +35,7 @@ function OMaLo({ maLo, dau }) {
         {maLo}
       </span>
       {dau ? (
-        <span className="whitespace-nowrap rounded-[3px] bg-bo-primary-soft px-1.5 text-[11px] font-medium leading-4 text-[#0b4fb3]">
+        <span className="whitespace-nowrap rounded-[3px] bg-bo-primary-soft px-1.5 text-[11px] font-medium leading-4 text-bo-primary-strong">
           Nhập sớm nhất
         </span>
       ) : null}
@@ -168,7 +168,7 @@ export default function BangLoChonLo({ lots, chon, daLuu, chiXem, dang, dauFifo,
                         aria-invalid={vuot || undefined}
                         onChange={(e) => onDoi(d.id, e.target.value)}
                         className={cn(
-                          "h-[34px] w-20 rounded-md border bg-white px-2.5 text-right text-sm font-semibold tabular-nums text-bo-foreground outline-none placeholder:font-normal placeholder:text-slate-400 focus:ring-2 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle disabled:text-bo-muted @2xl/khoi:w-24",
+                          "h-[34px] w-20 rounded-md border bg-bo-surface px-2.5 text-right text-sm font-semibold tabular-nums text-bo-foreground outline-none placeholder:font-normal placeholder:text-slate-400 focus:ring-2 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle disabled:text-bo-muted @2xl/khoi:w-24",
                           vuot
                             ? "border-bo-danger ring-2 ring-bo-danger/15 focus:ring-bo-danger/25"
                             : "border-[#cfd8e3] focus:border-bo-primary focus:ring-bo-primary/15",

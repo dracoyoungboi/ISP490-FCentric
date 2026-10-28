@@ -149,7 +149,7 @@ export default function TheGianHangUyQuyen({
                 variant="outline"
                 disabled={khoa}
                 onClick={onKiemTra}
-                className="h-8 gap-2 rounded-lg border-bo-border bg-white px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11"
+                className="h-8 gap-2 rounded-lg border-bo-border bg-bo-surface px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11"
               >
                 {dangChay === "kiem-tra" ? <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}
                 Kiểm tra kết nối
@@ -170,7 +170,7 @@ export default function TheGianHangUyQuyen({
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
-                className="z-50 w-72 max-w-[calc(100vw-32px)] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                className="z-50 w-72 max-w-[calc(100vw-32px)] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
                 onCloseAutoFocus={(event) => {
                   const viec = viecSauMenuRef.current;
                   if (!viec) return;

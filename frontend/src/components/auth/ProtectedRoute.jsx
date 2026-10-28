@@ -87,7 +87,7 @@ export default function ProtectedRoute() {
             <main className="flex min-h-screen items-center justify-center bg-bo-canvas p-6">
                 <div
                     role="status"
-                    className="flex items-center gap-3 rounded-lg border border-bo-border bg-white px-5 py-4 text-sm text-bo-muted shadow-sm"
+                    className="flex items-center gap-3 rounded-lg border border-bo-border bg-bo-surface px-5 py-4 text-sm text-bo-muted shadow-sm"
                 >
                     <span
                         aria-hidden="true"
@@ -104,7 +104,7 @@ export default function ProtectedRoute() {
             <main className="flex min-h-screen items-center justify-center bg-bo-canvas p-6">
                 <div
                     role="alert"
-                    className="w-full max-w-md rounded-lg border border-bo-border bg-white p-6 text-center shadow-sm"
+                    className="w-full max-w-md rounded-lg border border-bo-border bg-bo-surface p-6 text-center shadow-sm"
                 >
                     <h1 className="text-base font-semibold text-bo-foreground">
                         Chưa thể xác thực phiên đăng nhập

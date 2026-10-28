@@ -59,11 +59,11 @@ export default function HopDanGia({ mo, dong, soDongHien, dangLoc, onDong, onApD
                     value={van}
                     onChange={(e) => setVan(e.target.value)}
                     placeholder={viDu}
-                    className="block w-full resize-y rounded-md border border-bo-border bg-white px-3 py-2.5 font-mono text-[13px] leading-5 text-bo-foreground placeholder:text-bo-muted/70 focus-visible:border-bo-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/15"
+                    className="block w-full resize-y rounded-md border border-bo-border bg-bo-surface px-3 py-2.5 font-mono text-[13px] leading-5 text-bo-foreground placeholder:text-bo-muted/70 focus-visible:border-bo-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/15"
                 />
                 <p role="status" className="m-0 text-sm leading-5 text-slate-600">{cau}</p>
                 <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                    <Button type="button" variant="outline" onClick={dong_} className="h-11 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle sm:h-9">
+                    <Button type="button" variant="outline" onClick={dong_} className="h-11 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle sm:h-9">
                         Hủy
                     </Button>
                     <Button

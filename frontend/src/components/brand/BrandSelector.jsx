@@ -90,7 +90,7 @@ export default function BrandSelector({
                             aria-expanded={open && !disabled}
                             disabled={disabled}
                             className={cn(
-                                "h-9 w-full min-w-0 max-w-full justify-between gap-2 border-bo-border bg-white px-3 py-1 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle focus-visible:border-bo-primary focus-visible:ring-bo-primary/15",
+                                "h-9 w-full min-w-0 max-w-full justify-between gap-2 border-bo-border bg-bo-surface px-3 py-1 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle focus-visible:border-bo-primary focus-visible:ring-bo-primary/15",
                                 !selected && "text-bo-muted",
                             )}
                         >
@@ -119,7 +119,7 @@ export default function BrandSelector({
                     </PopoverTrigger>
                     <PopoverContent
                         align="start"
-                        className="w-[var(--radix-popover-trigger-width)] border-bo-border bg-white p-0"
+                        className="w-[var(--radix-popover-trigger-width)] border-bo-border bg-bo-surface p-0"
                     >
                         <Command label="Tìm thương hiệu" className="rounded-lg [&_[data-slot=command-input-wrapper]]:border-bo-border">
                             <CommandInput placeholder="Tìm kiếm thương hiệu..." className="text-bo-foreground" />

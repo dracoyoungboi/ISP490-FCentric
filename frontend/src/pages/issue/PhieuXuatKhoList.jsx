@@ -311,11 +311,11 @@ export default function PhieuXuatKhoList() {
                             aria-label="Kho xuất"
                             value={tenKhoInput}
                             onChange={(e) => setTenKhoInput(e.target.value)}
-                            className="h-9 w-full rounded-md border border-bo-border bg-white px-3 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 sm:w-[190px]"
+                            className="h-9 w-full rounded-md border border-bo-border bg-bo-surface px-3 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 sm:w-[190px]"
                         />
 
                         {/* Ngày xuất: nhãn nằm trong ô để hàng công cụ gọn một dòng */}
-                        <label className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-white pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto">
+                        <label className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-bo-surface pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto">
                             <Calendar className="size-4 shrink-0 text-bo-muted" />
                             <span className="shrink-0 text-xs text-bo-muted">Ngày xuất</span>
                             <Input
@@ -371,7 +371,7 @@ export default function PhieuXuatKhoList() {
                                 <Button
                                     variant="outline"
                                     onClick={clearFilters}
-                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                    className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
                                     Xóa lọc
                                 </Button>
@@ -386,7 +386,7 @@ export default function PhieuXuatKhoList() {
                                 <Button
                                     variant="outline"
                                     onClick={() => changeTab(TAB_MAC_DINH)}
-                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                    className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
                                     Xem tất cả
                                 </Button>

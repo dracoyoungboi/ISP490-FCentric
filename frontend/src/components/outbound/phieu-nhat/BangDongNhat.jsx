@@ -159,7 +159,7 @@ function NutPhanBoLo({ dong: d, onPhanBoLo, className }) {
       onClick={() => onPhanBoLo(d.goc)}
       aria-label={`Phân bổ lô cho ${d.sku || d.tenSanPham}`}
       className={cn(
-        "h-7 gap-1 border-bo-border bg-white px-2 text-xs font-medium text-bo-foreground shadow-none hover:bg-bo-surface-subtle",
+        "h-7 gap-1 border-bo-border bg-bo-surface px-2 text-xs font-medium text-bo-foreground shadow-none hover:bg-bo-surface-subtle",
         className,
       )}
     >

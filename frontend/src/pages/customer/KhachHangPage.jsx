@@ -424,7 +424,7 @@ export default function KhachHangPage() {
                                 <Button
                                     variant="outline"
                                     onClick={handleResetFilters}
-                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                    className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
                                     Xóa lọc
                                 </Button>
@@ -439,7 +439,7 @@ export default function KhachHangPage() {
                                 <Button
                                     variant="outline"
                                     onClick={() => handleLoaiKhachHangChange(LOAI_TAB_MAC_DINH)}
-                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                    className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
                                     Xem tất cả
                                 </Button>

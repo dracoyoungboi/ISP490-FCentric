@@ -29,7 +29,7 @@ function NutLo({ d, nhan, onMoLo }) {
       size="sm"
       onClick={() => onMoLo(d.ct)}
       aria-label={`${nhan} cho ${d.sku || d.tenSanPham}`}
-      className="h-7 border-bo-border bg-white px-2.5 text-xs font-medium text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
+      className="h-7 border-bo-border bg-bo-surface px-2.5 text-xs font-medium text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
     >
       {nhan}
     </Button>

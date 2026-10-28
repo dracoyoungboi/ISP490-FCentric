@@ -113,7 +113,7 @@ export default function PosSizeTray({ id, group, cartQuantities, justAddedId, ma
           <p className="line-clamp-2 text-[13px] font-semibold leading-[18px] text-bo-foreground">{group.name}</p>
           <p className="mt-0.5 text-[11px] leading-4 text-bo-muted">{details}</p>
         </div>
-        <button aria-label="Đóng khay chọn cỡ" className="grid size-8 shrink-0 place-items-center rounded-md border border-bo-border text-bo-muted transition hover:bg-slate-50 hover:text-bo-foreground focus-visible:outline-2 focus-visible:outline-bo-primary" onClick={() => onClose(true)} type="button">
+        <button aria-label="Đóng khay chọn cỡ" className="grid size-8 shrink-0 place-items-center rounded-md border border-bo-border text-bo-muted transition hover:bg-bo-surface-subtle hover:text-bo-foreground focus-visible:outline-2 focus-visible:outline-bo-primary" onClick={() => onClose(true)} type="button">
           <X aria-hidden="true" size={16} />
         </button>
       </div>

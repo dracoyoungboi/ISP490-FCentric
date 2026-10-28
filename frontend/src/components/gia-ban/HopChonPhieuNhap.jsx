@@ -98,7 +98,7 @@ function NoiDung({ onHuy, onTiepTuc }) {
                   onClick={() => setChonId(p.id)}
                   onDoubleClick={tiepTuc}
                   className={cn(
-                    "flex w-full items-start gap-3 rounded-lg border bg-white px-3.5 py-3 text-left transition-colors",
+                    "flex w-full items-start gap-3 rounded-lg border bg-bo-surface px-3.5 py-3 text-left transition-colors",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30",
                     dangChon ? "border-bo-primary bg-[#f3f8ff]" : "border-bo-border hover:border-slate-400",
                   )}

@@ -164,7 +164,7 @@ export default function MaVachNhaCungCapPage() {
         action={
           <div className="flex w-full max-w-[560px] flex-col items-center gap-3">
             {ganDung.length ? (
-              <div className="w-full overflow-hidden rounded-lg border border-orange-200 bg-orange-50/40 text-left">
+              <div className="w-full overflow-hidden rounded-lg border border-orange-200 bg-bo-warning-soft/40 text-left">
                 <p className="border-b border-orange-200 px-3 py-2 text-[13px] font-semibold text-orange-900">Gần giống mã đã liên kết</p>
                 {ganDung.map((g) => (
                   <div key={g.ma} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-orange-100 px-3 py-2.5 first:border-t-0">
@@ -185,7 +185,7 @@ export default function MaVachNhaCungCapPage() {
                         setTuKhoaTim(g.ma);
                         setTrang(0);
                       }}
-                      className="border-bo-border bg-white text-xs"
+                      className="border-bo-border bg-bo-surface text-xs"
                     >
                       Xem mã này
                     </Button>
@@ -193,7 +193,7 @@ export default function MaVachNhaCungCapPage() {
                 ))}
               </div>
             ) : null}
-            <Button variant="outline" onClick={xoaLoc} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
+            <Button variant="outline" onClick={xoaLoc} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
               Xóa lọc
             </Button>
           </div>

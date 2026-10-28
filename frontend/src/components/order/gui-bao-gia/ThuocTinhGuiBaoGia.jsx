@@ -30,7 +30,7 @@ export default function ThuocTinhGuiBaoGia({ yc, id, daChon, onBo }) {
           <>
             <ul className="m-0 mt-1 grid list-none gap-1.5 p-0">
               {dsHien.map((d) => (
-                <li key={d.id} className="flex min-w-0 items-start justify-between gap-2 rounded-md border border-bo-border bg-white px-2.5 py-2">
+                <li key={d.id} className="flex min-w-0 items-start justify-between gap-2 rounded-md border border-bo-border bg-bo-surface px-2.5 py-2">
                   <span className="min-w-0 text-[13px] leading-[18px]">
                     <span className="block truncate font-semibold text-bo-foreground" title={d.ten}>{d.ten}</span>
                     <span className="block truncate text-xs text-bo-muted">{d.email}</span>

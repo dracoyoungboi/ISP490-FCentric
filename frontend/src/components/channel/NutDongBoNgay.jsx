@@ -168,9 +168,9 @@ export default function NutDongBoNgay({ tienDo, tenSan, onDen, viecPhu = null, l
             title={khoaBatDau ? lyDoKhoa : undefined}
             className={cn(
               NUT,
-              dangChay && "border-[#b9d5ff] text-[#0b4fb3] hover:bg-bo-primary-soft",
+              dangChay && "border-[#b9d5ff] text-bo-primary-strong hover:bg-bo-primary-soft",
               banViecKhac && "disabled:opacity-100 text-bo-muted",
-              khoaBatDau && "cursor-not-allowed opacity-50 hover:bg-white",
+              khoaBatDau && "cursor-not-allowed opacity-50 hover:bg-bo-surface",
             )}
           >
             {noiDungNut}
@@ -181,7 +181,7 @@ export default function NutDongBoNgay({ tienDo, tenSan, onDen, viecPhu = null, l
           sideOffset={8}
           aria-label="Tiến độ đồng bộ"
           onOpenAutoFocus={(e) => e.preventDefault()}
-          className="w-[376px] max-w-[calc(100vw-32px)] rounded-[10px] border-bo-border bg-white p-0 text-bo-foreground shadow-[0_16px_40px_-12px_rgba(16,24,40,0.28),0_2px_6px_rgba(16,24,40,0.06)]"
+          className="w-[376px] max-w-[calc(100vw-32px)] rounded-[10px] border-bo-border bg-bo-surface p-0 text-bo-foreground shadow-[0_16px_40px_-12px_rgba(16,24,40,0.28),0_2px_6px_rgba(16,24,40,0.06)]"
         >
           {hien ? (
             <BangTienDo
@@ -268,7 +268,7 @@ function BangTienDo({ phien: p, pct, conLaiMs, tenSan, onDong, onDung, onBatDauL
           >
             <div className="h-full rounded-full bg-bo-primary transition-[width] duration-300 ease-out" style={{ width: `${pct}%` }} />
           </div>
-          <span className="w-9 text-right text-xs font-semibold tabular-nums text-[#0b4fb3]">{pct}%</span>
+          <span className="w-9 text-right text-xs font-semibold tabular-nums text-bo-primary-strong">{pct}%</span>
         </div>
       ) : null}
 

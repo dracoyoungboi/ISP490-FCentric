@@ -116,20 +116,20 @@ export function HangCoNut({ ten, phu, nut, className }) {
 export function DaySo({ the, loading, error, onRetry }) {
   if (error) {
     return (
-      <section aria-label="Số liệu chính" className="rounded-lg border border-bo-border bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+      <section aria-label="Số liệu chính" className="rounded-lg border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
         <CardError onRetry={onRetry} text="Không tải được số liệu chính" />
       </section>
     );
   }
   if (loading) {
     return (
-      <section aria-label="Số liệu chính" aria-busy="true" className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+      <section aria-label="Số liệu chính" aria-busy="true" className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
         <div className="grid grid-cols-2 gap-px bg-[#eef1f5] @min-[880px]/tq:grid-cols-4">
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="flex h-[132px] flex-col gap-2 bg-white px-5 py-4" aria-hidden="true">
+            <div key={i} className="flex h-[132px] flex-col gap-2 bg-bo-surface px-5 py-4" aria-hidden="true">
               <span className="h-4 w-24 rounded bg-slate-100" />
               <span className="h-7 w-28 rounded bg-slate-100" />
-              <span className="mt-auto h-8 w-full rounded bg-slate-50" />
+              <span className="mt-auto h-8 w-full rounded bg-bo-surface-subtle" />
             </div>
           ))}
         </div>
@@ -138,7 +138,7 @@ export function DaySo({ the, loading, error, onRetry }) {
   }
   if (!the?.length) return null;
   return (
-    <section aria-label="Số liệu chính" className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+    <section aria-label="Số liệu chính" className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
       <div className={cn("grid grid-cols-2 gap-px bg-[#eef1f5]", the.length >= 4 ? "@min-[880px]/tq:grid-cols-4" : the.length === 3 ? "@min-[880px]/tq:grid-cols-3" : "")}>
         {the.map((t, i) => (
           // Số ô lẻ: ô cuối rộng hết hàng ở bố cục hai cột để không lộ ô trống
@@ -233,7 +233,7 @@ function DuongXuHuong({ gt, nhan, dinhDang = formatSo, ten }) {
       {chon != null ? (
         <span
           className={cn(
-            "pointer-events-none absolute bottom-full z-10 mb-1.5 whitespace-nowrap rounded-md border border-bo-border bg-white px-2 py-1 text-[11px] leading-4 text-bo-foreground shadow-md",
+            "pointer-events-none absolute bottom-full z-10 mb-1.5 whitespace-nowrap rounded-md border border-bo-border bg-bo-surface px-2 py-1 text-[11px] leading-4 text-bo-foreground shadow-md",
             trai < 25 ? "left-0" : trai > 75 ? "right-0" : "-translate-x-1/2",
           )}
           style={trai >= 25 && trai <= 75 ? { left: `${trai}%` } : undefined}
@@ -298,7 +298,7 @@ const CHU_CHIP = { tre: DO, chuY: CAM };
 
 function ONghiepVu({ ten, icon, so, nhanSo, to, chip = [], tao }) {
   return (
-    <li className="group/nv relative flex min-w-0 flex-col bg-white px-5 py-4 transition-colors hover:bg-[#fafbfc] @max-[440px]:px-4">
+    <li className="group/nv relative flex min-w-0 flex-col bg-bo-surface px-5 py-4 transition-colors hover:bg-[#fafbfc] @max-[440px]:px-4">
       <div className="flex items-center gap-2">
         <BieuTuong icon={icon} />
         <span className="min-w-0 flex-1 text-[13px] font-medium text-bo-foreground">{ten}</span>
@@ -403,7 +403,7 @@ export function NutKy({ ky, setKy, ds = KY, nhan = (k) => `${k} ngày` }) {
           onClick={() => setKy(k)}
           className={cn(
             "h-7 cursor-pointer rounded-[5px] px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30",
-            k === ky ? "bg-white text-bo-foreground shadow-[0_1px_2px_rgba(16,24,40,0.10)]" : "text-bo-muted hover:text-bo-foreground",
+            k === ky ? "bg-bo-surface text-bo-foreground shadow-[0_1px_2px_rgba(16,24,40,0.10)]" : "text-bo-muted hover:text-bo-foreground",
           )}
         >
           {nhan(k)}
@@ -562,7 +562,7 @@ function TipNgay({ active, payload, chuoi, gio }) {
   if (!active || !payload?.length) return null;
   const r = payload[0].payload;
   return (
-    <div className="min-w-40 rounded-md border border-bo-border bg-white px-3 py-2.5 text-xs leading-4 shadow-lg">
+    <div className="min-w-40 rounded-md border border-bo-border bg-bo-surface px-3 py-2.5 text-xs leading-4 shadow-lg">
       <p className="mb-1.5 font-medium text-bo-foreground">{r.homNay ? `Hôm nay (đến ${gio})` : r.ngayDayDu}</p>
       {CHUOI.map((c) => (
         <p key={c.key} className="mt-1 flex items-center gap-2">

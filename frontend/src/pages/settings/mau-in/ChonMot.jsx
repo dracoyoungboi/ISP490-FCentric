@@ -26,7 +26,7 @@ export default function ChonMot({ label, options, value, onChange, disabled = fa
                             "inline-flex h-[30px] min-w-11 items-center justify-center rounded-[5px] px-3 text-[13px] font-medium whitespace-nowrap transition-colors",
                             "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary disabled:cursor-not-allowed",
                             active
-                                ? "bg-white text-bo-foreground shadow-[0_1px_2px_rgba(16,24,40,0.12)]"
+                                ? "bg-bo-surface text-bo-foreground shadow-[0_1px_2px_rgba(16,24,40,0.12)]"
                                 : "text-bo-muted hover:text-bo-foreground"
                         )}
                     >

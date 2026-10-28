@@ -126,7 +126,7 @@ export default function DauTrangDonMua({ don, taoPhieu, onQuayLai, onIn, onTaoPh
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
-            className="z-50 w-[220px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+            className="z-50 w-[220px] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
           >
             <DropdownMenuItem
               onSelect={saoChepMa}

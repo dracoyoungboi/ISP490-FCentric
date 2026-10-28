@@ -261,7 +261,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
         <FileCheck2 className="size-4" /> Lập lại biên bản
       </Button>
     ) : (
-      <Button variant="outline" disabled={dangXuLy} onClick={() => setMoHuyBienBan(true)} className="border-bo-border bg-white text-bo-danger hover:bg-bo-danger-soft">
+      <Button variant="outline" disabled={dangXuLy} onClick={() => setMoHuyBienBan(true)} className="border-bo-border bg-bo-surface text-bo-danger hover:bg-bo-danger-soft">
         Hủy biên bản
       </Button>
     );
@@ -269,7 +269,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
   else if (tong.loi === 0) moTa2 = "Không có hàng lỗi, bỏ qua bước này.";
   else if (coBienBan) {
     moTa2 = `Biên bản ${data.maBienBanRtv} · ${formatNumber(tong.loi)} sản phẩm${tenPhuongAn ? ` · ${tenPhuongAn}` : ""}.${bienBanTraHangService.mau ? " (Dữ liệu mẫu, chưa lưu máy chủ.)" : ""}`;
-    nut2 = <Button variant="outline" onClick={() => setMoBienBan(true)} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">Xem biên bản</Button>;
+    nut2 = <Button variant="outline" onClick={() => setMoBienBan(true)} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">Xem biên bản</Button>;
   } else if (bienBanTraHangService.hoTro) {
     moTa2 = `${formatNumber(tong.loi)} sản phẩm lỗi phải lập biên bản trả nhà cung cấp trước khi nhập kho.${bienBanTraHangService.mau ? " (Biên bản là dữ liệu mẫu, chưa lưu máy chủ.)" : ""}`;
     nut2 = (
@@ -316,12 +316,12 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {coTheInTem ? (
-            <Button variant="outline" disabled={dangLayTem} onClick={moInTem} className="gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
+            <Button variant="outline" disabled={dangLayTem} onClick={moInTem} className="gap-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
               {dangLayTem ? <Loader2 className="size-4 animate-spin" /> : <Printer className="size-4" />} In tem
             </Button>
           ) : null}
           {!daHuy ? (
-            <Button variant="outline" onClick={() => navigate(`/goods-receipts/${id}/print`)} className="gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
+            <Button variant="outline" onClick={() => navigate(`/goods-receipts/${id}/print`)} className="gap-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
               <Printer className="size-4" /> In phiếu
             </Button>
           ) : null}
@@ -332,7 +332,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
                   <MoreHorizontal className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44 rounded-lg border border-bo-border bg-white p-1 shadow-lg">
+              <DropdownMenuContent align="end" className="w-44 rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg">
                 <DropdownMenuItem onClick={() => setMoHuy(true)} className="cursor-pointer gap-2 rounded-md text-bo-danger focus:bg-bo-danger-soft focus:text-bo-danger">
                   <X className="size-4" /> Hủy phiếu
                 </DropdownMenuItem>
@@ -344,7 +344,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
 
       <DaiO soO={4}>
         {oThongTin.map(([nhan, giaTri, phu]) => (
-          <div key={nhan} className="flex min-w-0 flex-col gap-1 bg-white px-4 py-4">
+          <div key={nhan} className="flex min-w-0 flex-col gap-1 bg-bo-surface px-4 py-4">
             <span className="text-xs font-medium text-bo-muted">{nhan}</span>
             <span title={typeof giaTri === "string" ? giaTri : undefined} className="truncate text-sm font-semibold text-bo-heading">{giaTri}</span>
             {phu ? <span className="truncate text-xs text-bo-muted">{phu}</span> : null}
@@ -392,7 +392,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
                     "gap-2",
                     coTheXacNhan
                       ? "bg-bo-primary text-white hover:bg-bo-primary-hover"
-                      : "border border-bo-border bg-white text-bo-foreground hover:bg-white",
+                      : "border border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface",
                   )}
                 >
                   <Check className="size-4" /> Xác nhận nhập kho
@@ -466,7 +466,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
                       variant="outline"
                       size="sm"
                       onClick={() => moKiemDem(d.bienTheSanPhamId)}
-                      className="min-w-[120px] border-bo-border bg-white text-xs text-bo-foreground hover:border-bo-primary hover:text-bo-primary"
+                      className="min-w-[120px] border-bo-border bg-bo-surface text-xs text-bo-foreground hover:border-bo-primary hover:text-bo-primary"
                     >
                       {nhanNut}
                     </Button>

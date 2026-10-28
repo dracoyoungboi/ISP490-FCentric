@@ -98,7 +98,7 @@ function QuyTrinhMua({ buoc, loading, error, onRetry }) {
             {i < buoc.length - 1 ? (
               <span
                 aria-hidden="true"
-                className="absolute -right-3 top-[26px] z-[1] hidden size-6 place-items-center rounded-full border border-[#e4e8ee] bg-white text-bo-muted shadow-sm @min-[720px]:grid"
+                className="absolute -right-3 top-[26px] z-[1] hidden size-6 place-items-center rounded-full border border-[#e4e8ee] bg-bo-surface text-bo-muted shadow-sm @min-[720px]:grid"
               >
                 <svg viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M6 4l4 4-4 4" />
@@ -150,7 +150,7 @@ function LichHangVe({ ngay, className, loading, error, onRetry }) {
               className={cn(
                 FOCUS,
                 "flex min-w-0 cursor-pointer flex-col items-center gap-1 rounded-lg border py-2 transition-[border-color,background-color,box-shadow]",
-                on ? "border-bo-primary shadow-[0_0_0_1px_#1677ff]" : "border-[#e4e8ee] bg-white hover:border-[#c9d3e0]",
+                on ? "border-bo-primary shadow-[0_0_0_1px_#1677ff]" : "border-[#e4e8ee] bg-bo-surface hover:border-[#c9d3e0]",
               )}
             >
               <span className={cn("text-[11px] leading-4", n.tre && n.so ? cn("font-medium", DO) : n.homNay ? "font-semibold text-bo-primary" : "text-bo-muted")}>

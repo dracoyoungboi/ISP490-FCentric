@@ -72,7 +72,7 @@ function ODem({ d, onDoiSo, onXong, onQuetNham, idO }) {
   return (
     <span
       className={cn(
-        "inline-flex h-9 items-stretch overflow-hidden rounded-md border bg-white focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 @max-2xl/khoi:h-11",
+        "inline-flex h-9 items-stretch overflow-hidden rounded-md border bg-bo-surface focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 @max-2xl/khoi:h-11",
         d.so == null ? "border-bo-input-border" : "border-bo-primary/40",
       )}
     >
@@ -128,7 +128,7 @@ function ODem({ d, onDoiSo, onXong, onQuetNham, idO }) {
             onXong?.();
           }
         }}
-        className="w-16 border-x border-slate-200 bg-white text-center text-sm tabular-nums text-bo-foreground outline-none placeholder:text-slate-500"
+        className="w-16 border-x border-slate-200 bg-bo-surface text-center text-sm tabular-nums text-bo-foreground outline-none placeholder:text-slate-500"
       />
       <button
         type="button"
@@ -239,7 +239,7 @@ export default function BangKiemKe({
         }
         nutXem={
           nutMu ? (
-            <span className="flex h-8 items-center gap-2 rounded-md border border-bo-border bg-white px-2.5">
+            <span className="flex h-8 items-center gap-2 rounded-md border border-bo-border bg-bo-surface px-2.5">
               <Switch
                 id={`${idBang}-mu`}
                 checked={nutMu.bat}

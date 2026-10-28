@@ -30,8 +30,8 @@ import { khoService } from "@/services/khoService";
 function SectionCard({ icon, iconBg, iconColor, title, children }) {
     const Icon = icon;
     return (
-        <div className="rounded-2xl bg-white shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-200/80 overflow-hidden flex flex-col h-full items-stretch">
-            <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100 bg-slate-50 shrink-0">
+        <div className="rounded-2xl bg-bo-surface shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-slate-200/80 overflow-hidden flex flex-col h-full items-stretch">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100 bg-bo-surface-subtle shrink-0">
                 <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${iconBg}`}>
                     <Icon className={`h-4 w-4 ${iconColor}`} />
                 </div>
@@ -295,7 +295,7 @@ export default function PurchaseOrderCreate() {
     if (isLoadingData) {
         return (
             <div className="p-5 bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 min-h-[calc(100vh-64px)] flex items-center justify-center">
-                <div className="flex flex-col items-center gap-3 bg-white/50 backdrop-blur-sm rounded-3xl border border-slate-200/60 shadow-sm p-12">
+                <div className="flex flex-col items-center gap-3 bg-bo-surface/50 backdrop-blur-sm rounded-3xl border border-slate-200/60 shadow-sm p-12">
                     <Loader2 className="h-8 w-8 animate-spin text-[#b8860b]" />
                     <span className="text-[15px] font-medium text-slate-600">
                         {urlBienTheId ? 'Đang khởi tạo đơn hàng nhanh...' : 'Đang khởi tạo biểu mẫu...'}
@@ -341,7 +341,7 @@ export default function PurchaseOrderCreate() {
                             <DropdownMenuTrigger asChild disabled={!!urlKhoId}>
                                 <Button
                                     variant="outline"
-                                    className={`w-full h-11 justify-between font-medium rounded-xl border-slate-200 px-4 text-[14px] ${urlKhoId ? 'bg-slate-50 cursor-not-allowed opacity-75' : ''}`}
+                                    className={`w-full h-11 justify-between font-medium rounded-xl border-slate-200 px-4 text-[14px] ${urlKhoId ? 'bg-bo-surface-subtle cursor-not-allowed opacity-75' : ''}`}
                                 >
                                     <div className="flex items-center gap-2 truncate">
                                         <Package className="h-4 w-4 text-slate-400 shrink-0" />
@@ -354,7 +354,7 @@ export default function PurchaseOrderCreate() {
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
-                                className="w-[340px] max-h-[320px] overflow-y-auto bg-white rounded-xl shadow-lg"
+                                className="w-[340px] max-h-[320px] overflow-y-auto bg-bo-surface rounded-xl shadow-lg"
                                 align="start"
                             >
                                 {warehouses.map((warehouse) => (
@@ -446,7 +446,7 @@ export default function PurchaseOrderCreate() {
                 ) : (
                     <Table>
                         <TableHeader>
-                            <TableRow className="bg-slate-50">
+                            <TableRow className="bg-bo-surface-subtle">
                                 <TableHead className="font-bold text-slate-700">Sản phẩm</TableHead>
                                 <TableHead className="font-bold text-slate-700 text-center w-32">Số lượng</TableHead>
                                 <TableHead className="w-10"></TableHead>
@@ -454,7 +454,7 @@ export default function PurchaseOrderCreate() {
                         </TableHeader>
                         <TableBody>
                             {orderItems.map((item, index) => (
-                                <TableRow key={index} className="hover:bg-slate-50">
+                                <TableRow key={index} className="hover:bg-bo-surface-subtle">
                                     <TableCell>
                                         <div className="flex items-center gap-3">
                                             {item.anhBienThe?.tepTin?.duongDan ? (
@@ -490,7 +490,7 @@ export default function PurchaseOrderCreate() {
                                             variant="ghost"
                                             size="sm"
                                             onClick={() => handleRemoveItem(index)}
-                                            className="h-8 w-8 p-0 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                                            className="h-8 w-8 p-0 text-red-400 hover:text-red-600 hover:bg-bo-danger-soft rounded-lg"
                                         >
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
@@ -530,7 +530,7 @@ export default function PurchaseOrderCreate() {
             <Dialog open={showProductDialog} onOpenChange={setShowProductDialog}>
                 <DialogContent className="sm:max-w-2xl rounded-2xl overflow-hidden p-0 border-0 shadow-2xl flex flex-col max-h-[80vh]">
                     <div className="bg-[#1a1612] p-6 flex items-center gap-3 shrink-0">
-                        <div className="h-10 w-10 bg-white/10 rounded-full flex items-center justify-center shrink-0">
+                        <div className="h-10 w-10 bg-bo-surface/10 rounded-full flex items-center justify-center shrink-0">
                             <Package className="h-5 w-5 text-[#d4a017]" />
                         </div>
                         <div>
@@ -545,7 +545,7 @@ export default function PurchaseOrderCreate() {
                                 placeholder="Tìm theo SKU, tên, thuộc tính..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-9 h-10 rounded-xl border-[#e8dcc8] bg-white focus-visible:ring-[#b8860b]"
+                                className="pl-9 h-10 rounded-xl border-[#e8dcc8] bg-bo-surface focus-visible:ring-[#b8860b]"
                                 autoFocus
                             />
                         </div>
@@ -632,7 +632,7 @@ export default function PurchaseOrderCreate() {
             <Dialog open={showSendDialog} onOpenChange={setShowSendDialog}>
                 <DialogContent className="rounded-2xl sm:max-w-md p-0 overflow-hidden border-0 shadow-2xl">
                     <div className="bg-blue-600 p-6 flex items-center gap-3">
-                        <div className="h-10 w-10 bg-white/20 rounded-full flex items-center justify-center shrink-0">
+                        <div className="h-10 w-10 bg-bo-surface/20 rounded-full flex items-center justify-center shrink-0">
                             <Send className="h-5 w-5 text-white" />
                         </div>
                         <DialogTitle className="text-xl font-bold text-white m-0">Gửi yêu cầu duyệt nhập hàng</DialogTitle>
@@ -643,13 +643,13 @@ export default function PurchaseOrderCreate() {
                         </DialogDescription>
                         <div className="space-y-4 mb-6">
                             <div className="grid grid-cols-2 gap-3">
-                                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+                                <div className="bg-bo-surface-subtle border border-slate-200 rounded-xl p-3 text-center">
                                     <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Kho tiếp nhận</p>
                                     <p className="font-bold text-[14px] text-slate-700 truncate">
                                         {selectedWarehouse?.tenKho || '—'}
                                     </p>
                                 </div>
-                                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+                                <div className="bg-bo-surface-subtle border border-slate-200 rounded-xl p-3 text-center">
                                     <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Mặt hàng</p>
                                     <p className="font-black text-[15px] text-emerald-600">
                                         {orderItems.length} <span className="text-[12px] font-medium text-slate-500">sp</span>

@@ -105,7 +105,7 @@ const ViewModal = ({ viewItem, activeTab, onClose, onEdit }) => {
 
     return (
         <Dialog open={!!viewItem} onOpenChange={o => !o && onClose()}>
-            <DialogContent className="rounded-lg border border-bo-border bg-white text-bo-foreground shadow-lg sm:max-w-md">
+            <DialogContent className="rounded-lg border border-bo-border bg-bo-surface text-bo-foreground shadow-lg sm:max-w-md">
                 {/* ── Header ── */}
                 <DialogHeader>
                     <div className="flex items-center gap-3">
@@ -173,7 +173,7 @@ const ViewModal = ({ viewItem, activeTab, onClose, onEdit }) => {
                                     <img
                                         src={viewItem.logoUrl}
                                         alt={`Logo ${viewItem.tenThuongHieu}`}
-                                        className="mt-1.5 h-14 w-14 rounded-md border border-bo-border bg-white object-contain p-1"
+                                        className="mt-1.5 h-14 w-14 rounded-md border border-bo-border bg-bo-surface object-contain p-1"
                                     />
                                 ) : (
                                     <p className="mt-1.5 text-sm italic text-bo-muted">Chưa có logo</p>
@@ -207,7 +207,7 @@ const ViewModal = ({ viewItem, activeTab, onClose, onEdit }) => {
                     <Button
                         variant="outline"
                         onClick={onClose}
-                        className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                        className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                     >
                         Đóng
                     </Button>
@@ -526,7 +526,7 @@ const ProductAttributeHub = () => {
                                 <Button
                                     variant="outline"
                                     onClick={clearFilters}
-                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                    className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
                                     Xóa lọc
                                 </Button>
@@ -601,7 +601,7 @@ const ProductAttributeHub = () => {
                                                     <img
                                                         src={item.logoUrl}
                                                         alt=""
-                                                        className="size-9 rounded-md border border-bo-border bg-white object-contain p-0.5"
+                                                        className="size-9 rounded-md border border-bo-border bg-bo-surface object-contain p-0.5"
                                                     />
                                                 ) : (
                                                     <span className="inline-flex size-9 items-center justify-center rounded-md border border-bo-border bg-bo-surface-subtle text-bo-muted">
@@ -656,7 +656,7 @@ const ProductAttributeHub = () => {
 
             {/* ── Form Modal ── */}
             <Dialog open={modalConfig.open} onOpenChange={o => setModalConfig({ ...modalConfig, open: o })}>
-                <DialogContent className="rounded-lg border border-bo-border bg-white text-bo-foreground shadow-lg sm:max-w-xl">
+                <DialogContent className="rounded-lg border border-bo-border bg-bo-surface text-bo-foreground shadow-lg sm:max-w-xl">
                     <DialogHeader>
                         <div className="flex items-center gap-3">
                             <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary">
@@ -681,13 +681,13 @@ const ProductAttributeHub = () => {
                                 <div className="flex gap-2">
                                     <Input
                                         {...form.register("ma")}
-                                        className="h-9 border-bo-border bg-white font-mono font-semibold text-bo-primary focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+                                        className="h-9 border-bo-border bg-bo-surface font-mono font-semibold text-bo-primary focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
                                         placeholder="VD: 42"
                                     />
                                     {(activeTab === 'color' || activeTab === 'material') && (
                                         <button
                                             type="button"
-                                            className="inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-bo-border bg-white text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
+                                            className="inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-bo-border bg-bo-surface text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary"
                                             onClick={() => form.setValue('ma', generateAutoCode())}
                                             title="Tạo mã tự động"
                                         >
@@ -702,7 +702,7 @@ const ProductAttributeHub = () => {
                                 <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Tên hiển thị *</Label>
                                 <Input
                                     {...form.register("ten")}
-                                    className="h-9 border-bo-border bg-white font-semibold text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+                                    className="h-9 border-bo-border bg-bo-surface font-semibold text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
                                     placeholder="Nhập tên hiển thị"
                                 />
                                 <FieldError message={errors.ten?.message} />
@@ -726,7 +726,7 @@ const ProductAttributeHub = () => {
                                                     value={(validHex || DEFAULT_HEX).toLowerCase()}
                                                     onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                                                     onBlur={field.onBlur}
-                                                    className="h-9 w-16 cursor-pointer rounded-md border border-bo-border bg-white p-1"
+                                                    className="h-9 w-16 cursor-pointer rounded-md border border-bo-border bg-bo-surface p-1"
                                                 />
                                                 <Input
                                                     ref={field.ref}
@@ -740,7 +740,7 @@ const ProductAttributeHub = () => {
                                                     }}
                                                     maxLength={7}
                                                     aria-invalid={!!errors.maMauHex}
-                                                    className="h-9 flex-1 border-bo-border bg-white font-mono uppercase text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20 aria-invalid:border-bo-danger"
+                                                    className="h-9 flex-1 border-bo-border bg-bo-surface font-mono uppercase text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20 aria-invalid:border-bo-danger"
                                                     placeholder="#000000"
                                                 />
                                             </div>
@@ -757,7 +757,7 @@ const ProductAttributeHub = () => {
                                     <Label className="text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Loại kích cỡ</Label>
                                     <Input
                                         {...form.register("loaiSize")}
-                                        className="h-9 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+                                        className="h-9 border-bo-border bg-bo-surface text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
                                         placeholder="VD: Số, Chữ"
                                     />
                                 </div>
@@ -766,7 +766,7 @@ const ProductAttributeHub = () => {
                                     <Input
                                         type="number"
                                         {...form.register("thuTuSapXep")}
-                                        className="h-9 border-bo-border bg-white font-mono text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+                                        className="h-9 border-bo-border bg-bo-surface font-mono text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
                                     />
                                 </div>
                             </div>
@@ -783,10 +783,10 @@ const ProductAttributeHub = () => {
                                             value={field.value?.toString()}
                                             onValueChange={(value) => field.onChange(Number(value))}
                                         >
-                                            <SelectTrigger className="h-9 w-full border-bo-border bg-white text-bo-foreground">
+                                            <SelectTrigger className="h-9 w-full border-bo-border bg-bo-surface text-bo-foreground">
                                                 <SelectValue placeholder="Chọn trạng thái" />
                                             </SelectTrigger>
-                                            <SelectContent position="popper" side="bottom" className="z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg">
+                                            <SelectContent position="popper" side="bottom" className="z-50 rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg">
                                                 <SelectItem value="1" className="rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">Hoạt động</SelectItem>
                                                 <SelectItem value="0" className="rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">Ngừng hoạt động</SelectItem>
                                             </SelectContent>
@@ -815,7 +815,7 @@ const ProductAttributeHub = () => {
                                     />
                                     <label
                                         htmlFor="brand-logo-input"
-                                        className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-bo-border bg-white p-2 text-sm font-medium text-bo-foreground transition-colors hover:bg-bo-primary-soft hover:text-bo-primary"
+                                        className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-bo-border bg-bo-surface p-2 text-sm font-medium text-bo-foreground transition-colors hover:bg-bo-primary-soft hover:text-bo-primary"
                                     >
                                         <Upload className="size-4" />
                                         <span>{logoPreview ? "Đổi logo khác" : "Chọn ảnh logo"}</span>
@@ -825,7 +825,7 @@ const ProductAttributeHub = () => {
                                             <img
                                                 src={logoPreview}
                                                 alt="Xem trước logo"
-                                                className="h-16 w-16 rounded-md border border-bo-border bg-white object-contain"
+                                                className="h-16 w-16 rounded-md border border-bo-border bg-bo-surface object-contain"
                                             />
                                             <button
                                                 type="button"
@@ -847,7 +847,7 @@ const ProductAttributeHub = () => {
                                 <Textarea
                                     {...form.register("moTa")}
                                     rows={3}
-                                    className="min-h-[88px] resize-none border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+                                    className="min-h-[88px] resize-none border-bo-border bg-bo-surface text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
                                     placeholder="Nhập mô tả ngắn"
                                 />
                             </div>
@@ -858,7 +858,7 @@ const ProductAttributeHub = () => {
                                 type="button"
                                 variant="outline"
                                 onClick={() => setModalConfig({ ...modalConfig, open: false })}
-                                className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                             >
                                 Đóng
                             </Button>

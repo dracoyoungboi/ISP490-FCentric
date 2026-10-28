@@ -36,7 +36,7 @@ export default function DoiThuocTinhBienThe({ open, state, id, mauSacs, kichCos,
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent onCloseAutoFocus={traFocus} className="border-bo-border bg-white text-bo-foreground sm:max-w-md">
+            <DialogContent onCloseAutoFocus={traFocus} className="border-bo-border bg-bo-surface text-bo-foreground sm:max-w-md">
                 <DialogHeader className="text-left">
                     <DialogTitle className="text-base text-bo-foreground">Đổi màu sắc, kích cỡ</DialogTitle>
                     <DialogDescription className="text-sm text-bo-muted">

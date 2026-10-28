@@ -9,7 +9,7 @@ import { formatCurrency } from "@/utils/formatters";
 function StockBadge({ value }) {
     const num = Number(value ?? 0);
     if (num <= 0)
-        return <span className="inline-flex min-w-[78px] items-center justify-center px-2.5 py-1 text-[11px] rounded-full bg-red-50 text-red-600 border border-red-200 font-semibold">Hết hàng</span>;
+        return <span className="inline-flex min-w-[78px] items-center justify-center px-2.5 py-1 text-[11px] rounded-full bg-bo-danger-soft text-red-600 border border-red-200 font-semibold">Hết hàng</span>;
     if (num < 10)
         return <span className="inline-flex min-w-[78px] items-center justify-center px-2.5 py-1 text-[11px] rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-semibold">{num}</span>;
     return <span className="inline-flex min-w-[78px] items-center justify-center px-2.5 py-1 text-[11px] rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">{num}</span>;
@@ -20,7 +20,7 @@ function KhoTonKhoPanel({ khoData }) {
     const [open, setOpen] = useState(false);
 
     return (
-        <div className="rounded-xl border border-[#e6dcc9] overflow-hidden bg-white">
+        <div className="rounded-xl border border-[#e6dcc9] overflow-hidden bg-bo-surface">
             <button
                 onClick={() => setOpen((v) => !v)}
                 className="w-full flex items-center justify-between px-4 py-3 bg-[#fbf7ef] hover:bg-[#f6efdF] transition-colors"
@@ -135,11 +135,11 @@ function BienThePanel({ bienThe, initialTongTon = null }) {
         : Number(initialTongTon ?? 0);
 
     return (
-        <div className="border border-[#e5d9c6] rounded-xl overflow-hidden bg-white shadow-sm">
+        <div className="border border-[#e5d9c6] rounded-xl overflow-hidden bg-bo-surface shadow-sm">
             {/* Header biến thể */}
             <button
                 onClick={handleToggle}
-                className="w-full flex items-center gap-3 px-4 py-3 bg-white hover:bg-[#fffaf2] transition-colors text-left"
+                className="w-full flex items-center gap-3 px-4 py-3 bg-bo-surface hover:bg-[#fffaf2] transition-colors text-left"
             >
                 {/* Ảnh / color swatch */}
                 <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#f8f3e8] flex-shrink-0 flex items-center justify-center border border-[#e6dcc9]">
@@ -198,7 +198,7 @@ function BienThePanel({ bienThe, initialTongTon = null }) {
                         {bienThe.trangThai === 1 ? (
                             <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded">Đang bán</span>
                         ) : (
-                            <span className="text-xs bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded">Ngừng bán</span>
+                            <span className="text-xs bg-bo-danger-soft text-red-600 border border-red-200 px-1.5 py-0.5 rounded">Ngừng bán</span>
                         )}
                     </div>
                 </div>
@@ -358,19 +358,19 @@ export default function InventoryDrawer({ isOpen, onClose, product }) {
                 {/* Stats bar */}
                 {product && (
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 px-6 py-3 bg-[#fffaf2] border-b border-[#eadfce] text-xs">
-                        <div className="rounded-lg border border-[#eadfce] bg-white px-3 py-2 flex items-center gap-2">
+                        <div className="rounded-lg border border-[#eadfce] bg-bo-surface px-3 py-2 flex items-center gap-2">
                             <Package className="h-3.5 w-3.5 text-[#b8860b]" />
                             <span className="text-[#7a6e5f]">
                                 Mã SP: <b className="text-[#5f5446]">{product.maSanPham}</b>
                             </span>
                         </div>
-                        <div className="rounded-lg border border-[#eadfce] bg-white px-3 py-2">
+                        <div className="rounded-lg border border-[#eadfce] bg-bo-surface px-3 py-2">
                             <span className="text-[#7a6e5f]">
                                 Tồn kho hiện tại:{" "}
                                 <b className="text-emerald-700">{Number(tonKhoHienTaiDisplay ?? 0).toLocaleString("vi-VN")}</b>
                             </span>
                         </div>
-                        <div className="rounded-lg border border-[#eadfce] bg-white px-3 py-2">
+                        <div className="rounded-lg border border-[#eadfce] bg-bo-surface px-3 py-2">
                             <span className="text-[#7a6e5f]">
                                 Số biến thể: <b className="text-[#5f5446]">{bienTheList.length}</b>
                             </span>
@@ -387,7 +387,7 @@ export default function InventoryDrawer({ isOpen, onClose, product }) {
                 {/* Body */}
                 <div className="flex-1 overflow-y-auto p-5 space-y-3 bg-[#fdfbf7]">
                     {bienTheList.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center gap-3 h-52 text-[#9a8c79] rounded-xl border border-dashed border-[#e6dcc9] bg-white">
+                        <div className="flex flex-col items-center justify-center gap-3 h-52 text-[#9a8c79] rounded-xl border border-dashed border-[#e6dcc9] bg-bo-surface">
                             <Package className="h-12 w-12 text-[#d5c6ad]" />
                             <div className="text-sm">Sản phẩm này chưa có biến thể nào</div>
                         </div>

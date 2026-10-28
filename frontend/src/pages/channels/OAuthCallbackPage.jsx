@@ -166,7 +166,7 @@ function TrangQuayVe({ san }) {
         {/* Đang chờ / thành công: thông báo nhẹ; không thành công: cảnh báo */}
         <section
           role={loai === "dang" || loai === "xong" ? "status" : "alert"}
-          className="mx-auto flex max-w-[560px] flex-col items-center gap-3 rounded-lg border border-bo-border bg-white px-6 py-8 text-center shadow-sm sm:mt-6"
+          className="mx-auto flex max-w-[560px] flex-col items-center gap-3 rounded-lg border border-bo-border bg-bo-surface px-6 py-8 text-center shadow-sm sm:mt-6"
         >
           <ChannelLogo maKenh={san.maKenh} size={40} />
           {loai === "dang" ? (

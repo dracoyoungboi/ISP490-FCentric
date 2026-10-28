@@ -194,7 +194,7 @@ export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymen
                 <ChevronDown aria-hidden="true" className="hidden size-4 text-bo-muted xl:block" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="z-[90] w-56 rounded-lg border border-bo-border bg-white p-1 text-bo-foreground shadow-lg" sideOffset={6}>
+            <DropdownMenuContent align="end" className="z-[90] w-56 rounded-lg border border-bo-border bg-bo-surface p-1 text-bo-foreground shadow-lg" sideOffset={6}>
               <div className="px-2 py-2">
                 <p className="truncate text-sm font-semibold">{username}</p>
                 <p className="mt-0.5 truncate text-xs text-bo-muted">{roleLabel}</p>
@@ -224,7 +224,7 @@ export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymen
               Đăng nhập lại bằng tài khoản này trong vòng 12 giờ để tiếp tục và kiểm tra kết quả. Tiền khách chuyển trong lúc bạn đăng xuất vẫn được hệ thống ghi nhận.
             </p>
             <div className="mt-5 flex flex-col-reverse justify-end gap-2 sm:flex-row">
-              <button className="inline-flex min-h-10 items-center justify-center rounded-lg border border-bo-border bg-bo-surface px-4 py-2 text-sm font-medium text-bo-foreground transition hover:bg-slate-50" onClick={() => setConfirmLogout(false)} type="button">Ở lại</button>
+              <button className="inline-flex min-h-10 items-center justify-center rounded-lg border border-bo-border bg-bo-surface px-4 py-2 text-sm font-medium text-bo-foreground transition hover:bg-bo-surface-subtle" onClick={() => setConfirmLogout(false)} type="button">Ở lại</button>
               <button className="inline-flex min-h-10 items-center justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700" onClick={logout} type="button">Vẫn đăng xuất</button>
             </div>
           </PosModal>
@@ -235,7 +235,7 @@ export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymen
           <WifiOff aria-hidden="true" className="shrink-0" size={16} />
           <p className="min-w-0">
             <strong className="font-semibold">Mất kết nối mạng — chưa thể thanh toán.</strong>{' '}
-            <span className="text-red-700">Hóa đơn đang làm vẫn được giữ trên máy. Kiểm tra Wi-Fi/dây mạng; hệ thống tự kết nối lại khi có mạng.</span>
+            <span className="text-bo-danger-strong">Hóa đơn đang làm vẫn được giữ trên máy. Kiểm tra Wi-Fi/dây mạng; hệ thống tự kết nối lại khi có mạng.</span>
           </p>
         </div>
       ) : null}

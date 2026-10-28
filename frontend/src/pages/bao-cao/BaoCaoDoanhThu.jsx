@@ -158,7 +158,7 @@ function DauTrang({ boLoc, setBoLoc, dsKho, data, loading, gio, onTaiLai, chiSo,
   ];
   return (
     <div className="@container/dau">
-      <section aria-label="Phạm vi và kết quả của kỳ" className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)] @min-[980px]/dau:flex-row">
+      <section aria-label="Phạm vi và kết quả của kỳ" className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)] @min-[980px]/dau:flex-row">
         <div className="flex min-w-0 flex-col gap-2 border-b border-bo-border bg-bo-surface-subtle px-4 py-3 @min-[980px]/dau:w-[300px] @min-[980px]/dau:shrink-0 @min-[980px]/dau:justify-center @min-[980px]/dau:border-b-0 @min-[980px]/dau:border-r @min-[980px]/dau:px-5">
           <Menu ariaLabel={`Chọn kho, đang xem: ${tenKho}`} className={cn(FOCUS, "inline-flex max-w-full cursor-pointer items-center gap-1.5 self-start rounded text-base font-semibold leading-6 text-bo-foreground hover:text-bo-primary-hover")} nhan={tenKho} rong="w-72">
             <Muc chon={!boLoc.khoId} onChon={() => setBoLoc({ khoId: "" })} phu={dsKho.length ? `${dsKho.length} kho` : null} ten="Tất cả kho" />
@@ -241,7 +241,7 @@ function TipBieuDo({ active, payload, fmt, coTruoc }) {
   const d = payload[0].payload;
   if (d.nay == null) {
     return (
-      <div className="min-w-[180px] rounded-lg border border-bo-border bg-white p-3 text-xs shadow-sm">
+      <div className="min-w-[180px] rounded-lg border border-bo-border bg-bo-surface p-3 text-xs shadow-sm">
         <p className="font-semibold text-bo-foreground">{d.nhanDay}</p>
         <p className="mt-1 text-bo-muted">Chưa tới kỳ này</p>
       </div>
@@ -249,7 +249,7 @@ function TipBieuDo({ active, payload, fmt, coTruoc }) {
   }
   const tang = coTruoc ? tyLeTang(d.nay, d.truoc) : null;
   return (
-    <div className="min-w-[180px] rounded-lg border border-bo-border bg-white p-3 text-xs shadow-sm">
+    <div className="min-w-[180px] rounded-lg border border-bo-border bg-bo-surface p-3 text-xs shadow-sm">
       <p className="mb-2 font-semibold text-bo-foreground">{d.nhanDay}</p>
       <p className="flex justify-between gap-4"><span className="text-bo-muted">Kỳ này</span><b className="tabular-nums text-bo-foreground">{fmt(d.nay)}</b></p>
       {coTruoc ? <p className="mt-1 flex justify-between gap-4"><span className="text-bo-muted">Cùng kỳ năm trước</span><span className="tabular-nums">{fmt(d.truoc)}</span></p> : null}
@@ -295,7 +295,7 @@ function TheBieuDo({ data, chiSo, loading, loi, onTaiLai, className }) {
             const on = kieu === x.value;
             return (
               <button key={x.value} type="button" aria-pressed={on} aria-label={x.ten} title={x.ten} onClick={() => setKieu(x.value)}
-                className={cn("grid h-6 w-7 cursor-pointer place-items-center rounded text-bo-muted hover:text-bo-foreground", FOCUS, on && "bg-white text-bo-primary shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:text-bo-primary")}>
+                className={cn("grid h-6 w-7 cursor-pointer place-items-center rounded text-bo-muted hover:text-bo-foreground", FOCUS, on && "bg-bo-surface text-bo-primary shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:text-bo-primary")}>
                 <Icon className="size-4" aria-hidden="true" />
               </button>
             );
@@ -534,7 +534,7 @@ export default function BaoCaoDoanhThu() {
           type="button"
           onClick={xuatExcel}
           disabled={dangXuat || !tongHop.data}
-          className={cn(FOCUS, "inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-bo-input-border bg-white px-3.5 text-sm font-medium text-bo-foreground shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:bg-bo-surface-subtle disabled:cursor-not-allowed disabled:opacity-60")}
+          className={cn(FOCUS, "inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-bo-input-border bg-bo-surface px-3.5 text-sm font-medium text-bo-foreground shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:bg-bo-surface-subtle disabled:cursor-not-allowed disabled:opacity-60")}
         >
           <Download className="size-4 text-bo-muted" aria-hidden="true" />
           {dangXuat ? "Đang xuất…" : "Xuất Excel"}

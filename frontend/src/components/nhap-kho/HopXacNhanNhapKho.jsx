@@ -54,7 +54,7 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
   // Free to Use = On Hand + Incoming − Outgoing, nên chỉ giảm phần lỗi không được giao bù.
   const giamIncoming = tongDat + (laDoiHang(phieu?.phuongAnBienBan) ? 0 : tongLoi);
   const oTon = (nhan, truoc, sau) => (
-    <div key={nhan} className="flex min-w-0 flex-col gap-1 bg-white px-4 py-3">
+    <div key={nhan} className="flex min-w-0 flex-col gap-1 bg-bo-surface px-4 py-3">
       <span className="text-xs font-medium text-bo-muted">{nhan}</span>
       <span className="flex items-center gap-2 text-lg font-semibold tabular-nums text-bo-heading">
         <span className="font-medium text-bo-muted">{formatNumber(truoc)}</span>
@@ -128,7 +128,7 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
                     oTon("Free to Use", ton.freeToUse, ton.freeToUse + tongDat - Math.min(ton.incoming, giamIncoming)),
                   ]
                 : ["On Hand", "Incoming", "Free to Use"].map((nhan) => (
-                    <div key={nhan} className="flex flex-col gap-1 bg-white px-4 py-3">
+                    <div key={nhan} className="flex flex-col gap-1 bg-bo-surface px-4 py-3">
                       <span className="text-xs font-medium text-bo-muted">{nhan}</span>
                       <span className="h-7 w-24 animate-pulse rounded bg-slate-100" />
                     </div>
@@ -157,7 +157,7 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
             variant="outline"
             disabled={dangXuLy}
             onClick={() => onOpenChange(false)}
-            className="min-w-28 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+            className="min-w-28 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
           >
             Kiểm tra lại
           </Button>

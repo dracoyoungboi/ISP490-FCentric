@@ -276,7 +276,7 @@ function ManGuiBaoGia({ id }) {
   if (chan) {
     return (
       <PageContainer className="flex min-h-full flex-col">
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
           <EmptyState
             icon={Send}
             className="flex-1"
@@ -298,7 +298,7 @@ function ManGuiBaoGia({ id }) {
                   type="button"
                   variant="outline"
                   onClick={veYeuCau}
-                  className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                  className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                 >
                   Về yêu cầu nhập hàng {ma}
                 </Button>

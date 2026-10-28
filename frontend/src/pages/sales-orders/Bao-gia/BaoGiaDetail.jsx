@@ -337,7 +337,7 @@ function ChiTietBaoGiaBan({ id }) {
                 "h-7 rounded-full border px-2.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:opacity-50",
                 lyDo === chu
                   ? "border-bo-primary bg-bo-primary-soft text-bo-primary"
-                  : "border-bo-border bg-white text-slate-700 hover:bg-bo-surface-subtle",
+                  : "border-bo-border bg-bo-surface text-slate-700 hover:bg-bo-surface-subtle",
               )}
             >
               {chu}

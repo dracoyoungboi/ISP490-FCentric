@@ -51,7 +51,7 @@ const TramQuet = forwardRef(function TramQuet({ onQuet, dangCho = 0, phanHoi = n
             placeholder="Quét mã vạch hoặc nhập SKU rồi nhấn Enter"
             autoComplete="off"
             spellCheck={false}
-            className="h-11 w-full rounded-lg border-[1.5px] border-bo-primary bg-white pl-10 pr-3 font-mono text-[15px] text-bo-foreground outline-none ring-[3px] ring-bo-primary/12 placeholder:font-sans placeholder:text-sm placeholder:text-bo-muted"
+            className="h-11 w-full rounded-lg border-[1.5px] border-bo-primary bg-bo-surface pl-10 pr-3 font-mono text-[15px] text-bo-foreground outline-none ring-[3px] ring-bo-primary/12 placeholder:font-sans placeholder:text-sm placeholder:text-bo-muted"
           />
         </label>
         <label className="grid grid-cols-[auto_72px] items-center gap-2 text-[13px] text-bo-muted">
@@ -63,7 +63,7 @@ const TramQuet = forwardRef(function TramQuet({ onQuet, dangCho = 0, phanHoi = n
             onChange={(suKien) => setSoLuong(suKien.target.value.replace(/\D/g, "").slice(0, 4))}
             onKeyDown={bamPhim}
             aria-label="Số lượng mỗi lần quét"
-            className="h-11 w-full rounded-lg border border-bo-input-border bg-white text-center text-[15px] tabular-nums text-bo-foreground outline-none focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15"
+            className="h-11 w-full rounded-lg border border-bo-input-border bg-bo-surface text-center text-[15px] tabular-nums text-bo-foreground outline-none focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15"
           />
         </label>
         <Button type="button" onClick={ghiNhan} className="h-11 bg-bo-primary px-5 text-white hover:bg-bo-primary-hover max-sm:flex-1">

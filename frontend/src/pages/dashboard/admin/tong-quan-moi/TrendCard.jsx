@@ -107,7 +107,7 @@ export default function TrendCard({ data, ky, chon, loading, error, onRetry, cla
                     onClick={() => setKieu(x.value)}
                     className={cn(
                       "grid h-6 w-7 cursor-pointer place-items-center rounded text-bo-muted hover:text-bo-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30",
-                      on && "bg-white text-bo-primary shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:text-bo-primary",
+                      on && "bg-bo-surface text-bo-primary shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:text-bo-primary",
                     )}
                   >
                     <Icon className="size-4" aria-hidden="true" />
@@ -262,7 +262,7 @@ function TipBieuDo({ active, payload, nhom, chiSo, fmt, coTruoc, kieu, tenTruoc 
   const r = payload[0].payload;
   const phu = chiSo === "soDon" ? `Doanh thu ${formatTienNgan(r.d.doanhThu)}` : `${formatSo(r.d.soDon)} đơn đã giao`;
   return (
-    <div className="min-w-52 rounded-md border border-bo-border bg-white px-3 py-2.5 text-xs leading-4 shadow-lg">
+    <div className="min-w-52 rounded-md border border-bo-border bg-bo-surface px-3 py-2.5 text-xs leading-4 shadow-lg">
       <p className="flex items-center gap-2">
         {kieu === "cot" ? <i className="inline-block size-2.5 rounded-[2px] bg-bo-primary" aria-hidden="true" /> : <i className="inline-block w-4 border-t-2 border-bo-primary" aria-hidden="true" />}
         <span className="flex-1 text-bo-muted">{nhanNgan(r.tu, nhom)}</span>

@@ -251,7 +251,7 @@ export default function DauChungTu({
               <DropdownMenuContent
                 align="end"
                 className={cn(
-                  "z-50 max-w-[calc(100vw-32px)] rounded-lg border border-bo-border bg-white p-1 shadow-lg",
+                  "z-50 max-w-[calc(100vw-32px)] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg",
                   coMoTa ? "w-[272px]" : "w-[220px]",
                 )}
               >

@@ -23,7 +23,7 @@ export default function TongQuanHeader({ data, ky, setKy, khoId, setKhoId, dsKho
     <div className="@container/dau">
       <section
         aria-label="Phạm vi và kết quả kinh doanh"
-        className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)] @min-[980px]/dau:flex-row"
+        className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)] @min-[980px]/dau:flex-row"
       >
         <h1 className="sr-only">Tổng quan</h1>
 
@@ -53,7 +53,7 @@ export default function TongQuanHeader({ data, ky, setKy, khoId, setKhoId, dsKho
                 aria-label={`Chọn kỳ xem, đang xem: ${NHAN_KY[ky]}`}
                 className={cn(
                   FOCUS,
-                  "inline-flex h-[30px] shrink-0 cursor-pointer items-center gap-1 rounded-md border border-bo-border bg-white px-2 text-sm font-medium text-bo-foreground shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:bg-bo-surface-subtle",
+                  "inline-flex h-[30px] shrink-0 cursor-pointer items-center gap-1 rounded-md border border-bo-border bg-bo-surface px-2 text-sm font-medium text-bo-foreground shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:bg-bo-surface-subtle",
                 )}
               >
                 <CalendarDays className="size-4 text-bo-muted" aria-hidden="true" />

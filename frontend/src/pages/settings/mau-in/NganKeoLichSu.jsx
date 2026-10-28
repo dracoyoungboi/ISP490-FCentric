@@ -30,7 +30,7 @@ export default function NganKeoLichSu({
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent
                 side="right"
-                className="w-full gap-0 bg-white p-0 sm:max-w-[420px] [&>button:last-child]:hidden"
+                className="w-full gap-0 bg-bo-surface p-0 sm:max-w-[420px] [&>button:last-child]:hidden"
             >
                 <div className="flex shrink-0 items-start justify-between gap-3 border-b border-bo-border px-5 py-4">
                     <div className="min-w-0">

@@ -18,7 +18,7 @@ export default function WarehouseSearchFilter({ searchTerm, setSearchTerm, filte
     };
 
     return (
-        <Card className="border-0 shadow-lg bg-white">
+        <Card className="border-0 shadow-lg bg-bo-surface">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900">
                     <Filter className="h-5 w-5 text-purple-600" />
@@ -46,7 +46,7 @@ export default function WarehouseSearchFilter({ searchTerm, setSearchTerm, filte
                         <Label className="text-gray-700 font-medium">Trạng thái</Label>
                         <DropdownMenu modal={false}>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="outline" className="w-full justify-between bg-white border-gray-200 hover:bg-gray-50 font-normal">
+                                <Button variant="outline" className="w-full justify-between bg-bo-surface border-gray-200 hover:bg-gray-50 font-normal">
                                     <span className="truncate">
                                         {filterStatus === "all" && "Tất cả trạng thái"}
                                         {filterStatus === "active" && "Đang hoạt động"}
@@ -56,7 +56,7 @@ export default function WarehouseSearchFilter({ searchTerm, setSearchTerm, filte
                                 </Button>
                             </DropdownMenuTrigger>
 
-                            <DropdownMenuContent align="end" className="w-[200px] bg-white border border-gray-100 shadow-xl z-50">
+                            <DropdownMenuContent align="end" className="w-[200px] bg-bo-surface border border-gray-100 shadow-xl z-50">
                                 <DropdownMenuItem
                                     onClick={() => setFilterStatus("all")}
                                     className="flex items-center justify-between cursor-pointer hover:bg-purple-50"
@@ -87,7 +87,7 @@ export default function WarehouseSearchFilter({ searchTerm, setSearchTerm, filte
                         <Button
                             variant="outline"
                             onClick={handleResetFilters}
-                            className="bg-white text-gray-700 border-gray-200 hover:bg-gray-50 h-10 px-4 rounded-xl font-medium transition-all duration-200 flex items-center gap-2 w-full justify-center"
+                            className="bg-bo-surface text-gray-700 border-gray-200 hover:bg-gray-50 h-10 px-4 rounded-xl font-medium transition-all duration-200 flex items-center gap-2 w-full justify-center"
                         >
                             <RefreshCcw className="h-4 w-4" />
                             Đặt lại

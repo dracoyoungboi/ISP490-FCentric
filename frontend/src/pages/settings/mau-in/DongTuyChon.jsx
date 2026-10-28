@@ -98,7 +98,7 @@ export default function DongTuyChon({ row, onToggle, onRename, disabled = false 
                         }}
                         aria-label={`Nhãn in trên giấy thay cho “${row.defaultLabel}”`}
                         placeholder={row.defaultLabel}
-                        className="h-8 min-w-0 flex-1 border-[#8a96a6] bg-white px-2 text-sm shadow-none focus-visible:border-bo-primary focus-visible:ring-[3px] focus-visible:ring-bo-primary/15"
+                        className="h-8 min-w-0 flex-1 border-[#8a96a6] bg-bo-surface px-2 text-sm shadow-none focus-visible:border-bo-primary focus-visible:ring-[3px] focus-visible:ring-bo-primary/15"
                     />
                     <button
                         type="button"

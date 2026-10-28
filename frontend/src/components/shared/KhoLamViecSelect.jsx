@@ -117,7 +117,7 @@ export default function KhoLamViecSelect({ onChange }) {
           variant="outline"
           aria-label={`${chu.nhan}: ${tenKho}. Bấm để đổi`}
           title={chu.goiY}
-          className="h-9 w-full justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-auto sm:max-w-[320px]"
+          className="h-9 w-full justify-between gap-2 border-bo-border bg-bo-surface px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-auto sm:max-w-[320px]"
         >
           <span className="flex min-w-0 items-center gap-2">{noiDung}</span>
           <ChevronDown className="size-4 shrink-0 opacity-60" />
@@ -125,7 +125,7 @@ export default function KhoLamViecSelect({ onChange }) {
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
-        className="z-50 w-[260px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+        className="z-50 w-[260px] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
       >
         <p className="px-2.5 pb-1 pt-1.5 text-xs text-bo-muted">
           {chu.menu}

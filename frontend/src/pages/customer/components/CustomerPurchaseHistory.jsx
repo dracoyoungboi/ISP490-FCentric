@@ -124,7 +124,7 @@ export default function CustomerPurchaseHistory({ customerId }) {
         ? `Tổng số đơn: ${totalOrders.toLocaleString("vi-VN")} đơn hàng`
         : "Tra cứu lịch sử mua hàng của khách hàng."}
       toolbar={
-        <div className="grid grid-cols-1 gap-3 border-b border-bo-border bg-white px-4 py-4 sm:grid-cols-2 sm:px-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] xl:items-end">
+        <div className="grid grid-cols-1 gap-3 border-b border-bo-border bg-bo-surface px-4 py-4 sm:grid-cols-2 sm:px-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] xl:items-end">
           <div className="flex min-w-0 flex-col gap-2">
             <Label htmlFor="customer-history-search" className="static text-xs font-semibold leading-5 text-bo-foreground">Mã đơn hàng</Label>
             <div className="relative">

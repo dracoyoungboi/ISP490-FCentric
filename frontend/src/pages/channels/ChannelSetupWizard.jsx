@@ -355,7 +355,7 @@ function HangNut({ onHuy, onQuayLai, onTiep, nhanTiep = "Tiếp theo", khoa = fa
             variant="outline"
             disabled={khoa}
             onClick={onQuayLai}
-            className="h-9 rounded-lg border-bo-border bg-white px-4 text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11"
+            className="h-9 rounded-lg border-bo-border bg-bo-surface px-4 text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11"
           >
             Quay lại
           </Button>

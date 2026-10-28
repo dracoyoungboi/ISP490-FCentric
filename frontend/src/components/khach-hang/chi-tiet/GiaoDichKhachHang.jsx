@@ -170,7 +170,7 @@ export default function GiaoDichKhachHang({
           title="Không có đơn phù hợp"
           description="Thử bỏ bớt điều kiện lọc."
           action={
-            <Button type="button" variant="outline" onClick={xoaLoc} className="border-bo-border bg-white shadow-none">
+            <Button type="button" variant="outline" onClick={xoaLoc} className="border-bo-border bg-bo-surface shadow-none">
               Xóa lọc
             </Button>
           }

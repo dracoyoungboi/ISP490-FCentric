@@ -66,7 +66,7 @@ function LoiGia({ id, children, className }) {
 function ThongBaoThieuGia({ soDong, donVi, tenNhom, className }) {
     if (!soDong) return null;
     return (
-        <div role="alert" className={cn('flex items-start gap-2 border-red-200 bg-bo-danger-soft px-4 py-2.5 text-sm leading-5 text-red-700', className)}>
+        <div role="alert" className={cn('flex items-start gap-2 border-red-200 bg-bo-danger-soft px-4 py-2.5 text-sm leading-5 text-bo-danger-strong', className)}>
             <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
             <span>
                 Còn {soDong} {donVi} chưa có đơn giá{tenNhom ? ` (${tenNhom})` : ''}.
@@ -393,7 +393,7 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
 
     if (dong.length === 0) {
         return (
-            <section className="rounded-lg border border-bo-border bg-white shadow-sm">
+            <section className="rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                 <p className="m-0 px-5 py-10 text-center text-sm text-bo-muted">Đơn mua hàng chưa có sản phẩm nào.</p>
             </section>
         );
@@ -424,7 +424,7 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
     const soCot = 5 + (coCotMo ? 1 : 0) + (coCotCongTac ? 1 : 0);
 
     const bang = (
-        <section aria-labelledby="bg-bang-tieu-de" data-khung-gia onBlur={roiKhung} className="hidden overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm md:block">
+        <section aria-labelledby="bg-bang-tieu-de" data-khung-gia onBlur={roiKhung} className="hidden overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm md:block">
             <h2 id="bg-bang-tieu-de" className="sr-only">Bảng đơn giá</h2>
             <div className="flex flex-wrap items-center gap-3 border-b border-bo-border px-4 py-3">
                 <SearchInput
@@ -522,7 +522,7 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
                             oGiaDau = <td className={cn(O, 'px-2.5 text-right text-bo-muted')}>Theo từng {loai}</td>;
                         } else {
                             oGiaDau = (
-                                <td className={cn(O, 'bg-white p-0')}>
+                                <td className={cn(O, 'bg-bo-surface p-0')}>
                                     <MoneyInput
                                         id={idO}
                                         aria-label={nhieu ? `Đơn giá chung ${n.tenSanPham}` : `Đơn giá ${n.tenSanPham}${d0.thuocTinh ? ` ${d0.thuocTinh}` : ''}`}
@@ -549,7 +549,7 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
                                                     aria-expanded={mo}
                                                     aria-label={mo ? `Thu gọn ${n.tenSanPham}` : `Mở ${n.viTri.length} ${loai} của ${n.tenSanPham}`}
                                                     onClick={() => doiMoNhom(n.khoa)}
-                                                    className="inline-flex size-8 items-center justify-center rounded-md text-slate-600 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
+                                                    className="inline-flex size-8 items-center justify-center rounded-md text-slate-600 hover:bg-bo-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
                                                 >
                                                     {mo ? <ChevronDown className="size-4" aria-hidden="true" /> : <ChevronRight className="size-4" aria-hidden="true" />}
                                                 </button>
@@ -607,7 +607,7 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
                                                         {bat && d.donGia === '' ? 'Theo nhóm' : giaHoacGach(d.donGia)}
                                                     </td>
                                                 ) : (
-                                                    <td className={cn(O, 'bg-white p-0')}>
+                                                    <td className={cn(O, 'bg-bo-surface p-0')}>
                                                         <MoneyInput
                                                             id={idOGia(i)}
                                                             aria-label={`Đơn giá ${n.tenSanPham} ${n.nhan[i]}`}
@@ -697,7 +697,7 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
             <article
                 key={n.khoa}
                 aria-labelledby={`bg-the-nhom-${g}`}
-                className={cn('flex flex-col gap-3 rounded-lg border border-bo-border bg-white px-4 py-3.5', coLoiThe && 'border-red-200 bg-[#fffafa]')}
+                className={cn('flex flex-col gap-3 rounded-lg border border-bo-border bg-bo-surface px-4 py-3.5', coLoiThe && 'border-red-200 bg-[#fffafa]')}
             >
                 <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 flex-col gap-0.5">
@@ -840,7 +840,7 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
                 </div>
             )}
             {tuKhoa.trim() && (
-                <div className="flex items-center justify-between gap-2 rounded-lg border border-bo-border bg-white py-0.5 pr-1 pl-3 text-[13px] leading-5 text-slate-600">
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-bo-border bg-bo-surface py-0.5 pr-1 pl-3 text-[13px] leading-5 text-slate-600">
                     <span className="min-w-0 break-words">Đang tìm “{tuKhoa.trim()}”</span>
                     <button type="button" onClick={() => setTuKhoa('')} className="h-9 shrink-0 rounded-md px-2 font-medium text-bo-primary hover:underline">
                         Xóa tìm kiếm
@@ -850,7 +850,7 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
             <ThongBaoThieuGia soDong={soDongLoi} donVi={donVi} tenNhom={tenNhomLoi} className="rounded-lg border" />
             {thongBaoTren && <ThongBaoThaoTac tb={thongBaoHien} {...nutDongThongBao} className="rounded-lg border" />}
             {nhomHien.map(theNhom)}
-            {khongCoKetQua && <p className="m-0 rounded-lg border border-bo-border bg-white px-4 py-8 text-center text-sm text-bo-muted">{khongCoKetQua}</p>}
+            {khongCoKetQua && <p className="m-0 rounded-lg border border-bo-border bg-bo-surface px-4 py-8 text-center text-sm text-bo-muted">{khongCoKetQua}</p>}
         </section>
     );
 

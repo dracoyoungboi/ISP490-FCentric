@@ -735,7 +735,7 @@ export default function ChannelMappingsPage() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent
                     align="end"
-                    className="w-52 z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                    className="w-52 z-50 rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
                     onCloseAutoFocus={(event) => {
                       // Mở ô ghép sau khi menu đóng hẳn, không trả tiêu điểm về nút ⋯ (ô tìm sẽ nhận tiêu điểm)
                       if (moGhepSauMenuRef.current !== dong.id) return;
@@ -770,7 +770,7 @@ export default function ChannelMappingsPage() {
             <PopoverContent
               align="end"
               onFocusOutside={(event) => event.preventDefault()}
-              className="w-auto rounded-xl border border-bo-border bg-white p-0 shadow-lg"
+              className="w-auto rounded-xl border border-bo-border bg-bo-surface p-0 shadow-lg"
             >
               <GhepBienThe
                 dong={dong}
@@ -983,10 +983,10 @@ export default function ChannelMappingsPage() {
                 <span className="mr-1">
                   <strong className="font-semibold tabular-nums">{formatNumberOrDash(daChon.length)}</strong> SKU đã chọn trên trang này
                 </span>
-                <Button type="button" variant="outline" disabled={khoaBang} onClick={() => batTatNhieu(true)} className="h-8 rounded-lg border-bo-border bg-white px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11">
+                <Button type="button" variant="outline" disabled={khoaBang} onClick={() => batTatNhieu(true)} className="h-8 rounded-lg border-bo-border bg-bo-surface px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11">
                   Bật đồng bộ
                 </Button>
-                <Button type="button" variant="outline" disabled={khoaBang} onClick={() => batTatNhieu(false)} className="h-8 rounded-lg border-bo-border bg-white px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11">
+                <Button type="button" variant="outline" disabled={khoaBang} onClick={() => batTatNhieu(false)} className="h-8 rounded-lg border-bo-border bg-bo-surface px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11">
                   Ngừng đồng bộ
                 </Button>
                 {/* Đẩy tồn gọi tới sàn: khóa khi hết hạn ủy quyền; nút bị khóa bỏ qua chuột nên chú thích đặt ở phần tử bọc */}
@@ -997,7 +997,7 @@ export default function ChannelMappingsPage() {
                     disabled={khoaBang || hetHanUyQuyen}
                     aria-describedby={moTaHetHan}
                     onClick={dayTonLai}
-                    className="h-8 gap-1.5 rounded-lg border-bo-border bg-white px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11"
+                    className="h-8 gap-1.5 rounded-lg border-bo-border bg-bo-surface px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11"
                   >
                     <RefreshCw className="size-3.5" aria-hidden="true" />
                     Đẩy tồn lại
@@ -1006,7 +1006,7 @@ export default function ChannelMappingsPage() {
                 {dangChay?.ten === "nhieu" || dangChay?.ten === "day-ton" ? (
                   <Loader2 className="size-4 animate-spin text-bo-muted" aria-label="Đang cập nhật" />
                 ) : null}
-                <Button type="button" variant="ghost" disabled={khoa} onClick={() => setChon(new Set())} className="ml-auto h-8 rounded-lg px-3 text-[13px] text-bo-foreground hover:bg-white/70 max-sm:h-11">
+                <Button type="button" variant="ghost" disabled={khoa} onClick={() => setChon(new Set())} className="ml-auto h-8 rounded-lg px-3 text-[13px] text-bo-foreground hover:bg-bo-surface/70 max-sm:h-11">
                   Bỏ chọn
                 </Button>
               </div>

@@ -58,7 +58,7 @@ export function CardError({ onRetry, text = "Không tải được số liệu" 
         <button
           type="button"
           onClick={onRetry}
-          className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-bo-border px-3 text-[13px] font-medium text-bo-foreground hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
+          className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-bo-border px-3 text-[13px] font-medium text-bo-foreground hover:bg-bo-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
         >
           <RefreshCcw className="size-3.5" aria-hidden="true" />
           Thử lại

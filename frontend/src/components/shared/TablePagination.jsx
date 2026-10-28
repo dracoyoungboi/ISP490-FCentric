@@ -63,7 +63,7 @@ export default function TablePagination({
               <Button
                 variant="outline"
                 aria-label={`Số ${sizeLabel} mỗi trang`}
-                className="h-8 w-auto min-w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
+                className="h-8 w-auto min-w-[110px] justify-between border-bo-border bg-bo-surface px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
               >
                 {size} {sizeLabel}
                 <ChevronDown className="size-3.5 opacity-60" />
@@ -71,7 +71,7 @@ export default function TablePagination({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="start"
-              className="z-50 w-max min-w-[8rem] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+              className="z-50 w-max min-w-[8rem] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
             >
               {sizeMenuTitle ? (
                 <p className="px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{sizeMenuTitle}</p>
@@ -119,7 +119,7 @@ export default function TablePagination({
           size="sm"
           onClick={() => onPageChange(page - 1)}
           disabled={page === 0}
-          className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
+          className="h-8 gap-1 border-bo-border bg-bo-surface px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
         >
           <ChevronLeft className="size-3.5" />
           Trước
@@ -150,7 +150,7 @@ export default function TablePagination({
           size="sm"
           onClick={() => onPageChange(page + 1)}
           disabled={page + 1 >= totalPages}
-          className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
+          className="h-8 gap-1 border-bo-border bg-bo-surface px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
         >
           Sau
           <ChevronRight className="size-3.5" />

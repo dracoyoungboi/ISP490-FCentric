@@ -269,7 +269,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
         }}>
             {/* 620px trên desktop; responsive dưới sm (max-w calc 100%-2rem);
                 giới hạn chiều cao theo viewport và cuộn bên trong khi cần. */}
-            <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-xl bg-white shadow-lg sm:max-w-[620px]">
+            <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-xl bg-bo-surface shadow-lg sm:max-w-[620px]">
                 <DialogHeader>
                     <DialogTitle className="text-lg font-semibold text-bo-foreground">
                         Thông tin cửa hàng
@@ -298,7 +298,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
                     <form id="ho-so-cua-hang-form" noValidate onSubmit={handleSave} className="flex flex-col gap-4">
                         <SettingsGroupLabel className="pt-1 pb-0 text-bo-muted">Tên và logo</SettingsGroupLabel>
                         <div className="flex flex-wrap items-center gap-3">
-                            <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md border border-bo-border bg-white p-1">
+                            <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md border border-bo-border bg-bo-surface p-1">
                                 {logoShown ? (
                                     <img src={logoShown} alt="Logo cửa hàng" className="max-h-full max-w-full object-contain" />
                                 ) : (

@@ -506,7 +506,7 @@ export default function PaymentSettingsPage() {
                 <Switch
                   aria-labelledby="payos-bat-tai-pos"
                   checked={enabled}
-                  className="h-6 w-10 data-[state=checked]:bg-bo-primary data-[state=unchecked]:bg-slate-300 [&>span]:size-[18px] [&>span]:bg-white [&>span]:data-[state=checked]:translate-x-[18px] [&>span]:data-[state=unchecked]:translate-x-0.5"
+                  className="h-6 w-10 data-[state=checked]:bg-bo-primary data-[state=unchecked]:bg-slate-300 [&>span]:size-[18px] [&>span]:bg-bo-surface [&>span]:data-[state=checked]:translate-x-[18px] [&>span]:data-[state=unchecked]:translate-x-0.5"
                   disabled={toggling || !hasKeys}
                   onCheckedChange={onToggle}
                 />
@@ -535,7 +535,7 @@ export default function PaymentSettingsPage() {
                     Giữ bật
                   </Button>
                   <Button
-                    className="border border-red-200 bg-white text-red-700 shadow-none hover:bg-bo-danger-soft"
+                    className="border border-red-200 bg-bo-surface text-bo-danger-strong shadow-none hover:bg-bo-danger-soft"
                     disabled={toggling}
                     onClick={() => setEnabled(false)}
                     size="sm"

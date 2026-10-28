@@ -272,7 +272,7 @@ export default function OperationsSettingsPage({ part }) {
                           disabled={saving}
                           onClick={() => setDraft((prev) => ({ ...prev, [field.code]: o.value }))}
                           className={cn(
-                            "grid grid-cols-[16px_minmax(0,1fr)] gap-x-3 gap-y-0.5 rounded-md border bg-white p-3 text-left disabled:opacity-60",
+                            "grid grid-cols-[16px_minmax(0,1fr)] gap-x-3 gap-y-0.5 rounded-md border bg-bo-surface p-3 text-left disabled:opacity-60",
                             chon ? "border-bo-primary shadow-[inset_0_0_0_1px_var(--color-bo-primary)]" : "border-bo-border hover:border-slate-300",
                           )}
                         >

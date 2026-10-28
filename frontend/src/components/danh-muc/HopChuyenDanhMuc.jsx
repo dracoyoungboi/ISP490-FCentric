@@ -121,7 +121,7 @@ function NoiDung({ cay, trangThai, nut, onDong, onDaChuyen }) {
   return (
     <DialogContent
       showCloseButton={!dangLuu}
-      className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 border-bo-border bg-white p-0 text-bo-foreground sm:max-w-xl"
+      className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 border-bo-border bg-bo-surface p-0 text-bo-foreground sm:max-w-xl"
       onEscapeKeyDown={(event) => { if (dangLuu) event.preventDefault(); }}
       onInteractOutside={(event) => { if (dangLuu) event.preventDefault(); }}
     >
@@ -190,7 +190,7 @@ function NoiDung({ cay, trangThai, nut, onDong, onDaChuyen }) {
             variant="outline"
             onClick={onDong}
             disabled={dangLuu}
-            className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+            className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
           >
             Hủy
           </Button>

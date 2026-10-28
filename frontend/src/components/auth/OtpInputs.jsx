@@ -68,7 +68,7 @@ export default function OtpInputs({
                     onChange={(e) => handleChange(index, e)}
                     onKeyDown={(e) => handleKeyDown(index, e)}
                     onPaste={handlePaste}
-                    className={`h-12 w-full min-w-0 max-w-11 sm:h-14 sm:max-w-12 rounded-lg border bg-white text-center text-xl font-bold text-gray-900 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:opacity-50 ${
+                    className={`h-12 w-full min-w-0 max-w-11 sm:h-14 sm:max-w-12 rounded-lg border bg-bo-surface text-center text-xl font-bold text-gray-900 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:opacity-50 ${
                         error ? 'border-red-500' : 'border-gray-300'
                     }`}
                 />

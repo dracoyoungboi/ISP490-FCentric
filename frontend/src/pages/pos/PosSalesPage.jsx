@@ -2048,7 +2048,7 @@ export default function PosSalesPage({
 
       {mobileCartOpen ? <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/40 p-3 sm:items-center xl:hidden" onMouseDown={(event) => { if (event.target === event.currentTarget) setMobileCartOpen(false); }}>
         <div className="flex h-[min(84dvh,760px)] w-full max-w-xl flex-col">
-          <div className="mb-2 flex justify-end"><button aria-label="Đóng hóa đơn" className="grid size-9 place-items-center rounded-full bg-white text-bo-foreground shadow-sm" onClick={() => setMobileCartOpen(false)} type="button"><X aria-hidden="true" size={18} /></button></div>
+          <div className="mb-2 flex justify-end"><button aria-label="Đóng hóa đơn" className="grid size-9 place-items-center rounded-full bg-bo-surface text-bo-foreground shadow-sm" onClick={() => setMobileCartOpen(false)} type="button"><X aria-hidden="true" size={18} /></button></div>
           {renderCartPanel()}
         </div>
       </div> : null}

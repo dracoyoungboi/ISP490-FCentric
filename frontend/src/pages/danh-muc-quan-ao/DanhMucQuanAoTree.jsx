@@ -417,7 +417,7 @@ export default function DanhMucQuanAoTree() {
 
   // ── Thân bảng ────────────────────────────────────────────────────────────
   const nutXoaLoc = (
-    <Button variant="outline" onClick={xoaLoc} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
+    <Button variant="outline" onClick={xoaLoc} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
       Xóa lọc
     </Button>
   );
@@ -454,7 +454,7 @@ export default function DanhMucQuanAoTree() {
           title={tieuDe}
           description={`Có ${soBiAn} danh mục ${laHoatDong ? "ngừng hoạt động" : "đang hoạt động"}${coTuKhoa ? " khớp" : ""} đang được ẩn.`}
           action={
-            <Button variant="outline" onClick={() => doiLoc(LOC_TRANG_THAI.TAT_CA)} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
+            <Button variant="outline" onClick={() => doiLoc(LOC_TRANG_THAI.TAT_CA)} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
               Xem tất cả trạng thái
             </Button>
           }
@@ -654,7 +654,7 @@ export default function DanhMucQuanAoTree() {
                 <span className="min-w-0 flex-1">
                   Không tải lại được danh mục ({getApiErrorMessage(taiDuLieu.error, "lỗi kết nối")}). Bảng đang hiện dữ liệu lần tải trước.
                 </span>
-                <button type="button" onClick={taiLai} className="shrink-0 rounded px-1.5 py-0.5 font-semibold hover:bg-white/60">
+                <button type="button" onClick={taiLai} className="shrink-0 rounded px-1.5 py-0.5 font-semibold hover:bg-bo-surface/60">
                   Thử lại
                 </button>
               </div>
@@ -668,7 +668,7 @@ export default function DanhMucQuanAoTree() {
                   type="button"
                   onClick={taiLai}
                   disabled={taiDuLieu.loading}
-                  className="shrink-0 rounded px-1.5 py-0.5 font-semibold hover:bg-white/60 disabled:opacity-60"
+                  className="shrink-0 rounded px-1.5 py-0.5 font-semibold hover:bg-bo-surface/60 disabled:opacity-60"
                 >
                   {taiDuLieu.loading ? "Đang tải…" : "Thử lại"}
                 </button>

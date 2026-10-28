@@ -187,7 +187,7 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
                     setLyDoError("");
                     setCancelOpen(true);
                   }}
-                  className="gap-1.5 border-bo-danger/40 bg-white text-bo-danger hover:bg-bo-danger-soft hover:text-bo-danger"
+                  className="gap-1.5 border-bo-danger/40 bg-bo-surface text-bo-danger hover:bg-bo-danger-soft hover:text-bo-danger"
                 >
                   <XCircle className="size-4" /> Xác nhận hủy theo sàn
                 </Button>
@@ -197,7 +197,7 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
                   variant="outline"
                   disabled={Boolean(busy)}
                   onClick={() => setApplyOpen(true)}
-                  className="gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                  className="gap-1.5 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                 >
                   <RefreshCcw className="size-4" /> Áp dụng thay đổi từ sàn
                 </Button>
@@ -221,7 +221,7 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
                     setFlagError("");
                     setFlagOpen(true);
                   }}
-                  className="gap-1.5 border-bo-warning/40 bg-white text-bo-warning hover:bg-bo-warning-soft hover:text-bo-warning"
+                  className="gap-1.5 border-bo-warning/40 bg-bo-surface text-bo-warning hover:bg-bo-warning-soft hover:text-bo-warning"
                 >
                   <CheckCheck className="size-4" /> Đánh dấu đã xử lý
                 </Button>
@@ -297,7 +297,7 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
               variant="outline"
               disabled={Boolean(busy)}
               onClick={() => setCancelOpen(false)}
-              className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+              className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
             >
               Quay lại
             </Button>
@@ -346,7 +346,7 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
                     onClick={() => setFlagForm((prev) => ({ ...prev, co: flag }))}
                     className={cn(
                       "flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
-                      active ? "border-bo-primary bg-bo-primary-soft" : "border-bo-border bg-white hover:bg-bo-surface-subtle",
+                      active ? "border-bo-primary bg-bo-primary-soft" : "border-bo-border bg-bo-surface hover:bg-bo-surface-subtle",
                     )}
                   >
                     <span className={cn("mt-1 size-3 shrink-0 rounded-full border", active ? "border-bo-primary bg-bo-primary" : "border-slate-300")} />
@@ -380,7 +380,7 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
               variant="outline"
               disabled={Boolean(busy)}
               onClick={() => setFlagOpen(false)}
-              className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+              className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
             >
               Quay lại
             </Button>

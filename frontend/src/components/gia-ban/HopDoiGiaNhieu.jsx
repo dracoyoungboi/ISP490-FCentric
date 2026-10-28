@@ -83,7 +83,7 @@ function NoiDung({ dsDong, lyDoMacDinh, dangLuu, onHuy, onLuu }) {
                     <div className="text-right tabular-nums text-bo-muted">{d.giaVon == null ? "—" : formatNumber(d.giaVon)}</div>
                     <div className="text-right tabular-nums text-bo-muted">{Number(d.giaBan) > 0 ? formatNumber(d.giaBan) : "Chưa có giá"}</div>
                     <div className="text-right font-semibold tabular-nums">{soGia > 0 ? formatNumber(soGia) : "—"}</div>
-                    <div className={cn("text-right tabular-nums", !lai ? "text-slate-400" : lai.lo ? "font-semibold text-red-700" : "text-bo-success")}>
+                    <div className={cn("text-right tabular-nums", !lai ? "text-slate-400" : lai.lo ? "font-semibold text-bo-danger-strong" : "text-bo-success")}>
                       {lai ? dinhDangPhanTram(lai.phanTram) : "—"}
                     </div>
                   </div>

@@ -92,7 +92,7 @@ export default function DanhSachChonKho({
               onClick={bam}
               onKeyDown={(suKien) => diChuyen(suKien, i)}
               className={cn(
-                "grid w-full grid-cols-[18px_minmax(0,1fr)] items-start gap-x-3 gap-y-0.5 rounded-lg border bg-white p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 sm:grid-cols-[18px_minmax(0,1fr)_auto]",
+                "grid w-full grid-cols-[18px_minmax(0,1fr)] items-start gap-x-3 gap-y-0.5 rounded-lg border bg-bo-surface p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 sm:grid-cols-[18px_minmax(0,1fr)_auto]",
                 tat
                   ? "cursor-pointer border-bo-border bg-bo-surface-subtle"
                   : chon
@@ -103,7 +103,7 @@ export default function DanhSachChonKho({
               <span
                 aria-hidden="true"
                 className={cn(
-                  "mt-0.5 grid size-[18px] place-items-center rounded-full border-[1.5px] bg-white",
+                  "mt-0.5 grid size-[18px] place-items-center rounded-full border-[1.5px] bg-bo-surface",
                   chon ? "border-bo-primary" : tat ? "border-slate-300 bg-slate-100" : "border-slate-400",
                 )}
               >

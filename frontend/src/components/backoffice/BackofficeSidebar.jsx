@@ -1015,7 +1015,7 @@ export default function BackofficeSidebar() {
               onBlur={hideRailTooltip}
               className={cn(
                 "bo-sidebar-toggle group/tg absolute right-[17px] top-1/2 grid size-7 place-items-center rounded-lg text-white/80 outline-hidden",
-                "hover:bg-white/8 hover:text-white active:scale-94 active:bg-white/12",
+                "hover:bg-bo-surface/8 hover:text-white active:scale-94 active:bg-bo-surface/12",
                 "focus-visible:ring-2 focus-visible:ring-blue-300",
                 isExpanded
                   ? "translate-y-[calc(-50%+3.5px)]"
@@ -1216,7 +1216,7 @@ export default function BackofficeSidebar() {
                     {[PHIM_MOD, "B"].map((phim) => (
                       <kbd
                         key={phim}
-                        className="min-w-[18px] rounded border border-white/15 bg-white/10 px-1 text-center font-sans text-[11px] font-semibold leading-4 text-slate-300"
+                        className="min-w-[18px] rounded border border-white/15 bg-bo-surface/10 px-1 text-center font-sans text-[11px] font-semibold leading-4 text-slate-300"
                       >
                         {phim}
                       </kbd>

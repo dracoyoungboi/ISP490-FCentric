@@ -29,7 +29,7 @@ export default function PaginationComponent({
     }, [currentPage, pageSize, totalItems]);
 
     return (
-        <div className="p-4 border-t flex-none bg-white">
+        <div className="p-4 border-t flex-none bg-bo-surface">
             <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-500">
                     Hiển thị {displayedItems} / {totalItems}
@@ -52,7 +52,7 @@ export default function PaginationComponent({
                                 side="bottom"
                                 align="start"
                                 sideOffset={4}
-                                className="z-50 border border-gray-200 shadow-lg rounded-md bg-white"
+                                className="z-50 border border-gray-200 shadow-lg rounded-md bg-bo-surface"
                             >
                                 {pageSizeOptions.map((size) => {
                                     const active = String(pageSize) === String(size);

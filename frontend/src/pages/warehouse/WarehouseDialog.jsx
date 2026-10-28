@@ -76,7 +76,7 @@ export default function WarehouseDialog({
                 else setShowDialog(true);
             }}
         >
-            <DialogContent className="max-h-[90vh] w-[95vw] max-w-2xl gap-0 overflow-y-auto rounded-lg border border-bo-border bg-white p-0 text-bo-foreground shadow-lg outline-none">
+            <DialogContent className="max-h-[90vh] w-[95vw] max-w-2xl gap-0 overflow-y-auto rounded-lg border border-bo-border bg-bo-surface p-0 text-bo-foreground shadow-lg outline-none">
                 {/* Header */}
                 <div className="border-b border-bo-border px-5 pb-4 pt-5">
                     <DialogHeader>
@@ -149,13 +149,13 @@ export default function WarehouseDialog({
                                                 onClick={() => setFormData({ ...formData, loaiKho: o.value })}
                                                 className={cn(
                                                     "flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30",
-                                                    chon ? "border-bo-primary bg-bo-primary-soft" : "border-bo-border bg-white hover:bg-bo-surface-subtle",
+                                                    chon ? "border-bo-primary bg-bo-primary-soft" : "border-bo-border bg-bo-surface hover:bg-bo-surface-subtle",
                                                 )}
                                             >
                                                 <span
                                                     className={cn(
                                                         "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border",
-                                                        chon ? "border-bo-primary bg-bo-primary text-white" : "border-slate-300 bg-white",
+                                                        chon ? "border-bo-primary bg-bo-primary text-white" : "border-slate-300 bg-bo-surface",
                                                     )}
                                                     aria-hidden="true"
                                                 >
@@ -184,7 +184,7 @@ export default function WarehouseDialog({
                                 rows={3}
                                 value={formData.diaChi}
                                 onChange={(e) => setFormData({ ...formData, diaChi: e.target.value })}
-                                className="resize-none border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-2 focus-visible:ring-bo-primary/15"
+                                className="resize-none border-bo-border bg-bo-surface text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-2 focus-visible:ring-bo-primary/15"
                             />
                             <FieldError message={errors.diaChi} />
                         </div>
@@ -197,7 +197,7 @@ export default function WarehouseDialog({
                                     <button
                                         type="button"
                                         disabled={isLoadingManagers}
-                                        className={`flex h-10 w-full items-center justify-between rounded-md border border-bo-border bg-white px-3 text-left text-sm transition-colors hover:bg-bo-surface-subtle disabled:opacity-60 ${
+                                        className={`flex h-10 w-full items-center justify-between rounded-md border border-bo-border bg-bo-surface px-3 text-left text-sm transition-colors hover:bg-bo-surface-subtle disabled:opacity-60 ${
                                             formData.quanLyId ? "text-bo-foreground" : "text-bo-muted"
                                         }`}
                                     >
@@ -239,7 +239,7 @@ export default function WarehouseDialog({
                     <Button
                         type="button"
                         variant="outline"
-                        className="h-9 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                        className="h-9 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                         onClick={onClose}
                     >
                         Hủy

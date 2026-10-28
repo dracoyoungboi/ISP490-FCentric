@@ -21,7 +21,7 @@ import { mauSacService, sizeService } from "@/services/attributeService";
 import { toast } from "@/lib/thongBaoNhanh";
 
 const PaginationBar = ({ page, totalPages, total, pageSize, onPageChange }) => (
-    <div className="flex flex-col gap-3 rounded-lg border border-bo-border bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-lg border border-bo-border bg-bo-surface px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <span className="font-mono text-xs uppercase tracking-wide text-bo-muted">
             Displaying {page * pageSize + 1}-{Math.min((page + 1) * pageSize, total)} of {total}
         </span>
@@ -30,7 +30,7 @@ const PaginationBar = ({ page, totalPages, total, pageSize, onPageChange }) => (
                 type="button"
                 disabled={page === 0}
                 onClick={() => onPageChange(page - 1)}
-                className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border bg-white text-bo-foreground transition-colors hover:bg-bo-surface-subtle disabled:opacity-40"
+                className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border bg-bo-surface text-bo-foreground transition-colors hover:bg-bo-surface-subtle disabled:opacity-40"
             >
                 <ChevronLeft size={16} />
             </button>
@@ -39,7 +39,7 @@ const PaginationBar = ({ page, totalPages, total, pageSize, onPageChange }) => (
                 type="button"
                 disabled={page >= totalPages - 1}
                 onClick={() => onPageChange(page + 1)}
-                className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border bg-white text-bo-foreground transition-colors hover:bg-bo-surface-subtle disabled:opacity-40"
+                className="inline-flex size-8 items-center justify-center rounded-md border border-bo-border bg-bo-surface text-bo-foreground transition-colors hover:bg-bo-surface-subtle disabled:opacity-40"
             >
                 <ChevronRight size={16} />
             </button>
@@ -170,13 +170,13 @@ const ColorSizeManagement = () => {
                 <TabsList className="h-auto w-fit flex-wrap items-center justify-start gap-1 rounded-lg border border-bo-border bg-bo-surface-subtle p-1">
                     <TabsTrigger
                         value="color"
-                        className="rounded-md px-3 py-1.5 text-sm font-medium text-bo-muted data-[state=active]:bg-white data-[state=active]:text-bo-primary data-[state=active]:shadow-sm"
+                        className="rounded-md px-3 py-1.5 text-sm font-medium text-bo-muted data-[state=active]:bg-bo-surface data-[state=active]:text-bo-primary data-[state=active]:shadow-sm"
                     >
                         <Palette size={14} className="mr-2" />Màu sắc
                     </TabsTrigger>
                     <TabsTrigger
                         value="size"
-                        className="rounded-md px-3 py-1.5 text-sm font-medium text-bo-muted data-[state=active]:bg-white data-[state=active]:text-bo-primary data-[state=active]:shadow-sm"
+                        className="rounded-md px-3 py-1.5 text-sm font-medium text-bo-muted data-[state=active]:bg-bo-surface data-[state=active]:text-bo-primary data-[state=active]:shadow-sm"
                     >
                         <Ruler size={14} className="mr-2" />Kích cỡ
                     </TabsTrigger>
@@ -197,7 +197,7 @@ const ColorSizeManagement = () => {
                             <Button
                                 variant="outline"
                                 onClick={() => setColorSearch('')}
-                                className="h-9 shrink-0 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                className="h-9 shrink-0 gap-1.5 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                             >
                                 <RefreshCcw size={16} /> Reset
                             </Button>
@@ -294,7 +294,7 @@ const ColorSizeManagement = () => {
                             <Button
                                 variant="outline"
                                 onClick={() => setSizeSearch('')}
-                                className="h-9 shrink-0 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                className="h-9 shrink-0 gap-1.5 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                             >
                                 <RefreshCcw size={16} /> Reset
                             </Button>
@@ -374,7 +374,7 @@ const ColorSizeManagement = () => {
             </Tabs>
 
             <Dialog open={showModal} onOpenChange={setShowModal}>
-                <DialogContent className="rounded-lg border border-bo-border bg-white text-bo-foreground shadow-lg sm:max-w-md">
+                <DialogContent className="rounded-lg border border-bo-border bg-bo-surface text-bo-foreground shadow-lg sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle className="text-base font-semibold text-bo-foreground">
                             {modalMode === 'add' ? 'Thêm mới' : modalMode === 'edit' ? 'Cập nhật' : 'Chi tiết'}{' '}
@@ -392,7 +392,7 @@ const ColorSizeManagement = () => {
                                         disabled={modalMode === 'view'}
                                         value={formData.tenMau}
                                         onChange={e => setFormData({...formData, tenMau: e.target.value})}
-                                        className="h-9 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+                                        className="h-9 border-bo-border bg-bo-surface text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
                                         placeholder="Tên màu"
                                     />
                                 </div>
@@ -402,7 +402,7 @@ const ColorSizeManagement = () => {
                                         disabled={modalMode === 'view'}
                                         value={formData.maMau}
                                         onChange={e => setFormData({...formData, maMau: e.target.value})}
-                                        className="h-9 border-bo-border bg-white font-mono text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+                                        className="h-9 border-bo-border bg-bo-surface font-mono text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
                                         placeholder="Mã màu"
                                     />
                                 </div>
@@ -414,13 +414,13 @@ const ColorSizeManagement = () => {
                                             disabled={modalMode === 'view'}
                                             value={formData.maMauHex}
                                             onChange={e => setFormData({...formData, maMauHex: e.target.value})}
-                                            className="h-9 w-14 cursor-pointer rounded-md border border-bo-border bg-white p-1"
+                                            className="h-9 w-14 cursor-pointer rounded-md border border-bo-border bg-bo-surface p-1"
                                         />
                                         <Input
                                             disabled={modalMode === 'view'}
                                             value={formData.maMauHex}
                                             onChange={e => setFormData({...formData, maMauHex: e.target.value})}
-                                            className="h-9 flex-1 border-bo-border bg-white font-mono text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+                                            className="h-9 flex-1 border-bo-border bg-bo-surface font-mono text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
                                         />
                                     </div>
                                 </div>
@@ -434,7 +434,7 @@ const ColorSizeManagement = () => {
                                             disabled={modalMode === 'view'}
                                             value={formData.maSize}
                                             onChange={e => setFormData({...formData, maSize: e.target.value})}
-                                            className="h-9 border-bo-border bg-white font-mono text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+                                            className="h-9 border-bo-border bg-bo-surface font-mono text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
                                         />
                                     </div>
                                     <div className="space-y-1.5">
@@ -443,7 +443,7 @@ const ColorSizeManagement = () => {
                                             disabled={modalMode === 'view'}
                                             value={formData.tenSize}
                                             onChange={e => setFormData({...formData, tenSize: e.target.value})}
-                                            className="h-9 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+                                            className="h-9 border-bo-border bg-bo-surface text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
                                         />
                                     </div>
                                 </div>
@@ -454,7 +454,7 @@ const ColorSizeManagement = () => {
                                             disabled={modalMode === 'view'}
                                             value={formData.loaiSize}
                                             onChange={e => setFormData({...formData, loaiSize: e.target.value})}
-                                            className="h-9 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+                                            className="h-9 border-bo-border bg-bo-surface text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
                                         />
                                     </div>
                                     <div className="space-y-1.5">
@@ -464,7 +464,7 @@ const ColorSizeManagement = () => {
                                             disabled={modalMode === 'view'}
                                             value={formData.thuTuSapXep}
                                             onChange={e => setFormData({...formData, thuTuSapXep: e.target.value})}
-                                            className="h-9 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
+                                            className="h-9 border-bo-border bg-bo-surface text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20"
                                         />
                                     </div>
                                 </div>
@@ -476,7 +476,7 @@ const ColorSizeManagement = () => {
                         <Button
                             variant="outline"
                             onClick={() => setShowModal(false)}
-                            className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                            className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                         >
                             {modalMode === 'view' ? 'Đóng' : 'Hủy'}
                         </Button>

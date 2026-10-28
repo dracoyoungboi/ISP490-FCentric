@@ -15,7 +15,7 @@ export function SettingsCard({ title, description, children, className }) {
   return (
     <section
       aria-labelledby={headingId}
-      className={cn("rounded-lg border border-bo-border bg-white shadow-sm", className)}
+      className={cn("rounded-lg border border-bo-border bg-bo-surface shadow-sm", className)}
     >
       <div className="grid gap-5 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-10 lg:p-6">
         <div className="min-w-0">
@@ -48,7 +48,7 @@ export function SettingOption({
   const coCongTac = typeof onCheckedChange === "function";
   const hienChiTiet = children && (!coCongTac || checked || showChildrenWhenOff);
   return (
-    <div className={cn("rounded-lg border border-bo-border bg-white p-4", className)}>
+    <div className={cn("rounded-lg border border-bo-border bg-bo-surface p-4", className)}>
       <div className="flex items-start gap-3">
         {coCongTac ? (
           <Switch

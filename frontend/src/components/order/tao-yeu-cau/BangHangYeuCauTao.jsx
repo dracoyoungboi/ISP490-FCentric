@@ -123,17 +123,17 @@ export default function BangHangYeuCauTao({
             />
           </label>
           <Button type="button" variant="outline" size="sm" disabled={!(slChungSo >= 1)} onClick={datSlChung}
-            className="h-8 border-bo-border bg-white text-[13px] shadow-none hover:bg-bo-surface-subtle">
+            className="h-8 border-bo-border bg-bo-surface text-[13px] shadow-none hover:bg-bo-surface-subtle">
             Đặt cho {soVN(soChon)} dòng
           </Button>
           <span className="flex flex-wrap gap-2 sm:ml-auto">
             <Button type="button" variant="outline" size="sm" disabled={!coDeXuat || soLieuCu} onClick={() => onTheoDeXuat?.(idsChon)}
               title={soLieuCu ? "Đang tải số liệu của kho vừa chọn" : coDeXuat ? undefined : "Các dòng đã chọn chưa có số đề xuất"}
-              className="h-8 border-bo-border bg-white text-[13px] shadow-none hover:bg-bo-surface-subtle">
+              className="h-8 border-bo-border bg-bo-surface text-[13px] shadow-none hover:bg-bo-surface-subtle">
               Theo số đề xuất
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={() => onBoNhieu?.(idsChon)}
-              className="h-8 border-bo-border bg-white text-[13px] text-bo-danger shadow-none hover:bg-bo-danger-soft">
+              className="h-8 border-bo-border bg-bo-surface text-[13px] text-bo-danger shadow-none hover:bg-bo-danger-soft">
               <Trash2 className="size-3.5" aria-hidden="true" />
               Bỏ khỏi yêu cầu
             </Button>

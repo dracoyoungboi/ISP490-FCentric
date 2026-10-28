@@ -521,7 +521,7 @@ export default function CreatePurchaseRequestPage() {
           variant="outline"
           disabled={khoa || !kho || duLieuCu}
           onClick={() => setHop("goiY")}
-          className="gap-1.5 border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
+          className="gap-1.5 border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
         >
           <Sparkles className="size-4 text-bo-primary" aria-hidden="true" />
           Gợi ý cần nhập
@@ -536,7 +536,7 @@ export default function CreatePurchaseRequestPage() {
           variant="outline"
           disabled={khoa || !kho}
           onClick={() => setHop("dan")}
-          className="gap-1.5 border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
+          className="gap-1.5 border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
         >
           <ClipboardList className="size-4" aria-hidden="true" />
           Dán từ Excel

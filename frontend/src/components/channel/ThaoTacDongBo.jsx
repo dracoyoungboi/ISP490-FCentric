@@ -40,7 +40,7 @@ export default function ThaoTacDongBo({ tienDo, tenSan, onDen, thaoTac = [], vie
           <DropdownMenuContent
             align="end"
             aria-describedby={lyDoKhoa ? idLyDo : undefined}
-            className="z-50 w-[320px] max-w-[calc(100vw-32px)] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+            className="z-50 w-[320px] max-w-[calc(100vw-32px)] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
           >
             {thaoTac.map(({ ma, nhan, moTa, Icon, onChon }) => (
               <DropdownMenuItem key={ma} disabled={Boolean(lyDoKhoa)} onSelect={onChon} className={MUC_MENU}>

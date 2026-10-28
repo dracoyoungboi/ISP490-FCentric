@@ -79,7 +79,7 @@ export default function ChatLieuList() {
 
                 {/* ── Stats ── */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-200 bg-white">
+                    <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-200 bg-bo-surface">
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between">
                                 <div>
@@ -93,7 +93,7 @@ export default function ChatLieuList() {
                         </CardContent>
                     </Card>
 
-                    <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-200 bg-white">
+                    <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-200 bg-bo-surface">
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between">
                                 <div>
@@ -109,7 +109,7 @@ export default function ChatLieuList() {
                         </CardContent>
                     </Card>
 
-                    <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-200 bg-white">
+                    <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-200 bg-bo-surface">
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between">
                                 <div>
@@ -127,7 +127,7 @@ export default function ChatLieuList() {
                 </div>
 
                 {/* ── Filters ── */}
-                <Card className="border-0 shadow-lg bg-white">
+                <Card className="border-0 shadow-lg bg-bo-surface">
                     <CardHeader className="pb-2">
                         <CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900">
                             <Filter className="h-5 w-5 text-yellow-600" />
@@ -157,7 +157,7 @@ export default function ChatLieuList() {
                                     <DropdownMenuTrigger asChild>
                                         <button
                                             type="button"
-                                            className="h-10 w-full rounded-md px-3 text-left text-sm flex items-center justify-between border border-gray-200 bg-white transition-colors duration-150 hover:bg-gray-50"
+                                            className="h-10 w-full rounded-md px-3 text-left text-sm flex items-center justify-between border border-gray-200 bg-bo-surface transition-colors duration-150 hover:bg-gray-50"
                                             style={{ color: "#374151" }}
                                         >
                                             <span>
@@ -168,7 +168,7 @@ export default function ChatLieuList() {
                                             <ChevronDown className="h-4 w-4 opacity-70 flex-shrink-0" />
                                         </button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-[200px] bg-white border border-gray-100 shadow-xl z-50">
+                                    <DropdownMenuContent align="end" className="w-[200px] bg-bo-surface border border-gray-100 shadow-xl z-50">
                                         {[
                                             { value: "all",      label: "Tất cả trạng thái" },
                                             { value: "active",   label: "Hoạt động" },
@@ -192,7 +192,7 @@ export default function ChatLieuList() {
                                 <button
                                     type="button"
                                     onClick={() => { setSearch(""); setFilterStatus("all"); setPageNumber(0); }}
-                                    className="h-10 w-full flex items-center justify-center gap-2 rounded-md border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+                                    className="h-10 w-full flex items-center justify-center gap-2 rounded-md border border-gray-200 bg-bo-surface text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors duration-150"
                                 >
                                     <RefreshCcw className="h-4 w-4" /> Đặt lại
                                 </button>
@@ -216,11 +216,11 @@ export default function ChatLieuList() {
                 </div>
 
                 {/* ── Table ── */}
-                <div className="rounded-2xl bg-white shadow-md overflow-hidden">
+                <div className="rounded-2xl bg-bo-surface shadow-md overflow-hidden">
                     <div className="overflow-x-auto overflow-y-auto max-h-[520px]">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="border-b border-slate-200 bg-slate-50">
+                                <tr className="border-b border-slate-200 bg-bo-surface-subtle">
                                     <th className="h-12 px-4 text-center font-semibold text-slate-600 tracking-wide text-xs uppercase w-14">STT</th>
                                     <th className="h-12 px-4 text-left font-semibold text-slate-600 tracking-wide text-xs uppercase">Mã định danh</th>
                                     <th className="h-12 px-4 text-left font-semibold text-slate-600 tracking-wide text-xs uppercase">Tên chất liệu</th>
@@ -286,14 +286,14 @@ export default function ChatLieuList() {
                                                     </button>
                                                     <button
                                                         onClick={() => navigate(`/material/${item.id}`)}
-                                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent transition-all duration-150 hover:scale-110 active:scale-95 text-slate-500 hover:bg-slate-50 hover:border-slate-200"
+                                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent transition-all duration-150 hover:scale-110 active:scale-95 text-slate-500 hover:bg-bo-surface-subtle hover:border-slate-200"
                                                         title="Chỉnh sửa"
                                                     >
                                                         <Edit className="w-4 h-4" />
                                                     </button>
                                                     <button
                                                         onClick={() => setDeleteTarget(item)}
-                                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent transition-all duration-150 hover:scale-110 active:scale-95 text-red-500 hover:bg-red-50 hover:border-red-200"
+                                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent transition-all duration-150 hover:scale-110 active:scale-95 text-red-500 hover:bg-bo-danger-soft hover:border-red-200"
                                                         title="Xóa"
                                                     >
                                                         <Trash2 className="w-4 h-4" />
@@ -310,7 +310,7 @@ export default function ChatLieuList() {
 
                 {/* ── Pagination ── */}
                 {totalElements > 0 && (
-                    <Card className="border-0 shadow-md bg-white">
+                    <Card className="border-0 shadow-md bg-bo-surface">
                         <CardContent className="p-4">
                             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                                 <div className="flex items-center gap-2">
@@ -319,12 +319,12 @@ export default function ChatLieuList() {
                                         <DropdownMenuTrigger asChild>
                                             <button
                                                 type="button"
-                                                className="h-9 px-3 rounded-md border border-gray-200 bg-white text-sm flex items-center gap-2 hover:bg-gray-50 transition-colors"
+                                                className="h-9 px-3 rounded-md border border-gray-200 bg-bo-surface text-sm flex items-center gap-2 hover:bg-gray-50 transition-colors"
                                             >
                                                 {pageSize} dòng <ChevronDown className="h-4 w-4 opacity-50" />
                                             </button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent className="w-[120px] bg-white shadow-lg border border-gray-100 z-50">
+                                        <DropdownMenuContent className="w-[120px] bg-bo-surface shadow-lg border border-gray-100 z-50">
                                             {[10, 20, 50].map(size => (
                                                 <DropdownMenuItem
                                                     key={size}

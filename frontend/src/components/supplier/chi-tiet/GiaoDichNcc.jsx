@@ -287,7 +287,7 @@ export default function GiaoDichNcc({ tabs, tab, onDoiTab, dangTai, loiDon, onTh
           title={KHONG_KHOP[tab] ?? "Không có kết quả phù hợp"}
           description="Thử bỏ bớt điều kiện lọc."
           action={
-            <Button type="button" variant="outline" onClick={xoaLoc} className="border-bo-border bg-white shadow-none">
+            <Button type="button" variant="outline" onClick={xoaLoc} className="border-bo-border bg-bo-surface shadow-none">
               Xóa lọc
             </Button>
           }
@@ -315,7 +315,7 @@ export default function GiaoDichNcc({ tabs, tab, onDoiTab, dangTai, loiDon, onTh
               type="button"
               variant="outline"
               onClick={() => sua({ soHien: st.soHien + SO_HOAT_DONG_MOI_LAN })}
-              className="gap-1.5 border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle max-sm:h-11 max-sm:w-full"
+              className="gap-1.5 border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle max-sm:h-11 max-sm:w-full"
             >
               <ChevronDown className="size-4" aria-hidden="true" />
               Xem thêm {formatNumber(Math.min(SO_HOAT_DONG_MOI_LAN, conLai))} hoạt động

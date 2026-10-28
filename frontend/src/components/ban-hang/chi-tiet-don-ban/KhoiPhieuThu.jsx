@@ -153,7 +153,7 @@ function HopThuTien({ donId, conLai, laQtv, chuaTheoDoi, onClose, onXong }) {
         {loi ? <p className="text-xs text-red-600" role="alert">{loi}</p> : null}
         {vi ? <p className="text-xs text-bo-muted" id="ly-do-khoa-thu">{vi}</p> : null}
         <DialogFooter>
-          <Button className="border-bo-border bg-white" disabled={dang} onClick={dong} variant="outline">Quay lại</Button>
+          <Button className="border-bo-border bg-bo-surface" disabled={dang} onClick={dong} variant="outline">Quay lại</Button>
           {hoi ? (
             <Button aria-describedby={vi ? "ly-do-khoa-thu" : undefined} className="bg-amber-600 text-white hover:bg-amber-700" disabled={chuaDu} onClick={() => gui({ [hoi.code]: true })}>
               {dang ? "Đang ghi…" : hoi.code === "THU_THUA" ? "Vẫn ghi (khách trả dư)" : "Vẫn ghi (bảng kê nhiều đơn)"}
@@ -244,7 +244,7 @@ function HopHoanTien({ donId, thuThua, onClose, onXong }) {
         {loi ? <p className="text-xs text-red-600" role="alert">{loi}</p> : null}
         {vi ? <p className="text-xs text-bo-muted" id="ly-do-khoa-hoan">{vi}</p> : null}
         <DialogFooter>
-          <Button className="border-bo-border bg-white" disabled={dang} onClick={dong} variant="outline">Quay lại</Button>
+          <Button className="border-bo-border bg-bo-surface" disabled={dang} onClick={dong} variant="outline">Quay lại</Button>
           <Button aria-describedby={vi ? "ly-do-khoa-hoan" : undefined} className="bg-bo-primary text-white hover:bg-bo-primary-hover" disabled={chuaDu} onClick={gui}>
             {dang ? "Đang ghi…" : chuaRo ? "Ghi nhận lại" : "Ghi nhận hoàn tiền"}
           </Button>
@@ -289,7 +289,7 @@ function HopHuyPhieu({ phieu, onClose, onXong }) {
         </label>
         {loi ? <p className="text-xs text-red-600" role="alert">{loi}</p> : null}
         <DialogFooter>
-          <Button className="border-bo-border bg-white" disabled={dang} onClick={() => onClose(xungDot)} variant="outline">Quay lại</Button>
+          <Button className="border-bo-border bg-bo-surface" disabled={dang} onClick={() => onClose(xungDot)} variant="outline">Quay lại</Button>
           <Button className="bg-red-600 text-white hover:bg-red-700" disabled={dang || !lyDo.trim()} onClick={gui}>{dang ? "Đang hủy…" : "Hủy phiếu"}</Button>
         </DialogFooter>
       </DialogContent>
@@ -380,7 +380,7 @@ export default function KhoiPhieuThu({ donId, thanhToan, laQtv, coTheHoan, coThe
         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
           Đã thu dư <strong>{formatCurrency(thuThua)}</strong>: {coTheHoan ? "trả lại khách rồi ghi nhận." : "nhờ quản trị viên trả lại khách và ghi hoàn tiền."}
           {coTheHoan ? (
-            <Button className="mt-2 h-8 w-full gap-1.5 bg-white text-xs text-bo-foreground hover:bg-bo-surface-subtle" onClick={() => setHop({ loai: "hoan" })} variant="outline">
+            <Button className="mt-2 h-8 w-full gap-1.5 bg-bo-surface text-xs text-bo-foreground hover:bg-bo-surface-subtle" onClick={() => setHop({ loai: "hoan" })} variant="outline">
               <Undo2 className="size-3.5" />Ghi nhận hoàn tiền
             </Button>
           ) : null}

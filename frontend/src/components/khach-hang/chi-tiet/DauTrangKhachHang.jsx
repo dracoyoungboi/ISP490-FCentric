@@ -147,7 +147,7 @@ export default function DauTrangKhachHang({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="z-50 w-[288px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+              className="z-50 w-[288px] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
             >
               {hienTaoBaoGia ? (
                 <DropdownMenuItem onClick={onTaoBaoGia} className={`${MUC_MENU} sm:hidden`}>

@@ -139,7 +139,7 @@ export default function AvatarEditorModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="bg-white text-bo-foreground sm:max-w-md"
+        className="bg-bo-surface text-bo-foreground sm:max-w-md"
         // Chặn đóng hộp thoại khi đang submit — lỗi sẽ giữ draft để thử lại
         onEscapeKeyDown={(event) => {
           if (saving) event.preventDefault();
@@ -184,7 +184,7 @@ export default function AvatarEditorModal({
             <Button
               type="button"
               variant="outline"
-              className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+              className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
               onClick={() => fileInputRef.current?.click()}
               disabled={saving}
             >
@@ -195,7 +195,7 @@ export default function AvatarEditorModal({
             <Button
               type="button"
               variant="outline"
-              className="border-bo-danger/40 bg-white text-bo-danger hover:bg-bo-danger-soft"
+              className="border-bo-danger/40 bg-bo-surface text-bo-danger hover:bg-bo-danger-soft"
               onClick={handleRemoveClick}
               disabled={saving || !avatarUrl}
               title={avatarUrl ? undefined : "Bạn chưa có ảnh đại diện"}
@@ -216,7 +216,7 @@ export default function AvatarEditorModal({
           <Button
             type="button"
             variant="outline"
-            className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+            className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
             onClick={() => onOpenChange(false)}
             disabled={saving}
           >

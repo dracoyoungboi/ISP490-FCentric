@@ -193,7 +193,7 @@ function NoiDung({
                 className={cn(O_NHAP, "pl-10 font-mono")}
               />
             </label>
-            <Button type="submit" variant="outline" disabled={dangKhoa} className="h-10 border-bo-border bg-white">Nhận</Button>
+            <Button type="submit" variant="outline" disabled={dangKhoa} className="h-10 border-bo-border bg-bo-surface">Nhận</Button>
           </form>
           {canKe ? (
             <select
@@ -252,7 +252,7 @@ function NoiDung({
             </p>
           ) : null}
           {loiQuet ? (
-            <p role="alert" className="flex items-start gap-1.5 text-[13px] leading-5 text-red-700">
+            <p role="alert" className="flex items-start gap-1.5 text-[13px] leading-5 text-bo-danger-strong">
               <AlertCircle className="mt-0.5 size-4 shrink-0" /> {loiQuet}
             </p>
           ) : null}
@@ -338,7 +338,7 @@ function NoiDung({
         </div>
 
         {dk.loi.length ? (
-          <p role="alert" className="flex items-start gap-1.5 text-[13px] leading-5 text-red-700">
+          <p role="alert" className="flex items-start gap-1.5 text-[13px] leading-5 text-bo-danger-strong">
             <AlertCircle className="mt-0.5 size-4 shrink-0" /> {dk.loi.join(" ")}
           </p>
         ) : null}
@@ -346,14 +346,14 @@ function NoiDung({
 
       <div className="flex flex-wrap items-center gap-2 border-t border-bo-border bg-bo-surface-subtle px-6 py-3">
         {dk.thieu.length ? (
-          <span className={cn("w-full text-xs sm:mr-auto sm:w-auto", nhacThieu ? "font-semibold text-red-700" : "text-bo-muted")}>
+          <span className={cn("w-full text-xs sm:mr-auto sm:w-auto", nhacThieu ? "font-semibold text-bo-danger-strong" : "text-bo-muted")}>
             Còn thiếu: {dk.thieu.join(", ")}
           </span>
         ) : (
           <span className="hidden sm:mr-auto sm:block" />
         )}
         <div className="flex w-full gap-2 sm:w-auto">
-          <Button type="button" variant="outline" disabled={dangKhoa} onClick={onHuy} className="min-w-24 flex-1 border-bo-border bg-white sm:flex-none">Hủy</Button>
+          <Button type="button" variant="outline" disabled={dangKhoa} onClick={onHuy} className="min-w-24 flex-1 border-bo-border bg-bo-surface sm:flex-none">Hủy</Button>
           <Button
             type="button"
             disabled={!dk.ok || dangKhoa}

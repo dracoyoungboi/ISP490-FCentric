@@ -212,7 +212,7 @@ function NoiDung({ dsHang, dong, tenKho, nguong, onThem, onDong }) {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
+                className="border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
                 onClick={() => setSoSpHien((n) => n + SO_SP_HIEN)}
               >
                 Hiện thêm {soVN(Math.min(SO_SP_HIEN, nhom.length - soSpHien))} sản phẩm (còn {soVN(nhom.length - soSpHien)})

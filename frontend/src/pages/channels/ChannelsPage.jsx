@@ -52,7 +52,7 @@ export default function ChannelsPage() {
       <ListPageHeader title="Kênh bán hàng" />
       <div className="mt-4 space-y-4">
         <MockModeNotice show={isChannelMock} note={GHI_CHU_DU_LIEU_MAU_KENH} />
-        <section className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+        <section className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
           <div className="w-full sm:overflow-x-auto">
             <table className="w-full text-sm max-sm:block sm:min-w-[960px] sm:table-fixed">
               <colgroup className="max-sm:hidden">

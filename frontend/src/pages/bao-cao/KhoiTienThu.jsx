@@ -91,7 +91,7 @@ function HopDoiChieu({ khoId, onClose, onXong }) {
         ) : null}
         {loi ? <p className="text-xs text-red-600" role="alert">{loi}</p> : null}
         <DialogFooter>
-          <Button className="border-bo-border bg-white" disabled={dang} onClick={onClose} variant="outline">Đóng</Button>
+          <Button className="border-bo-border bg-bo-surface" disabled={dang} onClick={onClose} variant="outline">Đóng</Button>
           <Button className="bg-bo-primary text-white hover:bg-bo-primary-hover" disabled={dang || !chon.size} onClick={gui}>
             {dang ? "Đang lưu…" : `Đã thấy trên sao kê${chon.size ? ` (${chon.size})` : ""}`}
           </Button>

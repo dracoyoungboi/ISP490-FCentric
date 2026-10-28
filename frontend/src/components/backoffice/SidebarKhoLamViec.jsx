@@ -103,7 +103,7 @@ export default function SidebarKhoLamViec({ isExpanded, layoutClass, fadeClass, 
           side={isExpanded ? "top" : "right"}
           align={isExpanded ? "start" : "end"}
           sideOffset={8}
-          className="z-[90] w-[240px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+          className="z-[90] w-[240px] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
         >
           <p className="px-2.5 pt-1.5 pb-1 text-xs text-bo-muted">
             Đổi nơi làm việc. Các trang theo kho sẽ hiện số liệu của nơi này.

@@ -129,7 +129,7 @@ export default function BrandFormDialog({ open, onOpenChange, onCreated }) {
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="border-bo-border bg-bo-canvas p-0 text-bo-foreground sm:max-w-md">
-                <DialogHeader className="border-b border-bo-border bg-white px-4 py-3.5 text-left sm:px-5">
+                <DialogHeader className="border-b border-bo-border bg-bo-surface px-4 py-3.5 text-left sm:px-5">
                     <DialogTitle className="flex items-center gap-2 text-base font-semibold text-bo-foreground">
                         <Tag className="size-5 text-bo-primary" />
                         Tạo thương hiệu mới
@@ -196,7 +196,7 @@ export default function BrandFormDialog({ open, onOpenChange, onCreated }) {
                                     <SelectTrigger className="h-10 w-full border-bo-border text-bo-foreground">
                                         <SelectValue placeholder="Chọn trạng thái" />
                                     </SelectTrigger>
-                                    <SelectContent position="popper" side="bottom" className="z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg">
+                                    <SelectContent position="popper" side="bottom" className="z-50 rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg">
                                         <SelectItem value="1" className="rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">Hoạt động</SelectItem>
                                         <SelectItem value="0" className="rounded-md text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">Ngừng hoạt động</SelectItem>
                                     </SelectContent>
@@ -218,7 +218,7 @@ export default function BrandFormDialog({ open, onOpenChange, onCreated }) {
                             />
                             <label
                                 htmlFor="brand-logo"
-                                className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-bo-border bg-white p-2 text-sm font-medium text-bo-foreground transition-colors hover:bg-bo-primary-soft hover:text-bo-primary"
+                                className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-bo-border bg-bo-surface p-2 text-sm font-medium text-bo-foreground transition-colors hover:bg-bo-primary-soft hover:text-bo-primary"
                             >
                                 <Upload className="size-4" />
                                 <span>Chọn ảnh logo</span>
@@ -249,7 +249,7 @@ export default function BrandFormDialog({ open, onOpenChange, onCreated }) {
                             variant="outline"
                             onClick={() => handleOpenChange(false)}
                             disabled={isSubmitting}
-                            className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                            className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                         >
                             Hủy
                         </Button>

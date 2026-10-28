@@ -114,7 +114,7 @@ export default function ProductDetail() {
 
     if (isLoading) return (
         <PageContainer>
-            <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+            <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                 <LoadingState label="Đang tải thông tin sản phẩm" />
             </div>
         </PageContainer>
@@ -122,7 +122,7 @@ export default function ProductDetail() {
 
     if (!product) return (
         <PageContainer>
-            <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+            <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                 <EmptyState
                     icon={Package}
                     title="Sản phẩm không tồn tại trong hệ thống."
@@ -140,7 +140,7 @@ export default function ProductDetail() {
                     type="button"
                     variant="outline"
                     onClick={() => navigate("/products")}
-                    className="h-9 gap-1.5 border-bo-border bg-white px-3 text-bo-foreground hover:bg-bo-surface-subtle"
+                    className="h-9 gap-1.5 border-bo-border bg-bo-surface px-3 text-bo-foreground hover:bg-bo-surface-subtle"
                 >
                     <ArrowLeft className="size-4" />
                     Quay lại danh sách
@@ -186,7 +186,7 @@ export default function ProductDetail() {
                                     onClick={handlePrevImage}
                                     disabled={!canGoPrev}
                                     aria-label="Ảnh trước"
-                                    className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full border border-bo-border bg-white p-2 text-bo-foreground shadow-sm transition-colors hover:bg-bo-surface-subtle disabled:cursor-not-allowed disabled:opacity-50"
+                                    className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full border border-bo-border bg-bo-surface p-2 text-bo-foreground shadow-sm transition-colors hover:bg-bo-surface-subtle disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     <ChevronLeft className="size-5" />
                                 </button>
@@ -195,7 +195,7 @@ export default function ProductDetail() {
                                     onClick={handleNextImage}
                                     disabled={!canGoNext}
                                     aria-label="Ảnh kế tiếp"
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full border border-bo-border bg-white p-2 text-bo-foreground shadow-sm transition-colors hover:bg-bo-surface-subtle disabled:cursor-not-allowed disabled:opacity-50"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full border border-bo-border bg-bo-surface p-2 text-bo-foreground shadow-sm transition-colors hover:bg-bo-surface-subtle disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     <ChevronRight className="size-5" />
                                 </button>
@@ -289,7 +289,7 @@ export default function ProductDetail() {
                                 <span className="text-xs text-bo-muted">{variantCount} biến thể</span>
                             </div>
 
-                            <div className="overflow-hidden rounded-lg border border-bo-border bg-white">
+                            <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface">
                                 <table className="w-full text-sm">
                                     <thead className="border-b border-bo-border bg-bo-surface-subtle">
                                         <tr>
@@ -335,13 +335,13 @@ export default function ProductDetail() {
                     <TabsList className="mb-5 h-auto w-full justify-start gap-1 rounded-lg border border-bo-border bg-bo-surface-subtle p-1 sm:w-auto">
                         <TabsTrigger
                             value="desc"
-                            className="rounded-md px-4 py-2 text-sm font-semibold text-bo-muted data-[state=active]:bg-white data-[state=active]:text-bo-primary data-[state=active]:shadow-sm"
+                            className="rounded-md px-4 py-2 text-sm font-semibold text-bo-muted data-[state=active]:bg-bo-surface data-[state=active]:text-bo-primary data-[state=active]:shadow-sm"
                         >
                             Mô tả chi tiết
                         </TabsTrigger>
                         <TabsTrigger
                             value="spec"
-                            className="rounded-md px-4 py-2 text-sm font-semibold text-bo-muted data-[state=active]:bg-white data-[state=active]:text-bo-primary data-[state=active]:shadow-sm"
+                            className="rounded-md px-4 py-2 text-sm font-semibold text-bo-muted data-[state=active]:bg-bo-surface data-[state=active]:text-bo-primary data-[state=active]:shadow-sm"
                         >
                             Thông số kỹ thuật
                         </TabsTrigger>

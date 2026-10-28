@@ -53,7 +53,7 @@ export default function NutPhanDoan({ value, luaChon, onChange, nhan, className 
             className={cn(
               "h-7 shrink-0 whitespace-nowrap rounded-md px-2.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30",
               dangChon
-                ? "bg-white font-semibold text-bo-heading shadow-[0_1px_2px_rgba(15,23,42,0.14)]"
+                ? "bg-bo-surface font-semibold text-bo-heading shadow-[0_1px_2px_rgba(15,23,42,0.14)]"
                 : "font-medium text-slate-600 hover:text-bo-foreground",
             )}
           >

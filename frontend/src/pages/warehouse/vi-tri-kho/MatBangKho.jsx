@@ -247,7 +247,7 @@ export default function MatBangKho({ khuVucs, viTris, matBang, coTheSua, khuBanD
       />
 
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <section className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+        <section className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-bo-border px-4 py-3">
             <div className="min-w-0">
               <h2 className="text-sm font-semibold text-bo-heading">Mặt bằng kho</h2>
@@ -349,7 +349,7 @@ export default function MatBangKho({ khuVucs, viTris, matBang, coTheSua, khuBanD
 
 function KhungBen({ tieuDe, phu, children, chan }) {
   return (
-    <aside className="flex flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm xl:sticky xl:top-4">
+    <aside className="flex flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm xl:sticky xl:top-4">
       <div className="border-b border-bo-border px-4 py-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">{tieuDe}</div>
         {phu ? <p className="mt-0.5 text-xs text-bo-muted">{phu}</p> : null}
@@ -387,7 +387,7 @@ function BanDich({ hinh, matBang, dangLuu, onDich }) {
               disabled={dangLuu || !trongLuoi(toi, matBang)}
               onClick={() => onDich(dx, dy)}
               className={cn(
-                "grid size-8 place-items-center rounded-md border border-bo-border bg-white text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary disabled:cursor-not-allowed disabled:opacity-40",
+                "grid size-8 place-items-center rounded-md border border-bo-border bg-bo-surface text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary disabled:cursor-not-allowed disabled:opacity-40",
                 viTri,
               )}
             >
@@ -465,12 +465,12 @@ function BenPhai({ vatChon, dangVe, matBang, khuVucs, viTris, khuChuaDat, coTheS
             </div>
           ) : null}
           <DaiO soO={2} phang className="border-b border-bo-border">
-            <div className="flex flex-col gap-1 bg-white px-4 py-3">
+            <div className="flex flex-col gap-1 bg-bo-surface px-4 py-3">
               <span className="text-xs font-medium text-bo-muted">Vị trí kệ</span>
               <span className="text-lg font-semibold tabular-nums text-bo-heading">{dinhDangSo(ds.length)}</span>
               <span className="text-xs text-bo-muted">{ds.length ? `${conCho} còn chỗ` : "Chưa tạo vị trí"}</span>
             </div>
-            <div className="flex flex-col gap-1.5 bg-white px-4 py-3">
+            <div className="flex flex-col gap-1.5 bg-bo-surface px-4 py-3">
               <span className="text-xs font-medium text-bo-muted">Mức đầy</span>
               <span className="text-lg font-semibold tabular-nums text-bo-heading">{muc.phanTram}%</span>
               <ThanhMuc phanTram={muc.phanTram} tone={toneMucDay(muc.phanTram / 100)} />

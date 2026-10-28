@@ -62,7 +62,7 @@ export default function ChonMauSac({ mauSacs, daChon, khoa = KHONG_KHOA, dangTai
                         if (!disabled && !e.target.closest("button")) doiMo(true);
                     }}
                     className={cn(
-                        "flex min-h-9 w-full cursor-pointer flex-wrap items-center gap-1.5 rounded-md border bg-white px-1.5 py-1 shadow-xs transition-[color,box-shadow]",
+                        "flex min-h-9 w-full cursor-pointer flex-wrap items-center gap-1.5 rounded-md border bg-bo-surface px-1.5 py-1 shadow-xs transition-[color,box-shadow]",
                         "has-[:focus-visible]:border-bo-primary has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-bo-primary/15",
                         mo ? "border-bo-primary ring-[3px] ring-bo-primary/15" : coLoi ? "border-bo-danger" : "border-bo-border",
                         disabled && "pointer-events-none opacity-60",
@@ -120,14 +120,14 @@ export default function ChonMauSac({ mauSacs, daChon, khoa = KHONG_KHOA, dangTai
             <PopoverContent
                 align="start"
                 collisionPadding={16}
-                className="w-[min(360px,var(--radix-popover-trigger-width))] overflow-hidden border-bo-border bg-white p-0"
+                className="w-[min(360px,var(--radix-popover-trigger-width))] overflow-hidden border-bo-border bg-bo-surface p-0"
             >
                 {/* label: cmdk gắn nhãn này cho ô tìm (aria-labelledby), aria-label đặt trên ô sẽ bị bỏ qua. */}
                 <Command
                     label="Tìm màu sắc"
                     shouldFilter={false}
                     loop
-                    className="bg-white [&_[data-slot=command-input-wrapper]]:border-bo-border"
+                    className="bg-bo-surface [&_[data-slot=command-input-wrapper]]:border-bo-border"
                 >
                     <CommandInput
                         value={tuKhoa}
@@ -165,7 +165,7 @@ export default function ChonMauSac({ mauSacs, daChon, khoa = KHONG_KHOA, dangTai
                                                 ? "border-bo-primary/50 bg-bo-primary/50"
                                                 : daTick
                                                   ? "border-bo-primary bg-bo-primary"
-                                                  : "border-bo-muted/40 bg-white",
+                                                  : "border-bo-muted/40 bg-bo-surface",
                                         )}
                                     >
                                         {daTick && <Check className="size-3 text-white" />}

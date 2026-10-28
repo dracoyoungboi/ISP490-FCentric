@@ -422,7 +422,7 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, onConfigSaved, onCauH
                     variant="outline"
                     disabled={khoa}
                     onClick={kiemTraKetNoi}
-                    className="h-8 gap-2 rounded-lg border-bo-border bg-white px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11"
+                    className="h-8 gap-2 rounded-lg border-bo-border bg-bo-surface px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11"
                   >
                     {dangChay === "kiem-tra" ? <Loader2 className="size-4 animate-spin" /> : null}
                     Kiểm tra kết nối
@@ -442,7 +442,7 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, onConfigSaved, onCauH
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       align="end"
-                      className="w-60 z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                      className="w-60 z-50 rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
                       onCloseAutoFocus={(event) => {
                         const viec = viecSauMenuRef.current;
                         if (!viec) return;

@@ -330,7 +330,7 @@ export default function DoiSoatChuyenKhoan() {
                   options={khoOptions}
                   onChange={(khoId) => setBoLoc((p) => ({ ...p, khoId, page: 0 }))}
                 />
-                <label className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-white pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto">
+                <label className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-bo-surface pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto">
                   <Calendar className="size-4 shrink-0 text-bo-muted" />
                   <span className="shrink-0 text-xs text-bo-muted">Từ</span>
                   <Input type="date" aria-label="Từ ngày tạo mã QR" className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0" value={boLoc.tuNgay} onChange={doiNgay("tuNgay")} />
@@ -387,7 +387,7 @@ export default function DoiSoatChuyenKhoan() {
             icon={SearchX}
             title="Không có giao dịch phù hợp"
             description={coLoc ? "Thử đổi kho hoặc khoảng ngày." : "Khoản đã bán cho khách hoặc đã trả lại tiền sẽ hiện ở đây."}
-            action={coLoc ? <Button variant="outline" onClick={xoaLoc} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">Xóa lọc</Button> : null}
+            action={coLoc ? <Button variant="outline" onClick={xoaLoc} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">Xóa lọc</Button> : null}
           />
         ) : (
           <table className={`w-full min-w-[960px] text-sm transition-opacity ${danhSach.loading ? "opacity-60" : ""}`} aria-busy={danhSach.loading}>
@@ -494,7 +494,7 @@ function TheCanXuLy({ gd, dangMo, onBan, onTraLai, dangTraTienMat, onTraTienMat 
         >
           Bán cho khách (tạo đơn)
         </Button>
-        <Button variant="outline" className="border-bo-border bg-white" disabled={dangMo} onClick={onTraLai} aria-label={`Trả lại tiền khoản ${formatCurrency(soTienHienThi(gd))}`}>
+        <Button variant="outline" className="border-bo-border bg-bo-surface" disabled={dangMo} onClick={onTraLai} aria-label={`Trả lại tiền khoản ${formatCurrency(soTienHienThi(gd))}`}>
           {dangMo ? "Đang kiểm tra…" : "Trả lại tiền cho khách"}
         </Button>
         {khongBan ? <span id={`ly-do-khong-ban-${gd.orderCode}`} className="text-xs text-bo-muted">{khongBan}</span> : null}
@@ -512,7 +512,7 @@ function NutTraLaiTienMat({ gd, dangGui, onXacNhan }) {
   const [hoiLai, setHoiLai] = useState(false);
   if (!hoiLai) {
     return (
-      <Button size="sm" variant="outline" className="h-8 border-amber-300 bg-white text-amber-900 hover:bg-amber-50" disabled={dangGui} onClick={(e) => { e.stopPropagation(); setHoiLai(true); }}>
+      <Button size="sm" variant="outline" className="h-8 border-amber-300 bg-bo-surface text-amber-900 hover:bg-amber-50" disabled={dangGui} onClick={(e) => { e.stopPropagation(); setHoiLai(true); }}>
         Đã trả lại tiền mặt
       </Button>
     );
@@ -638,7 +638,7 @@ function HopThoaiBanChoKhach({ gd, onClose, onXong, onCu }) {
         ) : null}
         {loi ? <p className="text-sm text-bo-danger" role="alert">{loi}</p> : null}
         <DialogFooter className="gap-2">
-          <Button variant="outline" className="border-bo-border bg-white" disabled={dangGui} onClick={onClose}>Quay lại</Button>
+          <Button variant="outline" className="border-bo-border bg-bo-surface" disabled={dangGui} onClick={onClose}>Quay lại</Button>
           <Button className="bg-bo-primary text-white hover:bg-bo-primary-hover" disabled={dangGui} onClick={xacNhan}>{dangGui ? "Đang tạo đơn…" : "Tạo đơn bán"}</Button>
         </DialogFooter>
       </DialogContent>
@@ -709,7 +709,7 @@ function HopThoaiTraLaiTien({ gd, onClose, onXong, onCu }) {
         </ol>
         {loi ? <p className="text-sm text-bo-danger" role="alert">{loi}</p> : null}
         <DialogFooter className="gap-2">
-          <Button variant="outline" className="border-bo-border bg-white" disabled={dangGui} onClick={onClose}>Quay lại</Button>
+          <Button variant="outline" className="border-bo-border bg-bo-surface" disabled={dangGui} onClick={onClose}>Quay lại</Button>
           <Button className="bg-bo-primary text-white hover:bg-bo-primary-hover" disabled={dangGui} onClick={xacNhan}>{dangGui ? "Đang ghi…" : "Tôi đã chuyển trả, ghi lại"}</Button>
         </DialogFooter>
       </DialogContent>
@@ -742,7 +742,7 @@ function HopThoaiXem({ gd, onClose, dangTraTienMat, onTraTienMat }) {
           <ChiTietKyThuat gd={gd} />
         </div>
         <DialogFooter>
-          <Button variant="outline" className="border-bo-border bg-white" onClick={onClose}>Đóng</Button>
+          <Button variant="outline" className="border-bo-border bg-bo-surface" onClick={onClose}>Đóng</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

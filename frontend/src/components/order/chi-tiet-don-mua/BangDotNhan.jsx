@@ -108,7 +108,7 @@ export default function BangDotNhan({ bang, tongTien, xemDot = true, dangTaiDot,
           <tbody>
             {dong.map((d) => (
               <tr key={d.khoa} className="group border-b border-slate-100 tabular-nums hover:bg-bo-surface-subtle">
-                <th scope="row" className={cn(COT_DINH, "bg-white py-3 pl-4 pr-3 text-left font-normal group-hover:bg-bo-surface-subtle sm:pl-6")}>
+                <th scope="row" className={cn(COT_DINH, "bg-bo-surface py-3 pl-4 pr-3 text-left font-normal group-hover:bg-bo-surface-subtle sm:pl-6")}>
                   <div className="font-medium text-bo-foreground">{d.ten}</div>
                   <div className="mt-0.5 text-xs leading-4 text-bo-muted">
                     {d.tenMau || d.kichCo ? (
@@ -146,7 +146,7 @@ export default function BangDotNhan({ bang, tongTien, xemDot = true, dangTaiDot,
           {dong.length > 0 ? (
             <tfoot>
               <tr className="tabular-nums">
-                <th scope="row" className={cn(COT_DINH, "bg-white py-3.5 pl-4 pr-3 text-left font-semibold text-bo-foreground sm:pl-6")}>
+                <th scope="row" className={cn(COT_DINH, "bg-bo-surface py-3.5 pl-4 pr-3 text-left font-semibold text-bo-foreground sm:pl-6")}>
                   Tổng
                 </th>
                 <td className="px-3 py-3.5" />

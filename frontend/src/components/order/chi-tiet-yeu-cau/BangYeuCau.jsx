@@ -32,7 +32,7 @@ const CACH_XEM = [
 function LuoiSanPham({ ten, dong }) {
   const luoi = luoiMauKichCo(dong);
   return (
-    <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
+    <div className="overflow-x-auto rounded-md border border-slate-200 bg-bo-surface">
       <table className="w-full min-w-max border-collapse text-[13px] tabular-nums">
         <caption className="sr-only">Lưới màu và kích cỡ của {ten}</caption>
         <thead>

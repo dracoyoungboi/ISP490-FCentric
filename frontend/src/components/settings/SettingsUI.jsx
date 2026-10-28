@@ -123,7 +123,7 @@ export function SettingsPill({ tone = "off", children }) {
 /** Dòng gợi ý / lỗi ngay dưới ô nhập. */
 export function SettingsFieldHint({ id, error, children, className }) {
   return (
-    <p id={id} role={error ? "alert" : undefined} className={cn("text-xs leading-4", error ? "text-red-700" : "text-[#7a8594]", className)}>
+    <p id={id} role={error ? "alert" : undefined} className={cn("text-xs leading-4", error ? "text-bo-danger-strong" : "text-[#7a8594]", className)}>
       {error || children}
     </p>
   );

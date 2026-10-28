@@ -9,7 +9,7 @@ export default function FilterBar({
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 border-b border-bo-border bg-white p-4 lg:flex-row lg:items-center lg:justify-between",
+        "flex flex-col gap-3 border-b border-bo-border bg-bo-surface p-4 lg:flex-row lg:items-center lg:justify-between",
         className,
       )}
     >

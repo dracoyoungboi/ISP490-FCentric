@@ -163,7 +163,7 @@ export default function KetNoiShopifyForm({ values, errors = {}, onChange, confi
           variant="outline"
           onClick={kiemTra}
           disabled={khoa}
-          className="h-9 gap-2 rounded-lg border-bo-border bg-white px-3.5 text-bo-foreground hover:bg-bo-surface-subtle"
+          className="h-9 gap-2 rounded-lg border-bo-border bg-bo-surface px-3.5 text-bo-foreground hover:bg-bo-surface-subtle"
         >
           {dangKiemTra ? <Loader2 className="size-4 animate-spin" /> : null}
           Kiểm tra kết nối

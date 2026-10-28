@@ -200,7 +200,7 @@ export default function BangCayDanhMuc({
             reLen(event, dichGoc);
           }}
           onDrop={(event) => tha(event, dichGoc)}
-          className="sticky bottom-0 z-10 shrink-0 border-t border-bo-border bg-white p-2"
+          className="sticky bottom-0 z-10 shrink-0 border-t border-bo-border bg-bo-surface p-2"
         >
           <div
             className={cn(
@@ -259,7 +259,7 @@ function DongDanhMuc({
         coCon && "cursor-pointer",
         dangKeo ? "opacity-40" : "hover:bg-bo-surface-subtle",
         laDich && dichDuoc && "bg-bo-primary-soft shadow-[inset_0_0_0_2px_var(--color-bo-primary)] hover:bg-bo-primary-soft",
-        laDich && !dichDuoc && "cursor-not-allowed bg-slate-50",
+        laDich && !dichDuoc && "cursor-not-allowed bg-bo-surface-subtle",
       )}
     >
       <td className="relative py-1 pr-3" style={{ paddingLeft: LE_TRAI + cap * MOI_CAP }}>

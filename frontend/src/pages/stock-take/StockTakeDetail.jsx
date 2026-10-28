@@ -636,7 +636,7 @@ function ManKiemKe({ dotId }) {
               { ma: "thua", so: `+${soVN(tt.spThua)}`, nhan: `thừa · ${soVN(tt.thua)} lô`, mau: "text-bo-primary-strong" },
               { ma: "thieu", so: `−${soVN(tt.spThieu)}`, nhan: `thiếu · ${soVN(tt.thieu)} lô`, mau: "text-bo-danger" },
             ].map((x) => (
-              <div key={x.ma} className="rounded-md border border-bo-border bg-white px-2.5 py-2">
+              <div key={x.ma} className="rounded-md border border-bo-border bg-bo-surface px-2.5 py-2">
                 <span className={cn("block text-lg font-semibold leading-6 tabular-nums text-bo-foreground", x.mau)}>{x.so}</span>
                 <span className="block text-xs leading-4 text-bo-muted">{x.nhan}</span>
               </div>

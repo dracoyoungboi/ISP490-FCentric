@@ -412,7 +412,7 @@ export default function ProductList() {
                                 <Button
                                     variant="outline"
                                     aria-label="Lọc theo thương hiệu"
-                                    className="h-9 w-full justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-[190px]"
+                                    className="h-9 w-full justify-between gap-2 border-bo-border bg-bo-surface px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-[190px]"
                                 >
                                     <span className="truncate">
                                         {filters.thuongHieu === "ALL"
@@ -424,7 +424,7 @@ export default function ProductList() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
                                 align="end"
-                                className="z-50 max-h-[400px] w-[220px] overflow-y-auto rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                                className="z-50 max-h-[400px] w-[220px] overflow-y-auto rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
                             >
                                 <DropdownMenuItem
                                     onClick={() => updateFilter("thuongHieu", "ALL")}
@@ -460,7 +460,7 @@ export default function ProductList() {
                                 placeholder="Giá từ"
                                 aria-label="Giá từ"
                                 min="0"
-                                className="h-9 min-w-0 flex-1 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20 sm:w-28 sm:flex-none"
+                                className="h-9 min-w-0 flex-1 border-bo-border bg-bo-surface text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20 sm:w-28 sm:flex-none"
                             />
                             <Input
                                 type="number"
@@ -469,7 +469,7 @@ export default function ProductList() {
                                 placeholder="Giá đến"
                                 aria-label="Giá đến"
                                 min="0"
-                                className="h-9 min-w-0 flex-1 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20 sm:w-28 sm:flex-none"
+                                className="h-9 min-w-0 flex-1 border-bo-border bg-bo-surface text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20 sm:w-28 sm:flex-none"
                             />
                         </div>
                     </ListToolbar>
@@ -506,7 +506,7 @@ export default function ProductList() {
                                 <Button
                                     variant="outline"
                                     onClick={clearFilters}
-                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                    className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
                                     Xóa lọc
                                 </Button>
@@ -521,7 +521,7 @@ export default function ProductList() {
                                 <Button
                                     variant="outline"
                                     onClick={() => changeTab(TAB_MAC_DINH)}
-                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                    className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
                                     Xem tất cả
                                 </Button>

@@ -40,7 +40,7 @@ export default function ChatLieuDetailView() {
         return (
             <div className="p-6 min-h-screen flex items-center justify-center"
                 style={{ background: "linear-gradient(135deg, #ca8a04 0%, #b45309 100%)" }}>
-                <div className="flex items-center gap-2 bg-white/95 rounded-2xl px-6 py-4 shadow-lg ring-1 ring-white/60">
+                <div className="flex items-center gap-2 bg-bo-surface/95 rounded-2xl px-6 py-4 shadow-lg ring-1 ring-white/60">
                     <Loader2 className="h-5 w-5 animate-spin text-yellow-600" />
                     <span className="text-sm font-medium text-gray-700">Đang tải...</span>
                 </div>
@@ -90,7 +90,7 @@ export default function ChatLieuDetailView() {
 
                 {/* ── Stat chips ── */}
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="rounded-2xl bg-white/95 shadow-lg ring-1 ring-white/60 p-5">
+                    <div className="rounded-2xl bg-bo-surface/95 shadow-lg ring-1 ring-white/60 p-5">
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-gray-500">Mã chất liệu</p>
@@ -102,7 +102,7 @@ export default function ChatLieuDetailView() {
                         </div>
                     </div>
 
-                    <div className={`rounded-2xl shadow-lg ring-1 ring-white/60 p-5 ${isActive ? "bg-white/95" : "bg-white/95"}`}>
+                    <div className={`rounded-2xl shadow-lg ring-1 ring-white/60 p-5 ${isActive ? "bg-bo-surface/95" : "bg-bo-surface/95"}`}>
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-gray-500">Trạng thái</p>
@@ -121,7 +121,7 @@ export default function ChatLieuDetailView() {
                 </div>
 
                 {/* ── Thông tin chi tiết ── */}
-                <div className="rounded-2xl bg-white/95 shadow-lg ring-1 ring-white/60 overflow-hidden">
+                <div className="rounded-2xl bg-bo-surface/95 shadow-lg ring-1 ring-white/60 overflow-hidden">
                     <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100">
                         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-yellow-100">
                             <Layers className="h-4 w-4 text-yellow-600" />
@@ -146,7 +146,7 @@ export default function ChatLieuDetailView() {
                 </div>
 
                 {/* ── Nhật ký ── */}
-                <div className="rounded-2xl bg-white/95 shadow-lg ring-1 ring-white/60 overflow-hidden">
+                <div className="rounded-2xl bg-bo-surface/95 shadow-lg ring-1 ring-white/60 overflow-hidden">
                     <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100">
                         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-100">
                             <Calendar className="h-4 w-4 text-amber-600" />
@@ -158,7 +158,7 @@ export default function ChatLieuDetailView() {
                     </div>
                     <div className="p-6">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="flex items-center gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
+                            <div className="flex items-center gap-4 p-4 rounded-xl bg-bo-surface-subtle border border-slate-100">
                                 <Calendar className="h-8 w-8 text-slate-300 flex-shrink-0" />
                                 <div>
                                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Ngày khởi tạo</p>
@@ -167,7 +167,7 @@ export default function ChatLieuDetailView() {
                                     </p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
+                            <div className="flex items-center gap-4 p-4 rounded-xl bg-bo-surface-subtle border border-slate-100">
                                 <FileText className="h-8 w-8 text-slate-300 flex-shrink-0" />
                                 <div>
                                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Cập nhật cuối</p>

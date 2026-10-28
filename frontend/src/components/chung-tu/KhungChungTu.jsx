@@ -15,7 +15,7 @@ export default function KhungChungTu({ dau, tienTrinh, thongBao, chinh, cotPhai,
   return (
     <article
       className={cn(
-        "@container/khoi flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm",
+        "@container/khoi flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm",
         className,
       )}
       {...props}

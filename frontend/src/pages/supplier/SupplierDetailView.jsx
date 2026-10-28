@@ -70,7 +70,7 @@ function DaiBao({ tone, icon, children, nutNhan, onNut }) {
           variant="outline"
           size="sm"
           onClick={onNut}
-          className="shrink-0 border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle max-sm:h-11"
+          className="shrink-0 border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle max-sm:h-11"
         >
           {nutNhan}
         </Button>
@@ -273,7 +273,7 @@ export default function SupplierDetailView() {
 
   return (
     <PageContainer className="ncc-trang flex min-h-full flex-col">
-      <article className="ncc-khoi flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+      <article className="ncc-khoi flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
         <DauTrangNcc
           ncc={ncc}
           coTheQuanLy={coTheQuanLy}

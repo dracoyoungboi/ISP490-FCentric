@@ -302,7 +302,7 @@ export default function BaoGiaList() {
             />
 
             {/* Ngày lập: nhãn nằm trong ô để hàng công cụ gọn một dòng */}
-            <label className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-white pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto">
+            <label className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-bo-surface pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto">
               <Calendar className="size-4 shrink-0 text-bo-muted" />
               <span className="shrink-0 text-xs text-bo-muted">Ngày lập</span>
               <Input
@@ -344,7 +344,7 @@ export default function BaoGiaList() {
                 <Button
                   variant="outline"
                   onClick={clearFilters}
-                  className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                  className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                 >
                   Xóa lọc
                 </Button>
@@ -359,7 +359,7 @@ export default function BaoGiaList() {
                 <Button
                   variant="outline"
                   onClick={() => changeTab(TAB_MAC_DINH)}
-                  className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                  className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                 >
                   Xem tất cả
                 </Button>

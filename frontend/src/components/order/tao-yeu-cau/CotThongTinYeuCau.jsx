@@ -53,7 +53,7 @@ export default function CotThongTinYeuCau({
               <ChevronDown className="pointer-events-none absolute right-3 top-2.5 size-4 text-bo-muted" aria-hidden="true" />
             </label>
           ) : (
-            <div className="flex items-center gap-2.5 rounded-md border border-bo-border bg-white px-2.5 py-2">
+            <div className="flex items-center gap-2.5 rounded-md border border-bo-border bg-bo-surface px-2.5 py-2">
               <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-bo-primary-soft text-bo-primary">
                 <Warehouse className="size-4" aria-hidden="true" />
               </span>
@@ -115,7 +115,7 @@ export default function CotThongTinYeuCau({
                       "h-7 rounded-md border px-2.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
                       dangChon
                         ? "border-bo-primary bg-bo-primary-soft text-bo-primary-strong"
-                        : "border-bo-border bg-white text-slate-600 hover:border-slate-300 hover:text-bo-foreground",
+                        : "border-bo-border bg-bo-surface text-slate-600 hover:border-slate-300 hover:text-bo-foreground",
                     )}
                   >
                     Sau {n} ngày

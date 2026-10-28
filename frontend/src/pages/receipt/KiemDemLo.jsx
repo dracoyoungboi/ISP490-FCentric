@@ -958,7 +958,7 @@ function KiemDemLoNoiDung() {
   if (loiTai) {
     return (
       <PageContainer>
-        <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+        <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
           {loiTai === "khong-thay" ? (
             <EmptyState
               icon={SearchX}
@@ -985,7 +985,7 @@ function KiemDemLoNoiDung() {
   if (!item) {
     return (
       <PageContainer>
-        <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+        <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
           <EmptyState
             icon={SearchX}
             title="Không tìm thấy biến thể trong phiếu nhập"
@@ -1067,7 +1067,7 @@ function KiemDemLoNoiDung() {
         ) : null}
       </div>
 
-      <section aria-label="Kiểm đếm biến thể" className="min-w-0 rounded-lg border border-bo-border bg-white shadow-sm">
+      <section aria-label="Kiểm đếm biến thể" className="min-w-0 rounded-lg border border-bo-border bg-bo-surface shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4 p-5">
           <div className="min-w-0 flex-[1_1_420px]">
             <div className="flex flex-wrap items-center gap-3">
@@ -1127,7 +1127,7 @@ function KiemDemLoNoiDung() {
                     onChange={(e) => setMaQuet(e.target.value)}
                     placeholder="Quét sản phẩm, mã kệ hoặc thẻ lệnh"
                     aria-label="Ô quét mã"
-                    className="h-11 w-full scroll-mt-3 rounded-md border border-slate-300 bg-white pl-10 pr-3 font-mono text-[15px] text-bo-heading placeholder:font-sans placeholder:text-sm placeholder:text-slate-400 focus:border-bo-primary focus:outline-none focus:ring-[3px] focus:ring-bo-primary/20"
+                    className="h-11 w-full scroll-mt-3 rounded-md border border-slate-300 bg-bo-surface pl-10 pr-3 font-mono text-[15px] text-bo-heading placeholder:font-sans placeholder:text-sm placeholder:text-slate-400 focus:border-bo-primary focus:outline-none focus:ring-[3px] focus:ring-bo-primary/20"
                   />
                 </label>
                 <Button type="submit" className="h-11 min-w-28 bg-bo-primary text-white hover:bg-bo-primary-hover">Nhận mã</Button>
@@ -1162,7 +1162,7 @@ function KiemDemLoNoiDung() {
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={moHopKhoaLo}
                   variant={t.trongLo > 0 ? "default" : "outline"}
-                  className={cn("gap-2", t.trongLo > 0 ? "bg-bo-primary text-white hover:bg-bo-primary-hover" : "border-bo-border bg-white text-bo-foreground")}
+                  className={cn("gap-2", t.trongLo > 0 ? "bg-bo-primary text-white hover:bg-bo-primary-hover" : "border-bo-border bg-bo-surface text-bo-foreground")}
                 >
                   <Lock className="size-4" /> Khóa lô…
                 </Button>

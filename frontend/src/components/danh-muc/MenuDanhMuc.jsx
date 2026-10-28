@@ -49,7 +49,7 @@ export default function MenuDanhMuc({ thaoTac, kieu = "dong", phu, onThemCon, on
       <DropdownMenuContent
         align="end"
         onClick={(event) => event.stopPropagation()}
-        className="z-50 w-[272px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+        className="z-50 w-[272px] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
       >
         {thaoTac.chuyen ? <MucMenu icon={FolderInput} nhan="Chuyển đến…" onSelect={onChuyen} /> : null}
         {thaoTac.xemNhanh ? <MucMenu icon={ScanSearch} nhan="Xem riêng nhánh này" onSelect={onXemNhanh} /> : null}
@@ -106,7 +106,7 @@ function BangTruot({ thaoTac, phu, onThemCon, onSua, onChuyen, onDoiTrangThai })
       <SheetContent
         side="bottom"
         onCloseAutoFocus={(event) => { if (daChon.current) event.preventDefault(); }}
-        className="gap-0 rounded-t-xl border-bo-border bg-white px-0 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] text-bo-foreground"
+        className="gap-0 rounded-t-xl border-bo-border bg-bo-surface px-0 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] text-bo-foreground"
       >
         <span aria-hidden="true" className="mx-auto mb-2 h-1 w-10 rounded-full bg-slate-200" />
         <SheetHeader className="gap-0.5 border-b border-slate-100 px-5 pt-1 pb-3 pr-12 text-left">

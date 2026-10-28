@@ -68,7 +68,7 @@ function MenuIconKenh({ maKenh, className }) {
   if (!file) return <ShoppingBag className={className} />;
   if (NEN_SANG_O_MENU.has(String(maKenh).toUpperCase())) {
     return (
-      <span aria-hidden="true" className={cn("grid shrink-0 place-items-center rounded-[4px] bg-white", className)}>
+      <span aria-hidden="true" className={cn("grid shrink-0 place-items-center rounded-[4px] bg-bo-surface", className)}>
         <img src={file} alt="" draggable={false} onError={baoLoi} className="size-[78%] select-none object-contain" />
       </span>
     );

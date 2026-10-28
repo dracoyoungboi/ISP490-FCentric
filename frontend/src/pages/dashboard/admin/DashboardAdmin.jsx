@@ -53,7 +53,7 @@ export default function DashboardAdmin() {
   if (status === "error") {
     return (
       <PageContainer>
-        <div className="rounded-lg border border-bo-border bg-white">
+        <div className="rounded-lg border border-bo-border bg-bo-surface">
           <ErrorState title="Không tải được trang Tổng quan" description="Kiểm tra kết nối tới máy chủ rồi thử lại." onRetry={reload} />
         </div>
       </PageContainer>
@@ -105,7 +105,7 @@ function Banner({ children, onRetry }) {
     <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-[13px] text-amber-800">
       <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
       <span className="min-w-0 flex-1">{children}</span>
-      <button type="button" onClick={onRetry} className="cursor-pointer rounded-md border border-amber-300 bg-white px-2.5 py-1 text-xs font-medium hover:bg-amber-50">
+      <button type="button" onClick={onRetry} className="cursor-pointer rounded-md border border-amber-300 bg-bo-surface px-2.5 py-1 text-xs font-medium hover:bg-amber-50">
         Thử lại
       </button>
     </div>
