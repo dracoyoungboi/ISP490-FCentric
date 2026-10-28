@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Camera, Info, Loader2, Play, Video, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
 import StatusBadge from "@/components/shared/StatusBadge";
 import CameraCaptureModal from "./CameraCaptureModal";
@@ -14,7 +13,6 @@ import {
   giayTuDung,
   gioiHanVideo,
   phanTramTaiLen,
-  resolveProofMediaUrl,
   chuThongTinTep,
   oBangChung,
   thoiLuongGuiLen,
@@ -22,22 +20,14 @@ import {
   videoQuaLon,
 } from "./dong-goi/tinhDongGoi";
 import { ghiThoiLuongWebm } from "./dong-goi/thoiLuongWebm";
+import { AnhThuNho, HopXemBangChung } from "./dong-goi/XemBangChung";
+import { dinhGio, dinhNgay, dongHo } from "./dong-goi/dinhDangBangChung";
 import { CHAT_LUONG_QUAY_VIDEO } from "@/config/bangChungTu";
 import useHoiKhiRoiTrang from "@/hooks/useHoiKhiRoiTrang";
 import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
 import { dongGoiService } from "@/services/dongGoiService";
 import { getApiErrorMessage } from "@/utils/apiError";
-import { formatDate } from "@/utils/formatters";
-
-const pad2 = (n) => String(n).padStart(2, "0");
-const dinhGio = (value) => {
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? "" : `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-};
-const dinhNgay = (value) => formatDate(value).slice(0, 5); // "20/11"
-const dongHo = (giay) => `${pad2(Math.floor(giay / 60))}:${pad2(giay % 60)}`;
-const urlCua = (bc) => resolveProofMediaUrl(bc?.urlPublic || bc?.duongDanMinio);
 
 /** Câu báo khi không mở được camera hoặc không bắt đầu quay được, theo loại lỗi của trình duyệt. */
 function cauLoiCamera(err) {
@@ -113,29 +103,6 @@ async function taoTepVideo(goc, thoiLuongMs) {
     // Dùng tệp gốc
   }
   return new File([goc], ten, { type: "video/webm" });
-}
-
-/**
- * Xem video bằng chứng. Video quay trước khi có bước ghi thời lượng báo thời lượng Infinity (thanh tua không dùng
- * được): tua tới cuối để trình duyệt tính thời lượng rồi quay về đầu, một lần.
- */
-function XemVideo({ src }) {
-  const daSuaRef = useRef(false);
-  const khiCoThongTin = (suKien) => {
-    const v = suKien.currentTarget;
-    if (Number.isFinite(v.duration) || daSuaRef.current) return;
-    daSuaRef.current = true;
-    const veDau = () => {
-      if (!Number.isFinite(v.duration)) return;
-      v.removeEventListener("durationchange", veDau);
-      v.currentTime = 0;
-      // Tua tới cuối có thể làm video dừng (ended): phát lại như autoPlay
-      v.play().catch(() => {});
-    };
-    v.addEventListener("durationchange", veDau);
-    v.currentTime = Number.MAX_SAFE_INTEGER;
-  };
-  return <video src={src} controls autoPlay onLoadedMetadata={khiCoThongTin} className="max-h-[70vh] max-w-full" />;
 }
 
 /**
@@ -254,24 +221,6 @@ function XemTruocTrucTiep({ stream }) {
     if (ref.current) ref.current.srcObject = stream ?? null;
   }, [stream]);
   return <video ref={ref} autoPlay muted playsInline className="absolute inset-0 size-full object-cover" />;
-}
-
-/** Ảnh thu nhỏ của tệp đã lưu (ảnh hoặc khung đầu của video); tải hỏng thì biểu tượng. */
-function AnhThuNho({ bc, laVideo, ten }) {
-  const [hong, setHong] = useState(false);
-  const url = urlCua(bc);
-  if (hong || !url) {
-    return (
-      <span className="grid size-full place-items-center bg-slate-100 text-slate-400">
-        {laVideo ? <Video className="size-8" aria-hidden="true" /> : <Camera className="size-8" aria-hidden="true" />}
-      </span>
-    );
-  }
-  return laVideo ? (
-    <video src={url} preload="metadata" muted playsInline onError={() => setHong(true)} className="size-full object-cover" aria-label={ten} />
-  ) : (
-    <img src={url} alt={ten} loading="lazy" onError={() => setHong(true)} className="size-full object-cover" />
-  );
 }
 
 /**
@@ -669,30 +618,15 @@ export default function PackingProofSection({
         description={o.find((x) => x.loai === chupLoai)?.goiY}
       />
 
-      <Dialog open={Boolean(xem)} onOpenChange={(mo) => !mo && setXem(null)}>
-        <DialogContent
-          className="max-w-[calc(100vw-2rem)] border-bo-border bg-white p-4 sm:max-w-3xl"
-          onCloseAutoFocus={(suKien) => {
-            if (!traTieuDiem) return;
-            suKien.preventDefault();
-            traTieuDiem();
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle className="pr-6 text-base font-semibold text-bo-heading">{xem?.ten}</DialogTitle>
-            <DialogDescription className="sr-only">{xem?.bangChung ? chuThongTinTep(xem.bangChung, { dinhGio, dinhNgay }) : ""}</DialogDescription>
-          </DialogHeader>
-          {xem?.bangChung ? (
-            <div className="grid place-items-center overflow-hidden rounded-md bg-black">
-              {xem.laVideo ? (
-                <XemVideo src={urlCua(xem.bangChung)} />
-              ) : (
-                <img src={urlCua(xem.bangChung)} alt={xem.ten} className="max-h-[70vh] max-w-full object-contain" />
-              )}
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
+      <HopXemBangChung
+        o={xem}
+        onDong={() => setXem(null)}
+        onCloseAutoFocus={(suKien) => {
+          if (!traTieuDiem) return;
+          suKien.preventDefault();
+          traTieuDiem();
+        }}
+      />
 
       <HopXacNhanChungTu
         mo={Boolean(xoa)}
