@@ -4,7 +4,6 @@ import { NhomThuocTinh } from "@/components/chung-tu/CotThuocTinh";
 import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
 import { AnhThuNho, HopXemBangChung } from "@/components/outbound/dong-goi/XemBangChung";
 import { dinhGio, dinhNgay, dongHo } from "@/components/outbound/dong-goi/dinhDangBangChung";
-import StatusBadge from "@/components/shared/StatusBadge";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { TRANG_THAI_DON } from "@/constants/trangThaiXuatBan";
@@ -58,17 +57,19 @@ export default function KhoiBangChungDongGoi({ donId, trangThai }) {
 
   const nd = noiDungBangChung(data, trangThai);
   if (nd.kieu === "an") return null;
-  const hanLuu = nd.kieu === "co"
-    ? nd.o.map((x) => x.bangChung?.ngayHetHan).filter(Boolean).sort()[0] ?? null
-    : null;
+  // Một dòng chữ như các nhóm khác của cột phải; chỉ tô màu cảnh báo khi đơn còn Chờ đóng gói mà thiếu tệp
+  const dong = nd.kieu === "co"
+    ? nd.canChuY
+      ? nd.thieu.length ? `Còn thiếu: ${nd.thieu.join(", ")}` : "Chưa đủ bằng chứng để hoàn tất đóng gói."
+      : [nd.dem, nd.hanLuu ? `lưu đến ${formatDate(nd.hanLuu)}` : ""].filter(Boolean).join(" · ")
+    : nd.kieu === "daXoa"
+      ? `Tệp bằng chứng đã tự xóa sau hạn lưu 30 ngày (hết hạn ${formatDate(nd.ngay)}).`
+      : nd.cau;
 
   return (
     <NhomThuocTinh nhan="Bằng chứng đóng gói">
       <div className="grid gap-2.5">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <StatusBadge label={nd.nhan} nhom={nd.nhom} />
-          {hanLuu ? <span className="text-xs text-bo-muted">Lưu đến {formatDate(hanLuu)}</span> : null}
-        </div>
+        <p className={cn("m-0 text-[13px] leading-5", nd.canChuY ? "font-medium text-bo-warning" : "text-bo-muted")}>{dong}</p>
 
         {nd.kieu === "co" ? (
           <ul className="m-0 grid list-none grid-cols-2 gap-2 p-0">
@@ -110,11 +111,7 @@ export default function KhoiBangChungDongGoi({ donId, trangThai }) {
               );
             })}
           </ul>
-        ) : (
-          <p className="m-0 text-[13px] leading-5 text-bo-muted">
-            {nd.kieu === "daXoa" ? `Tệp bằng chứng đã tự xóa sau hạn lưu 30 ngày (hết hạn ${formatDate(nd.ngay)}).` : nd.cau}
-          </p>
-        )}
+        ) : null}
       </div>
 
       <HopXemBangChung o={xem} onDong={() => setXem(null)} />

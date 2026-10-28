@@ -27,16 +27,23 @@ export function coKhoiBangChung({ trangThai, laPos = false, laBaoGia = false, la
   return TRANG_THAI_CO_KHOI.has(Number(trangThai));
 }
 
+/** "2 ảnh" / "1 video" / "1 video, 1 ảnh": số tệp đang lưu theo loại. */
+function demTep(o) {
+  const video = o.filter((x) => x.laVideo).length;
+  const anh = o.length - video;
+  return [video ? `${video} video` : "", anh ? `${anh} ảnh` : ""].filter(Boolean).join(", ");
+}
+
 /**
- * Nội dung khối theo dữ liệu bằng chứng và trạng thái đơn:
- * - `co`: còn tệp → các ô có tệp (`o`, theo thứ tự yêu cầu), nhãn Đủ / Chưa đủ.
- * - `chuaCo`: Chờ đóng gói, chưa có tệp nào.
- * - `daXoa`: đã đóng gói xong nhưng tệp đã tự xóa sau hạn lưu (`ngayTuXoa`).
- * - `khongCo`: đã qua đóng gói mà chưa từng có bằng chứng (đơn xuất trước khi có bước đóng gói).
+ * Nội dung khối theo dữ liệu bằng chứng và trạng thái đơn. Không dùng nhãn trạng thái: trường hợp bình thường chỉ là một
+ * dòng chữ mờ như các nhóm khác của cột phải; màu cảnh báo chỉ khi đơn còn Chờ đóng gói mà thiếu tệp (`canChuY`).
+ * - `co`: còn tệp → các ô có tệp (`o`, theo thứ tự yêu cầu), `dem` ("2 ảnh"), `hanLuu` (hạn sớm nhất của các tệp);
+ *   Chờ đóng gói chưa đủ → `canChuY` + `thieu` (tên ngắn các loại còn thiếu). Đơn đã qua đóng gói mà máy chủ tính "chưa đủ"
+ *   (video cũ không ghi thời lượng, đơn đổi tổng tiền qua ngưỡng video sau khi chụp) không báo thiếu: đơn đã qua cổng hoàn tất.
+ * - `chuaCo`: Chờ đóng gói, chưa có tệp nào (`canChuY`).
+ * - `daXoa`: đã đóng gói xong nhưng tệp đã tự xóa sau hạn lưu (`ngay` = `ngayTuXoa`).
+ * - `khongCo`: đã qua đóng gói mà không có tệp (`cau` theo trạng thái).
  * - `an`: đơn hủy không còn tệp → không vẽ khối.
- * Mỗi kết quả `{ kieu, nhan, nhom, cau? }`; `nhom`: nhóm màu của StatusBadge (xong | canChuY | thuong); `cau`: câu giải
- * thích khi không có tệp. Đơn đã qua đóng gói còn tệp mà máy chủ tính "chưa đủ" (video cũ không ghi thời lượng, đơn đổi
- * tổng tiền qua ngưỡng video sau khi chụp) không báo thiếu: đơn đã qua cổng hoàn tất, nhãn trung tính "Đã lưu".
  */
 export function noiDungBangChung(duLieu, trangThai) {
   const tt = Number(trangThai);
@@ -49,18 +56,17 @@ export function noiDungBangChung(duLieu, trangThai) {
       .map((b) => oBangChung({ yeuCauVideo: b.loaiBangChung === "VIDEO_DONG_GOI", danhSach: [b] }).find((x) => x.bangChung === b))
       .filter(Boolean);
     const o = [...tatCa.filter((x) => x.bangChung), ...ngoai];
-    const du = Boolean(duLieu?.daDuBangChung);
-    if (du) return { kieu: "co", o, nhan: "Đủ", nhom: "xong" };
-    return tt === TT.CHO_DONG_GOI
-      ? { kieu: "co", o, nhan: "Chưa đủ", nhom: "canChuY" }
-      : { kieu: "co", o, nhan: "Đã lưu", nhom: "thuong" };
+    const hanLuu = o.map((x) => x.bangChung.ngayHetHan).filter(Boolean).sort()[0] ?? null;
+    const canChuY = tt === TT.CHO_DONG_GOI && !duLieu?.daDuBangChung;
+    const thieu = canChuY ? tatCa.filter((x) => !x.bangChung).map((x) => TEN_NGAN_BANG_CHUNG[x.loai] ?? x.ten) : [];
+    return { kieu: "co", o, dem: demTep(o), hanLuu, canChuY, thieu };
   }
   if (tt === TT.DA_HUY) return { kieu: "an" };
-  if (tt === TT.CHO_DONG_GOI) return { kieu: "chuaCo", nhan: "Chưa có", nhom: "canChuY", cau: "Chưa chụp hoặc quay bằng chứng đóng gói." };
-  if (duLieu?.ngayTuXoa) return { kieu: "daXoa", nhan: "Đã tự xóa", nhom: "thuong", ngay: duLieu.ngayTuXoa };
+  if (tt === TT.CHO_DONG_GOI) return { kieu: "chuaCo", canChuY: true, cau: "Chưa chụp hoặc quay bằng chứng đóng gói." };
+  if (duLieu?.ngayTuXoa) return { kieu: "daXoa", ngay: duLieu.ngayTuXoa };
   // Chờ xuất kho (đã đóng gói, chưa xuất) mà không còn tệp: không phải đơn cũ, không nói "xuất trước khi có bước đóng gói"
   const cau = tt === TT.DA_DONG_GOI
     ? "Không tìm thấy tệp bằng chứng của đơn."
     : "Đơn xuất kho trước khi có bước đóng gói nên không có bằng chứng.";
-  return { kieu: "khongCo", nhan: "Không có", nhom: "thuong", cau };
+  return { kieu: "khongCo", cau };
 }
