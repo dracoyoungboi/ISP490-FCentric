@@ -178,6 +178,15 @@ const SALES_INVOICE_SECTIONS = [
             // Không có phí nào cộng thêm thì "Tổng tiền hàng" trùng "Tổng thanh toán" — chỉ in một dòng
             { key: "items", label: "Tổng tiền hàng", modelPath: "totals.items", hideWhenSameAs: "totals.grandTotal" },
             { key: "shipping", label: "Phí vận chuyển", modelPath: "totals.shipping", rawPath: "totals.shippingRaw", hideWhenZero: true },
+            // Thuế GTGT chụp lúc chốt đơn (giá đã gồm thuế, tách ngược từ tổng thanh toán); đơn không mang thuế tự ẩn
+            {
+                key: "vatPreTax",
+                label: "Cộng tiền chưa thuế",
+                modelPath: "vat.preTax",
+                hint: "Chỉ in khi đơn mang thuế GTGT (Cấu hình › Thuế GTGT)",
+            },
+            { key: "vatRate", label: "Thuế suất GTGT", modelPath: "vat.rate", hint: "Chỉ in khi đơn mang thuế GTGT" },
+            { key: "vatAmount", label: "Tiền thuế GTGT", modelPath: "vat.amount", hint: "Chỉ in khi đơn mang thuế GTGT" },
             { key: "grandTotal", label: "Tổng thanh toán", modelPath: "totals.grandTotal", emphasis: true, essential: true },
             // Bán tại quầy trả tiền mặt (sổ thu POS); đơn khác không có dữ liệu nên tự ẩn
             {
@@ -193,6 +202,20 @@ const SALES_INVOICE_SECTIONS = [
                 rawPath: "payment.changeRaw",
                 hideWhenZero: true,
                 hint: "Chỉ in khi khách trả tiền mặt và có tiền thừa",
+            },
+            // Đơn bán thường thu theo phiếu (đặt cọc, thu nhiều lần); đơn khác không có dữ liệu nên tự ẩn
+            {
+                key: "paid",
+                label: "Đã thanh toán",
+                modelPath: "payment.paid",
+                hint: "Chỉ in khi đơn bán thường đã ghi nhận thu tiền",
+            },
+            {
+                key: "due",
+                label: "Còn phải thu",
+                modelPath: "payment.due",
+                emphasis: true,
+                hint: "Chỉ in khi đơn bán thường còn thiếu tiền",
             },
         ],
         words: { key: "amountInWords", label: "Bằng chữ", modelPath: "amountInWords" },
