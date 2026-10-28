@@ -1558,7 +1558,7 @@ export default function PosSalesPage({
       controller.abort();
       window.clearInterval(id);
       sockets.forEach((s) => {
-        try { s.close(); } catch (_) {}
+        try { s.close(); } catch { /* kết nối đã đóng sẵn thì bỏ qua */ }
       });
     };
   };
