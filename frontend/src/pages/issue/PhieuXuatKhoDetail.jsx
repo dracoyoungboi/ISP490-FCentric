@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Ban, PackageCheck, Printer, Truck } from "lucide-react";
+import { Ban, PackageCheck, Printer, ShieldCheck, Truck } from "lucide-react";
 import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
 import { getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
 import { TRANG_THAI_PHIEU_XUAT } from "@/constants/trangThaiXuatBan";
@@ -24,6 +24,7 @@ import {
   laLoiHetThoiHan,
 } from "@/components/chung-tu/thoiHanThaoTac";
 import DispatchDialog from "@/components/outbound/DispatchDialog";
+import PackingProofModal from "@/components/outbound/PackingProofModal";
 import BangSanPhamXuat from "@/components/outbound/phieu-xuat/BangSanPhamXuat";
 import ThuocTinhPhieuXuat from "@/components/outbound/phieu-xuat/ThuocTinhPhieuXuat";
 import useLoTheoDong from "@/components/outbound/phieu-xuat/useLoTheoDong";
@@ -189,6 +190,9 @@ function ManPhieuXuatKho({ id }) {
   const tt = Number(phieu.trangThai);
   const chuaXuat = tt === TRANG_THAI_PHIEU_XUAT.NHAP || tt === TRANG_THAI_PHIEU_XUAT.CHO_XUAT;
   const daHuy = tt === TRANG_THAI_PHIEU_XUAT.DA_HUY;
+  // Phiếu bán hàng đã đóng gói xong: xem lại bằng chứng của đơn (chỉ xem — máy chủ chặn thêm / thay / xóa)
+  const coXemBangChung = !laCk && !laPos && Boolean(phieu.donBanHang?.id)
+    && (tt === TRANG_THAI_PHIEU_XUAT.CHO_XUAT || tt === TRANG_THAI_PHIEU_XUAT.DA_XUAT);
   const ghiChu = tachGhiChuPhieuXuat(phieu.ghiChu);
   const soDong = bang.tong.soDong;
   const soThieu = dong.filter((d) => !d.du).length;
@@ -372,9 +376,12 @@ function ManPhieuXuatKho({ id }) {
             nhanQuayLai="Về danh sách phiếu xuất kho"
             nutPhu={quyen.coIn ? { ma: "in", nhan: "In phiếu", icon: Printer, onClick: () => navigate(`/goods-issues/${phieu.id}/print`) } : null}
             saoChepMa={{ giaTri: phieu.soPhieuXuat, nhan: "Sao chép mã phiếu" }}
-            menu={
+            menu={[
+              coXemBangChung
+                ? { ma: "bangChung", nhan: "Xem bằng chứng đóng gói", icon: ShieldCheck, onSelect: () => setHop("bangChung") }
+                : null,
               quyen.coHuy
-                ? [{
+                ? {
                   ma: "huy",
                   nhan: "Hủy phiếu",
                   icon: Ban,
@@ -382,9 +389,9 @@ function ManPhieuXuatKho({ id }) {
                   moTa: choGoc ? LY_DO_CHO_GOC : "Trả lại số lượng đang giữ cho tồn kho",
                   khoa: dangXuLy || choGoc,
                   onSelect: () => setHop("huy"),
-                }]
-                : []
-            }
+                }
+                : null,
+            ]}
             nutChinh={nutChinh}
           />
         }
@@ -422,6 +429,15 @@ function ManPhieuXuatKho({ id }) {
         iconXacNhan={Truck}
         dangChay={dangXuLy}
         onXacNhan={xacNhanVanChuyen}
+      />
+
+      <PackingProofModal
+        isOpen={hop === "bangChung" && coXemBangChung}
+        onClose={() => setHop(null)}
+        donId={phieu.donBanHang?.id}
+        soDonHang={phieu.donBanHang?.soDonHang}
+        readOnly
+        lyDoKhoaXoa="Phiếu đã đóng gói xong, không thể xóa bằng chứng"
       />
 
       <HopXacNhanChungTu
