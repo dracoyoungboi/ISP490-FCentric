@@ -29,6 +29,16 @@ import {
   savePosDrafts,
   removePendingCheckoutId,
 } from '@/services/posService';
+import {
+  canTraLaiTienMat,
+  khoaTaoQrKemTienMat,
+  kiemTienMatTruocQr,
+  ganGioHetHanMay,
+  hetHanTheoMay,
+  loiTaoQrChacChuaCoMa,
+  tienMatChuaTraLai,
+  tienMatTruocCua,
+} from './pos-payment';
 
 // Danh mục gộp kích cỡ: mỗi trang 60 dòng mẫu + màu (mỗi dòng gồm đủ các kích cỡ của nó).
 const PAGE_SIZE = 60;
@@ -38,6 +48,13 @@ const SEARCH_DEBOUNCE_MS = 250;
 const PAYOS_POLL_MS = 3000;
 // Giao dịch lỗi chờ quản lý: hỏi thưa hơn (quản lý xử lý tính bằng phút), WebSocket vẫn báo ngay.
 const PAYOS_PAID_ERROR_POLL_MS = 15000;
+// Mã QR về 00:00: ẩn mã ngay nhưng chờ thêm từng ấy mới tự hủy, để khách đã quét trước 00:00 và đang bấm chuyển vẫn
+// kịp (trước đây job hết hạn chạy mỗi phút nên vô tình có khoảng chờ này).
+const PAYOS_AUTO_CLOSE_GRACE_MS = 20000;
+// Chưa tự hủy được (mất mạng, payOS chưa xác nhận): thử hủy lại sau từng ấy.
+const PAYOS_AUTO_CLOSE_RETRY_MS = 15000;
+// setTimeout quá mức này chạy ngay lập tức
+const MAX_TIMEOUT_MS = 2147483647;
 const PAYOS_LOCKING_STATUSES = ['PENDING', 'PAID_ERROR'];
 // Tồn đổi do quầy khác bán: tải ngầm lại trang catalog đang xem theo chu kỳ (khi tab đang hiển thị).
 const CATALOG_REFRESH_MS = 30000;
@@ -98,6 +115,8 @@ function createInvoice(number, { warehouseId = null, customer = null } = {}) {
     note: '',
     paymentMethod: 'cash',
     paymentAmount: 0,
+    // Chuyển khoản QR: tiền mặt khách đưa trước (trả kết hợp). Trống = mã QR trọn hóa đơn như cũ.
+    tienMatTruoc: '',
     attempt: null, // {requestId, status: pending|unknown|failed|succeeded, payload, result, error}
     payos: null, // giao dịch chuyển khoản payOS đang mở: {orderCode, requestId, trangThai, qrCode, ...}
   };
@@ -127,10 +146,12 @@ const toDraft = (invoice) => {
     note: invoice.note,
     paymentMethod: invoice.paymentMethod,
     paymentAmount: invoice.paymentAmount,
+    tienMatTruoc: invoice.tienMatTruoc ?? '',
     // Giao dịch tiền mặt đã gửi mà chưa rõ kết quả: giữ để bắt buộc kiểm tra lại, không cho gửi trùng.
     attempt: keepAttempt ? { ...invoice.attempt, status: 'unknown', result: null } : null,
     // Chờ quét QR hoặc đã nhận tiền nhưng lỗi (chờ quản lý): giữ để hóa đơn vẫn khóa sau F5, không thu tiền lại.
-    payos: PAYOS_LOCKING_STATUSES.includes(invoice.payos?.trangThai) ? invoice.payos : null,
+    // Mã QR không thành mà chưa xác nhận trả lại tiền mặt khách đưa trước: giữ để sau F5 vẫn nhắc trả lại.
+    payos: PAYOS_LOCKING_STATUSES.includes(invoice.payos?.trangThai) || canTraLaiTienMat(invoice.payos) ? invoice.payos : null,
   };
 };
 
@@ -146,6 +167,7 @@ const restoreDrafts = (drafts, warehouses, defaultWarehouseId) => {
       warehouseId: warehouses.some((w) => w.id === d.warehouseId) ? d.warehouseId : defaultWarehouseId,
       cart: Array.isArray(d.cart) ? d.cart : [],
       note: d.note || '',
+      tienMatTruoc: Number(d.tienMatTruoc) > 0 ? d.tienMatTruoc : '',
     }));
   if (!invoices.length) return null;
   const activeInvoice = invoices.some((i) => i.number === drafts.activeInvoice) ? drafts.activeInvoice : invoices[0].number;
@@ -326,6 +348,10 @@ export default function PosSalesPage({
   const [closingInvoiceNumber, setClosingInvoiceNumber] = useState(null);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [paymentError, setPaymentError] = useState('');
+  // Lỗi khi xác nhận trả lại tiền mặt khách đưa trước (409…): { orderCode, message } — chỉ hiện ở đúng mã QR đó.
+  const [returnCashError, setReturnCashError] = useState(null);
+  // Lần tự hủy mã QR hết giờ gần nhất bị lỗi, theo orderCode: { message, final } (final = không tự thử lại nữa)
+  const [autoCloseErrors, setAutoCloseErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Chế độ quét mã: ô quét thay ô tìm kiếm, mỗi mã quét được tra CHÍNH XÁC rồi thêm 1 vào hóa đơn.
   const [scanMode, setScanMode] = useState(() => readFlag(SCAN_MODE_KEY, false));
@@ -509,9 +535,11 @@ export default function PosSalesPage({
   }, [warehouseId, debouncedSearch, stockFilter, catalogPage]);
 
   // ===== Sau F5: hỏi lại trạng thái các mã QR payOS đang chờ (tiền có thể đã về trong lúc tải lại) =====
-  // và các giao dịch lỗi chờ quản lý (có thể đã được tạo đơn / hoàn tiền trong lúc tải lại).
+  // và các giao dịch lỗi chờ quản lý (có thể đã được tạo đơn / hoàn tiền trong lúc tải lại),
+  // cùng các mã không thành còn chờ xác nhận trả lại tiền mặt khách đưa trước (có thể đã xác nhận ở nơi khác).
   useEffect(() => {
-    const pending = (restoredDrafts?.invoices || []).filter((invoice) => PAYOS_LOCKING_STATUSES.includes(invoice.payos?.trangThai));
+    const pending = (restoredDrafts?.invoices || []).filter((invoice) => PAYOS_LOCKING_STATUSES.includes(invoice.payos?.trangThai)
+      || canTraLaiTienMat(invoice.payos));
     if (!pending.length) return undefined;
     let cancelled = false;
     (async () => {
@@ -519,9 +547,24 @@ export default function PosSalesPage({
         try {
           const link = await posService.getPayosStatus(invoice.payos.orderCode);
           if (cancelled || !link) continue;
+          const nhacTraLai = (current) => {
+            patchInvoice(invoice.number, { payos: current });
+            if (invoice.number === restoredDrafts.activeInvoice) setDialog('payos-qr');
+            else showToast(`Hóa đơn ${invoice.number}: mã QR không thành — trả lại khách ${formatMoney(tienMatTruocCua(current))} tiền mặt, rồi mở hóa đơn đó bấm "Đã trả lại tiền mặt".`, 'warning');
+          };
+          if (!PAYOS_LOCKING_STATUSES.includes(invoice.payos.trangThai)) {
+            // Bản nháp chỉ còn nhắc trả lại tiền mặt đưa trước: đã xác nhận ở nơi khác -> mở lại hóa đơn; chưa -> nhắc tiếp
+            // (tiền chuyển khoản về sau khi đã hủy mã vẫn phải trả lại tiền mặt -> giữ giao dịch đã lưu).
+            if (!tienMatChuaTraLai(link)) patchInvoice(invoice.number, { payos: null });
+            else nhacTraLai(canTraLaiTienMat(link) ? link : invoice.payos);
+            continue;
+          }
           if (['PENDING', 'PAID', 'PAID_ERROR', 'REFUNDED'].includes(link.trangThai)) {
             applyPayosUpdate(invoice.number, link, { quiet: invoice.number === restoredDrafts.activeInvoice });
             if (PAYOS_LOCKING_STATUSES.includes(link.trangThai) && invoice.number === restoredDrafts.activeInvoice) setDialog('payos-qr');
+          } else if (canTraLaiTienMat(link)) {
+            // Mã hết hạn / bị hủy trong lúc tải lại mà khách đã đưa trước tiền mặt: giữ giao dịch để nhắc trả lại.
+            nhacTraLai(link);
           } else {
             // Mã đã hết hạn/bị hủy: mở khóa giỏ để thanh toán lại (hàng giữ chỗ đã được server trả về kho).
             patchInvoice(invoice.number, { payos: null });
@@ -623,7 +666,7 @@ export default function PosSalesPage({
     // Chính sách Phase 01 mục 5: đổi kho -> xóa giỏ hóa đơn hiện tại (không giữ nhầm dòng hàng).
     const hadItems = cart.length > 0;
     setInvoices((current) => current.map((invoice) => invoice.number === activeInvoice
-      ? { ...invoice, warehouseId: target, cart: [], attempt: invoice.attempt?.status === 'failed' ? null : invoice.attempt }
+      ? { ...invoice, warehouseId: target, cart: [], tienMatTruoc: '', attempt: invoice.attempt?.status === 'failed' ? null : invoice.attempt }
       : invoice));
     setSearch('');
     setCatalogPage(0);
@@ -737,6 +780,8 @@ export default function PosSalesPage({
     setCart([]);
     setNote('');
     setPaymentAmount(0);
+    // Tiền mặt đưa trước là của khách cũ: không để điền sẵn cho khách sau.
+    updateInvoice('tienMatTruoc', '');
     clearFailedAttemptAfterEdit();
     showToast('Đã xóa nội dung hóa đơn.', 'success');
   };
@@ -770,6 +815,16 @@ export default function PosSalesPage({
     updateInvoice('paymentAmount', cash);
     setPaymentError(cash < total ? 'Số tiền khách thanh toán chưa đủ.' : '');
     clearFailedAttemptAfterEdit();
+  };
+
+  /**
+   * Ô "Khách đưa trước tiền mặt" (chuyển khoản QR, trả kết hợp): giữ đúng chữ đang gõ — trống = mã QR trọn hóa đơn;
+   * số sai được báo ngay trong màn thanh toán (kiemTienMatTruocQr), máy chủ vẫn kiểm lại khi tạo mã.
+   */
+  const setTienMatTruocForInvoice = (value) => {
+    if (frozen) return;
+    updateInvoice('tienMatTruoc', value == null ? '' : String(value));
+    setPaymentError('');
   };
 
   // ===== Tab hóa đơn =====
@@ -819,6 +874,13 @@ export default function PosSalesPage({
     if (isSubmitting || dialog) return;
     const target = invoices.find((invoice) => invoice.number === number);
     if (!target) return;
+    // Mã QR không thành mà chưa xác nhận trả lại tiền mặt khách đưa trước: phải trả lại trước khi đóng tab.
+    if (canTraLaiTienMat(target.payos)) {
+      setActiveInvoice(number);
+      setDialog('payos-qr');
+      showToast(`Hóa đơn ${number}: trả lại khách ${formatMoney(tienMatTruocCua(target.payos))} tiền mặt và bấm "Đã trả lại tiền mặt" trước khi đóng hóa đơn.`, 'warning');
+      return;
+    }
     // Giao dịch lỗi đã chuyển cho quản lý (còn nằm ở màn Đối soát chuyển khoản): cho đóng tab sau khi hỏi lại.
     if (isPayosPaidError(target)) {
       setClosingInvoiceNumber(number);
@@ -1162,6 +1224,11 @@ export default function PosSalesPage({
   };
 
   const openPayment = () => {
+    // Mã QR không thành mà chưa xác nhận trả lại tiền mặt khách đưa trước -> phải qua ô "Trả lại khách" trước khi thu lại.
+    if (canTraLaiTienMat(currentInvoice.payos)) {
+      setDialog('payos-qr');
+      return;
+    }
     if (!cart.length) {
       showToast('Thêm ít nhất một sản phẩm trước khi thanh toán.', 'warning');
       return;
@@ -1236,11 +1303,15 @@ export default function PosSalesPage({
    * (WebSocket và lượt hỏi định kỳ có thể cùng báo một kết quả). `quiet`: không báo lỗi PAID_ERROR vì
    * nơi gọi sẽ mở ngay hộp thoại mã QR của hóa đơn đó.
    */
-  const applyPayosUpdate = (invoiceNumber, link, { quiet = false } = {}) => {
-    if (!link) return;
+  const applyPayosUpdate = (invoiceNumber, rawLink, { quiet = false } = {}) => {
+    if (!rawLink) return;
+    // Đồng hồ mã QR theo giờ máy chủ (máy quầy có thể lệch giờ)
+    const link = ganGioHetHanMay(rawLink);
     const ui = uiRef.current;
     const target = ui.invoices.find((invoice) => invoice.number === invoiceNumber);
     if (!target?.payos || String(target.payos.orderCode) !== String(link.orderCode)) return;
+    // Kết quả cũ (đọc trước khi mã đóng) về sau: không đưa mã đã đóng trở lại "đang chờ"
+    if (link.trangThai === 'PENDING' && target.payos.trangThai !== 'PENDING') return;
     const appliedKey = `${link.orderCode}:${link.trangThai}`;
     if (appliedPayosRef.current.has(appliedKey)) return;
     appliedPayosRef.current.add(appliedKey);
@@ -1265,11 +1336,20 @@ export default function PosSalesPage({
       if (!(isActive && (quiet || ui.dialog === 'payos-qr'))) {
         showToast(`Hóa đơn ${invoiceNumber}: khách đã chuyển khoản nhưng chưa tạo được đơn — hóa đơn đã khóa, chờ quản lý xử lý. Không thu tiền lại của khách.`, 'error');
       }
+    } else if (link.trangThai === 'REFUNDED' && tienMatChuaTraLai(link)) {
+      // Quản lý đã hoàn khoản chuyển khoản nhưng tiền mặt khách đưa trước vẫn ở quầy: giữ giao dịch để hộp mã QR
+      // hiện ô "Trả lại khách"; xác nhận xong hóa đơn mới mở lại.
+      if (isActive && (!ui.dialog || ui.dialog === 'payos-qr')) setDialog('payos-qr');
+      showToast(`Hóa đơn ${invoiceNumber}: quản lý đã hoàn tiền chuyển khoản cho khách — trả lại khách ${formatMoney(tienMatTruocCua(link))} tiền mặt rồi bấm "Đã trả lại tiền mặt".`, 'warning');
     } else if (link.trangThai === 'REFUNDED') {
       // Quản lý đã hoàn tiền chuyển khoản, hàng giữ chỗ đã trả kho -> mở lại giỏ để bán lại nếu khách muốn.
       patchInvoice(invoiceNumber, { payos: null });
       if (isActive && ui.dialog === 'payos-qr') setDialog(null);
       showToast(`Hóa đơn ${invoiceNumber}: quản lý đã hoàn tiền chuyển khoản cho khách — hóa đơn đã mở lại.`, 'warning');
+    } else if (['EXPIRED', 'CANCELLED', 'FAILED'].includes(link.trangThai) && tienMatChuaTraLai(link)) {
+      // Mã không thành mà khách đã đưa trước tiền mặt: hộp mã QR hiện ô "Trả lại khách" (chặn thu lại tới khi xác nhận).
+      if (isActive && (!ui.dialog || ui.dialog === 'payos-qr')) setDialog('payos-qr');
+      else showToast(`Mã QR của hóa đơn ${invoiceNumber} đã hết hạn hoặc bị hủy — trả lại khách ${formatMoney(tienMatTruocCua(link))} tiền mặt, rồi mở hóa đơn ${invoiceNumber} bấm "Đã trả lại tiền mặt".`, 'warning');
     } else if (!isActive && ['EXPIRED', 'CANCELLED', 'FAILED'].includes(link.trangThai)) {
       showToast(`Mã QR của hóa đơn ${invoiceNumber} đã hết hạn hoặc bị hủy — hóa đơn đã được mở khóa.`, 'warning');
     }
@@ -1291,16 +1371,37 @@ export default function PosSalesPage({
       setPaymentError(OVER_STOCK_MESSAGE);
       return;
     }
-    const requestId = invoice.payos?.trangThai === 'PENDING' ? invoice.payos.requestId : newCheckoutRequestId();
+    // Mã trước không thành mà chưa xác nhận trả lại tiền mặt khách đưa trước: xác nhận xong mới tạo mã mới.
+    if (canTraLaiTienMat(invoice.payos)) {
+      setDialog('payos-qr');
+      return;
+    }
+    // Trả kết hợp: tiền mặt khách đưa trước (trống = mã QR trọn hóa đơn, như cũ). Máy chủ vẫn kiểm lại.
+    const qr = kiemTienMatTruocQr(total, invoice.tienMatTruoc);
+    if (qr.loi) {
+      setPaymentError(qr.loi);
+      return;
+    }
+    const kemTienMat = qr.tienMat > 0;
+    // Lần tạo mã kèm tiền mặt trước bị lỗi chưa rõ (mất mạng, máy chủ quá giờ) thì mã có thể đã được tạo: bấm lại với
+    // đúng giỏ, khách, tiền mặt đó -> dùng lại requestId để máy chủ trả mã cũ, không sinh mã thứ hai mang cùng tiền mặt.
+    const khoaThuLai = kemTienMat ? khoaTaoQrKemTienMat(buildPayload({ ...invoice, attempt: { requestId: '' } }), qr.tienMat) : null;
+    const requestId = invoice.payos?.trangThai === 'PENDING' ? invoice.payos.requestId
+      : kemTienMat && invoice.payosThuLai?.khoa === khoaThuLai ? invoice.payosThuLai.requestId
+        : newCheckoutRequestId();
     const payload = buildPayload({ ...invoice, attempt: { requestId } });
+    // Chỉ gửi tienMatTruoc khi khách có đưa trước tiền mặt: mã QR trọn hóa đơn giữ nguyên nội dung gửi như cũ.
+    if (kemTienMat) payload.tienMatTruoc = qr.tienMat;
     setIsSubmitting(true);
     setPaymentError('');
     try {
-      const link = await posService.createPayosLink(payload);
-      patchInvoice(invoice.number, { payos: link });
+      const link = ganGioHetHanMay(await posService.createPayosLink(payload));
+      patchInvoice(invoice.number, { payos: link, payosThuLai: null });
       setDialog('payos-qr');
     } catch (error) {
       const envelope = error?.response?.data;
+      const chacChuaCoMa = loiTaoQrChacChuaCoMa(error);
+      if (kemTienMat) patchInvoice(invoice.number, { payosThuLai: chacChuaCoMa ? null : { requestId, khoa: khoaThuLai } });
       if (error?.response?.status === 409 && envelope?.data?.priceChanged) {
         handleCheckoutError(invoice.number, error, { requestId });
       } else {
@@ -1308,7 +1409,14 @@ export default function PosSalesPage({
           setInvoices((current) => withInsufficientStock(current, invoice.number, envelope.data.insufficient));
           setRefreshKey((key) => key + 1);
         }
-        setPaymentError(isNetworkError(error) ? NETWORK_ERROR_MESSAGE : envelope?.message || 'Không tạo được mã QR. Kiểm tra kết nối rồi thử lại.');
+        let message = isNetworkError(error) ? NETWORK_ERROR_MESSAGE : envelope?.message || 'Không tạo được mã QR. Kiểm tra kết nối rồi thử lại.';
+        if (kemTienMat && error?.response?.status === 502 && chacChuaCoMa) {
+          // payOS từ chối: không có mã QR nào, tiền mặt khách đưa chưa được ghi vào đâu
+          message += ` Chưa có mã QR nào được tạo — ${formatMoney(qr.tienMat)} tiền mặt khách đưa chưa được ghi nhận: thử tạo mã lại, thu cả hóa đơn bằng Tiền mặt hoặc trả lại khách.`;
+        } else if (kemTienMat && !chacChuaCoMa) {
+          message += ' Chưa rõ mã QR đã được tạo chưa: bấm Tạo mã QR lại (giữ nguyên giỏ hàng và số tiền mặt) để lấy đúng mã cũ nếu đã có.';
+        }
+        setPaymentError(message);
       }
     } finally {
       setIsSubmitting(false);
@@ -1318,6 +1426,8 @@ export default function PosSalesPage({
   const cancelPayosQr = async () => {
     const invoice = currentInvoice;
     if (!invoice.payos?.orderCode || isSubmitting) return;
+    // Máy quầy đang tự hủy chính mã này (hết giờ): không gửi lệnh hủy thứ hai
+    if (autoCloseRef.current.inFlight.has(String(invoice.payos.orderCode))) return;
     if (!online) {
       showToast('Đang mất mạng — chưa hủy được mã QR. Có mạng lại hãy thử lại.', 'warning');
       return;
@@ -1330,6 +1440,11 @@ export default function PosSalesPage({
         applyPayosUpdate(invoice.number, link);
       } else if (link?.trangThai === 'PENDING') {
         showToast('Mã QR vẫn đang chờ khách chuyển khoản — chưa hủy được, thử lại sau ít phút.', 'warning');
+      } else if (canTraLaiTienMat(link)) {
+        // Khách đã đưa trước tiền mặt: giữ hộp mã QR để trả lại khách và bấm xác nhận (hóa đơn mở lại sau đó).
+        patchInvoice(invoice.number, { payos: link });
+        setReturnCashError(null);
+        showToast(`Đã hủy mã QR, hàng giữ chỗ đã được trả lại kho. Trả lại khách ${formatMoney(tienMatTruocCua(link))} tiền mặt.`, 'warning');
       } else {
         patchInvoice(invoice.number, { payos: null });
         setDialog('payment');
@@ -1345,6 +1460,37 @@ export default function PosSalesPage({
   const recreatePayosQr = () => {
     patchInvoice(currentInvoice.number, { payos: null });
     setDialog('payment');
+  };
+
+  /**
+   * Thu ngân xác nhận đã trả lại khách tiền mặt đưa trước của mã QR không thành. Xong thì hóa đơn mở lại như sau khi
+   * hủy mã QR (giỏ giữ nguyên, về màn thanh toán); quản lý đã hoàn khoản chuyển khoản thì chỉ đóng hộp như trước.
+   */
+  const returnPayosCash = async (orderCode) => {
+    if (!orderCode || isSubmitting) return;
+    if (!online) {
+      setReturnCashError({ orderCode, message: 'Đang mất mạng — chưa ghi được. Có mạng lại hãy bấm lại.' });
+      return;
+    }
+    const invoice = invoices.find((item) => String(item.payos?.orderCode) === String(orderCode));
+    setIsSubmitting(true);
+    setReturnCashError(null);
+    try {
+      const link = await posService.returnPayosCash(orderCode);
+      if (invoice) {
+        // Tiền mặt đã về tay khách: bỏ số cũ, lần thu sau nhập lại.
+        patchInvoice(invoice.number, { payos: null, tienMatTruoc: '' });
+        if (invoice.number === activeInvoice) setDialog(invoice.payos?.trangThai === 'REFUNDED' || !invoice.cart.length ? null : 'payment');
+      }
+      showToast(`Đã ghi nhận trả lại khách ${formatMoney(tienMatTruocCua(link) || tienMatTruocCua(invoice?.payos))} tiền mặt — hóa đơn đã mở lại.`, 'success');
+    } catch (error) {
+      setReturnCashError({
+        orderCode,
+        message: isNetworkError(error) ? NETWORK_ERROR_MESSAGE : error?.response?.data?.message || 'Không ghi nhận được. Vui lòng thử lại.',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   /**
@@ -1428,6 +1574,79 @@ export default function PosSalesPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [pendingPayosKey]);
 
+  /**
+   * Mã QR hết giờ mà máy chủ vẫn báo đang chờ: máy quầy tự hủy mã thay vì đợi job hết hạn (chạy mỗi phút) — trong
+   * khoảng đó hộp mã QR đã ẩn mã nhưng hàng vẫn bị giữ và mã payOS vẫn sống. Hủy sau 00:00 thêm
+   * PAYOS_AUTO_CLOSE_GRACE_MS; máy chủ hỏi payOS lần cuối trước khi hủy nên khách vừa trả kịp thì đơn vẫn hoàn tất.
+   * Chưa hủy được (mất mạng, payOS chưa xác nhận) thì thử lại sau ít giây tới khi mã đóng (bằng đường này, lượt hỏi
+   * trạng thái hoặc job); lỗi không tự hết (mất quyền, không còn mã) thì thôi và để thu ngân bấm Hủy mã QR.
+   */
+  const autoCloseRef = useRef({ stopped: false, inFlight: new Set(), retries: new Map() });
+  useEffect(() => {
+    const state = autoCloseRef.current;
+    state.stopped = false;
+    return () => {
+      state.stopped = true;
+      state.retries.forEach((id) => window.clearTimeout(id));
+      state.retries.clear();
+    };
+  }, []);
+  const autoCloseExpiredQr = async (invoiceNumber, orderCode, fromRetry = false) => {
+    const state = autoCloseRef.current;
+    const key = String(orderCode);
+    const target = uiRef.current.invoices.find((invoice) => invoice.number === invoiceNumber);
+    // Mỗi mã chỉ một chuỗi tự hủy: đang gửi, hoặc đã hẹn thử lại thì lần gọi mới (hẹn giờ chạy lại) bỏ qua
+    if (state.stopped || state.inFlight.has(key) || (!fromRetry && state.retries.has(key))
+      || target?.payos?.trangThai !== 'PENDING' || String(target.payos.orderCode) !== key) return;
+    state.inFlight.add(key);
+    let retry = true;
+    let loi = null;
+    try {
+      const link = await posService.cancelPayos(key);
+      if (link && link.trangThai !== 'PENDING') {
+        applyPayosUpdate(invoiceNumber, link);
+        retry = false;
+      }
+    } catch (error) {
+      // Mất mạng, 409 (payOS chưa xác nhận hủy), 5xx: thử lại. Lỗi khác (mất quyền kho, không còn mã) thử mãi cũng vậy.
+      const status = error?.response?.status;
+      retry = status == null || status === 409 || status >= 500;
+      loi = isNetworkError(error) ? 'máy đang mất mạng' : error?.response?.data?.message || 'máy chủ chưa phản hồi';
+    } finally {
+      state.inFlight.delete(key);
+    }
+    if (state.stopped) return;
+    setAutoCloseErrors((current) => {
+      if (!loi && !current[key]) return current;
+      const next = { ...current };
+      if (loi) next[key] = { message: loi, final: !retry };
+      else delete next[key];
+      return next;
+    });
+    if (!retry) return;
+    const id = window.setTimeout(() => {
+      state.retries.delete(key);
+      autoCloseExpiredQr(invoiceNumber, key, true);
+    }, PAYOS_AUTO_CLOSE_RETRY_MS);
+    state.retries.set(key, id);
+  };
+  // "số HĐ:orderCode:giờ hết hạn theo máy quầy (ms)" của mọi mã đang chờ
+  const expiringPayosKey = invoices
+    .filter((invoice) => invoice.payos?.trangThai === 'PENDING' && invoice.payos.orderCode && hetHanTheoMay(invoice.payos) != null)
+    .map((invoice) => `${invoice.number}:${invoice.payos.orderCode}:${hetHanTheoMay(invoice.payos)}`)
+    .join(',');
+  useEffect(() => {
+    if (!expiringPayosKey) return undefined;
+    const ids = expiringPayosKey.split(',').map((entry) => {
+      const [number, orderCode, hetHan] = entry.split(':');
+      const delay = Math.min(Math.max(0, Number(hetHan) + PAYOS_AUTO_CLOSE_GRACE_MS - Date.now()), MAX_TIMEOUT_MS);
+      return window.setTimeout(() => autoCloseExpiredQr(Number(number), orderCode), delay);
+    });
+    return () => ids.forEach((id) => window.clearTimeout(id));
+    // autoCloseExpiredQr chỉ đọc uiRef / ref ổn định; có mạng lại thì hẹn lại (mã đã quá giờ hủy ngay)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expiringPayosKey, online]);
+
   // Đã nhận tiền nhưng lỗi, chờ quản lý: quản lý tạo đơn -> hiện hóa đơn để in; hoàn tiền -> mở lại giỏ.
   const paidErrorPayosKey = payosWatchKey('PAID_ERROR');
   useEffect(() => (paidErrorPayosKey ? watchPayos(paidErrorPayosKey, 'PAID_ERROR', PAYOS_PAID_ERROR_POLL_MS) : undefined),
@@ -1501,6 +1720,8 @@ export default function PosSalesPage({
     onCreatePayosQr: createPayosQr,
     onCancelPayos: cancelPayosQr,
     onRecreatePayos: recreatePayosQr,
+    onTienMatTruoc: setTienMatTruocForInvoice,
+    onReturnPayosCash: returnPayosCash,
     onQuickCreateCustomer: quickCreateCustomer,
     onClearCart: clearCart,
     onNote: setNoteForInvoice,
@@ -1525,6 +1746,10 @@ export default function PosSalesPage({
     payosEnabled,
     online,
     payos: currentInvoice.payos,
+    tienMatTruoc: currentInvoice.tienMatTruoc ?? '',
+    returnCashError: returnCashError && String(returnCashError.orderCode) === String(currentInvoice.payos?.orderCode)
+      ? returnCashError.message : '',
+    autoCloseError: currentInvoice.payos?.orderCode ? autoCloseErrors[String(currentInvoice.payos.orderCode)] ?? null : null,
     customers: customerOptions,
     customer,
     cart,
@@ -1560,6 +1785,15 @@ export default function PosSalesPage({
       // Ô số có thể còn hiện chữ dở dang của mã (state không đổi thì React không vẽ lại) -> ghi lại số tiền.
       target.value = String(amount);
       setPaymentError('Vừa quét mã khi đang ở màn thanh toán — CHƯA xác nhận thanh toán, số tiền khách đưa đã trả về như trước. Cần thêm hàng: đóng màn thanh toán (Esc) rồi quét.');
+      playScanBeep(false);
+      return;
+    }
+    // Ô tiền mặt khách đưa trước (chuyển khoản QR): trả về số trước khi quét, không tạo mã QR với số là mã vạch.
+    if (dialog === 'payment' && target?.id === 'payment-cash-before-qr') {
+      const previous = scan.snapshot?.tienMatTruoc ?? '';
+      setTienMatTruocForInvoice(previous);
+      target.value = String(previous);
+      setPaymentError('Vừa quét mã khi đang ở màn thanh toán — CHƯA tạo mã QR, số tiền mặt khách đưa trước đã trả về như trước. Cần thêm hàng: đóng màn thanh toán (Esc) rồi quét.');
       playScanBeep(false);
       return;
     }
@@ -1610,7 +1844,7 @@ export default function PosSalesPage({
       setSearch((current) => current + text);
     },
     // Chụp lúc bắt đầu một chuỗi phím nhanh: giá trị TRƯỚC khi mã quét gõ vào ô.
-    scanSnapshot: () => ({ paymentAmount, note, search }),
+    scanSnapshot: () => ({ paymentAmount, note, search, tienMatTruoc: currentInvoice.tienMatTruoc ?? '' }),
   };
   scanContext.current = {
     scanMode,
@@ -1727,6 +1961,7 @@ export default function PosSalesPage({
       onRemove={removeLine}
       offline={!online}
       overStockMessage={overStock ? OVER_STOCK_MESSAGE : ''}
+      canTraLai={canTraLaiTienMat(currentInvoice?.payos)}
       subtotal={subtotal}
       total={total}
     />
@@ -1806,7 +2041,7 @@ export default function PosSalesPage({
             <span className="relative grid size-9 shrink-0 place-items-center rounded-lg bg-bo-primary-soft text-bo-primary"><ShoppingBag aria-hidden="true" size={17} /><span className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-bo-primary px-1 text-[9px] font-bold text-white">{countCart(cart)}</span></span>
             <span className="min-w-0"><span className="block text-[11px] text-bo-muted">Mở hóa đơn</span><span className="block truncate text-sm font-bold text-bo-foreground">{formatMoney(total)}</span></span>
           </button>
-          <button className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg bg-bo-primary px-4 text-sm font-semibold text-white transition hover:bg-bo-primary-hover disabled:cursor-not-allowed disabled:bg-slate-300" disabled={!cart.length || isSubmitting || overStock || (!online && !frozen)} onClick={openPayment} title={!online && !frozen ? OFFLINE_PAYMENT_MESSAGE : overStock ? OVER_STOCK_MESSAGE : undefined} type="button">{!online && !frozen ? 'Mất mạng' : 'Thanh toán'}</button>
+          <button className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg bg-bo-primary px-4 text-sm font-semibold text-white transition hover:bg-bo-primary-hover disabled:cursor-not-allowed disabled:bg-slate-300" disabled={canTraLaiTienMat(currentInvoice?.payos) ? isSubmitting : (!cart.length || isSubmitting || overStock || (!online && !frozen))} onClick={openPayment} title={!online && !frozen ? OFFLINE_PAYMENT_MESSAGE : overStock ? OVER_STOCK_MESSAGE : undefined} type="button">{!online && !frozen ? 'Mất mạng' : 'Thanh toán'}</button>
         </div>
       </div>
 
