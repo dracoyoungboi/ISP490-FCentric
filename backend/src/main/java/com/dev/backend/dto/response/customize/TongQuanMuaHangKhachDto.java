@@ -37,6 +37,15 @@ public class TongQuanMuaHangKhachDto {
     DonGanNhat donGanNhat;
     /** Các kênh khách đã mua qua (đơn đã đặt), nhiều đơn nhất ở trước. */
     List<KenhMua> kenhMua;
+    /**
+     * Còn phải thu: cộng phần chưa thu đủ của từng đơn đã đặt còn hiệu lực (không tính nháp, đơn sàn — thanh toán theo
+     * sàn, đơn cũ chưa theo dõi). Mỗi đơn tính riêng: đơn thu dư không bù cho đơn còn nợ.
+     */
+    BigDecimal conPhaiThu;
+    long soDonConPhaiThu;
+    /** Cần hoàn lại khách: phần thu dư của các đơn (khách trả dư, đơn đã thu rồi bị hủy / hoàn trả). */
+    BigDecimal canHoan;
+    long soDonCanHoan;
 
     @AllArgsConstructor
     @NoArgsConstructor
