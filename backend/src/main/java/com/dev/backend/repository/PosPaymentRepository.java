@@ -12,4 +12,7 @@ public interface PosPaymentRepository extends JpaRepository<PosPayment, Long> {
 
     /** Sổ thu của một đơn bán tại quầy (mỗi đơn POS một lần thu) — in tiền khách đưa / tiền thừa trên hóa đơn. */
     Optional<PosPayment> findFirstByDonBanHangIdOrderByIdDesc(Integer donBanHangId);
+
+    /** Đơn bán tại quầy (có sổ thu POS): không ghi phiếu thu tay. */
+    boolean existsByDonBanHangId(Integer donBanHangId);
 }
