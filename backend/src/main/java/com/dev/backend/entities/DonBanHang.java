@@ -7,6 +7,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.Generated;
 import org.hibernate.generator.EventType;
 
@@ -22,6 +23,9 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Entity
 @Table(name = "don_ban_hang")
+// Chỉ ghi cột đã đổi: luồng kho nạp đơn không khóa rồi lưu không được ghi lại trạng thái thanh toán cũ (phiếu thu vừa
+// ghi ở giao dịch khác đã đổi cột này)
+@DynamicUpdate
 public class DonBanHang {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -68,6 +72,14 @@ public class DonBanHang {
     @ColumnDefault("0.00")
     @Column(name = "tong_cong", precision = 15, scale = 2)
     BigDecimal tongCong;
+
+    /** Thuế suất GTGT (%) chụp lúc chốt đơn; null = hóa đơn không in thuế (tắt thuế, đơn sàn, đơn cũ). */
+    @Column(name = "thue_suat_gtgt", precision = 5, scale = 2)
+    BigDecimal thueSuatGtgt;
+
+    /** Tiền thuế GTGT đã gồm trong tổng cộng (giá bán đã gồm thuế), làm tròn tới đồng. */
+    @Column(name = "tien_thue_gtgt", precision = 15, scale = 2)
+    BigDecimal tienThueGtgt;
 
     // KHÔNG dùng @Generated(INSERT): app ghi giá trị tường minh ở mọi nơi
     // (create -> chua_thanh_toan, checkout POS -> da_thanh_toan); DB default chỉ
