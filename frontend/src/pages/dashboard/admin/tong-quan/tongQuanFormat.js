@@ -29,7 +29,6 @@ const nf0 = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 });
 const nf1 = new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const nf2 = new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const nfToiDa1 = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 1 });
-const nfToiDa2 = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 });
 
 const so = (v) => {
   const n = Number(v);
@@ -79,16 +78,6 @@ export function bienDong(hienTai, truoc) {
   // Dưới 0,05% coi như không đổi: ghi "0%" màu chữ thường, không xanh/đỏ
   if (Math.abs(p) < 0.05) return { tang: null, chu: "0%" };
   return { tang: p > 0, chu: `${p > 0 ? "+" : "−"}${nfToiDa1.format(Math.abs(p))}%` };
-}
-
-/** Nhãn trục tiền: 4 tỷ, 1,5 tr, 250 nghìn. Giữ phần lẻ để các vạch không bị làm tròn trùng nhau. */
-export function formatTrucTien(v) {
-  const n = so(v);
-  const a = Math.abs(n);
-  if (a >= 1e9) return `${nfToiDa2.format(n / 1e9)} tỷ`;
-  if (a >= 1e6) return `${nfToiDa2.format(n / 1e6)} tr`;
-  if (a >= 1e3) return `${nfToiDa2.format(n / 1e3)} nghìn`;
-  return nf0.format(n);
 }
 
 /** Nhãn gọn cho một điểm trên biểu đồ: 1,1 tr, 299 tr, 2,4 tỷ (dưới 10 giữ một số lẻ). */
