@@ -227,7 +227,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
      * Một đơn có nằm trong phạm vi vai trò của người dùng không — cùng quy tắc với {@link #dieuKienPhamViTheoVaiTro}, để
      * mở đơn theo id không xem / thao tác được đơn mà màn danh sách không cho thấy (đổi số trên đường dẫn).
      */
-    static boolean trongPhamVi(DonBanHang don, NguoiDungAuthInfo currentUser) {
+    public static boolean trongPhamVi(DonBanHang don, NguoiDungAuthInfo currentUser) {
         if (currentUser == null) return true; // gọi nội bộ (job đồng bộ sàn)
         Set<String> roles = currentUser.getVaiTro() == null ? Set.of() : currentUser.getVaiTro();
         if (roles.contains(IRoleType.quan_tri_vien)) return true;

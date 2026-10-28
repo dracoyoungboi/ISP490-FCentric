@@ -3,7 +3,9 @@ package com.dev.backend.services.impl.multitable;
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.enums.LoaiBangChungDongGoi;
 import com.dev.backend.dto.response.customize.ThongTinBangChungDonDto;
+import com.dev.backend.dto.response.entities.KhoDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
+import com.dev.backend.dto.response.entities.PhanQuyenNguoiDungKhoDto;
 import com.dev.backend.entities.*;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.BangChungDongGoiRepository;
@@ -93,8 +95,16 @@ public class BangChungDongGoiServiceTest {
         auth.setId(1);
         auth.setTenDangNhap("nvkho");
         auth.setVaiTro(Set.of("nhan_vien_kho"));
+        // Xem bằng chứng theo phạm vi chi tiết đơn: người kho được phân công kho xuất của đơn
+        auth.setPhanQuyenNguoiDungKhos(List.of(PhanQuyenNguoiDungKhoDto.builder().kho(KhoDto.builder().id(1).build()).build()));
         SecurityContextHolder.setUser(auth);
         SecurityContextHolder.setKhoId(1);
+
+        // Đọc lại trạng thái trong CSDL lúc lưu: mặc định trùng thực thể (không ai đổi trong lúc tải tệp)
+        lenient().when(bangChungDongGoiRepository.docTrangThaiDon(anyInt())).thenAnswer(inv ->
+                ((Integer) inv.getArgument(0)) == 101 ? donDuoi1Tr.getTrangThai() : donTu1Tr.getTrangThai());
+        lenient().when(bangChungDongGoiRepository.docTrangThaiPhieuCuaDon(anyInt())).thenAnswer(inv ->
+                phieuXuatKhoRepository.findByDonBanHangId(inv.getArgument(0)).stream().map(PhieuXuatKho::getTrangThai).toList());
     }
 
     @AfterEach
@@ -366,5 +376,238 @@ public class BangChungDongGoiServiceTest {
         assertEquals(1, res.getDanhSachBangChung().size());
         assertEquals("https://minio.slmglobal.vn/fashion/packing-proofs/101/old.jpg",
                 res.getDanhSachBangChung().get(0).getUrlPublic());
+    }
+
+    // ── Xem lại sau khi đơn đã đi: quyền xem, ngày tự xóa, khóa thêm / thay / xóa ─────────────────────────────
+
+    private static final int DON_CHO_NHAT = 1, DON_DANG_XUAT = 2, DON_DA_XUAT = 3, DON_HUY = 4, DON_HOAN_THANH = 5,
+            DON_CHO_DONG_GOI = 7, DON_DA_DONG_GOI = 8;
+    private static final int PX_NHAP = 0, PX_DA_XUAT = 3, PX_CHO_XUAT = 6;
+
+    private static PhieuXuatKho phieu(int id, int trangThai) {
+        return PhieuXuatKho.builder().id(id).soPhieuXuat("PX-" + id).trangThai(trangThai).build();
+    }
+
+    private void dangNhapBanHang(int id) {
+        NguoiDungAuthInfo auth = new NguoiDungAuthInfo();
+        auth.setId(id);
+        auth.setTenDangNhap("nvban");
+        auth.setVaiTro(Set.of("nhan_vien_ban_hang"));
+        SecurityContextHolder.setUser(auth);
+        SecurityContextHolder.setKhoId(null);
+    }
+
+    @Test
+    @DisplayName("Nhân viên bán hàng xem được bằng chứng đơn mình tạo, không cần kho đang chọn")
+    void xem_BanHang_DonMinhTao_DuocXem() {
+        dangNhapBanHang(7);
+        donDuoi1Tr.setNguoiTao(NguoiDung.builder().id(7).build());
+        donDuoi1Tr.setTrangThai(DON_DA_XUAT);
+        when(donBanHangRepository.findById(101)).thenReturn(Optional.of(donDuoi1Tr));
+
+        assertNotNull(bangChungDongGoiService.layThongTinBangChung(101));
+    }
+
+    @Test
+    @DisplayName("Nhân viên bán hàng xem đơn người khác tạo: 403, cùng phạm vi chi tiết đơn")
+    void xem_BanHang_DonNguoiKhac_403() {
+        dangNhapBanHang(7);
+        donDuoi1Tr.setNguoiTao(NguoiDung.builder().id(8).build());
+        when(donBanHangRepository.findById(101)).thenReturn(Optional.of(donDuoi1Tr));
+
+        CommonException loi = assertThrows(CommonException.class, () -> bangChungDongGoiService.layThongTinBangChung(101));
+        assertEquals(403, loi.getStatus().value());
+        verifyNoInteractions(bangChungDongGoiRepository);
+    }
+
+    @Test
+    @DisplayName("Người kho không được phân công kho xuất của đơn: 403 dù gửi kho đang chọn trùng (header không được tin)")
+    void xem_NguoiKhoKhacKho_403() {
+        SecurityContextHolder.getUser().setPhanQuyenNguoiDungKhos(
+                List.of(PhanQuyenNguoiDungKhoDto.builder().kho(KhoDto.builder().id(2).build()).build()));
+        SecurityContextHolder.setKhoId(1);
+        when(donBanHangRepository.findById(101)).thenReturn(Optional.of(donDuoi1Tr));
+
+        CommonException loi = assertThrows(CommonException.class, () -> bangChungDongGoiService.layThongTinBangChung(101));
+        assertEquals(403, loi.getStatus().value());
+    }
+
+    @Test
+    @DisplayName("Hết tệp sau hạn lưu: ngayTuXoa = hạn muộn nhất của tệp đã gắn phiếu đóng gói xong")
+    void xem_HetHan_TraNgayTuXoa() {
+        Instant hanCu = Instant.now().minusSeconds(40L * 86400);
+        Instant hanCuoi = Instant.now().minusSeconds(5L * 86400);
+        Instant hanTuongLai = Instant.now().plusSeconds(5L * 86400);
+        PhieuXuatKho daXuat = phieu(51, PX_DA_XUAT);
+        when(donBanHangRepository.findById(101)).thenReturn(Optional.of(donDuoi1Tr));
+        when(bangChungDongGoiRepository.findByDonBanHangIdAndTrangThai(101, 0)).thenReturn(List.of(
+                BangChungDongGoi.builder().phieuXuatKho(daXuat).ngayHetHan(hanCu).build(),        // bị thay lúc đóng gói
+                BangChungDongGoi.builder().phieuXuatKho(daXuat).ngayHetHan(hanCuoi).build(),      // tệp cuối, đã dọn
+                BangChungDongGoi.builder().phieuXuatKho(phieu(52, PX_NHAP)).ngayHetHan(hanCuoi.plusSeconds(60)).build(),
+                BangChungDongGoi.builder().phieuXuatKho(daXuat).ngayHetHan(hanTuongLai).build(),  // xóa tay, chưa tới hạn
+                BangChungDongGoi.builder().ngayHetHan(hanCuoi.plusSeconds(120)).build()));        // chưa gắn phiếu
+
+        assertEquals(hanCuoi, bangChungDongGoiService.layThongTinBangChung(101).getNgayTuXoa());
+    }
+
+    @Test
+    @DisplayName("Đơn chưa từng có bằng chứng (xuất trước khi có bước đóng gói), hoặc còn tệp: ngayTuXoa null")
+    void xem_KhongCoTepDaDon_NgayTuXoaNull() {
+        when(donBanHangRepository.findById(101)).thenReturn(Optional.of(donDuoi1Tr));
+        assertNull(bangChungDongGoiService.layThongTinBangChung(101).getNgayTuXoa());
+
+        when(bangChungDongGoiRepository.findByDonBanHangIdAndTrangThaiOrderByNgayTaoAsc(101, 1))
+                .thenReturn(List.of(BangChungDongGoi.builder().loaiBangChung("ANH_HANG_TRONG_HOP").trangThai(1).build()));
+        assertNull(bangChungDongGoiService.layThongTinBangChung(101).getNgayTuXoa());
+        verify(bangChungDongGoiRepository, times(1)).findByDonBanHangIdAndTrangThai(101, 0);
+    }
+
+    @Test
+    @DisplayName("Đơn đã qua bước đóng gói (Chờ xuất kho, Đã xuất, Hoàn thành): tải lên bị chặn 409, không chạm MinIO")
+    void taiLen_DonQuaDongGoi_409() {
+        for (int tt : new int[]{DON_DA_DONG_GOI, DON_DA_XUAT, DON_HOAN_THANH, 6, 0}) {
+            donDuoi1Tr.setTrangThai(tt);
+            when(donBanHangRepository.findById(101)).thenReturn(Optional.of(donDuoi1Tr));
+            MockMultipartFile anh = new MockMultipartFile("file", "a.jpg", "image/jpeg", JPEG);
+            CommonException loi = assertThrows(CommonException.class, () ->
+                    bangChungDongGoiService.uploadBangChung(101, anh, LoaiBangChungDongGoi.ANH_HANG_TRONG_HOP.name(), null), "trạng thái " + tt);
+            assertEquals(409, loi.getStatus().value(), "trạng thái " + tt);
+            assertTrue(loi.getMessage().contains("chỉ được xem"), loi.getMessage());
+        }
+        verifyNoInteractions(minioService);
+    }
+
+    @Test
+    @DisplayName("Đã xuất một phần: còn phiếu nháp đang đóng gói thì tải được, không còn thì 409")
+    void taiLen_XuatMotPhan_TheoPhieuNhap() throws Exception {
+        donDuoi1Tr.setTrangThai(DON_DANG_XUAT);
+        when(donBanHangRepository.findById(101)).thenReturn(Optional.of(donDuoi1Tr));
+        when(phieuXuatKhoRepository.findByDonBanHangId(101)).thenReturn(List.of(phieu(51, PX_DA_XUAT)));
+        MockMultipartFile anh = new MockMultipartFile("file", "a.jpg", "image/jpeg", JPEG);
+
+        CommonException loi = assertThrows(CommonException.class, () ->
+                bangChungDongGoiService.uploadBangChung(101, anh, LoaiBangChungDongGoi.ANH_HANG_TRONG_HOP.name(), null));
+        assertEquals(409, loi.getStatus().value());
+        verifyNoInteractions(minioService);
+
+        when(phieuXuatKhoRepository.findByDonBanHangId(101)).thenReturn(List.of(phieu(51, PX_DA_XUAT), phieu(52, PX_NHAP)));
+        when(minioService.getPublicUrl(anyString())).thenReturn("http://minio/fashion/x.jpg");
+        when(tepTinService.create(any(TepTin.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(bangChungDongGoiRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        assertNotNull(bangChungDongGoiService.uploadBangChung(101, anh, LoaiBangChungDongGoi.ANH_HANG_TRONG_HOP.name(), null));
+    }
+
+    @Test
+    @DisplayName("Tệp cũ cùng loại đã dùng hoàn tất phiếu xuất (Chờ xuất): không thay được, tệp cũ còn nguyên")
+    void taiLen_ThayTepDaHoanTat_409() {
+        donDuoi1Tr.setTrangThai(DON_DANG_XUAT);
+        when(donBanHangRepository.findById(101)).thenReturn(Optional.of(donDuoi1Tr));
+        when(phieuXuatKhoRepository.findByDonBanHangId(101)).thenReturn(List.of(phieu(51, PX_CHO_XUAT), phieu(52, PX_NHAP)));
+        BangChungDongGoi cu = BangChungDongGoi.builder().id(9).phieuXuatKho(phieu(51, PX_CHO_XUAT))
+                .loaiBangChung(LoaiBangChungDongGoi.ANH_HANG_TRONG_HOP.name()).trangThai(1).build();
+        when(bangChungDongGoiRepository.findByDonBanHangIdAndLoaiBangChungAndTrangThai(101, LoaiBangChungDongGoi.ANH_HANG_TRONG_HOP.name(), 1))
+                .thenReturn(Optional.of(cu));
+
+        MockMultipartFile anh = new MockMultipartFile("file", "a.jpg", "image/jpeg", JPEG);
+        CommonException loi = assertThrows(CommonException.class, () ->
+                bangChungDongGoiService.uploadBangChung(101, anh, LoaiBangChungDongGoi.ANH_HANG_TRONG_HOP.name(), null));
+        assertEquals(409, loi.getStatus().value());
+        assertTrue(loi.getMessage().contains("PX-51"), loi.getMessage());
+        verifyNoInteractions(minioService, tepTinService);
+        verify(bangChungDongGoiRepository, never()).save(any());
+        assertEquals(1, cu.getTrangThai());
+    }
+
+    @Test
+    @DisplayName("Đơn được đóng gói xong trong lúc đang tải tệp: lưu bị chặn 409 và tệp vừa tải lên MinIO bị xóa")
+    void taiLen_DongGoiXongLucDangTai_XoaTepMoi() throws Exception {
+        // Như máy thật (open-in-view): thực thể trong phiên vẫn Chờ nhặt, chỉ CSDL đã sang Chờ xuất kho
+        when(donBanHangRepository.findById(101)).thenReturn(Optional.of(donDuoi1Tr));
+        when(bangChungDongGoiRepository.docTrangThaiDon(101)).thenReturn(DON_DA_DONG_GOI);
+        when(minioService.getPublicUrl(anyString())).thenReturn("http://minio/fashion/x.jpg");
+
+        MockMultipartFile anh = new MockMultipartFile("file", "a.jpg", "image/jpeg", JPEG);
+        CommonException loi = assertThrows(CommonException.class, () ->
+                bangChungDongGoiService.uploadBangChung(101, anh, LoaiBangChungDongGoi.ANH_HANG_TRONG_HOP.name(), null));
+        assertEquals(409, loi.getStatus().value());
+        verify(minioService).upload(eq(anh), matches("packing-proofs/101/.*\\.jpg"));
+        verify(minioService).delete(matches("packing-proofs/101/.*\\.jpg"));
+        verify(bangChungDongGoiRepository, never()).save(any());
+        assertEquals(1, donDuoi1Tr.getTrangThai(), "thực thể trong phiên vẫn cũ — chặn được là nhờ đọc CSDL");
+    }
+
+    @Test
+    @DisplayName("Tệp cũ được gắn phiếu vừa hoàn tất trong lúc đang tải: thay bị chặn 409, tệp cũ còn, tệp mới bị xóa")
+    void taiLen_TepCuVuaHoanTatLucDangTai_409() throws Exception {
+        donDuoi1Tr.setTrangThai(DON_CHO_DONG_GOI);
+        when(donBanHangRepository.findById(101)).thenReturn(Optional.of(donDuoi1Tr));
+        // Thực thể trong phiên: tệp cũ chưa gắn phiếu; CSDL: đã gắn phiếu Chờ xuất (hoanTat commit lúc đang tải)
+        BangChungDongGoi cu = BangChungDongGoi.builder().id(9).loaiBangChung(LoaiBangChungDongGoi.ANH_HANG_TRONG_HOP.name())
+                .tepTin(TepTin.builder().id(70).tenLuuTru("packing-proofs/101/cu.jpg").build()).trangThai(1).build();
+        when(bangChungDongGoiRepository.findByDonBanHangIdAndLoaiBangChungAndTrangThai(101, LoaiBangChungDongGoi.ANH_HANG_TRONG_HOP.name(), 1))
+                .thenReturn(Optional.of(cu));
+        when(bangChungDongGoiRepository.docTrangThaiPhieuCuaBangChung(9)).thenReturn(PX_CHO_XUAT);
+        when(minioService.getPublicUrl(anyString())).thenReturn("http://minio/fashion/x.jpg");
+
+        MockMultipartFile anh = new MockMultipartFile("file", "a.jpg", "image/jpeg", JPEG);
+        CommonException loi = assertThrows(CommonException.class, () ->
+                bangChungDongGoiService.uploadBangChung(101, anh, LoaiBangChungDongGoi.ANH_HANG_TRONG_HOP.name(), null));
+        assertEquals(409, loi.getStatus().value());
+        verify(minioService, never()).delete("packing-proofs/101/cu.jpg");
+        verify(minioService).delete(matches("packing-proofs/101/[0-9a-f-]{36}\\.jpg"));
+        verify(tepTinService, never()).hardDeleteNoMessage(any());
+        assertEquals(1, cu.getTrangThai());
+    }
+
+    @Test
+    @DisplayName("Lỗi CSDL lúc lưu (không phải CommonException): tệp vừa tải lên MinIO vẫn được dọn")
+    void taiLen_LoiCsdlLucLuu_DonTepMoi() throws Exception {
+        when(donBanHangRepository.findById(101)).thenReturn(Optional.of(donDuoi1Tr));
+        when(minioService.getPublicUrl(anyString())).thenReturn("http://minio/fashion/x.jpg");
+        when(tepTinService.create(any(TepTin.class))).thenThrow(new org.springframework.dao.DataIntegrityViolationException("hỏng"));
+
+        MockMultipartFile anh = new MockMultipartFile("file", "a.jpg", "image/jpeg", JPEG);
+        assertThrows(org.springframework.dao.DataIntegrityViolationException.class, () ->
+                bangChungDongGoiService.uploadBangChung(101, anh, LoaiBangChungDongGoi.ANH_HANG_TRONG_HOP.name(), null));
+        verify(minioService).delete(matches("packing-proofs/101/.*\\.jpg"));
+    }
+
+    @Test
+    @DisplayName("ngayTuXoa: bản ghi cũ thiếu hạn thì tính ngày tạo + 30 ngày như việc dọn")
+    void xem_HetHan_ThieuNgayHetHan_TinhTheoNgayTao() {
+        Instant tao = Instant.now().minusSeconds(40L * 86400);
+        when(donBanHangRepository.findById(101)).thenReturn(Optional.of(donDuoi1Tr));
+        when(bangChungDongGoiRepository.findByDonBanHangIdAndTrangThai(101, 0)).thenReturn(List.of(
+                BangChungDongGoi.builder().phieuXuatKho(phieu(51, PX_DA_XUAT)).ngayTao(tao).build()));
+
+        assertEquals(tao.plusSeconds(30L * 86400), bangChungDongGoiService.layThongTinBangChung(101).getNgayTuXoa());
+    }
+
+    @Test
+    @DisplayName("Xóa bằng chứng khi đơn đã xuất / đã hủy: 409; phiếu đã đóng gói xong: 409; đang chờ đóng gói: xóa được")
+    void xoa_TheoTrangThai() throws Exception {
+        BangChungDongGoi bc = BangChungDongGoi.builder().id(5).donBanHang(donDuoi1Tr).trangThai(1).build();
+        when(bangChungDongGoiRepository.findById(5)).thenReturn(Optional.of(bc));
+
+        for (int tt : new int[]{DON_DA_XUAT, DON_HUY, DON_DA_DONG_GOI}) {
+            donDuoi1Tr.setTrangThai(tt);
+            CommonException loi = assertThrows(CommonException.class, () -> bangChungDongGoiService.xoaBangChung(5));
+            assertEquals(409, loi.getStatus().value(), "trạng thái " + tt);
+        }
+
+        donDuoi1Tr.setTrangThai(DON_CHO_DONG_GOI);
+        bc.setPhieuXuatKho(phieu(51, PX_CHO_XUAT));
+        CommonException loi = assertThrows(CommonException.class, () -> bangChungDongGoiService.xoaBangChung(5));
+        assertEquals(409, loi.getStatus().value());
+        verifyNoInteractions(minioService);
+
+        bc.setPhieuXuatKho(phieu(52, PX_NHAP));
+        bangChungDongGoiService.xoaBangChung(5);
+        assertEquals(0, bc.getTrangThai());
+
+        donDuoi1Tr.setTrangThai(DON_CHO_NHAT);
+        bc.setTrangThai(1);
+        bangChungDongGoiService.xoaBangChung(5);
+        assertEquals(0, bc.getTrangThai());
     }
 }
