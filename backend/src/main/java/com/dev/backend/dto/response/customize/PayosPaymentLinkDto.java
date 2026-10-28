@@ -32,6 +32,8 @@ public class PayosPaymentLinkDto {
     String tenTaiKhoan;
     String noiDungCk;
     Instant hetHanLuc;
+    /** Giờ máy chủ lúc trả dữ liệu: màn POS tính đồng hồ mã QR theo giờ máy chủ (đồng hồ máy quầy có thể lệch). */
+    Instant gioMayChu;
     String errorMessage;
     /** Có khi trangThai = PAID: kết quả đơn hàng giống checkout tiền mặt. */
     PosCheckoutResponse result;

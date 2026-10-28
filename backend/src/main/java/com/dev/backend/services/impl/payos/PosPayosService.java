@@ -48,6 +48,8 @@ import java.util.Set;
 public class PosPayosService {
 
     private static final long GRACE_SECONDS_WHEN_PAYOS_UNREACHABLE = 30 * 60;
+    /** Hủy mã trong khoảng này trước giờ hết hạn (đồng hồ máy quầy chạy nhanh) vẫn ghi là hết hạn. */
+    static final long LECH_DONG_HO_HET_HAN_GIAY = 5;
     private static final ZoneId VN = ZoneId.of("Asia/Ho_Chi_Minh");
     static final String CANCEL_UNCONFIRMED_MESSAGE = "Chưa hủy được mã QR vì payOS chưa xác nhận — khách vẫn có thể "
             + "đang chuyển khoản. Hóa đơn vẫn khóa: thử hủy lại sau ít phút hoặc chờ mã hết hạn.";
@@ -165,6 +167,8 @@ public class PosPayosService {
      * 409 (không phải 5xx: Cloudflare thay nội dung lỗi 5xx) để màn POS hiện đúng câu báo.
      */
     public PayosPaymentLinkDto cancel(Long orderCode) {
+        // Mốc so hết hạn lấy lúc nhận yêu cầu: hỏi / hủy payOS có thể mất vài chục giây
+        Instant luc = Instant.now();
         PosPayosPayment row = find(orderCode);
         authorize(row);
         if (!PosPayosPayment.PENDING.equals(row.getTrangThai())) {
@@ -188,7 +192,16 @@ public class PosPayosService {
             }
             throw new CommonException(CANCEL_UNCONFIRMED_MESSAGE, HttpStatus.CONFLICT, null);
         }
+        // Màn POS tự hủy mã lúc về 00:00 (không đợi job): mã đã quá giờ thì ghi là hết hạn, không phải thu ngân hủy
+        if (daQuaHan(row.getHetHanLuc(), luc)) {
+            return toDto(tx.closeUnpaid(orderCode, PosPayosPayment.EXPIRED, "Mã QR đã hết hạn"));
+        }
         return toDto(tx.closeUnpaid(orderCode, PosPayosPayment.CANCELLED, "Thu ngân đã hủy mã QR"));
+    }
+
+    /** Mã đã tới giờ hết hạn tại {@code luc} (dung sai lệch giờ vài giây). Chưa có giờ hết hạn -> chưa. */
+    static boolean daQuaHan(Instant hetHanLuc, Instant luc) {
+        return hetHanLuc != null && !hetHanLuc.isAfter(luc.plusSeconds(LECH_DONG_HO_HET_HAN_GIAY));
     }
 
     /**
@@ -447,8 +460,15 @@ public class PosPayosService {
             return "PARTIAL";
         }
         if ("CANCELLED".equals(status) || "EXPIRED".equals(status) || "FAILED".equals(status)) {
-            tx.closeUnpaid(orderCode, "CANCELLED".equals(status) ? PosPayosPayment.CANCELLED : PosPayosPayment.EXPIRED,
-                    "payOS báo giao dịch " + status);
+            // payOS báo CANCELLED cả khi chính quầy / job vừa hủy link lúc hết giờ (lượt hỏi trạng thái chen vào trước
+            // khi đường hủy kịp ghi): đã tới giờ thì vẫn là hết hạn, chỉ hủy trước giờ mới là hủy.
+            String trangThai = PosPayosPayment.EXPIRED;
+            String lyDo = "payOS báo giao dịch " + status;
+            if ("CANCELLED".equals(status)) {
+                if (daQuaHan(find(orderCode).getHetHanLuc(), Instant.now())) lyDo = "Mã QR đã hết hạn";
+                else trangThai = PosPayosPayment.CANCELLED;
+            }
+            tx.closeUnpaid(orderCode, trangThai, lyDo);
         }
         return status;
     }
@@ -533,6 +553,7 @@ public class PosPayosService {
                 .tenTaiKhoan(row.getTenTaiKhoan())
                 .noiDungCk(row.getNoiDungCk())
                 .hetHanLuc(row.getHetHanLuc())
+                .gioMayChu(Instant.now())
                 .errorMessage(row.getErrorMessage())
                 .result(PosPayosPayment.PAID.equals(row.getTrangThai())
                         ? tx.read(row.getResultJson(), PosCheckoutResponse.class) : null)
