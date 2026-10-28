@@ -34,7 +34,7 @@ import MockModeNotice from "@/components/shared/MockModeNotice";
 import ChannelBadge from "@/components/channel/ChannelBadge";
 import OrderFlagBadges from "@/components/channel/OrderFlagBadges";
 import { CHANNELS, MARKETPLACE_FILTER_OPTIONS } from "@/constants/channel";
-import { DON_BAN_HANG_TABS, getDonBanHangStatus } from "@/constants/donBanHang";
+import { DON_BAN_HANG_DA_KET_THUC_KHONG_THU, DON_BAN_HANG_TABS, DON_BAN_HANG_THANH_TOAN, getDonBanHangStatus } from "@/constants/donBanHang";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
@@ -44,6 +44,15 @@ import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 const ORDER_CHANNEL_OPTIONS = [
   ...MARKETPLACE_FILTER_OPTIONS,
   { value: "pos", label: "POS", id: CHANNELS.POS.id },
+];
+
+// Lọc theo trạng thái thanh toán (đơn bán thường theo phiếu ghi nhận, đơn sàn theo sàn, đơn tại quầy đã thu).
+// "Còn phải thu" = Chưa thanh toán + Thanh toán một phần (Báo cáo doanh thu mở thẳng bằng ?thanhToan=con_phai_thu)
+const CON_PHAI_THU = "con_phai_thu";
+const THANH_TOAN_OPTIONS = [
+  { value: "", label: "Mọi thanh toán" },
+  { value: CON_PHAI_THU, label: "Còn phải thu" },
+  ...Object.entries(DON_BAN_HANG_THANH_TOAN).map(([value, { label }]) => ({ value, label })),
 ];
 
 // Tab trạng thái (bố cục A+G) — mã tab nằm trên URL ?trangThai=, kênh trên ?kenh=
@@ -76,7 +85,7 @@ function parseRoles(vaiTro) {
 
 // Điều kiện lọc dùng chung cho danh sách, số trên tab và dòng chú ý (R1):
 // chỉ khác điều kiện trạng thái. Phạm vi theo vai trò do backend tự thêm (kho phụ trách / đơn mình tạo).
-function buildFilterList({ keyword, kenh, ngay, trangThai }) {
+function buildFilterList({ keyword, kenh, ngay, trangThai, thanhToan }) {
   const filterList = [
     {
       fieldName: "loaiChungTu",
@@ -106,6 +115,15 @@ function buildFilterList({ keyword, kenh, ngay, trangThai }) {
       operation: "EQUALS",
       value: kenhOption.id,
     });
+  }
+
+  if (thanhToan === CON_PHAI_THU) {
+    // Như Còn phải thu của Báo cáo doanh thu: đơn bán thường đã chốt, chưa hủy / hoàn trả (đơn sàn thanh toán theo sàn)
+    filterList.push({ fieldName: "trangThaiThanhToan", operation: "IN", value: ["chua_thanh_toan", "thanh_toan_mot_phan"] });
+    filterList.push({ fieldName: "trangThai", operation: "NOT_IN", value: [0, 4, 6] });
+    filterList.push({ fieldName: "kenhBanHang", operation: "IS_NULL" });
+  } else if (thanhToan) {
+    filterList.push({ fieldName: "trangThaiThanhToan", operation: "EQUALS", value: thanhToan });
   }
 
   // Ngày đặt: lọc ở máy chủ (trước đây chỉ lọc trên trang đang xem nên tổng số không khớp)
@@ -142,9 +160,12 @@ export default function DonBanHangList() {
   const kenhParam = (searchParams.get("kenh") || "").toLowerCase();
   const kenh = ORDER_CHANNEL_OPTIONS.some((option) => option.value === kenhParam) ? kenhParam : "";
 
+  // ?thanhToan= trên URL (Báo cáo doanh thu mở danh sách Còn phải thu) chỉ dùng làm giá trị đầu
+  const thanhToanParam = searchParams.get("thanhToan") || "";
   const [filters, setFilters] = useState({
     keyword: "",
     ngayDatHang: "",
+    thanhToan: THANH_TOAN_OPTIONS.some((o) => o.value === thanhToanParam) ? thanhToanParam : "",
     page: 0,
     size: SO_DONG_MAC_DINH,
   });
@@ -204,7 +225,7 @@ export default function DonBanHangList() {
       const res = await donBanHangKenhService.filterDonBan({
         page: filters.page,
         size: filters.size,
-        filters: buildFilterList({ keyword: filters.keyword, kenh, ngay: filters.ngayDatHang, trangThai: tabTrangThai }),
+        filters: buildFilterList({ keyword: filters.keyword, kenh, ngay: filters.ngayDatHang, trangThai: tabTrangThai, thanhToan: filters.thanhToan }),
         sorts: [{ fieldName: "id", direction: "DESC" }],
       });
       if (requestId !== requestIdRef.current) return;
@@ -245,8 +266,9 @@ export default function DonBanHangList() {
       kenh,
       ngay: filters.ngayDatHang,
       trangThai: DON_BAN_HANG_TABS.find((t) => t.ma === ma)?.trangThai,
+      thanhToan: filters.thanhToan,
     })),
-    `${filters.keyword}|${kenh}|${filters.ngayDatHang}`
+    `${filters.keyword}|${kenh}|${filters.ngayDatHang}|${filters.thanhToan}`
   );
 
   // ── Dòng chú ý: đơn nháp chưa gửi kho trong phạm vi danh sách, bỏ qua các bộ lọc khác (R4) ──
@@ -277,19 +299,19 @@ export default function DonBanHangList() {
     setFilters((p) => (p.page === 0 ? p : { ...p, page: 0 }));
   };
 
-  const hasActiveFilters = Boolean(searchText.trim() || filters.ngayDatHang || kenh);
+  const hasActiveFilters = Boolean(searchText.trim() || filters.ngayDatHang || kenh || filters.thanhToan);
 
-  // "Xóa lọc": bỏ số đơn + kênh + ngày đặt, giữ tab đang chọn
+  // "Xóa lọc": bỏ số đơn + kênh + ngày đặt + thanh toán, giữ tab đang chọn
   const clearFilters = () => {
     setSearchText("");
-    setFilters((p) => ({ ...p, keyword: "", ngayDatHang: "", page: 0 }));
+    setFilters((p) => ({ ...p, keyword: "", ngayDatHang: "", thanhToan: "", page: 0 }));
     if (kenh) changeKenh("");
   };
 
   // Nút của dòng chú ý: mở tab Nháp, bỏ các bộ lọc khác (kể cả kênh) để số dòng khớp số trong câu
   const showDrafts = () => {
     setSearchText("");
-    setFilters((p) => ({ ...p, keyword: "", ngayDatHang: "", page: 0 }));
+    setFilters((p) => ({ ...p, keyword: "", ngayDatHang: "", thanhToan: "", page: 0 }));
     setTab(TAB_NHAP, { kenh: null });
   };
 
@@ -400,6 +422,14 @@ export default function DonBanHangList() {
               align="end"
             />
 
+            <FilterSelect
+              label="Thanh toán"
+              value={filters.thanhToan}
+              options={THANH_TOAN_OPTIONS}
+              onChange={(v) => setFilters((p) => (p.thanhToan === v ? p : { ...p, thanhToan: v, page: 0 }))}
+              align="end"
+            />
+
             {/* Ngày đặt: nhãn nằm trong ô để hàng công cụ gọn một dòng */}
             <label className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-white pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto">
               <Calendar className="size-4 shrink-0 text-bo-muted" />
@@ -439,7 +469,7 @@ export default function DonBanHangList() {
             <EmptyState
               icon={SearchX}
               title="Không tìm thấy đơn bán hàng phù hợp"
-              description="Thử đổi số đơn, kênh bán hoặc ngày đặt."
+              description="Thử đổi số đơn, kênh bán, thanh toán hoặc ngày đặt."
               action={
                 <Button
                   variant="outline"
@@ -473,7 +503,7 @@ export default function DonBanHangList() {
             />
           )
         ) : (
-          <table className="w-full min-w-[980px] text-sm">
+          <table className="w-full min-w-[1080px] text-sm">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Số đơn</th>
@@ -481,6 +511,7 @@ export default function DonBanHangList() {
                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kho xuất</th>
                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày chốt đơn</th>
                 <th className="h-10 whitespace-nowrap px-3 text-right tabular-nums text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Tổng tiền</th>
+                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thanh toán</th>
                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
                 <th className="h-10 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Thao tác</th>
               </tr>
@@ -531,6 +562,16 @@ export default function DonBanHangList() {
                       <span className="font-semibold text-bo-foreground">
                         {formatCurrency(item.tongCong)}
                       </span>
+                    </td>
+                    <td className="px-3 py-3">
+                      {/* "Chưa thanh toán" của đơn sàn chỉ chụp lúc đồng bộ; đơn đã hủy / hoàn trả không còn phải thu: không tô màu nhắc */}
+                      {item.trangThaiThanhToan ? (
+                        <StatusBadge
+                          label={DON_BAN_HANG_THANH_TOAN[item.trangThaiThanhToan]?.label ?? item.trangThaiThanhToan}
+                          nhom={item.trangThaiThanhToan === "chua_thanh_toan"
+                            && (item.kenhBanHang || item.maDonHangKenh || DON_BAN_HANG_DA_KET_THUC_KHONG_THU.includes(Number(item.trangThai))) ? "dong" : undefined}
+                        />
+                      ) : <span className="text-xs text-bo-muted">—</span>}
                     </td>
                     <td className="px-3 py-3">
                       <StatusBadge quyTrinh="donBan" label={st.label} />
