@@ -26,7 +26,7 @@ export default function NhomTuyChon({
     return (
         <div ref={ref} className="border-b border-[#eef1f5] last:border-b-0" data-nhom={group.key}>
             <div
-                className={cn("flex items-center gap-2.5 pl-4 pr-3 transition-colors", active ? "bg-bo-primary-soft" : "bg-white")}
+                className={cn("flex items-center gap-2.5 pl-4 pr-3 transition-colors", active ? "bg-bo-primary-soft" : "bg-bo-surface")}
                 // Sự kiện con trỏ (cùng loại với tờ giấy để thứ tự rời / vào luôn đúng), chuột hoặc bút; chạm
                 // trên màn cảm ứng không giữ khối sáng mãi
                 onPointerEnter={(event) => {

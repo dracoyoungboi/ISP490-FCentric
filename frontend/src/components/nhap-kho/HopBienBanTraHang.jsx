@@ -88,7 +88,7 @@ function DangTai({ loi, onDong }) {
         )}
       </div>
       <DialogFooter className="shrink-0 border-t border-bo-border bg-bo-surface-subtle px-6 py-3">
-        <Button variant="outline" onClick={onDong} className="min-w-28 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
+        <Button variant="outline" onClick={onDong} className="min-w-28 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
           Đóng
         </Button>
       </DialogFooter>
@@ -173,7 +173,7 @@ function NoiDung({ phieu, dongLoi, bienBan, dangTaiLo, loiTaiLo, lapLai, dangXuL
                   disabled={daPhatHanh}
                   onClick={() => setPhuongAn(pa.ma)}
                   className={cn(
-                    "grid grid-cols-[16px_minmax(0,1fr)] gap-x-3 gap-y-0.5 rounded-md border bg-white p-3 text-left disabled:cursor-default",
+                    "grid grid-cols-[16px_minmax(0,1fr)] gap-x-3 gap-y-0.5 rounded-md border bg-bo-surface p-3 text-left disabled:cursor-default",
                     chon ? "border-bo-primary shadow-[inset_0_0_0_1px_var(--color-bo-primary)]" : "border-bo-border hover:border-slate-300",
                   )}
                 >
@@ -197,7 +197,7 @@ function NoiDung({ phieu, dongLoi, bienBan, dangTaiLo, loiTaiLo, lapLai, dangXuL
             value={ghiChu}
             onChange={(e) => setGhiChu(e.target.value)}
             placeholder="VD: Đề nghị giao bù trong đợt hàng tới"
-            className="w-full resize-y rounded-md border border-bo-border bg-white px-3 py-2 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 disabled:bg-bo-surface-subtle"
+            className="w-full resize-y rounded-md border border-bo-border bg-bo-surface px-3 py-2 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 disabled:bg-bo-surface-subtle"
           />
         </div>
 
@@ -226,7 +226,7 @@ function NoiDung({ phieu, dongLoi, bienBan, dangTaiLo, loiTaiLo, lapLai, dangXuL
       </div>
 
       <DialogFooter className="shrink-0 border-t border-bo-border bg-bo-surface-subtle px-6 py-3">
-        <Button variant="outline" disabled={dangXuLy} onClick={onDong} className="min-w-28 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
+        <Button variant="outline" disabled={dangXuLy} onClick={onDong} className="min-w-28 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
           {daPhatHanh ? "Đóng" : "Hủy"}
         </Button>
         {daPhatHanh ? null : (

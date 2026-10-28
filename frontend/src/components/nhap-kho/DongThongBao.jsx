@@ -23,7 +23,7 @@ export default function DongThongBao({ tone = "neutral", children, actions, nutX
     <div
       role={tone === "bad" ? "alert" : "status"}
       className={cn(
-        "flex min-h-11 items-start gap-3 rounded-md border border-l-[3px] border-bo-border bg-white px-3 py-2.5 text-[13px] leading-5 text-bo-foreground",
+        "flex min-h-11 items-start gap-3 rounded-md border border-l-[3px] border-bo-border bg-bo-surface px-3 py-2.5 text-[13px] leading-5 text-bo-foreground",
         kieu.vien,
         nutXuongDong && "max-sm:flex-wrap max-sm:gap-y-2 @max-xl/khoi:flex-wrap @max-xl/khoi:gap-y-2",
         className,

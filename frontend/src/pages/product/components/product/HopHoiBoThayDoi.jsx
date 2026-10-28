@@ -14,7 +14,7 @@ import { NUT_VIEN_CLASS } from "./kieuForm";
 export default function HopHoiBoThayDoi({ open, onOpenChange, onBo, onCloseAutoFocus, tieuDe, moTa }) {
     return (
         <AlertDialog open={open} onOpenChange={onOpenChange}>
-            <AlertDialogContent className="border-bo-border bg-white sm:max-w-md" onCloseAutoFocus={onCloseAutoFocus}>
+            <AlertDialogContent className="border-bo-border bg-bo-surface sm:max-w-md" onCloseAutoFocus={onCloseAutoFocus}>
                 <AlertDialogHeader>
                     <AlertDialogTitle className="text-base text-bo-foreground">{tieuDe}</AlertDialogTitle>
                     <AlertDialogDescription className="text-sm text-bo-muted">{moTa}</AlertDialogDescription>

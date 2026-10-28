@@ -5,6 +5,7 @@ import lombok.experimental.FieldDefaults;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 
 @Data
@@ -26,4 +27,9 @@ public class ThongTinBangChungDonDto implements Serializable {
     Integer soLuongHienCo;
     Integer soLuongYeuCau;
     List<BangChungDongGoiDto> danhSachBangChung;
+    /**
+     * Đơn đã đóng gói xong mà tệp đã bị dọn sau hạn lưu: ngày hết hạn muộn nhất của các tệp đã dọn (việc dọn chạy 3:30
+     * sáng sau ngày này). Null khi còn tệp đang lưu, hoặc đơn chưa từng có bằng chứng (xuất trước khi có bước đóng gói).
+     */
+    Instant ngayTuXoa;
 }

@@ -65,7 +65,7 @@ function DaiBao({ icon, children, nutNhan, onNut }) {
 function NganKeoCho({ mo, loi, onThuLai, onDong }) {
     return (
         <Sheet open={mo} onOpenChange={(m) => (m ? null : onDong())}>
-            <SheetContent side="right" className="w-full gap-0 bg-white p-0 sm:max-w-[640px] [&>button:last-child]:hidden">
+            <SheetContent side="right" className="w-full gap-0 bg-bo-surface p-0 sm:max-w-[640px] [&>button:last-child]:hidden">
                 <div className="flex shrink-0 items-center gap-3 border-b border-bo-border px-5 py-4">
                     <div className="min-w-0 flex-1">
                         <SheetTitle className="text-lg font-bold leading-[26px] text-bo-heading">Phân quyền</SheetTitle>
@@ -268,7 +268,7 @@ function ChiTietNguoiDung({ id }) {
                     <ArrowLeft className="h-4 w-4" />
                     Quay lại danh sách
                 </Link>
-                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                     {notFound ? (
                         <EmptyState
                             icon={UserX}
@@ -312,7 +312,7 @@ function ChiTietNguoiDung({ id }) {
 
     return (
         <PageContainer className="nd-trang flex min-h-full flex-col">
-            <article className="nd-khoi flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+            <article className="nd-khoi flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                 <DauTrangNguoiDung
                     nguoiDung={nguoiDung}
                     pq={pq}
@@ -469,7 +469,7 @@ function ChiTietNguoiDung({ id }) {
 
             {/* Khóa / mở khóa */}
             <AlertDialog open={hop === "khoa"} onOpenChange={(m) => (!m && !dangXuLy ? setHop(null) : null)}>
-                <AlertDialogContent className="bg-white">
+                <AlertDialogContent className="bg-bo-surface">
                     <AlertDialogHeader>
                         <AlertDialogTitle>
                             {dangHoatDong ? `Khóa tài khoản ${tenHienThi}?` : `Mở khóa tài khoản ${tenHienThi}?`}
@@ -502,7 +502,7 @@ function ChiTietNguoiDung({ id }) {
 
             {/* Cấp lại mật khẩu */}
             <AlertDialog open={hop === "mat-khau"} onOpenChange={(m) => (!m && !dangXuLy ? setHop(null) : null)}>
-                <AlertDialogContent className="bg-white">
+                <AlertDialogContent className="bg-bo-surface">
                     <AlertDialogHeader>
                         <AlertDialogTitle>Cấp lại mật khẩu cho {tenHienThi}?</AlertDialogTitle>
                         <AlertDialogDescription asChild>

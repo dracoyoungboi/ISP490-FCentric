@@ -16,10 +16,12 @@ import {
   Landmark,
   WifiOff,
 } from 'lucide-react';
+import MoneyInput from '@/components/shared/MoneyInput';
 import PayosLogo from '@/components/shared/PayosLogo';
 import PosModal from './PosModal';
 import { posService, toPosCustomer } from '@/services/posService';
 import { formatMoney } from '../pos-format';
+import { canTraLaiTienMat, chiaThanhToanKetHop, kiemTienMatTruocQr, msToiHetHan, phaMaQr, tienMatTruocCua } from '../pos-payment';
 import { SCAN_HINT } from '../pos-scan';
 
 const primaryButton = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-bo-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-bo-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary disabled:cursor-not-allowed disabled:bg-slate-300';
@@ -77,6 +79,17 @@ function OfflineNotice({ children }) {
   );
 }
 
+/** Dòng cách trả của hóa đơn trả kết hợp: tiền mặt khách đưa trước + phần quét QR payOS (dữ liệu máy chủ). */
+function PhanThanhToanKetHop({ ketHop }) {
+  return (
+    <div className="mt-1 space-y-0.5 text-xs text-bo-muted">
+      <p>Tiền mặt: <strong className="tabular-nums text-bo-foreground">{formatMoney(ketHop.tienMat)}</strong></p>
+      <p>Chuyển khoản (QR payOS): <strong className="tabular-nums text-bo-foreground">{formatMoney(ketHop.chuyenKhoan)}</strong></p>
+      <p>Đã nhận đủ tiền</p>
+    </div>
+  );
+}
+
 const PAYOS_STATUS_TEXT = {
   CANCELLED: 'Mã QR đã bị hủy.',
   EXPIRED: 'Mã QR đã hết hạn — hàng giữ chỗ đã được trả lại kho.',
@@ -85,10 +98,25 @@ const PAYOS_STATUS_TEXT = {
   REFUNDED: 'Quản lý đã hoàn tiền chuyển khoản cho khách.',
 };
 
+/** Ô thay chỗ mã QR khi mã đã đóng (mã không còn được vẽ ra). */
+const MA_DONG_TIEU_DE = {
+  EXPIRED: 'Mã QR đã hết hạn',
+  CANCELLED: 'Mã QR đã bị hủy',
+  FAILED: 'Không tạo được mã QR',
+  PAID_ERROR: 'Đã nhận chuyển khoản',
+  REFUNDED: 'Đã hoàn tiền chuyển khoản',
+  PAID: 'Đã nhận đủ tiền',
+};
+
+/** Mã đã đóng mà không nhận được tiền: số tiền quét QR chuyển xám. */
+const MA_KHONG_THANH = ['EXPIRED', 'CANCELLED', 'FAILED', 'REFUNDED'];
+
 const formatCountdown = (ms) => {
-  const total = Math.max(0, Math.floor(ms / 1000));
+  const total = Math.max(0, Math.ceil(ms / 1000));
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 };
+
+const gioPhut = (value) => new Date(value).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
 /** Mã QR payOS: khách quét bằng app ngân hàng; màn hình tự chuyển sang hóa đơn khi tiền về. */
 function PayosQrDialog({ state, actions, onClose }) {
@@ -100,64 +128,148 @@ function PayosQrDialog({ state, actions, onClose }) {
   }, []);
   if (!link) return null;
   const pending = link.trangThai === 'PENDING';
-  const remaining = link.hetHanLuc ? new Date(link.hetHanLuc).getTime() - now : 0;
+  const remaining = msToiHetHan(link, now);
+  // Pha theo đồng hồ quầy: 30 giây cuối nhắc trước; về 00:00 thì ẩn mã ngay (máy quầy tự hủy mã, xem PosSalesPage)
+  // dù máy chủ chưa kịp đóng. Mã đã đóng thì KHÔNG vẽ mã: làm mờ thì camera điện thoại vẫn đọc được.
+  const pha = phaMaQr(link, now);
+  const sapHet = pha === 'sapHet';
+  const hetGio = pha === 'hetGio';
+  const hienMa = pending && !hetGio;
+  // Máy quầy tự hủy mã hết giờ bị lỗi: final = không tự thử lại nữa (mở lại nút Hủy mã QR cho thu ngân)
+  const loiDongMa = hetGio ? state.autoCloseError : null;
   const terminalText = PAYOS_STATUS_TEXT[link.trangThai];
+  // Trả kết hợp: tiền mặt khách đưa trước (mã QR chỉ mang phần còn lại); mã không thành thì phải trả lại khách.
+  const tienMat = tienMatTruocCua(link);
+  const canTraLai = canTraLaiTienMat(link);
+  const daTraLai = tienMat > 0 && Boolean(link.tienMatTraLaiLuc);
 
   return (
     <PosModal description="Khách mở ứng dụng ngân hàng, quét mã để chuyển khoản. Tiền về là đơn tự hoàn tất." onClose={onClose} title="Chuyển khoản qua mã QR" size="md">
       <div className="grid gap-5 sm:grid-cols-[240px_minmax(0,1fr)]">
         <div className="flex flex-col items-center">
-          <div className={`rounded-xl border border-bo-border bg-white p-3 ${pending ? '' : 'opacity-30'}`}>
-            {link.qrCode ? <QRCodeSVG level="M" size={208} value={link.qrCode} /> : <div className="grid size-[208px] place-items-center text-xs text-bo-muted">Không có mã QR</div>}
-          </div>
-          {pending ? (
-            <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-bo-muted"><Clock aria-hidden="true" size={13} />Hết hạn sau <strong className="text-bo-foreground tabular-nums">{formatCountdown(remaining)}</strong></p>
-          ) : null}
-          {/* Nhận diện cổng thanh toán cho khách đang quét; mờ theo mã QR khi mã hết hiệu lực.
+          {hienMa ? (
+            <>
+              <div className="rounded-xl border border-bo-border bg-white p-3">
+                {link.qrCode ? <QRCodeSVG level="M" size={208} value={link.qrCode} /> : <div className="grid size-[208px] place-items-center text-xs text-bo-muted">Không có mã QR</div>}
+              </div>
+              {remaining != null ? (
+                <p className={`mt-2 inline-flex items-center gap-1.5 text-xs ${sapHet ? 'text-amber-700' : 'text-bo-muted'}`}>
+                  <Clock aria-hidden="true" size={13} />{sapHet ? 'Sắp hết hạn' : 'Hết hạn sau'}{' '}
+                  <strong className={`tabular-nums ${sapHet ? 'text-amber-700' : 'text-bo-foreground'}`}>{formatCountdown(remaining)}</strong>
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <div className="flex size-[234px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center">
+                {hetGio ? (
+                  <>
+                    <RefreshCcw aria-hidden="true" className="text-bo-primary motion-safe:animate-spin" size={28} />
+                    <span className="text-sm font-semibold text-bo-foreground">Đang đóng mã…</span>
+                    <span className="text-xs text-bo-muted">Mã đã ẩn khỏi màn hình</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="grid size-12 place-items-center rounded-full bg-slate-100 text-bo-muted"><QrCode aria-hidden="true" size={24} /></span>
+                    <span className="text-sm font-semibold text-bo-foreground">{MA_DONG_TIEU_DE[link.trangThai] || 'Mã QR đã đóng'}</span>
+                    <span className="text-xs text-bo-muted">{link.qrCode ? 'Đã ẩn mã — khách không quét được nữa' : 'Không có mã nào để khách quét'}</span>
+                  </>
+                )}
+              </div>
+              {hetGio ? (
+                <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-bo-muted"><Clock aria-hidden="true" size={13} />Hết hạn sau <strong className="tabular-nums text-bo-foreground">00:00</strong></p>
+              ) : link.trangThai === 'EXPIRED' && link.hetHanLuc ? (
+                <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-bo-muted"><Clock aria-hidden="true" size={13} />Hết hạn lúc {gioPhut(link.hetHanLuc)}</p>
+              ) : null}
+            </>
+          )}
+          {/* Nhận diện cổng thanh toán cho khách đang quét; mờ đi khi mã hết hiệu lực.
               "Cổng thanh toán" thay vì "Thanh toán qua": khách quét bằng app ngân hàng bất kỳ, không cần app payOS */}
-          <p className={`mt-3 inline-flex items-center gap-2 text-xs text-bo-muted ${pending ? '' : 'opacity-30'}`}>Cổng thanh toán <PayosLogo height={24} /></p>
+          <p className={`mt-3 inline-flex items-center gap-2 text-xs text-bo-muted ${hienMa ? '' : 'opacity-40'}`}>Cổng thanh toán <PayosLogo height={24} /></p>
         </div>
         <div className="min-w-0 space-y-3 text-sm">
           <div className="rounded-lg border border-bo-border bg-slate-50 p-3">
-            <p className="text-xs text-bo-muted">Số tiền</p>
-            <p className="text-2xl font-bold text-bo-primary">{formatMoney(link.soTien)}</p>
+            <p className="text-xs text-bo-muted">{tienMat > 0 ? 'Số tiền quét QR' : 'Số tiền'}</p>
+            <p className={`text-2xl font-bold tabular-nums ${MA_KHONG_THANH.includes(link.trangThai) ? 'text-slate-400' : 'text-bo-primary'}`}>{formatMoney(link.soTien)}</p>
             {link.trangThai === 'PAID_ERROR' && link.soTienDaNhan != null ? (
               <p className="mt-1 text-xs text-bo-muted">Đã nhận: <strong className="text-bo-foreground">{formatMoney(link.soTienDaNhan)}</strong></p>
             ) : null}
+            {/* Trả kết hợp: một dòng tiền mặt + tổng hóa đơn; đã trả lại khách thì dòng này báo đã trả (không thêm hộp) */}
+            {tienMat > 0 && daTraLai ? (
+              <p className="mt-0.5 flex items-center gap-1 text-xs text-bo-success">
+                <Check aria-hidden="true" className="shrink-0" size={13} />
+                <span>Đã trả lại <strong className="font-semibold tabular-nums">{formatMoney(tienMat)}</strong> tiền mặt · {gioPhut(link.tienMatTraLaiLuc)}</span>
+              </p>
+            ) : tienMat > 0 ? (
+              <p className="mt-0.5 text-xs text-bo-muted">
+                Tiền mặt <strong className="font-medium tabular-nums text-bo-foreground">{formatMoney(tienMat)}</strong>
+                {' · '}Tổng <strong className="font-medium tabular-nums text-bo-foreground">{formatMoney(tienMat + Number(link.soTien || 0))}</strong>
+              </p>
+            ) : null}
           </div>
+          {canTraLai ? (
+            <div aria-live="assertive" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-900" role="alert">
+              <p className="text-[13px] font-semibold">Trả lại khách {formatMoney(tienMat)} tiền mặt</p>
+              <p className="mt-0.5">
+                {link.trangThai === 'REFUNDED'
+                  ? 'Quản lý đã hoàn khoản chuyển khoản cho khách; phần tiền mặt khách đưa trước vẫn ở quầy.'
+                  : 'Mã không thành nên khách chưa mua được hàng.'}{' '}
+                Trả xong bấm <strong>Đã trả lại tiền mặt</strong>.
+              </p>
+              {state.returnCashError ? <p className="mt-2 flex items-start gap-1.5 font-medium text-red-700"><AlertCircle aria-hidden="true" className="mt-0.5 shrink-0" size={14} />{state.returnCashError}</p> : null}
+            </div>
+          ) : null}
           <dl className="space-y-1.5 text-xs">
-            <div className="flex justify-between gap-3"><dt className="text-bo-muted">Chủ tài khoản</dt><dd className="truncate text-right font-medium text-bo-foreground">{link.tenTaiKhoan || '—'}</dd></div>
+            {hienMa || link.trangThai === 'PAID_ERROR' ? (
+              <div className="flex justify-between gap-3"><dt className="text-bo-muted">Chủ tài khoản</dt><dd className="truncate text-right font-medium text-bo-foreground">{link.tenTaiKhoan || '—'}</dd></div>
+            ) : null}
             {/* Không hiện số tài khoản / nội dung CK: chỉ cho quét mã. Chuyển tay dễ sai số tiền hoặc thiếu mã nhận
-                diện payOS ("CS…") -> payOS không ghi nhận, tiền vào tài khoản mà hệ thống không biết. */}
+                diện payOS ("CS…") -> payOS không ghi nhận, tiền vào tài khoản mà hệ thống không biết.
+                Mã giao dịch giữ cả khi mã đã đóng: để tra ở màn Đối soát chuyển khoản. */}
             <div className="flex justify-between gap-3"><dt className="text-bo-muted">Mã giao dịch</dt><dd className="font-mono text-bo-muted">{link.orderCode}</dd></div>
           </dl>
-          {pending ? (
+          {hienMa ? (
             <p className="text-[11px] leading-4 text-bo-muted">Khách <strong className="text-bo-foreground">chỉ quét mã</strong> bằng app ngân hàng, không chuyển tay theo số tài khoản — chuyển tay hệ thống không nhận ra.</p>
           ) : null}
-          {pending && state.online === false ? (
+          {hienMa && state.online === false ? (
             <OfflineNotice>
               <strong>Máy đang mất mạng.</strong> Khách vẫn chuyển khoản được bình thường; màn hình sẽ tự cập nhật khi có mạng lại.
             </OfflineNotice>
           ) : null}
-          {pending ? (
-            <div aria-live="polite" className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
-              <RefreshCcw aria-hidden="true" className="shrink-0 animate-spin" size={14} />
-              <span>Đang chờ khách chuyển khoản… Hàng trong giỏ đang được giữ chỗ.</span>
+          {hienMa ? (
+            <div aria-live="polite" className={`flex items-center gap-2 rounded-lg border p-3 text-xs ${sapHet ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-blue-200 bg-blue-50 text-blue-900'}`}>
+              {sapHet
+                ? <AlertCircle aria-hidden="true" className="shrink-0" size={14} />
+                : <RefreshCcw aria-hidden="true" className="shrink-0 animate-spin" size={14} />}
+              <span>{sapHet ? 'Mã sắp hết hạn. Khách chưa quét thì bấm Hủy mã QR rồi Thanh toán lại.' : 'Đang chờ khách chuyển khoản… Hàng trong giỏ đang được giữ chỗ.'}</span>
             </div>
-          ) : terminalText ? (
-            <div aria-live="polite" className={`flex items-start gap-2 rounded-lg border p-3 text-xs ${link.trangThai === 'PAID_ERROR' ? 'border-red-200 bg-red-50 text-red-700' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
+          ) : hetGio ? (
+            <div aria-live="polite" className={`flex items-start gap-2 rounded-lg border p-3 text-xs ${loiDongMa ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-bo-border bg-slate-50 text-slate-700'}`}>
+              {loiDongMa
+                ? <AlertCircle aria-hidden="true" className="mt-0.5 shrink-0" size={14} />
+                : <RefreshCcw aria-hidden="true" className="mt-0.5 shrink-0 motion-safe:animate-spin" size={14} />}
+              <span>
+                {loiDongMa
+                  ? `Chưa đóng được mã: ${loiDongMa.message}. ${loiDongMa.final ? 'Bấm Hủy mã QR để thử lại.' : 'Máy tự thử lại sau ít giây.'}`
+                  : 'Mã đã hết giờ. Chờ thêm ít giây phòng khách vừa bấm chuyển rồi đóng mã — tiền về kịp thì đơn vẫn tự hoàn tất.'}
+              </span>
+            </div>
+          ) : terminalText && !canTraLai ? (
+            <div aria-live="polite" className={`flex items-start gap-2 rounded-lg border p-3 text-xs ${link.trangThai === 'PAID_ERROR' ? 'border-red-200 bg-red-50 text-red-700' : daTraLai ? 'border-bo-border bg-slate-50 text-slate-700' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
               <AlertCircle aria-hidden="true" className="mt-0.5 shrink-0" size={14} />
               {link.trangThai === 'PAID_ERROR' ? (
                 <span>
                   <strong>Khách đã chuyển khoản — không thu tiền lại.</strong> Hóa đơn đã khóa và chuyển cho quản lý xử lý (bán cho khách hoặc trả lại tiền) ở màn Đối soát chuyển khoản; xử lý xong màn này tự cập nhật.
+                  {tienMat > 0 ? <span className="mt-1 block">Giữ lại {formatMoney(tienMat)} tiền mặt khách đưa trước, chưa trả lại khách, tới khi quản lý xử lý.</span> : null}
                   {link.errorMessage ? <span className="mt-1 block opacity-80">{link.errorMessage}</span> : null}
                 </span>
               ) : (
-                <span>{terminalText}{link.errorMessage ? ` ${link.errorMessage}` : ''}</span>
+                // Lý do máy chủ ghi chỉ có ích khi không tạo được mã; hết hạn / hủy thì lặp lại đúng câu trên
+                <span>{terminalText}{link.trangThai === 'FAILED' && link.errorMessage ? ` ${link.errorMessage}` : ''}{daTraLai ? ' Khách muốn mua tiếp thì bấm Thanh toán lại.' : ''}</span>
               )}
             </div>
           ) : null}
-          {link.checkoutUrl && pending ? (
+          {link.checkoutUrl && hienMa ? (
             <a className="inline-flex items-center gap-1.5 text-xs font-medium text-bo-primary hover:underline" href={link.checkoutUrl} rel="noopener noreferrer" target="_blank"><Landmark aria-hidden="true" size={13} />Mở trang thanh toán payOS</a>
           ) : null}
         </div>
@@ -166,12 +278,18 @@ function PayosQrDialog({ state, actions, onClose }) {
         {pending ? (
           <>
             <button className={secondaryButton} onClick={onClose} type="button">Ẩn (vẫn chờ tiền)</button>
-            <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-300" disabled={state.isSubmitting || state.online === false} onClick={actions.onCancelPayos} title={state.online === false ? 'Đang mất mạng — chưa hủy được mã QR' : undefined} type="button">{state.isSubmitting ? 'Đang hủy…' : 'Hủy mã QR'}</button>
+            {/* Hết giờ: máy quầy đang tự hủy mã (thử lại tới khi payOS xác nhận), không cho bấm chồng; tự hủy gặp lỗi
+                không tự hết thì mở lại nút cho thu ngân */}
+            <button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-300" disabled={(hetGio && !loiDongMa?.final) || state.isSubmitting || state.online === false} onClick={actions.onCancelPayos} title={state.online === false ? 'Đang mất mạng — chưa hủy được mã QR' : undefined} type="button">{hetGio && !loiDongMa?.final ? 'Đang đóng mã…' : state.isSubmitting ? 'Đang hủy…' : 'Hủy mã QR'}</button>
           </>
         ) : (
           <>
-            <button className={secondaryButton} onClick={onClose} type="button">Đóng</button>
-            {link.trangThai !== 'PAID_ERROR' && link.trangThai !== 'PAID' ? <button className={primaryButton} onClick={actions.onRecreatePayos} type="button">Thanh toán lại</button> : null}
+            <button className={secondaryButton} disabled={canTraLai && state.isSubmitting} onClick={onClose} type="button">{canTraLai ? 'Để sau' : 'Đóng'}</button>
+            {canTraLai ? (
+              <button className={primaryButton} disabled={state.isSubmitting || state.online === false} onClick={() => actions.onReturnPayosCash(link.orderCode)} title={state.online === false ? 'Đang mất mạng — chưa ghi nhận được' : undefined} type="button">
+                {state.isSubmitting ? 'Đang ghi nhận…' : 'Đã trả lại tiền mặt'}
+              </button>
+            ) : link.trangThai !== 'PAID_ERROR' && link.trangThai !== 'PAID' ? <button className={primaryButton} onClick={actions.onRecreatePayos} type="button">Thanh toán lại</button> : null}
           </>
         )}
       </div>
@@ -365,6 +483,9 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
     return (
       <PosModal description="Khách đã chuyển khoản nhưng chưa tạo được đơn." onClose={onClose} title={`Đóng hóa đơn ${state.closingInvoice?.number}?`} size="sm">
         <p className="text-sm leading-6 text-bo-muted">Giao dịch đã chuyển cho quản lý xử lý ở màn Đối soát chuyển khoản (bán cho khách hoặc trả lại tiền) và vẫn nằm ở đó sau khi đóng tab. Không thu tiền lại của khách cho các món này.</p>
+        {tienMatTruocCua(state.closingInvoice?.payos) > 0 ? (
+          <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">Khách còn đưa trước <strong>{formatMoney(tienMatTruocCua(state.closingInvoice.payos))}</strong> tiền mặt: giữ lại tới khi quản lý xử lý; quản lý trả lại tiền chuyển khoản thì cũng trả lại khách số tiền mặt này.</p>
+        ) : null}
         <div className="mt-5"><FooterButtons cancelText="Giữ tab" confirmText="Đóng hóa đơn" destructive onClose={onClose} onConfirm={actions.onCloseInvoice} /></div>
       </PosModal>
     );
@@ -382,6 +503,11 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
     const offline = state.online === false;
     const roundedAmount = Math.ceil(state.total / 100000) * 100000;
     const quickAmounts = [...new Set([state.total, roundedAmount, roundedAmount + 200000, roundedAmount + 500000].filter((amount) => amount > 0))];
+    // Chuyển khoản QR có thể kèm tiền mặt khách đưa trước (trả kết hợp); ô trống = mã QR trọn hóa đơn như cũ.
+    const qr = isTransfer ? kiemTienMatTruocQr(state.total, state.tienMatTruoc) : null;
+    const kemTienMat = Boolean(qr && qr.tienMat > 0 && !qr.loi);
+    const canCreateQr = checkoutEnabled && !offline && !state.frozen && !qr?.loi && !state.isSubmitting;
+    const transferError = state.paymentError || qr?.loi || '';
     return (
       <PosModal description={isTransfer ? 'Tạo mã QR để khách chuyển khoản qua payOS.' : 'Xác nhận số tiền khách thanh toán bằng tiền mặt.'} onClose={onClose} title="Thanh toán" size="lg">
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_270px]">
@@ -393,11 +519,31 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
             </div>
             {isTransfer ? (
               <div className="mt-5 space-y-3">
-                <div className="rounded-lg border border-bo-border bg-slate-50 p-3 text-xs leading-5 text-bo-muted">
-                  <p className="font-semibold text-bo-foreground">Cần thu: {formatMoney(state.total)}</p>
-                  <p className="mt-1">Bấm <strong className="text-bo-foreground">Tạo mã QR</strong>, khách quét bằng ứng dụng ngân hàng. Hàng trong giỏ được giữ chỗ cho tới khi khách trả tiền, hủy hoặc hết hạn.</p>
+                <div>
+                  <label className="block text-sm font-medium text-bo-foreground" htmlFor="payment-cash-before-qr">
+                    Khách đưa trước tiền mặt <span className="font-normal text-bo-muted">(không bắt buộc)</span>
+                  </label>
+                  {/* Form để Enter trong ô số tiền = tạo mã QR (thao tác quầy nhanh hơn) */}
+                  <form className="relative mt-1.5" noValidate onSubmit={(event) => { event.preventDefault(); if (canCreateQr) actions.onCreatePayosQr(); }}>
+                    <MoneyInput aria-describedby="payment-cash-before-qr-hint" aria-invalid={Boolean(qr?.loi)} className={`${fieldClass} mt-0 h-auto pr-10 text-right font-semibold tabular-nums disabled:bg-slate-50 disabled:opacity-60`} disabled={state.frozen} id="payment-cash-before-qr" onChange={actions.onTienMatTruoc} onFocus={(event) => event.target.select()} placeholder="0" value={state.tienMatTruoc ?? ''} />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-bo-muted">₫</span>
+                  </form>
+                  <p className="mt-1 text-[11px] leading-4 text-bo-muted" id="payment-cash-before-qr-hint">Khách trả một phần bằng tiền mặt thì nhập số đã nhận; mã QR chỉ mang phần còn lại. Bỏ trống nếu khách quét QR cả hóa đơn.</p>
                 </div>
-                {state.paymentError ? <p className="flex items-start gap-1.5 text-xs text-red-600"><AlertCircle aria-hidden="true" className="mt-0.5 shrink-0" size={14} />{state.paymentError}</p> : null}
+                <div className="rounded-lg border border-bo-border bg-slate-50 p-3 text-xs leading-5 text-bo-muted">
+                  {kemTienMat ? (
+                    <dl className="space-y-1">
+                      <div className="flex justify-between gap-3"><dt>Tổng hóa đơn</dt><dd className="tabular-nums text-bo-foreground">{formatMoney(state.total)}</dd></div>
+                      <div className="flex justify-between gap-3"><dt>Tiền mặt khách đưa</dt><dd className="tabular-nums text-bo-foreground">− {formatMoney(qr.tienMat)}</dd></div>
+                      <div className="flex justify-between gap-3 border-t border-dashed border-bo-border pt-1 font-semibold text-bo-foreground"><dt>Phần quét QR</dt><dd className="tabular-nums text-bo-primary">{formatMoney(qr.soTienQr)}</dd></div>
+                    </dl>
+                  ) : (
+                    <p className="font-semibold text-bo-foreground">Cần thu: {formatMoney(state.total)}</p>
+                  )}
+                  <p className="mt-1">Bấm <strong className="text-bo-foreground">Tạo mã QR</strong>, khách quét bằng ứng dụng ngân hàng. Hàng trong giỏ được giữ chỗ cho tới khi khách trả tiền, hủy hoặc hết hạn.</p>
+                  {kemTienMat ? <p className="mt-1">Mã QR bị hủy hoặc hết hạn thì trả lại khách <strong className="text-bo-foreground">{formatMoney(qr.tienMat)}</strong> tiền mặt.</p> : null}
+                </div>
+                {transferError ? <p className="flex items-start gap-1.5 text-xs text-red-600" role="alert"><AlertCircle aria-hidden="true" className="mt-0.5 shrink-0" size={14} />{transferError}</p> : null}
               </div>
             ) : (
             <div className="mt-5">
@@ -407,7 +553,8 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
               </div>
               {/* Form để Enter trong ô số tiền = xác nhận thanh toán (thao tác quầy nhanh hơn) */}
               <form className="relative mt-1.5" onSubmit={(event) => { event.preventDefault(); if (checkoutEnabled && !offline && !pending && !amountInvalid && !state.isSubmitting) actions.onConfirmPayment(); }}>
-                <input autoFocus className={`${fieldClass} pr-12 text-right text-lg font-semibold disabled:bg-slate-50 disabled:opacity-60`} disabled={state.frozen} id="payment-amount" inputMode="numeric" min="0" onChange={(event) => actions.onPaymentAmount(event.target.value)} onFocus={(event) => event.target.select()} placeholder="0" step="1000" type="number" value={state.paymentAmount} />
+                {/* 0 hiện ô trống (chữ mờ "0"): xóa hết rồi gõ không bị dính số 0 đầu */}
+                <MoneyInput autoFocus className={`${fieldClass} h-auto pr-12 text-right text-lg font-semibold disabled:bg-slate-50 disabled:opacity-60`} disabled={state.frozen} id="payment-amount" onChange={actions.onPaymentAmount} onFocus={(event) => event.target.select()} placeholder="0" value={state.paymentAmount || ''} />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-bo-muted">₫</span>
               </form>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -441,7 +588,7 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
         ) : null}
         <div className="mt-5 border-t border-bo-border pt-4">
           {isTransfer ? (
-            <FooterButtons busy={state.isSubmitting} confirmText={!checkoutEnabled ? 'Thanh toán chưa kích hoạt' : offline ? 'Mất kết nối mạng' : 'Tạo mã QR'} disabled={!checkoutEnabled || offline || state.frozen} onClose={onClose} onConfirm={actions.onCreatePayosQr} />
+            <FooterButtons busy={state.isSubmitting} confirmText={!checkoutEnabled ? 'Thanh toán chưa kích hoạt' : offline ? 'Mất kết nối mạng' : kemTienMat ? `Tạo mã QR ${formatMoney(qr.soTienQr)}` : 'Tạo mã QR'} disabled={!checkoutEnabled || offline || state.frozen || Boolean(qr?.loi)} onClose={onClose} onConfirm={actions.onCreatePayosQr} />
           ) : (
             <FooterButtons busy={state.isSubmitting} confirmText={!checkoutEnabled ? 'Thanh toán chưa kích hoạt' : pending ? 'Đang xử lý…' : offline ? 'Mất kết nối mạng' : 'Xác nhận thanh toán'} disabled={!checkoutEnabled || offline || pending || amountInvalid} onClose={onClose} onConfirm={actions.onConfirmPayment} />
           )}
@@ -509,6 +656,8 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
 
   if (dialog === 'receipt') {
     const receipt = state.receipt;
+    // Trả kết hợp (tiền mặt đưa trước + QR payOS): tách hai phần; QR trọn hóa đơn / tiền mặt giữ nguyên dòng cũ.
+    const ketHop = chiaThanhToanKetHop(receipt);
     return (
       <PosModal description="Giao dịch đã được hệ thống xác nhận và lưu." onClose={actions.onCloseReceipt} title="Thanh toán thành công" size="sm">
         <div className="flex flex-col items-center rounded-lg border border-bo-border bg-slate-50 px-4 py-5 text-center">
@@ -516,7 +665,7 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
           <p className="mt-3 text-xs text-bo-muted">Số hóa đơn chính thức</p>
           <p className="text-base font-bold text-bo-foreground">{receipt?.soDonHang || '—'}</p>
           <p className="mt-3 text-2xl font-bold text-bo-primary">{formatMoney(receipt?.tongCong)}</p>
-          <p className="mt-1 text-xs text-bo-muted">{receipt?.phuongThuc === 'PAYOS' ? 'Chuyển khoản qua payOS · Đã nhận đủ tiền' : `Tiền mặt · Khách đưa ${formatMoney(receipt?.soTienThu)} · Tiền thừa ${formatMoney(receipt?.soTienThua)}`}</p>
+          {ketHop ? <PhanThanhToanKetHop ketHop={ketHop} /> : <p className="mt-1 text-xs text-bo-muted">{receipt?.phuongThuc === 'PAYOS' ? 'Chuyển khoản qua payOS · Đã nhận đủ tiền' : `Tiền mặt · Khách đưa ${formatMoney(receipt?.soTienThu)} · Tiền thừa ${formatMoney(receipt?.soTienThua)}`}</p>}
         </div>
         <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row">
           <button className={`${secondaryButton} flex-1`} onClick={actions.onPrintReceipt} type="button"><Printer aria-hidden="true" size={16} />In hóa đơn</button>
@@ -529,6 +678,7 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
 
   if (dialog === 'recovered-result') {
     const receipt = state.recoveredResult;
+    const ketHop = chiaThanhToanKetHop(receipt);
     return (
       <PosModal description="Phát hiện giao dịch đã hoàn tất từ trước (trước khi tải lại trang)." onClose={actions.onCloseRecovered} title="Giao dịch đã hoàn tất" size="sm">
         <div className="flex flex-col items-center rounded-lg border border-bo-border bg-slate-50 px-4 py-5 text-center">
@@ -536,7 +686,7 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
           <p className="mt-3 text-xs text-bo-muted">Số hóa đơn chính thức</p>
           <p className="text-base font-bold text-bo-foreground">{receipt?.soDonHang || '—'}</p>
           <p className="mt-3 text-2xl font-bold text-bo-primary">{formatMoney(receipt?.tongCong)}</p>
-          <p className="mt-1 text-xs text-bo-muted">Tiền thừa {formatMoney(receipt?.soTienThua)}</p>
+          {ketHop ? <PhanThanhToanKetHop ketHop={ketHop} /> : <p className="mt-1 text-xs text-bo-muted">Tiền thừa {formatMoney(receipt?.soTienThua)}</p>}
         </div>
         <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row">
           <button className={`${secondaryButton} flex-1`} onClick={actions.onPrintRecovered} type="button"><Printer aria-hidden="true" size={16} />In hóa đơn</button>

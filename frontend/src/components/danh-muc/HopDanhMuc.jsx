@@ -95,7 +95,7 @@ function NoiDung({ cheDo, nut, chaId, cay, onDong, onDaLuu }) {
   return (
     <DialogContent
       showCloseButton={!dangLuu}
-      className="border-bo-border bg-white p-0 text-bo-foreground sm:max-w-lg"
+      className="border-bo-border bg-bo-surface p-0 text-bo-foreground sm:max-w-lg"
       onEscapeKeyDown={(event) => { if (dangLuu) event.preventDefault(); }}
       onInteractOutside={(event) => { if (dangLuu) event.preventDefault(); }}
     >
@@ -202,7 +202,7 @@ function NoiDung({ cheDo, nut, chaId, cay, onDong, onDaLuu }) {
             variant="outline"
             onClick={onDong}
             disabled={dangLuu}
-            className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+            className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
           >
             Hủy
           </Button>

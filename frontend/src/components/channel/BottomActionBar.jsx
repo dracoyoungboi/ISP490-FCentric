@@ -10,7 +10,7 @@ export default function BottomActionBar({ note, children, className }) {
   return (
     <div
       className={cn(
-        "sticky bottom-0 z-20 -mx-4 -mb-4 flex flex-wrap items-center justify-end gap-2 border-t border-bo-border bg-white/95 px-4 py-3 backdrop-blur sm:-mx-5 sm:-mb-5 sm:px-5 lg:-mx-6 lg:-mb-6 lg:px-6",
+        "sticky bottom-0 z-20 -mx-4 -mb-4 flex flex-wrap items-center justify-end gap-2 border-t border-bo-border bg-bo-surface/95 px-4 py-3 backdrop-blur sm:-mx-5 sm:-mb-5 sm:px-5 lg:-mx-6 lg:-mb-6 lg:px-6",
         className,
       )}
     >

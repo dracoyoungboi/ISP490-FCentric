@@ -155,7 +155,7 @@ export default function OTimThemHang({ dsHang, chiMuc, dong, khoa = false, onThe
                     tabIndex={-1}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => themCa(n.khoa)}
-                    className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-bo-border bg-white px-2 text-xs font-medium text-bo-primary hover:border-blue-200 hover:bg-bo-primary-soft"
+                    className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-bo-border bg-bo-surface px-2 text-xs font-medium text-bo-primary hover:border-blue-200 hover:bg-bo-primary-soft"
                   >
                     <Plus className="size-3.5" aria-hidden="true" />
                     {n.thieu === n.tong ? `Thêm cả ${soVN(n.thieu)} biến thể` : `Thêm ${soVN(n.thieu)} biến thể còn lại`}

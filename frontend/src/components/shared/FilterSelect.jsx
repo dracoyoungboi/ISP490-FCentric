@@ -37,7 +37,7 @@ export default function FilterSelect({
           aria-label={onClear ? `${label}: ${current?.label ?? ""}` : label}
           disabled={disabled}
           className={cn(
-            "h-9 w-full justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle",
+            "h-9 w-full justify-between gap-2 border-bo-border bg-bo-surface px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle",
             onClear ? coXoa && "pr-10" : ["sm:w-[190px]", className],
           )}
         >
@@ -47,7 +47,7 @@ export default function FilterSelect({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align={align}
-        className="z-50 min-w-[200px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+        className="z-50 min-w-[200px] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
       >
         {options.map((option) => (
           <DropdownMenuItem

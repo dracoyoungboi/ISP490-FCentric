@@ -205,12 +205,12 @@ export default function DonBanHangCreate() {
                     value={quoteSearch}
                     onChange={(e) => { setQuoteSearch(e.target.value); setShowQuoteDropdown(true); }}
                     onFocus={() => setShowQuoteDropdown(true)}
-                    className="h-10 border-bo-border bg-white pr-8 pl-9 font-semibold text-bo-primary placeholder:font-normal placeholder:text-bo-muted focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
+                    className="h-10 border-bo-border bg-bo-surface pr-8 pl-9 font-semibold text-bo-primary placeholder:font-normal placeholder:text-bo-muted focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
                   />
                   <ChevronDown className="absolute right-3 top-3 size-4 text-bo-muted" />
                 </div>
                 {showQuoteDropdown && filteredQuotes.length > 0 && (
-                  <div className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-bo-border bg-white shadow-lg">
+                  <div className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-bo-border bg-bo-surface shadow-lg">
                     {filteredQuotes.map(q => (
                       <div
                         key={q.id}
@@ -227,7 +227,7 @@ export default function DonBanHangCreate() {
                   </div>
                 )}
                 {filteredQuotes.length === 0 && showQuoteDropdown && (
-                  <div className="absolute z-50 mt-1 w-full rounded-lg border border-bo-border bg-white p-4 text-center text-sm text-bo-muted shadow-lg">
+                  <div className="absolute z-50 mt-1 w-full rounded-lg border border-bo-border bg-bo-surface p-4 text-center text-sm text-bo-muted shadow-lg">
                     Không có báo giá nào đang chờ
                   </div>
                 )}
@@ -260,11 +260,11 @@ export default function DonBanHangCreate() {
                     value={warehouseSearch}
                     onChange={(e) => { setWarehouseSearch(e.target.value); setShowWarehouseDropdown(true); }}
                     onFocus={() => setShowWarehouseDropdown(true)}
-                    className="h-10 border-bo-border bg-white pl-9 text-bo-foreground placeholder:text-bo-muted focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
+                    className="h-10 border-bo-border bg-bo-surface pl-9 text-bo-foreground placeholder:text-bo-muted focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
                   />
                 </div>
                 {showWarehouseDropdown && filteredWarehouses.length > 0 && (
-                  <div className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-bo-border bg-white shadow-lg">
+                  <div className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-bo-border bg-bo-surface shadow-lg">
                     {filteredWarehouses.map(w => (
                       <div
                         key={w.id}
@@ -291,7 +291,7 @@ export default function DonBanHangCreate() {
                   type="number"
                   value={formData.phiVanChuyen}
                   onChange={(e) => setFormData({ ...formData, phiVanChuyen: e.target.value })}
-                  className="h-10 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
+                  className="h-10 border-bo-border bg-bo-surface text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
                 />
               </div>
 
@@ -303,7 +303,7 @@ export default function DonBanHangCreate() {
                 <Input
                   value={formData.diaChiGiaoHang}
                   onChange={(e) => setFormData({ ...formData, diaChiGiaoHang: e.target.value })}
-                  className="h-10 border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
+                  className="h-10 border-bo-border bg-bo-surface text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
                 />
               </div>
 
@@ -315,7 +315,7 @@ export default function DonBanHangCreate() {
                 <Textarea
                   value={formData.ghiChu}
                   onChange={(e) => setFormData({ ...formData, ghiChu: e.target.value })}
-                  className="resize-none border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
+                  className="resize-none border-bo-border bg-bo-surface text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
                   rows={3}
                 />
               </div>

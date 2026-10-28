@@ -42,7 +42,7 @@ export default function SoDoKe({
 
   return (
     <div className="flex flex-col gap-4">
-      <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-bo-border bg-white px-3 py-2.5 shadow-sm sm:px-4">
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-bo-border bg-bo-surface px-3 py-2.5 shadow-sm sm:px-4">
         <NhomChon
           nhan="Khu vực"
           value={khu.id}
@@ -53,7 +53,7 @@ export default function SoDoKe({
       </section>
 
       {!viTriKhu.length ? (
-        <section className="rounded-lg border border-bo-border bg-white shadow-sm">
+        <section className="rounded-lg border border-bo-border bg-bo-surface shadow-sm">
           <EmptyState
             title={`${khu.tenKhuVuc} chưa có vị trí kệ`}
             description="Thêm vị trí để thấy sơ đồ dãy, hàng và tầng của khu."
@@ -71,7 +71,7 @@ export default function SoDoKe({
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="flex min-w-0 flex-col gap-4">
             {days.map(({ day, hangs, tangs, tim }) => (
-              <section key={day} className="rounded-lg border border-bo-border bg-white shadow-sm">
+              <section key={day} className="rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-bo-border px-4 py-3">
                   <h2 className="text-sm font-semibold text-bo-heading">
                     Dãy {day} · {khu.tenKhuVuc}
@@ -128,7 +128,7 @@ function OKe({ viTri, chon, onChon }) {
       onClick={() => onChon(viTri)}
       aria-label={`Vị trí ${viTri.maViTri}, ${baoTri ? "bảo trì" : `${viTri.dangChua ?? 0} trên ${viTri.sucChua ?? 0}`}`}
       className={cn(
-        "flex h-[60px] min-w-0 flex-col justify-between gap-1.5 rounded-md border bg-white px-2.5 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30",
+        "flex h-[60px] min-w-0 flex-col justify-between gap-1.5 rounded-md border bg-bo-surface px-2.5 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30",
         baoTri ? "border-dashed border-slate-300 bg-bo-surface-subtle" : "border-bo-border hover:border-slate-400",
         dangChon && "border-bo-primary ring-2 ring-bo-primary/25 hover:border-bo-primary",
       )}
@@ -173,7 +173,7 @@ function ChiTietViTri({ khoId, khu, viTri, coTheSua, onCapNhatViTri, onSuaViTri,
   };
 
   return (
-    <aside className="flex flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm xl:sticky xl:top-4">
+    <aside className="flex flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm xl:sticky xl:top-4">
       <div className="border-b border-bo-border px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">
           <h2 className="truncate font-mono text-base font-semibold text-bo-heading">{viTri.maViTri}</h2>
@@ -184,7 +184,7 @@ function ChiTietViTri({ khoId, khu, viTri, coTheSua, onCapNhatViTri, onSuaViTri,
         </p>
       </div>
       <DaiO soO={2} phang className="border-b border-bo-border sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5 bg-white px-4 py-3">
+        <div className="flex flex-col gap-1.5 bg-bo-surface px-4 py-3">
           <span className="text-xs font-medium text-bo-muted">Đang chứa</span>
           <span className="text-lg font-semibold tabular-nums text-bo-heading">
             {dinhDangSo(viTri.dangChua)}
@@ -192,7 +192,7 @@ function ChiTietViTri({ khoId, khu, viTri, coTheSua, onCapNhatViTri, onSuaViTri,
           </span>
           <ThanhMuc phanTram={muc * 100} tone={toneMucDay(muc)} />
         </div>
-        <div className="flex flex-col gap-1.5 bg-white px-4 py-3">
+        <div className="flex flex-col gap-1.5 bg-bo-surface px-4 py-3">
           <span className="text-xs font-medium text-bo-muted">Còn trống</span>
           <span className="text-lg font-semibold tabular-nums text-bo-heading">{baoTri ? "—" : dinhDangSo(conTrong)}</span>
           <span className="text-xs text-bo-muted">{baoTri ? "Đang bảo trì" : "sản phẩm"}</span>
@@ -250,7 +250,7 @@ function ChiTietViTri({ khoId, khu, viTri, coTheSua, onCapNhatViTri, onSuaViTri,
                     ? "Kệ đang gắn lô đã khóa của phiếu nhập chưa nhập kho"
                     : undefined
               }
-              className="h-9 gap-1.5 border-bo-border bg-white text-bo-danger hover:bg-bo-danger-soft hover:text-bo-danger"
+              className="h-9 gap-1.5 border-bo-border bg-bo-surface text-bo-danger hover:bg-bo-danger-soft hover:text-bo-danger"
             >
               <Trash2 className="size-4" />
               Xóa vị trí

@@ -331,12 +331,19 @@ export function tinhBuoc(phieu, { quyen, dsDon, tienDo }) {
   ];
 }
 
+/** Đơn đã qua bước đóng gói (đã xuất một phần / toàn bộ, hoàn thành, bị hoàn trả): bằng chứng chỉ còn để xem lại. */
+const DON_SAU_DONG_GOI = [TRANG_THAI_DON.DA_XUAT_MOT_PHAN, TRANG_THAI_DON.DA_XUAT_KHO, TRANG_THAI_DON.HOAN_THANH, TRANG_THAI_DON.BI_HOAN_TRA];
+
 /**
- * Bằng chứng đóng gói của một đơn (chỉ khi đơn Chờ đóng gói hoặc Chờ xuất kho): đủ hay còn thiếu loại nào
- * (đơn từ 1.000.000 đ cần video, nhỏ hơn cần 2 ảnh — máy chủ tính sẵn `yeuCauVideo`). Không cần hiện: null.
+ * Bằng chứng đóng gói của một đơn: Chờ đóng gói / Chờ xuất kho → đủ hay còn thiếu loại nào (đơn từ 1.000.000 đ cần
+ * video, nhỏ hơn cần 2 ảnh — máy chủ tính sẵn `yeuCauVideo`); đơn đã qua đóng gói → `chiXem` (mở lại xem, không báo
+ * thiếu: danh sách đơn không có số tệp — tệp có thể còn, đã tự xóa sau hạn lưu, hoặc chưa từng có). Không cần hiện: null.
  */
 export function nhanBangChung(don) {
   const tt = don?.trangThai;
+  if (DON_SAU_DONG_GOI.includes(tt)) {
+    return don.daDuBangChung ? { du: true, chiXem: true, nhan: "Đủ bằng chứng" } : { du: false, chiXem: true, nhan: "Xem lại" };
+  }
   if (tt !== TRANG_THAI_DON.CHO_DONG_GOI && tt !== TRANG_THAI_DON.DA_DONG_GOI) return null;
   if (don.daDuBangChung) return { du: true, nhan: "Đủ bằng chứng" };
   return { du: false, nhan: don.yeuCauVideo ? `Cần video ${khoangVideoNgan()}` : "Cần 2 ảnh" };

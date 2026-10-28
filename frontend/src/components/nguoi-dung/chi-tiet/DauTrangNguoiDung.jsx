@@ -114,7 +114,7 @@ export default function DauTrangNguoiDung({ nguoiDung, pq, laChinhMinh, onQuayLa
               <Ellipsis className="size-4" aria-hidden="true" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="z-50 w-[300px] rounded-lg border border-bo-border bg-white p-1 shadow-lg">
+          <DropdownMenuContent align="end" className="z-50 w-[300px] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg">
             <DropdownMenuItem onClick={onCapLaiMatKhau} disabled={!email} className={MUC_MENU}>
               <KeyRound className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
               <span className="flex min-w-0 flex-col gap-0.5">

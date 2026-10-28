@@ -98,7 +98,7 @@ export function NhomChon({ nhan, value, onChange, luaChon, day = false, classNam
             onClick={() => onChange(lc.ma)}
             className={cn(
               "h-8 shrink-0 whitespace-nowrap rounded-[5px] px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30",
-              chon ? "bg-white font-medium text-bo-heading shadow-sm" : "text-bo-muted hover:text-bo-foreground",
+              chon ? "bg-bo-surface font-medium text-bo-heading shadow-sm" : "text-bo-muted hover:text-bo-foreground",
             )}
           >
             {lc.ten}

@@ -8,8 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import CapNhatLuc from "@/components/shared/CapNhatLuc";
 import { LUA_CHON_SO_DONG } from "@/constants/phanTrang";
-
-const soVN = (n) => Number(n || 0).toLocaleString("vi-VN");
+import { formatNumber } from "@/utils/formatters";
 
 /**
  * Chân bảng phân trang dùng chung. `page` tính từ 0.
@@ -64,7 +63,7 @@ export default function TablePagination({
               <Button
                 variant="outline"
                 aria-label={`Số ${sizeLabel} mỗi trang`}
-                className="h-8 w-auto min-w-[110px] justify-between border-bo-border bg-white px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
+                className="h-8 w-auto min-w-[110px] justify-between border-bo-border bg-bo-surface px-2.5 text-xs font-normal text-bo-foreground hover:bg-bo-surface-subtle"
               >
                 {size} {sizeLabel}
                 <ChevronDown className="size-3.5 opacity-60" />
@@ -72,7 +71,7 @@ export default function TablePagination({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="start"
-              className="z-50 w-max min-w-[8rem] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+              className="z-50 w-max min-w-[8rem] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
             >
               {sizeMenuTitle ? (
                 <p className="px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{sizeMenuTitle}</p>
@@ -99,11 +98,11 @@ export default function TablePagination({
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <p className="text-xs text-bo-muted tabular-nums">
-          Hiển thị <span className="font-semibold text-bo-foreground">{soVN(from)}</span>
+          Hiển thị <span className="font-semibold text-bo-foreground">{formatNumber(from)}</span>
           {" – "}
-          <span className="font-semibold text-bo-foreground">{soVN(to)}</span>
+          <span className="font-semibold text-bo-foreground">{formatNumber(to)}</span>
           {" trong tổng số "}
-          <span className="font-semibold text-bo-primary">{soVN(total)}</span> {totalLabel}
+          <span className="font-semibold text-bo-primary">{formatNumber(total)}</span> {totalLabel}
           {totalNote ? <> · {totalNote}</> : null}
         </p>
         {capNhat ? (
@@ -120,7 +119,7 @@ export default function TablePagination({
           size="sm"
           onClick={() => onPageChange(page - 1)}
           disabled={page === 0}
-          className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
+          className="h-8 gap-1 border-bo-border bg-bo-surface px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
         >
           <ChevronLeft className="size-3.5" />
           Trước
@@ -151,7 +150,7 @@ export default function TablePagination({
           size="sm"
           onClick={() => onPageChange(page + 1)}
           disabled={page + 1 >= totalPages}
-          className="h-8 gap-1 border-bo-border bg-white px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
+          className="h-8 gap-1 border-bo-border bg-bo-surface px-2.5 text-xs text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50"
         >
           Sau
           <ChevronRight className="size-3.5" />

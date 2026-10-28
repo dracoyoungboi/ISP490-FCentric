@@ -29,8 +29,8 @@ import { cn } from "@/lib/utils";
 import { temSanPhamService } from "@/services/temSanPhamService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import { formatNumber } from "@/utils/formatters";
 
-const soVN = (n) => Number(n || 0).toLocaleString("vi-VN");
 const NGUONG_MAC_DINH = 200;
 const COT = "grid grid-cols-[minmax(0,1fr)_110px_76px_112px] items-center";
 
@@ -137,7 +137,7 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
       ? `Từ phiếu nhập ${maPhieu ?? ""} · số tem bằng số lượng thực nhận`
       : nguon === "doi-gia"
         ? "Sau khi đổi giá · thay tem giá cũ cho hàng đang tồn"
-        : `${soVN(dsDong.length)} SKU đã chọn`;
+        : `${formatNumber(dsDong.length)} SKU đã chọn`;
 
   const doiCheDo = (giaTri) => {
     if (giaTri === cheDo) return;
@@ -163,7 +163,7 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
     const soMoi = gioiHanSoTem(laDongMoi ? 1 : soTemCuaDong(d, cheDoRef.current, soTemRef.current) + 1);
     soTemRef.current = { ...soTemRef.current, [d.id]: soMoi };
     setSoTemDaSua(soTemRef.current);
-    setQuetMsg({ ok: true, chu: `+1 tem · ${nhan} · nay ${soVN(soMoi)} tem` });
+    setQuetMsg({ ok: true, chu: `+1 tem · ${nhan} · nay ${formatNumber(soMoi)} tem` });
   };
 
   const xuLyMa = async (ma) => {
@@ -397,8 +397,8 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
                             </p>
                           ) : null}
                         </div>
-                        <div className="text-right font-semibold tabular-nums">{Number(d.giaBan) > 0 ? soVN(d.giaBan) : "—"}</div>
-                        <div className="text-right tabular-nums text-bo-muted">{soVN(nguon === "phieu" ? d.soLuong : d.tonKho)}</div>
+                        <div className="text-right font-semibold tabular-nums">{Number(d.giaBan) > 0 ? formatNumber(d.giaBan) : "—"}</div>
+                        <div className="text-right tabular-nums text-bo-muted">{formatNumber(nguon === "phieu" ? d.soLuong : d.tonKho)}</div>
                         <div className="flex justify-end">
                           {lyDo ? (
                             <span className="text-[12.5px] text-slate-400">Bỏ qua</span>
@@ -509,15 +509,15 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
       {xacNhan ? (
         <div role="alert" className="flex shrink-0 items-center gap-2 border-t border-orange-200 bg-orange-50 px-5 py-2.5 text-[13px] text-orange-800">
           <TriangleAlert className="size-[15px] shrink-0" aria-hidden="true" />
-          Lần in này có {soVN(lan.tong)} tem, vượt ngưỡng {soVN(nguong)} tem đặt trong Cấu hình. Bấm lần nữa để xác nhận.
+          Lần in này có {formatNumber(lan.tong)} tem, vượt ngưỡng {formatNumber(nguong)} tem đặt trong Cấu hình. Bấm lần nữa để xác nhận.
         </div>
       ) : null}
 
       <DialogFooter className="shrink-0 flex-row flex-wrap items-center gap-2 border-t border-bo-border bg-[#fafbfc] px-5 py-3 sm:justify-end">
         <span className="mr-auto text-sm text-slate-700">
-          Tổng <b className="font-semibold">{soVN(lan.tong)} tem</b> · {soVN(lan.hang.length)} hàng · {soVN(lan.soSku)} SKU
-          {lan.boQua.length ? <span className="text-red-700"> · {soVN(lan.boQua.length)} bỏ qua</span> : null}
-          {daIn !== null ? <span className="block text-[12.5px] text-bo-muted">Đã mở hộp thoại in {soVN(daIn)} tem · in xong bấm Đóng</span> : null}
+          Tổng <b className="font-semibold">{formatNumber(lan.tong)} tem</b> · {formatNumber(lan.hang.length)} hàng · {formatNumber(lan.soSku)} SKU
+          {lan.boQua.length ? <span className="text-red-700"> · {formatNumber(lan.boQua.length)} bỏ qua</span> : null}
+          {daIn !== null ? <span className="block text-[12.5px] text-bo-muted">Đã mở hộp thoại in {formatNumber(daIn)} tem · in xong bấm Đóng</span> : null}
         </span>
         <Button type="button" variant="outline" onClick={onDong} disabled={Boolean(dangIn)} className={NUT_PHU}>
           {daIn !== null ? "Đóng" : "Hủy"}
@@ -533,8 +533,8 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
             : !daCoCauHinh
               ? "Đang tải cấu hình tem…"
               : xacNhan
-                ? `Xác nhận in ${soVN(lan.tong)} tem`
-                : `In ${soVN(lan.tong)} tem`}
+                ? `Xác nhận in ${formatNumber(lan.tong)} tem`
+                : `In ${formatNumber(lan.tong)} tem`}
         </Button>
       </DialogFooter>
 

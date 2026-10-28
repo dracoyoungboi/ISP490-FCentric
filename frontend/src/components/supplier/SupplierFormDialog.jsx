@@ -285,7 +285,7 @@ function SupplierForm({ supplier, onClose, onSaved, oDauTien }) {
                     event.preventDefault();
                     if (!submitting && !isDirty) onClose();
                 }}
-                className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden border-bo-border bg-white p-0 text-bo-foreground sm:max-w-2xl"
+                className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden border-bo-border bg-bo-surface p-0 text-bo-foreground sm:max-w-2xl"
             >
                 <div className="flex items-start gap-3 border-b border-bo-border px-5 py-4">
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary">
@@ -420,7 +420,7 @@ function SupplierForm({ supplier, onClose, onSaved, oDauTien }) {
                                 maxLength={MAX_LENGTH.diaChi}
                                 placeholder="VD: Số 8 Tôn Thất Thuyết, Cầu Giấy, Hà Nội"
                                 className={cn(
-                                    "min-h-[64px] resize-y border-bo-border bg-white text-bo-foreground shadow-none placeholder:text-slate-400 focus-visible:border-bo-primary focus-visible:ring-[3px] focus-visible:ring-bo-primary/15",
+                                    "min-h-[64px] resize-y border-bo-border bg-bo-surface text-bo-foreground shadow-none placeholder:text-slate-400 focus-visible:border-bo-primary focus-visible:ring-[3px] focus-visible:ring-bo-primary/15",
                                     errors.diaChi && CONTROL_ERROR_CLASS,
                                 )}
                                 onChange={(event) => changeField("diaChi", event.target.value)}
@@ -435,7 +435,7 @@ function SupplierForm({ supplier, onClose, onSaved, oDauTien }) {
                         variant="outline"
                         onClick={requestClose}
                         disabled={submitting}
-                        className="border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
+                        className="border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
                     >
                         Hủy
                     </Button>
@@ -464,7 +464,7 @@ function SupplierForm({ supplier, onClose, onSaved, oDauTien }) {
 
             <AlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
                 <AlertDialogContent
-                    className="border-bo-border bg-white sm:max-w-md"
+                    className="border-bo-border bg-bo-surface sm:max-w-md"
                     onCloseAutoFocus={(event) => {
                         event.preventDefault();
                         // Bỏ thay đổi: popup cũng đóng, focus do popup trả về nút đã mở nó.
@@ -485,7 +485,7 @@ function SupplierForm({ supplier, onClose, onSaved, oDauTien }) {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="gap-2">
-                        <AlertDialogCancel className="border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle">
+                        <AlertDialogCancel className="border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle">
                             {laSua ? "Tiếp tục sửa" : "Tiếp tục nhập"}
                         </AlertDialogCancel>
                         <AlertDialogAction

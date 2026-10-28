@@ -116,7 +116,7 @@ function ChonKho({ vaiTro, icon, mau, kho, dsKho, khoKhac, onChon, goiYTrong }) 
             <DropdownMenuTrigger asChild>
                 <button
                     type="button"
-                    className="flex w-full min-w-0 items-center gap-2.5 rounded-md border border-bo-border bg-white px-2.5 py-2 text-left transition-colors hover:border-slate-300 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary"
+                    className="flex w-full min-w-0 items-center gap-2.5 rounded-md border border-bo-border bg-bo-surface px-2.5 py-2 text-left transition-colors hover:border-slate-300 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary"
                 >
                     <span className={cn("inline-flex size-7 shrink-0 items-center justify-center rounded-md", mau)}>
                         <Icon className="size-4" aria-hidden="true" />
@@ -437,7 +437,7 @@ export default function PhieuChuyenKhoCreate() {
                 <div
                     id={`${idDs}-ds`}
                     role="listbox"
-                    className="absolute inset-x-4 top-[calc(100%-6px)] z-30 max-h-[320px] overflow-y-auto rounded-lg border border-bo-border bg-white p-1 shadow-lg sm:inset-x-6"
+                    className="absolute inset-x-4 top-[calc(100%-6px)] z-30 max-h-[320px] overflow-y-auto rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg sm:inset-x-6"
                 >
                     {filteredProducts.length ? filteredProducts.map((p) => {
                         const daCo = transferItems.find(i => i.variantId === p.id);

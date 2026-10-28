@@ -10,7 +10,7 @@ const VUA_XONG_MS = 60000;
 
 function O({ so, nhan, mau }) {
   return (
-    <div className="rounded-md border border-bo-border bg-white px-2.5 py-2">
+    <div className="rounded-md border border-bo-border bg-bo-surface px-2.5 py-2">
       <span className={cn("block text-lg font-semibold leading-6 tabular-nums text-bo-foreground", mau)}>{so}</span>
       <span className="block text-xs leading-4 text-bo-muted">{nhan}</span>
     </div>
@@ -49,7 +49,7 @@ function TrangThaiLuu({ luu, coSo }) {
       : `Đã lưu tạm trên máy này · ${bayGio - luc < VUA_XONG_MS ? "vừa xong" : gioNgay(luc)}`;
   // Không đặt vùng tự đọc: chữ "vừa xong" đổi thành giờ sau một phút, trình đọc màn hình không cần đọc lại giữa lúc đếm
   return (
-    <div className="mt-3 flex items-start gap-2.5 rounded-md border border-bo-border bg-white px-2.5 py-2 text-[13px] leading-[18px] text-bo-foreground">
+    <div className="mt-3 flex items-start gap-2.5 rounded-md border border-bo-border bg-bo-surface px-2.5 py-2 text-[13px] leading-[18px] text-bo-foreground">
       <HardDrive className="mt-px size-4 shrink-0 text-bo-muted" aria-hidden="true" />
       <span>
         <b className="font-semibold">{chu}</b>

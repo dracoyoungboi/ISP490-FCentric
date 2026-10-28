@@ -254,7 +254,7 @@ export default function NotificationBell({ duongDanXemTatCa }) {
             type="button"
             variant="outline"
             onClick={taiLai}
-            className="mt-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+            className="mt-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
           >
             <RefreshCcw />
             Thử lại
@@ -281,7 +281,7 @@ export default function NotificationBell({ duongDanXemTatCa }) {
     } else {
       than = chiaNhom(hienThi, bayGio).map((g) => (
         <section key={g.ten} aria-label={g.ten}>
-          <h3 className="sticky top-0 z-[1] bg-white px-4 pb-1.5 pt-2.5 text-xs font-medium leading-4 text-bo-muted">
+          <h3 className="sticky top-0 z-[1] bg-bo-surface px-4 pb-1.5 pt-2.5 text-xs font-medium leading-4 text-bo-muted">
             {g.ten}
           </h3>
           <ul>
@@ -321,12 +321,12 @@ export default function NotificationBell({ duongDanXemTatCa }) {
                 onClick={() => setTab(t.value)}
                 className={cn(
                   "inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-[13px] font-medium text-bo-muted transition-colors hover:text-bo-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30",
-                  tab === t.value && "bg-white text-bo-foreground shadow-[0_1px_2px_rgba(16,24,40,0.08)]",
+                  tab === t.value && "bg-bo-surface text-bo-foreground shadow-[0_1px_2px_rgba(16,24,40,0.08)]",
                 )}
               >
                 {t.label}
                 {t.value === "chua_doc" && soChuaDoc > 0 ? (
-                  <span className="rounded bg-red-50 px-1 text-[11px] font-semibold tabular-nums text-red-600">
+                  <span className="rounded bg-bo-danger-soft px-1 text-[11px] font-semibold tabular-nums text-red-600">
                     {soChuaDoc}
                   </span>
                 ) : null}
@@ -379,7 +379,7 @@ export default function NotificationBell({ duongDanXemTatCa }) {
         sideOffset={6}
         collisionPadding={8}
         aria-label="Thông báo"
-        className="flex w-[400px] max-w-[calc(100vw-16px)] flex-col overflow-hidden rounded-lg border-bo-border bg-white p-0 font-backoffice text-bo-foreground shadow-lg"
+        className="flex w-[400px] max-w-[calc(100vw-16px)] flex-col overflow-hidden rounded-lg border-bo-border bg-bo-surface p-0 font-backoffice text-bo-foreground shadow-lg"
       >
         {noiDungBang}
       </PopoverContent>

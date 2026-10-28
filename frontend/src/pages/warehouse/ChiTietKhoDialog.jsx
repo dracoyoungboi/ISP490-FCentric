@@ -225,7 +225,7 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                     tieuDeRef.current?.focus({ preventScroll: true });
                 }}
                 className={cn(
-                    "flex max-h-[calc(100dvh-2rem)] w-full flex-col gap-0 overflow-hidden rounded-lg border border-bo-border bg-white p-0 text-bo-foreground shadow-lg sm:max-w-[min(760px,calc(100%-2rem))]",
+                    "flex max-h-[calc(100dvh-2rem)] w-full flex-col gap-0 overflow-hidden rounded-lg border border-bo-border bg-bo-surface p-0 text-bo-foreground shadow-lg sm:max-w-[min(760px,calc(100%-2rem))]",
                     // Điện thoại: tấm trượt từ dưới lên, gần hết chiều cao màn
                     "max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:max-h-[calc(100dvh-2.5rem)] max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0",
                     "max-sm:data-[state=open]:zoom-in-100 max-sm:data-[state=closed]:zoom-out-100 max-sm:data-[state=open]:slide-in-from-bottom-8 max-sm:data-[state=closed]:slide-out-to-bottom-8",
@@ -275,7 +275,7 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                                         <Ellipsis className="size-4" aria-hidden="true" />
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="z-50 w-[288px] rounded-lg border border-bo-border bg-white p-1 shadow-lg">
+                                <DropdownMenuContent align="end" className="z-50 w-[288px] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg">
                                     {hoatDong ? (
                                         <DropdownMenuItem onSelect={() => onDoiTrangThai?.(kho)} className={MUC_MENU}>
                                             <CirclePause className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />

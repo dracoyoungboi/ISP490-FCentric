@@ -24,7 +24,7 @@ export default function SetupStepper({ buoc, hienTai, daXong, onChon, className 
                   "grid size-[26px] shrink-0 place-items-center rounded-full text-[13px] font-semibold tabular-nums transition-colors",
                   dangLam && "bg-bo-primary text-white",
                   xong && "bg-bo-primary-soft text-bo-primary",
-                  !xong && !dangLam && "border border-slate-300 bg-white text-slate-500",
+                  !xong && !dangLam && "border border-slate-300 bg-bo-surface text-slate-500",
                 )}
                 aria-hidden="true"
               >

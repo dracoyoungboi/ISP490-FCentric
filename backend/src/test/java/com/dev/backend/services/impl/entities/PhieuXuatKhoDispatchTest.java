@@ -4,6 +4,7 @@ import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
 import com.dev.backend.constant.variables.ITrangThaiPhieuXuat;
+import com.dev.backend.services.multitable.BangChungDongGoiService;
 import com.dev.backend.dto.request.XacNhanXuatKhoRequest;
 import com.dev.backend.dto.response.customize.XacNhanXuatKhoResponse;
 import com.dev.backend.entities.*;
@@ -47,6 +48,7 @@ class PhieuXuatKhoDispatchTest {
     @Mock private SanPhamQuanAoService sanPhamQuanAoService;
     @Mock private LichSuThayDoiService lichSuThayDoiService;
     @Mock private ApplicationEventPublisher applicationEventPublisher;
+    @Mock private BangChungDongGoiService bangChungDongGoiService;
 
     private PhieuXuatKhoService phieuXuatKhoService;
 
@@ -74,6 +76,7 @@ class PhieuXuatKhoDispatchTest {
         ReflectionTestUtils.setField(phieuXuatKhoService, "sanPhamQuanAoService", sanPhamQuanAoService);
         ReflectionTestUtils.setField(phieuXuatKhoService, "lichSuThayDoiService", lichSuThayDoiService);
         ReflectionTestUtils.setField(phieuXuatKhoService, "applicationEventPublisher", applicationEventPublisher);
+        ReflectionTestUtils.setField(phieuXuatKhoService, "bangChungDongGoiService", bangChungDongGoiService);
 
         kho = Kho.builder().id(1).tenKho("Kho Tổng").maKho("KHO_TONG").build();
         staff = NguoiDung.builder().id(99).hoTen("Thủ kho test").tenDangNhap("thukho").build();
@@ -187,6 +190,10 @@ class PhieuXuatKhoDispatchTest {
         DonHangXuatKhoEvent event = eventCaptor.getValue();
         assertEquals("GHTK-HN-8849201", event.getMaVanDon());
         assertEquals("GHTK", event.getDonViVanChuyen());
+
+        // Then: 5b. Hạn lưu bằng chứng đóng gói tính lại từ ngày xuất kho
+        verify(bangChungDongGoiService).giaHanLuuTu(10, phieu.getNgayXuat());
+        assertNotNull(phieu.getNgayXuat());
 
         // Then: 6. Kiểm tra response trả về
         assertNotNull(res);

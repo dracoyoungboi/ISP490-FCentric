@@ -6,9 +6,9 @@ import MoneyInput from "@/components/shared/MoneyInput";
 import { cn } from "@/lib/utils";
 import ChipLyDo from "./ChipLyDo";
 import { GIA_BAN_TOI_DA, dinhDangPhanTram, mucDoiGia, tinhLaiGop } from "./nhomGiaBan";
+import { formatNumber } from "@/utils/formatters";
 
-const soVN = (n) => Number(n || 0).toLocaleString("vi-VN");
-const vnd = (n) => `${soVN(n)} ₫`;
+const vnd = (n) => `${formatNumber(n)} ₫`;
 const ngayVN = (d) => d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
 
 /** Màu chữ của giá theo tình trạng: thường, chưa có giá (cam), khoảng giá (xám nhỏ), dưới giá vốn (đỏ). */
@@ -48,8 +48,8 @@ export default function OGiaBan({ dsDong, hienThi, tieuDe, phu, ariaLabel, open,
           onClick={(event) => event.stopPropagation()}
           className={cn(
             "group/gia -mr-2 inline-flex h-[30px] items-center gap-1.5 rounded-md border border-transparent px-2 text-sm font-medium",
-            "hover:border-bo-border hover:bg-white focus-visible:border-bo-border focus-visible:bg-white focus-visible:outline-none",
-            open && "border-bo-primary bg-white shadow-[0_0_0_3px_rgba(22,119,255,0.15)] hover:border-bo-primary",
+            "hover:border-bo-border hover:bg-bo-surface focus-visible:border-bo-border focus-visible:bg-bo-surface focus-visible:outline-none",
+            open && "border-bo-primary bg-bo-surface shadow-[0_0_0_3px_rgba(22,119,255,0.15)] hover:border-bo-primary",
           )}
         >
           <Pencil
@@ -65,7 +65,7 @@ export default function OGiaBan({ dsDong, hienThi, tieuDe, phu, ariaLabel, open,
         collisionPadding={12}
         onClick={(event) => event.stopPropagation()}
         aria-label={tieuDe}
-        className="w-[348px] max-w-[calc(100vw-24px)] rounded-[10px] border border-bo-border bg-white p-0 text-bo-foreground shadow-[0_16px_40px_rgba(15,23,42,0.18)]"
+        className="w-[348px] max-w-[calc(100vw-24px)] rounded-[10px] border border-bo-border bg-bo-surface p-0 text-bo-foreground shadow-[0_16px_40px_rgba(15,23,42,0.18)]"
       >
         <NoiDungGia
           dsDong={dsDong}
@@ -97,7 +97,7 @@ function NoiDungGia({ dsDong, tieuDe, phu, lyDoMacDinh, dangLuu, onHuy, onLuu })
     if (hopLe && !dangLuu) onLuu({ ids: muc.muc.map((d) => d.id), gia: soGia, lyDo });
   };
 
-  const vonTxt = muc.vonCao === null ? null : muc.vonThap === muc.vonCao ? vnd(muc.vonCao) : `${soVN(muc.vonThap)} – ${vnd(muc.vonCao)}`;
+  const vonTxt = muc.vonCao === null ? null : muc.vonThap === muc.vonCao ? vnd(muc.vonCao) : `${formatNumber(muc.vonThap)} – ${vnd(muc.vonCao)}`;
   const lai = tinhLaiGop(soGia, muc.vonCao);
   let thongTin;
   if (quaLon) thongTin = "Giá bán vượt giới hạn cho phép";
@@ -134,7 +134,7 @@ function NoiDungGia({ dsDong, tieuDe, phu, lyDoMacDinh, dangLuu, onHuy, onLuu })
         <p
           className={cn(
             "rounded-md px-2.5 py-[7px] text-[12.5px]",
-            lai?.lo || quaLon ? "bg-bo-danger-soft font-medium text-red-700" : "bg-bo-surface-subtle text-slate-600",
+            lai?.lo || quaLon ? "bg-bo-danger-soft font-medium text-bo-danger-strong" : "bg-bo-surface-subtle text-slate-600",
           )}
         >
           {thongTin}
@@ -145,7 +145,7 @@ function NoiDungGia({ dsDong, tieuDe, phu, lyDoMacDinh, dangLuu, onHuy, onLuu })
         <span className="mr-auto text-[11.5px] text-bo-muted">
           {muc.lanGanNhat ? `Đổi lần gần nhất ${ngayVN(muc.lanGanNhat)}` : "Chưa đổi giá lần nào"}
         </span>
-        <Button type="button" variant="outline" size="sm" disabled={dangLuu} onClick={onHuy} className="h-8 border-bo-border bg-white px-2.5 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle">
+        <Button type="button" variant="outline" size="sm" disabled={dangLuu} onClick={onHuy} className="h-8 border-bo-border bg-bo-surface px-2.5 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle">
           Hủy
         </Button>
         <Button type="button" size="sm" disabled={!hopLe || dangLuu} onClick={luu} className="h-8 gap-1.5 bg-bo-primary px-2.5 text-[13px] text-white hover:bg-bo-primary-hover">

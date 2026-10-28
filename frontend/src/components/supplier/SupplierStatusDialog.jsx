@@ -103,7 +103,7 @@ function StatusContent({ supplier: supplierLucMo, onClose, onChanged, viecDangDo
 
     return (
         <AlertDialogContent
-            className="border-bo-border bg-white sm:max-w-md"
+            className="border-bo-border bg-bo-surface sm:max-w-md"
             onEscapeKeyDown={(event) => {
                 if (saving) event.preventDefault();
             }}
@@ -147,7 +147,7 @@ function StatusContent({ supplier: supplierLucMo, onClose, onChanged, viecDangDo
             <AlertDialogFooter className="gap-2">
                 <AlertDialogCancel
                     disabled={saving}
-                    className="border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
+                    className="border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
                 >
                     Hủy
                 </AlertDialogCancel>

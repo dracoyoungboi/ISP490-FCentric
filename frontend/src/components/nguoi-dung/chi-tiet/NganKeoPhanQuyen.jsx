@@ -65,7 +65,7 @@ function MucChon({ chon, tat, title, onChon, children, className }) {
     <label
       title={title}
       className={cn(
-        "flex min-h-11 cursor-pointer items-center gap-2.5 rounded-md border border-bo-border bg-white px-3 text-[13.5px] transition-colors hover:border-slate-400",
+        "flex min-h-11 cursor-pointer items-center gap-2.5 rounded-md border border-bo-border bg-bo-surface px-3 text-[13.5px] transition-colors hover:border-slate-400",
         chon && "border-bo-primary bg-blue-50/60 shadow-[inset_0_0_0_1px_var(--color-bo-primary)] hover:border-bo-primary",
         tat && "cursor-not-allowed bg-bo-surface-subtle text-slate-400 hover:border-bo-border",
         className,
@@ -93,7 +93,7 @@ function OThongTin({ icon = Info, children, netDut }) {
     <div
       className={cn(
         "flex items-start gap-2.5 rounded-lg border border-bo-border bg-bo-surface-subtle px-3.5 py-3 text-[13px] leading-[19px]",
-        netDut && "border-dashed bg-white",
+        netDut && "border-dashed bg-bo-surface",
       )}
     >
       {createElement(icon, { className: "mt-0.5 size-4 shrink-0 text-bo-muted", "aria-hidden": true })}
@@ -123,7 +123,7 @@ const KY_HIEU = {
 /** Một dòng quyền: ô chọn, tên, biểu tượng nhạy cảm (xám), nhãn "mẫu" (xám), mô tả, chữ "vừa thêm / vừa bỏ". */
 function DongQuyen({ d, doi, coMau, onDoi }) {
   return (
-    <label className="flex cursor-pointer items-start gap-2.5 border-t border-slate-100 px-3 py-2 first:border-t-0 hover:bg-slate-50">
+    <label className="flex cursor-pointer items-start gap-2.5 border-t border-slate-100 px-3 py-2 first:border-t-0 hover:bg-bo-surface-subtle">
       <input type="checkbox" checked={d.cap} onChange={onDoi} className="mt-0.5 size-4 shrink-0 accent-bo-primary" />
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-1.5 text-[13px] font-medium leading-5">
@@ -330,7 +330,7 @@ export default function NganKeoPhanQuyen({
       <Sheet open={mo} onOpenChange={(m) => (m ? null : yeuCauDong())}>
         <SheetContent
           side="right"
-          className="w-full gap-0 bg-white p-0 sm:max-w-[640px] [&>button:last-child]:hidden"
+          className="w-full gap-0 bg-bo-surface p-0 sm:max-w-[640px] [&>button:last-child]:hidden"
           onCloseAutoFocus={datLai}
           onInteractOutside={(e) => {
             if (coThayDoi || dangLuu) {
@@ -507,7 +507,7 @@ export default function NganKeoPhanQuyen({
                             onClick={() => sua({ hieuLuc: ma })}
                             className={cn(
                               "h-[30px] rounded px-3 text-[13px] font-medium text-slate-600",
-                              nhap.hieuLuc === ma && "bg-white text-bo-foreground shadow-sm",
+                              nhap.hieuLuc === ma && "bg-bo-surface text-bo-foreground shadow-sm",
                             )}
                           >
                             {nhan}
@@ -523,7 +523,7 @@ export default function NganKeoPhanQuyen({
                             min={homNay}
                             onChange={(e) => sua({ ngayKetThuc: e.target.value })}
                             aria-label="Ngày hết hiệu lực"
-                            className="h-8 rounded-md border border-slate-300 bg-white px-2.5 text-[13px] text-bo-foreground"
+                            className="h-8 rounded-md border border-slate-300 bg-bo-surface px-2.5 text-[13px] text-bo-foreground"
                           />
                         </label>
                       ) : null}
@@ -581,7 +581,7 @@ export default function NganKeoPhanQuyen({
                   </p>
 
                   {coKho && !cauHinh ? (
-                    <div className="mb-3 flex items-start gap-2 rounded-md border border-orange-200 bg-orange-50 px-2.5 py-2 text-[13px] leading-[19px] text-orange-900">
+                    <div className="mb-3 flex items-start gap-2 rounded-md border border-orange-200 bg-bo-warning-soft px-2.5 py-2 text-[13px] leading-[19px] text-orange-900">
                       <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                       <span className="min-w-0 flex-1">
                         Không đọc được mẫu quyền và danh sách quyền nhạy cảm: chưa so được với mẫu, khi lưu cũng không nhắc
@@ -644,7 +644,7 @@ export default function NganKeoPhanQuyen({
                               >
                                 <span
                                   className={cn(
-                                    "inline-flex size-4 items-center justify-center rounded border-[1.5px] border-slate-400 bg-white",
+                                    "inline-flex size-4 items-center justify-center rounded border-[1.5px] border-slate-400 bg-bo-surface",
                                     (tatCa || motPhan) && "border-bo-primary bg-bo-primary",
                                   )}
                                 >
@@ -726,7 +726,7 @@ export default function NganKeoPhanQuyen({
                             </button>
                           </div>
                           {moVoHieu ? (
-                            <div id="quyen-khong-dung-duoc" className="rounded-b-lg border-t border-bo-border bg-white">
+                            <div id="quyen-khong-dung-duoc" className="rounded-b-lg border-t border-bo-border bg-bo-surface">
                               {dongVoHieu.map((d) => (
                                 <DongQuyen
                                   key={d.id}
@@ -751,7 +751,7 @@ export default function NganKeoPhanQuyen({
 
           {/* Kiểm tra trước khi lưu */}
           {moKiemTra ? (
-            <div id="kiem-tra-phan-quyen" className="max-h-[260px] shrink-0 overflow-y-auto border-t border-bo-border bg-white px-5 pb-2.5 pt-1.5">
+            <div id="kiem-tra-phan-quyen" className="max-h-[260px] shrink-0 overflow-y-auto border-t border-bo-border bg-bo-surface px-5 pb-2.5 pt-1.5">
               {kiemTra.muc.map((m) => (
                 <div key={m.tieuDe} className="flex items-start gap-2.5 border-t border-slate-100 py-1.5 text-[13px] leading-[19px] first:border-t-0">
                   {ICON_KIEM_TRA[m.loai]}
@@ -779,7 +779,7 @@ export default function NganKeoPhanQuyen({
             </button>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2 border-t border-bo-border bg-white px-5 py-3">
+          <div className="flex shrink-0 items-center gap-2 border-t border-bo-border bg-bo-surface px-5 py-3">
             {coThayDoi ? <span className="size-2 shrink-0 rounded-full bg-bo-primary" aria-hidden="true" /> : null}
             <span className="flex-1 text-[13.5px] font-medium">
               {coThayDoi ? `${thayDoi.length} thay đổi chưa lưu` : "Chưa có thay đổi"}
@@ -806,7 +806,7 @@ export default function NganKeoPhanQuyen({
 
       {/* Hỏi lại trước khi lưu */}
       <AlertDialog open={hop === "luu"} onOpenChange={(m) => (!m && !dangLuu ? setHop(null) : null)}>
-        <AlertDialogContent className="bg-white sm:max-w-[520px]">
+        <AlertDialogContent className="bg-bo-surface sm:max-w-[520px]">
           <AlertDialogHeader>
             <AlertDialogTitle>Lưu phân quyền cho {nguoiDung.hoTen || nguoiDung.tenDangNhap}?</AlertDialogTitle>
             <AlertDialogDescription asChild>
@@ -825,7 +825,7 @@ export default function NganKeoPhanQuyen({
                   ))}
                 </div>
                 {nhayCamCapThem.length ? (
-                  <div className="flex gap-2 rounded-md border border-orange-200 bg-orange-50 px-2.5 py-2 text-[13px] leading-[19px] text-orange-900">
+                  <div className="flex gap-2 rounded-md border border-orange-200 bg-bo-warning-soft px-2.5 py-2 text-[13px] leading-[19px] text-orange-900">
                     <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                     <span>
                       <span className="font-semibold">Cấp thêm {nhayCamCapThem.length} quyền nhạy cảm:</span>{" "}
@@ -834,7 +834,7 @@ export default function NganKeoPhanQuyen({
                   </div>
                 ) : null}
                 {kiemTra.soCanhBao ? (
-                  <div className="flex gap-2 rounded-md border border-orange-200 bg-orange-50 px-2.5 py-2 text-[13px] leading-[19px] text-orange-900">
+                  <div className="flex gap-2 rounded-md border border-orange-200 bg-bo-warning-soft px-2.5 py-2 text-[13px] leading-[19px] text-orange-900">
                     <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                     <span>
                       Vẫn còn {kiemTra.soCanhBao} cảnh báo ở mục Kiểm tra. Bạn vẫn lưu được nếu đây là chủ ý.
@@ -868,7 +868,7 @@ export default function NganKeoPhanQuyen({
 
       {/* Hỏi lại trước khi bỏ thay đổi */}
       <AlertDialog open={hop === "bo"} onOpenChange={(m) => (!m ? setHop(null) : null)}>
-        <AlertDialogContent className="bg-white">
+        <AlertDialogContent className="bg-bo-surface">
           <AlertDialogHeader>
             <AlertDialogTitle>Bỏ {thayDoi.length} thay đổi chưa lưu?</AlertDialogTitle>
             <AlertDialogDescription>

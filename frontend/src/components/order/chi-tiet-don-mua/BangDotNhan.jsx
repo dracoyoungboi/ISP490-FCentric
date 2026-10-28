@@ -2,10 +2,9 @@ import { Link } from "react-router-dom";
 import { AlertCircle, Info, Loader2 } from "lucide-react";
 import MauKichCo from "@/components/chung-tu/MauKichCo";
 import { cn } from "@/lib/utils";
-import { formatCurrency } from "@/utils/formatters";
+import { formatCurrency, formatNumber } from "@/utils/formatters";
 
 const pad2 = (n) => String(n).padStart(2, "0");
-const soVN = (n) => Number(n || 0).toLocaleString("vi-VN");
 
 function ngayNgan(value) {
   if (!value) return "";
@@ -17,10 +16,10 @@ function ngayNgan(value) {
 /** Ô "Còn thiếu": còn thiếu (cam), đủ (xanh lá), hoặc nhận vượt số đặt (đỏ, dữ liệu bất thường). */
 function ConThieu({ conThieu, vuot }) {
   if (vuot > 0) {
-    return <span className="font-semibold text-bo-danger">Vượt {soVN(vuot)}</span>;
+    return <span className="font-semibold text-bo-danger">Vượt {formatNumber(vuot)}</span>;
   }
   if (conThieu > 0) {
-    return <span className="font-semibold text-bo-warning">{soVN(conThieu)}</span>;
+    return <span className="font-semibold text-bo-warning">{formatNumber(conThieu)}</span>;
   }
   return <span className="font-medium text-bo-success">Đủ</span>;
 }
@@ -109,7 +108,7 @@ export default function BangDotNhan({ bang, tongTien, xemDot = true, dangTaiDot,
           <tbody>
             {dong.map((d) => (
               <tr key={d.khoa} className="group border-b border-slate-100 tabular-nums hover:bg-bo-surface-subtle">
-                <th scope="row" className={cn(COT_DINH, "bg-white py-3 pl-4 pr-3 text-left font-normal group-hover:bg-bo-surface-subtle sm:pl-6")}>
+                <th scope="row" className={cn(COT_DINH, "bg-bo-surface py-3 pl-4 pr-3 text-left font-normal group-hover:bg-bo-surface-subtle sm:pl-6")}>
                   <div className="font-medium text-bo-foreground">{d.ten}</div>
                   <div className="mt-0.5 text-xs leading-4 text-bo-muted">
                     {d.tenMau || d.kichCo ? (
@@ -122,10 +121,10 @@ export default function BangDotNhan({ bang, tongTien, xemDot = true, dangTaiDot,
                   </div>
                 </th>
                 <td className="px-3 py-3 text-right text-slate-600">{d.donGia != null ? formatCurrency(d.donGia) : "—"}</td>
-                <td className="px-3 py-3 text-right text-bo-foreground">{soVN(d.dat)}</td>
+                <td className="px-3 py-3 text-right text-bo-foreground">{formatNumber(d.dat)}</td>
                 {cot.map((c, i) => (
                   <td key={c.id} className={cn("px-3 py-3 text-right", O_DOT, c.choNhap ? "italic text-slate-400" : "text-bo-foreground")}>
-                    {d.theoDot[i] == null ? <span className="text-slate-300">—</span> : soVN(d.theoDot[i])}
+                    {d.theoDot[i] == null ? <span className="text-slate-300">—</span> : formatNumber(d.theoDot[i])}
                   </td>
                 ))}
                 <td className="px-3 py-3 text-right">
@@ -147,14 +146,14 @@ export default function BangDotNhan({ bang, tongTien, xemDot = true, dangTaiDot,
           {dong.length > 0 ? (
             <tfoot>
               <tr className="tabular-nums">
-                <th scope="row" className={cn(COT_DINH, "bg-white py-3.5 pl-4 pr-3 text-left font-semibold text-bo-foreground sm:pl-6")}>
+                <th scope="row" className={cn(COT_DINH, "bg-bo-surface py-3.5 pl-4 pr-3 text-left font-semibold text-bo-foreground sm:pl-6")}>
                   Tổng
                 </th>
                 <td className="px-3 py-3.5" />
-                <td className="px-3 py-3.5 text-right font-semibold text-bo-foreground">{soVN(tong.dat)}</td>
+                <td className="px-3 py-3.5 text-right font-semibold text-bo-foreground">{formatNumber(tong.dat)}</td>
                 {cot.map((c, i) => (
                   <td key={c.id} className={cn("px-3 py-3.5 text-right font-semibold", O_DOT, c.choNhap ? "italic text-slate-400" : "text-bo-foreground")}>
-                    {soVN(tong.theoDot[i])}
+                    {formatNumber(tong.theoDot[i])}
                   </td>
                 ))}
                 <td className="px-3 py-3.5 text-right">

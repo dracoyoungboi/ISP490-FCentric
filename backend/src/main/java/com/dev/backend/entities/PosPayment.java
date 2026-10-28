@@ -49,6 +49,10 @@ public class PosPayment {
     @Column(name = "so_tien_thua", nullable = false, precision = 15, scale = 2)
     BigDecimal soTienThua;
 
+    /** Dòng PAYOS trả kết hợp: phần tiền mặt khách trả trước tại quầy (đã gồm trong soTienHang / soTienThu). */
+    @Column(name = "tien_mat_truoc", precision = 15, scale = 2)
+    BigDecimal tienMatTruoc;
+
     @Column(name = "nguoi_thu_id", nullable = false)
     Integer nguoiThuId;
 

@@ -141,7 +141,7 @@ const ScanBar = forwardRef(function ScanBar(
             <span className="sr-only">Số lượng mỗi lần quét</span>
             <input
               {...propsSoLuong}
-              className="h-11 w-14 rounded-lg border border-bo-border bg-white px-1.5 text-center text-sm font-medium text-slate-600 outline-none focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle"
+              className="h-11 w-14 rounded-lg border border-bo-border bg-bo-surface px-1.5 text-center text-sm font-medium text-slate-600 outline-none focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle"
             />
           </label>
         </div>
@@ -170,7 +170,7 @@ const ScanBar = forwardRef(function ScanBar(
             </label>
             <input
               {...propsSoLuong}
-              className="h-11 w-full rounded-lg border border-bo-border bg-white px-3 text-center text-base font-semibold text-bo-foreground outline-none focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle"
+              className="h-11 w-full rounded-lg border border-bo-border bg-bo-surface px-3 text-center text-base font-semibold text-bo-foreground outline-none focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle"
             />
           </div>
         </div>

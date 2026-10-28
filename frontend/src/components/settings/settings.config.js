@@ -1,4 +1,4 @@
-import { Barcode, Boxes, CreditCard, IdCard, PackageCheck, Printer, RefreshCcw, Store } from "lucide-react";
+import { Barcode, Boxes, CreditCard, IdCard, PackageCheck, Percent, Printer, RefreshCcw, Store } from "lucide-react";
 
 /**
  * Trung tâm Cấu hình (/settings/*): menu trái của SettingsLayout, mục "Cấu hình" ghim ở đáy sidebar
@@ -31,6 +31,8 @@ export const SETTINGS_PAGES = [
   { key: "customer", label: "Khách hàng", to: "/settings/customer", group: "ban-hang", icon: IdCard, roles: [QTV, QLK], editRoles: [QTV] },
   // CauHinhThanhToanController: chỉ QTV
   { key: "payment", label: "Thanh toán", to: "/settings/payment", group: "ban-hang", icon: CreditCard, roles: [QTV], editRoles: [QTV] },
+  // VAT_BAT, VAT_LICH qua /dieu-hanh-he-thong/cau-hinh: GET cho QTV và QLK; PUT chỉ QTV
+  { key: "vat", label: "Thuế GTGT", to: "/settings/vat", group: "ban-hang", icon: Percent, roles: [QTV, QLK], editRoles: [QTV] },
   { key: "sync", label: "Đồng bộ kênh bán", to: "/settings/sync", group: "ban-hang", icon: RefreshCcw, roles: [QTV, QLK], editRoles: [QTV] },
 ];
 

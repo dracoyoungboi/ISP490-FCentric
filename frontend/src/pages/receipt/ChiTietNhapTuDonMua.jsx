@@ -30,12 +30,11 @@ import { THONG_BAO_CHUA_HO_TRO_BIEN_BAN, bienBanTraHangService } from "@/service
 import { kenhBanHangService } from "@/services/kenhBanHangService";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
 import { getApiErrorMessage } from "@/utils/apiError";
-import { formatDate } from "@/utils/formatters";
+import { formatDate, formatNumber } from "@/utils/formatters";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 import { chuanHoaDongInTem } from "@/components/print/tinhTem";
 import HopInTem from "@/pages/product/components/product/HopInTem";
 
-const so = (n) => Number(n || 0).toLocaleString("vi-VN");
 const TH = "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 const KENH_SHOPIFY = "SHOPIFY";
 
@@ -168,7 +167,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
       setDangXuLy(true);
       try {
         await phieuNhapKhoService.complete(id);
-        toast.success(`Đã nhập kho ${so(tong.dat)} sản phẩm`);
+        toast.success(`Đã nhập kho ${formatNumber(tong.dat)} sản phẩm`);
         setMoXacNhan(false);
         if (dayTon) {
           try {
@@ -253,39 +252,39 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
   let nut2 = null;
   if (bienBanLech && nhap) {
     moTa2 = !tong.loi
-      ? `Biên bản ${data.maBienBanRtv} ghi ${so(data.tongLoiBienBan)} sản phẩm lỗi nhưng không còn lô nào có hàng lỗi. Hủy biên bản trước khi nhập kho.`
+      ? `Biên bản ${data.maBienBanRtv} ghi ${formatNumber(data.tongLoiBienBan)} sản phẩm lỗi nhưng không còn lô nào có hàng lỗi. Hủy biên bản trước khi nhập kho.`
       : Number(data.tongLoiBienBan) !== tong.loi
-        ? `Biên bản ${data.maBienBanRtv} ghi ${so(data.tongLoiBienBan)} sản phẩm lỗi nhưng kiểm đếm hiện có ${so(tong.loi)}. Lập lại biên bản trước khi nhập kho.`
+        ? `Biên bản ${data.maBienBanRtv} ghi ${formatNumber(data.tongLoiBienBan)} sản phẩm lỗi nhưng kiểm đếm hiện có ${formatNumber(tong.loi)}. Lập lại biên bản trước khi nhập kho.`
         : `Biên bản ${data.maBienBanRtv} không còn khớp các lô có hàng lỗi (có lô đã xóa hoặc khóa lại). Lập lại biên bản trước khi nhập kho.`;
     nut2 = tong.loi ? (
       <Button onClick={() => setMoBienBan(true)} className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
         <FileCheck2 className="size-4" /> Lập lại biên bản
       </Button>
     ) : (
-      <Button variant="outline" disabled={dangXuLy} onClick={() => setMoHuyBienBan(true)} className="border-bo-border bg-white text-bo-danger hover:bg-bo-danger-soft">
+      <Button variant="outline" disabled={dangXuLy} onClick={() => setMoHuyBienBan(true)} className="border-bo-border bg-bo-surface text-bo-danger hover:bg-bo-danger-soft">
         Hủy biên bản
       </Button>
     );
-  } else if (!kiemXong && !daNhap) moTa2 = tong.loi ? `Mở sau khi kiểm xong. Đã ghi nhận ${so(tong.loi)} sản phẩm lỗi.` : "Mở sau khi kiểm xong.";
+  } else if (!kiemXong && !daNhap) moTa2 = tong.loi ? `Mở sau khi kiểm xong. Đã ghi nhận ${formatNumber(tong.loi)} sản phẩm lỗi.` : "Mở sau khi kiểm xong.";
   else if (tong.loi === 0) moTa2 = "Không có hàng lỗi, bỏ qua bước này.";
   else if (coBienBan) {
-    moTa2 = `Biên bản ${data.maBienBanRtv} · ${so(tong.loi)} sản phẩm${tenPhuongAn ? ` · ${tenPhuongAn}` : ""}.${bienBanTraHangService.mau ? " (Dữ liệu mẫu, chưa lưu máy chủ.)" : ""}`;
-    nut2 = <Button variant="outline" onClick={() => setMoBienBan(true)} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">Xem biên bản</Button>;
+    moTa2 = `Biên bản ${data.maBienBanRtv} · ${formatNumber(tong.loi)} sản phẩm${tenPhuongAn ? ` · ${tenPhuongAn}` : ""}.${bienBanTraHangService.mau ? " (Dữ liệu mẫu, chưa lưu máy chủ.)" : ""}`;
+    nut2 = <Button variant="outline" onClick={() => setMoBienBan(true)} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">Xem biên bản</Button>;
   } else if (bienBanTraHangService.hoTro) {
-    moTa2 = `${so(tong.loi)} sản phẩm lỗi phải lập biên bản trả nhà cung cấp trước khi nhập kho.${bienBanTraHangService.mau ? " (Biên bản là dữ liệu mẫu, chưa lưu máy chủ.)" : ""}`;
+    moTa2 = `${formatNumber(tong.loi)} sản phẩm lỗi phải lập biên bản trả nhà cung cấp trước khi nhập kho.${bienBanTraHangService.mau ? " (Biên bản là dữ liệu mẫu, chưa lưu máy chủ.)" : ""}`;
     nut2 = (
       <Button onClick={() => setMoBienBan(true)} className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
         <FileCheck2 className="size-4" /> Lập biên bản trả hàng
       </Button>
     );
   } else {
-    moTa2 = `${so(tong.loi)} sản phẩm lỗi. ${THONG_BAO_CHUA_HO_TRO_BIEN_BAN}`;
+    moTa2 = `${formatNumber(tong.loi)} sản phẩm lỗi. ${THONG_BAO_CHUA_HO_TRO_BIEN_BAN}`;
   }
 
   const soLoKe = new Set(Object.values(lo.data ?? {}).flat().filter(Boolean).map((l) => l.maLo)).size;
   const moTa3 = daNhap
-    ? `Đã nhập ${so(tong.dat)} sản phẩm vào kho ${data.tenKho || ""}.`
-    : `${so(tong.dat)} sản phẩm đạt${soLoKe ? ` trong ${soLoKe} lô` : ""}. Tồn kho được cộng ngay khi xác nhận.`;
+    ? `Đã nhập ${formatNumber(tong.dat)} sản phẩm vào kho ${data.tenKho || ""}.`
+    : `${formatNumber(tong.dat)} sản phẩm đạt${soLoKe ? ` trong ${soLoKe} lô` : ""}. Tồn kho được cộng ngay khi xác nhận.`;
 
   const oThongTin = [
     ["Nhà cung cấp", data.tenNhaCungCap || "—", null],
@@ -317,12 +316,12 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {coTheInTem ? (
-            <Button variant="outline" disabled={dangLayTem} onClick={moInTem} className="gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
+            <Button variant="outline" disabled={dangLayTem} onClick={moInTem} className="gap-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
               {dangLayTem ? <Loader2 className="size-4 animate-spin" /> : <Printer className="size-4" />} In tem
             </Button>
           ) : null}
           {!daHuy ? (
-            <Button variant="outline" onClick={() => navigate(`/goods-receipts/${id}/print`)} className="gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
+            <Button variant="outline" onClick={() => navigate(`/goods-receipts/${id}/print`)} className="gap-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
               <Printer className="size-4" /> In phiếu
             </Button>
           ) : null}
@@ -333,7 +332,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
                   <MoreHorizontal className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44 rounded-lg border border-bo-border bg-white p-1 shadow-lg">
+              <DropdownMenuContent align="end" className="w-44 rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg">
                 <DropdownMenuItem onClick={() => setMoHuy(true)} className="cursor-pointer gap-2 rounded-md text-bo-danger focus:bg-bo-danger-soft focus:text-bo-danger">
                   <X className="size-4" /> Hủy phiếu
                 </DropdownMenuItem>
@@ -345,7 +344,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
 
       <DaiO soO={4}>
         {oThongTin.map(([nhan, giaTri, phu]) => (
-          <div key={nhan} className="flex min-w-0 flex-col gap-1 bg-white px-4 py-4">
+          <div key={nhan} className="flex min-w-0 flex-col gap-1 bg-bo-surface px-4 py-4">
             <span className="text-xs font-medium text-bo-muted">{nhan}</span>
             <span title={typeof giaTri === "string" ? giaTri : undefined} className="truncate text-sm font-semibold text-bo-heading">{giaTri}</span>
             {phu ? <span className="truncate text-xs text-bo-muted">{phu}</span> : null}
@@ -363,7 +362,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
             so={1}
             nhan="Bước 1"
             tieuDe="Kiểm đếm hàng"
-            moTa={`${so(tong.xong)}/${so(dong.length)} biến thể · ${so(tong.kiem)}/${so(tong.can)} sản phẩm`}
+            moTa={`${formatNumber(tong.xong)}/${formatNumber(dong.length)} biến thể · ${formatNumber(tong.kiem)}/${formatNumber(tong.can)} sản phẩm`}
             phu={<ThanhMuc className="mt-1" phanTram={tong.can ? (tong.kiem / tong.can) * 100 : 0} tone={kiemXong ? "ok" : ""} label="Tiến độ kiểm đếm" />}
             hanhDong={
               kiemXong || daNhap ? (
@@ -393,7 +392,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
                     "gap-2",
                     coTheXacNhan
                       ? "bg-bo-primary text-white hover:bg-bo-primary-hover"
-                      : "border border-bo-border bg-white text-bo-foreground hover:bg-white",
+                      : "border border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface",
                   )}
                 >
                   <Check className="size-4" /> Xác nhận nhập kho
@@ -442,9 +441,9 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
                     </div>
                   </td>
                   <td className="px-4 py-2"><TienDoSo da={d.kiem} tong={d.canNhap} /></td>
-                  <td className="px-4 py-2 text-right tabular-nums">{chuaKiem ? <span className="text-bo-muted">—</span> : so(d.dat)}</td>
+                  <td className="px-4 py-2 text-right tabular-nums">{chuaKiem ? <span className="text-bo-muted">—</span> : formatNumber(d.dat)}</td>
                   <td className={cn("px-4 py-2 text-right tabular-nums", d.loi ? "font-semibold text-bo-danger" : "text-bo-muted")}>
-                    {chuaKiem ? "—" : so(d.loi)}
+                    {chuaKiem ? "—" : formatNumber(d.loi)}
                   </td>
                   {/* Mã lô dài (tiền tố + số phiếu): xuống dòng dưới số lô và cắt gọn, không đẩy cột Biến thể hẹp lại */}
                   <td className="max-w-[180px] px-4 py-2">
@@ -467,7 +466,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
                       variant="outline"
                       size="sm"
                       onClick={() => moKiemDem(d.bienTheSanPhamId)}
-                      className="min-w-[120px] border-bo-border bg-white text-xs text-bo-foreground hover:border-bo-primary hover:text-bo-primary"
+                      className="min-w-[120px] border-bo-border bg-bo-surface text-xs text-bo-foreground hover:border-bo-primary hover:text-bo-primary"
                     >
                       {nhanNut}
                     </Button>

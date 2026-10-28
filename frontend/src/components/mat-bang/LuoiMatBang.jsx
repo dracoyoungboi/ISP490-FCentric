@@ -295,7 +295,7 @@ export default function LuoiMatBang({
             {...vatBam("cua", i, c)}
             title={c.ten}
             className={cn(
-              "relative z-[2] -mb-2.5 flex items-center justify-center gap-1.5 rounded-t-md border border-b-[3px] border-dashed border-[#9aa7b8] border-b-white bg-white px-1 text-xs font-semibold text-slate-600",
+              "relative z-[2] -mb-2.5 flex items-center justify-center gap-1.5 rounded-t-md border border-b-[3px] border-dashed border-[#9aa7b8] border-b-white bg-bo-surface px-1 text-xs font-semibold text-slate-600",
               kieuBam("cua", i),
               chonDuoc && "hover:border-slate-500",
               dangChon("cua", i) && "border-bo-primary text-bo-primary",
@@ -396,7 +396,7 @@ export default function LuoiMatBang({
           >
             <em
               className={cn(
-                "rounded bg-white px-1.5 py-0.5 text-xs font-semibold not-italic shadow-sm",
+                "rounded bg-bo-surface px-1.5 py-0.5 text-xs font-semibold not-italic shadow-sm",
                 keoLoi ? "text-bo-danger" : "text-blue-700",
               )}
             >
@@ -415,7 +415,7 @@ export default function LuoiMatBang({
           >
             <em
               className={cn(
-                "max-w-full truncate rounded bg-white px-1.5 py-0.5 text-xs font-semibold not-italic shadow-sm",
+                "max-w-full truncate rounded bg-bo-surface px-1.5 py-0.5 text-xs font-semibold not-italic shadow-sm",
                 doiLoi ? "text-bo-danger" : "text-blue-700",
               )}
             >
@@ -462,7 +462,7 @@ function OViTri({ viTri, kichThuoc, noiBat }) {
     <span
       title={`${viTri.maViTri} · ${baoTri ? "Bảo trì" : `${viTri.dangChua ?? 0}/${viTri.sucChua ?? 0}`}`}
       className={cn(
-        "relative inline-block overflow-hidden rounded-[3px] border bg-white",
+        "relative inline-block overflow-hidden rounded-[3px] border bg-bo-surface",
         baoTri ? "border-dashed border-slate-300 bg-bo-surface-subtle" : "border-slate-300",
         noiBat && "z-[1] animate-pulse border-bo-primary ring-2 ring-bo-primary ring-offset-2",
       )}

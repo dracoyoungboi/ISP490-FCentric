@@ -163,7 +163,7 @@ export default function StockTakeCreate() {
                         key={k.id}
                         className={cn(
                           "flex cursor-pointer items-center gap-2.5 rounded-md border px-3 py-2.5 text-sm",
-                          chon ? "border-bo-primary bg-bo-primary-soft text-bo-foreground" : "border-bo-border bg-white text-slate-700 hover:bg-bo-surface-subtle",
+                          chon ? "border-bo-primary bg-bo-primary-soft text-bo-foreground" : "border-bo-border bg-bo-surface text-slate-700 hover:bg-bo-surface-subtle",
                         )}
                       >
                         <input

@@ -58,7 +58,7 @@ function LienHe({ email, chuDe }) {
 function KhungQuyen({ nhom }) {
   return (
     <div className="@container mt-3.5">
-      <div className="grid overflow-hidden rounded-[10px] border border-bo-border bg-white @4xl:auto-cols-fr @4xl:grid-flow-col">
+      <div className="grid overflow-hidden rounded-[10px] border border-bo-border bg-bo-surface @4xl:auto-cols-fr @4xl:grid-flow-col">
         {nhom.map((n, i) => (
           <section
             key={n.ma}

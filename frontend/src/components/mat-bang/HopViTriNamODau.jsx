@@ -89,7 +89,7 @@ function NoiDung({ khoId, viTriId, khuVucId, duLieu, onDong, onMoSoDoKe }) {
               ["Đang chứa", `${viTri.dangChua ?? 0} / ${viTri.sucChua ?? 0}`, `Còn trống ${Math.max(0, (viTri.sucChua ?? 0) - (viTri.dangChua ?? 0))}`],
               ["Trạng thái", <StatusBadge key="tt" label={nhom.label} />, nhom.ma === "CON_CHO" ? "Nhận hàng được" : "Không nhận hàng"],
             ].map(([nhan, giaTri, phu]) => (
-              <div key={nhan} className="flex min-w-0 flex-col gap-1 bg-white px-4 py-3">
+              <div key={nhan} className="flex min-w-0 flex-col gap-1 bg-bo-surface px-4 py-3">
                 <span className="text-xs font-medium text-bo-muted">{nhan}</span>
                 <span className="truncate text-sm font-semibold text-bo-heading">{giaTri}</span>
                 <span className="text-xs text-bo-muted">{phu}</span>
@@ -136,7 +136,7 @@ function NoiDung({ khoId, viTriId, khuVucId, duLieu, onDong, onMoSoDoKe }) {
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">{noiDung}</div>
       <DialogFooter className="shrink-0 border-t border-bo-border bg-bo-surface-subtle px-6 py-3">
         {khu && onMoSoDoKe ? (
-          <Button variant="outline" onClick={() => onMoSoDoKe({ khuVucId: khu.id, viTriId: viTri?.id ?? null })} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
+          <Button variant="outline" onClick={() => onMoSoDoKe({ khuVucId: khu.id, viTriId: viTri?.id ?? null })} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
             Mở sơ đồ kệ của khu
           </Button>
         ) : null}

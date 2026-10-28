@@ -19,7 +19,7 @@ export default function VungQuet({ scanRef, onQuet, dangGui = 0, ketQua, tienDo,
   return (
     <section
       aria-label="Quét mã vạch"
-      className="grid gap-x-6 gap-y-3 rounded-lg border border-bo-border bg-white px-4 py-3.5 @2xl/khoi:grid-cols-[minmax(0,1fr)_240px] @2xl/khoi:items-start"
+      className="grid gap-x-6 gap-y-3 rounded-lg border border-bo-border bg-bo-surface px-4 py-3.5 @2xl/khoi:grid-cols-[minmax(0,1fr)_240px] @2xl/khoi:items-start"
     >
       <ScanBar
         ref={scanRef}

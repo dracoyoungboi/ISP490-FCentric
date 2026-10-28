@@ -360,7 +360,7 @@ export default function TonKhoTongQuan() {
     if (loadingAuth) {
         return (
             <PageContainer className="space-y-5">
-                <section className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                <section className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                     <LoadingState rows={6} label="Đang tải dữ liệu" />
                 </section>
             </PageContainer>
@@ -371,7 +371,7 @@ export default function TonKhoTongQuan() {
     if (authError) {
         return (
             <PageContainer className="space-y-5">
-                <section className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                <section className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                     <ErrorState
                         title={authError}
                         description="Vui lòng tải lại trang hoặc đăng nhập lại để tiếp tục."
@@ -386,7 +386,7 @@ export default function TonKhoTongQuan() {
     if (!hasAccess) {
         return (
             <PageContainer className="space-y-5">
-                <section className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                <section className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                     <EmptyState
                         icon={ShieldAlert}
                         title="Không có quyền truy cập"
@@ -424,7 +424,7 @@ export default function TonKhoTongQuan() {
                                     variant="outline"
                                     aria-label="Chọn kho"
                                     disabled={!multiKho}
-                                    className="h-9 w-full justify-between gap-2 border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50 sm:w-[200px]"
+                                    className="h-9 w-full justify-between gap-2 border-bo-border bg-bo-surface px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle disabled:opacity-50 sm:w-[200px]"
                                 >
                                     <span className="flex min-w-0 items-center gap-2">
                                         <Warehouse className="size-4 shrink-0 text-slate-400" />
@@ -542,7 +542,7 @@ export default function TonKhoTongQuan() {
                             <Button
                                 variant="outline"
                                 onClick={handleRefresh}
-                                className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                             >
                                 Tải dữ liệu
                             </Button>
@@ -558,7 +558,7 @@ export default function TonKhoTongQuan() {
                                 <Button
                                     variant="outline"
                                     onClick={handleClearFilters}
-                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                    className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
                                     Xóa lọc
                                 </Button>
@@ -573,7 +573,7 @@ export default function TonKhoTongQuan() {
                                 <Button
                                     variant="outline"
                                     onClick={() => changeTab(TAB_MAC_DINH)}
-                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                    className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
                                     Xem tất cả
                                 </Button>
@@ -618,7 +618,7 @@ export default function TonKhoTongQuan() {
                                 return (
                                     <tr
                                         key={`${item.bienTheId}-${item.khoId}-${idx}`}
-                                        className="bg-white transition-colors hover:bg-bo-surface-subtle"
+                                        className="bg-bo-surface transition-colors hover:bg-bo-surface-subtle"
                                     >
                                         <td className="px-3 py-3 text-center text-xs text-bo-muted">{safePage * pageSize + idx + 1}</td>
 

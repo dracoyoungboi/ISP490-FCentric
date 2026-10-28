@@ -36,7 +36,7 @@ export default function LocTrangThai({ value, onChange, dem = {}, className }) {
             "h-9 w-full justify-between gap-2 px-3 text-sm font-normal sm:w-auto",
             dangLoc
               ? "border-[#b6d4fe] bg-bo-primary-soft text-bo-primary-hover hover:bg-bo-primary-soft hover:text-bo-primary-hover"
-              : "border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle",
+              : "border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle",
             className,
           )}
         >
@@ -46,7 +46,7 @@ export default function LocTrangThai({ value, onChange, dem = {}, className }) {
           <ChevronDown className="size-4 shrink-0 opacity-60" aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="z-50 w-[248px] rounded-lg border border-bo-border bg-white p-1 shadow-lg">
+      <DropdownMenuContent align="start" className="z-50 w-[248px] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg">
         {LUA_CHON_TRANG_THAI.map((o) => (
           <DropdownMenuItem
             key={o.value}

@@ -20,7 +20,7 @@ export default function TableShell({
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm",
+        "overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm",
         fill && "bo-table-fill",
         className,
       )}

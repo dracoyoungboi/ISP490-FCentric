@@ -48,7 +48,7 @@ export default function LuoiNhapSoLuong({ sanPham, dong, onDoiO, onBoSanPham, ph
                 </button>
               )}
             </div>
-            <div className="mx-4 mt-3 overflow-x-auto rounded-md border border-slate-200 bg-white sm:ml-[72px] sm:mr-6">
+            <div className="mx-4 mt-3 overflow-x-auto rounded-md border border-slate-200 bg-bo-surface sm:ml-[72px] sm:mr-6">
               <table className="w-full min-w-max border-collapse text-[13px] tabular-nums">
                 <caption className="sr-only">Lưới màu và kích cỡ của {dau?.tenSanPham}</caption>
                 <thead>
@@ -86,7 +86,7 @@ export default function LuoiNhapSoLuong({ sanPham, dong, onDoiO, onBoSanPham, ph
                                 onChange={(e) => onDoiO?.(o.bienThe.bienTheId, e.target.value)}
                                 aria-label={`Số lượng nhập ${dau?.tenSanPham}, màu ${h.tenMau}, cỡ ${o.kichCo}`}
                                 title={[o.bienThe.maSku, o.bienThe.soLuongDeXuat > 0 ? `đề xuất ${soVN(o.bienThe.soLuongDeXuat)}` : ""].filter(Boolean).join(" · ")}
-                                className={cn(O_NHAP, "ml-auto block h-8 w-16 px-2 text-right tabular-nums", o.soLuong === "" ? "bg-slate-50/60" : "font-semibold")}
+                                className={cn(O_NHAP, "ml-auto block h-8 w-16 px-2 text-right tabular-nums", o.soLuong === "" ? "bg-bo-surface-subtle/60" : "font-semibold")}
                               />
                               <span className={cn("mt-0.5 block text-[11px] leading-[14px]", o.bienThe.soLuongDeXuat > 0 ? "font-medium text-bo-warning" : "text-bo-muted")}>
                                 khả dụng {soVN(o.bienThe.khaDung)}

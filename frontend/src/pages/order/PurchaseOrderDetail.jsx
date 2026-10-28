@@ -175,7 +175,7 @@ export default function PurchaseOrderDetail() {
 
     return (
         <PageContainer className="flex min-h-full flex-col">
-            <article className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+            <article className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                 <DauTrangDonMua
                     don={don}
                     taoPhieu={taoPhieu}

@@ -212,7 +212,7 @@ export default function DonChoXuatPage() {
                     <Link to="/goods-issues/pick-lists">
                         <Button
                             variant="outline"
-                            className="h-9 gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                            className="h-9 gap-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                         >
                             <Truck className="size-4" />
                             Danh sách phiếu nhặt hàng
@@ -318,7 +318,7 @@ export default function DonChoXuatPage() {
                             title="Không tìm thấy đơn chờ xuất phù hợp"
                             description="Thử đổi từ khóa hoặc kênh bán."
                             action={
-                                <Button variant="outline" onClick={clearFilters} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
+                                <Button variant="outline" onClick={clearFilters} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
                                     Xóa lọc
                                 </Button>
                             }
@@ -471,7 +471,7 @@ export default function DonChoXuatPage() {
                                 maxLength={500}
                                 onChange={(event) => setGhiChu(event.target.value)}
                                 placeholder="Ví dụ: Ưu tiên đơn sàn, ca sáng"
-                                className="resize-none border-bo-border bg-white text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
+                                className="resize-none border-bo-border bg-bo-surface text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/15"
                             />
                         </div>
                     </div>
@@ -482,7 +482,7 @@ export default function DonChoXuatPage() {
                             variant="outline"
                             disabled={creating}
                             onClick={() => setDialogOpen(false)}
-                            className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                            className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                         >
                             Hủy
                         </Button>

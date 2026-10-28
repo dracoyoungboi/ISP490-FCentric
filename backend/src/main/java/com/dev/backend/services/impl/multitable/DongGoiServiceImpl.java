@@ -162,10 +162,12 @@ public class DongGoiServiceImpl implements DongGoiService {
             throw new CommonException(thieuMsg, HttpStatus.BAD_REQUEST, null);
         }
 
-        // Liên kết các bản ghi bằng chứng của đơn vào phiếu xuất kho này
+        // Liên kết các bản ghi bằng chứng của đơn vào phiếu xuất kho này — cả bản ghi còn trỏ về phiếu đã hủy (đóng gói
+        // xong rồi hủy phiếu, tạo lại phiếu mới dùng lại bằng chứng): không thì bằng chứng của phiếu mới thay / xóa được
         List<BangChungDongGoi> proofs = bangChungDongGoiRepository.findByDonBanHangIdAndTrangThaiOrderByNgayTaoAsc(don.getId(), 1);
         for (BangChungDongGoi bc : proofs) {
-            if (bc.getPhieuXuatKho() == null) {
+            if (bc.getPhieuXuatKho() == null
+                    || Integer.valueOf(ITrangThaiPhieuXuat.DA_HUY).equals(bc.getPhieuXuatKho().getTrangThai())) {
                 bc.setPhieuXuatKho(phieu);
                 bangChungDongGoiRepository.save(bc);
             }

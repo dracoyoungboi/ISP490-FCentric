@@ -358,6 +358,10 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
     public static final String CAU_HINH_TEM_NGUONG_XAC_NHAN = "TEM_NGUONG_XAC_NHAN";
     public static final int TEM_NGUONG_XAC_NHAN_MAC_DINH = 200;
     public static final int TEM_NGUONG_XAC_NHAN_TOI_DA = 9999;
+    /** In thuế GTGT trên hóa đơn bán hàng (giá bán đã gồm thuế; đơn chụp thuế suất lúc chốt). */
+    public static final String CAU_HINH_VAT_BAT = "VAT_BAT";
+    /** Lịch thuế suất GTGT theo ngày hiệu lực (JSON, xem ThueGtgt). */
+    public static final String CAU_HINH_VAT_LICH = "VAT_LICH";
 
     @EventListener(ApplicationReadyEvent.class)
     @Transactional(rollbackFor = Exception.class)
@@ -375,6 +379,8 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
         seedIfMissing(CAU_HINH_TEM_IN_SKU, "false", KieuDuLieuCauHinh.BOOLEAN, "In mã SKU trên tem sản phẩm");
         seedIfMissing(CAU_HINH_TEM_NGUONG_XAC_NHAN, String.valueOf(TEM_NGUONG_XAC_NHAN_MAC_DINH), KieuDuLieuCauHinh.INT,
                 "Số tem tối đa in không cần xác nhận");
+        seedIfMissing(CAU_HINH_VAT_BAT, "false", KieuDuLieuCauHinh.BOOLEAN, "In thuế GTGT trên hóa đơn bán hàng");
+        seedIfMissing(CAU_HINH_VAT_LICH, ThueGtgt.LICH_MAC_DINH, KieuDuLieuCauHinh.STRING, "Lịch thuế suất GTGT theo ngày hiệu lực");
     }
 
     private void seedIfMissing(String maCauHinh, String defaultValue, KieuDuLieuCauHinh kieuDuLieu, String moTa) {
@@ -571,6 +577,11 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
             if (val < 1 || val > TEM_NGUONG_XAC_NHAN_TOI_DA) {
                 throw new CommonException("Ngưỡng hỏi xác nhận khi in tem phải từ 1 đến 9.999 tem");
             }
+        } else if (CAU_HINH_VAT_LICH.equals(maCauHinh)) {
+            if (giaTri != null && giaTri.length() > 255) {
+                throw new CommonException("Lịch thuế suất GTGT quá dài: bớt số mốc");
+            }
+            ThueGtgt.docLich(giaTri);
         }
     }
 

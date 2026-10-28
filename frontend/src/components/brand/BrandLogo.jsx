@@ -74,7 +74,7 @@ export default function BrandLogo({ variant = 'auth', chip = false, className = 
 
   if (chip) {
     return (
-      <span className="inline-flex shrink-0 rounded-xl bg-white px-4 py-2.5">{img}</span>
+      <span className="inline-flex shrink-0 rounded-xl bg-bo-surface px-4 py-2.5">{img}</span>
     );
   }
   return img;

@@ -119,7 +119,7 @@ function DetailModal({ open, onClose, item, loading }) {
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent className="max-w-lg overflow-hidden rounded-lg border border-bo-border bg-white p-0 shadow-lg [&>button]:text-slate-500 [&>button]:hover:text-slate-700">
+            <DialogContent className="max-w-lg overflow-hidden rounded-lg border border-bo-border bg-bo-surface p-0 shadow-lg [&>button]:text-slate-500 [&>button]:hover:text-slate-700">
 
                 {/* ── Header ── */}
                 <div className="flex items-center justify-between gap-3 border-b border-bo-border bg-bo-surface-subtle px-5 pb-4 pt-5">
@@ -135,12 +135,12 @@ function DetailModal({ open, onClose, item, loading }) {
                 </div>
 
                 {loading ? (
-                    <div className="flex items-center justify-center gap-2 bg-white py-14">
+                    <div className="flex items-center justify-center gap-2 bg-bo-surface py-14">
                         <Loader2 className="size-5 animate-spin text-bo-primary" />
                         <span className="text-sm text-bo-muted">Đang tải...</span>
                     </div>
                 ) : item ? (
-                    <div className="space-y-4 bg-white px-5 py-4">
+                    <div className="space-y-4 bg-bo-surface px-5 py-4">
 
                         {/* Ngày giao dịch */}
                         <div className="flex items-center gap-2 rounded-lg border border-bo-border bg-bo-surface-subtle px-4 py-2.5 text-sm text-slate-700">
@@ -165,7 +165,7 @@ function DetailModal({ open, onClose, item, loading }) {
                         </div>
 
                         {/* Số lượng 3 ô */}
-                        <div className="grid grid-cols-3 divide-x divide-bo-border overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                        <div className="grid grid-cols-3 divide-x divide-bo-border overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                             {[
                                 { label: "TRƯỚC",    value: item.soLuongTruoc ?? 0, color: "text-slate-700", bg: "bg-white",    prefix: "" },
                                 { label: "THAY ĐỔI", value: Math.abs(displaySoLuong), color: soLuongColor,     bg: soLuongBg,     prefix: soLuongPrefix },
@@ -388,7 +388,7 @@ export default function LichSuGiaoDichKhoList() {
                                 <Button
                                     variant="outline"
                                     onClick={handleClearSearch}
-                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                    className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
                                     Xóa lọc
                                 </Button>
@@ -403,7 +403,7 @@ export default function LichSuGiaoDichKhoList() {
                                 <Button
                                     variant="outline"
                                     onClick={() => changeTab(TAB_MAC_DINH)}
-                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                    className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
                                     Xem tất cả
                                 </Button>

@@ -36,7 +36,7 @@ export function OBuoc({ trangThai = "cho", so, nhan, nhanTrangThai, tieuDe, giaT
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-col gap-1.5 bg-white p-4 md:min-h-[156px]",
+        "flex min-w-0 flex-col gap-1.5 bg-bo-surface p-4 md:min-h-[156px]",
         dang && "shadow-[inset_0_3px_0_var(--color-bo-primary)]",
         className,
       )}
@@ -46,8 +46,8 @@ export function OBuoc({ trangThai = "cho", so, nhan, nhanTrangThai, tieuDe, giaT
           className={cn(
             "grid size-6 shrink-0 place-items-center rounded-full border-[1.5px] text-xs font-semibold",
             xong && "border-bo-success bg-bo-success text-white",
-            dang && "border-bo-primary bg-white text-bo-primary",
-            !xong && !dang && "border-slate-300 bg-white text-bo-muted",
+            dang && "border-bo-primary bg-bo-surface text-bo-primary",
+            !xong && !dang && "border-slate-300 bg-bo-surface text-bo-muted",
           )}
           aria-hidden="true"
         >

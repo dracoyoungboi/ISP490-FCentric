@@ -442,7 +442,7 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
         onMouseMove={() => i !== dongChonHopLe && setDongChon(i)}
         className={cn(
           "flex cursor-pointer items-center gap-3 px-4 py-2 sm:px-5",
-          chon ? "bg-bo-primary-soft/70" : "hover:bg-slate-50",
+          chon ? "bg-bo-primary-soft/70" : "hover:bg-bo-surface-subtle",
         )}
       >
         <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-md bg-slate-100 text-slate-500">
@@ -552,7 +552,7 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
       <div
         className={cn(
           "flex h-9 items-center gap-2.5 rounded-lg border px-3 transition-[border-color,box-shadow,background-color]",
-          mo ? "border-bo-primary bg-white" : "border-transparent hover:bg-slate-50",
+          mo ? "border-bo-primary bg-bo-surface" : "border-transparent hover:bg-bo-surface-subtle",
         )}
         style={mo ? { boxShadow: "0 0 0 3px rgba(22,119,255,0.12)" } : undefined}
       >
@@ -594,7 +594,7 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
       {mo ? (
         <div
           className={cn(
-            "z-50 overflow-hidden rounded-xl border border-bo-border bg-white",
+            "z-50 overflow-hidden rounded-xl border border-bo-border bg-bo-surface",
             isPhone ? "fixed inset-x-3" : "absolute inset-x-0",
           )}
           style={{ top: isPhone ? 60 : "calc(100% + 6px)", boxShadow: "0 12px 32px rgba(15,23,42,0.12)" }}

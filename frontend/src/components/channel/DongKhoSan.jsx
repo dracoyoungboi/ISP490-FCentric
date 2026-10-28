@@ -44,10 +44,10 @@ export default function DongKhoSan({ maKenh, tenSan, khoSan, value, maKhoDaLuu, 
   } else {
     control = (
       <Select value={value || khoSanDangChon(null, ds)} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger aria-label={nhan} className="h-9 w-[220px] max-w-full rounded-lg border-bo-border bg-white text-sm text-bo-foreground max-sm:data-[size=default]:h-11">
+        <SelectTrigger aria-label={nhan} className="h-9 w-[220px] max-w-full rounded-lg border-bo-border bg-bo-surface text-sm text-bo-foreground max-sm:data-[size=default]:h-11">
           <SelectValue />
         </SelectTrigger>
-        <SelectContent position="popper" align="end" className="z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg">
+        <SelectContent position="popper" align="end" className="z-50 rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg">
           {ds.map((kho) => (
             <SelectItem key={kho.maKhoSan} value={kho.maKhoSan} className="rounded-md focus:bg-bo-primary-soft">
               {kho.tenKhoSan}

@@ -31,7 +31,7 @@ export default function MoneyInput({ value, onChange, className, ...props }) {
       value={hienTien(value)}
       onChange={handleChange}
       className={cn(
-        "h-8 w-full rounded-md border border-bo-border bg-white px-2 text-right text-sm tabular-nums text-bo-foreground placeholder:text-bo-muted/70 focus-visible:border-bo-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/15 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle disabled:text-bo-muted",
+        "h-8 w-full rounded-md border border-bo-border bg-bo-surface px-2 text-right text-sm tabular-nums text-bo-foreground placeholder:text-bo-muted/70 focus-visible:border-bo-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/15 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle disabled:text-bo-muted",
         className,
       )}
     />

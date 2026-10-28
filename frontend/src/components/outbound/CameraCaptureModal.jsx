@@ -16,6 +16,8 @@ export default function CameraCaptureModal({
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
+  // Tăng mỗi lần tắt / mở camera: luồng camera về muộn của lần mở cũ (đã đóng hộp, đã đổi camera) thì tắt ngay
+  const lanMoRef = useRef(0);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -26,11 +28,14 @@ export default function CameraCaptureModal({
 
   // Dừng toàn bộ tracks của camera stream
   const stopStream = useCallback(() => {
+    lanMoRef.current += 1;
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => {
         try {
           track.stop();
-        } catch (_) {}
+        } catch {
+          /* track đã dừng sẵn thì bỏ qua */
+        }
       });
       streamRef.current = null;
     }
@@ -42,6 +47,7 @@ export default function CameraCaptureModal({
   // Khởi động Camera Stream
   const startCamera = useCallback(async (mode = facingMode) => {
     stopStream();
+    const lan = lanMoRef.current;
     setLoading(true);
     setError(null);
 
@@ -57,7 +63,9 @@ export default function CameraCaptureModal({
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter((d) => d.kind === "videoinput");
         setHasMultipleCameras(videoDevices.length > 1);
-      } catch (_) {}
+      } catch {
+        /* không đếm được camera: coi như chỉ có một camera */
+      }
 
       const constraints = {
         video: {
@@ -69,14 +77,21 @@ export default function CameraCaptureModal({
       };
 
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      if (lan !== lanMoRef.current) {
+        // Trong lúc chờ camera đã đóng hộp hoặc mở lần khác: tắt luồng này, không để đèn camera sáng mãi
+        mediaStream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       streamRef.current = mediaStream;
 
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
         await videoRef.current.play().catch(() => {});
       }
+      if (lan !== lanMoRef.current) return;
       setLoading(false);
     } catch (err) {
+      if (lan !== lanMoRef.current) return;
       stopStream();
       setLoading(false);
       if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
@@ -90,26 +105,34 @@ export default function CameraCaptureModal({
     }
   }, [facingMode, stopStream]);
 
-  // Quản lý mở / đóng modal
-  useEffect(() => {
-    if (isOpen) {
-      setCapturedBlob(null);
-      setPreviewUrl(null);
-      startCamera(facingMode);
-    } else {
-      stopStream();
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-        setPreviewUrl(null);
-      }
-      setCapturedBlob(null);
-    }
+  // Mở / đóng modal: bỏ ảnh đã chụp lần trước ngay lúc render (không đợi effect)
+  const [dangMo, setDangMo] = useState(isOpen);
+  if (dangMo !== isOpen) {
+    setDangMo(isOpen);
+    setCapturedBlob(null);
+    setPreviewUrl(null);
+  }
 
-    return () => {
-      stopStream();
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    };
+  // Bật camera khi mở, tắt khi đóng / đổi camera / rời trang
+  useEffect(() => {
+    if (!isOpen) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- bật camera (thiết bị ngoài): hiện "Đang kết nối" ngay là cố ý
+    startCamera(facingMode);
+    return () => stopStream();
   }, [isOpen, startCamera, facingMode, stopStream]);
+
+  // Giải phóng ảnh xem trước mỗi khi bỏ ảnh đó (chụp lại, đóng hộp bằng mọi cách, rời trang)
+  useEffect(() => {
+    if (!previewUrl) return;
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
+  const handleClose = useCallback(() => {
+    stopStream();
+    setCapturedBlob(null);
+    setPreviewUrl(null);
+    onClose?.();
+  }, [stopStream, onClose]);
 
   // Phím Esc đóng modal
   useEffect(() => {
@@ -121,27 +144,19 @@ export default function CameraCaptureModal({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen]);
+  }, [isOpen, handleClose]);
 
-  const handleClose = () => {
-    stopStream();
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setCapturedBlob(null);
-    setPreviewUrl(null);
-    onClose?.();
-  };
-
-  // Đổi camera trước / sau
+  // Đổi camera trước / sau: effect mở camera ở trên tự chạy lại theo facingMode
+  // (không gọi startCamera ở đây — gọi thêm là mở camera hai lần cùng lúc)
   const handleToggleCamera = () => {
-    const nextMode = facingMode === "environment" ? "user" : "environment";
-    setFacingMode(nextMode);
-    startCamera(nextMode);
+    setFacingMode(facingMode === "environment" ? "user" : "environment");
   };
 
   // Bấm chụp hình (Snap)
   const handleSnap = () => {
     const video = videoRef.current;
-    if (!video) return;
+    // Camera đã tắt (vừa chụp xong, bấm đúp nút chụp): không chụp khung hình đen đè lên ảnh vừa chụp
+    if (!video || !streamRef.current) return;
 
     const width = video.videoWidth || 1280;
     const height = video.videoHeight || 720;
@@ -166,10 +181,12 @@ export default function CameraCaptureModal({
 
     // Dừng camera stream ngay sau khi chụp để tắt đèn webcam
     stopStream();
+    const lan = lanMoRef.current;
 
     canvas.toBlob(
       (blob) => {
-        if (!blob) return;
+        // Đóng hộp trong lúc đang nén ảnh: bỏ ảnh này
+        if (!blob || lan !== lanMoRef.current) return;
         setCapturedBlob(blob);
         const url = URL.createObjectURL(blob);
         setPreviewUrl(url);
@@ -181,10 +198,7 @@ export default function CameraCaptureModal({
 
   // Chụp lại (Retake)
   const handleRetake = () => {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-    }
+    setPreviewUrl(null);
     setCapturedBlob(null);
     startCamera(facingMode);
   };

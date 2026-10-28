@@ -38,7 +38,7 @@ import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { cn } from "@/lib/utils";
-import { formatCurrency, formatDate } from "@/utils/formatters";
+import { formatCurrency, formatDate, formatNumber } from "@/utils/formatters";
 
 const TAB_MAS = DON_BAN_HANG_TABS.map((tab) => tab.ma);
 const TAB_MAC_DINH = "tat-ca";
@@ -63,7 +63,6 @@ const THU_TU = [
 ];
 // Bề rộng vùng mờ ở mép hàng tab (w-12): tab đang chọn được cuộn ra ngoài vùng này
 const LE_MO_TAB = 48;
-const soVN = (n) => Number(n || 0).toLocaleString("vi-VN");
 
 /** Cùng điều kiện lọc cho danh sách, số trên tab và thanh nhắc; chỉ khác trạng thái. */
 function boLoc({ kenh, tuKhoa, khoId, soNgay, yeuCauHuy }, trangThai) {
@@ -370,7 +369,7 @@ export default function ChannelOrdersPage() {
       {/* Đang lọc đúng các đơn này (chip lọc ở thanh công cụ) thì không nhắc lại */}
       {coYeuCauHuy && !locYeuCauHuy ? (
         <AttentionBar count={soYeuCauHuy.data} actionLabel="Xem đơn" onAction={xemYeuCauHuy}>
-          <strong className="font-semibold">{soVN(soYeuCauHuy.data)} đơn chưa xuất kho</strong> đang có yêu cầu hủy từ khách trên {SAN.ten}.
+          <strong className="font-semibold">{formatNumber(soYeuCauHuy.data)} đơn chưa xuất kho</strong> đang có yêu cầu hủy từ khách trên {SAN.ten}.
           Duyệt hoặc từ chối trên Seller Center trước hạn; chỉ xuất kho đơn đã từ chối hủy.
         </AttentionBar>
       ) : null}
@@ -431,7 +430,7 @@ export default function ChannelOrdersPage() {
                 aria-label={`Bỏ lọc ${NHAN_LOC_YEU_CAU_HUY.toLocaleLowerCase("vi-VN")}`}
                 title="Bỏ lọc này"
                 className={cn(
-                  "inline-flex h-9 min-w-0 max-w-full items-center justify-between gap-2 rounded-md border border-bo-border bg-white pl-3 pr-2 text-sm text-bo-foreground max-sm:h-11",
+                  "inline-flex h-9 min-w-0 max-w-full items-center justify-between gap-2 rounded-md border border-bo-border bg-bo-surface pl-3 pr-2 text-sm text-bo-foreground max-sm:h-11",
                   "transition-colors hover:bg-bo-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary max-sm:w-full",
                 )}
               >

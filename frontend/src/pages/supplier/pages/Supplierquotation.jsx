@@ -272,7 +272,7 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
                 </div>
 
                 {loiChung && !chiXem && (
-                    <div ref={loiChungRef} role="alert" className="flex items-start gap-2 rounded-lg border border-red-200 bg-bo-danger-soft px-3.5 py-3 text-sm leading-5 text-red-700">
+                    <div ref={loiChungRef} role="alert" className="flex items-start gap-2 rounded-lg border border-red-200 bg-bo-danger-soft px-3.5 py-3 text-sm leading-5 text-bo-danger-strong">
                         <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                         <span>{loiChung}</span>
                     </div>
@@ -288,7 +288,7 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
                         </span>
                     </div>
                 ) : chiXem ? (
-                    <div role="status" className="flex items-start gap-2 rounded-lg border border-bo-border bg-white px-3.5 py-3 text-sm leading-5 text-slate-700">
+                    <div role="status" className="flex items-start gap-2 rounded-lg border border-bo-border bg-bo-surface px-3.5 py-3 text-sm leading-5 text-slate-700">
                         <Info className="mt-0.5 size-4 shrink-0 text-bo-muted" aria-hidden="true" />
                         <span>Đơn này không còn nhận báo giá. Nếu cần trao đổi, vui lòng liên hệ người phụ trách đơn.</span>
                     </div>
@@ -325,7 +325,7 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
                         ref={nutThemGhiChuRef}
                         type="button"
                         onClick={moGhiChu}
-                        className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 bg-white px-3.5 text-sm font-medium text-bo-primary hover:border-bo-primary hover:bg-bo-primary-soft/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 md:h-10 md:w-auto md:self-start"
+                        className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 bg-bo-surface px-3.5 text-sm font-medium text-bo-primary hover:border-bo-primary hover:bg-bo-primary-soft/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 md:h-10 md:w-auto md:self-start"
                     >
                         <Plus className="size-4" aria-hidden="true" />
                         {tenCuaHang ? `Thêm ghi chú cho ${tenCuaHang}` : 'Thêm ghi chú'}
@@ -380,7 +380,7 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
             </main>
 
             {!chiXem && dong.length > 0 && (
-                <div className="sticky bottom-0 z-10 border-t border-bo-border bg-white shadow-[0_-1px_3px_0_rgba(0,0,0,0.06)]">
+                <div className="sticky bottom-0 z-10 border-t border-bo-border bg-bo-surface shadow-[0_-1px_3px_0_rgba(0,0,0,0.06)]">
                     <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-2.5 px-4 pt-3 pb-4 md:flex-row md:flex-wrap md:items-center md:justify-between md:gap-4 md:px-6 md:py-3">
                         <div className="flex min-w-0 flex-col gap-2.5 md:flex-row md:flex-wrap md:items-center md:gap-x-6 md:gap-y-1">
                             <div className="flex items-baseline justify-between gap-2 md:justify-start md:gap-3">

@@ -320,7 +320,7 @@ function AddUserForm({ onClose, onCreated }) {
                     event.preventDefault();
                     if (!submitting && !isDirty) onClose();
                 }}
-                className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden border-bo-border bg-white p-0 text-bo-foreground sm:max-w-xl"
+                className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden border-bo-border bg-bo-surface p-0 text-bo-foreground sm:max-w-xl"
             >
                 <div className="flex items-start gap-3 border-b border-bo-border px-5 py-4">
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary">
@@ -432,7 +432,7 @@ function AddUserForm({ onClose, onCreated }) {
                                 <SelectContent
                                     position="popper"
                                     sideOffset={4}
-                                    className="z-50 rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                                    className="z-50 rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
                                 >
                                     {ROLES.map((role) => (
                                         <SelectItem
@@ -488,7 +488,7 @@ function AddUserForm({ onClose, onCreated }) {
                         variant="outline"
                         onClick={requestClose}
                         disabled={submitting}
-                        className="border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
+                        className="border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
                     >
                         Hủy
                     </Button>
@@ -515,7 +515,7 @@ function AddUserForm({ onClose, onCreated }) {
 
             <AlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
                 <AlertDialogContent
-                    className="border-bo-border bg-white sm:max-w-md"
+                    className="border-bo-border bg-bo-surface sm:max-w-md"
                     onCloseAutoFocus={(event) => {
                         event.preventDefault();
                         // Bỏ thông tin: popup cũng đóng, focus do popup trả về nút Thêm người dùng.
@@ -534,7 +534,7 @@ function AddUserForm({ onClose, onCreated }) {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="gap-2">
-                        <AlertDialogCancel className="border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle">
+                        <AlertDialogCancel className="border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle">
                             Tiếp tục nhập
                         </AlertDialogCancel>
                         <AlertDialogAction

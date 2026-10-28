@@ -21,7 +21,7 @@ export default function SearchInput({
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="h-9 w-full rounded-md border border-bo-border bg-white py-2 pr-9 pl-9 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 [&::-webkit-search-cancel-button]:appearance-none"
+        className="h-9 w-full rounded-md border border-bo-border bg-bo-surface py-2 pr-9 pl-9 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 [&::-webkit-search-cancel-button]:appearance-none"
         {...props}
       />
       {value && onClear ? (

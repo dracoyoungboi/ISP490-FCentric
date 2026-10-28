@@ -466,7 +466,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                     onCloseAutoFocus={traFocusNutMoForm}
                     className="flex max-h-[94vh] flex-col gap-0 overflow-hidden border-bo-border bg-bo-canvas p-0 text-bo-foreground sm:max-w-[1180px]"
                 >
-                    <DialogHeader className="gap-0 border-b border-bo-border bg-white px-4 py-3.5 pr-12 text-left sm:px-5 sm:pr-12">
+                    <DialogHeader className="gap-0 border-b border-bo-border bg-bo-surface px-4 py-3.5 pr-12 text-left sm:px-5 sm:pr-12">
                         <DialogTitle className="flex items-center gap-2 text-base font-semibold text-bo-foreground">
                             <Package className="size-5 text-bo-primary" />
                             Chỉnh sửa sản phẩm
@@ -651,7 +651,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                         )}
                     </div>
 
-                    <DialogFooter className="border-t border-bo-border bg-white px-4 py-3 sm:px-5">
+                    <DialogFooter className="border-t border-bo-border bg-bo-surface px-4 py-3 sm:px-5">
                         <div className="flex w-full flex-wrap items-center justify-between gap-3">
                             <p className="text-sm text-bo-muted" aria-live="polite">
                                 {!sanPham ? null : !coThayDoi ? (

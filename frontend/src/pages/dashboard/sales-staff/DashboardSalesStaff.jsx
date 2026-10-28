@@ -183,7 +183,7 @@ function TipGio({ active, payload }) {
   if (!active || !payload?.length) return null;
   const r = payload[0].payload;
   return (
-    <div className="min-w-48 rounded-md border border-bo-border bg-white px-3 py-2.5 text-xs leading-4 shadow-lg">
+    <div className="min-w-48 rounded-md border border-bo-border bg-bo-surface px-3 py-2.5 text-xs leading-4 shadow-lg">
       <p className="mb-1.5 font-medium text-bo-foreground">Đến {nhanGio(r.gio)}</p>
       {r.nay != null ? (
         <p className="mt-1 flex items-center gap-2">
@@ -389,14 +389,14 @@ function TraTon({ className }) {
           }}
           placeholder="Tên, mã sản phẩm hoặc mã SKU"
           autoComplete="off"
-          className="h-10 w-full rounded-md border border-[#d5dbe3] bg-white pl-9 pr-9 text-sm placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/20"
+          className="h-10 w-full rounded-md border border-[#d5dbe3] bg-bo-surface pl-9 pr-9 text-sm placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/20"
         />
         <p className="sr-only" role="status" aria-live="polite">
           {tuKhoa.length >= 2 && kq.q === tuKhoa && !kq.dangTai ? (kq.loi ? "Không tra được" : `${goiY.length} sản phẩm`) : ""}
         </p>
         {kq.dangTai && tuKhoa.length >= 2 ? <Loader2 className="absolute right-8 top-[28px] size-4 animate-spin text-bo-muted @max-[520px]:right-7" aria-hidden="true" /> : null}
         {goiY.length ? (
-          <ul className="mt-1 overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm" aria-label="Kết quả">
+          <ul className="mt-1 overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm" aria-label="Kết quả">
             {goiY.map((p) => (
               <li key={p.id}>
                 <button type="button" onClick={() => chonSanPham(p)} className={cn(FOCUS, "flex w-full cursor-pointer items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-[#fafbfc]")}>

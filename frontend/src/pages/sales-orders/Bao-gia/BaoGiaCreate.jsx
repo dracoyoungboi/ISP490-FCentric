@@ -605,14 +605,14 @@ export default function BaoGiaCreate() {
   // ── Cột phải: khách hàng, giao hàng, ghi chú ──
   const idDsKhach = `${idMan}-ds-khach`;
   const oKhach = khach ? (
-    <div className="rounded-md border border-bo-border bg-white px-3 py-2.5">
+    <div className="rounded-md border border-bo-border bg-bo-surface px-3 py-2.5">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 text-sm font-semibold leading-5 text-bo-foreground">{khach.tenKhachHang}</div>
         <button
           type="button"
           onClick={doiKhach}
           disabled={dangLuu}
-          className="inline-flex h-7 shrink-0 items-center rounded-md border border-bo-border bg-white px-2.5 text-[13px] font-medium text-bo-foreground hover:bg-bo-surface-subtle disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-7 shrink-0 items-center rounded-md border border-bo-border bg-bo-surface px-2.5 text-[13px] font-medium text-bo-foreground hover:bg-bo-surface-subtle disabled:cursor-not-allowed disabled:opacity-50"
         >
           Đổi
         </button>

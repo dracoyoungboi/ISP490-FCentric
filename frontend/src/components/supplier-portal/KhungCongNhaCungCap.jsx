@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 export default function KhungCongNhaCungCap({ tenNhaCungCap, email, onThoat, children }) {
     return (
         <div className="flex min-h-dvh flex-col bg-bo-canvas font-backoffice text-bo-foreground">
-            <header className="shrink-0 border-b border-bo-border bg-white">
+            <header className="shrink-0 border-b border-bo-border bg-bo-surface">
                 {/* Cùng bề rộng tối đa 1600px với nội dung trang để tên cổng và nút Thoát thẳng mép nội dung trên màn rộng */}
                 <div className="mx-auto flex h-14 w-full max-w-[1600px] items-center gap-3 pr-1.5 pl-4 md:h-16 md:gap-3.5 md:px-6">
                     <span className="whitespace-nowrap text-sm leading-5 font-semibold text-bo-heading md:text-base">Cổng nhà cung cấp</span>
@@ -26,7 +26,7 @@ export default function KhungCongNhaCungCap({ tenNhaCungCap, email, onThoat, chi
                             type="button"
                             variant="outline"
                             onClick={onThoat}
-                            className="hidden gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle md:inline-flex"
+                            className="hidden gap-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle md:inline-flex"
                         >
                             <LogOut aria-hidden="true" />
                             Thoát

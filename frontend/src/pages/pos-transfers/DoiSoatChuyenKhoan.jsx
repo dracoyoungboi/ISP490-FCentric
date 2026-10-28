@@ -31,6 +31,7 @@ import { formatCurrency, formatDateTime } from "@/utils/formatters";
 import { toast } from "@/lib/thongBaoNhanh";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
+import { canTraLaiTienMat, tienMatTruocCua } from "@/pages/pos/pos-payment";
 
 /**
  * Đối soát chuyển khoản (quản trị viên). Tab "Cần xử lý": tiền khách ĐÃ chuyển qua mã QR tại quầy nhưng hệ thống
@@ -69,6 +70,21 @@ const soTien = (v) => (v == null ? null : Number(v));
 const soTienHienThi = (gd) => (gd.trangThai === "PAID" ? soTien(gd.soTien) : soTien(gd.soTienDaNhan ?? gd.soTien));
 const tenKhach = (gd) => (gd.tenNguoiChuyen ? `Khách ${gd.tenNguoiChuyen}` : "Khách");
 const gio = (iso) => (iso ? formatDateTime(iso) : "—");
+// Trả kết hợp: tiền mặt khách đưa trước tại quầy (mã QR chỉ mang phần còn lại); 0 = không có
+const tienMatTruoc = tienMatTruocCua;
+
+/** Một câu về phần tiền mặt khách đưa trước: đã vào đơn, đang giữ ở quầy, cần trả lại hay đã trả lại (ai, lúc nào). */
+function cauTienMat(gd) {
+  const tm = tienMatTruoc(gd);
+  if (!tm) return null;
+  if (gd.tienMatTraLaiLuc) {
+    return `Tiền mặt khách đưa trước ${formatCurrency(tm)} đã trả lại khách lúc ${gio(gd.tienMatTraLaiLuc)}${gd.tenNguoiTraLaiTienMat ? ` (${gd.tenNguoiTraLaiTienMat} xác nhận)` : ""}.`;
+  }
+  if (gd.trangThai === "PAID") return `Kèm ${formatCurrency(tm)} tiền mặt khách đưa trước tại quầy (đã vào đơn bán).`;
+  const quay = gd.tenThuNgan ? `thu ngân ${gd.tenThuNgan}` : "quầy";
+  if (canTraLaiTienMat(gd)) return `Cần trả lại khách ${formatCurrency(tm)} tiền mặt đưa trước — ${quay} chưa xác nhận đã trả.`;
+  return `Khách đã đưa trước ${formatCurrency(tm)} tiền mặt tại quầy — ${quay} đang giữ.`;
+}
 
 /** "chờ 15 phút" / "chờ 2 giờ" / "chờ 3 ngày" tính từ lúc tiền về. */
 function thoiGianCho(iso) {
@@ -86,13 +102,35 @@ function maQrDaDong(gd) {
   return truocHan ? "thu ngân đã hủy mã QR trước khi tiền về" : `mã QR đã hết hạn lúc ${gio(gd.hetHanLuc)}`;
 }
 
-/** Kể bằng lời: chuyện gì đã xảy ra + nên làm gì, theo lý do máy chủ trả về. */
+/**
+ * Kể bằng lời: chuyện gì đã xảy ra + nên làm gì, theo lý do máy chủ trả về. Tiền về sau khi mã đã hủy mà khách có đưa
+ * trước tiền mặt: tiền mặt phải trả lại khách nên khoản payOS một mình không đủ trả hóa đơn -> chỉ còn cách trả lại.
+ */
 function keChuyen(gd) {
+  const kq = keChuyenTheoLyDo(gd);
+  const tm = tienMatTruoc(gd);
+  if (gd.tienVeSauHuy && tm) {
+    const traPayos = gd.soTienDaNhan == null ? "số tiền khách đã chuyển" : formatCurrency(gd.soTienDaNhan);
+    return {
+      ...kq,
+      goiY: gd.tienMatTraLaiLuc
+        ? `Quầy đã trả lại khách ${formatCurrency(tm)} tiền mặt đưa trước nên khoản chuyển khoản này không đủ trả hóa đơn: trả lại ${traPayos} cho khách.`
+        : `Mã QR đã hủy nên khách phải được trả lại cả ${formatCurrency(tm)} tiền mặt đưa trước (quầy chưa xác nhận đã trả) — khoản chuyển khoản này không đủ trả hóa đơn: trả lại ${traPayos} cho khách, trả tiền mặt rồi bấm Đã trả lại tiền mặt.`,
+    };
+  }
+  return kq;
+}
+
+function keChuyenTheoLyDo(gd) {
   const nhan = soTien(gd.soTienDaNhan);
   const tong = soTien(gd.soTien);
   const lech = nhan == null ? 0 : nhan - tong;
   const thuNgan = gd.tenThuNgan ? `thu ngân ${gd.tenThuNgan}` : "quầy";
-  const quay = `hóa đơn ${formatCurrency(tong)}${gd.tenThuNgan ? ` của thu ngân ${gd.tenThuNgan}` : ""}${gd.tenKho ? ` ở ${gd.tenKho}` : ""}`;
+  const tm = tienMatTruoc(gd);
+  const hoaDon = tm
+    ? `hóa đơn ${formatCurrency(tong + tm)} (mã QR ${formatCurrency(tong)}, còn lại khách trả tiền mặt)`
+    : `hóa đơn ${formatCurrency(tong)}`;
+  const quay = `${hoaDon}${gd.tenThuNgan ? ` của thu ngân ${gd.tenThuNgan}` : ""}${gd.tenKho ? ` ở ${gd.tenKho}` : ""}`;
   const luc = gd.thanhToanLuc ? ` lúc ${gio(gd.thanhToanLuc)}` : "";
   // Tiền về khi mã QR đã đóng: món hàng có thể đã bán bằng cách khác -> luôn nói ra, kể cả khi chuyển dư
   const muon = gd.tienVeSauHuy ? ` Tiền về khi ${maQrDaDong(gd)}.` : "";
@@ -117,7 +155,7 @@ function keChuyen(gd) {
         nhan: `Chuyển dư ${formatCurrency(lech)}`,
         loai: "warn",
         chuyen: `${tenKhach(gd)} chuyển ${formatCurrency(nhan)}${luc} cho ${quay}, dư ${formatCurrency(lech)}.${muon}`,
-        goiY: `${hoiQuay}Khách vẫn lấy hàng thì bán cho khách đúng ${formatCurrency(tong)}, xong rồi trả lại phần dư ${formatCurrency(lech)}. Không lấy hàng thì trả lại toàn bộ.`,
+        goiY: `${hoiQuay}Khách vẫn lấy hàng thì bán cho khách đúng ${formatCurrency(tong + tm)}, xong rồi trả lại phần dư ${formatCurrency(lech)}. Không lấy hàng thì trả lại toàn bộ.`,
       };
     case "TIEN_VE_MUON":
       return {
@@ -148,6 +186,8 @@ function lyDoKhongBan(gd) {
   const nhan = soTien(gd.soTienDaNhan);
   if (nhan == null) return "Chưa rõ số tiền đã nhận — kiểm tra sao kê ngân hàng rồi trả lại tiền.";
   if (nhan < soTien(gd.soTien)) return "Khách chuyển thiếu nên không bán được.";
+  // Máy chủ cũng từ chối (409): tiền mặt đưa trước đã / phải trả lại khách khi hủy mã
+  if (gd.tienVeSauHuy && tienMatTruoc(gd)) return "Tiền về sau khi mã QR đã hủy, phần tiền mặt khách đưa trước phải trả lại khách — chỉ trả lại khoản chuyển khoản này.";
   return null;
 }
 
@@ -245,6 +285,25 @@ export default function DoiSoatChuyenKhoan() {
     }
   };
 
+  // Xác nhận đã trả lại khách tiền mặt đưa trước của mã QR không thành (cùng nút "Đã trả lại tiền mặt" ở quầy).
+  const [dangTraTienMat, setDangTraTienMat] = useState(null); // orderCode đang gửi
+  const xacNhanTraTienMat = async (gd) => {
+    setDangTraTienMat(gd.orderCode);
+    try {
+      const moi = await posService.returnPayosCash(gd.orderCode);
+      toast.success(`Đã ghi nhận trả lại khách ${formatCurrency(tienMatTruoc(gd))} tiền mặt.`);
+      // Hộp xem đang mở giao dịch này: hiện ngay "đã trả lại" (tên người xác nhận có sau khi tải lại danh sách)
+      setHopThoai((h) => (h?.gd?.orderCode === gd.orderCode
+        ? { ...h, gd: { ...h.gd, trangThai: moi?.trangThai ?? h.gd.trangThai, tienMatTraLaiLuc: moi?.tienMatTraLaiLuc ?? new Date().toISOString() } }
+        : h));
+      taiLai();
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Không ghi nhận được việc trả lại tiền mặt. Vui lòng thử lại.");
+    } finally {
+      setDangTraTienMat(null);
+    }
+  };
+
   return (
     <PageContainer fill className="space-y-4">
       <ListPageHeader />
@@ -271,7 +330,7 @@ export default function DoiSoatChuyenKhoan() {
                   options={khoOptions}
                   onChange={(khoId) => setBoLoc((p) => ({ ...p, khoId, page: 0 }))}
                 />
-                <label className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-white pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto">
+                <label className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-bo-surface pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto">
                   <Calendar className="size-4 shrink-0 text-bo-muted" />
                   <span className="shrink-0 text-xs text-bo-muted">Từ</span>
                   <Input type="date" aria-label="Từ ngày tạo mã QR" className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0" value={boLoc.tuNgay} onChange={doiNgay("tuNgay")} />
@@ -317,6 +376,8 @@ export default function DoiSoatChuyenKhoan() {
                   dangMo={dangMo === gd.orderCode}
                   onBan={() => moXuLy("ban", gd)}
                   onTraLai={() => moXuLy("tra-lai", gd)}
+                  dangTraTienMat={dangTraTienMat === gd.orderCode}
+                  onTraTienMat={() => xacNhanTraTienMat(gd)}
                 />
               ))
             )}
@@ -326,7 +387,7 @@ export default function DoiSoatChuyenKhoan() {
             icon={SearchX}
             title="Không có giao dịch phù hợp"
             description={coLoc ? "Thử đổi kho hoặc khoảng ngày." : "Khoản đã bán cho khách hoặc đã trả lại tiền sẽ hiện ở đây."}
-            action={coLoc ? <Button variant="outline" onClick={xoaLoc} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">Xóa lọc</Button> : null}
+            action={coLoc ? <Button variant="outline" onClick={xoaLoc} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">Xóa lọc</Button> : null}
           />
         ) : (
           <table className={`w-full min-w-[960px] text-sm transition-opacity ${danhSach.loading ? "opacity-60" : ""}`} aria-busy={danhSach.loading}>
@@ -354,10 +415,19 @@ export default function DoiSoatChuyenKhoan() {
                   <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums text-bo-foreground">
                     <span className="font-semibold">{formatCurrency(soTienHienThi(gd))}</span>
                     {gd.soTienDaNhan != null && soTien(gd.soTienDaNhan) !== soTienHienThi(gd) ? <div className="text-xs font-normal text-bo-muted">đã nhận {formatCurrency(gd.soTienDaNhan)}</div> : null}
+                    {tienMatTruoc(gd) ? <div className="text-xs font-normal text-bo-muted">+ tiền mặt trả trước {formatCurrency(tienMatTruoc(gd))}</div> : null}
                   </td>
                   <td className="px-3 py-3 text-bo-foreground">{gd.tenNguoiChuyen || <span className="text-bo-muted">—</span>}</td>
                   <td className="px-3 py-3"><div className="text-bo-foreground">{gd.tenKho || "—"}</div><div className="text-xs text-bo-muted">{gd.tenThuNgan || "—"}</div></td>
-                  <td className="px-3 py-3"><StatusBadge label={nhanTrangThai(gd)} />{gd.soDonHang ? <div className="mt-1 text-xs text-bo-muted">Đơn {gd.soDonHang}</div> : null}</td>
+                  <td className="px-3 py-3">
+                    <StatusBadge label={nhanTrangThai(gd)} />
+                    {gd.soDonHang ? <div className="mt-1 text-xs text-bo-muted">Đơn {gd.soDonHang}</div> : null}
+                    {canTraLaiTienMat(gd) ? (
+                      <div className="mt-1 text-xs font-medium text-amber-800">Chưa trả lại tiền mặt {formatCurrency(tienMatTruoc(gd))}</div>
+                    ) : tienMatTruoc(gd) && gd.tienMatTraLaiLuc ? (
+                      <div className="mt-1 text-xs text-bo-muted">Đã trả lại tiền mặt {gio(gd.tienMatTraLaiLuc)}{gd.tenNguoiTraLaiTienMat ? ` · ${gd.tenNguoiTraLaiTienMat}` : ""}</div>
+                    ) : null}
+                  </td>
                   <td className="px-3 py-3 text-xs text-bo-muted">{gd.tenNguoiXuLy ? <>{gd.tenNguoiXuLy}<div>{gio(gd.xuLyLuc)}</div></> : "—"}</td>
                 </tr>
               ))}
@@ -372,13 +442,20 @@ export default function DoiSoatChuyenKhoan() {
       {hopThoai?.loai === "tra-lai" ? (
         <HopThoaiTraLaiTien gd={hopThoai.gd} onClose={() => setHopThoai(null)} onXong={daXuLyXong} onCu={giaoDichCu} />
       ) : null}
-      {hopThoai?.loai === "xem" ? <HopThoaiXem gd={hopThoai.gd} onClose={() => setHopThoai(null)} /> : null}
+      {hopThoai?.loai === "xem" ? (
+        <HopThoaiXem
+          gd={hopThoai.gd}
+          onClose={() => setHopThoai(null)}
+          dangTraTienMat={dangTraTienMat === hopThoai.gd.orderCode}
+          onTraTienMat={() => xacNhanTraTienMat(hopThoai.gd)}
+        />
+      ) : null}
     </PageContainer>
   );
 }
 
 /** Một khoản tiền cần xử lý: số tiền, lý do bằng lời, gợi ý, hai nút. */
-function TheCanXuLy({ gd, dangMo, onBan, onTraLai }) {
+function TheCanXuLy({ gd, dangMo, onBan, onTraLai, dangTraTienMat, onTraTienMat }) {
   const chuyen = keChuyen(gd);
   const cho = thoiGianCho(gd.thanhToanLuc);
   const khongBan = lyDoKhongBan(gd);
@@ -400,6 +477,12 @@ function TheCanXuLy({ gd, dangMo, onBan, onTraLai }) {
       <p className="text-xs text-bo-muted">
         Hàng: {tomTatHang(gd) || "—"} · {gd.dangGiuCho ? "đang được giữ trong kho" : "đã trả về kho bán tiếp"}
       </p>
+      {cauTienMat(gd) ? (
+        <div className={`flex flex-wrap items-center gap-2 text-xs ${canTraLaiTienMat(gd) ? "font-medium text-amber-800" : "text-bo-foreground"}`}>
+          <span>{cauTienMat(gd)}</span>
+          {canTraLaiTienMat(gd) ? <NutTraLaiTienMat gd={gd} dangGui={dangTraTienMat} onXacNhan={onTraTienMat} /> : null}
+        </div>
+      ) : null}
       <p className="rounded-md bg-bo-primary-soft px-3 py-2 text-[13px] leading-5 text-bo-foreground">Gợi ý: {chuyen.goiY}</p>
       <div className="flex flex-wrap items-center gap-2">
         <Button
@@ -411,13 +494,39 @@ function TheCanXuLy({ gd, dangMo, onBan, onTraLai }) {
         >
           Bán cho khách (tạo đơn)
         </Button>
-        <Button variant="outline" className="border-bo-border bg-white" disabled={dangMo} onClick={onTraLai} aria-label={`Trả lại tiền khoản ${formatCurrency(soTienHienThi(gd))}`}>
+        <Button variant="outline" className="border-bo-border bg-bo-surface" disabled={dangMo} onClick={onTraLai} aria-label={`Trả lại tiền khoản ${formatCurrency(soTienHienThi(gd))}`}>
           {dangMo ? "Đang kiểm tra…" : "Trả lại tiền cho khách"}
         </Button>
         {khongBan ? <span id={`ly-do-khong-ban-${gd.orderCode}`} className="text-xs text-bo-muted">{khongBan}</span> : null}
       </div>
       <ChiTietKyThuat gd={gd} />
     </article>
+  );
+}
+
+/**
+ * Nút "Đã trả lại tiền mặt" (tiền mặt khách đưa trước của mã QR không thành): bấm hai lần — lần đầu hỏi lại đúng số
+ * tiền — để không lỡ tay đánh dấu đã trả khi quầy chưa trả cho khách.
+ */
+function NutTraLaiTienMat({ gd, dangGui, onXacNhan }) {
+  const [hoiLai, setHoiLai] = useState(false);
+  if (!hoiLai) {
+    return (
+      <Button size="sm" variant="outline" className="h-8 border-amber-300 bg-bo-surface text-amber-900 hover:bg-amber-50" disabled={dangGui} onClick={(e) => { e.stopPropagation(); setHoiLai(true); }}>
+        Đã trả lại tiền mặt
+      </Button>
+    );
+  }
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <span className="text-bo-foreground">Khách đã nhận lại {formatCurrency(tienMatTruoc(gd))}?</span>
+      <Button size="sm" className="h-8 bg-bo-primary text-white hover:bg-bo-primary-hover" disabled={dangGui} onClick={(e) => { e.stopPropagation(); onXacNhan(); }}>
+        {dangGui ? "Đang ghi…" : "Xác nhận đã trả"}
+      </Button>
+      <Button size="sm" variant="ghost" className="h-8" disabled={dangGui} onClick={(e) => { e.stopPropagation(); setHoiLai(false); }}>
+        Hủy
+      </Button>
+    </span>
   );
 }
 
@@ -499,10 +608,13 @@ function HopThoaiBanChoKhach({ gd, onClose, onXong, onCu }) {
           <DialogDescription>Kiểm tra đơn sẽ được tạo trước khi xác nhận.</DialogDescription>
         </DialogHeader>
         <div className="space-y-1.5 rounded-md border border-bo-border bg-bo-surface-subtle p-3 text-sm">
-          <p className="font-semibold text-bo-foreground">Sẽ tạo đơn bán {formatCurrency(gd.soTien)}</p>
+          <p className="font-semibold text-bo-foreground">Sẽ tạo đơn bán {formatCurrency(soTien(gd.soTien) + tienMatTruoc(gd))}</p>
           <p className="text-bo-muted">Ngày đơn: {gio(gd.thanhToanLuc)} (lúc tiền về) · người bán: {gd.tenThuNgan || "—"}</p>
           <p className="text-bo-muted">Trừ kho {gd.tenKho || "—"}: {tomTatHang(gd) || "—"}</p>
-          <p className="text-bo-muted">Thanh toán: chuyển khoản {formatCurrency(gd.soTien)}</p>
+          <p className="text-bo-muted">
+            Thanh toán: chuyển khoản {formatCurrency(gd.soTien)}
+            {tienMatTruoc(gd) ? <> + tiền mặt {formatCurrency(tienMatTruoc(gd))} (khách đưa trước tại quầy)</> : null}
+          </p>
         </div>
         {traMuon ? (
           <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-[13px] leading-5 text-amber-900">
@@ -526,7 +638,7 @@ function HopThoaiBanChoKhach({ gd, onClose, onXong, onCu }) {
         ) : null}
         {loi ? <p className="text-sm text-bo-danger" role="alert">{loi}</p> : null}
         <DialogFooter className="gap-2">
-          <Button variant="outline" className="border-bo-border bg-white" disabled={dangGui} onClick={onClose}>Quay lại</Button>
+          <Button variant="outline" className="border-bo-border bg-bo-surface" disabled={dangGui} onClick={onClose}>Quay lại</Button>
           <Button className="bg-bo-primary text-white hover:bg-bo-primary-hover" disabled={dangGui} onClick={xacNhan}>{dangGui ? "Đang tạo đơn…" : "Tạo đơn bán"}</Button>
         </DialogFooter>
       </DialogContent>
@@ -540,6 +652,7 @@ function HopThoaiTraLaiTien({ gd, onClose, onXong, onCu }) {
   const [dangGui, setDangGui] = useState(false);
   const [loi, setLoi] = useState("");
   const soTra = gd.soTienDaNhan ?? null;
+  const tm = tienMatTruoc(gd);
 
   const xacNhan = async () => {
     if (!maHoan.trim()) return setLoi("Nhập mã giao dịch hoàn tiền trên app ngân hàng (hoặc ghi chú cách đã trả).");
@@ -573,6 +686,11 @@ function HopThoaiTraLaiTien({ gd, onClose, onXong, onCu }) {
                 Chuyển trả {soTra == null ? "số tiền khách đã chuyển (xem sao kê)" : formatCurrency(soTra)} về tài khoản khách đã dùng:
               </p>
               <KhoiTaiKhoanKhach gd={gd} />
+              {tm > 0 && !gd.tienMatTraLaiLuc ? (
+                <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] leading-5 text-amber-900">
+                  Khách còn đưa trước <strong>{formatCurrency(tm)}</strong> tiền mặt tại quầy: nhờ {gd.tenThuNgan ? `thu ngân ${gd.tenThuNgan}` : "quầy"} trả lại khách số này. Trả xong, quầy (hoặc bạn, ở chi tiết giao dịch) bấm "Đã trả lại tiền mặt".
+                </p>
+              ) : tm > 0 ? <p className="text-xs text-bo-muted">{cauTienMat(gd)}</p> : null}
             </div>
           </li>
           <li className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-2">
@@ -591,7 +709,7 @@ function HopThoaiTraLaiTien({ gd, onClose, onXong, onCu }) {
         </ol>
         {loi ? <p className="text-sm text-bo-danger" role="alert">{loi}</p> : null}
         <DialogFooter className="gap-2">
-          <Button variant="outline" className="border-bo-border bg-white" disabled={dangGui} onClick={onClose}>Quay lại</Button>
+          <Button variant="outline" className="border-bo-border bg-bo-surface" disabled={dangGui} onClick={onClose}>Quay lại</Button>
           <Button className="bg-bo-primary text-white hover:bg-bo-primary-hover" disabled={dangGui} onClick={xacNhan}>{dangGui ? "Đang ghi…" : "Tôi đã chuyển trả, ghi lại"}</Button>
         </DialogFooter>
       </DialogContent>
@@ -600,7 +718,7 @@ function HopThoaiTraLaiTien({ gd, onClose, onXong, onCu }) {
 }
 
 /** Xem một giao dịch đã xử lý / mọi mã QR (chỉ đọc). */
-function HopThoaiXem({ gd, onClose }) {
+function HopThoaiXem({ gd, onClose, dangTraTienMat, onTraTienMat }) {
   const chuyen = gd.lyDo ? keChuyen(gd) : null;
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -612,13 +730,19 @@ function HopThoaiXem({ gd, onClose }) {
         <div className="space-y-2 text-sm">
           {chuyen ? <p className="text-bo-foreground">{chuyen.chuyen}</p> : null}
           {gd.soDonHang ? <p>Đơn bán: <strong>{gd.soDonHang}</strong></p> : null}
+          {cauTienMat(gd) ? (
+            <div className={`space-y-2 rounded-md px-3 py-2 ${canTraLaiTienMat(gd) ? "border border-amber-300 bg-amber-50 text-amber-900" : "bg-bo-surface-subtle text-bo-muted"}`}>
+              <p>{cauTienMat(gd)}</p>
+              {canTraLaiTienMat(gd) ? <NutTraLaiTienMat gd={gd} dangGui={dangTraTienMat} onXacNhan={onTraTienMat} /> : null}
+            </div>
+          ) : null}
           {gd.tenNguoiChuyen ? <p className="text-bo-muted">Người chuyển: {gd.tenNguoiChuyen}{gd.nganHangNguoiChuyen ? ` · ${gd.nganHangNguoiChuyen}` : ""}{gd.soTkNguoiChuyen ? ` · ${gd.soTkNguoiChuyen}` : ""}</p> : null}
           {gd.tenNguoiXuLy ? <p className="text-bo-muted">Xử lý bởi {gd.tenNguoiXuLy} lúc {gio(gd.xuLyLuc)}{gd.ghiChuXuLy ? ` — ${gd.ghiChuXuLy}` : ""}</p> : null}
           <p className="text-bo-muted">Hàng: {tomTatHang(gd) || "—"}</p>
           <ChiTietKyThuat gd={gd} />
         </div>
         <DialogFooter>
-          <Button variant="outline" className="border-bo-border bg-white" onClick={onClose}>Đóng</Button>
+          <Button variant="outline" className="border-bo-border bg-bo-surface" onClick={onClose}>Đóng</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

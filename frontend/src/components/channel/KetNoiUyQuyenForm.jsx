@@ -142,14 +142,14 @@ function NhapMaThuCong({ maThuCong, onDoiMa, loiMa, khoa, dangChay, onKetNoi }) 
             autoComplete="off"
             aria-invalid={Boolean(loiMa)}
             aria-describedby={`${idMa}-goi-y`}
-            className={cn(INPUT_CLASS, "min-w-0 flex-1 basis-64 bg-white font-mono placeholder:font-sans", loiMa && O_LOI)}
+            className={cn(INPUT_CLASS, "min-w-0 flex-1 basis-64 bg-bo-surface font-mono placeholder:font-sans", loiMa && O_LOI)}
           />
           <Button
             type="button"
             variant="outline"
             disabled={khoa}
             onClick={onKetNoi}
-            className="h-10 gap-2 rounded-lg border-bo-border bg-white px-3.5 text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11"
+            className="h-10 gap-2 rounded-lg border-bo-border bg-bo-surface px-3.5 text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11"
           >
             {dangChay ? <Loader2 className="size-4 animate-spin" /> : null}
             Kết nối bằng mã
@@ -355,7 +355,7 @@ export default function KetNoiUyQuyenForm({ san, ketNoi, quayVeThietLap = false,
               onClick={uyQuyen}
               className={cn(
                 "h-8 gap-2 rounded-lg px-3 text-[13px] max-sm:h-11",
-                hetHan ? "bg-bo-primary text-white hover:bg-bo-primary-hover" : "border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle",
+                hetHan ? "bg-bo-primary text-white hover:bg-bo-primary-hover" : "border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle",
               )}
             >
               {dangChay === "uy-quyen" ? <Loader2 className="size-4 animate-spin" /> : null}

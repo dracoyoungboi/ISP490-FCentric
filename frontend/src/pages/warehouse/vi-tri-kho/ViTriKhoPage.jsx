@@ -345,13 +345,13 @@ export default function ViTriKhoPage() {
     noiDung = <DongThongBao tone="warn">Chọn kho ở ô bên trên để xem vị trí kệ.</DongThongBao>;
   } else if (initialLoading) {
     noiDung = (
-      <section className="rounded-lg border border-bo-border bg-white shadow-sm">
+      <section className="rounded-lg border border-bo-border bg-bo-surface shadow-sm">
         <LoadingState rows={6} label="Đang tải vị trí kệ" />
       </section>
     );
   } else if (error && !data) {
     noiDung = (
-      <section className="rounded-lg border border-bo-border bg-white shadow-sm">
+      <section className="rounded-lg border border-bo-border bg-bo-surface shadow-sm">
         <ErrorState title="Không tải được vị trí kệ" description={getApiErrorMessage(error, "Vui lòng thử lại.")} onRetry={reload} />
       </section>
     );

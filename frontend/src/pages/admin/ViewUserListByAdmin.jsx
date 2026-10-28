@@ -604,7 +604,7 @@ export default function ViewUserListByAdmin() {
                                 <Button
                                     variant="outline"
                                     onClick={clearFilters}
-                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                    className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
                                     Xóa lọc
                                 </Button>
@@ -619,7 +619,7 @@ export default function ViewUserListByAdmin() {
                                 <Button
                                     variant="outline"
                                     onClick={() => changeFilter("trangThai", "ALL")}
-                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                    className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
                                     Xem tất cả
                                 </Button>
@@ -771,7 +771,7 @@ export default function ViewUserListByAdmin() {
                                         <td
                                             className={cn(
                                                 "sticky right-0 z-[1] cursor-default whitespace-nowrap px-4 py-2.5 text-center transition-colors duration-500 group-hover:bg-bo-surface-subtle",
-                                                isNew ? "bg-bo-primary-soft" : "bg-white",
+                                                isNew ? "bg-bo-primary-soft" : "bg-bo-surface",
                                                 columnsHidden && STICKY_EDGE
                                             )}
                                             onClick={(e) => e.stopPropagation()}
@@ -798,7 +798,7 @@ export default function ViewUserListByAdmin() {
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent
                                                     align="end"
-                                                    className="z-50 w-[300px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                                                    className="z-50 w-[300px] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
                                                 >
                                                     <DropdownMenuItem
                                                         onClick={() => navigate(`/users/${u.id}`, { state: detailLinkState })}
@@ -896,7 +896,7 @@ export default function ViewUserListByAdmin() {
                 }}
             >
                 <AlertDialogContent
-                    className="bg-white"
+                    className="bg-bo-surface"
                     onCloseAutoFocus={(e) => traFocusVeNutMenu(e, resetTarget)}
                 >
                     <AlertDialogHeader>
@@ -943,7 +943,7 @@ export default function ViewUserListByAdmin() {
                 }}
             >
                 <AlertDialogContent
-                    className="bg-white"
+                    className="bg-bo-surface"
                     onCloseAutoFocus={(e) => traFocusVeNutMenu(e, toggleTarget)}
                 >
                     <AlertDialogHeader>

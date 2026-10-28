@@ -33,6 +33,7 @@ import {
 import { getBaoGiaNccStatus } from "@/constants/donMuaHang";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { getGoodsReceiptStatus } from "@/constants/goodsReceipt";
+import { formatNumber } from "@/utils/formatters";
 
 const TRONG = {
   "don-mua": {
@@ -109,8 +110,6 @@ const LOAI_HOAT_DONG = [
 ];
 
 const MAC_DINH = { trang: 0, soDong: SO_DONG_MAC_DINH, oTim: "", loc: {}, soHien: SO_HOAT_DONG_MOI_LAN };
-
-const soVN = (n) => Number(n || 0).toLocaleString("vi-VN");
 
 /**
  * Ô tìm và các bộ lọc của từng tab. Mỗi bộ lọc: `{ khoa, nhan, tatCa, luaChon }`;
@@ -288,7 +287,7 @@ export default function GiaoDichNcc({ tabs, tab, onDoiTab, dangTai, loiDon, onTh
           title={KHONG_KHOP[tab] ?? "Không có kết quả phù hợp"}
           description="Thử bỏ bớt điều kiện lọc."
           action={
-            <Button type="button" variant="outline" onClick={xoaLoc} className="border-bo-border bg-white shadow-none">
+            <Button type="button" variant="outline" onClick={xoaLoc} className="border-bo-border bg-bo-surface shadow-none">
               Xóa lọc
             </Button>
           }
@@ -316,10 +315,10 @@ export default function GiaoDichNcc({ tabs, tab, onDoiTab, dangTai, loiDon, onTh
               type="button"
               variant="outline"
               onClick={() => sua({ soHien: st.soHien + SO_HOAT_DONG_MOI_LAN })}
-              className="gap-1.5 border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle max-sm:h-11 max-sm:w-full"
+              className="gap-1.5 border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle max-sm:h-11 max-sm:w-full"
             >
               <ChevronDown className="size-4" aria-hidden="true" />
-              Xem thêm {soVN(Math.min(SO_HOAT_DONG_MOI_LAN, conLai))} hoạt động
+              Xem thêm {formatNumber(Math.min(SO_HOAT_DONG_MOI_LAN, conLai))} hoạt động
             </Button>
           </div>
         ) : null}
@@ -329,7 +328,7 @@ export default function GiaoDichNcc({ tabs, tab, onDoiTab, dangTai, loiDon, onTh
 
   const ghiChuChan = ghiChu || GHI_CHU_TAB[tab] || "";
   const hienChan = !loiDon && !dangTai && (tong > 0 || ghiChu);
-  const ghiChuTong = dangLoc ? `lọc từ ${soVN(soDongGoc(tab, d))}` : undefined;
+  const ghiChuTong = dangLoc ? `lọc từ ${formatNumber(soDongGoc(tab, d))}` : undefined;
 
   return (
     <section aria-label="Giao dịch với nhà cung cấp" className="ncc-giao-dich flex min-w-0 flex-col">
@@ -413,9 +412,9 @@ export default function GiaoDichNcc({ tabs, tab, onDoiTab, dangTai, loiDon, onTh
               <p className="text-xs text-bo-muted tabular-nums">
                 Hiển thị <span className="font-semibold text-bo-foreground">1</span>
                 {" – "}
-                <span className="font-semibold text-bo-foreground">{soVN(dong.length)}</span>
+                <span className="font-semibold text-bo-foreground">{formatNumber(dong.length)}</span>
                 {" trong tổng số "}
-                <span className="font-semibold text-bo-primary">{soVN(tong)}</span> hoạt động
+                <span className="font-semibold text-bo-primary">{formatNumber(tong)}</span> hoạt động
                 {ghiChuTong ? <> · {ghiChuTong}</> : null}
               </p>
             </div>

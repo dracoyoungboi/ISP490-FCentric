@@ -108,7 +108,7 @@ export default function ChangePasswordModal({ open, onOpenChange, onSuccess, for
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!forceChange) onOpenChange(next); }}>
       <DialogContent
-        className="bg-white text-bo-foreground sm:max-w-md"
+        className="bg-bo-surface text-bo-foreground sm:max-w-md"
         onInteractOutside={(e) => { if (forceChange) e.preventDefault(); }}
         onEscapeKeyDown={(e) => { if (forceChange) e.preventDefault(); }}
       >
@@ -207,7 +207,7 @@ export default function ChangePasswordModal({ open, onOpenChange, onSuccess, for
                 variant="outline"
                 disabled={submitting}
                 onClick={() => onOpenChange(false)}
-                className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
               >
                 Hủy
               </Button>

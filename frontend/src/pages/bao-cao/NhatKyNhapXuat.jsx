@@ -92,7 +92,7 @@ function buildParams({ loai, nam, thang, tuNam, denNam, tuNgay, denNgay, khoId, 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="min-w-[190px] rounded-lg border border-bo-border bg-white p-3 shadow-sm">
+    <div className="min-w-[190px] rounded-lg border border-bo-border bg-bo-surface p-3 shadow-sm">
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-bo-muted">{label}</p>
       {payload.map((entry, i) => (
         <div key={i} className="mb-1.5 flex items-center gap-2 last:mb-0">
@@ -442,7 +442,7 @@ export default function NhatKyNhapXuat() {
               { label: "Xuất kho", value: formatNumber(kpi.tongXuat), pct: xuatPct, barClass: "bg-bo-danger", textClass: "text-bo-danger", bg: "bg-bo-danger-soft" },
               { label: "Giá trị nhập", value: formatCurrencyCompact(kpi.tongGtrNhap), pct: gtrNhapPct, barClass: "bg-bo-primary", textClass: "text-bo-primary", bg: "bg-bo-primary-soft" },
             ].map(item => (
-              <div key={item.label} className="rounded-lg border border-bo-border bg-white p-4 shadow-sm">
+              <div key={item.label} className="rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <span className="text-xs font-medium text-bo-muted">{item.label}</span>
                   {coSo && (
@@ -455,13 +455,13 @@ export default function NhatKyNhapXuat() {
             ))}
 
             {chartData.length > 1 && (
-              <div className="rounded-lg border border-bo-border bg-white p-4 shadow-sm">
+              <div className="rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
                 <p className="mb-2 text-xs font-medium text-bo-muted">Xu hướng nhập kho</p>
                 <MiniSparkline data={chartData} dataKey="tongNhap" color={CHART_COLORS.nhap} />
               </div>
             )}
 
-            <div className="rounded-lg border border-bo-border bg-white p-4 shadow-sm">
+            <div className="rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm">
               <p className="mb-3 text-xs font-medium text-bo-muted">Chỉ số nhanh</p>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-bo-muted">Nhập TB / kỳ</span>

@@ -253,7 +253,7 @@ export default function PickListList() {
                             title="Không tìm thấy phiếu nhặt hàng phù hợp"
                             description="Thử đổi từ khóa tìm kiếm."
                             action={
-                                <Button variant="outline" onClick={clearFilters} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
+                                <Button variant="outline" onClick={clearFilters} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
                                     Xóa lọc
                                 </Button>
                             }
@@ -264,7 +264,7 @@ export default function PickListList() {
                             title={`Không có phiếu nhặt hàng nào ở trạng thái "${emptyTabLabel}"`}
                             description="Chọn tab Tất cả để xem mọi phiếu nhặt hàng của kho đang chọn."
                             action={
-                                <Button variant="outline" onClick={() => changeTab(TAB_MAC_DINH)} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
+                                <Button variant="outline" onClick={() => changeTab(TAB_MAC_DINH)} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
                                     Xem tất cả
                                 </Button>
                             }

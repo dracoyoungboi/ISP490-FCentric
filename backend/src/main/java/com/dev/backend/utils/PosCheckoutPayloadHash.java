@@ -44,7 +44,10 @@ public final class PosCheckoutPayloadHash {
                 + "|" + (request.getKhachHangId() == null ? "" : request.getKhachHangId())
                 + "|" + payment
                 + "|" + note
-                + "|" + items;
+                + "|" + items
+                // Tiền mặt trả trước khi tạo mã QR payOS: chỉ thêm khi có, hash của mọi yêu cầu khác giữ nguyên
+                + (request.getTienMatTruoc() != null && request.getTienMatTruoc().signum() > 0
+                        ? "|tm:" + request.getTienMatTruoc().stripTrailingZeros().toPlainString() : "");
 
         return sha256(canonical);
     }

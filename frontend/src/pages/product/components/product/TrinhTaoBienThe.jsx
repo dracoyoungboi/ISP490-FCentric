@@ -66,7 +66,7 @@ function NutKichCo({ dangChon, khoa, onClick, disabled, children }) {
                 "h-9 min-w-[52px] rounded-md border px-3 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-bo-primary/25 disabled:opacity-50",
                 dangChon
                     ? "border-bo-primary bg-bo-primary-soft font-semibold text-bo-primary"
-                    : "border-bo-border bg-white font-medium text-bo-foreground hover:border-bo-muted",
+                    : "border-bo-border bg-bo-surface font-medium text-bo-foreground hover:border-bo-muted",
                 khoa && "cursor-default border-bo-primary/40",
             )}
         >
@@ -182,7 +182,7 @@ function OAnhMau({ mau, anh, anhCu, thieuAnh, anhSanPhams, disabled, onChonTep, 
                     aria-label={urlHienThi ? `Đổi ảnh màu ${mau.tenMau}` : `Thêm ảnh màu ${mau.tenMau}`}
                     title={urlHienThi ? "Đổi ảnh cho cả màu" : "Thêm ảnh cho cả màu"}
                     className={cn(
-                        "flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-white text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary",
+                        "flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-bo-surface text-bo-muted transition-colors hover:border-bo-primary hover:text-bo-primary focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary",
                         urlHienThi ? "border-bo-border" : "border-dashed border-bo-muted/60",
                         anh && anhCu && "border-bo-primary ring-1 ring-bo-primary",
                         thieuAnh && "border-bo-danger text-bo-danger",
@@ -195,7 +195,7 @@ function OAnhMau({ mau, anh, anhCu, thieuAnh, anhSanPhams, disabled, onChonTep, 
                     )}
                 </button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-80 space-y-3 border-bo-border bg-white p-3">
+            <PopoverContent align="start" className="w-80 space-y-3 border-bo-border bg-bo-surface p-3">
                 <p className="text-sm font-medium text-bo-foreground">Ảnh màu {mau.tenMau}</p>
                 <input
                     ref={inputRef}
@@ -621,7 +621,7 @@ export default function TrinhTaoBienThe({
             {/* Bảng biến thể */}
             {nhom.length > 0 && <p className="-mb-2 text-xs text-bo-muted md:hidden">Vuốt ngang bảng để xem và nhập giá.</p>}
             {/* relative: giữ cả phần tử absolute (sr-only) bên trong vùng cuộn, không làm tràn hộp thoại */}
-            <div className="relative overflow-x-auto rounded-lg border border-bo-border bg-white">
+            <div className="relative overflow-x-auto rounded-lg border border-bo-border bg-bo-surface">
                 <table className={cn("w-full border-collapse text-sm", laSua ? "min-w-[800px]" : "min-w-[720px]")}>
                     <thead>
                         <tr className="border-b border-bo-border bg-bo-surface-subtle text-left text-xs font-medium text-bo-muted">
@@ -787,7 +787,7 @@ const NhomMau = memo(function NhomMau({
                         <ChamMau hex={mau.maMauHex} className="size-4" />
                         <span className="font-semibold text-bo-foreground">{mau.tenMau}</span>
                         <span className="font-mono text-xs text-bo-muted">{mau.maMau}</span>
-                        <span className="rounded-full border border-bo-border bg-white px-2 py-0.5 text-xs text-bo-foreground">
+                        <span className="rounded-full border border-bo-border bg-bo-surface px-2 py-0.5 text-xs text-bo-foreground">
                             {nhanSoLuong}
                         </span>
                         <OAnhMau

@@ -35,7 +35,7 @@ export default function MetricStrip({ items, loading = false, label = "Chá»‰ sá»
       )}
     >
       {items.map((item) => (
-        <div key={item.label} className="flex min-w-0 flex-col bg-white px-5 py-4">
+        <div key={item.label} className="flex min-w-0 flex-col bg-bo-surface px-5 py-4">
           <p className="text-[13px] font-medium text-bo-muted">{item.label}</p>
           {loading ? (
             <Skeleton className="mt-2 h-7 w-2/3 bg-slate-100" aria-hidden="true" />

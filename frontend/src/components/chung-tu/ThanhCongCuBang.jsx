@@ -60,7 +60,7 @@ export default function ThanhCongCuBang({
               variant="outline"
               size="sm"
               onClick={onDoiMoHet}
-              className="h-8 gap-1.5 border-bo-border bg-white px-2.5 text-[13px] font-medium text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
+              className="h-8 gap-1.5 border-bo-border bg-bo-surface px-2.5 text-[13px] font-medium text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
             >
               {moHet ? (
                 <ChevronsDownUp className="size-3.5" aria-hidden="true" />

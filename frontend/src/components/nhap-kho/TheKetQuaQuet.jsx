@@ -11,12 +11,12 @@ function BuocSo({ nhan, giaTri, onGiam, onTang, khoaGiam, khoaTang, disabled }) 
   return (
     <span className="inline-grid h-[34px] shrink-0 grid-cols-[34px_48px_34px] overflow-hidden rounded-md border border-slate-300">
       <button type="button" aria-label={`Bớt 1 ${nhan}`} onMouseDown={giuConTro} onClick={onGiam} disabled={disabled || khoaGiam}
-        className="grid place-items-center bg-slate-50 text-slate-600 hover:bg-slate-100 disabled:opacity-40">
+        className="grid place-items-center bg-bo-surface-subtle text-slate-600 hover:bg-slate-100 disabled:opacity-40">
         <Minus className="size-4" />
       </button>
       <output className="grid place-items-center border-x border-slate-300 text-[15px] font-semibold tabular-nums" aria-label={nhan}>{giaTri}</output>
       <button type="button" aria-label={`Thêm 1 ${nhan}`} onMouseDown={giuConTro} onClick={onTang} disabled={disabled || khoaTang}
-        className="grid place-items-center bg-slate-50 text-slate-600 hover:bg-slate-100 disabled:opacity-40">
+        className="grid place-items-center bg-bo-surface-subtle text-slate-600 hover:bg-slate-100 disabled:opacity-40">
         <Plus className="size-4" />
       </button>
     </span>
@@ -76,7 +76,7 @@ export default function TheKetQuaQuet({
       aria-label="Kết quả lượt quét"
       onMouseDown={giuConTro}
       className={cn(
-        "sticky bottom-3 z-30 mx-auto mt-auto max-h-[calc(100dvh-9rem)] w-full max-w-[600px] overflow-y-auto rounded-[10px] border border-t-4 border-bo-border bg-white shadow-[0_18px_40px_-12px_rgba(15,23,42,0.35),0_2px_6px_rgba(15,23,42,0.08)] sm:bottom-5",
+        "sticky bottom-3 z-30 mx-auto mt-auto max-h-[calc(100dvh-9rem)] w-full max-w-[600px] overflow-y-auto rounded-[10px] border border-t-4 border-bo-border bg-bo-surface shadow-[0_18px_40px_-12px_rgba(15,23,42,0.35),0_2px_6px_rgba(15,23,42,0.08)] sm:bottom-5",
         mau === "loi" ? "border-t-red-600" : mau === "cho" ? "border-t-amber-600" : "border-t-green-700",
       )}
     >
@@ -85,7 +85,7 @@ export default function TheKetQuaQuet({
           role="alert"
           className={cn(
             "flex items-start gap-2 border-b px-4 py-2 text-[13px] font-medium leading-5",
-            laThongBaoLoi ? "border-red-100 bg-red-50 text-red-800" : "border-amber-100 bg-amber-50 text-amber-900",
+            laThongBaoLoi ? "border-red-100 bg-bo-danger-soft text-red-800" : "border-amber-100 bg-amber-50 text-amber-900",
           )}
         >
           <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
@@ -97,7 +97,7 @@ export default function TheKetQuaQuet({
           {mau === "loi" ? <X className="size-5" /> : mau === "cho" ? <HelpCircle className="size-5" /> : <Check className="size-5" />}
         </span>
         <div className="min-w-0 flex-1">
-          <p aria-live="polite" className={cn("text-lg font-bold leading-7 tracking-[-0.01em] sm:text-xl", mau === "loi" ? "text-red-700" : mau === "cho" ? "text-orange-800" : "text-green-700")}>{tieuDe}</p>
+          <p aria-live="polite" className={cn("text-lg font-bold leading-7 tracking-[-0.01em] sm:text-xl", mau === "loi" ? "text-bo-danger-strong" : mau === "cho" ? "text-orange-800" : "text-green-700")}>{tieuDe}</p>
           <p className="truncate text-[12.5px] leading-[18px] text-bo-muted">
             <span className="font-mono">{luot.ma}</span> · {luot.nguon} · {luot.gio}
           </p>
@@ -115,7 +115,7 @@ export default function TheKetQuaQuet({
               <Check className="size-5" /> Đạt
             </button>
             <button type="button" onMouseDown={giuConTro} onClick={onKhongDat} disabled={khoa}
-              className="flex h-14 items-center justify-center gap-2 rounded-lg border-[1.5px] border-red-300 bg-white text-base font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50">
+              className="flex h-14 items-center justify-center gap-2 rounded-lg border-[1.5px] border-red-300 bg-bo-surface text-base font-semibold text-bo-danger-strong hover:bg-bo-danger-soft disabled:opacity-50">
               <X className="size-5" /> Không đạt
             </button>
           </div>
@@ -128,7 +128,7 @@ export default function TheKetQuaQuet({
               return (
                 <button key={ten} type="button" role="radio" aria-checked={chon} onMouseDown={giuConTro} onClick={() => onLyDo(ten)} disabled={khoa}
                   className={cn(
-                    "flex min-h-9 w-full items-center gap-2 rounded-md border bg-white px-2.5 py-1 text-left text-[13.5px] leading-[18px] text-bo-heading disabled:opacity-50 sm:min-h-10 sm:py-1.5 [@media(max-height:700px)]:min-h-8 [@media(max-height:700px)]:py-0.5",
+                    "flex min-h-9 w-full items-center gap-2 rounded-md border bg-bo-surface px-2.5 py-1 text-left text-[13.5px] leading-[18px] text-bo-heading disabled:opacity-50 sm:min-h-10 sm:py-1.5 [@media(max-height:700px)]:min-h-8 [@media(max-height:700px)]:py-0.5",
                     chon ? "border-bo-primary bg-[#f5f9ff] shadow-[inset_0_0_0_1px_var(--color-bo-primary)]" : "border-bo-border hover:border-slate-300",
                   )}>
                   <span className={cn("grid size-5 shrink-0 place-items-center rounded text-xs font-semibold", chon ? "bg-bo-primary text-white" : "bg-slate-100 text-slate-600")}>{i + 1}</span>
@@ -166,7 +166,7 @@ export default function TheKetQuaQuet({
 
       {/* Màn hẹp (máy quét cầm tay): lượt Đạt không cần hướng dẫn, bớt chiều cao để thẻ không che ô quét.
           Đang có câu báo ở đầu thẻ thì không lặp hướng dẫn (câu báo đã nói phải làm gì). */}
-      <div className={cn("items-start gap-2 rounded-b-[10px] border-t border-slate-100 bg-slate-50 px-4 py-2.5 text-[13px] leading-5 text-slate-700", thongBao ? "hidden" : mau === "dat" ? "hidden sm:flex" : "flex")}>
+      <div className={cn("items-start gap-2 rounded-b-[10px] border-t border-slate-100 bg-bo-surface-subtle px-4 py-2.5 text-[13px] leading-5 text-slate-700", thongBao ? "hidden" : mau === "dat" ? "hidden sm:flex" : "flex")}>
         <ScanLine className="mt-0.5 size-4 shrink-0 text-bo-muted" aria-hidden="true" />
         <span>{huongDan}</span>
       </div>

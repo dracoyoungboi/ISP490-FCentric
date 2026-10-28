@@ -1,7 +1,7 @@
 /**
  * Định dạng DÙNG RIÊNG cho phiếu in (ngày, số lượng, tiền) — một nguồn cho mọi
  * adapter để mọi chứng từ ghi cùng một kiểu:
- * - ngày: "12/09/2026"; ngày giờ: "12/09/2026 15:30" (không giây);
+ * - ngày: "12/09/2026";
  * - ngày đầu phiếu: "Ngày 12 tháng 09 năm 2026" (kiểu chứng từ Việt Nam);
  * - số lượng / tiền: phân nhóm nghìn bằng dấu chấm theo vi-VN, tiền thêm " ₫".
  * Giờ theo múi giờ của máy đang in. Giá trị rỗng/không hợp lệ -> "—".
@@ -31,13 +31,6 @@ export function formatPrintDate(value) {
     const date = toDate(value);
     if (!date) return "—";
     return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
-}
-
-/** "12/09/2026 15:30" */
-export function formatPrintDateTime(value) {
-    const date = toDate(value);
-    if (!date) return "—";
-    return `${formatPrintDate(date)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 /** "Ngày 12 tháng 09 năm 2026" — dòng ngày lập dưới tên chứng từ. Rỗng -> null (ẩn dòng). */

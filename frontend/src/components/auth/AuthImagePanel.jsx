@@ -159,8 +159,8 @@ export default function AuthImagePanel({ slides = DEFAULT_SLIDES }) {
                         aria-label={`Chuyển đến ảnh ${index + 1}: ${slide.alt}`}
                         className={`h-2.5 rounded-full transition-all ${
                             index === current
-                                ? 'w-8 bg-white duration-500'
-                                : 'w-2.5 bg-white/40 hover:bg-white duration-300'
+                                ? 'w-8 bg-bo-surface duration-500'
+                                : 'w-2.5 bg-bo-surface/40 hover:bg-bo-surface duration-300'
                         }`}
                         onClick={() => handleDotClick(index)}
                     />

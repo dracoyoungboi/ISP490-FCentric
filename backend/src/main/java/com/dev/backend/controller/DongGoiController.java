@@ -37,10 +37,11 @@ public class DongGoiController {
                 dongGoiService.layPhienTheoDon(donBanHangId), null, "Success"));
     }
 
+    // Chỉ đọc: người mở được chi tiết đơn (cùng phạm vi DonBanHangService.trongPhamVi) xem được bằng chứng của đơn đó,
+    // kể cả nhân viên bán hàng xử lý khiếu nại — không bắt kho đang chọn như các thao tác ghi bên dưới
     @GetMapping("/don/{donBanHangId}/bang-chung")
     @RequireAuth(
-            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
-            inWarehouse = true,
+            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho, IRoleType.nhan_vien_ban_hang},
             rolesLogic = RequireAuth.LogicType.OR
     )
     @Operation(summary = "Lấy thông tin và danh sách bằng chứng đóng gói của đơn hàng")

@@ -69,7 +69,7 @@ function NoiDung({ kho: khoLucMo, onClose, onChanged }) {
 
     return (
         <AlertDialogContent
-            className="border-bo-border bg-white sm:max-w-md"
+            className="border-bo-border bg-bo-surface sm:max-w-md"
             onEscapeKeyDown={(event) => {
                 if (dangLuu) event.preventDefault();
             }}
@@ -124,7 +124,7 @@ function NoiDung({ kho: khoLucMo, onClose, onChanged }) {
             <AlertDialogFooter className="gap-2">
                 <AlertDialogCancel
                     disabled={dangLuu}
-                    className="border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
+                    className="border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
                 >
                     Hủy
                 </AlertDialogCancel>

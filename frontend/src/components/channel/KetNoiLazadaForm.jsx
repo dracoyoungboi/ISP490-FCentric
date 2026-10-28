@@ -225,7 +225,7 @@ export default function KetNoiLazadaForm({ values, errors = {}, onChange, config
           role="status"
           className={cn(
             "flex items-start gap-3 rounded-lg border p-3 text-sm",
-            result.ok ? "border-green-200 bg-green-50 text-green-900" : "border-red-200 bg-red-50 text-red-900",
+            result.ok ? "border-green-200 bg-green-50 text-green-900" : "border-red-200 bg-bo-danger-soft text-red-900",
           )}
         >
           <TrangThaiCham mau={result.ok ? "xanh_la" : "do"} className="mt-1" />
@@ -242,7 +242,7 @@ export default function KetNoiLazadaForm({ values, errors = {}, onChange, config
           variant="outline"
           onClick={kiemTra}
           disabled={khoa}
-          className="h-9 gap-2 rounded-lg border-bo-border bg-white px-4 text-sm text-bo-foreground hover:bg-bo-surface-subtle"
+          className="h-9 gap-2 rounded-lg border-bo-border bg-bo-surface px-4 text-sm text-bo-foreground hover:bg-bo-surface-subtle"
         >
           {dangKiemTra ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
           Kiểm tra kết nối

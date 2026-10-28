@@ -87,7 +87,7 @@ export default function GhepBienThe({ dong, tenSan, dangGhep = false, onHuy, onG
           variant="outline"
           disabled={dangGhep}
           onClick={onHuy}
-          className="h-8 rounded-lg border-bo-border bg-white px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11"
+          className="h-8 rounded-lg border-bo-border bg-bo-surface px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11"
         >
           Hủy bỏ
         </Button>

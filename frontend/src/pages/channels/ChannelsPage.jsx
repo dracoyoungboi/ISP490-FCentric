@@ -14,8 +14,8 @@ import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/utils/dateTime";
+import { formatNumberOrDash } from "@/utils/formatters";
 
-const soVN = (n) => (n === null || n === undefined ? "—" : Number(n).toLocaleString("vi-VN"));
 const TH = "h-10 whitespace-nowrap px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted";
 /** Ô của bảng; dưới sm mỗi dòng là một thẻ có lề riêng nên ô bỏ lề. */
 const TD = "px-3 py-3 max-sm:p-0";
@@ -52,7 +52,7 @@ export default function ChannelsPage() {
       <ListPageHeader title="Kênh bán hàng" />
       <div className="mt-4 space-y-4">
         <MockModeNotice show={isChannelMock} note={GHI_CHU_DU_LIEU_MAU_KENH} />
-        <section className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+        <section className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
           <div className="w-full sm:overflow-x-auto">
             <table className="w-full text-sm max-sm:block sm:min-w-[960px] sm:table-fixed">
               <colgroup className="max-sm:hidden">
@@ -211,9 +211,9 @@ function DongSan({ san }) {
   else if (ketNoi) {
     soSku = (
       <span>
-        {soVN(tongQuan?.daLienKet)}
+        {formatNumberOrDash(tongQuan?.daLienKet)}
         {Number(tongQuan?.loiDongBo) > 0 ? (
-          <span className="ml-1.5 whitespace-nowrap text-[13px] text-bo-danger">· {soVN(tongQuan.loiDongBo)} lỗi</span>
+          <span className="ml-1.5 whitespace-nowrap text-[13px] text-bo-danger">· {formatNumberOrDash(tongQuan.loiDongBo)} lỗi</span>
         ) : null}
       </span>
     );

@@ -72,7 +72,7 @@ export default function ThongTinDonMua({ orderData, tenCuaHang }) {
     return (
         <>
             {ghiChu && (
-                <div role="note" className="hidden items-start gap-2 rounded-lg border border-bo-border bg-white px-3.5 py-2.5 text-sm leading-5 text-slate-700 md:flex">
+                <div role="note" className="hidden items-start gap-2 rounded-lg border border-bo-border bg-bo-surface px-3.5 py-2.5 text-sm leading-5 text-slate-700 md:flex">
                     <Info className="mt-0.5 size-4 shrink-0 text-bo-muted" aria-hidden="true" />
                     <span className="min-w-0 whitespace-pre-line break-words">
                         <strong className="font-semibold">{nhanGhiChu(tenCuaHang)}</strong> {ghiChu}
@@ -80,7 +80,7 @@ export default function ThongTinDonMua({ orderData, tenCuaHang }) {
                 </div>
             )}
 
-            <section aria-label="Thông tin đơn mua hàng" className="flex flex-col gap-1.5 rounded-lg border border-bo-border bg-white px-3.5 py-3 text-[13px] leading-5 text-slate-700 md:hidden">
+            <section aria-label="Thông tin đơn mua hàng" className="flex flex-col gap-1.5 rounded-lg border border-bo-border bg-bo-surface px-3.5 py-3 text-[13px] leading-5 text-slate-700 md:hidden">
                 <div className="break-words">
                     <span className="text-bo-muted">Kho nhận</span> <strong className="font-semibold text-bo-foreground">{tt.tenKho}</strong>
                     {tt.diaChiKho && ` · ${tt.diaChiKho}`}

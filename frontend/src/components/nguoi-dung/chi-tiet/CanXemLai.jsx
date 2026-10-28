@@ -21,7 +21,7 @@ export default function CanXemLai({ vanDe, danhDau, onChonDiem, onBoDanhDau, idV
     <section
       aria-labelledby={idTieuDe}
       className={cn(
-        "mx-4 mb-4 flex flex-wrap items-start gap-x-4 gap-y-2.5 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 sm:mx-6",
+        "mx-4 mb-4 flex flex-wrap items-start gap-x-4 gap-y-2.5 rounded-lg border border-orange-200 bg-bo-warning-soft px-4 py-3 sm:mx-6",
         className,
       )}
     >

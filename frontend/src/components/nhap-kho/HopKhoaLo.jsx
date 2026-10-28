@@ -6,10 +6,10 @@ import { cn } from "@/lib/utils";
 import { NSX_SOM_NHAT, conTrongKe, keDungDuoc } from "@/pages/receipt/kiemDem";
 import { TIEN_TO_THE_LENH } from "@/utils/maVach";
 import { taoBoNhanQuetNhanh } from "@/utils/quetNhanh";
+import { formatNumber } from "@/utils/formatters";
 
 const O_NHAP =
   "h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-bo-foreground placeholder:text-slate-400 focus:border-bo-primary focus:outline-none focus:ring-[3px] focus:ring-bo-primary/20 disabled:bg-bo-surface-subtle";
-const so = (n) => Number(n || 0).toLocaleString("vi-VN");
 // Thẻ lệnh dính ở cuối ô Mã lô (FC-KHOA-LO, FC-HOAN-TAC, FC-KHONG-DAT, FC-DAT, FC-LD-n)
 const DUOI_THE_LENH = new RegExp(`${TIEN_TO_THE_LENH}(KHOA-LO|HOAN-TAC|KHONG-DAT|DAT|LD-\\d+)$`, "i");
 
@@ -169,7 +169,7 @@ function NoiDung({
       <div className="border-b border-bo-border px-6 py-4">
         <DialogTitle className="text-base font-semibold text-bo-foreground">Khóa lô</DialogTitle>
         <DialogDescription className="mt-0.5 text-[13px] leading-5 text-bo-muted">
-          Lô đang có {so(t.datLo)} đạt{t.choLo ? ` · ${so(t.choLo)} chờ chọn` : ""}. Khóa xong, bộ đếm về 0 cho thùng tiếp theo.
+          Lô đang có {formatNumber(t.datLo)} đạt{t.choLo ? ` · ${formatNumber(t.choLo)} chờ chọn` : ""}. Khóa xong, bộ đếm về 0 cho thùng tiếp theo.
         </DialogDescription>
       </div>
 
@@ -193,7 +193,7 @@ function NoiDung({
                 className={cn(O_NHAP, "pl-10 font-mono")}
               />
             </label>
-            <Button type="submit" variant="outline" disabled={dangKhoa} className="h-10 border-bo-border bg-white">Nhận</Button>
+            <Button type="submit" variant="outline" disabled={dangKhoa} className="h-10 border-bo-border bg-bo-surface">Nhận</Button>
           </form>
           {canKe ? (
             <select
@@ -233,7 +233,7 @@ function NoiDung({
                       const con = conTrongKe(v);
                       return (
                         <option key={v.id} value={v.id} disabled={!kt.duoc && v.id !== keId}>
-                          {v.maViTri} · {kt.duoc ? (con === null ? "không giới hạn" : `còn trống ${so(con)}`) : kt.lyDo}
+                          {v.maViTri} · {kt.duoc ? (con === null ? "không giới hạn" : `còn trống ${formatNumber(con)}`) : kt.lyDo}
                         </option>
                       );
                     })}
@@ -247,12 +247,12 @@ function NoiDung({
               {/* Mã kệ đã hiện ở ô chọn kệ: dòng này chỉ thêm khu và sức chứa */}
               {tenKhu.get(dk.ke.khuVucId) ?? "Chưa gắn khu"}
               {conTrongKe(dk.ke) !== null
-                ? ` · sức chứa ${so(dk.ke.sucChua)}, đang chứa ${so(Number(dk.ke.dangChua) || 0)}${Number(dk.ke.choNhap) > 0 ? `, chờ nhập ${so(dk.ke.choNhap)}` : ""}`
+                ? ` · sức chứa ${formatNumber(dk.ke.sucChua)}, đang chứa ${formatNumber(Number(dk.ke.dangChua) || 0)}${Number(dk.ke.choNhap) > 0 ? `, chờ nhập ${formatNumber(dk.ke.choNhap)}` : ""}`
                 : " · không giới hạn sức chứa"}
             </p>
           ) : null}
           {loiQuet ? (
-            <p role="alert" className="flex items-start gap-1.5 text-[13px] leading-5 text-red-700">
+            <p role="alert" className="flex items-start gap-1.5 text-[13px] leading-5 text-bo-danger-strong">
               <AlertCircle className="mt-0.5 size-4 shrink-0" /> {loiQuet}
             </p>
           ) : null}
@@ -266,7 +266,7 @@ function NoiDung({
         ) : null}
         {t.loiLo > 0 ? (
           <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] leading-5 text-amber-900">
-            {so(t.loiLo)} sản phẩm không đạt{loiChu ? ` (${loiChu})` : ""} để ở khu chờ trả nhà cung cấp, không đưa lên kệ.
+            {formatNumber(t.loiLo)} sản phẩm không đạt{loiChu ? ` (${loiChu})` : ""} để ở khu chờ trả nhà cung cấp, không đưa lên kệ.
           </p>
         ) : null}
 
@@ -338,7 +338,7 @@ function NoiDung({
         </div>
 
         {dk.loi.length ? (
-          <p role="alert" className="flex items-start gap-1.5 text-[13px] leading-5 text-red-700">
+          <p role="alert" className="flex items-start gap-1.5 text-[13px] leading-5 text-bo-danger-strong">
             <AlertCircle className="mt-0.5 size-4 shrink-0" /> {dk.loi.join(" ")}
           </p>
         ) : null}
@@ -346,14 +346,14 @@ function NoiDung({
 
       <div className="flex flex-wrap items-center gap-2 border-t border-bo-border bg-bo-surface-subtle px-6 py-3">
         {dk.thieu.length ? (
-          <span className={cn("w-full text-xs sm:mr-auto sm:w-auto", nhacThieu ? "font-semibold text-red-700" : "text-bo-muted")}>
+          <span className={cn("w-full text-xs sm:mr-auto sm:w-auto", nhacThieu ? "font-semibold text-bo-danger-strong" : "text-bo-muted")}>
             Còn thiếu: {dk.thieu.join(", ")}
           </span>
         ) : (
           <span className="hidden sm:mr-auto sm:block" />
         )}
         <div className="flex w-full gap-2 sm:w-auto">
-          <Button type="button" variant="outline" disabled={dangKhoa} onClick={onHuy} className="min-w-24 flex-1 border-bo-border bg-white sm:flex-none">Hủy</Button>
+          <Button type="button" variant="outline" disabled={dangKhoa} onClick={onHuy} className="min-w-24 flex-1 border-bo-border bg-bo-surface sm:flex-none">Hủy</Button>
           <Button
             type="button"
             disabled={!dk.ok || dangKhoa}

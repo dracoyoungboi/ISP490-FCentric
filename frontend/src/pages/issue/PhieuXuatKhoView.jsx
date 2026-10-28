@@ -47,7 +47,7 @@ export default function PhieuXuatKhoView() {
     if (loading || !data) {
         return (
             <PageContainer>
-                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                     <LoadingState rows={4} label="Đang tải dữ liệu phiếu xuất kho" />
                 </div>
             </PageContainer>

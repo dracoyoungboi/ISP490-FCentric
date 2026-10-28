@@ -358,7 +358,7 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
           // Bấm nhầm ra ngoài không làm mất dữ liệu: có thay đổi thì hỏi lại.
           requestClose();
         }}
-        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden border-bo-border bg-white p-0 text-bo-foreground sm:max-w-2xl max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0"
+        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden border-bo-border bg-bo-surface p-0 text-bo-foreground sm:max-w-2xl max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0"
       >
         <div className="flex items-start gap-3 border-b border-bo-border px-5 py-4 max-sm:px-4 max-sm:py-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-bo-primary-soft text-bo-primary max-sm:hidden">
@@ -429,7 +429,7 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
                 >
                   <span
                     aria-hidden="true"
-                    className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px] border-slate-400 bg-white group-data-[state=checked]:border-bo-primary"
+                    className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px] border-slate-400 bg-bo-surface group-data-[state=checked]:border-bo-primary"
                   >
                     <span className="size-2 rounded-full bg-bo-primary opacity-0 group-data-[state=checked]:opacity-100" />
                   </span>
@@ -578,7 +578,7 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
                   rows={2}
                   placeholder="VD: 27 Trần Phú, Hải Châu, Đà Nẵng"
                   className={cn(
-                    "min-h-[64px] resize-y border-bo-border bg-white text-bo-foreground shadow-none placeholder:text-slate-400 focus-visible:border-bo-primary focus-visible:ring-[3px] focus-visible:ring-bo-primary/15 max-sm:text-base",
+                    "min-h-[64px] resize-y border-bo-border bg-bo-surface text-bo-foreground shadow-none placeholder:text-slate-400 focus-visible:border-bo-primary focus-visible:ring-[3px] focus-visible:ring-bo-primary/15 max-sm:text-base",
                     errors.diaChi && CONTROL_ERROR_CLASS,
                   )}
                 />
@@ -626,7 +626,7 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
 
       <AlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
         <AlertDialogContent
-          className="border-bo-border bg-white sm:max-w-md"
+          className="border-bo-border bg-bo-surface sm:max-w-md"
           onCloseAutoFocus={(event) => {
             event.preventDefault();
             // Bỏ thay đổi: popup cũng đóng, focus do popup trả về nút đã mở nó.

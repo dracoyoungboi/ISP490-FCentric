@@ -87,7 +87,7 @@ function NoiDung({ moTa, soLuongBanDau, toiDa, onHuy, onXacNhan }) {
                   aria-checked={chon}
                   onClick={() => setLyDo(ld)}
                   className={cn(
-                    "flex h-11 items-center gap-3 rounded-md border bg-white px-3 text-left text-sm text-bo-foreground transition-colors",
+                    "flex h-11 items-center gap-3 rounded-md border bg-bo-surface px-3 text-left text-sm text-bo-foreground transition-colors",
                     chon ? "border-bo-primary shadow-[inset_0_0_0_1px_var(--color-bo-primary)]" : "border-bo-border hover:border-slate-300",
                   )}
                 >
@@ -108,13 +108,13 @@ function NoiDung({ moTa, soLuongBanDau, toiDa, onHuy, onXacNhan }) {
             value={ghiChu}
             onChange={(e) => setGhiChu(e.target.value)}
             placeholder="Không bắt buộc. VD: hỏng khóa kéo, sai tem mác"
-            className="h-9 w-full rounded-md border border-bo-border bg-white px-3 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15"
+            className="h-9 w-full rounded-md border border-bo-border bg-bo-surface px-3 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15"
           />
         </div>
       </div>
 
       <DialogFooter className="border-t border-bo-border bg-bo-surface-subtle px-6 py-3">
-        <Button variant="outline" onClick={onHuy} className="min-w-28 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">
+        <Button variant="outline" onClick={onHuy} className="min-w-28 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
           Hủy
         </Button>
         <Button

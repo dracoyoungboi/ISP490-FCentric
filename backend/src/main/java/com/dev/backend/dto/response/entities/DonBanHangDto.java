@@ -31,6 +31,8 @@ public class DonBanHangDto implements Serializable {
     BigDecimal tienHang;
     BigDecimal phiVanChuyen;
     BigDecimal tongCong;
+    BigDecimal thueSuatGtgt;
+    BigDecimal tienThueGtgt;
     String trangThaiThanhToan;
     String diaChiGiaoHang;
     String ghiChu;

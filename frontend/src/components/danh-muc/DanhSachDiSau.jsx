@@ -104,7 +104,7 @@ function Chip({ children, onClick, hienTai = false }) {
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-8 max-w-[160px] items-center rounded-full border border-bo-border bg-white px-2.5 text-[13px] font-medium text-bo-primary hover:bg-bo-primary-soft focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary"
+      className="inline-flex h-8 max-w-[160px] items-center rounded-full border border-bo-border bg-bo-surface px-2.5 text-[13px] font-medium text-bo-primary hover:bg-bo-primary-soft focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary"
     >
       <span className="truncate">{children}</span>
     </button>

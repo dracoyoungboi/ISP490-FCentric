@@ -24,6 +24,7 @@ import TongTienBan from "@/components/ban-hang/TongTienBan";
 import { idKho } from "@/components/ban-hang/chonKho";
 import HopGuiSangKho from "@/components/ban-hang/chi-tiet-don-ban/HopGuiSangKho";
 import ThuocTinhDonBan from "@/components/ban-hang/chi-tiet-don-ban/ThuocTinhDonBan";
+import KhoiPhieuThu from "@/components/ban-hang/chi-tiet-don-ban/KhoiPhieuThu";
 import {
   buocDonBan,
   cauLechDong,
@@ -44,7 +45,7 @@ import {
 import MockModeNotice from "@/components/shared/MockModeNotice";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { getBaoGiaStatus } from "@/constants/baoGia";
-import { DON_BAN_HANG_THANH_TOAN, getDonBanHangStatus } from "@/constants/donBanHang";
+import { DON_BAN_HANG_DA_KET_THUC_KHONG_THU, DON_BAN_HANG_THANH_TOAN, getDonBanHangStatus } from "@/constants/donBanHang";
 import { TRANG_THAI_DON } from "@/constants/trangThaiXuatBan";
 import useQuayLai from "@/hooks/useQuayLai";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
@@ -358,13 +359,17 @@ function ChiTietDonBanHang({ id }) {
       <div className="flex flex-wrap items-center gap-2.5">
         <span>Thanh toán</span>
         {nhanThanhToan ? (
-          // "Chưa thanh toán" của đơn sàn chỉ là trạng thái chụp lúc đồng bộ, hệ thống không thu: không tô màu nhắc
-          <StatusBadge label={nhanThanhToan} nhom={thanhToan.maTrangThai === "chua_thanh_toan" ? "dong" : undefined} />
+          // "Chưa thanh toán" của đơn sàn chỉ là trạng thái chụp lúc đồng bộ, hệ thống không thu; đơn thường đã hủy / hoàn
+          // trả không còn phải thu: không tô màu nhắc
+          <StatusBadge label={nhanThanhToan} nhom={thanhToan.maTrangThai === "chua_thanh_toan"
+            && (!thanhToan.laDonThuong || DON_BAN_HANG_DA_KET_THUC_KHONG_THU.includes(tt)) ? "dong" : undefined} />
         ) : null}
       </div>
       <p className={nhanThanhToan ? "mt-1 text-bo-foreground" : "mt-1"}>
         {thanhToan.phuongThuc ? [thanhToan.phuongThuc, gioNgay(thanhToan.ngayThu)].filter(Boolean).join(" · ") : thanhToan.chu}
       </p>
+      {/* Đơn bán thường: phiếu thu / hoàn; hoàn tiền, hủy phiếu chỉ quản trị viên */}
+      <KhoiPhieuThu coTheHoan={laQtv} coTheThu={laBan} donId={id} laQtv={laQtv} onDaDoi={q.reload} thanhToan={ct.thanhToan} />
     </>
   );
   const ttq = ct.thanhToanTaiQuay;
@@ -373,9 +378,17 @@ function ChiTietDonBanHang({ id }) {
   const mucTien = [
     { ma: "hang", nhan: "Tiền hàng", giaTri: formatCurrency(tien.tienHang) },
     { ma: "phi", nhan: "Phí vận chuyển", giaTri: formatCurrency(tien.phi) },
+    // Thuế GTGT chụp lúc chốt đơn (giá đã gồm thuế): tách ngược từ tổng cộng
+    ...(don.thueSuatGtgt != null && don.tienThueGtgt != null ? [
+      { ma: "chua-thue", nhan: "Cộng tiền chưa thuế", giaTri: formatCurrency(Number(don.tongCong) - Number(don.tienThueGtgt)) },
+      { ma: "thue", nhan: `Thuế GTGT ${Number(don.thueSuatGtgt).toLocaleString("vi-VN")}%`, giaTri: formatCurrency(don.tienThueGtgt) },
+    ] : []),
     { ma: "tong", nhan: "Tổng cộng", giaTri: formatCurrency(tien.tongCong), tong: true },
     thanhToan.laTienMat ? { ma: "dua", nhan: "Khách đưa", giaTri: tienHoacTrong(ttq?.soTienThu) ?? "—" } : null,
     thanhToan.laTienMat ? { ma: "thua", nhan: "Tiền thừa", giaTri: tienHoacTrong(ttq?.soTienThua) ?? "—" } : null,
+    // Trả kết hợp tại quầy: phần tiền mặt khách trả trước và phần quét QR payOS
+    thanhToan.ketHop ? { ma: "tien-mat", nhan: "Tiền mặt", giaTri: formatCurrency(thanhToan.ketHop.tienMat) } : null,
+    thanhToan.ketHop ? { ma: "qr", nhan: "QR payOS", giaTri: formatCurrency(thanhToan.ketHop.qr) } : null,
   ];
 
   const tieuDeHuy = `Hủy đơn ${so}?`;

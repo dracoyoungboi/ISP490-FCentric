@@ -114,9 +114,10 @@ function BangDonDayDu({ dons }) {
         {dons.map((d) => {
           const tt = getDonBanHangStatus(d.trangThai);
           const thanhToan = DON_BAN_HANG_THANH_TOAN[d.trangThaiThanhToan]?.label ?? d.trangThaiThanhToan ?? "—";
-          // Nhắc thu tiền: chỉ đơn chưa thanh toán còn hiệu lực (đơn đã hủy / hoàn trả không còn phải thu)
+          // Nhắc thu tiền: đơn chưa thu đủ còn hiệu lực (đơn đã hủy / hoàn trả không còn phải thu; đơn sàn thanh toán theo sàn)
           const canThu =
-            d.trangThaiThanhToan === "chua_thanh_toan" &&
+            (d.trangThaiThanhToan === "chua_thanh_toan" || d.trangThaiThanhToan === "thanh_toan_mot_phan") &&
+            !d.kenhBanHang && !d.maDonHangKenh &&
             !DON_BAN_HANG_DA_KET_THUC_KHONG_THU.includes(Number(d.trangThai));
           return (
             <tr key={d.id} className={DONG}>

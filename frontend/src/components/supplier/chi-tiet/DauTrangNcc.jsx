@@ -104,7 +104,7 @@ export default function DauTrangNcc({ ncc, coTheQuanLy, trangThaiXoa, onQuayLai,
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
-                className="z-50 w-[272px] rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                className="z-50 w-[272px] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
               >
                 <DropdownMenuItem onClick={onChinhSua} className={`${MUC_MENU} sm:hidden`}>
                   <Pencil className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />

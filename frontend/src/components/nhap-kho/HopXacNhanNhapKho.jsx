@@ -12,8 +12,7 @@ import {
 import { DaiO } from "@/components/nhap-kho/ThanhBuoc";
 import { laDoiHang } from "@/constants/nhapKho";
 import { thongKeHeThongService } from "@/services/thongKeHeThongService";
-
-const so = (n) => Number(n || 0).toLocaleString("vi-VN");
+import { formatNumber } from "@/utils/formatters";
 
 /**
  * Hộp xác nhận nhập kho chính thức (FO-100).
@@ -55,12 +54,12 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
   // Free to Use = On Hand + Incoming − Outgoing, nên chỉ giảm phần lỗi không được giao bù.
   const giamIncoming = tongDat + (laDoiHang(phieu?.phuongAnBienBan) ? 0 : tongLoi);
   const oTon = (nhan, truoc, sau) => (
-    <div key={nhan} className="flex min-w-0 flex-col gap-1 bg-white px-4 py-3">
+    <div key={nhan} className="flex min-w-0 flex-col gap-1 bg-bo-surface px-4 py-3">
       <span className="text-xs font-medium text-bo-muted">{nhan}</span>
       <span className="flex items-center gap-2 text-lg font-semibold tabular-nums text-bo-heading">
-        <span className="font-medium text-bo-muted">{so(truoc)}</span>
+        <span className="font-medium text-bo-muted">{formatNumber(truoc)}</span>
         <ArrowRight className="size-3.5 text-bo-muted" aria-hidden="true" />
-        <span>{so(sau)}</span>
+        <span>{formatNumber(sau)}</span>
       </span>
     </div>
   );
@@ -103,7 +102,7 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
                         <div className="mt-0.5 break-all font-mono text-xs text-slate-600 sm:hidden">Lô {lo}</div>
                       </td>
                       <td className="hidden break-all px-4 py-2 font-mono text-xs text-slate-600 sm:table-cell">{lo}</td>
-                      <td className="px-3 py-2 text-right font-medium tabular-nums sm:px-4">{so(d.dat)}</td>
+                      <td className="px-3 py-2 text-right font-medium tabular-nums sm:px-4">{formatNumber(d.dat)}</td>
                     </tr>
                   );
                 })}
@@ -112,7 +111,7 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
                 <tr className="border-t border-bo-border bg-bo-surface-subtle font-semibold">
                   <td className="h-12 px-3 sm:px-4 sm:hidden">Tổng nhập vào kho</td>
                   <td className="hidden h-12 px-4 sm:table-cell" colSpan={2}>Tổng nhập vào kho</td>
-                  <td className="px-3 text-right tabular-nums sm:px-4">{so(tongDat)}</td>
+                  <td className="px-3 text-right tabular-nums sm:px-4">{formatNumber(tongDat)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -129,7 +128,7 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
                     oTon("Free to Use", ton.freeToUse, ton.freeToUse + tongDat - Math.min(ton.incoming, giamIncoming)),
                   ]
                 : ["On Hand", "Incoming", "Free to Use"].map((nhan) => (
-                    <div key={nhan} className="flex flex-col gap-1 bg-white px-4 py-3">
+                    <div key={nhan} className="flex flex-col gap-1 bg-bo-surface px-4 py-3">
                       <span className="text-xs font-medium text-bo-muted">{nhan}</span>
                       <span className="h-7 w-24 animate-pulse rounded bg-slate-100" />
                     </div>
@@ -158,7 +157,7 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, coT
             variant="outline"
             disabled={dangXuLy}
             onClick={() => onOpenChange(false)}
-            className="min-w-28 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+            className="min-w-28 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
           >
             Kiểm tra lại
           </Button>

@@ -141,7 +141,7 @@ export default function KhachHangDetails() {
 
   return (
     <PageContainer className="kh-trang flex min-h-full flex-col">
-      <article className="kh-khoi flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+      <article className="kh-khoi flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
         <DauTrangKhachHang
           khachHang={khachHang}
           coTheSua={coTheSua}
@@ -170,7 +170,7 @@ export default function KhachHangDetails() {
                 variant="outline"
                 size="sm"
                 onClick={() => setMoTrangThai(true)}
-                className="shrink-0 border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle max-sm:h-11"
+                className="shrink-0 border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle max-sm:h-11"
               >
                 Cho phép hoạt động
               </Button>

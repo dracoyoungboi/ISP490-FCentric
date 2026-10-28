@@ -154,7 +154,7 @@ export default function LotAllocationDialog({ open, onOpenChange, pickListId, li
               size="sm"
               disabled={loading || lots.length === 0 || saving}
               onClick={datLaiFifo}
-              className="shrink-0 gap-1.5 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface"
+              className="shrink-0 gap-1.5 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface"
             >
               <RotateCcw className="size-3.5" />
               Đặt lại theo nhập trước lấy trước
@@ -203,7 +203,7 @@ export default function LotAllocationDialog({ open, onOpenChange, pickListId, li
                         disabled={saving}
                         onChange={(event) => handleChange(lot.loHangId, event.target.value)}
                         className={cn(
-                          "h-9 w-20 shrink-0 rounded-md border bg-white text-center font-semibold text-bo-foreground focus:outline-none focus:ring-2",
+                          "h-9 w-20 shrink-0 rounded-md border bg-bo-surface text-center font-semibold text-bo-foreground focus:outline-none focus:ring-2",
                           vuot
                             ? "border-bo-danger focus:ring-bo-danger/20"
                             : "border-bo-border focus:border-bo-primary focus:ring-bo-primary/15",

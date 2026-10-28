@@ -135,7 +135,7 @@ function HomNay({ so, thoiDiem, className, loading, error, onRetry }) {
     <Card className={className} title="Hôm nay của bạn" scope={thoiDiem ? `đến ${gioPhut(thoiDiem)}` : null} loading={loading} error={error} onRetry={onRetry}>
       <div className="grid grid-cols-3 gap-px bg-[#eef1f5]">
         {o.map((s) => (
-          <div key={s.key} className="min-w-0 bg-white px-5 py-4 @max-[440px]:px-4">
+          <div key={s.key} className="min-w-0 bg-bo-surface px-5 py-4 @max-[440px]:px-4">
             <p className="truncate text-[13px] leading-5 text-bo-muted">{s.ten}</p>
             <p className="mt-0.5 text-xl font-semibold leading-7 text-bo-heading">{formatSo(s.so)}</p>
             <p className="text-xs leading-4 text-bo-muted">
@@ -188,7 +188,7 @@ function ViecChung({ vc, thoiDiem, className, loading, error, onRetry }) {
               className={cn(
                 FOCUS,
                 "flex min-w-0 cursor-pointer flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-[border-color,background-color,box-shadow]",
-                on ? "border-bo-primary shadow-[0_0_0_1px_#1677ff]" : "border-[#e4e8ee] bg-white hover:border-[#c9d3e0]",
+                on ? "border-bo-primary shadow-[0_0_0_1px_#1677ff]" : "border-[#e4e8ee] bg-bo-surface hover:border-[#c9d3e0]",
               )}
             >
               <span className="truncate text-[13px] text-bo-muted">{x.ten}</span>

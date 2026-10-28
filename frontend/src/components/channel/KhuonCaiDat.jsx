@@ -32,7 +32,7 @@ export function TheCaiDat({ title, description, children, className, ...props })
   return (
     <section
       aria-labelledby={title ? id : undefined}
-      className={cn("rounded-lg border border-bo-border bg-white shadow-sm", className)}
+      className={cn("rounded-lg border border-bo-border bg-bo-surface shadow-sm", className)}
       {...props}
     >
       {title ? (
@@ -148,7 +148,7 @@ export function ChonPhuongAn({ value, options, onChange, label, disabled = false
             onKeyDown={(event) => doiBangPhim(event, viTri)}
             className={cn(
               "h-7 whitespace-nowrap rounded-md px-3 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:cursor-not-allowed max-sm:h-11",
-              chon ? "bg-white text-bo-heading shadow-[0_1px_2px_rgba(15,23,42,0.14)]" : "text-bo-muted hover:text-bo-foreground",
+              chon ? "bg-bo-surface text-bo-heading shadow-[0_1px_2px_rgba(15,23,42,0.14)]" : "text-bo-muted hover:text-bo-foreground",
             )}
           >
             {option.label}
@@ -169,7 +169,7 @@ export function OSoNho({ label, unit, value, onChange, error, disabled = false, 
       </label>
       <div
         className={cn(
-          "inline-flex h-8 items-center rounded-lg border bg-white focus-within:ring-2 max-sm:h-11",
+          "inline-flex h-8 items-center rounded-lg border bg-bo-surface focus-within:ring-2 max-sm:h-11",
           error ? "border-bo-danger focus-within:ring-bo-danger/15" : "border-bo-border focus-within:border-bo-primary focus-within:ring-bo-primary/15",
         )}
       >
@@ -224,7 +224,7 @@ export function ThanhLuuTrenCung({ hien, dangLuu = false, khoa = false, onHuy, o
           variant="outline"
           disabled={khoa || dangLuu}
           onClick={onHuy}
-          className="h-8 rounded-lg border-white/30 bg-transparent px-3 text-white hover:bg-white/10 hover:text-white max-sm:h-11"
+          className="h-8 rounded-lg border-white/30 bg-transparent px-3 text-white hover:bg-bo-surface/10 hover:text-white max-sm:h-11"
         >
           Hủy bỏ
         </Button>

@@ -36,7 +36,7 @@ export default function PosModal({ title, description, onClose, children, footer
           </button>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
-        {footer ? <footer className="shrink-0 border-t border-bo-border bg-slate-50/70 px-5 py-4">{footer}</footer> : null}
+        {footer ? <footer className="shrink-0 border-t border-bo-border bg-bo-surface-subtle/70 px-5 py-4">{footer}</footer> : null}
       </section>
     </div>
   );

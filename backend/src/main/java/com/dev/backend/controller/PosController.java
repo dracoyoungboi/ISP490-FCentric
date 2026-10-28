@@ -290,6 +290,21 @@ public class PosController {
                 .status(200).data(posPayosService.cancel(orderCode)).message("Đã hủy mã QR").error(null).build());
     }
 
+    /** Quầy xác nhận đã trả lại khách phần tiền mặt trả trước của mã QR không thành (hủy / hết hạn). */
+    @PostMapping("/payos/payment-links/{orderCode}/tra-lai-tien-mat")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.nhan_vien_ban_hang
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<ResponseData<PayosPaymentLinkDto>> traLaiTienMat(@PathVariable Long orderCode) {
+        return ResponseEntity.ok(ResponseData.<PayosPaymentLinkDto>builder()
+                .status(200).data(posPayosService.traLaiTienMat(orderCode)).message("Đã ghi nhận trả lại tiền mặt")
+                .error(null).build());
+    }
+
     /**
      * Màn quản lý "Đối soát chuyển khoản": danh sách giao dịch payOS (mới nhất trước), kèm tài khoản người chuyển
      * (thông tin cá nhân — chỉ quản trị viên). trangThai = PAID_ERROR: đã nhận tiền nhưng chưa có đơn, cần xử lý;

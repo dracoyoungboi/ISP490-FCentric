@@ -181,7 +181,7 @@ export default function KhaiBaoLo() {
         const notFoundItem = loadError === "notfound-item";
         return (
             <PageContainer>
-                <div className="overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm">
+                <div className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                     {notFoundPhieu || notFoundItem ? (
                         <EmptyState
                             icon={SearchX}
@@ -389,7 +389,7 @@ export default function KhaiBaoLo() {
                                     <Button
                                         variant="outline"
                                         onClick={resetForm}
-                                        className="w-full gap-2 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                        className="w-full gap-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                     >
                                         <RotateCcw className="size-4" /> {form.dangSua ? "Hủy sửa" : "Nhập lại"}
                                     </Button>
@@ -403,7 +403,7 @@ export default function KhaiBaoLo() {
                         </SurfaceCard>
                     ) : (
                         <div className="flex flex-col gap-4 rounded-lg border border-bo-border bg-bo-surface-subtle p-5 text-center">
-                            <span className="mx-auto flex size-11 items-center justify-center rounded-full bg-white text-bo-warning shadow-sm">
+                            <span className="mx-auto flex size-11 items-center justify-center rounded-full bg-bo-surface text-bo-warning shadow-sm">
                                 <AlertCircle className="size-5" />
                             </span>
                             <p className="text-sm font-medium leading-6 text-bo-muted">

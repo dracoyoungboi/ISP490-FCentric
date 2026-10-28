@@ -164,7 +164,7 @@ function DeleteContent({ supplier, onClose, onDeleted, onStatusChanged, onChecke
 
     return (
         <AlertDialogContent
-            className="border-bo-border bg-white sm:max-w-md"
+            className="border-bo-border bg-bo-surface sm:max-w-md"
             onEscapeKeyDown={(event) => {
                 if (working) event.preventDefault();
             }}
@@ -196,7 +196,7 @@ function DeleteContent({ supplier, onClose, onDeleted, onStatusChanged, onChecke
             <AlertDialogFooter className="gap-2">
                 <AlertDialogCancel
                     disabled={working}
-                    className="border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
+                    className="border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
                 >
                     {khongXoaDuoc || check.loadError ? "Đóng" : "Hủy"}
                 </AlertDialogCancel>
@@ -205,7 +205,7 @@ function DeleteContent({ supplier, onClose, onDeleted, onStatusChanged, onChecke
                         type="button"
                         variant="outline"
                         onClick={runCheck}
-                        className="border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
+                        className="border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
                     >
                         Thử lại
                     </Button>

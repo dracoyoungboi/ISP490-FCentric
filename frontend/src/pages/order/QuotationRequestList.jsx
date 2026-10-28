@@ -429,7 +429,7 @@ export default function QuotationRequestList() {
                                 <Button
                                     variant="outline"
                                     aria-label="Lọc theo kho nhập"
-                                    className="h-9 w-full justify-between border-bo-border bg-white px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-[200px]"
+                                    className="h-9 w-full justify-between border-bo-border bg-bo-surface px-3 text-sm font-normal text-bo-foreground hover:bg-bo-surface-subtle sm:w-[200px]"
                                     disabled={warehouses.length === 0}
                                 >
                                     <span className="flex min-w-0 items-center gap-2">
@@ -441,7 +441,7 @@ export default function QuotationRequestList() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
                                 align="end"
-                                className="z-50 max-h-[300px] w-[240px] overflow-y-auto rounded-lg border border-bo-border bg-white p-1 shadow-lg"
+                                className="z-50 max-h-[300px] w-[240px] overflow-y-auto rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
                             >
                                 <DropdownMenuItem onClick={() => changeKho('')} className="cursor-pointer rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900">
                                     Tất cả kho
@@ -464,7 +464,7 @@ export default function QuotationRequestList() {
                         ].map(({ key, label }) => (
                             <label
                                 key={key}
-                                className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-white pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto"
+                                className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-bo-surface pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto"
                             >
                                 <Calendar className="size-4 shrink-0 text-bo-muted" />
                                 <span className="shrink-0 text-xs text-bo-muted">{label}</span>
@@ -509,7 +509,7 @@ export default function QuotationRequestList() {
                                 <Button
                                     variant="outline"
                                     onClick={clearFilters}
-                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                    className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
                                     Xóa lọc
                                 </Button>
@@ -524,7 +524,7 @@ export default function QuotationRequestList() {
                                 <Button
                                     variant="outline"
                                     onClick={() => changeTab(TAB_MAC_DINH)}
-                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                    className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
                                     Xem tất cả
                                 </Button>
@@ -655,7 +655,7 @@ export default function QuotationRequestList() {
                                                             >
                                                                 <table className="w-full text-sm">
                                                                     <thead>
-                                                                        <tr className="border-b border-bo-border bg-white">
+                                                                        <tr className="border-b border-bo-border bg-bo-surface">
                                                                             <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Mã báo giá</th>
                                                                             <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Nhà cung cấp</th>
                                                                             <th className="h-9 whitespace-nowrap px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-bo-muted">Ngày gửi</th>

@@ -21,4 +21,10 @@ public interface BangChungDongGoiService {
     Map<Integer, Boolean> kiemTraDaDuBangChungTheoDanhSachDon(Collection<Integer> donBanHangIds);
 
     Map<Integer, Integer> demSoLuongBangChungTheoDanhSachDon(Collection<Integer> donBanHangIds);
+
+    /**
+     * Kéo hạn lưu các tệp đang lưu của đơn tới `moc` + số ngày lưu (chỉ kéo dài, không rút ngắn). Gọi khi xác nhận xuất
+     * kho và khi đơn bị hoàn trả. `moc` null thì lấy lúc gọi.
+     */
+    void giaHanLuuTu(Integer donBanHangId, java.time.Instant moc);
 }

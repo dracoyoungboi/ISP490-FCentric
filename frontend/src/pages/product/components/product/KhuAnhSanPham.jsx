@@ -116,7 +116,7 @@ export default function KhuAnhSanPham({ id, anhs, thieuAnh, disabled, onThemTep,
                                         onClick={() => onDatChinh(anh)}
                                         disabled={disabled}
                                         aria-label={`Đặt ảnh ${index + 1} làm ảnh chính`}
-                                        className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-medium text-bo-foreground opacity-0 shadow-sm transition-opacity hover:text-bo-primary focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-bo-primary group-hover:opacity-100 pointer-coarse:opacity-100"
+                                        className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded bg-bo-surface/95 px-1.5 py-0.5 text-[10px] font-medium text-bo-foreground opacity-0 shadow-sm transition-opacity hover:text-bo-primary focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-bo-primary group-hover:opacity-100 pointer-coarse:opacity-100"
                                     >
                                         <Star className="size-2.5" aria-hidden="true" />
                                         Đặt làm ảnh chính

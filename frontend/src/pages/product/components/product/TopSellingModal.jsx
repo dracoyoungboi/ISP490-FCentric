@@ -105,7 +105,7 @@ export default function TopSellingModal({ isOpen, onClose }) {
 
             {/* Modal */}
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh]">
+                <div className="bg-bo-surface rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh]">
                     {/* Header */}
                     <div className="flex items-center justify-between px-5 py-4 border-b bg-gradient-to-r from-orange-500 to-pink-600 rounded-t-2xl">
                         <div className="flex items-center gap-2.5">
@@ -117,7 +117,7 @@ export default function TopSellingModal({ isOpen, onClose }) {
                         </div>
                         <button
                             onClick={onClose}
-                            className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+                            className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-bo-surface/10 transition-colors"
                         >
                             <X className="h-5 w-5" />
                         </button>

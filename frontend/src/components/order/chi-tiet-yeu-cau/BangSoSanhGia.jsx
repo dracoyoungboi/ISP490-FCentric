@@ -223,7 +223,7 @@ export default function BangSoSanhGia({ bang, ncc, tongCaYeuCau, xem, onDoiXem, 
                   {n.mo
                     ? n.dong.map((d) => (
                       <tr key={d.id} className={DONG}>
-                        <td className={cn(O, O_DAU_DONG_CON, COT_DINH, "bg-white group-hover:bg-bo-surface-subtle")}>
+                        <td className={cn(O, O_DAU_DONG_CON, COT_DINH, "bg-bo-surface group-hover:bg-bo-surface-subtle")}>
                           <MauKichCo dong={d} />
                           <span className="mt-0.5 block max-w-[260px] truncate font-mono text-xs text-bo-muted" title={d.sku}>
                             {d.sku || "—"}
@@ -248,7 +248,7 @@ export default function BangSoSanhGia({ bang, ncc, tongCaYeuCau, xem, onDoiXem, 
             {soNcc ? (
               <tfoot>
                 <tr className="border-t border-bo-border font-semibold">
-                  <th scope="row" className={cn(O, O_DAU, COT_DINH, "bg-white text-left font-semibold text-bo-foreground")}>
+                  <th scope="row" className={cn(O, O_DAU, COT_DINH, "bg-bo-surface text-left font-semibold text-bo-foreground")}>
                     Tổng tiền cả yêu cầu
                   </th>
                   <td className={O} />
@@ -260,7 +260,7 @@ export default function BangSoSanhGia({ bang, ncc, tongCaYeuCau, xem, onDoiXem, 
                 {/* Chấp nhận báo giá là chấp nhận cả ghi chú của nhà cung cấp: hiện ngay dưới tổng tiền để so cùng giá */}
                 {coGhiChu ? (
                   <tr className="border-t border-bo-border">
-                    <th scope="row" className={cn(O, O_DAU, COT_DINH, "bg-white align-top text-left font-semibold text-bo-foreground")}>
+                    <th scope="row" className={cn(O, O_DAU, COT_DINH, "bg-bo-surface align-top text-left font-semibold text-bo-foreground")}>
                       Ghi chú của nhà cung cấp
                     </th>
                     <td className={O} />

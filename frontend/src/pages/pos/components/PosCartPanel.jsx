@@ -92,6 +92,8 @@ export default function PosCartPanel({
   frozenMessage = '',
   isSubmitting = false,
   overStockMessage = '',
+  // Mã QR hủy / hết hạn còn tiền mặt khách đưa trước chưa trả lại: nút Thanh toán mở hộp xác nhận trả lại (kể cả giỏ trống)
+  canTraLai = false,
   offline = false,
   onCustomer,
   onQuantity,
@@ -124,7 +126,7 @@ export default function PosCartPanel({
       ) : null}
 
       <div className="shrink-0 border-b border-bo-border px-4 py-3">
-        <button className="flex w-full items-center gap-3 rounded-lg border border-bo-border px-3 py-2.5 text-left transition hover:border-bo-primary/50 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60" disabled={frozen} onClick={onCustomer} type="button">
+        <button className="flex w-full items-center gap-3 rounded-lg border border-bo-border px-3 py-2.5 text-left transition hover:border-bo-primary/50 hover:bg-bo-surface-subtle disabled:cursor-not-allowed disabled:opacity-60" disabled={frozen} onClick={onCustomer} type="button">
           <span className="grid size-8 shrink-0 place-items-center rounded-full bg-blue-50 text-bo-primary"><UserRound aria-hidden="true" size={16} /></span>
           <span className="min-w-0 flex-1">
             <span className="block text-[11px] text-bo-muted">Khách hàng</span>
@@ -151,7 +153,7 @@ export default function PosCartPanel({
                         </p>
                       ) : null}
                     </div>
-                    <button aria-label={`Xóa ${product.name}`} className="grid size-6 shrink-0 place-items-center rounded text-bo-muted transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40" disabled={frozen} onClick={() => onRemove(product.id)} type="button"><Trash2 aria-hidden="true" size={14} /></button>
+                    <button aria-label={`Xóa ${product.name}`} className="grid size-6 shrink-0 place-items-center rounded text-bo-muted transition hover:bg-bo-danger-soft hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40" disabled={frozen} onClick={() => onRemove(product.id)} type="button"><Trash2 aria-hidden="true" size={14} /></button>
                   </div>
                   <div className="mt-2 flex items-center justify-between gap-2">
                     <div className="flex items-center rounded-md border border-bo-border">
@@ -179,7 +181,7 @@ export default function PosCartPanel({
       <div className="shrink-0 border-t border-bo-border px-4 py-3">
         <label className="mb-3 block">
           <span className="sr-only">Ghi chú hóa đơn</span>
-          <input data-pos-note="" className="w-full rounded-md border border-bo-border bg-bo-surface px-3 py-2 text-xs text-bo-foreground outline-none placeholder:text-bo-muted focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/10 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60" disabled={frozen} onChange={(event) => onNote(event.target.value)} placeholder="Ghi chú cho hóa đơn..." value={note} />
+          <input data-pos-note="" className="w-full rounded-md border border-bo-border bg-bo-surface px-3 py-2 text-xs text-bo-foreground outline-none placeholder:text-bo-muted focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/10 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle disabled:opacity-60" disabled={frozen} onChange={(event) => onNote(event.target.value)} placeholder="Ghi chú cho hóa đơn..." value={note} />
         </label>
         <div className="space-y-2 text-[13px]">
           <div className="flex items-center justify-between text-bo-muted"><span>Tổng tiền hàng</span><span className="font-medium text-bo-foreground">{formatMoney(subtotal)}</span></div>
@@ -193,11 +195,11 @@ export default function PosCartPanel({
             <AlertTriangle aria-hidden="true" className="mt-0.5 shrink-0" size={14} />{overStockMessage}
           </p>
         ) : null}
-        <button className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-bo-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-bo-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary disabled:cursor-not-allowed disabled:bg-slate-300" disabled={!cart.length || isSubmitting || Boolean(overStockMessage) || blockedByNetwork} onClick={onPayment} title={blockedByNetwork ? 'Mất kết nối mạng — chưa thể thanh toán' : undefined} type="button">
+        <button className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-bo-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-bo-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary disabled:cursor-not-allowed disabled:bg-slate-300" disabled={canTraLai ? isSubmitting : (!cart.length || isSubmitting || Boolean(overStockMessage) || blockedByNetwork)} onClick={onPayment} title={blockedByNetwork ? 'Mất kết nối mạng — chưa thể thanh toán' : undefined} type="button">
           {blockedByNetwork ? (
             <><WifiOff aria-hidden="true" size={16} /><span>Mất kết nối mạng</span></>
           ) : (
-            <><span>{isSubmitting ? 'Đang xử lý…' : 'Thanh toán'}</span><span className="rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-medium">F9</span></>
+            <><span>{isSubmitting ? 'Đang xử lý…' : 'Thanh toán'}</span><span className="rounded bg-bo-surface/15 px-1.5 py-0.5 text-[10px] font-medium">F9</span></>
           )}
         </button>
       </div>

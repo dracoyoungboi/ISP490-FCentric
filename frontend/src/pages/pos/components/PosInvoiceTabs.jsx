@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, FileText, Lock, Plus, QrCode, X } from 'lucide-react';
+import { canTraLaiTienMat } from '../pos-payment';
 import './pos-invoice-tabs.css';
 
 /** Trạng thái hiển thị trên tab để thu ngân nhìn là biết hóa đơn nào đang chờ/đã xong. */
 function getTabStatus(invoice) {
   if (invoice.attempt?.status === 'succeeded') return { icon: CheckCircle2, label: 'Đã thanh toán', className: 'text-emerald-600' };
   if (invoice.payos?.trangThai === 'PENDING') return { icon: QrCode, label: 'Đang chờ chuyển khoản', className: 'text-amber-600' };
+  // Trước PAID_ERROR: tiền về muộn sau khi hủy mã thì quầy vẫn phải trả lại tiền mặt khách đưa trước
+  if (canTraLaiTienMat(invoice.payos)) return { icon: AlertTriangle, label: 'Cần trả lại tiền mặt khách đưa trước', className: 'text-red-600' };
   if (invoice.payos?.trangThai === 'PAID_ERROR') return { icon: AlertTriangle, label: 'Đã nhận tiền, chờ quản lý xử lý', className: 'text-red-600' };
   if (invoice.attempt?.status === 'pending' || invoice.attempt?.status === 'unknown') return { icon: Lock, label: 'Đang xử lý thanh toán', className: 'text-amber-600' };
   return null;

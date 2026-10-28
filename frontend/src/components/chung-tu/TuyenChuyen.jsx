@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 function NutKho({ icon, ten, vaiTro, mau }) {
   return (
-    <div className="flex min-w-0 items-center gap-2.5 rounded-md border border-bo-border bg-white px-2.5 py-2">
+    <div className="flex min-w-0 items-center gap-2.5 rounded-md border border-bo-border bg-bo-surface px-2.5 py-2">
       <span className={cn("inline-flex size-7 shrink-0 items-center justify-center rounded-md", mau)}>
         {createElement(icon, { className: "size-4", "aria-hidden": true })}
       </span>

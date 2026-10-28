@@ -283,7 +283,7 @@ export default function PhieuChuyenKhoList() {
                             aria-label="Kho nhập (đích)"
                             value={tenKhoNhapInput}
                             onChange={(e) => setTenKhoNhapInput(e.target.value)}
-                            className="h-9 w-full rounded-md border border-bo-border bg-white px-3 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 sm:w-[200px]"
+                            className="h-9 w-full rounded-md border border-bo-border bg-bo-surface px-3 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 sm:w-[200px]"
                         />
                     </ListToolbar>
                 }
@@ -317,7 +317,7 @@ export default function PhieuChuyenKhoList() {
                                 <Button
                                     variant="outline"
                                     onClick={clearFilters}
-                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                    className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
                                     Xóa lọc
                                 </Button>
@@ -332,7 +332,7 @@ export default function PhieuChuyenKhoList() {
                                 <Button
                                     variant="outline"
                                     onClick={() => changeTab(TAB_MAC_DINH)}
-                                    className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+                                    className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
                                 >
                                     Xem tất cả
                                 </Button>

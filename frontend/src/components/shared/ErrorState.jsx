@@ -26,7 +26,7 @@ export default function ErrorState({
       {onRetry ? (
         <Button
           variant="outline"
-          className="mt-4 border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
+          className="mt-4 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
           onClick={onRetry}
         >
           <RefreshCcw />

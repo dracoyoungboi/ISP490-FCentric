@@ -97,7 +97,7 @@ export default function PosWarehousePicker({
         align="start"
         aria-describedby={noteId}
         aria-labelledby={titleId}
-        className="z-[90] w-[300px] max-w-[calc(100vw-24px)] rounded-lg border border-bo-border bg-white p-1 text-bo-foreground shadow-lg"
+        className="z-[90] w-[300px] max-w-[calc(100vw-24px)] rounded-lg border border-bo-border bg-bo-surface p-1 text-bo-foreground shadow-lg"
         onCloseAutoFocus={(event) => {
           if (pickedRef.current && onPicked) {
             event.preventDefault();

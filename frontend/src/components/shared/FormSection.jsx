@@ -9,7 +9,7 @@ export default function FormSection({
   return (
     <section
       className={cn(
-        "rounded-lg border border-bo-border bg-white p-4 shadow-sm sm:p-5",
+        "rounded-lg border border-bo-border bg-bo-surface p-4 shadow-sm sm:p-5",
         className,
       )}
     >

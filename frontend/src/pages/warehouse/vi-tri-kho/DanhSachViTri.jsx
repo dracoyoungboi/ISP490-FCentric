@@ -141,7 +141,7 @@ export default function DanhSachViTri({
 
   if (!khuVucs.length) {
     return (
-      <section className="rounded-lg border border-bo-border bg-white shadow-sm">
+      <section className="rounded-lg border border-bo-border bg-bo-surface shadow-sm">
         <EmptyState
           icon={Layers}
           title="Kho này chưa có khu vực"
@@ -163,7 +163,7 @@ export default function DanhSachViTri({
     // bo-fill-grid: khung bảng giãn tới đáy màn, thân bảng tự cuộn, phân trang luôn ở đáy (như các trang danh sách khác)
     <div className="bo-fill-grid grid items-start gap-4 lg:grid-cols-[264px_minmax(0,1fr)]">
       {/* Khu vực: cao theo số khu; nhiều khu quá chiều cao màn thì danh sách khu tự cuộn */}
-      <section aria-label="Khu vực" className="flex flex-col overflow-hidden rounded-lg border border-bo-border bg-white shadow-sm lg:max-h-full">
+      <section aria-label="Khu vực" className="flex flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm lg:max-h-full">
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-bo-border px-4 py-3">
           <h2 className="text-sm font-semibold text-bo-heading">Khu vực</h2>
           <span className="text-xs text-bo-muted">{khuVucs.length} khu</span>
@@ -197,7 +197,7 @@ export default function DanhSachViTri({
                       <button
                         type="button"
                         aria-label={`Thao tác với ${k.tenKhuVuc}`}
-                        className="mr-1 grid size-7 shrink-0 place-items-center rounded-md text-bo-muted hover:bg-white hover:text-bo-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 data-[state=open]:bg-white"
+                        className="mr-1 grid size-7 shrink-0 place-items-center rounded-md text-bo-muted hover:bg-bo-surface hover:text-bo-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 data-[state=open]:bg-bo-surface"
                       >
                         <MoreHorizontal className="size-4" />
                       </button>
@@ -282,7 +282,7 @@ export default function DanhSachViTri({
                         onClick={() => chayHangLoat(onXoaNhieu)}
                         disabled={!soTrongChon}
                         title={soTrongChon ? undefined : "Các kệ đã chọn đều còn hàng hoặc đang chờ nhập"}
-                        className="h-8 gap-1.5 border-bo-border bg-white text-bo-danger hover:bg-bo-danger-soft hover:text-bo-danger"
+                        className="h-8 gap-1.5 border-bo-border bg-bo-surface text-bo-danger hover:bg-bo-danger-soft hover:text-bo-danger"
                       >
                         <Trash2 className="size-4" />
                         Xóa {soTrongChon ? `${soTrongChon} kệ trống` : ""}

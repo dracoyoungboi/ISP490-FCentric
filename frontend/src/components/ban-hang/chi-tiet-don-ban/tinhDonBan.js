@@ -15,8 +15,16 @@ const TT = TRANG_THAI_DON;
 /** Phiếu nhặt còn khóa đơn (khớp PHIEU_NHAT_DANG_HOAT_DONG của DonBanHangService). */
 export const PHIEU_NHAT_KHOA_DON = Object.freeze(["cho_nhat", "dang_nhat", "da_nhat"]);
 
-/** Phương thức thu tiền tại quầy (thanhToanTaiQuay.phuongThuc) → tên hiển thị. */
-export const PHUONG_THUC_TAI_QUAY = Object.freeze({ CASH: "Tiền mặt", PAYOS: "Chuyển khoản qua PayOS" });
+/**
+ * Phương thức thu tiền (thanhToanTaiQuay.phuongThuc, phiếu thu đơn bán thường) → tên hiển thị. CASH là mã tiền mặt tại
+ * quầy; TIEN_MAT / CHUYEN_KHOAN: phiếu thu / hoàn ghi tay của đơn bán thường (chuyển khoản kèm mã giao dịch trên sao kê).
+ */
+export const PHUONG_THUC_TAI_QUAY = Object.freeze({
+  CASH: "Tiền mặt",
+  TIEN_MAT: "Tiền mặt",
+  PAYOS: "Chuyển khoản qua PayOS",
+  CHUYEN_KHOAN: "Chuyển khoản",
+});
 
 /** Mã lý do Shopify hủy đơn (cancel_reason) → tiếng Việt. */
 export const LY_DO_SAN_HUY = Object.freeze({
@@ -397,20 +405,26 @@ export function hauQuaHuy(ct, { baoGia = null } = {}) {
 /**
  * Phần thanh toán cạnh tổng tiền:
  * - Đơn tại quầy: "Đã thanh toán", phương thức (`phuongThuc` đã dịch) và giờ thu (`ngayThu`), `laTienMat` → có Khách đưa /
- *   Tiền thừa.
+ *   Tiền thừa. Trả kết hợp (QR payOS kèm tiền mặt khách trả trước): `ketHop` = { tienMat, qr }.
  * - Đơn sàn: trạng thái chụp lúc đồng bộ (`maTrangThai` da_thanh_toan / chua_thanh_toan).
- * - Đơn thường: chưa có API ghi nhận thanh toán → câu trung tính, không có thẻ.
+ * - Đơn thường (máy chủ báo `thanhToan.donThuong`): trạng thái theo phiếu ghi nhận thu (đặt cọc, thu nhiều lần),
+ *   `laDonThuong` → khối phải thu / đã thu / còn lại và nút Ghi nhận thanh toán. Đơn cũ chưa theo dõi: trạng thái trống.
+ * - Máy chủ cũ không trả `thanhToan`: câu trung tính, không có thẻ.
  */
 export function thanhToanDonBan(ct) {
   const don = ct?.donBanHang;
   const ttq = ct?.thanhToanTaiQuay;
+  const tt = ct?.thanhToan;
   if (ttq) {
     const ma = String(ttq.phuongThuc ?? "").trim().toUpperCase();
+    const tienMat = Number(ttq.tienMatTruoc) > 0 ? Number(ttq.tienMatTruoc) : 0;
+    const tong = Number(ttq.soTienThu) || 0;
     return {
       maTrangThai: "da_thanh_toan",
-      phuongThuc: PHUONG_THUC_TAI_QUAY[ma] ?? (ttq.phuongThuc || "—"),
+      phuongThuc: tienMat > 0 ? "Tiền mặt + QR payOS" : PHUONG_THUC_TAI_QUAY[ma] ?? (ttq.phuongThuc || "—"),
       ngayThu: ttq.ngayThu ?? null,
       laTienMat: ma === "CASH",
+      ketHop: tienMat > 0 ? { tienMat, qr: Math.max(tong - tienMat, 0) } : null,
       chu: null,
     };
   }
@@ -418,6 +432,16 @@ export function thanhToanDonBan(ct) {
     return {
       maTrangThai: don?.trangThaiThanhToan === "da_thanh_toan" ? "da_thanh_toan" : "chua_thanh_toan",
       chu: `Theo ${tenKenhCua(don)} lúc đồng bộ đơn.`,
+    };
+  }
+  if (tt?.donThuong) {
+    const coThu = (tt.phieu ?? []).some((p) => p.trangThai === "HIEU_LUC");
+    return {
+      maTrangThai: tt.trangThai || null,
+      laDonThuong: true,
+      thuThua: Number(tt.thuThua) > 0 ? Number(tt.thuThua) : 0,
+      chu: !tt.trangThai ? "Đơn tạo trước khi có ghi nhận thanh toán: chưa theo dõi."
+        : coThu ? "Theo phiếu thu bên dưới." : "Chưa ghi nhận khoản thu nào.",
     };
   }
   return { maTrangThai: null, chu: "Hệ thống chưa theo dõi thanh toán của đơn bán thường." };

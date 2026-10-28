@@ -19,4 +19,6 @@ public class DonBanHangDetailResponse {
     private String trangThaiPhieuNhat;
     /** Lần thu tiền tại quầy (đơn POS); null với đơn bán thường / đơn sàn. */
     private ThanhToanTaiQuayDto thanhToanTaiQuay;
+    /** Đơn bán thường: phải thu, đã thu và các phiếu thu / hoàn (null với đơn bán tại quầy). */
+    private com.dev.backend.dto.response.thanhtoan.ThanhToanDonBanDto.TheoDon thanhToan;
 }

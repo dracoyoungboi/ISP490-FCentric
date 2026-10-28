@@ -49,7 +49,7 @@ function NoiDung({ vaiTro, theoKho, children }) {
 
   if (status === "error") {
     return (
-      <div className="rounded-lg border border-bo-border bg-white">
+      <div className="rounded-lg border border-bo-border bg-bo-surface">
         <ErrorState
           title="Không tải được trang Tổng quan"
           description={getApiErrorMessage(error, theoKho ? "Kiểm tra kết nối và nơi làm việc rồi thử lại." : "Kiểm tra kết nối tới máy chủ rồi thử lại.")}
@@ -60,7 +60,7 @@ function NoiDung({ vaiTro, theoKho, children }) {
   }
   if (data && data.vaiTro !== vaiTro) {
     return (
-      <div className="rounded-lg border border-bo-border bg-white">
+      <div className="rounded-lg border border-bo-border bg-bo-surface">
         <ErrorState title="Vai trò của tài khoản đã thay đổi" description="Vui lòng đăng xuất rồi đăng nhập lại để xem đúng trang Tổng quan." />
       </div>
     );
@@ -92,7 +92,7 @@ function Banner({ children, onRetry }) {
     <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-[13px] text-amber-800">
       <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
       <span className="min-w-0 flex-1">{children}</span>
-      <button type="button" onClick={onRetry} className="cursor-pointer rounded-md border border-amber-300 bg-white px-2.5 py-1 text-xs font-medium hover:bg-amber-50">
+      <button type="button" onClick={onRetry} className="cursor-pointer rounded-md border border-amber-300 bg-bo-surface px-2.5 py-1 text-xs font-medium hover:bg-amber-50">
         Thử lại
       </button>
     </div>

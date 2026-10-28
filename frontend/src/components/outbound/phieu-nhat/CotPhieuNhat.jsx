@@ -14,8 +14,8 @@ import { nhanBangChung } from "./tinhPhieuNhat";
 /**
  * Cột phải của màn Thực hiện nhặt hàng: Kho xuất, Người nhặt, Ghi chú và "Đơn trong phiếu" — hiện trước SO_DON_HIEN
  * đơn (việc cần làm trước, đơn hủy cuối), còn lại "Xem thêm n đơn". Mỗi đơn: mã (mở chi tiết đơn bán), tiền,
- * trạng thái đơn, kênh · khách, tóm tắt hàng; đơn chờ đóng gói / chờ xuất kho có bằng chứng, nút Bằng chứng và
- * (chờ đóng gói) Đóng gói. `dsDon`: kết quả dsDonTrongPhieu.
+ * trạng thái đơn, kênh · khách, tóm tắt hàng; đơn từ bước đóng gói trở đi có bằng chứng và nút Bằng chứng (đã qua
+ * đóng gói thì chỉ xem lại), chờ đóng gói có thêm Đóng gói. `dsDon`: kết quả dsDonTrongPhieu.
  */
 export default function CotPhieuNhat({ phieu, dsDon, onMoBangChung, onDongGoi }) {
   const idDs = useId();
@@ -60,7 +60,7 @@ export default function CotPhieuNhat({ phieu, dsDon, onMoBangChung, onDongGoi })
             aria-expanded={moHet}
             aria-controls={idDs}
             onClick={() => setMoHet((x) => !x)}
-            className="mt-2 w-full text-[13px] font-medium text-bo-primary hover:bg-white hover:text-bo-primary-hover"
+            className="mt-2 w-full text-[13px] font-medium text-bo-primary hover:bg-bo-surface hover:text-bo-primary-hover"
           >
             {moHet ? "Thu gọn" : `Xem thêm ${conAn} đơn`}
           </Button>
@@ -85,7 +85,7 @@ function TheDon({ don, onMoBangChung, onDongGoi }) {
   );
 
   return (
-    <article className={cn("grid gap-1 rounded-lg border border-bo-border px-3 py-2.5", huy ? "bg-[#fbfcfd]" : "bg-white")}>
+    <article className={cn("grid gap-1 rounded-lg border border-bo-border px-3 py-2.5", huy ? "bg-[#fbfcfd]" : "bg-bo-surface")}>
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
         {info?.id != null ? (
           <Link
@@ -122,7 +122,7 @@ function TheDon({ don, onMoBangChung, onDongGoi }) {
           <span
             className={cn(
               "mr-auto inline-flex items-center gap-1 text-xs font-medium",
-              bangChung.du ? "text-bo-success" : "text-bo-warning",
+              bangChung.du ? "text-bo-success" : bangChung.chiXem ? "text-bo-muted" : "text-bo-warning",
             )}
           >
             {bangChung.du ? (
@@ -137,9 +137,9 @@ function TheDon({ don, onMoBangChung, onDongGoi }) {
             variant="outline"
             size="sm"
             onClick={() => onMoBangChung(info)}
-            title="Xem hoặc tải lên bằng chứng đóng gói"
+            title={bangChung.chiXem ? "Xem lại bằng chứng đóng gói" : "Xem hoặc tải lên bằng chứng đóng gói"}
             aria-label={`Bằng chứng đóng gói đơn ${so}`}
-            className="h-7 border-bo-border bg-white px-2 text-xs font-medium text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
+            className="h-7 border-bo-border bg-bo-surface px-2 text-xs font-medium text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
           >
             Bằng chứng
           </Button>

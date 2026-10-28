@@ -54,7 +54,7 @@ function ActionBtn({ title, onClick, color, children }) {
 // ── empty state ────────────────────────────────────────────────────────────
 export function WarehouseEmptyState() {
     return (
-        <div className="mt-4 rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/80">
+        <div className="mt-4 rounded-2xl bg-bo-surface shadow-sm ring-1 ring-slate-200/80">
             <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
                 <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-slate-100">
                     <Warehouse className="h-10 w-10 text-slate-400" />
@@ -79,12 +79,12 @@ export default function WarehouseList({
     if (!warehouses.length) return <WarehouseEmptyState />;
 
     return (
-        <div className="mt-4 rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
+        <div className="mt-4 rounded-2xl bg-bo-surface shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
             <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                     {/* ── HEADER ── */}
                     <thead>
-                        <tr className="border-b border-slate-200 bg-slate-50">
+                        <tr className="border-b border-slate-200 bg-bo-surface-subtle">
                             <th className="h-12 px-4 text-left font-semibold text-slate-600 tracking-wide text-xs uppercase">
                                 Mã kho
                             </th>

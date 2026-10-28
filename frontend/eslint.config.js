@@ -27,6 +27,20 @@ export default defineConfig([
     },
   },
   {
+    // Thư viện giao diện shadcn sinh sẵn: giữ nguyên bản gốc (xuất kèm biến thể/hook cạnh component,
+    // khung chờ tải độ rộng ngẫu nhiên), không sửa tay để còn cập nhật theo shadcn.
+    files: ['src/components/ui/**/*.{js,jsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+      'react-hooks/purity': 'off',
+    },
+  },
+  {
+    // Tệp cấu hình chạy trên Node, không chạy trên trình duyệt
+    files: ['vite.config.js', 'eslint.config.js'],
+    languageOptions: { globals: globals.node },
+  },
+  {
     // Thông báo nhanh: luôn gọi qua "@/lib/thongBaoNhanh" để dùng chung vị trí, thời gian, gộp trùng
     // (config/thongBaoNhanh.js). Chỉ hai file bọc thư viện được import thẳng sonner.
     files: ['src/**/*.{js,jsx}'],

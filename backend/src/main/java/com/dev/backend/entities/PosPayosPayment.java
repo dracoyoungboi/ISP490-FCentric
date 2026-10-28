@@ -45,8 +45,22 @@ public class PosPayosPayment {
     @Column(name = "nguoi_thu_ngan_id", nullable = false)
     Integer nguoiThuNganId;
 
+    /** Số tiền của mã QR (hóa đơn trừ tiền mặt khách trả trước, nếu có). */
     @Column(name = "so_tien", nullable = false, precision = 15, scale = 2)
     BigDecimal soTien;
+
+    /**
+     * Tiền mặt khách trả trước tại quầy (trả kết hợp); null = không có, mã QR trọn hóa đơn. Tiền mặt chỉ vào sổ thu khi
+     * tiền QR về (cùng lúc tạo đơn); mã hủy / hết hạn thì quầy trả lại khách và xác nhận (tienMatTraLaiLuc).
+     */
+    @Column(name = "tien_mat_truoc", precision = 15, scale = 2)
+    BigDecimal tienMatTruoc;
+
+    @Column(name = "tien_mat_tra_lai_luc")
+    Instant tienMatTraLaiLuc;
+
+    @Column(name = "nguoi_tra_lai_tien_mat_id")
+    Integer nguoiTraLaiTienMatId;
 
     /** Số tiền payOS báo đã nhận (có thể khác soTien khi khách chuyển thiếu/dư). */
     @Column(name = "so_tien_da_nhan", precision = 15, scale = 2)
