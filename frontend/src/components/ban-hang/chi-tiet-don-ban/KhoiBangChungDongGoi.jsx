@@ -63,7 +63,7 @@ export default function KhoiBangChungDongGoi({ donId, trangThai }) {
       ? nd.thieu.length ? `Còn thiếu: ${nd.thieu.join(", ")}` : "Chưa đủ bằng chứng để hoàn tất đóng gói."
       : [nd.dem, nd.hanLuu ? `lưu đến ${formatDate(nd.hanLuu)}` : ""].filter(Boolean).join(" · ")
     : nd.kieu === "daXoa"
-      ? `Tệp bằng chứng đã tự xóa sau hạn lưu 30 ngày (hết hạn ${formatDate(nd.ngay)}).`
+      ? `Tệp bằng chứng đã tự xóa sau hạn lưu (hết hạn ${formatDate(nd.ngay)}).`
       : nd.cau;
 
   return (

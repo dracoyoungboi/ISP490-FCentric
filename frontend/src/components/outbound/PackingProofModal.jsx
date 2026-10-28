@@ -116,7 +116,7 @@ export default function PackingProofModal({
             // Chỉ xem mà không còn tệp: nói rõ lý do thay vì vẽ ô trống "Chưa có ảnh" (không ai chụp thêm được nữa)
             <p className="py-8 text-center text-sm text-bo-muted">
               {data.ngayTuXoa
-                ? `Tệp bằng chứng đã tự xóa sau hạn lưu 30 ngày (hết hạn ${formatDate(data.ngayTuXoa)}).`
+                ? `Tệp bằng chứng đã tự xóa sau hạn lưu (hết hạn ${formatDate(data.ngayTuXoa)}).`
                 : "Đơn không có bằng chứng đóng gói."}
             </p>
           ) : (
