@@ -26,8 +26,14 @@ public class PosPayosGiaoDichDto {
     String tenKho;
     Integer nguoiThuNganId;
     String tenThuNgan;
+    /** Số tiền của mã QR (= hóa đơn − tiền mặt trả trước). */
     BigDecimal soTien;
     BigDecimal soTienDaNhan;
+    /** Tiền mặt khách trả trước tại quầy (null = không có). */
+    BigDecimal tienMatTruoc;
+    /** Đã trả lại khách phần tiền mặt: lúc nào, ai xác nhận. */
+    Instant tienMatTraLaiLuc;
+    String tenNguoiTraLaiTienMat;
     String noiDungCk;
     String maGiaoDichNganHang;
     String errorMessage;

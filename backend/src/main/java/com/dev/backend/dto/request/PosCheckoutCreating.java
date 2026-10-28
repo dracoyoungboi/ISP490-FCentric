@@ -23,6 +23,8 @@ public class PosCheckoutCreating {
     Integer khachHangId;
     List<PosCheckoutItemCreating> items;
     PosCheckoutPaymentCreating payment;
+    /** Chỉ khi tạo mã QR payOS: tiền mặt khách trả trước tại quầy (trống = không có, mã QR trọn hóa đơn). */
+    BigDecimal tienMatTruoc;
     String note;
 
     @AllArgsConstructor

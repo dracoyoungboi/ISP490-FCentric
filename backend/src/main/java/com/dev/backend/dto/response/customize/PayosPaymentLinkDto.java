@@ -17,7 +17,12 @@ public class PayosPaymentLinkDto {
     Long orderCode;
     String requestId;
     String trangThai;
+    /** Số tiền của mã QR (= hóa đơn − tiền mặt trả trước). */
     BigDecimal soTien;
+    /** Tiền mặt khách trả trước tại quầy (null = không có, QR trọn hóa đơn). */
+    BigDecimal tienMatTruoc;
+    /** Lúc quầy xác nhận đã trả lại khách phần tiền mặt (mã QR không thành). */
+    Instant tienMatTraLaiLuc;
     /** Số tiền payOS báo đã nhận (PAID / PAID_ERROR). */
     BigDecimal soTienDaNhan;
     String qrCode;

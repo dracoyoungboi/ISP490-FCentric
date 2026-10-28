@@ -28,6 +28,8 @@ public class PosCheckoutResponse {
     BigDecimal tongCong;
     BigDecimal soTienThu;
     BigDecimal soTienThua;
+    /** PAYOS trả kết hợp: phần tiền mặt khách trả trước tại quầy (soTienThu gồm cả phần này); null = không có. */
+    BigDecimal tienMatTruoc;
     Instant ngayGiaoHang;
     List<PosCheckoutItemResponse> items;
 
