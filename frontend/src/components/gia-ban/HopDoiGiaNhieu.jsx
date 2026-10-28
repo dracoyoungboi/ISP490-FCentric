@@ -7,8 +7,8 @@ import { NUT_CHINH, NUT_PHU } from "@/components/channel/BottomActionBar";
 import { cn } from "@/lib/utils";
 import ChipLyDo from "./ChipLyDo";
 import { GIA_BAN_TOI_DA, dinhDangPhanTram, mucDoiGia, tinhLaiGop } from "./nhomGiaBan";
+import { formatNumber } from "@/utils/formatters";
 
-const soVN = (n) => Number(n || 0).toLocaleString("vi-VN");
 const COT = "grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_96px] items-center";
 
 /**
@@ -43,8 +43,8 @@ function NoiDung({ dsDong, lyDoMacDinh, dangLuu, onHuy, onLuu }) {
       <DialogHeader className="shrink-0 border-b border-bo-border px-5 py-4 pr-12 text-left">
         <DialogTitle className="text-[17px] text-bo-foreground">Đổi giá bán</DialogTitle>
         <DialogDescription className="text-[13px] text-bo-muted">
-          {soVN(muc.muc.length)} SKU đang hoạt động
-          {muc.boQua ? ` · bỏ qua ${soVN(muc.boQua)} SKU ngừng hoạt động` : ""}
+          {formatNumber(muc.muc.length)} SKU đang hoạt động
+          {muc.boQua ? ` · bỏ qua ${formatNumber(muc.boQua)} SKU ngừng hoạt động` : ""}
         </DialogDescription>
       </DialogHeader>
 
@@ -80,9 +80,9 @@ function NoiDung({ dsDong, lyDoMacDinh, dangLuu, onHuy, onLuu }) {
                       <p className="truncate font-medium">{d.tenSanPham} · {[d.tenMau, d.kichCo].filter(Boolean).join(" - ")}</p>
                       <p className="mt-0.5 truncate text-xs text-bo-muted">{d.maSku}</p>
                     </div>
-                    <div className="text-right tabular-nums text-bo-muted">{d.giaVon == null ? "—" : soVN(d.giaVon)}</div>
-                    <div className="text-right tabular-nums text-bo-muted">{Number(d.giaBan) > 0 ? soVN(d.giaBan) : "Chưa có giá"}</div>
-                    <div className="text-right font-semibold tabular-nums">{soGia > 0 ? soVN(soGia) : "—"}</div>
+                    <div className="text-right tabular-nums text-bo-muted">{d.giaVon == null ? "—" : formatNumber(d.giaVon)}</div>
+                    <div className="text-right tabular-nums text-bo-muted">{Number(d.giaBan) > 0 ? formatNumber(d.giaBan) : "Chưa có giá"}</div>
+                    <div className="text-right font-semibold tabular-nums">{soGia > 0 ? formatNumber(soGia) : "—"}</div>
                     <div className={cn("text-right tabular-nums", !lai ? "text-slate-400" : lai.lo ? "font-semibold text-red-700" : "text-bo-success")}>
                       {lai ? dinhDangPhanTram(lai.phanTram) : "—"}
                     </div>
@@ -99,7 +99,7 @@ function NoiDung({ dsDong, lyDoMacDinh, dangLuu, onHuy, onLuu }) {
         {soDuoiVon ? (
           <div role="alert" className="flex items-center gap-2 rounded-lg border border-red-200 bg-bo-danger-soft px-3 py-2.5 text-[13px] text-red-800">
             <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
-            {soVN(soDuoiVon)} SKU sẽ bán thấp hơn giá vốn.
+            {formatNumber(soDuoiVon)} SKU sẽ bán thấp hơn giá vốn.
           </div>
         ) : null}
 

@@ -1,6 +1,6 @@
-/** Câu báo kết quả các thao tác bấm tay với sàn, dùng chung cho Thiết lập, Sản phẩm và Công cụ. */
+import { formatNumber } from "../../utils/formatters.js";
 
-const soVN = (n) => Number(n || 0).toLocaleString("vi-VN");
+/** Câu báo kết quả các thao tác bấm tay với sàn, dùng chung cho Thiết lập, Sản phẩm và Công cụ. */
 
 /**
  * POST tai-san-pham: đọc sản phẩm trên sàn, ghép theo SKU, không đổi gì trên sàn.
@@ -13,14 +13,14 @@ export function ketQuaTaiSanPham(res, tenSan) {
     const ngung = Number(res.soNgung || 0);
     return {
       ok: true,
-      title: `Đã tải ${soVN(soSku)} SKU từ ${tenSan}: ${soVN(Math.max(0, soSku - khongKhop - ngung))} ghép tự động, ${soVN(khongKhop)} chưa có mã trùng${ngung ? `, ${soVN(ngung)} ngừng` : ""}`,
+      title: `Đã tải ${formatNumber(soSku)} SKU từ ${tenSan}: ${formatNumber(Math.max(0, soSku - khongKhop - ngung))} ghép tự động, ${formatNumber(khongKhop)} chưa có mã trùng${ngung ? `, ${formatNumber(ngung)} ngừng` : ""}`,
       message: null,
     };
   }
   return {
     ok: true,
-    title: `Đã đọc ${soVN(res?.soSku)} SKU trên ${tenSan}`,
-    message: `Ghép mới ${soVN(res?.soMoi)}, cập nhật ${soVN(res?.soCapNhat)}. SKU không trùng với FCentric được bỏ qua; dòng đang ngừng đồng bộ giữ nguyên.`,
+    title: `Đã đọc ${formatNumber(res?.soSku)} SKU trên ${tenSan}`,
+    message: `Ghép mới ${formatNumber(res?.soMoi)}, cập nhật ${formatNumber(res?.soCapNhat)}. SKU không trùng với FCentric được bỏ qua; dòng đang ngừng đồng bộ giữ nguyên.`,
   };
 }
 
@@ -29,13 +29,13 @@ export function ketQuaDayLenSan(res, tenSan) {
   const loi = Number(res?.soThatBai || 0);
   return {
     ok: loi === 0,
-    title: `Đã ghép ${soVN(res?.soDaGhep)} SKU`,
+    title: `Đã ghép ${formatNumber(res?.soDaGhep)} SKU`,
     message: [
-      `tạo mới trên ${tenSan} ${soVN(res?.soTaoMoiTrenShopify)} sản phẩm`,
-      `cập nhật ${soVN(res?.soCapNhatTrenShopify)} sản phẩm`,
-      `đẩy tồn ${soVN(res?.soTonKhoDaDay)} SKU`,
-      res?.soAnhDaDay ? `${soVN(res.soAnhDaDay)} ảnh` : null,
-      loi > 0 ? `lỗi ${soVN(loi)}` : null,
+      `tạo mới trên ${tenSan} ${formatNumber(res?.soTaoMoiTrenShopify)} sản phẩm`,
+      `cập nhật ${formatNumber(res?.soCapNhatTrenShopify)} sản phẩm`,
+      `đẩy tồn ${formatNumber(res?.soTonKhoDaDay)} SKU`,
+      res?.soAnhDaDay ? `${formatNumber(res.soAnhDaDay)} ảnh` : null,
+      loi > 0 ? `lỗi ${formatNumber(loi)}` : null,
     ]
       .filter(Boolean)
       .join(", ")
@@ -62,15 +62,15 @@ export function ketQuaDayTon(res, tenSan) {
     return {
       ok: false,
       tone: "warning",
-      title: `Đã đẩy ${soVN(daDay)}/${soVN(tong)} SKU lên ${tenSan}${soLoi > 0 ? ` · ${soVN(soLoi)} lỗi` : ""}`,
-      message: `Dừng giữa chừng: ${loiKenh}. ${soVN(chuaDay)} SKU chưa đẩy sẽ được đẩy ở lần sau.`,
+      title: `Đã đẩy ${formatNumber(daDay)}/${formatNumber(tong)} SKU lên ${tenSan}${soLoi > 0 ? ` · ${formatNumber(soLoi)} lỗi` : ""}`,
+      message: `Dừng giữa chừng: ${loiKenh}. ${formatNumber(chuaDay)} SKU chưa đẩy sẽ được đẩy ở lần sau.`,
     };
   }
   if (soLoi > 0) {
     return {
       ok: false,
       tone: "warning",
-      title: `Đã đẩy ${soVN(daDay)}/${soVN(tong)} SKU lên ${tenSan} · ${soVN(soLoi)} lỗi`,
+      title: `Đã đẩy ${formatNumber(daDay)}/${formatNumber(tong)} SKU lên ${tenSan} · ${formatNumber(soLoi)} lỗi`,
       message: "Xem lý do ở tab Lỗi. Lần đẩy sau sẽ tự thử lại các SKU này.",
     };
   }
@@ -80,7 +80,7 @@ export function ketQuaDayTon(res, tenSan) {
   return {
     ok: true,
     tone: "success",
-    title: `Đã đẩy tồn ${soVN(daDay)} SKU lên ${tenSan}`,
+    title: `Đã đẩy tồn ${formatNumber(daDay)} SKU lên ${tenSan}`,
     message: "Dòng ngừng đồng bộ không được đẩy.",
   };
 }
@@ -89,7 +89,7 @@ export function ketQuaDayTon(res, tenSan) {
 export function ketQuaLayDon(res, tenSan) {
   return {
     ok: true,
-    title: `Đã lấy ${soVN(res?.soDonMoi)} đơn mới từ ${tenSan}`,
-    message: res?.soDonCapNhat ? `Cập nhật ${soVN(res.soDonCapNhat)} đơn đã có.` : null,
+    title: `Đã lấy ${formatNumber(res?.soDonMoi)} đơn mới từ ${tenSan}`,
+    message: res?.soDonCapNhat ? `Cập nhật ${formatNumber(res.soDonCapNhat)} đơn đã có.` : null,
   };
 }

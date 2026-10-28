@@ -6,9 +6,9 @@ import MoneyInput from "@/components/shared/MoneyInput";
 import { cn } from "@/lib/utils";
 import ChipLyDo from "./ChipLyDo";
 import { GIA_BAN_TOI_DA, dinhDangPhanTram, mucDoiGia, tinhLaiGop } from "./nhomGiaBan";
+import { formatNumber } from "@/utils/formatters";
 
-const soVN = (n) => Number(n || 0).toLocaleString("vi-VN");
-const vnd = (n) => `${soVN(n)} ₫`;
+const vnd = (n) => `${formatNumber(n)} ₫`;
 const ngayVN = (d) => d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
 
 /** Màu chữ của giá theo tình trạng: thường, chưa có giá (cam), khoảng giá (xám nhỏ), dưới giá vốn (đỏ). */
@@ -97,7 +97,7 @@ function NoiDungGia({ dsDong, tieuDe, phu, lyDoMacDinh, dangLuu, onHuy, onLuu })
     if (hopLe && !dangLuu) onLuu({ ids: muc.muc.map((d) => d.id), gia: soGia, lyDo });
   };
 
-  const vonTxt = muc.vonCao === null ? null : muc.vonThap === muc.vonCao ? vnd(muc.vonCao) : `${soVN(muc.vonThap)} – ${vnd(muc.vonCao)}`;
+  const vonTxt = muc.vonCao === null ? null : muc.vonThap === muc.vonCao ? vnd(muc.vonCao) : `${formatNumber(muc.vonThap)} – ${vnd(muc.vonCao)}`;
   const lai = tinhLaiGop(soGia, muc.vonCao);
   let thongTin;
   if (quaLon) thongTin = "Giá bán vượt giới hạn cho phép";

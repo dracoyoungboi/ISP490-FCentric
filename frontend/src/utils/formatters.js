@@ -58,8 +58,15 @@ export const parseDateTimeToIsoString = (value) => {
 };
 
 
+/** "1.500.000" — null, undefined, "" thì "0". */
 export const formatNumber = (number) => {
     return new Intl.NumberFormat('vi-VN').format(number || 0);
+};
+
+/** Như formatNumber nhưng null/undefined (chưa có số liệu) thì "—" thay vì "0". */
+export const formatNumberOrDash = (number) => {
+    if (number === null || number === undefined) return '—';
+    return new Intl.NumberFormat('vi-VN').format(Number(number));
 };
 
 const SO_GON = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 });

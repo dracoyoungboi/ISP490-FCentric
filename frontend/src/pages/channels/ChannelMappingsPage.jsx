@@ -54,6 +54,7 @@ import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { getApiErrorCode, getApiErrorMessage } from "@/utils/apiError";
 import { cn } from "@/lib/utils";
+import { formatNumberOrDash } from "@/utils/formatters";
 
 const TAB_MAS = LIEN_KET_TABS.map((tab) => tab.ma);
 const TAB_MAC_DINH = "tat-ca";
@@ -61,7 +62,6 @@ const SEARCH_DEBOUNCE_MS = 350;
 const TH = "h-10 whitespace-nowrap px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted";
 const CHECKBOX_CLASS =
   "border-slate-300 bg-white data-[state=checked]:border-bo-primary data-[state=checked]:bg-bo-primary data-[state=indeterminate]:border-bo-primary data-[state=indeterminate]:bg-bo-primary data-[state=indeterminate]:text-white";
-const soVN = (n) => (n === null || n === undefined ? "—" : Number(n).toLocaleString("vi-VN"));
 const dangDongBo = (dong) => dong.trangThaiLienKet !== "chua_lien_ket";
 const coSo = (n) => n !== null && n !== undefined;
 
@@ -114,13 +114,13 @@ function OTonDaDay({ dong, seDay, vuaBat = false, gioNhom = null }) {
     <div className="flex flex-col items-end">
       {coSo(daDay) ? (
         <span className="tabular-nums text-bo-foreground" title={gioRieng ? `${SAN.ten} đã nhận lúc ${gioRieng}` : undefined}>
-          {soVN(daDay)}
+          {formatNumberOrDash(daDay)}
         </span>
       ) : (
         <span className="text-[13px] text-bo-muted">Chưa đẩy</span>
       )}
       {choDay ? (
-        <span className="text-[12px] font-medium tabular-nums text-amber-600">{coSo(seDay) ? `→ sẽ đẩy ${soVN(seDay)}` : "Chờ đẩy"}</span>
+        <span className="text-[12px] font-medium tabular-nums text-amber-600">{coSo(seDay) ? `→ sẽ đẩy ${formatNumberOrDash(seDay)}` : "Chờ đẩy"}</span>
       ) : gio ? (
         <span className="text-[12px] tabular-nums text-slate-400">{gio}</span>
       ) : null}
@@ -135,7 +135,7 @@ function DemTrangThai({ so, nhan, mau, className, truoc }) {
       <span className={cn("size-1.5 shrink-0 rounded-full", mau)} aria-hidden="true" />
       <span>
         {truoc ? `${truoc} ` : null}
-        <span className="tabular-nums">{soVN(so)}</span> {nhan}
+        <span className="tabular-nums">{formatNumberOrDash(so)}</span> {nhan}
       </span>
     </span>
   );
@@ -396,7 +396,7 @@ export default function ChannelMappingsPage() {
           tq.reload();
           toast.success(`Đã ngừng đồng bộ ${dong.maSku}`, {
             description: coSo(dong.soLuongDaDay)
-              ? `${SAN.ten} giữ nguyên số ${soVN(dong.soLuongDaDay)} đang hiện.`
+              ? `${SAN.ten} giữ nguyên số ${formatNumberOrDash(dong.soLuongDaDay)} đang hiện.`
               : `${SAN.ten} giữ nguyên số đang hiện.`,
             action: { label: "Hoàn tác", onClick: () => batLai(dong, true) },
           });
@@ -426,9 +426,9 @@ export default function ChannelMappingsPage() {
       doiVuaBat(daDoi, bat);
       tq.reload();
       xong?.();
-      const cau = `${bat ? "Đã bật" : "Đã ngừng"} đồng bộ ${soVN(daDoi.length)} SKU`;
+      const cau = `${bat ? "Đã bật" : "Đã ngừng"} đồng bộ ${formatNumberOrDash(daDoi.length)} SKU`;
       const ghiChu = bat && daDoi.length ? `Số tồn sẽ được đẩy lên ${SAN.ten} ở lần đồng bộ tới.` : undefined;
-      if (loi) toast.warning(cau, { description: `${soVN(loi)} SKU không đổi được, thử lại sau.` });
+      if (loi) toast.warning(cau, { description: `${formatNumberOrDash(loi)} SKU không đổi được, thử lại sau.` });
       else toast.success(cau, ghiChu ? { description: ghiChu } : undefined);
     });
   };
@@ -446,11 +446,11 @@ export default function ChannelMappingsPage() {
       if (!daChon.some((dong) => !dangDongBo(dong))) return toast.info("Các SKU đã chọn đều đang đồng bộ");
       return doiNhieu(daChon, true, boChon);
     }
-    return hoiNgungNhieu(daChon, (n) => `Ngừng đồng bộ ${soVN(n)} SKU?`, boChon);
+    return hoiNgungNhieu(daChon, (n) => `Ngừng đồng bộ ${formatNumberOrDash(n)} SKU?`, boChon);
   };
   /** Công tắc hàng sản phẩm: đang bật hết → hỏi rồi ngừng cả nhóm; còn lại (tắt hết / lưng chừng) → bật hết. */
   const batTatNhom = (g) => {
-    if (g.dong.every(dangDongBo)) return hoiNgungNhieu(g.dong, (n) => `Ngừng đồng bộ cả ${g.ten} (${soVN(n)} SKU)?`);
+    if (g.dong.every(dangDongBo)) return hoiNgungNhieu(g.dong, (n) => `Ngừng đồng bộ cả ${g.ten} (${formatNumberOrDash(n)} SKU)?`);
     return doiNhieu(g.dong, true);
   };
 
@@ -481,12 +481,12 @@ export default function ChannelMappingsPage() {
       doiVuaBat(canDay.map((d) => d.id), false);
       tq.reload();
       setChon(new Set());
-      const ghiChu = [conLoi ? `${soVN(conLoi)} SKU vẫn lỗi` : null, boQua ? `bỏ qua ${soVN(boQua)} SKU đang ngừng` : null]
+      const ghiChu = [conLoi ? `${formatNumberOrDash(conLoi)} SKU vẫn lỗi` : null, boQua ? `bỏ qua ${formatNumberOrDash(boQua)} SKU đang ngừng` : null]
         .filter(Boolean)
         .join(", ");
-      if (loiKenh) toast.error(`Dừng giữa chừng: ${loiKenh}`, { description: `Đã đẩy ${soVN(ok)} SKU trước khi dừng.` });
-      else if (conLoi) toast.warning(`Đã đẩy tồn ${soVN(ok)} SKU lên ${SAN.ten}`, { description: ghiChu });
-      else toast.success(`Đã đẩy tồn ${soVN(ok)} SKU lên ${SAN.ten}`, ghiChu ? { description: ghiChu } : undefined);
+      if (loiKenh) toast.error(`Dừng giữa chừng: ${loiKenh}`, { description: `Đã đẩy ${formatNumberOrDash(ok)} SKU trước khi dừng.` });
+      else if (conLoi) toast.warning(`Đã đẩy tồn ${formatNumberOrDash(ok)} SKU lên ${SAN.ten}`, { description: ghiChu });
+      else toast.success(`Đã đẩy tồn ${formatNumberOrDash(ok)} SKU lên ${SAN.ten}`, ghiChu ? { description: ghiChu } : undefined);
     });
   };
 
@@ -674,7 +674,7 @@ export default function ChannelMappingsPage() {
             {SAN.ten} <ToKhop text={dong.skuSan || "—"} tu={tuKhoa} />
           </p>
         </td>
-        <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-bo-foreground">{soVN(dong.soLuongKhaDung)}</td>
+        <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-bo-foreground">{formatNumberOrDash(dong.soLuongKhaDung)}</td>
         <td className="whitespace-nowrap px-3 py-2.5 text-right">
           <OTonDaDay dong={dong} seDay={soSeDay(dong)} vuaBat={vuaBat.has(dong.id)} gioNhom={gioNhom} />
         </td>
@@ -826,7 +826,7 @@ export default function ChannelMappingsPage() {
                 <ToKhop text={g.ten} tu={tuKhoa} />
               </p>
               <p className="text-[13px] text-bo-muted">
-                {nhanSoPhanLoai(g, soVN)}
+                {nhanSoPhanLoai(g, formatNumberOrDash)}
                 {dangLoc && g.dong.length < g.tongPhanLoai ? " khớp" : ""}
               </p>
             </div>
@@ -834,13 +834,13 @@ export default function ChannelMappingsPage() {
         </td>
         <td className={cn("bg-bo-row-group px-3 py-2.5 group-hover/nhom:bg-bo-row-group-hover", dinh)} />
         <td className={cn("whitespace-nowrap bg-bo-row-group px-3 py-2.5 text-right font-medium tabular-nums text-bo-heading group-hover/nhom:bg-bo-row-group-hover", dinh)}>
-          {soVN(tongKhaDung)}
+          {formatNumberOrDash(tongKhaDung)}
         </td>
         <td className={cn("whitespace-nowrap bg-bo-row-group px-3 py-2.5 text-right group-hover/nhom:bg-bo-row-group-hover", dinh)}>
           <div className="flex flex-col items-end">
-            <span className="font-medium tabular-nums text-bo-heading">{daDay.length ? soVN(daDay.reduce((s, v) => s + v, 0)) : "—"}</span>
+            <span className="font-medium tabular-nums text-bo-heading">{daDay.length ? formatNumberOrDash(daDay.reduce((s, v) => s + v, 0)) : "—"}</span>
             {soChoDay ? (
-              <span className="text-[12px] font-medium tabular-nums text-amber-600">{soVN(soChoDay)} SKU chờ đẩy</span>
+              <span className="text-[12px] font-medium tabular-nums text-amber-600">{formatNumberOrDash(soChoDay)} SKU chờ đẩy</span>
             ) : gioNhom ? (
               <span className="text-[12px] tabular-nums text-slate-400" title={`Lần đẩy tồn gần nhất của sản phẩm`}>
                 {gioNhom}
@@ -939,7 +939,7 @@ export default function ChannelMappingsPage() {
 
       {tab !== "loi" ? (
         <AttentionBar count={tongQuan?.loiDongBo} tone="danger" actionLabel="Xem SKU lỗi" onAction={() => doiTab("loi")}>
-          <strong className="font-semibold">{soVN(tongQuan?.loiDongBo)} SKU</strong> đồng bộ lỗi ở lần gần nhất.
+          <strong className="font-semibold">{formatNumberOrDash(tongQuan?.loiDongBo)} SKU</strong> đồng bộ lỗi ở lần gần nhất.
         </AttentionBar>
       ) : null}
 
@@ -981,7 +981,7 @@ export default function ChannelMappingsPage() {
             {daChon.length ? (
               <div className="flex flex-wrap items-center gap-2 border-b border-bo-border bg-bo-primary-soft px-3 py-2 text-sm text-bo-heading">
                 <span className="mr-1">
-                  <strong className="font-semibold tabular-nums">{soVN(daChon.length)}</strong> SKU đã chọn trên trang này
+                  <strong className="font-semibold tabular-nums">{formatNumberOrDash(daChon.length)}</strong> SKU đã chọn trên trang này
                 </span>
                 <Button type="button" variant="outline" disabled={khoaBang} onClick={() => batTatNhieu(true)} className="h-8 rounded-lg border-bo-border bg-white px-3 text-[13px] text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11">
                   Bật đồng bộ
@@ -1024,7 +1024,7 @@ export default function ChannelMappingsPage() {
               sizeOptions={SO_SAN_PHAM_MOI_TRANG}
               sizeMenuTitle="Số sản phẩm mỗi trang"
               sizeMenuNote="Đếm theo sản phẩm; mỗi sản phẩm luôn kèm đủ phân loại nên không bị cắt sang trang sau."
-              totalNote={soSkuTheoTab != null ? `${soVN(soSkuTheoTab)} SKU` : null}
+              totalNote={soSkuTheoTab != null ? `${formatNumberOrDash(soSkuTheoTab)} SKU` : null}
               onPageChange={(page) => {
                 if (page < 0 || page === trang.page) return;
                 setTrang((cu) => ({ ...cu, page }));
@@ -1038,7 +1038,7 @@ export default function ChannelMappingsPage() {
                 setTrang({ page: 0, size });
                 setChon(new Set());
                 cuonLenDau();
-                if (boChon) toast.info(`Đã bỏ chọn ${soVN(boChon)} SKU khi đổi số sản phẩm mỗi trang`);
+                if (boChon) toast.info(`Đã bỏ chọn ${formatNumberOrDash(boChon)} SKU khi đổi số sản phẩm mỗi trang`);
               }}
             />
           ) : null
@@ -1176,12 +1176,12 @@ export default function ChannelMappingsPage() {
         title={hoiNgung?.tieuDe ?? ""}
         description={
           hoiNgung
-            ? `FCentric sẽ không đẩy tồn kho của ${soVN(hoiNgung.dong.length)} SKU này lên ${SAN.ten} nữa. ${SAN.ten} giữ nguyên số đang hiện (tổng ${soVN(
+            ? `FCentric sẽ không đẩy tồn kho của ${formatNumberOrDash(hoiNgung.dong.length)} SKU này lên ${SAN.ten} nữa. ${SAN.ten} giữ nguyên số đang hiện (tổng ${formatNumberOrDash(
                 hoiNgung.dong.reduce((s, d) => s + (Number(d.soLuongDaDay) || 0), 0),
               )}) nên khách vẫn đặt được và có thể bán vượt tồn. Liên kết vẫn giữ, bật lại là đẩy tiếp; muốn dừng bán hẳn, hãy ẩn sản phẩm trên ${SAN.ten}.`
             : ""
         }
-        confirmText={hoiNgung ? `Ngừng ${soVN(hoiNgung.dong.length)} SKU` : "Ngừng đồng bộ"}
+        confirmText={hoiNgung ? `Ngừng ${formatNumberOrDash(hoiNgung.dong.length)} SKU` : "Ngừng đồng bộ"}
         cancelText="Hủy"
       />
 

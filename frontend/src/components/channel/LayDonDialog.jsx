@@ -8,8 +8,8 @@ import { INPUT_CLASS } from "@/components/channel/SettingsCard";
 import { kenhBanHangService } from "@/services/kenhBanHangService";
 import { getApiErrorCode, getApiErrorMessage } from "@/utils/apiError";
 import { ngayIso } from "./ngay";
+import { formatNumber } from "@/utils/formatters";
 
-const soVN = (n) => Number(n || 0).toLocaleString("vi-VN");
 // Mã lỗi máy chủ (KH mục C.4) cho biết gian hàng không còn gọi được: trang cần đọc lại kết nối
 // (LAM_MOI_KHOA_LOI: Shopify từ chối khóa làm mới, thẻ chuyển sang "Hết hạn khóa")
 const MA_MAT_KET_NOI = ["UY_QUYEN_HET_HAN", "KENH_CHUA_KET_NOI", "LAM_MOI_KHOA_LOI"];
@@ -43,7 +43,7 @@ export default function LayDonDialog({ maKenh, tenSan, onClose, onXong, onMatKet
         tu: new Date(`${tu}T00:00:00`).toISOString(),
         den: denLuc.toISOString(),
       });
-      if (baoToast) toast.success(`Đã lấy ${soVN(res?.soDonMoi)} đơn mới từ ${tenSan}`);
+      if (baoToast) toast.success(`Đã lấy ${formatNumber(res?.soDonMoi)} đơn mới từ ${tenSan}`);
       onXong(res);
     } catch (error) {
       const cau = getApiErrorMessage(error, "Không lấy được đơn hàng");

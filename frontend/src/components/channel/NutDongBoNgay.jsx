@@ -14,6 +14,7 @@ import {
   soChuaDay,
   thoiLuong,
 } from "./tienDoDongBo";
+import { formatNumber } from "@/utils/formatters";
 
 /** Ảnh chụp tạm trong lúc chờ máy chủ nhận lệnh bắt đầu */
 const PHIEN_DANG_BAT_DAU = { trangThai: "dang_chay", giaiDoan: "doc_san_pham", daXuLy: 0, soThanhCong: 0, soLoi: 0, daChayMs: 0 };
@@ -26,8 +27,6 @@ const NUT_NHO =
 const LIEN_KET =
   "text-[13px] font-medium text-bo-primary hover:text-bo-primary-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 rounded-sm max-sm:inline-flex max-sm:min-h-11 max-sm:items-center";
 const CHUA_SAN_SANG = "Chưa tải xong thông tin gian hàng, bấm lại sau giây lát.";
-
-const so = (n) => Number(n || 0).toLocaleString("vi-VN");
 
 function gioPhut(value) {
   if (!value) return null;
@@ -329,7 +328,7 @@ function BangTienDo({ phien: p, pct, conLaiMs, tenSan, onDong, onDung, onBatDauL
           </>
         ) : (
           <>
-            <span className="min-w-0 flex-1 text-[12.5px] text-bo-muted">{chuaDay ? `Còn ${so(chuaDay)} SKU chưa đẩy` : null}</span>
+            <span className="min-w-0 flex-1 text-[12.5px] text-bo-muted">{chuaDay ? `Còn ${formatNumber(chuaDay)} SKU chưa đẩy` : null}</span>
             {p.trangThai === "loi" ? (
               <button type="button" className={LIEN_KET} onClick={() => onDen("/settings")}>
                 Mở cấu hình
@@ -373,7 +372,7 @@ function ChiTietBuoc({ ma, tt, phien: p }) {
             <LyDoLoiSku loi={l} />
           </p>
         ))}
-        {conLai > 0 ? <p>và {so(conLai)} SKU lỗi khác</p> : null}
+        {conLai > 0 ? <p>và {formatNumber(conLai)} SKU lỗi khác</p> : null}
       </div>
     );
   }

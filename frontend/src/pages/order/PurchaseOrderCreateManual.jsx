@@ -20,9 +20,9 @@ import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
 import useBangChungTu from "@/components/chung-tu/useBangChungTu";
 import { soVN, tuBienThe } from "@/components/chung-tu/bangChungTu";
 import { NHAN_O, O_NHAP } from "@/components/chung-tu/kieuHopThoai";
+import { formatCurrency } from "@/utils/formatters";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const formatCurrency = (v) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v || 0);
 // Ô chọn gốc của trình duyệt nhưng bỏ mũi tên mặc định (Windows vẽ thành ô vuông), thay bằng ChevronDown
 const O_CHON = cn(O_NHAP, "cursor-pointer appearance-none pr-9");
 const TONG_BANG = Object.freeze({ soLuong: "soLuong", thanhTien: "thanhTien" });

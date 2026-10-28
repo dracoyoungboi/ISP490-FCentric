@@ -51,6 +51,7 @@ import { cn } from "@/lib/utils";
 import { productService } from "@/services/productService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import { formatNumberOrDash } from "@/utils/formatters";
 
 const TAB_MAS = TAB_GIA_BAN.map((t) => t.value);
 const TAB_MAC_DINH = "tat-ca";
@@ -59,13 +60,12 @@ const TH = "h-10 whitespace-nowrap px-3 text-[11px] font-semibold uppercase trac
 const NUT_DAU_TRANG = "h-9 gap-2 rounded-md border-bo-border bg-white px-3 text-sm font-medium text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11";
 const CHECKBOX_CLASS =
   "border-slate-300 bg-white data-[state=checked]:border-bo-primary data-[state=checked]:bg-bo-primary data-[state=indeterminate]:border-bo-primary data-[state=indeterminate]:bg-bo-primary data-[state=indeterminate]:text-white";
-const soVN = (n) => (n === null || n === undefined ? "—" : Number(n).toLocaleString("vi-VN"));
 const nhanBienThe = (d) => [d.tenMau, d.kichCo].filter(Boolean).join(" - ") || "—";
 
 /** Chữ giá ở ô Giá bán của một SKU. */
 function hienThiGiaDong(d) {
   if (!(Number(d.giaBan) > 0)) return { chu: "Chưa có giá", mau: "chua" };
-  return duoiGiaVon(d) ? { chu: soVN(d.giaBan), mau: "duoiVon", title: "Thấp hơn giá vốn" } : { chu: soVN(d.giaBan), mau: "thuong" };
+  return duoiGiaVon(d) ? { chu: formatNumberOrDash(d.giaBan), mau: "duoiVon", title: "Thấp hơn giá vốn" } : { chu: formatNumberOrDash(d.giaBan), mau: "thuong" };
 }
 
 /**
@@ -76,10 +76,10 @@ function hienThiGiaNhom(giaBan) {
   if (giaBan.loai === "chua") return { chu: "Chưa có giá", mau: "chua" };
   if (giaBan.loai === "khoang") {
     const title = giaBan.thieuGia ? "Có phân loại chưa có giá" : undefined;
-    if (giaBan.thapNhat === giaBan.caoNhat) return { chu: soVN(giaBan.thapNhat), mau: "khoang", title };
-    return { chu: `${soVN(giaBan.thapNhat)} – ${soVN(giaBan.caoNhat)}`, mau: "khoang", title };
+    if (giaBan.thapNhat === giaBan.caoNhat) return { chu: formatNumberOrDash(giaBan.thapNhat), mau: "khoang", title };
+    return { chu: `${formatNumberOrDash(giaBan.thapNhat)} – ${formatNumberOrDash(giaBan.caoNhat)}`, mau: "khoang", title };
   }
-  return { chu: soVN(giaBan.gia), mau: "thuong" };
+  return { chu: formatNumberOrDash(giaBan.gia), mau: "thuong" };
 }
 
 /** "● Đen - M": chấm màu + màu - kích cỡ. */
@@ -301,7 +301,7 @@ export default function GiaBanTemPage() {
       const theoLyDo = new Map();
       boQua.forEach((b) => theoLyDo.set(b.lyDo, (theoLyDo.get(b.lyDo) ?? 0) + 1));
       const ghiChu = boQua.length
-        ? `Bỏ qua ${[...theoLyDo].map(([lyDo, so]) => `${soVN(so)} SKU ${String(lyDo).toLocaleLowerCase("vi")}`).join(", ")}.`
+        ? `Bỏ qua ${[...theoLyDo].map(([lyDo, so]) => `${formatNumberOrDash(so)} SKU ${String(lyDo).toLocaleLowerCase("vi")}`).join(", ")}.`
         : undefined;
       // Hiện giá mới ngay (lần tải lại sau đó có lỗi thì bảng vẫn đúng giá vừa lưu)
       const giaMoi = new Map(daDoi.map((x) => [x.id, x.giaBanMoi]));
@@ -318,11 +318,11 @@ export default function GiaBanTemPage() {
           : cu,
       );
       if (daDoi.length) {
-        toast.success(`Đã đổi giá bán ${soVN(daDoi.length)} SKU`, {
+        toast.success(`Đã đổi giá bán ${formatNumberOrDash(daDoi.length)} SKU`, {
           // Mỗi lần lưu một thông báo riêng (không gộp "×2"), để nút "In lại" của lần trước không bị thay mất
           id: `doi-gia-${Date.now()}`,
           description: ghiChu,
-          action: soTem > 0 ? { label: `In lại ${soVN(soTem)} tem`, onClick: () => moInTem("doi-gia", inLai) } : undefined,
+          action: soTem > 0 ? { label: `In lại ${formatNumberOrDash(soTem)} tem`, onClick: () => moInTem("doi-gia", inLai) } : undefined,
         });
       } else {
         toast.info("Không có SKU nào đổi giá", { description: ghiChu });
@@ -452,9 +452,9 @@ export default function GiaBanTemPage() {
           </p>
         </td>
         <td className={cn("whitespace-nowrap px-3 py-2.5 text-right tabular-nums", Number(d.tonKho) === 0 ? "text-slate-400" : "text-bo-foreground")}>
-          {soVN(d.tonKho)}
+          {formatNumberOrDash(d.tonKho)}
         </td>
-        <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-bo-muted">{soVN(d.giaVon)}</td>
+        <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-bo-muted">{formatNumberOrDash(d.giaVon)}</td>
         <td className="whitespace-nowrap px-3 py-2.5 text-right">{oGiaDong(d)}</td>
         <td className="w-16 px-2 py-2.5">
           <RowActions>
@@ -508,14 +508,14 @@ export default function GiaBanTemPage() {
               <p className="truncate font-medium text-bo-heading">
                 <ToKhop text={g.ten} tu={tuKhoa} />
               </p>
-              <p className="text-[13px] text-bo-muted">{nhanPhanLoai(g, motPhan, soVN)}</p>
+              <p className="text-[13px] text-bo-muted">{nhanPhanLoai(g, motPhan, formatNumberOrDash)}</p>
             </div>
           </div>
         </td>
         <td className={cn("px-3 py-2.5", o)} />
-        <td className={cn("whitespace-nowrap px-3 py-2.5 text-right font-medium tabular-nums text-bo-heading", o)}>{soVN(tt.tongTon)}</td>
+        <td className={cn("whitespace-nowrap px-3 py-2.5 text-right font-medium tabular-nums text-bo-heading", o)}>{formatNumberOrDash(tt.tongTon)}</td>
         <td className={cn("whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-bo-muted", o)}>
-          {tt.giaVonChung !== null ? soVN(tt.giaVonChung) : null}
+          {tt.giaVonChung !== null ? formatNumberOrDash(tt.giaVonChung) : null}
         </td>
         <td className={cn("whitespace-nowrap px-3 py-2.5 text-right", o)}>
           {laQuanTriVien && soHoatDong > 0 ? (
@@ -523,7 +523,7 @@ export default function GiaBanTemPage() {
               dsDong={g.dong}
               hienThi={hienThi}
               tieuDe={motPhan ? "Giá bán các phân loại đang hiện" : "Giá bán cả sản phẩm"}
-              phu={`Áp dụng cho ${soVN(soHoatDong)} phân loại đang hoạt động`}
+              phu={`Áp dụng cho ${formatNumberOrDash(soHoatDong)} phân loại đang hoạt động`}
               ariaLabel={`Đổi giá bán cả sản phẩm ${g.ten}`}
               open={popGia === khoa}
               onOpenChange={(moPop) => setPopGia(moPop ? khoa : null)}
@@ -572,12 +572,12 @@ export default function GiaBanTemPage() {
           {[
             Number(duLieu.canXuLy?.chuaCoGia) > 0 ? (
               <Fragment key="chua">
-                <strong className="font-semibold">{soVN(duLieu.canXuLy.chuaCoGia)} SKU</strong> chưa có giá bán
+                <strong className="font-semibold">{formatNumberOrDash(duLieu.canXuLy.chuaCoGia)} SKU</strong> chưa có giá bán
               </Fragment>
             ) : null,
             Number(duLieu.canXuLy?.duoiGiaVon) > 0 ? (
               <Fragment key="duoi">
-                <strong className="font-semibold">{soVN(duLieu.canXuLy.duoiGiaVon)} SKU</strong> đang bán thấp hơn giá vốn
+                <strong className="font-semibold">{formatNumberOrDash(duLieu.canXuLy.duoiGiaVon)} SKU</strong> đang bán thấp hơn giá vốn
               </Fragment>
             ) : null,
           ]
@@ -638,7 +638,7 @@ export default function GiaBanTemPage() {
             {daChon.length ? (
               <div className="flex flex-wrap items-center gap-2 border-b border-bo-border bg-bo-primary-soft px-3 py-2 text-sm text-bo-primary-strong sm:px-4">
                 <span className="mr-1">
-                  <strong className="font-semibold tabular-nums">{soVN(daChon.length)}</strong> SKU đã chọn trên trang này
+                  <strong className="font-semibold tabular-nums">{formatNumberOrDash(daChon.length)}</strong> SKU đã chọn trên trang này
                 </span>
                 <Button type="button" variant="outline" onClick={() => moInTem("chon", daChon)} className={nutPhu}>
                   <Printer className="size-3.5" aria-hidden="true" />
@@ -673,7 +673,7 @@ export default function GiaBanTemPage() {
               sizeOptions={SO_SAN_PHAM_MOI_TRANG}
               sizeMenuTitle="Số sản phẩm mỗi trang"
               sizeMenuNote="Đếm theo sản phẩm; mỗi sản phẩm luôn kèm đủ phân loại nên không bị cắt sang trang sau."
-              totalNote={`${soVN(duLieu.tongSku)} SKU`}
+              totalNote={`${formatNumberOrDash(duLieu.tongSku)} SKU`}
               onPageChange={(page) => {
                 if (page < 0 || page === trang.page) return;
                 setTrang((cu) => ({ ...cu, page }));
@@ -688,7 +688,7 @@ export default function GiaBanTemPage() {
                 nhoSoDong(size);
                 setTrang({ page: 0, size });
                 setChon(new Set());
-                if (boChon) toast.info(`Đã bỏ chọn ${soVN(boChon)} SKU khi đổi số sản phẩm mỗi trang`);
+                if (boChon) toast.info(`Đã bỏ chọn ${formatNumberOrDash(boChon)} SKU khi đổi số sản phẩm mỗi trang`);
                 setPopGia(null);
                 cuonLenDau();
               }}

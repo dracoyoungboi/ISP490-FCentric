@@ -1,3 +1,5 @@
+import { formatNumber } from "../../utils/formatters.js";
+
 /**
  * Đọc ảnh chụp tiến độ "Đồng bộ ngay" (DongBoNgayDto của máy chủ) thành số liệu hiển thị.
  * Hàm thuần, không gọi API: dùng chung cho nút, bảng thả xuống và kiểm thử.
@@ -8,8 +10,6 @@ export const DB_TRANG_THAI = { DANG_CHAY: "dang_chay", XONG: "xong", LOI: "loi",
 const THU_TU_GIAI_DOAN = { doc_san_pham: 0, day_ton: 1, lay_don: 2 };
 /** Bước lấy đơn thường mất vài giây: cộng vào thời gian còn lại khi đang đẩy tồn */
 const LAY_DON_UOC_TINH_MS = 2500;
-
-const so = (n) => Number(n || 0).toLocaleString("vi-VN");
 
 export const dangChayDongBo = (p) => p?.trangThai === DB_TRANG_THAI.DANG_CHAY;
 
@@ -72,7 +72,7 @@ export function thoiLuong(ms) {
 export function ketQuaDongBo(p) {
   if (p?.trangThai === DB_TRANG_THAI.LOI) return { tone: "loi", tieuDe: "Đồng bộ dừng giữa chừng", nhan: "Đồng bộ lỗi" };
   if (p?.trangThai === DB_TRANG_THAI.DA_DUNG) return { tone: "dung", tieuDe: "Đã dừng đồng bộ", nhan: "Đã dừng" };
-  if (p?.soLoi) return { tone: "canh", tieuDe: "Đồng bộ xong", nhan: `Xong · ${so(p.soLoi)} SKU lỗi` };
+  if (p?.soLoi) return { tone: "canh", tieuDe: "Đồng bộ xong", nhan: `Xong · ${formatNumber(p.soLoi)} SKU lỗi` };
   return { tone: "ok", tieuDe: "Đồng bộ xong", nhan: "Đã đồng bộ" };
 }
 
@@ -94,23 +94,23 @@ export function cacBuocDongBo(p, tenSan = "Shopify") {
   const tong = p?.tongSku;
 
   let docSp;
-  if (giaiDoan > 0) docSp = { tt: "xong", phu: `${so(tong)} SKU` };
+  if (giaiDoan > 0) docSp = { tt: "xong", phu: `${formatNumber(tong)} SKU` };
   else if (chay) docSp = { tt: "dang", phu: "Đang đọc…" };
   else if (tt === DB_TRANG_THAI.LOI) docSp = { tt: "loi", phu: "Không đọc được" };
   else docSp = { tt: "dung", phu: "Đã dừng" };
 
-  const loi = p?.soLoi ? ` · ${so(p.soLoi)} lỗi` : "";
+  const loi = p?.soLoi ? ` · ${formatNumber(p.soLoi)} lỗi` : "";
   let dayTon;
   if (giaiDoan < 1) dayTon = chay ? { tt: "cho", phu: "Chờ" } : { tt: "boqua", phu: "Chưa đẩy" };
-  else if (giaiDoan === 1 && chay) dayTon = { tt: "dang", phu: `${so(p.daXuLy)}/${so(tong)} SKU${loi}` };
-  else if (giaiDoan === 1 && tt === DB_TRANG_THAI.LOI) dayTon = { tt: "loi", phu: `Dừng ở SKU ${so(Number(p.daXuLy) + 1)}/${so(tong)}` };
-  else if (giaiDoan === 1 && tt === DB_TRANG_THAI.DA_DUNG) dayTon = { tt: "dung", phu: `Đã đẩy ${so(p.daXuLy)}/${so(tong)} SKU` };
-  else dayTon = { tt: p?.soLoi ? "canh" : "xong", phu: `${so(p?.soThanhCong)}/${so(tong)} SKU${loi}` };
+  else if (giaiDoan === 1 && chay) dayTon = { tt: "dang", phu: `${formatNumber(p.daXuLy)}/${formatNumber(tong)} SKU${loi}` };
+  else if (giaiDoan === 1 && tt === DB_TRANG_THAI.LOI) dayTon = { tt: "loi", phu: `Dừng ở SKU ${formatNumber(Number(p.daXuLy) + 1)}/${formatNumber(tong)}` };
+  else if (giaiDoan === 1 && tt === DB_TRANG_THAI.DA_DUNG) dayTon = { tt: "dung", phu: `Đã đẩy ${formatNumber(p.daXuLy)}/${formatNumber(tong)} SKU` };
+  else dayTon = { tt: p?.soLoi ? "canh" : "xong", phu: `${formatNumber(p?.soThanhCong)}/${formatNumber(tong)} SKU${loi}` };
 
   let layDon;
   if (giaiDoan < 2) layDon = chay ? { tt: "cho", phu: "Đơn 24 giờ qua" } : { tt: "boqua", phu: "Chưa lấy" };
   else if (chay) layDon = { tt: "dang", phu: "Đang lấy…" };
-  else if (tt === DB_TRANG_THAI.XONG) layDon = { tt: "xong", phu: p.soDonMoi ? `${so(p.soDonMoi)} đơn mới` : "Không có đơn mới" };
+  else if (tt === DB_TRANG_THAI.XONG) layDon = { tt: "xong", phu: p.soDonMoi ? `${formatNumber(p.soDonMoi)} đơn mới` : "Không có đơn mới" };
   else layDon = { tt: "loi", phu: "Không lấy được" };
 
   return [

@@ -30,12 +30,11 @@ import { THONG_BAO_CHUA_HO_TRO_BIEN_BAN, bienBanTraHangService } from "@/service
 import { kenhBanHangService } from "@/services/kenhBanHangService";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
 import { getApiErrorMessage } from "@/utils/apiError";
-import { formatDate } from "@/utils/formatters";
+import { formatDate, formatNumber } from "@/utils/formatters";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 import { chuanHoaDongInTem } from "@/components/print/tinhTem";
 import HopInTem from "@/pages/product/components/product/HopInTem";
 
-const so = (n) => Number(n || 0).toLocaleString("vi-VN");
 const TH = "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 const KENH_SHOPIFY = "SHOPIFY";
 
@@ -168,7 +167,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
       setDangXuLy(true);
       try {
         await phieuNhapKhoService.complete(id);
-        toast.success(`Đã nhập kho ${so(tong.dat)} sản phẩm`);
+        toast.success(`Đã nhập kho ${formatNumber(tong.dat)} sản phẩm`);
         setMoXacNhan(false);
         if (dayTon) {
           try {
@@ -253,9 +252,9 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
   let nut2 = null;
   if (bienBanLech && nhap) {
     moTa2 = !tong.loi
-      ? `Biên bản ${data.maBienBanRtv} ghi ${so(data.tongLoiBienBan)} sản phẩm lỗi nhưng không còn lô nào có hàng lỗi. Hủy biên bản trước khi nhập kho.`
+      ? `Biên bản ${data.maBienBanRtv} ghi ${formatNumber(data.tongLoiBienBan)} sản phẩm lỗi nhưng không còn lô nào có hàng lỗi. Hủy biên bản trước khi nhập kho.`
       : Number(data.tongLoiBienBan) !== tong.loi
-        ? `Biên bản ${data.maBienBanRtv} ghi ${so(data.tongLoiBienBan)} sản phẩm lỗi nhưng kiểm đếm hiện có ${so(tong.loi)}. Lập lại biên bản trước khi nhập kho.`
+        ? `Biên bản ${data.maBienBanRtv} ghi ${formatNumber(data.tongLoiBienBan)} sản phẩm lỗi nhưng kiểm đếm hiện có ${formatNumber(tong.loi)}. Lập lại biên bản trước khi nhập kho.`
         : `Biên bản ${data.maBienBanRtv} không còn khớp các lô có hàng lỗi (có lô đã xóa hoặc khóa lại). Lập lại biên bản trước khi nhập kho.`;
     nut2 = tong.loi ? (
       <Button onClick={() => setMoBienBan(true)} className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
@@ -266,26 +265,26 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
         Hủy biên bản
       </Button>
     );
-  } else if (!kiemXong && !daNhap) moTa2 = tong.loi ? `Mở sau khi kiểm xong. Đã ghi nhận ${so(tong.loi)} sản phẩm lỗi.` : "Mở sau khi kiểm xong.";
+  } else if (!kiemXong && !daNhap) moTa2 = tong.loi ? `Mở sau khi kiểm xong. Đã ghi nhận ${formatNumber(tong.loi)} sản phẩm lỗi.` : "Mở sau khi kiểm xong.";
   else if (tong.loi === 0) moTa2 = "Không có hàng lỗi, bỏ qua bước này.";
   else if (coBienBan) {
-    moTa2 = `Biên bản ${data.maBienBanRtv} · ${so(tong.loi)} sản phẩm${tenPhuongAn ? ` · ${tenPhuongAn}` : ""}.${bienBanTraHangService.mau ? " (Dữ liệu mẫu, chưa lưu máy chủ.)" : ""}`;
+    moTa2 = `Biên bản ${data.maBienBanRtv} · ${formatNumber(tong.loi)} sản phẩm${tenPhuongAn ? ` · ${tenPhuongAn}` : ""}.${bienBanTraHangService.mau ? " (Dữ liệu mẫu, chưa lưu máy chủ.)" : ""}`;
     nut2 = <Button variant="outline" onClick={() => setMoBienBan(true)} className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle">Xem biên bản</Button>;
   } else if (bienBanTraHangService.hoTro) {
-    moTa2 = `${so(tong.loi)} sản phẩm lỗi phải lập biên bản trả nhà cung cấp trước khi nhập kho.${bienBanTraHangService.mau ? " (Biên bản là dữ liệu mẫu, chưa lưu máy chủ.)" : ""}`;
+    moTa2 = `${formatNumber(tong.loi)} sản phẩm lỗi phải lập biên bản trả nhà cung cấp trước khi nhập kho.${bienBanTraHangService.mau ? " (Biên bản là dữ liệu mẫu, chưa lưu máy chủ.)" : ""}`;
     nut2 = (
       <Button onClick={() => setMoBienBan(true)} className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
         <FileCheck2 className="size-4" /> Lập biên bản trả hàng
       </Button>
     );
   } else {
-    moTa2 = `${so(tong.loi)} sản phẩm lỗi. ${THONG_BAO_CHUA_HO_TRO_BIEN_BAN}`;
+    moTa2 = `${formatNumber(tong.loi)} sản phẩm lỗi. ${THONG_BAO_CHUA_HO_TRO_BIEN_BAN}`;
   }
 
   const soLoKe = new Set(Object.values(lo.data ?? {}).flat().filter(Boolean).map((l) => l.maLo)).size;
   const moTa3 = daNhap
-    ? `Đã nhập ${so(tong.dat)} sản phẩm vào kho ${data.tenKho || ""}.`
-    : `${so(tong.dat)} sản phẩm đạt${soLoKe ? ` trong ${soLoKe} lô` : ""}. Tồn kho được cộng ngay khi xác nhận.`;
+    ? `Đã nhập ${formatNumber(tong.dat)} sản phẩm vào kho ${data.tenKho || ""}.`
+    : `${formatNumber(tong.dat)} sản phẩm đạt${soLoKe ? ` trong ${soLoKe} lô` : ""}. Tồn kho được cộng ngay khi xác nhận.`;
 
   const oThongTin = [
     ["Nhà cung cấp", data.tenNhaCungCap || "—", null],
@@ -363,7 +362,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
             so={1}
             nhan="Bước 1"
             tieuDe="Kiểm đếm hàng"
-            moTa={`${so(tong.xong)}/${so(dong.length)} biến thể · ${so(tong.kiem)}/${so(tong.can)} sản phẩm`}
+            moTa={`${formatNumber(tong.xong)}/${formatNumber(dong.length)} biến thể · ${formatNumber(tong.kiem)}/${formatNumber(tong.can)} sản phẩm`}
             phu={<ThanhMuc className="mt-1" phanTram={tong.can ? (tong.kiem / tong.can) * 100 : 0} tone={kiemXong ? "ok" : ""} label="Tiến độ kiểm đếm" />}
             hanhDong={
               kiemXong || daNhap ? (
@@ -442,9 +441,9 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
                     </div>
                   </td>
                   <td className="px-4 py-2"><TienDoSo da={d.kiem} tong={d.canNhap} /></td>
-                  <td className="px-4 py-2 text-right tabular-nums">{chuaKiem ? <span className="text-bo-muted">—</span> : so(d.dat)}</td>
+                  <td className="px-4 py-2 text-right tabular-nums">{chuaKiem ? <span className="text-bo-muted">—</span> : formatNumber(d.dat)}</td>
                   <td className={cn("px-4 py-2 text-right tabular-nums", d.loi ? "font-semibold text-bo-danger" : "text-bo-muted")}>
-                    {chuaKiem ? "—" : so(d.loi)}
+                    {chuaKiem ? "—" : formatNumber(d.loi)}
                   </td>
                   {/* Mã lô dài (tiền tố + số phiếu): xuống dòng dưới số lô và cắt gọn, không đẩy cột Biến thể hẹp lại */}
                   <td className="max-w-[180px] px-4 py-2">

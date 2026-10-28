@@ -11,8 +11,8 @@ import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { cn } from "@/lib/utils";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { formatNumber } from "@/utils/formatters";
 
-const soVN = (n) => Number(n || 0).toLocaleString("vi-VN");
 const ngayVN = (iso) => {
   const d = iso ? new Date(iso) : null;
   return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
@@ -113,7 +113,7 @@ function NoiDung({ onHuy, onTiepTuc }) {
                       <span className="shrink-0 text-[13px] text-bo-muted">{ngayVN(p.ngayNhap)}</span>
                     </span>
                     <span className="mt-0.5 block truncate text-[13px] text-bo-muted">
-                      {[p.tenKho, p.tenNhaCungCap, `${soVN(p.soSku)} SKU`, `${soVN(p.tongSoLuong)} sản phẩm`].filter(Boolean).join(" · ")}
+                      {[p.tenKho, p.tenNhaCungCap, `${formatNumber(p.soSku)} SKU`, `${formatNumber(p.tongSoLuong)} sản phẩm`].filter(Boolean).join(" · ")}
                     </span>
                   </span>
                 </button>

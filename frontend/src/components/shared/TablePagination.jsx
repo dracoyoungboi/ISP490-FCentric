@@ -8,8 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import CapNhatLuc from "@/components/shared/CapNhatLuc";
 import { LUA_CHON_SO_DONG } from "@/constants/phanTrang";
-
-const soVN = (n) => Number(n || 0).toLocaleString("vi-VN");
+import { formatNumber } from "@/utils/formatters";
 
 /**
  * Chân bảng phân trang dùng chung. `page` tính từ 0.
@@ -99,11 +98,11 @@ export default function TablePagination({
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <p className="text-xs text-bo-muted tabular-nums">
-          Hiển thị <span className="font-semibold text-bo-foreground">{soVN(from)}</span>
+          Hiển thị <span className="font-semibold text-bo-foreground">{formatNumber(from)}</span>
           {" – "}
-          <span className="font-semibold text-bo-foreground">{soVN(to)}</span>
+          <span className="font-semibold text-bo-foreground">{formatNumber(to)}</span>
           {" trong tổng số "}
-          <span className="font-semibold text-bo-primary">{soVN(total)}</span> {totalLabel}
+          <span className="font-semibold text-bo-primary">{formatNumber(total)}</span> {totalLabel}
           {totalNote ? <> · {totalNote}</> : null}
         </p>
         {capNhat ? (

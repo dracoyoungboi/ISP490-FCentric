@@ -3,8 +3,7 @@ import { Info } from "lucide-react";
 import { ChonPhuongAn, DongCaiDat, DongCongTac, OSoNho, TheCaiDat } from "@/components/channel/KhuonCaiDat";
 import { quyTacTonKho } from "@/components/channel/cauHinhDongBo";
 import { tinhSoTonDayLenSan } from "@/constants/channel";
-
-const soVN = (n) => Number(n || 0).toLocaleString("vi-VN");
+import { formatNumber } from "@/utils/formatters";
 
 const CHE_DO_TON = [
   { value: "bang", label: "Bằng số khả dụng" },
@@ -33,7 +32,7 @@ export function TheTonKho({ moTa, values, errors = {}, onChange, cheDo, onDoiChe
   const chuKy = cauHinh?.chuKyPhut ?? 10;
   const nguongNgay = cauHinh?.nguongDayNgay ?? 3;
   const quyTac = quyTacTonKho(values);
-  const viDu = (kd) => soVN(tinhSoTonDayLenSan(kd, quyTac));
+  const viDu = (kd) => formatNumber(tinhSoTonDayLenSan(kd, quyTac));
 
   return (
     <TheCaiDat title="Tồn kho" description={moTa}>

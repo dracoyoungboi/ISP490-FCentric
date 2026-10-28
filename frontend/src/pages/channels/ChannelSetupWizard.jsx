@@ -50,8 +50,7 @@ import { GHI_CHU_DU_LIEU_MAU_KENH, isChannelMock, kenhBanHangService } from "@/s
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { getApiErrorCode, getApiErrorMessage } from "@/utils/apiError";
 import { cn } from "@/lib/utils";
-
-const soVN = (n) => Number(n || 0).toLocaleString("vi-VN");
+import { formatNumber } from "@/utils/formatters";
 
 /** Mã lỗi máy chủ trả khi gian hàng không còn gọi được sàn: đọc lại kết nối để trang hiện đúng tình trạng. */
 const MA_MAT_KET_NOI = new Set(["UY_QUYEN_HET_HAN", "KENH_CHUA_KET_NOI", "LAM_MOI_KHOA_LOI"]);
@@ -309,7 +308,7 @@ async function layDonCu(SAN, soNgay, onLoi) {
       tu: new Date(`${ngayIso(soNgay - 1)}T00:00:00`).toISOString(),
       den: new Date().toISOString(),
     });
-    toast.success(`Đã lấy ${soVN(res?.soDonMoi)} đơn mới từ ${SAN.ten}`);
+    toast.success(`Đã lấy ${formatNumber(res?.soDonMoi)} đơn mới từ ${SAN.ten}`);
   } catch (error) {
     onLoi?.(error);
     toast.error(getApiErrorMessage(error, "Chưa lấy được đơn cũ, có thể lấy lại ở trang Đơn hàng"));
@@ -793,10 +792,10 @@ function BuocLienKet({
     <>
       <TheCaiDat title="Liên kết sản phẩm" description="Ghép theo SKU, nên SKU hai bên cần giống nhau. Làm lại được ở trang Sản phẩm.">
         <div className="flex flex-wrap items-end gap-x-10 gap-y-3 px-6 pb-5 pt-2">
-          <SoTomTat nhan="Đã ghép" giaTri={chuaCo ? "…" : `${soVN(tong)} SKU`} />
-          <SoTomTat nhan="Đang đồng bộ" giaTri={chuaCo ? "…" : soVN(tongQuan?.daLienKet)} />
-          <SoTomTat nhan="Lỗi" giaTri={chuaCo ? "…" : soVN(tongQuan?.loiDongBo)} loi={Number(tongQuan?.loiDongBo) > 0} />
-          <SoTomTat nhan="Ngừng đồng bộ" giaTri={chuaCo ? "…" : soVN(tongQuan?.chuaLienKet)} />
+          <SoTomTat nhan="Đã ghép" giaTri={chuaCo ? "…" : `${formatNumber(tong)} SKU`} />
+          <SoTomTat nhan="Đang đồng bộ" giaTri={chuaCo ? "…" : formatNumber(tongQuan?.daLienKet)} />
+          <SoTomTat nhan="Lỗi" giaTri={chuaCo ? "…" : formatNumber(tongQuan?.loiDongBo)} loi={Number(tongQuan?.loiDongBo) > 0} />
+          <SoTomTat nhan="Ngừng đồng bộ" giaTri={chuaCo ? "…" : formatNumber(tongQuan?.chuaLienKet)} />
           <Link
             to={`${SAN.duongDan}/products`}
             className="ml-auto inline-flex items-center rounded text-sm font-medium text-bo-primary hover:text-bo-primary-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 max-sm:min-h-11"

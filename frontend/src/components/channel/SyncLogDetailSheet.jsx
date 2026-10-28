@@ -5,10 +5,8 @@ import { Button } from "@/components/ui/button";
 import { AnhSanPham } from "@/components/channel/HienThiKenh";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { LIEN_KET_STATUS, tinhSoTonDayLenSan } from "@/constants/channel";
-import { formatCurrency } from "@/utils/formatters";
+import { formatCurrency, formatNumberOrDash } from "@/utils/formatters";
 import { formatDateTime } from "@/utils/dateTime";
-
-const soVN = (n) => (n === null || n === undefined ? "—" : Number(n).toLocaleString("vi-VN"));
 
 function Nhom({ ten, children }) {
   return (
@@ -72,12 +70,12 @@ export default function SyncLogDetailSheet({ lienKet, open, onOpenChange, quyTac
               </Nhom>
               <Nhom ten="Tồn kho">
                 <Dong nhan="Khả dụng ở FCentric">
-                  <span className="tabular-nums">{soVN(lienKet.soLuongKhaDung)}</span>
+                  <span className="tabular-nums">{formatNumberOrDash(lienKet.soLuongKhaDung)}</span>
                 </Dong>
                 <Dong nhan={`Đã đẩy lên ${tenSan}`}>
                   {lienKet.soLuongDaDay !== null && lienKet.soLuongDaDay !== undefined ? (
                     <>
-                      <span className="tabular-nums">{soVN(lienKet.soLuongDaDay)}</span>
+                      <span className="tabular-nums">{formatNumberOrDash(lienKet.soLuongDaDay)}</span>
                       {lienKet.ngayDayTonCuoi ? <span className="text-bo-muted"> · lúc {formatDateTime(lienKet.ngayDayTonCuoi)}</span> : null}
                     </>
                   ) : (
@@ -85,11 +83,11 @@ export default function SyncLogDetailSheet({ lienKet, open, onOpenChange, quyTac
                   )}
                 </Dong>
                 <Dong nhan="Lần đẩy tới">
-                  {dangDongBo && quyTac ? <span className="tabular-nums">{soVN(tinhSoTonDayLenSan(lienKet.soLuongKhaDung, quyTac))}</span> : "Không cập nhật"}
+                  {dangDongBo && quyTac ? <span className="tabular-nums">{formatNumberOrDash(tinhSoTonDayLenSan(lienKet.soLuongKhaDung, quyTac))}</span> : "Không cập nhật"}
                 </Dong>
                 {quyTac ? (
                   <Dong nhan="Quy tắc">
-                    {quyTac.tyLeDayTon}% · giữ lại {soVN(quyTac.tonDem)} · ngưỡng {soVN(quyTac.nguongVe0)}
+                    {quyTac.tyLeDayTon}% · giữ lại {formatNumberOrDash(quyTac.tonDem)} · ngưỡng {formatNumberOrDash(quyTac.nguongVe0)}
                     {duongDanCauHinh ? (
                       <Link to={duongDanCauHinh} className="ml-2 font-medium text-bo-primary hover:text-bo-primary-hover hover:underline">
                         Sửa
