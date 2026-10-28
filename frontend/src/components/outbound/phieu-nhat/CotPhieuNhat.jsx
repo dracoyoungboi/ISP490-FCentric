@@ -60,7 +60,7 @@ export default function CotPhieuNhat({ phieu, dsDon, onMoBangChung, onDongGoi })
             aria-expanded={moHet}
             aria-controls={idDs}
             onClick={() => setMoHet((x) => !x)}
-            className="mt-2 w-full text-[13px] font-medium text-bo-primary hover:bg-white hover:text-bo-primary-hover"
+            className="mt-2 w-full text-[13px] font-medium text-bo-primary hover:bg-bo-surface hover:text-bo-primary-hover"
           >
             {moHet ? "Thu gọn" : `Xem thêm ${conAn} đơn`}
           </Button>
@@ -85,7 +85,7 @@ function TheDon({ don, onMoBangChung, onDongGoi }) {
   );
 
   return (
-    <article className={cn("grid gap-1 rounded-lg border border-bo-border px-3 py-2.5", huy ? "bg-[#fbfcfd]" : "bg-white")}>
+    <article className={cn("grid gap-1 rounded-lg border border-bo-border px-3 py-2.5", huy ? "bg-[#fbfcfd]" : "bg-bo-surface")}>
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
         {info?.id != null ? (
           <Link
@@ -139,7 +139,7 @@ function TheDon({ don, onMoBangChung, onDongGoi }) {
             onClick={() => onMoBangChung(info)}
             title={bangChung.chiXem ? "Xem lại bằng chứng đóng gói" : "Xem hoặc tải lên bằng chứng đóng gói"}
             aria-label={`Bằng chứng đóng gói đơn ${so}`}
-            className="h-7 border-bo-border bg-white px-2 text-xs font-medium text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
+            className="h-7 border-bo-border bg-bo-surface px-2 text-xs font-medium text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
           >
             Bằng chứng
           </Button>

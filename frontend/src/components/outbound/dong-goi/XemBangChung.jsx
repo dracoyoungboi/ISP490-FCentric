@@ -58,7 +58,7 @@ export function AnhThuNho({ bc, laVideo, ten }) {
 export function HopXemBangChung({ o, onDong, onCloseAutoFocus }) {
   return (
     <Dialog open={Boolean(o)} onOpenChange={(mo) => !mo && onDong()}>
-      <DialogContent className="max-w-[calc(100vw-2rem)] border-bo-border bg-white p-4 sm:max-w-3xl" onCloseAutoFocus={onCloseAutoFocus}>
+      <DialogContent className="max-w-[calc(100vw-2rem)] border-bo-border bg-bo-surface p-4 sm:max-w-3xl" onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle className="pr-6 text-base font-semibold text-bo-heading">{o?.ten}</DialogTitle>
           <DialogDescription className="sr-only">

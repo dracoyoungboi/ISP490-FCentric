@@ -248,11 +248,11 @@ function OBangChung({ o, suaDuoc, khoaThem, lyDoKhoaXoa, hetHan, trangThai, quay
         : o.laVideo ? "Chưa có video" : "Chưa có ảnh";
 
   return (
-    <div className={cn("overflow-hidden rounded-lg border bg-white", o.laVideo && "md:col-span-2", loi ? "border-bo-danger/40" : "border-bo-border")}>
+    <div className={cn("overflow-hidden rounded-lg border bg-bo-surface", o.laVideo && "md:col-span-2", loi ? "border-bo-danger/40" : "border-bo-border")}>
       <div className={cn("relative grid aspect-video place-items-center bg-bo-surface-subtle", o.laVideo && "max-h-72 w-full")}>
         {trong ? (
           <span className="grid justify-items-center gap-2 px-4 text-center">
-            <span className="grid size-12 place-items-center rounded-full border border-bo-border bg-white text-slate-400">
+            <span className="grid size-12 place-items-center rounded-full border border-bo-border bg-bo-surface text-slate-400">
               {o.laVideo ? <Video className="size-6" aria-hidden="true" /> : <Camera className="size-6" aria-hidden="true" />}
             </span>
             <span className="max-w-[280px] text-[13px] leading-5 text-bo-muted">{o.goiY}</span>
@@ -335,7 +335,7 @@ function OBangChung({ o, suaDuoc, khoaThem, lyDoKhoaXoa, hetHan, trangThai, quay
               <Button type="button" size="sm" disabled={khoaThem} onClick={onChup} aria-label={`${o.laVideo ? "Quay video" : "Chụp ảnh"}: ${o.ten}`} className="h-8 bg-bo-primary px-2.5 text-[13px] text-white hover:bg-bo-primary-hover">
                 {o.laVideo ? "Quay video" : "Chụp ảnh"}
               </Button>
-              <Button type="button" size="sm" variant="outline" disabled={khoaThem} onClick={onChonTep} aria-label={`Chọn tệp: ${o.ten}`} className="h-8 border-bo-border bg-white px-2.5 text-[13px] shadow-none hover:bg-bo-surface-subtle">
+              <Button type="button" size="sm" variant="outline" disabled={khoaThem} onClick={onChonTep} aria-label={`Chọn tệp: ${o.ten}`} className="h-8 border-bo-border bg-bo-surface px-2.5 text-[13px] shadow-none hover:bg-bo-surface-subtle">
                 Chọn tệp
               </Button>
             </>
@@ -347,7 +347,7 @@ function OBangChung({ o, suaDuoc, khoaThem, lyDoKhoaXoa, hetHan, trangThai, quay
           ) : null}
           {bc && !dangQuay && !dangTai ? (
             <>
-              <Button type="button" size="sm" variant="outline" onClick={onXem} aria-label={`Xem: ${o.ten}`} className="h-8 border-bo-border bg-white px-2.5 text-[13px] shadow-none hover:bg-bo-surface-subtle">
+              <Button type="button" size="sm" variant="outline" onClick={onXem} aria-label={`Xem: ${o.ten}`} className="h-8 border-bo-border bg-bo-surface px-2.5 text-[13px] shadow-none hover:bg-bo-surface-subtle">
                 Xem
               </Button>
               <Button

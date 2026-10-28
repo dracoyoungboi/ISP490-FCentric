@@ -80,9 +80,9 @@ export default function PackingProofModal({
 
   return (
     <div ref={khungRef} onKeyDown={khiBamPhim} className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in">
-      <div role="dialog" aria-modal="true" aria-labelledby="hop-bang-chung-tieu-de" className="relative w-full max-w-3xl rounded-xl bg-white shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div role="dialog" aria-modal="true" aria-labelledby="hop-bang-chung-tieu-de" className="relative w-full max-w-3xl rounded-xl bg-bo-surface shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-bo-border px-5 py-3.5 bg-slate-50">
+        <div className="flex items-center justify-between border-b border-bo-border px-5 py-3.5 bg-bo-surface-subtle">
           <div className="flex items-center gap-2">
             <ShieldCheck className="size-5 text-bo-primary" aria-hidden="true" />
             <h3 id="hop-bang-chung-tieu-de" className="text-base font-semibold text-slate-800">
@@ -144,11 +144,11 @@ export default function PackingProofModal({
         </div>
 
         {/* Footer */}
-        <div className="border-t border-bo-border px-5 py-3 bg-slate-50 flex justify-end">
+        <div className="border-t border-bo-border px-5 py-3 bg-bo-surface-subtle flex justify-end">
           <button
             type="button"
             onClick={dong}
-            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+            className="rounded-md border border-slate-300 bg-bo-surface px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
           >
             Đóng
           </button>
