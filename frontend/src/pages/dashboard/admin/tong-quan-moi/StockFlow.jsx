@@ -29,7 +29,8 @@ const LINK =
 /**
  * Tồn kho hiện tại (PA A, chốt 29/10/2026): 4 con số (giá trị, khả dụng đã trừ hàng giữ cho đơn, đang về, đang chuyển),
  * mức tồn so với ngưỡng (bấm từng mức mở Báo cáo tồn kho đúng tab), cảnh báo hàng dư, và tối đa 3 nhóm cần bổ sung gom
- * theo sản phẩm tại từng kho (mở nhóm thấy từng mã kèm đề xuất). "Xem tất cả" mở tab Cần bổ sung của Báo cáo tồn kho.
+ * theo sản phẩm tại từng kho (mở nhóm thấy từng mã kèm đề xuất). "Xem tất cả" mở tab Hết hàng của Báo cáo tồn kho như trước
+ * (Báo cáo giữ cách đếm cũ, chốt 30/10/2026, nên số ở đó có thể khác số ở đây).
  * Số nhập – xuất của kỳ nằm ở chân thẻ Hoạt động gần đây để thẻ này chỉ chứa số hiện tại.
  */
 export default function StockFlow({ data, khoId, loading, loiTonKho, loiBoSung, onRetry, className }) {
@@ -236,7 +237,7 @@ function CanBoSung({ bs, data, kho, error, onRetry }) {
       <div className={cn(LE, "flex items-center gap-2 pb-2.5 pt-3.5")}>
         <h3 className="text-sm font-semibold text-bo-foreground">Cần bổ sung</h3>
         {tongSo > 0 ? (
-          <MoreLink to={`/reports/inventory?kho=${kho}&tinhTrang=can-bo-sung`} className="ml-auto">
+          <MoreLink to={`/reports/inventory?kho=${kho}&tinhTrang=het-hang`} className="ml-auto">
             {`Xem tất cả ${formatSo(tongSo)}`}
           </MoreLink>
         ) : null}
