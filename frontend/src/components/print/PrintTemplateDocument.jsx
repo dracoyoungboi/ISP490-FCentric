@@ -6,6 +6,7 @@ import PrintSummary from "@/components/print/PrintSummary";
 import PrintSignatures from "@/components/print/PrintSignatures";
 import PrintDocCode from "@/components/print/PrintDocCode";
 import { toBarcodeText, toQrText } from "@/components/print/maVach";
+import { dongKhoiTong, getByPath, isEmptyValue } from "@/components/print/khoiTongIn";
 import {
     DEFAULT_FONT_SIZE,
     NOTES_LABEL_ITEM,
@@ -21,18 +22,6 @@ import "@/components/print/printDocument.css";
 
 /** Các khối cuối phiếu — gom lại để tổng tiền và ô ký không bị tách khỏi nhau khi sang trang. */
 const CLOSING_TYPES = new Set(["summary", "notes", "signatures"]);
-
-/** Giá trị "không áp dụng" do adapter trả về (null/undefined/chuỗi rỗng). */
-const isEmptyValue = (value) => value === null || value === undefined || value === "";
-
-/** Đọc giá trị theo đường dẫn "warehouse.name", "totals.items", ... */
-function getByPath(model, path) {
-    if (!path) return model;
-    return path.split(".").reduce(
-        (value, key) => (value === null || value === undefined ? value : value[key]),
-        model
-    );
-}
 
 /**
  * Trường có modelPath bắt đầu bằng "company." đọc từ HỒ SƠ CỬA HÀNG dùng
@@ -236,21 +225,7 @@ function renderItemsSection(section, ctx) {
 function renderSummarySection(section, ctx) {
     const { config, model } = ctx;
     const sectionConfig = config.sections[section.key] ?? {};
-    const rows = section.rows
-        .filter((row) => row.essential || sectionConfig[row.key] !== false)
-        .filter((row) => {
-            const value = getByPath(model, row.modelPath);
-            if (isEmptyValue(value)) return false;
-            if (row.hideWhenZero && !getByPath(model, row.rawPath ?? row.modelPath)) return false;
-            if (row.hideWhenSameAs && value === getByPath(model, row.hideWhenSameAs)) return false;
-            return true;
-        })
-        .map((row) => ({
-            key: row.key,
-            label: breakable(getLabel(config, section.key, row.key, row.label)),
-            value: getByPath(model, row.modelPath),
-            emphasis: row.emphasis,
-        }));
+    const rows = dongKhoiTong(section, config, model).map((row) => ({ ...row, label: breakable(row.label) }));
     const wordsValue = section.words && sectionConfig[section.words.key] !== false
         ? getByPath(model, section.words.modelPath)
         : null;

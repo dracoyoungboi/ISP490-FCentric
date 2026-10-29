@@ -40,6 +40,9 @@
  *   - type "summary"    : khối tổng tiền căn phải + dòng "Bằng chữ"
  *     row.emphasis = dòng tổng chính (in đậm); row.hideWhenZero = ẩn khi số gốc (rawPath) bằng 0;
  *     row.hideWhenSameAs = ẩn khi bằng đúng giá trị ở đường dẫn khác (tránh in hai dòng cùng số)
+ *     row.sub = dòng con (thụt vào, chữ nhỏ, xám) — phần "trong đó" của dòng tổng ngay trên, không cộng thêm
+ *     row.note = dòng chú thích không có số, chỉ in khi ngay sau nó còn dòng con
+ *     row.attachTo = không thành dòng riêng mà in trong ngoặc sau nhãn của dòng khác ("Thuế GTGT (10%)")
  *   - type "notes"      : "Ghi chú: …" — không có nội dung thì không in
  *   - type "signatures" : các ô ký (2–4 ô một hàng); model trả { label?, name } —
  *                         name rỗng = ô ký TRỐNG để ký tay và ghi rõ họ tên

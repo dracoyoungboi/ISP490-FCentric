@@ -390,6 +390,34 @@
     border-top: 0;
 }
 
+/*
+ * Phần "trong đó" của dòng tổng ngay trên (thuế GTGT tách từ giá đã gồm thuế): chú thích + dòng con chữ nhỏ, xám,
+ * thụt vào — đọc là chi tiết của tổng, không phải khoản cộng thêm.
+ */
+.pdoc-summary .pdoc-summary-note td {
+    padding-bottom: 0;
+    color: var(--pdoc-muted);
+    font-size: var(--pdoc-fs-sm);
+    text-align: left;
+    white-space: normal;
+}
+
+.pdoc-summary .pdoc-summary-sub td {
+    padding-top: 0.3mm;
+    padding-bottom: 0.3mm;
+    color: var(--pdoc-muted);
+    font-size: var(--pdoc-fs-sm);
+}
+
+.pdoc-summary .pdoc-summary-sub td:first-child {
+    padding-left: calc(var(--pdoc-cell-x) + 3mm);
+}
+
+/* Dòng đầu tiên sau nhóm dòng con (tiền khách trả, đã thanh toán…): chừa khoảng để tách khỏi phần "trong đó" */
+.pdoc-summary .pdoc-summary-after-sub td {
+    padding-top: 1.6mm;
+}
+
 .pdoc-words {
     margin-top: 1.5mm;
 }
