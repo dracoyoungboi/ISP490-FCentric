@@ -158,6 +158,21 @@ public class KenhBanHangController {
                             .build()
             );
         }
+        if ("TIKTOK".equals(ma)) {
+            TikTokConfigUpdating tikTokReq = TikTokConfigUpdating.builder()
+                    .appKey(request.getAppKey() != null ? request.getAppKey() : request.getClientId())
+                    .appSecret(request.getAppSecret() != null ? request.getAppSecret() : request.getApiSecret())
+                    .trangThai(request.getTrangThai())
+                    .build();
+            kenhBanHangService.updateTikTokConfig(tikTokReq);
+            return ResponseEntity.ok(
+                    ResponseData.<ShopifyConfigResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(kenhBanHangService.getKetNoi("TIKTOK"))
+                            .message("Cập nhật cấu hình TikTok Shop thành công")
+                            .build()
+            );
+        }
         kenhBanHangService.kiemTraSanShopify(maKenh);
         return null;
     }
@@ -227,6 +242,19 @@ public class KenhBanHangController {
     }
 
 
+
+    @GetMapping("/tiktok/cau-hinh")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    @Operation(summary = "Lấy thông tin cấu hình kết nối TikTok Shop kèm shop cipher")
+    public ResponseEntity<ResponseData<TikTokConfigResponse>> layCauHinhTikTok() {
+        return ResponseEntity.ok(
+                ResponseData.<TikTokConfigResponse>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhBanHangService.getTikTokConfig())
+                        .message("Lấy cấu hình TikTok Shop thành công")
+                        .build()
+        );
+    }
     @PostMapping("/tiktok/oauth/callback")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Xử lý callback OAuth2 từ TikTok Shop Partner Center")
@@ -253,6 +281,16 @@ public class KenhBanHangController {
                             .status(HttpStatus.OK.value())
                             .data(res)
                             .message(res.isConnected() ? "Kết nối Lazada thành công" : "Kiểm tra kết nối Lazada thất bại")
+                            .build()
+            );
+        }
+        if ("TIKTOK".equals(ma)) {
+            com.dev.backend.dto.response.customize.TikTokTestConnectionResponse res = kenhBanHangService.testTikTokConnection(new com.dev.backend.dto.request.TikTokTestConnectionRequest());
+            return ResponseEntity.ok(
+                    ResponseData.<com.dev.backend.dto.response.customize.TikTokTestConnectionResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(res)
+                            .message(res.isConnected() ? "Kết nối TikTok Shop thành công" : "Kiểm tra kết nối TikTok Shop thất bại: " + res.getMessage())
                             .build()
             );
         }

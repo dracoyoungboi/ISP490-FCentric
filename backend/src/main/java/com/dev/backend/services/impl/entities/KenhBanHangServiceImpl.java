@@ -753,19 +753,53 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                     .ngayCapNhat(kenh.getNgayCapNhat())
                     .build();
         }
-        if (!"TIKTOK".equals(ma)) {
-            throw sanKhongHoTro(ma);
+        if ("TIKTOK".equals(ma)) {
+            KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_TIKTOK).orElse(null);
+            if (kenh == null) {
+                return ShopifyConfigResponse.builder()
+                        .maKenh(ma)
+                        .tenKenh("TikTok Shop")
+                        .loaiKenh("online")
+                        .kieuKetNoi(KIEU_UY_QUYEN)
+                        .trangThaiKetNoi(CHUA_KET_NOI)
+                        .trangThai(1)
+                        .build();
+            }
+            boolean hasSecret = kenh.getApiSecret() != null && !kenh.getApiSecret().isBlank();
+            boolean hasToken = kenh.getApiKey() != null && !kenh.getApiKey().isBlank();
+            boolean isExpired = hasToken && kenh.getTokenExpiresAt() != null && Instant.now().isAfter(kenh.getTokenExpiresAt());
+            String trangThaiKetNoi = CHUA_KET_NOI;
+            if (hasToken) {
+                trangThaiKetNoi = isExpired ? HET_HAN : (Integer.valueOf(1).equals(kenh.getTrangThai()) ? DANG_HOAT_DONG : "tam_dung");
+            }
+            Long soNgayCon = null;
+            if (kenh.getTokenExpiresAt() != null) {
+                long seconds = Duration.between(Instant.now(), kenh.getTokenExpiresAt()).getSeconds();
+                soNgayCon = Math.max(0L, seconds / 86400L);
+            }
+            String maskedToken = hasToken ? cheKhoa(kenh.getApiKey(), this::maskToken) : null;
+            return ShopifyConfigResponse.builder()
+                    .id(kenh.getId())
+                    .maKenh(ma)
+                    .tenKenh(kenh.getTenKenh() != null ? kenh.getTenKenh() : "Gian hàng TikTok Shop")
+                    .loaiKenh("online")
+                    .appKey(kenh.getClientId())
+                    .hasAppSecret(hasSecret)
+                    .hasAccessToken(hasToken)
+                    .accessTokenMasked(maskedToken)
+                    .tokenExpiresAt(kenh.getTokenExpiresAt())
+                    .hanUyQuyen(kenh.getTokenExpiresAt())
+                    .soNgayConUyQuyen(soNgayCon)
+                    .ngayUyQuyen(kenh.getNgayCapNhat())
+                    .tenGianHang(kenh.getTenKenh())
+                    .shopIdSan(kenh.getShopCipher())
+                    .trangThai(kenh.getTrangThai() != null ? kenh.getTrangThai() : 1)
+                    .kieuKetNoi(KIEU_UY_QUYEN)
+                    .trangThaiKetNoi(trangThaiKetNoi)
+                    .ngayCapNhat(kenh.getNgayCapNhat())
+                    .build();
         }
-        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
-        return ShopifyConfigResponse.builder()
-                .id(kenh != null ? kenh.getId() : null)
-                .maKenh(ma)
-                .tenKenh(kenh != null ? kenh.getTenKenh() : "Gian hàng " + tenSan(ma))
-                .loaiKenh("online")
-                .trangThai(kenh != null && kenh.getTrangThai() != null ? kenh.getTrangThai() : 1)
-                .kieuKetNoi(KIEU_UY_QUYEN)
-                .trangThaiKetNoi(CHUA_KET_NOI)
-                .build();
+        throw sanKhongHoTro(ma);
     }
 
     @Override
