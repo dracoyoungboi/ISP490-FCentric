@@ -1707,6 +1707,35 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         record DongCanCapNhat(TrangThaiDongBoSanPham dong, int soDay, String skuSan, String sellerSku) {}
         List<DongCanCapNhat> dirtyList = new ArrayList<>();
+        int soBoQuaKhongDoi = 0;
+
+        for (TrangThaiDongBoSanPham dong : dongCanDay) {
+            BienTheSanPham bt = dong.getBienTheSanPham();
+            if (bt == null || bt.getMaSku() == null || bt.getMaSku().isBlank()) continue;
+            int soDay = tinhSoTonDay(khaDungToanChuoi(bt.getId()), tyLe, tonDem, nguongVe0);
+
+            boolean daThanhCong = "thanh_cong".equalsIgnoreCase(dong.getTrangThaiDongBo());
+            boolean soTonKhongDoi = dong.getSoLuongDaDay() != null && dong.getSoLuongDaDay().equals(soDay);
+            if (daThanhCong && soTonKhongDoi) {
+                soBoQuaKhongDoi++;
+                continue;
+            }
+
+            String skuSan = dong.getMaSanPhamKenh() != null ? dong.getMaSanPhamKenh().trim() : bt.getMaSku().trim();
+            dirtyList.add(new DongCanCapNhat(dong, soDay, skuSan, bt.getMaSku().trim()));
+        }
+
+        log.info("[TIKTOK-SYNC-DELTA] Tổng số SKU: {}, Bỏ qua không đổi: {}, Cần đẩy (dirty): {}",
+                dongCanDay.size(), soBoQuaKhongDoi, dirtyList.size());
+
+        if (dirtyList.isEmpty()) {
+            theoDoi.batDauDay(0);
+            lanDayTonCuoi.put(kenh.getId(), Instant.now());
+            String moTa = "TikTok Shop: Tất cả " + dongCanDay.size() + " SKU tồn kho không đổi, bỏ qua đẩy tồn (tiết kiệm 100% quota API)";
+            ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_ton_kho, moTa);
+            return DayTonResultDto.builder().soDong(0).soLoi(0).soChuaDay(0).loiKenh(null).build();
+        }
+
         return null;
     }
 
