@@ -118,6 +118,40 @@ public class TikTokShopClient {
     }
 
     /**
+     * Làm mới Access Token bằng Refresh Token qua TikTok Shop Auth API.
+     * Endpoint: GET https://auth.tiktok-shops.com/api/v2/token/refresh
+     * Tham số: app_key, app_secret, refresh_token, grant_type=refresh_token
+     */
+    public JsonNode refreshToken(String appKey, String appSecret, String refreshToken) {
+        if (appKey == null || appKey.isBlank() || appSecret == null || appSecret.isBlank()) {
+            throw new IllegalArgumentException("App Key và App Secret không được để trống khi làm mới token");
+        }
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new IllegalArgumentException("Refresh Token không được để trống");
+        }
+
+        StringBuilder urlBuilder = new StringBuilder(TikTokShopConstants.TOKEN_REFRESH_URL);
+        urlBuilder.append("?app_key=").append(URLEncoder.encode(appKey.trim(), StandardCharsets.UTF_8))
+                .append("&app_secret=").append(URLEncoder.encode(appSecret.trim(), StandardCharsets.UTF_8))
+                .append("&refresh_token=").append(URLEncoder.encode(refreshToken.trim(), StandardCharsets.UTF_8))
+                .append("&grant_type=refresh_token");
+
+        try {
+            ResponseEntity<String> response = restTemplate.getForEntity(urlBuilder.toString(), String.class);
+            return parseAndValidateResponse(response.getBody());
+        } catch (HttpStatusCodeException e) {
+            handleHttpException("GET", TikTokShopConstants.TOKEN_REFRESH_URL, e);
+            throw e;
+        } catch (LoiCoMaException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Lỗi khi làm mới token TikTok Shop: {}", e.getMessage());
+            throw new LoiCoMaException(HttpStatus.BAD_GATEWAY, MaLoi.TIKTOK_TOKEN_EXPIRED,
+                    "Không thể làm mới Access Token từ máy chủ TikTok Shop: " + e.getMessage());
+        }
+    }
+
+    /**
      * Lấy danh sách gian hàng được người bán ủy quyền và trích xuất shop_cipher (v202309).
      * Endpoint: GET /authorization/202309/shops
      * Yêu cầu: Header x-tts-access-token, query params (app_key, timestamp, sign).

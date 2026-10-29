@@ -1549,14 +1549,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 return false;
             }
 
-            StringBuilder urlBuilder = new StringBuilder(TikTokShopConstants.TOKEN_REFRESH_URL);
-            urlBuilder.append("?app_key=").append(java.net.URLEncoder.encode(appKey.trim(), java.nio.charset.StandardCharsets.UTF_8))
-                    .append("&app_secret=").append(java.net.URLEncoder.encode(appSecret.trim(), java.nio.charset.StandardCharsets.UTF_8))
-                    .append("&refresh_token=").append(java.net.URLEncoder.encode(decryptedRefresh.trim(), java.nio.charset.StandardCharsets.UTF_8))
-                    .append("&grant_type=refresh_token");
-
-            ResponseEntity<String> response = getTikTokShopClient().getRestTemplate().getForEntity(urlBuilder.toString(), String.class);
-            JsonNode res = getTikTokShopClient().parseAndValidateResponse(response.getBody());
+            JsonNode res = getTikTokShopClient().refreshToken(appKey, appSecret, decryptedRefresh);
             JsonNode dataNode = res.path("data");
 
             String newAccessToken = dataNode.path("access_token").asText(null);
