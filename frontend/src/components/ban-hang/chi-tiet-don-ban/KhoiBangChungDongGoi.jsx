@@ -4,6 +4,7 @@ import { NhomThuocTinh } from "@/components/chung-tu/CotThuocTinh";
 import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
 import { AnhThuNho, HopXemBangChung } from "@/components/outbound/dong-goi/XemBangChung";
 import { dinhGio, dinhNgay, dongHo } from "@/components/outbound/dong-goi/dinhDangBangChung";
+import { TEN_TEP_LOAI } from "@/components/outbound/dong-goi/tinhDongGoi";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { TRANG_THAI_DON } from "@/constants/trangThaiXuatBan";
@@ -81,7 +82,7 @@ export default function KhoiBangChungDongGoi({ donId, trangThai }) {
                 <li key={x.loai} className={cn("min-w-0", x.laVideo && "col-span-2")}>
                   <button
                     type="button"
-                    onClick={() => setXem(x)}
+                    onClick={() => setXem({ ...x, tenTep: [data.soDonHang || `don-${donId}`, TEN_TEP_LOAI[x.loai]] })}
                     aria-label={[`Xem ${ten}`, bc.tenNguoiTao, luc].filter(Boolean).join(", ")}
                     className="group grid w-full gap-1 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
                   >
