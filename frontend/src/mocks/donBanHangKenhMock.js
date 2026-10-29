@@ -219,8 +219,10 @@ function matchFilter(order, filter) {
       return soSanh(filter.operation, don.khoXuat?.id, moiGiaTri(Number));
     case "ngayDatHang":
       return soSanh(filter.operation, Date.parse(don.ngayDatHang), moiGiaTri(thoiDiem));
-    case "yeuCauHuy":
-      return Boolean(don.yeuCauHuy) === (value === true || value === "true");
+    case "yeuCauHuy": {
+      const coHuy = Boolean(don.yeuCauHuy || (don.canXuLy && String(don.canXuLy).includes("YEU_CAU_HUY")) || (don.ghiChu && don.ghiChu.includes("[KHÁCH YÊU CẦU HỦY]")));
+      return coHuy === (value === true || value === "true");
+    }
     default:
       return true;
   }

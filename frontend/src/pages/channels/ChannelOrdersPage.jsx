@@ -438,6 +438,26 @@ export default function ChannelOrdersPage() {
                 <span className="truncate">{NHAN_LOC_YEU_CAU_HUY}</span>
                 <X className="size-4 shrink-0 text-bo-muted" aria-hidden="true" />
               </button>
+            ) : coYeuCauHuy ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={xemYeuCauHuy}
+                className={cn(
+                  "h-9 gap-1.5 px-3 text-sm font-medium transition-colors max-sm:h-11",
+                  soYeuCauHuy.data > 0
+                    ? "border-red-200 bg-red-50 text-bo-danger hover:bg-red-100"
+                    : "text-bo-muted hover:bg-bo-surface-subtle hover:text-bo-foreground",
+                )}
+                title="Lọc nhanh đơn khách yêu cầu hủy chưa xuất kho"
+              >
+                <span>Khách yêu cầu hủy</span>
+                {soYeuCauHuy.data > 0 ? (
+                  <span className="rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">
+                    {formatNumber(soYeuCauHuy.data)}
+                  </span>
+                ) : null}
+              </Button>
             ) : null}
           </ListToolbar>
         }

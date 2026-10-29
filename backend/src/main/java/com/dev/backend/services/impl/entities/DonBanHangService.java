@@ -170,15 +170,26 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     @Override
     @Transactional(readOnly = true)
     public Page<DonBanHang> filter(BaseFilterRequest request) {
-        List<FilterCriteria> phamVi = dieuKienPhamViTheoVaiTro(SecurityContextHolder.getUser());
-        if (phamVi.isEmpty()) {
-            return super.filter(request);
-        }
-
         List<FilterCriteria> filters = request.getFilters() == null
                 ? new ArrayList<>()
                 : new ArrayList<>(request.getFilters());
-        filters.addAll(phamVi);
+
+        // Chuẩn hóa bộ lọc yeuCauHuy sang ghiChu chứa [KHÁCH YÊU CẦU HỦY]
+        for (int i = 0; i < filters.size(); i++) {
+            FilterCriteria fc = filters.get(i);
+            if (fc != null && "yeuCauHuy".equalsIgnoreCase(fc.getFieldName())) {
+                filters.set(i, FilterCriteria.builder()
+                        .fieldName("ghiChu")
+                        .operation(FilterOperation.LIKE)
+                        .value("[KHÁCH YÊU CẦU HỦY]")
+                        .build());
+            }
+        }
+
+        List<FilterCriteria> phamVi = dieuKienPhamViTheoVaiTro(SecurityContextHolder.getUser());
+        if (!phamVi.isEmpty()) {
+            filters.addAll(phamVi);
+        }
         request.setFilters(filters);
         return super.filter(request);
     }
