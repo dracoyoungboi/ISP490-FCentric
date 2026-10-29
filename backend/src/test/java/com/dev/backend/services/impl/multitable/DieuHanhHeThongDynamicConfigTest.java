@@ -58,8 +58,8 @@ class DieuHanhHeThongDynamicConfigTest {
 
         service.initDefaultConfigurations();
 
-        // 6 khóa vận hành + 5 khóa mã vạch / tem sản phẩm (MA_VACH_TIEN_TO, TEM_*)
-        verify(cauHinhRepository, times(11)).save(any(CauHinhHeThong.class));
+        // 6 khóa vận hành + 5 khóa mã vạch / tem sản phẩm (MA_VACH_TIEN_TO, TEM_*) + 2 khóa VAT
+        verify(cauHinhRepository, times(13)).save(any(CauHinhHeThong.class));
         verify(cauHinhRepository).save(argThat(c -> "KIEM_DEM_XAC_NHAN".equals(c.getMaCauHinh())
                 && "QUET_TIEP_LA_DAT".equals(c.getGiaTri()) && c.getKieuDuLieu() == KieuDuLieuCauHinh.STRING));
         verify(cauHinhRepository).save(argThat(c -> "MA_KHACH_HANG_TIEN_TO".equals(c.getMaCauHinh())

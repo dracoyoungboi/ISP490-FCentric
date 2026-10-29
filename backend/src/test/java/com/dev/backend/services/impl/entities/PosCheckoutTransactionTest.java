@@ -57,6 +57,7 @@ class PosCheckoutTransactionTest {
     @Mock private LichSuGiaoDichKhoRepository lichSuGiaoDichKhoRepository;
     @Mock private PosCheckoutRequestRepository posCheckoutRequestRepository;
     @Mock private PosPaymentRepository posPaymentRepository;
+    @Mock private ThueGtgtService thueGtgtService;
 
     private PosCheckoutTransaction executor;
     // Mapper như Spring cấu hình (có JavaTimeModule cho Instant)
@@ -83,6 +84,7 @@ class PosCheckoutTransactionTest {
         ReflectionTestUtils.setField(executor, "posCheckoutRequestRepository", posCheckoutRequestRepository);
         ReflectionTestUtils.setField(executor, "posPaymentRepository", posPaymentRepository);
         ReflectionTestUtils.setField(executor, "objectMapper", objectMapper);
+        ReflectionTestUtils.setField(executor, "thueGtgtService", thueGtgtService);
         SecurityContextHolder.setUser(NguoiDungAuthInfo.builder()
                 .id(7).vaiTro(Set.of("nhan_vien_ban_hang")).build());
     }
