@@ -1,6 +1,8 @@
 package com.dev.backend.services.tiktok;
 
 import com.dev.backend.constants.TikTokShopConstants;
+import com.dev.backend.dto.response.customize.TikTokAuthorizedShopsResponse;
+import com.dev.backend.dto.response.customize.TikTokShopDto;
 import com.dev.backend.exception.customize.LoiCoMaException;
 import com.dev.backend.exception.customize.MaLoi;
 import com.dev.backend.utils.TikTokShopSigner;
@@ -113,6 +115,43 @@ public class TikTokShopClient {
             throw new LoiCoMaException(HttpStatus.BAD_GATEWAY, MaLoi.TIKTOK_AUTH_FAILED,
                     "Không thể trao đổi mã ủy quyền với máy chủ TikTok Shop: " + e.getMessage());
         }
+    }
+
+    /**
+     * Lấy danh sách gian hàng được người bán ủy quyền và trích xuất shop_cipher (v202309).
+     * Endpoint: GET /authorization/202309/shops
+     * Yêu cầu: Header x-tts-access-token, query params (app_key, timestamp, sign).
+     * Không cần shop_cipher trong query vì endpoint này dùng để tra cứu cipher.
+     */
+    public TikTokAuthorizedShopsResponse getAuthorizedShops(String appKey, String appSecret, String accessToken) {
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new IllegalArgumentException("Access Token không được để trống khi lấy danh sách gian hàng TikTok Shop");
+        }
+        String apiPath = TikTokShopConstants.PATH_AUTHORIZED_SHOPS;
+        String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, Map.of(), null, appKey, appSecret, null);
+        JsonNode root = executeGet(fullSignedUrl, accessToken);
+
+        TikTokAuthorizedShopsResponse response = new TikTokAuthorizedShopsResponse();
+        response.setCode(root.path("code").asInt(0));
+        response.setMessage(root.path("message").asText(""));
+        response.setRequestId(root.path("request_id").asText(""));
+
+        JsonNode shopsNode = root.path("data").path("shops");
+        if (shopsNode.isArray()) {
+            java.util.List<TikTokShopDto> list = new java.util.ArrayList<>();
+            for (JsonNode s : shopsNode) {
+                TikTokShopDto dto = new TikTokShopDto();
+                dto.setCipher(s.path("cipher").asText(null));
+                dto.setCode(s.path("code").asText(null));
+                dto.setId(s.path("id").asText(null));
+                dto.setName(s.path("name").asText(null));
+                dto.setRegion(s.path("region").asText(null));
+                dto.setSellerType(s.path("seller_type").asText(null));
+                list.add(dto);
+            }
+            response.setShops(list);
+        }
+        return response;
     }
 
     /**
