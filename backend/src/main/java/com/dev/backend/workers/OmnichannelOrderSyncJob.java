@@ -182,6 +182,12 @@ public class OmnichannelOrderSyncJob {
                     continue;
                 }
                 syncLazadaOrders(kenh, intervalMins);
+            } else if (MA_KENH_TIKTOK.equalsIgnoreCase(kenh.getMaKenh())) {
+                if (!KenhCauHinhDongBo.tuDongLayDon(dieuHanhHeThongService, kenh.getMaKenh())) {
+                    log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", kenh.getMaKenh());
+                    continue;
+                }
+                syncTikTokOrders(kenh, intervalMins);
             }
         }
     }
@@ -507,12 +513,12 @@ public class OmnichannelOrderSyncJob {
     }
 
     public int syncTikTokOrders(KenhBanHang kenh) {
-        Instant tu = lastSyncTime.get();
-        if (tu.equals(Instant.EPOCH)) {
-            tu = Instant.now().minus(Duration.ofDays(1));
-        }
-        Instant den = Instant.now();
-        return syncTikTokOrders(kenh, tu, den);
+        return syncTikTokOrders(kenh, getChuKyPhut());
+    }
+
+    public int syncTikTokOrders(KenhBanHang kenh, int intervalMins) {
+        int bufferMinutes = Math.max(intervalMins + 5, 10);
+        return syncTikTokOrders(kenh, Instant.now().minus(Duration.ofMinutes(bufferMinutes)), Instant.now());
     }
 
     public int syncTikTokOrders(KenhBanHang kenh, Instant tu, Instant den) {
