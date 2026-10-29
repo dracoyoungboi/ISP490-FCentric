@@ -36,7 +36,8 @@ const THU_TU = {
  * Tổng quan của quản trị viên (UC 11.1, màn 11.1.1). Dữ liệu từ GET /api/v1/admin/dashboard/tong-quan.
  * Bố cục Kiểu 3 (chốt 17/10/2026): dải đầu trang gồm phạm vi và 4 chỉ số của kỳ (bấm để đổi biểu đồ);
  * cột chính: biểu đồ theo ngày so với kỳ trước, phân bổ doanh thu, tồn kho; cột phải: cần xử lý (việc phải làm
- * đứng đầu), hôm nay, bán chạy, hoạt động gần đây. Mỗi khối có trạng thái đang tải, lỗi riêng và rỗng (luồng A1, A2).
+ * đứng đầu), hôm nay, hoạt động gần đây (ngay dưới tổng hôm nay, 30/10/2026), bán chạy. Mỗi khối có trạng thái đang tải,
+ * lỗi riêng và rỗng (luồng A1, A2).
  */
 export default function DashboardAdmin() {
   const [ky, setKy] = useState(KY_MAC_DINH);
@@ -92,8 +93,8 @@ export default function DashboardAdmin() {
         <div className={COT_PHAI}>
           <ActionPanel {...chung} error={loi("viecCanXuLy")} className={THU_TU[1]} />
           <HomNayCard {...chung} error={loi("chiSo")} className={THU_TU[2]} />
-          <ProductsCard {...chung} error={loi("sanPhamBanChay")} className={THU_TU[6]} />
-          <HoatDongGanDay {...chung} error={loi("hoatDongGanDay")} loiNhapXuat={loi("nhapXuat")} className={THU_TU[7]} />
+          <HoatDongGanDay {...chung} error={loi("hoatDongGanDay")} loiNhapXuat={loi("nhapXuat")} className={THU_TU[6]} />
+          <ProductsCard {...chung} error={loi("sanPhamBanChay")} className={THU_TU[7]} />
         </div>
       </div>
     </PageContainer>
