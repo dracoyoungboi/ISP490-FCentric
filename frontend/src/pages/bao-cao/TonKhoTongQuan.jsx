@@ -9,8 +9,8 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { dsKhoLamViecTrongToken, getKhoLamViecId } from "@/utils/khoLamViec";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { getKhoLamViecId } from "@/utils/khoLamViec";
 import { toast } from "@/lib/thongBaoNhanh";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
     PackagePlus, Warehouse, ShieldAlert,
-    ChevronDown, ChevronRight, Check, SearchX,
+    ChevronDown, Check, SearchX,
 } from "lucide-react";
 
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -39,8 +39,7 @@ import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
 import apiClient from "@/services/apiClient";
 import { thongKeHeThongService } from "@/services/thongKeHeThongService";
-import { laKhoGiaoDich, laKhoTong } from "@/utils/kho";
-import { duongDanKemThamSo } from "@/utils/thamSoDuongDan";
+import { laKhoGiaoDich } from "@/utils/kho";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { formatCurrency, formatNumber } from "@/utils/formatters";
 import { VAI_TRO_TAO_YEU_CAU_NHAP } from "@/constants/vaiTroTaoYeuCauNhap";
@@ -93,16 +92,7 @@ function canNhapKho(roles) {
     return roles.some(r => VAI_TRO_TAO_YEU_CAU_NHAP.includes(r));
 }
 
-// Vai trò được tạo yêu cầu chuyển kho (PhieuChuyenKhoController /create): mới hiện nút "Chuyển … từ Kho tổng"
-function canChuyenKho(roles) {
-    return roles.some(r => [ROLE.QUAN_TRI_VIEN, ROLE.QUAN_LY_KHO, ROLE.NHAN_VIEN_KHO].includes(r));
-}
-
-// Mức tồn do máy chủ xếp theo đúng quy tắc của Tổng quan (khả dụng = tồn − đang giữ, ngưỡng mặc định khi sản phẩm chưa
-// đặt mức, hệ số dư cấu hình), để số trên tab khớp số ở Tổng quan. null = mã chưa từng nhập về kho này hoặc kho trung
-// chuyển: không xếp mức, chỉ hiện ở tab Tất cả. Máy chủ cũ chưa trả `tinhTrang` thì tính như trước.
 function trangThaiTon(item) {
-    if ("tinhTrang" in item) return item.tinhTrang ?? null;
     const kha = Number(item.tongSoLuongKhaDung ?? item.onHand ?? 0);
     const min = Number(item.mucTonToiThieu ?? 0);
     if (kha <= 0) return "het_hang";
@@ -121,10 +111,8 @@ const STATUS_CFG = {
 };
 
 // Tab tình trạng tồn (bố cục A+G) — mã tab trên URL ?tinhTrang=, `key` là kết quả của trangThaiTon()
-// "Cần bổ sung" = Hết hàng + Sắp hết hàng (đích của "Xem tất cả" ở khối Cần bổ sung của Tổng quan), có cột Đề xuất.
 const TRANG_THAI_FILTERS = [
     { value: "tat-ca", key: "tat_ca", label: "Tất cả" },
-    { value: "can-bo-sung", key: "can_bo_sung", label: "Cần bổ sung", tone: "warning" },
     { value: "het-hang", key: "het_hang", label: "Hết hàng" },
     { value: "thieu-hang", key: "thieu_hang", label: "Sắp hết hàng" },
     { value: "binh-thuong", key: "binh_thuong", label: "Bình thường" },
@@ -136,31 +124,8 @@ const TAB_MAC_DINH = "tat-ca";
 // Dòng thuộc tab nào: cùng một hàm cho bảng và số trên tab (R1)
 const khopTab = (item, tab) => {
     const cfg = TRANG_THAI_FILTERS.find(t => t.value === tab);
-    if (!cfg || cfg.key === "tat_ca") return true;
-    const tt = trangThaiTon(item);
-    return cfg.key === "can_bo_sung" ? tt === "het_hang" || tt === "thieu_hang" : tt === cfg.key;
+    return !cfg || cfg.key === "tat_ca" || trangThaiTon(item) === cfg.key;
 };
-
-/**
- * Đường dẫn mở sẵn form theo đề xuất của dòng (cùng quy tắc với Tổng quan): chuyển từ Kho tổng → kho cần hàng, hoặc
- * yêu cầu nhập về Kho tổng; đúng mã hàng, số lượng đề xuất. Không biết Kho tổng thì form chuyển kho tự chọn.
- */
-function duongDanDeXuat(item, khoTongId) {
-    if (item.deXuat === "chuyen_kho") {
-        return duongDanKemThamSo("/transfer-tickets/create", {
-            khoXuatId: khoTongId,
-            khoNhapId: item.khoId,
-            bienTheId: item.bienTheId,
-            soLuong: item.soLuongDeXuat,
-        });
-    }
-    return duongDanKemThamSo("/purchase-requests/create", {
-        khoId: item.khoId,
-        bienTheId: item.bienTheId,
-        soLuong: item.soLuongDeXuat,
-        ten: item.tenSanPham,
-    });
-}
 
 // ─── PAGE COMPONENT ───────────────────────────────────────────────────────────
 export default function TonKhoTongQuan() {
@@ -371,7 +336,6 @@ export default function TonKhoTongQuan() {
     const statusTabs = TRANG_THAI_FILTERS.map(t => ({
         value: t.value,
         label: t.label,
-        tone: t.tone,
         count: loading || loadError || !hasLoaded ? null : data.filter(item => khopTab(item, t.value)).length,
     }));
     const tabLabel = TRANG_THAI_FILTERS.find(t => t.value === trangThaiFilter)?.label;
@@ -380,16 +344,6 @@ export default function TonKhoTongQuan() {
     // Computed flags
     const hasAccess = userRoles.some(r => ALLOWED_ROLES.includes(r));
     const showNhapKho = canNhapKho(userRoles);
-    const duocChuyenKho = canChuyenKho(userRoles);
-    // Như form tạo phiếu chuyển: quản trị viên, Quản lý Kho tổng chuyển cho mọi kho; người khác chỉ nhận về kho mình
-    // được phân (máy chủ chặn kho khác), nên nút "Chuyển … từ Kho tổng" chỉ bấm được ở dòng thuộc kho đó
-    const khoCuaToi = dsKhoLamViecTrongToken();
-    const chuyenMoiKho = userRoles.includes(ROLE.QUAN_TRI_VIEN)
-        || (userRoles.includes(ROLE.QUAN_LY_KHO) && khoCuaToi.some(laKhoTong));
-    const idKhoCuaToi = new Set(khoCuaToi.map(k => String(k.id)));
-    const duocChuyenVe = (khoNhanId) => duocChuyenKho && (chuyenMoiKho || idKhoCuaToi.has(String(khoNhanId)));
-    const coCotDeXuat = trangThaiFilter === "can-bo-sung";
-    const khoTongId = data.find(i => i.laKhoTong)?.khoId ?? null;
     const multiKho = khoList.length > 1;
     const activeKhoLabel = selectedKhoId
         ? khoList.find(k => k.id === selectedKhoId)?.tenKho ?? "Chọn kho"
@@ -647,14 +601,13 @@ export default function TonKhoTongQuan() {
                                 <th className={`${TH_CLASS} text-right tabular-nums`}>Tồn tối thiểu</th>
                                 <th className={`${TH_CLASS} text-right tabular-nums`}>Giá trị tồn</th>
                                 <th className={`${TH_CLASS} text-left`}>Tình trạng</th>
-                                {coCotDeXuat && <th className={`${TH_CLASS} text-left`}>Đề xuất</th>}
                                 <th className={`${TH_CLASS} text-center`}>Thao tác</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-bo-border">
                             {pageItems.map((item, idx) => {
                                 const statusKey = trangThaiTon(item);
-                                const statusCfg = statusKey == null ? null : STATUS_CFG[statusKey] ?? STATUS_CFG.binh_thuong;
+                                const statusCfg = STATUS_CFG[statusKey] ?? STATUS_CFG.binh_thuong;
 
                                 const onHand = Number(item.onHand ?? item.tongSoLuongKhaDung ?? 0);
                                 const incoming = Number(item.incoming ?? item.tongSoLuongChoNhan ?? 0);
@@ -713,12 +666,7 @@ export default function TonKhoTongQuan() {
                                         </td>
 
                                         <td className="px-3 py-3 text-right text-xs tabular-nums">
-                                            {item.nguongMacDinh && item.nguong != null ? (
-                                                // Sản phẩm chưa đặt mức: ghi ngưỡng mặc định đang dùng để xếp mức
-                                                <span className="text-bo-muted" title="Sản phẩm chưa đặt mức tồn tối thiểu, đang dùng ngưỡng mặc định của hệ thống">
-                                                    {formatNumber(item.nguong)} <span className="text-[11px]">(mặc định)</span>
-                                                </span>
-                                            ) : item.mucTonToiThieu == null ? (
+                                            {item.mucTonToiThieu == null ? (
                                                 <span className="text-bo-muted">—</span>
                                             ) : (
                                                 <span className="font-semibold text-slate-600">{formatNumber(item.mucTonToiThieu)}</span>
@@ -727,22 +675,11 @@ export default function TonKhoTongQuan() {
                                         <td className="whitespace-nowrap px-3 py-3 text-right text-xs font-bold tabular-nums text-bo-foreground">{formatCurrency(giaTri)}</td>
 
                                         <td className="px-3 py-3">
-                                            {statusCfg ? (
-                                                <StatusBadge label={statusCfg.label} />
-                                            ) : (
-                                                <span className="text-bo-muted" title="Mã chưa từng nhập về kho này nên không xếp mức tồn">—</span>
-                                            )}
+                                            <StatusBadge label={statusCfg.label} />
                                         </td>
 
-                                        {coCotDeXuat && (
-                                            <td className="px-3 py-3">
-                                                <DeXuatDong item={item} khoTongId={khoTongId} duocNhap={showNhapKho} duocChuyen={duocChuyenVe(item.khoId)} />
-                                            </td>
-                                        )}
-
                                         <td className="px-3 py-3 text-center">
-                                            {/* Tab Cần bổ sung đã có cột Đề xuất (có thể là chuyển kho): không để nút tạo yêu cầu nhập trái với đề xuất */}
-                                            {showNhapKho && !coCotDeXuat && (
+                                            {showNhapKho && (
                                                 <RowActions>
                                                     <RowActionButton
                                                         icon={PackagePlus}
@@ -764,44 +701,6 @@ export default function TonKhoTongQuan() {
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-/**
- * Ô Đề xuất của tab Cần bổ sung: nút mở sẵn form như ở Tổng quan, kèm khả dụng / ngưỡng (căn cứ xếp mức).
- * Vai trò không được tạo chứng từ đó thì chỉ ghi chữ; máy chủ cũ chưa trả đề xuất thì để trống.
- */
-function DeXuatDong({ item, khoTongId, duocNhap, duocChuyen }) {
-    if (!item.deXuat) return <span className="text-bo-muted">—</span>;
-    const chuyen = item.deXuat === "chuyen_kho";
-    const chu = chuyen ? `Chuyển ${formatNumber(item.soLuongDeXuat)} từ Kho tổng` : `Yêu cầu nhập ${formatNumber(item.soLuongDeXuat)}`;
-    const daTru = item.choXuatKhoTong > 0 ? ` (đã trừ ${formatNumber(item.choXuatKhoTong)} đơn bán đang chờ xuất)` : "";
-    const ghiChu = chuyen
-        ? `Kho tổng còn ${formatNumber(item.khaDungKhoTong)} có thể chuyển${daTru}`
-        : item.laKhoTong
-            ? "Kho tổng nhập từ nhà cung cấp"
-            : item.khaDungKhoTong == null
-                ? "Chưa đánh dấu Kho tổng"
-                : `Kho tổng chỉ còn ${formatNumber(item.khaDungKhoTong)} có thể chuyển${daTru}, không đủ chuyển`;
-    const duoc = chuyen ? duocChuyen : duocNhap;
-    return (
-        <div className="flex flex-col gap-0.5">
-            {duoc ? (
-                <Link
-                    to={duongDanDeXuat(item, khoTongId)}
-                    title={ghiChu}
-                    className="inline-flex items-center gap-0.5 whitespace-nowrap rounded font-medium text-bo-primary hover:text-bo-primary-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
-                >
-                    {chu}
-                    <ChevronRight className="size-3.5 shrink-0" aria-hidden="true" />
-                </Link>
-            ) : (
-                <span className="whitespace-nowrap text-slate-700" title={ghiChu}>{chu}</span>
-            )}
-            <span className="whitespace-nowrap text-xs tabular-nums text-bo-muted">
-                Khả dụng {formatNumber(item.khaDung)} / ngưỡng {formatNumber(item.nguong)}
-            </span>
-        </div>
-    );
-}
-
 /** Số lượng trong bảng: chữ thường (không ô màu); 0 hiện xám, số âm hiện đỏ để nổi lên. */
 function SoLuong({ value, className = "text-slate-700" }) {
     const so = Number(value);
