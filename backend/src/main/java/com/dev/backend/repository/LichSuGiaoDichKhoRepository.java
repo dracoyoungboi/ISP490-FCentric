@@ -81,4 +81,7 @@ public interface LichSuGiaoDichKhoRepository extends JpaRepository<LichSuGiaoDic
         AND ls.loaiGiaoDich = 'chuyen_kho'
         """)
     List<String> findTenKhoNguonByPhieuNhap(@Param("idPhieuNhap") Integer idPhieuNhap);
+
+    /** Dòng sổ kho của một chứng từ (VD phiếu điều chỉnh kho), theo thứ tự ghi. */
+    List<LichSuGiaoDichKho> findByLoaiThamChieuAndIdThamChieuOrderByIdAsc(String loaiThamChieu, Integer idThamChieu);
 }

@@ -263,100 +263,40 @@ class ChungTuThuocKhoTest {
     }
 
     // ═════════════ Chuyển kho (H-4) — nguồn A, đích B ═════════════
+    // Phạm vi kho của phiếu chuyển (xem, duyệt, hủy, nhặt, xác nhận xuất, nhận, nhập hoàn trả) kiểm ở
+    // PhieuChuyenKhoServiceTest. Ở đây chỉ còn phiếu xuất con / dòng phiếu chuyển cũ đi nhầm qua màn phiếu xuất.
 
     @Test
-    void chuyenKho_xem_haiBenDeuXemDuoc_khoThuBaBiChan() {
-        phieuChuyen(A, B, 1);
-        when(ctPxRepo.findByPhieuXuatKhoIdAndLoHangIsNull(PHIEU_ID)).thenReturn(List.of());
-
-        dangNhap(IRoleType.quan_ly_kho, B, B); // kho đích (bên lập yêu cầu)
-        assertEquals(B, px.getTransferDetail(PHIEU_ID).getKhoNhapId());
-        dangNhap(IRoleType.quan_ly_kho, A, A); // kho nguồn
-        assertEquals(A, px.getTransferDetail(PHIEU_ID).getKhoXuatId());
-        dangNhap(IRoleType.quan_ly_kho, C, C);
-        biChan(() -> px.getTransferDetail(PHIEU_ID));
-    }
-
-    @Test
-    void chuyenKho_guiDuyet_chiKhoDich() {
-        PhieuXuatKho p = phieuChuyen(A, B, 0);
-
+    void phieuXuat_huyQuaManPhieuXuat_phieuXuatConCuaPhieuChuyen_baoLoi_trangThaiGiuNguyen() {
+        // BA, A5: phiếu xuất con hủy cùng phiếu chuyển; hủy riêng thì phiếu chuyển Đã duyệt mất phiếu xuất
+        PhieuChuyenKho pck = PhieuChuyenKho.builder().id(PHIEU_ID).soPhieuChuyen("PX-TRF-1").khoXuat(kho(A)).khoNhap(kho(B))
+                .trangThai("DA_DUYET").build();
+        PhieuXuatKho con = PhieuXuatKho.builder().id(60).soPhieuXuat("PX-CK-1").loaiXuat("chuyen_kho").kho(kho(A))
+                .khoChuyenDen(kho(B)).phieuChuyenKho(pck).trangThai(ITrangThaiPhieuXuat.NHAP).build();
+        when(pxRepo.findById(60)).thenReturn(Optional.of(con));
         dangNhap(IRoleType.quan_ly_kho, A, A);
-        biChan(() -> px.submitTransfer(PHIEU_ID));
-        dangNhap(IRoleType.quan_ly_kho, C, C);
-        biChan(() -> px.submitTransfer(PHIEU_ID));
-        assertEquals(0, p.getTrangThai());
 
-        dangNhap(IRoleType.quan_ly_kho, B, B);
-        px.submitTransfer(PHIEU_ID);
-        assertEquals(1, p.getTrangThai());
-        // đọc phiếu bằng khóa dòng: gửi duyệt chạy sau một lần hủy thì thấy Đã hủy, không ghi đè
-        verify(pxRepo, never()).findById(PHIEU_ID);
-    }
-
-    @Test
-    void chuyenKho_duyetSauKhiDaHuy_baoLoi_khongGhiDeTrangThaiHuy() {
-        // hủy (đã khóa dòng) commit trước; duyệt đọc phiếu bằng khóa dòng nên thấy 4, không đưa về 2
-        PhieuXuatKho p = phieuChuyen(A, B, 1);
-        PhieuXuatKho daHuy = PhieuXuatKho.builder().id(PHIEU_ID).soPhieuXuat("PX-TRF-1").loaiXuat("khac")
-                .kho(kho(A)).khoChuyenDen(kho(B)).trangThai(4).build();
-        when(pxRepo.findByIdForUpdate(PHIEU_ID)).thenReturn(Optional.of(daHuy));
-        dangNhap(IRoleType.quan_tri_vien, null);
-
-        assertThrows(RuntimeException.class, () -> px.approveTransfer(PHIEU_ID, 7));
-        assertEquals(4, daHuy.getTrangThai());
-        assertEquals(1, p.getTrangThai(), "không đọc bản không khóa");
+        CommonException ex = assertThrows(CommonException.class, () -> px.cancel(60));
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getHttpStatus());
+        assertEquals(ITrangThaiPhieuXuat.NHAP, con.getTrangThai());
         verify(pxRepo, never()).save(any());
     }
 
     @Test
-    void chuyenKho_huy_khoNguonHoacKhoDich_duoc_khoThuBaBiChan() {
-        PhieuXuatKho p = phieuChuyen(A, B, 1);
-        dangNhap(IRoleType.quan_ly_kho, C, C);
-        biChan(() -> px.cancelTransfer(PHIEU_ID));
-        assertEquals(1, p.getTrangThai());
+    void phieuXuat_phieuXuatConCuaPhieuChuyen_tuKhoNhan_biChan() {
+        PhieuChuyenKho pck = PhieuChuyenKho.builder().id(PHIEU_ID).soPhieuChuyen("PX-TRF-1").khoXuat(kho(A)).khoNhap(kho(B))
+                .trangThai("DA_DUYET").build();
+        PhieuXuatKho con = PhieuXuatKho.builder().id(60).soPhieuXuat("PX-CK-1").loaiXuat("chuyen_kho").kho(kho(A))
+                .khoChuyenDen(kho(B)).phieuChuyenKho(pck).trangThai(ITrangThaiPhieuXuat.NHAP).build();
+        when(pxRepo.findById(60)).thenReturn(Optional.of(con));
+        dangNhap(IRoleType.quan_ly_kho, B, A, B); // được phân cả kho nguồn nhưng đang chọn kho nhận
 
-        dangNhap(IRoleType.quan_ly_kho, B, B); // kho đích rút yêu cầu
-        px.cancelTransfer(PHIEU_ID);
-        assertEquals(4, p.getTrangThai());
-
-        PhieuXuatKho p2 = phieuChuyen(A, B, 2);
-        dangNhap(IRoleType.quan_ly_kho, A, A); // kho nguồn từ chối
-        px.cancelTransfer(PHIEU_ID);
-        assertEquals(4, p2.getTrangThai());
-    }
-
-    @Test
-    void chuyenKho_taoPhieuXuat_chiKhoNguon() {
-        phieuChuyen(A, B, 2);
-        dangNhap(IRoleType.quan_ly_kho, B, B);
-        biChan(() -> px.createExportFromTransfer(PHIEU_ID));
-        verify(pxRepo, never()).save(any());
-
-        dangNhap(IRoleType.quan_ly_kho, A, A);
-        quaCuaKho(() -> px.createExportFromTransfer(PHIEU_ID));
-    }
-
-    @Test
-    void chuyenKho_taoPhieuNhap_trangThai3_chiKhoDich_trangThai4_chiKhoNguon() {
-        phieuChuyen(A, B, 3);
-        dangNhap(IRoleType.quan_ly_kho, A, A);
-        biChan(() -> pn.createImportFromTransfer(PHIEU_ID));
-        dangNhap(IRoleType.quan_ly_kho, B, B);
-        quaCuaKho(() -> pn.createImportFromTransfer(PHIEU_ID));
-
-        phieuChuyen(A, B, 4); // đã hủy sau khi xuất: nhập hoàn trả về kho nguồn
-        dangNhap(IRoleType.quan_ly_kho, B, B);
-        biChan(() -> pn.createImportFromTransfer(PHIEU_ID));
-        dangNhap(IRoleType.quan_ly_kho, A, A);
-        quaCuaKho(() -> pn.createImportFromTransfer(PHIEU_ID));
-    }
-
-    @Test
-    void chuyenKho_taoPhieuNhap_khoThuBa_bi403TruocCauBaoTrangThai() {
-        phieuChuyen(A, B, 1); // trạng thái không hợp lệ để nhập: kho thứ ba không được biết điều này
-        dangNhap(IRoleType.quan_ly_kho, C, C);
-        biChan(() -> pn.createImportFromTransfer(PHIEU_ID));
+        biChan(() -> px.xuatPhieuXuatCon(60, 7));
+        biChan(() -> px.pickLoHang(60, null));
+        biChan(() -> px.cancel(60));
+        // hai bên của phiếu chuyển đều xem được phiếu xuất con
+        assertEquals(60, px.layPhieuDuocXem(60).getId());
+        verify(tonRepo, never()).save(any());
     }
 
     @Test
@@ -385,18 +325,20 @@ class ChungTuThuocKhoTest {
     }
 
     @Test
-    void chuyenKho_hoanTatNhan_chiKhoCuaPhieuNhap() {
+    void chuyenKho_phieuNhapCuaPhieuChuyen_khoKhac403_dungKhoVanKhongNhapQuaManPhieuNhap() {
         PhieuNhapKho phieuNhap = PhieuNhapKho.builder().id(70).soPhieuNhap("PN-TRF-1").kho(kho(B)).trangThai(0)
-                .phieuChuyenKhoGoc(PhieuXuatKho.builder().id(PHIEU_ID).kho(kho(A)).build()).build();
+                .phieuChuyenKho(PhieuChuyenKho.builder().id(PHIEU_ID).khoXuat(kho(A)).khoNhap(kho(B)).build()).build();
         when(pnRepo.findById(70)).thenReturn(Optional.of(phieuNhap));
-        when(pnRepo.khoaTheoId(70)).thenReturn(Optional.of(phieuNhap)); // hoàn tất nhận khóa dòng phiếu nhập
+        when(pnRepo.khoaTheoId(70)).thenReturn(Optional.of(phieuNhap)); // nhập kho khóa dòng phiếu nhập
 
         dangNhap(IRoleType.quan_ly_kho, A, A, B);
-        biChan(() -> pn.completeTransferReceipt(70, 7));
-        verify(tonRepo, never()).save(any());
+        biChan(() -> pn.completePhieuNhap(70, 7));
 
         dangNhap(IRoleType.quan_ly_kho, B, B);
-        quaCuaKho(() -> pn.completeTransferReceipt(70, 7));
+        CommonException ex = assertThrows(CommonException.class, () -> pn.completePhieuNhap(70, 7));
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getHttpStatus(), ex.getMessage());
+        assertEquals(0, phieuNhap.getTrangThai());
+        verify(tonRepo, never()).save(any());
     }
 
     // ═════════════ Kiểm kê (H-3) — đợt 10 của kho A, dòng 100 (lô 5, hệ thống 20) ═════════════

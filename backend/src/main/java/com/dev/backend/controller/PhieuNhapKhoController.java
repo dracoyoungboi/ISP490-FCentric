@@ -209,39 +209,7 @@ public class PhieuNhapKhoController {
                         .build()
         );
     }
-    @PutMapping("/{id}/complete-transfer")
-    @RequireAuth(
-            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
-            inWarehouse = true,
-            rolesLogic = RequireAuth.LogicType.OR
-    )
-    public ResponseEntity<ResponseData<String>> completeTransfer(@PathVariable Integer id) {
-        Integer staffId = SecurityContextHolder.getUser().getId();
-        phieuNhapKhoService.completeTransferReceipt(id, staffId);
-        return ResponseEntity.ok(
-                ResponseData.<String>builder()
-                        .status(HttpStatus.OK.value())
-                        .message("Nhập kho nội bộ thành công")
-                        .data("SUCCESS")
-                        .build()
-        );
-    }
-    @PostMapping("/from-transfer/{transferId}")
-    @RequireAuth(
-            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
-            inWarehouse = true,
-            rolesLogic = RequireAuth.LogicType.OR
-    )
-    public ResponseEntity<ResponseData<PhieuNhapKhoDto>> createFromTransfer(@PathVariable Integer transferId) {
-        PhieuNhapKho entity = phieuNhapKhoService.createImportFromTransfer(transferId);
-        return ResponseEntity.ok(
-                ResponseData.<PhieuNhapKhoDto>builder()
-                        .status(HttpStatus.OK.value())
-                        .message("Khởi tạo phiếu nhập chuyển kho thủ công thành công")
-                        .data(phieuNhapKhoMapper.toDto(entity))
-                        .build()
-        );
-    }
+    // Nhận hàng chuyển kho (PN-TRF, PN-RET): lập và hoàn tất ở PhieuChuyenKhoController (/nhan-du, /nhan-lech, /nhap-hoan-tra)
     @PostMapping("/from-sales-return/{donBanHangId}")
     @RequireAuth(
             roles = {

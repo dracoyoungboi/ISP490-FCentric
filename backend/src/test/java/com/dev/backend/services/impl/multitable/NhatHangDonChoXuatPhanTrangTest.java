@@ -2,9 +2,12 @@ package com.dev.backend.services.impl.multitable;
 
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.IRoleType;
+import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
 import com.dev.backend.dto.request.DonChoXuatFilterRequest;
 import com.dev.backend.dto.response.customize.DonChoXuatDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
+import com.dev.backend.entities.BienTheSanPham;
+import com.dev.backend.entities.ChiTietDonBanHang;
 import com.dev.backend.entities.DonBanHang;
 import com.dev.backend.repository.DonBanHangRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -20,11 +23,14 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
@@ -40,6 +46,8 @@ class NhatHangDonChoXuatPhanTrangTest {
     private DonBanHangRepository donBanHangRepository;
     @Mock
     private LoDangGiuService loDangGiuService;
+    @Mock
+    private GiuChoChuyenKhoService giuChoChuyenKhoService;
 
     @InjectMocks
     private NhatHangServiceImpl service;
@@ -94,5 +102,27 @@ class NhatHangDonChoXuatPhanTrangTest {
         assertEquals(0, ketQua.getNumber());
         assertEquals(20, ketQua.getSize());
         verifyNoInteractions(loDangGiuService);
+    }
+
+    /** "Đủ hàng" khớp phép phân bổ lô khi tạo phiếu nhặt: trừ cả phần phiếu chuyển đang giữ chỗ mà chưa chọn lô. */
+    @Test
+    @SuppressWarnings("unchecked")
+    void duHang_truGiuChoPhieuChuyen() {
+        DonBanHang don = DonBanHang.builder().id(1).soDonHang("SO-1").trangThai(ITrangThaiDonBanHang.CHO_NHAT_HANG).build();
+        don.setChiTietDonBanHangs(List.of(ChiTietDonBanHang.builder()
+                .bienTheSanPham(BienTheSanPham.builder().id(93).build()).soLuongDat(new BigDecimal("5")).build()));
+        when(donBanHangRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenAnswer(inv -> new PageImpl<>(List.of(don), inv.getArgument(1, Pageable.class), 1));
+        when(loDangGiuService.conLaiTheoBienThe(eq(KHO), any())).thenReturn(Map.of(93, new BigDecimal("8")));
+        DonChoXuatFilterRequest yc = DonChoXuatFilterRequest.builder().page(0).size(20).build();
+
+        // không phiếu chuyển nào giữ chỗ: còn 8 ≥ 5
+        assertTrue(service.getDonChoXuat(yc).getContent().get(0).getDuHang());
+
+        // phiếu chuyển Chờ duyệt giữ 4 (chưa chọn lô): còn 8 − 4 = 4 < 5
+        when(giuChoChuyenKhoService.taiKhoNgoaiPhieuNhat(eq(KHO), any())).thenReturn(Map.of(93, new BigDecimal("4")));
+        DonChoXuatDto dto = service.getDonChoXuat(yc).getContent().get(0);
+        assertFalse(dto.getDuHang());
+        assertEquals("Thiếu hàng", dto.getKhaDung());
     }
 }

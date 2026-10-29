@@ -36,6 +36,14 @@ public class DanhSachNhatHang {
     @JoinColumn(name = "kho_xuat_id", nullable = false)
     Kho khoXuat;
 
+    /**
+     * Phiếu xuất PX-CK khi đây là phiếu nhặt của phiếu chuyển kho (đặc tả bước 8: duyệt phiếu chuyển thì đẩy PX-CK vào
+     * danh sách chờ nhặt), một phiếu nhặt ↔ một PX-CK. Trống = phiếu nhặt gom đơn bán. Loại phiếu suy ra từ cột này.
+     */
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "phieu_xuat_kho_id", unique = true)
+    PhieuXuatKho phieuXuatKho;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "nguoi_nhat_id")
     NguoiDung nguoiNhat;
@@ -62,5 +70,10 @@ public class DanhSachNhatHang {
 
     @OneToMany(mappedBy = "danhSachNhatHang", fetch = FetchType.LAZY)
     List<DonBanHang> donBanHangs;
+
+    /** Phiếu nhặt của phiếu chuyển kho (nối PX-CK), không phải phiếu gom đơn bán. */
+    public boolean laChuyenKho() {
+        return phieuXuatKho != null;
+    }
 }
 

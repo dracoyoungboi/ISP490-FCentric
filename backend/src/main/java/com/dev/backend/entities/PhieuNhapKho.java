@@ -81,7 +81,8 @@ public class PhieuNhapKho {
     @OneToMany(mappedBy = "phieuNhapKho", fetch = FetchType.LAZY)
     List<ChiTietPhieuNhapKho> chiTietPhieuNhapKhos;
 
+    /** Phiếu chuyển kho của phiếu nhập PN-TRF (kho đích) hoặc PN-RET (nhập hoàn trả về kho nguồn). Cột phieu_chuyen_id cũ không còn dùng. */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "phieu_chuyen_id")
-    private PhieuXuatKho phieuChuyenKhoGoc;
+    @JoinColumn(name = "phieu_chuyen_kho_id")
+    PhieuChuyenKho phieuChuyenKho;
 }
