@@ -3,6 +3,8 @@ package com.dev.backend.services.tiktok;
 import com.dev.backend.constants.TikTokShopConstants;
 import com.dev.backend.dto.response.customize.TikTokAuthorizedShopsResponse;
 import com.dev.backend.dto.response.customize.TikTokShopDto;
+import com.dev.backend.dto.response.customize.TikTokWarehouseDto;
+import com.dev.backend.dto.response.customize.TikTokWarehousesResponse;
 import com.dev.backend.exception.customize.LoiCoMaException;
 import com.dev.backend.exception.customize.MaLoi;
 import com.dev.backend.utils.TikTokShopSigner;
@@ -157,6 +159,46 @@ public class TikTokShopClient {
      * Yêu cầu: Header x-tts-access-token, query params (app_key, timestamp, sign).
      * Không cần shop_cipher trong query vì endpoint này dùng để tra cứu cipher.
      */
+    /**
+     * Lấy danh sách kho hàng logistics từ TikTok Shop Open Platform (v202309).
+     * Endpoint: GET /logistics/202309/warehouses
+     * Query: app_key, timestamp, shop_cipher, sign
+     * Header: x-tts-access-token
+     */
+    public TikTokWarehousesResponse getWarehouses(String appKey, String appSecret, String accessToken, String shopCipher) {
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new IllegalArgumentException("Access Token không được để trống khi lấy danh sách kho TikTok Shop");
+        }
+        if (shopCipher == null || shopCipher.isBlank()) {
+            throw new IllegalArgumentException("Shop Cipher không được để trống khi lấy danh sách kho TikTok Shop");
+        }
+        String apiPath = TikTokShopConstants.PATH_WAREHOUSES;
+        String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, Map.of(), null, appKey, appSecret, shopCipher);
+        JsonNode root = executeGet(fullSignedUrl, accessToken);
+
+        TikTokWarehousesResponse response = new TikTokWarehousesResponse();
+        response.setCode(root.path("code").asInt(0));
+        response.setMessage(root.path("message").asText(""));
+        response.setRequestId(root.path("request_id").asText(""));
+
+        JsonNode warehousesNode = root.path("data").path("warehouses");
+        if (warehousesNode.isArray()) {
+            java.util.List<TikTokWarehouseDto> list = new java.util.ArrayList<>();
+            for (JsonNode w : warehousesNode) {
+                TikTokWarehouseDto dto = new TikTokWarehouseDto();
+                dto.setWarehouseId(w.path("warehouse_id").asText(null));
+                dto.setWarehouseName(w.path("warehouse_name").asText(null));
+                dto.setWarehouseType(w.path("warehouse_type").asText(null));
+                dto.setWarehouseSubType(w.path("warehouse_sub_type").asText(null));
+                dto.setWarehouseEffectStatus(w.path("warehouse_effect_status").asText(null));
+                dto.setIsDefault(w.path("is_default").asBoolean(false));
+                list.add(dto);
+            }
+            response.setWarehouses(list);
+        }
+        return response;
+    }
+
     public TikTokAuthorizedShopsResponse getAuthorizedShops(String appKey, String appSecret, String accessToken) {
         if (accessToken == null || accessToken.isBlank()) {
             throw new IllegalArgumentException("Access Token không được để trống khi lấy danh sách gian hàng TikTok Shop");

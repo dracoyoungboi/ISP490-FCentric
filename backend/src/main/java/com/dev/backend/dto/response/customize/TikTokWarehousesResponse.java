@@ -29,6 +29,17 @@ public class TikTokWarehousesResponse implements Serializable {
     @JsonProperty("data")
     WarehouseData data;
 
+    public List<TikTokWarehouseDto> getWarehouses() {
+        return data != null ? data.getWarehouses() : null;
+    }
+
+    public void setWarehouses(List<TikTokWarehouseDto> warehouses) {
+        if (this.data == null) {
+            this.data = new WarehouseData();
+        }
+        this.data.setWarehouses(warehouses);
+    }
+
     @AllArgsConstructor
     @Getter
     @Setter
