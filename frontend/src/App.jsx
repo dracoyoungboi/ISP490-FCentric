@@ -318,6 +318,8 @@ export default function App() {
               <Route path="sync" element={<OperationsSettingsPage key="sync" part="sync" />} />
               <Route path="customer" element={<OperationsSettingsPage key="customer" part="customer" />} />
               <Route path="inbound" element={<OperationsSettingsPage key="inbound" part="inbound" />} />
+              <Route path="documents" element={<OperationsSettingsPage key="documents" part="documents" />} />
+              <Route path="transfer" element={<OperationsSettingsPage key="transfer" part="transfer" />} />
               <Route path="store" element={<StoreSettingsPage />} />
               <Route path="payment" element={<PaymentSettingsPage />} />
               <Route path="vat" element={<VatSettingsPage />} />

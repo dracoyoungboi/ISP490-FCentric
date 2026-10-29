@@ -75,7 +75,68 @@ export const INVENTORY_SETTINGS = [
   { code: "TEM_IN_TEN_CUA_HANG", label: "In tên cửa hàng", unit: "", group: "label", type: "BOOLEAN" },
   { code: "TEM_IN_SKU", label: "In SKU", unit: "", group: "label", type: "BOOLEAN" },
   { code: "TEM_NGUONG_XAC_NHAN", label: "Ngưỡng hỏi xác nhận", unit: "tem", group: "label", min: 1, max: 9999 },
+  {
+    // Ký hiệu phiếu xuất kho kiêm vận chuyển nội bộ điền sẵn ở hộp Xác nhận xuất của phiếu chuyển kho; trống = chưa có
+    code: "XKNB_KY_HIEU_MAC_DINH",
+    label: "Ký hiệu mặc định",
+    unit: "",
+    group: "documents",
+    type: "STRING",
+    maxLength: 7,
+    choPhepTrong: true,
+    pattern: /^6[CK][0-9]{2}N[A-Z0-9]{2}$/,
+    patternMessage: "Gồm 7 ký tự, ví dụ 6K26NAB: 6, C hoặc K, 2 số năm, N, 2 ký tự công ty tự đặt.",
+    goiY: "7 ký tự · để trống nếu chưa có",
+  },
+  {
+    // Hộp Xác nhận xuất của phiếu chuyển kho khi chưa có số phiếu XKNB (PhieuChuyenKhoService.xacNhanXuat)
+    code: "XKNB_CHE_DO",
+    label: "Khi xác nhận xuất mà chưa có số XKNB",
+    unit: "",
+    group: "documents",
+    type: "STRING",
+    options: [
+      {
+        value: "CHAN",
+        label: "Chặn xuất",
+        moTa: "Khóa nút xuất và báo \"Cần ký hiệu và số của giấy đi đường (phiếu XKNB) trước khi hàng rời kho\".",
+      },
+      {
+        value: "CHI_CANH_BAO",
+        label: "Chỉ cảnh báo",
+        moTa: "Cho xuất trước, ghi số sau; phiếu nằm ở mục Thiếu giấy đi đường tới khi ghi số. Dùng khi công ty chưa dùng phần mềm hóa đơn điện tử.",
+      },
+    ],
+  },
+  {
+    // Nút Xử lý chênh lệch của phiếu chuyển kho nhận lệch (PhieuChuyenKhoService.duocXuLyChenhLech); QTV luôn được
+    code: "CHUYEN_KHO_QUYEN_XU_LY_LECH",
+    label: "Ai được xử lý chênh lệch",
+    unit: "",
+    group: "transfer",
+    type: "STRING",
+    options: [
+      {
+        value: "QL_KHO_TONG",
+        label: "Quản lý Kho tổng",
+        moTa: "Quản trị viên hoặc quản lý kho được phân công ở Kho tổng. Mặc định.",
+      },
+      {
+        value: "QL_KHO_TONG_VA_KHO_XUAT",
+        label: "Thêm quản lý kho xuất",
+        moTa: "Như trên, thêm quản lý của kho gửi hàng trên phiếu (làm việc tại kho đó).",
+      },
+      {
+        value: "CHI_QUAN_TRI",
+        label: "Chỉ Quản trị viên",
+        moTa: "Quản lý Kho tổng vẫn xem phiếu nhưng không xử lý được.",
+      },
+    ],
+  },
 ];
+
+/** Mã cấu hình được để trống (VD ký hiệu XKNB khi công ty chưa có): bỏ qua kiểm tra "không được để trống". */
+export const duocDeTrong = (code) => INVENTORY_SETTINGS.some((field) => field.code === code && field.choPhepTrong);
 
 const soVi = (value) => Number(value).toLocaleString("vi-VN");
 
@@ -105,6 +166,15 @@ export function moTaTacDong(code, value) {
       return ["Biến thể mới để trống mã vạch nhận mã dạng ", maVachMau(value), ". Mã đã cấp giữ nguyên khi đổi tiền tố."];
     case "TEM_NGUONG_XAC_NHAN":
       return ["Lần in có hơn ", `${soVi(value)} tem`, " phải bấm in lần nữa để xác nhận."];
+    case "XKNB_KY_HIEU_MAC_DINH":
+      return value
+        ? ["Hộp Xác nhận xuất điền sẵn ký hiệu ", value, " và số tiếp theo (số lớn nhất đã ghi của ký hiệu + 1), người xuất vẫn sửa được. Ví dụ 6K26NAB: 6 mẫu số, K không mã, 26 năm, N phiếu XKNB, AB công ty tự đặt."]
+        : ["Chưa đặt: ", "người xuất tự gõ ký hiệu", " ở hộp Xác nhận xuất, hệ thống điền số tiếp theo khi ký hiệu đủ 7 ký tự. Ví dụ 6K26NAB: 6 mẫu số, K không mã, 26 năm, N phiếu XKNB, AB công ty tự đặt."];
+    case "XKNB_CHE_DO":
+      return ["Phiếu XKNB lập ngoài F Centric (phần mềm hóa đơn điện tử của công ty); F Centric ghi lại ký hiệu và số. Đổi cách này thì áp dụng từ ", "lần xác nhận xuất kế tiếp", "."];
+    case "CHUYEN_KHO_QUYEN_XU_LY_LECH":
+      // Máy chủ đọc cấu hình mỗi lần mở / bấm, nên phiếu đang chờ cũng theo cách mới
+      return ["Phiếu nhận thiếu, hỏng chờ những người này chọn Ghi giảm hao hụt hoặc Giao bù; Quản trị viên luôn được. Đổi cách này ", "áp dụng ngay", " cho cả phiếu đang chờ."];
     default:
       return ["", "", ""];
   }
@@ -191,6 +261,7 @@ export function selectInventorySettings(data) {
 
 // Kiểm tra kiểu dữ liệu trước, rồi tới giới hạn min/max của từng cấu hình.
 export function validateInventoryField(code, value, type) {
+  if (value === "" && duocDeTrong(code)) return "";
   const typeError = validateInventorySetting(value, type);
   if (typeError) return typeError;
   const field = INVENTORY_SETTINGS.find((item) => item.code === code);

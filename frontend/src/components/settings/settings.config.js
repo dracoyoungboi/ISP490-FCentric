@@ -1,4 +1,4 @@
-import { Barcode, Boxes, CreditCard, IdCard, PackageCheck, Percent, Printer, RefreshCcw, Store } from "lucide-react";
+import { ArrowLeftRight, Barcode, Boxes, CreditCard, FileText, IdCard, PackageCheck, Percent, Printer, RefreshCcw, Store } from "lucide-react";
 
 /**
  * Trung tâm Cấu hình (/settings/*): menu trái của SettingsLayout, mục "Cấu hình" ghim ở đáy sidebar
@@ -28,6 +28,10 @@ export const SETTINGS_PAGES = [
   { key: "product", label: "Sản phẩm", to: "/settings/product", group: "kho", icon: Barcode, roles: [QTV, QLK], editRoles: [QTV] },
   { key: "inbound", label: "Nhập kho", to: "/settings/inbound", group: "kho", icon: PackageCheck, roles: [QTV, QLK], editRoles: [QTV] },
   { key: "stock", label: "Tồn kho", to: "/settings/stock", group: "kho", icon: Boxes, roles: [QTV, QLK], editRoles: [QTV] },
+  // Ai được xử lý chênh lệch khi nhận hàng chuyển kho (CHUYEN_KHO_QUYEN_XU_LY_LECH) qua /dieu-hanh-he-thong/cau-hinh
+  { key: "transfer", label: "Chuyển kho", to: "/settings/transfer", group: "kho", icon: ArrowLeftRight, roles: [QTV, QLK], editRoles: [QTV] },
+  // Giấy đi đường XKNB của phiếu chuyển kho (XKNB_KY_HIEU_MAC_DINH, XKNB_CHE_DO) qua /dieu-hanh-he-thong/cau-hinh
+  { key: "documents", label: "Chứng từ và hóa đơn", to: "/settings/documents", group: "kho", icon: FileText, roles: [QTV, QLK], editRoles: [QTV] },
   { key: "customer", label: "Khách hàng", to: "/settings/customer", group: "ban-hang", icon: IdCard, roles: [QTV, QLK], editRoles: [QTV] },
   // CauHinhThanhToanController: chỉ QTV
   { key: "payment", label: "Thanh toán", to: "/settings/payment", group: "ban-hang", icon: CreditCard, roles: [QTV], editRoles: [QTV] },

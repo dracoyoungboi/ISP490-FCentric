@@ -48,6 +48,50 @@ test("cách xác nhận chất lượng khi kiểm đếm: chỉ nhận hai giá
   assert.equal(moTaTacDong("MA_LO_TIEN_TO", "LOT")[1], "LOT-PN202610201-01");
 });
 
+test("giấy đi đường XKNB: ký hiệu để trống được hoặc đúng mẫu, chế độ chỉ hai giá trị", () => {
+  assert.equal(validateInventoryField("XKNB_KY_HIEU_MAC_DINH", "", "STRING"), "");
+  assert.equal(validateInventoryField("XKNB_KY_HIEU_MAC_DINH", "6K26NAB", "STRING"), "");
+  assert.equal(validateInventoryField("XKNB_KY_HIEU_MAC_DINH", "6C25N01", "STRING"), "");
+  for (const sai of ["6K26AB", "7K26NAB", "6X26NAB", "6K26XAB", "6k26nab", " "]) {
+    assert.notEqual(validateInventoryField("XKNB_KY_HIEU_MAC_DINH", sai, "STRING"), "", sai);
+  }
+  // Mã khác vẫn không được để trống
+  assert.match(validateInventoryField("MA_LO_TIEN_TO", "", "STRING"), /không được để trống/);
+  assert.equal(validateInventoryField("XKNB_CHE_DO", "CHAN", "STRING"), "");
+  assert.equal(validateInventoryField("XKNB_CHE_DO", "CHI_CANH_BAO", "STRING"), "");
+  assert.equal(validateInventoryField("XKNB_CHE_DO", "", "STRING"), "Giá trị cấu hình không được để trống.");
+  assert.equal(validateInventoryField("XKNB_CHE_DO", "CANH_BAO", "STRING"), "Chọn một trong các cách có sẵn.");
+  // Phần in đậm là lúc cách mới được áp dụng, ghép lại thành câu liền
+  const tacDong = moTaTacDong("XKNB_CHE_DO", "CHAN");
+  assert.equal(tacDong[1], "lần xác nhận xuất kế tiếp");
+  assert.match(tacDong.join(""), /Đổi cách này thì áp dụng từ lần xác nhận xuất kế tiếp\.$/);
+  assert.equal(phamViCauHinh("XKNB_KY_HIEU_MAC_DINH"), "7 ký tự · để trống nếu chưa có");
+  const du = [
+    { maCauHinh: "XKNB_KY_HIEU_MAC_DINH", giaTri: "", kieuDuLieu: "STRING" },
+    { maCauHinh: "XKNB_CHE_DO", giaTri: "CHI_CANH_BAO", kieuDuLieu: "STRING" },
+  ];
+  assert.equal(readCompleteInventorySettings(du, "documents").length, 2);
+  assert.throws(() => readCompleteInventorySettings(du.slice(1), "documents"), "thiếu ký hiệu");
+});
+
+test("ai được xử lý chênh lệch chuyển kho: ba lựa chọn khớp máy chủ, mục Chuyển kho cần đủ mã", () => {
+  for (const dung of ["QL_KHO_TONG", "QL_KHO_TONG_VA_KHO_XUAT", "CHI_QUAN_TRI"]) {
+    assert.equal(validateInventoryField("CHUYEN_KHO_QUYEN_XU_LY_LECH", dung, "STRING"), "", dung);
+  }
+  assert.equal(validateInventoryField("CHUYEN_KHO_QUYEN_XU_LY_LECH", "QL_KHO_NHAN", "STRING"), "Chọn một trong các cách có sẵn.");
+  assert.equal(validateInventoryField("CHUYEN_KHO_QUYEN_XU_LY_LECH", "", "STRING"), "Giá trị cấu hình không được để trống.");
+  assert.equal(phamViCauHinh("CHUYEN_KHO_QUYEN_XU_LY_LECH"), "");
+  assert.equal(moTaTacDong("CHUYEN_KHO_QUYEN_XU_LY_LECH", "CHI_QUAN_TRI")[1], "áp dụng ngay");
+  const ma = { maCauHinh: "CHUYEN_KHO_QUYEN_XU_LY_LECH", giaTri: "QL_KHO_TONG", kieuDuLieu: "STRING" };
+  assert.equal(readCompleteInventorySettings([ma], "transfer").length, 1);
+  assert.throws(() => readCompleteInventorySettings([], "transfer"), "máy chủ chưa có mã");
+  const chungTu = [
+    { maCauHinh: "XKNB_KY_HIEU_MAC_DINH", giaTri: "", kieuDuLieu: "STRING" },
+    { maCauHinh: "XKNB_CHE_DO", giaTri: "CHAN", kieuDuLieu: "STRING" },
+  ];
+  assert.equal(readCompleteInventorySettings(chungTu, "documents").length, 2, "thiếu mã Chuyển kho không làm hỏng mục khác");
+});
+
 test("đọc cấu hình: chỉ bắt đủ mã của mục đang mở", () => {
   const coBon = [
     { maCauHinh: "DEFAULT_MIN_STOCK_ALERT", giaTri: "100", kieuDuLieu: "INT" },
