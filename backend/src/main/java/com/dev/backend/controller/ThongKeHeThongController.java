@@ -3,8 +3,8 @@ package com.dev.backend.controller;
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
+import com.dev.backend.dto.TonKhoProjection;
 import com.dev.backend.dto.response.ResponseData;
-import com.dev.backend.dto.response.TonKhoTongQuanDong;
 import com.dev.backend.dto.response.customize.TonKhoChiTietDTO;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.dto.response.entities.SanPhamQuanAoDto;
@@ -109,7 +109,7 @@ public class ThongKeHeThongController {
             },
             rolesLogic = RequireAuth.LogicType.OR
     )
-    public ResponseEntity<ResponseData<List<TonKhoTongQuanDong>>> tonKhoTongHop(@RequestParam(required = false) Integer khoId, @RequestParam(required = false) String keyword) {
+    public ResponseEntity<ResponseData<List<TonKhoProjection>>> tonKhoTongHop(@RequestParam(required = false) Integer khoId, @RequestParam(required = false) String keyword) {
         NguoiDungAuthInfo authInfo = SecurityContextHolder.getUser();
         if(authInfo.getVaiTro().contains(IRoleType.nhan_vien_kho)){
             if(khoId == null) throw new CommonException("Phải có trường khoId");

@@ -74,13 +74,8 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
     /** Số ngày xét hàng dư "chưa bán được" (có thể ghi đè bằng cấu hình SLOW_MOVING_DAYS). */
     public static final int SO_NGAY_CHAM_BAN_MAC_DINH = 60;
 
-    public static final String TINH_TRANG_HET_HANG = "het_hang";
-    public static final String TINH_TRANG_THIEU_HANG = "thieu_hang";
-    public static final String TINH_TRANG_BINH_THUONG = "binh_thuong";
-    public static final String TINH_TRANG_DU_HANG = "du_hang";
-
     private static final int SO_SAN_PHAM_BAN_CHAY = 5;
-    /** Số nhóm (sản phẩm, kho) cần bổ sung hiện ở Tổng quan; xem hết ở tab Cần bổ sung của Báo cáo tồn kho. */
+    /** Số nhóm (sản phẩm, kho) cần bổ sung hiện ở Tổng quan; xem hết ở Báo cáo tồn kho. */
     static final int SO_NHOM_BO_SUNG = 3;
     private static final int SO_HOAT_DONG = 8;
     private static final int SO_NGAY_DON_MOI = 14;
@@ -467,27 +462,6 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
         return new HangCanBoSung(tongSo, khoTong != null, ketQua, nhom);
     }
 
-    /**
-     * Mức tồn của một cặp (kho, mã) đang kinh doanh, cùng quy tắc với SQL_TON_KHO_TONG_HOP của Tổng quan:
-     * het_hang (khả dụng ≤ 0), thieu_hang (≤ ngưỡng), binh_thuong (≤ ngưỡng × hệ số dư), du_hang. Báo cáo tồn kho dùng
-     * chung hàm này để số trên các tab khớp số ở Tổng quan.
-     */
-    public static String tinhTrangTon(BigDecimal khaDung, int nguong, int heSoDu) {
-        BigDecimal kd = khaDung == null ? BigDecimal.ZERO : khaDung;
-        if (kd.signum() <= 0) return TINH_TRANG_HET_HANG;
-        if (kd.compareTo(BigDecimal.valueOf(nguong)) <= 0) return TINH_TRANG_THIEU_HANG;
-        if (kd.compareTo(BigDecimal.valueOf((long) nguong * heSoDu)) <= 0) return TINH_TRANG_BINH_THUONG;
-        return TINH_TRANG_DU_HANG;
-    }
-
-    /**
-     * Ngưỡng dùng cho một sản phẩm, đúng như CTE_TON_THEO_CAP: COALESCE(NULLIF(muc_ton_toi_thieu, 0), ngưỡng mặc định),
-     * tức chưa đặt hoặc 0 thì dùng ngưỡng mặc định (giá trị khác giữ nguyên để hai nơi đếm khớp nhau).
-     */
-    public static int nguongDung(Integer mucTonToiThieu, int nguongMacDinh) {
-        return mucTonToiThieu != null && mucTonToiThieu != 0 ? mucTonToiThieu : nguongMacDinh;
-    }
-
     /** Đưa khả dụng về gấp đôi ngưỡng tối thiểu (tạm thời, khi chưa có mức tồn tối đa cho từng mã). */
     static long soLuongDeXuat(long khaDung, int nguong) {
         return Math.max(1, 2L * nguong - khaDung);
@@ -567,7 +541,7 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
         return v == null ? 0L : v.setScale(0, RoundingMode.HALF_UP).longValue();
     }
 
-    static int macDinhNeuKhongHopLe(Integer giaTri, int macDinh) {
+    private static int macDinhNeuKhongHopLe(Integer giaTri, int macDinh) {
         return giaTri != null && giaTri > 0 ? giaTri : macDinh;
     }
 
