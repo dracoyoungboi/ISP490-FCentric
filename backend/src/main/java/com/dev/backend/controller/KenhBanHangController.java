@@ -10,6 +10,9 @@ import com.dev.backend.dto.request.LayDonHangKenhRequest;
 import com.dev.backend.dto.request.ShopifyConfigUpdating;
 import com.dev.backend.dto.request.LazadaConfigUpdating;
 import com.dev.backend.dto.request.LazadaOAuthCallbackRequest;
+import com.dev.backend.dto.request.TikTokConfigUpdating;
+import com.dev.backend.dto.request.TikTokOAuthCallbackRequest;
+import com.dev.backend.dto.response.entities.TikTokConfigResponse;
 import com.dev.backend.dto.request.LazadaTestConnectionRequest;
 import com.dev.backend.dto.response.customize.LazadaTestConnectionResponse;
 import com.dev.backend.dto.response.entities.LazadaConfigResponse;
@@ -177,6 +180,16 @@ public class KenhBanHangController {
                             .build()
             );
         }
+        if ("TIKTOK".equals(ma)) {
+            String authUrl = kenhBanHangService.getTikTokAuthUrl(redirectUri, state);
+            return ResponseEntity.ok(
+                    ResponseData.<Map<String, String>>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(Map.of("authUrl", authUrl))
+                            .message("Sinh URL ủy quyền TikTok Shop thành công")
+                            .build()
+            );
+        }
         throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.SAN_KHONG_HO_TRO, "Máy chủ chưa hỗ trợ sàn " + maKenh);
     }
 
@@ -197,9 +210,37 @@ public class KenhBanHangController {
                             .build()
             );
         }
+        if ("TIKTOK".equals(ma)) {
+            TikTokOAuthCallbackRequest tikTokReq = TikTokOAuthCallbackRequest.builder()
+                    .code(request.getCode())
+                    .build();
+            kenhBanHangService.exchangeTikTokToken(tikTokReq);
+            return ResponseEntity.ok(
+                    ResponseData.<ShopifyConfigResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(kenhBanHangService.getKetNoi("TIKTOK"))
+                            .message("Ủy quyền gian hàng TikTok Shop thành công")
+                            .build()
+            );
+        }
         throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.SAN_KHONG_HO_TRO, "Máy chủ chưa hỗ trợ sàn " + maKenh);
     }
 
+
+    @PostMapping("/tiktok/oauth/callback")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    @Operation(summary = "Xử lý callback OAuth2 từ TikTok Shop Partner Center")
+    public ResponseEntity<ResponseData<TikTokConfigResponse>> xuLyCallbackTikTok(
+            @RequestBody TikTokOAuthCallbackRequest request) {
+        TikTokConfigResponse response = kenhBanHangService.exchangeTikTokToken(request);
+        return ResponseEntity.ok(
+                ResponseData.<TikTokConfigResponse>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(response)
+                        .message("Ủy quyền TikTok Shop thành công")
+                        .build()
+        );
+    }
     @PostMapping("/{maKenh}/kiem-tra-ket-noi")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Kiểm tra kết nối tới sàn bán hàng")
