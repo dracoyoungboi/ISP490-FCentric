@@ -45,4 +45,6 @@ public class DonBanHangDto implements Serializable {
     KenhBanHangTomTatDto kenhBanHang;
     /** Mã đơn bên sàn (vd. #1016 của Shopify); null với đơn không từ sàn. */
     String maDonHangKenh;
+    /** Cờ đơn hàng có yêu cầu hủy từ sàn (vd. TikTok Shop). */
+    Boolean yeuCauHuy;
 }

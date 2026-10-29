@@ -18,5 +18,8 @@ public interface DonBanHangMapper {
         if (dto != null && dto.getKhachHang() != null && dto.getKhachHang().getSoDienThoai() != null) {
             dto.getKhachHang().setSoDienThoai(MaskingUtils.maskPhone(dto.getKhachHang().getSoDienThoai()));
         }
+        if (dto != null && dto.getGhiChu() != null && dto.getGhiChu().contains("[KHÁCH YÊU CẦU HỦY]")) {
+            dto.setYeuCauHuy(true);
+        }
     }
 }

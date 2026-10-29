@@ -9,10 +9,17 @@ export default function OrderFlagBadges({ value, max = 2, emptyText = "—" }) {
   const rest = flags.length - shown.length;
   return (
     <div className="flex flex-wrap items-center gap-1">
-      {shown.map((flag) => (
-        // Cờ lạ (chưa có trong FLAG_META) vẫn hiện mã, tô Cam đậm "Cần chú ý"
-        <StatusBadge key={flag} label={FLAG_META[flag]?.label ?? flag} tone="warning" />
-      ))}
+      {shown.map((flag) => {
+        const laHuy = flag === "YEU_CAU_HUY" || flag === "XUNG_DOT_HUY";
+        return (
+          <StatusBadge
+            key={flag}
+            label={FLAG_META[flag]?.label ?? flag}
+            nhom={laHuy ? "loi" : undefined}
+            tone={laHuy ? "danger" : "warning"}
+          />
+        );
+      })}
       {rest > 0 ? (
         <span className="text-xs font-semibold text-bo-muted" title={flags.slice(max).map((f) => FLAG_META[f]?.label ?? f).join(", ")}>
           +{rest}

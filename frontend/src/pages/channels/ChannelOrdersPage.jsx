@@ -93,7 +93,8 @@ function nguoiNhanCua(don) {
 function coCuaDon(don) {
   const co = parseFlags(don.canXuLy);
   const khac = co.filter((ma) => ma !== "YEU_CAU_HUY");
-  return don.yeuCauHuy || khac.length !== co.length ? ["YEU_CAU_HUY", ...khac] : khac;
+  const coHuy = don?.yeuCauHuy || (don?.ghiChu && don.ghiChu.includes("[KHÁCH YÊU CẦU HỦY]"));
+  return coHuy || khac.length !== co.length ? ["YEU_CAU_HUY", ...khac] : khac;
 }
 
 const hangTabTrong = (khung) => khung?.querySelector('[role="tablist"]') ?? null;
