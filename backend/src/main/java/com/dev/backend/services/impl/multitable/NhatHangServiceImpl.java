@@ -344,6 +344,9 @@ public class NhatHangServiceImpl implements NhatHangService {
             if (tt == null || (tt != ITrangThaiDonBanHang.CHO_NHAT_HANG && tt != ITrangThaiDonBanHang.DANG_XUAT_KHO)) {
                 throw new CommonException("Đơn hàng " + don.getSoDonHang() + " không ở trạng thái Chờ nhặt (trạng thái hiện tại: " + don.getTrangThai() + ")");
             }
+            if (don.getGhiChu() != null && don.getGhiChu().contains("[KHÁCH YÊU CẦU HỦY]")) {
+                throw new CommonException("Đơn hàng " + don.getSoDonHang() + " đang có yêu cầu hủy từ sàn. Không được gom vào danh sách nhặt hàng.", org.springframework.http.HttpStatus.BAD_REQUEST, null);
+            }
             if (don.getDanhSachNhatHang() != null) {
                 throw new CommonException("Đơn hàng " + don.getSoDonHang() + " đã được gom vào Pick List " + don.getDanhSachNhatHang().getMaPickList());
             }

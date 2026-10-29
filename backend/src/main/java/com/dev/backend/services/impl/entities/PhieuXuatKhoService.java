@@ -365,10 +365,16 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
         }
 
         // Không xuất hàng cho đơn bán đã hủy (ví dụ đơn bị sàn hủy sau khi đã có phiếu xuất nháp).
-        if ("ban_hang".equals(phieu.getLoaiXuat()) && phieu.getDonBanHang() != null
-                && Integer.valueOf(ITrangThaiDonBanHang.DA_HUY).equals(phieu.getDonBanHang().getTrangThai())) {
-            throw new CommonException("Đơn " + phieu.getDonBanHang().getSoDonHang()
-                    + " đã bị hủy nên không thể xuất kho. Vui lòng hủy phiếu xuất này.", HttpStatus.CONFLICT, null);
+        if ("ban_hang".equals(phieu.getLoaiXuat()) && phieu.getDonBanHang() != null) {
+            if (Integer.valueOf(ITrangThaiDonBanHang.DA_HUY).equals(phieu.getDonBanHang().getTrangThai())) {
+                throw new CommonException("Đơn " + phieu.getDonBanHang().getSoDonHang()
+                        + " đã bị hủy nên không thể xuất kho. Vui lòng hủy phiếu xuất này.", HttpStatus.CONFLICT, null);
+            }
+            String ghiChu = phieu.getDonBanHang().getGhiChu();
+            if (ghiChu != null && ghiChu.contains("[KHÁCH YÊU CẦU HỦY]")) {
+                throw new CommonException("Đơn hàng " + phieu.getDonBanHang().getSoDonHang()
+                        + " đang có cờ Khách yêu cầu hủy từ sàn. Không thể xuất kho để bảo toàn hàng hóa.", HttpStatus.CONFLICT, null);
+            }
         }
 
         // Phiếu xuất con của phiếu chuyển: chỉ xuất khi phiếu chuyển còn Đã duyệt (bên gọi đã khóa dòng phiếu chuyển).
