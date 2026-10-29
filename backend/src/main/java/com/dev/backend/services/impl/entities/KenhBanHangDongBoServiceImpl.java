@@ -40,6 +40,9 @@ import com.dev.backend.services.lazada.LazadaClient;
 import com.dev.backend.services.tiktok.TikTokShopClient;
 import com.dev.backend.dto.response.customize.TikTokWarehouseDto;
 import com.dev.backend.dto.response.customize.TikTokWarehousesResponse;
+import com.dev.backend.dto.response.customize.TikTokProductDto;
+import com.dev.backend.dto.response.customize.TikTokProductSearchResponse;
+import com.dev.backend.dto.response.customize.TikTokSkuDto;
 import com.dev.backend.utils.KenhCauHinhDongBo;
 import com.dev.backend.utils.PublicAssetUrl;
 import com.dev.backend.workers.OmnichannelOrderSyncJob;
@@ -270,6 +273,29 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .soMoi(soMoi)
                 .soCapNhat(soCapNhat)
                 .build();
+    }
+
+    /**
+     * Tải toàn bộ danh mục sản phẩm từ TikTok Shop sử dụng cơ chế phân trang page_token (cursor-based).
+     * Tự động giới hạn tối đa 500 sản phẩm / lượt để tránh quá tải bộ nhớ và cháy hạn mức gọi API.
+     */
+    private List<TikTokProductDto> taiDanhSachSanPhamTikTokTheoToken(String appKey, String appSecret, String token, String cipher) {
+        List<TikTokProductDto> ketQua = new ArrayList<>();
+        String pageToken = null;
+        int maxProducts = 500;
+        int pageSize = 50;
+
+        for (int i = 0; i < 10; i++) {
+            TikTokProductSearchResponse res = getTikTokShopClient().searchProducts(appKey, appSecret, token, cipher, pageSize, pageToken);
+            if (res.getProducts() != null && !res.getProducts().isEmpty()) {
+                ketQua.addAll(res.getProducts());
+            }
+            pageToken = res.getNextPageToken();
+            if (pageToken == null || pageToken.isBlank() || ketQua.size() >= maxProducts) {
+                break;
+            }
+        }
+        return ketQua;
     }
 
     private TaiSanPhamResultDto taiSanPhamLazada(KenhBanHang kenh) {
