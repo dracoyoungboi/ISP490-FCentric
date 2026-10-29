@@ -224,6 +224,22 @@ class TongQuanHangCanBoSungTest {
     }
 
     @Test
+    void tinhTrangTon_cungQuyTacTongQuan() {
+        assertEquals("het_hang", TongQuanAdminServiceImpl.tinhTrangTon(new BigDecimal("0"), 10, 3));
+        assertEquals("het_hang", TongQuanAdminServiceImpl.tinhTrangTon(new BigDecimal("-2"), 10, 3));
+        assertEquals("het_hang", TongQuanAdminServiceImpl.tinhTrangTon(null, 10, 3));
+        assertEquals("thieu_hang", TongQuanAdminServiceImpl.tinhTrangTon(new BigDecimal("0.5"), 10, 3));
+        assertEquals("thieu_hang", TongQuanAdminServiceImpl.tinhTrangTon(new BigDecimal("10"), 10, 3));
+        assertEquals("binh_thuong", TongQuanAdminServiceImpl.tinhTrangTon(new BigDecimal("10.5"), 10, 3));
+        assertEquals("binh_thuong", TongQuanAdminServiceImpl.tinhTrangTon(new BigDecimal("30"), 10, 3));
+        assertEquals("du_hang", TongQuanAdminServiceImpl.tinhTrangTon(new BigDecimal("31"), 10, 3));
+        assertEquals(80, TongQuanAdminServiceImpl.nguongDung(80, 10));
+        assertEquals(10, TongQuanAdminServiceImpl.nguongDung(null, 10));
+        assertEquals(10, TongQuanAdminServiceImpl.nguongDung(0, 10), "mức 0 coi như chưa đặt, như SQL NULLIF(min, 0)");
+        assertEquals(-5, TongQuanAdminServiceImpl.nguongDung(-5, 10), "giữ nguyên như SQL để hai nơi đếm khớp");
+    }
+
+    @Test
     void khaDungLe_duoiMot_vanLaSapHet_khongDemLaHet() {
         // 0,4 làm tròn hiển thị thành 0 nhưng SQL xếp là Thiếu hàng (khả dụng > 0)
         danhSach(dong(7, 71, KHO_TONG, "0.4"), dong(7, 72, KHO_TONG, "0"));

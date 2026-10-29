@@ -47,4 +47,13 @@ public interface TonKhoProjection {
 
     /** Tổng giá trị tồn kho = SUM(so_luong_ton * gia_von_lo) */
     BigDecimal getTongGiaTri();
+
+    /** Khả dụng của các lô ở kho này: SUM(so_luong_kha_dung) = tồn − đang giữ (cùng số Khả dụng ở Tổng quan). */
+    BigDecimal getKhaDung();
+
+    /** Số dòng tồn theo lô của mã ở kho này; 0 nghĩa là mã chưa từng nhập về kho này. */
+    Long getSoDongTon();
+
+    /** Mã kho, để nhận ra kho trung chuyển (KHO_TRANSIT). */
+    String getMaKho();
 }

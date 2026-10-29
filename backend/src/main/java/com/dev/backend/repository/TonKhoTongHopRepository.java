@@ -111,8 +111,11 @@ public interface TonKhoTongHopRepository extends JpaRepository<BienTheSanPham, I
         )
                 )
             )                                                              AS freeToUse,
-        COALESCE(SUM(tkl.soLuongTon * lh.giaVon), 0)                   AS tongGiaTri
-    
+        COALESCE(SUM(tkl.soLuongTon * lh.giaVon), 0)                   AS tongGiaTri,
+        COALESCE(SUM(tkl.soLuongKhaDung), 0)                           AS khaDung,
+        COUNT(tkl.id)                                                  AS soDongTon,
+        k.maKho                                                        AS maKho
+
     FROM BienTheSanPham bt
     JOIN bt.sanPham                  sp
     JOIN bt.mauSac                   ms
@@ -142,8 +145,9 @@ public interface TonKhoTongHopRepository extends JpaRepository<BienTheSanPham, I
         cl.tenChatLieu,
         sp.mucTonToiThieu,
         k.id,
-        k.tenKho
-    
+        k.tenKho,
+        k.maKho
+
     ORDER BY sp.maSanPham ASC, bt.maSku ASC, k.tenKho ASC
     """)
     List<TonKhoProjection> findTonKhoTongHopTheoTrangThai(
