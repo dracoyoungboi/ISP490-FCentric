@@ -1,5 +1,8 @@
 package com.dev.backend.utils;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.TreeSet;
 
@@ -77,5 +80,34 @@ public final class TikTokShopSigner {
         sb.append(appSecret);
 
         return sb.toString();
+    }
+
+    /**
+     * Tính chữ ký số HMAC-SHA256 theo chuẩn TikTok Shop Open Platform v202309.
+     * Kết quả trả về là chuỗi Hexadecimal viết thường (lowercase).
+     *
+     * @param apiPath    Đường dẫn API (vd: /authorization/202309/shops)
+     * @param parameters Các tham số URL (app_key, timestamp, shop_cipher,...)
+     * @param body       Payload JSON body (truyền null nếu request GET)
+     * @param appSecret  Khóa bí mật của Partner App
+     * @return Chuỗi chữ ký số HMAC-SHA256 viết thường (hex lowercase)
+     */
+    public static String calculateSignature(String apiPath, Map<String, String> parameters, String body, String appSecret) {
+        String baseString = buildBaseStringToSign(apiPath, parameters, body, appSecret);
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            SecretKeySpec secretKeySpec = new SecretKeySpec(appSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+            mac.init(secretKeySpec);
+            byte[] hmacBytes = mac.doFinal(baseString.getBytes(StandardCharsets.UTF_8));
+
+            // Chuyển sang định dạng hex viết thường (lowercase hex) theo chuẩn TikTok Shop
+            StringBuilder hexString = new StringBuilder(2 * hmacBytes.length);
+            for (byte b : hmacBytes) {
+                hexString.append(String.format("%02x", b & 0xff));
+            }
+            return hexString.toString();
+        } catch (Exception e) {
+            throw new IllegalStateException("Lỗi khi tạo chữ ký số HMAC-SHA256 cho TikTok Shop API", e);
+        }
     }
 }
