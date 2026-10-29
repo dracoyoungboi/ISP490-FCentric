@@ -960,6 +960,45 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
     }
 
+    private TuDongLienKetResultDto tuDongLienKetTikTok(KenhBanHang kenh) {
+        // Tải sản phẩm từ sàn để cập nhật danh sách SKU mới nhất
+        taiSanPhamTikTok(kenh);
+
+        List<TrangThaiDongBoSanPham> danhSach = trangThaiDongBoSanPhamRepository.findByKenhBanHangId(kenh.getId());
+        int soDaGhep = 0;
+        int soKhongKhop = 0;
+
+        for (TrangThaiDongBoSanPham tt : danhSach) {
+            if (tt.getBienTheSanPham() == null) {
+                BienTheSanPham bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(tt.getMaSanPhamKenh()).orElse(null);
+                if (bt != null) {
+                    tt.setBienTheSanPham(bt);
+                    tt.setTrangThaiDongBo("thanh_cong");
+                    tt.setNgayDongBoCuoi(Instant.now());
+                    trangThaiDongBoSanPhamRepository.save(tt);
+                    soDaGhep++;
+                } else {
+                    soKhongKhop++;
+                }
+            } else {
+                soDaGhep++;
+            }
+        }
+
+        ghiNhatKy(kenh.getId(), IHanhDong.cap_nhat_kenh_ban,
+                String.format("Tự động liên kết SKU TikTok Shop: %s đã ghép, %s chưa khớp", soDaGhep, soKhongKhop));
+
+        return TuDongLienKetResultDto.builder()
+                .soDaGhep(soDaGhep)
+                .soKhongKhop(soKhongKhop)
+                .soNhieuKhop(0)
+                .soTaoMoiTrenShopify(0)
+                .soCapNhatTrenShopify(0)
+                .soTonKhoDaDay(0)
+                .soThatBai(0)
+                .build();
+    }
+
     private TuDongLienKetResultDto tuDongLienKetLazada(KenhBanHang kenh) {
         String appKey = kenhBanHangService.getLazadaAppKey();
         String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
@@ -1168,6 +1207,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         KenhBanHang kenh = getKenhActive(maKenh);
         if (OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(kenh.getMaKenh())) {
             return tuDongLienKetLazada(kenh);
+        }
+        if ("TIKTOK".equalsIgnoreCase(kenh.getMaKenh())) {
+            return tuDongLienKetTikTok(kenh);
         }
         kiemTraDaKetNoi(kenh);
         String token = kenhBanHangService.getDecryptedShopifyAccessToken();
