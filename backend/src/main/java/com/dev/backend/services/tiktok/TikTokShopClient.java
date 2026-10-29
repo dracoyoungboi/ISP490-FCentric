@@ -8,6 +8,8 @@ import com.dev.backend.dto.response.customize.TikTokWarehousesResponse;
 import com.dev.backend.dto.response.customize.TikTokProductDto;
 import com.dev.backend.dto.response.customize.TikTokProductSearchResponse;
 import com.dev.backend.dto.response.customize.TikTokSkuDto;
+import com.dev.backend.dto.request.TikTokInventoryUpdateRequest;
+import com.dev.backend.dto.response.customize.TikTokInventoryUpdateResponse;
 import com.dev.backend.exception.customize.LoiCoMaException;
 import com.dev.backend.exception.customize.MaLoi;
 import com.dev.backend.utils.TikTokShopSigner;
@@ -274,6 +276,62 @@ public class TikTokShopClient {
                     prodList.add(prodDto);
                 }
                 data.setProducts(prodList);
+            }
+            response.setData(data);
+        }
+        return response;
+    }
+
+    /**
+     * Cập nhật tồn kho SKU theo sản phẩm cha trên TikTok Shop Open Platform (v202309).
+     * Endpoint: POST /product/202309/products/{product_id}/inventory/update
+     * Query: app_key, timestamp, shop_cipher, sign
+     * Header: x-tts-access-token, Content-Type: application/json
+     * Body: JSON TikTokInventoryUpdateRequest
+     */
+    public TikTokInventoryUpdateResponse updateProductInventory(String appKey, String appSecret, String accessToken,
+                                                                String shopCipher, String productId,
+                                                                TikTokInventoryUpdateRequest payload) {
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new IllegalArgumentException("Access Token không được để trống khi cập nhật tồn kho TikTok Shop");
+        }
+        if (shopCipher == null || shopCipher.isBlank()) {
+            throw new IllegalArgumentException("Shop Cipher không được để trống khi cập nhật tồn kho TikTok Shop");
+        }
+        if (productId == null || productId.isBlank()) {
+            throw new IllegalArgumentException("Product ID không được để trống khi cập nhật tồn kho TikTok Shop");
+        }
+
+        String apiPath = String.format(TikTokShopConstants.PATH_INVENTORY_UPDATE, productId.trim());
+        String body;
+        try {
+            body = objectMapper.writeValueAsString(payload);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Lỗi serialize payload cập nhật tồn kho: " + e.getMessage(), e);
+        }
+
+        String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, Map.of(), body, appKey, appSecret, shopCipher);
+        JsonNode root = executePost(fullSignedUrl, body, accessToken);
+
+        TikTokInventoryUpdateResponse response = new TikTokInventoryUpdateResponse();
+        response.setCode(root.path("code").asInt(0));
+        response.setMessage(root.path("message").asText(""));
+        response.setRequestId(root.path("request_id").asText(""));
+
+        JsonNode dataNode = root.path("data");
+        if (dataNode.isObject()) {
+            TikTokInventoryUpdateResponse.InventoryUpdateData data = new TikTokInventoryUpdateResponse.InventoryUpdateData();
+            JsonNode failedSkusNode = dataNode.path("failed_skus");
+            if (failedSkusNode.isArray()) {
+                java.util.List<TikTokInventoryUpdateResponse.FailedSku> failedList = new java.util.ArrayList<>();
+                for (JsonNode f : failedSkusNode) {
+                    TikTokInventoryUpdateResponse.FailedSku failed = new TikTokInventoryUpdateResponse.FailedSku();
+                    failed.setId(f.path("id").asText(null));
+                    failed.setCode(f.path("code").asInt(0));
+                    failed.setMessage(f.path("message").asText(""));
+                    failedList.add(failed);
+                }
+                data.setFailedSkus(failedList);
             }
             response.setData(data);
         }
