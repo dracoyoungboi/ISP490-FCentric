@@ -86,6 +86,7 @@ export const NHAN_THEO_NHOM = {
     "Hoàn hàng",
     "Cần kiểm tra",
     "Chờ khóa lô",
+    "Chờ xử lý chênh lệch",
     "Hạn hôm nay",
     "Chưa có email",
     "Chưa có kho",
@@ -122,6 +123,8 @@ export const NHAN_THEO_NHOM = {
     "Đã xuất",
     "Đã đủ bằng chứng",
     "Hoàn thành",
+    "Hoàn tất",
+    "Hoàn tất (có chênh lệch)",
     "Đã chốt đơn",
     "Đã gửi báo giá",
     "Đã thanh toán",
@@ -181,6 +184,10 @@ export const BIEU_TUONG_THEO_NHAN = {
   "Chờ duyệt": "Hourglass",
   "Đã duyệt": "BadgeCheck",
   "Hoàn thành": "CircleCheckBig",
+  // Phiếu chuyển kho nội bộ dùng đúng tên trong đặc tả BA
+  "Hoàn tất": "CircleCheckBig",
+  "Hoàn tất (có chênh lệch)": "CircleCheckBig",
+  "Chờ xử lý chênh lệch": "TriangleAlert",
   "Đã hủy": "Ban",
   "Đã xóa": "Trash2",
   "Từ chối": "Ban",
@@ -357,9 +364,11 @@ export const QUY_TRINH = {
   },
   chuyenKho: {
     ten: "Phiếu chuyển kho",
-    tong: 4,
-    buoc: { "Nháp": 0, "Chờ duyệt": 1, "Chờ xuất hàng": 2, "Đang vận chuyển": 3, "Hoàn thành": 4 },
-    nhap: ["Nháp"],
+    tong: 5,
+    buoc: {
+      "Chờ duyệt": 1, "Đã duyệt": 2, "Đang vận chuyển": 3, "Chờ xử lý chênh lệch": 4, "Hoàn tất": 5,
+      "Hoàn tất (có chênh lệch)": 5,
+    },
     huy: ["Đã hủy"],
   },
   phieuNhap: {
