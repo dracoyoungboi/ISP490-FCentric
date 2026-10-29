@@ -18,6 +18,11 @@
         outline-color: var(--color-bo-primary, #1677ff);
     }
 
+    /* Khổ nhiệt: hai khối thông tin xếp sát nhau (0,6mm) — viền và nhãn ôm sát khối để không đè lên khối kia */
+    .pe-giay .pdoc--k80 .pdoc-pair > [data-pdoc-khoi] {
+        outline-offset: 0.2mm;
+    }
+
     /* Nhãn tên khối ở góc phải trên, bên trong viền — CHỈ khi đang trỏ chuột / bút (ở giấy, hoặc ở
        nhóm tương ứng bên cột phải): trang bật `display: block` theo khóa khối từ sự kiện con trỏ, KHÔNG
        dùng :hover (máy vừa cảm ứng vừa chuột giữ :hover sau khi chạm). Khối đang chọn chỉ giữ viền +
@@ -39,5 +44,10 @@
         text-transform: none;
         white-space: nowrap;
         pointer-events: none;
+    }
+
+    .pe-giay .pdoc--k80 .pdoc-pair > [data-pdoc-khoi]::before {
+        top: calc(-0.2mm - 2px);
+        right: calc(-0.2mm - 2px);
     }
 }

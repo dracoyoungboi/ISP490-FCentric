@@ -546,8 +546,9 @@
     display: block;
 }
 
+/* Khổ nhiệt ẩn tiêu đề khối nên hai khối xếp chồng (Người mua, Thông tin hóa đơn) đọc liền như một danh sách */
 .pdoc--k80 .pdoc-pair > .pdoc-section + .pdoc-section {
-    margin-top: var(--pdoc-gap);
+    margin-top: 0.6mm;
 }
 
 .pdoc--k80 .pdoc-section-title {
