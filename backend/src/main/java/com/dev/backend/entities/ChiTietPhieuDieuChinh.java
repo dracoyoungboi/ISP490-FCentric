@@ -27,10 +27,15 @@ public class ChiTietPhieuDieuChinh {
     @JoinColumn(name = "phieu_dieu_chinh_kho_id", nullable = false)
     private PhieuDieuChinhKho phieuDieuChinhKho;
 
-    @NotNull
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "chi_tiet_kiem_ke_id", nullable = false)
+    /** Dòng kiểm kê (phiếu nguồn kiểm kê); mỗi dòng gắn đúng một trong hai nguồn (chk_ctpdc_mot_nguon). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "chi_tiet_kiem_ke_id")
     private ChiTietKiemKe chiTietKiemKe;
+
+    /** Dòng biên bản giao nhận (phiếu nguồn chuyển kho). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "chi_tiet_bien_ban_id")
+    private ChiTietBienBanGiaoNhan chiTietBienBan;
 
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -54,7 +59,7 @@ public class ChiTietPhieuDieuChinh {
     @Column(name = "thanh_tien", precision = 15, scale = 2)
     private BigDecimal thanhTien;
 
-    @Lob
+    /** tang | giam */
     @Column(name = "loai_dieu_chinh")
     private String loaiDieuChinh;
 
