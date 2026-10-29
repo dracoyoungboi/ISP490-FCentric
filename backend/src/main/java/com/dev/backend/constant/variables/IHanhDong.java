@@ -22,6 +22,8 @@ public interface IHanhDong {
             phan_cong_nhat_hang = "phan_cong_nhat_hang",
             quet_barcode = "quet_barcode",
             hoan_tat_nhat_hang = "hoan_tat_nhat_hang",
+            // Hủy phiếu nhặt (phiếu chuyển kho bị hủy khi đang / đã nhặt)
+            huy_pick_list = "huy_pick_list",
             phan_bo_lo_nhat_hang = "phan_bo_lo_nhat_hang",
             sua_lo_phieu_xuat = "sua_lo_phieu_xuat",
             tao_lai_phieu_xuat = "tao_lai_phieu_xuat",
@@ -40,6 +42,23 @@ public interface IHanhDong {
             dong_bo_san_pham = "dong_bo_san_pham",
             dong_bo_ton_kho = "dong_bo_ton_kho",
             cap_nhat_cau_hinh = "cap_nhat_cau_hinh";
+    //Chuyển kho nội bộ (lich_su_thay_doi.loai_tham_chieu = phieu_chuyen_kho, id_tham_chieu = id phiếu chuyển;
+    //gia_tri_cu / gia_tri_moi = trạng thái, ghi_chu = lý do hoặc số chứng từ sinh ra)
+    String
+            tao_phieu_chuyen = "tao_phieu_chuyen",
+            duyet_phieu_chuyen = "duyet_phieu_chuyen",
+            // Phiếu nhặt của phiếu chuyển hoàn tất: lô đã nhặt ghi vào PX-CK, chờ xác nhận xuất (trạng thái không đổi)
+            nhat_xong_chuyen_kho = "nhat_xong_chuyen_kho",
+            huy_phieu_chuyen = "huy_phieu_chuyen",
+            xuat_chuyen_kho = "xuat_chuyen_kho",
+            ghi_so_xknb = "ghi_so_xknb",
+            nhan_chuyen_kho = "nhan_chuyen_kho",
+            lap_bien_ban_giao_nhan = "lap_bien_ban_giao_nhan",
+            // Ảnh chụp đính kèm biên bản giao nhận (ghi_chu = số biên bản, mô tả ảnh)
+            them_anh_bien_ban = "them_anh_bien_ban",
+            xoa_anh_bien_ban = "xoa_anh_bien_ban",
+            xu_ly_chenh_lech = "xu_ly_chenh_lech",
+            nhap_hoan_tra = "nhap_hoan_tra";
     //Mẫu in: mỗi lần lưu một phiên bản (lich_su_thay_doi.loai_tham_chieu = cau_hinh_mau_in,
     //id_tham_chieu = id dòng cau_hinh_mau_in; gia_tri_cu / gia_tri_moi = ảnh chụp JSON cấu hình)
     String

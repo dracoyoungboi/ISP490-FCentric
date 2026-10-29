@@ -149,14 +149,17 @@ public class TongQuanVaiTroServiceImpl implements TongQuanVaiTroService {
     private final TongQuanAdminRepository admin;
     private final TongQuanVaiTroRepository repo;
     private final KhaDungChuyenKhoService khaDungChuyenKhoService;
+    private final BanDuocTaiQuayService banDuocTaiQuayService;
     private final JwtService jwtService;
     private final Map<String, BanDaTinh> banDaTinh = new ConcurrentHashMap<>();
 
     public TongQuanVaiTroServiceImpl(TongQuanAdminRepository admin, TongQuanVaiTroRepository repo,
-                                     KhaDungChuyenKhoService khaDungChuyenKhoService, JwtService jwtService) {
+                                     KhaDungChuyenKhoService khaDungChuyenKhoService,
+                                     BanDuocTaiQuayService banDuocTaiQuayService, JwtService jwtService) {
         this.admin = admin;
         this.repo = repo;
         this.khaDungChuyenKhoService = khaDungChuyenKhoService;
+        this.banDuocTaiQuayService = banDuocTaiQuayService;
         this.jwtService = jwtService;
     }
 
@@ -339,6 +342,9 @@ public class TongQuanVaiTroServiceImpl implements TongQuanVaiTroService {
         }
         if (v.phieuChuyenChoDuyet() > 0) {
             ds.add(new Viec("duyet_phieu_chuyen", v.phieuChuyenChoDuyet(), v.phieuChuyenCuNhat(), null, true));
+        }
+        if (v.phieuChuyenChoXuLyLech() > 0) {
+            ds.add(new Viec("xu_ly_chenh_lech_chuyen", v.phieuChuyenChoXuLyLech(), v.phieuChuyenLechCuNhat(), null, true));
         }
         if (v.donChoGomPhieu() > 0) {
             ds.add(new Viec("gom_phieu_nhat", v.donChoGomPhieu(), v.donChoGomCuNhat(), null,
@@ -585,9 +591,15 @@ public class TongQuanVaiTroServiceImpl implements TongQuanVaiTroService {
         String mau = thoatLike(goc.replace('đ', 'd'));
         List<SanPhamTim> sanPham = repo.timSanPham(mau, goc, SO_SAN_PHAM_TRA_TON);
         if (sanPham.isEmpty()) return List.of();
+        List<BienTheTim> bienThes = repo.tonBienThe(khoId, sanPham.stream().map(SanPhamTim::id).toList());
+        // "Tại kho" = số bán được tại quầy: mã đang bị phiếu nhặt / phiếu xuất bán / phiếu chuyển giữ ở kho tính lại theo
+        // lô, cùng công thức với danh mục POS và bước thanh toán
+        Map<Integer, BigDecimal> banDuoc = banDuocTaiQuayService.banDuocCuaMaDangGiu(khoId,
+                bienThes.stream().map(b -> b.bienThe().id()).toList());
         Map<Integer, List<BienTheTim>> theoSanPham = new LinkedHashMap<>();
-        for (BienTheTim b : repo.tonBienThe(khoId, sanPham.stream().map(SanPhamTim::id).toList())) {
-            theoSanPham.computeIfAbsent(b.sanPhamId(), x -> new ArrayList<>()).add(b);
+        for (BienTheTim b : bienThes) {
+            theoSanPham.computeIfAbsent(b.sanPhamId(), x -> new ArrayList<>())
+                    .add(voiTaiKho(b, banDuoc.get(b.bienThe().id())));
         }
         List<TraTonSanPham> ketQua = new ArrayList<>();
         for (SanPhamTim sp : sanPham) {
@@ -604,6 +616,14 @@ public class TongQuanVaiTroServiceImpl implements TongQuanVaiTroService {
             ketQua.add(new TraTonSanPham(sp.id(), sp.ma(), sp.ten(), thap, cao, bien));
         }
         return ketQua;
+    }
+
+    /** Thay "Tại kho" bằng số bán được đã tính lại (null = mã không bị giữ, giữ số SQL). */
+    private static BienTheTim voiTaiKho(BienTheTim b, BigDecimal banDuoc) {
+        if (banDuoc == null) return b;
+        TraTonBienThe t = b.bienThe();
+        return new BienTheTim(b.sanPhamId(), b.giaBan(), new TraTonBienThe(t.id(), t.maSku(), t.tenMau(), t.tenKichCo(),
+                Math.max(0, so(banDuoc)), t.khoKhac(), t.dangVe()));
     }
 
     /**

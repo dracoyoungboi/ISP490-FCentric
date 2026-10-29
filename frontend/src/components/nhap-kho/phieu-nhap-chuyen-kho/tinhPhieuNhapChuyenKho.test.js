@@ -32,40 +32,40 @@ test("loaiPhieuNhap giữ quy tắc màn cũ", () => {
   assert.equal(loaiPhieuNhap(null), LOAI_PHIEU_NHAP.KHACH_TRA);
 });
 
-test("quyTacPhieuNhap: API, nút, hủy theo loại và trạng thái", () => {
+test("quyTacPhieuNhap: phiếu của phiếu chuyển kho chỉ xem, khách trả xác nhận nhập", () => {
+  // Máy chủ lập PN-TRF / PN-RET khi nhận hàng ở phiếu chuyển: không nhận, không hủy ở đây
   const ck = quyTacPhieuNhap(chuyenKho());
-  assert.equal(ck.apiNhan, "completeTransfer");
-  assert.equal(ck.huyDuoc, true);
-  assert.equal(ck.nhanNut, "Nhận hàng");
-  assert.equal(ck.cauThanhCong, "Đã nhận hàng chuyển kho");
+  assert.equal(ck.apiNhan, null);
+  assert.equal(ck.huyDuoc, false);
+  assert.equal(ck.nhanNut, null);
+  assert.equal(ck.moPhieuChuyen, true);
   const ht = quyTacPhieuNhap(hoanTra());
-  assert.equal(ht.apiNhan, "completeTransfer");
-  assert.equal(ht.huyDuoc, false);
-  assert.equal(ht.nhanNut, "Xác nhận nhập trả");
-  assert.equal(ht.tieuDeHop, "Xác nhận nhập trả kho");
+  assert.equal(ht.apiNhan, null);
+  assert.equal(ht.moPhieuChuyen, true);
   const kh = quyTacPhieuNhap(khachTra());
   assert.equal(kh.apiNhan, "complete");
   assert.equal(kh.huyDuoc, false);
+  assert.equal(kh.moPhieuChuyen, false);
+  assert.equal(kh.nhanNut, "Xác nhận nhập trả");
+  assert.equal(kh.tieuDeHop, "Xác nhận nhập trả kho");
   assert.equal(kh.cauThanhCong, "Đã nhập kho hoàn trả");
   assert.equal(quyTacPhieuNhap(chuyenKho(3)).choNhap, false);
-  assert.equal(quyTacPhieuNhap(chuyenKho(3)).huyDuoc, false);
+  assert.equal(quyTacPhieuNhap(chuyenKho(3)).moPhieuChuyen, false);
   assert.equal(quyTacPhieuNhap(chuyenKho(3)).inDuoc, true);
   assert.equal(quyTacPhieuNhap(chuyenKho(4)).inDuoc, false);
   assert.equal(quyTacPhieuNhap(chuyenKho(4)).daHuy, true);
 });
 
 test("cauChoNhap và moTaXacNhan theo loại", () => {
-  assert.match(cauChoNhap(chuyenKho()), /số lượng Kho tổng đã xuất\. .*Nhận hàng/);
-  assert.match(cauChoNhap({ ...chuyenKho(), tenKhoChuyenTu: null }), /kho nguồn đã xuất/);
-  assert.match(cauChoNhap(hoanTra()), /quay về Kho tổng/);
+  assert.match(cauChoNhap(chuyenKho()), /cách cũ\. Nhận hàng ở màn phiếu chuyển kho/);
+  assert.match(cauChoNhap(hoanTra()), /hoàn trả về Kho tổng ở màn phiếu chuyển kho/);
   assert.match(cauChoNhap(khachTra()), /đúng lô đã bán/);
   const tong = { soSanPham: 2, soDong: 3, soLuong: 1240 };
   assert.equal(
-    moTaXacNhan(chuyenKho(), tong, 4),
-    "Cộng 2 sản phẩm, 3 biến thể (tổng số lượng 1.240, 4 lô) vào tồn Cửa hàng Hà Nội theo đúng lô đã xuất. Phiếu chuyển kho chuyển sang Hoàn thành.",
+    moTaXacNhan(khachTra(), tong, 4),
+    "Cộng lại 2 sản phẩm, 3 biến thể (tổng số lượng 1.240, 4 lô) vào tồn Cửa hàng Hà Nội theo đúng lô đã bán.",
   );
-  assert.equal(moTaXacNhan(hoanTra(), tong), "Cộng lại 2 sản phẩm, 3 biến thể (tổng số lượng 1.240) vào tồn Kho tổng theo đúng lô đã xuất.");
-  assert.match(moTaXacNhan(khachTra(), tong, 1), /đúng lô đã bán\.$/);
+  assert.equal(moTaXacNhan({}, tong), "Cộng lại 2 sản phẩm, 3 biến thể (tổng số lượng 1.240) vào tồn kho nhận theo đúng lô đã bán.");
 });
 
 test("loCuaDong: một lô ghi số của dòng, nhiều lô chỉ ghi mã (số của API là số nhập ban đầu của lô)", () => {

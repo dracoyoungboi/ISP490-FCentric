@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ClipboardList, Link2, List, Package, Tags } from "lucide-react";
+import { ArrowLeftRight, ClipboardList, Link2, List, Package, Tags } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import { Input } from "@/components/ui/input";
 import LoadingState from "@/components/shared/LoadingState";
@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { getInventorySettings, bulkUpdateInventorySettings } from "@/services/inventorySettingsService";
 import {
   INVENTORY_SETTINGS,
+  duocDeTrong,
   getInventoryChanges,
   moTaTacDong,
   phamViCauHinh,
@@ -29,7 +30,8 @@ import {
 } from "@/validations/inventorySettingsSchema";
 
 /**
- * Các mục Vận hành của trung tâm Cấu hình (Sản phẩm, Tồn kho, Đồng bộ kênh bán, Khách hàng, Nhập kho) — cùng nguồn
+ * Các mục Vận hành của trung tâm Cấu hình (Sản phẩm, Tồn kho, Đồng bộ kênh bán, Khách hàng, Nhập kho, Chuyển kho, Chứng
+ * từ và hóa đơn) — cùng nguồn
  * GET/PUT /api/v1/dieu-hanh-he-thong/cau-hinh; mỗi mục một thẻ, sửa và lưu riêng phần của mình.
  * `footer.roles`: chỉ hiện liên kết khi vai trò mở được trang đích.
  */
@@ -85,6 +87,30 @@ const PARTS = {
       icon: ClipboardList,
       title: "Phiếu nhập kho",
       description: "Mở phiếu nhập từ đơn mua để kiểm đếm và khóa lô",
+    },
+  },
+  // Ai được xử lý chênh lệch khi nhận hàng chuyển kho (đặc tả BA, B.5)
+  transfer: {
+    cardTitle: "Xử lý chênh lệch khi nhận hàng",
+    scope: "phiếu chuyển kho chờ xử lý chênh lệch",
+    footer: {
+      to: "/transfer-tickets",
+      icon: ArrowLeftRight,
+      title: "Chuyển kho nội bộ",
+      description: "Phiếu nhận thiếu, hỏng nằm ở trạng thái Chờ xử lý chênh lệch",
+      roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"],
+    },
+  },
+  // Giấy đi đường của phiếu chuyển kho (đặc tả BA, B.3)
+  documents: {
+    cardTitle: "Phiếu xuất kho kiêm vận chuyển nội bộ (XKNB)",
+    scope: "hộp Xác nhận xuất của phiếu chuyển kho",
+    footer: {
+      to: "/transfer-tickets",
+      icon: ArrowLeftRight,
+      title: "Chuyển kho nội bộ",
+      description: "Phiếu xuất khi chưa có số XKNB nằm ở mục Thiếu giấy đi đường tới khi ghi số",
+      roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"],
     },
   },
 };
@@ -185,7 +211,8 @@ export default function OperationsSettingsPage({ part }) {
         loaded.map((item) => updated.find((result) => result.maCauHinh === item.maCauHinh) ?? item),
         part,
       );
-      if (merged.some((item) => validateInventorySetting(item.giaTri, item.kieuDuLieu))) {
+      if (merged.some((item) => !(item.giaTri === "" && duocDeTrong(item.maCauHinh))
+        && validateInventorySetting(item.giaTri, item.kieuDuLieu))) {
         throw new Error("Phản hồi lưu có giá trị cấu hình không hợp lệ.");
       }
       if (!mountedRef.current) return;
@@ -259,7 +286,11 @@ export default function OperationsSettingsPage({ part }) {
                   </p>
                 </div>
                 {editing ? (
-                  <div role="radiogroup" aria-labelledby={`${id}-nhan`} className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                  <div
+                    role="radiogroup"
+                    aria-labelledby={`${id}-nhan`}
+                    className={cn("grid grid-cols-1 gap-2", field.options.length === 2 && "md:grid-cols-2")}
+                  >
                     {field.options.map((o, i) => {
                       const chon = value === o.value;
                       return (
@@ -349,6 +380,8 @@ export default function OperationsSettingsPage({ part }) {
                       {phamViCauHinh(field.code)}
                     </SettingsFieldHint>
                   </>
+                ) : value === "" && field.choPhepTrong ? (
+                  <p className="flex h-9 items-center text-sm text-bo-muted">Chưa đặt</p>
                 ) : (
                   <p className="flex h-9 items-center gap-1.5">
                     <span

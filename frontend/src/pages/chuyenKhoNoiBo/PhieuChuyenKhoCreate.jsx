@@ -31,13 +31,15 @@ import { NGUONG_CONG_CU } from "@/config/bangChungTu";
 
 /**
  * Tạo phiếu chuyển kho nội bộ (/transfer-tickets/create): khối chứng từ "một khối" như Chi tiết phiếu chuyển.
- * Nghiệp vụ giữ như cũ: POST /phieu-chuyen-kho/create { khoXuatId, khoNhapId, ghiChu, chiTietXuat } → phiếu Nháp,
- * mở chi tiết để Gửi duyệt. Điền sẵn từ đường dẫn ?khoXuatId=&khoNhapId=&bienTheId=&soLuong= như cũ.
+ * POST /phieu-chuyen-kho/create { khoXuatId, khoNhapId, ghiChu, chiTietXuat } → phiếu Chờ duyệt (đặc tả BA không có
+ * bước nháp): số lượng được giữ chỗ ở kho nguồn, Quản lý Kho tổng duyệt và lập lệnh điều động. Điền sẵn từ đường dẫn
+ * ?khoXuatId=&khoNhapId=&bienTheId=&soLuong= như cũ.
  *
- * Theo đúng kiểm tra của máy chủ (PhieuXuatKhoService.createTransfer):
- * - Không phải quản trị viên chỉ tạo yêu cầu NHẬP về kho mình được phân → kho đích chỉ liệt kê kho trong quyền;
- *   trước khi gửi, làm việc luôn ở kho đích (header kho_id).
- * - Máy chủ kiểm số có thể chuyển ở kho nguồn khi tạo; màn chưa có API tồn theo kho nên không hiện cột tồn.
+ * Theo đúng kiểm tra của máy chủ (PhieuChuyenKhoService.tao):
+ * - Quản trị viên, Quản lý Kho tổng tạo mọi tuyến; người khác chỉ tạo yêu cầu NHẬP về kho mình được phân → kho đích chỉ
+ *   liệt kê kho trong quyền; trước khi gửi, làm việc luôn ở kho đích (header kho_id).
+ * - Máy chủ kiểm số có thể chuyển ở kho nguồn (trừ hàng đang giữ chỗ cho phiếu chuyển khác) khi tạo; màn chưa có API
+ *   tồn theo kho nên không hiện cột tồn.
  */
 
 const DROPDOWN_CONTENT_CLASS = "z-50 max-h-[300px] w-[var(--radix-dropdown-menu-trigger-width)] min-w-[240px] overflow-y-auto rounded-lg border border-bo-border bg-white p-1 shadow-lg";
@@ -46,10 +48,11 @@ const SO_KET_QUA_TOI_DA = 20;
 const GHI_CHU_TOI_DA = 500;
 
 const BUOC = [
-    { ma: "tao", nhan: "Tạo yêu cầu", ai: "Kho đích", trangThai: "dangLam", phu: "Đang lập" },
-    { ma: "duyet", nhan: "Duyệt xuất", ai: "Kho nguồn", trangThai: "chua" },
-    { ma: "xuat", nhan: "Xuất kho", ai: "Kho nguồn", trangThai: "chua" },
-    { ma: "nhan", nhan: "Nhận hàng", ai: "Kho đích", trangThai: "chua" },
+    { ma: "yeuCau", nhan: "Yêu cầu", ai: "Kho nhận", trangThai: "dangLam", phu: "Đang lập" },
+    { ma: "lenh", nhan: "Lệnh điều động", ai: "Quản lý Kho tổng", trangThai: "chua" },
+    { ma: "xuat", nhan: "Xuất kho", ai: "Kho xuất", trangThai: "chua" },
+    { ma: "vanChuyen", nhan: "Đang vận chuyển", ai: "Người vận chuyển", trangThai: "chua" },
+    { ma: "nhan", nhan: "Nhận hàng", ai: "Kho nhận", trangThai: "chua" },
 ];
 
 /** Một dòng hàng điều chuyển từ biến thể (dữ liệu /don-ban-hang/variants-for-create). */
@@ -153,7 +156,9 @@ export default function PhieuChuyenKhoCreate() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const idDs = useId();
-    const laQtv = hasAnyRole([ROLES.QUAN_TRI_VIEN]);
+    // Quản trị viên, Quản lý Kho tổng tạo yêu cầu cho mọi tuyến; người khác chỉ yêu cầu nhận về kho mình (như máy chủ kiểm)
+    const toanTuyen = hasAnyRole([ROLES.QUAN_TRI_VIEN])
+        || (hasAnyRole([ROLES.QUAN_LY_KHO]) && dsKhoLamViecTrongToken().some(laKhoTong));
     // Chỉ điền sẵn một lần (StrictMode gọi tải dữ liệu 2 lần; không ghi đè khi người dùng đã sửa).
     const daDienSanRef = useRef(false);
     const oTimRef = useRef(null);
@@ -176,10 +181,10 @@ export default function PhieuChuyenKhoCreate() {
 
     // Kho đích: quản trị viên mọi kho giao dịch; người khác chỉ kho mình được phân (máy chủ chặn kho khác)
     const khoNhanDuoc = useMemo(() => {
-        if (laQtv) return warehouses;
+        if (toanTuyen) return warehouses;
         const idQuyen = new Set(dsKhoLamViecTrongToken().map((k) => String(k.id)));
         return warehouses.filter((k) => idQuyen.has(String(k.id)));
-    }, [warehouses, laQtv]);
+    }, [warehouses, toanTuyen]);
 
     // Kho và sản phẩm tải độc lập: một bên lỗi thì bên kia vẫn dùng được, mỗi bên có dòng báo lỗi riêng
     const taiKho = useCallback(async () => {
@@ -214,12 +219,12 @@ export default function PhieuChuyenKhoCreate() {
 
             if (daDienSanRef.current) return;
             const idQuyen = new Set(dsKhoLamViecTrongToken().map((k) => String(k.id)));
-            const dsKhoNhan = laQtv ? dsKho : dsKho.filter((k) => idQuyen.has(String(k.id)));
+            const dsKhoNhan = toanTuyen ? dsKho : dsKho.filter((k) => idQuyen.has(String(k.id)));
             const deXuat = docDeXuatTuDuongDan(searchParams, dsKho, dsKhoNhan, dsBienThe);
             daDienSanRef.current = true;
             if (!deXuat) {
                 // Không có đề xuất: người không phải quản trị viên mặc định nhận về nơi đang làm việc
-                if (!laQtv) {
+                if (!toanTuyen) {
                     const noiLamViec = dsKhoNhan.find((k) => Number(k.id) === getKhoLamViecId()) ?? (dsKhoNhan.length === 1 ? dsKhoNhan[0] : null);
                     if (noiLamViec) setFormData(prev => ({ ...prev, khoNhapId: prev.khoNhapId || String(noiLamViec.id) }));
                 }
@@ -243,7 +248,7 @@ export default function PhieuChuyenKhoCreate() {
         } finally {
             setDangTai(false);
         }
-    }, [searchParams, laQtv, taiKho]);
+    }, [searchParams, toanTuyen, taiKho]);
 
     // Hoãn qua microtask để tránh setState đồng bộ trong effect
     // (react-hooks/set-state-in-effect); dữ liệu vẫn tải ngay khi mount.
@@ -326,7 +331,7 @@ export default function PhieuChuyenKhoCreate() {
         try {
             setLoading(true);
             // Máy chủ kiểm header kho_id là kho của người dùng: làm việc luôn ở kho nhận (kho mình được phân)
-            if (!laQtv && getKhoLamViecId() !== Number(formData.khoNhapId)) setKhoLamViecId(Number(formData.khoNhapId));
+            if (!toanTuyen && getKhoLamViecId() !== Number(formData.khoNhapId)) setKhoLamViecId(Number(formData.khoNhapId));
             const payload = {
                 khoXuatId: parseInt(formData.khoXuatId),
                 khoNhapId: parseInt(formData.khoNhapId),
@@ -336,11 +341,11 @@ export default function PhieuChuyenKhoCreate() {
                     soLuongXuat: Number(item.quantity) || 1,
                 })),
             };
-            const res = await phieuChuyenKhoService.create(payload);
-            toast.success("Tạo yêu cầu điều chuyển thành công", { description: "Phiếu đang là nháp, bấm Gửi duyệt để kho nguồn duyệt xuất." });
+            const res = await phieuChuyenKhoService.tao(payload);
+            toast.success(`Đã tạo yêu cầu chuyển kho ${res?.soPhieuChuyen ?? ""}`.trim(), { description: "Phiếu chờ Quản lý Kho tổng duyệt và lập lệnh điều động; hàng đang được giữ chỗ tại kho xuất." });
             navigate(`/transfer-tickets/${res.id}`);
         } catch (e) {
-            toast.error(e?.response?.data?.message || "Lỗi khi tạo phiếu");
+            toast.error(getApiErrorMessage(e, "Không tạo được yêu cầu chuyển kho"));
         } finally {
             setLoading(false);
             dangTaoRef.current = false;
@@ -365,7 +370,7 @@ export default function PhieuChuyenKhoCreate() {
     const doiChieu = () => setFormData(prev => {
         // Không phải quản trị viên: kho nguồn mới (kho đích cũ) phải là kho chọn được làm kho đích
         const nhanMoi = prev.khoXuatId;
-        if (!laQtv && nhanMoi && !khoNhanDuoc.some(k => String(k.id) === String(nhanMoi))) {
+        if (!toanTuyen && nhanMoi && !khoNhanDuoc.some(k => String(k.id) === String(nhanMoi))) {
             toast.warning("Không đổi chiều được: bạn chỉ tạo yêu cầu nhận hàng về kho mình phụ trách.");
             return prev;
         }
@@ -393,7 +398,8 @@ export default function PhieuChuyenKhoCreate() {
 
     const thongBao = [
         <DongThongBao key="nhap" tone="info">
-            Phiếu tạo ở trạng thái nháp. Mở phiếu và bấm <b className="font-semibold">Gửi duyệt</b> để quản lý kho nguồn duyệt xuất; hàng chỉ rời kho khi kho nguồn xuất kho.
+            Tạo yêu cầu là <b className="font-semibold">giữ chỗ</b> số lượng tại kho xuất và gửi luôn cho Quản lý Kho tổng duyệt, lập lệnh điều động.
+            Hàng chỉ rời kho khi kho xuất nhặt hàng và xác nhận xuất.
         </DongThongBao>,
         loiKho ? (
             <DongThongBao key="loi-kho" tone="bad" actions={<NutChu onClick={taiLaiKho}>Thử lại</NutChu>}>
@@ -569,7 +575,7 @@ export default function PhieuChuyenKhoCreate() {
                     onChon={(id) => setFormData(prev => ({ ...prev, khoNhapId: id }))}
                     goiYTrong={dangTai ? "Đang tải danh sách kho…" : loiKho ? "Chưa tải được danh sách kho." : "Bạn chưa được phân kho nào để nhận hàng."}
                 />
-                {!laQtv ? (
+                {!toanTuyen ? (
                     <p className="mt-2 text-xs leading-[18px] text-bo-muted">Bạn tạo yêu cầu nhận hàng về kho mình phụ trách.</p>
                 ) : null}
             </NhomThuocTinh>

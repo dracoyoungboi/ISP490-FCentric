@@ -24,8 +24,11 @@ public class PosCatalogBienTheDto {
     private final Integer chatLieuId;
     private final String tenChatLieu;
     private final BigDecimal giaBan;
-    /** Tồn khả dụng SUM(ton - daDat) của ĐÚNG kho đang bán; chưa có lô nào -> 0. */
-    private final BigDecimal soLuongKhaDung;
+    /**
+     * Số bán được tại quầy của ĐÚNG kho đang bán (BanDuocTaiQuayService, cùng công thức với thanh toán); chưa có lô
+     * nào -> 0. Truy vấn trả Σ theo lô max(0, tồn − đã đặt), service ghi đè cho các mã đang bị giữ.
+     */
+    private BigDecimal soLuongKhaDung;
     private final Integer danhMucId;
     private final String tenDanhMuc;
     private String anhUrl;
@@ -74,4 +77,5 @@ public class PosCatalogBienTheDto {
     public String getAnhUrl() { return anhUrl; }
 
     public void setAnhUrl(String anhUrl) { this.anhUrl = anhUrl; }
+    public void setSoLuongKhaDung(BigDecimal soLuongKhaDung) { this.soLuongKhaDung = soLuongKhaDung; }
 }

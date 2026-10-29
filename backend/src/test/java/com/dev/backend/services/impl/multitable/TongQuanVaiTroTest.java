@@ -42,7 +42,7 @@ class TongQuanVaiTroTest {
     @Test
     void viecQuanLyKho_chiDongCoSo_gapLenTruoc() {
         LocalDateTime moc = LocalDateTime.of(2026, 10, 17, 13, 25);
-        List<Viec> ds = TongQuanVaiTroServiceImpl.danhSachViec(new ViecQuanLyKho(0, null, 0, null,
+        List<Viec> ds = TongQuanVaiTroServiceImpl.danhSachViec(new ViecQuanLyKho(0, null, 0, null, 0, null,
                 3, "2026-10-17T14:00:00", 2, "2026-10-17T09:00:00", 1, "2026-10-01T08:00:00", "Đợt 1"), moc);
         assertEquals(List.of("phan_cong_nhat", "gom_phieu_nhat", "hoan_tat_kiem_ke"),
                 ds.stream().map(Viec::loai).toList());
@@ -51,10 +51,23 @@ class TongQuanVaiTroTest {
         assertEquals("Đợt 1", ds.get(2).moTa());
 
         List<Viec> duyet = TongQuanVaiTroServiceImpl.danhSachViec(new ViecQuanLyKho(2, "2026-10-17T15:00:00",
-                1, "2026-10-17T15:10:00", 0, null, 0, null, 0, null, null), moc);
+                1, "2026-10-17T15:10:00", 0, null, 0, null, 0, null, 0, null, null), moc);
         assertTrue(duyet.stream().allMatch(Viec::gap), "việc duyệt luôn gấp");
-        assertTrue(TongQuanVaiTroServiceImpl.danhSachViec(new ViecQuanLyKho(0, null, 0, null, 0, null, 0, null, 0,
+        assertTrue(TongQuanVaiTroServiceImpl.danhSachViec(new ViecQuanLyKho(0, null, 0, null, 0, null, 0, null, 0, null, 0,
                 null, null), moc).isEmpty());
+    }
+
+    @Test
+    void viecQuanLyKho_choXuLyChenhLech_sauDuyetPhieuChuyen_luonGap() {
+        LocalDateTime moc = LocalDateTime.of(2026, 10, 28, 13, 0);
+        List<Viec> ds = TongQuanVaiTroServiceImpl.danhSachViec(new ViecQuanLyKho(0, null, 1, "2026-10-28T09:00:00",
+                2, "2026-10-28T12:30:00", 1, "2026-10-28T08:00:00", 0, null, 0, null, null), moc);
+        assertEquals(List.of("duyet_phieu_chuyen", "xu_ly_chenh_lech_chuyen", "gom_phieu_nhat"),
+                ds.stream().map(Viec::loai).toList());
+        Viec lech = ds.get(1);
+        assertEquals(2, lech.so());
+        assertEquals("2026-10-28T12:30:00", lech.cuNhat());
+        assertTrue(lech.gap(), "chờ xử lý chênh lệch luôn gấp như việc duyệt");
     }
 
     @Test

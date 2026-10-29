@@ -58,8 +58,17 @@ class DieuHanhHeThongDynamicConfigTest {
 
         service.initDefaultConfigurations();
 
-        // 6 khóa vận hành + 5 khóa mã vạch / tem sản phẩm (MA_VACH_TIEN_TO, TEM_*)
-        verify(cauHinhRepository, times(11)).save(any(CauHinhHeThong.class));
+        // 6 khóa vận hành + 5 khóa mã vạch / tem sản phẩm (MA_VACH_TIEN_TO, TEM_*) + 2 khóa VAT + 2 khóa giấy đi đường XKNB
+        // + 1 khóa ai được xử lý chênh lệch chuyển kho
+        verify(cauHinhRepository, times(16)).save(any(CauHinhHeThong.class));
+        // Mặc định đúng mockup B.5: Quản trị viên hoặc Quản lý Kho tổng
+        verify(cauHinhRepository).save(argThat(c -> "CHUYEN_KHO_QUYEN_XU_LY_LECH".equals(c.getMaCauHinh())
+                && "QL_KHO_TONG".equals(c.getGiaTri()) && c.getKieuDuLieu() == KieuDuLieuCauHinh.STRING));
+        // Công ty chưa dùng hóa đơn điện tử: mặc định Chỉ cảnh báo (xuất trước, ghi số XKNB sau), ký hiệu điền sẵn để trống
+        verify(cauHinhRepository).save(argThat(c -> "XKNB_CHE_DO".equals(c.getMaCauHinh())
+                && "CHI_CANH_BAO".equals(c.getGiaTri()) && c.getKieuDuLieu() == KieuDuLieuCauHinh.STRING));
+        verify(cauHinhRepository).save(argThat(c -> "XKNB_KY_HIEU_MAC_DINH".equals(c.getMaCauHinh())
+                && "".equals(c.getGiaTri()) && c.getKieuDuLieu() == KieuDuLieuCauHinh.STRING));
         verify(cauHinhRepository).save(argThat(c -> "KIEM_DEM_XAC_NHAN".equals(c.getMaCauHinh())
                 && "QUET_TIEP_LA_DAT".equals(c.getGiaTri()) && c.getKieuDuLieu() == KieuDuLieuCauHinh.STRING));
         verify(cauHinhRepository).save(argThat(c -> "MA_KHACH_HANG_TIEN_TO".equals(c.getMaCauHinh())
@@ -155,6 +164,73 @@ class DieuHanhHeThongDynamicConfigTest {
     }
 
     @Test
+    void updateCauHinh_giayDiDuongXknb_kyHieuDungMauVaCheDoChiHaiGiaTri() {
+        CauHinhHeThong kyHieu = CauHinhHeThong.builder().maCauHinh("XKNB_KY_HIEU_MAC_DINH").giaTri("")
+                .kieuDuLieu(KieuDuLieuCauHinh.STRING).build();
+        CauHinhHeThong cheDo = CauHinhHeThong.builder().maCauHinh("XKNB_CHE_DO").giaTri("CHI_CANH_BAO")
+                .kieuDuLieu(KieuDuLieuCauHinh.STRING).build();
+        when(cauHinhRepository.findById("XKNB_KY_HIEU_MAC_DINH")).thenReturn(Optional.of(kyHieu));
+        when(cauHinhRepository.findById("XKNB_CHE_DO")).thenReturn(Optional.of(cheDo));
+        when(cauHinhRepository.save(any(CauHinhHeThong.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        for (String sai : new String[] {"6K26XAB", "6A26NAB", "6k26nab", "6K2NAB", "6K26NABC"}) {
+            CauHinhHeThongUpdateRequest req = new CauHinhHeThongUpdateRequest();
+            req.setGiaTri(sai);
+            CommonException ex = assertThrows(CommonException.class,
+                    () -> service.updateCauHinh("XKNB_KY_HIEU_MAC_DINH", req, null), sai);
+            assertTrue(ex.getMessage().startsWith("Ký hiệu phiếu XKNB gồm 7 ký tự"), ex.getMessage());
+        }
+        CauHinhHeThongUpdateRequest kyHieuDung = new CauHinhHeThongUpdateRequest();
+        kyHieuDung.setGiaTri("6C26NAB");
+        service.updateCauHinh("XKNB_KY_HIEU_MAC_DINH", kyHieuDung, null);
+        assertEquals("6C26NAB", kyHieu.getGiaTri());
+
+        for (String sai : new String[] {"", "chan", "CANH_BAO", "KHONG_CHAN"}) {
+            CauHinhHeThongUpdateRequest req = new CauHinhHeThongUpdateRequest();
+            req.setGiaTri(sai);
+            assertThrows(CommonException.class, () -> service.updateCauHinh("XKNB_CHE_DO", req, null), sai);
+        }
+        assertEquals("CHI_CANH_BAO", cheDo.getGiaTri());
+        CauHinhHeThongUpdateRequest chan = new CauHinhHeThongUpdateRequest();
+        chan.setGiaTri("CHAN");
+        service.updateCauHinh("XKNB_CHE_DO", chan, null);
+        assertEquals("CHAN", cheDo.getGiaTri());
+    }
+
+    @Test
+    void updateCauHinh_quyenXuLyChenhLech_chiNhanBaGiaTri() {
+        CauHinhHeThong entity = CauHinhHeThong.builder().maCauHinh("CHUYEN_KHO_QUYEN_XU_LY_LECH").giaTri("QL_KHO_TONG")
+                .kieuDuLieu(KieuDuLieuCauHinh.STRING).build();
+        when(cauHinhRepository.findById("CHUYEN_KHO_QUYEN_XU_LY_LECH")).thenReturn(Optional.of(entity));
+        when(cauHinhRepository.save(any(CauHinhHeThong.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Giá trị lạ, viết thường, thừa khoảng trắng, hoặc thiếu (null) → lỗi, giữ nguyên giá trị cũ
+        for (String sai : new String[] {"", "ql_kho_tong", "QL_KHO_TONG ", "QL_KHO_NHAN", "TAT_CA", null}) {
+            CauHinhHeThongUpdateRequest req = new CauHinhHeThongUpdateRequest();
+            req.setGiaTri(sai);
+            CommonException ex = assertThrows(CommonException.class,
+                    () -> service.updateCauHinh("CHUYEN_KHO_QUYEN_XU_LY_LECH", req, null), String.valueOf(sai));
+            assertTrue(ex.getMessage().startsWith("Người xử lý chênh lệch không hợp lệ"), ex.getMessage());
+        }
+        assertEquals("QL_KHO_TONG", entity.getGiaTri());
+
+        for (String dung : new String[] {"QL_KHO_TONG_VA_KHO_XUAT", "CHI_QUAN_TRI", "QL_KHO_TONG"}) {
+            CauHinhHeThongUpdateRequest req = new CauHinhHeThongUpdateRequest();
+            req.setGiaTri(dung);
+            service.updateCauHinh("CHUYEN_KHO_QUYEN_XU_LY_LECH", req, null);
+            assertEquals(dung, entity.getGiaTri());
+        }
+
+        // Lưu cả nhóm (màn Cấu hình › Chuyển kho gọi bulk): cũng kiểm như trên, không lưu gì khi sai
+        CauHinhHeThongBulkUpdateRequest bulkSai = new CauHinhHeThongBulkUpdateRequest();
+        bulkSai.setMaCauHinh("CHUYEN_KHO_QUYEN_XU_LY_LECH");
+        bulkSai.setGiaTri("QL_KHO_NHAN");
+        assertThrows(CommonException.class, () -> service.bulkUpdateCauHinh(List.of(bulkSai), null));
+        verify(cauHinhRepository, never()).saveAll(any());
+        assertEquals("QL_KHO_TONG", entity.getGiaTri());
+    }
+
+    @Test
     void updateCauHinh_chuKyNhoHon1_nemCommonException() {
         CauHinhHeThong entity = CauHinhHeThong.builder()
                 .maCauHinh("OMNI_SYNC_INTERVAL_MINS")
@@ -234,6 +310,48 @@ class DieuHanhHeThongDynamicConfigTest {
     @AfterEach
     void tearDown() {
         SecurityContextHolder.clear();
+    }
+
+    @Test
+    void bulkUpdateCauHinh_giaTriTrong_chiKyHieuXknbDuocDeTrong() {
+        CauHinhHeThong kyHieu = CauHinhHeThong.builder().maCauHinh("XKNB_KY_HIEU_MAC_DINH").giaTri("6K26NAB")
+                .kieuDuLieu(KieuDuLieuCauHinh.STRING).build();
+        CauHinhHeThong cheDo = CauHinhHeThong.builder().maCauHinh("XKNB_CHE_DO").giaTri("CHI_CANH_BAO")
+                .kieuDuLieu(KieuDuLieuCauHinh.STRING).build();
+        CauHinhHeThong tienTo = CauHinhHeThong.builder().maCauHinh("MA_KHACH_HANG_TIEN_TO").giaTri("KH")
+                .kieuDuLieu(KieuDuLieuCauHinh.STRING).build();
+        when(cauHinhRepository.findById("XKNB_KY_HIEU_MAC_DINH")).thenReturn(Optional.of(kyHieu));
+        when(cauHinhRepository.findById("XKNB_CHE_DO")).thenReturn(Optional.of(cheDo));
+        when(cauHinhRepository.findById("MA_KHACH_HANG_TIEN_TO")).thenReturn(Optional.of(tienTo));
+
+        // Khóa khác để trống (rỗng hoặc toàn khoảng trắng) → lỗi, không lưu gì
+        for (String ma : new String[] {"XKNB_CHE_DO", "MA_KHACH_HANG_TIEN_TO"}) {
+            for (String trong : new String[] {"", "   "}) {
+                CauHinhHeThongBulkUpdateRequest r = new CauHinhHeThongBulkUpdateRequest();
+                r.setMaCauHinh(ma);
+                r.setGiaTri(trong);
+                CommonException ex = assertThrows(CommonException.class, () -> service.bulkUpdateCauHinh(List.of(r), null), ma);
+                assertEquals("Giá trị cấu hình không được để trống", ex.getMessage());
+            }
+        }
+        assertEquals("CHI_CANH_BAO", cheDo.getGiaTri());
+        assertEquals("KH", tienTo.getGiaTri());
+        verify(cauHinhRepository, never()).saveAll(any());
+
+        // Ký hiệu XKNB khác rỗng vẫn kiểm mẫu
+        CauHinhHeThongBulkUpdateRequest sai = new CauHinhHeThongBulkUpdateRequest();
+        sai.setMaCauHinh("XKNB_KY_HIEU_MAC_DINH");
+        sai.setGiaTri("6K26X");
+        assertThrows(CommonException.class, () -> service.bulkUpdateCauHinh(List.of(sai), null));
+        assertEquals("6K26NAB", kyHieu.getGiaTri());
+
+        // Ký hiệu XKNB để trống được: bỏ ký hiệu điền sẵn ở hộp Xác nhận xuất
+        CauHinhHeThongBulkUpdateRequest xoa = new CauHinhHeThongBulkUpdateRequest();
+        xoa.setMaCauHinh("XKNB_KY_HIEU_MAC_DINH");
+        xoa.setGiaTri("");
+        service.bulkUpdateCauHinh(List.of(xoa), null);
+        assertEquals("", kyHieu.getGiaTri());
+        verify(cauHinhRepository).saveAll(any());
     }
 
     @Test

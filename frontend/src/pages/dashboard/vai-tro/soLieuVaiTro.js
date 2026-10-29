@@ -295,7 +295,7 @@ export function oNghiepVu(nv, kho, cauHinh) {
       to: "/transfer-tickets",
       chip: [
         ...chip(nv.chuyenKho.choDuyet > 0, { nhan: "Chờ duyệt", so: nv.chuyenKho.choDuyet, to: "/transfer-tickets?trangThai=cho-duyet" }),
-        ...chip(nv.chuyenKho.choXuatHang > 0, { nhan: "Chờ xuất hàng", so: nv.chuyenKho.choXuatHang, to: "/transfer-tickets?trangThai=cho-xuat-hang" }),
+        ...chip(nv.chuyenKho.choXuatHang > 0, { nhan: "Đã duyệt, chờ xuất", so: nv.chuyenKho.choXuatHang, to: "/transfer-tickets?trangThai=cho-xuat-hang" }),
         ...chip(nv.chuyenKho.dangVanChuyen > 0, { nhan: "Đang vận chuyển", so: nv.chuyenKho.dangVanChuyen, to: "/transfer-tickets?trangThai=dang-van-chuyen" }),
       ],
       tao: { to: "/transfer-tickets/create", nhan: "Tạo phiếu chuyển kho" },
@@ -315,7 +315,9 @@ export function oNghiepVu(nv, kho, cauHinh) {
 
 const VIEC_QLK = {
   duyet_yeu_cau_nhap: { ten: "Duyệt yêu cầu nhập hàng", phu: "Yêu cầu nhập về kho này", icon: "duyet", tuoi: "Chờ từ" },
-  duyet_phieu_chuyen: { ten: "Duyệt phiếu chuyển kho", phu: "Phiếu chuyển đi từ kho này", icon: "chuyen", tuoi: "Chờ từ" },
+  duyet_phieu_chuyen: { ten: "Duyệt phiếu chuyển kho", phu: "Phiếu chuyển chờ Kho tổng duyệt", icon: "chuyen", tuoi: "Chờ từ" },
+  // Máy chủ chỉ trả cho người được xử lý chênh lệch theo Cấu hình › Chuyển kho; cũ nhất theo lúc nhận lệch
+  xu_ly_chenh_lech_chuyen: { ten: "Xử lý chênh lệch chuyển kho", phu: "Phiếu chuyển nhận lệch, chờ xử lý", icon: "chuyen", tuoi: "Chờ từ" },
   gom_phieu_nhat: { ten: "Tạo phiếu nhặt cho đơn chờ xuất", phu: "Đơn chưa có phiếu nhặt", icon: "nhat", tuoi: "Cũ nhất" },
   phan_cong_nhat: { ten: "Phân công phiếu nhặt", phu: "Phiếu nhặt chưa giao người nhặt", icon: "nhat", tuoi: "Cũ nhất" },
   hoan_tat_kiem_ke: { ten: "Hoàn tất đợt kiểm kê", phu: "Đợt kiểm kê đang mở", icon: "kiemKe", tuoi: "Mở từ" },
@@ -346,6 +348,8 @@ function duongDanViecQuanLyKho(loai, kho) {
       return `/purchase-requests?trangThai=cho-duyet&kho=${kho.id}`;
     case "duyet_phieu_chuyen":
       return "/transfer-tickets?trangThai=cho-duyet";
+    case "xu_ly_chenh_lech_chuyen":
+      return "/transfer-tickets?trangThai=cho-xu-ly-chenh-lech";
     case "gom_phieu_nhat":
       return "/goods-issues/pending-orders";
     case "phan_cong_nhat":
@@ -393,12 +397,19 @@ export function moTaBoSung(d, kho) {
 export function viecChungDong(v) {
   const sl = v.soLuong > 0 ? ` · ${formatSo(v.soLuong)} sản phẩm` : "";
   switch (v.loai) {
+    // Phiếu chuyển đang trên đường đến kho (id là id phiếu chuyển, mốc là giờ xuất): nhận hàng ở màn phiếu chuyển
     case "phieu_nhap_chuyen_kho":
-      return { moTa: `Từ ${v.doiTac ?? "kho khác"}${sl}`, nut: "Kiểm đếm", to: `/goods-receipts/${v.id}`, moc: "Tạo lúc" };
+      return { moTa: `Từ ${v.doiTac ?? "kho khác"}${sl}`, nut: "Nhận hàng", to: `/transfer-tickets/${v.id}/receive`, moc: "Xuất lúc" };
     case "phieu_nhap":
       return { moTa: `${v.doiTac ?? "Nhập kho"}${sl}`, nut: "Kiểm đếm", to: `/goods-receipts/${v.id}`, moc: "Tạo lúc" };
+    // Phiếu nhặt của phiếu chuyển kho không có đơn: máy chủ gửi số phiếu chuyển ở doiTac (không ghi "0 đơn")
     case "phieu_nhat":
-      return { moTa: `${formatSo(v.soDon)} đơn${sl}`, nut: "Mở phiếu", to: `/goods-issues/pick-lists/${v.id}`, moc: "Tạo lúc" };
+      return {
+        moTa: `${v.doiTac ? `Chuyển kho ${v.doiTac}` : `${formatSo(v.soDon)} đơn`}${sl}`,
+        nut: "Mở phiếu",
+        to: `/goods-issues/pick-lists/${v.id}`,
+        moc: "Tạo lúc",
+      };
     case "don_ban":
       return { moTa: `${v.doiTac ?? "Khách lẻ"}${sl}`, nut: "Đóng gói", to: `/goods-issues/packing/${v.id}`, moc: "Nhặt xong" };
     case "phieu_xuat":

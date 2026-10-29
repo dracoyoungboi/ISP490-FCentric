@@ -1,6 +1,7 @@
 package com.dev.backend.services.impl.multitable;
 
 import com.dev.backend.config.SecurityContextHolder;
+import com.dev.backend.constant.variables.IChuyenKho;
 import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.constant.variables.ITable;
@@ -9,6 +10,7 @@ import com.dev.backend.constant.variables.ITrangThaiPhieuXuat;
 import com.dev.backend.dto.request.DonChoXuatFilterRequest;
 import com.dev.backend.dto.request.PhanBoLoNhatHangRequest;
 import com.dev.backend.dto.request.PhanCongNguoiNhatRequest;
+import com.dev.backend.dto.request.PickLoHangRequest;
 import com.dev.backend.dto.request.TaoPickListRequest;
 import com.dev.backend.dto.request.QuetBarcodeRequest;
 import com.dev.backend.dto.response.customize.DonChoXuatDto;
@@ -28,9 +30,15 @@ import com.dev.backend.services.impl.entities.LichSuThayDoiService;
 import com.dev.backend.services.impl.entities.PhieuXuatKhoService;
 import com.dev.backend.utils.PhanBoLoFifo;
 import com.dev.backend.utils.SauCommit;
+import com.dev.backend.utils.KhoDangChon;
+import com.dev.backend.utils.SoChungTu;
 import com.dev.backend.services.multitable.NhatHangService;
 import com.dev.backend.event.InventoryRestockedEvent;
 import org.springframework.context.ApplicationEventPublisher;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,9 +47,11 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
@@ -58,6 +68,20 @@ import java.util.stream.Collectors;
 public class NhatHangServiceImpl implements NhatHangService {
 
     static final String LOI_NGUOI_NHAT_NGUNG_HOAT_DONG = "Tài khoản nhân viên nhặt hàng đang tạm khóa hoặc ngưng hoạt động";
+
+    /** Loại phiếu nhặt (DTO, bộ lọc danh sách), suy ra từ danh_sach_nhat_hang.phieu_xuat_kho_id. */
+    public static final String LOAI_BAN_HANG = "BAN_HANG";
+    public static final String LOAI_CHUYEN_KHO = "CHUYEN_KHO";
+
+    /** Lý do ở màn Hàng cần hoàn kệ, theo loại phiếu nhặt của lệnh trả kệ. */
+    static final String LY_DO_HOAN_KE_DON_HUY = "Đơn hàng bị hủy trong luồng xuất kho";
+    static final String LY_DO_HOAN_KE_CHUYEN_KHO_HUY = "Phiếu chuyển kho bị hủy";
+
+    /** Số lần thử số kế tiếp khi mã phiếu nhặt vừa sinh đã có. */
+    private static final int SO_LAN_THU_MA = 5;
+
+    /** Hai giao dịch cùng lấy một mã phiếu nhặt: khóa duy nhất uk_ma_pick_list chặn giao dịch sau. */
+    public static final String LOI_TRUNG_MA_PHIEU_NHAT = "Có người vừa tạo phiếu nhặt cùng lúc, vui lòng thử lại";
 
     @Autowired
     private DonBanHangRepository donBanHangRepository;
@@ -118,6 +142,12 @@ public class NhatHangServiceImpl implements NhatHangService {
 
     @Autowired
     private LoDangGiuService loDangGiuService;
+
+    @Autowired
+    private GiuChoChuyenKhoService giuChoChuyenKhoService;
+
+    @Autowired
+    private EntityManager entityManager;
 
     @Override
     @Transactional(readOnly = true)
@@ -210,8 +240,11 @@ public class NhatHangServiceImpl implements NhatHangService {
         }
 
         // Khả dụng cho đơn chờ = phần còn lại của các lô (trừ đang giữ, phân bổ phiếu nhặt đang mở, dòng lô phiếu xuất
-        // bán chưa xuất) — đúng phép phân bổ lô khi tạo phiếu nhặt, nên "Đủ hàng" là tạo phiếu nhặt sẽ phân bổ đủ
-        Map<Integer, BigDecimal> availableStockMap = loDangGiuService.conLaiTheoBienThe(finalKhoId, allVariantIds);
+        // bán chưa xuất) − giữ chỗ phiếu chuyển chưa chọn lô — đúng phép phân bổ lô khi tạo phiếu nhặt, nên "Đủ hàng" là
+        // tạo phiếu nhặt sẽ phân bổ đủ
+        Map<Integer, BigDecimal> availableStockMap = new HashMap<>(loDangGiuService.conLaiTheoBienThe(finalKhoId, allVariantIds));
+        giuChoChuyenKhoService.taiKhoNgoaiPhieuNhat(finalKhoId, allVariantIds).forEach((id, giu) ->
+                availableStockMap.computeIfPresent(id, (k, con) -> con.subtract(giu).max(BigDecimal.ZERO)));
 
         // Ánh xạ sang DonChoXuatDto kèm kiểm tra khả dụng tồn kho
         List<DonChoXuatDto> dtoList = donPage.getContent().stream().map(dbh -> {
@@ -268,8 +301,12 @@ public class NhatHangServiceImpl implements NhatHangService {
         return new PageImpl<>(dtoList, pageable, donPage.getTotalElements());
     }
 
+    /**
+     * READ_COMMITTED: sau khi chờ khóa dòng tồn (phân bổ FIFO), lần đọc phần đang giữ thấy phiếu nhặt / phiếu xuất vừa
+     * ghi xong (như PhieuChuyenKhoService.tao); REPEATABLE READ đọc ảnh chụp cũ nên phân bổ chồng lên lô vừa bị giữ.
+     */
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public DanhSachNhatHangDto taoPickList(TaoPickListRequest request) {
         if (request.getDonBanHangIds() == null || request.getDonBanHangIds().isEmpty()) {
             throw new CommonException("Vui lòng chọn ít nhất một đơn hàng để tạo Pick List");
@@ -319,21 +356,7 @@ public class NhatHangServiceImpl implements NhatHangService {
         }
 
         // Sinh mã Pick List theo quy chuẩn: PL-YYYYMMDD-XXX
-        String dateStr = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String prefix = "PL-" + dateStr + "-";
-        List<String> existingCodes = danhSachNhatHangRepository.findMaPickListByPrefix(prefix);
-        int nextSeq = 1;
-        if (existingCodes != null && !existingCodes.isEmpty()) {
-            String latestCode = existingCodes.get(0);
-            try {
-                String seqStr = latestCode.substring(prefix.length());
-                nextSeq = Integer.parseInt(seqStr) + 1;
-            } catch (Exception e) {
-                log.warn("Không thể parse số thứ tự từ mã {}: {}", latestCode, e.getMessage());
-                nextSeq = existingCodes.size() + 1;
-            }
-        }
-        String maPickList = String.format("%s%03d", prefix, nextSeq);
+        String maPickList = maPickListMoi();
 
         // Gán nhân viên nhặt hàng nếu có chỉ định
         NguoiDung nguoiNhat = null;
@@ -361,7 +384,7 @@ public class NhatHangServiceImpl implements NhatHangService {
                 .ghiChu(request.getGhiChu())
                 .ngayTao(Instant.now())
                 .build();
-        pickList = danhSachNhatHangRepository.save(pickList);
+        pickList = luuPhieuNhatMoi(pickList);
 
         // Gom nhóm SKU và tính tổng số lượng cần nhặt (Wave Picking consolidation)
         Map<Integer, BigDecimal> skuQuantityMap = new LinkedHashMap<>();
@@ -398,7 +421,8 @@ public class NhatHangServiceImpl implements NhatHangService {
 
         // Phân bổ lô FIFO ngay khi tạo để giữ lô (phiếu nhặt khác, chuyển kho, POS chỉ thấy phần còn lại);
         // người nhặt sửa tay được trước khi hoàn tất. Lô không đủ thì phân bổ phần có, Hoàn tất nhặt sẽ chặn.
-        phanBoFifoBanDau(khoId, chiTietList);
+        // Không lấy phần phiếu chuyển đang giữ chỗ (ma trận 3.2: phiếu chuyển giữ chỗ từ lúc tạo).
+        phanBoFifoBanDau(khoId, chiTietList, true);
 
         // Liên kết đơn với Pick List. Đơn GIỮ trạng thái 1 (Chờ nhặt hàng) tới khi hoàn tất nhặt
         // (lúc đó chuyển 7 - Chờ đóng gói); trạng thái 2 chỉ còn nghĩa "đã xuất một phần".
@@ -432,6 +456,7 @@ public class NhatHangServiceImpl implements NhatHangService {
 
         // Chuyển đổi DTO phản hồi
         DanhSachNhatHangDto resDto = danhSachNhatHangMapper.toDto(pickList);
+        dienLoaiPhieu(resDto, pickList);
         resDto.setTongDonHang(donList.size());
         resDto.setTongSku(skuQuantityMap.size());
         resDto.setTongSoLuongCanNhat(tongSoLuongCanNhat);
@@ -446,9 +471,120 @@ public class NhatHangServiceImpl implements NhatHangService {
         return resDto;
     }
 
+    /**
+     * Mã phiếu nhặt mới PL-yyyyMMdd-XXX: số đuôi lớn nhất của ngày + 1, so theo SỐ (PL-…-1000 sau PL-…-999). Đọc KHÔNG
+     * khóa (DanhSachNhatHangRepository.soDuoiLonNhat): khóa dãy mã của ngày giữ khóa dòng phiếu nhặt rồi mới khóa tồn,
+     * ngược thứ tự với Hoàn tất nhặt (khóa tồn rồi ghi phiếu nhặt) nên kẹt chéo. Mã vừa sinh đã có thì thử số kế tiếp
+     * (câu kiểm cũng không khóa, tối đa SO_LAN_THU_MA lần); hai giao dịch cùng lấy một số thì giao dịch sau bị khóa duy
+     * nhất chặn khi lưu (luuPhieuNhatMoi báo 409 "thử lại").
+     */
+    String maPickListMoi() {
+        String tienTo = "PL-" + LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "-";
+        Number lonNhat = danhSachNhatHangRepository.soDuoiLonNhat(tienTo);
+        long so = lonNhat == null ? 0 : lonNhat.longValue();
+        for (int lan = 0; lan < SO_LAN_THU_MA; lan++) {
+            String ma = SoChungTu.tiepTheoBaChuSo(tienTo, so + lan);
+            if (!danhSachNhatHangRepository.existsByMaPickList(ma)) {
+                return ma;
+            }
+            log.warn("Mã phiếu nhặt {} đã có, thử số kế tiếp", ma);
+        }
+        throw new CommonException("Không cấp được mã phiếu nhặt mới, vui lòng thử lại", HttpStatus.CONFLICT, null);
+    }
+
+    /**
+     * Lưu phiếu nhặt mới và đẩy câu INSERT ngay: mã vừa cấp bị giao dịch khác chạy cùng lúc dùng trước thì khóa duy nhất
+     * uk_ma_pick_list chặn — báo 409 câu rõ để người dùng bấm lại (lỗi ràng buộc làm hỏng giao dịch, không thử số khác
+     * trong cùng giao dịch). Lỗi ràng buộc khác giữ nguyên (RestControllerGlobalExceptionHandler trả 409 câu chung).
+     */
+    private DanhSachNhatHang luuPhieuNhatMoi(DanhSachNhatHang pickList) {
+        try {
+            DanhSachNhatHang daLuu = danhSachNhatHangRepository.save(pickList);
+            danhSachNhatHangRepository.flush();
+            return daLuu;
+        } catch (DataIntegrityViolationException ex) {
+            if (!trungMaPickList(ex, pickList.getMaPickList())) {
+                throw ex;
+            }
+            log.warn("Mã phiếu nhặt {} vừa bị giao dịch khác dùng: {}", pickList.getMaPickList(),
+                    ex.getMostSpecificCause().getMessage());
+            throw new CommonException(LOI_TRUNG_MA_PHIEU_NHAT, HttpStatus.CONFLICT, null);
+        }
+    }
+
+    private static boolean trungMaPickList(DataIntegrityViolationException ex, String maPickList) {
+        String loi = ex.getMessage() + " " + ex.getMostSpecificCause().getMessage();
+        return loi.contains("uk_ma_pick_list") || (maPickList != null && loi.contains("'" + maPickList + "'"));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public DanhSachNhatHang taoPhieuNhatChuyenKho(PhieuChuyenKho phieuChuyen, PhieuXuatKho phieuXuat,
+                                                   List<ChiTietPhieuChuyenKho> dong) {
+        Kho kho = phieuChuyen.getKhoXuat();
+        // Chưa phân công (N5): quản lý kho xuất giao, hoặc nhân viên kho tự nhận phiếu chưa có người như phiếu nhặt đơn bán
+        DanhSachNhatHang pickList = luuPhieuNhatMoi(DanhSachNhatHang.builder()
+                .maPickList(maPickListMoi())
+                .khoXuat(kho)
+                .phieuXuatKho(phieuXuat)
+                .trangThai("cho_nhat")
+                .ghiChu("Nhặt hàng cho phiếu chuyển " + phieuChuyen.getSoPhieuChuyen()
+                        + (phieuChuyen.getKhoNhap() != null ? " → " + phieuChuyen.getKhoNhap().getTenKho() : ""))
+                .ngayTao(Instant.now())
+                .build());
+
+        // Một dòng nhặt mỗi biến thể (phiếu chuyển đã gộp theo biến thể, khóa duy nhất phiếu + biến thể)
+        List<ChiTietNhatHang> chiTietList = new ArrayList<>();
+        BigDecimal tong = BigDecimal.ZERO;
+        for (ChiTietPhieuChuyenKho ct : dong) {
+            BigDecimal soLuong = BigDecimal.valueOf(ct.getSoLuongChuyen() == null ? 0 : ct.getSoLuongChuyen());
+            if (ct.getBienTheSanPham() == null || soLuong.signum() <= 0) continue;
+            chiTietList.add(ChiTietNhatHang.builder()
+                    .danhSachNhatHang(pickList)
+                    .bienTheSanPham(ct.getBienTheSanPham())
+                    .soLuongCanNhat(soLuong)
+                    .soLuongDaQuet(BigDecimal.ZERO)
+                    .build());
+            tong = tong.add(soLuong);
+        }
+        chiTietNhatHangRepository.saveAll(chiTietList);
+        pickList.setChiTietNhatHangs(chiTietList);
+
+        // Giữ lô ngay như phiếu nhặt đơn bán: phân bổ FIFO, phần lô không đủ thì Hoàn tất nhặt chặn. Không trừ giữ chỗ
+        // phiếu chuyển: phần giữ chỗ đó gồm chính phiếu này, phiếu khác đã được trừ khi duyệt (kiemTraKhaDung)
+        phanBoFifoBanDau(kho.getId(), chiTietList, false);
+
+        NguoiDungAuthInfo authUser = SecurityContextHolder.getUser();
+        if (authUser != null) {
+            ghiNhatKySauCommit(pickList, IHanhDong.tao_pick_list, null,
+                    "Mã: " + pickList.getMaPickList() + ", phiếu chuyển " + phieuChuyen.getSoPhieuChuyen() + ", "
+                            + chiTietList.size() + " SKU, Tổng SL: " + hienThi(tong),
+                    "Tạo phiếu nhặt khi duyệt phiếu chuyển " + phieuChuyen.getSoPhieuChuyen()
+                            + " (phiếu xuất " + phieuXuat.getSoPhieuXuat() + ")", authUser.getId());
+        }
+        return pickList;
+    }
+
+    /** Loại phiếu nhặt và phiếu chuyển kho của nó (loại CHUYEN_KHO) cho DTO danh sách / chi tiết. */
+    private static void dienLoaiPhieu(DanhSachNhatHangDto dto, DanhSachNhatHang pickList) {
+        PhieuXuatKho px = pickList.getPhieuXuatKho();
+        dto.setLoaiPhieu(px != null ? LOAI_CHUYEN_KHO : LOAI_BAN_HANG);
+        if (px == null) return;
+        dto.setPhieuXuatKhoId(px.getId());
+        dto.setSoPhieuXuat(px.getSoPhieuXuat());
+        PhieuChuyenKho pck = px.getPhieuChuyenKho();
+        if (pck != null) {
+            dto.setPhieuChuyenKhoId(pck.getId());
+            dto.setSoPhieuChuyen(pck.getSoPhieuChuyen());
+            dto.setTrangThaiPhieuChuyen(pck.getTrangThai());
+            dto.setTenKhoNhan(pck.getKhoNhap() != null ? pck.getKhoNhap().getTenKho() : null);
+        }
+    }
+
     @Override
     @Transactional(readOnly = true)
-    public Page<DanhSachNhatHangDto> getDanhSachPickList(Integer khoId, String trangThai, String searchText, Pageable pageable) {
+    public Page<DanhSachNhatHangDto> getDanhSachPickList(Integer khoId, String trangThai, String loai, String searchText,
+                                                         Pageable pageable) {
         Integer contextKhoId = SecurityContextHolder.getKhoId();
         NguoiDungAuthInfo authUser = SecurityContextHolder.getUser();
 
@@ -475,11 +611,23 @@ public class NhatHangServiceImpl implements NhatHangService {
                 predicates.add(cb.equal(root.get("trangThai"), trangThai));
             }
 
+            // Loại phiếu: phiếu chuyển kho có phiếu xuất PX-CK, phiếu gom đơn bán thì không
+            if (LOAI_CHUYEN_KHO.equalsIgnoreCase(loai)) {
+                predicates.add(cb.isNotNull(root.get("phieuXuatKho")));
+            } else if (LOAI_BAN_HANG.equalsIgnoreCase(loai)) {
+                predicates.add(cb.isNull(root.get("phieuXuatKho")));
+            }
+
             if (StringUtils.hasText(searchText)) {
                 String pattern = "%" + searchText.trim().toLowerCase() + "%";
+                // Nối ngoài: phiếu chưa phân công / không phải chuyển kho vẫn tìm được theo mã
+                Join<DanhSachNhatHang, NguoiDung> nguoiNhat = root.join("nguoiNhat", JoinType.LEFT);
+                Join<DanhSachNhatHang, PhieuXuatKho> phieuXuat = root.join("phieuXuatKho", JoinType.LEFT);
+                Join<PhieuXuatKho, PhieuChuyenKho> phieuChuyen = phieuXuat.join("phieuChuyenKho", JoinType.LEFT);
                 Predicate pMa = cb.like(cb.lower(root.get("maPickList")), pattern);
-                Predicate pNguoiNhat = cb.like(cb.lower(root.get("nguoiNhat").get("hoTen")), pattern);
-                predicates.add(cb.or(pMa, pNguoiNhat));
+                Predicate pNguoiNhat = cb.like(cb.lower(nguoiNhat.get("hoTen")), pattern);
+                Predicate pPhieuChuyen = cb.like(cb.lower(phieuChuyen.get("soPhieuChuyen")), pattern);
+                predicates.add(cb.or(pMa, pNguoiNhat, pPhieuChuyen));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));
@@ -512,6 +660,7 @@ public class NhatHangServiceImpl implements NhatHangService {
 
         List<DanhSachNhatHangDto> dtoList = pickListPage.getContent().stream().map(pl -> {
             DanhSachNhatHangDto dto = danhSachNhatHangMapper.toDto(pl);
+            dienLoaiPhieu(dto, pl);
 
             int orderCount = pl.getDonBanHangs() != null ? pl.getDonBanHangs().size() : 0;
             List<String> orderCodes = pl.getDonBanHangs() != null
@@ -556,6 +705,7 @@ public class NhatHangServiceImpl implements NhatHangService {
         }
 
         DanhSachNhatHangDto dto = danhSachNhatHangMapper.toDto(pickList);
+        dienLoaiPhieu(dto, pickList);
 
         int orderCount = pickList.getDonBanHangs() != null ? pickList.getDonBanHangs().size() : 0;
         List<String> orderCodes = pickList.getDonBanHangs() != null
@@ -692,12 +842,16 @@ public class NhatHangServiceImpl implements NhatHangService {
                 .collect(Collectors.toList());
     }
 
+    /** READ_COMMITTED: sau khi chờ khóa dòng tồn, phần phiếu khác đang giữ đọc được bản vừa ghi xong (xem taoPickList). */
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public DanhSachNhatHangDto luuPhanBoLo(Integer pickListId, Integer chiTietId, PhanBoLoNhatHangRequest request) {
         DanhSachNhatHang pickList = danhSachNhatHangRepository.findById(pickListId)
                 .orElseThrow(() -> new CommonException("Không tìm thấy đợt nhặt hàng Pick List ID: " + pickListId));
         NguoiDungAuthInfo authUser = kiemTraKhoPhieuNhat(pickList);
+        // Khóa dòng nhặt rồi phiếu nhặt và đọc lại bản mới nhất TRƯỚC khi kiểm trạng thái, người nhặt và số cần nhặt (như
+        // quét mã): lưu chạy chồng với Hoàn tất / Hủy phiếu chuyển / phân công lại / đơn bị hủy thì chờ rồi bị chặn ở dưới
+        List<ChiTietNhatHang> dongDaKhoa = khoaDongVaPhieuNhat(pickList);
         if (!"cho_nhat".equals(pickList.getTrangThai()) && !"dang_nhat".equals(pickList.getTrangThai())) {
             throw new CommonException("Phiếu nhặt " + pickList.getMaPickList() + " đã kết thúc nhặt nên không sửa phân bổ lô được.",
                     HttpStatus.CONFLICT, null);
@@ -713,9 +867,11 @@ public class NhatHangServiceImpl implements NhatHangService {
                     HttpStatus.CONFLICT, null);
         }
 
-        ChiTietNhatHang dong = layDongCuaPhieu(pickList, chiTietId);
-        // Khóa dòng nhặt: tuần tự hóa với quét mã và đơn bị hủy giữa chừng (cùng giảm số cần nhặt)
-        dong = chiTietNhatHangRepository.findByIdWithLock(dong.getId()).orElse(dong);
+        ChiTietNhatHang dong = dongDaKhoa.stream().filter(ct -> ct.getId().equals(chiTietId)).findFirst()
+                .orElseThrow(() -> new CommonException("Dòng sản phẩm không thuộc phiếu nhặt " + pickList.getMaPickList(),
+                        HttpStatus.NOT_FOUND, null));
+        // Dòng có thể đã nạp trước đó trong request (open-in-view): đọc lại số cần nhặt mới nhất sau khi khóa
+        entityManager.refresh(dong);
         Integer bienTheId = dong.getBienTheSanPham().getId();
         String sku = dong.getBienTheSanPham().getMaSku();
 
@@ -764,6 +920,20 @@ public class NhatHangServiceImpl implements NhatHangService {
             }
             phanBoMoi.add(new PhanBoLoFifo.Lo(lo.getId(), e.getValue()));
         }
+        // Phiếu nhặt đơn bán không lấy phần phiếu chuyển đang giữ chỗ mà chưa chọn lô (phiếu nhặt chuyển kho đã được
+        // kiểm khi duyệt phiếu chuyển)
+        if (!pickList.laChuyenKho()) {
+            BigDecimal giuChoChuyen = giuChoChuyenKhoService.taiKhoNgoaiPhieuNhat(khoId, List.of(bienTheId))
+                    .getOrDefault(bienTheId, BigDecimal.ZERO);
+            BigDecimal conLaiCuaMa = tonTheoLo.values().stream()
+                    .map(t -> LoDangGiuService.conLai(t, dangGiu).max(BigDecimal.ZERO))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            if (giuChoChuyen.signum() > 0 && tongYeuCau.compareTo(conLaiCuaMa.subtract(giuChoChuyen)) > 0) {
+                throw new CommonException("[" + sku + "] chỉ còn " + hienThi(conLaiCuaMa.subtract(giuChoChuyen).max(BigDecimal.ZERO))
+                        + " có thể lấy: phiếu chuyển kho đang giữ chỗ " + hienThi(giuChoChuyen) + ". Không đủ "
+                        + hienThi(tongYeuCau) + ".", HttpStatus.CONFLICT, null);
+            }
+        }
 
         NguoiDung nguoiSua = nguoiDungRepository.findById(authUser.getId()).orElse(null);
         String cu = moTaPhanBo(phanBoLoNhatHangRepository.findByChiTietId(dong.getId()));
@@ -809,15 +979,21 @@ public class NhatHangServiceImpl implements NhatHangService {
     /**
      * Phân bổ FIFO cho các dòng vừa tạo của phiếu nhặt (giữ lô ngay khi tạo). Mỗi dòng một biến thể khác nhau nên
      * lô không chồng nhau giữa các dòng. Lô không đủ thì phân bổ phần có.
+     * {@code truGiuChoChuyen}: phiếu nhặt đơn bán không lấy phần phiếu chuyển đang giữ chỗ mà chưa chọn lô (đọc sau khi khóa
+     * dòng tồn, như lúc tạo phiếu chuyển).
      */
-    private void phanBoFifoBanDau(Integer khoId, List<ChiTietNhatHang> dongs) {
+    private void phanBoFifoBanDau(Integer khoId, List<ChiTietNhatHang> dongs, boolean truGiuChoChuyen) {
         List<Integer> bienTheIds = dongs.stream().map(d -> d.getBienTheSanPham().getId()).distinct().toList();
         List<TonKhoTheoLo> tonList = loDangGiuService.khoaTonTheoBienThe(khoId, bienTheIds);
         Map<Integer, BigDecimal> dangGiu = loDangGiuService.dangGiuTheoLo(khoId,
                 tonList.stream().map(t -> t.getLoHang().getId()).toList(), null, null);
+        Map<Integer, BigDecimal> giuChoChuyen = truGiuChoChuyen
+                ? giuChoChuyenKhoService.taiKhoNgoaiPhieuNhat(khoId, bienTheIds) : Map.of();
         for (ChiTietNhatHang dong : dongs) {
             List<PhanBoLoFifo.Lo> conLai = conLaiTheoFifo(tonList, dong.getBienTheSanPham().getId(), dangGiu, Map.of());
-            for (PhanBoLoFifo.Lo lo : PhanBoLoFifo.layFifo(conLai, dong.getSoLuongCanNhat())) {
+            BigDecimal duocLay = PhanBoLoFifo.tong(conLai)
+                    .subtract(giuChoChuyen.getOrDefault(dong.getBienTheSanPham().getId(), BigDecimal.ZERO)).max(BigDecimal.ZERO);
+            for (PhanBoLoFifo.Lo lo : PhanBoLoFifo.layFifo(conLai, dong.getSoLuongCanNhat().min(duocLay))) {
                 phanBoLoNhatHangRepository.save(PhanBoLoNhatHang.builder()
                         .chiTietNhatHang(dong)
                         .loHang(loHangRepository.getReferenceById(lo.loHangId()))
@@ -934,6 +1110,7 @@ public class NhatHangServiceImpl implements NhatHangService {
         Map<Integer, TonKhoTheoLo> tonTheoLo = tonList.stream()
                 .collect(Collectors.toMap(t -> t.getLoHang().getId(), t -> t, (a, b) -> a));
         Map<Integer, BigDecimal> dangGiu = loDangGiuService.dangGiuTheoLo(khoId, tonTheoLo.keySet(), pickList.getId(), null);
+        Map<Integer, BigDecimal> giuChoChuyen = giuChoChuyenKhoService.taiKhoNgoaiPhieuNhat(khoId, bienTheIds);
         Map<Integer, List<PhanBoLoNhatHang>> phanBoTheoDong = phanBoLoNhatHangRepository.findByPhieuNhatId(pickList.getId())
                 .stream().collect(Collectors.groupingBy(pb -> pb.getChiTietNhatHang().getId()));
 
@@ -946,7 +1123,6 @@ public class NhatHangServiceImpl implements NhatHangService {
         Map<Integer, Map<Integer, List<PhanBoLoFifo.Lo>>> ketQua = new HashMap<>();
         for (ChiTietNhatHang dong : chiTiets) {
             Integer bienTheId = dong.getBienTheSanPham().getId();
-            String sku = dong.getBienTheSanPham().getMaSku();
 
             Map<Integer, BigDecimal> canTheoDon = new LinkedHashMap<>();
             for (DonBanHang d : donTheoThuTu) {
@@ -960,61 +1136,82 @@ public class NhatHangServiceImpl implements NhatHangService {
             BigDecimal tongCanDon = canTheoDon.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
             if (tongCanDon.signum() == 0) continue;
 
-            List<PhanBoLoNhatHang> daLuu = phanBoTheoDong.getOrDefault(dong.getId(), List.of());
-            Map<Integer, BigDecimal> daCo = new HashMap<>();
-            daLuu.forEach(pb -> daCo.merge(pb.getLoHang().getId(), pb.getSoLuong(), BigDecimal::add));
-            for (Map.Entry<Integer, BigDecimal> e : daCo.entrySet()) {
-                TonKhoTheoLo t = tonTheoLo.get(e.getKey());
-                BigDecimal conLai = t != null ? LoDangGiuService.conLai(t, dangGiu) : BigDecimal.ZERO;
-                if (e.getValue().compareTo(conLai) > 0) {
-                    String maLo = t != null ? t.getLoHang().getMaLo() : daLuu.stream()
-                            .filter(pb -> pb.getLoHang().getId().equals(e.getKey()))
-                            .map(pb -> pb.getLoHang().getMaLo()).findFirst().orElse("#" + e.getKey());
-                    throw new CommonException("Lô " + maLo + " của [" + sku + "] chỉ còn " + hienThi(conLai.max(BigDecimal.ZERO))
-                            + " nhưng đang phân bổ " + hienThi(e.getValue()) + ". Vui lòng phân bổ lại lô trước khi hoàn tất nhặt.",
-                            HttpStatus.CONFLICT, null);
-                }
-            }
-
-            BigDecimal tongDaCo = daCo.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
-            if (tongDaCo.compareTo(tongCanDon) < 0) {
-                List<PhanBoLoFifo.Lo> bu = PhanBoLoFifo.layFifo(
-                        conLaiTheoFifo(tonList, bienTheId, dangGiu, daCo), tongCanDon.subtract(tongDaCo));
-                BigDecimal tongSauBu = tongDaCo.add(PhanBoLoFifo.tong(bu));
-                if (tongSauBu.compareTo(tongCanDon) < 0) {
-                    throw new CommonException("Không đủ tồn theo lô cho [" + sku + "]: cần " + hienThi(tongCanDon)
-                            + ", các lô chỉ còn " + hienThi(tongSauBu) + " có thể lấy. Báo quản lý kho kiểm kê trước khi hoàn tất nhặt.",
-                            HttpStatus.CONFLICT, null);
-                }
-                for (PhanBoLoFifo.Lo lo : bu) {
-                    PhanBoLoNhatHang cu = daLuu.stream().filter(pb -> pb.getLoHang().getId().equals(lo.loHangId()))
-                            .findFirst().orElse(null);
-                    if (cu != null) {
-                        cu.setSoLuong(cu.getSoLuong().add(lo.soLuong()));
-                        phanBoLoNhatHangRepository.save(cu);
-                    } else {
-                        phanBoLoNhatHangRepository.save(PhanBoLoNhatHang.builder()
-                                .chiTietNhatHang(dong)
-                                .loHang(loHangRepository.getReferenceById(lo.loHangId()))
-                                .soLuong(lo.soLuong())
-                                .ngayCapNhat(Instant.now())
-                                .build());
-                    }
-                    daCo.merge(lo.loHangId(), lo.soLuong(), BigDecimal::add);
-                }
-            }
-
-            List<PhanBoLoFifo.Lo> phanBoFifo = daCo.entrySet().stream()
-                    .sorted(Comparator.comparing((Map.Entry<Integer, BigDecimal> e) -> {
-                        TonKhoTheoLo t = tonTheoLo.get(e.getKey());
-                        return t != null && t.getNgayNhapGanNhat() != null ? t.getNgayNhapGanNhat() : Instant.MAX;
-                    }).thenComparing(Map.Entry::getKey))
-                    .map(e -> new PhanBoLoFifo.Lo(e.getKey(), e.getValue()))
-                    .toList();
+            List<PhanBoLoFifo.Lo> phanBoFifo = chotLoCuaDong(dong, tongCanDon, tonList, tonTheoLo, dangGiu,
+                    phanBoTheoDong.getOrDefault(dong.getId(), List.of()), giuChoChuyen.get(bienTheId));
             PhanBoLoFifo.chiaChoDon(phanBoFifo, canTheoDon).forEach((donId, los) ->
                     ketQua.computeIfAbsent(donId, k -> new HashMap<>()).put(bienTheId, los));
         }
         return ketQua;
+    }
+
+    /**
+     * Chốt lô của một dòng nhặt lúc Hoàn tất (dùng chung cho phiếu bán và phiếu chuyển kho): phân bổ đã lưu phải còn đủ
+     * lô (tồn có thể đã đổi do kiểm kê / điều chỉnh) — không thì bắt phân bổ lại; thiếu so với {@code can} thì bù theo
+     * FIFO và lưu phần bù; vẫn thiếu thì chặn, báo quản lý kiểm kê. Trả phân bổ (đã gồm phần bù) sắp FIFO, có thể THỪA
+     * so với {@code can} (đơn hủy ngoài luồng phiếu nhặt): bên gọi chỉ lấy đủ phần cần.
+     * {@code dangGiu}: phần nơi khác giữ theo lô, KHÔNG tính chính phiếu nhặt này.
+     */
+    private List<PhanBoLoFifo.Lo> chotLoCuaDong(ChiTietNhatHang dong, BigDecimal can, List<TonKhoTheoLo> tonList,
+                                                Map<Integer, TonKhoTheoLo> tonTheoLo, Map<Integer, BigDecimal> dangGiu,
+                                                List<PhanBoLoNhatHang> daLuu, BigDecimal giuChoChuyen) {
+        Integer bienTheId = dong.getBienTheSanPham().getId();
+        String sku = dong.getBienTheSanPham().getMaSku();
+        Map<Integer, BigDecimal> daCo = new HashMap<>();
+        daLuu.forEach(pb -> daCo.merge(pb.getLoHang().getId(), pb.getSoLuong(), BigDecimal::add));
+        for (Map.Entry<Integer, BigDecimal> e : daCo.entrySet()) {
+            TonKhoTheoLo t = tonTheoLo.get(e.getKey());
+            BigDecimal conLai = t != null ? LoDangGiuService.conLai(t, dangGiu) : BigDecimal.ZERO;
+            if (e.getValue().compareTo(conLai) > 0) {
+                String maLo = t != null ? t.getLoHang().getMaLo() : daLuu.stream()
+                        .filter(pb -> pb.getLoHang().getId().equals(e.getKey()))
+                        .map(pb -> pb.getLoHang().getMaLo()).findFirst().orElse("#" + e.getKey());
+                throw new CommonException("Lô " + maLo + " của [" + sku + "] chỉ còn " + hienThi(conLai.max(BigDecimal.ZERO))
+                        + " nhưng đang phân bổ " + hienThi(e.getValue()) + ". Vui lòng phân bổ lại lô trước khi hoàn tất nhặt.",
+                        HttpStatus.CONFLICT, null);
+            }
+        }
+
+        BigDecimal tongDaCo = daCo.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (tongDaCo.compareTo(can) < 0) {
+            List<PhanBoLoFifo.Lo> conLaiFifo = conLaiTheoFifo(tonList, bienTheId, dangGiu, daCo);
+            // Phần bù không lấy vào phần phiếu chuyển đang giữ chỗ mà chưa chọn lô (chỉ phiếu nhặt đơn bán truyền > 0)
+            BigDecimal giuCho = giuChoChuyen == null ? BigDecimal.ZERO : giuChoChuyen;
+            BigDecimal canBu = can.subtract(tongDaCo)
+                    .min(PhanBoLoFifo.tong(conLaiFifo).subtract(giuCho).max(BigDecimal.ZERO));
+            List<PhanBoLoFifo.Lo> bu = PhanBoLoFifo.layFifo(conLaiFifo, canBu);
+            BigDecimal tongSauBu = tongDaCo.add(PhanBoLoFifo.tong(bu));
+            if (tongSauBu.compareTo(can) < 0) {
+                throw new CommonException("Không đủ tồn theo lô cho [" + sku + "]: cần " + hienThi(can)
+                        + ", các lô chỉ còn " + hienThi(tongSauBu) + " có thể lấy"
+                        + (giuCho.signum() > 0 ? " (phiếu chuyển kho đang giữ chỗ " + hienThi(giuCho) + ")" : "")
+                        + ". Báo quản lý kho kiểm kê trước khi hoàn tất nhặt.",
+                        HttpStatus.CONFLICT, null);
+            }
+            for (PhanBoLoFifo.Lo lo : bu) {
+                PhanBoLoNhatHang cu = daLuu.stream().filter(pb -> pb.getLoHang().getId().equals(lo.loHangId()))
+                        .findFirst().orElse(null);
+                if (cu != null) {
+                    cu.setSoLuong(cu.getSoLuong().add(lo.soLuong()));
+                    phanBoLoNhatHangRepository.save(cu);
+                } else {
+                    phanBoLoNhatHangRepository.save(PhanBoLoNhatHang.builder()
+                            .chiTietNhatHang(dong)
+                            .loHang(loHangRepository.getReferenceById(lo.loHangId()))
+                            .soLuong(lo.soLuong())
+                            .ngayCapNhat(Instant.now())
+                            .build());
+                }
+                daCo.merge(lo.loHangId(), lo.soLuong(), BigDecimal::add);
+            }
+        }
+
+        return daCo.entrySet().stream()
+                .sorted(Comparator.comparing((Map.Entry<Integer, BigDecimal> e) -> {
+                    TonKhoTheoLo t = tonTheoLo.get(e.getKey());
+                    return t != null && t.getNgayNhapGanNhat() != null ? t.getNgayNhapGanNhat() : Instant.MAX;
+                }).thenComparing(Map.Entry::getKey))
+                .map(e -> new PhanBoLoFifo.Lo(e.getKey(), e.getValue()))
+                .toList();
     }
 
     /**
@@ -1043,8 +1240,9 @@ public class NhatHangServiceImpl implements NhatHangService {
         }
     }
 
+    /** READ_COMMITTED: sau khi chờ khóa phiếu nhặt, các lần đọc tiếp thấy bản vừa ghi xong (xem khoaDongVaPhieuNhat). */
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public DanhSachNhatHangDto phanCongNguoiNhat(Integer id, PhanCongNguoiNhatRequest request) {
         if (id == null) {
             throw new CommonException("ID đợt nhặt hàng không được để trống");
@@ -1070,10 +1268,15 @@ public class NhatHangServiceImpl implements NhatHangService {
             throw new CommonException("Bạn không có quyền thao tác trên đợt nhặt hàng của kho khác");
         }
 
+        // Khóa dòng nhặt rồi phiếu nhặt và đọc lại bản mới nhất trước khi kiểm: phân công chạy chồng với Hủy phiếu chuyển /
+        // Hoàn tất nhặt thì chờ, rồi bị chặn ở kiểm tra dưới thay vì ghi đè phiếu đã kết thúc (lưu ghi lại mọi cột)
+        khoaDongVaPhieuNhat(pickList);
+
         // Kiểm tra trạng thái hợp lệ của Pick List
         String trangThaiHienTai = pickList.getTrangThai();
         if ("da_nhat".equalsIgnoreCase(trangThaiHienTai) || "da_xuat".equalsIgnoreCase(trangThaiHienTai) || "da_huy".equalsIgnoreCase(trangThaiHienTai)) {
-            throw new CommonException("Không thể phân công lại cho đợt nhặt hàng đã ở trạng thái: " + trangThaiHienTai);
+            throw new CommonException("Không thể phân công lại cho đợt nhặt hàng đã ở trạng thái: " + trangThaiHienTai,
+                    HttpStatus.CONFLICT, null);
         }
 
         // Kiểm tra nhân viên được gán
@@ -1126,8 +1329,9 @@ public class NhatHangServiceImpl implements NhatHangService {
         return getChiTietPickList(pickList.getId());
     }
 
+    /** READ_COMMITTED: sau khi chờ khóa dòng nhặt / phiếu nhặt, các lần đọc tiếp thấy bản vừa ghi xong (xem khoaDongVaPhieuNhat). */
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public KetQuaQuetBarcodeDto quetBarcode(Integer pickListId, QuetBarcodeRequest request) {
         if (pickListId == null) {
             throw new CommonException("Mã đợt nhặt hàng (Pick List ID) không được để trống");
@@ -1150,16 +1354,21 @@ public class NhatHangServiceImpl implements NhatHangService {
             throw new CommonException("Bạn không có quyền quét nhặt hàng cho Pick List thuộc kho khác");
         }
 
+        // Khóa dòng nhặt rồi phiếu nhặt và đọc lại bản mới nhất TRƯỚC khi kiểm trạng thái: quét chạy chồng với Hủy phiếu
+        // chuyển / Hoàn tất nhặt thì chờ, rồi bị chặn ở kiểm tra dưới thay vì ghi đè phiếu đã Đã hủy / Đã nhặt thành Đang
+        // nhặt (bảng không có cột phiên bản, lưu ghi lại mọi cột)
+        List<ChiTietNhatHang> chiTiets = khoaDongVaPhieuNhat(pickList);
+
         // Kiểm tra State Machine
         String trangThai = pickList.getTrangThai();
         if ("da_nhat".equals(trangThai)) {
-            throw new CommonException("Đợt nhặt hàng này đã hoàn tất quá trình nhặt hàng");
+            throw new CommonException("Đợt nhặt hàng này đã hoàn tất quá trình nhặt hàng", HttpStatus.CONFLICT, null);
         }
         if ("da_xuat".equals(trangThai)) {
-            throw new CommonException("Đợt nhặt hàng này đã được xuất kho");
+            throw new CommonException("Đợt nhặt hàng này đã được xuất kho", HttpStatus.CONFLICT, null);
         }
         if ("da_huy".equals(trangThai)) {
-            throw new CommonException("Đợt nhặt hàng này đã bị hủy");
+            throw new CommonException("Đợt nhặt hàng này đã bị hủy", HttpStatus.CONFLICT, null);
         }
 
         // Bắt buộc phân công trước khi nhặt, với MỌI vai trò: chỉ người được giao mới quét nhặt được.
@@ -1177,7 +1386,6 @@ public class NhatHangServiceImpl implements NhatHangService {
                 ? request.getSoLuong().setScale(3, java.math.RoundingMode.HALF_UP)
                 : BigDecimal.ONE.setScale(3, java.math.RoundingMode.HALF_UP);
 
-        List<ChiTietNhatHang> chiTiets = pickList.getChiTietNhatHangs();
         if (chiTiets == null || chiTiets.isEmpty()) {
             throw new CommonException("Đợt nhặt hàng không có mặt hàng nào cần nhặt");
         }
@@ -1200,9 +1408,10 @@ public class NhatHangServiceImpl implements NhatHangService {
             throw new CommonException("Mã vạch / SKU [" + rawBarcode + "] không thuộc danh sách mặt hàng cần nhặt của đợt này!");
         }
 
-        // Lấy lại dòng chi tiết bằng Pessimistic Write Lock để chống Lost Update & Dirty Read khi có Webhook hủy đơn
-        ChiTietNhatHang lockedItem = chiTietNhatHangRepository.findByIdWithLock(matchedItem.getId())
-                .orElse(matchedItem);
+        // Dòng đã khóa ở trên (chống mất cập nhật khi quét chồng hoặc webhook hủy đơn giảm số cần nhặt); nạp lại số của
+        // dòng sẽ ghi: câu khóa không ghi đè thực thể đã nạp trước đó trong request
+        ChiTietNhatHang lockedItem = matchedItem;
+        entityManager.refresh(lockedItem);
 
         BigDecimal currentScanned = lockedItem.getSoLuongDaQuet() != null ? lockedItem.getSoLuongDaQuet() : BigDecimal.ZERO;
         BigDecimal required = lockedItem.getSoLuongCanNhat() != null ? lockedItem.getSoLuongCanNhat() : BigDecimal.ZERO;
@@ -1293,6 +1502,17 @@ public class NhatHangServiceImpl implements NhatHangService {
     }
 
     /**
+     * Khóa các dòng nhặt (id tăng dần) rồi phiếu nhặt — cùng thứ tự với Hoàn tất nhặt, Hủy phiếu chuyển và đơn bị hủy trong
+     * phiếu nhặt — rồi nạp lại phiếu nhặt từ CSDL (trạng thái, người nhặt mới nhất). Bảng không có cột phiên bản nên thao
+     * tác ghi phiếu nhặt phải kiểm trạng thái SAU bước này. Trả các dòng nhặt đã khóa.
+     */
+    private List<ChiTietNhatHang> khoaDongVaPhieuNhat(DanhSachNhatHang pickList) {
+        List<ChiTietNhatHang> chiTiets = chiTietNhatHangRepository.findByDanhSachNhatHangIdWithLockOrderByIdAsc(pickList.getId());
+        entityManager.refresh(pickList, LockModeType.PESSIMISTIC_WRITE);
+        return chiTiets;
+    }
+
+    /**
      * Bắt buộc phân công trước khi nhặt: phiếu chưa có người nhặt thì không ai quét được, và chỉ người được
      * giao mới quét được (kể cả quản lý kho / quản trị viên — muốn tự nhặt thì phân công cho chính mình).
      */
@@ -1309,8 +1529,12 @@ public class NhatHangServiceImpl implements NhatHangService {
         }
     }
 
+    /**
+     * READ_COMMITTED: sau khi chờ khóa (phiếu chuyển, dòng nhặt, tồn), lần đọc phần đang giữ / phân bổ / dòng phiếu xuất
+     * thấy bản vừa ghi xong (như PhieuChuyenKhoService.tao); REPEATABLE READ đọc ảnh chụp cũ từ lần đọc đầu giao dịch.
+     */
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public DanhSachNhatHangDto hoanTatNhatHang(Integer pickListId) {
         if (pickListId == null) {
             throw new CommonException("Mã đợt nhặt hàng (Pick List ID) không được để trống");
@@ -1330,42 +1554,22 @@ public class NhatHangServiceImpl implements NhatHangService {
             throw new CommonException("Bạn không có quyền thao tác trên Pick List thuộc kho khác");
         }
 
-        if ("da_nhat".equals(pickList.getTrangThai())) {
-            throw new CommonException("Đợt nhặt hàng này đã hoàn tất trước đó");
-        }
-        if ("da_xuat".equals(pickList.getTrangThai())) {
-            throw new CommonException("Đợt nhặt hàng này đã được xuất kho");
-        }
-        if ("da_huy".equals(pickList.getTrangThai())) {
-            throw new CommonException("Đợt nhặt hàng này đã bị hủy");
+        // Phiếu nhặt của phiếu chuyển kho: không có đơn, không tạo phiếu xuất bán, không qua đóng gói — chỉ chốt lô vào
+        // PX-CK. Rẽ trước mọi bước dưới (dưới đây phiếu không có đơn hợp lệ sẽ bị đặt Đã hủy)
+        if (pickList.laChuyenKho()) {
+            return hoanTatPhieuNhatChuyenKho(pickList, authUser, isAdmin);
         }
 
-        // Phiếu chưa phân công thì chưa ai được nhặt nên không hoàn tất được. Nhân viên kho chỉ hoàn tất phiếu
-        // giao cho mình; quản lý kho / quản trị viên hoàn tất thay được (giám sát).
-        if (pickList.getNguoiNhat() == null) {
-            throw new CommonException("Phiếu nhặt " + pickList.getMaPickList() + " chưa được phân công người nhặt.",
-                    HttpStatus.CONFLICT, null);
-        }
-        boolean isQuanLy = isAdmin || (authUser.getVaiTro() != null && authUser.getVaiTro().contains(IRoleType.quan_ly_kho));
-        if (!isQuanLy && !authUser.getId().equals(pickList.getNguoiNhat().getId())) {
-            throw new CommonException("Phiếu nhặt " + pickList.getMaPickList() + " đang giao cho "
-                    + pickList.getNguoiNhat().getHoTen() + ", bạn không hoàn tất được.", HttpStatus.CONFLICT, null);
-        }
+        // Khóa dòng nhặt rồi phiếu nhặt và đọc lại TRƯỚC khi kiểm, rồi mới khóa tồn (chotVaChiaLo): cùng thứ tự với quét mã,
+        // lưu phân bổ lô, đơn bị hủy (dòng nhặt → phiếu nhặt → tồn). Hoàn tất chạy chồng với lưu phân bổ / Hoàn tất lần hai
+        // thì chờ rồi bị chặn ở kiểm tra dưới, không kẹt khóa chéo.
+        List<ChiTietNhatHang> chiTiets = khoaDongVaPhieuNhat(pickList);
+        kiemTraDuocHoanTat(pickList, authUser, isAdmin);
 
-        List<ChiTietNhatHang> chiTiets = pickList.getChiTietNhatHangs();
         if (chiTiets == null || chiTiets.isEmpty()) {
             throw new CommonException("Đợt nhặt hàng không có mặt hàng nào để hoàn tất");
         }
-
-        // Bắt buộc 100% dòng mặt hàng phải nhặt đủ số lượng yêu cầu
-        for (ChiTietNhatHang ctn : chiTiets) {
-            BigDecimal can = ctn.getSoLuongCanNhat() != null ? ctn.getSoLuongCanNhat() : BigDecimal.ZERO;
-            BigDecimal da = ctn.getSoLuongDaQuet() != null ? ctn.getSoLuongDaQuet() : BigDecimal.ZERO;
-            if (da.compareTo(can) < 0) {
-                String sku = ctn.getBienTheSanPham() != null ? ctn.getBienTheSanPham().getMaSku() : "SKU";
-                throw new CommonException("Chưa nhặt đủ hàng! Mặt hàng [" + sku + "] mới nhặt " + da + "/" + can);
-            }
-        }
+        kiemTraNhatDu(chiTiets);
 
         String trangThaiCu = pickList.getTrangThai();
         List<DonBanHang> donHangs = pickList.getDonBanHangs() != null ? pickList.getDonBanHangs() : List.of();
@@ -1516,6 +1720,247 @@ public class NhatHangServiceImpl implements NhatHangService {
         return ketQua;
     }
 
+    /**
+     * Phiếu còn mở và người đang thao tác được hoàn tất: phiếu chưa phân công thì chưa ai được nhặt nên không hoàn tất
+     * được; nhân viên kho chỉ hoàn tất phiếu giao cho mình, quản lý kho / quản trị viên hoàn tất thay được (giám sát).
+     */
+    private static void kiemTraDuocHoanTat(DanhSachNhatHang pickList, NguoiDungAuthInfo authUser, boolean isAdmin) {
+        if ("da_nhat".equals(pickList.getTrangThai())) {
+            throw new CommonException("Đợt nhặt hàng này đã hoàn tất trước đó");
+        }
+        if ("da_xuat".equals(pickList.getTrangThai())) {
+            throw new CommonException("Đợt nhặt hàng này đã được xuất kho");
+        }
+        if ("da_huy".equals(pickList.getTrangThai())) {
+            throw new CommonException("Đợt nhặt hàng này đã bị hủy");
+        }
+        if (pickList.getNguoiNhat() == null) {
+            throw new CommonException("Phiếu nhặt " + pickList.getMaPickList() + " chưa được phân công người nhặt.",
+                    HttpStatus.CONFLICT, null);
+        }
+        boolean isQuanLy = isAdmin || (authUser.getVaiTro() != null && authUser.getVaiTro().contains(IRoleType.quan_ly_kho));
+        if (!isQuanLy && !authUser.getId().equals(pickList.getNguoiNhat().getId())) {
+            throw new CommonException("Phiếu nhặt " + pickList.getMaPickList() + " đang giao cho "
+                    + pickList.getNguoiNhat().getHoTen() + ", bạn không hoàn tất được.", HttpStatus.CONFLICT, null);
+        }
+    }
+
+    /** Bắt buộc 100% dòng mặt hàng phải nhặt đủ số lượng yêu cầu. */
+    private static void kiemTraNhatDu(List<ChiTietNhatHang> chiTiets) {
+        for (ChiTietNhatHang ctn : chiTiets) {
+            BigDecimal can = ctn.getSoLuongCanNhat() != null ? ctn.getSoLuongCanNhat() : BigDecimal.ZERO;
+            BigDecimal da = ctn.getSoLuongDaQuet() != null ? ctn.getSoLuongDaQuet() : BigDecimal.ZERO;
+            if (da.compareTo(can) < 0) {
+                String sku = ctn.getBienTheSanPham() != null ? ctn.getBienTheSanPham().getMaSku() : "SKU";
+                throw new CommonException("Chưa nhặt đủ hàng! Mặt hàng [" + sku + "] mới nhặt " + hienThi(da) + "/" + hienThi(can));
+            }
+        }
+    }
+
+    /**
+     * Hoàn tất nhặt của phiếu chuyển kho (đặc tả bước 9). Khóa theo thứ tự chung với Chọn lô / Hủy phiếu chuyển: phiếu
+     * chuyển → dòng nhặt → phiếu nhặt → PX-CK → tồn, rồi đọc lại trạng thái mới nhất. Phiếu chuyển phải còn Đã duyệt,
+     * PX-CK còn Nháp, nhặt đủ 100%; chốt lô như phiếu bán (chotLoCuaDong: phân bổ đã lưu phải còn đủ, thiếu bù FIFO,
+     * thiếu tồn theo lô thì chặn) rồi ghi dòng lô vào PX-CK và cộng so_luong_da_dat (PhieuXuatKhoService.ghiLoChoBienThe)
+     * — hàng chuyển kho giữ qua so_luong_da_dat tới khi xuất hoặc hủy. Không tạo phiếu xuất bán, không đổi đơn, không qua
+     * đóng gói (đóng gói / niêm phong làm ngoài thực tế); kho xuất bấm Xác nhận xuất ở phiếu chuyển.
+     */
+    private DanhSachNhatHangDto hoanTatPhieuNhatChuyenKho(DanhSachNhatHang pickList, NguoiDungAuthInfo authUser, boolean isAdmin) {
+        PhieuXuatKho px = pickList.getPhieuXuatKho();
+        PhieuChuyenKho pck = px.getPhieuChuyenKho();
+        entityManager.refresh(pck, LockModeType.PESSIMISTIC_WRITE);
+        List<ChiTietNhatHang> chiTiets = chiTietNhatHangRepository.findByDanhSachNhatHangIdWithLockOrderByIdAsc(pickList.getId());
+        entityManager.refresh(pickList, LockModeType.PESSIMISTIC_WRITE);
+        entityManager.refresh(px, LockModeType.PESSIMISTIC_WRITE);
+
+        kiemTraDuocHoanTat(pickList, authUser, isAdmin);
+        if (!IChuyenKho.DA_DUYET.equals(pck.getTrangThai())) {
+            throw new CommonException("Phiếu chuyển " + pck.getSoPhieuChuyen() + " không còn chờ xuất (đã hủy hoặc đã xuất), "
+                    + "không hoàn tất nhặt được.", HttpStatus.CONFLICT, null);
+        }
+        if (!Integer.valueOf(ITrangThaiPhieuXuat.NHAP).equals(px.getTrangThai())) {
+            throw new CommonException("Phiếu xuất " + px.getSoPhieuXuat() + " không còn ở trạng thái Nháp, không hoàn tất nhặt được.",
+                    HttpStatus.CONFLICT, null);
+        }
+        if (chiTiets == null || chiTiets.isEmpty()) {
+            throw new CommonException("Đợt nhặt hàng không có mặt hàng nào để hoàn tất");
+        }
+        kiemTraNhatDu(chiTiets);
+
+        // Số trên PX-CK theo biến thể = cộng các dòng gốc (chưa chọn lô): PX-CK cũ có thể tách một biến thể thành nhiều
+        // dòng (3 + 2). Số cần nhặt phải đúng số đó
+        Map<Integer, BigDecimal> soTrenPhieuXuat = new HashMap<>();
+        for (ChiTietPhieuXuatKho ct : chiTietPhieuXuatKhoRepository.findByPhieuXuatKhoIdAndLoHangIsNull(px.getId())) {
+            soTrenPhieuXuat.merge(ct.getBienTheSanPham().getId(),
+                    ct.getSoLuongXuat() != null ? ct.getSoLuongXuat() : BigDecimal.ZERO, BigDecimal::add);
+        }
+
+        // Chốt lô: khóa tồn của mọi biến thể một lần (PK tăng dần), phần phiếu khác giữ không tính chính phiếu nhặt này
+        Integer khoId = pickList.getKhoXuat().getId();
+        List<Integer> bienTheIds = chiTiets.stream().map(ct -> ct.getBienTheSanPham().getId()).distinct().toList();
+        List<TonKhoTheoLo> tonList = loDangGiuService.khoaTonTheoBienThe(khoId, bienTheIds);
+        Map<Integer, TonKhoTheoLo> tonTheoLo = tonList.stream()
+                .collect(Collectors.toMap(t -> t.getLoHang().getId(), t -> t, (a, b) -> a));
+        Map<Integer, BigDecimal> dangGiu = loDangGiuService.dangGiuTheoLo(khoId, tonTheoLo.keySet(), pickList.getId(), null);
+        Map<Integer, List<PhanBoLoNhatHang>> phanBoTheoDong = phanBoLoNhatHangRepository.findByPhieuNhatId(pickList.getId())
+                .stream().collect(Collectors.groupingBy(pb -> pb.getChiTietNhatHang().getId()));
+
+        BigDecimal tong = BigDecimal.ZERO;
+        for (ChiTietNhatHang dong : chiTiets) {
+            BigDecimal can = dong.getSoLuongCanNhat() != null ? dong.getSoLuongCanNhat() : BigDecimal.ZERO;
+            if (can.signum() <= 0) continue;
+            BienTheSanPham bt = dong.getBienTheSanPham();
+            BigDecimal soPhieuXuat = soTrenPhieuXuat.get(bt.getId());
+            if (soPhieuXuat == null) {
+                throw new CommonException("Phiếu xuất " + px.getSoPhieuXuat() + " không có dòng sản phẩm [" + bt.getMaSku()
+                        + "] trong khi phiếu nhặt cần nhặt " + hienThi(can) + ". Báo quản lý kho kiểm tra phiếu chuyển "
+                        + pck.getSoPhieuChuyen() + ".", HttpStatus.CONFLICT, null);
+            }
+            if (soPhieuXuat.compareTo(can) != 0) {
+                throw new CommonException("Số cần nhặt của [" + bt.getMaSku() + "] là " + hienThi(can) + " nhưng phiếu xuất "
+                        + px.getSoPhieuXuat() + " ghi " + hienThi(soPhieuXuat)
+                        + ". Báo quản lý kho kiểm tra phiếu chuyển " + pck.getSoPhieuChuyen() + ".", HttpStatus.CONFLICT, null);
+            }
+
+            // Phân bổ có thể thừa (không xảy ra với phiếu chuyển, phòng dữ liệu lệch): chỉ lấy đủ phần cần theo FIFO
+            List<PhanBoLoFifo.Lo> los = PhanBoLoFifo.layFifo(chotLoCuaDong(dong, can, tonList, tonTheoLo, dangGiu,
+                    phanBoTheoDong.getOrDefault(dong.getId(), List.of()), BigDecimal.ZERO), can);
+            Map<Integer, TonKhoTheoLo> tonCuaMa = tonList.stream()
+                    .filter(t -> bt.getId().equals(t.getLoHang().getBienTheSanPham().getId()))
+                    .collect(Collectors.toMap(t -> t.getLoHang().getId(), t -> t, (a, b) -> a));
+            List<PickLoHangRequest.Item> loLay = los.stream().map(lo -> {
+                PickLoHangRequest.Item item = new PickLoHangRequest.Item();
+                item.setLoHangId(lo.loHangId());
+                item.setSoLuongXuat(lo.soLuong());
+                return item;
+            }).toList();
+            phieuXuatKhoService.ghiLoChoBienThe(px, bt, tonCuaMa, loLay, pickList.getId());
+            tong = tong.add(can);
+        }
+
+        String trangThaiCu = pickList.getTrangThai();
+        pickList.setTrangThai("da_nhat");
+        pickList.setNgayHoanTat(Instant.now());
+        pickList = danhSachNhatHangRepository.save(pickList);
+
+        NguoiDung currentUser = nguoiDungRepository.findById(authUser.getId()).orElse(null);
+        String ghiChu = "Hoàn tất phiếu nhặt " + pickList.getMaPickList() + " của phiếu chuyển " + pck.getSoPhieuChuyen()
+                + ": đã giữ lô " + hienThi(tong) + " sản phẩm cho phiếu xuất " + px.getSoPhieuXuat()
+                + ". Chờ xác nhận xuất ở phiếu chuyển.";
+        try {
+            lichSuThayDoiService.create(LichSuThayDoi.builder()
+                    .loaiThamChieu(ITable.danh_sach_nhat_hang)
+                    .idThamChieu(pickList.getId())
+                    .kho(pickList.getKhoXuat())
+                    .hanhDong(IHanhDong.hoan_tat_nhat_hang)
+                    .giaTriCu(trangThaiCu)
+                    .giaTriMoi("da_nhat")
+                    .nguoiThucHien(currentUser)
+                    .ngayThucHien(Instant.now())
+                    .ghiChu(ghiChu)
+                    .build());
+            // Nhật ký phiếu chuyển (cùng dạng PhieuChuyenKhoService.ghiNhatKy): trạng thái phiếu chuyển không đổi
+            lichSuThayDoiService.create(LichSuThayDoi.builder()
+                    .loaiThamChieu(ITable.phieu_chuyen_kho)
+                    .idThamChieu(pck.getId())
+                    .kho(pck.getKhoXuat())
+                    .hanhDong(IHanhDong.nhat_xong_chuyen_kho)
+                    .giaTriCu("trang_thai = " + pck.getTrangThai())
+                    .giaTriMoi("trang_thai = " + pck.getTrangThai())
+                    .nguoiThucHien(currentUser)
+                    .ngayThucHien(Instant.now())
+                    .ghiChu("Đã nhặt xong theo phiếu nhặt " + pickList.getMaPickList() + ", giữ lô cho phiếu xuất " + px.getSoPhieuXuat())
+                    .build());
+        } catch (Exception e) {
+            log.warn("Không thể ghi log hoàn tất nhặt hàng cho Pick List {}: {}", pickList.getMaPickList(), e.getMessage());
+        }
+
+        return getChiTietPickList(pickList.getId());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public DanhSachNhatHang huyPhieuNhatChuyenKho(PhieuXuatKho phieuXuat, String soPhieuChuyen) {
+        DanhSachNhatHang pickList = danhSachNhatHangRepository.findByPhieuXuatKho_Id(phieuXuat.getId()).orElse(null);
+        if (pickList == null) {
+            return null;
+        }
+        // Bên gọi đã khóa phiếu chuyển: khóa tiếp dòng nhặt (tuần tự với quét mã) rồi phiếu nhặt, đọc trạng thái mới nhất
+        List<ChiTietNhatHang> chiTiets = chiTietNhatHangRepository.findByDanhSachNhatHangIdWithLockOrderByIdAsc(pickList.getId());
+        entityManager.refresh(pickList, LockModeType.PESSIMISTIC_WRITE);
+        String truoc = pickList.getTrangThai();
+        if ("da_huy".equals(truoc)) {
+            return pickList;
+        }
+        boolean dangMo = "cho_nhat".equals(truoc) || "dang_nhat".equals(truoc);
+
+        // Hàng đã nhặt cần trả về kệ: đang nhặt = số đã quét (về 0 như luồng mọi đơn bị hủy); đã nhặt xong = toàn bộ (lô
+        // đã ghi trên PX-CK, bên gọi nhả khi hủy PX-CK)
+        BigDecimal tongTraKe = BigDecimal.ZERO;
+        for (ChiTietNhatHang ctn : chiTiets) {
+            BigDecimal daQuet = ctn.getSoLuongDaQuet() != null ? ctn.getSoLuongDaQuet() : BigDecimal.ZERO;
+            if (daQuet.signum() <= 0) continue;
+            taoLenhHoanKe(pickList, ctn.getBienTheSanPham(), daQuet);
+            tongTraKe = tongTraKe.add(daQuet);
+            if (dangMo) {
+                ctn.setSoLuongDaQuet(BigDecimal.ZERO);
+                chiTietNhatHangRepository.save(ctn);
+            }
+        }
+        pickList.setTrangThai("da_huy");
+        danhSachNhatHangRepository.save(pickList);
+
+        NguoiDungAuthInfo authUser = SecurityContextHolder.getUser();
+        try {
+            lichSuThayDoiService.create(LichSuThayDoi.builder()
+                    .loaiThamChieu(ITable.danh_sach_nhat_hang)
+                    .idThamChieu(pickList.getId())
+                    .kho(pickList.getKhoXuat())
+                    .hanhDong(IHanhDong.huy_pick_list)
+                    .giaTriCu(truoc)
+                    .giaTriMoi("da_huy")
+                    .nguoiThucHien(authUser != null ? nguoiDungRepository.findById(authUser.getId()).orElse(null) : null)
+                    .ngayThucHien(Instant.now())
+                    .ghiChu("Hủy theo phiếu chuyển " + soPhieuChuyen
+                            + (tongTraKe.signum() > 0 ? ", " + hienThi(tongTraKe) + " sản phẩm đã nhặt cần trả về kệ" : ""))
+                    .build());
+        } catch (Exception e) {
+            log.warn("Không thể ghi log hủy Pick List {}: {}", pickList.getMaPickList(), e.getMessage());
+        }
+
+        Integer pickListId = pickList.getId();
+        String maPickList = pickList.getMaPickList();
+        String thongBao = "Phiếu chuyển " + soPhieuChuyen + " đã bị hủy. "
+                + (tongTraKe.signum() > 0 ? "Dừng nhặt và cất toàn bộ hàng đã lấy về kệ." : "Dừng nhặt phiếu này.");
+        SauCommit.chay("Gửi WebSocket phiếu nhặt " + pickListId, () -> outboundWebSocketHandler.sendPickListEvent(pickListId,
+                "PICK_LIST_CANCELLED", Map.of(
+                        "pickListId", pickListId,
+                        "maPickList", maPickList,
+                        "lyDo", LY_DO_HOAN_KE_CHUYEN_KHO_HUY,
+                        "message", thongBao)));
+        return pickList;
+    }
+
+    /**
+     * Lệnh trả hàng về kệ (cảnh báo HOAN_KE_CHO_CAT, nguong_canh_bao = id phiếu nhặt, 0 = chờ cất kệ). Lý do ở màn Hàng cần
+     * hoàn kệ đọc theo loại phiếu nhặt (lyDoHoanKe).
+     */
+    private void taoLenhHoanKe(DanhSachNhatHang pickList, BienTheSanPham bt, BigDecimal soLuong) {
+        canhBaoRepository.save(CanhBao.builder()
+                .loaiCanhBao("HOAN_KE_CHO_CAT")
+                .bienTheSanPham(bt)
+                .kho(pickList.getKhoXuat())
+                .soLuongHienTai(soLuong)
+                .nguongCanhBao(BigDecimal.valueOf(pickList.getId()))
+                .trangThai(0) // 0: Chờ cất kệ
+                .build());
+    }
+
+    /** Lý do trả kệ theo loại phiếu nhặt của lệnh: phiếu chuyển kho bị hủy, hoặc đơn bán bị hủy. */
+    static String lyDoHoanKe(DanhSachNhatHang pickList) {
+        return pickList != null && pickList.laChuyenKho() ? LY_DO_HOAN_KE_CHUYEN_KHO_HUY : LY_DO_HOAN_KE_DON_HUY;
+    }
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void xuLyDonBiHuyTrongPickList(DonBanHang don) {
@@ -1524,7 +1969,8 @@ public class NhatHangServiceImpl implements NhatHangService {
         }
 
         DanhSachNhatHang pickList = don.getDanhSachNhatHang();
-        if (pickList == null) {
+        // Phiếu nhặt chuyển kho không có đơn (đơn không nối vào được); phòng dữ liệu lệch: không đụng phiếu đó
+        if (pickList == null || pickList.laChuyenKho()) {
             return;
         }
 
@@ -1563,15 +2009,7 @@ public class NhatHangServiceImpl implements NhatHangService {
                             ctn.setSoLuongDaQuet(canMoi);
 
                             // Tạo cảnh báo hoàn kệ Put-back
-                            CanhBao canhBao = CanhBao.builder()
-                                    .loaiCanhBao("HOAN_KE_CHO_CAT")
-                                    .bienTheSanPham(bt)
-                                    .kho(pickList.getKhoXuat())
-                                    .soLuongHienTai(slThua)
-                                    .nguongCanhBao(BigDecimal.valueOf(pickListId))
-                                    .trangThai(0) // 0: Chờ cất kệ
-                                    .build();
-                            canhBaoRepository.save(canhBao);
+                            taoLenhHoanKe(pickList, bt, slThua);
 
                             Map<String, Object> itemTraKe = new HashMap<>();
                             itemTraKe.put("sku", bt.getMaSku());
@@ -1608,15 +2046,7 @@ public class NhatHangServiceImpl implements NhatHangService {
                 for (ChiTietNhatHang ctn : chiTietNhats) {
                     BigDecimal daQuet = ctn.getSoLuongDaQuet() != null ? ctn.getSoLuongDaQuet() : BigDecimal.ZERO;
                     if (daQuet.compareTo(BigDecimal.ZERO) > 0) {
-                        CanhBao cb = CanhBao.builder()
-                                .loaiCanhBao("HOAN_KE_CHO_CAT")
-                                .bienTheSanPham(ctn.getBienTheSanPham())
-                                .kho(pickList.getKhoXuat())
-                                .soLuongHienTai(daQuet)
-                                .nguongCanhBao(BigDecimal.valueOf(pickListId))
-                                .trangThai(0)
-                                .build();
-                        canhBaoRepository.save(cb);
+                        taoLenhHoanKe(pickList, ctn.getBienTheSanPham(), daQuet);
                         ctn.setSoLuongDaQuet(BigDecimal.ZERO);
                         chiTietNhatHangRepository.save(ctn);
                     }
@@ -1646,15 +2076,7 @@ public class NhatHangServiceImpl implements NhatHangService {
             // Sinh lệnh cất hàng về kệ (Put-away Task) cho toàn bộ sản phẩm của đơn đã nhặt về bàn đóng gói
             for (ChiTietDonBanHang ctd : chiTietDons) {
                 if (ctd.getBienTheSanPham() != null && ctd.getSoLuongDat() != null && ctd.getSoLuongDat().compareTo(BigDecimal.ZERO) > 0) {
-                    CanhBao canhBao = CanhBao.builder()
-                            .loaiCanhBao("HOAN_KE_CHO_CAT")
-                            .bienTheSanPham(ctd.getBienTheSanPham())
-                            .kho(pickList.getKhoXuat())
-                            .soLuongHienTai(ctd.getSoLuongDat())
-                            .nguongCanhBao(BigDecimal.valueOf(pickListId))
-                            .trangThai(0) // 0: Chờ cất kệ
-                            .build();
-                    canhBaoRepository.save(canhBao);
+                    taoLenhHoanKe(pickList, ctd.getBienTheSanPham(), ctd.getSoLuongDat());
 
                     // Phát sự kiện giải phóng Outgoing, hoàn lại Free to Use để đẩy tồn tức thời lên kênh TMĐT (SRS 12.3 JOB-03)
                     try {
@@ -1728,11 +2150,9 @@ public class NhatHangServiceImpl implements NhatHangService {
             String tenSize = bt != null && bt.getSize() != null ? bt.getSize().getTenSize() : "";
 
             Integer refPickListId = cb.getNguongCanhBao() != null ? cb.getNguongCanhBao().intValue() : null;
-            String maPickList = null;
-            if (refPickListId != null) {
-                maPickList = danhSachNhatHangRepository.findById(refPickListId)
-                        .map(DanhSachNhatHang::getMaPickList).orElse(null);
-            }
+            DanhSachNhatHang phieuNhat = refPickListId != null
+                    ? danhSachNhatHangRepository.findById(refPickListId).orElse(null) : null;
+            String maPickList = phieuNhat != null ? phieuNhat.getMaPickList() : null;
 
             String phanLoai = (tenMau + " " + tenSize).trim();
             String maNhiemVu = "PA-" + cb.getId();
@@ -1750,7 +2170,7 @@ public class NhatHangServiceImpl implements NhatHangService {
                     .loaiNguon("HOAN_KE_KHO")
                     .thoiGianHuy(cb.getNgayCanhBao())
                     .trangThai("CHO_CAT_KE")
-                    .lyDo("Đơn hàng bị hủy trong luồng xuất kho")
+                    .lyDo(lyDoHoanKe(phieuNhat))
                     .build();
         }).collect(Collectors.toList());
     }
@@ -1767,14 +2187,15 @@ public class NhatHangServiceImpl implements NhatHangService {
         if (!"HOAN_KE_CHO_CAT".equals(cb.getLoaiCanhBao())) {
             throw new CommonException("Nhiệm vụ này không phải loại hoàn kệ cất hàng");
         }
+        // Chỉ người đang làm việc ở kho của lệnh (quản trị viên mọi kho)
+        KhoDangChon.kiemTra(cb.getKho(), "Nhiệm vụ hoàn kệ");
 
+        // Đóng lệnh bằng một câu UPDATE có điều kiện "còn chờ": hai lần bấm (hoặc hai người cùng lúc) chỉ một lần đổi được,
+        // nên sự kiện cộng tồn của kho chỉ phát một lần (save() không ghi được trang_thai, xem CanhBaoRepository)
         NguoiDungAuthInfo authUser = SecurityContextHolder.getUser();
-        NguoiDung currentUser = authUser != null ? nguoiDungRepository.findById(authUser.getId()).orElse(null) : null;
-
-        cb.setTrangThai(1); // 1: Đã cất kệ
-        cb.setNgayXuLy(Instant.now());
-        cb.setNguoiXuLy(currentUser);
-        canhBaoRepository.save(cb);
+        if (canhBaoRepository.danhDauDaCatKe(cb.getId(), Instant.now(), authUser != null ? authUser.getId() : null) == 0) {
+            throw new CommonException("Nhiệm vụ hoàn kệ này đã được xác nhận cất kệ", HttpStatus.CONFLICT, null);
+        }
 
         if (cb.getBienTheSanPham() != null) {
             try {

@@ -19,6 +19,8 @@ import LoadingState from "@/components/shared/LoadingState";
 import MockModeNotice from "@/components/shared/MockModeNotice";
 import PickProgress from "@/components/outbound/PickProgress";
 import AssignPickerDialog from "@/components/outbound/AssignPickerDialog";
+import { LOC_LOAI_PHIEU_NHAT, nguonPhieuNhat } from "@/components/outbound/phieu-nhat/tinhPhieuNhat";
+import FilterSelect from "@/components/shared/FilterSelect";
 import { Button } from "@/components/ui/button";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
@@ -34,7 +36,8 @@ import { getApiErrorMessage } from "@/utils/apiError";
 import { hasAnyRole, ROLES } from "@/utils/roles";
 
 const TH_CLASS = "h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
-const DEFAULT_FILTERS = { keyword: "", page: 0, size: SO_DONG_MAC_DINH };
+// loai: "" (tất cả) | BAN_HANG | CHUYEN_KHO — phiếu nhặt của phiếu chuyển kho vào danh sách khi duyệt phiếu chuyển
+const DEFAULT_FILTERS = { keyword: "", loai: "", page: 0, size: SO_DONG_MAC_DINH };
 
 // Tab trạng thái (bố cục A+G) — mã tab nằm trên URL ?trangThai=
 const TAB_MAS = PICK_LIST_TABS.map((tab) => tab.ma);
@@ -44,9 +47,10 @@ const TAB_MAC_DINH = "tat-ca";
 const docKhoLamViec = () => Number(window.localStorage.getItem("selected_kho_id")) || undefined;
 
 /** Tham số gửi API dùng chung cho danh sách và số trên tab (R1, R2): chỉ khác trạng thái và trang. */
-const buildParams = ({ khoId, keyword, trangThai, page, size }) => ({
+const buildParams = ({ khoId, keyword, loai, trangThai, page, size }) => ({
     khoId,
     trangThai: trangThai || undefined,
+    loai: loai || undefined,
     searchText: keyword.trim() || undefined,
     page,
     size,
@@ -87,6 +91,7 @@ export default function PickListList() {
             const res = await nhatHangService.getPickLists(buildParams({
                 khoId,
                 keyword: filters.keyword,
+                loai: filters.loai,
                 trangThai: tabTrangThai,
                 page: filters.page,
                 size: filters.size,
@@ -125,13 +130,14 @@ export default function PickListList() {
             const res = await nhatHangService.getPickLists(buildParams({
                 khoId,
                 keyword: filters.keyword,
+                loai: filters.loai,
                 trangThai: PICK_LIST_TABS.find((t) => t.ma === ma)?.trangThai,
                 page: 0,
                 size: 1,
             }));
             return res?.totalElements ?? 0;
         },
-        `${khoId ?? ""}|${filters.keyword.trim()}`
+        `${khoId ?? ""}|${filters.keyword.trim()}|${filters.loai}`
     );
 
     // Đổi tab: ghi lên URL và về trang đầu
@@ -146,11 +152,13 @@ export default function PickListList() {
         setFilters((prev) => ({ ...prev, page: 0 }));
     };
 
-    // "Xóa lọc": bỏ từ khóa, giữ tab và kho làm việc
+    // "Xóa lọc": bỏ từ khóa và loại phiếu, giữ tab và kho làm việc
     const clearFilters = () => {
         setSearchText("");
-        setFilters((prev) => ({ ...prev, keyword: "", page: 0 }));
+        setFilters((prev) => ({ ...prev, keyword: "", loai: "", page: 0 }));
     };
+
+    const doiLoai = (loai) => setFilters((prev) => (prev.loai === loai ? prev : { ...prev, loai, page: 0 }));
 
     const handleRefresh = () => {
         fetchData();
@@ -173,8 +181,8 @@ export default function PickListList() {
         tabCounts.reload();
     };
 
-    const hasFilter = Boolean(searchText.trim() || filters.keyword.trim());
-    const dangTimKiem = Boolean(filters.keyword.trim());
+    const hasFilter = Boolean(searchText.trim() || filters.keyword.trim() || filters.loai);
+    const dangTimKiem = Boolean(filters.keyword.trim() || filters.loai);
 
     // Số chỉ hiện khi đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs
     const statusTabs = PICK_LIST_TABS.map((t) => ({
@@ -216,8 +224,17 @@ export default function PickListList() {
                         onClear={clearFilters}
                     >
                         <KhoLamViecSelect onChange={handleDoiKho} />
+                        <FilterSelect
+                            label="Loại phiếu nhặt"
+                            value={filters.loai}
+                            options={LOC_LOAI_PHIEU_NHAT}
+                            onChange={doiLoai}
+                            onClear={() => doiLoai("")}
+                            clearLabel="Bỏ lọc loại phiếu"
+                            className="sm:w-[170px]"
+                        />
                         <SearchInput
-                            placeholder="Nhập mã phiếu nhặt hàng..."
+                            placeholder="Nhập mã phiếu nhặt hoặc phiếu chuyển..."
                             label="Tìm phiếu nhặt hàng"
                             value={searchText}
                             onChange={(event) => setSearchText(event.target.value)}
@@ -251,7 +268,7 @@ export default function PickListList() {
                         <EmptyState
                             icon={SearchX}
                             title="Không tìm thấy phiếu nhặt hàng phù hợp"
-                            description="Thử đổi từ khóa tìm kiếm."
+                            description={filters.loai ? "Thử đổi từ khóa hoặc loại phiếu." : "Thử đổi từ khóa tìm kiếm."}
                             action={
                                 <Button variant="outline" onClick={clearFilters} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
                                     Xóa lọc
@@ -286,7 +303,7 @@ export default function PickListList() {
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                 <th className={`${TH_CLASS} text-left`}>Mã phiếu nhặt hàng</th>
-                                <th className={`${TH_CLASS} text-left`}>Đơn hàng</th>
+                                <th className={`${TH_CLASS} text-left`}>Đơn / phiếu chuyển</th>
                                 <th className={`${TH_CLASS} text-right tabular-nums`}>SKU</th>
                                 <th className={`${TH_CLASS} w-[220px] text-left`}>Tiến độ</th>
                                 <th className={`${TH_CLASS} text-left`}>Người nhặt</th>
@@ -299,7 +316,7 @@ export default function PickListList() {
                             {data.map((row) => {
                                 const status = getPickListStatus(row.trangThai);
                                 const canAssign = PICK_LIST_EDITABLE.includes(row.trangThai) && (laQuanLy || !row.nguoiNhatId);
-                                const maDons = row.danhSachMaDonHang ?? [];
+                                const nguon = nguonPhieuNhat(row);
                                 return (
                                     <tr
                                         key={row.id}
@@ -313,10 +330,16 @@ export default function PickListList() {
                                             ) : null}
                                         </td>
                                         <td className="px-3 py-3">
-                                            <span className="font-semibold text-bo-foreground">{row.tongDonHang ?? maDons.length} đơn</span>
-                                            {maDons.length ? (
-                                                <span className="mt-0.5 block max-w-[240px] truncate text-xs text-bo-muted" title={maDons.join(", ")}>
-                                                    {maDons.slice(0, 2).join(", ")}{maDons.length > 2 ? ` +${maDons.length - 2}` : ""}
+                                            {nguon.chuyenKho ? (
+                                                <span className="inline-flex rounded-md bg-bo-surface-subtle px-1.5 py-0.5 text-xs font-semibold text-bo-foreground ring-1 ring-inset ring-bo-border">
+                                                    {nguon.nhan}
+                                                </span>
+                                            ) : (
+                                                <span className="font-semibold text-bo-foreground">{nguon.nhan}</span>
+                                            )}
+                                            {nguon.phu ? (
+                                                <span className="mt-0.5 block max-w-[240px] truncate text-xs text-bo-muted" title={nguon.title}>
+                                                    {nguon.phu}
                                                 </span>
                                             ) : null}
                                         </td>

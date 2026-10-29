@@ -101,8 +101,8 @@ public record TongQuanVaiTroResponse(
     public record ChuyenKho(long choDuyet, long choXuatHang, long dangVanChuyen) {}
 
     /**
-     * Việc chờ quản lý kho quyết. loai: duyet_yeu_cau_nhap, duyet_phieu_chuyen, gom_phieu_nhat, phan_cong_nhat,
-     * hoan_tat_kiem_ke. cuNhat: thời điểm của chứng từ chờ lâu nhất; moTa: tên đợt kiểm kê cũ nhất (nếu có).
+     * Việc chờ quản lý kho quyết. loai: duyet_yeu_cau_nhap, duyet_phieu_chuyen, xu_ly_chenh_lech_chuyen, gom_phieu_nhat,
+     * phan_cong_nhat, hoan_tat_kiem_ke. cuNhat: thời điểm của chứng từ chờ lâu nhất; moTa: tên đợt kiểm kê cũ nhất (nếu có).
      */
     public record Viec(String loai, long so, String cuNhat, String moTa, boolean gap) {}
 
@@ -125,9 +125,12 @@ public record TongQuanVaiTroResponse(
     public record NhanVienKho(List<PhieuNhatCuaBan> cuaBan, HomNayCuaBan homNay, ViecChung viecChung,
                               SapVe sapVe) {}
 
-    /** Phiếu nhặt đang giao cho bạn. daQuet / canNhat: số sản phẩm. */
+    /**
+     * Phiếu nhặt đang giao cho bạn. daQuet / canNhat: số sản phẩm. soPhieuChuyen: số phiếu chuyển khi là phiếu nhặt của
+     * phiếu chuyển kho (không có đơn), phiếu gom đơn bán thì null.
+     */
     public record PhieuNhatCuaBan(Integer id, String ma, String trangThai, long soDon, long daQuet, long canNhat,
-                                  String ngayTao) {}
+                                  String ngayTao, String soPhieuChuyen) {}
 
     /** Bạn đã làm hôm nay ở kho này: nhận (phiếu nhập đã nhập kho), nhặt (phiếu nhặt xong), xuất (phiếu đã xuất). */
     public record HomNayCuaBan(long sanPhamDaNhap, long phieuDaNhap, long sanPhamDaNhat, long phieuDaNhat,
@@ -141,7 +144,8 @@ public record TongQuanVaiTroResponse(
 
     /**
      * loai: phieu_nhap, phieu_nhat, don_ban, phieu_xuat, phieu_chuyen, kiem_ke (quyết định đường dẫn).
-     * doiTac: nhà cung cấp / kho gửi / khách hàng / kho nhận; soLuong: số sản phẩm (0 nếu chưa có dòng);
+     * doiTac: nhà cung cấp / kho gửi / khách hàng / kho nhận / số phiếu chuyển (phiếu nhặt của phiếu chuyển kho);
+     * soLuong: số sản phẩm (0 nếu chưa có dòng);
      * soDon: số đơn trong phiếu nhặt; thoiDiem: lúc chứng từ bắt đầu chờ; choLau: chờ quá N giờ.
      */
     public record DongViec(String loai, Integer id, String ma, String doiTac, long soLuong, long soDon,

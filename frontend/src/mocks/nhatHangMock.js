@@ -83,7 +83,12 @@ function buildLines(orderIds, scanned = {}) {
       map.set(bienTheId, (map.get(bienTheId) ?? 0) + qty);
     });
   });
-  return [...map.entries()].map(([bienTheId, canNhat]) => withPhanBo({
+  return linesTuHang([...map.entries()], scanned);
+}
+
+/** Dòng nhặt từ [biến thể, số cần nhặt] (phiếu nhặt chuyển kho: dòng = dòng phiếu chuyển), phân bổ FIFO sẵn. */
+function linesTuHang(hang, scanned = {}) {
+  return hang.map(([bienTheId, canNhat]) => withPhanBo({
     id: (lineSeq += 1),
     bienTheSanPhamId: bienTheId,
     ...VARIANTS[bienTheId],
@@ -104,11 +109,19 @@ state.pickLists = [
   { id: 32, maPickList: "PL-20261010-001", nguoiNhatId: 40, trangThai: "dang_nhat", ghiChu: null, ngayTao: isoMinutesAgo(220), ngayHoanTat: null, donHangIds: [490, 491] },
   { id: 33, maPickList: "PL-20261010-002", nguoiNhatId: null, trangThai: "cho_nhat", ghiChu: "Ưu tiên đơn Lazada", ngayTao: isoMinutesAgo(110), ngayHoanTat: null, donHangIds: [495] },
   { id: 30, maPickList: "PL-20261009-003", nguoiNhatId: 41, trangThai: "da_huy", ghiChu: "Gỡ hết đơn", ngayTao: isoMinutesAgo(1600), ngayHoanTat: null, donHangIds: [] },
+  // Phiếu nhặt của phiếu chuyển kho (tạo khi duyệt phiếu chuyển): không có đơn, xuất ở phiếu chuyển
+  {
+    id: 34, maPickList: "PL-20261010-003", nguoiNhatId: null, trangThai: "cho_nhat",
+    ghiChu: "Nhặt hàng cho phiếu chuyển PX-TRF-202610101 → Cửa hàng Cầu Giấy", ngayTao: isoMinutesAgo(70), ngayHoanTat: null,
+    donHangIds: [],
+    phieuChuyen: { id: 50, so: "PX-TRF-202610101", trangThai: "DA_DUYET", khoNhan: "Cửa hàng Cầu Giấy", phieuXuatId: 60, soPhieuXuat: "PX-CK-202610101" },
+  },
 ];
 state.pickLists[0].lines = buildLines([480, 481], { 77: 2, 105: 2, 93: 1 });
 state.pickLists[1].lines = buildLines([490, 491], { 78: 2, 120: 1 });
 state.pickLists[2].lines = buildLines([495]);
 state.pickLists[3].lines = [];
+state.pickLists[4].lines = linesTuHang([[94, 4], [112, 2]]);
 
 function findPickList(id) {
   const pl = state.pickLists.find((item) => item.id === Number(id));
@@ -133,6 +146,13 @@ function toDto(pl) {
     ghiChu: pl.ghiChu,
     ngayTao: pl.ngayTao,
     ngayHoanTat: pl.ngayHoanTat,
+    loaiPhieu: pl.phieuChuyen ? "CHUYEN_KHO" : "BAN_HANG",
+    phieuChuyenKhoId: pl.phieuChuyen?.id ?? null,
+    soPhieuChuyen: pl.phieuChuyen?.so ?? null,
+    trangThaiPhieuChuyen: pl.phieuChuyen?.trangThai ?? null,
+    tenKhoNhan: pl.phieuChuyen?.khoNhan ?? null,
+    phieuXuatKhoId: pl.phieuChuyen?.phieuXuatId ?? null,
+    soPhieuXuat: pl.phieuChuyen?.soPhieuXuat ?? null,
     tongDonHang: orders.length,
     tongSku: lines.filter((l) => l.soLuongCanNhat > 0).length,
     tongSoLuongCanNhat: tongCan,
@@ -213,12 +233,14 @@ export const nhatHangMock = {
     return toDto(pl);
   },
 
-  async getPickLists({ trangThai, searchText, page = 0, size = 10 } = {}) {
+  async getPickLists({ trangThai, loai, searchText, page = 0, size = 10 } = {}) {
     await mockDelay();
     const keyword = normalizeText(searchText);
     const list = state.pickLists
       .filter((pl) => !trangThai || pl.trangThai === trangThai)
-      .filter((pl) => !keyword || normalizeText(pl.maPickList).includes(keyword))
+      .filter((pl) => !loai || (loai === "CHUYEN_KHO") === Boolean(pl.phieuChuyen))
+      .filter((pl) => !keyword || normalizeText(pl.maPickList).includes(keyword)
+        || normalizeText(pl.phieuChuyen?.so ?? "").includes(keyword))
       .sort((a, b) => new Date(b.ngayTao) - new Date(a.ngayTao))
       .map(toDto);
     return paginate(list, page, size);

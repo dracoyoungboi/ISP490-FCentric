@@ -10,6 +10,8 @@ import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.entities.*;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.*;
+import com.dev.backend.services.impl.multitable.BanDuocTaiQuayService;
+import com.dev.backend.services.impl.multitable.GiuChoChuyenKhoService;
 import com.dev.backend.services.impl.multitable.LoDangGiuService;
 import com.dev.backend.utils.PosCheckoutPayloadHash;
 import com.dev.backend.utils.SoChungTu;
@@ -20,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -68,6 +71,8 @@ public class PosCheckoutTransaction {
     @Autowired
     private LoDangGiuService loDangGiuService;
     @Autowired
+    private GiuChoChuyenKhoService giuChoChuyenKhoService;
+    @Autowired
     private LichSuGiaoDichKhoRepository lichSuGiaoDichKhoRepository;
     @Autowired
     private PosCheckoutRequestRepository posCheckoutRequestRepository;
@@ -82,7 +87,12 @@ public class PosCheckoutTransaction {
     @Autowired(required = false)
     private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
-    @Transactional
+    /**
+     * READ_COMMITTED (như PhieuChuyenKhoService.tao): sau khi chờ khóa dòng tồn, lần đọc phần đang giữ và giữ chỗ phiếu
+     * chuyển (câu SELECT thường) thấy phiếu nhặt / phiếu chuyển vừa ghi xong; REPEATABLE READ đọc ảnh chụp cũ nên quầy
+     * bán lấn phần hàng phiếu chuyển vừa giữ. Điểm vào của thanh toán tiền mặt (PosCheckoutService gọi, không lồng).
+     */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public PosCheckoutResponse execute(PosCheckoutCreating request) {
         NguoiDungAuthInfo auth = SecurityContextHolder.getUser();
         return executeWith(request, CheckoutContext.cash(auth.getId()));
@@ -94,7 +104,9 @@ public class PosCheckoutTransaction {
      * - PAYOS: gọi từ webhook/job (không có người đăng nhập) với giá ĐÃ CHỐT lúc tạo QR,
      *   số tiền đã nhận phải bằng đúng tổng, và trả lại phần hàng đã giữ chỗ trước khi trừ kho.
      */
-    @Transactional
+    // READ_COMMITTED: xem execute. Gọi từ PosPayosTransaction thì chạy trong giao dịch của bên gọi (mức cô lập lấy theo
+    // bên gọi — các điểm vào đó cũng đặt READ_COMMITTED)
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public PosCheckoutResponse executeWith(PosCheckoutCreating request, CheckoutContext ctx) {
         Integer userId = ctx.userId();
 
@@ -166,8 +178,11 @@ public class PosCheckoutTransaction {
 
         // 6. Phân bổ lô theo chính sách FIFO: ngayNhapGanNhat tăng dần, tie-break loHang.id;
         //    chỉ lấy lô đúng kho + đúng SKU (đã bảo đảm bởi query), khả dụng = ton - dat.
+        Map<Integer, BigDecimal> dangGiu = dangGiuTheoLo(request.getKhoId(), lockedLots);
+        // dangGiu đã trừ phân bổ lô của phiếu nhặt chuyển kho đang mở: giữ chỗ chỉ tính phần còn lại (không trừ hai lần)
+        Map<Integer, BigDecimal> giuChoChuyen = giuChoChuyenKhoService.taiKhoNgoaiPhieuNhat(request.getKhoId(), variantIds);
         Map<Integer, List<LotAllocation>> allocationByVariant = allocateFifo(items, lotsByVariant, variants,
-                dangGiuTheoLo(request.getKhoId(), lockedLots));
+                dangGiu, giuChoChuyen);
 
         // 7. Sinh số chứng từ (count+1 — convention repo). Trùng số khi hai giao dịch đếm cùng
         //    lúc -> lỗi unique nổi lên, transaction rollback, caller thử lại bằng transaction
@@ -214,13 +229,12 @@ public class PosCheckoutTransaction {
             }
         }
 
-        // Tồn khả dụng sau bán: tổng trên TOÀN BỘ lô đã khóa của kho (không chỉ lô được phân bổ).
+        // Số bán được sau bán: trên TOÀN BỘ lô đã khóa của kho (không chỉ lô được phân bổ), cùng công thức với
+        // danh mục POS và bước phân bổ ở trên (BanDuocTaiQuayService.banDuoc).
         Map<Integer, BigDecimal> khaDungSauByVariant = new HashMap<>();
         for (Integer variantId : variantIds) {
-            khaDungSauByVariant.put(variantId,
-                    lotsByVariant.getOrDefault(variantId, List.of()).stream()
-                            .map(PosCheckoutTransaction::soLuongKhaDung)
-                            .reduce(BigDecimal.ZERO, BigDecimal::add));
+            khaDungSauByVariant.put(variantId, BanDuocTaiQuayService.banDuoc(
+                    lotsByVariant.get(variantId), dangGiu, giuChoChuyen.get(variantId)));
         }
 
         // 9. Phiếu thu tiền mặt (chứng từ đối soát — không phải cờ paid).
@@ -286,7 +300,8 @@ public class PosCheckoutTransaction {
      * rồi CỘNG so_luong_da_dat trên các lô theo FIFO — hàng không bị kênh khác bán mất trong lúc
      * khách quét QR. Không tạo đơn, không trừ tồn.
      */
-    @Transactional
+    // READ_COMMITTED: xem execute. Gọi từ PosPayosTransaction.createPending (điểm vào đó cũng đặt READ_COMMITTED)
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public ReservationResult reserveForTransfer(PosCheckoutCreating request) {
         validateRequestId(request.getRequestId());
         List<PosCheckoutCreating.PosCheckoutItemCreating> items = validateItems(request.getItems());
@@ -304,7 +319,8 @@ public class PosCheckoutTransaction {
         Map<Integer, List<TonKhoTheoLo>> lotsByVariant = lockedLots.stream()
                 .collect(Collectors.groupingBy(t -> t.getLoHang().getBienTheSanPham().getId()));
         Map<Integer, List<LotAllocation>> allocations = allocateFifo(items, lotsByVariant, variants,
-                dangGiuTheoLo(request.getKhoId(), lockedLots));
+                dangGiuTheoLo(request.getKhoId(), lockedLots),
+                giuChoChuyenKhoService.taiKhoNgoaiPhieuNhat(request.getKhoId(), variantIds));
 
         List<ReservedLot> reserved = new ArrayList<>();
         for (List<LotAllocation> list : allocations.values()) {
@@ -460,11 +476,16 @@ public class PosCheckoutTransaction {
     /**
      * FIFO: ngayNhapGanNhat tăng dần, tie-break loHang.id; chỉ lô còn khả dụng
      * (ton - dat - phần phiếu nhặt / phiếu xuất bán đang giữ > 0, xem LoDangGiuService).
+     * {@code giuChoChuyen}: hàng phiếu chuyển kho đang giữ chỗ ở kho này theo biến thể (chưa chọn lô, chưa nằm trong phân
+     * bổ của phiếu nhặt chuyển kho đang mở — GiuChoChuyenKhoService.taiKhoNgoaiPhieuNhat), trừ vào tổng
+     * bán được của mã. Tổng bán được dùng CHUNG công thức với danh mục POS (BanDuocTaiQuayService.banDuoc) để số
+     * thu ngân thấy và số chặn ở đây không thể lệch nhau.
      */
     private Map<Integer, List<LotAllocation>> allocateFifo(List<PosCheckoutCreating.PosCheckoutItemCreating> items,
                                                            Map<Integer, List<TonKhoTheoLo>> lotsByVariant,
                                                            Map<Integer, BienTheSanPham> variants,
-                                                           Map<Integer, BigDecimal> dangGiu) {
+                                                           Map<Integer, BigDecimal> dangGiu,
+                                                           Map<Integer, BigDecimal> giuChoChuyen) {
         Map<Integer, List<LotAllocation>> allocationByVariant = new LinkedHashMap<>();
         List<PosInsufficientStockInfo.PosInsufficientItem> insufficient = new ArrayList<>();
         List<String> messages = new ArrayList<>();
@@ -477,8 +498,8 @@ public class PosCheckoutTransaction {
                             .thenComparing(t -> t.getLoHang().getId()))
                     .toList();
 
-            BigDecimal can = fifo.stream().map(t -> LoDangGiuService.conLai(t, dangGiu))
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal can = BanDuocTaiQuayService.banDuoc(rows, dangGiu,
+                    giuChoChuyen.get(item.getBienTheSanPhamId()));
             BigDecimal need = item.getQuantity();
             if (can.compareTo(need) < 0) {
                 String maSku = variants.get(item.getBienTheSanPhamId()).getMaSku();
@@ -727,12 +748,6 @@ public class PosCheckoutTransaction {
     /** Số cho thông báo: cột DECIMAL(15,3)/(15,2) mang số 0 thừa ("81.000") -> "81". */
     private static String plain(BigDecimal value) {
         return value.stripTrailingZeros().toPlainString();
-    }
-
-    private static BigDecimal soLuongKhaDung(TonKhoTheoLo t) {
-        BigDecimal ton = t.getSoLuongTon() != null ? t.getSoLuongTon() : BigDecimal.ZERO;
-        BigDecimal dat = t.getSoLuongDaDat() != null ? t.getSoLuongDaDat() : BigDecimal.ZERO;
-        return ton.subtract(dat);
     }
 
     private record LotAllocation(TonKhoTheoLo row, BigDecimal quantity) {

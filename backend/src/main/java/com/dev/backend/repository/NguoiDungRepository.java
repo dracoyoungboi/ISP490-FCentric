@@ -4,6 +4,7 @@ import com.dev.backend.entities.NguoiDung;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -43,5 +44,9 @@ public interface NguoiDungRepository extends JpaRepository<NguoiDung, Integer>, 
         where u.trangThai = 0
     """)
     Long countBannedUsers();
+
+    /** Id các tài khoản đang hoạt động mang vai trò này (tìm người nhận thông báo, vd. mọi quản trị viên). */
+    @Query("SELECT u.id FROM NguoiDung u WHERE u.vaiTro = :vaiTro AND u.trangThai = 1 ORDER BY u.id")
+    List<Integer> idDangHoatDongTheoVaiTro(@Param("vaiTro") String vaiTro);
 
 }

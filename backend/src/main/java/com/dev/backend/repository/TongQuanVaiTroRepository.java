@@ -50,8 +50,9 @@ import java.util.Set;
  * (ngay_dat_hang, ngay_giao_hang, ngay_giao_du_kien, ngay_nhap, ngay_xuat, ngay_hoan_tat, ngay_tao của
  * yeu_cau_mua_hang và dot_kiem_ke).
  *
- * "Phiếu chuyển" là phieu_xuat_kho loai_xuat = 'khac' có kho_chuyen_den_id (0 Nháp, 1 Chờ duyệt, 2 Chờ xuất hàng,
- * 3 Đang vận chuyển, 4 Hủy, 5 Hoàn thành), cùng cách lọc với danh sách Chuyển kho nội bộ.
+ * "Phiếu chuyển" là bảng phieu_chuyen_kho (CHO_DUYET, DA_DUYET = chờ xuất hàng, DANG_VAN_CHUYEN, CHO_XU_LY_LECH,
+ * HOAN_TAT, DA_HUY); hàng đã xuất nằm ở phiếu xuất con PX-CK (phieu_xuat_kho loai_xuat = 'chuyen_kho' đã xuất, nối
+ * qua phieu_chuyen_kho_id). Duyệt phiếu chuyển là việc của quản lý Kho tổng (mọi tuyến).
  *
  * Đơn mua (don_mua_hang): khi gửi yêu cầu báo giá, mỗi nhà cung cấp một đơn ở trạng thái 2 (DonMuaHangService
  * .guiYeuCauBaoGiaDenNhaCungCap); nhà cung cấp báo giá thì đơn vẫn ở 2 nhưng các dòng có đơn giá > 0 (như
@@ -148,6 +149,7 @@ public class TongQuanVaiTroRepository {
     /** Số việc chờ quản lý kho; cũ nhất theo giờ Việt Nam (chuỗi ISO) hoặc null. */
     public record ViecQuanLyKho(long yeuCauChoDuyet, String yeuCauCuNhat,
                                 long phieuChuyenChoDuyet, String phieuChuyenCuNhat,
+                                long phieuChuyenChoXuLyLech, String phieuChuyenLechCuNhat,
                                 long donChoGomPhieu, String donChoGomCuNhat,
                                 long phieuNhatChuaPhanCong, String phieuNhatCuNhat,
                                 long dotKiemKeMo, String dotKiemKeCuNhat, String tenDotKiemKeCuNhat) {}
@@ -213,7 +215,19 @@ public class TongQuanVaiTroRepository {
                 (rs, i) -> new DonChoXuat(rs.getLong("tong"), rs.getLong("cho_lau")));
     }
 
-    private static final String PHIEU_CHUYEN = "p.loai_xuat = 'khac' AND p.kho_chuyen_den_id IS NOT NULL";
+    /** Phiếu chuyển (bí danh c) có kho đang xem là kho xuất hoặc kho nhận. */
+    private static final String CHUYEN_CUA_KHO = "(c.kho_xuat_id = :khoId OR c.kho_nhap_id = :khoId)";
+    /** Phiếu chuyển của kho đã duyệt, chờ xuất hàng. */
+    private static final String DK_CHUYEN_CHO_XUAT = "c.trang_thai = 'DA_DUYET' AND c.kho_xuat_id = :khoId";
+    /** Phiếu chuyển đang trên đường đến kho. */
+    private static final String DK_CHUYEN_DEN = "c.trang_thai = 'DANG_VAN_CHUYEN' AND c.kho_nhap_id = :khoId";
+
+    /** Số đã xuất của phiếu chuyển c (phiếu xuất con PX-CK đã xuất, dòng đã chọn lô). */
+    private static final String SL_DA_XUAT_CHUYEN = """
+            (SELECT COALESCE(SUM(ct.so_luong_xuat), 0)
+               FROM phieu_xuat_kho px
+               JOIN chi_tiet_phieu_xuat_kho ct ON ct.phieu_xuat_kho_id = px.id AND ct.lo_hang_id IS NOT NULL
+              WHERE px.phieu_chuyen_kho_id = c.id AND px.loai_xuat = 'chuyen_kho' AND px.trang_thai = 3)""";
 
     static final String SQL_NGHIEP_VU = """
             SELECT
@@ -223,8 +237,7 @@ public class TongQuanVaiTroRepository {
               (SELECT COUNT(*) FROM don_mua_hang dm
                 WHERE dm.kho_nhap_id = :khoId
                   AND dm.ngay_giao_du_kien IS NOT NULL AND dm.ngay_giao_du_kien < :homNay AND %1$s)    AS tre_han,
-              (SELECT COUNT(*) FROM phieu_xuat_kho p
-                WHERE %2$s AND p.trang_thai = 3 AND p.kho_chuyen_den_id = :khoId)                      AS dang_chuyen_den,
+              (SELECT COUNT(*) FROM phieu_chuyen_kho c WHERE %3$s)                                    AS dang_chuyen_den,
               (SELECT COUNT(*) FROM don_ban_hang d
                 WHERE d.loai_chung_tu = 'don_ban_hang' AND d.trang_thai IN (1, 2)
                   AND d.danh_sach_nhat_hang_id IS NULL AND d.kho_xuat_id = :khoId)                     AS cho_gom_phieu,
@@ -241,16 +254,15 @@ public class TongQuanVaiTroRepository {
                   AND COALESCE(n.ngay_hoan_tat, d.ngay_dat_hang) < :mocChoLau)                          AS dong_goi_cho_lau,
               (SELECT COUNT(*) FROM phieu_xuat_kho p
                 WHERE p.loai_xuat = 'ban_hang' AND p.trang_thai = 6 AND p.kho_id = :khoId)              AS phieu_cho_xuat,
-              (SELECT COUNT(*) FROM phieu_xuat_kho p
-                WHERE %2$s AND p.trang_thai = 2 AND p.kho_id = :khoId)                                 AS chuyen_cho_xuat,
-              (SELECT COUNT(*) FROM phieu_xuat_kho p
-                WHERE %2$s AND p.trang_thai = 1 AND (p.kho_id = :khoId OR p.kho_chuyen_den_id = :khoId)) AS pck_cho_duyet,
-              (SELECT COUNT(*) FROM phieu_xuat_kho p
-                WHERE %2$s AND p.trang_thai = 2 AND (p.kho_id = :khoId OR p.kho_chuyen_den_id = :khoId)) AS pck_cho_xuat,
-              (SELECT COUNT(*) FROM phieu_xuat_kho p
-                WHERE %2$s AND p.trang_thai = 3 AND (p.kho_id = :khoId OR p.kho_chuyen_den_id = :khoId)) AS pck_dang_chuyen,
+              (SELECT COUNT(*) FROM phieu_chuyen_kho c WHERE %4$s)                                    AS chuyen_cho_xuat,
+              (SELECT COUNT(*) FROM phieu_chuyen_kho c
+                WHERE c.trang_thai = 'CHO_DUYET' AND %2$s)                                             AS pck_cho_duyet,
+              (SELECT COUNT(*) FROM phieu_chuyen_kho c
+                WHERE c.trang_thai = 'DA_DUYET' AND %2$s)                                              AS pck_cho_xuat,
+              (SELECT COUNT(*) FROM phieu_chuyen_kho c
+                WHERE c.trang_thai = 'DANG_VAN_CHUYEN' AND %2$s)                                       AS pck_dang_chuyen,
               (SELECT COUNT(*) FROM dot_kiem_ke dk WHERE dk.trang_thai = 0 AND dk.kho_id = :khoId)       AS kiem_ke_mo
-            """.formatted(DANG_VE, PHIEU_CHUYEN);
+            """.formatted(DANG_VE, CHUYEN_CUA_KHO, DK_CHUYEN_DEN, DK_CHUYEN_CHO_XUAT);
 
     /**
      * Ô "Công việc trong kho": mỗi số khớp đúng một danh sách (và tab) của hệ thống.
@@ -270,15 +282,35 @@ public class TongQuanVaiTroRepository {
                 rs.getLong("kiem_ke_mo")));
     }
 
+    /** Phiếu chuyển chờ duyệt: chỉ là việc của quản lý khi kho đang xem là Kho tổng (Kho tổng duyệt mọi tuyến). */
+    private static final String PCK_CHO_KHO_TONG_DUYET = "c.trang_thai = 'CHO_DUYET'"
+            + " AND EXISTS (SELECT 1 FROM kho kt WHERE kt.id = :khoId AND kt.loai_kho = 'kho_tong')";
+
+    /** Ai được xử lý chênh lệch (Cấu hình › Chuyển kho, CHUYEN_KHO_QUYEN_XU_LY_LECH); chưa đặt thì mặc định Quản lý Kho tổng. */
+    private static final String CHE_DO_XU_LY_LECH = "COALESCE((SELECT ch.gia_tri FROM cau_hinh_he_thong ch"
+            + " WHERE ch.ma_cau_hinh = 'CHUYEN_KHO_QUYEN_XU_LY_LECH'), 'QL_KHO_TONG')";
+
+    /**
+     * Phiếu chuyển chờ xử lý chênh lệch là việc của quản lý kho đang xem khi theo cấu hình họ được xử lý (cùng luật với
+     * PhieuChuyenKhoService.duocXuLyChenhLech): kho đang xem là Kho tổng, trừ chế độ CHI_QUAN_TRI (chỉ quản trị viên);
+     * hoặc chế độ QL_KHO_TONG_VA_KHO_XUAT và kho đang xem là kho xuất của phiếu. Giá trị lạ coi như mặc định.
+     */
+    private static final String PCK_CHO_XU_LY_LECH = "c.trang_thai = 'CHO_XU_LY_LECH' AND (("
+            + CHE_DO_XU_LY_LECH + " <> 'CHI_QUAN_TRI'"
+            + " AND EXISTS (SELECT 1 FROM kho kt WHERE kt.id = :khoId AND kt.loai_kho = 'kho_tong'))"
+            + " OR (" + CHE_DO_XU_LY_LECH + " = 'QL_KHO_TONG_VA_KHO_XUAT' AND c.kho_xuat_id = :khoId))";
+
     static final String SQL_VIEC_QUAN_LY_KHO = """
             SELECT
               (SELECT COUNT(*) FROM yeu_cau_mua_hang y WHERE y.trang_thai = 1 AND y.kho_nhap_id = :khoId) AS yc_so,
               (SELECT DATE_FORMAT(DATE_ADD(MIN(y.ngay_tao), INTERVAL :lech MINUTE), %3$s)
                  FROM yeu_cau_mua_hang y WHERE y.trang_thai = 1 AND y.kho_nhap_id = :khoId)            AS yc_cu,
-              (SELECT COUNT(*) FROM phieu_xuat_kho p
-                WHERE %1$s AND p.trang_thai = 1 AND p.kho_id = :khoId)                                 AS pck_so,
-              (SELECT DATE_FORMAT(DATE_ADD(MIN(p.ngay_tao), INTERVAL :lechCsdl MINUTE), %3$s)
-                 FROM phieu_xuat_kho p WHERE %1$s AND p.trang_thai = 1 AND p.kho_id = :khoId)           AS pck_cu,
+              (SELECT COUNT(*) FROM phieu_chuyen_kho c WHERE %1$s)                                     AS pck_so,
+              (SELECT DATE_FORMAT(DATE_ADD(MIN(c.ngay_tao), INTERVAL :lechCsdl MINUTE), %3$s)
+                 FROM phieu_chuyen_kho c WHERE %1$s)                                                   AS pck_cu,
+              (SELECT COUNT(*) FROM phieu_chuyen_kho c WHERE %4$s)                                     AS lech_so,
+              (SELECT DATE_FORMAT(DATE_ADD(MIN(c.ngay_thuc_te_den), INTERVAL :lech MINUTE), %3$s)
+                 FROM phieu_chuyen_kho c WHERE %4$s)                                                   AS lech_cu,
               (SELECT COUNT(*) FROM don_ban_hang d WHERE %2$s)                                         AS gom_so,
               (SELECT DATE_FORMAT(DATE_ADD(MIN(d.ngay_dat_hang), INTERVAL :lech MINUTE), %3$s)
                  FROM don_ban_hang d WHERE %2$s)                                                       AS gom_cu,
@@ -294,19 +326,21 @@ public class TongQuanVaiTroRepository {
                  FROM dot_kiem_ke dk WHERE dk.trang_thai = 0 AND dk.kho_id = :khoId)                    AS kk_cu,
               (SELECT dk.ten_dot_kiem_ke FROM dot_kiem_ke dk WHERE dk.trang_thai = 0 AND dk.kho_id = :khoId
                 ORDER BY dk.ngay_tao IS NULL, dk.ngay_tao, dk.id LIMIT 1)                               AS kk_ten
-            """.formatted(PHIEU_CHUYEN,
+            """.formatted(PCK_CHO_KHO_TONG_DUYET,
             "d.loai_chung_tu = 'don_ban_hang' AND d.trang_thai IN (1, 2) AND d.danh_sach_nhat_hang_id IS NULL"
                     + " AND d.kho_xuat_id = :khoId",
-            THOI_DIEM);
+            THOI_DIEM, PCK_CHO_XU_LY_LECH);
 
     /**
      * Việc quản lý kho phải tự làm ở kho này: duyệt yêu cầu nhập hàng (kho nhập), duyệt phiếu chuyển đi (kho gửi),
-     * gom đơn thành phiếu nhặt, phân công phiếu nhặt, hoàn tất đợt kiểm kê.
+     * xử lý chênh lệch phiếu chuyển (theo cấu hình; cũ nhất theo lúc nhận lệch), gom đơn thành phiếu nhặt, phân công
+     * phiếu nhặt, hoàn tất đợt kiểm kê.
      */
     public ViecQuanLyKho viecQuanLyKho(Integer khoId) {
         return jdbc.queryForObject(SQL_VIEC_QUAN_LY_KHO, thamSoGio(khoId), (rs, i) -> new ViecQuanLyKho(
                 rs.getLong("yc_so"), rs.getString("yc_cu"),
                 rs.getLong("pck_so"), rs.getString("pck_cu"),
+                rs.getLong("lech_so"), rs.getString("lech_cu"),
                 rs.getLong("gom_so"), rs.getString("gom_cu"),
                 rs.getLong("pc_so"), rs.getString("pc_cu"),
                 rs.getLong("kk_so"), rs.getString("kk_cu"), rs.getString("kk_ten")));
@@ -340,10 +374,17 @@ public class TongQuanVaiTroRepository {
      * NHÂN VIÊN KHO
      * ====================================================================== */
 
+    /** Số phiếu chuyển của phiếu nhặt n (phiếu nhặt chuyển kho nối PX-CK; phiếu gom đơn bán: NULL). */
+    private static final String SO_PHIEU_CHUYEN_CUA_PHIEU_NHAT = """
+            (SELECT pck.so_phieu_chuyen FROM phieu_xuat_kho px
+               JOIN phieu_chuyen_kho pck ON pck.id = px.phieu_chuyen_kho_id
+              WHERE px.id = n.phieu_xuat_kho_id)""";
+
     static final String SQL_PHIEU_NHAT_CUA_BAN = """
             SELECT n.id, n.ma_pick_list, n.trang_thai,
                    DATE_FORMAT(DATE_ADD(n.ngay_tao, INTERVAL :lechCsdl MINUTE), %s) AS ngay_tao,
                    (SELECT COUNT(*) FROM don_ban_hang d WHERE d.danh_sach_nhat_hang_id = n.id)          AS so_don,
+                   %s                                                                                  AS so_phieu_chuyen,
                    (SELECT COALESCE(SUM(c.so_luong_can_nhat), 0) FROM chi_tiet_nhat_hang c
                      WHERE c.danh_sach_nhat_hang_id = n.id)                                            AS can_nhat,
                    (SELECT COALESCE(SUM(LEAST(COALESCE(c.so_luong_da_quet, 0), c.so_luong_can_nhat)), 0)
@@ -353,14 +394,15 @@ public class TongQuanVaiTroRepository {
               AND n.trang_thai IN ('cho_nhat', 'dang_nhat')
             ORDER BY n.trang_thai = 'dang_nhat' DESC, n.ngay_tao, n.id
             LIMIT :soDong
-            """.formatted(THOI_DIEM);
+            """.formatted(THOI_DIEM, SO_PHIEU_CHUYEN_CUA_PHIEU_NHAT);
 
     /** Phiếu nhặt đang giao cho người dùng ở kho này: phiếu đang nhặt trước, rồi phiếu cũ trước. */
     public List<PhieuNhatCuaBan> phieuNhatCuaBan(Integer khoId, Integer nguoiDungId, int soDong) {
         return jdbc.query(SQL_PHIEU_NHAT_CUA_BAN, thamSoGio(khoId).addValue("nguoiDungId", nguoiDungId)
                         .addValue("soDong", soDong),
                 (rs, i) -> new PhieuNhatCuaBan(rs.getInt("id"), rs.getString("ma_pick_list"), rs.getString("trang_thai"),
-                        rs.getLong("so_don"), so(rs, "da_quet"), so(rs, "can_nhat"), rs.getString("ngay_tao")));
+                        rs.getLong("so_don"), so(rs, "da_quet"), so(rs, "can_nhat"), rs.getString("ngay_tao"),
+                        rs.getString("so_phieu_chuyen")));
     }
 
     static final String SQL_HOM_NAY_CUA_BAN = """
@@ -394,36 +436,53 @@ public class TongQuanVaiTroRepository {
 
     /* ---- Việc chung của kho: mỗi nhóm có câu đếm và câu lấy danh sách cùng điều kiện ---- */
 
-    private static final String DK_NHAN_HANG = "p.trang_thai = 0 AND p.kho_id = :khoId";
+    /** Phiếu nhập Nháp không thuộc phiếu chuyển (hàng chuyển kho nhận ở màn Nhận hàng của phiếu chuyển). */
+    private static final String DK_NHAN_HANG = "p.trang_thai = 0 AND p.kho_id = :khoId AND p.phieu_chuyen_kho_id IS NULL";
+
+    /** Giờ xuất của phiếu chuyển c (cột ứng dụng ghi), đổi sang giờ cột MySQL tự điền để xếp chung với phiếu nhập. */
+    private static final String GIO_XUAT_CHUYEN_CSDL = """
+            (SELECT DATE_ADD(MAX(px.ngay_xuat), INTERVAL (:lech - :lechCsdl) MINUTE)
+               FROM phieu_xuat_kho px
+              WHERE px.phieu_chuyen_kho_id = c.id AND px.loai_xuat = 'chuyen_kho' AND px.trang_thai = 3)""";
 
     static final String SQL_VIEC_NHAN_HANG = """
-            SELECT p.id, p.so_phieu_nhap AS ma,
-                   CASE WHEN p.phieu_chuyen_id IS NOT NULL THEN 1 ELSE 0 END                      AS la_chuyen,
-                   COALESCE(kg.ten_kho, ncc.ten_nha_cung_cap, ncc2.ten_nha_cung_cap)              AS doi_tac,
-                   %s                                                                              AS so_luong,
-                   DATE_FORMAT(DATE_ADD(p.ngay_tao, INTERVAL :lechCsdl MINUTE), %s)              AS thoi_diem,
-                   CASE WHEN p.ngay_tao < :mocChoLauCsdl THEN 1 ELSE 0 END                       AS cho_lau
-            FROM phieu_nhap_kho p
-            LEFT JOIN nha_cung_cap ncc   ON ncc.id = p.nha_cung_cap_id
-            LEFT JOIN don_mua_hang dm    ON dm.id = p.don_mua_hang_id
-            LEFT JOIN nha_cung_cap ncc2  ON ncc2.id = dm.nha_cung_cap_id
-            LEFT JOIN phieu_xuat_kho pck ON pck.id = p.phieu_chuyen_id
-            LEFT JOIN kho kg             ON kg.id = pck.kho_id
-            WHERE %s
-            ORDER BY p.ngay_tao IS NULL, p.ngay_tao, p.id
+            SELECT x.loai, x.id, x.ma, x.doi_tac, x.so_luong,
+                   DATE_FORMAT(DATE_ADD(x.goc, INTERVAL :lechCsdl MINUTE), %s)  AS thoi_diem,
+                   CASE WHEN x.goc < :mocChoLauCsdl THEN 1 ELSE 0 END          AS cho_lau
+            FROM (
+              (SELECT 'phieu_nhap' AS loai, p.id, p.so_phieu_nhap AS ma,
+                      COALESCE(ncc.ten_nha_cung_cap, ncc2.ten_nha_cung_cap) AS doi_tac,
+                      %s AS so_luong, p.ngay_tao AS goc
+                 FROM phieu_nhap_kho p
+                 LEFT JOIN nha_cung_cap ncc   ON ncc.id = p.nha_cung_cap_id
+                 LEFT JOIN don_mua_hang dm    ON dm.id = p.don_mua_hang_id
+                 LEFT JOIN nha_cung_cap ncc2  ON ncc2.id = dm.nha_cung_cap_id
+                WHERE %s)
+              UNION ALL
+              (SELECT 'phieu_nhap_chuyen_kho', c.id, c.so_phieu_chuyen, kx.ten_kho, %s, %s
+                 FROM phieu_chuyen_kho c
+                 JOIN kho kx ON kx.id = c.kho_xuat_id
+                WHERE %s)
+            ) x
+            ORDER BY x.goc IS NULL, x.goc, x.id
             LIMIT :soDong
-            """.formatted(SL_PHIEU_CHO_NHAP, THOI_DIEM, DK_NHAN_HANG);
+            """.formatted(THOI_DIEM, SL_PHIEU_CHO_NHAP, DK_NHAN_HANG, SL_DA_XUAT_CHUYEN, GIO_XUAT_CHUYEN_CSDL,
+            DK_CHUYEN_DEN);
 
-    /** Phiếu nhập Nháp của kho (hàng đã về / đang về, chờ kiểm đếm và nhập kho). */
+    /**
+     * Hàng chờ nhận của kho: phiếu nhập Nháp (hàng mua đã về / đang về, chờ kiểm đếm) và phiếu chuyển đang trên đường
+     * đến kho (loai phieu_nhap_chuyen_kho, id là id phiếu chuyển, mốc là giờ xuất).
+     */
     public List<DongViec> viecNhanHang(Integer khoId, LocalDateTime mocChoLau, int soDong) {
         return jdbc.query(SQL_VIEC_NHAN_HANG, thamSoViec(khoId, mocChoLau, soDong), (rs, i) -> new DongViec(
-                rs.getInt("la_chuyen") == 1 ? "phieu_nhap_chuyen_kho" : "phieu_nhap", rs.getInt("id"),
+                rs.getString("loai"), rs.getInt("id"),
                 rs.getString("ma"), rs.getString("doi_tac"), so(rs, "so_luong"), 0,
                 rs.getString("thoi_diem"), rs.getInt("cho_lau") == 1));
     }
 
     public long demNhanHang(Integer khoId) {
-        return dem("SELECT COUNT(*) FROM phieu_nhap_kho p WHERE " + DK_NHAN_HANG, thamSo(khoId));
+        return dem("SELECT (SELECT COUNT(*) FROM phieu_nhap_kho p WHERE " + DK_NHAN_HANG + ")"
+                + " + (SELECT COUNT(*) FROM phieu_chuyen_kho c WHERE " + DK_CHUYEN_DEN + ")", thamSo(khoId));
     }
 
     private static final String DK_NHAT_HANG =
@@ -432,6 +491,7 @@ public class TongQuanVaiTroRepository {
     static final String SQL_VIEC_NHAT_HANG = """
             SELECT n.id, n.ma_pick_list AS ma,
                    (SELECT COUNT(*) FROM don_ban_hang d WHERE d.danh_sach_nhat_hang_id = n.id)   AS so_don,
+                   %s                                                                          AS so_phieu_chuyen,
                    (SELECT COALESCE(SUM(c.so_luong_can_nhat), 0) FROM chi_tiet_nhat_hang c
                      WHERE c.danh_sach_nhat_hang_id = n.id)                                     AS so_luong,
                    DATE_FORMAT(DATE_ADD(n.ngay_tao, INTERVAL :lechCsdl MINUTE), %s)             AS thoi_diem,
@@ -440,13 +500,16 @@ public class TongQuanVaiTroRepository {
             WHERE %s
             ORDER BY n.ngay_tao IS NULL, n.ngay_tao, n.id
             LIMIT :soDong
-            """.formatted(THOI_DIEM, DK_NHAT_HANG);
+            """.formatted(SO_PHIEU_CHUYEN_CUA_PHIEU_NHAT, THOI_DIEM, DK_NHAT_HANG);
 
-    /** Phiếu nhặt của kho chưa giao cho ai. */
+    /**
+     * Phiếu nhặt của kho chưa giao cho ai. Phiếu nhặt của phiếu chuyển kho không có đơn: doiTac = số phiếu chuyển (giao
+     * diện ghi "Chuyển kho PX-TRF-…" thay cho "0 đơn"); phiếu gom đơn bán: doiTac trống.
+     */
     public List<DongViec> viecNhatHang(Integer khoId, LocalDateTime mocChoLau, int soDong) {
         return jdbc.query(SQL_VIEC_NHAT_HANG, thamSoViec(khoId, mocChoLau, soDong), (rs, i) -> new DongViec(
-                "phieu_nhat", rs.getInt("id"), rs.getString("ma"), null, so(rs, "so_luong"), rs.getLong("so_don"),
-                rs.getString("thoi_diem"), rs.getInt("cho_lau") == 1));
+                "phieu_nhat", rs.getInt("id"), rs.getString("ma"), rs.getString("so_phieu_chuyen"), so(rs, "so_luong"),
+                rs.getLong("so_don"), rs.getString("thoi_diem"), rs.getInt("cho_lau") == 1));
     }
 
     public long demNhatHang(Integer khoId) {
@@ -483,7 +546,6 @@ public class TongQuanVaiTroRepository {
     }
 
     private static final String DK_XUAT_BAN = "p.loai_xuat = 'ban_hang' AND p.trang_thai = 6 AND p.kho_id = :khoId";
-    private static final String DK_CHUYEN_CHO_XUAT = PHIEU_CHUYEN + " AND p.trang_thai = 2 AND p.kho_id = :khoId";
 
     static final String SQL_VIEC_XUAT_KHO = """
             SELECT x.loai, x.id, x.ma, x.doi_tac, x.so_luong,
@@ -501,12 +563,12 @@ public class TongQuanVaiTroRepository {
                  LEFT JOIN kenh_ban_hang kb ON kb.id = d.kenh_ban_id
                 WHERE %s)
               UNION ALL
-              (SELECT 'phieu_chuyen', p.id, p.so_phieu_xuat, kd.ten_kho,
-                      (SELECT COALESCE(SUM(ct.so_luong_xuat), 0) FROM chi_tiet_phieu_xuat_kho ct
-                        WHERE ct.phieu_xuat_kho_id = p.id),
-                      p.ngay_tao
-                 FROM phieu_xuat_kho p
-                 JOIN kho kd ON kd.id = p.kho_chuyen_den_id
+              (SELECT 'phieu_chuyen', c.id, c.so_phieu_chuyen, kd.ten_kho,
+                      (SELECT COALESCE(SUM(ct.so_luong_chuyen), 0) FROM chi_tiet_phieu_chuyen_kho ct
+                        WHERE ct.phieu_chuyen_kho_id = c.id),
+                      c.ngay_tao
+                 FROM phieu_chuyen_kho c
+                 JOIN kho kd ON kd.id = c.kho_nhap_id
                 WHERE %s)
             ) x
             ORDER BY x.goc IS NULL, x.goc, x.id
@@ -522,7 +584,7 @@ public class TongQuanVaiTroRepository {
 
     public long demXuatKho(Integer khoId) {
         return dem("SELECT (SELECT COUNT(*) FROM phieu_xuat_kho p WHERE " + DK_XUAT_BAN + ")"
-                + " + (SELECT COUNT(*) FROM phieu_xuat_kho p WHERE " + DK_CHUYEN_CHO_XUAT + ")", thamSo(khoId));
+                + " + (SELECT COUNT(*) FROM phieu_chuyen_kho c WHERE " + DK_CHUYEN_CHO_XUAT + ")", thamSo(khoId));
     }
 
     private static final String DK_KIEM_KE = "dk.trang_thai = 0 AND dk.kho_id = :khoId";
@@ -550,7 +612,6 @@ public class TongQuanVaiTroRepository {
 
     private static final String DK_DON_MUA_SAP_VE = "dm.kho_nhap_id = :khoId"
             + " AND dm.ngay_giao_du_kien IS NOT NULL AND dm.ngay_giao_du_kien < :denNgay AND " + DANG_VE;
-    private static final String DK_CHUYEN_DEN = PHIEU_CHUYEN + " AND p.trang_thai = 3 AND p.kho_chuyen_den_id = :khoId";
 
     static final String SQL_DON_MUA_SAP_VE = """
             SELECT dm.id, dm.so_don_mua AS ma, ncc.ten_nha_cung_cap AS doi_tac, %s AS so_luong,
@@ -564,18 +625,17 @@ public class TongQuanVaiTroRepository {
             """.formatted(SO_CON_LAI, NGAY, DK_DON_MUA_SAP_VE);
 
     static final String SQL_CHUYEN_DEN = """
-            SELECT p.id, p.so_phieu_xuat AS ma, kg.ten_kho AS doi_tac,
-                   (SELECT COALESCE(SUM(ct.so_luong_xuat), 0)
-                      FROM phieu_xuat_kho px
-                      JOIN chi_tiet_phieu_xuat_kho ct ON ct.phieu_xuat_kho_id = px.id AND ct.lo_hang_id IS NOT NULL
-                     WHERE px.parent_id = p.id AND px.loai_xuat = 'chuyen_kho' AND px.trang_thai = 3) AS so_luong,
-                   DATE_FORMAT(DATE_ADD(p.ngay_xuat, INTERVAL :lech MINUTE), %s)                     AS ngay
-            FROM phieu_xuat_kho p
-            JOIN kho kg ON kg.id = p.kho_id
+            SELECT c.id, c.so_phieu_chuyen AS ma, kg.ten_kho AS doi_tac, %s AS so_luong,
+                   DATE_FORMAT(DATE_ADD(px.ngay_xuat, INTERVAL :lech MINUTE), %s) AS ngay
+            FROM phieu_chuyen_kho c
+            JOIN kho kg ON kg.id = c.kho_xuat_id
+            LEFT JOIN (SELECT phieu_chuyen_kho_id, MAX(ngay_xuat) AS ngay_xuat FROM phieu_xuat_kho
+                        WHERE loai_xuat = 'chuyen_kho' AND trang_thai = 3 AND phieu_chuyen_kho_id IS NOT NULL
+                        GROUP BY phieu_chuyen_kho_id) px ON px.phieu_chuyen_kho_id = c.id
             WHERE %s
-            ORDER BY p.ngay_xuat IS NULL, p.ngay_xuat, p.id
+            ORDER BY px.ngay_xuat IS NULL, px.ngay_xuat, c.id
             LIMIT :soDong
-            """.formatted(NGAY, DK_CHUYEN_DEN);
+            """.formatted(SL_DA_XUAT_CHUYEN, NGAY, DK_CHUYEN_DEN);
 
     /**
      * Hàng sắp về kho: đơn mua đang vận chuyển còn hàng chưa nhận, ngày giao dự kiến trước denNgay (gồm cả đơn đã
@@ -596,7 +656,7 @@ public class TongQuanVaiTroRepository {
 
     public long demHangSapVe(Integer khoId, LocalDateTime denNgay) {
         return dem("SELECT (SELECT COUNT(*) FROM don_mua_hang dm WHERE " + DK_DON_MUA_SAP_VE + ")"
-                        + " + (SELECT COUNT(*) FROM phieu_xuat_kho p WHERE " + DK_CHUYEN_DEN + ")",
+                        + " + (SELECT COUNT(*) FROM phieu_chuyen_kho c WHERE " + DK_CHUYEN_DEN + ")",
                 thamSo(khoId).addValue("denNgay", admin.mocUngDung(denNgay)));
     }
 
@@ -873,7 +933,7 @@ public class TongQuanVaiTroRepository {
 
     static final String SQL_TON_BIEN_THE = """
             SELECT bt.id, bt.san_pham_id, bt.ma_sku, bt.gia_ban, ms.ten_mau, sz.ten_size,
-                   COALESCE((SELECT SUM(tk.so_luong_kha_dung) FROM ton_kho_theo_lo tk
+                   COALESCE((SELECT SUM(GREATEST(tk.so_luong_ton - COALESCE(tk.so_luong_da_dat, 0), 0)) FROM ton_kho_theo_lo tk
                               JOIN lo_hang lh ON lh.id = tk.lo_hang_id
                              WHERE lh.bien_the_san_pham_id = bt.id AND tk.kho_id = :khoId), 0)  AS tai_kho,
                    COALESCE((SELECT SUM(GREATEST(x.kha_dung, 0)) FROM (
@@ -887,10 +947,10 @@ public class TongQuanVaiTroRepository {
                                 GROUP BY lh.bien_the_san_pham_id, tk.kho_id) x
                              WHERE x.bien_the_id = bt.id), 0)                                    AS kho_khac,
                    COALESCE((SELECT SUM(ct.so_luong_xuat) FROM phieu_xuat_kho px
-                              JOIN phieu_xuat_kho pck ON pck.id = px.parent_id
+                              JOIN phieu_chuyen_kho pck ON pck.id = px.phieu_chuyen_kho_id
                               JOIN chi_tiet_phieu_xuat_kho ct ON ct.phieu_xuat_kho_id = px.id AND ct.lo_hang_id IS NOT NULL
-                             WHERE px.loai_xuat = 'chuyen_kho' AND px.trang_thai = 3 AND pck.trang_thai = 3
-                               AND pck.kho_chuyen_den_id = :khoId AND ct.bien_the_san_pham_id = bt.id), 0)
+                             WHERE px.loai_xuat = 'chuyen_kho' AND px.trang_thai = 3 AND pck.trang_thai = 'DANG_VAN_CHUYEN'
+                               AND pck.kho_nhap_id = :khoId AND ct.bien_the_san_pham_id = bt.id), 0)
                  + COALESCE((SELECT SUM(ctm.so_luong_dat - COALESCE(ctm.so_luong_da_nhan, 0))
                                FROM chi_tiet_don_mua_hang ctm
                                JOIN don_mua_hang dm ON dm.id = ctm.don_mua_hang_id
@@ -905,9 +965,10 @@ public class TongQuanVaiTroRepository {
             """;
 
     /**
-     * Biến thể đang bán của các sản phẩm, với khả dụng (tồn − đang giữ, cùng công thức với danh mục bán tại quầy
-     * PosCatalogService) ở kho làm việc, cộng các kho khác (kho âm tính 0, không trừ vào kho khác) và hàng đang về kho
-     * (phiếu chuyển đang vận chuyển đến + đơn mua đang về).
+     * Biến thể đang bán của các sản phẩm, với khả dụng ở kho làm việc (Σ theo lô max(0, tồn − đang giữ) — cùng số SQL
+     * với danh mục bán tại quầy; TongQuanVaiTroServiceImpl.traTon tính lại theo lô các mã đang bị phiếu nhặt / phiếu xuất
+     * bán / phiếu chuyển giữ bằng BanDuocTaiQuayService, để "Tại kho" bằng đúng số bán được tại quầy), cộng các kho khác
+     * (kho âm tính 0, không trừ vào kho khác) và hàng đang về kho (phiếu chuyển đang vận chuyển đến + đơn mua đang về).
      */
     public List<BienTheTim> tonBienThe(Integer khoId, Collection<Integer> sanPhamIds) {
         if (sanPhamIds == null || sanPhamIds.isEmpty()) return List.of();

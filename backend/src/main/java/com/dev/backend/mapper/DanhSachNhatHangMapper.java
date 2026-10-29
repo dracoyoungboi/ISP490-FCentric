@@ -20,6 +20,14 @@ public interface DanhSachNhatHangMapper {
     @Mapping(target = "phanTramHoanThanh", ignore = true) // NhatHangServiceImpl tự tính
     @Mapping(target = "coTheHoanTat", ignore = true)      // NhatHangServiceImpl tự tính
     @Mapping(target = "donChuaTaoPhieuXuat", ignore = true) // chỉ điền khi hoàn tất nhặt
+    // Loại phiếu + phiếu chuyển kho: NhatHangServiceImpl.dienLoaiPhieu điền
+    @Mapping(target = "loaiPhieu", ignore = true)
+    @Mapping(target = "phieuChuyenKhoId", ignore = true)
+    @Mapping(target = "soPhieuChuyen", ignore = true)
+    @Mapping(target = "trangThaiPhieuChuyen", ignore = true)
+    @Mapping(target = "tenKhoNhan", ignore = true)
+    @Mapping(target = "phieuXuatKhoId", ignore = true)
+    @Mapping(target = "soPhieuXuat", ignore = true)
     DanhSachNhatHangDto toDto(DanhSachNhatHang entity);
 }
 

@@ -24,9 +24,10 @@ import { THONG_BAO_DA_SAN_SANG } from "@/services/thongBaoService";
 
 /*
  * Chuông thông báo trên thanh trên cùng (kiểu nút B + bảng 1 đã chốt 14/10/2026).
- * Backend chưa có API (THONG_BAO_DA_SAN_SANG = false): bảng chỉ báo tính năng đang phát triển.
- * Khi bật: chuông có viên số đỏ (trên 9 hiện "9+"), bảng nổi 400px với tab Tất cả / Chưa đọc,
- * chia nhóm Hôm nay / Trước đó. Dữ liệu lấy qua useThongBao → thongBaoService.
+ * Chuông có viên số đỏ (số chưa đọc máy chủ đếm, trên 9 hiện "9+"), bảng nổi 400px với tab Tất cả / Chưa đọc,
+ * chia nhóm Hôm nay / Trước đó; bảng hiện 30 thông báo mới nhất. Dữ liệu lấy qua useThongBao → thongBaoService
+ * (API /api/v1/thong-bao, tự tải lại mỗi 60 giây khi tab đang hiển thị và mỗi lần mở bảng).
+ * THONG_BAO_DA_SAN_SANG = false thì bảng chỉ báo tính năng đang phát triển, không gọi máy chủ.
  */
 
 /** Biểu tượng theo loại thông báo. Danh sách loại thật chốt cùng nghiệp vụ; loại lạ dùng hình chuông. */
@@ -263,7 +264,15 @@ export default function NotificationBell({ duongDanXemTatCa }) {
       );
     } else if (hienThi.length === 0) {
       than =
-        tab === "chua_doc" && items.length > 0 ? (
+        tab === "chua_doc" && soChuaDoc > 0 ? (
+          // Thông báo chưa đọc đều cũ hơn 30 thông báo mới nhất (bảng chỉ tải chừng đó)
+          <TrangThaiGiua
+            icon={CheckCheck}
+            mau="bg-bo-primary-soft text-bo-primary"
+            tieuDe={`Còn ${soChuaDoc} thông báo cũ chưa đọc`}
+            moTa="Bấm Đánh dấu đã đọc để đánh dấu tất cả."
+          />
+        ) : tab === "chua_doc" && items.length > 0 ? (
           <TrangThaiGiua
             icon={CheckCheck}
             mau="bg-bo-success-soft text-bo-success"
@@ -275,7 +284,7 @@ export default function NotificationBell({ duongDanXemTatCa }) {
             icon={Bell}
             mau="bg-bo-primary-soft text-bo-primary"
             tieuDe="Chưa có thông báo nào"
-            moTa="Thông báo về phiếu, đơn hàng và cảnh báo tồn kho sẽ hiện ở đây."
+            moTa="Thông báo về phiếu chuyển kho sẽ hiện ở đây."
           />
         );
     } else {

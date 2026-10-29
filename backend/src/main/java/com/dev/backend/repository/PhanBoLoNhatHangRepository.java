@@ -52,4 +52,19 @@ public interface PhanBoLoNhatHangRepository extends JpaRepository<PhanBoLoNhatHa
     List<Object[]> sumDangGiuTheoLo(@Param("khoId") Integer khoId,
                                     @Param("loHangIds") Collection<Integer> loHangIds,
                                     @Param("boQuaPhieuNhatId") Integer boQuaPhieuNhatId);
+
+    /**
+     * Biến thể (theo lô) đang bị phiếu nhặt CÒN MỞ (cho_nhat / dang_nhat) giữ ở một kho — cùng điều kiện với
+     * sumDangGiuTheoLo nhưng không cần danh sách lô. Số bán tại quầy chỉ tính lại theo lô cho các mã này.
+     */
+    @Query("""
+        SELECT DISTINCT lh.bienTheSanPham.id
+        FROM PhanBoLoNhatHang pb
+        JOIN pb.loHang lh
+        JOIN pb.chiTietNhatHang ct
+        JOIN ct.danhSachNhatHang ds
+        WHERE ds.khoXuat.id = :khoId
+          AND ds.trangThai IN ('cho_nhat', 'dang_nhat')
+    """)
+    List<Integer> bienTheDangGiuTaiKho(@Param("khoId") Integer khoId);
 }

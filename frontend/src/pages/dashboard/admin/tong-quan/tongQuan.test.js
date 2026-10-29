@@ -95,6 +95,19 @@ test("cần xử lý khi xem một kho: bỏ việc chung của hệ thống, li
   assert.equal(ds.find((d) => d.loai === "donChoXuatKho").kho, 2);
 });
 
+test("cần xử lý: phiếu chuyển chờ xử lý chênh lệch mở tab đúng, không tách theo kho; máy chủ cũ chưa trả thì không hiện", () => {
+  for (const khoId of [null, 2]) {
+    const ds = danhSachViec({ ...viec, phieuChuyenChoXuLyLech: 3 }, khoId);
+    const lech = ds.filter((d) => d.loai === "phieuChuyenChoXuLyLech");
+    assert.equal(lech.length, 1);
+    assert.equal(lech[0].so, 3);
+    assert.equal(lech[0].muc, "warn");
+    assert.equal(lech[0].to, "/transfer-tickets?trangThai=cho-xu-ly-chenh-lech");
+    assert.equal(lech[0].kho, undefined, "quản trị viên xem phiếu chuyển của mọi kho, không đổi kho làm việc");
+  }
+  assert.ok(!danhSachViec(viec, null).some((d) => d.loai === "phieuChuyenChoXuLyLech"));
+});
+
 test("máy chủ cũ chưa có lỗi đồng bộ và đơn mua quá hạn: không hiện hai dòng đó", () => {
   const { loiDongBo, donMuaQuaHan, ...cu } = viec;
   assert.equal(loiDongBo.length + donMuaQuaHan > 0, true);

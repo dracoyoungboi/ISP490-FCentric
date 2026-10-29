@@ -18,8 +18,17 @@ public interface PhieuNhapKhoRepository extends JpaRepository<PhieuNhapKho, Inte
     @Query("SELECT p FROM PhieuNhapKho p WHERE p.id = :id")
     Optional<PhieuNhapKho> khoaTheoId(@Param("id") Integer id);
 
-    /** Một phiếu nhập của phiếu chuyển kho gốc có trạng thái khác {@code trangThai} (dùng để tìm phiếu chưa hủy). */
-    Optional<PhieuNhapKho> findFirstByPhieuChuyenKhoGoc_IdAndTrangThaiNot(Integer phieuChuyenKhoGocId, Integer trangThai);
+    /** Phiếu nhập (PN-TRF, PN-RET) của một phiếu chuyển kho, cũ trước mới sau. */
+    java.util.List<PhieuNhapKho> findByPhieuChuyenKho_IdOrderByIdAsc(Integer phieuChuyenKhoId);
+
+    /** Số đuôi lớn nhất của số phiếu nhập dạng `tienTo + chữ số` (PN-TRF-20261023 + n). Xem SoChungTu. */
+    @Query(value = """
+        SELECT MAX(CAST(SUBSTRING(so_phieu_nhap, CHAR_LENGTH(:tienTo) + 1) AS UNSIGNED))
+        FROM phieu_nhap_kho
+        WHERE so_phieu_nhap LIKE CONCAT(:tienTo, '%')
+          AND SUBSTRING(so_phieu_nhap, CHAR_LENGTH(:tienTo) + 1) REGEXP '^[0-9]+$'
+    """, nativeQuery = true)
+    Number soDuoiLonNhat(@Param("tienTo") String tienTo);
 
     @Query("SELECT COUNT(p) FROM PhieuNhapKho p WHERE p.soPhieuNhap LIKE :prefix%")
     long countBySoPhieuPrefix(@Param("prefix") String prefix);

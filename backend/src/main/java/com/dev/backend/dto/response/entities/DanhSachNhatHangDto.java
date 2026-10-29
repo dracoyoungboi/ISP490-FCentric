@@ -27,6 +27,16 @@ public class DanhSachNhatHangDto implements Serializable {
     Instant ngayTao;
     Instant ngayHoanTat;
 
+    /** BAN_HANG: gom đơn bán; CHUYEN_KHO: phiếu nhặt của phiếu chuyển kho (không có đơn, không qua đóng gói). */
+    String loaiPhieu;
+    /** Phiếu chuyển kho (chỉ loại CHUYEN_KHO): id, số, trạng thái, kho nhận; phiếu xuất PX-CK được giữ lô khi hoàn tất. */
+    Integer phieuChuyenKhoId;
+    String soPhieuChuyen;
+    String trangThaiPhieuChuyen;
+    String tenKhoNhan;
+    Integer phieuXuatKhoId;
+    String soPhieuXuat;
+
     Integer tongDonHang;
     Integer tongSku;
     BigDecimal tongSoLuongCanNhat;

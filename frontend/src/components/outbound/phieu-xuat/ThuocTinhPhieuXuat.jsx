@@ -15,7 +15,8 @@ const doanGhiChu = (chu) => (chu ? <span className="whitespace-pre-line">{chu}</
 /**
  * Cột phải của Chi tiết phiếu xuất kho (mỗi thông tin một chỗ: mốc giờ ở tiến trình, hàng ở bảng).
  * - Chuyển kho: Tuyến chuyển (TuyenChuyen dùng chung với Phiếu chuyển kho), Người xuất khi đã xuất, Ghi chú còn lại (nếu có),
- *   Chứng từ liên quan: phiếu chuyển kho (mã tách từ ghi chú; API chi tiết không trả id phiếu chuyển nên không có liên kết).
+ *   Chứng từ liên quan: phiếu chuyển kho (soPhieuChuyenKhoGoc / phieuChuyenKhoGocId của máy chủ, liên kết tới màn phiếu
+ *   chuyển; dữ liệu cũ thiếu id thì chỉ hiện mã tách từ ghi chú).
  * - Bán hàng: Kho xuất, Ngày tạo / Ngày xuất (chỉ phiếu POS vì không có tiến trình), Người xuất khi đã xuất, Ghi chú;
  *   nhóm Giao vận khi ghi chú có thông tin vận chuyển; Chứng từ liên quan: đơn bán hàng (liên kết).
  * `ghiChu`: kết quả tachGhiChuPhieuXuat.
@@ -25,6 +26,7 @@ export default function ThuocTinhPhieuXuat({ phieu, laCk, laPos, ghiChu }) {
   const nguoiXuat = phieu.nguoiXuat?.hoTen;
 
   if (laCk) {
+    const maPhieuChuyen = phieu.soPhieuChuyenKhoGoc || ghiChu.maPhieuChuyen;
     return (
       <CotThuocTinh nhan="Thông tin phiếu xuất">
         <NhomThuocTinh nhan="Tuyến chuyển">
@@ -44,7 +46,11 @@ export default function ThuocTinhPhieuXuat({ phieu, laCk, laPos, ghiChu }) {
             />
           </NhomThuocTinh>
         ) : null}
-        <ChungTuLienQuan ds={ghiChu.maPhieuChuyen ? [{ loai: "Phiếu chuyển kho", ma: ghiChu.maPhieuChuyen }] : []} />
+        <ChungTuLienQuan ds={maPhieuChuyen ? [{
+          loai: "Phiếu chuyển kho",
+          ma: maPhieuChuyen,
+          to: phieu.phieuChuyenKhoGocId != null ? `/transfer-tickets/${phieu.phieuChuyenKhoGocId}` : undefined,
+        }] : []} />
       </CotThuocTinh>
     );
   }

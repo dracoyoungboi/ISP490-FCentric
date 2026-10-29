@@ -75,7 +75,8 @@ public class PhieuXuatKho {
     @Column(name = "ngay_cap_nhat")
     Instant ngayCapNhat;
 
+    /** Phiếu chuyển kho của phiếu xuất con PX-CK (loai_xuat = chuyen_kho). Cột parent_id cũ không còn dùng. */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_id")
-    private PhieuXuatKho phieuChuyenKhoGoc;
+    @JoinColumn(name = "phieu_chuyen_kho_id")
+    PhieuChuyenKho phieuChuyenKho;
 }

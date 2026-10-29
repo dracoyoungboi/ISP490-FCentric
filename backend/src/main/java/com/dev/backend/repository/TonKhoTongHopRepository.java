@@ -9,7 +9,11 @@ import org.springframework.stereotype.Repository;
 
 import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Repository
 public interface TonKhoTongHopRepository extends JpaRepository<BienTheSanPham, Integer> {
@@ -198,9 +202,53 @@ public interface TonKhoTongHopRepository extends JpaRepository<BienTheSanPham, I
             @Param("trangThaiGiuHang") List<Integer> trangThaiGiuHang
     );
 
-    /** Tồn khả dụng toàn chuỗi theo đơn bán đang giữ hàng chuẩn (giữ tên cũ cho các chỗ đẩy tồn sàn). */
+    /**
+     * Hàng phiếu chuyển kho đang giữ chỗ ở các kho bán được, cộng mọi kho nguồn: [biến thể, số lượng]. Cùng công thức
+     * ChiTietPhieuChuyenKhoRepository.giuChoTheoBienTheVaKho: phiếu Chờ duyệt / Đã duyệt, trừ phần đã chọn lô trên phiếu
+     * xuất con còn nháp (phần đó đã nằm trong so_luong_da_dat của lô). Giữ ĐỦ, không trừ phân bổ của phiếu nhặt chuyển kho
+     * đang mở: tồn đẩy sàn không trừ phân bổ phiếu nhặt nên phần đó chỉ được giữ ở đây.
+     */
+    @Query(value = """
+        SELECT ct.bien_the_san_pham_id,
+               SUM(GREATEST(ct.so_luong_chuyen - COALESCE((
+                   SELECT SUM(c.so_luong_xuat)
+                   FROM phieu_xuat_kho px
+                   JOIN chi_tiet_phieu_xuat_kho c ON c.phieu_xuat_kho_id = px.id AND c.lo_hang_id IS NOT NULL
+                   WHERE px.phieu_chuyen_kho_id = p.id AND px.loai_xuat = 'chuyen_kho' AND px.trang_thai = 0
+                     AND c.bien_the_san_pham_id = ct.bien_the_san_pham_id), 0), 0))
+        FROM chi_tiet_phieu_chuyen_kho ct
+        JOIN phieu_chuyen_kho p ON p.id = ct.phieu_chuyen_kho_id
+        JOIN kho k ON k.id = p.kho_xuat_id
+        WHERE p.trang_thai IN ('CHO_DUYET', 'DA_DUYET')
+          AND k.trang_thai = 1 AND k.ma_kho <> 'KHO_TRANSIT'
+          AND ct.bien_the_san_pham_id IN (:bienTheIds)
+        GROUP BY ct.bien_the_san_pham_id
+    """, nativeQuery = true)
+    List<Object[]> giuChoChuyenKhoToanChuoi(@Param("bienTheIds") List<Integer> bienTheIds);
+
+    /**
+     * Tồn khả dụng toàn chuỗi theo đơn bán đang giữ hàng chuẩn, trừ hàng phiếu chuyển kho đang giữ chỗ ở kho nguồn
+     * (đặc tả BA, ma trận 3.2), không âm. Giữ tên cũ cho các chỗ đẩy tồn sàn; dòng trả về [biến thể, BigDecimal].
+     */
     default List<Object[]> sumTongFreeToUseToanHeThongByBienTheIds(List<Integer> bienTheIds) {
-        return sumTongFreeToUseToanChuoi(bienTheIds, ITrangThaiDonBanHang.DANG_GIU_HANG);
+        List<Object[]> ketQua = sumTongFreeToUseToanChuoi(bienTheIds, ITrangThaiDonBanHang.DANG_GIU_HANG);
+        if (ketQua.isEmpty()) return ketQua;
+        Map<Integer, BigDecimal> giuCho = new HashMap<>();
+        for (Object[] row : giuChoChuyenKhoToanChuoi(bienTheIds)) {
+            if (row[0] != null && row[1] != null) giuCho.put(((Number) row[0]).intValue(), new BigDecimal(row[1].toString()));
+        }
+        if (giuCho.isEmpty()) return ketQua;
+        List<Object[]> daTru = new ArrayList<>(ketQua.size());
+        for (Object[] row : ketQua) {
+            BigDecimal tru = row[0] == null ? null : giuCho.get(((Number) row[0]).intValue());
+            if (tru == null || row[1] == null) {
+                daTru.add(row);
+                continue;
+            }
+            BigDecimal khaDung = row[1] instanceof BigDecimal bd ? bd : new BigDecimal(row[1].toString());
+            daTru.add(new Object[]{row[0], khaDung.subtract(tru).max(BigDecimal.ZERO)});
+        }
+        return daTru;
     }
 
     /**

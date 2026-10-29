@@ -43,6 +43,9 @@ import DoiSoatChuyenKhoan from "./pages/pos-transfers/DoiSoatChuyenKhoan";
 import ProductDetail from "./pages/product/components/product/ProductDetail";
 import PhieuChuyenKhoDetail from "./pages/chuyenKhoNoiBo/PhieuChuyenKhoDetail";
 import PhieuChuyenKhoCreate from "./pages/chuyenKhoNoiBo/PhieuChuyenKhoCreate";
+import NhanHangChuyenKho from "./pages/chuyenKhoNoiBo/NhanHangChuyenKho";
+import PhieuDieuChinhChuyenKho from "./pages/chuyenKhoNoiBo/PhieuDieuChinhChuyenKho";
+import InChuyenKho from "./pages/chuyenKhoNoiBo/InChuyenKho";
 import StockTakeList from "./pages/stock-take/StockTakeList";
 import StockTakeCreate from "./pages/stock-take/StockTakeCreate";
 import StockTakeDetail from "./pages/stock-take/StockTakeDetail";
@@ -276,6 +279,8 @@ export default function App() {
           <Route path="/transfer-tickets" element={<PhieuChuyenKhoList />} />
           <Route path="/transfer-tickets/create" element={<PhieuChuyenKhoCreate />} />
           <Route path="/transfer-tickets/:id" element={<PhieuChuyenKhoDetail />} />
+          <Route path="/transfer-tickets/:id/receive" element={<NhanHangChuyenKho />} />
+          <Route path="/transfer-tickets/adjustments/:id" element={<PhieuDieuChinhChuyenKho />} />
 
           {/* Kiểm kê kho hàng*/}
           <Route path="/stock-take" element={<StockTakeList />} />
@@ -313,6 +318,8 @@ export default function App() {
               <Route path="sync" element={<OperationsSettingsPage key="sync" part="sync" />} />
               <Route path="customer" element={<OperationsSettingsPage key="customer" part="customer" />} />
               <Route path="inbound" element={<OperationsSettingsPage key="inbound" part="inbound" />} />
+              <Route path="documents" element={<OperationsSettingsPage key="documents" part="documents" />} />
+              <Route path="transfer" element={<OperationsSettingsPage key="transfer" part="transfer" />} />
               <Route path="store" element={<StoreSettingsPage />} />
               <Route path="payment" element={<PaymentSettingsPage />} />
               <Route path="vat" element={<VatSettingsPage />} />
@@ -378,6 +385,9 @@ export default function App() {
           <Route path="/purchase-orders/:id/print" element={<PurchaseOrderPrint />} />
           <Route path="/goods-receipts/:id/print" element={<PhieuNhapKhoPrint />} />
           <Route path="/goods-issues/:id/print" element={<PhieuXuatKhoPrint />} />
+          {/* Chuyển kho nội bộ: loai = yeu-cau | lenh-dieu-dong | xknb | bien-ban; phiếu điều chỉnh kho in riêng */}
+          <Route path="/transfer-tickets/:id/print/:loai" element={<InChuyenKho />} />
+          <Route path="/transfer-tickets/adjustments/:id/print" element={<InChuyenKho dieuChinh />} />
           <Route path="/sales-quotations/:id/print" element={<BaoGiaPrint />} />
           <Route path="/sales-orders/:id/invoice" element={<DonBanHangInvoice />} />
         </Route>

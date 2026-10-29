@@ -14,7 +14,9 @@ import com.dev.backend.services.impl.multitable.LoDangGiuService;
 import com.dev.backend.dto.response.entities.ChiTietPhieuNhapKhoResponse;
 import com.dev.backend.dto.response.entities.ChiTietPhieuXuatKhoDto;
 import com.dev.backend.entities.*;
+import com.dev.backend.dto.response.entities.PhieuXuatKhoDto;
 import com.dev.backend.repository.ChiTietPhieuXuatKhoRepository;
+import com.dev.backend.repository.DanhSachNhatHangRepository;
 import com.dev.backend.repository.PhieuXuatKhoRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -246,6 +248,47 @@ class PhieuXuatKhoServiceDetailTest {
     void kb7_phieuRong_traVeDanhSachRong() {
         List<ChiTietPhieuXuatKhoDto> rows = chiTiet(phieu("ban_hang", 0), List.of(), List.of());
         assertTrue(rows.isEmpty());
+    }
+
+    // ── KB7b: PX-CK có phiếu nhặt → chi tiết trả phieuNhatId / maPhieuNhat / trangThaiPhieuNhat (giao diện ẩn "Chọn lô") ──
+
+    @Test
+    void kb7b_phieuXuatChuyenKho_coPhieuNhat_traBaTruongPhieuNhat() {
+        DanhSachNhatHangRepository dsnhRepo = mock(DanhSachNhatHangRepository.class);
+        ReflectionTestUtils.setField(service, "danhSachNhatHangRepository", dsnhRepo);
+        PhieuXuatKho p = phieu("chuyen_kho", 0);
+        p.setPhieuChuyenKho(PhieuChuyenKho.builder().id(50).soPhieuChuyen("PX-TRF-1").build());
+        when(dsnhRepo.findByPhieuXuatKho_Id(PHIEU_ID)).thenReturn(Optional.of(DanhSachNhatHang.builder()
+                .id(80).maPickList("PL-20261028-001").trangThai("da_nhat").build()));
+        when(repository.findById(PHIEU_ID)).thenReturn(Optional.of(p));
+
+        PhieuXuatKhoDto dto = service.getDetail(PHIEU_ID).getPhieu();
+
+        assertEquals(80, dto.getPhieuNhatId());
+        assertEquals("PL-20261028-001", dto.getMaPhieuNhat());
+        assertEquals("da_nhat", dto.getTrangThaiPhieuNhat());
+        assertEquals(50, dto.getPhieuChuyenKhoGocId());
+
+        // PX-CK chưa có phiếu nhặt (phiếu cũ chọn lô tay): ba trường trống
+        when(dsnhRepo.findByPhieuXuatKho_Id(PHIEU_ID)).thenReturn(Optional.empty());
+        dto = service.getDetail(PHIEU_ID).getPhieu();
+        assertNull(dto.getPhieuNhatId());
+        assertNull(dto.getMaPhieuNhat());
+        assertNull(dto.getTrangThaiPhieuNhat());
+    }
+
+    @Test
+    void kb7c_phieuBanHang_khongTraPhieuNhat_khongTraBangPhieuNhat() {
+        DanhSachNhatHangRepository dsnhRepo = mock(DanhSachNhatHangRepository.class);
+        ReflectionTestUtils.setField(service, "danhSachNhatHangRepository", dsnhRepo);
+        when(repository.findById(PHIEU_ID)).thenReturn(Optional.of(phieu("ban_hang", 0)));
+
+        PhieuXuatKhoDto dto = service.getDetail(PHIEU_ID).getPhieu();
+
+        assertNull(dto.getPhieuNhatId());
+        assertNull(dto.getMaPhieuNhat());
+        assertNull(dto.getTrangThaiPhieuNhat());
+        verifyNoInteractions(dsnhRepo);
     }
 
     // ── KB8–9: dòng gộp không được dùng để pick lô ──

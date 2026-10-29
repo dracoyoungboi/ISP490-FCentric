@@ -36,6 +36,8 @@ class KhaDungChuyenKhoServiceTest {
     private ChiTietDonBanHangRepository chiTietDonBanHangRepository;
     @Mock
     private ChiTietPhieuXuatKhoRepository chiTietPhieuXuatKhoRepository;
+    @Mock
+    private GiuChoChuyenKhoService giuChoChuyenKhoService;
 
     @InjectMocks
     private KhaDungChuyenKhoService service;
@@ -76,6 +78,30 @@ class KhaDungChuyenKhoServiceTest {
         assertQty("10", kd.tonTruGiu());
         assertQty("7", kd.choXuat());
         assertQty("3", kd.khaDung());
+    }
+
+    @Test
+    void truHangPhieuChuyenDangGiuCho_boQuaPhieuDangXet() {
+        tonTruGiu(List.of(MA_A), dong(MA_A, new BigDecimal("10")));
+        dat(List.of(MA_A), dong(MA_A, KHO_TONG, new BigDecimal("2")));
+        daXuat(List.of(MA_A));
+        when(giuChoChuyenKhoService.taiKho(KHO_TONG, List.of(MA_A), 7)).thenReturn(Map.of(MA_A, new BigDecimal("5")));
+
+        KhaDungChuyen kd = service.theoBienThe(KHO_TONG, List.of(MA_A), 7).get(MA_A);
+
+        assertQty("2", kd.choXuat());
+        assertQty("5", kd.giuChoChuyen());
+        assertQty("3", kd.khaDung());
+    }
+
+    @Test
+    void giuChoVuotTon_khaDung0() {
+        tonTruGiu(List.of(MA_A), dong(MA_A, new BigDecimal("4")));
+        dat(List.of(MA_A));
+        daXuat(List.of(MA_A));
+        when(giuChoChuyenKhoService.taiKho(KHO_TONG, List.of(MA_A), null)).thenReturn(Map.of(MA_A, new BigDecimal("6")));
+
+        assertQty("0", service.theoBienThe(KHO_TONG, List.of(MA_A)).get(MA_A).khaDung());
     }
 
     @Test

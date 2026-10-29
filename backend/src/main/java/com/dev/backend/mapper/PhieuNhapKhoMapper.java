@@ -15,8 +15,9 @@ public interface PhieuNhapKhoMapper {
     @Mapping(source = "nhaCungCap.tenNhaCungCap", target = "tenNhaCungCap")
     @Mapping(source = "kho.id", target = "khoId")
     @Mapping(source = "kho.tenKho", target = "tenKho")
-    @Mapping(source = "phieuChuyenKhoGoc.id", target = "phieuXuatGocId")
-    @Mapping(source = "phieuChuyenKhoGoc.soPhieuXuat", target = "soPhieuXuatGoc")
+    // Tên trường DTO giữ như cũ cho frontend; nay lấy từ phiếu chuyển kho (bảng phieu_chuyen_kho)
+    @Mapping(source = "phieuChuyenKho.id", target = "phieuXuatGocId")
+    @Mapping(source = "phieuChuyenKho.soPhieuChuyen", target = "soPhieuXuatGoc")
     PhieuNhapKhoDto toDto(PhieuNhapKho entity);
 
     List<PhieuNhapKhoDto> toDtoList(List<PhieuNhapKho> entities);

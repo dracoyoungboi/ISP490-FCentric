@@ -1,191 +1,197 @@
 package com.dev.backend.controller;
 
-import com.dev.backend.config.SecurityContextHolder;
-import com.dev.backend.constant.enums.FilterLogicType;
-import com.dev.backend.constant.enums.FilterOperation;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
-import com.dev.backend.dto.request.BaseFilterRequest;
-import com.dev.backend.dto.request.FilterCriteria;
 import com.dev.backend.dto.request.PhieuChuyenKhoCreating;
+import com.dev.backend.dto.request.PhieuChuyenKhoYeuCau;
 import com.dev.backend.dto.response.ResponseData;
-import com.dev.backend.dto.response.customize.TransferDetailDto;
-import com.dev.backend.dto.response.entities.PhieuXuatKhoDto;
+import com.dev.backend.dto.response.customize.PhieuChuyenKhoDto;
+import com.dev.backend.entities.BienBanGiaoNhan;
+import com.dev.backend.entities.PhieuChuyenKho;
+import com.dev.backend.entities.PhieuDieuChinhKho;
+import com.dev.backend.entities.PhieuNhapKho;
 import com.dev.backend.entities.PhieuXuatKho;
-import com.dev.backend.mapper.PhieuXuatKhoMapper;
-import com.dev.backend.services.impl.entities.PhieuXuatKhoService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import com.dev.backend.services.impl.entities.AnhBienBanGiaoNhanService;
+import com.dev.backend.services.impl.entities.PhieuChuyenKhoService;
+import com.dev.backend.utils.ThuLaiKhiTrungSo;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
+/**
+ * Chuyển kho nội bộ theo đặc tả BA (UC-7.1). Quyền chi tiết theo vai trò và kho kiểm ở PhieuChuyenKhoService;
+ * chi tiết phiếu trả về {@code quyen} để giao diện chỉ hiện nút người đang xem được bấm.
+ */
 @RestController
 @RequestMapping("/api/v1/phieu-chuyen-kho")
+@RequiredArgsConstructor
 public class PhieuChuyenKhoController {
 
-    @Autowired
-    private PhieuXuatKhoService phieuXuatKhoService;
+    private final PhieuChuyenKhoService phieuChuyenKhoService;
+    private final AnhBienBanGiaoNhanService anhBienBanGiaoNhanService;
 
-    @Autowired
-    private PhieuXuatKhoMapper phieuXuatKhoMapper;
+    /** Danh sách (B.6): tab TAT_CA | CHO_DUYET | DANG_VAN_CHUYEN | TRE_HEN | CHO_XU_LY_LECH | THIEU_XKNB, kèm số theo tab. */
+    @GetMapping
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
+    public ResponseEntity<ResponseData<PhieuChuyenKhoDto.DanhSach>> danhSach(
+            @RequestParam(required = false) String tab,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) Integer khoXuatId,
+            @RequestParam(required = false) Integer khoNhapId,
+            @RequestParam(required = false) String trangThai,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ok(phieuChuyenKhoService.danhSach(tab, q, khoXuatId, khoNhapId, trangThai, page, size), "Lấy danh sách phiếu chuyển kho thành công");
+    }
+
+    /** Số phiếu XKNB tiếp theo của ký hiệu (điền sẵn ở hộp Xác nhận xuất / Ghi số XKNB). */
+    @GetMapping("/xknb/so-tiep-theo")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
+    public ResponseEntity<ResponseData<Map<String, Object>>> soXknbTiepTheo(@RequestParam String kyHieu) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("kyHieuXknb", kyHieu.trim().toUpperCase(java.util.Locale.ROOT));
+        data.put("soPhieuXknb", phieuChuyenKhoService.soXknbTiepTheo(kyHieu));
+        return ok(data, "Số phiếu XKNB tiếp theo");
+    }
+
+    @GetMapping("/{id}")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
+    public ResponseEntity<ResponseData<PhieuChuyenKhoDto.ChiTiet>> chiTiet(@PathVariable Integer id) {
+        return ok(phieuChuyenKhoService.chiTiet(id), "Lấy chi tiết phiếu chuyển thành công");
+    }
+
+    @PostMapping("/create")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
+    public ResponseEntity<ResponseData<Map<String, Object>>> tao(@RequestBody PhieuChuyenKhoCreating yeuCau) {
+        return ok(tomTat(ThuLaiKhiTrungSo.chay(() -> phieuChuyenKhoService.tao(yeuCau))), "Đã tạo yêu cầu chuyển kho, đang chờ duyệt");
+    }
+
+    @PutMapping("/{id}/duyet")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho}, inWarehouse = true)
+    public ResponseEntity<ResponseData<Map<String, Object>>> duyet(@PathVariable Integer id, @RequestBody PhieuChuyenKhoYeuCau.Duyet yeuCau) {
+        PhieuChuyenKho p = ThuLaiKhiTrungSo.chay(() -> phieuChuyenKhoService.duyet(id, yeuCau));
+        Map<String, Object> data = tomTat(p);
+        data.put("soLenhDieuDong", p.getSoLenhDieuDong());
+        return ok(data, "Đã duyệt và lập lệnh điều động " + p.getSoLenhDieuDong());
+    }
+
+    @PutMapping("/{id}/huy")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
+    public ResponseEntity<ResponseData<Map<String, Object>>> huy(@PathVariable Integer id, @RequestBody(required = false) PhieuChuyenKhoYeuCau.Huy yeuCau) {
+        return ok(tomTat(phieuChuyenKhoService.huy(id, yeuCau)), "Đã hủy phiếu chuyển kho");
+    }
 
     /**
-     * API lấy danh sách phiếu chuyển kho (Màn hình List)
-     * Tự động lọc theo kho hiện tại và loại xuất là 'chuyen_kho'
+     * Mở phiếu nhặt (N7): đảm bảo phiếu Đã duyệt có PX-CK và phiếu nhặt (tạo nếu chưa có). Trả id / số PX-CK như trước,
+     * kèm phieuNhatId / maPickList; phieuNhatId null = phiếu cũ đã chọn lô tay, mở màn phiếu xuất như cũ.
      */
-    @PostMapping("/filter")
-    @RequireAuth(
-            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
-            inWarehouse = true,
-            rolesLogic = RequireAuth.LogicType.OR
-    )
-    public ResponseEntity<ResponseData<Page<PhieuXuatKhoDto>>> filter(@RequestBody BaseFilterRequest request) {
-        Integer khoId = SecurityContextHolder.getKhoId();
-        String keyword = null;
-        Integer trangThai = null;
-        String khoNhapTen = null;
+    @PostMapping("/{id}/phieu-xuat")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
+    public ResponseEntity<ResponseData<Map<String, Object>>> phieuXuat(@PathVariable Integer id) {
+        PhieuChuyenKhoService.MoPhieuNhat kq = ThuLaiKhiTrungSo.chay(() -> phieuChuyenKhoService.damBaoPhieuXuat(id));
+        PhieuXuatKho px = kq.phieuXuat();
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("id", px.getId());
+        data.put("soPhieuXuat", px.getSoPhieuXuat());
+        data.put("phieuNhatId", kq.phieuNhat() == null ? null : kq.phieuNhat().getId());
+        data.put("maPickList", kq.phieuNhat() == null ? null : kq.phieuNhat().getMaPickList());
+        return ok(data, kq.phieuNhat() != null ? "Phiếu nhặt " + kq.phieuNhat().getMaPickList() : "Phiếu xuất " + px.getSoPhieuXuat());
+    }
 
-        // Bóc tách filter từ JSON Frontend gửi lên
-        if (request.getFilters() != null) {
-            for (FilterCriteria f : request.getFilters()) {
-                if ("soPhieuXuat".equals(f.getFieldName())) {
-                    keyword = f.getValue() != null ? f.getValue().toString().trim() : null;
-                    if (keyword != null && keyword.isEmpty()) keyword = null;
-                } else if ("trangThai".equals(f.getFieldName())) {
-                    String ttVal = f.getValue() != null ? f.getValue().toString() : "";
-                    trangThai = !ttVal.isEmpty() ? Integer.valueOf(ttVal) : null;
-                } else if ("khoChuyenDen.tenKho".equals(f.getFieldName())) {
-                    khoNhapTen = f.getValue() != null ? f.getValue().toString().trim() : null;
-                    if (khoNhapTen != null && khoNhapTen.isEmpty()) khoNhapTen = null;
-                }
-            }
-        }
+    @PutMapping("/{id}/xac-nhan-xuat")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
+    public ResponseEntity<ResponseData<Map<String, Object>>> xacNhanXuat(@PathVariable Integer id, @RequestBody PhieuChuyenKhoYeuCau.XacNhanXuat yeuCau) {
+        return ok(tomTat(phieuChuyenKhoService.xacNhanXuat(id, yeuCau)), "Đã xác nhận xuất, hàng đang trên đường");
+    }
 
-        // Tự động nhận diện cấu hình Sort từ Frontend (Mặc định: ngayTao DESC)
-        Sort sort = Sort.by(Sort.Direction.DESC, "ngayTao");
-        if (request.getSorts() != null && !request.getSorts().isEmpty()) {
-            String sortField = request.getSorts().get(0).getFieldName();
-            Sort.Direction sortDir = "ASC".equalsIgnoreCase(String.valueOf(request.getSorts().get(0).getDirection()))
-                    ? Sort.Direction.ASC : Sort.Direction.DESC;
-            sort = Sort.by(sortDir, sortField);
-        }
+    @PutMapping("/{id}/ghi-so-xknb")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
+    public ResponseEntity<ResponseData<Map<String, Object>>> ghiSoXknb(@PathVariable Integer id, @RequestBody PhieuChuyenKhoYeuCau.GhiSoXknb yeuCau) {
+        return ok(tomTat(phieuChuyenKhoService.ghiSoXknb(id, yeuCau)), "Đã ghi số phiếu XKNB");
+    }
 
-        Pageable pageable = PageRequest.of(request.getPage(), request.getSize(), sort);
+    @PutMapping("/{id}/nhan-du")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
+    public ResponseEntity<ResponseData<Map<String, Object>>> nhanDu(@PathVariable Integer id) {
+        PhieuNhapKho pn = ThuLaiKhiTrungSo.chay(() -> phieuChuyenKhoService.nhanDu(id));
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("phieuNhapId", pn.getId());
+        data.put("soPhieuNhap", pn.getSoPhieuNhap());
+        return ok(data, "Đã nhận đủ hàng, phiếu nhập " + pn.getSoPhieuNhap());
+    }
 
-        // Gọi Custom Query
-        Page<PhieuXuatKho> pageEntity = phieuXuatKhoService.getDanhSachYeuCauChuyenKhoCustom(khoId, keyword, trangThai, khoNhapTen, pageable);
-        Page<PhieuXuatKhoDto> pageDto = pageEntity.map(phieuXuatKhoMapper::toDto);
+    @PutMapping("/{id}/nhan-lech")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
+    public ResponseEntity<ResponseData<Map<String, Object>>> nhanLech(@PathVariable Integer id, @RequestBody PhieuChuyenKhoYeuCau.NhanLech yeuCau) {
+        BienBanGiaoNhan bb = ThuLaiKhiTrungSo.chay(() -> phieuChuyenKhoService.nhanLech(id, yeuCau));
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("bienBanId", bb.getId());
+        data.put("soBienBan", bb.getSoBienBan());
+        return ok(data, "Đã nhận phần đạt và lập biên bản " + bb.getSoBienBan());
+    }
 
-        return ResponseEntity.ok(
-                ResponseData.<Page<PhieuXuatKhoDto>>builder()
-                        .status(HttpStatus.OK.value())
-                        .data(pageDto)
-                        .message("Lấy danh sách yêu cầu chuyển kho thành công")
-                        .build()
-        );
+    /**
+     * Thêm một ảnh chụp vào biên bản giao nhận (mockup B.4, không bắt buộc): multipart `file` (JPEG / PNG / WebP, tới
+     * 10 MB) và `moTa` (tùy chọn, tối đa 255 ký tự). Kho nhận thêm khi biên bản còn chờ xử lý, tối đa 6 ảnh.
+     */
+    @PostMapping("/{id}/bien-ban/anh")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
+    public ResponseEntity<ResponseData<PhieuChuyenKhoDto.AnhBienBan>> themAnhBienBan(
+            @PathVariable Integer id,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "moTa", required = false) String moTa) {
+        return ok(anhBienBanGiaoNhanService.them(id, file, moTa), "Đã thêm ảnh vào biên bản giao nhận");
     }
-    @GetMapping("/{id}")
-    @RequireAuth(
-            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
-            inWarehouse = true
-    )
-    public ResponseEntity<ResponseData<TransferDetailDto>> getDetail(@PathVariable Integer id) {
-        TransferDetailDto data = phieuXuatKhoService.getTransferDetail(id);
-        return ResponseEntity.ok(
-                ResponseData.<TransferDetailDto>builder()
-                        .status(HttpStatus.OK.value())
-                        .data(data)
-                        .message("Lấy chi tiết phiếu chuyển thành công")
-                        .build()
-        );
+
+    /** Xóa một ảnh của biên bản giao nhận: người tải lên, quản lý kho nhận hoặc quản trị viên, khi biên bản còn chờ xử lý. */
+    @DeleteMapping("/{id}/bien-ban/anh/{anhId}")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
+    public ResponseEntity<ResponseData<Void>> xoaAnhBienBan(@PathVariable Integer id, @PathVariable Integer anhId) {
+        anhBienBanGiaoNhanService.xoa(id, anhId);
+        return ok(null, "Đã xóa ảnh khỏi biên bản giao nhận");
     }
-    @PutMapping("/{id}/submit")
-    @RequireAuth(
-            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
-            inWarehouse = true,
-            rolesLogic = RequireAuth.LogicType.OR
-    )
-    public ResponseEntity<ResponseData<String>> submitTransfer(@PathVariable Integer id) {
-        phieuXuatKhoService.submitTransfer(id);
-        return ResponseEntity.ok(
-                ResponseData.<String>builder()
-                        .status(HttpStatus.OK.value())
-                        .message("Gửi duyệt phiếu chuyển kho thành công")
-                        .data("SUCCESS")
-                        .build()
-        );
+
+    @PutMapping("/{id}/xu-ly-chenh-lech")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho}, inWarehouse = true)
+    public ResponseEntity<ResponseData<Map<String, Object>>> xuLyChenhLech(@PathVariable Integer id, @RequestBody PhieuChuyenKhoYeuCau.XuLyChenhLech yeuCau) {
+        PhieuDieuChinhKho dck = ThuLaiKhiTrungSo.chay(() -> phieuChuyenKhoService.xuLyChenhLech(id, yeuCau));
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("phieuDieuChinhId", dck.getId());
+        data.put("soPhieuDieuChinh", dck.getSoPhieu());
+        return ok(data, "Đã xử lý chênh lệch, phiếu điều chỉnh " + dck.getSoPhieu());
     }
-    @PutMapping("/{id}/approve")
-    @RequireAuth(
-            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
-            inWarehouse = true,
-            rolesLogic = RequireAuth.LogicType.OR
-    )
-    public ResponseEntity<ResponseData<String>> approveTransfer(@PathVariable Integer id) {
-        Integer managerId = SecurityContextHolder.getUser().getId();
-        phieuXuatKhoService.approveTransfer(id, managerId);
-        return ResponseEntity.ok(
-                ResponseData.<String>builder()
-                        .status(HttpStatus.OK.value())
-                        .message("Phê duyệt phiếu chuyển kho thành công")
-                        .data("SUCCESS")
-                        .build()
-        );
+
+    @PutMapping("/{id}/nhap-hoan-tra")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
+    public ResponseEntity<ResponseData<Map<String, Object>>> nhapHoanTra(@PathVariable Integer id) {
+        PhieuNhapKho pn = ThuLaiKhiTrungSo.chay(() -> phieuChuyenKhoService.nhapHoanTra(id));
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("phieuNhapId", pn.getId());
+        data.put("soPhieuNhap", pn.getSoPhieuNhap());
+        return ok(data, "Đã nhập hoàn trả, phiếu nhập " + pn.getSoPhieuNhap());
     }
-    @PostMapping("/{id}/create-export")
-    @RequireAuth(
-            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
-            inWarehouse = true,
-            rolesLogic = RequireAuth.LogicType.OR
-    )
-    public ResponseEntity<ResponseData<PhieuXuatKhoDto>> createExportFromTransfer(@PathVariable Integer id) {
-        PhieuXuatKho entity = phieuXuatKhoService.createExportFromTransfer(id);
-        PhieuXuatKhoDto dto = phieuXuatKhoMapper.toDto(entity);
-        return ResponseEntity.ok(
-                ResponseData.<PhieuXuatKhoDto>builder()
-                        .status(HttpStatus.OK.value())
-                        .data(dto)
-                        .message("Tạo phiếu xuất kho thủ công thành công")
-                        .build()
-        );
+
+    /** Phiếu điều chỉnh kho ghi giảm chênh lệch của phiếu chuyển. */
+    @GetMapping("/dieu-chinh/{id}")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
+    public ResponseEntity<ResponseData<PhieuChuyenKhoDto.PhieuDieuChinh>> phieuDieuChinh(@PathVariable Integer id) {
+        return ok(phieuChuyenKhoService.phieuDieuChinh(id), "Lấy phiếu điều chỉnh kho thành công");
     }
-    @PutMapping("/{id}/cancel")
-    @RequireAuth(
-            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho},
-            inWarehouse = true
-    )
-    public ResponseEntity<ResponseData<String>> cancelTransfer(@PathVariable Integer id) {
-        phieuXuatKhoService.cancelTransfer(id);
-        return ResponseEntity.ok(
-                ResponseData.<String>builder()
-                        .status(HttpStatus.OK.value())
-                        .message("Hủy phiếu chuyển kho thành công")
-                        .data("SUCCESS")
-                        .build()
-        );
+
+    private static Map<String, Object> tomTat(PhieuChuyenKho p) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("id", p.getId());
+        data.put("soPhieuChuyen", p.getSoPhieuChuyen());
+        data.put("trangThai", p.getTrangThai());
+        return data;
     }
-    @PostMapping("/create")
-    @RequireAuth(
-            roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho},
-            inWarehouse = true,
-            rolesLogic = RequireAuth.LogicType.OR
-    )
-    public ResponseEntity<ResponseData<PhieuXuatKhoDto>> createTransfer(@RequestBody PhieuChuyenKhoCreating request) {
-        PhieuXuatKho entity = phieuXuatKhoService.createTransfer(request);
-        PhieuXuatKhoDto dto = phieuXuatKhoMapper.toDto(entity);
-        return ResponseEntity.ok(
-                ResponseData.<PhieuXuatKhoDto>builder()
-                        .status(HttpStatus.OK.value())
-                        .data(dto)
-                        .message("Tạo yêu cầu điều chuyển hàng hóa thành công")
-                        .build()
-        );
+
+    private static <T> ResponseEntity<ResponseData<T>> ok(T data, String message) {
+        return ResponseEntity.ok(ResponseData.<T>builder().status(HttpStatus.OK.value()).data(data).message(message).build());
     }
 }

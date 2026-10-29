@@ -21,8 +21,11 @@ const DAU_GHI_CHU_POS = /^Xuất kho POS\b/;
 /** Thông tin giao vận backend ghép vào ghi chú khi xác nhận xuất kho (PhieuXuatKhoService.xacNhanXuatKho). */
 const MAU_GIAO_VAN = /\[Vận chuyển: (.*?) - Vận đơn: (.*?)(?: - Cước: ([^\]]*?))?\]/;
 
-/** Ghi chú của phiếu xuất chuyển kho (createExportFromTransfer): "Xuất thủ công cho phiếu chuyển: <mã>". */
-const MAU_PHIEU_CHUYEN = /Xuất thủ công cho phiếu chuyển:\s*([^\s|]+)/;
+/**
+ * Ghi chú của phiếu xuất chuyển kho PX-CK: máy chủ ghi "Phiếu xuất của phiếu chuyển <mã>, lệnh điều động <số>" khi duyệt
+ * phiếu chuyển (PhieuChuyenKhoService); phiếu tạo tay trước khi nâng cấp ghi "Xuất thủ công cho phiếu chuyển: <mã>".
+ */
+const MAU_PHIEU_CHUYEN = /(?:Xuất thủ công cho phiếu chuyển:|Phiếu xuất của phiếu chuyển)\s*([^\s,|]+)(?:,\s*lệnh điều động\s+[^\s,|]+)?/;
 
 /** Lọc nhanh của bảng Sản phẩm xuất: "thieuLo" = dòng chưa lấy đủ số cần xuất (duSoLuong của máy chủ). */
 export const BO_LOC_DONG_XUAT = Object.freeze({ tatCa: null, thieuLo: (dong) => !dong.du });
@@ -69,7 +72,7 @@ function boDoan(chu, khop, noiSau) {
  * Tách ghi chú phiếu xuất (backend chỉ lưu dạng chữ):
  * - `giaoVan`: `{ donViVanChuyen, maVanDon, cuoc }` từ "[Vận chuyển: … - Vận đơn: … - Cước: …]" ("N/A" → null);
  *   null khi không có hoặc mọi trường đều trống.
- * - `maPhieuChuyen`: mã phiếu chuyển kho từ "Xuất thủ công cho phiếu chuyển: …".
+ * - `maPhieuChuyen`: mã phiếu chuyển kho từ "Phiếu xuất của phiếu chuyển …" (hoặc "Xuất thủ công cho phiếu chuyển: …").
  * - `ghiChu`: phần còn lại (mỗi đoạn một dòng), null khi không còn gì. Không tách được gì thì giữ NGUYÊN ghi chú.
  */
 export function tachGhiChuPhieuXuat(ghiChu) {
@@ -106,7 +109,8 @@ export function tachGhiChuPhieuXuat(ghiChu) {
 /**
  * Các bước tiến trình (TienTrinhChungTu) — 3 bước, mốc giờ lấy từ ngayTao / ngayXuat:
  * - Bán hàng: Nhặt hàng (phiếu sinh khi nhặt xong) → Đóng gói → Xuất kho.
- * - Chuyển kho: Tạo phiếu → Chọn lô (`soDongDuLo`/`soDong` dòng đủ lô) → Xác nhận vận chuyển.
+ * - Chuyển kho (PX-CK, máy chủ tạo khi duyệt phiếu chuyển): Tạo phiếu → Chọn lô (`soDongDuLo`/`soDong` dòng đủ lô) →
+ *   Xác nhận xuất (làm ở màn phiếu chuyển kho, kèm người vận chuyển và giấy đi đường).
  * - Đã hủy: bước cuối chưa làm thành "Đã hủy". Backend không lưu phiếu bán hàng bị hủy trước hay sau đóng gói,
  *   nên bước Đóng gói để xám (không khẳng định) và "Đã hủy" đứng ở bước Xuất kho.
  * - Phiếu POS (`laPos`), loại xuất khác hai loại trên và mã trạng thái lạ: không có tiến trình (mảng rỗng).
@@ -120,13 +124,13 @@ export function tinhBuocPhieuXuat({ phieu, laPos = false, soDong = 0, soDongDuLo
     const tao = { ma: "tao", nhan: "Tạo phiếu", trangThai: "xong", ngay: phieu.ngayTao, coGio: true };
     const phuLo = `${soVN(soDongDuLo)}/${soVN(soDong)} dòng đủ lô`;
     const duLo = soDong > 0 && soDongDuLo >= soDong;
-    const chua = { ma: "vanChuyen", nhan: "Xác nhận vận chuyển", trangThai: "chua" };
+    const chua = { ma: "xuat", nhan: "Xác nhận xuất", trangThai: "chua" };
     if (tt === TRANG_THAI_PHIEU_XUAT.NHAP) {
       return duLo
         ? [
           tao,
           { ma: "chonLo", nhan: "Chọn lô", trangThai: "xong", phu: phuLo },
-          { ma: "vanChuyen", nhan: "Xác nhận vận chuyển", trangThai: "dangLam", phu: "Chờ xác nhận" },
+          { ma: "xuat", nhan: "Xác nhận xuất", trangThai: "dangLam", phu: "Ở phiếu chuyển kho" },
         ]
         : [tao, { ma: "chonLo", nhan: "Chọn lô", trangThai: "dangLam", phu: phuLo }, chua];
     }
@@ -134,16 +138,16 @@ export function tinhBuocPhieuXuat({ phieu, laPos = false, soDong = 0, soDongDuLo
       return [
         tao,
         { ma: "chonLo", nhan: "Chọn lô", trangThai: "xong", phu: phuLo },
-        { ma: "vanChuyen", nhan: "Xác nhận vận chuyển", trangThai: "xong", ngay: phieu.ngayXuat, coGio: true },
+        { ma: "xuat", nhan: "Xác nhận xuất", trangThai: "xong", ngay: phieu.ngayXuat, coGio: true },
       ];
     }
     if (tt === TRANG_THAI_PHIEU_XUAT.DA_HUY) {
-      return [tao, { ma: "huy", nhan: "Đã hủy", trangThai: "dung", phu: "Trước khi vận chuyển" }, chua];
+      return [tao, { ma: "huy", nhan: "Đã hủy", trangThai: "dung", phu: "Trước khi xuất" }, chua];
     }
     return [];
   }
 
-  // Loại khác (vd. phiếu yêu cầu chuyển kho "khac" mở nhầm ở màn này): không đoán tiến trình
+  // Loại khác (vd. dòng phiếu chuyển cũ "khac" còn trong phieu_xuat_kho trước khi dọn): không đoán tiến trình
   if (phieu.loaiXuat !== LOAI_XUAT.BAN_HANG) return [];
   const nhat = { ma: "nhat", nhan: "Nhặt hàng", trangThai: "xong", ngay: phieu.ngayTao, coGio: true };
   if (tt === TRANG_THAI_PHIEU_XUAT.NHAP) {
@@ -178,29 +182,46 @@ export function tinhBuocPhieuXuat({ phieu, laPos = false, soDong = 0, soDongDuLo
 }
 
 /**
+ * Phiếu nhặt của PX-CK (máy chủ gửi `phieuNhatId`, `maPhieuNhat`, `trangThaiPhieuNhat` ở chi tiết phiếu xuất): lô do
+ * phiếu nhặt ghi khi hoàn tất nhặt, không chọn tay. Phiếu nhặt đã hủy, phiếu bán, phiếu cũ (chọn lô tay) → null.
+ * @returns {{ id, ma: string | null, trangThai } | null}
+ */
+export function phieuNhatCuaPhieuXuat(phieu) {
+  if (phieu?.loaiXuat !== LOAI_XUAT.CHUYEN_KHO || phieu.phieuNhatId == null) return null;
+  if (phieu.trangThaiPhieuNhat === "da_huy") return null;
+  return { id: phieu.phieuNhatId, ma: phieu.maPhieuNhat || null, trangThai: phieu.trangThaiPhieuNhat ?? null };
+}
+
+/**
  * Nút của phiếu theo loại, trạng thái và vai trò (khớp backend):
- * - `coHuy`: quản trị viên / quản lý kho, phiếu chưa xuất, chưa hủy (PUT /phieu-xuat-kho/{id}/cancel).
- * - `suaLo` + `nhanNutLo`: chuyển kho chọn lô khi Nháp (mọi vai trò kho); bán hàng chỉ quản lý sửa lô khi Nháp / Chờ xuất.
- * - `nutChinh`: "dongGoi" (bán hàng Nháp, có đơn) | "xuatKho" (bán hàng Chờ xuất) | "vanChuyen" (chuyển kho Nháp) | null.
+ * - `coHuy`: quản trị viên / quản lý kho, phiếu bán hàng chưa xuất, chưa hủy (PUT /phieu-xuat-kho/{id}/cancel). Phiếu
+ *   xuất chuyển kho không hủy riêng: hủy phiếu chuyển thì máy chủ hủy theo (máy chủ chặn hủy ở đây).
+ * - `suaLo` + `nhanNutLo`: chuyển kho chọn lô khi Nháp (mọi vai trò kho) — trừ khi có phiếu nhặt (`phieuNhat`, máy chủ
+ *   từ chối chọn lô tay); bán hàng chỉ quản lý sửa lô khi Nháp / Chờ xuất.
+ * - `nutChinh`: "dongGoi" (bán hàng Nháp, có đơn) | "xuatKho" (bán hàng Chờ xuất) | "phieuChuyen" (chuyển kho Nháp: mở
+ *   phiếu chuyển để xác nhận xuất) | null.
+ * - `phieuNhat`: phiếu nhặt của PX-CK (phieuNhatCuaPhieuXuat) hoặc null.
  * - `coIn`: mọi trạng thái trừ Đã hủy.
  */
 export function quyenPhieuXuat({ phieu, laQuanLy = false, laPos = false } = {}) {
   const tt = Number(phieu?.trangThai);
   const laCk = phieu?.loaiXuat === LOAI_XUAT.CHUYEN_KHO;
   const chuaXuat = tt === TRANG_THAI_PHIEU_XUAT.NHAP || tt === TRANG_THAI_PHIEU_XUAT.CHO_XUAT;
+  const phieuNhat = phieuNhatCuaPhieuXuat(phieu);
   let nutChinh = null;
   if (laCk) {
-    if (tt === TRANG_THAI_PHIEU_XUAT.NHAP) nutChinh = "vanChuyen";
+    if (tt === TRANG_THAI_PHIEU_XUAT.NHAP) nutChinh = "phieuChuyen";
   } else if (tt === TRANG_THAI_PHIEU_XUAT.NHAP) {
     if (phieu?.donBanHang?.id) nutChinh = "dongGoi";
   } else if (tt === TRANG_THAI_PHIEU_XUAT.CHO_XUAT) {
     nutChinh = "xuatKho";
   }
   return {
-    coHuy: Boolean(laQuanLy) && !laPos && PHIEU_XUAT_CHUA_XUAT.includes(tt),
-    suaLo: laCk ? tt === TRANG_THAI_PHIEU_XUAT.NHAP : Boolean(laQuanLy) && chuaXuat,
+    coHuy: Boolean(laQuanLy) && !laPos && !laCk && PHIEU_XUAT_CHUA_XUAT.includes(tt),
+    suaLo: laCk ? tt === TRANG_THAI_PHIEU_XUAT.NHAP && !phieuNhat : Boolean(laQuanLy) && chuaXuat,
     nhanNutLo: laCk ? "Chọn lô" : "Sửa lô",
     nutChinh,
+    phieuNhat,
     coIn: tt !== TRANG_THAI_PHIEU_XUAT.DA_HUY,
   };
 }
@@ -212,10 +233,16 @@ export function lyDoKhoaXuat({ laCk = false, soDong = 0, soThieu = 0 } = {}) {
   return null;
 }
 
-/** Câu của dòng thông báo thiếu lô (phiếu chưa xuất còn dòng chưa đủ lô). */
-export function cauThieuLo({ laCk = false, laQuanLy = false, soThieu = 0 } = {}) {
+/**
+ * Câu của dòng thông báo thiếu lô (phiếu chưa xuất còn dòng chưa đủ lô). PX-CK có phiếu nhặt (`phieuNhat`): lô do phiếu
+ * nhặt ghi, nên nhắc nhặt theo phiếu nhặt thay vì chọn lô (nơi gọi kèm liên kết mở phiếu nhặt).
+ */
+export function cauThieuLo({ laCk = false, laQuanLy = false, soThieu = 0, phieuNhat = null } = {}) {
   const n = soVN(soThieu);
-  if (laCk) return `Còn ${n} dòng chưa chọn đủ lô. Chọn lô xong mới xác nhận vận chuyển được.`;
+  if (laCk && phieuNhat) {
+    return `Còn ${n} dòng chưa đủ lô. Nhặt hàng theo phiếu nhặt${phieuNhat.ma ? ` ${phieuNhat.ma}` : ""}; hoàn tất nhặt thì lô tự ghi vào phiếu này.`;
+  }
+  if (laCk) return `Còn ${n} dòng chưa chọn đủ lô. Chọn lô xong mới xác nhận xuất ở phiếu chuyển kho được.`;
   return laQuanLy
     ? `Còn ${n} dòng chưa đủ lô nên chưa xuất kho được. Bấm Sửa lô ở dòng thiếu để chọn lô còn hàng.`
     : `Còn ${n} dòng chưa đủ lô nên chưa xuất kho được. Báo quản lý kho sửa lô cho các dòng thiếu.`;
