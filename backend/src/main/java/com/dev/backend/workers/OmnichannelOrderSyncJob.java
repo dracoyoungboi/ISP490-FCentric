@@ -49,6 +49,7 @@ public class OmnichannelOrderSyncJob {
     public static final String MA_KENH_SHOPIFY = "SHOPIFY";
     public static final String DEFAULT_API_VERSION = "2024-01";
     public static final String MA_KENH_LAZADA = "LAZADA";
+    public static final String MA_KENH_TIKTOK = "TIKTOK";
 
     KenhBanHangRepository kenhBanHangRepository;
     DonBanHangRepository donBanHangRepository;
