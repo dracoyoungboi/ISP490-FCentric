@@ -111,6 +111,10 @@ public class TongQuanAdminRepository {
     public record HangCanBoSungDong(Integer bienTheId, String maSku, String tenSanPham, String tenMau,
                                     String tenKichCo, Integer khoId, BigDecimal khaDung, int nguong) {}
 
+    /** Một mã cần bổ sung kèm sản phẩm của nó, để gom theo (sản phẩm, kho). */
+    public record HangCanBoSungNhomDong(Integer sanPhamId, Integer bienTheId, String maSku, String tenSanPham,
+                                        String tenMau, String tenKichCo, Integer khoId, BigDecimal khaDung, int nguong) {}
+
     public record HoatDongDong(String loai, Integer id, String maChungTu, LocalDateTime thoiGian, String tenKho,
                                String nguoiThucHien, BigDecimal soLuong, String doiTac, BigDecimal soTien) {}
 
@@ -580,6 +584,46 @@ public class TongQuanAdminRepository {
         return jdbc.query(sql, p, (rs, i) -> new HangCanBoSungDong(rs.getInt("bien_the_id"), rs.getString("ma_sku"),
                 rs.getString("ten_san_pham"), rs.getString("ten_mau"), rs.getString("ten_size"), rs.getInt("kho_id"),
                 bd(rs, "kha_dung"), rs.getInt("nguong")));
+    }
+
+    /*
+     * Cùng điều kiện với SQL_HANG_CAN_BO_SUNG nhưng lấy theo nhóm (sản phẩm, kho): chọn :soNhom nhóm có mã tệ nhất
+     * (khả dụng / ngưỡng nhỏ nhất) rồi trả MỌI mã cần bổ sung của các nhóm đó, để nhóm không thiếu mã.
+     * Nối sau CTE_TON_THEO_CAP (bắt đầu bằng dấu phẩy vì nối tiếp danh sách WITH).
+     */
+    static final String SQL_HANG_CAN_BO_SUNG_THEO_NHOM = """
+            , can AS (
+                SELECT l.bien_the_id, l.kho_id, l.kha_dung, l.nguong, bt.san_pham_id
+                FROM loai l
+                JOIN bien_the_san_pham bt ON bt.id = l.bien_the_id
+                WHERE l.dang_ban = 1 AND l.kha_dung <= l.nguong
+                  AND (:khoId IS NULL OR l.kho_id = :khoId)
+            ),
+            nhom AS (
+                SELECT san_pham_id, kho_id, MIN(kha_dung / nguong) AS ti_le, MIN(kha_dung) AS kha_dung_min
+                FROM can
+                GROUP BY san_pham_id, kho_id
+                ORDER BY ti_le, kha_dung_min, kho_id, san_pham_id
+                LIMIT :soNhom
+            )
+            SELECT c.san_pham_id, c.bien_the_id, bt.ma_sku, sp.ten_san_pham, ms.ten_mau, sz.ten_size,
+                   c.kho_id, c.kha_dung, c.nguong
+            FROM can c
+            JOIN nhom n               ON n.san_pham_id = c.san_pham_id AND n.kho_id = c.kho_id
+            JOIN bien_the_san_pham bt ON bt.id = c.bien_the_id
+            JOIN san_pham_quan_ao sp  ON sp.id = c.san_pham_id
+            LEFT JOIN mau_sac ms      ON ms.id = bt.mau_sac_id
+            LEFT JOIN size sz         ON sz.id = bt.size_id
+            ORDER BY n.ti_le, n.kha_dung_min, n.kho_id, n.san_pham_id, c.kha_dung / c.nguong, c.kha_dung, c.bien_the_id
+            """;
+
+    /** Các mã Hết hàng / Thiếu hàng của :soNhom nhóm (sản phẩm, kho) tệ nhất, nhóm tệ nhất trước, trong nhóm mã tệ nhất trước. */
+    public List<HangCanBoSungNhomDong> hangCanBoSungTheoNhom(Integer khoId, int nguongMacDinh, int soNhom) {
+        String sql = CTE_TON_THEO_CAP + SQL_HANG_CAN_BO_SUNG_THEO_NHOM;
+        MapSqlParameterSource p = thamSo(khoId).addValue("nguongMacDinh", nguongMacDinh).addValue("soNhom", soNhom);
+        return jdbc.query(sql, p, (rs, i) -> new HangCanBoSungNhomDong(rs.getInt("san_pham_id"), rs.getInt("bien_the_id"),
+                rs.getString("ma_sku"), rs.getString("ten_san_pham"), rs.getString("ten_mau"), rs.getString("ten_size"),
+                rs.getInt("kho_id"), bd(rs, "kha_dung"), rs.getInt("nguong")));
     }
 
     /* ======================================================================

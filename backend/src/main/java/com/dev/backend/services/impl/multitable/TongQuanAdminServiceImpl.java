@@ -13,6 +13,7 @@ import com.dev.backend.dto.response.TongQuanAdminResponse.Kenh;
 import com.dev.backend.dto.response.TongQuanAdminResponse.Kho;
 import com.dev.backend.dto.response.TongQuanAdminResponse.LoiDongBoKenh;
 import com.dev.backend.dto.response.TongQuanAdminResponse.NhapXuat;
+import com.dev.backend.dto.response.TongQuanAdminResponse.NhomBoSung;
 import com.dev.backend.dto.response.TongQuanAdminResponse.SanPhamBanChay;
 import com.dev.backend.dto.response.TongQuanAdminResponse.SoDonNgay;
 import com.dev.backend.dto.response.TongQuanAdminResponse.TonKho;
@@ -23,7 +24,7 @@ import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.TongQuanAdminRepository;
 import com.dev.backend.repository.TongQuanAdminRepository.DoanhThuKhoDong;
 import com.dev.backend.repository.TongQuanAdminRepository.DoanhThuNgay;
-import com.dev.backend.repository.TongQuanAdminRepository.HangCanBoSungDong;
+import com.dev.backend.repository.TongQuanAdminRepository.HangCanBoSungNhomDong;
 import com.dev.backend.repository.TongQuanAdminRepository.HomNayDong;
 import com.dev.backend.repository.TongQuanAdminRepository.KhoDong;
 import com.dev.backend.repository.TongQuanAdminRepository.NhapXuatNgay;
@@ -74,7 +75,8 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
     public static final int SO_NGAY_CHAM_BAN_MAC_DINH = 60;
 
     private static final int SO_SAN_PHAM_BAN_CHAY = 5;
-    private static final int SO_DONG_BO_SUNG = 7;
+    /** Số nhóm (sản phẩm, kho) cần bổ sung hiện ở Tổng quan; xem hết ở tab Cần bổ sung của Báo cáo tồn kho. */
+    static final int SO_NHOM_BO_SUNG = 3;
     private static final int SO_HOAT_DONG = 8;
     private static final int SO_NGAY_DON_MOI = 14;
 
@@ -416,14 +418,20 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
     HangCanBoSung tinhHangCanBoSung(Integer khoId, int nguong, TonKhoTongHopDong ton,
                                     Map<Integer, KhoDong> khoTheoId) {
         KhoDong khoTong = khoTheoId.values().stream().filter(KhoDong::laKhoTong).findFirst().orElse(null);
-        List<HangCanBoSungDong> dong = repo.hangCanBoSung(khoId, nguong, SO_DONG_BO_SUNG);
+        List<HangCanBoSungNhomDong> dong = repo.hangCanBoSungTheoNhom(khoId, nguong, SO_NHOM_BO_SUNG);
         Map<Integer, KhaDungChuyen> khoTongCoTheChuyen = khoTong == null ? Map.of()
                 : khaDungChuyenKhoService.theoBienThe(khoTong.id(), dong.stream()
                         .filter(r -> !r.khoId().equals(khoTong.id()))
-                        .map(HangCanBoSungDong::bienTheId)
+                        .map(HangCanBoSungNhomDong::bienTheId)
+                        .distinct()
                         .toList());
         List<DongBoSung> ketQua = new ArrayList<>();
-        for (HangCanBoSungDong r : dong) {
+        // Truy vấn đã xếp các mã của một nhóm liền nhau, nhóm tệ nhất trước: gom theo thứ tự gặp
+        Map<String, List<DongBoSung>> theoNhom = new LinkedHashMap<>();
+        Map<String, HangCanBoSungNhomDong> dauNhom = new HashMap<>();
+        // Đếm Hết hàng trên số thập phân gốc như SQL (khả dụng 0,4 là Thiếu hàng), không trên số đã làm tròn
+        Map<String, Integer> soHetTheoNhom = new HashMap<>();
+        for (HangCanBoSungNhomDong r : dong) {
             KhoDong kho = khoTheoId.get(r.khoId());
             boolean laKhoTong = kho != null && kho.laKhoTong();
             long khaDung = so(r.khaDung());
@@ -433,12 +441,25 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
             Long choXuatKhoTong = kt == null ? null : so(kt.choXuat());
             long canBoSung = soLuongDeXuat(khaDung, r.nguong());
             String deXuat = deXuat(laKhoTong, khaDungKhoTong, canBoSung);
-            ketQua.add(new DongBoSung(r.bienTheId(), r.maSku(), r.tenSanPham(), r.tenMau(), r.tenKichCo(),
+            DongBoSung d = new DongBoSung(r.bienTheId(), r.maSku(), r.tenSanPham(), r.tenMau(), r.tenKichCo(),
                     r.khoId(), kho != null ? kho.tenKho() : null, laKhoTong, khaDung, r.nguong(),
-                    khaDungKhoTong, choXuatKhoTong, deXuat, canBoSung));
+                    khaDungKhoTong, choXuatKhoTong, deXuat, canBoSung);
+            ketQua.add(d);
+            String khoa = r.sanPhamId() + "-" + r.khoId();
+            theoNhom.computeIfAbsent(khoa, k -> new ArrayList<>()).add(d);
+            dauNhom.putIfAbsent(khoa, r);
+            if (r.khaDung() == null || r.khaDung().signum() <= 0) soHetTheoNhom.merge(khoa, 1, Integer::sum);
         }
+        List<NhomBoSung> nhom = new ArrayList<>();
+        theoNhom.forEach((khoa, ds) -> {
+            HangCanBoSungNhomDong r = dauNhom.get(khoa);
+            DongBoSung dau = ds.get(0);
+            int soHet = soHetTheoNhom.getOrDefault(khoa, 0);
+            nhom.add(new NhomBoSung(r.sanPhamId(), r.tenSanPham(), r.khoId(), dau.tenKho(), dau.laKhoTong(),
+                    soHet, ds.size() - soHet, List.copyOf(ds)));
+        });
         long tongSo = ton != null ? ton.hetHang() + ton.thieuHang() : ketQua.size();
-        return new HangCanBoSung(tongSo, khoTong != null, ketQua);
+        return new HangCanBoSung(tongSo, khoTong != null, ketQua, nhom);
     }
 
     /** Đưa khả dụng về gấp đôi ngưỡng tối thiểu (tạm thời, khi chưa có mức tồn tối đa cho từng mã). */

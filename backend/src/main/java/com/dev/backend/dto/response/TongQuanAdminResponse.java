@@ -178,7 +178,18 @@ public record TongQuanAdminResponse(
                                  /** Số ngày của kỳ, để tính lượng bán trung bình mỗi ngày. */
                                  int soNgay) {}
 
-    public record HangCanBoSung(long tongSo, boolean coKhoTong, List<DongBoSung> dong) {}
+    /**
+     * tongSo: số mã Hết hàng + Thiếu hàng (cả hệ thống hoặc kho đang xem). nhom: vài nhóm (sản phẩm, kho) tệ nhất, mỗi nhóm
+     * đủ các mã cần bổ sung của nó. dong: các mã của những nhóm đó xếp phẳng (giữ cho bản giao diện cũ).
+     */
+    public record HangCanBoSung(long tongSo, boolean coKhoTong, List<DongBoSung> dong, List<NhomBoSung> nhom) {}
+
+    /**
+     * Các mã cần bổ sung của cùng một sản phẩm tại cùng một kho, mã tệ nhất trước. soHet / soSapHet: số mã khả dụng ≤ 0 /
+     * còn khả dụng nhưng ≤ ngưỡng.
+     */
+    public record NhomBoSung(Integer sanPhamId, String tenSanPham, Integer khoId, String tenKho, boolean laKhoTong,
+                             int soHet, int soSapHet, List<DongBoSung> dong) {}
 
     /**
      * deXuat: "chuyen_kho" (chuyển từ Kho tổng) hoặc "yeu_cau_nhap" (nhập về Kho tổng từ nhà cung cấp).
