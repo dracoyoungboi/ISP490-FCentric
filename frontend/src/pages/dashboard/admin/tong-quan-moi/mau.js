@@ -8,5 +8,6 @@ export const MAU2 = {
   luoi: "#eef1f5",
   truc: "#cbd5e1",
   chu: "#64748b",
-  tinhTrang: { hetHang: "#d92d20", thieuHang: "#f38744", binhThuong: "#d0d5dd", duHang: "#6250d6" },
+  // Bình thường và Dư hàng xám như Tổng quan của quản lý kho (vai-tro/khung.jsx), chỉ hai mức cần làm nổi màu (chốt 29/10/2026)
+  tinhTrang: { hetHang: "#d92d20", thieuHang: "#f38744", binhThuong: "#dfe4ea", duHang: "#a6b0bf" },
 };
