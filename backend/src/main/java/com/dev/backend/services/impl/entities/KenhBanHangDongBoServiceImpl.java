@@ -29,6 +29,7 @@ import com.dev.backend.repository.AnhQuanAoRepository;
 import com.dev.backend.repository.BienTheSanPhamRepository;
 import com.dev.backend.repository.KenhBanHangRepository;
 import com.dev.backend.repository.KhoRepository;
+import com.dev.backend.repository.DonBanHangRepository;
 import com.dev.backend.repository.TepTinRepository;
 import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.repository.TonKhoTheoLoRepository;
@@ -107,6 +108,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     TikTokShopClient tiktokShopClient;
+    @lombok.experimental.NonFinal
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    DonBanHangRepository donBanHangRepository;
 
     public TikTokShopClient getTikTokShopClient() {
         if (tiktokShopClient == null) {
@@ -2223,6 +2227,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         // Job đẩy tồn (JOB-03) và lấy đơn (JOB-01) cùng chạy theo OMNI_SYNC_INTERVAL_MINS
         int chuKyPhut = omnichannelOrderSyncJob.getChuKyPhut();
 
+        Long soYeuCauHuy = null;
+        if (OmnichannelOrderSyncJob.MA_KENH_TIKTOK.equalsIgnoreCase(kenh.getMaKenh()) && donBanHangRepository != null) {
+            soYeuCauHuy = donBanHangRepository.countByKenhIdAndGhiChuTagAndTrangThaiIn(
+                    kenh.getId(), "[KHÁCH YÊU CẦU HỦY]", List.of(0, 1, 7, 8));
+        }
+
         return DongBoTongQuanDto.builder()
                 .tongSkuSan(tong)
                 .daLienKet(daLienKet)
@@ -2233,6 +2243,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .chuKyLayDonPhut(chuKyPhut)
                 .lanDayTonCuoi(lanDayTonCuoi.get(kenh.getId()))
                 .lanLayDonCuoi(omnichannelOrderSyncJob.getLanLayDonCuoi(kenh.getId()))
+                .soYeuCauHuy(soYeuCauHuy)
                 .build();
     }
 

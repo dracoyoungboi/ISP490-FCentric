@@ -111,4 +111,16 @@ public interface DonBanHangRepository
     List<DonBanHang> findByIdInAndKhoXuat_Id(List<Integer> ids, Integer khoId);
     List<DonBanHang> findByKhachHangIdOrderByNgayDatHangDesc(Integer khachHangId);
     List<DonBanHang> findByDanhSachNhatHang_Id(Integer danhSachNhatHangId);
+
+    @Query("""
+        SELECT COUNT(d)
+        FROM DonBanHang d
+        WHERE d.kenhBanHang.id = :kenhId
+          AND d.ghiChu LIKE %:tag%
+          AND d.trangThai IN :trangThais
+    """)
+    long countByKenhIdAndGhiChuTagAndTrangThaiIn(
+            @Param("kenhId") Integer kenhId,
+            @Param("tag") String tag,
+            @Param("trangThais") List<Integer> trangThais);
 }

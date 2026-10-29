@@ -25,5 +25,7 @@ public class DongBoTongQuanDto {
     Instant lanDayTonCuoi;
     /** Lần lấy đơn từ sàn thành công gần nhất; null nếu chưa lấy được lần nào từ khi máy chủ khởi động */
     Instant lanLayDonCuoi;
+    /** Số đơn khách yêu cầu hủy chưa xuất kho (đặc thù TikTok Shop) */
+    Long soYeuCauHuy;
 }
 
