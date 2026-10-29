@@ -132,7 +132,7 @@ export default function BackofficeHeader() {
         </div>
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-          {/* Chuông thông báo: chỉ giao diện, chưa nối API backend (xem thongBaoService.js) */}
+          {/* Chuông thông báo của người đang đăng nhập (API /api/v1/thong-bao, xem thongBaoService.js) */}
           <NotificationBell />
 
           <DropdownMenu>
