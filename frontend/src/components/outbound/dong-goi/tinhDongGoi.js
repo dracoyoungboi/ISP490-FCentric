@@ -312,3 +312,62 @@ export function resolveProofMediaUrl(url) {
   }
   return url;
 }
+
+/** Phần tên tệp (sau mã đơn) của từng loại bằng chứng đóng gói khi tải xuống. */
+export const TEN_TEP_LOAI = Object.freeze({
+  ANH_HANG_TRONG_HOP: "hang-trong-hop",
+  ANH_NIEM_PHONG_TEM_VC: "niem-phong-tem-van-chuyen",
+  VIDEO_DONG_GOI: "video-dong-goi",
+});
+
+const DUOI_THEO_LOAI = Object.freeze({
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "video/webm": "webm",
+  "video/mp4": "mp4",
+  "video/quicktime": "mov",
+});
+/** Đuôi nhận từ URL khi loại nội dung không rõ: chỉ đuôi ảnh / video (không ra tệp ".html", ".exe"…). */
+const DUOI_HOP_LE = new Set([...Object.values(DUOI_THEO_LOAI), "jpeg"]);
+
+/** Bỏ dấu tiếng Việt, ký tự ngoài chữ / số / "-" / "." thành "-", gọn "-" thừa: "Đơn #12/A" → "Don-12-A". */
+function khongDau(chu) {
+  return String(chu ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .replace(/[^A-Za-z0-9.-]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^[-.]+|[-.]+$/g, "");
+}
+
+/**
+ * Tên tệp khi tải bằng chứng xuống: các phần (`phan`, vd. ["BBGN-20261029-001", "anh-1"]) bỏ dấu rồi nối bằng "_";
+ * đuôi theo loại nội dung máy chủ trả (`loaiNoiDung`), không nhận ra thì theo đuôi của `url`; không có phần nào thì
+ * "bang-chung". Vd. "BBGN-20261029-001_anh-1.jpg", "SHP-1021_video-dong-goi.webm".
+ */
+export function tenTepTaiXuong(phan, tuyChon) {
+  const { loaiNoiDung, url } = tuyChon ?? {};
+  const goc = (Array.isArray(phan) ? phan : [phan])
+    .map(khongDau)
+    .filter(Boolean)
+    .join("_")
+    .slice(0, 120)
+    .replace(/[-_.]+$/, "") || "bang-chung";
+  const loai = String(loaiNoiDung ?? "").split(";")[0].trim().toLowerCase();
+  const duoi = Object.hasOwn(DUOI_THEO_LOAI, loai) ? DUOI_THEO_LOAI[loai] : duoiCuaUrl(url);
+  return duoi ? `${goc}.${duoi}` : goc;
+}
+
+/** Đuôi ảnh / video trong đường dẫn của URL đầy đủ ("…/abc.JPG?x=1" → "jpg"); không có, lạ hoặc URL hỏng thì undefined. */
+function duoiCuaUrl(url) {
+  try {
+    const duoi = /\.([a-z0-9]{2,5})$/i.exec(new URL(url).pathname)?.[1]?.toLowerCase();
+    return DUOI_HOP_LE.has(duoi) ? duoi : undefined;
+  } catch {
+    return undefined;
+  }
+}

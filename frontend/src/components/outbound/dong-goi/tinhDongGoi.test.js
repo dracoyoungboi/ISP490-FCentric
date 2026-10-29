@@ -15,10 +15,13 @@ import {
   giayTuDung,
   gioiHanVideo,
   khoangVideoNgan,
+  LOAI_BANG_CHUNG,
   lyDoKhoaHoanTat,
   oBangChung,
   phanTramTaiLen,
   resolveProofMediaUrl,
+  TEN_TEP_LOAI,
+  tenTepTaiXuong,
   thoiLuongGuiLen,
   thoiLuongHopLe,
   videoQuaLon,
@@ -208,6 +211,28 @@ test("câu phụ phản hồi quét, đơn cùng phiếu nhặt, thông tin tệ
   assert.equal(resolveProofMediaUrl("packing-proofs/1/a.jpg"), "https://minio.slmglobal.vn/fashion/packing-proofs/1/a.jpg");
   assert.equal(resolveProofMediaUrl("https://x/y"), "https://x/y");
   assert.equal(resolveProofMediaUrl(null), "");
+});
+
+test("tenTepTaiXuong: bỏ dấu, nối bằng _, đuôi theo loại nội dung rồi theo URL", () => {
+  const url = "https://minio.slmglobal.vn/fashion/bien-ban/9/abc.JPG?v=1";
+  assert.equal(tenTepTaiXuong(["BBGN-20261029-001", "anh-1"], { loaiNoiDung: "image/jpeg", url }), "BBGN-20261029-001_anh-1.jpg");
+  assert.equal(tenTepTaiXuong(["SHP-1021", TEN_TEP_LOAI.VIDEO_DONG_GOI], { loaiNoiDung: "video/webm;codecs=vp9" }), "SHP-1021_video-dong-goi.webm");
+  assert.equal(tenTepTaiXuong(["SHP-1021", TEN_TEP_LOAI.ANH_NIEM_PHONG_TEM_VC], { loaiNoiDung: "application/octet-stream", url }), "SHP-1021_niem-phong-tem-van-chuyen.jpg");
+  // Dấu tiếng Việt, ký tự lạ, phần rỗng
+  assert.equal(tenTepTaiXuong(["Đơn #12/A", "", null, "Ảnh  hàng"], {}), "Don-12-A_Anh-hang");
+  // Không có phần nào, URL không có đuôi / hỏng
+  assert.equal(tenTepTaiXuong([], { url: "https://minio.slmglobal.vn/fashion/abc" }), "bang-chung");
+  assert.equal(tenTepTaiXuong(undefined, { url: "khong-phai-url.png" }), "bang-chung");
+  assert.equal(tenTepTaiXuong("x".repeat(200), { loaiNoiDung: "image/png" }).length, 124);
+  // Chữ dạng NFD, loại nội dung chữ hoa, URL có "#", đuôi lạ trong URL không nhận, tùy chọn null
+  assert.equal(tenTepTaiXuong(["Ảnh".normalize("NFD")], { loaiNoiDung: " IMAGE/PNG " }), "Anh.png");
+  assert.equal(tenTepTaiXuong(["a"], { url: "https://x.vn/b/c.webm#t=1" }), "a.webm");
+  assert.equal(tenTepTaiXuong(["a"], { loaiNoiDung: "application/octet-stream", url: "https://x.vn/c.html" }), "a");
+  assert.equal(tenTepTaiXuong(["a"], { loaiNoiDung: "constructor" }), "a");
+  assert.equal(tenTepTaiXuong(["a"], null), "a");
+  // Mọi loại bằng chứng đều có phần tên tệp riêng
+  for (const loai of Object.values(LOAI_BANG_CHUNG)) assert.ok(TEN_TEP_LOAI[loai], loai);
+  assert.equal(new Set(Object.values(TEN_TEP_LOAI)).size, Object.keys(TEN_TEP_LOAI).length);
 });
 
 test("dongDongGoi: mã màu, ảnh, id sản phẩm của máy chủ mới; máy chủ cũ để trống", () => {
