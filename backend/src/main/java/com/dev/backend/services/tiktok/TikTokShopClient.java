@@ -5,6 +5,9 @@ import com.dev.backend.dto.response.customize.TikTokAuthorizedShopsResponse;
 import com.dev.backend.dto.response.customize.TikTokShopDto;
 import com.dev.backend.dto.response.customize.TikTokWarehouseDto;
 import com.dev.backend.dto.response.customize.TikTokWarehousesResponse;
+import com.dev.backend.dto.response.customize.TikTokProductDto;
+import com.dev.backend.dto.response.customize.TikTokProductSearchResponse;
+import com.dev.backend.dto.response.customize.TikTokSkuDto;
 import com.dev.backend.exception.customize.LoiCoMaException;
 import com.dev.backend.exception.customize.MaLoi;
 import com.dev.backend.utils.TikTokShopSigner;
@@ -195,6 +198,84 @@ public class TikTokShopClient {
                 list.add(dto);
             }
             response.setWarehouses(list);
+        }
+        return response;
+    }
+
+    /**
+     * Tìm kiếm danh mục sản phẩm và SKU từ TikTok Shop Open Platform (v202309).
+     * Endpoint: POST /product/202309/products/search
+     * Query: app_key, timestamp, shop_cipher, sign, page_size, page_token (nếu có)
+     * Header: x-tts-access-token, Content-Type: application/json
+     * Body: JSON payload tiêu chí lọc (vd: {"status": "ACTIVATE"} hoặc rỗng {})
+     */
+    public TikTokProductSearchResponse searchProducts(String appKey, String appSecret, String accessToken,
+                                                      String shopCipher, int pageSize, String pageToken) {
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new IllegalArgumentException("Access Token không được để trống khi tìm kiếm sản phẩm TikTok Shop");
+        }
+        if (shopCipher == null || shopCipher.isBlank()) {
+            throw new IllegalArgumentException("Shop Cipher không được để trống khi tìm kiếm sản phẩm TikTok Shop");
+        }
+
+        Map<String, String> queryParams = new HashMap<>();
+        int validPageSize = Math.max(1, Math.min(pageSize, 100)); // TikTok tối đa 100 sản phẩm / trang
+        queryParams.put("page_size", String.valueOf(validPageSize));
+        if (pageToken != null && !pageToken.isBlank()) {
+            queryParams.put("page_token", pageToken.trim());
+        }
+
+        String apiPath = TikTokShopConstants.PATH_PRODUCTS_SEARCH;
+        String body = "{}"; // JSON rỗng để lấy toàn bộ danh mục
+
+        String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, queryParams, body, appKey, appSecret, shopCipher);
+        JsonNode root = executePost(fullSignedUrl, body, accessToken);
+
+        TikTokProductSearchResponse response = new TikTokProductSearchResponse();
+        response.setCode(root.path("code").asInt(0));
+        response.setMessage(root.path("message").asText(""));
+        response.setRequestId(root.path("request_id").asText(""));
+
+        JsonNode dataNode = root.path("data");
+        if (dataNode.isObject()) {
+            TikTokProductSearchResponse.ProductSearchData data = new TikTokProductSearchResponse.ProductSearchData();
+            data.setNextPageToken(dataNode.path("next_page_token").asText(null));
+            data.setTotalCount(dataNode.path("total_count").asInt(0));
+
+            JsonNode productsNode = dataNode.path("products");
+            if (productsNode.isArray()) {
+                java.util.List<TikTokProductDto> prodList = new java.util.ArrayList<>();
+                for (JsonNode p : productsNode) {
+                    TikTokProductDto prodDto = new TikTokProductDto();
+                    prodDto.setId(p.path("id").asText(null));
+                    prodDto.setTitle(p.path("title").asText(null));
+                    prodDto.setStatus(p.path("status").asText(null));
+
+                    JsonNode skusNode = p.path("skus");
+                    if (skusNode.isArray()) {
+                        java.util.List<TikTokSkuDto> skuList = new java.util.ArrayList<>();
+                        for (JsonNode skuItem : skusNode) {
+                            TikTokSkuDto skuDto = new TikTokSkuDto();
+                            skuDto.setId(skuItem.path("id").asText(null));
+                            skuDto.setSellerSku(skuItem.path("seller_sku").asText(null));
+
+                            JsonNode priceNode = skuItem.path("price");
+                            if (priceNode.isObject()) {
+                                TikTokSkuDto.Price price = new TikTokSkuDto.Price(
+                                        priceNode.path("currency").asText(null),
+                                        priceNode.path("tax_exclusive_price").asText(null)
+                                );
+                                skuDto.setPrice(price);
+                            }
+                            skuList.add(skuDto);
+                        }
+                        prodDto.setSkus(skuList);
+                    }
+                    prodList.add(prodDto);
+                }
+                data.setProducts(prodList);
+            }
+            response.setData(data);
         }
         return response;
     }
