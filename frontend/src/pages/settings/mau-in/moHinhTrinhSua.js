@@ -192,18 +192,32 @@ function itemsRows(section, config, compact, docNoun) {
 
 function summaryRows(section, config) {
     const sectionConfig = config.sections?.[section.key] ?? {};
-    const rows = section.rows.map((row) => {
+    const isOn = (row) => Boolean(row.essential) || sectionConfig[row.key] !== false;
+    const labelOf = (row) => getCustomLabel(config, labelKey(section.key, row.key)) ?? row.label;
+    const rows = section.rows.map((row, index) => {
         const sameAs = row.hideWhenSameAs ? section.rows.find((other) => other.modelPath === row.hideWhenSameAs) : null;
+        // Mục in trong ngoặc sau nhãn dòng khác (thuế suất sau "Thuế GTGT"): dòng đó tắt thì mục này không in
+        const host = row.attachTo ? section.rows.find((other) => other.key === row.attachTo) : null;
+        // Dòng chú thích chỉ in khi còn dòng con ngay sau nó đang bật
+        const subs = [];
+        for (let next = index + 1; row.note && section.rows[next]?.sub; next += 1) subs.push(section.rows[next]);
+        const needed = host ? [host] : subs;
+        const inactive = needed.length > 0 && !needed.some(isOn);
         return makeRow(config, {
             id: labelKey(section.key, row.key),
             path: `sections.${section.key}.${row.key}`,
             defaultLabel: row.label,
-            labelKeyValue: labelKey(section.key, row.key),
+            labelKeyValue: host ? null : labelKey(section.key, row.key),
             locked: Boolean(row.essential),
-            hint:
-                row.hint ??
-                (sameAs ? `Tự ẩn khi bằng ${sameAs.label.toLocaleLowerCase("vi")}` : row.hideWhenZero ? "Tự ẩn khi bằng 0" : null),
+            hint: host
+                ? `In trong ngoặc sau nhãn ${labelOf(host)}`
+                : row.hint ??
+                  (sameAs ? `Tự ẩn khi bằng ${sameAs.label.toLocaleLowerCase("vi")}` : row.hideWhenZero ? "Tự ẩn khi bằng 0" : null),
             on: sectionConfig[row.key] !== false,
+            inactive,
+            inactiveHint: `Chỉ in khi bật ${needed.map(labelOf).join(" hoặc ")}`,
+            // Nhãn chú thích có dấu phẩy, dấu hai chấm — tên ngắn để câu tóm tắt lịch sử không rối
+            summaryName: row.note ? () => "dòng chú thích thuế GTGT" : undefined,
         });
     });
     if (section.words) {
