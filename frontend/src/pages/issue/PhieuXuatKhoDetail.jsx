@@ -51,9 +51,11 @@ const locCauMayChu = (cau) => (/^\s*không tìm thấy/i.test(cau) ? null : cau)
 
 /**
  * Chi tiết phiếu xuất kho (`/goods-issues/:id`) · bản "một khối" (21/10/2026): đầu khối (mã, trạng thái, In, ⋯, một nút
- * chính), tiến trình 3 bước (bán hàng: Nhặt → Đóng gói → Xuất kho; chuyển kho: Tạo → Chọn lô → Xác nhận vận chuyển;
+ * chính), tiến trình 3 bước (bán hàng: Nhặt → Đóng gói → Xuất kho; chuyển kho: Tạo → Chọn lô → Xác nhận xuất;
  * phiếu POS không có), dòng thông báo thiếu lô / đã hủy, bảng sản phẩm có lô ngay trên từng dòng, cột thuộc tính.
- * Sau xuất kho / xác nhận vận chuyển / hủy: ở lại trang, tải lại ngầm, thông báo nhanh.
+ * Phiếu xuất chuyển kho (PX-CK) chỉ chọn lô ở đây; xác nhận xuất (người vận chuyển, giấy đi đường) và hủy làm ở màn phiếu
+ * chuyển kho (đặc tả BA), nút chính mở phiếu chuyển đó.
+ * Sau xuất kho / hủy: ở lại trang, tải lại ngầm, thông báo nhanh.
  * Đổi id cùng đường dẫn (lùi / tiến lịch sử) thì dựng lại màn (`key`): không giữ từ khóa, bộ lọc, hộp đang mở của phiếu trước.
  */
 export default function PhieuXuatKhoDetail() {
@@ -70,7 +72,7 @@ function ManPhieuXuatKho({ id }) {
   const [loiTai, setLoiTai] = useState(null);
   // Mốc dữ liệu trên màn được tải (cho useTaiLaiKhiQuayLai, không tải lại ngay sau thao tác)
   const [capNhatLuc, setCapNhatLuc] = useState(null);
-  // Hộp đang mở: "xuat" (xuất kho bán hàng) | "vanChuyen" (chuyển kho) | "huy"
+  // Hộp đang mở: "xuat" (xuất kho bán hàng) | "bangChung" | "huy"
   const [hop, setHop] = useState(null);
   const [dangXuLy, setDangXuLy] = useState(false);
   // Hết thời hạn mà máy chủ có thể vẫn đang làm: khóa nút thao tác tới khi lời gọi gốc kết thúc (khiGocKetThuc)
@@ -201,7 +203,8 @@ function ManPhieuXuatKho({ id }) {
   const lyDoKhoa = lyDoKhoaXuat({ laCk, soDong, soThieu });
   const statusInfo = getPhieuXuatKhoStatus(phieu.trangThai);
   const loaiNhan = laCk ? "Chuyển kho nội bộ" : laPos ? "Xuất bán tại quầy" : "Xuất bán hàng";
-  const moTaBang = laCk ? "Lô chọn ở từng dòng" : laPos ? "Lô theo nhập trước lấy trước" : "Lô lấy từ phiếu nhặt hàng";
+  // PX-CK có phiếu nhặt: lô do phiếu nhặt ghi (không chọn tay); PX-CK cũ không có phiếu nhặt: chọn lô ở từng dòng
+  const moTaBang = laCk && !quyen.phieuNhat ? "Lô chọn ở từng dòng" : laPos ? "Lô theo nhập trước lấy trước" : "Lô lấy từ phiếu nhặt hàng";
 
   // ── Thao tác ────────────────────────────────────────────────────────────
   const dongHop = (mo) => {
@@ -220,26 +223,6 @@ function ManPhieuXuatKho({ id }) {
       setChoGoc(false);
       taiPhieu({ ngam: true });
     });
-  };
-
-  // Chuyển kho: xác nhận vận chuyển (PUT /{id}/complete) — trừ tồn kho nguồn, đưa hàng vào kho Trung chuyển
-  const xacNhanVanChuyen = async () => {
-    setDangXuLy(true);
-    try {
-      await chayCoThoiHan(() => phieuXuatKhoService.complete(phieu.id));
-      toast.success(`Đã xác nhận vận chuyển ${phieu.soPhieuXuat}`, {
-        description: ghiChu.maPhieuChuyen ? `Phiếu chuyển ${ghiChu.maPhieuChuyen} chuyển sang Đang vận chuyển` : undefined,
-      });
-    } catch (e) {
-      if (laLoiHetThoiHan(e)) baoHetThoiHan(e);
-      else toast.error(getApiErrorMessage(e, "Không thể thực hiện thao tác"));
-    } finally {
-      // Thành công hay lỗi (kể cả hết thời hạn) đều đóng hộp (như bản cũ) và tải lại ngầm: lỗi thường do phiếu vừa đổi
-      // ở nơi khác; hết thời hạn thì có thể máy chủ vẫn đã làm xong. Màn đã gỡ thì không tải lại.
-      setHop(null);
-      setDangXuLy(false);
-      if (!daGoRef.current) taiPhieu({ ngam: true });
-    }
   };
 
   // Bán hàng: xác nhận xuất kho kèm thông tin giao vận (POST /{id}/xac-nhan-xuat-kho, SRS 6.3.2).
@@ -267,8 +250,7 @@ function ManPhieuXuatKho({ id }) {
     }
   };
 
-  // Hủy phiếu (cả bán hàng và chuyển kho): PUT /phieu-xuat-kho/{id}/cancel. Bản cũ gọi nhầm
-  // PUT /phieu-chuyen-kho/{id}/cancel cho phiếu chuyển kho (API của phiếu chuyển gốc) nên luôn lỗi.
+  // Hủy phiếu bán hàng: PUT /phieu-xuat-kho/{id}/cancel (phiếu xuất chuyển kho hủy theo phiếu chuyển, không có nút ở đây)
   const huyPhieu = async () => {
     setDangXuLy(true);
     try {
@@ -293,52 +275,60 @@ function ManPhieuXuatKho({ id }) {
     bang.datLoc("thieuLo");
   };
 
-  const nutChinh = khoaKhiChoGoc(
-    quyen.nutChinh === "dongGoi"
+  const idPhieuChuyen = phieu.phieuChuyenKhoGocId;
+  let nutChinhGoc = null;
+  if (quyen.nutChinh === "dongGoi") {
+    nutChinhGoc = {
+      ma: "dongGoi",
+      nhan: "Đóng gói",
+      icon: PackageCheck,
+      dieuHuong: true,
+      onClick: () => navigate(`/goods-issues/packing/${phieu.donBanHang.id}`),
+    };
+  } else if (quyen.nutChinh === "phieuChuyen") {
+    // Xác nhận xuất (người vận chuyển, giấy đi đường XKNB) làm ở màn phiếu chuyển kho
+    nutChinhGoc = idPhieuChuyen != null
       ? {
-        ma: "dongGoi",
-        nhan: "Đóng gói",
-        icon: PackageCheck,
+        ma: "phieuChuyen",
+        nhan: "Mở phiếu chuyển để xuất",
+        icon: Truck,
         dieuHuong: true,
-        onClick: () => navigate(`/goods-issues/packing/${phieu.donBanHang.id}`),
+        kieu: lyDoKhoa ? "vien" : "chinh",
+        onClick: () => navigate(`/transfer-tickets/${idPhieuChuyen}`),
       }
-      : quyen.nutChinh
-        ? {
-          ma: quyen.nutChinh,
-          nhan: quyen.nutChinh === "vanChuyen" ? "Xác nhận vận chuyển" : "Xác nhận xuất kho",
-          icon: Truck,
-          onClick: () => setHop(quyen.nutChinh === "vanChuyen" ? "vanChuyen" : "xuat"),
-          khoa: Boolean(lyDoKhoa),
-          lyDo: lyDoKhoa ?? undefined,
-          dangChay: dangXuLy,
-        }
-        : null,
-    choGoc,
-  );
+      : null;
+  } else if (quyen.nutChinh) {
+    nutChinhGoc = {
+      ma: quyen.nutChinh,
+      nhan: "Xác nhận xuất kho",
+      icon: Truck,
+      onClick: () => setHop("xuat"),
+      khoa: Boolean(lyDoKhoa),
+      lyDo: lyDoKhoa ?? undefined,
+      dangChay: dangXuLy,
+    };
+  }
+  const nutChinh = khoaKhiChoGoc(nutChinhGoc, choGoc);
 
   const soDon = phieu.donBanHang?.soDonHang;
-  const moTaHuy = laCk
-    ? `Hủy phiếu ${phieu.soPhieuXuat}? Số lượng đang giữ ở ${phieu.kho?.tenKho || "kho xuất"} được trả lại. Không hoàn tác được.`
-    : `Hủy phiếu ${phieu.soPhieuXuat}? Số lượng đang giữ được trả lại tồn kho${
-      soDon ? `; đơn ${soDon} quay về Chờ nhặt hàng (Đã xuất một phần nếu đơn đã xuất một phần trước đó)` : ""
-    }. Không hoàn tác được.`;
-  const moTaVanChuyen = `Hàng trong phiếu ${phieu.soPhieuXuat} (tổng số lượng ${soVN(tongSl)}) được trừ tồn tại ${
-    phieu.kho?.tenKho || "kho xuất"
-  } và chuyển sang kho Trung chuyển để bắt đầu vận chuyển. ${
-    ghiChu.maPhieuChuyen ? `Phiếu chuyển ${ghiChu.maPhieuChuyen}` : "Phiếu chuyển kho"
-  } chuyển sang Đang vận chuyển.`;
+  const moTaHuy = `Hủy phiếu ${phieu.soPhieuXuat}? Số lượng đang giữ được trả lại tồn kho${
+    soDon ? `; đơn ${soDon} quay về Chờ nhặt hàng (Đã xuất một phần nếu đơn đã xuất một phần trước đó)` : ""
+  }. Không hoàn tác được.`;
 
   const thongBao = [];
   if (chuaXuat && !laPos && soThieu > 0) {
+    let hanhDongThieu = null;
+    if (quyen.phieuNhat) {
+      // PX-CK có phiếu nhặt: lô do phiếu nhặt ghi khi hoàn tất nhặt → mở phiếu nhặt thay vì lọc dòng thiếu lô
+      hanhDongThieu = (
+        <NutChu onClick={() => navigate(`/goods-issues/pick-lists/${quyen.phieuNhat.id}`)}>Mở phiếu nhặt</NutChu>
+      );
+    } else if (bang.coCongCu && bang.locNhanh !== "thieuLo") {
+      hanhDongThieu = <NutChu onClick={xemDongThieu}>Xem các dòng thiếu lô</NutChu>;
+    }
     thongBao.push(
-      <DongThongBao
-        key="thieu"
-        tone="warn"
-        actions={
-          bang.coCongCu && bang.locNhanh !== "thieuLo" ? <NutChu onClick={xemDongThieu}>Xem các dòng thiếu lô</NutChu> : null
-        }
-      >
-        {cauThieuLo({ laCk, laQuanLy, soThieu })}
+      <DongThongBao key="thieu" tone="warn" actions={hanhDongThieu}>
+        {cauThieuLo({ laCk, laQuanLy, soThieu, phieuNhat: quyen.phieuNhat })}
       </DongThongBao>,
     );
   }
@@ -419,17 +409,6 @@ function ManPhieuXuatKho({ id }) {
           onConfirm={xacNhanXuatKho}
         />
       ) : null}
-
-      <HopXacNhanChungTu
-        mo={hop === "vanChuyen"}
-        onDoiMo={dongHop}
-        tieuDe="Xác nhận vận chuyển"
-        moTa={moTaVanChuyen}
-        nhanXacNhan="Xác nhận vận chuyển"
-        iconXacNhan={Truck}
-        dangChay={dangXuLy}
-        onXacNhan={xacNhanVanChuyen}
-      />
 
       <PackingProofModal
         isOpen={hop === "bangChung" && coXemBangChung}

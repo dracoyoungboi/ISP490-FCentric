@@ -64,7 +64,7 @@ export default function PickLot() {
   );
 }
 
-// Nhãn loại phiếu xuất ("khac": phiếu yêu cầu chuyển kho)
+// Nhãn loại phiếu xuất ("khac": dòng phiếu chuyển cũ còn trong phieu_xuat_kho trước khi có bảng phieu_chuyen_kho)
 const NHAN_LOAI_XUAT = Object.freeze({
   ban_hang: "Xuất bán hàng",
   chuyen_kho: "Chuyển kho nội bộ",
@@ -252,7 +252,7 @@ function ManChonLo({ phieuXuatKhoId, chiTietPhieuXuatKhoId }) {
 
   const quyTac = quyen.laBanHang
     ? "Lô của phiếu bán hàng lấy từ phiếu nhặt. Chỉ quản lý kho sửa khi lấy nhầm lô hoặc lô cũ hết hàng; tổng phải đủ số cần xuất."
-    : "Chọn lô trước khi xác nhận vận chuyển; lưu được một phần. Số lấy ở mỗi lô không vượt số còn lấy được.";
+    : "Chọn lô trước khi xác nhận xuất ở phiếu chuyển kho; lưu được một phần. Số lấy ở mỗi lô không vượt số còn lấy được.";
 
   return (
     <PageContainer className="flex min-h-full flex-col">

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Ban, Check, Printer } from "lucide-react";
+import { Check, Printer, Truck } from "lucide-react";
 import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
 import KhungChungTu from "@/components/chung-tu/KhungChungTu";
 import DauChungTu from "@/components/chung-tu/DauChungTu";
@@ -9,10 +9,8 @@ import DongThongBao from "@/components/chung-tu/DongThongBao";
 import useBangChungTu from "@/components/chung-tu/useBangChungTu";
 import { cauChungTuRong, soVN } from "@/components/chung-tu/bangChungTu";
 import { chayGioiHan } from "@/components/chung-tu/chayGioiHan";
-import { GHI_CHU_HOP } from "@/components/chung-tu/kieuHopThoai";
 import {
   CAU_HET_THOI_HAN,
-  LY_DO_CHO_GOC,
   MO_TA_HET_THOI_HAN,
   chayCoThoiHan,
   khiGocKetThuc,
@@ -36,6 +34,8 @@ const B = ({ children }) => <b className="font-semibold text-bo-foreground">{chi
  * phiếu nhập hoàn trả do hủy chuyển kho và phiếu nhập khách trả hàng. Đầu khối (loại phiếu ở dòng phụ, nút chính theo
  * loại), dòng thông báo, bảng hàng gom theo sản phẩm với lô kế thừa, cột phải: kho nhận, chuyển từ, người nhập, phiếu
  * chuyển kho. Phiếu nhập từ đơn mua dùng ChiTietNhapTuDonMua (không qua đây).
+ * Phiếu nhập của phiếu chuyển kho do máy chủ lập khi nhận hàng ở màn phiếu chuyển nên chỉ xem; phiếu nháp lập theo cách
+ * cũ thì nút chính mở phiếu chuyển (tinhPhieuNhapChuyenKho.quyTacPhieuNhap).
  *
  * `onReload`: tải lại ngầm phiếu (PhieuNhapKhoDetail) sau thao tác.
  */
@@ -47,7 +47,7 @@ export default function ChiTietNhapChuyenKho({ data, onReload }) {
   const quyTac = quyTacPhieuNhap(data);
   const trangThai = getGoodsReceiptStatus(data.trangThai);
 
-  // Hộp thoại đang mở: "nhap" | "huy" | null
+  // Hộp thoại đang mở: "nhap" | null
   const [hop, setHop] = useState(null);
   const [dangXuLy, setDangXuLy] = useState(false);
   // Hết thời hạn mà máy chủ có thể vẫn đang làm: khóa nút thao tác tới khi lời gọi gốc kết thúc (khiGocKetThuc)
@@ -114,15 +114,29 @@ export default function ChiTietNhapChuyenKho({ data, onReload }) {
     }
   }
 
-  const xacNhanNhap = () =>
-    chay(
-      quyTac.apiNhan === "completeTransfer" ? phieuNhapKhoService.completeTransferReceipt : phieuNhapKhoService.complete,
-      quyTac.cauThanhCong,
-      "Xác nhận nhập kho thất bại",
-    );
-  const huyPhieu = () => chay(phieuNhapKhoService.cancel, "Đã hủy phiếu nhập kho", "Hủy phiếu thất bại");
+  const xacNhanNhap = () => chay(phieuNhapKhoService.complete, quyTac.cauThanhCong, "Xác nhận nhập kho thất bại");
 
   const khachTra = quyTac.loai === LOAI_PHIEU_NHAP.KHACH_TRA;
+  let nutChinh = null;
+  if (quyTac.apiNhan && quyTac.choNhap) {
+    nutChinh = {
+      ma: "nhap",
+      nhan: quyTac.nhanNut,
+      icon: Check,
+      onClick: () => setHop("nhap"),
+      khoa: bang.rong,
+      lyDo: bang.rong ? cauChungTuRong("phiếu nhập kho", { dauCham: false }) : "",
+      hienLyDo: true,
+    };
+  } else if (quyTac.moPhieuChuyen) {
+    nutChinh = {
+      ma: "phieuChuyen",
+      nhan: "Mở phiếu chuyển kho",
+      icon: Truck,
+      dieuHuong: true,
+      onClick: () => navigate(`/transfer-tickets/${data.phieuXuatGocId}`),
+    };
+  }
   const thongBao = quyTac.choNhap && !bang.rong
     ? <DongThongBao tone="info">{cauChoNhap(data)}</DongThongBao>
     : quyTac.daHuy
@@ -146,24 +160,7 @@ export default function ChiTietNhapChuyenKho({ data, onReload }) {
             nhanQuayLai="Về danh sách phiếu nhập kho"
             nutPhu={quyTac.inDuoc ? { ma: "in", nhan: "In phiếu", icon: Printer, onClick: () => navigate(`/goods-receipts/${id}/print`) } : null}
             saoChepMa={{ giaTri: data.soPhieuNhap, nhan: "Sao chép mã phiếu" }}
-            menu={quyTac.huyDuoc ? [{
-              ma: "huy",
-              nhan: "Hủy phiếu",
-              icon: Ban,
-              nguyHiem: true,
-              moTa: choGoc ? LY_DO_CHO_GOC : "Hàng chưa vào tồn kho đích",
-              khoa: dangXuLy || choGoc,
-              onSelect: () => setHop("huy"),
-            }] : []}
-            nutChinh={khoaKhiChoGoc(quyTac.choNhap ? {
-              ma: "nhap",
-              nhan: quyTac.nhanNut,
-              icon: Check,
-              onClick: () => setHop("nhap"),
-              khoa: bang.rong,
-              lyDo: bang.rong ? cauChungTuRong("phiếu nhập kho", { dauCham: false }) : "",
-              hienLyDo: true,
-            } : null, choGoc)}
+            nutChinh={khoaKhiChoGoc(nutChinh, choGoc)}
           />
         }
         thongBao={thongBao}
@@ -203,21 +200,6 @@ export default function ChiTietNhapChuyenKho({ data, onReload }) {
         dangChay={dangXuLy}
         onXacNhan={xacNhanNhap}
       />
-      <HopXacNhanChungTu
-        mo={hop === "huy"}
-        onDoiMo={(mo) => !mo && setHop(null)}
-        tieuDe="Hủy phiếu nhập kho"
-        moTa="Thao tác này hủy phiếu hiện tại và không hoàn tác được."
-        nhanXacNhan="Hủy phiếu"
-        iconXacNhan={Ban}
-        kieu="nguyHiem"
-        dangChay={dangXuLy}
-        onXacNhan={huyPhieu}
-      >
-        <p className={GHI_CHU_HOP}>
-          Phiếu chuyển kho giữ nguyên trạng thái, hàng chưa được cộng vào tồn {data.tenKho || "kho nhận"}.
-        </p>
-      </HopXacNhanChungTu>
     </>
   );
 }
