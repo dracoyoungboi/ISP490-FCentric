@@ -583,6 +583,19 @@ public class KenhBanHangController {
         );
     }
 
+    @GetMapping("/tiktok/locations")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Lấy danh sách kho logistics từ TikTok Shop Open Platform")
+    public ResponseEntity<ResponseData<List<ShopifyLocationDto>>> layDanhSachKhoTikTok() {
+        return ResponseEntity.ok(
+                ResponseData.<List<ShopifyLocationDto>>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhBanHangDongBoService.getLocations("TIKTOK"))
+                        .message("Lấy danh sách kho TikTok Shop thành công")
+                        .build()
+        );
+    }
+
     @GetMapping("/{maKenh}/locations")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
     @Operation(summary = "Lấy danh sách vị trí kho từ kênh bán hàng")
