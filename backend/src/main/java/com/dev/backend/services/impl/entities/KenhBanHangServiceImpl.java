@@ -1444,11 +1444,29 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             TikTokAuthorizedShopsResponse res = getTikTokShopClient().getAuthorizedShops(appKey, appSecret, accessToken);
             if (res.getShops() != null && !res.getShops().isEmpty()) {
                 TikTokShopDto shop = res.getShops().get(0);
+                int soKho = 0;
+                try {
+                    com.dev.backend.dto.response.customize.TikTokWarehousesResponse whRes =
+                            getTikTokShopClient().getWarehouses(appKey, appSecret, accessToken, shop.getCipher());
+                    if (whRes.getWarehouses() != null) {
+                        soKho = whRes.getWarehouses().size();
+                    }
+                } catch (Exception whEx) {
+                    log.warn("Không kiểm tra được kho logistics khi test kết nối TikTok Shop: {}", whEx.getMessage());
+                }
+
+                String msg = soKho > 0
+                        ? "Kết nối thành công: gian hàng " + shop.getName() + " (" + soKho + " kho logistics)"
+                        : "Kết nối tới TikTok Shop thành công (" + shop.getName() + ")";
+
                 return TikTokTestConnectionResponse.builder()
                         .connected(true)
-                        .message("Kết nối tới TikTok Shop thành công")
+                        .message(msg)
                         .shopName(shop.getName())
-                                                .cipher(shop.getCipher())
+                        .tenGianHang(shop.getName())
+                        .shopId(shop.getId())
+                        .shopIdSan(shop.getCode())
+                        .cipher(shop.getCipher())
                         .region(shop.getRegion())
                         .sellerType(shop.getSellerType())
                         .build();
