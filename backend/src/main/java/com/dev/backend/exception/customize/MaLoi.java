@@ -63,6 +63,14 @@ public final class MaLoi {
     public static final String KENH_CHUA_KET_NOI = "KENH_CHUA_KET_NOI";
     /** 424 · Cấp lại khóa truy cập (khóa làm mới OAuth) không thành công. Không dùng 502: Cloudflare thay trang lỗi 502. */
     public static final String LAM_MOI_KHOA_LOI = "LAM_MOI_KHOA_LOI";
+    /** 400 · Lỗi xác thực OAuth2 hoặc trao đổi mã authorization code với TikTok Shop thất bại. */
+    public static final String TIKTOK_AUTH_FAILED = "TIKTOK_AUTH_FAILED";
+    /** 401 · Access Token TikTok Shop đã hết hạn hoặc bị người bán thu hồi trên Seller Center. */
+    public static final String TIKTOK_TOKEN_EXPIRED = "TIKTOK_TOKEN_EXPIRED";
+    /** 404 · Không tìm thấy kho bán hàng (warehouse) tương ứng trên TikTok Shop để nhận tồn. */
+    public static final String TIKTOK_WAREHOUSE_NOT_FOUND = "TIKTOK_WAREHOUSE_NOT_FOUND";
+    /** 429 · Chạm giới hạn tần suất gọi API (Rate Limit) của TikTok Shop, cần giãn cách theo backoff. */
+    public static final String TIKTOK_RATE_LIMIT = "TIKTOK_RATE_LIMIT";
 
     // ---------------- Sản phẩm ----------------
 
