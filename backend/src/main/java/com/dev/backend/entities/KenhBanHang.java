@@ -80,5 +80,18 @@ public class KenhBanHang {
     @Generated(event = EventType.INSERT)
     @Column(name = "ngay_cap_nhat")
     Instant ngayCapNhat;
+
+    /**
+     * Tiện ích lấy mã Shop Cipher đối với kênh bán hàng TikTok Shop
+     */
+    public String getShopCipher() {
+        return "TIKTOK".equalsIgnoreCase(this.maKenh) ? this.apiUrl : null;
+    }
+
+    public void setShopCipher(String cipher) {
+        if ("TIKTOK".equalsIgnoreCase(this.maKenh)) {
+            this.apiUrl = cipher;
+        }
+    }
 }
 
