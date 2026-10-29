@@ -82,6 +82,40 @@ public class TikTokShopClient {
     }
 
     /**
+     * Trao đổi authorization code lấy Access Token và Refresh Token từ TikTok Shop auth endpoint.
+     * Gọi GET tới https://auth.tiktok-shops.com/api/v2/token/get với các tham số:
+     * app_key, app_secret, auth_code, grant_type=authorized_code.
+     */
+    public JsonNode exchangeToken(String appKey, String appSecret, String authCode) {
+        if (appKey == null || appKey.isBlank() || appSecret == null || appSecret.isBlank()) {
+            throw new IllegalArgumentException("App Key và App Secret không được để trống khi trao đổi token");
+        }
+        if (authCode == null || authCode.isBlank()) {
+            throw new IllegalArgumentException("Authorization code không được để trống");
+        }
+
+        StringBuilder urlBuilder = new StringBuilder(TikTokShopConstants.TOKEN_GET_URL);
+        urlBuilder.append("?app_key=").append(URLEncoder.encode(appKey.trim(), StandardCharsets.UTF_8))
+                .append("&app_secret=").append(URLEncoder.encode(appSecret.trim(), StandardCharsets.UTF_8))
+                .append("&auth_code=").append(URLEncoder.encode(authCode.trim(), StandardCharsets.UTF_8))
+                .append("&grant_type=authorized_code");
+
+        try {
+            ResponseEntity<String> response = restTemplate.getForEntity(urlBuilder.toString(), String.class);
+            return parseAndValidateResponse(response.getBody());
+        } catch (HttpStatusCodeException e) {
+            handleHttpException("GET", TikTokShopConstants.TOKEN_GET_URL, e);
+            throw e;
+        } catch (LoiCoMaException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Lỗi khi trao đổi authorization code TikTok Shop: {}", e.getMessage());
+            throw new LoiCoMaException(HttpStatus.BAD_GATEWAY, MaLoi.TIKTOK_AUTH_FAILED,
+                    "Không thể trao đổi mã ủy quyền với máy chủ TikTok Shop: " + e.getMessage());
+        }
+    }
+
+    /**
      * Tự động bổ sung các tham số hệ thống (app_key, timestamp, shop_cipher),
      * tính toán chữ ký số HMAC-SHA256 và sinh URL hoàn chỉnh đã được ký.
      */
