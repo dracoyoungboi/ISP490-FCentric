@@ -1966,6 +1966,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             throw new CommonException("Kho FCentric không tồn tại: " + request.getKhoId(), HttpStatus.BAD_REQUEST, null);
         }
 
+        if (request.getMaKhoSan() != null && !request.getMaKhoSan().isBlank()) {
+            dieuHanhHeThongService.setCauHinhString(KenhCauHinhDongBo.khoa(maKenh, "MA_KHO_SAN"), request.getMaKhoSan().trim());
+        }
+
         kenh.setNgayCapNhat(Instant.now());
         kenhBanHangRepository.save(kenh);
 
