@@ -606,6 +606,19 @@ public class KenhBanHangController {
         );
     }
 
+    @GetMapping("/{maKenh}/kho-san")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @Operation(summary = "Lấy danh sách kho bán hàng thực tế từ sàn")
+    public ResponseEntity<ResponseData<List<ShopifyLocationDto>>> getKhoSan(@PathVariable String maKenh) {
+        return ResponseEntity.ok(
+                ResponseData.<List<ShopifyLocationDto>>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(kenhBanHangDongBoService.getLocations(maKenh))
+                        .message("Lấy danh sách kho sàn thành công")
+                        .build()
+        );
+    }
+
     @GetMapping("/{maKenh}/locations")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
     @Operation(summary = "Lấy danh sách vị trí kho từ kênh bán hàng")
