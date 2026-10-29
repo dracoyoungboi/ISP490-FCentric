@@ -1,5 +1,10 @@
 package com.dev.backend.services;
 
+import com.dev.backend.dto.request.TikTokConfigUpdating;
+import com.dev.backend.dto.request.TikTokOAuthCallbackRequest;
+import com.dev.backend.dto.request.TikTokTestConnectionRequest;
+import com.dev.backend.dto.response.customize.TikTokTestConnectionResponse;
+import com.dev.backend.dto.response.entities.TikTokConfigResponse;
 import com.dev.backend.dto.request.LazadaConfigUpdating;
 import com.dev.backend.dto.request.LazadaOAuthCallbackRequest;
 import com.dev.backend.dto.request.LazadaTestConnectionRequest;
@@ -127,4 +132,65 @@ public interface KenhBanHangService {
      * Lấy App Key của Lazada.
      */
     String getLazadaAppKey();
+
+    /**
+     * Lấy thông tin cấu hình kết nối TikTok Shop (đã che mờ secret và token).
+     */
+    TikTokConfigResponse getTikTokConfig();
+
+    /**
+     * Cập nhật thông tin cấu hình TikTok Shop (mã hóa AES-256-GCM App Secret và Tokens).
+     */
+    TikTokConfigResponse updateTikTokConfig(TikTokConfigUpdating request);
+
+    /**
+     * Kiểm tra kết nối tới TikTok Shop Open Platform API v202309.
+     */
+    TikTokTestConnectionResponse testTikTokConnection(TikTokTestConnectionRequest request);
+
+    /**
+     * Sinh URL ủy quyền Seller Authorization để chuyển hướng tới TikTok Shop Seller Center.
+     */
+    String getTikTokAuthUrl(String redirectUri);
+
+    /**
+     * Sinh URL ủy quyền Seller Authorization có kèm mã phiên bảo mật (state).
+     */
+    String getTikTokAuthUrl(String redirectUri, String state);
+
+    /**
+     * Đổi mã authorization code nhận được từ callback OAuth2 lấy Access Token, Refresh Token và shop cipher.
+     */
+    TikTokConfigResponse exchangeTikTokToken(TikTokOAuthCallbackRequest request);
+
+    /**
+     * Làm mới Access Token TikTok Shop bằng Refresh Token.
+     */
+    boolean refreshTikTokAccessToken();
+
+    /**
+     * Ngắt kết nối TikTok Shop: xóa Access Token, Refresh Token, Shop Cipher và tắt trạng thái hoạt động.
+     */
+    void xoaKhoaTikTok();
+
+    /**
+     * Lấy Access Token TikTok Shop đã giải mã.
+     */
+    String getDecryptedTikTokAccessToken();
+
+    /**
+     * Lấy App Secret TikTok Shop đã giải mã phục vụ ký số HMAC-SHA256.
+     */
+    String getDecryptedTikTokAppSecret();
+
+    /**
+     * Lấy App Key của TikTok Shop.
+     */
+    String getTikTokAppKey();
+
+    /**
+     * Lấy Shop Cipher của gian hàng TikTok Shop đã ủy quyền.
+     */
+    String getTikTokShopCipher();
 }
+

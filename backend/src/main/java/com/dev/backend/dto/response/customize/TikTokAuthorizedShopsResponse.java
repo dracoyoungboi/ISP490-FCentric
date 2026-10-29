@@ -29,6 +29,17 @@ public class TikTokAuthorizedShopsResponse implements Serializable {
     @JsonProperty("data")
     ShopData data;
 
+    public List<TikTokShopDto> getShops() {
+        return data != null ? data.getShops() : null;
+    }
+
+    public void setShops(List<TikTokShopDto> shops) {
+        if (this.data == null) {
+            this.data = new ShopData();
+        }
+        this.data.setShops(shops);
+    }
+
     @AllArgsConstructor
     @Getter
     @Setter

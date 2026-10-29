@@ -10,6 +10,15 @@ import com.dev.backend.dto.request.LazadaTestConnectionRequest;
 import com.dev.backend.dto.response.customize.LazadaTestConnectionResponse;
 import com.dev.backend.dto.response.entities.LazadaConfigResponse;
 import com.dev.backend.services.lazada.LazadaClient;
+import com.dev.backend.services.tiktok.TikTokShopClient;
+import com.dev.backend.constants.TikTokShopConstants;
+import com.dev.backend.dto.request.TikTokConfigUpdating;
+import com.dev.backend.dto.request.TikTokOAuthCallbackRequest;
+import com.dev.backend.dto.request.TikTokTestConnectionRequest;
+import com.dev.backend.dto.response.customize.TikTokAuthorizedShopsResponse;
+import com.dev.backend.dto.response.customize.TikTokShopDto;
+import com.dev.backend.dto.response.customize.TikTokTestConnectionResponse;
+import com.dev.backend.dto.response.entities.TikTokConfigResponse;
 import com.dev.backend.dto.request.ShopifyTestConnectionRequest;
 import com.dev.backend.dto.response.customize.ShopifyTestConnectionResponse;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
@@ -98,6 +107,17 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         if (lazadaClient == null) lazadaClient = new LazadaClient();
         return lazadaClient;
     }
+
+    @lombok.experimental.NonFinal
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    TikTokShopClient tiktokShopClient;
+    private TikTokShopClient getTikTokShopClient() {
+        if (tiktokShopClient == null) tiktokShopClient = new TikTokShopClient();
+        return tiktokShopClient;
+    }
+
+    @lombok.experimental.NonFinal
+    java.util.concurrent.locks.ReentrantLock tikTokTokenRefreshLock = new java.util.concurrent.locks.ReentrantLock();
 
     @lombok.experimental.NonFinal
     java.util.concurrent.locks.ReentrantLock lazadaTokenRefreshLock = new java.util.concurrent.locks.ReentrantLock();
@@ -1237,5 +1257,368 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     public String getLazadaAppKey() {
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_LAZADA).orElse(null);
         return kenh != null ? kenh.getClientId() : null;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // TIKTOK SHOP OPEN PLATFORM (v202309) INTEGRATION
+    // ═══════════════════════════════════════════════════════════════════
+
+    public static final String MA_KENH_TIKTOK = "TIKTOK";
+    public static final String DEFAULT_TIKTOK_API_URL = TikTokShopConstants.BASE_URL;
+
+    @Override
+    @Transactional(readOnly = true)
+    public TikTokConfigResponse getTikTokConfig() {
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_TIKTOK).orElse(null);
+        if (kenh == null) {
+            return TikTokConfigResponse.builder()
+                    .maKenh(MA_KENH_TIKTOK)
+                    .tenKenh("TikTok Shop")
+                    .loaiKenh("online")
+                    .apiUrl(DEFAULT_TIKTOK_API_URL)
+                    .appKey("")
+                    .hasAppSecret(false)
+                    .hasAccessToken(false)
+                    .accessTokenMasked(null)
+                    .hasRefreshToken(false)
+                    .refreshTokenMasked(null)
+                    .tokenExpiresAt(null)
+                    .isTokenExpired(false)
+                    .secondsUntilExpiration(null)
+                    .shopCipher(null)
+                    .maKhoSan(null)
+                    .tenKhoSan(null)
+                    .trangThai(0)
+                    .build();
+        }
+
+        boolean hasSecret = kenh.getApiSecret() != null && !kenh.getApiSecret().isBlank();
+        boolean hasToken = kenh.getApiKey() != null && !kenh.getApiKey().isBlank();
+        String maskedToken = hasToken ? maskToken(paymentSecretCipher.decrypt(kenh.getApiKey())) : null;
+
+        boolean hasRefresh = kenh.getRefreshToken() != null && !kenh.getRefreshToken().isBlank();
+        String maskedRefresh = hasRefresh ? maskRefreshToken(paymentSecretCipher.decrypt(kenh.getRefreshToken())) : null;
+
+        boolean isExpired = false;
+        Long secondsUntilExpiration = null;
+        if (kenh.getTokenExpiresAt() != null) {
+            Instant now = Instant.now();
+            isExpired = now.isAfter(kenh.getTokenExpiresAt());
+            secondsUntilExpiration = java.time.Duration.between(now, kenh.getTokenExpiresAt()).getSeconds();
+        }
+
+        return TikTokConfigResponse.builder()
+                .id(kenh.getId())
+                .maKenh(kenh.getMaKenh())
+                .tenKenh(kenh.getTenKenh())
+                .loaiKenh(kenh.getLoaiKenh())
+                .apiUrl(kenh.getApiUrl() != null ? kenh.getApiUrl() : DEFAULT_TIKTOK_API_URL)
+                .appKey(kenh.getClientId())
+                .hasAppSecret(hasSecret)
+                .hasAccessToken(hasToken)
+                .accessTokenMasked(maskedToken)
+                .hasRefreshToken(hasRefresh)
+                .refreshTokenMasked(maskedRefresh)
+                .tokenExpiresAt(kenh.getTokenExpiresAt())
+                .isTokenExpired(isExpired)
+                .secondsUntilExpiration(secondsUntilExpiration)
+                .shopCipher(kenh.getShopCipher())
+                .maKhoSan(null)
+                .tenKhoSan(null)
+                .trangThai(kenh.getTrangThai())
+                .ngayCapNhat(kenh.getNgayCapNhat())
+                .build();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public TikTokConfigResponse updateTikTokConfig(TikTokConfigUpdating request) {
+        if (request.getAppKey() == null || request.getAppKey().isBlank()) {
+            throw new CommonException("TikTok Shop App Key không được để trống", HttpStatus.BAD_REQUEST, null);
+        }
+
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_TIKTOK)
+                .orElseGet(() -> KenhBanHang.builder()
+                        .maKenh(MA_KENH_TIKTOK)
+                        .tenKenh("TikTok Shop")
+                        .loaiKenh("online")
+                        .apiUrl(DEFAULT_TIKTOK_API_URL)
+                        .trangThai(1)
+                        .build());
+
+        kenh.setTenKenh("TikTok Shop");
+        kenh.setLoaiKenh("online");
+        if (kenh.getApiUrl() == null || kenh.getApiUrl().isBlank()) {
+            kenh.setApiUrl(DEFAULT_TIKTOK_API_URL);
+        }
+        kenh.setClientId(request.getAppKey().trim());
+
+        if (request.getTrangThai() != null) {
+            kenh.setTrangThai(request.getTrangThai());
+        }
+
+        if (request.getShopCipher() != null && !request.getShopCipher().isBlank()) {
+            kenh.setShopCipher(request.getShopCipher().trim());
+        }
+
+        // Thông tin kho đồng bộ TikTok Shop được lưu trữ trong cấu hình đồng bộ kênh (cau_hinh_dong_bo_kenh)
+
+        if (request.getAppSecret() != null && !request.getAppSecret().isBlank()) {
+            kenh.setApiSecret(paymentSecretCipher.encrypt(request.getAppSecret().trim()));
+        }
+
+        if (request.getAccessToken() != null && !request.getAccessToken().isBlank()) {
+            kenh.setApiKey(paymentSecretCipher.encrypt(request.getAccessToken().trim()));
+        }
+
+        if (request.getRefreshToken() != null && !request.getRefreshToken().isBlank()) {
+            kenh.setRefreshToken(paymentSecretCipher.encrypt(request.getRefreshToken().trim()));
+        }
+
+        if (request.getTokenExpiresAt() != null) {
+            kenh.setTokenExpiresAt(request.getTokenExpiresAt());
+        }
+
+        KenhBanHang saved = kenhBanHangRepository.save(kenh);
+        ghiLichSuThayDoi(saved, "Cập nhật cấu hình TikTok Shop (AppKey: " + request.getAppKey() + ")");
+
+        return getTikTokConfig();
+    }
+
+    @Override
+    public TikTokTestConnectionResponse testTikTokConnection(TikTokTestConnectionRequest request) {
+        String appKey = request.getAppKey() != null && !request.getAppKey().isBlank()
+                ? request.getAppKey().trim()
+                : getTikTokAppKey();
+
+        String appSecret = request.getAppSecret() != null && !request.getAppSecret().isBlank()
+                ? request.getAppSecret().trim()
+                : getDecryptedTikTokAppSecret();
+
+        String accessToken = request.getAccessToken() != null && !request.getAccessToken().isBlank()
+                ? request.getAccessToken().trim()
+                : getDecryptedTikTokAccessToken();
+
+        if (appKey == null || appKey.isBlank() || appSecret == null || appSecret.isBlank() || accessToken == null || accessToken.isBlank()) {
+            return TikTokTestConnectionResponse.builder()
+                    .connected(false)
+                    .message("Thiếu thông tin kết nối (App Key, App Secret hoặc Access Token)")
+                    .build();
+        }
+
+        try {
+            TikTokAuthorizedShopsResponse res = getTikTokShopClient().getAuthorizedShops(appKey, appSecret, accessToken);
+            if (res.getShops() != null && !res.getShops().isEmpty()) {
+                TikTokShopDto shop = res.getShops().get(0);
+                return TikTokTestConnectionResponse.builder()
+                        .connected(true)
+                        .message("Kết nối tới TikTok Shop thành công")
+                        .shopName(shop.getName())
+                                                .cipher(shop.getCipher())
+                        .region(shop.getRegion())
+                        .sellerType(shop.getSellerType())
+                        .build();
+            } else {
+                return TikTokTestConnectionResponse.builder()
+                        .connected(false)
+                        .message("Không tìm thấy gian hàng nào được ủy quyền trong tài khoản này")
+                        .build();
+            }
+        } catch (Exception e) {
+            log.error("Kiểm tra kết nối TikTok Shop thất bại: {}", e.getMessage());
+            return TikTokTestConnectionResponse.builder()
+                    .connected(false)
+                    .message("Kết nối thất bại: " + e.getMessage())
+                    .build();
+        }
+    }
+
+    @Override
+    public String getTikTokAuthUrl(String redirectUri) {
+        return getTikTokAuthUrl(redirectUri, java.util.UUID.randomUUID().toString());
+    }
+
+    @Override
+    public String getTikTokAuthUrl(String redirectUri, String state) {
+        String appKey = getTikTokAppKey();
+        if (appKey == null || appKey.isBlank()) {
+            throw new CommonException("Chưa cấu hình App Key cho kênh TikTok Shop", HttpStatus.BAD_REQUEST, null);
+        }
+        return getTikTokShopClient().generateAuthUrl(appKey, redirectUri, state);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public TikTokConfigResponse exchangeTikTokToken(TikTokOAuthCallbackRequest request) {
+        if (request.getCode() == null || request.getCode().isBlank()) {
+            throw new CommonException("Authorization code từ TikTok Shop không được để trống", HttpStatus.BAD_REQUEST, null);
+        }
+
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_TIKTOK).orElse(null);
+        if (kenh == null) {
+            throw new CommonException("Chưa thiết lập kênh TikTok Shop trong hệ thống", HttpStatus.BAD_REQUEST, null);
+        }
+
+        String appKey = request.getAppKey() != null && !request.getAppKey().isBlank()
+                ? request.getAppKey().trim()
+                : kenh.getClientId();
+
+        String appSecret = getDecryptedTikTokAppSecret();
+
+        if (appKey == null || appKey.isBlank() || appSecret == null || appSecret.isBlank()) {
+            throw new CommonException("Chưa cấu hình đủ App Key và App Secret cho kênh TikTok Shop", HttpStatus.BAD_REQUEST, null);
+        }
+
+        try {
+            JsonNode res = getTikTokShopClient().exchangeToken(appKey, appSecret, request.getCode());
+            JsonNode dataNode = res.path("data");
+            String accessToken = dataNode.path("access_token").asText(null);
+            String refreshToken = dataNode.path("refresh_token").asText(null);
+            long expiresIn = dataNode.path("access_token_expire_in").asLong(86400L); // 1 ngày mặc định
+            String sellerName = dataNode.path("seller_name").asText(null);
+
+            if (accessToken == null || accessToken.isBlank()) {
+                String errorMsg = res.path("message").asText("Máy chủ TikTok Shop từ chối mã ủy quyền");
+                throw new CommonException("Lỗi xác thực OAuth2 TikTok Shop: " + errorMsg, HttpStatus.BAD_REQUEST, null);
+            }
+
+            kenh.setApiKey(paymentSecretCipher.encrypt(accessToken));
+            if (refreshToken != null && !refreshToken.isBlank()) {
+                kenh.setRefreshToken(paymentSecretCipher.encrypt(refreshToken));
+            }
+            kenh.setTokenExpiresAt(Instant.now().plusSeconds(expiresIn));
+
+            // Tự động gọi API lấy danh sách gian hàng để trích xuất shop_cipher
+            try {
+                TikTokAuthorizedShopsResponse shopsRes = getTikTokShopClient().getAuthorizedShops(appKey, appSecret, accessToken);
+                if (shopsRes.getShops() != null && !shopsRes.getShops().isEmpty()) {
+                    TikTokShopDto firstShop = shopsRes.getShops().get(0);
+                    kenh.setShopCipher(firstShop.getCipher());
+                    if (firstShop.getName() != null && !firstShop.getName().isBlank()) {
+                        kenh.setApiUrl(firstShop.getName());
+                    } else if (sellerName != null && !sellerName.isBlank()) {
+                        kenh.setApiUrl(sellerName);
+                    }
+                }
+            } catch (Exception shopEx) {
+                log.warn("Không thể tự động trích xuất shop_cipher sau khi đổi token TikTok: {}", shopEx.getMessage());
+            }
+
+            kenh.setTrangThai(1);
+            kenhBanHangRepository.save(kenh);
+
+            ghiLichSuThayDoi(kenh, "Ủy quyền OAuth2 TikTok Shop thành công (Shop Cipher: " + kenh.getShopCipher() + ")");
+
+            return getTikTokConfig();
+        } catch (CommonException ce) {
+            throw ce;
+        } catch (Exception e) {
+            log.error("Lỗi khi trao đổi token OAuth TikTok Shop: {}", e.getMessage());
+            throw new CommonException("Không thể hoàn tất ủy quyền TikTok Shop: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, null);
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void xoaKhoaTikTok() {
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_TIKTOK).orElse(null);
+        if (kenh != null) {
+            kenh.setApiKey(null);
+            kenh.setRefreshToken(null);
+            kenh.setTokenExpiresAt(null);
+            kenh.setShopCipher(null);
+            kenh.setTrangThai(0);
+            kenhBanHangRepository.save(kenh);
+            ghiLichSuThayDoi(kenh, "Ngắt kết nối gian hàng TikTok Shop (xóa Access Token và Shop Cipher)");
+        }
+    }
+
+    @Override
+    public boolean refreshTikTokAccessToken() {
+        tikTokTokenRefreshLock.lock();
+        try {
+            KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_TIKTOK).orElse(null);
+            if (kenh == null || kenh.getRefreshToken() == null || kenh.getRefreshToken().isBlank()) {
+                return false;
+            }
+            String appKey = kenh.getClientId();
+            String appSecret = getDecryptedTikTokAppSecret();
+            String decryptedRefresh = paymentSecretCipher.decrypt(kenh.getRefreshToken());
+
+            if (appKey == null || appSecret == null || decryptedRefresh == null) {
+                return false;
+            }
+
+            StringBuilder urlBuilder = new StringBuilder(TikTokShopConstants.TOKEN_REFRESH_URL);
+            urlBuilder.append("?app_key=").append(java.net.URLEncoder.encode(appKey.trim(), java.nio.charset.StandardCharsets.UTF_8))
+                    .append("&app_secret=").append(java.net.URLEncoder.encode(appSecret.trim(), java.nio.charset.StandardCharsets.UTF_8))
+                    .append("&refresh_token=").append(java.net.URLEncoder.encode(decryptedRefresh.trim(), java.nio.charset.StandardCharsets.UTF_8))
+                    .append("&grant_type=refresh_token");
+
+            ResponseEntity<String> response = getTikTokShopClient().getRestTemplate().getForEntity(urlBuilder.toString(), String.class);
+            JsonNode res = getTikTokShopClient().parseAndValidateResponse(response.getBody());
+            JsonNode dataNode = res.path("data");
+
+            String newAccessToken = dataNode.path("access_token").asText(null);
+            String newRefreshToken = dataNode.path("refresh_token").asText(null);
+            long expiresIn = dataNode.path("access_token_expire_in").asLong(86400L);
+
+            if (newAccessToken != null && !newAccessToken.isBlank()) {
+                kenh.setApiKey(paymentSecretCipher.encrypt(newAccessToken));
+                if (newRefreshToken != null && !newRefreshToken.isBlank()) {
+                    kenh.setRefreshToken(paymentSecretCipher.encrypt(newRefreshToken));
+                }
+                kenh.setTokenExpiresAt(Instant.now().plusSeconds(expiresIn));
+                kenhBanHangRepository.save(kenh);
+                ghiLichSuThayDoi(kenh, "Làm mới Access Token TikTok Shop tự động thành công");
+                return true;
+            }
+            return false;
+        } catch (Exception e) {
+            log.error("Lỗi khi làm mới Access Token TikTok Shop: {}", e.getMessage());
+            return false;
+        } finally {
+            tikTokTokenRefreshLock.unlock();
+        }
+    }
+
+    @Override
+    public String getDecryptedTikTokAccessToken() {
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_TIKTOK).orElse(null);
+        if (kenh == null || kenh.getApiKey() == null || kenh.getApiKey().isBlank()) {
+            return null;
+        }
+        try {
+            return paymentSecretCipher.decrypt(kenh.getApiKey());
+        } catch (Exception e) {
+            log.error("Lỗi giải mã Access Token TikTok Shop: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    @Override
+    public String getDecryptedTikTokAppSecret() {
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_TIKTOK).orElse(null);
+        if (kenh == null || kenh.getApiSecret() == null || kenh.getApiSecret().isBlank()) {
+            return null;
+        }
+        try {
+            return paymentSecretCipher.decrypt(kenh.getApiSecret());
+        } catch (Exception e) {
+            log.error("Lỗi giải mã App Secret TikTok Shop: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    @Override
+    public String getTikTokAppKey() {
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_TIKTOK).orElse(null);
+        return kenh != null ? kenh.getClientId() : null;
+    }
+
+    @Override
+    public String getTikTokShopCipher() {
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_TIKTOK).orElse(null);
+        return kenh != null ? kenh.getShopCipher() : null;
     }
 }
