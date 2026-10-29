@@ -21,6 +21,7 @@ import com.dev.backend.services.impl.multitable.KhaDungChuyenKhoService.KhaDungC
 import com.dev.backend.services.impl.multitable.LoDangGiuService;
 import com.dev.backend.services.multitable.DieuHanhHeThongService;
 import com.dev.backend.services.multitable.NhatHangService;
+import com.dev.backend.utils.BienSoXe;
 import com.dev.backend.utils.HienThiBienThe;
 import com.dev.backend.utils.KhoDangChon;
 import com.dev.backend.utils.SoChungTu;
@@ -405,6 +406,12 @@ public class PhieuChuyenKhoService {
         }
         if (canPhuongTien && loaiPhuongTien == null) throw new CommonException("Nhập loại phương tiện");
         if (canPhuongTien && bienSo == null) throw new CommonException("Nhập biển số xe");
+        if (canPhuongTien) {
+            // Biển số theo mẫu biển Việt Nam, lưu cách viết chuẩn (cùng luật ô Biển số ở giao diện)
+            BienSoXe.KetQua kqBienSo = BienSoXe.kiemTra(bienSo);
+            if (!kqBienSo.hopLe()) throw new CommonException(kqBienSo.loi());
+            bienSo = kqBienSo.giaTri();
+        }
         if (canDonVi && donVi == null) throw new CommonException("Nhập tên đơn vị vận chuyển");
         if (IChuyenKho.CHUYEN_PHAT.equals(hinhThuc) && maVanDon == null) throw new CommonException("Nhập mã vận đơn");
 

@@ -713,7 +713,7 @@ class PhieuChuyenKhoServiceTest {
         assertEquals("0000125", p.getSoPhieuXknb());
         assertEquals(LocalDate.now(), p.getNgayLapXknb());
         assertEquals("0912345678", p.getSoDienThoaiVanChuyen());
-        assertEquals("29C-12345", p.getBienSoXe());
+        assertEquals("29C-123.45", p.getBienSoXe(), "biển số lưu cách viết chuẩn");
         assertNull(p.getDonViVanChuyen(), "xe công ty không có đơn vị vận chuyển");
     }
 
