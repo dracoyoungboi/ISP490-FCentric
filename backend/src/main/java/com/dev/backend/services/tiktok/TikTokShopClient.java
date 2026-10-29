@@ -58,6 +58,30 @@ public class TikTokShopClient {
     }
 
     /**
+     * Tạo URL chuyển hướng người bán sang TikTok Shop Seller Center để ủy quyền Partner App.
+     * Tự động sinh mã state ngẫu nhiên chống tấn công CSRF.
+     */
+    public String generateAuthUrl(String appKey, String redirectUri) {
+        return generateAuthUrl(appKey, redirectUri, java.util.UUID.randomUUID().toString());
+    }
+
+    public String generateAuthUrl(String appKey, String redirectUri, String state) {
+        if (appKey == null || appKey.isBlank()) {
+            throw new IllegalArgumentException("App Key không được để trống khi tạo URL ủy quyền TikTok Shop");
+        }
+        String cleanAppKey = appKey.trim();
+        String cleanState = (state != null && !state.isBlank()) ? state.trim() : java.util.UUID.randomUUID().toString();
+
+        StringBuilder urlBuilder = new StringBuilder(TikTokShopConstants.AUTH_URL_PARTNER);
+        urlBuilder.append("?service_id=").append(URLEncoder.encode(cleanAppKey, StandardCharsets.UTF_8));
+        urlBuilder.append("&state=").append(URLEncoder.encode(cleanState, StandardCharsets.UTF_8));
+        if (redirectUri != null && !redirectUri.isBlank() && !redirectUri.contains("localhost")) {
+            urlBuilder.append("&redirect_uri=").append(URLEncoder.encode(redirectUri.trim(), StandardCharsets.UTF_8));
+        }
+        return urlBuilder.toString();
+    }
+
+    /**
      * Tự động bổ sung các tham số hệ thống (app_key, timestamp, shop_cipher),
      * tính toán chữ ký số HMAC-SHA256 và sinh URL hoàn chỉnh đã được ký.
      */
