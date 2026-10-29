@@ -519,7 +519,7 @@ public class OmnichannelOrderSyncJob {
 
         if (existingOpt.isPresent()) {
             DonBanHang existing = existingOpt.get();
-            if ("CANCELLED".equalsIgnoreCase(order.getStatus()) || order.laYeuCauHuy()) {
+            if ("CANCELLED".equalsIgnoreCase(order.getStatus())) {
                 if (existing.getTrangThai() != null && existing.getTrangThai() != ITrangThaiDonBanHang.DA_HUY) {
                     try {
                         String lyDoHuy = order.getCancelReason() != null && !order.getCancelReason().isBlank()
@@ -529,6 +529,16 @@ public class OmnichannelOrderSyncJob {
                     } catch (Exception ex) {
                         log.error("[JOB-01] Lỗi khi hủy đơn {} theo sàn TikTok Shop: {}", soDonHang, ex.getMessage());
                     }
+                }
+            } else if (order.laYeuCauHuy()) {
+                String ghiChuCu = existing.getGhiChu() != null ? existing.getGhiChu() : "";
+                if (!ghiChuCu.contains("[KHÁCH YÊU CẦU HỦY]")) {
+                    String lyDo = order.getCancelReason() != null && !order.getCancelReason().isBlank()
+                            ? order.getCancelReason() : "Khách yêu cầu hủy đơn trên TikTok Shop";
+                    existing.setGhiChu("[KHÁCH YÊU CẦU HỦY] " + lyDo + " | " + ghiChuCu);
+                    existing.setNgayCapNhat(Instant.now());
+                    donBanHangRepository.save(existing);
+                    log.warn("[JOB-01] Đơn {} có cờ khách yêu cầu hủy từ TikTok Shop: {}", soDonHang, lyDo);
                 }
             }
             return false;
@@ -582,7 +592,7 @@ public class OmnichannelOrderSyncJob {
                 .tongCong(totalPrice)
                 .trangThaiThanhToan(ttThanhToan)
                 .diaChiGiaoHang(address)
-                .ghiChu("Đơn hàng đồng bộ tự động từ TikTok Shop #" + orderId)
+                .ghiChu(order.laYeuCauHuy() ? "[KHÁCH YÊU CẦU HỦY] " + (order.getCancelReason() != null ? order.getCancelReason() : "") + " | Đơn hàng đồng bộ từ TikTok Shop #" + orderId : "Đơn hàng đồng bộ tự động từ TikTok Shop #" + orderId)
                 .build();
 
         DonBanHang savedOrder = donBanHangRepository.save(don);
