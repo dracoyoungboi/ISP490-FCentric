@@ -71,6 +71,8 @@ public final class MaLoi {
     public static final String TIKTOK_WAREHOUSE_NOT_FOUND = "TIKTOK_WAREHOUSE_NOT_FOUND";
     /** 429 · Chạm giới hạn tần suất gọi API (Rate Limit) của TikTok Shop, cần giãn cách theo backoff. */
     public static final String TIKTOK_RATE_LIMIT = "TIKTOK_RATE_LIMIT";
+    /** 400 · Lỗi gọi TikTok Shop Open API hoặc phản hồi nghiệp vụ thất bại. */
+    public static final String TIKTOK_API_ERROR = "TIKTOK_API_ERROR";
 
     // ---------------- Sản phẩm ----------------
 

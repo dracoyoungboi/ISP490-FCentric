@@ -1,6 +1,8 @@
 package com.dev.backend.services.tiktok;
 
 import com.dev.backend.constants.TikTokShopConstants;
+import com.dev.backend.exception.customize.LoiCoMaException;
+import com.dev.backend.exception.customize.MaLoi;
 import com.dev.backend.utils.TikTokShopSigner;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,10 +12,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import java.net.URLEncoder;
@@ -107,28 +111,93 @@ public class TikTokShopClient {
     }
 
     /**
-     * Thực thi lệnh GET có ký số và header x-tts-access-token.
+     * Thực thi lệnh GET có ký số và header x-tts-access-token, bắt ngoại lệ HTTP và kiểm tra mã phản hồi nghiệp vụ.
      */
     public JsonNode executeGet(String fullSignedUrl, String accessToken) {
         HttpEntity<Void> entity = new HttpEntity<>(createHeaders(accessToken));
-        ResponseEntity<String> response = restTemplate.exchange(fullSignedUrl, HttpMethod.GET, entity, String.class);
         try {
-            return objectMapper.readTree(response.getBody());
+            ResponseEntity<String> response = restTemplate.exchange(fullSignedUrl, HttpMethod.GET, entity, String.class);
+            return parseAndValidateResponse(response.getBody());
+        } catch (HttpStatusCodeException e) {
+            handleHttpException("GET", fullSignedUrl, e);
+            throw e;
+        } catch (LoiCoMaException e) {
+            throw e;
         } catch (Exception e) {
-            throw new IllegalStateException("Lỗi khi parse JSON phản hồi từ TikTok Shop: " + e.getMessage(), e);
+            log.error("Lỗi kết nối tới TikTok Shop API GET [{}]: {}", fullSignedUrl, e.getMessage());
+            throw new LoiCoMaException(HttpStatus.BAD_GATEWAY, MaLoi.TIKTOK_API_ERROR,
+                    "Không thể kết nối tới TikTok Shop Open API: " + e.getMessage());
         }
     }
 
     /**
-     * Thực thi lệnh POST có ký số, body JSON và header x-tts-access-token.
+     * Thực thi lệnh POST có ký số, body JSON và header x-tts-access-token, bắt ngoại lệ HTTP và kiểm tra mã phản hồi.
      */
     public JsonNode executePost(String fullSignedUrl, String body, String accessToken) {
         HttpEntity<String> entity = new HttpEntity<>(body, createHeaders(accessToken));
-        ResponseEntity<String> response = restTemplate.exchange(fullSignedUrl, HttpMethod.POST, entity, String.class);
         try {
-            return objectMapper.readTree(response.getBody());
+            ResponseEntity<String> response = restTemplate.exchange(fullSignedUrl, HttpMethod.POST, entity, String.class);
+            return parseAndValidateResponse(response.getBody());
+        } catch (HttpStatusCodeException e) {
+            handleHttpException("POST", fullSignedUrl, e);
+            throw e;
+        } catch (LoiCoMaException e) {
+            throw e;
         } catch (Exception e) {
-            throw new IllegalStateException("Lỗi khi parse JSON phản hồi từ TikTok Shop: " + e.getMessage(), e);
+            log.error("Lỗi kết nối tới TikTok Shop API POST [{}]: {}", fullSignedUrl, e.getMessage());
+            throw new LoiCoMaException(HttpStatus.BAD_GATEWAY, MaLoi.TIKTOK_API_ERROR,
+                    "Không thể gửi dữ liệu tới TikTok Shop Open API: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Parse JSON phản hồi từ TikTok Shop và kiểm tra mã nghiệp vụ `code`.
+     * Theo đặc tả v202309: `code == 0` là thành công, khác 0 là lỗi.
+     */
+    public JsonNode parseAndValidateResponse(String responseBody) {
+        if (responseBody == null || responseBody.isBlank()) {
+            throw new LoiCoMaException(HttpStatus.BAD_GATEWAY, MaLoi.TIKTOK_API_ERROR,
+                    "TikTok Shop API trả về phản hồi rỗng.");
+        }
+        try {
+            JsonNode root = objectMapper.readTree(responseBody);
+            if (root.has("code") && root.get("code").asInt() != 0) {
+                int code = root.get("code").asInt();
+                String message = root.path("message").asText("Lỗi từ máy chủ TikTok Shop");
+                log.warn("TikTok Shop API trả về mã lỗi nghiệp vụ: code={}, message={}", code, message);
+                throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.TIKTOK_API_ERROR,
+                        "Lỗi từ TikTok Shop (" + code + "): " + message);
+            }
+            return root;
+        } catch (LoiCoMaException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Không thể phân giải JSON từ TikTok Shop: {}, nội dung: {}", e.getMessage(), responseBody);
+            throw new LoiCoMaException(HttpStatus.BAD_GATEWAY, MaLoi.TIKTOK_API_ERROR,
+                    "Định dạng phản hồi từ TikTok Shop không hợp lệ: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Xử lý ngoại lệ HTTP status code, đặc biệt nhận diện HTTP 429 Rate Limit để tránh cháy request.
+     */
+    private void handleHttpException(String method, String url, HttpStatusCodeException e) {
+        log.error("TikTok Shop API {} HTTP Error: url={}, status={}, body={}", method, url, e.getStatusCode(), e.getResponseBodyAsString());
+        if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
+            throw new LoiCoMaException(HttpStatus.TOO_MANY_REQUESTS, MaLoi.TIKTOK_RATE_LIMIT,
+                    "Vượt giới hạn tần suất gọi API của TikTok Shop (HTTP 429). Hệ thống đang tạm hoãn để bảo vệ hạn mức.");
+        }
+        try {
+            JsonNode errorNode = objectMapper.readTree(e.getResponseBodyAsString());
+            String message = errorNode.path("message").asText(e.getStatusText());
+            int code = errorNode.path("code").asInt(e.getStatusCode().value());
+            throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.TIKTOK_API_ERROR,
+                    "Lỗi từ TikTok Shop (" + code + "): " + message);
+        } catch (LoiCoMaException ex) {
+            throw ex;
+        } catch (Exception parseEx) {
+            throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.TIKTOK_API_ERROR,
+                    "Lỗi gọi TikTok Shop API: HTTP " + e.getStatusCode().value() + " - " + e.getStatusText());
         }
     }
 }
