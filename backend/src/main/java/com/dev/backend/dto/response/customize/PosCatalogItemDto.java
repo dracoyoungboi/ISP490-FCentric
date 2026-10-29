@@ -8,9 +8,9 @@ import lombok.experimental.FieldDefaults;
 import java.math.BigDecimal;
 
 /**
- * DTO catalog POS (chỉ đọc) — một phần tử = một SKU đang bán được của kho được ủy quyền.
- * soLuongKhaDung là tổng (tồn - đã đặt) của SKU tại ĐÚNG kho truy vấn (SUM theo lô của kho đó),
- * không phải tồn toàn hệ thống. anhUrl đã chuẩn hóa qua PublicAssetUrl.toHttps; null hợp lệ
+ * DTO tra cứu POS (quét mã / phím tắt Enter, chỉ đọc) — một phần tử = một SKU đang bán được của kho được ủy quyền.
+ * soLuongKhaDung là số bán được tại quầy của SKU tại ĐÚNG kho truy vấn (BanDuocTaiQuayService, cùng công thức với
+ * thanh toán), không phải tồn toàn hệ thống. anhUrl đã chuẩn hóa qua PublicAssetUrl.toHttps; null hợp lệ
  * khi chưa có ảnh (client hiện ảnh rỗng, không fallback về dữ liệu mẫu).
  *
  * Constructor tường minh theo đúng thứ tự tham số của JPQL constructor expression

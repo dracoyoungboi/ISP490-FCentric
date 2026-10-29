@@ -135,26 +135,6 @@ export const savePosDrafts = (invoices, activeInvoice, ownerTabId) => {
 
 export const posService = {
   /**
-   * Catalog SKU bán được của một kho được ủy quyền, phân trang server-side.
-   * trangThaiTon: 'con_hang' | 'het_hang' | 'tat_ca' (bỏ trống = tat_ca) — lọc ở server,
-   * nên tổng số + phân trang luôn đúng theo bộ lọc.
-   * Trả về envelope data (Page) hoặc null khi response không hợp lệ.
-   */
-  async getCatalog(khoId, { q, trangThaiTon, page = 0, size = 120, signal } = {}) {
-    const res = await apiClient.get("/api/v1/pos/catalog", {
-      params: {
-        khoId,
-        q: q || undefined,
-        trangThaiTon: trangThaiTon || undefined,
-        page,
-        size,
-      },
-      signal,
-    });
-    return res.data?.data ?? null;
-  },
-
-  /**
    * Danh mục GỘP KÍCH CỠ: mỗi phần tử là một mẫu + màu (+ chất liệu) kèm đủ các kích cỡ (bienThes).
    * Phân trang và bộ lọc tồn tính THEO NHÓM ở server: con_hang = còn ít nhất một kích cỡ có hàng
    * (kích cỡ đã hết vẫn trả về để làm mờ), het_hang = mọi kích cỡ đều hết, tat_ca = không lọc.

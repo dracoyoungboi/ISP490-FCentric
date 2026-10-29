@@ -85,130 +85,23 @@ public interface BienTheSanPhamRepository extends JpaRepository<BienTheSanPham, 
     Optional<BienTheSanPham> findFirstByMaVachSkuIgnoreCase(String maVachSku);
 
     /**
-     * Catalog POS phân trang: chỉ SKU hoạt động (trangThai=1) thuộc sản phẩm đang bán (trangThai=1),
-     * tồn khả dụng SUM(ton - daDat) của ĐÚNG kho truy vấn (LEFT JOIN + GROUP BY — không N+1).
-     */
-    @Query(value = """
-            SELECT new com.dev.backend.dto.response.customize.PosCatalogItemDto(
-                bt.id, sp.id, sp.tenSanPham, bt.maSku, bt.maVachSku,
-                ms.tenMau, ms.maMauHex, s.tenSize, cl.tenChatLieu,
-                bt.giaBan, CAST(COALESCE(SUM(tk.soLuongTon - tk.soLuongDaDat), CAST(0 AS BIGDECIMAL)) AS BIGDECIMAL),
-                dm.id, dm.tenDanhMuc)
-            FROM BienTheSanPham bt
-            JOIN bt.sanPham sp
-            JOIN sp.danhMuc dm
-            JOIN bt.mauSac ms
-            JOIN bt.size s
-            JOIN bt.chatLieu cl
-            LEFT JOIN TonKhoTheoLo tk ON tk.loHang.bienTheSanPham.id = bt.id AND tk.kho.id = :khoId
-            WHERE bt.trangThai = 1 AND sp.trangThai = 1
-              AND (:q IS NULL OR :q = ''
-                   OR LOWER(bt.maSku) LIKE LOWER(CONCAT('%', :q, '%'))
-                   OR LOWER(bt.maVachSku) LIKE LOWER(CONCAT('%', :q, '%'))
-                   OR LOWER(sp.tenSanPham) LIKE LOWER(CONCAT('%', :q, '%'))
-                   OR LOWER(sp.maSanPham) LIKE LOWER(CONCAT('%', :q, '%')))
-            GROUP BY bt.id, sp.id, sp.tenSanPham, bt.maSku, bt.maVachSku,
-                     ms.tenMau, ms.maMauHex, s.tenSize, s.thuTuSapXep, cl.tenChatLieu,
-                     bt.giaBan, dm.id, dm.tenDanhMuc
-            ORDER BY sp.tenSanPham, ms.tenMau, s.thuTuSapXep, bt.id
-            """,
-            countQuery = """
-            SELECT COUNT(DISTINCT bt.id)
-            FROM BienTheSanPham bt
-            JOIN bt.sanPham sp
-            WHERE bt.trangThai = 1 AND sp.trangThai = 1
-              AND (:q IS NULL OR :q = ''
-                   OR LOWER(bt.maSku) LIKE LOWER(CONCAT('%', :q, '%'))
-                   OR LOWER(bt.maVachSku) LIKE LOWER(CONCAT('%', :q, '%'))
-                   OR LOWER(sp.tenSanPham) LIKE LOWER(CONCAT('%', :q, '%'))
-                   OR LOWER(sp.maSanPham) LIKE LOWER(CONCAT('%', :q, '%')))
-            """)
-    Page<PosCatalogItemDto> findPosCatalog(
-            @Param("khoId") Integer khoId,
-            @Param("q") String q,
-            Pageable pageable
-    );
-
-    /**
-     * Catalog POS LỌC THEO TỒN KHO — giống hệt findPosCatalog, thêm điều kiện
-     * trangThaiTon: 'con_hang' (tồn khả dụng của ĐÚNG kho > 0) | 'het_hang' (<= 0) | 'tat_ca'
-     * (PosCatalogService gửi 'tat_ca' sang findPosCatalog; nhánh này chỉ để truy vấn tự đủ khi gọi trực tiếp).
-     * Dùng subquery tương quan với CÙNG công thức SUM(ton - daDat) của cột tồn hiển thị, để
-     * điều kiện đặt được trong WHERE của cả query trang lẫn countQuery (tổng số/số trang
-     * khớp bộ lọc — không dùng HAVING vì countQuery không đếm được nhóm).
-     */
-    @Query(value = """
-            SELECT new com.dev.backend.dto.response.customize.PosCatalogItemDto(
-                bt.id, sp.id, sp.tenSanPham, bt.maSku, bt.maVachSku,
-                ms.tenMau, ms.maMauHex, s.tenSize, cl.tenChatLieu,
-                bt.giaBan, CAST(COALESCE(SUM(tk.soLuongTon - tk.soLuongDaDat), CAST(0 AS BIGDECIMAL)) AS BIGDECIMAL),
-                dm.id, dm.tenDanhMuc)
-            FROM BienTheSanPham bt
-            JOIN bt.sanPham sp
-            JOIN sp.danhMuc dm
-            JOIN bt.mauSac ms
-            JOIN bt.size s
-            JOIN bt.chatLieu cl
-            LEFT JOIN TonKhoTheoLo tk ON tk.loHang.bienTheSanPham.id = bt.id AND tk.kho.id = :khoId
-            WHERE bt.trangThai = 1 AND sp.trangThai = 1
-              AND (:q IS NULL OR :q = ''
-                   OR LOWER(bt.maSku) LIKE LOWER(CONCAT('%', :q, '%'))
-                   OR LOWER(bt.maVachSku) LIKE LOWER(CONCAT('%', :q, '%'))
-                   OR LOWER(sp.tenSanPham) LIKE LOWER(CONCAT('%', :q, '%'))
-                   OR LOWER(sp.maSanPham) LIKE LOWER(CONCAT('%', :q, '%')))
-              AND (:trangThaiTon = 'tat_ca'
-                   OR (:trangThaiTon = 'con_hang' AND (
-                        SELECT COALESCE(SUM(t2.soLuongTon - t2.soLuongDaDat), CAST(0 AS BIGDECIMAL))
-                        FROM TonKhoTheoLo t2
-                        WHERE t2.loHang.bienTheSanPham.id = bt.id AND t2.kho.id = :khoId) > 0)
-                   OR (:trangThaiTon = 'het_hang' AND (
-                        SELECT COALESCE(SUM(t3.soLuongTon - t3.soLuongDaDat), CAST(0 AS BIGDECIMAL))
-                        FROM TonKhoTheoLo t3
-                        WHERE t3.loHang.bienTheSanPham.id = bt.id AND t3.kho.id = :khoId) <= 0))
-            GROUP BY bt.id, sp.id, sp.tenSanPham, bt.maSku, bt.maVachSku,
-                     ms.tenMau, ms.maMauHex, s.tenSize, s.thuTuSapXep, cl.tenChatLieu,
-                     bt.giaBan, dm.id, dm.tenDanhMuc
-            ORDER BY sp.tenSanPham, ms.tenMau, s.thuTuSapXep, bt.id
-            """,
-            countQuery = """
-            SELECT COUNT(DISTINCT bt.id)
-            FROM BienTheSanPham bt
-            JOIN bt.sanPham sp
-            WHERE bt.trangThai = 1 AND sp.trangThai = 1
-              AND (:q IS NULL OR :q = ''
-                   OR LOWER(bt.maSku) LIKE LOWER(CONCAT('%', :q, '%'))
-                   OR LOWER(bt.maVachSku) LIKE LOWER(CONCAT('%', :q, '%'))
-                   OR LOWER(sp.tenSanPham) LIKE LOWER(CONCAT('%', :q, '%'))
-                   OR LOWER(sp.maSanPham) LIKE LOWER(CONCAT('%', :q, '%')))
-              AND (:trangThaiTon = 'tat_ca'
-                   OR (:trangThaiTon = 'con_hang' AND (
-                        SELECT COALESCE(SUM(t2.soLuongTon - t2.soLuongDaDat), CAST(0 AS BIGDECIMAL))
-                        FROM TonKhoTheoLo t2
-                        WHERE t2.loHang.bienTheSanPham.id = bt.id AND t2.kho.id = :khoId) > 0)
-                   OR (:trangThaiTon = 'het_hang' AND (
-                        SELECT COALESCE(SUM(t3.soLuongTon - t3.soLuongDaDat), CAST(0 AS BIGDECIMAL))
-                        FROM TonKhoTheoLo t3
-                        WHERE t3.loHang.bienTheSanPham.id = bt.id AND t3.kho.id = :khoId) <= 0))
-            """)
-    Page<PosCatalogItemDto> findPosCatalogFiltered(
-            @Param("khoId") Integer khoId,
-            @Param("q") String q,
-            @Param("trangThaiTon") String trangThaiTon,
-            Pageable pageable
-    );
-
-    /**
      * Danh mục POS dạng GỘP KÍCH CỠ (PosCatalogService.getCatalogNhom): mọi SKU khớp từ khóa, KHÔNG
      * phân trang — service gộp theo mẫu + màu + chất liệu rồi mới phân trang theo nhóm.
-     * Cùng điều kiện tìm kiếm và cùng công thức tồn khả dụng với findPosCatalog; thêm mauSacId,
-     * chatLieuId (khóa nhóm) và thứ tự kích cỡ. Sắp theo mẫu, màu, chất liệu rồi kích cỡ để các SKU
+     * Chỉ SKU hoạt động thuộc sản phẩm đang bán. Tồn của mỗi SKU = Σ theo lô max(0, tồn − đã đặt) của ĐÚNG kho truy vấn
+     * (LEFT JOIN + GROUP BY — không N+1; lô âm do dữ liệu lệch tính 0, không bù cho lô khác): đúng bằng số bán được tại
+     * quầy (BanDuocTaiQuayService) khi mã không bị phiếu nhặt / phiếu xuất bán / phiếu chuyển giữ — các mã đang bị giữ
+     * được service tính lại theo lô. Các truy vấn POS bên dưới dùng cùng công thức này. Đã đặt trống tính 0 (COALESCE)
+     * như LoDangGiuService.conLai — không thì tồn − NULL ra NULL và cả lô bị tính 0.
+     * Thêm mauSacId, chatLieuId (khóa nhóm) và thứ tự kích cỡ. Sắp theo mẫu, màu, chất liệu rồi kích cỡ để các SKU
      * cùng nhóm đứng liền nhau và nhóm giữ đúng thứ tự cũ của danh mục.
      */
     @Query("""
             SELECT new com.dev.backend.dto.PosCatalogBienTheDto(
                 bt.id, sp.id, sp.tenSanPham, bt.maSku, bt.maVachSku,
                 ms.id, ms.tenMau, ms.maMauHex, s.tenSize, s.thuTuSapXep, cl.id, cl.tenChatLieu,
-                bt.giaBan, CAST(COALESCE(SUM(tk.soLuongTon - tk.soLuongDaDat), CAST(0 AS BIGDECIMAL)) AS BIGDECIMAL),
+                bt.giaBan, CAST(COALESCE(SUM(CASE WHEN tk.soLuongTon - COALESCE(tk.soLuongDaDat, 0) > 0
+                                                  THEN tk.soLuongTon - COALESCE(tk.soLuongDaDat, 0) ELSE 0 END),
+                                         CAST(0 AS BIGDECIMAL)) AS BIGDECIMAL),
                 dm.id, dm.tenDanhMuc)
             FROM BienTheSanPham bt
             JOIN bt.sanPham sp
@@ -242,7 +135,9 @@ public interface BienTheSanPhamRepository extends JpaRepository<BienTheSanPham, 
             SELECT new com.dev.backend.dto.PosCatalogBienTheDto(
                 bt.id, sp.id, sp.tenSanPham, bt.maSku, bt.maVachSku,
                 ms.id, ms.tenMau, ms.maMauHex, s.tenSize, s.thuTuSapXep, cl.id, cl.tenChatLieu,
-                bt.giaBan, CAST(COALESCE(SUM(tk.soLuongTon - tk.soLuongDaDat), CAST(0 AS BIGDECIMAL)) AS BIGDECIMAL),
+                bt.giaBan, CAST(COALESCE(SUM(CASE WHEN tk.soLuongTon - COALESCE(tk.soLuongDaDat, 0) > 0
+                                                  THEN tk.soLuongTon - COALESCE(tk.soLuongDaDat, 0) ELSE 0 END),
+                                         CAST(0 AS BIGDECIMAL)) AS BIGDECIMAL),
                 dm.id, dm.tenDanhMuc)
             FROM BienTheSanPham bt
             JOIN bt.sanPham sp
@@ -264,13 +159,15 @@ public interface BienTheSanPhamRepository extends JpaRepository<BienTheSanPham, 
     );
 
     /**
-     * Tồn khả dụng hiện tại của một nhóm SKU tại ĐÚNG kho (cùng công thức với catalog).
+     * Tồn khả dụng hiện tại của một nhóm SKU tại ĐÚNG kho (cùng công thức với findPosCatalogBienThe).
      * Dùng để cập nhật tồn cho các dòng giỏ không nằm trong trang catalog đang xem
      * (ví dụ đang lọc "Còn hàng" mà SKU trong giỏ vừa bị quầy khác bán hết).
      * Mỗi dòng: [bienTheSanPhamId, tonKhaDung]; SKU chưa có lô nào -> 0.
      */
     @Query("""
-            SELECT bt.id, CAST(COALESCE(SUM(tk.soLuongTon - tk.soLuongDaDat), CAST(0 AS BIGDECIMAL)) AS BIGDECIMAL)
+            SELECT bt.id, CAST(COALESCE(SUM(CASE WHEN tk.soLuongTon - COALESCE(tk.soLuongDaDat, 0) > 0
+                                                 THEN tk.soLuongTon - COALESCE(tk.soLuongDaDat, 0) ELSE 0 END),
+                                        CAST(0 AS BIGDECIMAL)) AS BIGDECIMAL)
             FROM BienTheSanPham bt
             LEFT JOIN TonKhoTheoLo tk ON tk.loHang.bienTheSanPham.id = bt.id AND tk.kho.id = :khoId
             WHERE bt.id IN :ids
@@ -289,7 +186,9 @@ public interface BienTheSanPhamRepository extends JpaRepository<BienTheSanPham, 
             SELECT new com.dev.backend.dto.response.customize.PosCatalogItemDto(
                 bt.id, sp.id, sp.tenSanPham, bt.maSku, bt.maVachSku,
                 ms.tenMau, ms.maMauHex, s.tenSize, cl.tenChatLieu,
-                bt.giaBan, CAST(COALESCE(SUM(tk.soLuongTon - tk.soLuongDaDat), CAST(0 AS BIGDECIMAL)) AS BIGDECIMAL),
+                bt.giaBan, CAST(COALESCE(SUM(CASE WHEN tk.soLuongTon - COALESCE(tk.soLuongDaDat, 0) > 0
+                                                  THEN tk.soLuongTon - COALESCE(tk.soLuongDaDat, 0) ELSE 0 END),
+                                         CAST(0 AS BIGDECIMAL)) AS BIGDECIMAL),
                 dm.id, dm.tenDanhMuc)
             FROM BienTheSanPham bt
             JOIN bt.sanPham sp
@@ -328,7 +227,9 @@ public interface BienTheSanPhamRepository extends JpaRepository<BienTheSanPham, 
             SELECT new com.dev.backend.dto.response.customize.PosCatalogItemDto(
                 bt.id, sp.id, sp.tenSanPham, bt.maSku, bt.maVachSku,
                 ms.tenMau, ms.maMauHex, s.tenSize, cl.tenChatLieu,
-                bt.giaBan, CAST(COALESCE(SUM(tk.soLuongTon - tk.soLuongDaDat), CAST(0 AS BIGDECIMAL)) AS BIGDECIMAL),
+                bt.giaBan, CAST(COALESCE(SUM(CASE WHEN tk.soLuongTon - COALESCE(tk.soLuongDaDat, 0) > 0
+                                                  THEN tk.soLuongTon - COALESCE(tk.soLuongDaDat, 0) ELSE 0 END),
+                                         CAST(0 AS BIGDECIMAL)) AS BIGDECIMAL),
                 dm.id, dm.tenDanhMuc)
             FROM BienTheSanPham bt
             JOIN bt.sanPham sp

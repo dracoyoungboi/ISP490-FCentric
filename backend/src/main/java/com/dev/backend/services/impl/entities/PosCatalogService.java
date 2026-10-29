@@ -15,13 +15,13 @@ import com.dev.backend.repository.AnhBienTheRepository;
 import com.dev.backend.repository.AnhQuanAoRepository;
 import com.dev.backend.repository.BienTheSanPhamRepository;
 import com.dev.backend.repository.PhanQuyenNguoiDungKhoRepository;
+import com.dev.backend.services.impl.multitable.BanDuocTaiQuayService;
 import com.dev.backend.utils.PublicAssetUrl;
 import jakarta.persistence.EntityManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +30,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -38,16 +39,17 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Catalog POS (chỉ đọc). Mỗi phần tử là một SKU đang bán được của KHO ĐƯỢC ỦY QUYỀN:
+ * Catalog POS (chỉ đọc): danh mục gộp kích cỡ, tra tồn giỏ, tra cứu mã. Mỗi SKU là một mã đang bán được của
+ * KHO ĐƯỢC ỦY QUYỀN:
  * - Kho được kiểm tra server-side bằng đúng pattern PhieuXuatKhoService.kiemTraQuyenKho
  *   (admin bỏ qua; người khác phải có phân quyền kho active + chưa hết hạn).
- * - Tồn khả dụng = SUM(ton - dat) theo lô của ĐÚNG kho truy vấn (trong JPQL), không phải
- *   tồn toàn hệ thống; không có lô nào -> 0 (dữ liệu đã biết, không bịa).
+ * - Tồn hiển thị = số bán được tại quầy của ĐÚNG kho truy vấn, cùng công thức với bước thanh toán
+ *   (BanDuocTaiQuayService): JPQL trả Σ theo lô max(0, tồn − đã đặt), các mã đang bị phiếu nhặt / phiếu xuất bán /
+ *   phiếu chuyển giữ ở kho được tính lại theo lô. Không có lô nào -> 0 (dữ liệu đã biết, không bịa).
  * - Ảnh: anh_bien_the -> fallback anh_quan_ao (anhChinh=1 ưu tiên) -> null; URL qua
  *   PublicAssetUrl.toHttps (convention chống Mixed Content của dự án).
- * - Không N+1: 1 query trang (LEFT JOIN + GROUP BY) + 2 query batch ảnh.
- * - Bộ lọc tồn kho (tùy chọn): trangThaiTon = con_hang | het_hang | tat_ca.
- *   Không truyền = tat_ca -> giữ nguyên hành vi cũ.
+ * - Không N+1: truy vấn SKU (LEFT JOIN + GROUP BY) + truy vấn mã đang bị giữ theo kho + 2 query batch ảnh.
+ * - Bộ lọc tồn kho (tùy chọn): trangThaiTon = con_hang | het_hang | tat_ca. Không truyền = tat_ca.
  */
 @Service
 public class PosCatalogService {
@@ -82,31 +84,8 @@ public class PosCatalogService {
     @Autowired
     private PhanQuyenNguoiDungKhoRepository phanQuyenNguoiDungKhoRepository;
 
-    /** Catalog không lọc (giữ chữ ký cũ cho các nơi gọi/test hiện có). */
-    @Transactional(readOnly = true)
-    public Page<PosCatalogItemDto> getCatalog(Integer khoId, String q, int page, int size) {
-        return getCatalog(khoId, q, null, page, size);
-    }
-
-    /**
-     * Catalog có bộ lọc tồn kho. tat_ca -> dùng đúng truy vấn gốc (findPosCatalog);
-     * con_hang/het_hang -> findPosCatalogFiltered (lọc cả trong countQuery nên tổng số
-     * và phân trang luôn khớp với bộ lọc).
-     */
-    @Transactional(readOnly = true)
-    public Page<PosCatalogItemDto> getCatalog(Integer khoId, String q, String trangThaiTon, int page, int size) {
-        Integer authorizedKhoId = authorizeWarehouse(khoId);
-        int safeSize = Math.min(Math.max(size, 1), 120);
-        String query = (q == null || q.isBlank()) ? null : q.trim();
-        String boLocTon = chuanHoaBoLocTon(trangThaiTon);
-        Pageable pageable = PageRequest.of(Math.max(page, 0), safeSize);
-
-        Page<PosCatalogItemDto> result = TON_TAT_CA.equals(boLocTon)
-                ? bienTheSanPhamRepository.findPosCatalog(authorizedKhoId, query, pageable)
-                : bienTheSanPhamRepository.findPosCatalogFiltered(authorizedKhoId, query, boLocTon, pageable);
-        attachImages(result.getContent());
-        return result;
-    }
+    @Autowired
+    private BanDuocTaiQuayService banDuocTaiQuayService;
 
     /**
      * Danh mục POS GỘP KÍCH CỠ: mỗi phần tử là một mẫu + màu + chất liệu kèm đủ các kích cỡ
@@ -114,7 +93,8 @@ public class PosCatalogService {
      * con_hang = còn ít nhất một kích cỡ có hàng (kích cỡ đã hết vẫn trả về để màn POS làm mờ),
      * het_hang = mọi kích cỡ đều hết, tat_ca = không lọc.
      * Không tìm kiếm: 1 truy vấn. Có từ khóa: thêm 1 truy vấn lấy đủ kích cỡ của các mẫu khớp
-     * (từ khóa có thể chỉ khớp mã SKU của một kích cỡ). Ảnh chỉ tải cho các nhóm của trang.
+     * (từ khóa có thể chỉ khớp mã SKU của một kích cỡ). Số bán được của mã đang bị giữ được tính lại TRƯỚC khi lọc
+     * và phân trang theo nhóm (nhóm bị giữ hết rơi khỏi "Còn hàng"). Ảnh chỉ tải cho các nhóm của trang.
      */
     @Transactional(readOnly = true)
     public Page<PosCatalogNhomDto> getCatalogNhom(Integer khoId, String q, String trangThaiTon, int page, int size) {
@@ -135,6 +115,7 @@ public class PosCatalogService {
             }
             dayDu = tatCa;
         }
+        apDungBanDuocNhom(authorizedKhoId, khop, dayDu);
 
         PosCatalogNhomBuilder.KetQua ketQua = PosCatalogNhomBuilder.xayDung(khop, dayDu, boLocTon, safePage, safeSize);
         attachNhomImages(ketQua.trang());
@@ -142,8 +123,8 @@ public class PosCatalogService {
     }
 
     /**
-     * Tồn khả dụng hiện tại tại kho được ủy quyền cho một nhóm SKU (thường là các dòng trong giỏ).
-     * Trả về map bienTheSanPhamId -> tồn khả dụng; id không tồn tại thì không có trong map.
+     * Số bán được hiện tại tại kho được ủy quyền cho một nhóm SKU (thường là các dòng trong giỏ), cùng số với danh mục
+     * và bước thanh toán. Trả về map bienTheSanPhamId -> số bán được; id không tồn tại thì không có trong map.
      */
     @Transactional(readOnly = true)
     public Map<Integer, BigDecimal> getAvailableStock(Integer khoId, List<Integer> ids) {
@@ -165,6 +146,8 @@ public class PosCatalogService {
                     : value == null ? BigDecimal.ZERO : new BigDecimal(String.valueOf(value));
             result.put(((Number) row[0]).intValue(), ton);
         }
+        // Mã đang bị phiếu nhặt / phiếu xuất bán / phiếu chuyển giữ ở kho: tính lại theo lô, cùng công thức với thanh toán
+        banDuocTaiQuayService.banDuocCuaMaDangGiu(authorizedKhoId, result.keySet()).forEach(result::replace);
         return result;
     }
 
@@ -187,16 +170,55 @@ public class PosCatalogService {
         if (skuPrefix != null && !skuPrefix.isBlank()) {
             Page<PosCatalogItemDto> page = bienTheSanPhamRepository.findPosCatalogBySkuPrefix(
                     authorizedKhoId, skuPrefix.trim(), PageRequest.of(0, 1));
+            apDungBanDuoc(authorizedKhoId, page.getContent());
             attachImages(page.getContent());
             return page.getContent();
         }
         if (barcode != null && !barcode.isBlank()) {
             Page<PosCatalogItemDto> page = bienTheSanPhamRepository.findPosCatalogByBarcode(
                     authorizedKhoId, barcode.trim(), PageRequest.of(0, 10));
+            apDungBanDuoc(authorizedKhoId, page.getContent());
             attachImages(page.getContent());
             return page.getContent();
         }
         throw new CommonException("Cần cung cấp skuPrefix hoặc barcode để tra cứu");
+    }
+
+    /**
+     * Danh mục gộp: ghi số bán được tính lại theo lô cho các mã đang bị giữ ở kho (BanDuocTaiQuayService), trên cả
+     * danh sách khớp và danh sách đủ kích cỡ (hai truy vấn khác nhau, đối tượng khác nhau).
+     */
+    private void apDungBanDuocNhom(Integer khoId, List<PosCatalogBienTheDto> khop, List<PosCatalogBienTheDto> dayDu) {
+        Set<Integer> ids = new LinkedHashSet<>();
+        khop.forEach(b -> ids.add(b.getBienTheSanPhamId()));
+        dayDu.forEach(b -> ids.add(b.getBienTheSanPhamId()));
+        Map<Integer, BigDecimal> tinhLai = banDuocTaiQuayService.banDuocCuaMaDangGiu(khoId, ids);
+        if (tinhLai.isEmpty()) {
+            return;
+        }
+        for (List<PosCatalogBienTheDto> ds : List.of(khop, dayDu)) {
+            for (PosCatalogBienTheDto b : ds) {
+                BigDecimal so = tinhLai.get(b.getBienTheSanPhamId());
+                if (so != null) {
+                    b.setSoLuongKhaDung(so);
+                }
+            }
+        }
+    }
+
+    /** Tra cứu mã: như apDungBanDuocNhom cho các dòng PosCatalogItemDto. */
+    private void apDungBanDuoc(Integer khoId, List<PosCatalogItemDto> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        Map<Integer, BigDecimal> tinhLai = banDuocTaiQuayService.banDuocCuaMaDangGiu(khoId,
+                items.stream().map(PosCatalogItemDto::getBienTheSanPhamId).toList());
+        for (PosCatalogItemDto item : items) {
+            BigDecimal so = tinhLai.get(item.getBienTheSanPhamId());
+            if (so != null) {
+                item.setSoLuongKhaDung(so);
+            }
+        }
     }
 
     /**

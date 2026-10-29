@@ -14,8 +14,10 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Số còn lại của một lô dùng chung cho phân bổ lô ở phiếu nhặt, chọn lô chuyển kho / sửa lô phiếu xuất và POS:
@@ -57,6 +59,20 @@ public class LoDangGiuService {
         }
         cong(ketQua, phanBoLoNhatHangRepository.sumDangGiuTheoLo(khoId, loHangIds, boQuaPhieuNhatId));
         cong(ketQua, chiTietPhieuXuatKhoRepository.sumDangGiuPhieuBanChuaXuat(khoId, loHangIds, boQuaPhieuXuatId));
+        return ketQua;
+    }
+
+    /**
+     * Biến thể có lô đang bị phiếu nhặt đang mở / phiếu xuất bán chưa xuất giữ ở một kho (cùng điều kiện với
+     * dangGiuTheoLo, không cần danh sách lô). Mã ngoài tập này có phần giữ theo lô bằng 0 ở kho đó.
+     */
+    public Set<Integer> bienTheDangGiuTaiKho(Integer khoId) {
+        Set<Integer> ketQua = new HashSet<>();
+        if (khoId == null) {
+            return ketQua;
+        }
+        ketQua.addAll(phanBoLoNhatHangRepository.bienTheDangGiuTaiKho(khoId));
+        ketQua.addAll(chiTietPhieuXuatKhoRepository.bienTheDangGiuPhieuBanChuaXuat(khoId));
         return ketQua;
     }
 
