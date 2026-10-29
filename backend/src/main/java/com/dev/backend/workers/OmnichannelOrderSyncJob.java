@@ -11,6 +11,11 @@ import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
 import com.dev.backend.services.impl.entities.DonBanHangService;
 import com.dev.backend.services.impl.entities.KhoService;
 import com.dev.backend.utils.KenhCauHinhDongBo;
+import com.dev.backend.dto.response.customize.TikTokOrderDto;
+import com.dev.backend.dto.response.customize.TikTokOrderItemDto;
+import com.dev.backend.dto.response.customize.TikTokRecipientAddressDto;
+import com.dev.backend.utils.TikTokOrderMapper;
+import com.dev.backend.services.tiktok.TikTokShopClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AccessLevel;
@@ -64,6 +69,9 @@ public class OmnichannelOrderSyncJob {
     DieuHanhHeThongService dieuHanhHeThongService;
     DonBanHangService donBanHangService;
     LazadaClient lazadaClient;
+    @lombok.experimental.NonFinal
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    TikTokShopClient tiktokShopClient;
     ObjectMapper objectMapper = new ObjectMapper();
     AtomicReference<Instant> lastSyncTime = new AtomicReference<>(Instant.EPOCH);
     // Lần gọi API đơn hàng của sàn thành công gần nhất, theo id kênh (màn Theo dõi đồng bộ)
@@ -496,6 +504,131 @@ public class OmnichannelOrderSyncJob {
             log.warn("[JOB-01 Error] Lỗi kết nối API đơn hàng Lazada: {}", e.getMessage());
         }
         return syncedCount;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public boolean processSingleTikTokOrder(TikTokOrderDto order, KenhBanHang kenh) {
+        if (order == null || order.getId() == null || order.getId().isBlank()) return false;
+        String orderId = order.getId().trim();
+        String soDonHang = "TTS-" + orderId;
+
+        Optional<DonBanHang> existingOpt = donBanHangRepository.findBySoDonHang(soDonHang);
+        if (existingOpt.isEmpty()) {
+            existingOpt = donBanHangRepository.findByMaDonHangKenh(orderId);
+        }
+
+        if (existingOpt.isPresent()) {
+            DonBanHang existing = existingOpt.get();
+            if ("CANCELLED".equalsIgnoreCase(order.getStatus()) || order.laYeuCauHuy()) {
+                if (existing.getTrangThai() != null && existing.getTrangThai() != ITrangThaiDonBanHang.DA_HUY) {
+                    try {
+                        String lyDoHuy = order.getCancelReason() != null && !order.getCancelReason().isBlank()
+                                ? order.getCancelReason() : "Hủy từ sàn TikTok Shop";
+                        donBanHangService.huyDonTuSan(existing.getId(), lyDoHuy);
+                        log.info("[JOB-01] Đơn {} đã bị hủy trên TikTok Shop -> Cập nhật trạng thái FCentric = 4", soDonHang);
+                    } catch (Exception ex) {
+                        log.error("[JOB-01] Lỗi khi hủy đơn {} theo sàn TikTok Shop: {}", soDonHang, ex.getMessage());
+                    }
+                }
+            }
+            return false;
+        }
+
+        TikTokRecipientAddressDto addr = order.getRecipientAddress();
+        String phone = addr != null && addr.getPhoneNumber() != null ? addr.getPhoneNumber().trim() : "";
+        KhachHang khachHang = null;
+        if (!phone.isBlank()) {
+            khachHang = khachHangRepository.findFirstBySoDienThoai(phone).orElse(null);
+        }
+        if (khachHang == null) {
+            khachHang = khachHangRepository.findById(1).orElse(null);
+        }
+
+        BigDecimal totalPrice = BigDecimal.ZERO;
+        if (order.getTotalAmount() != null && !order.getTotalAmount().isBlank()) {
+            try {
+                totalPrice = new BigDecimal(order.getTotalAmount().trim());
+            } catch (Exception ignored) {}
+        }
+
+        BigDecimal shippingFee = BigDecimal.ZERO;
+        if (order.getShippingFee() != null && !order.getShippingFee().isBlank()) {
+            try {
+                shippingFee = new BigDecimal(order.getShippingFee().trim());
+            } catch (Exception ignored) {}
+        }
+        BigDecimal price = totalPrice.subtract(shippingFee).max(BigDecimal.ZERO);
+
+        String address = addr != null && addr.getFullAddress() != null ? addr.getFullAddress() : "";
+        List<Kho> khoHoatDong = khoRepository.findByTrangThai(1);
+        Kho defaultKho = khoHoatDong.stream().filter(KhoService::laKhoTong).findFirst()
+                .orElse(khoHoatDong.stream().filter(k -> !KhoService.laKhoAo(k)).findFirst().orElse(null));
+
+        Instant ngayDat = order.getCreateTime() != null ? Instant.ofEpochMilli(order.getCreateTime() * 1000L) : Instant.now();
+        int trangThai = TikTokOrderMapper.mapTrangThaiDonHang(order.getStatus());
+        String ttThanhToan = TikTokOrderMapper.mapTrangThaiThanhToan(order.getStatus(), order.getPaidTime(), order.getPaymentMethodName());
+
+        DonBanHang don = DonBanHang.builder()
+                .soDonHang(soDonHang)
+                .maDonHangKenh(orderId)
+                .kenhBanHang(kenh)
+                .khachHang(khachHang)
+                .khoXuat(defaultKho)
+                .loaiChungTu("don_ban_hang")
+                .ngayDatHang(ngayDat)
+                .trangThai(trangThai)
+                .tienHang(price)
+                .phiVanChuyen(shippingFee)
+                .tongCong(totalPrice)
+                .trangThaiThanhToan(ttThanhToan)
+                .diaChiGiaoHang(address)
+                .ghiChu("Đơn hàng đồng bộ tự động từ TikTok Shop #" + orderId)
+                .build();
+
+        DonBanHang savedOrder = donBanHangRepository.save(don);
+
+        if (order.getLineItems() != null) {
+            for (TikTokOrderItemDto it : order.getLineItems()) {
+                String sellerSku = it.getSellerSku() != null ? it.getSellerSku().trim() : "";
+                String skuId = it.getSkuId() != null ? it.getSkuId().trim() : "";
+
+                BienTheSanPham bt = null;
+                if (!sellerSku.isBlank()) {
+                    bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(sellerSku).orElse(null);
+                }
+                if (bt == null && !skuId.isBlank()) {
+                    bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(skuId).orElse(null);
+                }
+                if (bt == null && !sellerSku.isBlank()) {
+                    var mapping = trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndMaSanPhamKenh(kenh.getId(), sellerSku);
+                    if (mapping.isPresent()) {
+                        bt = mapping.get().getBienTheSanPham();
+                    }
+                }
+
+                BigDecimal itemPrice = BigDecimal.ZERO;
+                if (it.getSalePrice() != null && !it.getSalePrice().isBlank()) {
+                    try {
+                        itemPrice = new BigDecimal(it.getSalePrice().trim());
+                    } catch (Exception ignored) {}
+                }
+                BigDecimal sl = it.getQuantity() != null ? BigDecimal.valueOf(it.getQuantity()) : BigDecimal.ONE;
+
+                if (bt != null) {
+                    ChiTietDonBanHang chiTiet = ChiTietDonBanHang.builder()
+                            .donBanHang(savedOrder)
+                            .bienTheSanPham(bt)
+                            .soLuongDat(sl)
+                            .soLuongDaGiao(BigDecimal.ZERO)
+                            .donGia(itemPrice)
+                            .ghiChu(it.getProductName() != null ? it.getProductName() : "")
+                            .build();
+                    chiTietDonBanHangRepository.save(chiTiet);
+                }
+            }
+        }
+
+        return true;
     }
 
     @Transactional(rollbackFor = Exception.class)
