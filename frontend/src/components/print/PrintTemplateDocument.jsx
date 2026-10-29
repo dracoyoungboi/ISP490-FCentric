@@ -171,8 +171,13 @@ function renderItemsSection(section, ctx) {
                 const value = row[column.path];
                 if (column.key !== "productName") return isEmptyValue(value) ? "" : value;
                 const sub = inlineColumns
-                    .map((inline) => row[inline.path])
-                    .filter((part) => !isBlankCell(part))
+                    .filter((inline) => !isBlankCell(row[inline.path]))
+                    // Đơn giá trên khổ nhiệt in kèm nhãn ("Đơn giá 120.000 ₫") để không lẫn với cột Thành tiền
+                    .map((inline) =>
+                        inline.inlineLabel
+                            ? `${getLabel(config, section.key, inline.key, inline.label)} ${row[inline.path]}`
+                            : row[inline.path]
+                    )
                     .join(" · ");
                 return (
                     <>

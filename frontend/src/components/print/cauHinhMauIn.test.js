@@ -97,7 +97,8 @@ test("nhãn đổi tên được theo bố cục: không gồm nhãn tự đổi
     assert.equal(sheet.get("signatures.accountant"), "Kế toán");
     const k80 = getRenameableLabels(POS, true);
     assert.equal(k80.get("items.productName"), "Tên hàng");
-    assert.equal(k80.has("items.unitPrice"), false); // đơn giá in dưới tên hàng
+    assert.equal(k80.get("items.unitPrice"), "Đơn giá"); // đơn giá in dưới tên hàng kèm nhãn "Đơn giá …"
+    assert.equal(getRenameableLabels(PRINT_SCHEMAS.purchase_request, false).has("items.color"), false); // dòng phụ không nhãn
     assert.equal(k80.has("invoiceInfo.cashier"), true);
     assert.equal(getRenameableLabels(PRINT_SCHEMAS.sales_invoice, false).has("invoiceInfo.cashier"), false);
 });

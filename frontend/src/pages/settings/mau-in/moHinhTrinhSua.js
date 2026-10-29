@@ -148,7 +148,8 @@ function itemsRows(section, config, compact, docNoun) {
     }
     const columns = compact && section.compactColumns ? section.compactColumns : section.columns;
     for (const column of columns) {
-        const renameable = !column.inline && !column.inlineIn;
+        // Cột in ở dòng phụ không có nhãn riêng — trừ cột in kèm nhãn ("Đơn giá 120.000 ₫")
+        const renameable = (!column.inline || Boolean(column.inlineLabel)) && !column.inlineIn;
         // Mục in kèm trong ô của cột khác (ngày sản xuất sau mã lô): cột đó tắt thì mục này không in
         const host = column.inlineIn ? columns.find((other) => other.key === column.inlineIn) : null;
         const hostOn = !host || Boolean(host.essential) || config.columns?.[host.key] !== false;

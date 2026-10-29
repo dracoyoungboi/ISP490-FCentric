@@ -234,8 +234,8 @@ export function buildVariantFromDraft(schema, draft, targetPaper) {
 /**
  * Các nhãn in trên giấy mà người dùng đổi tên được, theo bố cục của khổ giấy:
  * Map "<section>.<mục>" -> nhãn gốc. Không gồm nhãn tự đổi theo dữ liệu (labelModelPath),
- * cột in ở dòng phụ (inline) hay gắn sau cột khác (inlineIn), dòng tổng in sau nhãn dòng khác (attachTo)
- * — những mục này không in nhãn riêng.
+ * cột in ở dòng phụ (inline, trừ cột in kèm nhãn — inlineLabel) hay gắn sau cột khác (inlineIn), dòng tổng
+ * in sau nhãn dòng khác (attachTo) — những mục này không in nhãn riêng.
  */
 export function getRenameableLabels(schema, compact) {
     const labels = new Map();
@@ -251,7 +251,7 @@ export function getRenameableLabels(schema, compact) {
         } else if (section.type === "items") {
             const columns = compact && section.compactColumns ? section.compactColumns : section.columns;
             for (const column of columns) {
-                if (column.inline || column.inlineIn) continue;
+                if ((column.inline && !column.inlineLabel) || column.inlineIn) continue;
                 labels.set(labelKey(section.key, column.key), column.label);
             }
         } else if (section.type === "summary") {

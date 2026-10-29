@@ -32,6 +32,7 @@
  *     column.essential = cột BẮT BUỘC (không tắt được)
  *     column.inline    = không thành cột riêng mà in ở dòng phụ dưới tên hàng
  *                        (màu, cỡ, chất liệu, đơn giá trên K80) — bảng ít cột, tên dài vẫn dễ đọc
+ *     column.inlineLabel = dòng phụ in kèm nhãn cột ("Đơn giá 120.000 ₫") để số không lẫn với cột tiền
  *     column.kind      = "qty" | "money" | "code" | "lots" (căn lề / định dạng)
  *     column.hideWhenAllEmpty = ẩn cột khi mọi dòng đều trống (vd. cột Lỗi)
  *     totals           = dòng tổng nằm đúng dưới các cột khai báo
@@ -168,7 +169,7 @@ const SALES_INVOICE_SECTIONS = [
         // Khổ nhiệt (K80 / K57) — KHÔNG co bảng A4 lại: 3 cột, đơn giá in dòng phụ dưới tên
         compactColumns: [
             { key: "productName", label: "Tên hàng", path: "name", essential: true },
-            { key: "unitPrice", label: "Đơn giá", path: "unitPrice", essential: true, inline: true },
+            { key: "unitPrice", label: "Đơn giá", path: "unitPrice", essential: true, inline: true, inlineLabel: true },
             { key: "quantity", label: "SL", path: "quantity", essential: true, kind: "qty" },
             { key: "amount", label: "Thành tiền", path: "amount", essential: true, kind: "money" },
         ],

@@ -179,6 +179,14 @@ test("chú thích thuế: tắt cả hai dòng thuế thì khóa lại, không t
     );
 });
 
+test("đơn giá khổ nhiệt in kèm nhãn nên đổi tên được; màu/cỡ in dòng phụ không nhãn thì không", () => {
+    const HD = PRINT_SCHEMAS.pos_invoice;
+    const group = nhom(buildEditorGroups(HD, macDinh(HD)), "items");
+    assert.equal(dong(group, "items.unitPrice").labelKey, "items.unitPrice");
+    const PYC = PRINT_SCHEMAS.purchase_request;
+    assert.equal(dong(nhom(buildEditorGroups(PYC, macDinh(PYC)), "items"), "items.color").labelKey, null);
+});
+
 test("gợi ý theo danh từ của chứng từ: hóa đơn không gọi là phiếu", () => {
     const HD = PRINT_SCHEMAS.sales_invoice;
     const hints = buildEditorGroups(HD, macDinh(HD)).flatMap((group) => group.rows).map((row) => row.hint ?? "");
