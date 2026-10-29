@@ -15,6 +15,7 @@ import {
   phanTramTaiLen,
   chuThongTinTep,
   oBangChung,
+  TEN_TEP_LOAI,
   thoiLuongGuiLen,
   thoiLuongHopLe,
   videoQuaLon,
@@ -385,12 +386,14 @@ function OBangChung({ o, suaDuoc, khoaThem, lyDoKhoaXoa, hetHan, trangThai, quay
  * - `traTieuDiem()`: gọi sau khi lưu / xóa / đóng camera, hộp xem, hộp xóa — nơi gọi trả tiêu điểm về chỗ cần (ô quét).
  * - `traTieuDiemVe` (ref, vd. ô quét): đóng hộp hỏi rời trang thì tiêu điểm về đây, không về link đã mở hộp (Enter của
  *   máy quét sẽ bấm lại link đó).
- * - `onRefresh()`: tải lại sau khi lưu / xóa. `soDonHang`, `tongTienDonHang`: giữ cho nơi gọi cũ, không dùng.
+ * - `onRefresh()`: tải lại sau khi lưu / xóa. `soDonHang`: đặt tên tệp khi tải bằng chứng xuống (thiếu thì theo
+ *   `donId`). `tongTienDonHang`: giữ cho nơi gọi cũ, không dùng.
  * - Đang mở camera / quay / tệp chưa gửi hết: rời trang (link, Back, đóng thẻ…) phải xác nhận (useHoiKhiRoiTrang); gỡ
  *   phần này thì dừng tải. `onBanDoi(true | false)`: báo nơi gọi để hỏi trước khi đóng hộp chứa phần này.
  */
 export default function PackingProofSection({
   donId,
+  soDonHang,
   yeuCauVideo = false,
   huongDan,
   thoiLuongVideoToiThieu,
@@ -593,7 +596,7 @@ export default function PackingProofSection({
               else setChupLoai(x.loai);
             }}
             onChonTep={() => chonTep(x)}
-            onXem={() => setXem(x)}
+            onXem={() => setXem({ ...x, tenTep: [soDonHang || `don-${donId}`, TEN_TEP_LOAI[x.loai]] })}
             onXoa={() => {
               setLoiXoa(null);
               setXoa(x);

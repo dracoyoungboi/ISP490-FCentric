@@ -427,6 +427,7 @@ function ManDongGoi({ donId }) {
             />
             <PackingProofSection
               donId={phien.donBanHangId}
+              soDonHang={phien.soDonHang}
               yeuCauVideo={yeuCauVideo}
               huongDan={qBc.data?.huongDan}
               thoiLuongVideoToiThieu={qBc.data?.thoiLuongVideoToiThieu ?? phien.thoiLuongVideoToiThieu}
