@@ -140,6 +140,45 @@ test("ngày sản xuất in sau mã lô: tắt cột Lô thì ngày sản xuất
     assert.equal(tat.total, group.total - 1);
 });
 
+test("thuế suất in sau nhãn Thuế GTGT: không đổi tên được, tắt Thuế GTGT thì khóa lại, gợi ý theo tên đã đổi", () => {
+    const HD = PRINT_SCHEMAS.pos_invoice;
+    const config = setLabel(macDinh(HD), "totals.vatAmount", "Tiền thuế VAT", "Thuế GTGT");
+    const group = nhom(buildEditorGroups(HD, config), "totals");
+    const thueSuat = dong(group, "totals.vatRate");
+    assert.equal(thueSuat.labelKey, null);
+    assert.equal(thueSuat.inactive, false);
+    assert.equal(thueSuat.hint, "In trong ngoặc sau nhãn Tiền thuế VAT");
+    const tat = nhom(buildEditorGroups(HD, toggleRow(config, dong(group, "totals.vatAmount"), false)), "totals");
+    assert.equal(dong(tat, "totals.vatRate").inactive, true);
+    assert.equal(dong(tat, "totals.vatRate").hint, "Chỉ in khi bật Tiền thuế VAT");
+    assert.equal(tat.total, group.total - 1);
+    // Dòng chú thích "trong đó" đổi tên được như các dòng tổng khác
+    assert.equal(dong(group, "totals.vatNote").labelKey, "totals.vatNote");
+});
+
+test("chú thích thuế: tắt cả hai dòng thuế thì khóa lại, không tính vào số mục; tóm tắt lịch sử dùng tên ngắn", () => {
+    const HD = PRINT_SCHEMAS.pos_invoice;
+    const config = macDinh(HD);
+    const group = nhom(buildEditorGroups(HD, config), "totals");
+    assert.equal(dong(group, "totals.vatNote").inactive, false);
+
+    const tatMot = toggleRow(config, dong(group, "totals.vatPreTax"), false);
+    assert.equal(dong(nhom(buildEditorGroups(HD, tatMot), "totals"), "totals.vatNote").inactive, false);
+
+    const tatHai = toggleRow(tatMot, dong(group, "totals.vatAmount"), false);
+    const khoa = nhom(buildEditorGroups(HD, tatHai), "totals");
+    const chuThich = dong(khoa, "totals.vatNote");
+    assert.equal(chuThich.inactive, true);
+    assert.equal(chuThich.hint, "Chỉ in khi bật Tiền trước thuế hoặc Thuế GTGT");
+    // Chú thích, thuế suất (theo Thuế GTGT) khóa lại: không tính vào số mục
+    assert.equal(khoa.total, group.total - 2);
+
+    assert.equal(
+        summarizeChanges(HD, config, toggleRow(config, dong(group, "totals.vatNote"), false)),
+        "Tắt dòng chú thích thuế GTGT"
+    );
+});
+
 test("gợi ý theo danh từ của chứng từ: hóa đơn không gọi là phiếu", () => {
     const HD = PRINT_SCHEMAS.sales_invoice;
     const hints = buildEditorGroups(HD, macDinh(HD)).flatMap((group) => group.rows).map((row) => row.hint ?? "");

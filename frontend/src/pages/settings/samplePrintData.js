@@ -376,6 +376,9 @@ export const SAMPLE_SALES_INVOICE_RAW = {
         tienHang: 4250000,
         phiVanChuyen: 50000,
         tongCong: 4300000,
+        // Giá đã gồm thuế GTGT 8%: thuế tách ngược từ tổng cộng (4.300.000 × 8 / 108) — xem trước nhóm "trong đó"
+        thueSuatGtgt: 8,
+        tienThueGtgt: 318519,
         ghiChu: "Giao giờ hành chính, gọi chị Thu Hà trước khi giao.",
         nguoiTao: {
             hoTen: "Phạm Quốc Huy",
@@ -433,6 +436,9 @@ export const SAMPLE_POS_INVOICE_RAW = {
         tienHang: 850000,
         phiVanChuyen: 0,
         tongCong: 850000,
+        // Giá đã gồm thuế GTGT 8% (850.000 × 8 / 108)
+        thueSuatGtgt: 8,
+        tienThueGtgt: 62963,
         ghiChu: null,
         nguoiTao: { hoTen: "Trần Thị Mai", email: "mai.tt@example.com" },
         kenhBanHang: { id: 1, maKenh: "POS", tenKenh: "POS" },

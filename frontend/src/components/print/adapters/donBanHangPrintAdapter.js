@@ -134,8 +134,8 @@ export function toSalesQuotationPrintModel(raw) {
 }
 
 /**
- * Thuế GTGT của đơn (chụp lúc chốt, giá đã gồm thuế): cộng tiền chưa thuế, thuế suất, tiền thuế. Đơn không mang thuế
- * (tắt thuế, đơn sàn, đơn cũ): null, các dòng thuế tự ẩn.
+ * Thuế GTGT của đơn (chụp lúc chốt, giá đã gồm thuế): tiền trước thuế, thuế suất, tiền thuế — phần "trong đó" của Tổng
+ * thanh toán. Đơn không mang thuế (tắt thuế, đơn sàn, đơn cũ): null, cả nhóm dòng thuế tự ẩn.
  */
 export function thueGtgt(don) {
     const rate = toNumeric(don?.thueSuatGtgt);
@@ -143,6 +143,8 @@ export function thueGtgt(don) {
     const total = toNumeric(don?.tongCong);
     if (rate == null || amount == null || total == null) return null;
     return {
+        // Dòng chú thích "Giá đã gồm thuế GTGT, trong đó:" không có số — chỉ cần biết đơn mang thuế
+        included: true,
         preTax: formatPrintMoney(total - amount),
         rate: `${rate.toLocaleString("vi-VN")}%`,
         amount: formatPrintMoney(amount),
@@ -160,16 +162,18 @@ export function toSalesInvoicePrintModel(raw) {
 
     // Sổ thu tại quầy: hình thức, tiền khách đưa, tiền thừa (đơn khác không có -> null, dòng tự ẩn)
     const thu = raw?.thanhToanTaiQuay || null;
-    // Trả kết hợp tại quầy: "Tiền mặt 200.000 ₫ + Chuyển khoản 300.000 ₫" (tiền mặt khách trả trước, QR phần còn lại)
+    // Trả kết hợp tại quầy: tiền mặt khách trả trước, QR phần còn lại — đầu hóa đơn chỉ ghi "Tiền mặt + Chuyển khoản",
+    // số tiền từng phần in ở khối tổng ngay dưới Tổng thanh toán
     const tienMatTruoc = toNumeric(thu?.tienMatTruoc);
     const ketHop = tienMatTruoc > 0;
+    const tienChuyenKhoan = ketHop ? Math.max((toNumeric(thu.soTienThu) ?? 0) - tienMatTruoc, 0) : null;
     // Đơn bán thường (thu theo phiếu ghi nhận: đặt cọc, thu nhiều lần): cách trả đã dùng, số đã thu và còn phải thu
     const phieuThu = donThuong ? (tt.phieu ?? []).filter((p) => p.loai === "THU" && p.trangThai === "HIEU_LUC") : [];
     const cachTraThuong = [...new Set(phieuThu.map((p) => PAYMENT_METHOD[p.phuongThuc] ?? p.phuongThuc))].join(" + ") || null;
     const daThu = donThuong ? toNumeric(tt.daThu) : null;
     const conLai = donThuong ? toNumeric(tt.conLai) : null;
     const method = ketHop
-        ? `Tiền mặt ${formatPrintMoney(tienMatTruoc)} + Chuyển khoản ${formatPrintMoney(Math.max((toNumeric(thu.soTienThu) ?? 0) - tienMatTruoc, 0))}`
+        ? `${PAYMENT_METHOD.CASH} + ${PAYMENT_METHOD.PAYOS}`
         : thu?.phuongThuc ? PAYMENT_METHOD[thu.phuongThuc] ?? thu.phuongThuc
             : donThuong ? cachTraThuong : null;
     const isCash = thu?.phuongThuc === "CASH";
@@ -187,6 +191,8 @@ export function toSalesInvoicePrintModel(raw) {
         paymentStatus: { label: joinParts([status.label, method]) },
         vat: thueGtgt(don),
         payment: {
+            cashPart: ketHop ? formatPrintMoney(tienMatTruoc) : null,
+            transferPart: ketHop ? formatPrintMoney(tienChuyenKhoan) : null,
             received: isCash ? formatPrintMoney(thu.soTienThu) : null,
             changeRaw: change,
             change: isCash ? formatPrintMoney(change ?? 0) : null,

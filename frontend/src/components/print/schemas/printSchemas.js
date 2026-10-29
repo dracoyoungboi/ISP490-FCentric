@@ -181,16 +181,34 @@ const SALES_INVOICE_SECTIONS = [
             // Không có phí nào cộng thêm thì "Tổng tiền hàng" trùng "Tổng thanh toán" — chỉ in một dòng
             { key: "items", label: "Tổng tiền hàng", modelPath: "totals.items", hideWhenSameAs: "totals.grandTotal" },
             { key: "shipping", label: "Phí vận chuyển", modelPath: "totals.shipping", rawPath: "totals.shippingRaw", hideWhenZero: true },
-            // Thuế GTGT chụp lúc chốt đơn (giá đã gồm thuế, tách ngược từ tổng thanh toán); đơn không mang thuế tự ẩn
-            {
-                key: "vatPreTax",
-                label: "Cộng tiền chưa thuế",
-                modelPath: "vat.preTax",
-                hint: "Chỉ in khi đơn mang thuế GTGT (Cấu hình › Thuế GTGT)",
-            },
-            { key: "vatRate", label: "Thuế suất GTGT", modelPath: "vat.rate", hint: "Chỉ in khi đơn mang thuế GTGT" },
-            { key: "vatAmount", label: "Tiền thuế GTGT", modelPath: "vat.amount", hint: "Chỉ in khi đơn mang thuế GTGT" },
             { key: "grandTotal", label: "Tổng thanh toán", modelPath: "totals.grandTotal", emphasis: true, essential: true },
+            // Thuế GTGT chụp lúc chốt đơn: giá đã gồm thuế, máy chủ tách ngược từ Tổng thanh toán (gồm cả phí vận
+            // chuyển) — in ngay dưới Tổng thanh toán như phần "trong đó" để không đọc thành thuế cộng thêm vào giá.
+            // Đơn không mang thuế tự ẩn cả nhóm.
+            {
+                key: "vatNote",
+                label: "Giá đã gồm thuế GTGT, trong đó:",
+                modelPath: "vat.included",
+                note: true,
+                hint: "Dòng chú thích trước phần thuế — chỉ in khi đơn mang thuế GTGT (Cấu hình › Thuế GTGT)",
+            },
+            { key: "vatPreTax", label: "Tiền trước thuế", modelPath: "vat.preTax", sub: true, hint: "Chỉ in khi đơn mang thuế GTGT" },
+            { key: "vatAmount", label: "Thuế GTGT", modelPath: "vat.amount", sub: true, hint: "Chỉ in khi đơn mang thuế GTGT" },
+            // key "vatRate" giữ nguyên để cấu hình đã lưu không bị mất; nay in trong ngoặc sau nhãn Thuế GTGT
+            { key: "vatRate", label: "Thuế suất GTGT", modelPath: "vat.rate", attachTo: "vatAmount" },
+            // Trả kết hợp tại quầy: phần tiền mặt và phần chuyển khoản (cộng lại bằng Tổng thanh toán)
+            {
+                key: "paidCash",
+                label: "Tiền mặt",
+                modelPath: "payment.cashPart",
+                hint: "Chỉ in khi khách trả kết hợp tiền mặt và chuyển khoản tại quầy",
+            },
+            {
+                key: "paidTransfer",
+                label: "Chuyển khoản",
+                modelPath: "payment.transferPart",
+                hint: "Chỉ in khi khách trả kết hợp tiền mặt và chuyển khoản tại quầy",
+            },
             // Bán tại quầy trả tiền mặt (sổ thu POS); đơn khác không có dữ liệu nên tự ẩn
             {
                 key: "cashReceived",
@@ -221,7 +239,8 @@ const SALES_INVOICE_SECTIONS = [
                 hint: "Chỉ in khi đơn bán thường còn thiếu tiền",
             },
         ],
-        words: { key: "amountInWords", label: "Bằng chữ", modelPath: "amountInWords" },
+        // Dòng chữ in sau "Còn phải thu" (đơn thu một phần) — ghi rõ là đọc số Tổng thanh toán, không phải số còn nợ
+        words: { key: "amountInWords", label: "Tổng thanh toán bằng chữ", modelPath: "amountInWords" },
     },
     { key: "notes", type: "notes", title: "Ghi chú", path: "notes" },
     {
