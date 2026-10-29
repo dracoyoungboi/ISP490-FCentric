@@ -142,7 +142,7 @@ export default function AnhBienBanGiaoNhan({ ct, onDaDoi }) {
                         <li key={a.id} className="relative">
                             <button
                                 type="button"
-                                onClick={() => setXem({ ten: tenAnh(a, i), laVideo: false, bangChung: bangChungCua(a) })}
+                                onClick={() => setXem({ ten: tenAnh(a, i), laVideo: false, bangChung: bangChungCua(a), tenTep: [bb.soBienBan, `anh-${i + 1}`] })}
                                 title={[tenAnh(a, i), a.nguoiChup, a.ngayChup ? gioNgayNgan(a.ngayChup) : null].filter(Boolean).join(" · ")}
                                 aria-label={`Xem ${tenAnh(a, i)}`}
                                 className="block aspect-square w-full overflow-hidden rounded-md border border-bo-border bg-bo-canvas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/40"
