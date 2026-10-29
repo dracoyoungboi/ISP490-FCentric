@@ -1,0 +1,34 @@
+package com.dev.backend.dto.request;
+
+import jakarta.validation.constraints.NotBlank;
+import lombok.*;
+import lombok.experimental.FieldDefaults;
+
+import java.io.Serializable;
+
+@AllArgsConstructor
+@Getter
+@Setter
+@NoArgsConstructor
+@Builder
+@FieldDefaults(level = AccessLevel.PRIVATE)
+public class TikTokOAuthCallbackRequest implements Serializable {
+
+    @NotBlank(message = "Mã ủy quyền code không được để trống")
+    String code;
+
+    /**
+     * Mã phiên bảo mật OAuth2 (state param).
+     */
+    String state;
+
+    /**
+     * App Key dùng để đối soát. Nếu để trống, hệ thống sẽ lấy App Key đã lưu trong cấu hình.
+     */
+    String appKey;
+
+    /**
+     * App Secret (nếu người dùng nhập mới trên giao diện).
+     */
+    String appSecret;
+}
