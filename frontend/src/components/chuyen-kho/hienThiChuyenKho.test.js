@@ -140,6 +140,20 @@ test("xác nhận xuất: bắt buộc theo hình thức vận chuyển", () => 
     assert.ok(kiemTraXacNhanXuat(formXuat({ soXknb: "125" }), "CHAN").loi.soXknb);
 });
 
+test("xác nhận xuất: biển số theo mẫu biển Việt Nam, gửi cách viết chuẩn; chuyển phát không gửi biển", () => {
+    assert.equal(kiemTraXacNhanXuat(formXuat({ bienSo: "29h12345" }), "CHAN").yeuCau.bienSoXe, "29H-123.45");
+    assert.equal(kiemTraXacNhanXuat(formXuat({ bienSo: "29b11234" }), "CHAN").yeuCau.bienSoXe, "29B-112.34");
+    assert.equal(kiemTraXacNhanXuat(formXuat({ bienSo: "29b1 1234" }), "CHAN").yeuCau.bienSoXe, "29-B1 1234");
+    assert.equal(kiemTraXacNhanXuat(formXuat({ bienSo: "29-b1 1234" }), "CHAN").yeuCau.bienSoXe, "29-B1 1234");
+    const sai = kiemTraXacNhanXuat(formXuat({ bienSo: "30AS-012345" }), "CHAN");
+    assert.match(sai.loi.bienSo, /chưa đúng mẫu/);
+    assert.equal(sai.yeuCau, null);
+    assert.equal(kiemTraXacNhanXuat(formXuat({ bienSo: "" }), "CHAN").loi.bienSo, "Nhập biển số xe");
+    const cp = kiemTraXacNhanXuat(formXuat({ hinhThuc: "CHUYEN_PHAT", donVi: "GHN", maVanDon: "GHN123", bienSo: "rác" }), "CHAN");
+    assert.equal(cp.loi.bienSo, undefined);
+    assert.equal(cp.yeuCau.bienSoXe, null);
+});
+
 test("chưa có số XKNB: Chặn xuất báo lỗi; Chỉ cảnh báo hỏi lại rồi mới gửi kèm vanXuatKhiChuaCoSo", () => {
     const chan = kiemTraXacNhanXuat(formXuat({ kyHieu: "", soXknb: "" }), "CHAN");
     assert.match(chan.chan, /trước khi hàng rời kho/);

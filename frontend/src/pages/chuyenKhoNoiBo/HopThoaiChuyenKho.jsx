@@ -20,6 +20,7 @@ import {
     kiemTraXacNhanXuat,
     tongCot,
 } from "@/components/chuyen-kho/hienThiChuyenKho";
+import { GOI_Y_BIEN_SO, kiemTraBienSo } from "@/components/chuyen-kho/bienSoXe";
 
 const B = ({ children }) => <b className="font-semibold text-bo-foreground">{children}</b>;
 
@@ -287,6 +288,13 @@ export function HopXacNhanXuat({ mo, onDong, ct, dangChay, loi, onXacNhan, onTai
         }
         setLoiO((l) => (l[khoa] ? { ...l, [khoa]: undefined } : l));
     };
+    // Rời ô Biển số: đúng mẫu thì đổi sang cách viết chuẩn, sai thì báo ngay; để trống thì đợi bấm Xác nhận xuất
+    const roiOBienSo = () => {
+        if (!form.bienSo.trim()) return;
+        const kq = kiemTraBienSo(form.bienSo);
+        if (kq.hopLe) setForm((f) => ({ ...f, bienSo: kq.giaTri }));
+        else setLoiO((l) => ({ ...l, bienSo: kq.loi }));
+    };
     const ht = form.hinhThuc;
     const canPhuongTien = ht === "XE_CONG_TY" || ht === "THUE_NGOAI";
     const canDonVi = ht === "THUE_NGOAI" || ht === "CHUYEN_PHAT";
@@ -356,8 +364,19 @@ export function HopXacNhanXuat({ mo, onDong, ct, dangChay, loi, onXacNhan, onTai
                     <O nhan="Phương tiện" batBuoc loi={loiO.loaiPhuongTien}>
                         {(p) => <input {...p} value={form.loaiPhuongTien} maxLength={50} placeholder="Ví dụ: xe tải 1,5 tấn" onChange={(e) => doi("loaiPhuongTien", e.target.value)} className={lopO(loiO.loaiPhuongTien)} />}
                     </O>
-                    <O nhan="Biển số" batBuoc loi={loiO.bienSo}>
-                        {(p) => <input {...p} value={form.bienSo} maxLength={20} onChange={(e) => doi("bienSo", e.target.value.toUpperCase())} className={lopO(loiO.bienSo, "uppercase")} />}
+                    <O nhan="Biển số" batBuoc loi={loiO.bienSo} goiY={GOI_Y_BIEN_SO}>
+                        {(p) => (
+                            <input
+                                {...p}
+                                value={form.bienSo}
+                                maxLength={20}
+                                autoComplete="off"
+                                spellCheck={false}
+                                onChange={(e) => doi("bienSo", e.target.value.toUpperCase())}
+                                onBlur={roiOBienSo}
+                                className={lopO(loiO.bienSo, "uppercase")}
+                            />
+                        )}
                     </O>
                 </div>
             ) : null}

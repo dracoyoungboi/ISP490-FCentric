@@ -11,6 +11,7 @@ import {
     TT_CHUYEN,
     XKNB_CHE_DO,
 } from "../../constants/phieuChuyenKho.js";
+import { kiemTraBienSo } from "./bienSoXe.js";
 
 const p2 = (n) => String(n).padStart(2, "0");
 const thanhNgay = (v) => {
@@ -251,7 +252,9 @@ export function kiemTraXacNhanXuat(form, cheDo, daDongYThieu = false) {
     if (!chuoi(f.nguoi)) loi.nguoi = "Nhập tên người vận chuyển";
     if (!SDT_RE.test(sdt)) loi.sdt = "Số điện thoại gồm 10 số, bắt đầu bằng 03, 05, 07, 08 hoặc 09";
     if (canPhuongTien && !chuoi(f.loaiPhuongTien)) loi.loaiPhuongTien = "Nhập loại phương tiện";
-    if (canPhuongTien && !chuoi(f.bienSo)) loi.bienSo = "Nhập biển số xe";
+    // Biển số theo mẫu biển Việt Nam (bienSoXe.js), gửi cách viết chuẩn
+    const bienSo = canPhuongTien ? kiemTraBienSo(f.bienSo) : null;
+    if (bienSo && !bienSo.hopLe) loi.bienSo = bienSo.loi;
     if (canDonVi && !chuoi(f.donVi)) loi.donVi = "Nhập tên đơn vị";
     if (hinhThuc === "CHUYEN_PHAT" && !chuoi(f.maVanDon)) loi.maVanDon = "Nhập mã vận đơn";
     const duKienDen = tuONgayGio(f.duKienDen);
@@ -279,7 +282,7 @@ export function kiemTraXacNhanXuat(form, cheDo, daDongYThieu = false) {
         nguoiVanChuyen: chuoi(f.nguoi),
         soDienThoaiVanChuyen: sdt,
         loaiPhuongTien: canPhuongTien ? chuoi(f.loaiPhuongTien) : null,
-        bienSoXe: canPhuongTien ? chuoi(f.bienSo) : null,
+        bienSoXe: bienSo ? bienSo.giaTri : null,
         donViVanChuyen: canDonVi ? chuoi(f.donVi) : null,
         // Ô mã vận đơn / số hợp đồng chỉ hiện khi thuê ngoài, chuyển phát: đổi sang xe công ty thì không gửi số cũ
         maVanDonHopDong: canDonVi ? chuoi(f.maVanDon) || null : null,
