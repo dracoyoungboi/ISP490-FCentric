@@ -44,6 +44,8 @@ class TongQuanHangCanBoSungTest {
     private ChiTietDonBanHangRepository chiTietDonBanHangRepository;
     @Mock
     private ChiTietPhieuXuatKhoRepository chiTietPhieuXuatKhoRepository;
+    @Mock
+    private GiuChoChuyenKhoService giuChoChuyenKhoService;
 
     private TongQuanAdminServiceImpl service;
 
@@ -51,7 +53,7 @@ class TongQuanHangCanBoSungTest {
     void setUp() {
         // Bản thật của hàm dùng chung với tạo yêu cầu chuyển kho, chỉ giả truy vấn
         service = new TongQuanAdminServiceImpl(repo, new KhaDungChuyenKhoService(
-                tonKhoTheoLoRepository, chiTietDonBanHangRepository, chiTietPhieuXuatKhoRepository));
+                tonKhoTheoLoRepository, chiTietDonBanHangRepository, chiTietPhieuXuatKhoRepository, giuChoChuyenKhoService));
     }
 
     private static Map<Integer, KhoDong> khoCoKhoTong() {

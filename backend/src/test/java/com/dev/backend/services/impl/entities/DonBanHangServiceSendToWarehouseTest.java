@@ -11,6 +11,7 @@ import com.dev.backend.repository.DonBanHangRepository;
 import com.dev.backend.repository.KhoRepository;
 import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.repository.TonKhoTheoLoRepository;
+import com.dev.backend.services.impl.multitable.GiuChoChuyenKhoService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,6 +40,7 @@ class DonBanHangServiceSendToWarehouseTest {
     @Mock private ChiTietDonBanHangRepository chiTietDonBanHangRepository;
     @Mock private TonKhoTheoLoRepository tonKhoTheoLoRepository;
     @Mock private ChiTietPhieuXuatKhoRepository chiTietPhieuXuatKhoRepository;
+    @Mock private GiuChoChuyenKhoService giuChoChuyenKhoService;
 
     private DonBanHangService service;
 
@@ -56,6 +58,7 @@ class DonBanHangServiceSendToWarehouseTest {
         ReflectionTestUtils.setField(service, "chiTietDonBanHangRepository", chiTietDonBanHangRepository);
         ReflectionTestUtils.setField(service, "tonKhoTheoLoRepository", tonKhoTheoLoRepository);
         ReflectionTestUtils.setField(service, "chiTietPhieuXuatKhoRepository", chiTietPhieuXuatKhoRepository);
+        ReflectionTestUtils.setField(service, "giuChoChuyenKhoService", giuChoChuyenKhoService);
 
         kho1 = Kho.builder().id(1).maKho("KHO-HN").tenKho("Kho Hà Nội").trangThai(1).build();
         kho2 = Kho.builder().id(2).maKho("KHO-HCM").tenKho("Kho Hồ Chí Minh").trangThai(1).build();
@@ -272,6 +275,33 @@ class DonBanHangServiceSendToWarehouseTest {
         assertEquals(1, result.size());
         assertTrue(result.get(0).getDuHang(), "phần đã xuất không được trừ lần nữa");
         assertEquals(0, BigDecimal.valueOf(3).compareTo(result.get(0).getChiTietTonKho().get(0).getTonKhaDung()));
+    }
+
+    @Test
+    void getKhoKhaDung_truHangPhieuChuyenKhoDangGiuChoOKhoNguon() {
+        // Kho 1 khả dụng theo lô 5, phiếu chuyển Chờ duyệt / Đã duyệt từ kho 1 giữ chỗ 3 → còn 2 < 3: không đủ.
+        // Phiếu chuyển giữ ở kho khác (kho 2) không trừ vào kho 1.
+        BienTheSanPham bt = BienTheSanPham.builder().id(10).maSku("AT-TRG-M")
+                .sanPham(SanPhamQuanAo.builder().id(1).tenSanPham("Áo").build()).build();
+        ChiTietDonBanHang ct = ChiTietDonBanHang.builder().id(1).donBanHang(donDraft).bienTheSanPham(bt)
+                .soLuongDat(BigDecimal.valueOf(3)).build();
+        when(donBanHangRepository.findById(120)).thenReturn(Optional.of(donDraft));
+        when(chiTietDonBanHangRepository.findByDonBanHangId(120)).thenReturn(List.of(ct));
+        when(khoRepository.findByTrangThai(1)).thenReturn(List.of(kho1, kho2));
+        when(tonKhoTheoLoRepository.sumKhaDungLoTheoKhoBan(List.of(10))).thenReturn(List.<Object[]>of(
+                new Object[]{10, 1, BigDecimal.valueOf(5)},
+                new Object[]{10, 2, BigDecimal.valueOf(4)}));
+        when(giuChoChuyenKhoService.theoKho(List.of(10)))
+                .thenReturn(java.util.Map.of(10, java.util.Map.of(1, BigDecimal.valueOf(3), 2, BigDecimal.ONE)));
+
+        List<KhoKhaDungDto> result = service.getKhoKhaDungChoDonHang(120);
+
+        KhoKhaDungDto k1 = result.stream().filter(k -> k.getKhoId() == 1).findFirst().orElseThrow();
+        KhoKhaDungDto k2 = result.stream().filter(k -> k.getKhoId() == 2).findFirst().orElseThrow();
+        assertFalse(k1.getDuHang());
+        assertEquals(0, BigDecimal.valueOf(2).compareTo(k1.getChiTietTonKho().get(0).getTonKhaDung()));
+        assertTrue(k2.getDuHang());
+        assertEquals(0, BigDecimal.valueOf(3).compareTo(k2.getChiTietTonKho().get(0).getTonKhaDung()));
     }
 
     @Test
