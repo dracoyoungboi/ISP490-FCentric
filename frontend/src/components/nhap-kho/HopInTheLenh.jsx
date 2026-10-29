@@ -44,12 +44,14 @@ const KIEU_TRANG_IN = `
  *
  * Quét một thẻ ngay trên màn khi hộp đang mở: hộp đóng và mã được xử lý như quét ở ô quét (`onQuet`), không để
  * phím Enter của máy quét bấm nhầm nút "Đóng" làm mất mã.
+ * `boKhoaLo`: màn không khóa lô (nhận hàng chuyển kho: lô có sẵn từ kho xuất) thì không in thẻ KHÓA LÔ.
  */
-export default function HopInTheLenh({ open, onOpenChange, onQuet }) {
+export default function HopInTheLenh({ open, onOpenChange, onQuet, boKhoaLo = false }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {open ? (
         <NoiDung
+          dsThe={boKhoaLo ? THE_CHINH.filter((t) => t.ma !== THE_LENH.KHOA_LO) : THE_CHINH}
           onDong={() => onOpenChange(false)}
           onQuet={(ma) => {
             onOpenChange(false);
@@ -74,7 +76,7 @@ function TheMa({ ma, ten, moTa, lon, doDam }) {
   );
 }
 
-function NoiDung({ onDong, onQuet }) {
+function NoiDung({ dsThe, onDong, onQuet }) {
   const toRef = useRef(null);
   const hopRef = useRef(null);
   const boNhanRef = useRef(null);
@@ -132,7 +134,7 @@ function NoiDung({ onDong, onQuet }) {
       <div className="min-h-0 flex-1 overflow-y-auto bg-bo-surface-subtle px-6 py-5">
         <div ref={toRef} className="the-lenh-to flex flex-col gap-4">
           <div className="the-lenh-luoi grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {THE_CHINH.map((t) => (
+            {dsThe.map((t) => (
               <TheMa key={t.ma} ma={t.ma} ten={t.ten} moTa={t.moTa} lon doDam={t.do} />
             ))}
           </div>
