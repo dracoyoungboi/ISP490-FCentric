@@ -353,6 +353,16 @@ public class KenhBanHangController {
                             .build()
             );
         }
+        if ("TIKTOK".equals(ma)) {
+            kenhBanHangService.xoaKhoaTikTok();
+            return ResponseEntity.ok(
+                    ResponseData.<ShopifyConfigResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(kenhBanHangService.getKetNoi("TIKTOK"))
+                            .message("Đã ngắt kết nối gian hàng TikTok Shop")
+                            .build()
+            );
+        }
         return ResponseEntity.ok(
                 ResponseData.<ShopifyConfigResponse>builder()
                         .status(HttpStatus.OK.value())
