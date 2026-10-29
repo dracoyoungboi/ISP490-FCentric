@@ -119,7 +119,12 @@ public record TongQuanAdminResponse(
              * Sản phẩm đồng bộ lỗi theo từng kênh đang hoạt động (cùng số "Lỗi" ở trang Sản phẩm của kênh); chỉ kênh có lỗi.
              * Không lọc theo kho. Null khi không đếm được (các việc khác vẫn trả về).
              */
-            List<LoiDongBoKenh> loiDongBo
+            List<LoiDongBoKenh> loiDongBo,
+            /**
+             * Phiếu chuyển kho nhận lệch đang chờ xử lý chênh lệch (quản trị viên luôn xử lý được); kho đang xem là kho
+             * xuất hoặc kho nhận của phiếu.
+             */
+            long phieuChuyenChoXuLyLech
     ) {}
 
     public record ViecTheoKho(Integer khoId, String tenKho, long donChoXuatKho, long phieuNhatChuaPhanCong,
