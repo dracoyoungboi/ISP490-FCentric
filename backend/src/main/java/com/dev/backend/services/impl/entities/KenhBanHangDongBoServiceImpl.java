@@ -1669,6 +1669,47 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     }
 
 
+    private DayTonResultDto dayTonTikTokToiUu(
+            KenhBanHang kenh,
+            String maKenh,
+            List<TrangThaiDongBoSanPham> dongCanDay,
+            BigDecimal tyLe,
+            int tonDem,
+            int nguongVe0,
+            TheoDoiDayTon theoDoi) {
+
+        String appKey = kenhBanHangService.getTikTokAppKey();
+        String appSecret = kenhBanHangService.getDecryptedTikTokAppSecret();
+        String token = kenhBanHangService.getDecryptedTikTokAccessToken();
+        String cipher = kenhBanHangService.getTikTokShopCipher();
+
+        if (appKey == null || appSecret == null || token == null || cipher == null || cipher.isBlank()) {
+            String msg = "Chưa có đủ thông tin xác thực hoặc Shop Cipher cho kênh TikTok Shop";
+            ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_ton_kho, "TikTok Shop: " + msg);
+            return DayTonResultDto.builder().soDong(0).soLoi(dongCanDay.size()).soChuaDay(0).loiKenh(msg).build();
+        }
+
+        // Lấy warehouse_id từ cấu hình hoặc lấy kho mặc định của TikTok Shop
+        String warehouseId = dieuHanhHeThongService.getCauHinhString(KenhCauHinhDongBo.khoa(maKenh, "MA_KHO_SAN"), null);
+        if (warehouseId == null || warehouseId.isBlank()) {
+            try {
+                TikTokWarehousesResponse whRes = getTikTokShopClient().getWarehouses(appKey, appSecret, token, cipher);
+                if (whRes.getWarehouses() != null && !whRes.getWarehouses().isEmpty()) {
+                    warehouseId = whRes.getWarehouses().get(0).getWarehouseId();
+                }
+            } catch (Exception ex) {
+                log.warn("Không tra cứu được warehouse mặc định TikTok Shop: {}", ex.getMessage());
+            }
+        }
+        if (warehouseId == null || warehouseId.isBlank()) {
+            warehouseId = "default";
+        }
+
+        record DongCanCapNhat(TrangThaiDongBoSanPham dong, int soDay, String skuSan, String sellerSku) {}
+        List<DongCanCapNhat> dirtyList = new ArrayList<>();
+        return null;
+    }
+
     private DayTonResultDto dayTonLazadaToiUu(
             KenhBanHang kenh,
             String maKenh,
