@@ -2,6 +2,7 @@ package com.dev.backend.services.impl.multitable;
 
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.enums.KieuDuLieuCauHinh;
+import com.dev.backend.constant.variables.IChuyenKho;
 import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.dto.request.CauHinhHeThongBulkUpdateRequest;
@@ -340,6 +341,22 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
     public static final String CAU_HINH_KIEM_DEM_XAC_NHAN = "KIEM_DEM_XAC_NHAN";
     public static final String KIEM_DEM_QUET_TIEP_LA_DAT = "QUET_TIEP_LA_DAT";
     public static final String KIEM_DEM_QUET_THE_TUNG_CAI = "QUET_THE_TUNG_CAI";
+    /**
+     * Phiếu xuất kho kiêm vận chuyển nội bộ (XKNB) ở hộp Xác nhận xuất của phiếu chuyển kho (BR-TRF-02, đặc tả BA):
+     * ký hiệu điền sẵn (trống được, VD 6K26NAB) và cách xử lý khi chưa có số: CHAN khóa nút xuất, CHI_CANH_BAO (mặc
+     * định) cho xuất trước, ghi số sau như đặc tả B.3 (công ty chưa dùng phần mềm hóa đơn điện tử).
+     */
+    public static final String CAU_HINH_XKNB_KY_HIEU = "XKNB_KY_HIEU_MAC_DINH";
+    public static final String CAU_HINH_XKNB_CHE_DO = "XKNB_CHE_DO";
+    /**
+     * Ai được xử lý chênh lệch của phiếu chuyển kho nhận lệch (mockup BA B.5 "đổi trong Cấu hình"), quản trị viên luôn được:
+     * QL_KHO_TONG (mặc định) thêm Quản lý Kho tổng; QL_KHO_TONG_VA_KHO_XUAT thêm cả quản lý kho xuất của phiếu;
+     * CHI_QUAN_TRI chỉ quản trị viên. Xem PhieuChuyenKhoService.duocXuLyChenhLech.
+     */
+    public static final String CAU_HINH_CHUYEN_KHO_QUYEN_XU_LY_LECH = "CHUYEN_KHO_QUYEN_XU_LY_LECH";
+    /** Cấu hình được lưu chuỗi rỗng (bỏ giá trị điền sẵn). */
+    private static final Set<String> CAU_HINH_DUOC_DE_TRONG = Set.of(CAU_HINH_XKNB_KY_HIEU);
+    private static final java.util.regex.Pattern XKNB_KY_HIEU_PATTERN = java.util.regex.Pattern.compile("^6[CK][0-9]{2}N[A-Z0-9]{2}$");
     /** Tiền tố mã lô gợi ý khi khóa lô ở màn kiểm đếm: tiền tố-số phiếu-thứ tự, VD LO-PN202610201-01. */
     public static final String CAU_HINH_MA_LO_TIEN_TO = "MA_LO_TIEN_TO";
     public static final String MA_LO_TIEN_TO_MAC_DINH = "LO";
@@ -381,6 +398,10 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
                 "Số tem tối đa in không cần xác nhận");
         seedIfMissing(CAU_HINH_VAT_BAT, "false", KieuDuLieuCauHinh.BOOLEAN, "In thuế GTGT trên hóa đơn bán hàng");
         seedIfMissing(CAU_HINH_VAT_LICH, ThueGtgt.LICH_MAC_DINH, KieuDuLieuCauHinh.STRING, "Lịch thuế suất GTGT theo ngày hiệu lực");
+        seedIfMissing(CAU_HINH_XKNB_KY_HIEU, "", KieuDuLieuCauHinh.STRING, "Ký hiệu phiếu XKNB điền sẵn khi xác nhận xuất chuyển kho");
+        seedIfMissing(CAU_HINH_XKNB_CHE_DO, IChuyenKho.XKNB_CHI_CANH_BAO, KieuDuLieuCauHinh.STRING, "Khi xác nhận xuất chuyển kho mà chưa có số phiếu XKNB");
+        seedIfMissing(CAU_HINH_CHUYEN_KHO_QUYEN_XU_LY_LECH, IChuyenKho.XU_LY_LECH_QL_KHO_TONG, KieuDuLieuCauHinh.STRING,
+                "Ai được xử lý chênh lệch khi nhận hàng chuyển kho");
     }
 
     private void seedIfMissing(String maCauHinh, String defaultValue, KieuDuLieuCauHinh kieuDuLieu, String moTa) {
@@ -483,6 +504,9 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
             CauHinhHeThongBulkUpdateRequest req = requests.get(i);
             CauHinhHeThong entity = cauHinhRepository.findById(req.getMaCauHinh())
                     .orElseThrow(() -> new CommonException("Không tìm thấy cấu hình: " + req.getMaCauHinh()));
+            if ((req.getGiaTri() == null || req.getGiaTri().isBlank()) && !CAU_HINH_DUOC_DE_TRONG.contains(req.getMaCauHinh())) {
+                throw new CommonException("Giá trị cấu hình không được để trống");
+            }
 
             validateDataType(req.getGiaTri(), entity.getKieuDuLieu(), req.getMaCauHinh());
             validateBoundary(req.getMaCauHinh(), req.getGiaTri());
@@ -576,6 +600,18 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
             int val = Integer.parseInt(giaTri);
             if (val < 1 || val > TEM_NGUONG_XAC_NHAN_TOI_DA) {
                 throw new CommonException("Ngưỡng hỏi xác nhận khi in tem phải từ 1 đến 9.999 tem");
+            }
+        } else if (CAU_HINH_XKNB_KY_HIEU.equals(maCauHinh)) {
+            if (giaTri != null && !giaTri.isEmpty() && !XKNB_KY_HIEU_PATTERN.matcher(giaTri).matches()) {
+                throw new CommonException("Ký hiệu phiếu XKNB gồm 7 ký tự, ví dụ 6K26NAB: 6, C hoặc K, 2 số năm, N, 2 ký tự công ty tự đặt");
+            }
+        } else if (CAU_HINH_XKNB_CHE_DO.equals(maCauHinh)) {
+            if (!IChuyenKho.XKNB_CHAN.equals(giaTri) && !IChuyenKho.XKNB_CHI_CANH_BAO.equals(giaTri)) {
+                throw new CommonException("Chọn \"Chặn xuất\" hoặc \"Chỉ cảnh báo\" cho trường hợp chưa có số phiếu XKNB");
+            }
+        } else if (CAU_HINH_CHUYEN_KHO_QUYEN_XU_LY_LECH.equals(maCauHinh)) {
+            if (giaTri == null || !IChuyenKho.QUYEN_XU_LY_LECH.contains(giaTri)) {
+                throw new CommonException("Người xử lý chênh lệch không hợp lệ. Chọn \"Quản lý Kho tổng\", \"Thêm quản lý kho xuất\" hoặc \"Chỉ Quản trị viên\".");
             }
         } else if (CAU_HINH_VAT_LICH.equals(maCauHinh)) {
             if (giaTri != null && giaTri.length() > 255) {
