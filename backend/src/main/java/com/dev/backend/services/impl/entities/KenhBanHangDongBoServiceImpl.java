@@ -37,6 +37,9 @@ import com.dev.backend.services.KenhBanHangService;
 import com.dev.backend.services.MinioService;
 import com.dev.backend.services.multitable.DieuHanhHeThongService;
 import com.dev.backend.services.lazada.LazadaClient;
+import com.dev.backend.services.tiktok.TikTokShopClient;
+import com.dev.backend.dto.response.customize.TikTokWarehouseDto;
+import com.dev.backend.dto.response.customize.TikTokWarehousesResponse;
 import com.dev.backend.utils.KenhCauHinhDongBo;
 import com.dev.backend.utils.PublicAssetUrl;
 import com.dev.backend.workers.OmnichannelOrderSyncJob;
@@ -1882,6 +1885,43 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     ShopifyLocationDto.builder()
                             .maKhoSan("lazada-default-warehouse")
                             .tenKhoSan("Kho mặc định Lazada")
+                            .loai("fulfillment")
+                            .macDinh(true)
+                            .build()
+            );
+        }
+        if ("TIKTOK".equalsIgnoreCase(kenh.getMaKenh())) {
+            String token = kenhBanHangService.getDecryptedTikTokAccessToken();
+            String appKey = kenhBanHangService.getTikTokAppKey();
+            String appSecret = kenhBanHangService.getDecryptedTikTokAppSecret();
+            String cipher = kenhBanHangService.getTikTokShopCipher();
+
+            if (token != null && !token.isBlank() && appKey != null && appSecret != null && cipher != null && !cipher.isBlank()) {
+                try {
+                    TikTokWarehousesResponse res = getTikTokShopClient().getWarehouses(appKey, appSecret, token, cipher);
+                    List<TikTokWarehouseDto> warehouses = res.getWarehouses();
+                    if (warehouses != null && !warehouses.isEmpty()) {
+                        List<ShopifyLocationDto> list = new ArrayList<>();
+                        for (TikTokWarehouseDto w : warehouses) {
+                            boolean isSales = "SALES_WAREHOUSE".equalsIgnoreCase(w.getWarehouseType());
+                            list.add(ShopifyLocationDto.builder()
+                                    .maKhoSan(w.getWarehouseId())
+                                    .tenKhoSan(w.getWarehouseName() != null ? w.getWarehouseName() : "Kho " + w.getWarehouseId())
+                                    .loai(isSales ? "sales" : "fulfillment")
+                                    .macDinh(Boolean.TRUE.equals(w.getIsDefault()))
+                                    .build());
+                        }
+                        return list;
+                    }
+                } catch (Exception e) {
+                    log.warn("Không lấy được danh sách kho logistics từ TikTok Shop: {}", e.getMessage());
+                }
+            }
+
+            return List.of(
+                    ShopifyLocationDto.builder()
+                            .maKhoSan("tiktok-default-warehouse")
+                            .tenKhoSan("Kho bán hàng TikTok Shop")
                             .loai("fulfillment")
                             .macDinh(true)
                             .build()
