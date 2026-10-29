@@ -92,7 +92,11 @@ function canNhapKho(roles) {
     return roles.some(r => VAI_TRO_TAO_YEU_CAU_NHAP.includes(r));
 }
 
+// Mức tồn do máy chủ xếp theo đúng quy tắc của Tổng quan (khả dụng = tồn − đang giữ, ngưỡng mặc định khi sản phẩm chưa
+// đặt mức, hệ số dư cấu hình), để số trên tab khớp số ở Tổng quan. null = mã chưa từng nhập về kho này hoặc kho trung
+// chuyển: không xếp mức, chỉ hiện ở tab Tất cả. Máy chủ cũ chưa trả `tinhTrang` thì tính như trước.
 function trangThaiTon(item) {
+    if ("tinhTrang" in item) return item.tinhTrang ?? null;
     const kha = Number(item.tongSoLuongKhaDung ?? item.onHand ?? 0);
     const min = Number(item.mucTonToiThieu ?? 0);
     if (kha <= 0) return "het_hang";
@@ -607,7 +611,7 @@ export default function TonKhoTongQuan() {
                         <tbody className="divide-y divide-bo-border">
                             {pageItems.map((item, idx) => {
                                 const statusKey = trangThaiTon(item);
-                                const statusCfg = STATUS_CFG[statusKey] ?? STATUS_CFG.binh_thuong;
+                                const statusCfg = statusKey == null ? null : STATUS_CFG[statusKey] ?? STATUS_CFG.binh_thuong;
 
                                 const onHand = Number(item.onHand ?? item.tongSoLuongKhaDung ?? 0);
                                 const incoming = Number(item.incoming ?? item.tongSoLuongChoNhan ?? 0);
@@ -666,7 +670,12 @@ export default function TonKhoTongQuan() {
                                         </td>
 
                                         <td className="px-3 py-3 text-right text-xs tabular-nums">
-                                            {item.mucTonToiThieu == null ? (
+                                            {item.nguongMacDinh && item.nguong != null ? (
+                                                // Sản phẩm chưa đặt mức: ghi ngưỡng mặc định đang dùng để xếp mức
+                                                <span className="text-bo-muted" title="Sản phẩm chưa đặt mức tồn tối thiểu, đang dùng ngưỡng mặc định của hệ thống">
+                                                    {formatNumber(item.nguong)} <span className="text-[11px]">(mặc định)</span>
+                                                </span>
+                                            ) : item.mucTonToiThieu == null ? (
                                                 <span className="text-bo-muted">—</span>
                                             ) : (
                                                 <span className="font-semibold text-slate-600">{formatNumber(item.mucTonToiThieu)}</span>
@@ -675,7 +684,11 @@ export default function TonKhoTongQuan() {
                                         <td className="whitespace-nowrap px-3 py-3 text-right text-xs font-bold tabular-nums text-bo-foreground">{formatCurrency(giaTri)}</td>
 
                                         <td className="px-3 py-3">
-                                            <StatusBadge label={statusCfg.label} />
+                                            {statusCfg ? (
+                                                <StatusBadge label={statusCfg.label} />
+                                            ) : (
+                                                <span className="text-bo-muted" title="Mã chưa từng nhập về kho này nên không xếp mức tồn">—</span>
+                                            )}
                                         </td>
 
                                         <td className="px-3 py-3 text-center">
