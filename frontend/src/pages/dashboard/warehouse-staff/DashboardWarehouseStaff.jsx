@@ -96,7 +96,8 @@ function ViecCuaBan({ ds, thoiDiem, className, loading, error, onRetry }) {
                 <div className="min-w-0 flex-[1_1_220px]">
                   <p className="text-xs font-medium text-bo-muted">{dangNhat ? "Đang nhặt hàng" : "Nhặt hàng · chưa bắt đầu"}</p>
                   <p className="mt-0.5 text-base font-semibold text-bo-heading">
-                    {v.ma} <span className="font-normal text-bo-muted">· {formatSo(v.soDon)} đơn</span>
+                    {/* Phiếu nhặt của phiếu chuyển kho không có đơn: ghi số phiếu chuyển thay cho "0 đơn" */}
+                    {v.ma} <span className="font-normal text-bo-muted">· {v.soPhieuChuyen ? `Chuyển kho ${v.soPhieuChuyen}` : `${formatSo(v.soDon)} đơn`}</span>
                   </p>
                   <p className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-bo-muted">
                     {v.ngayTao && (

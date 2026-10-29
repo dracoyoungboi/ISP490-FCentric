@@ -371,7 +371,8 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
                 v.donMuaQuaHan(),
                 phu("loiDongBo", () -> repo.loiDongBoTheoKenh().stream()
                         .map(r -> new LoiDongBoKenh(r.kenhId(), r.maKenh(), tenKenh(r.maKenh(), r.tenKenh()), r.soLoi()))
-                        .toList()));
+                        .toList()),
+                v.phieuChuyenChoXuLyLech());
     }
 
     private NhapXuat tinhNhapXuat(KhungKy khung, LocalDate homNay, Integer khoId) {

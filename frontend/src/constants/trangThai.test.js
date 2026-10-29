@@ -94,7 +94,8 @@ test("phân màu đã chốt (bảng 10) cho các nhãn chính", () => {
 
 test("tên đã đổi: tên mới có nhóm, tên cũ không còn trong bảng", () => {
   for (const moi of ["Sắp hết hàng", "Đã nhận đủ", "Đã lấy hết lô", "Hoàn thành"]) assert.ok(nhomCuaNhan(moi), moi);
-  for (const cu of ["Hoàn tất", "Hết lô"]) assert.equal(nhomCuaNhan(cu), undefined, cu);
+  // "Hoàn tất" quay lại riêng cho phiếu chuyển kho nội bộ (tên trong đặc tả BA, constants/phieuChuyenKho.js)
+  for (const cu of ["Hết lô"]) assert.equal(nhomCuaNhan(cu), undefined, cu);
 });
 
 test("mọi nhãn trong các bảng trạng thái ở constants/* đều có nhóm", () => {

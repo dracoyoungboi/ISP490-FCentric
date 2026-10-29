@@ -158,6 +158,20 @@ test("quản lý kho – cần bạn xử lý: tên, tuổi, đường dẫn; b�
   assert.equal(v[2].tuoi, "Mở từ hôm qua 9:00");
 });
 
+test("quản lý kho – chờ xử lý chênh lệch chuyển kho: gấp, mở tab Chờ xử lý chênh lệch", () => {
+  const [lech] = dongViecQuanLyKho(
+    [{ loai: "xu_ly_chenh_lech_chuyen", so: 2, cuNhat: "2026-10-17T08:10:00", moTa: null, gap: true }],
+    CUA_HANG,
+    BAY_GIO,
+  );
+  assert.equal(lech.ten, "Xử lý chênh lệch chuyển kho");
+  assert.equal(lech.loai, "chuyen");
+  assert.equal(lech.so, 2);
+  assert.equal(lech.gap, true);
+  assert.equal(lech.tuoi, "Chờ từ 8:10");
+  assert.equal(lech.to, "/transfer-tickets?trangThai=cho-xu-ly-chenh-lech");
+});
+
 test("cần bổ sung: chuyển từ Kho tổng mở sẵn form; đã có yêu cầu thì mở yêu cầu; còn lại chỉ ghi chữ", () => {
   const chuyen = { bienTheId: 5, deXuat: "chuyen_kho", soLuongDeXuat: 20, khaDung: 0, nguong: 10, khaDungKhoTong: 100 };
   assert.deepEqual(hanhDongBoSung(chuyen, CUA_HANG), {
@@ -176,14 +190,19 @@ test("cần bổ sung: chuyển từ Kho tổng mở sẵn form; đã có yêu c
 });
 
 test("nhân viên kho – việc chung: chữ và đường dẫn theo loại chứng từ", () => {
+  // id là id phiếu chuyển đang trên đường đến kho: nhận hàng ở màn phiếu chuyển
   assert.deepEqual(viecChungDong({ loai: "phieu_nhap_chuyen_kho", id: 3, doiTac: "Kho tổng", soLuong: 20 }), {
     moTa: "Từ Kho tổng · 20 sản phẩm",
-    nut: "Kiểm đếm",
-    to: "/goods-receipts/3",
-    moc: "Tạo lúc",
+    nut: "Nhận hàng",
+    to: "/transfer-tickets/3/receive",
+    moc: "Xuất lúc",
   });
   assert.equal(viecChungDong({ loai: "phieu_nhap", id: 4, doiTac: null, soLuong: 0 }).moTa, "Nhập kho");
   assert.equal(viecChungDong({ loai: "phieu_nhat", id: 1, soDon: 2, soLuong: 3 }).to, "/goods-issues/pick-lists/1");
+  assert.equal(viecChungDong({ loai: "phieu_nhat", id: 1, soDon: 2, soLuong: 3 }).moTa, "2 đơn · 3 sản phẩm");
+  // Phiếu nhặt của phiếu chuyển kho: số phiếu chuyển thay cho "0 đơn"
+  assert.equal(viecChungDong({ loai: "phieu_nhat", id: 6, doiTac: "PX-TRF-202610281", soDon: 0, soLuong: 10 }).moTa,
+    "Chuyển kho PX-TRF-202610281 · 10 sản phẩm");
   assert.equal(viecChungDong({ loai: "don_ban", id: 8, doiTac: null, soLuong: 2 }).to, "/goods-issues/packing/8");
   assert.equal(viecChungDong({ loai: "phieu_xuat", id: 9, doiTac: "Chị Lan", soLuong: 1 }).moTa, "Xuất bán · Chị Lan · 1 sản phẩm");
   assert.equal(viecChungDong({ loai: "phieu_chuyen", id: 5, doiTac: "Kho tổng", soLuong: 12 }).to, "/transfer-tickets/5");

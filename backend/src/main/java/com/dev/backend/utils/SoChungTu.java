@@ -16,4 +16,10 @@ public final class SoChungTu {
         long lonNhat = soDuoiLonNhat == null ? 0 : soDuoiLonNhat.longValue();
         return tienTo + (lonNhat + 1);
     }
+
+    /** Như {@link #tiepTheo} nhưng đệm đủ 3 chữ số: LDD-20261023-001, BBGN-20261023-012 (mẫu số của đặc tả BA). */
+    public static String tiepTheoBaChuSo(String tienTo, Number soDuoiLonNhat) {
+        long lonNhat = soDuoiLonNhat == null ? 0 : soDuoiLonNhat.longValue();
+        return tienTo + String.format("%03d", lonNhat + 1);
+    }
 }

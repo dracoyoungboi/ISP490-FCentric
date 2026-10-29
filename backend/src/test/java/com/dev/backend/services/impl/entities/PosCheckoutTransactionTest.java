@@ -1,5 +1,6 @@
 package com.dev.backend.services.impl.entities;
 
+import com.dev.backend.services.impl.multitable.GiuChoChuyenKhoService;
 import com.dev.backend.services.impl.multitable.LoDangGiuService;
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.dto.request.PosCheckoutCreating;
@@ -54,6 +55,8 @@ class PosCheckoutTransactionTest {
     @Mock private ChiTietPhieuXuatKhoRepository chiTietPhieuXuatKhoRepository;
     @Mock private TonKhoTheoLoRepository tonKhoTheoLoRepository;
     @Mock private LoDangGiuService loDangGiuService;
+    @Mock private GiuChoChuyenKhoService giuChoChuyenKhoService;
+    @Mock private ThueGtgtService thueGtgtService;
     @Mock private LichSuGiaoDichKhoRepository lichSuGiaoDichKhoRepository;
     @Mock private PosCheckoutRequestRepository posCheckoutRequestRepository;
     @Mock private PosPaymentRepository posPaymentRepository;
@@ -79,6 +82,8 @@ class PosCheckoutTransactionTest {
         ReflectionTestUtils.setField(executor, "chiTietPhieuXuatKhoRepository", chiTietPhieuXuatKhoRepository);
         ReflectionTestUtils.setField(executor, "tonKhoTheoLoRepository", tonKhoTheoLoRepository);
         ReflectionTestUtils.setField(executor, "loDangGiuService", loDangGiuService);
+        ReflectionTestUtils.setField(executor, "giuChoChuyenKhoService", giuChoChuyenKhoService);
+        ReflectionTestUtils.setField(executor, "thueGtgtService", thueGtgtService);
         ReflectionTestUtils.setField(executor, "lichSuGiaoDichKhoRepository", lichSuGiaoDichKhoRepository);
         ReflectionTestUtils.setField(executor, "posCheckoutRequestRepository", posCheckoutRequestRepository);
         ReflectionTestUtils.setField(executor, "posPaymentRepository", posPaymentRepository);
@@ -331,6 +336,28 @@ class PosCheckoutTransactionTest {
                 () -> executor.execute(request("rq-scale", 120000, "360000", "3", 93)));
         assertTrue(ex.getMessage().contains("(cần 3, còn 2)"), ex.getMessage());
         assertFalse(ex.getMessage().contains(".000"), ex.getMessage());
+    }
+
+    @Test
+    void checkout_truHangPhieuChuyenKhoDangGiuChoOKhoNay() {
+        // Phiếu chuyển Chờ duyệt / Đã duyệt từ kho này giữ chỗ 2 chiếc (chưa chọn lô): quầy chỉ bán được 3 − 2 = 1
+        Kho kho = kho1();
+        BienTheSanPham variant = variant(93, 1, "120000");
+        stubSuccessBasics(kho, variant);
+        when(tonKhoTheoLoRepository.lockLotsForUpdateByKhoAndVariants(1, List.of(93)))
+                .thenReturn(List.of(lotRow(72, 69, "3", "0", Instant.parse("2026-10-05T12:00:00Z"), variant, kho)));
+        // Phần giữ chỗ chưa nằm trong phân bổ lô của phiếu nhặt chuyển kho (phân bổ đó đã trừ theo lô ở dangGiu)
+        when(giuChoChuyenKhoService.taiKhoNgoaiPhieuNhat(1, List.of(93))).thenReturn(java.util.Map.of(93, new BigDecimal("2")));
+
+        CommonException ex = assertThrows(CommonException.class,
+                () -> executor.execute(request("rq-chuyen", 120000, "240000", "2", 93)));
+        assertTrue(ex.getMessage().contains("(cần 2, còn 1)"), ex.getMessage());
+        verify(donBanHangRepository, never()).save(any(DonBanHang.class));
+
+        executor.execute(request("rq-chuyen-1", 120000, "120000", "1", 93));
+        ArgumentCaptor<TonKhoTheoLo> tonCaptor = ArgumentCaptor.forClass(TonKhoTheoLo.class);
+        verify(tonKhoTheoLoRepository).save(tonCaptor.capture());
+        assertEquals(0, new BigDecimal("2").compareTo(tonCaptor.getValue().getSoLuongTon()));
     }
 
     // F8: server là chốt chặn cuối cho ô "tiền khách đưa" — không nhận số âm hay số lẻ đồng.

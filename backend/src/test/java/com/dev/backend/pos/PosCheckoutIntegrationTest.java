@@ -32,7 +32,10 @@ import static org.junit.jupiter.api.Assertions.*;
  * (webEnvironment=RANDOM_PORT), HTTP thật với TestRestTemplate (kết nối độc lập),
  * transaction/lock THẬT trên MySQL — KHÔNG dùng mock, KHÔNG dùng H2 thay thế.
  *
- * Yêu cầu schema MySQL DÙNG MỘT LẦN, import Database/MyDB_v1.3.sql + pos_checkout_v1.sql + payos_v1.sql:
+ * Yêu cầu schema MySQL DÙNG MỘT LẦN, import Database/MyDB_v1.3.sql + pos_checkout_v1.sql + payos_v1.sql
+ *   + migration-2026-10-28-chuyen-kho-noi-bo.sql (bảng phiếu chuyển, cột phieu_chuyen_kho_id, phieu_xuat_kho_id của
+ *   phiếu nhặt mà thanh toán đọc khi trừ giữ chỗ phiếu chuyển; tệp mặc định chỉ xem trước: đổi dòng USE sang CSDL test
+ *   và SET @chay_that = 1 trước khi chạy):
  *   mặc định jdbc:mysql://127.0.0.1:3307/fcentric_pos_test (root, mật khẩu rỗng);
  *   đổi bằng -Dpos.it.db.url / -Dpos.it.db.user / -Dpos.it.db.pass
  * — do chính quy trình test khởi tạo bằng mysqld --initialize-insecure trong thư mục
@@ -170,14 +173,12 @@ class PosCheckoutIntegrationTest {
     private BigDecimal catalogStock93(String token) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(token.replace("Bearer ", ""));
-        ResponseEntity<Map> res = rest.exchange("/api/v1/pos/catalog?khoId=1&q=&page=0&size=120",
+        // Số bán được của SKU 93 mà màn POS hiển thị (/catalog bản phẳng đã gỡ; /stock dùng cùng công thức với danh mục)
+        ResponseEntity<Map> res = rest.exchange("/api/v1/pos/stock?khoId=1&ids=93",
                 HttpMethod.GET, new HttpEntity<>(headers), Map.class);
         Map<String, Object> data = (Map<String, Object>) res.getBody().get("data");
-        List<Map<String, Object>> content = (List<Map<String, Object>>) data.get("content");
-        Map<String, Object> item = content.stream()
-                .filter(i -> ((Number) i.get("bienTheSanPhamId")).intValue() == 93)
-                .findFirst().orElse(null);
-        return item == null ? null : new BigDecimal(String.valueOf(item.get("soLuongKhaDung")));
+        Object soLuong = data == null ? null : data.get("93");
+        return soLuong == null ? null : new BigDecimal(String.valueOf(soLuong));
     }
 
     // ================= TESTS =================

@@ -13,8 +13,9 @@ const soCua = (value) => Number(value) || 0;
 
 /**
  * Được sửa lô không (khớp backend PhieuXuatKhoService.pickLoHang) và lý do chỉ xem:
- * phiếu bán hàng chỉ quản trị viên / quản lý kho sửa khi Nháp hoặc Chờ xuất; phiếu xuất chuyển kho chọn lô khi Nháp;
- * loại khác ("khac" — phiếu yêu cầu chuyển kho) máy chủ luôn từ chối nên chỉ xem.
+ * phiếu bán hàng chỉ quản trị viên / quản lý kho sửa khi Nháp hoặc Chờ xuất; phiếu xuất chuyển kho (PX-CK) chọn lô khi
+ * Nháp (máy chủ kiểm thêm phiếu chuyển còn Đã duyệt); loại khác ("khac" — dòng phiếu chuyển cũ) máy chủ luôn từ chối nên
+ * chỉ xem.
  */
 export function quyenChonLo({ loaiXuat, trangThai, laQuanLy = false } = {}) {
   const tt = Number(trangThai);

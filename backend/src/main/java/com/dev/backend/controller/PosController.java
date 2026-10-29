@@ -56,42 +56,10 @@ public class PosController {
     private boolean checkoutEnabled;
 
     /**
-     * Catalog SKU bán được của một kho được ủy quyền, phân trang server-side.
-     * khoId bắt buộc; service kiểm tra quyền kho server-side (admin bỏ qua).
-     * Bộ lọc tùy chọn: trangThaiTon = con_hang | het_hang | tat_ca (mặc định tat_ca).
-     */
-    @GetMapping("/catalog")
-    @RequireAuth(
-            roles = {
-                    IRoleType.quan_tri_vien,
-                    IRoleType.quan_ly_kho,
-                    IRoleType.nhan_vien_kho,
-                    IRoleType.nhan_vien_ban_hang
-            },
-            rolesLogic = RequireAuth.LogicType.OR
-    )
-    public ResponseEntity<ResponseData<Page<PosCatalogItemDto>>> getCatalog(
-            @RequestParam Integer khoId,
-            @RequestParam(required = false) String q,
-            @RequestParam(required = false) String trangThaiTon,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "120") int size
-    ) {
-        return ResponseEntity.ok(
-                ResponseData.<Page<PosCatalogItemDto>>builder()
-                        .status(200)
-                        .data(posCatalogService.getCatalog(khoId, q, trangThaiTon, page, size))
-                        .message("Success")
-                        .error(null)
-                        .build()
-        );
-    }
-
-    /**
      * Danh mục POS GỘP KÍCH CỠ: mỗi phần tử là một mẫu + màu (+ chất liệu) kèm đủ các kích cỡ,
-     * tồn khả dụng và giá của từng kích cỡ. Phân trang và bộ lọc tồn tính theo nhóm
-     * (con_hang = còn ít nhất một kích cỡ có hàng; het_hang = mọi kích cỡ đều hết; tat_ca).
-     * Cùng kiểm tra quyền kho như /catalog. /catalog (từng SKU) vẫn giữ cho client cũ.
+     * số bán được tại quầy (cùng công thức với thanh toán) và giá của từng kích cỡ. Phân trang và bộ lọc tồn tính
+     * theo nhóm (con_hang = còn ít nhất một kích cỡ có hàng; het_hang = mọi kích cỡ đều hết; tat_ca).
+     * khoId bắt buộc; service kiểm tra quyền kho server-side (admin bỏ qua).
      */
     @GetMapping("/catalog/groups")
     @RequireAuth(
@@ -121,7 +89,7 @@ public class PosController {
     }
 
     /**
-     * Tồn khả dụng hiện tại của các SKU trong giỏ tại kho đang bán (ids=1,2,3).
+     * Số bán được hiện tại của các SKU trong giỏ tại kho đang bán (ids=1,2,3), cùng số với danh mục.
      * Giúp màn POS cập nhật "Chỉ còn N"/hết hàng cho dòng giỏ không nằm trong trang catalog
      * đang xem (ví dụ đang lọc "Còn hàng"). Cùng kiểm tra quyền kho như catalog.
      */

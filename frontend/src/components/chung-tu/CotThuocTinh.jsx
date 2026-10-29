@@ -83,7 +83,8 @@ const THE_BAM =
 
 /**
  * Nhóm "Chứng từ liên quan": mỗi mục một thẻ `{ loai, ma, to | onClick, trangThai, quyTrinh, nhomTrangThai }`.
- * `to` → liên kết trong ứng dụng, `onClick` → nút, không có cả hai → chỉ hiện. Có `trangThai` thì hiện thẻ trạng thái
+ * `to` → liên kết trong ứng dụng (kèm `onClick` thì chạy trước khi chuyển trang, vd. đổi kho làm việc), chỉ `onClick` → nút,
+ * không có cả hai → chỉ hiện. Có `trangThai` thì hiện thẻ trạng thái
  * (StatusBadge, truyền `quyTrinh` của loại chứng từ đó), không thì mũi tên. Danh sách rỗng: không vẽ gì.
  * `chan`: nội dung dưới danh sách (vd. nút "Xem thêm n phiếu xuất", câu giải thích khi không tìm thấy chứng từ);
  * có `chan` thì nhóm vẫn vẽ dù danh sách rỗng.
@@ -111,7 +112,7 @@ export function ChungTuLienQuan({ ds, nhan = "Chứng từ liên quan", rong = f
           return (
             <li key={m.khoa ?? `${m.loai}-${m.ma ?? i}`} className="min-w-0">
               {m.to ? (
-                <Link to={m.to} className={cn(THE, THE_BAM)}>
+                <Link to={m.to} onClick={m.onClick} className={cn(THE, THE_BAM)}>
                   {noiDung}
                 </Link>
               ) : m.onClick ? (

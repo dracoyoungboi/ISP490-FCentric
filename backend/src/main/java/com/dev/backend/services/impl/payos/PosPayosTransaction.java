@@ -16,6 +16,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -67,8 +68,10 @@ public class PosPayosTransaction {
     /**
      * Giữ chỗ hàng + tạo giao dịch PENDING (chưa gọi payOS). Khách trả trước một phần bằng tiền mặt (tienMatTruoc) thì mã
      * QR chỉ mang phần còn lại; không có thì QR trọn hóa đơn.
+     * READ_COMMITTED: điểm vào giao dịch của PosCheckoutTransaction.reserveForTransfer (gọi lồng thì mức cô lập lấy theo
+     * giao dịch này) — sau khi chờ khóa dòng tồn, giữ chỗ phiếu chuyển / phần đang giữ đọc được bản vừa ghi xong.
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public PosPayosPayment createPending(PosCheckoutCreating request, Integer cashierId, int expiryMinutes) {
         PosCheckoutTransaction.ReservationResult reservation = checkoutTransaction.reserveForTransfer(request);
         BigDecimal tienMat = tienMatTruocQr(request.getTienMatTruoc(), reservation.total());
@@ -157,8 +160,9 @@ public class PosPayosTransaction {
      * PAID rồi -> trả kết quả đã lưu. PENDING -> trả giữ chỗ rồi trừ kho trong CÙNG transaction.
      * Đã hủy / hết hạn mà tiền vẫn về -> KHÔNG tự tạo đơn (lúc đó thu ngân có thể đã bán món này bằng
      * tiền mặt): ném lỗi để nơi gọi đánh PAID_ERROR, quản lý kiểm tra rồi tạo đơn hoặc hoàn tiền.
+     * READ_COMMITTED: điểm vào giao dịch của PosCheckoutTransaction.executeWith (xem createPending).
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public PosCheckoutResponse finalizePaid(Long orderCode, BigDecimal paidAmount, String bankReference) {
         PosPayosPayment row = lock(orderCode);
         if (PosPayosPayment.PAID.equals(row.getTrangThai())) {
@@ -268,8 +272,9 @@ public class PosPayosTransaction {
      * Quản lý xử lý giao dịch lỗi bằng "Tạo đơn bán": giá đã chốt lúc tạo QR, trả giữ chỗ (nếu còn)
      * rồi trừ kho trong cùng transaction. Chỉ khi đã nhận ĐỦ tiền; chuyển dư thì đơn vẫn đúng tổng
      * hóa đơn và ghi chú số cần hoàn. Thiếu hàng / lỗi khác -> ném lỗi, giao dịch giữ nguyên PAID_ERROR.
+     * READ_COMMITTED: điểm vào giao dịch của PosCheckoutTransaction.executeWith (xem createPending).
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public PosCheckoutResponse createOrderFromPaidError(Long orderCode, Integer managerId, String note) {
         PosPayosPayment row = lockPaidError(orderCode);
         if (row.isTienVeSauHuy() && coTienMat(row)) {

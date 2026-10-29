@@ -11,7 +11,7 @@ const LOAI = {
   nhap_kho: { ten: "Nhập kho", icon: Download, mo: (x) => [x.soLuong != null && `${formatSo(x.soLuong)} sản phẩm`, x.tenKho], to: (x) => `/goods-receipts/${x.id}` },
   nhap_chuyen_kho: { ten: "Nhận hàng chuyển kho", icon: ArrowLeftRight, mo: (x) => [x.soLuong != null && `${formatSo(x.soLuong)} sản phẩm`, x.tenKho], to: (x) => `/goods-receipts/${x.id}` },
   xuat_kho: { ten: "Xuất kho", icon: Upload, mo: (x) => [x.soLuong != null && `${formatSo(x.soLuong)} sản phẩm`, x.tenKho], to: (x) => `/goods-issues/${x.id}/view` },
-  xuat_chuyen_kho: { ten: "Xuất chuyển kho", icon: ArrowLeftRight, mo: (x) => [x.soLuong != null && `${formatSo(x.soLuong)} sản phẩm`, x.doiTac ? `đến ${x.doiTac}` : x.tenKho], to: (x) => `/goods-issues/${x.id}/view` },
+  xuat_chuyen_kho: { ten: "Xuất chuyển kho", icon: ArrowLeftRight, mo: (x) => [x.soLuong != null && `${formatSo(x.soLuong)} sản phẩm`, x.doiTac ? `đến ${x.doiTac}` : x.tenKho], to: (x) => `/goods-issues/${x.id}` }, // PX-CK không có đơn bán: mở chi tiết phiếu xuất, không mở màn xem của đơn bán
   don_ban: { ten: "Đơn bán mới", icon: ShoppingCart, mo: (x) => [x.soTien != null && formatTien(x.soTien), x.doiTac ?? "Đơn bán trực tiếp"], to: (x) => `/sales-orders/${x.id}` },
   ban_tai_quay: { ten: "Bán tại quầy", icon: Store, mo: (x) => [x.soTien != null && formatTien(x.soTien), x.tenKho], to: (x) => `/sales-orders/${x.id}` },
   // Tên đợt kiểm kê tự đặt thường đã chứa tên kho ("Kiểm kê kho Kho tổng") nên chỉ ghi khi khác

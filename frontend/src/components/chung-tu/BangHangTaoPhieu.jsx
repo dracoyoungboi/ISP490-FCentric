@@ -26,8 +26,8 @@ const chuBienThe = (n) =>
   n.soBienThe !== n.soBienTheCaNhom ? `${soVN(n.soBienThe)}/${soVN(n.soBienTheCaNhom)} biến thể` : `${soVN(n.soBienThe)} biến thể`;
 
 /**
- * Bảng hàng của các màn TẠO chứng từ (tạo phiếu nhập, tạo phiếu chuyển): cùng kiểu bảng của màn chi tiết
- * (BangHangChuyen) — gom theo sản phẩm, dòng nhóm có tổng, dòng biến thể thụt vào; quá NGUONG_CONG_CU dòng thì có
+ * Bảng hàng của các màn TẠO chứng từ (tạo phiếu nhập, tạo phiếu chuyển): cùng kiểu bảng chứng từ của các màn chi tiết
+ * — gom theo sản phẩm, dòng nhóm có tổng, dòng biến thể thụt vào; quá NGUONG_CONG_CU dòng thì có
  * ô tìm, "Mở / Thu gọn tất cả" và phân trang theo sản phẩm (config/bangChungTu.js).
  *
  * - `bang`: kết quả useBangChungTu của màn (màn dùng chung tổng cho dòng phụ đầu khối).

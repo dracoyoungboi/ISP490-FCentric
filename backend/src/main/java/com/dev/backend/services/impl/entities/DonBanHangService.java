@@ -51,6 +51,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.dev.backend.event.InventoryRestockedEvent;
 import com.dev.backend.services.KenhBanHangDongBoService;
+import com.dev.backend.services.impl.multitable.GiuChoChuyenKhoService;
 import com.dev.backend.services.multitable.BangChungDongGoiService;
 import com.dev.backend.services.multitable.NhatHangService;
 import lombok.extern.slf4j.Slf4j;
@@ -152,6 +153,9 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
 
     @Autowired
     private NguoiDungRepository nguoiDungRepository;
+
+    @Autowired
+    private GiuChoChuyenKhoService giuChoChuyenKhoService;
 
 
     @Override
@@ -706,8 +710,9 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     }
 
     /**
-     * Lượng chờ xuất của đơn bán đang giữ hàng (ITrangThaiDonBanHang.DANG_GIU_HANG): đặt − đã xuất thật,
-     * kho → (biến thể → số lượng). {@code boQuaDonId} để không tính chính đơn đang xét.
+     * Lượng chờ xuất của đơn bán đang giữ hàng (ITrangThaiDonBanHang.DANG_GIU_HANG): đặt − đã xuất thật, cộng hàng
+     * phiếu chuyển kho đang giữ chỗ ở kho nguồn (Chờ duyệt / Đã duyệt, phần chưa chọn lô); kho → (biến thể → số lượng).
+     * {@code boQuaDonId} để không tính chính đơn đang xét.
      */
     private Map<Integer, Map<Integer, BigDecimal>> choXuatTheoKho(List<Integer> bienTheIds, Integer boQuaDonId) {
         Map<Integer, Map<Integer, BigDecimal>> ketQua = new HashMap<>();
@@ -717,6 +722,8 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         for (Object[] row : chiTietPhieuXuatKhoRepository.sumDaXuatDonGiuHangTheoKho(bienTheIds, boQuaDonId, ITrangThaiDonBanHang.DANG_GIU_HANG)) {
             ketQua.computeIfAbsent((Integer) row[1], k -> new HashMap<>()).merge((Integer) row[0], soLuong(row[2]).negate(), BigDecimal::add);
         }
+        giuChoChuyenKhoService.theoKho(bienTheIds).forEach((bienTheId, theoKho) -> theoKho.forEach((khoId, giuCho) ->
+                ketQua.computeIfAbsent(khoId, k -> new HashMap<>()).merge(bienTheId, giuCho, BigDecimal::add)));
         return ketQua;
     }
 

@@ -106,4 +106,36 @@ public interface PhanQuyenNguoiDungKhoRepository extends JpaRepository<PhanQuyen
             """)
     List<Object[]> layKhoHieuLucTheoNguoiDung(@Param("nguoiDungIds") Collection<Integer> nguoiDungIds,
                                               @Param("now") Instant now);
+
+    /**
+     * Id người dùng mang vai trò {@code vaiTro}, tài khoản đang hoạt động, có phân quyền hiệu lực tại {@code now} (cùng
+     * điều kiện với {@link #findHieuLucTai}) ở một trong các kho. Dùng tìm người nhận thông báo, vd. quản lý kho xuất.
+     */
+    @Query("""
+            SELECT DISTINCT pqndk.nguoiDung.id FROM PhanQuyenNguoiDungKho pqndk
+            WHERE pqndk.kho.id IN :khoIds
+              AND pqndk.nguoiDung.vaiTro = :vaiTro
+              AND pqndk.nguoiDung.trangThai = 1
+              AND pqndk.trangThai = 1
+              AND (pqndk.ngayBatDau IS NULL OR pqndk.ngayBatDau <= :now)
+              AND (pqndk.ngayKetThuc IS NULL OR pqndk.ngayKetThuc > :now)
+            """)
+    List<Integer> nguoiDungTheoKhoTai(@Param("khoIds") Collection<Integer> khoIds, @Param("vaiTro") String vaiTro,
+                                      @Param("now") Instant now);
+
+    /**
+     * Như {@link #nguoiDungTheoKhoTai} nhưng theo loại kho (vd. kho_tong): quản lý Kho tổng = quản lý kho đang được phân
+     * công ở một kho loại kho_tong (cùng luật với PhieuChuyenKhoService.laQuanLyKhoTong).
+     */
+    @Query("""
+            SELECT DISTINCT pqndk.nguoiDung.id FROM PhanQuyenNguoiDungKho pqndk
+            WHERE pqndk.kho.loaiKho = :loaiKho
+              AND pqndk.nguoiDung.vaiTro = :vaiTro
+              AND pqndk.nguoiDung.trangThai = 1
+              AND pqndk.trangThai = 1
+              AND (pqndk.ngayBatDau IS NULL OR pqndk.ngayBatDau <= :now)
+              AND (pqndk.ngayKetThuc IS NULL OR pqndk.ngayKetThuc > :now)
+            """)
+    List<Integer> nguoiDungTheoLoaiKhoTai(@Param("loaiKho") String loaiKho, @Param("vaiTro") String vaiTro,
+                                          @Param("now") Instant now);
 }

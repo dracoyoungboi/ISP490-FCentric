@@ -101,7 +101,7 @@ public class TongQuanAdminRepository {
     public record ViecCanXuLyDong(long donNhapChuaGuiKho, long donChoXuatKho, long phieuNhatChuaPhanCong,
                                   long phieuXuatChoXuatKho, long yeuCauNhapChoDuyet, long phieuNhapChoNhapKho,
                                   long phieuChuyenChoDuyet, long phieuChuyenChoXuatHang, long dotKiemKeDangMo,
-                                  long taiKhoanBiKhoa, long donMuaQuaHan) {}
+                                  long taiKhoanBiKhoa, long donMuaQuaHan, long phieuChuyenChoXuLyLech) {}
 
     public record LoiDongBoDong(Integer kenhId, String maKenh, String tenKenh, long soLoi) {}
 
@@ -526,13 +526,28 @@ public class TongQuanAdminRepository {
         return v == null ? BigDecimal.ZERO : v;
     }
 
+    /**
+     * Hàng đang ở kho trung chuyển của các phiếu chuyển (bảng phieu_chuyen_kho): phiếu Đang vận chuyển (toàn bộ hàng đã
+     * xuất), phiếu Chờ xử lý chênh lệch (phần thiếu, hỏng của biên bản), phiếu hủy khi đang đi chưa nhập hoàn trả.
+     */
     static final String SQL_DANG_CHUYEN = """
-            SELECT COALESCE(SUM(ct.so_luong_xuat), 0) AS dang_chuyen
-            FROM phieu_xuat_kho px
-            JOIN phieu_xuat_kho pck         ON pck.id = px.parent_id
-            JOIN chi_tiet_phieu_xuat_kho ct ON ct.phieu_xuat_kho_id = px.id AND ct.lo_hang_id IS NOT NULL
-            WHERE px.loai_xuat = 'chuyen_kho' AND px.trang_thai = 3 AND pck.trang_thai = 3
-              AND (:khoId IS NULL OR pck.kho_id = :khoId OR pck.kho_chuyen_den_id = :khoId)
+            SELECT
+              (SELECT COALESCE(SUM(ct.so_luong_xuat), 0)
+               FROM phieu_xuat_kho px
+               JOIN phieu_chuyen_kho pck       ON pck.id = px.phieu_chuyen_kho_id
+               JOIN chi_tiet_phieu_xuat_kho ct ON ct.phieu_xuat_kho_id = px.id AND ct.lo_hang_id IS NOT NULL
+               WHERE px.loai_xuat = 'chuyen_kho' AND px.trang_thai = 3
+                 AND (pck.trang_thai = 'DANG_VAN_CHUYEN'
+                      OR (pck.trang_thai = 'DA_HUY' AND NOT EXISTS (
+                            SELECT 1 FROM phieu_nhap_kho pn
+                            WHERE pn.phieu_chuyen_kho_id = pck.id AND pn.kho_id = pck.kho_xuat_id AND pn.trang_thai = 3)))
+                 AND (:khoId IS NULL OR pck.kho_xuat_id = :khoId OR pck.kho_nhap_id = :khoId))
+            + (SELECT COALESCE(SUM(c.so_luong_gui - c.so_luong_nhan), 0)
+               FROM chi_tiet_bien_ban_giao_nhan c
+               JOIN bien_ban_giao_nhan b ON b.id = c.bien_ban_id
+               JOIN phieu_chuyen_kho pck ON pck.id = b.phieu_chuyen_kho_id
+               WHERE pck.trang_thai = 'CHO_XU_LY_LECH'
+                 AND (:khoId IS NULL OR pck.kho_xuat_id = :khoId OR pck.kho_nhap_id = :khoId)) AS dang_chuyen
             """;
 
     /** Hàng đang đi đường giữa các kho: phiếu chuyển đã xuất nhưng kho nhận chưa nhập. */
@@ -574,7 +589,7 @@ public class TongQuanAdminRepository {
     /**
      * Phân loại theo loai_giao_dich (phiếu xuất ghi số lượng dương nên không dựa vào dấu).
      * Khi xem tất cả kho, bỏ hai chặng của chuyển kho nội bộ (phiếu xuất loại chuyen_kho và
-     * phiếu nhập có phieu_chuyen_id) vì đó không phải nhập hay xuất thật của công ty.
+     * phiếu nhập có phieu_chuyen_kho_id) vì đó không phải nhập hay xuất thật của công ty.
      */
     static final String SQL_NHAP_XUAT_THEO_NGAY = """
             SELECT DATE_FORMAT(DATE_ADD(lg.ngay_giao_dich, INTERVAL :lechCsdl MINUTE), '%Y-%m-%d') AS ngay,
@@ -587,7 +602,7 @@ public class TongQuanAdminRepository {
             WHERE lg.loai_giao_dich IN ('nhap_kho', 'xuat_kho')
               AND lg.ngay_giao_dich >= :tu AND lg.ngay_giao_dich < :den
               AND (:khoId IS NULL OR lg.kho_id = :khoId)
-              AND (:khoId IS NOT NULL OR (COALESCE(px.loai_xuat, '') <> 'chuyen_kho' AND pn.phieu_chuyen_id IS NULL))
+              AND (:khoId IS NOT NULL OR (COALESCE(px.loai_xuat, '') <> 'chuyen_kho' AND pn.phieu_chuyen_kho_id IS NULL))
             GROUP BY 1
             ORDER BY 1
             """;
@@ -621,12 +636,15 @@ public class TongQuanAdminRepository {
                 WHERE y.trang_thai = 1 AND (:khoId IS NULL OR y.kho_nhap_id = :khoId))     AS yc_cho_duyet,
               (SELECT COUNT(*) FROM phieu_nhap_kho p
                 WHERE p.trang_thai = 0 AND (:khoId IS NULL OR p.kho_id = :khoId))          AS pn_cho_nhap,
-              (SELECT COUNT(*) FROM phieu_xuat_kho p
-                WHERE p.loai_xuat = 'khac' AND p.kho_chuyen_den_id IS NOT NULL AND p.trang_thai = 1
-                  AND (:khoId IS NULL OR p.kho_id = :khoId))                               AS pck_cho_duyet,
-              (SELECT COUNT(*) FROM phieu_xuat_kho p
-                WHERE p.loai_xuat = 'khac' AND p.kho_chuyen_den_id IS NOT NULL AND p.trang_thai = 2
-                  AND (:khoId IS NULL OR p.kho_id = :khoId))                               AS pck_cho_xuat,
+              (SELECT COUNT(*) FROM phieu_chuyen_kho p
+                WHERE p.trang_thai = 'CHO_DUYET'
+                  AND (:khoId IS NULL OR p.kho_xuat_id = :khoId))                          AS pck_cho_duyet,
+              (SELECT COUNT(*) FROM phieu_chuyen_kho p
+                WHERE p.trang_thai = 'DA_DUYET'
+                  AND (:khoId IS NULL OR p.kho_xuat_id = :khoId))                          AS pck_cho_xuat,
+              (SELECT COUNT(*) FROM phieu_chuyen_kho p
+                WHERE p.trang_thai = 'CHO_XU_LY_LECH'
+                  AND (:khoId IS NULL OR p.kho_xuat_id = :khoId OR p.kho_nhap_id = :khoId)) AS pck_cho_xu_ly_lech,
               (SELECT COUNT(*) FROM dot_kiem_ke dk
                 WHERE dk.trang_thai = 0 AND (:khoId IS NULL OR dk.kho_id = :khoId))        AS kiem_ke_mo,
               (SELECT COUNT(*) FROM nguoi_dung u WHERE u.trang_thai = 0)                   AS tk_khoa,
@@ -642,6 +660,8 @@ public class TongQuanAdminRepository {
     /**
      * Đếm các việc đang chờ. Đơn mua quá hạn: đã chốt (3 hoặc 5), ngày giao dự kiến trước :homNay (0 giờ hôm nay,
      * giờ Việt Nam) và còn dòng chưa nhận đủ, cùng cách tính phần "đang về" với SQL_DANG_VE.
+     * Phiếu chuyển chờ xử lý chênh lệch: quản trị viên luôn xử lý được (mọi chế độ CHUYEN_KHO_QUYEN_XU_LY_LECH), kho
+     * đang xem là kho xuất hoặc kho nhận của phiếu.
      */
     public ViecCanXuLyDong viecCanXuLy(Integer khoId, LocalDateTime homNay) {
         return jdbc.queryForObject(SQL_VIEC_CAN_XU_LY, thamSo(khoId).addValue("homNay", moc(homNay)),
@@ -649,7 +669,7 @@ public class TongQuanAdminRepository {
                         rs.getLong("don_nhap"), rs.getLong("don_cho_xuat"), rs.getLong("nhat_chua_giao"),
                         rs.getLong("px_cho_xuat"), rs.getLong("yc_cho_duyet"), rs.getLong("pn_cho_nhap"),
                         rs.getLong("pck_cho_duyet"), rs.getLong("pck_cho_xuat"), rs.getLong("kiem_ke_mo"),
-                        rs.getLong("tk_khoa"), rs.getLong("dm_qua_han")));
+                        rs.getLong("tk_khoa"), rs.getLong("dm_qua_han"), rs.getLong("pck_cho_xu_ly_lech")));
     }
 
     /** Như trên, "hôm nay" lấy theo thời điểm hiện tại. */
@@ -691,12 +711,10 @@ public class TongQuanAdminRepository {
                 (SELECT COUNT(*) FROM danh_sach_nhat_hang n
                   WHERE n.trang_thai IN ('cho_nhat', 'dang_nhat') AND n.nguoi_nhat_id IS NULL
                     AND n.kho_xuat_id = k.id)                                                   AS nhat_chua_giao,
-                (SELECT COUNT(*) FROM phieu_xuat_kho p
-                  WHERE p.loai_xuat = 'khac' AND p.kho_chuyen_den_id IS NOT NULL AND p.trang_thai = 1
-                    AND p.kho_id = k.id)                                                        AS pck_cho_duyet,
-                (SELECT COUNT(*) FROM phieu_xuat_kho p
-                  WHERE p.loai_xuat = 'khac' AND p.kho_chuyen_den_id IS NOT NULL AND p.trang_thai = 2
-                    AND p.kho_id = k.id)                                                        AS pck_cho_xuat
+                (SELECT COUNT(*) FROM phieu_chuyen_kho p
+                  WHERE p.trang_thai = 'CHO_DUYET' AND p.kho_xuat_id = k.id)                    AS pck_cho_duyet,
+                (SELECT COUNT(*) FROM phieu_chuyen_kho p
+                  WHERE p.trang_thai = 'DA_DUYET' AND p.kho_xuat_id = k.id)                     AS pck_cho_xuat
               FROM kho k
             ) x
             WHERE x.don_cho_xuat + x.nhat_chua_giao + x.pck_cho_duyet + x.pck_cho_xuat > 0
@@ -737,15 +755,15 @@ public class TongQuanAdminRepository {
                    END AS so_luong,
                    x.doi_tac, x.so_tien
             FROM (
-              (SELECT CASE WHEN p.phieu_chuyen_id IS NOT NULL THEN 'nhap_chuyen_kho' ELSE 'nhap_kho' END AS loai,
+              (SELECT CASE WHEN p.phieu_chuyen_kho_id IS NOT NULL THEN 'nhap_chuyen_kho' ELSE 'nhap_kho' END AS loai,
                       p.id, p.so_phieu_nhap AS ma, p.ngay_nhap AS thoi_gian_goc, k.ten_kho, u.ho_ten AS nguoi,
                       COALESCE(ncc.ten_nha_cung_cap, kn.ten_kho) AS doi_tac, NULL AS so_tien
                FROM phieu_nhap_kho p
                JOIN kho k                   ON k.id = p.kho_id
                LEFT JOIN nguoi_dung u       ON u.id = p.nguoi_nhap_id
                LEFT JOIN nha_cung_cap ncc   ON ncc.id = p.nha_cung_cap_id
-               LEFT JOIN phieu_xuat_kho pck ON pck.id = p.phieu_chuyen_id
-               LEFT JOIN kho kn             ON kn.id = pck.kho_id
+               LEFT JOIN phieu_chuyen_kho pck ON pck.id = p.phieu_chuyen_kho_id
+               LEFT JOIN kho kn             ON kn.id = pck.kho_xuat_id
                WHERE p.trang_thai = 3 AND p.ngay_nhap IS NOT NULL AND (:khoId IS NULL OR p.kho_id = :khoId)
                ORDER BY p.ngay_nhap DESC, p.id DESC LIMIT :soDong)
               UNION ALL

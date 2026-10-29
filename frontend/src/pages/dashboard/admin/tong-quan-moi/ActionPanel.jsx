@@ -28,6 +28,7 @@ const BIEU_TUONG = {
   donChoXuatKho: PackageOpen,
   phieuXuatChoXuatKho: PackageOpen,
   phieuChuyenChoDuyet: ArrowLeftRight,
+  phieuChuyenChoXuLyLech: ArrowLeftRight,
   phieuNhatChuaPhanCong: ListChecks,
   yeuCauNhapChoDuyet: FileText,
   donNhapChuaGuiKho: FilePen,

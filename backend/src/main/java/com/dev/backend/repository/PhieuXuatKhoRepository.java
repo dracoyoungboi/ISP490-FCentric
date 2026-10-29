@@ -43,8 +43,8 @@ public interface PhieuXuatKhoRepository extends JpaRepository<PhieuXuatKho, Inte
     @Query("SELECT p FROM PhieuXuatKho p WHERE p.id = :id")
     Optional<PhieuXuatKho> findByIdForUpdate(@Param("id") Integer id);
 
-    /** Một phiếu xuất con của phiếu chuyển kho gốc có trạng thái khác {@code trangThai} (dùng để tìm phiếu chưa hủy). */
-    Optional<PhieuXuatKho> findFirstByPhieuChuyenKhoGoc_IdAndTrangThaiNot(Integer phieuChuyenKhoGocId, Integer trangThai);
+    /** Một phiếu xuất con của phiếu chuyển kho có trạng thái khác {@code trangThai} (dùng để tìm phiếu chưa hủy). */
+    Optional<PhieuXuatKho> findFirstByPhieuChuyenKho_IdAndTrangThaiNot(Integer phieuChuyenKhoId, Integer trangThai);
     Optional<PhieuXuatKho> findBySoPhieuXuat(String soPhieuXuat);
     @Query("""
 SELECT COUNT(p)
@@ -72,18 +72,6 @@ WHERE DATE(p.ngayXuat) = CURRENT_DATE
             Pageable pageable
     );
 
-    // Đã cập nhật: Chỉ lấy YÊU CẦU CHUYỂN KHO (loai_xuat = 'khac')
-    @Query("SELECT p FROM PhieuXuatKho p " +
-            "WHERE (:khoId IS NULL OR (p.kho.id = :khoId OR p.khoChuyenDen.id = :khoId)) " +
-            "AND p.loaiXuat = 'khac' " +
-            "AND (:keyword IS NULL OR LOWER(p.soPhieuXuat) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-            "AND (:trangThai IS NULL OR p.trangThai = :trangThai) " +
-            "AND (:khoNhapTen IS NULL OR LOWER(p.khoChuyenDen.tenKho) LIKE LOWER(CONCAT('%', :khoNhapTen, '%')))")
-    Page<PhieuXuatKho> findDanhSachYeuCauChuyenKho(
-            @Param("khoId") Integer khoId,
-            @Param("keyword") String keyword,
-            @Param("trangThai") Integer trangThai,
-            @Param("khoNhapTen") String khoNhapTen,
-            Pageable pageable
-    );
+    /** Phiếu xuất con PX-CK của phiếu chuyển, mới nhất trước. */
+    List<PhieuXuatKho> findByPhieuChuyenKho_IdOrderByIdDesc(Integer phieuChuyenKhoId);
 }

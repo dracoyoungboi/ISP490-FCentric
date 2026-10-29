@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Calendar, ClipboardList, Plus, SearchX } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Calendar, ClipboardList, SearchX } from "lucide-react";
 
 import PageContainer from "@/components/backoffice/PageContainer";
 import AttentionBar from "@/components/shared/AttentionBar";
@@ -257,17 +257,8 @@ export default function PhieuXuatKhoList() {
 
     return (
         <PageContainer fill className="space-y-4">
-            <ListPageHeader
-                scope={scopeNote}
-                actions={
-                    <Link to="/goods-issues/create">
-                        <Button className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
-                            <Plus className="size-4" />
-                            Tạo phiếu xuất kho
-                        </Button>
-                    </Link>
-                }
-            />
+            {/* Không tạo phiếu xuất tay: phiếu xuất bán sinh khi nhặt xong, phiếu xuất chuyển kho (PX-CK) sinh khi duyệt phiếu chuyển */}
+            <ListPageHeader scope={scopeNote} />
 
             <AttentionBar
                 count={pendingCount}
@@ -431,8 +422,9 @@ export default function PhieuXuatKhoList() {
                                 // XÁC ĐỊNH MÃ THAM CHIẾU ĐỂ HIỂN THỊ
                                 const isChuyenKho = item.loaiXuat === "chuyen_kho" || item.loaiXuat === "CHUYEN_KHO";
 
+                                // Phiếu xuất chuyển kho: số phiếu chuyển (phieu_chuyen_kho) mà phiếu xuất này thuộc về
                                 const maThamChieu = isChuyenKho
-                                    ? (item.phieuChuyenKhoGoc?.soPhieuXuat || item.soPhieuChuyenKhoGoc || `PCK ID: ${item.phieuChuyenKhoGocId || item.parentId}`)
+                                    ? (item.soPhieuChuyenKhoGoc || (item.phieuChuyenKhoGocId ? `PCK ID: ${item.phieuChuyenKhoGocId}` : "-"))
                                     : (item.donBanHang?.soDonHang || "-");
 
                                 const status = getPhieuXuatKhoStatus(item.trangThai);

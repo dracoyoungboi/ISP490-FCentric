@@ -23,7 +23,30 @@ public interface NhatHangService {
     /**
      * Lấy danh sách Pick List theo kho và trạng thái (SRS 6.2.1 Pick List Management)
      */
-    Page<DanhSachNhatHangDto> getDanhSachPickList(Integer khoId, String trangThai, String searchText, Pageable pageable);
+    default Page<DanhSachNhatHangDto> getDanhSachPickList(Integer khoId, String trangThai, String searchText, Pageable pageable) {
+        return getDanhSachPickList(khoId, trangThai, null, searchText, pageable);
+    }
+
+    /**
+     * Như trên, lọc thêm theo loại phiếu nhặt: BAN_HANG (gom đơn bán), CHUYEN_KHO (phiếu chuyển kho); null = tất cả.
+     */
+    Page<DanhSachNhatHangDto> getDanhSachPickList(Integer khoId, String trangThai, String loai, String searchText, Pageable pageable);
+
+    /**
+     * Phiếu nhặt của phiếu chuyển kho vừa duyệt (đặc tả bước 8: duyệt thì đẩy PX-CK vào danh sách chờ nhặt): kho = kho xuất
+     * của phiếu chuyển, chưa phân công, dòng nhặt = dòng phiếu chuyển, phân bổ lô FIFO ngay. Chạy trong giao dịch của bên
+     * gọi (đã khóa phiếu chuyển).
+     */
+    com.dev.backend.entities.DanhSachNhatHang taoPhieuNhatChuyenKho(com.dev.backend.entities.PhieuChuyenKho phieuChuyen,
+                                                                     com.dev.backend.entities.PhieuXuatKho phieuXuat,
+                                                                     java.util.List<com.dev.backend.entities.ChiTietPhieuChuyenKho> dong);
+
+    /**
+     * Hủy phiếu nhặt của PX-CK khi phiếu chuyển bị hủy: hàng đã nhặt sinh lệnh trả kệ, báo màn nhặt dừng. Bên gọi đã khóa
+     * phiếu chuyển và tự hủy PX-CK sau đó. Trả phiếu nhặt (null khi PX-CK không có phiếu nhặt).
+     */
+    com.dev.backend.entities.DanhSachNhatHang huyPhieuNhatChuyenKho(com.dev.backend.entities.PhieuXuatKho phieuXuat,
+                                                                     String soPhieuChuyen);
 
     /**
      * Xem chi tiết đợt nhặt hàng Pick List kèm thông tin các SKU gom nhặt và mã đơn tham chiếu
@@ -41,7 +64,9 @@ public interface NhatHangService {
     com.dev.backend.dto.response.customize.KetQuaQuetBarcodeDto quetBarcode(Integer pickListId, com.dev.backend.dto.request.QuetBarcodeRequest request);
 
     /**
-     * API 5: Hoàn tất đợt nhặt hàng và tự động khởi tạo Phiếu xuất kho ở trạng thái chờ xuất (SRS 6.3.1 -> 6.3.2)
+     * API 5: Hoàn tất đợt nhặt hàng và tự động khởi tạo Phiếu xuất kho ở trạng thái chờ xuất (SRS 6.3.1 -> 6.3.2).
+     * Phiếu nhặt của phiếu chuyển kho: không tạo phiếu xuất bán, chỉ ghi lô đã nhặt vào PX-CK (giữ hàng) để kho xuất bấm
+     * Xác nhận xuất ở phiếu chuyển.
      */
     DanhSachNhatHangDto hoanTatNhatHang(Integer pickListId);
 

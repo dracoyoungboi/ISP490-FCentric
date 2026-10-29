@@ -92,9 +92,11 @@ public class NhatHangController {
     public ResponseEntity<ResponseData<Page<DanhSachNhatHangDto>>> getDanhSachPickList(
             @RequestParam(required = false) Integer khoId,
             @RequestParam(required = false) String trangThai,
+            // BAN_HANG (gom đơn bán) | CHUYEN_KHO (phiếu chuyển kho); bỏ trống = tất cả
+            @RequestParam(required = false) String loai,
             @RequestParam(required = false) String searchText,
             @PageableDefault(size = 20, sort = "ngayTao", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<DanhSachNhatHangDto> pageResult = nhatHangService.getDanhSachPickList(khoId, trangThai, searchText, pageable);
+        Page<DanhSachNhatHangDto> pageResult = nhatHangService.getDanhSachPickList(khoId, trangThai, loai, searchText, pageable);
         return ResponseEntity.ok(new ResponseData<>(
                 HttpStatus.OK.value(),
                 pageResult,

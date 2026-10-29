@@ -25,18 +25,33 @@ public class PhieuDieuChinhKho {
     @Column(name = "so_phieu", nullable = false, length = 50)
     private String soPhieu;
 
-    @NotNull
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "dot_kiem_ke_id", nullable = false)
+    /** kiem_ke: theo đợt kiểm kê · chuyen_kho: ghi giảm chênh lệch theo biên bản giao nhận (CHECK chk_pdck_nguon). */
+    @ColumnDefault("'kiem_ke'")
+    @Column(name = "nguon", nullable = false)
+    private String nguon;
+
+    /** Có khi nguon = kiem_ke. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "dot_kiem_ke_id")
     private DotKiemKe dotKiemKe;
+
+    /** Có khi nguon = chuyen_kho. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "phieu_chuyen_kho_id")
+    private PhieuChuyenKho phieuChuyenKho;
+
+    /** Có khi nguon = chuyen_kho; mỗi biên bản tối đa một phiếu (uk_pdck_bien_ban). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "bien_ban_giao_nhan_id")
+    private BienBanGiaoNhan bienBanGiaoNhan;
 
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "kho_id", nullable = false)
     private Kho kho;
 
+    /** tang | giam | ca_hai */
     @ColumnDefault("'ca_hai'")
-    @Lob
     @Column(name = "loai_dieu_chinh")
     private String loaiDieuChinh;
 
@@ -44,9 +59,10 @@ public class PhieuDieuChinhKho {
     @Column(name = "ngay_dieu_chinh", nullable = false)
     private Instant ngayDieuChinh;
 
+    /** 0 Nháp, 1 Đã duyệt, 2 Đã áp dụng, 3 Đã hủy. */
     @ColumnDefault("0")
     @Column(name = "trang_thai")
-    private Boolean trangThai;
+    private Integer trangThai;
 
     @ColumnDefault("0.00")
     @Column(name = "tong_gia_tri_tang", precision = 15, scale = 2)

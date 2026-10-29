@@ -19,49 +19,51 @@ export function loaiPhieuNhap(data) {
 }
 
 /**
- * Nút và câu chữ theo loại phiếu. API giữ như màn cũ: phiếu có phiếu chuyển kho gốc (kể cả hoàn trả) gọi
- * PUT …/complete-transfer, phiếu khách trả gọi PUT …/complete. Chỉ phiếu chuyển kho đang chờ nhập hủy được
- * (phiếu PN-RET backend không cho hủy).
+ * Nút và câu chữ theo loại phiếu. Phiếu nhập của phiếu chuyển kho (PN-TRF, PN-RET hủy chuyển) do máy chủ lập khi nhận
+ * hàng / nhập hoàn trả ở màn phiếu chuyển (đặc tả BA) nên ở đây chỉ xem: không nhận, không hủy (phiếu nháp lập theo cách
+ * cũ được máy chủ tự hủy khi nhận hàng ở phiếu chuyển). Chỉ phiếu khách trả hàng xác nhận nhập (PUT …/complete).
+ * `moPhieuChuyen`: phiếu chuyển kho còn chờ nhập theo cách cũ → nút mở phiếu chuyển.
  */
 export function quyTacPhieuNhap(data) {
   const loai = loaiPhieuNhap(data);
   const tt = data?.trangThai;
-  const chuyenKho = loai === LOAI_PHIEU_NHAP.CHUYEN_KHO;
+  const khachTra = loai === LOAI_PHIEU_NHAP.KHACH_TRA;
+  const choNhap = tt === TT.CHO_NHAP;
   return {
     loai,
-    apiNhan: data?.phieuXuatGocId ? "completeTransfer" : "complete",
-    choNhap: tt === TT.CHO_NHAP,
+    apiNhan: khachTra ? "complete" : null,
+    choNhap,
     daNhap: tt === TT.DA_NHAP,
     daHuy: tt === TT.DA_HUY,
     inDuoc: tt !== TT.DA_HUY,
-    huyDuoc: chuyenKho && tt === TT.CHO_NHAP,
-    nhanNut: chuyenKho ? "Nhận hàng" : "Xác nhận nhập trả",
-    tieuDeHop: chuyenKho ? "Nhận hàng chuyển kho" : "Xác nhận nhập trả kho",
-    cauThanhCong: chuyenKho ? "Đã nhận hàng chuyển kho" : "Đã nhập kho hoàn trả",
+    huyDuoc: false,
+    moPhieuChuyen: !khachTra && choNhap && data?.phieuXuatGocId != null,
+    nhanNut: khachTra ? "Xác nhận nhập trả" : null,
+    tieuDeHop: "Xác nhận nhập trả kho",
+    cauThanhCong: "Đã nhập kho hoàn trả",
   };
 }
 
-/** Dòng thông báo khi phiếu đang chờ nhập: hàng kế thừa lô nào, bấm nút gì. */
+/** Dòng thông báo khi phiếu đang chờ nhập: hàng kế thừa lô nào, bấm nút gì (phiếu chuyển kho: làm ở đâu). */
 export function cauChoNhap(data) {
   const loai = loaiPhieuNhap(data);
   if (loai === LOAI_PHIEU_NHAP.CHUYEN_KHO) {
-    return `Hàng kế thừa đúng lô và số lượng ${data?.tenKhoChuyenTu || "kho nguồn"} đã xuất. Kiểm hàng thực tế rồi bấm Nhận hàng để cộng tồn.`;
+    return "Phiếu nhập này lập theo cách cũ. Nhận hàng ở màn phiếu chuyển kho: hệ thống tự lập phiếu nhập mới, trừ kho trung chuyển và hủy phiếu này.";
   }
   if (loai === LOAI_PHIEU_NHAP.HOAN_TRA) {
-    return `Phiếu chuyển kho đã hủy khi hàng đang trên đường. Hàng quay về ${data?.tenKho || "kho nguồn"} theo đúng lô đã xuất; kiểm hàng thực tế rồi bấm Xác nhận nhập trả để cộng lại tồn.`;
+    return `Phiếu nhập hoàn trả này lập theo cách cũ. Nhập hàng hoàn trả về ${data?.tenKho || "kho nguồn"} ở màn phiếu chuyển kho: hệ thống tự lập phiếu nhập mới và hủy phiếu này.`;
   }
   return "Hàng khách trả nhập lại đúng lô đã bán. Kiểm hàng thực tế rồi bấm Xác nhận nhập trả để cộng lại tồn.";
 }
 
-/** Câu của hộp xác nhận nhập. `tong`: `{ soSanPham, soDong, soLuong }` của cả phiếu, `soLo`: số mã lô (null khi chưa biết). */
+/**
+ * Câu của hộp xác nhận nhập trả (chỉ phiếu khách trả hàng). `tong`: `{ soSanPham, soDong, soLuong }` của cả phiếu,
+ * `soLo`: số mã lô (null khi chưa biết).
+ */
 export function moTaXacNhan(data, tong, soLo = null) {
   const t = tong ?? {};
   const tomTat = `${soVN(t.soSanPham)} sản phẩm, ${soVN(t.soDong)} biến thể (tổng số lượng ${soVN(t.soLuong)}${soLo != null ? `, ${soVN(soLo)} lô` : ""})`;
-  const kho = data?.tenKho || "kho nhận";
-  const loai = loaiPhieuNhap(data);
-  if (loai === LOAI_PHIEU_NHAP.CHUYEN_KHO) return `Cộng ${tomTat} vào tồn ${kho} theo đúng lô đã xuất. Phiếu chuyển kho chuyển sang Hoàn thành.`;
-  if (loai === LOAI_PHIEU_NHAP.HOAN_TRA) return `Cộng lại ${tomTat} vào tồn ${kho} theo đúng lô đã xuất.`;
-  return `Cộng lại ${tomTat} vào tồn ${kho} theo đúng lô đã bán.`;
+  return `Cộng lại ${tomTat} vào tồn ${data?.tenKho || "kho nhận"} theo đúng lô đã bán.`;
 }
 
 /**

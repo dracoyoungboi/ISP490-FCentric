@@ -2,6 +2,7 @@ import { Loader2, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
 import { formatQuantity } from "@/constants/outbound";
+import { dongDaNhatChuyenKho } from "./tinhPhieuNhat";
 
 const NUT_VIEN = "h-8 border-bo-border bg-white px-3 text-[13px] font-medium text-bo-foreground shadow-none hover:bg-bo-surface-subtle";
 const NUT_CHINH = "h-8 gap-1.5 bg-bo-primary px-3 text-[13px] font-semibold text-white hover:bg-bo-primary-hover";
@@ -180,7 +181,30 @@ export function DongDaNhat({ xongHet, donHuy = [], dataCu = false, coLienKet = t
   );
 }
 
-/** Phiếu đã hủy (backend tự hủy khi mọi đơn trong phiếu đã hủy). */
-export function DongDaHuy() {
-  return <DongThongBao tone="neutral">Phiếu nhặt hàng đã hủy vì mọi đơn trong phiếu đã hủy.</DongThongBao>;
+/**
+ * Phiếu nhặt chuyển kho đã nhặt xong (câu theo dongDaNhatChuyenKho): lô đã giữ cho phiếu xuất PX-CK, kho xuất bấm Xác
+ * nhận xuất ở phiếu chuyển; phiếu chuyển đã xuất kho; hoặc phiếu chuyển đã hủy khi hàng đang đi. Có liên kết mở phiếu
+ * chuyển.
+ */
+export function DongDaNhatChuyenKho({ phieu, onMoPhieuChuyen }) {
+  const { tone, cau } = dongDaNhatChuyenKho(phieu);
+  return (
+    <DongThongBao tone={tone} actions={onMoPhieuChuyen ? <NutChu onClick={onMoPhieuChuyen}>Mở phiếu chuyển</NutChu> : null}>
+      {cau}
+    </DongThongBao>
+  );
+}
+
+/**
+ * Phiếu đã hủy: phiếu bán — backend tự hủy khi mọi đơn trong phiếu đã hủy; phiếu chuyển kho (`chuyenKho`) — hủy theo
+ * phiếu chuyển (`soPhieuChuyen`, thiếu số vẫn đúng câu), hàng đã nhặt có lệnh trả kệ (HOAN_KE_CHO_CAT) do máy chủ lập.
+ */
+export function DongDaHuy({ chuyenKho = false, soPhieuChuyen = null }) {
+  return (
+    <DongThongBao tone="neutral">
+      {chuyenKho
+        ? `Phiếu nhặt hàng đã hủy vì phiếu chuyển${soPhieuChuyen ? ` ${soPhieuChuyen}` : ""} đã hủy. Hàng đã nhặt (nếu có) cất lại lên kệ.`
+        : "Phiếu nhặt hàng đã hủy vì mọi đơn trong phiếu đã hủy."}
+    </DongThongBao>
+  );
 }

@@ -112,6 +112,21 @@ public interface ChiTietPhieuXuatKhoRepository extends JpaRepository<ChiTietPhie
                                               @Param("loHangIds") java.util.Collection<Integer> loHangIds,
                                               @Param("boQuaPhieuXuatId") Integer boQuaPhieuXuatId);
 
+    /**
+     * Biến thể (theo lô) đang bị dòng lô của phiếu xuất BÁN HÀNG chưa xuất (0 Nháp / 6 Chờ xuất) giữ ở một kho — cùng
+     * điều kiện với sumDangGiuPhieuBanChuaXuat nhưng không cần danh sách lô. Số bán tại quầy chỉ tính lại theo lô cho các mã này.
+     */
+    @Query("""
+        SELECT DISTINCT lh.bienTheSanPham.id
+        FROM ChiTietPhieuXuatKho ct
+        JOIN ct.phieuXuatKho p
+        JOIN ct.loHang lh
+        WHERE p.kho.id = :khoId
+          AND p.loaiXuat = 'ban_hang'
+          AND p.trangThai IN (0, 6)
+    """)
+    List<Integer> bienTheDangGiuPhieuBanChuaXuat(@Param("khoId") Integer khoId);
+
     @Query("SELECT SUM(ct.soLuongXuat) FROM ChiTietPhieuXuatKho ct " +
             "JOIN ct.phieuXuatKho p " +
             "WHERE p.donBanHang.id = :donBanHangId " +

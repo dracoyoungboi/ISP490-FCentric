@@ -131,11 +131,6 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             title: "Phiếu xuất kho",
         },
         {
-            key: "GOODS_ISSUES_CREATE",
-            match: (path) => path === "/goods-issues/create",
-            title: "Tạo phiếu xuất kho",
-        },
-        {
             key: "GOODS_ISSUES_DETAIL",
             match: (path) => /^\/goods-issues\/\d+$/.test(path),
             title: "Chi tiết phiếu xuất kho",
@@ -195,6 +190,16 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             key: "TRANSFER_TICKET_DETAIL",
             match: (path) => /^\/transfer-tickets\/\d+$/.test(path),
             title: "Chi tiết phiếu chuyển kho nội bộ",
+        },
+        {
+            key: "TRANSFER_TICKET_RECEIVE",
+            match: (path) => /^\/transfer-tickets\/\d+\/receive$/.test(path),
+            title: "Nhận hàng chuyển kho",
+        },
+        {
+            key: "TRANSFER_ADJUSTMENT_DETAIL",
+            match: (path) => /^\/transfer-tickets\/adjustments\/\d+$/.test(path),
+            title: "Phiếu điều chỉnh kho",
         },
         {
             key: "SALES_ORDERS",

@@ -1,5 +1,4 @@
 import { PHIEU_XUAT_KHO_STATUS } from "@/constants/phieuXuatKho";
-import { PHIEU_CHUYEN_KHO_STATUS } from "@/constants/phieuChuyenKho";
 import { trangThaiLa } from "@/constants/trangThaiChung";
 import { dash, formatPrintLongDate, formatPrintNumber, joinParts, textOrNull, toNumeric } from "./printFormat";
 
@@ -16,8 +15,8 @@ import { dash, formatPrintLongDate, formatPrintNumber, joinParts, textOrNull, to
  */
 export const GOODS_ISSUE_STATUS = PHIEU_XUAT_KHO_STATUS;
 
-// Loại xuất theo giá trị backend: "ban_hang" = xuất bán, "chuyen_kho" = xuất
-// chuyển kho nội bộ, "khac" = phiếu yêu cầu chuyển kho (chưa có phiếu xuất)
+// Loại xuất theo giá trị backend: "ban_hang" = xuất bán, "chuyen_kho" = phiếu xuất PX-CK của phiếu chuyển kho,
+// "khac" = dòng phiếu chuyển cũ còn trong phieu_xuat_kho (trước khi có bảng phieu_chuyen_kho)
 export const GOODS_ISSUE_TYPE = {
     ban_hang: "Xuất bán hàng",
     chuyen_kho: "Chuyển kho nội bộ",
@@ -27,9 +26,12 @@ export const GOODS_ISSUE_TYPE = {
 // Phiếu đã xuất (3, 5): dữ liệu cũ không có số đã lấy thì coi như xuất đủ số trên phiếu
 const DA_XUAT = new Set([3, 5]);
 
-/** Lưu ý in ở cuối phiếu chuyển kho — phiếu này là chứng từ kho, không phải chứng từ đi đường. */
+/**
+ * Lưu ý in ở cuối phiếu xuất chuyển kho — phiếu này là chứng từ kho, không phải giấy đi đường. Giấy đi đường là phiếu
+ * xuất kho kiêm vận chuyển nội bộ (Mẫu 03/XKNB) in từ màn phiếu chuyển kho.
+ */
 export const TRANSFER_LEGAL_NOTE =
-    "Phiếu xuất kho nội bộ. Hàng vận chuyển giữa các kho phải kèm phiếu xuất kho kiêm vận chuyển nội bộ điện tử (mẫu số 6) lập trên phần mềm hóa đơn điện tử.";
+    "Phiếu xuất kho nội bộ. Hàng vận chuyển giữa các kho phải kèm phiếu xuất kho kiêm vận chuyển nội bộ (Mẫu 03/XKNB) in từ phiếu chuyển kho.";
 
 const sumOrNull = (values) => {
     const known = values.filter((value) => value !== null);
@@ -80,10 +82,8 @@ export function toGoodsIssuePrintModel(payload) {
         ? null
         : sumOrNull(rows.map((row) => row._actual));
 
-    // Phiếu chuyển kho nội bộ (loại `khac`) dùng bảng tên của Chuyển kho (mã 2 = Chờ xuất hàng);
-    // mã lạ hiện rõ mã, không mượn tên của mã 0
-    const bangTen = phieu.loaiXuat === "khac" ? PHIEU_CHUYEN_KHO_STATUS : GOODS_ISSUE_STATUS;
-    const status = bangTen[phieu.trangThai] || trangThaiLa(phieu.trangThai);
+    // Mã lạ hiện rõ mã, không mượn tên của mã 0
+    const status = GOODS_ISSUE_STATUS[phieu.trangThai] || trangThaiLa(phieu.trangThai);
 
     const isSale = phieu.loaiXuat === "ban_hang";
     const isTransfer = phieu.loaiXuat === "chuyen_kho" || phieu.loaiXuat === "khac";

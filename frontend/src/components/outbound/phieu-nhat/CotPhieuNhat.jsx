@@ -9,13 +9,15 @@ import { getDonBanHangStatus } from "@/constants/donBanHang";
 import { TRANG_THAI_DON } from "@/constants/trangThaiXuatBan";
 import { formatCurrency } from "@/utils/formatters";
 import { cn } from "@/lib/utils";
-import { nhanBangChung } from "./tinhPhieuNhat";
+import { getPhieuChuyenKhoStatus } from "@/constants/phieuChuyenKho";
+import { laPhieuChuyenKho, nhanBangChung } from "./tinhPhieuNhat";
 
 /**
  * Cột phải của màn Thực hiện nhặt hàng: Kho xuất, Người nhặt, Ghi chú và "Đơn trong phiếu" — hiện trước SO_DON_HIEN
  * đơn (việc cần làm trước, đơn hủy cuối), còn lại "Xem thêm n đơn". Mỗi đơn: mã (mở chi tiết đơn bán), tiền,
  * trạng thái đơn, kênh · khách, tóm tắt hàng; đơn từ bước đóng gói trở đi có bằng chứng và nút Bằng chứng (đã qua
  * đóng gói thì chỉ xem lại), chờ đóng gói có thêm Đóng gói. `dsDon`: kết quả dsDonTrongPhieu.
+ * Phiếu nhặt chuyển kho: không có đơn, không đóng gói, không bằng chứng — thay bằng nhóm "Phiếu chuyển kho".
  */
 export default function CotPhieuNhat({ phieu, dsDon, onMoBangChung, onDongGoi }) {
   const idDs = useId();
@@ -23,6 +25,8 @@ export default function CotPhieuNhat({ phieu, dsDon, onMoBangChung, onDongGoi })
   const conAn = Math.max(0, dsDon.length - SO_DON_HIEN);
   const hien = moHet || conAn === 0 ? dsDon : dsDon.slice(0, SO_DON_HIEN);
   const coDonHuy = dsDon.some((d) => d.huy);
+
+  if (laPhieuChuyenKho(phieu)) return <CotPhieuNhatChuyenKho phieu={phieu} />;
 
   return (
     <CotThuocTinh nhan="Thông tin phiếu nhặt hàng">
@@ -70,6 +74,58 @@ export default function CotPhieuNhat({ phieu, dsDon, onMoBangChung, onDongGoi })
             Đơn gạch ngang đã hủy: không tạo phiếu xuất, số cần nhặt đã tự trừ.
           </p>
         ) : null}
+      </NhomThuocTinh>
+    </CotThuocTinh>
+  );
+}
+
+/** Cột phải của phiếu nhặt chuyển kho: kho xuất, người nhặt, ghi chú và phiếu chuyển (số, kho nhận, phiếu xuất PX-CK). */
+function CotPhieuNhatChuyenKho({ phieu }) {
+  const trangThaiChuyen = phieu.trangThaiPhieuChuyen ? getPhieuChuyenKhoStatus(phieu.trangThaiPhieuChuyen).label : null;
+  return (
+    <CotThuocTinh nhan="Thông tin phiếu nhặt hàng">
+      <NhomThuocTinh>
+        <BangThuocTinh
+          muc={[
+            { ma: "kho", nhan: "Kho xuất", giaTri: phieu.tenKhoXuat },
+            {
+              ma: "nguoi",
+              nhan: "Người nhặt",
+              giaTri: phieu.tenNguoiNhat || <span className="text-bo-muted">Chưa phân công</span>,
+            },
+            { ma: "ghiChu", nhan: "Ghi chú", giaTri: phieu.ghiChu },
+          ]}
+        />
+      </NhomThuocTinh>
+
+      <NhomThuocTinh nhan="Phiếu chuyển kho">
+        <BangThuocTinh
+          muc={[
+            {
+              ma: "so",
+              nhan: "Số phiếu",
+              giaTri: phieu.phieuChuyenKhoId != null ? (
+                <Link
+                  to={`/transfer-tickets/${phieu.phieuChuyenKhoId}`}
+                  title="Mở phiếu chuyển kho"
+                  className="rounded font-semibold text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
+                >
+                  {phieu.soPhieuChuyen}
+                </Link>
+              ) : phieu.soPhieuChuyen,
+            },
+            {
+              ma: "tt",
+              nhan: "Trạng thái",
+              giaTri: trangThaiChuyen ? <StatusBadge label={trangThaiChuyen} quyTrinh="chuyenKho" /> : null,
+            },
+            { ma: "khoNhan", nhan: "Kho nhận", giaTri: phieu.tenKhoNhan },
+            { ma: "px", nhan: "Phiếu xuất", giaTri: phieu.soPhieuXuat },
+          ]}
+        />
+        <p className="mt-2.5 text-xs leading-4 text-bo-muted">
+          Hoàn tất nhặt thì lô đã nhặt được giữ cho phiếu xuất; hàng rời kho khi bấm Xác nhận xuất ở phiếu chuyển.
+        </p>
       </NhomThuocTinh>
     </CotThuocTinh>
   );
