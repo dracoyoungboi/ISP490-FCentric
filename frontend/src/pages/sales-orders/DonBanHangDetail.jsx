@@ -378,12 +378,14 @@ function ChiTietDonBanHang({ id }) {
   const mucTien = [
     { ma: "hang", nhan: "Tiền hàng", giaTri: formatCurrency(tien.tienHang) },
     { ma: "phi", nhan: "Phí vận chuyển", giaTri: formatCurrency(tien.phi) },
-    // Thuế GTGT chụp lúc chốt đơn (giá đã gồm thuế): tách ngược từ tổng cộng
-    ...(don.thueSuatGtgt != null && don.tienThueGtgt != null ? [
-      { ma: "chua-thue", nhan: "Cộng tiền chưa thuế", giaTri: formatCurrency(Number(don.tongCong) - Number(don.tienThueGtgt)) },
-      { ma: "thue", nhan: `Thuế GTGT ${Number(don.thueSuatGtgt).toLocaleString("vi-VN")}%`, giaTri: formatCurrency(don.tienThueGtgt) },
-    ] : []),
     { ma: "tong", nhan: "Tổng cộng", giaTri: formatCurrency(tien.tongCong), tong: true },
+    // Thuế GTGT chụp lúc chốt đơn (giá đã gồm thuế, tách ngược từ tổng cộng): phần "trong đó" ngay dưới Tổng cộng, như
+    // bản in hóa đơn — không xếp trước tổng để khỏi đọc thành thuế cộng thêm
+    ...(don.thueSuatGtgt != null && don.tienThueGtgt != null ? [
+      { ma: "gom-thue", nhan: "Giá đã gồm thuế GTGT, trong đó:", ghiChu: true },
+      { ma: "chua-thue", nhan: "Tiền trước thuế", giaTri: formatCurrency(Number(don.tongCong) - Number(don.tienThueGtgt)), con: true },
+      { ma: "thue", nhan: `Thuế GTGT (${Number(don.thueSuatGtgt).toLocaleString("vi-VN")}%)`, giaTri: formatCurrency(don.tienThueGtgt), con: true },
+    ] : []),
     thanhToan.laTienMat ? { ma: "dua", nhan: "Khách đưa", giaTri: tienHoacTrong(ttq?.soTienThu) ?? "—" } : null,
     thanhToan.laTienMat ? { ma: "thua", nhan: "Tiền thừa", giaTri: tienHoacTrong(ttq?.soTienThua) ?? "—" } : null,
     // Trả kết hợp tại quầy: phần tiền mặt khách trả trước và phần quét QR payOS
