@@ -37,6 +37,16 @@ public class TikTokWarehouseDto implements Serializable {
     /**
      * Trường chuẩn hóa tương thích bộ chọn kho sàn trên giao diện FCentric
      */
+    public String getWarehouseId() { return id; }
+    public String getWarehouseName() { return name; }
+    public String getWarehouseType() { return type; }
+    public String getWarehouseSubType() { return subType; }
+    public String getWarehouseEffectStatus() { return effectStatus; }
+    public void setWarehouseId(String id) { this.id = id; }
+    public void setWarehouseName(String name) { this.name = name; }
+    public void setWarehouseType(String type) { this.type = type; }
+    public void setWarehouseSubType(String subType) { this.subType = subType; }
+    public void setWarehouseEffectStatus(String effectStatus) { this.effectStatus = effectStatus; }
     public String getMaKhoSan() {
         return id;
     }

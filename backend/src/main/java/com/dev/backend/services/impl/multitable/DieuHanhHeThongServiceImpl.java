@@ -652,6 +652,18 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
+    public void setCauHinhString(String maCauHinh, String giaTri) {
+        com.dev.backend.entities.CauHinhHeThong ch = cauHinhRepository.findById(maCauHinh).orElse(null);
+        if (ch == null) {
+            ch = new com.dev.backend.entities.CauHinhHeThong();
+            ch.setMaCauHinh(maCauHinh);
+        }
+        ch.setGiaTri(giaTri);
+        cauHinhRepository.save(ch);
+    }
+
+    @Override
     public int getCauHinhInt(String maCauHinh, int defaultValue) {
         return cauHinhRepository.findById(maCauHinh)
                 .map(c -> {
