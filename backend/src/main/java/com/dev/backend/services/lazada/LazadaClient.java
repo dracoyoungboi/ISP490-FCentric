@@ -71,10 +71,10 @@ public class LazadaClient {
                 : "";
         // Khi dùng tài khoản test sandbox (đăng nhập qua link SSO không có mật khẩu): tạm comment &force_auth=true
         // Khi quay lại production với tài khoản thật, chỉ cần gỡ comment dòng dưới:
-        // return String.format("%s?response_type=code&force_auth=true&redirect_uri=%s&client_id=%s%s",
-        //         OAUTH_AUTHORIZE_URL, encodedUri, appKey.trim(), stateParam);
-        return String.format("%s?response_type=code&redirect_uri=%s&client_id=%s%s",
+        return String.format("%s?response_type=code&force_auth=true&redirect_uri=%s&client_id=%s%s",
                 OAUTH_AUTHORIZE_URL, encodedUri, appKey.trim(), stateParam);
+        // return String.format("%s?response_type=code&redirect_uri=%s&client_id=%s%s",
+        //         OAUTH_AUTHORIZE_URL, encodedUri, appKey.trim(), stateParam);
     }
 
     /**

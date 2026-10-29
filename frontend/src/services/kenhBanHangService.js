@@ -433,7 +433,7 @@ const mockApi = {
     return { ...chung, soKhongKhop: res.soKhongKhop, skuKhongKhop: res.skuKhongKhop, soNgung: res.soNgung };
   },
   async dayVaLienKetSanPham(maKenh) {
-    if (!laShopify(maKenh)) {
+    if (!laShopify(maKenh) && String(maKenh ?? "").toUpperCase() !== "LAZADA") {
       await mockDelay();
       throw mockError(400, "Sàn không hỗ trợ đưa sản phẩm lên từ FCentric");
     }

@@ -152,9 +152,10 @@ function DemTrangThai({ so, nhan, mau, className, truoc }) {
 export default function ChannelMappingsPage() {
   const navigate = useNavigate();
   const SAN = useSanHienTai();
-  // Sàn ủy quyền (Lazada, TikTok Shop) không đưa sản phẩm FCentric lên được (KH mục B.6)
-  const coDuaLen = SAN.kieuKetNoi === "khoa";
-  const hoTroDuaLen = SAN.kieuKetNoi === "khoa" || SAN.maKenh === "LAZADA";
+  // Sàn kết nối bằng khóa (Shopify) vs sàn ủy quyền (Lazada, TikTok Shop)
+  const coDuaLen = SAN?.kieuKetNoi === "khoa";
+  // Sàn hỗ trợ đưa sản phẩm FCentric lên: Shopify (khóa) và Lazada (API Catalog Sync)
+  const hoTroDuaLen = coDuaLen || SAN?.maKenh?.toUpperCase() === "LAZADA";
   const NHO_SO_DONG = nhoSoDong(SAN.maKenh);
   const NHO_MO_TAT_CA = nhoMoTatCa(SAN.maKenh);
   const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);
@@ -892,7 +893,20 @@ export default function ChannelMappingsPage() {
       <ListPageHeader
         title={`Sản phẩm ${SAN.ten}`}
         actions={
-          <ThaoTacDongBo
+          <div className="flex items-center gap-2">
+            {hoTroDuaLen ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setHoiDayLen(true)}
+                disabled={khoaViecGianHang}
+                className="gap-1.5 rounded-lg border-bo-border bg-bo-surface px-3 text-[13px] text-bo-foreground shadow-none hover:bg-bo-surface-subtle max-sm:hidden"
+              >
+                <CloudUpload className="size-4" />
+                Đưa sản phẩm lên {SAN.ten}
+              </Button>
+            ) : null}
+            <ThaoTacDongBo
             tienDo={dongBo}
             tenSan={SAN.ten}
             onDen={den}
@@ -925,6 +939,7 @@ export default function ChannelMappingsPage() {
                 : []),
             ]}
           />
+          </div>
         }
       />
 
