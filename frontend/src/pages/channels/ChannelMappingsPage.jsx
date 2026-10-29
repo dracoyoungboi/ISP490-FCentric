@@ -893,20 +893,7 @@ export default function ChannelMappingsPage() {
       <ListPageHeader
         title={`Sản phẩm ${SAN.ten}`}
         actions={
-          <div className="flex items-center gap-2">
-            {hoTroDuaLen ? (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setHoiDayLen(true)}
-                disabled={khoaViecGianHang}
-                className="gap-1.5 rounded-lg border-bo-border bg-bo-surface px-3 text-[13px] text-bo-foreground shadow-none hover:bg-bo-surface-subtle max-sm:hidden"
-              >
-                <CloudUpload className="size-4" />
-                Đưa sản phẩm lên {SAN.ten}
-              </Button>
-            ) : null}
-            <ThaoTacDongBo
+          <ThaoTacDongBo
             tienDo={dongBo}
             tenSan={SAN.ten}
             onDen={den}
@@ -939,7 +926,6 @@ export default function ChannelMappingsPage() {
                 : []),
             ]}
           />
-          </div>
         }
       />
 
