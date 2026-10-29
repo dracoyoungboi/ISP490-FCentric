@@ -506,6 +506,52 @@ public class OmnichannelOrderSyncJob {
         return syncedCount;
     }
 
+    public int syncTikTokOrders(KenhBanHang kenh) {
+        Instant tu = lastSyncTime.get();
+        if (tu.equals(Instant.EPOCH)) {
+            tu = Instant.now().minus(Duration.ofDays(1));
+        }
+        Instant den = Instant.now();
+        return syncTikTokOrders(kenh, tu, den);
+    }
+
+    public int syncTikTokOrders(KenhBanHang kenh, Instant tu, Instant den) {
+        String appKey = kenhBanHangService.getTikTokAppKey();
+        String appSecret = kenhBanHangService.getDecryptedTikTokAppSecret();
+        String accessToken = kenhBanHangService.getDecryptedTikTokAccessToken();
+        String shopCipher = kenhBanHangService.getTikTokShopCipher();
+
+        if (appKey == null || appSecret == null || accessToken == null || shopCipher == null || shopCipher.isBlank()) {
+            log.warn("[JOB-01] Thiếu thông tin ủy quyền hoặc shopCipher cho TikTok Shop");
+            return 0;
+        }
+
+        com.dev.backend.dto.request.TikTokOrderSearchRequest req = com.dev.backend.dto.request.TikTokOrderSearchRequest.builder()
+                .updateTimeFrom(tu.getEpochSecond())
+                .updateTimeTo(den.getEpochSecond())
+                .pageSize(50)
+                .build();
+
+        int synced = 0;
+        try {
+            TikTokShopClient client = tiktokShopClient != null ? tiktokShopClient : new TikTokShopClient();
+            com.dev.backend.dto.response.customize.TikTokOrderSearchResponse response =
+                    client.searchOrders(appKey, appSecret, accessToken, shopCipher, req);
+
+            if (response != null && response.getOrders() != null) {
+                for (TikTokOrderDto order : response.getOrders()) {
+                    boolean ok = processSingleTikTokOrder(order, kenh);
+                    if (ok) synced++;
+                }
+            }
+            lanLayDonCuoi.put(kenh.getId(), Instant.now());
+            log.info("[JOB-01] Quét đơn TikTok Shop hoàn tất: {} đơn mới", synced);
+        } catch (Exception ex) {
+            log.error("[JOB-01] Lỗi khi quét đơn hàng từ TikTok Shop: {}", ex.getMessage());
+        }
+        return synced;
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public boolean processSingleTikTokOrder(TikTokOrderDto order, KenhBanHang kenh) {
         if (order == null || order.getId() == null || order.getId().isBlank()) return false;

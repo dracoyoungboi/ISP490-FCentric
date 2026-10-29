@@ -2411,6 +2411,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         int synced = 0;
         if (OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(kenh.getMaKenh())) {
             synced = omnichannelOrderSyncJob.syncLazadaOrders(kenh, tu, den);
+        } else if (OmnichannelOrderSyncJob.MA_KENH_TIKTOK.equalsIgnoreCase(kenh.getMaKenh()) || "TIKTOK".equalsIgnoreCase(kenh.getMaKenh())) {
+            synced = omnichannelOrderSyncJob.syncTikTokOrders(kenh, tu, den);
         } else {
             synced = omnichannelOrderSyncJob.syncShopifyOrders(kenh, tu, den);
         }
@@ -2441,6 +2443,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     totalSku += dayTonRes.getSoDong();
                 }
                 omnichannelOrderSyncJob.syncLazadaOrders(kenh);
+            } else if (OmnichannelOrderSyncJob.MA_KENH_TIKTOK.equalsIgnoreCase(kenh.getMaKenh()) || "TIKTOK".equalsIgnoreCase(kenh.getMaKenh())) {
+                DayTonResultDto dayTonRes = dayTonKhoLenKenh(kenh.getMaKenh(), quyTacDaLuu(kenh.getMaKenh()));
+                if (dayTonRes != null) {
+                    totalSku += dayTonRes.getSoDong();
+                }
+                omnichannelOrderSyncJob.syncTikTokOrders(kenh);
             }
         }
         return DayTonResultDto.builder()
