@@ -180,6 +180,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(kenh.getMaKenh())) {
             return taiSanPhamLazada(kenh);
         }
+        if ("TIKTOK".equalsIgnoreCase(kenh.getMaKenh())) {
+            return taiSanPhamTikTok(kenh);
+        }
         kiemTraDaKetNoi(kenh);
         String token = kenhBanHangService.getDecryptedShopifyAccessToken();
         if (token == null || token.isBlank()) {
