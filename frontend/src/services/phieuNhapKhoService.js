@@ -121,12 +121,7 @@ export const phieuNhapKhoService = {
         const res = await apiClient.put(`/api/v1/phieu-nhap-kho/${phieuNhapKhoId}/bien-the/${bienTheSanPhamId}/hoan-tat`);
         return res.data;
     },
-    createFromTransfer: (transferId) => {
-        return apiClient.post(`/api/v1/phieu-nhap-kho/from-transfer/${transferId}`);
-    },
-    completeTransferReceipt: (id) => {
-        return apiClient.put(`/api/v1/phieu-nhap-kho/${id}/complete-transfer`);
-    },
+    // Phiếu nhập chuyển kho (PN-TRF / PN-RET) do máy chủ lập ở màn Nhận hàng của phiếu chuyển (phieuChuyenKhoService)
     async createFromSalesReturn(phieuXuatId, payload = {}) {
         const res = await apiClient.post(`/api/v1/phieu-nhap-kho/from-sales-return/${phieuXuatId}`, payload);
         return res.data;

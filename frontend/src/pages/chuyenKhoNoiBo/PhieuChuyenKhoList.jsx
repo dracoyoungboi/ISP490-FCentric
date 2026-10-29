@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { ClipboardList, Plus, SearchX, TriangleAlert } from "lucide-react";
 import { phieuChuyenKhoService } from "@/services/phieuChuyenKhoService";
-import apiClient from "@/services/apiClient";
+import { getKhoList } from "@/services/khoService";
 import PageContainer from "@/components/backoffice/PageContainer";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
+import FilterSelect from "@/components/shared/FilterSelect";
 import KhoLamViecSelect from "@/components/shared/KhoLamViecSelect";
 import ListPageHeader from "@/components/shared/ListPageHeader";
 import ListToolbar from "@/components/shared/ListToolbar";
@@ -15,35 +17,33 @@ import StatusTabs from "@/components/shared/StatusTabs";
 import TableShell from "@/components/shared/TableShell";
 import TablePagination from "@/components/shared/TablePagination";
 import { Button } from "@/components/ui/button";
-import { Plus, ClipboardList, SearchX } from "lucide-react";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
-import { PHIEU_CHUYEN_KHO_TABS, getPhieuChuyenKhoStatus } from "@/constants/phieuChuyenKho";
-import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
+import {
+    LOC_TRANG_THAI_THEO_DUONG_DAN,
+    PHIEU_CHUYEN_KHO_STATUS,
+    PHIEU_CHUYEN_KHO_TABS,
+    TT_CHUYEN,
+    getPhieuChuyenKhoStatus,
+} from "@/constants/phieuChuyenKho";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
 import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
-import { formatDate } from "@/utils/formatters";
+import { formatDate, formatNumber } from "@/utils/formatters";
+import { getApiErrorMessage } from "@/utils/apiError";
+import { gioNgayNgan, treBaoLau } from "@/components/chuyen-kho/hienThiChuyenKho";
 
-//Constants & Helpers
-const ROLE = {
-    QUAN_TRI_VIEN: "quan_tri_vien",
-    QUAN_LY_KHO: "quan_ly_kho",
-    NHAN_VIEN_KHO: "nhan_vien_kho",
-    NHAN_VIEN_MUA_HANG: "nhan_vien_mua_hang",
-    NHAN_VIEN_BAN_HANG: "nhan_vien_ban_hang",
-};
+const TAB_MAS = PHIEU_CHUYEN_KHO_TABS.map((t) => t.ma);
+const TAB_MAC_DINH = "tat-ca";
+const tabMayChu = (ma) => PHIEU_CHUYEN_KHO_TABS.find((t) => t.ma === ma)?.tab ?? "TAT_CA";
 
-function parseJwt(token) {
-    try {
-        const b64 = token.split(".")[1];
-        return JSON.parse(atob(b64.replace(/-/g, "+").replace(/_/g, "/")));
-    } catch { return null; }
-}
+const SEARCH_DEBOUNCE_MS = 350;
+const TH = "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
+const TD = "px-4 py-3 align-top";
 
-function parseRoles(vaiTro) {
-    if (!vaiTro) return [];
-    return vaiTro.includes(" ") ? vaiTro.split(" ") : [vaiTro];
-}
+const LOC_TRANG_THAI = [
+    { value: "", label: "Tất cả trạng thái" },
+    ...Object.values(TT_CHUYEN).map((ma) => ({ value: ma, label: PHIEU_CHUYEN_KHO_STATUS[ma].label })),
+];
 
 /** Kho làm việc hiện tại (apiClient gửi qua header `kho_id`); đọc lỗi thì coi như chưa chọn. */
 function docKhoLamViec() {
@@ -54,236 +54,177 @@ function docKhoLamViec() {
     }
 }
 
-// Tab trạng thái (bố cục A+G) — mã tab nằm trên URL ?trangThai=
-const TAB_MAS = PHIEU_CHUYEN_KHO_TABS.map((tab) => tab.ma);
-const TAB_MAC_DINH = "tat-ca";
-const trangThaiCuaTab = (ma) => PHIEU_CHUYEN_KHO_TABS.find((tab) => tab.ma === ma)?.trangThai ?? null;
-
-const SEARCH_DEBOUNCE_MS = 350;
-const TH_CLASS =
-    "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
-
-// Điều kiện lọc dùng chung cho danh sách và số trên tab. API chỉ nhận MỘT trạng thái mỗi lần gọi.
-function buildFilterPayload({ keyword, tenKhoNhap, trangThai, page, size }) {
-    const filterList = [];
-    if (keyword?.trim()) {
-        filterList.push({ fieldName: "soPhieuXuat", operation: "LIKE", value: keyword.trim() });
-    }
-    if (tenKhoNhap?.trim()) {
-        filterList.push({ fieldName: "khoChuyenDen.tenKho", operation: "LIKE", value: tenKhoNhap.trim() });
-    }
-    if (trangThai != null) {
-        filterList.push({ fieldName: "trangThai", operation: "EQUALS", value: trangThai });
-    }
-    return { page, size, filters: filterList, sorts: [{ fieldName: "ngayTao", direction: "DESC" }] };
-}
-
+/**
+ * Danh sách phiếu chuyển kho nội bộ (màn B.6 của BA): tab Tất cả · Chờ duyệt · Đang vận chuyển · Trễ hẹn · Chờ xử lý
+ * chênh lệch · Thiếu giấy đi đường (số trên tab do máy chủ đếm cùng bộ lọc), lọc theo số phiếu / số lệnh, kho xuất,
+ * kho nhận, trạng thái. Quản lý Kho tổng xem toàn mạng lưới; người khác xem phiếu có kho làm việc là một bên.
+ * Đường dẫn cũ `?trangThai=cho-xuat-hang` (Tổng quan) mở tab Tất cả lọc sẵn Đã duyệt.
+ */
 export default function PhieuChuyenKhoList() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);
-    const tabTrangThai = trangThaiCuaTab(tab);
 
-    const [data, setData] = useState([]);
+    const [rows, setRows] = useState([]);
+    const [soTheoTab, setSoTheoTab] = useState(null);
+    const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(false);
-    const [total, setTotal] = useState(0);
-    const [userRoles, setUserRoles] = useState([]);
     const requestIdRef = useRef(0);
-    // Danh sách xem phiếu đi và đến của kho làm việc: đổi kho thì tải lại danh sách và số trên tab
     const [khoLamViec, setKhoLamViec] = useState(docKhoLamViec);
+    const [dsKho, setDsKho] = useState([]);
 
-    const [filters, setFilters] = useState({
-        keyword: "",
-        tenKhoNhap: "",
+    const [filters, setFilters] = useState(() => ({
+        q: "",
+        khoXuatId: "",
+        khoNhapId: "",
+        trangThai: LOC_TRANG_THAI_THEO_DUONG_DAN[searchParams.get("trangThai")] ?? "",
         page: 0,
         size: SO_DONG_MAC_DINH,
-    });
-    // Ô chữ đổi ngay khi gõ; filters chỉ đổi khi ngừng gõ (mỗi lần đổi gọi danh sách + đếm từng tab)
-    const [keywordInput, setKeywordInput] = useState("");
-    const [tenKhoNhapInput, setTenKhoNhapInput] = useState("");
+    }));
+    const [tuKhoaInput, setTuKhoaInput] = useState("");
 
     useEffect(() => {
-        const keyword = keywordInput.trim();
-        const tenKhoNhap = tenKhoNhapInput.trim();
-        const timer = setTimeout(() => {
-            setFilters((p) => (p.keyword === keyword && p.tenKhoNhap === tenKhoNhap ? p : { ...p, keyword, tenKhoNhap, page: 0 }));
-        }, SEARCH_DEBOUNCE_MS);
+        const q = tuKhoaInput.trim();
+        const timer = setTimeout(() => setFilters((p) => (p.q === q ? p : { ...p, q, page: 0 })), SEARCH_DEBOUNCE_MS);
         return () => clearTimeout(timer);
-    }, [keywordInput, tenKhoNhapInput]);
+    }, [tuKhoaInput]);
 
-    // Kiểm tra quyền (chỉ nhân viên kho)
-    const isNhanVienKho = userRoles.includes(ROLE.NHAN_VIEN_KHO);
-
-    // Fetch roles
-    const fetchUserInfo = useCallback(async () => {
-        try {
-            const token = localStorage.getItem('access_token');
-            if (!token) return;
-            const payload = parseJwt(token);
-            if (!payload || !payload.id) return;
-
-            const userResponse = await apiClient.get(`/api/v1/nguoi-dung/get-by-id/${payload.id}`);
-            const userData = userResponse.data?.data;
-            if (userData && userData.vaiTro) {
-                setUserRoles(parseRoles(userData.vaiTro));
-            }
-        } catch (error) {
-            console.error('Lỗi khi lấy thông tin user:', error);
-        }
+    useEffect(() => {
+        let conMo = true;
+        getKhoList()
+            .then((ds) => {
+                if (conMo) setDsKho(ds.filter((k) => k.trangThai === 1 && k.maKho !== "KHO_TRANSIT"));
+            })
+            .catch(() => {});
+        return () => {
+            conMo = false;
+        };
     }, []);
 
     // silent: tải lại ngầm (nút ⟳ / quay lại tab) — giữ bảng đang xem; lỗi thì ném ra cho chân bảng báo
     const fetchData = useCallback(async ({ silent = false } = {}) => {
-        // Đổi tab / bộ lọc / kho liên tiếp có thể chạy 2 yêu cầu cùng lúc: chỉ nhận kết quả của yêu cầu mới nhất
         const requestId = ++requestIdRef.current;
         if (!silent) setLoading(true);
         try {
-            const res = await phieuChuyenKhoService.filter(buildFilterPayload({ ...filters, trangThai: tabTrangThai }));
+            const res = await phieuChuyenKhoService.danhSach({
+                tab: tabMayChu(tab),
+                q: filters.q || undefined,
+                khoXuatId: filters.khoXuatId || undefined,
+                khoNhapId: filters.khoNhapId || undefined,
+                trangThai: filters.trangThai || undefined,
+                page: filters.page,
+                size: filters.size,
+            });
             if (requestId !== requestIdRef.current) return;
-            // Trang đang xem vượt số trang thật (vd. dòng cuối vừa được xử lý ở nơi khác) → lùi về trang cuối còn dữ liệu
             const trangCuoi = trangCuoiNeuVuot({ trang: filters.page, kichThuoc: filters.size, soDong: res?.content?.length ?? 0, tong: res?.totalElements });
             if (trangCuoi != null) {
                 setFilters((p) => ({ ...p, page: trangCuoi }));
                 return;
             }
-            setData(res?.content || []);
-            setTotal(res?.totalElements || 0);
+            setRows(res?.content ?? []);
+            setTotal(res?.totalElements ?? 0);
+            setSoTheoTab(res?.soTheoTab ?? null);
             setLoadError(false);
         } catch (error) {
             if (requestId !== requestIdRef.current) return;
-            console.error("Lỗi lấy danh sách:", error);
             if (silent) throw error;
-            // Không giữ dòng + tổng số của lần tải trước (R9)
-            setData([]);
+            setRows([]);
             setTotal(0);
-            setLoadError(true);
+            setSoTheoTab(null);
+            // Câu của máy chủ (vd. "Chọn kho làm việc để xem phiếu chuyển kho") rõ hơn câu chung
+            setLoadError(getApiErrorMessage(error, "Không thể tải danh sách phiếu chuyển kho. Vui lòng thử lại."));
         } finally {
             if (requestId === requestIdRef.current) setLoading(false);
         }
-    }, [filters, tabTrangThai]);
-
-    // Hoãn qua microtask để tránh setState đồng bộ trong effect
-    // (react-hooks/set-state-in-effect); dữ liệu vẫn tải lại mỗi khi bộ lọc / tab / kho đổi.
-    useEffect(() => {
-        queueMicrotask(() => fetchUserInfo());
-    }, [fetchUserInfo]);
+        // khoLamViec: apiClient gửi kho qua header, đổi kho thì tải lại
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filters, tab, khoLamViec]);
 
     useEffect(() => {
         queueMicrotask(() => fetchData());
     }, [fetchData]);
 
-    // ── Số trên tab: cùng kho làm việc + từ khóa + kho nhận đang lọc, chỉ thay trạng thái (R1) ──
-    const tabCounts = useDemTheoTrangThai(
-        TAB_MAS,
-        async (ma) => {
-            const res = await phieuChuyenKhoService.filter(buildFilterPayload({
-                keyword: filters.keyword,
-                tenKhoNhap: filters.tenKhoNhap,
-                trangThai: trangThaiCuaTab(ma),
-                page: 0,
-                size: 1,
-            }));
-            return res?.totalElements ?? 0;
-        },
-        `${khoLamViec}|${filters.keyword}|${filters.tenKhoNhap}`
-    );
+    const capNhat = useTaiLaiDanhSach({ duLieu: rows, taiNgam: () => fetchData({ silent: true }), bat: !loading });
 
     const changeTab = (value) => {
         setTab(value);
         setFilters((p) => (p.page === 0 ? p : { ...p, page: 0 }));
     };
 
-    // Đổi kho làm việc: kho không nằm trong payload (apiClient gửi header kho_id từ localStorage) nên
-    // luôn tạo filters mới để danh sách tải lại; khoLamViec nằm trong khóa đếm nên số trên tab cũng đếm lại
-    const handleDoiKho = (id) => {
-        setKhoLamViec(String(id));
-        setFilters((p) => ({ ...p, page: 0 }));
+    const doiLoc = (khoa, giaTri) => setFilters((p) => ({ ...p, [khoa]: giaTri, page: 0 }));
+    const coLoc = Boolean(tuKhoaInput.trim() || filters.khoXuatId || filters.khoNhapId || filters.trangThai);
+    const xoaLoc = () => {
+        setTuKhoaInput("");
+        setFilters((p) => ({ ...p, q: "", khoXuatId: "", khoNhapId: "", trangThai: "", page: 0 }));
     };
 
-    // Bộ lọc ngoài tab trạng thái ("Xóa lọc" chỉ xóa các bộ lọc này, giữ tab và kho làm việc)
-    const hasActiveFilters = Boolean(keywordInput.trim() || tenKhoNhapInput.trim());
+    const luaChonKho = useMemo(() => dsKho.map((k) => ({ value: String(k.id), label: k.tenKho })), [dsKho]);
 
-    const clearFilters = () => {
-        setKeywordInput("");
-        setTenKhoNhapInput("");
-        setFilters((p) => ({ ...p, keyword: "", tenKhoNhap: "", page: 0 }));
-    };
-
-    const handleRetry = () => {
-        fetchData();
-        tabCounts.reload();
-    };
-
-    // Nút ⟳ ở chân bảng + tự tải lại khi quay lại tab: kho gửi và kho nhận là hai người ở hai nơi
-    const capNhat = useTaiLaiDanhSach({
-        duLieu: data,
-        taiNgam: () => {
-            tabCounts.reload();
-            return fetchData({ silent: true });
-        },
-        bat: !loading,
-    });
-
-    // Số chỉ hiện khi đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs
     const statusTabs = PHIEU_CHUYEN_KHO_TABS.map((t) => ({
         value: t.ma,
         label: t.label,
-        count: loadError ? null : tabCounts.counts[t.ma],
+        count: loadError || !soTheoTab ? null : soTheoTab[t.tab] ?? 0,
+        tone: t.canhBao ? "warning" : undefined,
     }));
-
-    const emptyTabLabel = PHIEU_CHUYEN_KHO_TABS.find((t) => t.ma === tab)?.label;
+    const tenTab = PHIEU_CHUYEN_KHO_TABS.find((t) => t.ma === tab)?.label;
 
     return (
         <PageContainer fill className="space-y-4">
             <ListPageHeader
                 actions={
-                    !isNhanVienKho ? (
-                        <Link to="/transfer-tickets/create">
-                            <Button className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
-                                <Plus className="size-4" />
-                                Tạo phiếu chuyển kho
-                            </Button>
-                        </Link>
-                    ) : null
+                    <Link to="/transfer-tickets/create">
+                        <Button className="h-9 gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
+                            <Plus className="size-4" />
+                            Tạo yêu cầu chuyển
+                        </Button>
+                    </Link>
                 }
             />
 
-            {/* ══ BẢNG: tab trạng thái + kho làm việc + tìm kiếm cùng một hàng ══ */}
             <TableShell
                 fill
                 toolbar={
                     <ListToolbar
-                        tabs={
-                            <StatusTabs
-                                label="Lọc phiếu chuyển kho theo trạng thái"
-                                tabs={statusTabs}
-                                value={tab}
-                                onChange={changeTab}
-                            />
-                        }
-                        hasFilter={hasActiveFilters}
-                        onClear={clearFilters}
+                        tabs={<StatusTabs label="Lọc phiếu chuyển kho" tabs={statusTabs} value={tab} onChange={changeTab} />}
+                        hasFilter={coLoc}
+                        onClear={xoaLoc}
                     >
-                        {/* API lấy phiếu đi và đến của kho làm việc (header kho_id) */}
-                        <KhoLamViecSelect onChange={handleDoiKho} />
+                        <KhoLamViecSelect onChange={(id) => setKhoLamViec(String(id))} />
                         <SearchInput
-                            placeholder="Nhập số phiếu..."
-                            label="Số phiếu"
-                            value={keywordInput}
-                            onChange={(e) => setKeywordInput(e.target.value)}
-                            onClear={() => {
-                                setKeywordInput("");
-                                setFilters((p) => (p.keyword === "" ? p : { ...p, keyword: "", page: 0 }));
-                            }}
-                            className="sm:w-[300px]"
+                            placeholder="Số phiếu, số lệnh..."
+                            label="Số phiếu hoặc số lệnh điều động"
+                            value={tuKhoaInput}
+                            onChange={(e) => setTuKhoaInput(e.target.value)}
+                            onClear={() => setTuKhoaInput("")}
+                            className="sm:w-[240px]"
                         />
-                        <input
-                            type="text"
-                            placeholder="Tên kho nhận hàng"
-                            aria-label="Kho nhập (đích)"
-                            value={tenKhoNhapInput}
-                            onChange={(e) => setTenKhoNhapInput(e.target.value)}
-                            className="h-9 w-full rounded-md border border-bo-border bg-bo-surface px-3 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 sm:w-[200px]"
+                        <FilterSelect
+                            label="Kho xuất"
+                            value={filters.khoXuatId}
+                            options={[{ value: "", label: "Kho xuất: Tất cả" }, ...luaChonKho]}
+                            onChange={(v) => doiLoc("khoXuatId", v)}
+                            onClear={() => doiLoc("khoXuatId", "")}
+                            clearLabel="Bỏ lọc kho xuất"
+                            className="sm:w-[190px]"
+                        />
+                        <FilterSelect
+                            label="Kho nhận"
+                            value={filters.khoNhapId}
+                            options={[{ value: "", label: "Kho nhận: Tất cả" }, ...luaChonKho]}
+                            onChange={(v) => doiLoc("khoNhapId", v)}
+                            onClear={() => doiLoc("khoNhapId", "")}
+                            clearLabel="Bỏ lọc kho nhận"
+                            className="sm:w-[190px]"
+                        />
+                        <FilterSelect
+                            label="Trạng thái"
+                            value={filters.trangThai}
+                            options={LOC_TRANG_THAI}
+                            onChange={(v) => doiLoc("trangThai", v)}
+                            onClear={() => doiLoc("trangThai", "")}
+                            clearLabel="Bỏ lọc trạng thái"
+                            className="sm:w-[190px]"
                         />
                     </ListToolbar>
                 }
@@ -303,22 +244,15 @@ export default function PhieuChuyenKhoList() {
                 {loading ? (
                     <LoadingState rows={6} label="Đang tải danh sách phiếu chuyển kho" />
                 ) : loadError ? (
-                    <ErrorState
-                        description="Không thể tải danh sách phiếu chuyển kho. Vui lòng thử lại."
-                        onRetry={handleRetry}
-                    />
-                ) : data.length === 0 ? (
-                    hasActiveFilters ? (
+                    <ErrorState description={loadError} onRetry={() => fetchData()} />
+                ) : rows.length === 0 ? (
+                    coLoc ? (
                         <EmptyState
                             icon={SearchX}
                             title="Không tìm thấy phiếu chuyển kho phù hợp"
-                            description="Thử đổi số phiếu hoặc tên kho nhận hàng."
+                            description="Thử đổi số phiếu, kho hoặc trạng thái đang lọc."
                             action={
-                                <Button
-                                    variant="outline"
-                                    onClick={clearFilters}
-                                    className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
-                                >
+                                <Button variant="outline" onClick={xoaLoc} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
                                     Xóa lọc
                                 </Button>
                             }
@@ -326,69 +260,93 @@ export default function PhieuChuyenKhoList() {
                     ) : tab !== TAB_MAC_DINH ? (
                         <EmptyState
                             icon={ClipboardList}
-                            title={`Không có phiếu chuyển kho nào ở trạng thái "${emptyTabLabel}"`}
-                            description="Chọn tab Tất cả để xem mọi phiếu chuyển đi và chuyển đến của kho đang chọn."
+                            title={`Không có phiếu chuyển nào ở mục "${tenTab}"`}
+                            description="Chọn tab Tất cả để xem mọi phiếu chuyển đi và chuyển đến."
                             action={
-                                <Button
-                                    variant="outline"
-                                    onClick={() => changeTab(TAB_MAC_DINH)}
-                                    className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
-                                >
+                                <Button variant="outline" onClick={() => changeTab(TAB_MAC_DINH)} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
                                     Xem tất cả
                                 </Button>
                             }
                         />
                     ) : (
-                        <EmptyState
-                            icon={ClipboardList}
-                            title="Chưa có phiếu chuyển kho"
-                            description="Kho đang chọn chưa có phiếu chuyển đi hoặc chuyển đến."
-                        />
+                        <EmptyState icon={ClipboardList} title="Chưa có phiếu chuyển kho" description="Kho đang chọn chưa có phiếu chuyển đi hoặc chuyển đến." />
                     )
                 ) : (
-                    <table className="w-full min-w-[900px] text-sm">
+                    <table className="w-full min-w-[960px] text-sm">
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                <th className={`${TH_CLASS} w-14 text-center`}>STT</th>
-                                <th className={`${TH_CLASS} text-left`}>Số phiếu</th>
-                                <th className={`${TH_CLASS} text-left`}>Kho xuất</th>
-                                <th className={`${TH_CLASS} text-left`}>Kho nhập</th>
-                                <th className={`${TH_CLASS} text-left`}>Ngày tạo</th>
-                                <th className={`${TH_CLASS} text-left`}>Trạng thái</th>
+                                <th className={`${TH} text-left`}>Số phiếu</th>
+                                <th className={`${TH} text-left`}>Tuyến</th>
+                                <th className={`${TH} text-left`}>Lệnh điều động</th>
+                                <th className={`${TH} text-left`}>Trạng thái</th>
+                                <th className={`${TH} text-left`}>Giấy đi đường</th>
+                                <th className={`${TH} text-left`}>Dự kiến đến</th>
+                                <th className={`${TH} text-right`}>Số lượng</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-bo-border">
-                            {data.map((item, index) => {
-                                const status = getPhieuChuyenKhoStatus(item.trangThai);
-                                return (
-                                    <tr
-                                        key={item.id}
-                                        onClick={() => navigate(`/transfer-tickets/${item.id}`)}
-                                        className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
-                                    >
-                                        <td className="w-14 px-4 py-3.5 text-center align-middle text-xs text-bo-muted">
-                                            {filters.page * filters.size + index + 1}
-                                        </td>
-                                        <td className="px-4 py-3.5 align-middle font-semibold text-bo-primary">{item.soPhieuXuat}</td>
-                                        <td className="px-4 py-3.5 align-middle text-bo-foreground">{item.kho?.tenKho}</td>
-                                        <td className="px-4 py-3.5 align-middle text-bo-foreground">{item.khoChuyenDen?.tenKho}</td>
-                                        <td className="px-4 py-3.5 align-middle">
-                                            <span className="whitespace-nowrap text-xs text-bo-muted">{formatDate(item.ngayTao)}</span>
-                                        </td>
-                                        <td className="px-4 py-3.5 align-middle">
-                                            {status ? (
-                                                <StatusBadge quyTrinh="chuyenKho" label={status.label} />
-                                            ) : (
-                                                <span className="text-xs text-bo-muted">—</span>
-                                            )}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
+                            {rows.map((p) => (
+                                <DongPhieu key={p.id} p={p} onMo={() => navigate(`/transfer-tickets/${p.id}`)} />
+                            ))}
                         </tbody>
                     </table>
                 )}
             </TableShell>
         </PageContainer>
+    );
+}
+
+function DongPhieu({ p, onMo }) {
+    const st = getPhieuChuyenKhoStatus(p.trangThai, p.coChenhLech);
+    const moBangPhim = (e) => {
+        if (e.key === "Enter") onMo();
+    };
+    return (
+        <tr onClick={onMo} onKeyDown={moBangPhim} tabIndex={0} className="cursor-pointer transition-colors hover:bg-bo-surface-subtle focus-visible:bg-bo-surface-subtle focus-visible:outline-none">
+            <td className={TD}>
+                <div className="whitespace-nowrap font-semibold text-bo-primary">{p.soPhieuChuyen}</div>
+                <div className="text-xs tabular-nums text-bo-muted">{formatDate(p.ngayTao)}</div>
+                {p.soPhieuGoc ? <div className="text-xs text-bo-muted">giao bù cho {p.soPhieuGoc}</div> : null}
+            </td>
+            <td className={`${TD} text-bo-foreground`}>
+                {p.khoXuatTen} <span className="text-bo-muted">→</span> {p.khoNhapTen}
+            </td>
+            <td className={`${TD} whitespace-nowrap font-mono text-[13px] text-bo-foreground`}>
+                {p.soLenhDieuDong ?? <span className="font-sans text-bo-muted">—</span>}
+            </td>
+            <td className={TD}>
+                <StatusBadge quyTrinh="chuyenKho" label={st.label} />
+            </td>
+            <td className={TD}>
+                {p.soPhieuXknb ? (
+                    <span className="whitespace-nowrap font-mono text-[13px] text-bo-foreground">
+                        {p.kyHieuXknb} · {p.soPhieuXknb}
+                    </span>
+                ) : p.thieuXknb ? (
+                    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-bo-tt-chu-y px-2 py-0.5 text-xs font-medium text-bo-tt-chu-y-chu">
+                        <TriangleAlert className="size-3.5" aria-hidden="true" />
+                        Chưa có số
+                    </span>
+                ) : (
+                    <span className="text-bo-muted">—</span>
+                )}
+            </td>
+            <td className={`${TD} whitespace-nowrap tabular-nums`}>
+                {p.trangThai === TT_CHUYEN.HOAN_TAT && p.ngayThucTeDen ? (
+                    <span className="text-bo-foreground">{gioNgayNgan(p.ngayThucTeDen)}</span>
+                ) : p.ngayDuKienDen ? (
+                    p.tre ? (
+                        <span className="font-semibold text-bo-tt-chu-y-chu">
+                            {gioNgayNgan(p.ngayDuKienDen)} · {treBaoLau(p.ngayDuKienDen)}
+                        </span>
+                    ) : (
+                        <span className="text-bo-foreground">{gioNgayNgan(p.ngayDuKienDen)}</span>
+                    )
+                ) : (
+                    <span className="text-bo-muted">—</span>
+                )}
+            </td>
+            <td className={`${TD} text-right tabular-nums text-bo-foreground`}>{formatNumber(p.tongSoLuong)}</td>
+        </tr>
     );
 }

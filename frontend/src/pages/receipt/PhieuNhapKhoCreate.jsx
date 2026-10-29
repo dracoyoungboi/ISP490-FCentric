@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowRight, ArrowRightLeft, ChevronDown, FileText, Truck, Undo2 } from "lucide-react";
+import { ArrowRight, ChevronDown, FileText, Undo2 } from "lucide-react";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
-import { phieuChuyenKhoService } from "@/services/phieuChuyenKhoService";
 import purchaseOrderService from "@/services/purchaseOrderService";
 import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
 import { donBanHangService } from "@/services/donBanHangService";
@@ -18,11 +17,9 @@ import DauChungTu from "@/components/chung-tu/DauChungTu";
 import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
 import NutPhanDoan from "@/components/chung-tu/NutPhanDoan";
 import CotThuocTinh, { BangThuocTinh, NhomThuocTinh } from "@/components/chung-tu/CotThuocTinh";
-import TuyenChuyen from "@/components/chung-tu/TuyenChuyen";
 import BangHangTaoPhieu from "@/components/chung-tu/BangHangTaoPhieu";
 import useBangChungTu from "@/components/chung-tu/useBangChungTu";
 import { soVN, tuBienThe } from "@/components/chung-tu/bangChungTu";
-import { dongChuyenKho } from "@/components/chuyen-kho/tinhChuyenKho";
 import { dongDonKemPhanGiu, donMuaCoPhieuNhap, noiSoPhieu, tinhPhanGiu } from "@/components/nhap-kho/phanGiuPhieuNhap";
 import { GOI_Y_O, NHAN_O, O_NHAP, O_NHAP_NHIEU_DONG } from "@/components/chung-tu/kieuHopThoai";
 import { getKhoLamViecId, laKhoLamViecHopLe, setKhoLamViecId } from "@/utils/khoLamViec";
@@ -30,8 +27,10 @@ import { ROLES, hasAnyRole } from "@/utils/roles";
 
 /**
  * Tạo phiếu nhập kho (/goods-receipts/create): khối chứng từ "một khối" như các màn chi tiết.
- * Giữ nguyên nghiệp vụ cũ: 3 nguồn (đơn mua / phiếu chuyển kho / phiếu xuất của đơn bị hoàn trả), cách lọc chứng từ
- * được chọn, API tạo, "Lưu nháp" và "Tiếp tục khai lô" cùng tạo phiếu (một lần) rồi mở chi tiết phiếu.
+ * Hai nguồn: đơn mua / phiếu xuất của đơn bị hoàn trả (cách lọc chứng từ được chọn, API tạo, "Lưu nháp" và "Tiếp tục
+ * khai lô" cùng tạo phiếu một lần rồi mở chi tiết phiếu). Hàng chuyển kho nội bộ không nhập ở đây: kho nhận nhận hàng ở
+ * màn phiếu chuyển (/transfer-tickets/:id/receive), máy chủ tự lập phiếu nhập PN-TRF / PN-RET (đặc tả BA); đường dẫn cũ
+ * ?transferId= mở phiếu chuyển đó.
  *
  * Ghi chú: phần căn cứ ("Tạo phiếu nhập kho từ đơn mua …", "Nhập hoàn trả từ phiếu xuất: …") vẫn được ghi như cũ,
  * nhưng không hiện trong ô ghi chú (số chứng từ đã ở ô chọn). Phiếu nhập hoàn trả DỰA VÀO câu căn cứ chứa số phiếu
@@ -40,7 +39,6 @@ import { ROLES, hasAnyRole } from "@/utils/roles";
 
 const SOURCE_TABS = [
     { value: "PO", label: "Nhập từ đối tác", icon: FileText },
-    { value: "TRANSFER", label: "Nhận hàng nội bộ", icon: ArrowRightLeft },
     { value: "RETURN", label: "Nhập hàng trả lại", icon: Undo2 },
 ];
 const GHI_CHU_TOI_DA = 500;
@@ -50,14 +48,9 @@ const O_CHON = cn(O_NHAP, "cursor-pointer appearance-none pr-9");
 const TONG_BANG = Object.freeze({ soLuong: "soLuong", dat: "dat", daNhan: "daNhan", giu: "giu", con: "con", nhap: "nhap" });
 
 /** Câu căn cứ ghi vào ghi chú phiếu (giữ đúng câu cũ). */
-function cauCanCu(nguon, { po, transfer, px }) {
+function cauCanCu(nguon, { po, px }) {
     if (nguon === "PO" && po) return `Tạo phiếu nhập kho từ đơn mua ${po.soDonMua}`;
     if (nguon === "RETURN" && px) return `Nhập hoàn trả từ phiếu xuất: ${px.soPhieuXuat} (Đơn: ${px.donBanHang?.soDonHang || "Không rõ"})`;
-    if (nguon === "TRANSFER" && transfer) {
-        return transfer.trangThai === 4
-            ? `Nhập hoàn trả (RET) từ phiếu chuyển bị hủy: ${transfer.soPhieuXuat}`
-            : `Nhập kho nội bộ từ phiếu chuyển: ${transfer.soPhieuXuat}`;
-    }
     return "";
 }
 
@@ -73,11 +66,10 @@ export default function PhieuNhapKhoCreate() {
     const [searchParams] = useSearchParams(); // Đọc params từ URL
 
     // --- States cho Loại Nhập ---
-    const [importSource, setImportSource] = useState("PO"); // "PO", "TRANSFER", hoặc "RETURN"
+    const [importSource, setImportSource] = useState("PO"); // "PO" hoặc "RETURN"
 
     // --- Data States ---
     const [poList, setPoList] = useState([]);
-    const [transferList, setTransferList] = useState([]);
     const [returnList, setReturnList] = useState([]);
     const [warehouses, setWarehouses] = useState([]);
 
@@ -87,7 +79,6 @@ export default function PhieuNhapKhoCreate() {
     // Không tải được (một phần) phiếu nhập Nháp của đơn: "Còn lại" có thể chưa trừ hết phần đang giữ
     const [loiPhanGiu, setLoiPhanGiu] = useState(false);
     const [poCoPhieuNhap, setPoCoPhieuNhap] = useState(() => new Set());
-    const [selectedTransfer, setSelectedTransfer] = useState(null);
     const [selectedReturn, setSelectedReturn] = useState(null);
 
     const [loading, setLoading] = useState(true);
@@ -100,7 +91,6 @@ export default function PhieuNhapKhoCreate() {
 
     const [form, setForm] = useState({
         donMuaHangId: "",
-        transferId: "",
         phieuXuatId: "", // ID phiếu xuất kho dùng cho chức năng hoàn trả
         khoId: "",
     });
@@ -143,28 +133,13 @@ export default function PhieuNhapKhoCreate() {
         } finally { setActionLoading(false); }
     }, []);
 
-    const handleSelectTransfer = useCallback(async (id) => {
-        if (!id) {
-            setSelectedTransfer(null);
-            setForm(prev => ({ ...prev, transferId: "" }));
+    const fetchInitialData = useCallback(async () => {
+        // Đường dẫn cũ "Nhập kho" của phiếu chuyển: nay nhận hàng ở màn phiếu chuyển
+        const urlTransferId = searchParams.get("transferId");
+        if (/^\d+$/.test(urlTransferId ?? "")) {
+            navigate(`/transfer-tickets/${urlTransferId}`, { replace: true });
             return;
         }
-        setActionLoading(true);
-        try {
-            const res = await phieuChuyenKhoService.getDetail(id);
-            const data = res.data || res;
-            setSelectedTransfer(data);
-            setForm(prev => ({
-                ...prev,
-                transferId: data.id,
-                khoId: data.trangThai === 4 ? data.khoXuatId : data.khoNhapId,
-            }));
-        } catch {
-            toast.error("Không thể tải chi tiết luân chuyển");
-        } finally { setActionLoading(false); }
-    }, []);
-
-    const fetchInitialData = useCallback(async () => {
         setLoading(true);
         try {
             const myWarehousesRes = await getMineKhoList().catch(() => ({ data: [] }));
@@ -172,23 +147,11 @@ export default function PhieuNhapKhoCreate() {
             setWarehouses(warehouseList);
             const myWarehouseIds = warehouseList.map(w => w.id);
 
-            const [poRes, transferRes3, transferRes4, allReceiptsRes, allIssuesRes, returnSoRes] = await Promise.all([
+            const [poRes, allReceiptsRes, allIssuesRes, returnSoRes] = await Promise.all([
                 purchaseOrderService.filter({
                     page: 0, size: 1000,
                     filters: [{ fieldName: "trangThai", operator: "IN", value: [3, 5] }],
                     sorts: [{ fieldName: "id", direction: "DESC" }]
-                }).catch(() => ({ content: [] })),
-
-                phieuChuyenKhoService.filter({
-                    page: 0, size: 1000,
-                    filters: [{ fieldName: "trangThai", operation: "EQUALS", value: 3 }],
-                    sorts: [{ fieldName: "ngayCapNhat", direction: "DESC" }]
-                }).catch(() => ({ content: [] })),
-
-                phieuChuyenKhoService.filter({
-                    page: 0, size: 1000,
-                    filters: [{ fieldName: "trangThai", operation: "EQUALS", value: 4 }],
-                    sorts: [{ fieldName: "ngayCapNhat", direction: "DESC" }]
                 }).catch(() => ({ content: [] })),
 
                 // Mới nhất trước: quá 2000 phiếu thì phần bị cắt là phiếu cũ (phiếu nháp và phiếu chuyển đang chờ là phiếu mới)
@@ -221,62 +184,11 @@ export default function PhieuNhapKhoCreate() {
             });
             setPoList(validPoList);
 
-            // === 2. XỬ LÝ TRANSFER (Logic nguyên gốc) ===
             const allReceipts = allReceiptsRes.content || allReceiptsRes.data?.content || [];
             setPoCoPhieuNhap(donMuaCoPhieuNhap(allReceipts));
-            const usedTransferIds = new Set(
-                allReceipts
-                    .filter(r => r.trangThai === 3)
-                    .map(r => Number(r.phieuXuatGocId || r.phieuChuyenId || r.transferId))
-                    .filter(id => id > 0)
-            );
-
             const allIssues = allIssuesRes.content || allIssuesRes.data?.content || [];
-            const validIssueTransferIds = new Set(
-                allIssues
-                    .filter(pxk => pxk.trangThai === 3)
-                    .map(pxk => Number(pxk.phieuChuyenKhoGocId || pxk.phieuChuyenId || pxk.transferId))
-                    .filter(id => id > 0)
-            );
 
-            // 3. Xử lý gộp và lọc Phiếu Chuyển Kho
-            const rawTransfers = [
-                ...(transferRes3.content || transferRes3.data?.content || []),
-                ...(transferRes4.content || transferRes4.data?.content || [])
-            ];
-
-            const availableTransfers = rawTransfers.filter(t => {
-                // Ép kiểu ID hiện tại về Number để check trong Set
-                const currentTransferId = Number(t.id);
-
-                // Nếu đã nhập kho rồi -> Loại bỏ
-                if (usedTransferIds.has(currentTransferId)) return false;
-
-                if (t.trangThai === 3) {
-                    // PHIẾU ĐANG VẬN CHUYỂN: Chỉ kho NHẬN (đích) mới được thấy
-                    const targetKhoId = t.khoNhapId || t.khoChuyenDen?.id;
-                    if (!targetKhoId) return false;
-                    return myWarehouseIds.map(Number).includes(Number(targetKhoId));
-                }
-                else if (t.trangThai === 4) {
-                    // PHIẾU ĐÃ HỦY: Chỉ kho XUẤT (nguồn) mới được thấy
-                    const sourceKhoId = t.khoXuatId || t.kho?.id;
-                    if (!sourceKhoId) return false;
-
-                    const isMyWarehouse = myWarehouseIds.map(Number).includes(Number(sourceKhoId));
-
-                    // PHẢI tồn tại phiếu xuất từ phiếu chuyển này và phiếu xuất đó phải ở trạng thái 3
-                    const hasValidIssue = validIssueTransferIds.has(currentTransferId);
-
-                    return isMyWarehouse && hasValidIssue;
-                }
-
-                return false;
-            });
-
-            setTransferList(availableTransfers);
-
-            // Lọc phiếu xuất thuộc đơn hàng bị hoàn trả
+            // === 2. Lọc phiếu xuất thuộc đơn hàng bị hoàn trả
             const rawReturnSOs = returnSoRes.content || returnSoRes.data?.content || [];
             const returnedSOIds = new Set(rawReturnSOs.map(don => Number(don.id)));
 
@@ -310,7 +222,6 @@ export default function PhieuNhapKhoCreate() {
 
             // === URL PARAMS AUTO SELECT ===
             const urlPoId = searchParams.get("poId");
-            const urlTransferId = searchParams.get("transferId");
 
             if (urlPoId) {
                 // Tìm trong danh sách hợp lệ xem có PO này không
@@ -321,14 +232,6 @@ export default function PhieuNhapKhoCreate() {
                 } else {
                     toast.warning("Đơn mua này không đủ điều kiện để nhập kho hoặc bạn không có quyền");
                 }
-            } else if (urlTransferId) {
-                setImportSource("TRANSFER");
-                const isTransferValid = availableTransfers.some(t => String(t.id) === String(urlTransferId));
-                if (isTransferValid) {
-                    await handleSelectTransfer(urlTransferId);
-                } else {
-                    toast.warning("Yêu cầu chuyển kho này không đủ điều kiện nhập kho hoặc bạn không có quyền");
-                }
             }
 
         } catch {
@@ -336,7 +239,7 @@ export default function PhieuNhapKhoCreate() {
         } finally {
             setLoading(false);
         }
-    }, [searchParams, handleSelectPO, handleSelectTransfer]);
+    }, [searchParams, handleSelectPO, navigate]);
 
     // Hoãn qua microtask để tránh setState đồng bộ trong effect
     // (react-hooks/set-state-in-effect); dữ liệu khởi tạo vẫn tải ngay khi mount.
@@ -392,15 +295,13 @@ export default function PhieuNhapKhoCreate() {
     }, [returnList]);
 
     const pxTraDangChon = returnList.find(px => String(px.id) === String(form.phieuXuatId)) || null;
-    const canCu = cauCanCu(importSource, { po: selectedPO, transfer: selectedTransfer, px: pxTraDangChon });
+    const canCu = cauCanCu(importSource, { po: selectedPO, px: pxTraDangChon });
     const ghiChuGui = [canCu, ghiChuThem.trim()].filter(Boolean).join(". ");
-    // Kho nhận theo ĐÚNG nguồn đang chọn (ba nguồn không dùng chung một kho, kẻo đổi tab rồi tạo nhầm kho làm việc)
+    // Kho nhận theo ĐÚNG nguồn đang chọn (hai nguồn không dùng chung một kho, kẻo đổi tab rồi tạo nhầm kho làm việc)
     const khoMotKho = warehouses.length === 1 ? warehouses[0].id : null;
     const khoNhanId = importSource === "PO"
         ? (selectedPO ? selectedPO.khoNhap?.id ?? khoMotKho : null)
-        : importSource === "TRANSFER"
-            ? (selectedTransfer ? (selectedTransfer.trangThai === 4 ? selectedTransfer.khoXuatId : selectedTransfer.khoNhapId) : null)
-            : (pxTraDangChon ? pxTraDangChon.kho?.id ?? pxTraDangChon.khoXuatId ?? khoMotKho : null);
+        : (pxTraDangChon ? pxTraDangChon.kho?.id ?? pxTraDangChon.khoXuatId ?? khoMotKho : null);
 
     // Trả về id phiếu (đã có hoặc vừa tạo); null nếu chưa tạo được hoặc đang tạo dở
     async function createPhieu() {
@@ -442,18 +343,6 @@ export default function PhieuNhapKhoCreate() {
                 toast.error(e?.response?.data?.message || "Lỗi khi tạo phiếu nhập");
                 return null;
             } finally { setActionLoading(false); }
-        } else if (importSource === "TRANSFER") {
-            if (!form.transferId) return toast.error("Vui lòng chọn yêu cầu chuyển kho"), null;
-            try {
-                setActionLoading(true);
-                const res = await phieuNhapKhoService.createFromTransfer(form.transferId);
-                const newId = res.data?.data?.id ?? res.data?.id ?? res.id;
-                toast.success("Khởi tạo phiếu nhập luân chuyển thành công");
-                return newId;
-            } catch (e) {
-                toast.error(e?.response?.data?.message || "Không thể tạo phiếu");
-                return null;
-            } finally { setActionLoading(false); }
         } else if (importSource === "RETURN") {
             if (!form.phieuXuatId) return toast.error("Vui lòng chọn phiếu xuất của đơn hàng cần hoàn trả"), null;
             try {
@@ -493,7 +382,6 @@ export default function PhieuNhapKhoCreate() {
                 oNhap: ct.soLuongNhapTay,
             }));
         }
-        if (importSource === "TRANSFER") return dongChuyenKho(selectedTransfer?.items);
         const dsTra = selectedReturn?.chiTiet || selectedReturn?.chiTietPhieuXuatKhos || [];
         return dsTra.map((item, i) => {
             const bt = tuBienThe(item.bienTheSanPham);
@@ -511,7 +399,7 @@ export default function PhieuNhapKhoCreate() {
                 soLuong: so(item.soLuongCanXuat || item.soLuong),
             };
         });
-    }, [importSource, selectedPO, selectedTransfer, selectedReturn]);
+    }, [importSource, selectedPO, selectedReturn]);
     const bangHang = useBangChungTu(dongBang, { tongTheo: TONG_BANG });
     const tongNhapPO = bangHang.tong.nhap;
     const tongConPO = bangHang.tong.con;
@@ -527,8 +415,6 @@ export default function PhieuNhapKhoCreate() {
         );
     }
 
-    const laHuyChuyen = selectedTransfer?.trangThai === 4;
-
     const tenKhoNhan =
         (importSource === "PO" && selectedPO?.khoNhap?.tenKho) ||
         (importSource === "RETURN" && (pxTraDangChon?.kho?.tenKho)) ||
@@ -537,13 +423,12 @@ export default function PhieuNhapKhoCreate() {
 
     const noSourceSelected =
         (importSource === "PO" && !selectedPO) ||
-        (importSource === "TRANSFER" && !selectedTransfer) ||
         (importSource === "RETURN" && !selectedReturn);
 
     const lyDoKhoa = actionLoading
         ? ""
         : noSourceSelected
-            ? (importSource === "PO" ? "Chọn đơn mua hàng" : importSource === "TRANSFER" ? "Chọn phiếu chuyển kho" : "Chọn phiếu xuất cần nhập trả")
+            ? (importSource === "PO" ? "Chọn đơn mua hàng" : "Chọn phiếu xuất cần nhập trả")
             : !khoNhanId
                 ? "Chưa xác định được kho nhận"
                 : importSource === "PO" && tongConPO === 0 && coPhieuGiu
@@ -553,14 +438,10 @@ export default function PhieuNhapKhoCreate() {
                         : "";
     const khoaTao = Boolean(lyDoKhoa) || actionLoading;
 
-    const nhanNutChinh = importSource === "PO" ? "Tiếp tục khai lô" : (importSource === "RETURN" ? "Xác nhận nhập kho" : "Nhập kho ngay");
-    const iconNutChinh = importSource === "PO" ? ArrowRight : importSource === "RETURN" ? Undo2 : ArrowRightLeft;
+    const nhanNutChinh = importSource === "PO" ? "Tiếp tục khai lô" : "Xác nhận nhập kho";
+    const iconNutChinh = importSource === "PO" ? ArrowRight : Undo2;
 
-    const dauDongPhu = importSource === "TRANSFER"
-        ? (selectedTransfer ? (laHuyChuyen ? "Nhập lại hàng của phiếu chuyển đã hủy" : "Nhận hàng chuyển kho") : "Chọn phiếu chuyển kho đang tới kho của bạn")
-        : tenKhoNhan
-            ? `Nhập vào ${tenKhoNhan}`
-            : "Chọn chứng từ nguồn để bắt đầu";
+    const dauDongPhu = tenKhoNhan ? `Nhập vào ${tenKhoNhan}` : "Chọn chứng từ nguồn để bắt đầu";
     // Tổng của cả phiếu nằm ở dòng phụ đầu khối (như các màn chi tiết), không lặp ở chân bảng
     const dongPhu = noSourceSelected ? dauDongPhu : [
         dauDongPhu,
@@ -623,13 +504,6 @@ export default function PhieuNhapKhoCreate() {
             </DongThongBao>
         );
     }
-    if (importSource === "TRANSFER" && laHuyChuyen) {
-        thongBao.push(
-            <DongThongBao key="huy-chuyen" tone="warn">
-                Phiếu chuyển này đã hủy sau khi hàng rời kho: hàng được nhập trả lại <b className="font-semibold">{selectedTransfer.khoXuatTen || "kho nguồn"}</b>, không vào kho đích.
-            </DongThongBao>
-        );
-    }
     if (importSource === "RETURN" && selectedReturn) {
         thongBao.push(
             <DongThongBao key="tra" tone="info">
@@ -650,13 +524,13 @@ export default function PhieuNhapKhoCreate() {
                     luaChon={SOURCE_TABS.map(t => ({
                         value: t.value,
                         label: t.label,
-                        count: t.value === "PO" ? poList.length : t.value === "TRANSFER" ? transferList.length : returnList.length,
+                        count: t.value === "PO" ? poList.length : returnList.length,
                     }))}
                 />
             </div>
             <label className="relative grid w-full min-w-0 gap-1.5 sm:w-[440px]">
                 <span className={NHAN_O}>
-                    {importSource === "PO" ? "Đơn mua hàng" : importSource === "TRANSFER" ? "Phiếu chuyển kho" : "Phiếu xuất của đơn bị hoàn trả"}
+                    {importSource === "PO" ? "Đơn mua hàng" : "Phiếu xuất của đơn bị hoàn trả"}
                     {" "}<span className="text-bo-danger">*</span>
                 </span>
                 {importSource === "PO" && (
@@ -665,16 +539,6 @@ export default function PhieuNhapKhoCreate() {
                         {poList.map(po => (
                             <option key={po.id} value={po.id}>
                                 {po.soDonMua} · {po.nhaCungCap?.tenNhaCungCap}{poCoPhieuNhap.has(Number(po.id)) ? " · có phiếu nháp" : ""}
-                            </option>
-                        ))}
-                    </select>
-                )}
-                {importSource === "TRANSFER" && (
-                    <select className={O_CHON} value={form.transferId} disabled={actionLoading} onChange={(e) => { bangHang.xoaTuKhoa(); handleSelectTransfer(e.target.value); }}>
-                        <option value="">{transferList.length ? "Chọn phiếu chuyển kho" : "Không có phiếu chuyển nào chờ nhập"}</option>
-                        {transferList.map(t => (
-                            <option key={t.id} value={t.id}>
-                                {t.soPhieuXuat} · {t.kho?.tenKho} → {t.khoChuyenDen?.tenKho}{t.trangThai === 4 ? " · đã hủy, nhập lại kho nguồn" : ""}
                             </option>
                         ))}
                     </select>
@@ -734,18 +598,16 @@ export default function PhieuNhapKhoCreate() {
                 ) : <span className="text-bo-muted">—</span>),
             },
         ]
-        : [{ ma: "sl", nhan: importSource === "TRANSFER" ? "Số lượng chuyển" : "Số lượng trả", lop: "w-36 text-right", nhom: (n) => soVN(n.tong.soLuong), dong: (d) => soVN(d.soLuong) }];
+        : [{ ma: "sl", nhan: "Số lượng trả", lop: "w-36 text-right", nhom: (n) => soVN(n.tong.soLuong), dong: (d) => soVN(d.soLuong) }];
 
     const bang = noSourceSelected ? (
         <EmptyState
-            icon={importSource === "PO" ? FileText : importSource === "TRANSFER" ? Truck : Undo2}
-            title={importSource === "PO" ? "Chưa chọn đơn mua hàng" : importSource === "TRANSFER" ? "Chưa chọn phiếu chuyển kho" : "Chưa chọn phiếu xuất"}
+            icon={importSource === "PO" ? FileText : Undo2}
+            title={importSource === "PO" ? "Chưa chọn đơn mua hàng" : "Chưa chọn phiếu xuất"}
             description={
                 importSource === "PO"
-                    ? "Chỉ hiện đơn mua về kho của bạn và còn hàng chưa nhận."
-                    : importSource === "TRANSFER"
-                        ? "Chỉ hiện phiếu đang vận chuyển tới kho của bạn, hoặc phiếu đã hủy cần nhập lại kho nguồn."
-                        : "Chỉ hiện phiếu xuất đã giao của đơn bán bị hoàn trả và chưa nhập trả."
+                    ? "Chỉ hiện đơn mua về kho của bạn và còn hàng chưa nhận. Hàng chuyển kho nội bộ nhận ở màn phiếu chuyển kho."
+                    : "Chỉ hiện phiếu xuất đã giao của đơn bán bị hoàn trả và chưa nhập trả."
             }
             className="min-h-[280px] flex-1"
         />
@@ -753,14 +615,14 @@ export default function PhieuNhapKhoCreate() {
         <BangHangTaoPhieu
             bang={bangHang}
             cot={cotBang}
-            tenChungTu={importSource === "PO" ? "Đơn mua hàng" : importSource === "TRANSFER" ? "Phiếu chuyển kho" : "Phiếu xuất"}
-            nhan={importSource === "PO" ? "Hàng trong đơn mua" : importSource === "TRANSFER" ? "Hàng trong phiếu chuyển kho" : "Hàng khách trả"}
+            tenChungTu={importSource === "PO" ? "Đơn mua hàng" : "Phiếu xuất"}
+            nhan={importSource === "PO" ? "Hàng trong đơn mua" : "Hàng khách trả"}
             rongToiThieu={importSource === "PO" ? (coPhieuGiu ? "@2xl/khoi:min-w-[730px]" : "@2xl/khoi:min-w-[620px]") : "@2xl/khoi:min-w-[460px]"}
         />
     );
 
     // ── Cột thuộc tính ──
-    const oGhiChu = importSource === "TRANSFER" ? null : (
+    const oGhiChu = (
         <NhomThuocTinh>
             <label className="grid gap-1.5">
                 <span className={NHAN_O}>Ghi chú</span>
@@ -789,15 +651,6 @@ export default function PhieuNhapKhoCreate() {
                         {selectedPO.nhaCungCap?.maNhaCungCap ? (
                             <div className="mt-0.5 font-mono text-xs text-bo-muted">{selectedPO.nhaCungCap.maNhaCungCap}</div>
                         ) : null}
-                    </NhomThuocTinh>
-                )}
-                {importSource === "TRANSFER" && (
-                    <NhomThuocTinh nhan={laHuyChuyen ? "Hàng quay về" : "Tuyến chuyển"}>
-                        {laHuyChuyen ? (
-                            <TuyenChuyen khoNguon={selectedTransfer.khoNhapTen} khoDich={selectedTransfer.khoXuatTen} ghiChu="Phiếu đã hủy: nhập lại kho đã xuất hàng" />
-                        ) : (
-                            <TuyenChuyen khoNguon={selectedTransfer.khoXuatTen} khoDich={selectedTransfer.khoNhapTen} />
-                        )}
                     </NhomThuocTinh>
                 )}
                 {importSource === "RETURN" && (
