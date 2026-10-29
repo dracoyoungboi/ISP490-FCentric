@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { bienDong, formatTienNgan, tachTien } from "./tongQuanFormat.js";
 import { diemDaTron, giaTriDiem, tongHopKy, vachTruc } from "./tongQuanSoLieu.js";
 import { danhSachViec, duongDanLoiDongBo } from "./viecCanXuLy.js";
+import { demMaNhom, khaDungNhom, nhomCanBoSung, tomTatBienThe } from "./canBoSung.js";
 
 // Intl dùng khoảng trắng hẹp/thường tùy máy: so sánh sau khi gom khoảng trắng
 const gon = (s) => s.replace(/\s/g, " ");
@@ -116,4 +117,46 @@ test("máy chủ cũ chưa có lỗi đồng bộ và đơn mua quá hạn: khô
   // Sàn chưa có trang riêng (Shopee) mở danh sách kênh; Lazada đã có trang Sản phẩm riêng (KH Lazada/TikTok mục B.1)
   assert.equal(duongDanLoiDongBo("SHOPEE"), "/channels");
   assert.equal(duongDanLoiDongBo("LAZADA"), "/channels/lazada/products?trangThai=loi");
+});
+
+const ma = (tenMau, tenKichCo, khaDung = 1, nguong = 80, extra = {}) => ({ tenMau, tenKichCo, khaDung, nguong, ...extra });
+
+test("cần bổ sung: tóm tắt màu – cỡ theo thứ tự gặp, đuôi cỡ chung ghi một lần", () => {
+  const quan = ["21 Inch", "22 Inch", "23 Inch"];
+  const ds = [...quan.map((c) => ma("Xanh dương", c)), ...quan.map((c) => ma("Xám", c))];
+  assert.equal(tomTatBienThe(ds), "Xanh dương 21 · 22 · 23 / Xám 21 · 22 · 23 Inch");
+  assert.equal(tomTatBienThe([ma("Đen", "S"), ma("Đen", "M"), ma("Trắng", "S")]), "Đen S · M / Trắng S");
+  // Đuôi không chung thì giữ nguyên tên cỡ; mã không màu chỉ ghi cỡ; không trùng cỡ
+  assert.equal(tomTatBienThe([ma("Đen", "21 Inch"), ma("Đen", "Free size")]), "Đen 21 Inch · Free size");
+  // "Free Size" ở nhiều màu: không phải số + đơn vị nên giữ nguyên tên cỡ
+  assert.equal(tomTatBienThe([ma("Đen", "Free Size"), ma("Trắng", "Free Size")]), "Đen Free Size / Trắng Free Size");
+  assert.equal(tomTatBienThe([ma("Be", "28,5 cm"), ma("Be", "29 cm")]), "Be 28,5 · 29 cm");
+  assert.equal(tomTatBienThe([ma(null, "S"), ma(null, "S")]), "S");
+  assert.equal(tomTatBienThe([]), "");
+});
+
+test("cần bổ sung: khả dụng của nhóm là mã thấp nhất, ghi mỗi mã khi đều nhau", () => {
+  assert.deepEqual(khaDungNhom([ma("A", "S"), ma("A", "M")]), { khaDung: 1, nguong: 80, deu: true });
+  assert.deepEqual(khaDungNhom([ma("A", "S", 3), ma("A", "M", 0)]), { khaDung: 0, nguong: 80, deu: false });
+  assert.equal(demMaNhom({ soHet: 0, soSapHet: 6 }), "6 mã");
+  assert.equal(demMaNhom({ soHet: 1, soSapHet: 5 }), "1 hết · 5 sắp hết");
+  assert.equal(demMaNhom({ soHet: 1, soSapHet: 0 }), "1 mã");
+});
+
+test("cần bổ sung: dùng nhóm của máy chủ; máy chủ cũ thì gom các mã liền nhau cùng sản phẩm và kho", () => {
+  const nhom = [{ sanPhamId: 7, tenSanPham: "Quần", khoId: 1, soHet: 0, soSapHet: 1, dong: [] }];
+  assert.equal(nhomCanBoSung({ nhom }), nhom);
+  const dong = [
+    ma("Đen", "S", 0, 80, { tenSanPham: "Áo", khoId: 1, tenKho: "Kho tổng", laKhoTong: true }),
+    ma("Xám", "21 Inch", 1, 80, { tenSanPham: "Quần", khoId: 1 }),
+    ma("Xám", "22 Inch", 1, 80, { tenSanPham: "Quần", khoId: 1 }),
+    ma("Xám", "22 Inch", 1, 80, { tenSanPham: "Quần", khoId: 2 }),
+  ];
+  const kq = nhomCanBoSung({ dong });
+  assert.deepEqual(kq.map((n) => [n.tenSanPham, n.khoId, n.dong.length, n.soHet, n.soSapHet]), [
+    ["Áo", 1, 1, 1, 0],
+    ["Quần", 1, 2, 0, 2],
+    ["Quần", 2, 1, 0, 1],
+  ]);
+  assert.deepEqual(nhomCanBoSung(undefined), []);
 });
