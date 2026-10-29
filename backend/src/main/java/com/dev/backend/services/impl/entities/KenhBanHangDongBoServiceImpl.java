@@ -1857,6 +1857,28 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     break;
                 }
             }
+
+            if (capNhatThanhCong) {
+                for (DongCanCapNhat item : batch) {
+                    item.dong().setTrangThaiDongBo("thanh_cong");
+                    item.dong().setChiTietLoi(null);
+                    item.dong().setSoLuongDaDay(item.soDay());
+                    item.dong().setNgayDayTonCuoi(now);
+                    soThanhCong++;
+                    theoDoi.daDay(item.sellerSku(), null, true, null);
+                }
+            } else {
+                String errorMsg = loiKenh != null ? loiKenh : "Cập nhật tồn thất bại trên TikTok Shop";
+                for (DongCanCapNhat item : batch) {
+                    item.dong().setTrangThaiDongBo("that_bai");
+                    item.dong().setChiTietLoi(errorMsg);
+                    soLoi++;
+                    theoDoi.daDay(item.sellerSku(), tenHienThi(item.dong().getBienTheSanPham()), false, errorMsg);
+                }
+            }
+
+            List<TrangThaiDongBoSanPham> batchEntities = batch.stream().map(DongCanCapNhat::dong).toList();
+            trangThaiDongBoSanPhamRepository.saveAll(batchEntities);
         }
 
         return null;
