@@ -1881,7 +1881,26 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             trangThaiDongBoSanPhamRepository.saveAll(batchEntities);
         }
 
-        return null;
+        int soChuaDay = dirtyList.size() - (soThanhCong + soLoi);
+        if (soThanhCong > 0) {
+            lanDayTonCuoi.put(kenh.getId(), Instant.now());
+        }
+
+        String moTa = "TikTok Shop: Đẩy tồn theo nhóm sản phẩm cha (" + dirtyList.size() + " SKU dirty, gom thành "
+                + groupedByProduct.size() + " sản phẩm cha, bỏ qua " + soBoQuaKhongDoi + " SKU không đổi): "
+                + soThanhCong + " thành công, " + soLoi + " lỗi, " + soChuaDay + " chưa đẩy"
+                + (loiKenh != null ? " (" + loiKenh + ")" : "");
+        if (dungTheoYeuCau) {
+            moTa += "; dừng theo yêu cầu";
+        }
+        ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_ton_kho, moTa);
+
+        return DayTonResultDto.builder()
+                .soDong(dirtyList.size())
+                .soLoi(soLoi)
+                .soChuaDay(soChuaDay)
+                .loiKenh(loiKenh)
+                .build();
     }
 
     private DayTonResultDto dayTonLazadaToiUu(
@@ -2066,6 +2085,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 }
             }
             return dayTonLazadaToiUu(kenh, maKenh, dongCanDay, tyLe, tonDem, nguongVe0, theoDoi);
+        } else if (OmnichannelOrderSyncJob.MA_KENH_TIKTOK.equalsIgnoreCase(kenh.getMaKenh()) || "TIKTOK".equalsIgnoreCase(kenh.getMaKenh())) {
+            return dayTonTikTokToiUu(kenh, maKenh, dongCanDay, tyLe, tonDem, nguongVe0, theoDoi);
         } else if (dongCanDay.isEmpty() && trangThaiDongBoSanPhamRepository.countByKenhBanHangId(kenh.getId()) == 0) {
             log.info("Kênh {} chưa có SKU liên kết nào, tự động kích hoạt liên kết & tạo sản phẩm trước khi đẩy tồn...", kenh.getMaKenh());
             try {
