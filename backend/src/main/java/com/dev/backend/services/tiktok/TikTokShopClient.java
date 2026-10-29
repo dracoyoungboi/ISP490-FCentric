@@ -9,6 +9,8 @@ import com.dev.backend.dto.response.customize.TikTokProductDto;
 import com.dev.backend.dto.response.customize.TikTokProductSearchResponse;
 import com.dev.backend.dto.response.customize.TikTokSkuDto;
 import com.dev.backend.dto.request.TikTokInventoryUpdateRequest;
+import com.dev.backend.dto.request.TikTokOrderSearchRequest;
+import com.dev.backend.dto.response.customize.TikTokOrderSearchResponse;
 import com.dev.backend.dto.response.customize.TikTokInventoryUpdateResponse;
 import com.dev.backend.exception.customize.LoiCoMaException;
 import com.dev.backend.exception.customize.MaLoi;
@@ -336,6 +338,41 @@ public class TikTokShopClient {
             response.setData(data);
         }
         return response;
+    }
+
+    /**
+     * Tìm kiếm danh sách đơn hàng từ TikTok Shop API v202309 theo cửa sổ thời gian hoặc trạng thái.
+     * Endpoint: POST /order/202309/orders/search
+     * Query params: app_key, timestamp, sign, shop_cipher
+     * Body: JSON TikTokOrderSearchRequest
+     */
+    public TikTokOrderSearchResponse searchOrders(String appKey, String appSecret, String accessToken,
+                                                 String shopCipher, TikTokOrderSearchRequest request) {
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new IllegalArgumentException("Access Token không được để trống khi tìm kiếm đơn hàng TikTok Shop");
+        }
+        if (shopCipher == null || shopCipher.isBlank()) {
+            throw new IllegalArgumentException("Shop Cipher không được để trống khi tìm kiếm đơn hàng TikTok Shop");
+        }
+
+        String apiPath = TikTokShopConstants.PATH_ORDERS_SEARCH;
+        String body;
+        try {
+            body = objectMapper.writeValueAsString(request != null ? request : new TikTokOrderSearchRequest());
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Lỗi serialize payload tìm kiếm đơn hàng: " + e.getMessage(), e);
+        }
+
+        String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, Map.of(), body, appKey, appSecret, shopCipher);
+        JsonNode root = executePost(fullSignedUrl, body, accessToken);
+
+        try {
+            return objectMapper.treeToValue(root, TikTokOrderSearchResponse.class);
+        } catch (Exception e) {
+            log.error("Lỗi parse phản hồi danh sách đơn hàng TikTok Shop: {}", e.getMessage());
+            throw new LoiCoMaException(HttpStatus.INTERNAL_SERVER_ERROR, MaLoi.TIKTOK_API_ERROR,
+                    "Không thể phân tích dữ liệu đơn hàng trả về từ TikTok Shop: " + e.getMessage());
+        }
     }
 
     public TikTokAuthorizedShopsResponse getAuthorizedShops(String appKey, String appSecret, String accessToken) {
