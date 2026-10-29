@@ -1,12 +1,15 @@
+import { useId, useState } from "react";
 import { Link } from "react-router-dom";
-import { Boxes, ChevronRight } from "lucide-react";
+import { Boxes, ChevronDown, ChevronRight } from "lucide-react";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { cn } from "@/lib/utils";
 import { duongDanKemThamSo } from "@/utils/thamSoDuongDan";
 import { Card, LE, MoreLink, StackBar } from "./ui";
 import { MAU2 } from "./mau";
 import { dsKhoDayDu } from "./boLoc";
+import DauTichDong from "./DauTichDong";
 import { formatPhanTram, formatSo, formatTienNgan, tachTien, tyLe } from "../tong-quan/tongQuanFormat";
+import { demMaNhom, khaDungNhom, nhomCanBoSung, tomTatBienThe } from "../tong-quan/canBoSung";
 
 const MUC = [
   { key: "hetHang", ten: "Hết hàng", tab: "het-hang" },
@@ -20,16 +23,17 @@ const MUC = [
    Tên dài thì xuống dòng (tối đa 2 dòng), nhãn trạng thái tự xuống theo. */
 const O_DAU = "pl-5 pr-4 @max-[520px]:pl-4";
 const O_CUOI = "pr-5 @max-[520px]:pr-4";
+const LINK =
+  "inline-flex max-w-full items-center gap-0.5 rounded text-left font-medium text-bo-primary hover:text-bo-primary-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30";
 
 /**
- * Tồn kho hiện tại: 5 con số (giá trị, khả dụng, giữ cho đơn, đang về, đang chuyển), mức tồn so với ngưỡng
- * (bấm từng mức mở Báo cáo tồn kho đúng tab), cảnh báo hàng dư, danh sách cần bổ sung kèm đề xuất mở sẵn form,
- * và một dòng nhập – xuất của kỳ. Phần không cần làm gì thì không chiếm chỗ: không có mã cần bổ sung thì bỏ hẳn
- * mục đó (chú thích Hết hàng 0 · Sắp hết hàng 0 đã nói), giải thích cách tính để ở chú thích khi rê chuột.
+ * Tồn kho hiện tại (PA A, chốt 29/10/2026): 4 con số (giá trị, khả dụng đã trừ hàng giữ cho đơn, đang về, đang chuyển),
+ * mức tồn so với ngưỡng (bấm từng mức mở Báo cáo tồn kho đúng tab), cảnh báo hàng dư, và tối đa 3 nhóm cần bổ sung gom
+ * theo sản phẩm tại từng kho (mở nhóm thấy từng mã kèm đề xuất). "Xem tất cả" mở tab Cần bổ sung của Báo cáo tồn kho.
+ * Số nhập – xuất của kỳ nằm ở chân thẻ Hoạt động gần đây để thẻ này chỉ chứa số hiện tại.
  */
-export default function StockFlow({ data, khoId, loading, loiTonKho, loiBoSung, loiNhapXuat, onRetry, className }) {
+export default function StockFlow({ data, khoId, loading, loiTonKho, loiBoSung, onRetry, className }) {
   const t = data?.tonKho;
-  const io = data?.nhapXuat;
   const bs = data?.hangCanBoSung;
   const kho = khoId == null ? "tat-ca" : khoId;
   const theoKho = t?.theoKho ?? [];
@@ -50,8 +54,13 @@ export default function StockFlow({ data, khoId, loading, loiTonKho, loiBoSung, 
                 ? `${formatPhanTram(tyLe(khoTong, tongHeThong), 0)} ở Kho tổng`
                 : "theo giá vốn lô",
         },
-        { ten: "Khả dụng", so: formatSo(t.khaDung), phu: "sản phẩm" },
-        { ten: "Giữ cho đơn", so: formatSo(t.dangGiu), phu: "sản phẩm" },
+        // Giữ cho đơn không còn ô riêng: khả dụng đã trừ phần đó, ghi ở dòng phụ
+        {
+          ten: "Khả dụng",
+          so: formatSo(t.khaDung),
+          phu: t.dangGiu > 0 ? `đã trừ ${formatSo(t.dangGiu)} giữ cho đơn` : "sản phẩm",
+          chu: `Tồn thực tế ${formatSo(t.tonThucTe)} − đang giữ cho đơn ${formatSo(t.dangGiu)}`,
+        },
         { ten: "Đang về", so: formatSo(t.dangVe), phu: "từ đơn mua" },
         { ten: "Đang chuyển", so: formatSo(t.dangChuyen), phu: khoId == null ? "giữa các kho" : "đi hoặc đến kho này" },
       ]
@@ -76,18 +85,18 @@ export default function StockFlow({ data, khoId, loading, loiTonKho, loiBoSung, 
     >
       {t ? (
         <>
-          <dl className="grid grid-cols-5 border-b border-[#eef1f5] @max-[600px]:grid-cols-2">
+          <dl className="grid grid-cols-4 border-b border-[#eef1f5] @max-[600px]:grid-cols-2">
             {so.map((f, i) => (
               <div
                 key={f.ten}
+                title={f.chu}
                 className={cn(
                   "min-w-0 border-[#eef1f5] px-5 py-3.5 @max-[860px]:px-4",
-                  i < 4 && "border-r",
-                  // Thẻ hẹp: ô đầu chiếm cả hàng, 4 ô còn lại 2 × 2
+                  i < 3 && "border-r",
+                  // Thẻ hẹp: 2 × 2
                   "@max-[600px]:border-r-0",
-                  i === 0 && "@max-[600px]:col-span-2 @max-[600px]:border-b",
-                  (i === 1 || i === 3) && "@max-[600px]:border-r",
-                  (i === 1 || i === 2) && "@max-[600px]:border-b",
+                  i % 2 === 0 && "@max-[600px]:border-r",
+                  i < 2 && "@max-[600px]:border-b",
                 )}
               >
                 <dt className="truncate text-sm text-bo-muted">{f.ten}</dt>
@@ -138,21 +147,7 @@ export default function StockFlow({ data, khoId, loading, loiTonKho, loiBoSung, 
             ) : null}
           </div>
 
-          {loiBoSung || bs?.dong?.length ? <CanBoSung bs={bs} data={data} kho={kho} error={loiBoSung} onRetry={onRetry} /> : null}
-
-          <div className={cn(LE, "flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-[#eef1f5] py-3 text-sm text-bo-muted")}>
-            {loiNhapXuat || !io ? (
-              <span role={loiNhapXuat ? "alert" : undefined}>{loiNhapXuat ? "Không tải được số liệu nhập – xuất." : ""}</span>
-            ) : (
-              <span title={io.boChuyenKhoNoiBo ? "Không tính chuyển kho nội bộ giữa các kho" : "Gồm hàng chuyển đến và chuyển đi của kho này"}>
-                Trong kỳ: nhập <b className="font-semibold tabular-nums text-bo-foreground">{formatSo(io.tongNhap)}</b> · xuất{" "}
-                <span className="whitespace-nowrap">
-                  <b className="font-semibold tabular-nums text-bo-foreground">{formatSo(io.tongXuat)}</b> sản phẩm
-                </span>
-              </span>
-            )}
-            <MoreLink to="/reports/stock-movements">Nhật ký nhập – xuất</MoreLink>
-          </div>
+          <CanBoSung bs={bs} data={data} kho={kho} error={loiBoSung} onRetry={onRetry} />
         </>
       ) : null}
     </Card>
@@ -166,7 +161,7 @@ function timKhoTongId(data) {
 }
 
 /**
- * Đường dẫn mở sẵn form theo đề xuất của một dòng:
+ * Đường dẫn mở sẵn form theo đề xuất của một mã:
  * - chuyển kho: Kho tổng → kho cần hàng, đúng mã hàng, số lượng đề xuất;
  * - yêu cầu nhập: mã hàng, số lượng đề xuất (kho nhận luôn là Kho tổng, trang tự giải thích nếu dòng là kho bán hàng).
  */
@@ -187,17 +182,62 @@ function duongDanDeXuat(d, khoTongId) {
   });
 }
 
-/** Chỉ hiện khi có mã cần bổ sung hoặc khi tải danh sách lỗi. */
+/** Nút đề xuất của một mã; chú thích ghi số Kho tổng có thể chuyển (đã trừ đơn bán chờ xuất) như bảng cũ. */
+function DeXuat({ d, coKhoTong, khoTongId }) {
+  const chuyen = d.deXuat === "chuyen_kho";
+  const daTru = d.choXuatKhoTong > 0 ? ` (đã trừ ${formatSo(d.choXuatKhoTong)} đơn bán đang chờ xuất)` : "";
+  const ghiChu = chuyen
+    ? `Kho tổng còn ${formatSo(d.khaDungKhoTong)} có thể chuyển${daTru}`
+    : d.laKhoTong
+      ? "Kho tổng nhập từ nhà cung cấp"
+      : !coKhoTong
+        ? "Chưa đánh dấu Kho tổng"
+        : `Kho tổng chỉ còn ${formatSo(d.khaDungKhoTong ?? 0)} có thể chuyển${daTru}, không đủ chuyển`;
+  return (
+    <Link to={duongDanDeXuat(d, khoTongId)} title={ghiChu} className={LINK}>
+      <span className="text-pretty">{chuyen ? `Chuyển ${formatSo(d.soLuongDeXuat)} từ Kho tổng` : `Yêu cầu nhập ${formatSo(d.soLuongDeXuat)}`}</span>
+      <ChevronRight className="size-3.5 shrink-0" aria-hidden="true" />
+    </Link>
+  );
+}
+
+/** Nhãn trạng thái của nhóm: một nhãn; nhóm lẫn hai mức thì hai nhãn. */
+function NhanNhom({ n }) {
+  return (
+    <>
+      {n.soHet > 0 ? <StatusBadge label="Hết hàng" /> : null}
+      {n.soSapHet > 0 ? <StatusBadge label="Sắp hết hàng" /> : null}
+    </>
+  );
+}
+
+/**
+ * Cần bổ sung: tối đa 3 nhóm (sản phẩm, kho) tệ nhất do máy chủ chọn, mỗi nhóm đủ các mã. Nhóm một mã giữ nút đề xuất
+ * như bảng cũ; nhóm nhiều mã ghi tóm tắt màu – cỡ và mở ra từng mã. Không có mã nào thì một dòng xác nhận.
+ */
 function CanBoSung({ bs, data, kho, error, onRetry }) {
-  const rows = bs?.dong ?? [];
+  const [mo, setMo] = useState(() => new Set());
+  const idGoc = useId();
+  // Máy chủ trả tối đa 3 nhóm, mỗi nhóm có ít nhất một mã; máy chủ cũ gom từ danh sách phẳng nên cắt lại cho chắc
+  const nhom = nhomCanBoSung(bs).filter((n) => n.dong?.length).slice(0, 3);
+  const tongSo = bs?.tongSo ?? 0;
   const khoTongId = timKhoTongId(data);
+  const coKhoTong = bs?.coKhoTong ?? khoTongId != null;
+  const doiMo = (khoa) =>
+    setMo((cu) => {
+      const moi = new Set(cu);
+      if (moi.has(khoa)) moi.delete(khoa);
+      else moi.add(khoa);
+      return moi;
+    });
+
   return (
     <div>
       <div className={cn(LE, "flex items-center gap-2 pb-2.5 pt-3.5")}>
         <h3 className="text-sm font-semibold text-bo-foreground">Cần bổ sung</h3>
-        {rows.length ? (
-          <MoreLink to={`/reports/inventory?kho=${kho}&tinhTrang=het-hang`} className="ml-auto">
-            {bs.tongSo > rows.length ? `Xem tất cả ${formatSo(bs.tongSo)}` : "Xem tất cả"}
+        {tongSo > 0 ? (
+          <MoreLink to={`/reports/inventory?kho=${kho}&tinhTrang=can-bo-sung`} className="ml-auto">
+            {`Xem tất cả ${formatSo(tongSo)}`}
           </MoreLink>
         ) : null}
       </div>
@@ -208,10 +248,22 @@ function CanBoSung({ bs, data, kho, error, onRetry }) {
             Thử lại
           </button>
         </p>
+      ) : nhom.length === 0 ? (
+        // Còn mã cần bổ sung mà không có nhóm để hiện (hiếm): chỉ để liên kết Xem tất cả, không báo "không có mã nào"
+        tongSo > 0 ? null : (
+          <div className={cn(LE, "flex items-center gap-3 pb-4")}>
+            <DauTichDong key={data?.thoiDiem} className="size-9" />
+            <div>
+              <p className="text-sm font-medium text-bo-foreground">Không có mã nào hết hoặc sắp hết hàng</p>
+              <p className="text-xs text-bo-muted">Mã chạm ngưỡng tối thiểu sẽ hiện ở đây.</p>
+            </div>
+          </div>
+        )
       ) : (
         <table className="w-full table-fixed text-sm">
-          <caption className="sr-only">Mã hàng cần bổ sung và đề xuất</caption>
-          <thead>
+          <caption className="sr-only">Mã hàng cần bổ sung, gom theo sản phẩm tại từng kho, kèm đề xuất</caption>
+          {/* Điện thoại chỉ còn một cột: bỏ dòng tiêu đề cột như bản thiết kế */}
+          <thead className="@max-[440px]:hidden">
             <tr className="border-y border-[#eef1f5] bg-bo-surface-subtle text-left text-xs text-bo-muted">
               <th scope="col" className={cn(O_DAU, "py-2 font-medium")}>Sản phẩm</th>
               <th scope="col" className="w-[26%] py-2 pr-4 font-medium @max-[860px]:hidden">Kho</th>
@@ -219,57 +271,105 @@ function CanBoSung({ bs, data, kho, error, onRetry }) {
               <th scope="col" className={cn(O_CUOI, "w-[212px] py-2 text-right font-medium @max-[440px]:hidden")}>Đề xuất</th>
             </tr>
           </thead>
-          <tbody>
-            {rows.map((d) => {
-              const chuyen = d.deXuat === "chuyen_kho";
-              // "Có thể chuyển" (đã trừ đơn bán đang chờ xuất ở Kho tổng), khác cột Khả dụng; khớp mức tạo phiếu chuyển cho phép
-              const daTru = d.choXuatKhoTong > 0 ? ` (đã trừ ${formatSo(d.choXuatKhoTong)} đơn bán đang chờ xuất)` : "";
-              const ghiChu = chuyen
-                ? `Kho tổng còn ${formatSo(d.khaDungKhoTong)} có thể chuyển${daTru}`
-                : d.laKhoTong
-                  ? "Kho tổng nhập từ nhà cung cấp"
-                  : !bs.coKhoTong
-                    ? "Chưa đánh dấu Kho tổng"
-                    : `Kho tổng chỉ còn ${formatSo(d.khaDungKhoTong ?? 0)} có thể chuyển${daTru}, không đủ chuyển`;
-              const bien = [d.tenMau, d.tenKichCo].filter(Boolean).join(" / ");
-              const kd = `${formatSo(d.khaDung)} / ${formatSo(d.nguong)}`;
-              const deXuat = (
-                <Link
-                  to={duongDanDeXuat(d, khoTongId)}
-                  title={ghiChu}
-                  className="inline-flex max-w-full items-center gap-0.5 rounded text-left font-medium text-bo-primary hover:text-bo-primary-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
-                >
-                  <span className="text-pretty">{chuyen ? `Chuyển ${formatSo(d.soLuongDeXuat)} từ Kho tổng` : `Yêu cầu nhập ${formatSo(d.soLuongDeXuat)}`}</span>
-                  <ChevronRight className="size-3.5 shrink-0" aria-hidden="true" />
-                </Link>
-              );
-              return (
-                <tr key={`${d.khoId}-${d.bienTheId}`} className="border-b border-[#eef1f5] last:border-b-0 hover:bg-bo-surface-subtle">
-                  <td className={cn(O_DAU, "py-2.5 align-middle")}>
-                    <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5" title={d.tenSanPham}>
-                      <span className="line-clamp-2 min-w-0 font-medium text-bo-foreground">{d.tenSanPham}</span>
-                      <StatusBadge label={d.khaDung <= 0 ? "Hết hàng" : "Sắp hết hàng"} />
-                    </span>
-                    <span className="mt-0.5 block text-xs text-bo-muted">
-                      {bien}
-                      {d.maSku ? <span className="@max-[440px]:hidden">{`${bien ? " · " : ""}${d.maSku}`}</span> : null}
-                      <span className="hidden @max-[860px]:inline">{` · ${d.tenKho}`}</span>
-                      <span className="hidden whitespace-nowrap @max-[440px]:inline">{` · khả dụng ${kd}`}</span>
-                    </span>
-                    {/* Điện thoại: cột Đề xuất ẩn, đề xuất xuống dưới tên */}
-                    <span className="mt-1 hidden @max-[440px]:block">{deXuat}</span>
-                  </td>
-                  <td className="py-2.5 pr-4 text-bo-foreground @max-[860px]:hidden">
-                    <span className="line-clamp-2" title={d.tenKho}>{d.tenKho}</span>
-                  </td>
-                  <td className="whitespace-nowrap py-2.5 pr-4 text-right tabular-nums text-bo-foreground @max-[440px]:hidden">{kd}</td>
-                  <td className={cn(O_CUOI, "py-2.5 text-right @max-[440px]:hidden")}>{deXuat}</td>
-                </tr>
-              );
-            })}
-          </tbody>
+          {nhom.map((n, i) => {
+            const khoa = `${n.khoId}-${n.sanPhamId ?? n.tenSanPham}`;
+            return (
+              <Nhom
+                key={khoa}
+                n={n}
+                mo={mo.has(khoa)}
+                onDoi={() => doiMo(khoa)}
+                idMa={`${idGoc}-${i}`}
+                coKhoTong={coKhoTong}
+                khoTongId={khoTongId}
+              />
+            );
+          })}
         </table>
       )}
     </div>
+  );
+}
+
+function Nhom({ n, mo, onDoi, idMa, coKhoTong, khoTongId }) {
+  const ds = n.dong ?? [];
+  const nhieu = ds.length > 1;
+  const d0 = ds[0];
+  const kd = khaDungNhom(ds);
+  const soKd = `${formatSo(kd.khaDung)} / ${formatSo(kd.nguong)}`;
+  const nutMo = (
+    <button
+      type="button"
+      onClick={onDoi}
+      aria-expanded={mo}
+      aria-controls={idMa}
+      className={cn(LINK, "cursor-pointer whitespace-nowrap")}
+    >
+      {mo ? "Thu gọn" : `Xem ${formatSo(ds.length)} mã`}
+      <span className="sr-only">{mo ? ` các mã của ${n.tenSanPham}` : ` của ${n.tenSanPham}`}</span>
+      <ChevronDown className={cn("size-3.5 shrink-0 transition-transform motion-reduce:transition-none", mo && "rotate-180")} aria-hidden="true" />
+    </button>
+  );
+  const hanhDong = nhieu ? nutMo : <DeXuat d={d0} coKhoTong={coKhoTong} khoTongId={khoTongId} />;
+  const bien0 = d0 ? [d0.tenMau, d0.tenKichCo].filter(Boolean).join(" / ") : "";
+
+  return (
+    <>
+      <tbody className="border-t border-[#eef1f5]">
+        <tr className="hover:bg-bo-surface-subtle">
+          <td className={cn(O_DAU, "py-2.5 align-middle")}>
+            <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5" title={n.tenSanPham}>
+              <span className="line-clamp-2 min-w-0 font-medium text-bo-foreground">{n.tenSanPham}</span>
+              <NhanNhom n={n} />
+            </span>
+            <span className="mt-0.5 block text-xs text-bo-muted">
+              {nhieu ? demMaNhom(n) : bien0}
+              {!nhieu && d0?.maSku ? <span className="@max-[440px]:hidden">{`${bien0 ? " · " : ""}${d0.maSku}`}</span> : null}
+              <span className="hidden @max-[860px]:inline">{` · ${n.tenKho}`}</span>
+              <span className="hidden whitespace-nowrap @max-[440px]:inline">{` · khả dụng ${soKd}${nhieu ? (kd.deu ? " mỗi mã" : " thấp nhất") : ""}`}</span>
+            </span>
+            {nhieu ? <span className="block text-xs text-bo-muted">{tomTatBienThe(ds)}</span> : null}
+            {/* Điện thoại: cột Đề xuất ẩn, nút xuống dưới tên */}
+            <span className="mt-1 hidden @max-[440px]:block">{hanhDong}</span>
+          </td>
+          <td className="py-2.5 pr-4 text-bo-foreground @max-[860px]:hidden">
+            <span className="line-clamp-2" title={n.tenKho}>{n.tenKho}</span>
+          </td>
+          <td className="whitespace-nowrap py-2.5 pr-4 text-right tabular-nums text-bo-foreground @max-[440px]:hidden">
+            {soKd}
+            {nhieu ? <span className="block text-xs text-bo-muted">{kd.deu ? "mỗi mã" : "thấp nhất"}</span> : null}
+          </td>
+          <td className={cn(O_CUOI, "py-2.5 text-right @max-[440px]:hidden")}>{hanhDong}</td>
+        </tr>
+      </tbody>
+      {/* Các mã của nhóm: luôn có trong trang (ẩn khi thu gọn) để aria-controls của nút mở nhóm luôn trỏ đúng chỗ */}
+      {nhieu ? (
+        <tbody id={idMa} hidden={!mo}>
+          {ds.map((d) => (
+            <tr key={d.bienTheId} className="border-t border-[#eef1f5] bg-bo-surface-subtle">
+              <td className={cn(O_DAU, "py-2 align-middle")}>
+                <span className="block border-l-2 border-bo-border pl-3">
+                  <span className="block text-bo-foreground">{[d.tenMau, d.tenKichCo].filter(Boolean).join(" / ")}</span>
+                  <span className="block text-xs text-bo-muted">
+                    {d.maSku}
+                    <span className="hidden whitespace-nowrap @max-[440px]:inline">{` · khả dụng ${formatSo(d.khaDung)} / ${formatSo(d.nguong)}`}</span>
+                  </span>
+                  <span className="mt-1 hidden @max-[440px]:block">
+                    <DeXuat d={d} coKhoTong={coKhoTong} khoTongId={khoTongId} />
+                  </span>
+                </span>
+              </td>
+              <td className="@max-[860px]:hidden" />
+              <td className="whitespace-nowrap py-2 pr-4 text-right tabular-nums text-bo-foreground @max-[440px]:hidden">
+                {formatSo(d.khaDung)} / {formatSo(d.nguong)}
+              </td>
+              <td className={cn(O_CUOI, "py-2 text-right @max-[440px]:hidden")}>
+                <DeXuat d={d} coKhoTong={coKhoTong} khoTongId={khoTongId} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      ) : null}
+    </>
   );
 }

@@ -87,13 +87,13 @@ export default function DashboardAdmin() {
         <div className={COT_CHINH}>
           <TrendCard {...chung} chon={chon} error={loi("doanhThu")} className={THU_TU[3]} />
           <Breakdowns {...chung} loiKho={loi("doanhThuTheoKho")} loiKenh={loi("theoKenh")} className={THU_TU[4]} />
-          <StockFlow {...chung} loiTonKho={loi("tonKho")} loiBoSung={loi("hangCanBoSung")} loiNhapXuat={loi("nhapXuat")} className={THU_TU[5]} />
+          <StockFlow {...chung} loiTonKho={loi("tonKho")} loiBoSung={loi("hangCanBoSung")} className={THU_TU[5]} />
         </div>
         <div className={COT_PHAI}>
           <ActionPanel {...chung} error={loi("viecCanXuLy")} className={THU_TU[1]} />
           <HomNayCard {...chung} error={loi("chiSo")} className={THU_TU[2]} />
           <ProductsCard {...chung} error={loi("sanPhamBanChay")} className={THU_TU[6]} />
-          <HoatDongGanDay {...chung} error={loi("hoatDongGanDay")} className={THU_TU[7]} />
+          <HoatDongGanDay {...chung} error={loi("hoatDongGanDay")} loiNhapXuat={loi("nhapXuat")} className={THU_TU[7]} />
         </div>
       </div>
     </PageContainer>

@@ -68,7 +68,7 @@ export function CardError({ onRetry, text = "Không tải được số liệu" 
   );
 }
 
-function CardEmpty({ icon, text }) {
+export function CardEmpty({ icon, text }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-2 py-6 text-center">
       {icon ? createElement(icon, { className: "size-5 text-slate-400", "aria-hidden": true }) : null}
