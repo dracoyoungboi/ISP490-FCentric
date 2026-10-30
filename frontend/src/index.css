@@ -71,16 +71,16 @@
 	--color-bo-primary-strong: #0b4fb3;
 
 	--color-bo-sidebar: #182537;
-	/* Hover / đang chọn / nhấn: nền sidebar phủ trắng 5% / 10% (13% khi rê) / 16%, đổi sẵn ra màu đặc.
+	/* Hover / đang chọn / nhấn: các bậc xanh navy sáng dần, mục đang chọn ngả xanh chứ không xám.
 	   Mục đang chọn chỉ để icon mang màu xanh, không tô khối xanh đặc. Nhấn sáng hơn hẳn
 	   "rê trên mục đang chọn" để vẫn thấy phản hồi khi người dùng tắt chuyển động. */
-	--color-bo-sidebar-hover: #232f40;
-	--color-bo-sidebar-active: #2f3b4b;
-	--color-bo-sidebar-active-hover: #364151;
-	--color-bo-sidebar-press: #3d4857;
+	--color-bo-sidebar-hover: #22344f;
+	--color-bo-sidebar-active: #2b4263;
+	--color-bo-sidebar-active-hover: #30496e;
+	--color-bo-sidebar-press: #355079;
 	--color-bo-sidebar-icon-active: #69b1ff;
-	--color-bo-sidebar-muted: #aeb9c9;
-	--color-bo-sidebar-border: #2d3a50;
+	--color-bo-sidebar-muted: #d5dbe4;
+	--color-bo-sidebar-border: #2a3d58;
 
 	--color-bo-success: #15803d;
 	--color-bo-success-soft: #ecfdf3;
