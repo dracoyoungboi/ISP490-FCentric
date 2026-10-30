@@ -6,6 +6,7 @@ import com.dev.backend.dto.request.*;
 import com.dev.backend.dto.response.LoginResponse;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.entities.NguoiDungDto;
+import com.dev.backend.dto.response.entities.PhienDangNhapDto;
 import com.dev.backend.dto.response.phanquyen.QuyenCuaToiDto;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.exception.customize.CommonException;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.beans.Transient;
+import java.util.List;
 import java.util.Optional;
 
 @RestController
@@ -60,7 +62,7 @@ public class NguoiDungController {
     public ResponseEntity<ResponseData<LoginResponse>> login(@Valid @RequestBody LoginRequest loginRequest,
                                                              HttpServletRequest request) {
         // IP thật của client (sau reverse proxy) để giới hạn số lần đăng nhập sai theo IP
-        return nguoiDungService.login(loginRequest, ClientIpResolver.resolve(request));
+        return nguoiDungService.login(loginRequest, ClientIpResolver.resolve(request), request.getHeader("User-Agent"));
     }
 
     // cập nhật thông tin người dùng: email không đổi được; tên đăng nhập chỉ quản trị viên đổi
@@ -164,6 +166,40 @@ public class NguoiDungController {
     )
     public ResponseEntity<ResponseData<String>> changePassword(@RequestBody ChangePasswordRequest changePass){
         return nguoiDungService.changePassword(changePass);
+    }
+
+    // Đăng xuất: thu hồi phiên hiện tại (lấy mã phiên từ token) để các request sau không dùng được nữa
+    @PostMapping("/logout")
+    @RequireAuth(roles = {IRoleType.all})
+    public ResponseEntity<ResponseData<String>> logout() {
+        return nguoiDungService.logout();
+    }
+
+    // Thiết bị đang đăng nhập của chính mình (màn "Bảo mật & Thiết bị" ở Hồ sơ)
+    @GetMapping("/me/phien")
+    @RequireAuth(roles = {IRoleType.all})
+    public ResponseEntity<ResponseData<List<PhienDangNhapDto>>> dsPhienCuaToi() {
+        return ResponseEntity.ok(
+                ResponseData.<List<PhienDangNhapDto>>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(nguoiDungService.dsPhienCuaToi())
+                        .message("Success")
+                        .error(null)
+                        .build());
+    }
+
+    // Đăng xuất một thiết bị cụ thể của chính mình
+    @PostMapping("/me/phien/{id}/dang-xuat")
+    @RequireAuth(roles = {IRoleType.all})
+    public ResponseEntity<ResponseData<String>> dangXuatPhien(@PathVariable Integer id) {
+        return nguoiDungService.dangXuatPhien(id);
+    }
+
+    // Đăng xuất tất cả thiết bị khác (giữ thiết bị hiện tại)
+    @PostMapping("/me/phien/dang-xuat-khac")
+    @RequireAuth(roles = {IRoleType.all})
+    public ResponseEntity<ResponseData<String>> dangXuatThietBiKhac() {
+        return nguoiDungService.dangXuatThietBiKhac();
     }
 }
 

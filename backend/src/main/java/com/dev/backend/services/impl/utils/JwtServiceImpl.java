@@ -84,7 +84,7 @@ public class JwtServiceImpl implements JwtService {
             List<PhanQuyenNguoiDungKhoDto> phanQuyenNguoiDungKhos,
             String userAgent) {
         return generateTokenWithPermissions(id, tenDangNhap, hoTen, email, soDienThoai, vaiTros, trangThai,
-                ngayTao, ngayCapNhat, phanQuyenNguoiDungKhos, userAgent, null);
+                ngayTao, ngayCapNhat, phanQuyenNguoiDungKhos, userAgent, null, null);
     }
 
     @Override
@@ -100,7 +100,8 @@ public class JwtServiceImpl implements JwtService {
             Instant ngayCapNhat,
             List<PhanQuyenNguoiDungKhoDto> phanQuyenNguoiDungKhos,
             String userAgent,
-            String credentialVersion) {
+            String credentialVersion,
+            String sid) {
         try {
             JWSHeader jwtHeader = new JWSHeader(JWSAlgorithm.HS256);
 
@@ -122,6 +123,7 @@ public class JwtServiceImpl implements JwtService {
                     .claim("warehousePermissions", phanQuyenNguoiDungKhosJson)
                     .claim("userAgent", userAgent)
                     .claim("cv", credentialVersion) // null -> không ghi claim
+                    .claim("sid", sid) // mã phiên đăng nhập; null (token cũ) -> không ghi claim, interceptor bỏ qua kiểm phiên
                     .build();
 
             Payload jwtPayload = new Payload(jwtClaimsSet.toJSONObject());
@@ -223,6 +225,7 @@ public class JwtServiceImpl implements JwtService {
                     .trangThai(claims.getIntegerClaim("trangThai"))
                     .phanQuyenNguoiDungKhos(phanQuyenNguoiDungKhoDtos)
                     .credentialVersion(claims.getStringClaim("cv"))
+                    .phienId(claims.getStringClaim("sid"))
                     .build();
         } catch (JOSEException | ParseException | JsonProcessingException e) {
             throw new RuntimeException("Error parsing token " + e.getMessage(), e);

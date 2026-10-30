@@ -29,7 +29,8 @@ public interface JwtService {
             String userAgent
     );
 
-    // Như trên + claim "cv" (credentialVersion của mật khẩu hiện tại) để thu hồi token khi đổi mật khẩu
+    // Như trên + claim "cv" (credentialVersion của mật khẩu hiện tại) để thu hồi token khi đổi mật khẩu,
+    // và claim "sid" (mã phiên đăng nhập) để đối chiếu bảng phien_dang_nhap mỗi request (null = không ghi claim)
     String generateTokenWithPermissions(
             Integer id,
             String tenDangNhap,
@@ -42,7 +43,8 @@ public interface JwtService {
             Instant ngayCapNhat,
             List<PhanQuyenNguoiDungKhoDto> phanQuyenNguoiDungKhos,
             String userAgent,
-            String credentialVersion
+            String credentialVersion,
+            String sid
     );
 
     // Dấu vân tay của mật khẩu (HMAC của hash, không lộ hash); đổi mật khẩu -> giá trị đổi -> token cũ bị thu hồi

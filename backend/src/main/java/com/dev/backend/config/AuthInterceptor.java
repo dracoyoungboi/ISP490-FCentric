@@ -5,12 +5,17 @@ import com.dev.backend.dto.response.entities.ChiTietQuyenKhoDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.dto.response.entities.PhanQuyenNguoiDungKhoDto;
 import com.dev.backend.entities.NguoiDung;
+import com.dev.backend.entities.PhienDangNhap;
 import com.dev.backend.exception.customize.AccountDisabledException;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.exception.customize.SessionRevokedException;
 import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.repository.PhanQuyenNguoiDungKhoRepository;
+import com.dev.backend.repository.PhienDangNhapRepository;
 import com.dev.backend.services.JwtService;
+import com.dev.backend.services.impl.entities.PhienDangNhapService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.jspecify.annotations.NonNull;
@@ -35,6 +40,17 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     @Autowired
     private PhanQuyenNguoiDungKhoRepository phanQuyenNguoiDungKhoRepository;
+
+    @Autowired
+    private PhienDangNhapRepository phienDangNhapRepository;
+
+    @Autowired
+    private PhienDangNhapService phienDangNhapService;
+
+    private static final Logger log = LoggerFactory.getLogger(AuthInterceptor.class);
+
+    // Cập nhật "hoạt động cuối" của phiên có tiết chế: chỉ ghi khi lần trước đã cũ hơn mốc này (không ghi DB mỗi request)
+    private static final java.time.Duration NGUONG_CHAM_TRUY_CAP = java.time.Duration.ofMinutes(2);
 
     static final String LOI_PHIEN_KHONG_HOP_LE = "Phiên đăng nhập không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.";
     static final String LOI_QUYEN_DA_DOI = "Quyền của bạn vừa được quản trị viên thay đổi. Vui lòng đăng nhập lại.";
@@ -90,6 +106,33 @@ public class AuthInterceptor implements HandlerInterceptor {
                 if (tokenVuotQuyenHienTai(nguoiDungAuthInfo, nguoiDung.getVaiTro(), khoVaQuyen)) {
                     SecurityContextHolder.clear();
                     throw new SessionRevokedException(LOI_QUYEN_DA_DOI);
+                }
+
+                // Kiểm phiên đăng nhập: token phát hành sau khi có bảng phien_dang_nhap mang claim "sid". Phiên đã
+                // đăng xuất / bị thu hồi (đổi-đặt lại mật khẩu) / hết hạn thì dừng ngay. Token cũ (không có sid)
+                // bỏ qua bước này, tương thích ngược như claim "cv".
+                String sid = nguoiDungAuthInfo.getPhienId();
+                if (sid != null && !sid.isBlank()) {
+                    try {
+                        PhienDangNhap phien = phienDangNhapRepository.findByPhienId(sid).orElse(null);
+                        Instant bayGio = Instant.now();
+                        if (phien == null || phien.getThuHoiLuc() != null
+                                || (phien.getHetHanLuc() != null && phien.getHetHanLuc().isBefore(bayGio))) {
+                            SecurityContextHolder.clear();
+                            throw new SessionRevokedException("Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.");
+                        }
+                        // Cập nhật "hoạt động cuối" có tiết chế: chỉ ghi khi đã cũ hơn NGUONG_CHAM_TRUY_CAP
+                        if (phien.getTruyCapCuoi() == null
+                                || phien.getTruyCapCuoi().isBefore(bayGio.minus(NGUONG_CHAM_TRUY_CAP))) {
+                            phienDangNhapService.chamTruyCap(sid, bayGio);
+                        }
+                    } catch (SessionRevokedException e) {
+                        throw e;
+                    } catch (RuntimeException e) {
+                        // Lỗi đọc/ghi bảng phiên (chưa chạy migration, hoặc DB chập chờn): chỉ ghi log, KHÔNG chặn request —
+                        // các kiểm tra chính (trạng thái tài khoản, cv, quyền) đã chạy ở trên.
+                        log.warn("Không kiểm được phiên đăng nhập (sid {}): {}", sid, e.getMessage());
+                    }
                 }
             }
         }
