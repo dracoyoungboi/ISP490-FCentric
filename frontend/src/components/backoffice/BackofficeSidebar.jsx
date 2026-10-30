@@ -59,14 +59,14 @@ const HOVER_CLOSE_DELAY = 150;
 // chữ, nhóm menu và logo chuyển tiếp cùng nhịp với độ rộng thay vì bật/tắt ở
 // khung hình đầu.
 
-// Biểu tượng 16px (SidebarMenuButton ép [&>svg]:size-4). Mở rộng: lề SidebarContent 12px
-// + đệm nút 11px, tâm biểu tượng ở x = 31px. Thu gọn còn rail 48px: lề 6px + đệm 10px,
-// tâm ở x = 24px, giữa rail (lề, đệm và chuyển động ở .bo-sidebar-content /
-// .bo-sidebar-item trong index.css).
+// Biểu tượng 18px (đặt ở .bo-sidebar-item > svg trong index.css vì SidebarMenuButton ép
+// [&>svg]:size-4). Mở rộng: lề SidebarContent 12px + đệm nút 8px, tâm biểu tượng ở x = 29px.
+// Thu gọn còn rail 48px: lề 6px + đệm 9px, tâm ở x = 24px, giữa rail (lề, đệm và chuyển động
+// ở .bo-sidebar-content / .bo-sidebar-item trong index.css).
 // gap-3 đẩy chữ ra ngoài vùng nút 36px khi thu gọn nên chữ không bao giờ ló ra mép rail.
-const MENU_BUTTON_LAYOUT = "bo-sidebar-item h-10 gap-3 px-[11px]";
-// Mục Cấu hình ghim ở đáy: thấp hơn 4px để khối đáy gọn
-const FOOTER_BUTTON_LAYOUT = "bo-sidebar-item h-9 gap-3 px-[11px]";
+const MENU_BUTTON_LAYOUT = "bo-sidebar-item h-9 gap-3 px-2";
+// Mục Cấu hình ghim ở đáy: cùng chiều cao với các mục menu
+const FOOTER_BUTTON_LAYOUT = "bo-sidebar-item h-9 gap-3 px-2";
 
 // ---- Màu mục menu ----
 // Đang chọn: nền sáng hơn sidebar một bậc, chữ trắng đậm, chỉ icon mang màu xanh
@@ -789,7 +789,7 @@ export default function BackofficeSidebar() {
         {item.badge && soDem(item) > 0 ? (
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute left-[21px] top-[10px] hidden size-2 rounded-full bg-red-500 ring-2 ring-bo-sidebar group-data-[collapsible=icon]:block"
+            className="pointer-events-none absolute left-[22px] top-[6px] hidden size-2 rounded-full bg-red-500 ring-2 ring-bo-sidebar group-data-[collapsible=icon]:block"
           />
         ) : null}
       </SidebarMenuItem>
@@ -897,7 +897,7 @@ export default function BackofficeSidebar() {
           {tongSoDem > 0 ? (
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute left-[21px] top-[10px] hidden size-2 rounded-full bg-red-500 ring-2 ring-bo-sidebar group-data-[collapsible=icon]:block"
+              className="pointer-events-none absolute left-[22px] top-[6px] hidden size-2 rounded-full bg-red-500 ring-2 ring-bo-sidebar group-data-[collapsible=icon]:block"
             />
           ) : null}
 
@@ -977,7 +977,7 @@ export default function BackofficeSidebar() {
             <img
               src="/branding/f-centric-logo.svg"
               alt=""
-              className="bo-sidebar-logo absolute left-[11px] top-0 h-9 w-auto max-w-none"
+              className="bo-sidebar-logo absolute left-2 top-0 h-9 w-auto max-w-none"
               draggable={false}
             />
             <img
@@ -1044,7 +1044,7 @@ export default function BackofficeSidebar() {
               {section.hienTieuDe ? (
                 <div className={SIDEBAR_COLLAPSE_ROW}>
                   <div className="min-h-0 overflow-hidden">
-                    <div className="flex items-center justify-between gap-2 pr-1.5 pb-1.5 pl-[11px]">
+                    <div className="flex items-center justify-between gap-2 pr-1.5 pb-1.5 pl-2">
                       <span className="truncate text-[11px] font-semibold uppercase tracking-wider text-bo-sidebar-muted/80">
                         {section.label}
                       </span>

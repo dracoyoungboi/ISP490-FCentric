@@ -123,9 +123,9 @@
 	--ease-sidebar: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Sidebar mở rộng 240px; thu gọn còn rail 48px (thông số ở khối "Rail thu gọn 48px" bên dưới). */
+/* Sidebar mở rộng 232px; thu gọn còn rail 48px (thông số ở khối "Rail thu gọn 48px" bên dưới). */
 [data-backoffice-shell] {
-	--sidebar-width: 15rem;
+	--sidebar-width: 14.5rem;
 	--sidebar-width-icon: 3rem;
 }
 
@@ -241,12 +241,13 @@
  * Rail thu gọn 48px, tính cả viền phải 1px. Mọi tâm nằm ở x = 24px (giữa 48px); cạnh của ô mục,
  * biểu tượng, đường kẻ và nút mở rộng rơi đúng điểm ảnh nguyên, nên ở màn 100% không bị nhòe:
  * - Vùng menu: lề trái 6px, lề phải 5px (cộng viền phải 1px là 6px), nên ô mục rộng 36px (6 → 42).
- * - Mục menu: đệm 10px hai bên, biểu tượng 16px nằm giữa (10 + 16 + 10). Biểu tượng svg bị
- *   SidebarMenuButton ép [&>svg]:size-4; ảnh Shopify co theo vùng nội dung 16px của nút.
+ * - Mục menu: đệm 9px hai bên, biểu tượng 18px nằm giữa (9 + 18 + 9). Biểu tượng svg bị
+ *   SidebarMenuButton ép [&>svg]:size-4 nên được đặt lại 18px ở .bo-sidebar-item > svg bên dưới;
+ *   ảnh Shopify co theo vùng nội dung 18px của nút.
  * - Đường kẻ giữa các nhóm: lề 6px, dài 24px (12 → 36).
  * - Chữ F và nút mở rộng: khối .bo-sidebar-mark ở trên và nút thu gọn trong BackofficeSidebar.jsx.
- * Khi mở rộng giữ nguyên lề 12px, đệm 11px. Lề và đệm đổi cùng nhịp 250ms với độ rộng sidebar,
- * nên biểu tượng trượt êm từ x = 31px về 24px thay vì nhảy.
+ * Khi mở rộng giữ lề 12px, đệm 8px. Lề và đệm đổi cùng nhịp 250ms với độ rộng sidebar,
+ * nên biểu tượng trượt êm từ x = 29px về 24px thay vì nhảy.
  * Các khối này nằm ngoài @layer nên đè lên tiện ích Tailwind (px-3, px-[11px], mx-2,
  * transition-colors). Mục menu vì vậy khai báo lại chuyển màu chữ, màu nền như transition-colors
  * (150ms, vẫn nhận duration-* / ease-* nếu thêm vào mục); muốn thêm transition khác cho mục
@@ -272,7 +273,13 @@
 }
 
 [data-collapsible="icon"] .bo-sidebar-item {
-	padding-inline: 10px;
+	padding-inline: 9px;
+}
+
+/* Biểu tượng 18px: SidebarMenuButton ép [&>svg]:size-4 nên phải đè ở đây (ngoài @layer). */
+.bo-sidebar-item > svg:first-child {
+	width: 18px;
+	height: 18px;
 }
 
 .bo-sidebar-divider {
