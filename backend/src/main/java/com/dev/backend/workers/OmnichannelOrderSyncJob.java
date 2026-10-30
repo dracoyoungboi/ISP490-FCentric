@@ -527,6 +527,10 @@ public class OmnichannelOrderSyncJob {
         String accessToken = kenhBanHangService.getDecryptedTikTokAccessToken();
         String shopCipher = kenhBanHangService.getTikTokShopCipher();
 
+        if (shopCipher != null && (shopCipher.startsWith("mock_") || (accessToken != null && accessToken.startsWith("mock_")))) {
+            return syncMockTikTokOrders(kenh);
+        }
+
         if (appKey == null || appSecret == null || accessToken == null || shopCipher == null || shopCipher.isBlank()) {
             log.warn("[JOB-01] Thiếu thông tin ủy quyền hoặc shopCipher cho TikTok Shop");
             return 0;
@@ -554,6 +558,115 @@ public class OmnichannelOrderSyncJob {
             log.info("[JOB-01] Quét đơn TikTok Shop hoàn tất: {} đơn mới", synced);
         } catch (Exception ex) {
             log.error("[JOB-01] Lỗi khi quét đơn hàng từ TikTok Shop: {}", ex.getMessage());
+        }
+        return synced;
+    }
+
+    private int syncMockTikTokOrders(KenhBanHang kenh) {
+        int synced = 0;
+        try {
+            List<BienTheSanPham> samples = bienTheSanPhamRepository.findAll(org.springframework.data.domain.PageRequest.of(0, 3)).getContent();
+            String sku1 = !samples.isEmpty() ? samples.get(0).getMaSku() : "TEST-SKU-01";
+            String name1 = !samples.isEmpty() && samples.get(0).getSanPham() != null
+                    ? samples.get(0).getSanPham().getTenSanPham() : "Áo Thun Cotton FCentric";
+            String sku2 = samples.size() > 1 ? samples.get(1).getMaSku() : sku1;
+            String name2 = samples.size() > 1 && samples.get(1).getSanPham() != null
+                    ? samples.get(1).getSanPham().getTenSanPham() : "Quần Jeans Slimfit FCentric";
+
+            // Đơn 1: Đang chờ xử lý (Awaiting Shipment - COD)
+            com.dev.backend.dto.response.customize.TikTokOrderDto order1 = com.dev.backend.dto.response.customize.TikTokOrderDto.builder()
+                    .id("579100234567801")
+                    .status("AWAITING_SHIPMENT")
+                    .createTime(Instant.now().minus(Duration.ofHours(2)).getEpochSecond())
+                    .updateTime(Instant.now().minus(Duration.ofMinutes(30)).getEpochSecond())
+                    .totalAmount("500000")
+                    .shippingFee("30000")
+                    .paymentMethodName("CASH_ON_DELIVERY")
+                    .buyerUid("buyer_tiktok_01")
+                    .recipientAddress(com.dev.backend.dto.response.customize.TikTokRecipientAddressDto.builder()
+                            .name("Nguyễn Văn Test (TikTok Buyer)")
+                            .phoneNumber("0987654321")
+                            .fullAddress("Tổ dân phố 6, TT. Xuân An, Huyện Nghi Xuân, Tỉnh Hà Tĩnh")
+                            .region("Hà Tĩnh")
+                            .district("Nghi Xuân")
+                            .town("Xuân An")
+                            .build())
+                    .lineItems(List.of(com.dev.backend.dto.response.customize.TikTokOrderItemDto.builder()
+                            .id("item_01")
+                            .skuId(sku1)
+                            .sellerSku(sku1)
+                            .productName(name1)
+                            .quantity(2)
+                            .salePrice("235000")
+                            .build()))
+                    .build();
+
+            // Đơn 2: Đang chờ xử lý và CÓ YÊU CẦU HỦY ĐƠN TỪ KHÁCH HÀNG (để test huy hiệu cảnh báo & chốt chặn)
+            com.dev.backend.dto.response.customize.TikTokOrderDto order2 = com.dev.backend.dto.response.customize.TikTokOrderDto.builder()
+                    .id("579100234567802")
+                    .status("AWAITING_SHIPMENT")
+                    .createTime(Instant.now().minus(Duration.ofHours(1)).getEpochSecond())
+                    .updateTime(Instant.now().minus(Duration.ofMinutes(10)).getEpochSecond())
+                    .totalAmount("380000")
+                    .shippingFee("30000")
+                    .paymentMethodName("E_WALLET")
+                    .buyerUid("buyer_tiktok_02")
+                    .cancelReason("Người mua đổi ý không muốn nhận hàng nữa")
+                    .cancelUser("BUYER")
+                    .isOnHold(true)
+                    .recipientAddress(com.dev.backend.dto.response.customize.TikTokRecipientAddressDto.builder()
+                            .name("Trần Thị B (Khách Test Hủy)")
+                            .phoneNumber("0912345678")
+                            .fullAddress("Số 18 Hoàng Diệu, Phường Điện Biên, Quận Ba Đình, Hà Nội")
+                            .region("Hà Nội")
+                            .district("Ba Đình")
+                            .build())
+                    .lineItems(List.of(com.dev.backend.dto.response.customize.TikTokOrderItemDto.builder()
+                            .id("item_02")
+                            .skuId(sku2)
+                            .sellerSku(sku2)
+                            .productName(name2)
+                            .quantity(1)
+                            .salePrice("350000")
+                            .build()))
+                    .build();
+
+            // Đơn 3: Đã giao thành công (Delivered / Completed)
+            com.dev.backend.dto.response.customize.TikTokOrderDto order3 = com.dev.backend.dto.response.customize.TikTokOrderDto.builder()
+                    .id("579100234567803")
+                    .status("COMPLETED")
+                    .createTime(Instant.now().minus(Duration.ofDays(1)).getEpochSecond())
+                    .updateTime(Instant.now().minus(Duration.ofHours(5)).getEpochSecond())
+                    .paidTime(Instant.now().minus(Duration.ofDays(1)).getEpochSecond())
+                    .totalAmount("229000")
+                    .shippingFee("30000")
+                    .paymentMethodName("E_WALLET")
+                    .buyerUid("buyer_tiktok_03")
+                    .recipientAddress(com.dev.backend.dto.response.customize.TikTokRecipientAddressDto.builder()
+                            .name("Lê Hoàng C (TikTok VN)")
+                            .phoneNumber("0909123456")
+                            .fullAddress("Số 123 Nguyễn Thị Minh Khai, Phường Bến Thành, Quận 1, TP. Hồ Chí Minh")
+                            .region("Hồ Chí Minh")
+                            .district("Quận 1")
+                            .build())
+                    .lineItems(List.of(com.dev.backend.dto.response.customize.TikTokOrderItemDto.builder()
+                            .id("item_03")
+                            .skuId(sku1)
+                            .sellerSku(sku1)
+                            .productName(name1)
+                            .quantity(1)
+                            .salePrice("199000")
+                            .build()))
+                    .build();
+
+            if (processSingleTikTokOrder(order1, kenh)) synced++;
+            if (processSingleTikTokOrder(order2, kenh)) synced++;
+            if (processSingleTikTokOrder(order3, kenh)) synced++;
+
+            lanLayDonCuoi.put(kenh.getId(), Instant.now());
+            log.info("[JOB-01] Quét đơn TikTok Shop Sandbox hoàn tất: {} đơn mới", synced);
+        } catch (Exception ex) {
+            log.error("[JOB-01] Lỗi khi tạo đơn thử nghiệm TikTok Shop Sandbox: {}", ex.getMessage());
         }
         return synced;
     }

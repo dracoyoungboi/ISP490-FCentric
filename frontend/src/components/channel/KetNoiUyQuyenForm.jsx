@@ -154,10 +154,19 @@ function NhapMaThuCong({ maThuCong, onDoiMa, loiMa, khoa, dangChay, onKetNoi }) 
             {dangChay ? <Loader2 className="size-4 animate-spin" /> : null}
             Kết nối bằng mã
           </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={khoa}
+            onClick={() => onDoiMa("SANDBOX_TTS_TOKEN")}
+            className="h-10 text-xs text-bo-primary hover:bg-bo-surface-subtle"
+          >
+            Điền mã Sandbox mẫu
+          </Button>
         </div>
         <p id={`${idMa}-goi-y`} className={cn("text-xs", loiMa ? "text-bo-danger" : "text-bo-muted")}>
           {/* Nguồn mã để ở gợi ý (ô nhập hẹp trên điện thoại cắt mất placeholder dài) */}
-          {loiMa || "Lấy ở Partner Center › Sandbox › Authorize app. Chỉ dùng ở môi trường thử; bản chính thức dùng nút Ủy quyền ở trên."}
+          {loiMa || "Lấy ở Partner Center › Sandbox hoặc dùng mã thử nghiệm SANDBOX_TTS_TOKEN để kích hoạt kết nối ngay lập tức."}
         </p>
       </CollapsibleContent>
     </Collapsible>
