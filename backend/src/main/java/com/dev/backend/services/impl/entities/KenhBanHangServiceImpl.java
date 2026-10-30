@@ -1433,6 +1433,10 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 ? request.getAccessToken().trim()
                 : getDecryptedTikTokAccessToken();
 
+        // =========================================================================
+        // [SANDBOX MOCK BYPASS] - Hỗ trợ môi trường thử nghiệm khi chưa có Partner được duyệt
+        // Sau này khi lên Production 100%, bạn có thể giữ nguyên (chỉ kích hoạt khi token có tiền tố mock_)
+        // =========================================================================
         if (accessToken != null && (accessToken.startsWith("mock_") || accessToken.toUpperCase().contains("SANDBOX"))) {
             return TikTokTestConnectionResponse.builder()
                     .connected(true)
@@ -1447,6 +1451,9 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                     .build();
         }
 
+        // =========================================================================
+        // [PRODUCTION FLOW] - Gọi trực tiếp TikTok Shop Open API qua TikTokShopClient
+        // =========================================================================
         if (appKey == null || appKey.isBlank() || appSecret == null || appSecret.isBlank() || accessToken == null || accessToken.isBlank()) {
             return TikTokTestConnectionResponse.builder()
                     .connected(false)
@@ -1530,6 +1537,10 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             throw new CommonException("Chưa thiết lập kênh TikTok Shop trong hệ thống", HttpStatus.BAD_REQUEST, null);
         }
 
+        // =========================================================================
+        // [SANDBOX MOCK BYPASS] - Tự động cấp token thử nghiệm khi nhập mã Sandbox/Mock
+        // Không xóa luồng Production bên dưới; chỉ rẽ nhánh khi code mang tiền tố thử nghiệm
+        // =========================================================================
         if (isMockCode) {
             String appKey = request.getAppKey() != null && !request.getAppKey().isBlank()
                     ? request.getAppKey().trim()
@@ -1550,6 +1561,10 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             return getTikTokConfig();
         }
 
+        // =========================================================================
+        // [PRODUCTION FLOW] - Trao đổi OAuth2 Authorization Code thật với TikTok Shop
+        // Gọi POST https://auth.tiktok-shops.com/api/v2/token/get và lấy shop_cipher
+        // =========================================================================
         String appKey = request.getAppKey() != null && !request.getAppKey().isBlank()
                 ? request.getAppKey().trim()
                 : kenh.getClientId();

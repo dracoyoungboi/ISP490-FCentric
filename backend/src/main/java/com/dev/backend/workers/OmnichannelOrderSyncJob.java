@@ -527,10 +527,17 @@ public class OmnichannelOrderSyncJob {
         String accessToken = kenhBanHangService.getDecryptedTikTokAccessToken();
         String shopCipher = kenhBanHangService.getTikTokShopCipher();
 
+        // =========================================================================
+        // [SANDBOX MOCK BYPASS] - Tự động sinh đơn hàng mẫu khi kênh đang kết nối Sandbox
+        // Giúp kiểm thử luồng trừ kho, đóng gói và chốt chặn hủy đơn mà không cần shop thật
+        // =========================================================================
         if (shopCipher != null && (shopCipher.startsWith("mock_") || (accessToken != null && accessToken.startsWith("mock_")))) {
             return syncMockTikTokOrders(kenh);
         }
 
+        // =========================================================================
+        // [PRODUCTION FLOW] - Quét đơn hàng thật qua API open-api.tiktokglobalshop.com
+        // =========================================================================
         if (appKey == null || appSecret == null || accessToken == null || shopCipher == null || shopCipher.isBlank()) {
             log.warn("[JOB-01] Thiếu thông tin ủy quyền hoặc shopCipher cho TikTok Shop");
             return 0;
