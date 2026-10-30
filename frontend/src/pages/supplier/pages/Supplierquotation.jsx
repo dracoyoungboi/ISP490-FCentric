@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertCircle, CheckCircle2, Info, Plus, Send, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import ChanTrangVanHanh from '@/components/auth/ChanTrangVanHanh';
 import StatusBadge from '@/components/shared/StatusBadge';
 import SurfaceCard from '@/components/shared/SurfaceCard';
 import KhungCongNhaCungCap from '@/components/supplier-portal/KhungCongNhaCungCap';
@@ -378,6 +379,10 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
                     </SurfaceCard>
                 )}
             </main>
+
+            {/* Trước thanh Gửi báo giá: thanh vẫn sát đáy khi cuộn hết trang. Nền xám bo-canvas nên chữ đậm hơn một bậc
+                để đủ tương phản 4.5:1 */}
+            <ChanTrangVanHanh className="pt-0 text-slate-600" />
 
             {!chiXem && dong.length > 0 && (
                 <div className="sticky bottom-0 z-10 border-t border-bo-border bg-bo-surface shadow-[0_-1px_3px_0_rgba(0,0,0,0.06)]">
