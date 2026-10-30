@@ -14,8 +14,10 @@ import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.entities.KhoPhuTrachHieuLucDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.dto.response.entities.NguoiDungDto;
+import com.dev.backend.dto.response.entities.PhienDangNhapDto;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.entities.PhanQuyenNguoiDungKho;
+import com.dev.backend.entities.PhienDangNhap;
 import com.dev.backend.entities.TepTin;
 import com.dev.backend.exception.customize.AccountDisabledException;
 import com.dev.backend.exception.customize.CommonException;
@@ -98,6 +100,10 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     @Autowired
     private EmailNghiepVuService emailNghiepVuService;
 
+    // Phiên đăng nhập theo thiết bị (bảng phien_dang_nhap): ghi khi đăng nhập, thu hồi khi đăng xuất / đổi mật khẩu
+    @Autowired
+    private PhienDangNhapService phienDangNhapService;
+
     private static final Logger logger = LoggerFactory.getLogger(NguoiDungService.class);
 
     @Override
@@ -137,7 +143,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     }
 
     @Transactional
-    public ResponseEntity<ResponseData<LoginResponse>> login(LoginRequest loginRequest, String clientIp) {
+    public ResponseEntity<ResponseData<LoginResponse>> login(LoginRequest loginRequest, String clientIp, String userAgent) {
         String username = loginRequest.getUsername();
         String rawPassword = loginRequest.getPassword() == null ? "" : loginRequest.getPassword();
         // check thông tin user đã có trong hệ thống hay chưa
@@ -185,7 +191,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                         .data(
                                 LoginResponse.builder()
                                         .nguoiDung(nguoiDungMapper.toDto(nguoiDung))
-                                        .token(issueToken(nguoiDung))
+                                        .token(issueTokenWithSession(nguoiDung, userAgent, clientIp))
                                         .build())
                         .message("Success")
                         .error(null)
@@ -228,9 +234,30 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         return dummyPasswordHash;
     }
 
-    // Token đăng nhập kèm claim "cv" (dấu vân tay mật khẩu hiện tại): đổi/đặt lại
-    // mật khẩu -> token cũ bị thu hồi
-    private String issueToken(NguoiDung nguoiDung) {
+    private static final java.time.Duration PHIEN_TTL = java.time.Duration.ofHours(24);
+
+    // Cấp token cho lần ĐĂNG NHẬP: ghi một phiên mới rồi nhúng mã phiên (sid) vào token. Ghi phiên thất bại
+    // (bảng phien_dang_nhap chưa có / DB lỗi) -> token KHÔNG có sid, AuthInterceptor bỏ qua kiểm phiên (tương thích ngược).
+    private String issueTokenWithSession(NguoiDung nguoiDung, String userAgent, String clientIp) {
+        String sid = null;
+        try {
+            Instant now = Instant.now();
+            sid = phienDangNhapService.taoPhien(nguoiDung.getId(), userAgent, clientIp, now, now.plus(PHIEN_TTL));
+        } catch (Exception e) {
+            logger.warn("Không ghi được phiên đăng nhập cho user {} (bảng phien_dang_nhap chưa có?): {}",
+                    nguoiDung.getId(), e.getMessage());
+            sid = null;
+        }
+        return buildToken(nguoiDung, sid);
+    }
+
+    // Cấp lại token GIỮ NGUYÊN phiên hiện tại (vd. sau khi đổi mật khẩu): không tạo phiên mới.
+    private String issueTokenGiuPhien(NguoiDung nguoiDung, String sid) {
+        return buildToken(nguoiDung, sid);
+    }
+
+    // Dựng JWT kèm claim "cv" (dấu vân tay mật khẩu hiện tại) và "sid" (mã phiên; null = không ghi claim, bỏ qua kiểm phiên)
+    private String buildToken(NguoiDung nguoiDung, String sid) {
         // lấy danh sách phân quyền người dùng để truyền ra token
         List<PhanQuyenNguoiDungKho> phanQuyenNguoiDungKhos = phanQuyenNguoiDungKhoService
                 .findByNguoiDungIdAndActive(nguoiDung.getId());
@@ -252,7 +279,99 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                 nguoiDung.getNgayCapNhat(),
                 pqndkMapper.toDtoList(phanQuyenNguoiDungKhos),
                 "Google",
-                jwtService.credentialVersion(nguoiDung.getMatKhauHash()));
+                jwtService.credentialVersion(nguoiDung.getMatKhauHash()),
+                sid);
+    }
+
+    // Mã phiên của người đang đăng nhập (lấy từ token), null nếu token cũ không có sid
+    private String currentSid() {
+        NguoiDungAuthInfo info = com.dev.backend.config.SecurityContextHolder.getUser();
+        return info == null ? null : info.getPhienId();
+    }
+
+    // Id người đang đăng nhập (lấy từ token trong context; AuthInterceptor đã xác thực tài khoản tồn tại/hoạt động mỗi request)
+    private Integer currentUserId() {
+        NguoiDungAuthInfo info = com.dev.backend.config.SecurityContextHolder.getUser();
+        if (info == null || info.getId() == null) {
+            throw new CommonException("Phiên đăng nhập không hợp lệ");
+        }
+        return info.getId();
+    }
+
+    // Chạy một việc SAU KHI giao dịch hiện tại commit (nếu đang trong giao dịch); ngoài giao dịch thì chạy ngay.
+    private void chaySauCommit(Runnable viec) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    viec.run();
+                }
+            });
+        } else {
+            viec.run();
+        }
+    }
+
+    // Đăng xuất: thu hồi phiên hiện tại để các request sau không dùng được nữa. Token cũ (không có sid) thì bỏ qua.
+    public ResponseEntity<ResponseData<String>> logout() {
+        String sid = currentSid();
+        if (sid != null && !sid.isBlank()) {
+            try {
+                phienDangNhapService.thuHoiPhien(sid);
+            } catch (Exception e) {
+                logger.warn("Không thu hồi được phiên khi đăng xuất (sid {}): {}", sid, e.getMessage());
+            }
+        }
+        return ResponseEntity.ok(
+                ResponseData.<String>builder()
+                        .status(HttpStatus.OK.value())
+                        .data("Success")
+                        .message("Đã đăng xuất")
+                        .error(null)
+                        .build());
+    }
+
+    // ===== Thiết bị / phiên đăng nhập của người đang đăng nhập (màn "Thiết bị đang đăng nhập" ở Hồ sơ) =====
+
+    /** Danh sách thiết bị/phiên còn hiệu lực của chính mình; thiết bị hiện tại xếp đầu và được đánh dấu. */
+    public List<PhienDangNhapDto> dsPhienCuaToi() {
+        Integer userId = currentUserId();
+        String sidHienTai = currentSid();
+        return phienDangNhapService.dsPhienHieuLuc(userId).stream()
+                .map(p -> PhienDangNhapDto.builder()
+                        .id(p.getId())
+                        .thietBiNay(p.getPhienId() != null && p.getPhienId().equals(sidHienTai))
+                        .userAgent(p.getUserAgent())
+                        .diaChiIp(p.getDiaChiIp())
+                        .viTri(p.getViTri())
+                        .taoLuc(p.getTaoLuc())
+                        .truyCapCuoi(p.getTruyCapCuoi())
+                        .build())
+                // Thiết bị hiện tại lên đầu; còn lại giữ thứ tự "mới hoạt động trước" của truy vấn (sort ổn định)
+                .sorted((a, b) -> Boolean.compare(b.isThietBiNay(), a.isThietBiNay()))
+                .toList();
+    }
+
+    /** Đăng xuất một thiết bị cụ thể của chính mình (chỉ thu hồi được phiên thuộc về mình). */
+    public ResponseEntity<ResponseData<String>> dangXuatPhien(Integer phienId) {
+        int soDong = phienDangNhapService.thuHoiTheoId(phienId, currentUserId());
+        if (soDong == 0) {
+            throw new CommonException("Không tìm thấy phiên để đăng xuất (có thể đã kết thúc trước đó)");
+        }
+        return ResponseEntity.ok(ResponseData.<String>builder()
+                .status(HttpStatus.OK.value()).data("Success").message("Đã đăng xuất thiết bị").error(null).build());
+    }
+
+    /** Đăng xuất tất cả thiết bị KHÁC (giữ thiết bị hiện tại). */
+    public ResponseEntity<ResponseData<String>> dangXuatThietBiKhac() {
+        Integer userId = currentUserId();
+        String sid = currentSid();
+        if (sid == null || sid.isBlank()) {
+            throw new CommonException("Không xác định được thiết bị hiện tại. Vui lòng đăng nhập lại rồi thử.");
+        }
+        phienDangNhapService.thuHoiCacPhienKhac(userId, sid);
+        return ResponseEntity.ok(ResponseData.<String>builder()
+                .status(HttpStatus.OK.value()).data("Success").message("Đã đăng xuất các thiết bị khác").error(null).build());
     }
 
     @Transactional
@@ -759,6 +878,14 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         nhatKyBaoMatService.ghiSauCommit(IHanhDong.dat_lai_mat_khau, ITable.nguoi_dung, nguoiDung.getId(),
                 nguoiDung.getId(), "Đặt lại bằng mã gửi qua email");
 
+        // Đặt lại mật khẩu bằng mã = đăng xuất mọi thiết bị: thu hồi toàn bộ phiên của tài khoản
+        // (ngoài claim "cv" đã chặn token cũ) để danh sách thiết bị không còn phiên treo.
+        try {
+            phienDangNhapService.thuHoiTatCa(nguoiDung.getId());
+        } catch (Exception e) {
+            logger.warn("Không thu hồi được phiên sau đặt lại mật khẩu (user {}): {}", nguoiDung.getId(), e.getMessage());
+        }
+
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
@@ -1008,13 +1135,31 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         nhatKyBaoMatService.ghiSauCommit(IHanhDong.doi_mat_khau, ITable.nguoi_dung, nguoiDung.getId(),
                 nguoiDung.getId(), null);
 
-        // đổi mật khẩu thu hồi mọi token cũ (kể cả token đang dùng) -> cấp token mới
-        // cho phiên hiện tại,
-        // FE lưu lại để không bị đăng xuất; các thiết bị/phiên khác phải đăng nhập lại
+        // Đổi mật khẩu thu hồi mọi token cũ qua claim "cv" (kể cả token đang dùng) -> cấp token mới cho phiên HIỆN TẠI
+        // (giữ nguyên sid) để FE lưu lại, không bị đăng xuất. Việc đụng bảng phien_dang_nhap làm SAU KHI commit đổi
+        // mật khẩu (afterCommit) để nếu giao dịch này rollback thì không lỡ thu hồi phiên thiết bị khác:
+        //   - gia hạn het_han_luc của phiên hiện tại cho KHỚP hạn token mới (24h), tránh bị đá ra theo hạn cũ;
+        //   - thu hồi các phiên khác để danh sách thiết bị phản ánh đúng.
+        // Token cũ không có sid: cấp lại token không sid như trước, và thu hồi TẤT CẢ phiên (dọn phiên treo của thiết bị khác).
+        final String sid = currentSid();
+        final Integer userId = nguoiDung.getId();
+        final Instant hetHanMoi = Instant.now().plus(PHIEN_TTL);
+        chaySauCommit(() -> {
+            try {
+                if (sid != null) {
+                    phienDangNhapService.giaHanPhien(sid, hetHanMoi);
+                    phienDangNhapService.thuHoiCacPhienKhac(userId, sid);
+                } else {
+                    phienDangNhapService.thuHoiTatCa(userId);
+                }
+            } catch (Exception e) {
+                logger.warn("Không cập nhật được phiên sau đổi mật khẩu (user {}): {}", userId, e.getMessage());
+            }
+        });
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
-                        .data(issueToken(nguoiDung))
+                        .data(issueTokenGiuPhien(nguoiDung, sid))
                         .message("Thay đổi mật khẩu thành công!")
                         .build());
     }

@@ -120,6 +120,18 @@ export const nguoiDungService = {
         return res.data;
     },
 
+    // Thu hồi phiên hiện tại ở máy chủ (đăng xuất thật — thiết bị này biến khỏi danh sách "Thiết bị đang đăng nhập").
+    // Gọi khi người dùng CHỦ ĐỘNG bấm Đăng xuất, trước khi xóa token. Best-effort: lỗi mạng / backend chưa có endpoint
+    // thì bỏ qua và vẫn xóa phiên phía trình duyệt ở bước sau.
+    async logoutServer() {
+        try {
+            // timeout ngắn: server treo (mở TCP nhưng không trả) cũng không chặn luồng đăng xuất — vẫn xóa token phía trình duyệt
+            await apiClient.post("/api/v1/nguoi-dung/logout", {}, { timeout: 4000, skipAccountDisabledHandling: true });
+        } catch {
+            // bỏ qua: best-effort
+        }
+    },
+
     logout() {
         localStorage.removeItem("access_token");
         localStorage.removeItem("role");
@@ -145,6 +157,26 @@ export const nguoiDungService = {
     async updatePermission(payload) {
         // payload: { id, vaiTro }
         const res = await apiClient.put("/api/v1/dieu-hanh-he-thong/vai-tro/gan-vai-tro", payload);
+        return res.data;
+    },
+
+    // ===== Thiết bị / phiên đăng nhập (màn "Bảo mật & Thiết bị" ở Hồ sơ) =====
+
+    // Danh sách thiết bị đang đăng nhập của chính mình (mỗi phần tử: id, thietBiNay, userAgent, diaChiIp, viTri, taoLuc, truyCapCuoi)
+    async layPhien() {
+        const res = await apiClient.get("/api/v1/nguoi-dung/me/phien");
+        return res?.data?.data ?? [];
+    },
+
+    // Đăng xuất một thiết bị cụ thể
+    async dangXuatPhien(id) {
+        const res = await apiClient.post(`/api/v1/nguoi-dung/me/phien/${id}/dang-xuat`);
+        return res.data;
+    },
+
+    // Đăng xuất tất cả thiết bị khác (giữ thiết bị hiện tại)
+    async dangXuatThietBiKhac() {
+        const res = await apiClient.post("/api/v1/nguoi-dung/me/phien/dang-xuat-khac");
         return res.data;
     },
 

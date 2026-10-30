@@ -6,6 +6,8 @@ import { KhongTimThayTrongKhung } from "@/pages/page-error/NotFound404";
  * Bọc các route /channels/:maKenh/*: mã sàn lạ thì hiện "Không tìm thấy trang" ngay trong khung quản trị (kiểu C);
  * mã viết khác chữ thường (/channels/LAZADA) thì chuyển về đường dẫn chuẩn để tiêu đề trang và menu nhận ra;
  * đổi sàn (Lazada → TikTok Shop) thì dựng lại trang từ đầu để không mang trạng thái của sàn trước.
+ * Sàn chờ cấp API (`hoTro: false`) chỉ có màn giới thiệu: trang con nào (thiết lập, sản phẩm, trang quay về sau ủy quyền…)
+ * cũng chuyển về đó, vì các trang này gọi API mà máy chủ chưa có.
  */
 export default function KenhHopLe() {
   const { maKenh } = useParams();
@@ -22,5 +24,6 @@ export default function KenhHopLe() {
       return <Navigate to={`${doan.join("/")}${search}`} replace />;
     }
   }
+  if (!san.hoTro && pathname !== san.duongDan) return <Navigate to={san.duongDan} replace />;
   return <Outlet key={san.maKenh} />;
 }

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Link, Route, Routes, useLocation } from "react-router-dom";
+import ChanTrangVanHanh from "@/components/auth/ChanTrangVanHanh";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import BackofficeLayout from "@/components/backoffice/BackofficeLayout";
 import BrandLogo from "@/components/brand/BrandLogo";
@@ -107,7 +108,8 @@ function KhongTimThayNgoaiKhung() {
                 </Link>
             </header>
 
-            <main className="flex flex-1 items-center justify-center px-5 pb-24 pt-6 sm:pb-[120px]">
+            {/* Đệm dưới đã trừ phần chân trang (76px) để khối giữa trang vẫn ở chỗ cũ */}
+            <main className="flex flex-1 items-center justify-center px-5 pb-5 pt-6 sm:pb-11">
                 <section
                     aria-labelledby="tieu-de-404"
                     className="flex w-full max-w-[540px] flex-col items-center text-center"
@@ -136,6 +138,9 @@ function KhongTimThayNgoaiKhung() {
                     </Button>
                 </section>
             </main>
+
+            {/* Nền xám bo-canvas: chữ đậm hơn một bậc cho đủ tương phản */}
+            <ChanTrangVanHanh className="text-slate-600" />
         </div>
     );
 }

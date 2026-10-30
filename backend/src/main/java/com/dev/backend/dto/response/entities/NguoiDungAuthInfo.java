@@ -23,6 +23,7 @@ public class NguoiDungAuthInfo {
     Integer trangThai;
     List<PhanQuyenNguoiDungKhoDto> phanQuyenNguoiDungKhos; // Quyền theo từng kho
     String credentialVersion; // claim "cv": dấu vân tay mật khẩu lúc phát hành token (null với token cũ)
+    String phienId; // claim "sid": mã phiên đăng nhập; null với token cũ (phát hành trước khi có bảng phien_dang_nhap)
 
 }
 

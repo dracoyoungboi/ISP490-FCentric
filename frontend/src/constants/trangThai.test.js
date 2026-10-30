@@ -191,6 +191,11 @@ test("biểu tượng đúng bản demo đã chốt", () => {
   assert.equal(bieuTuongCuaNhan("Ngừng hoạt động", "kho"), "CircleOff");
 });
 
+test("sàn chờ cấp API: xám như Chưa kết nối (người dùng không phải làm gì), đồng hồ cát, không bọc khung", () => {
+  assert.equal(nhomCuaNhan("Chờ cấp API"), nhomCuaNhan("Chưa kết nối"));
+  assert.deepEqual(layCachVe("Chờ cấp API"), { nhom: "cho", kieu: "bieuTuong", bieuTuong: "Hourglass" });
+});
+
 test("quy trình chứng từ: nhãn có nhóm, bước nằm trong tổng, mọi quyTrinh dùng trong src đều có", () => {
   for (const [ma, qt] of Object.entries(QUY_TRINH)) {
     for (const [nhan, buoc] of Object.entries(qt.buoc)) {

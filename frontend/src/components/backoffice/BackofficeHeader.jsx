@@ -1,9 +1,9 @@
 import {
   ChevronDown,
   LogOut,
-  PanelLeftClose,
-  PanelLeftOpen,
+  Menu,
   UserRound,
+  X,
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -74,9 +74,11 @@ export default function BackofficeHeader() {
 
   const dangXuat = () => {
     // Trang đang sửa dở (vd. trình sửa mẫu in) được hỏi trước khi đăng xuất
-    xinRoiTrang(() => {
-      // Chỉ xóa phiên đăng nhập; bản nháp hóa đơn POS (gắn theo tài khoản, hết hạn sau 12 giờ)
+    xinRoiTrang(async () => {
+      // Thu hồi phiên ở máy chủ trước (best-effort) để thiết bị này biến khỏi "Thiết bị đang đăng nhập",
+      // rồi mới xóa token phía trình duyệt. Bản nháp hóa đơn POS (gắn theo tài khoản, hết hạn sau 12 giờ)
       // được giữ để đăng nhập lại vẫn còn hóa đơn và mã QR đang chờ.
+      await nguoiDungService.logoutServer();
       nguoiDungService.logout();
       sessionStorage.clear();
       navigate("/login");
@@ -112,13 +114,9 @@ export default function BackofficeHeader() {
               aria-label={sidebarOpen ? "Thu gọn menu" : "Mở menu"}
               aria-expanded={sidebarOpen}
               aria-controls="backoffice-navigation"
-              className="shrink-0 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+              className="size-10 shrink-0 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
             >
-              {sidebarOpen ? (
-                <PanelLeftClose className="size-5" />
-              ) : (
-                <PanelLeftOpen className="size-5" />
-              )}
+              {sidebarOpen ? <X className="size-5" /> : <Menu className="size-5" />}
             </Button>
           ) : null}
 

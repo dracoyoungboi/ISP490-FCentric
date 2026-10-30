@@ -10,6 +10,8 @@
 @source "./components/backoffice";
 /* Thành phần dùng chung (khung bảng, nút thao tác, phân trang) */
 @source "./components/shared";
+/* Hồ sơ cá nhân (mục Thiết bị đang đăng nhập dùng class cỡ lẻ như text-[11px]): khai báo rõ để dev server sinh đủ class */
+@source "./components/nguoi-dung";
 /* Cổng nhà cung cấp (đăng nhập OTP, trang báo giá): thư mục mới thêm, khai báo rõ để dev server sinh đủ class
    (thiếu thì logo phóng to hết cỡ, ô đơn giá giãn hết cột, nút Thoát biến mất) */
 @source "./components/supplier-portal";
@@ -71,16 +73,16 @@
 	--color-bo-primary-strong: #0b4fb3;
 
 	--color-bo-sidebar: #182537;
-	/* Hover / đang chọn / nhấn: nền sidebar phủ trắng 5% / 10% (13% khi rê) / 16%, đổi sẵn ra màu đặc.
+	/* Hover / đang chọn / nhấn: các bậc xanh navy sáng dần, mục đang chọn ngả xanh chứ không xám.
 	   Mục đang chọn chỉ để icon mang màu xanh, không tô khối xanh đặc. Nhấn sáng hơn hẳn
 	   "rê trên mục đang chọn" để vẫn thấy phản hồi khi người dùng tắt chuyển động. */
-	--color-bo-sidebar-hover: #232f40;
-	--color-bo-sidebar-active: #2f3b4b;
-	--color-bo-sidebar-active-hover: #364151;
-	--color-bo-sidebar-press: #3d4857;
+	--color-bo-sidebar-hover: #22344f;
+	--color-bo-sidebar-active: #2b4263;
+	--color-bo-sidebar-active-hover: #30496e;
+	--color-bo-sidebar-press: #355079;
 	--color-bo-sidebar-icon-active: #69b1ff;
-	--color-bo-sidebar-muted: #aeb9c9;
-	--color-bo-sidebar-border: #2d3a50;
+	--color-bo-sidebar-muted: #d5dbe4;
+	--color-bo-sidebar-border: #2a3d58;
 
 	--color-bo-success: #15803d;
 	--color-bo-success-soft: #ecfdf3;
@@ -123,9 +125,9 @@
 	--ease-sidebar: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Sidebar mở rộng 240px; thu gọn còn rail 48px (thông số ở khối "Rail thu gọn 48px" bên dưới). */
+/* Sidebar mở rộng 232px; thu gọn còn rail 48px (thông số ở khối "Rail thu gọn 48px" bên dưới). */
 [data-backoffice-shell] {
-	--sidebar-width: 15rem;
+	--sidebar-width: 14.5rem;
 	--sidebar-width-icon: 3rem;
 }
 
@@ -241,12 +243,13 @@
  * Rail thu gọn 48px, tính cả viền phải 1px. Mọi tâm nằm ở x = 24px (giữa 48px); cạnh của ô mục,
  * biểu tượng, đường kẻ và nút mở rộng rơi đúng điểm ảnh nguyên, nên ở màn 100% không bị nhòe:
  * - Vùng menu: lề trái 6px, lề phải 5px (cộng viền phải 1px là 6px), nên ô mục rộng 36px (6 → 42).
- * - Mục menu: đệm 10px hai bên, biểu tượng 16px nằm giữa (10 + 16 + 10). Biểu tượng svg bị
- *   SidebarMenuButton ép [&>svg]:size-4; ảnh Shopify co theo vùng nội dung 16px của nút.
+ * - Mục menu: đệm 9px hai bên, biểu tượng 18px nằm giữa (9 + 18 + 9). Biểu tượng svg bị
+ *   SidebarMenuButton ép [&>svg]:size-4 nên được đặt lại 18px ở .bo-sidebar-item > svg bên dưới;
+ *   ảnh Shopify co theo vùng nội dung 18px của nút.
  * - Đường kẻ giữa các nhóm: lề 6px, dài 24px (12 → 36).
  * - Chữ F và nút mở rộng: khối .bo-sidebar-mark ở trên và nút thu gọn trong BackofficeSidebar.jsx.
- * Khi mở rộng giữ nguyên lề 12px, đệm 11px. Lề và đệm đổi cùng nhịp 250ms với độ rộng sidebar,
- * nên biểu tượng trượt êm từ x = 31px về 24px thay vì nhảy.
+ * Khi mở rộng giữ lề 12px, đệm 8px. Lề và đệm đổi cùng nhịp 250ms với độ rộng sidebar,
+ * nên biểu tượng trượt êm từ x = 29px về 24px thay vì nhảy.
  * Các khối này nằm ngoài @layer nên đè lên tiện ích Tailwind (px-3, px-[11px], mx-2,
  * transition-colors). Mục menu vì vậy khai báo lại chuyển màu chữ, màu nền như transition-colors
  * (150ms, vẫn nhận duration-* / ease-* nếu thêm vào mục); muốn thêm transition khác cho mục
@@ -272,7 +275,18 @@
 }
 
 [data-collapsible="icon"] .bo-sidebar-item {
-	padding-inline: 10px;
+	padding-inline: 9px;
+}
+
+/* Biểu tượng 18px: SidebarMenuButton ép [&>svg]:size-4 nên phải đè ở đây (ngoài @layer). */
+.bo-sidebar-item > svg:first-child {
+	width: 18px;
+	height: 18px;
+}
+
+/* Sidebar trên điện thoại (Sheet, data-mobile): mục cao 44px cho dễ chạm; desktop giữ 36px. */
+[data-mobile="true"] .bo-sidebar-item {
+	height: 44px;
 }
 
 .bo-sidebar-divider {

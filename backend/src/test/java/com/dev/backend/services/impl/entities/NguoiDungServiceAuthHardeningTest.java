@@ -61,6 +61,7 @@ class NguoiDungServiceAuthHardeningTest {
     private static final String TEST_SIGNER_KEY = "test-signer-key-0123456789-0123456789-0123456789-abcdef";
     private static final String EMAIL = "khang@example.com";
     private static final String IP = "203.0.113.10";
+    private static final String UA = "JUnit";
 
     @Mock
     private NguoiDungRepository repository;
@@ -307,7 +308,7 @@ class NguoiDungServiceAuthHardeningTest {
         assertEquals(200, forgot("0999999999", "1.1.1.1").getStatus());
         assertEquals(0, emailsSent(), "không đoán bừa tài khoản nào");
         CommonException login = assertThrows(CommonException.class,
-                () -> service.login(new LoginRequest("0999999999", "x"), IP));
+                () -> service.login(new LoginRequest("0999999999", "x"), IP, UA));
         assertEquals(NguoiDungService.LOGIN_FAILED_MESSAGE, login.getMessage());
     }
 
@@ -329,11 +330,11 @@ class NguoiDungServiceAuthHardeningTest {
     @Test
     void dangNhap_saiTenHoacSaiMatKhau_cungThongBao() {
         CommonException noUser = assertThrows(CommonException.class,
-                () -> service.login(new LoginRequest("khongtontai", "matkhaucu"), IP));
+                () -> service.login(new LoginRequest("khongtontai", "matkhaucu"), IP, UA));
         CommonException wrongPass = assertThrows(CommonException.class,
-                () -> service.login(new LoginRequest("khang", "saimatkhau"), IP));
+                () -> service.login(new LoginRequest("khang", "saimatkhau"), IP, UA));
         CommonException nullPass = assertThrows(CommonException.class,
-                () -> service.login(new LoginRequest("khang", null), IP));
+                () -> service.login(new LoginRequest("khang", null), IP, UA));
 
         assertEquals(NguoiDungService.LOGIN_FAILED_MESSAGE, noUser.getMessage());
         assertEquals(noUser.getMessage(), wrongPass.getMessage());
@@ -346,14 +347,14 @@ class NguoiDungServiceAuthHardeningTest {
         BCryptPasswordEncoder spyEncoder = spy(encoder);
         ReflectionTestUtils.setField(service, "passwordEncoder", spyEncoder);
 
-        assertThrows(CommonException.class, () -> service.login(new LoginRequest("khongtontai", "abc"), IP));
+        assertThrows(CommonException.class, () -> service.login(new LoginRequest("khongtontai", "abc"), IP, UA));
 
         verify(spyEncoder).matches(eq("abc"), startsWith("$2a$"));
     }
 
     @Test
     void dangNhap_thanhCong_tokenCoCvTheoMatKhauHienTai() {
-        ResponseData<LoginResponse> res = service.login(new LoginRequest("khang", "matkhaucu"), IP).getBody();
+        ResponseData<LoginResponse> res = service.login(new LoginRequest("khang", "matkhaucu"), IP, UA).getBody();
 
         NguoiDungAuthInfo info = jwtService.getNguoiDungAuthInfoFromToken(res.getData().getToken());
         assertEquals(jwtService.credentialVersion(user.getMatKhauHash()), info.getCredentialVersion());
@@ -362,7 +363,7 @@ class NguoiDungServiceAuthHardeningTest {
     @Test
     void dangNhap_dungMatKhauNhungBiKhoa_403() {
         user.setTrangThai(0);
-        assertThrows(AccountDisabledException.class, () -> service.login(new LoginRequest("khang", "matkhaucu"), IP));
+        assertThrows(AccountDisabledException.class, () -> service.login(new LoginRequest("khang", "matkhaucu"), IP, UA));
     }
 
     @Test
@@ -370,12 +371,12 @@ class NguoiDungServiceAuthHardeningTest {
         for (String vaiTro : new String[]{"khach_hang", "all", ""}) {
             user.setVaiTro(vaiTro);
             AccountDisabledException ex = assertThrows(AccountDisabledException.class,
-                    () -> service.login(new LoginRequest("khang", "matkhaucu"), IP), vaiTro);
+                    () -> service.login(new LoginRequest("khang", "matkhaucu"), IP, UA), vaiTro);
             assertEquals(HttpStatus.FORBIDDEN, ex.getHttpStatus());
         }
         // Sai mật khẩu thì vẫn báo lỗi chung trước, không lộ tài khoản có vai trò gì
         CommonException sai = assertThrows(CommonException.class,
-                () -> service.login(new LoginRequest("khang", "saimatkhau"), IP));
+                () -> service.login(new LoginRequest("khang", "saimatkhau"), IP, UA));
         assertEquals(NguoiDungService.LOGIN_FAILED_MESSAGE, sai.getMessage());
     }
 
@@ -383,7 +384,7 @@ class NguoiDungServiceAuthHardeningTest {
     void dangNhap_moiVaiTroNhanSu_deuVaoDuoc() {
         for (String vaiTro : IRoleType.NOI_BO) {
             user.setVaiTro(vaiTro);
-            assertNotNull(service.login(new LoginRequest("khang", "matkhaucu"), IP).getBody().getData().getToken(), vaiTro);
+            assertNotNull(service.login(new LoginRequest("khang", "matkhaucu"), IP, UA).getBody().getData().getToken(), vaiTro);
         }
     }
 
@@ -515,7 +516,7 @@ class NguoiDungServiceAuthHardeningTest {
     // ===== H-1: giới hạn đăng nhập sai =====
 
     private CommonException dangNhapSai(String tenDangNhap) {
-        return assertThrows(CommonException.class, () -> service.login(new LoginRequest(tenDangNhap, "saimatkhau"), IP));
+        return assertThrows(CommonException.class, () -> service.login(new LoginRequest(tenDangNhap, "saimatkhau"), IP, UA));
     }
 
     @Test
@@ -525,14 +526,14 @@ class NguoiDungServiceAuthHardeningTest {
         }
 
         CommonException khoa = assertThrows(CommonException.class,
-                () -> service.login(new LoginRequest("khang", "matkhaucu"), IP));
+                () -> service.login(new LoginRequest("khang", "matkhaucu"), IP, UA));
         assertEquals(HttpStatus.TOO_MANY_REQUESTS, khoa.getHttpStatus());
         assertEquals("LOGIN_RATE_LIMITED", ((Map<?, ?>) khoa.getData()).get("code"));
         assertEquals(60L, ((Map<?, ?>) khoa.getData()).get("retryAfterSeconds"));
         assertTrue(khoa.getMessage().contains("thử lại sau 1 phút"), khoa.getMessage());
 
         clock.advance(LoginRateLimiter.LOCK_STEPS[0]);
-        assertNotNull(service.login(new LoginRequest("khang", "matkhaucu"), IP).getBody().getData().getToken(),
+        assertNotNull(service.login(new LoginRequest("khang", "matkhaucu"), IP, UA).getBody().getData().getToken(),
                 "hết thời gian khoá thì đăng nhập đúng được");
     }
 
@@ -545,7 +546,7 @@ class NguoiDungServiceAuthHardeningTest {
         ReflectionTestUtils.setField(service, "passwordEncoder", spyEncoder);
 
         CommonException khoa = assertThrows(CommonException.class,
-                () -> service.login(new LoginRequest("khang", "matkhaucu"), IP));
+                () -> service.login(new LoginRequest("khang", "matkhaucu"), IP, UA));
 
         assertEquals(HttpStatus.TOO_MANY_REQUESTS, khoa.getHttpStatus());
         verify(spyEncoder, never()).matches(any(), any());
@@ -558,9 +559,9 @@ class NguoiDungServiceAuthHardeningTest {
             dangNhapSai("khang");
         }
         CommonException khongTonTai = assertThrows(CommonException.class,
-                () -> service.login(new LoginRequest("khongtontai", "x"), IP));
+                () -> service.login(new LoginRequest("khongtontai", "x"), IP, UA));
         CommonException tonTai = assertThrows(CommonException.class,
-                () -> service.login(new LoginRequest("khang", "x"), IP));
+                () -> service.login(new LoginRequest("khang", "x"), IP, UA));
 
         assertEquals(HttpStatus.TOO_MANY_REQUESTS, tonTai.getHttpStatus());
         assertEquals(tonTai.getHttpStatus(), khongTonTai.getHttpStatus());
@@ -573,7 +574,7 @@ class NguoiDungServiceAuthHardeningTest {
         for (int i = 0; i < LoginRateLimiter.MAX_FAILS - 1; i++) {
             dangNhapSai("khang");
         }
-        service.login(new LoginRequest("khang", "matkhaucu"), IP);
+        service.login(new LoginRequest("khang", "matkhaucu"), IP, UA);
         for (int i = 0; i < LoginRateLimiter.MAX_FAILS; i++) {
             assertEquals(NguoiDungService.LOGIN_FAILED_MESSAGE, dangNhapSai("khang").getMessage(),
                     "đếm lại từ đầu sau lần đúng");
@@ -591,7 +592,7 @@ class NguoiDungServiceAuthHardeningTest {
 
         for (String chuoi : new String[]{"khang", EMAIL, "0912345678", "khàng"}) {
             CommonException khoa = assertThrows(CommonException.class,
-                    () -> service.login(new LoginRequest(chuoi, "matkhaucu"), IP), chuoi);
+                    () -> service.login(new LoginRequest(chuoi, "matkhaucu"), IP, UA), chuoi);
             assertEquals(HttpStatus.TOO_MANY_REQUESTS, khoa.getHttpStatus(), chuoi);
         }
     }
@@ -604,7 +605,7 @@ class NguoiDungServiceAuthHardeningTest {
         List<Future<?>> ketQua = new java.util.ArrayList<>();
         for (int i = 0; i < 32; i++) {
             ketQua.add(pool.submit(() -> assertThrows(CommonException.class,
-                    () -> service.login(new LoginRequest("khang", "saimatkhau"), IP))));
+                    () -> service.login(new LoginRequest("khang", "saimatkhau"), IP, UA))));
         }
         for (Future<?> f : ketQua) {
             f.get(30, TimeUnit.SECONDS);
@@ -619,7 +620,7 @@ class NguoiDungServiceAuthHardeningTest {
         user.setTrangThai(0);
         for (int i = 0; i < LoginRateLimiter.MAX_FAILS + 2; i++) {
             assertThrows(AccountDisabledException.class,
-                    () -> service.login(new LoginRequest("khang", "matkhaucu"), IP));
+                    () -> service.login(new LoginRequest("khang", "matkhaucu"), IP, UA));
         }
     }
 
@@ -638,7 +639,7 @@ class NguoiDungServiceAuthHardeningTest {
         assertEquals(HttpStatus.TOO_MANY_REQUESTS, khoa.getHttpStatus());
         assertTrue(khoa.getMessage().startsWith(NguoiDungService.CHANGE_PASSWORD_LOCKED_MESSAGE), khoa.getMessage());
         CommonException dangNhap = assertThrows(CommonException.class,
-                () -> service.login(new LoginRequest("khang", "matkhaucu"), IP));
+                () -> service.login(new LoginRequest("khang", "matkhaucu"), IP, UA));
         assertEquals(HttpStatus.TOO_MANY_REQUESTS, dangNhap.getHttpStatus(), "cùng một mật khẩu bị dò");
         assertTrue(encoder.matches("matkhaucu", user.getMatKhauHash()), "mật khẩu chưa bị đổi");
     }
@@ -652,7 +653,7 @@ class NguoiDungServiceAuthHardeningTest {
         String otp = (String) GlobalCache.OTP_SCHEDULE_OBJS.iterator().next().getOtp();
         service.resetPassword(new ResetPasswordRequest("khang", otp, "matkhaumoi"));
 
-        assertNotNull(service.login(new LoginRequest("khang", "matkhaumoi"), IP).getBody().getData().getToken(),
+        assertNotNull(service.login(new LoginRequest("khang", "matkhaumoi"), IP, UA).getBody().getData().getToken(),
                 "quên mật khẩu xong đăng nhập được ngay, không phải chờ hết khoá");
     }
 
@@ -685,7 +686,7 @@ class NguoiDungServiceAuthHardeningTest {
 
     @Test
     void nhatKy_dangNhapThanhCong_ghiSauCommitKemIp() {
-        service.login(new LoginRequest("khang", "matkhaucu"), IP);
+        service.login(new LoginRequest("khang", "matkhaucu"), IP, UA);
 
         verify(nhatKyBaoMatService).ghiSauCommit(com.dev.backend.constant.variables.IHanhDong.dang_nhap,
                 com.dev.backend.constant.variables.ITable.nguoi_dung, 7, 7, "IP " + IP);
@@ -706,7 +707,7 @@ class NguoiDungServiceAuthHardeningTest {
 
     @Test
     void nhatKy_tenKhongTonTai_khongGhi_dangBiKhoaTam_khongGhiThem() {
-        assertThrows(CommonException.class, () -> service.login(new LoginRequest("khongtontai", "x"), IP));
+        assertThrows(CommonException.class, () -> service.login(new LoginRequest("khongtontai", "x"), IP, UA));
         verifyNoInteractions(nhatKyBaoMatService);
 
         for (int i = 0; i < LoginRateLimiter.MAX_FAILS; i++) {
@@ -714,7 +715,7 @@ class NguoiDungServiceAuthHardeningTest {
         }
         clearInvocations(nhatKyBaoMatService);
         // Đang khóa tạm: bị chặn trước khi kiểm mật khẩu, không ghi (kẻ dò mật khẩu không làm phình bảng)
-        assertThrows(CommonException.class, () -> service.login(new LoginRequest("khang", "saimatkhau"), IP));
+        assertThrows(CommonException.class, () -> service.login(new LoginRequest("khang", "saimatkhau"), IP, UA));
         verifyNoInteractions(nhatKyBaoMatService);
     }
 
@@ -722,7 +723,7 @@ class NguoiDungServiceAuthHardeningTest {
     void nhatKy_dungMatKhauNhungTaiKhoanBiKhoa_ghiThatBaiCoGioiHan() {
         // Không tính là lần sai (xem dangNhap_taiKhoanBiKhoaTrangThai_khongTinhLaLanSai) nên nhật ký phải tự giới hạn
         user.setTrangThai(0);
-        assertThrows(AccountDisabledException.class, () -> service.login(new LoginRequest("khang", "matkhaucu"), IP));
+        assertThrows(AccountDisabledException.class, () -> service.login(new LoginRequest("khang", "matkhaucu"), IP, UA));
 
         verify(nhatKyBaoMatService).ghiNgayGioiHan(eq(com.dev.backend.constant.variables.IHanhDong.dang_nhap_that_bai),
                 eq(com.dev.backend.constant.variables.ITable.nguoi_dung), eq(7), eq(7),

@@ -51,7 +51,7 @@ class AuthInterceptorNguCanhTest {
 
     private String tokenQuanTri() {
         return jwtService.generateTokenWithPermissions(7, "khang", "Khang", "khang@example.com", null,
-                Set.of("quan_tri_vien"), 1, null, null, List.of(), "Google", null);
+                Set.of("quan_tri_vien"), 1, null, null, List.of(), "Google", null, null);
     }
 
     @Test

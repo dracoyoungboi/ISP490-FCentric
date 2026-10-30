@@ -9,10 +9,10 @@ import {
   Settings,
   Store,
 } from "lucide-react";
-import { LazadaMenuIcon, ShopifyMenuIcon, TaiQuayMenuIcon, TiktokMenuIcon } from "@/components/channel/ChannelLogo";
+import { LazadaMenuIcon, ShopeeMenuIcon, ShopifyMenuIcon, TaiQuayMenuIcon, TiktokMenuIcon } from "@/components/channel/ChannelLogo";
 import { SAN_BAN_HANG } from "@/constants/channel";
 
-const ICON_MENU_SAN = { SHOPIFY: ShopifyMenuIcon, LAZADA: LazadaMenuIcon, TIKTOK: TiktokMenuIcon };
+const ICON_MENU_SAN = { SHOPIFY: ShopifyMenuIcon, LAZADA: LazadaMenuIcon, TIKTOK: TiktokMenuIcon, SHOPEE: ShopeeMenuIcon };
 import { SETTINGS_PAGES, SETTINGS_ROLES } from "@/components/settings/settings.config";
 import { canKho } from "@/components/nguoi-dung/phanQuyen";
 
@@ -279,12 +279,17 @@ export const SIDEBAR_MENU = [
     roles: ["quan_tri_vien"],
     // Trang quay về sau ủy quyền tính vào Tất cả kênh
     match: (path) => path === "/channels" || path.startsWith("/channels/oauth/"),
-    // Trang của sàn chưa kết nối (giới thiệu, thiết lập) cũng tính vào Tất cả kênh vì sàn đó chưa có mục riêng;
-    // BackofficeSidebar truyền danh sách sàn đã kết nối
+    // Trang của sàn chưa kết nối (giới thiệu, thiết lập) cũng tính vào Tất cả kênh vì sàn đó chưa có mục riêng
+    // (trừ sàn chờ cấp API có `hienMenu`: đã có mục riêng ở dưới); BackofficeSidebar truyền danh sách sàn đã kết nối
     matchKenh: (path, kenhDaKetNoi) =>
       path === "/channels" ||
       path.startsWith("/channels/oauth/") ||
-      SAN_BAN_HANG.some((san) => !kenhDaKetNoi.includes(san.maKenh) && (path === san.duongDan || path.startsWith(`${san.duongDan}/`))),
+      SAN_BAN_HANG.some(
+        (san) =>
+          (san.hoTro || !san.hienMenu) &&
+          !kenhDaKetNoi.includes(san.maKenh) &&
+          (path === san.duongDan || path.startsWith(`${san.duongDan}/`)),
+      ),
   },
   // Bán tại quầy là một kênh bán (như các sàn), luôn có sẵn nên đứng đầu; link thẳng mở màn POS toàn màn hình.
   // POS V1: chỉ admin + nhân viên bán hàng (quyết định mở rộng role ở Phase 03+)
@@ -315,6 +320,15 @@ export const SIDEBAR_MENU = [
       { label: "Đơn hàng", to: `${san.duongDan}/orders`, roles: ["quan_tri_vien"] },
       { label: "Cấu hình", to: `${san.duongDan}/settings`, roles: ["quan_tri_vien"] },
     ],
+  })),
+  // Sàn chờ cấp API bật `hienMenu` (Shopee): một mục mở màn giới thiệu, không có mục con vì trang con chuyển về đó;
+  // không khai báo `maKenh` nên hiện cả khi chưa kết nối
+  ...SAN_BAN_HANG.filter((san) => !san.hoTro && san.hienMenu).map((san) => ({
+    label: san.ten,
+    icon: ICON_MENU_SAN[san.maKenh] ?? Store,
+    section: "channels",
+    to: san.duongDan,
+    roles: ["quan_tri_vien"],
   })),
 
   // ================= CẤU HÌNH (ghim ở đáy sidebar) =================

@@ -356,7 +356,8 @@ export default function App() {
           {/* Kênh bán hàng (FO-073–077) — chỉ quản trị viên (backend cũng chặn bằng @RequireAuth) */}
           <Route element={<RequireRole roles={["quan_tri_vien"]} />}>
             <Route path="/channels" element={<ChannelsPage />} />
-            {/* Mỗi sàn (shopify, lazada, tiktok) cùng bộ trang; mã sàn lạ thì KenhHopLe hiện "Không tìm thấy trang" */}
+            {/* Mỗi sàn (shopify, lazada, tiktok) cùng bộ trang; sàn chờ cấp API (shopee) chỉ có màn giới thiệu, trang con
+                chuyển về đó; mã sàn lạ thì KenhHopLe hiện "Không tìm thấy trang" */}
             <Route element={<KenhHopLe />}>
               {/* Trang quay về sau khi người bán đồng ý trên trang của sàn (redirect_uri của ứng dụng) */}
               <Route path="/channels/oauth/callback/:maKenh" element={<OAuthCallbackPage />} />

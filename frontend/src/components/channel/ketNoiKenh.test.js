@@ -18,7 +18,7 @@ import {
   taoPayloadKhoaUngDung,
   trangThaiKetNoi,
 } from "./ketNoiKenh.js";
-import { nhanTrangThaiSan, timSan } from "../../constants/channel.js";
+import { SAN_BAN_HANG, nhanTrangThaiSan, timSan } from "../../constants/channel.js";
 
 const NGAY = 86_400_000;
 const BAY_GIO = Date.parse("2026-10-23T03:00:00Z");
@@ -99,9 +99,24 @@ test("timSan: theo mã kênh hoặc đoạn đường dẫn, không phân biệt
   assert.equal(timSan("LAZADA")?.duongDan, "/channels/lazada");
   assert.equal(timSan("tiktok")?.maKenh, "TIKTOK");
   assert.equal(timSan("Shopify")?.kieuKetNoi, "khoa");
-  assert.equal(timSan("shopee"), null);
+  assert.equal(timSan("amazon"), null);
   assert.equal(timSan("oauth"), null);
   assert.equal(timSan(""), null);
+});
+
+test("Shopee chờ cấp API: tìm được sàn để vẽ dòng và màn giới thiệu, nhưng không tính là sàn hỗ trợ", () => {
+  const shopee = timSan("shopee");
+  assert.equal(shopee?.maKenh, "SHOPEE");
+  assert.equal(shopee.duongDan, "/channels/shopee");
+  assert.equal(shopee.kieuKetNoi, "uy_quyen");
+  // Tải danh sách sàn đã kết nối, bảng số liệu và nhóm mục của sàn ở menu trái chỉ lấy sàn hỗ trợ: Shopee không được
+  // gọi máy chủ (menu trái chỉ có một mục Shopee mở màn giới thiệu khi bật `hienMenu`)
+  assert.equal(shopee.hoTro, false);
+  assert.deepEqual(
+    SAN_BAN_HANG.filter((san) => san.hoTro).map((san) => san.maKenh),
+    ["SHOPIFY", "LAZADA", "TIKTOK"],
+  );
+  assert.equal(timSan("SHOPEE"), shopee);
 });
 
 test("ô tên miền Shopify chỉ đọc khi đã kết nối và máy chủ ngắt kết nối được; ngắt rồi thì sửa được", () => {

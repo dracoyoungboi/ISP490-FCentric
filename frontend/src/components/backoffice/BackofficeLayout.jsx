@@ -383,8 +383,9 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             match: (path) => path === "/channels",
             title: "Kênh bán hàng",
         },
-        // Trang của từng sàn (Shopify, Lazada, TikTok Shop) và trang quay về sau ủy quyền
-        ...SAN_BAN_HANG.filter((san) => san.hoTro).flatMap((san) => [
+        // Trang của từng sàn (Shopify, Lazada, TikTok Shop) và trang quay về sau ủy quyền. Sàn chờ cấp API (Shopee) chỉ dùng
+        // tiêu đề Tổng quan: trang con của sàn đó chuyển ngay về màn giới thiệu (KenhHopLe)
+        ...SAN_BAN_HANG.flatMap((san) => [
             { key: `CHANNEL_${san.maKenh}`, match: (path) => path === san.duongDan, title: `Tổng quan ${san.ten}` },
             {
                 key: `CHANNEL_${san.maKenh}_SETUP`,
