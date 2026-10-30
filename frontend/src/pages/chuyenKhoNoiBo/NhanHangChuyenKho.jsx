@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ChevronDown, ClipboardCheck, FileWarning, Minus, Plus, Printer, ScanLine } from "lucide-react";
 import { phieuChuyenKhoService } from "@/services/phieuChuyenKhoService";
@@ -13,7 +13,7 @@ import { KhungDangTai, KhungLoiChungTu } from "@/components/chung-tu/KhungTaiChu
 import AnhBienThe from "@/components/chung-tu/AnhBienThe";
 import MauKichCo from "@/components/chung-tu/MauKichCo";
 import { soVN } from "@/components/chung-tu/bangChungTu";
-import { BANG, DONG, DONG_TIEU_DE, KHUNG_CUON, O, O_CUOI, O_DAU, O_TIEU_DE } from "@/components/chung-tu/kieuBang";
+import { BANG, DONG_TIEU_DE, KHUNG_CUON, O, O_CUOI, O_DAU, O_TIEU_DE } from "@/components/chung-tu/kieuBang";
 import { GHI_CHU_HOP, NHAN_O, O_NHAP, O_NHAP_NHIEU_DONG } from "@/components/chung-tu/kieuHopThoai";
 import { chayCoThoiHan, CAU_HET_THOI_HAN, MO_TA_HET_THOI_HAN, laLoiHetThoiHan } from "@/components/chung-tu/thoiHanThaoTac";
 import HopInTheLenh from "@/components/nhap-kho/HopInTheLenh";
@@ -77,6 +77,55 @@ const coHopDangMo = () => Boolean(document.querySelector('[role="dialog"]:not([d
 const cauLech = ({ thieu, hong }) => [thieu > 0 ? `thiếu ${soVN(thieu)}` : null, hong > 0 ? `hỏng ${soVN(hong)}` : null].filter(Boolean).join(", ");
 /** Thời gian dùng lại kết quả tra mã vạch NCC với máy chủ (mã bị gỡ / liên kết lại ở máy khác vẫn được phát hiện). */
 const KIEM_LAI_MA_NCC_MS = 60_000;
+/**
+ * Bề rộng tối thiểu của bảng đếm: các cột số cố định 528 px (cột Lô đủ một dòng cho mã lô mặc định LO-PN202610201-01)
+ * cộng cột Sản phẩm; vừa laptop 1.024 px khi menu trái mở. Khung hẹp hơn (máy cầm tay, điện thoại, iPad dọc) thì mỗi lô
+ * thành một thẻ thay vì bắt vuốt ngang.
+ */
+const BANG_TOI_THIEU = 690;
+
+/**
+ * Khung (gắn `ref`) hẹp hơn `nguong` px không. Đo bề rộng thật của khung nên tính cả menu trái mở / thu gọn; trạng thái
+ * đặt trong lúc gắn khung, trước khi vẽ, nên không chớp bảng rồi mới sang thẻ. Đổi bảng ↔ thẻ (xoay iPad, kéo cửa sổ)
+ * lúc đang gõ ở ô của một lô (đánh dấu `data-khoa-o`, `data-loai-o`) thì con trỏ về đúng ô đó ở dạng mới, cuối chữ.
+ */
+function useKhungHep(nguong) {
+    const [hep, setHep] = useState(false);
+    const hepRef = useRef(false);
+    const oDangGoRef = useRef(null);
+    const theoDoiRef = useRef(null);
+    const ref = useCallback(
+        (el) => {
+            theoDoiRef.current?.disconnect();
+            theoDoiRef.current = null;
+            if (!el) return;
+            const kiem = () => {
+                const moi = el.clientWidth > 0 && el.clientWidth < nguong;
+                if (moi === hepRef.current) return;
+                hepRef.current = moi;
+                const o = document.activeElement;
+                oDangGoRef.current = o instanceof HTMLElement && el.contains(o) && o.dataset.khoaO ? { khoa: o.dataset.khoaO, loai: o.dataset.loaiO } : null;
+                setHep(moi);
+            };
+            kiem();
+            if (typeof ResizeObserver !== "function") return;
+            theoDoiRef.current = new ResizeObserver(kiem);
+            theoDoiRef.current.observe(el);
+        },
+        [nguong],
+    );
+    useLayoutEffect(() => {
+        const o = oDangGoRef.current;
+        oDangGoRef.current = null;
+        if (!o) return;
+        const moi = [...document.querySelectorAll("[data-khoa-o]")].find((x) => x.dataset.khoaO === o.khoa && x.dataset.loaiO === o.loai);
+        if (!moi) return;
+        moi.focus({ preventScroll: true });
+        // Ô Đạt chọn hết chữ khi nhận con trỏ: đặt con trỏ cuối chữ để phím gõ tiếp không xóa số đang gõ dở
+        moi.setSelectionRange?.(moi.value.length, moi.value.length);
+    }, [hep]);
+    return [ref, hep];
+}
 
 /**
  * Nhận hàng chuyển kho (màn B.4 của BA) tại kho nhận, kiểm đếm theo cách màn nhập hàng NCC (PA A, chốt 30/10/2026):
@@ -85,6 +134,8 @@ const KIEM_LAI_MA_NCC_MS = 60_000;
  *   trên thẻ). Quét HOÀN TÁC lùi lượt; đủ số gửi thì không cộng thêm.
  * - Đếm tay vẫn được ở ô Đạt (máy quét bắn nhầm vào ô thì ô về số cũ, mã tính như quét ở ô quét); ô Hỏng chỉnh theo lý
  *   do. Lô có cái hỏng đang chờ chọn lý do thì chưa sửa tay được.
+ * - Khung đủ rộng: bảng 6 cột, lý do lệch và ghi chú nằm ở hàng phụ ngay dưới dòng lệch. Khung hẹp hơn bảng (máy cầm
+ *   tay, điện thoại, iPad dọc): mỗi lô là một thẻ, ô Đạt / Hỏng to dễ bấm; không cỡ màn nào phải vuốt ngang.
  * - Thiếu = Gửi − Đạt − Hỏng. Khớp đủ → "Xác nhận nhận đủ" (phiếu nhập PN-TRF, phiếu Hoàn tất). Có lệch → "Xử lý chênh
  *   lệch": hỏng ghi theo lý do, phần thiếu (và lý do Khác) phải ghi chú; lập biên bản giao nhận, nhập ngay phần đạt, phần
  *   lệch giữ ở kho trung chuyển chờ người được xử lý chênh lệch (Quản lý Kho tổng theo mặc định, đổi ở Cấu hình › Chuyển kho).
@@ -110,6 +161,7 @@ function ManNhanHang({ id }) {
     const [anThe, setAnThe] = useState(false);
     const [tab, setTab] = useState("bang");
     const [moInThe, setMoInThe] = useState(false);
+    const [khungRef, khungHep] = useKhungHep(BANG_TOI_THIEU);
     const oQuetRef = useRef(null);
     const theRef = useRef(null);
     // Dữ liệu mới nhất cho hàng đợi quét (đọc trong xử lý sự kiện, không đọc lúc vẽ)
@@ -655,6 +707,21 @@ function ManNhanHang({ id }) {
     const maLoTheoKhoa = Object.fromEntries(dsLo.map((l) => [khoaLo(l), l.maLo]));
     const soLuot = p.log.filter((e) => !e.huy).length;
     const dsTab = [["bang", "Bảng đếm", null], ["luot", "Lượt quét", soLuot]];
+    // Thuộc tính một lô, dùng chung cho dòng bảng và thẻ (khung hẹp)
+    const propsDong = (d) => ({
+        d,
+        moi: Boolean(cur?.phan.some((x) => x.khoa === d.khoa)),
+        hienLoi: daKiemLyDo,
+        chuaDemDong: !daKiemLyDo && d.gui > 0 && d.dat === 0 && d.hong === 0,
+        dangDemDo: !daKiemLyDo && (chuaDem || dangDem),
+        conHong: conDemDuoc(d, p.dem),
+        onVaoODat: () => vaoODat(d),
+        onGoODat: (v) => goODat(d, v),
+        onRoiODat: () => roiODat(d),
+        onEnterODat: () => oQuetRef.current?.focus(),
+        onDoiHong: (lyDo, delta) => doiHong(d, lyDo, delta),
+        onDoiGhiChu: (chu) => doiGhiChuDong(d, chu),
+    });
     const chonTab = (ma) => {
         setTab(ma);
         // Thẻ kết quả nói về lượt đang kiểm: xem danh sách lượt thì cất thẻ để không che danh sách; quét tiếp thẻ hiện lại
@@ -733,52 +800,53 @@ function ManNhanHang({ id }) {
                     );
                 })}
             </div>
-            <div id="khung-nhan-hang" role="tabpanel" aria-labelledby={`tab-nhan-${tab}`} className="flex min-w-0 flex-1 flex-col">
+            <div id="khung-nhan-hang" ref={khungRef} role="tabpanel" aria-labelledby={`tab-nhan-${tab}`} className="flex min-w-0 flex-1 flex-col">
                 {tab === "bang" ? (
                     <div className={KHUNG_CUON} onKeyDownCapture={nhanPhimTrongBang}>
-                        <table className={cn(BANG, "min-w-[960px]")}>
-                            <thead>
-                                <tr className={DONG_TIEU_DE}>
-                                    <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>Sản phẩm</th>
-                                    <th scope="col" className={O_TIEU_DE}>Lô</th>
-                                    <th scope="col" className={cn(O_TIEU_DE, "text-right")}>Gửi</th>
-                                    <th scope="col" className={cn(O_TIEU_DE, "text-right")}>Đạt</th>
-                                    <th scope="col" className={cn(O_TIEU_DE, "text-right")}>Hỏng</th>
-                                    <th scope="col" className={cn(O_TIEU_DE, "text-right")}>Thiếu</th>
-                                    <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "min-w-[260px]")}>Lý do lệch</th>
-                                </tr>
-                            </thead>
-                            <tbody>
+                        {khungHep ? (
+                            <>
+                                <ul aria-label="Bảng đếm theo lô">
+                                    {kq.dong.map((d) => (
+                                        <TheDem key={d.khoa} {...propsDong(d)} />
+                                    ))}
+                                </ul>
+                                <dl aria-label="Tổng" className="grid grid-cols-4 gap-2 bg-bo-surface-subtle px-4 py-3 tabular-nums sm:px-6">
+                                    {[["Gửi", kq.tong.gui], ["Đạt", kq.tong.dat], ["Hỏng", kq.tong.hong], ["Thiếu", kq.tong.thieu]].map(([nhan, n]) => (
+                                        <div key={nhan}>
+                                            <dt className="text-xs text-bo-muted">{nhan}</dt>
+                                            <dd className="text-sm font-semibold text-bo-foreground">{soVN(n)}</dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                            </>
+                        ) : (
+                            // Cột cố định bề rộng (bảng không bị nội dung dài đẩy rộng ra): cột Sản phẩm nhận phần còn lại
+                            <table className={cn(BANG, "table-fixed")} style={{ minWidth: BANG_TOI_THIEU }}>
+                                <thead>
+                                    <tr className={DONG_TIEU_DE}>
+                                        <th scope="col" className={cn(O_TIEU_DE, O_DAU)}>Sản phẩm</th>
+                                        <th scope="col" className={cn(O_TIEU_DE, "w-36")}>Lô</th>
+                                        <th scope="col" className={cn(O_TIEU_DE, "w-16 text-right")}>Gửi</th>
+                                        <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right")}>Đạt</th>
+                                        <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right")}>Hỏng</th>
+                                        <th scope="col" className={cn(O_TIEU_DE, O_CUOI, "w-32 text-right")}>Thiếu</th>
+                                    </tr>
+                                </thead>
                                 {kq.dong.map((d) => (
-                                    <DongDem
-                                        key={d.khoa}
-                                        d={d}
-                                        moi={Boolean(cur?.phan.some((x) => x.khoa === d.khoa))}
-                                        hienLoi={daKiemLyDo}
-                                        chuaDemDong={!daKiemLyDo && d.gui > 0 && d.dat === 0 && d.hong === 0}
-                                        dangDemDo={!daKiemLyDo && (chuaDem || dangDem)}
-                                        conHong={conDemDuoc(d, p.dem)}
-                                        onVaoODat={() => vaoODat(d)}
-                                        onGoODat={(v) => goODat(d, v)}
-                                        onRoiODat={() => roiODat(d)}
-                                        onEnterODat={() => oQuetRef.current?.focus()}
-                                        onDoiHong={(lyDo, delta) => doiHong(d, lyDo, delta)}
-                                        onDoiGhiChu={(chu) => doiGhiChuDong(d, chu)}
-                                    />
+                                    <DongDem key={d.khoa} {...propsDong(d)} />
                                 ))}
-                            </tbody>
-                            <tfoot>
-                                <tr className="border-t border-bo-border font-semibold tabular-nums text-bo-foreground">
-                                    <td className={cn(O, O_DAU)}>Tổng</td>
-                                    <td className={O} />
-                                    <td className={cn(O, "text-right")}>{soVN(kq.tong.gui)}</td>
-                                    <td className={cn(O, "text-right")}>{soVN(kq.tong.dat)}</td>
-                                    <td className={cn(O, "text-right")}>{soVN(kq.tong.hong)}</td>
-                                    <td className={cn(O, "text-right")}>{soVN(kq.tong.thieu)}</td>
-                                    <td className={cn(O, O_CUOI)} />
-                                </tr>
-                            </tfoot>
-                        </table>
+                                <tfoot>
+                                    <tr className="border-t border-bo-border font-semibold tabular-nums text-bo-foreground">
+                                        <td className={cn(O, O_DAU)}>Tổng</td>
+                                        <td className={O} />
+                                        <td className={cn(O, "text-right")}>{soVN(kq.tong.gui)}</td>
+                                        <td className={cn(O, "text-right")}>{soVN(kq.tong.dat)}</td>
+                                        <td className={cn(O, "text-right")}>{soVN(kq.tong.hong)}</td>
+                                        <td className={cn(O, O_CUOI, "text-right")}>{soVN(kq.tong.thieu)}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        )}
                     </div>
                 ) : p.log.length ? (
                     <ul className="border-t border-slate-100">
@@ -913,134 +981,262 @@ function ManNhanHang({ id }) {
 }
 
 /**
- * Một dòng lô của bảng đếm: ô Đạt gõ tay, ô Hỏng mở ô nổi chỉnh theo lý do, cột lý do (chip theo lý do + ghi chú).
- * `chuaDemDong`: lô chưa đếm cái nào (thường là chưa quét tới) và người dùng chưa bấm Xử lý chênh lệch: số thiếu để
- * chữ xám, chưa hiện ô ghi chú bắt buộc. `dangDemDo`: phiếu còn lô chưa đếm (đếm dở) và chưa bấm Xử lý chênh lệch: phần
- * thiếu có thể chỉ là chưa đếm tới nên cũng để chữ xám, ô ghi chú chỉ hiện khi có lý do Khác hoặc đã có ghi chú.
+ * Trạng thái chung của một lô cho dòng bảng và thẻ.
+ * `chuaDemDong`: lô chưa đếm cái nào (thường là chưa quét tới) và người dùng chưa bấm Xử lý chênh lệch: chưa hiện ô ghi
+ * chú bắt buộc. `dangDemDo`: phiếu còn lô chưa đếm (đếm dở) và chưa bấm Xử lý chênh lệch: phần thiếu có thể chỉ là chưa
+ * đếm tới nên để chữ xám, ô ghi chú chỉ hiện khi có lý do Khác hoặc đã có ghi chú.
  */
-function DongDem({ d, moi, hienLoi, chuaDemDong, dangDemDo, conHong, onVaoODat, onGoODat, onRoiODat, onEnterODat, onDoiHong, onDoiGhiChu }) {
-    const idGhiChu = useId();
-    const loiGhiChu = hienLoi && d.lech && d.thieuGhiChu;
+function trangThaiDong({ d, hienLoi, chuaDemDong, dangDemDo }) {
     const coKhac = d.lyDos.some(([k]) => k === LY_DO_KHAC);
-    const hienGhiChu = d.canGhiChu && (!dangDemDo || coKhac || Boolean(String(d.ghiChu ?? "").trim()));
+    return {
+        coKhac,
+        coLyDo: !chuaDemDong && d.lech && (d.lyDos.length > 0 || d.chuaLyDo > 0),
+        hienGhiChu: !chuaDemDong && d.canGhiChu && (!dangDemDo || coKhac || Boolean(String(d.ghiChu ?? "").trim())),
+        loiGhiChu: hienLoi && d.lech && d.thieuGhiChu,
+    };
+}
+
+/** Ô Đạt của một lô: gõ tay; máy quét bắn nhầm vào ô thì bộ nhận lần quét của khung trả ô về số cũ. `lon`: ô của thẻ. */
+function ODat({ d, lon, onVaoODat, onGoODat, onRoiODat, onEnterODat }) {
     return (
-        <tr className={cn(DONG, moi && "bg-bo-primary/[0.04]")}>
-            <td className={cn(O, O_DAU)}>
-                <div className="flex min-w-0 items-center gap-3">
-                    <AnhBienThe src={d.anh} bienThe={d} co="sm" />
-                    <div className="min-w-0">
-                        <div className="truncate font-medium text-bo-foreground" title={d.tenSanPham}>{d.tenSanPham}</div>
-                        <div className="flex flex-wrap items-center gap-x-2 text-xs text-bo-muted">
-                            <MauKichCo dong={d} />
-                            <span className="font-mono">{d.sku}</span>
-                        </div>
-                    </div>
-                </div>
-            </td>
-            <td className={cn(O, "whitespace-nowrap font-mono text-xs")}>
-                {d.maLo} × {soVN(d.gui)}
-            </td>
-            <td className={cn(O, "text-right")}>{soVN(d.gui)}</td>
-            <td className={cn(O, "text-right")}>
-                <input
-                    value={d.dat}
-                    inputMode="numeric"
-                    autoComplete="off"
-                    data-khoa-o={d.khoa}
-                    data-loai-o="dat"
-                    aria-label={`Đạt ${d.sku} lô ${d.maLo}`}
-                    onFocus={(e) => {
-                        onVaoODat();
-                        e.target.select();
-                    }}
-                    onChange={(e) => onGoODat(e.target.value)}
-                    onBlur={onRoiODat}
-                    onKeyDown={(e) => {
-                        // Enter sau khi gõ tay xong: về ô quét (Enter của máy quét đã được bộ nhận lần quét của bảng xử lý)
-                        if (e.key !== "Enter") return;
-                        e.preventDefault();
-                        onEnterODat();
-                    }}
-                    className={cn(O_SO, d.vuot && O_SO_LOI)}
-                />
-            </td>
-            <td className={cn(O, "text-right")}>
-                <OHong d={d} conHong={conHong} onDoiHong={onDoiHong} />
-            </td>
-            <td className={cn(O, "text-right")}>
-                {d.vuot ? (
-                    <span className="rounded-md bg-bo-danger-soft px-2 py-0.5 text-xs font-medium text-bo-danger-strong">Vượt số gửi</span>
-                ) : chuaDemDong ? (
-                    <span className="px-2 tabular-nums text-bo-muted" title="Chưa đếm">{soVN(d.thieu)}</span>
-                ) : !d.lech ? (
-                    <span className="rounded-md bg-bo-tt-xong px-2 py-0.5 text-xs font-medium text-bo-tt-xong-chu">Khớp</span>
-                ) : d.thieu === 0 ? (
-                    <span className="rounded-md bg-bo-tt-chu-y px-2 py-0.5 text-xs font-medium text-bo-tt-chu-y-chu">Hỏng {soVN(d.hong)}</span>
-                ) : dangDemDo ? (
-                    <span className="px-2 tabular-nums text-bo-muted" title="Đang đếm">{soVN(d.thieu)}</span>
-                ) : (
-                    <span className="rounded-md bg-bo-tt-chu-y px-2 py-0.5 text-xs font-semibold tabular-nums text-bo-tt-chu-y-chu">{soVN(d.thieu)}</span>
-                )}
-            </td>
-            <td className={cn(O, O_CUOI)}>
-                {chuaDemDong ? (
-                    <span className="text-bo-muted">Chưa đếm</span>
-                ) : d.lech && !d.lyDos.length && !d.chuaLyDo && !hienGhiChu ? (
-                    <span className="text-bo-muted">{dangDemDo ? "Đang đếm" : "—"}</span>
-                ) : d.lech ? (
-                    <div className="flex flex-col gap-1.5">
-                        {d.lyDos.length || d.chuaLyDo ? (
-                            <div className="flex flex-wrap gap-1">
-                                {d.lyDos.map(([ten, n]) => (
-                                    <span key={ten} className="rounded-full border border-bo-border bg-bo-surface-subtle px-2 py-px text-xs text-bo-foreground">
-                                        {ten} {soVN(n)}
-                                    </span>
-                                ))}
-                                {d.chuaLyDo ? (
-                                    <span className="rounded-full bg-bo-danger-soft px-2 py-px text-xs font-medium text-bo-danger-strong">{soVN(d.chuaLyDo)} chưa chọn lý do</span>
-                                ) : null}
-                            </div>
-                        ) : null}
-                        {hienGhiChu ? (
-                            <>
-                                <input
-                                    value={d.ghiChu}
-                                    maxLength={GHI_CHU_TOI_DA}
-                                    data-khoa-o={d.khoa}
-                                    data-loai-o="ghiChu"
-                                    aria-label={`Ghi chú lý do lệch ${d.sku} lô ${d.maLo}`}
-                                    aria-invalid={loiGhiChu || undefined}
-                                    aria-describedby={loiGhiChu ? idGhiChu : undefined}
-                                    placeholder={
-                                        d.thieu > 0 && coKhac
-                                            ? `Ghi chú phần thiếu ${soVN(d.thieu)} cái và lý do Khác`
-                                            : d.thieu > 0
-                                              ? `Ghi chú phần thiếu ${soVN(d.thieu)} cái`
-                                              : "Ghi rõ lý do Khác"
-                                    }
-                                    onChange={(e) => onDoiGhiChu(e.target.value)}
-                                    className={cn(O_NHAP, "h-8", loiGhiChu && O_SO_LOI)}
-                                />
-                                {/* Sau lần bấm Xử lý chênh lệch, dòng báo lỗi luôn giữ chỗ (ẩn khi đã điền): điền dần từng ô
-                                    thì các dòng dưới không trượt lên dưới con trỏ */}
-                                {hienLoi ? (
-                                    <span id={idGhiChu} aria-hidden={!loiGhiChu || undefined} className={cn("block text-xs", loiGhiChu ? "text-bo-danger" : "invisible")}>
-                                        {d.thieu > 0 && coKhac ? "Ghi chú phần thiếu và lý do Khác" : d.thieu > 0 ? "Ghi chú phần thiếu" : "Ghi rõ lý do Khác"}
-                                    </span>
-                                ) : null}
-                            </>
-                        ) : null}
-                    </div>
-                ) : (
-                    <span className="text-bo-muted">—</span>
-                )}
-            </td>
-        </tr>
+        <input
+            value={d.dat}
+            inputMode="numeric"
+            autoComplete="off"
+            data-khoa-o={d.khoa}
+            data-loai-o="dat"
+            aria-label={`Đạt ${d.sku} lô ${d.maLo}`}
+            onFocus={(e) => {
+                onVaoODat();
+                e.target.select();
+            }}
+            onChange={(e) => onGoODat(e.target.value)}
+            onBlur={onRoiODat}
+            onKeyDown={(e) => {
+                // Enter sau khi gõ tay xong: về ô quét (Enter của máy quét đã được bộ nhận lần quét của khung xử lý)
+                if (e.key !== "Enter") return;
+                e.preventDefault();
+                onEnterODat();
+            }}
+            className={cn(O_SO, lon && "h-10 w-full text-base", d.vuot && O_SO_LOI)}
+        />
     );
 }
 
-/** Ô Hỏng: số hỏng của lô, bấm mở ô nổi chỉnh số theo từng lý do (cộng Đạt + Hỏng không vượt số gửi). */
-function OHong({ d, conHong, onDoiHong }) {
+/** Chip lý do hỏng của lô (kèm số cái từ lượt quét còn chờ chọn lý do). */
+function ChipLyDo({ d }) {
+    return (
+        <>
+            {d.lyDos.map(([ten, n]) => (
+                <span key={ten} className="rounded-full border border-bo-border bg-bo-surface-subtle px-2 py-px text-xs text-bo-foreground">
+                    {ten} {soVN(n)}
+                </span>
+            ))}
+            {d.chuaLyDo ? (
+                <span className="rounded-full bg-bo-danger-soft px-2 py-px text-xs font-medium text-bo-danger-strong">{soVN(d.chuaLyDo)} chưa chọn lý do</span>
+            ) : null}
+        </>
+    );
+}
+
+/** Ô ghi chú lý do lệch (phần thiếu, lý do Khác) và dòng báo thiếu ghi chú bên dưới. `lon`: ô của thẻ. */
+function OGhiChu({ d, coKhac, loi, hienLoi, lon, onDoiGhiChu }) {
+    const idLoi = useId();
+    return (
+        <>
+            <input
+                value={d.ghiChu}
+                maxLength={GHI_CHU_TOI_DA}
+                data-khoa-o={d.khoa}
+                data-loai-o="ghiChu"
+                aria-label={`Ghi chú lý do lệch ${d.sku} lô ${d.maLo}`}
+                aria-invalid={loi || undefined}
+                aria-describedby={loi ? idLoi : undefined}
+                placeholder={
+                    d.thieu > 0 && coKhac
+                        ? `Ghi chú phần thiếu ${soVN(d.thieu)} cái và lý do Khác`
+                        : d.thieu > 0
+                          ? `Ghi chú phần thiếu ${soVN(d.thieu)} cái`
+                          : "Ghi rõ lý do Khác"
+                }
+                onChange={(e) => onDoiGhiChu(e.target.value)}
+                className={cn(O_NHAP, lon ? "h-10 text-base" : "h-8", loi && O_SO_LOI)}
+            />
+            {/* Sau lần bấm Xử lý chênh lệch, dòng báo lỗi luôn giữ chỗ (ẩn khi đã điền): điền dần từng ô thì các dòng
+                dưới không trượt lên dưới con trỏ */}
+            {hienLoi ? (
+                <span id={idLoi} aria-hidden={!loi || undefined} className={cn("block text-xs", loi ? "text-bo-danger" : "invisible")}>
+                    {d.thieu > 0 && coKhac ? "Ghi chú phần thiếu và lý do Khác" : d.thieu > 0 ? "Ghi chú phần thiếu" : "Ghi rõ lý do Khác"}
+                </span>
+            ) : null}
+        </>
+    );
+}
+
+/** Cột Thiếu của bảng: vượt số gửi, chưa đếm, khớp, chỉ hỏng, đang đếm dở (số xám) hoặc số thiếu. */
+function OThieu({ d, chuaDemDong, dangDemDo }) {
+    if (d.vuot) return <span className="rounded-md bg-bo-danger-soft px-2 py-0.5 text-xs font-medium text-bo-danger-strong">Vượt số gửi</span>;
+    if (chuaDemDong) return <span className="text-xs text-bo-muted">Chưa đếm</span>;
+    if (!d.lech) return <span className="rounded-md bg-bo-tt-xong px-2 py-0.5 text-xs font-medium text-bo-tt-xong-chu">Khớp</span>;
+    if (d.thieu === 0) return <span className="rounded-md bg-bo-tt-chu-y px-2 py-0.5 text-xs font-medium text-bo-tt-chu-y-chu">Hỏng {soVN(d.hong)}</span>;
+    if (dangDemDo) {
+        return (
+            <span className="px-2 tabular-nums text-bo-muted">
+                {soVN(d.thieu)} <span className="text-xs">· đang đếm</span>
+            </span>
+        );
+    }
+    return <span className="rounded-md bg-bo-tt-chu-y px-2 py-0.5 text-xs font-semibold tabular-nums text-bo-tt-chu-y-chu">{soVN(d.thieu)}</span>;
+}
+
+/**
+ * Một lô của bảng đếm: dòng chính (ô Đạt gõ tay, ô Hỏng mở ô nổi chỉnh theo lý do, cột Thiếu) và hàng phụ ngay dưới khi
+ * lô có lý do lệch hoặc cần ghi chú (chip theo lý do + ô ghi chú). Mỗi lô một <tbody> để rê chuột tô cả hai hàng.
+ */
+function DongDem(props) {
+    const { d, moi, conHong, chuaDemDong, dangDemDo, hienLoi, onDoiHong, onDoiGhiChu } = props;
+    const { coKhac, coLyDo, hienGhiChu, loiGhiChu } = trangThaiDong(props);
+    const coPhu = coLyDo || hienGhiChu;
+    const nen = cn("group-hover:bg-bo-surface-subtle", moi && "bg-bo-primary/[0.04]");
+    const o = cn(O, coPhu && "pb-1.5");
+    return (
+        <tbody className="group tabular-nums">
+            <tr className={cn(nen, !coPhu && "border-b border-slate-100")}>
+                <td className={cn(o, O_DAU)}>
+                    <div className="flex min-w-0 items-center gap-3">
+                        <AnhBienThe src={d.anh} bienThe={d} co="sm" />
+                        <div className="min-w-0">
+                            <div className="line-clamp-2 font-medium [overflow-wrap:anywhere] text-bo-foreground" title={d.tenSanPham}>{d.tenSanPham}</div>
+                            <div className="flex flex-wrap items-center gap-x-2 text-xs text-bo-muted">
+                                <MauKichCo dong={d} />
+                                <span className="font-mono [overflow-wrap:anywhere]">{d.sku}</span>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                <td className={cn(o, "font-mono text-xs [overflow-wrap:anywhere]")}>{d.maLo}</td>
+                <td className={cn(o, "text-right")}>{soVN(d.gui)}</td>
+                <td className={cn(o, "text-right")}>
+                    <ODat {...props} />
+                </td>
+                <td className={cn(o, "text-right")}>
+                    <OHong d={d} conHong={conHong} onDoiHong={onDoiHong} />
+                </td>
+                <td className={cn(o, O_CUOI, "text-right")}>
+                    <OThieu d={d} chuaDemDong={chuaDemDong} dangDemDo={dangDemDo} />
+                </td>
+            </tr>
+            {coPhu ? (
+                <tr className={cn(nen, "border-b border-slate-100")}>
+                    {/* Lý do dưới tên sản phẩm (thụt bằng lề ô đầu + ảnh 28 px + khoảng cách 12 px); ô ghi chú từ cột Lô tới
+                        mép phải: mọi dòng có ô ghi chú cùng chỗ, cùng bề rộng. Chỉ thiếu, không hỏng: ô trái để trống
+                        (gợi ý trong ô ghi chú đã nói rõ), không để nhãn đứng một mình cách xa ô */}
+                    <td className="pb-3 pl-14 pr-3 pt-0 align-top sm:pl-16">
+                        {coLyDo ? (
+                            <div className="flex min-h-8 flex-wrap items-center gap-1.5">
+                                <span className="text-xs text-bo-muted">Lý do lệch</span>
+                                <ChipLyDo d={d} />
+                            </div>
+                        ) : null}
+                    </td>
+                    <td colSpan={5} className="pb-3 pl-3 pr-4 pt-0 align-top sm:pr-6">
+                        {hienGhiChu ? (
+                            <div className="flex flex-col gap-1">
+                                <OGhiChu d={d} coKhac={coKhac} loi={loiGhiChu} hienLoi={hienLoi} onDoiGhiChu={onDoiGhiChu} />
+                            </div>
+                        ) : null}
+                    </td>
+                </tr>
+            ) : null}
+        </tbody>
+    );
+}
+
+/** Nhãn trạng thái ở góc thẻ: vượt số gửi, chưa đếm, khớp, đang đếm dở, hoặc phần thiếu / hỏng. */
+function nhanThe(d, chuaDemDong, dangDemDo) {
+    if (d.vuot) return ["bg-bo-danger-soft text-bo-danger-strong", "Vượt số gửi"];
+    if (chuaDemDong) return ["bg-slate-100 text-slate-600", "Chưa đếm"];
+    if (!d.lech) return ["bg-bo-tt-xong text-bo-tt-xong-chu", "Khớp"];
+    // Đếm dở: phần thiếu có thể chỉ là chưa đếm tới, chỉ nêu phần hỏng (nếu có)
+    const thieu = d.thieu > 0 && !dangDemDo ? `Thiếu ${soVN(d.thieu)}` : null;
+    const hong = d.hong > 0 ? `Hỏng ${soVN(d.hong)}` : null;
+    if (!thieu && !hong) return ["bg-slate-100 text-slate-600", "Đang đếm"];
+    return ["bg-bo-tt-chu-y text-bo-tt-chu-y-chu", [thieu, hong].filter(Boolean).join(" · ")];
+}
+
+/**
+ * Một lô dạng thẻ (khung hẹp hơn bảng: máy cầm tay, điện thoại, iPad dọc): tên, lô · gửi, ba ô Đạt / Hỏng / Thiếu cao
+ * 40 px chữ 16 px (dễ bấm, iPhone không tự phóng to khi gõ), lý do và ghi chú bên dưới. Cùng ô và cách xử lý như dòng bảng.
+ */
+function TheDem(props) {
+    const { d, moi, conHong, chuaDemDong, dangDemDo, hienLoi, onDoiHong, onDoiGhiChu } = props;
+    const { coKhac, coLyDo, hienGhiChu, loiGhiChu } = trangThaiDong(props);
+    const [lopNhan, chuNhan] = nhanThe(d, chuaDemDong, dangDemDo);
+    const soXam = chuaDemDong || (dangDemDo && d.thieu > 0);
+    return (
+        <li className={cn("grid grid-cols-1 gap-2.5 border-b border-slate-100 px-4 py-3.5 tabular-nums sm:px-6", moi && "bg-bo-primary/[0.04]")}>
+            <div className="flex items-start gap-3">
+                <AnhBienThe src={d.anh} bienThe={d} co="md" />
+                <div className="min-w-0 flex-1">
+                    <div className="font-medium text-bo-foreground [overflow-wrap:anywhere]">{d.tenSanPham}</div>
+                    <div className="flex flex-wrap items-center gap-x-2 text-xs text-bo-muted">
+                        <MauKichCo dong={d} />
+                        <span className="font-mono [overflow-wrap:anywhere]">{d.sku}</span>
+                    </div>
+                    <div className="text-xs text-bo-muted">
+                        Lô <span className="font-mono [overflow-wrap:anywhere]">{d.maLo}</span> · Gửi {soVN(d.gui)}
+                    </div>
+                </div>
+                <span className={cn("shrink-0 rounded-md px-2 py-0.5 text-xs font-medium", lopNhan)}>{chuNhan}</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+                <label className="grid min-w-0 gap-1">
+                    <span className="text-xs text-bo-muted">Đạt</span>
+                    <ODat {...props} lon />
+                </label>
+                <div className="grid min-w-0 gap-1">
+                    <span className="text-xs text-bo-muted" aria-hidden="true">Hỏng</span>
+                    <OHong d={d} conHong={conHong} onDoiHong={onDoiHong} lon />
+                </div>
+                <div className="grid min-w-0 gap-1">
+                    <span className="text-xs text-bo-muted">Thiếu</span>
+                    <span
+                        className={cn(
+                            "flex h-10 items-center justify-end rounded-md px-2.5 text-base font-semibold",
+                            d.vuot
+                                ? "bg-bo-danger-soft text-bo-danger-strong"
+                                : soXam
+                                  ? "bg-bo-surface-subtle font-normal text-bo-muted"
+                                  : d.thieu > 0
+                                    ? "bg-bo-tt-chu-y text-bo-tt-chu-y-chu"
+                                    : !d.lech
+                                      ? "bg-bo-tt-xong text-bo-tt-xong-chu"
+                                      : "bg-bo-surface-subtle text-bo-foreground",
+                        )}
+                    >
+                        {d.vuot ? `Vượt ${soVN(-d.thieu)}` : soVN(d.thieu)}
+                    </span>
+                </div>
+            </div>
+            {coLyDo ? (
+                <div className="flex flex-wrap gap-1">
+                    <ChipLyDo d={d} />
+                </div>
+            ) : null}
+            {hienGhiChu ? (
+                <div className="grid gap-1">
+                    <OGhiChu d={d} coKhac={coKhac} loi={loiGhiChu} hienLoi={hienLoi} lon onDoiGhiChu={onDoiGhiChu} />
+                </div>
+            ) : null}
+        </li>
+    );
+}
+
+/**
+ * Ô Hỏng: số hỏng của lô, bấm mở ô nổi chỉnh số theo từng lý do (cộng Đạt + Hỏng không vượt số gửi). `lon`: ô của thẻ
+ * (cao 40 px, rộng hết cột).
+ */
+function OHong({ d, conHong, onDoiHong, lon }) {
     const theoLyDo = Object.fromEntries(d.lyDos);
     return (
         <Popover>
@@ -1050,6 +1246,7 @@ function OHong({ d, conHong, onDoiHong }) {
                     aria-label={`Hỏng ${d.sku} lô ${d.maLo}: ${d.hong}. Chỉnh theo lý do`}
                     className={cn(
                         "inline-flex h-8 min-w-[72px] items-center justify-end gap-1.5 rounded-md border border-bo-input-border bg-bo-surface px-2 text-sm tabular-nums hover:border-bo-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30",
+                        lon && "h-10 w-full text-base",
                         d.vuot && O_SO_LOI,
                     )}
                 >
