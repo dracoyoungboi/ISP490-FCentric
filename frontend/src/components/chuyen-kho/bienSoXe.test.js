@@ -2,7 +2,7 @@
 // Bộ ca giống BienSoXeTest.java (máy chủ) để hai phía không lệch nhau.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MA_DIA_PHUONG_BIEN_SO, kiemTraBienSo } from "./bienSoXe.js";
+import { MA_DIA_PHUONG_BIEN_SO, kiemTraBienSo, loiKhiDangGo } from "./bienSoXe.js";
 
 const NHAN = [
     // [gõ vào, lưu thành, loại]
@@ -70,12 +70,12 @@ test("chặn biển sai mẫu, kèm câu lỗi", () => {
 
 test("câu lỗi chỉ ra chỗ sai", () => {
     assert.equal(kiemTraBienSo("").loi, "Nhập biển số xe");
-    assert.match(kiemTraBienSo("3OA-123.45").loi, /có thể là số 0 hoặc 1/);
-    assert.match(kiemTraBienSo("30O-123.45").loi, /không dùng chữ I, J, O, Q, W/);
-    assert.match(kiemTraBienSo("42A-123.45").loi, /"42" không phải ký hiệu địa phương/);
-    assert.match(kiemTraBienSo("30AS-012345").loi, /Ví dụ ô tô 30A-123.45/);
-    assert.equal(kiemTraBienSo("30A-000.00").loi, "Số thứ tự trên biển không được toàn số 0");
-    assert.equal(kiemTraBienSo("T80-000.00").loi, "Số thứ tự trên biển không được toàn số 0");
+    assert.match(kiemTraBienSo("3OA-123.45").loi, /có thể là số 0\/1/);
+    assert.match(kiemTraBienSo("30O-123.45").loi, /Không dùng chữ I, J, O, Q, W/);
+    assert.match(kiemTraBienSo("42A-123.45").loi, /"42" không phải mã tỉnh/);
+    assert.match(kiemTraBienSo("30AS-012345").loi, /ví dụ 30A-123.45/);
+    assert.equal(kiemTraBienSo("30A-000.00").loi, "Số thứ tự không được toàn số 0");
+    assert.equal(kiemTraBienSo("T80-000.00").loi, "Số thứ tự không được toàn số 0");
 });
 
 test("bảng ký hiệu địa phương: 81 mã của Phụ lục 02 Thông tư 51/2025", () => {
@@ -96,8 +96,38 @@ test("dán từ nơi khác: khoảng trắng không ngắt, ký tự rộng 0, g
 });
 
 test("chuỗi quá 64 ký tự thì chặn ngay", () => {
-    assert.equal(kiemTraBienSo(`30A-123.45${" ".repeat(55)}`).loi, "Biển số chưa đúng mẫu. Ví dụ ô tô 30A-123.45, xe máy 29-AB 123.45");
+    assert.equal(kiemTraBienSo(`30A-123.45${" ".repeat(55)}`).loi, "Chưa đúng mẫu, ví dụ 30A-123.45");
     assert.equal(kiemTraBienSo(`30A-123.45${" ".repeat(54)}`).giaTri, "30A-123.45");
+});
+
+test("đang gõ: gõ từng ký tự của biển hợp lệ thì không lúc nào báo lỗi", () => {
+    for (const [vao, giaTri] of NHAN) {
+        for (const chuoi of [vao, giaTri]) {
+            for (let i = 0; i <= chuoi.length; i++) {
+                assert.equal(loiKhiDangGo(chuoi.slice(0, i)), null, JSON.stringify(chuoi.slice(0, i)));
+            }
+        }
+    }
+    for (const doDang of ["30A-000.0", "30A-0000", "T80-2358", "29-MĐ", "30AS"]) assert.equal(loiKhiDangGo(doDang), null, doDang);
+});
+
+test("đang gõ: chắc chắn sai thì báo ngay, không đợi rời ô", () => {
+    const loi = (s) => loiKhiDangGo(s);
+    assert.match(loi("827"), /Chưa đúng mẫu/);
+    assert.match(loi("827328372832"), /Chưa đúng mẫu/);
+    assert.match(loi("13"), /"13" không phải mã tỉnh/);
+    assert.match(loi("T13"), /"13" không phải mã tỉnh/);
+    assert.match(loi("3O"), /có thể là số 0\/1/);
+    assert.match(loi("30I"), /Không dùng chữ I, J, O, Q, W/);
+    assert.match(loi("29-W"), /Không dùng chữ I, J, O, Q, W/);
+    assert.match(loi("30A-123.456"), /Chưa đúng mẫu/);
+    assert.match(loi("30AS-012345"), /Chưa đúng mẫu/);
+    assert.match(loi("30A-000.00"), /toàn số 0/);
+    assert.match(loi("xe"), /Chưa đúng mẫu/);
+    // Không mã tỉnh nào bắt đầu bằng 0
+    assert.match(loi("0"), /Chưa đúng mẫu/);
+    assert.match(loi("T0"), /Chưa đúng mẫu/);
+    assert.equal(loi(""), null);
 });
 
 test("chuẩn hóa lại cách viết chuẩn thì giữ nguyên", () => {

@@ -11,7 +11,7 @@ import {
     TT_CHUYEN,
     XKNB_CHE_DO,
 } from "../../constants/phieuChuyenKho.js";
-import { kiemTraBienSo } from "./bienSoXe.js";
+import { kiemTraBienSo, loiKhiDangGo } from "./bienSoXe.js";
 
 const p2 = (n) => String(n).padStart(2, "0");
 const thanhNgay = (v) => {
@@ -250,11 +250,12 @@ export function kiemTraXacNhanXuat(form, cheDo, daDongYThieu = false) {
     const canDonVi = hinhThuc === "THUE_NGOAI" || hinhThuc === "CHUYEN_PHAT";
     const sdt = chuoi(f.sdt).replace(/\s/g, "");
     if (!chuoi(f.nguoi)) loi.nguoi = "Nhập tên người vận chuyển";
-    if (!SDT_RE.test(sdt)) loi.sdt = "Số điện thoại gồm 10 số, bắt đầu bằng 03, 05, 07, 08 hoặc 09";
+    // Câu lỗi dưới ô nửa hộp: gọn một dòng (máy chủ báo câu đầy đủ ở chân hộp)
+    if (!SDT_RE.test(sdt)) loi.sdt = sdt ? "Gồm 10 số, bắt đầu bằng 03/05/07/08/09" : "Nhập số điện thoại";
     if (canPhuongTien && !chuoi(f.loaiPhuongTien)) loi.loaiPhuongTien = "Nhập loại phương tiện";
-    // Biển số theo mẫu biển Việt Nam (bienSoXe.js), gửi cách viết chuẩn
+    // Biển số theo mẫu biển Việt Nam (bienSoXe.js), gửi cách viết chuẩn; sai thì ưu tiên câu cụ thể (vd. mã tỉnh sai)
     const bienSo = canPhuongTien ? kiemTraBienSo(f.bienSo) : null;
-    if (bienSo && !bienSo.hopLe) loi.bienSo = bienSo.loi;
+    if (bienSo && !bienSo.hopLe) loi.bienSo = loiKhiDangGo(f.bienSo) ?? bienSo.loi;
     if (canDonVi && !chuoi(f.donVi)) loi.donVi = "Nhập tên đơn vị";
     if (hinhThuc === "CHUYEN_PHAT" && !chuoi(f.maVanDon)) loi.maVanDon = "Nhập mã vận đơn";
     const duKienDen = tuONgayGio(f.duKienDen);

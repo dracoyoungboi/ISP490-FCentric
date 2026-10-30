@@ -20,7 +20,7 @@ import {
     kiemTraXacNhanXuat,
     tongCot,
 } from "@/components/chuyen-kho/hienThiChuyenKho";
-import { GOI_Y_BIEN_SO, kiemTraBienSo } from "@/components/chuyen-kho/bienSoXe";
+import { VI_DU_BIEN_SO, kiemTraBienSo, loiKhiDangGo } from "@/components/chuyen-kho/bienSoXe";
 
 const B = ({ children }) => <b className="font-semibold text-bo-foreground">{children}</b>;
 
@@ -36,7 +36,8 @@ const CANH_BAO_HOP = "rounded-lg border border-bo-warning/30 bg-bo-warning-soft 
 function O({ nhan, batBuoc, loi, goiY, children, className }) {
     const id = useId();
     return (
-        <div className={cn("grid gap-1.5", className)}>
+        // content-start: ô đứng cạnh ô có dòng gợi ý / lỗi bị kéo cao bằng, giữ nhãn và ô nhập sát trên để hai cột thẳng hàng
+        <div className={cn("grid content-start gap-1.5", className)}>
             <label htmlFor={id} className={NHAN_O}>
                 {nhan} {batBuoc ? <Sao /> : null}
             </label>
@@ -217,7 +218,7 @@ function KhungXknb({ form, doi, loi, chiGhiSo, cheDo, onTaiDuLieu, laySo, dangLa
                     nhan="Số phiếu"
                     batBuoc={chiGhiSo || cheDo === XKNB_CHE_DO.CHAN}
                     loi={loi.soXknb}
-                    goiY={dangLaySo ? "Đang lấy số tiếp theo…" : kyHieuHopLe ? "Hệ thống điền số tiếp theo của ký hiệu; sửa nếu khác số trên phiếu" : "7 chữ số, ví dụ 0000125"}
+                    goiY={dangLaySo ? "Đang lấy số tiếp theo…" : kyHieuHopLe && form.soXknb ? "Sửa nếu khác số trên phiếu" : "7 chữ số, ví dụ 0000125"}
                 >
                     {(p) => (
                         <input {...p} value={form.soXknb} maxLength={7} inputMode="numeric" autoComplete="off" onChange={(e) => doi("soXknb", e.target.value.replace(/\D/g, ""))} className={lopO(loi.soXknb, "font-mono")} />
@@ -266,6 +267,7 @@ const FORM_XUAT_TRONG = {
 
 /** Xác nhận xuất (B.3): người vận chuyển, phương tiện, giấy đi đường; chế độ Chặn xuất / Chỉ cảnh báo khi chưa có số. */
 export function HopXacNhanXuat({ mo, onDong, ct, dangChay, loi, onXacNhan, onTaiDuLieu }) {
+    const idGoiYDuKien = useId();
     const [loiO, setLoiO] = useState({});
     const [chan, setChan] = useState(null);
     // Chỉ cảnh báo: lần bấm đầu báo chưa có số; bấm "Vẫn xuất khi chưa có số" lần nữa mới gửi
@@ -288,12 +290,19 @@ export function HopXacNhanXuat({ mo, onDong, ct, dangChay, loi, onXacNhan, onTai
         }
         setLoiO((l) => (l[khoa] ? { ...l, [khoa]: undefined } : l));
     };
+    // Gõ ô Biển số: chắc chắn sai thì báo ngay, đang gõ dở thì chưa báo
+    const goBienSo = (giaTri) => {
+        doi("bienSo", giaTri);
+        const loiGo = loiKhiDangGo(giaTri);
+        if (loiGo) setLoiO((l) => ({ ...l, bienSo: loiGo }));
+    };
     // Rời ô Biển số: đúng mẫu thì đổi sang cách viết chuẩn, sai thì báo ngay; để trống thì đợi bấm Xác nhận xuất
     const roiOBienSo = () => {
         if (!form.bienSo.trim()) return;
         const kq = kiemTraBienSo(form.bienSo);
         if (kq.hopLe) setForm((f) => ({ ...f, bienSo: kq.giaTri }));
-        else setLoiO((l) => ({ ...l, bienSo: kq.loi }));
+        // Giữ câu cụ thể lúc đang gõ (vd. mã tỉnh sai) thay vì câu chung "Chưa đúng mẫu"
+        else setLoiO((l) => ({ ...l, bienSo: loiKhiDangGo(form.bienSo) ?? kq.loi }));
     };
     const ht = form.hinhThuc;
     const canPhuongTien = ht === "XE_CONG_TY" || ht === "THUE_NGOAI";
@@ -334,8 +343,11 @@ export function HopXacNhanXuat({ mo, onDong, ct, dangChay, loi, onXacNhan, onTai
                 <span className={NHAN_O}>
                     Hình thức vận chuyển <Sao />
                 </span>
+                {/* Ba lựa chọn chia đều hết chiều ngang, thẳng mép với hai cột ô nhập bên dưới (không để thừa nền xám);
+                    điện thoại quá hẹp thì mỗi ô giữ đủ chữ và thanh cuộn ngang như cũ, không đè chữ */}
                 <NutPhanDoan
                     nhan="Hình thức vận chuyển"
+                    className="grid w-full grid-cols-[repeat(3,minmax(max-content,1fr))]"
                     value={ht}
                     onChange={(v) => doi("hinhThuc", v)}
                     luaChon={HINH_THUC_VAN_CHUYEN.map((h) => ({ value: h.ma, label: h.nhan }))}
@@ -364,7 +376,8 @@ export function HopXacNhanXuat({ mo, onDong, ct, dangChay, loi, onXacNhan, onTai
                     <O nhan="Phương tiện" batBuoc loi={loiO.loaiPhuongTien}>
                         {(p) => <input {...p} value={form.loaiPhuongTien} maxLength={50} placeholder="Ví dụ: xe tải 1,5 tấn" onChange={(e) => doi("loaiPhuongTien", e.target.value)} className={lopO(loiO.loaiPhuongTien)} />}
                     </O>
-                    <O nhan="Biển số" batBuoc loi={loiO.bienSo} goiY={GOI_Y_BIEN_SO}>
+                    {/* Ví dụ để ở chữ mờ như ô Phương tiện: hàng hai cột không có dòng gợi ý lệch nhau */}
+                    <O nhan="Biển số" batBuoc loi={loiO.bienSo}>
                         {(p) => (
                             <input
                                 {...p}
@@ -372,18 +385,32 @@ export function HopXacNhanXuat({ mo, onDong, ct, dangChay, loi, onXacNhan, onTai
                                 maxLength={20}
                                 autoComplete="off"
                                 spellCheck={false}
-                                onChange={(e) => doi("bienSo", e.target.value.toUpperCase())}
+                                placeholder={VI_DU_BIEN_SO}
+                                onChange={(e) => goBienSo(e.target.value.toUpperCase())}
                                 onBlur={roiOBienSo}
-                                className={lopO(loiO.bienSo, "uppercase")}
+                                className={lopO(loiO.bienSo, "uppercase placeholder:normal-case")}
                             />
                         )}
                     </O>
                 </div>
             ) : null}
-            <div className="grid gap-3 sm:grid-cols-2">
-                <O nhan="Dự kiến đến" loi={loiO.duKienDen} goiY="Quá giờ này mà kho nhận chưa nhận, phiếu hiện ở mục Trễ hẹn">
-                    {(p) => <input {...p} type="datetime-local" value={form.duKienDen} onChange={(e) => doi("duKienDen", e.target.value)} className={lopO(loiO.duKienDen)} />}
+            {/* Gợi ý nằm ở nửa phải còn trống, ngang ô ngày giờ: hàng không cao thêm, các hàng cách đều nhau */}
+            <div className="grid gap-x-3 gap-y-1.5 sm:grid-cols-2">
+                <O nhan="Dự kiến đến" loi={loiO.duKienDen}>
+                    {(p) => (
+                        <input
+                            {...p}
+                            aria-describedby={[p["aria-describedby"], idGoiYDuKien].filter(Boolean).join(" ")}
+                            type="datetime-local"
+                            value={form.duKienDen}
+                            onChange={(e) => doi("duKienDen", e.target.value)}
+                            className={lopO(loiO.duKienDen)}
+                        />
+                    )}
                 </O>
+                <p id={idGoiYDuKien} className={cn(GOI_Y_O, "items-center sm:mt-[26px] sm:h-9")}>
+                    Quá giờ này mà kho nhận chưa nhận, phiếu hiện ở mục Trễ hẹn
+                </p>
             </div>
             <KhungXknb
                 form={form}

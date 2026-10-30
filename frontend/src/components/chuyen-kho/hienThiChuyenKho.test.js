@@ -135,7 +135,8 @@ test("xác nhận xuất: bắt buộc theo hình thức vận chuyển", () => 
     assert.equal(cp.loi.bienSo, undefined);
     const thue = kiemTraXacNhanXuat(formXuat({ hinhThuc: "THUE_NGOAI", bienSo: "" }), "CHAN");
     assert.ok(thue.loi.donVi && thue.loi.bienSo);
-    assert.ok(kiemTraXacNhanXuat(formXuat({ sdt: "0123456789" }), "CHAN").loi.sdt);
+    assert.equal(kiemTraXacNhanXuat(formXuat({ sdt: "0123456789" }), "CHAN").loi.sdt, "Gồm 10 số, bắt đầu bằng 03/05/07/08/09");
+    assert.equal(kiemTraXacNhanXuat(formXuat({ sdt: "  " }), "CHAN").loi.sdt, "Nhập số điện thoại");
     assert.ok(kiemTraXacNhanXuat(formXuat({ kyHieu: "6K26AB" }), "CHAN").loi.kyHieu);
     assert.ok(kiemTraXacNhanXuat(formXuat({ soXknb: "125" }), "CHAN").loi.soXknb);
 });
@@ -146,9 +147,12 @@ test("xác nhận xuất: biển số theo mẫu biển Việt Nam, gửi cách 
     assert.equal(kiemTraXacNhanXuat(formXuat({ bienSo: "29b1 1234" }), "CHAN").yeuCau.bienSoXe, "29-B1 1234");
     assert.equal(kiemTraXacNhanXuat(formXuat({ bienSo: "29-b1 1234" }), "CHAN").yeuCau.bienSoXe, "29-B1 1234");
     const sai = kiemTraXacNhanXuat(formXuat({ bienSo: "30AS-012345" }), "CHAN");
-    assert.match(sai.loi.bienSo, /chưa đúng mẫu/);
+    assert.match(sai.loi.bienSo, /Chưa đúng mẫu/);
     assert.equal(sai.yeuCau, null);
     assert.equal(kiemTraXacNhanXuat(formXuat({ bienSo: "" }), "CHAN").loi.bienSo, "Nhập biển số xe");
+    // Chuỗi dở dang có mã tỉnh sai: báo đúng chỗ sai, không chỉ "Chưa đúng mẫu"
+    assert.equal(kiemTraXacNhanXuat(formXuat({ bienSo: "13A-12" }), "CHAN").loi.bienSo, '2 số đầu "13" không phải mã tỉnh');
+    assert.match(kiemTraXacNhanXuat(formXuat({ bienSo: "30A-12" }), "CHAN").loi.bienSo, /Chưa đúng mẫu/);
     const cp = kiemTraXacNhanXuat(formXuat({ hinhThuc: "CHUYEN_PHAT", donVi: "GHN", maVanDon: "GHN123", bienSo: "rác" }), "CHAN");
     assert.equal(cp.loi.bienSo, undefined);
     assert.equal(cp.yeuCau.bienSoXe, null);

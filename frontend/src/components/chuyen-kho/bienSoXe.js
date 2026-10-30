@@ -1,7 +1,7 @@
 /*
  * Biển số xe Việt Nam ở hộp Xác nhận xuất: chuẩn hóa cách viết và kiểm theo Thông tư 79/2024/TT-BCA (Điều 37 cấu trúc
  * biển, Điều 39 biển cũ còn lưu thông) và Phụ lục 02 Thông tư 51/2025/TT-BCA (ký hiệu địa phương). Cùng luật với máy chủ
- * (backend utils/BienSoXe.java); sửa một bên thì sửa cả bên kia và bộ ca thử ở hai phía.
+ * (backend utils/BienSoXe.java); sửa một bên thì sửa cả bên kia và bộ ca thử ở hai phía. loiKhiDangGo chỉ có ở giao diện.
  * Chạy thử: node --test src/components/chuyen-kho/bienSoXe.test.js
  */
 
@@ -30,9 +30,22 @@ const RE_GACH = new RegExp("[_\\u2010-\\u2015\\u2212\\uFE58\\uFE63\\uFF0D]", "g"
 const RE_VO_HINH = new RegExp("[\\xAD\\u180E\\u200B-\\u200F\\u202A-\\u202E\\u2060-\\u2064\\u2066-\\u206F\\uFEFF]", "g");
 // Dài hơn thế này thì chắc chắn không phải biển số: trả lỗi ngay, không chuẩn hóa
 const DO_DAI_TOI_DA = 64;
+// Đang gõ dở: phần đầu của một biển đúng mẫu, số thứ tự chưa đủ 5 chữ số (4 số vẫn gõ thêm được); không mã tỉnh nào
+// bắt đầu bằng 0 nên gõ "0" là báo ngay
+const SO_DO = String.raw`(?:\d{0,4}|\d{3}[. ]\d?)`;
+const RE_DANG_GO = [
+    new RegExp(String.raw`^(?:[1-9]\d?)?$|^\d{2} ?(?:${CHU}|${SERI_O_TO_RIENG.join("|")})(?:[- ]?${SO_DO})?$`, "u"),
+    new RegExp(
+        String.raw`^\d{2}[- ]?(?:${CHU}(?:${CHU_2}|[1-9])?|MĐ[1-9]?)?$|^\d{2}[- ]?(?:${CHU}[1-9]|${CHU}${CHU_2}|MĐ[1-9]|MK[1-9])[- ]?${SO_DO}$`,
+        "u",
+    ),
+    new RegExp(String.raw`^T ?(?:[1-9]\d?)?$|^T ?\d{2}[- ]?${SO_DO}$`, "u"),
+];
 
-export const GOI_Y_BIEN_SO = "Ví dụ 30A-123.45 hoặc 29-AB 123.45";
-const LOI_MAU = "Biển số chưa đúng mẫu. Ví dụ ô tô 30A-123.45, xe máy 29-AB 123.45";
+/** Chữ mờ trong ô Biển số (cùng kiểu "Ví dụ: xe tải 1,5 tấn" của ô Phương tiện bên cạnh). */
+export const VI_DU_BIEN_SO = "Ví dụ: 30A-123.45";
+// Câu lỗi hiện dưới ô nửa hộp (~250px): giữ trong một dòng để hàng không giật khi lỗi hiện / mất
+const LOI_MAU = "Chưa đúng mẫu, ví dụ 30A-123.45";
 
 /**
  * Viết hoa; đổi các kiểu gạch thành "-", dấu phẩy thành dấu chấm; bỏ ký tự vô hình; mỗi cụm khoảng trắng thành một dấu
@@ -51,21 +64,19 @@ function chuanHoaTho(chuoi) {
         .replace(/ ?([-.]) ?/g, "$1");
 }
 
-const loiMa = (ma) => ({ hopLe: false, loi: `2 số đầu "${ma}" không phải ký hiệu địa phương trên biển số Việt Nam` });
+const loiMa = (ma) => ({ hopLe: false, loi: `2 số đầu "${ma}" không phải mã tỉnh` });
 
 function loiMau(s) {
     if (/^[0-9OI]{2}/.test(s) && /[OI]/.test(s.slice(0, 2))) {
-        return { hopLe: false, loi: "2 số đầu có chữ O hoặc I, có thể là số 0 hoặc 1" };
+        return { hopLe: false, loi: "2 số đầu có chữ O/I, có thể là số 0/1" };
     }
-    if (/[IJOQW]/.test(s)) {
-        return { hopLe: false, loi: "Biển số Việt Nam không dùng chữ I, J, O, Q, W. Kiểm tra chữ O với số 0, chữ I với số 1" };
-    }
+    if (/[IJOQW]/.test(s)) return { hopLe: false, loi: "Không dùng chữ I, J, O, Q, W" };
     return { hopLe: false, loi: LOI_MAU };
 }
 
 function ketQua(loai, ma, giaTri, so) {
     if (!MA_DIA_PHUONG_BIEN_SO.has(ma)) return loiMa(ma);
-    if (/^[0.]+$/.test(so)) return { hopLe: false, loi: "Số thứ tự trên biển không được toàn số 0" };
+    if (/^[0.]+$/.test(so)) return { hopLe: false, loi: "Số thứ tự không được toàn số 0" };
     return { hopLe: true, loai, giaTri };
 }
 
@@ -99,4 +110,21 @@ export function kiemTraBienSo(chuoi) {
         if (kqMd.hopLe) return kqMd;
     }
     return kq;
+}
+
+/**
+ * Câu lỗi để hiện ngay khi đang gõ (chỉ giao diện dùng): null khi chuỗi đã hợp lệ, còn trống hoặc vẫn gõ tiếp thành biển
+ * đúng mẫu được ("30A-12", "29-M"); có câu lỗi khi chắc chắn sai dù gõ thêm gì ("827…", 2 số đầu "13", chữ O ở chỗ cần
+ * số, quá 5 chữ số). Chuỗi dở dang chỉ bị báo khi rời ô hoặc bấm Xác nhận xuất (kiemTraBienSo).
+ */
+export function loiKhiDangGo(chuoi) {
+    const kq = kiemTraBienSo(chuoi);
+    if (kq.hopLe) return null;
+    if (String(chuoi ?? "").length > DO_DAI_TOI_DA) return kq.loi;
+    const s = chuanHoaTho(chuoi);
+    if (!s) return null;
+    const ma = /^T? ?(\d{2})/.exec(s)?.[1];
+    if (ma && !MA_DIA_PHUONG_BIEN_SO.has(ma)) return loiMa(ma).loi;
+    const thayMd = s.replace(RE_MD, "$1MĐ");
+    return RE_DANG_GO.some((re) => re.test(s) || re.test(thayMd)) ? null : kq.loi;
 }
