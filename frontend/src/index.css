@@ -282,6 +282,11 @@
 	height: 18px;
 }
 
+/* Sidebar trên điện thoại (Sheet, data-mobile): mục cao 44px cho dễ chạm; desktop giữ 36px. */
+[data-mobile="true"] .bo-sidebar-item {
+	height: 44px;
+}
+
 .bo-sidebar-divider {
 	transition: margin 250ms var(--ease-sidebar);
 }
