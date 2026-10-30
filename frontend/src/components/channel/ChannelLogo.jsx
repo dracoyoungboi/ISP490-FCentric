@@ -9,11 +9,13 @@ import { cn } from "@/lib/utils";
  * Hiển thị đúng cỡ số nguyên (16, 18, 28, 32, 40 px) để nét căng; không phóng bằng transform.
  * Lazada: phần trái tim của logo 2019 (Wikimedia Commons "Lazada (2019).svg"), bỏ chữ "Lazada", giữ nguyên nét và màu.
  * TikTok Shop: phần túi của logo "túi + TikTok Shop" (zonalogo.com, bản SVG), bỏ chữ, giữ nguyên nét và màu.
+ * Shopee: phần túi chữ S của logo (Wikimedia Commons "Shopee.svg"), bỏ chữ "Shopee", giữ nguyên nét và màu.
  */
 const LOGO_FILES = {
   SHOPIFY: "/channel-logos/shopify-bag.svg",
   LAZADA: "/channel-logos/lazada.svg",
   TIKTOK: "/channel-logos/tiktok-shop.svg",
+  SHOPEE: "/channel-logos/shopee.svg",
 };
 
 // Logo tối (túi đen của TikTok Shop) trên menu nền tối: đặt trong ô nền trắng để thấy được, không đổi màu logo
