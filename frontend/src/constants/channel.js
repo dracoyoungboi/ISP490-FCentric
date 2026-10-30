@@ -211,14 +211,16 @@ export function locKhoDongBo(list) {
  * `kieuKetNoi`: "khoa" = dán khóa truy cập (Shopify), "uy_quyen" = người bán đồng ý trên trang của sàn (OAuth).
  * `tienToDon`: tiền tố số đơn bán hàng tạo từ đơn sàn. `maThuCong`: cho nhập tay mã ủy quyền (tài khoản thử của sàn).
  * `hoTro: false` = sàn đang chờ cấp API: có dòng ở bảng Kênh bán hàng và màn giới thiệu với nút kết nối bị khóa, không gọi
- * máy chủ, không có mục ở menu trái; các trang con (thiết lập, sản phẩm, trang quay về sau ủy quyền…) chuyển về màn giới thiệu.
+ * máy chủ; các trang con (thiết lập, sản phẩm, trang quay về sau ủy quyền…) chuyển về màn giới thiệu. Thêm `hienMenu: true`
+ * thì có một mục ở menu trái mở màn giới thiệu (không có mục con); bỏ cờ thì mục đó biến mất.
  */
 export const SAN_BAN_HANG = [
   { maKenh: "SHOPIFY", ten: "Shopify", duongDan: "/channels/shopify", hoTro: true, kieuKetNoi: "khoa", tienToDon: "SHP" },
   { maKenh: "LAZADA", ten: "Lazada", duongDan: "/channels/lazada", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "LZD", hanUyQuyenNgay: 50 },
   { maKenh: "TIKTOK", ten: "TikTok Shop", duongDan: "/channels/tiktok", hoTro: true, kieuKetNoi: "uy_quyen", tienToDon: "TTS", maThuCong: true },
   // Đang xin cấp API ở Shopee Open Platform; máy chủ chưa có nhánh SHOPEE (GET /SHOPEE/ket-noi trả 400)
-  { maKenh: "SHOPEE", ten: "Shopee", duongDan: "/channels/shopee", hoTro: false, kieuKetNoi: "uy_quyen" },
+  // `hienMenu`: tạm hiện ở menu trái trong lúc chờ cấp API (yêu cầu 30/10)
+  { maKenh: "SHOPEE", ten: "Shopee", duongDan: "/channels/shopee", hoTro: false, kieuKetNoi: "uy_quyen", hienMenu: true },
 ];
 
 /** Sàn theo mã kênh ("LAZADA") hoặc đoạn cuối đường dẫn ("lazada"), không phân biệt hoa thường; không có thì null. */

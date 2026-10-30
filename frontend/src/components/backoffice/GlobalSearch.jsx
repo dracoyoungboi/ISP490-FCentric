@@ -87,7 +87,7 @@ function vaiTroCuaTrang(duongDan) {
 
 /**
  * Danh sách màn hình người dùng được vào, lấy từ menu bên trái. Mục của từng sàn (khai báo `maKenh`) chỉ có khi
- * gian hàng đã kết nối, giống menu bên trái; "Tất cả kênh" luôn có.
+ * gian hàng đã kết nối, giống menu bên trái; "Tất cả kênh" và mục sàn chờ cấp API bật `hienMenu` (Shopee) luôn có.
  */
 function danhSachManHinh(role, kenhDaKetNoi) {
   const tenNhom = Object.fromEntries(SIDEBAR_SECTIONS.map((s) => [s.key, vietHoaChuDau(s.label)]));

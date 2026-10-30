@@ -109,7 +109,8 @@ test("Shopee chờ cấp API: tìm được sàn để vẽ dòng và màn giớ
   assert.equal(shopee?.maKenh, "SHOPEE");
   assert.equal(shopee.duongDan, "/channels/shopee");
   assert.equal(shopee.kieuKetNoi, "uy_quyen");
-  // Menu trái, tải danh sách sàn đã kết nối và bảng số liệu chỉ lấy sàn hỗ trợ: Shopee không được gọi máy chủ
+  // Tải danh sách sàn đã kết nối, bảng số liệu và nhóm mục của sàn ở menu trái chỉ lấy sàn hỗ trợ: Shopee không được
+  // gọi máy chủ (menu trái chỉ có một mục Shopee mở màn giới thiệu khi bật `hienMenu`)
   assert.equal(shopee.hoTro, false);
   assert.deepEqual(
     SAN_BAN_HANG.filter((san) => san.hoTro).map((san) => san.maKenh),
