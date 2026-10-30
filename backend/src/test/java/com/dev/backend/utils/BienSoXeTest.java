@@ -82,12 +82,12 @@ class BienSoXeTest {
     @Test
     void cauLoiChiRaChoSai() {
         assertEquals("Nhập biển số xe", BienSoXe.kiemTra("").loi());
-        assertTrue(BienSoXe.kiemTra("3OA-123.45").loi().contains("có thể là số 0 hoặc 1"));
-        assertTrue(BienSoXe.kiemTra("30O-123.45").loi().contains("không dùng chữ I, J, O, Q, W"));
-        assertTrue(BienSoXe.kiemTra("42A-123.45").loi().contains("\"42\" không phải ký hiệu địa phương"));
-        assertTrue(BienSoXe.kiemTra("30AS-012345").loi().contains("Ví dụ ô tô 30A-123.45"));
-        assertEquals("Số thứ tự trên biển không được toàn số 0", BienSoXe.kiemTra("30A-000.00").loi());
-        assertEquals("Số thứ tự trên biển không được toàn số 0", BienSoXe.kiemTra("T80-000.00").loi());
+        assertTrue(BienSoXe.kiemTra("3OA-123.45").loi().contains("có thể là số 0/1"));
+        assertTrue(BienSoXe.kiemTra("30O-123.45").loi().contains("Không dùng chữ I, J, O, Q, W"));
+        assertTrue(BienSoXe.kiemTra("42A-123.45").loi().contains("\"42\" không phải mã tỉnh"));
+        assertTrue(BienSoXe.kiemTra("30AS-012345").loi().contains("ví dụ 30A-123.45"));
+        assertEquals("Số thứ tự không được toàn số 0", BienSoXe.kiemTra("30A-000.00").loi());
+        assertEquals("Số thứ tự không được toàn số 0", BienSoXe.kiemTra("T80-000.00").loi());
     }
 
     @Test
@@ -112,7 +112,7 @@ class BienSoXeTest {
 
     @Test
     void chuoiQua64KyTu_chanNgay() {
-        assertEquals("Biển số chưa đúng mẫu. Ví dụ ô tô 30A-123.45, xe máy 29-AB 123.45",
+        assertEquals("Chưa đúng mẫu, ví dụ 30A-123.45",
                 BienSoXe.kiemTra("30A-123.45" + " ".repeat(55)).loi());
         assertEquals("30A-123.45", BienSoXe.kiemTra("30A-123.45" + " ".repeat(54)).giaTri());
     }

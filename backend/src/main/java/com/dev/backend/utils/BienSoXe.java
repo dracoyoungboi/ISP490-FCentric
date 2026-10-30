@@ -61,7 +61,9 @@ public final class BienSoXe {
     private static final Pattern HAI_SO_DAU_CO_O_I = Pattern.compile("^(?=[0-9OI]{2})(?=.?[OI])");
     private static final Pattern CHU_KHONG_DUNG = Pattern.compile("[IJOQW]");
 
-    private static final String LOI_MAU = "Biển số chưa đúng mẫu. Ví dụ ô tô 30A-123.45, xe máy 29-AB 123.45";
+    // Cùng câu với giao diện (hiện dưới ô nửa hộp nên giữ trong một dòng)
+    private static final String LOI_MAU = "Chưa đúng mẫu, ví dụ 30A-123.45";
+    public static final String LOI_TRONG = "Nhập biển số xe";
 
     private BienSoXe() {
     }
@@ -69,7 +71,7 @@ public final class BienSoXe {
     public static KetQua kiemTra(String chuoi) {
         if (chuoi != null && chuoi.length() > DO_DAI_TOI_DA) return loi(LOI_MAU);
         String s = chuanHoaTho(chuoi);
-        if (s.isEmpty()) return loi("Nhập biển số xe");
+        if (s.isEmpty()) return loi(LOI_TRONG);
         KetQua kq = khop(s);
         if (kq.hopLe()) return kq;
         // Gõ "MD1" thay "MĐ1" (xe máy điện, biển cũ): "MD" cũng là sê ri xe máy 2 chữ nên chỉ thử khi chuỗi gõ vào không khớp
@@ -102,8 +104,8 @@ public final class BienSoXe {
     }
 
     private static KetQua ketQua(Loai loai, String ma, String giaTri, String so) {
-        if (!MA_DIA_PHUONG.contains(ma)) return loi("2 số đầu \"" + ma + "\" không phải ký hiệu địa phương trên biển số Việt Nam");
-        if (so.chars().allMatch(c -> c == '0' || c == '.')) return loi("Số thứ tự trên biển không được toàn số 0");
+        if (!MA_DIA_PHUONG.contains(ma)) return loi("2 số đầu \"" + ma + "\" không phải mã tỉnh");
+        if (so.chars().allMatch(c -> c == '0' || c == '.')) return loi("Số thứ tự không được toàn số 0");
         return new KetQua(giaTri, loai, null);
     }
 
@@ -128,10 +130,8 @@ public final class BienSoXe {
     }
 
     private static KetQua loiMau(String s) {
-        if (HAI_SO_DAU_CO_O_I.matcher(s).find()) return loi("2 số đầu có chữ O hoặc I, có thể là số 0 hoặc 1");
-        if (CHU_KHONG_DUNG.matcher(s).find()) {
-            return loi("Biển số Việt Nam không dùng chữ I, J, O, Q, W. Kiểm tra chữ O với số 0, chữ I với số 1");
-        }
+        if (HAI_SO_DAU_CO_O_I.matcher(s).find()) return loi("2 số đầu có chữ O/I, có thể là số 0/1");
+        if (CHU_KHONG_DUNG.matcher(s).find()) return loi("Không dùng chữ I, J, O, Q, W");
         return loi(LOI_MAU);
     }
 }

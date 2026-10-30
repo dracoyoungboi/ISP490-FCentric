@@ -409,7 +409,11 @@ public class PhieuChuyenKhoService {
         if (canPhuongTien) {
             // Biển số theo mẫu biển Việt Nam, lưu cách viết chuẩn (cùng luật ô Biển số ở giao diện)
             BienSoXe.KetQua kqBienSo = BienSoXe.kiemTra(bienSo);
-            if (!kqBienSo.hopLe()) throw new CommonException(kqBienSo.loi());
+            // Câu lỗi hiện ở chân hộp (không nằm dưới ô) nên ghi rõ là ô nào; chuỗi chỉ có ký tự trắng lạ thì báo như để trống
+            if (!kqBienSo.hopLe()) {
+                String cau = kqBienSo.loi();
+                throw new CommonException(BienSoXe.LOI_TRONG.equals(cau) ? cau : "Biển số xe: " + cau);
+            }
             bienSo = kqBienSo.giaTri();
         }
         if (canDonVi && donVi == null) throw new CommonException("Nhập tên đơn vị vận chuyển");

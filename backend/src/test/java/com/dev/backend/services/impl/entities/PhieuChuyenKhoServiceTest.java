@@ -734,6 +734,26 @@ class PhieuChuyenKhoServiceTest {
     }
 
     @Test
+    @DisplayName("Xác nhận xuất: biển số sai mẫu biển Việt Nam → 400 ghi rõ ô Biển số, không xuất; biển chỉ có ký tự trắng lạ → Nhập biển số xe")
+    void xacNhanXuat_bienSoSaiMau_400() {
+        dangNhap(IRoleType.nhan_vien_kho, khoTong, khoTong);
+        PhieuChuyenKho p = phieu(IChuyenKho.DA_DUYET);
+        phieuXuatCon(p, ITrangThaiPhieuXuat.NHAP);
+        PhieuChuyenKhoYeuCau.XacNhanXuat yc = xeCongTy();
+        yc.setBienSoXe("30AS-012345");
+        assertEquals("Biển số xe: Chưa đúng mẫu, ví dụ 30A-123.45",
+                loi(HttpStatus.BAD_REQUEST, () -> service.xacNhanXuat(PCK, yc)).getMessage());
+        yc.setBienSoXe("13A-123.45");
+        assertEquals("Biển số xe: 2 số đầu \"13\" không phải mã tỉnh",
+                loi(HttpStatus.BAD_REQUEST, () -> service.xacNhanXuat(PCK, yc)).getMessage());
+        // Khoảng trắng không ngắt + ký tự rộng 0: trim() của Java không bỏ, BienSoXe chuẩn hóa thành rỗng
+        yc.setBienSoXe("" + (char) 0xA0 + (char) 0x200B);
+        assertEquals("Nhập biển số xe", loi(HttpStatus.BAD_REQUEST, () -> service.xacNhanXuat(PCK, yc)).getMessage());
+        verify(pxService, never()).xuatPhieuXuatCon(any(), any());
+        assertEquals(IChuyenKho.DA_DUYET, p.getTrangThai());
+    }
+
+    @Test
     @DisplayName("Xác nhận xuất: ký hiệu XKNB sai mẫu 6[CK]yyN.., số không đủ 7 chữ số, cặp số đã dùng cho chuyến khác")
     void xacNhanXuat_soXknbKhongHopLe() {
         dangNhap(IRoleType.nhan_vien_kho, khoTong, khoTong);
@@ -791,13 +811,14 @@ class PhieuChuyenKhoServiceTest {
     }
 
     @Test
-    @DisplayName("Xác nhận xuất chuyển phát: bắt buộc đơn vị vận chuyển và mã vận đơn; không lưu biển số")
+    @DisplayName("Xác nhận xuất chuyển phát: bắt buộc đơn vị vận chuyển và mã vận đơn; biển số gửi kèm không kiểm, không lưu")
     void xacNhanXuat_chuyenPhat_batBuocDonViVaMaVanDon() {
         dangNhap(IRoleType.nhan_vien_kho, khoTong, khoTong);
         PhieuChuyenKho p = phieu(IChuyenKho.DA_DUYET);
         daNhatXong(p);
         PhieuChuyenKhoYeuCau.XacNhanXuat yc = xeCongTy();
         yc.setHinhThucVanChuyen(IChuyenKho.CHUYEN_PHAT);
+        yc.setBienSoXe("không phải biển");
 
         assertEquals("Nhập tên đơn vị vận chuyển", loi(HttpStatus.BAD_REQUEST, () -> service.xacNhanXuat(PCK, yc)).getMessage());
         yc.setDonViVanChuyen("Giao Hàng Nhanh");
