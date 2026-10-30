@@ -19,6 +19,7 @@ import LoadingState from "@/components/shared/LoadingState";
 import StatusBadge from "@/components/shared/StatusBadge";
 import HangCoBieuTuong from "@/components/nguoi-dung/ho-so/HangCoBieuTuong";
 import QuyenCuaToi from "@/components/nguoi-dung/ho-so/QuyenCuaToi";
+import ThietBiDangNhap from "@/components/nguoi-dung/ho-so/ThietBiDangNhap";
 import {
   goiYHoSo,
   hieuLucCuaToi,
@@ -446,6 +447,9 @@ export default function UserDetail() {
               }
             />
           </section>
+
+          {/* Thiết bị đang đăng nhập: liệt kê phiên + đăng xuất từng cái / tất cả thiết bị khác */}
+          <ThietBiDangNhap />
 
           <QuyenCuaToi
             vaiTro={hoSo.vaiTro}

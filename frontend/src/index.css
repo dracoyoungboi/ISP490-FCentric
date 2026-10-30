@@ -10,6 +10,8 @@
 @source "./components/backoffice";
 /* Thành phần dùng chung (khung bảng, nút thao tác, phân trang) */
 @source "./components/shared";
+/* Hồ sơ cá nhân (mục Thiết bị đang đăng nhập dùng class cỡ lẻ như text-[11px]): khai báo rõ để dev server sinh đủ class */
+@source "./components/nguoi-dung";
 /* Cổng nhà cung cấp (đăng nhập OTP, trang báo giá): thư mục mới thêm, khai báo rõ để dev server sinh đủ class
    (thiếu thì logo phóng to hết cỡ, ô đơn giá giãn hết cột, nút Thoát biến mất) */
 @source "./components/supplier-portal";
