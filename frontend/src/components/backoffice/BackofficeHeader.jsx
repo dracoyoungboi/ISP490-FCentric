@@ -74,9 +74,11 @@ export default function BackofficeHeader() {
 
   const dangXuat = () => {
     // Trang đang sửa dở (vd. trình sửa mẫu in) được hỏi trước khi đăng xuất
-    xinRoiTrang(() => {
-      // Chỉ xóa phiên đăng nhập; bản nháp hóa đơn POS (gắn theo tài khoản, hết hạn sau 12 giờ)
+    xinRoiTrang(async () => {
+      // Thu hồi phiên ở máy chủ trước (best-effort) để thiết bị này biến khỏi "Thiết bị đang đăng nhập",
+      // rồi mới xóa token phía trình duyệt. Bản nháp hóa đơn POS (gắn theo tài khoản, hết hạn sau 12 giờ)
       // được giữ để đăng nhập lại vẫn còn hóa đơn và mã QR đang chờ.
+      await nguoiDungService.logoutServer();
       nguoiDungService.logout();
       sessionStorage.clear();
       navigate("/login");
