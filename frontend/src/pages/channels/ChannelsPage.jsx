@@ -77,9 +77,7 @@ export default function ChannelsPage() {
               </thead>
               <tbody className="divide-y divide-bo-border max-sm:block">
                 <DongTaiQuay />
-                {SAN_BAN_HANG.filter((san) => san.hoTro).map((san) => (
-                  <DongSan key={san.maKenh} san={san} />
-                ))}
+                {SAN_BAN_HANG.map((san) => (san.hoTro ? <DongSan key={san.maKenh} san={san} /> : <DongSanChoCapApi key={san.maKenh} san={san} />))}
               </tbody>
             </table>
           </div>
@@ -314,6 +312,45 @@ function DongTaiQuay() {
         <Button asChild variant="outline" className={NUT_PHU}>
           <Link to="/pos" onClick={(event) => event.stopPropagation()}>
             Mở
+          </Link>
+        </Button>
+      </td>
+    </tr>
+  );
+}
+
+/**
+ * Dòng sàn đang chờ cấp API (Shopee): máy chủ chưa có API của sàn nên không tải gì, chỉ ghi trạng thái và nút mở màn
+ * giới thiệu. Các cột đồng bộ để "—" như dòng Bán hàng tại quầy (dưới sm thì bỏ hẳn các dòng đó trên thẻ).
+ */
+function DongSanChoCapApi({ san }) {
+  const navigate = useNavigate();
+  return (
+    <tr
+      onClick={() => navigate(san.duongDan)}
+      className="cursor-pointer transition-colors hover:bg-bo-surface-subtle max-sm:flex max-sm:flex-col max-sm:gap-2.5 max-sm:p-4"
+    >
+      <td className={TD}>
+        <div className="flex items-center gap-3">
+          <ChannelLogo maKenh={san.maKenh} size={28} />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-bo-heading">{san.ten}</p>
+            {/* Tên sàn ở dòng trên: không lặp lại để vừa cột Gian hàng khi menu trái đang mở */}
+            <p className="truncate text-[13px] text-bo-muted">Đang xin cấp quyền API</p>
+          </div>
+        </div>
+      </td>
+      <td className={cn(TD, DONG_THE, "max-sm:items-center max-sm:border-t max-sm:border-[#eef1f5] max-sm:pt-3")}>
+        <span className={NHAN_THE}>Trạng thái</span>
+        <StatusBadge label="Chờ cấp API" />
+      </td>
+      <td className={cn(TD, DONG_THE, "text-bo-foreground max-sm:hidden")}>—</td>
+      <td className={cn(TD, DONG_THE, "text-right tabular-nums text-bo-foreground max-sm:hidden")}>—</td>
+      <td className={cn(TD, DONG_THE, "tabular-nums text-bo-muted max-sm:hidden")}>—</td>
+      <td className={cn(TD, "whitespace-nowrap text-right max-sm:pt-1")}>
+        <Button asChild variant="outline" className={NUT_PHU}>
+          <Link to={san.duongDan} onClick={(event) => event.stopPropagation()}>
+            Xem
           </Link>
         </Button>
       </td>

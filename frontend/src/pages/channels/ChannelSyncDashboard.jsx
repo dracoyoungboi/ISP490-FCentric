@@ -1,5 +1,6 @@
+import { useId } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, BarChart3, ChevronRight } from "lucide-react";
+import { ArrowRight, BarChart3, ChevronRight, Info } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -77,9 +78,15 @@ function moiHon(a, b) {
 /**
  * Tổng quan gian hàng của sàn đang mở (không có tiêu đề trang: đầu trang là gian hàng); chưa kết nối thì hiện màn giới thiệu.
  * Sàn ủy quyền (Lazada, TikTok Shop) thêm hạn ủy quyền ở dòng phụ và thanh nhắc khi sắp hết / đã hết hạn (KH mục B.5).
+ * Sàn chờ cấp API (Shopee) chỉ có màn giới thiệu, không tải gì vì máy chủ chưa có API của sàn.
  */
 export default function ChannelSyncDashboard() {
   useClaimPageTitle(true);
+  const SAN = useSanHienTai();
+  return SAN.hoTro ? <TongQuanGianHang /> : <ManGioiThieu />;
+}
+
+function TongQuanGianHang() {
   const navigate = useNavigate();
   const SAN = useSanHienTai();
   const TIEU_DE = `Tổng quan ${SAN.ten}`;
@@ -530,16 +537,19 @@ function TheSanPham({ tongQuan, loi, onThuLai, cauHinh }) {
 /**
  * Gian hàng chưa kết nối: giới thiệu 4 bước và nút bắt đầu. Sàn ủy quyền dùng câu của KH mục B.5
  * ("Kết nối <sàn> trong 4 bước", bước 1 là ủy quyền gian hàng).
+ * Sàn chờ cấp API: thêm ô ghi chú và khóa nút bắt đầu; không có dữ liệu nên không hiện ghi chú dữ liệu mẫu.
  */
 function ManGioiThieu() {
   const SAN = useSanHienTai();
   const uyQuyen = SAN.kieuKetNoi === "uy_quyen";
+  const choCapApi = !SAN.hoTro;
+  const idLyDoKhoa = useId();
   const dsBuoc = uyQuyen ? buocGioiThieu(SAN.ten) : BUOC_THIET_LAP;
   return (
     <PageContainer>
       <h1 className="sr-only">Tổng quan {SAN.ten}</h1>
       <CotCaiDat className="pt-2">
-        <MockModeNotice show={isChannelMock} note={GHI_CHU_DU_LIEU_MAU_KENH} />
+        <MockModeNotice show={isChannelMock && !choCapApi} note={GHI_CHU_DU_LIEU_MAU_KENH} />
         <section className={cn(THE, "p-5 sm:p-6")}>
           <div className="flex items-center gap-3.5">
             <ChannelLogo maKenh={SAN.maKenh} size={40} />
@@ -552,6 +562,12 @@ function ManGioiThieu() {
               </p>
             </div>
           </div>
+          {choCapApi ? (
+            <div className="mt-5 flex items-start gap-2.5 rounded-lg border border-bo-border bg-bo-surface-subtle px-4 py-3 text-sm text-bo-foreground">
+              <Info className="mt-0.5 size-4 shrink-0 text-bo-muted" aria-hidden="true" />
+              <p>FCentric đang xin cấp quyền API từ {SAN.ten}.</p>
+            </div>
+          ) : null}
           {/* Màn rộng: 4 bước nằm một hàng cho cân ngang; màn hẹp: xếp dọc */}
           <ol className="mt-5 grid divide-y divide-[#eef1f5] rounded-lg border border-bo-border lg:grid-cols-4 lg:divide-x lg:divide-y-0">
             {dsBuoc.map((buoc) => (
@@ -567,13 +583,27 @@ function ManGioiThieu() {
             ))}
           </ol>
           <div className="mt-5 flex flex-wrap items-center gap-3">
-            <Button asChild className={NUT_CHINH}>
-              <Link to={`${SAN.duongDan}/setup`}>
-                {uyQuyen ? "Bắt đầu kết nối" : "Bắt đầu thiết lập"}
-                <ArrowRight className="size-4" />
-              </Link>
-            </Button>
-            <p className="text-[13px] text-bo-muted">Mỗi bước lưu ngay, dừng giữa chừng được.</p>
+            {choCapApi ? (
+              <>
+                <Button type="button" disabled aria-describedby={idLyDoKhoa} className={NUT_CHINH}>
+                  Bắt đầu kết nối
+                  <ArrowRight className="size-4" />
+                </Button>
+                <p id={idLyDoKhoa} className="text-[13px] text-bo-muted">
+                  Mở khi {SAN.ten} cấp quyền API.
+                </p>
+              </>
+            ) : (
+              <>
+                <Button asChild className={NUT_CHINH}>
+                  <Link to={`${SAN.duongDan}/setup`}>
+                    {uyQuyen ? "Bắt đầu kết nối" : "Bắt đầu thiết lập"}
+                    <ArrowRight className="size-4" />
+                  </Link>
+                </Button>
+                <p className="text-[13px] text-bo-muted">Mỗi bước lưu ngay, dừng giữa chừng được.</p>
+              </>
+            )}
           </div>
         </section>
       </CotCaiDat>
