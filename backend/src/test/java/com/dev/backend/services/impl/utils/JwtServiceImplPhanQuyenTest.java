@@ -51,7 +51,7 @@ class JwtServiceImplPhanQuyenTest {
         PhanQuyenNguoiDungKhoDto pq = PhanQuyenNguoiDungKhoDto.builder().id(100).trangThai(1)
                 .kho(KhoDto.builder().id(22).maKho("KHO_TONG").build()).chiTietQuyenKhos(ds).build();
         String token = jwt.generateTokenWithPermissions(52, "nhanvienkhotong", "nhanvienkhotong", "b@fcentric.net", null,
-                Set.of("nhan_vien_kho"), 1, null, null, List.of(pq), "Google", null);
+                Set.of("nhan_vien_kho"), 1, null, null, List.of(pq), "Google", null, null);
         NguoiDungAuthInfo info = jwt.getNguoiDungAuthInfoFromToken(token);
         Map<String, Integer> trongToken = info.getPhanQuyenNguoiDungKhos().get(0).getChiTietQuyenKhos().stream()
                 .collect(Collectors.toMap(ChiTietQuyenKhoDto::getMaQuyenHan, ChiTietQuyenKhoDto::getTrangThai));

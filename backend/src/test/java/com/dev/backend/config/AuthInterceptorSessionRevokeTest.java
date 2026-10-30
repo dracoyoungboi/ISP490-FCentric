@@ -65,7 +65,7 @@ class AuthInterceptorSessionRevokeTest {
 
     private String tokenFor(String credentialVersion) {
         return jwtService.generateTokenWithPermissions(7, "khang", "Khang", "khang@example.com", null,
-                Set.of("quan_tri_vien"), 1, null, null, List.of(), "Google", credentialVersion);
+                Set.of("quan_tri_vien"), 1, null, null, List.of(), "Google", credentialVersion, null);
     }
 
     private boolean preHandle(String token) {
@@ -147,7 +147,7 @@ class AuthInterceptorSessionRevokeTest {
                 mock(PhanQuyenNguoiDungKhoRepository.class));
         String token = jwtService.generateTokenWithPermissions(7, "khang", "Khang", "khang@example.com", null,
                 Set.of("khach_hang"), 1, null, null, List.of(), "Google",
-                jwtService.credentialVersion(user.getMatKhauHash()));
+                jwtService.credentialVersion(user.getMatKhauHash()), null);
 
         CommonException ex = assertThrows(AccountDisabledException.class, () -> preHandle(token));
 
