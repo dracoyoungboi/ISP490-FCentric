@@ -1042,10 +1042,23 @@ export default function BackofficeSidebar() {
               ) : null}
 
               {section.hienTieuDe ? (
-                <div className={SIDEBAR_COLLAPSE_ROW}>
-                  <div className="min-h-0 overflow-hidden">
-                    <div className="flex items-center justify-between gap-2 pr-1.5 pb-1.5 pl-2">
-                      <span className="truncate text-[11px] font-semibold uppercase tracking-wider text-bo-sidebar-muted/80">
+                // Nhóm có nút "+": hàng tiêu đề không co về 0 khi thu gọn, chỉ chữ ẩn đi và nút "+"
+                // thành một ô icon 36px giữa rail (như mục menu) để vẫn vào được trang kết nối kênh.
+                <div className={section.nutThem ? undefined : SIDEBAR_COLLAPSE_ROW}>
+                  <div className={section.nutThem ? undefined : "min-h-0 overflow-hidden"}>
+                    <div
+                      className={cn(
+                        "flex items-center justify-between gap-2 pr-1.5 pb-1.5 pl-2",
+                        section.nutThem &&
+                          "group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:pb-1",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "truncate text-[11px] font-semibold uppercase tracking-wider text-bo-sidebar-muted/80",
+                          section.nutThem && "group-data-[collapsible=icon]:hidden",
+                        )}
+                      >
                         {section.label}
                       </span>
                       {section.nutThem ? (
@@ -1057,14 +1070,24 @@ export default function BackofficeSidebar() {
                           aria-label={section.nutThem.nhanNut ?? section.nutThem.label}
                           title={section.nutThem.nhanNut ?? section.nutThem.label}
                           aria-current={laHienTai(section.nutThem) ? "page" : undefined}
+                          {...(isExpanded
+                            ? {}
+                            : {
+                                onPointerOver: (event) =>
+                                  showRailTooltip(event, section.nutThem.nhanNut ?? section.nutThem.label),
+                                onPointerOut: hideRailTooltip,
+                                onFocus: (event) =>
+                                  showRailTooltip(event, section.nutThem.nhanNut ?? section.nutThem.label),
+                                onBlur: hideRailTooltip,
+                              })}
                           className={cn(
-                            "grid size-[22px] shrink-0 place-items-center rounded-md outline-hidden transition-colors focus-visible:ring-2 focus-visible:ring-blue-300",
+                            "grid size-[22px] shrink-0 place-items-center rounded-md outline-hidden transition-colors focus-visible:ring-2 focus-visible:ring-blue-300 group-data-[collapsible=icon]:size-9",
                             laHienTai(section.nutThem)
                               ? "bg-bo-sidebar-active text-white"
                               : "text-bo-sidebar-muted hover:bg-bo-sidebar-hover hover:text-white",
                           )}
                         >
-                          <Plus className="size-3.5" strokeWidth={2.4} aria-hidden="true" />
+                          <Plus className="size-3.5 group-data-[collapsible=icon]:size-[18px]" strokeWidth={2.4} aria-hidden="true" />
                         </Link>
                       ) : null}
                     </div>
