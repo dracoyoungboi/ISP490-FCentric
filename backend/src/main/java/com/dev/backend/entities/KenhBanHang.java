@@ -85,12 +85,51 @@ public class KenhBanHang {
      * Tiện ích lấy mã Shop Cipher đối với kênh bán hàng TikTok Shop
      */
     public String getShopCipher() {
-        return "TIKTOK".equalsIgnoreCase(this.maKenh) ? this.apiUrl : null;
+        if (!"TIKTOK".equalsIgnoreCase(this.maKenh) || this.apiUrl == null) return null;
+        if (this.apiUrl.contains("::")) {
+            String[] parts = this.apiUrl.split("::", 2);
+            return parts.length > 1 && !parts[1].isBlank() ? parts[1].trim() : null;
+        }
+        if (this.apiUrl.matches("^\\d+$")) {
+            return null;
+        }
+        return this.apiUrl;
     }
 
     public void setShopCipher(String cipher) {
         if ("TIKTOK".equalsIgnoreCase(this.maKenh)) {
-            this.apiUrl = cipher;
+            String sid = getServiceId();
+            if (sid != null && !sid.isBlank()) {
+                this.apiUrl = sid + "::" + (cipher != null ? cipher.trim() : "");
+            } else {
+                this.apiUrl = cipher != null ? cipher.trim() : null;
+            }
+        }
+    }
+
+    /**
+     * Tiện ích lấy Service ID đối với kênh bán hàng TikTok Shop (Partner Center)
+     */
+    public String getServiceId() {
+        if (!"TIKTOK".equalsIgnoreCase(this.maKenh) || this.apiUrl == null) return null;
+        if (this.apiUrl.contains("::")) {
+            String sid = this.apiUrl.split("::", 2)[0].trim();
+            return !sid.isBlank() ? sid : null;
+        }
+        if (this.apiUrl.matches("^\\d+$")) {
+            return this.apiUrl.trim();
+        }
+        return null;
+    }
+
+    public void setServiceId(String serviceId) {
+        if ("TIKTOK".equalsIgnoreCase(this.maKenh)) {
+            String cipher = getShopCipher();
+            if (cipher != null && !cipher.isBlank()) {
+                this.apiUrl = (serviceId != null ? serviceId.trim() : "") + "::" + cipher;
+            } else {
+                this.apiUrl = serviceId != null ? serviceId.trim() : null;
+            }
         }
     }
 }

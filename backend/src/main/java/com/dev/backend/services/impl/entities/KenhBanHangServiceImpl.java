@@ -738,6 +738,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                     .tenKenh(kenh.getTenKenh() != null ? kenh.getTenKenh() : "Gian hàng Lazada")
                     .loaiKenh("online")
                     .appKey(kenh.getClientId())
+                    .serviceId(kenh.getServiceId())
                     .hasAppSecret(hasSecret)
                     .hasAccessToken(hasToken)
                     .accessTokenMasked(maskedToken)
@@ -784,6 +785,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                     .tenKenh(kenh.getTenKenh() != null ? kenh.getTenKenh() : "Gian hàng TikTok Shop")
                     .loaiKenh("online")
                     .appKey(kenh.getClientId())
+                    .serviceId(kenh.getServiceId())
                     .hasAppSecret(hasSecret)
                     .hasAccessToken(hasToken)
                     .accessTokenMasked(maskedToken)
@@ -1348,6 +1350,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 .loaiKenh(kenh.getLoaiKenh())
                 .apiUrl(kenh.getApiUrl() != null ? kenh.getApiUrl() : DEFAULT_TIKTOK_API_URL)
                 .appKey(kenh.getClientId())
+                .serviceId(kenh.getServiceId())
                 .hasAppSecret(hasSecret)
                 .hasAccessToken(hasToken)
                 .accessTokenMasked(maskedToken)
@@ -1393,6 +1396,10 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
 
         if (request.getShopCipher() != null && !request.getShopCipher().isBlank()) {
             kenh.setShopCipher(request.getShopCipher().trim());
+        }
+
+        if (request.getServiceId() != null) {
+            kenh.setServiceId(request.getServiceId().trim());
         }
 
         // Thông tin kho đồng bộ TikTok Shop được lưu trữ trong cấu hình đồng bộ kênh (cau_hinh_dong_bo_kenh)
@@ -1513,11 +1520,16 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
 
     @Override
     public String getTikTokAuthUrl(String redirectUri, String state) {
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_TIKTOK).orElse(null);
+        String serviceId = kenh != null ? kenh.getServiceId() : null;
         String appKey = getTikTokAppKey();
-        if (appKey == null || appKey.isBlank()) {
-            throw new CommonException("Chưa cấu hình App Key cho kênh TikTok Shop", HttpStatus.BAD_REQUEST, null);
+
+        // Chuẩn OAuth2 TikTok Shop: URL ủy quyền ưu tiên Service ID (Mã dịch vụ 19 số trên Partner Center)
+        String authIdentifier = (serviceId != null && !serviceId.isBlank()) ? serviceId.trim() : appKey;
+        if (authIdentifier == null || authIdentifier.isBlank()) {
+            throw new CommonException("Chưa cấu hình Service ID hoặc App Key cho kênh TikTok Shop", HttpStatus.BAD_REQUEST, null);
         }
-        return getTikTokShopClient().generateAuthUrl(appKey, redirectUri, state);
+        return getTikTokShopClient().generateAuthUrl(authIdentifier, redirectUri, state);
     }
 
     @Override
@@ -1546,6 +1558,9 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                     ? request.getAppKey().trim()
                     : (kenh.getClientId() != null && !kenh.getClientId().isBlank() ? kenh.getClientId() : "6lon0l7p95ihb");
             kenh.setClientId(appKey);
+            if (kenh.getServiceId() == null || kenh.getServiceId().isBlank()) {
+                kenh.setServiceId("7702003619950200596");
+            }
             if (kenh.getApiSecret() == null || kenh.getApiSecret().isBlank()) {
                 kenh.setApiSecret(paymentSecretCipher.encrypt("mock_secret_tiktok_partner"));
             }

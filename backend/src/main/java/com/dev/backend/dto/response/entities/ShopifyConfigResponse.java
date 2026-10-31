@@ -38,6 +38,7 @@ public class ShopifyConfigResponse implements Serializable {
 
     // Các trường bổ sung cho sàn ủy quyền (Lazada, TikTok Shop)
     String appKey;
+    String serviceId;
     boolean hasAppSecret;
     String tenGianHang;
     String shopIdSan;

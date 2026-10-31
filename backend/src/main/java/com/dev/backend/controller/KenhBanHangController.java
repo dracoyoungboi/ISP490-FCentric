@@ -162,6 +162,7 @@ public class KenhBanHangController {
             TikTokConfigUpdating tikTokReq = TikTokConfigUpdating.builder()
                     .appKey(request.getAppKey() != null ? request.getAppKey() : request.getClientId())
                     .appSecret(request.getAppSecret() != null ? request.getAppSecret() : request.getApiSecret())
+                    .serviceId(request.getServiceId())
                     .trangThai(request.getTrangThai())
                     .build();
             kenhBanHangService.updateTikTokConfig(tikTokReq);
