@@ -179,7 +179,6 @@ public class LazadaClient {
         params.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
         params.put("sort_by", "created_at");
         params.put("sort_direction", "DESC");
-        params.put("status", "all");
         params.put("limit", String.valueOf(limit != null ? limit : 50));
         params.put("offset", String.valueOf(offset != null ? offset : 0));
 
@@ -410,7 +409,8 @@ public class LazadaClient {
         }
 
         try {
-            ResponseEntity<String> response = restTemplate.getForEntity(urlBuilder.toString(), String.class);
+            java.net.URI uri = java.net.URI.create(urlBuilder.toString());
+            ResponseEntity<String> response = restTemplate.getForEntity(uri, String.class);
             return objectMapper.readTree(response.getBody());
         } catch (HttpStatusCodeException e) {
             log.error("Lazada API HTTP Error: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString());
