@@ -68,7 +68,12 @@ public class OmnichannelOrderSyncJob {
     PhieuXuatKhoRepository phieuXuatKhoRepository;
     DieuHanhHeThongService dieuHanhHeThongService;
     DonBanHangService donBanHangService;
+    @lombok.experimental.NonFinal
     LazadaClient lazadaClient;
+
+    public void setLazadaClient(LazadaClient lazadaClient) {
+        this.lazadaClient = lazadaClient;
+    }
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     TikTokShopClient tiktokShopClient;
@@ -852,6 +857,16 @@ public class OmnichannelOrderSyncJob {
         if (khachHang == null) {
             khachHang = khachHangRepository.findById(1).orElse(null);
         }
+        if (khachHang == null) {
+            khachHang = khachHangRepository.findAll().stream().findFirst().orElse(null);
+        }
+        if (khachHang == null) {
+            khachHang = khachHangRepository.save(KhachHang.builder()
+                    .tenKhachHang(customerName)
+                    .soDienThoai(!phone.isBlank() ? phone.trim() : "0900000000")
+                    .trangThai(1)
+                    .build());
+        }
 
         BigDecimal price = new BigDecimal(orderNode.path("price").asText("0.00"));
         BigDecimal shippingFee = new BigDecimal(orderNode.path("shipping_fee").asText("0.00"));
@@ -886,29 +901,49 @@ public class OmnichannelOrderSyncJob {
                 JsonNode items = itemsRes.path("data");
                 if (items.isArray()) {
                     for (JsonNode it : items) {
-                        String sku = it.path("sku").asText("");
-                        String shopSku = it.path("shop_sku").asText(sku);
+                        String sellerSku = it.path("seller_sku").asText("").trim();
+                        String shopSku = it.path("shop_sku").asText("").trim();
+                        String sku = it.path("sku").asText("").trim();
                         BigDecimal itemPrice = new BigDecimal(it.path("item_price").asText("0.00"));
 
                         BienTheSanPham bt = null;
-                        if (!shopSku.isBlank()) {
-                            bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(shopSku.trim()).orElse(null);
+                        // 1. Ưu tiên cao nhất: tìm trực tiếp bằng Seller SKU do người bán cấu hình trên sàn
+                        if (!sellerSku.isBlank()) {
+                            bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(sellerSku).orElse(null);
+                        }
+                        // 2. Tiếp theo: tìm theo shop_sku hoặc sku của sàn
+                        if (bt == null && !shopSku.isBlank()) {
+                            bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(shopSku).orElse(null);
                         }
                         if (bt == null && !sku.isBlank()) {
-                            bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(sku.trim()).orElse(null);
+                            bt = bienTheSanPhamRepository.findByMaSkuIgnoreCase(sku).orElse(null);
                         }
-                        if (bt == null) {
+                        // 3. Tra bảng mapping liên kết sản phẩm sàn nếu có
+                        if (bt == null && !sellerSku.isBlank()) {
+                            var mapping = trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndMaSanPhamKenh(kenh.getId(), sellerSku);
+                            if (mapping.isPresent()) {
+                                bt = mapping.get().getBienTheSanPham();
+                            }
+                        }
+                        if (bt == null && !shopSku.isBlank()) {
                             var mapping = trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndMaSanPhamKenh(kenh.getId(), shopSku);
                             if (mapping.isPresent()) {
                                 bt = mapping.get().getBienTheSanPham();
                             }
                         }
 
+                        BigDecimal soLuong = BigDecimal.ONE;
+                        if (it.has("quantity") && !it.path("quantity").asText("").isBlank()) {
+                            try {
+                                soLuong = new BigDecimal(it.path("quantity").asText("1"));
+                            } catch (Exception ignored) {}
+                        }
+
                         if (bt != null) {
                             ChiTietDonBanHang chiTiet = ChiTietDonBanHang.builder()
                                     .donBanHang(savedOrder)
                                     .bienTheSanPham(bt)
-                                    .soLuongDat(BigDecimal.ONE)
+                                    .soLuongDat(soLuong)
                                     .soLuongDaGiao(BigDecimal.ZERO)
                                     .donGia(itemPrice)
                                     .ghiChu(it.path("name").asText(""))
