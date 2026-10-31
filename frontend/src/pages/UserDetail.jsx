@@ -345,6 +345,8 @@ export default function UserDetail() {
       <ChangePasswordModal
         open={moMatKhau}
         onOpenChange={setMoMatKhau}
+        tenDangNhap={hoSo.tenDangNhap}
+        email={hoSo.email || ""}
         onSuccess={() => {
           toast.success("Đã đổi mật khẩu.");
           hoSoQ.reload();
