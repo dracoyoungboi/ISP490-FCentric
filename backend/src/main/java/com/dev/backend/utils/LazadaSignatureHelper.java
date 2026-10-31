@@ -49,7 +49,7 @@ public final class LazadaSignatureHelper {
 
             // 4. Băm HMAC-SHA256
             Mac mac = Mac.getInstance("HmacSHA256");
-            SecretKeySpec secretKeySpec = new SecretKeySpec(appSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+            SecretKeySpec secretKeySpec = new SecretKeySpec(appSecret.trim().getBytes(StandardCharsets.UTF_8), "HmacSHA256");
             mac.init(secretKeySpec);
             byte[] hmacBytes = mac.doFinal(sb.toString().getBytes(StandardCharsets.UTF_8));
 
