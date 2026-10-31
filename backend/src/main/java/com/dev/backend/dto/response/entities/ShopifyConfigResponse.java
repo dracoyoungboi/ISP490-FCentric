@@ -45,4 +45,6 @@ public class ShopifyConfigResponse implements Serializable {
     Instant hanUyQuyen;
     Long soNgayConUyQuyen;
     Instant ngayUyQuyen;
+    String maKhoSan;
+    String tenKhoSan;
 }

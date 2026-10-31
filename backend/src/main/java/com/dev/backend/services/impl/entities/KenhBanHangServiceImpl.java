@@ -111,6 +111,10 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     TikTokShopClient tiktokShopClient;
+
+    @lombok.experimental.NonFinal
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    com.dev.backend.repository.CauHinhHeThongRepository cauHinhHeThongRepository;
     private TikTokShopClient getTikTokShopClient() {
         if (tiktokShopClient == null) tiktokShopClient = new TikTokShopClient();
         return tiktokShopClient;
@@ -779,6 +783,14 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 soNgayCon = Math.max(0L, seconds / 86400L);
             }
             String maskedToken = hasToken ? cheKhoa(kenh.getApiKey(), this::maskToken) : null;
+            String maKhoSan = null;
+            String tenKhoSan = null;
+            if (cauHinhHeThongRepository != null) {
+                maKhoSan = cauHinhHeThongRepository.findById("KENH_" + ma + "_MA_KHO_SAN")
+                        .map(com.dev.backend.entities.CauHinhHeThong::getGiaTri).orElse(null);
+                tenKhoSan = cauHinhHeThongRepository.findById("KENH_" + ma + "_TEN_KHO_SAN")
+                        .map(com.dev.backend.entities.CauHinhHeThong::getGiaTri).orElse(null);
+            }
             return ShopifyConfigResponse.builder()
                     .id(kenh.getId())
                     .maKenh(ma)
@@ -798,6 +810,8 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                     .trangThai(kenh.getTrangThai() != null ? kenh.getTrangThai() : 1)
                     .kieuKetNoi(KIEU_UY_QUYEN)
                     .trangThaiKetNoi(trangThaiKetNoi)
+                    .maKhoSan(maKhoSan)
+                    .tenKhoSan(tenKhoSan)
                     .ngayCapNhat(kenh.getNgayCapNhat())
                     .build();
         }

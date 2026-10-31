@@ -2357,6 +2357,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (request.getMaKhoSan() != null && !request.getMaKhoSan().isBlank()) {
             dieuHanhHeThongService.setCauHinhString(KenhCauHinhDongBo.khoa(maKenh, "MA_KHO_SAN"), request.getMaKhoSan().trim());
         }
+        if (request.getTenKhoSan() != null && !request.getTenKhoSan().isBlank()) {
+            dieuHanhHeThongService.setCauHinhString(KenhCauHinhDongBo.khoa(maKenh, "TEN_KHO_SAN"), request.getTenKhoSan().trim());
+        }
 
         kenh.setNgayCapNhat(Instant.now());
         kenhBanHangRepository.save(kenh);
