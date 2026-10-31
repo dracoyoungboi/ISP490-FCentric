@@ -112,8 +112,7 @@ export default function ThuocTinhDonBan({ ct, laBan = false, laKho = false, baoG
           className="mt-2.5"
           muc={[
             { ma: "ma", nhan: "Mã khách hàng", giaTri: khach?.maKhachHang ? <span className="font-mono">{khach.maKhachHang}</span> : null },
-            // Máy chủ trả số đã che ("09***678"): chỉ hiện, không sao chép
-            { ma: "sdt", nhan: "Điện thoại", giaTri: khach?.soDienThoai ? <span className="tabular-nums">{khach.soDienThoai}</span> : null },
+            { ma: "sdt", nhan: "Điện thoại", giaTri: khach?.soDienThoai ? <GiaTriSaoChep giaTri={khach.soDienThoai} nhanSaoChep="Sao chép số điện thoại" className="tabular-nums" /> : null },
             { ma: "email", nhan: "Email", giaTri: khach?.email },
           ]}
         />

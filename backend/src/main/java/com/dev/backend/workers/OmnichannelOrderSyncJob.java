@@ -826,7 +826,7 @@ public class OmnichannelOrderSyncJob {
             existingOpt = donBanHangRepository.findByMaDonHangKenh(orderId);
         }
 
-        String address = extractLazadaAddress(orderNode.path("address_shipping"));
+        String address = extractLazadaAddress(orderNode);
 
         if (existingOpt.isPresent()) {
             DonBanHang existing = existingOpt.get();
@@ -984,21 +984,53 @@ public class OmnichannelOrderSyncJob {
             customerName = (shipFirst + " " + shipLast).trim();
         }
         if (customerName.isBlank()) {
+            String billFirst = orderNode.path("address_billing").path("first_name").asText("").trim();
+            String billLast = orderNode.path("address_billing").path("last_name").asText("").trim();
+            customerName = (billFirst + " " + billLast).trim();
+        }
+        if (customerName.isBlank()) {
             customerName = "Khách hàng Lazada";
         }
 
         String phone = orderNode.path("address_shipping").path("phone").asText("").trim();
+        if (phone.isBlank()) {
+            phone = orderNode.path("address_billing").path("phone").asText("").trim();
+        }
+        if (phone.isBlank()) {
+            phone = orderNode.path("address_shipping").path("phone2").asText("").trim();
+        }
+        if (phone.isBlank()) {
+            phone = orderNode.path("address_billing").path("phone2").asText("").trim();
+        }
 
-        // 1. Nếu có số điện thoại chuẩn không bị che (không chứa *), tìm khách hàng hiện có
-        if (!phone.isBlank() && !phone.contains("*")) {
+        String email = orderNode.path("customer_email").asText("").trim();
+        if (email.isBlank()) {
+            email = orderNode.path("address_billing").path("email").asText("").trim();
+        }
+        if (email.isBlank()) {
+            email = orderNode.path("address_shipping").path("email").asText("").trim();
+        }
+
+        // 1. Tìm kiếm khách hàng theo số điện thoại (tương tự như luồng Shopify)
+        if (!phone.isBlank()) {
             Optional<KhachHang> khOpt = khachHangRepository.findFirstBySoDienThoai(phone);
             if (khOpt.isPresent()) {
                 return khOpt.get();
             }
         }
 
-        // 2. Tra cứu khách hàng theo mã định danh kênh Lazada
-        String maKh = "KH-LZD-" + orderNumber;
+        // 2. Tìm kiếm khách hàng theo email
+        if (!email.isBlank()) {
+            Optional<KhachHang> khOpt = khachHangRepository.findFirstByEmail(email);
+            if (khOpt.isPresent()) {
+                return khOpt.get();
+            }
+        }
+
+        // 3. Tra cứu khách hàng theo mã định danh kênh Lazada
+        String suffix = !phone.isBlank() ? phone.replaceAll("\\D", "") : orderNumber;
+        if (suffix.isBlank()) suffix = orderNumber;
+        String maKh = "KH-LZD-" + suffix;
         if (maKh.length() > 30) {
             maKh = maKh.substring(0, 30);
         }
@@ -1008,12 +1040,14 @@ public class OmnichannelOrderSyncJob {
             return khByMaOpt.get();
         }
 
-        // 3. Tạo mới khách hàng riêng biệt cho đơn Lazada
+        // 4. Tạo mới khách hàng không che, lưu đầy đủ thông tin thực tế từ sàn
         final String finalPhone = !phone.isBlank() ? phone : "0900000000";
+        final String finalEmail = !email.isBlank() ? email : "lazada@customer.com";
         KhachHang moi = KhachHang.builder()
                 .maKhachHang(maKh)
                 .tenKhachHang(customerName)
                 .soDienThoai(finalPhone)
+                .email(finalEmail)
                 .diaChi(fullAddress)
                 .loaiKhachHang("le")
                 .trangThai(1)
@@ -1026,7 +1060,7 @@ public class OmnichannelOrderSyncJob {
                 ? addr.getName().trim() : "Khách hàng TikTok Shop";
         String fullAddress = addr != null && addr.getFullAddress() != null ? addr.getFullAddress().trim() : "";
 
-        if (!phone.isBlank() && !phone.contains("*")) {
+        if (!phone.isBlank()) {
             Optional<KhachHang> khOpt = khachHangRepository.findFirstBySoDienThoai(phone);
             if (khOpt.isPresent()) {
                 return khOpt.get();
@@ -1036,7 +1070,9 @@ public class OmnichannelOrderSyncJob {
         String orderId = order.getId() != null ? order.getId().trim() : "";
         String buyerUid = order.getBuyerUid() != null && !order.getBuyerUid().isBlank()
                 ? order.getBuyerUid().trim() : orderId;
-        String maKh = "KH-TTS-" + buyerUid;
+        String suffix = !phone.isBlank() ? phone.replaceAll("\\D", "") : buyerUid;
+        if (suffix.isBlank()) suffix = orderId;
+        String maKh = "KH-TTS-" + suffix;
         if (maKh.length() > 30) {
             maKh = maKh.substring(0, 30);
         }
@@ -1094,16 +1130,25 @@ public class OmnichannelOrderSyncJob {
                 || pm.contains("cyber");
     }
 
-    private String extractLazadaAddress(JsonNode shipping) {
-        if (shipping == null || shipping.isMissingNode() || shipping.isNull()) return "";
+    private String extractLazadaAddress(JsonNode orderNode) {
+        if (orderNode == null || orderNode.isMissingNode() || orderNode.isNull()) return "";
+        String addr = extractAddressFromNode(orderNode.path("address_shipping"));
+        if (addr.isBlank()) {
+            addr = extractAddressFromNode(orderNode.path("address_billing"));
+        }
+        return addr;
+    }
+
+    private String extractAddressFromNode(JsonNode node) {
+        if (node == null || node.isMissingNode() || node.isNull()) return "";
         List<String> parts = new ArrayList<>();
-        addAddressPart(parts, shipping.path("address1").asText(""));
-        addAddressPart(parts, shipping.path("address2").asText(""));
-        addAddressPart(parts, shipping.path("address3").asText(""));
-        addAddressPart(parts, shipping.path("address4").asText(""));
-        addAddressPart(parts, shipping.path("address5").asText(""));
-        addAddressPart(parts, shipping.path("city").asText(""));
-        addAddressPart(parts, shipping.path("country").asText(""));
+        addAddressPart(parts, node.path("address1").asText(""));
+        addAddressPart(parts, node.path("address2").asText(""));
+        addAddressPart(parts, node.path("address3").asText(""));
+        addAddressPart(parts, node.path("address4").asText(""));
+        addAddressPart(parts, node.path("address5").asText(""));
+        addAddressPart(parts, node.path("city").asText(""));
+        addAddressPart(parts, node.path("country").asText(""));
         return String.join(", ", parts);
     }
 
