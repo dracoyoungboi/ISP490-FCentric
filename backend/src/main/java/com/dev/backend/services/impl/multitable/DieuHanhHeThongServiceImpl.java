@@ -658,8 +658,13 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
         if (ch == null) {
             ch = new com.dev.backend.entities.CauHinhHeThong();
             ch.setMaCauHinh(maCauHinh);
+            ch.setKieuDuLieu(KieuDuLieuCauHinh.STRING);
+            ch.setMoTa("Cấu hình chuỗi: " + maCauHinh);
+        } else if (ch.getKieuDuLieu() == null) {
+            ch.setKieuDuLieu(KieuDuLieuCauHinh.STRING);
         }
         ch.setGiaTri(giaTri);
+        ch.setNgayCapNhat(LocalDateTime.now());
         cauHinhRepository.save(ch);
     }
 
