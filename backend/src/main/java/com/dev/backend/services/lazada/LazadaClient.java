@@ -179,11 +179,13 @@ public class LazadaClient {
         params.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
         params.put("sort_by", "created_at");
         params.put("sort_direction", "DESC");
+        params.put("status", "all");
         params.put("limit", String.valueOf(limit != null ? limit : 50));
         params.put("offset", String.valueOf(offset != null ? offset : 0));
 
         if (createdAfter != null) {
-            DateTimeFormatter formatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME.withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX")
+                    .withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
             params.put("created_after", formatter.format(createdAfter));
         }
 
