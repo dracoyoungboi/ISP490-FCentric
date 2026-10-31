@@ -26,6 +26,8 @@ public interface KhachHangRepository extends JpaRepository<KhachHang, Integer>, 
 
     boolean existsByMaKhachHang(String maKhachHang);
 
+    Optional<KhachHang> findByMaKhachHang(String maKhachHang);
+
     /**
      * Tìm khách đang hoạt động cho màn POS theo tên / SĐT / mã (pattern đã escape, dạng %từ khóa%;
      * null = không lọc). Khách lẻ (KHLE) luôn đứng đầu, sau đó khách mới thêm trước.

@@ -29,6 +29,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Objects;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -723,13 +727,7 @@ public class OmnichannelOrderSyncJob {
 
         TikTokRecipientAddressDto addr = order.getRecipientAddress();
         String phone = addr != null && addr.getPhoneNumber() != null ? addr.getPhoneNumber().trim() : "";
-        KhachHang khachHang = null;
-        if (!phone.isBlank()) {
-            khachHang = khachHangRepository.findFirstBySoDienThoai(phone).orElse(null);
-        }
-        if (khachHang == null) {
-            khachHang = khachHangRepository.findById(1).orElse(null);
-        }
+        KhachHang khachHang = resolveTikTokCustomer(order, addr, phone);
 
         BigDecimal totalPrice = BigDecimal.ZERO;
         if (order.getTotalAmount() != null && !order.getTotalAmount().isBlank()) {
@@ -829,8 +827,27 @@ public class OmnichannelOrderSyncJob {
             existingOpt = donBanHangRepository.findByMaDonHangKenh(orderId);
         }
 
+        String address = extractLazadaAddress(orderNode.path("address_shipping"));
+
         if (existingOpt.isPresent()) {
             DonBanHang existing = existingOpt.get();
+            // Khắc phục đơn cũ từng bị gán nhầm sang khách hàng ID 1
+            if (existing.getKhachHang() != null && Objects.equals(existing.getKhachHang().getId(), 1)) {
+                KhachHang correctKh = resolveLazadaCustomer(orderNode, orderNumber, address);
+                if (correctKh != null && !Objects.equals(correctKh.getId(), 1)) {
+                    existing.setKhachHang(correctKh);
+                    if (orderNode.has("created_at") && !orderNode.path("created_at").asText("").isBlank()) {
+                        existing.setNgayDatHang(parseLazadaDate(orderNode.path("created_at").asText("")));
+                    }
+                    if (existing.getDiaChiGiaoHang() == null || existing.getDiaChiGiaoHang().isBlank()) {
+                        existing.setDiaChiGiaoHang(address);
+                    }
+                    donBanHangRepository.save(existing);
+                    log.info("[JOB-01] Khắc phục đơn Lazada {} bị gán nhầm khách ID 1 -> chuyển sang khách {} (ID {})",
+                            soDonHang, correctKh.getTenKhachHang(), correctKh.getId());
+                }
+            }
+
             String statuses = orderNode.path("statuses").toString().toLowerCase();
             if (statuses.contains("canceled") || statuses.contains("cancelled")) {
                 if (existing.getTrangThai() != null && existing.getTrangThai() != ITrangThaiDonBanHang.DA_HUY) {
@@ -845,36 +862,26 @@ public class OmnichannelOrderSyncJob {
             return false;
         }
 
-        String customerName = orderNode.path("customer_first_name").asText("") + " " + orderNode.path("customer_last_name").asText("");
-        if (customerName.trim().isBlank()) {
-            customerName = "Khách hàng Lazada";
-        }
-        String phone = orderNode.path("address_shipping").path("phone").asText("");
-        KhachHang khachHang = null;
-        if (!phone.isBlank()) {
-            khachHang = khachHangRepository.findFirstBySoDienThoai(phone.trim()).orElse(null);
-        }
-        if (khachHang == null) {
-            khachHang = khachHangRepository.findById(1).orElse(null);
-        }
-        if (khachHang == null) {
-            khachHang = khachHangRepository.findAll().stream().findFirst().orElse(null);
-        }
-        if (khachHang == null) {
-            khachHang = khachHangRepository.save(KhachHang.builder()
-                    .tenKhachHang(customerName)
-                    .soDienThoai(!phone.isBlank() ? phone.trim() : "0900000000")
-                    .trangThai(1)
-                    .build());
-        }
+        KhachHang khachHang = resolveLazadaCustomer(orderNode, orderNumber, address);
 
         BigDecimal price = new BigDecimal(orderNode.path("price").asText("0.00"));
         BigDecimal shippingFee = new BigDecimal(orderNode.path("shipping_fee").asText("0.00"));
-        String address = extractLazadaAddress(orderNode.path("address_shipping"));
+        BigDecimal totalPrice = price.add(shippingFee);
 
         List<Kho> khoHoatDong = khoRepository.findByTrangThai(1);
         Kho defaultKho = khoHoatDong.stream().filter(KhoService::laKhoTong).findFirst()
                 .orElse(khoHoatDong.stream().filter(k -> !KhoService.laKhoAo(k)).findFirst().orElse(null));
+
+        String paymentMethod = orderNode.path("payment_method").asText("").trim();
+        boolean daThanhToan = isPaidMethod(paymentMethod);
+
+        String remarks = orderNode.path("remarks").asText("").trim();
+        String ghiChu = "Đơn hàng đồng bộ tự động từ Lazada #" + orderNumber;
+        if (!remarks.isBlank()) {
+            ghiChu += " | Lời nhắn người mua: " + remarks;
+        }
+
+        Instant ngayDat = parseLazadaDate(orderNode.path("created_at").asText(""));
 
         DonBanHang don = DonBanHang.builder()
                 .soDonHang(soDonHang)
@@ -883,14 +890,14 @@ public class OmnichannelOrderSyncJob {
                 .khachHang(khachHang)
                 .khoXuat(defaultKho)
                 .loaiChungTu("don_ban_hang")
-                .ngayDatHang(Instant.now())
+                .ngayDatHang(ngayDat)
                 .trangThai(0)
                 .tienHang(price)
                 .phiVanChuyen(shippingFee)
-                .tongCong(price.add(shippingFee))
-                .trangThaiThanhToan("paid".equalsIgnoreCase(orderNode.path("payment_method").asText()) ? "da_thanh_toan" : "chua_thanh_toan")
+                .tongCong(totalPrice)
+                .trangThaiThanhToan(daThanhToan ? "da_thanh_toan" : "chua_thanh_toan")
                 .diaChiGiaoHang(address)
-                .ghiChu("Đơn hàng đồng bộ tự động từ Lazada #" + orderNumber)
+                .ghiChu(ghiChu)
                 .build();
 
         DonBanHang savedOrder = donBanHangRepository.save(don);
@@ -905,6 +912,14 @@ public class OmnichannelOrderSyncJob {
                         String shopSku = it.path("shop_sku").asText("").trim();
                         String sku = it.path("sku").asText("").trim();
                         BigDecimal itemPrice = new BigDecimal(it.path("item_price").asText("0.00"));
+                        if (it.has("paid_price") && !it.path("paid_price").asText("").isBlank()) {
+                            try {
+                                BigDecimal paid = new BigDecimal(it.path("paid_price").asText("0.00"));
+                                if (paid.compareTo(BigDecimal.ZERO) > 0) {
+                                    itemPrice = paid;
+                                }
+                            } catch (Exception ignored) {}
+                        }
 
                         BienTheSanPham bt = null;
                         // 1. Ưu tiên cao nhất: tìm trực tiếp bằng Seller SKU do người bán cấu hình trên sàn
@@ -960,22 +975,146 @@ public class OmnichannelOrderSyncJob {
         return true;
     }
 
+    private KhachHang resolveLazadaCustomer(JsonNode orderNode, String orderNumber, String fullAddress) {
+        String firstName = orderNode.path("customer_first_name").asText("").trim();
+        String lastName = orderNode.path("customer_last_name").asText("").trim();
+        String customerName = (firstName + " " + lastName).trim();
+        if (customerName.isBlank()) {
+            String shipFirst = orderNode.path("address_shipping").path("first_name").asText("").trim();
+            String shipLast = orderNode.path("address_shipping").path("last_name").asText("").trim();
+            customerName = (shipFirst + " " + shipLast).trim();
+        }
+        if (customerName.isBlank()) {
+            customerName = "Khách hàng Lazada";
+        }
+
+        String phone = orderNode.path("address_shipping").path("phone").asText("").trim();
+
+        // 1. Nếu có số điện thoại chuẩn không bị che (không chứa *), tìm khách hàng hiện có
+        if (!phone.isBlank() && !phone.contains("*")) {
+            Optional<KhachHang> khOpt = khachHangRepository.findFirstBySoDienThoai(phone);
+            if (khOpt.isPresent()) {
+                return khOpt.get();
+            }
+        }
+
+        // 2. Tra cứu khách hàng theo mã định danh kênh Lazada
+        String maKh = "KH-LZD-" + orderNumber;
+        if (maKh.length() > 30) {
+            maKh = maKh.substring(0, 30);
+        }
+
+        Optional<KhachHang> khByMaOpt = khachHangRepository.findByMaKhachHang(maKh);
+        if (khByMaOpt.isPresent()) {
+            return khByMaOpt.get();
+        }
+
+        // 3. Tạo mới khách hàng riêng biệt cho đơn Lazada
+        final String finalPhone = !phone.isBlank() ? phone : "0900000000";
+        KhachHang moi = KhachHang.builder()
+                .maKhachHang(maKh)
+                .tenKhachHang(customerName)
+                .soDienThoai(finalPhone)
+                .diaChi(fullAddress)
+                .loaiKhachHang("le")
+                .trangThai(1)
+                .build();
+        return khachHangRepository.save(moi);
+    }
+
+    private KhachHang resolveTikTokCustomer(TikTokOrderDto order, TikTokRecipientAddressDto addr, String phone) {
+        String name = addr != null && addr.getName() != null && !addr.getName().isBlank()
+                ? addr.getName().trim() : "Khách hàng TikTok Shop";
+        String fullAddress = addr != null && addr.getFullAddress() != null ? addr.getFullAddress().trim() : "";
+
+        if (!phone.isBlank() && !phone.contains("*")) {
+            Optional<KhachHang> khOpt = khachHangRepository.findFirstBySoDienThoai(phone);
+            if (khOpt.isPresent()) {
+                return khOpt.get();
+            }
+        }
+
+        String orderId = order.getId() != null ? order.getId().trim() : "";
+        String buyerUid = order.getBuyerUid() != null && !order.getBuyerUid().isBlank()
+                ? order.getBuyerUid().trim() : orderId;
+        String maKh = "KH-TTS-" + buyerUid;
+        if (maKh.length() > 30) {
+            maKh = maKh.substring(0, 30);
+        }
+
+        Optional<KhachHang> khByMaOpt = khachHangRepository.findByMaKhachHang(maKh);
+        if (khByMaOpt.isPresent()) {
+            return khByMaOpt.get();
+        }
+
+        final String finalPhone = !phone.isBlank() ? phone : "0900000000";
+        KhachHang moi = KhachHang.builder()
+                .maKhachHang(maKh)
+                .tenKhachHang(name)
+                .soDienThoai(finalPhone)
+                .diaChi(fullAddress)
+                .loaiKhachHang("le")
+                .trangThai(1)
+                .build();
+        return khachHangRepository.save(moi);
+    }
+
+    private Instant parseLazadaDate(String dateStr) {
+        if (dateStr == null || dateStr.isBlank()) {
+            return Instant.now();
+        }
+        try {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss Z");
+            return ZonedDateTime.parse(dateStr.trim(), formatter).toInstant();
+        } catch (Exception e1) {
+            try {
+                return Instant.parse(dateStr.trim());
+            } catch (Exception e2) {
+                try {
+                    DateTimeFormatter isoFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+                    return ZonedDateTime.parse(dateStr.trim(), isoFormatter).toInstant();
+                } catch (Exception e3) {
+                    try {
+                        DateTimeFormatter noTzFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                                .withZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+                        return ZonedDateTime.parse(dateStr.trim(), noTzFormatter).toInstant();
+                    } catch (Exception e4) {
+                        log.warn("[JOB-01] Không thể parse created_at từ Lazada: '{}'. Dùng Instant.now()", dateStr);
+                        return Instant.now();
+                    }
+                }
+            }
+        }
+    }
+
+    private boolean isPaidMethod(String paymentMethod) {
+        if (paymentMethod == null || paymentMethod.isBlank()) return false;
+        String pm = paymentMethod.toLowerCase();
+        return pm.contains("paid") || pm.contains("wallet") || pm.contains("online")
+                || pm.contains("card") || pm.contains("banking") || pm.contains("prepaid")
+                || pm.contains("cyber");
+    }
+
     private String extractLazadaAddress(JsonNode shipping) {
         if (shipping == null || shipping.isMissingNode() || shipping.isNull()) return "";
-        StringBuilder sb = new StringBuilder();
-        String addr1 = shipping.path("address1").asText("");
-        String city = shipping.path("city").asText("");
-        String country = shipping.path("country").asText("");
-        if (!addr1.isBlank()) sb.append(addr1);
-        if (!city.isBlank()) {
-            if (sb.length() > 0) sb.append(", ");
-            sb.append(city);
+        List<String> parts = new ArrayList<>();
+        addAddressPart(parts, shipping.path("address1").asText(""));
+        addAddressPart(parts, shipping.path("address2").asText(""));
+        addAddressPart(parts, shipping.path("address3").asText(""));
+        addAddressPart(parts, shipping.path("address4").asText(""));
+        addAddressPart(parts, shipping.path("address5").asText(""));
+        addAddressPart(parts, shipping.path("city").asText(""));
+        addAddressPart(parts, shipping.path("country").asText(""));
+        return String.join(", ", parts);
+    }
+
+    private void addAddressPart(List<String> parts, String val) {
+        if (val != null && !val.trim().isBlank() && !"null".equalsIgnoreCase(val.trim())) {
+            String trimmed = val.trim();
+            if (parts.isEmpty() || !parts.get(parts.size() - 1).equalsIgnoreCase(trimmed)) {
+                parts.add(trimmed);
+            }
         }
-        if (!country.isBlank()) {
-            if (sb.length() > 0) sb.append(", ");
-            sb.append(country);
-        }
-        return sb.toString();
     }
 
     private String extractDomainFromApiUrl(String apiUrl) {
