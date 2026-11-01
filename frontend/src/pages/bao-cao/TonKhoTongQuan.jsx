@@ -102,8 +102,11 @@ function canNhapKho(roles) {
     return roles.some(r => VAI_TRO_TAO_YEU_CAU_NHAP.includes(r));
 }
 
-function trangThaiTon(item) {
+// Kho Trung Chuyển (hàng đang đi đường) không xét tồn tối thiểu: còn hàng là "Đang vận chuyển", hết thì không có tình trạng
+// (null) — nên không vào tab Hết hàng / Sắp hết / Bình thường / Dư hàng và ô Cảnh báo
+function trangThaiTon(item, laTrungChuyen = false) {
     const kha = Number(item.tongSoLuongKhaDung ?? item.onHand ?? 0);
+    if (laTrungChuyen) return kha > 0 ? "dang_van_chuyen" : null;
     const min = Number(item.mucTonToiThieu ?? 0);
     if (kha <= 0) return "het_hang";
     if (min > 0 && kha <= min) return "thieu_hang";
@@ -118,6 +121,7 @@ const STATUS_CFG = {
     thieu_hang: { label: "Sắp hết hàng" },
     binh_thuong: { label: "Bình thường" },
     du_hang: { label: "Dư hàng" },
+    dang_van_chuyen: { label: "Đang vận chuyển" },
 };
 
 // Tab tình trạng tồn (bố cục A+G) — mã tab trên URL ?tinhTrang=, `key` là kết quả của trangThaiTon()
@@ -132,9 +136,9 @@ const TAB_VALUES = TRANG_THAI_FILTERS.map(t => t.value);
 const TAB_MAC_DINH = "tat-ca";
 
 // Dòng thuộc tab nào: cùng một hàm cho bảng và số trên tab (R1)
-const khopTab = (item, tab) => {
+const khopTab = (item, tab, laTrungChuyen) => {
     const cfg = TRANG_THAI_FILTERS.find(t => t.value === tab);
-    return !cfg || cfg.key === "tat_ca" || trangThaiTon(item) === cfg.key;
+    return !cfg || cfg.key === "tat_ca" || trangThaiTon(item, laTrungChuyen) === cfg.key;
 };
 
 // ─── PAGE COMPONENT ───────────────────────────────────────────────────────────
@@ -335,7 +339,8 @@ export default function TonKhoTongQuan() {
     };
 
     // Filter phía client
-    const filteredData = data.filter(item => khopTab(item, trangThaiFilter));
+    const laTrungChuyen = (item) => khoAoIds.has(item.khoId);
+    const filteredData = data.filter(item => khopTab(item, trangThaiFilter, laTrungChuyen(item)));
 
     // Cắt trang tại chỗ; trang đang xem vượt quá số trang (đổi tab qua đường dẫn, tải lại ít dòng hơn) thì về trang cuối
     const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
@@ -353,7 +358,7 @@ export default function TonKhoTongQuan() {
     const statusTabs = TRANG_THAI_FILTERS.map(t => ({
         value: t.value,
         label: t.label,
-        count: loading || loadError || !hasLoaded ? null : data.filter(item => khopTab(item, t.value)).length,
+        count: loading || loadError || !hasLoaded ? null : data.filter(item => khopTab(item, t.value, laTrungChuyen(item))).length,
     }));
     const tabLabel = TRANG_THAI_FILTERS.find(t => t.value === trangThaiFilter)?.label;
     const hasFilter = Boolean(keyword.trim() || tuKhoaDaApDung);
@@ -517,9 +522,19 @@ export default function TonKhoTongQuan() {
                                 <Divider />
                                 <SummaryItem
                                     label="Cảnh báo (hết / sắp hết)"
-                                    value={`${filteredData.filter(i => ["het_hang", "thieu_hang"].includes(trangThaiTon(i))).length} SKU`}
+                                    value={`${filteredData.filter(i => ["het_hang", "thieu_hang"].includes(trangThaiTon(i, laTrungChuyen(i)))).length} SKU`}
                                     valueClass="text-bo-danger"
                                 />
+                                {/* Hàng đang đi đường (Kho Trung Chuyển) khi xem Tất cả kho; chọn riêng kho này thì đã bằng Tổng tồn kho */}
+                                {!selectedKhoId && canSeeKhoTrungChuyen(userRoles) && filteredData.some(laTrungChuyen) && (
+                                    <>
+                                        <Divider />
+                                        <SummaryItem
+                                            label="Đang vận chuyển"
+                                            value={formatNumber(filteredData.filter(laTrungChuyen).reduce((s, i) => s + Number(i.onHand ?? i.tongSoLuongKhaDung ?? 0), 0))}
+                                        />
+                                    </>
+                                )}
                                 {multiKho && (
                                     <>
                                         <Divider />
@@ -623,8 +638,9 @@ export default function TonKhoTongQuan() {
                         </thead>
                         <tbody className="divide-y divide-bo-border">
                             {pageItems.map((item, idx) => {
-                                const statusKey = trangThaiTon(item);
-                                const statusCfg = STATUS_CFG[statusKey] ?? STATUS_CFG.binh_thuong;
+                                const trungChuyen = laTrungChuyen(item);
+                                const statusKey = trangThaiTon(item, trungChuyen);
+                                const statusCfg = statusKey ? STATUS_CFG[statusKey] ?? STATUS_CFG.binh_thuong : null;
 
                                 const onHand = Number(item.onHand ?? item.tongSoLuongKhaDung ?? 0);
                                 const incoming = Number(item.incoming ?? item.tongSoLuongChoNhan ?? 0);
@@ -683,7 +699,7 @@ export default function TonKhoTongQuan() {
                                         </td>
 
                                         <td className="px-3 py-3 text-right text-xs tabular-nums">
-                                            {item.mucTonToiThieu == null ? (
+                                            {trungChuyen || item.mucTonToiThieu == null ? (
                                                 <span className="text-bo-muted">—</span>
                                             ) : (
                                                 <span className="font-semibold text-slate-600">{formatNumber(item.mucTonToiThieu)}</span>
@@ -692,11 +708,15 @@ export default function TonKhoTongQuan() {
                                         <td className="whitespace-nowrap px-3 py-3 text-right text-xs font-bold tabular-nums text-bo-foreground">{formatCurrency(giaTri)}</td>
 
                                         <td className="px-3 py-3">
-                                            <StatusBadge label={statusCfg.label} />
+                                            {statusCfg ? (
+                                                <StatusBadge label={statusCfg.label} />
+                                            ) : (
+                                                <span className="text-bo-muted">—</span>
+                                            )}
                                         </td>
 
                                         <td className="px-3 py-3 text-center">
-                                            {showNhapKho && !khoAoIds.has(item.khoId) && (
+                                            {showNhapKho && !trungChuyen && (
                                                 <RowActions>
                                                     <RowActionButton
                                                         icon={PackagePlus}
