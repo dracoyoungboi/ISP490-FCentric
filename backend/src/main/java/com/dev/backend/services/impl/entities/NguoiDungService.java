@@ -39,6 +39,7 @@ import com.dev.backend.services.impl.utils.LoginRateLimiter;
 import com.dev.backend.services.impl.utils.NhatKyBaoMatService;
 import com.dev.backend.services.impl.utils.PasswordResetRateLimiter;
 import com.dev.backend.utils.AvatarImageValidator;
+import com.dev.backend.utils.HoTen;
 import jakarta.persistence.EntityManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -424,8 +425,9 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                 nguoiDung.setTenDangNhap(newUsername);
             }
         }
-        if (request.getHoTen() != null && !request.getHoTen().isBlank()) {
-            nguoiDung.setHoTen(request.getHoTen().trim());
+        // Họ tên trống = không thay đổi
+        if (!HoTen.chuanHoa(request.getHoTen()).isEmpty()) {
+            nguoiDung.setHoTen(hoTenSauKiem(request.getHoTen(), nguoiDung.getHoTen()));
         }
         // Hệ thống không cho đổi email: email dùng để đăng nhập, nhận mật khẩu tạm thời và mã đặt lại mật khẩu.
         // Tài khoản chưa có email thì được thêm một lần.
@@ -458,6 +460,20 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                         .message("Cập nhật thông tin người dùng thành công")
                         .error(null)
                         .build());
+    }
+
+    // Họ tên mới phải qua luật HoTen. Gửi lại đúng họ tên đang lưu thì giữ nguyên, không kiểm lại: tên tạo trước khi
+    // có luật (vd. có số) vẫn sửa được số điện thoại mà không bị bắt đổi tên.
+    private static String hoTenSauKiem(String moi, String dangLuu) {
+        String hoTen = HoTen.chuanHoa(moi);
+        if (!hoTen.isEmpty() && hoTen.equals(HoTen.chuanHoa(dangLuu))) {
+            return dangLuu;
+        }
+        String loi = HoTen.loi(moi);
+        if (loi != null) {
+            throw new CommonException(loi);
+        }
+        return hoTen;
     }
 
     // lấy người dùng đang đăng nhập từ context (token) — không tin tưởng id từ
@@ -539,12 +555,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
     @Transactional
     public ResponseEntity<ResponseData<NguoiDungDto>> updateMe(UpdateMeRequest request) {
-        if (request.getHoTen() == null || request.getHoTen().isBlank()) {
-            throw new CommonException("Họ tên không được để trống");
-        }
-
         NguoiDung nguoiDung = getCurrentUserFromContext();
-        nguoiDung.setHoTen(request.getHoTen().trim());
+        nguoiDung.setHoTen(hoTenSauKiem(request.getHoTen(), nguoiDung.getHoTen()));
         // cho phép xóa số điện thoại: rỗng -> null (giống createInternalUserByAdmin)
         String soDienThoai = normalizePhone(request.getSoDienThoai());
         validatePhone(soDienThoai);
@@ -1052,6 +1064,12 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         if (nguoiDungRepository.existsByTenDangNhap(tenDangNhap)) {
             throw new CommonException("Tên đăng nhập đã tồn tại");
         }
+        // Họ tên không bắt buộc ở API (trống thì dùng tên đăng nhập); có nhập thì phải đúng luật
+        String hoTen = HoTen.chuanHoa(request.getHoTen());
+        String loiHoTen = hoTen.isEmpty() ? null : HoTen.loi(request.getHoTen());
+        if (loiHoTen != null) {
+            throw new CommonException(loiHoTen);
+        }
 
         if (request.getEmail() == null || request.getEmail().isBlank()) {
             throw new CommonException("Email không được để trống khi tạo tài khoản");
@@ -1073,8 +1091,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         nguoiDung.setTenDangNhap(tenDangNhap);
         nguoiDung.setEmail(email);
         // họ tên trống thì dùng tên đăng nhập (email không ra "Xin chào ,")
-        nguoiDung.setHoTen(request.getHoTen() != null && !request.getHoTen().isBlank()
-                ? request.getHoTen().trim() : tenDangNhap);
+        nguoiDung.setHoTen(hoTen.isEmpty() ? tenDangNhap : hoTen);
         nguoiDung.setSoDienThoai(soDienThoai);
         nguoiDung.setVaiTro(vaiTro);
         nguoiDung.setTrangThai(1);
