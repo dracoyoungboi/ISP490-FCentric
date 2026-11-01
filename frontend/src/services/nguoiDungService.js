@@ -120,6 +120,19 @@ export const nguoiDungService = {
         return res.data;
     },
 
+    // Trang Đặt mật khẩu (liên kết trong email tạo tài khoản / cấp lại): kiểm liên kết, không tiêu mã.
+    // Lỗi kèm mã: LIEN_KET_KHONG_HOP_LE / LIEN_KET_HET_HAN / LIEN_KET_DA_DUNG / LIEN_KET_DA_THAY.
+    async kiemTraLienKetMatKhau(ma) {
+        const res = await apiClient.post("/api/v1/nguoi-dung/lien-ket-mat-khau/kiem-tra", { ma }, { skipAuth: true });
+        return res.data;
+    },
+
+    // Đặt mật khẩu bằng liên kết (dùng một lần). Gửi mật khẩu nguyên văn như người dùng gõ.
+    async datMatKhauQuaLienKet({ ma, matKhauMoi }) {
+        const res = await apiClient.post("/api/v1/nguoi-dung/lien-ket-mat-khau/dat", { ma, matKhauMoi }, { skipAuth: true });
+        return res.data;
+    },
+
     // Thu hồi phiên hiện tại ở máy chủ (đăng xuất thật — thiết bị này biến khỏi danh sách "Thiết bị đang đăng nhập").
     // Gọi khi người dùng CHỦ ĐỘNG bấm Đăng xuất, trước khi xóa token. Best-effort: lỗi mạng / backend chưa có endpoint
     // thì bỏ qua và vẫn xóa phiên phía trình duyệt ở bước sau.

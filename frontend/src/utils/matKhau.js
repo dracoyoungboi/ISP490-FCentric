@@ -20,9 +20,16 @@ export const AP_DUNG_CHINH_SACH_DAY_DU = false;
 
 export const MAT_KHAU_TOI_THIEU = AP_DUNG_CHINH_SACH_DAY_DU ? 8 : 6;
 export const MAT_KHAU_TOI_DA = 64;
+const BCRYPT_TOI_DA_BYTE = 72;
 
 /** Dòng gợi ý hiện sẵn dưới ô Mật khẩu mới (để trống khi chưa bật chính sách đầy đủ). */
 export const GOI_Y_MAT_KHAU = AP_DUNG_CHINH_SACH_DAY_DU ? `Từ ${MAT_KHAU_TOI_THIEU} ký tự, có cả chữ và số.` : "";
+
+/**
+ * Hạn liên kết đặt mật khẩu gửi qua email (tạo tài khoản, quản trị viên cấp lại), hiện ở các hộp xác nhận.
+ * Phải khớp LienKetDatMatKhauService.HIEU_LUC ở backend; giờ hết hạn ghi trong email thì backend tự tính.
+ */
+export const HAN_LIEN_KET_MAT_KHAU = "24 giờ";
 
 // Mật khẩu phổ biến (so sánh không phân biệt hoa thường). Danh sách ngắn các mật khẩu hay gặp ở Việt Nam và quốc tế;
 // backend nên dùng danh sách dài hơn (vd. 10.000 mật khẩu phổ biến nhất).
@@ -93,6 +100,10 @@ export function kiemTraMatKhauMoi(
   const dai = [...gt].length;
   if (dai < toiThieu) return `Cần ít nhất ${toiThieu} ký tự (đang có ${dai}).`;
   if (dai > MAT_KHAU_TOI_DA) return `Tối đa ${MAT_KHAU_TOI_DA} ký tự (đang có ${dai}).`;
+  // Máy chủ băm bằng BCrypt (tối đa 72 byte UTF-8): chữ có dấu chiếm 2–3 byte nên 64 ký tự có dấu vẫn có thể quá
+  if (new TextEncoder().encode(gt).length > BCRYPT_TOI_DA_BYTE) {
+    return "Mật khẩu quá dài: chữ có dấu tính như 2–3 ký tự, hãy rút ngắn.";
+  }
   // Luôn kiểm tra (kể cả khi tạm tắt chính sách đầy đủ): đổi sang đúng mật khẩu cũ là vô nghĩa
   if (matKhauHienTai && gt === matKhauHienTai) return "Mật khẩu mới phải khác mật khẩu hiện tại.";
   if (!dayDu) return "";

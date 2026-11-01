@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { jwtDecode } from 'jwt-decode';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { nguoiDungService } from '../services/nguoiDungService';
 import { AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { getMineKhoList } from '../services/khoService';
@@ -23,16 +23,21 @@ const LINK_MUTED = 'text-sm font-medium text-gray-500 hover:text-black hover:und
 
 export default function AuthPage() {
     const navigate = useNavigate();
+    const location = useLocation();
 
     // Chỉ chuyển vào dashboard nếu token còn hạn; xóa token lỗi/hết hạn để không bị bounce.
+    // Vừa đặt mật khẩu qua liên kết email thì ở lại để đăng nhập: token còn lưu có thể của tài khoản khác cùng trình
+    // duyệt, hoặc của chính tài khoản này nhưng đã bị thu hồi khi đặt mật khẩu.
+    const vuaDatMatKhau = Boolean(location.state?.tenDangNhap);
     useEffect(() => {
+        if (vuaDatMatKhau) return;
         const token = localStorage.getItem('access_token');
         if (!token) return;
         if (!ensureTokenUsable(token)) return;
 
         const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
         navigate(returnUrl || '/dashboard', { replace: true });
-    }, [navigate]);
+    }, [navigate, vuaDatMatKhau]);
 
     // Thông báo "tài khoản bị khóa" từ lần logout cưỡng bức (apiClient) — đọc 1 lần rồi xóa
     useEffect(() => {
@@ -50,7 +55,8 @@ export default function AuthPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
 
-    const [loginData, setLoginData] = useState({ username: '', matKhau: '' });
+    // Vừa đặt mật khẩu qua liên kết email: điền sẵn tên đăng nhập
+    const [loginData, setLoginData] = useState({ username: location.state?.tenDangNhap || '', matKhau: '' });
     const [errors, setErrors] = useState({});
     const [isLoading, setIsLoading] = useState(false);
 

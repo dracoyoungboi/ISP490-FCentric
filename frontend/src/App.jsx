@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/sonner";
 import Login from "./pages/Login";
 import UserDetail from "./pages/UserDetail";
 import ForgotPassword from "./pages/ForgotPassword";
+import SetPassword from "./pages/SetPassword";
 import Warehouse from "./pages/warehouse/Warehouse";
 import SupplierList from "./pages/supplier/SupplierList";
 import SupplierDetailView from "./pages/supplier/SupplierDetailView";
@@ -157,6 +158,8 @@ export default function App() {
         <Route path="/" element={<RootOAuthRedirect />} />
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        {/* Liên kết trong email tạo tài khoản / cấp lại mật khẩu: /set-password#t=<mã dùng một lần> */}
+        <Route path="/set-password" element={<SetPassword />} />
         <Route path="/supplier/quotation" element={<SupplierQuotation />} />
         {/* Trang cũ sau khi gửi báo giá: nay báo thành công ngay trên trang báo giá; giữ đường dẫn để link cũ không hỏng */}
         <Route path="/quote-success" element={<Navigate to="/supplier/login" replace />} />
