@@ -637,6 +637,29 @@
 	.mk-tich-vong { animation: none; opacity: 0; }
 	.mk-tich-net { animation: none; stroke-dashoffset: 0; }
 }
+/* Vòng chờ tải dữ liệu (LoadingState): cung đầu đậm có chấm tròn, đuôi mờ dần. Ẩn 200ms đầu rồi mới hiện,
+   dữ liệu về nhanh thì không chớp vòng quay. */
+.bo-vong-tai {
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	background:
+		radial-gradient(circle at 50% 2px, var(--color-bo-primary) 2px, transparent 2.5px),
+		conic-gradient(from 0deg, rgb(22 119 255 / 0) 0deg, rgb(22 119 255 / 0.15) 90deg, var(--color-bo-primary) 340deg);
+	-webkit-mask: radial-gradient(farthest-side, #0000 calc(100% - 4px), #000 calc(100% - 3.5px));
+	mask: radial-gradient(farthest-side, #0000 calc(100% - 4px), #000 calc(100% - 3.5px));
+	opacity: 0;
+	animation: bo-vong-tai-quay 0.9s linear infinite, bo-vong-tai-hien 0.15s ease-out 0.2s forwards;
+}
+@keyframes bo-vong-tai-quay {
+	to { transform: rotate(360deg); }
+}
+@keyframes bo-vong-tai-hien {
+	to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+	.bo-vong-tai { animation-duration: 2.4s, 0.15s; }
+}
 /* Chế độ tương phản cao (Windows): dấu tích trên vòng "xong" theo màu nền, khung Cần chú ý / Có vấn đề / Bình thường giữ viền. */
 @media (forced-colors: active) {
 	.bo-tt-tick { stroke: Canvas; }
