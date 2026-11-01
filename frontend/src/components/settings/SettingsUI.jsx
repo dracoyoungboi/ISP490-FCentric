@@ -109,6 +109,7 @@ const PILL_TONE = {
   ok: "bg-bo-success-soft text-bo-success",
   off: "bg-slate-100 text-slate-600",
   warn: "bg-bo-warning-soft text-bo-warning",
+  info: "bg-bo-primary-soft text-bo-primary-strong",
 };
 
 /** Nhãn trạng thái nhỏ (Mặc định, Đã kết nối…). */
