@@ -77,10 +77,11 @@ export default function SettingsLayout() {
   })).filter((group) => group.items.length > 0);
 
   return (
-    <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-6 p-4 sm:p-5 lg:flex-row lg:items-start lg:gap-8 lg:p-6">
+    // Cột phải cao ít nhất bằng menu: trang ngắn cho thẻ cuối giãn (flex-1) để đáy hai khối thẳng hàng
+    <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-6 p-4 sm:p-5 lg:flex-row lg:gap-8 lg:p-6">
       <nav
         aria-label="Cấu hình"
-        className="shrink-0 rounded-lg bg-bo-surface py-1.5 shadow-[0_1px_2px_rgba(16,24,40,0.06),0_1px_3px_rgba(16,24,40,0.08)] lg:sticky lg:top-6 lg:w-[236px]"
+        className="shrink-0 rounded-lg bg-bo-surface py-1.5 shadow-[0_1px_2px_rgba(16,24,40,0.06),0_1px_3px_rgba(16,24,40,0.08)] lg:sticky lg:top-6 lg:w-[236px] lg:self-start"
       >
         {groups.map((group, index) => (
           <Fragment key={group.key}>
