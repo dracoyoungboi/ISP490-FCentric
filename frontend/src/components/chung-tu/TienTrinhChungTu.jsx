@@ -1,4 +1,5 @@
 import { Check, ChevronDown, X } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -42,6 +43,7 @@ const CHU_DOC = {
  * `nhan`: tên vùng cho trình đọc màn hình, vd. "Tiến trình phiếu chuyển kho".
  */
 export default function TienTrinhChungTu({ buoc, nhan = "Tiến trình", className }) {
+  const isMobile = useIsMobile();
   const ds = Array.isArray(buoc) ? buoc.filter(Boolean) : [];
   if (!ds.length) return null;
 
@@ -58,7 +60,8 @@ export default function TienTrinhChungTu({ buoc, nhan = "Tiến trình", classNa
       aria-label={nhan}
       className={cn("@container/tientrinh border-t border-bo-border bg-bo-surface-subtle px-4 py-4 sm:px-6 sm:py-5 max-md:py-2!", className)}
     >
-      <details className="group md:hidden">
+      {isMobile ? (
+      <details className="group">
         <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 [&::-webkit-details-marker]:hidden">
           <span className="flex shrink-0 items-center gap-1" aria-hidden="true">
             {ds.map((b, i) => (
@@ -80,15 +83,15 @@ export default function TienTrinhChungTu({ buoc, nhan = "Tiến trình", classNa
         </summary>
         <ol className="flex flex-col gap-3 pb-2 pt-1">{ds.map((b, i) => veBuoc(b, i, ds.length))}</ol>
       </details>
-      {/* Bọc riêng để ẩn trên điện thoại: lớp @xl/tientrinh:grid của ol đứng sau max-md:hidden trong CSS sẽ thắng */}
-      <div className="max-md:hidden">
-        <ol
-          style={{ "--so-buoc": ds.length }}
-          className="flex flex-col gap-3 @xl/tientrinh:grid @xl/tientrinh:grid-cols-[repeat(var(--so-buoc),minmax(0,1fr))] @xl/tientrinh:gap-0"
-        >
-          {ds.map((b, i) => veBuoc(b, i, ds.length))}
-        </ol>
-      </div>
+      ) : (
+      // Từ 768px: đúng cây phần tử như trước (một ol)
+      <ol
+        style={{ "--so-buoc": ds.length }}
+        className="flex flex-col gap-3 @xl/tientrinh:grid @xl/tientrinh:grid-cols-[repeat(var(--so-buoc),minmax(0,1fr))] @xl/tientrinh:gap-0"
+      >
+        {ds.map((b, i) => veBuoc(b, i, ds.length))}
+      </ol>
+      )}
     </nav>
   );
 }

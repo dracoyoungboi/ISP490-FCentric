@@ -418,8 +418,8 @@ export default function DauChungTu({
               )}
             >
               {/* Tiêu đề "Việc · Số chứng từ": phần sau dấu · không ngắt ở dấu gạch khi tiêu đề xuống dòng trên điện thoại
-                  ("Nhận hàng · PX-TRF-202610291"); vẫn là chuỗi nên giữ title cho máy tính */}
-              {typeof ma === "string" && ma.includes(" · ") ? (
+                  ("Nhận hàng · PX-TRF-202610291"); máy tính giữ nguyên chuỗi như cũ */}
+              {isMobile && typeof ma === "string" && ma.includes(" · ") ? (
                 <>
                   {ma.slice(0, ma.lastIndexOf(" · ") + 3)}
                   <span className="whitespace-nowrap">{ma.slice(ma.lastIndexOf(" · ") + 3)}</span>
@@ -435,8 +435,9 @@ export default function DauChungTu({
               <p className="mt-0.5 text-[13px] leading-5 text-bo-muted">
                 {phanPhu.map((phan, i) => (
                   <Fragment key={i}>
-                    {/* Khoảng trắng trước "·" không ngắt dòng: dòng phụ xuống dòng trên điện thoại thì "·" ở cuối dòng trên, không đứng một mình */}
-                    {i > 0 ? "\u00a0· " : null}
+                    {/* Điện thoại: khoảng trắng trước "·" không ngắt dòng, dòng phụ xuống dòng thì "·" ở cuối dòng trên, không đứng một
+                        mình; máy tính giữ khoảng trắng thường như cũ */}
+                    {i > 0 ? (isMobile ? "\u00a0· " : " · ") : null}
                     {/* Điện thoại: các phần chảy nối nhau như chữ thường và xuống dòng thay vì bị cắt ("Chọn kho nguồn, kho đích và
                         hàng cần chuyển"); inline-block chiếm trọn dòng sẽ để "·" đứng một mình */}
                     <span className="inline-block max-w-full truncate align-bottom max-md:inline max-md:whitespace-normal">{phan}</span>
