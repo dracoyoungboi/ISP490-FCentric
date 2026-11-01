@@ -3,7 +3,8 @@ import * as React from "react"
 const MOBILE_BREAKPOINT = 768
 
 export function useIsMobile() {
-  const [isMobile, setIsMobile] = React.useState(undefined)
+  // Đọc cỡ màn ngay lần dựng đầu: điện thoại không dựng bản máy tính một nhịp rồi mới đổi (gắn hai lần, gọi API hai lần)
+  const [isMobile, setIsMobile] = React.useState(() => window.innerWidth < MOBILE_BREAKPOINT)
 
   React.useEffect(() => {
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
