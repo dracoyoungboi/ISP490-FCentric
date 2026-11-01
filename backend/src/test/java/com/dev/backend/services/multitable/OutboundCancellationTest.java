@@ -7,6 +7,7 @@ import com.dev.backend.entities.*;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.*;
 import com.dev.backend.services.impl.entities.PhieuXuatKhoService;
+import com.dev.backend.services.impl.entities.ThongBaoXuatKhoService;
 import com.dev.backend.services.impl.multitable.NhatHangServiceImpl;
 import com.dev.backend.websocket.OutboundWebSocketHandler;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +42,7 @@ class OutboundCancellationTest {
     @Mock private org.springframework.context.ApplicationEventPublisher eventPublisher;
     @Mock private PhanBoLoNhatHangRepository phanBoLoNhatHangRepository;
     @Mock private TonKhoTheoLoRepository tonKhoTheoLoRepository;
+    @Mock private ThongBaoXuatKhoService thongBaoXuatKhoService;
 
     @InjectMocks
     private NhatHangServiceImpl nhatHangService;
@@ -158,6 +160,9 @@ class OutboundCancellationTest {
         verify(chiTietNhatHangRepository).save(chiTietNhat);
         verify(canhBaoRepository).save(any(CanhBao.class));
         verify(outboundWebSocketHandler).sendPickListEvent(eq(1), eq("ORDER_CANCELLED_IN_PICK_LIST"), any());
+        // Chuông: 5 cái POLO-X quét thừa phải cất về kệ, phiếu vẫn còn đơn B
+        verify(thongBaoXuatKhoService).donHuyTrongPhieuNhat(same(pickList), same(donA),
+                eq(ThongBaoXuatKhoService.GiaiDoanHuy.DANG_NHAT), argThat(m -> m.size() == 1 && m.get("POLO-X").compareTo(BigDecimal.valueOf(5)) == 0), eq(false));
     }
 
     /**
@@ -174,6 +179,9 @@ class OutboundCancellationTest {
         assertEquals("da_huy", pickList.getTrangThai());
         verify(danhSachNhatHangRepository).save(pickList);
         verify(outboundWebSocketHandler).sendPickListEvent(eq(1), eq("PICK_LIST_CANCELLED"), any());
+        // Chuông: cả phiếu hủy, cất toàn bộ 11 cái (5 thừa của đơn A + 6 còn lại)
+        verify(thongBaoXuatKhoService).donHuyTrongPhieuNhat(same(pickList), same(donA),
+                eq(ThongBaoXuatKhoService.GiaiDoanHuy.DANG_NHAT), argThat(m -> m.size() == 1 && m.get("POLO-X").compareTo(BigDecimal.valueOf(11)) == 0), eq(true));
     }
 
     /**
@@ -202,5 +210,7 @@ class OutboundCancellationTest {
         verify(phieuXuatKhoRepository).save(pxkA);
         verify(canhBaoRepository).save(any(CanhBao.class));
         verify(outboundWebSocketHandler).sendPickListEvent(eq(1), eq("ORDER_CANCELLED_IN_PACKING"), any());
+        verify(thongBaoXuatKhoService).donHuyTrongPhieuNhat(same(pickList), same(donA),
+                eq(ThongBaoXuatKhoService.GiaiDoanHuy.CHO_DONG_GOI), argThat(m -> m.size() == 1 && m.get("POLO-X").compareTo(BigDecimal.valueOf(5)) == 0), eq(false));
     }
 }

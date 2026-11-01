@@ -21,6 +21,7 @@ import com.dev.backend.mapper.DanhSachNhatHangMapper;
 import com.dev.backend.repository.*;
 import com.dev.backend.services.impl.entities.LichSuThayDoiService;
 import com.dev.backend.services.impl.entities.PhieuXuatKhoService;
+import com.dev.backend.services.impl.entities.ThongBaoXuatKhoService;
 import com.dev.backend.websocket.OutboundWebSocketHandler;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
@@ -89,6 +90,7 @@ class NhatHangChuyenKhoTest {
     @Mock private LoHangRepository loHangRepository;
     @Mock private LoDangGiuService loDangGiuService;
     @Mock private GiuChoChuyenKhoService giuChoChuyenKhoService;
+    @Mock private ThongBaoXuatKhoService thongBaoXuatKhoService;
     @Mock private EntityManager entityManager;
 
     @InjectMocks

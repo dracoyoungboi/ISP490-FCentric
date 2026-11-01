@@ -99,6 +99,9 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     private PhieuXuatKhoRepository phieuXuatKhoRepository;
 
     @Autowired
+    private ThongBaoXuatKhoService thongBaoXuatKhoService;
+
+    @Autowired
     private PhieuXuatKhoMapper phieuXuatKhoMapper;
 
     @Autowired
@@ -844,6 +847,8 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             log.warn("[CHANNEL-CANCEL] Sàn báo hủy đơn {} nhưng đơn đã xuất kho (trạng thái {}) — giữ nguyên, cần xử lý hoàn trả",
                     don.getSoDonHang(), trangThai);
             ghiNhatKyDon(don, "huy_don_tu_san", "Sàn báo hủy nhưng đơn đã xuất kho — giữ nguyên trạng thái, cần xử lý hoàn trả. " + lyDo);
+            // Báo quản trị viên + quản lý kho xuất (đồng bộ chạy lại nhiều lần vẫn chỉ một thông báo)
+            thongBaoXuatKhoService.sanHuyDonDaXuat(don, lyDo);
             return false;
         }
 

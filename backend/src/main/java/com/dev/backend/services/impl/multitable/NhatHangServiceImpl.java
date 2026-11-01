@@ -28,6 +28,8 @@ import com.dev.backend.mapper.DanhSachNhatHangMapper;
 import com.dev.backend.repository.*;
 import com.dev.backend.services.impl.entities.LichSuThayDoiService;
 import com.dev.backend.services.impl.entities.PhieuXuatKhoService;
+import com.dev.backend.services.impl.entities.ThongBaoXuatKhoService;
+import com.dev.backend.services.impl.entities.ThongBaoXuatKhoService.GiaiDoanHuy;
 import com.dev.backend.utils.PhanBoLoFifo;
 import com.dev.backend.utils.SauCommit;
 import com.dev.backend.utils.KhoDangChon;
@@ -85,6 +87,9 @@ public class NhatHangServiceImpl implements NhatHangService {
 
     @Autowired
     private DonBanHangRepository donBanHangRepository;
+
+    @Autowired
+    private ThongBaoXuatKhoService thongBaoXuatKhoService;
 
     @Autowired
     private DanhSachNhatHangRepository danhSachNhatHangRepository;
@@ -455,6 +460,10 @@ public class NhatHangServiceImpl implements NhatHangService {
             );
         } catch (Exception e) {
             log.warn("Không thể ghi log lịch sử thay đổi cho Pick List {}: {}", maPickList, e.getMessage());
+        }
+        // Tạo kèm người nhặt: báo người được giao (tự nhận thì không báo; gửi sau commit)
+        if (nguoiNhat != null) {
+            thongBaoXuatKhoService.daGiaoPhieuNhat(pickList, null, nguoiNhat.getId(), authUser.getId());
         }
 
         // Chuyển đổi DTO phản hồi
@@ -1303,6 +1312,7 @@ public class NhatHangServiceImpl implements NhatHangService {
         }
 
         String oldPickerName = pickList.getNguoiNhat() != null ? pickList.getNguoiNhat().getHoTen() : "Chưa phân công";
+        Integer oldPickerId = pickList.getNguoiNhat() != null ? pickList.getNguoiNhat().getId() : null;
         pickList.setNguoiNhat(assignee);
         if (StringUtils.hasText(request.getGhiChu())) {
             pickList.setGhiChu(request.getGhiChu().trim());
@@ -1328,6 +1338,8 @@ public class NhatHangServiceImpl implements NhatHangService {
         } catch (Exception e) {
             log.warn("Không thể ghi log lịch sử phân công cho Pick List {}: {}", pickList.getMaPickList(), e.getMessage());
         }
+        // Báo người được giao và người bị đổi ra (tự nhận phiếu thì không báo; gửi sau commit)
+        thongBaoXuatKhoService.daGiaoPhieuNhat(pickList, oldPickerId, assignee.getId(), authUser.getId());
 
         return getChiTietPickList(pickList.getId());
     }
@@ -1959,6 +1971,13 @@ public class NhatHangServiceImpl implements NhatHangService {
                 .build());
     }
 
+    /** Cộng số phải cất về kệ theo mã SKU (không có mã thì ghi theo id biến thể) cho thông báo đơn bị hủy. */
+    private static void congCatKe(Map<String, BigDecimal> catKeTheoMa, BienTheSanPham bt, BigDecimal soLuong) {
+        if (bt == null || soLuong == null || soLuong.signum() <= 0) return;
+        String ma = StringUtils.hasText(bt.getMaSku()) ? bt.getMaSku().trim() : "#" + bt.getId();
+        catKeTheoMa.merge(ma, soLuong, BigDecimal::add);
+    }
+
     /** Lý do trả kệ theo loại phiếu nhặt của lệnh: phiếu chuyển kho bị hủy, hoặc đơn bán bị hủy. */
     static String lyDoHoanKe(DanhSachNhatHang pickList) {
         return pickList != null && pickList.laChuyenKho() ? LY_DO_HOAN_KE_CHUYEN_KHO_HUY : LY_DO_HOAN_KE_DON_HUY;
@@ -1985,6 +2004,9 @@ public class NhatHangServiceImpl implements NhatHangService {
         List<ChiTietDonBanHang> chiTietDons = chiTietDonBanHangRepository.findByDonBanHangId(don.getId());
         // Áp dụng Ordered Pessimistic Locking (ORDER BY id ASC) theo Rule 8.1 chống Deadlock khi hủy đơn
         List<ChiTietNhatHang> chiTietNhats = chiTietNhatHangRepository.findByDanhSachNhatHangIdWithLockOrderByIdAsc(pickListId);
+
+        // Mã SKU → số sản phẩm phải cất lại kệ (đúng các lệnh hoàn kệ vừa tạo), để báo người nhặt / quản lý kho
+        Map<String, BigDecimal> catKeTheoMa = new LinkedHashMap<>();
 
         // Trường hợp 1: Đang gom nhặt (cho_nhat hoặc dang_nhat)
         if ("cho_nhat".equals(currentTrangThai) || "dang_nhat".equals(currentTrangThai)) {
@@ -2013,6 +2035,7 @@ public class NhatHangServiceImpl implements NhatHangService {
 
                             // Tạo cảnh báo hoàn kệ Put-back
                             taoLenhHoanKe(pickList, bt, slThua);
+                            congCatKe(catKeTheoMa, bt, slThua);
 
                             Map<String, Object> itemTraKe = new HashMap<>();
                             itemTraKe.put("sku", bt.getMaSku());
@@ -2050,6 +2073,7 @@ public class NhatHangServiceImpl implements NhatHangService {
                     BigDecimal daQuet = ctn.getSoLuongDaQuet() != null ? ctn.getSoLuongDaQuet() : BigDecimal.ZERO;
                     if (daQuet.compareTo(BigDecimal.ZERO) > 0) {
                         taoLenhHoanKe(pickList, ctn.getBienTheSanPham(), daQuet);
+                        congCatKe(catKeTheoMa, ctn.getBienTheSanPham(), daQuet);
                         ctn.setSoLuongDaQuet(BigDecimal.ZERO);
                         chiTietNhatHangRepository.save(ctn);
                     }
@@ -2070,6 +2094,8 @@ public class NhatHangServiceImpl implements NhatHangService {
                             "message", "Đơn hàng " + don.getSoDonHang() + " đã bị hủy! Số lượng cần nhặt đã tự động giảm. Vui lòng chuyển hàng thừa (nếu có) vào khay Put-back trên xe đẩy."
                     )));
             }
+            // WebSocket chỉ tới người đang mở đúng phiếu: báo thêm qua chuông (gửi sau commit)
+            thongBaoXuatKhoService.donHuyTrongPhieuNhat(pickList, don, GiaiDoanHuy.DANG_NHAT, catKeTheoMa, !conDonHoatDong);
         }
         // Trường hợp 2: Đã hoàn tất nhặt (da_nhat), đã có PXK nháp tại bàn đóng gói
         else if ("da_nhat".equals(currentTrangThai)) {
@@ -2080,6 +2106,7 @@ public class NhatHangServiceImpl implements NhatHangService {
             for (ChiTietDonBanHang ctd : chiTietDons) {
                 if (ctd.getBienTheSanPham() != null && ctd.getSoLuongDat() != null && ctd.getSoLuongDat().compareTo(BigDecimal.ZERO) > 0) {
                     taoLenhHoanKe(pickList, ctd.getBienTheSanPham(), ctd.getSoLuongDat());
+                    congCatKe(catKeTheoMa, ctd.getBienTheSanPham(), ctd.getSoLuongDat());
 
                     // Phát sự kiện giải phóng Outgoing, hoàn lại Free to Use để đẩy tồn tức thời lên kênh TMĐT (SRS 12.3 JOB-03)
                     try {
@@ -2110,6 +2137,7 @@ public class NhatHangServiceImpl implements NhatHangService {
                             "message", "Đơn hàng " + don.getSoDonHang() + " đã bị hủy! Phiếu xuất nháp đã bị thu hồi. Vui lòng chuyển hàng của đơn vào Thùng gom hàng hoàn kệ (Return-to-stock)."
                     )));
             }
+            thongBaoXuatKhoService.donHuyTrongPhieuNhat(pickList, don, GiaiDoanHuy.CHO_DONG_GOI, catKeTheoMa, !conDonHoatDong);
         }
     }
 
