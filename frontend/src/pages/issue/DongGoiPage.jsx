@@ -330,7 +330,8 @@ function ManDongGoi({ donId }) {
     phien?.maDonHangKenh?.startsWith("LZD-")
   );
 
-  const inVanDonLazada = useCallback(async () => {
+  // Hàm thường, không useCallback: khai báo sau các lệnh return sớm (đang tải / lỗi) nên không được là hook
+  const inVanDonLazada = async () => {
     if (!donId) return;
     try {
       toast.loading("Đang tải vận đơn Lazada...", { id: "in-awb" });
@@ -349,13 +350,15 @@ function ManDongGoi({ donId }) {
           const text = await err.response.data.text();
           const json = JSON.parse(text);
           if (json.message) msg = json.message;
-        } catch (_) {}
+        } catch {
+          // Phản hồi lỗi không phải JSON: giữ câu mặc định
+        }
       } else if (err.message) {
         msg = err.message;
       }
       toast.error(msg);
     }
-  }, [donId]);
+  };
 
   // ── Đầu khối ────────────────────────────────────────────────────────────
   const moPx = () => pxId && xinRoiTrang(() => navigate(`/goods-issues/${pxId}`));
