@@ -1,4 +1,5 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
+import { tinhCoMan } from "@/hooks/useCoMan";
 import { cn } from "@/lib/utils";
 
 const MAU_SO = {
@@ -15,6 +16,21 @@ const MAU_SO = {
  */
 export default function StatusTabs({ tabs, value, onChange, label = "Lọc theo trạng thái", className }) {
   const refs = useRef([]);
+  const khungRef = useRef(null);
+
+  // Hàng tab đang cuộn ngang (điện thoại, máy tính bảng cảm ứng): tab đang chọn nằm ngoài phần thấy thì cuộn hàng tab cho
+  // tab đó hiện ra (chỉ cuộn hàng tab, không cuộn trang). Máy tính dùng chuột giữ như cũ. Chỉ chạy khi đổi tab chọn — số trên
+  // tab cập nhật (trang dựng lại mảng tabs) không kéo hàng tab về khi người dùng đang vuốt xem tab khác.
+  const viTriChon = tabs.findIndex((t) => t.value === value);
+  useEffect(() => {
+    const khung = khungRef.current;
+    const tab = refs.current[viTriChon];
+    if (!khung || !tab || tinhCoMan() === "mayTinh" || khung.scrollWidth <= khung.clientWidth) return;
+    const trai = tab.getBoundingClientRect().left - khung.getBoundingClientRect().left + khung.scrollLeft;
+    const phai = trai + tab.offsetWidth;
+    if (trai < khung.scrollLeft) khung.scrollLeft = trai - 16;
+    else if (phai > khung.scrollLeft + khung.clientWidth) khung.scrollLeft = phai - khung.clientWidth + 16;
+  }, [viTriChon]);
 
   const chon = (index) => {
     const tab = tabs[index];
@@ -36,6 +52,7 @@ export default function StatusTabs({ tabs, value, onChange, label = "Lọc theo 
   return (
     // Không xuống dòng: hẹp thì cuộn ngang (ẩn thanh cuộn) để gạch chân tab luôn nằm sát mép bảng
     <div
+      ref={khungRef}
       role="tablist"
       aria-label={label}
       className={cn("-mb-px flex min-w-0 items-end gap-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", className)}

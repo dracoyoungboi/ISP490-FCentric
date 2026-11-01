@@ -41,6 +41,9 @@
 @source "./components/settings";
 /* Giao diện luôn sáng, không theo chế độ tối của trình duyệt */
 @custom-variant dark (&:where(.dark, .dark *));
+/* Màn cảm ứng (điện thoại, máy tính bảng): <html data-cam-ung> do lib/camUng.js đặt theo (pointer: coarse).
+   Mọi cỡ chạm to hơn chỉ viết sau tiền tố cam-ung:, máy tính dùng chuột không đổi. */
+@custom-variant cam-ung (&:where([data-cam-ung], [data-cam-ung] *));
 /*
  * Backoffice foundation tokens.
  * The bo-* namespace prevents the new shell from restyling auth/store/print
@@ -735,4 +738,124 @@
 @media (forced-colors: active) {
 	.bo-tt-tick { stroke: Canvas; }
 	[data-nhom="canChuY"], [data-nhom="loi"], [data-nhom="thuong"] { outline: 1px solid CanvasText; }
+}
+
+/* Điện thoại: ô nhập chữ 16px để Safari trên iPhone không tự phóng to khi chạm — dưới 768px, và cả điện thoại xoay ngang
+   (màn cảm ứng cao không quá 500px, bề rộng 667–932px lúc đó đã vượt 768). */
+@media screen and (max-width: 767.98px), screen and (pointer: coarse) and (max-height: 500px) {
+	/* Chỉ ô dưới 16px: ô đã to hơn (tiền POS 18px, ô số lớn…) giữ cỡ của mình */
+	:is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]), select, textarea):not([class*="text-lg"]):not([class*="text-xl"]):not([class*="text-2xl"]):not([class*="text-3xl"]):not([class*="text-[17px]"]):not([class*="text-[18px]"]):not([class*="text-[20px]"]):not([class*="text-[22px]"]):not([class*="text-[24px]"]):not([class*="text-[28px]"]):not([class*="text-[32px]"]) { font-size: 16px !important; }
+}
+@media screen and (max-width: 767.98px) {
+	/* Trang có thanh thao tác dính đáy (DauChungTu): chừa chỗ để dòng cuối không bị che */
+	[data-co-thanh-thao-tac] #backoffice-main-content { padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
+	/* Thanh có thêm dòng lý do khóa phía trên các nút */
+	[data-co-thanh-thao-tac="cao"] #backoffice-main-content { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+	/* Lý do khóa dài xuống hai dòng */
+	[data-co-thanh-thao-tac="cao-2"] #backoffice-main-content { padding-bottom: calc(114px + env(safe-area-inset-bottom)); }
+	/* Thông báo nổi trên trang có thanh thao tác đáy: nằm trên thanh, không che nút chính và nút ⋯ (sonner đặt khoảng cách
+	   bằng biến trên style nên cần !important) */
+	html[data-co-thanh-thao-tac] [data-sonner-toaster][data-y-position="bottom"] {
+		--offset-bottom: calc(72px + env(safe-area-inset-bottom)) !important;
+		--mobile-offset-bottom: calc(72px + env(safe-area-inset-bottom)) !important;
+	}
+	/* Đang mở menu ⋯ hay sheet đáy thì tạm ẩn thông báo nổi để không đè lên các mục chọn */
+	html:has([data-slot="dropdown-menu-content"], [data-slot="sheet-content"]) [data-sonner-toaster] {
+		opacity: 0;
+		pointer-events: none;
+	}
+}
+
+/* ==== Lớp cảm ứng dùng chung (cam-ung) ==== */
+/*
+ * Màn cảm ứng (<html data-cam-ung>, do lib/camUng.js đặt theo (pointer: coarse)): vùng chạm tối thiểu 44px (Apple HIG)
+ * cho mọi điều khiển, viết một chỗ cho cả hệ thống. Máy tính dùng chuột không có thuộc tính này nên không đổi gì.
+ * Đặt ngoài @layer nên thắng các lớp tiện ích Tailwind (h-7, h-8, size-8…) mà không cần !important.
+ * - Nút: giữ cỡ vẽ gọn như bản máy tính (không thấp hơn 36px), vùng chạm 44px là lớp ::before trong suốt quanh nút
+ *   (góp ý 01/11: nút to quá). Nút tự cắt tràn (overflow, truncate, line-clamp) hay đã dùng ::before thì không mở được
+ *   vùng chạm ra ngoài, nên vẫn cao 44px như trước.
+ * - Ô nhập, ô chọn: cao tối thiểu 36px (cỡ ô của bản máy tính; ô nhập của iOS 34–36pt).
+ * - Mục menu, tab, lựa chọn trong danh sách, <summary>, liên kết dạng khối (flex / block / grid), mục menu trái:
+ *   hàng cao tối thiểu 44px như danh sách của app di động.
+ * - Ô chọn / radio / công tắc của shadcn (data-slot checkbox, radio-group-item, switch) giữ cỡ vẽ, vùng chạm mở rộng
+ *   bằng ::before trong suốt như nút.
+ * - Liên kết chữ trong câu / ô bảng: đệm dọc cho đủ 44px theo chiều cao dòng, bù bằng margin âm nên bố cục không đổi.
+ * - Bỏ qua: thông báo (sonner), phần tử sr-only, thanh kéo sidebar, phần tử gắn data-cham-nho (nơi cố ý để nhỏ).
+ */
+[data-cam-ung] :where(
+  [role="tab"],
+  [role="menuitem"],
+  [role="menuitemcheckbox"],
+  [role="menuitemradio"],
+  [role="option"],
+  summary,
+  a[class*="flex"]:not([data-slot="button"], [class*="size-"]),
+  a[class*="block"]:not([data-slot="button"], [class*="size-"]),
+  a[class*="grid"]:not([data-slot="button"], [class*="size-"]),
+  [data-sidebar="menu-button"],
+  [data-sidebar="menu-sub-button"],
+  :is(button, [role="button"])[class*="overflow-"],
+  :is(button, [role="button"])[class*="truncate"],
+  :is(button, [role="button"])[class*="line-clamp"],
+  :is(button, [role="button"])[class*="before:"]
+):not([data-slot="checkbox"], [data-slot="radio-group-item"], [data-slot="switch"], .sr-only, [data-cham-nho], [data-sonner-toaster] *, [data-slot="sidebar-rail"]) {
+  min-height: 44px;
+}
+/* Nút gọn và ô nhập: không thấp hơn 36px; nút chỉ có biểu tượng / đặt cỡ vuông size-* không hẹp hơn 36px.
+   Nút định vị tuyệt đối (chấm xóa, nút đóng góc hộp) và nút gắn data-nut-nho (nằm trong thẻ nhỏ) giữ cỡ vẽ. */
+[data-cam-ung] :where(
+  button,
+  [role="button"],
+  a[class*="size-"],
+  [role="combobox"],
+  select,
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="hidden"], [type="color"]),
+  textarea
+):not([data-slot="checkbox"], [data-slot="radio-group-item"], [data-slot="switch"], .sr-only, [data-cham-nho], [data-nut-nho], [class*="absolute"], [data-sonner-toaster] *, [data-slot="sidebar-rail"]) {
+  min-height: 36px;
+}
+[data-cam-ung] :where(button, [role="button"]):not(:has(> :not(svg, [aria-hidden="true"]))):not(.sr-only, [data-cham-nho], [data-nut-nho], [class*="absolute"], [data-sonner-toaster] *, [data-slot="sidebar-rail"], [data-slot="checkbox"], [data-slot="radio-group-item"], [data-slot="switch"]),
+[data-cam-ung] :where(button, a, [role="button"])[class*="size-"]:not(.sr-only, [data-cham-nho], [data-nut-nho], [class*="absolute"], [data-sonner-toaster] *, [data-slot="checkbox"], [data-slot="radio-group-item"], [data-slot="switch"]) {
+  min-width: 36px;
+}
+/* Vùng chạm 44px của nút gọn: ::before trong suốt tràn ra quanh nút (chỉ khi nút nhỏ hơn 44px theo chiều đó).
+   Nút đã định vị sẵn (absolute / fixed / sticky / relative) giữ cách định vị của mình. */
+[data-cam-ung] :where(button, [role="button"], a[data-slot="button"], a[class*="size-"]):not([class*="absolute"], [class*="fixed"], [class*="sticky"], [class*="relative"], [class*="overflow-"], [class*="truncate"], [class*="line-clamp"], [class*="before:"], [role="combobox"], [data-slot="select-trigger"], [data-sidebar], [data-slot="checkbox"], [data-slot="radio-group-item"], [data-slot="switch"], .sr-only, [data-cham-nho], [data-sonner-toaster] *, [data-slot="sidebar-rail"]) {
+  position: relative;
+}
+/* Dải nút cuộn ngang (overflow-x-auto) tự thành cuộn dọc khi có phần tràn: lớp vùng chạm của nút bên trong sẽ làm dải cuộn
+   dọc vài px, nên cắt chiều dọc của dải (dải cao bằng nội dung, không mất gì ngoài phần vùng chạm tràn ra). Không áp cho khung
+   bọc bảng hay khung có giới hạn chiều cao: các khung đó cần cuộn dọc thật (thân bảng cao cố định ở máy tính bảng ngang) */
+[data-cam-ung] :where([class*="overflow-x-auto"]):not([class*="overflow-y-"], [class*="max-h-"], [class*="h-full"], :has(table), .kh-bang, .ncc-bang, .bo-table-body) {
+  overflow-y: hidden;
+}
+[data-cam-ung] :where(button, [role="button"], a[data-slot="button"], a[class*="size-"]):not([class*="overflow-"], [class*="truncate"], [class*="line-clamp"], [class*="before:"], [role="combobox"], [data-slot="select-trigger"], [data-sidebar], [data-slot="checkbox"], [data-slot="radio-group-item"], [data-slot="switch"], .sr-only, [data-cham-nho], [data-sonner-toaster] *, [data-slot="sidebar-rail"])::before {
+  content: "";
+  position: absolute;
+  inset: min(0px, calc(50% - 22px));
+}
+/* Ô chọn, radio, công tắc shadcn: giữ cỡ vẽ, mở rộng vùng chạm quanh ô tới 44px */
+[data-cam-ung] :where([data-slot="checkbox"], [data-slot="radio-group-item"], [data-slot="switch"]) {
+  position: relative;
+}
+[data-cam-ung] :where([data-slot="checkbox"], [data-slot="radio-group-item"], [data-slot="switch"])::before {
+  content: "";
+  position: absolute;
+  inset: min(0px, calc(50% - 22px));
+}
+/* Liên kết chữ trong câu / ô bảng (không phải nút): đệm dọc tới 44px theo chiều cao dòng, bù margin âm nên dòng không cao thêm */
+[data-cam-ung] #backoffice-main-content a:not([class*="flex"], [class*="block"], [class*="grid"], [class*="size-"], [role="button"], [data-slot="button"]) {
+  display: inline-block;
+  padding-block: max(0px, calc((44px - 1lh) / 2));
+  margin-block: min(0px, calc((1lh - 44px) / 2));
+}
+
+/* Điện thoại: hộp thoại không cao quá màn (bàn phím ảo mở vẫn thấy nút chân hộp), thân tự cuộn. Không sửa components/ui. */
+@media screen and (max-width: 767.98px) {
+	[data-slot="dialog-content"],
+	[data-slot="alert-dialog-content"] {
+		max-height: calc(100dvh - 24px);
+		overflow-y: auto;
+		overscroll-behavior: contain;
+	}
 }
