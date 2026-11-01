@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ImagePlus, Store, X } from "lucide-react";
+import { ImagePlus, Pencil, RotateCcw, Store, Trash2 } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import LoadingState from "@/components/shared/LoadingState";
 import ErrorState from "@/components/shared/ErrorState";
@@ -13,7 +12,7 @@ import {
   SettingsFieldHint,
   SettingsFormActions,
 } from "@/components/settings/SettingsUI";
-import { OUTLINE_BUTTON, settingsInputClass } from "@/components/settings/settingsStyles";
+import { settingsInputClass } from "@/components/settings/settingsStyles";
 import { useSettingsPage, useUnsavedChanges } from "@/components/settings/useSettingsPage";
 import { companyProfileService } from "@/services/companyProfileService";
 import {
@@ -33,6 +32,8 @@ import {
 import {
   CHU_THICH_THE_PHAP_LY,
   CHU_THICH_THE_TEN_VA_LOGO,
+  CHU_DUOI_LOGO,
+  CHU_DUOI_LOGO_SE_XOA,
   GOI_Y_LOGO_TRANG,
   O_TRANG,
   TOAST_CHUA_LUU,
@@ -52,14 +53,20 @@ const THE = {
 
 const MAX_LENGTH = { name: TEN_TOI_DA, legalName: TEN_TOI_DA, email: EMAIL_TOI_DA };
 
+// Một hàng của thẻ Pháp lý, dùng chung lúc xem và lúc sửa để bấm Sửa nhãn không xê dịch
+const HANG_PHAP_LY =
+  "grid grid-cols-1 gap-1 border-t border-[#eef1f5] px-5 py-2.5 first:border-t-0 sm:grid-cols-[196px_minmax(0,1fr)] sm:gap-4";
+
 // Màu gợi ý dưới ô (khớp demo: xám #64748b, xanh #15803d, cam #b45309)
 const TONE_GOI_Y = { muted: "text-bo-muted", ok: "text-bo-success", warn: "text-bo-warning" };
 
 /**
  * Cấu hình › Thông tin cửa hàng (GET/PUT /api/v1/thong-tin-cong-ty), hai thẻ sửa và lưu riêng:
- * - "Tên và logo": tên cửa hàng (PUT chỉ gửi name) rồi mới tải logo — logo lỗi thì báo riêng, giữ ảnh để thử lại;
+ * - "Tên và logo": tên cửa hàng (PUT chỉ gửi name) rồi mới tải hoặc gỡ logo — logo lỗi thì báo riêng, giữ lựa chọn
+ *   để thử lại;
  * - "Pháp lý và liên hệ": tên đăng ký kinh doanh *, mã số thuế, địa chỉ đăng ký *, điện thoại, email.
- * Đang sửa thẻ này thì nút Sửa thẻ kia khóa. Logo chọn xong chỉ tải lên khi bấm Lưu; Hủy thì không ghi gì.
+ * Đang sửa thẻ này thì nút Sửa thẻ kia khóa. Logo chọn xong (hoặc bấm Xóa logo) chỉ ghi khi bấm Lưu; Hủy thì không
+ * ghi gì.
  */
 export default function StoreSettingsPage() {
   const { canEdit } = useSettingsPage();
@@ -71,6 +78,8 @@ export default function StoreSettingsPage() {
   const [touched, setTouched] = useState({});
   // Logo đang chờ lưu: { file, url } (url là object URL để xem trước)
   const [pendingLogo, setPendingLogo] = useState(null);
+  // Đã bấm Xóa logo: gỡ logo đang dùng khi bấm Lưu
+  const [xoaLogo, setXoaLogo] = useState(false);
   const [logoError, setLogoError] = useState("");
   const [saving, setSaving] = useState(false);
   // Chặn bấm Lưu / Enter liên tiếp trước khi React kịp khóa nút
@@ -129,7 +138,9 @@ export default function StoreSettingsPage() {
   const errors = the ? the.validate(form) : {};
   const hasErrors = Object.keys(errors).length > 0;
   const tenThayDoi = dangSua === "A" && isCompanyProfileChanged(profile, form, KHOA_TEN_VA_LOGO);
-  const changed = the ? isCompanyProfileChanged(profile, form, the.keys) || (dangSua === "A" && pendingLogo !== null) : false;
+  const changed = the
+    ? isCompanyProfileChanged(profile, form, the.keys) || (dangSua === "A" && (pendingLogo !== null || xoaLogo))
+    : false;
   useUnsavedChanges(changed);
 
   const choosePendingLogo = (file) => {
@@ -142,6 +153,15 @@ export default function StoreSettingsPage() {
     setLogoError("");
     choosePendingLogo(null);
   };
+  // Thoát chế độ sửa hoặc bắt đầu sửa: bỏ cả ảnh đang chờ lẫn lựa chọn xóa logo
+  const resetLogo = () => {
+    clearLogo();
+    setXoaLogo(false);
+  };
+  const chonXoaLogo = () => {
+    clearLogo();
+    setXoaLogo(true);
+  };
 
   // Kiểm loại và dung lượng ngay lúc chọn: sai thì báo dưới nút, không giữ tệp
   const chonTepLogo = (file) => {
@@ -153,19 +173,20 @@ export default function StoreSettingsPage() {
       return;
     }
     setLogoError("");
+    setXoaLogo(false);
     choosePendingLogo(file);
   };
 
   const startEdit = (key) => {
     setForm(companyProfileForm(profile));
     setTouched({});
-    clearLogo();
+    resetLogo();
     setDangSua(key);
   };
 
   const cancelEdit = () => {
     if (savingRef.current) return;
-    clearLogo();
+    resetLogo();
     setDangSua(null);
   };
 
@@ -196,10 +217,20 @@ export default function StoreSettingsPage() {
         toast.error(thongBaoLogoLoi({ daLuuThongTin: tenThayDoi }), { description: chiTietLoi(error) });
         return;
       }
+    } else if (xoaLogo) {
+      try {
+        hoSo = await companyProfileService.removeLogo();
+      } catch (error) {
+        console.error("Không xóa được logo:", error);
+        if (!mountedRef.current) return;
+        setProfile(hoSo);
+        toast.error(thongBaoLogoLoi({ daLuuThongTin: tenThayDoi, xoa: true }), { description: chiTietLoi(error) });
+        return;
+      }
     }
     if (!mountedRef.current) return;
     setProfile(hoSo);
-    clearLogo();
+    resetLogo();
     setDangSua(null);
     toast.success(TOAST_DA_LUU);
   };
@@ -274,17 +305,23 @@ export default function StoreSettingsPage() {
     );
   };
 
-  const oNhap = (key, { autoFocus = false } = {}) => {
+  // hang: một hàng của thẻ Pháp lý — nhãn cột trái đúng chỗ lúc xem, ô nhập cột phải (màn hẹp: nhãn trên ô)
+  const oNhap = (key, { autoFocus = false, hang = false } = {}) => {
     const o = O_TRANG[key];
     const id = `tt-${key}`;
     const error = touched[key] ? errors[key] : "";
     const goiY = goiYKhiSua(key, form);
-    return (
-      <div key={key} className={cn("flex min-w-0 flex-col gap-1.5", o.wide && "md:col-span-2")}>
-        <label htmlFor={id} className="text-sm leading-5 font-medium text-bo-foreground">
-          {o.label}
-          {o.required ? <span className="text-bo-danger"> *</span> : null}
-        </label>
+    const nhan = (
+      <label
+        htmlFor={id}
+        className={hang ? "text-[13px] leading-5 text-bo-muted sm:pt-2" : "text-sm leading-5 font-medium text-bo-foreground"}
+      >
+        {o.label}
+        {o.required ? <span className="text-bo-danger"> *</span> : null}
+      </label>
+    );
+    const oVaGoiY = (
+      <>
         <Input
           id={id}
           type={o.type}
@@ -308,12 +345,26 @@ export default function StoreSettingsPage() {
             {goiY.text}
           </SettingsFieldHint>
         ) : null}
+      </>
+    );
+    if (hang) {
+      return (
+        <div key={key} className={HANG_PHAP_LY}>
+          {nhan}
+          <div className="flex min-w-0 flex-col gap-1.5 sm:max-w-[480px]">{oVaGoiY}</div>
+        </div>
+      );
+    }
+    return (
+      <div key={key} className={cn("flex min-w-0 flex-col gap-1.5", o.wide && "md:col-span-2")}>
+        {nhan}
+        {oVaGoiY}
       </div>
     );
   };
 
   const ten = xemTenCuaHang(profile);
-  const logoXem = dangSua === "A" ? pendingLogo?.url ?? profile.logoAsset : profile.logoAsset;
+  const logoXem = dangSua === "A" ? pendingLogo?.url ?? (xoaLogo ? null : profile.logoAsset) : profile.logoAsset;
 
   return (
     <>
@@ -325,49 +376,35 @@ export default function StoreSettingsPage() {
         />
         {dangSua === "A" ? (
           <>
-            <div className="px-5 pt-2.5 pb-[18px]">
-              <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-3">
-                <LogoBox src={logoXem} dashed />
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className={OUTLINE_BUTTON}
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={saving}
-                      aria-describedby="tt-logo-goi-y"
-                    >
-                      <ImagePlus aria-hidden="true" />
-                      Chọn ảnh logo
-                    </Button>
-                    {pendingLogo ? (
-                      <Button type="button" variant="outline" size="sm" className={OUTLINE_BUTTON} onClick={clearLogo} disabled={saving}>
-                        <X aria-hidden="true" />
-                        Bỏ ảnh vừa chọn
-                      </Button>
-                    ) : null}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept={LOGO_ACCEPT}
-                      className="hidden"
-                      tabIndex={-1}
-                      aria-hidden="true"
-                      onChange={(event) => chonTepLogo(event.target.files?.[0] ?? null)}
-                    />
-                  </div>
-                  {logoError ? (
-                    <SettingsFieldHint id="tt-logo-goi-y" error={logoError} />
-                  ) : (
-                    <SettingsFieldHint id="tt-logo-goi-y" className="text-bo-muted">
-                      {GOI_Y_LOGO_TRANG}
-                    </SettingsFieldHint>
-                  )}
+            {/* Giữ bố cục như lúc xem: logo bên trái (nút đổi, xóa ở góc khung), ô tên bên phải */}
+            <div className="flex flex-col gap-3 px-5 pt-2.5 pb-[18px]">
+              <div className="flex flex-col gap-x-5 gap-y-4 sm:flex-row sm:items-start">
+                <div className="flex w-16 shrink-0 flex-col items-center gap-2.5">
+                  <LogoBox
+                    src={logoXem}
+                    onPick={() => fileInputRef.current?.click()}
+                    onDropFile={chonTepLogo}
+                    onRemove={pendingLogo ? clearLogo : chonXoaLogo}
+                    coAnhMoi={Boolean(pendingLogo)}
+                    describedBy={logoError ? "tt-logo-goi-y tt-logo-loi" : "tt-logo-goi-y"}
+                    disabled={saving}
+                  />
+                  <p id="tt-logo-goi-y" title={GOI_Y_LOGO_TRANG} className="text-center text-[11px] leading-[14px] whitespace-pre-line text-bo-muted">
+                    {xoaLogo ? CHU_DUOI_LOGO_SE_XOA : CHU_DUOI_LOGO}
+                  </p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={LOGO_ACCEPT}
+                    className="hidden"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    onChange={(event) => chonTepLogo(event.target.files?.[0] ?? null)}
+                  />
                 </div>
+                <div className="flex min-w-0 flex-1 flex-col sm:max-w-[480px]">{oNhap("name", { autoFocus: true })}</div>
               </div>
-              {oNhap("name", { autoFocus: true })}
+              {logoError ? <SettingsFieldHint id="tt-logo-loi" error={`Logo: ${logoError}`} /> : null}
             </div>
             <SettingsFormActions onCancel={cancelEdit} saving={saving} disabled={!changed} />
           </>
@@ -392,7 +429,15 @@ export default function StoreSettingsPage() {
         )}
       </SettingsCard>
 
-      <SettingsCard as="form" editing={dangSua === "B"} onSubmit={save} noValidate aria-label="Pháp lý và liên hệ">
+      {/* Thẻ cuối giãn để đáy thẳng với menu Cấu hình bên trái (màn rộng) */}
+      <SettingsCard
+        as="form"
+        editing={dangSua === "B"}
+        onSubmit={save}
+        noValidate
+        aria-label="Pháp lý và liên hệ"
+        className="lg:flex-1"
+      >
         <SettingsCardHeader
           title="Pháp lý và liên hệ"
           note={CHU_THICH_THE_PHAP_LY}
@@ -400,27 +445,30 @@ export default function StoreSettingsPage() {
         />
         {dangSua === "B" ? (
           <>
-            <div className="grid grid-cols-1 gap-x-6 gap-y-3.5 px-5 pt-2.5 pb-[18px] md:grid-cols-2">
-              {KHOA_PHAP_LY_LIEN_HE.map((key, index) => oNhap(key, { autoFocus: index === 0 }))}
+            <div className="pt-0.5 pb-1.5">
+              {KHOA_PHAP_LY_LIEN_HE.map((key, index) => oNhap(key, { autoFocus: index === 0, hang: true }))}
             </div>
             <SettingsFormActions onCancel={cancelEdit} saving={saving} disabled={!changed} />
           </>
         ) : (
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-3.5 px-5 pt-2.5 pb-[18px] md:grid-cols-2">
+          // Danh sách hàng: nhãn cột trái, giá trị cột phải, kẻ mảnh giữa các hàng (màn hẹp: nhãn nằm trên giá trị)
+          <dl className="pt-0.5 pb-1.5">
             {xemPhapLyLienHe(profile).map((dong) => (
-              <div key={dong.key} className={cn("min-w-0", dong.wide && "md:col-span-2")}>
+              <div key={dong.key} className={HANG_PHAP_LY}>
                 <dt className="text-[13px] leading-5 text-bo-muted">{dong.label}</dt>
-                <dd
-                  className={cn(
-                    "mt-0.5 text-sm leading-5 break-words",
-                    dong.canhBao ? "font-medium text-bo-warning" : dong.trong ? "text-bo-muted" : "text-bo-foreground",
-                    dong.so && "tabular-nums",
-                  )}
-                >
-                  {dong.text}
-                  {dong.tag ? <span className="font-normal text-bo-muted"> · {dong.tag}</span> : null}
+                <dd className="min-w-0">
+                  <span
+                    className={cn(
+                      "block text-sm leading-5 break-words",
+                      dong.canhBao ? "font-medium text-bo-warning" : dong.trong ? "text-bo-muted" : "text-bo-foreground",
+                      dong.so && "tabular-nums",
+                    )}
+                  >
+                    {dong.text}
+                    {dong.tag ? <span className="font-normal text-bo-muted"> · {dong.tag}</span> : null}
+                  </span>
+                  {dong.phu ? <span className="mt-0.5 block text-xs leading-4 text-bo-warning">{dong.phu}</span> : null}
                 </dd>
-                {dong.phu ? <dd className="mt-0.5 text-xs leading-4 text-bo-warning">{dong.phu}</dd> : null}
               </div>
             ))}
           </dl>
@@ -430,24 +478,94 @@ export default function StoreSettingsPage() {
   );
 }
 
-function LogoBox({ src, dashed = false, emptyText = "" }) {
+// Nút tròn 24px ở góc khung logo; ::before trong suốt mở vùng chạm lên 40px mà không to nút
+const NUT_GOC =
+  "absolute grid size-6 place-items-center rounded-full border border-bo-border bg-white text-slate-700 shadow-[0_1px_3px_rgba(16,24,40,0.18)] " +
+  "before:absolute before:-inset-2 before:content-[''] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary " +
+  "disabled:opacity-60 enabled:hover:border-[#bcd3f5] enabled:hover:text-bo-primary [&_svg]:size-3.5";
+
+/**
+ * Khung logo. Có onPick (đang sửa): viền nét đứt, bấm để chọn ảnh hoặc kéo ảnh thả vào.
+ * Đang có ảnh: góc dưới nút bút chì (đổi ảnh), góc trên nút thùng rác (xóa logo) — vừa chọn ảnh mới thì thành nút
+ * quay lại (bỏ ảnh vừa chọn). Bàn phím dùng hai nút góc; khung trống thì chính khung nhận Tab.
+ */
+function LogoBox({ src, emptyText = "", onPick, onDropFile, onRemove, coAnhMoi = false, describedBy, disabled = false }) {
   // Ảnh lỗi (đường dẫn hỏng, MinIO tắt): hiện biểu tượng thay vì chữ alt tràn khung
   const [anhLoi, setAnhLoi] = useState(null);
+  const [dangKeo, setDangKeo] = useState(false);
   const hienAnh = src && anhLoi !== src;
+  const chonDuoc = Boolean(onPick) && !disabled;
+  const noiDung = hienAnh ? (
+    <img src={src} alt="Logo cửa hàng" className="max-h-full max-w-full object-contain" onError={() => setAnhLoi(src)} />
+  ) : !src && emptyText ? (
+    <span className="text-center text-[11px] leading-[14px] text-[#94a3b8]">{emptyText}</span>
+  ) : onPick && !src ? (
+    <ImagePlus className="size-6" aria-hidden="true" />
+  ) : (
+    <Store className="size-6 text-[#94a3b8]" aria-hidden="true" />
+  );
+  const khung = "flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-bo-surface-subtle p-1.5";
+
+  if (!onPick) return <div className={cn(khung, "border-bo-border")}>{noiDung}</div>;
+
   return (
-    <div
-      className={cn(
-        "flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-bo-surface-subtle p-1.5",
-        dashed ? "border-dashed border-[#b6c0cc]" : "border-bo-border",
-      )}
-    >
-      {hienAnh ? (
-        <img src={src} alt="Logo cửa hàng" className="max-h-full max-w-full object-contain" onError={() => setAnhLoi(src)} />
-      ) : !src && emptyText ? (
-        <span className="text-center text-[11px] leading-[14px] text-[#94a3b8]">{emptyText}</span>
-      ) : (
-        <Store className="size-6 text-[#94a3b8]" aria-hidden="true" />
-      )}
+    <div className="relative">
+      <button
+        type="button"
+        // Có ảnh: hai nút góc lo bàn phím, khung chỉ để bấm chuột / thả ảnh
+        tabIndex={src ? -1 : undefined}
+        aria-hidden={src ? "true" : undefined}
+        aria-label={src ? undefined : "Chọn ảnh logo"}
+        aria-describedby={src ? undefined : describedBy}
+        title="Bấm hoặc kéo ảnh thả vào để chọn logo"
+        disabled={disabled}
+        onClick={onPick}
+        onDragOver={(event) => {
+          if (!chonDuoc) return;
+          event.preventDefault();
+          setDangKeo(true);
+        }}
+        onDragLeave={() => setDangKeo(false)}
+        onDrop={(event) => {
+          event.preventDefault();
+          setDangKeo(false);
+          if (chonDuoc) onDropFile?.(event.dataTransfer.files?.[0] ?? null);
+        }}
+        className={cn(
+          khung,
+          "border-dashed border-[#b6c0cc] transition-colors enabled:cursor-pointer enabled:hover:border-bo-primary disabled:opacity-60",
+          !src && "text-[#94a3b8] enabled:hover:bg-bo-primary-soft enabled:hover:text-bo-primary",
+          "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bo-primary",
+          dangKeo && "border-bo-primary bg-bo-primary-soft",
+        )}
+      >
+        {noiDung}
+      </button>
+      {src ? (
+        <>
+          <button
+            type="button"
+            onClick={onRemove}
+            disabled={disabled}
+            aria-label={coAnhMoi ? "Bỏ ảnh vừa chọn" : "Xóa logo"}
+            title={coAnhMoi ? "Bỏ ảnh vừa chọn" : "Xóa logo"}
+            className={cn(NUT_GOC, "-top-2 -right-2", !coAnhMoi && "enabled:hover:border-[#f3c4c4] enabled:hover:text-bo-danger")}
+          >
+            {coAnhMoi ? <RotateCcw aria-hidden="true" /> : <Trash2 aria-hidden="true" />}
+          </button>
+          <button
+            type="button"
+            onClick={onPick}
+            disabled={disabled}
+            aria-label="Đổi logo"
+            aria-describedby={describedBy}
+            title="Đổi logo"
+            className={cn(NUT_GOC, "-right-2 -bottom-2")}
+          >
+            <Pencil aria-hidden="true" />
+          </button>
+        </>
+      ) : null}
     </div>
   );
 }
