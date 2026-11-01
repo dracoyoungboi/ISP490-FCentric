@@ -32,6 +32,7 @@ import { ROLES } from "@/constants/backend/role";
 import { cn } from "@/lib/utils";
 import { adminService } from "@/services/adminService";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { HAN_LIEN_KET_MAT_KHAU } from "@/utils/matKhau";
 import { PHONE_ERROR_MESSAGE, PHONE_REGEX, sanitizePhoneInput } from "@/utils/phoneValidation";
 
 // Trùng regex của backend (NguoiDungService.EMAIL_PATTERN) để hai phía báo lỗi giống nhau.
@@ -476,8 +477,8 @@ function AddUserForm({ onClose, onCreated }) {
                     <p className="mt-5 flex items-start gap-2.5 rounded-lg bg-bo-surface-subtle px-3.5 py-3 text-xs leading-5 text-bo-muted">
                         <Mail className="mt-0.5 size-4 shrink-0 text-bo-primary" />
                         <span>
-                            Hệ thống tự tạo mật khẩu tạm thời và gửi tới email trên. Người dùng phải đổi mật
-                            khẩu ở lần đăng nhập đầu tiên.
+                            Hệ thống gửi tới email trên một liên kết để người dùng tự đặt mật khẩu (dùng một lần,
+                            hết hạn sau {HAN_LIEN_KET_MAT_KHAU}).
                         </span>
                     </p>
                 </form>

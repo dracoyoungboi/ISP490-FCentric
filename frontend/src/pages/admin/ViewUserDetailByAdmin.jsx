@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 import { adminService } from "@/services/adminService.js";
 import { quyenHanService } from "@/services/quyenHan";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
+import { HAN_LIEN_KET_MAT_KHAU } from "@/utils/matKhau";
 import { getCurrentUserId } from "@/utils/roles";
 
 const LOAD_ERROR_MESSAGE = "Không thể tải thông tin người dùng. Vui lòng thử lại.";
@@ -248,10 +249,10 @@ function ChiTietNguoiDung({ id }) {
             await adminService.resetUserPasswordRandomByAdmin(id);
             setHop(null);
             // Email đi sau khi lưu, qua hàng đợi (có thể thử lại): "sẽ được gửi", như hộp Thêm người dùng
-            toast.success(`Mật khẩu tạm thời mới sẽ được gửi tới ${nguoiDung.email}.`);
+            toast.success(`Liên kết đặt lại mật khẩu sẽ được gửi tới ${nguoiDung.email}.`);
             nguoiDungQ.reload();
         } catch (err) {
-            toast.error(getApiErrorMessage(err, "Không thể cấp lại mật khẩu cho người dùng"));
+            toast.error(getApiErrorMessage(err, "Không gửi được liên kết đặt lại mật khẩu"));
         } finally {
             setDangXuLy(false);
         }
@@ -500,22 +501,23 @@ function ChiTietNguoiDung({ id }) {
                 </AlertDialogContent>
             </AlertDialog>
 
-            {/* Cấp lại mật khẩu */}
+            {/* Gửi liên kết đặt lại mật khẩu */}
             <AlertDialog open={hop === "mat-khau"} onOpenChange={(m) => (!m && !dangXuLy ? setHop(null) : null)}>
                 <AlertDialogContent className="bg-bo-surface">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Cấp lại mật khẩu cho {tenHienThi}?</AlertDialogTitle>
+                        <AlertDialogTitle>Gửi liên kết đặt lại mật khẩu cho {tenHienThi}?</AlertDialogTitle>
                         <AlertDialogDescription asChild>
                             <div className="space-y-2 text-sm text-slate-600">
                                 <p>
-                                    Hệ thống tạo mật khẩu tạm thời ngẫu nhiên và gửi tới{" "}
-                                    <span className="font-medium text-slate-900">{nguoiDung.email}</span>. Sau khi đăng nhập,
-                                    người dùng phải đổi mật khẩu mới.
+                                    Hệ thống gửi tới{" "}
+                                    <span className="font-medium text-slate-900">{nguoiDung.email}</span> một liên kết để
+                                    người dùng tự đặt mật khẩu mới (dùng một lần, hết hạn sau {HAN_LIEN_KET_MAT_KHAU}). Mật khẩu hiện tại hết
+                                    hiệu lực ngay và mọi thiết bị đang đăng nhập bị đăng xuất.
                                 </p>
                                 {!dangHoatDong ? (
                                     <p className="flex items-start gap-1.5 text-xs font-medium text-amber-700">
                                         <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                                        Tài khoản đang bị khóa: người dùng chỉ đăng nhập được bằng mật khẩu mới sau khi được mở khóa.
+                                        Tài khoản đang bị khóa: người dùng vẫn đặt được mật khẩu, nhưng chỉ đăng nhập được sau khi được mở khóa.
                                     </p>
                                 ) : null}
                             </div>
@@ -531,7 +533,7 @@ function ChiTietNguoiDung({ id }) {
                             }}
                             className="bg-bo-primary text-white hover:bg-bo-primary-hover"
                         >
-                            {dangXuLy ? "Đang gửi..." : "Cấp lại mật khẩu"}
+                            {dangXuLy ? "Đang gửi..." : "Gửi liên kết"}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

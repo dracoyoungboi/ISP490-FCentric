@@ -34,10 +34,10 @@ function dongPhu(nguoiDung, pq) {
 /**
  * Đầu khối của Chi tiết người dùng (Kiểu D, chốt 19/10/2026): nút quay lại, ảnh đại diện (chữ viết tắt nền xám),
  * tên + trạng thái, dòng phụ (vai trò · nơi làm việc). Tên đăng nhập nằm ở cột Tài khoản, không lặp ở đây.
- * Thao tác: ⋯ (Cấp lại mật khẩu, Sao chép tên đăng nhập, Khóa tài khoản) và nút chính Phân quyền.
+ * Thao tác: ⋯ (Gửi liên kết đặt lại mật khẩu, Sao chép tên đăng nhập, Khóa tài khoản) và nút chính Phân quyền.
  * Mỗi thao tác một chỗ: đang khóa thì "Mở khóa tài khoản" chỉ ở dải khóa ngay dưới đầu khối, không lặp trong ⋯;
  * cột Tài khoản đã có nút sao chép tên đăng nhập thì ⋯ không có.
- * Tài khoản của chính mình: không tự khóa, không tự phân quyền.
+ * Tài khoản của chính mình: không tự khóa, không tự phân quyền, không tự gửi liên kết đặt lại mật khẩu (dùng Đổi mật khẩu).
  */
 export default function DauTrangNguoiDung({ nguoiDung, pq, laChinhMinh, onQuayLai, onPhanQuyen, onCapLaiMatKhau, onKhoaMoKhoa }) {
   useClaimPageTitle(true);
@@ -115,12 +115,16 @@ export default function DauTrangNguoiDung({ nguoiDung, pq, laChinhMinh, onQuayLa
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="z-50 w-[300px] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg">
-            <DropdownMenuItem onClick={onCapLaiMatKhau} disabled={!email} className={MUC_MENU}>
+            <DropdownMenuItem onClick={onCapLaiMatKhau} disabled={laChinhMinh || !email} className={MUC_MENU}>
               <KeyRound className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
               <span className="flex min-w-0 flex-col gap-0.5">
-                <span className="font-medium text-bo-foreground">Cấp lại mật khẩu</span>
+                <span className="font-medium text-bo-foreground">Gửi liên kết đặt lại mật khẩu</span>
                 <span className="break-all text-xs leading-4 text-bo-muted">
-                  {email ? `Gửi mật khẩu tạm thời mới tới ${email}` : "Tài khoản chưa có email nên không gửi được"}
+                  {laChinhMinh
+                    ? "Tài khoản của bạn: dùng Đổi mật khẩu"
+                    : email
+                      ? `Người dùng tự đặt mật khẩu mới qua email ${email}`
+                      : "Tài khoản chưa có email nên không gửi được"}
                 </span>
               </span>
             </DropdownMenuItem>

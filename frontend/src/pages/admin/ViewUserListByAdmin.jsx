@@ -56,6 +56,7 @@ import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { adminService } from "@/services/adminService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { formatDate } from "@/utils/formatters";
+import { HAN_LIEN_KET_MAT_KHAU } from "@/utils/matKhau";
 import { getCurrentUserId } from "@/utils/roles";
 
 // Lọc theo vai trò nhân sự, cùng danh sách và thứ tự với popup "Thêm người dùng".
@@ -63,7 +64,7 @@ const ROLE_OPTIONS = [{ value: "ALL", label: "Tất cả vai trò" }, ...ROLES];
 
 // Tab trạng thái (bố cục A+G). Giá trị giữ như tham số ?trangThai= cũ trên URL.
 // "Bị khóa" = mọi tài khoản trangThai ≠ 1: khớp badge trong bảng và điều kiện chặn đăng nhập ở backend.
-// "Chưa đổi mật khẩu tạm thời" không phải trạng thái: người đó vẫn Hoạt động, chỉ ghi thêm dòng phụ.
+// "Chưa đặt mật khẩu riêng" không phải trạng thái: người đó vẫn Hoạt động, chỉ ghi thêm dòng phụ.
 const STATUS_TABS = [
     { value: "ALL", label: "Tất cả" },
     { value: "1", label: "Hoạt động" },
@@ -250,7 +251,7 @@ export default function ViewUserListByAdmin() {
 
     const [currentUserId] = useState(() => getCurrentUserId());
 
-    // Hộp Cấp lại mật khẩu và hộp Khóa / mở khóa (mở từ menu ⋯ của dòng). Giữ người đang thao tác cả lúc hộp
+    // Hộp Gửi liên kết đặt lại mật khẩu và hộp Khóa / mở khóa (mở từ menu ⋯ của dòng). Giữ người đang thao tác cả lúc hộp
     // đang mờ dần khi đóng, để tên và màu nút không đổi giữa chừng.
     const [resetDialog, setResetDialog] = useState({ open: false, user: null });
     const [resettingUser, setResettingUser] = useState(false);
@@ -402,7 +403,7 @@ export default function ViewUserListByAdmin() {
         // Vai trò dùng kho thường cần phân kho ngay sau khi tạo: mở thẳng ngăn kéo Phân quyền ở trang chi tiết.
         const canAssignWarehouse = user.id != null && canKho(user.vaiTro);
         toast.success("Đã tạo tài khoản.", {
-            description: `Mật khẩu tạm thời của ${user.tenDangNhap} sẽ được gửi tới ${user.email}.`,
+            description: `Liên kết đặt mật khẩu cho ${user.tenDangNhap} sẽ được gửi tới ${user.email}.`,
             action: canAssignWarehouse
                 ? {
                       label: "Phân quyền",
@@ -457,13 +458,13 @@ export default function ViewUserListByAdmin() {
         try {
             await adminService.resetUserPasswordRandomByAdmin(user.id);
             // Email đi sau khi lưu, qua hàng đợi (có thể thử lại): "sẽ được gửi", như hộp Thêm người dùng
-            toast.success(`Mật khẩu tạm thời mới sẽ được gửi tới ${user.email}.`);
+            toast.success(`Liên kết đặt lại mật khẩu sẽ được gửi tới ${user.email}.`);
             setResetDialog((d) => ({ ...d, open: false }));
-            // Dòng phụ "Chưa đổi mật khẩu tạm thời" hiện ngay, không cần tải lại trang
+            // Dòng phụ "Chưa đặt mật khẩu riêng" hiện ngay, không cần tải lại trang
             fetchUsers({ silent: true });
         } catch (err) {
             setResettingUser(false);
-            toast.error(getApiErrorMessage(err, "Không thể cấp lại mật khẩu cho người dùng"));
+            toast.error(getApiErrorMessage(err, "Không gửi được liên kết đặt lại mật khẩu"));
         }
     };
 
@@ -758,7 +759,7 @@ export default function ViewUserListByAdmin() {
                                             <StatusBadge doiTuong="nguoi" label={isActive ? "Hoạt động" : "Bị khóa"} />
                                             {u.mustChangePassword ? (
                                                 <div className="mt-1 whitespace-nowrap text-xs leading-4 text-bo-muted">
-                                                    Chưa đổi mật khẩu tạm thời
+                                                    Chưa đặt mật khẩu riêng
                                                 </div>
                                             ) : null}
                                         </td>
@@ -833,12 +834,12 @@ export default function ViewUserListByAdmin() {
                                                     >
                                                         <KeyRound className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
                                                         <span className="flex min-w-0 flex-col gap-0.5">
-                                                            <span className="font-medium text-bo-foreground">Cấp lại mật khẩu</span>
+                                                            <span className="font-medium text-bo-foreground">Gửi liên kết đặt lại mật khẩu</span>
                                                             <span className="break-all text-xs leading-4 text-bo-muted">
                                                                 {isSelf
                                                                     ? "Tài khoản của bạn: dùng Đổi mật khẩu"
                                                                     : email
-                                                                      ? `Gửi mật khẩu tạm thời mới tới ${email}`
+                                                                      ? `Người dùng tự đặt mật khẩu mới qua email ${email}`
                                                                       : "Tài khoản chưa có email nên không gửi được"}
                                                             </span>
                                                         </span>
@@ -900,20 +901,21 @@ export default function ViewUserListByAdmin() {
                     onCloseAutoFocus={(e) => traFocusVeNutMenu(e, resetTarget)}
                 >
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Cấp lại mật khẩu cho {tenTrongCau(resetTarget)}?</AlertDialogTitle>
+                        <AlertDialogTitle>Gửi liên kết đặt lại mật khẩu cho {tenTrongCau(resetTarget)}?</AlertDialogTitle>
                         {/* asChild: Description mặc định render <p>; bên trong có <p> sẽ sai cấu trúc HTML */}
                         <AlertDialogDescription asChild>
                             <div className="space-y-2 text-sm text-slate-600">
                                 <p>
-                                    Hệ thống tạo mật khẩu tạm thời ngẫu nhiên và gửi tới{" "}
-                                    <span className="font-medium text-slate-900">{resetTarget?.email}</span>. Sau khi
-                                    đăng nhập, người dùng phải đổi mật khẩu mới.
+                                    Hệ thống gửi tới{" "}
+                                    <span className="font-medium text-slate-900">{resetTarget?.email}</span> một liên kết
+                                    để người dùng tự đặt mật khẩu mới (dùng một lần, hết hạn sau {HAN_LIEN_KET_MAT_KHAU}). Mật khẩu hiện
+                                    tại hết hiệu lực ngay và mọi thiết bị đang đăng nhập bị đăng xuất.
                                 </p>
                                 {resetTarget && resetTarget.trangThai !== 1 ? (
                                     <p className="flex items-start gap-1.5 text-xs font-medium text-bo-warning">
                                         <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                                        Tài khoản đang bị khóa: người dùng chỉ đăng nhập được bằng mật khẩu mới sau khi
-                                        được mở khóa.
+                                        Tài khoản đang bị khóa: người dùng vẫn đặt được mật khẩu, nhưng chỉ đăng nhập được
+                                        sau khi được mở khóa.
                                     </p>
                                 ) : null}
                             </div>
@@ -929,7 +931,7 @@ export default function ViewUserListByAdmin() {
                             }}
                             className="bg-bo-primary text-white hover:bg-bo-primary-hover"
                         >
-                            {resettingUser ? "Đang gửi..." : "Cấp lại mật khẩu"}
+                            {resettingUser ? "Đang gửi..." : "Gửi liên kết"}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

@@ -84,7 +84,7 @@ export default function ThuocTinhNguoiDung({ nguoiDung }) {
         >
           {soDienThoai ? <span className="tabular-nums">{soDienThoai}</span> : chua}
         </Dong>
-        <Dong nhan="Mật khẩu">{nguoiDung.mustChangePassword ? "Chưa đổi mật khẩu tạm thời" : "Đã đặt mật khẩu riêng"}</Dong>
+        <Dong nhan="Mật khẩu">{nguoiDung.mustChangePassword ? "Chưa đặt mật khẩu riêng" : "Đã đặt mật khẩu riêng"}</Dong>
         <Dong nhan="Ngày tạo">
           <span className="tabular-nums">{formatDateTime(nguoiDung.ngayTao)}</span>
         </Dong>
