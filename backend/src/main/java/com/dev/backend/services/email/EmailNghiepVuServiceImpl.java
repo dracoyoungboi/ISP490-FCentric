@@ -52,7 +52,7 @@ public class EmailNghiepVuServiceImpl implements EmailNghiepVuService {
     // Tiêu đề theo đặc tả mục 1 (bỏ đuôi "- FCentric" cũ)
     static final String TIEU_DE_E1 = "Mã đặt lại mật khẩu FCentric";
     static final String TIEU_DE_E2 = "Tài khoản FCentric của bạn đã được tạo";
-    static final String TIEU_DE_E3 = "Mật khẩu tạm thời mới cho tài khoản FCentric";
+    static final String TIEU_DE_E3 = "Đặt lại mật khẩu tài khoản FCentric";
     static final String TIEU_DE_M4 = "Mật khẩu FCentric của bạn vừa được thay đổi";
 
     static final int DON_CHO_BAO_GIA = 2;
@@ -115,44 +115,44 @@ public class EmailNghiepVuServiceImpl implements EmailNghiepVuService {
         }
     }
 
-    /** E2. Thử lại chỉ khi mật khẩu tạm vẫn là mật khẩu hiện tại (người dùng chưa đổi, quản trị viên chưa cấp lại). */
+    /** E2. Thử lại chỉ khi liên kết trong thư còn dùng được (chưa đặt mật khẩu, chưa cấp lại, chưa quá hạn). */
     @Override
-    public void guiTaiKhoanMoi(NguoiDung nguoiDung, String matKhauTam) {
+    public void guiTaiKhoanMoi(NguoiDung nguoiDung, String maDatMatKhau, Instant hetHanLuc) {
         try {
             String den = emailCua(nguoiDung, LoaiEmail.E2);
             if (den == null) {
                 return;
             }
             String vaiTro = nguoiDung.getVaiTro();
-            TaiKhoanMoiEmail duLieu = new TaiKhoanMoiEmail(hoTen(nguoiDung), nguoiDung.getTenDangNhap(), matKhauTam,
+            TaiKhoanMoiEmail duLieu = new TaiKhoanMoiEmail(hoTen(nguoiDung), nguoiDung.getTenDangNhap(),
                     TenVaiTro.cua(vaiTro),
                     // cùng quy tắc "làm việc theo kho" của phân quyền: mọi vai trò nhân sự trừ Quản trị viên
                     IRoleType.laNoiBo(vaiTro) && !IRoleType.quan_tri_vien.equals(vaiTro),
                     vaiTro != null && IRoleType.GUI_YEU_CAU_BAO_GIA.contains(vaiTro),
-                    duongDan.dangNhap(), duongDan.nhanDangNhap());
+                    duongDan.datMatKhau(maDatMatKhau), DinhDangEmail.gioNgay(hetHanLuc));
             dispatcher.guiSauCommit(EmailGui.builder()
                     .loai(LoaiEmail.E2).den(den).tieuDe(c -> TIEU_DE_E2).duLieu(duLieu)
-                    .conHieuLuc(matKhauConLa(nguoiDung))
+                    .conHieuLuc(lienKetConDung(nguoiDung, hetHanLuc))
                     .build());
         } catch (Exception e) {
             loiDung(LoaiEmail.E2, null, e);
         }
     }
 
-    /** E3 (sửa L9: có mật khẩu tạm). Không nêu tên quản trị viên. Lần cấp lại mới hơn thì bỏ thư cũ. */
+    /** E3: liên kết đặt mật khẩu mới. Không nêu tên quản trị viên. Lần cấp lại mới hơn thì bỏ thư cũ. */
     @Override
-    public void guiCapLaiMatKhau(NguoiDung nguoiDung, String matKhauTam, Instant luc) {
+    public void guiCapLaiMatKhau(NguoiDung nguoiDung, String maDatMatKhau, Instant luc, Instant hetHanLuc) {
         try {
             String den = emailCua(nguoiDung, LoaiEmail.E3);
             if (den == null) {
                 return;
             }
             CapLaiMatKhauEmail duLieu = new CapLaiMatKhauEmail(hoTen(nguoiDung), nguoiDung.getTenDangNhap(),
-                    matKhauTam, DinhDangEmail.gioNgay(luc), !Integer.valueOf(1).equals(nguoiDung.getTrangThai()),
-                    duongDan.dangNhap(), duongDan.nhanDangNhap());
+                    DinhDangEmail.gioNgay(luc), !Integer.valueOf(1).equals(nguoiDung.getTrangThai()),
+                    duongDan.datMatKhau(maDatMatKhau), DinhDangEmail.gioNgay(hetHanLuc));
             dispatcher.guiSauCommit(EmailGui.builder()
                     .loai(LoaiEmail.E3).den(den).tieuDe(c -> TIEU_DE_E3).duLieu(duLieu)
-                    .conHieuLuc(matKhauConLa(nguoiDung))
+                    .conHieuLuc(lienKetConDung(nguoiDung, hetHanLuc))
                     .build());
         } catch (Exception e) {
             loiDung(LoaiEmail.E3, null, e);
@@ -184,17 +184,20 @@ public class EmailNghiepVuServiceImpl implements EmailNghiepVuService {
         return switch (cach) {
             case DAT_LAI_BANG_MA -> "Đặt lại bằng mã gửi qua email";
             case DOI_KHI_DA_DANG_NHAP -> "Đổi khi đã đăng nhập";
+            case DAT_QUA_LIEN_KET -> "Đặt bằng liên kết gửi qua email";
         };
     }
 
-    /** Mật khẩu (băm) trong CSDL lúc gửi vẫn là mật khẩu lúc dựng thư: mật khẩu tạm trong thư còn dùng được. */
-    private BooleanSupplier matKhauConLa(NguoiDung nguoiDung) {
+    /**
+     * Liên kết trong thư còn dùng được lúc gửi: chưa quá hạn và mật khẩu (băm) trong CSDL vẫn là lúc dựng thư. Đặt mật
+     * khẩu qua liên kết, Quên mật khẩu hay quản trị viên cấp lại đều đổi mật khẩu băm, nên thư cũ không gửi (lại) nữa.
+     */
+    private BooleanSupplier lienKetConDung(NguoiDung nguoiDung, Instant hetHanLuc) {
         Integer id = nguoiDung.getId();
         String bam = nguoiDung.getMatKhauHash();
-        if (id == null || bam == null) {
-            return null;
-        }
-        return () -> nguoiDungRepository.findById(id).map(nd -> bam.equals(nd.getMatKhauHash())).orElse(false);
+        return () -> (hetHanLuc == null || clock.instant().isBefore(hetHanLuc))
+                && (id == null || bam == null
+                || nguoiDungRepository.findById(id).map(nd -> bam.equals(nd.getMatKhauHash())).orElse(false));
     }
 
     // =====================================================================================================

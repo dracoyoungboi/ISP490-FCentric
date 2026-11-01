@@ -131,7 +131,7 @@ public class AdminController {
         return ResponseEntity.ok(
                 ResponseData.<Void>builder()
                         .status(HttpStatus.OK.value())
-                        .message("Đã cấp mật khẩu ngẫu nhiên cho người dùng")
+                        .message("Đã gửi liên kết đặt lại mật khẩu cho người dùng")
                         .error(null)
                         .build()
         );

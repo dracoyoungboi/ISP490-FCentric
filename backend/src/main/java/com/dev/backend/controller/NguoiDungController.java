@@ -5,6 +5,7 @@ import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.*;
 import com.dev.backend.dto.response.LoginResponse;
 import com.dev.backend.dto.response.ResponseData;
+import com.dev.backend.dto.response.entities.LienKetMatKhauDto;
 import com.dev.backend.dto.response.entities.NguoiDungDto;
 import com.dev.backend.dto.response.entities.PhienDangNhapDto;
 import com.dev.backend.dto.response.phanquyen.QuyenCuaToiDto;
@@ -140,6 +141,19 @@ public class NguoiDungController {
     public ResponseEntity<ResponseData<String >> resetPassword(@Valid @RequestBody ResetPasswordRequest rpRequest){
         return nguoiDungService.resetPassword(rpRequest);
 
+    }
+
+    // Trang Đặt mật khẩu (liên kết trong email tạo tài khoản / cấp lại): kiểm liên kết, không cần đăng nhập, không tiêu mã
+    @PostMapping("/lien-ket-mat-khau/kiem-tra")
+    public ResponseEntity<ResponseData<LienKetMatKhauDto>> kiemTraLienKetMatKhau(
+            @RequestBody KiemTraLienKetMatKhauRequest request) {
+        return nguoiDungService.kiemTraLienKetMatKhau(request);
+    }
+
+    // Đặt mật khẩu bằng liên kết trong email (dùng một lần), không cần đăng nhập
+    @PostMapping("/lien-ket-mat-khau/dat")
+    public ResponseEntity<ResponseData<String>> datMatKhauQuaLienKet(@RequestBody DatMatKhauQuaLienKetRequest request) {
+        return nguoiDungService.datMatKhauQuaLienKet(request);
     }
 
     @PostMapping("/filter")

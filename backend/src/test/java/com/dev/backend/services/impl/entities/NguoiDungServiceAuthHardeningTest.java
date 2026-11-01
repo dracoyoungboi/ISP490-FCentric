@@ -4,17 +4,24 @@ import com.dev.backend.constant.GlobalCache;
 import com.dev.backend.constant.variables.ConstantVariables;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.dto.request.ChangePasswordRequest;
+import com.dev.backend.dto.request.DatMatKhauQuaLienKetRequest;
 import com.dev.backend.dto.request.ForgotPasswordRequest;
+import com.dev.backend.dto.request.KiemTraLienKetMatKhauRequest;
 import com.dev.backend.dto.request.LoginRequest;
 import com.dev.backend.dto.request.NguoiDungCreating;
 import com.dev.backend.dto.request.ResetPasswordRequest;
 import com.dev.backend.dto.request.VerifyResetOtpRequest;
 import com.dev.backend.dto.response.LoginResponse;
 import com.dev.backend.dto.response.ResponseData;
+import com.dev.backend.dto.response.entities.LienKetMatKhauDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
+import com.dev.backend.entities.LienKetDatMatKhau;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.exception.customize.AccountDisabledException;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.exception.customize.LoiCoMaException;
+import com.dev.backend.exception.customize.MaLoi;
+import com.dev.backend.repository.LienKetDatMatKhauRepository;
 import com.dev.backend.mapper.NguoiDungMapperImpl;
 import com.dev.backend.mapper.PhanQuyenNguoiDungKhoMapper;
 import com.dev.backend.repository.NguoiDungRepository;
@@ -30,6 +37,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -75,6 +83,10 @@ class NguoiDungServiceAuthHardeningTest {
     private PhanQuyenNguoiDungKhoMapper pqndkMapper;
     @Mock
     private com.dev.backend.services.impl.utils.NhatKyBaoMatService nhatKyBaoMatService;
+    @Mock
+    private LienKetDatMatKhauRepository lienKetRepo;
+    @Mock
+    private PhienDangNhapService phienDangNhapService;
 
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(4);
     private MutableClock clock;
@@ -106,6 +118,8 @@ class NguoiDungServiceAuthHardeningTest {
         ReflectionTestUtils.setField(service, "nguoiDungMapper", mapper);
         ReflectionTestUtils.setField(service, "pqndkMapper", pqndkMapper);
         ReflectionTestUtils.setField(service, "phanQuyenNguoiDungKhoService", phanQuyenNguoiDungKhoService);
+        ReflectionTestUtils.setField(service, "lienKetDatMatKhauService", new LienKetDatMatKhauService(lienKetRepo));
+        ReflectionTestUtils.setField(service, "phienDangNhapService", phienDangNhapService);
         lenient().when(phanQuyenNguoiDungKhoService.findByNguoiDungIdAndActive(any())).thenReturn(List.of());
         lenient().when(pqndkMapper.toDtoList(any())).thenReturn(List.of());
 
@@ -405,6 +419,7 @@ class NguoiDungServiceAuthHardeningTest {
         assertNotEquals(oldCv, newCv, "token cũ (cv cũ) sẽ bị AuthInterceptor từ chối");
         verify(emailService).guiDaDoiMatKhau(same(user),
                 eq(com.dev.backend.services.email.CachDoiMatKhau.DOI_KHI_DA_DANG_NHAP), any());
+        verify(lienKetRepo).huyConMo(eq(7), any(Instant.class));
     }
 
     @Test
@@ -425,7 +440,8 @@ class NguoiDungServiceAuthHardeningTest {
     // ===== #6: tạo người dùng mới tự sinh mật khẩu tạm & gửi mail chào mừng =====
 
     @Test
-    void createInternalUserByAdmin_tuSinhMatKhauTam_batMustChangePassword_guiEmailChaoMung() {
+    void createInternalUserByAdmin_khongCoMatKhauDungDuoc_guiLienKetDatMatKhau() {
+        com.dev.backend.config.SecurityContextHolder.setUser(NguoiDungAuthInfo.builder().id(1).build());
         when(repository.existsByTenDangNhap("nhanvienmoi")).thenReturn(false);
         when(repository.existsByEmail("nhanvien@example.com")).thenReturn(false);
         when(repository.save(any(NguoiDung.class))).thenAnswer(inv -> {
@@ -446,33 +462,21 @@ class NguoiDungServiceAuthHardeningTest {
         assertNotNull(created);
         assertEquals("nhanvienmoi", created.getTenDangNhap());
         assertEquals("nhanvien@example.com", created.getEmail());
-        assertTrue(created.getMustChangePassword(), "Tài khoản mới bắt buộc có mustChangePassword = true");
-        assertNotNull(created.getMatKhauHash(), "Phải có mật khẩu tạm được mã hóa BCrypt");
+        assertTrue(created.getMustChangePassword(), "chưa đặt mật khẩu riêng");
+        assertNotNull(created.getMatKhauHash());
 
-        // E2 nhận đúng mật khẩu tạm đã băm vào tài khoản (gửi sau commit ở lớp email)
-        verify(emailService).guiTaiKhoanMoi(same(created),
-                argThat(matKhau -> matKhau != null && encoder.matches(matKhau, created.getMatKhauHash())));
-    }
-
-    @Test
-    void createInternalUserByAdmin_matKhauTuGo_kiemDoDai_vaGuiNguyenMatKhau() {
-        when(repository.save(any(NguoiDung.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        CommonException ngan = assertThrows(CommonException.class, () -> service.createInternalUserByAdmin(
-                NguoiDungCreating.builder().tenDangNhap("nv2").email("nv2@example.com").matKhau(" 12345 ").build()));
-        assertEquals(HttpStatus.BAD_REQUEST, ngan.getHttpStatus());
-        assertEquals("Mật khẩu phải có ít nhất 6 ký tự", ngan.getMessage());
-        CommonException dai = assertThrows(CommonException.class, () -> service.createInternalUserByAdmin(
-                NguoiDungCreating.builder().tenDangNhap("nv2").email("nv2@example.com").matKhau("ệ".repeat(30)).build()));
-        assertTrue(dai.getMessage().startsWith("Mật khẩu quá dài"));
-        verify(repository, never()).save(any());
-        verifyNoInteractions(emailService);
-
-        NguoiDung nd = service.createInternalUserByAdmin(NguoiDungCreating.builder()
-                .tenDangNhap("nv2").email("nv2@example.com").hoTen("   ").matKhau(" matkhau1 ").build());
-        assertEquals("nv2", nd.getHoTen(), "họ tên trống thì dùng tên đăng nhập");
-        assertTrue(encoder.matches("matkhau1", nd.getMatKhauHash()));
-        verify(emailService).guiTaiKhoanMoi(same(nd), eq("matkhau1"));
+        // E2 nhận mã liên kết (không phải mật khẩu): CSDL giữ băm của đúng mã đó, hạn 24 giờ, mục đích tạo tài khoản
+        ArgumentCaptor<String> ma = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Instant> hetHan = ArgumentCaptor.forClass(Instant.class);
+        verify(emailService).guiTaiKhoanMoi(same(created), ma.capture(), hetHan.capture());
+        assertFalse(encoder.matches(ma.getValue(), created.getMatKhauHash()), "mã liên kết không phải mật khẩu");
+        ArgumentCaptor<LienKetDatMatKhau> lk = ArgumentCaptor.forClass(LienKetDatMatKhau.class);
+        verify(lienKetRepo).save(lk.capture());
+        assertEquals(LienKetDatMatKhauService.bam(ma.getValue()), lk.getValue().getMaBam());
+        assertEquals(99, lk.getValue().getNguoiDungId());
+        assertEquals(1, lk.getValue().getTaoBoi());
+        assertEquals(LienKetDatMatKhauService.TAO_TAI_KHOAN, lk.getValue().getMucDich());
+        assertEquals(lk.getValue().getTaoLuc().plus(Duration.ofHours(24)), hetHan.getValue());
     }
 
     @Test
@@ -753,6 +757,190 @@ class NguoiDungServiceAuthHardeningTest {
         when(repository.findById(7)).thenReturn(Optional.of(user));
         service.resetPasswordRandomByAdmin(7);
         verify(nhatKyBaoMatService).ghiSauCommit(com.dev.backend.constant.variables.IHanhDong.dat_lai_mat_khau,
-                com.dev.backend.constant.variables.ITable.nguoi_dung, 7, 1, "Quản trị viên cấp mật khẩu tạm qua email");
+                com.dev.backend.constant.variables.ITable.nguoi_dung, 7, 1,
+                "Quản trị viên gửi liên kết đặt lại mật khẩu qua email");
+    }
+
+    // ---------- Cấp lại mật khẩu bằng liên kết (chốt 01/11/2026) ----------
+
+    @Test
+    void quanTriVienCapLai_matKhauCuHetHieuLucNgay_thuHoiPhien_guiLienKet() {
+        com.dev.backend.config.SecurityContextHolder.setUser(NguoiDungAuthInfo.builder().id(1).build());
+        when(repository.findById(7)).thenReturn(Optional.of(user));
+
+        service.resetPasswordRandomByAdmin(7);
+
+        assertFalse(encoder.matches("matkhaucu", user.getMatKhauHash()), "mật khẩu cũ không dùng được nữa");
+        assertTrue(user.getMustChangePassword());
+        verify(repository).save(user);
+        verify(phienDangNhapService).thuHoiTatCa(7);
+        ArgumentCaptor<String> ma = ArgumentCaptor.forClass(String.class);
+        verify(emailService).guiCapLaiMatKhau(same(user), ma.capture(), any(Instant.class), any(Instant.class));
+        assertFalse(encoder.matches(ma.getValue(), user.getMatKhauHash()), "mã liên kết không phải mật khẩu");
+        ArgumentCaptor<LienKetDatMatKhau> lk = ArgumentCaptor.forClass(LienKetDatMatKhau.class);
+        verify(lienKetRepo).save(lk.capture());
+        assertEquals(LienKetDatMatKhauService.CAP_LAI, lk.getValue().getMucDich());
+        verify(lienKetRepo).huyConMo(eq(7), any(Instant.class));
+    }
+
+    @Test
+    void quanTriVien_khongTuCapLaiChoChinhMinh() {
+        com.dev.backend.config.SecurityContextHolder.setUser(NguoiDungAuthInfo.builder().id(7).build());
+        when(repository.findById(7)).thenReturn(Optional.of(user));
+        String cu = user.getMatKhauHash();
+
+        CommonException ex = assertThrows(CommonException.class, () -> service.resetPasswordRandomByAdmin(7));
+        assertTrue(ex.getMessage().contains("chính tài khoản của bạn"), ex.getMessage());
+        assertEquals(cu, user.getMatKhauHash());
+        verify(repository, never()).save(any());
+        verifyNoInteractions(emailService, lienKetRepo);
+    }
+
+    @Test
+    void datLaiMatKhauBangOtp_goCoPhaiDoiMatKhau_luuRoRang() {
+        user.setMustChangePassword(true);
+        forgot("khang", "1.1.1.1");
+        String otp = (String) GlobalCache.OTP_SCHEDULE_OBJS.iterator().next().getOtp();
+
+        service.resetPassword(new ResetPasswordRequest("khang", otp, "matkhaumoi"));
+
+        assertFalse(user.getMustChangePassword(), "tự đặt bằng mã email thì không bắt đổi lần nữa");
+        assertTrue(encoder.matches("matkhaumoi", user.getMatKhauHash()));
+        verify(repository).save(user);
+        verify(phienDangNhapService).thuHoiTatCa(7);
+        verify(lienKetRepo).huyConMo(eq(7), any(Instant.class));
+    }
+
+    @Test
+    void quanTriVien_khongCapLaiChoTaiKhoanKhongPhaiNhanSu() {
+        com.dev.backend.config.SecurityContextHolder.setUser(NguoiDungAuthInfo.builder().id(1).build());
+        user.setVaiTro("khach_hang");
+        when(repository.findById(7)).thenReturn(Optional.of(user));
+
+        assertThrows(CommonException.class, () -> service.resetPasswordRandomByAdmin(7));
+        assertTrue(encoder.matches("matkhaucu", user.getMatKhauHash()));
+        verifyNoInteractions(emailService, lienKetRepo);
+    }
+
+    // ---------- Đặt mật khẩu qua liên kết ----------
+
+    private static final String MA = "Zx9_-AbCdEfGhIjKlMnOpQrStUvWxYz0123456789ab";
+
+    private LienKetDatMatKhau lienKetCua(NguoiDung nd) {
+        Instant bayGio = Instant.now();
+        LienKetDatMatKhau lk = LienKetDatMatKhau.builder().id(5).nguoiDungId(nd.getId())
+                .maBam(LienKetDatMatKhauService.bam(MA)).mucDich(LienKetDatMatKhauService.CAP_LAI)
+                .taoLuc(bayGio.minus(Duration.ofHours(1))).hetHanLuc(bayGio.plus(Duration.ofHours(23))).build();
+        lenient().when(lienKetRepo.findByMaBam(lk.getMaBam())).thenReturn(Optional.of(lk));
+        lenient().when(lienKetRepo.khoaTheoMaBam(lk.getMaBam())).thenReturn(Optional.of(lk));
+        lenient().when(repository.findById(nd.getId())).thenReturn(Optional.of(nd));
+        return lk;
+    }
+
+    private static String maLoi(Runnable r) {
+        return assertThrows(LoiCoMaException.class, r::run).getMa();
+    }
+
+    @Test
+    void kiemTraLienKet_traTaiKhoanVaHan_khongTieuMa() {
+        user.setTrangThai(0);
+        LienKetDatMatKhau lk = lienKetCua(user);
+
+        LienKetMatKhauDto dto = service.kiemTraLienKetMatKhau(new KiemTraLienKetMatKhauRequest(MA)).getBody().getData();
+
+        assertEquals("khang", dto.getTenDangNhap());
+        assertEquals(EMAIL, dto.getEmail());
+        assertEquals(lk.getHetHanLuc(), dto.getHetHanLuc());
+        assertEquals(LienKetDatMatKhauService.CAP_LAI, dto.getMucDich());
+        assertTrue(dto.isDangKhoa());
+        assertNull(lk.getDaDungLuc(), "mở trang không tiêu mã");
+        verify(lienKetRepo, never()).khoaTheoMaBam(any());
+    }
+
+    @Test
+    void datQuaLienKet_datMatKhau_goCo_dangXuatMoiNoi_guiM4_dangNhapDuoc() {
+        user.setMustChangePassword(true);
+        LienKetDatMatKhau lk = lienKetCua(user);
+
+        ResponseData<String> kq = service.datMatKhauQuaLienKet(new DatMatKhauQuaLienKetRequest(MA, " mật khẩu mới ")).getBody();
+
+        assertEquals("khang", kq.getData());
+        assertNotNull(lk.getDaDungLuc(), "liên kết đã dùng");
+        verify(lienKetRepo).khoaTheoMaBam(LienKetDatMatKhauService.bam(MA));
+        assertTrue(encoder.matches(" mật khẩu mới ", user.getMatKhauHash()), "giữ nguyên khoảng trắng như người dùng gõ");
+        assertFalse(user.getMustChangePassword());
+        verify(repository).save(user);
+        verify(lienKetRepo).huyConMo(eq(7), any(Instant.class));
+        verify(phienDangNhapService).thuHoiTatCa(7);
+        verify(emailService).guiDaDoiMatKhau(same(user), eq(com.dev.backend.services.email.CachDoiMatKhau.DAT_QUA_LIEN_KET),
+                any(Instant.class));
+        assertNotNull(service.login(new LoginRequest("khang", " mật khẩu mới "), IP, UA).getBody().getData().getToken());
+    }
+
+    @Test
+    void datQuaLienKet_matKhauKhongHopLe_khongDungToiLienKet() {
+        lienKetCua(user);
+        assertEquals("Nhập mật khẩu mới", assertThrows(CommonException.class,
+                () -> service.datMatKhauQuaLienKet(new DatMatKhauQuaLienKetRequest(MA, ""))).getMessage());
+        assertEquals("Nhập mật khẩu mới", assertThrows(CommonException.class,
+                () -> service.datMatKhauQuaLienKet(new DatMatKhauQuaLienKetRequest(MA, "      "))).getMessage(),
+                "toàn dấu cách");
+        assertTrue(assertThrows(CommonException.class,
+                () -> service.datMatKhauQuaLienKet(new DatMatKhauQuaLienKetRequest(MA, "12345"))).getMessage()
+                .contains("ít nhất 6 ký tự"));
+        assertTrue(assertThrows(CommonException.class,
+                () -> service.datMatKhauQuaLienKet(new DatMatKhauQuaLienKetRequest(MA, "ệ".repeat(30)))).getMessage()
+                .startsWith("Mật khẩu quá dài"));
+        verifyNoInteractions(lienKetRepo);
+        assertTrue(encoder.matches("matkhaucu", user.getMatKhauHash()));
+    }
+
+    @Test
+    void datQuaLienKet_lienKetKhongDungDuoc_khongDoiMatKhau() {
+        LienKetDatMatKhau lk = lienKetCua(user);
+        DatMatKhauQuaLienKetRequest req = new DatMatKhauQuaLienKetRequest(MA, "matkhaumoi");
+
+        lk.setDaDungLuc(Instant.now());
+        assertEquals(MaLoi.LIEN_KET_DA_DUNG, maLoi(() -> service.datMatKhauQuaLienKet(req)));
+        lk.setDaDungLuc(null);
+        lk.setHuyLuc(Instant.now());
+        assertEquals(MaLoi.LIEN_KET_DA_THAY, maLoi(() -> service.datMatKhauQuaLienKet(req)));
+        lk.setHuyLuc(null);
+        lk.setHetHanLuc(Instant.now().minusSeconds(1));
+        assertEquals(MaLoi.LIEN_KET_HET_HAN, maLoi(() -> service.datMatKhauQuaLienKet(req)));
+        assertEquals(MaLoi.LIEN_KET_KHONG_HOP_LE,
+                maLoi(() -> service.datMatKhauQuaLienKet(new DatMatKhauQuaLienKetRequest("sai", "matkhaumoi"))));
+
+        assertTrue(encoder.matches("matkhaucu", user.getMatKhauHash()));
+        verify(repository, never()).save(any());
+        verifyNoInteractions(emailService);
+    }
+
+    @Test
+    void datQuaLienKet_requestSau_docDongDaKhoa_thayDaDungHoacDaThay() {
+        LienKetDatMatKhau lk = lienKetCua(user);
+        DatMatKhauQuaLienKetRequest req = new DatMatKhauQuaLienKetRequest(MA, "matkhaumoi");
+        // request trước giữ khóa dòng rồi commit; request sau đọc dòng mới nhất (FOR UPDATE)
+        LienKetDatMatKhau sauKhiDung = LienKetDatMatKhau.builder().id(5).nguoiDungId(7).maBam(lk.getMaBam())
+                .mucDich(lk.getMucDich()).taoLuc(lk.getTaoLuc()).hetHanLuc(lk.getHetHanLuc()).daDungLuc(Instant.now())
+                .build();
+        when(lienKetRepo.khoaTheoMaBam(lk.getMaBam())).thenReturn(Optional.of(sauKhiDung));
+        assertEquals(MaLoi.LIEN_KET_DA_DUNG, maLoi(() -> service.datMatKhauQuaLienKet(req)));
+
+        sauKhiDung.setDaDungLuc(null);
+        sauKhiDung.setHuyLuc(Instant.now());
+        assertEquals(MaLoi.LIEN_KET_DA_THAY, maLoi(() -> service.datMatKhauQuaLienKet(req)),
+                "quản trị viên vừa gửi liên kết mới");
+
+        assertTrue(encoder.matches("matkhaucu", user.getMatKhauHash()), "request thua không đổi mật khẩu");
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void lienKet_taiKhoanKhongPhaiNhanSu_coiNhuKhongHopLe() {
+        user.setVaiTro("khach_hang");
+        lienKetCua(user);
+        assertEquals(MaLoi.LIEN_KET_KHONG_HOP_LE,
+                maLoi(() -> service.kiemTraLienKetMatKhau(new KiemTraLienKetMatKhauRequest(MA))));
     }
 }

@@ -28,6 +28,11 @@ final class MauEmailFixture {
     static final String EMAIL_NCC = "lan.tran@xuongmayhoanganh.vn";
     /** Giờ "hiện tại" của các thư: 14:22 ngày 19/10/2026 giờ Việt Nam. */
     static final Instant BAY_GIO = Instant.parse("2026-10-19T07:22:00Z");
+    /** Mã trong liên kết đặt mật khẩu (E2, E3): 43 ký tự base64url như mã thật. */
+    static final String MA_LIEN_KET = "Zx9_-AbCdEfGhIjKlMnOpQrStUvWxYz0123456789ab";
+    static final String LIEN_KET_DAT_MAT_KHAU = "https://fcentric.net/set-password#t=" + MA_LIEN_KET;
+    /** Hạn liên kết: 14:22 ngày 20/10/2026 giờ Việt Nam (sau giờ "hiện tại" 24 giờ, thư còn hiệu lực để gửi). */
+    static final Instant HET_HAN_LIEN_KET = Instant.parse("2026-10-20T07:22:00Z");
 
     final DungMauEmail dungMau = new DungMauEmail(EmailTemplateConfig.taoEngine());
     final EmailDispatcher dispatcher = mock(EmailDispatcher.class);

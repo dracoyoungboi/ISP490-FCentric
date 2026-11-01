@@ -12,15 +12,19 @@ import com.dev.backend.dto.request.*;
 import com.dev.backend.dto.response.LoginResponse;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.entities.KhoPhuTrachHieuLucDto;
+import com.dev.backend.dto.response.entities.LienKetMatKhauDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.dto.response.entities.NguoiDungDto;
 import com.dev.backend.dto.response.entities.PhienDangNhapDto;
+import com.dev.backend.entities.LienKetDatMatKhau;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.entities.PhanQuyenNguoiDungKho;
 import com.dev.backend.entities.PhienDangNhap;
 import com.dev.backend.entities.TepTin;
 import com.dev.backend.exception.customize.AccountDisabledException;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.exception.customize.LoiCoMaException;
+import com.dev.backend.exception.customize.MaLoi;
 import com.dev.backend.mapper.NguoiDungMapper;
 import com.dev.backend.mapper.PhanQuyenNguoiDungKhoMapper;
 import com.dev.backend.repository.NguoiDungRepository;
@@ -103,6 +107,10 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     // Phiên đăng nhập theo thiết bị (bảng phien_dang_nhap): ghi khi đăng nhập, thu hồi khi đăng xuất / đổi mật khẩu
     @Autowired
     private PhienDangNhapService phienDangNhapService;
+
+    // Liên kết đặt mật khẩu dùng một lần (E2, E3) thay cho mật khẩu tạm gửi dạng rõ
+    @Autowired
+    private LienKetDatMatKhauService lienKetDatMatKhauService;
 
     private static final Logger logger = LoggerFactory.getLogger(NguoiDungService.class);
 
@@ -310,6 +318,17 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         } else {
             viec.run();
         }
+    }
+
+    // Sau khi giao dịch đổi/đặt mật khẩu commit: thu hồi mọi phiên của người dùng. Lỗi bảng phiên chỉ ghi log.
+    private void thuHoiTatCaSauCommit(Integer userId, String viec) {
+        chaySauCommit(() -> {
+            try {
+                phienDangNhapService.thuHoiTatCa(userId);
+            } catch (Exception e) {
+                logger.warn("Không thu hồi được phiên sau {} (user {}): {}", viec, userId, e.getMessage());
+            }
+        });
     }
 
     // Đăng xuất: thu hồi phiên hiện tại để các request sau không dùng được nữa. Token cũ (không có sid) thì bỏ qua.
@@ -690,7 +709,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
     // OTP đặt lại mật khẩu: hiệu lực 5 phút, tối đa 5 lần nhập sai
     static final long RESET_OTP_TTL_SECONDS = 300;
-    // Mật khẩu quản trị viên tự gõ khi tạo tài khoản: cùng quy tắc với đổi mật khẩu
+    // Độ dài tối thiểu của mật khẩu đặt qua liên kết (cùng mức với đổi mật khẩu và giao diện utils/matKhau.js)
     static final int MAT_KHAU_TOI_THIEU = 6;
     static final int RESET_OTP_MAX_FAILED_ATTEMPTS = 5;
     private static final String RESET_OTP_INVALID_MESSAGE = "Mã xác nhận không tồn tại hoặc đã hết hạn";
@@ -869,8 +888,12 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             throw resetOtpExpired(RESET_OTP_INVALID_MESSAGE);
         }
 
-        // sau khi thoả mãn các dk trên thì cho phép đặt lại MK
+        // sau khi thoả mãn các dk trên thì cho phép đặt lại MK. Mật khẩu do chính chủ đặt (đã chứng minh qua email) nên
+        // gỡ luôn cờ phải đổi mật khẩu tạm, và hủy liên kết đặt mật khẩu còn mở (không để liên kết cũ ghi đè mật khẩu này)
         nguoiDung.setMatKhauHash(passwordEncoder.encode(rpRequest.getPassword()));
+        nguoiDung.setMustChangePassword(false);
+        nguoiDungRepository.save(nguoiDung);
+        lienKetDatMatKhauService.huyConMo(nguoiDung.getId(), Instant.now());
         // đã chứng minh quyền sở hữu qua mã gửi email: gỡ khoá do nhập sai mật khẩu cũ
         loginRateLimiter.recordSuccess(null, nguoiDung.getId());
         // M4 (gửi sau commit, không chứa mật khẩu)
@@ -878,13 +901,9 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         nhatKyBaoMatService.ghiSauCommit(IHanhDong.dat_lai_mat_khau, ITable.nguoi_dung, nguoiDung.getId(),
                 nguoiDung.getId(), "Đặt lại bằng mã gửi qua email");
 
-        // Đặt lại mật khẩu bằng mã = đăng xuất mọi thiết bị: thu hồi toàn bộ phiên của tài khoản
-        // (ngoài claim "cv" đã chặn token cũ) để danh sách thiết bị không còn phiên treo.
-        try {
-            phienDangNhapService.thuHoiTatCa(nguoiDung.getId());
-        } catch (Exception e) {
-            logger.warn("Không thu hồi được phiên sau đặt lại mật khẩu (user {}): {}", nguoiDung.getId(), e.getMessage());
-        }
+        // Đặt lại mật khẩu bằng mã = đăng xuất mọi thiết bị: thu hồi toàn bộ phiên của tài khoản (ngoài claim "cv" đã
+        // chặn token cũ) để danh sách thiết bị không còn phiên treo. Làm sau commit: lỡ rollback thì không thu hồi oan.
+        thuHoiTatCaSauCommit(nguoiDung.getId(), "đặt lại mật khẩu");
 
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
@@ -1050,19 +1069,6 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             throw new CommonException("Số điện thoại đã tồn tại");
         }
 
-        // Quản trị viên tự gõ mật khẩu thì kiểm như đổi mật khẩu (tối thiểu 6 ký tự, tối đa 72 byte của BCrypt);
-        // để trống thì tự sinh mật khẩu tạm ngẫu nhiên. Cả hai đều gửi trong E2 như mật khẩu tạm.
-        String tempPassword;
-        if (request.getMatKhau() != null && !request.getMatKhau().isBlank()) {
-            tempPassword = request.getMatKhau().trim();
-            if (tempPassword.length() < MAT_KHAU_TOI_THIEU) {
-                throw new CommonException("Mật khẩu phải có ít nhất " + MAT_KHAU_TOI_THIEU + " ký tự");
-            }
-            assertPasswordFitsBcrypt(tempPassword);
-        } else {
-            tempPassword = generateTemporaryPassword();
-        }
-
         NguoiDung nguoiDung = new NguoiDung();
         nguoiDung.setTenDangNhap(tenDangNhap);
         nguoiDung.setEmail(email);
@@ -1072,16 +1078,21 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         nguoiDung.setSoDienThoai(soDienThoai);
         nguoiDung.setVaiTro(vaiTro);
         nguoiDung.setTrangThai(1);
-        nguoiDung.setMatKhauHash(passwordEncoder.encode(tempPassword));
+        // Chưa có mật khẩu dùng được (chuỗi ngẫu nhiên không ai biết): người dùng tự đặt qua liên kết trong E2.
+        // Cờ bật = "chưa đặt mật khẩu riêng"; đặt qua liên kết hoặc Quên mật khẩu thì cờ tắt.
+        nguoiDung.setMatKhauHash(passwordEncoder.encode(matKhauKhongAiBiet()));
         nguoiDung.setMustChangePassword(true);
 
         NguoiDung saved = create(nguoiDung);
 
-        // E2: gửi sau commit (lỗi trùng khóa lúc commit thì không gửi cho tài khoản không tồn tại)
-        emailNghiepVuService.guiTaiKhoanMoi(saved, tempPassword);
         NguoiDungAuthInfo quanTri = com.dev.backend.config.SecurityContextHolder.getUser();
+        Integer quanTriId = quanTri == null ? null : quanTri.getId();
+        LienKetDatMatKhauService.LienKetMoi lienKet = lienKetDatMatKhauService.tao(saved.getId(),
+                LienKetDatMatKhauService.TAO_TAI_KHOAN, quanTriId, Instant.now());
+        // E2: gửi sau commit (lỗi trùng khóa lúc commit thì không gửi cho tài khoản không tồn tại)
+        emailNghiepVuService.guiTaiKhoanMoi(saved, lienKet.ma(), lienKet.hetHanLuc());
         nhatKyBaoMatService.ghiSauCommit(IHanhDong.tao_tai_khoan, ITable.nguoi_dung, saved.getId(),
-                quanTri == null ? null : quanTri.getId(), "Vai trò " + vaiTro);
+                quanTriId, "Vai trò " + vaiTro);
 
         return saved;
     }
@@ -1130,6 +1141,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         nguoiDung.setMustChangePassword(false);
 
         update(nguoiDung.getId(), nguoiDung);
+        // liên kết đặt mật khẩu còn mở (vd. quản trị viên vừa gửi) không được ghi đè mật khẩu vừa đổi
+        lienKetDatMatKhauService.huyConMo(nguoiDung.getId(), Instant.now());
         // M4 (gửi sau commit, không chứa mật khẩu)
         emailNghiepVuService.guiDaDoiMatKhau(nguoiDung, CachDoiMatKhau.DOI_KHI_DA_DANG_NHAP, Instant.now());
         nhatKyBaoMatService.ghiSauCommit(IHanhDong.doi_mat_khau, ITable.nguoi_dung, nguoiDung.getId(),
@@ -1164,39 +1177,124 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
                         .build());
     }
 
-    public String generateTemporaryPassword() {
-        final String characters = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
-        StringBuilder password = new StringBuilder(8);
-        java.security.SecureRandom random = new java.security.SecureRandom();
-        for (int i = 0; i < 8; i++) {
-            password.append(characters.charAt(random.nextInt(characters.length())));
-        }
-        return password.toString();
+    // Mật khẩu không ai biết (32 byte ngẫu nhiên): tài khoản chưa đăng nhập được cho tới khi đặt mật khẩu qua liên kết
+    private static String matKhauKhongAiBiet() {
+        byte[] bytes = new byte[32];
+        new java.security.SecureRandom().nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
+    /**
+     * Quản trị viên cấp lại mật khẩu (chốt 01/11/2026, Đ2): mật khẩu cũ mất hiệu lực ngay, mọi thiết bị bị đăng xuất,
+     * người dùng đặt mật khẩu mới qua liên kết dùng một lần trong E3. Không tự cấp lại cho chính mình.
+     */
     @Transactional
     public void resetPasswordRandomByAdmin(Integer userId) {
         NguoiDung nguoiDung = nguoiDungRepository.findById(userId)
                 .orElseThrow(() -> new CommonException("Không tìm thấy người dùng"));
 
+        NguoiDungAuthInfo quanTri = com.dev.backend.config.SecurityContextHolder.getUser();
+        Integer quanTriId = quanTri == null ? null : quanTri.getId();
+        if (quanTriId != null && quanTriId.equals(nguoiDung.getId())) {
+            throw new CommonException("Không gửi liên kết đặt lại mật khẩu cho chính tài khoản của bạn. "
+                    + "Đổi mật khẩu ở Hồ sơ của tôi.");
+        }
+        // tài khoản không mang vai trò nhân sự không dùng được hệ thống (trang đặt mật khẩu cũng từ chối liên kết)
+        if (!IRoleType.laNoiBo(nguoiDung.getVaiTro())) {
+            throw new CommonException("Tài khoản này không phải tài khoản nhân sự");
+        }
         if (nguoiDung.getEmail() == null || nguoiDung.getEmail().isBlank()) {
-            throw new CommonException("Người dùng chưa có email để nhận mật khẩu tạm thời");
+            throw new CommonException("Người dùng chưa có email để nhận liên kết đặt lại mật khẩu");
         }
 
-        String tempPassword = generateTemporaryPassword();
-
         Instant luc = Instant.now();
-        nguoiDung.setMatKhauHash(passwordEncoder.encode(tempPassword));
+        // Đổi mật khẩu băm: token cũ bị thu hồi qua claim "cv" ở request kế tiếp
+        nguoiDung.setMatKhauHash(passwordEncoder.encode(matKhauKhongAiBiet()));
         nguoiDung.setMustChangePassword(true);
         nguoiDung.setNgayCapNhat(luc);
         nguoiDungRepository.save(nguoiDung);
         // quản trị viên cấp lại mật khẩu: gỡ khoá do nhập sai (cách duy nhất để gỡ khoá mà không chờ hết hạn)
         loginRateLimiter.recordSuccess(null, nguoiDung.getId());
 
-        // E3 (sửa L9: thư có mật khẩu tạm), gửi sau commit; không gửi M4 (đã có E3)
-        emailNghiepVuService.guiCapLaiMatKhau(nguoiDung, tempPassword, luc);
-        NguoiDungAuthInfo quanTri = com.dev.backend.config.SecurityContextHolder.getUser();
+        LienKetDatMatKhauService.LienKetMoi lienKet = lienKetDatMatKhauService.tao(nguoiDung.getId(),
+                LienKetDatMatKhauService.CAP_LAI, quanTriId, luc);
+        // E3 gửi sau commit; không gửi M4 (đã có E3)
+        emailNghiepVuService.guiCapLaiMatKhau(nguoiDung, lienKet.ma(), luc, lienKet.hetHanLuc());
         nhatKyBaoMatService.ghiSauCommit(IHanhDong.dat_lai_mat_khau, ITable.nguoi_dung, nguoiDung.getId(),
-                quanTri == null ? null : quanTri.getId(), "Quản trị viên cấp mật khẩu tạm qua email");
+                quanTriId, "Quản trị viên gửi liên kết đặt lại mật khẩu qua email");
+        // danh sách thiết bị không còn phiên treo (token cũ đã hết hiệu lực vì mật khẩu đổi)
+        thuHoiTatCaSauCommit(nguoiDung.getId(), "cấp lại mật khẩu");
+    }
+
+    // ===== Đặt mật khẩu qua liên kết trong email (trang /set-password, không cần đăng nhập) =====
+
+    /** Trang Đặt mật khẩu mở ra: kiểm liên kết, trả tài khoản + hạn. Không tiêu mã (máy quét link mở thử cũng không sao). */
+    public ResponseEntity<ResponseData<LienKetMatKhauDto>> kiemTraLienKetMatKhau(KiemTraLienKetMatKhauRequest request) {
+        LienKetDatMatKhau lienKet = lienKetDatMatKhauService.timConHieuLuc(request == null ? null : request.getMa(),
+                Instant.now());
+        NguoiDung nguoiDung = chuLienKet(lienKet);
+        return ResponseEntity.ok(ResponseData.<LienKetMatKhauDto>builder()
+                .status(HttpStatus.OK.value())
+                .data(LienKetMatKhauDto.builder()
+                        .tenDangNhap(nguoiDung.getTenDangNhap())
+                        .hoTen(nguoiDung.getHoTen())
+                        .email(nguoiDung.getEmail())
+                        .mucDich(lienKet.getMucDich())
+                        .hetHanLuc(lienKet.getHetHanLuc())
+                        .dangKhoa(!Integer.valueOf(1).equals(nguoiDung.getTrangThai()))
+                        .build())
+                .message("Success")
+                .build());
+    }
+
+    /**
+     * Đặt mật khẩu bằng liên kết: dùng một lần (khóa dòng liên kết tới hết giao dịch), gỡ cờ phải đổi mật khẩu, đăng
+     * xuất mọi thiết bị, gửi M4. Mật khẩu giữ nguyên như người dùng gõ (không cắt khoảng trắng), giống Quên mật khẩu.
+     */
+    @Transactional
+    public ResponseEntity<ResponseData<String>> datMatKhauQuaLienKet(DatMatKhauQuaLienKetRequest request) {
+        String matKhau = request == null ? null : request.getMatKhauMoi();
+        // kiểm mật khẩu trước khi đụng tới liên kết: nhập sai thì liên kết vẫn còn nguyên
+        if (matKhau == null || matKhau.isBlank()) {
+            throw new CommonException("Nhập mật khẩu mới");
+        }
+        if (matKhau.codePointCount(0, matKhau.length()) < MAT_KHAU_TOI_THIEU) {
+            throw new CommonException("Mật khẩu mới phải có ít nhất " + MAT_KHAU_TOI_THIEU + " ký tự");
+        }
+        assertPasswordFitsBcrypt(matKhau);
+
+        Instant luc = Instant.now();
+        // Khóa dòng liên kết: request khác cùng mã (hoặc quản trị viên đang gửi liên kết mới) chờ tới khi giao dịch này
+        // xong rồi mới đọc, nên thấy đúng "đã dùng" / "đã thay"
+        LienKetDatMatKhau lienKet = lienKetDatMatKhauService.khoaDeDung(request.getMa(), luc);
+        NguoiDung nguoiDung = chuLienKet(lienKet);
+        lienKet.setDaDungLuc(luc);
+
+        nguoiDung.setMatKhauHash(passwordEncoder.encode(matKhau));
+        nguoiDung.setMustChangePassword(false);
+        nguoiDungRepository.save(nguoiDung);
+        lienKetDatMatKhauService.huyConMo(nguoiDung.getId(), luc);
+        // đã chứng minh quyền sở hữu email: gỡ khoá do nhập sai
+        loginRateLimiter.recordSuccess(null, nguoiDung.getId());
+        emailNghiepVuService.guiDaDoiMatKhau(nguoiDung, CachDoiMatKhau.DAT_QUA_LIEN_KET, luc);
+        nhatKyBaoMatService.ghiSauCommit(IHanhDong.dat_lai_mat_khau, ITable.nguoi_dung, nguoiDung.getId(),
+                nguoiDung.getId(), LienKetDatMatKhauService.TAO_TAI_KHOAN.equals(lienKet.getMucDich())
+                        ? "Đặt mật khẩu lần đầu qua liên kết email"
+                        : "Đặt lại mật khẩu qua liên kết email");
+        thuHoiTatCaSauCommit(nguoiDung.getId(), "đặt mật khẩu qua liên kết");
+
+        return ResponseEntity.ok(ResponseData.<String>builder()
+                .status(HttpStatus.OK.value())
+                .data(nguoiDung.getTenDangNhap())
+                .message("Đã đặt mật khẩu")
+                .build());
+    }
+
+    // Tài khoản của liên kết: không còn, hoặc không mang vai trò nhân sự thì coi như liên kết không đúng
+    private NguoiDung chuLienKet(LienKetDatMatKhau lienKet) {
+        return nguoiDungRepository.findById(lienKet.getNguoiDungId())
+                .filter(nd -> IRoleType.laNoiBo(nd.getVaiTro()))
+                .orElseThrow(() -> new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.LIEN_KET_KHONG_HOP_LE,
+                        LienKetDatMatKhauService.LOI_KHONG_HOP_LE));
     }
 }

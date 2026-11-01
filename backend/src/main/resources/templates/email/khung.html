@@ -76,7 +76,7 @@ body{margin:0;padding:0;-webkit-text-size-adjust:100%;}
 [data-ogsb] .nen-nhat{background-color:#1c232c !important;}
 [data-ogsb] .hop-canh{background-color:#2b2111 !important;}
 </style>
-<!--[if mso]><style>table,td,th,div,p,h1,h2,li,a,span,strong{font-family:'Segoe UI',Arial,sans-serif !important;}.o-ma,.ma-tam{font-family:Consolas,'Courier New',monospace !important;}</style><![endif]-->
+<!--[if mso]><style>table,td,th,div,p,h1,h2,li,a,span,strong{font-family:'Segoe UI',Arial,sans-serif !important;}.o-ma{font-family:Consolas,'Courier New',monospace !important;}</style><![endif]-->
 </head>
 <body class="nen" style="margin:0;padding:0;background-color:#f2f4f7;">
 <div style="display:none;max-height:0;max-width:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#f2f4f7;opacity:0;"><th:block th:replace="${xemTruoc}">Xem trước</th:block>&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;</div>
@@ -124,6 +124,17 @@ body{margin:0;padding:0;-webkit-text-size-adjust:100%;}
 <!--/* ===== Nút chính và nút phụ (bảng, chạy được trên Outlook) ===== */-->
 <table th:fragment="nut(href, nhan)" role="presentation" cellpadding="0" cellspacing="0" border="0" class="nut"><tr><td bgcolor="#095fcc" class="nut-chinh" style="background-color:#095fcc;border-radius:6px;mso-padding-alt:12px 24px;"><a th:href="${href}" style="display:inline-block;padding:12px 24px;font-size:15px;line-height:22px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:6px;" th:text="${nhan}">Nút</a></td></tr></table>
 <table th:fragment="nut-phu(href, nhan)" role="presentation" cellpadding="0" cellspacing="0" border="0" class="nut"><tr><td bgcolor="#ffffff" class="nut-phu" style="background-color:#ffffff;border:1px solid #c5ceda;border-radius:6px;mso-padding-alt:12px 24px;"><a th:href="${href}" class="nut-phu-chu" style="display:inline-block;padding:12px 24px;font-size:15px;line-height:22px;font-weight:600;color:#172233;text-decoration:none;border-radius:6px;" th:text="${nhan}">Nút phụ</a></td></tr></table>
+
+<!--/*
+  ===== Liên kết đặt mật khẩu (E2, E3): nút, hạn dùng, và liên kết dạng chữ để chép khi nút không bấm được (ngắt dòng ở
+  bất kỳ ký tự nào để không tràn màn hẹp). dangKhoa: tài khoản bị khóa không nhận được mã Quên mật khẩu nên chỉ nhắc
+  nhờ quản trị viên gửi lại =====
+*/-->
+<tr th:fragment="lien-ket-dat-mat-khau(href, hetHan, dangKhoa)"><td style="padding:0 0 22px;">
+<table th:replace="~{khung :: nut(${href}, 'Đặt mật khẩu')}"></table>
+<p class="chu-mo" style="margin:10px 0 0;font-size:13px;line-height:20px;color:#5b6b80;">Liên kết dùng được một lần, hết hạn lúc <strong class="chu" style="color:#172233;" th:text="${hetHan}">giờ</strong>. <th:block th:text="${dangKhoa} ? 'Hết hạn thì nhờ quản trị viên gửi lại.' : 'Hết hạn thì dùng Quên mật khẩu ở trang đăng nhập, hoặc nhờ quản trị viên gửi lại.'">Hết hạn thì…</th:block></p>
+<p class="chu-mo" style="margin:8px 0 0;font-size:12px;line-height:18px;color:#5b6b80;">Nút không bấm được? Chép liên kết này vào trình duyệt: <a th:href="${href}" class="lien-ket" style="color:#095fcc;word-break:break-all;" th:text="${href}">liên kết</a></p>
+</td></tr>
 
 <!--/* ===== Ô mã xác nhận (E1, E5). text-indent bù khoảng cách chữ để mã nằm giữa ===== */-->
 <tr th:fragment="o-ma(ma, hetHanLuc)"><td style="padding:0 0 22px;">

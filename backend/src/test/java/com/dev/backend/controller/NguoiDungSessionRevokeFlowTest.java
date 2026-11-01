@@ -85,6 +85,10 @@ class NguoiDungSessionRevokeFlowTest {
         ReflectionTestUtils.setField(service, "passwordEncoder", encoder);
         ReflectionTestUtils.setField(service, "calcService", new CalcServiceImpl());
         ReflectionTestUtils.setField(service, "emailNghiepVuService", emailService);
+        // đổi / đặt lại mật khẩu hủy liên kết đặt mật khẩu còn mở
+        ReflectionTestUtils.setField(service, "lienKetDatMatKhauService",
+                new com.dev.backend.services.impl.entities.LienKetDatMatKhauService(
+                        org.mockito.Mockito.mock(com.dev.backend.repository.LienKetDatMatKhauRepository.class)));
         ReflectionTestUtils.setField(service, "passwordResetRateLimiter", new PasswordResetRateLimiter());
         ReflectionTestUtils.setField(service, "loginRateLimiter", new LoginRateLimiter());
         ReflectionTestUtils.setField(service, "nhatKyBaoMatService",

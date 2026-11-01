@@ -1,18 +1,16 @@
-[# th:insert="~{khung-dau.txt}" /]Mật khẩu tạm thời mới cho tài khoản FCentric
+[# th:insert="~{khung-dau.txt}" /]Đặt lại mật khẩu tài khoản FCentric
 
 Xin chào [(${e.hoTen})],
 
-Quản trị viên đã cấp lại mật khẩu cho bạn lúc [(${e.thoiDiem})]. Mật khẩu cũ không còn dùng được.
+Quản trị viên đã đặt lại mật khẩu cho tài khoản [(${e.tenDangNhap})] lúc [(${e.thoiDiem})]. Mật khẩu cũ không còn dùng được và các thiết bị đang đăng nhập đã bị đăng xuất.
 
-Tên đăng nhập: [(${e.tenDangNhap})]
-Mật khẩu tạm thời: [(${e.matKhauTam})]
-Ngay khi đăng nhập, hệ thống sẽ yêu cầu bạn đổi sang mật khẩu riêng. Đổi xong, bạn nên xóa email này.
+Đặt mật khẩu mới để đăng nhập lại.
+Đặt mật khẩu: [(${e.duongDanDatMatKhau})]
+Liên kết dùng được một lần, hết hạn lúc [(${e.hetHanLuc})]. [(${e.dangKhoa} ? 'Hết hạn thì nhờ quản trị viên gửi lại.' : 'Hết hạn thì dùng Quên mật khẩu ở trang đăng nhập, hoặc nhờ quản trị viên gửi lại.')]
 [# th:if="${e.dangKhoa}"]
 Tài khoản đang tạm khóa
-Bạn đăng nhập được bằng mật khẩu này sau khi quản trị viên mở khóa tài khoản.
+Bạn vẫn đặt được mật khẩu mới ngay, nhưng chỉ đăng nhập được sau khi quản trị viên mở khóa tài khoản.
 [/]
-Đăng nhập FCentric: [(${e.duongDanDangNhap})]
-
-Bạn không nhờ cấp lại mật khẩu? Báo ngay cho quản trị viên để kiểm tra tài khoản.
+Bạn không nhờ đặt lại mật khẩu? Báo ngay cho quản trị viên để kiểm tra tài khoản.
 
 [# th:insert="~{khung-chan-nhan-su.txt}" /]

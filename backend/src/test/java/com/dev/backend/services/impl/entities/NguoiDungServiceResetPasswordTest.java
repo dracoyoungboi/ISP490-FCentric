@@ -73,6 +73,10 @@ class NguoiDungServiceResetPasswordTest {
         ReflectionTestUtils.setField(service, "passwordEncoder", passwordEncoder);
         ReflectionTestUtils.setField(service, "calcService", calcService);
         ReflectionTestUtils.setField(service, "emailNghiepVuService", emailService);
+        // đổi / đặt lại mật khẩu hủy liên kết đặt mật khẩu còn mở
+        ReflectionTestUtils.setField(service, "lienKetDatMatKhauService",
+                new com.dev.backend.services.impl.entities.LienKetDatMatKhauService(
+                        org.mockito.Mockito.mock(com.dev.backend.repository.LienKetDatMatKhauRepository.class)));
         // bộ giới hạn mặc định cho qua (test riêng ở PasswordResetRateLimiterTest)
         ReflectionTestUtils.setField(service, "passwordResetRateLimiter", rateLimiter);
         ReflectionTestUtils.setField(service, "loginRateLimiter", new LoginRateLimiter());

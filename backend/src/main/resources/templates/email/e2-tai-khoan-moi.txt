@@ -6,10 +6,10 @@ Quản trị viên đã tạo tài khoản cho bạn với thông tin dưới đ
 
 Tên đăng nhập: [(${e.tenDangNhap})]
 [# th:if="${e.tenVaiTro != null}"]Vai trò: [(${e.tenVaiTro})]
-[/]Mật khẩu tạm thời: [(${e.matKhauTam})]
-Lần đầu đăng nhập, hệ thống sẽ yêu cầu bạn đổi sang mật khẩu riêng. Đổi xong, bạn nên xóa email này.
-
-Đăng nhập FCentric: [(${e.duongDanDangNhap})]
+[/]
+Đặt mật khẩu của bạn, rồi đăng nhập bằng tên đăng nhập ở trên.
+Đặt mật khẩu: [(${e.duongDanDatMatKhau})]
+Liên kết dùng được một lần, hết hạn lúc [(${e.hetHanLuc})]. Hết hạn thì dùng Quên mật khẩu ở trang đăng nhập, hoặc nhờ quản trị viên gửi lại.
 
 Trước khi bắt đầu
 [# th:if="${e.coDongNoiLamViec}"]- Nơi làm việc và quyền của bạn do quản trị viên phân công; xem ở Hồ sơ của tôi sau khi đăng nhập.

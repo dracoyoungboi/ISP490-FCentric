@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.Generated;
 import org.hibernate.generator.EventType;
 
@@ -20,6 +21,9 @@ import java.util.List;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Entity
+// Chỉ ghi các cột đã đổi: quản trị viên khóa tài khoản cùng lúc người dùng đặt mật khẩu (trang công khai) thì giao dịch
+// commit sau không ghi đè cột của giao dịch kia
+@DynamicUpdate
 @Table(name = "nguoi_dung")
 public class NguoiDung {
     @Id

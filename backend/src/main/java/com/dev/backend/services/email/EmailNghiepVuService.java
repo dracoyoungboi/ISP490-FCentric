@@ -21,11 +21,14 @@ public interface EmailNghiepVuService {
     /** E1 · Mã đặt lại mật khẩu. {@code taoLuc} là lúc tạo mã, {@code hetHanLuc} = taoLuc + thời hạn mã. */
     void guiMaDatLaiMatKhau(NguoiDung nguoiDung, String ma, Instant taoLuc, Instant hetHanLuc);
 
-    /** E2 · Tài khoản mới, kèm mật khẩu tạm (cả khi quản trị viên tự gõ mật khẩu). */
-    void guiTaiKhoanMoi(NguoiDung nguoiDung, String matKhauTam);
+    /**
+     * E2 · Tài khoản mới, kèm liên kết đặt mật khẩu dùng một lần. {@code maDatMatKhau} là mã gốc trong liên kết
+     * (không lưu ở đâu khác), {@code hetHanLuc} là hạn của liên kết.
+     */
+    void guiTaiKhoanMoi(NguoiDung nguoiDung, String maDatMatKhau, Instant hetHanLuc);
 
-    /** E3 · Quản trị viên cấp lại mật khẩu; {@code luc} là thời điểm cấp lại. */
-    void guiCapLaiMatKhau(NguoiDung nguoiDung, String matKhauTam, Instant luc);
+    /** E3 · Quản trị viên cấp lại mật khẩu lúc {@code luc}: liên kết đặt mật khẩu mới, hết hạn lúc {@code hetHanLuc}. */
+    void guiCapLaiMatKhau(NguoiDung nguoiDung, String maDatMatKhau, Instant luc, Instant hetHanLuc);
 
     /** M4 · Mật khẩu vừa được thay đổi (không gửi khi quản trị viên cấp lại, đã có E3). */
     void guiDaDoiMatKhau(NguoiDung nguoiDung, CachDoiMatKhau cach, Instant luc);

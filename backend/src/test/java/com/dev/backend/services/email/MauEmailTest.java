@@ -58,14 +58,16 @@ class MauEmailTest {
         for (String vt : List.of("nhan_vien_kho", "quan_ly_kho", "nhan_vien_ban_hang", "nhan_vien_mua_hang",
                 "quan_tri_vien")) {
             ds.add(new BienThe("E2 " + vt, LoaiEmail.E2,
-                    s -> s.guiTaiKhoanMoi(MauEmailFixture.nhanSu(vt), "Hk7#mQ2v")));
+                    s -> s.guiTaiKhoanMoi(MauEmailFixture.nhanSu(vt), MauEmailFixture.MA_LIEN_KET,
+                    MauEmailFixture.HET_HAN_LIEN_KET)));
         }
-        ds.add(new BienThe("E3", LoaiEmail.E3, s -> s.guiCapLaiMatKhau(MauEmailFixture.nhanSu("nhan_vien_kho"),
-                "pR4@vZ9k", YEU_CAU)));
+        ds.add(new BienThe("E3", LoaiEmail.E3, s -> s.guiCapLaiMatKhau(MauEmailFixture.nhanSu("nhan_vien_kho"), MauEmailFixture.MA_LIEN_KET, YEU_CAU,
+                MauEmailFixture.HET_HAN_LIEN_KET)));
         ds.add(new BienThe("E3 khóa", LoaiEmail.E3, s -> {
             NguoiDung nd = MauEmailFixture.nhanSu("nhan_vien_kho");
             nd.setTrangThai(0);
-            s.guiCapLaiMatKhau(nd, "pR4@vZ9k", YEU_CAU);
+            s.guiCapLaiMatKhau(nd, MauEmailFixture.MA_LIEN_KET, YEU_CAU,
+                MauEmailFixture.HET_HAN_LIEN_KET);
         }));
         for (CachDoiMatKhau c : CachDoiMatKhau.values()) {
             ds.add(new BienThe("M4 " + c, LoaiEmail.M4,
@@ -97,7 +99,8 @@ class MauEmailTest {
         }));
         // dữ liệu thiếu: các nhánh colspan, dòng th:unless, câu liên hệ dự phòng
         ds.add(new BienThe("E2 vai trò lạ", LoaiEmail.E2,
-                s -> s.guiTaiKhoanMoi(MauEmailFixture.nhanSu("vai_tro_la"), "Hk7#mQ2v")));
+                s -> s.guiTaiKhoanMoi(MauEmailFixture.nhanSu("vai_tro_la"), MauEmailFixture.MA_LIEN_KET,
+                    MauEmailFixture.HET_HAN_LIEN_KET)));
         ds.add(new BienThe("E4 không ngày giao, dòng thiếu thuộc tính hoặc SKU", LoaiEmail.E4,
                 s -> s.guiYeuCauBaoGia(dongThieu(khongNgayGiao(MauEmailFixture.don(false))))));
         ds.add(new BienThe("E5 người phụ trách không điện thoại", LoaiEmail.E5, s -> {
@@ -190,7 +193,7 @@ class MauEmailTest {
         Map<String, String> mong = new LinkedHashMap<>();
         mong.put("E1", "Mã đặt lại mật khẩu FCentric");
         mong.put("E2 nhan_vien_kho", "Tài khoản FCentric của bạn đã được tạo");
-        mong.put("E3", "Mật khẩu tạm thời mới cho tài khoản FCentric");
+        mong.put("E3", "Đặt lại mật khẩu tài khoản FCentric");
         mong.put("M4 DAT_LAI_BANG_MA", "Mật khẩu FCentric của bạn vừa được thay đổi");
         mong.put("E4", "Yêu cầu báo giá PO202610195101 – Thời trang Linh Lan");
         mong.put("E5", "Mã xác nhận báo giá đơn PO202610195101");
@@ -250,7 +253,8 @@ class MauEmailTest {
                 "nhan_vien_ban_hang", "Nhân viên bán hàng", "nhan_vien_mua_hang", "Nhân viên mua hàng",
                 "quan_tri_vien", "Quản trị viên");
         nhan.forEach((vt, ten) -> {
-            BanThu thu = f.dung(s -> s.guiTaiKhoanMoi(MauEmailFixture.nhanSu(vt), "Hk7#mQ2v"),
+            BanThu thu = f.dung(s -> s.guiTaiKhoanMoi(MauEmailFixture.nhanSu(vt), MauEmailFixture.MA_LIEN_KET,
+                    MauEmailFixture.HET_HAN_LIEN_KET),
                     MauEmailFixture.cuaHang());
             String chu = chuHien(thu.html());
             assertTrue(chu.contains("Vai trò " + ten), vt);
@@ -258,38 +262,65 @@ class MauEmailTest {
             assertEquals(!vt.equals("nhan_vien_ban_hang"), chu.contains("Khi bạn gửi yêu cầu báo giá"), vt);
             assertEquals(!vt.equals("quan_tri_vien"), thu.text().contains("Nơi làm việc và quyền của bạn"), vt);
             assertEquals(!vt.equals("nhan_vien_ban_hang"), thu.text().contains("Khi bạn gửi yêu cầu báo giá"), vt);
-            assertTrue(chu.contains("Hk7#mQ2v"), "mật khẩu tạm có trong thư");
             assertTrue(chu.contains("Tài khoản FCentric của bạn đã được tạo"), "tiêu đề trong thân trùng tiêu đề thư");
-            assertTrue(chu.contains("Đổi xong, bạn nên xóa email này."));
-            assertTrue(chu.contains("Lần đầu đăng nhập, hệ thống sẽ yêu cầu bạn đổi sang mật khẩu riêng."));
-            assertTrue(thu.html().contains("href=\"https://fcentric.net/login\""));
+            assertLienKetDatMatKhau(thu, false);
         });
+    }
+
+    /** Sửa L4 (01/11/2026): E2, E3 không còn mật khẩu tạm, chỉ có liên kết đặt mật khẩu dùng một lần kèm hạn. */
+    static void assertLienKetDatMatKhau(BanThu thu, boolean dangKhoa) {
+        // chuHien thay mỗi thẻ bằng dấu cách: "…20/10/2026</strong>." thành "…20/10/2026 ."
+        String chu = chuHien(thu.html()).replace(" .", ".");
+        for (String ban : List.of(chu, thu.text())) {
+            assertFalse(ban.toLowerCase(Locale.ROOT).contains("mật khẩu tạm"), "không còn mật khẩu tạm");
+            assertTrue(ban.contains("Liên kết dùng được một lần, hết hạn lúc 14:22 ngày 20/10/2026."), ban);
+            // tài khoản bị khóa không nhận được mã Quên mật khẩu: chỉ nhắc nhờ quản trị viên gửi lại
+            assertEquals(!dangKhoa, ban.contains("Hết hạn thì dùng Quên mật khẩu ở trang đăng nhập, hoặc nhờ quản trị viên gửi lại."), ban);
+            assertEquals(dangKhoa, ban.contains("Hết hạn thì nhờ quản trị viên gửi lại."), ban);
+        }
+        assertEquals(2, dem(thu.html(), "href=\"" + MauEmailFixture.LIEN_KET_DAT_MAT_KHAU + "\""), "nút + liên kết chữ");
+        assertTrue(chu.contains("Đặt mật khẩu Liên kết dùng được"), "nút Đặt mật khẩu");
+        assertTrue(chu.contains("Chép liên kết này vào trình duyệt: " + MauEmailFixture.LIEN_KET_DAT_MAT_KHAU));
+        assertTrue(thu.text().contains("Đặt mật khẩu: " + MauEmailFixture.LIEN_KET_DAT_MAT_KHAU + "\n"));
+        assertFalse(thu.html().contains("/login\""), "không còn nút Đăng nhập");
     }
 
     // ---------------- E3, M4 ----------------
 
     @Test
-    void e3_coVaKhongCoKhungTamKhoa_coMatKhauTam() {
+    void e3_coVaKhongCoKhungTamKhoa_coLienKetDatMatKhau() {
         NguoiDung khoa = MauEmailFixture.nhanSu("nhan_vien_kho");
         khoa.setTrangThai(0);
-        String coKhoa = chuHien(f.dung(s -> s.guiCapLaiMatKhau(khoa, "pR4@vZ9k", YEU_CAU),
-                MauEmailFixture.cuaHang()).html());
-        String khongKhoa = chuHien(f.dung(s -> s.guiCapLaiMatKhau(MauEmailFixture.nhanSu("nhan_vien_kho"),
-                "pR4@vZ9k", YEU_CAU), MauEmailFixture.cuaHang()).html());
+        BanThu thuKhoa = f.dung(s -> s.guiCapLaiMatKhau(khoa, MauEmailFixture.MA_LIEN_KET, YEU_CAU,
+                MauEmailFixture.HET_HAN_LIEN_KET), MauEmailFixture.cuaHang());
+        BanThu thuKhongKhoa = f.dung(s -> s.guiCapLaiMatKhau(MauEmailFixture.nhanSu("nhan_vien_kho"),
+                MauEmailFixture.MA_LIEN_KET, YEU_CAU, MauEmailFixture.HET_HAN_LIEN_KET), MauEmailFixture.cuaHang());
+        String coKhoa = chuHien(thuKhoa.html());
+        String khongKhoa = chuHien(thuKhongKhoa.html());
         assertTrue(coKhoa.contains("Tài khoản đang tạm khóa"));
+        assertTrue(thuKhoa.text().contains("Tài khoản đang tạm khóa"));
         assertFalse(khongKhoa.contains("Tài khoản đang tạm khóa"));
-        assertTrue(khongKhoa.contains("pR4@vZ9k"), "sửa L9: thư có mật khẩu tạm");
-        assertTrue(khongKhoa.contains("Quản trị viên đã cấp lại mật khẩu cho bạn lúc 09:12 ngày 19/10/2026."));
+        assertFalse(thuKhongKhoa.text().contains("Tài khoản đang tạm khóa"));
+        assertLienKetDatMatKhau(thuKhoa, true);
+        assertLienKetDatMatKhau(thuKhongKhoa, false);
+        String cauCapLai = "Quản trị viên đã đặt lại mật khẩu cho tài khoản minhanh lúc 09:12 ngày 19/10/2026. Mật khẩu cũ "
+                + "không còn dùng được và các thiết bị đang đăng nhập đã bị đăng xuất.";
+        assertTrue(khongKhoa.contains(cauCapLai));
+        assertTrue(thuKhongKhoa.text().contains(cauCapLai));
+        assertTrue(thuKhongKhoa.html().contains("Đặt mật khẩu mới trước 14:22 ngày 20/10/2026."), "dòng xem trước");
     }
 
     @Test
-    void m4_haiCachThayDoi_khongCoMatKhau() {
+    void m4_baCachThayDoi_khongCoMatKhau() {
         String bangMa = chuHien(f.dung(s -> s.guiDaDoiMatKhau(MauEmailFixture.nhanSu("nhan_vien_kho"),
                 CachDoiMatKhau.DAT_LAI_BANG_MA, YEU_CAU), MauEmailFixture.cuaHang()).html());
         String daDangNhap = chuHien(f.dung(s -> s.guiDaDoiMatKhau(MauEmailFixture.nhanSu("nhan_vien_kho"),
                 CachDoiMatKhau.DOI_KHI_DA_DANG_NHAP, YEU_CAU), MauEmailFixture.cuaHang()).html());
+        String lienKet = chuHien(f.dung(s -> s.guiDaDoiMatKhau(MauEmailFixture.nhanSu("nhan_vien_kho"),
+                CachDoiMatKhau.DAT_QUA_LIEN_KET, YEU_CAU), MauEmailFixture.cuaHang()).html());
         assertTrue(bangMa.contains("Cách thay đổi Đặt lại bằng mã gửi qua email"));
         assertTrue(daDangNhap.contains("Cách thay đổi Đổi khi đã đăng nhập"));
+        assertTrue(lienKet.contains("Cách thay đổi Đặt bằng liên kết gửi qua email"));
         assertTrue(bangMa.contains("Tài khoản minhanh"));
         assertFalse(bangMa.contains("Mật khẩu tạm"));
     }
@@ -439,7 +470,7 @@ class MauEmailTest {
 
         String e2 = chuHien(thu.get("E2 vai trò lạ").html());
         assertFalse(e2.contains("Vai trò"));
-        assertTrue(e2.contains("Tên đăng nhập minhanh Mật khẩu tạm thời"));
+        assertTrue(e2.contains("Tên đăng nhập minhanh Đặt mật khẩu của bạn"));
         assertFalse(e2.contains("Nơi làm việc và quyền của bạn"));
         assertFalse(e2.contains("Khi bạn gửi yêu cầu báo giá"));
 
@@ -469,9 +500,11 @@ class MauEmailTest {
 
     @Test
     void tieuDeTrongThan_trungTieuDeThu_E2E3() {
-        BanThu e2 = f.dung(s -> s.guiTaiKhoanMoi(MauEmailFixture.nhanSu("nhan_vien_kho"), "Hk7#mQ2v"),
+        BanThu e2 = f.dung(s -> s.guiTaiKhoanMoi(MauEmailFixture.nhanSu("nhan_vien_kho"), MauEmailFixture.MA_LIEN_KET,
+                    MauEmailFixture.HET_HAN_LIEN_KET),
                 MauEmailFixture.cuaHang());
-        BanThu e3 = f.dung(s -> s.guiCapLaiMatKhau(MauEmailFixture.nhanSu("nhan_vien_kho"), "pR4@vZ9k", YEU_CAU),
+        BanThu e3 = f.dung(s -> s.guiCapLaiMatKhau(MauEmailFixture.nhanSu("nhan_vien_kho"), MauEmailFixture.MA_LIEN_KET, YEU_CAU,
+                MauEmailFixture.HET_HAN_LIEN_KET),
                 MauEmailFixture.cuaHang());
         for (BanThu thu : List.of(e2, e3)) {
             Matcher h1 = Pattern.compile("<h1[^>]*>([^<]*)</h1>").matcher(thu.html());
@@ -555,7 +588,8 @@ class MauEmailTest {
 
     @Test
     void cuaHangTrong_emailNhanSu_khongCoDauEmail_khongInFCentric() {
-        BanThu e2 = f.dung(s -> s.guiTaiKhoanMoi(MauEmailFixture.nhanSu("nhan_vien_kho"), "Hk7#mQ2v"),
+        BanThu e2 = f.dung(s -> s.guiTaiKhoanMoi(MauEmailFixture.nhanSu("nhan_vien_kho"), MauEmailFixture.MA_LIEN_KET,
+                    MauEmailFixture.HET_HAN_LIEN_KET),
                 CuaHangEmail.TRONG);
         assertFalse(e2.html().contains("<img"));
         assertFalse(e2.html().contains("class=\"khung-dau"), "không có ô đầu email");
