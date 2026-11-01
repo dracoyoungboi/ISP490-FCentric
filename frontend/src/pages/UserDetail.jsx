@@ -25,7 +25,8 @@ import { cn } from "@/lib/utils";
 
 const NUT_VIEN = "border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle";
 const NHAN = "flex items-center gap-1 text-[12.5px] leading-[18px] text-bo-muted";
-const NUT_CHU = "rounded text-[13px] font-medium text-bo-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-bo-primary/40";
+// Màn cảm ứng: nút dạng chữ chạm được 44px nhờ đệm dọc, lề âm bù lại nên hàng không cao thêm
+const NUT_CHU = "rounded text-[13px] font-medium text-bo-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-bo-primary/40 cam-ung:min-h-0! cam-ung:py-[calc((44px-1lh)/2)] cam-ung:-my-[calc((44px-1lh)/2)]";
 
 const KIEU_GOI_Y = {
   cam: "border-orange-200 bg-orange-50 text-orange-950",

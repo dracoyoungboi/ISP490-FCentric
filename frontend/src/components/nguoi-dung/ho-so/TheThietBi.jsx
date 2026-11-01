@@ -81,9 +81,10 @@ export default function TheThietBi({ phien, kieu = "the", onDangXuat }) {
       >
         <Icon className="size-[18px]" aria-hidden="true" />
       </span>
+      {/* Điện thoại: tên và dòng phụ xuống tối đa hai dòng — một dòng 390px cắt mất IP, nơi đăng nhập ("Samsung Internet · A…") */}
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium leading-5 text-bo-foreground">{phien.ten}</div>
-        <p className="mt-0.5 truncate text-[12.5px] leading-[18px] text-bo-muted">
+        <div className="truncate text-sm font-medium leading-5 text-bo-foreground max-md:line-clamp-2 max-md:whitespace-normal">{phien.ten}</div>
+        <p className="mt-0.5 truncate text-[12.5px] leading-[18px] text-bo-muted max-md:line-clamp-2 max-md:whitespace-normal">
           {nay ? <ChuThietBiNay /> : null}
           {dongPhuPhien(phien) || "—"}
         </p>

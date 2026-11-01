@@ -23,8 +23,9 @@ const O_NHAP =
   "h-10 border-bo-input-border bg-white pr-10 text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20";
 const NHAN = "mb-1.5 block text-[13px] font-medium leading-[18px] text-slate-700";
 const DONG_PHU = "mt-1.5 flex items-start gap-1 text-xs leading-[17px]";
+// Màn cảm ứng: nút dạng chữ ("Quên mật khẩu hiện tại?") chạm được 44px nhờ đệm dọc, lề âm bù lại nên khoảng cách giữa các ô không đổi
 const NUT_CHU =
-  "rounded text-xs font-medium text-bo-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-bo-primary/40";
+  "rounded text-xs font-medium text-bo-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-bo-primary/40 cam-ung:min-h-0! cam-ung:py-[calc((44px-1lh)/2)] cam-ung:-my-[calc((44px-1lh)/2)]";
 
 const TRONG = { hienTai: "", moi: "", xacNhan: "" };
 

@@ -82,15 +82,18 @@ const SEARCH_FIELDS = ["hoTen", "tenDangNhap", "email", "soDienThoai"];
 // là dữ liệu hợp lệ (tài khoản đặt theo vai trò/kho, hoặc tạo không kèm họ tên), không đoán "chưa cập nhật".
 // Ô cách hai bên 16px để Số điện thoại và Trạng thái không sát nhau.
 // Cột Thao tác: `w-px` + nowrap để co vừa đúng nút; ghim mép phải khi bảng phải cuộn ngang.
+// Máy tính bảng dọc (cảm ứng): bỏ STT, Tên đăng nhập, Vai trò, Số điện thoại, Ngày tạo để bảng vừa khung;
+// vai trò + tên đăng nhập thành dòng phụ dưới email (`AN_BANG` gắn cho cả th và td).
+const AN_BANG = "cam-ung:max-lg:hidden";
 const COLUMNS = [
-    { label: "STT", center: true, className: "w-px" },
+    { label: "STT", center: true, className: `w-px ${AN_BANG}` },
     { label: "Người dùng" },
-    { label: "Tên đăng nhập" },
-    { label: "Vai trò" },
+    { label: "Tên đăng nhập", className: AN_BANG },
+    { label: "Vai trò", className: AN_BANG },
     { label: "Kho phụ trách" },
-    { label: "Số điện thoại" },
+    { label: "Số điện thoại", className: AN_BANG },
     { label: "Trạng thái" },
-    { label: "Ngày tạo" },
+    { label: "Ngày tạo", className: AN_BANG },
     { label: "Thao tác", center: true, sticky: true, className: "w-px" },
 ];
 
@@ -634,7 +637,63 @@ export default function ViewUserListByAdmin() {
                         />
                     )
                 ) : (
-                    <table ref={setTableEl} className="w-full text-sm">
+                    <>
+                    {/* Điện thoại: mỗi người một thẻ (chạm mở Chi tiết người dùng, nơi có Phân quyền, Gửi liên kết đặt lại mật khẩu,
+                        Khóa / mở khóa): tên + trạng thái, vai trò · tên đăng nhập, kho phụ trách */}
+                    <ul className="divide-y divide-bo-border md:hidden">
+                        {users.map((u) => {
+                            const isActive = u.trangThai === 1;
+                            const isNew = highlightUserId != null && u.id === highlightUserId;
+                            const tenHienThi = u.hoTen?.trim() || u.tenDangNhap;
+                            return (
+                                <li key={u.id} className={cn("transition-colors duration-500", isNew && "bg-bo-primary-soft")}>
+                                    <Link
+                                        to={`/users/${u.id}`}
+                                        state={detailLinkState}
+                                        className="flex gap-3 px-4 py-3 active:bg-bo-surface-subtle"
+                                    >
+                                        <UserAvatar
+                                            userId={u.id}
+                                            name={tenHienThi}
+                                            avatarUrl={u.avatarUrl}
+                                            size="xs"
+                                            className={cn("mt-0.5", !isActive && "opacity-60 grayscale")}
+                                        />
+                                        <span className="grid min-w-0 flex-1 gap-0.5">
+                                            <span className="flex items-center justify-between gap-3">
+                                                <span className="flex min-w-0 items-center gap-1.5">
+                                                    <span
+                                                        className={cn(
+                                                            "truncate text-[15px] font-semibold",
+                                                            isActive ? "text-bo-foreground" : "text-bo-muted"
+                                                        )}
+                                                    >
+                                                        {tenHienThi}
+                                                    </span>
+                                                    {isCurrentUser(u) ? (
+                                                        <span className="shrink-0 rounded-full bg-bo-primary-soft px-1.5 py-0.5 text-[10px] font-semibold text-bo-primary">
+                                                            Bạn
+                                                        </span>
+                                                    ) : null}
+                                                </span>
+                                                <StatusBadge doiTuong="nguoi" label={isActive ? "Hoạt động" : "Bị khóa"} />
+                                            </span>
+                                            <span className="truncate text-[13px] text-bo-muted">
+                                                {formatRole(u.vaiTro)} · {u.tenDangNhap}
+                                            </span>
+                                            <span className="mt-1 block text-[13px]">
+                                                <KhoPhuTrach user={u} />
+                                            </span>
+                                            {u.mustChangePassword ? (
+                                                <span className="text-xs leading-4 text-bo-muted">Chưa đặt mật khẩu riêng</span>
+                                            ) : null}
+                                        </span>
+                                    </Link>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                    <table ref={setTableEl} className="w-full text-sm max-md:hidden">
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                 {COLUMNS.map((column) => (
@@ -685,7 +744,7 @@ export default function ViewUserListByAdmin() {
                                             isNew && "bg-bo-primary-soft"
                                         )}
                                     >
-                                        <td className="px-4 py-2.5 text-center text-xs tabular-nums text-bo-muted">
+                                        <td className={`px-4 py-2.5 text-center text-xs tabular-nums text-bo-muted ${AN_BANG}`}>
                                             {filters.page * filters.size + index + 1}
                                         </td>
 
@@ -714,7 +773,7 @@ export default function ViewUserListByAdmin() {
                                                             }}
                                                             title={tenHienThi}
                                                             className={cn(
-                                                                "block max-w-[240px] truncate rounded-sm font-semibold hover:text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30",
+                                                                "block max-w-[240px] truncate rounded-sm font-semibold cam-ung:max-lg:max-w-[200px] hover:text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30",
                                                                 isActive ? "text-bo-foreground" : "text-bo-muted"
                                                             )}
                                                         >
@@ -727,23 +786,27 @@ export default function ViewUserListByAdmin() {
                                                         ) : null}
                                                     </div>
                                                     <div
-                                                        className="max-w-[260px] truncate text-[13px] leading-[18px] text-bo-muted"
+                                                        className="max-w-[260px] truncate text-[13px] leading-[18px] text-bo-muted cam-ung:max-lg:max-w-[200px]"
                                                         title={email || undefined}
                                                     >
                                                         {email || "Chưa có email"}
+                                                    </div>
+                                                    {/* Máy tính bảng dọc: cột Vai trò, Tên đăng nhập đã ẩn, ghi thành dòng phụ */}
+                                                    <div className="hidden max-w-[200px] truncate text-[13px] leading-[18px] text-slate-600 cam-ung:max-lg:block">
+                                                        {formatRole(u.vaiTro)} · {u.tenDangNhap}
                                                     </div>
                                                 </div>
                                             </div>
                                         </td>
 
-                                        <td className="whitespace-nowrap px-4 py-2.5 text-slate-700">
+                                        <td className={`whitespace-nowrap px-4 py-2.5 text-slate-700 ${AN_BANG}`}>
                                             <div className="max-w-[200px] truncate" title={u.tenDangNhap}>
                                                 {u.tenDangNhap}
                                             </div>
                                         </td>
 
                                         {/* Vai trò là phân loại: chữ thường, không dùng thẻ trạng thái */}
-                                        <td className="whitespace-nowrap px-4 py-2.5 text-slate-700">
+                                        <td className={`whitespace-nowrap px-4 py-2.5 text-slate-700 ${AN_BANG}`}>
                                             {formatRole(u.vaiTro)}
                                         </td>
 
@@ -751,20 +814,20 @@ export default function ViewUserListByAdmin() {
                                             <KhoPhuTrach user={u} />
                                         </td>
 
-                                        <td className="whitespace-nowrap px-4 py-2.5 tabular-nums text-slate-600">
+                                        <td className={`whitespace-nowrap px-4 py-2.5 tabular-nums text-slate-600 ${AN_BANG}`}>
                                             {u.soDienThoai || "—"}
                                         </td>
 
                                         <td className="px-4 py-2.5">
                                             <StatusBadge doiTuong="nguoi" label={isActive ? "Hoạt động" : "Bị khóa"} />
                                             {u.mustChangePassword ? (
-                                                <div className="mt-1 whitespace-nowrap text-xs leading-4 text-bo-muted">
+                                                <div className="mt-1 whitespace-nowrap text-xs leading-4 text-bo-muted cam-ung:max-lg:whitespace-normal">
                                                     Chưa đặt mật khẩu riêng
                                                 </div>
                                             ) : null}
                                         </td>
 
-                                        <td className="whitespace-nowrap px-4 py-2.5 text-[13px] tabular-nums text-bo-muted">
+                                        <td className={`whitespace-nowrap px-4 py-2.5 text-[13px] tabular-nums text-bo-muted ${AN_BANG}`}>
                                             {formatDate(u.ngayTao)}
                                         </td>
 
@@ -883,6 +946,7 @@ export default function ViewUserListByAdmin() {
                             })}
                         </tbody>
                     </table>
+                    </>
                 )}
             </TableShell>
 

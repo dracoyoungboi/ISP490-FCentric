@@ -206,7 +206,8 @@ export default function AuthPage() {
                         checked={rememberMe}
                         onChange={(e) => setRememberMe(e.target.checked)}
                     />
-                    <label htmlFor="remember" className="text-sm text-gray-600 cursor-pointer select-none">
+                    {/* Màn cảm ứng: nhãn cao 44px để chạm trúng ô Ghi nhớ dễ hơn */}
+                    <label htmlFor="remember" className="text-sm text-gray-600 cursor-pointer select-none cam-ung:flex cam-ung:min-h-11 cam-ung:items-center">
                         Ghi nhớ đăng nhập
                     </label>
                 </div>

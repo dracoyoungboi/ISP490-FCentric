@@ -36,6 +36,7 @@ export default function NganKeoThietBi({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
+      {/* Màn cảm ứng: nút đóng (của components/ui/sheet, là phần tử cuối) rộng 44px, dời vào để dấu × ngang hàng tiêu đề */}
       <SheetContent side="right" className="w-full gap-0 border-bo-border bg-bo-surface p-0 text-bo-foreground sm:max-w-[520px]">
         <SheetHeader className="gap-0.5 border-b border-slate-100 px-5 py-4 pr-12">
           <SheetTitle className="text-base leading-6 text-bo-foreground">Thiết bị đang đăng nhập</SheetTitle>

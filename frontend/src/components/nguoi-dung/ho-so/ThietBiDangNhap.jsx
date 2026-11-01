@@ -13,7 +13,9 @@ import { getApiErrorMessage } from "@/utils/apiError";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { toast } from "@/lib/thongBaoNhanh";
 
-const NUT_CHU = "rounded text-[13px] font-medium outline-none hover:underline focus-visible:ring-2 focus-visible:ring-bo-primary/40";
+// Màn cảm ứng: nút dạng chữ vẫn chạm được 44px nhờ đệm dọc, lề âm bù lại nên dòng không giãn (lớp cảm ứng chung nâng mọi nút
+// lên 44px, làm khoảng cách giữa dòng đếm thiết bị và các thẻ lệch nhau)
+const NUT_CHU = "rounded text-[13px] font-medium outline-none hover:underline focus-visible:ring-2 focus-visible:ring-bo-primary/40 cam-ung:min-h-0! cam-ung:py-[calc((44px-1lh)/2)] cam-ung:-my-[calc((44px-1lh)/2)]";
 
 /**
  * Mục "Thiết bị đang đăng nhập" ở Hồ sơ (chốt PA5, 31/10/2026).
