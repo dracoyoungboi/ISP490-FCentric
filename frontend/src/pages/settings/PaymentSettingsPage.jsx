@@ -468,7 +468,8 @@ export default function PaymentSettingsPage() {
       : "Đang tắt: thu ngân chỉ nhận tiền mặt.";
 
   return (
-    <div className="flex flex-col gap-4">
+    // Màn rộng: khối và thẻ giãn tới đáy menu Cấu hình, phần thừa dồn vào trên chân thẻ (chân thẻ luôn ở đáy)
+    <div className="flex flex-col gap-4 lg:flex-1">
       {!canStoreKeys ? (
         <div className="flex gap-3 rounded-lg bg-bo-danger-soft p-3 text-sm text-red-800" role="alert">
           <AlertTriangle className="mt-0.5 shrink-0" size={18} />
@@ -479,7 +480,7 @@ export default function PaymentSettingsPage() {
         </div>
       ) : null}
 
-      <SettingsCard aria-labelledby="thanh-toan-tieu-de">
+      <SettingsCard aria-labelledby="thanh-toan-tieu-de" className="flex flex-col lg:flex-1">
         <SettingsCardHeader title="Thanh toán tại quầy" titleId="thanh-toan-tieu-de" />
 
         <div className="px-5">
@@ -774,7 +775,7 @@ export default function PaymentSettingsPage() {
         </div>
 
         {/* Chân thẻ: kết quả kiểm tra gần nhất + hướng dẫn + kiểm tra kết nối */}
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-[#eef1f5] px-5 py-3">
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-[#eef1f5] px-5 py-3">
           <p className="text-[13px] leading-5 text-bo-muted" role="status">
             {testResult?.ok ? <span className="font-medium text-bo-success">Kết nối thành công lúc {formatTime(testResult.at)} · </span> : null}
             <button className={linkClass} onClick={() => setGuideOpen(true)} type="button">
