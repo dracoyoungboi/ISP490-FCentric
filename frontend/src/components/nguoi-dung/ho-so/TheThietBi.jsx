@@ -59,24 +59,20 @@ export function TheThietBiDayDu({ phien }) {
 }
 
 /**
- * Một thiết bị đang đăng nhập.
- * - `kieu="the"`: thẻ có khung trong lưới trên trang; nút Đăng xuất chỉ hiện khi rê chuột / Tab tới thẻ
- *   (máy cảm ứng luôn hiện) để trang không lặp lại nhiều nút đỏ.
- * - `kieu="dong"`: dòng trong ngăn kéo "Xem tất cả thiết bị"; nút luôn hiện (đây là nơi quản lý).
+ * Một thiết bị đang đăng nhập. Nút Đăng xuất chỉ hiện khi rê chuột / Tab tới thiết bị (máy cảm ứng luôn hiện) để
+ * không lặp lại cả cột chữ "Đăng xuất" (chốt 01/11/2026: ngăn kéo làm giống thẻ trên trang).
+ * - `kieu="the"`: thẻ có khung trong lưới trên trang.
+ * - `kieu="dong"`: dòng trong ngăn kéo "Xem tất cả thiết bị"; rê chuột thì tô nền nhạt cả dòng cho thấy bấm được
+ *   (thiết bị này không có nút nên không tô).
  */
 export default function TheThietBi({ phien, kieu = "the", onDangXuat }) {
   const Icon = ICON_LOAI[phien.loai] || Monitor;
   const laThe = kieu === "the";
   const nay = Boolean(phien.thietBiNay);
+  const coNut = !nay && Boolean(onDangXuat);
 
-  return (
-    <li
-      className={cn(
-        "group flex min-w-0 items-center gap-3",
-        laThe ? "rounded-lg border p-3" : "border-b border-slate-100 py-2.5 last:border-b-0",
-        laThe && "border-bo-border bg-bo-surface",
-      )}
-    >
+  const noiDung = (
+    <>
       <span
         className={cn(
           "flex size-9 shrink-0 items-center justify-center rounded-[9px]",
@@ -95,7 +91,7 @@ export default function TheThietBi({ phien, kieu = "the", onDangXuat }) {
           <p className="truncate text-[12px] leading-[17px] text-slate-400">Đăng nhập {ngayGio(phien.taoLuc)}</p>
         ) : null}
       </div>
-      {!nay && onDangXuat ? (
+      {coNut ? (
         <button
           type="button"
           onClick={() => onDangXuat(phien)}
@@ -103,13 +99,29 @@ export default function TheThietBi({ phien, kieu = "the", onDangXuat }) {
           className={cn(
             "inline-flex h-8 shrink-0 items-center rounded-md px-2.5 text-[13px] font-medium text-bo-muted outline-none transition-[opacity,background-color,color]",
             "hover:bg-bo-danger-soft hover:text-bo-danger focus-visible:ring-2 focus-visible:ring-bo-primary/40",
-            laThe &&
-              "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100 [@media(hover:none)]:opacity-100",
+            "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100 [@media(hover:none)]:opacity-100",
           )}
         >
           Đăng xuất
         </button>
       ) : null}
+    </>
+  );
+
+  if (laThe) {
+    return <li className="group flex min-w-0 items-center gap-3 rounded-lg border border-bo-border bg-bo-surface p-3">{noiDung}</li>;
+  }
+  // Dòng: nền tô nằm trong, cách đường kẻ 4px trên/dưới; tổng khoảng đệm dọc vẫn 10px như trước
+  return (
+    <li className="border-b border-slate-100 py-1 last:border-b-0">
+      <div
+        className={cn(
+          "group -mx-2 flex min-w-0 items-center gap-3 rounded-md px-2 py-1.5",
+          coNut && "transition-colors hover:bg-bo-surface-subtle focus-within:bg-bo-surface-subtle",
+        )}
+      >
+        {noiDung}
+      </div>
     </li>
   );
 }
