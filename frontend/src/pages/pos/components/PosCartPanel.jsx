@@ -48,7 +48,7 @@ function QuantityInput({ quantity, name, disabled, onCommit }) {
     <input
       aria-label={`Số lượng ${name}`}
       autoComplete="off"
-      className="h-7 w-10 bg-transparent text-center text-xs font-semibold text-bo-foreground outline-none focus:rounded focus:bg-bo-primary-soft focus:ring-1 focus:ring-bo-primary disabled:cursor-not-allowed"
+      className="h-7 w-10 cam-ung:w-12 cam-ung:text-[15px] bg-transparent text-center text-xs font-semibold text-bo-foreground outline-none focus:rounded focus:bg-bo-primary-soft focus:ring-1 focus:ring-bo-primary disabled:cursor-not-allowed"
       data-pos-qty={quantity}
       disabled={disabled}
       inputMode="numeric"
@@ -181,7 +181,7 @@ export default function PosCartPanel({
       <div className="shrink-0 border-t border-bo-border px-4 py-3">
         <label className="mb-3 block">
           <span className="sr-only">Ghi chú hóa đơn</span>
-          <input data-pos-note="" className="w-full rounded-md border border-bo-border bg-bo-surface px-3 py-2 text-xs text-bo-foreground outline-none placeholder:text-bo-muted focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/10 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle disabled:opacity-60" disabled={frozen} onChange={(event) => onNote(event.target.value)} placeholder="Ghi chú cho hóa đơn..." value={note} />
+          <input data-pos-note="" className="w-full rounded-md border border-bo-border bg-bo-surface px-3 py-2 text-xs cam-ung:py-2.5 cam-ung:text-sm text-bo-foreground outline-none placeholder:text-bo-muted focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/10 disabled:cursor-not-allowed disabled:bg-bo-surface-subtle disabled:opacity-60" disabled={frozen} onChange={(event) => onNote(event.target.value)} placeholder="Ghi chú cho hóa đơn..." value={note} />
         </label>
         <div className="space-y-2 text-[13px]">
           <div className="flex items-center justify-between text-bo-muted"><span>Tổng tiền hàng</span><span className="font-medium text-bo-foreground">{formatMoney(subtotal)}</span></div>

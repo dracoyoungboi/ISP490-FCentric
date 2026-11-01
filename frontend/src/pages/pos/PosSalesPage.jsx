@@ -19,6 +19,8 @@ import useOnlineStatus, { useOnReconnect, isNetworkError } from '@/hooks/useOnli
 import useScanQueue from '@/hooks/useScanQueue';
 import { playScanBeep } from '@/utils/scanBeep';
 import { hienTien } from '@/pages/product/components/product/logicBienThe';
+import { laCamUng } from '@/lib/camUng';
+import { useBanPhimAoMo } from '@/hooks/useBanPhimAo';
 import {
   posService,
   toPosGroup,
@@ -380,7 +382,13 @@ export default function PosSalesPage({
   const keyboardContext = useRef(null);
   // Mất mạng (navigator.onLine=false) -> chặn gửi thanh toán MỚI; hóa đơn đang treo vẫn xem được.
   const online = useOnlineStatus();
-  const wideScreen = useMediaQuery(WIDE_SCREEN_QUERY);
+  // Màn cảm ứng từ 1024px (iPad ngang, tablet Android ngang): giỏ cố định bên phải như màn rộng, không phải mở lớp phủ
+  const rong1280 = useMediaQuery(WIDE_SCREEN_QUERY);
+  const rong1024 = useMediaQuery('(min-width: 1024px)');
+  const wideScreen = rong1280 || (rong1024 && laCamUng());
+  // Máy tính bảng dọc / điện thoại: bàn phím ảo mở (gõ tìm hàng, ghi chú) thì ẩn thanh đáy "Mở hóa đơn | Thanh toán"
+  // để thanh không bị bàn phím che hoặc trôi lơ lửng giữa màn; máy tính không có bàn phím ảo nên luôn false
+  const banPhimMo = useBanPhimAoMo();
   const uiRef = useRef({ dialog: null, isSubmitting: false, activeInvoice: null, invoices: [] });
   // "orderCode:trạng thái" đã áp vào hóa đơn — WebSocket và lượt hỏi định kỳ báo cùng kết quả thì chỉ xử lý một lần
   const appliedPayosRef = useRef(new Set());
@@ -2044,7 +2052,7 @@ export default function PosSalesPage({
       {wideScreen ? null : renderInvoiceTabs('strip')}
 
       {/* overflow-clip (không phải hidden): khung không là vùng cuộn, focus/scrollIntoView không đẩy lệch được. */}
-      <main aria-labelledby={`pos-invoice-tab-${ticketNumber}`} id="pos-invoice-panel" role="tabpanel" className="grid min-h-0 flex-1 gap-3 overflow-clip bg-bo-surface px-3 pb-24 pt-3 sm:px-4 xl:grid-cols-[minmax(0,1fr)_390px] xl:pb-3">
+      <main aria-labelledby={`pos-invoice-tab-${ticketNumber}`} id="pos-invoice-panel" role="tabpanel" className="grid min-h-0 flex-1 gap-3 overflow-clip bg-bo-surface px-3 pb-24 pt-3 sm:px-4 xl:grid-cols-[minmax(0,1fr)_390px] xl:pb-3 cam-ung:lg:max-xl:grid-cols-[minmax(0,1fr)_360px] cam-ung:lg:max-xl:pb-3">
         <PosProductCatalog
           error={catalog.error}
           loading={catalog.loading}
@@ -2072,10 +2080,10 @@ export default function PosSalesPage({
           warehouseId={warehouseId}
         />
 
-        <div className="hidden min-h-0 xl:flex">{renderCartPanel()}</div>
+        <div className="hidden min-h-0 xl:flex cam-ung:lg:flex">{renderCartPanel()}</div>
       </main>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-bo-border bg-bo-surface px-3 py-2.5 shadow-sm xl:hidden">
+      <div className={`fixed inset-x-0 bottom-0 z-30 border-t border-bo-border bg-bo-surface px-3 py-2.5 shadow-sm xl:hidden cam-ung:lg:hidden${banPhimMo ? ' hidden' : ''}`}>
         <div className="mx-auto flex max-w-3xl items-center gap-3">
           <button className="flex min-w-0 flex-1 items-center gap-2.5 text-left" onClick={() => setMobileCartOpen(true)} type="button">
             <span className="relative grid size-9 shrink-0 place-items-center rounded-lg bg-bo-primary-soft text-bo-primary"><ShoppingBag aria-hidden="true" size={17} /><span className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-bo-primary px-1 text-[9px] font-bold text-white">{countCart(cart)}</span></span>
@@ -2085,7 +2093,7 @@ export default function PosSalesPage({
         </div>
       </div>
 
-      {mobileCartOpen ? <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/40 p-3 sm:items-center xl:hidden" onMouseDown={(event) => { if (event.target === event.currentTarget) setMobileCartOpen(false); }}>
+      {mobileCartOpen ? <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/40 p-3 sm:items-center xl:hidden cam-ung:lg:hidden" onMouseDown={(event) => { if (event.target === event.currentTarget) setMobileCartOpen(false); }}>
         <div className="flex h-[min(84dvh,760px)] w-full max-w-xl flex-col">
           <div className="mb-2 flex justify-end"><button aria-label="Đóng hóa đơn" className="grid size-9 place-items-center rounded-full bg-bo-surface text-bo-foreground shadow-sm" onClick={() => setMobileCartOpen(false)} type="button"><X aria-hidden="true" size={18} /></button></div>
           {renderCartPanel()}

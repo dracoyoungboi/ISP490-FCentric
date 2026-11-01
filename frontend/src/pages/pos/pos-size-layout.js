@@ -7,6 +7,8 @@
 export const LIST_SLOT = 56;
 export const LIST_GAP = 6;
 export const GRID_SLOT = 40;
+// Màn cảm ứng (máy tính bảng): khe Lưới 44px để ô kích cỡ đủ vùng chạm (5 khe × 40 trong thẻ 242px chỉ được 42px/ô).
+export const GRID_SLOT_CAM_UNG = 44;
 export const GRID_GAP = 4;
 /** Đệm ngang + viền của một ô (px-1 hai bên + viền 1px hai bên): chữ phải lọt trong khe trừ phần này. */
 export const CHIP_CHROME = 10;
@@ -43,12 +45,15 @@ export function listLayout(contentWidth) {
   return { stacked: true, slots, sizesWidth: slotsWidth(slots, LIST_SLOT, LIST_GAP) };
 }
 
-/** Bố cục Lưới: số cột theo bề rộng vùng (không theo bề rộng màn), số khe ô kích cỡ mỗi dòng của thẻ. */
-export function gridLayout(contentWidth) {
+/**
+ * Bố cục Lưới: số cột theo bề rộng vùng (không theo bề rộng màn), số khe ô kích cỡ mỗi dòng của thẻ.
+ * `slot`: bề rộng khe (GRID_SLOT; màn cảm ứng truyền GRID_SLOT_CAM_UNG để mỗi ô ≥ 44px).
+ */
+export function gridLayout(contentWidth, slot = GRID_SLOT) {
   const width = Math.max(0, contentWidth);
   const cols = Math.max(2, Math.floor((width + GRID_COLUMN_GAP) / (GRID_CARD_MIN + GRID_COLUMN_GAP)));
   const cardWidth = (width - (cols - 1) * GRID_COLUMN_GAP) / cols;
-  const slotsPerRow = Math.max(2, slotsIn(cardWidth - GRID_CARD_CHROME, GRID_SLOT, GRID_GAP));
+  const slotsPerRow = Math.max(2, slotsIn(cardWidth - GRID_CARD_CHROME, slot, GRID_GAP));
   return { cols, cardWidth, slotsPerRow };
 }
 

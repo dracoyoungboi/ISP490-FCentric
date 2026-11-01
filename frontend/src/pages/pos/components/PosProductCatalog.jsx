@@ -5,7 +5,8 @@ import PosProductCard from './PosProductCard';
 import { SCAN_HINT, isTextEntry } from '../pos-scan';
 import { formatCount } from '../pos-format';
 import { priceLabelOf } from '../pos-group';
-import { GRID_GAP, GRID_SLOT, LIST_GAP, LIST_SLOT, gridLayout, listLayout, priceSummary, slotSpan } from '../pos-size-layout';
+import { GRID_GAP, GRID_SLOT, GRID_SLOT_CAM_UNG, LIST_GAP, LIST_SLOT, gridLayout, listLayout, priceSummary, slotSpan } from '../pos-size-layout';
+import { laCamUng } from '@/lib/camUng';
 import './pos-scan-indicator.css';
 
 // Chỉ lưu khi thu ngân tự bấm Lưới/Danh sách. Khóa cũ (fcentric.pos.productView) bị ghi "grid" ngay lần mở
@@ -80,6 +81,8 @@ function useCatalogLayout(scrollRef) {
   return useMemo(() => {
     const width = metrics.width || FALLBACK_WIDTH;
     const family = metrics.fontFamily || 'Inter, sans-serif';
+    // Màn cảm ứng: khe Lưới 44px (ô kích cỡ đủ vùng chạm, thẻ 242px xếp 4 ô thay vì 5); máy tính giữ khe 40px.
+    const gridSlot = laCamUng() ? GRID_SLOT_CAM_UNG : GRID_SLOT;
     const context = typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null;
     const widths = new Map();
     const measure = (text, kind) => {
@@ -97,13 +100,13 @@ function useCatalogLayout(scrollRef) {
     return {
       fontsVersion,
       list: listLayout(width),
-      grid: gridLayout(width),
+      grid: gridLayout(width, gridSlot),
       textWidth: (text, kind) => measure(String(text ?? ''), kind),
       spanOf: (label, kind) => {
         const text = String(label ?? '');
         return kind === 'list'
           ? slotSpan(measure(text, 'list'), LIST_SLOT, LIST_GAP)
-          : slotSpan(measure(text, 'grid'), GRID_SLOT, GRID_GAP);
+          : slotSpan(measure(text, 'grid'), gridSlot, GRID_GAP);
       },
     };
   }, [metrics, fontsVersion]);

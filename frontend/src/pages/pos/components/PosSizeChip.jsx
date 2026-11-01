@@ -38,7 +38,7 @@ function sizeState(group, variant, inCart) {
 // Khay: ô co giãn theo chữ, nhãn dài ("One size fits all") xuống dòng chứ không bị cắt.
 const SIZES = {
   list: { box: 'h-[42px]', boxPrice: 'h-[54px]', label: 'text-[13px]' },
-  grid: { box: 'h-10', boxPrice: 'h-[52px]', label: 'text-xs' },
+  grid: { box: 'h-10', boxPrice: 'h-[52px]', label: 'text-xs cam-ung:text-[13px]' },
   tray: { box: 'min-h-[52px] py-1.5', boxPrice: 'min-h-[52px] py-1.5', label: 'text-sm', wrap: true },
 };
 
@@ -72,7 +72,7 @@ export function SizeChip({ group, variant, inCart = 0, justAdded = false, matche
     >
       {/* Bố cục đã chia đủ khe cho nhãn; cắt chữ chỉ là chốt chặn khi font chưa tải xong. Khay thì xuống dòng. */}
       <span className={`max-w-full ${dims.wrap ? 'break-words text-center' : 'truncate'} font-semibold leading-4 ${dims.label} ${state.out ? 'line-through' : ''}`}>{variant.tenSize}</span>
-      <span className={`text-[10px] leading-3 tabular-nums ${countTone}`}>{state.stockLabel}</span>
+      <span className={`text-[10px] cam-ung:text-[11.5px] leading-3 tabular-nums ${countTone}`}>{state.stockLabel}</span>
       {showPrice ? (
         <span className={`mt-px text-[10px] font-semibold leading-3 tabular-nums ${state.out ? 'text-slate-400' : 'text-bo-primary-strong'}`}>{formatPriceShort(variant.price)}</span>
       ) : null}
