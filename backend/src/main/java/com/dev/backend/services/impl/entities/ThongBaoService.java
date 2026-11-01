@@ -30,7 +30,8 @@ import java.util.function.Supplier;
  *   một giao dịch riêng: lỗi của một người không làm mất thông báo của người khác.</li>
  *   <li>Đọc / đánh dấu đã đọc: chỉ thông báo của chính người đang đăng nhập (API /api/v1/thong-bao).</li>
  * </ul>
- * Luật ai nhận thông báo nằm ở service của từng nghiệp vụ (vd. ThongBaoChuyenKhoService).
+ * Luật ai nhận thông báo nằm ở service của từng nghiệp vụ (ThongBaoChuyenKhoService, ThongBaoMuaHangService,
+ * ThongBaoXuatKhoService, ThongBaoKiemKeService); cách tìm người theo kho / vai trò dùng chung ở NguoiNhanThongBao.
  */
 @Slf4j
 @Service
@@ -43,13 +44,33 @@ public class ThongBaoService {
     /** Các màu ô biểu tượng NotificationBell.jsx hỗ trợ (MAU_O_BIEU_TUONG). */
     static final Set<String> TONE = Set.of(TONE_INFO, TONE_WARNING, TONE_DANGER, TONE_SUCCESS);
 
-    /** Mã loại (khớp LOAI_THONG_BAO trong NotificationBell.jsx). */
-    public static final String LOAI_PHIEU_CHUYEN_KHO = "phieu_chuyen_kho";
+    /**
+     * Mã loại = tên bảng của chứng từ gây ra thông báo (cũng là loai_tham_chieu), khớp LOAI_THONG_BAO trong
+     * NotificationBell.jsx (chọn biểu tượng).
+     */
+    public static final String LOAI_PHIEU_CHUYEN_KHO = "phieu_chuyen_kho",
+            LOAI_YEU_CAU_NHAP_HANG = "yeu_cau_mua_hang",
+            LOAI_DON_MUA_HANG = "don_mua_hang",
+            LOAI_PHIEU_NHAT_HANG = "danh_sach_nhat_hang",
+            LOAI_DON_BAN_HANG = "don_ban_hang",
+            LOAI_DOT_KIEM_KE = "dot_kiem_ke";
     /** Tên nhóm hiển thị dưới mỗi thông báo theo loại; loại không có ở đây thì không ghi nhóm. */
-    static final Map<String, String> NHOM_THEO_LOAI = Map.of(LOAI_PHIEU_CHUYEN_KHO, "Chuyển kho");
+    static final Map<String, String> NHOM_THEO_LOAI = Map.of(
+            LOAI_PHIEU_CHUYEN_KHO, "Chuyển kho",
+            LOAI_YEU_CAU_NHAP_HANG, "Mua hàng",
+            LOAI_DON_MUA_HANG, "Mua hàng",
+            LOAI_PHIEU_NHAT_HANG, "Nhặt hàng",
+            LOAI_DON_BAN_HANG, "Bán hàng",
+            LOAI_DOT_KIEM_KE, "Kiểm kê");
     /** Cột loai_thong_bao của lược đồ gốc chỉ nhận các giá trị này; mã loại khác được quy về nhóm gần nhất. */
     static final Set<String> LOAI_LUOC_DO = Set.of("don_hang", "ton_kho", "he_thong", "phe_duyet", "khac");
-    static final Map<String, String> LOAI_LUOC_DO_THEO_MA = Map.of(LOAI_PHIEU_CHUYEN_KHO, "phe_duyet");
+    static final Map<String, String> LOAI_LUOC_DO_THEO_MA = Map.of(
+            LOAI_PHIEU_CHUYEN_KHO, "phe_duyet",
+            LOAI_YEU_CAU_NHAP_HANG, "phe_duyet",
+            LOAI_DON_MUA_HANG, "phe_duyet",
+            LOAI_PHIEU_NHAT_HANG, "don_hang",
+            LOAI_DON_BAN_HANG, "don_hang",
+            LOAI_DOT_KIEM_KE, "ton_kho");
 
     static final int SO_DONG_MAC_DINH = 30;
     static final int SO_DONG_TOI_DA = 100;
@@ -258,6 +279,9 @@ public class ThongBaoService {
     /** Cắt cho vừa cột (câu thông báo không được làm hỏng việc ghi vì dài quá). */
     private static String cat(String s, int doDai) {
         if (s == null || s.length() <= doDai) return s;
-        return s.substring(0, doDai - 1) + "…";
+        int den = doDai - 1;
+        // Không cắt giữa một cặp surrogate (emoji trong lý do hủy của sàn, tên nhà cung cấp): nửa ký tự làm hỏng câu
+        if (Character.isHighSurrogate(s.charAt(den - 1))) den--;
+        return s.substring(0, den) + "…";
     }
 }
