@@ -7,15 +7,18 @@ import { cn } from "@/lib/utils";
  *
  * - Thân: bảng hàng bên trái, cột thuộc tính 340px bên phải từ 1280px; hẹp hơn thì cột phải xuống dưới bảng.
  * - `thongBao`: một hay nhiều DongThongBao, xếp cách nhau 8px trên nền trắng, có vạch ngăn với phần trên.
+ * - `dinh`: vùng dính đầu màn khi cuộn, ngay dưới thông báo (điện thoại: ô quét của màn nhặt hàng).
  * - Khối là container `@container/khoi`: các phần bên trong chia cột theo BỀ RỘNG KHỐI (`@2xl/khoi:` = khối ≥ 672px),
  *   không theo khổ màn hình — ở 768px có thanh bên, khối chỉ còn ~470px nên vẫn xếp như điện thoại.
  * - Màn đặt khung trong `<PageContainer className="flex min-h-full flex-col">` để khối giãn hết chiều cao.
  */
-export default function KhungChungTu({ dau, tienTrinh, thongBao, chinh, cotPhai, chan, className, ...props }) {
+export default function KhungChungTu({ dau, tienTrinh, thongBao, dinh, chinh, cotPhai, chan, className, ...props }) {
   return (
     <article
       className={cn(
         "@container/khoi flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm",
+        // Có vùng dính: bỏ cắt khung để vùng đó dính được đầu màn khi cuộn (overflow-hidden chặn sticky)
+        dinh && "overflow-visible",
         className,
       )}
       {...props}
@@ -24,6 +27,11 @@ export default function KhungChungTu({ dau, tienTrinh, thongBao, chinh, cotPhai,
       {tienTrinh}
       {thongBao ? (
         <div className="flex flex-col gap-2 border-t border-bo-border px-4 py-3 sm:px-6 sm:py-4">{thongBao}</div>
+      ) : null}
+      {dinh ? (
+        <div className="sticky top-0 z-20 border-t border-bo-border bg-bo-surface px-4 py-2.5 shadow-[0_1px_0_var(--color-bo-border),0_6px_12px_-8px_rgba(15,23,42,0.18)]">
+          {dinh}
+        </div>
       ) : null}
       <div
         className={cn(

@@ -34,7 +34,8 @@ export default function NutPhanDoan({ value, luaChon, onChange, nhan, className 
     <div
       role="radiogroup"
       aria-label={nhan}
-      className={cn("inline-flex max-w-full shrink-0 gap-0.5 overflow-x-auto rounded-lg bg-slate-100 p-0.5", className)}
+      // Màn cảm ứng: đệm dọc 4px để vùng chạm vô hình 44px của nút (index.css) nằm trọn trong dải cuộn ngang
+      className={cn("inline-flex max-w-full shrink-0 gap-0.5 overflow-x-auto rounded-lg bg-slate-100 p-0.5 cam-ung:py-1", className)}
     >
       {ds.map((m, i) => {
         const dangChon = m.value === value;

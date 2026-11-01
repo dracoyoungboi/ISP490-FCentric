@@ -110,9 +110,11 @@ export default function BangHangTaoPhieu({
                   {n.mo
                     ? n.dong.map((d) => (
                       <tr key={d.id} className={cn(DONG, dongSang != null && String(dongSang) === String(d.id) && DONG_SANG)}>
-                        <td className={cn(O, O_DAU_DONG_CON)}>
+                        {/* Điện thoại: dòng biến thể thụt 24px thay vì 64px để các cột nhập (đơn giá, số lượng) vừa khung 390px */}
+                        <td className={cn(O, O_DAU_DONG_CON, "max-md:pl-6")}>
                           <MauKichCo dong={d} className="max-w-full" />
-                          <div className="mt-0.5 break-all font-mono text-xs text-bo-muted">{d.sku || "—"}</div>
+                          {/* Điện thoại: SKU chỉ ngắt sau dấu gạch ("AO-POLO-" / "TRANG-M"), không bẻ giữa chữ */}
+                          <div className="mt-0.5 break-all font-mono text-xs text-bo-muted max-md:break-normal">{d.sku || "—"}</div>
                           {dsCot.filter((c) => c.anHep && c.phuHep).map((c) => (
                             <div key={c.ma} className={cn("mt-0.5 text-xs text-bo-muted", CHI_DIEN_THOAI)}>{c.phuHep(d)}</div>
                           ))}

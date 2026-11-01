@@ -1,6 +1,7 @@
+import { useLayoutEffect, useRef, useState } from "react";
 import { ArrowLeft, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getPaperPageCss, getPaperSheetClasses, isThermalPaper } from "@/components/print/paperStyles";
+import { getPaperPageCss, getPaperSheetClasses, getPaperSheetWidthPx, isThermalPaper } from "@/components/print/paperStyles";
 import { useThermalPageHeight } from "@/components/print/useThermalPageHeight";
 import "@/styles/print.css";
 
@@ -29,6 +30,33 @@ export default function PrintLayout({
     const paperConfig = paper ?? DEFAULT_PAPER;
     // K80 / K57 (giấy cuộn): chiều cao trang = chiều cao thật của phiếu
     const { ref: thermalRef, heightMm: thermalHeightMm } = useThermalPageHeight(isThermalPaper(paperConfig.size));
+    // Điện thoại (< 768px): tờ giấy thu nhỏ vừa bề ngang màn để đọc hết mà không vuốt ngang (vẫn chụm hai ngón để phóng to);
+    // chỉ khi xem trên màn hình — lúc in vẫn đủ khổ. Chưa có phiếu để in (đang tải, lỗi, chưa in được): khối thông báo dùng
+    // bề ngang màn thay vì khổ giấy
+    const khungRef = useRef(null);
+    const [tiLe, setTiLe] = useState(1);
+    const rongGiay = getPaperSheetWidthPx(paperConfig);
+    // Đo trước khi vẽ (không nháy một khung A4 đủ cỡ); chỉ tính dưới 768px, máy tính giữ tỉ lệ 1 và không dựng lại khi đổi
+    // cỡ cửa sổ; bỏ qua chênh dưới 2% để thanh cuộn bật / tắt không làm tỉ lệ lặp qua lại
+    useLayoutEffect(() => {
+        const khung = khungRef.current;
+        if (!khung || typeof ResizeObserver === "undefined") return undefined;
+        const dienThoai = window.matchMedia("(max-width: 767.98px)");
+        const tinh = () => {
+            if (!dienThoai.matches) {
+                setTiLe(1);
+                return;
+            }
+            const kieu = getComputedStyle(khung);
+            const rong = khung.clientWidth - parseFloat(kieu.paddingLeft) - parseFloat(kieu.paddingRight);
+            const moi = Math.min(1, rong / rongGiay);
+            if (moi > 0) setTiLe((cu) => (Math.abs(cu - moi) < 0.02 && moi < 1 ? cu : moi));
+        };
+        tinh();
+        const theoDoi = new ResizeObserver(tinh);
+        theoDoi.observe(khung);
+        return () => theoDoi.disconnect();
+    }, [rongGiay]);
 
     return (
         <div className="print-root min-h-screen bg-bo-canvas">
@@ -58,10 +86,11 @@ export default function PrintLayout({
                 </Button>
             </div>
 
-            <div className="print-container overflow-x-auto px-4 py-6 sm:px-6">
+            <div ref={khungRef} className="print-container overflow-x-auto px-4 py-6 sm:px-6">
                 <div
                     ref={thermalRef}
-                    className={`mx-auto bg-white shadow-sm print:min-h-0! print:shadow-none! ${getPaperSheetClasses(paperConfig)}`}
+                    style={{ "--ti-le-giay": tiLe }}
+                    className={`mx-auto bg-white shadow-sm print:min-h-0! print:shadow-none! ${getPaperSheetClasses(paperConfig)} ${disablePrint ? "max-md:w-auto max-md:min-h-0" : "max-md:[zoom:var(--ti-le-giay)] print:[zoom:1]"}`}
                 >
                     {children}
                 </div>
