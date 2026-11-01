@@ -6,6 +6,9 @@ import { nguoiDungService } from "../../services/nguoiDungService";
 import { SU_KIEN_PHAI_DOI_MAT_KHAU } from "../../services/apiClient";
 import { ensureTokenUsable } from "../../utils/authToken";
 
+// Máy chủ trả lời /me trong khoảng này thì vào thẳng trang, không chớp hộp "Đang kiểm tra phiên đăng nhập"
+const TRE_HIEN_HOP_CHO_MS = 400;
+
 /**
  * Cổng mọi trang cần đăng nhập (khung quản trị, POS, các trang In). Tài khoản còn mật khẩu tạm thì chỉ hiện hộp Đổi
  * mật khẩu bắt buộc, KHÔNG dựng trang bên dưới: trang không gọi API (máy chủ cũng chặn, 403 PASSWORD_CHANGE_REQUIRED)
@@ -18,6 +21,14 @@ export default function ProtectedRoute() {
     const [mustChangePassword, setMustChangePassword] = useState(false);
     const [taiKhoan, setTaiKhoan] = useState({ tenDangNhap: "", email: "" });
     const [retryCount, setRetryCount] = useState(0);
+    // Chỉ trễ ở lần kiểm tra đầu; bấm Thử lại thì hộp hiện ngay
+    const [hienHopCho, setHienHopCho] = useState(false);
+
+    useEffect(() => {
+        if (status !== "checking" || hienHopCho) return;
+        const timer = setTimeout(() => setHienHopCho(true), TRE_HIEN_HOP_CHO_MS);
+        return () => clearTimeout(timer);
+    }, [status, hienHopCho]);
 
     // Máy chủ báo phải đổi mật khẩu ở một request bất kỳ (vd. cờ vừa bật): mở hộp bắt buộc
     useEffect(() => {
@@ -102,6 +113,10 @@ export default function ProtectedRoute() {
     }
 
     if (status === "checking") {
+        if (!hienHopCho) {
+            return <main className="min-h-screen bg-bo-canvas" />;
+        }
+
         return (
             <main className="flex min-h-screen items-center justify-center bg-bo-canvas p-6">
                 <div
