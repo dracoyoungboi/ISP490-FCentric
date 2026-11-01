@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Camera, Download, Loader2, Video, X } from "lucide-react";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/lib/thongBaoNhanh";
+import LoadingState from "@/components/shared/LoadingState";
 import { dinhGio, dinhNgay, urlCua } from "./dinhDangBangChung";
 import { chuThongTinTep, tenTepTaiXuong } from "./tinhDongGoi";
 
@@ -75,10 +76,7 @@ function XemAnh({ src, ten }) {
   return (
     <>
       {trangThai === "dangTai" ? (
-        <div className="grid h-48 place-items-center rounded-md bg-bo-surface-subtle text-bo-muted">
-          <Loader2 className="size-5 animate-spin" aria-hidden="true" />
-          <span className="sr-only">Đang tải ảnh…</span>
-        </div>
+        <LoadingState className="min-h-48 rounded-md bg-bo-surface-subtle" label="Đang tải ảnh" />
       ) : null}
       <img
         src={src}

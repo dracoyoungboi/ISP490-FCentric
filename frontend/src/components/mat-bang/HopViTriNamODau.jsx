@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import LoadingState from "@/components/shared/LoadingState";
 import {
   Dialog,
   DialogContent,
@@ -72,9 +72,7 @@ function NoiDung({ khoId, viTriId, khuVucId, duLieu, onDong, onMoSoDoKe }) {
     noiDung = <DongThongBao tone="bad">Không tải được mặt bằng kho. Vui lòng thử lại.</DongThongBao>;
   } else if (!taiVe) {
     noiDung = (
-      <div className="flex h-40 items-center justify-center text-bo-muted">
-        <Loader2 className="size-5 animate-spin" aria-label="Đang tải mặt bằng" />
-      </div>
+      <LoadingState className="min-h-40" label="Đang tải mặt bằng" />
     );
   } else if (!taiVe.matBang?.soCot) {
     noiDung = <DongThongBao>Kho này chưa vẽ mặt bằng. Vào Vị trí kệ → Mặt bằng để vẽ.</DongThongBao>;

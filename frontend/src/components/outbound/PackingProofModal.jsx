@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { X, ShieldCheck, Loader2 } from "lucide-react";
+import { X, ShieldCheck } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
+import LoadingState from "@/components/shared/LoadingState";
 import PackingProofSection from "@/components/outbound/PackingProofSection";
 import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
 import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
@@ -103,10 +104,7 @@ export default function PackingProofModal({
         {/* Body */}
         <div className="p-5 overflow-y-auto space-y-4">
           {loading && !data ? (
-            <div className="flex flex-col items-center justify-center py-12 text-slate-500">
-              <Loader2 className="size-7 animate-spin text-bo-primary mb-2" />
-              <p className="text-sm">Đang tải thông tin bằng chứng...</p>
-            </div>
+            <LoadingState className="min-h-48" label="Đang tải thông tin bằng chứng" />
           ) : !data && loi ? (
             // Không tải được: không vẽ ô trống (trông như đơn chưa có bằng chứng, hoặc sai số ô ảnh / video)
             <DongThongBao tone="bad" actions={<NutChu onClick={fetchProofs}>Thử lại</NutChu>}>
