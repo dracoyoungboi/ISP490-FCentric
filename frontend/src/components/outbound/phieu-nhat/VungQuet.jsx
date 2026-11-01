@@ -19,7 +19,7 @@ export default function VungQuet({ scanRef, onQuet, dangGui = 0, ketQua, tienDo,
   return (
     <section
       aria-label="Quét mã vạch"
-      className="grid gap-x-6 gap-y-3 rounded-lg border border-bo-border bg-bo-surface px-4 py-3.5 @2xl/khoi:grid-cols-[minmax(0,1fr)_240px] @2xl/khoi:items-start"
+      className="grid gap-x-6 gap-y-3 rounded-lg border border-bo-border bg-bo-surface px-4 py-3.5 @2xl/khoi:grid-cols-[minmax(0,1fr)_240px] @2xl/khoi:items-start max-md:gap-y-2 max-md:border-0 max-md:p-0"
     >
       <ScanBar
         ref={scanRef}
@@ -30,7 +30,21 @@ export default function VungQuet({ scanRef, onQuet, dangGui = 0, ketQua, tienDo,
         lastResult={khoa ? null : ketQua}
         disabled={khoa}
       />
-      <div className="grid gap-2 rounded-lg border border-slate-100 bg-bo-surface-subtle p-3">
+      {/* Điện thoại: tiến độ một dòng ngay dưới ô quét (vùng quét dính đầu màn nên phải thấp) */}
+      <div className="flex items-center gap-3 md:hidden">
+        <span className="shrink-0 text-[13px] text-bo-muted tabular-nums">
+          <b className="text-base font-semibold text-bo-heading">{formatQuantity(tienDo.da)}</b>/{formatQuantity(tienDo.can)} sản phẩm · {tienDo.pct}%
+        </span>
+        <Progress
+          value={tienDo.pct}
+          aria-hidden="true"
+          className={cn(
+            "h-1.5 flex-1 bg-slate-200/70",
+            tienDo.xong ? "[&_[data-slot=progress-indicator]]:bg-bo-success" : "[&_[data-slot=progress-indicator]]:bg-bo-primary",
+          )}
+        />
+      </div>
+      <div className="grid gap-2 rounded-lg border border-slate-100 bg-bo-surface-subtle p-3 max-md:hidden">
         <div className="text-xs font-medium leading-4 text-bo-muted">Tiến độ nhặt</div>
         <div className="text-[22px] font-semibold leading-7 text-bo-heading tabular-nums">
           {formatQuantity(tienDo.da)}

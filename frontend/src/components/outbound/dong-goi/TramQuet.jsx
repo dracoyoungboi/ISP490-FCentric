@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import { CircleCheckBig, Loader2, ScanBarcode, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { soVN } from "@/components/chung-tu/bangChungTu";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 /**
@@ -18,6 +19,8 @@ const TramQuet = forwardRef(function TramQuet({ onQuet, dangCho = 0, phanHoi = n
   useImperativeHandle(ref, () => oMaRef.current, []);
   const [ma, setMa] = useState("");
   const [soLuong, setSoLuong] = useState("1");
+  // Điện thoại: ô mã chỉ còn ~280px, câu gợi ý dài bị cắt giữa chừng; cách dùng Enter đã có ở câu hướng dẫn bên dưới
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     oMaRef.current?.focus();
@@ -48,7 +51,7 @@ const TramQuet = forwardRef(function TramQuet({ onQuet, dangCho = 0, phanHoi = n
             value={ma}
             onChange={(suKien) => setMa(suKien.target.value)}
             onKeyDown={bamPhim}
-            placeholder="Quét mã vạch hoặc nhập SKU rồi nhấn Enter"
+            placeholder={isMobile ? "Quét hoặc nhập SKU" : "Quét mã vạch hoặc nhập SKU rồi nhấn Enter"}
             autoComplete="off"
             spellCheck={false}
             className="h-11 w-full rounded-lg border-[1.5px] border-bo-primary bg-bo-surface pl-10 pr-3 font-mono text-[15px] text-bo-foreground outline-none ring-[3px] ring-bo-primary/12 placeholder:font-sans placeholder:text-sm placeholder:text-bo-muted"

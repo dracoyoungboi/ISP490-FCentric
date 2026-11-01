@@ -26,6 +26,21 @@ import { CO_TRANG_DONG, NGUONG_CONG_CU, SO_DEM_KIEM_KE_TOI_DA } from "@/config/b
 import { cn } from "@/lib/utils";
 import { TEN_LOC, chuKetQuaTim, docSoDem, dongHienThi, timLo } from "./tinhKiemKe";
 
+/** Mã lô trên điện thoại: chỉ xuống dòng sau dấu "-" (LO-PN202610251-01), không bẻ giữa dãy số. */
+function ngatTaiGach(ma) {
+  if (!ma) return "—";
+  return ma.split("-").map((phan, i, ds) => (
+    <span key={i}>
+      {phan}
+      {i < ds.length - 1 ? (
+        <>
+          -<wbr />
+        </>
+      ) : null}
+    </span>
+  ));
+}
+
 // Màu chữ đủ tương phản trên nền trắng (≥ 4,5:1)
 const MAU_CHENH = {
   thua: "text-bo-primary-strong",
@@ -56,7 +71,7 @@ function ChenhLech({ d, mu, chiXem = false }) {
 
 // Nút − / + của ô đếm: khối hẹp (điện thoại) to hơn để dễ chạm; tiêu điểm bàn phím tô nền (viền ngoài bị khung cắt)
 const NUT_DEM =
-  "grid w-8 place-items-center bg-slate-50 text-slate-600 outline-none hover:bg-slate-100 hover:text-bo-foreground focus-visible:bg-bo-primary-soft focus-visible:text-bo-primary-strong disabled:cursor-not-allowed disabled:opacity-40 @max-2xl/khoi:w-11";
+  "grid w-8 place-items-center bg-slate-50 text-slate-600 outline-none hover:bg-slate-100 hover:text-bo-foreground focus-visible:bg-bo-primary-soft focus-visible:text-bo-primary-strong disabled:cursor-not-allowed disabled:opacity-40 @max-2xl/khoi:w-11 cam-ung:w-11";
 
 /**
  * Ô đếm − / số / +: gõ số nguyên (trống = chưa đếm); nhận tiêu điểm thì chọn sẵn số cũ (gõ số mới thay hẳn, không nối vào);
@@ -72,7 +87,8 @@ function ODem({ d, onDoiSo, onXong, onQuetNham, idO }) {
   return (
     <span
       className={cn(
-        "inline-flex h-9 items-stretch overflow-hidden rounded-md border bg-bo-surface focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 @max-2xl/khoi:h-11",
+        // Màn cảm ứng: khối − / số / + cao 44px ở mọi bề rộng (khung bo cắt tràn nên nút không mở được vùng chạm ra ngoài)
+        "inline-flex h-9 items-stretch overflow-hidden rounded-md border bg-bo-surface focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 @max-2xl/khoi:h-11 cam-ung:h-11",
         d.so == null ? "border-bo-input-border" : "border-bo-primary/40",
       )}
     >
@@ -128,7 +144,8 @@ function ODem({ d, onDoiSo, onXong, onQuetNham, idO }) {
             onXong?.();
           }
         }}
-        className="w-16 border-x border-slate-200 bg-bo-surface text-center text-sm tabular-nums text-bo-foreground outline-none placeholder:text-slate-500"
+        // Điện thoại hẹp (≤ 380px, vd. 360px): ô số 44px để cả cụm − ô + vừa cột (bảng không tràn); nút ± giữ 44px
+        className="w-16 border-x border-slate-200 bg-bo-surface text-center text-sm tabular-nums text-bo-foreground outline-none placeholder:text-slate-500 max-[380px]:w-11"
       />
       <button
         type="button"
@@ -285,14 +302,23 @@ export default function BangKiemKe({
                           {d.tenHien && (d.tenMau || d.kichCo) ? (
                             <>
                               <MauKichCo dong={d} className="max-w-full align-bottom text-slate-700" />
-                              {" · "}
+                              <span className="max-md:hidden">{" · "}</span>
                             </>
                           ) : null}
-                          <span className="break-all font-mono">{d.sku || "—"}</span>
+                          {/* Điện thoại: bỏ SKU (cột hẹp làm mã bị bẻ vụn), mã lô xuống dòng riêng — quét theo mã lô trên tem */}
+                          <span className="break-all font-mono max-md:hidden">{d.sku || "—"}</span>
                           <span className={CHI_DIEN_THOAI}>
-                            {" · lô "}
-                            <span className="break-all font-mono text-slate-700">{d.maLo || "—"}</span>
-                            {hienHeThong ? <> · hệ thống <b className="font-semibold text-slate-700">{soVN(d.heThong)}</b></> : null}
+                            <span className="max-md:hidden">{" · lô "}</span>
+                            <span className="break-all font-mono text-slate-700 max-md:mt-0.5 max-md:block max-md:break-normal">
+                              <span className="md:hidden">Lô </span>
+                              <span className="md:hidden">{ngatTaiGach(d.maLo)}</span>
+                              <span className="max-md:hidden">{d.maLo || "—"}</span>
+                            </span>
+                            {hienHeThong ? (
+                              <span className="max-md:block">
+                                <span className="max-md:hidden">{" · "}</span>hệ thống <b className="font-semibold text-slate-700">{soVN(d.heThong)}</b>
+                              </span>
+                            ) : null}
                           </span>
                         </span>
                       </span>
@@ -305,7 +331,7 @@ export default function BangKiemKe({
                     <td className={cn(O, "text-right font-medium text-bo-foreground", AN_DIEN_THOAI)}>{soVN(d.heThong)}</td>
                   ) : null}
                   {/* Khối hẹp: cột Thực tế là cột cuối → lề phải như O_CUOI */}
-                  <td className={cn(O, !suaDuoc && "text-right", "@max-2xl/khoi:pr-4")}>
+                  <td className={cn(O, !suaDuoc && "text-right", "@max-2xl/khoi:pr-4 max-[380px]:pl-1.5")}>
                     {suaDuoc ? (
                       <ODem d={d} onDoiSo={onDoiSo} onXong={veOTim} onQuetNham={quetNham} idO={idO(d.id)} />
                     ) : (

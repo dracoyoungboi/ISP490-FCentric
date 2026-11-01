@@ -32,9 +32,11 @@ import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { formatQuantity, toNumber } from "@/constants/outbound";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
+import { useBanPhimAoMo } from "@/hooks/useBanPhimAo";
 import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 
 const TH_CLASS = "h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
+// Màn cảm ứng: ô chọn giữ 16px, vùng chạm 44px quanh ô do lớp cảm ứng dùng chung (index.css, data-slot="checkbox") lo
 const CHECKBOX_CLASS = "border-slate-300 data-[state=checked]:border-bo-primary data-[state=checked]:bg-bo-primary data-[state=checked]:text-white";
 const DEFAULT_FILTERS = { keyword: "", kenh: "", page: 0, size: SO_DONG_MAC_DINH };
 
@@ -55,6 +57,8 @@ const capNhatDonDaChon = (daChon, dsMoi) => {
 
 export default function DonChoXuatPage() {
     const navigate = useNavigate();
+    // Điện thoại: bàn phím ảo đang mở (gõ ô tìm) thì giấu thanh "Đã chọn n đơn" cố định ở đáy, kẻo thanh trôi lên che ô nhập
+    const banPhimMo = useBanPhimAoMo();
     const [khoId, setKhoId] = useState(docKhoLamViec);
     const [filters, setFilters] = useState(DEFAULT_FILTERS);
     const [searchText, setSearchText] = useState("");
@@ -224,8 +228,10 @@ export default function DonChoXuatPage() {
             <MockModeNotice show={isPickListMock} />
 
             {/* ══ BẢNG ══ */}
+            {/* Điện thoại, đang chọn đơn: chừa chỗ dưới khung bảng cho thanh "Tạo phiếu nhặt hàng" cố định ở đáy */}
             <TableShell
                 fill
+                className={selectedSummary.donHang > 0 ? "max-md:mb-[84px]" : undefined}
                 toolbar={
                     <>
                         {/* Không có tab trạng thái: mọi đơn ở đây đều đang chờ xuất. Bên trái ghi tổng số đơn. */}
@@ -261,9 +267,9 @@ export default function DonChoXuatPage() {
                             />
                         </ListToolbar>
 
-                        {/* Thanh thao tác: chỉ hiện khi đã chọn đơn */}
+                        {/* Thanh thao tác: chỉ hiện khi đã chọn đơn (điện thoại: ẩn, dùng thanh cố định ở đáy ngay dưới) */}
                         {selectedSummary.donHang > 0 ? (
-                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-bo-border bg-bo-primary-soft px-4 py-2.5 sm:px-5">
+                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-bo-border bg-bo-primary-soft px-4 py-2.5 sm:px-5 max-md:hidden">
                                 <p className="text-sm text-blue-800">
                                     Đã chọn <span className="font-semibold">{selectedSummary.donHang}</span> đơn ·{" "}
                                     <span className="font-semibold">{formatQuantity(selectedSummary.sanPham)}</span> sản phẩm
@@ -287,6 +293,39 @@ export default function DonChoXuatPage() {
                                         Tạo phiếu nhặt hàng ({selectedSummary.donHang})
                                     </Button>
                                 </div>
+                            </div>
+                        ) : null}
+
+                        {/* Điện thoại, đang chọn đơn: thanh cố định ngay trên thanh điều hướng đáy (thanh trong khung bảng bị cuộn mất);
+                            vẫn hiện khi danh sách đang tải / trống vì lựa chọn được giữ qua các trang; ẩn lúc bàn phím ảo đang mở */}
+                        {selectedSummary.donHang > 0 && !banPhimMo ? (
+                            <div className="no-print fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom))] z-30 flex items-center gap-2 border-t border-bo-border bg-bo-surface px-4 py-2.5 shadow-[0_-4px_12px_rgba(15,23,42,0.06)] md:hidden">
+                                <p className="min-w-0 flex-1 text-[13px] leading-[18px] text-bo-muted">
+                                    <span className="block truncate text-sm font-semibold text-bo-foreground">Đã chọn {selectedSummary.donHang} đơn</span>
+                                    <span className="block truncate">
+                                        {formatQuantity(selectedSummary.sanPham)} SP
+                                        {selectedSummary.thieuHang > 0 ? (
+                                            <span className="font-medium text-bo-danger"> · {selectedSummary.thieuHang} thiếu hàng</span>
+                                        ) : null}
+                                    </span>
+                                </p>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setSelected(new Map())}
+                                    aria-label="Bỏ chọn tất cả đơn"
+                                    className="size-12 shrink-0 border-bo-input-border bg-bo-surface p-0 text-bo-foreground"
+                                >
+                                    <X className="size-5" aria-hidden="true" />
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={() => setDialogOpen(true)}
+                                    className="h-10 shrink-0 gap-2 bg-bo-primary px-4 text-sm font-semibold text-white hover:bg-bo-primary-hover"
+                                >
+                                    <PackageCheck className="size-[18px]" aria-hidden="true" />
+                                    Tạo phiếu nhặt
+                                </Button>
                             </div>
                         ) : null}
                     </>
@@ -336,7 +375,72 @@ export default function DonChoXuatPage() {
                         />
                     )
                 ) : (
-                    <table className="w-full min-w-[1040px] text-sm">
+                    <>
+                    {/* Điện thoại: hàng "Chọn tất cả" (cả hàng là vùng chạm) thay ô chọn ở tiêu đề bảng */}
+                    <label className="flex min-h-11 cursor-pointer items-center gap-1 border-b border-bo-border bg-bo-surface-subtle pl-1.5 pr-4 md:hidden">
+                        <span className="flex size-11 shrink-0 items-center justify-center">
+                            <Checkbox
+                                aria-label="Chọn tất cả đơn trong trang"
+                                checked={pageAllSelected}
+                                onCheckedChange={togglePage}
+                                className={CHECKBOX_CLASS}
+                            />
+                        </span>
+                        <span className="text-[13px] font-medium text-bo-muted">Chọn tất cả {data.length} đơn trong trang</span>
+                    </label>
+                    {/* Điện thoại: mỗi đơn một thẻ — chạm thẻ để chọn / bỏ chọn như dòng của bảng (ô chọn có vùng chạm 44px);
+                        số đơn + tồn kho, kênh + khách, ngày tạo · số SP + tổng tiền; chạm số đơn mở đơn bán */}
+                    <ul className="divide-y divide-bo-border md:hidden">
+                        {data.map((row) => {
+                            const isSelected = selected.has(row.id);
+                            return (
+                                <li
+                                    key={row.id}
+                                    onClick={() => toggleRow(row)}
+                                    className={`flex cursor-pointer items-start gap-1 pl-1.5 pr-4 ${isSelected ? "bg-bo-primary-soft/60" : "active:bg-bo-surface-subtle"}`}
+                                >
+                                    <span className="mt-0.5 flex size-11 shrink-0 items-center justify-center" onClick={(event) => event.stopPropagation()}>
+                                        <Checkbox
+                                            aria-label={`Chọn đơn ${row.soDonHang}`}
+                                            checked={isSelected}
+                                            onCheckedChange={() => toggleRow(row)}
+                                            className={CHECKBOX_CLASS}
+                                        />
+                                    </span>
+                                    <span className="flex min-w-0 flex-1 flex-col gap-1 py-3">
+                                        <span className="flex items-center justify-between gap-3">
+                                            <Link
+                                                to={`/sales-orders/${row.id}`}
+                                                onClick={(event) => event.stopPropagation()}
+                                                className="-my-2 min-w-0 truncate py-2 text-[15px] font-semibold uppercase tracking-wide text-bo-primary"
+                                            >
+                                                {row.soDonHang}
+                                            </Link>
+                                            <StatusBadge
+                                                nhom={row.duHang ? "xong" : "loi"}
+                                                label={row.khaDung || (row.duHang ? "Đủ hàng" : "Thiếu hàng")}
+                                            />
+                                        </span>
+                                        <span className="flex min-w-0 items-center gap-2 text-sm">
+                                            <ChannelBadge className="h-5 shrink-0 px-1.5 text-[11px]" maKenh={row.maKenhBan} label={row.maKenhBan ? row.tenKenhBan : undefined} />
+                                            <span className="min-w-0 truncate font-semibold text-bo-foreground">{row.tenKhachHang || "Khách lẻ"}</span>
+                                        </span>
+                                        <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
+                                            <span className="min-w-0 truncate">
+                                                {formatDateTime(row.ngayTao)} · {formatQuantity(row.tongSoLuong)} SP
+                                            </span>
+                                            <span className="shrink-0 text-[15px] font-semibold tabular-nums text-bo-foreground">
+                                                {formatCurrency(toNumber(row.tongCong))}
+                                            </span>
+                                        </span>
+                                    </span>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                    {/* Máy tính bảng dọc (cảm ứng): bỏ cột Kênh, Kho xuất, Ngày tạo, SKU — kênh + ngày tạo xuống dưới số đơn,
+                        kho xuống dưới khách hàng, số SKU dưới số lượng — để bảng vừa khung, không vuốt ngang */}
+                    <table className="w-full min-w-[1040px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                 <th className={`${TH_CLASS} w-12 text-center`}>
@@ -348,11 +452,11 @@ export default function DonChoXuatPage() {
                                     />
                                 </th>
                                 <th className={`${TH_CLASS} text-left`}>Số đơn</th>
-                                <th className={`${TH_CLASS} text-left`}>Kênh</th>
+                                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>Kênh</th>
                                 <th className={`${TH_CLASS} text-left`}>Khách hàng</th>
-                                <th className={`${TH_CLASS} text-left`}>Kho xuất</th>
-                                <th className={`${TH_CLASS} text-left`}>Ngày tạo</th>
-                                <th className={`${TH_CLASS} text-right tabular-nums`}>SKU</th>
+                                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>Kho xuất</th>
+                                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>Ngày tạo</th>
+                                <th className={`${TH_CLASS} text-right tabular-nums cam-ung:max-lg:hidden`}>SKU</th>
                                 <th className={`${TH_CLASS} text-right tabular-nums`}>Số lượng</th>
                                 <th className={`${TH_CLASS} text-right tabular-nums`}>Tổng tiền</th>
                                 <th className={`${TH_CLASS} text-left`}>Tồn kho</th>
@@ -383,16 +487,23 @@ export default function DonChoXuatPage() {
                                             >
                                                 {row.soDonHang}
                                             </Link>
+                                            <div className="mt-1 hidden cam-ung:max-lg:flex">
+                                                <ChannelBadge className="h-5 px-1.5 text-[11px]" maKenh={row.maKenhBan} label={row.maKenhBan ? row.tenKenhBan : undefined} />
+                                            </div>
+                                            <div className="mt-0.5 hidden whitespace-nowrap text-xs text-bo-muted cam-ung:max-lg:block">{formatDateTime(row.ngayTao)}</div>
                                         </td>
-                                        <td className="px-3 py-3">
+                                        <td className="px-3 py-3 cam-ung:max-lg:hidden">
                                             <ChannelBadge maKenh={row.maKenhBan} label={row.maKenhBan ? row.tenKenhBan : undefined} />
                                         </td>
-                                        <td className="px-3 py-3 font-semibold text-bo-foreground">{row.tenKhachHang || "Khách lẻ"}</td>
-                                        <td className="px-3 py-3 text-bo-muted">{row.tenKhoXuat || "—"}</td>
-                                        <td className="whitespace-nowrap px-3 py-3 text-xs text-bo-muted">
+                                        <td className="px-3 py-3 font-semibold text-bo-foreground">
+                                            {row.tenKhachHang || "Khách lẻ"}
+                                            <div className="mt-0.5 hidden text-xs font-normal text-bo-muted cam-ung:max-lg:block">{row.tenKhoXuat}</div>
+                                        </td>
+                                        <td className="px-3 py-3 text-bo-muted cam-ung:max-lg:hidden">{row.tenKhoXuat || "—"}</td>
+                                        <td className="whitespace-nowrap px-3 py-3 text-xs text-bo-muted cam-ung:max-lg:hidden">
                                             {formatDateTime(row.ngayTao)}
                                         </td>
-                                        <td className="px-3 py-3 text-right tabular-nums">
+                                        <td className="px-3 py-3 text-right tabular-nums cam-ung:max-lg:hidden">
                                             {row.soLuongSku == null ? (
                                                 <span className="text-bo-muted">—</span>
                                             ) : (
@@ -403,6 +514,9 @@ export default function DonChoXuatPage() {
                                             <span className="inline-flex h-7 min-w-[32px] items-center justify-center rounded-md bg-bo-surface-subtle px-2 text-xs font-bold text-bo-foreground">
                                                 {formatNumber(toNumber(row.tongSoLuong))}
                                             </span>
+                                            {row.soLuongSku == null ? null : (
+                                                <div className="mt-0.5 hidden whitespace-nowrap text-xs text-bo-muted cam-ung:max-lg:block">{formatNumber(row.soLuongSku)} SKU</div>
+                                            )}
                                         </td>
                                         <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums font-semibold text-bo-foreground">
                                             {formatCurrency(toNumber(row.tongCong))}
@@ -419,6 +533,7 @@ export default function DonChoXuatPage() {
                             })}
                         </tbody>
                     </table>
+                    </>
                 )}
             </TableShell>
 

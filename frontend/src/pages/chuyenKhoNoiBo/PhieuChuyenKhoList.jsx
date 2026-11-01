@@ -272,15 +272,23 @@ export default function PhieuChuyenKhoList() {
                         <EmptyState icon={ClipboardList} title="Chưa có phiếu chuyển kho" description="Kho đang chọn chưa có phiếu chuyển đi hoặc chuyển đến." />
                     )
                 ) : (
-                    <table className="w-full min-w-[960px] text-sm">
+                    <>
+                    {/* Điện thoại: mỗi phiếu một thẻ — số phiếu + trạng thái, tuyến, ngày tạo + số lượng, cảnh báo trễ / thiếu giấy đi đường */}
+                    <ul className="divide-y divide-bo-border md:hidden">
+                        {rows.map((p) => (
+                            <ThePhieu key={p.id} p={p} />
+                        ))}
+                    </ul>
+                    {/* Máy tính bảng dọc (cảm ứng): bỏ cột Lệnh điều động, Giấy đi đường, Dự kiến đến — cảnh báo đưa thành dòng phụ dưới trạng thái */}
+                    <table className="w-full min-w-[960px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                 <th className={`${TH} text-left`}>Số phiếu</th>
                                 <th className={`${TH} text-left`}>Tuyến</th>
-                                <th className={`${TH} text-left`}>Lệnh điều động</th>
+                                <th className={`${TH} text-left cam-ung:max-lg:hidden`}>Lệnh điều động</th>
                                 <th className={`${TH} text-left`}>Trạng thái</th>
-                                <th className={`${TH} text-left`}>Giấy đi đường</th>
-                                <th className={`${TH} text-left`}>Dự kiến đến</th>
+                                <th className={`${TH} text-left cam-ung:max-lg:hidden`}>Giấy đi đường</th>
+                                <th className={`${TH} text-left cam-ung:max-lg:hidden`}>Dự kiến đến</th>
                                 <th className={`${TH} text-right`}>Số lượng</th>
                             </tr>
                         </thead>
@@ -290,9 +298,60 @@ export default function PhieuChuyenKhoList() {
                             ))}
                         </tbody>
                     </table>
+                    </>
                 )}
             </TableShell>
         </PageContainer>
+    );
+}
+
+/**
+ * Cảnh báo của phiếu (trễ hẹn — cùng điều kiện cột Dự kiến đến; thiếu giấy đi đường — cùng điều kiện cột Giấy đi đường):
+ * dòng phụ ở thẻ điện thoại và dưới trạng thái trên máy tính bảng dọc. Không có cảnh báo thì không vẽ gì.
+ */
+function CanhBaoPhieu({ p, className = "" }) {
+    const treHen = !(p.trangThai === TT_CHUYEN.HOAN_TAT && p.ngayThucTeDen) && Boolean(p.ngayDuKienDen) && Boolean(p.tre);
+    const thieuGiay = !p.soPhieuXknb && Boolean(p.thieuXknb);
+    if (!treHen && !thieuGiay) return null;
+    return (
+        <span className={`flex-wrap items-center gap-x-2 gap-y-1 ${className}`}>
+            {treHen ? (
+                <span className="whitespace-nowrap font-semibold tabular-nums text-bo-tt-chu-y-chu">
+                    Dự kiến đến {gioNgayNgan(p.ngayDuKienDen)} · {treBaoLau(p.ngayDuKienDen)}
+                </span>
+            ) : null}
+            {thieuGiay ? (
+                <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-bo-tt-chu-y px-2 py-0.5 text-xs font-medium text-bo-tt-chu-y-chu">
+                    <TriangleAlert className="size-3.5" aria-hidden="true" />
+                    Giấy đi đường: Chưa có số
+                </span>
+            ) : null}
+        </span>
+    );
+}
+
+/** Thẻ phiếu trên điện thoại: chạm thẻ mở phiếu. */
+function ThePhieu({ p }) {
+    const st = getPhieuChuyenKhoStatus(p.trangThai, p.coChenhLech);
+    return (
+        <li>
+            <Link to={`/transfer-tickets/${p.id}`} className="grid grid-cols-1 gap-1 px-4 py-3 active:bg-bo-surface-subtle">
+                <span className="flex items-center justify-between gap-3">
+                    <span className="min-w-0 truncate text-[15px] font-semibold text-bo-primary">{p.soPhieuChuyen}</span>
+                    <StatusBadge quyTrinh="chuyenKho" label={st.label} />
+                </span>
+                <span className="min-w-0 truncate text-sm font-medium text-bo-foreground">
+                    {p.khoXuatTen} <span className="text-bo-muted">→</span> {p.khoNhapTen}
+                </span>
+                <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
+                    <span className="min-w-0 truncate tabular-nums">
+                        {formatDate(p.ngayTao)}{p.soPhieuGoc ? ` · giao bù cho ${p.soPhieuGoc}` : ""}
+                    </span>
+                    <span className="shrink-0 text-[15px] font-semibold tabular-nums text-bo-foreground">{formatNumber(p.tongSoLuong)}</span>
+                </span>
+                <CanhBaoPhieu p={p} className="flex text-[13px]" />
+            </Link>
+        </li>
     );
 }
 
@@ -311,13 +370,14 @@ function DongPhieu({ p, onMo }) {
             <td className={`${TD} text-bo-foreground`}>
                 {p.khoXuatTen} <span className="text-bo-muted">→</span> {p.khoNhapTen}
             </td>
-            <td className={`${TD} whitespace-nowrap font-mono text-[13px] text-bo-foreground`}>
+            <td className={`${TD} whitespace-nowrap font-mono text-[13px] text-bo-foreground cam-ung:max-lg:hidden`}>
                 {p.soLenhDieuDong ?? <span className="font-sans text-bo-muted">—</span>}
             </td>
             <td className={TD}>
                 <StatusBadge quyTrinh="chuyenKho" label={st.label} />
+                <CanhBaoPhieu p={p} className="mt-1 hidden text-xs cam-ung:max-lg:flex" />
             </td>
-            <td className={TD}>
+            <td className={`${TD} cam-ung:max-lg:hidden`}>
                 {p.soPhieuXknb ? (
                     <span className="whitespace-nowrap font-mono text-[13px] text-bo-foreground">
                         {p.kyHieuXknb} · {p.soPhieuXknb}
@@ -331,7 +391,7 @@ function DongPhieu({ p, onMo }) {
                     <span className="text-bo-muted">—</span>
                 )}
             </td>
-            <td className={`${TD} whitespace-nowrap tabular-nums`}>
+            <td className={`${TD} whitespace-nowrap tabular-nums cam-ung:max-lg:hidden`}>
                 {p.trangThai === TT_CHUYEN.HOAN_TAT && p.ngayThucTeDen ? (
                     <span className="text-bo-foreground">{gioNgayNgan(p.ngayThucTeDen)}</span>
                 ) : p.ngayDuKienDen ? (

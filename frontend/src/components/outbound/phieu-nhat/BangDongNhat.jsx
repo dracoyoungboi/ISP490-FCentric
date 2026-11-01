@@ -185,12 +185,13 @@ function DongNhat({ dong: d, sang, duocPhanBoLo, onPhanBoLo }) {
             >
               {d.tenSanPham || "—"}
             </div>
-            {/* Màu / kích cỡ, SKU, mã vạch: xuống dòng theo từng mục khi cột hẹp (không cắt mã) */}
+            {/* Màu / kích cỡ, SKU, mã vạch: xuống dòng theo từng mục khi cột hẹp (không cắt mã). Điện thoại: mã chỉ ngắt ở dấu
+                gạch (SKU) hoặc cả mã xuống dòng (mã vạch), không bẻ giữa dãy số như "89350010009 / 48" */}
             <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs leading-4 text-bo-muted">
               <MauKichCo dong={d} />
-              {d.sku ? <span className="min-w-0 break-all font-mono">{d.sku}</span> : null}
+              {d.sku ? <span className="min-w-0 break-all font-mono max-md:break-normal">{d.sku}</span> : null}
               {d.maVach ? (
-                <span className="inline-flex min-w-0 items-center gap-1 break-all font-mono">
+                <span className="inline-flex min-w-0 items-center gap-1 break-all font-mono max-md:break-normal">
                   <Barcode className="size-3 shrink-0" aria-hidden="true" />
                   <span className="sr-only">Mã vạch </span>
                   {d.maVach}

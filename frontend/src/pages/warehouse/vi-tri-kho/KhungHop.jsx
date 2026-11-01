@@ -82,7 +82,8 @@ export function NhomChon({ nhan, value, onChange, luaChon, day = false, classNam
       role="group"
       aria-label={nhan}
       className={cn(
-        "inline-flex max-w-full gap-0.5 overflow-x-auto rounded-md border border-bo-border bg-bo-surface-subtle p-0.5 [scrollbar-width:none]",
+        // Màn cảm ứng: đệm dọc 4px để vùng chạm vô hình 44px của nút (index.css) nằm trọn trong dải cuộn ngang
+        "inline-flex max-w-full gap-0.5 overflow-x-auto rounded-md border border-bo-border bg-bo-surface-subtle p-0.5 [scrollbar-width:none] cam-ung:py-1",
         day && "grid w-full",
         className,
       )}

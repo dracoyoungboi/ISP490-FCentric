@@ -539,8 +539,10 @@ export default function PhieuChuyenKhoCreate() {
         <BangHangTaoPhieu bang={bangHang} cot={cotBang} dongSang={dongSang} tenChungTu="Phiếu chuyển kho" nhan="Hàng điều chuyển" rongToiThieu="@2xl/khoi:min-w-[480px]" />
     );
 
+    // Điện thoại: cột Tuyến chuyển lên trước danh sách hàng (phải chọn kho nguồn trước mới thêm được hàng; xếp dưới thì nằm
+    // tận cuối trang, sau khối "Chưa có sản phẩm nào")
     const cotPhai = (
-        <CotThuocTinh nhan="Thông tin phiếu chuyển">
+        <CotThuocTinh nhan="Thông tin phiếu chuyển" className="max-md:order-first max-md:border-t-0 max-md:border-b">
             <NhomThuocTinh nhan="Tuyến chuyển">
                 <ChonKho
                     vaiTro="Kho nguồn"

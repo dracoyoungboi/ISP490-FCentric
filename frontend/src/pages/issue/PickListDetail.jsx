@@ -24,6 +24,7 @@ import AssignPickerDialog from "@/components/outbound/AssignPickerDialog";
 import LotAllocationDialog from "@/components/outbound/LotAllocationDialog";
 import PackingProofModal from "@/components/outbound/PackingProofModal";
 import VungQuet from "@/components/outbound/phieu-nhat/VungQuet";
+import { useIsMobile } from "@/hooks/use-mobile";
 import BangDongNhat from "@/components/outbound/phieu-nhat/BangDongNhat";
 import CotPhieuNhat from "@/components/outbound/phieu-nhat/CotPhieuNhat";
 import {
@@ -101,6 +102,7 @@ export default function PickListDetail() {
 
 function ManNhatHang({ id }) {
     const navigate = useNavigate();
+    const isMobile = useIsMobile();
     // Có trang trước trong ứng dụng (danh sách đang lọc theo tab ?trangThai=) thì lùi lại; mở thẳng thì mở danh sách
     const veDanhSach = useQuayLai(DS_PHIEU_NHAT);
     const scanBarRef = useRef(null);
@@ -420,6 +422,19 @@ function ManNhatHang({ id }) {
     // ── Dòng thông báo (dưới tiến trình) ──
     const daNhat = phieu.trangThai === "da_nhat";
     const { tong: soDonHopLe, soXuat } = demDon(dsDon);
+    // Điện thoại: ô quét tách khỏi khối thông báo, dính riêng ở đầu màn khi cuộn danh sách dòng nhặt
+    const vungQuet = quyen.duocQuet ? (
+        <VungQuet
+            key="quet"
+            scanRef={scanBarRef}
+            onQuet={(barcode, soLuong) => enqueue({ barcode, soLuong })}
+            dangGui={pending}
+            ketQua={ketQuaQuet}
+            tienDo={tienDo}
+            khoa={choGoc}
+            lyDoKhoa={`${LY_DO_CHO_GOC}. Tạm dừng quét tới khi máy chủ trả lời.`}
+        />
+    ) : null;
     const thongBao = [
         isPickListMock ? <MockModeNotice key="mau" show /> : null,
         ...gopCanhBaoHuy(canhBaoHuy).map((cb) => (
@@ -431,18 +446,7 @@ function ManNhatHang({ id }) {
             />
         )),
         ketQuaHoanTat ? <KetQuaBoQua key="boQua" ketQua={ketQuaHoanTat} onDaHieu={() => setKetQuaHoanTat(null)} /> : null,
-        quyen.duocQuet ? (
-            <VungQuet
-                key="quet"
-                scanRef={scanBarRef}
-                onQuet={(barcode, soLuong) => enqueue({ barcode, soLuong })}
-                dangGui={pending}
-                ketQua={ketQuaQuet}
-                tienDo={tienDo}
-                khoa={choGoc}
-                lyDoKhoa={`${LY_DO_CHO_GOC}. Tạm dừng quét tới khi máy chủ trả lời.`}
-            />
-        ) : null,
+        isMobile ? null : vungQuet,
         quyen.dangMo && !quyen.daPhanCong ? (
             <DongChuaGiao
                 key="chuaGiao"
@@ -528,6 +532,7 @@ function ManNhatHang({ id }) {
                 }
                 tienTrinh={<TienTrinhChungTu buoc={buoc} nhan="Tiến trình phiếu nhặt hàng" />}
                 thongBao={thongBao.length ? thongBao : null}
+                dinh={isMobile ? vungQuet : null}
                 chinh={
                     <BangDongNhat
                         bang={bang}

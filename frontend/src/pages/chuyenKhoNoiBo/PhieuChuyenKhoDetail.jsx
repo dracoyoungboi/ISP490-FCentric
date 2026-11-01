@@ -291,7 +291,8 @@ function ManPhieuChuyenKho({ id }) {
         nutChinh.push({ nhan: "Duyệt và lập lệnh điều động", icon: Check, onClick: () => setHop("duyet") });
     }
     if (tt === TT_CHUYEN.DA_DUYET) {
-        if (q.nhat) nutPhu.push({ nhan: nhat.nhanNut, icon: PackageSearch, onClick: moPhieuNhat, dangChay: dangChay && !hop });
+        // buocTiep: điện thoại đặt nút này lên thanh thao tác đáy cạnh "Xác nhận xuất" đang khóa (DauChungTu)
+        if (q.nhat) nutPhu.push({ nhan: nhat.nhanNut, icon: PackageSearch, onClick: moPhieuNhat, dangChay: dangChay && !hop, buocTiep: true });
         if (q.xuat) {
             // Chỉ xuất khi phiếu nhặt đã hoàn tất (lô đã ghi vào PX-CK), phiếu cũ thì khi đã chọn đủ lô tay
             nutChinh.push({

@@ -410,7 +410,55 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
           </div>
         }
       >
-        <table className="w-full min-w-[1000px] text-sm">
+        {/* Điện thoại và máy tính bảng dọc cảm ứng: mỗi biến thể một thẻ — tên + trạng thái, thanh đã kiểm, đạt · lỗi · lô, nút
+            Kiểm đếm / Xem lô ngay trên thẻ (bảng rộng 1000px phải vuốt ngang mới tới nút, kể cả ở 820px) */}
+        <ul className="divide-y divide-bo-border md:hidden cam-ung:max-lg:block">
+          {dong.map((d) => {
+            const chuaKiem = d.kiem === 0;
+            const nhanNut = !nhap || d.kiem >= d.canNhap ? "Xem lô" : chuaKiem ? "Kiểm đếm" : "Tiếp tục kiểm";
+            const soLo = d.lots == null ? (lo.loading ? "đang tải lô…" : null) : d.lots.length ? `${d.lots.length} lô` : "chưa có lô";
+            return (
+              <li key={d.bienTheSanPhamId} className="flex flex-col gap-2 px-4 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-bo-foreground">{d.tenBienThe}</div>
+                    <div className="text-xs text-bo-muted">
+                      {d.mauSac || d.kichCo ? (
+                        <>
+                          <MauKichCo tenMau={d.mauSac} maMauHex={d.maMauHex} kichCo={d.kichCo} className="max-w-full align-bottom" />
+                          {" · "}
+                        </>
+                      ) : null}
+                      <span className="font-mono">{d.sku}</span>
+                    </div>
+                  </div>
+                  <StatusBadge quyTrinh="kiemDem" label={d.trangThai.label} />
+                </div>
+                <TienDoSo da={d.kiem} tong={d.canNhap} />
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 truncate text-[13px] tabular-nums text-bo-muted">
+                    {chuaKiem ? "Chưa kiểm" : (
+                      <>
+                        Đạt <b className="font-semibold text-bo-foreground">{formatNumber(d.dat)}</b> · Lỗi{" "}
+                        <b className={cn("font-semibold", d.loi ? "text-bo-danger" : "text-bo-foreground")}>{formatNumber(d.loi)}</b>
+                      </>
+                    )}
+                    {soLo ? ` · ${soLo}` : ""}
+                  </span>
+                  <Button
+                    variant="outline"
+                    onClick={() => moKiemDem(d.bienTheSanPhamId)}
+                    className="h-9 shrink-0 border-bo-border bg-bo-surface px-3 text-sm text-bo-foreground hover:border-bo-primary hover:text-bo-primary"
+                  >
+                    {nhanNut}
+                  </Button>
+                </div>
+              </li>
+            );
+          })}
+          {dong.length === 0 ? <li className="px-4 py-10 text-center text-sm text-bo-muted">Phiếu nhập chưa có hàng hóa.</li> : null}
+        </ul>
+        <table className="w-full min-w-[1000px] text-sm max-md:hidden cam-ung:max-lg:hidden">
           <thead>
             <tr className="border-b border-bo-border bg-bo-surface-subtle">
               <th className={cn(TH, "text-left")}>Biến thể</th>

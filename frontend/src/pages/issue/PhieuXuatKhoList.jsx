@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Calendar, ClipboardList, SearchX } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Calendar, ClipboardList, SearchX, Warehouse } from "lucide-react";
 
 import PageContainer from "@/components/backoffice/PageContainer";
 import AttentionBar from "@/components/shared/AttentionBar";
@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { PHIEU_XUAT_KHO_TABS, getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
+import { useIsMobile } from "@/hooks/use-mobile";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
@@ -70,8 +71,20 @@ async function demPhieu(dieuKien) {
     return res?.totalElements ?? 0;
 }
 
+// Phiếu xuất chuyển kho: số phiếu chuyển (phieu_chuyen_kho) mà phiếu xuất này thuộc về; phiếu bán hàng: số đơn bán.
+// Dùng chung cho dòng bảng và thẻ điện thoại.
+function thamChieuGoc(item) {
+    const isChuyenKho = item.loaiXuat === "chuyen_kho" || item.loaiXuat === "CHUYEN_KHO";
+    const maThamChieu = isChuyenKho
+        ? (item.soPhieuChuyenKhoGoc || (item.phieuChuyenKhoGocId ? `PCK ID: ${item.phieuChuyenKhoGocId}` : "-"))
+        : (item.donBanHang?.soDonHang || "-");
+    return { isChuyenKho, maThamChieu };
+}
+
 export default function PhieuXuatKhoList() {
     const navigate = useNavigate();
+    // Điện thoại: ô "Kho xuất" có nhãn để thanh công cụ đưa vào sheet "Bộ lọc" như ô ngày (máy tính giữ ô cũ)
+    const isMobile = useIsMobile();
     const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);
     const tabTrangThai = trangThaiCuaTab(tab);
 
@@ -296,14 +309,29 @@ export default function PhieuXuatKhoList() {
                             className="sm:w-[300px]"
                         />
 
-                        <input
-                            type="text"
-                            placeholder="Nhập tên kho"
-                            aria-label="Kho xuất"
-                            value={tenKhoInput}
-                            onChange={(e) => setTenKhoInput(e.target.value)}
-                            className="h-9 w-full rounded-md border border-bo-border bg-bo-surface px-3 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 sm:w-[190px]"
-                        />
+                        {isMobile ? (
+                            <label className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-bo-surface pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15">
+                                <Warehouse className="size-4 shrink-0 text-bo-muted" aria-hidden="true" />
+                                <span className="shrink-0 text-xs text-bo-muted">Kho xuất</span>
+                                <input
+                                    type="text"
+                                    placeholder="Tên kho"
+                                    aria-label="Kho xuất"
+                                    value={tenKhoInput}
+                                    onChange={(e) => setTenKhoInput(e.target.value)}
+                                    className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-bo-foreground placeholder:text-bo-muted focus:outline-none"
+                                />
+                            </label>
+                        ) : (
+                            <input
+                                type="text"
+                                placeholder="Nhập tên kho"
+                                aria-label="Kho xuất"
+                                value={tenKhoInput}
+                                onChange={(e) => setTenKhoInput(e.target.value)}
+                                className="h-9 w-full rounded-md border border-bo-border bg-bo-surface px-3 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 sm:w-[190px]"
+                            />
+                        )}
 
                         {/* Ngày xuất: nhãn nằm trong ô để hàng công cụ gọn một dòng */}
                         <label className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-bo-surface pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto">
@@ -391,10 +419,40 @@ export default function PhieuXuatKhoList() {
                         />
                     )
                 ) : (
-                    <table className="w-full min-w-[980px] text-sm">
+                    <>
+                    {/* Điện thoại: mỗi phiếu một thẻ, chạm thẻ mở phiếu — số phiếu + trạng thái, đơn bán / phiếu chuyển gốc,
+                        kho xuất + ngày xuất (chưa xuất thì ngày tạo) */}
+                    <ul className="divide-y divide-bo-border md:hidden">
+                        {data.map((item) => {
+                            const { isChuyenKho, maThamChieu } = thamChieuGoc(item);
+                            const status = getPhieuXuatKhoStatus(item.trangThai);
+                            return (
+                                <li key={item.id}>
+                                    <Link to={`/goods-issues/${item.id}`} className="flex flex-col gap-1 px-4 py-3 active:bg-bo-surface-subtle">
+                                        <span className="flex items-center justify-between gap-3">
+                                            <span className="min-w-0 truncate text-[15px] font-semibold text-bo-primary">{item.soPhieuXuat}</span>
+                                            {status ? <StatusBadge quyTrinh="phieuXuat" label={status.label} /> : null}
+                                        </span>
+                                        <span className="flex min-w-0 items-baseline gap-1.5 text-sm">
+                                            <span className="shrink-0 text-bo-muted">{isChuyenKho ? "Phiếu chuyển" : "Đơn bán"}</span>
+                                            <span className="min-w-0 truncate font-medium text-slate-700">{maThamChieu}</span>
+                                        </span>
+                                        <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
+                                            <span className="min-w-0 truncate">{item.kho?.tenKho || "-"}</span>
+                                            <span className="shrink-0 tabular-nums">
+                                                {item.ngayXuat ? `Xuất ${formatDate(item.ngayXuat)}` : `Tạo ${formatDate(item.ngayTao)}`}
+                                            </span>
+                                        </span>
+                                    </Link>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                    {/* Máy tính bảng dọc (cảm ứng): bỏ cột STT và Ngày tạo (ngày tạo xuống dưới số phiếu) để bảng vừa khung, không vuốt ngang */}
+                    <table className="w-full min-w-[980px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                <th className="h-10 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
                                     STT
                                 </th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
@@ -406,7 +464,7 @@ export default function PhieuXuatKhoList() {
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Kho xuất
                                 </th>
-                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
                                     Ngày tạo
                                 </th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
@@ -420,12 +478,7 @@ export default function PhieuXuatKhoList() {
                         <tbody className="divide-y divide-bo-border">
                             {data.map((item, index) => {
                                 // XÁC ĐỊNH MÃ THAM CHIẾU ĐỂ HIỂN THỊ
-                                const isChuyenKho = item.loaiXuat === "chuyen_kho" || item.loaiXuat === "CHUYEN_KHO";
-
-                                // Phiếu xuất chuyển kho: số phiếu chuyển (phieu_chuyen_kho) mà phiếu xuất này thuộc về
-                                const maThamChieu = isChuyenKho
-                                    ? (item.soPhieuChuyenKhoGoc || (item.phieuChuyenKhoGocId ? `PCK ID: ${item.phieuChuyenKhoGocId}` : "-"))
-                                    : (item.donBanHang?.soDonHang || "-");
+                                const { maThamChieu } = thamChieuGoc(item);
 
                                 const status = getPhieuXuatKhoStatus(item.trangThai);
 
@@ -435,11 +488,12 @@ export default function PhieuXuatKhoList() {
                                         onClick={() => navigate(`/goods-issues/${item.id}`)}
                                         className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
                                     >
-                                        <td className="px-3 py-3 text-center text-xs text-bo-muted">
+                                        <td className="px-3 py-3 text-center text-xs text-bo-muted cam-ung:max-lg:hidden">
                                             {filters.page * filters.size + index + 1}
                                         </td>
                                         <td className="px-3 py-3 font-semibold text-bo-primary">
                                             {item.soPhieuXuat}
+                                            <div className="mt-0.5 hidden text-xs font-normal text-bo-muted cam-ung:max-lg:block">Tạo {formatDate(item.ngayTao)}</div>
                                         </td>
                                         {/* Mã tham chiếu là chữ thường: không bấm được nên không tô màu liên kết */}
                                         <td className="whitespace-nowrap px-3 py-3 text-slate-700">
@@ -448,7 +502,7 @@ export default function PhieuXuatKhoList() {
                                         <td className="px-3 py-3 text-sm text-bo-foreground">
                                             {item.kho?.tenKho || "-"}
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-3 text-xs text-bo-muted">
+                                        <td className="whitespace-nowrap px-3 py-3 text-xs text-bo-muted cam-ung:max-lg:hidden">
                                             {formatDate(item.ngayTao)}
                                         </td>
                                         <td className="whitespace-nowrap px-3 py-3 text-xs text-bo-muted">
@@ -466,6 +520,7 @@ export default function PhieuXuatKhoList() {
                             })}
                         </tbody>
                     </table>
+                    </>
                 )}
             </TableShell>
         </PageContainer>

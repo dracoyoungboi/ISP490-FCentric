@@ -1,6 +1,6 @@
 // src/pages/stock-take/StockTakeList.jsx
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import PageContainer from "@/components/backoffice/PageContainer";
 import AttentionBar from "@/components/shared/AttentionBar";
 import ListPageHeader from "@/components/shared/ListPageHeader";
@@ -288,15 +288,40 @@ export default function StockTakeList() {
             />
           )
         ) : (
-          <table className="w-full min-w-[1020px] text-sm">
+          <>
+          {/* Điện thoại: mỗi đợt một thẻ — mã đợt + trạng thái, tên đợt + kho, ngày bắt đầu · người chủ trì; chạm thẻ mở đợt */}
+          <ul className="divide-y divide-bo-border md:hidden">
+            {pageItems.map((item) => {
+              const tt = TRANG_THAI[item.trangThai] ?? trangThaiLa(item.trangThai);
+              return (
+                <li key={item.id}>
+                  <Link to={`/stock-take/${item.id}`} className="grid grid-cols-1 gap-1 px-4 py-3 active:bg-bo-surface-subtle">
+                    <span className="flex items-center justify-between gap-3">
+                      <span className="min-w-0 truncate font-mono text-[15px] font-semibold tracking-wide text-bo-primary">{item.maDotKiemKe}</span>
+                      <StatusBadge quyTrinh="kiemKe" label={tt.label} />
+                    </span>
+                    <span className="flex min-w-0 items-center gap-2 text-sm">
+                      <span className="min-w-0 truncate font-semibold text-bo-foreground">{item.tenDotKiemKe || "—"}</span>
+                      {item.kho?.tenKho ? <span className="shrink-0 text-bo-muted">{item.kho.tenKho}</span> : null}
+                    </span>
+                    <span className="min-w-0 truncate text-[13px] text-bo-muted">
+                      {formatDate(item.ngayBatDau)}{item.nguoiChuTri?.hoTen ? ` · ${item.nguoiChuTri.hoTen}` : ""}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          {/* Máy tính bảng dọc (cảm ứng): bỏ cột STT, Người chủ trì, Ngày bắt đầu — đưa thành dòng phụ; giữ Thao tác vì dòng bảng không bấm được */}
+          <table className="w-full min-w-[1020px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                <th className={`${TH_CLASS} w-14 text-center`}>STT</th>
+                <th className={`${TH_CLASS} w-14 text-center cam-ung:max-lg:hidden`}>STT</th>
                 <th className={`${TH_CLASS} text-left`}>Mã đợt</th>
                 <th className={`${TH_CLASS} text-left`}>Tên đợt</th>
                 <th className={`${TH_CLASS} text-left`}>Kho</th>
-                <th className={`${TH_CLASS} text-left`}>Người chủ trì</th>
-                <th className={`${TH_CLASS} text-left`}>Ngày bắt đầu</th>
+                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>Người chủ trì</th>
+                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>Ngày bắt đầu</th>
                 <th className={`${TH_CLASS} text-left`}>Trạng thái</th>
                 <th className={`${TH_CLASS} text-center`}>Thao tác</th>
               </tr>
@@ -308,15 +333,16 @@ export default function StockTakeList() {
                 return (
                   <tr key={item.id} className="transition-colors hover:bg-bo-surface-subtle">
 
-                    <td className="px-4 py-3.5 text-center align-middle text-xs text-bo-muted">
+                    <td className="px-4 py-3.5 text-center align-middle text-xs text-bo-muted cam-ung:max-lg:hidden">
                       {safePage * pageSize + index + 1}
                     </td>
 
                     {/* Mã đợt */}
                     <td className="px-4 py-3.5 align-middle">
-                      <span className="rounded-md bg-bo-primary-soft px-2 py-0.5 font-mono text-xs font-semibold tracking-wide text-bo-primary">
+                      <span className="rounded-md bg-bo-primary-soft px-2 py-0.5 font-mono text-xs font-semibold tracking-wide text-bo-primary cam-ung:max-lg:whitespace-nowrap">
                         {item.maDotKiemKe}
                       </span>
+                      <span className="mt-1 hidden text-xs text-bo-muted cam-ung:max-lg:block">{formatDate(item.ngayBatDau)}</span>
                     </td>
 
                     {/* Tên đợt */}
@@ -331,17 +357,20 @@ export default function StockTakeList() {
                       <span className="font-medium text-bo-foreground">
                         {item.kho?.tenKho || "—"}
                       </span>
+                      {item.nguoiChuTri?.hoTen ? (
+                        <span className="mt-0.5 hidden text-xs text-bo-muted cam-ung:max-lg:block">{item.nguoiChuTri.hoTen}</span>
+                      ) : null}
                     </td>
 
                     {/* Người chủ trì */}
-                    <td className="px-4 py-3.5 align-middle">
+                    <td className="px-4 py-3.5 align-middle cam-ung:max-lg:hidden">
                       <span className="font-medium text-bo-foreground">
                         {item.nguoiChuTri?.hoTen || "—"}
                       </span>
                     </td>
 
                     {/* Ngày bắt đầu */}
-                    <td className="px-4 py-3.5 align-middle">
+                    <td className="px-4 py-3.5 align-middle cam-ung:max-lg:hidden">
                       <span className="text-xs text-bo-muted">
                         {formatDate(item.ngayBatDau)}
                       </span>
@@ -367,6 +396,7 @@ export default function StockTakeList() {
               })}
             </tbody>
           </table>
+          </>
         )}
       </TableShell>
     </PageContainer>

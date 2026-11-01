@@ -66,7 +66,8 @@ function ChonThe({ nhan, luaChon, value, onChange, loi }) {
                     <label
                         key={lc.ma}
                         className={cn(
-                            "flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2.5 text-sm leading-5 transition-colors",
+                            // Màn cảm ứng: thẻ lựa chọn cao tối thiểu 44px (một dòng chữ chỉ được 42px)
+                            "flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2.5 text-sm leading-5 transition-colors cam-ung:min-h-11",
                             value === lc.ma ? "border-bo-primary bg-bo-primary-soft" : "border-bo-border hover:bg-bo-surface-subtle",
                         )}
                     >

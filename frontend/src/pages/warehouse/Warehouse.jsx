@@ -408,10 +408,47 @@ export default function WarehouseManagement() {
                         />
                     )
                 ) : (
-                    <table className="w-full min-w-[1020px] text-sm">
+                    <>
+                    {/* Điện thoại: mỗi kho một thẻ, chạm thẻ mở popup Chi tiết kho (trong đó có Chỉnh sửa, Ngừng hoạt động):
+                        tên kho + trạng thái, mã kho · loại kho, địa chỉ, người quản lý + tồn kho */}
+                    <ul className="divide-y divide-bo-border md:hidden">
+                        {warehouses.map((wh) => (
+                            <li key={wh.id}>
+                                <button
+                                    type="button"
+                                    onClick={() => moChiTiet(wh)}
+                                    className={`grid w-full gap-0.5 px-4 py-3 text-left active:bg-bo-surface-subtle ${chiTiet.open && chiTiet.kho?.id === wh.id ? 'bg-bo-primary-soft' : ''}`}
+                                >
+                                    <span className="flex items-center justify-between gap-3">
+                                        <span className="min-w-0 truncate text-[15px] font-semibold text-bo-foreground">{wh.tenKho}</span>
+                                        <StatusBadge doiTuong="kho" label={wh.trangThai === 1 ? 'Hoạt động' : 'Ngừng hoạt động'} />
+                                    </span>
+                                    <span className="flex min-w-0 items-center gap-2 text-[13px]">
+                                        <span className="shrink-0 font-mono font-semibold text-bo-primary">{wh.maKho || '—'}</span>
+                                        <span className="min-w-0 truncate text-slate-700">· {nhanLoaiKho(wh).label}</span>
+                                    </span>
+                                    {wh.diaChi ? <span className="truncate text-[13px] text-bo-muted">{wh.diaChi}</span> : null}
+                                    <span className="mt-1 flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
+                                        <span className="min-w-0 truncate">
+                                            Quản lý: <span className="text-bo-foreground">{wh.quanLy?.hoTen || '—'}</span>
+                                        </span>
+                                        <span className="shrink-0 tabular-nums">
+                                            Tồn{' '}
+                                            <span className="font-semibold text-bo-foreground">
+                                                {wh.soLuongTon == null ? '—' : formatNumber(wh.soLuongTon)}
+                                            </span>
+                                        </span>
+                                    </span>
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                    {/* Máy tính bảng dọc (cảm ứng): bỏ cột STT, Loại kho, Người quản lý, Thao tác để bảng vừa khung;
+                        loại kho + người quản lý thành dòng phụ dưới tên kho (Xem chi tiết / Chỉnh sửa = chạm dòng) */}
+                    <table className="w-full min-w-[1020px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                                <th className="h-10 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
                                     STT
                                 </th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
@@ -420,10 +457,10 @@ export default function WarehouseManagement() {
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Tên kho
                                 </th>
-                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
                                     Loại kho
                                 </th>
-                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
                                     Người quản lý
                                 </th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
@@ -432,7 +469,7 @@ export default function WarehouseManagement() {
                                 <th className="h-10 px-3 text-right tabular-nums whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     Tồn kho
                                 </th>
-                                <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
+                                <th className="h-10 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
                                     Thao tác
                                 </th>
                             </tr>
@@ -444,7 +481,7 @@ export default function WarehouseManagement() {
                                     onClick={() => moChiTiet(wh)}
                                     className={`cursor-pointer transition-colors hover:bg-bo-surface-subtle ${chiTiet.open && chiTiet.kho?.id === wh.id ? 'bg-bo-primary-soft' : ''}`}
                                 >
-                                    <td className="px-3 py-3 text-center text-xs text-bo-muted">
+                                    <td className="px-3 py-3 text-center text-xs text-bo-muted cam-ung:max-lg:hidden">
                                         {pagination.pageNumber * pagination.pageSize + idx + 1}
                                     </td>
                                     <td className="px-3 py-3 font-mono text-sm font-semibold text-bo-primary">
@@ -457,13 +494,16 @@ export default function WarehouseManagement() {
                                                 {wh.diaChi}
                                             </p>
                                         )}
+                                        <p className="mt-0.5 hidden max-w-[260px] truncate text-xs text-slate-600 cam-ung:max-lg:block">
+                                            {nhanLoaiKho(wh).label} · Quản lý: {wh.quanLy?.hoTen || '—'}
+                                        </p>
                                     </td>
-                                    <td className="px-3 py-3">
+                                    <td className="px-3 py-3 cam-ung:max-lg:hidden">
                                         <span title={nhanLoaiKho(wh).moTa} className="whitespace-nowrap text-slate-700">
                                             {nhanLoaiKho(wh).label}
                                         </span>
                                     </td>
-                                    <td className="px-3 py-3 text-sm text-bo-foreground">
+                                    <td className="px-3 py-3 text-sm text-bo-foreground cam-ung:max-lg:hidden">
                                         {wh.quanLy?.hoTen || '—'}
                                     </td>
                                     <td className="px-3 py-3">
@@ -476,7 +516,7 @@ export default function WarehouseManagement() {
                                             <span className="font-semibold text-bo-foreground">{formatNumber(wh.soLuongTon)}</span>
                                         )}
                                     </td>
-                                    <td className="px-3 py-3">
+                                    <td className="px-3 py-3 cam-ung:max-lg:hidden">
                                         <RowActions>
                                             <RowActionButton
                                                 icon={Eye}
@@ -496,6 +536,7 @@ export default function WarehouseManagement() {
                             ))}
                         </tbody>
                     </table>
+                    </>
                 )}
             </TableShell>
 

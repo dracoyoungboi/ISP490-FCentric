@@ -365,15 +365,41 @@ export default function PhieuNhapKhoList() {
             />
           )
         ) : (
-          /* Bảng: khung giãn hết màn, thân bảng tự cuộn, tiêu đề cột đứng yên */
-          <table className="w-full min-w-[900px] text-sm">
+          <>
+          {/* Điện thoại: mỗi phiếu một thẻ — số phiếu + trạng thái, nhà cung cấp + đơn mua, ngày tạo · kho nhập + ngày nhập */}
+          <ul className="divide-y divide-bo-border md:hidden">
+            {data.map((item) => (
+              <li key={item.id}>
+                <Link to={`/goods-receipts/${item.id}`} className="grid grid-cols-1 gap-1 px-4 py-3 active:bg-bo-surface-subtle">
+                  <span className="flex items-center justify-between gap-3">
+                    <span className="min-w-0 truncate text-[15px] font-semibold text-bo-primary">{item.soPhieuNhap}</span>
+                    <StatusBadge quyTrinh="phieuNhap" label={getGoodsReceiptStatus(item.trangThai).label} />
+                  </span>
+                  <span className="flex min-w-0 items-center gap-2 text-sm">
+                    <span className="min-w-0 truncate font-semibold text-bo-foreground">{item.tenNhaCungCap || "—"}</span>
+                    {item.soDonMua ? <span className="shrink-0 text-bo-muted">{item.soDonMua}</span> : null}
+                  </span>
+                  <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
+                    <span className="min-w-0 truncate">
+                      {formatDate(item.ngayTao)}
+                      {item.tenKho || item.kho?.tenKho ? ` · ${item.tenKho || item.kho?.tenKho}` : ""}
+                    </span>
+                    {item.ngayNhap ? <span className="shrink-0">Ngày nhập {formatDate(item.ngayNhap)}</span> : null}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          {/* Bảng: khung giãn hết màn, thân bảng tự cuộn, tiêu đề cột đứng yên.
+              Máy tính bảng dọc (cảm ứng): bỏ cột STT, Ngày tạo (đưa thành dòng phụ dưới số phiếu) để không vuốt ngang */}
+          <table className="w-full min-w-[900px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                <th className="h-10 w-14 whitespace-nowrap bg-bo-surface-subtle px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted">STT</th>
+                <th className="h-10 w-14 whitespace-nowrap bg-bo-surface-subtle px-4 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">STT</th>
                 <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Số phiếu nhập</th>
                 <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Đơn mua / nhà cung cấp</th>
                 <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Kho nhập</th>
-                <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày tạo</th>
+                <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">Ngày tạo</th>
                 <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Ngày nhập</th>
                 <th className="h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">Trạng thái</th>
               </tr>
@@ -385,13 +411,14 @@ export default function PhieuNhapKhoList() {
                   onClick={() => navigate(`/goods-receipts/${item.id}`)}
                   className="cursor-pointer transition-colors hover:bg-bo-surface-subtle"
                 >
-                  <td className="w-14 px-4 py-3 text-center align-middle">
+                  <td className="w-14 px-4 py-3 text-center align-middle cam-ung:max-lg:hidden">
                     <span className="inline-flex size-7 items-center justify-center rounded-full bg-bo-surface-subtle text-xs font-semibold text-bo-muted">
                       {filters.page * filters.size + index + 1}
                     </span>
                   </td>
                   <td className="px-4 py-3 align-middle font-semibold text-bo-primary">
                     {item.soPhieuNhap}
+                    <span className="mt-0.5 hidden text-xs font-normal text-bo-muted cam-ung:max-lg:block">{formatDate(item.ngayTao)}</span>
                   </td>
                   <td className="px-4 py-3 align-middle">
                     <div className="flex flex-col gap-0.5">
@@ -402,7 +429,7 @@ export default function PhieuNhapKhoList() {
                   <td className="px-4 py-3 align-middle text-bo-foreground">
                     {item.tenKho || item.kho?.tenKho || "—"}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 align-middle text-xs text-bo-muted">
+                  <td className="whitespace-nowrap px-4 py-3 align-middle text-xs text-bo-muted cam-ung:max-lg:hidden">
                     {formatDate(item.ngayTao)}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 align-middle text-xs text-bo-muted">
@@ -415,6 +442,7 @@ export default function PhieuNhapKhoList() {
               ))}
             </tbody>
           </table>
+          </>
         )}
       </TableShell>
     </PageContainer>

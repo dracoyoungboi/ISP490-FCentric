@@ -299,17 +299,80 @@ export default function PickListList() {
                         />
                     )
                 ) : (
-                    <table className="w-full min-w-[1040px] text-sm">
+                    <>
+                    {/* Điện thoại: mỗi phiếu một thẻ, chạm thẻ mở phiếu; Nhận việc / Phân công ở chân thẻ */}
+                    <ul className="divide-y divide-bo-border md:hidden">
+                        {data.map((row) => {
+                            const status = getPickListStatus(row.trangThai);
+                            const canAssign = PICK_LIST_EDITABLE.includes(row.trangThai) && (laQuanLy || !row.nguoiNhatId);
+                            const nguon = nguonPhieuNhat(row);
+                            return (
+                                <li key={row.id}>
+                                    <Link to={`/goods-issues/pick-lists/${row.id}`} className="block px-4 pb-2 pt-3 active:bg-bo-surface-subtle">
+                                        <span className="flex items-center justify-between gap-3">
+                                            <span className="min-w-0 truncate font-mono text-[15px] font-semibold text-bo-primary">{row.maPickList}</span>
+                                            <StatusBadge quyTrinh="phieuNhat" label={status.label} />
+                                        </span>
+                                        <span className="mt-1 flex min-w-0 items-center gap-2 text-sm text-bo-foreground">
+                                            {nguon.chuyenKho ? (
+                                                <span className="inline-flex shrink-0 rounded-md bg-bo-surface-subtle px-1.5 py-0.5 text-xs font-semibold ring-1 ring-inset ring-bo-border">
+                                                    {nguon.nhan}
+                                                </span>
+                                            ) : (
+                                                <span className="shrink-0 font-semibold">{nguon.nhan}</span>
+                                            )}
+                                            {nguon.phu ? <span className="min-w-0 truncate text-bo-muted">{nguon.phu}</span> : null}
+                                        </span>
+                                        {row.tongSoLuongCanNhat ? (
+                                            <span className="mt-2 block">
+                                                <PickProgress
+                                                    compact
+                                                    daQuet={row.tongSoLuongDaQuet}
+                                                    canNhat={row.tongSoLuongCanNhat}
+                                                    percent={row.phanTramHoanThanh}
+                                                />
+                                            </span>
+                                        ) : null}
+                                    </Link>
+                                    {/* Người nhặt và ngày tạo hai dòng (36px, vừa nút 44px bên cạnh): một dòng bị nút Nhận việc cắt mất ngày */}
+                                    <div className="flex min-h-9 items-center justify-between gap-3 px-4 pb-2.5">
+                                        <span className="min-w-0 text-[13px] leading-[18px] text-bo-muted">
+                                            {row.tenNguoiNhat ? (
+                                                <span className="block truncate font-medium text-bo-foreground">{row.tenNguoiNhat}</span>
+                                            ) : (
+                                                <span className="block truncate font-medium text-bo-warning">Chưa phân công</span>
+                                            )}
+                                            <span className="block truncate">{formatDateTime(row.ngayTao)}</span>
+                                        </span>
+                                        {canAssign ? (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => setAssignTarget(row)}
+                                                className="h-9 shrink-0 gap-1.5 border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-foreground"
+                                            >
+                                                <UserPlus className="size-4" aria-hidden="true" />
+                                                {!laQuanLy ? "Nhận việc" : row.nguoiNhatId ? "Phân công lại" : "Phân công"}
+                                            </Button>
+                                        ) : null}
+                                    </div>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                    {/* Máy tính bảng dọc (cảm ứng): bỏ cột SKU, Ngày tạo, Thao tác để bảng vừa khung, không vuốt ngang;
+                        Nhận việc / Phân công chuyển xuống dưới tên người nhặt (Xem chi tiết = chạm dòng) */}
+                    <table className="w-full min-w-[1040px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                 <th className={`${TH_CLASS} text-left`}>Mã phiếu nhặt hàng</th>
                                 <th className={`${TH_CLASS} text-left`}>Đơn / phiếu chuyển</th>
-                                <th className={`${TH_CLASS} text-right tabular-nums`}>SKU</th>
-                                <th className={`${TH_CLASS} w-[220px] text-left`}>Tiến độ</th>
+                                <th className={`${TH_CLASS} text-right tabular-nums cam-ung:max-lg:hidden`}>SKU</th>
+                                <th className={`${TH_CLASS} w-[220px] text-left cam-ung:max-lg:w-[150px]`}>Tiến độ</th>
                                 <th className={`${TH_CLASS} text-left`}>Người nhặt</th>
-                                <th className={`${TH_CLASS} text-left`}>Ngày tạo</th>
+                                <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>Ngày tạo</th>
                                 <th className={`${TH_CLASS} text-left`}>Trạng thái</th>
-                                <th className={`${TH_CLASS} text-center`}>Thao tác</th>
+                                <th className={`${TH_CLASS} text-center cam-ung:max-lg:hidden`}>Thao tác</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-bo-border">
@@ -326,8 +389,9 @@ export default function PickListList() {
                                         <td className="px-3 py-3">
                                             <span className="font-mono font-semibold text-bo-primary">{row.maPickList}</span>
                                             {row.ghiChu ? (
-                                                <span className="mt-0.5 block max-w-[220px] truncate text-xs text-bo-muted">{row.ghiChu}</span>
+                                                <span className="mt-0.5 block max-w-[220px] truncate text-xs text-bo-muted cam-ung:max-lg:max-w-[150px]">{row.ghiChu}</span>
                                             ) : null}
+                                            <span className="mt-0.5 hidden text-xs text-bo-muted cam-ung:max-lg:block">{formatDateTime(row.ngayTao)}</span>
                                         </td>
                                         <td className="px-3 py-3">
                                             {nguon.chuyenKho ? (
@@ -338,12 +402,12 @@ export default function PickListList() {
                                                 <span className="font-semibold text-bo-foreground">{nguon.nhan}</span>
                                             )}
                                             {nguon.phu ? (
-                                                <span className="mt-0.5 block max-w-[240px] truncate text-xs text-bo-muted" title={nguon.title}>
+                                                <span className="mt-0.5 block max-w-[240px] truncate text-xs text-bo-muted cam-ung:max-lg:max-w-[160px]" title={nguon.title}>
                                                     {nguon.phu}
                                                 </span>
                                             ) : null}
                                         </td>
-                                        <td className="px-3 py-3 text-right tabular-nums">
+                                        <td className="px-3 py-3 text-right tabular-nums cam-ung:max-lg:hidden">
                                             {row.tongSku == null ? (
                                                 <span className="text-bo-muted">—</span>
                                             ) : (
@@ -364,14 +428,28 @@ export default function PickListList() {
                                             ) : (
                                                 <span className="text-xs italic text-bo-muted">Chưa phân công</span>
                                             )}
+                                            {canAssign ? (
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setAssignTarget(row);
+                                                    }}
+                                                    className="mt-1.5 hidden h-9 gap-1.5 border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-foreground cam-ung:max-lg:inline-flex"
+                                                >
+                                                    <UserPlus className="size-4" aria-hidden="true" />
+                                                    {!laQuanLy ? "Nhận việc" : row.nguoiNhatId ? "Phân công lại" : "Phân công"}
+                                                </Button>
+                                            ) : null}
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-3 text-xs text-bo-muted">
+                                        <td className="whitespace-nowrap px-3 py-3 text-xs text-bo-muted cam-ung:max-lg:hidden">
                                             {formatDateTime(row.ngayTao)}
                                         </td>
                                         <td className="px-3 py-3">
                                             <StatusBadge quyTrinh="phieuNhat" label={status.label} />
                                         </td>
-                                        <td className="px-3 py-3 text-center">
+                                        <td className="px-3 py-3 text-center cam-ung:max-lg:hidden">
                                             <RowActions>
                                                 {canAssign ? (
                                                     <RowActionButton
@@ -392,6 +470,7 @@ export default function PickListList() {
                             })}
                         </tbody>
                     </table>
+                    </>
                 )}
             </TableShell>
 

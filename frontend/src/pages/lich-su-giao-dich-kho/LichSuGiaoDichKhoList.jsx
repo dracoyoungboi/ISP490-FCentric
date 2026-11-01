@@ -67,19 +67,33 @@ const matchSearch = (item, search) => {
 const TH_CLASS =
     "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 
-// Tiêu đề cột của bảng (căn lề theo kiểu dữ liệu: số căn phải, thao tác căn giữa)
+// Tiêu đề cột của bảng (căn lề theo kiểu dữ liệu: số căn phải, thao tác căn giữa).
+// Máy tính bảng dọc (cảm ứng): ẩn STT, Loại, SKU, Lô hàng, Người thực hiện — đưa thành dòng phụ trong ô Ngày / Sản phẩm / Kho
 const TABLE_COLUMNS = [
-    { label: "STT",             className: "w-14 text-left" },
+    { label: "STT",             className: "w-14 text-left cam-ung:max-lg:hidden" },
     { label: "Ngày giao dịch",  className: "text-left" },
-    { label: "Loại",            className: "text-left" },
+    { label: "Loại",            className: "text-left cam-ung:max-lg:hidden" },
     { label: "Sản phẩm",        className: "text-left" },
-    { label: "SKU",             className: "text-left" },
-    { label: "Lô hàng",         className: "text-left" },
+    { label: "SKU",             className: "text-left cam-ung:max-lg:hidden" },
+    { label: "Lô hàng",         className: "text-left cam-ung:max-lg:hidden" },
     { label: "Kho",             className: "text-left" },
     { label: "Số lượng",        className: "text-right tabular-nums" },
-    { label: "Người thực hiện", className: "text-left" },
+    { label: "Người thực hiện", className: "text-left cam-ung:max-lg:hidden" },
     { label: "Thao tác",        className: "text-center" },
 ];
+
+/** Số lượng hiển thị có dấu: xuất kho luôn âm; màu xanh khi tăng, đỏ khi giảm (dùng chung bảng và thẻ điện thoại). */
+function soLuongCoDau(item) {
+    const soLuong = Number(item.soLuong);
+    const isXuatKho = item.loaiGiaoDich === "xuat_kho";
+    const displaySoLuong = isXuatKho ? -Math.abs(soLuong) : soLuong;
+    const soLuongColor =
+        displaySoLuong > 0 ? "text-bo-success" :
+        displaySoLuong < 0 ? "text-bo-danger" :
+        "text-slate-700";
+    const soLuongPrefix = displaySoLuong > 0 ? "+" : displaySoLuong < 0 ? "-" : "";
+    return { displaySoLuong, soLuongColor, soLuongPrefix };
+}
 
 // ── Loại giao dịch ────────────────────────────────────────────────────────
 function LoaiGiaoDich({ loai }) {
@@ -121,8 +135,8 @@ function DetailModal({ open, onClose, item, loading }) {
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent className="max-w-lg overflow-hidden rounded-lg border border-bo-border bg-bo-surface p-0 shadow-lg [&>button]:text-slate-500 [&>button]:hover:text-slate-700">
 
-                {/* ── Header ── */}
-                <div className="flex items-center justify-between gap-3 border-b border-bo-border bg-bo-surface-subtle px-5 pb-4 pt-5">
+                {/* ── Header ── (điện thoại: chừa chỗ bên phải cho nút đóng, loại giao dịch không đè lên nút) */}
+                <div className="flex items-center justify-between gap-3 border-b border-bo-border bg-bo-surface-subtle px-5 pb-4 pt-5 max-md:pr-14">
                     <DialogTitle className="flex items-center gap-2 text-base font-semibold text-bo-foreground">
                         <span className="flex size-8 items-center justify-center rounded-lg bg-bo-primary-soft">
                             <History className="size-4 text-bo-primary" />
@@ -414,7 +428,42 @@ export default function LichSuGiaoDichKhoList() {
                         />
                     )
                 ) : (
-                    <table className="w-full min-w-[1080px] text-sm">
+                    <>
+                    {/* Điện thoại: mỗi giao dịch một thẻ, chạm thẻ mở chi tiết — sản phẩm + số lượng có dấu, loại · kho,
+                        SKU · lô, ngày giờ · người thực hiện */}
+                    <ul className="divide-y divide-bo-border md:hidden">
+                        {pageItems.map((item) => {
+                            const { displaySoLuong, soLuongColor, soLuongPrefix } = soLuongCoDau(item);
+                            return (
+                                <li key={item.id}>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleViewDetail(item)}
+                                        className="flex w-full flex-col gap-1 px-4 py-3 text-left active:bg-bo-surface-subtle"
+                                    >
+                                        <span className="flex w-full items-start justify-between gap-3">
+                                            <span className="line-clamp-2 min-w-0 font-semibold leading-5 text-bo-foreground">{item.tenSanPham || "—"}</span>
+                                            <span className={`shrink-0 text-base font-bold leading-5 tabular-nums ${soLuongColor}`}>
+                                                {soLuongPrefix}{formatNumber(Math.abs(displaySoLuong))}
+                                            </span>
+                                        </span>
+                                        <span className="flex w-full min-w-0 items-center gap-1.5 text-[13px] text-bo-muted">
+                                            <LoaiGiaoDich loai={item.loaiGiaoDich} />
+                                            <span className="min-w-0 truncate">· {item.tenKho || "—"}</span>
+                                        </span>
+                                        <span className="flex w-full min-w-0 items-baseline gap-2 font-mono text-xs">
+                                            <span className="shrink-0 font-semibold text-slate-700">{item.maSku || "—"}</span>
+                                            <span className="min-w-0 truncate text-bo-muted">{item.maLo || "—"}</span>
+                                        </span>
+                                        <span className="w-full truncate text-[13px] tabular-nums text-bo-muted">
+                                            {formatDateTime(item.ngayGiaoDich)} · {item.nguoiDungTen || "—"}
+                                        </span>
+                                    </button>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                    <table className="w-full min-w-[1080px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                 {TABLE_COLUMNS.map((col) => (
@@ -426,43 +475,43 @@ export default function LichSuGiaoDichKhoList() {
                         </thead>
                         <tbody className="divide-y divide-bo-border">
                             {pageItems.map((item, index) => {
-                                const soLuong = Number(item.soLuong);
-                                const isXuatKho = item.loaiGiaoDich === "xuat_kho";
-                                const displaySoLuong = isXuatKho ? -Math.abs(soLuong) : soLuong;
-                                const soLuongColor =
-                                    displaySoLuong > 0 ? "text-bo-success" :
-                                    displaySoLuong < 0 ? "text-bo-danger" :
-                                    "text-slate-700";
-                                const soLuongPrefix = displaySoLuong > 0 ? "+" : displaySoLuong < 0 ? "-" : "";
+                                const { displaySoLuong, soLuongColor, soLuongPrefix } = soLuongCoDau(item);
 
                                 return (
                                     <tr key={item.id} className="transition-colors hover:bg-bo-surface-subtle">
 
-                                        <td className="px-4 py-3.5 align-middle text-xs text-bo-muted">
+                                        <td className="px-4 py-3.5 align-middle text-xs text-bo-muted cam-ung:max-lg:hidden">
                                             {safePage * pageSize + index + 1}
                                         </td>
 
                                         <td className="whitespace-nowrap px-4 py-3.5 align-middle">
                                             <span className="text-xs text-bo-muted">{formatDateTime(item.ngayGiaoDich)}</span>
+                                            <div className="mt-1 hidden cam-ung:max-lg:block">
+                                                <LoaiGiaoDich loai={item.loaiGiaoDich} />
+                                            </div>
                                         </td>
 
-                                        <td className="px-4 py-3.5 align-middle">
+                                        <td className="px-4 py-3.5 align-middle cam-ung:max-lg:hidden">
                                             <LoaiGiaoDich loai={item.loaiGiaoDich} />
                                         </td>
 
-                                        <td className="max-w-[180px] px-4 py-3.5 align-middle">
+                                        <td className="max-w-[180px] px-4 py-3.5 align-middle cam-ung:max-lg:max-w-[220px]">
                                             <span className="font-semibold leading-snug text-bo-foreground">
                                                 {item.tenSanPham || "—"}
                                             </span>
+                                            <div className="mt-1 hidden flex-wrap gap-x-2 font-mono text-xs cam-ung:max-lg:flex">
+                                                <span className="font-semibold text-slate-700">{item.maSku || "—"}</span>
+                                                <span className="text-bo-muted">{item.maLo || "—"}</span>
+                                            </div>
                                         </td>
 
-                                        <td className="px-4 py-3.5 align-middle">
+                                        <td className="px-4 py-3.5 align-middle cam-ung:max-lg:hidden">
                                             <span className="whitespace-nowrap font-mono text-xs font-semibold text-slate-700">
                                                 {item.maSku || "—"}
                                             </span>
                                         </td>
 
-                                        <td className="px-4 py-3.5 align-middle">
+                                        <td className="px-4 py-3.5 align-middle cam-ung:max-lg:hidden">
                                             <span className="font-mono text-xs text-bo-muted">
                                                 {item.maLo || "—"}
                                             </span>
@@ -470,6 +519,7 @@ export default function LichSuGiaoDichKhoList() {
 
                                         <td className="px-4 py-3.5 align-middle">
                                             <span className="font-medium text-bo-foreground">{item.tenKho || "—"}</span>
+                                            <div className="mt-0.5 hidden text-xs text-bo-muted cam-ung:max-lg:block">{item.nguoiDungTen || "—"}</div>
                                         </td>
 
                                         <td className="whitespace-nowrap px-4 py-3.5 text-right align-middle tabular-nums">
@@ -478,11 +528,12 @@ export default function LichSuGiaoDichKhoList() {
                                             </span>
                                         </td>
 
-                                        <td className="px-4 py-3.5 align-middle">
+                                        <td className="px-4 py-3.5 align-middle cam-ung:max-lg:hidden">
                                             <span className="font-medium text-bo-foreground">{item.nguoiDungTen || "—"}</span>
                                         </td>
 
                                         <td className="px-4 py-3.5 text-center align-middle">
+                                            {/* Máy tính bảng dọc (cảm ứng): nút xem 44px cho dễ chạm */}
                                             <RowActions>
                                                 <RowActionButton
                                                     icon={Eye}
@@ -496,6 +547,7 @@ export default function LichSuGiaoDichKhoList() {
                             })}
                         </tbody>
                     </table>
+                    </>
                 )}
             </TableShell>
         </PageContainer>
