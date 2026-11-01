@@ -66,4 +66,16 @@ public class ThongTinCongTyController {
                         .build()
         );
     }
+
+    @DeleteMapping("/logo")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    public ResponseEntity<ResponseData<ThongTinCongTyDto>> removeLogo() {
+        return ResponseEntity.ok(
+                ResponseData.<ThongTinCongTyDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .message("Success")
+                        .data(thongTinCongTyService.removeLogo())
+                        .build()
+        );
+    }
 }

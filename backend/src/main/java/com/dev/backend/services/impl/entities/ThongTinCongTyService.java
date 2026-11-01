@@ -191,6 +191,35 @@ public class ThongTinCongTyService {
         }
     }
 
+    /**
+     * Gỡ logo: bỏ cả tệp ở tep_tin lẫn đường dẫn ở cột cũ logo_duong_dan (không thì getProfile lùi về logo cũ).
+     * Phiếu in, email tự hiện tên cửa hàng khi không có logo.
+     * Tệp tep_tin (do màn này tải lên) xóa luôn object MinIO như khi thay logo; đường dẫn cũ chỉ bỏ, không xóa
+     * object (có thể đang dùng chỗ khác).
+     */
+    @Transactional
+    public ThongTinCongTyDto removeLogo() {
+        ThongTinCongTy entity = thongTinCongTyRepository.findById(PROFILE_ID).orElse(null);
+        if (entity == null) {
+            return getProfile();
+        }
+        TepTin tepTinCu = entity.getTepTin();
+        if (tepTinCu == null && entity.getLogoDuongDan() == null) {
+            return toDto(entity);
+        }
+
+        entity.setTepTin(null);
+        entity.setLogoDuongDan(null);
+        entity.setVersion(PROFILE_VERSION);
+        entity.setNgayCapNhat(Instant.now());
+        ThongTinCongTy saved = thongTinCongTyRepository.save(entity);
+
+        if (tepTinCu != null) {
+            tepTinService.hardDeleteNoMessage(tepTinCu.getId());
+        }
+        return toDto(saved);
+    }
+
     /** Bỏ khoảng trắng và dấu chấm: "0109.123.456" -> "0109123456" (khớp chuanHoaMaSoThue ở frontend). */
     static String chuanHoaMaSoThue(String value) {
         return value == null ? null : KY_TU_BO_TRONG_MA_SO_THUE.matcher(value).replaceAll("");
