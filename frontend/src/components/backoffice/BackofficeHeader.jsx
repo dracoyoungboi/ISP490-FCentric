@@ -2,11 +2,17 @@ import {
   ChevronDown,
   LogOut,
   Menu,
+  Store,
   UserRound,
+  Warehouse,
   X,
 } from "lucide-react";
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { laTrangCapDau } from "@/components/backoffice/thanhDay";
+import { hienKhoLamViecODaySidebar } from "@/components/backoffice/sidebar.config";
+import { laKhoTong } from "@/utils/kho";
+import { KHO_LAM_VIEC_EVENT, dsKhoLamViecTrongToken, getKhoLamViecId } from "@/utils/khoLamViec";
 import { jwtDecode } from "jwt-decode";
 
 import UserAvatar from "@/components/UserAvatar";
@@ -101,13 +107,41 @@ export default function BackofficeHeader() {
   const sidebarOpen = isMobile ? openMobile : open;
   const roleLabel = ROLE_LABELS[role] || "Thành viên hệ thống";
 
+  // Điện thoại, trang cấp đầu: nút Menu nằm ở thanh điều hướng đáy, chỗ nút ☰ hiện nơi làm việc (bấm mở menu để đổi)
+  const { pathname } = useLocation();
+  const coThanhDay = isMobile && laTrangCapDau(pathname);
+  const [khoId, setKhoId] = useState(getKhoLamViecId);
+  useEffect(() => {
+    const nghe = (event) => setKhoId(event.detail ?? null);
+    window.addEventListener(KHO_LAM_VIEC_EVENT, nghe);
+    return () => window.removeEventListener(KHO_LAM_VIEC_EVENT, nghe);
+  }, []);
+  const khoLamViec = coThanhDay && hienKhoLamViecODaySidebar(role)
+    ? dsKhoLamViecTrongToken().find((kho) => kho.id === khoId) ?? null
+    : null;
+
   return (
     <header id="backoffice-header" className="sticky top-0 z-40 shrink-0 border-b border-bo-border bg-bo-surface">
       <div className="flex h-14 items-center justify-between gap-3 px-3 sm:px-4 lg:px-5">
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
           {/* Nút mở menu chỉ còn trên điện thoại (menu là ngăn kéo).
               Trên máy tính, nút thu gọn nằm ở đầu sidebar, cạnh logo (BackofficeSidebar.jsx). */}
-          {isMobile ? (
+          {khoLamViec ? (
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              aria-label={`Nơi làm việc: ${khoLamViec.tenKho}. Mở menu để đổi`}
+              className="flex h-9 min-w-0 max-w-[62%] shrink-0 items-center gap-1.5 rounded-lg px-1.5 text-left text-slate-700 hover:bg-slate-100"
+            >
+              {laKhoTong(khoLamViec) ? (
+                <Warehouse className="size-[18px] shrink-0 text-slate-500" aria-hidden="true" />
+              ) : (
+                <Store className="size-[18px] shrink-0 text-slate-500" aria-hidden="true" />
+              )}
+              <span className="min-w-0 truncate text-[13px] font-semibold leading-4">{khoLamViec.tenKho}</span>
+              <ChevronDown className="size-3.5 shrink-0 text-slate-400" aria-hidden="true" />
+            </button>
+          ) : isMobile && !coThanhDay ? (
             <Button
               variant="ghost"
               size="icon"
@@ -127,7 +161,7 @@ export default function BackofficeHeader() {
             userId={userId}
             role={role}
             isPhone={isMobile}
-            placeholder={isMobile ? "Tìm kiếm" : `Tìm kiếm (${PHIM_TAT})`}
+            placeholder={isMobile ? (khoLamViec ? "Tìm" : "Tìm kiếm") : `Tìm kiếm (${PHIM_TAT})`}
           />
         </div>
 

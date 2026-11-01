@@ -11,6 +11,11 @@ import { SETTINGS_PAGES } from "@/components/settings/settings.config";
 import { taiLaiKenhDaKetNoi } from "@/components/channel/kenhDaKetNoi";
 import { taiLaiSoChuyenKhoanCanXuLy } from "@/components/pos/payosCanXuLy";
 import { SAN_BAN_HANG } from "@/constants/channel";
+import ThanhDieuHuongDay from "./ThanhDieuHuongDay";
+import { laTrangCapDau } from "./thanhDay";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { tinhCoMan } from "@/hooks/useCoMan";
+import { cn } from "@/lib/utils";
 import "@/styles/print.css";
 
 const DEFAULT_DOCUMENT_TITLE =
@@ -517,16 +522,21 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
     // Vào khung quản trị xong, lúc rảnh tải dần các trang trong menu của vai trò: bấm tới là trang hiện ngay
     useEffect(() => taiDanLucRanh(duongDanMenuCuaVaiTro(localStorage.getItem("role"))), []);
 
+    // Điện thoại: thanh điều hướng đáy ở trang cấp đầu; máy tính bảng dọc (cảm ứng): sidebar mở sẵn dạng rail thu gọn
+    const isMobile = useIsMobile();
+    const coThanhDay = isMobile && laTrangCapDau(pathname);
+    const [moSanSidebar] = useState(() => tinhCoMan() !== "mtbDoc");
+
     return (
         <>
-        <SidebarProvider defaultOpen>
+        <SidebarProvider defaultOpen={moSanSidebar}>
             <div
                 data-backoffice-shell
                 className="flex h-dvh min-h-0 w-full overflow-hidden bg-bo-canvas font-backoffice text-bo-foreground"
             >
                 <a
                     href="#backoffice-main-content"
-                    className="no-print fixed left-3 top-3 z-[100] -translate-y-20 rounded-md bg-bo-primary px-3 py-2 text-sm font-semibold text-white transition-transform focus:translate-y-0"
+                    className="no-print fixed left-3 top-3 z-[100] -translate-y-20 rounded-md bg-bo-primary px-3 py-2 text-sm font-semibold text-white transition-transform focus:translate-y-0 cam-ung:inline-flex cam-ung:min-h-11 cam-ung:items-center"
                 >
                     Bỏ qua menu
                 </a>
@@ -540,7 +550,10 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
                     <main
                         id="backoffice-main-content"
                         tabIndex="-1"
-                        className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-bo-canvas"
+                        className={cn(
+                            "min-h-0 min-w-0 flex-1 overflow-y-auto bg-bo-canvas",
+                            coThanhDay && "pb-[calc(56px+env(safe-area-inset-bottom))]",
+                        )}
                     >
                         <PageTitleContext.Provider value={pageTitleValue}>
                             <VungTaiTrang>
@@ -549,6 +562,7 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
                         </PageTitleContext.Provider>
                     </main>
                 </SidebarInset>
+                {coThanhDay ? <ThanhDieuHuongDay /> : null}
             </div>
         </SidebarProvider>
         </>

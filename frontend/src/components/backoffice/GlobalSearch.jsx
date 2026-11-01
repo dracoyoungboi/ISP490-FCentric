@@ -573,7 +573,9 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
           aria-controls={listboxId}
           aria-autocomplete="list"
           aria-activedescendant={mo && dongDangChon ? `${listboxId}-dong-${dongChonHopLe}` : undefined}
-          className="h-full min-w-0 flex-1 bg-transparent text-sm text-bo-foreground outline-none placeholder:text-slate-400"
+          // Màn cảm ứng: ô nhập trùm lên lề trái và kính lúp (lề âm + đệm bằng nhau, chữ vẫn đứng chỗ cũ) để chạm vào cả khung
+          // tìm đều mở ô — điện thoại hẹp có tên kho ở đầu trang, riêng ô nhập chỉ còn ~33px
+          className="h-full min-w-0 flex-1 bg-transparent text-sm text-bo-foreground outline-none placeholder:text-slate-400 cam-ung:-ml-[38px] cam-ung:pl-[38px]"
         />
         {tuKhoa ? (
           <button
