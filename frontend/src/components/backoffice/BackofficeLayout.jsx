@@ -3,6 +3,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import BackofficeSidebar from "./BackofficeSidebar";
 import BackofficeHeader from "./BackofficeHeader";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import VungTaiTrang from "@/components/shared/VungTaiTrang";
 import { PageTitleContext } from "./pageTitle";
 import { SETTINGS_PAGES } from "@/components/settings/settings.config";
 import { taiLaiKenhDaKetNoi } from "@/components/channel/kenhDaKetNoi";
@@ -537,7 +538,9 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
                         className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-bo-canvas"
                     >
                         <PageTitleContext.Provider value={pageTitleValue}>
-                            <Outlet />
+                            <VungTaiTrang>
+                                <Outlet />
+                            </VungTaiTrang>
                         </PageTitleContext.Provider>
                     </main>
                 </SidebarInset>

@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Lock, X } from "lucide-react";
 import EmptyState from "@/components/shared/EmptyState";
+import VungTaiTrang from "@/components/shared/VungTaiTrang";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import { useClaimPageTitle } from "@/components/backoffice/pageTitle";
 import { cn } from "@/lib/utils";
@@ -147,7 +148,9 @@ export default function SettingsLayout() {
         </header>
 
         {allowed ? (
-          <Outlet context={{ page: current, canEdit, setDirty }} />
+          <VungTaiTrang>
+            <Outlet context={{ page: current, canEdit, setDirty }} />
+          </VungTaiTrang>
         ) : (
           <EmptyState
             icon={Lock}

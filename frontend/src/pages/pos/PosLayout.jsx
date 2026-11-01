@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
+import VungTaiTrang from '@/components/shared/VungTaiTrang';
 import '@/styles/print.css';
 
 const POS_DOCUMENT_TITLE = 'Bán hàng tại quầy · FCentric';
@@ -29,7 +30,9 @@ export default function PosLayout() {
       className="flex h-dvh min-h-0 w-full flex-col overflow-clip bg-bo-canvas font-backoffice text-bo-foreground"
       data-pos-shell
     >
-      <Outlet />
+      <VungTaiTrang className="min-h-0 flex-1">
+        <Outlet />
+      </VungTaiTrang>
     </div>
   );
 }
