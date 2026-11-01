@@ -878,6 +878,20 @@ class NguoiDungServiceAuthHardeningTest {
     }
 
     @Test
+    void datQuaLienKet_lanDauCuaTaiKhoanMoi_khongGuiM4() {
+        user.setMustChangePassword(true);
+        LienKetDatMatKhau lk = lienKetCua(user);
+        lk.setMucDich(LienKetDatMatKhauService.TAO_TAI_KHOAN);
+
+        service.datMatKhauQuaLienKet(new DatMatKhauQuaLienKetRequest(MA, "mat-khau-moi"));
+
+        assertNotNull(lk.getDaDungLuc(), "liên kết đã dùng");
+        assertFalse(user.getMustChangePassword());
+        verify(phienDangNhapService).thuHoiTatCa(7);
+        verify(emailService, never()).guiDaDoiMatKhau(any(), any(), any());
+    }
+
+    @Test
     void datQuaLienKet_matKhauKhongHopLe_khongDungToiLienKet() {
         lienKetCua(user);
         assertEquals("Nhập mật khẩu mới", assertThrows(CommonException.class,

@@ -1249,7 +1249,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
     /**
      * Đặt mật khẩu bằng liên kết: dùng một lần (khóa dòng liên kết tới hết giao dịch), gỡ cờ phải đổi mật khẩu, đăng
-     * xuất mọi thiết bị, gửi M4. Mật khẩu giữ nguyên như người dùng gõ (không cắt khoảng trắng), giống Quên mật khẩu.
+     * xuất mọi thiết bị, gửi M4 (trừ lần đặt đầu của tài khoản mới). Mật khẩu giữ nguyên như người dùng gõ (không cắt
+     * khoảng trắng), giống Quên mật khẩu.
      */
     @Transactional
     public ResponseEntity<ResponseData<String>> datMatKhauQuaLienKet(DatMatKhauQuaLienKetRequest request) {
@@ -1276,11 +1277,13 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         lienKetDatMatKhauService.huyConMo(nguoiDung.getId(), luc);
         // đã chứng minh quyền sở hữu email: gỡ khoá do nhập sai
         loginRateLimiter.recordSuccess(null, nguoiDung.getId());
-        emailNghiepVuService.guiDaDoiMatKhau(nguoiDung, CachDoiMatKhau.DAT_QUA_LIEN_KET, luc);
+        boolean lanDau = LienKetDatMatKhauService.TAO_TAI_KHOAN.equals(lienKet.getMucDich());
+        // Tài khoản mới chưa từng có mật khẩu của người dùng: thư "Mật khẩu đã được đổi" ngay sau khi tự đặt là thừa
+        if (!lanDau) {
+            emailNghiepVuService.guiDaDoiMatKhau(nguoiDung, CachDoiMatKhau.DAT_QUA_LIEN_KET, luc);
+        }
         nhatKyBaoMatService.ghiSauCommit(IHanhDong.dat_lai_mat_khau, ITable.nguoi_dung, nguoiDung.getId(),
-                nguoiDung.getId(), LienKetDatMatKhauService.TAO_TAI_KHOAN.equals(lienKet.getMucDich())
-                        ? "Đặt mật khẩu lần đầu qua liên kết email"
-                        : "Đặt lại mật khẩu qua liên kết email");
+                nguoiDung.getId(), lanDau ? "Đặt mật khẩu lần đầu qua liên kết email" : "Đặt lại mật khẩu qua liên kết email");
         thuHoiTatCaSauCommit(nguoiDung.getId(), "đặt mật khẩu qua liên kết");
 
         return ResponseEntity.ok(ResponseData.<String>builder()
