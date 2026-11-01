@@ -521,6 +521,10 @@ export default function DonBanHangList() {
                       ) : null}
                       <span className="min-w-0 truncate font-semibold text-bo-foreground">{item.khachHang?.tenKhachHang || "Khách lẻ"}</span>
                     </span>
+                    {/* Mã đơn trên sàn, như dòng của bảng (chỉ đơn có kênh) */}
+                    {item.kenhBanHang && item.maDonHangKenh ? (
+                      <span className="min-w-0 truncate font-mono text-[11px] text-bo-muted">#{item.maDonHangKenh}</span>
+                    ) : null}
                     <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
                       <span className="min-w-0 truncate">{formatDate(item.ngayDatHang)}{item.khoXuat?.tenKho ? ` · ${item.khoXuat.tenKho}` : ""}</span>
                       <span className="shrink-0 text-[15px] font-semibold tabular-nums text-bo-foreground">{formatCurrency(item.tongCong)}</span>

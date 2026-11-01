@@ -524,6 +524,10 @@ export default function ChannelOrdersPage() {
                       <span className="min-w-0 truncate text-[15px] font-semibold uppercase tracking-wide text-bo-primary">{don.soDonHang}</span>
                       <StatusBadge quyTrinh="donBan" label={st.label} />
                     </span>
+                    {/* Mã đơn trên sàn, như dòng của bảng: số đơn LZD-/TTS- đã ghép đúng mã đơn sàn thì không ghi lại */}
+                    {don.maDonHangKenh && !(uyQuyen && String(don.soDonHang ?? "").includes(don.maDonHangKenh)) ? (
+                      <span className="min-w-0 truncate text-xs tabular-nums text-bo-muted">#{don.maDonHangKenh} trên {SAN.ten}</span>
+                    ) : null}
                     <span className="min-w-0 truncate text-sm font-semibold text-bo-foreground">{don.khachHang?.tenKhachHang || "Khách lẻ"}</span>
                     {nguoiNhan ? <span className="min-w-0 truncate text-[13px] tabular-nums text-bo-muted">Người nhận {nguoiNhan}</span> : null}
                     <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">

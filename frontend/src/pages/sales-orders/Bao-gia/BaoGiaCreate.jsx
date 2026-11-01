@@ -513,7 +513,13 @@ export default function BaoGiaCreate() {
     },
     {
       ma: "sl", nhan: "SL", lop: "w-24 text-right max-md:w-[72px]",
-      nhom: (n) => soVN(n.tong.soLuong),
+      nhom: (n) => (
+        <>
+          {soVN(n.tong.soLuong)}
+          {/* Điện thoại ẩn cột Thành tiền: thành tiền của nhóm ghi dưới số lượng như từng dòng */}
+          <span className="mt-1 block whitespace-nowrap text-xs tabular-nums text-bo-muted md:hidden">{formatCurrency(n.tong.thanhTien)}</span>
+        </>
+      ),
       dong: (d) => (
         <>
         <input
