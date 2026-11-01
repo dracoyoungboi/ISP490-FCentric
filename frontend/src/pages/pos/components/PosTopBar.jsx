@@ -202,7 +202,7 @@ export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymen
             <DropdownMenuTrigger asChild>
               <button
                 aria-label="Mở menu tài khoản"
-                className="flex h-10 max-w-[200px] items-center gap-2 rounded-lg px-1.5 text-bo-foreground transition hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-bo-primary"
+                className="group flex h-10 max-w-[200px] items-center gap-2 rounded-lg px-1.5 text-bo-foreground transition hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-bo-primary data-[state=open]:bg-slate-100"
                 type="button"
               >
                 <UserAvatar avatarUrl={avatarUrl} name={username} size="xs" userId={userId} />
@@ -210,7 +210,7 @@ export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymen
                   <span className="block truncate text-sm font-semibold leading-4">{username}</span>
                   <span className="mt-0.5 block truncate text-[11px] leading-3 text-bo-muted">{roleLabel}</span>
                 </span>
-                <ChevronDown aria-hidden="true" className="hidden size-4 text-bo-muted xl:block" />
+                <ChevronDown aria-hidden="true" className="hidden size-3.5 text-bo-muted transition-transform group-hover:text-bo-foreground group-data-[state=open]:rotate-180 group-data-[state=open]:text-bo-foreground motion-reduce:transition-none xl:block" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="z-[90] w-56 rounded-lg border border-bo-border bg-bo-surface p-1 text-bo-foreground shadow-lg" sideOffset={6}>

@@ -140,7 +140,7 @@ export default function BackofficeHeader() {
               <Button
                 variant="ghost"
                 type="button"
-                className="h-10 max-w-[220px] shrink-0 gap-2 px-2 text-bo-foreground hover:bg-slate-100"
+                className="group h-10 max-w-[220px] shrink-0 gap-2 px-2 text-bo-foreground hover:bg-slate-100 data-[state=open]:bg-slate-100"
                 aria-label="Mở menu tài khoản"
               >
                 <UserAvatar userId={userId} name={username} avatarUrl={avatarUrl} size="xs" />
@@ -153,7 +153,8 @@ export default function BackofficeHeader() {
                     {roleLabel}
                   </span>
                 </span>
-                <ChevronDown className="hidden size-4 text-bo-muted sm:block" />
+                {/* Mũi tên lật lên khi menu mở, cùng kiểu với các nút xổ khác trong app */}
+                <ChevronDown className="hidden size-3.5 text-bo-muted transition-transform group-hover:text-bo-foreground group-data-[state=open]:rotate-180 group-data-[state=open]:text-bo-foreground motion-reduce:transition-none sm:block" />
               </Button>
             </DropdownMenuTrigger>
 
