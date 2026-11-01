@@ -324,6 +324,39 @@ function ManDongGoi({ donId }) {
     }
   };
 
+  const laLazada = Boolean(
+    phien?.soDonHang?.startsWith("LZD-") ||
+    phien?.tenKenh?.toLowerCase()?.includes("lazada") ||
+    phien?.maDonHangKenh?.startsWith("LZD-")
+  );
+
+  const inVanDonLazada = useCallback(async () => {
+    if (!donId) return;
+    try {
+      toast.loading("Đang tải vận đơn Lazada...", { id: "in-awb" });
+      const blob = await donBanHangService.layVanDonSan(donId);
+      toast.dismiss("in-awb");
+      const blobUrl = URL.createObjectURL(blob);
+      const win = window.open(blobUrl, "_blank");
+      if (!win) {
+        toast.error("Trình duyệt đã chặn cửa sổ bật lên. Vui lòng cho phép để mở vận đơn.");
+      }
+    } catch (err) {
+      toast.dismiss("in-awb");
+      let msg = "Không thể tải tem vận đơn Lazada";
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const json = JSON.parse(text);
+          if (json.message) msg = json.message;
+        } catch (_) {}
+      } else if (err.message) {
+        msg = err.message;
+      }
+      toast.error(msg);
+    }
+  }, [donId]);
+
   // ── Đầu khối ────────────────────────────────────────────────────────────
   const moPx = () => pxId && xinRoiTrang(() => navigate(`/goods-issues/${pxId}`));
   const nutChinh = khoaKhiChoGoc(
@@ -400,14 +433,11 @@ function ManDongGoi({ donId }) {
             ]}
             onQuayLai={veDon}
             nhanQuayLai="Về đơn bán hàng"
-            menu={
-              pxId
-                ? [
-                  { ma: "moPx", nhan: `Mở phiếu xuất ${px}`, icon: FileText, onSelect: moPx },
-                  { ma: "inPx", nhan: "In phiếu xuất", icon: Printer, onSelect: () => xinRoiTrang(() => navigate(`/goods-issues/${pxId}/print`)) },
-                ]
-                : []
-            }
+            menu={[
+              pxId ? { ma: "moPx", nhan: `Mở phiếu xuất ${px}`, icon: FileText, onSelect: moPx } : null,
+              pxId ? { ma: "inPx", nhan: "In phiếu xuất", icon: Printer, onSelect: () => xinRoiTrang(() => navigate(`/goods-issues/${pxId}/print`)) } : null,
+              laLazada ? { ma: "inAwb", nhan: "In vận đơn Lazada (AWB)", icon: Printer, onSelect: inVanDonLazada } : null,
+            ].filter(Boolean)}
             nutChinh={nutChinh}
           />
         }

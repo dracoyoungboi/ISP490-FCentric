@@ -44,6 +44,12 @@ export const donBanHangService = {
     const res = await apiClient.put(`/api/v1/don-ban-hang/${id}/reject-quote`, payload);
     return res.data;
   },
+  async layVanDonSan(id) {
+    const res = await apiClient.get(`/api/v1/don-ban-hang/${id}/van-don-san`, {
+      responseType: "blob",
+    });
+    return res.data;
+  },
   async returnOrder(id) {
     const res = await apiClient.put(`/api/v1/don-ban-hang/${id}/return`);
     return res.data;

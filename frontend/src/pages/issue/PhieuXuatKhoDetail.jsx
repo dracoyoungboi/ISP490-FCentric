@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Ban, PackageCheck, Printer, ShieldCheck, Truck } from "lucide-react";
 import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
+import { donBanHangService } from "@/services/donBanHangService";
 import { getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
 import { TRANG_THAI_PHIEU_XUAT } from "@/constants/trangThaiXuatBan";
 import { toast } from "@/lib/thongBaoNhanh";
@@ -310,6 +311,41 @@ function ManPhieuXuatKho({ id }) {
   }
   const nutChinh = khoaKhiChoGoc(nutChinhGoc, choGoc);
 
+  const donId = phieu.donBanHang?.id;
+  const laLazada = Boolean(
+    phieu.donBanHang?.soDonHang?.startsWith("LZD-") ||
+    phieu.donBanHang?.kenhBanHang?.maKenh === "LAZADA" ||
+    phieu.donBanHang?.kenhBanHang?.tenKenh?.toLowerCase()?.includes("lazada") ||
+    phieu.donBanHang?.maDonHangKenh?.startsWith("LZD-")
+  );
+
+  const inVanDonLazada = useCallback(async () => {
+    if (!donId) return;
+    try {
+      toast.loading("Đang tải vận đơn Lazada...", { id: "in-awb" });
+      const blob = await donBanHangService.layVanDonSan(donId);
+      toast.dismiss("in-awb");
+      const blobUrl = URL.createObjectURL(blob);
+      const win = window.open(blobUrl, "_blank");
+      if (!win) {
+        toast.error("Trình duyệt đã chặn cửa sổ bật lên. Vui lòng cho phép để mở vận đơn.");
+      }
+    } catch (err) {
+      toast.dismiss("in-awb");
+      let msg = "Không thể tải tem vận đơn Lazada";
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const json = JSON.parse(text);
+          if (json.message) msg = json.message;
+        } catch (_) {}
+      } else if (err.message) {
+        msg = err.message;
+      }
+      toast.error(msg);
+    }
+  }, [donId]);
+
   const soDon = phieu.donBanHang?.soDonHang;
   const moTaHuy = `Hủy phiếu ${phieu.soPhieuXuat}? Số lượng đang giữ được trả lại tồn kho${
     soDon ? `; đơn ${soDon} quay về Chờ nhặt hàng (Đã xuất một phần nếu đơn đã xuất một phần trước đó)` : ""
@@ -366,7 +402,10 @@ function ManPhieuXuatKho({ id }) {
             nhanQuayLai="Về danh sách phiếu xuất kho"
             nutPhu={quyen.coIn ? { ma: "in", nhan: "In phiếu", icon: Printer, onClick: () => navigate(`/goods-issues/${phieu.id}/print`) } : null}
             saoChepMa={{ giaTri: phieu.soPhieuXuat, nhan: "Sao chép mã phiếu" }}
-            menu={[
+                        menu={[
+              laLazada && donId
+                ? { ma: "inAwb", nhan: "In vận đơn Lazada (AWB)", icon: Printer, onSelect: inVanDonLazada }
+                : null,
               coXemBangChung
                 ? { ma: "bangChung", nhan: "Xem bằng chứng đóng gói", icon: ShieldCheck, onSelect: () => setHop("bangChung") }
                 : null,
@@ -381,7 +420,7 @@ function ManPhieuXuatKho({ id }) {
                   onSelect: () => setHop("huy"),
                 }
                 : null,
-            ]}
+            ].filter(Boolean)}
             nutChinh={nutChinh}
           />
         }
