@@ -7,7 +7,7 @@ import LoadingState from "@/components/shared/LoadingState";
 import ErrorState from "@/components/shared/ErrorState";
 import NganKeoThietBi from "@/components/nguoi-dung/ho-so/NganKeoThietBi";
 import TheThietBi, { TheThietBiDayDu } from "@/components/nguoi-dung/ho-so/TheThietBi";
-import { SO_THE_TREN_TRANG, chuanBiPhien, phanLoaiPhien } from "@/components/nguoi-dung/ho-so/thietBiHoSo";
+import { GIO_HIEU_LUC_PHIEN, SO_THE_TREN_TRANG, chuanBiPhien } from "@/components/nguoi-dung/ho-so/thietBiHoSo";
 import { nguoiDungService } from "@/services/nguoiDungService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
@@ -19,8 +19,9 @@ const NUT_CHU = "rounded text-[13px] font-medium outline-none hover:underline fo
  * Mục "Thiết bị đang đăng nhập" ở Hồ sơ (chốt PA5, 31/10/2026).
  * - Trên trang: lưới tối đa 6 thẻ (thiết bị này trước, rồi mới hoạt động trước). Nút Đăng xuất từng thẻ chỉ hiện khi
  *   rê chuột hoặc Tab tới thẻ, để trang không lặp lại nhiều chữ "Đăng xuất". Thao tác chính: "Đăng xuất các thiết bị khác".
- * - Dòng tóm tắt: số thiết bị hoạt động hôm nay, kèm liên kết "N không dùng hơn 7 ngày" mở ngăn kéo đã lọc sẵn.
- * - Nhiều hơn 6 thiết bị: nút "Xem tất cả thiết bị" mở ngăn kéo có tìm, lọc, gom theo thời gian.
+ * - Không có dòng tóm tắt dưới tiêu đề (số thiết bị đã ở tiêu đề). Bỏ đếm "hoạt động hôm nay" / "không dùng hơn 7 ngày"
+ *   (01/11/2026): phiên chỉ sống 24 giờ nên hai số đó luôn là "tất cả" và 0.
+ * - Nhiều hơn 6 thiết bị: nút "Xem tất cả thiết bị" mở ngăn kéo có ô tìm, gom "Thiết bị này" / "Thiết bị khác".
  * - Chỉ có thiết bị đang dùng: một thẻ đầy đủ trải hết chiều ngang (kèm lúc đăng nhập, địa chỉ IP).
  * - Thiết bị hiện tại không có nút đăng xuất ở đây (thoát bằng nút Đăng xuất trên thanh trên cùng).
  * Mọi lần đăng xuất đều hỏi lại; xong thì tải lại danh sách.
@@ -31,10 +32,9 @@ export default function ThietBiDangNhap({ khoaTaiLai = 0 }) {
   // Mốc tính "x phút trước" là lúc tải danh sách, để số liệu không đổi giữa các lần vẽ
   const bayGio = phienQ.capNhatLuc ? phienQ.capNhatLuc.getTime() : 0;
   const ds = chuanBiPhien(phienQ.data, bayGio);
-  const { homNay, khac, lauKhongDung } = phanLoaiPhien(ds);
+  const khac = ds.filter((p) => !p.thietBiNay);
 
   const [moNgan, setMoNgan] = useState(false);
-  const [loc, setLoc] = useState("tat_ca");
   const [tuKhoa, setTuKhoa] = useState("");
 
   // xacNhan giữ NỘI DUNG; moXacNhan điều khiển mở/đóng TÁCH RIÊNG để khi đóng không bị nháy chữ
@@ -49,8 +49,7 @@ export default function ThietBiDangNhap({ khoaTaiLai = 0 }) {
   const dongXacNhan = () => {
     if (!dangXuLy) setMoXacNhan(false);
   };
-  const moNganKeo = (locBanDau = "tat_ca") => {
-    setLoc(locBanDau);
+  const moNganKeo = () => {
     setTuKhoa("");
     setMoNgan(true);
   };
@@ -66,14 +65,6 @@ export default function ThietBiDangNhap({ khoaTaiLai = 0 }) {
         await nguoiDungService.dangXuatThietBiKhac();
         toast.success("Đã đăng xuất các thiết bị khác.");
         setMoNgan(false);
-      } else {
-        // Chưa có API đăng xuất theo nhóm: gọi từng phiên, báo số không đăng xuất được (nếu có)
-        const ketQua = await Promise.allSettled(xacNhan.ids.map((id) => nguoiDungService.dangXuatPhien(id)));
-        const loi = ketQua.filter((k) => k.status === "rejected").length;
-        const duoc = ketQua.length - loi;
-        if (loi) toast.error(`Đã đăng xuất ${duoc}/${ketQua.length} thiết bị. ${loi} thiết bị chưa đăng xuất được, hãy thử lại.`);
-        else toast.success(`Đã đăng xuất ${duoc} thiết bị lâu không dùng.`);
-        setLoc("tat_ca");
       }
       setMoXacNhan(false);
     } catch (err) {
@@ -85,13 +76,11 @@ export default function ThietBiDangNhap({ khoaTaiLai = 0 }) {
   };
 
   const nhieu = ds.length > SO_THE_TREN_TRANG;
-  const tomTatNgan = `${ds.length} thiết bị · ${homNay.length} hoạt động hôm nay${
-    lauKhongDung.length ? ` · ${lauKhongDung.length} không dùng hơn 7 ngày` : ""
-  }`;
+  // Nói điều người dùng chưa biết (vì sao không thấy thiết bị cũ), thay cho số "hoạt động hôm nay" luôn bằng tổng
+  const tomTatNgan = `${ds.length} thiết bị · Tự đăng xuất sau ${GIO_HIEU_LUC_PHIEN} giờ`;
 
   const hoiMot = (p) => moHoi({ kieu: "mot", id: p.id, ten: p.ten });
   const hoiKhac = () => moHoi({ kieu: "khac", so: khac.length });
-  const hoiLauKhongDung = () => moHoi({ kieu: "lau", ids: lauKhongDung.map((p) => p.id) });
 
   let tieuDeHoi = "";
   let moTaHoi = "";
@@ -104,35 +93,15 @@ export default function ThietBiDangNhap({ khoaTaiLai = 0 }) {
     tieuDeHoi = `Đăng xuất ${xacNhan.so} thiết bị khác?`;
     moTaHoi = "Mọi thiết bị trừ thiết bị bạn đang dùng sẽ phải đăng nhập lại.";
     nutHoi = `Đăng xuất ${xacNhan.so} thiết bị`;
-  } else if (xacNhan?.kieu === "lau") {
-    tieuDeHoi = `Đăng xuất ${xacNhan.ids.length} thiết bị lâu không dùng?`;
-    moTaHoi = "Các thiết bị không hoạt động hơn 7 ngày sẽ phải đăng nhập lại. Thiết bị bạn đang dùng không bị ảnh hưởng.";
-    nutHoi = `Đăng xuất ${xacNhan.ids.length} thiết bị`;
   }
 
   return (
     <section aria-labelledby="ho-so-thiet-bi" className="px-4 py-5 sm:px-6 sm:py-[22px]">
       <div className="mb-3.5 flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
-        <div className="min-w-0">
-          <h2 id="ho-so-thiet-bi" className="text-[15px] font-semibold leading-[22px] text-bo-foreground">
-            Thiết bị đang đăng nhập
-            {ds.length ? <span className="font-normal text-bo-muted"> ({ds.length})</span> : null}
-          </h2>
-          {/* Chỉ hiện khi có số liệu đáng xem (nhiều thiết bị / có thiết bị lâu không dùng); ít thiết bị thì để trống */}
-          {nhieu || lauKhongDung.length ? (
-            <p className="mt-0.5 text-[12.5px] leading-[18px] text-bo-muted">
-              {homNay.length} hoạt động hôm nay
-              {lauKhongDung.length ? (
-                <>
-                  {" · "}
-                  <button type="button" onClick={() => moNganKeo("lau_khong_dung")} className={`${NUT_CHU} text-[12.5px] text-bo-primary`}>
-                    {lauKhongDung.length} không dùng hơn 7 ngày
-                  </button>
-                </>
-              ) : null}
-            </p>
-          ) : null}
-        </div>
+        <h2 id="ho-so-thiet-bi" className="min-w-0 text-[15px] font-semibold leading-[22px] text-bo-foreground">
+          Thiết bị đang đăng nhập
+          {ds.length ? <span className="font-normal text-bo-muted"> ({ds.length})</span> : null}
+        </h2>
         {khac.length ? (
           <button type="button" onClick={hoiKhac} className={`${NUT_CHU} py-0.5 text-bo-danger`}>
             Đăng xuất các thiết bị khác
@@ -168,7 +137,7 @@ export default function ThietBiDangNhap({ khoaTaiLai = 0 }) {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => moNganKeo()}
+                onClick={moNganKeo}
                 className="border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
               >
                 Xem tất cả thiết bị
@@ -184,14 +153,10 @@ export default function ThietBiDangNhap({ khoaTaiLai = 0 }) {
         onOpenChange={setMoNgan}
         ds={ds}
         tomTat={tomTatNgan}
-        loc={loc}
-        onLocChange={setLoc}
         tuKhoa={tuKhoa}
         onTuKhoaChange={setTuKhoa}
-        soLauKhongDung={lauKhongDung.length}
         coThietBiKhac={khac.length > 0}
         onDangXuatMot={hoiMot}
-        onDangXuatLauKhongDung={hoiLauKhongDung}
         onDangXuatTatCaKhac={hoiKhac}
       />
 

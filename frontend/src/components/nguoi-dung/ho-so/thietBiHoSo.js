@@ -1,17 +1,20 @@
 /**
- * Logic thuần của mục "Thiết bị đang đăng nhập" ở Hồ sơ (chốt PA5, 31/10/2026): sắp xếp, phân loại theo lần hoạt động,
- * lọc và gom nhóm cho ngăn kéo "Xem tất cả thiết bị". Không import alias "@/..." để chạy được bằng `node --test`.
+ * Logic thuần của mục "Thiết bị đang đăng nhập" ở Hồ sơ (chốt PA5, 31/10/2026): sắp xếp, tìm và gom nhóm cho
+ * ngăn kéo "Xem tất cả thiết bị". Không import alias "@/..." để chạy được bằng `node --test`.
  *
  * Mỗi phiên là PhienDangNhapDto: { id, thietBiNay, userAgent, diaChiIp, viTri, taoLuc, truyCapCuoi }.
  * `bayGio` (ms) truyền vào từ ngoài — thời điểm tải danh sách — để kết quả không đổi giữa các lần vẽ.
+ *
+ * Không lọc/gom theo thời gian (bỏ "Hôm nay" / "Lâu không dùng", 01/11/2026): phiên chỉ sống GIO_HIEU_LUC_PHIEN giờ
+ * kể từ lần đăng nhập (đổi mật khẩu thì tính lại từ lúc đổi), không gia hạn khi đang dùng, và danh sách chỉ có phiên
+ * còn hạn, nên mọi thiết bị đều hoạt động trong ngày.
  */
 import { moTaThietBi, thoiGianTuongDoi } from "../../../utils/thietBi.js";
 import { ngayGio } from "../phanQuyen.js";
 
 const PHUT_MS = 60 * 1000;
-export const PHUT_MOT_NGAY = 24 * 60;
-/** Không hoạt động từ bao nhiêu phút thì coi là "lâu không dùng" (7 ngày). */
-export const PHUT_LAU_KHONG_DUNG = 7 * PHUT_MOT_NGAY;
+/** Hạn một lần đăng nhập, khớp PHIEN_TTL (NguoiDungService) và hạn token (JwtServiceImpl) ở máy chủ. */
+export const GIO_HIEU_LUC_PHIEN = 24;
 /** Số thẻ thiết bị hiện trên trang; nhiều hơn thì mở ngăn kéo "Xem tất cả thiết bị". */
 export const SO_THE_TREN_TRANG = 6;
 
@@ -40,38 +43,18 @@ export function chuanBiPhien(ds, bayGio) {
     .sort((a, b) => Number(Boolean(b.thietBiNay)) - Number(Boolean(a.thietBiNay)) || a.phut - b.phut || a.id - b.id);
 }
 
-/** Đếm nhanh cho dòng tóm tắt: số phiên hoạt động trong ngày (gồm thiết bị này) và các phiên lâu không dùng. */
-export function phanLoaiPhien(ds) {
-  const homNay = ds.filter((p) => p.phut < PHUT_MOT_NGAY);
-  const khac = ds.filter((p) => !p.thietBiNay);
-  const lauKhongDung = khac.filter((p) => p.phut >= PHUT_LAU_KHONG_DUNG);
-  return { homNay, khac, lauKhongDung };
-}
-
-export const LOC_THIET_BI = [
-  { ma: "tat_ca", ten: "Tất cả" },
-  { ma: "hom_nay", ten: "Hôm nay" },
-  { ma: "lau_khong_dung", ten: "Lâu không dùng" },
-];
-
-/** Lọc theo bộ lọc thời gian và từ khóa (tên trình duyệt · hệ điều hành, địa chỉ IP, vị trí). */
-export function locPhien(ds, { loc = "tat_ca", tuKhoa = "" } = {}) {
+/** Tìm theo từ khóa (tên trình duyệt · hệ điều hành, địa chỉ IP, vị trí), không phân biệt hoa thường. */
+export function timPhien(ds, tuKhoa = "") {
   const tk = String(tuKhoa ?? "").trim().toLowerCase();
-  return ds.filter((p) => {
-    if (loc === "hom_nay" && !(p.phut < PHUT_MOT_NGAY)) return false;
-    if (loc === "lau_khong_dung" && (p.thietBiNay || p.phut < PHUT_LAU_KHONG_DUNG)) return false;
-    if (!tk) return true;
-    return [p.ten, p.diaChiIp, p.viTri].filter(Boolean).join(" ").toLowerCase().includes(tk);
-  });
+  if (!tk) return ds;
+  return ds.filter((p) => [p.ten, p.diaChiIp, p.viTri].filter(Boolean).join(" ").toLowerCase().includes(tk));
 }
 
-/** Gom theo thời gian cho ngăn kéo; bỏ nhóm rỗng, giữ thứ tự trong nhóm. */
-export function nhomTheoThoiGian(ds) {
+/** Gom cho ngăn kéo: "Thiết bị này" rồi "Thiết bị khác"; bỏ nhóm rỗng, giữ thứ tự trong nhóm. */
+export function nhomPhien(ds) {
   const NHOM = [
     { ma: "nay", ten: "Thiết bị này", thuoc: (p) => p.thietBiNay },
-    { ma: "hom_nay", ten: "Hôm nay", thuoc: (p) => !p.thietBiNay && p.phut < PHUT_MOT_NGAY },
-    { ma: "tuan", ten: "Trong 7 ngày qua", thuoc: (p) => !p.thietBiNay && p.phut >= PHUT_MOT_NGAY && p.phut < PHUT_LAU_KHONG_DUNG },
-    { ma: "cu", ten: "Hơn 7 ngày trước", thuoc: (p) => !p.thietBiNay && p.phut >= PHUT_LAU_KHONG_DUNG },
+    { ma: "khac", ten: "Thiết bị khác", thuoc: (p) => !p.thietBiNay },
   ];
   return NHOM.map(({ ma, ten, thuoc }) => ({ ma, ten, ds: ds.filter(thuoc) })).filter((n) => n.ds.length > 0);
 }
