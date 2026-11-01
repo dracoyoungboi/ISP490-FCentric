@@ -8,6 +8,8 @@ import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.entities.PhienDangNhap;
 import com.dev.backend.exception.customize.AccountDisabledException;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.exception.customize.LoiCoMaException;
+import com.dev.backend.exception.customize.MaLoi;
 import com.dev.backend.exception.customize.SessionRevokedException;
 import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.repository.PhanQuyenNguoiDungKhoRepository;
@@ -54,6 +56,15 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     static final String LOI_PHIEN_KHONG_HOP_LE = "Phiên đăng nhập không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.";
     static final String LOI_QUYEN_DA_DOI = "Quyền của bạn vừa được quản trị viên thay đổi. Vui lòng đăng nhập lại.";
+    static final String LOI_PHAI_DOI_MAT_KHAU = "Bạn cần đổi mật khẩu tạm thời trước khi tiếp tục.";
+
+    // Các API người còn mật khẩu tạm vẫn gọi được: thông tin của mình (giao diện đọc cờ từ đây), đổi mật khẩu, đăng xuất,
+    // và danh sách kho của mình (trang đăng nhập gọi ngay sau khi đăng nhập để chọn kho làm việc; chỉ đọc).
+    static final Set<String> API_KHI_PHAI_DOI_MAT_KHAU = Set.of(
+            "GET /api/v1/nguoi-dung/me",
+            "POST /api/v1/nguoi-dung/change-password",
+            "POST /api/v1/nguoi-dung/logout",
+            "POST /api/v1/kho/mine");
 
     @Override
     public boolean preHandle(HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull Object handler) {
@@ -134,6 +145,14 @@ public class AuthInterceptor implements HandlerInterceptor {
                         log.warn("Không kiểm được phiên đăng nhập (sid {}): {}", sid, e.getMessage());
                     }
                 }
+
+                // Còn mật khẩu tạm: chỉ cho các API cần để đổi mật khẩu. Hộp thoại bắt đổi ở giao diện chỉ là lớp ngoài,
+                // gọi thẳng API vẫn phải bị chặn ở đây.
+                if (Boolean.TRUE.equals(nguoiDung.getMustChangePassword())
+                        && !duocGoiKhiPhaiDoiMatKhau(request.getMethod(), request.getRequestURI())) {
+                    SecurityContextHolder.clear();
+                    throw new LoiCoMaException(HttpStatus.FORBIDDEN, MaLoi.PASSWORD_CHANGE_REQUIRED, LOI_PHAI_DOI_MAT_KHAU);
+                }
             }
         }
         if (khoId != null && !khoId.isBlank()) {
@@ -145,6 +164,15 @@ public class AuthInterceptor implements HandlerInterceptor {
             }
         }
         return true;
+    }
+
+    /** Request này có nằm trong {@link #API_KHI_PHAI_DOI_MAT_KHAU} không (bỏ dấu "/" cuối đường dẫn). */
+    static boolean duocGoiKhiPhaiDoiMatKhau(String method, String uri) {
+        String duongDan = uri == null ? "" : uri;
+        while (duongDan.length() > 1 && duongDan.endsWith("/")) {
+            duongDan = duongDan.substring(0, duongDan.length() - 1);
+        }
+        return API_KHI_PHAI_DOI_MAT_KHAU.contains(method + " " + duongDan);
     }
 
     /**

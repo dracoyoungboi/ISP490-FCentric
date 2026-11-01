@@ -74,6 +74,22 @@ public final class MaLoi {
     /** 400 · Lỗi gọi TikTok Shop Open API hoặc phản hồi nghiệp vụ thất bại. */
     public static final String TIKTOK_API_ERROR = "TIKTOK_API_ERROR";
 
+    // ---------------- Tài khoản ----------------
+
+    /**
+     * 403 · Tài khoản còn mật khẩu tạm (must_change_password): chỉ gọi được Xem thông tin của tôi, Đổi mật khẩu,
+     * Đăng xuất và danh sách kho của tôi cho tới khi đổi mật khẩu. Giao diện mở hộp Đổi mật khẩu.
+     */
+    public static final String PASSWORD_CHANGE_REQUIRED = "PASSWORD_CHANGE_REQUIRED";
+    /** 400 · Liên kết đặt mật khẩu không có (sai, thiếu ký tự khi chép). */
+    public static final String LIEN_KET_KHONG_HOP_LE = "LIEN_KET_KHONG_HOP_LE";
+    /** 400 · Liên kết đặt mật khẩu đã quá hạn. */
+    public static final String LIEN_KET_HET_HAN = "LIEN_KET_HET_HAN";
+    /** 400 · Liên kết đặt mật khẩu đã dùng để đặt mật khẩu. */
+    public static final String LIEN_KET_DA_DUNG = "LIEN_KET_DA_DUNG";
+    /** 400 · Liên kết đặt mật khẩu đã bị hủy: quản trị viên gửi liên kết mới hơn, hoặc mật khẩu vừa đổi bằng cách khác. */
+    public static final String LIEN_KET_DA_THAY = "LIEN_KET_DA_THAY";
+
     // ---------------- Sản phẩm ----------------
 
     /**
