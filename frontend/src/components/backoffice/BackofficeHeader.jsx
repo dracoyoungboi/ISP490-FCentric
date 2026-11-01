@@ -12,7 +12,7 @@ import { jwtDecode } from "jwt-decode";
 import UserAvatar from "@/components/UserAvatar";
 import NotificationBell from "@/components/backoffice/NotificationBell";
 import GlobalSearch from "@/components/backoffice/GlobalSearch";
-import { useCurrentUserAvatarUrl } from "@/utils/avatar";
+import { useCurrentUserProfile } from "@/utils/avatar";
 import { nguoiDungService } from "@/services/nguoiDungService";
 import { xinRoiTrang } from "@/lib/chanRoiTrang";
 import { Button } from "@/components/ui/button";
@@ -51,21 +51,23 @@ export default function BackofficeHeader() {
   const role = localStorage.getItem("role");
 
   let userId = null;
-  let username = "Quản trị viên";
+  let tenTrongToken = null;
 
   if (token) {
     try {
       const payload = jwtDecode(token);
       userId = payload.userId || payload.id || payload.sub;
-      username = payload.tenDangNhap || payload.username || "Quản trị viên";
+      tenTrongToken = payload.hoTen || payload.tenDangNhap || payload.username;
     } catch (error) {
       console.error("Invalid token", error);
     }
   }
 
-  // Ảnh đại diện lấy từ cache hồ sơ (login response / GET /me) — tự cập nhật
-  // ngay khi đổi ảnh mà không cần đăng nhập lại
-  const avatarUrl = useCurrentUserAvatarUrl(userId);
+  // Ảnh đại diện + họ tên lấy từ cache hồ sơ (login response / GET /me) — tự cập nhật
+  // ngay khi đổi ảnh hay sửa họ tên mà không cần đăng nhập lại
+  const profile = useCurrentUserProfile(userId);
+  const avatarUrl = profile?.avatarUrl ?? null;
+  const username = profile?.hoTen || tenTrongToken || "Quản trị viên";
 
   // Số lượt quét chưa khóa lô khi bấm Đăng xuất (> 0 thì hỏi lại trước khi xóa phiên). Đóng hộp chỉ tắt `hoiLuot`,
   // giữ số: hộp còn hiện trong lúc chạy hiệu ứng đóng, không nháy "Có 0 lượt quét…"

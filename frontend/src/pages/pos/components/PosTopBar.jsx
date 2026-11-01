@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import UserAvatar from '@/components/UserAvatar';
 import useOnlineStatus, { useOnReconnect } from '@/hooks/useOnlineStatus';
-import { useCurrentUserAvatarUrl } from '@/utils/avatar';
+import { useCurrentUserProfile } from '@/utils/avatar';
 import { nguoiDungService } from '@/services/nguoiDungService';
 import PosModal from './PosModal';
 import {
@@ -45,7 +45,7 @@ function readCurrentUser() {
     try {
       const payload = jwtDecode(token);
       userId = payload.userId || payload.id || payload.sub;
-      username = payload.tenDangNhap || payload.username || username;
+      username = payload.hoTen || payload.tenDangNhap || payload.username || username;
     } catch {
       /* token hỏng: ProtectedRoute/apiClient sẽ xử lý phiên */
     }
@@ -100,8 +100,11 @@ export default function PosTopBar({ children, tabs = null, onHelp, pendingPaymen
   }, []);
   const now = useClock();
   const { isFullscreen, supported: fullscreenSupported, toggle: toggleFullscreen } = useFullscreen();
-  const [{ userId, username, roleLabel }] = useState(readCurrentUser);
-  const avatarUrl = useCurrentUserAvatarUrl(userId);
+  const [{ userId, username: tenTrongToken, roleLabel }] = useState(readCurrentUser);
+  // Họ tên + ảnh lấy từ cache hồ sơ (cập nhật ngay khi sửa hồ sơ), token chỉ là dự phòng
+  const profile = useCurrentUserProfile(userId);
+  const avatarUrl = profile?.avatarUrl ?? null;
+  const username = profile?.hoTen || tenTrongToken;
   const [confirmLogout, setConfirmLogout] = useState(false);
 
   const logout = () => {

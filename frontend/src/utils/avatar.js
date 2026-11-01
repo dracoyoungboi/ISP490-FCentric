@@ -74,22 +74,21 @@ export function clearCurrentUserProfile() {
   }
 }
 
-// Ảnh đại diện của người đang đăng nhập, tự re-render khi AVATAR_EVENT bắn ra
-export function useCurrentUserAvatarUrl(userId) {
-  const [avatarUrl, setAvatarUrl] = useState(
-    () => getCurrentUserProfile(userId)?.avatarUrl ?? null
-  );
+// Hồ sơ cached của người đang đăng nhập, tự re-render khi AVATAR_EVENT bắn ra
+// (đổi ảnh / sửa họ tên ở hồ sơ) — header cập nhật ngay, không chờ đăng nhập lại
+export function useCurrentUserProfile(userId) {
+  const [profile, setProfile] = useState(() => getCurrentUserProfile(userId));
 
   useEffect(() => {
     const handleAvatarEvent = (event) => {
       const eventUserId = event?.detail?.userId;
       if (userId != null && eventUserId != null && String(eventUserId) === String(userId)) {
-        setAvatarUrl(getCurrentUserProfile(userId)?.avatarUrl ?? null);
+        setProfile(getCurrentUserProfile(userId));
       }
     };
     window.addEventListener(AVATAR_EVENT, handleAvatarEvent);
     return () => window.removeEventListener(AVATAR_EVENT, handleAvatarEvent);
   }, [userId]);
 
-  return avatarUrl;
+  return profile;
 }
