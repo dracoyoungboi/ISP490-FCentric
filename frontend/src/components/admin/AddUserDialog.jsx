@@ -34,6 +34,7 @@ import { adminService } from "@/services/adminService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { HAN_LIEN_KET_MAT_KHAU } from "@/utils/matKhau";
 import { PHONE_ERROR_MESSAGE, PHONE_REGEX, sanitizePhoneInput } from "@/utils/phoneValidation";
+import { chuanHoaHoTen, loiHoTen } from "@/validations/hoTen";
 
 // Trùng regex của backend (NguoiDungService.EMAIL_PATTERN) để hai phía báo lỗi giống nhau.
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -41,7 +42,9 @@ const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const USERNAME_REGEX = /^[A-Za-z0-9._-]+$/;
 const USERNAME_MIN_LENGTH = 3;
 // Bằng độ dài cột trong bảng nguoi_dung; vượt quá thì backend báo lỗi chung chung.
-const MAX_LENGTH = { hoTen: 100, tenDangNhap: 50, email: 100 };
+// Họ tên không đặt maxLength: trình duyệt đếm theo đơn vị UTF-16 trước chuẩn hóa nên cắt mất chữ khi dán tên có dấu
+// viết tách; quá 100 ký tự thì validations/hoTen.js báo lỗi.
+const MAX_LENGTH = { tenDangNhap: 50, email: 100 };
 
 // Trùng mặc định của backend khi không gửi vai trò. Danh sách chọn theo đúng thứ tự trong ROLES (Quản trị viên cuối).
 const DEFAULT_ROLE = "nhan_vien_kho";
@@ -51,7 +54,8 @@ const EMPTY_FORM = { hoTen: "", tenDangNhap: "", email: "", soDienThoai: "", vai
 const TEXT_FIELDS = ["hoTen", "tenDangNhap", "email", "soDienThoai"];
 
 const VALIDATORS = {
-    hoTen: (value) => (value.trim() ? "" : "Vui lòng nhập họ và tên"),
+    // Cùng luật với Hồ sơ của tôi và máy chủ (validations/hoTen.js ↔ HoTen.java)
+    hoTen: loiHoTen,
     tenDangNhap: (value) => {
         const username = value.trim();
         if (!username) return "Vui lòng nhập tên đăng nhập";
@@ -216,7 +220,9 @@ function AddUserForm({ onClose, onCreated }) {
 
     const handleBlur = (name) => {
         // Ô trống không bị "mắng" khi chỉ đi ngang qua; chỉ báo khi bấm Tạo tài khoản.
-        if (!form[name].trim()) return;
+        // Họ tên chỉ có ký tự vô hình (dán nhầm) cũng tính là trống.
+        const giaTri = name === "hoTen" ? chuanHoaHoTen(form.hoTen) : form[name].trim();
+        if (!giaTri) return;
         setFieldError(name, VALIDATORS[name](form[name]));
     };
 
@@ -249,7 +255,7 @@ function AddUserForm({ onClose, onCreated }) {
         }
 
         const payload = {
-            hoTen: form.hoTen.trim(),
+            hoTen: chuanHoaHoTen(form.hoTen),
             tenDangNhap: form.tenDangNhap.trim(),
             email: form.email.trim(),
             soDienThoai: form.soDienThoai || null,
@@ -374,7 +380,6 @@ function AddUserForm({ onClose, onCreated }) {
                             <Input
                                 {...textInputProps("hoTen")}
                                 aria-required="true"
-                                maxLength={MAX_LENGTH.hoTen}
                                 placeholder="VD: Nguyễn Văn An"
                                 onChange={(event) => changeField("hoTen", event.target.value)}
                             />

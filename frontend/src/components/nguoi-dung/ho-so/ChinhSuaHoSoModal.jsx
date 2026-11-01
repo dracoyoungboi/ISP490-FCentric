@@ -13,6 +13,7 @@ import {
 import { nguoiDungService } from "@/services/nguoiDungService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { PHONE_ERROR_MESSAGE, getPhoneError, isPhoneValid, sanitizePhoneInput } from "@/utils/phoneValidation";
+import { LOI_HO_TEN_DAI, LOI_HO_TEN_KY_TU, chuanHoaHoTen, loiHoTen } from "@/validations/hoTen";
 import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
 
@@ -46,8 +47,15 @@ export default function ChinhSuaHoSoModal({ open, onOpenChange, hoSo, oDauTien =
   }
 
   const loiSdt = getPhoneError(nhap.soDienThoai);
-  const coThayDoi = chuan(nhap.hoTen) !== chuan(hoSo?.hoTen) || chuan(nhap.soDienThoai) !== chuan(hoSo?.soDienThoai);
-  const hopLe = Boolean(chuan(nhap.hoTen)) && isPhoneValid(nhap.soDienThoai);
+  const hoTenMoi = chuanHoaHoTen(nhap.hoTen);
+  // Giữ nguyên họ tên đang lưu thì không kiểm lại (như máy chủ): tên tạo trước khi có luật vẫn sửa được số điện thoại
+  const giuHoTen = Boolean(hoTenMoi) && hoTenMoi === chuanHoaHoTen(hoSo?.hoTen);
+  const loiHoTenDayDu = giuHoTen ? "" : loiHoTen(nhap.hoTen);
+  // Gõ ký tự không cho phép hoặc quá dài thì báo ngay; trống, quá ngắn chỉ báo khi rời ô (đang gõ dở)
+  const loiTenHien =
+    loiTen || ([LOI_HO_TEN_KY_TU, LOI_HO_TEN_DAI].includes(loiHoTenDayDu) ? loiHoTenDayDu : "");
+  const coThayDoi = !giuHoTen || chuan(nhap.soDienThoai) !== chuan(hoSo?.soDienThoai);
+  const hopLe = !loiHoTenDayDu && isPhoneValid(nhap.soDienThoai);
 
   const dong = (mo) => {
     if (!mo && dangLuu) return;
@@ -57,15 +65,15 @@ export default function ChinhSuaHoSoModal({ open, onOpenChange, hoSo, oDauTien =
   const luu = async (e) => {
     e.preventDefault();
     if (dangLuu || !coThayDoi) return;
-    if (!chuan(nhap.hoTen)) {
-      setLoiTen("Nhập họ và tên.");
+    if (loiHoTenDayDu) {
+      setLoiTen(loiHoTenDayDu);
       return;
     }
     if (!isPhoneValid(nhap.soDienThoai)) return;
     setDangLuu(true);
     try {
       const res = await nguoiDungService.updateMe({
-        hoTen: chuan(nhap.hoTen),
+        hoTen: hoTenMoi,
         soDienThoai: chuan(nhap.soDienThoai) || null,
       });
       if (!res?.data) throw new Error("Không đọc được dữ liệu trả về");
@@ -104,21 +112,22 @@ export default function ChinhSuaHoSoModal({ open, onOpenChange, hoSo, oDauTien =
             <Input
               id="ho-ten"
               value={nhap.hoTen}
-              maxLength={100}
+              // Không đặt maxLength: trình duyệt đếm theo đơn vị UTF-16 trước chuẩn hóa nên cắt mất chữ khi dán tên có dấu
+              // viết tách; quá 100 ký tự thì báo ngay dưới ô
               autoComplete="name"
               disabled={dangLuu}
-              aria-invalid={Boolean(loiTen)}
-              aria-describedby={loiTen ? "ho-ten-loi" : undefined}
+              aria-invalid={Boolean(loiTenHien)}
+              aria-describedby={loiTenHien ? "ho-ten-loi" : undefined}
               onChange={(e) => {
                 setNhap((cu) => ({ ...cu, hoTen: e.target.value }));
                 setLoiTen("");
               }}
-              onBlur={() => setLoiTen(chuan(nhap.hoTen) ? "" : "Nhập họ và tên.")}
-              className={cn(O_NHAP, loiTen && "border-bo-danger")}
+              onBlur={() => setLoiTen(loiHoTenDayDu)}
+              className={cn(O_NHAP, loiTenHien && "border-bo-danger")}
             />
-            {loiTen ? (
+            {loiTenHien ? (
               <p id="ho-ten-loi" className="mt-1 text-xs text-bo-danger">
-                {loiTen}
+                {loiTenHien}
               </p>
             ) : null}
           </div>
