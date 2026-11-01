@@ -314,7 +314,7 @@ export default function DonChoXuatPage() {
                                     variant="outline"
                                     onClick={() => setSelected(new Map())}
                                     aria-label="Bỏ chọn tất cả đơn"
-                                    className="size-12 shrink-0 border-bo-input-border bg-bo-surface p-0 text-bo-foreground"
+                                    className="size-10 shrink-0 border-bo-input-border bg-bo-surface p-0 text-bo-foreground"
                                 >
                                     <X className="size-5" aria-hidden="true" />
                                 </Button>

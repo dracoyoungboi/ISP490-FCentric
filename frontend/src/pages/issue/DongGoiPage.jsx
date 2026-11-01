@@ -50,7 +50,7 @@ import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { KHO_LAM_VIEC_EVENT, getKhoLamViecId, laKhoLamViecHopLe, setKhoLamViecId } from "@/utils/khoLamViec";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 import { playScanBeep } from "@/utils/scanBeep";
-import { laCamUng } from "@/lib/camUng";
+import { tinhCoMan } from "@/hooks/useCoMan";
 
 // Phiếu xuất thuộc kho khác kho đang làm việc (DongGoiServiceImpl.kiemTraKho)
 const MAU_KHO_KHAC = /thuộc kho khác/i;
@@ -474,9 +474,10 @@ function ManDongGoi({ donId }) {
               onRefresh={taiLaiTatCa}
               loiYeuCau={qBc.error && !qBc.loading ? getApiErrorMessage(qBc.error, "lỗi kết nối") : null}
               onThuLaiYeuCau={qBc.reload}
-              // Màn cảm ứng không trả tiêu điểm về ô quét: tránh cuộn về đầu trang và bật bàn phím ảo giữa lúc chụp ảnh
+              // Điện thoại không trả tiêu điểm về ô quét: tránh cuộn về đầu trang và bật bàn phím ảo giữa lúc chụp ảnh. Máy tính
+              // bảng (bàn đóng gói, thường có súng quét) vẫn trả về như máy tính để lần quét sau vào đúng ô
               traTieuDiem={() => {
-                if (!laCamUng()) oQuetRef.current?.focus();
+                if (tinhCoMan() !== "dienThoai") oQuetRef.current?.focus();
               }}
               traTieuDiemVe={oQuetRef}
               className="mt-2"

@@ -52,8 +52,6 @@ function lyDoKhongXoa(v) {
 const O_CHON = "border-slate-300 data-[state=checked]:border-bo-primary data-[state=checked]:bg-bo-primary data-[state=checked]:text-white data-[state=indeterminate]:border-bo-primary data-[state=indeterminate]:bg-bo-primary data-[state=indeterminate]:text-white";
 const MENU = "backoffice-user-menu z-50 min-w-[180px] rounded-lg border border-bo-border bg-white p-1 shadow-lg";
 const MUC_MENU = "flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-slate-700 focus:bg-slate-100 focus:text-slate-900";
-/** Nút thao tác của dòng trên máy tính bảng dọc (cảm ứng): 40px cho dễ chạm; máy tính giữ 32px. */
-const NUT_BANG_CHAM = "cam-ung:max-lg:size-10";
 
 /**
  * Vị trí kệ — PA1 "Danh sách theo khu" (màn chính FO-094).
@@ -505,17 +503,16 @@ export default function DanhSachViTri({
                     </td>
                     <td className="px-3 py-3">
                       <RowActions>
-                        <RowActionButton icon={MapPin} label="Xem trên mặt bằng" onClick={() => onXemTrenMatBang({ viTriId: v.id })} className={NUT_BANG_CHAM} />
+                        <RowActionButton icon={MapPin} label="Xem trên mặt bằng" onClick={() => onXemTrenMatBang({ viTriId: v.id })} />
                         {coTheSua ? (
                           <>
-                            <RowActionButton icon={Pencil} label="Sửa vị trí" onClick={() => onSuaViTri(v)} className={NUT_BANG_CHAM} />
+                            <RowActionButton icon={Pencil} label="Sửa vị trí" onClick={() => onSuaViTri(v)} />
                             <RowActionButton
                               icon={Trash2}
                               tone="danger"
                               label={lyDoKhongXoa(v) ?? "Xóa vị trí"}
                               disabled={conHang || choNhap}
                               onClick={() => onXoaViTri(v)}
-                              className={NUT_BANG_CHAM}
                             />
                           </>
                         ) : null}
