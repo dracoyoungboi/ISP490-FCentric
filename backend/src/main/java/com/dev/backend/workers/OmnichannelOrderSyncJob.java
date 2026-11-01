@@ -10,6 +10,7 @@ import com.dev.backend.services.multitable.NhatHangService;
 import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
 import com.dev.backend.services.impl.entities.DonBanHangService;
 import com.dev.backend.services.impl.entities.KhoService;
+import com.dev.backend.services.impl.entities.ThongBaoXuatKhoService;
 import com.dev.backend.utils.KenhCauHinhDongBo;
 import com.dev.backend.dto.response.customize.TikTokOrderDto;
 import com.dev.backend.dto.response.customize.TikTokOrderItemDto;
@@ -31,6 +32,7 @@ import org.springframework.web.client.RestTemplate;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.Objects;
 
 import java.math.BigDecimal;
@@ -80,6 +82,14 @@ public class OmnichannelOrderSyncJob {
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     TikTokShopClient tiktokShopClient;
+    /** Thông báo đơn sàn: mới chờ gửi sang kho, thiếu dòng, khách yêu cầu hủy (test dựng tay không có thì bỏ qua). */
+    @lombok.experimental.NonFinal
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    ThongBaoXuatKhoService thongBaoXuatKhoService;
+    /** Đơn thiếu dòng của lượt lấy đơn đang chạy trên luồng này: gộp thành một thông báo mỗi lượt. */
+    ThreadLocal<List<ThongBaoXuatKhoService.DonThieuDong>> donThieuDongLuot = new ThreadLocal<>();
+    /** Số đơn Nháp (chờ gửi sang kho) vừa tạo trong lượt lấy đơn đang chạy trên luồng này. */
+    ThreadLocal<int[]> donNhapMoiLuot = new ThreadLocal<>();
     ObjectMapper objectMapper = new ObjectMapper();
     AtomicReference<Instant> lastSyncTime = new AtomicReference<>(Instant.EPOCH);
     // Lần gọi API đơn hàng của sàn thành công gần nhất, theo id kênh (màn Theo dõi đồng bộ)
@@ -257,6 +267,7 @@ public class OmnichannelOrderSyncJob {
                 JsonNode root = objectMapper.readTree(response.getBody());
                 JsonNode orders = root.path("orders");
                 if (orders.isArray()) {
+                    batDauLuot();
                     for (JsonNode orderNode : orders) {
                         try {
                             if (processSingleOrder(orderNode, kenh)) {
@@ -269,6 +280,7 @@ public class OmnichannelOrderSyncJob {
                     if (syncedCount > 0) {
                         log.info("[JOB-01] Đã đồng bộ thành công {} đơn hàng mới từ Shopify", syncedCount);
                     }
+                    ketThucLuot(kenh, syncedCount);
                 }
             }
         } catch (HttpClientErrorException.TooManyRequests e) {
@@ -365,8 +377,10 @@ public class OmnichannelOrderSyncJob {
                 .build();
 
         DonBanHang savedOrder = donBanHangRepository.save(don);
+        demDonNhapMoi(kenh);
 
-        // Lưu chi tiết các dòng sản phẩm
+        // Lưu chi tiết các dòng sản phẩm; dòng chưa liên kết SKU bị bỏ → báo quản trị viên
+        Map<String, Integer> skuThieu = new LinkedHashMap<>();
         JsonNode lineItems = orderNode.path("line_items");
         if (lineItems.isArray()) {
             for (JsonNode itemNode : lineItems) {
@@ -397,10 +411,58 @@ public class OmnichannelOrderSyncJob {
                             .ghiChu(itemNode.path("title").asText(""))
                             .build();
                     chiTietDonBanHangRepository.save(chiTiet);
+                } else {
+                    skuThieu.merge(maDongThieu(sku, variantId, itemNode.path("title").asText("")), qty.intValue(), Integer::sum);
                 }
             }
         }
+        ghiNhanDonThieuDong(kenh, savedOrder.getSoDonHang(), skuThieu, false);
         return true;
+    }
+
+    /** Bắt đầu một lượt lấy đơn của kênh: gom đơn thiếu dòng để báo một lần ở cuối lượt. */
+    private void batDauLuot() {
+        donThieuDongLuot.set(new ArrayList<>());
+        donNhapMoiLuot.set(new int[1]);
+    }
+
+    /** Vừa tạo một đơn Nháp: trong lượt thì đếm (báo ở cuối lượt), gọi lẻ thì báo ngay. */
+    private void demDonNhapMoi(KenhBanHang kenh) {
+        int[] dem = donNhapMoiLuot.get();
+        if (dem != null) dem[0]++;
+        else if (thongBaoXuatKhoService != null) thongBaoXuatKhoService.donSanMoi(kenh);
+    }
+
+    /**
+     * Cuối lượt lấy đơn: có đơn mới thì báo quản trị viên số đơn chờ gửi sang kho (đếm lại từ dữ liệu, đơn TikTok tạo thẳng
+     * ở trạng thái khác không tính); có đơn thiếu dòng thì báo một lần cho cả lượt.
+     */
+    private void ketThucLuot(KenhBanHang kenh, int soDonMoi) {
+        List<ThongBaoXuatKhoService.DonThieuDong> thieu = donThieuDongLuot.get();
+        int[] nhapMoi = donNhapMoiLuot.get();
+        donThieuDongLuot.remove();
+        donNhapMoiLuot.remove();
+        if (thongBaoXuatKhoService == null) return;
+        // Chỉ đơn mới ở Nháp (đơn TikTok tạo thẳng ở Đã giao / Hoàn thành không cần gửi sang kho)
+        if (nhapMoi != null && nhapMoi[0] > 0) thongBaoXuatKhoService.donSanMoi(kenh);
+        if (thieu != null && !thieu.isEmpty()) thongBaoXuatKhoService.donSanThieuDong(kenh, thieu);
+    }
+
+    /** Đơn vừa tạo thiếu dòng: trong lượt thì gom, gọi lẻ (ngoài lượt) thì báo ngay. */
+    private void ghiNhanDonThieuDong(KenhBanHang kenh, String soDon, Map<String, Integer> skuThieu, boolean khongLayDuocDong) {
+        if (skuThieu.isEmpty() && !khongLayDuocDong) return;
+        ThongBaoXuatKhoService.DonThieuDong d = new ThongBaoXuatKhoService.DonThieuDong(soDon, skuThieu, khongLayDuocDong);
+        List<ThongBaoXuatKhoService.DonThieuDong> luot = donThieuDongLuot.get();
+        if (luot != null) luot.add(d);
+        else if (thongBaoXuatKhoService != null) thongBaoXuatKhoService.donSanThieuDong(kenh, List.of(d));
+    }
+
+    /** Mã hiển thị của dòng chưa liên kết: SKU, không có thì mã biến thể / mã của sàn, cuối cùng là tên. */
+    private static String maDongThieu(String... ung) {
+        for (String m : ung) {
+            if (m != null && !m.isBlank()) return m.trim();
+        }
+        return "?";
     }
 
     /** Số đơn khi SHP-&lt;số&gt; đã thuộc đơn khác: thêm 4 số cuối id đơn Shopify, vẫn trùng thì thêm cả id (cột UNIQUE, 50 ký tự). */
@@ -498,6 +560,7 @@ public class OmnichannelOrderSyncJob {
             if ("0".equals(code)) {
                 JsonNode orders = root.path("data").path("orders");
                 if (orders.isArray()) {
+                    batDauLuot();
                     for (JsonNode orderNode : orders) {
                         try {
                             if (processSingleLazadaOrder(orderNode, kenh, appKey, appSecret, accessToken)) {
@@ -510,6 +573,7 @@ public class OmnichannelOrderSyncJob {
                     if (syncedCount > 0) {
                         log.info("[JOB-01] Đã đồng bộ thành công {} đơn hàng mới từ Lazada", syncedCount);
                     }
+                    ketThucLuot(kenh, syncedCount);
                 }
             } else {
                 log.warn("[JOB-01] Lazada trả mã lỗi khi lấy đơn: {} - {}", code, root.path("message").asText());
@@ -564,9 +628,14 @@ public class OmnichannelOrderSyncJob {
                     client.searchOrders(appKey, appSecret, accessToken, shopCipher, req);
 
             if (response != null && response.getOrders() != null) {
-                for (TikTokOrderDto order : response.getOrders()) {
-                    boolean ok = processSingleTikTokOrder(order, kenh);
-                    if (ok) synced++;
+                batDauLuot();
+                try {
+                    for (TikTokOrderDto order : response.getOrders()) {
+                        boolean ok = processSingleTikTokOrder(order, kenh);
+                        if (ok) synced++;
+                    }
+                } finally {
+                    ketThucLuot(kenh, synced);
                 }
             }
             lanLayDonCuoi.put(kenh.getId(), Instant.now());
@@ -674,9 +743,14 @@ public class OmnichannelOrderSyncJob {
                             .build()))
                     .build();
 
-            if (processSingleTikTokOrder(order1, kenh)) synced++;
-            if (processSingleTikTokOrder(order2, kenh)) synced++;
-            if (processSingleTikTokOrder(order3, kenh)) synced++;
+            batDauLuot();
+            try {
+                if (processSingleTikTokOrder(order1, kenh)) synced++;
+                if (processSingleTikTokOrder(order2, kenh)) synced++;
+                if (processSingleTikTokOrder(order3, kenh)) synced++;
+            } finally {
+                ketThucLuot(kenh, synced);
+            }
 
             lanLayDonCuoi.put(kenh.getId(), Instant.now());
             log.info("[JOB-01] Quét đơn TikTok Shop Sandbox hoàn tất: {} đơn mới", synced);
@@ -719,6 +793,11 @@ public class OmnichannelOrderSyncJob {
                     existing.setNgayCapNhat(Instant.now());
                     donBanHangRepository.save(existing);
                     log.warn("[JOB-01] Đơn {} có cờ khách yêu cầu hủy từ TikTok Shop: {}", soDonHang, lyDo);
+                    if (thongBaoXuatKhoService != null) {
+                        thongBaoXuatKhoService.khachYeuCauHuy(existing, kenh);
+                        // Đơn có cờ không gom phiếu nhặt được: số "đơn chờ xuất" của kho giảm
+                        if (existing.getKhoXuat() != null) thongBaoXuatKhoService.lamMoiDonChoXuat(existing.getKhoXuat().getId());
+                    }
                 }
             }
             return false;
@@ -770,7 +849,10 @@ public class OmnichannelOrderSyncJob {
                 .build();
 
         DonBanHang savedOrder = donBanHangRepository.save(don);
+        if (order.laYeuCauHuy() && thongBaoXuatKhoService != null) thongBaoXuatKhoService.khachYeuCauHuy(savedOrder, kenh);
+        if (Integer.valueOf(0).equals(savedOrder.getTrangThai())) demDonNhapMoi(kenh);
 
+        Map<String, Integer> skuThieu = new LinkedHashMap<>();
         if (order.getLineItems() != null) {
             for (TikTokOrderItemDto it : order.getLineItems()) {
                 String sellerSku = it.getSellerSku() != null ? it.getSellerSku().trim() : "";
@@ -808,9 +890,12 @@ public class OmnichannelOrderSyncJob {
                             .ghiChu(it.getProductName() != null ? it.getProductName() : "")
                             .build();
                     chiTietDonBanHangRepository.save(chiTiet);
+                } else {
+                    skuThieu.merge(maDongThieu(sellerSku, skuId, it.getProductName()), sl.intValue(), Integer::sum);
                 }
             }
         }
+        ghiNhanDonThieuDong(kenh, savedOrder.getSoDonHang(), skuThieu, false);
 
         return true;
     }
@@ -900,12 +985,17 @@ public class OmnichannelOrderSyncJob {
                 .build();
 
         DonBanHang savedOrder = donBanHangRepository.save(don);
+        demDonNhapMoi(kenh);
 
+        // Dòng chưa liên kết SKU bị bỏ, hoặc không lấy được dòng hàng nào: báo quản trị viên
+        Map<String, Integer> skuThieu = new LinkedHashMap<>();
+        boolean layDuocDong = false;
         try {
             JsonNode itemsRes = lazadaClient.getOrderItems(appKey, appSecret, accessToken, orderId);
             if ("0".equals(itemsRes.path("code").asText(""))) {
                 JsonNode items = itemsRes.path("data");
                 if (items.isArray()) {
+                    layDuocDong = true;
                     for (JsonNode it : items) {
                         String sellerSku = it.path("seller_sku").asText("").trim();
                         String shopSku = it.path("shop_sku").asText("").trim();
@@ -963,6 +1053,8 @@ public class OmnichannelOrderSyncJob {
                                     .ghiChu(it.path("name").asText(""))
                                     .build();
                             chiTietDonBanHangRepository.save(chiTiet);
+                        } else {
+                            skuThieu.merge(maDongThieu(sellerSku, shopSku, sku, it.path("name").asText("")), soLuong.intValue(), Integer::sum);
                         }
                     }
                 }
@@ -970,6 +1062,7 @@ public class OmnichannelOrderSyncJob {
         } catch (Exception ex) {
             log.error("[JOB-01] Lỗi lấy line items cho đơn Lazada {}: {}", orderId, ex.getMessage());
         }
+        ghiNhanDonThieuDong(kenh, savedOrder.getSoDonHang(), skuThieu, !layDuocDong);
 
         return true;
     }
