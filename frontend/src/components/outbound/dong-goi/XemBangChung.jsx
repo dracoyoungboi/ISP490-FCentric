@@ -194,8 +194,8 @@ export function HopXemBangChung({ o, onDong, onCloseAutoFocus }) {
               onClick={taiXuong}
               disabled={dangTaiNay}
               title="Tải xuống"
-              // Màn hẹp chỉ còn biểu tượng để tiêu đề đủ chỗ (màn cảm ứng: rộng 44px cho đủ vùng chạm)
-              className={`${NUT_DAU_HOP} border border-bo-border bg-bo-surface max-sm:w-8 sm:px-2.5 cam-ung:max-sm:w-11`}
+              // Màn hẹp chỉ còn biểu tượng để tiêu đề đủ chỗ
+              className={`${NUT_DAU_HOP} border border-bo-border bg-bo-surface max-sm:w-8 sm:px-2.5`}
             >
               {dangTaiNay ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Download className="size-4" aria-hidden="true" />}
               <span className="max-sm:sr-only">{dangTaiNay ? "Đang tải…" : "Tải xuống"}</span>

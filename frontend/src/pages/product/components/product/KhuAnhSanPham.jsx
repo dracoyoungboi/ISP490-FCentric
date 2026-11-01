@@ -116,8 +116,9 @@ export default function KhuAnhSanPham({ id, anhs, thieuAnh, disabled, onThemTep,
                                         onClick={() => onDatChinh(anh)}
                                         disabled={disabled}
                                         aria-label={`Đặt ảnh ${index + 1} làm ảnh chính`}
-                                        // Màn cảm ứng: nút cao 44px nên không đè lên ảnh nữa mà nằm thành hàng dưới ảnh
-                                        className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded bg-bo-surface/95 px-1.5 py-0.5 text-[10px] font-medium text-bo-foreground opacity-0 shadow-sm transition-opacity hover:text-bo-primary focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-bo-primary group-hover:opacity-100 pointer-coarse:opacity-100 cam-ung:static cam-ung:mt-1.5 cam-ung:flex cam-ung:w-full cam-ung:justify-center cam-ung:rounded-md cam-ung:border cam-ung:border-bo-border cam-ung:bg-bo-surface cam-ung:text-xs cam-ung:shadow-none"
+                                        // Màn cảm ứng: nút không đè lên ảnh nữa mà nằm thành hàng dưới ảnh (relative, không static, để
+                                        // lớp vùng chạm ::before bám vào nút chứ không phủ cả ô ảnh)
+                                        className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded bg-bo-surface/95 px-1.5 py-0.5 text-[10px] font-medium text-bo-foreground opacity-0 shadow-sm transition-opacity hover:text-bo-primary focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-bo-primary group-hover:opacity-100 pointer-coarse:opacity-100 cam-ung:relative cam-ung:inset-auto cam-ung:mt-1.5 cam-ung:flex cam-ung:w-full cam-ung:justify-center cam-ung:rounded-md cam-ung:border cam-ung:border-bo-border cam-ung:bg-bo-surface cam-ung:text-xs cam-ung:shadow-none"
                                     >
                                         <Star className="size-2.5" aria-hidden="true" />
                                         Đặt làm ảnh chính

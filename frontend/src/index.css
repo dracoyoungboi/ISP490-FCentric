@@ -753,14 +753,9 @@
 	[data-co-thanh-thao-tac="cao"] #backoffice-main-content { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
 	/* Lý do khóa dài xuống hai dòng */
 	[data-co-thanh-thao-tac="cao-2"] #backoffice-main-content { padding-bottom: calc(114px + env(safe-area-inset-bottom)); }
-	/* Thông báo nổi trên trang có thanh thao tác đáy: nằm trên thanh, không che nút chính và nút ⋯ (sonner đặt khoảng cách
-	   bằng biến trên style nên cần !important) */
-	html[data-co-thanh-thao-tac] [data-sonner-toaster][data-y-position="bottom"] {
-		--offset-bottom: calc(72px + env(safe-area-inset-bottom)) !important;
-		--mobile-offset-bottom: calc(72px + env(safe-area-inset-bottom)) !important;
-	}
-	/* Đang mở menu ⋯ hay sheet đáy thì tạm ẩn thông báo nổi để không đè lên các mục chọn */
-	html:has([data-slot="dropdown-menu-content"], [data-slot="sheet-content"]) [data-sonner-toaster] {
+	/* Thông báo nổi tự nâng lên trên thanh thao tác / thanh điều hướng đáy (useKhoangTranhDay đo .fixed.bottom-0) nên không
+	   cần quy tắc riêng. Đang mở menu ⋯, sheet đáy, bộ lọc (vaul) hay menu trái thì tạm ẩn thông báo để không đè lên các mục chọn */
+	html:has([data-slot="dropdown-menu-content"], [data-slot="sheet-content"], [data-slot="drawer-content"], [data-slot="sidebar"][data-mobile="true"]) [data-sonner-toaster] {
 		opacity: 0;
 		pointer-events: none;
 	}
@@ -829,7 +824,10 @@
 [data-cam-ung] :where([class*="overflow-x-auto"]):not([class*="overflow-y-"], [class*="max-h-"], [class*="h-full"], :has(table), .kh-bang, .ncc-bang, .bo-table-body) {
   overflow-y: hidden;
 }
-[data-cam-ung] :where(button, [role="button"], a[data-slot="button"], a[class*="size-"]):not([class*="overflow-"], [class*="truncate"], [class*="line-clamp"], [class*="before:"], [role="combobox"], [data-slot="select-trigger"], [data-sidebar], [data-slot="checkbox"], [data-slot="radio-group-item"], [data-slot="switch"], .sr-only, [data-cham-nho], [data-sonner-toaster] *, [data-slot="sidebar-rail"])::before {
+/* Lớp ::before chỉ gắn vào nút chắc chắn đã định vị: nút nhận position: relative ở quy tắc trên, hoặc nút có sẵn lớp
+   absolute / fixed / sticky / relative không kèm biến thể. Nút chỉ định vị theo biến thể (focus-visible:relative, md:absolute)
+   hay bị đưa về static (cam-ung:static) thì ::before sẽ bám vào khối cha và phủ cả khối, nên bỏ qua. */
+[data-cam-ung] :where(button, [role="button"], a[data-slot="button"], a[class*="size-"]):is(:not([class*="absolute"], [class*="fixed"], [class*="sticky"], [class*="relative"]), [class~="absolute"], [class~="fixed"], [class~="sticky"], [class~="relative"]):not([class*=":static"], [class*="overflow-"], [class*="truncate"], [class*="line-clamp"], [class*="before:"], [role="combobox"], [data-slot="select-trigger"], [data-sidebar], [data-slot="checkbox"], [data-slot="radio-group-item"], [data-slot="switch"], .sr-only, [data-cham-nho], [data-sonner-toaster] *, [data-slot="sidebar-rail"])::before {
   content: "";
   position: absolute;
   inset: min(0px, calc(50% - 22px));
