@@ -322,7 +322,9 @@ function ONghiepVu({ ten, icon, so, nhanSo, to, chip = [], tao }) {
         <span className="min-w-0 text-[13px] leading-5 text-bo-muted">{so ? nhanSo : "Không có việc chờ"}</span>
       </Link>
       {chip.length ? (
-        <p className="relative z-[1] mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs leading-5">
+        // Màn cảm ứng: mỗi liên kết có vùng chạm cao 44px (index.css), hàng xuống dòng cách nhau đủ 44px để vùng chạm của
+        // liên kết dưới không đè lên liên kết trên
+        <p className="relative z-[1] mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs leading-5 cam-ung:gap-y-6">
           {chip.map((c) => (
             <Link key={c.nhan} to={c.to} className={cn("whitespace-nowrap rounded hover:underline", FOCUS, CHU_CHIP[c.kieu] ?? "text-bo-muted", c.kieu && "font-medium")}>
               {c.nhan}
