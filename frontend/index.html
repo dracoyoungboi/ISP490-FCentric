@@ -6,6 +6,13 @@
   <link rel="icon" type="image/svg+xml" href="/branding/Favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FCentric</title>
+  <!-- Nền xám của khung quản trị (bo-canvas) trong lúc tải mã, để F5 không chớp trắng rồi mới xám. Chỉ áp khi #root còn
+       trống nên không đổi nền các trang đã dựng (trang In, đăng nhập...). -->
+  <style>
+    html:has(#root:empty) {
+      background: #f4f6f8;
+    }
+  </style>
 </head>
 
 <body>
