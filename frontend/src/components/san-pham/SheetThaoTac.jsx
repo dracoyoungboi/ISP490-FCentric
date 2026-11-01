@@ -1,4 +1,4 @@
-import { createElement } from "react";
+import { createElement, useRef } from "react";
 import { Ellipsis } from "lucide-react";
 import SheetDay from "@/components/shared/SheetDay";
 import { cn } from "@/lib/utils";
@@ -35,12 +35,26 @@ export function NutThaoTac({ nhan, onClick, vien = false, className }) {
  * `thaoTac`: [{ khoa, icon, nhan, nguyHiem?, onChon }].
  */
 export default function SheetThaoTac({ mo, onDoiMo, tieuDe, moTa, thaoTac }) {
+  const daChon = useRef(false);
   const chon = (viec) => () => {
+    daChon.current = true;
     onDoiMo(false);
     setTimeout(viec, 0);
   };
+  // Mở lại sheet: chưa chọn việc nào
+  const doiMo = (moi) => {
+    if (moi) daChon.current = false;
+    onDoiMo(moi);
+  };
   return (
-    <SheetDay mo={mo} onDoiMo={onDoiMo} tieuDe={tieuDe} moTa={moTa}>
+    <SheetDay
+      mo={mo}
+      onDoiMo={doiMo}
+      tieuDe={tieuDe}
+      moTa={moTa}
+      // Đã chọn một việc (hộp sửa / xác nhận đang mở): không trả tiêu điểm về nút ⋯
+      onCloseAutoFocus={(event) => { if (daChon.current) event.preventDefault(); }}
+    >
       <div className="-mx-1 flex flex-col">
         {thaoTac.map((t) => (
           <button

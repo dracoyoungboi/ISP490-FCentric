@@ -16,8 +16,10 @@ import { cn } from "@/lib/utils";
  * - `kichHoat`: nút mở sheet (bọc DrawerTrigger → có aria-expanded, đóng sheet thì tiêu điểm về lại nút này).
  * - `mo` / `onDoiMo`: điều khiển từ ngoài; bỏ trống thì sheet tự giữ trạng thái.
  * - `chan`: các nút ở chân sheet (nút chính đặt cuối); truyền hàm `(dong) => …` khi nút cần đóng sheet.
+ * - `onCloseAutoFocus`: như của Radix; sheet thao tác gọi preventDefault khi đã chọn một việc mở hộp thoại khác, để tiêu
+ *   điểm không quay về nút ⋯ sau khi hộp thoại kia đã mở.
  */
-export default function SheetDay({ kichHoat, mo, onDoiMo, tieuDe, moTa, children, chan, className }) {
+export default function SheetDay({ kichHoat, mo, onDoiMo, tieuDe, moTa, children, chan, className, onCloseAutoFocus }) {
   const [moRieng, setMoRieng] = useState(false);
   const dangMo = mo ?? moRieng;
   const doiMo = onDoiMo ?? setMoRieng;
@@ -27,6 +29,7 @@ export default function SheetDay({ kichHoat, mo, onDoiMo, tieuDe, moTa, children
     <Drawer open={dangMo} onOpenChange={doiMo}>
       {kichHoat ? <DrawerTrigger asChild>{kichHoat}</DrawerTrigger> : null}
       <DrawerContent
+        onCloseAutoFocus={onCloseAutoFocus}
         className={cn(
           // Lớp của DrawerContent gắn theo data-[vaul-drawer-direction=bottom] nên phải cùng điều kiện mới đè được
           "border-bo-border bg-bo-surface font-backoffice text-bo-foreground",

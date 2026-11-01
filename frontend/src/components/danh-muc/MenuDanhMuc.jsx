@@ -1,4 +1,4 @@
-import { createElement, useState } from "react";
+import { createElement, useRef, useState } from "react";
 import { CircleCheck, CirclePause, Ellipsis, FolderInput, Pencil, Plus, ScanSearch } from "lucide-react";
 
 import {
@@ -83,9 +83,11 @@ function mauIconTrangThai(trangThai) {
  */
 function BangTruot({ thaoTac, phu, onThemCon, onSua, onChuyen, onDoiTrangThai }) {
   const [mo, setMo] = useState(false);
+  const daChon = useRef(false);
 
   // Đóng bảng trượt trước rồi mới mở hộp thoại kế tiếp, tránh hai lớp phủ tranh nhau giữ tiêu điểm
   const chon = (viec) => () => {
+    daChon.current = true;
     setMo(false);
     setTimeout(() => viec?.(), 0);
   };
@@ -96,11 +98,16 @@ function BangTruot({ thaoTac, phu, onThemCon, onSua, onChuyen, onDoiTrangThai })
       onDoiMo={setMo}
       tieuDe={thaoTac.ten}
       moTa={`Thao tác với danh mục ${thaoTac.ten}`}
+      // Đã chọn một việc (hộp thoại kế tiếp đang mở): không trả tiêu điểm về nút ⋯
+      onCloseAutoFocus={(event) => { if (daChon.current) event.preventDefault(); }}
       kichHoat={
         <button
           type="button"
           aria-label={`Thao tác cho ${thaoTac.ten}`}
-          onClick={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation();
+            daChon.current = false;
+          }}
           className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-bo-muted hover:bg-slate-100 hover:text-bo-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-bo-primary"
         >
           <Ellipsis className="size-5" aria-hidden="true" />
