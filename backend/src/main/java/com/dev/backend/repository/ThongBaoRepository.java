@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 /** Thông báo trong ứng dụng. Mọi truy vấn đọc / sửa đều lọc theo người nhận: không ai đụng được thông báo của người khác. */
 @Repository
@@ -45,6 +46,32 @@ public interface ThongBaoRepository extends JpaRepository<ThongBao, Long> {
     @Modifying
     @Query("UPDATE ThongBao t SET t.daDoc = true WHERE t.id = :id AND t.nguoiNhanId = :nguoiNhanId AND t.khoaSuKien IS NOT NULL AND t.daDoc = false")
     int danhDauDaDoc(@Param("id") Long id, @Param("nguoiNhanId") Integer nguoiNhanId);
+
+    // ── Dòng tóm tắt / đánh dấu đã xử lý (ThongBaoService). Tìm id bằng SELECT thường (không khóa) rồi sửa theo id: cột
+    // khoa_su_kien không có chỉ mục riêng, UPDATE thẳng theo cột đó sẽ khóa cả bảng.
+
+    /** Dòng của một người cho một khóa (khóa duy nhất (nguoi_dung_id, khoa_su_kien)). */
+    Optional<ThongBao> findByNguoiNhanIdAndKhoaSuKien(Integer nguoiNhanId, String khoaSuKien);
+
+    @Query("SELECT t.id FROM ThongBao t WHERE t.khoaSuKien = :khoa")
+    List<Long> idTheoKhoa(@Param("khoa") String khoa);
+
+    @Query("SELECT t.id FROM ThongBao t WHERE t.khoaSuKien = :khoa AND t.daDoc = false")
+    List<Long> idChuaDocTheoKhoa(@Param("khoa") String khoa);
+
+    /** {@code mau}: mẫu LIKE đã thoát \, %, _ (ThongBaoService.mauBatDauBang), vd. "PL:12:THIEU\_LO:%". */
+    @Query("SELECT t.id FROM ThongBao t WHERE t.khoaSuKien LIKE :mau ESCAPE '\\' AND t.daDoc = false")
+    List<Long> idChuaDocTheoTienTo(@Param("mau") String mau);
+
+    @Modifying
+    @Query("UPDATE ThongBao t SET t.daDoc = true WHERE t.id IN :ids AND t.daDoc = false")
+    int danhDauDaDocTheoIds(@Param("ids") Collection<Long> ids);
+
+    /** Sửa chữ của các dòng tóm tắt, giữ trạng thái đọc và giờ. */
+    @Modifying
+    @Query("UPDATE ThongBao t SET t.tone = :tone, t.tieuDe = :tieuDe, t.moTa = :moTa, t.duongDan = :duongDan WHERE t.id IN :ids")
+    int capNhatChuCacDong(@Param("ids") Collection<Long> ids, @Param("tone") String tone,
+                          @Param("tieuDe") String tieuDe, @Param("moTa") String moTa, @Param("duongDan") String duongDan);
 
     /** Đánh dấu mọi thông báo chưa đọc của một người đã đọc; trả số dòng đổi. */
     @Modifying

@@ -20,9 +20,23 @@ public final class SauCommit {
     public static void chay(String moTa, Runnable viec) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                private boolean daChay;
+
                 @Override
                 public void afterCommit() {
+                    daChay = true;
                     chayAnToan(moTa, viec);
+                }
+
+                // Đăng ký muộn (từ trong afterCommit của chính giao dịch này, vd. SauCommit lồng trong SauCommit, hay việc
+                // sau commit gọi TransactionTemplate REQUIRED rồi SauCommit): Spring không gọi afterCommit cho đồng bộ
+                // thêm sau, chỉ gọi afterCompletion
+                @Override
+                public void afterCompletion(int status) {
+                    if (status == STATUS_COMMITTED && !daChay) {
+                        daChay = true;
+                        chayAnToan(moTa, viec);
+                    }
                 }
             });
         } else {
