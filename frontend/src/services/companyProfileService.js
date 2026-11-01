@@ -102,6 +102,12 @@ export const companyProfileService = {
         return applyProfileCache(response.data?.data);
     },
 
+    /** Gỡ logo đang dùng: phiếu in, email hiện tên cửa hàng thay logo. */
+    async removeLogo() {
+        const response = await apiClient.delete("/api/v1/thong-tin-cong-ty/logo");
+        return applyProfileCache(response.data?.data);
+    },
+
     /**
      * Migrate hồ sơ localStorage cũ lên server (một lần).
      * Chỉ upload khi server CHƯA có dòng nào (ngayCapNhat == null);

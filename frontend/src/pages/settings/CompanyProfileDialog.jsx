@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
-import { Store, X } from "lucide-react";
+import { Store, Trash2, X } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -31,6 +31,7 @@ import {
 import {
     CHU_THICH_HOP_SUA_NHANH,
     GOI_Y_LOGO_HOP,
+    GOI_Y_SE_XOA_LOGO,
     O_HOP_SUA_NHANH,
     THU_TU_PHAP_LY_HOP,
     TOAST_CHUA_LUU,
@@ -112,6 +113,8 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
     // Logo đang chờ lưu (File + object URL để xem trước) và lỗi chọn tệp
     const [pendingLogoFile, setPendingLogoFile] = useState(null);
     const [pendingLogoUrl, setPendingLogoUrl] = useState(null);
+    // Đã bấm Xóa logo: gỡ logo đang dùng khi bấm Lưu
+    const [xoaLogo, setXoaLogo] = useState(false);
     const [logoError, setLogoError] = useState("");
     const fileInputRef = useRef(null);
 
@@ -126,6 +129,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
             setForm(null);
             setTouched({});
             setPendingLogoFile(null);
+            setXoaLogo(false);
             setLogoError("");
             if (fileInputRef.current) fileInputRef.current.value = "";
             try {
@@ -157,7 +161,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
     }, [pendingLogoFile]);
 
     const thongTinThayDoi = Boolean(loaded) && Boolean(form) && isCompanyProfileChanged(loaded, form);
-    const isDirty = thongTinThayDoi || (Boolean(form) && pendingLogoFile !== null);
+    const isDirty = thongTinThayDoi || (Boolean(form) && (pendingLogoFile !== null || xoaLogo));
 
     const fieldErrors = form ? validateCompanyProfile(form) : {};
     const hasErrors = Object.keys(fieldErrors).length > 0;
@@ -199,6 +203,11 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
+    const chonXoaLogo = () => {
+        boLogoDaChon();
+        setXoaLogo(true);
+    };
+
     // Kiểm loại và dung lượng ngay lúc chọn: sai thì báo dưới nút, không giữ tệp
     const chonTepLogo = (file) => {
         if (!file) return;
@@ -209,6 +218,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
             return;
         }
         setLogoError("");
+        setXoaLogo(false);
         setPendingLogoFile(file);
     };
 
@@ -251,8 +261,21 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
                 }
                 setLoaded(hoSo);
                 onSaved?.(hoSo);
+            } else if (xoaLogo) {
+                try {
+                    hoSo = await companyProfileService.removeLogo();
+                } catch (error) {
+                    console.error("Không xóa được logo:", error);
+                    toast.error(thongBaoLogoLoi({ daLuuThongTin: thongTinThayDoi, noi: "hop", xoa: true }), {
+                        description: chiTietLoi(error),
+                    });
+                    return;
+                }
+                setLoaded(hoSo);
+                onSaved?.(hoSo);
             }
             boLogoDaChon();
+            setXoaLogo(false);
             toast.success(TOAST_DA_LUU);
             onOpenChange(false);
         } finally {
@@ -261,7 +284,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
         }
     };
 
-    const logoShown = pendingLogoUrl ?? loaded?.logoAsset ?? null;
+    const logoShown = pendingLogoUrl ?? (xoaLogo ? null : loaded?.logoAsset) ?? null;
 
     return (
         <Dialog open={open} onOpenChange={(nextOpen) => {
@@ -315,7 +338,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
                                         disabled={saving}
                                         aria-describedby="ho-so-cua-hang-logo-goi-y"
                                     >
-                                        Chọn ảnh logo
+                                        {logoShown ? "Đổi logo" : "Chọn ảnh logo"}
                                     </Button>
                                     {pendingLogoFile ? (
                                         <Button
@@ -327,6 +350,17 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
                                         >
                                             <X className="size-4" aria-hidden="true" />
                                             Bỏ ảnh vừa chọn
+                                        </Button>
+                                    ) : logoShown ? (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className={cn(OUTLINE_BUTTON, "h-8 px-3 text-[13px]")}
+                                            onClick={chonXoaLogo}
+                                            disabled={saving}
+                                        >
+                                            <Trash2 className="size-4" aria-hidden="true" />
+                                            Xóa logo
                                         </Button>
                                     ) : null}
                                     <input
@@ -343,7 +377,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onSaved }) {
                                     <SettingsFieldHint id="ho-so-cua-hang-logo-goi-y" error={logoError} />
                                 ) : (
                                     <SettingsFieldHint id="ho-so-cua-hang-logo-goi-y" className="text-bo-muted">
-                                        {GOI_Y_LOGO_HOP}
+                                        {xoaLogo ? GOI_Y_SE_XOA_LOGO : GOI_Y_LOGO_HOP}
                                     </SettingsFieldHint>
                                 )}
                             </div>

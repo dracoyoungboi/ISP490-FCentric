@@ -16,6 +16,9 @@ export const CHU_THICH_THE_PHAP_LY = "In trên phiếu in và email";
 // Giới hạn dung lượng lấy từ LOGO_TOI_DA_BYTE (không viết cứng số): với 2 MB ra đúng chữ demo
 export const GOI_Y_LOGO_TRANG = `PNG hoặc JPG, tối đa ${LOGO_TOI_DA_CHU}. Không nhận ảnh SVG vì email không hiện được.`;
 export const GOI_Y_LOGO_HOP = `PNG hoặc JPG, tối đa ${LOGO_TOI_DA_CHU}.`;
+/** Chú thích hai dòng ngắn dưới khung logo 64px (câu đầy đủ GOI_Y_LOGO_TRANG nằm ở chú thích khi rê chuột). */
+export const CHU_DUOI_LOGO = `PNG, JPG\ntối đa ${LOGO_TOI_DA_CHU}`;
+export const CHU_DUOI_LOGO_SE_XOA = "Sẽ gỡ khi\nbấm Lưu";
 export const CHU_THICH_HOP_SUA_NHANH = "Dùng chung cho mọi mẫu in và email.";
 
 /** Chú thích nút Sửa bị khóa (đặt ở lớp bọc vì nút bị khóa không hiện chú thích). */
@@ -32,7 +35,7 @@ export const O_TRANG = {
     required: true,
     type: "text",
     placeholder: "Ví dụ: Thời trang Linh Lan",
-    hint: "Tên trên biển hiệu, thương hiệu khách quen gọi. Không thay cho tên đăng ký kinh doanh trên hóa đơn, email.",
+    hint: "Tên trên biển hiệu, thương hiệu khách quen gọi.",
   },
   legalName: {
     label: NHAN.legalName,
@@ -156,13 +159,16 @@ export function nutSuaThe(the, { dangSua = null, coTen = false, canEdit = false 
   return { hien: true, khoa: false, chuThich: "" };
 }
 
+export const GOI_Y_SE_XOA_LOGO = "Logo sẽ được gỡ khi bấm Lưu. Phiếu in và email sẽ hiện tên cửa hàng.";
+
 /**
- * Lưu thông tin xong mà tải logo lỗi: báo riêng, nói rõ phần nào đã lưu (logo luôn tải SAU khi lưu thông tin).
- * Trang chỉ lưu tên cùng logo; hộp sửa nhanh lưu cả hồ sơ.
+ * Lưu thông tin xong mà tải (hoặc gỡ) logo lỗi: báo riêng, nói rõ phần nào đã lưu (logo luôn xử lý SAU khi lưu
+ * thông tin). Trang chỉ lưu tên cùng logo; hộp sửa nhanh lưu cả hồ sơ.
  */
-export function thongBaoLogoLoi({ daLuuThongTin, noi = "trang" }) {
-  if (!daLuuThongTin) return "Chưa tải được logo";
-  return noi === "hop" ? "Đã lưu thông tin, chưa tải được logo" : "Đã lưu tên, chưa tải được logo";
+export function thongBaoLogoLoi({ daLuuThongTin, noi = "trang", xoa = false }) {
+  const viec = xoa ? "chưa xóa được logo" : "chưa tải được logo";
+  if (!daLuuThongTin) return viec.charAt(0).toUpperCase() + viec.slice(1);
+  return noi === "hop" ? `Đã lưu thông tin, ${viec}` : `Đã lưu tên, ${viec}`;
 }
 
 /** Câu chi tiết từ lỗi máy chủ (câu tiếng Việt của máy chủ, hoặc mất kết nối). */
