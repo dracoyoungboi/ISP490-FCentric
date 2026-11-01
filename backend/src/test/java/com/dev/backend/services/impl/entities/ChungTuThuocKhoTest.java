@@ -84,7 +84,8 @@ class ChungTuThuocKhoTest {
         ReflectionTestUtils.setField(pn, "phieuXuatKhoRepository", pxRepo);
         ReflectionTestUtils.setField(pn, "nguoiDungRepository", ndRepo);
 
-        kk = new PhieuKiemKeService(dotRepo, ctKkRepo, tonRepo, khoRepo, ndRepo, lichSuService);
+        kk = new PhieuKiemKeService(dotRepo, ctKkRepo, tonRepo, khoRepo, ndRepo, lichSuService,
+                mock(ThongBaoKiemKeService.class));
         vt = new ViTriKhoServiceImpl(khoRepo, kvRepo, vtRepo, tkvtRepo, mbRepo, ctPnRepo, loRepo, new ObjectMapper());
 
         for (int id : new int[]{A, B, C}) {

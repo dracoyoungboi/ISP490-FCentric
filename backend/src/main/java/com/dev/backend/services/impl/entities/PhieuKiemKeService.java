@@ -45,6 +45,7 @@ public class PhieuKiemKeService {
     private final KhoRepository khoRepository;
     private final NguoiDungRepository nguoiDungRepository;
     private final LichSuGiaoDichKhoService lichSuService;
+    private final ThongBaoKiemKeService thongBaoKiemKeService;
 
     @Autowired
     public PhieuKiemKeService(
@@ -53,13 +54,15 @@ public class PhieuKiemKeService {
             TonKhoTheoLoRepository tonKhoRepository,
             KhoRepository khoRepository,
             NguoiDungRepository nguoiDungRepository,
-            LichSuGiaoDichKhoService lichSuService) {
+            LichSuGiaoDichKhoService lichSuService,
+            ThongBaoKiemKeService thongBaoKiemKeService) {
         this.dotKiemKeRepository = dotKiemKeRepository;
         this.chiTietRepository = chiTietRepository;
         this.tonKhoRepository = tonKhoRepository;
         this.khoRepository = khoRepository;
         this.nguoiDungRepository = nguoiDungRepository;
         this.lichSuService = lichSuService;
+        this.thongBaoKiemKeService = thongBaoKiemKeService;
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -203,6 +206,11 @@ public class PhieuKiemKeService {
         }
         tonKhoRepository.lockLotsForUpdateByLotIds(lotIdsToLock.stream().distinct().toList());
 
+        // Đếm lô lệch và tổng thừa / thiếu để báo quản lý kho (tồn đổi ngay, chưa có bước duyệt)
+        int soLoLech = 0;
+        BigDecimal tongThua = BigDecimal.ZERO;
+        BigDecimal tongThieu = BigDecimal.ZERO;
+
         for (ChiTietKiemKeUpdate update : updates) {
             ChiTietKiemKe chiTiet = chiTietRepository.findById(update.getChiTietId())
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy chi tiết ID: " + update.getChiTietId()));
@@ -234,6 +242,9 @@ public class PhieuKiemKeService {
 
             // Ghi lịch sử chỉ khi có chênh lệch
             if (chenhLech.compareTo(BigDecimal.ZERO) != 0) {
+                soLoLech++;
+                if (chenhLech.signum() > 0) tongThua = tongThua.add(chenhLech);
+                else tongThieu = tongThieu.add(chenhLech.negate());
                 LichSuGiaoDichKho lichSu = LichSuGiaoDichKho.builder()
                         .loaiGiaoDich("dieu_chinh")
                         .soLuong(chenhLech)
@@ -256,6 +267,7 @@ public class PhieuKiemKeService {
         dot.setNgayHoanThanh(Instant.now());
         dot.setNgayCapNhat(Instant.now());
         dotKiemKeRepository.save(dot);
+        thongBaoKiemKeService.daHoanThanh(dot, soLoLech, tongThua, tongThieu, nguoiKiemDem);
     }
 
     // ─────────────────────────────────────────────────────────────
