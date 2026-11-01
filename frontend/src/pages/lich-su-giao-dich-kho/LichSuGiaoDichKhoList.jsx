@@ -5,7 +5,7 @@ import {
     Dialog, DialogContent, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-    Loader2, History, ArrowDownToLine, ArrowUpFromLine,
+    History, ArrowDownToLine, ArrowUpFromLine,
     ArrowLeftRight, SlidersHorizontal, Warehouse, Eye,
     CalendarDays, User2, FileText, Hash, Package, SearchX,
 } from "lucide-react";
@@ -135,10 +135,7 @@ function DetailModal({ open, onClose, item, loading }) {
                 </div>
 
                 {loading ? (
-                    <div className="flex items-center justify-center gap-2 bg-bo-surface py-14">
-                        <Loader2 className="size-5 animate-spin text-bo-primary" />
-                        <span className="text-sm text-bo-muted">Đang tải...</span>
-                    </div>
+                    <LoadingState className="min-h-48 bg-bo-surface" label="Đang tải chi tiết giao dịch" />
                 ) : item ? (
                     <div className="space-y-4 bg-bo-surface px-5 py-4">
 

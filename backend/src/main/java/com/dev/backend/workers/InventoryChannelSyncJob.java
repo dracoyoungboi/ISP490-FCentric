@@ -6,13 +6,16 @@ import com.dev.backend.event.InventoryDeductedEvent;
 import com.dev.backend.repository.KenhBanHangRepository;
 import com.dev.backend.services.KenhBanHangDongBoService;
 import com.dev.backend.services.impl.entities.DongBoNgayService;
+import com.dev.backend.services.impl.entities.ThongBaoHeThongService;
 import com.dev.backend.services.multitable.DieuHanhHeThongService;
 import com.dev.backend.utils.KenhCauHinhDongBo;
 import jakarta.persistence.EntityManagerFactory;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -40,6 +43,10 @@ public class InventoryChannelSyncJob {
     DieuHanhHeThongService dieuHanhHeThongService;
     EntityManagerFactory entityManagerFactory;
     AtomicReference<Instant> lastSyncTime = new AtomicReference<>(Instant.EPOCH);
+    /** Báo quản trị viên khi đẩy tồn lỗi cả kênh nhiều lượt liền; null khi test dựng tay. */
+    @NonFinal
+    @Autowired(required = false)
+    ThongBaoHeThongService thongBaoHeThongService;
 
     /**
      * Trigger 1: Batch Scheduled - Heartbeat mỗi 60 giây, kiểm tra theo chu kỳ cấu hình OMNI_SYNC_INTERVAL_MINS
@@ -89,9 +96,15 @@ public class InventoryChannelSyncJob {
                         log.info("[JOB-03 Batch] Đồng bộ tồn kho định kỳ kênh {}: {} SKU thành công, {} SKU lỗi",
                                 kenh.getMaKenh(), result.getSoDong(), result.getSoLoi());
                     }
+                    if (thongBaoHeThongService != null) thongBaoHeThongService.ketQuaDayTon(kenh, result.getLoiKenh());
                 });
             } catch (Exception e) {
                 log.warn("[JOB-03 Batch] Lỗi đồng bộ tồn kho kênh {}: {}", kenh.getMaKenh(), e.getMessage());
+                if (thongBaoHeThongService != null) {
+                    // Chỉ dấu "Shopify đã từ chối khóa làm mới" là lỗi xác thực; lỗi có mã khác (429, 5xx…) là tạm thời
+                    thongBaoHeThongService.dayTonLoi(kenh, e instanceof com.dev.backend.exception.customize.LoiCoMaException
+                            && e.getMessage() != null && e.getMessage().contains("đã từ chối"));
+                }
             }
         }
     }

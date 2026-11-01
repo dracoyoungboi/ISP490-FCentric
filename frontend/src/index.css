@@ -66,9 +66,12 @@
 	--color-bo-row-group: #fbfcfd;
 	--color-bo-row-group-hover: #f4f7fa;
 
-	--color-bo-primary: #1677ff;
-	--color-bo-primary-hover: #095fcc;
-	--color-bo-primary-soft: #eaf3ff;
+	/* Xanh chính (chốt 01/11/2026, thay #1677ff): chữ trắng trên nền đạt 5,5:1 (#1677ff chỉ 4,1:1, dưới mức 4,5:1 cho chữ 14px) */
+	--color-bo-primary: #0d61e4;
+	--color-bo-primary-hover: #0b55c9;
+	/* Nút chính lúc đang nhấn */
+	--color-bo-primary-press: #0a4aad;
+	--color-bo-primary-soft: #e7effc;
 	/* Xanh đậm: chữ trên nền bo-primary-soft (lựa chọn đang chọn, thẻ mã lô), ≥ 4,5:1 */
 	--color-bo-primary-strong: #0b4fb3;
 
@@ -129,6 +132,48 @@
 [data-backoffice-shell] {
 	--sidebar-width: 14.5rem;
 	--sidebar-width-icon: 3rem;
+}
+
+/*
+ * Nút nổi nhẹ (chốt 01/11/2026): nút chính và nút nguy hiểm có viền sáng ở trên, viền tối ở dưới và bóng 1px,
+ * nhấn thì lún xuống; nút phụ (Button variant="outline") có viền đậm hơn một bậc và bóng 1px.
+ * Nằm trong @layer components và chỉ ghi vào biến bóng của Tailwind (--tw-inset-shadow, --tw-shadow), nên các lớp
+ * shadow-*, ring-*, hover:border-* ghi ở từng nút vẫn thắng. Nút đang khóa và ô trang đang chọn ở phân trang
+ * (có border-bo-primary) giữ phẳng.
+ */
+@layer components {
+	:is(button, a, [role="button"]):is(.bg-bo-primary:not(.border-bo-primary), .bg-bo-danger).text-white:not(:disabled) {
+		--tw-inset-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16), inset 0 -1px 0 rgb(0 0 0 / 0.2);
+		--tw-shadow: 0 1px 2px rgb(16 24 40 / 0.2);
+		box-shadow:
+			var(--tw-inset-shadow), var(--tw-inset-ring-shadow, 0 0 #0000), var(--tw-ring-offset-shadow, 0 0 #0000),
+			var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+	}
+
+	:is(button, a, [role="button"]):is(.bg-bo-primary:not(.border-bo-primary), .bg-bo-danger).text-white:not(:disabled):active {
+		--tw-inset-shadow: inset 0 1px 2px rgb(0 0 0 / 0.28);
+		--tw-shadow: 0 0 #0000;
+		/* Đang nhấn thì cũng đang rê, nên đổi màu rê thành màu nhấn cho lớp hover:bg-bo-primary-hover */
+		--color-bo-primary-hover: var(--color-bo-primary-press);
+	}
+
+	/* Nút phụ: chỉ đổi biến màu mà border-bo-border và shadow-xs của nút đang đọc, không ghi đè border-color / box-shadow */
+	[data-slot="button"][data-variant="outline"] {
+		--color-bo-border: #d5dce5;
+		--tw-shadow-color: rgb(16 24 40 / 0.07);
+	}
+
+	[data-slot="button"][data-variant="outline"]:active:not(:disabled) {
+		--tw-inset-shadow: inset 0 1px 2px rgb(16 24 40 / 0.1);
+	}
+}
+
+/* Vòng chọn bằng phím Tab: xanh đậm, cách nút 2px (vòng cũ của Button dùng token shadcn chưa khai báo nên ra màu trắng).
+   Để ngoài @layer vì Button có sẵn lớp outline-none. */
+:is(button, a, [role="button"]):is(.bg-bo-primary, .bg-bo-danger):focus-visible,
+[data-slot="button"]:focus-visible {
+	outline: 2px solid var(--color-bo-primary-strong);
+	outline-offset: 2px;
 }
 
 /*
@@ -636,6 +681,29 @@
 @media (prefers-reduced-motion: reduce) {
 	.mk-tich-vong { animation: none; opacity: 0; }
 	.mk-tich-net { animation: none; stroke-dashoffset: 0; }
+}
+/* Vòng chờ tải dữ liệu (LoadingState): cung đầu đậm có chấm tròn, đuôi mờ dần. Ẩn 200ms đầu rồi mới hiện,
+   dữ liệu về nhanh thì không chớp vòng quay. */
+.bo-vong-tai {
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	background:
+		radial-gradient(circle at 50% 2px, var(--color-bo-primary) 2px, transparent 2.5px),
+		conic-gradient(from 0deg, rgb(22 119 255 / 0) 0deg, rgb(22 119 255 / 0.15) 90deg, var(--color-bo-primary) 340deg);
+	-webkit-mask: radial-gradient(farthest-side, #0000 calc(100% - 4px), #000 calc(100% - 3.5px));
+	mask: radial-gradient(farthest-side, #0000 calc(100% - 4px), #000 calc(100% - 3.5px));
+	opacity: 0;
+	animation: bo-vong-tai-quay 0.9s linear infinite, bo-vong-tai-hien 0.15s ease-out 0.2s forwards;
+}
+@keyframes bo-vong-tai-quay {
+	to { transform: rotate(360deg); }
+}
+@keyframes bo-vong-tai-hien {
+	to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+	.bo-vong-tai { animation-duration: 2.4s, 0.15s; }
 }
 /* Chế độ tương phản cao (Windows): dấu tích trên vòng "xong" theo màu nền, khung Cần chú ý / Có vấn đề / Bình thường giữ viền. */
 @media (forced-colors: active) {

@@ -10,7 +10,7 @@ import { OUTLINE_BUTTON, PRIMARY_BUTTON } from "./settingsStyles";
  */
 
 const CARD_SHADOW = "shadow-[0_1px_2px_rgba(16,24,40,0.06),0_1px_3px_rgba(16,24,40,0.08)]";
-const CARD_EDITING = "shadow-[0_0_0_1px_var(--color-bo-primary),0_0_0_4px_rgba(22,119,255,0.12)]";
+const CARD_EDITING = "shadow-[0_0_0_1px_var(--color-bo-primary),0_0_0_4px_rgba(13,97,228,0.12)]";
 
 /** Thẻ của một mục. `as="form"` cho thẻ có ô nhập (Enter để lưu). */
 export function SettingsCard({ as = "section", editing = false, className, children, ...props }) {
@@ -109,6 +109,7 @@ const PILL_TONE = {
   ok: "bg-bo-success-soft text-bo-success",
   off: "bg-slate-100 text-slate-600",
   warn: "bg-bo-warning-soft text-bo-warning",
+  info: "bg-bo-primary-soft text-bo-primary-strong",
 };
 
 /** Nhãn trạng thái nhỏ (Mặc định, Đã kết nối…). */

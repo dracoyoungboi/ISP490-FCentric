@@ -17,6 +17,12 @@ export default function PosLayout() {
     return () => { document.title = DEFAULT_DOCUMENT_TITLE; };
   }, []);
 
+  // Toàn màn hình (nút trên PosTopBar) áp cho cả trang: rời POS về quản trị thì thoát luôn.
+  // Đặt ở layout vì PosTopBar mount lại khi trang POS đổi trạng thái tải/lỗi.
+  useEffect(() => () => {
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+  }, []);
+
   return (
     <div
       // overflow-clip (không phải hidden): khung không là vùng cuộn, focus/scrollIntoView không đẩy lệch được.

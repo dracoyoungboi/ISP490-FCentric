@@ -115,6 +115,13 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     com.dev.backend.repository.CauHinhHeThongRepository cauHinhHeThongRepository;
+    /** Báo quản trị viên kênh cần ủy quyền lại / đánh dấu đã xử lý khi làm mới được; null khi test dựng tay. */
+    @lombok.experimental.NonFinal
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    ThongBaoHeThongService thongBaoHeThongService;
+    private void uyQuyenDaOn(String maKenh) {
+        if (thongBaoHeThongService != null) thongBaoHeThongService.uyQuyenDaOn(maKenh);
+    }
     private TikTokShopClient getTikTokShopClient() {
         if (tiktokShopClient == null) tiktokShopClient = new TikTokShopClient();
         return tiktokShopClient;
@@ -414,6 +421,8 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         }
 
         KenhBanHang saved = kenhBanHangRepository.save(kenh);
+        // Đã dán khóa truy cập mới (việc thông báo H1 nhắc làm): thông báo cũ coi như xong
+        if (coKhoaMoi) uyQuyenDaOn(MA_KENH_SHOPIFY);
 
         // Kết nối lại sau khi ngắt, sang cửa hàng khác: dòng liên kết giữ lại (đẩy tồn ghép theo mã SKU),
         // xóa dữ liệu của cửa hàng cũ và đánh dấu chờ ghép lại; dòng đang ngừng đồng bộ giữ nguyên
@@ -649,6 +658,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                     log.info("Làm mới thành công Access Token Shopify cho domain: {}, thời hạn mới: {}s", domain, expiresIn);
                     // Bộ khóa đã đổi nên dấu cũ (nếu có) hết hiệu lực; bỏ luôn cho gọn
                     tuChoiLamMoi.set(null);
+                    uyQuyenDaOn(MA_KENH_SHOPIFY);
                     return true;
                 }
             }
@@ -669,6 +679,10 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             tuChoiLamMoi.set(new TuChoiLamMoi(hienTai.getId(), maHttp, Instant.now(), hienTai.getApiKey(),
                     hienTai.getRefreshToken(), hienTai.getApiSecret(), hienTai.getClientId()));
             log.warn("Shopify từ chối khóa làm mới [{}]: thôi tự làm mới tới khi khóa được cập nhật", maHttp);
+            // Ghi dấu một lần mỗi máy (lần sau dùng dấu, không gọi lại Shopify): báo quản trị viên ủy quyền lại
+            if (thongBaoHeThongService != null) {
+                thongBaoHeThongService.kenhCanUyQuyenLai(MA_KENH_SHOPIFY, null, hienTai.getId(), hienTai.getTokenExpiresAt());
+            }
             throw loiTuChoiLamMoi(maHttp);
         } catch (Exception e) {
             log.error("Lỗi ngoại lệ khi làm mới Shopify OAuth Token: {}", e.getMessage());
@@ -886,6 +900,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             ghiLichSuThayDoi(daXoa.getId(), "Ngắt kết nối Shopify: " + domain,
                     "Xóa khóa đã lưu, giữ tên miền, liên kết sản phẩm và đơn đã nhận");
             log.info("Đã ngắt kết nối Shopify domain: {}", domain);
+            if (thongBaoHeThongService != null) thongBaoHeThongService.kenhDaNgat(MA_KENH_SHOPIFY);
         }
     }
 
@@ -1191,6 +1206,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             kenhBanHangRepository.save(kenh);
 
             ghiLichSuThayDoi(kenh, "Ủy quyền OAuth2 Lazada thành công (Token hiệu lực " + (expiresIn / 86400) + " ngày)");
+            uyQuyenDaOn(MA_KENH_LAZADA);
 
             return getLazadaConfig();
         } catch (CommonException ce) {
@@ -1247,6 +1263,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 kenh.setTokenExpiresAt(Instant.now().plusSeconds(expiresIn));
                 kenhBanHangRepository.save(kenh);
                 log.info("Làm mới Access Token Lazada thành công qua Refresh Token!");
+                uyQuyenDaOn(MA_KENH_LAZADA);
                 return true;
             } else {
                 log.error("Lazada từ chối Refresh Token: {}", res.path("message").asText());
@@ -1643,6 +1660,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             kenhBanHangRepository.save(kenh);
 
             ghiLichSuThayDoi(kenh, "Ủy quyền OAuth2 TikTok Shop thành công (Shop Cipher: " + kenh.getShopCipher() + ")");
+            uyQuyenDaOn(MA_KENH_TIKTOK);
 
             return getTikTokConfig();
         } catch (CommonException ce) {
@@ -1699,6 +1717,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 kenh.setTokenExpiresAt(Instant.now().plusSeconds(expiresIn));
                 kenhBanHangRepository.save(kenh);
                 ghiLichSuThayDoi(kenh, "Làm mới Access Token TikTok Shop tự động thành công");
+                uyQuyenDaOn(MA_KENH_TIKTOK);
                 return true;
             }
             return false;

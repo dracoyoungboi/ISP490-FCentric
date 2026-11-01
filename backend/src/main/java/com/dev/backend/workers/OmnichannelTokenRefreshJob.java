@@ -4,11 +4,14 @@ import com.dev.backend.entities.KenhBanHang;
 import com.dev.backend.repository.KenhBanHangRepository;
 import com.dev.backend.services.KenhBanHangService;
 import com.dev.backend.services.impl.entities.DongBoNgayService;
+import com.dev.backend.services.impl.entities.ThongBaoHeThongService;
 import jakarta.persistence.EntityManagerFactory;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -29,6 +32,10 @@ public class OmnichannelTokenRefreshJob {
     KenhBanHangRepository kenhBanHangRepository;
     KenhBanHangService kenhBanHangService;
     EntityManagerFactory entityManagerFactory;
+    /** Báo quản trị viên khi làm mới thất bại lúc ủy quyền sắp hết; null khi test dựng tay. */
+    @NonFinal
+    @Autowired(required = false)
+    ThongBaoHeThongService thongBaoHeThongService;
 
     @Scheduled(fixedDelay = 43_200_000, initialDelay = 60_000)
     public void kiemTraVaLamMoiToken() {
@@ -46,6 +53,7 @@ public class OmnichannelTokenRefreshJob {
                             log.info("[TOKEN-REFRESH] Làm mới token TikTok Shop tự động thành công!");
                         } else {
                             log.warn("[TOKEN-REFRESH] Không thể tự động làm mới token TikTok Shop, cần người dùng ủy quyền lại trên Seller Center!");
+                            baoLamMoiThatBai(kenh);
                         }
                     } else if ("LAZADA".equalsIgnoreCase(kenh.getMaKenh())) {
                         boolean ok = kenhBanHangService.refreshLazadaAccessToken();
@@ -53,10 +61,16 @@ public class OmnichannelTokenRefreshJob {
                             log.info("[TOKEN-REFRESH] Làm mới token Lazada tự động thành công!");
                         } else {
                             log.warn("[TOKEN-REFRESH] Không thể tự động làm mới token Lazada, cần người dùng ủy quyền lại!");
+                            baoLamMoiThatBai(kenh);
                         }
                     }
                 }
             }
         });
+    }
+
+    /** Ủy quyền còn ≤ 48 giờ (hoặc đã hết) mà làm mới thất bại thì báo quản trị viên (ThongBaoHeThongService quyết định). */
+    private void baoLamMoiThatBai(KenhBanHang kenh) {
+        if (thongBaoHeThongService != null) thongBaoHeThongService.lamMoiUyQuyenThatBai(kenh);
     }
 }

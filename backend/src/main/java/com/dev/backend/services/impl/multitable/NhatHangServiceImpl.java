@@ -465,6 +465,8 @@ public class NhatHangServiceImpl implements NhatHangService {
         if (nguoiNhat != null) {
             thongBaoXuatKhoService.daGiaoPhieuNhat(pickList, null, nguoiNhat.getId(), authUser.getId());
         }
+        // Đơn đã vào phiếu nhặt: số "đơn chờ xuất" của kho giảm (hết thì thông báo tự đánh dấu đã đọc)
+        thongBaoXuatKhoService.lamMoiDonChoXuat(khoId);
 
         // Chuyển đổi DTO phản hồi
         DanhSachNhatHangDto resDto = danhSachNhatHangMapper.toDto(pickList);
@@ -1193,6 +1195,13 @@ public class NhatHangServiceImpl implements NhatHangService {
             List<PhanBoLoFifo.Lo> bu = PhanBoLoFifo.layFifo(conLaiFifo, canBu);
             BigDecimal tongSauBu = tongDaCo.add(PhanBoLoFifo.tong(bu));
             if (tongSauBu.compareTo(can) < 0) {
+                // Báo quản lý kho sau khi giao dịch hoàn tác (lúc này còn giữ khóa tồn / phiếu nhặt)
+                DanhSachNhatHang phieu = dong.getDanhSachNhatHang();
+                NguoiDungAuthInfo nguoi = SecurityContextHolder.getUser();
+                thongBaoXuatKhoService.thieuTonTheoLo(phieu == null ? null : phieu.getId(),
+                        phieu == null ? null : phieu.getMaPickList(),
+                        phieu == null || phieu.getKhoXuat() == null ? null : phieu.getKhoXuat().getId(),
+                        bienTheId, sku, can, tongSauBu, nguoi == null ? null : nguoi.getId());
                 throw new CommonException("Không đủ tồn theo lô cho [" + sku + "]: cần " + hienThi(can)
                         + ", các lô chỉ còn " + hienThi(tongSauBu) + " có thể lấy"
                         + (giuCho.signum() > 0 ? " (phiếu chuyển kho đang giữ chỗ " + hienThi(giuCho) + ")" : "")
@@ -1730,6 +1739,9 @@ public class NhatHangServiceImpl implements NhatHangService {
             log.warn("Không thể ghi log hoàn tất nhặt hàng cho Pick List {}: {}", pickList.getMaPickList(), e.getMessage());
         }
 
+        // Thông báo "thiếu tồn theo lô" của phiếu (nếu có) coi như đã xử lý
+        thongBaoXuatKhoService.phieuNhatDaHoanTat(pickList.getId());
+
         DanhSachNhatHangDto ketQua = getChiTietPickList(pickList.getId());
         ketQua.setDonChuaTaoPhieuXuat(donChuaTaoPhieuXuat);
         return ketQua;
@@ -1889,6 +1901,7 @@ public class NhatHangServiceImpl implements NhatHangService {
         } catch (Exception e) {
             log.warn("Không thể ghi log hoàn tất nhặt hàng cho Pick List {}: {}", pickList.getMaPickList(), e.getMessage());
         }
+        thongBaoXuatKhoService.phieuNhatDaHoanTat(pickList.getId());
 
         return getChiTietPickList(pickList.getId());
     }
@@ -1924,6 +1937,8 @@ public class NhatHangServiceImpl implements NhatHangService {
         }
         pickList.setTrangThai("da_huy");
         danhSachNhatHangRepository.save(pickList);
+        // Phiếu nhặt chuyển kho đã hủy: thông báo "thiếu tồn theo lô" của phiếu không còn việc gì để làm
+        thongBaoXuatKhoService.phieuNhatDaHoanTat(pickList.getId());
 
         NguoiDungAuthInfo authUser = SecurityContextHolder.getUser();
         try {

@@ -45,6 +45,13 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
     @Autowired
     private DonMuaHangRepository donMuaHangRepository;
 
+    /** Thông báo M6 (hủy biên bản) / M7 (đơn mua nhận đủ); test dựng tay không có thì bỏ qua. */
+    @Autowired(required = false)
+    private ThongBaoMuaHangService thongBaoMuaHangService;
+
+    @Autowired(required = false)
+    private ThongBaoXuatKhoService thongBaoXuatKhoService;
+
     @Autowired
     private ChiTietPhieuNhapKhoRepository chiTietPhieuNhapKhoRepository;
 
@@ -502,6 +509,8 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
             tongTien = tongTien.add(soLuongNhap.multiply(ct.getDonGia()));
         }
 
+        // Đơn mua vừa chuyển sang nhận đủ (báo người mua sau khi lưu)
+        boolean vuaNhanDu = false;
         // 4. CẬP NHẬT CÂN BẰNG TỒN KHO: Incoming -= Q_PO (giải phóng nghĩa vụ nhận hàng theo PO)
         if (donMuaHang != null) {
             for (Map.Entry<Integer, BigDecimal> entry : poQtyHandledPerVariant.entrySet()) {
@@ -531,6 +540,8 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
             // Chốt trạng thái PO nếu tất cả biến thể đã nhận đủ
             boolean allDone = donMuaHang.getChiTietDonMuaHangs().stream()
                     .allMatch(item -> item.getSoLuongDaNhan() != null && item.getSoLuongDaNhan().compareTo(item.getSoLuongDat()) >= 0);
+            // Phiếu nhập thêm cho đơn đã nhận đủ (tạo nháp vẫn cho) thì không báo lại
+            vuaNhanDu = allDone && !Objects.equals(donMuaHang.getTrangThai(), DON_MUA_DA_NHAN_DU);
             if (allDone) {
                 donMuaHang.setTrangThai(DON_MUA_DA_NHAN_DU);
             }
@@ -542,6 +553,9 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         phieu.setNguoiNhap(nguoiNhap);
         phieu.setNgayNhap(Instant.now());
         repository.save(phieu);
+        if (vuaNhanDu && thongBaoMuaHangService != null) {
+            thongBaoMuaHangService.donMuaDaNhanDu(donMuaHang, phieu, nguoiNhap);
+        }
 
         // Ghi nhật ký kiểm toán LichSuThayDoi sau khi commit thành công
         Integer phieuId = phieu.getId();
@@ -598,6 +612,10 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
             bienBanTraHangNccRepository.findByPhieuNhapKho_Id(id).filter(BienBanTraHangNcc::dangHieuLuc).ifPresent(bienBan -> {
                 bienBan.setTrangThai(BienBanTraHangNcc.DA_HUY);
                 bienBanTraHangNccRepository.save(bienBan);
+                if (thongBaoMuaHangService != null) {
+                    com.dev.backend.dto.response.entities.NguoiDungAuthInfo nguoiHuy = SecurityContextHolder.getUser();
+                    thongBaoMuaHangService.bienBanDaHuy(bienBan, phieu, true, nguoiHuy == null ? null : nguoiHuy.getId());
+                }
             });
             for (ChiTietPhieuNhapKho dong : phieu.getChiTietPhieuNhapKhos()) {
                 if (dong.getLoHang() == null) {
@@ -1325,7 +1343,10 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         }
 
         pn.setTongTien(tongTienNhap);
-        return repository.save(pn);
+        PhieuNhapKho daLuuPn = repository.save(pn);
+        // Kho đã lập phiếu nhập hoàn trả: thông báo "lập phiếu nhập hoàn trả" của đơn coi như xong
+        if (thongBaoXuatKhoService != null) thongBaoXuatKhoService.daLapPhieuNhapHoanTra(donBanHang.getId());
+        return daLuuPn;
     }
 
     // ==================== In tem theo phiếu nhập ====================

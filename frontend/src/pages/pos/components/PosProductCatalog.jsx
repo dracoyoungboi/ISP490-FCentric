@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Barcode, CheckCircle2, ChevronLeft, ChevronRight, LayoutGrid, List, Loader2, PenLine, RotateCcw, ScanBarcode, Search } from 'lucide-react';
+import LoadingState from '@/components/shared/LoadingState';
 import PosProductCard from './PosProductCard';
 import { SCAN_HINT, isTextEntry } from '../pos-scan';
 import { formatCount } from '../pos-format';
@@ -394,10 +395,7 @@ export default function PosProductCatalog({
       {/* scrollbar-gutter: stable — chừa sẵn chỗ thanh cuộn để số cột/khe không đổi khi thanh cuộn hiện/ẩn. */}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 [scrollbar-gutter:stable]" data-pos-catalog-scroll="" ref={scrollRef}>
         {loading && !groups.length ? (
-          <div aria-live="polite" className="flex min-h-64 flex-col items-center justify-center px-5 text-center">
-            <span className="size-6 animate-spin rounded-full border-2 border-bo-primary/25 border-t-bo-primary" />
-            <p className="mt-3 text-sm font-semibold text-bo-foreground">Đang tải hàng hóa…</p>
-          </div>
+          <LoadingState className="min-h-64" label="Đang tải hàng hóa" />
         ) : error && !groups.length ? (
           <div className="flex min-h-64 flex-col items-center justify-center px-5 text-center" role="alert">
             <AlertCircle aria-hidden="true" className="text-bo-danger" size={22} />

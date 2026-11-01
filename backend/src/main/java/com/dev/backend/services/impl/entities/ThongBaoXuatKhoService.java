@@ -1,8 +1,10 @@
 package com.dev.backend.services.impl.entities;
 
 import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
+import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.entities.DanhSachNhatHang;
 import com.dev.backend.entities.DonBanHang;
+import com.dev.backend.entities.KenhBanHang;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.repository.ChiTietNhatHangRepository;
 import com.dev.backend.repository.DonBanHangRepository;
@@ -16,8 +18,11 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.Set;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -34,7 +39,15 @@ import java.util.function.Supplier;
  *   X3 Đơn bị hủy khi đang nhặt hoặc chờ đóng gói       Người nhặt; có hàng phải cất về kệ thì thêm quản lý kho xuất
  *                                                     (không có thì quản trị viên)
  *   B1 Sàn hủy đơn đã xuất kho (chưa hoàn trả)         Quản trị viên + quản lý kho xuất + người lập đơn (nếu có)
+ *   X1 Đơn gửi sang kho (tóm tắt DCX:{kho})            Quản lý kho + nhân viên kho của kho xuất: "N đơn chờ xuất"
+ *   X4 Nhặt xong mà thiếu tồn theo lô (lỗi, rollback)  Quản lý kho xuất (không có thì quản trị viên), mỗi mã một lần/ngày
+ *   X4b Tạo lại phiếu xuất còn dòng chưa đủ lô         Quản lý kho
+ *   X5 Phiếu xuất bán hàng đã xuất kho                 Người lập đơn (đơn sàn không có người lập → không báo)
+ *   B2 Khách yêu cầu hủy trên sàn (TikTok)            Quản trị viên (+ quản lý kho xuất khi đơn đã sang kho)
+ *   B3 Đơn sàn mới chờ gửi sang kho (tóm tắt DSM:{mã}) Quản trị viên: "N đơn Shopify chờ gửi sang kho"
+ *   B4 Đơn sàn thiếu dòng (một thông báo mỗi lượt)      Quản trị viên
  * </pre>
+ * Tóm tắt: số đếm tính lại từ dữ liệu mỗi lần, hết việc thì tự đánh dấu đã đọc (ThongBaoService.capNhatTomTatSauCommit).
  */
 @Slf4j
 @Service
@@ -62,7 +75,7 @@ public class ThongBaoXuatKhoService {
             Integer id = pl.getId();
             String ma = ma(pl);
             Integer khoId = pl.getKhoXuat() == null ? null : pl.getKhoXuat().getId();
-            long moc = Instant.now().toEpochMilli();
+            String moc = ThongBaoService.mocDuyNhat();
             return new Lan("phiếu nhặt " + ma + " giao người nhặt", () -> {
                 String tenKho = tenKho(khoId);
                 List<String> cau = new ArrayList<>();
@@ -105,6 +118,8 @@ public class ThongBaoXuatKhoService {
      */
     public void donHuyTrongPhieuNhat(DanhSachNhatHang pl, DonBanHang don, GiaiDoanHuy giaiDoan,
                                      Map<String, BigDecimal> catKeTheoMa, boolean caPhieuHuy) {
+        // Cả phiếu bị hủy: thông báo "thiếu tồn theo lô" của phiếu (nếu có) không còn việc gì để làm
+        if (caPhieuHuy && pl != null) phieuNhatDaHoanTat(pl.getId());
         dangKy("đơn hủy trong phiếu nhặt", () -> {
             Integer id = pl.getId();
             String ma = ma(pl);
@@ -163,10 +178,9 @@ public class ThongBaoXuatKhoService {
             String lyDoGon = lyDoHuySan(lyDo);
             return new Lan("sàn hủy đơn đã xuất " + soDon, () -> {
                 List<Integer> nhan = new ArrayList<>(nguoiNhan.quanTriVien());
-                nhan.addAll(nguoiNhan.quanLyKho(khoId));
                 if (nguoiTaoId != null) nhan.add(nguoiTaoId);
                 String moTa = (lyDoGon.isEmpty() ? "" : "Lý do: " + lyDoGon + ". ")
-                        + "Cần nhận lại hàng hoàn từ đơn vị giao hàng.";
+                        + "Nhận lại hàng hoàn rồi bấm Ghi nhận hoàn trả.";
                 return List.of(new GuiDi(nhan, null, new NoiDung(ThongBaoService.LOAI_DON_BAN_HANG,
                         ThongBaoService.TONE_DANGER, tenKenh + " hủy đơn " + soDon + " đã xuất kho", moTa,
                         "/sales-orders/" + donId, ThongBaoService.LOAI_DON_BAN_HANG, donId, khoId,
@@ -175,9 +189,347 @@ public class ThongBaoXuatKhoService {
         });
     }
 
+    /**
+     * X1: đơn {@code don} vừa gửi sang kho → dòng tóm tắt "N đơn chờ xuất ở {kho}" của quản lý kho + nhân viên kho hiện lại
+     * chưa đọc. Đơn sàn thì dòng "N đơn {kênh} chờ gửi sang kho" của quản trị viên giảm theo.
+     */
+    public void donGuiSangKho(DonBanHang don, Integer nguoiThaoTacId) {
+        try {
+            Integer khoId = don.getKhoXuat() == null ? null : don.getKhoXuat().getId();
+            String soDon = soDon(don);
+            tomTatDonChoXuat(khoId, soDon, true, nguoiThaoTacId);
+            if (don.getKenhBanHang() != null) lamMoiDonSanCho(don.getKenhBanHang());
+        } catch (RuntimeException e) {
+            log.warn("[THONG-BAO] Không chuẩn bị được thông báo đơn chờ xuất: {}", e.getMessage());
+        }
+    }
+
+    /** Số đơn chờ xuất của kho vừa đổi (tạo phiếu nhặt, hủy đơn): chỉ sửa số, hết đơn thì đánh dấu đã đọc. */
+    public void lamMoiDonChoXuat(Integer khoId) {
+        try {
+            tomTatDonChoXuat(khoId, null, false, null);
+        } catch (RuntimeException e) {
+            log.warn("[THONG-BAO] Không làm mới được thông báo đơn chờ xuất: {}", e.getMessage());
+        }
+    }
+
+    private void tomTatDonChoXuat(Integer khoId, String soDonMoi, boolean baoMoi, Integer nguoiThaoTacId) {
+        if (khoId == null) return;
+        String khoa = "DCX:" + khoId;
+        thongBaoService.capNhatTomTatSauCommit("Thông báo đơn chờ xuất kho " + khoId, () -> {
+            long n = donBanHangRepository.demDonChoXuat(khoId);
+            if (n <= 0) {
+                return ThongBaoService.TomTat.hetViec(khoa, new NoiDung(ThongBaoService.LOAI_DON_BAN_HANG,
+                        ThongBaoService.TONE_INFO, "Không còn đơn chờ xuất ở " + tenKho(khoId),
+                        "Các đơn đã vào phiếu nhặt hoặc đã hủy.", "/goods-issues/pending-orders", ThongBaoService.LOAI_DON_BAN_HANG,
+                        null, khoId, khoa));
+            }
+            List<Integer> nhan = new ArrayList<>(nguoiNhan.quanLyKho(khoId));
+            nhan.addAll(nguoiNhan.theoKho(khoId, IRoleType.nhan_vien_kho));
+            String moTa = (soDonMoi == null ? "" : "Mới nhất: đơn " + soDonMoi + ". ") + "Tạo phiếu nhặt để xuất hàng.";
+            return new ThongBaoService.TomTat(khoa, nguoiNhan.hoacQuanTri(nhan, "Đơn chờ xuất kho " + khoId), nguoiThaoTacId,
+                    new NoiDung(ThongBaoService.LOAI_DON_BAN_HANG, ThongBaoService.TONE_INFO,
+                            n + " đơn chờ xuất ở " + tenKho(khoId), moTa, "/goods-issues/pending-orders",
+                            ThongBaoService.LOAI_DON_BAN_HANG, null, khoId, khoa),
+                    baoMoi);
+        });
+    }
+
+    /**
+     * B3: lượt lấy đơn của kênh vừa tạo đơn mới ở Nháp → dòng tóm tắt "N đơn {kênh} chờ gửi sang kho" của quản trị viên
+     * hiện lại chưa đọc. Chỉ quản trị viên gửi được đơn sàn sang kho (đơn sàn không có người lập).
+     */
+    public void donSanMoi(KenhBanHang kenh) {
+        try {
+            tomTatDonSanCho(kenh, true);
+        } catch (RuntimeException e) {
+            log.warn("[THONG-BAO] Không chuẩn bị được thông báo đơn sàn mới: {}", e.getMessage());
+        }
+    }
+
+    /** Số đơn sàn chờ gửi sang kho vừa đổi (gửi sang kho, hủy): chỉ sửa số, hết đơn thì đánh dấu đã đọc. */
+    public void lamMoiDonSanCho(KenhBanHang kenh) {
+        try {
+            tomTatDonSanCho(kenh, false);
+        } catch (RuntimeException e) {
+            log.warn("[THONG-BAO] Không làm mới được thông báo đơn sàn: {}", e.getMessage());
+        }
+    }
+
+    private void tomTatDonSanCho(KenhBanHang kenh, boolean baoMoi) {
+        if (kenh == null || kenh.getId() == null) return;
+        Integer kenhId = kenh.getId();
+        String ma = maKenh(kenh);
+        String ten = tenKenh(kenh);
+        String khoa = "DSM:" + ma;
+        thongBaoService.capNhatTomTatSauCommit("Thông báo đơn " + ten + " chờ gửi sang kho", () -> {
+            long n = donBanHangRepository.demDonSanChoGuiKho(kenhId);
+            String duongDan = "/sales-orders?kenh=" + ma.toLowerCase(Locale.ROOT) + "&trangThai=nhap";
+            if (n <= 0) {
+                return ThongBaoService.TomTat.hetViec(khoa, new NoiDung(ThongBaoService.LOAI_DON_BAN_HANG,
+                        ThongBaoService.TONE_INFO, "Không còn đơn " + ten + " chờ gửi sang kho",
+                        "Mọi đơn đã gửi sang kho hoặc đã hủy.", duongDan, ThongBaoService.LOAI_DON_BAN_HANG, null, null, khoa));
+            }
+            return new ThongBaoService.TomTat(khoa, nguoiNhan.quanTriVien(), null,
+                    new NoiDung(ThongBaoService.LOAI_DON_BAN_HANG, ThongBaoService.TONE_INFO,
+                            n + " đơn " + ten + " chờ gửi sang kho", "Gửi đơn sang kho để nhặt hàng.", duongDan,
+                            ThongBaoService.LOAI_DON_BAN_HANG, null, null, khoa),
+                    baoMoi);
+        });
+    }
+
+    /** Một đơn sàn của lượt lấy đơn bị thiếu dòng: mã SKU chưa liên kết → số lượng, hoặc không lấy được dòng hàng nào. */
+    public record DonThieuDong(String soDon, Map<String, Integer> skuThieu, boolean khongLayDuocDong) {}
+
+    /**
+     * B4: lượt lấy đơn của kênh có đơn thiếu dòng (dòng có SKU chưa liên kết bị bỏ, hoặc không lấy được dòng hàng) → dòng
+     * tóm tắt SKU:{mã}:{ngày} của quản trị viên ghi theo lượt mới nhất và hiện lại chưa đọc.
+     */
+    public void donSanThieuDong(KenhBanHang kenh, List<DonThieuDong> cacDon) {
+        if (kenh == null || cacDon == null || cacDon.isEmpty()) return;
+        try {
+            String ma = maKenh(kenh);
+            String ten = tenKenh(kenh);
+            Map<String, Integer> tongSku = new LinkedHashMap<>();
+            List<String> soDon = new ArrayList<>();
+            int khongLayDuoc = 0;
+            for (DonThieuDong d : cacDon) {
+                if (d == null) continue;
+                if (d.soDon() != null && !d.soDon().isBlank()) soDon.add(d.soDon().trim());
+                if (d.khongLayDuocDong()) khongLayDuoc++;
+                if (d.skuThieu() != null) d.skuThieu().forEach((sku, sl) -> {
+                    if (sku != null && sl != null) tongSku.merge(sku, sl, Integer::sum);
+                });
+            }
+            int tong = cacDon.size();
+            List<String> cau = new ArrayList<>();
+            cau.add("Đơn " + String.join(", ", soDon.stream().limit(3).toList())
+                    + (soDon.size() > 3 ? " và " + (soDon.size() - 3) + " đơn khác" : "") + ".");
+            if (!tongSku.isEmpty()) {
+                List<String> ds = new ArrayList<>();
+                tongSku.entrySet().stream().limit(3).forEach(e -> ds.add(e.getKey() + " ×" + e.getValue()));
+                cau.add("SKU chưa liên kết: " + String.join(", ", ds)
+                        + (tongSku.size() > 3 ? " và " + (tongSku.size() - 3) + " mã khác" : "") + ".");
+            }
+            if (khongLayDuoc > 0) cau.add(khongLayDuoc + " đơn không lấy được dòng hàng.");
+            cau.add("Liên kết SKU để đơn sau đủ dòng; kiểm tra các đơn này trước khi gửi sang kho.");
+            // Một dòng mỗi kênh mỗi ngày: lượt mới có đơn thiếu dòng thì sửa chữ theo lượt đó và hiện lại chưa đọc
+            // (kênh còn SKU chưa liên kết mà phút nào cũng có đơn mới không sinh hàng trăm dòng)
+            String khoa = "SKU:" + ma + ":" + NGAY_KHOA.format(Instant.now());
+            NoiDung nd = new NoiDung(ThongBaoService.LOAI_KENH_BAN_HANG, ThongBaoService.TONE_WARNING,
+                    tong + " đơn " + ten + " thiếu dòng hàng", String.join(" ", cau),
+                    "/channels/" + ma.toLowerCase(Locale.ROOT) + "/products",
+                    ThongBaoService.LOAI_KENH_BAN_HANG, kenh.getId(), null, khoa);
+            thongBaoService.capNhatTomTatSauCommit("Thông báo đơn " + ten + " thiếu dòng",
+                    () -> new ThongBaoService.TomTat(khoa, nguoiNhan.quanTriVien(), null, nd, true));
+        } catch (RuntimeException e) {
+            log.warn("[THONG-BAO] Không chuẩn bị được thông báo đơn sàn thiếu dòng: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * B2: khách yêu cầu hủy đơn trên sàn (TikTok) → quản trị viên (xử lý trên sàn); thêm quản lý kho xuất khi đơn đã sang
+     * kho (chờ nhặt / đóng gói) vì đơn đang bị chặn nhặt và xuất. Đơn đã hủy / đã xuất thì không báo. Gắn cờ một lần nên
+     * khóa theo đơn.
+     */
+    public void khachYeuCauHuy(DonBanHang don, KenhBanHang kenh) {
+        Integer tt = don == null ? null : don.getTrangThai();
+        if (tt == null || !Set.of(0, 1, 7, 8).contains(tt)) return;
+        dangKy("khách yêu cầu hủy", () -> {
+            Integer donId = don.getId();
+            String soDon = soDon(don);
+            Integer khoId = don.getKhoXuat() == null ? null : don.getKhoXuat().getId();
+            // Tên kênh lấy từ kênh của job (đã nạp): đơn có sẵn là bản tách rời, đọc don.getKenhBanHang() ném lỗi tải chậm
+            String ten = kenh == null ? "sàn" : tenKenh(kenh);
+            boolean daSangKho = tt != 0;
+            return new Lan("khách yêu cầu hủy " + soDon, () -> {
+                String tieuDe = "Khách yêu cầu hủy đơn " + soDon;
+                String khoa = "DBH:" + donId + ":KHACH_YEU_CAU_HUY";
+                String duongDan = "/sales-orders/" + donId;
+                List<GuiDi> gui = new ArrayList<>();
+                // Chỉ quản trị viên xử lý được trên sàn; quản lý kho chỉ cần dừng tay
+                gui.add(new GuiDi(nguoiNhan.quanTriVien(), null, new NoiDung(ThongBaoService.LOAI_DON_BAN_HANG,
+                        ThongBaoService.TONE_WARNING, tieuDe,
+                        (daSangKho ? "Đơn đang bị chặn nhặt và xuất. " : "") + "Xử lý yêu cầu hủy trên " + ten + ".",
+                        duongDan, ThongBaoService.LOAI_DON_BAN_HANG, donId, khoId, khoa)));
+                if (daSangKho) {
+                    gui.add(new GuiDi(nguoiNhan.quanLyKho(khoId), null, new NoiDung(ThongBaoService.LOAI_DON_BAN_HANG,
+                            ThongBaoService.TONE_WARNING, tieuDe,
+                            "Tạm dừng nhặt và đóng gói đơn này, chờ quản trị viên xử lý trên " + ten + ".",
+                            duongDan, ThongBaoService.LOAI_DON_BAN_HANG, donId, khoId, khoa)));
+                }
+                return gui;
+            });
+        });
+    }
+
+    /**
+     * X4: hoàn tất nhặt bị chặn vì tồn theo lô không đủ (thao tác ném lỗi, giao dịch hoàn tác) → quản lý kho xuất, gửi sau
+     * khi hoàn tác (ThongBaoService.guiSauRollback). Bấm lại nhiều lần trong ngày chỉ một thông báo mỗi mã. Chỉ nhận giá
+     * trị đã chụp, không đọc thực thể.
+     */
+    public void thieuTonTheoLo(Integer phieuNhatId, String maPhieuNhat, Integer khoId, Integer bienTheId, String sku,
+                               BigDecimal can, BigDecimal co, Integer nguoiThaoTacId) {
+        if (phieuNhatId == null) return;
+        try {
+            String ma = maPhieuNhat == null || maPhieuNhat.isBlank() ? "#" + phieuNhatId : maPhieuNhat.trim();
+            String maSku = sku == null || sku.isBlank() ? "#" + bienTheId : sku.trim();
+            String ngay = NGAY_KHOA.format(Instant.now());
+            thongBaoService.guiSauRollback("Thông báo phiếu nhặt " + ma + " thiếu tồn theo lô", () -> List.of(
+                    new GuiDi(nguoiNhan.hoacQuanTri(nguoiNhan.quanLyKho(khoId), "Phiếu nhặt " + ma + " thiếu tồn theo lô"),
+                            nguoiThaoTacId, new NoiDung(ThongBaoService.LOAI_PHIEU_NHAT_HANG, ThongBaoService.TONE_WARNING,
+                            "Phiếu nhặt " + ma + " thiếu tồn theo lô",
+                            maSku + ": cần " + so(can == null ? BigDecimal.ZERO : can) + ", theo lô còn "
+                                    + so(co == null ? BigDecimal.ZERO : co) + ". Phân bổ lại lô hoặc kiểm kê, rồi báo người nhặt.",
+                            "/goods-issues/pick-lists/" + phieuNhatId, ThongBaoService.LOAI_PHIEU_NHAT_HANG, phieuNhatId,
+                            khoId, "PL:" + phieuNhatId + ":THIEU_LO:" + bienTheId + ":" + ngay))));
+        } catch (RuntimeException e) {
+            log.warn("[THONG-BAO] Không chuẩn bị được thông báo thiếu tồn theo lô: {}", e.getMessage());
+        }
+    }
+
+    /** Phiếu nhặt đã hoàn tất: các thông báo "thiếu tồn theo lô" của phiếu coi như đã xử lý. */
+    public void phieuNhatDaHoanTat(Integer phieuNhatId) {
+        if (phieuNhatId == null) return;
+        try {
+            thongBaoService.daXuLyTheoTienToSauCommit("PL:" + phieuNhatId + ":THIEU_LO:");
+        } catch (RuntimeException e) {
+            log.warn("[THONG-BAO] Không đánh dấu được phiếu nhặt đã hoàn tất: {}", e.getMessage());
+        }
+    }
+
+    /** X4b: tạo lại phiếu xuất mà còn dòng chưa đủ lô → quản lý kho sửa lô trước khi xuất. */
+    public void phieuXuatCanSuaLo(Integer phieuId, String soPhieu, DonBanHang don, Integer khoId, List<String> skus,
+                                  Integer nguoiThaoTacId) {
+        if (phieuId == null || skus == null || skus.isEmpty()) return;
+        dangKy("phiếu xuất cần sửa lô", () -> {
+            String so = soPhieu == null || soPhieu.isBlank() ? "#" + phieuId : soPhieu.trim();
+            String soDon = don == null ? null : soDon(don);
+            List<String> ds = skus.stream().filter(Objects::nonNull).limit(5).toList();
+            String moTa = (soDon == null ? "" : "Đơn " + soDon + ": ") + String.join(", ", ds)
+                    + (skus.size() > 5 ? " và " + (skus.size() - 5) + " mã khác" : "") + " chưa đủ lô. Chọn lô cho các dòng thiếu trước khi xuất.";
+            return new Lan("phiếu xuất " + so + " cần sửa lô", () -> List.of(new GuiDi(
+                    nguoiNhan.hoacQuanTri(nguoiNhan.quanLyKho(khoId), "Phiếu xuất " + so + " cần sửa lô"), nguoiThaoTacId,
+                    new NoiDung(ThongBaoService.LOAI_PHIEU_XUAT_KHO, ThongBaoService.TONE_WARNING,
+                            "Phiếu xuất " + so + " chưa đủ lô", moTa, "/goods-issues/" + phieuId,
+                            ThongBaoService.LOAI_PHIEU_XUAT_KHO, phieuId, khoId, "PXK:" + phieuId + ":CAN_SUA_LO"))));
+        });
+    }
+
+    /** Phiếu xuất đã xuất kho hoặc bị hủy: thông báo "cần sửa lô" coi như đã xử lý. */
+    public void phieuXuatDaXong(Integer phieuId) {
+        if (phieuId == null) return;
+        try {
+            thongBaoService.daXuLySauCommit("PXK:" + phieuId + ":CAN_SUA_LO");
+        } catch (RuntimeException e) {
+            log.warn("[THONG-BAO] Không đánh dấu được phiếu xuất đã xong: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * X5: phiếu xuất bán hàng vừa xuất kho → người lập đơn (nhân viên bán hàng) để xác nhận đã giao. Đơn sàn không có người
+     * lập nên không báo. Đơn xuất một phần (dữ liệu cũ) chỉ báo, không nhắc xác nhận giao (chỉ đơn đã xuất đủ mới xác nhận
+     * được).
+     */
+    public void daXuatKho(Integer phieuId, String soPhieu, DonBanHang don, Integer trangThaiDon, String maVanDon,
+                          Integer nguoiThaoTacId) {
+        if (phieuId == null || don == null || don.getNguoiTao() == null) return;
+        dangKy("đã xuất kho", () -> {
+            Integer donId = don.getId();
+            String soDon = soDon(don);
+            Integer nguoiTaoId = don.getNguoiTao().getId();
+            Integer khoId = don.getKhoXuat() == null ? null : don.getKhoXuat().getId();
+            boolean du = Objects.equals(trangThaiDon, ITrangThaiDonBanHang.DA_XUAT_TOAN_BO);
+            String so = soPhieu == null || soPhieu.isBlank() ? "#" + phieuId : soPhieu.trim();
+            String vanDon = maVanDon == null || maVanDon.isBlank() ? "" : ", mã vận đơn " + maVanDon.trim();
+            return new Lan("đơn " + soDon + " đã xuất kho", () -> List.of(new GuiDi(List.of(nguoiTaoId), nguoiThaoTacId,
+                    new NoiDung(ThongBaoService.LOAI_DON_BAN_HANG, du ? ThongBaoService.TONE_SUCCESS : ThongBaoService.TONE_INFO,
+                            "Đơn " + soDon + (du ? " đã xuất kho" : " đã xuất một phần"),
+                            (du ? "Bấm Xác nhận đã giao khi khách nhận hàng. " : "") + "Phiếu xuất " + so + vanDon + ".",
+                            "/sales-orders/" + donId, ThongBaoService.LOAI_DON_BAN_HANG, donId, khoId,
+                            "DBH:" + donId + ":DA_XUAT:" + phieuId))));
+        });
+    }
+
+    /**
+     * Đơn vừa được ghi nhận hoàn trả (đã xuất, khách / sàn trả lại): kho xuất cần lập phiếu nhập hoàn trả để cộng lại tồn →
+     * quản lý kho + nhân viên kho của kho xuất (không có ai thì quản trị viên). Thông báo "sàn hủy đơn đã xuất" và "đã xuất
+     * kho, bấm Xác nhận đã giao" của đơn coi như xong.
+     */
+    public void donHoanTra(DonBanHang don, Integer nguoiThaoTacId) {
+        if (don == null || don.getId() == null) return;
+        try {
+            thongBaoService.daXuLySauCommit("DBH:" + don.getId() + ":SAN_HUY_DA_XUAT");
+            thongBaoService.daXuLyTheoTienToSauCommit("DBH:" + don.getId() + ":DA_XUAT:");
+        } catch (RuntimeException e) {
+            log.warn("[THONG-BAO] Không đánh dấu được đơn hoàn trả: {}", e.getMessage());
+        }
+        dangKy("đơn hoàn trả", () -> {
+            Integer donId = don.getId();
+            String soDon = soDon(don);
+            Integer khoId = don.getKhoXuat() == null ? null : don.getKhoXuat().getId();
+            return new Lan("đơn " + soDon + " hoàn trả", () -> {
+                List<Integer> nhan = new ArrayList<>(nguoiNhan.quanLyKho(khoId));
+                nhan.addAll(nguoiNhan.theoKho(khoId, IRoleType.nhan_vien_kho));
+                return List.of(new GuiDi(nguoiNhan.hoacQuanTri(nhan, "Đơn " + soDon + " hoàn trả"), nguoiThaoTacId,
+                        new NoiDung(ThongBaoService.LOAI_DON_BAN_HANG, ThongBaoService.TONE_WARNING,
+                                "Đơn " + soDon + " bị hoàn trả",
+                                "Khi hàng về " + tenKho(khoId) + ", lập phiếu nhập hoàn trả để cộng lại tồn.",
+                                "/goods-receipts/create", ThongBaoService.LOAI_DON_BAN_HANG, donId, khoId,
+                                "DBH:" + donId + ":HOAN_TRA")));
+            });
+        });
+    }
+
+    /** Đã lập phiếu nhập hoàn trả cho đơn: thông báo "đơn bị hoàn trả" coi như xong. */
+    public void daLapPhieuNhapHoanTra(Integer donId) {
+        if (donId == null) return;
+        try {
+            thongBaoService.daXuLySauCommit("DBH:" + donId + ":HOAN_TRA");
+        } catch (RuntimeException e) {
+            log.warn("[THONG-BAO] Không đánh dấu được đơn đã nhập hoàn trả: {}", e.getMessage());
+        }
+    }
+
+    /** Đơn đã giao (Xác nhận đã giao): lời nhắc X5 của đơn coi như xong. */
+    public void donDaGiao(Integer donId) {
+        if (donId == null) return;
+        try {
+            thongBaoService.daXuLyTheoTienToSauCommit("DBH:" + donId + ":DA_XUAT:");
+        } catch (RuntimeException e) {
+            log.warn("[THONG-BAO] Không đánh dấu được đơn đã giao: {}", e.getMessage());
+        }
+    }
+
+    /** Đơn đã hủy: thông báo "khách yêu cầu hủy" (B2) của đơn coi như xong. */
+    public void donDaHuy(Integer donId) {
+        if (donId == null) return;
+        try {
+            thongBaoService.daXuLySauCommit("DBH:" + donId + ":KHACH_YEU_CAU_HUY");
+        } catch (RuntimeException e) {
+            log.warn("[THONG-BAO] Không đánh dấu được đơn đã hủy: {}", e.getMessage());
+        }
+    }
+
     // ─────────────────────────────────────────────────────────────
     // TIỆN ÍCH
     // ─────────────────────────────────────────────────────────────
+
+    private static final DateTimeFormatter NGAY_KHOA = DateTimeFormatter.ofPattern("yyyyMMdd")
+            .withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
+
+    private static String soDon(DonBanHang don) {
+        return don.getSoDonHang() == null || don.getSoDonHang().isBlank() ? "#" + don.getId() : don.getSoDonHang().trim();
+    }
+
+    private static String maKenh(KenhBanHang kenh) {
+        return kenh.getMaKenh() == null || kenh.getMaKenh().isBlank() ? String.valueOf(kenh.getId()) : kenh.getMaKenh().trim();
+    }
+
+    /** Tên sàn như giao diện ghi (Shopify, Lazada, TikTok Shop), không lấy tên tự đặt trong CSDL. */
+    private static String tenKenh(KenhBanHang kenh) {
+        return KenhBanHangServiceImpl.tenSan(maKenh(kenh));
+    }
 
     private record Lan(String moTa, Supplier<List<GuiDi>> lap) {}
 

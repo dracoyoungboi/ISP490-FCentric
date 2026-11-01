@@ -18,6 +18,7 @@ import com.dev.backend.repository.ThanhToanDonBanRepository;
 import com.dev.backend.services.multitable.DieuHanhHeThongService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -64,6 +65,13 @@ public class ThanhToanDonBanService {
     private final PosCheckoutRequestRepository posCheckoutRequestRepository;
     private final DieuHanhHeThongService cauHinh;
     private final EntityManager entityManager;
+    /** Báo quản trị viên đơn cần hoàn tiền / phiếu chuyển khoản chờ đối chiếu; null khi test dựng tay. */
+    private ThongBaoThanhToanService thongBaoThanhToanService;
+
+    @Autowired(required = false)
+    void setThongBaoThanhToanService(ThongBaoThanhToanService thongBaoThanhToanService) {
+        this.thongBaoThanhToanService = thongBaoThanhToanService;
+    }
 
     public ThanhToanDonBanService(ThanhToanDonBanRepository repository, DonBanHangRepository donBanHangRepository,
                                   KhoRepository khoRepository, NguoiDungRepository nguoiDungRepository,
@@ -97,15 +105,35 @@ public class ThanhToanDonBanService {
         if (!conPhieu && (don.getTrangThaiThanhToan() == null || laDonCu(don))) {
             // Đơn cũ chưa theo dõi (kể cả vừa hủy hết phiếu ghi nhầm): giữ / trả về trống, không thành "Chưa thanh toán"
             if (don.getTrangThaiThanhToan() != null) {
+                if (TinhThanhToan.CAN_HOAN_TIEN.equals(don.getTrangThaiThanhToan()) && thongBaoThanhToanService != null) {
+                    thongBaoThanhToanService.daHoanTien(don.getId());
+                }
                 don.setTrangThaiThanhToan(null);
                 donBanHangRepository.save(don);
             }
             return null;
         }
-        String tt = TinhThanhToan.trangThai(TinhThanhToan.phaiThu(don.getTrangThai(), don.getTongCong()),
-                TinhThanhToan.daThu(tatCa));
+        BigDecimal phai = TinhThanhToan.phaiThu(don.getTrangThai(), don.getTongCong());
+        BigDecimal da = TinhThanhToan.daThu(tatCa);
+        String tt = TinhThanhToan.trangThai(phai, da);
+        String cu = don.getTrangThaiThanhToan();
         don.setTrangThaiThanhToan(tt);
         donBanHangRepository.save(don);
+        // Vừa chuyển VÀO Cần hoàn tiền (hủy / trả hàng sau khi thu, khách trả thừa, hủy phiếu hoàn): báo quản trị viên
+        if (TinhThanhToan.CAN_HOAN_TIEN.equals(tt) && !TinhThanhToan.CAN_HOAN_TIEN.equals(cu)
+                && thongBaoThanhToanService != null) {
+            thongBaoThanhToanService.canHoanTien(don, da.subtract(phai), true);
+        }
+        // Vẫn ở Cần hoàn tiền nhưng số tiền / tình huống có thể đã đổi (đơn bị hủy sau khi khách trả dư, hoàn một phần…)
+        if (TinhThanhToan.CAN_HOAN_TIEN.equals(tt) && TinhThanhToan.CAN_HOAN_TIEN.equals(cu)
+                && thongBaoThanhToanService != null) {
+            thongBaoThanhToanService.canHoanTien(don, da.subtract(phai), false);
+        }
+        // Vừa ra khỏi Cần hoàn tiền (đã ghi hoàn tiền…): thông báo cũ coi như đã xử lý
+        if (TinhThanhToan.CAN_HOAN_TIEN.equals(cu) && !TinhThanhToan.CAN_HOAN_TIEN.equals(tt)
+                && thongBaoThanhToanService != null) {
+            thongBaoThanhToanService.daHoanTien(don.getId());
+        }
         return tt;
     }
 
@@ -311,6 +339,8 @@ public class ThanhToanDonBanService {
                 .build();
         ds.add(phieu);
         luuPhieu(don, phieu, ds);
+        // Nhân viên ghi chuyển khoản: thêm một phiếu chờ quản trị viên đối chiếu sao kê
+        if (chuyenKhoan && !quanTri && thongBaoThanhToanService != null) thongBaoThanhToanService.choDoiChieu(true);
         return tomTatDon(don, ds);
     }
 
@@ -439,9 +469,11 @@ public class ThanhToanDonBanService {
         p.setLyDoHuy(ly);
         p.setNguoiHuyId(SecurityContextHolder.getUser().getId());
         p.setHuyLuc(Instant.now());
+        boolean dangChoDoiChieu = ThanhToanDonBan.CHUYEN_KHOAN.equals(p.getPhuongThuc()) && p.getDoiChieuLuc() == null;
         thayPhieu(ds, p);
         repository.save(p);
         capNhatTrangThai(don, ds);
+        if (dangChoDoiChieu && thongBaoThanhToanService != null) thongBaoThanhToanService.choDoiChieu(false);
         return tomTatDon(don, ds);
     }
 
@@ -469,7 +501,9 @@ public class ThanhToanDonBanService {
         List<Long> ds = ids == null ? List.of() : ids.stream().filter(Objects::nonNull).distinct().toList();
         if (ds.isEmpty()) throw new CommonException("Chọn các phiếu chuyển khoản đã thấy trên sao kê");
         if (ds.size() > 200) throw new CommonException("Mỗi lần đánh dấu tối đa 200 phiếu");
-        return repository.danhDauDoiChieu(ds, Instant.now(), SecurityContextHolder.getUser().getId());
+        int soPhieu = repository.danhDauDoiChieu(ds, Instant.now(), SecurityContextHolder.getUser().getId());
+        if (soPhieu > 0 && thongBaoThanhToanService != null) thongBaoThanhToanService.choDoiChieu(false);
+        return soPhieu;
     }
 
     // ================= helpers =================

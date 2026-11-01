@@ -8,12 +8,14 @@ import com.dev.backend.repository.PosPayosPaymentRepository;
 import com.dev.backend.services.impl.entities.PosCheckoutTransaction;
 import com.dev.backend.services.impl.entities.PosCheckoutTransaction.CheckoutContext;
 import com.dev.backend.services.impl.entities.PosCheckoutTransaction.ReservedLot;
+import com.dev.backend.services.impl.entities.ThongBaoThanhToanService;
 import com.dev.backend.utils.NoiDungVietQr;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
@@ -41,6 +43,13 @@ public class PosPayosTransaction {
     private final PosCheckoutTransaction checkoutTransaction;
     private final ObjectMapper objectMapper;
     private final EntityManager entityManager;
+    /** Báo quản trị viên khi tiền QR về mà chưa tạo được đơn; null khi test dựng tay. */
+    private ThongBaoThanhToanService thongBaoThanhToanService;
+
+    @Autowired(required = false)
+    void setThongBaoThanhToanService(ThongBaoThanhToanService thongBaoThanhToanService) {
+        this.thongBaoThanhToanService = thongBaoThanhToanService;
+    }
 
     public PosPayosTransaction(PosPayosPaymentRepository repository, PosCheckoutTransaction checkoutTransaction,
                                ObjectMapper objectMapper, EntityManager entityManager) {
@@ -231,6 +240,10 @@ public class PosPayosTransaction {
         }
         row.setNgayCapNhat(Instant.now());
         repository.save(row);
+        // Lần đầu thành PAID_ERROR thì báo quản trị viên; gọi lại (webhook gửi lại, khách chuyển thêm) thì chỉ sửa chữ
+        if (thongBaoThanhToanService != null) {
+            thongBaoThanhToanService.qrDaNhanTienChuaTaoDon(row, PosPayosService.lyDo(row), !daLoi);
+        }
     }
 
     /**
@@ -309,6 +322,7 @@ public class PosPayosTransaction {
         row.setResultJson(write(result));
         markHandled(row, managerId, note);
         repository.save(row);
+        if (thongBaoThanhToanService != null) thongBaoThanhToanService.qrDaXuLy(row.getOrderCode());
         return result;
     }
 
@@ -322,6 +336,7 @@ public class PosPayosTransaction {
         releaseIfHeld(row);
         row.setTrangThai(PosPayosPayment.REFUNDED);
         markHandled(row, managerId, note);
+        if (thongBaoThanhToanService != null) thongBaoThanhToanService.qrDaXuLy(row.getOrderCode());
         return repository.save(row);
     }
 

@@ -554,7 +554,7 @@ export default function GlobalSearch({ userId, role, isPhone = false, placeholde
           "flex h-9 items-center gap-2.5 rounded-lg border px-3 transition-[border-color,box-shadow,background-color]",
           mo ? "border-bo-primary bg-bo-surface" : "border-transparent hover:bg-bo-surface-subtle",
         )}
-        style={mo ? { boxShadow: "0 0 0 3px rgba(22,119,255,0.12)" } : undefined}
+        style={mo ? { boxShadow: "0 0 0 3px rgba(13,97,228,0.12)" } : undefined}
       >
         <Search className="size-4 shrink-0 text-slate-400" aria-hidden="true" />
         <input

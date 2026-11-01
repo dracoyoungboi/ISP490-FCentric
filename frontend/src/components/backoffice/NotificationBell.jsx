@@ -3,15 +3,20 @@ import { Link } from "react-router-dom";
 import {
   AlertCircle,
   ArrowLeftRight,
+  Banknote,
   Bell,
   BellRing,
   CheckCheck,
   ClipboardCheck,
   ClipboardList,
   FileText,
+  QrCode,
   RefreshCcw,
   ScanBarcode,
+  ShieldCheck,
   ShoppingBag,
+  Store,
+  Truck,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -40,6 +45,11 @@ const LOAI_THONG_BAO = {
   danh_sach_nhat_hang: ScanBarcode,
   don_ban_hang: ShoppingBag,
   dot_kiem_ke: ClipboardCheck,
+  phieu_xuat_kho: Truck,
+  pos_payos_payment: QrCode,
+  thanh_toan_don_ban: Banknote,
+  kenh_ban_hang: Store,
+  nguoi_dung: ShieldCheck,
 };
 
 const MAU_O_BIEU_TUONG = {

@@ -430,10 +430,11 @@ class ThongBaoNghiepVuServiceTest {
         d.setNguoiTao(NguoiDung.builder().id(80).build());
         xuatKho.sanHuyDonDaXuat(d, "Hủy từ sàn Shopify: customer");
 
-        assertEquals(Set.of(1, 2, 21, 80), nguoiNhan());
+        // Quản lý kho không nhận lúc này: được báo khi đơn được ghi nhận hoàn trả
+        assertEquals(Set.of(1, 2, 80), nguoiNhan());
         ThongBao t = cuaNguoi(1);
         assertEquals("Shopify hủy đơn SO0815 đã xuất kho", t.getTieuDe());
-        assertEquals("Lý do: khách hủy. Cần nhận lại hàng hoàn từ đơn vị giao hàng.", t.getMoTa());
+        assertEquals("Lý do: khách hủy. Nhận lại hàng hoàn rồi bấm Ghi nhận hoàn trả.", t.getMoTa());
         assertEquals(ThongBaoService.TONE_DANGER, t.getTone());
         assertEquals("/sales-orders/90", t.getDuongDan());
         assertEquals("DBH:90:SAN_HUY_DA_XUAT", t.getKhoaSuKien());
@@ -540,6 +541,7 @@ class ThongBaoNghiepVuServiceTest {
     @DisplayName("Tìm người nhận lỗi (CSDL) → không ném ra ngoài, không ghi")
     void loiKhongNem() {
         when(pqRepo.nguoiDungTheoKhoTai(any(), any(), any())).thenThrow(new RuntimeException("mất kết nối"));
+        when(ndRepo.idDangHoatDongTheoVaiTro(any())).thenThrow(new RuntimeException("mất kết nối"));
         assertDoesNotThrow(() -> muaHang.yeuCauChoDuyet(yeuCau(), nguoi(40, IRoleType.nhan_vien_mua_hang), 1));
         assertDoesNotThrow(() -> xuatKho.sanHuyDonDaXuat(don(), null));
         assertDoesNotThrow(() -> kiemKe.daHoanThanh(dot(), 1, BigDecimal.ONE, BigDecimal.ZERO, null));

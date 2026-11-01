@@ -15,10 +15,7 @@ export default function LoadingState({
     >
       <span className="sr-only">{label}</span>
 
-      <div
-        className="size-10 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600"
-        aria-hidden="true"
-      />
+      <div className="bo-vong-tai" aria-hidden="true" />
     </div>
   );
 }

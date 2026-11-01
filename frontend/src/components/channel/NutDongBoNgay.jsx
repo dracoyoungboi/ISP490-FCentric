@@ -215,7 +215,7 @@ function VongTienDo({ pct }) {
       aria-hidden="true"
       className="size-4 shrink-0 rounded-full"
       style={{
-        background: `conic-gradient(#1677ff ${pct}%, #dbe3ee 0)`,
+        background: `conic-gradient(var(--color-bo-primary) ${pct}%, #dbe3ee 0)`,
         WebkitMask: "radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px))",
         mask: "radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3px))",
       }}

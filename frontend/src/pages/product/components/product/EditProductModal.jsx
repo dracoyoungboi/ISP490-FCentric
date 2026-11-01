@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Loader2, Package } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
+import LoadingState from "@/components/shared/LoadingState";
 import { productService } from "@/services/productService.js";
 import { danhMucQuanAoService } from "@/services/danhMucQuanAoService.js";
 import * as yup from "yup";
@@ -494,10 +495,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
 
                     <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
                         {!sanPham ? (
-                            <div className="flex items-center justify-center gap-3 py-16 text-sm text-bo-muted" role="status">
-                                <Loader2 className="size-6 animate-spin text-bo-primary" aria-hidden="true" />
-                                Đang tải thông tin sản phẩm…
-                            </div>
+                            <LoadingState className="min-h-64" label="Đang tải thông tin sản phẩm" />
                         ) : (
                             <form onSubmit={handleFormSubmit} className={LOP_FORM}>
                                 {hienLoi && <TomTatLoi soLoiCoBan={loiCoBan} danhSachLoi={danhSachLoi} />}
