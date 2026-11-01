@@ -39,7 +39,7 @@ import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
 import apiClient from "@/services/apiClient";
 import { thongKeHeThongService } from "@/services/thongKeHeThongService";
-import { laKhoGiaoDich } from "@/utils/kho";
+import { laKhoAo, laKhoGiaoDich, laKhoHoatDong } from "@/utils/kho";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { formatCurrency, formatNumber } from "@/utils/formatters";
 import { VAI_TRO_TAO_YEU_CAU_NHAP } from "@/constants/vaiTroTaoYeuCauNhap";
@@ -58,6 +58,12 @@ const ROLES_ALL_KHO = [
     ROLE.QUAN_LY_KHO,
     ROLE.NHAN_VIEN_MUA_HANG,
     ROLE.NHAN_VIEN_BAN_HANG,
+];
+
+// Chọn riêng Kho Trung Chuyển (hàng đang đi đường khi chuyển kho) để theo dõi tồn: quản trị viên + quản lý kho
+const ROLES_XEM_KHO_TRUNG_CHUYEN = [
+    ROLE.QUAN_TRI_VIEN,
+    ROLE.QUAN_LY_KHO,
 ];
 
 const ALLOWED_ROLES = Object.values(ROLE);
@@ -85,6 +91,10 @@ function parseRoles(vaiTro) {
 
 function canSeeAllKho(roles) {
     return roles.some(r => ROLES_ALL_KHO.includes(r));
+}
+
+function canSeeKhoTrungChuyen(roles) {
+    return roles.some(r => ROLES_XEM_KHO_TRUNG_CHUYEN.includes(r));
 }
 
 // Nút "Nhập kho" mở màn Tạo yêu cầu nhập hàng: cùng danh sách vai trò với màn đó (quản lý kho chỉ duyệt, không lập)
@@ -140,6 +150,7 @@ export default function TonKhoTongQuan() {
     const [userId, setUserId] = useState(null);
     const [userRoles, setUserRoles] = useState([]);
     const [khoList, setKhoList] = useState([]);
+    const [khoAoIds, setKhoAoIds] = useState(() => new Set());
     const [loadingAuth, setLoadingAuth] = useState(true);
     const [authError, setAuthError] = useState(null);
 
@@ -196,8 +207,14 @@ export default function TonKhoTongQuan() {
                         .map(p => p.kho)
                         .filter(Boolean);
                 }
-                // Không cho chọn Kho Trung Chuyển (kho ảo) và kho ngừng hoạt động
-                khos = khos.filter(laKhoGiaoDich);
+                // Dòng của Kho Trung Chuyển không tạo yêu cầu nhập được (kho ảo)
+                setKhoAoIds(new Set(khos.filter(laKhoAo).map(k => k.id)));
+                // Bỏ kho ngừng hoạt động; Kho Trung Chuyển chỉ quản trị viên + quản lý kho chọn được, xếp cuối danh sách
+                const xemTrungChuyen = canSeeKhoTrungChuyen(roles);
+                khos = [
+                    ...khos.filter(laKhoGiaoDich),
+                    ...(xemTrungChuyen ? khos.filter(k => laKhoAo(k) && laKhoHoatDong(k)) : []),
+                ];
                 setKhoList(khos);
 
                 const khoUrl = khoTuDuongDan.current;
@@ -679,7 +696,7 @@ export default function TonKhoTongQuan() {
                                         </td>
 
                                         <td className="px-3 py-3 text-center">
-                                            {showNhapKho && (
+                                            {showNhapKho && !khoAoIds.has(item.khoId) && (
                                                 <RowActions>
                                                     <RowActionButton
                                                         icon={PackagePlus}
