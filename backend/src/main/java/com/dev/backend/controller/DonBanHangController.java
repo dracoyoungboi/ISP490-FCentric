@@ -17,7 +17,10 @@ import com.dev.backend.utils.GioiHanSoThapPhan;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import com.dev.backend.dto.response.customize.VanDonSanDto;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -314,5 +317,23 @@ public class DonBanHangController {
                         .error(null)
                         .build()
         );
+    }
+
+    @GetMapping("/{id}/van-don-san")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
+                    IRoleType.nhan_vien_kho,
+                    IRoleType.nhan_vien_ban_hang
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<byte[]> inVanDonSan(@PathVariable Integer id) {
+        VanDonSanDto dto = donBanHangService.layVanDonSan(id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(dto.mimeType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + dto.tenTep() + "\"")
+                .body(dto.duLieu());
     }
 }

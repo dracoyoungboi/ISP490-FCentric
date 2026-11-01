@@ -857,6 +857,12 @@ public class OmnichannelOrderSyncJob {
                         log.error("[JOB-01] Lỗi khi hủy đơn {} theo sàn Lazada: {}", soDonHang, ex.getMessage());
                     }
                 }
+            } else if (statuses.contains("delivered") || statuses.contains("failed_delivery") || statuses.contains("returned")) {
+                try {
+                    donBanHangService.capNhatTrangThaiGiaoHangTuSan(existing.getId(), statuses);
+                } catch (Exception ex) {
+                    log.error("[JOB-01] Lỗi khi cập nhật trạng thái giao hàng đơn {} theo sàn Lazada: {}", soDonHang, ex.getMessage());
+                }
             }
             return false;
         }

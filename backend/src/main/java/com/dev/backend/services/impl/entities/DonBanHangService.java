@@ -49,6 +49,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dev.backend.dto.response.customize.VanDonSanDto;
+import com.dev.backend.services.KenhBanHangService;
+import com.dev.backend.services.lazada.LazadaClient;
+import com.fasterxml.jackson.databind.JsonNode;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import com.dev.backend.event.InventoryRestockedEvent;
 import com.dev.backend.services.KenhBanHangDongBoService;
 import com.dev.backend.services.impl.multitable.GiuChoChuyenKhoService;
@@ -159,6 +165,13 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
 
     @Autowired
     private GiuChoChuyenKhoService giuChoChuyenKhoService;
+
+    @Autowired
+    @Lazy
+    private KenhBanHangService kenhBanHangService;
+
+    @Autowired
+    private LazadaClient lazadaClient;
 
 
     @Override
@@ -870,6 +883,38 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         return true;
     }
 
+    @Transactional
+    public boolean capNhatTrangThaiGiaoHangTuSan(Integer donId, String trangThaiSan) {
+        DonBanHang don = repository.findById(donId).orElse(null);
+        if (don == null) {
+            return false;
+        }
+        Integer trangThaiHienTai = don.getTrangThai();
+        // Chỉ cập nhật khi đơn đã xuất kho toàn bộ (trạng thái 3) để đảm bảo tính đơn điệu không kéo lùi
+        if (trangThaiHienTai == null || trangThaiHienTai != ITrangThaiDonBanHang.DA_XUAT_TOAN_BO) {
+            return false;
+        }
+
+        String st = trangThaiSan.toLowerCase();
+        if (st.contains("delivered")) {
+            don.setTrangThai(ITrangThaiDonBanHang.HOAN_THANH);
+            don.setTrangThaiThanhToan("da_thanh_toan");
+            don.setNgayCapNhat(Instant.now());
+            repository.save(don);
+            ghiNhatKyDon(don, "giao_thanh_cong_tu_san", "Sàn cập nhật giao hàng thành công (delivered)");
+            log.info("[CHANNEL-DELIVERY] Đơn {} đã giao thành công trên sàn -> Chuyển Hoàn thành (5)", don.getSoDonHang());
+            return true;
+        } else if (st.contains("failed_delivery") || st.contains("returned")) {
+            don.setTrangThai(ITrangThaiDonBanHang.BI_HOAN_TRA);
+            don.setNgayCapNhat(Instant.now());
+            repository.save(don);
+            ghiNhatKyDon(don, "hoan_tra_tu_san", "Sàn cập nhật giao thất bại / hoàn trả (" + trangThaiSan + ")");
+            log.info("[CHANNEL-RETURN] Đơn {} giao thất bại / hoàn trả trên sàn -> Chuyển Bị hoàn trả (6)", don.getSoDonHang());
+            return true;
+        }
+        return false;
+    }
+
     /** Phát InventoryRestockedEvent cho từng dòng đơn (listener đẩy tồn chạy sau commit). */
     private void phatSuKienHoanTon(DonBanHang don) {
         List<ChiTietDonBanHang> chiTiets = chiTietDonBanHangRepository.findByDonBanHangId(don.getId());
@@ -1237,5 +1282,62 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 .dangXuLy(dangXuLy != null ? dangXuLy : 0L)
                 .giaTriDonHomNay(doanhThu != null ? BigDecimal.valueOf(doanhThu) : BigDecimal.ZERO)
                 .build();
+    }
+
+    /**
+     * Lấy tem vận đơn từ sàn (AWB / Shipping Label) cho đơn hàng sàn.
+     */
+    @Transactional(readOnly = true)
+    public VanDonSanDto layVanDonSan(Integer id) {
+        DonBanHang don = repository.findById(id)
+                .orElseThrow(() -> new CommonException("Không tìm thấy đơn bán hàng ID: " + id, HttpStatus.NOT_FOUND, null));
+        kiemTraPhamVi(don);
+
+        if (don.getKenhBanHang() == null) {
+            throw new CommonException("Đơn hàng này không thuộc kênh bán hàng sàn", HttpStatus.BAD_REQUEST, null);
+        }
+
+        String maKenh = don.getKenhBanHang().getMaKenh();
+        if ("LAZADA".equalsIgnoreCase(maKenh)) {
+            String orderId = don.getMaDonHangKenh();
+            if (orderId == null || orderId.isBlank()) {
+                throw new CommonException("Đơn hàng chưa có mã đơn trên sàn Lazada", HttpStatus.BAD_REQUEST, null);
+            }
+
+            String appKey = kenhBanHangService.getLazadaAppKey();
+            String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret();
+            String accessToken = kenhBanHangService.getDecryptedLazadaAccessToken();
+            if (appKey == null || appSecret == null || accessToken == null) {
+                throw new CommonException("Kênh Lazada chưa được cấu hình hoặc chưa ủy quyền hợp lệ", HttpStatus.BAD_REQUEST, null);
+            }
+
+            JsonNode labelRes = lazadaClient.getShippingLabel(appKey, appSecret, accessToken, orderId);
+            String code = labelRes.path("code").asText("0");
+            if (!"0".equals(code) && !"".equals(code)) {
+                String errorMsg = labelRes.path("message").asText(labelRes.path("sub_message").asText("Lỗi lấy vận đơn từ Lazada"));
+                throw new CommonException("Lazada báo lỗi: " + errorMsg + ". Vui lòng kiểm tra trạng thái đơn trên Seller Center.", HttpStatus.BAD_REQUEST, null);
+            }
+
+            JsonNode docNode = labelRes.path("data").path("document");
+            String fileBase64 = docNode.path("file").asText("");
+            String mimeType = docNode.path("mime_type").asText("text/html");
+
+            if (fileBase64.isBlank()) {
+                throw new CommonException("Lazada không trả về dữ liệu vận đơn cho đơn hàng này", HttpStatus.BAD_REQUEST, null);
+            }
+
+            byte[] decodedBytes = Base64.getDecoder().decode(fileBase64);
+            if (mimeType.toLowerCase().contains("html")) {
+                String html = new String(decodedBytes, StandardCharsets.UTF_8);
+                if (!html.contains("window.print")) {
+                    html += "<script>window.onload = function() { window.print(); };</script>";
+                    decodedBytes = html.getBytes(StandardCharsets.UTF_8);
+                }
+            }
+
+            return new VanDonSanDto(decodedBytes, mimeType, "awb-" + don.getSoDonHang());
+        }
+
+        throw new CommonException("Kênh bán hàng " + maKenh + " chưa hỗ trợ in vận đơn trực tiếp từ sàn", HttpStatus.BAD_REQUEST, null);
     }
 }

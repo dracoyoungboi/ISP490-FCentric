@@ -21,7 +21,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -203,6 +205,53 @@ public class LazadaClient {
         params.put("app_key", appKey.trim());
         params.put("access_token", accessToken.trim());
         params.put("order_id", orderId.trim());
+        params.put("timestamp", String.valueOf(System.currentTimeMillis()));
+        params.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
+
+        String sign = LazadaSignatureHelper.calculateSignature(apiPath, params, appSecret);
+        params.put("sign", sign);
+
+        return executeGet(API_GATEWAY_VN + apiPath, params);
+    }
+
+    /**
+     * Lấy tài liệu vận đơn (AWB / Shipping Label) từ Lazada Open Platform (/order/document/get).
+     * @param appKey App Key của ứng dụng Lazada
+     * @param appSecret App Secret của ứng dụng Lazada
+     * @param accessToken Access Token của gian hàng
+     * @param orderId Mã đơn hàng trên sàn Lazada
+     * @return JsonNode chứa data.document (file base64 và mime_type: text/html hoặc application/pdf)
+     */
+    public JsonNode getShippingLabel(String appKey, String appSecret, String accessToken, String orderId) {
+        JsonNode itemsRes = getOrderItems(appKey, appSecret, accessToken, orderId);
+        String code = itemsRes.path("code").asText("0");
+        if (!"0".equals(code) && !"".equals(code)) {
+            return itemsRes;
+        }
+
+        JsonNode items = itemsRes.path("data");
+        List<String> itemIds = new ArrayList<>();
+        if (items.isArray()) {
+            for (JsonNode it : items) {
+                String itId = it.path("order_item_id").asText("").trim();
+                if (!itId.isBlank()) {
+                    itemIds.add(itId);
+                }
+            }
+        }
+
+        if (itemIds.isEmpty()) {
+            throw new IllegalArgumentException("Không tìm thấy sản phẩm nào trong đơn hàng Lazada " + orderId);
+        }
+
+        String orderItemIdsJson = "[" + String.join(",", itemIds) + "]";
+
+        String apiPath = "/order/document/get";
+        Map<String, String> params = new HashMap<>();
+        params.put("app_key", appKey.trim());
+        params.put("access_token", accessToken.trim());
+        params.put("doc_type", "shippingLabel");
+        params.put("order_item_ids", orderItemIdsJson);
         params.put("timestamp", String.valueOf(System.currentTimeMillis()));
         params.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
 
