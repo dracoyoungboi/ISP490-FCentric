@@ -4,14 +4,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
-import org.springframework.core.env.Environment;
-import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
 /**
- * Đường dẫn trong email, dựng từ {@code app.frontend-url} bằng UriComponentsBuilder (không ghép chuỗi tay).
+ * Đường dẫn trong email, dựng từ {@code app.email-url} bằng UriComponentsBuilder (không ghép chuỗi tay).
+ * Khóa riêng, không dùng {@code app.frontend-url}: backend chạy trên máy cá nhân dùng chung CSDL và hộp thư gửi với
+ * production, email vẫn tới người thật nên liên kết phải trỏ trang thật (payOS vẫn quay về {@code app.frontend-url}).
  * Email trong đường dẫn Cổng nhà cung cấp được mã hóa đủ ("@" thành %40, "+" thành %2B) để
  * {@code searchParams.get('email')} ở trang đăng nhập nhà cung cấp đọc đúng.
  */
@@ -19,27 +19,26 @@ import org.springframework.web.util.UriComponentsBuilder;
 @Component
 public class DuongDanEmail {
 
+    static final String MAC_DINH = "https://fcentric.net";
     static final String DANG_NHAP = "/login";
+    static final String DAT_MAT_KHAU = "/set-password";
     static final String CONG_NHA_CUNG_CAP = "/supplier/login";
 
     private final String goc;
-    private final Environment environment;
 
-    public DuongDanEmail(@Value("${app.frontend-url:http://localhost:5173}") String frontendUrl, Environment environment) {
-        String url = frontendUrl == null || frontendUrl.isBlank() ? "http://localhost:5173" : frontendUrl.trim();
+    public DuongDanEmail(@Value("${app.email-url:" + MAC_DINH + "}") String emailUrl) {
+        String url = emailUrl == null || emailUrl.isBlank() ? MAC_DINH : emailUrl.trim();
         while (url.endsWith("/")) {
             url = url.substring(0, url.length() - 1);
         }
         this.goc = url;
-        this.environment = environment;
     }
 
-    /** Lúc khởi động: chạy production mà vẫn trỏ localhost thì mọi liên kết trong email đều hỏng. */
+    /** Lúc khởi động: trỏ máy cục bộ thì người nhận email (ở máy khác) không mở được liên kết nào. */
     @EventListener(ApplicationReadyEvent.class)
     public void canhBaoNeuSaiMoiTruong() {
-        if (environment != null && environment.acceptsProfiles(Profiles.of("prod")) && laMayCucBo()) {
-            log.warn("app.frontend-url đang trỏ máy cục bộ ({}) khi chạy production: liên kết trong email sẽ không mở được",
-                    goc);
+        if (laMayCucBo()) {
+            log.warn("app.email-url đang trỏ máy cục bộ ({}): liên kết trong email chỉ mở được trên chính máy này", goc);
         }
     }
 
@@ -56,6 +55,14 @@ public class DuongDanEmail {
     /** "fcentric.net/login" (chữ hiện dưới nút, bỏ scheme). */
     public String nhanDangNhap() {
         return boScheme(dangNhap());
+    }
+
+    /**
+     * "https://fcentric.net/set-password#t=abc…". Mã nằm sau "#": trình duyệt không gửi phần này lên máy chủ nên mã không
+     * vào nhật ký truy cập hay header Referer. Mã base64url (A–Z a–z 0–9 - _) không cần mã hóa thêm.
+     */
+    public String datMatKhau(String ma) {
+        return UriComponentsBuilder.fromUriString(goc).path(DAT_MAT_KHAU).fragment("t=" + ma).build().toUriString();
     }
 
     /** "https://fcentric.net/supplier/login?id=1287&email=lan.tran%40xuongmay.vn". */

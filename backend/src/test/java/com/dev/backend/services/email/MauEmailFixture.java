@@ -6,7 +6,6 @@ import com.dev.backend.entities.*;
 import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.repository.email.DonMuaHangEmailRepository;
 import org.mockito.ArgumentCaptor;
-import org.springframework.mock.env.MockEnvironment;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -34,7 +33,7 @@ final class MauEmailFixture {
     final EmailDispatcher dispatcher = mock(EmailDispatcher.class);
     final NguoiDungRepository nguoiDungRepository = mock(NguoiDungRepository.class);
     final DonMuaHangEmailRepository donMuaHangEmailRepository = mock(DonMuaHangEmailRepository.class);
-    final DuongDanEmail duongDan = new DuongDanEmail("https://fcentric.net", new MockEnvironment());
+    final DuongDanEmail duongDan = new DuongDanEmail("https://fcentric.net");
     final EmailNghiepVuServiceImpl service = new EmailNghiepVuServiceImpl(dispatcher, duongDan, nguoiDungRepository,
             donMuaHangEmailRepository, Clock.fixed(BAY_GIO, ZoneOffset.UTC));
 
