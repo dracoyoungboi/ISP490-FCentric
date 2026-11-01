@@ -1,8 +1,10 @@
 import { lazy, useSyncExternalStore } from "react";
+import { matchRoutes } from "react-router-dom";
 
 /**
  * Tải trang theo nhu cầu: mỗi trang thành một tệp mã riêng, chỉ tải khi mở tới (App.jsx).
- * Kèm bộ đếm "đang tải tệp trang" cho thanh tiến độ mảnh trên đầu (ThanhTaiTrang).
+ * Kèm bộ đếm "đang tải tệp trang" cho thanh tiến độ mảnh trên đầu (ThanhTaiTrang), và tải trước theo đường dẫn
+ * (lúc mở app, ở màn đăng nhập) để vào tới là trang đã sẵn.
  */
 
 const KHOA_TAI_LAI = "fcentric:tai-lai-vi-loi-tep";
@@ -61,13 +63,33 @@ function dangKy(nghe) {
 /**
  * Bọc `lazy()`: đếm lúc đang tải tệp trang, tệp lỗi thì tự tải lại trang một lần; vẫn lỗi thì ném lỗi cho
  * ErrorBoundary hiện "Không tải được trang này".
+ * Trang trả về có thêm `taiTruoc()`: tải tệp trước khi dựng, dùng chung một lượt tải với lúc dựng.
  */
 export function taiTrang(nap) {
-  return lazy(() => {
+  let luotTai = null;
+  let daTaiXong = false;
+  const napMotLan = () => {
+    // Lỗi thì quên lượt này, lần sau (bấm vào trang, rê chuột lại) tải lại từ đầu
+    luotTai ??= nap().then(
+      (moDun) => {
+        daTaiXong = true;
+        return moDun;
+      },
+      (loi) => {
+        luotTai = null;
+        throw loi;
+      },
+    );
+    return luotTai;
+  };
+
+  const Trang = lazy(() => {
+    // Đã tải trước xong: không cần đếm cho thanh tiến độ (không có gì để chờ)
+    if (daTaiXong) return napMotLan();
     soDangTai += 1;
     // React gọi hàm này giữa lúc dựng trang: báo sau, tránh cập nhật component khác ngay trong lúc dựng
     queueMicrotask(baoThayDoi);
-    return nap()
+    return napMotLan()
       .catch((loi) => {
         if (!taiLaiMotLan(loi)) throw loi;
         // Đang tải lại: giữ trạng thái chờ tới khi trang mới thay, không chớp màn lỗi. Quá hạn mà trang vẫn còn
@@ -79,6 +101,46 @@ export function taiTrang(nap) {
         baoThayDoi();
       });
   });
+  // Tải trước lỗi thì bỏ qua (trả false): lúc bấm vào trang mới báo lỗi / tự tải lại như thường
+  Trang.taiTruoc = () => napMotLan().then(() => true, () => false);
+  return Trang;
+}
+
+let cayDuongDan = [];
+
+/** App.jsx ghi cây đường dẫn (createRoutesFromChildren) một lần, để tìm trang cần tải trước theo đường dẫn. */
+export function ghiNhanCayDuongDan(cay) {
+  cayDuongDan = cay;
+}
+
+/**
+ * Tải trước tệp của trang ứng với đường dẫn (vd. "/goods-receipts", có thể kèm "?…"). Đường dẫn chuyển hướng hoặc
+ * trang đã nằm trong gói đầu thì không làm gì. Mất mạng thì thôi: một số trình duyệt nhớ lượt nhập tệp hỏng, lúc
+ * có mạng bấm vào lại hỏng. Trả Promise (không bao giờ báo lỗi) gồm `false` cho tệp tải hỏng.
+ */
+export function taiTruocDuongDan(duongDan) {
+  if (!navigator.onLine) return Promise.resolve([false]);
+  const khop = matchRoutes(cayDuongDan, duongDan) ?? [];
+  return Promise.all(khop.map(({ route }) => route.element?.type?.taiTruoc?.()));
+}
+
+/** Chờ trình duyệt rảnh (không đang dựng trang, không đang xử lý thao tác); trình duyệt không hỗ trợ thì chờ ngắn. */
+const choRanh = () =>
+  new Promise((xong) =>
+    typeof window.requestIdleCallback === "function"
+      ? window.requestIdleCallback(() => xong(), { timeout: 3_000 })
+      : setTimeout(xong, 300),
+  );
+
+/** Lúc trình duyệt rảnh thì tải trước trang của một đường dẫn (vd. trang đích ở màn đăng nhập). Trả hàm hủy. */
+export function taiTruocLucRanh(duongDan) {
+  let huy = false;
+  choRanh().then(() => {
+    if (!huy) taiTruocDuongDan(duongDan);
+  });
+  return () => {
+    huy = true;
+  };
 }
 
 /** Phần chờ của Suspense đang hiện (vào thẳng đường dẫn / F5): đã có vòng chờ ở vùng nội dung, thanh trên đầu không cần hiện. */
