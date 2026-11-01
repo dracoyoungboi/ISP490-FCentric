@@ -10,6 +10,7 @@ import com.dev.backend.services.multitable.NhatHangService;
 import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
 import com.dev.backend.services.impl.entities.DonBanHangService;
 import com.dev.backend.services.impl.entities.KhoService;
+import com.dev.backend.services.impl.entities.ThongBaoHeThongService;
 import com.dev.backend.services.impl.entities.ThongBaoXuatKhoService;
 import com.dev.backend.utils.KenhCauHinhDongBo;
 import com.dev.backend.dto.response.customize.TikTokOrderDto;
@@ -86,6 +87,10 @@ public class OmnichannelOrderSyncJob {
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     ThongBaoXuatKhoService thongBaoXuatKhoService;
+    /** Báo quản trị viên ủy quyền lại khi sàn từ chối khóa (test dựng tay không có thì bỏ qua). */
+    @lombok.experimental.NonFinal
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    ThongBaoHeThongService thongBaoHeThongService;
     /** Đơn thiếu dòng của lượt lấy đơn đang chạy trên luồng này: gộp thành một thông báo mỗi lượt. */
     ThreadLocal<List<ThongBaoXuatKhoService.DonThieuDong>> donThieuDongLuot = new ThreadLocal<>();
     /** Số đơn Nháp (chờ gửi sang kho) vừa tạo trong lượt lấy đơn đang chạy trên luồng này. */
@@ -287,6 +292,7 @@ public class OmnichannelOrderSyncJob {
             log.warn("[JOB-01 Rate Limit] Shopify rate limit vượt ngưỡng. Bỏ qua kênh {} và thử lại đợt 5 phút sau.", kenh.getMaKenh());
         } catch (HttpClientErrorException.Unauthorized e) {
             log.error("[JOB-01 Token Expired] Token kênh {} hết hạn hoặc không hợp lệ. Vô hiệu hóa sync tự động.", kenh.getMaKenh());
+            if (thongBaoHeThongService != null) thongBaoHeThongService.kenhCanUyQuyenLai(kenh);
         } catch (Exception e) {
             log.warn("[JOB-01 Error] Lỗi kết nối API đơn hàng Shopify: {}", e.getMessage());
         }

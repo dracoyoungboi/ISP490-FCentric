@@ -30,6 +30,7 @@ import com.dev.backend.repository.MauQuyenVaiTroRepository;
 import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.repository.PhanQuyenNguoiDungKhoRepository;
 import com.dev.backend.repository.QuyenHanRepository;
+import com.dev.backend.services.impl.entities.ThongBaoHeThongService;
 import com.dev.backend.services.multitable.PhanQuyenNguoiDungService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -38,6 +39,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.data.domain.PageRequest;
@@ -114,6 +116,10 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
     /** Null khi chạy unit test dựng tay (không có JPA). */
     @PersistenceContext
     private EntityManager entityManager;
+
+    /** Báo người bị đổi quyền; null khi chạy unit test dựng tay. */
+    @Autowired(required = false)
+    private ThongBaoHeThongService thongBaoHeThongService;
 
     /** Quyền đang được API kiểm chỉ đổi khi triển khai bản mới, nên quét một lần rồi giữ lại. */
     private volatile List<String> quyenDaApDungDaQuet;
@@ -360,6 +366,16 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
                 .ngayThucHien(bayGio)
                 .ghiChu("Cập nhật phân quyền cho " + ITable.nguoi_dung + " id: " + nguoiDung.getId())
                 .build());
+        // Mọi lần đổi phân quyền đều đi qua đây (lưu phân quyền, đổi vai trò, thu hồi kho): báo chính người đó sau commit
+        if (thongBaoHeThongService != null) {
+            thongBaoHeThongService.quyenDaDoi(nguoiDung.getId(), nguoiThucHien == null ? null : nguoiThucHien.getId(),
+                    anhQuyen(truoc), anhQuyen(sau), bayGio);
+        }
+    }
+
+    private static ThongBaoHeThongService.AnhQuyen anhQuyen(AnhChup a) {
+        return new ThongBaoHeThongService.AnhQuyen(a.vaiTro(), a.kho() == null ? null : a.kho().getId(),
+                a.kho() == null ? null : a.kho().getTenKho(), a.ngayKetThuc(), new TreeSet<>(a.quyen()));
     }
 
     private String sangJson(AnhChup anh) {
