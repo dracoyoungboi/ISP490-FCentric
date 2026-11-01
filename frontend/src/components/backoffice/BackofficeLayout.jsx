@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Outlet, useLocation, useOutletContext } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import BackofficeSidebar from "./BackofficeSidebar";
 import BackofficeHeader from "./BackofficeHeader";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
-import ChangePasswordModal from "@/components/ChangePasswordModal";
 import { PageTitleContext } from "./pageTitle";
 import { SETTINGS_PAGES } from "@/components/settings/settings.config";
 import { taiLaiKenhDaKetNoi } from "@/components/channel/kenhDaKetNoi";
@@ -20,8 +19,6 @@ const DEFAULT_DOCUMENT_TITLE =
  */
 export default function BackofficeLayout({ metaCoDinh = null }) {
     const { pathname } = useLocation();
-    const { mustChangePassword, setMustChangePassword } = useOutletContext();
-    const handlePasswordChangeSuccess = () => setMustChangePassword(false);
 
     const PAGE_META_CONFIG = [
         {
@@ -546,12 +543,6 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
                 </SidebarInset>
             </div>
         </SidebarProvider>
-        <ChangePasswordModal
-            open={mustChangePassword}
-            forceChange={true}
-            onOpenChange={() => {}}
-            onSuccess={handlePasswordChangeSuccess}
-        />
         </>
     );
 }

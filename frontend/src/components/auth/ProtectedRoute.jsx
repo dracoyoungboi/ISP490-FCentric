@@ -1,15 +1,30 @@
 import { useEffect, useState } from "react";
 import { Navigate, Outlet, useNavigate } from "react-router-dom";
 import { toast } from "@/lib/thongBaoNhanh";
+import ChangePasswordModal from "@/components/ChangePasswordModal";
 import { nguoiDungService } from "../../services/nguoiDungService";
+import { SU_KIEN_PHAI_DOI_MAT_KHAU } from "../../services/apiClient";
 import { ensureTokenUsable } from "../../utils/authToken";
 
+/**
+ * Cổng mọi trang cần đăng nhập (khung quản trị, POS, các trang In). Tài khoản còn mật khẩu tạm thì chỉ hiện hộp Đổi
+ * mật khẩu bắt buộc, KHÔNG dựng trang bên dưới: trang không gọi API (máy chủ cũng chặn, 403 PASSWORD_CHANGE_REQUIRED)
+ * và không có đường đi vòng qua trang In hay /pos.
+ */
 export default function ProtectedRoute() {
     const navigate = useNavigate();
     const token = localStorage.getItem("access_token");
     const [status, setStatus] = useState("checking");
     const [mustChangePassword, setMustChangePassword] = useState(false);
+    const [taiKhoan, setTaiKhoan] = useState({ tenDangNhap: "", email: "" });
     const [retryCount, setRetryCount] = useState(0);
+
+    // Máy chủ báo phải đổi mật khẩu ở một request bất kỳ (vd. cờ vừa bật): mở hộp bắt buộc
+    useEffect(() => {
+        const moHop = () => setMustChangePassword(true);
+        window.addEventListener(SU_KIEN_PHAI_DOI_MAT_KHAU, moHop);
+        return () => window.removeEventListener(SU_KIEN_PHAI_DOI_MAT_KHAU, moHop);
+    }, []);
 
     useEffect(() => {
         if (!token) {
@@ -33,6 +48,10 @@ export default function ProtectedRoute() {
             .then((response) => {
                 if (!cancelled) {
                     setMustChangePassword(response?.data?.mustChangePassword === true);
+                    setTaiKhoan({
+                        tenDangNhap: response?.data?.tenDangNhap || "",
+                        email: response?.data?.email || "",
+                    });
                     setStatus("authenticated");
                 }
             })
@@ -130,5 +149,20 @@ export default function ProtectedRoute() {
         );
     }
 
-    return <Outlet context={{ mustChangePassword, setMustChangePassword }} />;
+    if (mustChangePassword) {
+        return (
+            <main className="min-h-screen bg-bo-canvas">
+                <ChangePasswordModal
+                    open
+                    forceChange
+                    onOpenChange={() => {}}
+                    onSuccess={() => setMustChangePassword(false)}
+                    tenDangNhap={taiKhoan.tenDangNhap}
+                    email={taiKhoan.email}
+                />
+            </main>
+        );
+    }
+
+    return <Outlet />;
 }

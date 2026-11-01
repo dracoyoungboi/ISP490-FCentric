@@ -2,10 +2,17 @@ import axios from 'axios';
 import { toast } from '@/lib/thongBaoNhanh';
 import { clearCurrentUserProfile } from '../utils/avatar';
 import { API_BASE_URL } from '../config/apiBase';
+import { getApiErrorCode } from '../utils/apiError';
 
 // Chặn xử lý trùng lặp khi nhiều request đồng thời cùng trả về ACCOUNT_DISABLED
 let accountDisabledHandled = false;
 let expiredSessionHandled = false;
+
+/**
+ * Máy chủ trả 403 PASSWORD_CHANGE_REQUIRED: tài khoản còn mật khẩu tạm, mọi API (trừ đổi mật khẩu) bị chặn.
+ * ProtectedRoute nghe sự kiện này để mở hộp Đổi mật khẩu bắt buộc thay vì để từng trang báo lỗi.
+ */
+export const SU_KIEN_PHAI_DOI_MAT_KHAU = "fcentric:phai-doi-mat-khau";
 
 function clearStoredSession() {
     localStorage.removeItem("access_token");
@@ -97,6 +104,10 @@ apiClient.interceptors.response.use(
                     : "Phiên đăng nhập đã hết hạn hoặc không còn hợp lệ. Vui lòng đăng nhập lại."
             );
             window.location.replace("/login");
+        }
+
+        if (status === 403 && getApiErrorCode(error) === "PASSWORD_CHANGE_REQUIRED") {
+            window.dispatchEvent(new Event(SU_KIEN_PHAI_DOI_MAT_KHAU));
         }
 
         return Promise.reject(error);
