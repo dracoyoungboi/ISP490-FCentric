@@ -27,6 +27,9 @@ const FALLBACK_TRUNG_TINH = "bg-slate-100 text-slate-600";
 
 // Shared user avatar: ảnh từ avatarUrl (DTO/DB) → fallback initials với màu
 // nền ổn định. Ảnh lỗi tải tự rơi về initials (Radix AvatarFallback).
+// AvatarImage luôn được gắn, kể cả khi không có ảnh: Radix chỉ cập nhật trạng thái "đã tải" khi AvatarImage còn gắn,
+// nên nếu bỏ hẳn AvatarImage lúc gỡ ảnh thì trạng thái kẹt ở "đã tải" và chữ viết tắt không hiện tới khi tải lại trang.
+// src rỗng → Radix coi là lỗi → hiện chữ viết tắt ngay.
 export default function UserAvatar({ userId, name, avatarUrl, size = "sm", className = "", trungTinh = false }) {
   const sizeClasses = SIZE_MAP[size] || SIZE_MAP.sm;
   const fallbackStyle = trungTinh
@@ -35,12 +38,10 @@ export default function UserAvatar({ userId, name, avatarUrl, size = "sm", class
 
   return (
     <Avatar className={cn(sizeClasses.root, className)}>
-      {avatarUrl ? (
-        <AvatarImage
-          src={avatarUrl}
-          alt={name ? `Ảnh đại diện của ${name}` : "Ảnh đại diện"}
-        />
-      ) : null}
+      <AvatarImage
+        src={avatarUrl || undefined}
+        alt={name ? `Ảnh đại diện của ${name}` : "Ảnh đại diện"}
+      />
       <AvatarFallback
         className={cn("font-bold", sizeClasses.fallback, fallbackStyle)}
       >
