@@ -4,7 +4,8 @@ import { chuyenDanhSachThongBao } from "../utils/thongBaoChuong";
 /**
  * Thông báo trên thanh trên cùng (chuông cạnh khối tài khoản): API /api/v1/thong-bao (ThongBaoController).
  * Chỉ thông báo của người đang đăng nhập: máy chủ lấy người nhận từ token, không cần kho đang chọn.
- * Hiện có thông báo phiếu chuyển kho (chờ duyệt, đã duyệt, bị từ chối / đã hủy, đang trên đường đến, nhận lệch);
+ * Thông báo gửi cho người phải làm bước tiếp theo: chuyển kho, yêu cầu nhập hàng, báo giá nhà cung cấp, phiếu nhặt hàng,
+ * sàn hủy đơn đã xuất, kiểm kê lệch (luật người nhận ở các service ThongBao*Service của máy chủ);
  * máy chủ xóa thông báo cũ hơn 90 ngày.
  *
  * Một thông báo (sau chuyenDongThongBao ở utils/thongBaoChuong.js):

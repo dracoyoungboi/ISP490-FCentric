@@ -6,13 +6,12 @@ import {
   Bell,
   BellRing,
   CheckCheck,
-  CircleCheck,
+  ClipboardCheck,
   ClipboardList,
-  Lock,
+  FileText,
   RefreshCcw,
-  RefreshCw,
+  ScanBarcode,
   ShoppingBag,
-  TriangleAlert,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -30,15 +29,17 @@ import { THONG_BAO_DA_SAN_SANG } from "@/services/thongBaoService";
  * THONG_BAO_DA_SAN_SANG = false thì bảng chỉ báo tính năng đang phát triển, không gọi máy chủ.
  */
 
-/** Biểu tượng theo loại thông báo. Danh sách loại thật chốt cùng nghiệp vụ; loại lạ dùng hình chuông. */
+/**
+ * Biểu tượng theo loại thông báo. Loại = tên bảng của chứng từ gây ra thông báo (khớp ThongBaoService.LOAI_* ở máy chủ);
+ * loại lạ dùng hình chuông.
+ */
 const LOAI_THONG_BAO = {
-  yeu_cau_nhap_hang: ClipboardList,
-  dong_bo_loi: RefreshCw,
-  ton_kho_thap: TriangleAlert,
-  don_ban_moi: ShoppingBag,
-  phieu_nhap_xong: CircleCheck,
   phieu_chuyen_kho: ArrowLeftRight,
-  tai_khoan_bi_khoa: Lock,
+  yeu_cau_mua_hang: ClipboardList,
+  don_mua_hang: FileText,
+  danh_sach_nhat_hang: ScanBarcode,
+  don_ban_hang: ShoppingBag,
+  dot_kiem_ke: ClipboardCheck,
 };
 
 const MAU_O_BIEU_TUONG = {
@@ -284,7 +285,7 @@ export default function NotificationBell({ duongDanXemTatCa }) {
             icon={Bell}
             mau="bg-bo-primary-soft text-bo-primary"
             tieuDe="Chưa có thông báo nào"
-            moTa="Thông báo về phiếu chuyển kho sẽ hiện ở đây."
+            moTa="Khi có việc cần bạn xử lý, thông báo sẽ hiện ở đây."
           />
         );
     } else {
