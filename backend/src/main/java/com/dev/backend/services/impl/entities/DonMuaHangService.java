@@ -132,6 +132,8 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
     private ChiTietDonMuaHangService chiTietDonMuaHangService;
     @Autowired
     private BienTheSanPhamService bienTheSanPhamService;
+    @Autowired
+    private ThongBaoMuaHangService thongBaoMuaHangService;
 
     @Autowired
     private DonMuaHangMapper donMuaHangMapper;
@@ -663,12 +665,15 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         // Cột TIMESTAMP không giữ phần lẻ của giây (và làm tròn): cắt trước để giờ trong M3, trên màn hình, trong CSDL
         // là một, và phép so ngayBaoGiaDaXem khi xét báo giá khớp đúng.
         Instant ngayBaoGia = ngayBaoGiaMoi(now, don.getNgayBaoGia());
+        boolean guiLai = don.getNgayBaoGia() != null;
         don.setTongTien(tongTien.setScale(2, RoundingMode.HALF_UP));
         don.setGhiChuNhaCungCap(ghiChu);
         don.setNgayBaoGia(ngayBaoGia);
         donMuaHangRepository.save(don);
 
         emailNghiepVuService.guiDaNhanBaoGia(don);
+        // Báo người gửi yêu cầu báo giá + người lập yêu cầu có báo giá cần xét (M3 chỉ đi tới nhà cung cấp)
+        thongBaoMuaHangService.baoGiaMoi(don, yeuCau, ngayBaoGia, guiLai);
         // M3 đi tới email nhà cung cấp của đơn (đã khớp email của phiên ở trên)
         String emailXacNhan = don.getNhaCungCap() == null ? null : blankToNull(don.getNhaCungCap().getEmail());
 

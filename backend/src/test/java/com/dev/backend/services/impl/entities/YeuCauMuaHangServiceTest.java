@@ -47,6 +47,8 @@ class YeuCauMuaHangServiceTest {
     @Mock
     private YeuCauMuaHangRepository repository;
     @Mock
+    private ThongBaoMuaHangService thongBaoMuaHang;
+    @Mock
     private EntityManager entityManager;
     @Mock
     private NguoiDungService nguoiDungService;
@@ -81,6 +83,7 @@ class YeuCauMuaHangServiceTest {
         ReflectionTestUtils.setField(service, "lichSuThayDoiService", lichSuThayDoiService);
         ReflectionTestUtils.setField(service, "lichSuThayDoiRepository", lichSuThayDoiRepository);
         ReflectionTestUtils.setField(service, "yeuCauMuaHangMapper", yeuCauMuaHangMapper);
+        ReflectionTestUtils.setField(service, "thongBaoMuaHangService", thongBaoMuaHang);
     }
 
     @AfterEach
@@ -186,6 +189,8 @@ class YeuCauMuaHangServiceTest {
         assertNotNull(saved.getSoYeuCauMuaHang());
         assertTrue(saved.getSoYeuCauMuaHang().matches("PR\\d{8}0012"), saved.getSoYeuCauMuaHang());
         assertEquals(YeuCauMuaHangService.TRANG_THAI_CHO_DUYET, saved.getTrangThai());
+        // Báo quản lý kho nhập (1 mã hàng)
+        verify(thongBaoMuaHang).yeuCauChoDuyet(same(saved), argThat(n -> n.getId() == 3), eq(1));
     }
 
     @Test
@@ -321,6 +326,7 @@ class YeuCauMuaHangServiceTest {
         assertEquals("1", ls.getGiaTriCu());
         assertEquals("2", ls.getGiaTriMoi());
         assertNull(ls.getGhiChu());
+        verify(thongBaoMuaHang).yeuCauDaXet(yc, true, null, nguoiDuyet);
     }
 
     @Test
@@ -334,6 +340,7 @@ class YeuCauMuaHangServiceTest {
         assertEquals(YeuCauMuaHangService.TRANG_THAI_CHO_DUYET, yc.getTrangThai());
         verify(repository, never()).save(any());
         verifyNoInteractions(lichSuThayDoiService);
+        verifyNoInteractions(thongBaoMuaHang);
     }
 
     @Test
@@ -358,6 +365,7 @@ class YeuCauMuaHangServiceTest {
         assertEquals(IHanhDong.tu_choi_yeu_cau_mua_hang, ls.getHanhDong());
         assertEquals("Tồn kho còn đủ", ls.getGhiChu());
         assertEquals("4", ls.getGiaTriMoi());
+        verify(thongBaoMuaHang).yeuCauDaXet(yc, false, "Tồn kho còn đủ", nguoiDuyet);
     }
 
     @Test
