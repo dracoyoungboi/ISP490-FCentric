@@ -74,7 +74,7 @@ public class YeuCauMuaHangService extends BaseServiceImpl<YeuCauMuaHang, Integer
     private LichSuThayDoiService lichSuThayDoiService;
     @Autowired
     private LichSuThayDoiRepository lichSuThayDoiRepository;
-    @Autowired
+    @Autowired(required = false)
     private ThongBaoMuaHangService thongBaoMuaHangService;
 
     public YeuCauMuaHangService(YeuCauMuaHangRepository repository) {
@@ -164,7 +164,7 @@ public class YeuCauMuaHangService extends BaseServiceImpl<YeuCauMuaHang, Integer
         //lưu hàng loạt danh sách chi tiết xuống DB
         yeuCauMuaHang.setChiTietYeuCauMuaHangs(chiTietYeuCauMuaHangService.create(chiTietYeuCauMuaHangs));
         // Báo quản lý kho nhập có yêu cầu chờ duyệt (gửi sau commit)
-        thongBaoMuaHangService.yeuCauChoDuyet(yeuCauMuaHang, nguoiTao, chiTietYeuCauMuaHangs.size());
+        if (thongBaoMuaHangService != null) thongBaoMuaHangService.yeuCauChoDuyet(yeuCauMuaHang, nguoiTao, chiTietYeuCauMuaHangs.size());
         return ResponseEntity.ok(
                 ResponseData.<YeuCauMuaHangDto>builder()
                         .status(HttpStatus.OK.value())
@@ -329,7 +329,9 @@ public class YeuCauMuaHangService extends BaseServiceImpl<YeuCauMuaHang, Integer
                 .ghiChu(trangThaiMoi == TRANG_THAI_TU_CHOI ? lyDo : null)
                 .build());
         // Báo người lập yêu cầu kết quả duyệt (gửi sau commit)
-        thongBaoMuaHangService.yeuCauDaXet(yeuCauMuaHang, trangThaiMoi == TRANG_THAI_DA_DUYET, lyDo, nguoiDuyet);
+        if (thongBaoMuaHangService != null) {
+            thongBaoMuaHangService.yeuCauDaXet(yeuCauMuaHang, trangThaiMoi == TRANG_THAI_DA_DUYET, lyDo, nguoiDuyet);
+        }
     }
 
     /**

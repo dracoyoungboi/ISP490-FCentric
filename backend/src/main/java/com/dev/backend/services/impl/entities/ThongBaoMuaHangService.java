@@ -1,8 +1,10 @@
 package com.dev.backend.services.impl.entities;
 
 import com.dev.backend.constant.variables.IRoleType;
+import com.dev.backend.entities.BienBanTraHangNcc;
 import com.dev.backend.entities.DonMuaHang;
 import com.dev.backend.entities.NguoiDung;
+import com.dev.backend.entities.PhieuNhapKho;
 import com.dev.backend.entities.YeuCauMuaHang;
 import com.dev.backend.repository.KhoRepository;
 import com.dev.backend.repository.NguoiDungRepository;
@@ -17,6 +19,8 @@ import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -35,7 +39,13 @@ import java.util.function.Supplier;
  *   M3 Yêu cầu bị từ chối                 Người lập yêu cầu (kèm lý do)
  *   M4 Nhà cung cấp gửi / gửi lại báo giá  Người gửi yêu cầu báo giá + người lập yêu cầu (nếu vai trò xem được báo giá);
  *                                         không ai trong số đó chốt được báo giá thì thêm nhân viên mua hàng của kho
- *                                         nhập (không có thì quản trị viên)
+ *                                         nhập (không có thì quản trị viên). Xét xong báo giá → tự đánh dấu đã đọc
+ *   M5 Chấp nhận báo giá (đơn mua chờ giao) Nhân viên kho + quản lý kho của kho nhập; không có ai thì quản trị viên
+ *   M6 Biên bản trả hàng nhà cung cấp      Người lập đơn mua nếu chốt được với nhà cung cấp, không thì nhân viên mua hàng
+ *                                         kho nhập (không có thì quản trị viên). Một dòng tóm tắt mỗi biên bản: lập lại
+ *                                         chỉ báo lại khi phương án / số lỗi đổi; biên bản hủy → sửa chữ, đánh dấu đã đọc
+ *   M7 Đơn mua nhận đủ hàng               Người lập đơn mua + người lập yêu cầu (vai trò không xem được đơn mua thì nhận
+ *                                         đường dẫn tới yêu cầu nhập hàng)
  * </pre>
  * Người duyệt theo đúng luật YeuCauMuaHangService.coQuyenDuyetKho: quản lý kho có phân quyền hiệu lực ở kho nhập, hoặc
  * là quản lý ghi trên kho (kho.quanLy).
@@ -86,6 +96,12 @@ public class ThongBaoMuaHangService {
      * giá thì nhân viên mua hàng của kho nhập (không có thì quản trị viên) nhận câu nhắc gửi yêu cầu báo giá.
      */
     public void yeuCauDaXet(YeuCauMuaHang yc, boolean duyet, String lyDoTuChoi, NguoiDung nguoiXet) {
+        // Đã có người xét: "chờ duyệt" của mọi quản lý (kể cả người vừa xét) coi như xong
+        try {
+            thongBaoService.daXuLySauCommit("YCNH:" + yc.getId() + ":CHO_DUYET");
+        } catch (RuntimeException e) {
+            log.warn("[THONG-BAO] Không đánh dấu được yêu cầu đã xét: {}", e.getMessage());
+        }
         dangKy(duyet ? "đã duyệt" : "bị từ chối", () -> {
             Integer id = yc.getId();
             String so = so(yc);
@@ -128,6 +144,14 @@ public class ThongBaoMuaHangService {
      * mua) + người lập yêu cầu nhập hàng. Khóa sự kiện theo {@code ngayBaoGia}: mỗi lần gửi lại là một thông báo mới.
      */
     public void baoGiaMoi(DonMuaHang don, YeuCauMuaHang yc, Instant ngayBaoGia, boolean guiLai) {
+        // Gửi lại: thông báo lần trước coi như đã đọc (đăng ký trước nên chạy trước lần ghi thông báo mới)
+        if (guiLai) {
+            try {
+                thongBaoService.daXuLyTheoTienToSauCommit("DMH:" + don.getId() + ":BAO_GIA:");
+            } catch (RuntimeException e) {
+                log.warn("[THONG-BAO] Không đánh dấu được báo giá cũ: {}", e.getMessage());
+            }
+        }
         dangKy(guiLai ? "báo giá gửi lại" : "báo giá mới", () -> {
             Integer donId = don.getId();
             String tenNcc = don.getNhaCungCap() == null || don.getNhaCungCap().getTenNhaCungCap() == null
@@ -169,9 +193,203 @@ public class ThongBaoMuaHangService {
         });
     }
 
+    /** Đã gửi yêu cầu báo giá cho yêu cầu {@code ycId}: lời nhắc "Gửi yêu cầu báo giá" (M2) coi như xong. */
+    public void yeuCauDaGuiBaoGia(Integer ycId) {
+        if (ycId == null) return;
+        try {
+            thongBaoService.daXuLySauCommit("YCNH:" + ycId + ":DUYET");
+        } catch (RuntimeException e) {
+            log.warn("[THONG-BAO] Không đánh dấu được yêu cầu đã gửi báo giá: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Đã xét báo giá của {@code don} (chấp nhận hoặc không), kèm các đơn cùng yêu cầu tự chuyển "không chấp nhận" khi
+     * chấp nhận ({@code khac}): thông báo "đã gửi báo giá" của các đơn đó coi như đã xử lý. Chấp nhận → M5: báo kho nhập
+     * chuẩn bị nhận hàng.
+     */
+    public void daXetBaoGia(DonMuaHang don, List<DonMuaHang> khac, boolean chapNhan, NguoiDung nguoiChot) {
+        try {
+            thongBaoService.daXuLyTheoTienToSauCommit("DMH:" + don.getId() + ":BAO_GIA:");
+            if (khac != null) {
+                for (DonMuaHang d : khac) {
+                    if (d != null && d.getId() != null) thongBaoService.daXuLyTheoTienToSauCommit("DMH:" + d.getId() + ":BAO_GIA:");
+                }
+            }
+        } catch (RuntimeException e) {
+            log.warn("[THONG-BAO] Không đánh dấu được báo giá đã xét: {}", e.getMessage());
+        }
+        if (!chapNhan) return;
+        dangKy("chốt báo giá", () -> {
+            Integer donId = don.getId();
+            String soDon = soDon(don);
+            String tenNcc = tenNcc(don.getNhaCungCap() == null ? null : don.getNhaCungCap().getTenNhaCungCap());
+            Instant ngayGiao = don.getNgayGiaoDuKien();
+            Integer khoId = don.getKhoNhap() == null ? null : don.getKhoNhap().getId();
+            Integer nguoiChotId = nguoiChot == null ? null : nguoiChot.getId();
+            return new Lan("đơn mua " + soDon + " đã chốt", nguoiChotId, () -> {
+                List<Integer> nhan = new ArrayList<>(nguoiNhan.theoKho(khoId, IRoleType.nhan_vien_kho));
+                nhan.addAll(nguoiNhan.quanLyKho(khoId));
+                String moTa = (tenNcc.equals("nhà cung cấp") ? "Nhà cung cấp" : tenNcc)
+                        + (ngayGiao == null ? "" : ", giao dự kiến " + NGAY_VN.format(ngayGiao))
+                        + ". Tạo phiếu nhập khi hàng về.";
+                return List.of(new GuiDi(nguoiNhan.hoacQuanTri(nhan, "Đơn mua " + soDon + " đã chốt"), nguoiChotId,
+                        new NoiDung(ThongBaoService.LOAI_DON_MUA_HANG, ThongBaoService.TONE_INFO,
+                                "Đơn mua hàng " + soDon + " đã chốt, chờ nhận hàng", moTa,
+                                "/purchase-orders/" + donId, ThongBaoService.LOAI_DON_MUA_HANG, donId, khoId,
+                                "DMH:" + donId + ":CHAP_NHAN")));
+            });
+        });
+    }
+
+    /**
+     * M6: biên bản trả hàng nhà cung cấp vừa lập / lập lại ({@code coThayDoi}: lập mới, hoặc phương án / tổng số lỗi khác
+     * lần trước → báo lại chưa đọc; không thì chỉ sửa chữ). Phiếu nhập không thuộc đơn mua nào thì không báo.
+     */
+    public void bienBanTraHang(BienBanTraHangNcc bb, PhieuNhapKho phieu, boolean coThayDoi, Integer nguoiThaoTacId) {
+        tomTatBienBan(bb, phieu, false, coThayDoi, nguoiThaoTacId);
+    }
+
+    /**
+     * M6: biên bản trả hàng bị hủy ({@code doHuyPhieuNhap}: phiếu nhập bị hủy; không thì vì không còn hàng lỗi): sửa chữ
+     * "đã hủy", đánh dấu đã đọc.
+     */
+    public void bienBanDaHuy(BienBanTraHangNcc bb, PhieuNhapKho phieu, boolean doHuyPhieuNhap, Integer nguoiThaoTacId) {
+        tomTatBienBan(bb, phieu, true, doHuyPhieuNhap, nguoiThaoTacId);
+    }
+
+    /** {@code co}: lúc lập = có thay đổi (báo lại); lúc hủy = hủy do hủy phiếu nhập. */
+    private void tomTatBienBan(BienBanTraHangNcc bb, PhieuNhapKho phieu, boolean daHuy, boolean co,
+                               Integer nguoiThaoTacId) {
+        boolean coThayDoi = !daHuy && co;
+        boolean doHuyPhieuNhap = daHuy && co;
+        try {
+            DonMuaHang don = phieu == null ? null : phieu.getDonMuaHang();
+            if (bb == null || bb.getId() == null || don == null) return;
+            String khoa = "BBTH:" + bb.getId();
+            Integer donId = don.getId();
+            String soDon = soDon(don);
+            String maBb = bb.getMaBienBan() == null || bb.getMaBienBan().isBlank() ? "#" + bb.getId() : bb.getMaBienBan().trim();
+            String soPn = phieu.getSoPhieuNhap() == null ? "" : phieu.getSoPhieuNhap().trim();
+            Integer khoId = phieu.getKho() == null ? null : phieu.getKho().getId();
+            String tenNcc = tenNcc(phieu.getNhaCungCap() == null ? null : phieu.getNhaCungCap().getTenNhaCungCap());
+            String phuongAn = bb.getPhuongAnXuLy();
+            int soLoi = bb.getTongSoLuongLoi() == null ? 0 : bb.getTongSoLuongLoi();
+            Integer nguoiLapDonId = don.getNguoiTao() == null ? null : don.getNguoiTao().getId();
+            thongBaoService.capNhatTomTatSauCommit("Thông báo biên bản trả hàng " + maBb, () -> {
+                String tieuDe;
+                String moTa;
+                String tone;
+                if (daHuy) {
+                    tieuDe = "Biên bản trả hàng " + maBb + " đã hủy";
+                    moTa = doHuyPhieuNhap
+                            ? "Phiếu nhập " + soPn + " đã hủy, không cần trả hàng cho nhà cung cấp."
+                            : "Phiếu nhập " + soPn + " không còn hàng lỗi cần trả.";
+                    tone = ThongBaoService.TONE_INFO;
+                } else {
+                    tieuDe = "Hàng lỗi đơn mua " + soDon + ": " + tenPhuongAn(phuongAn);
+                    moTa = soLoi + " sản phẩm lỗi (phiếu nhập " + soPn + ", biên bản " + maBb + "). "
+                            + cauPhuongAn(phuongAn, tenNcc);
+                    tone = "TRA_TAI_XE".equals(phuongAn) ? ThongBaoService.TONE_INFO : ThongBaoService.TONE_WARNING;
+                }
+                List<Integer> nhan = new ArrayList<>();
+                if (!daHuy) {
+                    // Người lập đơn mua chốt được với nhà cung cấp (quản trị viên / nhân viên mua hàng) mới nhận; không thì
+                    // nhân viên mua hàng của kho nhập. Tính sau khi bỏ người vừa lập biên bản.
+                    if (nguoiLapDonId != null && !nguoiLapDonId.equals(nguoiThaoTacId)
+                            && coVaiTro(VAI_TRO_CHOT_BAO_GIA, vaiTro(nguoiLapDonId))) {
+                        nhan.add(nguoiLapDonId);
+                    }
+                    if (nhan.isEmpty()) {
+                        nguoiNhan.theoKho(khoId, IRoleType.nhan_vien_mua_hang).stream()
+                                .filter(id -> id != null && !id.equals(nguoiThaoTacId)).forEach(nhan::add);
+                    }
+                    if (nhan.isEmpty()) {
+                        nguoiNhan.hoacQuanTri(List.of(), "Biên bản trả hàng " + maBb).stream()
+                                .filter(id -> id != null && !id.equals(nguoiThaoTacId)).forEach(nhan::add);
+                    }
+                }
+                return new ThongBaoService.TomTat(khoa, nhan, nguoiThaoTacId,
+                        new NoiDung(ThongBaoService.LOAI_DON_MUA_HANG, tone, tieuDe, moTa, "/purchase-orders/" + donId,
+                                ThongBaoService.LOAI_DON_MUA_HANG, donId, khoId, khoa),
+                        coThayDoi);
+            });
+            if (daHuy) thongBaoService.daXuLySauCommit(khoa);
+        } catch (RuntimeException e) {
+            log.warn("[THONG-BAO] Không chuẩn bị được thông báo biên bản trả hàng: {}", e.getMessage());
+        }
+    }
+
+    /** M7: đơn mua vừa nhận đủ hàng (phiếu {@code phieu} chốt trạng thái 5). Thông báo "đã chốt, chờ nhận hàng" coi như xong. */
+    public void donMuaDaNhanDu(DonMuaHang don, PhieuNhapKho phieu, NguoiDung nguoiNhap) {
+        try {
+            thongBaoService.daXuLySauCommit("DMH:" + don.getId() + ":CHAP_NHAN");
+        } catch (RuntimeException e) {
+            log.warn("[THONG-BAO] Không đánh dấu được đơn mua đã chốt: {}", e.getMessage());
+        }
+        dangKy("đơn mua nhận đủ", () -> {
+            Integer donId = don.getId();
+            String soDon = soDon(don);
+            Integer khoId = don.getKhoNhap() == null ? null : don.getKhoNhap().getId();
+            Integer nguoiLapDonId = don.getNguoiTao() == null ? null : don.getNguoiTao().getId();
+            YeuCauMuaHang yc = don.getYeuCauMuaHang();
+            Integer ycId = yc == null ? null : yc.getId();
+            Integer nguoiLapYcId = yc == null || yc.getNguoiTao() == null ? null : yc.getNguoiTao().getId();
+            String soPn = phieu == null || phieu.getSoPhieuNhap() == null ? null : phieu.getSoPhieuNhap().trim();
+            Integer nguoiNhapId = nguoiNhap == null ? null : nguoiNhap.getId();
+            return new Lan("đơn mua " + soDon + " nhận đủ", nguoiNhapId, () -> {
+                String tenKho = tenKho(khoId);
+                String moTa = (soPn == null ? "Nhập" : "Phiếu nhập " + soPn) + " tại " + tenKho + ".";
+                String tieuDe = "Đơn mua hàng " + soDon + " đã nhận đủ";
+                String khoa = "DMH:" + donId + ":DA_NHAN_DU";
+                List<Integer> xemDonMua = new ArrayList<>();
+                List<Integer> xemYeuCau = new ArrayList<>();
+                for (Integer id : new Integer[]{nguoiLapDonId, nguoiLapYcId}) {
+                    if (id == null) continue;
+                    if (coVaiTro(VAI_TRO_XEM_BAO_GIA, vaiTro(id))) xemDonMua.add(id);
+                    else if (ycId != null) xemYeuCau.add(id);
+                }
+                List<GuiDi> gui = new ArrayList<>();
+                gui.add(new GuiDi(xemDonMua, nguoiNhapId, new NoiDung(ThongBaoService.LOAI_DON_MUA_HANG,
+                        ThongBaoService.TONE_SUCCESS, tieuDe, moTa, "/purchase-orders/" + donId,
+                        ThongBaoService.LOAI_DON_MUA_HANG, donId, khoId, khoa)));
+                if (!xemYeuCau.isEmpty()) {
+                    gui.add(new GuiDi(xemYeuCau, nguoiNhapId, new NoiDung(ThongBaoService.LOAI_YEU_CAU_NHAP_HANG,
+                            ThongBaoService.TONE_SUCCESS, tieuDe, moTa, "/purchase-requests/" + ycId,
+                            ThongBaoService.LOAI_YEU_CAU_NHAP_HANG, ycId, khoId, khoa)));
+                }
+                return gui;
+            });
+        });
+    }
+
     // ─────────────────────────────────────────────────────────────
     // TIỆN ÍCH
     // ─────────────────────────────────────────────────────────────
+
+    private static final DateTimeFormatter NGAY_VN = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+            .withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
+
+    /** Tên phương án trả hàng, khớp PHUONG_AN_TRA_HANG ở frontend/src/constants/nhapKho.js. */
+    static String tenPhuongAn(String ma) {
+        if ("TRU_CONG_NO".equals(ma)) return "Trừ công nợ";
+        if ("TRA_TAI_XE".equals(ma)) return "Trả cho tài xế";
+        return "Đổi hàng mới";
+    }
+
+    private static String cauPhuongAn(String ma, String tenNcc) {
+        if ("TRU_CONG_NO".equals(ma)) return "Trừ vào công nợ " + tenNcc + " theo giá nhập.";
+        if ("TRA_TAI_XE".equals(ma)) return "Hàng lỗi đã giao lại cho tài xế của " + tenNcc + ".";
+        return "Báo " + tenNcc + " giao bù hàng đạt ở đợt sau.";
+    }
+
+    private static String soDon(DonMuaHang don) {
+        return don.getSoDonMua() != null && !don.getSoDonMua().isBlank() ? don.getSoDonMua().trim() : "#" + don.getId();
+    }
+
+    private static String tenNcc(String ten) {
+        return ten == null || ten.isBlank() ? "nhà cung cấp" : ten.trim();
+    }
 
     /** Một lần gửi: mô tả cho log, người thao tác (chỉ để log) và phần soạn chạy sau commit. */
     private record Lan(String moTa, Integer nguoiThaoTac, Supplier<List<GuiDi>> lap) {}

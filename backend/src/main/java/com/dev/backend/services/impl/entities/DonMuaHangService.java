@@ -132,7 +132,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
     private ChiTietDonMuaHangService chiTietDonMuaHangService;
     @Autowired
     private BienTheSanPhamService bienTheSanPhamService;
-    @Autowired
+    @Autowired(required = false)
     private ThongBaoMuaHangService thongBaoMuaHangService;
 
     @Autowired
@@ -673,7 +673,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
 
         emailNghiepVuService.guiDaNhanBaoGia(don);
         // Báo người gửi yêu cầu báo giá + người lập yêu cầu có báo giá cần xét (M3 chỉ đi tới nhà cung cấp)
-        thongBaoMuaHangService.baoGiaMoi(don, yeuCau, ngayBaoGia, guiLai);
+        if (thongBaoMuaHangService != null) thongBaoMuaHangService.baoGiaMoi(don, yeuCau, ngayBaoGia, guiLai);
         // M3 đi tới email nhà cung cấp của đơn (đã khớp email của phiên ở trên)
         String emailXacNhan = don.getNhaCungCap() == null ? null : blankToNull(don.getNhaCungCap().getEmail());
 
@@ -852,12 +852,15 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
             for (DonMuaHang khac : conLai) {
                 emailNghiepVuService.guiKetQuaBaoGia(khac);
             }
+            // Báo kho nhập chuẩn bị nhận hàng; thông báo "đã gửi báo giá" của các đơn cùng yêu cầu coi như xong
+            if (thongBaoMuaHangService != null) thongBaoMuaHangService.daXetBaoGia(don, conLai, true, nguoiChot);
         } else {
             don.setTrangThai(TRANG_THAI_KHONG_CHAP_NHAN);
             don.setLyDoTuChoi(lyDoChuan);
             don.setNguoiDuyet(nguoiChot);
             donMuaHangRepository.save(don);
             emailNghiepVuService.guiKetQuaBaoGia(don);
+            if (thongBaoMuaHangService != null) thongBaoMuaHangService.daXetBaoGia(don, List.of(), false, nguoiChot);
         }
     }
 
@@ -965,6 +968,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         //trạng thái đã gửi báo giá
         yeuCauMuaHang.setTrangThai(YeuCauMuaHangService.TRANG_THAI_DA_GUI_BAO_GIA);
         yeuCauMuaHangService.update(yeuCauMuaHang.getId(), yeuCauMuaHang);
+        if (thongBaoMuaHangService != null) thongBaoMuaHangService.yeuCauDaGuiBaoGia(yeuCauMuaHang.getId());
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())

@@ -11,6 +11,8 @@ import com.dev.backend.utils.KhoDangChon;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.experimental.NonFinal;
+import org.springframework.beans.factory.annotation.Autowired;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -34,6 +36,10 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
     NguoiDungRepository nguoiDungRepository;
     ChiTietPhieuNhapKhoRepository chiTietPhieuNhapKhoRepository;
     ChiTietLoiLoHangRepository chiTietLoiLoHangRepository;
+    /** Thông báo M6 cho người chốt với nhà cung cấp (test dựng tay không có thì bỏ qua). */
+    @NonFinal
+    @Autowired(required = false)
+    ThongBaoMuaHangService thongBaoMuaHangService;
 
     /** Phương án xử lý hàng lỗi (khớp PHUONG_AN_TRA_HANG ở frontend). */
     static final Set<String> PHUONG_AN_HOP_LE = Set.of("DOI_HANG", "TRU_CONG_NO", "TRA_TAI_XE");
@@ -98,9 +104,14 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
             bienBan.setTrangThai(BienBanTraHangNcc.DA_HUY);
             bienBanTraHangNccRepository.save(bienBan);
             log.info("[RTV-HUY] Hủy biên bản `{}` của phiếu nhập `{}` vì không còn hàng lỗi", bienBan.getMaBienBan(), phieu.getSoPhieuNhap());
+            if (thongBaoMuaHangService != null) thongBaoMuaHangService.bienBanDaHuy(bienBan, phieu, false, nguoiTaoId);
             return null;
         }
 
+        // Lập lại mà phương án và tổng số lỗi y như lần trước thì thông báo chỉ sửa chữ, không báo lại
+        boolean coThayDoi = bienBan == null || !bienBan.dangHieuLuc()
+                || !Objects.equals("DOI_HANG_MOI".equals(bienBan.getPhuongAnXuLy()) ? "DOI_HANG" : bienBan.getPhuongAnXuLy(), phuongAn)
+                || !Objects.equals(bienBan.getTongSoLuongLoi(), dongMoi.stream().mapToInt(ChiTietTraHangNcc::getSoLuongLoi).sum());
         if (bienBan == null) {
             NguoiDung nguoiTao = nguoiDungRepository.findById(nguoiTaoId)
                     .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, "Không tìm thấy người tạo ID: " + nguoiTaoId));
@@ -134,6 +145,7 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
 
         log.info("[RTV-ISSUED] Đã phát hành biên bản trả hàng NCC `{}` cho phiếu nhập `{}` với {} sản phẩm lỗi",
                 savedHeader.getMaBienBan(), phieu.getSoPhieuNhap(), savedHeader.getTongSoLuongLoi());
+        if (thongBaoMuaHangService != null) thongBaoMuaHangService.bienBanTraHang(savedHeader, phieu, coThayDoi, nguoiTaoId);
 
         return toDto(savedHeader);
     }
