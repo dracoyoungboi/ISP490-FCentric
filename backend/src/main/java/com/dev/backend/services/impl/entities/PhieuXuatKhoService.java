@@ -62,6 +62,10 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
     @Autowired
     private LichSuThayDoiService lichSuThayDoiService;
 
+    /** Thông báo cần sửa lô / đã xuất kho (test dựng tay không có thì bỏ qua). */
+    @Autowired(required = false)
+    private ThongBaoXuatKhoService thongBaoXuatKhoService;
+
     @Autowired
     private ApplicationEventPublisher applicationEventPublisher;
 
@@ -250,6 +254,10 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                         .ngayThucHien(Instant.now())
                         .ghiChu(ghiChuNhatKy)
                         .build()));
+
+        if (!canSuaLo.isEmpty() && thongBaoXuatKhoService != null) {
+            thongBaoXuatKhoService.phieuXuatCanSuaLo(phieuId, soPhieu, don, kho == null ? null : kho.getId(), canSuaLo, nguoiId);
+        }
 
         return TaoLaiPhieuXuatDto.builder()
                 .phieuXuatKhoId(phieuId)
@@ -559,6 +567,13 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
             updateTrangThaiDonBanHang(don.getId());
             trangThaiDonHang = don.getTrangThai();
 
+            // Báo người lập đơn xác nhận đã giao; thông báo "cần sửa lô" của phiếu (nếu có) coi như xong
+            if (thongBaoXuatKhoService != null) {
+                thongBaoXuatKhoService.daXuatKho(phieu.getId(), phieu.getSoPhieuXuat(), don, trangThaiDonHang,
+                        request == null ? null : request.getMaVanDon(), nguoiXuat.getId());
+                thongBaoXuatKhoService.phieuXuatDaXong(phieu.getId());
+            }
+
             // Hạn lưu bằng chứng đóng gói tính từ ngày xuất kho (khiếu nại tính từ lúc khách nhận hàng)
             bangChungDongGoiService.giaHanLuuTu(don.getId(), phieu.getNgayXuat());
 
@@ -676,6 +691,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
 
         phieu.setTrangThai(4); // Đã hủy
         repository.save(phieu);
+        if (thongBaoXuatKhoService != null) thongBaoXuatKhoService.phieuXuatDaXong(phieu.getId());
 
         // Hủy tay phiếu bán hàng đang chờ đóng gói / chờ xuất: đơn không còn phiếu mở thì quay về chờ kho xử lý
         // (tạo phiếu xuất mới từ màn đơn). Đơn đã hủy (gọi từ luồng hủy đơn) giữ nguyên.

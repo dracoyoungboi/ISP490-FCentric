@@ -49,6 +49,9 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
     @Autowired(required = false)
     private ThongBaoMuaHangService thongBaoMuaHangService;
 
+    @Autowired(required = false)
+    private ThongBaoXuatKhoService thongBaoXuatKhoService;
+
     @Autowired
     private ChiTietPhieuNhapKhoRepository chiTietPhieuNhapKhoRepository;
 
@@ -1340,7 +1343,10 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         }
 
         pn.setTongTien(tongTienNhap);
-        return repository.save(pn);
+        PhieuNhapKho daLuuPn = repository.save(pn);
+        // Kho đã lập phiếu nhập hoàn trả: thông báo "lập phiếu nhập hoàn trả" của đơn coi như xong
+        if (thongBaoXuatKhoService != null) thongBaoXuatKhoService.daLapPhieuNhapHoanTra(donBanHang.getId());
+        return daLuuPn;
     }
 
     // ==================== In tem theo phiếu nhập ====================

@@ -98,7 +98,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     @Autowired
     private PhieuXuatKhoRepository phieuXuatKhoRepository;
 
-    @Autowired
+    @Autowired(required = false)
     private ThongBaoXuatKhoService thongBaoXuatKhoService;
 
     @Autowired
@@ -599,6 +599,11 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         } catch (Exception e) {
             log.warn("Không thể ghi log thay đổi khi gửi đơn sang kho: {}", e.getMessage());
         }
+        // Báo kho xuất có đơn chờ nhặt (dòng tóm tắt "N đơn chờ xuất"); đơn sàn thì số đơn chờ gửi sang kho giảm theo
+        if (thongBaoXuatKhoService != null) {
+            NguoiDungAuthInfo nguoiGui = SecurityContextHolder.getUser();
+            thongBaoXuatKhoService.donGuiSangKho(don, nguoiGui == null ? null : nguoiGui.getId());
+        }
     }
 
     /**
@@ -816,6 +821,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
 
         // Giải phóng Outgoing, hồi phục Free to Use và kích hoạt đẩy tồn (listener chạy sau commit)
         phatSuKienHoanTon(don);
+        lamMoiThongBaoDonCho(don);
 
         // Đơn từ sàn (Shopify): gọi Shopify Order Cancel API SAU KHI commit — giao dịch rollback thì không hủy trên sàn
         if (don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()) {
@@ -848,7 +854,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                     don.getSoDonHang(), trangThai);
             ghiNhatKyDon(don, "huy_don_tu_san", "Sàn báo hủy nhưng đơn đã xuất kho — giữ nguyên trạng thái, cần xử lý hoàn trả. " + lyDo);
             // Báo quản trị viên + quản lý kho xuất (đồng bộ chạy lại nhiều lần vẫn chỉ một thông báo)
-            thongBaoXuatKhoService.sanHuyDonDaXuat(don, lyDo);
+            if (thongBaoXuatKhoService != null) thongBaoXuatKhoService.sanHuyDonDaXuat(don, lyDo);
             return false;
         }
 
@@ -867,7 +873,16 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             phatSuKienHoanTon(don); // đơn trong phiếu nhặt: xuLyDonBiHuyTrongPickList đã phát
         }
         ghiNhatKyDon(don, "huy_don_tu_san", lyDo);
+        lamMoiThongBaoDonCho(don);
         return true;
+    }
+
+    /** Đơn vừa hủy: số "đơn chờ xuất" của kho và "đơn sàn chờ gửi sang kho" có thể giảm, sửa lại thông báo tóm tắt. */
+    private void lamMoiThongBaoDonCho(DonBanHang don) {
+        if (thongBaoXuatKhoService == null) return;
+        thongBaoXuatKhoService.donDaHuy(don.getId());
+        if (don.getKhoXuat() != null) thongBaoXuatKhoService.lamMoiDonChoXuat(don.getKhoXuat().getId());
+        if (don.getKenhBanHang() != null) thongBaoXuatKhoService.lamMoiDonSanCho(don.getKenhBanHang());
     }
 
     /** Phát InventoryRestockedEvent cho từng dòng đơn (listener đẩy tồn chạy sau commit). */
@@ -1197,6 +1212,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         // Khiếu nại số lượng / chất lượng tính từ ngày giao (Luật Thương mại Điều 318): giữ bằng chứng đóng gói tới
         // ngày giao + hạn lưu (ngày xuất kho + hạn lưu có thể sớm hơn nếu giao chậm)
         bangChungDongGoiService.giaHanLuuTu(don.getId(), don.getNgayGiaoHang());
+        if (thongBaoXuatKhoService != null) thongBaoXuatKhoService.donDaGiao(don.getId());
     }
     @Transactional
     public void returnOrder(Integer id) {
@@ -1222,6 +1238,11 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         thanhToanDonBanService.tinhLaiSauDoiDon(don);
         // Đơn bị hoàn trả là lúc cần đối chứng: giữ bằng chứng đóng gói thêm một hạn lưu tính từ hôm nay
         bangChungDongGoiService.giaHanLuuTu(don.getId(), Instant.now());
+        // Báo kho xuất lập phiếu nhập hoàn trả khi hàng về
+        if (thongBaoXuatKhoService != null) {
+            NguoiDungAuthInfo nguoiGhi = SecurityContextHolder.getUser();
+            thongBaoXuatKhoService.donHoanTra(don, nguoiGhi == null ? null : nguoiGhi.getId());
+        }
     }
 
     @Transactional(readOnly = true)

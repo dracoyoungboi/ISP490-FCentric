@@ -112,6 +112,22 @@ public interface DonBanHangRepository
     List<DonBanHang> findByKhachHangIdOrderByNgayDatHangDesc(Integer khachHangId);
     List<DonBanHang> findByDanhSachNhatHang_Id(Integer danhSachNhatHangId);
 
+    /**
+     * Số đơn tạo được phiếu nhặt ở kho (thông báo "N đơn chờ xuất"): điều kiện màn Đơn chờ xuất
+     * (NhatHangServiceImpl.getDonChoXuat), bỏ đơn khách đã yêu cầu hủy trên sàn (tạo phiếu nhặt bị từ chối; quản lý kho đã
+     * được báo riêng), để số không kẹt mãi ở đơn không nhặt được.
+     */
+    @Query("""
+            SELECT COUNT(d) FROM DonBanHang d
+            WHERE d.loaiChungTu = 'don_ban_hang' AND d.trangThai IN (1, 2) AND d.danhSachNhatHang IS NULL
+              AND d.khoXuat.id = :khoId AND (d.ghiChu IS NULL OR d.ghiChu NOT LIKE '%[KHÁCH YÊU CẦU HỦY]%')
+            """)
+    long demDonChoXuat(@Param("khoId") Integer khoId);
+
+    /** Số đơn của một kênh bán còn ở Nháp, chờ gửi sang kho (thông báo "N đơn Shopify chờ gửi sang kho"). */
+    @Query("SELECT COUNT(d) FROM DonBanHang d WHERE d.loaiChungTu = 'don_ban_hang' AND d.trangThai = 0 AND d.kenhBanHang.id = :kenhId")
+    long demDonSanChoGuiKho(@Param("kenhId") Integer kenhId);
+
     @Query("""
         SELECT COUNT(d)
         FROM DonBanHang d
