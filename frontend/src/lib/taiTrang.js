@@ -1,10 +1,10 @@
-import { lazy, useSyncExternalStore } from "react";
+import { lazy, useEffect, useSyncExternalStore } from "react";
 import { matchRoutes } from "react-router-dom";
 
 /**
  * Tải trang theo nhu cầu: mỗi trang thành một tệp mã riêng, chỉ tải khi mở tới (App.jsx).
  * Kèm bộ đếm "đang tải tệp trang" cho thanh tiến độ mảnh trên đầu (ThanhTaiTrang), và tải trước theo đường dẫn
- * (lúc mở app, ở màn đăng nhập) để vào tới là trang đã sẵn.
+ * (rê chuột vào menu, lúc mở app, lúc rảnh) để bấm tới là trang đã sẵn.
  */
 
 const KHOA_TAI_LAI = "fcentric:tai-lai-vi-loi-tep";
@@ -124,6 +124,8 @@ export function taiTruocDuongDan(duongDan) {
   return Promise.all(khop.map(({ route }) => route.element?.type?.taiTruoc?.()));
 }
 
+const cho = (ms) => new Promise((xong) => setTimeout(xong, ms));
+
 /** Chờ trình duyệt rảnh (không đang dựng trang, không đang xử lý thao tác); trình duyệt không hỗ trợ thì chờ ngắn. */
 const choRanh = () =>
   new Promise((xong) =>
@@ -131,6 +133,24 @@ const choRanh = () =>
       ? window.requestIdleCallback(() => xong(), { timeout: 3_000 })
       : setTimeout(xong, 300),
   );
+
+const choTabHien = () =>
+  document.visibilityState === "visible"
+    ? Promise.resolve()
+    : new Promise((xong) => {
+        const nghe = () => {
+          if (document.visibilityState !== "visible") return;
+          document.removeEventListener("visibilitychange", nghe);
+          xong();
+        };
+        document.addEventListener("visibilitychange", nghe);
+      });
+
+/** Người dùng bật tiết kiệm dữ liệu hoặc đang ở mạng 2G: không tải những trang chưa chắc sẽ mở. */
+function nenTietKiem() {
+  const ketNoi = navigator.connection;
+  return Boolean(ketNoi?.saveData) || /(^|-)2g$/.test(ketNoi?.effectiveType ?? "");
+}
 
 /** Lúc trình duyệt rảnh thì tải trước trang của một đường dẫn (vd. trang đích ở màn đăng nhập). Trả hàm hủy. */
 export function taiTruocLucRanh(duongDan) {
@@ -141,6 +161,69 @@ export function taiTruocLucRanh(duongDan) {
   return () => {
     huy = true;
   };
+}
+
+/**
+ * Tải dần các trang (theo thứ tự danh sách) sau `treMs` rảnh: mỗi lần một tệp, chờ trình duyệt rảnh, tạm dừng khi
+ * tab bị ẩn, không chạy khi tiết kiệm dữ liệu / 2G. Tải một lần mỗi bản triển khai (tệp có mã băm, trình duyệt giữ
+ * 1 năm theo public/serve.json). Một tệp tải hỏng (mất mạng) thì dừng hẳn. Chế độ dev không chạy: Vite phải dịch
+ * cả trăm tệp, làm chậm máy lúc đang code. Trả hàm hủy.
+ */
+export function taiDanLucRanh(dsDuongDan, { treMs = 5_000 } = {}) {
+  if (import.meta.env.DEV || nenTietKiem()) return () => {};
+  let huy = false;
+  (async () => {
+    await cho(treMs);
+    for (const duongDan of dsDuongDan) {
+      await choTabHien();
+      await choRanh();
+      if (huy || nenTietKiem()) return;
+      const ketQua = await taiTruocDuongDan(duongDan);
+      if (ketQua.includes(false)) return;
+    }
+  })();
+  return () => {
+    huy = true;
+  };
+}
+
+/** Chuột dừng trên link lâu chừng này mới tải trước: lướt ngang qua menu thì không tải. */
+const TRE_RE_CHUOT_MS = 80;
+
+/**
+ * Tải trước trang khi rê chuột (dừng 80ms), chạm xuống hoặc Tab tới một link khớp `boChon` (CSS). Nghe ở document để
+ * bắt cả link trong portal (menu bay ra khi thu gọn) mà không phải gắn vào từng link.
+ */
+export function useTaiTruocLienKet(boChon) {
+  useEffect(() => {
+    let henGio = null;
+    let dangRe = null;
+    const lienKet = (suKien) => (suKien.target instanceof Element ? suKien.target.closest(boChon) : null);
+    const tai = (a) => {
+      const href = a.getAttribute("href");
+      if (href?.startsWith("/")) taiTruocDuongDan(href);
+    };
+    const khiRe = (suKien) => {
+      const a = lienKet(suKien);
+      if (a === dangRe) return;
+      clearTimeout(henGio);
+      dangRe = a;
+      if (a) henGio = setTimeout(() => tai(a), TRE_RE_CHUOT_MS);
+    };
+    const khiChamHoacTab = (suKien) => {
+      const a = lienKet(suKien);
+      if (a) tai(a);
+    };
+    document.addEventListener("pointerover", khiRe);
+    document.addEventListener("pointerdown", khiChamHoacTab);
+    document.addEventListener("focusin", khiChamHoacTab);
+    return () => {
+      clearTimeout(henGio);
+      document.removeEventListener("pointerover", khiRe);
+      document.removeEventListener("pointerdown", khiChamHoacTab);
+      document.removeEventListener("focusin", khiChamHoacTab);
+    };
+  }, [boChon]);
 }
 
 /** Phần chờ của Suspense đang hiện (vào thẳng đường dẫn / F5): đã có vòng chờ ở vùng nội dung, thanh trên đầu không cần hiện. */

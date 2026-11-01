@@ -344,3 +344,16 @@ export const SIDEBAR_MENU = [
     children: SETTINGS_PAGES.map(({ label, to, roles }) => ({ label, to, roles })),
   },
 ];
+
+/**
+ * Đường dẫn các mục menu mà vai trò `role` thấy, theo thứ tự từ trên xuống: BackofficeLayout tải trước các trang này lúc
+ * rảnh. Bỏ mục của từng sàn (chỉ hiện khi gian hàng đã kết nối).
+ */
+export function duongDanMenuCuaVaiTro(role) {
+  const thay = (muc) => !muc.roles || muc.roles.includes(role);
+  const dsDuongDan = SIDEBAR_MENU.filter((muc) => thay(muc) && !muc.maKenh).flatMap((muc) => [
+    muc.to,
+    ...(muc.children ?? []).filter(thay).map((con) => con.to),
+  ]);
+  return [...new Set(dsDuongDan.filter(Boolean))];
+}
