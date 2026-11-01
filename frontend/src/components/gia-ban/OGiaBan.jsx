@@ -49,7 +49,7 @@ export default function OGiaBan({ dsDong, hienThi, tieuDe, phu, ariaLabel, open,
           className={cn(
             "group/gia -mr-2 inline-flex h-[30px] items-center gap-1.5 rounded-md border border-transparent px-2 text-sm font-medium",
             "hover:border-bo-border hover:bg-bo-surface focus-visible:border-bo-border focus-visible:bg-bo-surface focus-visible:outline-none",
-            open && "border-bo-primary bg-bo-surface shadow-[0_0_0_3px_rgba(22,119,255,0.15)] hover:border-bo-primary",
+            open && "border-bo-primary bg-bo-surface shadow-[0_0_0_3px_rgba(13,97,228,0.15)] hover:border-bo-primary",
           )}
         >
           <Pencil

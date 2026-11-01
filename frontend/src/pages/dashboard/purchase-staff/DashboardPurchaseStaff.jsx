@@ -150,7 +150,7 @@ function LichHangVe({ ngay, className, loading, error, onRetry }) {
               className={cn(
                 FOCUS,
                 "flex min-w-0 cursor-pointer flex-col items-center gap-1 rounded-lg border py-2 transition-[border-color,background-color,box-shadow]",
-                on ? "border-bo-primary shadow-[0_0_0_1px_#1677ff]" : "border-[#e4e8ee] bg-bo-surface hover:border-[#c9d3e0]",
+                on ? "border-bo-primary shadow-[0_0_0_1px_var(--color-bo-primary)]" : "border-[#e4e8ee] bg-bo-surface hover:border-[#c9d3e0]",
               )}
             >
               <span className={cn("text-[11px] leading-4", n.tre && n.so ? cn("font-medium", DO) : n.homNay ? "font-semibold text-bo-primary" : "text-bo-muted")}>
